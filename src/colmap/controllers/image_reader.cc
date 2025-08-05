@@ -93,10 +93,11 @@ ImageReader::Status ImageReader::Next(Rig* rig,
                                       Camera* camera,
                                       Image* image,
                                       PosePrior* pose_prior,
-                                      Bitmap* bitmap,
-                                      Bitmap* mask) {
+                                      Bitmap* bitmap) {
+  THROW_CHECK_NOTNULL(rig);
   THROW_CHECK_NOTNULL(camera);
   THROW_CHECK_NOTNULL(image);
+  THROW_CHECK_NOTNULL(pose_prior);
   THROW_CHECK_NOTNULL(bitmap);
 
   image_index_ += 1;
@@ -122,13 +123,6 @@ ImageReader::Status ImageReader::Next(Rig* rig,
 
   if (exists_image) {
     *image = database_->ReadImageWithName(image->Name()).value();
-    const bool exists_keypoints = database_->ExistsKeypoints(image->ImageId());
-    const bool exists_descriptors =
-        database_->ExistsDescriptors(image->ImageId());
-
-    if (exists_keypoints && exists_descriptors) {
-      return Status::IMAGE_EXISTS;
-    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -137,34 +131,6 @@ ImageReader::Status ImageReader::Next(Rig* rig,
 
   if (!bitmap->Read(image_path, false)) {
     return Status::BITMAP_ERROR;
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-  // Read mask.
-  //////////////////////////////////////////////////////////////////////////////
-
-  if (mask && !options_.mask_path.empty()) {
-    std::string mask_path =
-        JoinPaths(options_.mask_path, image->Name() + ".png");
-    if (!ExistsFile(mask_path)) {
-      bool exists_mask = false;
-      if (HasFileExtension(image->Name(), ".png")) {
-        std::string alt_mask_path =
-            JoinPaths(options_.mask_path, image->Name());
-        if (ExistsFile(alt_mask_path)) {
-          mask_path = std::move(alt_mask_path);
-          exists_mask = true;
-        }
-      }
-      if (!exists_mask) {
-        LOG(ERROR) << "Mask at " << mask_path << " does not exist.";
-        return Status::MASK_ERROR;
-      }
-    }
-    if (!mask->Read(mask_path, false)) {
-      LOG(ERROR) << "Failed to read invalid mask file at: " << mask_path;
-      return Status::MASK_ERROR;
-    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -323,14 +289,8 @@ std::string ImageReader::StatusToString(const ImageReader::Status status) {
   switch (status) {
     case ImageReader::Status::SUCCESS:
       return "SUCCESS";
-    case ImageReader::Status::FAILURE:
-      return "FAILURE: Failed to process the image.";
-    case ImageReader::Status::IMAGE_EXISTS:
-      return "IMAGE_EXISTS: Features for image were already extracted.";
     case ImageReader::Status::BITMAP_ERROR:
       return "BITMAP_ERROR: Failed to read the image file format.";
-    case ImageReader::Status::MASK_ERROR:
-      return "MASK_ERROR: Failed to read the mask file.";
     case ImageReader::Status::CAMERA_SINGLE_DIM_ERROR:
       return "CAMERA_SINGLE_DIM_ERROR: Single camera specified, but images "
              "have different dimensions.";

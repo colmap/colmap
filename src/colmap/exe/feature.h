@@ -76,6 +76,7 @@ bool VerifySiftGPUParams(bool use_gpu);
 bool VerifyCameraParams(const std::string& camera_model,
                         const std::string& params);
 
+int RunImageImporter(int argc, char** argv);
 int RunFeatureExtractor(int argc, char** argv);
 int RunFeatureImporter(int argc, char** argv);
 int RunExhaustiveMatcher(int argc, char** argv);

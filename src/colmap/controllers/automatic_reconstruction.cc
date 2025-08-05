@@ -31,6 +31,7 @@
 
 #include "colmap/controllers/feature_extraction.h"
 #include "colmap/controllers/feature_matching.h"
+#include "colmap/controllers/image_importer.h"
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/image/undistortion.h"
@@ -90,13 +91,17 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.mapper->num_threads = options_.num_threads;
   option_manager_.poisson_meshing->num_threads = options_.num_threads;
 
-  ImageReaderOptions& reader_options = *option_manager_.image_reader;
-  reader_options.image_path = *option_manager_.image_path;
   if (!options_.mask_path.empty()) {
-    reader_options.mask_path = options_.mask_path;
-    option_manager_.image_reader->mask_path = options_.mask_path;
+    option_manager_.feature_extraction->mask_path = options_.mask_path;
     option_manager_.stereo_fusion->mask_path = options_.mask_path;
   }
+  if (!options_.camera_mask_path.empty()) {
+    option_manager_.feature_extraction->camera_mask_path =
+        options_.camera_mask_path;
+  }
+
+  ImageReaderOptions& reader_options = *option_manager_.image_reader;
+  reader_options.image_path = *option_manager_.image_path;
   reader_options.single_camera = options_.single_camera;
   reader_options.single_camera_per_folder = options_.single_camera_per_folder;
   reader_options.camera_model = options_.camera_model;
@@ -114,9 +119,11 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.bundle_adjustment->gpu_index = options_.gpu_index;
 
   if (options_.extraction) {
+    image_importer_ = CreateImageImporterController(
+        *option_manager_.database_path, reader_options);
     feature_extractor_ =
         CreateFeatureExtractorController(*option_manager_.database_path,
-                                         reader_options,
+                                         *option_manager_.image_path,
                                          *option_manager_.feature_extraction);
   }
 
@@ -193,7 +200,12 @@ void AutomaticReconstructionController::Run() {
 }
 
 void AutomaticReconstructionController::RunFeatureExtraction() {
+  THROW_CHECK_NOTNULL(image_importer_);
   THROW_CHECK_NOTNULL(feature_extractor_);
+  active_thread_ = image_importer_.get();
+  image_importer_->Start();
+  image_importer_->Wait();
+  image_importer_.reset();
   active_thread_ = feature_extractor_.get();
   feature_extractor_->Start();
   feature_extractor_->Wait();

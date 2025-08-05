@@ -31,6 +31,7 @@
 
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
+#include "colmap/util/types.h"
 
 #include <tuple>
 
@@ -51,11 +52,10 @@ Bitmap CreateTestBitmap() {
 class ParameterizedImageReaderTests
     : public ::testing::TestWithParam<
           std::tuple</*num_images=*/int,
-                     /*with_masks=*/bool,
                      /*with_existing_images=*/bool>> {};
 
 TEST_P(ParameterizedImageReaderTests, Nominal) {
-  const auto [kNumImages, kWithMasks, kWithExistingImages] = GetParam();
+  const auto [kNumImages, kWithExistingImages] = GetParam();
 
   Database database(Database::kInMemoryDatabasePath);
 
@@ -63,17 +63,10 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
   ImageReaderOptions options;
   options.image_path = test_dir + "/images";
   CreateDirIfNotExists(options.image_path);
-  if (kWithMasks) {
-    options.mask_path = test_dir + "/masks";
-    CreateDirIfNotExists(options.mask_path);
-  }
   const Bitmap test_bitmap = CreateTestBitmap();
   for (int i = 0; i < kNumImages; ++i) {
     const std::string image_name = std::to_string(i) + ".png";
     test_bitmap.Write(options.image_path + "/" + image_name);
-    if (kWithMasks) {
-      test_bitmap.Write(options.mask_path + "/" + image_name + ".png");
-    }
     if (kWithExistingImages) {
       Image image;
       image.SetName(image_name);
@@ -84,8 +77,6 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
                                       test_bitmap.Width(),
                                       test_bitmap.Height())));
       image.SetImageId(database.WriteImage(image));
-      database.WriteKeypoints(image.ImageId(), FeatureKeypoints());
-      database.WriteDescriptors(image.ImageId(), FeatureDescriptors());
       Rig rig;
       rig.AddRefSensor(sensor_t(SensorType::CAMERA, image.CameraId()));
       database.WriteRig(rig);
@@ -100,16 +91,16 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
   Image image;
   PosePrior pose_prior;
   Bitmap bitmap;
-  Bitmap mask;
   for (int i = 0; i < kNumImages; ++i) {
     EXPECT_EQ(image_reader.NextIndex(), i);
     const auto status =
-        image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+        image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap);
+    ASSERT_EQ(status, ImageReader::Status::SUCCESS);
     if (kWithExistingImages) {
-      EXPECT_EQ(status, ImageReader::Status::IMAGE_EXISTS);
+      EXPECT_EQ(image.ImageId(), i + 1);
       continue;
     }
-    ASSERT_EQ(status, ImageReader::Status::SUCCESS);
+    EXPECT_EQ(image.ImageId(), kInvalidImageId);
     EXPECT_EQ(rig.RigId(), i + 1);
     EXPECT_EQ(camera.camera_id, i + 1);
     EXPECT_EQ(camera.ModelName(), options.camera_model);
@@ -127,19 +118,17 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
     }
   }
 
-  EXPECT_THROW(
-      image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask),
-      std::invalid_argument);
+  EXPECT_THROW(image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap),
+               std::invalid_argument);
   EXPECT_EQ(database.NumRigs(), kNumImages);
   EXPECT_EQ(database.NumCameras(), kNumImages);
 }
 
 INSTANTIATE_TEST_SUITE_P(ImageReaderTests,
                          ParameterizedImageReaderTests,
-                         ::testing::Values(std::make_tuple(0, false, true),
-                                           std::make_tuple(5, false, false),
-                                           std::make_tuple(5, true, false),
-                                           std::make_tuple(5, false, true)));
+                         ::testing::Values(std::make_tuple(0, true),
+                                           std::make_tuple(5, false),
+                                           std::make_tuple(5, true)));
 
 }  // namespace
 }  // namespace colmap
