@@ -958,5 +958,29 @@ TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorld) {
   ExpectValidSolve(320);
 }
 
+TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorldFallback) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentOptions options;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  const auto summary =
+      CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  EXPECT_EQ(summary.num_effective_parameters, 316);
+  EXPECT_EQ(summary.num_effective_parameters_reduced, 307);
+}
+
 }  // namespace
 }  // namespace colmap
