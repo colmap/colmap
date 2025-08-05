@@ -253,6 +253,10 @@ void Reconstruction::AddImage(class Image image) {
   } else {
     image.SetFramePtr(&frame);
   }
+  if (!frame.HasDataId(image.DataId())) {
+    LOG(FATAL_THROW) << "image " << image.ImageId()
+                     << " does not exist in frame " << frame.FrameId();
+  }
   const image_t image_id = image.ImageId();
   THROW_CHECK(images_.emplace(image_id, std::move(image)).second);
 }
