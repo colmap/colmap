@@ -542,18 +542,25 @@ bool AlignReconstructionToOrigRigScales(
     Reconstruction* reconstruction) {
   double scale_sum = 0;
   int scale_count = 0;
-  for (const auto& [rig_id, rig_orig] : orig_rigs) {
+  for (const auto& [rig_id, orig_rig] : orig_rigs) {
     double scale_sum_rig = 0;
     int scale_count_rig = 0;
-    for (auto& [sensor_id, sensor_from_rig_orig] : rig_orig.Sensors()) {
-      if (!sensor_from_rig_orig.has_value()) continue;
+    for (auto& [sensor_id, sensor_from_orig_rig] : orig_rig.Sensors()) {
+      if (!sensor_from_orig_rig.has_value()) {
+        continue;
+      }
+
       // Here we do not include rigs that are panoramic.
-      if (sensor_from_rig_orig->translation.norm() < 1e-6) continue;
+      double sensor_from_orig_rig_norm =
+          sensor_from_orig_rig->translation.norm();
+      if (sensor_from_orig_rig_norm < 1e-6) {
+        continue;
+      }
       THROW_CHECK(reconstruction->Rig(rig_id).HasSensorFromRig(sensor_id));
       double scale = reconstruction->Rig(rig_id)
                          .SensorFromRig(sensor_id)
                          .translation.norm() /
-                     sensor_from_rig_orig->translation.norm();
+                     sensor_from_orig_rig_norm;
       scale_sum_rig += scale;
       ++scale_count_rig;
     }
@@ -562,10 +569,11 @@ bool AlignReconstructionToOrigRigScales(
       ++scale_count;
     }
   }
-  if (scale_count == 0) return false;
-  double scale = scale_sum / scale_count;
+  if (scale_count == 0) {
+    return false;
+  }
   Sim3d new_from_old_world;
-  new_from_old_world.scale = 1.0 / scale;
+  new_from_old_world.scale = scale_count / scale_sum;
   reconstruction->Transform(new_from_old_world);
   return true;
 }
