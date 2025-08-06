@@ -539,10 +539,8 @@ void IncrementalPipeline::Reconstruct(
         reconstruction->UpdatePoint3DErrors();
         LOG(INFO) << "Keeping reconstruction due to interrupt";
         mapper.EndReconstruction(/*discard=*/false);
-        if (!options_->ba_refine_sensor_from_rig) {
-          AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
-                                             reconstruction.get());
-        }
+        AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
+                                           reconstruction.get());
         return;
       }
 
@@ -587,10 +585,8 @@ void IncrementalPipeline::Reconstruct(
           reconstruction->UpdatePoint3DErrors();
           LOG(INFO) << "Keeping successful reconstruction";
           mapper.EndReconstruction(/*discard=*/false);
-          if (!options_->ba_refine_sensor_from_rig) {
-            AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
-                                               reconstruction.get());
-          }
+          AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
+                                             reconstruction.get());
         }
 
         Callback(LAST_IMAGE_REG_CALLBACK);

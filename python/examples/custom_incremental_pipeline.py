@@ -224,10 +224,9 @@ def reconstruct(controller, mapper, mapper_options, continue_reconstruction):
         if status == pycolmap.IncrementalMapperStatus.INTERRUPTED:
             logging.info("Keeping reconstruction due to interrupt")
             mapper.end_reconstruction(False)
-            if not options.ba_refine_sensor_from_rig:
-                pycolmap.align_reconstruction_to_orig_rig_scales(
-                    database_cache.rigs, reconstruction
-                )
+            pycolmap.align_reconstruction_to_orig_rig_scales(
+                database_cache.rigs, reconstruction
+            )
         elif status == pycolmap.IncrementalMapperStatus.NO_INITIAL_PAIR:
             logging.info("Disacarding reconstruction due to no initial pair")
             mapper.end_reconstruction(True)
@@ -258,10 +257,9 @@ def reconstruct(controller, mapper, mapper_options, continue_reconstruction):
             else:
                 logging.info("Keeping successful reconstruction")
                 mapper.end_reconstruction(False)
-                if not options.ba_refine_sensor_from_rig:
-                    pycolmap.align_reconstruction_to_orig_rig_scales(
-                        database_cache.rigs, reconstruction
-                    )
+                pycolmap.align_reconstruction_to_orig_rig_scales(
+                    database_cache.rigs, reconstruction
+                )
             controller.callback(
                 pycolmap.IncrementalMapperCallback.LAST_IMAGE_REG_CALLBACK
             )
