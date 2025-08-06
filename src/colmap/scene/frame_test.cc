@@ -54,6 +54,7 @@ TEST(Frame, Default) {
 TEST(Frame, SetUp) {
   Frame frame;
   Rig rig;
+  rig.SetRigId(1);
 
   EXPECT_FALSE(frame.HasRigId());
   EXPECT_FALSE(frame.HasRigPtr());
@@ -84,6 +85,53 @@ TEST(Frame, SetUp) {
   EXPECT_THAT(frame.DataIds(),
               testing::UnorderedElementsAre(data_id1, data_id2));
   EXPECT_FALSE(frame.HasPose());
+}
+
+TEST(Frame, SetResetRigPtr) {
+  Frame frame;
+  Rig rig;
+
+  EXPECT_FALSE(frame.HasRigId());
+  EXPECT_FALSE(frame.HasRigPtr());
+
+  frame.SetRigId(1);
+  EXPECT_TRUE(frame.HasRigId());
+  EXPECT_FALSE(frame.HasRigPtr());
+
+  EXPECT_ANY_THROW(frame.SetRigPtr(&rig));
+  rig.SetRigId(1);
+  frame.SetRigPtr(&rig);
+  EXPECT_TRUE(frame.HasRigPtr());
+  frame.ResetRigPtr();
+  EXPECT_FALSE(frame.HasRigPtr());
+
+  const sensor_t sensor_id1(SensorType::IMU, 0);
+  const sensor_t sensor_id2(SensorType::CAMERA, 0);
+  frame.AddDataId(data_t(sensor_id1, 1));
+  frame.AddDataId(data_t(sensor_id2, 1));
+  EXPECT_ANY_THROW(frame.SetRigPtr(&rig));
+
+  rig.AddRefSensor(sensor_id1);
+  rig.AddSensor(sensor_id2, TestRigid3d());
+  frame.SetRigPtr(&rig);
+  EXPECT_TRUE(frame.HasRigPtr());
+}
+
+TEST(Frame, AddDataId) {
+  Rig rig;
+  rig.SetRigId(1);
+  const sensor_t sensor_id1(SensorType::IMU, 0);
+  const sensor_t sensor_id2(SensorType::CAMERA, 0);
+  const sensor_t sensor_id3(SensorType::CAMERA, 1);
+  rig.AddRefSensor(sensor_id1);
+  rig.AddSensor(sensor_id2, TestRigid3d());
+
+  Frame frame;
+  frame.SetRigId(1);
+  frame.SetRigPtr(&rig);
+  frame.AddDataId(data_t(sensor_id1, 1));
+  frame.AddDataId(data_t(sensor_id2, 1));
+  EXPECT_ANY_THROW(frame.AddDataId(data_t(sensor_id3, 2)));
 }
 
 TEST(Frame, ImageIds) {
@@ -117,6 +165,7 @@ TEST(Frame, SetResetPose) {
 TEST(Frame, SetCamFromWorld) {
   Frame frame;
   Rig rig;
+  rig.SetRigId(1);
   frame.SetRigId(1);
   const sensor_t sensor_id1(SensorType::CAMERA, 0);
   rig.AddRefSensor(sensor_id1);

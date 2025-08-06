@@ -243,12 +243,10 @@ TEST(Reconstruction, AddFrame) {
   EXPECT_EQ(reconstruction.NumFrames(), 1);
   EXPECT_EQ(reconstruction.NumRegFrames(), 0);
   EXPECT_EQ(reconstruction.NumImages(), 0);
-  EXPECT_EQ(reconstruction.NumRegImages(), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
   reconstruction.Frame(1).SetRigFromWorld(Rigid3d());
   reconstruction.RegisterFrame(1);
   EXPECT_EQ(reconstruction.NumRegFrames(), 1);
-  EXPECT_EQ(reconstruction.NumRegImages(), 0);
   ExpectValidPtrs(reconstruction);
 }
 

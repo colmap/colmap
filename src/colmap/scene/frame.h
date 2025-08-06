@@ -129,7 +129,12 @@ std::set<data_t>& Frame::DataIds() { return data_ids_; }
 
 const std::set<data_t>& Frame::DataIds() const { return data_ids_; }
 
-void Frame::AddDataId(data_t data_id) { data_ids_.insert(data_id); }
+void Frame::AddDataId(data_t data_id) {
+  if (HasRigPtr()) {
+    THROW_CHECK(RigPtr()->HasSensor(data_id.sensor_id));
+  }
+  data_ids_.insert(data_id);
+}
 
 size_t Frame::NumData() const { return data_ids_.size(); }
 
@@ -145,7 +150,20 @@ bool Frame::HasRigId() const { return rig_id_ != kInvalidRigId; }
 
 Rig* Frame::RigPtr() const { return THROW_CHECK_NOTNULL(rig_ptr_); }
 
-void Frame::SetRigPtr(class Rig* rig) { rig_ptr_ = rig; }
+void Frame::SetRigPtr(class Rig* rig) {
+  THROW_CHECK_NOTNULL(rig);
+  THROW_CHECK_NE(rig->RigId(), kInvalidRigId);
+  for (const auto& data_id : data_ids_) {
+    THROW_CHECK(rig->HasSensor(data_id.sensor_id));
+  }
+  if (!HasRigPtr()) {
+    THROW_CHECK_EQ(rig->RigId(), rig_id_);
+    rig_ptr_ = rig;
+  } else {
+    rig_id_ = rig->RigId();
+    rig_ptr_ = rig;
+  }
+}
 
 void Frame::ResetRigPtr() { rig_ptr_ = nullptr; }
 
