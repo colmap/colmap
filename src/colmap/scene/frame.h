@@ -53,6 +53,7 @@ class Frame {
   inline std::set<data_t>& DataIds();
   inline const std::set<data_t>& DataIds() const;
   inline void AddDataId(data_t data_id);
+  inline size_t NumData() const;
 
   // Check whether the data is associated with the frame.
   inline bool HasDataId(data_t data_id) const;
@@ -129,6 +130,8 @@ std::set<data_t>& Frame::DataIds() { return data_ids_; }
 const std::set<data_t>& Frame::DataIds() const { return data_ids_; }
 
 void Frame::AddDataId(data_t data_id) { data_ids_.insert(data_id); }
+
+size_t Frame::NumData() const { return data_ids_.size(); }
 
 bool Frame::HasDataId(data_t data_id) const {
   return data_ids_.find(data_id) != data_ids_.end();

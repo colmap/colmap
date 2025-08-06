@@ -231,6 +231,8 @@ TEST(Reconstruction, AddFrame) {
   frame.SetRigId(rig.RigId());
   EXPECT_ANY_THROW(reconstruction.AddFrame(frame));
   reconstruction.AddRig(rig);
+  EXPECT_ANY_THROW(reconstruction.AddFrame(frame));
+  frame.AddDataId(data_t(camera.SensorId(), 1));
   reconstruction.AddFrame(frame);
   EXPECT_TRUE(reconstruction.ExistsFrame(1));
   EXPECT_EQ(reconstruction.Frame(1).FrameId(), 1);

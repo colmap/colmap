@@ -48,6 +48,7 @@ TEST(Frame, Default) {
   EXPECT_EQ(frame.RigId(), kInvalidRigId);
   EXPECT_FALSE(frame.HasRigId());
   EXPECT_FALSE(frame.HasRigPtr());
+  EXPECT_EQ(frame.NumData(), 0);
 }
 
 TEST(Frame, SetUp) {
@@ -72,11 +73,13 @@ TEST(Frame, SetUp) {
   const data_t data_id1(sensor_id1, 2);
   EXPECT_FALSE(frame.HasDataId(data_id1));
   frame.AddDataId(data_id1);
+  EXPECT_EQ(frame.NumData(), 1);
   EXPECT_TRUE(frame.HasDataId(data_id1));
   EXPECT_THAT(frame.DataIds(), testing::UnorderedElementsAre(data_id1));
   const data_t data_id2(sensor_id2, 5);
   EXPECT_FALSE(frame.HasDataId(data_id2));
   frame.AddDataId(data_id2);
+  EXPECT_EQ(frame.NumData(), 2);
   EXPECT_TRUE(frame.HasDataId(data_id2));
   EXPECT_THAT(frame.DataIds(),
               testing::UnorderedElementsAre(data_id1, data_id2));
