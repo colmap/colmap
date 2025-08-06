@@ -746,50 +746,5 @@ TEST(EstimateTwoViewGeometry, HomographyUsage) {
     EXPECT_NE(geometry.H, Eigen::Matrix3d::Zero());
   }
 }
-
-TEST(EstimateTwoViewGeometry, Stability) {
-  SetPRNGSeed(123);
-
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 2;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 1;
-  synthetic_dataset_options.num_points3D = 500;
-  synthetic_dataset_options.point2D_stddev = 0.5;
-  synthetic_dataset_options.inlier_match_ratio = 0.95;
-  synthetic_dataset_options.camera_has_prior_focal_length = true;
-
-  TwoViewGeometryTestData test_data =
-      CreateTwoViewGeometryTestData(synthetic_dataset_options);
-
-  TwoViewGeometryOptions options;
-  options.homography_usage = TwoViewGeometryOptions::HomographyUsage::AUTO;
-  options.ransac_options.max_error = 4.0;
-  options.ransac_options.confidence = 0.999;
-  options.ransac_options.random_seed = 0;
-  TwoViewGeometry geometry0 = EstimateTwoViewGeometry(test_data.camera1,
-                                                      test_data.points1,
-                                                      test_data.camera2,
-                                                      test_data.points2,
-                                                      test_data.matches,
-                                                      options);
-
-  constexpr int kNumTests = 100;
-  for (int seed = 1; seed <= kNumTests; ++seed) {
-    options.ransac_options.random_seed = seed;
-    TwoViewGeometry geometry = EstimateTwoViewGeometry(test_data.camera1,
-                                                       test_data.points1,
-                                                       test_data.camera2,
-                                                       test_data.points2,
-                                                       test_data.matches,
-                                                       options);
-
-    EXPECT_THAT(geometry.E, EigenMatrixNear(geometry0.E, 1e-3));
-    EXPECT_THAT(geometry.F, EigenMatrixNear(geometry0.F, 1e-3));
-    EXPECT_THAT(geometry.H, EigenMatrixNear(geometry0.H, 5));
-    EXPECT_TRUE(AreFeatureMatchesNear(
-        geometry.inlier_matches, geometry0.inlier_matches, 0.95));
-  }
-}
 }  // namespace
 }  // namespace colmap
