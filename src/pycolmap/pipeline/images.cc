@@ -36,8 +36,8 @@ void ImportImages(const std::string& database_path,
   options.image_names = image_names;
   UpdateImageReaderOptionsFromCameraMode(options, camera_mode);
 
-  Database database(database_path);
-  ImageReader image_reader(options, &database);
+  auto database = Database::Open(database_path);
+  ImageReader image_reader(options, database.get());
 
   PyInterrupt py_interrupt(2.0);
 
@@ -56,16 +56,16 @@ void ImportImages(const std::string& database_path,
       LOG(ERROR) << image.Name() << " " << ImageReader::StatusToString(status);
       continue;
     }
-    DatabaseTransaction database_transaction(&database);
+    DatabaseTransaction database_transaction(database.get());
     if (image.ImageId() == kInvalidImageId) {
-      image.SetImageId(database.WriteImage(image));
+      image.SetImageId(database->WriteImage(image));
       if (pose_prior.IsValid()) {
-        database.WritePosePrior(image.ImageId(), pose_prior);
+        database->WritePosePrior(image.ImageId(), pose_prior);
       }
       Frame frame;
       frame.SetRigId(rig.RigId());
       frame.AddDataId(image.DataId());
-      database.WriteFrame(frame);
+      database->WriteFrame(frame);
     }
   }
 }
