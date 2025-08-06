@@ -206,6 +206,9 @@ GeneralizedRelativePoseProblem BuildGeneralizedRelativePoseProblem(
   std::unordered_map<point3D_t, std::vector<std::pair<const Image*, point2D_t>>>
       observations2;
   for (const data_t& data_id : frame2.ImageIds()) {
+    if (!reconstruction.ExistsImage(data_id.id)) {
+      continue;
+    }
     const auto& image = reconstruction.Image(data_id.id);
     for (size_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
@@ -221,6 +224,9 @@ GeneralizedRelativePoseProblem BuildGeneralizedRelativePoseProblem(
 
   std::unordered_map<camera_t, size_t> camera_id_to_idx;
   for (const data_t& data_id : frame1.ImageIds()) {
+    if (!reconstruction.ExistsImage(data_id.id)) {
+      continue;
+    }
     const auto& image1 = reconstruction.Image(data_id.id);
     for (size_t point2D_idx1 = 0; point2D_idx1 < image1.NumPoints2D();
          ++point2D_idx1) {

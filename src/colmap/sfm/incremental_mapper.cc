@@ -196,6 +196,9 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   if (image.FramePtr()->RigPtr()->NumSensors() > 1) {
     bool all_cameras_have_good_focal_length = true;
     for (const data_t& data_id : image.FramePtr()->ImageIds()) {
+      if (!reconstruction->ExistsImage(data_id.id)) {
+        continue;
+      }
       const Image& frame_image = reconstruction_->Image(data_id.id);
       if ((!frame_image.CameraPtr()->has_prior_focal_length &&
            reg_stats_.num_reg_images_per_camera[frame_image.CameraId()] == 0) ||
@@ -341,6 +344,9 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // non-trivial frames, when there is no good estimate for the focal length or
   // one of the rig's cameras has bogus parameters.
   for (const data_t& data_id : image.FramePtr()->ImageIds()) {
+    if (!reconstruction_->ExistsImage(data_id.id)) {
+      continue;
+    }
     Image& frame_image = reconstruction_->Image(data_id.id);
     if (frame_image.CameraPtr()->HasBogusParams(options.min_focal_length_ratio,
                                                 options.max_focal_length_ratio,
@@ -439,6 +445,9 @@ bool IncrementalMapper::RegisterNextGeneralFrame(const Options& options,
 
   for (const data_t& data_id : frame.ImageIds()) {
     const image_t image_id = data_id.id;
+    if (!reconstruction_->ExistsImage(image_id)) {
+      continue;
+    }
     const Image& image = reconstruction_->Image(image_id);
     const Camera& camera = *image.CameraPtr();
 
@@ -657,12 +666,18 @@ IncrementalMapper::AdjustLocalBundle(
     std::set<frame_t> frame_ids;
     frame_ids.insert(image.FrameId());
     for (const data_t& data_id : image.FramePtr()->ImageIds()) {
+      if (!reconstruction_->ExistsImage(data_id.id)) {
+        continue;
+      }
       ba_config.AddImage(data_id.id);
     }
     for (const image_t local_image_id : local_bundle) {
       const Image& local_image = reconstruction_->Image(local_image_id);
       frame_ids.insert(local_image.FrameId());
       for (const data_t& data_id : local_image.FramePtr()->ImageIds()) {
+        if (!reconstruction_->ExistsImage(data_id.id)) {
+          continue;
+        }
         ba_config.AddImage(data_id.id);
       }
     }
@@ -785,6 +800,9 @@ bool IncrementalMapper::AdjustGlobalBundle(
   for (const frame_t frame_id : reconstruction_->RegFrameIds()) {
     const Frame& frame = reconstruction_->Frame(frame_id);
     for (const data_t& data_id : frame.ImageIds()) {
+      if (!reconstruction_.ExistsImage(data_id.id)) {
+        continue;
+      }
       ba_config.AddImage(data_id.id);
     }
   }
@@ -1006,6 +1024,9 @@ void IncrementalMapper::RegisterFrameEvent(const frame_t frame_id) {
   num_reg_frames_for_rig += 1;
 
   for (const data_t& data_id : frame.ImageIds()) {
+    if (!reconstruction_->ExistsImage(data_id.id)) {
+      continue;
+    }
     const Image& image = reconstruction_->Image(data_id.id);
 
     size_t& num_reg_images_for_camera =
@@ -1031,6 +1052,9 @@ void IncrementalMapper::DeRegisterFrameEvent(const frame_t frame_id) {
   num_reg_frames_for_rig -= 1;
 
   for (const data_t& data_id : frame.ImageIds()) {
+    if (!reconstruction_->ExistsImage(data_id.id)) {
+      continue;
+    }
     const Image& image = reconstruction_->Image(data_id.id);
 
     size_t& num_reg_images_for_camera =

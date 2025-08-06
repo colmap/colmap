@@ -323,6 +323,9 @@ size_t ObservationManager::FilterObservationsWithNegativeDepth() {
   size_t num_filtered = 0;
   for (const frame_t frame_id : reconstruction_.RegFrameIds()) {
     for (const data_t& data_id : reconstruction_.Frame(frame_id).ImageIds()) {
+      if (!reconstruction_.ExistsImage(data_id.id)) {
+        continue;
+      }
       const Image& image = reconstruction_.Image(data_id.id);
       const Eigen::Matrix3x4d cam_from_world = image.CamFromWorld().ToMatrix();
       for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
@@ -480,6 +483,9 @@ std::vector<frame_t> ObservationManager::FilterFrames(
     const Frame& frame = reconstruction_.Frame(frame_id);
     int num_points3D = 0;
     for (const data_t& data_id : frame.ImageIds()) {
+      if (!reconstruction_.ExistsImage(data_id.id)) {
+        continue;
+      }
       const Image& image = reconstruction_.Image(data_id.id);
       num_points3D += image.NumPoints3D();
       if (image.CameraPtr()->HasBogusParams(min_focal_length_ratio,

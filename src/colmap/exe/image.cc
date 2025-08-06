@@ -186,6 +186,9 @@ int RunImageFilterer(int argc, char** argv) {
     }
     bool enough_observations = false;
     for (const data_t& data_id : frame.ImageIds()) {
+      if (!reconstruction.ExistsImage(data_id.id)) {
+        continue;
+      }
       const Image& image = reconstruction.Image(data_id.id);
       if (image.NumPoints3D() >= min_num_observations) {
         enough_observations = true;
