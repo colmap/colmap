@@ -35,6 +35,7 @@
 #include "colmap/geometry/gps.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/optim/ransac.h"
+#include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/file.h"
@@ -161,11 +162,11 @@ void ReadDatabaseCameraLocations(const std::string& database_path,
                                  const std::string& alignment_type,
                                  std::vector<std::string>* ref_image_names,
                                  std::vector<Eigen::Vector3d>* ref_locations) {
-  Database database(database_path);
-  for (const auto& image : database.ReadAllImages()) {
-    if (database.ExistsPosePrior(image.ImageId())) {
+  auto database = Database::Open(database_path);
+  for (const auto& image : database->ReadAllImages()) {
+    if (database->ExistsPosePrior(image.ImageId())) {
       ref_image_names->push_back(image.Name());
-      const auto pose_prior = database.ReadPosePrior(image.ImageId());
+      const auto pose_prior = database->ReadPosePrior(image.ImageId());
       if (ref_is_gps) {
         THROW_CHECK_EQ(static_cast<int>(pose_prior.coordinate_system),
                        static_cast<int>(PosePrior::CoordinateSystem::WGS84));

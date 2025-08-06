@@ -39,11 +39,9 @@
 #include "colmap/util/types.h"
 
 #include <mutex>
-#include <unordered_map>
 #include <vector>
 
 #include <Eigen/Core>
-#include <sqlite3.h>
 
 namespace colmap {
 
@@ -61,89 +59,236 @@ typedef Eigen::Matrix<point2D_t, Eigen::Dynamic, 2, Eigen::RowMajor>
 // and trailing `EndTransaction`.
 class Database {
  public:
-  const static int kSchemaVersion = 1;
-
   // The maximum number of images, that can be stored in the database.
   // This limitation arises due to the fact, that we generate unique IDs for
   // image pairs manually. Note: do not change this to
   // another type than `size_t`.
   const static size_t kMaxNumImages;
 
-  // Can be used to construct temporary in-memory database.
-  const static std::string kInMemoryDatabasePath;
+  // Factory function to create a database implementation for a given path.
+  // The factory should be robust to handle non-supported files and return a
+  // runtime_error in that case.
+  using Factory = std::function<std::shared_ptr<Database>(const std::string&)>;
 
-  Database();
-  explicit Database(const std::string& path);
-  ~Database();
+  // Register a factory to open a database implementation. Database factories
+  // are tried in reverse order of registration. In other words, later
+  // registrations are tried first.
+  static void Register(Factory factory);
 
-  // Open and close database. The same database should not be opened
-  // concurrently in multiple threads or processes.
-  //
-  // On Windows, the input path is converted from the local code page to UTF-8
-  // for compatibility with SQLite. On POSIX platforms, the path is assumed to
-  // be UTF-8.
-  void Open(const std::string& path);
-  void Close();
+  // Closes the database, if not closed before.
+  virtual ~Database();
+
+  // Open database and throw a runtime_error if none of the factories succeeds.
+  static std::shared_ptr<Database> Open(const std::string& path);
+
+  // Explicitly close the database before destruction.
+  virtual void Close() = 0;
 
   // Check if entry already exists in database. For image pairs, the order of
   // `image_id1` and `image_id2` does not matter.
-  bool ExistsRig(rig_t rig_id) const;
-  bool ExistsCamera(camera_t camera_id) const;
-  bool ExistsFrame(frame_t frame_id) const;
-  bool ExistsImage(image_t image_id) const;
-  bool ExistsImageWithName(const std::string& name) const;
-  bool ExistsPosePrior(image_t image_id) const;
-  bool ExistsKeypoints(image_t image_id) const;
-  bool ExistsDescriptors(image_t image_id) const;
-  bool ExistsMatches(image_t image_id1, image_t image_id2) const;
-  bool ExistsInlierMatches(image_t image_id1, image_t image_id2) const;
+  virtual bool ExistsRig(rig_t rig_id) const = 0;
+  virtual bool ExistsCamera(camera_t camera_id) const = 0;
+  virtual bool ExistsFrame(frame_t frame_id) const = 0;
+  virtual bool ExistsImage(image_t image_id) const = 0;
+  virtual bool ExistsImageWithName(const std::string& name) const = 0;
+  virtual bool ExistsPosePrior(image_t image_id) const = 0;
+  virtual bool ExistsKeypoints(image_t image_id) const = 0;
+  virtual bool ExistsDescriptors(image_t image_id) const = 0;
+  virtual bool ExistsMatches(image_t image_id1, image_t image_id2) const = 0;
+  virtual bool ExistsInlierMatches(image_t image_id1,
+                                   image_t image_id2) const = 0;
 
   // Number of rows in `rigs` table.
-  size_t NumRigs() const;
+  virtual size_t NumRigs() const = 0;
 
   // Number of rows in `cameras` table.
-  size_t NumCameras() const;
+  virtual size_t NumCameras() const = 0;
 
   //  Number of rows in `frames` table.
-  size_t NumFrames() const;
+  virtual size_t NumFrames() const = 0;
 
   //  Number of rows in `images` table.
-  size_t NumImages() const;
+  virtual size_t NumImages() const = 0;
 
   //  Number of rows in `pose_priors` table.
-  size_t NumPosePriors() const;
+  virtual size_t NumPosePriors() const = 0;
 
   // Sum of `rows` column in `keypoints` table, i.e. number of total keypoints.
-  size_t NumKeypoints() const;
+  virtual size_t NumKeypoints() const = 0;
 
   // The number of keypoints for the image with most features.
-  size_t MaxNumKeypoints() const;
+  virtual size_t MaxNumKeypoints() const = 0;
 
   // Number of descriptors for specific image.
-  size_t NumKeypointsForImage(image_t image_id) const;
+  virtual size_t NumKeypointsForImage(image_t image_id) const = 0;
 
   // Sum of `rows` column in `descriptors` table,
   // i.e. number of total descriptors.
-  size_t NumDescriptors() const;
+  virtual size_t NumDescriptors() const = 0;
 
   // The number of descriptors for the image with most features.
-  size_t MaxNumDescriptors() const;
+  virtual size_t MaxNumDescriptors() const = 0;
 
   // Number of descriptors for specific image.
-  size_t NumDescriptorsForImage(image_t image_id) const;
+  virtual size_t NumDescriptorsForImage(image_t image_id) const = 0;
 
   // Sum of `rows` column in `matches` table, i.e. number of total matches.
-  size_t NumMatches() const;
+  virtual size_t NumMatches() const = 0;
 
   // Sum of `rows` column in `two_view_geometries` table,
   // i.e. number of total inlier matches.
-  size_t NumInlierMatches() const;
+  virtual size_t NumInlierMatches() const = 0;
 
   // Number of rows in `matches` table.
-  size_t NumMatchedImagePairs() const;
+  virtual size_t NumMatchedImagePairs() const = 0;
 
   // Number of rows in `two_view_geometries` table.
-  size_t NumVerifiedImagePairs() const;
+  virtual size_t NumVerifiedImagePairs() const = 0;
+
+  // Read an existing entry in the database. The user is responsible for making
+  // sure that the entry actually exists. For image pairs, the order of
+  // `image_id1` and `image_id2` does not matter.
+
+  virtual Rig ReadRig(rig_t rig_id) const = 0;
+  virtual std::optional<Rig> ReadRigWithSensor(sensor_t sensor_id) const = 0;
+  virtual std::vector<Rig> ReadAllRigs() const = 0;
+
+  virtual Camera ReadCamera(camera_t camera_id) const = 0;
+  virtual std::vector<Camera> ReadAllCameras() const = 0;
+
+  virtual Frame ReadFrame(frame_t frame_id) const = 0;
+  virtual std::vector<Frame> ReadAllFrames() const = 0;
+
+  virtual Image ReadImage(image_t image_id) const = 0;
+  virtual std::optional<Image> ReadImageWithName(
+      const std::string& name) const = 0;
+  virtual std::vector<Image> ReadAllImages() const = 0;
+
+  virtual PosePrior ReadPosePrior(image_t image_id) const = 0;
+
+  virtual FeatureKeypointsBlob ReadKeypointsBlob(image_t image_id) const = 0;
+  virtual FeatureKeypoints ReadKeypoints(image_t image_id) const = 0;
+  virtual FeatureDescriptors ReadDescriptors(image_t image_id) const = 0;
+
+  virtual FeatureMatchesBlob ReadMatchesBlob(image_t image_id1,
+                                             image_t image_id2) const = 0;
+  virtual FeatureMatches ReadMatches(image_t image_id1,
+                                     image_t image_id2) const = 0;
+  virtual std::vector<std::pair<image_pair_t, FeatureMatchesBlob>>
+  ReadAllMatchesBlob() const = 0;
+  virtual std::vector<std::pair<image_pair_t, FeatureMatches>> ReadAllMatches()
+      const = 0;
+
+  virtual TwoViewGeometry ReadTwoViewGeometry(image_t image_id1,
+                                              image_t image_id2) const = 0;
+  virtual std::vector<std::pair<image_pair_t, TwoViewGeometry>>
+  ReadTwoViewGeometries() const = 0;
+
+  // Read all image pairs that have an entry in the `two_view_geometry`
+  // table with at least one inlier match and their number of inlier matches.
+  virtual std::vector<std::pair<image_pair_t, int>>
+  ReadTwoViewGeometryNumInliers() const = 0;
+
+  // Add new rig and return its database identifier. If `use_rig_id`
+  // is false a new identifier is automatically generated.
+  virtual rig_t WriteRig(const Rig& rig, bool use_rig_id = false) = 0;
+
+  // Add new camera and return its database identifier. If `use_camera_id`
+  // is false a new identifier is automatically generated.
+  virtual camera_t WriteCamera(const Camera& camera,
+                               bool use_camera_id = false) = 0;
+
+  // Add new frame and return its database identifier. If `use_frame_id`
+  // is false a new identifier is automatically generated.
+  virtual frame_t WriteFrame(const Frame& frame, bool use_frame_id = false) = 0;
+
+  // Add new image and return its database identifier. If `use_image_id`
+  // is false a new identifier is automatically generated.
+  virtual image_t WriteImage(const Image& image, bool use_image_id = false) = 0;
+
+  // Write a new entry in the database. The user is responsible for making sure
+  // that the entry does not yet exist. For image pairs, the order of
+  // `image_id1` and `image_id2` does not matter.
+  virtual void WritePosePrior(image_t image_id,
+                              const PosePrior& pose_prior) = 0;
+  virtual void WriteKeypoints(image_t image_id,
+                              const FeatureKeypoints& keypoints) = 0;
+  virtual void WriteKeypoints(image_t image_id,
+                              const FeatureKeypointsBlob& blob) = 0;
+  virtual void WriteDescriptors(image_t image_id,
+                                const FeatureDescriptors& descriptors) = 0;
+  virtual void WriteMatches(image_t image_id1,
+                            image_t image_id2,
+                            const FeatureMatches& matches) = 0;
+  virtual void WriteMatches(image_t image_id1,
+                            image_t image_id2,
+                            const FeatureMatchesBlob& blob) = 0;
+  virtual void WriteTwoViewGeometry(
+      image_t image_id1,
+      image_t image_id2,
+      const TwoViewGeometry& two_view_geometry) = 0;
+
+  // Update an existing rig in the database. The user is responsible for
+  // making sure that the entry already exists.
+  virtual void UpdateRig(const Rig& rig) = 0;
+
+  // Update an existing camera in the database. The user is responsible for
+  // making sure that the entry already exists.
+  virtual void UpdateCamera(const Camera& camera) = 0;
+
+  // Update an existing frame in the database. The user is responsible for
+  // making sure that the entry already exists.
+  virtual void UpdateFrame(const Frame& frame) = 0;
+
+  // Update an existing image in the database. The user is responsible for
+  // making sure that the entry already exists.
+  virtual void UpdateImage(const Image& image) = 0;
+
+  // Update an existing pose_prior in the database. The user is responsible for
+  // making sure that the entry already exists.
+  virtual void UpdatePosePrior(image_t image_id,
+                               const PosePrior& pose_prior) = 0;
+
+  // Delete matches of an image pair.
+  virtual void DeleteMatches(image_t image_id1, image_t image_id2) = 0;
+
+  // Delete inlier matches of an image pair.
+  virtual void DeleteInlierMatches(image_t image_id1, image_t image_id2) = 0;
+
+  // Clear all database tables
+  virtual void ClearAllTables() = 0;
+
+  // Clear the entire rigs table
+  virtual void ClearRigs() = 0;
+
+  // Clear the entire cameras table
+  virtual void ClearCameras() = 0;
+
+  // Clear the entire frames table
+  virtual void ClearFrames() = 0;
+
+  // Clear the entire images, keypoints, and descriptors tables
+  virtual void ClearImages() = 0;
+
+  // Clear the entire pose_priors table
+  virtual void ClearPosePriors() = 0;
+
+  // Clear the entire descriptors table
+  virtual void ClearDescriptors() = 0;
+
+  // Clear the entire keypoints table
+  virtual void ClearKeypoints() = 0;
+
+  // Clear the entire matches table.
+  virtual void ClearMatches() = 0;
+
+  // Clear the entire inlier matches table.
+  virtual void ClearTwoViewGeometries() = 0;
+
+  // Merge two databases into a single, new database.
+  static void Merge(const Database& database1,
+                    const Database& database2,
+                    Database* merged_database);
 
   // Each image pair is assigned an unique ID in the `matches` and
   // `two_view_geometries` table. We intentionally avoid to store the pairs in a
@@ -160,282 +305,22 @@ class Database {
   // order in which the image identifiers are used.
   inline static bool SwapImagePair(image_t image_id1, image_t image_id2);
 
-  // Read an existing entry in the database. The user is responsible for making
-  // sure that the entry actually exists. For image pairs, the order of
-  // `image_id1` and `image_id2` does not matter.
-
-  Rig ReadRig(rig_t rig_id) const;
-  std::optional<Rig> ReadRigWithSensor(sensor_t sensor_id) const;
-  std::vector<Rig> ReadAllRigs() const;
-
-  Camera ReadCamera(camera_t camera_id) const;
-  std::vector<Camera> ReadAllCameras() const;
-
-  Frame ReadFrame(frame_t frame_id) const;
-  std::vector<Frame> ReadAllFrames() const;
-
-  Image ReadImage(image_t image_id) const;
-  std::optional<Image> ReadImageWithName(const std::string& name) const;
-  std::vector<Image> ReadAllImages() const;
-
-  PosePrior ReadPosePrior(image_t image_id) const;
-
-  FeatureKeypointsBlob ReadKeypointsBlob(image_t image_id) const;
-  FeatureKeypoints ReadKeypoints(image_t image_id) const;
-  FeatureDescriptors ReadDescriptors(image_t image_id) const;
-
-  FeatureMatchesBlob ReadMatchesBlob(image_t image_id1,
-                                     image_t image_id2) const;
-  FeatureMatches ReadMatches(image_t image_id1, image_t image_id2) const;
-  std::vector<std::pair<image_pair_t, FeatureMatchesBlob>> ReadAllMatchesBlob()
-      const;
-  std::vector<std::pair<image_pair_t, FeatureMatches>> ReadAllMatches() const;
-
-  TwoViewGeometry ReadTwoViewGeometry(image_t image_id1,
-                                      image_t image_id2) const;
-  std::vector<std::pair<image_pair_t, TwoViewGeometry>> ReadTwoViewGeometries()
-      const;
-
-  // Read all image pairs that have an entry in the `two_view_geometry`
-  // table with at least one inlier match and their number of inlier matches.
-  std::vector<std::pair<image_pair_t, int>> ReadTwoViewGeometryNumInliers()
-      const;
-
-  // Add new rig and return its database identifier. If `use_rig_id`
-  // is false a new identifier is automatically generated.
-  rig_t WriteRig(const Rig& rig, bool use_rig_id = false) const;
-
-  // Add new camera and return its database identifier. If `use_camera_id`
-  // is false a new identifier is automatically generated.
-  camera_t WriteCamera(const Camera& camera, bool use_camera_id = false) const;
-
-  // Add new frame and return its database identifier. If `use_frame_id`
-  // is false a new identifier is automatically generated.
-  frame_t WriteFrame(const Frame& frame, bool use_frame_id = false) const;
-
-  // Add new image and return its database identifier. If `use_image_id`
-  // is false a new identifier is automatically generated.
-  image_t WriteImage(const Image& image, bool use_image_id = false) const;
-
-  // Write a new entry in the database. The user is responsible for making sure
-  // that the entry does not yet exist. For image pairs, the order of
-  // `image_id1` and `image_id2` does not matter.
-  void WritePosePrior(image_t image_id, const PosePrior& pose_prior) const;
-  void WriteKeypoints(image_t image_id,
-                      const FeatureKeypoints& keypoints) const;
-  void WriteKeypoints(image_t image_id, const FeatureKeypointsBlob& blob) const;
-  void WriteDescriptors(image_t image_id,
-                        const FeatureDescriptors& descriptors) const;
-  void WriteMatches(image_t image_id1,
-                    image_t image_id2,
-                    const FeatureMatches& matches) const;
-  void WriteMatches(image_t image_id1,
-                    image_t image_id2,
-                    const FeatureMatchesBlob& blob) const;
-  void WriteTwoViewGeometry(image_t image_id1,
-                            image_t image_id2,
-                            const TwoViewGeometry& two_view_geometry) const;
-
-  // Update an existing rig in the database. The user is responsible for
-  // making sure that the entry already exists.
-  void UpdateRig(const Rig& rig) const;
-
-  // Update an existing camera in the database. The user is responsible for
-  // making sure that the entry already exists.
-  void UpdateCamera(const Camera& camera) const;
-
-  // Update an existing frame in the database. The user is responsible for
-  // making sure that the entry already exists.
-  void UpdateFrame(const Frame& frame) const;
-
-  // Update an existing image in the database. The user is responsible for
-  // making sure that the entry already exists.
-  void UpdateImage(const Image& image) const;
-
-  // Update an existing pose_prior in the database. The user is responsible for
-  // making sure that the entry already exists.
-  void UpdatePosePrior(image_t image_id, const PosePrior& pose_prior) const;
-
-  // Delete matches of an image pair.
-  void DeleteMatches(image_t image_id1, image_t image_id2) const;
-
-  // Delete inlier matches of an image pair.
-  void DeleteInlierMatches(image_t image_id1, image_t image_id2) const;
-
-  // Clear all database tables
-  void ClearAllTables() const;
-
-  // Clear the entire rigs table
-  void ClearRigs() const;
-
-  // Clear the entire cameras table
-  void ClearCameras() const;
-
-  // Clear the entire frames table
-  void ClearFrames() const;
-
-  // Clear the entire images, keypoints, and descriptors tables
-  void ClearImages() const;
-
-  // Clear the entire pose_priors table
-  void ClearPosePriors() const;
-
-  // Clear the entire descriptors table
-  void ClearDescriptors() const;
-
-  // Clear the entire keypoints table
-  void ClearKeypoints() const;
-
-  // Clear the entire matches table.
-  void ClearMatches() const;
-
-  // Clear the entire inlier matches table.
-  void ClearTwoViewGeometries() const;
-
-  // Merge two databases into a single, new database.
-  static void Merge(const Database& database1,
-                    const Database& database2,
-                    Database* merged_database);
+  // Combine multiple queries into one transaction by wrapping a code section
+  // into a `BeginTransaction` and `EndTransaction`. You can create a scoped
+  // transaction with `DatabaseTransaction` that ends when the transaction
+  // object is destructed. Depending on the database implementation, combining
+  // queries results in faster transaction time due to reduced locking of the
+  // database, etc.
+  virtual void BeginTransaction() const = 0;
+  virtual void EndTransaction() const = 0;
 
  private:
   friend class DatabaseTransaction;
 
-  // Combine multiple queries into one transaction by wrapping a code section
-  // into a `BeginTransaction` and `EndTransaction`. You can create a scoped
-  // transaction with `DatabaseTransaction` that ends when the transaction
-  // object is destructed. Combining queries results in faster transaction time
-  // due to reduced locking of the database etc.
-  void BeginTransaction() const;
-  void EndTransaction() const;
-
-  // Prepare SQL statements once at construction of the database, and reuse
-  // the statements for multiple queries by resetting their states.
-  void PrepareSQLStatements();
-  void FinalizeSQLStatements();
-
-  // Create database tables, if not existing, called when opening a database.
-  void CreateTables() const;
-  void CreateRigTable() const;
-  void CreateRigSensorsTable() const;
-  void CreateCameraTable() const;
-  void CreateFrameTable() const;
-  void CreateFrameDataTable() const;
-  void CreateImageTable() const;
-  void CreatePosePriorTable() const;
-  void CreateKeypointsTable() const;
-  void CreateDescriptorsTable() const;
-  void CreateMatchesTable() const;
-  void CreateTwoViewGeometriesTable() const;
-
-  void UpdateSchema() const;
-
-  bool ExistsTable(const std::string& table_name) const;
-  bool ExistsColumn(const std::string& table_name,
-                    const std::string& column_name) const;
-
-  bool ExistsRowId(sqlite3_stmt* sql_stmt, sqlite3_int64 row_id) const;
-  bool ExistsRowString(sqlite3_stmt* sql_stmt,
-                       const std::string& row_entry) const;
-
-  size_t CountRows(const std::string& table) const;
-  size_t CountRowsForEntry(sqlite3_stmt* sql_stmt, sqlite3_int64 row_id) const;
-  size_t SumColumn(const std::string& column, const std::string& table) const;
-  size_t MaxColumn(const std::string& column, const std::string& table) const;
-
-  sqlite3* database_ = nullptr;
-
-  // Check if elements got removed from the database to only apply
-  // the VACUUM command in such case
-  mutable bool database_entry_deleted_ = false;
-
-  // Ensure that only one database object at a time updates the schema of a
-  // database. Since the schema is updated every time a database is opened, this
-  // is to ensure that there are no race conditions ("database locked" error
-  // messages) when the user actually only intends to read from the database,
-  // which requires to open it.
-  static std::mutex update_schema_mutex_;
-
   // Used to ensure that only one transaction is active at the same time.
   std::mutex transaction_mutex_;
 
-  // A collection of all `sqlite3_stmt` objects for deletion in the destructor.
-  std::vector<sqlite3_stmt*> sql_stmts_;
-
-  // num_*
-  sqlite3_stmt* sql_stmt_num_keypoints_ = nullptr;
-  sqlite3_stmt* sql_stmt_num_descriptors_ = nullptr;
-
-  // exists_*
-  sqlite3_stmt* sql_stmt_exists_rig_ = nullptr;
-  sqlite3_stmt* sql_stmt_exists_camera_ = nullptr;
-  sqlite3_stmt* sql_stmt_exists_frame_ = nullptr;
-  sqlite3_stmt* sql_stmt_exists_image_id_ = nullptr;
-  sqlite3_stmt* sql_stmt_exists_image_name_ = nullptr;
-  sqlite3_stmt* sql_stmt_exists_pose_prior_ = nullptr;
-  sqlite3_stmt* sql_stmt_exists_keypoints_ = nullptr;
-  sqlite3_stmt* sql_stmt_exists_descriptors_ = nullptr;
-  sqlite3_stmt* sql_stmt_exists_matches_ = nullptr;
-  sqlite3_stmt* sql_stmt_exists_two_view_geometry_ = nullptr;
-
-  // add_*
-  sqlite3_stmt* sql_stmt_add_rig_ = nullptr;
-  sqlite3_stmt* sql_stmt_add_rig_sensor_ = nullptr;
-  sqlite3_stmt* sql_stmt_add_camera_ = nullptr;
-  sqlite3_stmt* sql_stmt_add_frame_ = nullptr;
-  sqlite3_stmt* sql_stmt_add_frame_data_ = nullptr;
-  sqlite3_stmt* sql_stmt_add_image_ = nullptr;
-
-  // update_*
-  sqlite3_stmt* sql_stmt_update_rig_ = nullptr;
-  sqlite3_stmt* sql_stmt_update_camera_ = nullptr;
-  sqlite3_stmt* sql_stmt_update_frame_ = nullptr;
-  sqlite3_stmt* sql_stmt_update_image_ = nullptr;
-  sqlite3_stmt* sql_stmt_update_pose_prior_ = nullptr;
-
-  // read_*
-  sqlite3_stmt* sql_stmt_read_rig_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_rigs_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_rig_with_sensor_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_rig_with_ref_sensor_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_camera_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_cameras_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_frame_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_frames_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_image_id_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_image_with_name_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_images_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_pose_prior_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_keypoints_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_descriptors_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_matches_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_matches_all_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_two_view_geometry_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_two_view_geometries_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_two_view_geometry_num_inliers_ = nullptr;
-
-  // write_*
-  sqlite3_stmt* sql_stmt_write_pose_prior_ = nullptr;
-  sqlite3_stmt* sql_stmt_write_keypoints_ = nullptr;
-  sqlite3_stmt* sql_stmt_write_descriptors_ = nullptr;
-  sqlite3_stmt* sql_stmt_write_matches_ = nullptr;
-  sqlite3_stmt* sql_stmt_write_two_view_geometry_ = nullptr;
-
-  // delete_*
-  sqlite3_stmt* sql_stmt_delete_rig_sensors_ = nullptr;
-  sqlite3_stmt* sql_stmt_delete_frame_data_ = nullptr;
-  sqlite3_stmt* sql_stmt_delete_matches_ = nullptr;
-  sqlite3_stmt* sql_stmt_delete_two_view_geometry_ = nullptr;
-
-  // clear_*
-  sqlite3_stmt* sql_stmt_clear_rigs_ = nullptr;
-  sqlite3_stmt* sql_stmt_clear_cameras_ = nullptr;
-  sqlite3_stmt* sql_stmt_clear_frames_ = nullptr;
-  sqlite3_stmt* sql_stmt_clear_images_ = nullptr;
-  sqlite3_stmt* sql_stmt_clear_pose_priors_ = nullptr;
-  sqlite3_stmt* sql_stmt_clear_descriptors_ = nullptr;
-  sqlite3_stmt* sql_stmt_clear_keypoints_ = nullptr;
-  sqlite3_stmt* sql_stmt_clear_matches_ = nullptr;
-  sqlite3_stmt* sql_stmt_clear_two_view_geometries_ = nullptr;
+  static std::vector<Factory> factories_;
 };
 
 // This class automatically manages the scope of a database transaction by

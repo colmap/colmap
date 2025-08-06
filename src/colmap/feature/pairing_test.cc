@@ -30,6 +30,7 @@
 #include "colmap/feature/pairing.h"
 
 #include "colmap/retrieval/visual_index.h"
+#include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
@@ -53,7 +54,7 @@ void CreateSyntheticDatabase(int num_images, Database& database) {
 
 TEST(ExhaustivePairGenerator, Nominal) {
   constexpr int kNumImages = 34;
-  auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   CreateSyntheticDatabase(kNumImages, *database);
   const std::vector<Image> images = database->ReadAllImages();
   CHECK_EQ(images.size(), kNumImages);
@@ -87,7 +88,7 @@ std::unique_ptr<retrieval::VisualIndex> CreateSyntheticVisualIndex() {
 
 TEST(VocabTreePairGenerator, Nominal) {
   constexpr int kNumImages = 5;
-  auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   CreateSyntheticDatabase(kNumImages, *database);
   const std::vector<Image> images = database->ReadAllImages();
   CHECK_EQ(images.size(), kNumImages);
@@ -127,7 +128,7 @@ TEST(VocabTreePairGenerator, Nominal) {
 
 TEST(SequentialPairGenerator, Linear) {
   constexpr int kNumImages = 5;
-  auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   CreateSyntheticDatabase(kNumImages, *database);
   const std::vector<Image> images = database->ReadAllImages();
   CHECK_EQ(images.size(), kNumImages);
@@ -158,7 +159,7 @@ TEST(SequentialPairGenerator, Linear) {
 }
 
 TEST(SequentialPairGenerator, LinearRig) {
-  auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction unused_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -209,7 +210,7 @@ TEST(SequentialPairGenerator, LinearRig) {
 
 TEST(SequentialPairGenerator, Quadratic) {
   constexpr int kNumImages = 5;
-  auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   CreateSyntheticDatabase(kNumImages, *database);
   const std::vector<Image> images = database->ReadAllImages();
   CHECK_EQ(images.size(), kNumImages);
@@ -240,7 +241,7 @@ TEST(SequentialPairGenerator, Quadratic) {
 
 TEST(SpatialPairGenerator, Nominal) {
   constexpr int kNumImages = 3;
-  auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   CreateSyntheticDatabase(kNumImages, *database);
   const std::vector<Image> images = database->ReadAllImages();
   CHECK_EQ(images.size(), kNumImages);
@@ -326,7 +327,7 @@ TEST(SpatialPairGenerator, Nominal) {
 
 TEST(SpatialPairGenerator, LargeCoordinates) {
   constexpr int kNumImages = 3;
-  auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   CreateSyntheticDatabase(kNumImages, *database);
   const std::vector<Image> images = database->ReadAllImages();
   CHECK_EQ(images.size(), kNumImages);
@@ -362,14 +363,18 @@ TEST(SpatialPairGenerator, LargeCoordinates) {
 
 TEST(SpatialPairGenerator, MinNumNeighborsControlsMatchingDistance) {
   constexpr int kNumImages = 4;
-  auto db = std::make_shared<Database>(Database::kInMemoryDatabasePath);
-  CreateSyntheticDatabase(kNumImages, *db);
-  const auto images = db->ReadAllImages();
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  CreateSyntheticDatabase(kNumImages, *database);
+  const auto images = database->ReadAllImages();
 
-  db->WritePosePrior(images[0].ImageId(), PosePrior(Eigen::Vector3d(1, 1, 2)));
-  db->WritePosePrior(images[1].ImageId(), PosePrior(Eigen::Vector3d(1, 2, 3)));
-  db->WritePosePrior(images[2].ImageId(), PosePrior(Eigen::Vector3d(2, 3, 4)));
-  db->WritePosePrior(images[3].ImageId(), PosePrior(Eigen::Vector3d(2, 4, 12)));
+  database->WritePosePrior(images[0].ImageId(),
+                           PosePrior(Eigen::Vector3d(1, 1, 2)));
+  database->WritePosePrior(images[1].ImageId(),
+                           PosePrior(Eigen::Vector3d(1, 2, 3)));
+  database->WritePosePrior(images[2].ImageId(),
+                           PosePrior(Eigen::Vector3d(2, 3, 4)));
+  database->WritePosePrior(images[3].ImageId(),
+                           PosePrior(Eigen::Vector3d(2, 4, 12)));
 
   SpatialPairingOptions options;
   options.ignore_z = false;
@@ -382,7 +387,7 @@ TEST(SpatialPairGenerator, MinNumNeighborsControlsMatchingDistance) {
   }
   {
     options.min_num_neighbors = 1;
-    SpatialPairGenerator generator(options, db);
+    SpatialPairGenerator generator(options, database);
     EXPECT_THAT(generator.Next(),
                 testing::ElementsAre(
                     std::make_pair(images[0].ImageId(), images[1].ImageId())));
@@ -399,7 +404,7 @@ TEST(SpatialPairGenerator, MinNumNeighborsControlsMatchingDistance) {
   }
   {
     options.min_num_neighbors = 2;
-    SpatialPairGenerator generator(options, db);
+    SpatialPairGenerator generator(options, database);
     EXPECT_THAT(generator.Next(),
                 testing::ElementsAre(
                     std::make_pair(images[0].ImageId(), images[1].ImageId()),
@@ -420,7 +425,7 @@ TEST(SpatialPairGenerator, MinNumNeighborsControlsMatchingDistance) {
   }
   {
     options.min_num_neighbors = 3;
-    SpatialPairGenerator generator(options, db);
+    SpatialPairGenerator generator(options, database);
     EXPECT_THAT(generator.Next(),
                 testing::ElementsAre(
                     std::make_pair(images[0].ImageId(), images[1].ImageId()),
@@ -448,7 +453,7 @@ TEST(SpatialPairGenerator, MinNumNeighborsControlsMatchingDistance) {
 TEST(SpatialPairGenerator, ReadPositionPriorData) {
   {
     constexpr int kNumImages = 3;
-    auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+    auto database = Database::Open(kInMemorySqliteDatabasePath);
     CreateSyntheticDatabase(kNumImages, *database);
     const std::vector<Image> images = database->ReadAllImages();
     CHECK_EQ(images.size(), kNumImages);
@@ -475,7 +480,7 @@ TEST(SpatialPairGenerator, ReadPositionPriorData) {
 
   {
     constexpr int kNumImages = 4;
-    auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+    auto database = Database::Open(kInMemorySqliteDatabasePath);
     CreateSyntheticDatabase(kNumImages, *database);
     const std::vector<Image> images = database->ReadAllImages();
     CHECK_EQ(images.size(), kNumImages);
@@ -502,7 +507,7 @@ TEST(SpatialPairGenerator, ReadPositionPriorData) {
 
   {
     constexpr int kNumImages = 3;
-    auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+    auto database = Database::Open(kInMemorySqliteDatabasePath);
     CreateSyntheticDatabase(kNumImages, *database);
     const std::vector<Image> images = database->ReadAllImages();
     CHECK_EQ(images.size(), kNumImages);
@@ -529,7 +534,7 @@ TEST(SpatialPairGenerator, ReadPositionPriorData) {
 
   {
     constexpr int kNumImages = 3;
-    auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+    auto database = Database::Open(kInMemorySqliteDatabasePath);
     CreateSyntheticDatabase(kNumImages, *database);
     const std::vector<Image> images = database->ReadAllImages();
     CHECK_EQ(images.size(), kNumImages);
@@ -556,7 +561,7 @@ TEST(SpatialPairGenerator, ReadPositionPriorData) {
 
   {
     constexpr int kNumImages = 3;
-    auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+    auto database = Database::Open(kInMemorySqliteDatabasePath);
     CreateSyntheticDatabase(kNumImages, *database);
     const std::vector<Image> images = database->ReadAllImages();
     CHECK_EQ(images.size(), kNumImages);
@@ -583,7 +588,7 @@ TEST(SpatialPairGenerator, ReadPositionPriorData) {
 
   {
     constexpr int kNumImages = 3;
-    auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+    auto database = Database::Open(kInMemorySqliteDatabasePath);
     CreateSyntheticDatabase(kNumImages, *database);
     const std::vector<Image> images = database->ReadAllImages();
     CHECK_EQ(images.size(), kNumImages);
@@ -611,7 +616,7 @@ TEST(SpatialPairGenerator, ReadPositionPriorData) {
 
 TEST(TransitivePairGenerator, Nominal) {
   constexpr int kNumImages = 5;
-  auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   CreateSyntheticDatabase(kNumImages, *database);
   const std::vector<Image> images = database->ReadAllImages();
   CHECK_EQ(images.size(), kNumImages);
@@ -646,7 +651,7 @@ TEST(TransitivePairGenerator, Nominal) {
 
 TEST(ImportedPairGenerator, Nominal) {
   constexpr int kNumImages = 10;
-  auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   CreateSyntheticDatabase(kNumImages, *database);
   const std::vector<Image> images = database->ReadAllImages();
   CHECK_EQ(images.size(), kNumImages);

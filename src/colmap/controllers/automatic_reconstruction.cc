@@ -37,8 +37,8 @@
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
+#include "colmap/scene/database.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 
 namespace colmap {
 
@@ -207,8 +207,8 @@ void AutomaticReconstructionController::RunFeatureMatching() {
     matcher = sequential_matcher_.get();
   } else if (options_.data_type == DataType::INDIVIDUAL ||
              options_.data_type == DataType::INTERNET) {
-    Database database(*option_manager_.database_path);
-    const size_t num_images = database.NumImages();
+    auto database = Database::Open(*option_manager_.database_path);
+    const size_t num_images = database->NumImages();
     if (options_.vocab_tree_path.empty() || num_images < 200) {
       matcher = exhaustive_matcher_.get();
     } else {

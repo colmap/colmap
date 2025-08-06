@@ -33,6 +33,7 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/matcher.h"
 #include "colmap/feature/utils.h"
+#include "colmap/scene/database.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
@@ -105,7 +106,7 @@ std::unique_ptr<Thread> CreateExhaustiveFeatureMatcher(
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
-  auto database = std::make_shared<Database>(database_path);
+  auto database = Database::Open(database_path);
   auto cache = std::make_shared<FeatureMatcherCache>(
       pairing_options.CacheSize(), database);
   return std::make_unique<FeatureMatcherThread>(
@@ -124,7 +125,7 @@ std::unique_ptr<Thread> CreateVocabTreeFeatureMatcher(
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
-  auto database = std::make_shared<Database>(database_path);
+  auto database = Database::Open(database_path);
   auto cache = std::make_shared<FeatureMatcherCache>(
       pairing_options.CacheSize(), database);
   return std::make_unique<FeatureMatcherThread>(
@@ -142,7 +143,7 @@ std::unique_ptr<Thread> CreateSequentialFeatureMatcher(
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
-  auto database = std::make_shared<Database>(database_path);
+  auto database = Database::Open(database_path);
   auto cache = std::make_shared<FeatureMatcherCache>(
       pairing_options.CacheSize(), database);
   return std::make_unique<FeatureMatcherThread>(
@@ -161,7 +162,7 @@ std::unique_ptr<Thread> CreateSpatialFeatureMatcher(
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
-  auto database = std::make_shared<Database>(database_path);
+  auto database = Database::Open(database_path);
   auto cache = std::make_shared<FeatureMatcherCache>(
       pairing_options.CacheSize(), database);
   return std::make_unique<FeatureMatcherThread>(
@@ -179,7 +180,7 @@ std::unique_ptr<Thread> CreateTransitiveFeatureMatcher(
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
-  auto database = std::make_shared<Database>(database_path);
+  auto database = Database::Open(database_path);
   auto cache = std::make_shared<FeatureMatcherCache>(
       pairing_options.CacheSize(), database);
   return std::make_unique<FeatureMatcherThread>(
@@ -198,7 +199,7 @@ std::unique_ptr<Thread> CreateImagePairsFeatureMatcher(
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
-  auto database = std::make_shared<Database>(database_path);
+  auto database = Database::Open(database_path);
   auto cache = std::make_shared<FeatureMatcherCache>(
       pairing_options.CacheSize(), database);
   return std::make_unique<FeatureMatcherThread>(
@@ -222,7 +223,7 @@ class FeaturePairsFeatureMatcher : public Thread {
       : options_(pairing_options),
         matching_options_(matching_options),
         geometry_options_(geometry_options),
-        database_(std::make_shared<Database>(database_path)),
+        database_(Database::Open(database_path)),
         cache_(std::make_shared<FeatureMatcherCache>(/*cache_size=*/100,
                                                      database_)) {
     THROW_CHECK(pairing_options.Check());

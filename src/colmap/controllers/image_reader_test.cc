@@ -29,6 +29,7 @@
 
 #include "colmap/controllers/image_reader.h"
 
+#include "colmap/scene/database_sqlite.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
@@ -57,7 +58,7 @@ class ParameterizedImageReaderTests
 TEST_P(ParameterizedImageReaderTests, Nominal) {
   const auto [kNumImages, kWithMasks, kWithExistingImages] = GetParam();
 
-  Database database(Database::kInMemoryDatabasePath);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   const std::string test_dir = CreateTestDir();
   ImageReaderOptions options;
@@ -77,22 +78,22 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
     if (kWithExistingImages) {
       Image image;
       image.SetName(image_name);
-      image.SetCameraId(database.WriteCamera(
+      image.SetCameraId(database->WriteCamera(
           Camera::CreateFromModelName(i + 1,
                                       options.camera_model,
                                       /*focal_length=*/1,
                                       test_bitmap.Width(),
                                       test_bitmap.Height())));
-      image.SetImageId(database.WriteImage(image));
-      database.WriteKeypoints(image.ImageId(), FeatureKeypoints());
-      database.WriteDescriptors(image.ImageId(), FeatureDescriptors());
+      image.SetImageId(database->WriteImage(image));
+      database->WriteKeypoints(image.ImageId(), FeatureKeypoints());
+      database->WriteDescriptors(image.ImageId(), FeatureDescriptors());
       Rig rig;
       rig.AddRefSensor(sensor_t(SensorType::CAMERA, image.CameraId()));
-      database.WriteRig(rig);
+      database->WriteRig(rig);
     }
   }
 
-  ImageReader image_reader(options, &database);
+  ImageReader image_reader(options, database.get());
   EXPECT_EQ(image_reader.NumImages(), kNumImages);
 
   Rig rig;
@@ -119,19 +120,19 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
     EXPECT_EQ(bitmap.ConvertToRowMajorArray(),
               test_bitmap.ConvertToRowMajorArray());
     if (kWithExistingImages) {
-      EXPECT_EQ(database.NumRigs(), kNumImages);
-      EXPECT_EQ(database.NumCameras(), kNumImages);
+      EXPECT_EQ(database->NumRigs(), kNumImages);
+      EXPECT_EQ(database->NumCameras(), kNumImages);
     } else {
-      EXPECT_EQ(database.NumRigs(), i + 1);
-      EXPECT_EQ(database.NumCameras(), i + 1);
+      EXPECT_EQ(database->NumRigs(), i + 1);
+      EXPECT_EQ(database->NumCameras(), i + 1);
     }
   }
 
   EXPECT_THROW(
       image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask),
       std::invalid_argument);
-  EXPECT_EQ(database.NumRigs(), kNumImages);
-  EXPECT_EQ(database.NumCameras(), kNumImages);
+  EXPECT_EQ(database->NumRigs(), kNumImages);
+  EXPECT_EQ(database->NumCameras(), kNumImages);
 }
 
 INSTANTIATE_TEST_SUITE_P(ImageReaderTests,
