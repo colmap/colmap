@@ -15,6 +15,74 @@ using ImageScore = retrieval::ImageScore;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
+namespace {
+
+class PyVisualIndexImpl : public VisualIndex, py::trampoline_self_life_support {
+ public:
+  size_t NumVisualWords() const override {
+    PYBIND11_OVERRIDE_PURE(size_t, VisualIndex, NumVisualWords);
+  }
+
+  size_t NumImages() const override {
+    PYBIND11_OVERRIDE_PURE(size_t, VisualIndex, NumImages);
+  }
+
+  int DescDim() const override {
+    PYBIND11_OVERRIDE_PURE(int, VisualIndex, DescDim);
+  }
+
+  int EmbeddingDim() const override {
+    PYBIND11_OVERRIDE_PURE(int, VisualIndex, EmbeddingDim);
+  }
+
+  void Add(const IndexOptions& options,
+           int image_id,
+           const Geometries& geometries,
+           const Descriptors& descriptors) override {
+    PYBIND11_OVERRIDE_PURE(
+        void, VisualIndex, Add, options, image_id, geometries, descriptors);
+  }
+
+  bool IsImageIndexed(int image_id) const override {
+    PYBIND11_OVERRIDE_PURE(bool, VisualIndex, IsImageIndexed, image_id);
+  }
+
+  void Query(const QueryOptions& options,
+             const Descriptors& descriptors,
+             std::vector<ImageScore>* image_scores) const override {
+    PYBIND11_OVERRIDE_PURE(
+        void, VisualIndex, Query, options, descriptors, image_scores);
+  }
+
+  void Query(const QueryOptions& options,
+             const Geometries& geometries,
+             const Descriptors& descriptors,
+             std::vector<ImageScore>* image_scores) const override {
+    PYBIND11_OVERRIDE_PURE(
+        void, VisualIndex, Query, geometries, descriptors, image_scores);
+  }
+
+  void Prepare() override {
+    PYBIND11_OVERRIDE_PURE(void, VisualIndex, Prepare);
+  }
+
+  void Build(const BuildOptions& options,
+             const Descriptors& descriptors) override {
+    PYBIND11_OVERRIDE_PURE(void, VisualIndex, Build, options, descriptors);
+  }
+
+  void Write(const std::string& path) const override {
+    PYBIND11_OVERRIDE_PURE(void, VisualIndex, Read);
+  }
+
+ protected:
+  void ReadFromFaiss(const std::string& path, long offset) override {
+    PYBIND11_OVERRIDE_PURE(void, VisualIndex, ReadFromFaiss, path, offset);
+  }
+};
+
+}  // namespace
+
 void BindVisualIndex(py::module& m) {
   auto PyImageScore = py::class_<ImageScore>(m, "ImageScore")
                           .def(py::init<>())
@@ -22,71 +90,8 @@ void BindVisualIndex(py::module& m) {
                           .def_readonly("score", &ImageScore::score);
   MakeDataclass(PyImageScore);
 
-  class PyVisualIndexImpl : public VisualIndex {
-   public:
-    size_t NumVisualWords() const override {
-      PYBIND11_OVERRIDE_PURE(size_t, VisualIndex, NumVisualWords);
-    }
-
-    size_t NumImages() const override {
-      PYBIND11_OVERRIDE_PURE(size_t, VisualIndex, NumImages);
-    }
-
-    int DescDim() const override {
-      PYBIND11_OVERRIDE_PURE(int, VisualIndex, DescDim);
-    }
-
-    int EmbeddingDim() const override {
-      PYBIND11_OVERRIDE_PURE(int, VisualIndex, EmbeddingDim);
-    }
-
-    void Add(const IndexOptions& options,
-             int image_id,
-             const Geometries& geometries,
-             const Descriptors& descriptors) override {
-      PYBIND11_OVERRIDE_PURE(
-          void, VisualIndex, Add, options, image_id, geometries, descriptors);
-    }
-
-    bool IsImageIndexed(int image_id) const override {
-      PYBIND11_OVERRIDE_PURE(bool, VisualIndex, IsImageIndexed, image_id);
-    }
-
-    void Query(const QueryOptions& options,
-               const Descriptors& descriptors,
-               std::vector<ImageScore>* image_scores) const override {
-      PYBIND11_OVERRIDE_PURE(
-          void, VisualIndex, Query, options, descriptors, image_scores);
-    }
-
-    void Query(const QueryOptions& options,
-               const Geometries& geometries,
-               const Descriptors& descriptors,
-               std::vector<ImageScore>* image_scores) const override {
-      PYBIND11_OVERRIDE_PURE(
-          void, VisualIndex, Query, geometries, descriptors, image_scores);
-    }
-
-    void Prepare() override {
-      PYBIND11_OVERRIDE_PURE(void, VisualIndex, Prepare);
-    }
-
-    void Build(const BuildOptions& options,
-               const Descriptors& descriptors) override {
-      PYBIND11_OVERRIDE_PURE(void, VisualIndex, Build, options, descriptors);
-    }
-
-    void Write(const std::string& path) const override {
-      PYBIND11_OVERRIDE_PURE(void, VisualIndex, Read);
-    }
-
-   protected:
-    void ReadFromFaiss(const std::string& path, long offset) override {
-      PYBIND11_OVERRIDE_PURE(void, VisualIndex, ReadFromFaiss, path, offset);
-    }
-  };
-
-  py::class_<VisualIndex, PyVisualIndexImpl> PyVisualIndex(m, "VisualIndex");
+  py::class_<VisualIndex, PyVisualIndexImpl, py::smart_holder> PyVisualIndex(
+      m, "VisualIndex");
 
   auto PyIndexOptions =
       py::class_<VisualIndex::IndexOptions>(PyVisualIndex, "IndexOptions")
