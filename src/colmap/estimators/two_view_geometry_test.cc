@@ -198,34 +198,6 @@ bool CheckEqualTwoViewGeometry(const TwoViewGeometry& geometry,
   return true;
 }
 
-bool AreFeatureMatchesNear(const FeatureMatches& actual,
-                           const FeatureMatches& expected,
-                           double min_overlap_ratio) {
-  size_t overlap = 0;
-  for (const auto& match_expected : expected) {
-    for (const auto& match_actual : actual) {
-      if (match_expected.point2D_idx1 == match_actual.point2D_idx1 &&
-          match_expected.point2D_idx2 == match_actual.point2D_idx2) {
-        ++overlap;
-        break;
-      }
-    }
-  }
-
-  size_t max_size = std::max(expected.size(), actual.size());
-  double ratio = max_size == 0 ? 1.0 : static_cast<double>(overlap) / max_size;
-
-  if (ratio < min_overlap_ratio) {
-    LOG(ERROR) << "FeatureMatches similarity ratio " << ratio << " < threshold "
-               << min_overlap_ratio << '\n'
-               << "Expected size: " << expected.size()
-               << ", Actual size: " << actual.size()
-               << ", Overlapping matches: " << overlap;
-    return false;
-  }
-  return true;
-}
-
 TEST(EstimateTwoViewGeometryPose, Calibrated) {
   constexpr int kNumTests = 100;
   int num_failures = 0;
