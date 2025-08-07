@@ -120,6 +120,22 @@ TEST(Image, CameraPtr) {
   EXPECT_ANY_THROW(image.CameraPtr());
 }
 
+TEST(Image, FramePtr) {
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
+  Frame frame;
+  frame.SetFrameId(1);
+  frame.SetRigPtr(&rig);
+  Image image;
+  image.SetImageId(1);
+  image.SetCameraId(1);
+  image.SetFrameId(1);
+  EXPECT_ANY_THROW(image.SetFramePtr(&frame));
+  frame.AddDataId(image.DataId());
+  image.SetFramePtr(&frame);
+}
+
 TEST(Image, SetResetPose) {
   Rig rig;
   rig.SetRigId(1);
@@ -128,7 +144,9 @@ TEST(Image, SetResetPose) {
   frame.SetFrameId(1);
   frame.SetRigPtr(&rig);
   Image image;
+  image.SetImageId(1);
   image.SetCameraId(1);
+  frame.AddDataId(image.DataId());
   image.SetFrameId(1);
   image.SetFramePtr(&frame);
   EXPECT_FALSE(image.HasPose());
@@ -152,7 +170,9 @@ TEST(Image, ConstructCopy) {
   frame.SetRigFromWorld(Rigid3d());
   frame.SetRigPtr(&rig);
   Image image;
+  image.SetImageId(1);
   image.SetCameraId(1);
+  frame.AddDataId(image.DataId());
   image.SetFrameId(1);
   image.SetFramePtr(&frame);
   Image image_copy = Image(image);
@@ -172,7 +192,9 @@ TEST(Image, AssignCopy) {
   frame.SetRigFromWorld(Rigid3d());
   frame.SetRigPtr(&rig);
   Image image;
+  image.SetImageId(1);
   image.SetCameraId(1);
+  frame.AddDataId(image.DataId());
   image.SetFrameId(1);
   image.SetFramePtr(&frame);
   Image image_copy = image;
@@ -278,7 +300,9 @@ TEST(Image, ProjectionCenter) {
   frame.SetRigFromWorld(Rigid3d());
   frame.SetRigPtr(&rig);
   Image image;
+  image.SetImageId(1);
   image.SetCameraId(1);
+  frame.AddDataId(image.DataId());
   image.SetFrameId(1);
   image.SetFramePtr(&frame);
   EXPECT_EQ(image.ProjectionCenter(), Eigen::Vector3d::Zero());
@@ -293,7 +317,9 @@ TEST(Image, ViewingDirection) {
   frame.SetRigFromWorld(Rigid3d());
   frame.SetRigPtr(&rig);
   Image image;
+  image.SetImageId(1);
   image.SetCameraId(1);
+  frame.AddDataId(image.DataId());
   image.SetFrameId(1);
   image.SetFramePtr(&frame);
   EXPECT_EQ(image.ViewingDirection(), Eigen::Vector3d(0, 0, 1));
@@ -308,7 +334,9 @@ TEST(Image, ProjectPoint) {
   frame.SetRigFromWorld(Rigid3d());
   frame.SetRigPtr(&rig);
   Image image;
+  image.SetImageId(1);
   image.SetCameraId(1);
+  frame.AddDataId(image.DataId());
   image.SetFrameId(1);
   image.SetFramePtr(&frame);
   Camera camera =
