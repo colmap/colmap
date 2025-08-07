@@ -30,6 +30,7 @@
 #include "colmap/controllers/hierarchical_pipeline.h"
 
 #include "colmap/estimators/alignment.h"
+#include "colmap/scene/database.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
@@ -67,7 +68,7 @@ void ExpectEqualReconstructions(const Reconstruction& gt,
 TEST(HierarchicalPipeline, WithoutNoise) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
-  Database database(database_path);
+  auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
@@ -75,7 +76,8 @@ TEST(HierarchicalPipeline, WithoutNoise) {
   synthetic_dataset_options.num_frames_per_rig = 20;
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.point2D_stddev = 0;
-  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   HierarchicalPipeline::Options mapper_options;
@@ -96,7 +98,7 @@ TEST(HierarchicalPipeline, WithoutNoise) {
 TEST(HierarchicalPipeline, WithoutNoiseAndNonTrivialFrames) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
-  Database database(database_path);
+  auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
@@ -106,7 +108,8 @@ TEST(HierarchicalPipeline, WithoutNoiseAndNonTrivialFrames) {
   synthetic_dataset_options.point2D_stddev = 0;
   synthetic_dataset_options.sensor_from_rig_translation_stddev = 0.05;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 30;
-  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   HierarchicalPipeline::Options mapper_options;
@@ -131,7 +134,7 @@ TEST(HierarchicalPipeline, WithoutNoiseAndNonTrivialFrames) {
 TEST(HierarchicalPipeline, WithoutNoiseAndPanoramicNonTrivialFrames) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
-  Database database(database_path);
+  auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
@@ -141,7 +144,8 @@ TEST(HierarchicalPipeline, WithoutNoiseAndPanoramicNonTrivialFrames) {
   synthetic_dataset_options.point2D_stddev = 0;
   synthetic_dataset_options.sensor_from_rig_translation_stddev = 0;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 30;
-  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   HierarchicalPipeline::Options mapper_options;
@@ -166,7 +170,7 @@ TEST(HierarchicalPipeline, WithoutNoiseAndPanoramicNonTrivialFrames) {
 TEST(HierarchicalPipeline, MultiReconstruction) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
-  Database database(database_path);
+  auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction1;
   Reconstruction gt_reconstruction2;
   SyntheticDatasetOptions synthetic_dataset_options;
@@ -175,9 +179,11 @@ TEST(HierarchicalPipeline, MultiReconstruction) {
   synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.point2D_stddev = 0;
-  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction1, &database);
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction1, database.get());
   synthetic_dataset_options.num_frames_per_rig = 4;
-  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction2, &database);
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction2, database.get());
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   HierarchicalPipeline::Options mapper_options;

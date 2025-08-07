@@ -29,6 +29,7 @@
 
 #include "colmap/scene/rig.h"
 
+#include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
@@ -168,13 +169,13 @@ TEST(ReadRigConfig, Nominal) {
 }
 
 TEST(ApplyRigConfig, WithReconstruction) {
-  Database database(Database::kInMemoryDatabasePath);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction reconstruction;
   SyntheticDatasetOptions options;
   options.num_rigs = 1;
   options.num_cameras_per_rig = 2;
   options.num_frames_per_rig = 5;
-  SynthesizeDataset(options, &reconstruction, &database);
+  SynthesizeDataset(options, &reconstruction, database.get());
 
   std::vector<RigConfig> configs;
   auto& config = configs.emplace_back();
@@ -184,22 +185,22 @@ TEST(ApplyRigConfig, WithReconstruction) {
   auto& camera2 = config.cameras.emplace_back();
   camera2.image_prefix = "camera000002_";
 
-  ApplyRigConfig(configs, database, &reconstruction);
-  EXPECT_EQ(database.NumRigs(), 1);
-  EXPECT_EQ(database.NumFrames(), options.num_frames_per_rig);
+  ApplyRigConfig(configs, *database, &reconstruction);
+  EXPECT_EQ(database->NumRigs(), 1);
+  EXPECT_EQ(database->NumFrames(), options.num_frames_per_rig);
   EXPECT_EQ(reconstruction.NumRigs(), 1);
   EXPECT_EQ(reconstruction.NumFrames(), options.num_frames_per_rig);
   EXPECT_EQ(reconstruction.NumRegFrames(), options.num_frames_per_rig);
 }
 
 TEST(ApplyRigConfig, WithPartialReconstruction) {
-  Database database(Database::kInMemoryDatabasePath);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction reconstruction;
   SyntheticDatasetOptions options;
   options.num_rigs = 1;
   options.num_cameras_per_rig = 2;
   options.num_frames_per_rig = 5;
-  SynthesizeDataset(options, &reconstruction, &database);
+  SynthesizeDataset(options, &reconstruction, database.get());
 
   reconstruction.DeRegisterFrame(1);
   reconstruction.DeRegisterFrame(3);
@@ -212,22 +213,22 @@ TEST(ApplyRigConfig, WithPartialReconstruction) {
   auto& camera2 = config.cameras.emplace_back();
   camera2.image_prefix = "camera000002_";
 
-  ApplyRigConfig(configs, database, &reconstruction);
-  EXPECT_EQ(database.NumRigs(), 1);
-  EXPECT_EQ(database.NumFrames(), options.num_frames_per_rig);
+  ApplyRigConfig(configs, *database, &reconstruction);
+  EXPECT_EQ(database->NumRigs(), 1);
+  EXPECT_EQ(database->NumFrames(), options.num_frames_per_rig);
   EXPECT_EQ(reconstruction.NumRigs(), 1);
   EXPECT_EQ(reconstruction.NumFrames(), options.num_frames_per_rig);
   EXPECT_EQ(reconstruction.NumRegFrames(), options.num_frames_per_rig - 2);
 }
 
 TEST(ApplyRigConfig, WithoutReconstruction) {
-  Database database(Database::kInMemoryDatabasePath);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction reconstruction;
   SyntheticDatasetOptions options;
   options.num_rigs = 1;
   options.num_cameras_per_rig = 2;
   options.num_frames_per_rig = 5;
-  SynthesizeDataset(options, &reconstruction, &database);
+  SynthesizeDataset(options, &reconstruction, database.get());
 
   std::vector<RigConfig> configs;
   auto& config = configs.emplace_back();
@@ -241,33 +242,33 @@ TEST(ApplyRigConfig, WithoutReconstruction) {
   camera2.cam_from_rig =
       Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
 
-  ApplyRigConfig(configs, database);
-  EXPECT_EQ(database.NumRigs(), 1);
-  EXPECT_EQ(database.NumFrames(), options.num_frames_per_rig);
+  ApplyRigConfig(configs, *database);
+  EXPECT_EQ(database->NumRigs(), 1);
+  EXPECT_EQ(database->NumFrames(), options.num_frames_per_rig);
   EXPECT_EQ(reconstruction.NumRigs(), 1);
   EXPECT_EQ(reconstruction.NumFrames(), options.num_frames_per_rig);
   const auto [sensor_id2, sensor2_from_rig] =
-      *database.ReadAllRigs().at(0).Sensors().begin();
+      *database->ReadAllRigs().at(0).Sensors().begin();
   EXPECT_EQ(sensor2_from_rig.value().rotation.coeffs(),
             camera2.cam_from_rig.value().rotation.coeffs());
   EXPECT_EQ(sensor2_from_rig.value().translation,
             camera2.cam_from_rig.value().translation);
-  EXPECT_EQ(database.ReadCamera(sensor_id2.id), camera2.camera);
+  EXPECT_EQ(database->ReadCamera(sensor_id2.id), camera2.camera);
 }
 
 TEST(ApplyRigConfig, WithUnconfiguredSingleAndConfiguredMultiCameraRigs) {
-  Database database(Database::kInMemoryDatabasePath);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction reconstruction;
   SyntheticDatasetOptions options;
   options.num_rigs = 1;
   options.num_cameras_per_rig = 3;
   options.num_frames_per_rig = 5;
-  SynthesizeDataset(options, &reconstruction, &database);
+  SynthesizeDataset(options, &reconstruction, database.get());
 
   options.num_rigs = 1;
   options.num_cameras_per_rig = 1;
   options.num_frames_per_rig = 3;
-  SynthesizeDataset(options, &reconstruction, &database);
+  SynthesizeDataset(options, &reconstruction, database.get());
 
   std::vector<RigConfig> configs;
   auto& config = configs.emplace_back();
@@ -277,21 +278,21 @@ TEST(ApplyRigConfig, WithUnconfiguredSingleAndConfiguredMultiCameraRigs) {
   auto& camera2 = config.cameras.emplace_back();
   camera2.image_prefix = "camera000002_";
 
-  ApplyRigConfig(configs, database, &reconstruction);
-  EXPECT_EQ(database.NumRigs(), 3);
-  EXPECT_EQ(database.NumFrames(), 13);
+  ApplyRigConfig(configs, *database, &reconstruction);
+  EXPECT_EQ(database->NumRigs(), 3);
+  EXPECT_EQ(database->NumFrames(), 13);
   EXPECT_EQ(reconstruction.NumRigs(), 3);
   EXPECT_EQ(reconstruction.NumFrames(), 13);
   EXPECT_EQ(reconstruction.NumRegFrames(), 13);
 
   int num_non_trivial_rigs = 0;
-  for (const auto& rig : database.ReadAllRigs()) {
+  for (const auto& rig : database->ReadAllRigs()) {
     num_non_trivial_rigs += rig.NumSensors() > 1;
   }
   EXPECT_EQ(num_non_trivial_rigs, 1);
 
   int num_non_trivial_frames = 0;
-  for (const auto& rig : database.ReadAllFrames()) {
+  for (const auto& rig : database->ReadAllFrames()) {
     num_non_trivial_frames += rig.DataIds().size() > 1;
   }
   EXPECT_EQ(num_non_trivial_frames, 5);

@@ -29,6 +29,7 @@
 
 #include "colmap/controllers/incremental_pipeline.h"
 
+#include "colmap/scene/database.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
@@ -264,12 +265,13 @@ bool IncrementalPipeline::LoadDatabase() {
     }
   }
 
-  Database database(database_path_);
   Timer timer;
   timer.Start();
   const size_t min_num_matches = static_cast<size_t>(options_->min_num_matches);
-  database_cache_ = DatabaseCache::Create(
-      database, min_num_matches, options_->ignore_watermarks, image_names);
+  database_cache_ = DatabaseCache::Create(*Database::Open(database_path_),
+                                          min_num_matches,
+                                          options_->ignore_watermarks,
+                                          image_names);
   timer.PrintMinutes();
 
   if (database_cache_->NumImages() == 0) {

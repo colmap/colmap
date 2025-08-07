@@ -114,7 +114,7 @@ void ProjectWidget::Save() {
     *options_->image_path = GetImagePath();
 
     // Save empty database file.
-    Database database(*options_->database_path);
+    auto database = Database::Open(*options_->database_path);
 
     hide();
   } else {

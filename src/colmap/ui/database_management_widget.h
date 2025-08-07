@@ -32,11 +32,9 @@
 #include "colmap/controllers/option_manager.h"
 #include "colmap/scene/database.h"
 #include "colmap/ui/image_viewer_widget.h"
-#include "colmap/util/misc.h"
 
 #include <QtCore>
 #include <QtWidgets>
-#include <unordered_map>
 
 namespace colmap {
 
@@ -47,7 +45,7 @@ namespace colmap {
 class TwoViewInfoTab : public QWidget {
  public:
   TwoViewInfoTab() {}
-  TwoViewInfoTab(QWidget* parent, OptionManager* options, Database* database);
+  TwoViewInfoTab(QWidget* parent, OptionManager* options);
 
   void Clear();
 
@@ -57,8 +55,7 @@ class TwoViewInfoTab : public QWidget {
   void FillTable();
 
   OptionManager* options_;
-  Database* database_;
-
+  std::shared_ptr<Database> database_;
   const Image* image_;
   std::vector<std::pair<const Image*, FeatureMatches>> matches_;
   std::vector<int> configs_;
@@ -71,34 +68,34 @@ class TwoViewInfoTab : public QWidget {
 
 class MatchesTab : public TwoViewInfoTab {
  public:
-  MatchesTab(QWidget* parent, OptionManager* options, Database* database);
+  MatchesTab(QWidget* parent, OptionManager* options);
 
-  void Reload(const std::vector<Image>& images, image_t image_id);
+  void Reload(const std::shared_ptr<Database>& database,
+              const std::vector<Image>& images,
+              image_t image_id);
 };
 
 class TwoViewGeometriesTab : public TwoViewInfoTab {
  public:
-  TwoViewGeometriesTab(QWidget* parent,
-                       OptionManager* options,
-                       Database* database);
+  TwoViewGeometriesTab(QWidget* parent, OptionManager* options);
 
-  void Reload(const std::vector<Image>& images, image_t image_id);
+  void Reload(const std::shared_ptr<Database>& database,
+              const std::vector<Image>& images,
+              image_t image_id);
 };
 
 class OverlappingImagesWidget : public QWidget {
  public:
-  OverlappingImagesWidget(QWidget* parent,
-                          OptionManager* options,
-                          Database* database);
+  OverlappingImagesWidget(QWidget* parent, OptionManager* options);
 
-  void ShowMatches(const std::vector<Image>& images, image_t image_id);
+  void ShowMatches(const std::shared_ptr<Database>& database,
+                   const std::vector<Image>& images,
+                   image_t image_id);
 
  private:
   void closeEvent(QCloseEvent* event);
 
   QWidget* parent_;
-
-  OptionManager* options_;
 
   QTabWidget* tab_widget_;
   MatchesTab* matches_tab_;
@@ -111,9 +108,9 @@ class OverlappingImagesWidget : public QWidget {
 
 class CameraTab : public QWidget {
  public:
-  CameraTab(QWidget* parent, Database* database);
+  CameraTab(QWidget* parent);
 
-  void Reload();
+  void Reload(const std::shared_ptr<Database>& database);
   void Clear();
 
  private:
@@ -121,8 +118,7 @@ class CameraTab : public QWidget {
   void Add();
   void SetModel();
 
-  Database* database_;
-
+  std::shared_ptr<Database> database_;
   std::vector<Camera> cameras_;
 
   QTableWidget* table_widget_;
@@ -131,12 +127,9 @@ class CameraTab : public QWidget {
 
 class ImageTab : public QWidget {
  public:
-  ImageTab(QWidget* parent,
-           CameraTab* camera_tab,
-           OptionManager* options,
-           Database* database);
+  ImageTab(QWidget* parent, CameraTab* camera_tab, OptionManager* options);
 
-  void Reload();
+  void Reload(const std::shared_ptr<Database>& database);
   void Clear();
 
  private:
@@ -150,8 +143,8 @@ class ImageTab : public QWidget {
   CameraTab* camera_tab_;
 
   OptionManager* options_;
-  Database* database_;
 
+  std::shared_ptr<Database> database_;
   std::vector<Image> images_;
 
   QTableWidget* table_widget_;
@@ -164,15 +157,15 @@ class ImageTab : public QWidget {
 
 class PosePriorsTab : public QWidget {
  public:
-  PosePriorsTab(QWidget* parent, Database* database);
+  PosePriorsTab(QWidget* parent);
 
-  void Reload();
+  void Reload(const std::shared_ptr<Database>& database);
   void Clear();
 
  private:
   void itemChanged(QTableWidgetItem* item);
 
-  Database* database_;
+  std::shared_ptr<Database> database_;
 
   QTableWidget* table_widget_;
   QLabel* info_label_;
@@ -192,7 +185,7 @@ class DatabaseManagementWidget : public QWidget {
   QWidget* parent_;
 
   OptionManager* options_;
-  Database database_;
+  std::shared_ptr<Database> database_;
 
   QTabWidget* tab_widget_;
   ImageTab* image_tab_;

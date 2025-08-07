@@ -36,6 +36,7 @@ COLMAP_ADD_LIBRARY(
         camera.h camera.cc
         correspondence_graph.h correspondence_graph.cc
         database.h database.cc
+        database_sqlite.h database_sqlite.cc
         database_cache.h database_cache.cc
         frame.h frame.cc
         image.h image.cc
