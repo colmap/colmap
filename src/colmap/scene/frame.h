@@ -52,8 +52,8 @@ class Frame {
   // Access the frame's associated data.
   inline std::set<data_t>& DataIds();
   inline const std::set<data_t>& DataIds() const;
-  inline void AddDataId(data_t data_id);
-  inline size_t NumData() const;
+  inline void AddDataId(const data_t& data_id);
+  inline size_t NumDataIds() const;
 
   // Check whether the data is associated with the frame.
   inline bool HasDataId(data_t data_id) const;
@@ -129,14 +129,14 @@ std::set<data_t>& Frame::DataIds() { return data_ids_; }
 
 const std::set<data_t>& Frame::DataIds() const { return data_ids_; }
 
-void Frame::AddDataId(data_t data_id) {
+void Frame::AddDataId(const data_t& data_id) {
   if (HasRigPtr()) {
     THROW_CHECK(RigPtr()->HasSensor(data_id.sensor_id));
   }
   data_ids_.insert(data_id);
 }
 
-size_t Frame::NumData() const { return data_ids_.size(); }
+size_t Frame::NumDataIds() const { return data_ids_.size(); }
 
 bool Frame::HasDataId(data_t data_id) const {
   return data_ids_.find(data_id) != data_ids_.end();
@@ -156,11 +156,11 @@ void Frame::SetRigPtr(class Rig* rig) {
   for (const auto& data_id : data_ids_) {
     THROW_CHECK(rig->HasSensor(data_id.sensor_id));
   }
-  if (!HasRigPtr()) {
-    THROW_CHECK_EQ(rig->RigId(), rig_id_);
+  if (HasRigPtr()) {
+    rig_id_ = rig->RigId();
     rig_ptr_ = rig;
   } else {
-    rig_id_ = rig->RigId();
+    THROW_CHECK_EQ(rig->RigId(), rig_id_);
     rig_ptr_ = rig;
   }
 }
