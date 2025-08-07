@@ -196,7 +196,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   if (image.FramePtr()->RigPtr()->NumSensors() > 1) {
     bool all_cameras_have_good_focal_length = true;
     for (const data_t& data_id : image.FramePtr()->ImageIds()) {
-      if (!reconstruction->ExistsImage(data_id.id)) {
+      if (!reconstruction_->ExistsImage(data_id.id)) {
         continue;
       }
       const Image& frame_image = reconstruction_->Image(data_id.id);
@@ -800,7 +800,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   for (const frame_t frame_id : reconstruction_->RegFrameIds()) {
     const Frame& frame = reconstruction_->Frame(frame_id);
     for (const data_t& data_id : frame.ImageIds()) {
-      if (!reconstruction_.ExistsImage(data_id.id)) {
+      if (!reconstruction_->ExistsImage(data_id.id)) {
         continue;
       }
       ba_config.AddImage(data_id.id);
