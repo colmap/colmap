@@ -29,7 +29,9 @@ void BindFrame(py::module& m) {
                     &Frame::SetRigId,
                     "Unique identifier of the rig.")
       .def("add_data_id", &Frame::AddDataId, "Associate data with frame.")
-      .def("num_data_ids", &Frame::NumData, "Number of associated data items in frame.")
+      .def("num_data_ids",
+           &Frame::NumDataIds,
+           "Number of associated data items in frame.")
       .def("has_data",
            &Frame::HasDataId,
            "Check whether frame has associated data.")
