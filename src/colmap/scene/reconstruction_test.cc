@@ -41,6 +41,7 @@
 #include <iostream>
 #include <sstream>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -311,6 +312,40 @@ TEST(Reconstruction, AddImage) {
   EXPECT_EQ(reconstruction.NumRegFrames(), 1);
   EXPECT_EQ(reconstruction.NumRegImages(), 1);
   ExpectValidPtrs(reconstruction);
+}
+
+TEST(Reconstruction, RegImageIds) {
+  Reconstruction reconstruction;
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
+  reconstruction.AddCamera(camera);
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(camera.SensorId());
+  reconstruction.AddRig(rig);
+  Frame frame;
+  frame.SetFrameId(1);
+  frame.SetRigId(rig.RigId());
+  frame.AddDataId(data_t(camera.SensorId(), 1));
+  frame.AddDataId(data_t(camera.SensorId(), 2));
+  Image image;
+  image.SetCameraId(camera.camera_id);
+  image.SetImageId(1);
+  image.SetFrameId(frame.FrameId());
+  reconstruction.AddFrame(frame);
+  reconstruction.Frame(1).SetRigFromWorld(Rigid3d());
+  reconstruction.RegisterFrame(1);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 1);
+  EXPECT_EQ(reconstruction.NumRegImages(), 0);
+  reconstruction.AddImage(image);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 1);
+  EXPECT_EQ(reconstruction.NumRegImages(), 1);
+  image.SetImageId(2);
+  reconstruction.AddImage(image);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 1);
+  EXPECT_EQ(reconstruction.NumRegImages(), 2);
+  std::vector<image_t> reg_image_ids = reconstruction.RegImageIds();
+  EXPECT_THAT(reg_image_ids, testing::ElementsAre(1, 2));
 }
 
 TEST(Reconstruction, AddPoint3D) {

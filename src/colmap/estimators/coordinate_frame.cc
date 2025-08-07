@@ -38,6 +38,8 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
+#include <ranges>
+
 namespace colmap {
 namespace {
 
@@ -332,12 +334,11 @@ void AlignToPrincipalPlane(Reconstruction* reconstruction,
   const Frame& frame0 =
       reconstruction->Frame(reconstruction->RegFrameIds().front());
   const auto frame0_image_ids = frame0.ImageIds();
-  frame0_image_ids.erase(
-      std::remove_if(
-          frame0_image_ids.begin(),
-          frame0_image_ids.end(),
-          [&](int image_id) { return !reconstruction->ExistsImage(image_id); }),
-      frame0_image_ids.end());
+  // TODO: need C++ 20
+  // frame0_image_ids =
+  //     frame0_image_ids | std::views::filter([&](const data_t& data_id) {
+  //       return reconstruction->ExistsImage(data_id.id);
+  //     });
 
   THROW_CHECK(frame0_image_ids.begin() != frame0_image_ids.end());
   const Rigid3d cam0_from_aligned_world = TransformCameraWorld(
