@@ -552,6 +552,7 @@ void OptionManager::AddMapperOptions() {
                               &mapper->init_num_trials);
   AddAndRegisterDefaultOption("Mapper.extract_colors", &mapper->extract_colors);
   AddAndRegisterDefaultOption("Mapper.num_threads", &mapper->num_threads);
+  AddAndRegisterDefaultOption("Mapper.random_seed", &mapper->random_seed);
   AddAndRegisterDefaultOption("Mapper.min_focal_length_ratio",
                               &mapper->min_focal_length_ratio);
   AddAndRegisterDefaultOption("Mapper.max_focal_length_ratio",

@@ -68,6 +68,40 @@ void ExpectEqualReconstructions(const Reconstruction& gt,
   }
 }
 
+void ExpectDifferentReconstructions(const Reconstruction& gt,
+                                    const Reconstruction& computed,
+                                    const double min_rotation_error_deg,
+                                    const double min_proj_center_error,
+                                    const bool align = true) {
+  EXPECT_EQ(computed.NumCameras(), gt.NumCameras());
+  EXPECT_EQ(computed.NumImages(), gt.NumImages());
+  EXPECT_EQ(computed.NumRegImages(), gt.NumRegImages());
+
+  Sim3d gt_from_computed;
+  if (align) {
+    ASSERT_TRUE(
+        AlignReconstructionsViaProjCenters(computed,
+                                           gt,
+                                           /*max_proj_center_error=*/0.1,
+                                           &gt_from_computed));
+  }
+
+  const std::vector<ImageAlignmentError> errors =
+      ComputeImageAlignmentError(computed, gt, gt_from_computed);
+  EXPECT_EQ(errors.size(), gt.NumImages());
+
+  bool has_difference = false;
+  for (const auto& error : errors) {
+    if (error.rotation_error_deg > min_rotation_error_deg ||
+        error.proj_center_error > min_proj_center_error) {
+      has_difference = true;
+      break;
+    }
+  }
+
+  EXPECT_TRUE(has_difference);
+}
+
 TEST(IncrementalPipeline, WithoutNoise) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
@@ -503,6 +537,136 @@ TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
                              /*max_proj_center_error=*/1e-1,
                              /*num_obs_tolerance=*/0.02,
                              /*align=*/true);
+}
+
+TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
+  const std::string database_path = CreateTestDir() + "/database.db";
+
+  Database database(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.point2D_stddev = 2.5;
+  synthetic_dataset_options.use_prior_position = false;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
+
+  std::shared_ptr<IncrementalPipelineOptions> mapper_options =
+      std::make_shared<IncrementalPipelineOptions>();
+
+  mapper_options->use_prior_position = false;
+  mapper_options->random_seed = 42;
+
+  auto reconstruction_manager0 = std::make_shared<ReconstructionManager>();
+  IncrementalPipeline mapper(mapper_options,
+                             /*image_path=*/"",
+                             database_path,
+                             reconstruction_manager0);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager0->Size(), 1);
+
+  // Same seed should produce similar results, up to floating-point variations
+  // in optimization.
+  mapper_options->random_seed = 42;
+  auto reconstruction_manager1 = std::make_shared<ReconstructionManager>();
+  IncrementalPipeline mapper1(mapper_options,
+                              /*image_path=*/"",
+                              database_path,
+                              reconstruction_manager1);
+  mapper1.Run();
+
+  ASSERT_EQ(reconstruction_manager1->Size(), 1);
+  ExpectEqualReconstructions(*reconstruction_manager0->Get(0),
+                             *reconstruction_manager1->Get(0),
+                             /*max_rotation_error_deg=*/1e-14,
+                             /*max_proj_center_error=*/1e-14,
+                             /*num_obs_tolerance=*/0.01,
+                             /*align=*/false);
+
+  // Different seed may result in different reconstructions.
+  mapper_options->random_seed = 123;
+  auto reconstruction_manager2 = std::make_shared<ReconstructionManager>();
+  IncrementalPipeline mapper2(mapper_options,
+                              /*image_path=*/"",
+                              database_path,
+                              reconstruction_manager2);
+  mapper2.Run();
+
+  ASSERT_EQ(reconstruction_manager2->Size(), 1);
+  ExpectDifferentReconstructions(*reconstruction_manager0->Get(0),
+                                 *reconstruction_manager2->Get(0),
+                                 /*min_rotation_error_deg=*/1e-1,
+                                 /*min_proj_center_error=*/1e-1,
+                                 /*align=*/false);
+}
+
+TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
+  const std::string database_path = CreateTestDir() + "/database.db";
+
+  Database database(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.point2D_stddev = 2.5;
+  synthetic_dataset_options.use_prior_position = true;
+  synthetic_dataset_options.prior_position_stddev = 2.0;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
+
+  std::shared_ptr<IncrementalPipelineOptions> mapper_options =
+      std::make_shared<IncrementalPipelineOptions>();
+
+  mapper_options->use_prior_position = true;
+  mapper_options->use_robust_loss_on_prior_position = true;
+  mapper_options->random_seed = 42;
+
+  auto reconstruction_manager0 = std::make_shared<ReconstructionManager>();
+  IncrementalPipeline mapper(mapper_options,
+                             /*image_path=*/"",
+                             database_path,
+                             reconstruction_manager0);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager0->Size(), 1);
+
+  // Same seed should produce similar results, up to floating-point variations
+  // in optimization.
+  mapper_options->random_seed = 42;
+  auto reconstruction_manager1 = std::make_shared<ReconstructionManager>();
+  IncrementalPipeline mapper1(mapper_options,
+                              /*image_path=*/"",
+                              database_path,
+                              reconstruction_manager1);
+  mapper1.Run();
+
+  ASSERT_EQ(reconstruction_manager1->Size(), 1);
+  ExpectEqualReconstructions(*reconstruction_manager0->Get(0),
+                             *reconstruction_manager1->Get(0),
+                             /*max_rotation_error_deg=*/1e-14,
+                             /*max_proj_center_error=*/1e-14,
+                             /*num_obs_tolerance=*/0.01,
+                             /*align=*/false);
+
+  // Different seed may result in different reconstructions.
+  mapper_options->random_seed = 123;
+  auto reconstruction_manager2 = std::make_shared<ReconstructionManager>();
+  IncrementalPipeline mapper2(mapper_options,
+                              /*image_path=*/"",
+                              database_path,
+                              reconstruction_manager2);
+  mapper2.Run();
+
+  ASSERT_EQ(reconstruction_manager2->Size(), 1);
+  ExpectDifferentReconstructions(*reconstruction_manager0->Get(0),
+                                 *reconstruction_manager2->Get(0),
+                                 /*min_rotation_error_deg=*/1e-1,
+                                 /*min_proj_center_error=*/1e-1,
+                                 /*align=*/false);
 }
 
 }  // namespace

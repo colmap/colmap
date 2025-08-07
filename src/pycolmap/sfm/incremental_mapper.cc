@@ -62,6 +62,10 @@ void BindIncrementalPipeline(py::module& m) {
       .def_readwrite("num_threads",
                      &Opts::num_threads,
                      "The number of threads to use during reconstruction.")
+      .def_readwrite(
+          "random_seed",
+          &Opts::random_seed,
+          "PRNG seed for all stochastic methods during reconstruction.")
       .def_readwrite("min_focal_length_ratio",
                      &Opts::min_focal_length_ratio,
                      "The threshold used to filter and ignore images with "
