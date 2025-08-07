@@ -38,8 +38,6 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
-#include <ranges>
-
 namespace colmap {
 namespace {
 
