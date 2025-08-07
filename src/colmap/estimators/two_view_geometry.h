@@ -87,9 +87,17 @@ struct TwoViewGeometryOptions {
   // Maximum displacement for points to be considered stationary matches.
   double stationary_matches_max_error = 4.0;
 
-  // In case the user asks for it, only going to estimate a Homography
-  // between both cameras.
-  bool force_H_use = false;
+  enum class HomographyUsage : int {
+    // Estimate H along with E/F, select the best model based on inlier ratios.
+    AUTO = 0,
+    // Only estimate and use H.
+    FORCE = 1,
+    // Do not estimate or use H.
+    DISABLE = 2
+  };
+
+  // Specifies how to handle homographies during two view geometry estimation.
+  HomographyUsage homography_usage = HomographyUsage::AUTO;
 
   // Whether to compute the relative pose between the two views.
   bool compute_relative_pose = false;

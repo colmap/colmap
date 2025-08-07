@@ -612,7 +612,8 @@ TEST(EstimateTwoViewGeometry, PlanarOrPanoramicDeterministic) {
       CreateTwoViewGeometryTestData(synthetic_dataset_options);
 
   TwoViewGeometryOptions two_view_geometry_options;
-  two_view_geometry_options.force_H_use = true;
+  two_view_geometry_options.homography_usage =
+      TwoViewGeometryOptions::HomographyUsage::FORCE;
   two_view_geometry_options.ransac_options.random_seed = 42;
   const TwoViewGeometry geometry1 =
       EstimateTwoViewGeometry(test_data.camera1,
@@ -653,5 +654,69 @@ TEST(EstimateTwoViewGeometry, PlanarOrPanoramicDeterministic) {
   EXPECT_NE(geometry1.H, geometry3.H);
 }
 
+TEST(EstimateTwoViewGeometry, HomographyUsage) {
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 500;
+  synthetic_dataset_options.point2D_stddev = 5;
+  synthetic_dataset_options.inlier_match_ratio = 0.6;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+
+  TwoViewGeometryTestData test_data =
+      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+
+  {
+    TwoViewGeometryOptions options;
+    options.homography_usage = TwoViewGeometryOptions::HomographyUsage::AUTO;
+    options.ransac_options.random_seed = 42;
+
+    TwoViewGeometry geometry = EstimateTwoViewGeometry(test_data.camera1,
+                                                       test_data.points1,
+                                                       test_data.camera2,
+                                                       test_data.points2,
+                                                       test_data.matches,
+                                                       options);
+
+    EXPECT_NE(geometry.E, Eigen::Matrix3d::Zero());
+    EXPECT_NE(geometry.F, Eigen::Matrix3d::Zero());
+    EXPECT_NE(geometry.H, Eigen::Matrix3d::Zero());
+  }
+
+  {
+    TwoViewGeometryOptions options;
+    options.homography_usage = TwoViewGeometryOptions::HomographyUsage::DISABLE;
+    options.ransac_options.random_seed = 42;
+
+    TwoViewGeometry geometry = EstimateTwoViewGeometry(test_data.camera1,
+                                                       test_data.points1,
+                                                       test_data.camera2,
+                                                       test_data.points2,
+                                                       test_data.matches,
+                                                       options);
+
+    EXPECT_NE(geometry.E, Eigen::Matrix3d::Zero());
+    EXPECT_NE(geometry.F, Eigen::Matrix3d::Zero());
+    EXPECT_EQ(geometry.H, Eigen::Matrix3d::Zero());
+  }
+
+  {
+    TwoViewGeometryOptions options;
+    options.homography_usage = TwoViewGeometryOptions::HomographyUsage::FORCE;
+    options.ransac_options.random_seed = 42;
+
+    TwoViewGeometry geometry = EstimateTwoViewGeometry(test_data.camera1,
+                                                       test_data.points1,
+                                                       test_data.camera2,
+                                                       test_data.points2,
+                                                       test_data.matches,
+                                                       options);
+
+    EXPECT_EQ(geometry.E, Eigen::Matrix3d::Zero());
+    EXPECT_EQ(geometry.F, Eigen::Matrix3d::Zero());
+    EXPECT_NE(geometry.H, Eigen::Matrix3d::Zero());
+  }
+}
 }  // namespace
 }  // namespace colmap
