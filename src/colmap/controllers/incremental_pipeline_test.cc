@@ -560,11 +560,11 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
   mapper_options->random_seed = 42;
 
   auto reconstruction_manager0 = std::make_shared<ReconstructionManager>();
-  IncrementalPipeline mapper(mapper_options,
-                             /*image_path=*/"",
-                             database_path,
-                             reconstruction_manager0);
-  mapper.Run();
+  IncrementalPipeline mapper0(mapper_options,
+                              /*image_path=*/"",
+                              database_path,
+                              reconstruction_manager0);
+  mapper0.Run();
 
   ASSERT_EQ(reconstruction_manager0->Size(), 1);
 
@@ -626,11 +626,11 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
   mapper_options->random_seed = 42;
 
   auto reconstruction_manager0 = std::make_shared<ReconstructionManager>();
-  IncrementalPipeline mapper(mapper_options,
-                             /*image_path=*/"",
-                             database_path,
-                             reconstruction_manager0);
-  mapper.Run();
+  IncrementalPipeline mapper0(mapper_options,
+                              /*image_path=*/"",
+                              database_path,
+                              reconstruction_manager0);
+  mapper0.Run();
 
   ASSERT_EQ(reconstruction_manager0->Size(), 1);
 
