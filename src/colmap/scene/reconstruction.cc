@@ -229,6 +229,9 @@ void Reconstruction::AddCamera(struct Camera camera) {
 
 void Reconstruction::AddFrame(class Frame frame) {
   THROW_CHECK(frame.HasRigId());
+  THROW_CHECK_GT(frame.NumDataIds(), 0)
+      << "A frame with no associated data is "
+         "never useful in the reconstruction.";
   auto& rig = Rig(frame.RigId());
   if (frame.HasRigPtr()) {
     THROW_CHECK_EQ(frame.RigPtr(), &rig);

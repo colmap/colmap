@@ -231,6 +231,8 @@ TEST(Reconstruction, AddFrame) {
   frame.SetRigId(rig.RigId());
   EXPECT_ANY_THROW(reconstruction.AddFrame(frame));
   reconstruction.AddRig(rig);
+  EXPECT_ANY_THROW(reconstruction.AddFrame(frame));
+  frame.AddDataId(data_t(camera.SensorId(), 1));
   reconstruction.AddFrame(frame);
   EXPECT_TRUE(reconstruction.ExistsFrame(1));
   EXPECT_EQ(reconstruction.Frame(1).FrameId(), 1);
@@ -241,13 +243,34 @@ TEST(Reconstruction, AddFrame) {
   EXPECT_EQ(reconstruction.NumFrames(), 1);
   EXPECT_EQ(reconstruction.NumRegFrames(), 0);
   EXPECT_EQ(reconstruction.NumImages(), 0);
-  EXPECT_EQ(reconstruction.NumRegImages(), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
   reconstruction.Frame(1).SetRigFromWorld(Rigid3d());
   reconstruction.RegisterFrame(1);
   EXPECT_EQ(reconstruction.NumRegFrames(), 1);
-  EXPECT_EQ(reconstruction.NumRegImages(), 0);
   ExpectValidPtrs(reconstruction);
+}
+
+TEST(Reconstruction, AddImageWrongFrameCorrespondence) {
+  Reconstruction reconstruction;
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(camera.SensorId());
+  reconstruction.AddRig(rig);
+  Frame frame;
+  frame.SetFrameId(1);
+  frame.SetRigId(rig.RigId());
+  Image image;
+  image.SetCameraId(camera.camera_id);
+  image.SetImageId(1);
+  image.SetFrameId(frame.FrameId());
+  frame.AddDataId(image.DataId());
+  reconstruction.AddCamera(camera);
+  reconstruction.AddFrame(frame);
+  reconstruction.AddImage(image);
+  image.SetImageId(2);
+  EXPECT_ANY_THROW(reconstruction.AddImage(image));
 }
 
 TEST(Reconstruction, AddImage) {
