@@ -116,6 +116,8 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("gpu_index", &reconstruction_options.gpu_index);
   options.Parse(argc, argv);
 
+  reconstruction_options.random_seed = kDefaultPRNGSeed;
+
   if (!image_list_path.empty()) {
     reconstruction_options.image_names = ReadTextFileLines(image_list_path);
   }
