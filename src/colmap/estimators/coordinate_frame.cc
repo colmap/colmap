@@ -332,6 +332,13 @@ void AlignToPrincipalPlane(Reconstruction* reconstruction,
   const Frame& frame0 =
       reconstruction->Frame(reconstruction->RegFrameIds().front());
   const auto frame0_image_ids = frame0.ImageIds();
+  frame0_image_ids.erase(
+      std::remove_if(
+          frame0_image_ids.begin(),
+          frame0_image_ids.end(),
+          [&](int image_id) { return !reconstruction->ExistsImage(image_id); }),
+      frame0_image_ids.end());
+
   THROW_CHECK(frame0_image_ids.begin() != frame0_image_ids.end());
   const Rigid3d cam0_from_aligned_world = TransformCameraWorld(
       *aligned_from_original,
