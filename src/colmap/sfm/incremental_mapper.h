@@ -131,6 +131,9 @@ class IncrementalMapper {
     // Number of threads.
     int num_threads = -1;
 
+    // PRNG seed for all stochastic methods during reconstruction.
+    int random_seed = -1;
+
     // Method to find and select next best image to register.
     enum class ImageSelectionMethod {
       MAX_VISIBLE_POINTS_NUM,

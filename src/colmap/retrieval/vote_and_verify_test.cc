@@ -33,7 +33,6 @@
 
 #include "colmap/math/random.h"
 #include "colmap/retrieval/geometry.h"
-#include "colmap/retrieval/visual_index.h"
 
 #include <cmath>
 
