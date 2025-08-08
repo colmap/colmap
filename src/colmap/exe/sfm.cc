@@ -112,6 +112,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("dense", &reconstruction_options.dense);
   options.AddDefaultOption("mesher", &mesher, "{poisson, delaunay}");
   options.AddDefaultOption("num_threads", &reconstruction_options.num_threads);
+  options.AddDefaultOption("random_seed", &reconstruction_options.random_seed);
   options.AddDefaultOption("use_gpu", &reconstruction_options.use_gpu);
   options.AddDefaultOption("gpu_index", &reconstruction_options.gpu_index);
   options.Parse(argc, argv);
