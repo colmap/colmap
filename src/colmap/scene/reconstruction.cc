@@ -92,9 +92,11 @@ size_t Reconstruction::NumRegImages() const {
     const class Frame& frame = Frame(frame_id);
     if (frame.HasPose()) {
       for ([[maybe_unused]] const data_t& data_id : frame.ImageIds()) {
-        if (!ExistsImage(data_id.id)) {
-          continue;
-        }
+        THROW_CHECK(ExistsImage(data_id.id))
+            << "The reconstruction object is broken as image " << data_id.id
+            << " in frame " << frame.FrameId()
+            << " does not exist in the reconstruction. The most likely cause "
+               "is missing AddImage(*) calls after adding frames.";
         ++num_reg_images;
       }
     }
@@ -107,9 +109,11 @@ std::vector<image_t> Reconstruction::RegImageIds() const {
   for (const frame_t frame_id : reg_frame_ids_) {
     const auto& frame = Frame(frame_id);
     for (const data_t& data_id : frame.ImageIds()) {
-      if (!ExistsImage(data_id.id)) {
-        continue;
-      }
+      THROW_CHECK(ExistsImage(data_id.id))
+          << "The reconstruction object is broken as image " << data_id.id
+          << " in frame " << frame.FrameId()
+          << " does not exist in the reconstruction. The most likely cause "
+             "is missing AddImage(*) calls after adding frames.";
       reg_image_ids.push_back(data_id.id);
     }
   }
@@ -408,9 +412,6 @@ void Reconstruction::DeRegisterFrame(const frame_t frame_id) {
   class Frame& frame = Frame(frame_id);
   for (const data_t& data_id : frame.ImageIds()) {
     const image_t image_id = data_id.id;
-    if (!ExistsImage(image_id)) {
-      continue;
-    }
     class Image& image = Image(image_id);
     const auto num_points2D = image.NumPoints2D();
     for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
@@ -494,9 +495,6 @@ Reconstruction::ComputeBBBoxAndCentroid(const double min_percentile,
     for (const frame_t frame_id : reg_frame_ids_) {
       const class Frame& frame = Frame(frame_id);
       for (const data_t& data_id : frame.ImageIds()) {
-        if (!ExistsImage(data_id.id)) {
-          continue;
-        }
         const Eigen::Vector3d proj_center =
             Image(data_id.id).ProjectionCenter();
         coords_x.push_back(proj_center(0));
@@ -593,9 +591,6 @@ std::vector<std::pair<image_t, image_t>> Reconstruction::FindCommonRegImageIds(
   for (const frame_t frame_id : reg_frame_ids_) {
     const auto& frame = Frame(frame_id);
     for (const data_t& data_id : frame.ImageIds()) {
-      if (!ExistsImage(data_id.id)) {
-        continue;
-      }
       const auto& image = Image(data_id.id);
       const auto* other_image = other.FindImageWithName(image.Name());
       if (other_image != nullptr && other_image->FramePtr()->HasPose()) {

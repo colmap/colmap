@@ -409,9 +409,6 @@ void ModelViewerWidget::ReloadReconstruction() {
     frame = reconstruction->Frame(frame_id);
     frame.SetRigPtr(&rigs[frame.RigId()]);
     for (const data_t& data_id : frame.ImageIds()) {
-      if (!reconstruction->ExistsImage(data_id.id)) {
-        continue;
-      }
       Image& image = images[data_id.id];
       image = reconstruction->Image(data_id.id);
       image.SetCameraPtr(&cameras[image.CameraId()]);

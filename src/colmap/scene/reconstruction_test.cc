@@ -336,10 +336,12 @@ TEST(Reconstruction, RegImageIds) {
   reconstruction.Frame(1).SetRigFromWorld(Rigid3d());
   reconstruction.RegisterFrame(1);
   EXPECT_EQ(reconstruction.NumRegFrames(), 1);
-  EXPECT_EQ(reconstruction.NumRegImages(), 0);
+  EXPECT_ANY_THROW(reconstruction.NumRegImages());
+  EXPECT_ANY_THROW(reconstruction.RegImageIds());
   reconstruction.AddImage(image);
   EXPECT_EQ(reconstruction.NumRegFrames(), 1);
-  EXPECT_EQ(reconstruction.NumRegImages(), 1);
+  EXPECT_ANY_THROW(reconstruction.NumRegImages());
+  EXPECT_ANY_THROW(reconstruction.RegImageIds());
   image.SetImageId(2);
   reconstruction.AddImage(image);
   EXPECT_EQ(reconstruction.NumRegFrames(), 1);
