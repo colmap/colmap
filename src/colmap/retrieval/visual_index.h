@@ -33,8 +33,6 @@
 #include "colmap/retrieval/utils.h"
 #include "colmap/util/eigen_alignment.h"
 
-#include <memory>
-
 #include <Eigen/Core>
 
 namespace colmap {
