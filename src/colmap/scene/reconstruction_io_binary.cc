@@ -36,6 +36,7 @@
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/scene/reconstruction_io_utils.h"
 #include "colmap/scene/track.h"
+#include "colmap/util/endian.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/types.h"
