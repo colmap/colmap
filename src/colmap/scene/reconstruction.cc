@@ -29,13 +29,12 @@
 
 #include "colmap/scene/reconstruction.h"
 
-#include "colmap/geometry/gps.h"
 #include "colmap/geometry/normalization.h"
 #include "colmap/geometry/pose.h"
-#include "colmap/geometry/triangulation.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/projection.h"
-#include "colmap/scene/reconstruction_io.h"
+#include "colmap/scene/reconstruction_io_binary.h"
+#include "colmap/scene/reconstruction_io_text.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/file.h"
 #include "colmap/util/ply.h"
