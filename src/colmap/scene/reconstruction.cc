@@ -92,7 +92,12 @@ size_t Reconstruction::NumRegImages() const {
   for (const frame_t frame_id : reg_frame_ids_) {
     const class Frame& frame = Frame(frame_id);
     if (frame.HasPose()) {
-      for ([[maybe_unused]] const data_t& data_id : frame.ImageIds()) {
+      for (const data_t& data_id : frame.ImageIds()) {
+        THROW_CHECK(ExistsImage(data_id.id))
+            << "The reconstruction object is broken as image " << data_id.id
+            << " in frame " << frame.FrameId()
+            << " does not exist in the reconstruction. The most likely cause "
+               "is missing AddImage(*) calls after adding frames.";
         ++num_reg_images;
       }
     }
@@ -105,6 +110,11 @@ std::vector<image_t> Reconstruction::RegImageIds() const {
   for (const frame_t frame_id : reg_frame_ids_) {
     const auto& frame = Frame(frame_id);
     for (const data_t& data_id : frame.ImageIds()) {
+      THROW_CHECK(ExistsImage(data_id.id))
+          << "The reconstruction object is broken as image " << data_id.id
+          << " in frame " << frame.FrameId()
+          << " does not exist in the reconstruction. The most likely cause "
+             "is missing AddImage(*) calls after adding frames.";
       reg_image_ids.push_back(data_id.id);
     }
   }
