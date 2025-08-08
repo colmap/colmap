@@ -29,7 +29,6 @@
 
 #include "colmap/scene/correspondence_graph.h"
 
-#include "colmap/geometry/pose.h"
 #include "colmap/util/string.h"
 
 #include <map>
