@@ -83,6 +83,9 @@ class IncrementalTriangulator {
     double max_focal_length_ratio = 10.0;
     double max_extra_param = 1.0;
 
+    // PRNG seed for all stochastic methods during triangulation.
+    int random_seed = -1;
+
     bool Check() const;
   };
 

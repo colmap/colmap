@@ -177,8 +177,8 @@ struct data_t {
 constexpr data_t kInvalidDataId =
     data_t(kInvalidSensorId, std::numeric_limits<uint32_t>::max());
 
-// Simple implementation of C++20's std::span, as Ubuntu 20.04's default GCC
-// version does not come with full C++20 and we still want to support it.
+// Simple implementation of C++20's std::span. Used for compatibility with CUDA
+// toolchains that lack full C++20 standard library support.
 template <typename T>
 class span {
   T* ptr_;

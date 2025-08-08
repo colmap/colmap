@@ -30,9 +30,9 @@
 #pragma once
 
 #include "colmap/scene/correspondence_graph.h"
-#include "colmap/scene/image.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/track.h"
+#include "colmap/scene/visibility_pyramid.h"
 #include "colmap/util/types.h"
 
 namespace colmap {
