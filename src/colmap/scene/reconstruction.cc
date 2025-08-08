@@ -91,7 +91,7 @@ size_t Reconstruction::NumRegImages() const {
   for (const frame_t frame_id : reg_frame_ids_) {
     const class Frame& frame = Frame(frame_id);
     if (frame.HasPose()) {
-      for ([[maybe_unused]] const data_t& data_id : frame.ImageIds()) {
+      for (const data_t& data_id : frame.ImageIds()) {
         THROW_CHECK(ExistsImage(data_id.id))
             << "The reconstruction object is broken as image " << data_id.id
             << " in frame " << frame.FrameId()
