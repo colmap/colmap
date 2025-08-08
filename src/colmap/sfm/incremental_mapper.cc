@@ -80,9 +80,11 @@ void IncrementalMapper::BeginReconstruction(
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
   obs_manager_ = std::make_shared<class ObservationManager>(
-      *reconstruction_, database_cache_->CorrespondenceGraph());
+      *reconstruction_, database_cache_->CorrespondenceGraphPtr());
   triangulator_ = std::make_shared<IncrementalTriangulator>(
-      database_cache_->CorrespondenceGraph(), *reconstruction_, obs_manager_);
+      database_cache_->CorrespondenceGraphPtr(),
+      *reconstruction_,
+      obs_manager_);
 
   reg_stats_.num_shared_reg_images = 0;
   reg_stats_.num_reg_images_per_camera.clear();
@@ -234,7 +236,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   std::vector<Eigen::Vector2d> tri_points2D;
   std::vector<Eigen::Vector3d> tri_points3D;
 
-  const std::shared_ptr<const CorrespondenceGraph> correspondence_graph =
+  const CorrespondenceGraph& correspondence_graph =
       database_cache_->CorrespondenceGraph();
 
   std::unordered_set<point3D_t> corr_point3D_ids;
@@ -244,7 +246,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
 
     corr_point3D_ids.clear();
     const auto corr_range =
-        correspondence_graph->FindCorrespondences(image_id, point2D_idx);
+        correspondence_graph.FindCorrespondences(image_id, point2D_idx);
     for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
       const Image& corr_image = reconstruction_->Image(corr->image_id);
       if (!corr_image.HasPose()) {
@@ -437,7 +439,7 @@ bool IncrementalMapper::RegisterNextGeneralFrame(const Options& options,
   std::vector<Camera> cameras;
   cameras.reserve(frame.RigPtr()->NumSensors());
 
-  const std::shared_ptr<const CorrespondenceGraph> correspondence_graph =
+  const CorrespondenceGraph& correspondence_graph =
       database_cache_->CorrespondenceGraph();
 
   for (const data_t& data_id : frame.ImageIds()) {
@@ -462,7 +464,7 @@ bool IncrementalMapper::RegisterNextGeneralFrame(const Options& options,
 
       corr_point3D_ids.clear();
       const auto corr_range =
-          correspondence_graph->FindCorrespondences(image_id, point2D_idx);
+          correspondence_graph.FindCorrespondences(image_id, point2D_idx);
       for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
         const Image& corr_image = reconstruction_->Image(corr->image_id);
         if (!corr_image.HasPose()) {

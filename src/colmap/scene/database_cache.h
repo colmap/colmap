@@ -115,8 +115,9 @@ class DatabaseCache {
   inline bool ExistsPosePrior(image_t image_id) const;
 
   // Get reference to const correspondence graph.
-  inline std::shared_ptr<const class CorrespondenceGraph> CorrespondenceGraph()
-      const;
+  inline const class CorrespondenceGraph& CorrespondenceGraph() const;
+  inline std::shared_ptr<const class CorrespondenceGraph>
+  CorrespondenceGraphPtr() const;
 
   // Find specific image by name. Note that this uses linear search.
   const class Image* FindImageWithName(const std::string& name) const;
@@ -228,8 +229,12 @@ bool DatabaseCache::ExistsPosePrior(const image_t image_id) const {
   return pose_priors_.find(image_id) != pose_priors_.end();
 }
 
+const class CorrespondenceGraph& DatabaseCache::CorrespondenceGraph() const {
+  return *THROW_CHECK_NOTNULL(correspondence_graph_);
+}
+
 std::shared_ptr<const class CorrespondenceGraph>
-DatabaseCache::CorrespondenceGraph() const {
+DatabaseCache::CorrespondenceGraphPtr() const {
   return correspondence_graph_;
 }
 

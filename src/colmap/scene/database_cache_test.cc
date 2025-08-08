@@ -157,24 +157,24 @@ TEST(DatabaseCache, ConstructFromDatabase) {
   EXPECT_FALSE(cache->ExistsPosePrior(images[2].ImageId()));
   EXPECT_FALSE(cache->ExistsPosePrior(images[3].ImageId()));
 
-  const auto correspondence_graph = cache->CorrespondenceGraph();
-  EXPECT_TRUE(correspondence_graph->ExistsImage(images[0].ImageId()));
+  const auto& correspondence_graph = cache->CorrespondenceGraph();
+  EXPECT_TRUE(correspondence_graph.ExistsImage(images[0].ImageId()));
   EXPECT_EQ(
-      correspondence_graph->NumCorrespondencesForImage(images[0].ImageId()), 1);
-  EXPECT_EQ(correspondence_graph->NumObservationsForImage(images[0].ImageId()),
+      correspondence_graph.NumCorrespondencesForImage(images[0].ImageId()), 1);
+  EXPECT_EQ(correspondence_graph.NumObservationsForImage(images[0].ImageId()),
             1);
-  EXPECT_TRUE(correspondence_graph->ExistsImage(images[1].ImageId()));
+  EXPECT_TRUE(correspondence_graph.ExistsImage(images[1].ImageId()));
   EXPECT_EQ(
-      correspondence_graph->NumCorrespondencesForImage(images[1].ImageId()), 2);
-  EXPECT_EQ(correspondence_graph->NumObservationsForImage(images[1].ImageId()),
+      correspondence_graph.NumCorrespondencesForImage(images[1].ImageId()), 2);
+  EXPECT_EQ(correspondence_graph.NumObservationsForImage(images[1].ImageId()),
             2);
   EXPECT_EQ(
-      correspondence_graph->NumCorrespondencesForImage(images[2].ImageId()), 2);
-  EXPECT_EQ(correspondence_graph->NumObservationsForImage(images[2].ImageId()),
+      correspondence_graph.NumCorrespondencesForImage(images[2].ImageId()), 2);
+  EXPECT_EQ(correspondence_graph.NumObservationsForImage(images[2].ImageId()),
             2);
   EXPECT_EQ(
-      correspondence_graph->NumCorrespondencesForImage(images[3].ImageId()), 1);
-  EXPECT_EQ(correspondence_graph->NumObservationsForImage(images[3].ImageId()),
+      correspondence_graph.NumCorrespondencesForImage(images[3].ImageId()), 1);
+  EXPECT_EQ(correspondence_graph.NumObservationsForImage(images[3].ImageId()),
             1);
 }
 
@@ -196,16 +196,16 @@ TEST(DatabaseCache, ConstructFromDatabaseWithCustomImages) {
   EXPECT_EQ(cache->NumImages(), 2);
   EXPECT_EQ(cache->NumPosePriors(), 2);
 
-  const auto correspondence_graph = cache->CorrespondenceGraph();
-  EXPECT_TRUE(correspondence_graph->ExistsImage(images[0].ImageId()));
+  const auto& correspondence_graph = cache->CorrespondenceGraph();
+  EXPECT_TRUE(correspondence_graph.ExistsImage(images[0].ImageId()));
   EXPECT_EQ(
-      correspondence_graph->NumCorrespondencesForImage(images[0].ImageId()), 1);
-  EXPECT_EQ(correspondence_graph->NumObservationsForImage(images[0].ImageId()),
+      correspondence_graph.NumCorrespondencesForImage(images[0].ImageId()), 1);
+  EXPECT_EQ(correspondence_graph.NumObservationsForImage(images[0].ImageId()),
             1);
-  EXPECT_TRUE(correspondence_graph->ExistsImage(images[1].ImageId()));
+  EXPECT_TRUE(correspondence_graph.ExistsImage(images[1].ImageId()));
   EXPECT_EQ(
-      correspondence_graph->NumCorrespondencesForImage(images[1].ImageId()), 1);
-  EXPECT_EQ(correspondence_graph->NumObservationsForImage(images[1].ImageId()),
+      correspondence_graph.NumCorrespondencesForImage(images[1].ImageId()), 1);
+  EXPECT_EQ(correspondence_graph.NumObservationsForImage(images[1].ImageId()),
             1);
 }
 
@@ -265,16 +265,16 @@ TEST(DatabaseCache, ConstructFromLegacyDatabaseWithoutRigsAndFrames) {
   EXPECT_TRUE(cache->PosePrior(1).IsValid());
   EXPECT_TRUE(cache->PosePrior(2).IsValid());
   EXPECT_TRUE(cache->PosePrior(3).IsValid());
-  const auto correspondence_graph = cache->CorrespondenceGraph();
-  EXPECT_TRUE(cache->CorrespondenceGraph()->ExistsImage(1));
-  EXPECT_EQ(cache->CorrespondenceGraph()->NumCorrespondencesForImage(1), 2);
-  EXPECT_EQ(cache->CorrespondenceGraph()->NumObservationsForImage(1), 1);
-  EXPECT_TRUE(cache->CorrespondenceGraph()->ExistsImage(2));
-  EXPECT_EQ(cache->CorrespondenceGraph()->NumCorrespondencesForImage(2), 1);
-  EXPECT_EQ(cache->CorrespondenceGraph()->NumObservationsForImage(2), 1);
-  EXPECT_TRUE(cache->CorrespondenceGraph()->ExistsImage(3));
-  EXPECT_EQ(cache->CorrespondenceGraph()->NumCorrespondencesForImage(3), 1);
-  EXPECT_EQ(cache->CorrespondenceGraph()->NumObservationsForImage(3), 1);
+  const auto& correspondence_graph = cache->CorrespondenceGraph();
+  EXPECT_TRUE(correspondence_graph.ExistsImage(1));
+  EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 2);
+  EXPECT_EQ(correspondence_graph.NumObservationsForImage(1), 1);
+  EXPECT_TRUE(correspondence_graph.ExistsImage(2));
+  EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(2), 1);
+  EXPECT_EQ(correspondence_graph.NumObservationsForImage(2), 1);
+  EXPECT_TRUE(correspondence_graph.ExistsImage(3));
+  EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(3), 1);
+  EXPECT_EQ(correspondence_graph.NumObservationsForImage(3), 1);
 }
 
 TEST(DatabaseCache, ConstructFromLegacyDatabaseWithCustomImages) {
@@ -298,12 +298,12 @@ TEST(DatabaseCache, ConstructFromLegacyDatabaseWithCustomImages) {
   EXPECT_TRUE(cache->PosePrior(1).IsValid());
   EXPECT_TRUE(cache->PosePrior(3).IsValid());
   const auto correspondence_graph = cache->CorrespondenceGraph();
-  EXPECT_TRUE(cache->CorrespondenceGraph()->ExistsImage(1));
-  EXPECT_EQ(cache->CorrespondenceGraph()->NumCorrespondencesForImage(1), 1);
-  EXPECT_EQ(cache->CorrespondenceGraph()->NumObservationsForImage(1), 1);
-  EXPECT_TRUE(cache->CorrespondenceGraph()->ExistsImage(3));
-  EXPECT_EQ(cache->CorrespondenceGraph()->NumCorrespondencesForImage(3), 1);
-  EXPECT_EQ(cache->CorrespondenceGraph()->NumObservationsForImage(3), 1);
+  EXPECT_TRUE(correspondence_graph.ExistsImage(1));
+  EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 1);
+  EXPECT_EQ(correspondence_graph.NumObservationsForImage(1), 1);
+  EXPECT_TRUE(correspondence_graph.ExistsImage(3));
+  EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(3), 1);
+  EXPECT_EQ(correspondence_graph.NumObservationsForImage(3), 1);
 }
 
 TEST(DatabaseCache, ConstructFromCustom) {
