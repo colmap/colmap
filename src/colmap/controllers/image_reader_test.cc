@@ -40,8 +40,7 @@ namespace colmap {
 namespace {
 
 Bitmap CreateTestBitmap() {
-  Bitmap bitmap;
-  bitmap.Allocate(1, 3, false);
+  Bitmap bitmap(1, 3, false);
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(1));
   bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2));
   bitmap.SetPixel(2, 0, BitmapColor<uint8_t>(3));
@@ -116,8 +115,7 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
     EXPECT_EQ(camera.width, test_bitmap.Width());
     EXPECT_EQ(camera.height, test_bitmap.Height());
     EXPECT_EQ(image.Name(), std::to_string(i) + ".png");
-    EXPECT_EQ(bitmap.ConvertToRowMajorArray(),
-              test_bitmap.ConvertToRowMajorArray());
+    EXPECT_EQ(bitmap.RowMajorData(), test_bitmap.RowMajorData());
     if (kWithExistingImages) {
       EXPECT_EQ(database.NumRigs(), kNumImages);
       EXPECT_EQ(database.NumCameras(), kNumImages);
