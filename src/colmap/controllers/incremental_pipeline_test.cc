@@ -38,14 +38,14 @@
 namespace colmap {
 namespace {
 
-void ExpectEqualReconstructions(const Reconstruction& gt,
-                                const Reconstruction& computed,
-                                const double max_rotation_error_deg,
-                                const double max_proj_center_error,
-                                const double num_obs_tolerance,
-                                const bool align = true,
-                                const bool check_scale = false,
-                                const double max_scale_error = 0.01) {
+void ExpectReconstructionsNear(const Reconstruction& gt,
+                               const Reconstruction& computed,
+                               const double max_rotation_error_deg,
+                               const double max_proj_center_error,
+                               const double num_obs_tolerance,
+                               const bool align = true,
+                               const bool check_scale = false,
+                               const double max_scale_error = 0.01) {
   EXPECT_EQ(computed.NumCameras(), gt.NumCameras());
   EXPECT_EQ(computed.NumImages(), gt.NumImages());
   EXPECT_EQ(computed.NumRegImages(), gt.NumRegImages());
@@ -73,54 +73,46 @@ void ExpectEqualReconstructions(const Reconstruction& gt,
   }
 }
 
-void ExpectDifferentReconstructions(const Reconstruction& gt,
-                                    const Reconstruction& computed,
-                                    const double min_rotation_error_deg,
-                                    const double min_proj_center_error,
-                                    const bool align = true) {
-  EXPECT_EQ(computed.NumCameras(), gt.NumCameras());
-  EXPECT_EQ(computed.NumImages(), gt.NumImages());
-  EXPECT_EQ(computed.NumRegImages(), gt.NumRegImages());
-
-  Sim3d gt_from_computed;
-  if (align) {
-    ASSERT_TRUE(
-        AlignReconstructionsViaProjCenters(computed,
-                                           gt,
-                                           /*max_proj_center_error=*/0.1,
-                                           &gt_from_computed));
+bool AreReconstructionsIdentical(const Reconstruction& gt,
+                                 const Reconstruction& computed) {
+  if (computed.NumCameras() != gt.NumCameras() ||
+      computed.NumImages() != gt.NumImages() ||
+      computed.NumRegImages() != gt.NumRegImages() ||
+      computed.NumPoints3D() != gt.NumPoints3D() ||
+      computed.ComputeNumObservations() != gt.ComputeNumObservations()) {
+    return false;
   }
 
-  const std::vector<ImageAlignmentError> errors =
-      ComputeImageAlignmentError(computed, gt, gt_from_computed);
-  EXPECT_EQ(errors.size(), gt.NumImages());
-
-  bool has_difference = false;
-  for (const auto& error : errors) {
-    if (error.rotation_error_deg > min_rotation_error_deg ||
-        error.proj_center_error > min_proj_center_error) {
-      has_difference = true;
-      break;
+  for (const auto& [image_id, image] : computed.Images()) {
+    if (!gt.ExistsImage(image_id)) {
+      return false;
+    }
+    const Image& image_gt = gt.Image(image_id);
+    if (image.CamFromWorld() != image_gt.CamFromWorld()) {
+      return false;
     }
   }
 
-  EXPECT_TRUE(has_difference);
+  for (point3D_t point3D_id : computed.Point3DIds()) {
+    if (!gt.ExistsPoint3D(point3D_id)) {
+      return false;
+    }
+    if (computed.Point3D(point3D_id) != gt.Point3D(point3D_id)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
-void ExpectIdentialReconstructions(const Reconstruction& gt,
-                                   const Reconstruction& computed) {
-  EXPECT_EQ(computed.NumCameras(), gt.NumCameras());
-  EXPECT_EQ(computed.NumImages(), gt.NumImages());
-  EXPECT_EQ(computed.NumRegImages(), gt.NumRegImages());
-  EXPECT_EQ(computed.ComputeNumObservations(), gt.ComputeNumObservations());
+void ExpectReconstructionsIdentical(const Reconstruction& gt,
+                                    const Reconstruction& computed) {
+  EXPECT_TRUE(AreReconstructionsIdentical(gt, computed));
+}
 
-  for (const auto& [image_id, image] : computed.Images()) {
-    EXPECT_TRUE(gt.ExistsImage(image_id));
-
-    const Image& image_gt = gt.Image(image_id);
-
-    EXPECT_EQ(image.CamFromWorld(), image_gt.CamFromWorld());
-  }
+void ExpectReconstructionsDifferent(const Reconstruction& gt,
+                                    const Reconstruction& computed) {
+  EXPECT_FALSE(AreReconstructionsIdentical(gt, computed));
 }
 
 TEST(IncrementalPipeline, WithoutNoise) {
@@ -145,11 +137,11 @@ TEST(IncrementalPipeline, WithoutNoise) {
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
-  ExpectEqualReconstructions(gt_reconstruction,
-                             *reconstruction_manager->Get(0),
-                             /*max_rotation_error_deg=*/1e-2,
-                             /*max_proj_center_error=*/1e-4,
-                             /*num_obs_tolerance=*/0);
+  ExpectReconstructionsNear(gt_reconstruction,
+                            *reconstruction_manager->Get(0),
+                            /*max_rotation_error_deg=*/1e-2,
+                            /*max_proj_center_error=*/1e-4,
+                            /*num_obs_tolerance=*/0);
 }
 
 TEST(IncrementalPipeline, WithoutNoiseAndWithNonTrivialFrames) {
@@ -179,14 +171,14 @@ TEST(IncrementalPipeline, WithoutNoiseAndWithNonTrivialFrames) {
     mapper.Run();
 
     ASSERT_EQ(reconstruction_manager->Size(), 1);
-    ExpectEqualReconstructions(gt_reconstruction,
-                               *reconstruction_manager->Get(0),
-                               /*max_rotation_error_deg=*/1e-2,
-                               /*max_proj_center_error=*/1e-3,
-                               /*num_obs_tolerance=*/0,
-                               /*align=*/true,
-                               /*check_scale=*/true,
-                               refine_sensor_from_rig ? 1e-2 : 1e-4);
+    ExpectReconstructionsNear(gt_reconstruction,
+                              *reconstruction_manager->Get(0),
+                              /*max_rotation_error_deg=*/1e-2,
+                              /*max_proj_center_error=*/1e-3,
+                              /*num_obs_tolerance=*/0,
+                              /*align=*/true,
+                              /*check_scale=*/true,
+                              refine_sensor_from_rig ? 1e-2 : 1e-4);
   }
 }
 
@@ -217,11 +209,11 @@ TEST(IncrementalPipeline, WithoutNoiseAndWithPanoramicNonTrivialFrames) {
     mapper.Run();
 
     ASSERT_EQ(reconstruction_manager->Size(), 1);
-    ExpectEqualReconstructions(gt_reconstruction,
-                               *reconstruction_manager->Get(0),
-                               /*max_rotation_error_deg=*/1e-2,
-                               /*max_proj_center_error=*/1e-3,
-                               /*num_obs_tolerance=*/0);
+    ExpectReconstructionsNear(gt_reconstruction,
+                              *reconstruction_manager->Get(0),
+                              /*max_rotation_error_deg=*/1e-2,
+                              /*max_proj_center_error=*/1e-3,
+                              /*num_obs_tolerance=*/0);
   }
 }
 
@@ -247,11 +239,11 @@ TEST(IncrementalPipeline, WithPriorFocalLength) {
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
-  ExpectEqualReconstructions(gt_reconstruction,
-                             *reconstruction_manager->Get(0),
-                             /*max_rotation_error_deg=*/1e-2,
-                             /*max_proj_center_error=*/1e-4,
-                             /*num_obs_tolerance=*/0);
+  ExpectReconstructionsNear(gt_reconstruction,
+                            *reconstruction_manager->Get(0),
+                            /*max_rotation_error_deg=*/1e-2,
+                            /*max_proj_center_error=*/1e-4,
+                            /*num_obs_tolerance=*/0);
 }
 
 TEST(IncrementalPipeline, WithNoise) {
@@ -275,11 +267,11 @@ TEST(IncrementalPipeline, WithNoise) {
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
-  ExpectEqualReconstructions(gt_reconstruction,
-                             *reconstruction_manager->Get(0),
-                             /*max_rotation_error_deg=*/1e-1,
-                             /*max_proj_center_error=*/1e-1,
-                             /*num_obs_tolerance=*/0.02);
+  ExpectReconstructionsNear(gt_reconstruction,
+                            *reconstruction_manager->Get(0),
+                            /*max_rotation_error_deg=*/1e-1,
+                            /*max_proj_center_error=*/1e-1,
+                            /*num_obs_tolerance=*/0.02);
 }
 
 TEST(IncrementalPipeline, MultiReconstruction) {
@@ -317,16 +309,16 @@ TEST(IncrementalPipeline, MultiReconstruction) {
     computed_reconstruction1 = reconstruction_manager->Get(1).get();
     computed_reconstruction2 = reconstruction_manager->Get(0).get();
   }
-  ExpectEqualReconstructions(gt_reconstruction1,
-                             *computed_reconstruction1,
-                             /*max_rotation_error_deg=*/1e-2,
-                             /*max_proj_center_error=*/1e-4,
-                             /*num_obs_tolerance=*/0);
-  ExpectEqualReconstructions(gt_reconstruction2,
-                             *computed_reconstruction2,
-                             /*max_rotation_error_deg=*/1e-2,
-                             /*max_proj_center_error=*/1e-4,
-                             /*num_obs_tolerance=*/0);
+  ExpectReconstructionsNear(gt_reconstruction1,
+                            *computed_reconstruction1,
+                            /*max_rotation_error_deg=*/1e-2,
+                            /*max_proj_center_error=*/1e-4,
+                            /*num_obs_tolerance=*/0);
+  ExpectReconstructionsNear(gt_reconstruction2,
+                            *computed_reconstruction2,
+                            /*max_rotation_error_deg=*/1e-2,
+                            /*max_proj_center_error=*/1e-4,
+                            /*num_obs_tolerance=*/0);
 }
 
 TEST(IncrementalPipeline, FixExistingFrames) {
@@ -370,11 +362,11 @@ TEST(IncrementalPipeline, FixExistingFrames) {
     mapper.Run();
 
     ASSERT_EQ(reconstruction_manager->Size(), 1);
-    ExpectEqualReconstructions(gt_reconstruction,
-                               *reconstruction_manager->Get(0),
-                               /*max_rotation_error_deg=*/1e-2,
-                               /*max_proj_center_error=*/1e-4,
-                               /*num_obs_tolerance=*/0);
+    ExpectReconstructionsNear(gt_reconstruction,
+                              *reconstruction_manager->Get(0),
+                              /*max_rotation_error_deg=*/1e-2,
+                              /*max_proj_center_error=*/1e-4,
+                              /*num_obs_tolerance=*/0);
   }
 }
 
@@ -401,11 +393,11 @@ TEST(IncrementalPipeline, ChainedMatches) {
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
-  ExpectEqualReconstructions(gt_reconstruction,
-                             *reconstruction_manager->Get(0),
-                             /*max_rotation_error_deg=*/1e-2,
-                             /*max_proj_center_error=*/1e-4,
-                             /*num_obs_tolerance=*/0);
+  ExpectReconstructionsNear(gt_reconstruction,
+                            *reconstruction_manager->Get(0),
+                            /*max_rotation_error_deg=*/1e-2,
+                            /*max_proj_center_error=*/1e-4,
+                            /*num_obs_tolerance=*/0);
 }
 
 TEST(IncrementalPipeline, PriorBasedSfMWithoutNoise) {
@@ -439,12 +431,12 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoise) {
 
   // No noise on prior so do not align gt & computed (expected to be aligned
   // from PositionPriorBundleAdjustment)
-  ExpectEqualReconstructions(gt_reconstruction,
-                             *reconstruction_manager->Get(0),
-                             /*max_rotation_error_deg=*/1e-1,
-                             /*max_proj_center_error=*/1e-1,
-                             /*num_obs_tolerance=*/0.02,
-                             /*align=*/false);
+  ExpectReconstructionsNear(gt_reconstruction,
+                            *reconstruction_manager->Get(0),
+                            /*max_rotation_error_deg=*/1e-1,
+                            /*max_proj_center_error=*/1e-1,
+                            /*num_obs_tolerance=*/0.02,
+                            /*align=*/false);
 }
 
 TEST(IncrementalPipeline, PriorBasedSfMWithoutNoiseAndWithNonTrivialFrames) {
@@ -478,12 +470,12 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoiseAndWithNonTrivialFrames) {
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
-  ExpectEqualReconstructions(gt_reconstruction,
-                             *reconstruction_manager->Get(0),
-                             /*max_rotation_error_deg=*/1e-1,
-                             /*max_proj_center_error=*/1e-1,
-                             /*num_obs_tolerance=*/0.02,
-                             /*align=*/true);
+  ExpectReconstructionsNear(gt_reconstruction,
+                            *reconstruction_manager->Get(0),
+                            /*max_rotation_error_deg=*/1e-1,
+                            /*max_proj_center_error=*/1e-1,
+                            /*num_obs_tolerance=*/0.02,
+                            /*align=*/true);
 }
 
 TEST(IncrementalPipeline, PriorBasedSfMWithNoise) {
@@ -516,12 +508,12 @@ TEST(IncrementalPipeline, PriorBasedSfMWithNoise) {
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
-  ExpectEqualReconstructions(gt_reconstruction,
-                             *reconstruction_manager->Get(0),
-                             /*max_rotation_error_deg=*/1e-1,
-                             /*max_proj_center_error=*/1e-1,
-                             /*num_obs_tolerance=*/0.02,
-                             /*align=*/true);
+  ExpectReconstructionsNear(gt_reconstruction,
+                            *reconstruction_manager->Get(0),
+                            /*max_rotation_error_deg=*/1e-1,
+                            /*max_proj_center_error=*/1e-1,
+                            /*num_obs_tolerance=*/0.02,
+                            /*align=*/true);
 }
 
 TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
@@ -555,12 +547,12 @@ TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
-  ExpectEqualReconstructions(gt_reconstruction,
-                             *reconstruction_manager->Get(0),
-                             /*max_rotation_error_deg=*/1e-1,
-                             /*max_proj_center_error=*/1e-1,
-                             /*num_obs_tolerance=*/0.02,
-                             /*align=*/true);
+  ExpectReconstructionsNear(gt_reconstruction,
+                            *reconstruction_manager->Get(0),
+                            /*max_rotation_error_deg=*/1e-1,
+                            /*max_proj_center_error=*/1e-1,
+                            /*num_obs_tolerance=*/0.02,
+                            /*align=*/true);
 }
 
 TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
@@ -600,17 +592,15 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
     auto reconstruction_manager1 =
         run_mapper(/*num_threads=*/1, /*random_seed=*/42);
     // Same seed should produce identical reconstructions in single-thread mode
-    ExpectIdentialReconstructions(*reconstruction_manager0->Get(0),
-                                  *reconstruction_manager1->Get(0));
+
+    ExpectReconstructionsIdentical(*reconstruction_manager0->Get(0),
+                                   *reconstruction_manager1->Get(0));
 
     // Different seed should produce different reconstructions
     auto reconstruction_manager2 =
         run_mapper(/*num_threads=*/1, /*random_seed=*/123);
-    ExpectDifferentReconstructions(*reconstruction_manager0->Get(0),
-                                   *reconstruction_manager2->Get(0),
-                                   /*min_rotation_error_deg=*/1e-1,
-                                   /*min_proj_center_error=*/1e-1,
-                                   /*align=*/false);
+    ExpectReconstructionsDifferent(*reconstruction_manager0->Get(0),
+                                   *reconstruction_manager2->Get(0));
   }
 
   // Multi-thread execution
@@ -621,21 +611,18 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
         run_mapper(/*num_threads=*/-1, /*random_seed=*/42);
     // Same seed should produce similar results, up to floating-point variations
     // in optimization
-    ExpectEqualReconstructions(*reconstruction_manager0->Get(0),
-                               *reconstruction_manager1->Get(0),
-                               /*max_rotation_error_deg=*/1e-14,
-                               /*max_proj_center_error=*/1e-14,
-                               /*num_obs_tolerance=*/0.01,
-                               /*align=*/false);
+    ExpectReconstructionsNear(*reconstruction_manager0->Get(0),
+                              *reconstruction_manager1->Get(0),
+                              /*max_rotation_error_deg=*/1e-14,
+                              /*max_proj_center_error=*/1e-14,
+                              /*num_obs_tolerance=*/0.01,
+                              /*align=*/false);
 
     auto reconstruction_manager2 =
         run_mapper(/*num_threads=*/-1, /*random_seed=*/123);
     // Different seed may produce different reconstructions
-    ExpectDifferentReconstructions(*reconstruction_manager0->Get(0),
-                                   *reconstruction_manager2->Get(0),
-                                   /*min_rotation_error_deg=*/1e-1,
-                                   /*min_proj_center_error=*/1e-1,
-                                   /*align=*/false);
+    ExpectReconstructionsDifferent(*reconstruction_manager0->Get(0),
+                                   *reconstruction_manager2->Get(0));
   }
 }
 
@@ -677,17 +664,14 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
     auto reconstruction_manager1 =
         run_mapper(/*num_threads=*/1, /*random_seed=*/42);
     // Same seed should produce identical reconstructions in single-thread mode
-    ExpectIdentialReconstructions(*reconstruction_manager0->Get(0),
-                                  *reconstruction_manager1->Get(0));
+    ExpectReconstructionsIdentical(*reconstruction_manager0->Get(0),
+                                   *reconstruction_manager1->Get(0));
 
     // Different seed should produce different reconstructions
     auto reconstruction_manager2 =
         run_mapper(/*num_threads=*/1, /*random_seed=*/123);
-    ExpectDifferentReconstructions(*reconstruction_manager0->Get(0),
-                                   *reconstruction_manager2->Get(0),
-                                   /*min_rotation_error_deg=*/1e-1,
-                                   /*min_proj_center_error=*/1e-1,
-                                   /*align=*/false);
+    ExpectReconstructionsDifferent(*reconstruction_manager0->Get(0),
+                                   *reconstruction_manager2->Get(0));
   }
 
   // Multi-thread execution
@@ -698,21 +682,18 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
         run_mapper(/*num_threads=*/-1, /*random_seed=*/42);
     // Same seed should produce similar results, up to floating-point variations
     // in optimization
-    ExpectEqualReconstructions(*reconstruction_manager0->Get(0),
-                               *reconstruction_manager1->Get(0),
-                               /*max_rotation_error_deg=*/1e-13,
-                               /*max_proj_center_error=*/1e-13,
-                               /*num_obs_tolerance=*/0.01,
-                               /*align=*/false);
+    ExpectReconstructionsNear(*reconstruction_manager0->Get(0),
+                              *reconstruction_manager1->Get(0),
+                              /*max_rotation_error_deg=*/1e-13,
+                              /*max_proj_center_error=*/1e-13,
+                              /*num_obs_tolerance=*/0.01,
+                              /*align=*/false);
 
     auto reconstruction_manager2 =
         run_mapper(/*num_threads=*/-1, /*random_seed=*/123);
     // Different seed may produce different reconstructions
-    ExpectDifferentReconstructions(*reconstruction_manager0->Get(0),
-                                   *reconstruction_manager2->Get(0),
-                                   /*min_rotation_error_deg=*/1e-1,
-                                   /*min_proj_center_error=*/1e-1,
-                                   /*align=*/false);
+    ExpectReconstructionsDifferent(*reconstruction_manager0->Get(0),
+                                   *reconstruction_manager2->Get(0));
   }
 }
 
