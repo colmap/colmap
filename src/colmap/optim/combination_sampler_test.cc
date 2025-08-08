@@ -29,8 +29,6 @@
 
 #include "colmap/optim/combination_sampler.h"
 
-#include "colmap/math/math.h"
-
 #include <unordered_set>
 
 #include <gtest/gtest.h>
