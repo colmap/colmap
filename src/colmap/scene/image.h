@@ -236,6 +236,9 @@ class Frame* Image::FramePtr() const { return THROW_CHECK_NOTNULL(frame_ptr_); }
 void Image::SetFramePtr(class Frame* frame) {
   THROW_CHECK_NOTNULL(frame);
   THROW_CHECK_NE(frame->FrameId(), kInvalidFrameId);
+  THROW_CHECK(frame->HasDataId(DataId()))
+      << "Image " << ImageId() << " does not exist in frame "
+      << frame->FrameId();
   if (!HasFramePtr()) {
     THROW_CHECK_EQ(frame->FrameId(), frame_id_);
     frame_ptr_ = frame;
