@@ -102,6 +102,22 @@ void ExpectDifferentReconstructions(const Reconstruction& gt,
   EXPECT_TRUE(has_difference);
 }
 
+void ExpectIdentialReconstructions(const Reconstruction& gt,
+                                   const Reconstruction& computed) {
+  EXPECT_EQ(computed.NumCameras(), gt.NumCameras());
+  EXPECT_EQ(computed.NumImages(), gt.NumImages());
+  EXPECT_EQ(computed.NumRegImages(), gt.NumRegImages());
+  EXPECT_EQ(computed.ComputeNumObservations(), gt.ComputeNumObservations());
+
+  for (const auto& [image_id, image] : computed.Images()) {
+    EXPECT_TRUE(gt.ExistsImage(image_id));
+
+    const Image& image_gt = gt.Image(image_id);
+
+    EXPECT_EQ(image.CamFromWorld(), image_gt.CamFromWorld());
+  }
+}
+
 TEST(IncrementalPipeline, WithoutNoise) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
@@ -553,54 +569,66 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
   synthetic_dataset_options.use_prior_position = false;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
-  std::shared_ptr<IncrementalPipelineOptions> mapper_options =
-      std::make_shared<IncrementalPipelineOptions>();
-
+  auto mapper_options = std::make_shared<IncrementalPipelineOptions>();
   mapper_options->use_prior_position = false;
-  mapper_options->random_seed = 42;
 
-  auto reconstruction_manager0 = std::make_shared<ReconstructionManager>();
-  IncrementalPipeline mapper0(mapper_options,
-                              /*image_path=*/"",
-                              database_path,
-                              reconstruction_manager0);
-  mapper0.Run();
+  auto run_mapper = [&](int num_threads, int random_seed) {
+    mapper_options->num_threads = num_threads;
+    mapper_options->random_seed = random_seed;
+    auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+    IncrementalPipeline mapper(mapper_options,
+                               /*image_path=*/"",
+                               database_path,
+                               reconstruction_manager);
+    mapper.Run();
+    EXPECT_EQ(reconstruction_manager->Size(), 1);
+    return reconstruction_manager;
+  };
 
-  ASSERT_EQ(reconstruction_manager0->Size(), 1);
+  // Single-thread execution
+  {
+    auto reconstruction_manager0 =
+        run_mapper(/*num_threads=*/1, /*random_seed=*/42);
+    auto reconstruction_manager1 =
+        run_mapper(/*num_threads=*/1, /*random_seed=*/42);
+    // Same seed should produce identical reconstructions in single-thread mode
+    ExpectIdentialReconstructions(*reconstruction_manager0->Get(0),
+                                  *reconstruction_manager1->Get(0));
 
-  // Same seed should produce similar results, up to floating-point variations
-  // in optimization.
-  mapper_options->random_seed = 42;
-  auto reconstruction_manager1 = std::make_shared<ReconstructionManager>();
-  IncrementalPipeline mapper1(mapper_options,
-                              /*image_path=*/"",
-                              database_path,
-                              reconstruction_manager1);
-  mapper1.Run();
+    // Different seed should produce different reconstructions
+    auto reconstruction_manager2 =
+        run_mapper(/*num_threads=*/1, /*random_seed=*/123);
+    ExpectDifferentReconstructions(*reconstruction_manager0->Get(0),
+                                   *reconstruction_manager2->Get(0),
+                                   /*min_rotation_error_deg=*/1e-1,
+                                   /*min_proj_center_error=*/1e-1,
+                                   /*align=*/false);
+  }
 
-  ASSERT_EQ(reconstruction_manager1->Size(), 1);
-  ExpectEqualReconstructions(*reconstruction_manager0->Get(0),
-                             *reconstruction_manager1->Get(0),
-                             /*max_rotation_error_deg=*/1e-14,
-                             /*max_proj_center_error=*/1e-14,
-                             /*num_obs_tolerance=*/0.01,
-                             /*align=*/false);
+  // Multi-thread execution
+  {
+    auto reconstruction_manager0 =
+        run_mapper(/*num_threads=*/-1, /*random_seed=*/42);
+    auto reconstruction_manager1 =
+        run_mapper(/*num_threads=*/-1, /*random_seed=*/42);
+    // Same seed should produce similar results, up to floating-point variations
+    // in optimization
+    ExpectEqualReconstructions(*reconstruction_manager0->Get(0),
+                               *reconstruction_manager1->Get(0),
+                               /*max_rotation_error_deg=*/1e-14,
+                               /*max_proj_center_error=*/1e-14,
+                               /*num_obs_tolerance=*/0.01,
+                               /*align=*/false);
 
-  // Different seed may result in different reconstructions.
-  mapper_options->random_seed = 123;
-  auto reconstruction_manager2 = std::make_shared<ReconstructionManager>();
-  IncrementalPipeline mapper2(mapper_options,
-                              /*image_path=*/"",
-                              database_path,
-                              reconstruction_manager2);
-  mapper2.Run();
-
-  ASSERT_EQ(reconstruction_manager2->Size(), 1);
-  ExpectDifferentReconstructions(*reconstruction_manager0->Get(0),
-                                 *reconstruction_manager2->Get(0),
-                                 /*min_rotation_error_deg=*/1e-1,
-                                 /*min_proj_center_error=*/1e-1,
-                                 /*align=*/false);
+    auto reconstruction_manager2 =
+        run_mapper(/*num_threads=*/-1, /*random_seed=*/123);
+    // Different seed may produce different reconstructions
+    ExpectDifferentReconstructions(*reconstruction_manager0->Get(0),
+                                   *reconstruction_manager2->Get(0),
+                                   /*min_rotation_error_deg=*/1e-1,
+                                   /*min_proj_center_error=*/1e-1,
+                                   /*align=*/false);
+  }
 }
 
 TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
@@ -618,55 +646,66 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
   synthetic_dataset_options.prior_position_stddev = 2.0;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
-  std::shared_ptr<IncrementalPipelineOptions> mapper_options =
-      std::make_shared<IncrementalPipelineOptions>();
+  auto mapper_options = std::make_shared<IncrementalPipelineOptions>();
+  mapper_options->use_prior_position = false;
 
-  mapper_options->use_prior_position = true;
-  mapper_options->use_robust_loss_on_prior_position = true;
-  mapper_options->random_seed = 42;
+  auto run_mapper = [&](int num_threads, int random_seed) {
+    mapper_options->num_threads = num_threads;
+    mapper_options->random_seed = random_seed;
+    auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+    IncrementalPipeline mapper(mapper_options,
+                               /*image_path=*/"",
+                               database_path,
+                               reconstruction_manager);
+    mapper.Run();
+    EXPECT_EQ(reconstruction_manager->Size(), 1);
+    return reconstruction_manager;
+  };
 
-  auto reconstruction_manager0 = std::make_shared<ReconstructionManager>();
-  IncrementalPipeline mapper0(mapper_options,
-                              /*image_path=*/"",
-                              database_path,
-                              reconstruction_manager0);
-  mapper0.Run();
+  // Single-thread execution
+  {
+    auto reconstruction_manager0 =
+        run_mapper(/*num_threads=*/1, /*random_seed=*/42);
+    auto reconstruction_manager1 =
+        run_mapper(/*num_threads=*/1, /*random_seed=*/42);
+    // Same seed should produce identical reconstructions in single-thread mode
+    ExpectIdentialReconstructions(*reconstruction_manager0->Get(0),
+                                  *reconstruction_manager1->Get(0));
 
-  ASSERT_EQ(reconstruction_manager0->Size(), 1);
+    // Different seed should produce different reconstructions
+    auto reconstruction_manager2 =
+        run_mapper(/*num_threads=*/1, /*random_seed=*/123);
+    ExpectDifferentReconstructions(*reconstruction_manager0->Get(0),
+                                   *reconstruction_manager2->Get(0),
+                                   /*min_rotation_error_deg=*/1e-1,
+                                   /*min_proj_center_error=*/1e-1,
+                                   /*align=*/false);
+  }
 
-  // Same seed should produce similar results, up to floating-point variations
-  // in optimization.
-  mapper_options->random_seed = 42;
-  auto reconstruction_manager1 = std::make_shared<ReconstructionManager>();
-  IncrementalPipeline mapper1(mapper_options,
-                              /*image_path=*/"",
-                              database_path,
-                              reconstruction_manager1);
-  mapper1.Run();
+  // Multi-thread execution
+  {
+    auto reconstruction_manager0 =
+        run_mapper(/*num_threads=*/-1, /*random_seed=*/42);
+    auto reconstruction_manager1 =
+        run_mapper(/*num_threads=*/-1, /*random_seed=*/42);
+    // Same seed should produce similar results, up to floating-point variations
+    // in optimization
+    ExpectEqualReconstructions(*reconstruction_manager0->Get(0),
+                               *reconstruction_manager1->Get(0),
+                               /*max_rotation_error_deg=*/1e-13,
+                               /*max_proj_center_error=*/1e-13,
+                               /*num_obs_tolerance=*/0.01,
+                               /*align=*/false);
 
-  ASSERT_EQ(reconstruction_manager1->Size(), 1);
-  ExpectEqualReconstructions(*reconstruction_manager0->Get(0),
-                             *reconstruction_manager1->Get(0),
-                             /*max_rotation_error_deg=*/1e-14,
-                             /*max_proj_center_error=*/1e-14,
-                             /*num_obs_tolerance=*/0.01,
-                             /*align=*/false);
-
-  // Different seed may result in different reconstructions.
-  mapper_options->random_seed = 123;
-  auto reconstruction_manager2 = std::make_shared<ReconstructionManager>();
-  IncrementalPipeline mapper2(mapper_options,
-                              /*image_path=*/"",
-                              database_path,
-                              reconstruction_manager2);
-  mapper2.Run();
-
-  ASSERT_EQ(reconstruction_manager2->Size(), 1);
-  ExpectDifferentReconstructions(*reconstruction_manager0->Get(0),
-                                 *reconstruction_manager2->Get(0),
-                                 /*min_rotation_error_deg=*/1e-1,
-                                 /*min_proj_center_error=*/1e-1,
-                                 /*align=*/false);
+    auto reconstruction_manager2 =
+        run_mapper(/*num_threads=*/-1, /*random_seed=*/123);
+    // Different seed may produce different reconstructions
+    ExpectDifferentReconstructions(*reconstruction_manager0->Get(0),
+                                   *reconstruction_manager2->Get(0),
+                                   /*min_rotation_error_deg=*/1e-1,
+                                   /*min_proj_center_error=*/1e-1,
+                                   /*align=*/false);
+  }
 }
 
 }  // namespace

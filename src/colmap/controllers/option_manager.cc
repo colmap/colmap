@@ -213,7 +213,7 @@ void OptionManager::AddRandomOptions() {
   }
   added_random_options_ = true;
 
-  AddAndRegisterDefaultOption("random_seed", &kDefaultPRNGSeed);
+  AddAndRegisterDefaultOption("default_random_seed", &kDefaultPRNGSeed);
 }
 
 void OptionManager::AddDatabaseOptions() {

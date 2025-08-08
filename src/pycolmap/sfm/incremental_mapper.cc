@@ -343,6 +343,10 @@ void BindIncrementalMapperOptions(py::module& m) {
                      "If reconstruction is provided as input, fix the existing "
                      "frame poses.")
       .def_readwrite("num_threads", &Opts::num_threads, "Number of threads.")
+      .def_readwrite(
+          "random_seed",
+          &Opts::random_seed,
+          "PRNG seed for all stochastic methods during reconstruction.")
       .def_readwrite("image_selection_method",
                      &Opts::image_selection_method,
                      "Method to find and select next best image to register.")
