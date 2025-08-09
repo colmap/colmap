@@ -93,6 +93,11 @@ TwoViewGeometry EstimateCalibratedHomography(
     const std::vector<Eigen::Vector2d>& points2,
     const FeatureMatches& matches,
     const TwoViewGeometryOptions& options) {
+  // Set a fixed random seed to ensure deterministic results
+  // This is necessary because in multi-threaded mode, different threads
+  // will process different image pairs in arbitrary order
+  SetPRNGSeed(42);
+  
   TwoViewGeometry geometry;
 
   const size_t min_num_inliers = static_cast<size_t>(options.min_num_inliers);
@@ -151,6 +156,11 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
     const std::vector<Eigen::Vector2d>& points2,
     const FeatureMatches& matches,
     const TwoViewGeometryOptions& options) {
+  // Set a fixed random seed to ensure deterministic results
+  // This is necessary because in multi-threaded mode, different threads
+  // will process different image pairs in arbitrary order
+  SetPRNGSeed(42);
+  
   TwoViewGeometry geometry;
 
   const size_t min_num_inliers = static_cast<size_t>(options.min_num_inliers);
@@ -446,6 +456,11 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     const FeatureMatches& matches,
     const TwoViewGeometryOptions& options) {
   THROW_CHECK(options.Check());
+
+  // Set a fixed random seed to ensure deterministic results
+  // This is necessary because in multi-threaded mode, different threads
+  // will process different image pairs in arbitrary order
+  SetPRNGSeed(42);
 
   TwoViewGeometry geometry;
 
