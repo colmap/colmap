@@ -34,7 +34,6 @@
 
 #include <algorithm>
 #include <iostream>
-#include <vector>
 
 #include <cuda_runtime.h>
 

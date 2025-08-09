@@ -30,7 +30,7 @@
 #pragma once
 
 #include "colmap/geometry/rigid3.h"
-#include "colmap/util/enum_utils.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
 #include <map>

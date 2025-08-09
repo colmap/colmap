@@ -31,7 +31,6 @@
 
 #include "colmap/util/logging.h"
 
-#include <cstdio>
 #include <cstdlib>
 #include <string>
 
