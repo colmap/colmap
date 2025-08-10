@@ -7,7 +7,7 @@ This is a fork of COLMAP for building CUDA-enabled Python pycolmap wheels(curren
 **[See the original repository for more details about Colmap!](https://github.com/colmap/colmap)**
 
 This fork is currently experimental and unrelated from the original repository.
-See this issue in the original COLMAP repository about plans for CUDA support in the official PYCOLMAP PyPi wheel.
+See [this issue](https://github.com/colmap/colmap/issues/2740) in the original COLMAP repository about plans for CUDA support in the official PYCOLMAP PyPi wheel.
 
 PyCOLMAP exposes to Python most capabilities of the
 [COLMAP](https://colmap.github.io/) Structure-from-Motion (SfM) and Multi-View
