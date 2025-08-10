@@ -47,6 +47,9 @@ jobs:
       VCPKG_COMMIT_ID: 0cb95c860ea83aafc1b24350510b30dec535989a
       GLOG_v: 2
       GLOG_logtostderr: 1
+      CUDA_MAJOR_VERSION: 12
+      CUDA_MINOR_VERSION: 6
+      CUDA_PATCH_VERSION: 2
 
     steps:
       - uses: actions/checkout@v4
@@ -97,7 +100,7 @@ jobs:
         if: matrix.config.cudaEnabled
         id: cuda-toolkit
         with:
-          cuda: '12.6.2'
+          cuda: '${{ env.CUDA_MAJOR_VERSION }}.${{ env.CUDA_MINOR_VERSION }}.${{ env.CUDA_PATCH_VERSION }}'
           sub-packages: '["nvcc", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
           method: 'network'
 

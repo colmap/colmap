@@ -30,8 +30,8 @@
 #pragma once
 
 #include "colmap/estimators/two_view_geometry.h"
+#include "colmap/feature/matcher.h"
 #include "colmap/feature/pairing.h"
-#include "colmap/feature/sift.h"
 #include "colmap/util/threading.h"
 
 #include <memory>
@@ -63,15 +63,15 @@ namespace colmap {
 // Pairs will only be matched if 1, to avoid duplicate pairs. Pairs with #
 // are on the main diagonal and denote pairs of the same image.
 std::unique_ptr<Thread> CreateExhaustiveFeatureMatcher(
-    const ExhaustiveMatchingOptions& options,
-    const SiftMatchingOptions& matching_options,
+    const ExhaustivePairingOptions& pairing_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path);
 
 // Match each image against its nearest neighbors using a vocabulary tree.
 std::unique_ptr<Thread> CreateVocabTreeFeatureMatcher(
-    const VocabTreeMatchingOptions& options,
-    const SiftMatchingOptions& matching_options,
+    const VocabTreePairingOptions& pairing_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path);
 
@@ -94,16 +94,16 @@ std::unique_ptr<Thread> CreateVocabTreeFeatureMatcher(
 // most similar `loop_detection_num_images` images from vocabulary tree,
 // and perform matching and verification.
 std::unique_ptr<Thread> CreateSequentialFeatureMatcher(
-    const SequentialMatchingOptions& options,
-    const SiftMatchingOptions& matching_options,
+    const SequentialPairingOptions& pairing_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path);
 
 // Match images against spatial nearest neighbors using prior location
 // information, e.g. provided manually or extracted from EXIF.
 std::unique_ptr<Thread> CreateSpatialFeatureMatcher(
-    const SpatialMatchingOptions& options,
-    const SiftMatchingOptions& matching_options,
+    const SpatialPairingOptions& pairing_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path);
 
@@ -112,8 +112,8 @@ std::unique_ptr<Thread> CreateSpatialFeatureMatcher(
 // A-B and B-C match but A-C has not been matched, then this matcher attempts to
 // match A-C. This procedure is performed for multiple iterations.
 std::unique_ptr<Thread> CreateTransitiveFeatureMatcher(
-    const TransitiveMatchingOptions& options,
-    const SiftMatchingOptions& matching_options,
+    const TransitivePairingOptions& pairing_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path);
 
@@ -127,8 +127,8 @@ std::unique_ptr<Thread> CreateTransitiveFeatureMatcher(
 //    ...
 //
 std::unique_ptr<Thread> CreateImagePairsFeatureMatcher(
-    const ImagePairsMatchingOptions& options,
-    const SiftMatchingOptions& matching_options,
+    const ImportedPairingOptions& pairing_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path);
 
@@ -148,8 +148,8 @@ std::unique_ptr<Thread> CreateImagePairsFeatureMatcher(
 //      ...
 //
 std::unique_ptr<Thread> CreateFeaturePairsFeatureMatcher(
-    const FeaturePairsMatchingOptions& options,
-    const SiftMatchingOptions& matching_options,
+    const FeaturePairsMatchingOptions& pairing_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path);
 

@@ -29,13 +29,12 @@
 
 #include "colmap/scene/reconstruction.h"
 
-#include "colmap/geometry/gps.h"
 #include "colmap/geometry/normalization.h"
 #include "colmap/geometry/pose.h"
-#include "colmap/geometry/triangulation.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/projection.h"
-#include "colmap/scene/reconstruction_io.h"
+#include "colmap/scene/reconstruction_io_binary.h"
+#include "colmap/scene/reconstruction_io_text.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/file.h"
 #include "colmap/util/ply.h"
@@ -92,7 +91,12 @@ size_t Reconstruction::NumRegImages() const {
   for (const frame_t frame_id : reg_frame_ids_) {
     const class Frame& frame = Frame(frame_id);
     if (frame.HasPose()) {
-      for ([[maybe_unused]] const data_t& data_id : frame.ImageIds()) {
+      for (const data_t& data_id : frame.ImageIds()) {
+        THROW_CHECK(ExistsImage(data_id.id))
+            << "The reconstruction object is broken as image " << data_id.id
+            << " in frame " << frame.FrameId()
+            << " does not exist in the reconstruction. The most likely cause "
+               "is missing AddImage(*) calls after adding frames.";
         ++num_reg_images;
       }
     }
@@ -105,6 +109,11 @@ std::vector<image_t> Reconstruction::RegImageIds() const {
   for (const frame_t frame_id : reg_frame_ids_) {
     const auto& frame = Frame(frame_id);
     for (const data_t& data_id : frame.ImageIds()) {
+      THROW_CHECK(ExistsImage(data_id.id))
+          << "The reconstruction object is broken as image " << data_id.id
+          << " in frame " << frame.FrameId()
+          << " does not exist in the reconstruction. The most likely cause "
+             "is missing AddImage(*) calls after adding frames.";
       reg_image_ids.push_back(data_id.id);
     }
   }
@@ -223,6 +232,9 @@ void Reconstruction::AddCamera(struct Camera camera) {
 
 void Reconstruction::AddFrame(class Frame frame) {
   THROW_CHECK(frame.HasRigId());
+  THROW_CHECK_GT(frame.NumDataIds(), 0)
+      << "A frame with no associated data is "
+         "never useful in the reconstruction.";
   auto& rig = Rig(frame.RigId());
   if (frame.HasRigPtr()) {
     THROW_CHECK_EQ(frame.RigPtr(), &rig);

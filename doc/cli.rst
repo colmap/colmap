@@ -85,7 +85,7 @@ If you want to run COLMAP on a computer without an attached display (e.g.,
 cluster or cloud service), COLMAP automatically switches to use CUDA if
 supported by your system. If no CUDA enabled device is available, you can
 manually select to use CPU-based feature extraction and matching by setting the
-``--SiftExtraction.use_gpu 0`` and ``--SiftMatching.use_gpu 0`` options.
+``--FeatureExtraction.use_gpu 0`` and ``--FeatureMatching.use_gpu 0`` options.
 
 Help
 ----
@@ -166,32 +166,44 @@ the available options, e.g.::
         Options can either be specified via command-line or by defining
         them in a .ini project file passed to ``--project_path``.
 
-          -h [ --help ]
-          --project_path arg
-          --database_path arg
-          --image_path arg
-          --image_list_path arg
-          --ImageReader.camera_model arg (=SIMPLE_RADIAL)
-          --ImageReader.single_camera arg (=0)
-          --ImageReader.camera_params arg
-          --ImageReader.default_focal_length_factor arg (=1.2)
-          --SiftExtraction.num_threads arg (=-1)
-          --SiftExtraction.use_gpu arg (=1)
-          --SiftExtraction.gpu_index arg (=-1)
-          --SiftExtraction.max_image_size arg (=3200)
-          --SiftExtraction.max_num_features arg (=8192)
-          --SiftExtraction.first_octave arg (=-1)
-          --SiftExtraction.num_octaves arg (=4)
-          --SiftExtraction.octave_resolution arg (=3)
-          --SiftExtraction.peak_threshold arg (=0.0066666666666666671)
-          --SiftExtraction.edge_threshold arg (=10)
-          --SiftExtraction.estimate_affine_shape arg (=0)
-          --SiftExtraction.max_num_orientations arg (=2)
-          --SiftExtraction.upright arg (=0)
-          --SiftExtraction.domain_size_pooling arg (=0)
-          --SiftExtraction.dsp_min_scale arg (=0.16666666666666666)
-          --SiftExtraction.dsp_max_scale arg (=3)
-          --SiftExtraction.dsp_num_scales arg (=10)
+            -h [ --help ] 
+            --default_random_seed arg (=0)
+            --log_to_stderr arg (=1)
+            --log_level arg (=0)
+            --project_path arg
+            --database_path arg
+            --image_path arg
+            --camera_mode arg (=-1)
+            --image_list_path arg
+            --descriptor_normalization arg (=l1_root)
+                                                  {'l1_root', 'l2'}
+            --ImageReader.mask_path arg
+            --ImageReader.camera_model arg (=SIMPLE_RADIAL)
+            --ImageReader.single_camera arg (=0)
+            --ImageReader.single_camera_per_folder arg (=0)
+            --ImageReader.single_camera_per_image arg (=0)
+            --ImageReader.existing_camera_id arg (=-1)
+            --ImageReader.camera_params arg
+            --ImageReader.default_focal_length_factor arg (=1.2)
+            --ImageReader.camera_mask_path arg
+            --FeatureExtraction.type arg (=SIFT)
+            --FeatureExtraction.num_threads arg (=-1)
+            --FeatureExtraction.use_gpu arg (=1)
+            --FeatureExtraction.gpu_index arg (=-1)
+            --SiftExtraction.max_image_size arg (=3200)
+            --SiftExtraction.max_num_features arg (=8192)
+            --SiftExtraction.first_octave arg (=-1)
+            --SiftExtraction.num_octaves arg (=4)
+            --SiftExtraction.octave_resolution arg (=3)
+            --SiftExtraction.peak_threshold arg (=0.0066666666666666671)
+            --SiftExtraction.edge_threshold arg (=10)
+            --SiftExtraction.estimate_affine_shape arg (=0)
+            --SiftExtraction.max_num_orientations arg (=2)
+            --SiftExtraction.upright arg (=0)
+            --SiftExtraction.domain_size_pooling arg (=0)
+            --SiftExtraction.dsp_min_scale arg (=0.16666666666666666)
+            --SiftExtraction.dsp_max_scale arg (=3)
+            --SiftExtraction.dsp_num_scales arg (=10)
 
 
 The available options can either be provided directly from the command-line or

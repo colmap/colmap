@@ -126,7 +126,7 @@ void BindVisualIndex(py::module& m) {
   MakeDataclass(PyBuildOptions);
 
   PyVisualIndex.def(py::init<>())
-      .def("create", &VisualIndex::Create)
+      .def_static("create", &VisualIndex::Create)
       .def("add",
            static_cast<void (VisualIndex::*)(
                const typename VisualIndex::IndexOptions&,
@@ -158,7 +158,8 @@ void BindVisualIndex(py::module& m) {
       .def("build",
            &VisualIndex::Build,
            py::call_guard<py::gil_scoped_release>())
-      .def("read", &VisualIndex::Read, py::call_guard<py::gil_scoped_release>())
+      .def_static(
+          "read", &VisualIndex::Read, py::call_guard<py::gil_scoped_release>())
       .def("write",
            &VisualIndex::Write,
            py::call_guard<py::gil_scoped_release>())

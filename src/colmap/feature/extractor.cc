@@ -27,50 +27,62 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#include "colmap/feature/extractor.h"
 
-#include "colmap/scene/database.h"
-#include "colmap/scene/reconstruction.h"
-#include "colmap/sensor/models.h"
+#include "colmap/feature/sift.h"
+#include "colmap/util/misc.h"
 
 namespace colmap {
+namespace {
 
-struct SyntheticDatasetOptions {
-  int num_rigs = 2;
-  int num_cameras_per_rig = 1;
-  int num_frames_per_rig = 5;
-  int num_points3D = 100;
+void ThrowUnknownFeatureExtractorType(FeatureExtractorType type) {
+  std::ostringstream error;
+  error << "Unknown feature extractor type: " << type;
+  throw std::runtime_error(error.str());
+}
 
-  double sensor_from_rig_translation_stddev = 0.05;
-  double sensor_from_rig_rotation_stddev = 5.;  // in degrees
+}  // namespace
 
-  int camera_width = 1024;
-  int camera_height = 768;
-  CameraModelId camera_model_id = SimpleRadialCameraModel::model_id;
-  std::vector<double> camera_params = {1280, 512, 384, 0.05};
-  bool camera_has_prior_focal_length = false;
+FeatureExtractionOptions::FeatureExtractionOptions(FeatureExtractorType type)
+    : type(type), sift(std::make_shared<SiftExtractionOptions>()) {}
 
-  int num_points2D_without_point3D = 10;
-  double point2D_stddev = 0.0;
+int FeatureExtractionOptions::MaxImageSize() const {
+  switch (type) {
+    case FeatureExtractorType::SIFT:
+      return sift->max_image_size;
+    default:
+      ThrowUnknownFeatureExtractorType(type);
+  }
+  return -1;
+}
 
-  double inlier_match_ratio = 1.0;
+bool FeatureExtractionOptions::Check() const {
+  if (use_gpu) {
+    CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
+#ifndef COLMAP_GPU_ENABLED
+    LOG(ERROR) << "Cannot use GPU feature Extraction without CUDA or OpenGL "
+                  "support. Set use_gpu or use_gpu to false.";
+    return false;
+#endif
+  }
+  if (type == FeatureExtractorType::SIFT) {
+    return THROW_CHECK_NOTNULL(sift)->Check();
+  } else {
+    LOG(ERROR) << "Unknown feature extractor type: " << type;
+    return false;
+  }
+  return true;
+}
 
-  enum class MatchConfig {
-    // Exhaustive matches between all pairs of observations of a 3D point.
-    EXHAUSTIVE = 1,
-    // Chain of matches between images with consecutive identifiers, i.e.,
-    // there are only matches between image pairs (image_id, image_id+1).
-    CHAINED = 2,
-  };
-  MatchConfig match_config = MatchConfig::EXHAUSTIVE;
-
-  bool use_prior_position = false;
-  bool use_geographic_coords_prior = false;
-  double prior_position_stddev = 1.5;
-};
-
-void SynthesizeDataset(const SyntheticDatasetOptions& options,
-                       Reconstruction* reconstruction,
-                       Database* database = nullptr);
+std::unique_ptr<FeatureExtractor> FeatureExtractor::Create(
+    const FeatureExtractionOptions& options) {
+  switch (options.type) {
+    case FeatureExtractorType::SIFT:
+      return CreateSiftFeatureExtractor(options);
+    default:
+      ThrowUnknownFeatureExtractorType(options.type);
+  }
+  return nullptr;
+}
 
 }  // namespace colmap

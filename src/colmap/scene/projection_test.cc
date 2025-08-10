@@ -29,8 +29,6 @@
 
 #include "colmap/scene/projection.h"
 
-#include "colmap/geometry/pose.h"
-#include "colmap/math/math.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
 

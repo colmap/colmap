@@ -39,7 +39,6 @@
 #include "colmap/util/types.h"
 
 #include <mutex>
-#include <unordered_map>
 #include <vector>
 
 #include <Eigen/Core>
@@ -78,6 +77,10 @@ class Database {
 
   // Open and close database. The same database should not be opened
   // concurrently in multiple threads or processes.
+  //
+  // On Windows, the input path is converted from the local code page to UTF-8
+  // for compatibility with SQLite. On POSIX platforms, the path is assumed to
+  // be UTF-8.
   void Open(const std::string& path);
   void Close();
 

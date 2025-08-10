@@ -537,4 +537,45 @@ bool MergeReconstructions(const double max_reproj_error,
   return true;
 }
 
+bool AlignReconstructionToOrigRigScales(
+    const std::unordered_map<rig_t, Rig>& orig_rigs,
+    Reconstruction* reconstruction) {
+  double scale_sum = 0;
+  int scale_count = 0;
+  for (const auto& [rig_id, orig_rig] : orig_rigs) {
+    double scale_sum_rig = 0;
+    int scale_count_rig = 0;
+    for (auto& [sensor_id, sensor_from_orig_rig] : orig_rig.Sensors()) {
+      if (!sensor_from_orig_rig.has_value()) {
+        continue;
+      }
+
+      // Here we do not include rigs that are panoramic.
+      double sensor_from_orig_rig_norm =
+          sensor_from_orig_rig->translation.norm();
+      if (sensor_from_orig_rig_norm < 1e-6) {
+        continue;
+      }
+      THROW_CHECK(reconstruction->Rig(rig_id).HasSensorFromRig(sensor_id));
+      double scale = reconstruction->Rig(rig_id)
+                         .SensorFromRig(sensor_id)
+                         .translation.norm() /
+                     sensor_from_orig_rig_norm;
+      scale_sum_rig += scale;
+      ++scale_count_rig;
+    }
+    if (scale_count_rig > 0) {
+      scale_sum += scale_sum_rig / scale_count_rig;
+      ++scale_count;
+    }
+  }
+  if (scale_count == 0) {
+    return false;
+  }
+  Sim3d new_from_old_world;
+  new_from_old_world.scale = scale_count / scale_sum;
+  reconstruction->Transform(new_from_old_world);
+  return true;
+}
+
 }  // namespace colmap

@@ -23,16 +23,6 @@ inline bool IsGPU(Device device) {
   }
 }
 
-inline void VerifyGPUParams(const bool use_gpu) {
-#ifndef COLMAP_CUDA_ENABLED
-  if (use_gpu) {
-    LOG(FATAL_THROW)
-        << "Cannot use Sift GPU without CUDA support; set device='auto' "
-           "or device='cpu'.";
-  }
-#endif
-}
-
 typedef Eigen::Matrix<bool, Eigen::Dynamic, 1> PyInlierMask;
 
 inline PyInlierMask ToPythonMask(const std::vector<char>& mask_char) {

@@ -821,10 +821,10 @@ def create_result_table(
     size_sep = size_scenes + size_aucs + size_imgs + size_comps + 3
     header = (
         f"{column:=^{size_scenes}} {label:=^{size_aucs}} "
-        f"{"images":=^{size_imgs}} {"components":=^{size_comps}}"
+        f"{'images':=^{size_imgs}} {'components':=^{size_comps}}"
     )
     header += "\n" + " " * (size_scenes + 1)
-    header += " ".join(f'{str(t).rstrip("."):^6}' for t in thresholds)
+    header += " ".join(f"{str(t).rstrip('.'):^6}" for t in thresholds)
     header += "    reg   all  num largest"
     text = [header]
     for dataset, category_metrics in dataset_metrics.items():
