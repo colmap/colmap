@@ -434,7 +434,8 @@ Eigen::Vector3d GPSTransform::ENUToECEF(const Eigen::Vector3d& xyz_in_enu,
 
 std::pair<Eigen::Vector3d, int> GPSTransform::EllipsoidToUTM(
     const Eigen::Vector3d& lat_lon_alt) const {
-  auto [xyz_in_utm, zone] = EllipsoidToUTM(std::vector<Eigen::Vector3d>{lat_lon_alt});
+  auto [xyz_in_utm, zone] =
+      EllipsoidToUTM(std::vector<Eigen::Vector3d>{lat_lon_alt});
   return std::make_pair(std::move(xyz_in_utm.front()), zone);
 }
 

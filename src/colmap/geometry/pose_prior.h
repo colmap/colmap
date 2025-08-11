@@ -45,10 +45,8 @@ struct PosePrior {
                   -1,
                   UNDEFINED,  // = -1
                   WGS84,      // = 0
-                  CARTESIAN       // = 1
+                  CARTESIAN   // = 1
   );
-
-  inline bool IsCartesian(CoordinateSystem system) const;
 
   Eigen::Vector3d position =
       Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());

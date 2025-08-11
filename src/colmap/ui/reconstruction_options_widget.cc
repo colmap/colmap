@@ -190,6 +190,12 @@ class MapperPriorsOptionsWidget : public OptionsWidget {
                   "use_robust_loss_on_prior_position");
     AddOptionDouble(&options->mapper->prior_position_loss_scale,
                     "prior_position_loss_scale");
+    AddOptionInt(
+        reinterpret_cast<std::underlying_type_t<GPSTransform::CartesianFrame>*>(
+            &options->mapper->lla_cartesian_frame),
+        "lla_cartesian_frame\n{0 = ECEF, 1 = ENU, 2 = UTM}",
+        0,
+        2);
   }
 };
 

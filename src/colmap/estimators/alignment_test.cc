@@ -112,7 +112,7 @@ TEST(Alignment, AlignReconstructionToPosePriors) {
   std::unordered_map<image_t, PosePrior> tgt_pose_priors;
   for (const auto& [image_id, image] : tgt_reconstruction.Images()) {
     PosePrior& pose_prior = tgt_pose_priors[image_id];
-    pose_prior.coordinate_system = PosePrior::CoordinateSystem::ECEF;
+    pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
     pose_prior.position = image.ProjectionCenter();
     pose_prior.position_covariance = 1e-2 * Eigen::Matrix3d::Identity();
   }
