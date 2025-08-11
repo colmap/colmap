@@ -50,12 +50,12 @@ namespace colmap {
 class ModelViewerWidget : public QOpenGLWidget,
                           protected QOpenGLFunctions_3_2_Core {
  public:
-  const float kInitNearPlane = 1.0f;
-  const float kMinNearPlane = 1e-3f;
+  const float kInitNearPlane = 1e-2f;
+  const float kMinNearPlane = 1e-6f;
   const float kMaxNearPlane = 1e5f;
   const float kNearPlaneScaleSpeed = 0.02f;
-  const float kFarPlane = 1e5f;
-  const float kInitFocusDistance = 100.0f;
+  const float kFarPlane = 1e6f;
+  const float kInitFocusDistance = 5.0f;
   const float kMinFocusDistance = 1e-5f;
   const float kMaxFocusDistance = 1e8f;
   const float kFieldOfView = 25.0f;
@@ -64,7 +64,7 @@ class ModelViewerWidget : public QOpenGLWidget,
   const float kMinPointSize = 0.5f;
   const float kMaxPointSize = 100.0f;
   const float kPointScaleSpeed = 0.1f;
-  const float kInitImageSize = 0.2f;
+  const float kInitImageSize = 0.01f;
   const float kMinImageSize = 1e-6f;
   const float kMaxImageSize = 1e3f;
   const float kImageScaleSpeed = 0.1f;
@@ -117,7 +117,9 @@ class ModelViewerWidget : public QOpenGLWidget,
 
   // Copy of current scene data that is displayed
   std::shared_ptr<Reconstruction> reconstruction;
+  std::unordered_map<rig_t, Rig> rigs;
   std::unordered_map<camera_t, Camera> cameras;
+  std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
   std::unordered_map<point3D_t, Point3D> points3D;
   std::vector<image_t> reg_image_ids;
@@ -137,6 +139,8 @@ class ModelViewerWidget : public QOpenGLWidget,
 
   void SetupPainters();
   void SetupView();
+
+  void ComputeModelOriginAndScale();
 
   void Upload();
   void UploadCoordinateGridData();
@@ -158,6 +162,9 @@ class ModelViewerWidget : public QOpenGLWidget,
 
   QMatrix4x4 model_view_matrix_;
   QMatrix4x4 projection_matrix_;
+
+  Eigen::Vector3d model_origin_ = Eigen::Vector3d::Zero();
+  double model_scale_ = 1.0;
 
   LinePainter coordinate_axes_painter_;
   LinePainter coordinate_grid_painter_;

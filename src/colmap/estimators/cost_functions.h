@@ -97,14 +97,18 @@ class ReprojErrorCostFunctor
         EigenQuaternionMap<T>(cam_from_world_rotation) *
             EigenVector3Map<T>(point3D) +
         EigenVector3Map<T>(cam_from_world_translation);
-    CameraModel::ImgFromCam(camera_params,
-                            point3D_in_cam[0],
-                            point3D_in_cam[1],
-                            point3D_in_cam[2],
-                            &residuals[0],
-                            &residuals[1]);
-    residuals[0] -= T(observed_x_);
-    residuals[1] -= T(observed_y_);
+    if (CameraModel::ImgFromCam(camera_params,
+                                point3D_in_cam[0],
+                                point3D_in_cam[1],
+                                point3D_in_cam[2],
+                                &residuals[0],
+                                &residuals[1])) {
+      residuals[0] -= T(observed_x_);
+      residuals[1] -= T(observed_y_);
+    } else {
+      residuals[0] = T(0);
+      residuals[1] = T(0);
+    }
     return true;
   }
 
@@ -214,14 +218,18 @@ class RigReprojErrorCostFunctor
                  EigenVector3Map<T>(point3D) +
              EigenVector3Map<T>(rig_from_world_translation)) +
         EigenVector3Map<T>(cam_from_rig_translation);
-    CameraModel::ImgFromCam(camera_params,
-                            point3D_in_cam[0],
-                            point3D_in_cam[1],
-                            point3D_in_cam[2],
-                            &residuals[0],
-                            &residuals[1]);
-    residuals[0] -= T(observed_x_);
-    residuals[1] -= T(observed_y_);
+    if (CameraModel::ImgFromCam(camera_params,
+                                point3D_in_cam[0],
+                                point3D_in_cam[1],
+                                point3D_in_cam[2],
+                                &residuals[0],
+                                &residuals[1])) {
+      residuals[0] -= T(observed_x_);
+      residuals[1] -= T(observed_y_);
+    } else {
+      residuals[0] = T(0);
+      residuals[1] = T(0);
+    }
     return true;
   }
 
@@ -280,8 +288,9 @@ class RigReprojErrorConstantRigCostFunctor
 class SampsonErrorCostFunctor
     : public AutoDiffCostFunctor<SampsonErrorCostFunctor, 1, 4, 3> {
  public:
-  SampsonErrorCostFunctor(const Eigen::Vector2d& x1, const Eigen::Vector2d& x2)
-      : x1_(x1(0)), y1_(x1(1)), x2_(x2(0)), y2_(x2(1)) {}
+  SampsonErrorCostFunctor(const Eigen::Vector3d& cam_ray1,
+                          const Eigen::Vector3d& cam_ray2)
+      : cam_ray1_(cam_ray1), cam_ray2_(cam_ray2) {}
 
   template <typename T>
   bool operator()(const T* const cam2_from_cam1_rotation,
@@ -299,26 +308,27 @@ class SampsonErrorCostFunctor
     // Essential matrix.
     const Eigen::Matrix<T, 3, 3> E = t_x * R;
 
-    // Homogeneous image coordinates.
-    const Eigen::Matrix<T, 3, 1> x1_h(T(x1_), T(y1_), T(1));
-    const Eigen::Matrix<T, 3, 1> x2_h(T(x2_), T(y2_), T(1));
-
     // Squared sampson error.
-    const Eigen::Matrix<T, 3, 1> Ex1 = E * x1_h;
-    const Eigen::Matrix<T, 3, 1> Etx2 = E.transpose() * x2_h;
-    const T x2tEx1 = x2_h.transpose() * Ex1;
-    residuals[0] = x2tEx1 * x2tEx1 /
-                   (Ex1(0) * Ex1(0) + Ex1(1) * Ex1(1) + Etx2(0) * Etx2(0) +
-                    Etx2(1) * Etx2(1));
+    const Eigen::Matrix<T, 3, 1> epipolar_line1 = E * cam_ray1_.cast<T>();
+    const Eigen::Matrix<T, 3, 1> cam_ray2 = cam_ray2_.cast<T>();
+    const T num = cam_ray2.dot(epipolar_line1);
+    const Eigen::Matrix<T, 4, 1> denom(cam_ray2.dot(E.col(0)),
+                                       cam_ray2.dot(E.col(1)),
+                                       epipolar_line1.x(),
+                                       epipolar_line1.y());
+    const T denom_norm = denom.norm();
+    if (denom_norm == static_cast<T>(0)) {
+      residuals[0] = static_cast<T>(0);
+    } else {
+      residuals[0] = num / denom_norm;
+    }
 
     return true;
   }
 
  private:
-  const double x1_;
-  const double y1_;
-  const double x2_;
-  const double y2_;
+  const Eigen::Vector3d cam_ray1_;
+  const Eigen::Vector3d cam_ray2_;
 };
 
 template <typename T>
@@ -451,11 +461,12 @@ struct Point3DAlignmentCostFunctor
   bool operator()(const T* const point_in_a,
                   const T* const b_from_a_rotation,
                   const T* const b_from_a_translation,
-                  const T* const b_from_a_scale,
+                  const T* const b_from_a_log_scale,
                   T* residuals_ptr) const {
+    const T b_from_a_scale = ceres::exp(b_from_a_log_scale[0]);
     const Eigen::Matrix<T, 3, 1> point_in_b =
         EigenQuaternionMap<T>(b_from_a_rotation) *
-            EigenVector3Map<T>(point_in_a) * b_from_a_scale[0] +
+            EigenVector3Map<T>(point_in_a) * b_from_a_scale +
         EigenVector3Map<T>(b_from_a_translation);
     Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
     residuals = point_in_b - point_in_b_prior_.cast<T>();

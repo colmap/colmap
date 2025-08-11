@@ -355,7 +355,7 @@ void DenseReconstructionWidget::Undistort() {
     return;
   }
 
-  if (reconstruction_ == nullptr || reconstruction_->NumRegImages() < 2) {
+  if (reconstruction_ == nullptr || reconstruction_->NumRegFrames() < 2) {
     QMessageBox::critical(
         this, "", tr("No reconstruction selected in main window"));
     return;

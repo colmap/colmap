@@ -64,12 +64,22 @@ TEST(CoordinateFrame, AlignToPrincipalPlane) {
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
   reconstruction.AddCamera(camera);
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
+  reconstruction.AddRig(rig);
+  Frame frame;
+  frame.SetFrameId(1);
+  frame.SetRigId(rig.RigId());
+  frame.AddDataId(data_t(camera.SensorId(), 1));
+  frame.SetRigFromWorld(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(-1, 0, 0)));
+  reconstruction.AddFrame(frame);
   // Setup image with projection center at (1, 0, 0)
   Image image;
   image.SetCameraId(camera.camera_id);
   image.SetImageId(1);
-  image.SetCamFromWorld(
-      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(-1, 0, 0)));
+  image.SetFrameId(1);
   reconstruction.AddImage(image);
   // Setup 4 points on the Y-Z plane
   const point3D_t p1 =
@@ -121,10 +131,10 @@ TEST(CoordinateFrame, AlignToENUPlane) {
   // Create reconstruction with 4 points with known LLA coordinates. After the
   // ENU transform all 4 points should land approximately on the X-Y plane.
   GPSTransform gps;
-  auto points = gps.EllToXYZ({Eigen::Vector3d(50, 10.1, 100),
-                              Eigen::Vector3d(50.1, 10, 100),
-                              Eigen::Vector3d(50.1, 10.1, 100),
-                              Eigen::Vector3d(50, 10, 100)});
+  auto points = gps.EllipsoidToECEF({Eigen::Vector3d(50, 10.1, 100),
+                                     Eigen::Vector3d(50.1, 10, 100),
+                                     Eigen::Vector3d(50.1, 10.1, 100),
+                                     Eigen::Vector3d(50, 10, 100)});
   Sim3d tform;
   Reconstruction reconstruction;
   std::vector<point3D_t> point_ids;

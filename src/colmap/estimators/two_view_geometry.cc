@@ -44,6 +44,8 @@
 
 #include <unordered_set>
 
+#include <Eigen/Geometry>
+
 namespace colmap {
 namespace {
 
@@ -84,15 +86,6 @@ FeatureMatches ExtractOutlierMatches(const FeatureMatches& matches,
   return outlier_matches;
 }
 
-inline bool IsImagePointInBoundingBox(const Eigen::Vector2d& point,
-                                      const double minx,
-                                      const double maxx,
-                                      const double miny,
-                                      const double maxy) {
-  return point.x() >= minx && point.x() <= maxx && point.y() >= miny &&
-         point.y() <= maxy;
-}
-
 TwoViewGeometry EstimateCalibratedHomography(
     const Camera& camera1,
     const std::vector<Eigen::Vector2d>& points1,
@@ -109,18 +102,19 @@ TwoViewGeometry EstimateCalibratedHomography(
   }
 
   // Extract corresponding points.
-  std::vector<Eigen::Vector2d> matched_points1(matches.size());
-  std::vector<Eigen::Vector2d> matched_points2(matches.size());
+  std::vector<Eigen::Vector2d> matched_img_points1(matches.size());
+  std::vector<Eigen::Vector2d> matched_img_points2(matches.size());
   for (size_t i = 0; i < matches.size(); ++i) {
-    matched_points1[i] = points1[matches[i].point2D_idx1];
-    matched_points2[i] = points2[matches[i].point2D_idx2];
+    matched_img_points1[i] = points1[matches[i].point2D_idx1];
+    matched_img_points2[i] = points2[matches[i].point2D_idx2];
   }
 
   // Estimate planar or panoramic model.
 
   LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
       options.ransac_options);
-  const auto H_report = H_ransac.Estimate(matched_points1, matched_points2);
+  const auto H_report =
+      H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
 
   if (!H_report.success || H_report.support.num_inliers < min_num_inliers) {
@@ -132,13 +126,14 @@ TwoViewGeometry EstimateCalibratedHomography(
 
   geometry.inlier_matches = ExtractInlierMatches(
       matches, H_report.support.num_inliers, H_report.inlier_mask);
-  if (options.detect_watermark && DetectWatermark(camera1,
-                                                  matched_points1,
-                                                  camera2,
-                                                  matched_points2,
-                                                  H_report.support.num_inliers,
-                                                  H_report.inlier_mask,
-                                                  options)) {
+  if (options.detect_watermark &&
+      DetectWatermarkMatches(camera1,
+                             matched_img_points1,
+                             camera2,
+                             matched_img_points2,
+                             H_report.support.num_inliers,
+                             H_report.inlier_mask,
+                             options)) {
     geometry.config = TwoViewGeometry::ConfigurationType::WATERMARK;
   }
 
@@ -165,11 +160,11 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
   }
 
   // Extract corresponding points.
-  std::vector<Eigen::Vector2d> matched_points1(matches.size());
-  std::vector<Eigen::Vector2d> matched_points2(matches.size());
+  std::vector<Eigen::Vector2d> matched_img_points1(matches.size());
+  std::vector<Eigen::Vector2d> matched_img_points2(matches.size());
   for (size_t i = 0; i < matches.size(); ++i) {
-    matched_points1[i] = points1[matches[i].point2D_idx1];
-    matched_points2[i] = points2[matches[i].point2D_idx2];
+    matched_img_points1[i] = points1[matches[i].point2D_idx1];
+    matched_img_points2[i] = points2[matches[i].point2D_idx2];
   }
 
   // Estimate epipolar model.
@@ -177,14 +172,16 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
   LORANSAC<FundamentalMatrixSevenPointEstimator,
            FundamentalMatrixEightPointEstimator>
       F_ransac(options.ransac_options);
-  const auto F_report = F_ransac.Estimate(matched_points1, matched_points2);
+  const auto F_report =
+      F_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.F = F_report.model;
 
   // Estimate planar or panoramic model.
 
   LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
       options.ransac_options);
-  const auto H_report = H_ransac.Estimate(matched_points1, matched_points2);
+  const auto H_report =
+      H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
 
   if ((!F_report.success && !H_report.success) ||
@@ -215,13 +212,13 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
   geometry.inlier_matches =
       ExtractInlierMatches(matches, num_inliers, *best_inlier_mask);
 
-  if (options.detect_watermark && DetectWatermark(camera1,
-                                                  matched_points1,
-                                                  camera2,
-                                                  matched_points2,
-                                                  num_inliers,
-                                                  *best_inlier_mask,
-                                                  options)) {
+  if (options.detect_watermark && DetectWatermarkMatches(camera1,
+                                                         matched_img_points1,
+                                                         camera2,
+                                                         matched_img_points2,
+                                                         num_inliers,
+                                                         *best_inlier_mask,
+                                                         options)) {
     geometry.config = TwoViewGeometry::ConfigurationType::WATERMARK;
   }
 
@@ -242,12 +239,9 @@ TwoViewGeometry EstimateMultipleTwoViewGeometries(
   FeatureMatches remaining_matches = matches;
   TwoViewGeometry multi_geometry;
   std::vector<TwoViewGeometry> geometries;
-  TwoViewGeometryOptions options_copy = options;
-  // Set to false to prevent recursive calls to this function.
-  options_copy.multiple_models = false;
   while (true) {
     TwoViewGeometry geometry = EstimateTwoViewGeometry(
-        camera1, points1, camera2, points2, remaining_matches, options_copy);
+        camera1, points1, camera2, points2, remaining_matches, options);
     if (geometry.config == TwoViewGeometry::ConfigurationType::DEGENERATE) {
       break;
     }
@@ -298,6 +292,7 @@ bool TwoViewGeometryOptions::Check() const {
   CHECK_OPTION_GE(ransac_options.confidence, 0);
   CHECK_OPTION_LE(ransac_options.confidence, 1);
   CHECK_OPTION_LE(ransac_options.min_num_trials, ransac_options.max_num_trials);
+  CHECK_OPTION_GE(ransac_options.random_seed, -1);
   return true;
 }
 
@@ -306,11 +301,20 @@ TwoViewGeometry EstimateTwoViewGeometry(
     const std::vector<Eigen::Vector2d>& points1,
     const Camera& camera2,
     const std::vector<Eigen::Vector2d>& points2,
-    const FeatureMatches& matches,
+    FeatureMatches matches,
     const TwoViewGeometryOptions& options) {
+  if (options.filter_stationary_matches) {
+    FilterStationaryMatches(
+        options.stationary_matches_max_error, points1, points2, &matches);
+  }
   if (options.multiple_models) {
+    TwoViewGeometryOptions multiple_model_options = options;
+    // Set to false to prevent recursive calls to this function.
+    multiple_model_options.multiple_models = false;
+    // Set to false to prevent redundant filtering of stationary matches.
+    multiple_model_options.filter_stationary_matches = false;
     return EstimateMultipleTwoViewGeometries(
-        camera1, points1, camera2, points2, matches, options);
+        camera1, points1, camera2, points2, matches, multiple_model_options);
   } else if (options.force_H_use) {
     return EstimateCalibratedHomography(
         camera1, points1, camera2, points2, matches, options);
@@ -339,34 +343,54 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
   }
 
   // Extract normalized inlier points.
-  std::vector<Eigen::Vector2d> inlier_points1_normalized;
-  inlier_points1_normalized.reserve(geometry->inlier_matches.size());
-  std::vector<Eigen::Vector2d> inlier_points2_normalized;
-  inlier_points2_normalized.reserve(geometry->inlier_matches.size());
-  for (const auto& match : geometry->inlier_matches) {
-    inlier_points1_normalized.push_back(
-        camera1.CamFromImg(points1[match.point2D_idx1]));
-    inlier_points2_normalized.push_back(
-        camera2.CamFromImg(points2[match.point2D_idx2]));
+  const size_t num_inlier_matches = geometry->inlier_matches.size();
+  if (num_inlier_matches == 0) {
+    return false;
+  }
+
+  std::vector<Eigen::Vector3d> inlier_cam_rays1(num_inlier_matches);
+  std::vector<Eigen::Vector3d> inlier_cam_rays2(num_inlier_matches);
+  for (size_t i = 0; i < num_inlier_matches; ++i) {
+    const FeatureMatch& match = geometry->inlier_matches[i];
+    if (const std::optional<Eigen::Vector2d> cam_point1 =
+            camera1.CamFromImg(points1[match.point2D_idx1]);
+        cam_point1) {
+      inlier_cam_rays1[i] = cam_point1->homogeneous().normalized();
+    } else {
+      inlier_cam_rays1[i].setZero();
+    }
+    if (const std::optional<Eigen::Vector2d> cam_point2 =
+            camera2.CamFromImg(points2[match.point2D_idx2]);
+        cam_point2) {
+      inlier_cam_rays2[i] = cam_point2->homogeneous().normalized();
+    } else {
+      inlier_cam_rays2[i].setZero();
+    }
   }
 
   std::vector<Eigen::Vector3d> points3D;
 
   if (geometry->config == TwoViewGeometry::ConfigurationType::CALIBRATED) {
     PoseFromEssentialMatrix(geometry->E,
-                            inlier_points1_normalized,
-                            inlier_points2_normalized,
+                            inlier_cam_rays1,
+                            inlier_cam_rays2,
                             &geometry->cam2_from_cam1,
                             &points3D);
+    if (points3D.empty()) {
+      return false;
+    }
   } else if (geometry->config ==
              TwoViewGeometry::ConfigurationType::UNCALIBRATED) {
     const Eigen::Matrix3d E = EssentialFromFundamentalMatrix(
         camera2.CalibrationMatrix(), geometry->F, camera1.CalibrationMatrix());
     PoseFromEssentialMatrix(E,
-                            inlier_points1_normalized,
-                            inlier_points2_normalized,
+                            inlier_cam_rays1,
+                            inlier_cam_rays2,
                             &geometry->cam2_from_cam1,
                             &points3D);
+    if (points3D.empty()) {
+      return false;
+    }
   } else if (geometry->config == TwoViewGeometry::ConfigurationType::PLANAR ||
              geometry->config ==
                  TwoViewGeometry::ConfigurationType::PANORAMIC ||
@@ -376,34 +400,39 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
     PoseFromHomographyMatrix(geometry->H,
                              camera1.CalibrationMatrix(),
                              camera2.CalibrationMatrix(),
-                             inlier_points1_normalized,
-                             inlier_points2_normalized,
+                             inlier_cam_rays1,
+                             inlier_cam_rays2,
                              &geometry->cam2_from_cam1,
                              &normal,
                              &points3D);
+    if (geometry->config ==
+        TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC) {
+      if (geometry->cam2_from_cam1.translation.squaredNorm() < 1e-12) {
+        geometry->config = TwoViewGeometry::ConfigurationType::PANORAMIC;
+      } else {
+        geometry->config = TwoViewGeometry::ConfigurationType::PLANAR;
+      }
+    }
+
+    if (geometry->config == TwoViewGeometry::ConfigurationType::PANORAMIC) {
+      geometry->tri_angle = 0;
+    }
+
+    if (geometry->config == TwoViewGeometry::ConfigurationType::PLANAR &&
+        points3D.empty()) {
+      return false;
+    }
   } else {
     return false;
   }
 
-  if (points3D.empty()) {
-    geometry->tri_angle = 0;
-  } else {
+  if (!points3D.empty()) {
     const Eigen::Vector3d proj_center1 = Eigen::Vector3d::Zero();
     const Eigen::Vector3d proj_center2 =
         geometry->cam2_from_cam1.rotation.inverse() *
         -geometry->cam2_from_cam1.translation;
     geometry->tri_angle = Median(
         CalculateTriangulationAngles(proj_center1, proj_center2, points3D));
-  }
-
-  if (geometry->config ==
-      TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC) {
-    if (geometry->cam2_from_cam1.translation.norm() < 1e-6) {
-      geometry->config = TwoViewGeometry::ConfigurationType::PANORAMIC;
-      geometry->tri_angle = 0;
-    } else {
-      geometry->config = TwoViewGeometry::ConfigurationType::PLANAR;
-    }
   }
 
   return true;
@@ -427,17 +456,29 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   }
 
   // Extract corresponding points.
-  std::vector<Eigen::Vector2d> matched_points1(matches.size());
-  std::vector<Eigen::Vector2d> matched_points2(matches.size());
-  std::vector<Eigen::Vector2d> matched_points1_normalized(matches.size());
-  std::vector<Eigen::Vector2d> matched_points2_normalized(matches.size());
+  std::vector<Eigen::Vector2d> matched_img_points1(matches.size());
+  std::vector<Eigen::Vector2d> matched_img_points2(matches.size());
+  std::vector<Eigen::Vector3d> matched_cam_rays1(matches.size());
+  std::vector<Eigen::Vector3d> matched_cam_rays2(matches.size());
   for (size_t i = 0; i < matches.size(); ++i) {
     const point2D_t idx1 = matches[i].point2D_idx1;
     const point2D_t idx2 = matches[i].point2D_idx2;
-    matched_points1[i] = points1[idx1];
-    matched_points2[i] = points2[idx2];
-    matched_points1_normalized[i] = camera1.CamFromImg(points1[idx1]);
-    matched_points2_normalized[i] = camera2.CamFromImg(points2[idx2]);
+    matched_img_points1[i] = points1[idx1];
+    matched_img_points2[i] = points2[idx2];
+    if (const std::optional<Eigen::Vector2d> cam_point1 =
+            camera1.CamFromImg(points1[idx1]);
+        cam_point1) {
+      matched_cam_rays1[i] = cam_point1->homogeneous().normalized();
+    } else {
+      matched_cam_rays1[i].setZero();
+    }
+    if (const std::optional<Eigen::Vector2d> cam_point2 =
+            camera2.CamFromImg(points2[idx2]);
+        cam_point2) {
+      matched_cam_rays2[i] = cam_point2->homogeneous().normalized();
+    } else {
+      matched_cam_rays2[i].setZero();
+    }
   }
 
   // Estimate epipolar models.
@@ -450,21 +491,22 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
 
   LORANSAC<EssentialMatrixFivePointEstimator, EssentialMatrixFivePointEstimator>
       E_ransac(E_ransac_options);
-  const auto E_report =
-      E_ransac.Estimate(matched_points1_normalized, matched_points2_normalized);
+  const auto E_report = E_ransac.Estimate(matched_cam_rays1, matched_cam_rays2);
   geometry.E = E_report.model;
 
   LORANSAC<FundamentalMatrixSevenPointEstimator,
            FundamentalMatrixEightPointEstimator>
       F_ransac(options.ransac_options);
-  const auto F_report = F_ransac.Estimate(matched_points1, matched_points2);
+  const auto F_report =
+      F_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.F = F_report.model;
 
   // Estimate planar or panoramic model.
 
   LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
       options.ransac_options);
-  const auto H_report = H_ransac.Estimate(matched_points1, matched_points2);
+  const auto H_report =
+      H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
 
   if ((!E_report.success && !F_report.success && !H_report.success) ||
@@ -542,13 +584,13 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     geometry.inlier_matches =
         ExtractInlierMatches(matches, num_inliers, *best_inlier_mask);
 
-    if (options.detect_watermark && DetectWatermark(camera1,
-                                                    matched_points1,
-                                                    camera2,
-                                                    matched_points2,
-                                                    num_inliers,
-                                                    *best_inlier_mask,
-                                                    options)) {
+    if (options.detect_watermark && DetectWatermarkMatches(camera1,
+                                                           matched_img_points1,
+                                                           camera2,
+                                                           matched_img_points2,
+                                                           num_inliers,
+                                                           *best_inlier_mask,
+                                                           options)) {
       geometry.config = TwoViewGeometry::ConfigurationType::WATERMARK;
     }
 
@@ -561,13 +603,13 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   return geometry;
 }
 
-bool DetectWatermark(const Camera& camera1,
-                     const std::vector<Eigen::Vector2d>& points1,
-                     const Camera& camera2,
-                     const std::vector<Eigen::Vector2d>& points2,
-                     const size_t num_inliers,
-                     const std::vector<char>& inlier_mask,
-                     const TwoViewGeometryOptions& options) {
+bool DetectWatermarkMatches(const Camera& camera1,
+                            const std::vector<Eigen::Vector2d>& points1,
+                            const Camera& camera2,
+                            const std::vector<Eigen::Vector2d>& points2,
+                            const size_t num_inliers,
+                            const std::vector<char>& inlier_mask,
+                            const TwoViewGeometryOptions& options) {
   THROW_CHECK(options.Check());
 
   // Check if inlier points in border region and extract inlier matches.
@@ -576,14 +618,16 @@ bool DetectWatermark(const Camera& camera1,
                                      camera1.height * camera1.height);
   const double diagonal2 = std::sqrt(camera2.width * camera2.width +
                                      camera2.height * camera2.height);
-  const double minx1 = options.watermark_border_size * diagonal1;
-  const double miny1 = minx1;
-  const double maxx1 = camera1.width - minx1;
-  const double maxy1 = camera1.height - miny1;
-  const double minx2 = options.watermark_border_size * diagonal2;
-  const double miny2 = minx2;
-  const double maxx2 = camera2.width - minx2;
-  const double maxy2 = camera2.height - miny2;
+  const double border_size1 = options.watermark_border_size * diagonal1;
+  const Eigen::AlignedBox2d box1(
+      Eigen::Vector2d(border_size1, border_size1),
+      Eigen::Vector2d(camera1.width - border_size1,
+                      camera1.height - border_size1));
+  const double border_size2 = options.watermark_border_size * diagonal2;
+  const Eigen::AlignedBox2d box2(
+      Eigen::Vector2d(border_size2, border_size2),
+      Eigen::Vector2d(camera2.width - border_size2,
+                      camera2.height - border_size2));
 
   std::vector<Eigen::Vector2d> inlier_points1(num_inliers);
   std::vector<Eigen::Vector2d> inlier_points2(num_inliers);
@@ -593,16 +637,12 @@ bool DetectWatermark(const Camera& camera1,
   size_t j = 0;
   for (size_t i = 0; i < inlier_mask.size(); ++i) {
     if (inlier_mask[i]) {
-      const auto& point1 = points1[i];
-      const auto& point2 = points2[i];
+      inlier_points1[j] = points1[i];
+      inlier_points2[j] = points2[i];
+      ++j;
 
-      inlier_points1[j] = point1;
-      inlier_points2[j] = point2;
-      j += 1;
-
-      if (!IsImagePointInBoundingBox(point1, minx1, maxx1, miny1, maxy1) &&
-          !IsImagePointInBoundingBox(point2, minx2, maxx2, miny2, maxy2)) {
-        num_matches_in_border += 1;
+      if (!box1.contains(points1[i]) && !box2.contains(points2[i])) {
+        ++num_matches_in_border;
       }
     }
   }
@@ -617,6 +657,7 @@ bool DetectWatermark(const Camera& camera1,
   // Check if matches follow a translational model.
 
   RANSACOptions ransac_options = options.ransac_options;
+  ransac_options.max_error = options.watermark_detection_max_error;
   ransac_options.min_inlier_ratio = options.watermark_min_inlier_ratio;
 
   LORANSAC<TranslationTransformEstimator<2>, TranslationTransformEstimator<2>>
@@ -627,6 +668,22 @@ bool DetectWatermark(const Camera& camera1,
       static_cast<double>(report.support.num_inliers) / num_inliers;
 
   return inlier_ratio >= options.watermark_min_inlier_ratio;
+}
+
+void FilterStationaryMatches(double max_error,
+                             const std::vector<Eigen::Vector2d>& points1,
+                             const std::vector<Eigen::Vector2d>& points2,
+                             FeatureMatches* matches) {
+  const double max_error_squared = max_error * max_error;
+  matches->erase(std::remove_if(matches->begin(),
+                                matches->end(),
+                                [&](const FeatureMatch& match) {
+                                  return (points1[match.point2D_idx1] -
+                                          points2[match.point2D_idx2])
+                                             .squaredNorm() <=
+                                         max_error_squared;
+                                }),
+                 matches->end());
 }
 
 }  // namespace colmap

@@ -123,12 +123,10 @@ class DatabaseImageViewerWidget : public FeatureImageViewerWidget {
 
   QTableWidget* table_widget_;
   QTableWidgetItem* image_id_item_;
-  QTableWidgetItem* camera_id_item_;
-  QTableWidgetItem* camera_model_item_;
-  QTableWidgetItem* camera_params_item_;
-  QTableWidgetItem* rotation_item_;
-  QTableWidgetItem* translation_item_;
-  QTableWidgetItem* dimensions_item_;
+  QTableWidgetItem* frame_id_item_;
+  QTableWidgetItem* rig_id_item_;
+  QTableWidgetItem* camera_item_;
+  QTableWidgetItem* cam_from_world_item_;
   QTableWidgetItem* num_points2D_item_;
   QTableWidgetItem* num_points3D_item_;
   QTableWidgetItem* name_item_;

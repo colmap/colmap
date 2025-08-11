@@ -29,6 +29,8 @@
 
 #include "colmap/optim/sprt.h"
 
+#include <cmath>
+
 namespace colmap {
 
 SPRT::SPRT(const Options& options) { Update(options); }

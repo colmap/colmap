@@ -38,15 +38,16 @@
 namespace colmap {
 
 struct ImageReaderOptions;
-struct SiftExtractionOptions;
+struct FeatureExtractionOptions;
+struct FeatureMatchingOptions;
 struct SiftMatchingOptions;
 struct TwoViewGeometryOptions;
-struct ExhaustiveMatchingOptions;
-struct SequentialMatchingOptions;
-struct VocabTreeMatchingOptions;
-struct SpatialMatchingOptions;
-struct TransitiveMatchingOptions;
-struct ImagePairsMatchingOptions;
+struct ExhaustivePairingOptions;
+struct SequentialPairingOptions;
+struct VocabTreePairingOptions;
+struct SpatialPairingOptions;
+struct TransitivePairingOptions;
+struct ImportedPairingOptions;
 struct BundleAdjustmentOptions;
 struct IncrementalPipelineOptions;
 struct RenderOptions;
@@ -84,12 +85,12 @@ class OptionManager {
   void AddImageOptions();
   void AddExtractionOptions();
   void AddMatchingOptions();
-  void AddExhaustiveMatchingOptions();
-  void AddSequentialMatchingOptions();
-  void AddVocabTreeMatchingOptions();
-  void AddSpatialMatchingOptions();
-  void AddTransitiveMatchingOptions();
-  void AddImagePairsMatchingOptions();
+  void AddExhaustivePairingOptions();
+  void AddSequentialPairingOptions();
+  void AddVocabTreePairingOptions();
+  void AddSpatialPairingOptions();
+  void AddTransitivePairingOptions();
+  void AddImportedPairingOptions();
   void AddBundleAdjustmentOptions();
   void AddMapperOptions();
   void AddPatchMatchStereoOptions();
@@ -122,16 +123,15 @@ class OptionManager {
   std::shared_ptr<std::string> image_path;
 
   std::shared_ptr<ImageReaderOptions> image_reader;
-  std::shared_ptr<SiftExtractionOptions> sift_extraction;
-
-  std::shared_ptr<SiftMatchingOptions> sift_matching;
+  std::shared_ptr<FeatureExtractionOptions> feature_extraction;
+  std::shared_ptr<FeatureMatchingOptions> feature_matching;
   std::shared_ptr<TwoViewGeometryOptions> two_view_geometry;
-  std::shared_ptr<ExhaustiveMatchingOptions> exhaustive_matching;
-  std::shared_ptr<SequentialMatchingOptions> sequential_matching;
-  std::shared_ptr<VocabTreeMatchingOptions> vocab_tree_matching;
-  std::shared_ptr<SpatialMatchingOptions> spatial_matching;
-  std::shared_ptr<TransitiveMatchingOptions> transitive_matching;
-  std::shared_ptr<ImagePairsMatchingOptions> image_pairs_matching;
+  std::shared_ptr<ExhaustivePairingOptions> exhaustive_pairing;
+  std::shared_ptr<SequentialPairingOptions> sequential_pairing;
+  std::shared_ptr<VocabTreePairingOptions> vocab_tree_pairing;
+  std::shared_ptr<SpatialPairingOptions> spatial_pairing;
+  std::shared_ptr<TransitivePairingOptions> transitive_pairing;
+  std::shared_ptr<ImportedPairingOptions> imported_pairing;
 
   std::shared_ptr<BundleAdjustmentOptions> bundle_adjustment;
   std::shared_ptr<IncrementalPipelineOptions> mapper;
@@ -154,6 +154,11 @@ class OptionManager {
                                    const std::string& help_text = "");
 
   template <typename T>
+  void AddAndRegisterDefaultEnumOption(const std::string& name,
+                                       T* option,
+                                       const std::string& help_text = "");
+
+  template <typename T>
   void RegisterOption(const std::string& name, const T* option);
 
   std::shared_ptr<boost::program_options::options_description> desc_;
@@ -162,6 +167,9 @@ class OptionManager {
   std::vector<std::pair<std::string, const int*>> options_int_;
   std::vector<std::pair<std::string, const double*>> options_double_;
   std::vector<std::pair<std::string, const std::string*>> options_string_;
+
+  std::string feature_extraction_type_;
+  std::string feature_matching_type_;
 
   bool added_log_options_;
   bool added_random_options_;

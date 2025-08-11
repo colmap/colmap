@@ -105,8 +105,10 @@ support (special credits to `Torsten Sattler <https://tsattler.github.io>`_).
 
    install
    tutorial
+   concepts
    database
    cameras
+   rigs
    format
    datasets
    gui
@@ -117,3 +119,4 @@ support (special credits to `Torsten Sattler <https://tsattler.github.io>`_).
    contribution
    license
    bibliography
+   legacy

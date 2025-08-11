@@ -52,7 +52,7 @@ jobs:
             coverageEnabled: false,
           },
           {
-            os: ubuntu-22.04,
+            os: ubuntu-24.04,
             cmakeBuildType: Release,
             asanEnabled: true,
             guiEnabled: false,
@@ -62,31 +62,11 @@ jobs:
             coverageEnabled: false,
           },
           {
-            os: ubuntu-22.04,
+            os: ubuntu-24.04,
             cmakeBuildType: ClangTidy,
             asanEnabled: false,
             guiEnabled: false,
             cudaEnabled: false,
-            e2eTests: false,
-            checkCodeFormat: false,
-            coverageEnabled: false,
-          },
-          {
-            os: ubuntu-20.04,
-            cmakeBuildType: Release,
-            asanEnabled: false,
-            guiEnabled: true,
-            cudaEnabled: false,
-            e2eTests: false,
-            checkCodeFormat: false,
-            coverageEnabled: false,
-          },
-          {
-            os: ubuntu-20.04,
-            cmakeBuildType: Release,
-            asanEnabled: false,
-            guiEnabled: false,
-            cudaEnabled: true,
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
@@ -99,16 +79,19 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       CTCACHE_DIR: ${{ github.workspace }}/compiler-cache/ctcache
+      GLOG_v: 2
+      GLOG_logtostderr: 1
 
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/cache@v4
         id: cache-builds
         with:
           key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
           restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
           path: ${{ env.COMPILER_CACHE_DIR }}
-      
+
       - name: Install compiler cache
         run: |
           mkdir -p "$CCACHE_DIR" "$CTCACHE_DIR"
@@ -134,7 +117,7 @@ jobs:
         if: matrix.config.checkCodeFormat
         run: |
           set +x -euo pipefail
-          python -m pip install ruff==0.6.7 clang-format==19.1.0
+          python -m pip install ruff==0.12.7 clang-format==19.1.0
           ./scripts/format/c++.sh
           ./scripts/format/python.sh
           git diff --name-only
@@ -151,7 +134,6 @@ jobs:
             libboost-system-dev \
             libeigen3-dev \
             libceres-dev \
-            libflann-dev \
             libfreeimage-dev \
             libmetis-dev \
             libgoogle-glog-dev \
@@ -166,6 +148,7 @@ jobs:
             libgl1-mesa-dri \
             libunwind-dev \
             libcurl4-openssl-dev \
+            libmkl-full-dev \
             xvfb
 
           if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
@@ -187,15 +170,15 @@ jobs:
           fi
 
           if [ "${{ matrix.config.asanEnabled }}" == "true" ]; then
-            sudo apt-get install -y clang-15 libomp-15-dev
-            echo "CC=/usr/bin/clang-15" >> $GITHUB_ENV
-            echo "CXX=/usr/bin/clang++-15" >> $GITHUB_ENV
+            sudo apt-get install -y clang-18 libomp-18-dev
+            echo "CC=/usr/bin/clang-18" >> $GITHUB_ENV
+            echo "CXX=/usr/bin/clang++-18" >> $GITHUB_ENV
           fi
 
           if [ "${{ matrix.config.cmakeBuildType }}" == "ClangTidy" ]; then
-            sudo apt-get install -y clang-15 clang-tidy-15 libomp-15-dev
-            echo "CC=/usr/bin/clang-15" >> $GITHUB_ENV
-            echo "CXX=/usr/bin/clang++-15" >> $GITHUB_ENV
+            sudo apt-get install -y clang-18 clang-tidy-18 libomp-18-dev
+            echo "CC=/usr/bin/clang-18" >> $GITHUB_ENV
+            echo "CXX=/usr/bin/clang++-18" >> $GITHUB_ENV
           fi
 
           if [ "${{ matrix.config.coverageEnabled }}" == "true" ]; then
@@ -217,7 +200,8 @@ jobs:
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} \
             -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \
             -DASAN_ENABLED=${{ matrix.config.asanEnabled }} \
-            -DCOVERAGE_ENABLED=${{ matrix.config.coverageEnabled }}
+            -DCOVERAGE_ENABLED=${{ matrix.config.coverageEnabled }} \
+            -DBLA_VENDOR=Intel10_64lp
           ninja -k 10000
 
       - name: Install and build sample
@@ -266,7 +250,8 @@ jobs:
               --colmap_path ./build/src/colmap/exe/colmap \
               --dataset_names boulders,door \
               --max_rotation_error 1.0 \
-              --max_proj_center_error 0.05
+              --max_proj_center_error 0.05 \
+              --use_cpu
 
       - name: Generate coverage report
         if: matrix.config.coverageEnabled
@@ -295,7 +280,7 @@ jobs:
           indicators: true
           output: both
           thresholds: '75 90'
-      
+
       # TODO: Add code coverage comment to PR. Currently, this action reports
       # coverage for the entire repository, not just the changed files in the PR.
       # We could manually filter the coverage report to only include the changed

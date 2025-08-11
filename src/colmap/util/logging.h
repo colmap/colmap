@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/util/glog_macros.h"
 #include "colmap/util/string.h"
 
 #include <exception>
@@ -199,7 +200,7 @@ using LogMessageFatalThrowDefault = LogMessageFatalThrow<std::invalid_argument>;
 
 template <typename T>
 T ThrowCheckNotNull(const char* file, int line, const char* names, T&& t) {
-  if (GOOGLE_PREDICT_FALSE(t == nullptr)) {
+  if (COLMAP_PREDICT_FALSE(t == nullptr)) {
     LogMessageFatalThrowDefault(file, line).stream() << names;
   }
   return std::forward<T>(t);

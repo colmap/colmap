@@ -30,9 +30,9 @@
 #pragma once
 
 #include "colmap/scene/correspondence_graph.h"
-#include "colmap/scene/image.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/track.h"
+#include "colmap/scene/visibility_pyramid.h"
 #include "colmap/util/types.h"
 
 namespace colmap {
@@ -106,15 +106,15 @@ class ObservationManager {
       double max_reproj_error,
       const std::unordered_set<point3D_t>& point3D_ids);
 
-  // Filter images without observations or bogus camera parameters.
+  // Filter frames without observations or bogus camera parameters.
   //
-  // @return    The identifiers of the filtered images.
-  std::vector<image_t> FilterImages(double min_focal_length_ratio,
+  // @return    The identifiers of the filtered frames.
+  std::vector<frame_t> FilterFrames(double min_focal_length_ratio,
                                     double max_focal_length_ratio,
                                     double max_extra_param);
 
-  // De-register an existing image, and all its references.
-  void DeRegisterImage(image_t image_id);
+  // De-register an existing frame, and all its references.
+  void DeRegisterFrame(frame_t frame_id);
 
   // Get the number of observations, i.e. the number of image points that
   // have at least one correspondence to another image.

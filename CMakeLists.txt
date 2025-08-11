@@ -28,7 +28,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.12)
 
 ################################################################################
 # Options
@@ -43,6 +43,8 @@ option(OPENGL_ENABLED "Whether to enable OpenGL, if available" ON)
 option(TESTS_ENABLED "Whether to build test binaries" OFF)
 option(COVERAGE_ENABLED "Whether to enable code coverage" OFF)
 option(ASAN_ENABLED "Whether to enable AddressSanitizer flags" OFF)
+option(TSAN_ENABLED "Whether to enable ThreadSanitizer flags" OFF)
+option(UBSAN_ENABLED "Whether to enable UndefinedBehaviorSanitizer flags" OFF)
 option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
@@ -50,6 +52,7 @@ option(LSD_ENABLED "Whether to enable the LSD library" ON)
 option(DOWNLOAD_ENABLED "Whether to enable (automatic) download of resources (requires Curl/OpenSSL)" ON)
 option(UNINSTALL_ENABLED "Whether to create a target to 'uninstall' colmap" ON)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
+option(FETCH_FAISS "Whether to consume faiss using FetchContent or find_package" ON)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
 
 # Disables default features, as we specify each required feature manually below.
@@ -69,24 +72,17 @@ if(CGAL_ENABLED)
     list(APPEND VCPKG_MANIFEST_FEATURES "cgal")
 endif()
 
-if(LSD_ENABLED)
-    message(STATUS "Enabling LSD support")
-    add_definitions("-DCOLMAP_LSD_ENABLED")
-else()
-    message(STATUS "Disabling LSD support")
-endif()
-
 if(DOWNLOAD_ENABLED)
     list(APPEND VCPKG_MANIFEST_FEATURES "download")
 endif()
 
 project(COLMAP LANGUAGES C CXX)
 
-set(COLMAP_VERSION "3.12.0.dev0")
+set(COLMAP_VERSION "3.13.0.dev0")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CUDA_STANDARD 14)
+set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 set_property(GLOBAL PROPERTY GLOBAL_DEPENDS_NO_CYCLES ON)
@@ -138,10 +134,10 @@ endif()
 
 if(IS_MSVC)
     # Some fixes for the Glog library.
-    add_definitions("-DGLOG_USE_GLOG_EXPORT")
-    add_definitions("-DGLOG_NO_ABBREVIATED_SEVERITIES")
-    add_definitions("-DGL_GLEXT_PROTOTYPES")
-    add_definitions("-DNOMINMAX")
+    add_compile_definitions(GLOG_USE_GLOG_EXPORT)
+    add_compile_definitions(GLOG_NO_ABBREVIATED_SEVERITIES)
+    add_compile_definitions(GL_GLEXT_PROTOTYPES)
+    add_compile_definitions(NOMINMAX)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
     # Disable warning: 'initializing': conversion from 'X' to 'Y', possible loss of data
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4244 /wd4267 /wd4305")
@@ -158,10 +154,6 @@ if(IS_GNU)
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.9)
         message(FATAL_ERROR "GCC version 4.8 or older not supported")
     endif()
-
-    # Hide incorrect warnings for uninitialized Eigen variables under GCC.
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-maybe-uninitialized")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-maybe-uninitialized")
 endif()
 
 if(IS_MACOS)
@@ -170,7 +162,7 @@ if(IS_MACOS)
 endif()
 
 if(IS_DEBUG)
-    add_definitions("-DEIGEN_INITIALIZE_MATRICES_BY_NAN")
+    add_compile_definitions(EIGEN_INITIALIZE_MATRICES_BY_NAN)
 endif()
 
 if(SIMD_ENABLED)
@@ -193,6 +185,26 @@ if(ASAN_ENABLED)
         add_link_options(-fsanitize=address)
     else()
         message(FATAL_ERROR "Unsupported compiler for ASan mode")
+    endif()
+endif()
+
+if(TSAN_ENABLED)
+    message(STATUS "Enabling TSan support")
+    if(IS_CLANG OR IS_GNU)
+        add_compile_options(-fsanitize=thread)
+        add_link_options(-fsanitize=thread)
+    else()
+        message(FATAL_ERROR "Unsupported compiler for TSan mode")
+    endif()
+endif()
+
+if(UBSAN_ENABLED)
+    message(STATUS "Enabling UBsan support")
+    if(IS_CLANG OR IS_GNU)
+        add_compile_options(-fsanitize=undefined)
+        add_link_options(-fsanitize=undefined)
+    else()
+        message(FATAL_ERROR "Unsupported compiler for UBsan mode")
     endif()
 endif()
 
@@ -390,6 +402,9 @@ if(GPU_ENABLED)
 endif()
 if(FETCH_POSELIB)
     list(APPEND COLMAP_EXPORT_LIBS PoseLib)
+endif()
+if(FETCH_FAISS)
+    list(APPEND COLMAP_EXPORT_LIBS faiss)
 endif()
 
 # Add unified interface library target to export.

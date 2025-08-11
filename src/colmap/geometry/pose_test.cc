@@ -64,14 +64,6 @@ TEST(DecomposeProjectionMatrix, Nominal) {
   }
 }
 
-TEST(CrossProductMatrix, Nominal) {
-  EXPECT_EQ(CrossProductMatrix(Eigen::Vector3d(0, 0, 0)),
-            Eigen::Matrix3d::Zero());
-  Eigen::Matrix3d ref_matrix;
-  ref_matrix << 0, -3, 2, 3, 0, -1, -2, 1, 0;
-  EXPECT_EQ(CrossProductMatrix(Eigen::Vector3d(1, 2, 3)), ref_matrix);
-}
-
 TEST(EulerAngles, X) {
   const double rx = 0.3;
   const double ry = 0;
@@ -198,27 +190,27 @@ TEST(CheckCheirality, Nominal) {
   const Rigid3d cam2_from_cam1(Eigen::Quaterniond::Identity(),
                                Eigen::Vector3d(1, 0, 0));
 
-  std::vector<Eigen::Vector2d> points1;
-  std::vector<Eigen::Vector2d> points2;
+  std::vector<Eigen::Vector3d> rays1;
+  std::vector<Eigen::Vector3d> rays2;
   std::vector<Eigen::Vector3d> points3D;
 
-  points1.emplace_back(0, 0);
-  points2.emplace_back(0.1, 0);
-  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, points1, points2, &points3D));
+  rays1.push_back(Eigen::Vector3d(0, 0, 1).normalized());
+  rays2.push_back(Eigen::Vector3d(0.1, 0, 1).normalized());
+  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &points3D));
   EXPECT_EQ(points3D.size(), 1);
 
-  points1.emplace_back(0, 0);
-  points2.emplace_back(-0.1, 0);
-  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, points1, points2, &points3D));
+  rays1.push_back(Eigen::Vector3d(0, 0, 1).normalized());
+  rays2.push_back(Eigen::Vector3d(-0.1, 0, 1).normalized());
+  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &points3D));
   EXPECT_EQ(points3D.size(), 1);
 
-  points2[1][0] = 0.2;
-  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, points1, points2, &points3D));
+  rays2[1][0] = 0.2;
+  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &points3D));
   EXPECT_EQ(points3D.size(), 2);
 
-  points2[0][0] = -0.2;
-  points2[1][0] = -0.2;
-  EXPECT_FALSE(CheckCheirality(cam2_from_cam1, points1, points2, &points3D));
+  rays2[0][0] = -0.2;
+  rays2[1][0] = -0.2;
+  EXPECT_FALSE(CheckCheirality(cam2_from_cam1, rays1, rays2, &points3D));
   EXPECT_EQ(points3D.size(), 0);
 }
 

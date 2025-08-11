@@ -72,6 +72,8 @@ class GlogSink : public google::LogSink {
         text[1] = ':';
         text[2] = ' ';
         break;
+      default:
+        break;
     }
     log_widget_->Append(text);
   }

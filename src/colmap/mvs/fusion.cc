@@ -71,7 +71,7 @@ int FindNextImage(const std::vector<std::vector<int>>& overlapping_images,
 }  // namespace internal
 
 void StereoFusionOptions::Print() const {
-#define PrintOption(option) LOG(INFO) << #option ": " << (option) << std::endl
+#define PrintOption(option) LOG(INFO) << #option ": " << (option) << '\n';
   PrintHeading2("StereoFusion::Options");
   PrintOption(mask_path);
   PrintOption(max_image_size);
@@ -339,9 +339,13 @@ void StereoFusion::InitFusedPixelMask(int image_idx,
                                       size_t height) {
   Bitmap mask;
   Mat<char>& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
-  const std::string mask_path =
-      JoinPaths(options_.mask_path,
-                workspace_->GetModel().GetImageName(image_idx) + ".png");
+  const std::string mask_image_name =
+      workspace_->GetModel().GetImageName(image_idx);
+  std::string mask_path =
+      JoinPaths(options_.mask_path, mask_image_name + ".png");
+  if (!ExistsFile(mask_path) && HasFileExtension(mask_image_name, ".png")) {
+    mask_path = JoinPaths(options_.mask_path, mask_image_name);
+  }
   fused_pixel_mask = Mat<char>(width, height, 1);
   if (!options_.mask_path.empty() && ExistsFile(mask_path) &&
       mask.Read(mask_path, false)) {

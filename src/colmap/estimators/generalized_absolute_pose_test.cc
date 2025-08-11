@@ -30,6 +30,7 @@
 #include "colmap/estimators/generalized_absolute_pose.h"
 
 #include "colmap/geometry/rigid3.h"
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/math/random.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/eigen_alignment.h"
@@ -43,29 +44,39 @@
 namespace colmap {
 namespace {
 
-class ParameterizedGeneralizedAbsolutePoseTests
-    : public ::testing::TestWithParam</*numCams=*/int> {};
+class ParameterizedGP3PEstimatorTests
+    : public ::testing::TestWithParam<
+          std::pair</*num_cams=*/int, /*panoramic=*/bool>> {};
 
-TEST_P(ParameterizedGeneralizedAbsolutePoseTests, Estimate) {
+TEST_P(ParameterizedGP3PEstimatorTests, Nominal) {
   // Note that we can estimate the minimal problem from only 3 points but we
   // need a 4th point to choose the correct solution. In theory, we don't need
   // RANSAC as we generate exact correspondences, but we use it in this test to
   // do the choosing of the best solution for us.
   constexpr int kNumPoints = 4;
   constexpr int kNumTrials = 10;
-  const int kNumCams = GetParam();
+  const auto [kNumCams, kPanoramic] = GetParam();
 
   for (int i = 0; i < kNumTrials; ++i) {
     const Rigid3d rig_from_world(Eigen::Quaterniond::UnitRandom(),
                                  Eigen::Vector3d::Random());
-    const Rigid3d world_from_fig = Inverse(rig_from_world);
+    const Rigid3d world_from_rig = Inverse(rig_from_world);
 
     std::vector<Rigid3d> cams_from_world(kNumCams);
     std::vector<Rigid3d> cams_from_rig(kNumCams);
     for (int i = 0; i < kNumCams; ++i) {
-      cams_from_world[i] =
-          Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
-      cams_from_rig[i] = cams_from_world[i] * world_from_fig;
+      if (kPanoramic) {
+        const Eigen::Quaterniond cam_from_rig_rotation =
+            Eigen::Quaterniond::UnitRandom();
+        cams_from_rig[i] =
+            Rigid3d(cam_from_rig_rotation,
+                    cam_from_rig_rotation * Eigen::Vector3d(1, 2, 3));
+        cams_from_world[i] = cams_from_rig[i] * rig_from_world;
+      } else {
+        cams_from_world[i] = Rigid3d(Eigen::Quaterniond::UnitRandom(),
+                                     Eigen::Vector3d::Random());
+        cams_from_rig[i] = cams_from_world[i] * world_from_rig;
+      }
     }
 
     std::vector<GP3PEstimator::X_t> points2D;
@@ -94,14 +105,13 @@ TEST_P(ParameterizedGeneralizedAbsolutePoseTests, Estimate) {
           GP3PEstimator::ResidualType::ReprojectionError}) {
       RANSACOptions options;
       options.max_error = 1e-5;
-      RANSAC<GP3PEstimator> ransac(options);
-      ransac.estimator.residual_type = residual_type;
+      RANSAC<GP3PEstimator> ransac(options, GP3PEstimator(residual_type));
 
       const auto report = ransac.Estimate(points2D, points3D);
 
       EXPECT_TRUE(report.success);
-      EXPECT_THAT(report.model.ToMatrix(),
-                  EigenMatrixNear(rig_from_world.ToMatrix(), 1e-3));
+      EXPECT_THAT(report.model,
+                  Rigid3dNear(rig_from_world, /*rtol=*/1e-6, /*ttol=*/1e-6));
 
       // Test residuals of inlier points.
       std::vector<double> residuals;
@@ -123,9 +133,14 @@ TEST_P(ParameterizedGeneralizedAbsolutePoseTests, Estimate) {
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(GeneralizedAbsolutePoseTests,
-                         ParameterizedGeneralizedAbsolutePoseTests,
-                         ::testing::Values(1, 2, 3, 4));
+INSTANTIATE_TEST_SUITE_P(GP3PEstimatorTests,
+                         ParameterizedGP3PEstimatorTests,
+                         ::testing::Values(std::make_pair(1, false),
+                                           std::make_pair(2, false),
+                                           std::make_pair(3, false),
+                                           std::make_pair(4, false),
+                                           std::make_pair(1, true),
+                                           std::make_pair(2, true)));
 
 }  // namespace
 }  // namespace colmap

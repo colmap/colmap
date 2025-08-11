@@ -230,8 +230,8 @@ TEST(RigReprojErrorConstantRigCostFunctor, Nominal) {
 
 TEST(SampsonErrorCostFunctor, Nominal) {
   std::unique_ptr<ceres::CostFunction> cost_function(
-      SampsonErrorCostFunctor::Create(Eigen::Vector2d(0, 0),
-                                      Eigen::Vector2d(0, 0)));
+      SampsonErrorCostFunctor::Create(Eigen::Vector3d(0, 0, 1),
+                                      Eigen::Vector3d(0, 0, 1)));
   double cam_from_world_rotation[4] = {1, 0, 0, 0};
   double cam_from_world_translation[3] = {0, 1, 0};
   double residuals[1];
@@ -240,15 +240,15 @@ TEST(SampsonErrorCostFunctor, Nominal) {
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0);
 
-  cost_function.reset(SampsonErrorCostFunctor::Create(Eigen::Vector2d(0, 0),
-                                                      Eigen::Vector2d(1, 0)));
+  cost_function.reset(SampsonErrorCostFunctor::Create(
+      Eigen::Vector3d(0, 0, 1), Eigen::Vector3d(1, 0, 1)));
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
-  EXPECT_EQ(residuals[0], 0.5);
+  EXPECT_NEAR(residuals[0] * residuals[0], 0.5, 1e-6);
 
-  cost_function.reset(SampsonErrorCostFunctor::Create(Eigen::Vector2d(0, 0),
-                                                      Eigen::Vector2d(1, 1)));
+  cost_function.reset(SampsonErrorCostFunctor::Create(
+      Eigen::Vector3d(0, 0, 1), Eigen::Vector3d(1, 1, 1)));
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
-  EXPECT_EQ(residuals[0], 0.5);
+  EXPECT_NEAR(residuals[0] * residuals[0], 0.5, 1e-6);
 }
 
 TEST(AbsolutePosePositionPriorCostFunctor, Nominal) {
@@ -395,10 +395,11 @@ TEST(Point3DAlignmentCostFunctor, Nominal) {
   std::unique_ptr<ceres::CostFunction> cost_function(
       Point3DAlignmentCostFunctor::Create(point_in_b_prior));
   Eigen::Vector3d point(0., 0., 0.);
+  double log_scale = std::log(tform.scale);
   const double* parameters[4] = {point.data(),
                                  tform.rotation.coeffs().data(),
                                  tform.translation.data(),
-                                 &tform.scale};
+                                 &log_scale};
   double residuals[3];
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
 

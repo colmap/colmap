@@ -51,9 +51,6 @@ bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& proj_matrix,
                                Eigen::Matrix3d* R,
                                Eigen::Vector3d* T);
 
-// Compose the skew symmetric cross product matrix from a vector.
-Eigen::Matrix3d CrossProductMatrix(const Eigen::Vector3d& vector);
-
 // Convert 3D rotation matrix to Euler angles.
 //
 // The convention `R = Rx * Ry * Rz` is used,
@@ -90,20 +87,20 @@ Eigen::Quaterniond AverageQuaternions(
     const std::vector<double>& weights);
 
 // Linearly interpolate camera pose.
-Rigid3d InterpolateCameraPoses(const Rigid3d& cam_from_world1,
-                               const Rigid3d& cam_from_world2,
+Rigid3d InterpolateCameraPoses(const Rigid3d& cam1_from_world,
+                               const Rigid3d& cam2_from_world,
                                double t);
 
 // Perform cheirality constraint test, i.e., determine which of the triangulated
 // correspondences lie in front of both cameras.
 //
 // @param cam2_from_cam1  Relative camera transformation.
-// @param points1         First set of corresponding points.
-// @param points2         Second set of corresponding points.
+// @param cam_rays1       First set of corresponding rays.
+// @param cam_rays2       Second set of corresponding rays.
 // @param points3D        Points that lie in front of both cameras.
 bool CheckCheirality(const Rigid3d& cam2_from_cam1,
-                     const std::vector<Eigen::Vector2d>& points1,
-                     const std::vector<Eigen::Vector2d>& points2,
+                     const std::vector<Eigen::Vector3d>& cam_rays1,
+                     const std::vector<Eigen::Vector3d>& cam_rays2,
                      std::vector<Eigen::Vector3d>* points3D);
 
 Rigid3d TransformCameraWorld(const Sim3d& new_from_old_world,

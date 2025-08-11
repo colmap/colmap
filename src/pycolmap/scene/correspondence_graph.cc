@@ -7,9 +7,6 @@
 #include "pycolmap/helpers.h"
 #include "pycolmap/utils.h"
 
-#include <memory>
-#include <sstream>
-
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>

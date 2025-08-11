@@ -60,11 +60,11 @@ TEST(ExtractSiftFeaturesCPU, Nominal) {
   Bitmap bitmap;
   CreateImageWithSquare(256, &bitmap);
 
-  SiftExtractionOptions options;
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
   options.use_gpu = false;
-  options.estimate_affine_shape = false;
-  options.domain_size_pooling = false;
-  options.force_covariant_extractor = false;
+  options.sift->estimate_affine_shape = false;
+  options.sift->domain_size_pooling = false;
+  options.sift->force_covariant_extractor = false;
   auto extractor = CreateSiftFeatureExtractor(options);
 
   FeatureKeypoints keypoints;
@@ -92,11 +92,11 @@ TEST(ExtractCovariantSiftFeaturesCPU, Nominal) {
   Bitmap bitmap;
   CreateImageWithSquare(256, &bitmap);
 
-  SiftExtractionOptions options;
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
   options.use_gpu = false;
-  options.estimate_affine_shape = false;
-  options.domain_size_pooling = false;
-  options.force_covariant_extractor = true;
+  options.sift->estimate_affine_shape = false;
+  options.sift->domain_size_pooling = false;
+  options.sift->force_covariant_extractor = true;
   auto extractor = CreateSiftFeatureExtractor(options);
 
   FeatureKeypoints keypoints;
@@ -124,11 +124,11 @@ TEST(ExtractCovariantAffineSiftFeaturesCPU, Nominal) {
   Bitmap bitmap;
   CreateImageWithSquare(256, &bitmap);
 
-  SiftExtractionOptions options;
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
   options.use_gpu = false;
-  options.estimate_affine_shape = true;
-  options.domain_size_pooling = false;
-  options.force_covariant_extractor = false;
+  options.sift->estimate_affine_shape = true;
+  options.sift->domain_size_pooling = false;
+  options.sift->force_covariant_extractor = false;
   auto extractor = CreateSiftFeatureExtractor(options);
 
   FeatureKeypoints keypoints;
@@ -156,12 +156,12 @@ TEST(ExtractCovariantAffineSiftFeaturesCPU, Upright) {
   Bitmap bitmap;
   CreateImageWithSquare(256, &bitmap);
 
-  SiftExtractionOptions options;
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
   options.use_gpu = false;
-  options.estimate_affine_shape = true;
-  options.upright = true;
-  options.domain_size_pooling = false;
-  options.force_covariant_extractor = false;
+  options.sift->estimate_affine_shape = true;
+  options.sift->upright = true;
+  options.sift->domain_size_pooling = false;
+  options.sift->force_covariant_extractor = false;
   auto extractor = CreateSiftFeatureExtractor(options);
 
   FeatureKeypoints keypoints;
@@ -189,11 +189,11 @@ TEST(ExtractCovariantDSPSiftFeaturesCPU, Nominal) {
   Bitmap bitmap;
   CreateImageWithSquare(256, &bitmap);
 
-  SiftExtractionOptions options;
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
   options.use_gpu = false;
-  options.estimate_affine_shape = false;
-  options.domain_size_pooling = true;
-  options.force_covariant_extractor = false;
+  options.sift->estimate_affine_shape = false;
+  options.sift->domain_size_pooling = true;
+  options.sift->force_covariant_extractor = false;
   auto extractor = CreateSiftFeatureExtractor(options);
 
   FeatureKeypoints keypoints;
@@ -221,11 +221,11 @@ TEST(ExtractCovariantAffineDSPSiftFeaturesCPU, Nominal) {
   Bitmap bitmap;
   CreateImageWithSquare(256, &bitmap);
 
-  SiftExtractionOptions options;
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
   options.use_gpu = false;
-  options.estimate_affine_shape = true;
-  options.domain_size_pooling = true;
-  options.force_covariant_extractor = false;
+  options.sift->estimate_affine_shape = true;
+  options.sift->domain_size_pooling = true;
+  options.sift->force_covariant_extractor = false;
   auto extractor = CreateSiftFeatureExtractor(options);
 
   FeatureKeypoints keypoints;
@@ -263,11 +263,11 @@ TEST(ExtractSiftFeaturesGPU, Nominal) {
       Bitmap bitmap;
       CreateImageWithSquare(256, &bitmap);
 
-      SiftExtractionOptions options;
+      FeatureExtractionOptions options(FeatureExtractorType::SIFT);
       options.use_gpu = true;
-      options.estimate_affine_shape = false;
-      options.domain_size_pooling = false;
-      options.force_covariant_extractor = false;
+      options.sift->estimate_affine_shape = false;
+      options.sift->domain_size_pooling = false;
+      options.sift->force_covariant_extractor = false;
       auto extractor = CreateSiftFeatureExtractor(options);
 
       FeatureKeypoints keypoints;
@@ -332,7 +332,7 @@ TEST(CreateSiftGPUMatcherOpenGL, Nominal) {
    private:
     void Run() {
       opengl_context_.MakeCurrent();
-      SiftMatchingOptions options;
+      FeatureMatchingOptions options(FeatureMatcherType::SIFT);
       options.use_gpu = true;
       options.max_num_matches = 1000;
       EXPECT_NE(CreateSiftFeatureMatcher(options), nullptr);
@@ -346,7 +346,7 @@ TEST(CreateSiftGPUMatcherOpenGL, Nominal) {
 
 TEST(CreateSiftGPUMatcherCUDA, Nominal) {
 #if defined(COLMAP_CUDA_ENABLED)
-  SiftMatchingOptions options;
+  FeatureMatchingOptions options(FeatureMatcherType::SIFT);
   options.use_gpu = true;
   options.gpu_index = "0";
   options.max_num_matches = 1000;
@@ -359,7 +359,7 @@ struct FeatureDescriptorIndexCacheHelper {
       const std::vector<FeatureMatcher::Image>& images)
       : index_cache(100, [this](const image_t image_id) {
           auto index = FeatureDescriptorIndex::Create();
-          index->Build(*this->image_descriptors_.at(image_id));
+          index->Build(this->image_descriptors_.at(image_id)->cast<float>());
           return index;
         }) {
     for (const auto& image : images) {
@@ -376,22 +376,32 @@ struct FeatureDescriptorIndexCacheHelper {
 
 TEST(SiftCPUFeatureMatcher, Nominal) {
   const FeatureMatcher::Image image0 = {
-      0, std::make_shared<FeatureDescriptors>(0, 128)};
+      /*image_id=*/0,
+      /*width=*/100,
+      /*height=*/200,
+      /*keypoints=*/nullptr,
+      std::make_shared<FeatureDescriptors>(0, 128)};
   const FeatureMatcher::Image image1 = {
-      1,
+      /*image_id=*/1,
+      /*width=*/100,
+      /*height=*/200,
+      /*keypoints=*/nullptr,
       std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
   const FeatureMatcher::Image image2 = {
-      2,
+      /*image_id=*/2,
+      /*width=*/100,
+      /*height=*/200,
+      /*keypoints=*/nullptr,
       std::make_shared<FeatureDescriptors>(
           image1.descriptors->colwise().reverse())};
 
   FeatureDescriptorIndexCacheHelper index_cache_helper(
       {image0, image1, image2});
 
-  SiftMatchingOptions options;
+  FeatureMatchingOptions options(FeatureMatcherType::SIFT);
   options.use_gpu = false;
-  options.cpu_brute_force_matcher = false;
-  options.cpu_descriptor_index_cache = &index_cache_helper.index_cache;
+  options.sift->cpu_brute_force_matcher = false;
+  options.sift->cpu_descriptor_index_cache = &index_cache_helper.index_cache;
   auto matcher = CreateSiftFeatureMatcher(options);
 
   FeatureMatches matches;
@@ -417,51 +427,64 @@ TEST(SiftCPUFeatureMatcher, Nominal) {
   EXPECT_EQ(matches.size(), 0);
 }
 
-TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
-  SiftMatchingOptions match_options;
+TEST(SiftCPUFeatureMatcherFaissVsBruteForce, Nominal) {
+  FeatureMatchingOptions match_options;
   match_options.max_num_matches = 1000;
 
-  auto TestFlannVsBruteForce = [](const SiftMatchingOptions& options,
+  auto TestFaissVsBruteForce = [](const FeatureMatchingOptions& options,
                                   const FeatureDescriptors& descriptors1,
                                   const FeatureDescriptors& descriptors2) {
     const FeatureMatcher::Image image0 = {
-        0, std::make_shared<FeatureDescriptors>(0, 128)};
+        /*image_id=*/0,
+        /*width=*/100,
+        /*height=*/200,
+        /*keypoints=*/nullptr,
+        std::make_shared<FeatureDescriptors>(0, 128)};
     const FeatureMatcher::Image image1 = {
-        1, std::make_shared<FeatureDescriptors>(descriptors1)};
+        /*image_id=*/1,
+        /*width=*/100,
+        /*height=*/200,
+        /*keypoints=*/nullptr,
+        std::make_shared<FeatureDescriptors>(descriptors1)};
     const FeatureMatcher::Image image2 = {
-        2, std::make_shared<FeatureDescriptors>(descriptors2)};
+        /*image_id=*/2,
+        /*width=*/100,
+        /*height=*/200,
+        /*keypoints=*/nullptr,
+        std::make_shared<FeatureDescriptors>(descriptors2)};
 
     FeatureDescriptorIndexCacheHelper index_cache_helper(
         {image0, image1, image2});
 
     FeatureMatches matches_bf;
-    FeatureMatches matches_flann;
+    FeatureMatches matches_faiss;
 
-    SiftMatchingOptions custom_options = options;
+    FeatureMatchingOptions custom_options = options;
     custom_options.use_gpu = false;
-    custom_options.cpu_brute_force_matcher = true;
+    custom_options.sift->cpu_brute_force_matcher = true;
     auto bf_matcher = CreateSiftFeatureMatcher(custom_options);
-    custom_options.cpu_brute_force_matcher = false;
-    custom_options.cpu_descriptor_index_cache = &index_cache_helper.index_cache;
-    auto flann_matcher = CreateSiftFeatureMatcher(custom_options);
+    custom_options.sift->cpu_brute_force_matcher = false;
+    custom_options.sift->cpu_descriptor_index_cache =
+        &index_cache_helper.index_cache;
+    auto faiss_matcher = CreateSiftFeatureMatcher(custom_options);
 
     bf_matcher->Match(image1, image2, &matches_bf);
-    flann_matcher->Match(image1, image2, &matches_flann);
-    CheckEqualMatches(matches_bf, matches_flann);
+    faiss_matcher->Match(image1, image2, &matches_faiss);
+    CheckEqualMatches(matches_bf, matches_faiss);
 
     const size_t num_matches = matches_bf.size();
 
     bf_matcher->Match(image0, image2, &matches_bf);
-    flann_matcher->Match(image0, image2, &matches_flann);
-    CheckEqualMatches(matches_bf, matches_flann);
+    faiss_matcher->Match(image0, image2, &matches_faiss);
+    CheckEqualMatches(matches_bf, matches_faiss);
 
     bf_matcher->Match(image1, image0, &matches_bf);
-    flann_matcher->Match(image1, image0, &matches_flann);
-    CheckEqualMatches(matches_bf, matches_flann);
+    faiss_matcher->Match(image1, image0, &matches_faiss);
+    CheckEqualMatches(matches_bf, matches_faiss);
 
     bf_matcher->Match(image0, image0, &matches_bf);
-    flann_matcher->Match(image0, image0, &matches_flann);
-    CheckEqualMatches(matches_bf, matches_flann);
+    faiss_matcher->Match(image0, image0, &matches_faiss);
+    CheckEqualMatches(matches_bf, matches_faiss);
 
     return num_matches;
   };
@@ -469,16 +492,16 @@ TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
   {
     const FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);
     const FeatureDescriptors descriptors2 = CreateRandomFeatureDescriptors(50);
-    SiftMatchingOptions match_options;
-    TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
+    FeatureMatchingOptions match_options;
+    TestFaissVsBruteForce(match_options, descriptors1, descriptors2);
   }
 
   {
     const FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);
     const FeatureDescriptors descriptors2 = descriptors1.colwise().reverse();
-    SiftMatchingOptions match_options;
+    FeatureMatchingOptions match_options;
     const size_t num_matches =
-        TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
+        TestFaissVsBruteForce(match_options, descriptors1, descriptors2);
     EXPECT_EQ(num_matches, 50);
   }
 
@@ -487,9 +510,9 @@ TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
     FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);
     FeatureDescriptors descriptors2 = descriptors1;
 
-    SiftMatchingOptions match_options;
+    FeatureMatchingOptions match_options;
     const size_t num_matches1 =
-        TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
+        TestFaissVsBruteForce(match_options, descriptors1, descriptors2);
     EXPECT_EQ(num_matches1, 50);
 
     descriptors2.row(49) = descriptors2.row(0);
@@ -500,14 +523,14 @@ TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
     descriptors2.row(49) = FeatureDescriptorsToUnsignedByte(
         descriptors2.row(49).cast<float>().normalized());
 
-    match_options.max_ratio = 0.4;
-    const size_t num_matches2 = TestFlannVsBruteForce(
+    match_options.sift->max_ratio = 0.4;
+    const size_t num_matches2 = TestFaissVsBruteForce(
         match_options, descriptors1.topRows(49), descriptors2);
     EXPECT_EQ(num_matches2, 48);
 
-    match_options.max_ratio = 0.6;
+    match_options.sift->max_ratio = 0.6;
     const size_t num_matches3 =
-        TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
+        TestFaissVsBruteForce(match_options, descriptors1, descriptors2);
     EXPECT_EQ(num_matches3, 49);
   }
 
@@ -517,41 +540,49 @@ TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
     FeatureDescriptors descriptors2 = descriptors1;
     descriptors1.row(0) = descriptors1.row(1);
 
-    SiftMatchingOptions match_options;
+    FeatureMatchingOptions match_options;
 
-    match_options.cross_check = false;
+    match_options.sift->cross_check = false;
     const size_t num_matches1 =
-        TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
+        TestFaissVsBruteForce(match_options, descriptors1, descriptors2);
     EXPECT_EQ(num_matches1, 50);
 
-    match_options.cross_check = true;
+    match_options.sift->cross_check = true;
     const size_t num_matches2 =
-        TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
+        TestFaissVsBruteForce(match_options, descriptors1, descriptors2);
     EXPECT_EQ(num_matches2, 48);
   }
 }
 
 TEST(MatchGuidedSiftFeaturesCPU, Nominal) {
   const FeatureMatcher::Image image0 = {
-      0,
-      std::make_shared<FeatureDescriptors>(0, 128),
-      std::make_shared<FeatureKeypoints>(0)};
+      /*image_id=*/0,
+      /*width=*/100,
+      /*height=*/200,
+      std::make_shared<FeatureKeypoints>(0),
+      std::make_shared<FeatureDescriptors>(0, 128)};
   const FeatureMatcher::Image image1 = {
-      1,
-      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2)),
+      /*image_id=*/1,
+      /*width=*/100,
+      /*height=*/200,
       std::make_shared<FeatureKeypoints>(
-          std::vector<FeatureKeypoint>{{1, 0}, {2, 0}})};
+          std::vector<FeatureKeypoint>{{1, 0}, {2, 0}}),
+      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
   const FeatureMatcher::Image image2 = {
-      2,
+      /*image_id=*/2,
+      /*width=*/100,
+      /*height=*/200,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{{2, 0}, {1, 0}}),
       std::make_shared<FeatureDescriptors>(
-          image1.descriptors->colwise().reverse()),
-      std::make_shared<FeatureKeypoints>(
-          std::vector<FeatureKeypoint>{{2, 0}, {1, 0}})};
+          image1.descriptors->colwise().reverse())};
   const FeatureMatcher::Image image3 = {
-      3,
-      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2)),
+      /*image_id=*/3,
+      /*width=*/100,
+      /*height=*/200,
       std::make_shared<FeatureKeypoints>(
-          std::vector<FeatureKeypoint>{{100, 0}, {2, 0}})};
+          std::vector<FeatureKeypoint>{{100, 0}, {2, 0}}),
+      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
 
   FeatureDescriptorIndexCacheHelper index_cache_helper(
       {image0, image1, image2, image3});
@@ -560,9 +591,9 @@ TEST(MatchGuidedSiftFeaturesCPU, Nominal) {
   two_view_geometry.config = TwoViewGeometry::PLANAR_OR_PANORAMIC;
   two_view_geometry.H = Eigen::Matrix3d::Identity();
 
-  SiftMatchingOptions options;
+  FeatureMatchingOptions options(FeatureMatcherType::SIFT);
   options.use_gpu = false;
-  options.cpu_descriptor_index_cache = &index_cache_helper.index_cache;
+  options.sift->cpu_descriptor_index_cache = &index_cache_helper.index_cache;
   auto matcher = CreateSiftFeatureMatcher(options);
 
   constexpr double kMaxError = 4.0;
@@ -597,19 +628,29 @@ TEST(MatchSiftFeaturesGPU, Nominal) {
    private:
     void Run() {
       opengl_context_.MakeCurrent();
-      SiftMatchingOptions options;
+      FeatureMatchingOptions options(FeatureMatcherType::SIFT);
       options.use_gpu = true;
       options.max_num_matches = 1000;
       auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
 
       const FeatureMatcher::Image image0 = {
-          0, std::make_shared<FeatureDescriptors>(0, 128)};
+          /*image_id=*/0,
+          /*width=*/100,
+          /*height=*/200,
+          /*keypoints=*/nullptr,
+          std::make_shared<FeatureDescriptors>(0, 128)};
       const FeatureMatcher::Image image1 = {
-          1,
+          /*image_id=*/1,
+          /*width=*/100,
+          /*height=*/200,
+          /*keypoints=*/nullptr,
           std::make_shared<FeatureDescriptors>(
               CreateRandomFeatureDescriptors(2))};
       const FeatureMatcher::Image image2 = {
-          2,
+          /*image_id=*/2,
+          /*width=*/100,
+          /*height=*/200,
+          /*keypoints=*/nullptr,
           std::make_shared<FeatureDescriptors>(
               image1.descriptors->colwise().reverse())};
 
@@ -654,26 +695,38 @@ TEST(MatchSiftFeaturesCPUvsGPU, Nominal) {
     void Run() {
       opengl_context_.MakeCurrent();
 
-      auto TestCPUvsGPU = [](const SiftMatchingOptions& options,
+      auto TestCPUvsGPU = [](const FeatureMatchingOptions& options,
                              const FeatureDescriptors& descriptors1,
                              const FeatureDescriptors& descriptors2) {
         const FeatureMatcher::Image image0 = {
-            0, std::make_shared<FeatureDescriptors>(0, 128)};
+            /*image_id=*/0,
+            /*width=*/100,
+            /*height=*/200,
+            /*keypoints=*/nullptr,
+            std::make_shared<FeatureDescriptors>(0, 128)};
         const FeatureMatcher::Image image1 = {
-            1, std::make_shared<FeatureDescriptors>(descriptors1)};
+            /*image_id=*/1,
+            /*width=*/100,
+            /*height=*/200,
+            /*keypoints=*/nullptr,
+            std::make_shared<FeatureDescriptors>(descriptors1)};
         const FeatureMatcher::Image image2 = {
-            2, std::make_shared<FeatureDescriptors>(descriptors2)};
+            /*image_id=*/2,
+            /*width=*/100,
+            /*height=*/200,
+            /*keypoints=*/nullptr,
+            std::make_shared<FeatureDescriptors>(descriptors2)};
 
         FeatureDescriptorIndexCacheHelper index_cache_helper(
             {image0, image1, image2});
 
-        SiftMatchingOptions custom_options = options;
+        FeatureMatchingOptions custom_options = options;
         custom_options.use_gpu = true;
         custom_options.max_num_matches = 1000;
         auto gpu_matcher =
             THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(custom_options));
         custom_options.use_gpu = false;
-        custom_options.cpu_descriptor_index_cache =
+        custom_options.sift->cpu_descriptor_index_cache =
             &index_cache_helper.index_cache;
         auto cpu_matcher = CreateSiftFeatureMatcher(custom_options);
 
@@ -706,7 +759,7 @@ TEST(MatchSiftFeaturesCPUvsGPU, Nominal) {
             CreateRandomFeatureDescriptors(50);
         const FeatureDescriptors descriptors2 =
             CreateRandomFeatureDescriptors(50);
-        SiftMatchingOptions match_options;
+        FeatureMatchingOptions match_options;
         TestCPUvsGPU(match_options, descriptors1, descriptors2);
       }
 
@@ -715,7 +768,7 @@ TEST(MatchSiftFeaturesCPUvsGPU, Nominal) {
             CreateRandomFeatureDescriptors(50);
         const FeatureDescriptors descriptors2 =
             descriptors1.colwise().reverse();
-        SiftMatchingOptions match_options;
+        FeatureMatchingOptions match_options;
         const size_t num_matches =
             TestCPUvsGPU(match_options, descriptors1, descriptors2);
         EXPECT_EQ(num_matches, 50);
@@ -726,7 +779,7 @@ TEST(MatchSiftFeaturesCPUvsGPU, Nominal) {
         FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);
         FeatureDescriptors descriptors2 = descriptors1;
 
-        SiftMatchingOptions match_options;
+        FeatureMatchingOptions match_options;
         const size_t num_matches1 =
             TestCPUvsGPU(match_options, descriptors1, descriptors2);
         EXPECT_EQ(num_matches1, 50);
@@ -739,12 +792,12 @@ TEST(MatchSiftFeaturesCPUvsGPU, Nominal) {
         descriptors2.row(49) = FeatureDescriptorsToUnsignedByte(
             descriptors2.row(49).cast<float>().normalized());
 
-        match_options.max_ratio = 0.4;
+        match_options.sift->max_ratio = 0.4;
         const size_t num_matches2 =
             TestCPUvsGPU(match_options, descriptors1.topRows(49), descriptors2);
         EXPECT_EQ(num_matches2, 48);
 
-        match_options.max_ratio = 0.6;
+        match_options.sift->max_ratio = 0.6;
         const size_t num_matches3 =
             TestCPUvsGPU(match_options, descriptors1, descriptors2);
         EXPECT_EQ(num_matches3, 49);
@@ -756,14 +809,14 @@ TEST(MatchSiftFeaturesCPUvsGPU, Nominal) {
         FeatureDescriptors descriptors2 = descriptors1;
         descriptors1.row(0) = descriptors1.row(1);
 
-        SiftMatchingOptions match_options;
+        FeatureMatchingOptions match_options;
 
-        match_options.cross_check = false;
+        match_options.sift->cross_check = false;
         const size_t num_matches1 =
             TestCPUvsGPU(match_options, descriptors1, descriptors2);
         EXPECT_EQ(num_matches1, 50);
 
-        match_options.cross_check = true;
+        match_options.sift->cross_check = true;
         const size_t num_matches2 =
             TestCPUvsGPU(match_options, descriptors1, descriptors2);
         EXPECT_EQ(num_matches2, 48);
@@ -786,30 +839,38 @@ TEST(MatchGuidedSiftFeaturesGPU, Nominal) {
    private:
     void Run() {
       const FeatureMatcher::Image image0 = {
-          0,
-          std::make_shared<FeatureDescriptors>(0, 128),
-          std::make_shared<FeatureKeypoints>(0)};
+          /*image_id=*/0,
+          /*width=*/100,
+          /*height=*/200,
+          std::make_shared<FeatureKeypoints>(0),
+          std::make_shared<FeatureDescriptors>(0, 128)};
       const FeatureMatcher::Image image1 = {
-          1,
-          std::make_shared<FeatureDescriptors>(
-              CreateRandomFeatureDescriptors(2)),
+          /*image_id=*/1,
+          /*width=*/100,
+          /*height=*/200,
           std::make_shared<FeatureKeypoints>(
-              std::vector<FeatureKeypoint>{{1, 0}, {2, 0}})};
+              std::vector<FeatureKeypoint>{{1, 0}, {2, 0}}),
+          std::make_shared<FeatureDescriptors>(
+              CreateRandomFeatureDescriptors(2))};
       const FeatureMatcher::Image image2 = {
-          2,
-          std::make_shared<FeatureDescriptors>(
-              image1.descriptors->colwise().reverse()),
+          /*image_id=*/2,
+          /*width=*/100,
+          /*height=*/200,
           std::make_shared<FeatureKeypoints>(
-              std::vector<FeatureKeypoint>{{2, 0}, {1, 0}})};
+              std::vector<FeatureKeypoint>{{2, 0}, {1, 0}}),
+          std::make_shared<FeatureDescriptors>(
+              image1.descriptors->colwise().reverse())};
       const FeatureMatcher::Image image3 = {
-          3,
-          std::make_shared<FeatureDescriptors>(
-              CreateRandomFeatureDescriptors(2)),
+          /*image_id=*/3,
+          /*width=*/100,
+          /*height=*/200,
           std::make_shared<FeatureKeypoints>(
-              std::vector<FeatureKeypoint>{{100, 0}, {1, 0}})};
+              std::vector<FeatureKeypoint>{{100, 0}, {1, 0}}),
+          std::make_shared<FeatureDescriptors>(
+              CreateRandomFeatureDescriptors(2))};
 
       opengl_context_.MakeCurrent();
-      SiftMatchingOptions options;
+      FeatureMatchingOptions options(FeatureMatcherType::SIFT);
       options.use_gpu = true;
       options.max_num_matches = 1000;
       auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));

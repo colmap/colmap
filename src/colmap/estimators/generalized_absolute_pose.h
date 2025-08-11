@@ -57,16 +57,17 @@ class GP3PEstimator {
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 3;
 
+  // Whether to compute the cosine similarity or the reprojection error.
+  // [WARNING] The reprojection error being in normalized coordinates,
+  // the unique error threshold of RANSAC corresponds to different pixel values
+  // in the different cameras of the rig if they have different intrinsics.
   enum class ResidualType {
     CosineDistance,
     ReprojectionError,
   };
 
-  // Whether to compute the cosine similarity or the reprojection error.
-  // [WARNING] The reprojection error being in normalized coordinates,
-  // the unique error threshold of RANSAC corresponds to different pixel values
-  // in the different cameras of the rig if they have different intrinsics.
-  ResidualType residual_type = ResidualType::CosineDistance;
+  explicit GP3PEstimator(
+      ResidualType residual_type = ResidualType::CosineDistance);
 
   // Estimate the most probable solution of the GP3P problem from a set of
   // three 2D-3D point correspondences.
@@ -79,7 +80,10 @@ class GP3PEstimator {
   void Residuals(const std::vector<X_t>& points2D,
                  const std::vector<Y_t>& points3D,
                  const M_t& rig_from_world,
-                 std::vector<double>* residuals);
+                 std::vector<double>* residuals) const;
+
+ private:
+  const ResidualType residual_type_;
 };
 
 }  // namespace colmap

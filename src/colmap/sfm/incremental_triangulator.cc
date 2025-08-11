@@ -43,14 +43,14 @@ bool TriangulateTrack(
     Eigen::Vector3d& xyz) {
   std::vector<Eigen::Vector2d> points;
   points.resize(corrs_data.size());
-  std::vector<Rigid3d const*> cams_from_world;
+  std::vector<Rigid3d> cams_from_world;
   cams_from_world.resize(corrs_data.size());
   std::vector<Camera const*> cameras;
   cameras.resize(corrs_data.size());
   for (size_t i = 0; i < corrs_data.size(); ++i) {
     const auto& corr_data = corrs_data[i];
     points[i] = corr_data.point2D->xy;
-    cams_from_world[i] = &corr_data.image->CamFromWorld();
+    cams_from_world[i] = corr_data.image->CamFromWorld();
     cameras[i] = corr_data.camera;
   }
 
@@ -79,6 +79,7 @@ bool IncrementalTriangulator::Options::Check() const {
   CHECK_OPTION_LE(re_min_ratio, 1);
   CHECK_OPTION_GE(re_max_trials, 0);
   CHECK_OPTION_GT(min_angle, 0);
+  CHECK_OPTION_GE(random_seed, -1);
   return true;
 }
 
@@ -179,6 +180,7 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
   tri_options.residual_type =
       TriangulationEstimator::ResidualType::REPROJECTION_ERROR;
   tri_options.ransac_options.max_error = options.complete_max_reproj_error;
+  tri_options.ransac_options.random_seed = options.random_seed;
 
   // Correspondence data for reference observation in given image. We iterate
   // over all observations of the image and each observation once becomes
@@ -504,6 +506,7 @@ size_t IncrementalTriangulator::Create(
       TriangulationEstimator::ResidualType::ANGULAR_ERROR;
   tri_options.ransac_options.max_error =
       DegToRad(options.create_max_angle_error);
+  tri_options.ransac_options.random_seed = options.random_seed;
 
   // Estimate triangulation.
   Eigen::Vector3d xyz;
@@ -557,10 +560,10 @@ size_t IncrementalTriangulator::Continue(
         reconstruction_.Point3D(corr_data.point2D->point3D_id);
 
     const double angle_error =
-        CalculateAngularError(ref_corr_data.point2D->xy,
-                              point3D.xyz,
-                              ref_corr_data.image->CamFromWorld(),
-                              *ref_corr_data.camera);
+        CalculateAngularReprojectionError(ref_corr_data.point2D->xy,
+                                          point3D.xyz,
+                                          ref_corr_data.image->CamFromWorld(),
+                                          *ref_corr_data.camera);
     if (angle_error < best_angle_error) {
       best_angle_error = angle_error;
       best_idx = idx;

@@ -38,7 +38,7 @@ Share intrinsics
 
 COLMAP supports shared intrinsics for arbitrary groups of images and camera
 models. Images share the same intrinsics, if they refer to the same camera, as
-specified by the `camera_id` property in the database. You can add new cameras
+specified by the ``camera_id`` property in the database. You can add new cameras
 and set shared intrinsics in the database management tool. Please, refer to
 :ref:`Database Management <database-management>` for more information.
 
@@ -83,7 +83,7 @@ To increase the number of matches, you should use the more discriminative
 DSP-SIFT features instead of plain SIFT and also estimate the affine feature
 shape using the options: ``--SiftExtraction.estimate_affine_shape=true`` and
 ``--SiftExtraction.domain_size_pooling=true``. In addition, you should enable
-guided feature matching using: ``--SiftMatching.guided_matching=true``.
+guided feature matching using: ``--FeatureMatching.guided_matching=true``.
 
 By default, COLMAP ignores two-view feature tracks in triangulation, resulting
 in fewer 3D points than possible. Triangulation of two-view tracks can in rare
@@ -339,22 +339,22 @@ external dense reconstruction software as an alternative, as described in the
 :ref:`Tutorial <dense-reconstruction>`. If you have a GPU with low compute power
 or you want to execute COLMAP on a machine without an attached display and
 without CUDA support, you can run all steps on the CPU by specifying the
-appropriate options (e.g., ``--SiftExtraction.use_gpu=false`` for the feature
+appropriate options (e.g., ``--FeatureExtraction.use_gpu=false`` for the feature
 extraction step). But note that this might result in a significant slow-down of
 the reconstruction pipeline. Please, also note that feature extraction on the
 CPU can consume excessive RAM for large images in the default settings, which
 might require manually reducing the maximum image size using
 ``--SiftExtraction.max_image_size`` and/or setting
 ``--SiftExtraction.first_octave 0`` or by manually limiting the number of
-threads using ``--SiftExtraction.num_threads``.
+threads using ``--FeatureExtraction.num_threads``.
 
 
 Multi-GPU support in feature extraction/matching
 ------------------------------------------------
 
 You can run feature extraction/matching on multiple GPUs by specifying multiple
-indices for CUDA-enabled GPUs, e.g., ``--SiftExtraction.gpu_index=0,1,2,3`` and
-``--SiftMatching.gpu_index=0,1,2,3`` runs the feature extraction/matching on 4
+indices for CUDA-enabled GPUs, e.g., ``--FeatureExtraction.gpu_index=0,1,2,3`` and
+``--FeatureMatching.gpu_index=0,1,2,3`` runs the feature extraction/matching on 4
 GPUs in parallel. Note that you can only run one thread per GPU and this
 typically also gives the best performance. By default, COLMAP runs one feature
 extraction/matching thread per CUDA-enabled GPU and this usually gives the best
@@ -374,15 +374,15 @@ or the following:
            memory. Consider reducing the maximum number of features.
 
 during feature matching, your GPU runs out of memory. Try decreasing the option
-``--SiftMatching.max_num_matches`` until the error disappears. Note that this
+``--FeatureMatching.max_num_matches`` until the error disappears. Note that this
 might lead to inferior feature matching results, since the lower-scale input
 features will be clamped in order to fit them into GPU memory. Alternatively,
 you could change to CPU-based feature matching, but this can become very slow,
 or better you buy a GPU with more memory.
 
 The maximum required GPU memory can be approximately estimated using the
-following formula: ``4 * num_matches * num_matches + 4 * num_matches * 256``.
-For example, if you set ``--SiftMatching.max_num_matches 10000``, the maximum
+following formula: ``4 * num_matches * num_matches + 4 * num_matches * 256`` for SIFT.
+For example, if you set ``--FeatureMatching.max_num_matches 10000``, the maximum
 required GPU memory will be around 400MB, which are only allocated if one of
 your images actually has that many features.
 

@@ -15,7 +15,7 @@ def download_file(url, file_path, max_retries=3):
             return
         except Exception as exc:
             print(
-                f"Failed to download {url} (trial={retry+1}) to {file_path} due to {exc}"
+                f"Failed to download {url} (trial={retry + 1}) to {file_path} due to {exc}"
             )
 
 

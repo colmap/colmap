@@ -67,7 +67,7 @@ EstimateRigidOrSim3dRobust(const std::vector<Eigen::Vector3d>& src,
 bool EstimateRigid3d(const std::vector<Eigen::Vector3d>& src,
                      const std::vector<Eigen::Vector3d>& tgt,
                      Rigid3d& tgt_from_src) {
-  Eigen::Matrix3x4d tgt_from_src_mat;
+  Eigen::Matrix3x4d tgt_from_src_mat = Eigen::Matrix3x4d::Zero();
   if (!EstimateRigidOrSim3d<false>(src, tgt, tgt_from_src_mat)) {
     return false;
   }
@@ -80,7 +80,7 @@ EstimateRigid3dRobust(const std::vector<Eigen::Vector3d>& src,
                       const std::vector<Eigen::Vector3d>& tgt,
                       const RANSACOptions& options,
                       Rigid3d& tgt_from_src) {
-  Eigen::Matrix3x4d tgt_from_src_mat;
+  Eigen::Matrix3x4d tgt_from_src_mat = Eigen::Matrix3x4d::Zero();
   auto report =
       EstimateRigidOrSim3dRobust<false>(src, tgt, options, tgt_from_src_mat);
   tgt_from_src = Rigid3d::FromMatrix(tgt_from_src_mat);
@@ -90,7 +90,7 @@ EstimateRigid3dRobust(const std::vector<Eigen::Vector3d>& src,
 bool EstimateSim3d(const std::vector<Eigen::Vector3d>& src,
                    const std::vector<Eigen::Vector3d>& tgt,
                    Sim3d& tgt_from_src) {
-  Eigen::Matrix3x4d tgt_from_src_mat;
+  Eigen::Matrix3x4d tgt_from_src_mat = Eigen::Matrix3x4d::Zero();
   if (!EstimateRigidOrSim3d<true>(src, tgt, tgt_from_src_mat)) {
     return false;
   }
@@ -103,10 +103,12 @@ EstimateSim3dRobust(const std::vector<Eigen::Vector3d>& src,
                     const std::vector<Eigen::Vector3d>& tgt,
                     const RANSACOptions& options,
                     Sim3d& tgt_from_src) {
-  Eigen::Matrix3x4d tgt_from_src_mat;
+  Eigen::Matrix3x4d tgt_from_src_mat = Eigen::Matrix3x4d::Zero();
   auto report =
       EstimateRigidOrSim3dRobust<true>(src, tgt, options, tgt_from_src_mat);
-  tgt_from_src = Sim3d::FromMatrix(tgt_from_src_mat);
+  if (report.success) {
+    tgt_from_src = Sim3d::FromMatrix(tgt_from_src_mat);
+  }
   return report;
 }
 

@@ -45,6 +45,41 @@
 
 namespace colmap {
 
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType, 0, SIFT);
+
+struct SiftMatchingOptions;
+
+struct FeatureMatchingOptions {
+  explicit FeatureMatchingOptions(
+      FeatureMatcherType type = FeatureMatcherType::SIFT);
+
+  FeatureMatcherType type = FeatureMatcherType::SIFT;
+
+  // Number of threads for feature matching and geometric verification.
+  int num_threads = -1;
+
+  // Whether to use the GPU for feature matching.
+#ifdef COLMAP_GPU_ENABLED
+  bool use_gpu = true;
+#else
+  bool use_gpu = false;
+#endif
+
+  // Index of the GPU used for feature matching. For multi-GPU matching,
+  // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
+  std::string gpu_index = "-1";
+
+  // Maximum number of matches.
+  int max_num_matches = 32768;
+
+  // Whether to perform guided matching.
+  bool guided_matching = false;
+
+  std::shared_ptr<SiftMatchingOptions> sift;
+
+  bool Check() const;
+};
+
 class FeatureMatcher {
  public:
   virtual ~FeatureMatcher() = default;
@@ -53,11 +88,15 @@ class FeatureMatcher {
     // Unique identifier for the image. Allows a matcher to cache some
     // computations per image in consecutive calls to matching.
     image_t image_id = kInvalidImageId;
-    // Used for both normal and guided matching.
-    std::shared_ptr<const FeatureDescriptors> descriptors;
-    // Only used for guided matching.
+    // Sensor dimension in pixels of the image's camera.
+    int width = 0;
+    int height = 0;
     std::shared_ptr<const FeatureKeypoints> keypoints;
+    std::shared_ptr<const FeatureDescriptors> descriptors;
   };
+
+  static std::unique_ptr<FeatureMatcher> Create(
+      const FeatureMatchingOptions& options);
 
   virtual void Match(const Image& image1,
                      const Image& image2,
@@ -80,11 +119,13 @@ class FeatureMatcherCache {
   void AccessDatabase(const std::function<void(Database& database)>& func);
 
   const Camera& GetCamera(camera_t camera_id);
+  const Frame& GetFrame(frame_t frame_id);
   const Image& GetImage(image_t image_id);
   const PosePrior* GetPosePriorOrNull(image_t image_id);
   std::shared_ptr<FeatureKeypoints> GetKeypoints(image_t image_id);
   std::shared_ptr<FeatureDescriptors> GetDescriptors(image_t image_id);
   FeatureMatches GetMatches(image_t image_id1, image_t image_id2);
+  std::vector<frame_t> GetFrameIds();
   std::vector<image_t> GetImageIds();
   ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>&
   GetFeatureDescriptorIndexCache();
@@ -109,6 +150,7 @@ class FeatureMatcherCache {
 
  private:
   void MaybeLoadCameras();
+  void MaybeLoadFrames();
   void MaybeLoadImages();
   void MaybeLoadPosePriors();
 
@@ -116,6 +158,7 @@ class FeatureMatcherCache {
   const std::shared_ptr<Database> database_;
   std::mutex database_mutex_;
   std::unique_ptr<std::unordered_map<camera_t, Camera>> cameras_cache_;
+  std::unique_ptr<std::unordered_map<frame_t, Frame>> frames_cache_;
   std::unique_ptr<std::unordered_map<image_t, Image>> images_cache_;
   std::unique_ptr<std::unordered_map<image_t, PosePrior>> pose_priors_cache_;
   std::unique_ptr<ThreadSafeLRUCache<image_t, FeatureKeypoints>>

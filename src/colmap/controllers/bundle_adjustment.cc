@@ -73,8 +73,8 @@ void BundleAdjustmentController::Run() {
   Timer run_timer;
   run_timer.Start();
 
-  if (reconstruction_->NumRegImages() < 2) {
-    LOG(ERROR) << "Need at least two views.";
+  if (reconstruction_->NumRegFrames() == 0) {
+    LOG(ERROR) << "Need at least one registered frame.";
     return;
   }
 
@@ -91,14 +91,17 @@ void BundleAdjustmentController::Run() {
   for (const image_t image_id : reconstruction_->RegImageIds()) {
     ba_config.AddImage(image_id);
   }
-  auto reg_image_ids_it = reconstruction_->RegImageIds().begin();
-  ba_config.SetConstantCamPose(*reg_image_ids_it);                // 1st image
-  ba_config.SetConstantCamPositions(*(++reg_image_ids_it), {0});  // 2nd image
+  // Fixing the gauge with two cameras leads to a more stable optimization
+  // with fewer steps as compared to fixing three points.
+  // TODO(jsch): Investigate whether it is safe to not fix the gauge at all,
+  // as initial experiments show that it is even faster.
+  ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   // Run bundle adjustment.
   std::unique_ptr<BundleAdjuster> bundle_adjuster = CreateDefaultBundleAdjuster(
       std::move(ba_options), std::move(ba_config), *reconstruction_);
   bundle_adjuster->Solve();
+  reconstruction_->UpdatePoint3DErrors();
 
   run_timer.PrintMinutes();
 }

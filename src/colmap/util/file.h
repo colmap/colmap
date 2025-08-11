@@ -82,7 +82,7 @@ void FileCopy(const std::string& src_path,
               const std::string& dst_path,
               CopyType type = CopyType::COPY);
 
-// Check if the path points to an existing directory.
+// Check if the path points to an existing file.
 bool ExistsFile(const std::string& path);
 
 // Check if the path points to an existing directory.
@@ -99,6 +99,14 @@ std::string GetPathBaseName(const std::string& path);
 
 // Get the path of the parent directory for the given path.
 std::string GetParentDir(const std::string& path);
+
+// Normalize the path by removing repeated separators and dots and, on Windows,
+// replacing \\ separators by /.
+std::string NormalizePath(const std::filesystem::path& path);
+
+// Get the normalized relative path of full_path w.r.t. base_path.
+std::string GetNormalizedRelativePath(const std::string& full_path,
+                                      const std::string& base_path);
 
 // Join multiple paths into one path.
 template <typename... T>
@@ -132,6 +140,10 @@ void WriteBinaryBlob(const std::string& path, const span<const char>& data);
 // Read each line of a text file into a separate element. Empty lines are
 // ignored and leading/trailing whitespace is removed.
 std::vector<std::string> ReadTextFileLines(const std::string& path);
+
+// Detect if given string is a URI
+// (i.e., starts with http://, https://, file://).
+bool IsURI(const std::string& uri);
 
 #ifdef COLMAP_DOWNLOAD_ENABLED
 
