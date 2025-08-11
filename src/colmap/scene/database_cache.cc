@@ -404,8 +404,8 @@ bool DatabaseCache::SetupPosePriors(
           zone > 0 ? "N" : "S");
       break;
     }
-    default:
-    case GPSTransform::CartesianFrame::ENU: {
+    case GPSTransform::CartesianFrame::ENU:
+    default: {
       const Eigen::Vector3d& ref_lla = prior_positions_gps.front();
       prior_positions_cartesian =
           gps_transform.EllipsoidToENU(prior_positions_gps,

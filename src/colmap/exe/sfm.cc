@@ -380,7 +380,8 @@ int RunPosePriorMapper(int argc, char** argv) {
   options.AddDefaultOption("prior_position_loss_scale",
                            &options.mapper->prior_position_loss_scale);
 
-  std::string gps_cartesian_frame = "ENU";
+  std::string gps_cartesian_frame(GPSTransform::CartesianFrameToString(
+      options.mapper->gps_cartesian_frame));
   options.AddDefaultOption(
       "gps_cartesian_frame", &gps_cartesian_frame, "{ECEF, ENU, UTM}");
 
