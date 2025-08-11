@@ -22,8 +22,7 @@ jobs:
       matrix:
         config: [
           {os: ubuntu-latest},
-          {os: macos-13, arch: x86_64, deploymentTarget: 13.0},
-          {os: macos-14, arch: arm64, deploymentTarget: 14.0},
+          {os: macos-15, arch: arm64, deploymentTarget: 14.0},
           {os: windows-latest},
         ]
     env:
@@ -57,13 +56,7 @@ jobs:
       - name: Set env (macOS)
         if: runner.os == 'macOS'
         run: |
-          if [[ ${{ matrix.config.arch }} == "x86_64" ]]; then
-            VCPKG_TARGET_TRIPLET="x64-osx-release"
-          elif [[ ${{ matrix.config.arch }} == "arm64" ]]; then
-            VCPKG_TARGET_TRIPLET="arm64-osx-release"
-          else
-            exit 1
-          fi
+          VCPKG_TARGET_TRIPLET="arm64-osx-release"
           echo "VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}" >> "$GITHUB_ENV"
 
           VCPKG_INSTALLATION_ROOT="/Users/runner/work/vcpkg"
