@@ -32,6 +32,7 @@
 #include "colmap/util/logging.h"
 
 #include <cstdlib>
+#include <fstream>
 #include <iomanip>
 #include <mutex>
 #include <sstream>
