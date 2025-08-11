@@ -45,6 +45,8 @@
 #include <faiss/index_io.h>
 #include <omp.h>
 
+#include <fstream>
+
 namespace colmap {
 namespace retrieval {
 namespace {
