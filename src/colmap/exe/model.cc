@@ -76,8 +76,8 @@ Eigen::Vector3d TransformLatLonAltToModelCoords(const Sim3d& tform,
   // altitude at the end, after scaling, to set it as the z coordinate in the
   // ENU frame.
   Eigen::Vector3d xyz =
-      tform * GPSTransform(GPSTransform::WGS84)
-                  .EllToXYZ(Eigen::Vector3d(lat, lon, 0.0));
+      tform * GPSTransform(GPSTransform::Ellipsoid::WGS84)
+                  .EllipsoidToECEF(Eigen::Vector3d(lat, lon, 0.0));
   xyz(2) = tform.scale * alt;
   return xyz;
 }
@@ -119,22 +119,21 @@ std::vector<Eigen::Vector3d> ConvertCameraLocations(
     const std::string& alignment_type,
     const std::vector<Eigen::Vector3d>& ref_locations) {
   if (ref_is_gps) {
-    const GPSTransform gps_transform(GPSTransform::WGS84);
+    const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
     if (alignment_type != "enu" && alignment_type != "utm") {
       LOG(INFO) << "Converting Alignment Coordinates from GPS (lat/lon/alt) "
                    "to ECEF.";
-      return gps_transform.EllToXYZ(ref_locations);
+      return gps_transform.EllipsoidToECEF(ref_locations);
     } else if (alignment_type == "enu") {
       LOG(INFO) << "Converting Alignment Coordinates from GPS (lat/lon/alt) "
                    "to ENU.";
-      return gps_transform.EllToENU(ref_locations,
+      return gps_transform.EllipsoidToENU(ref_locations,
                                     ref_locations[0](0),
-                                    ref_locations[0](1),
-                                    ref_locations[0](2));
+                                    ref_locations[0](1));
     } else if (alignment_type == "utm") {
       LOG(INFO) << "Converting Alignment Coordinates from GPS (lat/lon/alt) "
                    "to UTM.";
-      const auto [utm, _] = gps_transform.EllToUTM(ref_locations);
+      const auto [utm, _] = gps_transform.EllipsoidToUTM(ref_locations);
       return utm;
     }
   } else {

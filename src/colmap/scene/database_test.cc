@@ -297,7 +297,7 @@ TEST(Database, PosePrior) {
   image.SetImageId(database.WriteImage(image));
   EXPECT_EQ(database.NumPosePriors(), 0);
   PosePrior pose_prior(Eigen::Vector3d(0.1, 0.2, 0.3),
-                       PosePrior::CoordinateSystem::ECEF);
+                       PosePrior::CoordinateSystem::CARTESIAN);
   EXPECT_TRUE(pose_prior.IsValid());
   EXPECT_FALSE(pose_prior.IsCovarianceValid());
   database.WritePosePrior(image.ImageId(), pose_prior);

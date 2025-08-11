@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/geometry/gps.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/correspondence_graph.h"
 #include "colmap/scene/database.h"
@@ -121,7 +122,8 @@ class DatabaseCache {
   // Find specific image by name. Note that this uses linear search.
   const class Image* FindImageWithName(const std::string& name) const;
 
-  // Setup PosePriors for PosePriorBundleAdjustment
+  // Converts GPS priors to the specified Cartesian frame. All priors must use
+  // the same coordinate system
   bool SetupPosePriors(GPSTransform::CartesianFrame cartesian_frame);
 
  private:

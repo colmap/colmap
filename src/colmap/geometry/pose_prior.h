@@ -45,10 +45,7 @@ struct PosePrior {
                   -1,
                   UNDEFINED,  // = -1
                   WGS84,      // = 0
-                  ECEF,       // = 1
-                  GRS80,      // = 2
-                  ENU,        // = 3
-                  UTM         // = 4
+                  CARTESIAN       // = 1
   );
 
   inline bool IsCartesian(CoordinateSystem system) const;
@@ -82,10 +79,6 @@ struct PosePrior {
 };
 
 std::ostream& operator<<(std::ostream& stream, const PosePrior& prior);
-
-bool PosePrior::IsCartesian(CoordinateSystem system) const {
-  return system != CoordinateSystem::WGS84 && system != CoordinateSystem::GRS80;
-}
 
 bool PosePrior::operator==(const PosePrior& other) const {
   return coordinate_system == other.coordinate_system &&

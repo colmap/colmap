@@ -335,61 +335,96 @@ const class Image* DatabaseCache::FindImageWithName(
 }
 
 bool DatabaseCache::SetupPosePriors(
-    GPSTransform::CartesianFrame cartesian_frame) {
+    GPSTransform::CartesianFrame lla_cartesian_frame) {
   LOG(INFO) << "Setting up prior positions...";
 
   Timer timer;
   timer.Start();
 
   if (NumPosePriors() == 0) {
-    LOG(ERROR) << "No pose priors in database...";
+    LOG(ERROR) << "No pose priors in database";
     return false;
   }
 
-  bool prior_is_gps = true;
+  // Check if all priors use the same coordinate system and if they are GPS
+  bool all_priors_gps = true;
+  bool priors_consistent = true;
+  const PosePrior::CoordinateSystem first_coord_system =
+      pose_priors_.cbegin()->second.coordinate_system;
 
-  // Get sorted image ids for GPS to cartesian conversion
   std::set<image_t> image_ids_with_prior;
-  for (const auto& [image_id, _] : pose_priors_) {
+  for (const auto& [image_id, pose_prior] : pose_priors_) {
     image_ids_with_prior.insert(image_id);
+
+    if (pose_prior.coordinate_system != PosePrior::CoordinateSystem::WGS84) {
+      all_priors_gps = false;
+    }
+
+    if (pose_prior.coordinate_system != first_coord_system) {
+      priors_consistent = false;
+    }
   }
 
-  // Get GPS priors
-  std::vector<Eigen::Vector3d> v_gps_prior;
-  v_gps_prior.reserve(NumPosePriors());
+  if (!priors_consistent) {
+    LOG(ERROR) << "Database is mixing GPS & non-GPS prior positions, aborting";
+    return false;
+  }
+
+  if (!all_priors_gps) {
+    LOG(INFO) << "All priors are already in Cartesian coordinates, skipping "
+                 "conversion";
+    return true;
+  }
+
+  // Convert GPS priors to specified Cartesian frame
+  std::vector<Eigen::Vector3d> prior_positions_gps;
+  prior_positions_gps.reserve(NumPosePriors());
 
   for (const image_t image_id : image_ids_with_prior) {
-    const struct PosePrior& pose_prior = PosePrior(image_id);
-    if (pose_prior.coordinate_system != PosePrior::CoordinateSystem::WGS84) {
-      prior_is_gps = false;
-    } else {
-      // Image with the lowest id is to be used as the origin for prior
-      // position conversion
-      v_gps_prior.push_back(pose_prior.position);
+    prior_positions_gps.push_back(PosePrior(image_id).position);
+  }
+
+  const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
+  std::vector<Eigen::Vector3d> prior_positions_cartesian;
+
+  switch (lla_cartesian_frame) {
+    case GPSTransform::CartesianFrame::ECEF: {
+      prior_positions_cartesian =
+          gps_transform.EllipsoidToECEF(prior_positions_gps);
+      LOG(INFO) << "=> Converted GPS positions to ECEF coordinates";
+      break;
+    }
+    case GPSTransform::CartesianFrame::UTM: {
+      int zone;
+      std::tie(prior_positions_cartesian, zone) =
+          gps_transform.EllipsoidToUTM(prior_positions_gps);
+      LOG(INFO) << StringPrintf(
+          "=> Converted GPS positions to UTM coordinates in zone %d%s",
+          std::abs(zone),
+          zone > 0 ? "N" : "S");
+      break;
+    }
+    default:
+    case GPSTransform::CartesianFrame::ENU: {
+      const Eigen::Vector3d& ref_lla = prior_positions_gps.front();
+      prior_positions_cartesian =
+          gps_transform.EllipsoidToENU(prior_positions_gps,
+                                       prior_positions_gps.front()[0],
+                                       prior_positions_gps.front()[1]);
+      LOG(INFO) << " => Converted GPS positions to ENU coordinates with origin "
+                   "at image ID "
+                << *image_ids_with_prior.cbegin();
+      break;
     }
   }
 
-  // Convert geographic to cartesian
-  if (prior_is_gps) {
-    // GPS reference to be used for EllipsoidToENU conversion
-    const double ref_lat = v_gps_prior[0][0];
-    const double ref_lon = v_gps_prior[0][1];
-
-    const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
-    const std::vector<Eigen::Vector3d> v_xyz_prior =
-        gps_transform.EllipsoidToENU(v_gps_prior, ref_lat, ref_lon);
-
-    auto xyz_prior_it = v_xyz_prior.begin();
-    for (const auto& image_id : image_ids_with_prior) {
-      struct PosePrior& pose_prior = PosePrior(image_id);
-      pose_prior.position = *xyz_prior_it;
-      pose_prior.coordinate_system = coordinate_system;
-      ++xyz_prior_it;
-    }
-  } else if (!prior_is_gps && !v_gps_prior.empty()) {
-    LOG(ERROR)
-        << "Database is mixing GPS & non-GPS prior positions... Aborting";
-    return false;
+  // Update pose priors with converted Cartesian positions
+  auto xyz_prior_it = prior_positions_cartesian.cbegin();
+  for (const auto& image_id : image_ids_with_prior) {
+    struct PosePrior& pose_prior = PosePrior(image_id);
+    pose_prior.position = *xyz_prior_it;
+    pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+    ++xyz_prior_it;
   }
 
   timer.PrintMinutes();

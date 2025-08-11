@@ -137,7 +137,7 @@ struct IncrementalPipelineOptions {
 
   // Specifies the Cartesian coordinate system used for converting ellipsoidal
   // GPS coordinates when utilizing prior position.
-  GPSTransform::CartesianFrame cartesian_frame =
+  GPSTransform::CartesianFrame lla_cartesian_frame =
       GPSTransform::CartesianFrame::ENU;
 
   // Path to a folder with reconstruction snapshots during incremental
