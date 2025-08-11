@@ -43,9 +43,10 @@ namespace {
 //     poses between registered sensors in the reconstruction.
 //   * Set the camera calibration parameters from the first frame with an image
 //     of the camera.
-void UpdateRigAndCameraCalibFromReconstruction(
+void UpdateRigAndCameraCalibsFromReconstruction(
     const Reconstruction& reconstruction,
-    const std::map<std::string, std::vector<const Image*>>& frames_to_images,
+    const std::map<std::string, std::vector<const Image*>>&
+        frame_name_to_images,
     Rig& rig,
     Database& database) {
   std::unordered_map<
@@ -53,7 +54,7 @@ void UpdateRigAndCameraCalibFromReconstruction(
       std::pair<std::vector<Eigen::Quaterniond>, Eigen::Vector3d>>
       rig_from_cams;
   std::set<camera_t> updated_cameras;
-  for (auto& [_, images] : frames_to_images) {
+  for (auto& [_, images] : frame_name_to_images) {
     const Image* ref_image = nullptr;
     for (const Image* image : images) {
       if (rig.IsRefSensor(image->DataId().sensor_id)) {
@@ -131,6 +132,123 @@ void UpdateRigAndCameraCalibFromReconstruction(
   }
 
   database.UpdateRig(rig);
+}
+
+void UpdateRigsAndFramesFromDatabase(const Database& database,
+                                     Reconstruction* reconstruction) {
+  const std::vector<Frame> database_frames = database.ReadAllFrames();
+
+  std::unordered_map<rig_t, Rig> database_rigs;
+  database_rigs.reserve(database.NumRigs());
+  for (auto& rig : database.ReadAllRigs()) {
+    database_rigs.emplace(rig.RigId(), std::move(rig));
+  }
+
+  std::unordered_map<rig_t, Rig> reconstruction_rigs;
+  reconstruction_rigs.reserve(database_rigs.size());
+
+  // Create O(1) lookup table from image names to images.
+  std::unordered_map<std::string, const Image*> image_name_to_image;
+  image_name_to_image.reserve(reconstruction->NumImages());
+  for (const auto& [_, image] : reconstruction->Images()) {
+    image_name_to_image.emplace(image.Name(), &image);
+  }
+
+  auto visit_frame_data =
+      [&database, &image_name_to_image, &database_frames](
+          std::function<void(const Frame&, const Image&, const Image&)>
+              visitor) {
+        for (const Frame& database_frame : database_frames) {
+          for (const data_t& data_id : database_frame.DataIds()) {
+            const Image database_image = database.ReadImage(data_id.id);
+            const auto reconstruction_image =
+                image_name_to_image.find(database_image.Name());
+            if (reconstruction_image == image_name_to_image.end()) {
+              continue;
+            }
+            visitor(
+                database_frame, database_image, *reconstruction_image->second);
+          }
+        }
+      };
+
+  // Update reference sensors in reconstruction rigs.
+  // (must be done before updating the non-reference sensors).
+  visit_frame_data([&](const Frame& database_frame,
+                       const Image& database_image,
+                       const Image& reconstruction_image) {
+    const Rig& database_rig = database_rigs.at(database_frame.RigId());
+    Rig& reconstruction_rig = reconstruction_rigs[database_frame.RigId()];
+    reconstruction_rig.SetRigId(database_frame.RigId());
+
+    const sensor_t& database_sensor_id = database_image.DataId().sensor_id;
+    const sensor_t& reconstruction_sensor_id =
+        reconstruction_image.CameraPtr()->SensorId();
+
+    if (!reconstruction_rig.IsRefSensor(reconstruction_sensor_id) &&
+        database_rig.IsRefSensor(database_sensor_id)) {
+      reconstruction_rig.AddRefSensor(reconstruction_sensor_id);
+    }
+  });
+
+  // Update non-reference sensors in reconstruction rigs.
+  visit_frame_data([&](const Frame& database_frame,
+                       const Image& database_image,
+                       const Image& reconstruction_image) {
+    const Rig& database_rig = database_rigs.at(database_frame.RigId());
+    Rig& reconstruction_rig = reconstruction_rigs[database_frame.RigId()];
+    reconstruction_rig.SetRigId(database_frame.RigId());
+
+    const sensor_t& database_sensor_id = database_image.DataId().sensor_id;
+    const sensor_t& reconstruction_sensor_id =
+        reconstruction_image.CameraPtr()->SensorId();
+
+    if (reconstruction_rig.Sensors().count(reconstruction_sensor_id) == 0 &&
+        database_rig.Sensors().count(database_sensor_id) != 0) {
+      reconstruction_rig.AddSensor(
+          reconstruction_sensor_id,
+          database_rig.SensorFromRig(database_sensor_id));
+    }
+  });
+
+  // Update reconstruction frames.
+  std::unordered_map<frame_t, Frame> reconstruction_frames;
+  reconstruction_frames.reserve(database_frames.size());
+  visit_frame_data([&](const Frame& database_frame,
+                       const Image& database_image,
+                       const Image& reconstruction_image) {
+    const Rig& database_rig = database_rigs.at(database_frame.RigId());
+    const sensor_t& database_sensor_id = database_image.DataId().sensor_id;
+    Frame& reconstruction_frame =
+        reconstruction_frames[database_frame.FrameId()];
+    reconstruction_frame.SetFrameId(database_frame.FrameId());
+    reconstruction_frame.SetRigId(database_frame.RigId());
+    reconstruction_frame.AddDataId(reconstruction_image.DataId());
+    if (!database_frame.HasPose() && reconstruction_image.HasPose()) {
+      if (database_rig.IsRefSensor(database_sensor_id)) {
+        reconstruction_frame.SetRigFromWorld(
+            reconstruction_image.CamFromWorld());
+      } else {
+        reconstruction_frame.SetRigFromWorld(
+            Inverse(database_rig.SensorFromRig(database_sensor_id)) *
+            reconstruction_image.CamFromWorld());
+      }
+    }
+  });
+
+  std::vector<Rig> rigs;
+  rigs.reserve(reconstruction_rigs.size());
+  for (auto& [_, rig] : reconstruction_rigs) {
+    rigs.push_back(std::move(rig));
+  }
+
+  std::vector<Frame> frames;
+  frames.reserve(reconstruction_frames.size());
+  for (auto& [_, frame] : reconstruction_frames) {
+    frames.push_back(std::move(frame));
+  }
+
+  reconstruction->SetRigsAndFrames(std::move(rigs), std::move(frames));
 }
 
 }  // namespace
@@ -222,14 +340,14 @@ void ApplyRigConfig(const std::vector<RigConfig>& configs,
     const size_t num_cameras = config.cameras.size();
 
     std::vector<std::optional<camera_t>> camera_ids(num_cameras);
-    std::map<std::string, std::vector<const Image*>> frames_to_images;
+    std::map<std::string, std::vector<const Image*>> frame_name_to_images;
     for (const Image& image : images) {
       for (size_t camera_idx = 0; camera_idx < num_cameras; ++camera_idx) {
         const auto& config_camera = config.cameras[camera_idx];
         if (StringStartsWith(image.Name(), config_camera.image_prefix)) {
-          const std::string image_suffix =
+          const std::string frame_name =
               StringGetAfter(image.Name(), config_camera.image_prefix);
-          frames_to_images[image_suffix].push_back(&image);
+          frame_name_to_images[frame_name].push_back(&image);
           std::optional<camera_t>& camera_id = camera_ids[camera_idx];
           if (camera_id.has_value()) {
             THROW_CHECK_EQ(*camera_id, image.CameraId())
@@ -273,7 +391,7 @@ void ApplyRigConfig(const std::vector<RigConfig>& configs,
     rig.SetRigId(database.WriteRig(rig));
     LOG(INFO) << "Configured: " << rig;
 
-    for (auto& [_, images] : frames_to_images) {
+    for (auto& [frame_name, images] : frame_name_to_images) {
       Frame frame;
       frame.SetRigId(rig.RigId());
       for (const Image* image : images) {
@@ -290,8 +408,8 @@ void ApplyRigConfig(const std::vector<RigConfig>& configs,
     }
 
     if (reconstruction != nullptr) {
-      UpdateRigAndCameraCalibFromReconstruction(
-          *reconstruction, frames_to_images, rig, database);
+      UpdateRigAndCameraCalibsFromReconstruction(
+          *reconstruction, frame_name_to_images, rig, database);
     }
   }
 
@@ -318,33 +436,7 @@ void ApplyRigConfig(const std::vector<RigConfig>& configs,
   }
 
   if (reconstruction != nullptr) {
-    // Set the frame poses from the first image we find in each frame.
-    std::vector<Frame> frames = database.ReadAllFrames();
-    for (Frame& frame : frames) {
-      for (const data_t& data_id : frame.ImageIds()) {
-        // Note that the input reconstruction may have a different assignment
-        // of images and image_ids, so we associate them uniquely by name.
-        // In addition, not all images in the database may be present in the
-        // input reconstruction, e.g., when self-calibrating the rigs and
-        // cameras from a subset of images.
-        const Image* image = reconstruction->FindImageWithName(
-            database.ReadImage(data_id.id).Name());
-        if (image == nullptr || !image->HasPose()) {
-          continue;
-        }
-        const sensor_t sensor_id = image->CameraPtr()->SensorId();
-        const Rig& rig = database.ReadRig(frame.RigId());
-        if (rig.IsRefSensor(sensor_id)) {
-          frame.SetRigFromWorld(image->CamFromWorld());
-        } else {
-          frame.SetRigFromWorld(Inverse(rig.SensorFromRig(sensor_id)) *
-                                image->CamFromWorld());
-        }
-        break;
-      }
-    }
-
-    reconstruction->SetRigsAndFrames(database.ReadAllRigs(), std::move(frames));
+    UpdateRigsAndFramesFromDatabase(database, reconstruction);
   }
 }
 

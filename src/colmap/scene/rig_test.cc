@@ -192,6 +192,73 @@ TEST(ApplyRigConfig, WithReconstruction) {
   EXPECT_EQ(reconstruction.NumRegFrames(), options.num_frames_per_rig);
 }
 
+TEST(ApplyRigConfig, WithDifferingDatabaseAndReconstructionIds) {
+  Database database(Database::kInMemoryDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 2;
+  options.num_frames_per_rig = 5;
+  SynthesizeDataset(options, &reconstruction, &database);
+
+  // Create a reconstruction with differing rig/camera/frame/image ids.
+  Reconstruction differing_reconstruction;
+  for (const auto& [_, camera] : reconstruction.Cameras()) {
+    auto differing_camera = camera;
+    differing_camera.camera_id = camera.camera_id + 1;
+    differing_reconstruction.AddCamera(differing_camera);
+  }
+  for (const auto& [_, rig] : reconstruction.Rigs()) {
+    Rig differing_rig;
+    differing_rig.SetRigId(rig.RigId() + 1);
+    differing_rig.AddRefSensor(
+        sensor_t(rig.RefSensorId().type, rig.RefSensorId().id + 1));
+    for (const auto& [sensor_id, sensor_from_rig] : rig.Sensors()) {
+      differing_rig.AddSensor(sensor_t(sensor_id.type, sensor_id.id + 1),
+                              sensor_from_rig);
+    }
+    differing_reconstruction.AddRig(differing_rig);
+  }
+  for (const auto& [_, frame] : reconstruction.Frames()) {
+    auto differing_frame = frame;
+    differing_frame.ResetRigPtr();
+    differing_frame.SetFrameId(frame.FrameId() + 1);
+    differing_frame.SetRigId(frame.RigId() + 1);
+    differing_frame.DataIds().clear();
+    for (auto& data_id : frame.DataIds()) {
+      differing_frame.AddDataId(
+          data_t(sensor_t(data_id.sensor_id.type, data_id.sensor_id.id + 1),
+                 data_id.id + 1));
+    }
+    differing_reconstruction.AddFrame(differing_frame);
+  }
+  for (const auto& [_, image] : reconstruction.Images()) {
+    auto differing_image = image;
+    differing_image.ResetCameraPtr();
+    differing_image.ResetFramePtr();
+    differing_image.SetImageId(image.ImageId() + 1);
+    differing_image.SetCameraId(image.CameraId() + 1);
+    differing_image.SetFrameId(image.FrameId() + 1);
+    differing_reconstruction.AddImage(differing_image);
+  }
+
+  std::vector<RigConfig> configs;
+  auto& config = configs.emplace_back();
+  auto& camera1 = config.cameras.emplace_back();
+  camera1.image_prefix = "camera000001_";
+  camera1.ref_sensor = true;
+  auto& camera2 = config.cameras.emplace_back();
+  camera2.image_prefix = "camera000002_";
+
+  ApplyRigConfig(configs, database, &differing_reconstruction);
+  EXPECT_EQ(database.NumRigs(), 1);
+  EXPECT_EQ(database.NumFrames(), options.num_frames_per_rig);
+  EXPECT_EQ(differing_reconstruction.NumRigs(), 1);
+  EXPECT_EQ(differing_reconstruction.NumFrames(), options.num_frames_per_rig);
+  EXPECT_EQ(differing_reconstruction.NumRegFrames(),
+            options.num_frames_per_rig);
+}
+
 TEST(ApplyRigConfig, WithPartialReconstruction) {
   Database database(Database::kInMemoryDatabasePath);
   Reconstruction reconstruction;
