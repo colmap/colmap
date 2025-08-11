@@ -335,7 +335,7 @@ const class Image* DatabaseCache::FindImageWithName(
 }
 
 bool DatabaseCache::SetupPosePriors(
-    GPSTransform::CartesianFrame lla_cartesian_frame) {
+    GPSTransform::CartesianFrame cartesian_frame) {
   LOG(INFO) << "Setting up prior positions...";
 
   Timer timer;
@@ -387,7 +387,7 @@ bool DatabaseCache::SetupPosePriors(
   const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
   std::vector<Eigen::Vector3d> prior_positions_cartesian;
 
-  switch (lla_cartesian_frame) {
+  switch (cartesian_frame) {
     case GPSTransform::CartesianFrame::ECEF: {
       prior_positions_cartesian =
           gps_transform.EllipsoidToECEF(prior_positions_gps);
