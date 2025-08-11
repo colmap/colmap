@@ -156,7 +156,7 @@ void UpdateRigsAndFramesFromDatabase(const Database& database,
 
   auto visit_frame_data =
       [&database, &image_name_to_image, &database_frames](
-          std::function<void(const Frame&, const Image&, const Image&)>
+          const std::function<void(const Frame&, const Image&, const Image&)>&
               visitor) {
         for (const Frame& database_frame : database_frames) {
           for (const data_t& data_id : database_frame.DataIds()) {
