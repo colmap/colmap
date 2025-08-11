@@ -34,6 +34,7 @@
 namespace colmap {
 
 #if defined(COLMAP_GUI_ENABLED)
+
 OpenGLContextManager::OpenGLContextManager(int opengl_major_version,
                                            int opengl_minor_version)
     : parent_thread_(QThread::currentThread()),
