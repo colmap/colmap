@@ -36,8 +36,6 @@
 
 #include <cfloat>
 #include <optional>
-#include <random>
-#include <stdexcept>
 #include <vector>
 
 namespace colmap {

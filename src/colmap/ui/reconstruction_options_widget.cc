@@ -44,6 +44,7 @@ class MapperGeneralOptionsWidget : public OptionsWidget {
     AddOptionInt(&options->mapper->min_model_size, "min_model_size");
     AddOptionBool(&options->mapper->extract_colors, "extract_colors");
     AddOptionInt(&options->mapper->num_threads, "num_threads", -1);
+    AddOptionInt(&options->mapper->random_seed, "random_seed", -1);
     AddOptionInt(&options->mapper->min_num_matches, "min_num_matches");
     AddOptionBool(&options->mapper->ignore_watermarks, "ignore_watermarks");
     AddOptionDirPath(&options->mapper->snapshot_path, "snapshot_path");

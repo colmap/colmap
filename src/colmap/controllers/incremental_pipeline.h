@@ -74,6 +74,9 @@ struct IncrementalPipelineOptions {
   // The number of threads to use during reconstruction.
   int num_threads = -1;
 
+  // PRNG seed for all stochastic methods during reconstruction.
+  int random_seed = -1;
+
   // Thresholds for filtering images with degenerate intrinsics.
   double min_focal_length_ratio = 0.1;
   double max_focal_length_ratio = 10.0;

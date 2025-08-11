@@ -90,6 +90,7 @@ IncrementalMapper::Options IncrementalPipelineOptions::Mapper() const {
   options.use_prior_position = use_prior_position;
   options.use_robust_loss_on_prior_position = use_robust_loss_on_prior_position;
   options.prior_position_loss_scale = prior_position_loss_scale;
+  options.random_seed = random_seed;
   return options;
 }
 
@@ -99,6 +100,7 @@ IncrementalTriangulator::Options IncrementalPipelineOptions::Triangulation()
   options.min_focal_length_ratio = min_focal_length_ratio;
   options.max_focal_length_ratio = max_focal_length_ratio;
   options.max_extra_param = max_extra_param;
+  options.random_seed = random_seed;
   return options;
 }
 
@@ -184,6 +186,8 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GE(ba_global_max_refinement_change, 0);
   CHECK_OPTION_GE(snapshot_frames_freq, 0);
   CHECK_OPTION_GT(prior_position_loss_scale, 0.);
+  CHECK_OPTION_GE(num_threads, -1);
+  CHECK_OPTION_GE(random_seed, -1);
   CHECK_OPTION(Mapper().Check());
   CHECK_OPTION(Triangulation().Check());
   return true;

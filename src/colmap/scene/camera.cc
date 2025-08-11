@@ -33,8 +33,6 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
-#include <iomanip>
-
 namespace colmap {
 
 Camera Camera::CreateFromModelId(camera_t camera_id,
