@@ -36,6 +36,8 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 
+#include <fstream>
+
 #include <Eigen/Core>
 #include <boost/heap/fibonacci_heap.hpp>
 #include <faiss/Clustering.h>
@@ -44,8 +46,6 @@
 #include <faiss/index_factory.h>
 #include <faiss/index_io.h>
 #include <omp.h>
-
-#include <fstream>
 
 namespace colmap {
 namespace retrieval {
