@@ -29,6 +29,7 @@
 
 #include "colmap/controllers/incremental_pipeline.h"
 
+#include "colmap/estimators/alignment.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
@@ -68,7 +69,7 @@ void WriteSnapshot(const Reconstruction& reconstruction,
           .count();
   // Write reconstruction to unique path with current timestamp.
   const std::string path =
-      JoinPaths(snapshot_path, StringPrintf("%010d", timestamp));
+      JoinPaths(snapshot_path, StringPrintf("%010zu", timestamp));
   CreateDirIfNotExists(path);
   VLOG(1) << "=> Writing to " << path;
   reconstruction.Write(path);
@@ -89,6 +90,7 @@ IncrementalMapper::Options IncrementalPipelineOptions::Mapper() const {
   options.use_pose_prior = use_pose_prior;
   options.use_robust_loss_on_prior_position = use_robust_loss_on_prior_position;
   options.prior_position_loss_scale = prior_position_loss_scale;
+  options.random_seed = random_seed;
   return options;
 }
 
@@ -98,6 +100,7 @@ IncrementalTriangulator::Options IncrementalPipelineOptions::Triangulation()
   options.min_focal_length_ratio = min_focal_length_ratio;
   options.max_focal_length_ratio = max_focal_length_ratio;
   options.max_extra_param = max_extra_param;
+  options.random_seed = random_seed;
   return options;
 }
 
@@ -183,6 +186,8 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GE(ba_global_max_refinement_change, 0);
   CHECK_OPTION_GE(snapshot_frames_freq, 0);
   CHECK_OPTION_GT(prior_position_loss_scale, 0.);
+  CHECK_OPTION_GE(num_threads, -1);
+  CHECK_OPTION_GE(random_seed, -1);
   CHECK_OPTION(Mapper().Check());
   CHECK_OPTION(Triangulation().Check());
   return true;
@@ -535,8 +540,11 @@ void IncrementalPipeline::Reconstruct(
         ReconstructSubModel(mapper, mapper_options, reconstruction);
     switch (status) {
       case Status::INTERRUPTED: {
+        reconstruction->UpdatePoint3DErrors();
         LOG(INFO) << "Keeping reconstruction due to interrupt";
         mapper.EndReconstruction(/*discard=*/false);
+        AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
+                                           reconstruction.get());
         return;
       }
 
@@ -578,8 +586,11 @@ void IncrementalPipeline::Reconstruct(
           mapper.EndReconstruction(/*discard=*/true);
           reconstruction_manager_->Delete(reconstruction_idx);
         } else {
+          reconstruction->UpdatePoint3DErrors();
           LOG(INFO) << "Keeping successful reconstruction";
           mapper.EndReconstruction(/*discard=*/false);
+          AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
+                                             reconstruction.get());
         }
 
         Callback(LAST_IMAGE_REG_CALLBACK);
@@ -631,6 +642,8 @@ void IncrementalPipeline::TriangulateReconstruction(
                                    options_->Triangulation(),
                                    /*normalize_reconstruction=*/false);
   mapper.EndReconstruction(/*discard=*/false);
+
+  reconstruction->UpdatePoint3DErrors();
 
   LOG(INFO) << "Extracting colors";
   reconstruction->ExtractColorsForAllImages(image_path_);

@@ -101,4 +101,10 @@ bool MergeReconstructions(double max_reproj_error,
                           const Reconstruction& src_reconstruction,
                           Reconstruction& tgt_reconstruction);
 
+// Align reconstruction to the original metric scales in rig extrinsics. Returns
+// false if there is no available non-panoramic rig in the alignment process.
+bool AlignReconstructionToOrigRigScales(
+    const std::unordered_map<rig_t, Rig>& orig_rigs,
+    Reconstruction* reconstruction);
+
 }  // namespace colmap

@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/optim/ransac.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/enum_utils.h"
@@ -202,8 +203,8 @@ struct PosePriorBundleAdjustmentOptions {
   // (chi2 for 3DOF at 95% = 7.815).
   double prior_position_loss_scale = 7.815;
 
-  // Maximum RANSAC error for Sim3 alignment.
-  double ransac_max_error = 0.;
+  // Sim3 alignment options.
+  RANSACOptions alignment_ransac_options;
 };
 
 class BundleAdjuster {

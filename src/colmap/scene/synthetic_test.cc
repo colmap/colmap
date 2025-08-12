@@ -78,7 +78,7 @@ TEST(SynthesizeDataset, Nominal) {
     EXPECT_TRUE(reconstruction_frame.HasPose());
     reconstruction_frame.ResetPose();
     EXPECT_EQ(reconstruction_frame, database.ReadFrame(frame_id));
-    EXPECT_EQ(reconstruction_frame.DataIds().size(),
+    EXPECT_EQ(reconstruction_frame.NumDataIds(),
               reconstruction_frame.RigPtr()->NumSensors());
   }
 

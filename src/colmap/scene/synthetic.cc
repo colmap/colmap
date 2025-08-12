@@ -30,9 +30,8 @@
 #include "colmap/scene/synthetic.h"
 
 #include "colmap/geometry/essential_matrix.h"
-#include "colmap/geometry/pose.h"
+#include "colmap/geometry/gps.h"
 #include "colmap/math/random.h"
-#include "colmap/scene/projection.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Geometry>

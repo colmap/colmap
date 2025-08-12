@@ -657,10 +657,10 @@ TEST(Database, Merge) {
   EXPECT_EQ(merged_database.NumDescriptors(), 100);
   EXPECT_EQ(merged_database.NumMatches(), 20);
   EXPECT_EQ(merged_database.NumInlierMatches(), 0);
-  EXPECT_EQ(merged_database.ReadAllFrames()[0].DataIds().size(),
-            frame1.DataIds().size());
-  EXPECT_EQ(merged_database.ReadAllFrames()[1].DataIds().size(),
-            frame2.DataIds().size());
+  EXPECT_EQ(merged_database.ReadAllFrames()[0].NumDataIds(),
+            frame1.NumDataIds());
+  EXPECT_EQ(merged_database.ReadAllFrames()[1].NumDataIds(),
+            frame2.NumDataIds());
   EXPECT_EQ(merged_database.ReadAllImages()[0].CameraId(), 1);
   EXPECT_EQ(merged_database.ReadAllImages()[1].CameraId(), 1);
   EXPECT_EQ(merged_database.ReadAllImages()[2].CameraId(), 2);

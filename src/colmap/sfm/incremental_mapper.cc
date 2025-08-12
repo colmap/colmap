@@ -62,6 +62,8 @@ bool IncrementalMapper::Options::Check() const {
   CHECK_OPTION_GE(filter_max_reproj_error, 0.0);
   CHECK_OPTION_GE(filter_min_tri_angle, 0.0);
   CHECK_OPTION_GE(max_reg_trials, 1);
+  CHECK_OPTION_GE(num_threads, -1);
+  CHECK_OPTION_GE(random_seed, -1);
   return true;
 }
 
@@ -301,6 +303,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   abs_pose_options.ransac_options.max_error = options.abs_pose_max_error;
   abs_pose_options.ransac_options.min_inlier_ratio =
       options.abs_pose_min_inlier_ratio;
+  abs_pose_options.ransac_options.random_seed = options.random_seed;
 
   AbsolutePoseRefinementOptions abs_pose_refinement_options;
   if (reg_stats_.num_reg_images_per_camera[image.CameraId()] > 0) {
@@ -520,6 +523,7 @@ bool IncrementalMapper::RegisterNextGeneralFrame(const Options& options,
   RANSACOptions abs_pose_options;
   abs_pose_options.max_error = options.abs_pose_max_error;
   abs_pose_options.min_inlier_ratio = options.abs_pose_min_inlier_ratio;
+  abs_pose_options.random_seed = options.random_seed;
 
   AbsolutePoseRefinementOptions abs_pose_refinement_options;
   abs_pose_refinement_options.refine_focal_length = false;
@@ -808,7 +812,11 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   std::unique_ptr<BundleAdjuster> bundle_adjuster;
   if (!use_pose_prior) {
-    ba_config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
+    // Fixing the gauge with two cameras leads to a more stable optimization
+    // with fewer steps as compared to fixing three points.
+    // TODO(jsch): Investigate whether it is safe to not fix the gauge at all,
+    // as initial experiments show that it is even faster.
+    ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
     bundle_adjuster = CreateDefaultBundleAdjuster(
         std::move(custom_ba_options), ba_config, *reconstruction_);
   } else {
@@ -816,6 +824,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
     prior_options.use_robust_loss_on_prior_position =
         options.use_robust_loss_on_prior_position;
     prior_options.prior_position_loss_scale = options.prior_position_loss_scale;
+    prior_options.alignment_ransac_options.random_seed = options.random_seed;
     bundle_adjuster =
         CreatePosePriorBundleAdjuster(std::move(custom_ba_options),
                                       prior_options,

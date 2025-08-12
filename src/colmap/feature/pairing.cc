@@ -558,7 +558,7 @@ SpatialPairGenerator::SpatialPairGenerator(
   LOG(INFO) << "Indexing images...";
 
   Eigen::RowMajorMatrixXf position_matrix = ReadPositionPriorData(*cache);
-  const size_t num_positions = position_idxs_.size();
+  const int num_positions = position_idxs_.size();
 
   LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
   if (num_positions == 0) {
@@ -584,7 +584,7 @@ SpatialPairGenerator::SpatialPairGenerator(
   timer.Restart();
   LOG(INFO) << "Searching for nearest neighbors...";
 
-  knn_ = std::min<int>(options_.max_num_neighbors + 1, num_positions);
+  knn_ = std::min(options_.max_num_neighbors + 1, num_positions);
   image_pairs_.reserve(knn_);
 
   index_matrix_.resize(num_positions, knn_);

@@ -30,7 +30,6 @@
 #include "colmap/scene/scene_clustering.h"
 
 #include "colmap/math/graph_cut.h"
-#include "colmap/math/random.h"
 
 #include <set>
 

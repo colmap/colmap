@@ -33,7 +33,6 @@
 #include "colmap/util/endian.h"
 
 #include <bitset>
-#include <fstream>
 
 namespace colmap {
 namespace retrieval {

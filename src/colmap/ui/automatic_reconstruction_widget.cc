@@ -98,6 +98,7 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
   AddSpacer();
 
   AddOptionInt(&options_.num_threads, "num_threads", -1);
+  AddOptionInt(&options_.random_seed, "random_seed", -1);
   AddOptionBool(&options_.use_gpu, "GPU");
   AddOptionText(&options_.gpu_index, "gpu_index");
 

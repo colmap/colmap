@@ -292,7 +292,7 @@ TEST(ApplyRigConfig, WithUnconfiguredSingleAndConfiguredMultiCameraRigs) {
 
   int num_non_trivial_frames = 0;
   for (const auto& rig : database.ReadAllFrames()) {
-    num_non_trivial_frames += rig.DataIds().size() > 1;
+    num_non_trivial_frames += rig.NumDataIds() > 1;
   }
   EXPECT_EQ(num_non_trivial_frames, 5);
 }

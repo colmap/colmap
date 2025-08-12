@@ -168,7 +168,7 @@ the available options, e.g.::
         them in a .ini project file passed to ``--project_path``.
 
             -h [ --help ] 
-            --random_seed arg (=0)
+            --default_random_seed arg (=0)
             --log_to_stderr arg (=1)
             --log_level arg (=0)
             --project_path arg

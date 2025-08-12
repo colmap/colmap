@@ -165,6 +165,11 @@ void FeatureMatchingTab::CreateGeneralOptions() {
                                 "min_num_inliers");
   options_widget_->AddOptionBool(&options_->two_view_geometry->multiple_models,
                                  "multiple_models");
+  options_widget_->AddOptionBool(&options_->two_view_geometry->detect_watermark,
+                                 "detect_watermarks");
+  options_widget_->AddOptionBool(
+      &options_->two_view_geometry->filter_stationary_matches,
+      "filter_stationary_matches");
   options_widget_->AddSpacer();
 
   QScrollArea* options_scroll_area = new QScrollArea(this);

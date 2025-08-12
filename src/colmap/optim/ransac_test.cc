@@ -30,11 +30,9 @@
 #include "colmap/optim/ransac.h"
 
 #include "colmap/estimators/similarity_transform.h"
-#include "colmap/geometry/pose.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/math/random.h"
 #include "colmap/util/eigen_alignment.h"
-#include "colmap/util/eigen_matchers.h"
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>

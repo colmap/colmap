@@ -29,8 +29,7 @@
 
 #pragma once
 
-#include "colmap/util/types.h"
-
+#include <cstdint>
 #include <string>
 #include <vector>
 

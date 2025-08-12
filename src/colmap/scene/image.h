@@ -29,13 +29,10 @@
 
 #pragma once
 
-#include "colmap/geometry/gps.h"
 #include "colmap/geometry/rigid3.h"
-#include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/frame.h"
 #include "colmap/scene/point2d.h"
-#include "colmap/scene/visibility_pyramid.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
@@ -236,6 +233,9 @@ class Frame* Image::FramePtr() const { return THROW_CHECK_NOTNULL(frame_ptr_); }
 void Image::SetFramePtr(class Frame* frame) {
   THROW_CHECK_NOTNULL(frame);
   THROW_CHECK_NE(frame->FrameId(), kInvalidFrameId);
+  THROW_CHECK(frame->HasDataId(DataId()))
+      << "Image " << ImageId() << " does not exist in frame "
+      << frame->FrameId();
   if (!HasFramePtr()) {
     THROW_CHECK_EQ(frame->FrameId(), frame_id_);
     frame_ptr_ = frame;

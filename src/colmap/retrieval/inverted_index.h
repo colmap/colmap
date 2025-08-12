@@ -34,10 +34,8 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/endian.h"
 
-#include <algorithm>
 #include <bitset>
 #include <cstdint>
-#include <fstream>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
