@@ -159,7 +159,7 @@ void UpdateRigsAndFramesFromDatabase(const Database& database,
           const std::function<void(const Frame&, const Image&, const Image&)>&
               visitor) {
         for (const Frame& database_frame : database_frames) {
-          for (const data_t& data_id : database_frame.DataIds()) {
+          for (const data_t& data_id : database_frame.ImageIds()) {
             const Image database_image = database.ReadImage(data_id.id);
             const auto reconstruction_image =
                 image_name_to_image.find(database_image.Name());
@@ -224,7 +224,7 @@ void UpdateRigsAndFramesFromDatabase(const Database& database,
     reconstruction_frame.SetFrameId(database_frame.FrameId());
     reconstruction_frame.SetRigId(database_frame.RigId());
     reconstruction_frame.AddDataId(reconstruction_image.DataId());
-    if (!database_frame.HasPose() && reconstruction_image.HasPose()) {
+    if (reconstruction_image.HasPose()) {
       if (database_rig.IsRefSensor(database_sensor_id)) {
         reconstruction_frame.SetRigFromWorld(
             reconstruction_image.CamFromWorld());
@@ -375,11 +375,16 @@ void ApplyRigConfig(const std::vector<RigConfig>& configs,
       }
     }
 
+    std::set<camera_t> unique_camera_ids;
     for (size_t camera_idx = 0; camera_idx < num_cameras; ++camera_idx) {
       const auto& config_camera = config.cameras[camera_idx];
-      const std::optional<camera_t>& camera_id = camera_ids[camera_idx];
+      std::optional<camera_t>& camera_id = camera_ids[camera_idx];
       THROW_CHECK(camera_id.has_value())
           << "At least one image must exist for each camera in the rig";
+      if (!unique_camera_ids.insert(*camera_id).second) {
+        // Clone the camera, if multiple cameras in the rig share a camera.
+        *camera_id = database.WriteCamera(database.ReadCamera(*camera_id));
+      }
       if (config_camera.ref_sensor) {
         rig.AddRefSensor(sensor_t(SensorType::CAMERA, *camera_id));
       } else {
