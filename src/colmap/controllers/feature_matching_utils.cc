@@ -35,6 +35,10 @@
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
 
+#if defined(COLMAP_CUDA_ENABLED)
+#include <cuda_runtime.h>
+#endif
+
 #include <fstream>
 #include <numeric>
 #include <unordered_set>
@@ -63,7 +67,19 @@ FeatureMatcherWorker::FeatureMatcherWorker(
 
 void FeatureMatcherWorker::Run() {
   if (matching_options_.use_gpu) {
-#if !defined(COLMAP_CUDA_ENABLED)
+#if defined(COLMAP_CUDA_ENABLED)
+    // Initialize CUDA device for this worker thread
+    const std::vector<int> gpu_indices =
+        CSVToVector<int>(matching_options_.gpu_index);
+    THROW_CHECK_EQ(gpu_indices.size(), 1)
+        << "Each matching worker can only use one GPU";
+    const int gpu_index = gpu_indices[0];
+
+    if (gpu_index >= 0) {
+      SetBestCudaDevice(gpu_index);
+      LOG(INFO) << "Bind FeatureMatcherWorker to GPU device " << gpu_index;
+    }
+#else
     THROW_CHECK_NOTNULL(opengl_context_);
     THROW_CHECK(opengl_context_->MakeCurrent());
 #endif
@@ -73,7 +89,7 @@ void FeatureMatcherWorker::Run() {
     // TODO(jsch): This is a bit ugly, but currently cannot think of a better
     // way to inject the shared descriptor index cache.
     THROW_CHECK_NOTNULL(matching_options_.sift)->cpu_descriptor_index_cache =
-        &cache_->GetFeatureDescriptorIndexCache();
+      &cache_->GetFeatureDescriptorIndexCache();
     THROW_CHECK_NOTNULL(matching_options_.sift->cpu_descriptor_index_cache);
   }
 
