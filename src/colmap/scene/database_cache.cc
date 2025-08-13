@@ -29,6 +29,7 @@
 
 #include "colmap/scene/database_cache.h"
 
+#include "colmap/geometry/gps.h"
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
 

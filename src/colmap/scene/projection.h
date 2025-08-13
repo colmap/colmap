@@ -33,9 +33,6 @@
 #include "colmap/scene/camera.h"
 #include "colmap/util/eigen_alignment.h"
 
-#include <limits>
-#include <vector>
-
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 

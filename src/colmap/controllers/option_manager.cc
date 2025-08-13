@@ -213,7 +213,7 @@ void OptionManager::AddRandomOptions() {
   }
   added_random_options_ = true;
 
-  AddAndRegisterDefaultOption("random_seed", &kDefaultPRNGSeed);
+  AddAndRegisterDefaultOption("default_random_seed", &kDefaultPRNGSeed);
 }
 
 void OptionManager::AddDatabaseOptions() {
@@ -333,6 +333,15 @@ void OptionManager::AddMatchingOptions() {
                               &two_view_geometry->compute_relative_pose);
   AddAndRegisterDefaultOption("TwoViewGeometry.detect_watermark",
                               &two_view_geometry->detect_watermark);
+  AddAndRegisterDefaultOption("TwoViewGeometry.multiple_ignore_watermark",
+                              &two_view_geometry->multiple_ignore_watermark);
+  AddAndRegisterDefaultOption(
+      "TwoViewGeometry.watermark_detection_max_error",
+      &two_view_geometry->watermark_detection_max_error);
+  AddAndRegisterDefaultOption("TwoViewGeometry.filter_stationary_matches",
+                              &two_view_geometry->filter_stationary_matches);
+  AddAndRegisterDefaultOption("TwoViewGeometry.stationary_matches_max_error",
+                              &two_view_geometry->stationary_matches_max_error);
   AddAndRegisterDefaultOption("TwoViewGeometry.max_error",
                               &two_view_geometry->ransac_options.max_error);
   AddAndRegisterDefaultOption("TwoViewGeometry.confidence",
@@ -343,6 +352,8 @@ void OptionManager::AddMatchingOptions() {
   AddAndRegisterDefaultOption(
       "TwoViewGeometry.min_inlier_ratio",
       &two_view_geometry->ransac_options.min_inlier_ratio);
+  AddAndRegisterDefaultOption("TwoViewGeometry.random_seed",
+                              &two_view_geometry->ransac_options.random_seed);
 }
 
 void OptionManager::AddExhaustivePairingOptions() {
@@ -541,6 +552,7 @@ void OptionManager::AddMapperOptions() {
                               &mapper->init_num_trials);
   AddAndRegisterDefaultOption("Mapper.extract_colors", &mapper->extract_colors);
   AddAndRegisterDefaultOption("Mapper.num_threads", &mapper->num_threads);
+  AddAndRegisterDefaultOption("Mapper.random_seed", &mapper->random_seed);
   AddAndRegisterDefaultOption("Mapper.min_focal_length_ratio",
                               &mapper->min_focal_length_ratio);
   AddAndRegisterDefaultOption("Mapper.max_focal_length_ratio",

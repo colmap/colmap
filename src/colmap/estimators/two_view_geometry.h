@@ -76,6 +76,17 @@ struct TwoViewGeometryOptions {
   // Whether to ignore watermark models in multiple model estimation.
   bool multiple_ignore_watermark = true;
 
+  // Maximum translational error of matched points to be considered
+  // inliers of a watermark.
+  double watermark_detection_max_error = 4.0;
+
+  // Whether to filter stationary matches. This is useful when a camera is
+  // rigidly mounted on a moving vehicle and the vehicle itself is visible.
+  bool filter_stationary_matches = false;
+
+  // Maximum displacement for points to be considered stationary matches.
+  double stationary_matches_max_error = 4.0;
+
   // In case the user asks for it, only going to estimate a Homography
   // between both cameras.
   bool force_H_use = false;
@@ -122,7 +133,7 @@ TwoViewGeometry EstimateTwoViewGeometry(
     const std::vector<Eigen::Vector2d>& points1,
     const Camera& camera2,
     const std::vector<Eigen::Vector2d>& points2,
-    const FeatureMatches& matches,
+    FeatureMatches matches,
     const TwoViewGeometryOptions& options);
 
 // Estimate relative pose for two-view geometry.
@@ -155,14 +166,21 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     const FeatureMatches& matches,
     const TwoViewGeometryOptions& options);
 
-// Detect if inlier matches are caused by a watermark.
-// A watermark causes a pure translation in the border are of the image.
-bool DetectWatermark(const Camera& camera1,
-                     const std::vector<Eigen::Vector2d>& points1,
-                     const Camera& camera2,
-                     const std::vector<Eigen::Vector2d>& points2,
-                     size_t num_inliers,
-                     const std::vector<char>& inlier_mask,
-                     const TwoViewGeometryOptions& options);
+// Detect if inlier matches are caused by a watermark, where a
+// watermark causes a pure translation in the border of the image.
+bool DetectWatermarkMatches(const Camera& camera1,
+                            const std::vector<Eigen::Vector2d>& points1,
+                            const Camera& camera2,
+                            const std::vector<Eigen::Vector2d>& points2,
+                            size_t num_inliers,
+                            const std::vector<char>& inlier_mask,
+                            const TwoViewGeometryOptions& options);
+
+// Remove matches that are caused by static content that has the same
+// position in both images.
+void FilterStationaryMatches(double max_error,
+                             const std::vector<Eigen::Vector2d>& points1,
+                             const std::vector<Eigen::Vector2d>& points2,
+                             FeatureMatches* matches);
 
 }  // namespace colmap

@@ -39,7 +39,6 @@
 #include "colmap/util/types.h"
 
 #include <mutex>
-#include <unordered_map>
 #include <vector>
 
 #include <Eigen/Core>

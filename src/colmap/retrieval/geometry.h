@@ -31,8 +31,6 @@
 
 #include "colmap/util/eigen_alignment.h"
 
-#include <vector>
-
 #include <Eigen/Core>
 
 namespace colmap {

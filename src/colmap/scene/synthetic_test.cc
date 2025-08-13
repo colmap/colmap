@@ -77,7 +77,7 @@ TEST(SynthesizeDataset, Nominal) {
     EXPECT_TRUE(reconstruction_frame.HasPose());
     reconstruction_frame.ResetPose();
     EXPECT_EQ(reconstruction_frame, database.ReadFrame(frame_id));
-    EXPECT_EQ(reconstruction_frame.DataIds().size(),
+    EXPECT_EQ(reconstruction_frame.NumDataIds(),
               reconstruction_frame.RigPtr()->NumSensors());
   }
 
@@ -117,8 +117,10 @@ TEST(SynthesizeDataset, Nominal) {
   EXPECT_EQ(reconstruction.ComputeNumObservations(),
             reconstruction.NumImages() * options.num_points3D);
 
-  // All observations should be perfect and have sufficient triangulation angle.
-  // No points or observations should be filtered.
+  EXPECT_EQ(reconstruction.NumPoints3D(), options.num_points3D);
+
+  // All observations should be perfect and have sufficient triangulation
+  // angle. No points or observations should be filtered.
   const double kMaxReprojError = 1e-3;
   const double kMinTriAngleDeg = 0.4;
   std::unordered_map<image_t, Eigen::Vector3d> proj_centers;
@@ -163,6 +165,39 @@ TEST(SynthesizeDataset, Nominal) {
 
     EXPECT_GE(max_tri_angle, DegToRad(kMinTriAngleDeg));
   }
+}
+
+TEST(SynthesizeDataset, MultipleTimes) {
+  Database database(Database::kInMemoryDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.num_rigs = 2;
+  options.num_cameras_per_rig = 3;
+  options.num_frames_per_rig = 3;
+  SynthesizeDataset(options, &reconstruction, &database);
+  SynthesizeDataset(options, &reconstruction, &database);
+
+  EXPECT_EQ(database.NumRigs(), 2 * options.num_rigs);
+  EXPECT_EQ(reconstruction.NumRigs(), database.NumRigs());
+
+  EXPECT_EQ(database.NumCameras(),
+            2 * options.num_rigs * options.num_cameras_per_rig);
+  EXPECT_EQ(reconstruction.NumCameras(), database.NumCameras());
+
+  EXPECT_EQ(database.NumFrames(),
+            2 * options.num_rigs * options.num_frames_per_rig);
+  EXPECT_EQ(database.NumFrames(), reconstruction.NumFrames());
+
+  EXPECT_EQ(database.NumImages(),
+            2 * options.num_rigs * options.num_cameras_per_rig *
+                options.num_frames_per_rig);
+  EXPECT_EQ(database.NumImages(), reconstruction.NumImages());
+
+  const int num_image_pairs =
+      reconstruction.NumImages() * (reconstruction.NumImages() - 1) / 2;
+  EXPECT_EQ(database.NumVerifiedImagePairs(), num_image_pairs);
+
+  EXPECT_EQ(reconstruction.NumPoints3D(), 2 * options.num_points3D);
 }
 
 TEST(SynthesizeDataset, WithNoise) {

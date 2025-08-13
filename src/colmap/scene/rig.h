@@ -32,7 +32,6 @@
 #include "colmap/scene/camera.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/util/types.h"
 
 #include <optional>
 #include <vector>
@@ -124,6 +123,9 @@ std::vector<RigConfig> ReadRigConfig(const std::string& path);
 // camera rig extrinsics and intrinsics from the reconstruction, if not defined
 // in the config. If the reconstruction is provided, it is also updated with the
 // provided config and any previous rigs/frames are cleared and overwritten.
+// Existing rigs and frames in the database and reconstruction will be cleared.
+// Any unspecified images in the provided configurations will be configured as
+// trivial rigs/frames.
 void ApplyRigConfig(const std::vector<RigConfig>& configs,
                     Database& database,
                     Reconstruction* reconstruction = nullptr);

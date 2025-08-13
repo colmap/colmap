@@ -871,5 +871,119 @@ TEST(DefaultBundleAdjuster, ConstantExtraParam) {
   }
 }
 
+TEST(DefaultBundleAdjuster, FixGaugeWithThreePoints) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+
+  auto ExpectValidSolve = [&config, &reconstruction](
+                              const int num_effective_parameters_reduced) {
+    const auto summary1 = CreateDefaultBundleAdjuster(
+                              BundleAdjustmentOptions(), config, reconstruction)
+                              ->Solve();
+    ASSERT_NE(summary1.termination_type, ceres::FAILURE);
+    EXPECT_EQ(summary1.num_effective_parameters_reduced,
+              num_effective_parameters_reduced);
+  };
+
+  ExpectValidSolve(316);
+
+  config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
+  ExpectValidSolve(307);
+
+  config.AddConstantPoint(1);
+  ExpectValidSolve(307);
+
+  config.AddConstantPoint(2);
+  config.AddConstantPoint(3);
+  ExpectValidSolve(307);
+
+  config.AddConstantPoint(4);
+  ExpectValidSolve(304);
+}
+
+TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorld) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentOptions options;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.AddImage(3);
+  config.AddImage(4);
+
+  auto ExpectValidSolve = [&options, &config, &reconstruction](
+                              const int num_effective_parameters_reduced) {
+    const auto summary1 =
+        CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
+    ASSERT_NE(summary1.termination_type, ceres::FAILURE);
+    EXPECT_EQ(summary1.num_effective_parameters_reduced,
+              num_effective_parameters_reduced);
+  };
+
+  options.refine_rig_from_world = false;
+  ExpectValidSolve(320);
+
+  options.refine_rig_from_world = true;
+  ExpectValidSolve(332);
+
+  options.refine_rig_from_world = false;
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  ExpectValidSolve(320);
+
+  options.refine_rig_from_world = true;
+  ExpectValidSolve(325);
+
+  config.SetConstantRigFromWorldPose(1);
+  ExpectValidSolve(325);
+
+  config.SetConstantRigFromWorldPose(2);
+  ExpectValidSolve(320);
+}
+
+TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorldFallback) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentOptions options;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+
+  // The current implementation needs two reference cameras in different frames
+  // to fix the gauge. If there are none, it falls back to fixing the gauge with
+  // three points.
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  const auto summary =
+      CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  EXPECT_EQ(summary.num_effective_parameters, 316);
+  EXPECT_EQ(summary.num_effective_parameters_reduced, 307);
+}
+
 }  // namespace
 }  // namespace colmap

@@ -142,4 +142,9 @@ void BindAlignmentEstimator(py::module& m) {
       "min_inlier_observations"_a = 0.3,
       "max_reproj_error"_a = 8.0,
       "max_proj_center_error"_a = 0.1);
+
+  m.def("align_reconstruction_to_orig_rig_scales",
+        &AlignReconstructionToOrigRigScales,
+        "orig_rigs"_a,
+        "reconstruction"_a);
 }
