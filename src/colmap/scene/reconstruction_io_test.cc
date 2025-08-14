@@ -318,10 +318,10 @@ TEST_P(ParameterizedReaderWriterTests, Roundtrip) {
   EXPECT_FALSE(reader_writer->Points3DStr().empty());
 
   Reconstruction test;
-  reader_writer->ReadRigs(test);
-  EXPECT_EQ(orig.Rigs(), test.Rigs());
   reader_writer->ReadCameras(test);
   EXPECT_EQ(orig.Cameras(), test.Cameras());
+  reader_writer->ReadRigs(test);
+  EXPECT_EQ(orig.Rigs(), test.Rigs());
   reader_writer->ReadFrames(test);
   EXPECT_EQ(orig.Frames(), test.Frames());
   reader_writer->ReadImages(test);

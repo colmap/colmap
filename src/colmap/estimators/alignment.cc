@@ -434,13 +434,13 @@ void CopyRegisteredImage(image_t image_id,
                          const Reconstruction& src_reconstruction,
                          Reconstruction& tgt_reconstruction) {
   const Image& src_image = src_reconstruction.Image(image_id);
-  if (!tgt_reconstruction.ExistsRig(src_image.FramePtr()->RigId())) {
-    tgt_reconstruction.AddRig(
-        src_reconstruction.Rig(src_image.FramePtr()->RigId()));
-  }
   if (!tgt_reconstruction.ExistsCamera(src_image.CameraId())) {
     tgt_reconstruction.AddCamera(
         src_reconstruction.Camera(src_image.CameraId()));
+  }
+  if (!tgt_reconstruction.ExistsRig(src_image.FramePtr()->RigId())) {
+    tgt_reconstruction.AddRig(
+        src_reconstruction.Rig(src_image.FramePtr()->RigId()));
   }
   if (!tgt_reconstruction.ExistsFrame(src_image.FrameId())) {
     Frame tgt_frame = src_reconstruction.Frame(src_image.FrameId());

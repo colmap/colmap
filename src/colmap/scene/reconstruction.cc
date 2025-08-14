@@ -132,19 +132,19 @@ std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
 }
 
 void Reconstruction::Load(const DatabaseCache& database_cache) {
-  // Add rigs.
-  rigs_.reserve(database_cache.NumRigs());
-  for (const auto& [rig_id, rig] : database_cache.Rigs()) {
-    if (!ExistsRig(rig_id)) {
-      AddRig(rig);
-    }
-  }
-
   // Add cameras.
   cameras_.reserve(database_cache.NumCameras());
   for (const auto& [camera_id, camera] : database_cache.Cameras()) {
     if (!ExistsCamera(camera_id)) {
       AddCamera(camera);
+    }
+  }
+
+  // Add rigs.
+  rigs_.reserve(database_cache.NumRigs());
+  for (const auto& [rig_id, rig] : database_cache.Rigs()) {
+    if (!ExistsRig(rig_id)) {
+      AddRig(rig);
     }
   }
 
@@ -554,11 +554,11 @@ void Reconstruction::Transform(const Sim3d& new_from_old_world) {
 
 Reconstruction Reconstruction::Crop(const Eigen::AlignedBox3d& bbox) const {
   Reconstruction cropped_reconstruction;
-  for (const auto& [_, rig] : rigs_) {
-    cropped_reconstruction.AddRig(rig);
-  }
   for (const auto& [_, camera] : cameras_) {
     cropped_reconstruction.AddCamera(camera);
+  }
+  for (const auto& [_, rig] : rigs_) {
+    cropped_reconstruction.AddRig(rig);
   }
   for (auto [_, frame] : frames_) {
     frame.ResetRigPtr();
