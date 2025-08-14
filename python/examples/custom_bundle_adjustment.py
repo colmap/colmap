@@ -60,6 +60,9 @@ def adjust_global_bundle(mapper, mapper_options, ba_options):
             if frame_id in mapper.existing_frame_ids:
                 ba_config.set_constant_rig_from_world_pose(frame_id)
 
+    for camera_id in mapper_options.constant_cameras:
+        ba_config.set_constant_cam_intrinsics(camera_id)
+
     # TODO: Add python support for prior positions
     ba_config.fix_gauge(pycolmap.BundleAdjustmentGauge.THREE_POINTS)
 
@@ -162,7 +165,11 @@ def adjust_local_bundle(
                 num_images_per_camera[image.camera_id] = 0
             num_images_per_camera[image.camera_id] += 1
         for camera_id, num_images_local in num_images_per_camera.items():
-            if num_images_local < mapper.num_reg_images_per_camera[camera_id]:
+            if (
+                camera_id in mapper_options.constant_cameras
+                or num_images_local
+                < mapper.num_reg_images_per_camera[camera_id]
+            ):
                 ba_config.set_constant_cam_intrinsics(camera_id)
 
         # Make sure, we refine all new and short-track 3D points, no matter if

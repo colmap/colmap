@@ -203,24 +203,18 @@ int RunColorExtractor(int argc, char** argv) {
 int RunMapper(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
-  std::string image_list_path;
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
   options.AddDefaultOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("image_list_path", &image_list_path);
   options.AddMapperOptions();
   options.Parse(argc, argv);
 
   if (!ExistsDir(output_path)) {
     LOG(ERROR) << "`output_path` is not a directory.";
     return EXIT_FAILURE;
-  }
-
-  if (!image_list_path.empty()) {
-    options.mapper->image_names = ReadTextFileLines(image_list_path);
   }
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();

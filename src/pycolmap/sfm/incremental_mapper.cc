@@ -184,6 +184,11 @@ void BindIncrementalPipeline(py::module& m) {
                      &Opts::fix_existing_frames,
                      "If reconstruction is provided as input, fix the existing "
                      "frame poses.")
+      .def_readwrite("constant_cameras",
+                     &Opts::constant_cameras,
+                     "List of cameras for which to fix the camera parameters "
+                     "independent of refine_focal_length, "
+                     "refine_principal_point, and refine_extra_params.")
       .def_readwrite(
           "mapper", &Opts::mapper, "Options of the IncrementalMapper.")
       .def_readwrite("triangulation",
@@ -342,6 +347,11 @@ void BindIncrementalMapperOptions(py::module& m) {
                      &Opts::fix_existing_frames,
                      "If reconstruction is provided as input, fix the existing "
                      "frame poses.")
+      .def_readwrite("constant_cameras",
+                     &Opts::constant_cameras,
+                     "List of cameras for which to fix the camera parameters "
+                     "independent of refine_focal_length, "
+                     "refine_principal_point, and refine_extra_params.")
       .def_readwrite("num_threads", &Opts::num_threads, "Number of threads.")
       .def_readwrite(
           "random_seed",
