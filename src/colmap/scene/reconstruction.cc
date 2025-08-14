@@ -220,6 +220,22 @@ void Reconstruction::TearDown() {
 }
 
 void Reconstruction::AddRig(class Rig rig) {
+  const sensor_t& ref_sensor_id = rig.RefSensorId();
+  if (ref_sensor_id.type == SensorType::CAMERA) {
+    THROW_CHECK(ExistsCamera(ref_sensor_id.id))
+        << "Camera " << ref_sensor_id.id << " from rig " << rig.RigId()
+        << " not found in the reconstruction. Note that AddCamera should be "
+           "called before AddRig.";
+  }
+  for (const auto& [sensor_id, _] : rig.Sensors()) {
+    if (sensor_id.type == SensorType::CAMERA) {
+      THROW_CHECK(ExistsCamera(sensor_id.id))
+          << "Camera " << sensor_id.id << " from rig " << rig.RigId()
+          << " not found in the reconstruction. Note that AddCamera should be "
+             "called before AddRig.";
+    }
+  }
+
   const rig_t rig_id = rig.RigId();
   THROW_CHECK(rigs_.emplace(rig_id, std::move(rig)).second);
 }
