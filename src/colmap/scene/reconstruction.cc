@@ -220,20 +220,23 @@ void Reconstruction::TearDown() {
 }
 
 void Reconstruction::AddRig(class Rig rig) {
-  const sensor_t& ref_sensor_id = rig.RefSensorId();
-  if (ref_sensor_id.type == SensorType::CAMERA) {
-    THROW_CHECK(ExistsCamera(ref_sensor_id.id))
-        << "Camera " << ref_sensor_id.id << " from rig " << rig.RigId()
-        << " not found in the reconstruction. Note that AddCamera should be "
-           "called before AddRig.";
-  }
-  for (const auto& [sensor_id, _] : rig.Sensors()) {
-    if (sensor_id.type == SensorType::CAMERA) {
-      THROW_CHECK(ExistsCamera(sensor_id.id))
-          << "Camera " << sensor_id.id << " from rig " << rig.RigId()
-          << " not found in the reconstruction. Note that AddCamera should be "
-             "called before AddRig.";
+  auto check_exists_sensor = [&](const auto& sensor_id) {
+    switch (sensor_id.type) {
+      case SensorType::CAMERA:
+        THROW_CHECK(ExistsCamera(sensor_id.id))
+            << "Camera " << sensor_id.id << " from rig " << rig.RigId()
+            << " not found in the reconstruction. Note that AddCamera "
+               "should be called before AddRig.";
+        break;
+      case SensorType::IMU:
+      case SensorType::INVALID:
+        break;
     }
+  };
+
+  check_exists_sensor(rig.RefSensorId());
+  for (const auto& [sensor_id, _] : rig.Sensors()) {
+    check_exists_sensor(sensor_id);
   }
 
   const rig_t rig_id = rig.RigId();
