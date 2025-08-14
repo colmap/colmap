@@ -14,11 +14,10 @@ import cv2
 import numpy as np
 import PIL.ExifTags
 import PIL.Image
-from scipy.spatial.transform import Rotation
-from tqdm import tqdm
-
 import pycolmap
 from pycolmap import logging
+from scipy.spatial.transform import Rotation
+from tqdm import tqdm
 
 
 @dataclass
@@ -309,19 +308,26 @@ def run(args):
     with pycolmap.Database(database_path) as db:
         pycolmap.apply_rig_config([rig_config], db)
 
+    matching_options = pycolmap.FeatureMatchingOptions()
+    matching_options.skip_image_pairs_in_same_frame = True
     if args.matcher == "sequential":
         pycolmap.match_sequential(
             database_path,
             pairing_options=pycolmap.SequentialPairingOptions(
                 loop_detection=True
             ),
+            matching_options=matching_options,
         )
     elif args.matcher == "exhaustive":
-        pycolmap.match_exhaustive(database_path)
+        pycolmap.match_exhaustive(
+            database_path, matching_options=matching_options
+        )
     elif args.matcher == "vocabtree":
-        pycolmap.match_vocabtree(database_path)
+        pycolmap.match_vocabtree(
+            database_path, matching_options=matching_options
+        )
     elif args.matcher == "spatial":
-        pycolmap.match_spatial(database_path)
+        pycolmap.match_spatial(database_path, matching_options=matching_options)
     else:
         logging.fatal(f"Unknown matcher: {args.matcher}")
 
