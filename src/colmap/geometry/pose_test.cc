@@ -30,6 +30,7 @@
 #include "colmap/geometry/pose.h"
 
 #include "colmap/math/math.h"
+#include "colmap/math/random.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/eigen_matchers.h"
 
@@ -212,6 +213,25 @@ TEST(CheckCheirality, Nominal) {
   rays2[1][0] = -0.2;
   EXPECT_FALSE(CheckCheirality(cam2_from_cam1, rays1, rays2, &points3D));
   EXPECT_EQ(points3D.size(), 0);
+}
+
+TEST(CovariancePropagation, PropagateCovarianceToCamFromNewWorld) {
+  Sim3d new_from_old_world = Sim3d(RandomUniformReal<double>(0.1, 10),
+                                   Eigen::Quaterniond::UnitRandom(),
+                                   Eigen::Vector3d::Random());
+  Rigid3d cam_from_world =
+      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+  const Eigen::Matrix6d A = Eigen::Matrix6d::Random();
+  Eigen::Matrix6d cam_from_world_covar = A * A.transpose();
+
+  Eigen::Matrix6d propagated = PropagateCovarianceToCamFromNewWorld(
+      new_from_old_world, cam_from_world, cam_from_world_covar);
+  Eigen::Matrix6d recovered = PropagateCovarianceToCamFromNewWorld(
+      Inverse(new_from_old_world),
+      TransformToCamFromNewWorld(new_from_old_world, cam_from_world),
+      propagated);
+
+  EXPECT_THAT(recovered, EigenMatrixNear(cam_from_world_covar, 1e-14));
 }
 
 }  // namespace

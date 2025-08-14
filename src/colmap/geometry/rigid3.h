@@ -51,89 +51,49 @@ struct Rigid3d {
           const Eigen::Vector3d& translation)
       : rotation(rotation), translation(translation) {}
 
-  inline Eigen::Matrix3x4d ToMatrix() const {
-    Eigen::Matrix3x4d matrix;
-    matrix.leftCols<3>() = rotation.toRotationMatrix();
-    matrix.col(3) = translation;
-    return matrix;
-  }
-
-  static inline Rigid3d FromMatrix(const Eigen::Matrix3x4d& matrix) {
-    Rigid3d t;
-    t.rotation = Eigen::Quaterniond(matrix.leftCols<3>()).normalized();
-    t.translation = matrix.rightCols<1>();
-    return t;
-  }
+  inline Eigen::Matrix3x4d ToMatrix() const;
+  static inline Rigid3d FromMatrix(const Eigen::Matrix3x4d& matrix);
 
   // Adjoint matrix to propagate uncertainty on Rigid3d
   // [Reference] https://gtsam.org/2021/02/23/uncertainties-part3.html
-  inline Eigen::Matrix6d Adjoint() const {
-    Eigen::Matrix6d adjoint;
-    adjoint.block<3, 3>(0, 0) = rotation.toRotationMatrix();
-    adjoint.block<3, 3>(0, 3).setZero();
-    adjoint.block<3, 3>(3, 0) =
-        adjoint.block<3, 3>(0, 0).colwise().cross(-translation);  // t x R
-    adjoint.block<3, 3>(3, 3) = adjoint.block<3, 3>(0, 0);
-    return adjoint;
-  }
-
-  inline Eigen::Matrix6d AdjointInverse() const {
-    Eigen::Matrix6d adjoint_inv;
-    adjoint_inv.block<3, 3>(0, 0) = rotation.toRotationMatrix().transpose();
-    adjoint_inv.block<3, 3>(0, 3).setZero();
-    adjoint_inv.block<3, 3>(3, 0) =
-        -adjoint_inv.block<3, 3>(0, 0) * CrossProductMatrix(translation);
-    adjoint_inv.block<3, 3>(3, 3) = adjoint_inv.block<3, 3>(0, 0);
-    return adjoint_inv;
-  }
+  inline Eigen::Matrix6d Adjoint() const;
+  inline Eigen::Matrix6d AdjointInverse() const;
 };
 
 // Return inverse transform.
-inline Rigid3d Inverse(const Rigid3d& b_from_a) {
-  Rigid3d a_from_b;
-  a_from_b.rotation = b_from_a.rotation.inverse();
-  a_from_b.translation = a_from_b.rotation * -b_from_a.translation;
-  return a_from_b;
-}
+inline Rigid3d Inverse(const Rigid3d& b_from_a);
 
-// Update covariance (6 x 6) for rigid3d.inverse()
+// Update covariance (6 x 6) for Inverse(rigid3d)
 //
 // [Reference] Joan Solà, Jeremie Deray, Dinesh Atchuthan, A micro Lie theory
 // for state estimation in robotics, 2018.
-// In COLMAP we follow the left convention (rather than the right convention as
-// in the reference paper and GTSAM). With the left convention the Jacobian of
-// the inverse is -Ad(X^{-1}). This can be easily derived combining Eqs. (62)
-// and (57) in the paper.
-inline Eigen::Matrix6d GetCovarianceForRigid3dInverse(
-    const Rigid3d& rigid3, const Eigen::Matrix6d& covar) {
-  const Eigen::Matrix6d adjoint_inv = rigid3.AdjointInverse();
-  return adjoint_inv * covar * adjoint_inv.transpose();
-}
+// In COLMAP we follow the left convention (rather than the right convention
+// as in the reference paper and GTSAM). With the left convention the Jacobian
+// of the inverse is -Ad(X^{-1}). This can be easily derived combining Eqs.
+// (62) and (57) in the paper.
+inline Eigen::Matrix6d PropagateCovarianceForInverse(
+    const Rigid3d& rigid3, const Eigen::Matrix6d& covar);
 
 // Given a (12 x 12) covariance on two rigid3d objects (a_from_b, b_from_c),
 // this function calculates the (6 x 6) covariance of the composed
 // transformation a_from_c (a_T_b * b_T_c). b_T_c does not contribute to the
 // covariance propagation and is thus not required.
-inline Eigen::Matrix6d GetCovarianceForComposedRigid3d(
-    const Rigid3d& a_from_b, const Eigen::Matrix<double, 12, 12>& covar) {
-  Eigen::Matrix<double, 6, 12> J;
-  J.block<6, 6>(0, 0) = Eigen::Matrix6d::Identity();
-  J.block<6, 6>(0, 6) = a_from_b.Adjoint();
-  return J * covar * J.transpose();
-}
+inline Eigen::Matrix6d PropagateCovarianceForCompose(
+    const Rigid3d& a_from_b, const Eigen::Matrix<double, 12, 12>& covar);
 
 // Given a (12 x 12) covariance on two rigid3d objects (a_from_c, b_from_c),
 // this function calculates the (6 x 6) covariance of the relative
 // transformation b_from_a (b_T_c * a_T_c^{-1}).
-inline Eigen::Matrix6d GetCovarianceForRelativeRigid3d(
+inline Eigen::Matrix6d PropagateCovarianceForRelative(
     const Rigid3d& a_from_c,
     const Rigid3d& b_from_c,
-    const Eigen::Matrix<double, 12, 12>& covar) {
-  Eigen::Matrix<double, 6, 12> J;
-  J.block<6, 6>(0, 0) = -b_from_c.Adjoint() * a_from_c.AdjointInverse();
-  J.block<6, 6>(0, 6) = Eigen::Matrix6d::Identity();
-  return J * covar * J.transpose();
-}
+    const Eigen::Matrix<double, 12, 12>& covar);
+
+// Given a point p and its 3x3 covariance, this function propagates the
+// covariance through a rigid3 transformation, i.e. it computes the covariance
+// of the transformed point: p' = rigid3 * p
+inline Eigen::Matrix3d PropagateCovarianceForTransformPoint(
+    const Rigid3d& rigid3, const Eigen::Matrix3d& covar);
 
 // Apply transform to point such that one can write expressions like:
 //      x_in_b = b_from_a * x_in_a
@@ -148,13 +108,97 @@ inline Eigen::Matrix6d GetCovarianceForRelativeRigid3d(
 // While you may want to instead write and execute it as:
 //      x_in_c = d_from_c * (c_from_b * (b_from_a * x_in_a))
 // which will apply the transformations as a chain on the point.
-inline Eigen::Vector3d operator*(const Rigid3d& t, const Eigen::Vector3d& x) {
-  return t.rotation * x + t.translation;
-}
+inline Eigen::Vector3d operator*(const Rigid3d& t, const Eigen::Vector3d& x);
 
 // Concatenate transforms such one can write expressions like:
 //      d_from_a = d_from_c * c_from_b * b_from_a
-inline Rigid3d operator*(const Rigid3d& c_from_b, const Rigid3d& b_from_a) {
+inline Rigid3d operator*(const Rigid3d& c_from_b, const Rigid3d& b_from_a);
+
+inline bool operator==(const Rigid3d& left, const Rigid3d& right);
+inline bool operator!=(const Rigid3d& left, const Rigid3d& right);
+
+std::ostream& operator<<(std::ostream& stream, const Rigid3d& tform);
+
+////////////////////////////////////////////////////////////////////////////////
+// Implementation
+////////////////////////////////////////////////////////////////////////////////
+
+Eigen::Matrix3x4d Rigid3d::ToMatrix() const {
+  Eigen::Matrix3x4d matrix;
+  matrix.leftCols<3>() = rotation.toRotationMatrix();
+  matrix.col(3) = translation;
+  return matrix;
+}
+
+Rigid3d Rigid3d::FromMatrix(const Eigen::Matrix3x4d& matrix) {
+  Rigid3d t;
+  t.rotation = Eigen::Quaterniond(matrix.leftCols<3>()).normalized();
+  t.translation = matrix.rightCols<1>();
+  return t;
+}
+
+Eigen::Matrix6d Rigid3d::Adjoint() const {
+  Eigen::Matrix6d adjoint;
+  adjoint.block<3, 3>(0, 0) = rotation.toRotationMatrix();
+  adjoint.block<3, 3>(0, 3).setZero();
+  adjoint.block<3, 3>(3, 0) =
+      adjoint.block<3, 3>(0, 0).colwise().cross(-translation);  // t x R
+  adjoint.block<3, 3>(3, 3) = adjoint.block<3, 3>(0, 0);
+  return adjoint;
+}
+
+Eigen::Matrix6d Rigid3d::AdjointInverse() const {
+  Eigen::Matrix6d adjoint_inv;
+  adjoint_inv.block<3, 3>(0, 0) = rotation.toRotationMatrix().transpose();
+  adjoint_inv.block<3, 3>(0, 3).setZero();
+  adjoint_inv.block<3, 3>(3, 0) =
+      -adjoint_inv.block<3, 3>(0, 0) * CrossProductMatrix(translation);
+  adjoint_inv.block<3, 3>(3, 3) = adjoint_inv.block<3, 3>(0, 0);
+  return adjoint_inv;
+}
+
+Rigid3d Inverse(const Rigid3d& b_from_a) {
+  Rigid3d a_from_b;
+  a_from_b.rotation = b_from_a.rotation.inverse();
+  a_from_b.translation = a_from_b.rotation * -b_from_a.translation;
+  return a_from_b;
+}
+
+Eigen::Matrix6d PropagateCovarianceForInverse(const Rigid3d& rigid3,
+                                              const Eigen::Matrix6d& covar) {
+  const Eigen::Matrix6d adjoint_inv = rigid3.AdjointInverse();
+  return adjoint_inv * covar * adjoint_inv.transpose();
+}
+
+Eigen::Matrix6d PropagateCovarianceForCompose(
+    const Rigid3d& a_from_b, const Eigen::Matrix<double, 12, 12>& covar) {
+  Eigen::Matrix<double, 6, 12> J;
+  J.block<6, 6>(0, 0) = Eigen::Matrix6d::Identity();
+  J.block<6, 6>(0, 6) = a_from_b.Adjoint();
+  return J * covar * J.transpose();
+}
+
+Eigen::Matrix6d PropagateCovarianceForRelative(
+    const Rigid3d& a_from_c,
+    const Rigid3d& b_from_c,
+    const Eigen::Matrix<double, 12, 12>& covar) {
+  Eigen::Matrix<double, 6, 12> J;
+  J.block<6, 6>(0, 0) = -b_from_c.Adjoint() * a_from_c.AdjointInverse();
+  J.block<6, 6>(0, 6) = Eigen::Matrix6d::Identity();
+  return J * covar * J.transpose();
+}
+
+Eigen::Matrix3d PropagateCovarianceForTransformPoint(
+    const Rigid3d& rigid3, const Eigen::Matrix3d& covar) {
+  Eigen::Matrix3d J = rigid3.Adjoint().block<3, 3>(3, 3);
+  return J * covar * J.transpose();
+}
+
+Eigen::Vector3d operator*(const Rigid3d& t, const Eigen::Vector3d& x) {
+  return t.rotation * x + t.translation;
+}
+
+Rigid3d operator*(const Rigid3d& c_from_b, const Rigid3d& b_from_a) {
   Rigid3d c_from_a;
   c_from_a.rotation = (c_from_b.rotation * b_from_a.rotation).normalized();
   c_from_a.translation =
@@ -162,14 +206,12 @@ inline Rigid3d operator*(const Rigid3d& c_from_b, const Rigid3d& b_from_a) {
   return c_from_a;
 }
 
-inline bool operator==(const Rigid3d& left, const Rigid3d& right) {
+bool operator==(const Rigid3d& left, const Rigid3d& right) {
   return left.rotation.coeffs() == right.rotation.coeffs() &&
          left.translation == right.translation;
 }
-inline bool operator!=(const Rigid3d& left, const Rigid3d& right) {
+
+bool operator!=(const Rigid3d& left, const Rigid3d& right) {
   return !(left == right);
 }
-
-std::ostream& operator<<(std::ostream& stream, const Rigid3d& tform);
-
 }  // namespace colmap

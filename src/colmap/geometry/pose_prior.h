@@ -41,13 +41,13 @@
 
 namespace colmap {
 
-// Represents a pose prior defined by a world coordinate system with
+// Represent a pose prior defined by a world coordinate system with
 // world-from-camera transformation and its associated uncertainty.
 //
-// For WGS84 systems, the position is ordered as longitude, latitude, altitude,
-// and rotation is meaningless.
-//
-// The caller must check pose validity using HasValid*() before use.
+// For WGS84 system, the position is ordered as longitude, latitude, altitude,
+// and rotation is meaningless. Users must check validity via HasValid*() before
+// use, the cross-covariance between position and rotation is assumed zero
+// internally.
 struct PosePrior {
  public:
   static const Eigen::Vector3d kInvalidTranslation;
@@ -64,12 +64,11 @@ struct PosePrior {
 
   CoordinateSystem coordinate_system = CoordinateSystem::UNDEFINED;
 
+  // Prior pose represented as camera position and orientation.
   Rigid3d world_from_cam = Rigid3d(kInvalidRotation, kInvalidTranslation);
 
-  // Position covariance corresponding to world_from_cam.translation
+  // Position and rotation covariance (3×3).
   Eigen::Matrix3d position_covariance = kInvalidCovariance3x3;
-
-  // Rotation covariance corresponding to world_from_cam.rotation
   Eigen::Matrix3d rotation_covariance = kInvalidCovariance3x3;
 
   PosePrior() = default;
@@ -93,13 +92,12 @@ struct PosePrior {
             const Eigen::Matrix3d& position_covar,
             const Eigen::Matrix3d& rotation_covar);
 
-  inline Rigid3d CamFromWorld() const;
-
+  // Get the full 6×6 world_from_cam_covar, cross-covariance is assumed zero.
   inline Eigen::Matrix6d WorldFromCamCovariance() const;
-  inline void SetWorldFromCamCovariance(const Eigen::Matrix6d& covar);
-
-  inline Eigen::Matrix6d CamFromWorldCovariance() const;
-  inline void SetCamFromWorldCovariance(const Eigen::Matrix6d& covar);
+  // Set rotation and position covariance from full 6×6 world_from_cam_covar,
+  // cross-covariance is assumed zero.
+  inline void SetWorldFromCamCovariance(
+      const Eigen::Matrix6d& world_from_cam_covar);
 
   inline bool HasValidRotation() const;
   inline bool HasValidRotationCovariance() const;
@@ -120,27 +118,17 @@ std::ostream& operator<<(std::ostream& stream, const PosePrior& prior);
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-Rigid3d PosePrior::CamFromWorld() const { return Inverse(world_from_cam); }
-
 Eigen::Matrix6d PosePrior::WorldFromCamCovariance() const {
-  Eigen::Matrix6d covar = Eigen::Matrix6d::Zero();
-  covar.block<3, 3>(0, 0) = rotation_covariance;
-  covar.block<3, 3>(3, 3) = position_covariance;
-  return covar;
-}
-void PosePrior::SetWorldFromCamCovariance(const Eigen::Matrix6d& covar) {
-  position_covariance = covar.block<3, 3>(0, 0);
-  rotation_covariance = covar.block<3, 3>(3, 3);
+  Eigen::Matrix6d world_from_cam_covar = Eigen::Matrix6d::Zero();
+  world_from_cam_covar.block<3, 3>(0, 0) = rotation_covariance;
+  world_from_cam_covar.block<3, 3>(3, 3) = position_covariance;
+  return world_from_cam_covar;
 }
 
-Eigen::Matrix<double, 6, 6> PosePrior::CamFromWorldCovariance() const {
-  return GetCovarianceForRigid3dInverse(world_from_cam,
-                                        WorldFromCamCovariance());
-}
-
-void PosePrior::SetCamFromWorldCovariance(const Eigen::Matrix6d& covar) {
-  SetWorldFromCamCovariance(
-      GetCovarianceForRigid3dInverse(CamFromWorld(), covar));
+void PosePrior::SetWorldFromCamCovariance(
+    const Eigen::Matrix6d& world_from_cam_covar) {
+  rotation_covariance = world_from_cam_covar.block<3, 3>(0, 0);
+  position_covariance = world_from_cam_covar.block<3, 3>(3, 3);
 }
 
 bool PosePrior::HasValidRotation() const {
@@ -162,7 +150,8 @@ bool PosePrior::HasValidPositionCovariance() const {
 inline bool PosePrior::HasValidWorldFromCam() const {
   return HasValidPosition() && HasValidRotation();
 }
-inline bool PosePrior::HasValidWorldFromCamCovariance() const {
+
+bool PosePrior::HasValidWorldFromCamCovariance() const {
   return WorldFromCamCovariance().allFinite();
 }
 

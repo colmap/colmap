@@ -288,7 +288,7 @@ std::optional<Eigen::MatrixXd> BACovariance::GetCam2CovFromCam1(
   cov.block<6, 6>(6, 6) = *cov_22;
   cov.block<6, 6>(0, 6) = *cov_12;
   cov.block<6, 6>(6, 0) = cov_12->transpose();
-  return GetCovarianceForRelativeRigid3d(cam1_from_world, cam2_from_world, cov);
+  return PropagateCovarianceForRelative(cam1_from_world, cam2_from_world, cov);
 }
 
 std::optional<Eigen::MatrixXd> BACovariance::GetOtherParamsCov(

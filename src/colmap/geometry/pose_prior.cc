@@ -90,8 +90,10 @@ std::ostream& operator<<(std::ostream& stream, const PosePrior& prior) {
 
   stream << "PosePrior(\n"
          << "  world_from_cam=[" << prior.world_from_cam << "],\n"
-         << "  position_covariance=[" << prior.position_covariance << "],\n"
-         << "  rotation_covariance=[" << prior.rotation_covariance << "],\n"
+         << "  position_covariance=["
+         << prior.position_covariance.format(kVecFmt) << "],\n"
+         << "  rotation_covariance=["
+         << prior.rotation_covariance.format(kVecFmt) << "],\n"
          << "  coordinate_system="
          << PosePrior::CoordinateSystemToString(prior.coordinate_system) << ")";
   return stream;

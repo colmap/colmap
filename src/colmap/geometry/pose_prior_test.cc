@@ -41,8 +41,8 @@ TEST(PosePrior, Equals) {
   PosePrior prior;
   prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
   prior.world_from_cam.translation = Eigen::Vector3d::Zero();
-  prior.position_covariance = Eigen::Matrix3d::Identity();
   prior.world_from_cam.rotation = Eigen::Quaterniond::Identity();
+  prior.position_covariance = Eigen::Matrix3d::Identity();
   prior.rotation_covariance = Eigen::Matrix3d::Identity();
 
   PosePrior other = prior;
@@ -66,7 +66,7 @@ TEST(PosePrior, Equals) {
   EXPECT_EQ(prior, other);
 }
 
-TEST(PosePrior, GetAndSetCovariance) {
+TEST(PosePrior, Covariance) {
   const Eigen::Vector3d position = {1, 2, 3};
   const Eigen::Quaterniond rotation =
       Eigen::Quaterniond(Eigen::AngleAxisd(M_PI / 4, Eigen::Vector3d::UnitZ()));
@@ -86,14 +86,6 @@ TEST(PosePrior, GetAndSetCovariance) {
   prior2.SetWorldFromCamCovariance(prior1.WorldFromCamCovariance());
   EXPECT_EQ(prior1.position_covariance, prior2.position_covariance);
   EXPECT_EQ(prior1.rotation_covariance, prior2.rotation_covariance);
-
-  prior2.SetCamFromWorldCovariance(prior1.CamFromWorldCovariance());
-
-  EXPECT_THAT(prior1.position_covariance,
-              EigenMatrixNear(prior2.position_covariance,
-                              std::numeric_limits<double>::epsilon()));
-  EXPECT_THAT(prior1.rotation_covariance,
-              EigenMatrixNear(prior2.rotation_covariance, 1e-15));
 }
 
 TEST(PosePrior, Print) {
@@ -111,8 +103,8 @@ TEST(PosePrior, Print) {
             "PosePrior(\n"
             "  world_from_cam=[Rigid3d(rotation_xyzw=[0, 0, 0, 1], "
             "translation=[0, 0, 0])],\n"
-            "  position_covariance=[1 0 0\n0 1 0\n0 0 1],\n"
-            "  rotation_covariance=[1 0 0\n0 1 0\n0 0 1],\n"
+            "  position_covariance=[1, 0, 0, 0, 1, 0, 0, 0, 1],\n"
+            "  rotation_covariance=[1, 0, 0, 0, 1, 0, 0, 0, 1],\n"
             "  coordinate_system=CARTESIAN)");
 }
 

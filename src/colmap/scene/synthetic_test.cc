@@ -232,7 +232,7 @@ TEST(SynthesizeDataset, WithPriors) {
     EXPECT_TRUE(prior.HasValidRotation());
 
     EXPECT_THAT(image.second.CamFromWorld(),
-                Rigid3dNear(prior.CamFromWorld(), 1e-9, 1e-9));
+                Rigid3dNear(Inverse(prior.world_from_cam), 1e-9, 1e-9));
   }
 }
 

@@ -9,8 +9,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-using namespace colmap;              // NOLINT
-using namespace pybind11::literals;  // NOLINT
+using namespace colmap;
+using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindPosePrior(py::module& m) {
@@ -56,14 +56,9 @@ void BindPosePrior(py::module& m) {
       .def_readwrite("position_covariance", &PosePrior::position_covariance)
       .def_readwrite("rotation_covariance", &PosePrior::rotation_covariance)
 
-      .def("cam_from_world", &PosePrior::CamFromWorld)
-
       .def("world_from_cam_covariance", &PosePrior::WorldFromCamCovariance)
       .def("set_world_from_cam_covariance",
            &PosePrior::SetWorldFromCamCovariance)
-      .def("cam_from_world_covariance", &PosePrior::CamFromWorldCovariance)
-      .def("set_cam_from_world_covariance",
-           &PosePrior::SetCamFromWorldCovariance)
 
       .def("has_valid_rotation", &PosePrior::HasValidRotation)
       .def("has_valid_rotation_covariance",

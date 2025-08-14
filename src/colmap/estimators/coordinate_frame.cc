@@ -333,7 +333,7 @@ void AlignToPrincipalPlane(Reconstruction* reconstruction,
       reconstruction->Frame(reconstruction->RegFrameIds().front());
   const auto frame0_image_ids = frame0.ImageIds();
   THROW_CHECK(frame0_image_ids.begin() != frame0_image_ids.end());
-  const Rigid3d cam0_from_aligned_world = TransformCameraWorld(
+  const Rigid3d cam0_from_aligned_world = TransformToCamFromNewWorld(
       *aligned_from_original,
       reconstruction->Image(frame0_image_ids.begin()->id).CamFromWorld());
   if (Inverse(cam0_from_aligned_world).translation.z() < 0.0) {

@@ -163,13 +163,48 @@ bool CheckCheirality(const Rigid3d& cam2_from_cam1,
   return !points3D->empty();
 }
 
-Rigid3d TransformCameraWorld(const Sim3d& new_from_old_world,
-                             const Rigid3d& cam_from_world) {
+Rigid3d TransformToCamFromNewWorld(const Sim3d& new_from_old_world,
+                                   const Rigid3d& cam_from_world) {
   const Sim3d cam_from_new_world =
-      Sim3d(1, cam_from_world.rotation, cam_from_world.translation) *
+      Rigid3dToSim3d(cam_from_world, /*scale_translation=*/false) *
       Inverse(new_from_old_world);
-  return Rigid3d(cam_from_new_world.rotation,
-                 cam_from_new_world.translation * new_from_old_world.scale);
+  return Sim3dToRigid3d(cam_from_new_world, /*scale_translation=*/true);
 }
 
+Eigen::Matrix6d PropagateCovarianceToCamFromNewWorld(
+    const Sim3d& new_from_old_world,
+    const Rigid3d& cam_from_world,
+    const Eigen::Matrix6d& cam_from_world_covar) {
+  Sim3d cam_from_world_sim3 = Rigid3dToSim3d(
+      cam_from_world, /*scale_translation=*/false, /*scale=*/1.0);
+
+  Eigen::Matrix<double, 7, 7> cam_from_world_sim3_covar =
+      Eigen::Matrix<double, 7, 7>::Zero();
+  cam_from_world_sim3_covar.topLeftCorner<6, 6>() = cam_from_world_covar;
+
+  Sim3d new_world_from_old_world = Inverse(new_from_old_world);
+  Eigen::Matrix<double, 7, 7> new_world_from_old_world_covar =
+      PropagateCovarianceForInverse(new_from_old_world,
+                                    Eigen::Matrix<double, 7, 7>::Zero());
+
+  Eigen::Matrix<double, 14, 14> joint_covar =
+      Eigen::Matrix<double, 14, 14>::Zero();
+  joint_covar.block<7, 7>(0, 0) = cam_from_world_sim3_covar;
+  joint_covar.block<7, 7>(7, 7) = new_world_from_old_world_covar;
+
+  // Propagate covariance for the composition: cam_from_new_world =
+  // cam_from_world * new_world_from_old_world
+  Sim3d cam_from_new_world_sim3 =
+      cam_from_world_sim3 * new_world_from_old_world;
+  Eigen::Matrix<double, 7, 7> cam_from_new_world_sim3_covar =
+      PropagateCovarianceForCompose(cam_from_new_world_sim3, joint_covar);
+
+  // Extract the 6x6 covariance for the rigid transform (ignoring scale)
+  double scale = new_from_old_world.scale;
+  Eigen::Matrix6d cam_from_new_world_covar =
+      cam_from_new_world_sim3_covar.topLeftCorner<6, 6>();
+  cam_from_new_world_covar.block<3, 3>(3, 3) *= (scale * scale);
+
+  return cam_from_new_world_covar;
+}
 }  // namespace colmap

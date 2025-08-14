@@ -34,8 +34,6 @@ void BindSim3(py::module& m) {
       .def_readwrite("rotation", &Sim3d::rotation)
       .def_readwrite("translation", &Sim3d::translation)
       .def("matrix", &Sim3d::ToMatrix)
-      .def("transform_se3_adjoint", &Sim3d::TransformSE3Adjoint)
-      .def("transform_se3_adjoint_inverse", &Sim3d::TransformSE3AdjointInverse)
       .def(py::self * Sim3d())
       .def(py::self * Eigen::Vector3d())
       .def("__mul__",
@@ -47,8 +45,42 @@ void BindSim3(py::module& m) {
                         .rowwise() +
                     t.translation.transpose();
            })
-      .def("transform_camera_world", &TransformCameraWorld, "cam_from_world"_a)
       .def("inverse", static_cast<Sim3d (*)(const Sim3d&)>(&Inverse));
   py::implicitly_convertible<py::array, Sim3d>();
   MakeDataclass(PySim3d);
+
+  m.def("transform_to_cam_from_new_world",
+        &TransformToCamFromNewWorld,
+        "new_from_old_world"_a,
+        "cam_from_world"_a);
+  m.def("propagate_covariance_to_cam_from_new_world",
+        &PropagateCovarianceToCamFromNewWorld);
+
+  m.def(
+      "propagate_covariance_for_inverse",
+      pybind11::overload_cast<const Sim3d&, const Eigen::Matrix<double, 7, 7>&>(
+          &PropagateCovarianceForInverse),
+      "sim3d"_a,
+      "covar"_a);
+
+  m.def("propagate_covariance_for_compose",
+        pybind11::overload_cast<const Sim3d&,
+                                const Eigen::Matrix<double, 14, 14>&>(
+            &PropagateCovarianceForCompose),
+        "left_sim3d"_a,
+        "joint_covar"_a);
+
+  m.def("propagate_covariance_for_relative",
+        pybind11::overload_cast<const Sim3d&,
+                                const Sim3d&,
+                                const Eigen::Matrix<double, 14, 14>&>(
+            &PropagateCovarianceForRelative),
+        "base_sim3d"_a,
+        "target_sim3d"_a,
+        "joint_covar"_a);
+  m.def("propagate_covariance_for_transform_point",
+        pybind11::overload_cast<const Sim3d&, const Eigen::Matrix3d&>(
+            &PropagateCovarianceForTransformPoint),
+        "sim3"_a,
+        "covar"_a);
 }

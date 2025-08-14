@@ -397,7 +397,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
                                               options.prior_position_stddev *
                                               Eigen::Matrix3d::Identity();
           } else {
-            noisy_prior.position_covariance = Eigen::Matrix3d::Identity();
+            noisy_prior.position_covariance =
+                1e-2 * Eigen::Matrix3d::Identity();
           }
 
           if (options.prior_position_geographic) {
@@ -428,8 +429,12 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
               noisy_prior.world_from_cam.rotation =
                   Eigen::Quaterniond(Eigen::AngleAxisd(angle, axis)) *
                   noisy_prior.world_from_cam.rotation;
+              noisy_prior.rotation_covariance = options.prior_position_stddev *
+                                                options.prior_position_stddev *
+                                                Eigen::Matrix3d::Identity();
             } else {
-              noisy_prior.rotation_covariance = Eigen::Matrix3d::Identity();
+              noisy_prior.rotation_covariance =
+                  1e-2 * Eigen::Matrix3d::Identity();
             }
 
             noisy_prior.world_from_cam.rotation =

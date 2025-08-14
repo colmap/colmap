@@ -69,4 +69,18 @@ std::ostream& operator<<(std::ostream& stream, const Sim3d& tform) {
   return stream;
 }
 
+Rigid3d Sim3dToRigid3d(const Sim3d& sim3, bool scale_translation) {
+  return scale_translation
+             ? Rigid3d(sim3.rotation, sim3.translation / sim3.scale)
+             : Rigid3d(sim3.rotation, sim3.translation);
+}
+
+Sim3d Rigid3dToSim3d(const Rigid3d& rigid3,
+                     bool scale_translation,
+                     double scale) {
+  return scale_translation
+             ? Sim3d(scale, rigid3.rotation, rigid3.translation * scale)
+             : Sim3d(1.0, rigid3.rotation, rigid3.translation);
+}
+
 }  // namespace colmap

@@ -196,14 +196,14 @@ int RunRigConfigurator(int argc, char** argv) {
 //                           representation around x, y, z axes respectively.
 //
 // Example 1: WGS84 with position uncertainty
-//   # name cs px py pz stddev_px stddev_py stddev_pz
-//   image1.jpg WGS84 48.1476954472 11.5695882694 561.1509 0.1 0.1 0.5
+//   # name cs x y z stddev_x stddev_y stddev_z
+//   image1.jpg WGS84 48.1476954472 11.5695882694 561.1509 0.03 0.03 0.05
 //
+// clang-format off
 // Example 2: CARTESIAN with world-from-camera position and rotation priors:
-//   # name cs px py pz stddev_px stddev_py stddev_pz qw qx qy qz stddev_rx
-//   stddev_ry stddev_rz
-//   image2.jpg CARTESIAN -1.0 2.0 0.5 0.2 0.2 0.2 0.7071 0.7071 0.0 0.0 0.02
-//   0.02 0.02
+//   # name cs x y z stddev_x stddev_y stddev_z qw qx qy qz stddev_rx stddev_ry stddev_rz
+//   image2.jpg CARTESIAN -1.0 2.0 0.5 0.2 0.2 0.2 0.7071 0.7071 0.0 0.0 0.02 0.02 0.02
+// clang-format on
 int RunPosePriorImporter(int argc, char** argv) {
   std::string input_path;
   bool clear_existing = false;
@@ -256,9 +256,9 @@ int RunPosePriorImporter(int argc, char** argv) {
   }
 
   const bool has_coordinate_system = col_idx.count("cs");
-  const bool has_position = HasFields(col_idx, {"px", "py", "pz"});
+  const bool has_position = HasFields(col_idx, {"x", "y", "z"});
   const bool has_position_stddev =
-      HasFields(col_idx, {"stddev_px", "stddev_py", "stddev_pz"});
+      HasFields(col_idx, {"stddev_x", "stddev_y", "stddev_z"});
   const bool has_rotation = HasFields(col_idx, {"qw", "qx", "qy", "qz"});
   const bool has_rotation_stddev =
       HasFields(col_idx, {"stddev_rx", "stddev_ry", "stddev_rz"});
@@ -306,14 +306,14 @@ int RunPosePriorImporter(int argc, char** argv) {
     }
 
     if (has_position) {
-      prior.world_from_cam.translation = {std::stod(tokens[col_idx["px"]]),
-                                          std::stod(tokens[col_idx["py"]]),
-                                          std::stod(tokens[col_idx["pz"]])};
+      prior.world_from_cam.translation = {std::stod(tokens[col_idx["x"]]),
+                                          std::stod(tokens[col_idx["y"]]),
+                                          std::stod(tokens[col_idx["z"]])};
     }
     if (has_position_stddev) {
-      const Eigen::Vector3d stddev{std::stod(tokens[col_idx["stddev_px"]]),
-                                   std::stod(tokens[col_idx["stddev_py"]]),
-                                   std::stod(tokens[col_idx["stddev_pz"]])};
+      const Eigen::Vector3d stddev{std::stod(tokens[col_idx["stddev_x"]]),
+                                   std::stod(tokens[col_idx["stddev_y"]]),
+                                   std::stod(tokens[col_idx["stddev_z"]])};
       prior.position_covariance = stddev.cwiseProduct(stddev).asDiagonal();
     }
 
