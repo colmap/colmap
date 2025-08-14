@@ -89,7 +89,7 @@ void FeatureMatcherWorker::Run() {
     // TODO(jsch): This is a bit ugly, but currently cannot think of a better
     // way to inject the shared descriptor index cache.
     THROW_CHECK_NOTNULL(matching_options_.sift)->cpu_descriptor_index_cache =
-      &cache_->GetFeatureDescriptorIndexCache();
+        &cache_->GetFeatureDescriptorIndexCache();
     THROW_CHECK_NOTNULL(matching_options_.sift->cpu_descriptor_index_cache);
   }
 

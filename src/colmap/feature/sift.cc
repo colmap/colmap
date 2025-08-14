@@ -1238,8 +1238,10 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     matcher->sift_match_gpu_.gpu_index = gpu_indices[0];
 
     // Initialize mutex for OpenGL backend regardless of compile-time flags
-    if (const auto it = sift_opengl_mutexes_.find(gpu_indices[0]); it == sift_opengl_mutexes_.end()) {
-      sift_opengl_mutexes_.emplace_hint(it, gpu_indices[0], std::make_unique<std::mutex>());
+    if (const auto it = sift_opengl_mutexes_.find(gpu_indices[0]);
+        it == sift_opengl_mutexes_.end()) {
+      sift_opengl_mutexes_.emplace_hint(
+          it, gpu_indices[0], std::make_unique<std::mutex>());
     }
 
     return matcher;
