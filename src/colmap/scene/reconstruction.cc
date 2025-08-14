@@ -725,16 +725,16 @@ void Reconstruction::Read(const std::string& path) {
 void Reconstruction::Write(const std::string& path) const { WriteBinary(path); }
 
 void Reconstruction::ReadText(const std::string& path) {
-  rigs_.clear();
   cameras_.clear();
+  rigs_.clear();
   frames_.clear();
   images_.clear();
   points3D_.clear();
+  ReadCamerasText(*this, JoinPaths(path, "cameras.txt"));
   const std::string rigs_path = JoinPaths(path, "rigs.txt");
   if (ExistsFile(rigs_path)) {
     ReadRigsText(*this, rigs_path);
   }
-  ReadCamerasText(*this, JoinPaths(path, "cameras.txt"));
   const std::string frames_path = JoinPaths(path, "frames.txt");
   if (ExistsFile(frames_path)) {
     ReadFramesText(*this, frames_path);
@@ -744,16 +744,16 @@ void Reconstruction::ReadText(const std::string& path) {
 }
 
 void Reconstruction::ReadBinary(const std::string& path) {
-  rigs_.clear();
   cameras_.clear();
+  rigs_.clear();
   frames_.clear();
   images_.clear();
   points3D_.clear();
+  ReadCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
   const std::string rigs_path = JoinPaths(path, "rigs.bin");
   if (ExistsFile(rigs_path)) {
     ReadRigsBinary(*this, rigs_path);
   }
-  ReadCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
   const std::string frames_path = JoinPaths(path, "frames.bin");
   if (ExistsFile(frames_path)) {
     ReadFramesBinary(*this, frames_path);
