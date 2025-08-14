@@ -954,7 +954,7 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     const bool use_prior_rotation = std::any_of(
         pose_priors.cbegin(), pose_priors.cend(), [](const auto& kv) {
           const PosePrior& prior = kv.second;
-          return prior.HasValidPosition() && prior.HasValidPositionCovariance();
+          return prior.HasValidRotation() && prior.HasValidRotationCovariance();
         });
 
     // Fix 7-DOFs of BA problem if not enough valid pose priors.
