@@ -29,6 +29,7 @@
 
 #include "colmap/scene/synthetic.h"
 
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/scene/projection.h"
 #include "colmap/util/file.h"
@@ -156,7 +157,7 @@ TEST(SynthesizeDataset, Nominal) {
 
       for (size_t i2 = 0; i2 < i1; ++i2) {
         const image_t image_id2 = point3D.track.Element(i2).image_id;
-        const Eigen::Vector3d proj_center2 = proj_centers.at(image_id2);
+        const Eigen::Vector3d& proj_center2 = proj_centers.at(image_id2);
         max_tri_angle = std::max(max_tri_angle,
                                  CalculateTriangulationAngle(
                                      proj_center1, proj_center2, point3D.xyz));
@@ -218,18 +219,20 @@ TEST(SynthesizeDataset, WithPriors) {
   Database database(Database::kInMemoryDatabasePath);
   Reconstruction reconstruction;
   SyntheticDatasetOptions options;
-  options.use_prior_position = true;
+  options.prior_position = true;
   options.prior_position_stddev = 0.;
+  options.prior_rotation = true;
+  options.prior_rotation_stddev = 0.;
   SynthesizeDataset(options, &reconstruction, &database);
 
   for (const auto& image : reconstruction.Images()) {
-    if (database.ExistsPosePrior(image.first)) {
-      EXPECT_NEAR((image.second.ProjectionCenter() -
-                   database.ReadPosePrior(image.first).position)
-                      .norm(),
-                  0.,
-                  1e-9);
-    }
+    ASSERT_TRUE(database.ExistsPosePrior(image.first));
+    const PosePrior prior = database.ReadPosePrior(image.first);
+    EXPECT_TRUE(prior.HasValidPosition());
+    EXPECT_TRUE(prior.HasValidRotation());
+
+    EXPECT_THAT(image.second.CamFromWorld(),
+                Rigid3dNear(Inverse(prior.world_from_cam), 1e-9, 1e-9));
   }
 }
 

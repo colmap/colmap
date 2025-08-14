@@ -42,6 +42,17 @@
 
 namespace colmap {
 
+namespace {
+
+bool HasFields(const std::unordered_map<std::string, size_t>& col_idx,
+               const std::vector<std::string>& fields) {
+  for (const auto& f : fields) {
+    if (col_idx.find(f) == col_idx.end()) return false;
+  }
+  return true;
+}
+}  // namespace
+
 int RunDatabaseCleaner(int argc, char** argv) {
   std::string type;
 
@@ -156,6 +167,192 @@ int RunRigConfigurator(int argc, char** argv) {
     reconstruction->Write(output_path);
   }
 
+  return EXIT_SUCCESS;
+}
+
+// Pose prior input file format:
+// Each line specifies the pose prior for one image. Fields may include
+// world-from-camera translation(position in world), rotation, and their
+// corresponding uncertainties. Missing or unknown values can be omitted or
+// marked as NaN.
+//
+// Columns:
+//   name                  - Image name, must match the image name in the
+//                           database.
+//   cs                    - World coordinate system: WGS84 or CARTESIAN.
+//
+//   x y z                 - Camera position in the world coordinate system.
+//                           If cs = WGS84, the order is longitude, latitude and
+//                           altitude
+//   stddev_x stddev_y stddev_z
+//                         - Standard deviations of the position prior (in world
+//                           frame).
+//
+//   qw qx qy qz           - Quaternion representing world-from-camera rotation.
+//                           Only valid if cs = CARTESIAN.
+//   stddev_rx stddev_ry stddev_rz
+//                         - Standard deviations of rotation in radians.
+//                           Represent uncertainty in the axis-angle
+//                           representation around x, y, z axes respectively.
+//
+// Example 1: WGS84 with position uncertainty
+//   # name cs x y z stddev_x stddev_y stddev_z
+//   image1.jpg WGS84 48.1476954472 11.5695882694 561.1509 0.03 0.03 0.05
+//
+// clang-format off
+// Example 2: CARTESIAN with world-from-camera position and rotation priors:
+//   # name cs x y z stddev_x stddev_y stddev_z qw qx qy qz stddev_rx stddev_ry stddev_rz
+//   image2.jpg CARTESIAN -1.0 2.0 0.5 0.2 0.2 0.2 0.7071 0.7071 0.0 0.0 0.02 0.02 0.02
+// clang-format on
+int RunPosePriorImporter(int argc, char** argv) {
+  std::string input_path;
+  bool clear_existing = false;
+
+  OptionManager options;
+  options.AddDatabaseOptions();
+  options.AddRequiredOption("input_path",
+                            &input_path,
+                            "Pose prior input file supported columns:\n"
+                            "# name cs x y z stddev_x stddev_y stddev_z\n"
+                            "qw qx qy qz stddev_rx stddev_ry stddev_rz");
+  options.AddDefaultOption("clear_existing",
+                           &clear_existing,
+                           "Remove all existing pose priors from the database "
+                           "before importing new ones.");
+  options.Parse(argc, argv);
+
+  Database database(*options.database_path);
+
+  if (clear_existing) {
+    database.ClearPosePriors();
+  }
+
+  std::ifstream infile(input_path);
+  if (!infile.is_open()) {
+    LOG(ERROR) << "Could not open file: " << input_path;
+    return EXIT_FAILURE;
+  }
+
+  std::unordered_map<std::string, size_t> col_idx;
+  std::vector<std::string> column_names;
+  std::string line;
+
+  // Read header
+  while (std::getline(infile, line)) {
+    if (line.empty() || line[0] != '#') continue;
+    std::istringstream ss(line.substr(1));
+    std::string field;
+    size_t idx = 0;
+    while (ss >> field) {
+      col_idx[field] = idx++;
+      column_names.push_back(field);
+    }
+    break;
+  }
+
+  if (col_idx.empty() || col_idx.find("name") == col_idx.end()) {
+    LOG(ERROR) << "Invalid or missing header line with # name ...";
+    return EXIT_FAILURE;
+  }
+
+  const bool has_coordinate_system = col_idx.count("cs");
+  const bool has_position = HasFields(col_idx, {"x", "y", "z"});
+  const bool has_position_stddev =
+      HasFields(col_idx, {"stddev_x", "stddev_y", "stddev_z"});
+  const bool has_rotation = HasFields(col_idx, {"qw", "qx", "qy", "qz"});
+  const bool has_rotation_stddev =
+      HasFields(col_idx, {"stddev_rx", "stddev_ry", "stddev_rz"});
+
+  std::unordered_map<std::string, image_t> name_to_id;
+  for (const auto& image : database.ReadAllImages()) {
+    const image_t image_id = image.ImageId();
+    name_to_id[image.Name()] = image_id;
+  }
+
+  size_t num_imported = 0;
+
+  while (std::getline(infile, line)) {
+    if (line.empty() || line[0] == '#') continue;
+
+    std::vector<std::string> tokens;
+    std::istringstream ss(line);
+    std::copy(std::istream_iterator<std::string>(ss),
+              std::istream_iterator<std::string>(),
+              std::back_inserter(tokens));
+
+    if (tokens.size() < col_idx.size()) {
+      LOG(WARNING) << "Skipping line (insufficient fields): " << line;
+      continue;
+    }
+
+    const std::string& name = tokens[col_idx["name"]];
+    const auto name_iter = name_to_id.find(name);
+    if (name_iter == name_to_id.end()) {
+      LOG(WARNING) << "Skipping image not found in database: " << name;
+      continue;
+    }
+    const image_t image_id = name_iter->second;
+
+    const bool prior_exists = database.ExistsPosePrior(image_id);
+    PosePrior prior =
+        prior_exists ? database.ReadPosePrior(image_id) : PosePrior();
+
+    if (has_coordinate_system) {
+      std::string system = tokens[col_idx["cs"]];
+      StringToUpper(&system);
+      prior.coordinate_system = PosePrior::CoordinateSystemFromString(system);
+    } else {
+      prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+    }
+
+    if (has_position) {
+      prior.world_from_cam.translation = {std::stod(tokens[col_idx["x"]]),
+                                          std::stod(tokens[col_idx["y"]]),
+                                          std::stod(tokens[col_idx["z"]])};
+    }
+    if (has_position_stddev) {
+      const Eigen::Vector3d stddev{std::stod(tokens[col_idx["stddev_x"]]),
+                                   std::stod(tokens[col_idx["stddev_y"]]),
+                                   std::stod(tokens[col_idx["stddev_z"]])};
+      prior.position_covariance = stddev.cwiseProduct(stddev).asDiagonal();
+    }
+
+    if (has_rotation) {
+      if (prior.coordinate_system == PosePrior::CoordinateSystem::WGS84) {
+        LOG(WARNING) << "Ignoring rotation for WGS84 image: " << name;
+      } else {
+        prior.world_from_cam.rotation.coeffs() = {
+            std::stod(tokens[col_idx["qx"]]),
+            std::stod(tokens[col_idx["qy"]]),
+            std::stod(tokens[col_idx["qz"]]),
+            std::stod(tokens[col_idx["qw"]])};
+        prior.world_from_cam.rotation.normalize();
+      }
+    }
+
+    if (has_rotation_stddev) {
+      if (prior.coordinate_system == PosePrior::CoordinateSystem::WGS84) {
+        LOG(WARNING) << "Ignoring rotation uncertainty for WGS84 image: "
+                     << name;
+      } else {
+        const Eigen::Vector3d stddev{std::stod(tokens[col_idx["stddev_rx"]]),
+                                     std::stod(tokens[col_idx["stddev_ry"]]),
+                                     std::stod(tokens[col_idx["stddev_rz"]])};
+        prior.rotation_covariance = stddev.cwiseProduct(stddev).asDiagonal();
+      }
+    }
+
+    if (prior_exists) {
+      database.UpdatePosePrior(image_id, prior);
+    } else {
+      database.WritePosePrior(image_id, prior);
+    }
+
+    num_imported++;
+  }
+
+  LOG(INFO) << "Imported pose priors for " << num_imported
+            << " images with fields: " << VectorToCSV(column_names);
   return EXIT_SUCCESS;
 }
 

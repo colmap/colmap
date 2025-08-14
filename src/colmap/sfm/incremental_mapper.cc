@@ -807,11 +807,11 @@ bool IncrementalMapper::AdjustGlobalBundle(
   }
 
   // Only use prior pose if at least 3 images have been registered.
-  const bool use_prior_position =
-      options.use_prior_position && ba_config.NumImages() > 2;
+  const bool use_pose_prior =
+      options.use_pose_prior && ba_config.NumImages() > 2;
 
   std::unique_ptr<BundleAdjuster> bundle_adjuster;
-  if (!use_prior_position) {
+  if (!use_pose_prior) {
     // Fixing the gauge with two cameras leads to a more stable optimization
     // with fewer steps as compared to fixing three points.
     // TODO(jsch): Investigate whether it is safe to not fix the gauge at all,
@@ -884,7 +884,7 @@ void IncrementalMapper::IterativeGlobalRefinement(
   for (int i = 0; i < max_num_refinements; ++i) {
     const size_t num_observations = reconstruction_->ComputeNumObservations();
     AdjustGlobalBundle(options, ba_options);
-    if (normalize_reconstruction && !options.use_prior_position) {
+    if (normalize_reconstruction && !options.use_pose_prior) {
       // Normalize scene for numerical stability and
       // to avoid large scale changes in the viewer.
       reconstruction_->Normalize();

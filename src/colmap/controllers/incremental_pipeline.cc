@@ -87,7 +87,7 @@ IncrementalMapper::Options IncrementalPipelineOptions::Mapper() const {
   options.num_threads = num_threads;
   options.local_ba_num_images = ba_local_num_images;
   options.fix_existing_frames = fix_existing_frames;
-  options.use_prior_position = use_prior_position;
+  options.use_pose_prior = use_pose_prior;
   options.use_robust_loss_on_prior_position = use_robust_loss_on_prior_position;
   options.prior_position_loss_scale = prior_position_loss_scale;
   options.random_seed = random_seed;
@@ -284,7 +284,7 @@ bool IncrementalPipeline::LoadDatabase() {
 
   // If prior positions are to be used and setup from the database, convert
   // geographic coords. to cartesian ones
-  if (options_->use_prior_position) {
+  if (options_->use_pose_prior) {
     return database_cache_->SetupPosePriors();
   }
 

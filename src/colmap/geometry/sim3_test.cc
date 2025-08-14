@@ -31,6 +31,7 @@
 
 #include "colmap/math/random.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/eigen_matchers.h"
 #include "colmap/util/testing.h"
 
 #include <fstream>
@@ -159,6 +160,120 @@ TEST(Sim3d, Compose) {
   const Eigen::Vector3d x_in_c = c_from_b * x_in_b;
   const Eigen::Vector3d x_in_d = d_from_c * x_in_c;
   EXPECT_LT((d_from_a * x_in_a - x_in_d).norm(), 1e-6);
+}
+
+TEST(Sim3d, Adjoint) {
+  const Sim3d b_from_a = TestSim3d();
+  const Eigen::Matrix<double, 7, 7> adjoint = b_from_a.Adjoint();
+  const Eigen::Matrix<double, 7, 7> adjoint_inv = b_from_a.AdjointInverse();
+  EXPECT_LT(
+      (adjoint * adjoint_inv - Eigen::Matrix<double, 7, 7>::Identity()).norm(),
+      1e-6);
+  const Sim3d a_from_b = Inverse(b_from_a);
+  const Eigen::Matrix<double, 7, 7> adjoint_a_from_b = a_from_b.Adjoint();
+  EXPECT_THAT(adjoint_inv, EigenMatrixNear(adjoint_a_from_b, 1e-6));
+}
+
+TEST(Sim3d, CovarianceForInverse) {
+  const Sim3d b_from_a = TestSim3d();
+  const Eigen::Matrix<double, 7, 7> A = Eigen::Matrix<double, 7, 7>::Random();
+  const Eigen::Matrix<double, 7, 7> cov_b_from_a = A * A.transpose();
+  const Eigen::Matrix<double, 7, 7> cov_a_from_b =
+      PropagateCovarianceForInverse(b_from_a, cov_b_from_a);
+  const Sim3d a_from_b = Inverse(b_from_a);
+  const Eigen::Matrix<double, 7, 7> cov_b_from_a_test =
+      PropagateCovarianceForInverse(a_from_b, cov_a_from_b);
+  EXPECT_THAT(cov_b_from_a_test, EigenMatrixNear(cov_b_from_a, 1e-6));
+}
+
+TEST(Sim3d, CovarianceForRelativeSim3d_PerfectCorrelation) {
+  const Sim3d world_from_a = TestSim3d();
+  const Sim3d world_from_b = TestSim3d();
+  const Eigen::Matrix<double, 7, 7> A = Eigen::Matrix<double, 7, 7>::Random();
+  const Eigen::Matrix<double, 7, 7> covar_subblock = A * A.transpose();
+
+  Eigen::Matrix<double, 14, 14> covar_world_from_cam;
+  covar_world_from_cam.block<7, 7>(0, 0) = covar_subblock;
+  covar_world_from_cam.block<7, 7>(0, 7) = covar_subblock;
+  covar_world_from_cam.block<7, 7>(7, 0) = covar_subblock;
+  covar_world_from_cam.block<7, 7>(7, 7) = covar_subblock;
+
+  const Sim3d a_from_world = Inverse(world_from_a);
+  const Sim3d b_from_world = Inverse(world_from_b);
+  Eigen::Matrix<double, 14, 14> J0;
+  J0.setZero();
+  J0.block<7, 7>(0, 0) = -world_from_a.AdjointInverse();
+  J0.block<7, 7>(7, 7) = -world_from_b.AdjointInverse();
+  const Eigen::Matrix<double, 14, 14> covar_cam_from_world =
+      J0 * covar_world_from_cam * J0.transpose();
+
+  const Eigen::Matrix<double, 7, 7> b_cov_from_a =
+      PropagateCovarianceForRelative(
+          a_from_world, b_from_world, covar_cam_from_world);
+  EXPECT_LT(b_cov_from_a.norm(), 1e-6);
+}
+
+TEST(Sim3d, CovarianceForRelativeSim3d) {
+  const Sim3d a_from_world = TestSim3d();
+  const Sim3d b_from_world = TestSim3d();
+  const Eigen::Matrix<double, 14, 14> A =
+      Eigen::Matrix<double, 14, 14>::Random();
+  const Eigen::Matrix<double, 14, 14> covar = A * A.transpose();
+
+  const Eigen::Matrix<double, 7, 7> b_cov_from_a =
+      PropagateCovarianceForRelative(a_from_world, b_from_world, covar);
+
+  Eigen::Matrix<double, 14, 14> J0;
+  J0.setZero();
+  J0.block<7, 7>(0, 0) = -a_from_world.AdjointInverse();
+  J0.block<7, 7>(7, 7) = Eigen::Matrix<double, 7, 7>::Identity();
+  const Eigen::Matrix<double, 14, 14> covar_in_right =
+      J0 * covar * J0.transpose();
+
+  Eigen::Matrix<double, 7, 14> J_in_right;
+  J_in_right.block<7, 7>(0, 0) = b_from_world.Adjoint();
+  J_in_right.block<7, 7>(0, 7) = Eigen::Matrix<double, 7, 7>::Identity();
+  const Eigen::Matrix<double, 7, 7> a_cov_from_b_right =
+      J_in_right * covar_in_right * J_in_right.transpose();
+  EXPECT_THAT(b_cov_from_a, EigenMatrixNear(a_cov_from_b_right, 1e-6));
+}
+
+TEST(Sim3d, CovariancePropagation_Composed_vs_Relative) {
+  const Sim3d a_from_b = TestSim3d();
+  const Sim3d b_from_c = TestSim3d();
+  const Eigen::Matrix<double, 14, 14> A =
+      Eigen::Matrix<double, 14, 14>::Random();
+  const Eigen::Matrix<double, 14, 14> covar = A * A.transpose();
+
+  const Eigen::Matrix<double, 7, 7> a_cov_from_c_composed =
+      PropagateCovarianceForCompose(a_from_b, covar);
+
+  const Sim3d c_from_b = Inverse(b_from_c);
+  Eigen::Matrix<double, 14, 14> J0;
+  J0.setZero();
+  J0.block<7, 7>(7, 0) = Eigen::Matrix<double, 7, 7>::Identity();
+  J0.block<7, 7>(0, 7) = -b_from_c.AdjointInverse();
+  const Eigen::Matrix<double, 14, 14> covar_x_from_b =
+      J0 * covar * J0.transpose();
+  const Eigen::Matrix<double, 7, 7> a_cov_from_c_relative =
+      PropagateCovarianceForRelative(c_from_b, a_from_b, covar_x_from_b);
+
+  EXPECT_THAT(a_cov_from_c_composed,
+              EigenMatrixNear(a_cov_from_c_relative, 1e-6));
+}
+
+TEST(Rigid3d, CovariancePropagationForTransformPoint) {
+  const Sim3d sim3 = TestSim3d();
+
+  const Eigen::Matrix3d A = Eigen::Matrix3d::Random();
+  const Eigen::Matrix3d cov_point = A * A.transpose();
+
+  const Eigen::Matrix3d cov_transformed =
+      PropagateCovarianceForTransformPoint(sim3, cov_point);
+  const Eigen::Matrix3d cov_recovered =
+      PropagateCovarianceForTransformPoint(Inverse(sim3), cov_transformed);
+
+  EXPECT_THAT(cov_recovered, EigenMatrixNear(cov_point, 1e-6));
 }
 
 TEST(Sim3d, ToFromFile) {

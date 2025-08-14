@@ -103,7 +103,15 @@ bool CheckCheirality(const Rigid3d& cam2_from_cam1,
                      const std::vector<Eigen::Vector3d>& cam_rays2,
                      std::vector<Eigen::Vector3d>* points3D);
 
-Rigid3d TransformCameraWorld(const Sim3d& new_from_old_world,
-                             const Rigid3d& cam_from_world);
+// Transform the camera pose from the old world frame into the new world frame.
+Rigid3d TransformToCamFromNewWorld(const Sim3d& new_from_old_world,
+                                   const Rigid3d& cam_from_world);
+
+// Propagate the 6x6 pose covariance from old world frame to new world frame,
+// given the Sim3d transform.
+Eigen::Matrix6d PropagateCovarianceToCamFromNewWorld(
+    const Sim3d& new_from_old_world,
+    const Rigid3d& cam_from_world,
+    const Eigen::Matrix6d& cam_from_world_covar);
 
 }  // namespace colmap

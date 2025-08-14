@@ -166,10 +166,10 @@ TEST(Rigid3d, CovarianceForInverse) {
   const Eigen::Matrix6d A = Eigen::Matrix6d::Random();
   const Eigen::Matrix6d cov_b_from_a = A * A.transpose();
   const Eigen::Matrix6d cov_a_from_b =
-      GetCovarianceForRigid3dInverse(b_from_a, cov_b_from_a);
+      PropagateCovarianceForInverse(b_from_a, cov_b_from_a);
   const Rigid3d a_from_b = Inverse(b_from_a);
   const Eigen::Matrix6d cov_b_from_a_test =
-      GetCovarianceForRigid3dInverse(a_from_b, cov_a_from_b);
+      PropagateCovarianceForInverse(a_from_b, cov_a_from_b);
   EXPECT_THAT(cov_b_from_a_test, EigenMatrixNear(cov_b_from_a, 1e-6));
 }
 
@@ -194,7 +194,7 @@ TEST(Rigid3d, CovarianceForRelativeRigid3d_PerfectCorrelation) {
   const Eigen::Matrix<double, 12, 12> covar_cam_from_world =
       J0 * covar_world_from_cam * J0.transpose();
   // Calculate relative pose covariance, which should be a zero matrix.
-  const Eigen::Matrix6d b_cov_from_a = GetCovarianceForRelativeRigid3d(
+  const Eigen::Matrix6d b_cov_from_a = PropagateCovarianceForRelative(
       a_from_world, b_from_world, covar_cam_from_world);
   EXPECT_LT(b_cov_from_a.norm(), 1e-6);
 }
@@ -208,7 +208,7 @@ TEST(Rigid3d, CovarianceForRelativeRigid3d) {
 
   // Ours (in left convention)
   const Eigen::Matrix6d b_cov_from_a =
-      GetCovarianceForRelativeRigid3d(a_from_world, b_from_world, covar);
+      PropagateCovarianceForRelative(a_from_world, b_from_world, covar);
 
   // Use the equations from the right convention as a reference.
   // The covariance in left (right) equals to the covariance of pose inverse in
@@ -249,7 +249,7 @@ TEST(Rigid3d, CovariancePropagation_Composed_vs_Relative) {
 
   // Covariance for the composed rigid3d
   const Eigen::Matrix6d a_cov_from_c_composed =
-      GetCovarianceForComposedRigid3d(a_from_b, covar);
+      PropagateCovarianceForCompose(a_from_b, covar);
 
   // Invert b_from_c and switch order
   const Rigid3d c_from_b = Inverse(b_from_c);
@@ -260,11 +260,25 @@ TEST(Rigid3d, CovariancePropagation_Composed_vs_Relative) {
   const Eigen::Matrix<double, 12, 12> covar_x_from_b =
       J0 * covar * J0.transpose();
   const Eigen::Matrix6d a_cov_from_c_relative =
-      GetCovarianceForRelativeRigid3d(c_from_b, a_from_b, covar_x_from_b);
+      PropagateCovarianceForRelative(c_from_b, a_from_b, covar_x_from_b);
 
   // Check consistency
   EXPECT_THAT(a_cov_from_c_composed,
               EigenMatrixNear(a_cov_from_c_relative, 1e-6));
+}
+
+TEST(Rigid3d, CovariancePropagationForTransformPoint) {
+  const Rigid3d rigid3 = TestRigid3d();
+
+  const Eigen::Matrix3d A = Eigen::Matrix3d::Random();
+  const Eigen::Matrix3d cov_point = A * A.transpose();
+
+  const Eigen::Matrix3d cov_transformed =
+      PropagateCovarianceForTransformPoint(rigid3, cov_point);
+  const Eigen::Matrix3d cov_recovered =
+      PropagateCovarianceForTransformPoint(Inverse(rigid3), cov_transformed);
+
+  EXPECT_THAT(cov_recovered, EigenMatrixNear(cov_point, 1e-6));
 }
 
 }  // namespace

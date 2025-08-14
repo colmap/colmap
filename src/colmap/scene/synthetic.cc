@@ -382,32 +382,63 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
           }
         }
 
-        if (options.use_prior_position) {
-          PosePrior noisy_prior(proj_center,
-                                PosePrior::CoordinateSystem::CARTESIAN);
+        if (options.prior_position) {
+          PosePrior noisy_prior(PosePrior::CoordinateSystem::CARTESIAN,
+                                proj_center);
 
           if (options.prior_position_stddev > 0.) {
-            noisy_prior.position += Eigen::Vector3d(
-                RandomGaussian<double>(0, options.prior_position_stddev),
-                RandomGaussian<double>(0, options.prior_position_stddev),
-                RandomGaussian<double>(0, options.prior_position_stddev));
+            noisy_prior.world_from_cam.translation =
+                proj_center +
+                Eigen::Vector3d(
+                    RandomGaussian<double>(0, options.prior_position_stddev),
+                    RandomGaussian<double>(0, options.prior_position_stddev),
+                    RandomGaussian<double>(0, options.prior_position_stddev));
             noisy_prior.position_covariance = options.prior_position_stddev *
                                               options.prior_position_stddev *
                                               Eigen::Matrix3d::Identity();
           } else {
-            noisy_prior.position_covariance = Eigen::Matrix3d::Identity();
+            noisy_prior.position_covariance =
+                1e-2 * Eigen::Matrix3d::Identity();
           }
 
-          if (options.use_geographic_coords_prior) {
+          if (options.prior_position_geographic) {
             static const GPSTransform gps_trans;
 
             static const double lat0 = 47.37851943807808;
             static const double lon0 = 8.549099927632087;
             static const double alt0 = 451.5;
 
-            noisy_prior.position = gps_trans.ENUToEllipsoid(
-                {noisy_prior.position}, lat0, lon0, alt0)[0];
+            noisy_prior.world_from_cam.translation = gps_trans.ENUToEllipsoid(
+                {noisy_prior.world_from_cam.translation}, lat0, lon0, alt0)[0];
             noisy_prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
+          }
+
+          if (options.prior_rotation) {
+            noisy_prior.world_from_cam.rotation =
+                rig_from_world.rotation.inverse();
+
+            if (options.prior_rotation_stddev > 0.) {
+              const Eigen::Vector3d noise_axis_angle(
+                  RandomGaussian<double>(0, options.prior_rotation_stddev),
+                  RandomGaussian<double>(0, options.prior_rotation_stddev),
+                  RandomGaussian<double>(0, options.prior_rotation_stddev));
+              const double angle = noise_axis_angle.norm();
+              const Eigen::Vector3d axis = angle > 1e-8
+                                               ? noise_axis_angle.normalized()
+                                               : Eigen::Vector3d::UnitX();
+              noisy_prior.world_from_cam.rotation =
+                  Eigen::Quaterniond(Eigen::AngleAxisd(angle, axis)) *
+                  noisy_prior.world_from_cam.rotation;
+              noisy_prior.rotation_covariance = options.prior_position_stddev *
+                                                options.prior_position_stddev *
+                                                Eigen::Matrix3d::Identity();
+            } else {
+              noisy_prior.rotation_covariance =
+                  1e-2 * Eigen::Matrix3d::Identity();
+            }
+
+            noisy_prior.world_from_cam.rotation =
+                (noisy_prior.world_from_cam.rotation.normalized());
           }
 
           database->WritePosePrior(image.ImageId(), noisy_prior);

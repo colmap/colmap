@@ -250,10 +250,10 @@ bool AlignReconstructionToPosePriors(
   for (const image_t image_id : src_reconstruction.RegImageIds()) {
     const auto pose_prior_it = tgt_pose_priors.find(image_id);
     if (pose_prior_it != tgt_pose_priors.end() &&
-        pose_prior_it->second.IsValid()) {
+        pose_prior_it->second.HasValidPosition()) {
       const auto& image = src_reconstruction.Image(image_id);
       src.push_back(image.ProjectionCenter());
-      tgt.push_back(pose_prior_it->second.position);
+      tgt.push_back(pose_prior_it->second.world_from_cam.translation);
     }
   }
 
@@ -349,8 +349,8 @@ std::vector<ImageAlignmentError> ComputeImageAlignmentError(
   errors.reserve(num_common_images);
   for (const auto& image_ids : common_image_ids) {
     const auto& src_image = src_reconstruction.Image(image_ids.first);
-    const Rigid3d tgt_world_from_src_cam =
-        Inverse(TransformCameraWorld(tgt_from_src, src_image.CamFromWorld()));
+    const Rigid3d tgt_world_from_src_cam = Inverse(
+        TransformToCamFromNewWorld(tgt_from_src, src_image.CamFromWorld()));
     const Rigid3d tgt_world_from_tgt_cam =
         Inverse(tgt_reconstruction.Image(image_ids.second).CamFromWorld());
 
@@ -447,7 +447,7 @@ void CopyRegisteredImage(image_t image_id,
     tgt_frame.ResetRigPtr();
     tgt_reconstruction.AddFrame(std::move(tgt_frame));
     const Rigid3d cam_from_tgt_world =
-        TransformCameraWorld(tgt_from_src, src_image.CamFromWorld());
+        TransformToCamFromNewWorld(tgt_from_src, src_image.CamFromWorld());
     tgt_reconstruction.Frame(src_image.FrameId())
         .SetCamFromWorld(src_image.CameraId(), cam_from_tgt_world);
   }

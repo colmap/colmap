@@ -47,19 +47,32 @@ void BindRigid3(py::module& m) {
   py::implicitly_convertible<py::array, Rigid3d>();
   MakeDataclass(PyRigid3d);
 
-  m.def("get_covariance_for_inverse",
-        &GetCovarianceForRigid3dInverse,
+  m.def("propagate_covariance_for_inverse",
+        pybind11::overload_cast<const Rigid3d&, const Eigen::Matrix6d&>(
+            &PropagateCovarianceForInverse),
         "rigid3d"_a,
         "covar"_a);
-  m.def("get_covariance_for_composed_rigid3d",
-        &GetCovarianceForComposedRigid3d,
+
+  m.def("propagate_covariance_for_compose",
+        pybind11::overload_cast<const Rigid3d&,
+                                const Eigen::Matrix<double, 12, 12>&>(
+            &PropagateCovarianceForCompose),
         "left_rigid3d"_a,
         "joint_covar"_a);
-  m.def("get_covariance_for_relative_rigid3d",
-        &GetCovarianceForRelativeRigid3d,
+
+  m.def("propagate_covariance_for_relative",
+        pybind11::overload_cast<const Rigid3d&,
+                                const Rigid3d&,
+                                const Eigen::Matrix<double, 12, 12>&>(
+            &PropagateCovarianceForRelative),
         "base_rigid3d"_a,
         "target_rigid3d"_a,
         "joint_covar"_a);
+  m.def("propagate_covariance_for_transform_point",
+        pybind11::overload_cast<const Rigid3d&, const Eigen::Matrix3d&>(
+            &PropagateCovarianceForTransformPoint),
+        "rigid3"_a,
+        "covar"_a);
 
   m.def("average_quaternions", &AverageQuaternions, "quats"_a, "weights"_a);
   m.def("interpolate_camera_poses",

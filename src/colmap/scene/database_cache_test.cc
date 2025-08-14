@@ -151,9 +151,9 @@ TEST(DatabaseCache, ConstructFromDatabase) {
   EXPECT_EQ(cache->Image(images[3].ImageId()).NumPoints2D(), 3);
 
   EXPECT_TRUE(cache->ExistsPosePrior(images[0].ImageId()));
-  EXPECT_TRUE(cache->PosePrior(images[0].ImageId()).IsValid());
+  EXPECT_TRUE(cache->PosePrior(images[0].ImageId()).HasValidPosition());
   EXPECT_TRUE(cache->ExistsPosePrior(images[1].ImageId()));
-  EXPECT_TRUE(cache->PosePrior(images[1].ImageId()).IsValid());
+  EXPECT_TRUE(cache->PosePrior(images[1].ImageId()).HasValidPosition());
   EXPECT_FALSE(cache->ExistsPosePrior(images[2].ImageId()));
   EXPECT_FALSE(cache->ExistsPosePrior(images[3].ImageId()));
 
@@ -262,9 +262,9 @@ TEST(DatabaseCache, ConstructFromLegacyDatabaseWithoutRigsAndFrames) {
   EXPECT_EQ(cache->Image(1).NumPoints2D(), 10);
   EXPECT_EQ(cache->Image(2).NumPoints2D(), 5);
   EXPECT_EQ(cache->Image(3).NumPoints2D(), 7);
-  EXPECT_TRUE(cache->PosePrior(1).IsValid());
-  EXPECT_TRUE(cache->PosePrior(2).IsValid());
-  EXPECT_TRUE(cache->PosePrior(3).IsValid());
+  EXPECT_TRUE(cache->PosePrior(1).HasValidPosition());
+  EXPECT_TRUE(cache->PosePrior(2).HasValidPosition());
+  EXPECT_TRUE(cache->PosePrior(3).HasValidPosition());
   const auto correspondence_graph = cache->CorrespondenceGraph();
   EXPECT_TRUE(cache->CorrespondenceGraph()->ExistsImage(1));
   EXPECT_EQ(cache->CorrespondenceGraph()->NumCorrespondencesForImage(1), 2);
@@ -295,8 +295,8 @@ TEST(DatabaseCache, ConstructFromLegacyDatabaseWithCustomImages) {
   EXPECT_TRUE(cache->ExistsImage(3));
   EXPECT_EQ(cache->Image(1).NumPoints2D(), 10);
   EXPECT_EQ(cache->Image(3).NumPoints2D(), 7);
-  EXPECT_TRUE(cache->PosePrior(1).IsValid());
-  EXPECT_TRUE(cache->PosePrior(3).IsValid());
+  EXPECT_TRUE(cache->PosePrior(1).HasValidPosition());
+  EXPECT_TRUE(cache->PosePrior(3).HasValidPosition());
   const auto correspondence_graph = cache->CorrespondenceGraph();
   EXPECT_TRUE(cache->CorrespondenceGraph()->ExistsImage(1));
   EXPECT_EQ(cache->CorrespondenceGraph()->NumCorrespondencesForImage(1), 1);

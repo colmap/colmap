@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/geometry/rigid3.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/enum_utils.h"
 #include "colmap/util/types.h"
@@ -36,11 +37,24 @@
 #include <ostream>
 
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 
 namespace colmap {
 
+// Represent a pose prior defined by a world coordinate system with
+// world-from-camera transformation and its associated uncertainty.
+//
+// For WGS84 system, the position is ordered as longitude, latitude, altitude,
+// and rotation is meaningless. Users must check validity via HasValid*() before
+// use, the cross-covariance between position and rotation is assumed zero
+// internally.
 struct PosePrior {
  public:
+  static const Eigen::Vector3d kInvalidTranslation;
+  static const Eigen::Quaterniond kInvalidRotation;
+  static const Eigen::Matrix3d kInvalidCovariance3x3;
+  static const Eigen::Matrix6d kInvalidCovariance6x6;
+
   MAKE_ENUM_CLASS(CoordinateSystem,
                   -1,
                   UNDEFINED,  // = -1
@@ -48,29 +62,51 @@ struct PosePrior {
                   CARTESIAN   // = 1
   );
 
-  Eigen::Vector3d position =
-      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
-  Eigen::Matrix3d position_covariance =
-      Eigen::Matrix3d::Constant(std::numeric_limits<double>::quiet_NaN());
   CoordinateSystem coordinate_system = CoordinateSystem::UNDEFINED;
 
-  PosePrior() = default;
-  explicit PosePrior(const Eigen::Vector3d& position) : position(position) {}
-  PosePrior(const Eigen::Vector3d& position, const CoordinateSystem system)
-      : position(position), coordinate_system(system) {}
-  PosePrior(const Eigen::Vector3d& position, const Eigen::Matrix3d& covariance)
-      : position(position), position_covariance(covariance) {}
-  PosePrior(const Eigen::Vector3d& position,
-            const Eigen::Matrix3d& covariance,
-            const CoordinateSystem system)
-      : position(position),
-        position_covariance(covariance),
-        coordinate_system(system) {}
+  // Prior pose represented as camera position and orientation.
+  Rigid3d world_from_cam = Rigid3d(kInvalidRotation, kInvalidTranslation);
 
-  inline bool IsValid() const { return position.allFinite(); }
-  inline bool IsCovarianceValid() const {
-    return position_covariance.allFinite();
-  }
+  // Position and rotation covariance (3×3).
+  Eigen::Matrix3d position_covariance = kInvalidCovariance3x3;
+  Eigen::Matrix3d rotation_covariance = kInvalidCovariance3x3;
+
+  PosePrior() = default;
+
+  explicit PosePrior(const Eigen::Vector3d& position);
+  PosePrior(CoordinateSystem system, const Eigen::Vector3d& position);
+  PosePrior(const Eigen::Vector3d& position,
+            const Eigen::Matrix3d& position_covariance);
+  PosePrior(CoordinateSystem system,
+            const Eigen::Vector3d& position,
+            const Eigen::Matrix3d& position_covar);
+
+  explicit PosePrior(const Eigen::Quaterniond& rotation);
+  PosePrior(const Eigen::Quaterniond& rotation,
+            const Eigen::Matrix3d& rotation_covar);
+
+  PosePrior(const Eigen::Vector3d& position,
+            const Eigen::Quaterniond& rotation);
+  PosePrior(const Eigen::Vector3d& position,
+            const Eigen::Quaterniond& rotation,
+            const Eigen::Matrix3d& position_covar,
+            const Eigen::Matrix3d& rotation_covar);
+
+  // Get the full 6×6 world_from_cam_covar, cross-covariance is assumed zero.
+  inline Eigen::Matrix6d WorldFromCamCovariance() const;
+  // Set rotation and position covariance from full 6×6 world_from_cam_covar,
+  // cross-covariance is assumed zero.
+  inline void SetWorldFromCamCovariance(
+      const Eigen::Matrix6d& world_from_cam_covar);
+
+  inline bool HasValidRotation() const;
+  inline bool HasValidRotationCovariance() const;
+
+  inline bool HasValidPosition() const;
+  inline bool HasValidPositionCovariance() const;
+
+  inline bool HasValidWorldFromCam() const;
+  inline bool HasValidWorldFromCamCovariance() const;
 
   inline bool operator==(const PosePrior& other) const;
   inline bool operator!=(const PosePrior& other) const;
@@ -78,14 +114,55 @@ struct PosePrior {
 
 std::ostream& operator<<(std::ostream& stream, const PosePrior& prior);
 
+////////////////////////////////////////////////////////////////////////////////
+// Implementation
+////////////////////////////////////////////////////////////////////////////////
+
+Eigen::Matrix6d PosePrior::WorldFromCamCovariance() const {
+  Eigen::Matrix6d world_from_cam_covar = Eigen::Matrix6d::Zero();
+  world_from_cam_covar.block<3, 3>(0, 0) = rotation_covariance;
+  world_from_cam_covar.block<3, 3>(3, 3) = position_covariance;
+  return world_from_cam_covar;
+}
+
+void PosePrior::SetWorldFromCamCovariance(
+    const Eigen::Matrix6d& world_from_cam_covar) {
+  rotation_covariance = world_from_cam_covar.block<3, 3>(0, 0);
+  position_covariance = world_from_cam_covar.block<3, 3>(3, 3);
+}
+
+bool PosePrior::HasValidRotation() const {
+  return world_from_cam.rotation.coeffs().allFinite();
+}
+
+bool PosePrior::HasValidRotationCovariance() const {
+  return rotation_covariance.allFinite();
+}
+
+bool PosePrior::HasValidPosition() const {
+  return world_from_cam.translation.allFinite();
+}
+
+bool PosePrior::HasValidPositionCovariance() const {
+  return position_covariance.allFinite();
+}
+
+inline bool PosePrior::HasValidWorldFromCam() const {
+  return HasValidPosition() && HasValidRotation();
+}
+
+bool PosePrior::HasValidWorldFromCamCovariance() const {
+  return WorldFromCamCovariance().allFinite();
+}
+
 bool PosePrior::operator==(const PosePrior& other) const {
   return coordinate_system == other.coordinate_system &&
-         position == other.position &&
-         position_covariance == other.position_covariance;
+         world_from_cam == other.world_from_cam &&
+         position_covariance == other.position_covariance &&
+         rotation_covariance == other.rotation_covariance;
 }
 
 bool PosePrior::operator!=(const PosePrior& other) const {
   return !(*this == other);
 }
-
 }  // namespace colmap
