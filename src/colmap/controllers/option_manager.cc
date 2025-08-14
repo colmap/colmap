@@ -630,6 +630,10 @@ void OptionManager::AddMapperOptions() {
   AddAndRegisterDefaultOption("Mapper.local_ba_min_tri_angle",
                               &mapper->mapper.local_ba_min_tri_angle);
 
+  AddDefaultOption("Mapper.image_list_path", &mapper_image_list_path_);
+  AddDefaultOption("Mapper.constant_camera_list_path",
+                   &mapper_constant_camera_list_path_);
+
   // IncrementalTriangulator.
   AddAndRegisterDefaultOption("Mapper.tri_max_transitivity",
                               &mapper->triangulation.max_transitivity);
@@ -931,6 +935,15 @@ void OptionManager::Parse(const int argc, char** argv) {
         FeatureExtractorTypeFromString(feature_extraction_type_);
     feature_matching->type =
         FeatureMatcherTypeFromString(feature_matching_type_);
+    if (!mapper_image_list_path_.empty()) {
+      mapper->image_names = ReadTextFileLines(mapper_image_list_path_);
+    }
+    if (!mapper_constant_camera_list_path_.empty()) {
+      for (const std::string& line :
+           ReadTextFileLines(mapper_constant_camera_list_path_)) {
+        mapper->constant_cameras.insert(std::stoi(line));
+      }
+    }
   } catch (std::exception& exc) {
     LOG(ERROR) << "Failed to parse options - " << exc.what() << ".";
     // NOLINTNEXTLINE(concurrency-mt-unsafe)
