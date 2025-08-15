@@ -306,36 +306,42 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   abs_pose_options.ransac_options.random_seed = options.random_seed;
 
   AbsolutePoseRefinementOptions abs_pose_refinement_options;
-  if (reg_stats_.num_reg_images_per_camera[image.CameraId()] > 0) {
-    // Camera already refined from another image with the same camera.
-    if (camera.HasBogusParams(options.min_focal_length_ratio,
-                              options.max_focal_length_ratio,
-                              options.max_extra_param)) {
+  if (options.constant_cameras.count(image.CameraId()) > 0) {
+    abs_pose_options.estimate_focal_length = false;
+    abs_pose_refinement_options.refine_focal_length = false;
+    abs_pose_refinement_options.refine_extra_params = false;
+  } else {
+    if (reg_stats_.num_reg_images_per_camera[image.CameraId()] > 0) {
+      // Camera already refined from another image with the same camera.
+      if (camera.HasBogusParams(options.min_focal_length_ratio,
+                                options.max_focal_length_ratio,
+                                options.max_extra_param)) {
+        abs_pose_options.estimate_focal_length = !camera.has_prior_focal_length;
+        abs_pose_refinement_options.refine_focal_length = true;
+        abs_pose_refinement_options.refine_extra_params = true;
+      } else {
+        abs_pose_options.estimate_focal_length = false;
+        abs_pose_refinement_options.refine_focal_length = false;
+        abs_pose_refinement_options.refine_extra_params = false;
+      }
+    } else {
+      // Camera not refined before. Note that the camera parameters might have
+      // been changed before but the image was filtered, so we explicitly reset
+      // the camera parameters and try to re-estimate them.
+      camera.params = database_cache_->Camera(image.CameraId()).params;
       abs_pose_options.estimate_focal_length = !camera.has_prior_focal_length;
       abs_pose_refinement_options.refine_focal_length = true;
       abs_pose_refinement_options.refine_extra_params = true;
-    } else {
+    }
+
+    if (!options.abs_pose_refine_focal_length) {
       abs_pose_options.estimate_focal_length = false;
       abs_pose_refinement_options.refine_focal_length = false;
+    }
+
+    if (!options.abs_pose_refine_extra_params) {
       abs_pose_refinement_options.refine_extra_params = false;
     }
-  } else {
-    // Camera not refined before. Note that the camera parameters might have
-    // been changed before but the image was filtered, so we explicitly reset
-    // the camera parameters and try to re-estimate them.
-    camera.params = database_cache_->Camera(image.CameraId()).params;
-    abs_pose_options.estimate_focal_length = !camera.has_prior_focal_length;
-    abs_pose_refinement_options.refine_focal_length = true;
-    abs_pose_refinement_options.refine_extra_params = true;
-  }
-
-  if (!options.abs_pose_refine_focal_length) {
-    abs_pose_options.estimate_focal_length = false;
-    abs_pose_refinement_options.refine_focal_length = false;
-  }
-
-  if (!options.abs_pose_refine_extra_params) {
-    abs_pose_refinement_options.refine_extra_params = false;
   }
 
   // If any of the cameras in the same rig has bogus cameras, reset them to the
@@ -698,7 +704,7 @@ IncrementalMapper::AdjustLocalBundle(
       }
     }
 
-    // Fix camera intrinsics, if not all images within local bundle.
+    // Fix camera intrinsics, if not all registered images within local bundle.
     std::unordered_map<camera_t, size_t> num_images_per_camera;
     num_images_per_camera.reserve(ba_config.NumImages());
     for (const image_t image_id : ba_config.Images()) {
@@ -709,7 +715,8 @@ IncrementalMapper::AdjustLocalBundle(
     for (const auto& [camera_id, num_images] : num_images_per_camera) {
       const size_t num_reg_images_for_camera =
           reg_stats_.num_reg_images_per_camera.at(camera_id);
-      if (num_images < num_reg_images_for_camera) {
+      if (options.constant_cameras.count(camera_id) ||
+          num_images < num_reg_images_for_camera) {
         ba_config.SetConstantCamIntrinsics(camera_id);
       }
     }
@@ -804,6 +811,10 @@ bool IncrementalMapper::AdjustGlobalBundle(
         ba_config.SetConstantRigFromWorldPose(frame_id);
       }
     }
+  }
+
+  for (const auto& camera_id : options.constant_cameras) {
+    ba_config.SetConstantCamIntrinsics(camera_id);
   }
 
   // Only use prior pose if at least 3 images have been registered.

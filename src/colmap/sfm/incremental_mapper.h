@@ -118,6 +118,10 @@ class IncrementalMapper {
     // If reconstruction is provided as input, fix the existing image poses.
     bool fix_existing_frames = false;
 
+    // List of cameras for which to fix the camera parameters independent
+    // of refine_focal_length, refine_principal_point, and refine_extra_params.
+    std::unordered_set<camera_t> constant_cameras;
+
     // Whether to use prior camera positions
     bool use_prior_position = false;
 

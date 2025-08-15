@@ -55,6 +55,11 @@ void BindFeatureMatching(py::module& m) {
                          &FeatureMatchingOptions::guided_matching,
                          "Whether to perform guided matching, if geometric "
                          "verification succeeds.")
+          .def_readwrite(
+              "skip_image_pairs_in_same_frame",
+              &FeatureMatchingOptions::skip_image_pairs_in_same_frame,
+              "Whether to skip matching images within the same frame. This is "
+              "useful for the case of non-overlapping cameras in a rig.")
           .def_readwrite("sift", &FeatureMatchingOptions::sift)
           .def("check", &FeatureMatchingOptions::Check);
   MakeDataclass(PyFeatureMatchingOptions);

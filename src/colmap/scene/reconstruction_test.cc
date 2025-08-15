@@ -255,6 +255,7 @@ TEST(Reconstruction, AddImageWrongFrameCorrespondence) {
   Reconstruction reconstruction;
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
+  reconstruction.AddCamera(camera);
   Rig rig;
   rig.SetRigId(1);
   rig.AddRefSensor(camera.SensorId());
@@ -267,7 +268,6 @@ TEST(Reconstruction, AddImageWrongFrameCorrespondence) {
   image.SetImageId(1);
   image.SetFrameId(frame.FrameId());
   frame.AddDataId(image.DataId());
-  reconstruction.AddCamera(camera);
   reconstruction.AddFrame(frame);
   reconstruction.AddImage(image);
   image.SetImageId(2);
@@ -278,6 +278,7 @@ TEST(Reconstruction, AddImage) {
   Reconstruction reconstruction;
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
+  reconstruction.AddCamera(camera);
   Rig rig;
   rig.SetRigId(1);
   rig.AddRefSensor(camera.SensorId());
@@ -290,8 +291,6 @@ TEST(Reconstruction, AddImage) {
   image.SetImageId(1);
   image.SetFrameId(frame.FrameId());
   frame.AddDataId(image.DataId());
-  EXPECT_ANY_THROW(reconstruction.AddImage(image));
-  reconstruction.AddCamera(camera);
   EXPECT_ANY_THROW(reconstruction.AddImage(image));
   reconstruction.AddFrame(frame);
   reconstruction.AddImage(image);
