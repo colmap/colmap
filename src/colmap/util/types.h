@@ -196,10 +196,7 @@ inline void ThrowIfGtMaxImages(image_t image_id) {
   }
 }
 
-// Each image pair is assigned an unique ID in the `matches` and
-// `two_view_geometries` table. We intentionally avoid to store the pairs in a
-// separate table by using e.g. AUTOINCREMENT, since the overhead of querying
-// the unique pair ID is significant.
+// Convert pair of image identifiers to unique image pair identifier.
 inline image_pair_t ImagePairToPairId(image_t image_id1, image_t image_id2) {
   ThrowIfGtMaxImages(image_id1);
   ThrowIfGtMaxImages(image_id2);
