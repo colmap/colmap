@@ -39,8 +39,6 @@
 #include <cuda_runtime.h>
 #endif
 
-#include <fstream>
-#include <numeric>
 #include <unordered_set>
 
 namespace colmap {
