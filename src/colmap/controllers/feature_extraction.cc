@@ -30,7 +30,6 @@
 #include "colmap/controllers/feature_extraction.h"
 
 #include "colmap/feature/sift.h"
-#include "colmap/geometry/gps.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/file.h"
@@ -38,7 +37,6 @@
 #include "colmap/util/opengl_utils.h"
 #include "colmap/util/timer.h"
 
-#include <numeric>
 
 namespace colmap {
 namespace {
