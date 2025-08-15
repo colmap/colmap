@@ -21,9 +21,11 @@ void BindTwoViewGeometryScene(py::module& m) {
   PyTwoViewGeometryConfiguration.value("UNDEFINED", TwoViewGeometry::UNDEFINED)
       .value("DEGENERATE", TwoViewGeometry::DEGENERATE)
       .value("CALIBRATED", TwoViewGeometry::CALIBRATED)
+      .value("CALIBRATED_RIG", TwoViewGeometry::CALIBRATED_RIG)
       .value("UNCALIBRATED", TwoViewGeometry::UNCALIBRATED)
       .value("PLANAR", TwoViewGeometry::PLANAR)
       .value("PANORAMIC", TwoViewGeometry::PANORAMIC)
+      .value("PANORAMIC_RIG", TwoViewGeometry::PANORAMIC_RIG)
       .value("PLANAR_OR_PANORAMIC", TwoViewGeometry::PLANAR_OR_PANORAMIC)
       .value("WATERMARK", TwoViewGeometry::WATERMARK)
       .value("MULTIPLE", TwoViewGeometry::MULTIPLE);

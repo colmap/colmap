@@ -31,6 +31,7 @@
 
 #include "colmap/estimators/essential_matrix.h"
 #include "colmap/estimators/fundamental_matrix.h"
+#include "colmap/estimators/generalized_pose.h"
 #include "colmap/estimators/homography_matrix.h"
 #include "colmap/estimators/translation_transform.h"
 #include "colmap/geometry/essential_matrix.h"
@@ -325,6 +326,141 @@ TwoViewGeometry EstimateTwoViewGeometry(
     return EstimateUncalibratedTwoViewGeometry(
         camera1, points1, camera2, points2, matches, options);
   }
+}
+
+std::vector<std::pair<std::pair<image_t, image_t>, TwoViewGeometry>>
+EstimateRigTwoViewGeometries(
+    const Rig& rig1,
+    const Rig& rig2,
+    const std::unordered_map<image_t, Image>& images,
+    const std::unordered_map<camera_t, Camera>& cameras,
+    const std::vector<std::pair<std::pair<image_t, image_t>, FeatureMatches>>&
+        matches,
+    const TwoViewGeometryOptions& options) {
+  std::vector<Eigen::Vector2d> points1;
+  std::vector<Eigen::Vector2d> points2;
+  std::vector<size_t> camera_idxs1;
+  std::vector<size_t> camera_idxs2;
+  std::vector<Rigid3d> cams_from_rig;
+  cams_from_rig.reserve(rig1.NumSensors() + rig2.NumSensors());
+  std::vector<Camera> cameras_vec;
+  cameras_vec.reserve(cams_from_rig.size());
+  std::vector<std::tuple<image_t, point2D_t, image_t, point2D_t>> corrs;
+
+  std::unordered_map<camera_t, size_t> camera_id_to_idx;
+  auto maybe_add_camera = [&cameras_vec, &cams_from_rig, &camera_id_to_idx](
+                              const Rig& rig, const Camera& camera) {
+    const auto [it, inserted] =
+        camera_id_to_idx.emplace(camera.camera_id, cameras_vec.size());
+    if (inserted) {
+      cameras_vec.push_back(camera);
+      if (rig.IsRefSensor(camera.SensorId())) {
+        cams_from_rig.push_back(Rigid3d());
+      } else {
+        if (!rig.Sensors().count(camera.SensorId())) {
+          LOG(ERROR) << "Camera " << camera.camera_id
+                     << " not found in rig: " << rig;
+        }
+        cams_from_rig.push_back(rig.SensorFromRig(camera.SensorId()));
+      }
+    }
+    return it->second;
+  };
+
+  for (const auto& [image_pair, pair_matches] : matches) {
+    const auto& [image_id1, image_id2] = image_pair;
+
+    const Image& image1 = images.at(image_id1);
+    const Camera& camera1 = cameras.at(image1.CameraId());
+    const size_t camera_idx1 = maybe_add_camera(rig1, camera1);
+
+    const Image& image2 = images.at(image_id2);
+    const Camera& camera2 = cameras.at(image2.CameraId());
+    const size_t camera_idx2 = maybe_add_camera(rig2, camera2);
+
+    for (const auto& match : pair_matches) {
+      points1.push_back(image1.Point2D(match.point2D_idx1).xy);
+      points2.push_back(image2.Point2D(match.point2D_idx2).xy);
+      camera_idxs1.push_back(camera_idx1);
+      camera_idxs2.push_back(camera_idx2);
+      corrs.emplace_back(
+          image_id1, match.point2D_idx1, image_id2, match.point2D_idx2);
+    }
+  }
+
+  if (corrs.empty()) {
+    return {};
+  }
+
+  std::optional<Rigid3d> maybe_rig2_from_rig1;
+  std::optional<Rigid3d> maybe_pano2_from_pano1;
+  size_t num_inliers;
+  std::vector<char> inlier_mask;
+  if (!EstimateGeneralizedRelativePose(options.ransac_options,
+                                       points1,
+                                       points2,
+                                       camera_idxs1,
+                                       camera_idxs2,
+                                       cams_from_rig,
+                                       cameras_vec,
+                                       &maybe_rig2_from_rig1,
+                                       &maybe_pano2_from_pano1,
+                                       &num_inliers,
+                                       &inlier_mask) ||
+      num_inliers < options.min_num_inliers) {
+    return {};
+  }
+
+  std::map<std::pair<image_t, image_t>, FeatureMatches> inlier_matches;
+  for (size_t i = 0; i < inlier_mask.size(); ++i) {
+    if (!inlier_mask[i]) {
+      continue;
+    }
+    const auto& [image_id1, point2D_idx1, image_id2, point2D_idx2] = corrs[i];
+    inlier_matches[std::make_pair(image_id1, image_id2)].emplace_back(
+        point2D_idx1, point2D_idx2);
+  }
+
+  const TwoViewGeometry::ConfigurationType config =
+      maybe_rig2_from_rig1.has_value()
+          ? TwoViewGeometry::ConfigurationType::CALIBRATED_RIG
+          : TwoViewGeometry::ConfigurationType::PANORAMIC_RIG;
+
+  std::vector<std::pair<std::pair<image_t, image_t>, TwoViewGeometry>>
+      two_view_geometries;
+  two_view_geometries.reserve(inlier_matches.size());
+  for (auto& [image_pair, pair_matches] : inlier_matches) {
+    TwoViewGeometry two_view_geometry;
+    two_view_geometry.config = config;
+    two_view_geometry.inlier_matches = std::move(pair_matches);
+
+    const Rigid3d rig2_from_rig1 = maybe_rig2_from_rig1.has_value()
+                                       ? maybe_rig2_from_rig1.value()
+                                       : maybe_pano2_from_pano1.value();
+
+    const auto& [image_id1, image_id2] = image_pair;
+    const Image& image1 = images.at(image_id1);
+    const Image& image2 = images.at(image_id2);
+
+    const sensor_t camera_id1(SensorType::CAMERA, image1.CameraId());
+    Rigid3d cam1_from_rig1;
+    if (!rig1.IsRefSensor(camera_id1)) {
+      cam1_from_rig1 = rig1.SensorFromRig(camera_id1);
+    }
+
+    const sensor_t camera_id2(SensorType::CAMERA, image2.CameraId());
+    Rigid3d cam2_from_rig2;
+    if (!rig2.IsRefSensor(camera_id2)) {
+      cam2_from_rig2 = rig2.SensorFromRig(camera_id2);
+    }
+
+    two_view_geometry.cam2_from_cam1 =
+        cam2_from_rig2 * rig2_from_rig1 * Inverse(cam1_from_rig1);
+
+    two_view_geometries.emplace_back(image_pair, std::move(two_view_geometry));
+  }
+
+  return two_view_geometries;
 }
 
 bool EstimateTwoViewGeometryPose(const Camera& camera1,

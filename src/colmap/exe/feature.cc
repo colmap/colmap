@@ -35,6 +35,7 @@
 #include "colmap/controllers/option_manager.h"
 #include "colmap/estimators/generalized_pose.h"
 #include "colmap/exe/gui.h"
+#include "colmap/feature/utils.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/sensor/models.h"
@@ -372,28 +373,30 @@ int RunVocabTreeMatcher(int argc, char** argv) {
 }
 
 int RunRigVerifier(int argc, char** argv) {
+  constexpr int kCacheSize = 1000;
+
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddMatchingOptions();
   options.Parse(argc, argv);
 
-  Database database(*options.database_path);
-  const std::shared_ptr<DatabaseCache> database_cache =
-      DatabaseCache::Create(database,
-                            /*inlier_matches=*/false,
-                            /*min_num_matches=*/1,
-                            /*ignore_watermarks=*/true,
-                            /*image_names=*/{});
+  auto database = std::make_shared<Database>(*options.database_path);
+  FeatureMatcherCache cache(kCacheSize, database);
+
+  std::unordered_map<rig_t, Rig> rigs;
+  for (auto& rig : database->ReadAllRigs()) {
+    rigs[rig.RigId()] = std::move(rig);
+  }
 
   std::unordered_map<image_t, frame_t> image_to_frame_ids;
-  for (const auto& [frame_id, frame] : database_cache->Frames()) {
+  for (const auto& frame : database->ReadAllFrames()) {
     for (const data_t& data_id : frame.ImageIds()) {
-      image_to_frame_ids[data_id.id] = frame_id;
+      image_to_frame_ids[data_id.id] = frame.FrameId();
     }
   }
 
   std::set<std::pair<frame_t, frame_t>> frame_pairs;
-  for (const auto& [image_pair_id, _] : database.ReadNumMatches()) {
+  for (const auto& [image_pair_id, _] : database->ReadNumMatches()) {
     const auto [image_id1, image_id2] =
         Database::PairIdToImagePair(image_pair_id);
     frame_t frame_id1 = image_to_frame_ids.at(image_id1);
@@ -405,157 +408,54 @@ int RunRigVerifier(int argc, char** argv) {
   }
 
   ThreadPool thread_pool(ThreadPool::kMaxNumThreads);
-  std::mutex database_mutex;
-
   for (const auto& [frame_id1, frame_id2] : frame_pairs) {
     thread_pool.AddTask([&options,
-                         &database,
-                         &database_cache,
-                         &database_mutex,
+                         &cache,
+                         &rigs,
                          frame_id1 = frame_id1,
                          frame_id2 = frame_id2]() {
-      std::vector<Eigen::Vector2d> points2D1;
-      std::vector<Eigen::Vector2d> points2D2;
-      std::vector<size_t> camera_idxs1;
-      std::vector<size_t> camera_idxs2;
-      std::vector<Rigid3d> cams_from_rig;
-      std::vector<Camera> cameras;
-      std::vector<std::tuple<image_t, point2D_t, image_t, point2D_t>> corrs;
-
-      const Frame& frame1 = database_cache->Frame(frame_id1);
-      const Frame& frame2 = database_cache->Frame(frame_id2);
-      const Rig& rig1 = database_cache->Rig(frame1.RigId());
-      const Rig& rig2 = database_cache->Rig(frame2.RigId());
+      const Frame& frame1 = cache.GetFrame(frame_id1);
+      const Frame& frame2 = cache.GetFrame(frame_id2);
+      const Rig& rig1 = rigs.at(frame1.RigId());
+      const Rig& rig2 = rigs.at(frame2.RigId());
       if (rig1.NumSensors() == 1 && rig2.NumSensors() == 1) {
         return;
       }
 
-      std::unordered_map<camera_t, size_t> camera_id_to_idx;
-      auto maybe_add_camera = [&cameras, &cams_from_rig, &camera_id_to_idx](
-                                  const Rig& rig, const Camera& camera) {
-        const auto [it, inserted] =
-            camera_id_to_idx.emplace(camera.camera_id, cameras.size());
-        if (inserted) {
-          cameras.push_back(camera);
-          if (rig.IsRefSensor(camera.SensorId())) {
-            cams_from_rig.push_back(Rigid3d());
-          } else {
-            cams_from_rig.push_back(rig.SensorFromRig(camera.SensorId()));
-          }
+      std::unordered_map<image_t, Image> images;
+      std::unordered_map<camera_t, Camera> cameras;
+      auto add_images_and_cameras = [&cache, &images, &cameras](
+                                        const Frame& frame) {
+        for (const data_t& data_id : frame.ImageIds()) {
+          Image& image = images[data_id.id];
+          image = cache.GetImage(data_id.id);
+          image.SetPoints2D(
+              FeatureKeypointsToPointsVector(*cache.GetKeypoints(data_id.id)));
+          cameras[image.CameraId()] = cache.GetCamera(image.CameraId());
         }
-        return it->second;
       };
+      add_images_and_cameras(frame1);
+      add_images_and_cameras(frame2);
 
+      std::vector<std::pair<std::pair<image_t, image_t>, FeatureMatches>>
+          matches;
       for (const data_t& image_id1 : frame1.ImageIds()) {
-        const Image& image1 = database_cache->Image(image_id1.id);
-        const Camera& camera1 = database_cache->Camera(image1.CameraId());
-        const size_t camera_idx1 = maybe_add_camera(rig1, camera1);
-
         for (const data_t& image_id2 : frame2.ImageIds()) {
-          const Image& image2 = database_cache->Image(image_id2.id);
-          const Camera& camera2 = database_cache->Camera(image2.CameraId());
-          const size_t camera_idx2 = maybe_add_camera(rig2, camera2);
-
-          const FeatureMatches matches = database_cache->CorrespondenceGraph()
-                                             ->FindCorrespondencesBetweenImages(
-                                                 image_id1.id, image_id2.id);
-          for (const auto& match : matches) {
-            points2D1.push_back(image1.Point2D(match.point2D_idx1).xy);
-            points2D2.push_back(image2.Point2D(match.point2D_idx2).xy);
-            camera_idxs1.push_back(camera_idx1);
-            camera_idxs2.push_back(camera_idx2);
-            corrs.emplace_back(image_id1.id,
-                               match.point2D_idx1,
-                               image_id2.id,
-                               match.point2D_idx2);
+          if (!cache.ExistsMatches(image_id1.id, image_id2.id)) {
+            continue;
           }
+          matches.emplace_back(std::make_pair(image_id1.id, image_id2.id),
+                               cache.GetMatches(image_id1.id, image_id2.id));
         }
       }
 
-      if (points2D1.empty()) {
-        return;
-      }
-
-      RANSACOptions ransac_options = options.two_view_geometry->ransac_options;
-      double cam_max_error = 0;
-      for (const Camera& camera : cameras) {
-        cam_max_error += camera.CamFromImgThreshold(ransac_options.max_error);
-      }
-      ransac_options.max_error = cam_max_error / cameras.size();
-
-      std::optional<Rigid3d> maybe_rig2_from_rig1;
-      std::optional<Rigid3d> maybe_pano2_from_pano1;
-      size_t num_inliers;
-      std::vector<char> inlier_mask;
-      if (!EstimateGeneralizedRelativePose(ransac_options,
-                                           points2D1,
-                                           points2D2,
-                                           camera_idxs1,
-                                           camera_idxs2,
-                                           cams_from_rig,
-                                           cameras,
-                                           &maybe_rig2_from_rig1,
-                                           &maybe_pano2_from_pano1,
-                                           &num_inliers,
-                                           &inlier_mask) ||
-          num_inliers < options.two_view_geometry->min_num_inliers) {
-        return;
-      }
-
-      std::unordered_map<image_pair_t, FeatureMatches> inlier_matches;
-      inlier_matches.reserve(num_inliers);
-      for (size_t i = 0; i < inlier_mask.size(); ++i) {
-        if (!inlier_mask[i]) {
-          continue;
-        }
-        const auto& [image_id1, point2D_idx1, image_id2, point2D_idx2] =
-            corrs[i];
-        if (Database::SwapImagePair(image_id1, image_id2)) {
-          inlier_matches[Database::ImagePairToPairId(image_id1, image_id2)]
-              .emplace_back(point2D_idx2, point2D_idx1);
-        } else {
-          inlier_matches[Database::ImagePairToPairId(image_id1, image_id2)]
-              .emplace_back(point2D_idx1, point2D_idx2);
-        }
-      }
-
-      std::lock_guard database_lock(database_mutex);
-      for (const auto& [pair_id, pair_matches] : inlier_matches) {
-        const auto& [image_id1, image_id2] =
-            Database::PairIdToImagePair(pair_id);
-        TwoViewGeometry two_view_geometry =
-            database.ReadTwoViewGeometry(image_id1, image_id2);
-        if (two_view_geometry.inlier_matches.size() >= pair_matches.size()) {
-          continue;
-        }
-
-        two_view_geometry.inlier_matches = pair_matches;
-
-        const Rigid3d rig2_from_rig1 = maybe_rig2_from_rig1.has_value()
-                                           ? maybe_rig2_from_rig1.value()
-                                           : maybe_pano2_from_pano1.value();
-
-        const Image& image1 = database_cache->Image(image_id1);
-        const Image& image2 = database_cache->Image(image_id2);
-
-        const sensor_t camera_id1(SensorType::CAMERA, image1.CameraId());
-        Rigid3d cam1_from_rig1;
-        if (!rig1.IsRefSensor(camera_id1)) {
-          cam1_from_rig1 = rig1.SensorFromRig(camera_id1);
-        }
-
-        const sensor_t camera_id2(SensorType::CAMERA, image2.CameraId());
-        Rigid3d cam2_from_rig2;
-        if (!rig2.IsRefSensor(camera_id2)) {
-          cam2_from_rig2 = rig2.SensorFromRig(camera_id2);
-        }
-
-        two_view_geometry.cam2_from_cam1 =
-            cam2_from_rig2 * rig2_from_rig1 * Inverse(cam1_from_rig1);
-        two_view_geometry.config = TwoViewGeometry::CALIBRATED;
-
-        database.DeleteInlierMatches(image_id1, image_id2);
-        database.WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+      const std::vector<std::pair<std::pair<image_t, image_t>, TwoViewGeometry>>
+          two_view_geometries = EstimateRigTwoViewGeometries(
+              rig1, rig2, images, cameras, matches, *options.two_view_geometry);
+      for (const auto& [image_pair, two_view_geometry] : two_view_geometries) {
+        const auto& [image_id1, image_id2] = image_pair;
+        cache.DeleteInlierMatches(image_id1, image_id2);
+        cache.WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
       }
     });
   }
