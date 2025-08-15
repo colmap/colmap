@@ -68,13 +68,6 @@ void BindDatabase(py::module& m) {
       .def("num_inlier_matches", &Database::NumInlierMatches)
       .def("num_matched_image_pairs", &Database::NumMatchedImagePairs)
       .def("num_verified_image_pairs", &Database::NumVerifiedImagePairs)
-      .def_static("image_pair_to_pair_id",
-                  &ImagePairToPairId,
-                  "image_id1"_a,
-                  "image_id2"_a)
-      .def_static("pair_id_to_image_pair", &PairIdToImagePair, "pair_id"_a)
-      .def_static(
-          "swap_image_pair", &SwapImagePair, "image_id1"_a, "image_id2"_a)
       .def("read_rig", &Database::ReadRig, "rig_id"_a)
       .def("read_rig_with_sensor", &Database::ReadRigWithSensor, "sensor_id"_a)
       .def("read_all_rigs", &Database::ReadAllRigs)
