@@ -34,7 +34,7 @@
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/exe/gui.h"
-#include "colmap/retrieval/visual_index.h"
+#include "colmap/feature/sift.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"

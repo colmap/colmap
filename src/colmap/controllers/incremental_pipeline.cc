@@ -31,7 +31,6 @@
 
 #include "colmap/estimators/alignment.h"
 #include "colmap/util/file.h"
-#include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
 namespace colmap {
