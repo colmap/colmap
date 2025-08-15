@@ -30,11 +30,9 @@
 #pragma once
 
 #include "colmap/feature/types.h"
-#include "colmap/geometry/rigid3.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/two_view_geometry.h"
-#include "colmap/util/logging.h"
 
 namespace colmap {
 

@@ -29,7 +29,6 @@
 
 #include "colmap/estimators/cost_functions.h"
 
-#include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/math/math.h"

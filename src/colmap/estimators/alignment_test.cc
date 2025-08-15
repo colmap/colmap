@@ -32,10 +32,8 @@
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/math/random.h"
-#include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
-#include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 

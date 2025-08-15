@@ -36,11 +36,9 @@
 #include "colmap/estimators/manifold.h"
 #include "colmap/estimators/pose.h"
 #include "colmap/geometry/rigid3.h"
-#include "colmap/math/matrix.h"
-#include "colmap/optim/ransac.h"
+#include "colmap/optim/loransac.h"
 #include "colmap/optim/support_measurement.h"
 #include "colmap/scene/camera.h"
-#include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
