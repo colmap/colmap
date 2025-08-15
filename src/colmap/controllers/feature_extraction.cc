@@ -37,7 +37,6 @@
 #include "colmap/util/opengl_utils.h"
 #include "colmap/util/timer.h"
 
-
 namespace colmap {
 namespace {
 
