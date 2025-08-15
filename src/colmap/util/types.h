@@ -207,6 +207,7 @@ inline image_pair_t ImagePairToPairId(image_t image_id1, image_t image_id2) {
   }
 }
 
+// Convert unique image pair identifier to pair of image identifiers.
 inline std::pair<image_t, image_t> PairIdToImagePair(image_pair_t pair_id) {
   const image_t image_id2 = static_cast<image_t>(pair_id % kMaxNumImages);
   const image_t image_id1 =
