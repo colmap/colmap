@@ -150,8 +150,7 @@ void IncrementalMapper::RegisterInitialImagePair(
   reg_stats_.num_reg_trials[image_id1] += 1;
   reg_stats_.num_reg_trials[image_id2] += 1;
 
-  const image_pair_t pair_id =
-      Database::ImagePairToPairId(image_id1, image_id2);
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
   reg_stats_.init_image_pairs.insert(pair_id);
 
   Image& image1 = reconstruction_->Image(image_id1);
