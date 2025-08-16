@@ -32,7 +32,6 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
-#include "colmap/util/logging.h"
 
 #include <Eigen/Core>
 #include <ceres/ceres.h>
