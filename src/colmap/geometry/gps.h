@@ -44,6 +44,7 @@ namespace colmap {
 class GPSTransform {
  public:
   MAKE_ENUM_CLASS(Ellipsoid, 0, GRS80, WGS84);
+  MAKE_ENUM_CLASS(CartesianFrame, 0, ECEF, ENU, UTM);
 
   explicit GPSTransform(Ellipsoid ellipsoid = Ellipsoid::GRS80);
 
@@ -79,20 +80,57 @@ class GPSTransform {
 
   // Converts GPS (lat / lon / alt) to UTM coordinates.
   // Returns a pair of the converted coordinates and the zone number.
-  // If the points span multiple zones, the zone with the most points
-  // is chosen as the reference frame.
+  //
+  // Zone sign indicates hemisphere: positive for Northern, negative for
+  // Southern. This is a custom convention to simplify hemisphere handling, as
+  // the UTM zone number itself is always positive in the standard. If the
+  // points span multiple zones, the zone with the most points is chosen as the
+  // reference frame.
   //
   // The conversion uses a 4th-order expansion formula. The easting offset is
   // 500 km, and the northing offset is 10,000 km for the Southern Hemisphere.
+  // To handle points that span across multiple zones and hemispheres, it is
+  // recommended to convert each point individually, remove the northing and
+  // easting offsets for each point, and then merge the coordinates in the
+  // target coordinate system.
   std::pair<std::vector<Eigen::Vector3d>, int> EllipsoidToUTM(
       const std::vector<Eigen::Vector3d>& lat_lon_alt) const;
 
   // Converts UTM coords to GPS (lat / lon / alt).
-  // Requires the zone number and hemisphere (true for north, false for south).
+  // Requires the zone number: positive for Northern Hemisphere, negative for
+  // Southern Hemisphere.
   std::vector<Eigen::Vector3d> UTMToEllipsoid(
-      const std::vector<Eigen::Vector3d>& xyz_in_utm,
-      int zone,
-      bool is_north) const;
+      const std::vector<Eigen::Vector3d>& xyz_in_utm, int zone) const;
+
+  // Single point conversion functions
+
+  Eigen::Vector3d EllipsoidToECEF(const Eigen::Vector3d& lat_lon_alt) const;
+
+  Eigen::Vector3d ECEFToEllipsoid(const Eigen::Vector3d& xyz_in_ecef) const;
+
+  Eigen::Vector3d EllipsoidToENU(const Eigen::Vector3d& lat_lon_alt,
+                                 double ref_lat,
+                                 double ref_lon) const;
+
+  Eigen::Vector3d ENUToEllipsoid(const Eigen::Vector3d& xyz_in_enu,
+                                 double ref_lat,
+                                 double ref_lon,
+                                 double ref_alt) const;
+
+  Eigen::Vector3d ECEFToENU(const Eigen::Vector3d& xyz_in_ecef,
+                            double ref_lat,
+                            double ref_lon) const;
+
+  Eigen::Vector3d ENUToECEF(const Eigen::Vector3d& xyz_in_enu,
+                            double ref_lat,
+                            double ref_lon,
+                            double ref_alt) const;
+
+  std::pair<Eigen::Vector3d, int> EllipsoidToUTM(
+      const Eigen::Vector3d& lat_lon_alt) const;
+
+  Eigen::Vector3d UTMToEllipsoid(const Eigen::Vector3d& xyz_in_utm,
+                                 int zone) const;
 
  private:
   // Semimajor axis.

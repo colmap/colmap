@@ -167,6 +167,11 @@ void BindIncrementalPipeline(py::module& m) {
                      &Opts::prior_position_loss_scale,
                      "Threshold on the residual for the robust position prior "
                      "loss (chi2 for 3DOF at 95% = 7.815).")
+      .def_readwrite(
+          "gps_cartesian_frame",
+          &Opts::gps_cartesian_frame,
+          "Specifies the Cartesian coordinate system used for converting "
+          "ellipsoidal GPS coordinates when utilizing prior position.")
       .def_readwrite("snapshot_path",
                      &Opts::snapshot_path,
                      "Path to a folder in which reconstruction snapshots will "
