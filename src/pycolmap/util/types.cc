@@ -29,4 +29,11 @@ void BindUtilTypes(py::module& m) {
                      .def_readwrite("sensor_id", &data_t::sensor_id)
                      .def_readwrite("id", &data_t::id);
   MakeDataclass(PyDataT);
+
+  m.def("image_pair_to_pair_id",
+        &ImagePairToPairId,
+        "image_id1"_a,
+        "image_id2"_a);
+  m.def("pair_id_to_image_pair", &PairIdToImagePair, "pair_id"_a);
+  m.def("swap_image_pair", &SwapImagePair, "image_id1"_a, "image_id2"_a);
 }

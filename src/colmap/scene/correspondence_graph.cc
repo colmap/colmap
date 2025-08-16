@@ -109,8 +109,7 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
 
   // Set the number of all correspondences for this image pair. Further below,
   // we will make sure that only unique correspondences are counted.
-  const image_pair_t pair_id =
-      Database::ImagePairToPairId(image_id1, image_id2);
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
   auto& image_pair = image_pairs_[pair_id];
   image_pair.num_correspondences += static_cast<point2D_t>(matches.size());
 

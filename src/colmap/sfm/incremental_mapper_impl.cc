@@ -278,8 +278,7 @@ bool IncrementalMapperImpl::FindInitialImagePair(
     for (size_t i2 = 0; i2 < image_ids2.size(); ++i2) {
       image_id2 = image_ids2[i2];
 
-      const image_pair_t pair_id =
-          Database::ImagePairToPairId(image_id1, image_id2);
+      const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
 
       // Try every pair only once.
       if (!init_image_pairs.emplace(pair_id).second) {

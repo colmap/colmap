@@ -87,7 +87,7 @@ TEST(CorrespondenceGraph, TwoView) {
   correspondence_graph.Finalize();
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(0), 4);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 4);
-  const image_pair_t pair_id = Database::ImagePairToPairId(0, 1);
+  const image_pair_t pair_id = ImagePairToPairId(0, 1);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesBetweenImages().size(), 1);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesBetweenImages().at(pair_id),
             4);
@@ -197,9 +197,9 @@ TEST(CorrespondenceGraph, ThreeView) {
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(0), 2);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 3);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(2), 3);
-  const image_pair_t pair_id01 = Database::ImagePairToPairId(0, 1);
-  const image_pair_t pair_id02 = Database::ImagePairToPairId(0, 2);
-  const image_pair_t pair_id12 = Database::ImagePairToPairId(1, 2);
+  const image_pair_t pair_id01 = ImagePairToPairId(0, 1);
+  const image_pair_t pair_id02 = ImagePairToPairId(0, 2);
+  const image_pair_t pair_id12 = ImagePairToPairId(1, 2);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesBetweenImages().size(), 3);
   EXPECT_EQ(
       correspondence_graph.NumCorrespondencesBetweenImages().at(pair_id01), 1);
@@ -268,7 +268,7 @@ TEST(CorrespondenceGraph, OutOfBounds) {
   correspondence_graph.AddCorrespondences(0, 1, matches);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(0), 1);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 1);
-  const image_pair_t pair_id = Database::ImagePairToPairId(0, 1);
+  const image_pair_t pair_id = ImagePairToPairId(0, 1);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesBetweenImages().at(pair_id),
             1);
 }
@@ -291,7 +291,7 @@ TEST(CorrespondenceGraph, Duplicate) {
   correspondence_graph.AddCorrespondences(0, 1, matches);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(0), 3);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 3);
-  const image_pair_t pair_id = Database::ImagePairToPairId(0, 1);
+  const image_pair_t pair_id = ImagePairToPairId(0, 1);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesBetweenImages().at(pair_id),
             3);
 }
