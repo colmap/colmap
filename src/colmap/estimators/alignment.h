@@ -35,6 +35,8 @@
 
 namespace colmap {
 
+class ThreadPool;
+
 // Robustly align reconstruction to given image locations (projection centers).
 bool AlignReconstructionToLocations(
     const Reconstruction& src_reconstruction,
@@ -62,7 +64,8 @@ bool AlignReconstructionsViaReprojections(
     const Reconstruction& tgt_reconstruction,
     double min_inlier_observations,
     double max_reproj_error,
-    Sim3d* tgt_from_src);
+    Sim3d* tgt_from_src,
+    ThreadPool* thread_pool = nullptr);
 
 // Robustly compute alignment between reconstructions by finding images that
 // are registered in both reconstructions. The alignment is then estimated
@@ -99,7 +102,8 @@ std::vector<ImageAlignmentError> ComputeImageAlignmentError(
 // points3D into the target using the alignment. Returns false on failure.
 bool MergeReconstructions(double max_reproj_error,
                           const Reconstruction& src_reconstruction,
-                          Reconstruction& tgt_reconstruction);
+                          Reconstruction& tgt_reconstruction,
+                          ThreadPool* thread_pool = nullptr);
 
 // Align reconstruction to the original metric scales in rig extrinsics. Returns
 // false if there is no available non-panoramic rig in the alignment process.
