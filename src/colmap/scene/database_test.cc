@@ -113,17 +113,17 @@ TEST(Database, Empty) {
 }
 
 TEST(Database, ImagePairToPairId) {
-  EXPECT_EQ(Database::ImagePairToPairId(0, 0), 0);
-  EXPECT_EQ(Database::ImagePairToPairId(0, 1), 1);
-  EXPECT_EQ(Database::ImagePairToPairId(0, 2), 2);
-  EXPECT_EQ(Database::ImagePairToPairId(0, 3), 3);
-  EXPECT_EQ(Database::ImagePairToPairId(1, 2), Database::kMaxNumImages + 2);
+  EXPECT_EQ(ImagePairToPairId(0, 0), 0);
+  EXPECT_EQ(ImagePairToPairId(0, 1), 1);
+  EXPECT_EQ(ImagePairToPairId(0, 2), 2);
+  EXPECT_EQ(ImagePairToPairId(0, 3), 3);
+  EXPECT_EQ(ImagePairToPairId(1, 2), kMaxNumImages + 2);
   for (image_t i = 0; i < 20; ++i) {
     for (image_t j = 0; j < 20; ++j) {
-      const image_pair_t pair_id = Database::ImagePairToPairId(i, j);
+      const image_pair_t pair_id = ImagePairToPairId(i, j);
       image_t image_id1;
       image_t image_id2;
-      std::tie(image_id1, image_id2) = Database::PairIdToImagePair(pair_id);
+      std::tie(image_id1, image_id2) = PairIdToImagePair(pair_id);
       if (i < j) {
         EXPECT_EQ(i, image_id1);
         EXPECT_EQ(j, image_id2);
@@ -136,10 +136,10 @@ TEST(Database, ImagePairToPairId) {
 }
 
 TEST(Database, SwapImagePair) {
-  EXPECT_FALSE(Database::SwapImagePair(0, 0));
-  EXPECT_FALSE(Database::SwapImagePair(0, 1));
-  EXPECT_TRUE(Database::SwapImagePair(1, 0));
-  EXPECT_FALSE(Database::SwapImagePair(1, 1));
+  EXPECT_FALSE(SwapImagePair(0, 0));
+  EXPECT_FALSE(SwapImagePair(0, 1));
+  EXPECT_TRUE(SwapImagePair(1, 0));
+  EXPECT_FALSE(SwapImagePair(1, 1));
 }
 
 TEST(Database, Rig) {
@@ -439,10 +439,10 @@ TEST(Database, Matches) {
 
   EXPECT_EQ(database.ReadAllMatchesBlob().size(), 1);
   EXPECT_EQ(database.ReadAllMatchesBlob()[0].first,
-            Database::ImagePairToPairId(image_id1, image_id2));
+            ImagePairToPairId(image_id1, image_id2));
   EXPECT_EQ(database.ReadAllMatches().size(), 1);
   EXPECT_EQ(database.ReadAllMatches()[0].first,
-            Database::ImagePairToPairId(image_id1, image_id2));
+            ImagePairToPairId(image_id1, image_id2));
   EXPECT_EQ(database.NumMatches(), kNumMatches);
   database.DeleteMatches(image_id1, image_id2);
   EXPECT_EQ(database.NumMatches(), 0);
@@ -511,7 +511,7 @@ TEST(Database, TwoViewGeometry) {
       two_view_geometries = database.ReadTwoViewGeometries();
   EXPECT_EQ(two_view_geometries.size(), 1);
   EXPECT_EQ(two_view_geometries[0].first,
-            Database::ImagePairToPairId(image_id1, image_id2));
+            ImagePairToPairId(image_id1, image_id2));
   EXPECT_EQ(two_view_geometry.config, two_view_geometries[0].second.config);
   EXPECT_EQ(two_view_geometry.F, two_view_geometries[0].second.F);
   EXPECT_EQ(two_view_geometry.E, two_view_geometries[0].second.E);
@@ -526,7 +526,7 @@ TEST(Database, TwoViewGeometry) {
       database.ReadTwoViewGeometryNumInliers();
   EXPECT_EQ(pair_ids_and_num_inliers.size(), 1);
   EXPECT_EQ(pair_ids_and_num_inliers[0].first,
-            Database::ImagePairToPairId(image_id1, image_id2));
+            ImagePairToPairId(image_id1, image_id2));
   EXPECT_EQ(pair_ids_and_num_inliers[0].second,
             two_view_geometry.inlier_matches.size());
   EXPECT_EQ(database.NumInlierMatches(), 1000);

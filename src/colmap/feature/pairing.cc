@@ -85,8 +85,7 @@ std::vector<std::pair<image_t, image_t>> ReadImagePairsText(
 
     const image_t image_id1 = image_name_to_image_id.at(image_name1);
     const image_t image_id2 = image_name_to_image_id.at(image_name2);
-    const image_pair_t image_pair =
-        Database::ImagePairToPairId(image_id1, image_id2);
+    const image_pair_t image_pair = ImagePairToPairId(image_id1, image_id2);
     const bool image_pair_exists = image_pairs_set.insert(image_pair).second;
     if (image_pair_exists) {
       image_pairs.emplace_back(image_id1, image_id2);
@@ -764,7 +763,7 @@ std::vector<std::pair<image_t, image_t>> TransitivePairGenerator::Next() {
 
   std::map<image_t, std::vector<image_t>> adjacency;
   for (const auto& [pair_id, _] : existing_pair_ids_and_num_inliers) {
-    const auto [image_id1, image_id2] = Database::PairIdToImagePair(pair_id);
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     adjacency[image_id1].push_back(image_id2);
     adjacency[image_id2].push_back(image_id1);
     image_pair_ids_.insert(pair_id);
@@ -781,8 +780,7 @@ std::vector<std::pair<image_t, image_t>> TransitivePairGenerator::Next() {
         if (image_id1 == image_id3) {
           continue;
         }
-        const auto image_pair_id =
-            Database::ImagePairToPairId(image_id1, image_id3);
+        const auto image_pair_id = ImagePairToPairId(image_id1, image_id3);
         if (image_pair_ids_.count(image_pair_id) != 0) {
           continue;
         }
