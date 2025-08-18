@@ -272,14 +272,12 @@ bool IncrementalPipeline::LoadDatabase() {
   Database database(database_path_);
   Timer timer;
   timer.Start();
-  const size_t min_num_matches = static_cast<size_t>(options_->min_num_matches);
-  // TODO(jsch): Remove the min_num_matches argument altogether?
-  database_cache_ =
-      DatabaseCache::Create(database,
-                            /*inlier_matches=*/true,
-                            /*min_num_matches=*/1,
-                            /*ignore_watermarks=*/options_->ignore_watermarks,
-                            /*image_names=*/image_names);
+  database_cache_ = DatabaseCache::Create(
+      database,
+      /*inlier_matches=*/true,
+      /*min_num_matches=*/static_cast<size_t>(options_->min_num_matches),
+      /*ignore_watermarks=*/options_->ignore_watermarks,
+      /*image_names=*/image_names);
   timer.PrintMinutes();
 
   if (database_cache_->NumImages() == 0) {

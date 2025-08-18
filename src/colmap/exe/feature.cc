@@ -34,6 +34,7 @@
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/exe/gui.h"
+#include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/file.h"
@@ -394,8 +395,7 @@ int RunRigVerifier(int argc, char** argv) {
 
   std::set<std::pair<frame_t, frame_t>> frame_pairs;
   for (const auto& [image_pair_id, _] : database->ReadNumMatches()) {
-    const auto [image_id1, image_id2] =
-        PairIdToImagePair(image_pair_id);
+    const auto [image_id1, image_id2] = PairIdToImagePair(image_pair_id);
     frame_t frame_id1 = image_to_frame_ids.at(image_id1);
     frame_t frame_id2 = image_to_frame_ids.at(image_id2);
     if (frame_id1 > frame_id2) {

@@ -51,8 +51,6 @@ struct TwoViewGeometry {
     PLANAR = 4,
     // Homography, pure rotation without baseline.
     PANORAMIC = 5,
-    // Non-metric relative pose from (panoramic) rig.
-    PANORAMIC_RIG = 10,
     // Homography, planar or panoramic.
     PLANAR_OR_PANORAMIC = 6,
     // Watermark, pure 2D translation in image borders.

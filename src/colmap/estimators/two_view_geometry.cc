@@ -422,7 +422,7 @@ EstimateRigTwoViewGeometries(
   const TwoViewGeometry::ConfigurationType config =
       maybe_rig2_from_rig1.has_value()
           ? TwoViewGeometry::ConfigurationType::CALIBRATED_RIG
-          : TwoViewGeometry::ConfigurationType::PANORAMIC_RIG;
+          : TwoViewGeometry::ConfigurationType::CALIBRATED;
 
   std::vector<std::pair<std::pair<image_t, image_t>, TwoViewGeometry>>
       two_view_geometries;
@@ -454,6 +454,10 @@ EstimateRigTwoViewGeometries(
 
     two_view_geometry.cam2_from_cam1 =
         cam2_from_rig2 * rig2_from_rig1 * Inverse(cam1_from_rig1);
+    // TODO(jsch): For panoramic rigs, we could further distinguish between
+    // panoramic/planar configurations by estimating a homography matrix.
+    two_view_geometry.E =
+        EssentialMatrixFromPose(two_view_geometry.cam2_from_cam1);
 
     two_view_geometries.emplace_back(image_pair, std::move(two_view_geometry));
   }

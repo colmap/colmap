@@ -279,12 +279,11 @@ int RunImageRegistrator(int argc, char** argv) {
   {
     Timer timer;
     timer.Start();
-    const size_t min_num_matches =
-        static_cast<size_t>(options.mapper->min_num_matches);
     database_cache = DatabaseCache::Create(
         Database(*options.database_path),
         /*inlier_matches=*/true,
-        /*min_num_matches=*/min_num_matches,
+        /*min_num_matches=*/
+        static_cast<size_t>(options.mapper->min_num_matches),
         /*ignore_watermarks=*/options.mapper->ignore_watermarks,
         /*image_names=*/
         {options.mapper->image_names.begin(),
