@@ -440,9 +440,16 @@ TEST(Database, Matches) {
   EXPECT_EQ(database.ReadAllMatchesBlob().size(), 1);
   EXPECT_EQ(database.ReadAllMatchesBlob()[0].first,
             ImagePairToPairId(image_id1, image_id2));
-  EXPECT_EQ(database.ReadAllMatches().size(), 1);
-  EXPECT_EQ(database.ReadAllMatches()[0].first,
+  const std::vector<std::pair<image_pair_t, FeatureMatches>> matches =
+      database.ReadAllMatches();
+  EXPECT_EQ(matches.size(), 1);
+  EXPECT_EQ(matches[0].first, ImagePairToPairId(image_id1, image_id2));
+  const std::vector<std::pair<image_pair_t, int>> pair_ids_and_num_matches =
+      database.ReadNumMatches();
+  EXPECT_EQ(pair_ids_and_num_matches.size(), 1);
+  EXPECT_EQ(pair_ids_and_num_matches[0].first,
             ImagePairToPairId(image_id1, image_id2));
+  EXPECT_EQ(pair_ids_and_num_matches[0].second, matches[0].second.size());
   EXPECT_EQ(database.NumMatches(), kNumMatches);
   database.DeleteMatches(image_id1, image_id2);
   EXPECT_EQ(database.NumMatches(), 0);

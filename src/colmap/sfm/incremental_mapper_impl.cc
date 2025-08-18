@@ -595,6 +595,7 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
   RANSACOptions ransac_options;
   ransac_options.min_num_trials = 30;
   ransac_options.random_seed = options.random_seed;
+  ransac_options.max_error = options.init_max_error;
 
   std::optional<Rigid3d> maybe_rig2_from_rig1;
   std::optional<Rigid3d> maybe_pano2_from_pano1;
