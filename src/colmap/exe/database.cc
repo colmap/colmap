@@ -30,12 +30,10 @@
 #include "colmap/exe/database.h"
 
 #include "colmap/controllers/option_manager.h"
-#include "colmap/geometry/pose.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/rig.h"
 #include "colmap/util/file.h"
-#include "colmap/util/misc.h"
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -46,37 +44,39 @@ int RunDatabaseCleaner(int argc, char** argv) {
   std::string type;
 
   OptionManager options;
-  options.AddRequiredOption("type", &type, "{all, images, features, matches}");
+  options.AddRequiredOption(
+      "type", &type, "{all, images, features, matches, two_view_geometries}");
   options.AddDatabaseOptions();
   options.Parse(argc, argv);
 
   StringToLower(&type);
   Database database(*options.database_path);
-  PrintHeading1("Clearing database");
-  {
-    DatabaseTransaction transaction(&database);
-    if (type == "all") {
-      PrintHeading2("Clearing all tables");
-      database.ClearAllTables();
-    } else if (type == "images") {
-      PrintHeading2("Clearing Images and all dependent tables");
-      database.ClearImages();
-      database.ClearTwoViewGeometries();
-      database.ClearMatches();
-    } else if (type == "features") {
-      PrintHeading2("Clearing image features and matches");
-      database.ClearDescriptors();
-      database.ClearKeypoints();
-      database.ClearTwoViewGeometries();
-      database.ClearMatches();
-    } else if (type == "matches") {
-      PrintHeading2("Clearing image matches");
-      database.ClearTwoViewGeometries();
-      database.ClearMatches();
-    } else {
-      LOG(ERROR) << "Invalid cleanup type; no changes in database";
-      return EXIT_FAILURE;
-    }
+
+  DatabaseTransaction transaction(&database);
+  if (type == "all") {
+    LOG(INFO) << "Clearing all tables";
+    database.ClearAllTables();
+  } else if (type == "images") {
+    LOG(INFO) << "Clearing images and all dependent tables";
+    database.ClearImages();
+    database.ClearMatches();
+    database.ClearTwoViewGeometries();
+  } else if (type == "features") {
+    LOG(INFO) << "Clearing features, matches, and two-view geometries";
+    database.ClearDescriptors();
+    database.ClearKeypoints();
+    database.ClearMatches();
+    database.ClearTwoViewGeometries();
+  } else if (type == "matches") {
+    LOG(INFO) << "Clearing matches and two-view geometries";
+    database.ClearMatches();
+    database.ClearTwoViewGeometries();
+  } else if (type == "two_view_geometries") {
+    LOG(INFO) << "Clearing two-view geometries";
+    database.ClearTwoViewGeometries();
+  } else {
+    LOG(ERROR) << "Invalid cleanup type; no changes in database";
+    return EXIT_FAILURE;
   }
 
   return EXIT_SUCCESS;
