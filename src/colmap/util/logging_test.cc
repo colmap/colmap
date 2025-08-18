@@ -69,6 +69,7 @@ TEST(ExceptionLogging, NumConditionEvals) {
   try {
     THROW_CHECK(!func());
   } catch (...) {
+    LOG(INFO) << "Caught exception";
   }
   EXPECT_EQ(num_calls, 2);
 }
