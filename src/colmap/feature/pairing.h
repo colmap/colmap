@@ -46,6 +46,8 @@ struct ExhaustivePairingOptions {
 
   bool Check() const;
 
+  // Each block matches two sets of images with size block_size. To hold all
+  // images in the block, the cache thus needs to hold 2 * block_size.
   inline size_t CacheSize() const { return 2 * block_size; }
 };
 
