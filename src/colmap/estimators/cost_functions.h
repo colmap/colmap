@@ -450,12 +450,17 @@ struct RelativePosePriorCostFunctor
 // Cost function for aligning one 3D point with a reference 3D point with
 // covariance. The Residual is computed in frame b. Coordinate transformation
 // convention is equivalent to colmap::Sim3d.
+template <bool UseLogScale = true>
 struct Point3DAlignmentCostFunctor
-    : public AutoDiffCostFunctor<Point3DAlignmentCostFunctor, 3, 3, 4, 3, 1> {
+    : public AutoDiffCostFunctor<Point3DAlignmentCostFunctor<UseLogScale>,
+                                 3,
+                                 3,
+                                 4,
+                                 3,
+                                 1> {
  public:
-  explicit Point3DAlignmentCostFunctor(const Eigen::Vector3d& point_in_b_prior,
-                                       bool use_log_scale = true)
-      : point_in_b_prior_(point_in_b_prior), use_log_scale_(use_log_scale) {}
+  explicit Point3DAlignmentCostFunctor(const Eigen::Vector3d& point_in_b_prior)
+      : point_in_b_prior_(point_in_b_prior) {}
 
   template <typename T>
   bool operator()(
@@ -463,12 +468,15 @@ struct Point3DAlignmentCostFunctor
       const T* const b_from_a_rotation,
       const T* const b_from_a_translation,
       const T* const b_from_a_scale_param,  // could be scale or log_scale
-                                            // depending on use_log_scale_
+                                            // depending on UseLogScale
       T* residuals_ptr) const {
     // Select whether to exponentiate
-    const T b_from_a_scale = use_log_scale_
-                                 ? ceres::exp(b_from_a_scale_param[0])
-                                 : b_from_a_scale_param[0];
+    T b_from_a_scale;
+    if constexpr (UseLogScale) {
+      b_from_a_scale = ceres::exp(b_from_a_scale_param[0]);
+    } else {
+      b_from_a_scale = b_from_a_scale_param[0];
+    }
 
     const Eigen::Matrix<T, 3, 1> point_in_b =
         EigenQuaternionMap<T>(b_from_a_rotation) *
@@ -481,7 +489,6 @@ struct Point3DAlignmentCostFunctor
 
  private:
   const Eigen::Vector3d point_in_b_prior_;
-  const bool use_log_scale_;
 };
 
 template <typename... Args>

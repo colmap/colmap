@@ -394,8 +394,7 @@ TEST(Point3DAlignmentCostFunctor, Nominal) {
   Eigen::Vector3d point_in_b_prior(1., 1., 1.);
   Eigen::Vector3d point(0., 0., 0.);
   std::unique_ptr<ceres::CostFunction> cost_function_log_scale(
-      Point3DAlignmentCostFunctor::Create(point_in_b_prior,
-                                          /*use_log_scale=*/true));
+      Point3DAlignmentCostFunctor<true>::Create(point_in_b_prior));
   double log_scale = std::log(tform.scale);
   const double* parameters_log_scale[4] = {point.data(),
                                            tform.rotation.coeffs().data(),
@@ -407,8 +406,7 @@ TEST(Point3DAlignmentCostFunctor, Nominal) {
 
   // use direct scale
   std::unique_ptr<ceres::CostFunction> cost_function_direct_scale(
-      Point3DAlignmentCostFunctor::Create(point_in_b_prior,
-                                          /*use_log_scale=*/false));
+      Point3DAlignmentCostFunctor<false>::Create(point_in_b_prior));
   const double* parameters_direct_scale[4] = {point.data(),
                                               tform.rotation.coeffs().data(),
                                               tform.translation.data(),
