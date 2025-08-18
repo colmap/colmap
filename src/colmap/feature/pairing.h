@@ -46,7 +46,7 @@ struct ExhaustivePairingOptions {
 
   bool Check() const;
 
-  inline size_t CacheSize() const { return block_size; }
+  inline size_t CacheSize() const { return 2 * block_size; }
 };
 
 struct VocabTreePairingOptions {
