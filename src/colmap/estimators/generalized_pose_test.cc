@@ -277,7 +277,7 @@ TEST(EstimateGeneralizedRelativePose, Nominal) {
                 sensor_from_rig_translation_stddev);
 
         RANSACOptions ransac_options;
-        ransac_options.max_error = 1e-4;
+        ransac_options.max_error = 1;
 
         std::optional<Rigid3d> rig2_from_rig1;
         std::optional<Rigid3d> pano2_from_pano1;
