@@ -153,4 +153,11 @@ std::unique_ptr<Thread> CreateFeaturePairsFeatureMatcher(
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path);
 
+// Performs geometric verification of existing matched image pairs.
+std::unique_ptr<Thread> CreateGeometicVerifier(
+    const ExistingMatchedPairingOptions& pairing_options,
+    const FeatureMatchingOptions& matching_options,
+    const TwoViewGeometryOptions& geometry_options,
+    const std::string& database_path);
+
 }  // namespace colmap

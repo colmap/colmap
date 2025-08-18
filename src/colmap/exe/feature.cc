@@ -101,7 +101,7 @@ int RunFeatureExtractor(int argc, char** argv) {
   options.AddDefaultOption("descriptor_normalization",
                            &descriptor_normalization,
                            "{'l1_root', 'l2'}");
-  options.AddExtractionOptions();
+  options.AddFeatureExtractionOptions();
   options.Parse(argc, argv);
 
   ImageReaderOptions reader_options = *options.image_reader;
@@ -161,7 +161,7 @@ int RunFeatureImporter(int argc, char** argv) {
   options.AddDefaultOption("camera_mode", &camera_mode);
   options.AddRequiredOption("import_path", &import_path);
   options.AddDefaultOption("image_list_path", &image_list_path);
-  options.AddExtractionOptions();
+  options.AddFeatureExtractionOptions();
   options.Parse(argc, argv);
 
   ImageReaderOptions reader_options = *options.image_reader;
@@ -227,7 +227,7 @@ int RunMatchesImporter(int argc, char** argv) {
   options.AddRequiredOption("match_list_path", &match_list_path);
   options.AddDefaultOption(
       "match_type", &match_type, "{'pairs', 'raw', 'inliers'}");
-  options.AddMatchingOptions();
+  options.AddFeatureMatchingOptions();
   options.Parse(argc, argv);
 
   std::unique_ptr<QApplication> app;
@@ -370,94 +370,22 @@ int RunVocabTreeMatcher(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
-int RunRigVerifier(int argc, char** argv) {
-  constexpr int kCacheSize = 1000;
+int RunGeometricVerifier(int argc, char** argv) {
+  ExistingMatchedPairingOptions pairing_options;
 
   OptionManager options;
   options.AddDatabaseOptions();
-  options.AddMatchingOptions();
+  options.AddFeatureMatchingOptions();
+  options.AddTwoViewGeometryOptions();
+  options.AddDefaultOption("batch_size", &pairing_options.batch_size);
   options.Parse(argc, argv);
 
-  auto database = std::make_shared<Database>(*options.database_path);
-  FeatureMatcherCache cache(kCacheSize, database);
-
-  std::unordered_map<rig_t, Rig> rigs;
-  for (auto& rig : database->ReadAllRigs()) {
-    rigs[rig.RigId()] = std::move(rig);
-  }
-
-  std::unordered_map<image_t, frame_t> image_to_frame_ids;
-  for (const auto& frame : database->ReadAllFrames()) {
-    for (const data_t& data_id : frame.ImageIds()) {
-      image_to_frame_ids[data_id.id] = frame.FrameId();
-    }
-  }
-
-  std::set<std::pair<frame_t, frame_t>> frame_pairs;
-  for (const auto& [image_pair_id, _] : database->ReadNumMatches()) {
-    const auto [image_id1, image_id2] = PairIdToImagePair(image_pair_id);
-    frame_t frame_id1 = image_to_frame_ids.at(image_id1);
-    frame_t frame_id2 = image_to_frame_ids.at(image_id2);
-    if (frame_id1 > frame_id2) {
-      std::swap(frame_id1, frame_id2);
-    }
-    frame_pairs.insert(std::make_pair(frame_id1, frame_id2));
-  }
-
-  ThreadPool thread_pool(ThreadPool::kMaxNumThreads);
-  for (const auto& [frame_id1, frame_id2] : frame_pairs) {
-    thread_pool.AddTask([&options,
-                         &cache,
-                         &rigs,
-                         frame_id1 = frame_id1,
-                         frame_id2 = frame_id2]() {
-      const Frame& frame1 = cache.GetFrame(frame_id1);
-      const Frame& frame2 = cache.GetFrame(frame_id2);
-      const Rig& rig1 = rigs.at(frame1.RigId());
-      const Rig& rig2 = rigs.at(frame2.RigId());
-      if (rig1.NumSensors() == 1 && rig2.NumSensors() == 1) {
-        return;
-      }
-
-      std::unordered_map<image_t, Image> images;
-      std::unordered_map<camera_t, Camera> cameras;
-      auto add_images_and_cameras = [&cache, &images, &cameras](
-                                        const Frame& frame) {
-        for (const data_t& data_id : frame.ImageIds()) {
-          Image& image = images[data_id.id];
-          image = cache.GetImage(data_id.id);
-          image.SetPoints2D(
-              FeatureKeypointsToPointsVector(*cache.GetKeypoints(data_id.id)));
-          cameras[image.CameraId()] = cache.GetCamera(image.CameraId());
-        }
-      };
-      add_images_and_cameras(frame1);
-      add_images_and_cameras(frame2);
-
-      std::vector<std::pair<std::pair<image_t, image_t>, FeatureMatches>>
-          matches;
-      for (const data_t& image_id1 : frame1.ImageIds()) {
-        for (const data_t& image_id2 : frame2.ImageIds()) {
-          if (!cache.ExistsMatches(image_id1.id, image_id2.id)) {
-            continue;
-          }
-          matches.emplace_back(std::make_pair(image_id1.id, image_id2.id),
-                               cache.GetMatches(image_id1.id, image_id2.id));
-        }
-      }
-
-      const std::vector<std::pair<std::pair<image_t, image_t>, TwoViewGeometry>>
-          two_view_geometries = EstimateRigTwoViewGeometries(
-              rig1, rig2, images, cameras, matches, *options.two_view_geometry);
-      for (const auto& [image_pair, two_view_geometry] : two_view_geometries) {
-        const auto& [image_id1, image_id2] = image_pair;
-        cache.DeleteInlierMatches(image_id1, image_id2);
-        cache.WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
-      }
-    });
-  }
-
-  thread_pool.Wait();
+  auto matcher = CreateGeometicVerifier(pairing_options,
+                                        *options.feature_matching,
+                                        *options.two_view_geometry,
+                                        *options.database_path);
+  matcher->Start();
+  matcher->Wait();
 
   return EXIT_SUCCESS;
 }

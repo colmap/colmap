@@ -179,8 +179,9 @@ void OptionManager::AddAllOptions() {
   AddRandomOptions();
   AddDatabaseOptions();
   AddImageOptions();
-  AddExtractionOptions();
-  AddMatchingOptions();
+  AddFeatureExtractionOptions();
+  AddFeatureMatchingOptions();
+  AddTwoViewGeometryOptions();
   AddExhaustivePairingOptions();
   AddSequentialPairingOptions();
   AddVocabTreePairingOptions();
@@ -233,7 +234,7 @@ void OptionManager::AddImageOptions() {
   AddAndRegisterRequiredOption("image_path", image_path.get());
 }
 
-void OptionManager::AddExtractionOptions() {
+void OptionManager::AddFeatureExtractionOptions() {
   if (added_extraction_options_) {
     return;
   }
@@ -297,11 +298,11 @@ void OptionManager::AddExtractionOptions() {
                               &feature_extraction->sift->dsp_num_scales);
 }
 
-void OptionManager::AddMatchingOptions() {
-  if (added_match_options_) {
+void OptionManager::AddFeatureMatchingOptions() {
+  if (added_feature_matching_options_) {
     return;
   }
-  added_match_options_ = true;
+  added_feature_matching_options_ = true;
 
   AddAndRegisterDefaultOption("FeatureMatching.type", &feature_matching_type_);
   AddAndRegisterDefaultOption("FeatureMatching.num_threads",
@@ -312,6 +313,8 @@ void OptionManager::AddMatchingOptions() {
                               &feature_matching->gpu_index);
   AddAndRegisterDefaultOption("FeatureMatching.guided_matching",
                               &feature_matching->guided_matching);
+  AddAndRegisterDefaultOption("FeatureMatching.rig_verification",
+                              &feature_matching->rig_verification);
   AddAndRegisterDefaultOption("FeatureMatching.max_num_matches",
                               &feature_matching->max_num_matches);
 
@@ -323,7 +326,13 @@ void OptionManager::AddMatchingOptions() {
                               &feature_matching->sift->cross_check);
   AddAndRegisterDefaultOption("SiftMatching.cpu_brute_force_matcher",
                               &feature_matching->sift->cpu_brute_force_matcher);
+}
 
+void OptionManager::AddTwoViewGeometryOptions() {
+  if (added_two_view_geometry_options_) {
+    return;
+  }
+  added_two_view_geometry_options_ = true;
   AddAndRegisterDefaultOption("TwoViewGeometry.min_num_inliers",
                               &two_view_geometry->min_num_inliers);
   AddAndRegisterDefaultOption("TwoViewGeometry.multiple_models",
@@ -356,24 +365,26 @@ void OptionManager::AddMatchingOptions() {
 }
 
 void OptionManager::AddExhaustivePairingOptions() {
-  if (added_exhaustive_match_options_) {
+  if (added_exhaustive_pairing_options_) {
     return;
   }
-  added_exhaustive_match_options_ = true;
+  added_exhaustive_pairing_options_ = true;
 
-  AddMatchingOptions();
+  AddFeatureMatchingOptions();
+  AddTwoViewGeometryOptions();
 
   AddAndRegisterDefaultOption("ExhaustiveMatching.block_size",
                               &exhaustive_pairing->block_size);
 }
 
 void OptionManager::AddSequentialPairingOptions() {
-  if (added_sequential_match_options_) {
+  if (added_sequential_pairing_options_) {
     return;
   }
-  added_sequential_match_options_ = true;
+  added_sequential_pairing_options_ = true;
 
-  AddMatchingOptions();
+  AddFeatureMatchingOptions();
+  AddTwoViewGeometryOptions();
 
   AddAndRegisterDefaultOption("SequentialMatching.overlap",
                               &sequential_pairing->overlap);
@@ -405,12 +416,13 @@ void OptionManager::AddSequentialPairingOptions() {
 }
 
 void OptionManager::AddVocabTreePairingOptions() {
-  if (added_vocab_tree_match_options_) {
+  if (added_vocab_tree_pairing_options_) {
     return;
   }
-  added_vocab_tree_match_options_ = true;
+  added_vocab_tree_pairing_options_ = true;
 
-  AddMatchingOptions();
+  AddFeatureMatchingOptions();
+  AddTwoViewGeometryOptions();
 
   AddAndRegisterDefaultOption("VocabTreeMatching.num_images",
                               &vocab_tree_pairing->num_images);
@@ -432,12 +444,13 @@ void OptionManager::AddVocabTreePairingOptions() {
 }
 
 void OptionManager::AddSpatialPairingOptions() {
-  if (added_spatial_match_options_) {
+  if (added_spatial_pairing_options_) {
     return;
   }
-  added_spatial_match_options_ = true;
+  added_spatial_pairing_options_ = true;
 
-  AddMatchingOptions();
+  AddFeatureMatchingOptions();
+  AddTwoViewGeometryOptions();
 
   AddAndRegisterDefaultOption("SpatialMatching.ignore_z",
                               &spatial_pairing->ignore_z);
@@ -450,12 +463,13 @@ void OptionManager::AddSpatialPairingOptions() {
 }
 
 void OptionManager::AddTransitivePairingOptions() {
-  if (added_transitive_match_options_) {
+  if (added_transitive_pairing_options_) {
     return;
   }
-  added_transitive_match_options_ = true;
+  added_transitive_pairing_options_ = true;
 
-  AddMatchingOptions();
+  AddFeatureMatchingOptions();
+  AddTwoViewGeometryOptions();
 
   AddAndRegisterDefaultOption("TransitiveMatching.batch_size",
                               &transitive_pairing->batch_size);
@@ -464,12 +478,13 @@ void OptionManager::AddTransitivePairingOptions() {
 }
 
 void OptionManager::AddImportedPairingOptions() {
-  if (added_image_pairs_match_options_) {
+  if (added_image_pairs_pairing_options_) {
     return;
   }
-  added_image_pairs_match_options_ = true;
+  added_image_pairs_pairing_options_ = true;
 
-  AddMatchingOptions();
+  AddFeatureMatchingOptions();
+  AddTwoViewGeometryOptions();
 
   AddAndRegisterDefaultOption("ImagePairsMatching.block_size",
                               &imported_pairing->block_size);
@@ -823,13 +838,13 @@ void OptionManager::Reset() {
   added_database_options_ = false;
   added_image_options_ = false;
   added_extraction_options_ = false;
-  added_match_options_ = false;
-  added_exhaustive_match_options_ = false;
-  added_sequential_match_options_ = false;
-  added_vocab_tree_match_options_ = false;
-  added_spatial_match_options_ = false;
-  added_transitive_match_options_ = false;
-  added_image_pairs_match_options_ = false;
+  added_feature_matching_options_ = false;
+  added_exhaustive_pairing_options_ = false;
+  added_sequential_pairing_options_ = false;
+  added_vocab_tree_pairing_options_ = false;
+  added_spatial_pairing_options_ = false;
+  added_transitive_pairing_options_ = false;
+  added_image_pairs_pairing_options_ = false;
   added_ba_options_ = false;
   added_mapper_options_ = false;
   added_patch_match_stereo_options_ = false;

@@ -55,6 +55,12 @@ void BindFeatureMatching(py::module& m) {
                          &FeatureMatchingOptions::guided_matching,
                          "Whether to perform guided matching, if geometric "
                          "verification succeeds.")
+          .def_readwrite("rig_verification",
+                         &FeatureMatchingOptions::rig_verification,
+                         "Whether to perform geometric verification using rig "
+                         "constraints between pairs of non-trivial frames. If "
+                         "disabled, performs geometric two-view verification "
+                         "for non-trivial frames without rig constraints.")
           .def_readwrite(
               "skip_image_pairs_in_same_frame",
               &FeatureMatchingOptions::skip_image_pairs_in_same_frame,

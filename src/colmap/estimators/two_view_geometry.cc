@@ -462,6 +462,14 @@ EstimateRigTwoViewGeometries(
     two_view_geometries.emplace_back(image_pair, std::move(two_view_geometry));
   }
 
+  // Ensure that each matched input pair has a corresponding two-view geometry,
+  // even if it has no inliers.
+  for (auto& [image_pair, _] : matches) {
+    if (inlier_matches.count(image_pair) == 0) {
+      two_view_geometries.emplace_back(image_pair, TwoViewGeometry());
+    }
+  }
+
   return two_view_geometries;
 }
 

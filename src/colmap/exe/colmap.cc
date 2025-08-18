@@ -95,6 +95,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("exhaustive_matcher", &colmap::RunExhaustiveMatcher);
   commands.emplace_back("feature_extractor", &colmap::RunFeatureExtractor);
   commands.emplace_back("feature_importer", &colmap::RunFeatureImporter);
+  commands.emplace_back("geometric_verifier", &colmap::RunGeometricVerifier);
   commands.emplace_back("hierarchical_mapper", &colmap::RunHierarchicalMapper);
   commands.emplace_back("image_deleter", &colmap::RunImageDeleter);
   commands.emplace_back("image_filterer", &colmap::RunImageFilterer);
@@ -123,7 +124,6 @@ int main(int argc, char** argv) {
   commands.emplace_back("project_generator", &colmap::RunProjectGenerator);
   commands.emplace_back("rig_configurator", &colmap::RunRigConfigurator);
   commands.emplace_back("rig_bundle_adjuster", &colmap::RunRigBundleAdjuster);
-  commands.emplace_back("rig_verifier", &colmap::RunRigVerifier);
   commands.emplace_back("sequential_matcher", &colmap::RunSequentialMatcher);
   commands.emplace_back("spatial_matcher", &colmap::RunSpatialMatcher);
   commands.emplace_back("stereo_fusion", &colmap::RunStereoFuser);
