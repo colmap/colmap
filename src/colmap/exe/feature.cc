@@ -33,11 +33,8 @@
 #include "colmap/controllers/feature_matching.h"
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/option_manager.h"
-#include "colmap/estimators/generalized_pose.h"
 #include "colmap/exe/gui.h"
 #include "colmap/feature/utils.h"
-#include "colmap/retrieval/visual_index.h"
-#include "colmap/scene/database_cache.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
@@ -398,7 +395,7 @@ int RunRigVerifier(int argc, char** argv) {
   std::set<std::pair<frame_t, frame_t>> frame_pairs;
   for (const auto& [image_pair_id, _] : database->ReadNumMatches()) {
     const auto [image_id1, image_id2] =
-        Database::PairIdToImagePair(image_pair_id);
+        PairIdToImagePair(image_pair_id);
     frame_t frame_id1 = image_to_frame_ids.at(image_id1);
     frame_t frame_id2 = image_to_frame_ids.at(image_id2);
     if (frame_id1 > frame_id2) {

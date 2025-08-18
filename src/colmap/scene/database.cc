@@ -411,9 +411,6 @@ void WriteFrameData(const frame_t frame_id,
 
 }  // namespace
 
-const size_t Database::kMaxNumImages =
-    static_cast<size_t>(std::numeric_limits<int32_t>::max());
-
 const std::string Database::kInMemoryDatabasePath = ":memory:";
 
 std::mutex Database::update_schema_mutex_;
@@ -1502,7 +1499,7 @@ void Database::Merge(const Database& database1,
   // Merge the matches.
 
   for (const auto& matches : database1.ReadAllMatches()) {
-    const auto image_pair = Database::PairIdToImagePair(matches.first);
+    const auto image_pair = PairIdToImagePair(matches.first);
 
     const image_t new_image_id1 = new_image_ids1.at(image_pair.first);
     const image_t new_image_id2 = new_image_ids1.at(image_pair.second);
@@ -1511,7 +1508,7 @@ void Database::Merge(const Database& database1,
   }
 
   for (const auto& matches : database2.ReadAllMatches()) {
-    const auto image_pair = Database::PairIdToImagePair(matches.first);
+    const auto image_pair = PairIdToImagePair(matches.first);
 
     const image_t new_image_id1 = new_image_ids2.at(image_pair.first);
     const image_t new_image_id2 = new_image_ids2.at(image_pair.second);
@@ -1523,7 +1520,7 @@ void Database::Merge(const Database& database1,
 
   for (const auto& [pair_id, two_view_geometry] :
        database1.ReadTwoViewGeometries()) {
-    const auto image_pair = Database::PairIdToImagePair(pair_id);
+    const auto image_pair = PairIdToImagePair(pair_id);
 
     const image_t new_image_id1 = new_image_ids1.at(image_pair.first);
     const image_t new_image_id2 = new_image_ids1.at(image_pair.second);
@@ -1534,7 +1531,7 @@ void Database::Merge(const Database& database1,
 
   for (const auto& [pair_id, two_view_geometry] :
        database2.ReadTwoViewGeometries()) {
-    const auto image_pair = Database::PairIdToImagePair(pair_id);
+    const auto image_pair = PairIdToImagePair(pair_id);
 
     const image_t new_image_id1 = new_image_ids2.at(image_pair.first);
     const image_t new_image_id2 = new_image_ids2.at(image_pair.second);

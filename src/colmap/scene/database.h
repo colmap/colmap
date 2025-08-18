@@ -62,12 +62,6 @@ class Database {
  public:
   const static int kSchemaVersion = 1;
 
-  // The maximum number of images, that can be stored in the database.
-  // This limitation arises due to the fact, that we generate unique IDs for
-  // image pairs manually. Note: do not change this to
-  // another type than `size_t`.
-  const static size_t kMaxNumImages;
-
   // Can be used to construct temporary in-memory database.
   const static std::string kInMemoryDatabasePath;
 
@@ -143,21 +137,6 @@ class Database {
 
   // Number of rows in `two_view_geometries` table.
   size_t NumVerifiedImagePairs() const;
-
-  // Each image pair is assigned an unique ID in the `matches` and
-  // `two_view_geometries` table. We intentionally avoid to store the pairs in a
-  // separate table by using e.g. AUTOINCREMENT, since the overhead of querying
-  // the unique pair ID is significant.
-  inline static image_pair_t ImagePairToPairId(image_t image_id1,
-                                               image_t image_id2);
-
-  inline static std::pair<image_t, image_t> PairIdToImagePair(
-      image_pair_t pair_id);
-
-  // Return true if image pairs should be swapped. Used to enforce a specific
-  // image order to generate unique image pair identifiers independent of the
-  // order in which the image identifiers are used.
-  inline static bool SwapImagePair(image_t image_id1, image_t image_id2);
 
   // Read an existing entry in the database. The user is responsible for making
   // sure that the entry actually exists. For image pairs, the order of
@@ -453,37 +432,5 @@ class DatabaseTransaction {
   Database* database_;
   std::unique_lock<std::mutex> database_lock_;
 };
-
-////////////////////////////////////////////////////////////////////////////////
-// Implementation
-////////////////////////////////////////////////////////////////////////////////
-
-image_pair_t Database::ImagePairToPairId(const image_t image_id1,
-                                         const image_t image_id2) {
-  THROW_CHECK_LT(image_id1, kMaxNumImages);
-  THROW_CHECK_LT(image_id2, kMaxNumImages);
-  if (SwapImagePair(image_id1, image_id2)) {
-    return static_cast<image_pair_t>(kMaxNumImages) * image_id2 + image_id1;
-  } else {
-    return static_cast<image_pair_t>(kMaxNumImages) * image_id1 + image_id2;
-  }
-}
-
-std::pair<image_t, image_t> Database::PairIdToImagePair(
-    const image_pair_t pair_id) {
-  const image_t image_id2 = static_cast<image_t>(pair_id % kMaxNumImages);
-  const image_t image_id1 =
-      static_cast<image_t>((pair_id - image_id2) / kMaxNumImages);
-  THROW_CHECK_LT(image_id1, kMaxNumImages);
-  THROW_CHECK_LT(image_id2, kMaxNumImages);
-  return std::make_pair(image_id1, image_id2);
-}
-
-// Return true if image pairs should be swapped. Used to enforce a specific
-// image order to generate unique image pair identifiers independent of the
-// order in which the image identifiers are used.
-bool Database::SwapImagePair(const image_t image_id1, const image_t image_id2) {
-  return image_id1 > image_id2;
-}
 
 }  // namespace colmap

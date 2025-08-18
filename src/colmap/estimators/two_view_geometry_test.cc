@@ -37,7 +37,6 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/eigen_alignment.h"
-#include "colmap/util/eigen_matchers.h"
 
 #include <Eigen/Core>
 #include <gtest/gtest.h>

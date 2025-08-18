@@ -39,8 +39,6 @@
 #include <cuda_runtime.h>
 #endif
 
-#include <fstream>
-#include <numeric>
 #include <unordered_set>
 
 namespace colmap {
@@ -417,8 +415,7 @@ void FeatureMatcherController::Match(
     }
 
     // Avoid duplicate image pairs.
-    const image_pair_t pair_id =
-        Database::ImagePairToPairId(image_id1, image_id2);
+    const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
     if (!image_pair_ids.insert(pair_id).second) {
       continue;
     }

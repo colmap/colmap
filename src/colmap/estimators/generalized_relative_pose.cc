@@ -30,8 +30,6 @@
 #include "colmap/estimators/generalized_relative_pose.h"
 
 #include "colmap/geometry/essential_matrix.h"
-#include "colmap/geometry/pose.h"
-#include "colmap/geometry/triangulation.h"
 #include "colmap/math/random.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
