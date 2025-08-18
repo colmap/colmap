@@ -814,17 +814,17 @@ std::vector<std::pair<image_pair_t, FeatureMatches>> Database::ReadAllMatches()
 std::vector<std::pair<image_pair_t, int>> Database::ReadNumMatches() const {
   Sqlite3StmtContext context(sql_stmt_read_num_matches_);
 
-  std::vector<std::pair<image_pair_t, int>> num_inliers;
+  std::vector<std::pair<image_pair_t, int>> num_matches;
   while (SQLITE3_CALL(sqlite3_step(sql_stmt_read_num_matches_)) == SQLITE_ROW) {
     const image_pair_t pair_id = static_cast<image_pair_t>(
         sqlite3_column_int64(sql_stmt_read_num_matches_, 0));
 
     const int rows =
         static_cast<int>(sqlite3_column_int64(sql_stmt_read_num_matches_, 1));
-    num_inliers.emplace_back(pair_id, rows);
+    num_matches.emplace_back(pair_id, rows);
   }
 
-  return num_inliers;
+  return num_matches;
 }
 
 TwoViewGeometry Database::ReadTwoViewGeometry(const image_t image_id1,
