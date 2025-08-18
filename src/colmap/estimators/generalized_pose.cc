@@ -207,6 +207,15 @@ bool EstimateGeneralizedRelativePose(
     return false;
   }
 
+  // Adjust the error to be in normalized camera coordinates.
+  RANSACOptions normalized_ransac_options = ransac_options;
+  double normalized_max_error = 0;
+  for (const Camera& camera : cameras) {
+    normalized_max_error +=
+        camera.CamFromImgThreshold(ransac_options.max_error);
+  }
+  normalized_ransac_options.max_error = normalized_max_error / cameras.size();
+
   if (IsPanoramicRig(camera_idxs1, cams_from_rig) &&
       IsPanoramicRig(camera_idxs2, cams_from_rig)) {
     Rigid3d cam2_from_cam1;
@@ -233,7 +242,7 @@ bool EstimateGeneralizedRelativePose(
         cam_rays2[i].setZero();
       }
     }
-    if (EstimateRelativePose(ransac_options,
+    if (EstimateRelativePose(normalized_ransac_options,
                              cam_rays1,
                              cam_rays2,
                              &cam2_from_cam1,
@@ -267,7 +276,7 @@ bool EstimateGeneralizedRelativePose(
     }
   }
 
-  LORANSAC<GR6PEstimator, GR8PEstimator> ransac(ransac_options);
+  LORANSAC<GR6PEstimator, GR8PEstimator> ransac(normalized_ransac_options);
   auto report = ransac.Estimate(points1, points2);
   if (!report.success) {
     return false;
