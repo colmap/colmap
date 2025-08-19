@@ -30,12 +30,10 @@
 #include "colmap/exe/database.h"
 
 #include "colmap/controllers/option_manager.h"
-#include "colmap/geometry/pose.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/rig.h"
 #include "colmap/util/file.h"
-#include "colmap/util/misc.h"
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>

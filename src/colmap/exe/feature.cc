@@ -228,6 +228,7 @@ int RunMatchesImporter(int argc, char** argv) {
   options.AddDefaultOption(
       "match_type", &match_type, "{'pairs', 'raw', 'inliers'}");
   options.AddFeatureMatchingOptions();
+  options.AddTwoViewGeometryOptions();
   options.Parse(argc, argv);
 
   std::unique_ptr<QApplication> app;

@@ -235,10 +235,10 @@ void OptionManager::AddImageOptions() {
 }
 
 void OptionManager::AddFeatureExtractionOptions() {
-  if (added_extraction_options_) {
+  if (added_feature_extraction_options_) {
     return;
   }
-  added_extraction_options_ = true;
+  added_feature_extraction_options_ = true;
 
   AddAndRegisterDefaultOption("ImageReader.mask_path",
                               &image_reader->mask_path);
@@ -837,7 +837,7 @@ void OptionManager::Reset() {
   added_random_options_ = false;
   added_database_options_ = false;
   added_image_options_ = false;
-  added_extraction_options_ = false;
+  added_feature_extraction_options_ = false;
   added_feature_matching_options_ = false;
   added_exhaustive_pairing_options_ = false;
   added_sequential_pairing_options_ = false;

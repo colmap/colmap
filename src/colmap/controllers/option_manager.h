@@ -180,7 +180,7 @@ class OptionManager {
   bool added_random_options_;
   bool added_database_options_;
   bool added_image_options_;
-  bool added_extraction_options_;
+  bool added_feature_extraction_options_;
   bool added_feature_matching_options_;
   bool added_two_view_geometry_options_;
   bool added_exhaustive_pairing_options_;
@@ -215,19 +215,25 @@ template <typename T>
 void OptionManager::AddDefaultOption(const std::string& name,
                                      T* option,
                                      const std::string& help_text) {
-  desc_->add_options()(
-      name.c_str(),
-      boost::program_options::value<T>(option)->default_value(*option),
-      help_text.c_str());
+  if constexpr (std::is_floating_point<T>::value) {
+    desc_->add_options()(
+        name.c_str(),
+        boost::program_options::value<T>(option)->default_value(
+            *option, StringPrintf("%.3g", *option)),
+        help_text.c_str());
+  } else {
+    desc_->add_options()(
+        name.c_str(),
+        boost::program_options::value<T>(option)->default_value(*option),
+        help_text.c_str());
+  }
 }
 
 template <typename T>
 void OptionManager::AddAndRegisterRequiredOption(const std::string& name,
                                                  T* option,
                                                  const std::string& help_text) {
-  desc_->add_options()(name.c_str(),
-                       boost::program_options::value<T>(option)->required(),
-                       help_text.c_str());
+  AddRequiredOption(name, option, help_text);
   RegisterOption(name, option);
 }
 
@@ -235,10 +241,7 @@ template <typename T>
 void OptionManager::AddAndRegisterDefaultOption(const std::string& name,
                                                 T* option,
                                                 const std::string& help_text) {
-  desc_->add_options()(
-      name.c_str(),
-      boost::program_options::value<T>(option)->default_value(*option),
-      help_text.c_str());
+  AddDefaultOption(name, option, help_text);
   RegisterOption(name, option);
 }
 
