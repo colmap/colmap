@@ -73,7 +73,8 @@ class FeatureMatcherThread : public Thread {
                        std::shared_ptr<Database> database,
                        std::shared_ptr<FeatureMatcherCache> cache,
                        PairGeneratorFactory pair_generator_factory)
-      : matching_options_(matching_options),
+      : only_verification_(only_verification),
+        matching_options_(matching_options),
         database_(std::move(database)),
         cache_(std::move(cache)),
         pair_generator_factory_(std::move(pair_generator_factory)),
@@ -85,7 +86,12 @@ class FeatureMatcherThread : public Thread {
 
  private:
   void Run() override {
-    PrintHeading1("Feature matching & verification");
+    if (only_verification_) {
+      PrintHeading1("Geometric verification");
+    } else {
+      PrintHeading1("Feature matching & geometric verification");
+    }
+
     Timer run_timer;
     run_timer.Start();
 
@@ -112,6 +118,7 @@ class FeatureMatcherThread : public Thread {
     run_timer.PrintMinutes();
   }
 
+  const bool only_verification_;
   const FeatureMatchingOptions matching_options_;
   const std::shared_ptr<Database> database_;
   const std::shared_ptr<FeatureMatcherCache> cache_;
