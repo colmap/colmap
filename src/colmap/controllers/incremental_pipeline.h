@@ -33,6 +33,11 @@
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/util/base_controller.h"
 
+#include <memory>
+#include <string>
+#include <unordered_set>
+#include <vector>
+
 namespace colmap {
 
 // NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding)
@@ -73,6 +78,9 @@ struct IncrementalPipelineOptions {
 
   // The number of threads to use during reconstruction.
   int num_threads = -1;
+
+  // PRNG seed for all stochastic methods during reconstruction.
+  int random_seed = -1;
 
   // Thresholds for filtering images with degenerate intrinsics.
   double min_focal_length_ratio = 0.1;
@@ -144,6 +152,10 @@ struct IncrementalPipelineOptions {
 
   // If reconstruction is provided as input, fix the existing frame poses.
   bool fix_existing_frames = false;
+
+  // List of cameras for which to fix the camera parameters independent
+  // of refine_focal_length, refine_principal_point, and refine_extra_params.
+  std::unordered_set<camera_t> constant_cameras;
 
   IncrementalMapper::Options mapper;
   IncrementalTriangulator::Options triangulation;

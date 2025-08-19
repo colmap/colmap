@@ -117,7 +117,7 @@ jobs:
         if: matrix.config.checkCodeFormat
         run: |
           set +x -euo pipefail
-          python -m pip install ruff==0.6.7 clang-format==19.1.0
+          python -m pip install ruff==0.12.7 clang-format==19.1.0
           ./scripts/format/c++.sh
           ./scripts/format/python.sh
           git diff --name-only

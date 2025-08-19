@@ -91,12 +91,17 @@ void BundleAdjustmentController::Run() {
   for (const image_t image_id : reconstruction_->RegImageIds()) {
     ba_config.AddImage(image_id);
   }
+  // Fixing the gauge with two cameras leads to a more stable optimization
+  // with fewer steps as compared to fixing three points.
+  // TODO(jsch): Investigate whether it is safe to not fix the gauge at all,
+  // as initial experiments show that it is even faster.
   ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   // Run bundle adjustment.
   std::unique_ptr<BundleAdjuster> bundle_adjuster = CreateDefaultBundleAdjuster(
       std::move(ba_options), std::move(ba_config), *reconstruction_);
   bundle_adjuster->Solve();
+  reconstruction_->UpdatePoint3DErrors();
 
   run_timer.PrintMinutes();
 }

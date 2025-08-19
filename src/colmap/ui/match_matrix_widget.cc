@@ -75,7 +75,7 @@ void MatchMatrixWidget::Show() {
                        ->second);
     for (const auto& [pair_id, num_inliers] : pair_ids_and_num_inliers) {
       const double value = std::log1p(num_inliers) / max_value;
-      const auto [image_id1, image_id2] = Database::PairIdToImagePair(pair_id);
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
       const size_t idx1 = image_id_to_idx.at(image_id1);
       const size_t idx2 = image_id_to_idx.at(image_id2);
       const BitmapColor<float> color(255 * JetColormap::Red(value),

@@ -77,7 +77,7 @@ TEST(SynthesizeDataset, Nominal) {
     EXPECT_TRUE(reconstruction_frame.HasPose());
     reconstruction_frame.ResetPose();
     EXPECT_EQ(reconstruction_frame, database.ReadFrame(frame_id));
-    EXPECT_EQ(reconstruction_frame.DataIds().size(),
+    EXPECT_EQ(reconstruction_frame.NumDataIds(),
               reconstruction_frame.RigPtr()->NumSensors());
   }
 
@@ -288,11 +288,11 @@ TEST(SynthesizeDataset, ChainedMatches) {
   EXPECT_EQ(database.NumInlierMatches(),
             num_image_pairs * options.num_points3D);
   for (const auto& [pair_id, _] : database.ReadAllMatches()) {
-    const auto [image_id1, image_id2] = Database::PairIdToImagePair(pair_id);
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     EXPECT_EQ(image_id1 + 1, image_id2);
   }
   for (const auto& [pair_id, _] : database.ReadTwoViewGeometries()) {
-    const auto [image_id1, image_id2] = Database::PairIdToImagePair(pair_id);
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     EXPECT_EQ(image_id1 + 1, image_id2);
   }
 }

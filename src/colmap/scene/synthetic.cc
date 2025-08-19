@@ -30,9 +30,8 @@
 #include "colmap/scene/synthetic.h"
 
 #include "colmap/geometry/essential_matrix.h"
-#include "colmap/geometry/pose.h"
+#include "colmap/geometry/gps.h"
 #include "colmap/math/random.h"
-#include "colmap/scene/projection.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Geometry>
@@ -124,10 +123,9 @@ void SynthesizeChainedMatches(double inlier_match_ratio,
       if (curr_track_el.image_id != prev_track_el.image_id + 1) {
         continue;
       }
-      const image_pair_t pair_id = Database::ImagePairToPairId(
-          prev_track_el.image_id, curr_track_el.image_id);
-      if (Database::SwapImagePair(prev_track_el.image_id,
-                                  curr_track_el.image_id)) {
+      const image_pair_t pair_id =
+          ImagePairToPairId(prev_track_el.image_id, curr_track_el.image_id);
+      if (SwapImagePair(prev_track_el.image_id, curr_track_el.image_id)) {
         two_view_geometries[pair_id].inlier_matches.emplace_back(
             curr_track_el.point2D_idx, prev_track_el.point2D_idx);
       } else {
@@ -138,7 +136,7 @@ void SynthesizeChainedMatches(double inlier_match_ratio,
   }
 
   for (auto& [pair_id, two_view_geometry] : two_view_geometries) {
-    const auto [image_id1, image_id2] = Database::PairIdToImagePair(pair_id);
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     const auto& image1 = reconstruction->Image(image_id1);
     const auto& camera1 = *image1.CameraPtr();
     const auto& image2 = reconstruction->Image(image_id2);

@@ -75,6 +75,10 @@ struct FeatureMatchingOptions {
   // Whether to perform guided matching.
   bool guided_matching = false;
 
+  // Whether to skip matching images within the same frame.
+  // This is useful for the case of non-overlapping cameras in a rig.
+  bool skip_image_pairs_in_same_frame = false;
+
   std::shared_ptr<SiftMatchingOptions> sift;
 
   bool Check() const;

@@ -34,7 +34,7 @@
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/exe/gui.h"
-#include "colmap/retrieval/visual_index.h"
+#include "colmap/feature/sift.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
@@ -99,7 +99,7 @@ int RunFeatureExtractor(int argc, char** argv) {
   options.AddDefaultOption("descriptor_normalization",
                            &descriptor_normalization,
                            "{'l1_root', 'l2'}");
-  options.AddExtractionOptions();
+  options.AddFeatureExtractionOptions();
   options.Parse(argc, argv);
 
   ImageReaderOptions reader_options = *options.image_reader;
@@ -159,7 +159,7 @@ int RunFeatureImporter(int argc, char** argv) {
   options.AddDefaultOption("camera_mode", &camera_mode);
   options.AddRequiredOption("import_path", &import_path);
   options.AddDefaultOption("image_list_path", &image_list_path);
-  options.AddExtractionOptions();
+  options.AddFeatureExtractionOptions();
   options.Parse(argc, argv);
 
   ImageReaderOptions reader_options = *options.image_reader;
@@ -225,7 +225,8 @@ int RunMatchesImporter(int argc, char** argv) {
   options.AddRequiredOption("match_list_path", &match_list_path);
   options.AddDefaultOption(
       "match_type", &match_type, "{'pairs', 'raw', 'inliers'}");
-  options.AddMatchingOptions();
+  options.AddFeatureMatchingOptions();
+  options.AddTwoViewGeometryOptions();
   options.Parse(argc, argv);
 
   std::unique_ptr<QApplication> app;

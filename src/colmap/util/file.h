@@ -29,12 +29,10 @@
 
 #pragma once
 
-#include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
 #include <filesystem>
-#include <fstream>
 #include <optional>
 #include <string>
 #include <string_view>

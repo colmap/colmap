@@ -35,7 +35,6 @@
 #include "colmap/geometry/sim3_matchers.h"
 #include "colmap/math/random.h"
 #include "colmap/util/eigen_alignment.h"
-#include "colmap/util/eigen_matchers.h"
 
 #include <Eigen/Core>
 #include <gtest/gtest.h>

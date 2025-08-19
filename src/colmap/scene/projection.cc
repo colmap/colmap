@@ -29,8 +29,7 @@
 
 #include "colmap/scene/projection.h"
 
-#include "colmap/geometry/pose.h"
-#include "colmap/math/matrix.h"
+#include <limits>
 
 namespace colmap {
 

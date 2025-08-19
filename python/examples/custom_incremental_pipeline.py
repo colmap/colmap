@@ -198,7 +198,7 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
     if (
         reconstruction.num_reg_frames() >= 2
         and reconstruction.num_reg_frames() != ba_prev_num_reg_frames
-        and reconstruction.num_points3D != ba_prev_num_points
+        and reconstruction.num_points3D() != ba_prev_num_points
     ):
         iterative_global_refinement(options, mapper_options, mapper)
     return pycolmap.IncrementalMapperStatus.SUCCESS
@@ -224,6 +224,9 @@ def reconstruct(controller, mapper, mapper_options, continue_reconstruction):
         if status == pycolmap.IncrementalMapperStatus.INTERRUPTED:
             logging.info("Keeping reconstruction due to interrupt")
             mapper.end_reconstruction(False)
+            pycolmap.align_reconstruction_to_orig_rig_scales(
+                database_cache.rigs, reconstruction
+            )
         elif status == pycolmap.IncrementalMapperStatus.NO_INITIAL_PAIR:
             logging.info("Disacarding reconstruction due to no initial pair")
             mapper.end_reconstruction(True)
@@ -254,6 +257,9 @@ def reconstruct(controller, mapper, mapper_options, continue_reconstruction):
             else:
                 logging.info("Keeping successful reconstruction")
                 mapper.end_reconstruction(False)
+                pycolmap.align_reconstruction_to_orig_rig_scales(
+                    database_cache.rigs, reconstruction
+                )
             controller.callback(
                 pycolmap.IncrementalMapperCallback.LAST_IMAGE_REG_CALLBACK
             )
@@ -335,7 +341,7 @@ def main(
     )
 
     # main runner
-    num_images = pycolmap.Database(database_path).num_images
+    num_images = pycolmap.Database(database_path).num_images()
     with enlighten.Manager() as manager:
         with manager.counter(
             total=num_images, desc="Images registered:"
