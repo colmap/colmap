@@ -345,21 +345,26 @@ EstimateRigTwoViewGeometries(
   cameras_vec.reserve(cams_from_rig.size());
   std::vector<std::tuple<image_t, point2D_t, image_t, point2D_t>> corrs;
 
-  std::unordered_map<camera_t, size_t> camera_id_to_idx;
-  auto maybe_add_camera = [&cameras_vec, &cams_from_rig, &camera_id_to_idx](
-                              const Rig& rig, const Camera& camera) {
-    const auto [it, inserted] =
-        camera_id_to_idx.emplace(camera.camera_id, cameras_vec.size());
-    if (inserted) {
-      cameras_vec.push_back(camera);
-      if (rig.IsRefSensor(camera.SensorId())) {
-        cams_from_rig.push_back(Rigid3d());
-      } else {
-        cams_from_rig.push_back(rig.SensorFromRig(camera.SensorId()));
-      }
-    }
-    return it->second;
-  };
+  std::unordered_map<camera_t, std::pair<rig_t, size_t>>
+      camera_id_to_rig_and_camera_idx;
+  auto maybe_add_camera =
+      [&cameras_vec, &cams_from_rig, &camera_id_to_rig_and_camera_idx](
+          const Rig& rig, const Camera& camera) {
+        const auto [it, inserted] = camera_id_to_rig_and_camera_idx.emplace(
+            camera.camera_id, std::make_pair(rig.RigId(), cameras_vec.size()));
+        if (inserted) {
+          cameras_vec.push_back(camera);
+          if (rig.IsRefSensor(camera.SensorId())) {
+            cams_from_rig.push_back(Rigid3d());
+          } else {
+            cams_from_rig.push_back(rig.SensorFromRig(camera.SensorId()));
+          }
+        } else {
+          THROW_CHECK_EQ(it->second.first, rig.RigId())
+              << "The same camera is assigned to both rigs";
+        }
+        return it->second.second;
+      };
 
   for (const auto& [image_pair, pair_matches] : matches) {
     const auto& [image_id1, image_id2] = image_pair;
