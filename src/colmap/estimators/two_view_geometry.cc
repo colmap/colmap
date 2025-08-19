@@ -436,21 +436,18 @@ EstimateRigTwoViewGeometries(
                                        ? maybe_rig2_from_rig1.value()
                                        : maybe_pano2_from_pano1.value();
 
-    const auto& [image_id1, image_id2] = image_pair;
-    const Image& image1 = images.at(image_id1);
-    const Image& image2 = images.at(image_id2);
+    auto get_cam_from_rig = [&images](const Rig& rig, const image_t& image_id) {
+      const Image& image = images.at(image_id);
+      const sensor_t camera_id(SensorType::CAMERA, image.CameraId());
+      if (rig.IsRefSensor(camera_id)) {
+        return Rigid3d();
+      } else {
+        return rig.SensorFromRig(camera_id);
+      }
+    };
 
-    const sensor_t camera_id1(SensorType::CAMERA, image1.CameraId());
-    Rigid3d cam1_from_rig1;
-    if (!rig1.IsRefSensor(camera_id1)) {
-      cam1_from_rig1 = rig1.SensorFromRig(camera_id1);
-    }
-
-    const sensor_t camera_id2(SensorType::CAMERA, image2.CameraId());
-    Rigid3d cam2_from_rig2;
-    if (!rig2.IsRefSensor(camera_id2)) {
-      cam2_from_rig2 = rig2.SensorFromRig(camera_id2);
-    }
+    const Rigid3d cam1_from_rig1 = get_cam_from_rig(rig1, image_pair.first);
+    const Rigid3d cam2_from_rig2 = get_cam_from_rig(rig2, image_pair.second);
 
     two_view_geometry.cam2_from_cam1 =
         cam2_from_rig2 * rig2_from_rig1 * Inverse(cam1_from_rig1);
