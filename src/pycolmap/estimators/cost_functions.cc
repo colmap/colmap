@@ -174,14 +174,16 @@ void BindCostFunctions(py::module& m_parent) {
         "relative pose with prior covariance.");
 
   m.def("Point3DAlignmentCost",
-        &Point3DAlignmentCostFunctor::Create<const Eigen::Vector3d&>,
+        &Point3DAlignmentCostFunctor::Create<const Eigen::Vector3d&, bool>,
         "point_in_b_prior"_a,
+        "use_log_scale"_a = true,
         "Error between 3D points transformed by a 3D similarity transform.");
   m.def("Point3DAlignmentCost",
-        &CovarianceWeightedCostFunctor<Point3DAlignmentCostFunctor>::Create<
-            const Eigen::Vector3d&>,
+        &CovarianceWeightedCostFunctor<
+            Point3DAlignmentCostFunctor>::Create<const Eigen::Vector3d&, bool>,
         "point_cov_in_b_prior"_a,
         "point_in_b_prior"_a,
+        "use_log_scale"_a = true,
         "Error between 3D points transformed by a 3D similarity transform. "
         "with prior covariance");
 }
