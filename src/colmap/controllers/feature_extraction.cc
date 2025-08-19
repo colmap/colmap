@@ -283,7 +283,7 @@ class FeatureWriterThread : public Thread {
             image_data.camera.has_prior_focal_length ? " (Prior)" : "");
         LOG(INFO) << "  Features:        " << image_data.keypoints.size()
                   << " (" << extractor_type_str_ << ")";
-        if (image_data.mask.IsEmpty()) {
+        if (!image_data.mask.IsEmpty()) {
           LOG(INFO) << "  Mask:            Yes";
         }
 
