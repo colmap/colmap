@@ -159,7 +159,7 @@ class FeatureMatcherThread : public Thread {
           num_matches;
     }
 
-    ThreadPool thread_pool(ThreadPool::kMaxNumThreads);
+    ThreadPool thread_pool(matching_options_.num_threads);
     for (const auto& [frame_pair, num_matches] : frame_pair_to_num_matches) {
       if (num_matches < geometry_options_.min_num_inliers) {
         continue;
