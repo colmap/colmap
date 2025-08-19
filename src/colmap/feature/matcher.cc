@@ -275,15 +275,37 @@ void FeatureMatcherCache::MaybeLoadFrames() {
 }
 
 void FeatureMatcherCache::MaybeLoadImages() {
+  {
+    MaybeLoadFrames();
+  }
+
   std::lock_guard<std::mutex> lock(database_mutex_);
   if (images_cache_) {
     return;
+  }
+
+  bool has_frames = frames_cache_ ? !frames_cache_->empty() : false;
+  std::unordered_map<image_t, frame_t> image_to_frame_id;
+  if (has_frames) {
+    for (const auto& [frame_id, frame] : *frames_cache_) {
+      for (const auto& data_id : frame.DataIds()) {
+        if (data_id.sensor_id.type == SensorType::CAMERA) {
+          image_to_frame_id.emplace(data_id.id, frame.FrameId());
+        }
+      }
+    }
   }
 
   std::vector<Image> images = database_->ReadAllImages();
   images_cache_ = std::make_unique<std::unordered_map<image_t, Image>>();
   images_cache_->reserve(images.size());
   for (Image& image : images) {
+    if (has_frames) {
+      auto iter = image_to_frame_id.find(image.ImageId());
+      if (iter != image_to_frame_id.end()) {
+        image.SetFrameId(iter->second);
+      }
+    }
     images_cache_->emplace(image.ImageId(), std::move(image));
   }
 }
