@@ -51,7 +51,6 @@ DatabaseCache::DatabaseCache()
     : correspondence_graph_(std::make_shared<class CorrespondenceGraph>()) {}
 
 void DatabaseCache::Load(const Database& database,
-                         bool inlier_matches,
                          const size_t min_num_matches,
                          const bool ignore_watermarks,
                          const std::unordered_set<std::string>& image_names) {
@@ -136,40 +135,19 @@ void DatabaseCache::Load(const Database& database,
   timer.Restart();
   LOG(INFO) << "Loading matches...";
 
-  size_t num_ignored_image_pairs = 0;
-  std::vector<std::pair<image_pair_t, FeatureMatches>> matches;
-  if (inlier_matches) {
-    std::vector<std::pair<image_pair_t, TwoViewGeometry>> two_view_geometries =
-        database.ReadTwoViewGeometries();
-    matches.reserve(two_view_geometries.size());
-    for (auto& [pair_id, two_view_geometry] : two_view_geometries) {
-      if (static_cast<size_t>(two_view_geometry.inlier_matches.size()) <
-              min_num_matches ||
-          (ignore_watermarks &&
-           two_view_geometry.config == TwoViewGeometry::WATERMARK)) {
-        ++num_ignored_image_pairs;
-        continue;
-      }
-      matches.emplace_back(pair_id,
-                           std::move(two_view_geometry.inlier_matches));
-    }
-  } else {
-    std::vector<std::pair<image_pair_t, FeatureMatches>> all_matches =
-        database.ReadAllMatches();
-    matches.reserve(all_matches.size());
-    for (auto& [pair_id, pair_matches] : all_matches) {
-      if (static_cast<size_t>(pair_matches.size()) < min_num_matches) {
-        ++num_ignored_image_pairs;
-        continue;
-      }
-      matches.emplace_back(pair_id, std::move(pair_matches));
-    }
-  }
+  const std::vector<std::pair<image_pair_t, TwoViewGeometry>>
+      two_view_geometries = database.ReadTwoViewGeometries();
 
-  LOG(INFO) << StringPrintf(" %d in %.3fs (ignored %d)",
-                            matches.size(),
-                            timer.ElapsedSeconds(),
-                            num_ignored_image_pairs);
+  LOG(INFO) << StringPrintf(
+      " %d in %.3fs", two_view_geometries.size(), timer.ElapsedSeconds());
+
+  auto UseInlierMatchesCheck = [min_num_matches, ignore_watermarks](
+                                   const TwoViewGeometry& two_view_geometry) {
+    return static_cast<size_t>(two_view_geometry.inlier_matches.size()) >=
+               min_num_matches &&
+           (!ignore_watermarks ||
+            two_view_geometry.config != TwoViewGeometry::WATERMARK);
+  };
 
   //////////////////////////////////////////////////////////////////////////////
   // Load images
@@ -221,13 +199,15 @@ void DatabaseCache::Load(const Database& database,
     // Collect all images that are connected in the correspondence graph.
     std::unordered_set<frame_t> connected_frame_ids;
     connected_frame_ids.reserve(frame_ids.size());
-    for (const auto& [pair_id, two_view_geometry] : matches) {
-      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-      const frame_t frame_id1 = image_to_frame_id.at(image_id1);
-      const frame_t frame_id2 = image_to_frame_id.at(image_id2);
-      if (frame_ids.count(frame_id1) > 0 && frame_ids.count(frame_id2) > 0) {
-        connected_frame_ids.insert(frame_id1);
-        connected_frame_ids.insert(frame_id2);
+    for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
+      if (UseInlierMatchesCheck(two_view_geometry)) {
+        const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+        const frame_t frame_id1 = image_to_frame_id.at(image_id1);
+        const frame_t frame_id2 = image_to_frame_id.at(image_id2);
+        if (frame_ids.count(frame_id1) > 0 && frame_ids.count(frame_id2) > 0) {
+          connected_frame_ids.insert(frame_id1);
+          connected_frame_ids.insert(frame_id2);
+        }
       }
     }
 
@@ -277,33 +257,37 @@ void DatabaseCache::Load(const Database& database,
     correspondence_graph_->AddImage(image_id, image.NumPoints2D());
   }
 
-  for (const auto& [pair_id, pair_matches] : matches) {
-    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    const frame_t frame_id1 = image_to_frame_id.at(image_id1);
-    const frame_t frame_id2 = image_to_frame_id.at(image_id2);
-    if (frame_ids.count(frame_id1) > 0 && frame_ids.count(frame_id2) > 0) {
-      correspondence_graph_->AddCorrespondences(
-          image_id1, image_id2, pair_matches);
+  size_t num_ignored_image_pairs = 0;
+  for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
+    if (UseInlierMatchesCheck(two_view_geometry)) {
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+      const frame_t frame_id1 = image_to_frame_id.at(image_id1);
+      const frame_t frame_id2 = image_to_frame_id.at(image_id2);
+      if (frame_ids.count(frame_id1) > 0 && frame_ids.count(frame_id2) > 0) {
+        correspondence_graph_->AddCorrespondences(
+            image_id1, image_id2, two_view_geometry.inlier_matches);
+      } else {
+        num_ignored_image_pairs += 1;
+      }
+    } else {
+      num_ignored_image_pairs += 1;
     }
   }
 
   correspondence_graph_->Finalize();
 
-  LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
+  LOG(INFO) << StringPrintf(" in %.3fs (ignored %d)",
+                            timer.ElapsedSeconds(),
+                            num_ignored_image_pairs);
 }
 
 std::shared_ptr<DatabaseCache> DatabaseCache::Create(
     const Database& database,
-    const bool inlier_matches,
     const size_t min_num_matches,
     const bool ignore_watermarks,
     const std::unordered_set<std::string>& image_names) {
   auto cache = std::make_shared<DatabaseCache>();
-  cache->Load(database,
-              inlier_matches,
-              min_num_matches,
-              ignore_watermarks,
-              image_names);
+  cache->Load(database, min_num_matches, ignore_watermarks, image_names);
   return cache;
 }
 

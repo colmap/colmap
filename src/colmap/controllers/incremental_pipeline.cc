@@ -274,7 +274,6 @@ bool IncrementalPipeline::LoadDatabase() {
   timer.Start();
   database_cache_ = DatabaseCache::Create(
       database,
-      /*inlier_matches=*/true,
       /*min_num_matches=*/static_cast<size_t>(options_->min_num_matches),
       /*ignore_watermarks=*/options_->ignore_watermarks,
       /*image_names=*/image_names);
