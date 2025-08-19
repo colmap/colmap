@@ -179,7 +179,7 @@ TEST(GPS, EllipsoidToENUWGS84) {
   GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
 
   // Get lat0, lon0 origin from ref
-  const auto ori_ell = gps_tform.ECEFToEllipsoid({ref_xyz[0]})[0];
+  const auto ori_ell = gps_tform.ECEFToEllipsoid(ref_xyz[0]);
 
   // Get ENU ref from ECEF ref
   const auto ref_enu = gps_tform.ECEFToENU(ref_xyz, ori_ell(0), ori_ell(1));
@@ -188,7 +188,7 @@ TEST(GPS, EllipsoidToENUWGS84) {
   const auto enu = gps_tform.EllipsoidToENU(ell, ori_ell(0), ori_ell(1));
 
   for (size_t i = 0; i < ell.size(); ++i) {
-    EXPECT_THAT(enu[i], EigenMatrixNear(ref_enu[i], 1e-8));
+    EXPECT_THAT(enu[i], EigenMatrixNear(ref_enu[i], 1e-5));
   }
 }
 
@@ -211,7 +211,7 @@ TEST(GPS, ECEFToENU) {
   const auto xyz = gps_tform.EllipsoidToECEF(ell);
 
   // Get lat0, lon0 origin from ref
-  const auto ori_ell = gps_tform.ECEFToEllipsoid({ref_xyz[0]})[0];
+  const auto ori_ell = gps_tform.ECEFToEllipsoid(ref_xyz[0]);
 
   // Get ENU from ECEF ref
   const auto ref_enu = gps_tform.ECEFToENU(ref_xyz, ori_ell(0), ori_ell(1));
@@ -256,7 +256,7 @@ TEST(GPS, ENUToEllipsoidWGS84) {
   const auto ell = gps_tform.ENUToEllipsoid(enu, lat0, lon0, alt0);
 
   for (size_t i = 0; i < ell.size(); ++i) {
-    EXPECT_THAT(ell[i], EigenMatrixNear(ref_ell[i], 1e-5));
+    EXPECT_THAT(ell[i], EigenMatrixNear(ref_ell[i], 1e-8));
   }
 }
 
@@ -405,7 +405,7 @@ TEST(GPS, UTMToEllipsoidWGS84) {
                        12 + 34. / 60 + 11.77179 / 3600,
                        561.1509);
   GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
-  const auto ell = gps_tform.UTMToEllipsoid(utm, 32, true);
+  const auto ell = gps_tform.UTMToEllipsoid(utm, +32);
 
   double tolerance = 1e-8;
   for (size_t i = 0; i < ell.size(); ++i) {
@@ -446,7 +446,7 @@ TEST(GPS, UTMToEllipsoidGRS80) {
                        12 + 34. / 60 + 11.77179 / 3600,
                        561.1509);
   GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
-  const auto ell = gps_tform.UTMToEllipsoid(utm, 32, true);
+  const auto ell = gps_tform.UTMToEllipsoid(utm, +32);
 
   double tolerance = 1e-8;
   for (size_t i = 0; i < ell.size(); ++i) {

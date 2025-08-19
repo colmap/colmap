@@ -234,7 +234,7 @@ std::vector<Eigen::Vector3d> GPSTransform::ENUToECEF(
 
   // ECEF ref (origin)
   const Eigen::Vector3d ref_xyz_in_ecef =
-      EllipsoidToECEF({Eigen::Vector3d(ref_lat, ref_lon, ref_alt)})[0];
+      EllipsoidToECEF(Eigen::Vector3d(ref_lat, ref_lon, ref_alt));
 
   // ENU to ECEF Rot :
   const double cos_lat = std::cos(DegToRad(ref_lat));
@@ -267,6 +267,7 @@ std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllipsoidToUTM(
 
   // For cases where points span different zones, we select the predominant zone
   // as the reference frame.
+  // TODO: Implement a more accurate method for merging UTM zones.
   std::array<int, 60> zone_counts{};
   for (const Eigen::Vector3d& lla : lat_lon_alt) {
     THROW_CHECK_GE(lla[0], -90);
@@ -278,11 +279,24 @@ std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllipsoidToUTM(
         static_cast<std::size_t>(UTMParams::MeridianToZone(lla[1])) - 1;
     ++zone_counts[z_index];
   }
-  const int zone =
-      static_cast<int>(std::distance(
-          zone_counts.begin(),
-          std::max_element(zone_counts.begin(), zone_counts.end()))) +
-      1;
+
+  int zone = -1;
+  bool span_different_zones = std::count_if(zone_counts.begin(),
+                                            zone_counts.end(),
+                                            [](int x) { return x > 0; }) > 1;
+  if (!span_different_zones) {
+    zone = UTMParams::MeridianToZone(lat_lon_alt.front()[1]);
+  } else {
+    zone = static_cast<int>(std::distance(
+               zone_counts.begin(),
+               std::max_element(zone_counts.begin(), zone_counts.end()))) +
+           1;
+    LOG(WARNING) << "Points span multiple UTM zones. Using the zone with the "
+                    "most points as the reference frame, which may result in "
+                    "some loss of precision, zone: "
+                 << zone;
+  }
+
   const double lambda0 = DegToRad(UTMParams::ZoneToCentralMeridian(zone));
 
   // Converts lla to utm
@@ -321,17 +335,17 @@ std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllipsoidToUTM(
 }
 
 std::vector<Eigen::Vector3d> GPSTransform::UTMToEllipsoid(
-    const std::vector<Eigen::Vector3d>& xyz_in_utm,
-    int zone,
-    bool is_north) const {
+    const std::vector<Eigen::Vector3d>& xyz_in_utm, int zone) const {
   // The following implementation is based on the formulas from:
   // https://en.wikipedia.org/wiki/Universal_Transverse_Mercator_coordinate_system
 
-  THROW_CHECK_GE(zone, 1);
+  THROW_CHECK_GE(zone, -60);
   THROW_CHECK_LE(zone, 60);
+  THROW_CHECK_NE(zone, 0);
 
   // Setup params
   const UTMParams params(a_ / 1000.0, f_);  // converts to kilometers
+  bool is_north = zone > 0;
 
   // Converts utm to ell
   std::vector<Eigen::Vector3d> lat_lon_alt;
@@ -369,6 +383,65 @@ std::vector<Eigen::Vector3d> GPSTransform::UTMToEllipsoid(
   }
 
   return lat_lon_alt;
+}
+
+Eigen::Vector3d GPSTransform::EllipsoidToECEF(
+    const Eigen::Vector3d& lat_lon_alt) const {
+  return EllipsoidToECEF(std::vector<Eigen::Vector3d>{lat_lon_alt}).front();
+}
+
+Eigen::Vector3d GPSTransform::ECEFToEllipsoid(
+    const Eigen::Vector3d& xyz_in_ecef) const {
+  return ECEFToEllipsoid(std::vector<Eigen::Vector3d>{xyz_in_ecef}).front();
+}
+
+Eigen::Vector3d GPSTransform::EllipsoidToENU(const Eigen::Vector3d& lat_lon_alt,
+                                             double ref_lat,
+                                             double ref_lon) const {
+  return EllipsoidToENU(
+             std::vector<Eigen::Vector3d>{lat_lon_alt}, ref_lat, ref_lon)
+      .front();
+}
+
+Eigen::Vector3d GPSTransform::ENUToEllipsoid(const Eigen::Vector3d& xyz_in_enu,
+                                             double ref_lat,
+                                             double ref_lon,
+                                             double ref_alt) const {
+  return ENUToEllipsoid(std::vector<Eigen::Vector3d>{xyz_in_enu},
+                        ref_lat,
+                        ref_lon,
+                        ref_alt)
+      .front();
+}
+
+Eigen::Vector3d GPSTransform::ECEFToENU(const Eigen::Vector3d& xyz_in_ecef,
+                                        double ref_lat,
+                                        double ref_lon) const {
+  return ECEFToENU(std::vector<Eigen::Vector3d>{xyz_in_ecef}, ref_lat, ref_lon)
+      .front();
+}
+
+Eigen::Vector3d GPSTransform::ENUToECEF(const Eigen::Vector3d& xyz_in_enu,
+                                        double ref_lat,
+                                        double ref_lon,
+                                        double ref_alt) const {
+  return ENUToECEF(std::vector<Eigen::Vector3d>{xyz_in_enu},
+                   ref_lat,
+                   ref_lon,
+                   ref_alt)
+      .front();
+}
+
+std::pair<Eigen::Vector3d, int> GPSTransform::EllipsoidToUTM(
+    const Eigen::Vector3d& lat_lon_alt) const {
+  auto [xyz_in_utm, zone] =
+      EllipsoidToUTM(std::vector<Eigen::Vector3d>{lat_lon_alt});
+  return std::make_pair(std::move(xyz_in_utm.front()), zone);
+}
+
+Eigen::Vector3d GPSTransform::UTMToEllipsoid(const Eigen::Vector3d& xyz_in_utm,
+                                             int zone) const {
+  return UTMToEllipsoid(std::vector<Eigen::Vector3d>{xyz_in_utm}, zone).front();
 }
 
 }  // namespace colmap

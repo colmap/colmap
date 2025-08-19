@@ -373,7 +373,17 @@ int RunPosePriorMapper(int argc, char** argv) {
                            &options.mapper->use_robust_loss_on_prior_position);
   options.AddDefaultOption("prior_position_loss_scale",
                            &options.mapper->prior_position_loss_scale);
+
+  std::string gps_cartesian_frame(GPSTransform::CartesianFrameToString(
+      options.mapper->gps_cartesian_frame));
+  options.AddDefaultOption(
+      "gps_cartesian_frame", &gps_cartesian_frame, "{ECEF, ENU, UTM}");
+
   options.Parse(argc, argv);
+
+  StringToUpper(&gps_cartesian_frame);
+  options.mapper->gps_cartesian_frame =
+      GPSTransform::CartesianFrameFromString(gps_cartesian_frame);
 
   if (!ExistsDir(output_path)) {
     LOG(ERROR) << "`output_path` is not a directory.";

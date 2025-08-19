@@ -140,6 +140,11 @@ struct IncrementalPipelineOptions {
   // (chi2 for 3DOF at 95% = 7.815).
   double prior_position_loss_scale = 7.815;
 
+  // Specifies the Cartesian coordinate system used for converting ellipsoidal
+  // GPS coordinates when utilizing prior position.
+  GPSTransform::CartesianFrame gps_cartesian_frame =
+      GPSTransform::CartesianFrame::ENU;
+
   // Path to a folder with reconstruction snapshots during incremental
   // reconstruction. Snapshots will be saved according to the specified
   // frequency of registered images.
