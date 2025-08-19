@@ -41,6 +41,7 @@
 
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <unordered_map>
 
 namespace colmap {
@@ -172,6 +173,7 @@ class FeatureMatcherCache {
   std::unique_ptr<ThreadSafeLRUCache<image_t, bool>> keypoints_exists_cache_;
   std::unique_ptr<ThreadSafeLRUCache<image_t, bool>> descriptors_exists_cache_;
   ThreadSafeLRUCache<image_t, FeatureDescriptorIndex> descriptor_index_cache_;
+  std::optional<size_t> max_num_keypoints_;
 };
 
 }  // namespace colmap

@@ -96,6 +96,11 @@ std::vector<std::pair<image_t, image_t>> ReadImagePairsText(
 
 }  // namespace
 
+bool ExistingMatchedPairingOptions::Check() const {
+  CHECK_OPTION_GT(batch_size, 1);
+  return true;
+}
+
 bool ExhaustivePairingOptions::Check() const {
   CHECK_OPTION_GT(block_size, 1);
   return true;
@@ -205,7 +210,7 @@ std::vector<std::pair<image_t, image_t>> ExhaustivePairGenerator::Next() {
   const size_t end_idx2 =
       std::min(image_ids_.size(), start_idx2_ + block_size_) - 1;
 
-  LOG(INFO) << StringPrintf("Matching block [%d/%d, %d/%d]",
+  LOG(INFO) << StringPrintf("Processing block [%d/%d, %d/%d]",
                             start_idx1_ / block_size_ + 1,
                             num_blocks_,
                             start_idx2_ / block_size_ + 1,
@@ -324,7 +329,7 @@ std::vector<std::pair<image_t, image_t>> VocabTreePairGenerator::Next() {
   }
 
   LOG(INFO) << StringPrintf(
-      "Matching image [%d/%d]", result_idx_ + 1, query_image_ids_.size());
+      "Processing image [%d/%d]", result_idx_ + 1, query_image_ids_.size());
 
   // Push the next image to the retrieval queue.
   if (query_idx_ < query_image_ids_.size()) {
@@ -463,7 +468,7 @@ std::vector<std::pair<image_t, image_t>> SequentialPairGenerator::Next() {
     return image_pairs_;
   }
   LOG(INFO) << StringPrintf(
-      "Matching image [%d/%d]", image_idx_ + 1, image_ids_.size());
+      "Processing image [%d/%d]", image_idx_ + 1, image_ids_.size());
 
   const auto image_id1 = image_ids_.at(image_idx_);
 
@@ -621,7 +626,7 @@ std::vector<std::pair<image_t, image_t>> SpatialPairGenerator::Next() {
   }
 
   LOG(INFO) << StringPrintf(
-      "Matching image [%d/%d]", current_idx_ + 1, position_idxs_.size());
+      "Processing image [%d/%d]", current_idx_ + 1, position_idxs_.size());
   const float max_distance_squared =
       static_cast<float>(options_.max_distance * options_.max_distance);
   for (int j = 0; j < knn_; ++j) {
@@ -739,7 +744,7 @@ std::vector<std::pair<image_t, image_t>> TransitivePairGenerator::Next() {
       image_pairs_.pop_back();
     }
     LOG(INFO) << StringPrintf(
-        "Matching batch [%d/%d]", current_batch_idx_, current_num_batches_);
+        "Processing batch [%d/%d]", current_batch_idx_, current_num_batches_);
     return batch;
   }
 
@@ -835,7 +840,7 @@ std::vector<std::pair<image_t, image_t>> ImportedPairGenerator::Next() {
     return block_image_pairs_;
   }
 
-  LOG(INFO) << StringPrintf("Matching block [%d/%d]",
+  LOG(INFO) << StringPrintf("Processing block [%d/%d]",
                             pair_idx_ / options_.block_size + 1,
                             image_pairs_.size() / options_.block_size + 1);
 
@@ -846,6 +851,60 @@ std::vector<std::pair<image_t, image_t>> ImportedPairGenerator::Next() {
   }
   pair_idx_ += options_.block_size;
   return block_image_pairs_;
+}
+
+ExistingMatchedPairGenerator::ExistingMatchedPairGenerator(
+    const ExistingMatchedPairingOptions& options,
+    const std::shared_ptr<FeatureMatcherCache>& cache)
+    : options_(options) {
+  THROW_CHECK(options.Check());
+  LOG(INFO) << "Generating existing image pairs...";
+  cache->AccessDatabase([this](Database& database) {
+    auto num_matches = database.ReadNumMatches();
+    image_pairs_.reserve(num_matches.size());
+    for (const auto& [pair_id, _] : num_matches) {
+      image_pairs_.emplace_back(PairIdToImagePair(pair_id));
+    }
+  });
+  num_batches_ =
+      std::ceil(static_cast<double>(image_pairs_.size()) / options_.batch_size);
+}
+
+ExistingMatchedPairGenerator::ExistingMatchedPairGenerator(
+    const ExistingMatchedPairingOptions& options,
+    const std::shared_ptr<Database>& database)
+    : ExistingMatchedPairGenerator(
+          options,
+          std::make_shared<FeatureMatcherCache>(
+              options.CacheSize(), THROW_CHECK_NOTNULL(database))) {}
+
+void ExistingMatchedPairGenerator::Reset() { start_idx_ = 0; }
+
+bool ExistingMatchedPairGenerator::HasFinished() const {
+  return start_idx_ >= image_pairs_.size();
+}
+
+std::vector<std::pair<image_t, image_t>> ExistingMatchedPairGenerator::Next() {
+  if (HasFinished()) {
+    return {};
+  }
+
+  const size_t end_idx =
+      std::min(start_idx_ + options_.batch_size, image_pairs_.size());
+
+  std::vector<std::pair<image_t, image_t>> batch;
+  batch.reserve(end_idx - start_idx_);
+  for (size_t idx = start_idx_; idx < end_idx; ++idx) {
+    batch.emplace_back(image_pairs_[idx]);
+  }
+
+  LOG(INFO) << StringPrintf("Processing batch [%d/%d]",
+                            start_idx_ / options_.batch_size + 1,
+                            num_batches_);
+
+  start_idx_ = end_idx;
+
+  return batch;
 }
 
 }  // namespace colmap
