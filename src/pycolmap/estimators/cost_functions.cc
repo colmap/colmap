@@ -174,27 +174,16 @@ void BindCostFunctions(py::module& m_parent) {
         "relative pose with prior covariance.");
 
   m.def("Point3DAlignmentCost",
-        &Point3DAlignmentCostFunctor<true>::Create<const Eigen::Vector3d&>,
+        &Point3DAlignmentCostFunctor::Create<const Eigen::Vector3d&, bool>,
         "point_in_b_prior"_a,
-        "Error between 3D points transformed by a 3D similarity transform. The "
-        "cost expects a log_scale parameter.");
+        "use_log_scale"_a = true,
+        "Error between 3D points transformed by a 3D similarity transform.");
   m.def("Point3DAlignmentCost",
         &CovarianceWeightedCostFunctor<
-            Point3DAlignmentCostFunctor<true>>::Create<const Eigen::Vector3d&>,
+            Point3DAlignmentCostFunctor>::Create<const Eigen::Vector3d&, bool>,
         "point_cov_in_b_prior"_a,
         "point_in_b_prior"_a,
-        "Error between 3D points transformed by a 3D similarity transform, "
-        "with prior covariance. The cost expects a log_scale parameter.");
-  m.def("Point3DAlignmentWithDirectScaleCost",
-        &Point3DAlignmentCostFunctor<false>::Create<const Eigen::Vector3d&>,
-        "point_in_b_prior"_a,
-        "Error between 3D points transformed by a 3D similarity transform. The "
-        "cost expects a scale parameter.");
-  m.def("Point3DAlignmentWithDirectScaleCost",
-        &CovarianceWeightedCostFunctor<
-            Point3DAlignmentCostFunctor<false>>::Create<const Eigen::Vector3d&>,
-        "point_cov_in_b_prior"_a,
-        "point_in_b_prior"_a,
-        "Error between 3D points transformed by a 3D similarity transform, "
-        "with prior covariance. The cost expects a scale parameter.");
+        "use_log_scale"_a = true,
+        "Error between 3D points transformed by a 3D similarity transform. "
+        "with prior covariance");
 }
