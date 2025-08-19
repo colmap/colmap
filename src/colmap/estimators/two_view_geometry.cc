@@ -355,10 +355,6 @@ EstimateRigTwoViewGeometries(
       if (rig.IsRefSensor(camera.SensorId())) {
         cams_from_rig.push_back(Rigid3d());
       } else {
-        if (!rig.Sensors().count(camera.SensorId())) {
-          LOG(ERROR) << "Camera " << camera.camera_id
-                     << " not found in rig: " << rig;
-        }
         cams_from_rig.push_back(rig.SensorFromRig(camera.SensorId()));
       }
     }
