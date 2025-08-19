@@ -31,13 +31,10 @@
 
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/matcher.h"
-#include "colmap/scene/database.h"
 #include "colmap/util/opengl_utils.h"
 #include "colmap/util/threading.h"
 
-#include <array>
 #include <memory>
-#include <string>
 #include <vector>
 
 namespace colmap {
@@ -79,10 +76,10 @@ class FeatureMatcherWorker : public Thread {
 // database should be in an active transaction while calling `Match`.
 class FeatureMatcherController {
  public:
-  FeatureMatcherController(
-      const FeatureMatchingOptions& matching_options,
-      const TwoViewGeometryOptions& two_view_geometry_options,
-      std::shared_ptr<FeatureMatcherCache> cache);
+  FeatureMatcherController(bool only_verification,
+                           const FeatureMatchingOptions& matching_options,
+                           const TwoViewGeometryOptions& geometry_options,
+                           std::shared_ptr<FeatureMatcherCache> cache);
 
   ~FeatureMatcherController();
 
@@ -93,6 +90,7 @@ class FeatureMatcherController {
   void Match(const std::vector<std::pair<image_t, image_t>>& image_pairs);
 
  private:
+  const bool only_verification_;
   FeatureMatchingOptions matching_options_;
   TwoViewGeometryOptions geometry_options_;
   std::shared_ptr<FeatureMatcherCache> cache_;

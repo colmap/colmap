@@ -29,8 +29,8 @@
 
 #include "colmap/controllers/incremental_pipeline.h"
 
+#include "colmap/estimators/alignment.h"
 #include "colmap/util/file.h"
-#include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
 namespace colmap {
@@ -68,7 +68,7 @@ void WriteSnapshot(const Reconstruction& reconstruction,
           .count();
   // Write reconstruction to unique path with current timestamp.
   const std::string path =
-      JoinPaths(snapshot_path, StringPrintf("%010d", timestamp));
+      JoinPaths(snapshot_path, StringPrintf("%010zu", timestamp));
   CreateDirIfNotExists(path);
   VLOG(1) << "=> Writing to " << path;
   reconstruction.Write(path);
@@ -86,9 +86,11 @@ IncrementalMapper::Options IncrementalPipelineOptions::Mapper() const {
   options.num_threads = num_threads;
   options.local_ba_num_images = ba_local_num_images;
   options.fix_existing_frames = fix_existing_frames;
+  options.constant_cameras = constant_cameras;
   options.use_prior_position = use_prior_position;
   options.use_robust_loss_on_prior_position = use_robust_loss_on_prior_position;
   options.prior_position_loss_scale = prior_position_loss_scale;
+  options.random_seed = random_seed;
   return options;
 }
 
@@ -98,6 +100,7 @@ IncrementalTriangulator::Options IncrementalPipelineOptions::Triangulation()
   options.min_focal_length_ratio = min_focal_length_ratio;
   options.max_focal_length_ratio = max_focal_length_ratio;
   options.max_extra_param = max_extra_param;
+  options.random_seed = random_seed;
   return options;
 }
 
@@ -183,6 +186,8 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GE(ba_global_max_refinement_change, 0);
   CHECK_OPTION_GE(snapshot_frames_freq, 0);
   CHECK_OPTION_GT(prior_position_loss_scale, 0.);
+  CHECK_OPTION_GE(num_threads, -1);
+  CHECK_OPTION_GE(random_seed, -1);
   CHECK_OPTION(Mapper().Check());
   CHECK_OPTION(Triangulation().Check());
   return true;
@@ -538,6 +543,8 @@ void IncrementalPipeline::Reconstruct(
         reconstruction->UpdatePoint3DErrors();
         LOG(INFO) << "Keeping reconstruction due to interrupt";
         mapper.EndReconstruction(/*discard=*/false);
+        AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
+                                           reconstruction.get());
         return;
       }
 
@@ -582,6 +589,8 @@ void IncrementalPipeline::Reconstruct(
           reconstruction->UpdatePoint3DErrors();
           LOG(INFO) << "Keeping successful reconstruction";
           mapper.EndReconstruction(/*discard=*/false);
+          AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
+                                             reconstruction.get());
         }
 
         Callback(LAST_IMAGE_REG_CALLBACK);

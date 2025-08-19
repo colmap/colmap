@@ -30,7 +30,6 @@
 #include "colmap/util/timer.h"
 
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 
 namespace colmap {
 

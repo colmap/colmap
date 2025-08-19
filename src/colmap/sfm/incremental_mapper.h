@@ -118,6 +118,10 @@ class IncrementalMapper {
     // If reconstruction is provided as input, fix the existing image poses.
     bool fix_existing_frames = false;
 
+    // List of cameras for which to fix the camera parameters independent
+    // of refine_focal_length, refine_principal_point, and refine_extra_params.
+    std::unordered_set<camera_t> constant_cameras;
+
     // Whether to use prior camera positions
     bool use_prior_position = false;
 
@@ -130,6 +134,9 @@ class IncrementalMapper {
 
     // Number of threads.
     int num_threads = -1;
+
+    // PRNG seed for all stochastic methods during reconstruction.
+    int random_seed = -1;
 
     // Method to find and select next best image to register.
     enum class ImageSelectionMethod {

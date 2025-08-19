@@ -35,7 +35,6 @@
 #include "colmap/util/logging.h"
 
 #include <cfloat>
-#include <complex>
 #include <vector>
 
 #include <Eigen/Geometry>

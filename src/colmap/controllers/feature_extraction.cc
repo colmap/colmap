@@ -30,7 +30,6 @@
 #include "colmap/controllers/feature_extraction.h"
 
 #include "colmap/feature/sift.h"
-#include "colmap/geometry/gps.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/file.h"

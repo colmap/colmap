@@ -35,9 +35,7 @@
 #include "colmap/estimators/translation_transform.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/homography_matrix.h"
-#include "colmap/geometry/pose.h"
 #include "colmap/geometry/triangulation.h"
-#include "colmap/math/random.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
@@ -670,8 +668,6 @@ bool DetectWatermarkMatches(const Camera& camera1,
   return inlier_ratio >= options.watermark_min_inlier_ratio;
 }
 
-// Detect if inlier matches are caused by a watermark.
-// A watermark causes a pure translation in the boundaries of the images.
 void FilterStationaryMatches(double max_error,
                              const std::vector<Eigen::Vector2d>& points1,
                              const std::vector<Eigen::Vector2d>& points2,

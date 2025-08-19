@@ -37,7 +37,6 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/eigen_alignment.h"
-#include "colmap/util/eigen_matchers.h"
 
 #include <Eigen/Core>
 #include <gtest/gtest.h>
@@ -381,6 +380,76 @@ TwoViewGeometryTestData CreateTwoViewGeometryTestData(
   return data;
 }
 
+TEST(EstimateTwoViewGeometry, DetectWatermark) {
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.point2D_stddev = 0;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  TwoViewGeometryTestData test_data =
+      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+
+  TwoViewGeometryOptions two_view_geometry_options;
+  two_view_geometry_options.detect_watermark = true;
+  EXPECT_NE(EstimateTwoViewGeometry(test_data.camera1,
+                                    test_data.points1,
+                                    test_data.camera2,
+                                    test_data.points2,
+                                    test_data.matches,
+                                    two_view_geometry_options)
+                .config,
+            TwoViewGeometry::ConfigurationType::WATERMARK);
+
+  // Place the points on the left and right side of the images.
+  for (size_t i = 0; i < test_data.matches.size(); ++i) {
+    const double y = static_cast<double>(i) / test_data.matches.size() *
+                     test_data.camera1.height;
+    test_data.points1[test_data.matches[i].point2D_idx1] =
+        Eigen::Vector2d(0, y);
+    test_data.points2[test_data.matches[i].point2D_idx2] =
+        Eigen::Vector2d(test_data.camera2.width - 1, y);
+  }
+  EXPECT_EQ(EstimateTwoViewGeometry(test_data.camera1,
+                                    test_data.points1,
+                                    test_data.camera2,
+                                    test_data.points2,
+                                    test_data.matches,
+                                    two_view_geometry_options)
+                .config,
+            TwoViewGeometry::ConfigurationType::WATERMARK);
+
+  // Place the points on the top and bottom side of the images.
+  for (size_t i = 0; i < test_data.matches.size(); ++i) {
+    const double x = static_cast<double>(i) / test_data.matches.size() *
+                     test_data.camera1.width;
+    test_data.points1[test_data.matches[i].point2D_idx1] =
+        Eigen::Vector2d(x, 0);
+    test_data.points2[test_data.matches[i].point2D_idx2] =
+        Eigen::Vector2d(x, test_data.camera2.height - 1);
+  }
+  EXPECT_EQ(EstimateTwoViewGeometry(test_data.camera1,
+                                    test_data.points1,
+                                    test_data.camera2,
+                                    test_data.points2,
+                                    test_data.matches,
+                                    two_view_geometry_options)
+                .config,
+            TwoViewGeometry::ConfigurationType::WATERMARK);
+
+  // With disabled detection, expect a normal config.
+  two_view_geometry_options.detect_watermark = false;
+  EXPECT_NE(EstimateTwoViewGeometry(test_data.camera1,
+                                    test_data.points1,
+                                    test_data.camera2,
+                                    test_data.points2,
+                                    test_data.matches,
+                                    two_view_geometry_options)
+                .config,
+            TwoViewGeometry::ConfigurationType::WATERMARK);
+}
+
 TEST(EstimateTwoViewGeometry, IgnoreStationaryMatches) {
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
@@ -389,8 +458,6 @@ TEST(EstimateTwoViewGeometry, IgnoreStationaryMatches) {
   synthetic_dataset_options.num_points3D = 500;
   synthetic_dataset_options.point2D_stddev = 0;
   synthetic_dataset_options.camera_has_prior_focal_length = true;
-  synthetic_dataset_options.match_config =
-      SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE;
   TwoViewGeometryTestData test_data =
       CreateTwoViewGeometryTestData(synthetic_dataset_options);
 
@@ -425,6 +492,8 @@ TEST(EstimateTwoViewGeometry, IgnoreStationaryMatches) {
 }
 
 TEST(EstimateTwoViewGeometry, CalibratedDeterministic) {
+  SetPRNGSeed(1);
+
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
@@ -433,8 +502,6 @@ TEST(EstimateTwoViewGeometry, CalibratedDeterministic) {
   synthetic_dataset_options.point2D_stddev = 5;
   synthetic_dataset_options.inlier_match_ratio = 0.6;
   synthetic_dataset_options.camera_has_prior_focal_length = true;
-  synthetic_dataset_options.match_config =
-      SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE;
   const TwoViewGeometryTestData test_data =
       CreateTwoViewGeometryTestData(synthetic_dataset_options);
 
@@ -477,6 +544,8 @@ TEST(EstimateTwoViewGeometry, CalibratedDeterministic) {
 }
 
 TEST(EstimateTwoViewGeometry, UncalibratedDeterministic) {
+  SetPRNGSeed(1);
+
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
@@ -485,8 +554,6 @@ TEST(EstimateTwoViewGeometry, UncalibratedDeterministic) {
   synthetic_dataset_options.point2D_stddev = 5;
   synthetic_dataset_options.inlier_match_ratio = 0.6;
   synthetic_dataset_options.camera_has_prior_focal_length = false;
-  synthetic_dataset_options.match_config =
-      SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE;
   const TwoViewGeometryTestData test_data =
       CreateTwoViewGeometryTestData(synthetic_dataset_options);
 
@@ -529,6 +596,8 @@ TEST(EstimateTwoViewGeometry, UncalibratedDeterministic) {
 }
 
 TEST(EstimateTwoViewGeometry, PlanarOrPanoramicDeterministic) {
+  SetPRNGSeed(1);
+
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 2;
@@ -538,8 +607,6 @@ TEST(EstimateTwoViewGeometry, PlanarOrPanoramicDeterministic) {
   synthetic_dataset_options.inlier_match_ratio = 0.6;
   synthetic_dataset_options.camera_has_prior_focal_length = true;
   synthetic_dataset_options.sensor_from_rig_translation_stddev = 0;
-  synthetic_dataset_options.match_config =
-      SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE;
   const TwoViewGeometryTestData test_data =
       CreateTwoViewGeometryTestData(synthetic_dataset_options);
 

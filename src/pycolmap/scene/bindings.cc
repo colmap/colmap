@@ -29,12 +29,12 @@ void BindScene(py::module& m) {
   BindTrack(m);
   BindPoint3D(m);
   BindCorrespondenceGraph(m);
-  BindReconstruction(m);
-  BindReconstructionManager(m);
   BindTwoViewGeometryScene(m);
   BindDatabase(m);
-  BindSceneRig(m);
   BindDatabaseCache(m);
+  BindReconstruction(m);
+  BindReconstructionManager(m);
+  BindSceneRig(m);
   BindSynthetic(m);
 
   // Must be defined here, see: https://github.com/colmap/colmap/pull/2558

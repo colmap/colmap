@@ -29,7 +29,6 @@
 
 #include "colmap/estimators/generalized_relative_pose.h"
 
-#include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/optim/ransac.h"

@@ -38,35 +38,60 @@
 #include "colmap/util/timer.h"
 
 #include <fstream>
-#include <numeric>
 
 namespace colmap {
 namespace {
 
-void PrintElapsedTime(const Timer& timer) {
-  LOG(INFO) << StringPrintf("in %.3fs", timer.ElapsedSeconds());
-}
-
 class FeatureMatcherThread : public Thread {
  public:
+  template <typename PairGeneratorType>
+  static std::unique_ptr<Thread> Create(
+      bool only_verification,
+      const typename PairGeneratorType::PairingOptions& pairing_options,
+      const FeatureMatchingOptions& matching_options,
+      const TwoViewGeometryOptions& geometry_options,
+      const std::string& database_path) {
+    auto database = std::make_shared<Database>(database_path);
+    auto cache = std::make_shared<FeatureMatcherCache>(
+        pairing_options.CacheSize(), database);
+    return std::make_unique<FeatureMatcherThread>(
+        only_verification,
+        matching_options,
+        geometry_options,
+        database,
+        cache,
+        [pairing_options, cache]() {
+          return std::make_unique<PairGeneratorType>(pairing_options, cache);
+        });
+  }
+
   using PairGeneratorFactory = std::function<std::unique_ptr<PairGenerator>()>;
 
-  FeatureMatcherThread(const FeatureMatchingOptions& matching_options,
+  FeatureMatcherThread(bool only_verification,
+                       const FeatureMatchingOptions& matching_options,
                        const TwoViewGeometryOptions& geometry_options,
                        std::shared_ptr<Database> database,
                        std::shared_ptr<FeatureMatcherCache> cache,
                        PairGeneratorFactory pair_generator_factory)
-      : database_(std::move(database)),
+      : only_verification_(only_verification),
+        matching_options_(matching_options),
+        database_(std::move(database)),
         cache_(std::move(cache)),
         pair_generator_factory_(std::move(pair_generator_factory)),
-        matcher_(matching_options, geometry_options, cache_) {
+        matcher_(
+            only_verification, matching_options, geometry_options, cache_) {
     THROW_CHECK(matching_options.Check());
     THROW_CHECK(geometry_options.Check());
   }
 
  private:
   void Run() override {
-    PrintHeading1("Feature matching");
+    if (only_verification_) {
+      PrintHeading1("Geometric verification");
+    } else {
+      PrintHeading1("Feature matching & geometric verification");
+    }
+
     Timer run_timer;
     run_timer.Start();
 
@@ -87,11 +112,14 @@ class FeatureMatcherThread : public Thread {
       const std::vector<std::pair<image_t, image_t>> image_pairs =
           pair_generator->Next();
       matcher_.Match(image_pairs);
-      PrintElapsedTime(timer);
+      LOG(INFO) << StringPrintf("in %.3fs", timer.ElapsedSeconds());
     }
+
     run_timer.PrintMinutes();
   }
 
+  const bool only_verification_;
+  const FeatureMatchingOptions matching_options_;
   const std::shared_ptr<Database> database_;
   const std::shared_ptr<FeatureMatcherCache> cache_;
   const PairGeneratorFactory pair_generator_factory_;
@@ -105,18 +133,12 @@ std::unique_ptr<Thread> CreateExhaustiveFeatureMatcher(
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
-  auto database = std::make_shared<Database>(database_path);
-  auto cache = std::make_shared<FeatureMatcherCache>(
-      pairing_options.CacheSize(), database);
-  return std::make_unique<FeatureMatcherThread>(
+  return FeatureMatcherThread::Create<ExhaustivePairGenerator>(
+      /*only_verification=*/false,
+      pairing_options,
       matching_options,
       geometry_options,
-      database,
-      cache,
-      [pairing_options, cache]() {
-        return std::make_unique<ExhaustivePairGenerator>(pairing_options,
-                                                         cache);
-      });
+      database_path);
 }
 
 std::unique_ptr<Thread> CreateVocabTreeFeatureMatcher(
@@ -124,17 +146,12 @@ std::unique_ptr<Thread> CreateVocabTreeFeatureMatcher(
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
-  auto database = std::make_shared<Database>(database_path);
-  auto cache = std::make_shared<FeatureMatcherCache>(
-      pairing_options.CacheSize(), database);
-  return std::make_unique<FeatureMatcherThread>(
+  return FeatureMatcherThread::Create<VocabTreePairGenerator>(
+      /*only_verification=*/false,
+      pairing_options,
       matching_options,
       geometry_options,
-      database,
-      cache,
-      [pairing_options, cache]() {
-        return std::make_unique<VocabTreePairGenerator>(pairing_options, cache);
-      });
+      database_path);
 }
 
 std::unique_ptr<Thread> CreateSequentialFeatureMatcher(
@@ -142,18 +159,12 @@ std::unique_ptr<Thread> CreateSequentialFeatureMatcher(
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
-  auto database = std::make_shared<Database>(database_path);
-  auto cache = std::make_shared<FeatureMatcherCache>(
-      pairing_options.CacheSize(), database);
-  return std::make_unique<FeatureMatcherThread>(
+  return FeatureMatcherThread::Create<SequentialPairGenerator>(
+      /*only_verification=*/false,
+      pairing_options,
       matching_options,
       geometry_options,
-      database,
-      cache,
-      [pairing_options, cache]() {
-        return std::make_unique<SequentialPairGenerator>(pairing_options,
-                                                         cache);
-      });
+      database_path);
 }
 
 std::unique_ptr<Thread> CreateSpatialFeatureMatcher(
@@ -161,17 +172,12 @@ std::unique_ptr<Thread> CreateSpatialFeatureMatcher(
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
-  auto database = std::make_shared<Database>(database_path);
-  auto cache = std::make_shared<FeatureMatcherCache>(
-      pairing_options.CacheSize(), database);
-  return std::make_unique<FeatureMatcherThread>(
+  return FeatureMatcherThread::Create<SpatialPairGenerator>(
+      /*only_verification=*/false,
+      pairing_options,
       matching_options,
       geometry_options,
-      database,
-      cache,
-      [pairing_options, cache]() {
-        return std::make_unique<SpatialPairGenerator>(pairing_options, cache);
-      });
+      database_path);
 }
 
 std::unique_ptr<Thread> CreateTransitiveFeatureMatcher(
@@ -179,18 +185,12 @@ std::unique_ptr<Thread> CreateTransitiveFeatureMatcher(
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
-  auto database = std::make_shared<Database>(database_path);
-  auto cache = std::make_shared<FeatureMatcherCache>(
-      pairing_options.CacheSize(), database);
-  return std::make_unique<FeatureMatcherThread>(
+  return FeatureMatcherThread::Create<TransitivePairGenerator>(
+      /*only_verification=*/false,
+      pairing_options,
       matching_options,
       geometry_options,
-      database,
-      cache,
-      [pairing_options, cache]() {
-        return std::make_unique<TransitivePairGenerator>(pairing_options,
-                                                         cache);
-      });
+      database_path);
 }
 
 std::unique_ptr<Thread> CreateImagePairsFeatureMatcher(
@@ -198,17 +198,12 @@ std::unique_ptr<Thread> CreateImagePairsFeatureMatcher(
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
-  auto database = std::make_shared<Database>(database_path);
-  auto cache = std::make_shared<FeatureMatcherCache>(
-      pairing_options.CacheSize(), database);
-  return std::make_unique<FeatureMatcherThread>(
+  return FeatureMatcherThread::Create<ImportedPairGenerator>(
+      /*only_verification=*/false,
+      pairing_options,
       matching_options,
       geometry_options,
-      database,
-      cache,
-      [pairing_options, cache]() {
-        return std::make_unique<ImportedPairGenerator>(pairing_options, cache);
-      });
+      database_path);
 }
 
 namespace {
@@ -368,6 +363,19 @@ std::unique_ptr<Thread> CreateFeaturePairsFeatureMatcher(
     const std::string& database_path) {
   return std::make_unique<FeaturePairsFeatureMatcher>(
       pairing_options, matching_options, geometry_options, database_path);
+}
+
+std::unique_ptr<Thread> CreateGeometicVerifier(
+    const ExistingMatchedPairingOptions& pairing_options,
+    const FeatureMatchingOptions& matching_options,
+    const TwoViewGeometryOptions& geometry_options,
+    const std::string& database_path) {
+  return FeatureMatcherThread::Create<ExistingMatchedPairGenerator>(
+      /*only_verification=*/true,
+      pairing_options,
+      matching_options,
+      geometry_options,
+      database_path);
 }
 
 }  // namespace colmap
