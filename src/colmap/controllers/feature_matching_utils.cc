@@ -231,10 +231,12 @@ class VerifierWorker : public Thread {
 }  // namespace
 
 FeatureMatcherController::FeatureMatcherController(
+    bool only_verification,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     std::shared_ptr<FeatureMatcherCache> cache)
-    : matching_options_(matching_options),
+    : only_verification_(only_verification),
+      matching_options_(matching_options),
       geometry_options_(geometry_options),
       cache_(std::move(cache)),
       is_setup_(false) {
@@ -256,6 +258,14 @@ FeatureMatcherController::FeatureMatcherController(
     std::iota(gpu_indices.begin(), gpu_indices.end(), 0);
   }
 #endif  // COLMAP_CUDA_ENABLED
+
+  if (only_verification_) {
+    for (int i = 0; i < num_threads; ++i) {
+      verifiers_.emplace_back(std::make_unique<VerifierWorker>(
+          geometry_options_, cache_, &verifier_queue_, &output_queue_));
+    }
+    return;
+  }
 
   if (matching_options_.use_gpu) {
     auto matching_options_copy = matching_options_;
@@ -443,7 +453,6 @@ void FeatureMatcherController::Match(
     // from scratch and delete the existing results. This must be done before
     // pushing the jobs to the queue, otherwise database constraints might fail
     // when writing an existing result into the database.
-
     if (exists_inlier_matches) {
       cache_->DeleteInlierMatches(image_id1, image_id2);
     }
@@ -454,9 +463,11 @@ void FeatureMatcherController::Match(
 
     if (exists_matches) {
       data.matches = cache_->GetMatches(image_id1, image_id2);
-      cache_->DeleteMatches(image_id1, image_id2);
+      if (!only_verification_) {
+        cache_->DeleteMatches(image_id1, image_id2);
+      }
       THROW_CHECK(verifier_queue_.Push(std::move(data)));
-    } else {
+    } else if (!only_verification_) {
       THROW_CHECK(matcher_queue_.Push(std::move(data)));
     }
   }
@@ -480,7 +491,9 @@ void FeatureMatcherController::Match(
       output.two_view_geometry = TwoViewGeometry();
     }
 
-    cache_->WriteMatches(output.image_id1, output.image_id2, output.matches);
+    if (!only_verification_) {
+      cache_->WriteMatches(output.image_id1, output.image_id2, output.matches);
+    }
     cache_->WriteTwoViewGeometry(
         output.image_id1, output.image_id2, output.two_view_geometry);
   }
