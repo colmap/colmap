@@ -240,7 +240,10 @@ void FeatureMatcherCache::DeleteInlierMatches(const image_t image_id1,
 
 size_t FeatureMatcherCache::MaxNumKeypoints() {
   std::lock_guard<std::mutex> lock(database_mutex_);
-  return database_->MaxNumKeypoints();
+  if (!max_num_keypoints_) {
+    max_num_keypoints_ = database_->MaxNumKeypoints();
+  }
+  return *max_num_keypoints_;
 }
 
 void FeatureMatcherCache::MaybeLoadCameras() {

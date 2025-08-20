@@ -13,7 +13,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindEigenGeometry(py::module& m) {
-  py::class_ext_<Eigen::Quaterniond> PyRotation3d(m, "Rotation3d");
+  py::classh_ext<Eigen::Quaterniond> PyRotation3d(m, "Rotation3d");
   PyRotation3d.def(py::init([]() { return Eigen::Quaterniond::Identity(); }))
       .def(py::init<const Eigen::Vector4d&>(),
            "xyzw"_a,
@@ -64,7 +64,7 @@ void BindEigenGeometry(py::module& m) {
   py::implicitly_convertible<py::array, Eigen::Quaterniond>();
   MakeDataclass(PyRotation3d);
 
-  py::class_ext_<Eigen::AlignedBox3d> PyAlignedBox3d(m, "AlignedBox3d");
+  py::classh_ext<Eigen::AlignedBox3d> PyAlignedBox3d(m, "AlignedBox3d");
   PyAlignedBox3d.def(py::init<>())
       .def(py::init<const Eigen::Vector3d&, const Eigen::Vector3d&>(),
            "min"_a,

@@ -127,10 +127,10 @@ TEST_P(ParameterizedDatabaseTests, ImagePairToPairId) {
   EXPECT_EQ(Database::ImagePairToPairId(1, 2), Database::kMaxNumImages + 2);
   for (image_t i = 0; i < 20; ++i) {
     for (image_t j = 0; j < 20; ++j) {
-      const image_pair_t pair_id = Database::ImagePairToPairId(i, j);
+      const image_pair_t pair_id = ImagePairToPairId(i, j);
       image_t image_id1;
       image_t image_id2;
-      std::tie(image_id1, image_id2) = Database::PairIdToImagePair(pair_id);
+      std::tie(image_id1, image_id2) = PairIdToImagePair(pair_id);
       if (i < j) {
         EXPECT_EQ(i, image_id1);
         EXPECT_EQ(j, image_id2);
@@ -140,13 +140,6 @@ TEST_P(ParameterizedDatabaseTests, ImagePairToPairId) {
       }
     }
   }
-}
-
-TEST_P(ParameterizedDatabaseTests, SwapImagePair) {
-  EXPECT_FALSE(Database::SwapImagePair(0, 0));
-  EXPECT_FALSE(Database::SwapImagePair(0, 1));
-  EXPECT_TRUE(Database::SwapImagePair(1, 0));
-  EXPECT_FALSE(Database::SwapImagePair(1, 1));
 }
 
 TEST_P(ParameterizedDatabaseTests, Rig) {
@@ -447,10 +440,17 @@ TEST_P(ParameterizedDatabaseTests, Matches) {
 
   EXPECT_EQ(database->ReadAllMatchesBlob().size(), 1);
   EXPECT_EQ(database->ReadAllMatchesBlob()[0].first,
-            Database::ImagePairToPairId(image_id1, image_id2));
-  EXPECT_EQ(database->ReadAllMatches().size(), 1);
-  EXPECT_EQ(database->ReadAllMatches()[0].first,
-            Database::ImagePairToPairId(image_id1, image_id2));
+            ImagePairToPairId(image_id1, image_id2));
+  const std::vector<std::pair<image_pair_t, FeatureMatches>> matches =
+      database->ReadAllMatches();
+  EXPECT_EQ(matches.size(), 1);
+  EXPECT_EQ(matches[0].first, ImagePairToPairId(image_id1, image_id2));
+  const std::vector<std::pair<image_pair_t, int>> pair_ids_and_num_matches =
+      database->ReadNumMatches();
+  EXPECT_EQ(pair_ids_and_num_matches.size(), 1);
+  EXPECT_EQ(pair_ids_and_num_matches[0].first,
+            ImagePairToPairId(image_id1, image_id2));
+  EXPECT_EQ(pair_ids_and_num_matches[0].second, matches[0].second.size());
   EXPECT_EQ(database->NumMatches(), kNumMatches);
   database->DeleteMatches(image_id1, image_id2);
   EXPECT_EQ(database->NumMatches(), 0);
@@ -519,7 +519,7 @@ TEST_P(ParameterizedDatabaseTests, TwoViewGeometry) {
       two_view_geometries = database->ReadTwoViewGeometries();
   EXPECT_EQ(two_view_geometries.size(), 1);
   EXPECT_EQ(two_view_geometries[0].first,
-            Database::ImagePairToPairId(image_id1, image_id2));
+            ImagePairToPairId(image_id1, image_id2));
   EXPECT_EQ(two_view_geometry.config, two_view_geometries[0].second.config);
   EXPECT_EQ(two_view_geometry.F, two_view_geometries[0].second.F);
   EXPECT_EQ(two_view_geometry.E, two_view_geometries[0].second.E);
@@ -534,7 +534,7 @@ TEST_P(ParameterizedDatabaseTests, TwoViewGeometry) {
       database->ReadTwoViewGeometryNumInliers();
   EXPECT_EQ(pair_ids_and_num_inliers.size(), 1);
   EXPECT_EQ(pair_ids_and_num_inliers[0].first,
-            Database::ImagePairToPairId(image_id1, image_id2));
+            ImagePairToPairId(image_id1, image_id2));
   EXPECT_EQ(pair_ids_and_num_inliers[0].second,
             two_view_geometry.inlier_matches.size());
   EXPECT_EQ(database->NumInlierMatches(), 1000);
@@ -633,10 +633,10 @@ TEST_P(ParameterizedDatabaseTests, Merge) {
   EXPECT_EQ(merged_database->NumDescriptors(), 100);
   EXPECT_EQ(merged_database->NumMatches(), 20);
   EXPECT_EQ(merged_database->NumInlierMatches(), 0);
-  EXPECT_EQ(merged_database->ReadAllFrames()[0].DataIds().size(),
-            frame1.DataIds().size());
-  EXPECT_EQ(merged_database->ReadAllFrames()[1].DataIds().size(),
-            frame2.DataIds().size());
+  EXPECT_EQ(merged_database->ReadAllFrames()[0].NumDataIds(),
+            frame1.NumDataIds());
+  EXPECT_EQ(merged_database->ReadAllFrames()[1].NumDataIds(),
+            frame2.NumDataIds());
   EXPECT_EQ(merged_database->ReadAllImages()[0].CameraId(), 1);
   EXPECT_EQ(merged_database->ReadAllImages()[1].CameraId(), 1);
   EXPECT_EQ(merged_database->ReadAllImages()[2].CameraId(), 2);

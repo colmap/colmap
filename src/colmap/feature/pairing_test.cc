@@ -686,5 +686,36 @@ TEST(ImportedPairGenerator, Nominal) {
   }
 }
 
+TEST(ExistingMatchedPairGenerator, Nominal) {
+  constexpr int kNumImages = 5;
+  auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+  CreateSyntheticDatabase(kNumImages, *database);
+  const std::vector<Image> images = database->ReadAllImages();
+  CHECK_EQ(images.size(), kNumImages);
+
+  database->ClearMatches();
+  database->WriteMatches(
+      images[0].ImageId(), images[1].ImageId(), FeatureMatches(1));
+  database->WriteMatches(
+      images[0].ImageId(), images[2].ImageId(), FeatureMatches(2));
+  database->WriteMatches(
+      images[1].ImageId(), images[3].ImageId(), FeatureMatches(3));
+  database->WriteMatches(
+      images[2].ImageId(), images[3].ImageId(), FeatureMatches(0));
+
+  ExistingMatchedPairingOptions options;
+  options.batch_size = 2;
+  ExistingMatchedPairGenerator generator(options, database);
+  EXPECT_THAT(generator.Next(),
+              testing::UnorderedElementsAre(
+                  std::make_pair(images[0].ImageId(), images[1].ImageId()),
+                  std::make_pair(images[0].ImageId(), images[2].ImageId())));
+  EXPECT_THAT(generator.Next(),
+              testing::UnorderedElementsAre(
+                  std::make_pair(images[1].ImageId(), images[3].ImageId())));
+  EXPECT_TRUE(generator.Next().empty());
+  EXPECT_TRUE(generator.HasFinished());
+}
+
 }  // namespace
 }  // namespace colmap

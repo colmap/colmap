@@ -34,8 +34,6 @@
 
 namespace colmap {
 
-#include <cmath>
-
 #include "ceres/ceres.h"
 
 inline void SetQuaternionManifold(ceres::Problem* problem, double* quat_xyzw) {

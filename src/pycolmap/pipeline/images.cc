@@ -155,7 +155,7 @@ void BindImages(py::module& m) {
 
   using IROpts = ImageReaderOptions;
   auto PyImageReaderOptions =
-      py::class_<IROpts>(m, "ImageReaderOptions")
+      py::classh<IROpts>(m, "ImageReaderOptions")
           .def(py::init<>())
           .def_readwrite("camera_model",
                          &IROpts::camera_model,

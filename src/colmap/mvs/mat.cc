@@ -29,6 +29,7 @@
 
 #include "colmap/mvs/mat.h"
 
+#include "colmap/util/endian.h"
 #include "colmap/util/file.h"
 
 #include <fstream>

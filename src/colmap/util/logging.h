@@ -33,7 +33,6 @@
 #include "colmap/util/string.h"
 
 #include <exception>
-#include <iostream>
 
 #include <glog/logging.h>
 

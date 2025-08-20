@@ -32,12 +32,9 @@
 #include "colmap/estimators/alignment.h"
 #include "colmap/estimators/cost_functions.h"
 #include "colmap/estimators/manifold.h"
-#include "colmap/scene/projection.h"
-#include "colmap/sensor/models.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
-#include "colmap/util/timer.h"
 
 #include <iomanip>
 
@@ -1031,10 +1028,8 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
   }
 
   bool AlignReconstruction() {
-    RANSACOptions ransac_options;
-    if (prior_options_.ransac_max_error > 0) {
-      ransac_options.max_error = prior_options_.ransac_max_error;
-    } else {
+    RANSACOptions ransac_options = prior_options_.alignment_ransac_options;
+    if (ransac_options.max_error <= 0) {
       double max_stddev_sum = 0;
       size_t num_valid_covs = 0;
       for (const auto& [_, pose_prior] : pose_priors_) {

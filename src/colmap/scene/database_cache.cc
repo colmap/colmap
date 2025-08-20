@@ -29,6 +29,7 @@
 
 #include "colmap/scene/database_cache.h"
 
+#include "colmap/geometry/gps.h"
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
 
@@ -200,8 +201,7 @@ void DatabaseCache::Load(const Database& database,
     connected_frame_ids.reserve(frame_ids.size());
     for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
       if (UseInlierMatchesCheck(two_view_geometry)) {
-        const auto [image_id1, image_id2] =
-            Database::PairIdToImagePair(pair_id);
+        const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
         const frame_t frame_id1 = image_to_frame_id.at(image_id1);
         const frame_t frame_id2 = image_to_frame_id.at(image_id2);
         if (frame_ids.count(frame_id1) > 0 && frame_ids.count(frame_id2) > 0) {
@@ -260,7 +260,7 @@ void DatabaseCache::Load(const Database& database,
   size_t num_ignored_image_pairs = 0;
   for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
     if (UseInlierMatchesCheck(two_view_geometry)) {
-      const auto [image_id1, image_id2] = Database::PairIdToImagePair(pair_id);
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
       const frame_t frame_id1 = image_to_frame_id.at(image_id1);
       const frame_t frame_id2 = image_to_frame_id.at(image_id2);
       if (frame_ids.count(frame_id1) > 0 && frame_ids.count(frame_id2) > 0) {

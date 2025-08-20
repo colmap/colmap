@@ -90,6 +90,10 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.mapper->num_threads = options_.num_threads;
   option_manager_.poisson_meshing->num_threads = options_.num_threads;
 
+  option_manager_.two_view_geometry->ransac_options.random_seed =
+      options_.random_seed;
+  option_manager_.mapper->random_seed = options_.random_seed;
+
   ImageReaderOptions& reader_options = *option_manager_.image_reader;
   reader_options.image_path = *option_manager_.image_path;
   if (!options_.mask_path.empty()) {

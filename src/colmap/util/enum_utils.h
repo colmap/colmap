@@ -29,11 +29,6 @@
 
 #pragma once
 
-#include "colmap/util/logging.h"
-
-#include <iostream>
-#include <memory>
-
 #include <boost/preprocessor.hpp>
 
 namespace colmap {

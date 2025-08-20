@@ -59,12 +59,6 @@ typedef Eigen::Matrix<point2D_t, Eigen::Dynamic, 2, Eigen::RowMajor>
 // and trailing `EndTransaction`.
 class Database {
  public:
-  // The maximum number of images, that can be stored in the database.
-  // This limitation arises due to the fact, that we generate unique IDs for
-  // image pairs manually. Note: do not change this to
-  // another type than `size_t`.
-  const static size_t kMaxNumImages;
-
   // Factory function to create a database implementation for a given path.
   // The factory should be robust to handle non-supported files and return a
   // runtime_error in that case.
@@ -178,6 +172,7 @@ class Database {
   ReadAllMatchesBlob() const = 0;
   virtual std::vector<std::pair<image_pair_t, FeatureMatches>> ReadAllMatches()
       const = 0;
+  virtual std::vector<std::pair<image_pair_t, int>> ReadNumMatches() const = 0;
 
   virtual TwoViewGeometry ReadTwoViewGeometry(image_t image_id1,
                                               image_t image_id2) const = 0;
@@ -290,21 +285,6 @@ class Database {
                     const Database& database2,
                     Database* merged_database);
 
-  // Each image pair is assigned an unique ID in the `matches` and
-  // `two_view_geometries` table. We intentionally avoid to store the pairs in a
-  // separate table by using e.g. AUTOINCREMENT, since the overhead of querying
-  // the unique pair ID is significant.
-  inline static image_pair_t ImagePairToPairId(image_t image_id1,
-                                               image_t image_id2);
-
-  inline static std::pair<image_t, image_t> PairIdToImagePair(
-      image_pair_t pair_id);
-
-  // Return true if image pairs should be swapped. Used to enforce a specific
-  // image order to generate unique image pair identifiers independent of the
-  // order in which the image identifiers are used.
-  inline static bool SwapImagePair(image_t image_id1, image_t image_id2);
-
   // Combine multiple queries into one transaction by wrapping a code section
   // into a `BeginTransaction` and `EndTransaction`. You can create a scoped
   // transaction with `DatabaseTransaction` that ends when the transaction
@@ -337,37 +317,5 @@ class DatabaseTransaction {
   Database* database_;
   std::unique_lock<std::mutex> database_lock_;
 };
-
-////////////////////////////////////////////////////////////////////////////////
-// Implementation
-////////////////////////////////////////////////////////////////////////////////
-
-image_pair_t Database::ImagePairToPairId(const image_t image_id1,
-                                         const image_t image_id2) {
-  THROW_CHECK_LT(image_id1, kMaxNumImages);
-  THROW_CHECK_LT(image_id2, kMaxNumImages);
-  if (SwapImagePair(image_id1, image_id2)) {
-    return static_cast<image_pair_t>(kMaxNumImages) * image_id2 + image_id1;
-  } else {
-    return static_cast<image_pair_t>(kMaxNumImages) * image_id1 + image_id2;
-  }
-}
-
-std::pair<image_t, image_t> Database::PairIdToImagePair(
-    const image_pair_t pair_id) {
-  const image_t image_id2 = static_cast<image_t>(pair_id % kMaxNumImages);
-  const image_t image_id1 =
-      static_cast<image_t>((pair_id - image_id2) / kMaxNumImages);
-  THROW_CHECK_LT(image_id1, kMaxNumImages);
-  THROW_CHECK_LT(image_id2, kMaxNumImages);
-  return std::make_pair(image_id1, image_id2);
-}
-
-// Return true if image pairs should be swapped. Used to enforce a specific
-// image order to generate unique image pair identifiers independent of the
-// order in which the image identifiers are used.
-bool Database::SwapImagePair(const image_t image_id1, const image_t image_id2) {
-  return image_id1 > image_id2;
-}
 
 }  // namespace colmap

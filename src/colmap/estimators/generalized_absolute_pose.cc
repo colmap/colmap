@@ -29,10 +29,7 @@
 
 #include "colmap/estimators/generalized_absolute_pose.h"
 
-#include "colmap/math/polynomial.h"
 #include "colmap/util/logging.h"
-
-#include <array>
 
 #include <PoseLib/solvers/gp3p.h>
 #include <PoseLib/solvers/p3p.h>

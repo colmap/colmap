@@ -87,7 +87,7 @@ Reconstruction StereoFusion(const std::string& output_path,
 void BindMVS(py::module& m) {
   using PMOpts = mvs::PatchMatchOptions;
   auto PyPatchMatchOptions =
-      py::class_<PMOpts>(m, "PatchMatchOptions")
+      py::classh<PMOpts>(m, "PatchMatchOptions")
           .def(py::init<>())
           .def_readwrite("max_image_size",
                          &PMOpts::max_image_size,
@@ -185,7 +185,7 @@ void BindMVS(py::module& m) {
 
   using SFOpts = mvs::StereoFusionOptions;
   auto PyStereoFusionOptions =
-      py::class_<SFOpts>(m, "StereoFusionOptions")
+      py::classh<SFOpts>(m, "StereoFusionOptions")
           .def(py::init<>())
           .def_readwrite("mask_path",
                          &SFOpts::mask_path,

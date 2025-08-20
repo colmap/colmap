@@ -381,8 +381,10 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
 }  // namespace
 
 void BindDatabase(py::module& m) {
-  py::class_<Database, PyDatabaseImpl, py::smart_holder>(m, "Database")
-      .def_static("open", &Database::Open, "path"_a)
+  py::classh<Database> PyDatabase(m, "Database");
+  PyDatabase.def(py::init<>())
+      .def(py::init<const std::string&>(), "path"_a)
+      .def("open", &Database::Open, "path"_a)
       .def("close", &Database::Close)
       .def("__enter__", [](Database& self) { return &self; })
       .def("__exit__", [](Database& self, const py::args&) { self.Close(); })
@@ -400,33 +402,23 @@ void BindDatabase(py::module& m) {
            &Database::ExistsInlierMatches,
            "image_id1"_a,
            "image_id2"_a)
-      .def_property_readonly("num_cameras", &Database::NumCameras)
-      .def_property_readonly("num_images", &Database::NumImages)
-      .def_property_readonly("num_pose_priors", &Database::NumPosePriors)
-      .def_property_readonly("num_keypoints", &Database::NumKeypoints)
+      .def("num_rigs", &Database::NumRigs)
+      .def("num_cameras", &Database::NumCameras)
+      .def("num_frames", &Database::NumFrames)
+      .def("num_images", &Database::NumImages)
+      .def("num_pose_priors", &Database::NumPosePriors)
+      .def("num_keypoints", &Database::NumKeypoints)
       .def("num_keypoints_for_image",
            &Database::NumKeypointsForImage,
            "image_id"_a)
-      .def_property_readonly("num_descriptors", &Database::NumDescriptors)
+      .def("num_descriptors", &Database::NumDescriptors)
       .def("num_descriptors_for_image",
            &Database::NumDescriptorsForImage,
            "image_id"_a)
-      .def_property_readonly("num_matches", &Database::NumMatches)
-      .def_property_readonly("num_inlier_matches", &Database::NumInlierMatches)
-      .def_property_readonly("num_matched_image_pairs",
-                             &Database::NumMatchedImagePairs)
-      .def_property_readonly("num_verified_image_pairs",
-                             &Database::NumVerifiedImagePairs)
-      .def_static("image_pair_to_pair_id",
-                  &Database::ImagePairToPairId,
-                  "image_id1"_a,
-                  "image_id2"_a)
-      .def_static(
-          "pair_id_to_image_pair", &Database::PairIdToImagePair, "pair_id"_a)
-      .def_static("swap_image_pair",
-                  &Database::SwapImagePair,
-                  "image_id1"_a,
-                  "image_id2"_a)
+      .def("num_matches", &Database::NumMatches)
+      .def("num_inlier_matches", &Database::NumInlierMatches)
+      .def("num_matched_image_pairs", &Database::NumMatchedImagePairs)
+      .def("num_verified_image_pairs", &Database::NumVerifiedImagePairs)
       .def("read_rig", &Database::ReadRig, "rig_id"_a)
       .def("read_rig_with_sensor", &Database::ReadRigWithSensor, "sensor_id"_a)
       .def("read_all_rigs", &Database::ReadAllRigs)
@@ -553,7 +545,7 @@ void BindDatabase(py::module& m) {
                   "database2"_a,
                   "merged_database"_a);
 
-  py::class_<DatabaseTransactionWrapper>(m, "DatabaseTransaction")
+  py::classh<DatabaseTransactionWrapper>(m, "DatabaseTransaction")
       .def(py::init<Database*>(), "database"_a)
       .def("__enter__", &DatabaseTransactionWrapper::Enter)
       .def("__exit__", &DatabaseTransactionWrapper::Exit);

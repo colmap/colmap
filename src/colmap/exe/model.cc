@@ -42,6 +42,8 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
+#include <fstream>
+
 namespace colmap {
 namespace {
 

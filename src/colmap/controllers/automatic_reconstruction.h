@@ -104,6 +104,9 @@ class AutomaticReconstructionController : public Thread {
     // The number of threads to use in all stages.
     int num_threads = -1;
 
+    // The random seed to use in all stages.
+    int random_seed = -1;
+
     // Whether to use the GPU in feature extraction, feature matching, and
     // bundle adjustment.
     bool use_gpu = true;

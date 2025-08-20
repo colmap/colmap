@@ -46,7 +46,9 @@ struct ExhaustivePairingOptions {
 
   bool Check() const;
 
-  inline size_t CacheSize() const { return block_size; }
+  // Each block matches two sets of images with size block_size. To hold all
+  // images in the block, the cache thus needs to hold 2 * block_size.
+  inline size_t CacheSize() const { return 2 * block_size; }
 };
 
 struct VocabTreePairingOptions {
@@ -215,6 +217,17 @@ struct FeaturePairsMatchingOptions {
   std::string match_list_path = "";
 
   bool Check() const;
+};
+
+struct ExistingMatchedPairingOptions {
+  // The number of image pairs to match in one batch.
+  int batch_size = 1000;
+
+  bool Check() const;
+
+  inline size_t CacheSize() const {
+    return std::max<size_t>(10, static_cast<size_t>(2 * std::sqrt(batch_size)));
+  }
 };
 
 class PairGenerator {
@@ -403,6 +416,30 @@ class ImportedPairGenerator : public PairGenerator {
   std::vector<std::pair<image_t, image_t>> image_pairs_;
   std::vector<std::pair<image_t, image_t>> block_image_pairs_;
   size_t pair_idx_ = 0;
+};
+
+class ExistingMatchedPairGenerator : public PairGenerator {
+ public:
+  using PairingOptions = ExistingMatchedPairingOptions;
+
+  ExistingMatchedPairGenerator(
+      const ExistingMatchedPairingOptions& options,
+      const std::shared_ptr<FeatureMatcherCache>& cache);
+
+  ExistingMatchedPairGenerator(const ExistingMatchedPairingOptions& options,
+                               const std::shared_ptr<Database>& database);
+
+  void Reset() override;
+
+  bool HasFinished() const override;
+
+  std::vector<std::pair<image_t, image_t>> Next() override;
+
+ private:
+  const ExistingMatchedPairingOptions options_;
+  std::vector<std::pair<image_t, image_t>> image_pairs_;
+  size_t start_idx_ = 0;
+  size_t num_batches_ = 0;
 };
 
 }  // namespace colmap

@@ -16,7 +16,7 @@ namespace py = pybind11;
 
 void BindFeatureTypes(py::module& m) {
   auto PyFeatureKeypoint =
-      py::class_<FeatureKeypoint>(m, "FeatureKeypoint")
+      py::classh<FeatureKeypoint>(m, "FeatureKeypoint")
           .def(py::init<>())
           .def_readwrite("x", &FeatureKeypoint::x)
           .def_readwrite("y", &FeatureKeypoint::y)
@@ -45,7 +45,7 @@ void BindFeatureTypes(py::module& m) {
   py::implicitly_convertible<py::iterable, FeatureKeypoints>();
 
   auto PyFeatureMatch =
-      py::class_<FeatureMatch>(m, "FeatureMatch")
+      py::classh<FeatureMatch>(m, "FeatureMatch")
           .def(py::init<>())
           .def(py::init<const point2D_t, const point2D_t>())
           .def_readwrite("point2D_idx1", &FeatureMatch::point2D_idx1)

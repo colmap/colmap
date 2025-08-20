@@ -168,75 +168,169 @@ TEST(ReadRigConfig, Nominal) {
   ASSERT_FALSE(configs[1].cameras[1].camera.has_value());
 }
 
+void CreateTestData(int num_frames,
+                    int num_cameras_per_rig,
+                    Database* database,
+                    Reconstruction* reconstruction) {
+  // Create a synthetic dataset with a single rig and trivial frames.
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = num_frames * num_cameras_per_rig;
+  SynthesizeDataset(options, reconstruction, database);
+
+  // Manually overwrite the image names to match the expected rig config.
+  int image_idx = 0;
+  int frame_idx = 0;
+  for (auto& image : database->ReadAllImages()) {
+    if (image_idx++ % num_cameras_per_rig == 0) {
+      ++frame_idx;
+    }
+    image.SetName("camera" + std::to_string(image_idx % num_cameras_per_rig) +
+                  "_frame" + std::to_string(frame_idx));
+    reconstruction->Image(image.ImageId()).SetName(image.Name());
+    database->UpdateImage(image);
+  }
+}
+
 TEST(ApplyRigConfig, WithReconstruction) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction reconstruction;
-  SyntheticDatasetOptions options;
-  options.num_rigs = 1;
-  options.num_cameras_per_rig = 2;
-  options.num_frames_per_rig = 5;
-  SynthesizeDataset(options, &reconstruction, database.get());
+  CreateTestData(
+      /*num_frames=*/5,
+      /*num_cameras_per_rig=*/2,
+      database.get(),
+      &reconstruction);
 
   std::vector<RigConfig> configs;
   auto& config = configs.emplace_back();
   auto& camera1 = config.cameras.emplace_back();
-  camera1.image_prefix = "camera000001_";
+  camera1.image_prefix = "camera0_";
   camera1.ref_sensor = true;
   auto& camera2 = config.cameras.emplace_back();
-  camera2.image_prefix = "camera000002_";
+  camera2.image_prefix = "camera1_";
 
   ApplyRigConfig(configs, *database, &reconstruction);
   EXPECT_EQ(database->NumRigs(), 1);
-  EXPECT_EQ(database->NumFrames(), options.num_frames_per_rig);
+  EXPECT_EQ(database->NumFrames(), 5);
   EXPECT_EQ(reconstruction.NumRigs(), 1);
-  EXPECT_EQ(reconstruction.NumFrames(), options.num_frames_per_rig);
-  EXPECT_EQ(reconstruction.NumRegFrames(), options.num_frames_per_rig);
+  EXPECT_EQ(reconstruction.NumFrames(), 5);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 5);
+}
+
+TEST(ApplyRigConfig, WithDifferingDatabaseAndReconstructionIds) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction reconstruction;
+  CreateTestData(
+      /*num_frames=*/5,
+      /*num_cameras_per_rig=*/2,
+      database.get(),
+      &reconstruction);
+
+  // Create a reconstruction with differing rig/camera/frame/image ids.
+  Reconstruction differing_reconstruction;
+  for (const auto& [_, camera] : reconstruction.Cameras()) {
+    auto differing_camera = camera;
+    differing_camera.camera_id = camera.camera_id + 1;
+    differing_reconstruction.AddCamera(differing_camera);
+  }
+  for (const auto& [_, rig] : reconstruction.Rigs()) {
+    Rig differing_rig;
+    differing_rig.SetRigId(rig.RigId() + 1);
+    differing_rig.AddRefSensor(
+        sensor_t(rig.RefSensorId().type, rig.RefSensorId().id + 1));
+    for (const auto& [sensor_id, sensor_from_rig] : rig.Sensors()) {
+      differing_rig.AddSensor(sensor_t(sensor_id.type, sensor_id.id + 1),
+                              sensor_from_rig);
+    }
+    differing_reconstruction.AddRig(differing_rig);
+  }
+  for (const auto& [_, frame] : reconstruction.Frames()) {
+    auto differing_frame = frame;
+    differing_frame.ResetRigPtr();
+    differing_frame.SetFrameId(frame.FrameId() + 1);
+    differing_frame.SetRigId(frame.RigId() + 1);
+    differing_frame.DataIds().clear();
+    for (auto& data_id : frame.DataIds()) {
+      differing_frame.AddDataId(
+          data_t(sensor_t(data_id.sensor_id.type, data_id.sensor_id.id + 1),
+                 data_id.id + 1));
+    }
+    differing_reconstruction.AddFrame(differing_frame);
+  }
+  for (const auto& [_, image] : reconstruction.Images()) {
+    auto differing_image = image;
+    differing_image.ResetCameraPtr();
+    differing_image.ResetFramePtr();
+    differing_image.SetImageId(image.ImageId() + 1);
+    differing_image.SetCameraId(image.CameraId() + 1);
+    differing_image.SetFrameId(image.FrameId() + 1);
+    differing_reconstruction.AddImage(differing_image);
+  }
+
+  std::vector<RigConfig> configs;
+  auto& config = configs.emplace_back();
+  auto& camera1 = config.cameras.emplace_back();
+  camera1.image_prefix = "camera0_";
+  camera1.ref_sensor = true;
+  auto& camera2 = config.cameras.emplace_back();
+  camera2.image_prefix = "camera1_";
+
+  ApplyRigConfig(configs, *database, &differing_reconstruction);
+  EXPECT_EQ(database->NumRigs(), 1);
+  EXPECT_EQ(database->NumFrames(), 5);
+  EXPECT_EQ(differing_reconstruction.NumRigs(), 1);
+  EXPECT_EQ(differing_reconstruction.NumFrames(), 5);
+  EXPECT_EQ(differing_reconstruction.NumRegFrames(), 5);
 }
 
 TEST(ApplyRigConfig, WithPartialReconstruction) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction reconstruction;
-  SyntheticDatasetOptions options;
-  options.num_rigs = 1;
-  options.num_cameras_per_rig = 2;
-  options.num_frames_per_rig = 5;
-  SynthesizeDataset(options, &reconstruction, database.get());
+  CreateTestData(
+      /*num_frames=*/5,
+      /*num_cameras_per_rig=*/2,
+      database.get(),
+      &reconstruction);
 
   reconstruction.DeRegisterFrame(1);
+  reconstruction.DeRegisterFrame(2);
+  // De-register only one image in the frame.
+  // The other image allows us to register the frame.
   reconstruction.DeRegisterFrame(3);
 
   std::vector<RigConfig> configs;
   auto& config = configs.emplace_back();
   auto& camera1 = config.cameras.emplace_back();
-  camera1.image_prefix = "camera000001_";
+  camera1.image_prefix = "camera0_";
   camera1.ref_sensor = true;
   auto& camera2 = config.cameras.emplace_back();
-  camera2.image_prefix = "camera000002_";
+  camera2.image_prefix = "camera1_";
 
   ApplyRigConfig(configs, *database, &reconstruction);
   EXPECT_EQ(database->NumRigs(), 1);
-  EXPECT_EQ(database->NumFrames(), options.num_frames_per_rig);
+  EXPECT_EQ(database->NumFrames(), 5);
   EXPECT_EQ(reconstruction.NumRigs(), 1);
-  EXPECT_EQ(reconstruction.NumFrames(), options.num_frames_per_rig);
-  EXPECT_EQ(reconstruction.NumRegFrames(), options.num_frames_per_rig - 2);
+  EXPECT_EQ(reconstruction.NumFrames(), 5);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 4);
 }
 
 TEST(ApplyRigConfig, WithoutReconstruction) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction reconstruction;
-  SyntheticDatasetOptions options;
-  options.num_rigs = 1;
-  options.num_cameras_per_rig = 2;
-  options.num_frames_per_rig = 5;
-  SynthesizeDataset(options, &reconstruction, database.get());
+  CreateTestData(
+      /*num_frames=*/5,
+      /*num_cameras_per_rig=*/2,
+      database.get(),
+      &reconstruction);
 
   std::vector<RigConfig> configs;
   auto& config = configs.emplace_back();
   auto& camera1 = config.cameras.emplace_back();
-  camera1.image_prefix = "camera000001_";
+  camera1.image_prefix = "camera0_";
   camera1.ref_sensor = true;
   auto& camera2 = config.cameras.emplace_back();
-  camera2.image_prefix = "camera000002_";
+  camera2.image_prefix = "camera1_";
   camera2.camera =
       Camera::CreateFromModelId(2, CameraModelId::kOpenCV, 2.0, 1024, 768);
   camera2.cam_from_rig =
@@ -244,9 +338,7 @@ TEST(ApplyRigConfig, WithoutReconstruction) {
 
   ApplyRigConfig(configs, *database);
   EXPECT_EQ(database->NumRigs(), 1);
-  EXPECT_EQ(database->NumFrames(), options.num_frames_per_rig);
-  EXPECT_EQ(reconstruction.NumRigs(), 1);
-  EXPECT_EQ(reconstruction.NumFrames(), options.num_frames_per_rig);
+  EXPECT_EQ(database->NumFrames(), 5);
   const auto [sensor_id2, sensor2_from_rig] =
       *database->ReadAllRigs().at(0).Sensors().begin();
   EXPECT_EQ(sensor2_from_rig.value().rotation.coeffs(),
@@ -293,7 +385,7 @@ TEST(ApplyRigConfig, WithUnconfiguredSingleAndConfiguredMultiCameraRigs) {
 
   int num_non_trivial_frames = 0;
   for (const auto& rig : database->ReadAllFrames()) {
-    num_non_trivial_frames += rig.DataIds().size() > 1;
+    num_non_trivial_frames += rig.NumDataIds() > 1;
   }
   EXPECT_EQ(num_non_trivial_frames, 5);
 }
