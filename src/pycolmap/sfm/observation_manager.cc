@@ -14,14 +14,12 @@ namespace py = pybind11;
 
 void BindObservationManager(py::module& m) {
   using ImagePairStat = ObservationManager::ImagePairStat;
-  py::class_ext_<ImagePairStat, std::shared_ptr<ImagePairStat>>(m,
-                                                                "ImagePairStat")
+  py::classh_ext<ImagePairStat>(m, "ImagePairStat")
       .def(py::init<>())
       .def_readwrite("num_tri_corrs", &ImagePairStat::num_tri_corrs)
       .def_readwrite("num_total_corrs", &ImagePairStat::num_total_corrs);
 
-  py::class_<ObservationManager, std::shared_ptr<ObservationManager>>(
-      m, "ObservationManager")
+  py::classh<ObservationManager>(m, "ObservationManager")
       .def(py::init<Reconstruction&,
                     std::shared_ptr<const CorrespondenceGraph>>(),
            "reconstruction"_a,

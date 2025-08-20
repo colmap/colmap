@@ -75,6 +75,7 @@ class FeatureMatcherThread : public Thread {
                        PairGeneratorFactory pair_generator_factory)
       : only_verification_(only_verification),
         matching_options_(matching_options),
+        geometry_options_(geometry_options),
         database_(std::move(database)),
         cache_(std::move(cache)),
         pair_generator_factory_(std::move(pair_generator_factory)),
@@ -116,10 +117,112 @@ class FeatureMatcherThread : public Thread {
     }
 
     run_timer.PrintMinutes();
+
+    // Notice that we run rig verification after feature matching, because
+    // feature matching operates on pairs of images instead of pairs of frames.
+    // Rig verification operates on pairs of frames and we require all image
+    // pairs between two frames to be matched before running rig verification.
+    if (matching_options_.rig_verification) {
+      run_timer.Restart();
+      PrintHeading1("Rig verification");
+      RunRigVerification();
+      run_timer.PrintMinutes();
+    }
+  }
+
+  void RunRigVerification() {
+    std::unordered_map<rig_t, Rig> rigs;
+    for (auto& rig : database_->ReadAllRigs()) {
+      rigs[rig.RigId()] = std::move(rig);
+    }
+
+    std::unordered_map<image_t, frame_t> image_to_frame_ids;
+    for (const auto& frame : database_->ReadAllFrames()) {
+      for (const data_t& data_id : frame.ImageIds()) {
+        image_to_frame_ids[data_id.id] = frame.FrameId();
+      }
+    }
+
+    std::map<std::pair<frame_t, frame_t>, int> frame_pair_to_num_matches;
+    for (const auto& [image_pair_id, num_matches] :
+         database_->ReadNumMatches()) {
+      if (num_matches == 0) {
+        continue;
+      }
+      const auto [image_id1, image_id2] = PairIdToImagePair(image_pair_id);
+      frame_t frame_id1 = image_to_frame_ids.at(image_id1);
+      frame_t frame_id2 = image_to_frame_ids.at(image_id2);
+      if (frame_id1 > frame_id2) {
+        std::swap(frame_id1, frame_id2);
+      }
+      frame_pair_to_num_matches[std::make_pair(frame_id1, frame_id2)] +=
+          num_matches;
+    }
+
+    ThreadPool thread_pool(matching_options_.num_threads);
+    for (const auto& [frame_pair, num_matches] : frame_pair_to_num_matches) {
+      if (num_matches < geometry_options_.min_num_inliers) {
+        continue;
+      }
+      thread_pool.AddTask([this,
+                           &rigs,
+                           frame_id1 = frame_pair.first,
+                           frame_id2 = frame_pair.second]() {
+        const Frame& frame1 = cache_->GetFrame(frame_id1);
+        const Frame& frame2 = cache_->GetFrame(frame_id2);
+        const Rig& rig1 = rigs.at(frame1.RigId());
+        const Rig& rig2 = rigs.at(frame2.RigId());
+        if (rig1.NumSensors() == 1 && rig2.NumSensors() == 1) {
+          return;
+        }
+
+        std::unordered_map<image_t, Image> images;
+        images.reserve(frame1.NumDataIds() + frame2.NumDataIds());
+        std::unordered_map<camera_t, Camera> cameras;
+        cameras.reserve(images.size());
+        auto add_images_and_cameras =
+            [this, &images, &cameras](const Frame& frame) {
+              for (const data_t& data_id : frame.ImageIds()) {
+                Image& image = images[data_id.id];
+                image = cache_->GetImage(data_id.id);
+                image.SetPoints2D(FeatureKeypointsToPointsVector(
+                    *cache_->GetKeypoints(data_id.id)));
+                cameras[image.CameraId()] = cache_->GetCamera(image.CameraId());
+              }
+            };
+        add_images_and_cameras(frame1);
+        add_images_and_cameras(frame2);
+
+        std::vector<std::pair<std::pair<image_t, image_t>, FeatureMatches>>
+            matches;
+        matches.reserve(frame1.NumDataIds() * frame2.NumDataIds());
+        for (const data_t& image_id1 : frame1.ImageIds()) {
+          for (const data_t& image_id2 : frame2.ImageIds()) {
+            if (!cache_->ExistsMatches(image_id1.id, image_id2.id)) {
+              continue;
+            }
+            matches.emplace_back(
+                std::make_pair(image_id1.id, image_id2.id),
+                cache_->GetMatches(image_id1.id, image_id2.id));
+          }
+        }
+
+        for (const auto& [image_pair, two_view_geometry] :
+             EstimateRigTwoViewGeometries(
+                 rig1, rig2, images, cameras, matches, geometry_options_)) {
+          const auto& [image_id1, image_id2] = image_pair;
+          cache_->DeleteInlierMatches(image_id1, image_id2);
+          cache_->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+        }
+      });
+    }
+
+    thread_pool.Wait();
   }
 
   const bool only_verification_;
   const FeatureMatchingOptions matching_options_;
+  const TwoViewGeometryOptions geometry_options_;
   const std::shared_ptr<Database> database_;
   const std::shared_ptr<FeatureMatcherCache> cache_;
   const PairGeneratorFactory pair_generator_factory_;
