@@ -1,6 +1,7 @@
 #include "colmap/scene/reconstruction.h"
 
 #include "colmap/scene/correspondence_graph.h"
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/file.h"
@@ -103,6 +104,7 @@ void BindReconstruction(py::module& m) {
       .def("exists_frame", &Reconstruction::ExistsFrame, "frame_id"_a)
       .def("exists_image", &Reconstruction::ExistsImage, "image_id"_a)
       .def("exists_point3D", &Reconstruction::ExistsPoint3D, "point3D_id"_a)
+      .def("load", &Reconstruction::Load, "database_cache"_a)
       .def("tear_down", &Reconstruction::TearDown)
       .def("add_rig", &Reconstruction::AddRig, "rig"_a, "Add new rig.")
       .def("add_camera",

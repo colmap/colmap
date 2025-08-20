@@ -30,7 +30,7 @@
 #pragma once
 
 #include "colmap/controllers/image_reader.h"
-#include "colmap/feature/sift.h"
+#include "colmap/feature/extractor.h"
 #include "colmap/util/threading.h"
 
 namespace colmap {

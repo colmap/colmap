@@ -411,9 +411,6 @@ void WriteFrameData(const frame_t frame_id,
 
 }  // namespace
 
-const size_t Database::kMaxNumImages =
-    static_cast<size_t>(std::numeric_limits<int32_t>::max());
-
 const std::string Database::kInMemoryDatabasePath = ":memory:";
 
 std::mutex Database::update_schema_mutex_;
@@ -812,6 +809,22 @@ std::vector<std::pair<image_pair_t, FeatureMatches>> Database::ReadAllMatches()
   }
 
   return all_matches;
+}
+
+std::vector<std::pair<image_pair_t, int>> Database::ReadNumMatches() const {
+  Sqlite3StmtContext context(sql_stmt_read_num_matches_);
+
+  std::vector<std::pair<image_pair_t, int>> num_matches;
+  while (SQLITE3_CALL(sqlite3_step(sql_stmt_read_num_matches_)) == SQLITE_ROW) {
+    const image_pair_t pair_id = static_cast<image_pair_t>(
+        sqlite3_column_int64(sql_stmt_read_num_matches_, 0));
+
+    const int rows =
+        static_cast<int>(sqlite3_column_int64(sql_stmt_read_num_matches_, 1));
+    num_matches.emplace_back(pair_id, rows);
+  }
+
+  return num_matches;
 }
 
 TwoViewGeometry Database::ReadTwoViewGeometry(const image_t image_id1,
@@ -1486,7 +1499,7 @@ void Database::Merge(const Database& database1,
   // Merge the matches.
 
   for (const auto& matches : database1.ReadAllMatches()) {
-    const auto image_pair = Database::PairIdToImagePair(matches.first);
+    const auto image_pair = PairIdToImagePair(matches.first);
 
     const image_t new_image_id1 = new_image_ids1.at(image_pair.first);
     const image_t new_image_id2 = new_image_ids1.at(image_pair.second);
@@ -1495,7 +1508,7 @@ void Database::Merge(const Database& database1,
   }
 
   for (const auto& matches : database2.ReadAllMatches()) {
-    const auto image_pair = Database::PairIdToImagePair(matches.first);
+    const auto image_pair = PairIdToImagePair(matches.first);
 
     const image_t new_image_id1 = new_image_ids2.at(image_pair.first);
     const image_t new_image_id2 = new_image_ids2.at(image_pair.second);
@@ -1507,7 +1520,7 @@ void Database::Merge(const Database& database1,
 
   for (const auto& [pair_id, two_view_geometry] :
        database1.ReadTwoViewGeometries()) {
-    const auto image_pair = Database::PairIdToImagePair(pair_id);
+    const auto image_pair = PairIdToImagePair(pair_id);
 
     const image_t new_image_id1 = new_image_ids1.at(image_pair.first);
     const image_t new_image_id2 = new_image_ids1.at(image_pair.second);
@@ -1518,7 +1531,7 @@ void Database::Merge(const Database& database1,
 
   for (const auto& [pair_id, two_view_geometry] :
        database2.ReadTwoViewGeometries()) {
-    const auto image_pair = Database::PairIdToImagePair(pair_id);
+    const auto image_pair = PairIdToImagePair(pair_id);
 
     const image_t new_image_id1 = new_image_ids2.at(image_pair.first);
     const image_t new_image_id2 = new_image_ids2.at(image_pair.second);
@@ -1680,6 +1693,8 @@ void Database::PrepareSQLStatements() {
                    &sql_stmt_read_matches_);
   prepare_sql_stmt("SELECT * FROM matches WHERE rows > 0;",
                    &sql_stmt_read_matches_all_);
+  prepare_sql_stmt("SELECT pair_id, rows FROM matches WHERE rows > 0;",
+                   &sql_stmt_read_num_matches_);
   prepare_sql_stmt(
       "SELECT rows, cols, data, config, F, E, H, qvec, tvec FROM "
       "two_view_geometries WHERE pair_id = ?;",

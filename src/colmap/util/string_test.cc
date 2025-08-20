@@ -29,9 +29,6 @@
 
 #include "colmap/util/string.h"
 
-#include <array>
-#include <string_view>
-
 #include <gtest/gtest.h>
 
 namespace colmap {

@@ -62,6 +62,10 @@ void BindIncrementalPipeline(py::module& m) {
       .def_readwrite("num_threads",
                      &Opts::num_threads,
                      "The number of threads to use during reconstruction.")
+      .def_readwrite(
+          "random_seed",
+          &Opts::random_seed,
+          "PRNG seed for all stochastic methods during reconstruction.")
       .def_readwrite("min_focal_length_ratio",
                      &Opts::min_focal_length_ratio,
                      "The threshold used to filter and ignore images with "
@@ -180,6 +184,11 @@ void BindIncrementalPipeline(py::module& m) {
                      &Opts::fix_existing_frames,
                      "If reconstruction is provided as input, fix the existing "
                      "frame poses.")
+      .def_readwrite("constant_cameras",
+                     &Opts::constant_cameras,
+                     "List of cameras for which to fix the camera parameters "
+                     "independent of refine_focal_length, "
+                     "refine_principal_point, and refine_extra_params.")
       .def_readwrite(
           "mapper", &Opts::mapper, "Options of the IncrementalMapper.")
       .def_readwrite("triangulation",
@@ -338,7 +347,16 @@ void BindIncrementalMapperOptions(py::module& m) {
                      &Opts::fix_existing_frames,
                      "If reconstruction is provided as input, fix the existing "
                      "frame poses.")
+      .def_readwrite("constant_cameras",
+                     &Opts::constant_cameras,
+                     "List of cameras for which to fix the camera parameters "
+                     "independent of refine_focal_length, "
+                     "refine_principal_point, and refine_extra_params.")
       .def_readwrite("num_threads", &Opts::num_threads, "Number of threads.")
+      .def_readwrite(
+          "random_seed",
+          &Opts::random_seed,
+          "PRNG seed for all stochastic methods during reconstruction.")
       .def_readwrite("image_selection_method",
                      &Opts::image_selection_method,
                      "Method to find and select next best image to register.")

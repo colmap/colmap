@@ -70,6 +70,10 @@ void BindIncrementalTriangulator(py::module& m) {
                      &Opts::max_extra_param,
                      "The threshold used to filter and ignore images with "
                      "degenerate intrinsics.")
+      .def_readwrite(
+          "random_seed",
+          &Opts::random_seed,
+          "PRNG seed for all stochastic methods during triangulation.")
       .def("check", &Opts::Check);
   MakeDataclass(PyOpts);
 

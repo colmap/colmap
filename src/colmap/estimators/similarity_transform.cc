@@ -29,6 +29,8 @@
 
 #include "colmap/estimators/similarity_transform.h"
 
+#include "colmap/optim/loransac.h"
+
 namespace colmap {
 namespace {
 

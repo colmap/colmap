@@ -29,8 +29,6 @@
 
 #include "colmap/scene/reconstruction_io_utils.h"
 
-#include <fstream>
-
 namespace colmap {
 
 void CreateOneRigPerCamera(Reconstruction& reconstruction) {

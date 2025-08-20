@@ -445,6 +445,8 @@ void ModelViewerWidget::ClearReconstruction() {
   points3D.clear();
   reg_image_ids.clear();
   reconstruction = nullptr;
+  selected_image_id_ = kInvalidImageId;
+  selected_point3D_id_ = kInvalidPoint3DId;
   Upload();
 }
 

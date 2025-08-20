@@ -30,12 +30,8 @@
 #include "colmap/estimators/bundle_adjustment.h"
 
 #include "colmap/geometry/rigid3_matchers.h"
-#include "colmap/math/random.h"
-#include "colmap/scene/correspondence_graph.h"
-#include "colmap/scene/projection.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
-#include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
 

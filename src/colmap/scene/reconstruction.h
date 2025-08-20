@@ -33,16 +33,12 @@
 #include "colmap/scene/camera.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/image.h"
-#include "colmap/scene/point2d.h"
 #include "colmap/scene/point3d.h"
 #include "colmap/scene/track.h"
 #include "colmap/sensor/rig.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
-#include <memory>
-#include <set>
-#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>

@@ -200,9 +200,9 @@ void BindBundleAdjuster(py::module& m) {
                          &PosePriorBAOpts::prior_position_loss_scale,
                          "Threshold on the residual for the robust loss (chi2 "
                          "for 3DOF at 95% = 7.815).")
-          .def_readwrite("ransac_max_error",
-                         &PosePriorBAOpts::ransac_max_error,
-                         "Maximum RANSAC error for Sim3 alignment.");
+          .def_readwrite("alignment_ransac",
+                         &PosePriorBAOpts::alignment_ransac_options,
+                         "RANSAC options for Sim3 alignment.");
   MakeDataclass(PyPosePriorBundleAdjustmentOptions);
 
   py::class_<BundleAdjuster, PyBundleAdjuster, py::smart_holder>(

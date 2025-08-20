@@ -32,7 +32,6 @@
 #include "colmap/scene/camera.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/util/types.h"
 
 #include <optional>
 #include <vector>

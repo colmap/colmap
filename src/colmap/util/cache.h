@@ -33,8 +33,6 @@
 
 #include <functional>
 #include <future>
-#include <iostream>
-#include <limits>
 #include <list>
 #include <memory>
 #include <shared_mutex>

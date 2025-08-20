@@ -56,6 +56,24 @@ TEST(ExceptionLogging, Nominal) {
       { LOG_FATAL_THROW(std::logic_error) << "Error!"; }, std::logic_error);
 }
 
+// Ensure that the condition is evaluated exactly once
+// for both the positive and negative cases.
+TEST(ExceptionLogging, NumConditionEvals) {
+  int num_calls = 0;
+  auto func = [&num_calls]() {
+    ++num_calls;
+    return true;
+  };
+  THROW_CHECK(func());
+  EXPECT_EQ(num_calls, 1);
+  try {
+    THROW_CHECK(!func());
+  } catch (...) {
+    LOG(INFO) << "Caught exception";
+  }
+  EXPECT_EQ(num_calls, 2);
+}
+
 TEST(ExceptionLogging, Nested) {
   EXPECT_NO_THROW(PrintingFn("message"));
   EXPECT_THROW(PrintingFn(""), std::invalid_argument);

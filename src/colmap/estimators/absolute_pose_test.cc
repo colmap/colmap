@@ -29,7 +29,6 @@
 
 #include "colmap/estimators/absolute_pose.h"
 
-#include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"

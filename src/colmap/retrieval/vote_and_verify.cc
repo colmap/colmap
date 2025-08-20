@@ -30,12 +30,10 @@
 #include "colmap/retrieval/vote_and_verify.h"
 
 #include "colmap/estimators/affine_transform.h"
-#include "colmap/math/math.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
-#include <array>
 #include <unordered_map>
 
 #include <Eigen/Geometry>
@@ -244,7 +242,7 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
 
   const float trans_norm = 1.0f / (2.0f * max_trans);
   const float scale_norm = 1.0f / (2.0f * max_log_scale);
-  const float angle_norm = 1.0f / (2.0f * static_cast<float>(M_PI));
+  const float angle_norm = 1.0f / (2.0f * static_cast<float>(EIGEN_PI));
 
   //////////////////////////////////////////////////////////////////////////////
   // Fill the multi-resolution voting histogram.
@@ -271,7 +269,7 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
     const float x = (T.tx + max_trans) * trans_norm;
     const float y = (T.ty + max_trans) * trans_norm;
     const float s = (log_scale + max_log_scale) * scale_norm;
-    const float a = (T.angle + static_cast<float>(M_PI)) * angle_norm;
+    const float a = (T.angle + static_cast<float>(EIGEN_PI)) * angle_norm;
 
     int n_x = std::min(static_cast<int>(x * options.num_trans_bins),
                        static_cast<int>(options.num_trans_bins - 1));
