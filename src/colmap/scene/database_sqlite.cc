@@ -455,9 +455,7 @@ class SqliteDatabase : public Database {
     return database;
   }
 
-  ~SqliteDatabase() override { Close(); }
-
-  void Close() override {
+  void CloseImpl() {
     if (database_ != nullptr) {
       FinalizeSQLStatements();
       if (database_entry_deleted_) {
@@ -468,6 +466,10 @@ class SqliteDatabase : public Database {
       database_ = nullptr;
     }
   }
+
+  ~SqliteDatabase() override { CloseImpl(); }
+
+  void Close() override { CloseImpl(); }
 
   bool ExistsRig(const rig_t rig_id) const override {
     return ExistsRowId(sql_stmt_exists_rig_, rig_id);

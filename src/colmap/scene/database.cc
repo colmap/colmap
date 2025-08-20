@@ -35,7 +35,9 @@ namespace colmap {
 
 std::vector<Database::Factory> Database::factories_ = {&OpenSqliteDatabase};
 
-void Database::Register(Factory factory) { factories_.push_back(factory); }
+void Database::Register(Factory factory) {
+  factories_.push_back(std::move(factory));
+}
 
 Database::~Database() = default;
 

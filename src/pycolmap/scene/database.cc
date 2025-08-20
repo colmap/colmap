@@ -385,7 +385,7 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
 }  // namespace
 
 void BindDatabase(py::module& m) {
-  py::classh<Database> PyDatabase(m, "Database");
+  py::classh<Database, PyDatabaseImpl> PyDatabase(m, "Database");
   PyDatabase.def(py::init<>())
       .def(py::init<const std::string&>(), "path"_a)
       .def("open", &Database::Open, "path"_a)
