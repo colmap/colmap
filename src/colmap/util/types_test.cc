@@ -37,6 +37,13 @@
 namespace colmap {
 namespace {
 
+TEST(SwapImagePair, Nominal) {
+  EXPECT_FALSE(SwapImagePair(0, 0));
+  EXPECT_FALSE(SwapImagePair(0, 1));
+  EXPECT_TRUE(SwapImagePair(1, 0));
+  EXPECT_FALSE(SwapImagePair(1, 1));
+}
+
 TEST(FilterView, Empty) {
   const std::vector<int> container;
   filter_view filtered_container(
