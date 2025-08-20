@@ -284,14 +284,13 @@ void FeatureMatcherCache::MaybeLoadImages() {
     return;
   }
 
-  bool has_frames = frames_cache_ ? !frames_cache_->empty() : false;
+  // Handle legacy databases without frames.
+  bool has_frames = !frames_cache_->empty();
   std::unordered_map<image_t, frame_t> image_to_frame_id;
   if (has_frames) {
     for (const auto& [frame_id, frame] : *frames_cache_) {
-      for (const auto& data_id : frame.DataIds()) {
-        if (data_id.sensor_id.type == SensorType::CAMERA) {
-          image_to_frame_id.emplace(data_id.id, frame.FrameId());
-        }
+      for (const auto& data_id : frame.ImageIds()) {
+        image_to_frame_id.emplace(data_id.id, frame.FrameId());
       }
     }
   }
@@ -301,9 +300,9 @@ void FeatureMatcherCache::MaybeLoadImages() {
   images_cache_->reserve(images.size());
   for (Image& image : images) {
     if (has_frames) {
-      auto iter = image_to_frame_id.find(image.ImageId());
-      if (iter != image_to_frame_id.end()) {
-        image.SetFrameId(iter->second);
+      if (const auto it = image_to_frame_id.find(image.ImageId());
+          it != image_to_frame_id.end()) {
+        image.SetFrameId(it->second);
       }
     }
     images_cache_->emplace(image.ImageId(), std::move(image));
