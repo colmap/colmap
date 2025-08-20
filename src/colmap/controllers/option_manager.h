@@ -48,6 +48,7 @@ struct VocabTreePairingOptions;
 struct SpatialPairingOptions;
 struct TransitivePairingOptions;
 struct ImportedPairingOptions;
+struct ExistingMatchedPairingOptions;
 struct BundleAdjustmentOptions;
 struct IncrementalPipelineOptions;
 struct RenderOptions;

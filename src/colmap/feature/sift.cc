@@ -1095,6 +1095,7 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
 
     std::function<bool(float, float, float, float)> guided_filter;
     if (two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
+        two_view_geometry->config == TwoViewGeometry::CALIBRATED_RIG ||
         two_view_geometry->config == TwoViewGeometry::UNCALIBRATED) {
       guided_filter =
           [&](const float x1, const float y1, const float x2, const float y2) {
@@ -1372,6 +1373,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     float* F_ptr = nullptr;
     float* H_ptr = nullptr;
     if (two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
+        two_view_geometry->config == TwoViewGeometry::CALIBRATED_RIG ||
         two_view_geometry->config == TwoViewGeometry::UNCALIBRATED) {
       F = two_view_geometry->F.cast<float>();
       F_ptr = F.data();
