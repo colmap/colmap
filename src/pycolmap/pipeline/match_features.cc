@@ -72,7 +72,7 @@ void VerifyMatches(const std::string& database_path,
 void BindMatchFeatures(py::module& m) {
   using EMOpts = ExhaustiveMatchingOptions;
   auto PyExhaustiveMatchingOptions =
-      py::class_<ExhaustiveMatchingOptions>(m, "ExhaustiveMatchingOptions")
+      py::classh<ExhaustiveMatchingOptions>(m, "ExhaustiveMatchingOptions")
           .def(py::init<>())
           .def_readwrite("block_size", &EMOpts::block_size)
           .def("check", &EMOpts::Check);
@@ -80,7 +80,7 @@ void BindMatchFeatures(py::module& m) {
 
   using SpMOpts = SpatialMatchingOptions;
   auto PySpatialMatchingOptions =
-      py::class_<SpMOpts>(m, "SpatialMatchingOptions")
+      py::classh<SpMOpts>(m, "SpatialMatchingOptions")
           .def(py::init<>())
           .def_readwrite(
               "ignore_z",
@@ -99,7 +99,7 @@ void BindMatchFeatures(py::module& m) {
 
   using VTMOpts = VocabTreeMatchingOptions;
   auto PyVocabTreeMatchingOptions =
-      py::class_<VTMOpts>(m, "VocabTreeMatchingOptions")
+      py::classh<VTMOpts>(m, "VocabTreeMatchingOptions")
           .def(py::init<>())
           .def_readwrite("num_images",
                          &VTMOpts::num_images,
@@ -134,7 +134,7 @@ void BindMatchFeatures(py::module& m) {
 
   using SeqMOpts = SequentialMatchingOptions;
   auto PySequentialMatchingOptions =
-      py::class_<SeqMOpts>(m, "SequentialMatchingOptions")
+      py::classh<SeqMOpts>(m, "SequentialMatchingOptions")
           .def(py::init<>())
           .def_readwrite("overlap",
                          &SeqMOpts::overlap,
@@ -193,7 +193,7 @@ void BindMatchFeatures(py::module& m) {
 
   using IPMOpts = ImagePairsMatchingOptions;
   auto PyImagePairsMatchingOptions =
-      py::class_<IPMOpts>(m, "ImagePairsMatchingOptions")
+      py::classh<IPMOpts>(m, "ImagePairsMatchingOptions")
           .def(py::init<>())
           .def_readwrite("block_size",
                          &IPMOpts::block_size,
@@ -268,36 +268,36 @@ void BindMatchFeatures(py::module& m) {
             "options", TwoViewGeometryOptions(), "TwoViewGeometryOptions()"),
         "Run geometric verification of the matches");
 
-  py::class_<PairGenerator>(m, "PairGenerator")
+  py::classh<PairGenerator>(m, "PairGenerator")
       .def("reset", &PairGenerator::Reset)
       .def("has_finished", &PairGenerator::HasFinished)
       .def("next", &PairGenerator::Next)
       .def("all_pairs", &PairGenerator::AllPairs);
-  py::class_<ExhaustivePairGenerator, PairGenerator>(m,
+  py::classh<ExhaustivePairGenerator, PairGenerator>(m,
                                                      "ExhaustivePairGenerator")
       .def(py::init<const ExhaustiveMatchingOptions&,
                     const std::shared_ptr<Database>&>(),
            "options"_a,
            "database"_a);
-  py::class_<VocabTreePairGenerator, PairGenerator>(m, "VocabTreePairGenerator")
+  py::classh<VocabTreePairGenerator, PairGenerator>(m, "VocabTreePairGenerator")
       .def(py::init<const VocabTreeMatchingOptions&,
                     const std::shared_ptr<Database>&,
                     const std::vector<image_t>&>(),
            "options"_a,
            "database"_a,
            "query_image_ids"_a = std::vector<image_t>());
-  py::class_<SequentialPairGenerator, PairGenerator>(m,
+  py::classh<SequentialPairGenerator, PairGenerator>(m,
                                                      "SequentialPairGenerator")
       .def(py::init<const SequentialMatchingOptions&,
                     const std::shared_ptr<Database>&>(),
            "options"_a,
            "database"_a);
-  py::class_<SpatialPairGenerator, PairGenerator>(m, "SpatialPairGenerator")
+  py::classh<SpatialPairGenerator, PairGenerator>(m, "SpatialPairGenerator")
       .def(py::init<const SpatialMatchingOptions&,
                     const std::shared_ptr<Database>&>(),
            "options"_a,
            "database"_a);
-  py::class_<ImportedPairGenerator, PairGenerator>(m, "ImportedPairGenerator")
+  py::classh<ImportedPairGenerator, PairGenerator>(m, "ImportedPairGenerator")
       .def(py::init<const ImagePairsMatchingOptions&,
                     const std::shared_ptr<Database>&>(),
            "options"_a,

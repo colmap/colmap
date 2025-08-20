@@ -18,7 +18,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindFrame(py::module& m) {
-  py::class_<Frame, std::shared_ptr<Frame>> PyFrame(m, "Frame");
+  py::classh<Frame> PyFrame(m, "Frame");
   PyFrame.def(py::init<>())
       .def_property("frame_id",
                     &Frame::FrameId,

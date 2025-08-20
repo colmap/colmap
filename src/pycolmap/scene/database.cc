@@ -30,7 +30,7 @@ class DatabaseTransactionWrapper {
 }  // namespace
 
 void BindDatabase(py::module& m) {
-  py::class_<Database, std::shared_ptr<Database>> PyDatabase(m, "Database");
+  py::classh<Database> PyDatabase(m, "Database");
   PyDatabase.def(py::init<>())
       .def(py::init<const std::string&>(), "path"_a)
       .def("open", &Database::Open, "path"_a)
@@ -204,7 +204,7 @@ void BindDatabase(py::module& m) {
                   "database2"_a,
                   "merged_database"_a);
 
-  py::class_<DatabaseTransactionWrapper>(m, "DatabaseTransaction")
+  py::classh<DatabaseTransactionWrapper>(m, "DatabaseTransaction")
       .def(py::init<Database*>(), "database"_a)
       .def("__enter__", &DatabaseTransactionWrapper::Enter)
       .def("__exit__", &DatabaseTransactionWrapper::Exit);

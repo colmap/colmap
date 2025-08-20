@@ -165,7 +165,7 @@ py::typing::Optional<py::dict> PyRefineRelativePose(
 
 void BindAbsolutePoseEstimator(py::module& m) {
   auto PyRANSACOptions = m.attr("RANSACOptions");
-  py::class_<AbsolutePoseEstimationOptions> PyEstimationOptions(
+  py::classh<AbsolutePoseEstimationOptions> PyEstimationOptions(
       m, "AbsolutePoseEstimationOptions");
   PyEstimationOptions.def(py::init<>())
       .def_readwrite("estimate_focal_length",
@@ -173,7 +173,7 @@ void BindAbsolutePoseEstimator(py::module& m) {
       .def_readwrite("ransac", &AbsolutePoseEstimationOptions::ransac_options);
   MakeDataclass(PyEstimationOptions);
 
-  py::class_<AbsolutePoseRefinementOptions> PyRefinementOptions(
+  py::classh<AbsolutePoseRefinementOptions> PyRefinementOptions(
       m, "AbsolutePoseRefinementOptions");
   PyRefinementOptions.def(py::init<>())
       .def_readwrite("gradient_tolerance",

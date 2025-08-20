@@ -20,7 +20,7 @@ void BindGPS(py::module& m) {
       .value("WGS84", GPSTransform::Ellipsoid::WGS84);
   AddStringToEnumConstructor(PyGPSTransfromEllipsoid);
 
-  py::class_ext_<GPSTransform> PyGPSTransform(m, "GPSTransform");
+  py::classh_ext<GPSTransform> PyGPSTransform(m, "GPSTransform");
   PyGPSTransform
       .def(py::init<const GPSTransform::Ellipsoid>(),
            "ellipsoid"_a = GPSTransform::Ellipsoid::GRS80)

@@ -18,13 +18,13 @@ void BindUtilTypes(py::module& m) {
                           .value("IMU", SensorType::IMU);
   AddStringToEnumConstructor(PySensorType);
 
-  auto PySensorT = py::class_<sensor_t>(m, "sensor_t")
+  auto PySensorT = py::classh<sensor_t>(m, "sensor_t")
                        .def(py::init<>())
                        .def_readwrite("type", &sensor_t::type)
                        .def_readwrite("id", &sensor_t::id);
   MakeDataclass(PySensorT);
 
-  auto PyDataT = py::class_<data_t>(m, "data_t")
+  auto PyDataT = py::classh<data_t>(m, "data_t")
                      .def(py::init<>())
                      .def_readwrite("sensor_id", &data_t::sensor_id)
                      .def_readwrite("id", &data_t::id);
