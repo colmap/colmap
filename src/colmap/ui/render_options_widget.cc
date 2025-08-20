@@ -124,7 +124,7 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
   HideOption(&point3D_colormap_max_q_);
   HideOption(&point3D_colormap_scale_);
   connect(point3D_colormap_cb_,
-          (void (QComboBox::*)(int))&QComboBox::currentIndexChanged,
+          (void (QComboBox::*)(int)) & QComboBox::currentIndexChanged,
           this,
           &RenderOptionsWidget::SelectPointColormap);
 
@@ -164,7 +164,7 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
 
   HideLayout(image_colormap_name_filter_layout_);
   connect(image_colormap_cb_,
-          (void (QComboBox::*)(int))&QComboBox::currentIndexChanged,
+          (void (QComboBox::*)(int)) & QComboBox::currentIndexChanged,
           this,
           &RenderOptionsWidget::SelectImageColormap);
 

@@ -228,7 +228,7 @@ QGroupBox* FeatureExtractionWidget::CreateCameraModelBox() {
   SelectCameraModel(camera_model_cb_->currentIndex());
 
   connect(camera_model_cb_,
-          (void (QComboBox::*)(int))&QComboBox::currentIndexChanged,
+          (void (QComboBox::*)(int)) & QComboBox::currentIndexChanged,
           this,
           &FeatureExtractionWidget::SelectCameraModel);
   connect(camera_params_exif_rb_,
