@@ -139,7 +139,8 @@ TwoViewGeometry EstimateTwoViewGeometry(
     FeatureMatches matches,
     const TwoViewGeometryOptions& options);
 
-// Estimate the two-view geometries for all matched images between a pair of rigs.
+// Estimate the two-view geometries for all matched images between a pair of
+// rigs.
 //
 // @param rig1            First rig.
 // @param rig2            Second rig.
