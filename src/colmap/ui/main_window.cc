@@ -40,11 +40,23 @@
 #include <clocale>
 
 namespace {
+
+// Keys used with QSettings to persist last-used directories for different
+// contexts.
+constexpr char kLastGlobalDir[] =
+    "last_dir/global";  // Fallback if no context-specific path exists
+constexpr char kLastDirProject[] =
+    "last_dir/project";  // Last location of open/save project dialogs
+constexpr char kLastImportExport[] =
+    "last_dir/import_export";  // Last location used in import/export dialogs
+constexpr char kLastGrabImage[] =
+    "last_dir/grab_image";  // Last location for "grab image" operations
+
 // Get proper QSettings
-static QSettings GetQSettings() { return QSettings("Colmap", "ColmapUI"); }
+QSettings GetQSettings() { return QSettings("Colmap", "ColmapUI"); }
 
 // Default fallback: Documents (or home).
-static QString DefaultBaseDir() {
+QString DefaultBaseDir() {
   QString d =
       QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
   if (d.isEmpty()) d = QDir::homePath();
@@ -53,7 +65,7 @@ static QString DefaultBaseDir() {
 
 // Load last dir for a given key, falling back to a global last dir,
 // and finally to a sensible default.
-static QString GetLastOpen(const QString& key) {
+QString GetLastOpen(const QString& key) {
   QSettings s = GetQSettings();
   s.beginGroup("paths");
   const QString per = s.value(key, "").toString();
@@ -61,7 +73,7 @@ static QString GetLastOpen(const QString& key) {
     s.endGroup();
     return per;
   }
-  const QString global = s.value("last_dir/global", "").toString();
+  const QString global = s.value(kLastGlobalDir, "").toString();
   s.endGroup();
   if (!global.isEmpty()) return global;
   return DefaultBaseDir();
@@ -69,7 +81,7 @@ static QString GetLastOpen(const QString& key) {
 
 // Save the directory part of a path (or the dir itself) under key,
 // and also refresh a global "last dir" to improve first-time UX elsewhere.
-static void SetLastOpen(const QString& key, const QString& pathOrDir) {
+void SetLastOpen(const QString& key, const QString& pathOrDir) {
   QString dir = pathOrDir;
   QFileInfo fi(pathOrDir);
   if (!fi.exists() || fi.isFile()) dir = fi.absolutePath();
@@ -77,7 +89,7 @@ static void SetLastOpen(const QString& key, const QString& pathOrDir) {
   QSettings s = GetQSettings();
   s.beginGroup("paths");
   s.setValue(key, dir);
-  s.setValue("last_dir/global", dir);
+  s.setValue(kLastGlobalDir, dir);
   s.endGroup();
 }
 
@@ -721,7 +733,7 @@ bool MainWindow::ProjectOpen() {
   const std::string project_path =
       QFileDialog::getOpenFileName(this,
                                    tr("Select project file"),
-                                   GetLastOpen("last_dir/project"),
+                                   GetLastOpen(kLastDirProject),
                                    tr("Project file (*.ini)"))
           .toUtf8()
           .constData();
@@ -732,7 +744,7 @@ bool MainWindow::ProjectOpen() {
       project_widget_->SetDatabasePath(*options_.database_path);
       project_widget_->SetImagePath(*options_.image_path);
       UpdateWindowTitle();
-      SetLastOpen("last_dir/project", QString::fromStdString(project_path));
+      SetLastOpen(kLastDirProject, QString::fromStdString(project_path));
       return true;
     } else {
       ShowInvalidProjectError();
@@ -752,7 +764,7 @@ void MainWindow::ProjectSave() {
     std::string project_path =
         QFileDialog::getSaveFileName(this,
                                      tr("Select project file"),
-                                     GetLastOpen("last_dir/project"),
+                                     GetLastOpen(kLastDirProject),
                                      tr("Project file (*.ini)"))
             .toUtf8()
             .constData();
@@ -763,12 +775,12 @@ void MainWindow::ProjectSave() {
       }
       *options_.project_path = project_path;
       options_.Write(*options_.project_path);
-      SetLastOpen("last_dir/project", QString::fromStdString(project_path));
+      SetLastOpen(kLastDirProject, QString::fromStdString(project_path));
     }
   } else {
     // Project path was chosen previously, either here or via command-line.
     options_.Write(*options_.project_path);
-    SetLastOpen("last_dir/project",
+    SetLastOpen(kLastDirProject,
                 QString::fromStdString(*options_.project_path));
   }
 
@@ -779,14 +791,14 @@ void MainWindow::ProjectSaveAs() {
   const std::string new_project_path =
       QFileDialog::getSaveFileName(this,
                                    tr("Select project file"),
-                                   GetLastOpen("last_dir/project"),
+                                   GetLastOpen(kLastDirProject),
                                    tr("Project file (*.ini)"))
           .toUtf8()
           .constData();
   if (new_project_path != "") {
     *options_.project_path = new_project_path;
     options_.Write(*options_.project_path);
-    SetLastOpen("last_dir/project", QString::fromStdString(new_project_path));
+    SetLastOpen(kLastDirProject, QString::fromStdString(new_project_path));
   }
 
   UpdateWindowTitle();
@@ -796,7 +808,7 @@ void MainWindow::Import() {
   const std::string import_path =
       QFileDialog::getExistingDirectory(this,
                                         tr("Select source..."),
-                                        GetLastOpen("last_dir/import_export"),
+                                        GetLastOpen(kLastImportExport),
                                         QFileDialog::ShowDirsOnly)
           .toUtf8()
           .constData();
@@ -806,7 +818,7 @@ void MainWindow::Import() {
     return;
   }
 
-  SetLastOpen("last_dir/import_export", QString::fromStdString(import_path));
+  SetLastOpen(kLastImportExport, QString::fromStdString(import_path));
 
   const std::string project_path = JoinPaths(import_path, "project.ini");
   const std::string cameras_bin_path = JoinPaths(import_path, "cameras.bin");
@@ -864,7 +876,7 @@ void MainWindow::Import() {
 void MainWindow::ImportFrom() {
   const std::string import_path =
       QFileDialog::getOpenFileName(
-          this, tr("Select source..."), GetLastOpen("last_dir/import_export"))
+          this, tr("Select source..."), GetLastOpen(kLastImportExport))
           .toUtf8()
           .constData();
 
@@ -873,7 +885,7 @@ void MainWindow::ImportFrom() {
     return;
   }
 
-  SetLastOpen("last_dir/import_export", QString::fromStdString(import_path));
+  SetLastOpen(kLastImportExport, QString::fromStdString(import_path));
 
   if (!ExistsFile(import_path)) {
     QMessageBox::critical(this, "", tr("Invalid file"));
@@ -904,7 +916,7 @@ void MainWindow::Export() {
   const std::string export_path =
       QFileDialog::getExistingDirectory(this,
                                         tr("Select destination..."),
-                                        GetLastOpen("last_dir/import_export"),
+                                        GetLastOpen(kLastImportExport),
                                         QFileDialog::ShowDirsOnly)
           .toUtf8()
           .constData();
@@ -914,7 +926,7 @@ void MainWindow::Export() {
     return;
   }
 
-  SetLastOpen("last_dir/import_export", QString::fromStdString(export_path));
+  SetLastOpen(kLastImportExport, QString::fromStdString(export_path));
 
   const std::string cameras_name = "cameras.bin";
   const std::string images_name = "images.bin";
@@ -959,7 +971,7 @@ void MainWindow::ExportAll() {
   const std::string export_path =
       QFileDialog::getExistingDirectory(this,
                                         tr("Select destination..."),
-                                        GetLastOpen("last_dir/import_export"),
+                                        GetLastOpen(kLastImportExport),
                                         QFileDialog::ShowDirsOnly)
           .toUtf8()
           .constData();
@@ -969,7 +981,7 @@ void MainWindow::ExportAll() {
     return;
   }
 
-  SetLastOpen("last_dir/import_export", QString::fromStdString(export_path));
+  SetLastOpen(kLastImportExport, QString::fromStdString(export_path));
 
   thread_control_widget_->StartFunction("Exporting...", [this, export_path]() {
     reconstruction_manager_->Write(export_path);
@@ -987,7 +999,7 @@ void MainWindow::ExportAs() {
       QFileDialog::getSaveFileName(
           this,
           tr("Select destination..."),
-          GetLastOpen("last_dir/import_export"),
+          GetLastOpen(kLastImportExport),
           "NVM (*.nvm);;Bundler (*.out);;PLY (*.ply);;VRML (*.wrl)",
           &filter)
           .toUtf8()
@@ -998,7 +1010,7 @@ void MainWindow::ExportAs() {
     return;
   }
 
-  SetLastOpen("last_dir/import_export", QString::fromStdString(export_path));
+  SetLastOpen(kLastImportExport, QString::fromStdString(export_path));
 
   thread_control_widget_->StartFunction(
       "Exporting...", [this, export_path, filter]() {
@@ -1031,7 +1043,7 @@ void MainWindow::ExportAsText() {
   const std::string export_path =
       QFileDialog::getExistingDirectory(this,
                                         tr("Select destination..."),
-                                        GetLastOpen("last_dir/import_export"),
+                                        GetLastOpen(kLastImportExport),
                                         QFileDialog::ShowDirsOnly)
           .toUtf8()
           .constData();
@@ -1041,7 +1053,7 @@ void MainWindow::ExportAsText() {
     return;
   }
 
-  SetLastOpen("last_dir/import_export", QString::fromStdString(export_path));
+  SetLastOpen(kLastImportExport, QString::fromStdString(export_path));
 
   const std::string cameras_name = "cameras.txt";
   const std::string images_name = "images.txt";
@@ -1325,11 +1337,10 @@ bool MainWindow::IsSelectedReconstructionValid() {
 }
 
 void MainWindow::GrabImage() {
-  QString file_name =
-      QFileDialog::getSaveFileName(this,
-                                   tr("Save image"),
-                                   GetLastOpen("last_dir/grab_image"),
-                                   tr("Images (*.png *.jpg)"));
+  QString file_name = QFileDialog::getSaveFileName(this,
+                                                   tr("Save image"),
+                                                   GetLastOpen(kLastGrabImage),
+                                                   tr("Images (*.png *.jpg)"));
   if (file_name != "") {
     if (!HasFileExtension(file_name.toUtf8().constData(), ".png") &&
         !HasFileExtension(file_name.toUtf8().constData(), ".jpg")) {
@@ -1337,7 +1348,7 @@ void MainWindow::GrabImage() {
     }
     QImage image = model_viewer_widget_->GrabImage();
     image.save(file_name);
-    SetLastOpen("last_dir/grab_image", file_name);
+    SetLastOpen(kLastGrabImage, file_name);
   }
 }
 
