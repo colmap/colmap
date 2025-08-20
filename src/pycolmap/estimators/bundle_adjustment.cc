@@ -45,7 +45,7 @@ void BindBundleAdjuster(py::module& m) {
   AddStringToEnumConstructor(PyBundleAdjustmentGauge);
 
   using BACfg = BundleAdjustmentConfig;
-  py::class_<BACfg> PyBundleAdjustmentConfig(m, "BundleAdjustmentConfig");
+  py::classh<BACfg> PyBundleAdjustmentConfig(m, "BundleAdjustmentConfig");
   PyBundleAdjustmentConfig.def(py::init<>())
       .def("fix_gauge", &BACfg::FixGauge)
       .def_property_readonly("fixed_gauge", &BACfg::FixedGauge)
@@ -115,7 +115,7 @@ void BindBundleAdjuster(py::module& m) {
   AddStringToEnumConstructor(PyBALossFunctionType);
 
   auto PyBundleAdjustmentOptions =
-      py::class_<BAOpts>(m, "BundleAdjustmentOptions")
+      py::classh<BAOpts>(m, "BundleAdjustmentOptions")
           .def(py::init<>())
           .def("create_loss_function", &BAOpts::CreateLossFunction)
           .def("create_solver_options",
@@ -191,7 +191,7 @@ void BindBundleAdjuster(py::module& m) {
 
   using PosePriorBAOpts = PosePriorBundleAdjustmentOptions;
   auto PyPosePriorBundleAdjustmentOptions =
-      py::class_<PosePriorBAOpts>(m, "PosePriorBundleAdjustmentOptions")
+      py::classh<PosePriorBAOpts>(m, "PosePriorBundleAdjustmentOptions")
           .def(py::init<>())
           .def_readwrite("use_robust_loss_on_prior_position",
                          &PosePriorBAOpts::use_robust_loss_on_prior_position,
@@ -205,8 +205,7 @@ void BindBundleAdjuster(py::module& m) {
                          "RANSAC options for Sim3 alignment.");
   MakeDataclass(PyPosePriorBundleAdjustmentOptions);
 
-  py::class_<BundleAdjuster, PyBundleAdjuster, py::smart_holder>(
-      m, "BundleAdjuster")
+  py::classh<BundleAdjuster, PyBundleAdjuster>(m, "BundleAdjuster")
       .def(py::init<BundleAdjustmentOptions, BundleAdjustmentConfig>(),
            "options"_a,
            "config"_a)
