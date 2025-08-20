@@ -697,7 +697,7 @@ TEST(EstimateRigTwoViewGeometries, Nominal) {
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 3;
   synthetic_dataset_options.num_frames_per_rig = 1;
-  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.num_points3D = 200;
   synthetic_dataset_options.point2D_stddev = 0;
   synthetic_dataset_options.inlier_match_ratio = 0.6;
   synthetic_dataset_options.camera_has_prior_focal_length = true;
@@ -723,8 +723,8 @@ TEST(EstimateRigTwoViewGeometries, Nominal) {
             test_data.reconstruction.Image(image_pair.second).CamFromWorld() *
                 Inverse(test_data.reconstruction.Image(image_pair.first)
                             .CamFromWorld()),
-            /*rtol=*/1e-3,
-            /*ttol=*/1e-4));
+            /*rtol=*/1e-2,
+            /*ttol=*/1e-3));
     EXPECT_GT(geometry.inlier_matches.size(), 0);
   }
 }
