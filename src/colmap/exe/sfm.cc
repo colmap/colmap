@@ -518,6 +518,7 @@ int RunPointTriangulator(int argc, char** argv) {
   std::string output_path;
   bool clear_points = true;
   bool refine_intrinsics = false;
+  bool refine_extrinsics = false;
 
   OptionManager options;
   options.AddDatabaseOptions();
@@ -534,6 +535,11 @@ int RunPointTriangulator(int argc, char** argv) {
                            &refine_intrinsics,
                            "Whether to refine the intrinsics of the cameras "
                            "(fixing the principal point)");
+  options.AddDefaultOption("refine_extrinsics",
+                           &refine_extrinsics,
+                           "Whether to refine the extrinsics (camera poses) "
+                           "during triangulation");
+
   options.AddMapperOptions();
   options.Parse(argc, argv);
 
@@ -558,7 +564,8 @@ int RunPointTriangulator(int argc, char** argv) {
                            output_path,
                            *options.mapper,
                            clear_points,
-                           refine_intrinsics);
+                           refine_intrinsics,
+                           refine_extrinsics);
   return EXIT_SUCCESS;
 }
 
@@ -569,7 +576,8 @@ void RunPointTriangulatorImpl(
     const std::string& output_path,
     const IncrementalPipelineOptions& options,
     const bool clear_points,
-    const bool refine_intrinsics) {
+    const bool refine_intrinsics,
+    const bool refine_extrinsics) {
   THROW_CHECK_GE(reconstruction->NumRegImages(), 2)
       << "Need at least two images for triangulation";
   if (clear_points) {
@@ -579,7 +587,7 @@ void RunPointTriangulatorImpl(
   }
 
   auto options_tmp = std::make_shared<IncrementalPipelineOptions>(options);
-  options_tmp->fix_existing_frames = true;
+  options_tmp->fix_existing_frames = !refine_extrinsics;
   options_tmp->ba_refine_focal_length = refine_intrinsics;
   options_tmp->ba_refine_principal_point = false;
   options_tmp->ba_refine_extra_params = refine_intrinsics;

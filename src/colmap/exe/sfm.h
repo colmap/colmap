@@ -41,7 +41,8 @@ void RunPointTriangulatorImpl(
     const std::string& output_path,
     const IncrementalPipelineOptions& options,
     bool clear_points,
-    bool refine_intrinsics);
+    bool refine_intrinsics,
+    bool refine_extrinsics);
 
 int RunAutomaticReconstructor(int argc, char** argv);
 int RunBundleAdjuster(int argc, char** argv);
