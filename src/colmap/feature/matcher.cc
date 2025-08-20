@@ -275,9 +275,7 @@ void FeatureMatcherCache::MaybeLoadFrames() {
 }
 
 void FeatureMatcherCache::MaybeLoadImages() {
-  {
-    MaybeLoadFrames();
-  }
+  MaybeLoadFrames();
 
   std::lock_guard<std::mutex> lock(database_mutex_);
   if (images_cache_) {
