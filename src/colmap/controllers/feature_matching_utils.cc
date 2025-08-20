@@ -434,7 +434,8 @@ void FeatureMatcherController::Match(
     if (matching_options_.skip_image_pairs_in_same_frame) {
       const Image& image1 = cache_->GetImage(image_id1);
       const Image& image2 = cache_->GetImage(image_id2);
-      if (image1.HasFrameId() && image2.HasFrameId() &&
+      if (image1.HasFrameId() &&
+          image2.HasFrameId() &&
           image1.FrameId() == image2.FrameId()) {
         continue;
       }
