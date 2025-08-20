@@ -42,7 +42,9 @@ void RunPointTriangulatorImpl(
     const IncrementalPipelineOptions& options,
     bool clear_points,
     bool refine_intrinsics,
-    bool refine_extrinsics);
+    bool refine_extrinsics,
+    bool refine_loop,
+    const BundleAdjustmentOptions& ba_options);
 
 int RunAutomaticReconstructor(int argc, char** argv);
 int RunBundleAdjuster(int argc, char** argv);
