@@ -688,7 +688,7 @@ TEST(ImportedPairGenerator, Nominal) {
 
 TEST(ExistingMatchedPairGenerator, Nominal) {
   constexpr int kNumImages = 5;
-  auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   CreateSyntheticDatabase(kNumImages, *database);
   const std::vector<Image> images = database->ReadAllImages();
   CHECK_EQ(images.size(), kNumImages);

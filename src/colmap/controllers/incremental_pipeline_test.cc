@@ -572,7 +572,7 @@ TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
 TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
-  Database database(database_path);
+  auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
@@ -581,7 +581,8 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.point2D_stddev = 2.5;
   synthetic_dataset_options.use_prior_position = false;
-  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto mapper_options = std::make_shared<IncrementalPipelineOptions>();
   mapper_options->use_prior_position = false;
@@ -643,7 +644,7 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
 TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
-  Database database(database_path);
+  auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
@@ -652,8 +653,9 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.point2D_stddev = 2.5;
   synthetic_dataset_options.use_prior_position = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
   synthetic_dataset_options.prior_position_stddev = 2.0;
-  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
   auto mapper_options = std::make_shared<IncrementalPipelineOptions>();
   mapper_options->use_prior_position = false;

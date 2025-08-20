@@ -33,9 +33,6 @@
 
 namespace colmap {
 
-const size_t Database::kMaxNumImages =
-    static_cast<size_t>(std::numeric_limits<int32_t>::max());
-
 std::vector<Database::Factory> Database::factories_ = {&OpenSqliteDatabase};
 
 void Database::Register(Factory factory) { factories_.push_back(factory); }

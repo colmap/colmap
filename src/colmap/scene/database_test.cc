@@ -119,29 +119,6 @@ TEST_P(ParameterizedDatabaseTests, Empty) {
   EXPECT_EQ(database->NumVerifiedImagePairs(), 0);
 }
 
-TEST_P(ParameterizedDatabaseTests, ImagePairToPairId) {
-  EXPECT_EQ(Database::ImagePairToPairId(0, 0), 0);
-  EXPECT_EQ(Database::ImagePairToPairId(0, 1), 1);
-  EXPECT_EQ(Database::ImagePairToPairId(0, 2), 2);
-  EXPECT_EQ(Database::ImagePairToPairId(0, 3), 3);
-  EXPECT_EQ(Database::ImagePairToPairId(1, 2), Database::kMaxNumImages + 2);
-  for (image_t i = 0; i < 20; ++i) {
-    for (image_t j = 0; j < 20; ++j) {
-      const image_pair_t pair_id = ImagePairToPairId(i, j);
-      image_t image_id1;
-      image_t image_id2;
-      std::tie(image_id1, image_id2) = PairIdToImagePair(pair_id);
-      if (i < j) {
-        EXPECT_EQ(i, image_id1);
-        EXPECT_EQ(j, image_id2);
-      } else {
-        EXPECT_EQ(i, image_id2);
-        EXPECT_EQ(j, image_id1);
-      }
-    }
-  }
-}
-
 TEST_P(ParameterizedDatabaseTests, Rig) {
   std::shared_ptr<Database> database = GetParam()(kInMemorySqliteDatabasePath);
   EXPECT_EQ(database->NumRigs(), 0);
