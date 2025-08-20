@@ -15,7 +15,7 @@ namespace py = pybind11;
 
 void BindIncrementalTriangulator(py::module& m) {
   using Opts = IncrementalTriangulator::Options;
-  auto PyOpts = py::class_<Opts>(m, "IncrementalTriangulatorOptions");
+  auto PyOpts = py::classh<Opts>(m, "IncrementalTriangulatorOptions");
   PyOpts.def(py::init<>())
       .def_readwrite("max_transitivity",
                      &Opts::max_transitivity,
@@ -80,8 +80,7 @@ void BindIncrementalTriangulator(py::module& m) {
   // TODO: Add bindings for GetModifiedPoints3D.
   // TODO: Add bindings for Find, Create, Continue, Merge, Complete,
   // HasCameraBogusParams once they become public.
-  py::class_<IncrementalTriangulator, std::shared_ptr<IncrementalTriangulator>>(
-      m, "IncrementalTriangulator")
+  py::classh<IncrementalTriangulator>(m, "IncrementalTriangulator")
       .def(py::init<std::shared_ptr<const CorrespondenceGraph>,
                     Reconstruction&,
                     std::shared_ptr<ObservationManager>>(),

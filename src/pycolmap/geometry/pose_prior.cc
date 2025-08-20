@@ -22,7 +22,7 @@ void BindPosePrior(py::module& m) {
       .value("CARTESIAN", PosePriorCoordinateSystem::CARTESIAN);
   AddStringToEnumConstructor(PyCoordinateSystem);
 
-  py::class_ext_<PosePrior> PyPosePrior(m, "PosePrior");
+  py::classh_ext<PosePrior> PyPosePrior(m, "PosePrior");
   PyPosePrior.def(py::init<>())
       .def(py::init<const Eigen::Vector3d&>(), "position"_a)
       .def(py::init<const Eigen::Vector3d&, const PosePriorCoordinateSystem>(),

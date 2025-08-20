@@ -30,7 +30,7 @@ void BindTwoViewGeometryScene(py::module& m) {
       .value("MULTIPLE", TwoViewGeometry::MULTIPLE);
   AddStringToEnumConstructor(PyTwoViewGeometryConfiguration);
 
-  py::class_<TwoViewGeometry> PyTwoViewGeometry(m, "TwoViewGeometry");
+  py::classh<TwoViewGeometry> PyTwoViewGeometry(m, "TwoViewGeometry");
   PyTwoViewGeometry.def(py::init<>())
       .def_readwrite("config", &TwoViewGeometry::config)
       .def_readwrite("E", &TwoViewGeometry::E)
