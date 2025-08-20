@@ -216,6 +216,10 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
     using ReturnType = std::vector<std::pair<image_pair_t, FeatureMatches>>;
     PYBIND11_OVERRIDE_PURE(ReturnType, Database, ReadAllMatches);
   }
+  std::vector<std::pair<image_pair_t, int>> ReadNumMatches() const override {
+    using ReturnType = std::vector<std::pair<image_pair_t, int>>;
+    PYBIND11_OVERRIDE_PURE(ReturnType, Database, ReadNumMatches);
+  }
 
   TwoViewGeometry ReadTwoViewGeometry(image_t image_id1,
                                       image_t image_id2) const override {
@@ -451,6 +455,22 @@ void BindDatabase(py::module& m) {
              return std::make_pair(std::move(all_pair_ids),
                                    std::move(all_matches));
            })
+      .def(
+          "read_num_matches",
+          [](const Database& self) {
+            std::vector<std::pair<image_pair_t, int>> pair_ids_and_num_matches =
+                self.ReadNumMatches();
+            std::vector<image_pair_t> all_pair_ids;
+            all_pair_ids.reserve(pair_ids_and_num_matches.size());
+            std::vector<int> all_num_matches;
+            all_num_matches.reserve(pair_ids_and_num_matches.size());
+            for (auto& [pair_id, num_matches] : pair_ids_and_num_matches) {
+              all_pair_ids.push_back(pair_id);
+              all_num_matches.push_back(num_matches);
+            }
+            return std::make_pair(std::move(all_pair_ids),
+                                  std::move(all_num_matches));
+          })
       .def("read_two_view_geometry",
            &Database::ReadTwoViewGeometry,
            "image_id1"_a,
