@@ -285,7 +285,7 @@ void FeatureMatcherCache::MaybeLoadImages() {
   }
 
   // Handle legacy databases without frames.
-  bool has_frames = !frames_cache_->empty();
+  const bool has_frames = !frames_cache_->empty();
   std::unordered_map<image_t, frame_t> image_to_frame_id;
   if (has_frames) {
     for (const auto& [frame_id, frame] : *frames_cache_) {
