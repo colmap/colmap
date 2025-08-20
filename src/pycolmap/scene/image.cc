@@ -39,7 +39,7 @@ std::shared_ptr<Image> MakeImage(const std::string& name,
 }
 
 void BindSceneImage(py::module& m) {
-  py::class_<Image, std::shared_ptr<Image>> PyImage(m, "Image");
+  py::classh<Image> PyImage(m, "Image");
   PyImage.def(py::init<>())
       .def(py::init(&MakeImage<Point2D>),
            "name"_a = "",

@@ -15,8 +15,7 @@ namespace py = pybind11;
 
 void BindFeatureMatching(py::module& m) {
   auto PySiftMatchingOptions =
-      py::class_<SiftMatchingOptions, std::shared_ptr<SiftMatchingOptions>>(
-          m, "SiftMatchingOptions")
+      py::classh<SiftMatchingOptions>(m, "SiftMatchingOptions")
           .def(py::init<>())
           .def_readwrite(
               "max_ratio",
@@ -36,9 +35,7 @@ void BindFeatureMatching(py::module& m) {
   MakeDataclass(PySiftMatchingOptions);
 
   auto PyFeatureMatchingOptions =
-      py::class_<FeatureMatchingOptions,
-                 std::shared_ptr<FeatureMatchingOptions>>(
-          m, "FeatureMatchingOptions")
+      py::classh<FeatureMatchingOptions>(m, "FeatureMatchingOptions")
           .def(py::init<>())
           .def_readwrite("num_threads", &FeatureMatchingOptions::num_threads)
           .def_readwrite("use_gpu", &FeatureMatchingOptions::use_gpu)

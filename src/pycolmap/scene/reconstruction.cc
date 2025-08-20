@@ -27,8 +27,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindReconstruction(py::module& m) {
-  py::class_<Reconstruction, std::shared_ptr<Reconstruction>>(m,
-                                                              "Reconstruction")
+  py::classh<Reconstruction>(m, "Reconstruction")
       .def(py::init<>())
       .def(py::init<const Reconstruction&>(), "reconstruction"_a)
       .def(py::init([](const std::string& path) {

@@ -21,7 +21,7 @@ void BindSynthetic(py::module& m) {
   AddStringToEnumConstructor(PySyntheticMatchConfig);
 
   auto PySyntheticDatasetOptions =
-      py::class_<SyntheticDatasetOptions>(m, "SyntheticDatasetOptions")
+      py::classh<SyntheticDatasetOptions>(m, "SyntheticDatasetOptions")
           .def(py::init<>())
           .def_readwrite("num_rigs", &SyntheticDatasetOptions::num_rigs)
           .def_readwrite("num_cameras_per_rig",
