@@ -34,7 +34,7 @@ void BindCamera(py::module& m) {
   AddStringToEnumConstructor(PyCameraModelId);
   py::implicitly_convertible<int, CameraModelId>();
 
-  py::class_<Camera, std::shared_ptr<Camera>> PyCamera(m, "Camera");
+  py::classh<Camera> PyCamera(m, "Camera");
   PyCamera.def(py::init<>())
       .def_static("create",
                   &Camera::CreateFromModelId,
