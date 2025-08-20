@@ -139,6 +139,16 @@ TwoViewGeometry EstimateTwoViewGeometry(
     FeatureMatches matches,
     const TwoViewGeometryOptions& options);
 
+// Estimate the two-view geometries for all matched images between a pair of rigs.
+//
+// @param rig1            First rig.
+// @param rig2            Second rig.
+// @param images          Images in first and second rig.
+// @param cameras         Cameras in first and second rig.
+// @param matches         Feature matches between first and second rig.
+// @param options         Two-view geometry estimation options.
+//
+// @return                Two-view geometries for all matched images.
 std::vector<std::pair<std::pair<image_t, image_t>, TwoViewGeometry>>
 EstimateRigTwoViewGeometries(
     const Rig& rig1,
