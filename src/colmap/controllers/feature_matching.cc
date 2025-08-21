@@ -223,6 +223,8 @@ class FeatureMatcherThread : public Thread {
       }));
     }
 
+    Timer batch_timer;
+    batch_timer.Start();
     const size_t kBatchSize = 1000;
     const size_t num_jobs = futures.size();
     const size_t num_batches = (num_jobs + kBatchSize - 1) / kBatchSize;
@@ -230,13 +232,18 @@ class FeatureMatcherThread : public Thread {
       if (IsStopped()) {
         thread_pool.Stop();
       }
-      Timer run_timer;
-      run_timer.Start();
-      LOG_IF(INFO, i % kBatchSize == 0) << StringPrintf(
-          "Processed batch [%d/%d]", i / kBatchSize + 1, num_batches);
+
+      if (i % kBatchSize == 0) {
+        if (i > 0) {
+          LOG(INFO) << StringPrintf("in %.3fs", batch_timer.ElapsedSeconds());
+          batch_timer.Restart();
+        }
+        LOG_IF(INFO, i % kBatchSize == 0) << StringPrintf(
+            "Processed batch [%d/%d]", i / kBatchSize + 1, num_batches);
+      }
       futures[i].get();
-      run_timer.PrintMinutes();
     }
+    LOG(INFO) << StringPrintf("in %.3fs", batch_timer.ElapsedSeconds());
   }
 
   const bool only_verification_;
