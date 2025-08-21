@@ -223,6 +223,10 @@ class FeatureMatcherThread : public Thread {
       }));
     }
 
+    if (futures.empty()) {
+      return;
+    }
+
     Timer batch_timer;
     batch_timer.Start();
     const size_t kBatchSize = 1000;
