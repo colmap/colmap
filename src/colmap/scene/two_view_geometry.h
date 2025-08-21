@@ -43,6 +43,8 @@ struct TwoViewGeometry {
     DEGENERATE = 1,
     // Essential matrix.
     CALIBRATED = 2,
+    // Relative pose (metric) from calibrated (non-panoramic) rig.
+    CALIBRATED_RIG = 9,
     // Fundamental matrix.
     UNCALIBRATED = 3,
     // Homography, planar scene with baseline.

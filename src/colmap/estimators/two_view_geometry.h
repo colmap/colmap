@@ -32,7 +32,12 @@
 #include "colmap/feature/types.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
+#include "colmap/scene/image.h"
+#include "colmap/scene/rig.h"
 #include "colmap/scene/two_view_geometry.h"
+
+#include <unordered_map>
+#include <vector>
 
 namespace colmap {
 
@@ -132,6 +137,27 @@ TwoViewGeometry EstimateTwoViewGeometry(
     const Camera& camera2,
     const std::vector<Eigen::Vector2d>& points2,
     FeatureMatches matches,
+    const TwoViewGeometryOptions& options);
+
+// Estimate the two-view geometries for all matched images between a pair of
+// rigs.
+//
+// @param rig1            First rig.
+// @param rig2            Second rig.
+// @param images          Images in first and second rig.
+// @param cameras         Cameras in first and second rig.
+// @param matches         Feature matches between first and second rig.
+// @param options         Two-view geometry estimation options.
+//
+// @return                Two-view geometries for all matched images.
+std::vector<std::pair<std::pair<image_t, image_t>, TwoViewGeometry>>
+EstimateRigTwoViewGeometries(
+    const Rig& rig1,
+    const Rig& rig2,
+    const std::unordered_map<image_t, Image>& images,
+    const std::unordered_map<camera_t, Camera>& cameras,
+    const std::vector<std::pair<std::pair<image_t, image_t>, FeatureMatches>>&
+        matches,
     const TwoViewGeometryOptions& options);
 
 // Estimate relative pose for two-view geometry.
