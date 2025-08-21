@@ -136,6 +136,10 @@ TEST(Frame, AddDataId) {
 
 TEST(Frame, ImageIds) {
   Frame frame;
+  EXPECT_THAT(
+      std::vector<data_t>(frame.ImageIds().begin(), frame.ImageIds().end()),
+      testing::IsEmpty());
+  EXPECT_EQ(frame.NumImageIds(), 0);
   const data_t data_id1(sensor_t(SensorType::IMU, 0), 2);
   frame.AddDataId(data_id1);
   const data_t data_id2(sensor_t(SensorType::CAMERA, 0), 2);
@@ -145,6 +149,7 @@ TEST(Frame, ImageIds) {
   EXPECT_THAT(
       std::vector<data_t>(frame.ImageIds().begin(), frame.ImageIds().end()),
       testing::UnorderedElementsAre(data_id2, data_id3));
+  EXPECT_EQ(frame.NumImageIds(), 2);
 }
 
 TEST(Frame, SetResetPose) {

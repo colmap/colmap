@@ -98,6 +98,14 @@ class Frame {
         data_ids_.end());
   }
 
+  // Convenience method for counting the number of images.
+  inline size_t NumImageIds() const {
+    return std::count_if(
+        data_ids_.begin(), data_ids_.end(), [](const data_t& data_id) {
+          return data_id.sensor_id.type == SensorType::CAMERA;
+        });
+  }
+
   inline bool operator==(const Frame& other) const;
   inline bool operator!=(const Frame& other) const;
 

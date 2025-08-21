@@ -221,7 +221,7 @@ struct FeaturePairsMatchingOptions {
 
 struct ExistingMatchedPairingOptions {
   // The number of image pairs to match in one batch.
-  int batch_size = 1000;
+  int batch_size = 10000;
 
   bool Check() const;
 

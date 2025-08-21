@@ -387,8 +387,19 @@ EstimateRigTwoViewGeometries(
     }
   }
 
-  if (corrs.empty()) {
-    return {};
+  std::vector<std::pair<std::pair<image_t, image_t>, TwoViewGeometry>>
+      two_view_geometries;
+  two_view_geometries.reserve(matches.size());
+
+  auto fill_empty_two_view_geometries = [&matches, &two_view_geometries]() {
+    for (const auto& [image_pair, _] : matches) {
+      two_view_geometries.emplace_back(image_pair, TwoViewGeometry());
+    }
+  };
+
+  if (corrs.size() < options.min_num_inliers) {
+    fill_empty_two_view_geometries();
+    return two_view_geometries;
   }
 
   std::optional<Rigid3d> maybe_rig2_from_rig1;
@@ -407,7 +418,13 @@ EstimateRigTwoViewGeometries(
                                        &num_inliers,
                                        &inlier_mask) ||
       num_inliers < options.min_num_inliers) {
-    return {};
+    fill_empty_two_view_geometries();
+    return two_view_geometries;
+  }
+
+  if (num_inliers < options.min_num_inliers) {
+    fill_empty_two_view_geometries();
+    return two_view_geometries;
   }
 
   std::map<std::pair<image_t, image_t>, FeatureMatches> inlier_matches;
@@ -425,9 +442,6 @@ EstimateRigTwoViewGeometries(
           ? TwoViewGeometry::ConfigurationType::CALIBRATED_RIG
           : TwoViewGeometry::ConfigurationType::CALIBRATED;
 
-  std::vector<std::pair<std::pair<image_t, image_t>, TwoViewGeometry>>
-      two_view_geometries;
-  two_view_geometries.reserve(inlier_matches.size());
   for (auto& [image_pair, pair_matches] : inlier_matches) {
     TwoViewGeometry two_view_geometry;
     two_view_geometry.config = config;

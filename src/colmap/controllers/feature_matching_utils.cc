@@ -430,13 +430,27 @@ void FeatureMatcherController::Match(
       continue;
     }
 
-    // Avoid self-matches within a frame.
-    if (matching_options_.skip_image_pairs_in_same_frame) {
+    if (matching_options_.skip_image_pairs_in_same_frame ||
+        matching_options_.rig_verification) {
       const Image& image1 = cache_->GetImage(image_id1);
       const Image& image2 = cache_->GetImage(image_id2);
-      if (image1.HasFrameId() && image2.HasFrameId() &&
+
+      // Avoid self-matches within a frame.
+      if (matching_options_.skip_image_pairs_in_same_frame &&
+          image1.HasFrameId() && image2.HasFrameId() &&
           image1.FrameId() == image2.FrameId()) {
         continue;
+      }
+
+      // If rig verification is enabled, we only match trivial frames here
+      // and perform the rig verification after matching all images.
+      if (matching_options_.rig_verification && image1.HasFrameId() &&
+          image2.HasFrameId()) {
+        const Frame& frame1 = cache_->GetFrame(image1.FrameId());
+        const Frame& frame2 = cache_->GetFrame(image2.FrameId());
+        if (frame1.NumDataIds() != 1 || frame2.NumDataIds() != 1) {
+          continue;
+        }
       }
     }
 

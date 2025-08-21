@@ -150,6 +150,9 @@ class FeatureMatcherThread : public Thread {
         continue;
       }
       const auto [image_id1, image_id2] = PairIdToImagePair(image_pair_id);
+      if (database_->ExistsInlierMatches(image_id1, image_id2)) {
+        continue;
+      }
       frame_t frame_id1 = image_to_frame_ids.at(image_id1);
       frame_t frame_id2 = image_to_frame_ids.at(image_id2);
       if (frame_id1 > frame_id2) {
@@ -160,24 +163,27 @@ class FeatureMatcherThread : public Thread {
     }
 
     ThreadPool thread_pool(matching_options_.num_threads);
+    std::vector<std::future<void>> futures;
     for (const auto& [frame_pair, num_matches] : frame_pair_to_num_matches) {
       if (num_matches < geometry_options_.min_num_inliers) {
         continue;
       }
-      thread_pool.AddTask([this,
-                           &rigs,
-                           frame_id1 = frame_pair.first,
-                           frame_id2 = frame_pair.second]() {
+
+      futures.push_back(thread_pool.AddTask([this,
+                                             &rigs,
+                                             frame_id1 = frame_pair.first,
+                                             frame_id2 = frame_pair.second]() {
         const Frame& frame1 = cache_->GetFrame(frame_id1);
         const Frame& frame2 = cache_->GetFrame(frame_id2);
-        const Rig& rig1 = rigs.at(frame1.RigId());
-        const Rig& rig2 = rigs.at(frame2.RigId());
-        if (rig1.NumSensors() == 1 && rig2.NumSensors() == 1) {
+        if (frame1.NumImageIds() == 1 && frame2.NumImageIds() == 1) {
           return;
         }
 
+        const Rig& rig1 = rigs.at(frame1.RigId());
+        const Rig& rig2 = rigs.at(frame2.RigId());
+
         std::unordered_map<image_t, Image> images;
-        images.reserve(frame1.NumDataIds() + frame2.NumDataIds());
+        images.reserve(frame1.NumImageIds() + frame2.NumImageIds());
         std::unordered_map<camera_t, Camera> cameras;
         cameras.reserve(images.size());
         auto add_images_and_cameras =
@@ -195,7 +201,7 @@ class FeatureMatcherThread : public Thread {
 
         std::vector<std::pair<std::pair<image_t, image_t>, FeatureMatches>>
             matches;
-        matches.reserve(frame1.NumDataIds() * frame2.NumDataIds());
+        matches.reserve(frame1.NumImageIds() * frame2.NumImageIds());
         for (const data_t& image_id1 : frame1.ImageIds()) {
           for (const data_t& image_id2 : frame2.ImageIds()) {
             if (!cache_->ExistsMatches(image_id1.id, image_id2.id)) {
@@ -214,10 +220,23 @@ class FeatureMatcherThread : public Thread {
           cache_->DeleteInlierMatches(image_id1, image_id2);
           cache_->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
         }
-      });
+      }));
     }
 
-    thread_pool.Wait();
+    const size_t kBatchSize = 1000;
+    const size_t num_jobs = futures.size();
+    const size_t num_batches = (num_jobs + kBatchSize - 1) / kBatchSize;
+    for (size_t i = 0; i < num_jobs; ++i) {
+      if (IsStopped()) {
+        thread_pool.Stop();
+      }
+      Timer run_timer;
+      run_timer.Start();
+      LOG_IF(INFO, i % kBatchSize == 0) << StringPrintf(
+          "Processed batch [%d/%d]", i / kBatchSize + 1, num_batches);
+      futures[i].get();
+      run_timer.PrintMinutes();
+    }
   }
 
   const bool only_verification_;

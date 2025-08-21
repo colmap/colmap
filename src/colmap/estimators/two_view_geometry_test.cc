@@ -690,6 +690,32 @@ RigTwoViewGeometryTestData CreateRigTwoViewGeometryTestData(
   return data;
 }
 
+TEST(EstimateRigTwoViewGeometries, Empty) {
+  SetPRNGSeed(1);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 3;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 200;
+  synthetic_dataset_options.point2D_stddev = 0;
+  synthetic_dataset_options.inlier_match_ratio = 0.6;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  const RigTwoViewGeometryTestData test_data =
+      CreateRigTwoViewGeometryTestData(synthetic_dataset_options);
+
+  TwoViewGeometryOptions two_view_geometry_options;
+  two_view_geometry_options.ransac_options.random_seed = 42;
+  const auto geometries =
+      EstimateRigTwoViewGeometries(test_data.rig1,
+                                   test_data.rig2,
+                                   test_data.reconstruction.Images(),
+                                   test_data.reconstruction.Cameras(),
+                                   {},
+                                   two_view_geometry_options);
+  EXPECT_TRUE(geometries.empty());
+}
+
 TEST(EstimateRigTwoViewGeometries, Nominal) {
   SetPRNGSeed(1);
 
