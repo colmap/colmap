@@ -665,7 +665,8 @@ RigTwoViewGeometryTestData CreateRigTwoViewGeometryTestData(
     const SyntheticDatasetOptions& synthetic_dataset_options) {
   RigTwoViewGeometryTestData data;
   auto database = Database::Open(kInMemorySqliteDatabasePath);
-  SynthesizeDataset(synthetic_dataset_options, &data.reconstruction, database.get());
+  SynthesizeDataset(
+      synthetic_dataset_options, &data.reconstruction, database.get());
 
   CHECK_EQ(data.reconstruction.NumRigs(), 2);
 
