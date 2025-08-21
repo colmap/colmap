@@ -387,7 +387,7 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
 void BindDatabase(py::module& m) {
   py::classh<Database, PyDatabaseImpl> PyDatabase(m, "Database");
   PyDatabase.def(py::init<>())
-      .def("open", &Database::Open, "path"_a)
+      .def_static("open", &Database::Open, "path"_a)
       .def("close", &Database::Close)
       .def("__enter__", [](Database& self) { return &self; })
       .def("__exit__", [](Database& self, const py::args&) { self.Close(); })

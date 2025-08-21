@@ -47,7 +47,7 @@ def test_without_noise(tmp_path):
     output_path = tmp_path / "sparse"
     output_path.mkdir()
 
-    with pycolmap.Database(database_path) as database:
+    with pycolmap.Database.open(database_path) as database:
         synthetic_dataset_options = pycolmap.SyntheticDatasetOptions()
         synthetic_dataset_options.num_cameras_per_rig = 2
         synthetic_dataset_options.num_frames_per_rig = 7
@@ -82,7 +82,7 @@ def test_with_noise(tmp_path):
     output_path = tmp_path / "sparse"
     output_path.mkdir()
 
-    with pycolmap.Database(database_path) as database:
+    with pycolmap.Database.open(database_path) as database:
         synthetic_dataset_options = pycolmap.SyntheticDatasetOptions()
         synthetic_dataset_options.num_cameras_per_rig = 2
         synthetic_dataset_options.num_frames_per_rig = 7
@@ -117,7 +117,7 @@ def test_multi_reconstruction(tmp_path):
     output_path = tmp_path / "sparse"
     output_path.mkdir()
 
-    with pycolmap.Database(database_path) as database:
+    with pycolmap.Database.open(database_path) as database:
         synthetic_dataset_options = pycolmap.SyntheticDatasetOptions()
         synthetic_dataset_options.num_cameras_per_rig = 1
         synthetic_dataset_options.num_frames_per_rig = 5
@@ -171,7 +171,7 @@ def test_chained_matches(tmp_path):
     output_path = tmp_path / "sparse"
     output_path.mkdir()
 
-    with pycolmap.Database(database_path) as database:
+    with pycolmap.Database.open(database_path) as database:
         synthetic_dataset_options = pycolmap.SyntheticDatasetOptions()
         synthetic_dataset_options.num_cameras_per_rig = 1
         synthetic_dataset_options.num_frames_per_rig = 4

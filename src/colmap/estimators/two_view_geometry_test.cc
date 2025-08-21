@@ -35,7 +35,7 @@
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
-#include "colmap/scene/database.h"
+#include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/eigen_alignment.h"
@@ -664,14 +664,14 @@ struct RigTwoViewGeometryTestData {
 RigTwoViewGeometryTestData CreateRigTwoViewGeometryTestData(
     const SyntheticDatasetOptions& synthetic_dataset_options) {
   RigTwoViewGeometryTestData data;
-  Database database(Database::kInMemoryDatabasePath);
-  SynthesizeDataset(synthetic_dataset_options, &data.reconstruction, &database);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  SynthesizeDataset(synthetic_dataset_options, &data.reconstruction, database.get());
 
   CHECK_EQ(data.reconstruction.NumRigs(), 2);
 
   data.rig1 = data.reconstruction.Rig(1);
   data.rig2 = data.reconstruction.Rig(2);
-  for (auto& [pair_id, matches] : database.ReadAllMatches()) {
+  for (auto& [pair_id, matches] : database->ReadAllMatches()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     const auto& camera1 = data.reconstruction.Camera(
         data.reconstruction.Image(image_id1).CameraId());
