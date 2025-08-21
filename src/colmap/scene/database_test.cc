@@ -93,6 +93,7 @@ TEST_P(ParameterizedDatabaseTests, TransactionMultiThreaded) {
 
   constexpr int kNumThreads = 3;
   std::vector<std::thread> threads;
+  threads.reserve(kNumThreads);
   for (int i = 0; i < kNumThreads; ++i) {
     threads.emplace_back([&database]() {
       DatabaseTransaction database_transaction(database.get());
