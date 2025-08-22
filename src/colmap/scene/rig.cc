@@ -332,6 +332,7 @@ void ApplyRigConfig(const std::vector<RigConfig>& configs,
   database.ClearRigs();
 
   const std::vector<Image> images = database.ReadAllImages();
+  std::set<image_t> configured_image_ids;
 
   for (const RigConfig& config : configs) {
     Rig rig;
@@ -405,6 +406,7 @@ void ApplyRigConfig(const std::vector<RigConfig>& configs,
             << ", camera_id=" << image->CameraId() << ", name=" << image->Name()
             << ")";
         frame.AddDataId(data_id);
+        configured_image_ids.insert(image->ImageId());
       }
       frame.SetFrameId(database.WriteFrame(frame));
       LOG(INFO) << "Configured: " << frame;
