@@ -126,6 +126,7 @@ TEST(Image, FramePtr) {
   rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
   Frame frame;
   frame.SetFrameId(1);
+  frame.SetRigId(1);
   frame.SetRigPtr(&rig);
   Image image;
   image.SetImageId(1);
@@ -142,6 +143,7 @@ TEST(Image, SetResetPose) {
   rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
   Frame frame;
   frame.SetFrameId(1);
+  frame.SetRigId(1);
   frame.SetRigPtr(&rig);
   Image image;
   image.SetImageId(1);
@@ -167,6 +169,7 @@ TEST(Image, ConstructCopy) {
   rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
   Frame frame;
   frame.SetFrameId(1);
+  frame.SetRigId(1);
   frame.SetRigFromWorld(Rigid3d());
   frame.SetRigPtr(&rig);
   Image image;
@@ -189,6 +192,7 @@ TEST(Image, AssignCopy) {
   rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
   Frame frame;
   frame.SetFrameId(1);
+  frame.SetRigId(1);
   frame.SetRigFromWorld(Rigid3d());
   frame.SetRigPtr(&rig);
   Image image;
@@ -297,6 +301,7 @@ TEST(Image, ProjectionCenter) {
   rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
   Frame frame;
   frame.SetFrameId(1);
+  frame.SetRigId(1);
   frame.SetRigFromWorld(Rigid3d());
   frame.SetRigPtr(&rig);
   Image image;
@@ -314,6 +319,7 @@ TEST(Image, ViewingDirection) {
   rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
   Frame frame;
   frame.SetFrameId(1);
+  frame.SetRigId(1);
   frame.SetRigFromWorld(Rigid3d());
   frame.SetRigPtr(&rig);
   Image image;
@@ -331,6 +337,7 @@ TEST(Image, ProjectPoint) {
   rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
   Frame frame;
   frame.SetFrameId(1);
+  frame.SetRigId(1);
   frame.SetRigFromWorld(Rigid3d());
   frame.SetRigPtr(&rig);
   Image image;
