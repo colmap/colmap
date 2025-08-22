@@ -79,7 +79,7 @@ struct FeatureMatchingOptions {
   // Whether to perform geometric verification using rig constraints
   // between pairs of non-trivial frames. If disabled, performs geometric
   // two-view verification for non-trivial frames without rig constraints.
-  bool rig_verification = true;
+  bool rig_verification = false;
 
   // Whether to skip matching images within the same frame.
   // This is useful for the case of non-overlapping cameras in a rig.
