@@ -84,5 +84,6 @@ int RunSequentialMatcher(int argc, char** argv);
 int RunSpatialMatcher(int argc, char** argv);
 int RunTransitiveMatcher(int argc, char** argv);
 int RunVocabTreeMatcher(int argc, char** argv);
+int RunGeometricVerifier(int argc, char** argv);
 
 }  // namespace colmap

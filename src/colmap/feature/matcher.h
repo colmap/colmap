@@ -41,6 +41,7 @@
 
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <unordered_map>
 
 namespace colmap {
@@ -74,6 +75,11 @@ struct FeatureMatchingOptions {
 
   // Whether to perform guided matching.
   bool guided_matching = false;
+
+  // Whether to perform geometric verification using rig constraints
+  // between pairs of non-trivial frames. If disabled, performs geometric
+  // two-view verification for non-trivial frames without rig constraints.
+  bool rig_verification = true;
 
   // Whether to skip matching images within the same frame.
   // This is useful for the case of non-overlapping cameras in a rig.
@@ -172,6 +178,7 @@ class FeatureMatcherCache {
   std::unique_ptr<ThreadSafeLRUCache<image_t, bool>> keypoints_exists_cache_;
   std::unique_ptr<ThreadSafeLRUCache<image_t, bool>> descriptors_exists_cache_;
   ThreadSafeLRUCache<image_t, FeatureDescriptorIndex> descriptor_index_cache_;
+  std::optional<size_t> max_num_keypoints_;
 };
 
 }  // namespace colmap

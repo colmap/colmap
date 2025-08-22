@@ -35,10 +35,12 @@
 #include "colmap/controllers/option_manager.h"
 #include "colmap/exe/gui.h"
 #include "colmap/feature/sift.h"
+#include "colmap/feature/utils.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
+#include "colmap/util/threading.h"
 
 namespace colmap {
 
@@ -365,6 +367,26 @@ int RunVocabTreeMatcher(int argc, char** argv) {
     matcher->Start();
     matcher->Wait();
   }
+
+  return EXIT_SUCCESS;
+}
+
+int RunGeometricVerifier(int argc, char** argv) {
+  ExistingMatchedPairingOptions pairing_options;
+
+  OptionManager options;
+  options.AddDatabaseOptions();
+  options.AddFeatureMatchingOptions();
+  options.AddTwoViewGeometryOptions();
+  options.AddDefaultOption("batch_size", &pairing_options.batch_size);
+  options.Parse(argc, argv);
+
+  auto matcher = CreateGeometicVerifier(pairing_options,
+                                        *options.feature_matching,
+                                        *options.two_view_geometry,
+                                        *options.database_path);
+  matcher->Start();
+  matcher->Wait();
 
   return EXIT_SUCCESS;
 }

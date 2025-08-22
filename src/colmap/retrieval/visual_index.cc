@@ -223,8 +223,8 @@ class FaissVisualIndex : public VisualIndex {
           inverted_index_.ConvertToBinaryDescriptor(
               word_id, descriptor, &query_entries[i].descriptor);
 
-          const auto idf_weight = inverted_index_.GetIDFWeight(word_id);
-          const auto squared_idf_weight = idf_weight * idf_weight;
+          const float squared_idf_weight =
+              inverted_index_.SquaredIDFWeight(word_id);
 
           inverted_index_.FindMatches(word_id, image_ids, &word_matches);
 
