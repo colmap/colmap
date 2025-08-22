@@ -205,7 +205,6 @@ TEST(UndistortReconstruction, Nominal) {
     frame.SetRigId(1);
     frame.SetFrameId(image_id);
     frame.SetRigFromWorld(Rigid3d());
-    reconstruction.AddFrame(frame);
     Image image;
     image.SetImageId(image_id);
     image.SetCameraId(1);
@@ -213,6 +212,8 @@ TEST(UndistortReconstruction, Nominal) {
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Ones()));
+    frame.AddDataId(image.DataId());
+    reconstruction.AddFrame(frame);
     reconstruction.AddImage(image);
     reconstruction.RegisterFrame(frame.FrameId());
   }

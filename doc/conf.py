@@ -75,7 +75,7 @@ copyright = "2025, Johannes L. Schoenberger"
 # built documents.
 #
 # The short MAJOR.MINOR.PATCH version.
-version = "3.12.4" + " | " + get_git_revision()
+version = "3.12.5" + " | " + get_git_revision()
 # The full version, including alpha/beta/rc tags.
 release = version
 

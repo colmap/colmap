@@ -43,7 +43,9 @@ void ExpectEqualReconstructions(const Reconstruction& gt,
                                 const double max_rotation_error_deg,
                                 const double max_proj_center_error,
                                 const double num_obs_tolerance,
-                                const bool align = true) {
+                                const bool align = true,
+                                const bool check_scale = false,
+                                const double max_scale_error = 0.01) {
   EXPECT_EQ(computed.NumCameras(), gt.NumCameras());
   EXPECT_EQ(computed.NumImages(), gt.NumImages());
   EXPECT_EQ(computed.NumRegImages(), gt.NumRegImages());
@@ -57,6 +59,9 @@ void ExpectEqualReconstructions(const Reconstruction& gt,
                                            gt,
                                            /*max_proj_center_error=*/0.1,
                                            &gt_from_computed));
+    if (check_scale) {
+      EXPECT_NEAR(gt_from_computed.scale, 1.0, max_scale_error);
+    }
   }
 
   const std::vector<ImageAlignmentError> errors =
@@ -128,7 +133,10 @@ TEST(IncrementalPipeline, WithoutNoiseAndWithNonTrivialFrames) {
                                *reconstruction_manager->Get(0),
                                /*max_rotation_error_deg=*/1e-2,
                                /*max_proj_center_error=*/1e-3,
-                               /*num_obs_tolerance=*/0);
+                               /*num_obs_tolerance=*/0,
+                               /*align=*/true,
+                               /*check_scale=*/true,
+                               refine_sensor_from_rig ? 1e-2 : 1e-4);
   }
 }
 

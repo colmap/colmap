@@ -29,6 +29,7 @@
 
 #include "colmap/estimators/alignment.h"
 
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/database.h"
@@ -224,6 +225,32 @@ TEST(Alignment, MergeReconstructions) {
   EXPECT_EQ(tgt_reconstruction.NumPoints3D(), 50);
   EXPECT_EQ(tgt_reconstruction.ComputeNumObservations(),
             orig_reconstruction.ComputeNumObservations());
+}
+
+TEST(Alignment, AlignReconstructionToOrigRigScales) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 4;
+  synthetic_dataset_options.num_frames_per_rig = 10;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.point2D_stddev = 0;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  std::unordered_map<rig_t, Rig> orig_rigs = reconstruction.Rigs();
+
+  reconstruction.Transform(TestSim3d());
+  AlignReconstructionToOrigRigScales(orig_rigs, &reconstruction);
+  for (const auto& [rig_id, orig_rig] : orig_rigs) {
+    for (const auto& [sensor_id, sensor_from_orig_rig] : orig_rig.Sensors()) {
+      if (!sensor_from_orig_rig.has_value()) {
+        continue;
+      }
+      EXPECT_THAT(
+          reconstruction.Rig(rig_id).SensorFromRig(sensor_id),
+          Rigid3dNear(
+              sensor_from_orig_rig.value(), /*rtol=*/1e-6, /*ttol=*/1e-6));
+    }
+  }
 }
 
 }  // namespace

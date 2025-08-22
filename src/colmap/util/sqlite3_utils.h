@@ -54,7 +54,7 @@ inline int SQLite3CallHelper(int result_code,
   }
 }
 
-#define SQLITE3_CALL(func) SQLite3CallHelper(func, __FILE__, __LINE__)
+#define SQLITE3_CALL(func) colmap::SQLite3CallHelper(func, __FILE__, __LINE__)
 
 #define SQLITE3_EXEC(database, sql, callback)                             \
   {                                                                       \
