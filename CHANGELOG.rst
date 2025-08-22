@@ -2,6 +2,34 @@ Changelog
 =========
 
 --------------------------
+COLMAP 3.12.5 (08/22/2025)
+--------------------------
+
+Improvements
+------------
+* Add various safety checks with more understandable error messages
+  when adding misconfigured rigs/cameras/frames/images to the reconstruction.
+* Recover original metric reconstruction scale in case of configured rigs.
+
+Bug Fixes
+---------
+* Fix incompatibilities due to redundant symbol definition in pycolmap/pyceres.
+* Fix error threshold for generalized relative pose to be in pixel space.
+* Fix rig configuration in case of inconsistent IDs in database/reconstruction.
+* Fix missing colmap namespace in sqlite3 macro.
+* Fix CMake configuration with Boost 1.89 or newer.
+* Fix viewer crash when clearing the reconstruction.
+
+--------------------------
+COLMAP 3.12.4 (08/04/2025)
+--------------------------
+
+Bug Fixes
+---------
+* Fix global bundle adjustment performance regression due
+  to changing gauge fixing mechanism by fixing points vs. cameras.
+
+--------------------------
 COLMAP 3.12.3 (07/16/2025)
 --------------------------
 
@@ -32,6 +60,7 @@ Bug Fixes
 * Fix Docker runtime libraries
 * Fix spatial matcher bug
 * Minor fixes for documentation
+
 
 --------------------------
 COLMAP 3.12.0 (06/30/2025)
