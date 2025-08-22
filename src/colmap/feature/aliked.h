@@ -26,56 +26,39 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
+//
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
-#include "colmap/feature/types.h"
-#include "colmap/sensor/bitmap.h"
-#include "colmap/util/enum_utils.h"
-
-#include <memory>
+#include "colmap/feature/extractor.h"
+#include "colmap/feature/matcher.h"
 
 namespace colmap {
 
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureExtractorType, 0, SIFT, ALIKED);
+struct ALIKEDExtractionOptions {
+  // Maximum image size, otherwise image will be down-scaled.
+  int max_image_size = 2000;
 
-struct SiftExtractionOptions;
-struct ALIKEDExtractionOptions;
-
-struct FeatureExtractionOptions {
-  explicit FeatureExtractionOptions(
-      FeatureExtractorType type = FeatureExtractorType::SIFT);
-
-  FeatureExtractorType type = FeatureExtractorType::SIFT;
-
-  // Number of threads for feature extraction.
-  int num_threads = -1;
-
-  // Whether to use the GPU for feature extraction.
-  bool use_gpu = true;
-
-  // Index of the GPU used for feature extraction. For multi-GPU extraction,
-  // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
-  std::string gpu_index = "-1";
-
-  std::shared_ptr<SiftExtractionOptions> sift;
-  std::shared_ptr<ALIKEDExtractionOptions> aliked;
-
-  int MaxImageSize() const;
+  // The path to the ALIKED model.
+  // TODO(jsch): Change to ALIKED.
+  std::string model_path = "/Users/jsch/Downloads/superpoint.onnx";
 
   bool Check() const;
 };
 
-class FeatureExtractor {
- public:
-  virtual ~FeatureExtractor() = default;
+std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
+    const FeatureExtractionOptions& options);
 
-  static std::unique_ptr<FeatureExtractor> Create(
-      const FeatureExtractionOptions& options);
+struct ALIKEDMatchingOptions {
+  // The path to LightGlue model file for ALIKED features.
+  // TODO(jsch): Change to ALIKED.
+  std::string model_path = "/Users/jsch/Downloads/superpoint_lightglue.onnx";
 
-  virtual bool Extract(const Bitmap& bitmap,
-                       FeatureKeypoints* keypoints,
-                       FeatureDescriptors* descriptors) = 0;
+  bool Check() const;
 };
+
+std::unique_ptr<FeatureMatcher> CreateALIKEDFeatureMatcher(
+    const FeatureMatchingOptions& options);
 
 }  // namespace colmap

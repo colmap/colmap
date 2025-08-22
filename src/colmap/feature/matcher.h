@@ -46,9 +46,10 @@
 
 namespace colmap {
 
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType, 0, SIFT);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType, 0, SIFT, ALIKED);
 
 struct SiftMatchingOptions;
+struct ALIKEDMatchingOptions;
 
 struct FeatureMatchingOptions {
   explicit FeatureMatchingOptions(
@@ -86,6 +87,7 @@ struct FeatureMatchingOptions {
   bool skip_image_pairs_in_same_frame = false;
 
   std::shared_ptr<SiftMatchingOptions> sift;
+  std::shared_ptr<ALIKEDMatchingOptions> aliked;
 
   bool Check() const;
 };

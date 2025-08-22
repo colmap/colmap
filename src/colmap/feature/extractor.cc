@@ -29,6 +29,7 @@
 
 #include "colmap/feature/extractor.h"
 
+#include "colmap/feature/aliked.h"
 #include "colmap/feature/sift.h"
 #include "colmap/util/misc.h"
 
@@ -44,12 +45,16 @@ void ThrowUnknownFeatureExtractorType(FeatureExtractorType type) {
 }  // namespace
 
 FeatureExtractionOptions::FeatureExtractionOptions(FeatureExtractorType type)
-    : type(type), sift(std::make_shared<SiftExtractionOptions>()) {}
+    : type(type),
+      sift(std::make_shared<SiftExtractionOptions>()),
+      aliked(std::make_shared<ALIKEDExtractionOptions>()) {}
 
 int FeatureExtractionOptions::MaxImageSize() const {
   switch (type) {
     case FeatureExtractorType::SIFT:
       return sift->max_image_size;
+    case FeatureExtractorType::ALIKED:
+      return aliked->max_image_size;
     default:
       ThrowUnknownFeatureExtractorType(type);
   }
@@ -67,6 +72,8 @@ bool FeatureExtractionOptions::Check() const {
   }
   if (type == FeatureExtractorType::SIFT) {
     return THROW_CHECK_NOTNULL(sift)->Check();
+  } else if (type == FeatureExtractorType::ALIKED) {
+    return THROW_CHECK_NOTNULL(aliked)->Check();
   } else {
     LOG(ERROR) << "Unknown feature extractor type: " << type;
     return false;
@@ -79,6 +86,8 @@ std::unique_ptr<FeatureExtractor> FeatureExtractor::Create(
   switch (options.type) {
     case FeatureExtractorType::SIFT:
       return CreateSiftFeatureExtractor(options);
+    case FeatureExtractorType::ALIKED:
+      return CreateALIKEDFeatureExtractor(options);
     default:
       ThrowUnknownFeatureExtractorType(options.type);
   }
