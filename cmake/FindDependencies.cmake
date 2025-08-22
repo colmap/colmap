@@ -88,7 +88,7 @@ endif()
 if(DOWNLOAD_ENABLED)
     # The OpenSSL package in vcpkg seems broken under Windows and leads to
     # missing certificate verification when connecting to SSL servers. We
-    # therefore use curl[schannel] (i.e., native Windows SSL/TLS) under Windows
+    # therefore use curl[sspi] (i.e., native Windows SSL/TLS) under Windows
     # and curl[openssl] otherwise.
     find_package(CURL QUIET)
     set(CRYPTO_FOUND FALSE)
@@ -156,7 +156,7 @@ if(CUDA_ENABLED)
 
             declare_imported_cuda_target(cudart ${CUDA_LIBRARIES})
             declare_imported_cuda_target(curand ${CUDA_LIBRARIES})
-            
+
             set(CUDAToolkit_VERSION "${CUDA_VERSION_STRING}")
             set(CUDAToolkit_BIN_DIR "${CUDA_TOOLKIT_ROOT_DIR}/bin")
         else()
