@@ -333,8 +333,8 @@ class FeatureExtractorController : public Thread {
                              const FeatureExtractionOptions& extraction_options)
       : reader_options_(reader_options),
         extraction_options_(extraction_options),
-        database_(database_path),
-        image_reader_(reader_options_, &database_) {
+        database_(Database::Open(database_path)),
+        image_reader_(reader_options_, database_.get()) {
     THROW_CHECK(reader_options_.Check());
     THROW_CHECK(extraction_options_.Check());
 
@@ -429,7 +429,7 @@ class FeatureExtractorController : public Thread {
 
     writer_ = std::make_unique<FeatureWriterThread>(extraction_options_.type,
                                                     image_reader_.NumImages(),
-                                                    &database_,
+                                                    database_.get(),
                                                     writer_queue_.get());
   }
 
@@ -507,7 +507,7 @@ class FeatureExtractorController : public Thread {
   const ImageReaderOptions reader_options_;
   const FeatureExtractionOptions extraction_options_;
 
-  Database database_;
+  std::shared_ptr<Database> database_;
   ImageReader image_reader_;
 
   std::vector<std::unique_ptr<Thread>> resizers_;
@@ -542,8 +542,8 @@ class FeatureImporterController : public Thread {
       return;
     }
 
-    Database database(database_path_);
-    ImageReader image_reader(reader_options_, &database);
+    auto database = Database::Open(database_path_);
+    ImageReader image_reader(reader_options_, database.get());
 
     while (image_reader.NextIndex() < image_reader.NumImages()) {
       if (IsStopped()) {
@@ -576,25 +576,25 @@ class FeatureImporterController : public Thread {
         LOG(INFO) << "Features:       " << keypoints.size()
                   << "(Imported SIFT)";
 
-        DatabaseTransaction database_transaction(&database);
+        DatabaseTransaction database_transaction(database.get());
 
         if (image.ImageId() == kInvalidImageId) {
-          image.SetImageId(database.WriteImage(image));
+          image.SetImageId(database->WriteImage(image));
           if (pose_prior.IsValid()) {
-            database.WritePosePrior(image.ImageId(), pose_prior);
+            database->WritePosePrior(image.ImageId(), pose_prior);
           }
           Frame frame;
           frame.SetRigId(rig.RigId());
           frame.AddDataId(image.DataId());
-          database.WriteFrame(frame);
+          database->WriteFrame(frame);
         }
 
-        if (!database.ExistsKeypoints(image.ImageId())) {
-          database.WriteKeypoints(image.ImageId(), keypoints);
+        if (!database->ExistsKeypoints(image.ImageId())) {
+          database->WriteKeypoints(image.ImageId(), keypoints);
         }
 
-        if (!database.ExistsDescriptors(image.ImageId())) {
-          database.WriteDescriptors(image.ImageId(), descriptors);
+        if (!database->ExistsDescriptors(image.ImageId())) {
+          database->WriteDescriptors(image.ImageId(), descriptors);
         }
       } else {
         LOG(INFO) << "SKIP: No features found at " << path;

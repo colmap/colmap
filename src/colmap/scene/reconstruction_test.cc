@@ -31,6 +31,7 @@
 
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/sim3.h"
+#include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
@@ -447,20 +448,20 @@ TEST(Reconstruction, DeleteObservation) {
 
 TEST(Reconstruction, SetRigsAndFrames) {
   Reconstruction reconstruction;
-  Database database(Database::kInMemoryDatabasePath);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_rigs = 3;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 8;
   synthetic_dataset_options.num_points3D = 21;
-  SynthesizeDataset(synthetic_dataset_options, &reconstruction, &database);
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction, database.get());
   for (const auto& [frame_id, _] : reconstruction.Frames()) {
     reconstruction.DeRegisterFrame(frame_id);
   }
   const Reconstruction orig_reconstruction = reconstruction;
-  reconstruction.SetRigsAndFrames(database.ReadAllRigs(),
-                                  database.ReadAllFrames());
+  reconstruction.SetRigsAndFrames(database->ReadAllRigs(),
+                                  database->ReadAllFrames());
   ExpectEqualReconstructions(reconstruction, orig_reconstruction);
 }
 

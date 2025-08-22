@@ -306,7 +306,7 @@ def run(args):
         camera_mode=pycolmap.CameraMode.PER_FOLDER,
     )
 
-    with pycolmap.Database(database_path) as db:
+    with pycolmap.Database.open(database_path) as db:
         pycolmap.apply_rig_config([rig_config], db)
 
     matching_options = pycolmap.FeatureMatchingOptions()
