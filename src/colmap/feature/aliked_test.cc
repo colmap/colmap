@@ -31,19 +31,17 @@
 
 #include "colmap/sensor/bitmap.h"
 
-#include <iostream>
-
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
 
-void CreateImageWithSquare(const int size, Bitmap* bitmap) {
-  bitmap->Allocate(size, size, false);
+void CreateImageWithSquare(const int width, const int height, Bitmap* bitmap) {
+  bitmap->Allocate(width, height, false);
   bitmap->Fill(BitmapColor<uint8_t>(0, 0, 0));
-  for (int r = size / 2 - size / 8; r < size / 2 + size / 8; ++r) {
-    for (int c = size / 2 - size / 8; c < size / 2 + size / 8; ++c) {
+  for (int r = height / 2 - height / 8; r < height / 2 + height / 8; ++r) {
+    for (int c = width / 2 - width / 8; c < width / 2 + width / 8; ++c) {
       bitmap->SetPixel(r, c, BitmapColor<uint8_t>(255));
     }
   }
@@ -51,16 +49,16 @@ void CreateImageWithSquare(const int size, Bitmap* bitmap) {
 
 TEST(ALIKED, Nominal) {
   Bitmap image;
-  CreateImageWithSquare(256, &image);
+  CreateImageWithSquare(512, 512, &image);
 
   FeatureExtractionOptions extraction_options(FeatureExtractorType::ALIKED);
   auto extractor = CreateALIKEDFeatureExtractor(extraction_options);
   auto keypoints = std::make_shared<FeatureKeypoints>();
   auto descriptors = std::make_shared<FeatureDescriptors>();
   ASSERT_TRUE(extractor->Extract(image, keypoints.get(), descriptors.get()));
-  EXPECT_EQ(keypoints->size(), 15);
+  EXPECT_EQ(keypoints->size(), 24);
   EXPECT_EQ(keypoints->size(), descriptors->rows());
-  EXPECT_EQ(descriptors->cols(), 256 * sizeof(float));
+  EXPECT_EQ(descriptors->cols(), 128 * sizeof(float));
 
   for (const auto& matching_options :
        {FeatureMatchingOptions(FeatureMatcherType::ALIKED)}) {

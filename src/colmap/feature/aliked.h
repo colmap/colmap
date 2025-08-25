@@ -40,9 +40,15 @@ struct ALIKEDExtractionOptions {
   // Maximum image size, otherwise image will be down-scaled.
   int max_image_size = 2000;
 
+  // Maximum number of features to detect, keeping higher-score features.
+  int max_num_features = 4096;
+
+  // The minimum threshold for the score of a feature.
+  float min_score = 0.2f;
+
   // The path to the ALIKED model.
   // TODO(jsch): Change to ALIKED.
-  std::string model_path = "/Users/jsch/Downloads/superpoint.onnx";
+  std::string model_path = "/Users/jsch/Downloads/aliked.onnx";
 
   bool Check() const;
 };
@@ -53,7 +59,7 @@ std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
 struct ALIKEDMatchingOptions {
   // The path to LightGlue model file for ALIKED features.
   // TODO(jsch): Change to ALIKED.
-  std::string model_path = "/Users/jsch/Downloads/superpoint_lightglue.onnx";
+  std::string model_path = "/Users/jsch/Downloads/lightglue_aliked.onnx";
 
   bool Check() const;
 };

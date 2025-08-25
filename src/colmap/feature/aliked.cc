@@ -29,7 +29,6 @@
 
 #include "colmap/feature/aliked.h"
 
-#include "colmap/util/file.h"
 #include "colmap/util/threading.h"
 
 #include <memory>
@@ -45,6 +44,38 @@ namespace colmap {
 namespace {
 
 #ifdef COLMAP_ONNX_ENABLED
+
+static constexpr int kMaxNumFeatures = -1;
+static constexpr int kDescriptorDim = 256;
+
+std::string FormatShape(const std::vector<int64_t>& shape) {
+  std::ostringstream oss;
+  oss << "[";
+  for (size_t i = 0; i < shape.size(); ++i) {
+    oss << shape[i];
+    if (i < shape.size() - 1) {
+      oss << ", ";
+    }
+  }
+  oss << "]";
+  return oss.str();
+}
+
+// TODO(jsch): Use std::span for shape when we move to C++20.
+void ThrowCheckNode(const std::string_view name,
+                    const std::string_view expected_name,
+                    const std::vector<int64_t>& shape,
+                    const std::vector<int64_t>& expected_shape) {
+  THROW_CHECK_EQ(name, expected_name);
+  THROW_CHECK_EQ(shape.size(), expected_shape.size())
+      << "Invalid shape for " << name << ": " << FormatShape(shape)
+      << " != " << FormatShape(expected_shape);
+  for (size_t i = 0; i < shape.size(); ++i) {
+    THROW_CHECK_EQ(shape[i], expected_shape[i])
+        << "Invalid shape for " << name << ": " << FormatShape(shape)
+        << " != " << FormatShape(expected_shape);
+  }
+}
 
 struct ONNXModel {
   ONNXModel(const std::string& model_path, int num_threads) {
@@ -106,16 +137,25 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
       : options_(options),
         model_(options.aliked->model_path, options.num_threads) {
     THROW_CHECK(options.Check());
+
     THROW_CHECK_EQ(model_.input_shapes.size(), 1);
-    THROW_CHECK_EQ(std::string_view(model_.input_names[0]), "image");
-    THROW_CHECK(model_.input_shapes[0] == std::vector<int64_t>({1, 1, -1, -1}));
+    ThrowCheckNode(
+        model_.input_names[0], "image", model_.input_shapes[0], {1, 3, -1, -1});
+
     THROW_CHECK_EQ(model_.output_shapes.size(), 3);
-    THROW_CHECK_EQ(std::string_view(model_.output_names[0]), "keypoints");
-    THROW_CHECK(model_.output_shapes[0] == std::vector<int64_t>({1, -1, 2}));
-    THROW_CHECK_EQ(std::string_view(model_.output_names[1]), "scores");
-    THROW_CHECK(model_.output_shapes[1] == std::vector<int64_t>({1, -1}));
-    THROW_CHECK_EQ(std::string_view(model_.output_names[2]), "descriptors");
-    THROW_CHECK(model_.output_shapes[2] == std::vector<int64_t>({1, -1, 256}));
+    ThrowCheckNode(model_.output_names[0],
+                   "keypoints",
+                   model_.output_shapes[0],
+                   {1, -1, 2});
+    ThrowCheckNode(
+        model_.output_names[1], "scores", model_.output_shapes[1], {1, -1});
+    ThrowCheckNode(model_.output_names[2],
+                   "descriptors",
+                   model_.output_shapes[2],
+                   {1, kMaxNumFeatures, kDescriptorDim});
+    // The exported ONNX model has a fixed output shape of detected features.
+    // As such, we cannot select more than kMaxNumFeatures features.
+    THROW_CHECK_LE(options_.aliked->max_num_features, kMaxNumFeatures);
   }
 
   bool Extract(const Bitmap& bitmap,
@@ -132,8 +172,8 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
     // Only copy bitmap if we need to rescale or convert to RGB.
     const Bitmap* bitmap_ptr = &bitmap;
     std::unique_ptr<Bitmap> maybe_bitmap_copy;
-    if (!bitmap.IsGrey() || needs_rescale) {
-      maybe_bitmap_copy = std::make_unique<Bitmap>(bitmap.CloneAsGrey());
+    if (!bitmap.IsRGB() || needs_rescale) {
+      maybe_bitmap_copy = std::make_unique<Bitmap>(bitmap.CloneAsRGB());
       bitmap_ptr = maybe_bitmap_copy.get();
     }
 
@@ -152,7 +192,7 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
     }
 
     model_.input_shapes[0][0] = 1;
-    model_.input_shapes[0][1] = 1;
+    model_.input_shapes[0][1] = bitmap_ptr->Channels();
     model_.input_shapes[0][2] = bitmap_ptr->Height();
     model_.input_shapes[0][3] = bitmap_ptr->Width();
 
@@ -173,28 +213,64 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
     THROW_CHECK_EQ(keypoints_shape[0], 1);
     const int num_keypoints = keypoints_shape[1];
     THROW_CHECK_EQ(keypoints_shape[2], 2);
-    // TODO(jsch): Change to float for ALIKED.
-    const int64_t* keypoints_data = reinterpret_cast<const int64_t*>(
-        output_tensors[0].GetTensorData<void>());
-    keypoints->resize(num_keypoints);
-    for (int i = 0; i < keypoints->size(); ++i) {
-      (*keypoints)[i].x = keypoints_data[2 * i + 0];
-      (*keypoints)[i].y = keypoints_data[2 * i + 1];
-    }
+
+    const std::vector<int64_t> scores_shape =
+        output_tensors[1].GetTensorTypeAndShapeInfo().GetShape();
+    THROW_CHECK_EQ(scores_shape.size(), 2);
+    THROW_CHECK_EQ(scores_shape[0], 1);
+    THROW_CHECK_EQ(scores_shape[1], num_keypoints);
 
     const std::vector<int64_t> descriptors_shape =
         output_tensors[2].GetTensorTypeAndShapeInfo().GetShape();
     THROW_CHECK_EQ(descriptors_shape.size(), 3);
     THROW_CHECK_EQ(descriptors_shape[0], 1);
     THROW_CHECK_EQ(descriptors_shape[1], num_keypoints);
-    THROW_CHECK_EQ(descriptors_shape[2], 256);
-    const int descriptors_dim = descriptors_shape[2];
+    THROW_CHECK_EQ(descriptors_shape[2], kDescriptorDim);
+
+    const float* keypoints_data =
+        reinterpret_cast<const float*>(output_tensors[0].GetTensorData<void>());
+    const float* scores_data =
+        reinterpret_cast<const float*>(output_tensors[1].GetTensorData<void>());
     const float* descriptors_data =
         reinterpret_cast<const float*>(output_tensors[2].GetTensorData<void>());
-    descriptors->resize(keypoints->size(), descriptors_dim * sizeof(float));
-    std::memcpy(descriptors->data(),
-                descriptors_data,
-                num_keypoints * descriptors_dim * sizeof(float));
+
+    // Filter features by score.
+    int num_filtered_keypoints = 0;
+    for (int i = 0; i < num_keypoints; ++i) {
+      if (scores_data[i] >= options_.aliked->min_score) {
+        ++num_filtered_keypoints;
+      }
+    }
+
+    const int num_selected_keypoints =
+        std::min(num_filtered_keypoints, options_.aliked->max_num_features);
+
+    // Rank features by score.
+    std::vector<int> sorted_indices(num_keypoints);
+    std::iota(sorted_indices.begin(), sorted_indices.end(), 0);
+    std::partial_sort(sorted_indices.begin(),
+                      sorted_indices.begin() + num_selected_keypoints,
+                      sorted_indices.end(),
+                      [&scores_data](const int i, const int j) {
+                        return scores_data[i] > scores_data[j];
+                      });
+
+    // Copy selected keypoints and descriptors.
+    keypoints->resize(num_selected_keypoints);
+    descriptors->resize(num_selected_keypoints, kDescriptorDim * sizeof(float));
+    const float x_scale = 0.5f * static_cast<float>(orig_width);
+    const float y_scale = 0.5f * static_cast<float>(orig_height);
+    for (int i = 0; i < num_selected_keypoints; ++i) {
+      const int index = sorted_indices[i];
+      (*keypoints)[i].x = x_scale * (keypoints_data[2 * index + 0] + 1.f);
+      (*keypoints)[i].y = y_scale * (keypoints_data[2 * index + 1] + 1.f);
+      LOG(INFO) << "Keypoint " << i << ": " << (*keypoints)[i].x << ", "
+                << (*keypoints)[i].y << " (score: " << scores_data[index]
+                << ")";
+      std::memcpy(descriptors->data() + i * kDescriptorDim * sizeof(float),
+                  descriptors_data + index * kDescriptorDim,  // float pointer
+                  kDescriptorDim * sizeof(float));
+    }
 
     return true;
   }
@@ -211,23 +287,23 @@ class ALIKEDFeatureMatcher : public FeatureMatcher {
         model_(options.aliked->model_path, options.num_threads) {
     THROW_CHECK(options.Check());
     THROW_CHECK_EQ(model_.input_shapes.size(), 4);
-    THROW_CHECK_EQ(std::string_view(model_.input_names[0]), "kpts0");
-    THROW_CHECK(model_.input_shapes[0] == std::vector<int64_t>({1, -1, 2}));
-    THROW_CHECK_EQ(std::string_view(model_.input_names[1]), "kpts1");
-    THROW_CHECK(model_.input_shapes[1] == std::vector<int64_t>({1, -1, 2}));
-    THROW_CHECK_EQ(std::string_view(model_.input_names[2]), "desc0");
-    THROW_CHECK(model_.input_shapes[2] == std::vector<int64_t>({1, -1, 256}));
-    THROW_CHECK_EQ(std::string_view(model_.input_names[3]), "desc1");
-    THROW_CHECK(model_.input_shapes[3] == std::vector<int64_t>({1, -1, 256}));
-    THROW_CHECK_EQ(model_.output_shapes.size(), 4);
-    THROW_CHECK_EQ(std::string_view(model_.output_names[0]), "matches0");
-    THROW_CHECK(model_.output_shapes[0] == std::vector<int64_t>({-1, -1}));
-    THROW_CHECK_EQ(std::string_view(model_.output_names[1]), "matches1");
-    THROW_CHECK(model_.output_shapes[1] == std::vector<int64_t>({-1, -1}));
-    THROW_CHECK_EQ(std::string_view(model_.output_names[2]), "mscores0");
-    THROW_CHECK(model_.output_shapes[2] == std::vector<int64_t>({-1, -1}));
-    THROW_CHECK_EQ(std::string_view(model_.output_names[3]), "mscores1");
-    THROW_CHECK(model_.output_shapes[3] == std::vector<int64_t>({-1, -1}));
+    ThrowCheckNode(
+        model_.input_names[0], "kpts0", model_.input_shapes[0], {1, -1, 2});
+    ThrowCheckNode(
+        model_.input_names[1], "kpts1", model_.input_shapes[1], {1, -1, 2});
+    ThrowCheckNode(model_.input_names[2],
+                   "desc0",
+                   model_.input_shapes[2],
+                   {1, -1, kDescriptorDim});
+    ThrowCheckNode(model_.input_names[3],
+                   "desc1",
+                   model_.input_shapes[3],
+                   {1, -1, kDescriptorDim});
+    THROW_CHECK_EQ(model_.output_shapes.size(), 2);
+    ThrowCheckNode(
+        model_.output_names[0], "matches", model_.output_shapes[0], {-1, 2});
+    ThrowCheckNode(
+        model_.output_names[1], "mscores", model_.output_shapes[1], {-1});
   }
 
   void Match(const Image& image1,
@@ -253,27 +329,25 @@ class ALIKEDFeatureMatcher : public FeatureMatcher {
     input_tensors.emplace_back(std::move(features1.descriptors_tensor));
     input_tensors.emplace_back(std::move(features2.descriptors_tensor));
 
-    LOG(INFO) << "Running model...";
     const std::vector<Ort::Value> output_tensors = model_.Run(input_tensors);
 
-    const Ort::Value& matches0 = output_tensors[0];
-
     const std::vector<int64_t> matches_shape =
-        matches0.GetTensorTypeAndShapeInfo().GetShape();
-    const int num_matches = matches_shape[1];
-    THROW_CHECK_EQ(num_matches, num_keypoints1);
-    const int64_t* matches0_data =
-        reinterpret_cast<const int64_t*>(matches0.GetTensorData<void>());
-    matches->reserve(num_keypoints1);
+        output_tensors[0].GetTensorTypeAndShapeInfo().GetShape();
+    THROW_CHECK_EQ(matches_shape.size(), 2);
+    THROW_CHECK_EQ(matches_shape[1], 2);
+    const int num_matches = matches_shape[0];
+
+    if (num_matches == 0) {
+      return;
+    }
+
+    const int64_t* matches_data = reinterpret_cast<const int64_t*>(
+        output_tensors[0].GetTensorData<void>());
+    matches->resize(num_matches);
     for (int i = 0; i < num_keypoints1; ++i) {
-      const int64_t j = matches0_data[i];
-      if (j >= 0) {
-        FeatureMatch match;
-        match.point2D_idx1 = i;
-        match.point2D_idx2 = j;
-        THROW_CHECK_LT(match.point2D_idx2, num_keypoints2);
-        matches->push_back(match);
-      }
+      FeatureMatch& match = (*matches)[i];
+      match.point2D_idx1 = matches_data[2 * i + 0];
+      match.point2D_idx2 = matches_data[2 * i + 1];
     }
   }
 
@@ -312,9 +386,13 @@ class ALIKEDFeatureMatcher : public FeatureMatcher {
     keypoints_shape[1] = num_keypoints;
     keypoints_shape[2] = 2;
     features.keypoints_data.resize(num_keypoints * 2);
+    const float x_normalization = 2.0f / image.width;
+    const float y_normalization = 2.0f / image.height;
     for (int i = 0; i < num_keypoints; ++i) {
-      features.keypoints_data[2 * i + 0] = (*image.keypoints)[i].x;
-      features.keypoints_data[2 * i + 1] = (*image.keypoints)[i].y;
+      features.keypoints_data[2 * i + 0] =
+          (*image.keypoints)[i].x * x_normalization - 1.f;
+      features.keypoints_data[2 * i + 1] =
+          y_normalization * (*image.keypoints)[i].y - 1.f;
     }
 
     features.keypoints_tensor = Ort::Value::CreateTensor<float>(
