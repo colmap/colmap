@@ -27,8 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/feature/aliked.h"
-
+#include "colmap/feature/xfeat.h"
 #include "colmap/sensor/bitmap.h"
 
 #include <glog/logging.h>
@@ -47,22 +46,22 @@ void CreateImageWithSquare(const int width, const int height, Bitmap* bitmap) {
   }
 }
 
-TEST(ALIKED, Nominal) {
+TEST(XFeat, Nominal) {
   Bitmap image;
-  CreateImageWithSquare(512, 500, &image);
+  CreateImageWithSquare(512, 512, &image);
 
-  FeatureExtractionOptions extraction_options(FeatureExtractorType::ALIKED);
-  auto extractor = CreateALIKEDFeatureExtractor(extraction_options);
+  FeatureExtractionOptions extraction_options(FeatureExtractorType::XFeat);
+  auto extractor = CreateXFeatFeatureExtractor(extraction_options);
   auto keypoints = std::make_shared<FeatureKeypoints>();
   auto descriptors = std::make_shared<FeatureDescriptors>();
   ASSERT_TRUE(extractor->Extract(image, keypoints.get(), descriptors.get()));
-  EXPECT_EQ(keypoints->size(), 4);
+  EXPECT_EQ(keypoints->size(), 7);
   EXPECT_EQ(keypoints->size(), descriptors->rows());
-  EXPECT_EQ(descriptors->cols(), 256 * sizeof(float));
+  EXPECT_EQ(descriptors->cols(), 64 * sizeof(float));
 
   for (const auto& matching_options :
-       {FeatureMatchingOptions(FeatureMatcherType::ALIKED)}) {
-    auto matcher = CreateALIKEDFeatureMatcher(matching_options);
+       {FeatureMatchingOptions(FeatureMatcherType::XFeat)}) {
+    auto matcher = CreateXFeatFeatureMatcher(matching_options);
     FeatureMatches matches;
     matcher->Match({/*image_id=*/1,
                     /*image_width=*/image.Width(),
@@ -75,7 +74,7 @@ TEST(ALIKED, Nominal) {
                     keypoints,
                     descriptors},
                    &matches);
-    EXPECT_GT(matches.size(), 0);
+    EXPECT_EQ(matches.size(), keypoints->size());
   }
 }
 

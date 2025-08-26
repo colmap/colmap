@@ -37,10 +37,10 @@
 
 namespace colmap {
 
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureExtractorType, 0, SIFT, ALIKED);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureExtractorType, 0, SIFT, XFeat);
 
 struct SiftExtractionOptions;
-struct ALIKEDExtractionOptions;
+struct XFeatExtractionOptions;
 
 struct FeatureExtractionOptions {
   explicit FeatureExtractionOptions(
@@ -59,7 +59,7 @@ struct FeatureExtractionOptions {
   std::string gpu_index = "-1";
 
   std::shared_ptr<SiftExtractionOptions> sift;
-  std::shared_ptr<ALIKEDExtractionOptions> aliked;
+  std::shared_ptr<XFeatExtractionOptions> xfeat;
 
   int MaxImageSize() const;
 

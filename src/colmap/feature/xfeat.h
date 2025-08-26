@@ -36,7 +36,7 @@
 
 namespace colmap {
 
-struct ALIKEDExtractionOptions {
+struct XFeatExtractionOptions {
   // Maximum image size, otherwise image will be down-scaled.
   int max_image_size = 2000;
 
@@ -44,27 +44,27 @@ struct ALIKEDExtractionOptions {
   int max_num_features = 4096;
 
   // The minimum threshold for the score of a feature.
-  float min_score = 0.2f;
+  float min_score = 0.01f;
 
-  // The path to the ALIKED model.
-  // TODO(jsch): Change to ALIKED.
-  std::string model_path = "/Users/jsch/Downloads/aliked.onnx";
+  // The path to the XFeat model.
+  // TODO(jsch): Change to XFeat.
+  std::string model_path = "/Users/jsch/dev/XFeat-ONNX/weights/xfeat.onnx";
 
   bool Check() const;
 };
 
-std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
+std::unique_ptr<FeatureExtractor> CreateXFeatFeatureExtractor(
     const FeatureExtractionOptions& options);
 
-struct ALIKEDMatchingOptions {
-  // The path to LightGlue model file for ALIKED features.
-  // TODO(jsch): Change to ALIKED.
-  std::string model_path = "/Users/jsch/Downloads/lightglue_aliked.onnx";
+struct XFeatMatchingOptions {
+  // The path to LightGlue model file for XFeat features.
+  // TODO(jsch): Change to XFeat.
+  std::string model_path = "/Users/jsch/dev/XFeat-ONNX/weights/matching.onnx";
 
   bool Check() const;
 };
 
-std::unique_ptr<FeatureMatcher> CreateALIKEDFeatureMatcher(
+std::unique_ptr<FeatureMatcher> CreateXFeatFeatureMatcher(
     const FeatureMatchingOptions& options);
 
 }  // namespace colmap
