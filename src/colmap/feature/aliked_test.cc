@@ -49,16 +49,16 @@ void CreateImageWithSquare(const int width, const int height, Bitmap* bitmap) {
 
 TEST(ALIKED, Nominal) {
   Bitmap image;
-  CreateImageWithSquare(512, 512, &image);
+  CreateImageWithSquare(512, 500, &image);
 
   FeatureExtractionOptions extraction_options(FeatureExtractorType::ALIKED);
   auto extractor = CreateALIKEDFeatureExtractor(extraction_options);
   auto keypoints = std::make_shared<FeatureKeypoints>();
   auto descriptors = std::make_shared<FeatureDescriptors>();
   ASSERT_TRUE(extractor->Extract(image, keypoints.get(), descriptors.get()));
-  EXPECT_EQ(keypoints->size(), 24);
+  EXPECT_EQ(keypoints->size(), 4);
   EXPECT_EQ(keypoints->size(), descriptors->rows());
-  EXPECT_EQ(descriptors->cols(), 128 * sizeof(float));
+  EXPECT_EQ(descriptors->cols(), 256 * sizeof(float));
 
   for (const auto& matching_options :
        {FeatureMatchingOptions(FeatureMatcherType::ALIKED)}) {

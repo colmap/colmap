@@ -45,8 +45,8 @@ namespace {
 
 #ifdef COLMAP_ONNX_ENABLED
 
-static constexpr int kMaxNumFeatures = -1;
-static constexpr int kDescriptorDim = 256;
+static constexpr int kMaxNumFeatures = 2048;
+static constexpr int kDescriptorDim = 128;
 
 std::string FormatShape(const std::vector<int64_t>& shape) {
   std::ostringstream oss;
@@ -146,16 +146,16 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
     ThrowCheckNode(model_.output_names[0],
                    "keypoints",
                    model_.output_shapes[0],
-                   {1, -1, 2});
+                   {-1, -1, 2});
     ThrowCheckNode(
-        model_.output_names[1], "scores", model_.output_shapes[1], {1, -1});
+        model_.output_names[1], "scores", model_.output_shapes[1], {-1, -1});
     ThrowCheckNode(model_.output_names[2],
                    "descriptors",
                    model_.output_shapes[2],
                    {1, kMaxNumFeatures, kDescriptorDim});
     // The exported ONNX model has a fixed output shape of detected features.
     // As such, we cannot select more than kMaxNumFeatures features.
-    THROW_CHECK_LE(options_.aliked->max_num_features, kMaxNumFeatures);
+    // THROW_CHECK_LE(options_.aliked->max_num_features, kMaxNumFeatures);
   }
 
   bool Extract(const Bitmap& bitmap,
@@ -227,8 +227,8 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
     THROW_CHECK_EQ(descriptors_shape[1], num_keypoints);
     THROW_CHECK_EQ(descriptors_shape[2], kDescriptorDim);
 
-    const float* keypoints_data =
-        reinterpret_cast<const float*>(output_tensors[0].GetTensorData<void>());
+    const int64_t* keypoints_data = reinterpret_cast<const int64_t*>(
+        output_tensors[0].GetTensorData<void>());
     const float* scores_data =
         reinterpret_cast<const float*>(output_tensors[1].GetTensorData<void>());
     const float* descriptors_data =
@@ -258,12 +258,14 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
     // Copy selected keypoints and descriptors.
     keypoints->resize(num_selected_keypoints);
     descriptors->resize(num_selected_keypoints, kDescriptorDim * sizeof(float));
-    const float x_scale = 0.5f * static_cast<float>(orig_width);
-    const float y_scale = 0.5f * static_cast<float>(orig_height);
+    // const float x_scale = 0.5f * static_cast<float>(orig_width);
+    // const float y_scale = 0.5f * static_cast<float>(orig_height);
     for (int i = 0; i < num_selected_keypoints; ++i) {
       const int index = sorted_indices[i];
-      (*keypoints)[i].x = x_scale * (keypoints_data[2 * index + 0] + 1.f);
-      (*keypoints)[i].y = y_scale * (keypoints_data[2 * index + 1] + 1.f);
+      // (*keypoints)[i].x = x_scale * (keypoints_data[2 * index + 0] + 1.f);
+      // (*keypoints)[i].y = y_scale * (keypoints_data[2 * index + 1] + 1.f);
+      (*keypoints)[i].x = keypoints_data[2 * index + 0];
+      (*keypoints)[i].y = keypoints_data[2 * index + 1];
       LOG(INFO) << "Keypoint " << i << ": " << (*keypoints)[i].x << ", "
                 << (*keypoints)[i].y << " (score: " << scores_data[index]
                 << ")";
@@ -280,9 +282,134 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
   ONNXModel model_;
 };
 
-class ALIKEDFeatureMatcher : public FeatureMatcher {
+class BruteForceFeatureMatcher : public FeatureMatcher {
  public:
-  explicit ALIKEDFeatureMatcher(const FeatureMatchingOptions& options)
+  explicit BruteForceFeatureMatcher(const FeatureMatchingOptions& options)
+      : options_(options),
+        model_(options.aliked->model_path, options.num_threads) {
+    THROW_CHECK(options.Check());
+    THROW_CHECK_EQ(model_.input_shapes.size(), 2);
+    ThrowCheckNode(model_.input_names[0],
+                   "desc0",
+                   model_.input_shapes[0],
+                   {1, -1, kDescriptorDim});
+    ThrowCheckNode(model_.input_names[1],
+                   "desc1",
+                   model_.input_shapes[1],
+                   {1, -1, kDescriptorDim});
+    THROW_CHECK_EQ(model_.output_shapes.size(), 1);
+    ThrowCheckNode(
+        model_.output_names[0], "matches", model_.output_shapes[0], {-1, 2});
+  }
+
+  void Match(const Image& image1,
+             const Image& image2,
+             FeatureMatches* matches) override {
+    THROW_CHECK_NOTNULL(matches);
+    matches->clear();
+
+    const int num_keypoints1 = image1.descriptors->rows();
+    const int num_keypoints2 = image2.descriptors->rows();
+    if (num_keypoints1 == 0 || num_keypoints2 == 0) {
+      return;
+    }
+
+    auto features1 = FeaturesFromImage(image1, model_.input_shapes[0]);
+    auto features2 = FeaturesFromImage(image2, model_.input_shapes[1]);
+
+    const std::vector<int64_t> min_sim_shape = {1};
+    float min_sim = 0.7f;
+    auto min_sim_tensor = Ort::Value::CreateTensor<float>(
+        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
+                                   OrtMemType::OrtMemTypeCPU),
+        &min_sim,
+        sizeof(min_sim),
+        min_sim_shape.data(),
+        min_sim_shape.size());
+
+    std::vector<Ort::Value> input_tensors;
+    input_tensors.emplace_back(std::move(features1.descriptors_tensor));
+    input_tensors.emplace_back(std::move(features2.descriptors_tensor));
+    input_tensors.emplace_back(std::move(min_sim_tensor));
+
+    const std::vector<Ort::Value> output_tensors = model_.Run(input_tensors);
+
+    const std::vector<int64_t> matches_shape =
+        output_tensors[0].GetTensorTypeAndShapeInfo().GetShape();
+    THROW_CHECK_EQ(matches_shape.size(), 2);
+    THROW_CHECK_EQ(matches_shape[1], 2);
+    const int num_matches = matches_shape[0];
+
+    if (num_matches == 0) {
+      return;
+    }
+
+    const int64_t* matches_data = reinterpret_cast<const int64_t*>(
+        output_tensors[0].GetTensorData<void>());
+    matches->resize(num_matches);
+    for (int i = 0; i < num_keypoints1; ++i) {
+      FeatureMatch& match = (*matches)[i];
+      match.point2D_idx1 = matches_data[2 * i + 0];
+      match.point2D_idx2 = matches_data[2 * i + 1];
+    }
+  }
+
+  void MatchGuided(double max_error,
+                   const Image& image1,
+                   const Image& image2,
+                   TwoViewGeometry* two_view_geometry) override {
+    THROW_CHECK_GE(max_error, 0);
+    Match(image1, image2, &two_view_geometry->inlier_matches);
+  }
+
+ private:
+  struct Features {
+    std::vector<float> descriptors_data;
+    Ort::Value descriptors_tensor;
+  };
+
+  Features FeaturesFromImage(const Image& image,
+                             std::vector<int64_t>& descriptors_shape) {
+    THROW_CHECK_NE(image.image_id, kInvalidImageId);
+    THROW_CHECK_NOTNULL(image.descriptors);
+    THROW_CHECK_NOTNULL(image.keypoints);
+    THROW_CHECK_EQ(image.descriptors->rows(), image.keypoints->size());
+
+    const int num_keypoints = image.keypoints->size();
+    THROW_CHECK_EQ(image.descriptors->cols() % sizeof(float), 0);
+    const int descriptor_dim = image.descriptors->cols() / sizeof(float);
+
+    Features features;
+
+    THROW_CHECK_EQ(descriptors_shape.size(), 3);
+    descriptors_shape[0] = 1;
+    descriptors_shape[1] = num_keypoints;
+    descriptors_shape[2] = descriptor_dim;
+    features.descriptors_data.resize(num_keypoints * descriptor_dim);
+    THROW_CHECK_EQ(image.descriptors->size(),
+                   features.descriptors_data.size() * sizeof(float));
+    std::memcpy(features.descriptors_data.data(),
+                reinterpret_cast<const void*>(image.descriptors->data()),
+                image.descriptors->size());
+
+    features.descriptors_tensor = Ort::Value::CreateTensor<float>(
+        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
+                                   OrtMemType::OrtMemTypeCPU),
+        features.descriptors_data.data(),
+        features.descriptors_data.size(),
+        descriptors_shape.data(),
+        descriptors_shape.size());
+
+    return features;
+  }
+
+  const FeatureMatchingOptions options_;
+  ONNXModel model_;
+};
+
+class LightGlueFeatureMatcher : public FeatureMatcher {
+ public:
+  explicit LightGlueFeatureMatcher(const FeatureMatchingOptions& options)
       : options_(options),
         model_(options.aliked->model_path, options.num_threads) {
     THROW_CHECK(options.Check());
@@ -459,7 +586,7 @@ bool ALIKEDMatchingOptions::Check() const {
 std::unique_ptr<FeatureMatcher> CreateALIKEDFeatureMatcher(
     const FeatureMatchingOptions& options) {
 #ifdef COLMAP_ONNX_ENABLED
-  return std::make_unique<ALIKEDFeatureMatcher>(options);
+  return std::make_unique<LightGlueFeatureMatcher>(options);
 #else
   throw std::runtime_error("ALIKED feature matching requires ONNX support.");
 #endif
