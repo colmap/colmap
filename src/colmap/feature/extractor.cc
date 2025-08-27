@@ -49,19 +49,8 @@ FeatureExtractionOptions::FeatureExtractionOptions(FeatureExtractorType type)
       sift(std::make_shared<SiftExtractionOptions>()),
       xfeat(std::make_shared<XFeatExtractionOptions>()) {}
 
-int FeatureExtractionOptions::MaxImageSize() const {
-  switch (type) {
-    case FeatureExtractorType::SIFT:
-      return sift->max_image_size;
-    case FeatureExtractorType::XFeat:
-      return xfeat->max_image_size;
-    default:
-      ThrowUnknownFeatureExtractorType(type);
-  }
-  return -1;
-}
-
 bool FeatureExtractionOptions::Check() const {
+  CHECK_OPTION_GT(max_image_size, 0);
   if (use_gpu) {
     CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
 #ifndef COLMAP_GPU_ENABLED

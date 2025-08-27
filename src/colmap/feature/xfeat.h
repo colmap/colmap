@@ -37,14 +37,11 @@
 namespace colmap {
 
 struct XFeatExtractionOptions {
-  // Maximum image size, otherwise image will be down-scaled.
-  int max_image_size = 2000;
-
   // Maximum number of features to detect, keeping higher-score features.
-  int max_num_features = 4096;
+  int max_num_features = 8192;
 
   // The minimum threshold for the score of a feature.
-  float min_score = 0.01f;
+  float min_score = 0.0f;
 
   // The path to the XFeat model.
   // TODO(jsch): Change to XFeat.
@@ -60,6 +57,8 @@ struct XFeatMatchingOptions {
   // The path to LightGlue model file for XFeat features.
   // TODO(jsch): Change to XFeat.
   std::string model_path = "/Users/jsch/dev/XFeat-ONNX/weights/matching.onnx";
+
+  float min_cossim = 0.9f;
 
   bool Check() const;
 };

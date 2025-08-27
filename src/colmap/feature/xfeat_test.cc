@@ -28,6 +28,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #include "colmap/feature/xfeat.h"
+
+#include "colmap/math/random.h"
 #include "colmap/sensor/bitmap.h"
 
 #include <glog/logging.h>
@@ -37,45 +39,52 @@ namespace colmap {
 namespace {
 
 void CreateImageWithSquare(const int width, const int height, Bitmap* bitmap) {
-  bitmap->Allocate(width, height, false);
-  bitmap->Fill(BitmapColor<uint8_t>(0, 0, 0));
-  for (int r = height / 2 - height / 8; r < height / 2 + height / 8; ++r) {
-    for (int c = width / 2 - width / 8; c < width / 2 + width / 8; ++c) {
-      bitmap->SetPixel(r, c, BitmapColor<uint8_t>(255));
+  bitmap->Allocate(width, height, /*as_rgb=*/true);
+  for (int r = 0; r < height; ++r) {
+    for (int c = 0; c < width; ++c) {
+      bitmap->SetPixel(r,
+                       c,
+                       BitmapColor<uint8_t>(RandomUniformInteger(0, 255),
+                                            RandomUniformInteger(0, 255),
+                                            RandomUniformInteger(0, 255)));
     }
   }
 }
 
 TEST(XFeat, Nominal) {
   Bitmap image;
-  CreateImageWithSquare(512, 512, &image);
+  CreateImageWithSquare(512, 256, &image);
 
   FeatureExtractionOptions extraction_options(FeatureExtractorType::XFeat);
   auto extractor = CreateXFeatFeatureExtractor(extraction_options);
   auto keypoints = std::make_shared<FeatureKeypoints>();
   auto descriptors = std::make_shared<FeatureDescriptors>();
   ASSERT_TRUE(extractor->Extract(image, keypoints.get(), descriptors.get()));
-  EXPECT_EQ(keypoints->size(), 7);
+  EXPECT_EQ(keypoints->size(), 1931);
   EXPECT_EQ(keypoints->size(), descriptors->rows());
   EXPECT_EQ(descriptors->cols(), 64 * sizeof(float));
-
-  for (const auto& matching_options :
-       {FeatureMatchingOptions(FeatureMatcherType::XFeat)}) {
-    auto matcher = CreateXFeatFeatureMatcher(matching_options);
-    FeatureMatches matches;
-    matcher->Match({/*image_id=*/1,
-                    /*image_width=*/image.Width(),
-                    /*image_height=*/image.Height(),
-                    keypoints,
-                    descriptors},
-                   {/*image_id=*/2,
-                    /*image_width=*/image.Width(),
-                    /*image_height=*/image.Height(),
-                    keypoints,
-                    descriptors},
-                   &matches);
-    EXPECT_EQ(matches.size(), keypoints->size());
+  for (const auto& keypoint : *keypoints) {
+    EXPECT_GE(keypoint.x, -10);
+    EXPECT_GE(keypoint.y, -10);
+    EXPECT_LE(keypoint.x, image.Width() + 10);
+    EXPECT_LE(keypoint.y, image.Height() + 10);
   }
+
+  auto matcher = CreateXFeatFeatureMatcher(
+      FeatureMatchingOptions(FeatureMatcherType::XFeat));
+  FeatureMatches matches;
+  matcher->Match({/*image_id=*/1,
+                  /*image_width=*/image.Width(),
+                  /*image_height=*/image.Height(),
+                  nullptr,
+                  descriptors},
+                 {/*image_id=*/2,
+                  /*image_width=*/image.Width(),
+                  /*image_height=*/image.Height(),
+                  nullptr,
+                  descriptors},
+                 &matches);
+  EXPECT_EQ(matches.size(), keypoints->size());
 }
 
 }  // namespace

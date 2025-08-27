@@ -28,7 +28,6 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #include "colmap/feature/xfeat.h"
-#include "colmap/util/threading.h"
 
 #include <memory>
 
@@ -77,7 +76,8 @@ void ThrowCheckNode(const std::string_view name,
 
 struct ONNXModel {
   ONNXModel(const std::string& model_path, int num_threads) {
-    session_options.SetInterOpNumThreads(1);
+    // TODO(jsch): Threads.
+    session_options.SetInterOpNumThreads(10);
     session_options.SetGraphOptimizationLevel(
         GraphOptimizationLevel::ORT_ENABLE_ALL);
     session = std::make_unique<Ort::Session>(
@@ -143,14 +143,16 @@ class XFeatFeatureExtractor : public FeatureExtractor {
                    {1, 3, -1, -1});
 
     THROW_CHECK_EQ(model_.output_shapes.size(), 3);
-    ThrowCheckNode(
-        model_.output_names[0], "keypoints", model_.output_shapes[0], {-1, 2});
+    ThrowCheckNode(model_.output_names[0],
+                   "keypoints",
+                   model_.output_shapes[0],
+                   {8192, 2});
     ThrowCheckNode(model_.output_names[1],
                    "descriptors",
                    model_.output_shapes[1],
-                   {-1, -1});
+                   {8192, 64});
     ThrowCheckNode(
-        model_.output_names[2], "scores", model_.output_shapes[2], {-1});
+        model_.output_names[2], "scores", model_.output_shapes[2], {8192});
   }
 
   bool Extract(const Bitmap& bitmap,
@@ -158,48 +160,40 @@ class XFeatFeatureExtractor : public FeatureExtractor {
                FeatureDescriptors* descriptors) override {
     THROW_CHECK_NOTNULL(keypoints);
     THROW_CHECK_NOTNULL(descriptors);
+    THROW_CHECK(bitmap.IsRGB());
 
-    const int orig_width = bitmap.Width();
-    const int orig_height = bitmap.Height();
-    const int image_size = std::max(orig_width, orig_height);
-    const bool needs_rescale = image_size > options_.xfeat->max_image_size;
+    const int width = bitmap.Width();
+    const int height = bitmap.Height();
+    const int num_pixels = width * height;
 
-    // Only copy bitmap if we need to rescale or convert to RGB.
-    const Bitmap* bitmap_ptr = &bitmap;
-    std::unique_ptr<Bitmap> maybe_bitmap_copy;
-    if (!bitmap.IsRGB() || needs_rescale) {
-      maybe_bitmap_copy = std::make_unique<Bitmap>(bitmap.CloneAsRGB());
-      bitmap_ptr = maybe_bitmap_copy.get();
-    }
-
-    if (needs_rescale) {
-      const double scale = static_cast<double>(options_.xfeat->max_image_size) /
-                           static_cast<double>(image_size);
-      maybe_bitmap_copy->Rescale(scale * orig_width, scale * orig_height);
-    }
-
-    const std::vector<uint8_t> row_major_array =
-        bitmap_ptr->ConvertToRowMajorArray();
-    std::vector<float> input_data(row_major_array.size());
-    for (size_t i = 0; i < row_major_array.size(); ++i) {
-      input_data[i] = (1.0f / 255.0f) * static_cast<float>(row_major_array[i]);
+    std::vector<float> row_major_array(num_pixels * 3);
+    for (int y = 0; y < height; ++y) {
+      const uint8_t* line = bitmap.GetScanline(y);
+      for (int x = 0; x < width; ++x) {
+        for (int c = 0; c < 3; ++c) {
+          constexpr float kImageNormalization = 1.0f / 255.0f;
+          row_major_array[c * num_pixels + y * width + x] =
+              kImageNormalization * line[3 * x + c];
+        }
+      }
     }
 
     model_.input_shapes[0][0] = 1;
-    model_.input_shapes[0][1] = bitmap_ptr->Channels();
-    model_.input_shapes[0][2] = bitmap_ptr->Height();
-    model_.input_shapes[0][3] = bitmap_ptr->Width();
+    model_.input_shapes[0][1] = 3;
+    model_.input_shapes[0][2] = bitmap.Height();
+    model_.input_shapes[0][3] = bitmap.Width();
 
     std::vector<Ort::Value> input_tensors;
     input_tensors.emplace_back(Ort::Value::CreateTensor<float>(
         Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
                                    OrtMemType::OrtMemTypeCPU),
-        input_data.data(),
-        input_data.size(),
+        row_major_array.data(),
+        row_major_array.size(),
         model_.input_shapes[0].data(),
         model_.input_shapes[0].size()));
 
     const std::vector<Ort::Value> output_tensors = model_.Run(input_tensors);
+    THROW_CHECK_EQ(output_tensors.size(), 3);
 
     const std::vector<int64_t> keypoints_shape =
         output_tensors[0].GetTensorTypeAndShapeInfo().GetShape();
@@ -253,6 +247,9 @@ class XFeatFeatureExtractor : public FeatureExtractor {
       const int index = sorted_indices[i];
       (*keypoints)[i].x = keypoints_data[2 * index + 0];
       (*keypoints)[i].y = keypoints_data[2 * index + 1];
+      LOG_IF(INFO, i % 100 == 0)
+          << "Keypoint " << i << ": " << (*keypoints)[i].x << ", "
+          << (*keypoints)[i].y << " (score: " << scores_data[index] << ")";
       std::memcpy(descriptors->data() + i * kDescriptorDim * sizeof(float),
                   descriptors_data + index * kDescriptorDim,  // float pointer
                   kDescriptorDim * sizeof(float));
@@ -266,138 +263,13 @@ class XFeatFeatureExtractor : public FeatureExtractor {
   ONNXModel model_;
 };
 
-class BruteForceFeatureMatcher : public FeatureMatcher {
- public:
-  explicit BruteForceFeatureMatcher(const FeatureMatchingOptions& options)
-      : options_(options),
-        model_(options.xfeat->model_path, options.num_threads) {
-    THROW_CHECK(options.Check());
-    THROW_CHECK_EQ(model_.input_shapes.size(), 2);
-    ThrowCheckNode(model_.input_names[0],
-                   "desc0",
-                   model_.input_shapes[0],
-                   {1, -1, kDescriptorDim});
-    ThrowCheckNode(model_.input_names[1],
-                   "desc1",
-                   model_.input_shapes[1],
-                   {1, -1, kDescriptorDim});
-    THROW_CHECK_EQ(model_.output_shapes.size(), 1);
-    ThrowCheckNode(
-        model_.output_names[0], "matches", model_.output_shapes[0], {-1, 2});
-  }
-
-  void Match(const Image& image1,
-             const Image& image2,
-             FeatureMatches* matches) override {
-    THROW_CHECK_NOTNULL(matches);
-    matches->clear();
-
-    const int num_keypoints1 = image1.descriptors->rows();
-    const int num_keypoints2 = image2.descriptors->rows();
-    if (num_keypoints1 == 0 || num_keypoints2 == 0) {
-      return;
-    }
-
-    auto features1 = FeaturesFromImage(image1, model_.input_shapes[0]);
-    auto features2 = FeaturesFromImage(image2, model_.input_shapes[1]);
-
-    const std::vector<int64_t> min_sim_shape = {1};
-    float min_sim = 0.7f;
-    auto min_sim_tensor = Ort::Value::CreateTensor<float>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        &min_sim,
-        sizeof(min_sim),
-        min_sim_shape.data(),
-        min_sim_shape.size());
-
-    std::vector<Ort::Value> input_tensors;
-    input_tensors.emplace_back(std::move(features1.descriptors_tensor));
-    input_tensors.emplace_back(std::move(features2.descriptors_tensor));
-    input_tensors.emplace_back(std::move(min_sim_tensor));
-
-    const std::vector<Ort::Value> output_tensors = model_.Run(input_tensors);
-
-    const std::vector<int64_t> matches_shape =
-        output_tensors[0].GetTensorTypeAndShapeInfo().GetShape();
-    THROW_CHECK_EQ(matches_shape.size(), 2);
-    THROW_CHECK_EQ(matches_shape[1], 2);
-    const int num_matches = matches_shape[0];
-
-    if (num_matches == 0) {
-      return;
-    }
-
-    const int64_t* matches_data = reinterpret_cast<const int64_t*>(
-        output_tensors[0].GetTensorData<void>());
-    matches->resize(num_matches);
-    for (int i = 0; i < num_keypoints1; ++i) {
-      FeatureMatch& match = (*matches)[i];
-      match.point2D_idx1 = matches_data[2 * i + 0];
-      match.point2D_idx2 = matches_data[2 * i + 1];
-    }
-  }
-
-  void MatchGuided(double max_error,
-                   const Image& image1,
-                   const Image& image2,
-                   TwoViewGeometry* two_view_geometry) override {
-    THROW_CHECK_GE(max_error, 0);
-    Match(image1, image2, &two_view_geometry->inlier_matches);
-  }
-
- private:
-  struct Features {
-    std::vector<float> descriptors_data;
-    Ort::Value descriptors_tensor;
-  };
-
-  Features FeaturesFromImage(const Image& image,
-                             std::vector<int64_t>& descriptors_shape) {
-    THROW_CHECK_NE(image.image_id, kInvalidImageId);
-    THROW_CHECK_NOTNULL(image.descriptors);
-    THROW_CHECK_NOTNULL(image.keypoints);
-    THROW_CHECK_EQ(image.descriptors->rows(), image.keypoints->size());
-
-    const int num_keypoints = image.keypoints->size();
-    THROW_CHECK_EQ(image.descriptors->cols() % sizeof(float), 0);
-    const int descriptor_dim = image.descriptors->cols() / sizeof(float);
-
-    Features features;
-
-    THROW_CHECK_EQ(descriptors_shape.size(), 3);
-    descriptors_shape[0] = 1;
-    descriptors_shape[1] = num_keypoints;
-    descriptors_shape[2] = descriptor_dim;
-    features.descriptors_data.resize(num_keypoints * descriptor_dim);
-    THROW_CHECK_EQ(image.descriptors->size(),
-                   features.descriptors_data.size() * sizeof(float));
-    std::memcpy(features.descriptors_data.data(),
-                reinterpret_cast<const void*>(image.descriptors->data()),
-                image.descriptors->size());
-
-    features.descriptors_tensor = Ort::Value::CreateTensor<float>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        features.descriptors_data.data(),
-        features.descriptors_data.size(),
-        descriptors_shape.data(),
-        descriptors_shape.size());
-
-    return features;
-  }
-
-  const FeatureMatchingOptions options_;
-  ONNXModel model_;
-};
-
 class LightGlueFeatureMatcher : public FeatureMatcher {
  public:
   explicit LightGlueFeatureMatcher(const FeatureMatchingOptions& options)
       : options_(options),
         model_(options.xfeat->model_path, options.num_threads) {
     THROW_CHECK(options.Check());
-    THROW_CHECK_EQ(model_.input_shapes.size(), 2);
+    THROW_CHECK_EQ(model_.input_shapes.size(), 3);
     // ThrowCheckNode(
     //     model_.input_names[0], "kpts0", model_.input_shapes[0], {-1, 2});
     ThrowCheckNode(model_.input_names[0],
@@ -410,6 +282,8 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
                    "feats1",
                    model_.input_shapes[1],
                    {-1, kDescriptorDim});
+    ThrowCheckNode(
+        model_.input_names[2], "min_cossim", model_.input_shapes[2], {1});
     THROW_CHECK_EQ(model_.output_shapes.size(), 1);
     ThrowCheckNode(
         model_.output_names[0], "matches", model_.output_shapes[0], {-1, 2});
@@ -432,19 +306,30 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
     auto features1 = FeaturesFromImage(image1, model_.input_shapes[0]);
     auto features2 = FeaturesFromImage(image2, model_.input_shapes[1]);
 
+    const std::vector<int64_t> min_cossim_shape = {1};
+    auto min_sim_tensor = Ort::Value::CreateTensor<float>(
+        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
+                                   OrtMemType::OrtMemTypeCPU),
+        &options_.xfeat->min_cossim,
+        sizeof(float),
+        min_cossim_shape.data(),
+        min_cossim_shape.size());
+
     std::vector<Ort::Value> input_tensors;
     // input_tensors.emplace_back(std::move(features1.keypoints_tensor));
     input_tensors.emplace_back(std::move(features1.descriptors_tensor));
     // input_tensors.emplace_back(std::move(features2.keypoints_tensor));
     input_tensors.emplace_back(std::move(features2.descriptors_tensor));
+    input_tensors.emplace_back(std::move(min_sim_tensor));
 
     const std::vector<Ort::Value> output_tensors = model_.Run(input_tensors);
+    THROW_CHECK_EQ(output_tensors.size(), 1);
 
     const std::vector<int64_t> matches_shape =
         output_tensors[0].GetTensorTypeAndShapeInfo().GetShape();
     THROW_CHECK_EQ(matches_shape.size(), 2);
-    THROW_CHECK_EQ(matches_shape[1], 2);
     const int num_matches = matches_shape[0];
+    THROW_CHECK_EQ(matches_shape[1], 2);
 
     if (num_matches == 0) {
       return;
@@ -453,7 +338,7 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
     const int64_t* matches_data = reinterpret_cast<const int64_t*>(
         output_tensors[0].GetTensorData<void>());
     matches->resize(num_matches);
-    for (int i = 0; i < num_keypoints1; ++i) {
+    for (int i = 0; i < num_matches; ++i) {
       FeatureMatch& match = (*matches)[i];
       match.point2D_idx1 = matches_data[2 * i + 0];
       match.point2D_idx2 = matches_data[2 * i + 1];
@@ -478,10 +363,8 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
                              std::vector<int64_t>& descriptors_shape) {
     THROW_CHECK_NE(image.image_id, kInvalidImageId);
     THROW_CHECK_NOTNULL(image.descriptors);
-    THROW_CHECK_NOTNULL(image.keypoints);
-    THROW_CHECK_EQ(image.descriptors->rows(), image.keypoints->size());
 
-    const int num_keypoints = image.keypoints->size();
+    const int num_keypoints = image.descriptors->rows();
     THROW_CHECK_EQ(image.descriptors->cols() % sizeof(float), 0);
     const int descriptor_dim = image.descriptors->cols() / sizeof(float);
 
@@ -517,7 +400,6 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
 }  // namespace
 
 bool XFeatExtractionOptions::Check() const {
-  CHECK_OPTION_GT(max_image_size, 0);
   // CHECK_OPTION_GT(max_num_features, 0);
   // CHECK_OPTION_GT(score_threshold, 0);
   // CHECK_OPTION_GE(top_k, -1);
