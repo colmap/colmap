@@ -5,8 +5,7 @@ CURRDIR=$(pwd)
 # Fix `brew link` error.
 find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
 
-brew update
-brew upgrade
+brew uninstall cmake  # Workaround for CI failures.
 brew install git cmake ninja gfortran ccache libomp
 brew link --force libomp
 
