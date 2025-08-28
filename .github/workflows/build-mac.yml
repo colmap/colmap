@@ -48,7 +48,7 @@ jobs:
       - name: Setup Mac
         run: |
           # Fix `brew link` error.
-          find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete          
+          find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
 
           brew install \
             cmake \
@@ -65,7 +65,8 @@ jobs:
             glew \
             cgal \
             sqlite3 \
-            ccache
+            ccache \
+            libomp
           brew link --force libomp
 
       - name: Configure and build
