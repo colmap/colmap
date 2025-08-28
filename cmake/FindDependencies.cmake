@@ -226,7 +226,9 @@ if(GUI_ENABLED)
                 endif()
             endif()
         endif()
+    endif()
 
+    if(QT_FOUND)
         # Enable automatic compilation of Qt resource files.
         set(CMAKE_AUTORCC ON)
     endif()
