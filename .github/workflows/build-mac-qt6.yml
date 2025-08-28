@@ -1,0 +1,95 @@
+name: COLMAP (Mac)
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+on:
+  push:
+    branches:
+      - main
+      - release/*
+  pull_request:
+    types: [ assigned, opened, synchronize, reopened ]
+  release:
+    types: [ published, edited ]
+
+jobs:
+  build:
+    name: ${{ matrix.config.os }} ${{ matrix.config.arch }} ${{ matrix.config.cmakeBuildType }}
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      matrix:
+        config: [
+          {
+            os: macos-15,
+            arch: arm64,
+            cmakeBuildType: Release,
+          },
+        ]
+
+    env:
+      COMPILER_CACHE_VERSION: 1
+      COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
+      CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      GLOG_v: 2
+      GLOG_logtostderr: 1
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        id: cache-builds
+        with:
+          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}-${{ github.run_id }}-${{ github.run_number }}
+          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}
+          path: ${{ env.COMPILER_CACHE_DIR }}
+
+      - name: Setup Mac
+        run: |
+          # Fix `brew link` error.
+          find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete          
+
+          brew install \
+            cmake \
+            ninja \
+            boost \
+            eigen \
+            freeimage \
+            curl \
+            metis \
+            glog \
+            googletest \
+            ceres-solver \
+            qt \
+            glew \
+            cgal \
+            sqlite3 \
+            ccache
+          brew link --force libomp
+
+      - name: Configure and build
+        run: |
+          export PATH="/usr/local/opt/qt/bin:$PATH"
+          cmake --version
+          mkdir build
+          cd build
+          cmake .. \
+            -GNinja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
+            -DTESTS_ENABLED=ON \
+            -DQt6_DIR="$(brew --prefix qt)/lib/cmake/Qt6"
+          ninja
+
+      - name: Run tests
+        run: |
+          cd build
+          set +e
+          ctest --output-on-failure
+
+      - name: Cleanup compiler cache
+        run: |
+          set -x
+          ccache --show-stats --verbose
+          ccache --evict-older-than 1d
+          ccache --show-stats --verbose
