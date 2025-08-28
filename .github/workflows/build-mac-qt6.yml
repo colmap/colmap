@@ -1,4 +1,4 @@
-name: COLMAP (Mac)
+name: COLMAP (Mac with Qt6)
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
