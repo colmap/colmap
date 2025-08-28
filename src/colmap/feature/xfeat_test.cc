@@ -53,21 +53,21 @@ void CreateImageWithSquare(const int width, const int height, Bitmap* bitmap) {
 
 TEST(XFeat, Nominal) {
   Bitmap image;
-  CreateImageWithSquare(512, 256, &image);
+  CreateImageWithSquare(256, 128, &image);
 
   FeatureExtractionOptions extraction_options(FeatureExtractorType::XFeat);
   auto extractor = CreateXFeatFeatureExtractor(extraction_options);
   auto keypoints = std::make_shared<FeatureKeypoints>();
   auto descriptors = std::make_shared<FeatureDescriptors>();
   ASSERT_TRUE(extractor->Extract(image, keypoints.get(), descriptors.get()));
-  EXPECT_EQ(keypoints->size(), 1931);
+  EXPECT_EQ(keypoints->size(), 483);
   EXPECT_EQ(keypoints->size(), descriptors->rows());
   EXPECT_EQ(descriptors->cols(), 64 * sizeof(float));
   for (const auto& keypoint : *keypoints) {
-    EXPECT_GE(keypoint.x, -10);
-    EXPECT_GE(keypoint.y, -10);
-    EXPECT_LE(keypoint.x, image.Width() + 10);
-    EXPECT_LE(keypoint.y, image.Height() + 10);
+    EXPECT_GE(keypoint.x, -5);
+    EXPECT_GE(keypoint.y, -5);
+    EXPECT_LE(keypoint.x, image.Width() + 5);
+    EXPECT_LE(keypoint.y, image.Height() + 5);
   }
 
   auto matcher = CreateXFeatFeatureMatcher(

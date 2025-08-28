@@ -47,8 +47,6 @@ find_package(Glew ${COLMAP_FIND_TYPE})
 
 find_package(Git)
 
-find_package(onnxruntime ${COLMAP_FIND_TYPE})
-
 find_package(Ceres ${COLMAP_FIND_TYPE})
 if(NOT TARGET Ceres::ceres)
     # Older Ceres versions don't come with an imported interface target.
@@ -197,6 +195,18 @@ if(CUDA_ENABLED AND CUDA_FOUND)
 else()
     set(CUDA_ENABLED OFF)
     message(STATUS "Disabling CUDA support")
+endif()
+
+if(ONNX_ENABLED)
+    find_package(onnxruntime ${COLMAP_FIND_TYPE})
+    if(onnxruntime_FOUND)
+        list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_ONNX_ENABLED)
+        message(STATUS "Enabling ONNX support")
+    else()
+        message(STATUS "Disabling ONNX support (not found)")
+    endif()
+else()
+    message(STATUS "Disabling ONNX support")
 endif()
 
 if(GUI_ENABLED)

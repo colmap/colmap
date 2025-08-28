@@ -26,44 +26,28 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
-#include "colmap/feature/extractor.h"
-#include "colmap/feature/matcher.h"
-#include "colmap/feature/resources.h"
+#include <string>
 
 namespace colmap {
 
-struct XFeatExtractionOptions {
-  // Maximum number of features to detect, keeping higher-score features.
-  int max_num_features = 8192;
-
-  // The minimum threshold for the score of a feature.
-  float min_score = 0.0f;
-
-  // The path to the ONNX model file for the XFeat extractor.
-  std::string model_path = kDefaultXFeatExtractorUri;
-
-  bool Check() const;
-};
-
-std::unique_ptr<FeatureExtractor> CreateXFeatFeatureExtractor(
-    const FeatureExtractionOptions& options);
-
-struct XFeatMatchingOptions {
-  // The path to the ONNX model file for the XFeat brute-force matcher.
-  std::string model_path = kDefaultXFeatBruteForceMatcherUri;
-
-  // The minimum cosine similarity for a match to be considered valid.
-  float min_cossim = 0.9f;
-
-  bool Check() const;
-};
-
-std::unique_ptr<FeatureMatcher> CreateXFeatFeatureMatcher(
-    const FeatureMatchingOptions& options);
+#ifdef COLMAP_DOWNLOAD_ENABLED
+const static std::string kDefaultXFeatExtractorUri =
+    "https://github.com/colmap/colmap/releases/download/3.12.5/"
+    "xfeat_extractor.onnx;"
+    "xfeat_extractor.onnx;"
+    "027898e280e30021af4fcf7a47cd010f5cf975f765dae6bff132f766b84fb6c1";
+const static std::string kDefaultXFeatBruteForceMatcherUri =
+    "https://github.com/colmap/colmap/releases/download/3.12.5/"
+    "xfeat_bruteforce_matcher.onnx;"
+    "xfeat_bruteforce_matcher.onnx;"
+    "85d69d867fc9685e5ab0e19b7f2c30c8a23aaa0e756c21c7312578d0ded19f57";
+#else
+const static std::string kDefaultXFeatUri = "";
+const static std::string kDefaultLightGlueXFeatUri = "";
+const static std::string kDefaultLightGlueSiftUri = "";
+#endif
 
 }  // namespace colmap

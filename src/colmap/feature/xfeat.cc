@@ -29,10 +29,10 @@
 
 #include "colmap/feature/xfeat.h"
 
-#include <memory>
+#include "colmap/util/file.h"
+#include "colmap/util/threading.h"
 
-// TODO(jsch): Remove and configure in CMake.
-#define COLMAP_ONNX_ENABLED
+#include <memory>
 
 #ifdef COLMAP_ONNX_ENABLED
 #include <onnxruntime_cxx_api.h>
@@ -75,14 +75,31 @@ void ThrowCheckNode(const std::string_view name,
 }
 
 struct ONNXModel {
-  ONNXModel(const std::string& model_path, int num_threads) {
-    // TODO(jsch): Threads.
-    session_options.SetInterOpNumThreads(10);
+  ONNXModel(std::string model_path,
+            int num_threads,
+            const std::string& gpu_index) {
+    model_path = MaybeDownloadAndCacheFile(model_path);
+
+    const int num_eff_threads = GetEffectiveNumThreads(num_threads);
+    session_options.SetInterOpNumThreads(num_eff_threads);
+    session_options.SetIntraOpNumThreads(num_eff_threads);
     session_options.SetGraphOptimizationLevel(
         GraphOptimizationLevel::ORT_ENABLE_ALL);
+
+#ifdef COLMAP_CUDA_ENABLED
+    const std::vector<int> gpu_indices = CSVToVector<int>(options.gpu_index);
+    THROW_CHECK_EQ(gpu_indices.size(), 1)
+        << "ONNX model can only run on one GPU";
+    OrtCUDAProviderOptions cuda_options{};
+    cuda_options.device_id = gpu_indices[0];
+    session_options.AppendExecutionProvider_CUDA(cuda_options);
+#endif
+
+    VLOG(2) << "Loading ONNX model from " << model_path;
     session = std::make_unique<Ort::Session>(
         env, model_path.c_str(), session_options);
 
+    VLOG(2) << "Parsing the inputs";
     const int num_inputs = session->GetInputCount();
     input_name_strs.reserve(num_inputs);
     input_names.reserve(num_inputs);
@@ -95,6 +112,7 @@ struct ONNXModel {
           session->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
     }
 
+    VLOG(2) << "Parsing the outputs";
     const int num_outputs = session->GetOutputCount();
     output_name_strs.reserve(num_outputs);
     output_names.reserve(num_outputs);
@@ -133,7 +151,8 @@ class XFeatFeatureExtractor : public FeatureExtractor {
  public:
   explicit XFeatFeatureExtractor(const FeatureExtractionOptions& options)
       : options_(options),
-        model_(options.xfeat->model_path, options.num_threads) {
+        model_(
+            options.xfeat->model_path, options.num_threads, options.gpu_index) {
     THROW_CHECK(options.Check());
 
     THROW_CHECK_EQ(model_.input_shapes.size(), 1);
@@ -143,16 +162,14 @@ class XFeatFeatureExtractor : public FeatureExtractor {
                    {1, 3, -1, -1});
 
     THROW_CHECK_EQ(model_.output_shapes.size(), 3);
-    ThrowCheckNode(model_.output_names[0],
-                   "keypoints",
-                   model_.output_shapes[0],
-                   {8192, 2});
+    ThrowCheckNode(
+        model_.output_names[0], "keypoints", model_.output_shapes[0], {-1, 2});
     ThrowCheckNode(model_.output_names[1],
                    "descriptors",
                    model_.output_shapes[1],
-                   {8192, 64});
+                   {-1, 64});
     ThrowCheckNode(
-        model_.output_names[2], "scores", model_.output_shapes[2], {8192});
+        model_.output_names[2], "scores", model_.output_shapes[2], {-1});
   }
 
   bool Extract(const Bitmap& bitmap,
@@ -247,9 +264,6 @@ class XFeatFeatureExtractor : public FeatureExtractor {
       const int index = sorted_indices[i];
       (*keypoints)[i].x = keypoints_data[2 * index + 0];
       (*keypoints)[i].y = keypoints_data[2 * index + 1];
-      LOG_IF(INFO, i % 100 == 0)
-          << "Keypoint " << i << ": " << (*keypoints)[i].x << ", "
-          << (*keypoints)[i].y << " (score: " << scores_data[index] << ")";
       std::memcpy(descriptors->data() + i * kDescriptorDim * sizeof(float),
                   descriptors_data + index * kDescriptorDim,  // float pointer
                   kDescriptorDim * sizeof(float));
@@ -267,17 +281,14 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
  public:
   explicit LightGlueFeatureMatcher(const FeatureMatchingOptions& options)
       : options_(options),
-        model_(options.xfeat->model_path, options.num_threads) {
+        model_(
+            options.xfeat->model_path, options.num_threads, options.gpu_index) {
     THROW_CHECK(options.Check());
     THROW_CHECK_EQ(model_.input_shapes.size(), 3);
-    // ThrowCheckNode(
-    //     model_.input_names[0], "kpts0", model_.input_shapes[0], {-1, 2});
     ThrowCheckNode(model_.input_names[0],
                    "feats0",
                    model_.input_shapes[0],
                    {-1, kDescriptorDim});
-    // ThrowCheckNode(
-    //     model_.input_names[2], "kpts1", model_.input_shapes[2], {-1, 2});
     ThrowCheckNode(model_.input_names[1],
                    "feats1",
                    model_.input_shapes[1],
@@ -287,8 +298,6 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
     THROW_CHECK_EQ(model_.output_shapes.size(), 1);
     ThrowCheckNode(
         model_.output_names[0], "matches", model_.output_shapes[0], {-1, 2});
-    // ThrowCheckNode(
-    //     model_.output_names[1], "mkpts1", model_.output_shapes[1], {-1, 2});
   }
 
   void Match(const Image& image1,
@@ -400,9 +409,8 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
 }  // namespace
 
 bool XFeatExtractionOptions::Check() const {
-  // CHECK_OPTION_GT(max_num_features, 0);
-  // CHECK_OPTION_GT(score_threshold, 0);
-  // CHECK_OPTION_GE(top_k, -1);
+  CHECK_OPTION_GE(max_num_features, 0);
+  CHECK_OPTION_GE(min_score, 0);
   return true;
 }
 
@@ -416,8 +424,8 @@ std::unique_ptr<FeatureExtractor> CreateXFeatFeatureExtractor(
 }
 
 bool XFeatMatchingOptions::Check() const {
-  // CHECK_OPTION_GE(min_similarity, -1);
-  // CHECK_OPTION_LE(min_similarity, 1);
+  CHECK_OPTION_GE(min_cossim, -1);
+  CHECK_OPTION_LE(min_cossim, 1);
   return true;
 }
 
