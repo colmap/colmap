@@ -367,11 +367,12 @@ class FeatureExtractorController : public Thread {
     extractor_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
     writer_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
 
-    const int max_image_size = extraction_options_.MaxImageSize();
-    if (max_image_size > 0) {
+    if (extraction_options_.max_image_size > 0) {
       for (int i = 0; i < num_threads; ++i) {
         resizers_.emplace_back(std::make_unique<ImageResizerThread>(
-            max_image_size, resizer_queue_.get(), extractor_queue_.get()));
+            extraction_options_.max_image_size,
+            resizer_queue_.get(),
+            extractor_queue_.get()));
       }
     }
 
@@ -403,7 +404,8 @@ class FeatureExtractorController : public Thread {
     } else {
       const static FeatureExtractionOptions kDefaultExtractionOptions;
       if (extraction_options_.num_threads == -1 &&
-          max_image_size == kDefaultExtractionOptions.MaxImageSize() &&
+          extraction_options_.max_image_size ==
+              kDefaultExtractionOptions.max_image_size &&
           extraction_options_.sift->first_octave ==
               kDefaultExtractionOptions.sift->first_octave) {
         LOG(WARNING)
@@ -455,7 +457,7 @@ class FeatureExtractorController : public Thread {
       }
     }
 
-    const bool should_resize = extraction_options_.MaxImageSize() > 0;
+    const bool should_resize = extraction_options_.max_image_size > 0;
 
     while (image_reader_.NextIndex() < image_reader_.NumImages()) {
       if (IsStopped()) {

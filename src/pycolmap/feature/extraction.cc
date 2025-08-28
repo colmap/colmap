@@ -44,9 +44,9 @@ class Sift {
                    "settings, explicitly specify them, because the defaults "
                    "will change in the next major release.",
                    1);
+      options_.max_image_size = 7000;
       options_.sift->peak_threshold = 0.01;
       options_.sift->first_octave = 0;
-      options_.sift->max_image_size = 7000;
     }
     options_.use_gpu = use_gpu_;
     THROW_CHECK(options_.Check());
@@ -54,8 +54,8 @@ class Sift {
   }
 
   sift_output_t Extract(const Eigen::Ref<const pyimage_t<uint8_t>>& image) {
-    THROW_CHECK_LE(image.rows(), options_.sift->max_image_size);
-    THROW_CHECK_LE(image.cols(), options_.sift->max_image_size);
+    THROW_CHECK_LE(image.rows(), options_.max_image_size);
+    THROW_CHECK_LE(image.cols(), options_.max_image_size);
 
     const Bitmap bitmap =
         Bitmap::ConvertFromRawBits(const_cast<uint8_t*>(image.data()),
@@ -117,10 +117,6 @@ void BindFeatureExtraction(py::module& m) {
   auto PySiftExtractionOptions =
       py::classh<SiftExtractionOptions>(m, "SiftExtractionOptions")
           .def(py::init<>())
-          .def_readwrite(
-              "max_image_size",
-              &SiftExtractionOptions::max_image_size,
-              "Maximum image size, otherwise image will be down-scaled.")
           .def_readwrite("max_num_features",
                          &SiftExtractionOptions::max_num_features,
                          "Maximum number of features to detect, keeping "
@@ -173,6 +169,10 @@ void BindFeatureExtraction(py::module& m) {
   auto PyFeatureExtractionOptions =
       py::classh<FeatureExtractionOptions>(m, "FeatureExtractionOptions")
           .def(py::init<>())
+          .def_readwrite(
+              "max_image_size",
+              &FeatureExtractionOptions::max_image_size,
+              "Maximum image size, otherwise image will be down-scaled.")
           .def_readwrite("num_threads",
                          &FeatureExtractionOptions::num_threads,
                          "Number of threads for feature matching and "
