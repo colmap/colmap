@@ -23,7 +23,8 @@ jobs:
         config: [
           {
             os: ubuntu-24.04,
-            cmakeBuildType: RelWithDebInfo,
+            qtVersion: 6,
+            cmakeBuildType: Release,
             asanEnabled: false,
             guiEnabled: true,
             cudaEnabled: false,
@@ -33,6 +34,7 @@ jobs:
           },
           {
             os: ubuntu-22.04,
+            qtVersion: 6,
             cmakeBuildType: Release,
             asanEnabled: false,
             guiEnabled: true,
@@ -43,6 +45,7 @@ jobs:
           },
           {
             os: ubuntu-22.04,
+            qtVersion: 5,
             cmakeBuildType: Release,
             asanEnabled: false,
             guiEnabled: false,
@@ -53,7 +56,8 @@ jobs:
           },
           {
             os: ubuntu-24.04,
-            cmakeBuildType: Release,
+            qtVersion: 6,
+            cmakeBuildType: RelWithDebInfo,
             asanEnabled: true,
             guiEnabled: false,
             cudaEnabled: false,
@@ -63,6 +67,7 @@ jobs:
           },
           {
             os: ubuntu-24.04,
+            qtVersion: 6,
             cmakeBuildType: ClangTidy,
             asanEnabled: false,
             guiEnabled: false,
@@ -125,6 +130,12 @@ jobs:
 
       - name: Setup Ubuntu
         run: |
+          if [ "${{ matrix.config.qtVersion }}" == "5" ]; then
+            qt_packages="qtbase5-dev libqt5opengl5-dev libcgal-qt5-dev"
+          elif [ "${{ matrix.config.qtVersion }}" == "6" ]; then
+            qt_packages="qt6-base-dev libqt6opengl6-dev libqt6openglwidgets6"
+          fi
+
           sudo apt-get update && sudo apt-get install -y \
             build-essential \
             cmake \
@@ -141,10 +152,8 @@ jobs:
             libgmock-dev \
             libsqlite3-dev \
             libglew-dev \
-            qtbase5-dev \
-            libqt5opengl5-dev \
+            $qt_packages \
             libcgal-dev \
-            libcgal-qt5-dev \
             libgl1-mesa-dri \
             libunwind-dev \
             libcurl4-openssl-dev \
