@@ -166,7 +166,7 @@ jobs:
           ../vcpkg/vcpkg.exe export --raw --output-dir vcpkg_export --output colmap
           cp vcpkg_export/colmap/installed/x64-windows/bin/*.dll install/bin
           cp vcpkg_export/colmap/installed/x64-windows-release/bin/*.dll install/bin
-          cp -r vcpkg_export/colmap/installed/x64-windows/Qt6/plugins install
+          cp -r vcpkg_export/colmap/installed/x64-windows/plugins install
           if ($${{ matrix.config.cudaEnabled }}) {
               cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/cudart64_*.dll" install/bin
               cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/curand64_*.dll" install/bin
