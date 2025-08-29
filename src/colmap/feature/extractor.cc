@@ -46,6 +46,16 @@ void ThrowUnknownFeatureExtractorType(FeatureExtractorType type) {
 FeatureExtractionOptions::FeatureExtractionOptions(FeatureExtractorType type)
     : type(type), sift(std::make_shared<SiftExtractionOptions>()) {}
 
+bool FeatureExtractionOptions::RequiresRGB() const {
+  switch (type) {
+    case FeatureExtractorType::SIFT:
+      return false;
+    default:
+      ThrowUnknownFeatureExtractorType(type);
+  }
+  return false;
+}
+
 bool FeatureExtractionOptions::Check() const {
   CHECK_OPTION_GT(max_image_size, 0);
   if (use_gpu) {

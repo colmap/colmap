@@ -62,6 +62,9 @@ struct FeatureExtractionOptions {
 
   std::shared_ptr<SiftExtractionOptions> sift;
 
+  // Whether the selected extractor requires RGB (or grayscale) images.
+  bool RequiresRGB() const;
+
   bool Check() const;
 };
 
