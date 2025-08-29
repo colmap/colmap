@@ -166,7 +166,7 @@ the available options, e.g.::
         Options can either be specified via command-line or by defining
         them in a .ini project file passed to ``--project_path``.
 
-            -h [ --help ] 
+            -h [ --help ]
             --default_random_seed arg (=0)
             --log_to_stderr arg (=1)
             --log_level arg (=0)
@@ -187,10 +187,10 @@ the available options, e.g.::
             --ImageReader.default_focal_length_factor arg (=1.2)
             --ImageReader.camera_mask_path arg
             --FeatureExtraction.type arg (=SIFT)
+            --FeatureExtraction.max_image_size arg (=3200)
             --FeatureExtraction.num_threads arg (=-1)
             --FeatureExtraction.use_gpu arg (=1)
             --FeatureExtraction.gpu_index arg (=-1)
-            --SiftExtraction.max_image_size arg (=3200)
             --SiftExtraction.max_num_features arg (=8192)
             --SiftExtraction.first_octave arg (=-1)
             --SiftExtraction.num_octaves arg (=4)
