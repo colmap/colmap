@@ -31,8 +31,9 @@ RUN apt-get update && \
         libgmock-dev \
         libsqlite3-dev \
         libglew-dev \
-        qtbase5-dev \
-        libqt5opengl5-dev \
+        qt6-base-dev \
+        libqt6opengl6-dev \
+        libqt6openglwidgets6 \
         libcgal-dev \
         libceres-dev \
         libcurl4-openssl-dev \
@@ -74,9 +75,10 @@ RUN apt-get update && \
         libgl1 \
         libglew2.2 \
         libgoogle-glog0v6t64 \
-        libqt5core5a \
-        libqt5gui5 \
-        libqt5widgets5 \
+        libqt6core6 \
+        libqt6gui6 \
+        libqt6widgets6 \
+        libqt6openglwidgets6 \
         libcurl4 \
         libssl3t64 \
         libmkl-locale \

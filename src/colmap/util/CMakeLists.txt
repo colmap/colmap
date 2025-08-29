@@ -80,7 +80,15 @@ if(DOWNLOAD_ENABLED)
  endif()
 
 if(GUI_ENABLED)
-    target_link_libraries(colmap_util PUBLIC Qt5::Core Qt5::OpenGL OpenGL::GL)
+    set(COLMAP_UTIL_QT_LIBS
+        Qt${QT_VERSION_MAJOR}::Core
+        Qt${QT_VERSION_MAJOR}::OpenGL
+    )
+    if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
+        list(APPEND COLMAP_UTIL_QT_LIBS 
+            Qt${QT_VERSION_MAJOR}::OpenGLWidgets)
+    endif()
+    target_link_libraries(colmap_util PUBLIC ${COLMAP_UTIL_QT_LIBS} OpenGL::GL)
 endif()
 
 if(CUDA_ENABLED)

@@ -88,13 +88,18 @@ Dependencies from the default Ubuntu repositories::
         libgmock-dev \
         libsqlite3-dev \
         libglew-dev \
-        qtbase5-dev \
-        libqt5opengl5-dev \
+        qt6-base-dev \
+        libqt6opengl6-dev \
+        libqt6openglwidgets6 \
         libcgal-dev \
         libceres-dev \
         libcurl4-openssl-dev \
         libssl-dev \
         libmkl-full-dev
+
+Alternatively, you can also build against Qt 5 instead of Qt 6 using::
+
+    qtbase5-dev libqt5opengl5-dev
 
 To compile with **CUDA support**, also install Ubuntu's default CUDA package::
 
@@ -121,11 +126,6 @@ Run COLMAP::
 
     colmap -h
     colmap gui
-
-Under **Ubuntu 18.04**, the CMake configuration scripts of CGAL are broken and
-you must also install the CGAL Qt5 package::
-
-    sudo apt-get install libcgal-qt5-dev
 
 Under **Ubuntu 22.04**, there is a problem when compiling with Ubuntu's default
 CUDA package and GCC, and you must compile against GCC 10::
@@ -158,7 +158,7 @@ Dependencies from `Homebrew <http://brew.sh/>`__::
         glog \
         googletest \
         ceres-solver \
-        qt5 \
+        qt \
         glew \
         cgal \
         sqlite3
@@ -170,18 +170,15 @@ Configure and compile COLMAP::
     cd colmap
     mkdir build
     cd build
-    cmake .. \
-        -GNinja \
-        -DQt5_DIR="$(brew --prefix qt@5)/lib/cmake/Qt5"
+    cmake -GNinja
     ninja
     sudo ninja install
 
-If you have Qt 6 installed on your system as well, you might have to temporarily
+If you have Qt 5 installed on your system as well, you might have to temporarily
 link your Qt 5 installation while configuring CMake::
 
-    brew link qt5
-    cmake ... (from previous code block)
-    brew unlink qt5
+    brew unlink qt && brew link --force qt
+    cmake ...
 
 Run COLMAP::
 
@@ -291,7 +288,7 @@ with the source code ``hello_world.cc``::
     }
 
 Then compile and run your code as::
-    
+
     mkdir build
     cd build
     export colmap_DIR=${CMAKE_INSTALL_PREFIX}/share/colmap

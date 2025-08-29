@@ -61,7 +61,7 @@ jobs:
             glog \
             googletest \
             ceres-solver \
-            qt5 \
+            qt \
             glew \
             cgal \
             sqlite3 \
@@ -70,7 +70,7 @@ jobs:
 
       - name: Configure and build
         run: |
-          export PATH="/usr/local/opt/qt@5/bin:$PATH"
+          export PATH="/usr/local/opt/qt/bin:$PATH"
           cmake --version
           mkdir build
           cd build
@@ -78,7 +78,7 @@ jobs:
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DTESTS_ENABLED=ON \
-            -DQt5_DIR="$(brew --prefix qt@5)/lib/cmake/Qt5"
+            -DQt6_DIR="$(brew --prefix qt)/lib/cmake/Qt6"
           ninja
 
       - name: Run tests
