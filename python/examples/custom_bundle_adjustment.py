@@ -102,7 +102,9 @@ def iterative_global_refinement(
         num_changed_observations = mapper.complete_and_merge_tracks(tri_options)
         num_changed_observations += mapper.filter_points(mapper_options)
         changed = (
-            num_changed_observations / num_observations if num_observations > 0 else 0
+            num_changed_observations / num_observations
+            if num_observations > 0
+            else 0
         )
         logging.verbose(1, f"=> Changed observations: {changed:.6f}")
         if changed < max_refinement_change:
@@ -168,7 +170,8 @@ def adjust_local_bundle(
         for camera_id, num_images_local in num_images_per_camera.items():
             if (
                 camera_id in mapper_options.constant_cameras
-                or num_images_local < mapper.num_reg_images_per_camera[camera_id]
+                or num_images_local
+                < mapper.num_reg_images_per_camera[camera_id]
             ):
                 ba_config.set_constant_cam_intrinsics(camera_id)
 
@@ -181,12 +184,16 @@ def adjust_local_bundle(
         for point3D_id in list(point3D_ids):
             point3D = reconstruction.point3D(point3D_id)
             kMaxTrackLength = 15
-            if (point3D.error == -1.0) or point3D.track.length() <= kMaxTrackLength:
+            if (
+                point3D.error == -1.0
+            ) or point3D.track.length() <= kMaxTrackLength:
                 ba_config.add_variable_point(point3D_id)
                 variable_point3D_ids.add(point3D_id)
 
         # Adjust the local bundle
-        summary = solve_bundle_adjustment(mapper.reconstruction, ba_options, ba_config)
+        summary = solve_bundle_adjustment(
+            mapper.reconstruction, ba_options, ba_config
+        )
         logging.info("Local Bundle Adjustment")
         logging.info(summary.BriefReport())
 
@@ -214,10 +221,12 @@ def adjust_local_bundle(
             image_ids,
         )
     )
-    report.num_filtered_observations += mapper.observation_manager.filter_points3D(
-        mapper_options.filter_max_reproj_error,
-        mapper_options.filter_min_tri_angle,
-        point3D_ids,
+    report.num_filtered_observations += (
+        mapper.observation_manager.filter_points3D(
+            mapper_options.filter_max_reproj_error,
+            mapper_options.filter_min_tri_angle,
+            point3D_ids,
+        )
     )
     return report
 
@@ -249,7 +258,9 @@ def iterative_local_refinement(
             image_id,
             mapper.get_modified_points3D(),
         )
-        logging.verbose(1, f"=> Merged observations: {report.num_merged_observations}")
+        logging.verbose(
+            1, f"=> Merged observations: {report.num_merged_observations}"
+        )
         logging.verbose(
             1, f"=> Completed observations: {report.num_completed_observations}"
         )
