@@ -135,7 +135,7 @@ ImageReader::Status ImageReader::Next(Rig* rig,
   // Read image.
   //////////////////////////////////////////////////////////////////////////////
 
-  if (!bitmap->Read(image_path, /*as_rgb=*/true)) {
+  if (!bitmap->Read(image_path, /*as_rgb=*/options_.as_rgb)) {
     return Status::BITMAP_ERROR;
   }
 

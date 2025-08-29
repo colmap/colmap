@@ -121,7 +121,7 @@ Example of images.txt::
 
     4 0.698777 0.714625 -0.023996 0.021129 -0.048184 0.004529 -0.313427 2 image0004.png
 
-Each image above must have the same ``image_id`` (first column) as in the database (next step). 
+Each image above must have the same ``image_id`` (first column) as in the database (next step).
 This database can be inspected either in the GUI (under ``Database management > Processing``),
 or, one can create a reconstruction with colmap and later export  it as text in order to see
 the images.txt file it creates.
@@ -217,9 +217,9 @@ camera centers of a subset or all registered images. The 3D similarity
 transformation between the reconstructed model and the target coordinate frame
 of the geo-registration is determined from these correspondences.
 
-The geo-registered 3D coordinates can either be extracted from the database 
-(tvec_prior field) or from a user specified text file. 
-For text-files, the geo-registered 3D coordinates of the camera centers for 
+The geo-registered 3D coordinates can either be extracted from the database
+(tvec_prior field) or from a user specified text file.
+For text-files, the geo-registered 3D coordinates of the camera centers for
 images must be specified with the following format::
 
     image_name1.jpg X1 Y1 Z1
@@ -232,7 +232,7 @@ In case of GPS coordinates, a conversion will be performed to turn those into
 cartesian coordinates.  The conversion can be done from GPS to ECEF
 (Earth-Centered-Earth-Fixed) or to ENU (East-North-Up) coordinates. If ENU coordinates
 are used, the first image GPS coordinates will define the origin of the ENU frame.
-It is also possible to use ECEF coordinates for alignment and then rotate the aligned 
+It is also possible to use ECEF coordinates for alignment and then rotate the aligned
 reconstruction into the ENU plane.
 
 Note that at least 3 images must be specified to estimate a 3D similarity
@@ -344,7 +344,7 @@ extraction step). But note that this might result in a significant slow-down of
 the reconstruction pipeline. Please, also note that feature extraction on the
 CPU can consume excessive RAM for large images in the default settings, which
 might require manually reducing the maximum image size using
-``--SiftExtraction.max_image_size`` and/or setting
+``--FeatureExtraction.max_image_size`` and/or setting
 ``--SiftExtraction.first_octave 0`` or by manually limiting the number of
 threads using ``--FeatureExtraction.num_threads``.
 

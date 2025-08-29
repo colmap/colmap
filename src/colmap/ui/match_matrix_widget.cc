@@ -37,14 +37,14 @@ MatchMatrixWidget::MatchMatrixWidget(QWidget* parent, OptionManager* options)
 }
 
 void MatchMatrixWidget::Show() {
-  Database database(*options_->database_path);
+  const auto database = Database::Open(*options_->database_path);
 
-  if (database.NumImages() == 0) {
+  if (database->NumImages() == 0) {
     return;
   }
 
   // Sort the images according to their name.
-  std::vector<Image> images = database.ReadAllImages();
+  std::vector<Image> images = database->ReadAllImages();
   std::sort(images.begin(),
             images.end(),
             [](const Image& image1, const Image& image2) {
@@ -63,7 +63,7 @@ void MatchMatrixWidget::Show() {
   }
 
   const std::vector<std::pair<image_pair_t, int>> pair_ids_and_num_inliers =
-      database.ReadTwoViewGeometryNumInliers();
+      database->ReadTwoViewGeometryNumInliers();
 
   // Fill the match matrix.
   if (!pair_ids_and_num_inliers.empty()) {
