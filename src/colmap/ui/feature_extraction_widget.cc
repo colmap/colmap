@@ -79,12 +79,12 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
   AddOptionFilePath(&options->image_reader->camera_mask_path,
                     "camera_mask_path");
 
+  AddOptionInt(&options->feature_extraction->max_image_size, "max_image_size");
   AddOptionInt(&options->feature_extraction->num_threads, "num_threads", -1);
   AddOptionBool(&options->feature_extraction->use_gpu, "use_gpu");
   AddOptionText(&options->feature_extraction->gpu_index, "gpu_index");
 
   SiftExtractionOptions& sift_options = *options->feature_extraction->sift;
-  AddOptionInt(&sift_options.max_image_size, "sift.max_image_size");
   AddOptionInt(&sift_options.max_num_features, "sift.max_num_features");
   AddOptionInt(&sift_options.first_octave, "sift.first_octave", -5);
   AddOptionInt(&sift_options.num_octaves, "sift.num_octaves");
