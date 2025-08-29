@@ -183,6 +183,11 @@ void BindIncrementalPipeline(py::module& m) {
                      &Opts::fix_existing_frames,
                      "If reconstruction is provided as input, fix the existing "
                      "frame poses.")
+      .def_readwrite(
+          "constant_rigs",
+          &Opts::constant_rigs,
+          "List of rigs for which to fix the sensor_from_rig transformation, "
+          "independent of ba_refine_sensor_from_rig.")
       .def_readwrite("constant_cameras",
                      &Opts::constant_cameras,
                      "List of cameras for which to fix the camera parameters "
@@ -344,6 +349,11 @@ void BindIncrementalMapperOptions(py::module& m) {
                      &Opts::fix_existing_frames,
                      "If reconstruction is provided as input, fix the existing "
                      "frame poses.")
+      .def_readwrite(
+          "constant_rigs",
+          &Opts::constant_rigs,
+          "List of rigs for which to fix the sensor_from_rig transformation, "
+          "independent of ba_refine_sensor_from_rig.")
       .def_readwrite("constant_cameras",
                      &Opts::constant_cameras,
                      "List of cameras for which to fix the camera parameters "

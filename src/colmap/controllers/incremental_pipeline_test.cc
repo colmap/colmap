@@ -30,6 +30,7 @@
 #include "colmap/controllers/incremental_pipeline.h"
 
 #include "colmap/estimators/alignment.h"
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
@@ -182,6 +183,64 @@ TEST(IncrementalPipeline, WithoutNoiseAndWithNonTrivialFrames) {
                               /*align=*/true,
                               /*check_scale=*/true,
                               refine_sensor_from_rig ? 1e-2 : 1e-4);
+  }
+}
+
+TEST(IncrementalPipeline, WithNonTrivialFramesAndConstantRigsAndCameras) {
+  const std::string database_path = CreateTestDir() + "/database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.point2D_stddev = 0;
+  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  synthetic_dataset_options.sensor_from_rig_translation_stddev = 0.05;
+  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 30;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  constexpr int kFixedRigId = 1;
+  constexpr int kFixedCameraId = 1;
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  options->constant_rigs.insert(kFixedRigId);
+  options->constant_cameras.insert(kFixedCameraId);
+  IncrementalPipeline mapper(options,
+                             /*image_path=*/"",
+                             database_path,
+                             reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  auto& reconstruction = *reconstruction_manager->Get(0);
+  ExpectReconstructionsNear(gt_reconstruction,
+                            reconstruction,
+                            /*max_rotation_error_deg=*/1e-2,
+                            /*max_proj_center_error=*/1e-3,
+                            /*num_obs_tolerance=*/0,
+                            /*align=*/true,
+                            /*check_scale=*/true);
+
+  for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
+    for (const auto& [sensor_id, sensor_from_rig] : rig.Sensors()) {
+      if (rig_id == kFixedRigId) {
+        EXPECT_THAT(
+            *sensor_from_rig,
+            Rigid3dNear(gt_reconstruction.Rig(rig_id).SensorFromRig(sensor_id),
+                        /*rtol=*/1e-6,
+                        /*ttol=*/1e-6));
+      }
+    }
+  }
+  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
+    if (camera_id == kFixedCameraId) {
+      EXPECT_EQ(camera.params, gt_reconstruction.Camera(camera_id).params);
+    }
   }
 }
 

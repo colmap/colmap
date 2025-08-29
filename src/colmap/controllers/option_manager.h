@@ -174,6 +174,7 @@ class OptionManager {
   std::string feature_matching_type_;
 
   std::string mapper_image_list_path_;
+  std::string mapper_constant_rig_list_path_;
   std::string mapper_constant_camera_list_path_;
 
   bool added_log_options_;

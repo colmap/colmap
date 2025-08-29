@@ -952,6 +952,12 @@ void OptionManager::Parse(const int argc, char** argv) {
     if (!mapper_image_list_path_.empty()) {
       mapper->image_names = ReadTextFileLines(mapper_image_list_path_);
     }
+    if (!mapper_constant_rig_list_path_.empty()) {
+      for (const std::string& line :
+           ReadTextFileLines(mapper_constant_rig_list_path_)) {
+        mapper->constant_rigs.insert(std::stoi(line));
+      }
+    }
     if (!mapper_constant_camera_list_path_.empty()) {
       for (const std::string& line :
            ReadTextFileLines(mapper_constant_camera_list_path_)) {
