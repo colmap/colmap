@@ -645,6 +645,8 @@ void OptionManager::AddMapperOptions() {
                               &mapper->mapper.local_ba_min_tri_angle);
 
   AddDefaultOption("Mapper.image_list_path", &mapper_image_list_path_);
+  AddDefaultOption("Mapper.constant_rig_list_path",
+                   &mapper_constant_rig_list_path_);
   AddDefaultOption("Mapper.constant_camera_list_path",
                    &mapper_constant_camera_list_path_);
 
