@@ -645,6 +645,8 @@ void OptionManager::AddMapperOptions() {
                               &mapper->mapper.local_ba_min_tri_angle);
 
   AddDefaultOption("Mapper.image_list_path", &mapper_image_list_path_);
+  AddDefaultOption("Mapper.constant_rig_list_path",
+                   &mapper_constant_rig_list_path_);
   AddDefaultOption("Mapper.constant_camera_list_path",
                    &mapper_constant_camera_list_path_);
 
@@ -951,6 +953,12 @@ void OptionManager::Parse(const int argc, char** argv) {
         FeatureMatcherTypeFromString(feature_matching_type_);
     if (!mapper_image_list_path_.empty()) {
       mapper->image_names = ReadTextFileLines(mapper_image_list_path_);
+    }
+    if (!mapper_constant_rig_list_path_.empty()) {
+      for (const std::string& line :
+           ReadTextFileLines(mapper_constant_rig_list_path_)) {
+        mapper->constant_rigs.insert(std::stoi(line));
+      }
     }
     if (!mapper_constant_camera_list_path_.empty()) {
       for (const std::string& line :

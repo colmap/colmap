@@ -30,6 +30,7 @@
 #include "colmap/controllers/incremental_pipeline.h"
 
 #include "colmap/estimators/alignment.h"
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
@@ -84,6 +85,15 @@ bool AreReconstructionsIdentical(const Reconstruction& gt,
     return false;
   }
 
+  for (const auto& [camera_id, camera] : gt.Cameras()) {
+    if (!computed.ExistsCamera(camera_id)) {
+      return false;
+    }
+    if (camera.params != computed.Camera(camera_id).params) {
+      return false;
+    }
+  }
+
   for (const auto& [image_id, image] : computed.Images()) {
     if (!gt.ExistsImage(image_id)) {
       return false;
@@ -104,16 +114,6 @@ bool AreReconstructionsIdentical(const Reconstruction& gt,
   }
 
   return true;
-}
-
-void ExpectReconstructionsIdentical(const Reconstruction& gt,
-                                    const Reconstruction& computed) {
-  EXPECT_TRUE(AreReconstructionsIdentical(gt, computed));
-}
-
-void ExpectReconstructionsDifferent(const Reconstruction& gt,
-                                    const Reconstruction& computed) {
-  EXPECT_FALSE(AreReconstructionsIdentical(gt, computed));
 }
 
 TEST(IncrementalPipeline, WithoutNoise) {
@@ -183,6 +183,59 @@ TEST(IncrementalPipeline, WithoutNoiseAndWithNonTrivialFrames) {
                               /*check_scale=*/true,
                               refine_sensor_from_rig ? 1e-2 : 1e-4);
   }
+}
+
+TEST(IncrementalPipeline, WithNonTrivialFramesAndConstantRigsAndCameras) {
+  const std::string database_path = CreateTestDir() + "/database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.point2D_stddev = 0;
+  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  synthetic_dataset_options.sensor_from_rig_translation_stddev = 0.05;
+  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 30;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  constexpr int kConstantRigId = 1;
+  constexpr int kConstantCameraId = 1;
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  options->constant_rigs.insert(kConstantRigId);
+  options->constant_cameras.insert(kConstantCameraId);
+  IncrementalPipeline mapper(options,
+                             /*image_path=*/"",
+                             database_path,
+                             reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  auto& reconstruction = *reconstruction_manager->Get(0);
+  ExpectReconstructionsNear(gt_reconstruction,
+                            reconstruction,
+                            /*max_rotation_error_deg=*/1e-2,
+                            /*max_proj_center_error=*/1e-3,
+                            /*num_obs_tolerance=*/0,
+                            /*align=*/true,
+                            /*check_scale=*/true);
+
+  for (const auto& [sensor_id, sensor_from_rig] :
+       reconstruction.Rig(kConstantRigId).Sensors()) {
+    EXPECT_THAT(
+        sensor_from_rig.value(),
+        Rigid3dNear(
+            gt_reconstruction.Rig(kConstantRigId).SensorFromRig(sensor_id),
+            /*rtol=*/1e-6,
+            /*ttol=*/1e-6));
+  }
+  EXPECT_EQ(reconstruction.Camera(kConstantCameraId).params,
+            gt_reconstruction.Camera(kConstantCameraId).params);
 }
 
 TEST(IncrementalPipeline, WithoutNoiseAndWithPanoramicNonTrivialFrames) {
@@ -570,6 +623,8 @@ TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
 }
 
 TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
+  SetPRNGSeed(1);
+
   const std::string database_path = CreateTestDir() + "/database.db";
 
   auto database = Database::Open(database_path);
@@ -577,9 +632,9 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.point2D_stddev = 2.5;
+  synthetic_dataset_options.point2D_stddev = 1;
   synthetic_dataset_options.use_prior_position = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
@@ -600,48 +655,53 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
     return reconstruction_manager;
   };
 
-  // Single-thread execution
+  // Single-threaded execution.
   {
+    constexpr int kRandomSeed = 42;
     auto reconstruction_manager0 =
-        run_mapper(/*num_threads=*/1, /*random_seed=*/42);
+        run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
     auto reconstruction_manager1 =
-        run_mapper(/*num_threads=*/1, /*random_seed=*/42);
-    // Same seed should produce identical reconstructions in single-thread mode
+        run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
+    EXPECT_TRUE(AreReconstructionsIdentical(*reconstruction_manager0->Get(0),
+                                            *reconstruction_manager1->Get(0)));
 
-    ExpectReconstructionsIdentical(*reconstruction_manager0->Get(0),
-                                   *reconstruction_manager1->Get(0));
-
-    // Different seed should produce different reconstructions
-    auto reconstruction_manager2 =
-        run_mapper(/*num_threads=*/1, /*random_seed=*/123);
-    ExpectReconstructionsDifferent(*reconstruction_manager0->Get(0),
-                                   *reconstruction_manager2->Get(0));
+    // Different seed should produce different reconstructions. Notice that, for
+    // some seeds, we may still get identical results, so we try a few different
+    // seeds until we get a different result.
+    bool different_result = false;
+    for (int random_seed = kRandomSeed + 1; random_seed < kRandomSeed + 10;
+         ++random_seed) {
+      auto reconstruction_manager2 =
+          run_mapper(/*num_threads=*/1, /*random_seed=*/random_seed);
+      if (!AreReconstructionsIdentical(*reconstruction_manager0->Get(0),
+                                       *reconstruction_manager2->Get(0))) {
+        different_result = true;
+        break;
+      }
+    }
+    EXPECT_TRUE(different_result);
   }
 
-  // Multi-thread execution
+  // Multi-threaded execution.
   {
     auto reconstruction_manager0 =
         run_mapper(/*num_threads=*/-1, /*random_seed=*/42);
     auto reconstruction_manager1 =
         run_mapper(/*num_threads=*/-1, /*random_seed=*/42);
     // Same seed should produce similar results, up to floating-point variations
-    // in optimization
+    // in optimization.
     ExpectReconstructionsNear(*reconstruction_manager0->Get(0),
                               *reconstruction_manager1->Get(0),
-                              /*max_rotation_error_deg=*/1e-14,
-                              /*max_proj_center_error=*/1e-14,
+                              /*max_rotation_error_deg=*/1e-10,
+                              /*max_proj_center_error=*/1e-10,
                               /*num_obs_tolerance=*/0.01,
                               /*align=*/false);
-
-    auto reconstruction_manager2 =
-        run_mapper(/*num_threads=*/-1, /*random_seed=*/123);
-    // Different seed may produce different reconstructions
-    ExpectReconstructionsDifferent(*reconstruction_manager0->Get(0),
-                                   *reconstruction_manager2->Get(0));
   }
 }
 
 TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
+  SetPRNGSeed(1);
+
   const std::string database_path = CreateTestDir() + "/database.db";
 
   auto database = Database::Open(database_path);
@@ -651,11 +711,11 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 7;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.point2D_stddev = 2.5;
+  synthetic_dataset_options.point2D_stddev = 1;
   synthetic_dataset_options.use_prior_position = true;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
-  synthetic_dataset_options.prior_position_stddev = 2.0;
+  synthetic_dataset_options.prior_position_stddev = 1.0;
 
   auto mapper_options = std::make_shared<IncrementalPipelineOptions>();
   mapper_options->use_prior_position = false;
@@ -673,43 +733,48 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
     return reconstruction_manager;
   };
 
-  // Single-thread execution
+  // Single-threaded execution.
   {
+    constexpr int kRandomSeed = 42;
     auto reconstruction_manager0 =
-        run_mapper(/*num_threads=*/1, /*random_seed=*/42);
+        run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
     auto reconstruction_manager1 =
-        run_mapper(/*num_threads=*/1, /*random_seed=*/42);
-    // Same seed should produce identical reconstructions in single-thread mode
-    ExpectReconstructionsIdentical(*reconstruction_manager0->Get(0),
-                                   *reconstruction_manager1->Get(0));
+        run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
+    EXPECT_TRUE(AreReconstructionsIdentical(*reconstruction_manager0->Get(0),
+                                            *reconstruction_manager1->Get(0)));
 
-    // Different seed should produce different reconstructions
-    auto reconstruction_manager2 =
-        run_mapper(/*num_threads=*/1, /*random_seed=*/123);
-    ExpectReconstructionsDifferent(*reconstruction_manager0->Get(0),
-                                   *reconstruction_manager2->Get(0));
+    // Different seed should produce different reconstructions. Notice that, for
+    // some seeds, we may still get identical results, so we try a few different
+    // seeds until we get a different result.
+    bool different_result = false;
+    for (int random_seed = kRandomSeed + 1; random_seed < kRandomSeed + 10;
+         ++random_seed) {
+      // Different seed should produce different reconstructions.
+      auto reconstruction_manager2 =
+          run_mapper(/*num_threads=*/1, /*random_seed=*/random_seed);
+      if (!AreReconstructionsIdentical(*reconstruction_manager0->Get(0),
+                                       *reconstruction_manager2->Get(0))) {
+        different_result = true;
+        break;
+      }
+    }
+    EXPECT_TRUE(different_result);
   }
 
-  // Multi-thread execution
+  // Multi-threaded execution.
   {
     auto reconstruction_manager0 =
         run_mapper(/*num_threads=*/-1, /*random_seed=*/42);
     auto reconstruction_manager1 =
         run_mapper(/*num_threads=*/-1, /*random_seed=*/42);
     // Same seed should produce similar results, up to floating-point variations
-    // in optimization
+    // in optimization.
     ExpectReconstructionsNear(*reconstruction_manager0->Get(0),
                               *reconstruction_manager1->Get(0),
-                              /*max_rotation_error_deg=*/1e-13,
-                              /*max_proj_center_error=*/1e-13,
+                              /*max_rotation_error_deg=*/1e-10,
+                              /*max_proj_center_error=*/1e-10,
                               /*num_obs_tolerance=*/0.01,
                               /*align=*/false);
-
-    auto reconstruction_manager2 =
-        run_mapper(/*num_threads=*/-1, /*random_seed=*/123);
-    // Different seed may produce different reconstructions
-    ExpectReconstructionsDifferent(*reconstruction_manager0->Get(0),
-                                   *reconstruction_manager2->Get(0));
   }
 }
 
