@@ -96,6 +96,10 @@ Dependencies from the default Ubuntu repositories::
         libcurl4-openssl-dev \
         libmkl-full-dev
 
+Alternatively, you can also build against Qt5 instead of Qt6 using::
+
+    qtbase5-dev libqt5opengl5-dev
+
 To compile with **CUDA support**, also install Ubuntu's default CUDA package::
 
     sudo apt-get install -y \
