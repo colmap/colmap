@@ -106,6 +106,7 @@ int RunFeatureExtractor(int argc, char** argv) {
 
   ImageReaderOptions reader_options = *options.image_reader;
   reader_options.image_path = *options.image_path;
+  reader_options.as_rgb = options.feature_extraction->RequiresRGB();
 
   if (camera_mode >= 0) {
     UpdateImageReaderOptionsFromCameraMode(reader_options,

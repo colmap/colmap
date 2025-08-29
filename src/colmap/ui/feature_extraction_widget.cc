@@ -115,6 +115,7 @@ void SIFTExtractionWidget::Run() {
 
   ImageReaderOptions reader_options = *options_->image_reader;
   reader_options.image_path = *options_->image_path;
+  reader_options.as_rgb = options_->feature_extraction->RequiresRGB();
 
   auto extractor = CreateFeatureExtractorController(
       *options_->database_path, reader_options, *options_->feature_extraction);
