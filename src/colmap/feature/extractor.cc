@@ -30,6 +30,7 @@
 #include "colmap/feature/extractor.h"
 
 #include "colmap/feature/sift.h"
+#include "colmap/feature/xfeat.h"
 #include "colmap/util/misc.h"
 
 namespace colmap {
@@ -44,7 +45,9 @@ void ThrowUnknownFeatureExtractorType(FeatureExtractorType type) {
 }  // namespace
 
 FeatureExtractionOptions::FeatureExtractionOptions(FeatureExtractorType type)
-    : type(type), sift(std::make_shared<SiftExtractionOptions>()) {}
+    : type(type),
+      sift(std::make_shared<SiftExtractionOptions>()),
+      xfeat(std::make_shared<XFeatExtractionOptions>()) {}
 
 bool FeatureExtractionOptions::RequiresRGB() const {
   switch (type) {
@@ -68,6 +71,8 @@ bool FeatureExtractionOptions::Check() const {
   }
   if (type == FeatureExtractorType::SIFT) {
     return THROW_CHECK_NOTNULL(sift)->Check();
+  } else if (type == FeatureExtractorType::XFeat) {
+    return THROW_CHECK_NOTNULL(xfeat)->Check();
   } else {
     LOG(ERROR) << "Unknown feature extractor type: " << type;
     return false;
@@ -80,6 +85,8 @@ std::unique_ptr<FeatureExtractor> FeatureExtractor::Create(
   switch (options.type) {
     case FeatureExtractorType::SIFT:
       return CreateSiftFeatureExtractor(options);
+    case FeatureExtractorType::XFeat:
+      return CreateXFeatFeatureExtractor(options);
     default:
       ThrowUnknownFeatureExtractorType(options.type);
   }

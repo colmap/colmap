@@ -48,6 +48,7 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_LIBRARY(
     NAME colmap_feature
     SRCS
+        xfeat.h xfeat.cc
         extractor.h extractor.cc
         index.h index.cc
         matcher.h matcher.cc
@@ -67,6 +68,7 @@ COLMAP_ADD_LIBRARY(
         colmap_vlfeat
         Eigen3::Eigen
         faiss
+        onnxruntime::onnxruntime
 )
 
 if(GPU_ENABLED)
@@ -76,6 +78,13 @@ if(GPU_ENABLED)
     endif()
 endif()
 
+COLMAP_ADD_TEST(
+    NAME xfeat_test
+    SRCS xfeat_test.cc
+    LINK_LIBS
+        colmap_feature
+        onnxruntime::onnxruntime
+)
 COLMAP_ADD_TEST(
     NAME index_test
     SRCS index_test.cc

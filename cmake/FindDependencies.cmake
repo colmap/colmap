@@ -156,7 +156,7 @@ if(CUDA_ENABLED)
 
             declare_imported_cuda_target(cudart ${CUDA_LIBRARIES})
             declare_imported_cuda_target(curand ${CUDA_LIBRARIES})
-            
+
             set(CUDAToolkit_VERSION "${CUDA_VERSION_STRING}")
             set(CUDAToolkit_BIN_DIR "${CUDA_TOOLKIT_ROOT_DIR}/bin")
         else()
@@ -195,6 +195,18 @@ if(CUDA_ENABLED AND CUDA_FOUND)
 else()
     set(CUDA_ENABLED OFF)
     message(STATUS "Disabling CUDA support")
+endif()
+
+if(ONNX_ENABLED)
+    find_package(onnxruntime ${COLMAP_FIND_TYPE})
+    if(onnxruntime_FOUND)
+        list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_ONNX_ENABLED)
+        message(STATUS "Enabling ONNX support")
+    else()
+        message(STATUS "Disabling ONNX support (not found)")
+    endif()
+else()
+    message(STATUS "Disabling ONNX support")
 endif()
 
 if(GUI_ENABLED)
