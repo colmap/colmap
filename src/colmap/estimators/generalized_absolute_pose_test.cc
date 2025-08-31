@@ -34,9 +34,6 @@
 #include "colmap/math/random.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/eigen_alignment.h"
-#include "colmap/util/eigen_matchers.h"
-
-#include <array>
 
 #include <Eigen/Core>
 #include <gtest/gtest.h>

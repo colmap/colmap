@@ -306,22 +306,34 @@ def run(args):
         camera_mode=pycolmap.CameraMode.PER_FOLDER,
     )
 
-    with pycolmap.Database(database_path) as db:
+    with pycolmap.Database.open(database_path) as db:
         pycolmap.apply_rig_config([rig_config], db)
 
+    matching_options = pycolmap.FeatureMatchingOptions()
+    # We have perfect sensor_from_rig poses (except for potential stitching
+    # artifacts by the spherical image provider), so we can perform geometric
+    # verification using rig constraints.
+    matching_options.rig_verification = True
+    # The images within a frame do not have overlap due to the provided masks.
+    matching_options.skip_image_pairs_in_same_frame = True
     if args.matcher == "sequential":
         pycolmap.match_sequential(
             database_path,
             pairing_options=pycolmap.SequentialPairingOptions(
                 loop_detection=True
             ),
+            matching_options=matching_options,
         )
     elif args.matcher == "exhaustive":
-        pycolmap.match_exhaustive(database_path)
+        pycolmap.match_exhaustive(
+            database_path, matching_options=matching_options
+        )
     elif args.matcher == "vocabtree":
-        pycolmap.match_vocabtree(database_path)
+        pycolmap.match_vocabtree(
+            database_path, matching_options=matching_options
+        )
     elif args.matcher == "spatial":
-        pycolmap.match_spatial(database_path)
+        pycolmap.match_spatial(database_path, matching_options=matching_options)
     else:
         logging.fatal(f"Unknown matcher: {args.matcher}")
 

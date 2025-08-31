@@ -31,6 +31,7 @@
 
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/sim3.h"
+#include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
@@ -255,6 +256,7 @@ TEST(Reconstruction, AddImageWrongFrameCorrespondence) {
   Reconstruction reconstruction;
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
+  reconstruction.AddCamera(camera);
   Rig rig;
   rig.SetRigId(1);
   rig.AddRefSensor(camera.SensorId());
@@ -267,7 +269,6 @@ TEST(Reconstruction, AddImageWrongFrameCorrespondence) {
   image.SetImageId(1);
   image.SetFrameId(frame.FrameId());
   frame.AddDataId(image.DataId());
-  reconstruction.AddCamera(camera);
   reconstruction.AddFrame(frame);
   reconstruction.AddImage(image);
   image.SetImageId(2);
@@ -278,6 +279,7 @@ TEST(Reconstruction, AddImage) {
   Reconstruction reconstruction;
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
+  reconstruction.AddCamera(camera);
   Rig rig;
   rig.SetRigId(1);
   rig.AddRefSensor(camera.SensorId());
@@ -290,8 +292,6 @@ TEST(Reconstruction, AddImage) {
   image.SetImageId(1);
   image.SetFrameId(frame.FrameId());
   frame.AddDataId(image.DataId());
-  EXPECT_ANY_THROW(reconstruction.AddImage(image));
-  reconstruction.AddCamera(camera);
   EXPECT_ANY_THROW(reconstruction.AddImage(image));
   reconstruction.AddFrame(frame);
   reconstruction.AddImage(image);
@@ -448,20 +448,20 @@ TEST(Reconstruction, DeleteObservation) {
 
 TEST(Reconstruction, SetRigsAndFrames) {
   Reconstruction reconstruction;
-  Database database(Database::kInMemoryDatabasePath);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_rigs = 3;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 8;
   synthetic_dataset_options.num_points3D = 21;
-  SynthesizeDataset(synthetic_dataset_options, &reconstruction, &database);
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction, database.get());
   for (const auto& [frame_id, _] : reconstruction.Frames()) {
     reconstruction.DeRegisterFrame(frame_id);
   }
   const Reconstruction orig_reconstruction = reconstruction;
-  reconstruction.SetRigsAndFrames(database.ReadAllRigs(),
-                                  database.ReadAllFrames());
+  reconstruction.SetRigsAndFrames(database->ReadAllRigs(),
+                                  database->ReadAllFrames());
   ExpectEqualReconstructions(reconstruction, orig_reconstruction);
 }
 

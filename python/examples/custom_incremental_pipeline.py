@@ -198,7 +198,7 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
     if (
         reconstruction.num_reg_frames() >= 2
         and reconstruction.num_reg_frames() != ba_prev_num_reg_frames
-        and reconstruction.num_points3D != ba_prev_num_points
+        and reconstruction.num_points3D() != ba_prev_num_points
     ):
         iterative_global_refinement(options, mapper_options, mapper)
     return pycolmap.IncrementalMapperStatus.SUCCESS
@@ -341,7 +341,8 @@ def main(
     )
 
     # main runner
-    num_images = pycolmap.Database(database_path).num_images
+    with pycolmap.Database.open(database_path) as database:
+        num_images = database.num_images()
     with enlighten.Manager() as manager:
         with manager.counter(
             total=num_images, desc="Images registered:"

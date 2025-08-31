@@ -29,7 +29,6 @@
 
 #include "colmap/estimators/cost_functions.h"
 
-#include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/math/math.h"
@@ -391,23 +390,41 @@ TEST(Point3DAlignmentCostFunctor, Nominal) {
                       Eigen::Quaterniond::UnitRandom(),
                       Eigen::Vector3d::Random());
   // construct cost function and evaluate
+  // use log scale
   Eigen::Vector3d point_in_b_prior(1., 1., 1.);
-  std::unique_ptr<ceres::CostFunction> cost_function(
-      Point3DAlignmentCostFunctor::Create(point_in_b_prior));
   Eigen::Vector3d point(0., 0., 0.);
+  std::unique_ptr<ceres::CostFunction> cost_function_log_scale(
+      Point3DAlignmentCostFunctor::Create(point_in_b_prior,
+                                          /*use_log_scale=*/true));
   double log_scale = std::log(tform.scale);
-  const double* parameters[4] = {point.data(),
-                                 tform.rotation.coeffs().data(),
-                                 tform.translation.data(),
-                                 &log_scale};
-  double residuals[3];
-  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  const double* parameters_log_scale[4] = {point.data(),
+                                           tform.rotation.coeffs().data(),
+                                           tform.translation.data(),
+                                           &log_scale};
+  double residuals_log_scale[3];
+  EXPECT_TRUE(cost_function_log_scale->Evaluate(
+      parameters_log_scale, residuals_log_scale, nullptr));
+
+  // use direct scale
+  std::unique_ptr<ceres::CostFunction> cost_function_direct_scale(
+      Point3DAlignmentCostFunctor::Create(point_in_b_prior,
+                                          /*use_log_scale=*/false));
+  const double* parameters_direct_scale[4] = {point.data(),
+                                              tform.rotation.coeffs().data(),
+                                              tform.translation.data(),
+                                              &tform.scale};
+  double residuals_direct_scale[3];
+  EXPECT_TRUE(cost_function_direct_scale->Evaluate(
+      parameters_direct_scale, residuals_direct_scale, nullptr));
 
   // test with reference computation from C++
   Eigen::Vector3d error = tform * point - point_in_b_prior;
-  EXPECT_NEAR(residuals[0], error[0], 1e-6);
-  EXPECT_NEAR(residuals[1], error[1], 1e-6);
-  EXPECT_NEAR(residuals[2], error[2], 1e-6);
+  EXPECT_NEAR(residuals_log_scale[0], error[0], 1e-6);
+  EXPECT_NEAR(residuals_log_scale[1], error[1], 1e-6);
+  EXPECT_NEAR(residuals_log_scale[2], error[2], 1e-6);
+  EXPECT_NEAR(residuals_direct_scale[0], error[0], 1e-6);
+  EXPECT_NEAR(residuals_direct_scale[1], error[1], 1e-6);
+  EXPECT_NEAR(residuals_direct_scale[2], error[2], 1e-6);
 }
 
 TEST(CovarianceWeightedCostFunctor, ReprojErrorCostFunctor) {

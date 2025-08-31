@@ -18,7 +18,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindTwoViewGeometryEstimator(py::module& m) {
-  py::class_<TwoViewGeometryOptions> PyTwoViewGeometryOptions(
+  py::classh<TwoViewGeometryOptions> PyTwoViewGeometryOptions(
       m, "TwoViewGeometryOptions");
   PyTwoViewGeometryOptions.def(py::init<>())
       .def_readwrite("min_num_inliers",

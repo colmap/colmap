@@ -15,7 +15,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindSim3(py::module& m) {
-  py::class_ext_<Sim3d> PySim3d(m, "Sim3d");
+  py::classh_ext<Sim3d> PySim3d(m, "Sim3d");
   PySim3d.def(py::init<>())
       .def(
           py::init<double, const Eigen::Quaterniond&, const Eigen::Vector3d&>(),

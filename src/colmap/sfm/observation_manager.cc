@@ -156,8 +156,7 @@ void ObservationManager::SetObservationAsTriangulated(
     // only count the correspondences once (not twice forward and backward).
     if (point2D.point3D_id == corr_point2D.point3D_id &&
         (is_continued_point3D || image_id < corr->image_id)) {
-      const image_pair_t pair_id =
-          Database::ImagePairToPairId(image_id, corr->image_id);
+      const image_pair_t pair_id = ImagePairToPairId(image_id, corr->image_id);
       auto& stats = image_pair_stats_[pair_id];
       stats.num_tri_corrs += 1;
       THROW_CHECK_LE(stats.num_tri_corrs, stats.num_total_corrs)
@@ -188,8 +187,7 @@ void ObservationManager::ResetTriObservations(const image_t image_id,
     // only count the correspondences once (not twice forward and backward).
     if (point2D.point3D_id == corr_point2D.point3D_id &&
         (!is_deleted_point3D || image_id < corr->image_id)) {
-      const image_pair_t pair_id =
-          Database::ImagePairToPairId(image_id, corr->image_id);
+      const image_pair_t pair_id = ImagePairToPairId(image_id, corr->image_id);
       THROW_CHECK_GT(image_pair_stats_[pair_id].num_tri_corrs, 0)
           << "The scene graph graph must not contain duplicate matches";
       image_pair_stats_[pair_id].num_tri_corrs -= 1;

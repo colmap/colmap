@@ -31,13 +31,14 @@
 
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/homography_matrix.h"
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
+#include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/eigen_alignment.h"
-#include "colmap/util/eigen_matchers.h"
 
 #include <Eigen/Core>
 #include <gtest/gtest.h>
@@ -651,6 +652,82 @@ TEST(EstimateTwoViewGeometry, PlanarOrPanoramicDeterministic) {
 
   // Using a different random seed may produce different results.
   EXPECT_NE(geometry1.H, geometry3.H);
+}
+
+struct RigTwoViewGeometryTestData {
+  Rig rig1;
+  Rig rig2;
+  std::vector<std::pair<std::pair<image_t, image_t>, FeatureMatches>> matches;
+  Reconstruction reconstruction;
+};
+
+RigTwoViewGeometryTestData CreateRigTwoViewGeometryTestData(
+    const SyntheticDatasetOptions& synthetic_dataset_options) {
+  RigTwoViewGeometryTestData data;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  SynthesizeDataset(
+      synthetic_dataset_options, &data.reconstruction, database.get());
+
+  CHECK_EQ(data.reconstruction.NumRigs(), 2);
+
+  data.rig1 = data.reconstruction.Rig(1);
+  data.rig2 = data.reconstruction.Rig(2);
+  for (auto& [pair_id, matches] : database->ReadAllMatches()) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    const auto& camera1 = data.reconstruction.Camera(
+        data.reconstruction.Image(image_id1).CameraId());
+    const auto& camera2 = data.reconstruction.Camera(
+        data.reconstruction.Image(image_id2).CameraId());
+    if (data.rig1.HasSensor(camera1.SensorId()) &&
+        data.rig2.HasSensor(camera2.SensorId())) {
+      data.matches.emplace_back(std::make_pair(image_id1, image_id2), matches);
+    } else if (data.rig1.HasSensor(camera2.SensorId()) &&
+               data.rig2.HasSensor(camera1.SensorId())) {
+      data.matches.emplace_back(std::make_pair(image_id2, image_id1), matches);
+    }
+    // else: Ignore matches between sensors in the same rig.
+  }
+
+  return data;
+}
+
+TEST(EstimateRigTwoViewGeometries, Nominal) {
+  SetPRNGSeed(1);
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 3;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 200;
+  synthetic_dataset_options.point2D_stddev = 0;
+  synthetic_dataset_options.inlier_match_ratio = 0.6;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  const RigTwoViewGeometryTestData test_data =
+      CreateRigTwoViewGeometryTestData(synthetic_dataset_options);
+
+  TwoViewGeometryOptions two_view_geometry_options;
+  two_view_geometry_options.ransac_options.random_seed = 42;
+  const auto geometries =
+      EstimateRigTwoViewGeometries(test_data.rig1,
+                                   test_data.rig2,
+                                   test_data.reconstruction.Images(),
+                                   test_data.reconstruction.Cameras(),
+                                   test_data.matches,
+                                   two_view_geometry_options);
+  EXPECT_EQ(geometries.size(), test_data.matches.size());
+  for (const auto& [image_pair, geometry] : geometries) {
+    EXPECT_EQ(geometry.config,
+              TwoViewGeometry::ConfigurationType::CALIBRATED_RIG);
+    EXPECT_THAT(
+        geometry.cam2_from_cam1,
+        Rigid3dNear(
+            test_data.reconstruction.Image(image_pair.second).CamFromWorld() *
+                Inverse(test_data.reconstruction.Image(image_pair.first)
+                            .CamFromWorld()),
+            /*rtol=*/1e-2,
+            /*ttol=*/1e-3));
+    EXPECT_GT(geometry.inlier_matches.size(), 0);
+  }
 }
 
 }  // namespace

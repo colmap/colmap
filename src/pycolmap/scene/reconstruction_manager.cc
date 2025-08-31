@@ -11,8 +11,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindReconstructionManager(py::module& m) {
-  py::class_<ReconstructionManager, std::shared_ptr<ReconstructionManager>>(
-      m, "ReconstructionManager")
+  py::classh<ReconstructionManager>(m, "ReconstructionManager")
       .def(py::init<>())
       .def("size", &ReconstructionManager::Size)
       .def("get",

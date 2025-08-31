@@ -30,7 +30,7 @@
 #pragma once
 
 #include "colmap/geometry/rigid3.h"
-#include "colmap/util/enum_utils.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
 #include <map>
@@ -64,7 +64,7 @@ class Rig {
   inline size_t NumSensors() const;
 
   // Access the reference sensor id (default to be the first added sensor).
-  inline sensor_t RefSensorId() const;
+  inline const sensor_t& RefSensorId() const;
 
   // Check if the sensor is the reference sensor of the rig.
   inline bool IsRefSensor(sensor_t sensor_id) const;
@@ -125,7 +125,7 @@ size_t Rig::NumSensors() const {
   return num_sensors;
 }
 
-sensor_t Rig::RefSensorId() const { return ref_sensor_id_; }
+const sensor_t& Rig::RefSensorId() const { return ref_sensor_id_; }
 
 bool Rig::IsRefSensor(sensor_t sensor_id) const {
   return sensor_id == ref_sensor_id_;

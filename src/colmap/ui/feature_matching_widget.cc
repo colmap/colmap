@@ -129,6 +129,11 @@ void FeatureMatchingTab::CreateGeneralOptions() {
                                 "max_num_matches");
   options_widget_->AddOptionBool(&options_->feature_matching->guided_matching,
                                  "guided_matching");
+  options_widget_->AddOptionBool(&options_->feature_matching->rig_verification,
+                                 "rig_verification");
+  options_widget_->AddOptionBool(
+      &options_->feature_matching->skip_image_pairs_in_same_frame,
+      "skip_image_pairs_in_same_frame");
 
   options_widget_->AddOptionDouble(&options_->feature_matching->sift->max_ratio,
                                    "sift.max_ratio");

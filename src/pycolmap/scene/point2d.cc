@@ -18,7 +18,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindPoint2D(py::module& m) {
-  py::class_ext_<Point2D, std::shared_ptr<Point2D>> PyPoint2D(m, "Point2D");
+  py::classh_ext<Point2D> PyPoint2D(m, "Point2D");
   PyPoint2D.def(py::init<>())
       .def(py::init<const Eigen::Vector2d&, size_t>(),
            "xy"_a,

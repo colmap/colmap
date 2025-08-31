@@ -12,6 +12,27 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
+namespace {
+
+class PyBundleAdjuster : public BundleAdjuster,
+                         py::trampoline_self_life_support {
+ public:
+  PyBundleAdjuster(BundleAdjustmentOptions options,
+                   BundleAdjustmentConfig config)
+      : BundleAdjuster(std::move(options), std::move(config)) {}
+
+  ceres::Solver::Summary Solve() override {
+    PYBIND11_OVERRIDE_PURE(ceres::Solver::Summary, BundleAdjuster, Solve);
+  }
+
+  std::shared_ptr<ceres::Problem>& Problem() override {
+    PYBIND11_OVERRIDE_PURE(
+        std::shared_ptr<ceres::Problem>&, BundleAdjuster, Problem);
+  }
+};
+
+}  // namespace
+
 void BindBundleAdjuster(py::module& m) {
   IsPyceresAvailable();  // Try to import pyceres to populate the docstrings.
 
@@ -24,7 +45,7 @@ void BindBundleAdjuster(py::module& m) {
   AddStringToEnumConstructor(PyBundleAdjustmentGauge);
 
   using BACfg = BundleAdjustmentConfig;
-  py::class_<BACfg> PyBundleAdjustmentConfig(m, "BundleAdjustmentConfig");
+  py::classh<BACfg> PyBundleAdjustmentConfig(m, "BundleAdjustmentConfig");
   PyBundleAdjustmentConfig.def(py::init<>())
       .def("fix_gauge", &BACfg::FixGauge)
       .def_property_readonly("fixed_gauge", &BACfg::FixedGauge)
@@ -94,7 +115,7 @@ void BindBundleAdjuster(py::module& m) {
   AddStringToEnumConstructor(PyBALossFunctionType);
 
   auto PyBundleAdjustmentOptions =
-      py::class_<BAOpts>(m, "BundleAdjustmentOptions")
+      py::classh<BAOpts>(m, "BundleAdjustmentOptions")
           .def(py::init<>())
           .def("create_loss_function", &BAOpts::CreateLossFunction)
           .def("create_solver_options",
@@ -170,7 +191,7 @@ void BindBundleAdjuster(py::module& m) {
 
   using PosePriorBAOpts = PosePriorBundleAdjustmentOptions;
   auto PyPosePriorBundleAdjustmentOptions =
-      py::class_<PosePriorBAOpts>(m, "PosePriorBundleAdjustmentOptions")
+      py::classh<PosePriorBAOpts>(m, "PosePriorBundleAdjustmentOptions")
           .def(py::init<>())
           .def_readwrite("use_robust_loss_on_prior_position",
                          &PosePriorBAOpts::use_robust_loss_on_prior_position,
@@ -184,23 +205,7 @@ void BindBundleAdjuster(py::module& m) {
                          "RANSAC options for Sim3 alignment.");
   MakeDataclass(PyPosePriorBundleAdjustmentOptions);
 
-  class PyBundleAdjuster : public BundleAdjuster {
-   public:
-    PyBundleAdjuster(BundleAdjustmentOptions options,
-                     BundleAdjustmentConfig config)
-        : BundleAdjuster(std::move(options), std::move(config)) {}
-
-    ceres::Solver::Summary Solve() override {
-      PYBIND11_OVERRIDE_PURE(ceres::Solver::Summary, BundleAdjuster, Solve);
-    }
-
-    std::shared_ptr<ceres::Problem>& Problem() override {
-      PYBIND11_OVERRIDE_PURE(
-          std::shared_ptr<ceres::Problem>&, BundleAdjuster, Problem);
-    }
-  };
-
-  py::class_<BundleAdjuster, PyBundleAdjuster>(m, "BundleAdjuster")
+  py::classh<BundleAdjuster, PyBundleAdjuster>(m, "BundleAdjuster")
       .def(py::init<BundleAdjustmentOptions, BundleAdjustmentConfig>(),
            "options"_a,
            "config"_a)

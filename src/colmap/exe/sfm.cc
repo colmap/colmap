@@ -35,6 +35,7 @@
 #include "colmap/controllers/option_manager.h"
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/exe/gui.h"
+#include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/rig.h"
 #include "colmap/sfm/observation_manager.h"
@@ -62,18 +63,18 @@ ExtractExistingImages(const Reconstruction& reconstruction) {
 
 void UpdateDatabasePosePriorsCovariance(const std::string& database_path,
                                         const Eigen::Matrix3d& covariance) {
-  Database database(database_path);
-  DatabaseTransaction database_transaction(&database);
+  auto database = Database::Open(database_path);
+  DatabaseTransaction database_transaction(database.get());
 
   LOG(INFO)
       << "Setting up database pose priors with the same covariance matrix: \n"
       << covariance << '\n';
 
-  for (const auto& image : database.ReadAllImages()) {
-    if (database.ExistsPosePrior(image.ImageId())) {
-      PosePrior prior = database.ReadPosePrior(image.ImageId());
+  for (const auto& image : database->ReadAllImages()) {
+    if (database->ExistsPosePrior(image.ImageId())) {
+      PosePrior prior = database->ReadPosePrior(image.ImageId());
       prior.position_covariance = covariance;
-      database.UpdatePosePrior(image.ImageId(), prior);
+      database->UpdatePosePrior(image.ImageId(), prior);
     }
   }
 }
@@ -203,24 +204,18 @@ int RunColorExtractor(int argc, char** argv) {
 int RunMapper(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
-  std::string image_list_path;
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
   options.AddDefaultOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("image_list_path", &image_list_path);
   options.AddMapperOptions();
   options.Parse(argc, argv);
 
   if (!ExistsDir(output_path)) {
     LOG(ERROR) << "`output_path` is not a directory.";
     return EXIT_FAILURE;
-  }
-
-  if (!image_list_path.empty()) {
-    options.mapper->image_names = ReadTextFileLines(image_list_path);
   }
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
@@ -579,9 +574,9 @@ void RunPointTriangulatorImpl(
   THROW_CHECK_GE(reconstruction->NumRegImages(), 2)
       << "Need at least two images for triangulation";
   if (clear_points) {
-    const Database database(database_path);
     reconstruction->DeleteAllPoints2DAndPoints3D();
-    reconstruction->TranscribeImageIdsToDatabase(database);
+    reconstruction->TranscribeImageIdsToDatabase(
+        *OpenSqliteDatabase(database_path));
   }
 
   auto options_tmp = std::make_shared<IncrementalPipelineOptions>(options);
@@ -622,15 +617,15 @@ int RunRigBundleAdjuster(int argc, char** argv) {
     config.AddImage(image_id);
   }
 
-  Database database(Database::kInMemoryDatabasePath);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   for (const auto& [_, camera] : reconstruction.Cameras()) {
-    database.WriteCamera(camera, /*use_camera_id=*/true);
+    database->WriteCamera(camera, /*use_camera_id=*/true);
   }
   for (const auto& [image_id, image] : reconstruction.Images()) {
-    database.WriteImage(image, /*use_image_id=*/true);
+    database->WriteImage(image, /*use_image_id=*/true);
     config.AddImage(image_id);
   }
-  ApplyRigConfig(ReadRigConfig(rig_config_path), database, &reconstruction);
+  ApplyRigConfig(ReadRigConfig(rig_config_path), *database, &reconstruction);
 
   std::unique_ptr<BundleAdjuster> bundle_adjuster = CreateDefaultBundleAdjuster(
       *options.bundle_adjustment, std::move(config), reconstruction);

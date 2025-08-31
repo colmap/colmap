@@ -30,7 +30,6 @@
 #include "colmap/estimators/essential_matrix.h"
 
 #include "colmap/estimators/utils.h"
-#include "colmap/math/math.h"
 #include "colmap/math/polynomial.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"

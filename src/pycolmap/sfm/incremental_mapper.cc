@@ -16,8 +16,7 @@ namespace py = pybind11;
 
 void BindIncrementalPipeline(py::module& m) {
   using Opts = IncrementalPipelineOptions;
-  auto PyOpts =
-      py::class_<Opts, std::shared_ptr<Opts>>(m, "IncrementalPipelineOptions");
+  auto PyOpts = py::classh<Opts>(m, "IncrementalPipelineOptions");
   PyOpts.def(py::init<>())
       .def_readwrite(
           "min_num_matches",
@@ -184,6 +183,11 @@ void BindIncrementalPipeline(py::module& m) {
                      &Opts::fix_existing_frames,
                      "If reconstruction is provided as input, fix the existing "
                      "frame poses.")
+      .def_readwrite("constant_cameras",
+                     &Opts::constant_cameras,
+                     "List of cameras for which to fix the camera parameters "
+                     "independent of refine_focal_length, "
+                     "refine_principal_point, and refine_extra_params.")
       .def_readwrite(
           "mapper", &Opts::mapper, "Options of the IncrementalMapper.")
       .def_readwrite("triangulation",
@@ -216,8 +220,7 @@ void BindIncrementalPipeline(py::module& m) {
                       .value("INTERRUPTED", Status::INTERRUPTED);
   AddStringToEnumConstructor(PyStatus);
 
-  py::class_<IncrementalPipeline, std::shared_ptr<IncrementalPipeline>>(
-      m, "IncrementalPipeline")
+  py::classh<IncrementalPipeline>(m, "IncrementalPipeline")
       .def(py::init<std::shared_ptr<const IncrementalPipelineOptions>,
                     const std::string&,
                     const std::string&,
@@ -272,8 +275,7 @@ void BindIncrementalMapperOptions(py::module& m) {
   AddStringToEnumConstructor(PyImageSelectionMethod);
 
   using Opts = IncrementalMapper::Options;
-  auto PyOpts =
-      py::class_<Opts, std::shared_ptr<Opts>>(m, "IncrementalMapperOptions");
+  auto PyOpts = py::classh<Opts>(m, "IncrementalMapperOptions");
   PyOpts.def(py::init<>())
       .def_readwrite("init_min_num_inliers",
                      &Opts::init_min_num_inliers,
@@ -342,6 +344,11 @@ void BindIncrementalMapperOptions(py::module& m) {
                      &Opts::fix_existing_frames,
                      "If reconstruction is provided as input, fix the existing "
                      "frame poses.")
+      .def_readwrite("constant_cameras",
+                     &Opts::constant_cameras,
+                     "List of cameras for which to fix the camera parameters "
+                     "independent of refine_focal_length, "
+                     "refine_principal_point, and refine_extra_params.")
       .def_readwrite("num_threads", &Opts::num_threads, "Number of threads.")
       .def_readwrite(
           "random_seed",
@@ -360,7 +367,7 @@ void BindIncrementalMapperImpl(py::module& m) {
   // bind local bundle adjustment report
   using LocalBAReport = IncrementalMapper::LocalBundleAdjustmentReport;
   auto PyLocalBAReport =
-      py::class_<LocalBAReport>(m, "LocalBundleAdjustmentReport");
+      py::classh<LocalBAReport>(m, "LocalBundleAdjustmentReport");
   PyLocalBAReport.def(py::init<>())
       .def_readwrite("num_merged_observations",
                      &LocalBAReport::num_merged_observations)
@@ -374,8 +381,7 @@ void BindIncrementalMapperImpl(py::module& m) {
 
   // bind incremental mapper
   // TODO: migrate comments. improve formatting
-  py::class_<IncrementalMapper, std::shared_ptr<IncrementalMapper>>(
-      m, "IncrementalMapper")
+  py::classh<IncrementalMapper>(m, "IncrementalMapper")
       .def(py::init<std::shared_ptr<const DatabaseCache>>(), "database_cache"_a)
       .def("begin_reconstruction",
            &IncrementalMapper::BeginReconstruction,

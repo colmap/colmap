@@ -48,6 +48,7 @@ struct VocabTreePairingOptions;
 struct SpatialPairingOptions;
 struct TransitivePairingOptions;
 struct ImportedPairingOptions;
+struct ExistingMatchedPairingOptions;
 struct BundleAdjustmentOptions;
 struct IncrementalPipelineOptions;
 struct RenderOptions;
@@ -83,8 +84,9 @@ class OptionManager {
   void AddRandomOptions();
   void AddDatabaseOptions();
   void AddImageOptions();
-  void AddExtractionOptions();
-  void AddMatchingOptions();
+  void AddFeatureExtractionOptions();
+  void AddFeatureMatchingOptions();
+  void AddTwoViewGeometryOptions();
   void AddExhaustivePairingOptions();
   void AddSequentialPairingOptions();
   void AddVocabTreePairingOptions();
@@ -171,18 +173,22 @@ class OptionManager {
   std::string feature_extraction_type_;
   std::string feature_matching_type_;
 
+  std::string mapper_image_list_path_;
+  std::string mapper_constant_camera_list_path_;
+
   bool added_log_options_;
   bool added_random_options_;
   bool added_database_options_;
   bool added_image_options_;
-  bool added_extraction_options_;
-  bool added_match_options_;
-  bool added_exhaustive_match_options_;
-  bool added_sequential_match_options_;
-  bool added_vocab_tree_match_options_;
-  bool added_spatial_match_options_;
-  bool added_transitive_match_options_;
-  bool added_image_pairs_match_options_;
+  bool added_feature_extraction_options_;
+  bool added_feature_matching_options_;
+  bool added_two_view_geometry_options_;
+  bool added_exhaustive_pairing_options_;
+  bool added_sequential_pairing_options_;
+  bool added_vocab_tree_pairing_options_;
+  bool added_spatial_pairing_options_;
+  bool added_transitive_pairing_options_;
+  bool added_image_pairs_pairing_options_;
   bool added_ba_options_;
   bool added_mapper_options_;
   bool added_patch_match_stereo_options_;
@@ -209,19 +215,25 @@ template <typename T>
 void OptionManager::AddDefaultOption(const std::string& name,
                                      T* option,
                                      const std::string& help_text) {
-  desc_->add_options()(
-      name.c_str(),
-      boost::program_options::value<T>(option)->default_value(*option),
-      help_text.c_str());
+  if constexpr (std::is_floating_point<T>::value) {
+    desc_->add_options()(
+        name.c_str(),
+        boost::program_options::value<T>(option)->default_value(
+            *option, StringPrintf("%.3g", *option)),
+        help_text.c_str());
+  } else {
+    desc_->add_options()(
+        name.c_str(),
+        boost::program_options::value<T>(option)->default_value(*option),
+        help_text.c_str());
+  }
 }
 
 template <typename T>
 void OptionManager::AddAndRegisterRequiredOption(const std::string& name,
                                                  T* option,
                                                  const std::string& help_text) {
-  desc_->add_options()(name.c_str(),
-                       boost::program_options::value<T>(option)->required(),
-                       help_text.c_str());
+  AddRequiredOption(name, option, help_text);
   RegisterOption(name, option);
 }
 
@@ -229,10 +241,7 @@ template <typename T>
 void OptionManager::AddAndRegisterDefaultOption(const std::string& name,
                                                 T* option,
                                                 const std::string& help_text) {
-  desc_->add_options()(
-      name.c_str(),
-      boost::program_options::value<T>(option)->default_value(*option),
-      help_text.c_str());
+  AddDefaultOption(name, option, help_text);
   RegisterOption(name, option);
 }
 

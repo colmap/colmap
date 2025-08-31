@@ -144,7 +144,11 @@ bool Frame::HasDataId(data_t data_id) const {
 
 rig_t Frame::RigId() const { return rig_id_; }
 
-void Frame::SetRigId(rig_t rig_id) { rig_id_ = rig_id; }
+void Frame::SetRigId(const rig_t rig_id) {
+  THROW_CHECK_NE(rig_id, kInvalidRigId);
+  THROW_CHECK(!HasRigPtr());
+  rig_id_ = rig_id;
+}
 
 bool Frame::HasRigId() const { return rig_id_ != kInvalidRigId; }
 

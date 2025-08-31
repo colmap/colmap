@@ -16,7 +16,7 @@ namespace py = pybind11;
 void BindMeshing(py::module& m) {
   using PoissonMOpts = mvs::PoissonMeshingOptions;
   auto PyPoissonMeshingOptions =
-      py::class_<PoissonMOpts>(m, "PoissonMeshingOptions")
+      py::classh<PoissonMOpts>(m, "PoissonMeshingOptions")
           .def(py::init<>())
           .def_readwrite("point_weight",
                          &PoissonMOpts::point_weight,
@@ -62,7 +62,7 @@ void BindMeshing(py::module& m) {
 
   using DMOpts = mvs::DelaunayMeshingOptions;
   auto PyDelaunayMeshingOptions =
-      py::class_<DMOpts>(m, "DelaunayMeshingOptions")
+      py::classh<DMOpts>(m, "DelaunayMeshingOptions")
           .def(py::init<>())
           .def_readwrite("max_proj_dist",
                          &DMOpts::max_proj_dist,

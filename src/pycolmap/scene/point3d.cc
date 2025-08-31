@@ -19,7 +19,7 @@ using namespace colmap;
 namespace py = pybind11;
 
 void BindPoint3D(py::module& m) {
-  py::class_ext_<Point3D, std::shared_ptr<Point3D>> PyPoint3D(m, "Point3D");
+  py::classh_ext<Point3D> PyPoint3D(m, "Point3D");
   PyPoint3D.def(py::init<>())
       .def_readwrite("xyz", &Point3D::xyz)
       .def_readwrite("color", &Point3D::color)
