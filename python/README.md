@@ -1,13 +1,4 @@
-# Python bindings for COLMAP built with CUDA
-
-About
------
-This is a fork of COLMAP for building CUDA-enabled Python pycolmap wheels(currently only for Linux).
-
-**[See the original repository for more details about Colmap!](https://github.com/colmap/colmap)**
-
-This fork is currently experimental and unrelated from the original repository.
-See [this issue](https://github.com/colmap/colmap/issues/2740) in the original COLMAP repository about plans for CUDA support in the official PYCOLMAP PyPi wheel.
+# Python bindings for COLMAP
 
 PyCOLMAP exposes to Python most capabilities of the
 [COLMAP](https://colmap.github.io/) Structure-from-Motion (SfM) and Multi-View
@@ -15,10 +6,15 @@ Stereo (MVS) pipeline.
 
 ## Installation
 
-Pre-built wheels for Linux can be installed using pip:
+Pre-built wheels for Linux, macOS, and Windows can be installed using pip:
 ```bash
-pip install pycolmap-cuda
+pip install pycolmap
 ```
+
+The wheels are automatically built and pushed to
+[PyPI](https://pypi.org/project/pycolmap/) at each release. They are currently
+not built with CUDA support, which requires building from source.
+
 <details>
 <summary>[Building PyCOLMAP from source - click to expand]</summary>
 
