@@ -17,7 +17,7 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.config.os }} ${{ matrix.config.arch }}
+    name: ${{ matrix.config.os }} ${{ matrix.config.arch }} ${{ matrix.config.flavor }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:

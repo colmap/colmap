@@ -10,18 +10,18 @@ requires = [
 build-backend = "scikit_build_core.build"
 
 [project]
-name = "pycolmap_cuda"
+name = "pycolmap"
 # WARNING: This version must follow the MAJOR.MINOR.PATCH format. If only
 # MAJOR.MINOR is used, cibuildwheel will add a .dev0 patch version, which
 # results in releasing a pre-release version on PyPI.
-version = "3.13.0.dev1"
+version = "3.13.0.dev0"
 description = "COLMAP bindings"
 readme = "python/README.md"
 authors = [
   { name = "RedPieLabs", email = "redpielabs@gmail.com" },
 ]
 license = {text = "BSD-3-Clause"}
-urls = {Repository = "https://github.com/Tobias314/colmap/"}
+urls = {Repository = "https://github.com/colmap/colmap/"}
 requires-python = ">=3.9"
 dependencies = ["numpy"]
 classifiers = [
@@ -35,7 +35,7 @@ cmake.source-dir = "python/"
 wheel.packages = ["python/pycolmap"]
 
 [tool.cibuildwheel]
-build = "cp3{9,10,11,12,13,14}-manylinux*"
+build = "cp3{9,10,11,12,13,14}-{macosx,manylinux,win}*"
 archs = ["auto64"]
 test-requires = "pytest mypy==1.17.0 enlighten==1.13.0"
 #TODO: The mypy check seems to fail but the wheel can still be imported, disabling the mypy check for now.
