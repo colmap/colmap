@@ -157,11 +157,14 @@ jobs:
             CIBW_MANYLINUX_X86_64_IMAGE="sameli/manylinux_2_34_x86_64_cuda_12.8"
             CIBW_REPAIR_WHEEL_COMMAND="auditwheel repair --exclude libcudart* --exclude libcurand* -w {dest_dir} {wheel}"
             echo "CIBW_REPAIR_WHEEL_COMMAND=${CIBW_REPAIR_WHEEL_COMMAND}" >> "$GITHUB_ENV"
+            BUILD_CUDA_ENABLED=ON
           else
             CIBW_MANYLINUX_X86_64_IMAGE="quay.io/pypa/manylinux_2_28_x86_64"
+            BUILD_CUDA_ENABLED=OFF
           fi
 
           echo "CIBW_MANYLINUX_X86_64_IMAGE=${CIBW_MANYLINUX_X86_64_IMAGE}" >> "$GITHUB_ENV"
+          echo "BUILD_CUDA_ENABLED=${BUILD_CUDA_ENABLED}" >> "$GITHUB_ENV"
 
 
       - name: Build wheels

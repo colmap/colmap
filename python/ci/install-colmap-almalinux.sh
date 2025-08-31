@@ -49,7 +49,7 @@ git checkout ${VCPKG_COMMIT_ID}
 cd ${CURRDIR}
 mkdir build && cd build
 cmake3 .. -GNinja \
-    -DCUDA_ENABLED=ON \
+    -DCUDA_ENABLED="${BUILD_CUDA_ENABLED}" \
     -DCMAKE_CUDA_ARCHITECTURES="all-major" \
     -DGUI_ENABLED=OFF \
     -DCGAL_ENABLED=OFF \
