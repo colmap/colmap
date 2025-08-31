@@ -1,10 +1,11 @@
 #!/bin/bash
 SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
+REPO_DIR="$SCRIPT_DIR/../)"
 
 export VCPKG_TARGET_TRIPLET="x64-linux-release"
 
-export VCPKG_INSTALLATION_ROOT="${SCRIPT_DIR}/vcpkg"
-mkdir -p "/${SCRIPT_DIR}/vcpkg_binarycache/"
+export VCPKG_INSTALLATION_ROOT="${REPO_DIR}/vcpkg"
+mkdir -p "/${REPO_DIR}/vcpkg_binarycache/"
 export VCPKG_DEFAULT_BINARY_CACHE="/vcpkg_binarycache/"
 export CMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
 
@@ -15,9 +16,9 @@ export CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_INSTALLED_DIR=/pro
 export CIBW_CONFIG_SETTINGS_LINUX="${CONFIG_SETTINGS}"
 
 # Remap caching paths to the container
-mkdir -p "${SCRIPT_DIR}/compiler-cache/"
+mkdir -p "${REPO_DIR}/compiler-cache/"
 export CONTAINER_COMPILER_CACHE_DIR="/compiler-cache"
-export CIBW_CONTAINER_ENGINE="docker; create_args: -v ${SCRIPT_DIR}/compiler-cache:${CONTAINER_COMPILER_CACHE_DIR} -v ${SCRIPT_DIR}/vcpkg_binarycache:${VCPKG_DEFAULT_BINARY_CACHE} "
+export CIBW_CONTAINER_ENGINE="docker; create_args: -v ${REPO_DIR}/compiler-cache:${CONTAINER_COMPILER_CACHE_DIR} -v ${REPO_DIR}/vcpkg_binarycache:${VCPKG_DEFAULT_BINARY_CACHE} "
 export CCACHE_DIR="${CONTAINER_COMPILER_CACHE_DIR}/ccache"
 export CCACHE_BASEDIR="/project"
 
