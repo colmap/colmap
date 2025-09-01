@@ -227,7 +227,7 @@ if(ONNX_ENABLED)
                 onnxruntime::onnxruntime INTERFACE ${onnxruntime_SOURCE_DIR}/lib/libonnxruntime.dylib)
         elseif(IS_LINUX)
             target_link_libraries(
-                onnxruntime::onnxruntime INTERFACE ${onnxruntime_SOURCE_DIR}/lib64/libonnxruntime.so)
+                onnxruntime::onnxruntime INTERFACE ${onnxruntime_SOURCE_DIR}/lib/libonnxruntime.so)
         elseif(IS_WINDOWS)
             target_link_libraries(
                 onnxruntime::onnxruntime INTERFACE ${onnxruntime_SOURCE_DIR}/lib/onnxruntime.dll)
@@ -236,7 +236,7 @@ if(ONNX_ENABLED)
             DIRECTORY "${onnxruntime_SOURCE_DIR}/include/"
             DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
         install(
-            DIRECTORY "${onnxruntime_SOURCE_DIR}/lib/" "${onnxruntime_SOURCE_DIR}/lib64/"
+            DIRECTORY "${onnxruntime_SOURCE_DIR}/lib/"
             DESTINATION "${CMAKE_INSTALL_LIBDIR}")
     else()
         find_package(onnxruntime ${COLMAP_FIND_TYPE})
