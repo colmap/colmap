@@ -219,28 +219,40 @@ if(ONNX_ENABLED)
         message(STATUS "Configuring onnxruntime...")
         FetchContent_MakeAvailable(onnxruntime)
         message(STATUS "Configuring onnxruntime... done")
-        if(IS_LINUX AND NOT EXISTS ${onnxruntime_SOURCE_DIR}/lib64)
-            set(ONNX_LIB_DIR ${onnxruntime_SOURCE_DIR}/lib64)
-            file(RENAME ${onnxruntime_SOURCE_DIR}/lib ${ONNX_LIB_DIR})
+
+        if(IS_LINUX)
+            set(ONNX_LIB_DIR_NAME lib64)
         else()
-            set(ONNX_LIB_DIR ${onnxruntime_SOURCE_DIR}/lib)
+            set(ONNX_LIB_DIR_NAME lib)
         endif()
-        find_package(onnxruntime REQUIRED PATHS ${ONNX_LIB_DIR}/cmake/onnxruntime/ NO_DEFAULT_PATH)
-        # Fix bug in ONNX runtime include directory.
-        set_target_properties(onnxruntime::onnxruntime PROPERTIES
-            INTERFACE_INCLUDE_DIRECTORIES "${onnxruntime_SOURCE_DIR}/include")
+
+        set(ONNX_INCLUDE_DIR ${onnxruntime_BINARY_DIR}/include/onnxruntime)
+        if(NOT EXISTS ${ONNX_INCLUDE_DIR})
+            file(MAKE_DIRECTORY ${ONNX_INCLUDE_DIR})
+            file(COPY ${onnxruntime_SOURCE_DIR}/include/ DESTINATION ${ONNX_INCLUDE_DIR}/)
+        endif()
+        set(ONNX_LIB_DIR ${onnxruntime_BINARY_DIR}/${ONNX_LIB_DIR_NAME})
+        if(NOT EXISTS ${ONNX_LIB_DIR})
+            file(MAKE_DIRECTORY ${ONNX_LIB_DIR})
+            file(COPY ${onnxruntime_SOURCE_DIR}/lib/ DESTINATION ${ONNX_LIB_DIR}/)
+            file(REMOVE_RECURSE ${ONNX_LIB_DIR}/cmake)
+        endif()
+        set(ONNX_DATA_DIR ${onnxruntime_BINARY_DIR}/share/onnxruntime)
+        if(NOT EXISTS ${ONNX_DATA_DIR})
+            file(MAKE_DIRECTORY ${ONNX_DATA_DIR})
+            file(COPY ${onnxruntime_SOURCE_DIR}/lib/cmake/onnxruntime/ DESTINATION ${ONNX_DATA_DIR}/cmake/)
+            file(REMOVE_RECURSE ${onnxruntime_SOURCE_DIR}/lib/cmake)
+        endif()
+        find_package(onnxruntime REQUIRED PATHS ${ONNX_DATA_DIR}/cmake NO_DEFAULT_PATH)
         install(
-            DIRECTORY "${onnxruntime_SOURCE_DIR}/include/"
+            DIRECTORY "${onnxruntime_BINARY_DIR}/include/"
             DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
         install(
-            DIRECTORY "${ONNX_LIB_DIR}/"
-            DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-            FILES_MATCHING
-                PATTERN "*"
-                PATTERN "${ONNX_LIB_DIR}/cmake/*" EXCLUDE)
+            DIRECTORY "${onnxruntime_BINARY_DIR}/${ONNX_LIB_DIR_NAME}/"
+            DESTINATION "${ONNX_LIB_DIR_NAME}")
         install(
-            DIRECTORY "${ONNX_LIB_DIR}/cmake/onnxruntime/"
-            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/onnxruntime/cmake")
+            DIRECTORY "${ONNX_DATA_DIR}/"
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}")
     else()
         find_package(onnxruntime ${COLMAP_FIND_TYPE})
         if(NOT onnxruntime_FOUND)
