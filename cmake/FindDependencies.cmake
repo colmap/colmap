@@ -219,22 +219,24 @@ if(ONNX_ENABLED)
         message(STATUS "Configuring onnxruntime...")
         FetchContent_MakeAvailable(onnxruntime)
         message(STATUS "Configuring onnxruntime... done")
-        if(IS_LINUX)
-            set(ONNX_LIB_DIR ${onnxruntime_SOURCE_DIR}/lib64)
-            file(RENAME ${onnxruntime_SOURCE_DIR}/lib ${ONNX_LIB_DIR})
-        else()
-            set(ONNX_LIB_DIR ${onnxruntime_SOURCE_DIR}/lib)
+        add_library(onnxruntime::onnxruntime INTERFACE IMPORTED)
+        target_include_directories(
+            onnxruntime::onnxruntime INTERFACE ${onnxruntime_SOURCE_DIR}/include)
+        if(IS_MACOS)
+            target_link_libraries(
+                onnxruntime::onnxruntime INTERFACE ${onnxruntime_SOURCE_DIR}/lib/libonnxruntime.dylib)
+        elseif(IS_LINUX)
+            target_link_libraries(
+                onnxruntime::onnxruntime INTERFACE ${onnxruntime_SOURCE_DIR}/lib64/libonnxruntime.so)
+        elseif(IS_WINDOWS)
+            target_link_libraries(
+                onnxruntime::onnxruntime INTERFACE ${onnxruntime_SOURCE_DIR}/lib/onnxruntime.dll)
         endif()
-        include(${ONNX_LIB_DIR}/cmake/onnxruntime/onnxruntimeConfigVersion.cmake)
-        include(${ONNX_LIB_DIR}/cmake/onnxruntime/onnxruntimeConfig.cmake)
-        # Fix bug in ONNX runtime include directory.
-        set_target_properties(onnxruntime::onnxruntime PROPERTIES
-            INTERFACE_INCLUDE_DIRECTORIES "${onnxruntime_SOURCE_DIR}/include")
         install(
             DIRECTORY "${onnxruntime_SOURCE_DIR}/include/"
             DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
         install(
-            DIRECTORY "${ONNX_LIB_DIR}/"
+            DIRECTORY "${onnxruntime_SOURCE_DIR}/lib/" "${onnxruntime_SOURCE_DIR}/lib64/"
             DESTINATION "${CMAKE_INSTALL_LIBDIR}")
     else()
         find_package(onnxruntime ${COLMAP_FIND_TYPE})
