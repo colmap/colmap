@@ -22,10 +22,10 @@ jobs:
     strategy:
       matrix:
         config: [
-          {os: ubuntu-latest, flavor: cpu},
-          {os: macos-14, arch: arm64, deploymentTarget: 14.0, flavor: cpu},
-          {os: windows-latest, flavor: cpu},
-          {os: ubuntu-latest, flavor: cuda},
+          {os: ubuntu-latest, build_with_cuda: "OFF"},
+          {os: macos-14, arch: arm64, deploymentTarget: 14.0, build_with_cuda: "OFF"},
+          {os: windows-latest, build_with_cuda: "OFF"},
+          {os: ubuntu-latest, build_with_cuda: "ON"},
         ]
     env:
       COMPILER_CACHE_VERSION: 1
@@ -153,18 +153,15 @@ jobs:
           CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR"
           echo "CIBW_ENVIRONMENT_PASS_LINUX=${CIBW_ENVIRONMENT_PASS_LINUX}" >> "$GITHUB_ENV"
 
-          if [ "${{ matrix.config.flavor }}" = "cuda" ]; then
+          if [ "${{ matrix.config.build_with_cuda }}" = "ON" ]; then
             CIBW_MANYLINUX_X86_64_IMAGE="sameli/manylinux_2_34_x86_64_cuda_12.8"
             CIBW_REPAIR_WHEEL_COMMAND="auditwheel repair --exclude libcudart* --exclude libcurand* -w {dest_dir} {wheel}"
             echo "CIBW_REPAIR_WHEEL_COMMAND=${CIBW_REPAIR_WHEEL_COMMAND}" >> "$GITHUB_ENV"
-            BUILD_CUDA_ENABLED=ON
           else
             CIBW_MANYLINUX_X86_64_IMAGE="quay.io/pypa/manylinux_2_28_x86_64"
-            BUILD_CUDA_ENABLED=OFF
           fi
 
           echo "CIBW_MANYLINUX_X86_64_IMAGE=${CIBW_MANYLINUX_X86_64_IMAGE}" >> "$GITHUB_ENV"
-          echo "BUILD_CUDA_ENABLED=${BUILD_CUDA_ENABLED}" >> "$GITHUB_ENV"
 
 
       - name: Build wheels
@@ -175,6 +172,8 @@ jobs:
           CIBW_ARCHS_MACOS: ${{ matrix.config.arch }}
           CIBW_TEST_REQUIRES: 'pytest enlighten==1.13.0'
           CIBW_TEST_COMMAND: 'pytest {project}/python/examples/custom_incremental_pipeline_test.py'
+          BUILD_CUDA_ENABLED: ${{ matrix.config.build_with_cuda }}
+
       - name: Archive wheels
         uses: actions/upload-artifact@v4
         with:
