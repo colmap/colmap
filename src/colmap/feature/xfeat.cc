@@ -34,6 +34,10 @@
 
 #include <memory>
 #include <numeric>
+#ifdef _WIN32
+#include <codecvt>
+#include <locale>
+#endif
 
 #ifdef COLMAP_ONNX_ENABLED
 #include <onnxruntime_cxx_api.h>
@@ -99,8 +103,16 @@ struct ONNXModel {
     // TODO: CoreML currently does not support all operations.
 
     VLOG(2) << "Loading ONNX model from " << model_path;
-    session = std::make_unique<Ort::Session>(
-        env, model_path.c_str(), session_options);
+#ifdef _WIN32
+    const std::wstring model_path_wide =
+        std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>>().from_bytes(
+            model_path);
+    const wchar_t* model_path_cstr = model_path_wide.c_str();
+#else
+    const char* model_path_cstr = model_path.c_str();
+#endif
+    session =
+        std::make_unique<Ort::Session>(env, model_path_cstr, session_options);
 
     VLOG(2) << "Parsing the inputs";
     const int num_inputs = session->GetInputCount();
