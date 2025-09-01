@@ -17,7 +17,7 @@ name = "pycolmap"
 version = "3.13.0.dev0"
 description = "COLMAP bindings"
 readme = "python/README.md"
-authors = [  
+authors = [
   { name = "Johannes Schönberger", email = "jsch@demuc.de" },
   { name = "Mihai Dusmanu", email = "mihai.dusmanu@gmail.com" },
   { name = "Paul-Edouard Sarlin", email = "paul.edouard.sarlin@gmail.com" },
@@ -42,7 +42,7 @@ wheel.packages = ["python/pycolmap"]
 build = "cp3{9,10,11,12,13,14}-{macosx,manylinux,win}*"
 archs = ["auto64"]
 test-requires = "pytest mypy==1.17.0 enlighten==1.13.0"
-test-command = "python -c \"import pycolmap; print(pycolmap.__version__)\" &&  python -m mypy --package pycolmap --implicit-optional"
+test-command = "python -c \"import pycolmap; print(pycolmap.__version__)\" &&  python -m mypy --package pycolmap --implicit-optional && pytest {project}/python/examples/custom_incremental_pipeline_test.py"
 
 [tool.cibuildwheel.environment]
 VCPKG_COMMIT_ID = "0cb95c860ea83aafc1b24350510b30dec535989a"
