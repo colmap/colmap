@@ -219,14 +219,13 @@ if(ONNX_ENABLED)
         message(STATUS "Configuring onnxruntime...")
         FetchContent_MakeAvailable(onnxruntime)
         message(STATUS "Configuring onnxruntime... done")
-        find_package(onnxruntime REQUIRED PATHS ${onnxruntime_SOURCE_DIR}/lib/cmake/onnxruntime/ NO_DEFAULT_PATH)
+        if(IS_LINUX)
+            file(RENAME ${onnxruntime_SOURCE_DIR}/lib ${onnxruntime_SOURCE_DIR}/lib64)
+        endif()
+        find_package(onnxruntime REQUIRED PATHS ${onnxruntime_SOURCE_DIR}/lib64/cmake/onnxruntime/ NO_DEFAULT_PATH)
         # Fix bug in ONNX runtime include directory.
         set_target_properties(onnxruntime::onnxruntime PROPERTIES
             INTERFACE_INCLUDE_DIRECTORIES "${onnxruntime_SOURCE_DIR}/include")
-        if(IS_LINUX)
-            set_target_properties(onnxruntime::onnxruntime PROPERTIES
-                IMPORTED_LOCATION_RELEASE "${onnxruntime_SOURCE_DIR}/lib/libonnxruntime.so.${ONNX_VERSION}")
-        endif()
     else()
         find_package(onnxruntime ${COLMAP_FIND_TYPE})
         if(NOT onnxruntime_FOUND)
