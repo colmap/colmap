@@ -233,7 +233,7 @@ if(ONNX_ENABLED)
             DIRECTORY "${onnxruntime_SOURCE_DIR}/include/"
             DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
         install(
-            DIRECTORY "${ONNX_LIB_DIR}/lib/" "${ONNX_LIB_DIR}/lib64/"
+            DIRECTORY "${ONNX_LIB_DIR}/"
             DESTINATION "${CMAKE_INSTALL_LIBDIR}")
     else()
         find_package(onnxruntime ${COLMAP_FIND_TYPE})
