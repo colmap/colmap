@@ -38,12 +38,12 @@ const static std::string kDefaultXFeatExtractorUri =
     "https://github.com/colmap/colmap/releases/download/3.12.5/"
     "xfeat_extractor.onnx;"
     "xfeat_extractor.onnx;"
-    "027898e280e30021af4fcf7a47cd010f5cf975f765dae6bff132f766b84fb6c1";
+    "5473902f9930c9a68b7ae17f9979538e83ca29ffe8dd88ee9a7e8a7e732ba2fd";
 const static std::string kDefaultXFeatBruteForceMatcherUri =
     "https://github.com/colmap/colmap/releases/download/3.12.5/"
     "xfeat_bruteforce_matcher.onnx;"
     "xfeat_bruteforce_matcher.onnx;"
-    "85d69d867fc9685e5ab0e19b7f2c30c8a23aaa0e756c21c7312578d0ded19f57";
+    "0acc99710454ac97768cad9fdfed70abdf5752136769e2d0f5b0e1f594ed644f";
 #else
 const static std::string kDefaultXFeatUri = "";
 const static std::string kDefaultLightGlueXFeatUri = "";
