@@ -234,7 +234,13 @@ if(ONNX_ENABLED)
             DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
         install(
             DIRECTORY "${ONNX_LIB_DIR}/"
-            DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+            DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+            FILES_MATCHING
+                PATTERN "*"
+                PATTERN "${ONNX_LIB_DIR}/cmake/*" EXCLUDE)
+        install(
+            DIRECTORY "${ONNX_LIB_DIR}/cmake/onnxruntime/"
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/onnxruntime/cmake")
     else()
         find_package(onnxruntime ${COLMAP_FIND_TYPE})
         if(NOT onnxruntime_FOUND)
