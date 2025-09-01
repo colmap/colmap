@@ -243,7 +243,9 @@ if(ONNX_ENABLED)
             file(COPY ${onnxruntime_SOURCE_DIR}/lib/cmake/onnxruntime/ DESTINATION ${ONNX_DATA_DIR}/cmake/)
             file(REMOVE_RECURSE ${onnxruntime_SOURCE_DIR}/lib/cmake)
         endif()
+
         find_package(onnxruntime REQUIRED PATHS ${ONNX_DATA_DIR}/cmake NO_DEFAULT_PATH)
+
         install(
             DIRECTORY "${onnxruntime_BINARY_DIR}/include/"
             DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
