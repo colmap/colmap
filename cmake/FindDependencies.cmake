@@ -201,7 +201,6 @@ if(ONNX_ENABLED)
     if(FETCH_ONNX)
         include(FetchContent)
         if(IS_MACOS)
-            list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_ONNX_COREML_ENABLED)
             FetchContent_Declare(onnxruntime
                 URL https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-osx-arm64-1.22.0.tgz
                 URL_HASH SHA256=cab6dcbd77e7ec775390e7b73a8939d45fec3379b017c7cb74f5b204c1a1cc07

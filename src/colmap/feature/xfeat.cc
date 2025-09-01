@@ -95,11 +95,7 @@ struct ONNXModel {
     session_options.AppendExecutionProvider_CUDA(cuda_options);
 #endif
 
-#ifdef COLMAP_ONNX_COREML_ENABLED
-    std::unordered_map<std::string, std::string> provider_options;
-    provider_options["ModelFormat"] = "MLProgram";
-    session_options.AppendExecutionProvider("CoreML", provider_options);
-#endif
+    // TODO: CoreML currently does not support all operations.
 
     VLOG(2) << "Loading ONNX model from " << model_path;
     session = std::make_unique<Ort::Session>(
@@ -283,9 +279,9 @@ class XFeatFeatureExtractor : public FeatureExtractor {
   ONNXModel model_;
 };
 
-class LightGlueFeatureMatcher : public FeatureMatcher {
+class XFeatBruteForceFeatureMatcher : public FeatureMatcher {
  public:
-  explicit LightGlueFeatureMatcher(const FeatureMatchingOptions& options)
+  explicit XFeatBruteForceFeatureMatcher(const FeatureMatchingOptions& options)
       : options_(options),
         model_(
             options.xfeat->model_path, options.num_threads, options.gpu_index) {
@@ -331,9 +327,7 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
         min_cossim_shape.size());
 
     std::vector<Ort::Value> input_tensors;
-    // input_tensors.emplace_back(std::move(features1.keypoints_tensor));
     input_tensors.emplace_back(std::move(features1.descriptors_tensor));
-    // input_tensors.emplace_back(std::move(features2.keypoints_tensor));
     input_tensors.emplace_back(std::move(features2.descriptors_tensor));
     input_tensors.emplace_back(std::move(min_sim_tensor));
 
@@ -425,7 +419,7 @@ std::unique_ptr<FeatureExtractor> CreateXFeatFeatureExtractor(
 #ifdef COLMAP_ONNX_ENABLED
   return std::make_unique<XFeatFeatureExtractor>(options);
 #else
-  throw std::runtime_error("XFeat feature extraction requires torch support.");
+  throw std::runtime_error("XFeat feature extraction requires ONNX support.");
 #endif
 }
 
@@ -438,7 +432,7 @@ bool XFeatMatchingOptions::Check() const {
 std::unique_ptr<FeatureMatcher> CreateXFeatFeatureMatcher(
     const FeatureMatchingOptions& options) {
 #ifdef COLMAP_ONNX_ENABLED
-  return std::make_unique<LightGlueFeatureMatcher>(options);
+  return std::make_unique<XFeatBruteForceFeatureMatcher>(options);
 #else
   throw std::runtime_error("XFeat feature matching requires ONNX support.");
 #endif
