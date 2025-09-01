@@ -17,7 +17,7 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.config.os }} ${{ matrix.config.arch }} ${{ matrix.config.flavor }}
+    name: ${{ matrix.config.os }} ${{ matrix.config.arch }} cuda_${{ matrix.config.build_with_cuda }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:
