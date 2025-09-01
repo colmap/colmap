@@ -4,6 +4,7 @@ C++ with equivalent logic. As a result, one can add customized residuals on top
 of the exposed ceres problem from conventional bundle adjustment.
 """
 
+import collections
 import copy
 
 import pycolmap
@@ -59,6 +60,10 @@ def adjust_global_bundle(mapper, mapper_options, ba_options):
         for frame_id in reg_frame_ids:
             if frame_id in mapper.existing_frame_ids:
                 ba_config.set_constant_rig_from_world_pose(frame_id)
+
+    for rig_id in mapper_options.constant_rigs:
+        for sensor_id in reconstruction.rig(rig_id).sensors:
+            ba_config.set_constant_sensor_from_rig_pose(sensor_id)
 
     for camera_id in mapper_options.constant_cameras:
         ba_config.set_constant_cam_intrinsics(camera_id)
@@ -145,24 +150,22 @@ def adjust_local_bundle(
                     ba_config.set_constant_rig_from_world_pose(frame_id)
 
         # Fix rig poses, if not all frames within the local bundle.
-        num_frames_per_rig = {}
+        num_frames_per_rig = collections.defaultdict(int)
         for frame_id in frame_ids:
             frame = reconstruction.frame(frame_id)
-            if frame.rig_id not in num_frames_per_rig:
-                num_frames_per_rig[frame.rig_id] = 0
             num_frames_per_rig[frame.rig_id] += 1
         for rig_id, num_frames_local in num_frames_per_rig.items():
-            if num_frames_local < mapper.num_reg_frames_per_rig[rig_id]:
-                rig = reconstruction.rig(rig_id)
-                for sensor_id, _ in rig.sensors.items():
+            if (
+                rig_id in mapper_options.constant_rigs
+                or num_frames_local < mapper.num_reg_frames_per_rig[rig_id]
+            ):
+                for sensor_id in reconstruction.rig(rig_id).sensors:
                     ba_config.set_constant_sensor_from_rig_pose(sensor_id)
 
         # Fix camera intrinsics, if not all images within local bundle.
-        num_images_per_camera = {}
+        num_images_per_camera = collections.defaultdict(int)
         for image_id in ba_config.images:
             image = reconstruction.images[image_id]
-            if image.camera_id not in num_images_per_camera:
-                num_images_per_camera[image.camera_id] = 0
             num_images_per_camera[image.camera_id] += 1
         for camera_id, num_images_local in num_images_per_camera.items():
             if (

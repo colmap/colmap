@@ -87,6 +87,7 @@ IncrementalMapper::Options IncrementalPipelineOptions::Mapper() const {
   options.num_threads = num_threads;
   options.local_ba_num_images = ba_local_num_images;
   options.fix_existing_frames = fix_existing_frames;
+  options.constant_rigs = constant_rigs;
   options.constant_cameras = constant_cameras;
   options.use_prior_position = use_prior_position;
   options.use_robust_loss_on_prior_position = use_robust_loss_on_prior_position;
