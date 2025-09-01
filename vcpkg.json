@@ -56,12 +56,6 @@
                 "cuda"
             ]
         },
-        "onnx": {
-            "description": "Build with ONNX support.",
-            "dependencies": [
-                "onnx"
-            ]
-        },
         "gui": {
             "description": "Build with GUI support.",
             "dependencies": [
