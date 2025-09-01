@@ -196,6 +196,7 @@ endif()
 if(ONNX_ENABLED)
     if(FETCH_ONNX)
         include(FetchContent)
+
         set(ONNX_VERSION "1.22.0")
         if(IS_MACOS)
             FetchContent_Declare(onnxruntime
@@ -216,6 +217,7 @@ if(ONNX_ENABLED)
                 ${_fetch_content_declare_args}
             )
         endif()
+
         message(STATUS "Configuring onnxruntime...")
         FetchContent_MakeAvailable(onnxruntime)
         message(STATUS "Configuring onnxruntime... done")
