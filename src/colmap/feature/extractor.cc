@@ -53,6 +53,8 @@ bool FeatureExtractionOptions::RequiresRGB() const {
   switch (type) {
     case FeatureExtractorType::SIFT:
       return false;
+    case FeatureExtractorType::XFeat:
+      return true;
     default:
       ThrowUnknownFeatureExtractorType(type);
   }

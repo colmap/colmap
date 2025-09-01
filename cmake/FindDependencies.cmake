@@ -198,15 +198,49 @@ else()
 endif()
 
 if(ONNX_ENABLED)
-    find_package(onnxruntime ${COLMAP_FIND_TYPE})
-    if(onnxruntime_FOUND)
-        list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_ONNX_ENABLED)
-        message(STATUS "Enabling ONNX support")
+    if(FETCH_ONNX)
+        include(FetchContent)
+        if(IS_MACOS)
+            list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_ONNX_COREML_ENABLED)
+            FetchContent_Declare(onnxruntime
+                URL https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-osx-arm64-1.22.0.tgz
+                URL_HASH SHA256=cab6dcbd77e7ec775390e7b73a8939d45fec3379b017c7cb74f5b204c1a1cc07
+                ${_fetch_content_declare_args}
+            )
+        elseif(IS_LINUX)
+            FetchContent_Declare(onnxruntime
+                URL https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-linux-x64-gpu-1.22.0.tgz
+                URL_HASH SHA256=2a19dbfa403672ec27378c3d40a68f793ac7a6327712cd0e8240a86be2b10c55
+                ${_fetch_content_declare_args}
+            )
+        elseif(IS_WINDOWS)
+            FetchContent_Declare(onnxruntime
+                URL https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-win-x64-gpu-1.22.0.zip
+                URL_HASH SHA256=5b5241716b2628c1ab5e79ee620be767531021149ee68f30fc46c16263fb94dd
+                ${_fetch_content_declare_args}
+            )
+        endif()
+        message(STATUS "Configuring onnxruntime...")
+        FetchContent_MakeAvailable(onnxruntime)
+        message(STATUS "Configuring onnxruntime... done")
+        find_package(onnxruntime REQUIRED PATHS ${onnxruntime_SOURCE_DIR}/lib/cmake/onnxruntime/ NO_DEFAULT_PATH)
+        # Fix bug in ONNX runtime include directory.
+        set_target_properties(onnxruntime::onnxruntime PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${onnxruntime_SOURCE_DIR}/include"
+        )
     else()
-        message(STATUS "Disabling ONNX support (not found)")
+        find_package(onnxruntime ${COLMAP_FIND_TYPE})
+        if(NOT onnxruntime_FOUND)
+            message(STATUS "Disabling ONNX support (not found)")
+        endif()
     endif()
 else()
     message(STATUS "Disabling ONNX support")
+endif()
+
+if(TARGET onnxruntime::onnxruntime)
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_ONNX_ENABLED)
+    message(STATUS "Enabling ONNX support")
 endif()
 
 if(GUI_ENABLED)

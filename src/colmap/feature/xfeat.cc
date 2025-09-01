@@ -95,6 +95,12 @@ struct ONNXModel {
     session_options.AppendExecutionProvider_CUDA(cuda_options);
 #endif
 
+#ifdef COLMAP_ONNX_COREML_ENABLED
+    std::unordered_map<std::string, std::string> provider_options;
+    provider_options["ModelFormat"] = "MLProgram";
+    session_options.AppendExecutionProvider("CoreML", provider_options);
+#endif
+
     VLOG(2) << "Loading ONNX model from " << model_path;
     session = std::make_unique<Ort::Session>(
         env, model_path.c_str(), session_options);
