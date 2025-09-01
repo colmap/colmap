@@ -33,6 +33,7 @@
 #include "colmap/util/threading.h"
 
 #include <memory>
+#include <numeric>
 
 #ifdef COLMAP_ONNX_ENABLED
 #include <onnxruntime_cxx_api.h>
