@@ -172,7 +172,9 @@ jobs:
           CIBW_ARCHS_MACOS: ${{ matrix.config.arch }}
           CIBW_TEST_REQUIRES: 'pytest enlighten==1.13.0'
           CIBW_TEST_COMMAND: 'pytest {project}/python/examples/custom_incremental_pipeline_test.py'
-          CIBW_ENVIRONMENT: BUILD_CUDA_ENABLED=${{ matrix.config.build_with_cuda }}
+          CIBW_ENVIRONMENT:  >
+            BUILD_CUDA_ENABLED=${{ matrix.config.build_with_cuda }}
+            VCPKG_COMMIT_ID="0cb95c860ea83aafc1b24350510b30dec535989a"
 
       - name: Archive wheels
         uses: actions/upload-artifact@v4
