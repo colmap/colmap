@@ -225,10 +225,17 @@ if(ONNX_ENABLED)
         else()
             set(ONNX_LIB_DIR ${onnxruntime_SOURCE_DIR}/lib)
         endif()
-        find_package(onnxruntime REQUIRED PATHS ${ONNX_LIB_DIR}/cmake/onnxruntime/ NO_DEFAULT_PATH)
+        include(${ONNX_LIB_DIR}/cmake/onnxruntime/onnxruntimeConfigVersion.cmake)
+        include(${ONNX_LIB_DIR}/cmake/onnxruntime/onnxruntimeConfig.cmake)
         # Fix bug in ONNX runtime include directory.
         set_target_properties(onnxruntime::onnxruntime PROPERTIES
             INTERFACE_INCLUDE_DIRECTORIES "${onnxruntime_SOURCE_DIR}/include")
+        install(
+            DIRECTORY "${onnxruntime_SOURCE_DIR}/include/"
+            DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+        install(
+            DIRECTORY "${ONNX_LIB_DIR}/"
+            DESTINATION "${CMAKE_INSTALL_LIBDIR}")
     else()
         find_package(onnxruntime ${COLMAP_FIND_TYPE})
         if(NOT onnxruntime_FOUND)
