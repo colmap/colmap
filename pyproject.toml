@@ -17,11 +17,15 @@ name = "pycolmap"
 version = "3.13.0.dev0"
 description = "COLMAP bindings"
 readme = "python/README.md"
-authors = [
-  { name = "RedPieLabs", email = "redpielabs@gmail.com" },
+authors = [  
+  { name = "Johannes Schönberger", email = "jsch@demuc.de" },
+  { name = "Mihai Dusmanu", email = "mihai.dusmanu@gmail.com" },
+  { name = "Paul-Edouard Sarlin", email = "paul.edouard.sarlin@gmail.com" },
+  { name = "Shaohui Liu", email = "b1ueber2y@gmail.com" },
+  { name = "Philipp Lindenberger", email = "plindenbe@ethz.ch" },
 ]
 license = {text = "BSD-3-Clause"}
-urls = {Repository = "https://github.com/colmap/colmap/"}
+urls = {Repository = "https://github.com/colmap/colmap"}
 requires-python = ">=3.9"
 dependencies = ["numpy"]
 classifiers = [
@@ -38,8 +42,7 @@ wheel.packages = ["python/pycolmap"]
 build = "cp3{9,10,11,12,13,14}-{macosx,manylinux,win}*"
 archs = ["auto64"]
 test-requires = "pytest mypy==1.17.0 enlighten==1.13.0"
-#TODO: The mypy check seems to fail but the wheel can still be imported, disabling the mypy check for now.
-test-command = "python -c \"import pycolmap; print(pycolmap.__version__)\""# &&  python -m mypy --package pycolmap --implicit-optional"
+test-command = "python -c \"import pycolmap; print(pycolmap.__version__)\" &&  python -m mypy --package pycolmap --implicit-optional"
 
 [tool.cibuildwheel.environment]
 VCPKG_COMMIT_ID = "0cb95c860ea83aafc1b24350510b30dec535989a"
