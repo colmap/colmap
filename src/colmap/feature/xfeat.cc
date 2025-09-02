@@ -30,8 +30,8 @@
 #include "colmap/feature/xfeat.h"
 
 #include "colmap/util/file.h"
-#include "colmap/util/threading.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/threading.h"
 
 #include <memory>
 #include <numeric>
