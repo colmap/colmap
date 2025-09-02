@@ -157,6 +157,7 @@ jobs:
             CIBW_MANYLINUX_X86_64_IMAGE="sameli/manylinux_2_34_x86_64_cuda_12.8"
             CIBW_REPAIR_WHEEL_COMMAND="auditwheel repair --exclude libcudart* --exclude libcurand* -w {dest_dir} {wheel}"
             echo "CIBW_REPAIR_WHEEL_COMMAND=${CIBW_REPAIR_WHEEL_COMMAND}" >> "$GITHUB_ENV"
+            sed -i 's/^name = "pycolmap"$/name = "pycolmap-cuda"/' ${{ github.workspace }}/pyproject.toml
           else
             CIBW_MANYLINUX_X86_64_IMAGE="quay.io/pypa/manylinux_2_28_x86_64"
           fi
@@ -179,7 +180,7 @@ jobs:
       - name: Archive wheels
         uses: actions/upload-artifact@v4
         with:
-          name: pycolmap-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.flavor }}
+          name: pycolmap-${{ matrix.config.os }}-${{ matrix.config.arch }}-cuda_${{ matrix.config.build_with_cuda }}
           path: wheelhouse/pycolmap-*.whl
 
   pypi-publish:
