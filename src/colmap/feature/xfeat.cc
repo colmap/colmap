@@ -93,7 +93,7 @@ struct ONNXModel {
         GraphOptimizationLevel::ORT_ENABLE_ALL);
 
 #ifdef COLMAP_CUDA_ENABLED
-    const std::vector<int> gpu_indices = CSVToVector<int>(options.gpu_index);
+    const std::vector<int> gpu_indices = CSVToVector<int>(gpu_index);
     THROW_CHECK_EQ(gpu_indices.size(), 1)
         << "ONNX model can only run on one GPU";
     OrtCUDAProviderOptions cuda_options{};
