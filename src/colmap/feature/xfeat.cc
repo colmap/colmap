@@ -83,6 +83,7 @@ void ThrowCheckNode(const std::string_view name,
 struct ONNXModel {
   ONNXModel(std::string model_path,
             int num_threads,
+            bool use_gpu,
             const std::string& gpu_index) {
     model_path = MaybeDownloadAndCacheFile(model_path);
 
@@ -93,12 +94,14 @@ struct ONNXModel {
         GraphOptimizationLevel::ORT_ENABLE_ALL);
 
 #ifdef COLMAP_CUDA_ENABLED
-    const std::vector<int> gpu_indices = CSVToVector<int>(gpu_index);
-    THROW_CHECK_EQ(gpu_indices.size(), 1)
-        << "ONNX model can only run on one GPU";
-    OrtCUDAProviderOptions cuda_options{};
-    cuda_options.device_id = gpu_indices[0];
-    session_options.AppendExecutionProvider_CUDA(cuda_options);
+    if (use_gpu) {
+      const std::vector<int> gpu_indices = CSVToVector<int>(gpu_index);
+      THROW_CHECK_EQ(gpu_indices.size(), 1)
+          << "ONNX model can only run on one GPU";
+      OrtCUDAProviderOptions cuda_options{};
+      cuda_options.device_id = gpu_indices[0];
+      session_options.AppendExecutionProvider_CUDA(cuda_options);
+    }
 #endif
 
     // TODO: CoreML currently does not support all operations.
@@ -167,8 +170,10 @@ class XFeatFeatureExtractor : public FeatureExtractor {
  public:
   explicit XFeatFeatureExtractor(const FeatureExtractionOptions& options)
       : options_(options),
-        model_(
-            options.xfeat->model_path, options.num_threads, options.gpu_index) {
+        model_(options.xfeat->model_path,
+               options.num_threads,
+               options.use_gpu,
+               options.gpu_index) {
     THROW_CHECK(options.Check());
 
     THROW_CHECK_EQ(model_.input_shapes.size(), 1);
@@ -297,8 +302,10 @@ class XFeatBruteForceFeatureMatcher : public FeatureMatcher {
  public:
   explicit XFeatBruteForceFeatureMatcher(const FeatureMatchingOptions& options)
       : options_(options),
-        model_(
-            options.xfeat->model_path, options.num_threads, options.gpu_index) {
+        model_(options.xfeat->model_path,
+               options.num_threads,
+               options.use_gpu,
+               options.gpu_index) {
     THROW_CHECK(options.Check());
     THROW_CHECK_EQ(model_.input_shapes.size(), 3);
     ThrowCheckNode(model_.input_names[0],
