@@ -56,11 +56,13 @@ TEST(XFeat, Nominal) {
   CreateImageWithSquare(256, 128, &image);
 
   FeatureExtractionOptions extraction_options(FeatureExtractorType::XFeat);
+  extraction_options.use_gpu = false;
   auto extractor = CreateXFeatFeatureExtractor(extraction_options);
   auto keypoints = std::make_shared<FeatureKeypoints>();
   auto descriptors = std::make_shared<FeatureDescriptors>();
   ASSERT_TRUE(extractor->Extract(image, keypoints.get(), descriptors.get()));
-  EXPECT_EQ(keypoints->size(), 483);
+  // Different platforms lead to slightly different number of keypoints.
+  EXPECT_NEAR(keypoints->size(), 480, 20);
   EXPECT_EQ(keypoints->size(), descriptors->rows());
   EXPECT_EQ(descriptors->cols(), 64 * sizeof(float));
   for (const auto& keypoint : *keypoints) {
@@ -70,8 +72,9 @@ TEST(XFeat, Nominal) {
     EXPECT_LE(keypoint.y, image.Height() + 5);
   }
 
-  auto matcher = CreateXFeatFeatureMatcher(
-      FeatureMatchingOptions(FeatureMatcherType::XFeat));
+  FeatureMatchingOptions matching_options(FeatureMatcherType::XFeat);
+  matching_options.use_gpu = false;
+  auto matcher = CreateXFeatFeatureMatcher(matching_options);
   FeatureMatches matches;
   matcher->Match({/*image_id=*/1,
                   /*image_width=*/image.Width(),
