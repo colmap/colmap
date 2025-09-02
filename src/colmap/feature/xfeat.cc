@@ -31,6 +31,7 @@
 
 #include "colmap/util/file.h"
 #include "colmap/util/threading.h"
+#include "colmap/util/misc.h"
 
 #include <memory>
 #include <numeric>
