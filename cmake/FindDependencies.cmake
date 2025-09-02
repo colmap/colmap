@@ -255,7 +255,7 @@ if(ONNX_ENABLED)
             DIRECTORY "${onnxruntime_BINARY_DIR}/${ONNX_LIB_DIR_NAME}/"
             DESTINATION "${ONNX_LIB_DIR_NAME}")
         install(
-            DIRECTORY "${ONNX_DATA_DIR}/"
+            DIRECTORY "${onnxruntime_BINARY_DIR}/share/"
             DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}")
     else()
         find_package(onnxruntime ${COLMAP_FIND_TYPE})
