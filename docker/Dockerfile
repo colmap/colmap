@@ -36,6 +36,7 @@ RUN apt-get update && \
         libcgal-dev \
         libceres-dev \
         libcurl4-openssl-dev \
+        libssl-dev \
         libmkl-full-dev
 
 # Build and install COLMAP.
@@ -77,6 +78,7 @@ RUN apt-get update && \
         libqt5gui5 \
         libqt5widgets5 \
         libcurl4 \
+        libssl3t64 \
         libmkl-locale \
         libmkl-intel-lp64 \
         libmkl-intel-thread \
