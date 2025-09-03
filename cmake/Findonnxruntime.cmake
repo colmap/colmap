@@ -68,6 +68,7 @@ else()
     find_library(onnxruntime_LIBRARIES
         NAMES
         onnxruntime
+        libonnxruntime
         PATHS
         ${onnxruntime_LIBRARY_DIR_HINTS}
         /usr/lib64
