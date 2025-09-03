@@ -231,9 +231,9 @@ if(ONNX_ENABLED)
         message(STATUS "Configuring onnxruntime... done")
 
         if(IS_LINUX)
-            set(ONNX_LIB_DIR_NAME lib64)
+            set(onnxruntime_LIB_DIR_NAME lib64)
         else()
-            set(ONNX_LIB_DIR_NAME lib)
+            set(onnxruntime_LIB_DIR_NAME lib)
         endif()
 
         set(ONNX_INCLUDE_DIR ${onnxruntime_BINARY_DIR}/include/onnxruntime)
@@ -241,11 +241,12 @@ if(ONNX_ENABLED)
             file(MAKE_DIRECTORY ${ONNX_INCLUDE_DIR})
             file(COPY ${onnxruntime_SOURCE_DIR}/include/ DESTINATION ${ONNX_INCLUDE_DIR}/)
         endif()
-        set(ONNX_LIB_DIR ${onnxruntime_BINARY_DIR}/${ONNX_LIB_DIR_NAME})
-        if(NOT EXISTS ${ONNX_LIB_DIR})
-            file(MAKE_DIRECTORY ${ONNX_LIB_DIR})
-            file(COPY ${onnxruntime_SOURCE_DIR}/lib/ DESTINATION ${ONNX_LIB_DIR}/)
-            file(REMOVE_RECURSE ${ONNX_LIB_DIR}/cmake)
+        set(onnxruntime_LIB_DIR ${onnxruntime_BINARY_DIR}/${onnxruntime_LIB_DIR_NAME})
+        if(NOT EXISTS ${onnxruntime_LIB_DIR})
+            file(MAKE_DIRECTORY ${onnxruntime_LIB_DIR})
+            file(COPY ${onnxruntime_SOURCE_DIR}/lib/ DESTINATION ${onnxruntime_LIB_DIR}/)
+            file(REMOVE_RECURSE ${onnxruntime_LIB_DIR}/cmake)
+            file(REMOVE_RECURSE ${onnxruntime_LIB_DIR}/pkgconfig)
         endif()
         if(NOT IS_WINDOWS)
             set(ONNX_DATA_DIR ${onnxruntime_BINARY_DIR}/share/onnxruntime)
@@ -257,15 +258,15 @@ if(ONNX_ENABLED)
         endif()
 
         set(onnxruntime_INCLUDE_DIR_HINTS ${onnxruntime_BINARY_DIR}/include)
-        set(onnxruntime_LIBRARY_DIR_HINTS ${onnxruntime_BINARY_DIR}/${ONNX_LIB_DIR_NAME})
+        set(onnxruntime_LIBRARY_DIR_HINTS ${onnxruntime_BINARY_DIR}/${onnxruntime_LIB_DIR_NAME})
         find_package(onnxruntime ${COLMAP_FIND_TYPE})
 
         install(
             DIRECTORY "${onnxruntime_BINARY_DIR}/include/"
             DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
         install(
-            DIRECTORY "${onnxruntime_BINARY_DIR}/${ONNX_LIB_DIR_NAME}/"
-            DESTINATION "${ONNX_LIB_DIR_NAME}")
+            DIRECTORY "${onnxruntime_LIB_DIR}/"
+            DESTINATION "${onnxruntime_LIB_DIR_NAME}")
         if(NOT IS_WINDOWS)
             install(
                 DIRECTORY "${onnxruntime_BINARY_DIR}/share/"
