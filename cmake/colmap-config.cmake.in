@@ -91,6 +91,8 @@ set(FETCH_FAISS @FETCH_FAISS@)
 set(FETCH_ONNX FALSE)
 if(@FETCH_ONNX@)
     set(onnxruntime_DIR ${PACKAGE_PREFIX_DIR}/share/onnxruntime/cmake)
+    set(onnxruntime_INCLUDE_DIR_HINTS @onnxruntime_BINARY_DIR@/include CACHE PATH "ONNX Runtime include directory hints")
+    set(onnxruntime_LIBRARY_DIR_HINTS @onnxruntime_BINARY_DIR@/@onnxruntime_LIB_DIR_NAME@ CACHE PATH "ONNX Runtime library directory hints")
 endif()
 
 include(${PACKAGE_PREFIX_DIR}/share/colmap/colmap-targets.cmake)
