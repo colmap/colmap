@@ -37,11 +37,14 @@
 #
 # The following variables control the behavior of this module:
 #
+# onnxruntime_CONFIG_DIR_HINTS: List of additional directories in which to
+#                         search for onnxruntime CMake configs.
 # onnxruntime_INCLUDE_DIR_HINTS: List of additional directories in which to
 #                         search for onnxruntime includes.
 # onnxruntime_LIBRARY_DIR_HINTS: List of additional directories in which to
 #                         search for onnxruntime libraries.
 
+set(onnxruntime_CONFIG_DIR_HINTS "" CACHE PATH "onnxruntime config directory")
 set(onnxruntime_INCLUDE_DIR_HINTS "" CACHE PATH "onnxruntime include directory")
 set(onnxruntime_LIBRARY_DIR_HINTS "" CACHE PATH "onnxruntime library directory")
 
@@ -49,7 +52,7 @@ unset(onnxruntime_FOUND)
 unset(onnxruntime_INCLUDE_DIRS)
 unset(onnxruntime_LIBRARIES)
 
-find_package(onnxruntime CONFIG QUIET)
+find_package(onnxruntime CONFIG QUIET PATHS ${onnxruntime_CONFIG_DIR_HINTS})
 if(TARGET onnxruntime::onnxruntime)
     set(onnxruntime_FOUND TRUE)
     message(STATUS "Found onnxruntime")
