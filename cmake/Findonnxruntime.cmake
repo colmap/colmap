@@ -93,6 +93,16 @@ else()
         onnxruntime::onnxruntime INTERFACE ${onnxruntime_INCLUDE_DIRS})
     target_link_libraries(
         onnxruntime::onnxruntime INTERFACE ${onnxruntime_LIBRARIES})
+    # This is a hack to make sure that the onnxruntime dll is copied to the output directory,
+    # since vcpkg's custom add_library/add_executable macros copy any dependencies from vcpkg's
+    # installed directory to the output directory.
+    # See: https://github.com/microsoft/vcpkg/blob/fb7ba3b89b0d8e3e56b0508a144fe85015edfab6/scripts/buildsystems/vcpkg.cmake#L607
+    if(IS_WINDOWS AND VCPKG_INSTALLED_DIR)
+        get_filename_component(_onnxruntime_lib_dir "${onnxruntime_LIBRARIES}" DIRECTORY)
+        get_filename_component(_onnxruntime_lib_name "${onnxruntime_LIBRARIES}" NAME_WE)
+        set(_onnxruntime_dll "${_onnxruntime_lib_dir}/${_onnxruntime_lib_name}.dll")
+        file(COPY "${_onnxruntime_dll}" DESTINATION "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin")
+    endif()
 endif()
 
 if(NOT onnxruntime_FOUND AND onnxruntime_FIND_REQUIRED)
