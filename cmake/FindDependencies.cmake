@@ -205,6 +205,8 @@ if(ONNX_ENABLED)
     if(FETCH_ONNX)
         include(FetchContent)
 
+        message(STATUS "Configuring onnxruntime...")
+
         set(ONNX_VERSION "1.22.0")
         if(IS_MACOS)
             FetchContent_Declare(onnxruntime
@@ -226,9 +228,7 @@ if(ONNX_ENABLED)
             )
         endif()
 
-        message(STATUS "Configuring onnxruntime...")
         FetchContent_MakeAvailable(onnxruntime)
-        message(STATUS "Configuring onnxruntime... done")
 
         if(IS_LINUX)
             set(onnxruntime_LIB_DIR_NAME lib64)
@@ -272,6 +272,8 @@ if(ONNX_ENABLED)
                 DIRECTORY "${onnxruntime_BINARY_DIR}/share/"
                 DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}")
         endif()
+
+        message(STATUS "Configuring onnxruntime... done")
     else()
         find_package(onnxruntime ${COLMAP_FIND_TYPE})
         if(NOT onnxruntime_FOUND)
