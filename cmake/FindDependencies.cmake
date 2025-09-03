@@ -239,11 +239,13 @@ if(ONNX_ENABLED)
             file(COPY ${onnxruntime_SOURCE_DIR}/lib/ DESTINATION ${ONNX_LIB_DIR}/)
             file(REMOVE_RECURSE ${ONNX_LIB_DIR}/cmake)
         endif()
-        set(ONNX_DATA_DIR ${onnxruntime_BINARY_DIR}/share/onnxruntime)
-        if(NOT EXISTS ${ONNX_DATA_DIR})
-            file(MAKE_DIRECTORY ${ONNX_DATA_DIR})
-            file(COPY ${onnxruntime_SOURCE_DIR}/lib/cmake/onnxruntime/ DESTINATION ${ONNX_DATA_DIR}/cmake/)
-            file(REMOVE_RECURSE ${onnxruntime_SOURCE_DIR}/lib/cmake)
+        if(NOT IS_WINDOWS)
+            set(ONNX_DATA_DIR ${onnxruntime_BINARY_DIR}/share/onnxruntime)
+            if(NOT EXISTS ${ONNX_DATA_DIR})
+                file(MAKE_DIRECTORY ${ONNX_DATA_DIR})
+                file(COPY ${onnxruntime_SOURCE_DIR}/lib/cmake/onnxruntime/ DESTINATION ${ONNX_DATA_DIR}/cmake/)
+                file(REMOVE_RECURSE ${onnxruntime_SOURCE_DIR}/lib/cmake)
+            endif()
         endif()
 
         set(onnxruntime_INCLUDE_DIR_HINTS ${onnxruntime_BINARY_DIR}/include)
@@ -256,9 +258,11 @@ if(ONNX_ENABLED)
         install(
             DIRECTORY "${onnxruntime_BINARY_DIR}/${ONNX_LIB_DIR_NAME}/"
             DESTINATION "${ONNX_LIB_DIR_NAME}")
-        install(
-            DIRECTORY "${onnxruntime_BINARY_DIR}/share/"
-            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}")
+        if(NOT IS_WINDOWS)
+            install(
+                DIRECTORY "${onnxruntime_BINARY_DIR}/share/"
+                DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}")
+        endif()
     else()
         find_package(onnxruntime ${COLMAP_FIND_TYPE})
         if(NOT onnxruntime_FOUND)
