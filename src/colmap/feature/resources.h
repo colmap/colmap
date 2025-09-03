@@ -45,9 +45,8 @@ const static std::string kDefaultXFeatBruteForceMatcherUri =
     "xfeat_bruteforce_matcher.onnx;"
     "0acc99710454ac97768cad9fdfed70abdf5752136769e2d0f5b0e1f594ed644f";
 #else
-const static std::string kDefaultXFeatUri = "";
-const static std::string kDefaultLightGlueXFeatUri = "";
-const static std::string kDefaultLightGlueSiftUri = "";
+const static std::string kDefaultXFeatExtractorUri = "";
+const static std::string kDefaultXFeatBruteForceMatcherUri = "";
 #endif
 
 }  // namespace colmap
