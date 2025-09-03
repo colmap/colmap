@@ -194,6 +194,12 @@ else()
 endif()
 
 if(ONNX_ENABLED)
+    if(FETCH_ONNX AND IS_WINDOWS)
+        message(WARNING "Fetching ONNX is not supported under Windows, "
+            "because the provided binary onnxruntime package does not ship with CMake configs. "
+            "Assuming it was installed manually, e.g., using vcpkg's onnxruntime-gpu package.")
+        set(FETCH_ONNX OFF)
+    endif()
     if(FETCH_ONNX)
         include(FetchContent)
 
@@ -208,12 +214,6 @@ if(ONNX_ENABLED)
             FetchContent_Declare(onnxruntime
                 URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-gpu-${ONNX_VERSION}.tgz
                 URL_HASH SHA256=2a19dbfa403672ec27378c3d40a68f793ac7a6327712cd0e8240a86be2b10c55
-                ${_fetch_content_declare_args}
-            )
-        elseif(IS_WINDOWS)
-            FetchContent_Declare(onnxruntime
-                URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-win-x64-gpu-${ONNX_VERSION}.zip
-                URL_HASH SHA256=5b5241716b2628c1ab5e79ee620be767531021149ee68f30fc46c16263fb94dd
                 ${_fetch_content_declare_args}
             )
         endif()
