@@ -36,8 +36,7 @@
 #include <memory>
 #include <numeric>
 #ifdef _WIN32
-#include <codecvt>
-#include <locale>
+#include <Windows.h>
 #endif
 
 #ifdef COLMAP_ONNX_ENABLED
@@ -108,9 +107,10 @@ struct ONNXModel {
 
     VLOG(2) << "Loading ONNX model from " << model_path;
 #ifdef _WIN32
-    const std::wstring model_path_wide =
-        std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>>().from_bytes(
-            model_path);
+    constexpr int kCodePage = 0;  // UTF-8
+    const int wide_len = MultiByteToWideChar(kCodePage, 0, model_path.c_str(), -1, nullptr, 0);
+    std::wstring model_path_wide(wide_len, L'\0');
+    MultiByteToWideChar(kCodePage, 0, model_path.c_str(), -1, &model_path_wide[0], wide_len);
     const wchar_t* model_path_cstr = model_path_wide.c_str();
 #else
     const char* model_path_cstr = model_path.c_str();
