@@ -68,7 +68,6 @@ COLMAP_ADD_LIBRARY(
         colmap_vlfeat
         Eigen3::Eigen
         faiss
-        onnxruntime::onnxruntime
 )
 
 if(GPU_ENABLED)
@@ -76,6 +75,10 @@ if(GPU_ENABLED)
     if(NOT GUI_ENABLED)
         target_link_libraries(colmap_feature PRIVATE GLEW::GLEW)
     endif()
+endif()
+
+if(ONNX_ENABLED)
+    target_link_libraries(colmap_feature PRIVATE onnxruntime::onnxruntime)
 endif()
 
 COLMAP_ADD_TEST(

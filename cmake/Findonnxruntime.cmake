@@ -65,12 +65,7 @@ else()
         /sw/include
         /opt/include
         /opt/local/include)
-    find_library(onnxruntime_LIBRARIES
-        NAMES
-        onnxruntime
-        libonnxruntime
-        PATHS
-        ${onnxruntime_LIBRARY_DIR_HINTS}
+    list(APPEND onnxruntime_LIBRARY_DIR_HINTS
         /usr/lib64
         /usr/lib
         /usr/local/lib64
@@ -78,8 +73,25 @@ else()
         /sw/lib
         /opt/lib
         /opt/local/lib)
+    find_library(onnxruntime_LIBRARIES
+        NAMES onnxruntime libonnxruntime
+        PATHS ${onnxruntime_LIBRARY_DIR_HINTS})
+    find_library(onnxruntime_PROVIDERS_SHARED_LIBRARY
+        NAMES onnxruntime_providers_shared libonnxruntime_providers_shared
+        PATHS ${onnxruntime_LIBRARY_DIR_HINTS})
+    if(CUDA_ENABLED)
+        find_library(onnxruntime_PROVIDERS_CUDA_LIBRARY
+            NAMES onnxruntime_providers_cuda libonnxruntime_providers_cuda
+            PATHS ${onnxruntime_LIBRARY_DIR_HINTS})
+    endif()
 
     if(onnxruntime_INCLUDE_DIRS AND onnxruntime_LIBRARIES)
+        if(onnxruntime_PROVIDERS_SHARED_LIBRARY)
+            list(APPEND onnxruntime_LIBRARIES ${onnxruntime_PROVIDERS_SHARED_LIBRARY})
+        endif()
+        if(onnxruntime_PROVIDERS_CUDA_LIBRARY)
+            list(APPEND onnxruntime_LIBRARIES ${onnxruntime_PROVIDERS_CUDA_LIBRARY})
+        endif()
         set(onnxruntime_FOUND TRUE)
         message(STATUS "Found onnxruntime")
         message(STATUS "  Includes : ${onnxruntime_INCLUDE_DIRS}")
@@ -90,7 +102,7 @@ else()
 
     add_library(onnxruntime::onnxruntime INTERFACE IMPORTED)
     target_include_directories(
-        onnxruntime::onnxruntime INTERFACE ${onnxruntime_INCLUDE_DIRS})
+        onnxruntime::onnxruntime INTERFACE ${onnxruntime_INCLUDE_DIRS}/onnxruntime)
     target_link_libraries(
         onnxruntime::onnxruntime INTERFACE ${onnxruntime_LIBRARIES})
     # This is a hack to make sure that the onnxruntime dll is copied to the output directory,
@@ -98,10 +110,12 @@ else()
     # installed directory to the output directory.
     # See: https://github.com/microsoft/vcpkg/blob/fb7ba3b89b0d8e3e56b0508a144fe85015edfab6/scripts/buildsystems/vcpkg.cmake#L607
     if(IS_WINDOWS AND VCPKG_INSTALLED_DIR)
-        get_filename_component(_onnxruntime_lib_dir "${onnxruntime_LIBRARIES}" DIRECTORY)
-        get_filename_component(_onnxruntime_lib_name "${onnxruntime_LIBRARIES}" NAME_WE)
-        set(_onnxruntime_dll "${_onnxruntime_lib_dir}/${_onnxruntime_lib_name}.dll")
-        file(COPY "${_onnxruntime_dll}" DESTINATION "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin")
+        foreach(_lib ${onnxruntime_LIBRARIES})
+            get_filename_component(_lib_dir "${_lib}" DIRECTORY)
+            get_filename_component(_lib_name "${_lib}" NAME_WE)
+            set(_dll "${_lib_dir}/${_lib_name}.dll")
+            file(COPY "${_dll}" DESTINATION "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin")
+        endforeach()
     endif()
 endif()
 
