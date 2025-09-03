@@ -108,9 +108,11 @@ struct ONNXModel {
     VLOG(2) << "Loading ONNX model from " << model_path;
 #ifdef _WIN32
     constexpr int kCodePage = 0;  // UTF-8
-    const int wide_len = MultiByteToWideChar(kCodePage, 0, model_path.c_str(), -1, nullptr, 0);
+    const int wide_len =
+        MultiByteToWideChar(kCodePage, 0, model_path.c_str(), -1, nullptr, 0);
     std::wstring model_path_wide(wide_len, L'\0');
-    MultiByteToWideChar(kCodePage, 0, model_path.c_str(), -1, &model_path_wide[0], wide_len);
+    MultiByteToWideChar(
+        kCodePage, 0, model_path.c_str(), -1, &model_path_wide[0], wide_len);
     const wchar_t* model_path_cstr = model_path_wide.c_str();
 #else
     const char* model_path_cstr = model_path.c_str();
