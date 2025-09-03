@@ -73,7 +73,6 @@ else()
         /sw/lib
         /opt/lib
         /opt/local/lib)
-    message(STATUS ${onnxruntime_LIBRARY_DIR_HINTS})
     find_library(onnxruntime_LIBRARIES
         NAMES onnxruntime libonnxruntime
         PATHS ${onnxruntime_LIBRARY_DIR_HINTS})
