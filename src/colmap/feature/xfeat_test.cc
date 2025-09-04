@@ -39,6 +39,7 @@ namespace colmap {
 namespace {
 
 void CreateImageWithSquare(const int width, const int height, Bitmap* bitmap) {
+  SetPRNGSeed(42);
   bitmap->Allocate(width, height, /*as_rgb=*/true);
   for (int r = 0; r < height; ++r) {
     for (int c = 0; c < width; ++c) {
@@ -61,8 +62,7 @@ TEST(XFeat, Nominal) {
   auto keypoints = std::make_shared<FeatureKeypoints>();
   auto descriptors = std::make_shared<FeatureDescriptors>();
   ASSERT_TRUE(extractor->Extract(image, keypoints.get(), descriptors.get()));
-  // Different platforms lead to slightly different number of keypoints.
-  EXPECT_NEAR(keypoints->size(), 480, 20);
+  EXPECT_EQ(keypoints->size(), 486);
   EXPECT_EQ(keypoints->size(), descriptors->rows());
   EXPECT_EQ(descriptors->cols(), 64 * sizeof(float));
   for (const auto& keypoint : *keypoints) {
