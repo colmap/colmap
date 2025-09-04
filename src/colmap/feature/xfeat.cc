@@ -340,11 +340,12 @@ class XFeatBruteForceFeatureMatcher : public FeatureMatcher {
     auto features1 = FeaturesFromImage(image1, model_.input_shapes[0]);
     auto features2 = FeaturesFromImage(image2, model_.input_shapes[1]);
 
+    float min_cossim = static_cast<float>(options_.xfeat->min_cossim);
     const std::vector<int64_t> min_cossim_shape = {1};
     auto min_sim_tensor = Ort::Value::CreateTensor<float>(
         Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
                                    OrtMemType::OrtMemTypeCPU),
-        &options_.xfeat->min_cossim,
+        &min_cossim,
         sizeof(float),
         min_cossim_shape.data(),
         min_cossim_shape.size());
