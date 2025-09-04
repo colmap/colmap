@@ -205,7 +205,8 @@ ImageReader::Status ImageReader::Next(Rig* rig,
     if (prev_camera_.camera_id != kInvalidCameraId &&
         ((options_.single_camera && !options_.single_camera_per_folder) ||
          (options_.single_camera_per_folder &&
-          image_folder == prev_image_folder_)) &&
+          image_folder == prev_image_folder_ &&
+          image_folder != "others")) &&  // images in "others" folder get individual cameras
         (prev_camera_.width != static_cast<size_t>(bitmap->Width()) ||
          prev_camera_.height != static_cast<size_t>(bitmap->Height()))) {
       return Status::CAMERA_SINGLE_DIM_ERROR;
@@ -247,8 +248,13 @@ ImageReader::Status ImageReader::Next(Rig* rig,
          static_cast<camera_t>(options_.existing_camera_id) ==
              kInvalidCameraId &&
          camera_model_to_id_.count(camera_model) == 0) ||
-        (options_.single_camera_per_folder &&
-         image_folders_.count(image_folder) == 0)) {
+        (options_.single_camera_per_folder && (
+         image_folders_.count(image_folder) == 0 ||
+         image_folder == "others"))) {
+      // images in "others" folder get individual cameras
+      if (options_.single_camera_per_folder && image_folder == "others") {
+        LOG(INFO) << "Single Camera Per Folder is turned on but is ignored for images in the 'others' folder: " << image->Name() << ". Creating new camera...";
+      }
       if (options_.camera_params.empty()) {
         // Extract focal length.
         double focal_length = 0.0;
