@@ -62,7 +62,8 @@ TEST(XFeat, Nominal) {
   auto keypoints = std::make_shared<FeatureKeypoints>();
   auto descriptors = std::make_shared<FeatureDescriptors>();
   ASSERT_TRUE(extractor->Extract(image, keypoints.get(), descriptors.get()));
-  EXPECT_EQ(keypoints->size(), 486);
+  // Different platforms lead to slightly different number of keypoints.
+  EXPECT_NEAR(keypoints->size(), 490, 20);
   EXPECT_EQ(keypoints->size(), descriptors->rows());
   EXPECT_EQ(descriptors->cols(), 64 * sizeof(float));
   for (const auto& keypoint : *keypoints) {
