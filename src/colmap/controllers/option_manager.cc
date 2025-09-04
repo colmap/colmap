@@ -35,6 +35,7 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/pairing.h"
 #include "colmap/feature/sift.h"
+#include "colmap/feature/xfeat.h"
 #include "colmap/math/random.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
@@ -296,6 +297,13 @@ void OptionManager::AddFeatureExtractionOptions() {
                               &feature_extraction->sift->dsp_max_scale);
   AddAndRegisterDefaultOption("SiftExtraction.dsp_num_scales",
                               &feature_extraction->sift->dsp_num_scales);
+
+  AddAndRegisterDefaultOption("XFeatExtraction.max_num_features",
+                              &feature_extraction->xfeat->max_num_features);
+  AddAndRegisterDefaultOption("XFeatExtraction.min_score",
+                              &feature_extraction->xfeat->min_score);
+  AddAndRegisterDefaultOption("XFeatExtraction.model_path",
+                              &feature_extraction->xfeat->model_path);
 }
 
 void OptionManager::AddFeatureMatchingOptions() {
@@ -326,6 +334,11 @@ void OptionManager::AddFeatureMatchingOptions() {
                               &feature_matching->sift->cross_check);
   AddAndRegisterDefaultOption("SiftMatching.cpu_brute_force_matcher",
                               &feature_matching->sift->cpu_brute_force_matcher);
+
+  AddAndRegisterDefaultOption("XFeatMatching.min_cossim",
+                              &feature_matching->xfeat->min_cossim);
+  AddAndRegisterDefaultOption("XFeatMatching.model_path",
+                              &feature_matching->xfeat->model_path);
 }
 
 void OptionManager::AddTwoViewGeometryOptions() {
