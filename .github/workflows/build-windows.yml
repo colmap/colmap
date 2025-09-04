@@ -46,8 +46,8 @@ jobs:
       GLOG_v: 2
       GLOG_logtostderr: 1
       CUDA_MAJOR_VERSION: 12
-      CUDA_MINOR_VERSION: 6
-      CUDA_PATCH_VERSION: 2
+      CUDA_MINOR_VERSION: 9
+      CUDA_PATCH_VERSION: 1
 
     steps:
       - uses: actions/checkout@v4
@@ -94,7 +94,7 @@ jobs:
           .github/workflows/install-ccache.ps1 -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
 
       - name: Install CUDA
-        uses: Jimver/cuda-toolkit@v0.2.23
+        uses: Jimver/cuda-toolkit@v0.2.27
         if: matrix.config.cudaEnabled
         id: cuda-toolkit
         with:
