@@ -27,6 +27,7 @@ cd ${CURRDIR}
     -S . -B build/ \
     -GNinja \
     -DCUDA_ENABLED=OFF \
+    -DONNX_ENABLED=OFF \
     -DGUI_ENABLED=OFF \
     -DCGAL_ENABLED=OFF \
     -DLSD_ENABLED=OFF \
