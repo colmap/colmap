@@ -26,60 +26,44 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
+//
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
-#include "colmap/feature/types.h"
-#include "colmap/sensor/bitmap.h"
-#include "colmap/util/enum_utils.h"
-
-#include <memory>
+#include "colmap/feature/extractor.h"
+#include "colmap/feature/matcher.h"
+#include "colmap/feature/resources.h"
 
 namespace colmap {
 
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureExtractorType, 0, SIFT, XFeat);
+struct XFeatExtractionOptions {
+  // Maximum number of features to detect, keeping higher-score features.
+  int max_num_features = 8192;
 
-struct SiftExtractionOptions;
-struct XFeatExtractionOptions;
+  // The minimum threshold for the score of a feature.
+  double min_score = 0.0;
 
-struct FeatureExtractionOptions {
-  explicit FeatureExtractionOptions(
-      FeatureExtractorType type = FeatureExtractorType::SIFT);
-
-  FeatureExtractorType type = FeatureExtractorType::SIFT;
-
-  // Maximum image size, otherwise image will be down-scaled.
-  int max_image_size = 3200;
-
-  // Number of threads for feature extraction.
-  int num_threads = -1;
-
-  // Whether to use the GPU for feature extraction.
-  bool use_gpu = true;
-
-  // Index of the GPU used for feature extraction. For multi-GPU extraction,
-  // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
-  std::string gpu_index = "-1";
-
-  std::shared_ptr<SiftExtractionOptions> sift;
-  std::shared_ptr<XFeatExtractionOptions> xfeat;
-
-  // Whether the selected extractor requires RGB (or grayscale) images.
-  bool RequiresRGB() const;
+  // The path to the ONNX model file for the XFeat extractor.
+  std::string model_path = kDefaultXFeatExtractorUri;
 
   bool Check() const;
 };
 
-class FeatureExtractor {
- public:
-  virtual ~FeatureExtractor() = default;
+std::unique_ptr<FeatureExtractor> CreateXFeatFeatureExtractor(
+    const FeatureExtractionOptions& options);
 
-  static std::unique_ptr<FeatureExtractor> Create(
-      const FeatureExtractionOptions& options);
+struct XFeatMatchingOptions {
+  // The minimum cosine similarity for a match to be considered valid.
+  double min_cossim = 0.9;
 
-  virtual bool Extract(const Bitmap& bitmap,
-                       FeatureKeypoints* keypoints,
-                       FeatureDescriptors* descriptors) = 0;
+  // The path to the ONNX model file for the XFeat brute-force matcher.
+  std::string model_path = kDefaultXFeatBruteForceMatcherUri;
+
+  bool Check() const;
 };
+
+std::unique_ptr<FeatureMatcher> CreateXFeatFeatureMatcher(
+    const FeatureMatchingOptions& options);
 
 }  // namespace colmap
