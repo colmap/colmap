@@ -1011,7 +1011,6 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     }
 
     double* cam_from_world_rotation = cam_from_world.rotation.coeffs().data();
-
     const Eigen::Vector3d Cw_prior = normalized_from_metric_ * prior.position;
 
     if (prior.HasRotation()) {
@@ -1027,8 +1026,8 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
       const Rigid3d cam_from_world_prior(Rcw_prior, tcw_prior);
 
       Eigen::Matrix<double, 6, 6> cov = Eigen::Matrix<double, 6, 6>::Zero();
-      cov.topLeftCorner<3,3>()     = prior.position_covariance;   // m^2
-      cov.bottomRightCorner<3,3>() = prior.rotation_covariance;   // rad^2
+      cov.topLeftCorner<3,3>() = prior.position_covariance;
+      cov.bottomRightCorner<3,3>() = prior.rotation_covariance;
 
       problem->AddResidualBlock(
           CovarianceWeightedCostFunctor<AbsolutePosePriorCostFunctor>::Create(

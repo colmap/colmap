@@ -61,19 +61,13 @@ struct PosePrior {
 
   CoordinateSystem coordinate_system = CoordinateSystem::UNDEFINED;
 
-
-
-
 PosePrior() = default;
-
-// --- Position only (essential) ---
 explicit PosePrior(const Eigen::Vector3d& position_)
     : position(position_) {}
 
 PosePrior(const Eigen::Vector3d& position_, const CoordinateSystem system)
     : position(position_), coordinate_system(system) {}
 
-// --- Position + position covariance ---
 PosePrior(const Eigen::Vector3d& position_, const Eigen::Matrix3d& pos_cov)
     : position(position_), position_covariance(pos_cov) {}
 
@@ -82,7 +76,6 @@ PosePrior(const Eigen::Vector3d& position_, const Eigen::Matrix3d& pos_cov,
     : position(position_), position_covariance(pos_cov),
       coordinate_system(system) {}
 
-// --- Position + rotation (rotation optional) ---
 PosePrior(const Eigen::Vector3d& position_, const Eigen::Quaterniond& rotation_)
     : position(position_), rotation(rotation_) {}
 
@@ -90,7 +83,6 @@ PosePrior(const Eigen::Vector3d& position_, const Eigen::Quaterniond& rotation_,
           const CoordinateSystem system)
     : position(position_), rotation(rotation_), coordinate_system(system) {}
 
-// --- Position + rotation + position covariance ---
 PosePrior(const Eigen::Vector3d& position_, const Eigen::Quaterniond& rotation_,
           const Eigen::Matrix3d& pos_cov)
     : position(position_), rotation(rotation_), position_covariance(pos_cov) {}
@@ -100,7 +92,6 @@ PosePrior(const Eigen::Vector3d& position_, const Eigen::Quaterniond& rotation_,
     : position(position_), rotation(rotation_), position_covariance(pos_cov),
       coordinate_system(system) {}
 
-// --- Position + both covariances (no rotation required) ---
 PosePrior(const Eigen::Vector3d& position_, const Eigen::Matrix3d& pos_cov,
           const Eigen::Matrix3d& rot_cov)
     : position(position_), position_covariance(pos_cov),
@@ -111,7 +102,6 @@ PosePrior(const Eigen::Vector3d& position_, const Eigen::Matrix3d& pos_cov,
     : position(position_), position_covariance(pos_cov),
       rotation_covariance(rot_cov), coordinate_system(system) {}
 
-// --- Position + rotation + both covariances ---
 PosePrior(const Eigen::Vector3d& position_, const Eigen::Quaterniond& rotation_,
           const Eigen::Matrix3d& pos_cov, const Eigen::Matrix3d& rot_cov)
     : position(position_), rotation(rotation_),
@@ -148,7 +138,6 @@ std::ostream& operator<<(std::ostream& stream, const PosePrior& prior);
 bool PosePrior::operator==(const PosePrior& other) const {
   const double tol = 1e-9;
 
-  // Optional 3-vectors: NaN-filled => unset (equal if both unset)
   auto eq_opt_vec3 = [tol](const Eigen::Vector3d& a, const Eigen::Vector3d& b) {
     const bool a_set = a.allFinite(), b_set = b.allFinite();
     if (!a_set && !b_set) return true;
@@ -156,7 +145,6 @@ bool PosePrior::operator==(const PosePrior& other) const {
     return false;
   };
 
-  // Optional 3x3 matrices: NaN-filled => unset (equal if both unset)
   auto eq_opt_mat3 = [tol](const Eigen::Matrix3d& A, const Eigen::Matrix3d& B) {
     const bool A_set = A.allFinite(), B_set = B.allFinite();
     if (!A_set && !B_set) return true;
@@ -164,7 +152,6 @@ bool PosePrior::operator==(const PosePrior& other) const {
     return false;
   };
 
-  // Optional quaternion: NaN/zero-norm => unset; sign- & scale-invariant
   auto eq_quat = [tol](const Eigen::Quaterniond& a, const Eigen::Quaterniond& b) {
     const bool a_set = a.coeffs().allFinite() && a.norm() > 0.0;
     const bool b_set = b.coeffs().allFinite() && b.norm() > 0.0;
@@ -174,11 +161,9 @@ bool PosePrior::operator==(const PosePrior& other) const {
     Eigen::Quaterniond qa = a, qb = b;
     qa.normalize(); qb.normalize();
 
-    // coefficient check with q ~ -q equivalence
     if (qa.coeffs().isApprox(qb.coeffs(), tol))  return true;
     if (qa.coeffs().isApprox(-qb.coeffs(), tol)) return true;
 
-    // angular distance (radians)
     double dot = std::abs(qa.dot(qb));
     dot = std::min(1.0, std::max(-1.0, dot));
     return 2.0 * std::acos(dot) <= tol;

@@ -41,7 +41,6 @@ namespace colmap {
         
     stream << "PosePrior(position=[" << prior.position.format(kVecFmt) << "], ";
 
-    // rotation (optional, quaternion)
     stream << "rotation=";
     if (prior.rotation.coeffs().allFinite() && prior.rotation.norm() > 0.0) {
       stream << "[" << prior.rotation.w() << ", "
@@ -53,7 +52,6 @@ namespace colmap {
     }
     stream << ", ";
 
-    // position covariance
     stream << "position_covariance=";
     if (prior.position_covariance.allFinite()) {
       stream << "[" << prior.position_covariance.format(kMatFmt) << "]";
@@ -62,7 +60,6 @@ namespace colmap {
     }
     stream << ", ";
 
-    // rotation covariance
     stream << "rotation_covariance=";
     if (prior.rotation_covariance.allFinite()) {
       stream << "[" << prior.rotation_covariance.format(kMatFmt) << "]";
