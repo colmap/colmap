@@ -30,6 +30,17 @@
 
 set(FOLDER_NAME "ui")
 
+set(COLMAP_UI_QT_LIBS
+    Qt${QT_VERSION_MAJOR}::Core
+    Qt${QT_VERSION_MAJOR}::OpenGL
+    Qt${QT_VERSION_MAJOR}::Widgets
+)
+
+if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
+    list(APPEND COLMAP_UI_QT_LIBS 
+        Qt${QT_VERSION_MAJOR}::OpenGLWidgets)
+endif()
+
 COLMAP_ADD_LIBRARY(
     NAME colmap_ui
     SRCS
@@ -67,7 +78,5 @@ COLMAP_ADD_LIBRARY(
         colmap_image
         colmap_scene
         colmap_controllers
-        Qt5::Core
-        Qt5::OpenGL
-        Qt5::Widgets
+        ${COLMAP_UI_QT_LIBS}
 )

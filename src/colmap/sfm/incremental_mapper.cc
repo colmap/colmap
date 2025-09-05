@@ -693,9 +693,8 @@ IncrementalMapper::AdjustLocalBundle(
       num_frames_per_rig[frame.RigId()] += 1;
     }
     for (const auto& [rig_id, num_frames] : num_frames_per_rig) {
-      const size_t num_reg_frames_for_rig =
-          reg_stats_.num_reg_frames_per_rig.at(rig_id);
-      if (num_frames < num_reg_frames_for_rig) {
+      if (options.constant_rigs.count(rig_id) ||
+          num_frames < reg_stats_.num_reg_frames_per_rig.at(rig_id)) {
         const Rig& rig = reconstruction_->Rig(rig_id);
         for (const auto& [sensor_id, _] : rig.Sensors()) {
           ba_config.SetConstantSensorFromRigPose(sensor_id);
@@ -708,14 +707,11 @@ IncrementalMapper::AdjustLocalBundle(
     num_images_per_camera.reserve(ba_config.NumImages());
     for (const image_t image_id : ba_config.Images()) {
       const Image& image = reconstruction_->Image(image_id);
-      num_frames_per_rig[image.FramePtr()->RigId()] += 1;
       num_images_per_camera[image.CameraId()] += 1;
     }
     for (const auto& [camera_id, num_images] : num_images_per_camera) {
-      const size_t num_reg_images_for_camera =
-          reg_stats_.num_reg_images_per_camera.at(camera_id);
       if (options.constant_cameras.count(camera_id) ||
-          num_images < num_reg_images_for_camera) {
+          num_images < reg_stats_.num_reg_images_per_camera.at(camera_id)) {
         ba_config.SetConstantCamIntrinsics(camera_id);
       }
     }
@@ -809,6 +805,13 @@ bool IncrementalMapper::AdjustGlobalBundle(
       if (existing_frame_ids_.count(frame_id)) {
         ba_config.SetConstantRigFromWorldPose(frame_id);
       }
+    }
+  }
+
+  for (const auto& rig_id : options.constant_rigs) {
+    const Rig& rig = reconstruction_->Rig(rig_id);
+    for (const auto& [sensor_id, _] : rig.Sensors()) {
+      ba_config.SetConstantSensorFromRigPose(sensor_id);
     }
   }
 

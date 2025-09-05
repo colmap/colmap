@@ -96,6 +96,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   ImageReaderOptions& reader_options = *option_manager_.image_reader;
   reader_options.image_path = *option_manager_.image_path;
+  reader_options.as_rgb = option_manager_.feature_extraction->RequiresRGB();
   if (!options_.mask_path.empty()) {
     reader_options.mask_path = options_.mask_path;
     option_manager_.image_reader->mask_path = options_.mask_path;
