@@ -27,7 +27,7 @@ from source, follow these steps:
    * On Windows, after installing COLMAP via VCPKG, run in powershell::
 
       python -m pip install . `
-          --cmake.define.CMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+          --cmake.define.CMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
           --cmake.define.VCPKG_TARGET_TRIPLET="x64-windows"
 
 Some features, such as cost functions, require that `PyCeres
