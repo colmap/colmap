@@ -416,7 +416,15 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
     if (std::regex_search(focal_length_35mm_str.c_str(), result, regex)) {
       const double focal_length_35 = std::stold(result[1]);
       if (focal_length_35 > 0) {
-        *focal_length = focal_length_35 / 35.0 * max_size;
+        // Based on https://en.wikipedia.org/wiki/35_mm_equivalent_focal_length
+        // According to CIPA guidelines, 35 mm equivalent focal length is to be
+        // calculated like this:
+        // "focal length in 35 mm camera" =
+        //   (Diagonal distance of image area in the 35 mm camera (43.27 mm) /
+        //    Diagonal distance of image area on the image sensor of the DSC)
+        //    * focal length of the lens of the DSC.
+        const double diagonal = std::sqrt(width_ * width_ + height_ * height_);
+        *focal_length = focal_length_35 / 43.27 * diagonal;
         return true;
       }
     }
@@ -433,19 +441,6 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
     std::cmatch result;
     if (std::regex_search(focal_length_str.c_str(), result, regex)) {
       const double focal_length_mm = std::stold(result[1]);
-
-      // Lookup sensor width in database.
-      std::string make_str;
-      std::string model_str;
-      if (ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Make", &make_str) &&
-          ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Model", &model_str)) {
-        CameraDatabase database;
-        double sensor_width;
-        if (database.QuerySensorWidth(make_str, model_str, &sensor_width)) {
-          *focal_length = focal_length_mm / sensor_width * max_size;
-          return true;
-        }
-      }
 
       // Extract sensor width from EXIF.
       std::string pixel_x_dim_str;
@@ -473,7 +468,10 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
             // the image might have been resized, but the EXIF data preserved.
             const double ccd_width = x_res * pixel_x_dim;
             if (ccd_width > 0 && focal_length_mm > 0) {
-              if (res_unit_str == "cm") {
+              if (res_unit_str == "mm") {
+                *focal_length = focal_length_mm / (ccd_width * 1.0) * max_size;
+                return true;
+              } else if (res_unit_str == "cm") {
                 *focal_length = focal_length_mm / (ccd_width * 10.0) * max_size;
                 return true;
               } else if (res_unit_str == "inches") {
@@ -482,6 +480,19 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
               }
             }
           }
+        }
+      }
+
+      // Fall back to look up sensor width in database.
+      std::string make_str;
+      std::string model_str;
+      if (ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Make", &make_str) &&
+          ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Model", &model_str)) {
+        CameraDatabase database;
+        double sensor_width;
+        if (database.QuerySensorWidth(make_str, model_str, &sensor_width)) {
+          *focal_length = focal_length_mm / sensor_width * max_size;
+          return true;
         }
       }
     }
