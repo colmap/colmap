@@ -447,10 +447,6 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
         std::string res_unit_str;
         if (ReadExifTag(handle_.ptr,
                         FIMD_EXIF_EXIF,
-                        "FocalLength",
-                        &focal_length_str) &&
-            ReadExifTag(handle_.ptr,
-                        FIMD_EXIF_EXIF,
                         "FocalPlaneXResolution",
                         &x_res_str) &&
             ReadExifTag(handle_.ptr,
