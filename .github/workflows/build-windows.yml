@@ -42,7 +42,7 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
-      VCPKG_COMMIT_ID: 6ecbbbdf31cba47aafa7cf6189b1e73e10ac61f8
+      VCPKG_COMMIT_ID: 912567f6fdd1883e07b070dcc0aa67cec072042a
       GLOG_v: 2
       GLOG_logtostderr: 1
       CUDA_MAJOR_VERSION: 12
