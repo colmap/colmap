@@ -466,19 +466,18 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
             const double x_res = std::stold(result[2]) / std::stold(result[1]);
             // Use PixelXDimension instead of actual width of image, since
             // the image might have been resized, but the EXIF data preserved.
-            const double ccd_width_mm = x_res * pixel_x_dim;
-            if (ccd_width_mm > 0 && focal_length_mm > 0) {
+            const double ccd_width = x_res * pixel_x_dim;
+            double ccd_width_mm = -1.0;
+            if (ccd_width > 0 && focal_length_mm > 0) {
               if (res_unit_str == "mm") {
-                *focal_length =
-                    focal_length_mm / (ccd_width_mm * 1.0) * max_size;
-                return true;
+                ccd_width_mm = ccd_width;
               } else if (res_unit_str == "cm") {
-                *focal_length =
-                    focal_length_mm / (ccd_width_mm * 10.0) * max_size;
-                return true;
+                ccd_width_mm = ccd_width * 10.0;
               } else if (res_unit_str == "inches") {
-                *focal_length =
-                    focal_length_mm / (ccd_width_mm * 25.4) * max_size;
+                ccd_width_mm = ccd_width * 25.4;
+              }
+              if (ccd_width_mm > 0) {
+                ccd_width_mm = focal_length_mm / ccd_width_mm * max_size;
                 return true;
               }
             }
