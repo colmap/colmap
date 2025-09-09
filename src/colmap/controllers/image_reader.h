@@ -82,6 +82,9 @@ struct ImageReaderOptions {
   // value `default_focal_length_factor * max(width, height)`.
   double default_focal_length_factor = 1.2;
 
+  // Whether to read images as grayscale or RGB.
+  bool as_rgb = false;
+
   bool Check() const;
 };
 

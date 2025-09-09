@@ -44,6 +44,9 @@
 #include <QOpenGLFunctions_3_2_Core>
 #include <QtCore>
 #include <QtOpenGL>
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QOpenGLWidget>
+#endif
 
 namespace colmap {
 

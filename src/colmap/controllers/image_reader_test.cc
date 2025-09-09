@@ -29,6 +29,7 @@
 
 #include "colmap/controllers/image_reader.h"
 
+#include "colmap/scene/database_sqlite.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
@@ -39,8 +40,8 @@
 namespace colmap {
 namespace {
 
-Bitmap CreateTestBitmap() {
-  Bitmap bitmap(1, 3, false);
+Bitmap CreateTestBitmap(bool as_rgb) {
+  Bitmap bitmap(1, 3, as_rgb);
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(1));
   bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2));
   bitmap.SetPixel(2, 0, BitmapColor<uint8_t>(3));
@@ -48,25 +49,26 @@ Bitmap CreateTestBitmap() {
 }
 
 class ParameterizedImageReaderTests
-    : public ::testing::TestWithParam<
-          std::tuple</*num_images=*/int,
-                     /*with_masks=*/bool,
-                     /*with_existing_images=*/bool>> {};
+    : public ::testing::TestWithParam<std::tuple</*num_images=*/int,
+                                                 /*with_masks=*/bool,
+                                                 /*with_existing_images=*/bool,
+                                                 /*as_rgb=*/bool>> {};
 
 TEST_P(ParameterizedImageReaderTests, Nominal) {
-  const auto [kNumImages, kWithMasks, kWithExistingImages] = GetParam();
+  const auto [kNumImages, kWithMasks, kWithExistingImages, kAsRGB] = GetParam();
 
-  Database database(Database::kInMemoryDatabasePath);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   const std::string test_dir = CreateTestDir();
   ImageReaderOptions options;
   options.image_path = test_dir + "/images";
+  options.as_rgb = kAsRGB;
   CreateDirIfNotExists(options.image_path);
   if (kWithMasks) {
     options.mask_path = test_dir + "/masks";
     CreateDirIfNotExists(options.mask_path);
   }
-  const Bitmap test_bitmap = CreateTestBitmap();
+  const Bitmap test_bitmap = CreateTestBitmap(kAsRGB);
   for (int i = 0; i < kNumImages; ++i) {
     const std::string image_name = std::to_string(i) + ".png";
     test_bitmap.Write(options.image_path + "/" + image_name);
@@ -76,22 +78,22 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
     if (kWithExistingImages) {
       Image image;
       image.SetName(image_name);
-      image.SetCameraId(database.WriteCamera(
+      image.SetCameraId(database->WriteCamera(
           Camera::CreateFromModelName(i + 1,
                                       options.camera_model,
                                       /*focal_length=*/1,
                                       test_bitmap.Width(),
                                       test_bitmap.Height())));
-      image.SetImageId(database.WriteImage(image));
-      database.WriteKeypoints(image.ImageId(), FeatureKeypoints());
-      database.WriteDescriptors(image.ImageId(), FeatureDescriptors());
+      image.SetImageId(database->WriteImage(image));
+      database->WriteKeypoints(image.ImageId(), FeatureKeypoints());
+      database->WriteDescriptors(image.ImageId(), FeatureDescriptors());
       Rig rig;
       rig.AddRefSensor(sensor_t(SensorType::CAMERA, image.CameraId()));
-      database.WriteRig(rig);
+      database->WriteRig(rig);
     }
   }
 
-  ImageReader image_reader(options, &database);
+  ImageReader image_reader(options, database.get());
   EXPECT_EQ(image_reader.NumImages(), kNumImages);
 
   Rig rig;
@@ -115,29 +117,47 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
     EXPECT_EQ(camera.width, test_bitmap.Width());
     EXPECT_EQ(camera.height, test_bitmap.Height());
     EXPECT_EQ(image.Name(), std::to_string(i) + ".png");
+    EXPECT_EQ(bitmap.IsRGB(), kAsRGB);
     EXPECT_EQ(bitmap.RowMajorData(), test_bitmap.RowMajorData());
     if (kWithExistingImages) {
-      EXPECT_EQ(database.NumRigs(), kNumImages);
-      EXPECT_EQ(database.NumCameras(), kNumImages);
+      EXPECT_EQ(database->NumRigs(), kNumImages);
+      EXPECT_EQ(database->NumCameras(), kNumImages);
     } else {
-      EXPECT_EQ(database.NumRigs(), i + 1);
-      EXPECT_EQ(database.NumCameras(), i + 1);
+      EXPECT_EQ(database->NumRigs(), i + 1);
+      EXPECT_EQ(database->NumCameras(), i + 1);
     }
   }
 
   EXPECT_THROW(
       image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask),
       std::invalid_argument);
-  EXPECT_EQ(database.NumRigs(), kNumImages);
-  EXPECT_EQ(database.NumCameras(), kNumImages);
+  EXPECT_EQ(database->NumRigs(), kNumImages);
+  EXPECT_EQ(database->NumCameras(), kNumImages);
 }
 
-INSTANTIATE_TEST_SUITE_P(ImageReaderTests,
-                         ParameterizedImageReaderTests,
-                         ::testing::Values(std::make_tuple(0, false, true),
-                                           std::make_tuple(5, false, false),
-                                           std::make_tuple(5, true, false),
-                                           std::make_tuple(5, false, true)));
+INSTANTIATE_TEST_SUITE_P(
+    ImageReaderTests,
+    ParameterizedImageReaderTests,
+    ::testing::Values(std::make_tuple(/*num_images=*/0,
+                                      /*with_masks=*/false,
+                                      /*with_existing_images=*/true,
+                                      /*as_rgb=*/true),
+                      std::make_tuple(/*num_images=*/5,
+                                      /*with_masks=*/false,
+                                      /*with_existing_images=*/false,
+                                      /*as_rgb=*/true),
+                      std::make_tuple(/*num_images=*/5,
+                                      /*with_masks=*/true,
+                                      /*with_existing_images=*/false,
+                                      /*as_rgb=*/true),
+                      std::make_tuple(/*num_images=*/5,
+                                      /*with_masks=*/true,
+                                      /*with_existing_images=*/false,
+                                      /*as_rgb=*/false),
+                      std::make_tuple(/*num_images=*/5,
+                                      /*with_masks=*/false,
+                                      /*with_existing_images=*/true,
+                                      /*as_rgb=*/true)));
 
 }  // namespace
 }  // namespace colmap

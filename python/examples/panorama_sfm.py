@@ -306,10 +306,15 @@ def run(args):
         camera_mode=pycolmap.CameraMode.PER_FOLDER,
     )
 
-    with pycolmap.Database(database_path) as db:
+    with pycolmap.Database.open(database_path) as db:
         pycolmap.apply_rig_config([rig_config], db)
 
     matching_options = pycolmap.FeatureMatchingOptions()
+    # We have perfect sensor_from_rig poses (except for potential stitching
+    # artifacts by the spherical image provider), so we can perform geometric
+    # verification using rig constraints.
+    matching_options.rig_verification = True
+    # The images within a frame do not have overlap due to the provided masks.
     matching_options.skip_image_pairs_in_same_frame = True
     if args.matcher == "sequential":
         pycolmap.match_sequential(

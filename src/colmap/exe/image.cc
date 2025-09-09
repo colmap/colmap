@@ -280,7 +280,7 @@ int RunImageRegistrator(int argc, char** argv) {
     Timer timer;
     timer.Start();
     database_cache = DatabaseCache::Create(
-        Database(*options.database_path),
+        *Database::Open(*options.database_path),
         /*min_num_matches=*/
         static_cast<size_t>(options.mapper->min_num_matches),
         /*ignore_watermarks=*/options.mapper->ignore_watermarks,

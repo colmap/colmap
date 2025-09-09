@@ -30,6 +30,7 @@
 #include "colmap/controllers/hierarchical_pipeline.h"
 
 #include "colmap/estimators/alignment.h"
+#include "colmap/scene/database.h"
 #include "colmap/scene/scene_clustering.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/misc.h"
@@ -135,10 +136,10 @@ void HierarchicalPipeline::Run() {
   // Cluster scene graph
   //////////////////////////////////////////////////////////////////////////////
 
-  const Database database(options_.database_path);
+  auto database = Database::Open(options_.database_path);
 
   LOG(INFO) << "Reading images...";
-  const auto images = database.ReadAllImages();
+  const auto images = database->ReadAllImages();
   std::unordered_map<image_t, std::string> image_id_to_name;
   image_id_to_name.reserve(images.size());
   for (const auto& image : images) {
@@ -146,7 +147,7 @@ void HierarchicalPipeline::Run() {
   }
 
   SceneClustering scene_clustering =
-      SceneClustering::Create(options_.clustering_options, database);
+      SceneClustering::Create(options_.clustering_options, *database);
 
   auto leaf_clusters = scene_clustering.GetLeafClusters();
 

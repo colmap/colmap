@@ -30,6 +30,7 @@
 #include "colmap/controllers/incremental_pipeline.h"
 
 #include "colmap/estimators/alignment.h"
+#include "colmap/scene/database.h"
 #include "colmap/util/file.h"
 #include "colmap/util/timer.h"
 
@@ -86,6 +87,7 @@ IncrementalMapper::Options IncrementalPipelineOptions::Mapper() const {
   options.num_threads = num_threads;
   options.local_ba_num_images = ba_local_num_images;
   options.fix_existing_frames = fix_existing_frames;
+  options.constant_rigs = constant_rigs;
   options.constant_cameras = constant_cameras;
   options.use_prior_position = use_prior_position;
   options.use_robust_loss_on_prior_position = use_robust_loss_on_prior_position;
@@ -269,11 +271,10 @@ bool IncrementalPipeline::LoadDatabase() {
     }
   }
 
-  Database database(database_path_);
   Timer timer;
   timer.Start();
   database_cache_ = DatabaseCache::Create(
-      database,
+      *Database::Open(database_path_),
       /*min_num_matches=*/static_cast<size_t>(options_->min_num_matches),
       /*ignore_watermarks=*/options_->ignore_watermarks,
       /*image_names=*/image_names);

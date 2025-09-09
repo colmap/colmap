@@ -27,63 +27,18 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/feature/extractor.h"
+#pragma once
 
-#include "colmap/feature/sift.h"
-#include "colmap/util/misc.h"
+#include "colmap/scene/database.h"
+
+#include <memory>
+#include <string>
 
 namespace colmap {
-namespace {
 
-void ThrowUnknownFeatureExtractorType(FeatureExtractorType type) {
-  std::ostringstream error;
-  error << "Unknown feature extractor type: " << type;
-  throw std::runtime_error(error.str());
-}
+// Can be used to construct temporary in-memory database.
+constexpr inline char kInMemorySqliteDatabasePath[] = ":memory:";
 
-}  // namespace
-
-FeatureExtractionOptions::FeatureExtractionOptions(FeatureExtractorType type)
-    : type(type), sift(std::make_shared<SiftExtractionOptions>()) {}
-
-bool FeatureExtractionOptions::RequiresRGB() const {
-  switch (type) {
-    case FeatureExtractorType::SIFT:
-      return false;
-    default:
-      ThrowUnknownFeatureExtractorType(type);
-  }
-  return false;
-}
-
-bool FeatureExtractionOptions::Check() const {
-  CHECK_OPTION_GT(max_image_size, 0);
-  if (use_gpu) {
-    CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
-#ifndef COLMAP_GPU_ENABLED
-    LOG(ERROR) << "Cannot use GPU feature Extraction without CUDA or OpenGL "
-                  "support. Set use_gpu or use_gpu to false.";
-    return false;
-#endif
-  }
-  if (type == FeatureExtractorType::SIFT) {
-    return THROW_CHECK_NOTNULL(sift)->Check();
-  } else {
-    LOG(ERROR) << "Unknown feature extractor type: " << type;
-    return false;
-  }
-  return true;
-}
-
-std::unique_ptr<FeatureExtractor> FeatureExtractor::Create(
-    const FeatureExtractionOptions& options) {
-  switch (options.type) {
-    case FeatureExtractorType::SIFT:
-      return CreateSiftFeatureExtractor(options);
-    default:
-      ThrowUnknownFeatureExtractorType(options.type);
-  }
-  return nullptr;
-}
+std::shared_ptr<Database> OpenSqliteDatabase(const std::string& path);
 
 }  // namespace colmap

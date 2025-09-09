@@ -50,30 +50,30 @@ int RunDatabaseCleaner(int argc, char** argv) {
   options.Parse(argc, argv);
 
   StringToLower(&type);
-  Database database(*options.database_path);
+  auto database = Database::Open(*options.database_path);
 
-  DatabaseTransaction transaction(&database);
+  DatabaseTransaction transaction(database.get());
   if (type == "all") {
     LOG(INFO) << "Clearing all tables";
-    database.ClearAllTables();
+    database->ClearAllTables();
   } else if (type == "images") {
     LOG(INFO) << "Clearing images and all dependent tables";
-    database.ClearImages();
-    database.ClearMatches();
-    database.ClearTwoViewGeometries();
+    database->ClearImages();
+    database->ClearMatches();
+    database->ClearTwoViewGeometries();
   } else if (type == "features") {
     LOG(INFO) << "Clearing features, matches, and two-view geometries";
-    database.ClearDescriptors();
-    database.ClearKeypoints();
-    database.ClearMatches();
-    database.ClearTwoViewGeometries();
+    database->ClearDescriptors();
+    database->ClearKeypoints();
+    database->ClearMatches();
+    database->ClearTwoViewGeometries();
   } else if (type == "matches") {
     LOG(INFO) << "Clearing matches and two-view geometries";
-    database.ClearMatches();
-    database.ClearTwoViewGeometries();
+    database->ClearMatches();
+    database->ClearTwoViewGeometries();
   } else if (type == "two_view_geometries") {
     LOG(INFO) << "Clearing two-view geometries";
-    database.ClearTwoViewGeometries();
+    database->ClearTwoViewGeometries();
   } else {
     LOG(ERROR) << "Invalid cleanup type; no changes in database";
     return EXIT_FAILURE;
@@ -87,7 +87,7 @@ int RunDatabaseCreator(int argc, char** argv) {
   options.AddDatabaseOptions();
   options.Parse(argc, argv);
 
-  Database database(*options.database_path);
+  auto database = Database::Open(*options.database_path);
 
   return EXIT_SUCCESS;
 }
@@ -108,10 +108,10 @@ int RunDatabaseMerger(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  Database database1(database_path1);
-  Database database2(database_path2);
-  Database merged_database(merged_database_path);
-  Database::Merge(database1, database2, &merged_database);
+  auto database1 = Database::Open(database_path1);
+  auto database2 = Database::Open(database_path2);
+  auto merged_database = Database::Open(merged_database_path);
+  Database::Merge(*database1, *database2, merged_database.get());
 
   return EXIT_SUCCESS;
 }
@@ -145,11 +145,11 @@ int RunRigConfigurator(int argc, char** argv) {
     reconstruction->Read(input_path);
   }
 
-  Database database(database_path);
+  auto database = Database::Open(database_path);
 
   ApplyRigConfig(
       ReadRigConfig(rig_config_path),
-      database,
+      *database,
       reconstruction.has_value() ? &reconstruction.value() : nullptr);
 
   if (reconstruction.has_value() && !output_path.empty()) {
