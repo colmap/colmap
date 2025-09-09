@@ -75,7 +75,7 @@
                 {
                     "name": "curl",
                     "features": [
-                        "schannel"
+                        "sspi"
                     ],
                     "platform": "windows"
                 },

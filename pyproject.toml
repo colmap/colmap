@@ -45,7 +45,7 @@ test-requires = "pytest mypy==1.17.0 enlighten==1.13.0"
 test-command = "python -c \"import pycolmap; print(pycolmap.__version__)\" &&  python -m mypy --package pycolmap --implicit-optional && pytest {project}/python/examples/custom_incremental_pipeline_test.py"
 
 [tool.cibuildwheel.environment]
-VCPKG_COMMIT_ID = "0cb95c860ea83aafc1b24350510b30dec535989a"
+VCPKG_COMMIT_ID = "912567f6fdd1883e07b070dcc0aa67cec072042a"
 
 [tool.cibuildwheel.linux]
 before-all = "{project}/python/ci/install-colmap-almalinux.sh"
