@@ -441,15 +441,10 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
     std::cmatch result;
     if (std::regex_search(focal_length_str.c_str(), result, regex)) {
       const double focal_length_mm = std::stold(result[1]);
-
-      // Extract sensor width from EXIF.
-      std::string pixel_x_dim_str;
       std::string x_res_str;
       std::string res_unit_str;
-      if (ReadExifTag(handle_.ptr,
-                      FIMD_EXIF_EXIF,
-                      "PixelXDimension",
-                      &pixel_x_dim_str) &&
+      if (ReadExifTag(
+              handle_.ptr, FIMD_EXIF_EXIF, "FocalLength", &focal_length_str) &&
           ReadExifTag(handle_.ptr,
                       FIMD_EXIF_EXIF,
                       "FocalPlaneXResolution",
@@ -458,29 +453,22 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
                       FIMD_EXIF_EXIF,
                       "FocalPlaneResolutionUnit",
                       &res_unit_str)) {
-        regex = std::regex(".*?([0-9.]+).*?");
-        if (std::regex_search(pixel_x_dim_str.c_str(), result, regex)) {
-          const double pixel_x_dim = std::stold(result[1]);
-          regex = std::regex(".*?([0-9.]+).*?/.*?([0-9.]+).*?");
-          if (std::regex_search(x_res_str.c_str(), result, regex)) {
-            const double x_res = std::stold(result[2]) / std::stold(result[1]);
-            // Use PixelXDimension instead of actual width of image, since
-            // the image might have been resized, but the EXIF data preserved.
-            const double ccd_width = x_res * pixel_x_dim;
-            double ccd_width_mm = -1.0;
-            if (ccd_width > 0 && focal_length_mm > 0) {
-              if (res_unit_str == "mm") {
-                ccd_width_mm = ccd_width;
-              } else if (res_unit_str == "cm") {
-                ccd_width_mm = ccd_width * 10.0;
-              } else if (res_unit_str == "inches") {
-                ccd_width_mm = ccd_width * 25.4;
-              }
-              if (ccd_width_mm > 0) {
-                ccd_width_mm = focal_length_mm / ccd_width_mm * max_size;
-                return true;
-              }
+        regex = std::regex(".*?([0-9.]+).*?/.*?([0-9.]+).*?");
+        if (std::regex_search(x_res_str.c_str(), result, regex)) {
+          const double x_res = std::stold(result[2]) / std::stold(result[1]);
+          double pixels_per_mm = -1.0;
+          if (x_res > 0) {
+            if (res_unit_str == "mm") {
+              pixels_per_mm = x_res;
+            } else if (res_unit_str == "cm") {
+              pixels_per_mm = x_res * 10.0;
+            } else if (res_unit_str == "inches") {
+              pixels_per_mm = x_res * 25.4;
             }
+          }
+          if (focal_length_mm > 0) {
+            *focal_length = focal_length_mm / pixels_per_mm;
+            return true;
           }
         }
       }
