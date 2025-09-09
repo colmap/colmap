@@ -477,9 +477,10 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
         if (ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Make", &make_str) &&
             ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Model", &model_str)) {
           CameraDatabase database;
-          double sensor_width;
-          if (database.QuerySensorWidth(make_str, model_str, &sensor_width)) {
-            *focal_length = focal_length_mm / sensor_width * max_size;
+          double sensor_width_mm;
+          if (database.QuerySensorWidth(
+                  make_str, model_str, &sensor_width_mm)) {
+            *focal_length = focal_length_mm / sensor_width_mm * max_size;
             return true;
           }
         }
