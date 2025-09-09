@@ -441,23 +441,26 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
     std::cmatch result;
     if (std::regex_search(focal_length_str.c_str(), result, regex)) {
       const double focal_length_mm = std::stold(result[1]);
-      std::string x_res_str;
-      std::string res_unit_str;
-      if (ReadExifTag(
-              handle_.ptr, FIMD_EXIF_EXIF, "FocalLength", &focal_length_str) &&
-          ReadExifTag(handle_.ptr,
-                      FIMD_EXIF_EXIF,
-                      "FocalPlaneXResolution",
-                      &x_res_str) &&
-          ReadExifTag(handle_.ptr,
-                      FIMD_EXIF_EXIF,
-                      "FocalPlaneResolutionUnit",
-                      &res_unit_str)) {
-        regex = std::regex(".*?([0-9.]+).*?/.*?([0-9.]+).*?");
-        if (std::regex_search(x_res_str.c_str(), result, regex)) {
-          const double x_res = std::stold(result[2]) / std::stold(result[1]);
-          double pixels_per_mm = -1.0;
-          if (x_res > 0) {
+
+      if (focal_length_mm > 0) {
+        std::string x_res_str;
+        std::string res_unit_str;
+        if (ReadExifTag(handle_.ptr,
+                        FIMD_EXIF_EXIF,
+                        "FocalLength",
+                        &focal_length_str) &&
+            ReadExifTag(handle_.ptr,
+                        FIMD_EXIF_EXIF,
+                        "FocalPlaneXResolution",
+                        &x_res_str) &&
+            ReadExifTag(handle_.ptr,
+                        FIMD_EXIF_EXIF,
+                        "FocalPlaneResolutionUnit",
+                        &res_unit_str)) {
+          regex = std::regex(".*?([0-9.]+).*?/.*?([0-9.]+).*?");
+          if (std::regex_search(x_res_str.c_str(), result, regex)) {
+            const double x_res = std::stold(result[2]) / std::stold(result[1]);
+            double pixels_per_mm = -1.0;
             if (res_unit_str == "mm") {
               pixels_per_mm = x_res;
             } else if (res_unit_str == "cm") {
@@ -465,24 +468,24 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
             } else if (res_unit_str == "inches") {
               pixels_per_mm = x_res * 25.4;
             }
-          }
-          if (focal_length_mm > 0) {
-            *focal_length = focal_length_mm / pixels_per_mm;
-            return true;
+            if (pixels_per_mm > 0) {
+              *focal_length = focal_length_mm / pixels_per_mm;
+              return true;
+            }
           }
         }
-      }
 
-      // Fall back to look up sensor width in database.
-      std::string make_str;
-      std::string model_str;
-      if (ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Make", &make_str) &&
-          ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Model", &model_str)) {
-        CameraDatabase database;
-        double sensor_width;
-        if (database.QuerySensorWidth(make_str, model_str, &sensor_width)) {
-          *focal_length = focal_length_mm / sensor_width * max_size;
-          return true;
+        // Fall back to look up sensor width in database.
+        std::string make_str;
+        std::string model_str;
+        if (ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Make", &make_str) &&
+            ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Model", &model_str)) {
+          CameraDatabase database;
+          double sensor_width;
+          if (database.QuerySensorWidth(make_str, model_str, &sensor_width)) {
+            *focal_length = focal_length_mm / sensor_width * max_size;
+            return true;
+          }
         }
       }
     }
