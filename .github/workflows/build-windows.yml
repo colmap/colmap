@@ -111,7 +111,6 @@ jobs:
         shell: pwsh
         run: |
           ./scripts/shell/enter_vs_dev_shell.ps1
-          cd ${{ github.workspace }}
           vcpkg integrate install
           mkdir build
           cd build
@@ -124,6 +123,7 @@ jobs:
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} `
             -DCMAKE_CUDA_ARCHITECTURES=all-major `
             -DCUDAToolkit_ROOT="${{ steps.cuda-toolkit.outputs.CUDA_PATH }}" `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/vcpkg/scripts/buildsystems/vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=x64-windows-release `
             -DCMAKE_INSTALL_PREFIX=install
           ninja
