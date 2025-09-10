@@ -42,7 +42,6 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
-      VCPKG_COMMIT_ID: 912567f6fdd1883e07b070dcc0aa67cec072042a
       GLOG_v: 2
       GLOG_logtostderr: 1
       CUDA_MAJOR_VERSION: 12
@@ -101,16 +100,6 @@ jobs:
           cuda: '${{ env.CUDA_MAJOR_VERSION }}.${{ env.CUDA_MINOR_VERSION }}.${{ env.CUDA_PATCH_VERSION }}'
           sub-packages: '["nvcc", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
           method: 'network'
-
-      - name: Setup vcpkg
-        shell: pwsh
-        run: |
-          ./scripts/shell/enter_vs_dev_shell.ps1
-          cd ${{ github.workspace }}
-          git clone https://github.com/microsoft/vcpkg
-          cd vcpkg
-          git reset --hard ${{ env.VCPKG_COMMIT_ID }}
-          ./bootstrap-vcpkg.bat
 
       - name: Install CMake and Ninja
         uses: lukka/get-cmake@latest
