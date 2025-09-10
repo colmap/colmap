@@ -42,7 +42,6 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
-      VCPKG_COMMIT_ID: 0cb95c860ea83aafc1b24350510b30dec535989a
       GLOG_v: 2
       GLOG_logtostderr: 1
       CUDA_MAJOR_VERSION: 12
@@ -109,7 +108,6 @@ jobs:
           cd ${{ github.workspace }}
           git clone https://github.com/microsoft/vcpkg
           cd vcpkg
-          git reset --hard ${{ env.VCPKG_COMMIT_ID }}
           ./bootstrap-vcpkg.bat
 
       - name: Install CMake and Ninja
