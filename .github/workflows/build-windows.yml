@@ -101,6 +101,15 @@ jobs:
           sub-packages: '["nvcc", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
           method: 'network'
 
+      - name: Setup vcpkg
+        shell: pwsh
+        run: |
+          ./scripts/shell/enter_vs_dev_shell.ps1
+          cd ${{ github.workspace }}
+          git clone https://github.com/microsoft/vcpkg
+          cd vcpkg
+          ./bootstrap-vcpkg.bat
+
       - name: Install CMake and Ninja
         uses: lukka/get-cmake@latest
         with:
@@ -111,7 +120,8 @@ jobs:
         shell: pwsh
         run: |
           ./scripts/shell/enter_vs_dev_shell.ps1
-          vcpkg integrate install
+          cd ${{ github.workspace }}
+          ./vcpkg/vcpkg.exe integrate install
           mkdir build
           cd build
           cmake .. `
@@ -123,7 +133,7 @@ jobs:
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} `
             -DCMAKE_CUDA_ARCHITECTURES=all-major `
             -DCUDAToolkit_ROOT="${{ steps.cuda-toolkit.outputs.CUDA_PATH }}" `
-            -DCMAKE_TOOLCHAIN_FILE="${env:VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake" `
+            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=x64-windows-release `
             -DCMAKE_INSTALL_PREFIX=install
           ninja
@@ -131,7 +141,7 @@ jobs:
       - name: Run tests
         shell: pwsh
         run: |
-          vcpkg integrate install
+          ./vcpkg/vcpkg.exe integrate install
           cd build
           $EXCLUDED_TESTS = "(feature/colmap_feature_sift_test)|(util/colmap_util_opengl_utils_test)|(mvs/colmap_mvs_gpu_mat_test)"
           ctest -E ${EXCLUDED_TESTS} --output-on-failure
@@ -140,18 +150,18 @@ jobs:
         if: matrix.config.exportPackage
         shell: pwsh
         run: |
-          vcpkg integrate install
+          ./vcpkg/vcpkg.exe integrate install
 
           cd build
           ninja install
 
-          vcpkg install `
+          ../vcpkg/vcpkg.exe install `
               --triplet=x64-windows-release `
               --x-feature=gui `
               --x-feature=cgal `
               $(if ($${{ matrix.config.testsEnabled }}) { echo "--x-feature=tests" }) `
               $(if ($${{ matrix.config.cudaEnabled }}) { echo "--x-feature=cuda" })
-          vcpkg export --raw --output-dir vcpkg_export --output colmap
+          ../vcpkg/vcpkg.exe export --raw --output-dir vcpkg_export --output colmap
           cp vcpkg_export/colmap/installed/x64-windows/bin/*.dll install/bin
           cp vcpkg_export/colmap/installed/x64-windows-release/bin/*.dll install/bin
           cp -r vcpkg_export/colmap/installed/x64-windows/Qt6/plugins install
