@@ -12,7 +12,7 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-void BindMVSModel(py::module& m) {
+void BindMvsModel(py::module& m) {
     py::classh<mvs::Model> PyMVSModel(m, "MVSModel");
     PyMVSModel.def(py::init<>())
     .def("read",

@@ -2,8 +2,8 @@
 
 namespace py = pybind11;
 
-void BindMVSModel(py::module& m);
+void BindMvsModel(py::module& m);
 
-void BindMVS(py::module& m) {
-  BindMVSModel(m);
+void BindMvs(py::module& m) {
+  BindMvsModel(m);
 }
