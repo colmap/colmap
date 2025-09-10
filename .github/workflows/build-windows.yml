@@ -143,7 +143,7 @@ jobs:
       - name: Run tests
         shell: pwsh
         run: |
-          ./vcpkg/vcpkg.exe integrate install
+          vcpkg integrate install
           cd build
           $EXCLUDED_TESTS = "(feature/colmap_feature_sift_test)|(util/colmap_util_opengl_utils_test)|(mvs/colmap_mvs_gpu_mat_test)"
           ctest -E ${EXCLUDED_TESTS} --output-on-failure
@@ -152,18 +152,18 @@ jobs:
         if: matrix.config.exportPackage
         shell: pwsh
         run: |
-          ./vcpkg/vcpkg.exe integrate install
+          vcpkg integrate install
 
           cd build
           ninja install
 
-          ../vcpkg/vcpkg.exe install `
+          vcpkg install `
               --triplet=x64-windows-release `
               --x-feature=gui `
               --x-feature=cgal `
               $(if ($${{ matrix.config.testsEnabled }}) { echo "--x-feature=tests" }) `
               $(if ($${{ matrix.config.cudaEnabled }}) { echo "--x-feature=cuda" })
-          ../vcpkg/vcpkg.exe export --raw --output-dir vcpkg_export --output colmap
+          vcpkg export --raw --output-dir vcpkg_export --output colmap
           cp vcpkg_export/colmap/installed/x64-windows/bin/*.dll install/bin
           cp vcpkg_export/colmap/installed/x64-windows-release/bin/*.dll install/bin
           cp -r vcpkg_export/colmap/installed/x64-windows/Qt6/plugins install
