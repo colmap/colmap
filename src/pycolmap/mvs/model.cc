@@ -12,9 +12,9 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-void BindMvsModel(py::module& m) {
-  py::classh<mvs::Model> PyMvsModel(m, "MvsModel");
-  PyMvsModel.def(py::init<>())
+void BindMVSModel(py::module& m) {
+  py::classh<mvs::Model> PyMVSModel(m, "MVSModel");
+  PyMVSModel.def(py::init<>())
       .def("read",
            &mvs::Model::Read,
            "path"_a,
@@ -64,7 +64,7 @@ void BindMvsModel(py::module& m) {
            "images.")
       .def("__repr__", [](const mvs::Model& self) {
         std::ostringstream ss;
-        ss << "MvsModel(num_images=" << self.images.size()
+        ss << "MVSModel(num_images=" << self.images.size()
            << ", num_points=" << self.points.size() << ")";
         return ss.str();
       });
