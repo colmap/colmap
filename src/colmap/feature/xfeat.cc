@@ -342,7 +342,7 @@ class XFeatBruteForceFeatureMatcher : public FeatureMatcher {
 
     float min_cossim = static_cast<float>(options_.xfeat->min_cossim);
     const std::vector<int64_t> min_cossim_shape = {1};
-    auto min_sim_tensor = Ort::Value::CreateTensor<float>(
+    auto min_cossim_tensor = Ort::Value::CreateTensor<float>(
         Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
                                    OrtMemType::OrtMemTypeCPU),
         &min_cossim,
@@ -353,7 +353,7 @@ class XFeatBruteForceFeatureMatcher : public FeatureMatcher {
     std::vector<Ort::Value> input_tensors;
     input_tensors.emplace_back(std::move(features1.descriptors_tensor));
     input_tensors.emplace_back(std::move(features2.descriptors_tensor));
-    input_tensors.emplace_back(std::move(min_sim_tensor));
+    input_tensors.emplace_back(std::move(min_cossim_tensor));
 
     const std::vector<Ort::Value> output_tensors = model_.Run(input_tensors);
     THROW_CHECK_EQ(output_tensors.size(), 1);
@@ -375,6 +375,10 @@ class XFeatBruteForceFeatureMatcher : public FeatureMatcher {
       FeatureMatch& match = (*matches)[i];
       match.point2D_idx1 = matches_data[2 * i + 0];
       match.point2D_idx2 = matches_data[2 * i + 1];
+      THROW_CHECK_GE(match.point2D_idx1, 0);
+      THROW_CHECK_LT(match.point2D_idx1, num_keypoints1);
+      THROW_CHECK_GE(match.point2D_idx2, 0);
+      THROW_CHECK_LT(match.point2D_idx2, num_keypoints2);
     }
   }
 
