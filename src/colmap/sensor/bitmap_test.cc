@@ -350,7 +350,7 @@ TEST(Bitmap, ExifFocalLengthIn35mm) {
       "Exif:FocalLengthIn35mmFilm", "float", &focal_length_in_35mm_film);
 
   EXPECT_TRUE(bitmap.ExifFocalLength(&focal_length));
-  EXPECT_EQ(focal_length, 200);
+  EXPECT_NEAR(focal_length, 207.17, 0.1);
 }
 
 TEST(Bitmap, ExifFocalLengthWithPlane) {

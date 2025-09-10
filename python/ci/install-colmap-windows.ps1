@@ -10,9 +10,8 @@ If (!(Test-Path -path "${COMPILER_TOOLS_DIR}/ccache.exe" -PathType Leaf)) {
 
 # Setup vcpkg
 cd ${CURRDIR}
-git clone https://github.com/microsoft/vcpkg ${env:VCPKG_ROOT}
-cd ${env:VCPKG_ROOT}
-git checkout "${env:VCPKG_COMMIT_ID}"
+git clone https://github.com/microsoft/vcpkg ${env:VCPKG_INSTALLATION_ROOT}
+cd ${env:VCPKG_INSTALLATION_ROOT}
 ./bootstrap-vcpkg.bat
 
 cd ${CURRDIR}

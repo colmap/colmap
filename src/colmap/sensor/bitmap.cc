@@ -323,45 +323,46 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
   float focal_length_35mm = 0;
   if (GetMetaData("Exif:FocalLengthIn35mmFilm", "float", &focal_length_35mm)) {
     if (focal_length_35mm > 0) {
-      *focal_length = focal_length_35mm / 35.0 * max_size;
+      // Based on https://en.wikipedia.org/wiki/35_mm_equivalent_focal_length
+      // According to CIPA guidelines, 35 mm equivalent focal length is to be
+      // calculated like this:
+      // "focal length in 35 mm camera" =
+      //   (Diagonal distance of image area in the 35 mm camera (43.27 mm) /
+      //    Diagonal distance of image area on the image sensor of the DSC)
+      //    * focal length of the lens of the DSC.
+      const double diagonal = std::sqrt(width_ * width_ + height_ * height_);
+      *focal_length = focal_length_35mm / 43.27 * diagonal;
       return true;
     }
   }
 
   float focal_length_mm = 0.f;
   if (GetMetaData("Exif:FocalLength", "float", &focal_length_mm)) {
-    // Extract sensor width from EXIF.
-    int pixel_x_dim = 0;
     float focal_x_res = 0.f;
     int focal_x_res_unit = 0;
-    if (GetMetaData("Exif:PixelXDimension", "int", &pixel_x_dim) &&
-        GetMetaData("Exif:FocalPlaneXResolution", "float", &focal_x_res) &&
+    if (GetMetaData("Exif:FocalPlaneXResolution", "float", &focal_x_res) &&
         GetMetaData(
             "Exif:FocalPlaneResolutionUnit", "int", &focal_x_res_unit)) {
-      // Use PixelXDimension instead of actual width of image, since
-      // the image might have been resized, but the EXIF data preserved.
-      const double ccd_width = focal_x_res * pixel_x_dim;
-      if (ccd_width > 0 && focal_length_mm > 0 && focal_x_res_unit > 1 &&
+      if (focal_length_mm > 0 && focal_x_res_unit > 1 &&
           focal_x_res_unit <= 5) {
-        double pixel_size_mm = 0;
+        double pixels_per_mm = 0;
         switch (focal_x_res_unit) {
           case 2:  // inches
-            pixel_size_mm = 25.4;
+            pixels_per_mm = focal_x_res * 25.4;
             break;
           case 3:  // cm
-            pixel_size_mm = 10.0;
+            pixels_per_mm = focal_x_res * 10.0;
             break;
           case 4:  // mm
-            pixel_size_mm = 1.0;
+            pixels_per_mm = focal_x_res * 1.0;
             break;
           case 5:  // um
-            pixel_size_mm = 0.1;
+            pixels_per_mm = focal_x_res * 0.1;
             break;
           default:
             LOG(FATAL) << "Unexpected FocalPlaneXResolution value";
         }
-        *focal_length =
-            focal_length_mm / (ccd_width * pixel_size_mm) * max_size;
+        *focal_length = focal_length_mm / pixels_per_mm;
         return true;
       }
     }
@@ -371,10 +372,11 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
     std::string_view model_str;
     if (GetMetaData("Make", &make_str) && GetMetaData("Model", &model_str)) {
       CameraDatabase database;
-      double sensor_width;
-      if (database.QuerySensorWidth(
-              std::string(make_str), std::string(model_str), &sensor_width)) {
-        *focal_length = focal_length_mm / sensor_width * max_size;
+      double sensor_width_mm;
+      if (database.QuerySensorWidth(std::string(make_str),
+                                    std::string(model_str),
+                                    &sensor_width_mm)) {
+        *focal_length = focal_length_mm / sensor_width_mm * max_size;
         return true;
       }
     }

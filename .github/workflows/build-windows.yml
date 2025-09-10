@@ -22,14 +22,14 @@ jobs:
       matrix:
         config: [
           {
-            os: windows-2022,
+            os: windows-2025,
             cmakeBuildType: Release,
             cudaEnabled: true,
             testsEnabled: true,
             exportPackage: true,
           },
           {
-            os: windows-2022,
+            os: windows-2025,
             cmakeBuildType: Release,
             cudaEnabled: false,
             testsEnabled: true,
@@ -42,7 +42,6 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
-      VCPKG_COMMIT_ID: 912567f6fdd1883e07b070dcc0aa67cec072042a
       GLOG_v: 2
       GLOG_logtostderr: 1
       CUDA_MAJOR_VERSION: 12
@@ -109,7 +108,6 @@ jobs:
           cd ${{ github.workspace }}
           git clone https://github.com/microsoft/vcpkg
           cd vcpkg
-          git reset --hard ${{ env.VCPKG_COMMIT_ID }}
           ./bootstrap-vcpkg.bat
 
       - name: Install CMake and Ninja

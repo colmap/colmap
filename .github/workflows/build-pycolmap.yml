@@ -21,9 +21,9 @@ jobs:
     strategy:
       matrix:
         config: [
-          # {os: ubuntu-latest},
-          # {os: macos-14, arch: arm64, deploymentTarget: 14.0},
-          {os: windows-latest},
+          {os: ubuntu-24.04},
+          {os: macos-14, arch: arm64, deploymentTarget: 14.0},
+          {os: windows-2025},
         ]
     env:
       COMPILER_CACHE_VERSION: 1
