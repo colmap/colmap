@@ -22,7 +22,7 @@ jobs:
       matrix:
         config: [
           {os: ubuntu-24.04},
-          {os: macos-14, arch: arm64, deploymentTarget: 14.0},
+          # {os: macos-14, arch: arm64, deploymentTarget: 14.0},
           {os: windows-2025},
         ]
     env:
