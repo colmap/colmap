@@ -30,33 +30,71 @@
 #include "colmap/geometry/pose_prior.h"
 
 #include <gtest/gtest.h>
+#include <limits>
 
 namespace colmap {
 namespace {
 
+#include <limits>
+
+
 TEST(PosePrior, Equals) {
   PosePrior prior;
   prior.position = Eigen::Vector3d::Zero();
+  prior.rotation = Eigen::Quaterniond::Identity();
   prior.position_covariance = Eigen::Matrix3d::Identity();
+  prior.rotation_covariance = Eigen::Matrix3d::Identity();
   prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+
   PosePrior other = prior;
   EXPECT_EQ(prior, other);
+
   prior.position.x() = 1;
   EXPECT_NE(prior, other);
   other.position.x() = 1;
+  EXPECT_EQ(prior, other);
+
+  prior.rotation.y() = 0.5;
+  EXPECT_NE(prior, other);
+  other.rotation.y() = 0.5;
+  EXPECT_EQ(prior, other);
+
+  prior.rotation_covariance(0, 1) = 0.1;
+  EXPECT_NE(prior, other);
+  other.rotation_covariance(0, 1) = 0.1;
+  EXPECT_EQ(prior, other);
+
+  const double NaN = std::numeric_limits<double>::quiet_NaN();
+  prior.rotation = Eigen::Quaterniond::Identity();
+  prior.rotation.coeffs().setConstant(NaN);
+  other.rotation = Eigen::Quaterniond::Identity();
+  other.rotation.coeffs().setConstant(NaN);
+  EXPECT_EQ(prior, other);
+
+  prior.rotation_covariance =
+      Eigen::Matrix3d::Constant(NaN);
+  other.rotation_covariance =
+      Eigen::Matrix3d::Constant(NaN);
   EXPECT_EQ(prior, other);
 }
 
 TEST(PosePrior, Print) {
   PosePrior prior;
   prior.position = Eigen::Vector3d::Zero();
+  prior.rotation = Eigen::Quaterniond::Identity();
   prior.position_covariance = Eigen::Matrix3d::Identity();
+  prior.rotation_covariance = Eigen::Matrix3d::Identity();
   prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+
   std::ostringstream stream;
   stream << prior;
-  EXPECT_EQ(stream.str(),
-            "PosePrior(position=[0, 0, 0], position_covariance=[1, 0, 0, 0, 1, "
-            "0, 0, 0, 1], coordinate_system=CARTESIAN)");
+
+  EXPECT_EQ(
+      stream.str(),
+      "PosePrior(position=[0, 0, 0], rotation=[1, 0, 0, 0], "
+      "position_covariance=[1, 0, 0; 0, 1, 0; 0, 0, 1], "
+      "rotation_covariance=[1, 0, 0; 0, 1, 0; 0, 0, 1], "
+      "coordinate_system=CARTESIAN)");
 }
 
 }  // namespace

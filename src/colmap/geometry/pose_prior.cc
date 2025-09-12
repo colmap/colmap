@@ -31,14 +31,48 @@
 
 namespace colmap {
 
-std::ostream& operator<<(std::ostream& stream, const PosePrior& prior) {
-  const static Eigen::IOFormat kVecFmt(
-      Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ");
-  stream << "PosePrior(position=[" << prior.position.format(kVecFmt)
-         << "], position_covariance=["
-         << prior.position_covariance.format(kVecFmt) << "], coordinate_system="
-         << PosePrior::CoordinateSystemToString(prior.coordinate_system) << ")";
-  return stream;
-}
+  std::ostream& operator<<(std::ostream& stream, const PosePrior& prior) {
+    const static Eigen::IOFormat kVecFmt(
+        Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ");
+    const static Eigen::IOFormat kMatFmt(
+        Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", "; ");
+    const static Eigen::IOFormat kQuatFmt(
+        Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ");
+        
+    stream << "PosePrior(position=[" << prior.position.format(kVecFmt) << "], ";
+
+    stream << "rotation=";
+    if (prior.rotation.coeffs().allFinite() && prior.rotation.norm() > 0.0) {
+      stream << "[" << prior.rotation.w() << ", "
+                    << prior.rotation.x() << ", "
+                    << prior.rotation.y() << ", "
+                    << prior.rotation.z() << "]";
+    } else {
+      stream << "unset";
+    }
+    stream << ", ";
+
+    stream << "position_covariance=";
+    if (prior.position_covariance.allFinite()) {
+      stream << "[" << prior.position_covariance.format(kMatFmt) << "]";
+    } else {
+      stream << "unset";
+    }
+    stream << ", ";
+
+    stream << "rotation_covariance=";
+    if (prior.rotation_covariance.allFinite()) {
+      stream << "[" << prior.rotation_covariance.format(kMatFmt) << "]";
+    } else {
+      stream << "unset";
+    }
+    stream << ", ";
+
+    stream << "coordinate_system="
+          << PosePrior::CoordinateSystemToString(prior.coordinate_system)
+          << ")";
+
+    return stream;
+  }
 
 }  // namespace colmap
