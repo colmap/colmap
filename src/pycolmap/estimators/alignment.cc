@@ -18,7 +18,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindAlignmentEstimator(py::module& m) {
-  py::class_<ImageAlignmentError>(m, "ImageAlignmentError")
+  py::classh<ImageAlignmentError>(m, "ImageAlignmentError")
       .def(py::init<>())
       .def_readwrite("image_name", &ImageAlignmentError::image_name)
       .def_readwrite("rotation_error_deg",
@@ -142,4 +142,9 @@ void BindAlignmentEstimator(py::module& m) {
       "min_inlier_observations"_a = 0.3,
       "max_reproj_error"_a = 8.0,
       "max_proj_center_error"_a = 0.1);
+
+  m.def("align_reconstruction_to_orig_rig_scales",
+        &AlignReconstructionToOrigRigScales,
+        "orig_rigs"_a,
+        "reconstruction"_a);
 }

@@ -29,8 +29,9 @@
 
 #include "colmap/controllers/incremental_pipeline.h"
 
+#include "colmap/estimators/alignment.h"
+#include "colmap/scene/database.h"
 #include "colmap/util/file.h"
-#include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
 namespace colmap {
@@ -68,7 +69,7 @@ void WriteSnapshot(const Reconstruction& reconstruction,
           .count();
   // Write reconstruction to unique path with current timestamp.
   const std::string path =
-      JoinPaths(snapshot_path, StringPrintf("%010d", timestamp));
+      JoinPaths(snapshot_path, StringPrintf("%010zu", timestamp));
   CreateDirIfNotExists(path);
   VLOG(1) << "=> Writing to " << path;
   reconstruction.Write(path);
@@ -86,9 +87,12 @@ IncrementalMapper::Options IncrementalPipelineOptions::Mapper() const {
   options.num_threads = num_threads;
   options.local_ba_num_images = ba_local_num_images;
   options.fix_existing_frames = fix_existing_frames;
+  options.constant_rigs = constant_rigs;
+  options.constant_cameras = constant_cameras;
   options.use_prior_position = use_prior_position;
   options.use_robust_loss_on_prior_position = use_robust_loss_on_prior_position;
   options.prior_position_loss_scale = prior_position_loss_scale;
+  options.random_seed = random_seed;
   return options;
 }
 
@@ -98,6 +102,7 @@ IncrementalTriangulator::Options IncrementalPipelineOptions::Triangulation()
   options.min_focal_length_ratio = min_focal_length_ratio;
   options.max_focal_length_ratio = max_focal_length_ratio;
   options.max_extra_param = max_extra_param;
+  options.random_seed = random_seed;
   return options;
 }
 
@@ -183,6 +188,8 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GE(ba_global_max_refinement_change, 0);
   CHECK_OPTION_GE(snapshot_frames_freq, 0);
   CHECK_OPTION_GT(prior_position_loss_scale, 0.);
+  CHECK_OPTION_GE(num_threads, -1);
+  CHECK_OPTION_GE(random_seed, -1);
   CHECK_OPTION(Mapper().Check());
   CHECK_OPTION(Triangulation().Check());
   return true;
@@ -264,12 +271,13 @@ bool IncrementalPipeline::LoadDatabase() {
     }
   }
 
-  Database database(database_path_);
   Timer timer;
   timer.Start();
-  const size_t min_num_matches = static_cast<size_t>(options_->min_num_matches);
   database_cache_ = DatabaseCache::Create(
-      database, min_num_matches, options_->ignore_watermarks, image_names);
+      *Database::Open(database_path_),
+      /*min_num_matches=*/static_cast<size_t>(options_->min_num_matches),
+      /*ignore_watermarks=*/options_->ignore_watermarks,
+      /*image_names=*/image_names);
   timer.PrintMinutes();
 
   if (database_cache_->NumImages() == 0) {
@@ -294,11 +302,11 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   image_t image_id2 = static_cast<image_t>(options_->init_image_id2);
 
   // Try to find good initial pair.
-  TwoViewGeometry two_view_geometry;
+  Rigid3d cam2_from_cam1;
   if (!options_->IsInitialPairProvided()) {
     LOG(INFO) << "Finding good initial image pair";
     const bool find_init_success = mapper.FindInitialImagePair(
-        mapper_options, two_view_geometry, image_id1, image_id2);
+        mapper_options, image_id1, image_id2, cam2_from_cam1);
     if (!find_init_success) {
       LOG(INFO) << "=> No good initial image pair found.";
       return Status::NO_INITIAL_PAIR;
@@ -313,7 +321,7 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
       return Status::NO_INITIAL_PAIR;
     }
     const bool provided_init_success = mapper.EstimateInitialTwoViewGeometry(
-        mapper_options, image_id1, image_id2, two_view_geometry);
+        mapper_options, image_id1, image_id2, cam2_from_cam1);
     if (!provided_init_success) {
       LOG(INFO) << "=> Provided pair is unsuitable for initialization.";
       return Status::BAD_INITIAL_PAIR;
@@ -323,7 +331,7 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   LOG(INFO) << StringPrintf(
       "Registering initial image pair #%d and #%d", image_id1, image_id2);
   mapper.RegisterInitialImagePair(
-      mapper_options, two_view_geometry, image_id1, image_id2);
+      mapper_options, image_id1, image_id2, cam2_from_cam1);
 
   IncrementalTriangulator::Options tri_options;
   tri_options.min_angle = mapper_options.init_min_tri_angle;
@@ -342,6 +350,12 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
 
   // Initial image pair failed to register.
   if (reconstruction.NumRegFrames() == 0 || reconstruction.NumPoints3D() == 0) {
+    return Status::BAD_INITIAL_PAIR;
+  }
+
+  // Number of triangulated points not enough for registering future images.
+  if (static_cast<int>(reconstruction.NumPoints3D()) <
+      mapper_options.abs_pose_min_num_inliers) {
     return Status::BAD_INITIAL_PAIR;
   }
 
@@ -529,8 +543,11 @@ void IncrementalPipeline::Reconstruct(
         ReconstructSubModel(mapper, mapper_options, reconstruction);
     switch (status) {
       case Status::INTERRUPTED: {
+        reconstruction->UpdatePoint3DErrors();
         LOG(INFO) << "Keeping reconstruction due to interrupt";
         mapper.EndReconstruction(/*discard=*/false);
+        AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
+                                           reconstruction.get());
         return;
       }
 
@@ -572,8 +589,11 @@ void IncrementalPipeline::Reconstruct(
           mapper.EndReconstruction(/*discard=*/true);
           reconstruction_manager_->Delete(reconstruction_idx);
         } else {
+          reconstruction->UpdatePoint3DErrors();
           LOG(INFO) << "Keeping successful reconstruction";
           mapper.EndReconstruction(/*discard=*/false);
+          AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
+                                             reconstruction.get());
         }
 
         Callback(LAST_IMAGE_REG_CALLBACK);
@@ -625,6 +645,8 @@ void IncrementalPipeline::TriangulateReconstruction(
                                    options_->Triangulation(),
                                    /*normalize_reconstruction=*/false);
   mapper.EndReconstruction(/*discard=*/false);
+
+  reconstruction->UpdatePoint3DErrors();
 
   LOG(INFO) << "Extracting colors";
   reconstruction->ExtractColorsForAllImages(image_path_);

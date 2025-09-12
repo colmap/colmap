@@ -50,15 +50,15 @@ def initialize_reconstruction(
         if ret is None:
             logging.info("No good initial image pair found.")
             return pycolmap.IncrementalMapperStatus.NO_INITIAL_PAIR
-        init_pair, two_view_geometry = ret
+        init_pair, init_cam2_from_cam1 = ret
     else:
         if not all(reconstruction.exists_image(i) for i in init_pair):
             logging.info(f"=> Initial image pair {init_pair} does not exist.")
             return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
-        two_view_geometry = mapper.estimate_initial_two_view_geometry(
+        init_cam2_from_cam1 = mapper.estimate_initial_two_view_geometry(
             mapper_options, *init_pair
         )
-        if two_view_geometry is None:
+        if init_cam2_from_cam1 is None:
             logging.info("Provided pair is insuitable for initialization")
             return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
 
@@ -66,7 +66,7 @@ def initialize_reconstruction(
         f"Registering initial image pair #{init_pair[0]} and #{init_pair[1]}"
     )
     mapper.register_initial_image_pair(
-        mapper_options, two_view_geometry, *init_pair
+        mapper_options, *init_pair, init_cam2_from_cam1
     )
     for image_id in init_pair:
         for data_id in reconstruction.images[image_id].frame.data_ids:
@@ -198,7 +198,7 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
     if (
         reconstruction.num_reg_frames() >= 2
         and reconstruction.num_reg_frames() != ba_prev_num_reg_frames
-        and reconstruction.num_points3D != ba_prev_num_points
+        and reconstruction.num_points3D() != ba_prev_num_points
     ):
         iterative_global_refinement(options, mapper_options, mapper)
     return pycolmap.IncrementalMapperStatus.SUCCESS
@@ -224,6 +224,9 @@ def reconstruct(controller, mapper, mapper_options, continue_reconstruction):
         if status == pycolmap.IncrementalMapperStatus.INTERRUPTED:
             logging.info("Keeping reconstruction due to interrupt")
             mapper.end_reconstruction(False)
+            pycolmap.align_reconstruction_to_orig_rig_scales(
+                database_cache.rigs, reconstruction
+            )
         elif status == pycolmap.IncrementalMapperStatus.NO_INITIAL_PAIR:
             logging.info("Disacarding reconstruction due to no initial pair")
             mapper.end_reconstruction(True)
@@ -254,6 +257,9 @@ def reconstruct(controller, mapper, mapper_options, continue_reconstruction):
             else:
                 logging.info("Keeping successful reconstruction")
                 mapper.end_reconstruction(False)
+                pycolmap.align_reconstruction_to_orig_rig_scales(
+                    database_cache.rigs, reconstruction
+                )
             controller.callback(
                 pycolmap.IncrementalMapperCallback.LAST_IMAGE_REG_CALLBACK
             )
@@ -335,7 +341,8 @@ def main(
     )
 
     # main runner
-    num_images = pycolmap.Database(database_path).num_images
+    with pycolmap.Database.open(database_path) as database:
+        num_images = database.num_images()
     with enlighten.Manager() as manager:
         with manager.counter(
             total=num_images, desc="Images registered:"

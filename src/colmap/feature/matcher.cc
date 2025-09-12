@@ -29,7 +29,44 @@
 
 #include "colmap/feature/matcher.h"
 
+#include "colmap/feature/sift.h"
+#include "colmap/util/misc.h"
+
 namespace colmap {
+
+FeatureMatchingOptions::FeatureMatchingOptions(FeatureMatcherType type)
+    : type(type), sift(std::make_shared<SiftMatchingOptions>()) {}
+
+bool FeatureMatchingOptions::Check() const {
+  if (use_gpu) {
+    CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
+#ifndef COLMAP_GPU_ENABLED
+    LOG(ERROR) << "Cannot use GPU feature matching without CUDA or OpenGL "
+                  "support. Set use_gpu or use_gpu to false.";
+    return false;
+#endif
+  }
+  CHECK_OPTION_GE(max_num_matches, 0);
+  if (type == FeatureMatcherType::SIFT) {
+    return THROW_CHECK_NOTNULL(sift)->Check();
+  } else {
+    LOG(ERROR) << "Unknown feature matcher type: " << type;
+    return false;
+  }
+  return true;
+}
+
+std::unique_ptr<FeatureMatcher> FeatureMatcher::Create(
+    const FeatureMatchingOptions& options) {
+  switch (options.type) {
+    case FeatureMatcherType::SIFT:
+      return CreateSiftFeatureMatcher(options);
+    default:
+      std::ostringstream error;
+      error << "Unknown feature matcher type: " << options.type;
+      throw std::runtime_error(error.str());
+  }
+}
 
 FeatureMatcherCache::FeatureMatcherCache(
     const size_t cache_size, const std::shared_ptr<Database>& database)
@@ -203,7 +240,10 @@ void FeatureMatcherCache::DeleteInlierMatches(const image_t image_id1,
 
 size_t FeatureMatcherCache::MaxNumKeypoints() {
   std::lock_guard<std::mutex> lock(database_mutex_);
-  return database_->MaxNumKeypoints();
+  if (!max_num_keypoints_) {
+    max_num_keypoints_ = database_->MaxNumKeypoints();
+  }
+  return *max_num_keypoints_;
 }
 
 void FeatureMatcherCache::MaybeLoadCameras() {
@@ -235,15 +275,34 @@ void FeatureMatcherCache::MaybeLoadFrames() {
 }
 
 void FeatureMatcherCache::MaybeLoadImages() {
+  MaybeLoadFrames();
+
   std::lock_guard<std::mutex> lock(database_mutex_);
   if (images_cache_) {
     return;
+  }
+
+  // Handle legacy databases without frames.
+  const bool has_frames = !frames_cache_->empty();
+  std::unordered_map<image_t, frame_t> image_to_frame_id;
+  if (has_frames) {
+    for (const auto& [frame_id, frame] : *frames_cache_) {
+      for (const auto& data_id : frame.ImageIds()) {
+        image_to_frame_id.emplace(data_id.id, frame.FrameId());
+      }
+    }
   }
 
   std::vector<Image> images = database_->ReadAllImages();
   images_cache_ = std::make_unique<std::unordered_map<image_t, Image>>();
   images_cache_->reserve(images.size());
   for (Image& image : images) {
+    if (has_frames) {
+      if (const auto it = image_to_frame_id.find(image.ImageId());
+          it != image_to_frame_id.end()) {
+        image.SetFrameId(it->second);
+      }
+    }
     images_cache_->emplace(image.ImageId(), std::move(image));
   }
 }

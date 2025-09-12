@@ -37,7 +37,7 @@ void BindCovarianceEstimator(py::module& m) {
           .value("ALL", BACovarianceOptions::Params::ALL);
   AddStringToEnumConstructor(PyBACovarianceOptionsParams);
 
-  py::class_<internal::PoseParam> PyExperimentalPoseParam(
+  py::classh<internal::PoseParam> PyExperimentalPoseParam(
       m, "ExperimentalPoseParam");
   PyExperimentalPoseParam.def(py::init<>())
       .def_readwrite("image_id", &internal::PoseParam::image_id)
@@ -73,7 +73,7 @@ void BindCovarianceEstimator(py::module& m) {
           });
   MakeDataclass(PyExperimentalPoseParam);
 
-  py::class_<BACovarianceOptions> PyBACovarianceOptions(m,
+  py::classh<BACovarianceOptions> PyBACovarianceOptions(m,
                                                         "BACovarianceOptions");
   PyBACovarianceOptions.def(py::init<>())
       .def_readwrite("params",
@@ -95,10 +95,10 @@ void BindCovarianceEstimator(py::module& m) {
           "applying the Schur complement trick.");
   MakeDataclass(PyBACovarianceOptions);
 
-  py::class_<BACovariance>(m, "BACovariance")
+  py::classh<BACovariance>(m, "BACovariance")
       .def("get_point_cov",
            &BACovariance::GetPointCov,
-           "image_id"_a,
+           "point3D_id"_a,
            "Covariance for 3D points, conditioned on all other variables set "
            "constant. If some dimensions are kept constant, the respective "
            "rows/columns are omitted. Returns null if 3D point not a variable "

@@ -29,7 +29,6 @@
 
 #include "colmap/estimators/cost_functions.h"
 
-#include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/math/math.h"
@@ -230,8 +229,8 @@ TEST(RigReprojErrorConstantRigCostFunctor, Nominal) {
 
 TEST(SampsonErrorCostFunctor, Nominal) {
   std::unique_ptr<ceres::CostFunction> cost_function(
-      SampsonErrorCostFunctor::Create(Eigen::Vector2d(0, 0),
-                                      Eigen::Vector2d(0, 0)));
+      SampsonErrorCostFunctor::Create(Eigen::Vector3d(0, 0, 1),
+                                      Eigen::Vector3d(0, 0, 1)));
   double cam_from_world_rotation[4] = {1, 0, 0, 0};
   double cam_from_world_translation[3] = {0, 1, 0};
   double residuals[1];
@@ -240,15 +239,15 @@ TEST(SampsonErrorCostFunctor, Nominal) {
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0);
 
-  cost_function.reset(SampsonErrorCostFunctor::Create(Eigen::Vector2d(0, 0),
-                                                      Eigen::Vector2d(1, 0)));
+  cost_function.reset(SampsonErrorCostFunctor::Create(
+      Eigen::Vector3d(0, 0, 1), Eigen::Vector3d(1, 0, 1)));
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
-  EXPECT_EQ(residuals[0], 0.5);
+  EXPECT_NEAR(residuals[0] * residuals[0], 0.5, 1e-6);
 
-  cost_function.reset(SampsonErrorCostFunctor::Create(Eigen::Vector2d(0, 0),
-                                                      Eigen::Vector2d(1, 1)));
+  cost_function.reset(SampsonErrorCostFunctor::Create(
+      Eigen::Vector3d(0, 0, 1), Eigen::Vector3d(1, 1, 1)));
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
-  EXPECT_EQ(residuals[0], 0.5);
+  EXPECT_NEAR(residuals[0] * residuals[0], 0.5, 1e-6);
 }
 
 TEST(AbsolutePosePositionPriorCostFunctor, Nominal) {
@@ -391,22 +390,41 @@ TEST(Point3DAlignmentCostFunctor, Nominal) {
                       Eigen::Quaterniond::UnitRandom(),
                       Eigen::Vector3d::Random());
   // construct cost function and evaluate
+  // use log scale
   Eigen::Vector3d point_in_b_prior(1., 1., 1.);
-  std::unique_ptr<ceres::CostFunction> cost_function(
-      Point3DAlignmentCostFunctor::Create(point_in_b_prior));
   Eigen::Vector3d point(0., 0., 0.);
-  const double* parameters[4] = {point.data(),
-                                 tform.rotation.coeffs().data(),
-                                 tform.translation.data(),
-                                 &tform.scale};
-  double residuals[3];
-  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  std::unique_ptr<ceres::CostFunction> cost_function_log_scale(
+      Point3DAlignmentCostFunctor::Create(point_in_b_prior,
+                                          /*use_log_scale=*/true));
+  double log_scale = std::log(tform.scale);
+  const double* parameters_log_scale[4] = {point.data(),
+                                           tform.rotation.coeffs().data(),
+                                           tform.translation.data(),
+                                           &log_scale};
+  double residuals_log_scale[3];
+  EXPECT_TRUE(cost_function_log_scale->Evaluate(
+      parameters_log_scale, residuals_log_scale, nullptr));
+
+  // use direct scale
+  std::unique_ptr<ceres::CostFunction> cost_function_direct_scale(
+      Point3DAlignmentCostFunctor::Create(point_in_b_prior,
+                                          /*use_log_scale=*/false));
+  const double* parameters_direct_scale[4] = {point.data(),
+                                              tform.rotation.coeffs().data(),
+                                              tform.translation.data(),
+                                              &tform.scale};
+  double residuals_direct_scale[3];
+  EXPECT_TRUE(cost_function_direct_scale->Evaluate(
+      parameters_direct_scale, residuals_direct_scale, nullptr));
 
   // test with reference computation from C++
   Eigen::Vector3d error = tform * point - point_in_b_prior;
-  EXPECT_NEAR(residuals[0], error[0], 1e-6);
-  EXPECT_NEAR(residuals[1], error[1], 1e-6);
-  EXPECT_NEAR(residuals[2], error[2], 1e-6);
+  EXPECT_NEAR(residuals_log_scale[0], error[0], 1e-6);
+  EXPECT_NEAR(residuals_log_scale[1], error[1], 1e-6);
+  EXPECT_NEAR(residuals_log_scale[2], error[2], 1e-6);
+  EXPECT_NEAR(residuals_direct_scale[0], error[0], 1e-6);
+  EXPECT_NEAR(residuals_direct_scale[1], error[1], 1e-6);
+  EXPECT_NEAR(residuals_direct_scale[2], error[2], 1e-6);
 }
 
 TEST(CovarianceWeightedCostFunctor, ReprojErrorCostFunctor) {

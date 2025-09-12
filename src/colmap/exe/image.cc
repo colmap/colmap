@@ -39,6 +39,8 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
+#include <fstream>
+
 namespace colmap {
 namespace {
 
@@ -277,13 +279,14 @@ int RunImageRegistrator(int argc, char** argv) {
   {
     Timer timer;
     timer.Start();
-    const size_t min_num_matches =
-        static_cast<size_t>(options.mapper->min_num_matches);
-    database_cache = DatabaseCache::Create(Database(*options.database_path),
-                                           min_num_matches,
-                                           options.mapper->ignore_watermarks,
-                                           {options.mapper->image_names.begin(),
-                                            options.mapper->image_names.end()});
+    database_cache = DatabaseCache::Create(
+        *Database::Open(*options.database_path),
+        /*min_num_matches=*/
+        static_cast<size_t>(options.mapper->min_num_matches),
+        /*ignore_watermarks=*/options.mapper->ignore_watermarks,
+        /*image_names=*/
+        {options.mapper->image_names.begin(),
+         options.mapper->image_names.end()});
     timer.PrintMinutes();
   }
 

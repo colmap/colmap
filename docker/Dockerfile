@@ -1,5 +1,5 @@
 ARG UBUNTU_VERSION=24.04
-ARG NVIDIA_CUDA_VERSION=12.9.0
+ARG NVIDIA_CUDA_VERSION=12.9.1
 
 #
 # Docker builder stage.
@@ -15,7 +15,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Prepare and empty machine for building.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends --no-install-suggests \
+    apt-get install -y \
         git \
         cmake \
         ninja-build \
@@ -31,12 +31,14 @@ RUN apt-get update && \
         libgmock-dev \
         libsqlite3-dev \
         libglew-dev \
-        qtbase5-dev \
-        libqt5opengl5-dev \
+        qt6-base-dev \
+        libqt6opengl6-dev \
+        libqt6openglwidgets6 \
         libcgal-dev \
         libceres-dev \
         libcurl4-openssl-dev \
-        libopenblas-openmp-dev
+        libssl-dev \
+        libmkl-full-dev
 
 # Build and install COLMAP.
 RUN git clone https://github.com/colmap/colmap.git
@@ -45,8 +47,11 @@ RUN cd colmap && \
     git checkout FETCH_HEAD && \
     mkdir build && \
     cd build && \
-    cmake .. -GNinja -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES} \
-        -DCMAKE_INSTALL_PREFIX=/colmap-install && \
+    cmake .. \
+        -GNinja \
+        -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES} \
+        -DCMAKE_INSTALL_PREFIX=/colmap-install \
+        -DBLA_VENDOR=Intel10_64lp && \
     ninja install
 
 #
@@ -61,17 +66,27 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends --no-install-suggests \
         libboost-program-options1.83.0 \
         libc6 \
+        libomp5 \
+        libopengl0 \
+        libmetis5 \
         libceres4t64 \
         libfreeimage3 \
         libgcc-s1 \
         libgl1 \
         libglew2.2 \
         libgoogle-glog0v6t64 \
-        libqt5core5a \
-        libqt5gui5 \
-        libqt5widgets5 \
+        libqt6core6 \
+        libqt6gui6 \
+        libqt6widgets6 \
+        libqt6openglwidgets6 \
         libcurl4 \
-        libopenblas0-openmp
+        libssl3t64 \
+        libmkl-locale \
+        libmkl-intel-lp64 \
+        libmkl-intel-thread \
+        libmkl-core && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy all files from /colmap-install/ in the builder stage to /usr/local/ in
 # the runtime stage. This simulates installing COLMAP in the default location

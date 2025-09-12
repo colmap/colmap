@@ -50,14 +50,6 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
     : options_(options), database_(database), image_index_(0) {
   THROW_CHECK(options_.Check());
 
-  // Ensure trailing slash, so that we can build the correct image name.
-  options_.image_path =
-      EnsureTrailingSlash(StringReplace(options_.image_path, "\\", "/"));
-  if (!options_.mask_path.empty()) {
-    options_.mask_path =
-        EnsureTrailingSlash(StringReplace(options_.mask_path, "\\", "/"));
-  }
-
   // Get a list of all files in the image path, sorted by image name.
   if (options_.image_names.empty()) {
     options_.image_names = GetRecursiveFileList(options_.image_path);
@@ -118,11 +110,7 @@ ImageReader::Status ImageReader::Next(Rig* rig,
   // Set the image name.
   //////////////////////////////////////////////////////////////////////////////
 
-  image->SetName(image_path);
-  image->SetName(StringReplace(image->Name(), "\\", "/"));
-  image->SetName(
-      image->Name().substr(options_.image_path.size(),
-                           image->Name().size() - options_.image_path.size()));
+  image->SetName(GetNormalizedRelativePath(image_path, options_.image_path));
 
   const std::string image_folder = GetParentDir(image->Name());
 
@@ -147,7 +135,7 @@ ImageReader::Status ImageReader::Next(Rig* rig,
   // Read image.
   //////////////////////////////////////////////////////////////////////////////
 
-  if (!bitmap->Read(image_path, false)) {
+  if (!bitmap->Read(image_path, /*as_rgb=*/options_.as_rgb)) {
     return Status::BITMAP_ERROR;
   }
 
@@ -156,11 +144,22 @@ ImageReader::Status ImageReader::Next(Rig* rig,
   //////////////////////////////////////////////////////////////////////////////
 
   if (mask && !options_.mask_path.empty()) {
-    const std::string mask_path =
+    std::string mask_path =
         JoinPaths(options_.mask_path, image->Name() + ".png");
     if (!ExistsFile(mask_path)) {
-      LOG(ERROR) << "Mask at " << mask_path << " does not exist.";
-      return Status::MASK_ERROR;
+      bool exists_mask = false;
+      if (HasFileExtension(image->Name(), ".png")) {
+        std::string alt_mask_path =
+            JoinPaths(options_.mask_path, image->Name());
+        if (ExistsFile(alt_mask_path)) {
+          mask_path = std::move(alt_mask_path);
+          exists_mask = true;
+        }
+      }
+      if (!exists_mask) {
+        LOG(ERROR) << "Mask at " << mask_path << " does not exist.";
+        return Status::MASK_ERROR;
+      }
     }
     if (!mask->Read(mask_path, false)) {
       LOG(ERROR) << "Failed to read invalid mask file at: " << mask_path;

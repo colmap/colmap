@@ -18,7 +18,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindFrame(py::module& m) {
-  py::class_<Frame, std::shared_ptr<Frame>> PyFrame(m, "Frame");
+  py::classh<Frame> PyFrame(m, "Frame");
   PyFrame.def(py::init<>())
       .def_property("frame_id",
                     &Frame::FrameId,
@@ -29,6 +29,9 @@ void BindFrame(py::module& m) {
                     &Frame::SetRigId,
                     "Unique identifier of the rig.")
       .def("add_data_id", &Frame::AddDataId, "Associate data with frame.")
+      .def("num_data_ids",
+           &Frame::NumDataIds,
+           "Number of associated data items in frame.")
       .def("has_data",
            &Frame::HasDataId,
            "Check whether frame has associated data.")
@@ -69,7 +72,13 @@ void BindFrame(py::module& m) {
       .def("sensor_from_world",
            &Frame::SensorFromWorld,
            "sensor_id"_a,
-           "The transformation from the world to a specific sensor.");
+           "The transformation from the world to a specific sensor.")
+      .def("set_cam_from_world",
+           &Frame::SetCamFromWorld,
+           "camera_id"_a,
+           "cam_from_world"_a,
+           "Set the world to frame from the given camera from world "
+           "transformation.");
   MakeDataclass(PyFrame);
 
   py::bind_map<FrameMap>(m, "FrameMap");

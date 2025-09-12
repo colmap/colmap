@@ -29,10 +29,8 @@
 
 #pragma once
 
-#include "colmap/geometry/gps.h"
 #include "colmap/scene/database.h"
 #include "colmap/sensor/bitmap.h"
-#include "colmap/util/threading.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -83,6 +81,9 @@ struct ImageReaderOptions {
   // have focal length EXIF information, the focal length is set to the
   // value `default_focal_length_factor * max(width, height)`.
   double default_focal_length_factor = 1.2;
+
+  // Whether to read images as grayscale or RGB.
+  bool as_rgb = false;
 
   bool Check() const;
 };

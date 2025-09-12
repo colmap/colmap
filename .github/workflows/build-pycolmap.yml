@@ -21,10 +21,9 @@ jobs:
     strategy:
       matrix:
         config: [
-              {os: ubuntu-latest},
-              {os: macos-13, arch: x86_64, deploymentTarget: 13.0},
-              {os: macos-14, arch: arm64, deploymentTarget: 14.0},
-              {os: windows-latest},
+          {os: ubuntu-24.04},
+          {os: macos-14, arch: arm64, deploymentTarget: 14.0},
+          {os: windows-2025},
         ]
     env:
       COMPILER_CACHE_VERSION: 1
@@ -33,7 +32,7 @@ jobs:
       CCACHE_BASEDIR: ${{ github.workspace }}
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.config.deploymentTarget }}
       # For faster builds in PRs, skip all but the oldest Python versions.
-      PULL_REQUEST_CIBW_BUILD: cp38-{macosx,manylinux,win}*
+      PULL_REQUEST_CIBW_BUILD: cp39-{macosx,manylinux,win}*
     steps:
       - uses: actions/checkout@v4
 
@@ -57,13 +56,7 @@ jobs:
       - name: Set env (macOS)
         if: runner.os == 'macOS'
         run: |
-          if [[ ${{ matrix.config.arch }} == "x86_64" ]]; then
-            VCPKG_TARGET_TRIPLET="x64-osx-release"
-          elif [[ ${{ matrix.config.arch }} == "arm64" ]]; then
-            VCPKG_TARGET_TRIPLET="arm64-osx-release"
-          else
-            exit 1
-          fi
+          VCPKG_TARGET_TRIPLET="arm64-osx-release"
           echo "VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}" >> "$GITHUB_ENV"
 
           VCPKG_INSTALLATION_ROOT="/Users/runner/work/vcpkg"
@@ -161,20 +154,13 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE="quay.io/pypa/manylinux_2_28_x86_64"
           echo "CIBW_MANYLINUX_X86_64_IMAGE=${CIBW_MANYLINUX_X86_64_IMAGE}" >> "$GITHUB_ENV"
 
-      # See https://cibuildwheel.pypa.io/en/stable/faq/#macos-building-cpython-38-wheels-on-arm64
-      - name: Install ARM64 Python 3.8
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.8
-        if: runner.os == 'macOS' && runner.arch == 'ARM64' && ${{ matrix.config.arch }} == "arm64"
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.23.2
+        uses: pypa/cibuildwheel@v3.1.2
         with:
           package-dir: ./
         env:
           CIBW_ARCHS_MACOS: ${{ matrix.config.arch }}
-          CIBW_TEST_REQUIRES: 'pytest enlighten==1.13.0'
-          CIBW_TEST_COMMAND: 'pytest {project}/python/examples/custom_incremental_pipeline_test.py'
+
       - name: Archive wheels
         uses: actions/upload-artifact@v4
         with:

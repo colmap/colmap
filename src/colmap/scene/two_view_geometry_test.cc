@@ -29,7 +29,6 @@
 
 #include "colmap/scene/two_view_geometry.h"
 
-#include "colmap/geometry/pose.h"
 #include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>

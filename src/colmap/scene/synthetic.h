@@ -32,7 +32,6 @@
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
-#include "colmap/util/types.h"
 
 namespace colmap {
 
@@ -43,6 +42,7 @@ struct SyntheticDatasetOptions {
   int num_points3D = 100;
 
   double sensor_from_rig_translation_stddev = 0.05;
+  double sensor_from_rig_rotation_stddev = 5.;  // in degrees
 
   int camera_width = 1024;
   int camera_height = 768;

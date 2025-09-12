@@ -62,6 +62,8 @@ bool IncrementalMapper::Options::Check() const {
   CHECK_OPTION_GE(filter_max_reproj_error, 0.0);
   CHECK_OPTION_GE(filter_min_tri_angle, 0.0);
   CHECK_OPTION_GE(max_reg_trials, 1);
+  CHECK_OPTION_GE(num_threads, -1);
+  CHECK_OPTION_GE(random_seed, -1);
   return true;
 }
 
@@ -112,9 +114,9 @@ void IncrementalMapper::EndReconstruction(const bool discard) {
 }
 
 bool IncrementalMapper::FindInitialImagePair(const Options& options,
-                                             TwoViewGeometry& two_view_geometry,
                                              image_t& image_id1,
-                                             image_t& image_id2) {
+                                             image_t& image_id2,
+                                             Rigid3d& cam2_from_cam1) {
   return IncrementalMapperImpl::FindInitialImagePair(
       options,
       *database_cache_,
@@ -122,9 +124,9 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
       reg_stats_.init_num_reg_trials,
       reg_stats_.num_registrations,
       reg_stats_.init_image_pairs,
-      two_view_geometry,
       image_id1,
-      image_id2);
+      image_id2,
+      cam2_from_cam1);
 }
 
 std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
@@ -132,13 +134,11 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
       options, *obs_manager_, filtered_frames_, reg_stats_.num_reg_trials);
 }
 
-// TODO(jsch): Better handle non-trivial frames by performing generalized
-// relative pose estimation.
 void IncrementalMapper::RegisterInitialImagePair(
     const Options& options,
-    const TwoViewGeometry& two_view_geometry,
     const image_t image_id1,
-    const image_t image_id2) {
+    const image_t image_id2,
+    const Rigid3d& cam2_from_cam1) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
   THROW_CHECK_EQ(reconstruction_->NumRegFrames(), 0);
@@ -150,8 +150,7 @@ void IncrementalMapper::RegisterInitialImagePair(
   reg_stats_.num_reg_trials[image_id1] += 1;
   reg_stats_.num_reg_trials[image_id2] += 1;
 
-  const image_pair_t pair_id =
-      Database::ImagePairToPairId(image_id1, image_id2);
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
   reg_stats_.init_image_pairs.insert(pair_id);
 
   Image& image1 = reconstruction_->Image(image_id1);
@@ -162,8 +161,7 @@ void IncrementalMapper::RegisterInitialImagePair(
   //////////////////////////////////////////////////////////////////////////////
 
   image1.FramePtr()->SetCamFromWorld(image1.CameraId(), Rigid3d());
-  image2.FramePtr()->SetCamFromWorld(image2.CameraId(),
-                                     two_view_geometry.cam2_from_cam1);
+  image2.FramePtr()->SetCamFromWorld(image2.CameraId(), cam2_from_cam1);
 
   //////////////////////////////////////////////////////////////////////////////
   // Update Reconstruction
@@ -304,38 +302,45 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   abs_pose_options.ransac_options.max_error = options.abs_pose_max_error;
   abs_pose_options.ransac_options.min_inlier_ratio =
       options.abs_pose_min_inlier_ratio;
+  abs_pose_options.ransac_options.random_seed = options.random_seed;
 
   AbsolutePoseRefinementOptions abs_pose_refinement_options;
-  if (reg_stats_.num_reg_images_per_camera[image.CameraId()] > 0) {
-    // Camera already refined from another image with the same camera.
-    if (camera.HasBogusParams(options.min_focal_length_ratio,
-                              options.max_focal_length_ratio,
-                              options.max_extra_param)) {
+  if (options.constant_cameras.count(image.CameraId()) > 0) {
+    abs_pose_options.estimate_focal_length = false;
+    abs_pose_refinement_options.refine_focal_length = false;
+    abs_pose_refinement_options.refine_extra_params = false;
+  } else {
+    if (reg_stats_.num_reg_images_per_camera[image.CameraId()] > 0) {
+      // Camera already refined from another image with the same camera.
+      if (camera.HasBogusParams(options.min_focal_length_ratio,
+                                options.max_focal_length_ratio,
+                                options.max_extra_param)) {
+        abs_pose_options.estimate_focal_length = !camera.has_prior_focal_length;
+        abs_pose_refinement_options.refine_focal_length = true;
+        abs_pose_refinement_options.refine_extra_params = true;
+      } else {
+        abs_pose_options.estimate_focal_length = false;
+        abs_pose_refinement_options.refine_focal_length = false;
+        abs_pose_refinement_options.refine_extra_params = false;
+      }
+    } else {
+      // Camera not refined before. Note that the camera parameters might have
+      // been changed before but the image was filtered, so we explicitly reset
+      // the camera parameters and try to re-estimate them.
+      camera.params = database_cache_->Camera(image.CameraId()).params;
       abs_pose_options.estimate_focal_length = !camera.has_prior_focal_length;
       abs_pose_refinement_options.refine_focal_length = true;
       abs_pose_refinement_options.refine_extra_params = true;
-    } else {
+    }
+
+    if (!options.abs_pose_refine_focal_length) {
       abs_pose_options.estimate_focal_length = false;
       abs_pose_refinement_options.refine_focal_length = false;
+    }
+
+    if (!options.abs_pose_refine_extra_params) {
       abs_pose_refinement_options.refine_extra_params = false;
     }
-  } else {
-    // Camera not refined before. Note that the camera parameters might have
-    // been changed before but the image was filtered, so we explicitly reset
-    // the camera parameters and try to re-estimate them.
-    camera.params = database_cache_->Camera(image.CameraId()).params;
-    abs_pose_options.estimate_focal_length = !camera.has_prior_focal_length;
-    abs_pose_refinement_options.refine_focal_length = true;
-    abs_pose_refinement_options.refine_extra_params = true;
-  }
-
-  if (!options.abs_pose_refine_focal_length) {
-    abs_pose_options.estimate_focal_length = false;
-    abs_pose_refinement_options.refine_focal_length = false;
-  }
-
-  if (!options.abs_pose_refine_extra_params) {
-    abs_pose_refinement_options.refine_extra_params = false;
   }
 
   // If any of the cameras in the same rig has bogus cameras, reset them to the
@@ -523,6 +528,7 @@ bool IncrementalMapper::RegisterNextGeneralFrame(const Options& options,
   RANSACOptions abs_pose_options;
   abs_pose_options.max_error = options.abs_pose_max_error;
   abs_pose_options.min_inlier_ratio = options.abs_pose_min_inlier_ratio;
+  abs_pose_options.random_seed = options.random_seed;
 
   AbsolutePoseRefinementOptions abs_pose_refinement_options;
   abs_pose_refinement_options.refine_focal_length = false;
@@ -687,9 +693,8 @@ IncrementalMapper::AdjustLocalBundle(
       num_frames_per_rig[frame.RigId()] += 1;
     }
     for (const auto& [rig_id, num_frames] : num_frames_per_rig) {
-      const size_t num_reg_frames_for_rig =
-          reg_stats_.num_reg_frames_per_rig.at(rig_id);
-      if (num_frames < num_reg_frames_for_rig) {
+      if (options.constant_rigs.count(rig_id) ||
+          num_frames < reg_stats_.num_reg_frames_per_rig.at(rig_id)) {
         const Rig& rig = reconstruction_->Rig(rig_id);
         for (const auto& [sensor_id, _] : rig.Sensors()) {
           ba_config.SetConstantSensorFromRigPose(sensor_id);
@@ -697,18 +702,16 @@ IncrementalMapper::AdjustLocalBundle(
       }
     }
 
-    // Fix camera intrinsics, if not all images within local bundle.
+    // Fix camera intrinsics, if not all registered images within local bundle.
     std::unordered_map<camera_t, size_t> num_images_per_camera;
     num_images_per_camera.reserve(ba_config.NumImages());
     for (const image_t image_id : ba_config.Images()) {
       const Image& image = reconstruction_->Image(image_id);
-      num_frames_per_rig[image.FramePtr()->RigId()] += 1;
       num_images_per_camera[image.CameraId()] += 1;
     }
     for (const auto& [camera_id, num_images] : num_images_per_camera) {
-      const size_t num_reg_images_for_camera =
-          reg_stats_.num_reg_images_per_camera.at(camera_id);
-      if (num_images < num_reg_images_for_camera) {
+      if (options.constant_cameras.count(camera_id) ||
+          num_images < reg_stats_.num_reg_images_per_camera.at(camera_id)) {
         ba_config.SetConstantCamIntrinsics(camera_id);
       }
     }
@@ -805,13 +808,28 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
   }
 
+  for (const auto& rig_id : options.constant_rigs) {
+    const Rig& rig = reconstruction_->Rig(rig_id);
+    for (const auto& [sensor_id, _] : rig.Sensors()) {
+      ba_config.SetConstantSensorFromRigPose(sensor_id);
+    }
+  }
+
+  for (const auto& camera_id : options.constant_cameras) {
+    ba_config.SetConstantCamIntrinsics(camera_id);
+  }
+
   // Only use prior pose if at least 3 images have been registered.
   const bool use_prior_position =
       options.use_prior_position && ba_config.NumImages() > 2;
 
   std::unique_ptr<BundleAdjuster> bundle_adjuster;
   if (!use_prior_position) {
-    ba_config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
+    // Fixing the gauge with two cameras leads to a more stable optimization
+    // with fewer steps as compared to fixing three points.
+    // TODO(jsch): Investigate whether it is safe to not fix the gauge at all,
+    // as initial experiments show that it is even faster.
+    ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
     bundle_adjuster = CreateDefaultBundleAdjuster(
         std::move(custom_ba_options), ba_config, *reconstruction_);
   } else {
@@ -819,6 +837,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
     prior_options.use_robust_loss_on_prior_position =
         options.use_robust_loss_on_prior_position;
     prior_options.prior_position_loss_scale = options.prior_position_loss_scale;
+    prior_options.alignment_ransac_options.random_seed = options.random_seed;
     bundle_adjuster =
         CreatePosePriorBundleAdjuster(std::move(custom_ba_options),
                                       prior_options,
@@ -916,8 +935,11 @@ size_t IncrementalMapper::FilterFrames(const Options& options) {
                                  options.max_extra_param);
 
   for (const frame_t frame_id : frame_ids) {
-    DeRegisterFrameEvent(frame_id);
-    filtered_frames_.insert(frame_id);
+    if (!options.fix_existing_frames ||
+        existing_frame_ids_.count(frame_id) == 0) {
+      DeRegisterFrameEvent(frame_id);
+      filtered_frames_.insert(frame_id);
+    }
   }
 
   const size_t num_filtered_frames = frame_ids.size();
@@ -1048,9 +1070,9 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
     const IncrementalMapper::Options& options,
     const image_t image_id1,
     const image_t image_id2,
-    TwoViewGeometry& two_view_geometry) {
+    Rigid3d& cam2_from_cam1) {
   return IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
-      options, *database_cache_, image_id1, image_id2, two_view_geometry);
+      options, *database_cache_, image_id1, image_id2, cam2_from_cam1);
 }
 
 }  // namespace colmap

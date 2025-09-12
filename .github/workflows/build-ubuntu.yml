@@ -23,6 +23,7 @@ jobs:
         config: [
           {
             os: ubuntu-24.04,
+            qtVersion: 6,
             cmakeBuildType: RelWithDebInfo,
             asanEnabled: false,
             guiEnabled: true,
@@ -33,6 +34,7 @@ jobs:
           },
           {
             os: ubuntu-22.04,
+            qtVersion: 6,
             cmakeBuildType: Release,
             asanEnabled: false,
             guiEnabled: true,
@@ -43,6 +45,7 @@ jobs:
           },
           {
             os: ubuntu-22.04,
+            qtVersion: 5,
             cmakeBuildType: Release,
             asanEnabled: false,
             guiEnabled: false,
@@ -53,6 +56,7 @@ jobs:
           },
           {
             os: ubuntu-24.04,
+            qtVersion: 6,
             cmakeBuildType: Release,
             asanEnabled: true,
             guiEnabled: false,
@@ -63,6 +67,7 @@ jobs:
           },
           {
             os: ubuntu-24.04,
+            qtVersion: 6,
             cmakeBuildType: ClangTidy,
             asanEnabled: false,
             guiEnabled: false,
@@ -79,15 +84,19 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       CTCACHE_DIR: ${{ github.workspace }}/compiler-cache/ctcache
+      GLOG_v: 2
+      GLOG_logtostderr: 1
 
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/cache@v4
         id: cache-builds
         with:
           key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
           restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
           path: ${{ env.COMPILER_CACHE_DIR }}
+
       - name: Install compiler cache
         run: |
           mkdir -p "$CCACHE_DIR" "$CTCACHE_DIR"
@@ -113,7 +122,7 @@ jobs:
         if: matrix.config.checkCodeFormat
         run: |
           set +x -euo pipefail
-          python -m pip install ruff==0.6.7 clang-format==19.1.0
+          python -m pip install ruff==0.12.7 clang-format==19.1.0
           ./scripts/format/c++.sh
           ./scripts/format/python.sh
           git diff --name-only
@@ -121,6 +130,12 @@ jobs:
 
       - name: Setup Ubuntu
         run: |
+          if [ "${{ matrix.config.qtVersion }}" == "5" ]; then
+            qt_packages="qtbase5-dev libqt5opengl5-dev libcgal-qt5-dev"
+          elif [ "${{ matrix.config.qtVersion }}" == "6" ]; then
+            qt_packages="qt6-base-dev libqt6opengl6-dev libqt6openglwidgets6"
+          fi
+
           sudo apt-get update && sudo apt-get install -y \
             build-essential \
             cmake \
@@ -137,14 +152,12 @@ jobs:
             libgmock-dev \
             libsqlite3-dev \
             libglew-dev \
-            qtbase5-dev \
-            libqt5opengl5-dev \
+            $qt_packages \
             libcgal-dev \
-            libcgal-qt5-dev \
             libgl1-mesa-dri \
             libunwind-dev \
             libcurl4-openssl-dev \
-            libopenblas-openmp-dev \
+            libmkl-full-dev \
             xvfb
 
           if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
@@ -196,7 +209,8 @@ jobs:
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} \
             -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \
             -DASAN_ENABLED=${{ matrix.config.asanEnabled }} \
-            -DCOVERAGE_ENABLED=${{ matrix.config.coverageEnabled }}
+            -DCOVERAGE_ENABLED=${{ matrix.config.coverageEnabled }} \
+            -DBLA_VENDOR=Intel10_64lp
           ninja -k 10000
 
       - name: Install and build sample
@@ -227,8 +241,6 @@ jobs:
           Xvfb :99 &
           sleep 3
           cd build
-          export GLOG_v=1
-          export GLOG_logtostderr=1
           ctest -E "$ctestExclusions" --output-on-failure
 
       - name: Run E2E tests
@@ -247,7 +259,8 @@ jobs:
               --colmap_path ./build/src/colmap/exe/colmap \
               --dataset_names boulders,door \
               --max_rotation_error 1.0 \
-              --max_proj_center_error 0.05
+              --max_proj_center_error 0.05 \
+              --use_cpu
 
       - name: Generate coverage report
         if: matrix.config.coverageEnabled
@@ -276,6 +289,7 @@ jobs:
           indicators: true
           output: both
           thresholds: '75 90'
+
       # TODO: Add code coverage comment to PR. Currently, this action reports
       # coverage for the entire repository, not just the changed files in the PR.
       # We could manually filter the coverage report to only include the changed

@@ -156,8 +156,7 @@ void ObservationManager::SetObservationAsTriangulated(
     // only count the correspondences once (not twice forward and backward).
     if (point2D.point3D_id == corr_point2D.point3D_id &&
         (is_continued_point3D || image_id < corr->image_id)) {
-      const image_pair_t pair_id =
-          Database::ImagePairToPairId(image_id, corr->image_id);
+      const image_pair_t pair_id = ImagePairToPairId(image_id, corr->image_id);
       auto& stats = image_pair_stats_[pair_id];
       stats.num_tri_corrs += 1;
       THROW_CHECK_LE(stats.num_tri_corrs, stats.num_total_corrs)
@@ -188,8 +187,7 @@ void ObservationManager::ResetTriObservations(const image_t image_id,
     // only count the correspondences once (not twice forward and backward).
     if (point2D.point3D_id == corr_point2D.point3D_id &&
         (!is_deleted_point3D || image_id < corr->image_id)) {
-      const image_pair_t pair_id =
-          Database::ImagePairToPairId(image_id, corr->image_id);
+      const image_pair_t pair_id = ImagePairToPairId(image_id, corr->image_id);
       THROW_CHECK_GT(image_pair_stats_[pair_id].num_tri_corrs, 0)
           << "The scene graph graph must not contain duplicate matches";
       image_pair_stats_[pair_id].num_tri_corrs -= 1;
@@ -280,12 +278,12 @@ size_t ObservationManager::FilterPoints3D(
     const double max_reproj_error,
     const double min_tri_angle,
     const std::unordered_set<point3D_t>& point3D_ids) {
-  size_t num_filtered = 0;
-  num_filtered +=
+  size_t num_filtered_observations = 0;
+  num_filtered_observations +=
       FilterPoints3DWithLargeReprojectionError(max_reproj_error, point3D_ids);
-  num_filtered +=
+  num_filtered_observations +=
       FilterPoints3DWithSmallTriangulationAngle(min_tri_angle, point3D_ids);
-  return num_filtered;
+  return num_filtered_observations;
 }
 
 size_t ObservationManager::FilterPoints3DInImages(
@@ -311,12 +309,12 @@ size_t ObservationManager::FilterAllPoints3D(const double max_reproj_error,
   // a point stable through a large triangulation angle.
   const std::unordered_set<point3D_t>& point3D_ids =
       reconstruction_.Point3DIds();
-  size_t num_filtered = 0;
-  num_filtered +=
+  size_t num_filtered_observations = 0;
+  num_filtered_observations +=
       FilterPoints3DWithLargeReprojectionError(max_reproj_error, point3D_ids);
-  num_filtered +=
+  num_filtered_observations +=
       FilterPoints3DWithSmallTriangulationAngle(min_tri_angle, point3D_ids);
-  return num_filtered;
+  return num_filtered_observations;
 }
 
 size_t ObservationManager::FilterObservationsWithNegativeDepth() {
@@ -345,8 +343,8 @@ size_t ObservationManager::FilterObservationsWithNegativeDepth() {
 size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
     const double min_tri_angle,
     const std::unordered_set<point3D_t>& point3D_ids) {
-  // Number of filtered points.
-  size_t num_filtered = 0;
+  // Number of filtered observations.
+  size_t num_filtered_observations = 0;
 
   // Minimum triangulation angle in radians.
   const double min_tri_angle_rad = DegToRad(min_tri_angle);
@@ -396,12 +394,12 @@ size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
     }
 
     if (!keep_point) {
-      num_filtered += 1;
+      num_filtered_observations += point3D.track.Length();
       DeletePoint3D(point3D_id);
     }
   }
 
-  return num_filtered;
+  return num_filtered_observations;
 }
 
 size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
@@ -409,8 +407,8 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
     const std::unordered_set<point3D_t>& point3D_ids) {
   const double max_squared_reproj_error = max_reproj_error * max_reproj_error;
 
-  // Number of filtered points.
-  size_t num_filtered = 0;
+  // Number of filtered observations.
+  size_t num_filtered_observations = 0;
 
   for (const auto point3D_id : point3D_ids) {
     if (!reconstruction_.ExistsPoint3D(point3D_id)) {
@@ -420,7 +418,7 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
     struct Point3D& point3D = reconstruction_.Point3D(point3D_id);
 
     if (point3D.track.Length() < 2) {
-      num_filtered += point3D.track.Length();
+      num_filtered_observations += point3D.track.Length();
       DeletePoint3D(point3D_id);
       continue;
     }
@@ -443,10 +441,10 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
     }
 
     if (track_els_to_delete.size() >= point3D.track.Length() - 1) {
-      num_filtered += point3D.track.Length();
+      num_filtered_observations += point3D.track.Length();
       DeletePoint3D(point3D_id);
     } else {
-      num_filtered += track_els_to_delete.size();
+      num_filtered_observations += track_els_to_delete.size();
       for (const auto& track_el : track_els_to_delete) {
         DeleteObservation(track_el.image_id, track_el.point2D_idx);
       }
@@ -454,7 +452,7 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
     }
   }
 
-  return num_filtered;
+  return num_filtered_observations;
 }
 
 void ObservationManager::DeRegisterFrame(const frame_t frame_id) {

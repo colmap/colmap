@@ -22,14 +22,14 @@ jobs:
       matrix:
         config: [
           {
-            os: windows-2022,
+            os: windows-2025,
             cmakeBuildType: Release,
             cudaEnabled: true,
             testsEnabled: true,
             exportPackage: true,
           },
           {
-            os: windows-2022,
+            os: windows-2025,
             cmakeBuildType: Release,
             cudaEnabled: false,
             testsEnabled: true,
@@ -42,13 +42,15 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
-      VCPKG_COMMIT_ID: bc3512a509f9d29b37346a7e7e929f9a26e66c7e
-      GLOG_v: 1
+      GLOG_v: 2
       GLOG_logtostderr: 1
+      CUDA_MAJOR_VERSION: 12
+      CUDA_MINOR_VERSION: 6
+      CUDA_PATCH_VERSION: 2
 
     steps:
       - uses: actions/checkout@v4
-      
+
       # We define the vcpkg binary sources using separate variables for read and
       # write operations:
       # * Read sources are defined as inline. These can be read by anyone and,
@@ -79,7 +81,7 @@ jobs:
           key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
           restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
           path: ${{ env.COMPILER_CACHE_DIR }}
-      
+
       - name: Install ccache
         shell: pwsh
         run: |
@@ -95,7 +97,7 @@ jobs:
         if: matrix.config.cudaEnabled
         id: cuda-toolkit
         with:
-          cuda: '12.6.2'
+          cuda: '${{ env.CUDA_MAJOR_VERSION }}.${{ env.CUDA_MINOR_VERSION }}.${{ env.CUDA_PATCH_VERSION }}'
           sub-packages: '["nvcc", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
           method: 'network'
 
@@ -106,7 +108,6 @@ jobs:
           cd ${{ github.workspace }}
           git clone https://github.com/microsoft/vcpkg
           cd vcpkg
-          git reset --hard ${{ env.VCPKG_COMMIT_ID }}
           ./bootstrap-vcpkg.bat
 
       - name: Install CMake and Ninja
@@ -163,7 +164,7 @@ jobs:
           ../vcpkg/vcpkg.exe export --raw --output-dir vcpkg_export --output colmap
           cp vcpkg_export/colmap/installed/x64-windows/bin/*.dll install/bin
           cp vcpkg_export/colmap/installed/x64-windows-release/bin/*.dll install/bin
-          cp -r vcpkg_export/colmap/installed/x64-windows/plugins install
+          cp -r vcpkg_export/colmap/installed/x64-windows/Qt6/plugins install
           if ($${{ matrix.config.cudaEnabled }}) {
               cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/cudart64_*.dll" install/bin
               cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/curand64_*.dll" install/bin

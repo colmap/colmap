@@ -30,6 +30,7 @@
 #include "colmap/optim/least_absolute_deviations.h"
 
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/logging.h"
 
 #include <Eigen/SparseCholesky>
 

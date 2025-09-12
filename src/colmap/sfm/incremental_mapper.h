@@ -118,6 +118,14 @@ class IncrementalMapper {
     // If reconstruction is provided as input, fix the existing image poses.
     bool fix_existing_frames = false;
 
+    // List of rigs for which to fix the sensor_from_rig transformation,
+    // independent of ba_refine_sensor_from_rig.
+    std::unordered_set<rig_t> constant_rigs;
+
+    // List of cameras for which to fix the camera parameters independent
+    // of refine_focal_length, refine_principal_point, and refine_extra_params.
+    std::unordered_set<camera_t> constant_cameras;
+
     // Whether to use prior camera positions
     bool use_prior_position = false;
 
@@ -130,6 +138,9 @@ class IncrementalMapper {
 
     // Number of threads.
     int num_threads = -1;
+
+    // PRNG seed for all stochastic methods during reconstruction.
+    int random_seed = -1;
 
     // Method to find and select next best image to register.
     enum class ImageSelectionMethod {
@@ -170,9 +181,9 @@ class IncrementalMapper {
   // pairs should be passed to `RegisterInitialImagePair`. This function
   // automatically ignores image pairs that failed to register previously.
   bool FindInitialImagePair(const Options& options,
-                            TwoViewGeometry& two_view_geometry,
                             image_t& image_id1,
-                            image_t& image_id2);
+                            image_t& image_id2,
+                            Rigid3d& cam2_from_cam1);
 
   // Find best next image to register in the incremental reconstruction. The
   // images should be passed to `RegisterNextImage`. This function automatically
@@ -181,9 +192,9 @@ class IncrementalMapper {
 
   // Attempt to seed the reconstruction from an image pair.
   void RegisterInitialImagePair(const Options& options,
-                                const TwoViewGeometry& two_view_geometry,
                                 image_t image_id1,
-                                image_t image_id2);
+                                image_t image_id2,
+                                const Rigid3d& cam2_from_cam1);
 
   // Attempt to register image to the existing model. This requires that
   // a previous call to `RegisterInitialImagePair` was successful.
@@ -284,7 +295,7 @@ class IncrementalMapper {
   bool EstimateInitialTwoViewGeometry(const Options& options,
                                       image_t image_id1,
                                       image_t image_id2,
-                                      TwoViewGeometry& two_view_geometry);
+                                      Rigid3d& cam2_from_cam1);
 
   // Find local bundle for given image in the reconstruction. The local bundle
   // is defined as the images that are most connected, i.e. maximum number of

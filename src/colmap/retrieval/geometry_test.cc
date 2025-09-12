@@ -32,8 +32,6 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/eigen_matchers.h"
 
-#include <iostream>
-
 #include <Eigen/Dense>
 #include <gtest/gtest.h>
 

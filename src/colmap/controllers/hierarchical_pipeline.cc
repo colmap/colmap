@@ -30,6 +30,7 @@
 #include "colmap/controllers/hierarchical_pipeline.h"
 
 #include "colmap/estimators/alignment.h"
+#include "colmap/scene/database.h"
 #include "colmap/scene/scene_clustering.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/misc.h"
@@ -116,6 +117,14 @@ HierarchicalPipeline::HierarchicalPipeline(
     : options_(options),
       reconstruction_manager_(std::move(reconstruction_manager)) {
   THROW_CHECK(options_.Check());
+  if (options_.incremental_options.ba_refine_sensor_from_rig) {
+    LOG(WARNING)
+        << "The hierarchical reconstruction pipeline currently does not work "
+           "robustly when refining the rig extrinsics, because overlapping "
+           "frames in different child clusters are optimized independently and "
+           "can thus diverge significantly. The merging of clusters oftentimes "
+           "fails in these cases.";
+  }
 }
 
 void HierarchicalPipeline::Run() {
@@ -127,10 +136,10 @@ void HierarchicalPipeline::Run() {
   // Cluster scene graph
   //////////////////////////////////////////////////////////////////////////////
 
-  const Database database(options_.database_path);
+  auto database = Database::Open(options_.database_path);
 
   LOG(INFO) << "Reading images...";
-  const auto images = database.ReadAllImages();
+  const auto images = database->ReadAllImages();
   std::unordered_map<image_t, std::string> image_id_to_name;
   image_id_to_name.reserve(images.size());
   for (const auto& image : images) {
@@ -138,7 +147,7 @@ void HierarchicalPipeline::Run() {
   }
 
   SceneClustering scene_clustering =
-      SceneClustering::Create(options_.clustering_options, database);
+      SceneClustering::Create(options_.clustering_options, *database);
 
   auto leaf_clusters = scene_clustering.GetLeafClusters();
 
@@ -172,8 +181,9 @@ void HierarchicalPipeline::Run() {
 
   // Function to reconstruct one cluster using incremental mapping.
   auto ReconstructCluster =
-      [&, this](const SceneClustering::Cluster& cluster,
-                std::shared_ptr<ReconstructionManager> reconstruction_manager) {
+      [this, &image_id_to_name, num_threads_per_worker](
+          const SceneClustering::Cluster& cluster,
+          std::shared_ptr<ReconstructionManager> reconstruction_manager) {
         if (cluster.image_ids.empty()) {
           return;
         }
@@ -236,6 +246,11 @@ void HierarchicalPipeline::Run() {
   THROW_CHECK_GT(
       reconstruction_managers.begin()->second->Get(0)->NumRegImages(), 0);
   *reconstruction_manager_ = *reconstruction_managers.begin()->second;
+
+  for (size_t i = 0; i < reconstruction_manager_->Size(); ++i) {
+    auto reconstruction = reconstruction_manager_->Get(i);
+    reconstruction->UpdatePoint3DErrors();
+  }
 
   run_timer.PrintMinutes();
 }

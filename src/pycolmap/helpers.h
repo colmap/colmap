@@ -267,7 +267,7 @@ std::string CreateRepresentation(const T& self) {
 }
 
 template <typename T, typename... options>
-void AddDefaultsToDocstrings(py::class_<T, options...> cls) {
+void AddDefaultsToDocstrings(py::classh<T, options...> cls) {
   auto obj = cls();
   for (auto& handle : obj.attr("__dir__")()) {
     const std::string attribute = py::str(handle);
@@ -293,7 +293,7 @@ void AddDefaultsToDocstrings(py::class_<T, options...> cls) {
 }
 
 template <typename T, typename... options>
-void MakeDataclass(py::class_<T, options...> cls,
+void MakeDataclass(py::classh<T, options...> cls,
                    const std::vector<std::string>& attributes = {}) {
   AddDefaultsToDocstrings(cls);
   if (!py::hasattr(cls, "summary")) {

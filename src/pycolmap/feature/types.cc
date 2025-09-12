@@ -2,6 +2,7 @@
 
 #include "colmap/util/logging.h"
 
+#include "pycolmap/feature/types.h"
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 
@@ -15,7 +16,7 @@ namespace py = pybind11;
 
 void BindFeatureTypes(py::module& m) {
   auto PyFeatureKeypoint =
-      py::class_<FeatureKeypoint>(m, "FeatureKeypoint")
+      py::classh<FeatureKeypoint>(m, "FeatureKeypoint")
           .def(py::init<>())
           .def_readwrite("x", &FeatureKeypoint::x)
           .def_readwrite("y", &FeatureKeypoint::y)
@@ -35,9 +36,27 @@ void BindFeatureTypes(py::module& m) {
           .def("compute_shear", &FeatureKeypoint::ComputeShear)
           .def("__repr__", [](const FeatureKeypoint& keypoint) {
             std::ostringstream ss;
-            ss << "FeatureKeypoint("
-               << ", x=" << keypoint.x << ", y=" << keypoint.y << ")";
+            ss << "FeatureKeypoint(x=" << keypoint.x << ", y=" << keypoint.y
+               << ")";
             return ss.str();
           });
   MakeDataclass(PyFeatureKeypoint);
+  py::bind_vector<FeatureKeypoints>(m, "FeatureKeypoints");
+  py::implicitly_convertible<py::iterable, FeatureKeypoints>();
+
+  auto PyFeatureMatch =
+      py::classh<FeatureMatch>(m, "FeatureMatch")
+          .def(py::init<>())
+          .def(py::init<const point2D_t, const point2D_t>())
+          .def_readwrite("point2D_idx1", &FeatureMatch::point2D_idx1)
+          .def_readwrite("point2D_idx2", &FeatureMatch::point2D_idx2)
+          .def("__repr__", [](const FeatureMatch& match) {
+            std::ostringstream ss;
+            ss << "FeatureMatch(idx1=" << match.point2D_idx1
+               << ", idx2=" << match.point2D_idx2 << ")";
+            return ss.str();
+          });
+  MakeDataclass(PyFeatureMatch);
+  py::bind_vector<FeatureMatches>(m, "FeatureMatches");
+  py::implicitly_convertible<py::iterable, FeatureMatches>();
 }

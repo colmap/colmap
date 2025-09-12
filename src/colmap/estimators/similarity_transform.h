@@ -31,11 +31,9 @@
 
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/sim3.h"
-#include "colmap/optim/loransac.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/types.h"
 
 #include <vector>
 

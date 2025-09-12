@@ -211,32 +211,28 @@ def update_camera_priors_from_sparse_gt(
 ) -> None:
     pycolmap.logging.info("Setting prior cameras from GT")
 
-    database = pycolmap.Database()
-    database.open(database_path)
+    with pycolmap.Database.open(str(database_path)) as database:
+        camera_id_gt_to_camera_id = {}
+        for camera_id_gt, camera_gt in camera_priors_sparse_gt.cameras.items():
+            camera_gt.has_prior_focal_length = True
+            camera_id = database.write_camera(camera_gt)
+            camera_id_gt_to_camera_id[camera_id_gt] = camera_id
 
-    camera_id_gt_to_camera_id = {}
-    for camera_id_gt, camera_gt in camera_priors_sparse_gt.cameras.items():
-        camera_gt.has_prior_focal_length = True
-        camera_id = database.write_camera(camera_gt)
-        camera_id_gt_to_camera_id[camera_id_gt] = camera_id
+        images_gt_by_name = {}
+        for image_gt in camera_priors_sparse_gt.images.values():
+            images_gt_by_name[image_gt.name] = image_gt
 
-    images_gt_by_name = {}
-    for image_gt in camera_priors_sparse_gt.images.values():
-        images_gt_by_name[image_gt.name] = image_gt
-
-    for image in database.read_all_images():
-        if image.name not in images_gt_by_name:
-            pycolmap.logging.warning(
-                f"Not setting prior camera for image {image.name}, "
-                "because it does not exist in GT"
-            )
-            continue
-        image_gt = images_gt_by_name[image.name]
-        camera_id = camera_id_gt_to_camera_id[image_gt.camera_id]
-        image.camera_id = camera_id
-        database.update_image(image)
-
-    database.close()
+        for image in database.read_all_images():
+            if image.name not in images_gt_by_name:
+                pycolmap.logging.warning(
+                    f"Not setting prior camera for image {image.name}, "
+                    "because it does not exist in GT"
+                )
+                continue
+            image_gt = images_gt_by_name[image.name]
+            camera_id = camera_id_gt_to_camera_id[image_gt.camera_id]
+            image.camera_id = camera_id
+            database.update_image(image)
 
 
 def colmap_reconstruction(
@@ -821,10 +817,10 @@ def create_result_table(
     size_sep = size_scenes + size_aucs + size_imgs + size_comps + 3
     header = (
         f"{column:=^{size_scenes}} {label:=^{size_aucs}} "
-        f"{"images":=^{size_imgs}} {"components":=^{size_comps}}"
+        f"{'images':=^{size_imgs}} {'components':=^{size_comps}}"
     )
     header += "\n" + " " * (size_scenes + 1)
-    header += " ".join(f'{str(t).rstrip("."):^6}' for t in thresholds)
+    header += " ".join(f"{str(t).rstrip('.'):^6}" for t in thresholds)
     header += "    reg   all  num largest"
     text = [header]
     for dataset, category_metrics in dataset_metrics.items():
