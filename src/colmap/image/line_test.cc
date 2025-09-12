@@ -35,9 +35,9 @@ namespace colmap {
 namespace {
 
 #ifdef COLMAP_LSD_ENABLED
+
 TEST(DetectLineSegments, Nominal) {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 100, false);
+  Bitmap bitmap(100, 100, false);
   for (size_t i = 0; i < 100; ++i) {
     bitmap.SetPixel(i, i, BitmapColor<uint8_t>(255));
   }
@@ -57,8 +57,7 @@ TEST(DetectLineSegments, Nominal) {
 }
 
 TEST(ClassifyLineSegmentOrientations, Nominal) {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 100, false);
+  Bitmap bitmap(100, 100, false);
   for (size_t i = 60; i < 100; ++i) {
     bitmap.SetPixel(i, 50, BitmapColor<uint8_t>(255));
     bitmap.SetPixel(50, i, BitmapColor<uint8_t>(255));

@@ -46,19 +46,19 @@
 namespace colmap {
 namespace {
 
-void CreateImageWithSquare(const int size, Bitmap* bitmap) {
-  bitmap->Allocate(size, size, false);
-  bitmap->Fill(BitmapColor<uint8_t>(0, 0, 0));
+Bitmap CreateImageWithSquare(const int size) {
+  Bitmap bitmap(size, size, false);
+  bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
   for (int r = size / 2 - size / 8; r < size / 2 + size / 8; ++r) {
     for (int c = size / 2 - size / 8; c < size / 2 + size / 8; ++c) {
-      bitmap->SetPixel(r, c, BitmapColor<uint8_t>(255));
+      bitmap.SetPixel(r, c, BitmapColor<uint8_t>(255));
     }
   }
+  return bitmap;
 }
 
 TEST(ExtractSiftFeaturesCPU, Nominal) {
-  Bitmap bitmap;
-  CreateImageWithSquare(256, &bitmap);
+  const Bitmap bitmap = CreateImageWithSquare(256);
 
   FeatureExtractionOptions options(FeatureExtractorType::SIFT);
   options.use_gpu = false;
@@ -89,8 +89,7 @@ TEST(ExtractSiftFeaturesCPU, Nominal) {
 }
 
 TEST(ExtractCovariantSiftFeaturesCPU, Nominal) {
-  Bitmap bitmap;
-  CreateImageWithSquare(256, &bitmap);
+  const Bitmap bitmap = CreateImageWithSquare(256);
 
   FeatureExtractionOptions options(FeatureExtractorType::SIFT);
   options.use_gpu = false;
@@ -121,8 +120,7 @@ TEST(ExtractCovariantSiftFeaturesCPU, Nominal) {
 }
 
 TEST(ExtractCovariantAffineSiftFeaturesCPU, Nominal) {
-  Bitmap bitmap;
-  CreateImageWithSquare(256, &bitmap);
+  const Bitmap bitmap = CreateImageWithSquare(256);
 
   FeatureExtractionOptions options(FeatureExtractorType::SIFT);
   options.use_gpu = false;
@@ -153,8 +151,7 @@ TEST(ExtractCovariantAffineSiftFeaturesCPU, Nominal) {
 }
 
 TEST(ExtractCovariantAffineSiftFeaturesCPU, Upright) {
-  Bitmap bitmap;
-  CreateImageWithSquare(256, &bitmap);
+  const Bitmap bitmap = CreateImageWithSquare(256);
 
   FeatureExtractionOptions options(FeatureExtractorType::SIFT);
   options.use_gpu = false;
@@ -186,8 +183,7 @@ TEST(ExtractCovariantAffineSiftFeaturesCPU, Upright) {
 }
 
 TEST(ExtractCovariantDSPSiftFeaturesCPU, Nominal) {
-  Bitmap bitmap;
-  CreateImageWithSquare(256, &bitmap);
+  const Bitmap bitmap = CreateImageWithSquare(256);
 
   FeatureExtractionOptions options(FeatureExtractorType::SIFT);
   options.use_gpu = false;
@@ -218,8 +214,7 @@ TEST(ExtractCovariantDSPSiftFeaturesCPU, Nominal) {
 }
 
 TEST(ExtractCovariantAffineDSPSiftFeaturesCPU, Nominal) {
-  Bitmap bitmap;
-  CreateImageWithSquare(256, &bitmap);
+  const Bitmap bitmap = CreateImageWithSquare(256);
 
   FeatureExtractionOptions options(FeatureExtractorType::SIFT);
   options.use_gpu = false;
@@ -260,8 +255,7 @@ TEST(ExtractSiftFeaturesGPU, Nominal) {
     void Run() {
       opengl_context_.MakeCurrent();
 
-      Bitmap bitmap;
-      CreateImageWithSquare(256, &bitmap);
+      const Bitmap bitmap = CreateImageWithSquare(256);
 
       FeatureExtractionOptions options(FeatureExtractorType::SIFT);
       options.use_gpu = true;
