@@ -38,6 +38,7 @@ option(SIMD_ENABLED "Whether to enable SIMD optimizations" ON)
 option(OPENMP_ENABLED "Whether to enable OpenMP parallelization" ON)
 option(IPO_ENABLED "Whether to enable interprocedural optimization" ON)
 option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
+option(ONNX_ENABLED "Whether to enable ONNX, if available" ON)
 option(GUI_ENABLED "Whether to enable the graphical UI" ON)
 option(OPENGL_ENABLED "Whether to enable OpenGL, if available" ON)
 option(TESTS_ENABLED "Whether to build test binaries" OFF)
@@ -53,6 +54,7 @@ option(DOWNLOAD_ENABLED "Whether to enable (automatic) download of resources (re
 option(UNINSTALL_ENABLED "Whether to create a target to 'uninstall' colmap" ON)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
 option(FETCH_FAISS "Whether to consume faiss using FetchContent or find_package" ON)
+option(FETCH_ONNX "Whether to consume ONNX using FetchContent or find_package" ON)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
 
 # Disables default features, as we specify each required feature manually below.
@@ -64,6 +66,9 @@ if(TESTS_ENABLED)
 endif()
 if(CUDA_ENABLED)
     list(APPEND VCPKG_MANIFEST_FEATURES "cuda")
+endif()
+if(ONNX_ENABLED AND NOT FETCH_ONNX)
+    list(APPEND VCPKG_MANIFEST_FEATURES "onnx")
 endif()
 if(GUI_ENABLED)
     list(APPEND VCPKG_MANIFEST_FEATURES "gui")
@@ -256,8 +261,8 @@ include(GenerateVersionDefinitions)
 include_directories(src)
 link_directories(${COLMAP_LINK_DIRS})
 
-add_subdirectory(src/colmap)
 add_subdirectory(src/thirdparty)
+add_subdirectory(src/colmap)
 
 ################################################################################
 # Generate source groups for Visual Studio, XCode, etc.

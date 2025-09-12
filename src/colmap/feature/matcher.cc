@@ -30,12 +30,15 @@
 #include "colmap/feature/matcher.h"
 
 #include "colmap/feature/sift.h"
+#include "colmap/feature/xfeat.h"
 #include "colmap/util/misc.h"
 
 namespace colmap {
 
 FeatureMatchingOptions::FeatureMatchingOptions(FeatureMatcherType type)
-    : type(type), sift(std::make_shared<SiftMatchingOptions>()) {}
+    : type(type),
+      sift(std::make_shared<SiftMatchingOptions>()),
+      xfeat(std::make_shared<XFeatMatchingOptions>()) {}
 
 bool FeatureMatchingOptions::Check() const {
   if (use_gpu) {
@@ -49,6 +52,8 @@ bool FeatureMatchingOptions::Check() const {
   CHECK_OPTION_GE(max_num_matches, 0);
   if (type == FeatureMatcherType::SIFT) {
     return THROW_CHECK_NOTNULL(sift)->Check();
+  } else if (type == FeatureMatcherType::XFeat) {
+    return THROW_CHECK_NOTNULL(xfeat)->Check();
   } else {
     LOG(ERROR) << "Unknown feature matcher type: " << type;
     return false;
@@ -61,6 +66,8 @@ std::unique_ptr<FeatureMatcher> FeatureMatcher::Create(
   switch (options.type) {
     case FeatureMatcherType::SIFT:
       return CreateSiftFeatureMatcher(options);
+    case FeatureMatcherType::XFeat:
+      return CreateXFeatFeatureMatcher(options);
     default:
       std::ostringstream error;
       error << "Unknown feature matcher type: " << options.type;

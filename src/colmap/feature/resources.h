@@ -29,57 +29,24 @@
 
 #pragma once
 
-#include "colmap/feature/types.h"
-#include "colmap/sensor/bitmap.h"
-#include "colmap/util/enum_utils.h"
-
-#include <memory>
+#include <string>
 
 namespace colmap {
 
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureExtractorType, 0, SIFT, XFeat);
-
-struct SiftExtractionOptions;
-struct XFeatExtractionOptions;
-
-struct FeatureExtractionOptions {
-  explicit FeatureExtractionOptions(
-      FeatureExtractorType type = FeatureExtractorType::SIFT);
-
-  FeatureExtractorType type = FeatureExtractorType::SIFT;
-
-  // Maximum image size, otherwise image will be down-scaled.
-  int max_image_size = 3200;
-
-  // Number of threads for feature extraction.
-  int num_threads = -1;
-
-  // Whether to use the GPU for feature extraction.
-  bool use_gpu = true;
-
-  // Index of the GPU used for feature extraction. For multi-GPU extraction,
-  // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
-  std::string gpu_index = "-1";
-
-  std::shared_ptr<SiftExtractionOptions> sift;
-  std::shared_ptr<XFeatExtractionOptions> xfeat;
-
-  // Whether the selected extractor requires RGB (or grayscale) images.
-  bool RequiresRGB() const;
-
-  bool Check() const;
-};
-
-class FeatureExtractor {
- public:
-  virtual ~FeatureExtractor() = default;
-
-  static std::unique_ptr<FeatureExtractor> Create(
-      const FeatureExtractionOptions& options);
-
-  virtual bool Extract(const Bitmap& bitmap,
-                       FeatureKeypoints* keypoints,
-                       FeatureDescriptors* descriptors) = 0;
-};
+#ifdef COLMAP_DOWNLOAD_ENABLED
+const static std::string kDefaultXFeatExtractorUri =
+    "https://github.com/colmap/colmap/releases/download/3.12.5/"
+    "xfeat_extractor.onnx;"
+    "xfeat_extractor.onnx;"
+    "5473902f9930c9a68b7ae17f9979538e83ca29ffe8dd88ee9a7e8a7e732ba2fd";
+const static std::string kDefaultXFeatBruteForceMatcherUri =
+    "https://github.com/colmap/colmap/releases/download/3.12.5/"
+    "xfeat_bruteforce_matcher.onnx;"
+    "xfeat_bruteforce_matcher.onnx;"
+    "0acc99710454ac97768cad9fdfed70abdf5752136769e2d0f5b0e1f594ed644f";
+#else
+const static std::string kDefaultXFeatExtractorUri = "";
+const static std::string kDefaultXFeatBruteForceMatcherUri = "";
+#endif
 
 }  // namespace colmap
