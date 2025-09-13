@@ -157,6 +157,19 @@ ImageReader::Status ImageReader::Next(Rig* rig,
         }
       }
       if (!exists_mask) {
+        // Try replacing extension with .png
+        std::string base_name = image->Name();
+        size_t last_dot = base_name.find_last_of('.');
+        if (last_dot != std::string::npos) {
+          std::string alt_mask_path = JoinPaths(options_.mask_path,
+              base_name.substr(0, last_dot) + ".png");
+          if (ExistsFile(alt_mask_path)) {
+            mask_path = std::move(alt_mask_path);
+            exists_mask = true;
+          }
+        }
+      }
+      if (!exists_mask) {
         LOG(ERROR) << "Mask at " << mask_path << " does not exist.";
         return Status::MASK_ERROR;
       }
