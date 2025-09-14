@@ -41,7 +41,6 @@ if [ ! -d "${VCPKG_INSTALLATION_ROOT}" ]; then
     git clone https://github.com/microsoft/vcpkg ${VCPKG_INSTALLATION_ROOT}
 fi
 cd ${VCPKG_INSTALLATION_ROOT}
-git checkout ${VCPKG_COMMIT_ID}
 ./bootstrap-vcpkg.sh
 ./vcpkg integrate install
 

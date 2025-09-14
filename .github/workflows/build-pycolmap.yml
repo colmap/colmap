@@ -22,10 +22,10 @@ jobs:
     strategy:
       matrix:
         config: [
-          {os: ubuntu-latest, build_with_cuda: "OFF"},
+          {os: ubuntu-24.04, build_with_cuda: "OFF"},
           {os: macos-14, arch: arm64, deploymentTarget: 14.0, build_with_cuda: "OFF"},
-          {os: windows-latest, build_with_cuda: "OFF"},
-          {os: ubuntu-latest, build_with_cuda: "ON"},
+          {os: windows-2025, build_with_cuda: "OFF"},
+          {os: ubuntu-24.04, build_with_cuda: "ON"},
         ]
     env:
       COMPILER_CACHE_VERSION: 1
