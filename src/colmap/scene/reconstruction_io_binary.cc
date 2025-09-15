@@ -43,6 +43,31 @@
 
 namespace colmap {
 
+void ReadCamerasBinary(Reconstruction& reconstruction, std::istream& stream) {
+  THROW_CHECK(stream.good());
+
+  const size_t num_cameras = ReadBinaryLittleEndian<uint64_t>(&stream);
+  for (size_t i = 0; i < num_cameras; ++i) {
+    struct Camera camera;
+    camera.camera_id = ReadBinaryLittleEndian<camera_t>(&stream);
+    camera.model_id =
+        static_cast<CameraModelId>(ReadBinaryLittleEndian<int>(&stream));
+    camera.width = ReadBinaryLittleEndian<uint64_t>(&stream);
+    camera.height = ReadBinaryLittleEndian<uint64_t>(&stream);
+    camera.params.resize(CameraModelNumParams(camera.model_id), 0.);
+    ReadBinaryLittleEndian<double>(&stream, &camera.params);
+    THROW_CHECK(camera.VerifyParams());
+    reconstruction.AddCamera(std::move(camera));
+  }
+}
+
+void ReadCamerasBinary(Reconstruction& reconstruction,
+                       const std::string& path) {
+  std::ifstream file(path, std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
+  ReadCamerasBinary(reconstruction, file);
+}
+
 void ReadRigsBinary(Reconstruction& reconstruction, std::istream& stream) {
   THROW_CHECK(stream.good());
 
@@ -100,31 +125,6 @@ void ReadRigsBinary(Reconstruction& reconstruction, const std::string& path) {
   std::ifstream file(path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadRigsBinary(reconstruction, file);
-}
-
-void ReadCamerasBinary(Reconstruction& reconstruction, std::istream& stream) {
-  THROW_CHECK(stream.good());
-
-  const size_t num_cameras = ReadBinaryLittleEndian<uint64_t>(&stream);
-  for (size_t i = 0; i < num_cameras; ++i) {
-    struct Camera camera;
-    camera.camera_id = ReadBinaryLittleEndian<camera_t>(&stream);
-    camera.model_id =
-        static_cast<CameraModelId>(ReadBinaryLittleEndian<int>(&stream));
-    camera.width = ReadBinaryLittleEndian<uint64_t>(&stream);
-    camera.height = ReadBinaryLittleEndian<uint64_t>(&stream);
-    camera.params.resize(CameraModelNumParams(camera.model_id), 0.);
-    ReadBinaryLittleEndian<double>(&stream, &camera.params);
-    THROW_CHECK(camera.VerifyParams());
-    reconstruction.AddCamera(std::move(camera));
-  }
-}
-
-void ReadCamerasBinary(Reconstruction& reconstruction,
-                       const std::string& path) {
-  std::ifstream file(path, std::ios::binary);
-  THROW_CHECK_FILE_OPEN(file, path);
-  ReadCamerasBinary(reconstruction, file);
 }
 
 void ReadFramesBinary(Reconstruction& reconstruction, std::istream& stream) {
@@ -286,6 +286,31 @@ void ReadPoints3DBinary(Reconstruction& reconstruction,
   ReadPoints3DBinary(reconstruction, file);
 }
 
+void WriteCamerasBinary(const Reconstruction& reconstruction,
+                        std::ostream& stream) {
+  THROW_CHECK(stream.good());
+
+  WriteBinaryLittleEndian<uint64_t>(&stream, reconstruction.NumCameras());
+
+  for (const camera_t camera_id : ExtractSortedIds(reconstruction.Cameras())) {
+    const Camera& camera = reconstruction.Camera(camera_id);
+    WriteBinaryLittleEndian<camera_t>(&stream, camera_id);
+    WriteBinaryLittleEndian<int>(&stream, static_cast<int>(camera.model_id));
+    WriteBinaryLittleEndian<uint64_t>(&stream, camera.width);
+    WriteBinaryLittleEndian<uint64_t>(&stream, camera.height);
+    for (const double param : camera.params) {
+      WriteBinaryLittleEndian<double>(&stream, param);
+    }
+  }
+}
+
+void WriteCamerasBinary(const Reconstruction& reconstruction,
+                        const std::string& path) {
+  std::ofstream file(path, std::ios::trunc | std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
+  WriteCamerasBinary(reconstruction, file);
+}
+
 void WriteRigsBinary(const Reconstruction& reconstruction,
                      std::ostream& stream) {
   THROW_CHECK(stream.good());
@@ -327,31 +352,6 @@ void WriteRigsBinary(const Reconstruction& reconstruction,
   std::ofstream file(path, std::ios::trunc | std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   WriteRigsBinary(reconstruction, file);
-}
-
-void WriteCamerasBinary(const Reconstruction& reconstruction,
-                        std::ostream& stream) {
-  THROW_CHECK(stream.good());
-
-  WriteBinaryLittleEndian<uint64_t>(&stream, reconstruction.NumCameras());
-
-  for (const camera_t camera_id : ExtractSortedIds(reconstruction.Cameras())) {
-    const Camera& camera = reconstruction.Camera(camera_id);
-    WriteBinaryLittleEndian<camera_t>(&stream, camera_id);
-    WriteBinaryLittleEndian<int>(&stream, static_cast<int>(camera.model_id));
-    WriteBinaryLittleEndian<uint64_t>(&stream, camera.width);
-    WriteBinaryLittleEndian<uint64_t>(&stream, camera.height);
-    for (const double param : camera.params) {
-      WriteBinaryLittleEndian<double>(&stream, param);
-    }
-  }
-}
-
-void WriteCamerasBinary(const Reconstruction& reconstruction,
-                        const std::string& path) {
-  std::ofstream file(path, std::ios::trunc | std::ios::binary);
-  THROW_CHECK_FILE_OPEN(file, path);
-  WriteCamerasBinary(reconstruction, file);
 }
 
 void WriteFramesBinary(const Reconstruction& reconstruction,
