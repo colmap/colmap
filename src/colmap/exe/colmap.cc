@@ -123,7 +123,6 @@ int main(int argc, char** argv) {
   commands.emplace_back("poisson_mesher", &colmap::RunPoissonMesher);
   commands.emplace_back("project_generator", &colmap::RunProjectGenerator);
   commands.emplace_back("rig_configurator", &colmap::RunRigConfigurator);
-  commands.emplace_back("rig_bundle_adjuster", &colmap::RunRigBundleAdjuster);
   commands.emplace_back("sequential_matcher", &colmap::RunSequentialMatcher);
   commands.emplace_back("spatial_matcher", &colmap::RunSpatialMatcher);
   commands.emplace_back("stereo_fusion", &colmap::RunStereoFuser);
