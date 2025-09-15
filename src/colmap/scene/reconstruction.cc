@@ -136,7 +136,7 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
   cameras_.reserve(database_cache.NumCameras());
   for (const auto& [camera_id, camera] : database_cache.Cameras()) {
     if (ExistsCamera(camera_id)) {
-      class Camera& existing_camera = Camera(camera_id);
+      struct Camera& existing_camera = Camera(camera_id);
       THROW_CHECK_EQ(existing_camera.model_id, camera.model_id);
       THROW_CHECK_EQ(existing_camera.width, camera.width);
       THROW_CHECK_EQ(existing_camera.height, camera.height);
