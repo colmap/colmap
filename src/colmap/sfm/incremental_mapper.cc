@@ -875,7 +875,9 @@ void IncrementalMapper::IterativeGlobalRefinement(
     const IncrementalTriangulator::Options& tri_options,
     const bool normalize_reconstruction) {
   CompleteAndMergeTracks(tri_options);
-  VLOG(1) << "=> Retriangulated observations: " << Retriangulate(tri_options);
+  const size_t num_retriangulated_observations = Retriangulate(tri_options);
+  VLOG(1) << "=> Retriangulated observations: "
+          << num_retriangulated_observations;
   for (int i = 0; i < max_num_refinements; ++i) {
     const size_t num_observations = reconstruction_->ComputeNumObservations();
     AdjustGlobalBundle(options, ba_options);
