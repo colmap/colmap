@@ -508,22 +508,24 @@ void FixGaugeWithTwoCamsFromWorld(
 
   // Check if a sensor is either a reference sensor, or a non-reference sensor
   // with sensor_from_rig fixed.
-  auto IsParameterizedRefSensor = [&problem](const Image& image) {
+  auto IsParameterizedRefSensor = [&problem](
+                                      const Image& image,
+                                      const BundleAdjustmentConfig& config) {
     return problem.HasParameterBlock(
                image.FramePtr()->RigFromWorld().translation.data()) &&
            (image.FramePtr()->RigPtr()->IsRefSensor(
                 image.CameraPtr()->SensorId()) ||
-            config.HasConstantSensorFromRig(image.CameraPtr()->SensorId()));
+            config.HasConstantSensorFromRigPose(image.CameraPtr()->SensorId()));
   };
 
   // Otherwise, search through the variable cameras in the problem.
   Eigen::Index frame2_from_world_fixed_dim = 0;
   for (const image_t image_id : image_ids) {
     Image& image = reconstruction.Image(image_id);
-    if (image1 == nullptr && IsParameterizedRefSensor(image)) {
+    if (image1 == nullptr && IsParameterizedRefSensor(image, config)) {
       image1 = &image;
     } else if (image1 != nullptr && image1->FrameId() != image.FrameId() &&
-               IsParameterizedRefSensor(image)) {
+               IsParameterizedRefSensor(image, config)) {
       // Check if one of the baseline dimensions is large enough and
       // choose it as the fixed coordinate. If there is no such pair of
       // frames, then the scale is not constrained well.
