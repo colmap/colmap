@@ -135,7 +135,12 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
   // Add cameras.
   cameras_.reserve(database_cache.NumCameras());
   for (const auto& [camera_id, camera] : database_cache.Cameras()) {
-    if (!ExistsCamera(camera_id)) {
+    if (ExistsCamera(camera_id)) {
+      class Camera& existing_camera = Camera(camera_id);
+      THROW_CHECK_EQ(existing_camera.model_id, camera.model_id);
+      THROW_CHECK_EQ(existing_camera.width, camera.width);
+      THROW_CHECK_EQ(existing_camera.height, camera.height);
+    } else {
       AddCamera(camera);
     }
   }
@@ -143,7 +148,11 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
   // Add rigs.
   rigs_.reserve(database_cache.NumRigs());
   for (const auto& [rig_id, rig] : database_cache.Rigs()) {
-    if (!ExistsRig(rig_id)) {
+    if (ExistsRig(rig_id)) {
+      class Rig& existing_rig = Rig(rig_id);
+      THROW_CHECK(existing_rig.RefSensorId() == rig.RefSensorId());
+      THROW_CHECK(existing_rig.SensorIds() == rig.SensorIds());
+    } else {
       AddRig(rig);
     }
   }
@@ -151,7 +160,11 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
   // Add frames.
   frames_.reserve(database_cache.NumFrames());
   for (const auto& [frame_id, frame] : database_cache.Frames()) {
-    if (!ExistsFrame(frame_id)) {
+    if (ExistsFrame(frame_id)) {
+      class Frame& existing_frame = Frame(frame_id);
+      THROW_CHECK(existing_frame.RigId() == frame.RigId());
+      THROW_CHECK(existing_frame.DataIds() == frame.DataIds());
+    } else {
       AddFrame(frame);
     }
   }
