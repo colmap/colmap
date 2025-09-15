@@ -494,9 +494,9 @@ void FixGaugeWithTwoCamsFromWorld(
   // First, search through the already fixed cameras in the problem.
   for (const image_t image_id : image_ids) {
     Image& image = reconstruction.Image(image_id);
-    if (image.FramePtr()->RigPtr()->IsRefSensor(
-            image.CameraPtr()->SensorId()) &&
-        config.HasConstantRigFromWorldPose(image.FrameId())) {
+    if (config.HasConstantRigFromWorldPose(image.FrameId()) &&
+        problem.HasParameterBlock(
+            image.FramePtr()->RigFromWorld().translation.data())) {
       if (image1 == nullptr) {
         image1 = &image;
       } else if (image1 != nullptr && image1->FrameId() != image.FrameId()) {
@@ -506,11 +506,14 @@ void FixGaugeWithTwoCamsFromWorld(
     }
   }
 
+  // Check if a sensor is either a reference sensor, or a non-reference sensor
+  // with sensor_from_rig fixed.
   auto IsParameterizedRefSensor = [&problem](const Image& image) {
-    return image.FramePtr()->RigPtr()->IsRefSensor(
-               image.CameraPtr()->SensorId()) &&
-           problem.HasParameterBlock(
-               image.FramePtr()->RigFromWorld().translation.data());
+    return problem.HasParameterBlock(
+               image.FramePtr()->RigFromWorld().translation.data()) &&
+           (image.FramePtr()->RigPtr()->IsRefSensor(
+                image.CameraPtr()->SensorId()) ||
+            config.HasConstantSensorFromRig(image.CameraPtr()->SensorId()));
   };
 
   // Otherwise, search through the variable cameras in the problem.
