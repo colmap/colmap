@@ -8,39 +8,75 @@
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <Eigen/Geometry>
 
 using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindPosePrior(py::module& m) {
-  using PosePriorCoordinateSystem = PosePrior::CoordinateSystem;
-  py::enum_<PosePriorCoordinateSystem> PyCoordinateSystem(
-      m, "PosePriorCoordinateSystem");
-  PyCoordinateSystem.value("UNDEFINED", PosePriorCoordinateSystem::UNDEFINED)
-      .value("WGS84", PosePriorCoordinateSystem::WGS84)
-      .value("CARTESIAN", PosePriorCoordinateSystem::CARTESIAN);
-  AddStringToEnumConstructor(PyCoordinateSystem);
+    using PosePriorCoordinateSystem = PosePrior::CoordinateSystem;
 
-  py::classh_ext<PosePrior> PyPosePrior(m, "PosePrior");
-  PyPosePrior.def(py::init<>())
-      .def(py::init<const Eigen::Vector3d&>(), "position"_a)
-      .def(py::init<const Eigen::Vector3d&, const PosePriorCoordinateSystem>(),
-           "position"_a,
-           "coordinate_system"_a)
-      .def(py::init<const Eigen::Vector3d&, const Eigen::Matrix3d&>(),
-           "position"_a,
-           "position_covariance"_a)
-      .def(py::init<const Eigen::Vector3d&,
-                    const Eigen::Matrix3d&,
+    py::enum_<PosePriorCoordinateSystem> PyCoordinateSystem(
+        m, "PosePriorCoordinateSystem");
+    PyCoordinateSystem
+        .value("UNDEFINED", PosePriorCoordinateSystem::UNDEFINED)
+        .value("WGS84",     PosePriorCoordinateSystem::WGS84)
+        .value("CARTESIAN", PosePriorCoordinateSystem::CARTESIAN);
+    AddStringToEnumConstructor(PyCoordinateSystem);
+
+    py::classh_ext<PosePrior> PyPosePrior(m, "PosePrior");
+
+    PyPosePrior
+        .def(py::init<>())
+        .def(py::init<const Eigen::Vector3d&>(), "position"_a)
+        .def(py::init<const Eigen::Vector3d&, const PosePriorCoordinateSystem>(),
+            "position"_a, "coordinate_system"_a)
+        .def(py::init<const Eigen::Vector3d&, const Eigen::Matrix3d&>(),
+            "position"_a, "position_covariance"_a)
+        .def(py::init<const Eigen::Vector3d&, const Eigen::Matrix3d&,
                     const PosePriorCoordinateSystem>(),
-           "position"_a,
-           "position_covariance"_a,
-           "coordinate_system"_a)
-      .def_readwrite("position", &PosePrior::position)
-      .def_readwrite("position_covariance", &PosePrior::position_covariance)
-      .def_readwrite("coordinate_system", &PosePrior::coordinate_system)
-      .def("is_valid", &PosePrior::IsValid)
-      .def("is_covariance_valid", &PosePrior::IsCovarianceValid);
+            "position"_a, "position_covariance"_a, "coordinate_system"_a)
+        .def(py::init<const Eigen::Vector3d&, const Eigen::Quaterniond&>(),
+            "position"_a, "rotation"_a)
+        .def(py::init<const Eigen::Vector3d&, const Eigen::Quaterniond&,
+                    const PosePriorCoordinateSystem>(),
+            "position"_a, "rotation"_a, "coordinate_system"_a)
+        .def(py::init<const Eigen::Vector3d&, const Eigen::Quaterniond&,
+                    const Eigen::Matrix3d&>(),
+            "position"_a, "rotation"_a, "position_covariance"_a)
+        .def(py::init<const Eigen::Vector3d&, const Eigen::Quaterniond&,
+                    const Eigen::Matrix3d&, const PosePriorCoordinateSystem>(),
+            "position"_a, "rotation"_a, "position_covariance"_a, "coordinate_system"_a)
+        .def(py::init<const Eigen::Vector3d&, const Eigen::Matrix3d&,
+                    const Eigen::Matrix3d&>(),
+            "position"_a, "position_covariance"_a, "rotation_covariance"_a)
+        .def(py::init<const Eigen::Vector3d&, const Eigen::Matrix3d&,
+                    const Eigen::Matrix3d&, const PosePriorCoordinateSystem>(),
+            "position"_a, "position_covariance"_a, "rotation_covariance"_a, "coordinate_system"_a)
+        .def(py::init<const Eigen::Vector3d&, const Eigen::Quaterniond&,
+                    const Eigen::Matrix3d&, const Eigen::Matrix3d&>(),
+            "position"_a, "rotation"_a, "position_covariance"_a, "rotation_covariance"_a)
+        .def(py::init<const Eigen::Vector3d&, const Eigen::Quaterniond&,
+                    const Eigen::Matrix3d&, const Eigen::Matrix3d&,
+                    const PosePriorCoordinateSystem>(),
+            "position"_a, "rotation"_a, "position_covariance"_a, "rotation_covariance"_a,
+            "coordinate_system"_a)
+
+        .def_readwrite("position",             &PosePrior::position)
+        .def_readwrite("rotation",             &PosePrior::rotation)
+        .def_readwrite("position_covariance",  &PosePrior::position_covariance)
+        .def_readwrite("rotation_covariance",  &PosePrior::rotation_covariance)
+        .def_readwrite("coordinate_system",    &PosePrior::coordinate_system)
+
+        .def("is_valid",                    &PosePrior::IsValid)
+        .def("is_rotation_valid",           &PosePrior::IsRotationValid)
+        .def("is_covariance_valid",         &PosePrior::IsCovarianceValid)
+        .def("is_rotation_covariance_valid",&PosePrior::IsRotationCovarianceValid)
+        .def("has_rotation",                &PosePrior::HasRotation)
+
+        .def("__eq__", &PosePrior::operator==, py::is_operator())
+        .def("__ne__", &PosePrior::operator!=, py::is_operator());
+
   MakeDataclass(PyPosePrior);
 }
