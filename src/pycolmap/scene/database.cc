@@ -516,6 +516,11 @@ void BindDatabase(py::module& m) {
            &Database::WriteImage,
            "image"_a,
            "use_image_id"_a = false)
+      .def("write_rig", &Database::WriteRig, "rig"_a, "use_rig_id"_a = false)
+      .def("write_frame",
+           &Database::WriteFrame,
+           "frame"_a,
+           "use_frame_id"_a = false)
       .def("write_pose_prior",
            &Database::WritePosePrior,
            "image_id"_a,
