@@ -393,7 +393,7 @@ void BindDatabase(py::module& m) {
       .def("__exit__", [](Database& self, const py::args&) { self.Close(); })
       .def("exists_rig", &Database::ExistsRig, "rig_id"_a)
       .def("exists_camera", &Database::ExistsCamera, "camera_id"_a)
-      .def("exists_frame", &Database::ExistsFrame, "rig_id"_a)
+      .def("exists_frame", &Database::ExistsFrame, "frame_id"_a)
       .def("exists_image", &Database::ExistsImage, "image_id"_a)
       .def("exists_image", &Database::ExistsImageWithName, "name"_a)
       .def("exists_pose_prior", &Database::ExistsPosePrior, "image_id"_a)
