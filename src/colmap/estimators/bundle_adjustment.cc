@@ -491,12 +491,23 @@ void FixGaugeWithTwoCamsFromWorld(
   Image* image1 = nullptr;
   Image* image2 = nullptr;
 
+  // Check if a sensor is either a reference sensor, or a non-reference sensor
+  // with sensor_from_rig fixed.
+  auto IsParameterizedRefSensor = [&config, &problem](const Image& image) {
+    return problem.HasParameterBlock(
+               image.FramePtr()->RigFromWorld().rotation.coeffs().data()) &&
+           problem.HasParameterBlock(
+               image.FramePtr()->RigFromWorld().translation.data()) &&
+           (image.FramePtr()->RigPtr()->IsRefSensor(
+                image.CameraPtr()->SensorId()) ||
+            config.HasConstantSensorFromRigPose(image.CameraPtr()->SensorId()));
+  };
+
   // First, search through the already fixed cameras in the problem.
   for (const image_t image_id : image_ids) {
     Image& image = reconstruction.Image(image_id);
     if (config.HasConstantRigFromWorldPose(image.FrameId()) &&
-        problem.HasParameterBlock(
-            image.FramePtr()->RigFromWorld().translation.data())) {
+        IsParameterizedRefSensor(image)) {
       if (image1 == nullptr) {
         image1 = &image;
       } else if (image1 != nullptr && image1->FrameId() != image.FrameId()) {
@@ -506,26 +517,14 @@ void FixGaugeWithTwoCamsFromWorld(
     }
   }
 
-  // Check if a sensor is either a reference sensor, or a non-reference sensor
-  // with sensor_from_rig fixed.
-  auto IsParameterizedRefSensor = [&problem](
-                                      const Image& image,
-                                      const BundleAdjustmentConfig& config) {
-    return problem.HasParameterBlock(
-               image.FramePtr()->RigFromWorld().translation.data()) &&
-           (image.FramePtr()->RigPtr()->IsRefSensor(
-                image.CameraPtr()->SensorId()) ||
-            config.HasConstantSensorFromRigPose(image.CameraPtr()->SensorId()));
-  };
-
   // Otherwise, search through the variable cameras in the problem.
   Eigen::Index frame2_from_world_fixed_dim = 0;
   for (const image_t image_id : image_ids) {
     Image& image = reconstruction.Image(image_id);
-    if (image1 == nullptr && IsParameterizedRefSensor(image, config)) {
+    if (image1 == nullptr && IsParameterizedRefSensor(image)) {
       image1 = &image;
     } else if (image1 != nullptr && image1->FrameId() != image.FrameId() &&
-               IsParameterizedRefSensor(image, config)) {
+               IsParameterizedRefSensor(image)) {
       // Check if one of the baseline dimensions is large enough and
       // choose it as the fixed coordinate. If there is no such pair of
       // frames, then the scale is not constrained well.
