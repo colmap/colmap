@@ -7,20 +7,20 @@ COLMAP 3.12.6 (09/17/2025)
 
 Improvements
 ------------
-* Upgrade to pybind 3.0.1 and use smart holder for all classes
-* Support both Qt5 and Qt6
-* Ensure download support on Ubuntu by installing libssl-dev for crypto
-* Add bindings for mvs::model for covisibility support in pycolmap
+* Upgrade to pybind 3.0.1 and use smart holder for all classes.
+* Support both Qt5 and Qt6.
+* Ensure download support on Ubuntu by installing libssl-dev for crypto.
+* Add bindings for mvs::model for covisibility support in pycolmap.
 * Add missing rig and frame interfaces for pycolmap database.
 * Throw exception when the rig configurations of the database and existing reconstruction are inconsistent.
 * Improve the Gauge logic for fixing two views.
 
 Bug Fixes
 ---------
-* Fix focal length extraction from 35mm equivalent
-* Fix inconsistent pycolmap naming for RegisterFrame and DeRegisterFrame
-* Call Retriangulate irrespective of the logging level
-* Fix bundle adjustment with constant rig from world pose
+* Fix focal length extraction from 35mm equivalent.
+* Fix inconsistent pycolmap naming for RegisterFrame and DeRegisterFrame.
+* Call Retriangulate irrespective of the logging level.
+* Fix bundle adjustment with constant rig from world pose.
 
 --------------------------
 COLMAP 3.12.5 (08/22/2025)
