@@ -184,7 +184,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   Camera& camera = *image.CameraPtr();
 
   for (const auto& [_, sensor_from_rig] :
-       image.FramePtr()->RigPtr()->Sensors()) {
+       image.FramePtr()->RigPtr()->NonRefSensors()) {
     THROW_CHECK(sensor_from_rig.has_value())
         << "Registration only implemented for frames with known "
            "sensor_from_rig poses";
@@ -688,7 +688,7 @@ IncrementalMapper::AdjustLocalBundle(
           reg_stats_.num_reg_frames_per_rig.at(rig_id);
       if (num_frames < num_reg_frames_for_rig) {
         const Rig& rig = reconstruction_->Rig(rig_id);
-        for (const auto& [sensor_id, _] : rig.Sensors()) {
+        for (const auto& [sensor_id, _] : rig.NonRefSensors()) {
           ba_config.SetConstantSensorFromRigPose(sensor_id);
         }
       }

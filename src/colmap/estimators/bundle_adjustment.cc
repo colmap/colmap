@@ -628,7 +628,7 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
     if (parameterized_sensor_ids.count(rig.RefSensorId()) != 0) {
       continue;
     }
-    for (auto& [_, sensor_from_rig] : rig.Sensors()) {
+    for (auto& [_, sensor_from_rig] : rig.NonRefSensors()) {
       if (sensor_from_rig.has_value() &&
           problem.HasParameterBlock(sensor_from_rig->translation.data())) {
         problem.SetParameterBlockConstant(

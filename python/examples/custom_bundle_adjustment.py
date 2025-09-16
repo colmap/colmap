@@ -151,7 +151,7 @@ def adjust_local_bundle(
         for rig_id, num_frames_local in num_frames_per_rig.items():
             if num_frames_local < mapper.num_reg_frames_per_rig[rig_id]:
                 rig = reconstruction.rig(rig_id)
-                for sensor_id, _ in rig.sensors.items():
+                for sensor_id, _ in rig.non_ref_sensors.items():
                     ba_config.set_constant_sensor_from_rig_pose(sensor_id)
 
         # Fix camera intrinsics, if not all images within local bundle.

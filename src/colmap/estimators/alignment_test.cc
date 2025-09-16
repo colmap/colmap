@@ -241,7 +241,8 @@ TEST(Alignment, AlignReconstructionToOrigRigScales) {
   reconstruction.Transform(TestSim3d());
   AlignReconstructionToOrigRigScales(orig_rigs, &reconstruction);
   for (const auto& [rig_id, orig_rig] : orig_rigs) {
-    for (const auto& [sensor_id, sensor_from_orig_rig] : orig_rig.Sensors()) {
+    for (const auto& [sensor_id, sensor_from_orig_rig] :
+         orig_rig.NonRefSensors()) {
       if (!sensor_from_orig_rig.has_value()) {
         continue;
       }
