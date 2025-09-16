@@ -39,7 +39,12 @@ void BindSensorRig(py::module& m) {
       .def_property_readonly("ref_sensor_id",
                              &Rig::RefSensorId,
                              "The reference sensor's identifier.")
-      .def("sensor_ids", &Rig::SensorIds, "Get all sensor ids in the rig.")
+      .def("sensor_ids",
+           &Rig::SensorIds,
+           "Get all sensor ids except for the reference sensor in the rig.")
+      .def("all_sensor_ids",
+           &Rig::AllSensorIds,
+           "Get all sensor ids (including the reference sensor) in the rig.")
       .def(
           "sensor_from_rig",
           [](Rig& self, sensor_t sensor_id) -> py::typing::Optional<Rigid3d> {
