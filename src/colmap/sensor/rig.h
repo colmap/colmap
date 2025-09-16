@@ -71,15 +71,13 @@ class Rig {
   inline bool IsRefSensor(sensor_t sensor_id) const;
   inline bool HasSensorFromRig(sensor_t sensor_id) const;
 
-  // Get sensor ids (except for the reference sensor) in the rig.
+  // Get all sensor ids (including the reference sensor) in the rig.
   inline std::set<sensor_t> SensorIds() const;
 
-  // Get all sensor ids (including the reference sensor) in the rig.
-  inline std::set<sensor_t> AllSensorIds() const;
-
   // Access all sensors in the rig except for the reference sensor.
-  inline const std::map<sensor_t, std::optional<Rigid3d>>& Sensors() const;
-  inline std::map<sensor_t, std::optional<Rigid3d>>& Sensors();
+  inline const std::map<sensor_t, std::optional<Rigid3d>>& NonRefSensors()
+      const;
+  inline std::map<sensor_t, std::optional<Rigid3d>>& NonRefSensors();
 
   // Access sensor from rig transformations.
   inline Rigid3d& SensorFromRig(sensor_t sensor_id);
@@ -145,14 +143,6 @@ bool Rig::HasSensorFromRig(sensor_t sensor_id) const {
 
 std::set<sensor_t> Rig::SensorIds() const {
   std::set<sensor_t> sensor_ids;
-  for (const auto& [sensor_id, _] : sensors_from_rig_) {
-    sensor_ids.insert(sensor_id);
-  }
-  return sensor_ids;
-}
-
-std::set<sensor_t> Rig::AllSensorIds() const {
-  std::set<sensor_t> sensor_ids;
   sensor_ids.insert(ref_sensor_id_);
   for (const auto& [sensor_id, _] : sensors_from_rig_) {
     sensor_ids.insert(sensor_id);
@@ -160,11 +150,11 @@ std::set<sensor_t> Rig::AllSensorIds() const {
   return sensor_ids;
 }
 
-const std::map<sensor_t, std::optional<Rigid3d>>& Rig::Sensors() const {
+const std::map<sensor_t, std::optional<Rigid3d>>& Rig::NonRefSensors() const {
   return sensors_from_rig_;
 }
 
-std::map<sensor_t, std::optional<Rigid3d>>& Rig::Sensors() {
+std::map<sensor_t, std::optional<Rigid3d>>& Rig::NonRefSensors() {
   return sensors_from_rig_;
 }
 

@@ -485,7 +485,7 @@ void WriteRigsText(const Reconstruction& reconstruction, std::ostream& stream) {
       line << ref_sensor_id.id << " ";
     }
 
-    for (const auto& [sensor_id, sensor_from_rig] : rig.Sensors()) {
+    for (const auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
       line << sensor_id.type << " ";
       line << sensor_id.id << " ";
       if (sensor_from_rig.has_value()) {

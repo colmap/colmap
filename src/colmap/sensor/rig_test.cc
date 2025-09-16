@@ -44,7 +44,7 @@ TEST(Rig, Default) {
   EXPECT_EQ(rig.RigId(), kInvalidRigId);
   EXPECT_EQ(rig.RefSensorId(), kInvalidSensorId);
   EXPECT_EQ(rig.NumSensors(), 0);
-  EXPECT_EQ(rig.Sensors().size(), 0);
+  EXPECT_EQ(rig.NonRefSensors().size(), 0);
 }
 
 TEST(Rig, SetUp) {
@@ -61,11 +61,8 @@ TEST(Rig, SetUp) {
   rig.AddSensor(sensor_id3);  // no input sensor_from_rig
 
   EXPECT_EQ(rig.NumSensors(), 4);
-  EXPECT_EQ(rig.Sensors().size(), 3);
-  EXPECT_THAT(
-      rig.SensorIds(),
-      testing::UnorderedElementsAre(sensor_id1, sensor_id2, sensor_id3));
-  EXPECT_THAT(rig.AllSensorIds(),
+  EXPECT_EQ(rig.NonRefSensors().size(), 3);
+  EXPECT_THAT(rig.SensorIds(),
               testing::UnorderedElementsAre(
                   sensor_id0, sensor_id1, sensor_id2, sensor_id3));
 

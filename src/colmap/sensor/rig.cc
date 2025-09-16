@@ -53,9 +53,10 @@ std::ostream& operator<<(std::ostream& stream, const Rig& rig) {
   stream << "Rig(rig_id=" << rig_id_str << ", ref_sensor_id=("
          << rig.RefSensorId().type << ", " << rig.RefSensorId().id
          << "), sensors=[";
-  for (auto it = rig.Sensors().begin(); it != rig.Sensors().end();) {
+  for (auto it = rig.NonRefSensors().begin();
+       it != rig.NonRefSensors().end();) {
     stream << "(" << it->first.type << ", " << it->first.id << ")";
-    if (++it != rig.Sensors().end()) {
+    if (++it != rig.NonRefSensors().end()) {
       stream << ", ";
     }
   }

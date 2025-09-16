@@ -248,7 +248,7 @@ void Reconstruction::AddRig(class Rig rig) {
   };
 
   check_exists_sensor(rig.RefSensorId());
-  for (const auto& [sensor_id, _] : rig.Sensors()) {
+  for (const auto& [sensor_id, _] : rig.NonRefSensors()) {
     check_exists_sensor(sensor_id);
   }
 
@@ -551,7 +551,7 @@ Reconstruction::ComputeBBBoxAndCentroid(const double min_percentile,
 
 void Reconstruction::Transform(const Sim3d& new_from_old_world) {
   for (auto& [_, rig] : rigs_) {
-    for (auto& [_, sensor_from_rig] : rig.Sensors()) {
+    for (auto& [_, sensor_from_rig] : rig.NonRefSensors()) {
       if (sensor_from_rig.has_value()) {
         sensor_from_rig->translation *= new_from_old_world.scale;
       }

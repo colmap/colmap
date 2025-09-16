@@ -41,9 +41,6 @@ void BindSensorRig(py::module& m) {
                              "The reference sensor's identifier.")
       .def("sensor_ids",
            &Rig::SensorIds,
-           "Get all sensor ids except for the reference sensor in the rig.")
-      .def("all_sensor_ids",
-           &Rig::AllSensorIds,
            "Get all sensor ids (including the reference sensor) in the rig.")
       .def(
           "sensor_from_rig",
@@ -59,8 +56,8 @@ void BindSensorRig(py::module& m) {
           "The pose of the frame, defined as the transformation from world to "
           "rig space.")
       .def_property_readonly(
-          "sensors",
-          py::overload_cast<>(&Rig::Sensors),
+          "non_ref_sensors",
+          py::overload_cast<>(&Rig::NonRefSensors),
           py::return_value_policy::reference_internal,
           "Access all sensors in the rig except for reference sensor");
   MakeDataclass(PyRig);
