@@ -1012,7 +1012,7 @@ TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorldNoReferenceSensor) {
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   const Reconstruction orig_reconstruction = reconstruction;
 
-  // delete observations from the two reference images
+  // Delete observations from the two reference images.
   THROW_CHECK(reconstruction.Image(1).HasTrivialFrame());
   THROW_CHECK(reconstruction.Image(3).HasTrivialFrame());
   for (point2D_t i = 0; i < reconstruction.Image(1).NumPoints2D(); ++i) {
@@ -1026,7 +1026,7 @@ TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorldNoReferenceSensor) {
     }
   }
 
-  // only add two non-reference image
+  // Only add two non-reference images.
   BundleAdjustmentOptions options;
   BundleAdjustmentConfig config;
   config.AddImage(2);
