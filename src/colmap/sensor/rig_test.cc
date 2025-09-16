@@ -29,6 +29,7 @@
 
 #include "colmap/sensor/rig.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -61,6 +62,11 @@ TEST(Rig, SetUp) {
 
   EXPECT_EQ(rig.NumSensors(), 4);
   EXPECT_EQ(rig.Sensors().size(), 3);
+  EXPECT_EQ(rig.SensorIds(),
+            testing::UnorderedElementsAre(sensor_id1, sensor_id2, sensor_id3));
+  EXPECT_EQ(rig.AllSensorIds(),
+            testing::UnorderedElementsAre(
+                sensor_id0, sensor_id1, sensor_id2, sensor_id3));
 
   EXPECT_EQ(rig.RefSensorId().type, SensorType::IMU);
   EXPECT_EQ(rig.RefSensorId().id, 0);

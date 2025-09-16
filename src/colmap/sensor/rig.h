@@ -71,8 +71,11 @@ class Rig {
   inline bool IsRefSensor(sensor_t sensor_id) const;
   inline bool HasSensorFromRig(sensor_t sensor_id) const;
 
-  // Get all sensor ids in the rig.
+  // Get sensor ids (except for the reference sensor) in the rig.
   inline std::set<sensor_t> SensorIds() const;
+
+  // Get all sensor ids (including the reference sensor) in the rig.
+  inline std::set<sensor_t> AllSensorIds() const;
 
   // Access all sensors in the rig except for the reference sensor.
   inline const std::map<sensor_t, std::optional<Rigid3d>>& Sensors() const;
@@ -141,6 +144,14 @@ bool Rig::HasSensorFromRig(sensor_t sensor_id) const {
 }
 
 std::set<sensor_t> Rig::SensorIds() const {
+  std::set<sensor_t> sensor_ids;
+  for (const auto& [sensor_id, _] : sensors_from_rig_) {
+    sensor_ids.insert(sensor_id);
+  }
+  return sensor_ids;
+}
+
+std::set<sensor_t> Rig::AllSensorIds() const {
   std::set<sensor_t> sensor_ids;
   sensor_ids.insert(ref_sensor_id_);
   for (const auto& [sensor_id, _] : sensors_from_rig_) {
