@@ -42,57 +42,6 @@
 
 namespace colmap {
 
-void ReadCamerasText(Reconstruction& reconstruction, std::istream& stream) {
-  THROW_CHECK(stream.good());
-
-  std::string line;
-  std::string item;
-
-  while (std::getline(stream, line)) {
-    StringTrim(&line);
-
-    if (line.empty() || line[0] == '#') {
-      continue;
-    }
-
-    std::stringstream line_stream(line);
-
-    struct Camera camera;
-
-    // ID
-    std::getline(line_stream, item, ' ');
-    camera.camera_id = std::stoul(item);
-
-    // MODEL
-    std::getline(line_stream, item, ' ');
-    camera.model_id = CameraModelNameToId(item);
-
-    // WIDTH
-    std::getline(line_stream, item, ' ');
-    camera.width = std::stoll(item);
-
-    // HEIGHT
-    std::getline(line_stream, item, ' ');
-    camera.height = std::stoll(item);
-
-    // PARAMS
-    camera.params.reserve(CameraModelNumParams(camera.model_id));
-    while (!line_stream.eof()) {
-      std::getline(line_stream, item, ' ');
-      camera.params.push_back(std::stold(item));
-    }
-
-    THROW_CHECK(camera.VerifyParams());
-    reconstruction.AddCamera(std::move(camera));
-  }
-}
-
-void ReadCamerasText(Reconstruction& reconstruction, const std::string& path) {
-  std::ifstream file(path);
-  THROW_CHECK_FILE_OPEN(file, path);
-  ReadCamerasText(reconstruction, file);
-}
-
 void ReadRigsText(Reconstruction& reconstruction, std::istream& stream) {
   THROW_CHECK(stream.good());
 
@@ -178,6 +127,57 @@ void ReadRigsText(Reconstruction& reconstruction, const std::string& path) {
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadRigsText(reconstruction, file);
+}
+
+void ReadCamerasText(Reconstruction& reconstruction, std::istream& stream) {
+  THROW_CHECK(stream.good());
+
+  std::string line;
+  std::string item;
+
+  while (std::getline(stream, line)) {
+    StringTrim(&line);
+
+    if (line.empty() || line[0] == '#') {
+      continue;
+    }
+
+    std::stringstream line_stream(line);
+
+    struct Camera camera;
+
+    // ID
+    std::getline(line_stream, item, ' ');
+    camera.camera_id = std::stoul(item);
+
+    // MODEL
+    std::getline(line_stream, item, ' ');
+    camera.model_id = CameraModelNameToId(item);
+
+    // WIDTH
+    std::getline(line_stream, item, ' ');
+    camera.width = std::stoll(item);
+
+    // HEIGHT
+    std::getline(line_stream, item, ' ');
+    camera.height = std::stoll(item);
+
+    // PARAMS
+    camera.params.reserve(CameraModelNumParams(camera.model_id));
+    while (!line_stream.eof()) {
+      std::getline(line_stream, item, ' ');
+      camera.params.push_back(std::stold(item));
+    }
+
+    THROW_CHECK(camera.VerifyParams());
+    reconstruction.AddCamera(std::move(camera));
+  }
+}
+
+void ReadCamerasText(Reconstruction& reconstruction, const std::string& path) {
+  std::ifstream file(path);
+  THROW_CHECK_FILE_OPEN(file, path);
+  ReadCamerasText(reconstruction, file);
 }
 
 void ReadFramesText(Reconstruction& reconstruction, std::istream& stream) {
@@ -457,46 +457,6 @@ void ReadPoints3DText(Reconstruction& reconstruction, const std::string& path) {
   ReadPoints3DText(reconstruction, file);
 }
 
-void WriteCamerasText(const Reconstruction& reconstruction,
-                      std::ostream& stream) {
-  THROW_CHECK(stream.good());
-
-  // Ensure that we don't loose any precision by storing in text.
-  stream.precision(17);
-
-  stream << "# Camera list with one line of data per camera:\n";
-  stream << "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]\n";
-  stream << "# Number of cameras: " << reconstruction.NumCameras() << '\n';
-
-  for (const camera_t camera_id : ExtractSortedIds(reconstruction.Cameras())) {
-    const Camera& camera = reconstruction.Camera(camera_id);
-
-    std::ostringstream line;
-    line.precision(17);
-
-    line << camera_id << " ";
-    line << camera.ModelName() << " ";
-    line << camera.width << " ";
-    line << camera.height << " ";
-
-    for (const double param : camera.params) {
-      line << param << " ";
-    }
-
-    std::string line_string = line.str();
-    line_string = line_string.substr(0, line_string.size() - 1);
-
-    stream << line_string << '\n';
-  }
-}
-
-void WriteCamerasText(const Reconstruction& reconstruction,
-                      const std::string& path) {
-  std::ofstream file(path, std::ios::trunc);
-  THROW_CHECK_FILE_OPEN(file, path);
-  WriteCamerasText(reconstruction, file);
-}
-
 void WriteRigsText(const Reconstruction& reconstruction, std::ostream& stream) {
   THROW_CHECK(stream.good());
 
@@ -554,6 +514,46 @@ void WriteRigsText(const Reconstruction& reconstruction,
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
   WriteRigsText(reconstruction, file);
+}
+
+void WriteCamerasText(const Reconstruction& reconstruction,
+                      std::ostream& stream) {
+  THROW_CHECK(stream.good());
+
+  // Ensure that we don't loose any precision by storing in text.
+  stream.precision(17);
+
+  stream << "# Camera list with one line of data per camera:\n";
+  stream << "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]\n";
+  stream << "# Number of cameras: " << reconstruction.NumCameras() << '\n';
+
+  for (const camera_t camera_id : ExtractSortedIds(reconstruction.Cameras())) {
+    const Camera& camera = reconstruction.Camera(camera_id);
+
+    std::ostringstream line;
+    line.precision(17);
+
+    line << camera_id << " ";
+    line << camera.ModelName() << " ";
+    line << camera.width << " ";
+    line << camera.height << " ";
+
+    for (const double param : camera.params) {
+      line << param << " ";
+    }
+
+    std::string line_string = line.str();
+    line_string = line_string.substr(0, line_string.size() - 1);
+
+    stream << line_string << '\n';
+  }
+}
+
+void WriteCamerasText(const Reconstruction& reconstruction,
+                      const std::string& path) {
+  std::ofstream file(path, std::ios::trunc);
+  THROW_CHECK_FILE_OPEN(file, path);
+  WriteCamerasText(reconstruction, file);
 }
 
 void WriteFramesText(const Reconstruction& reconstruction,

@@ -31,12 +31,12 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
  public:
   void Close() override { PYBIND11_OVERRIDE_PURE(void, Database, Close); }
 
-  bool ExistsCamera(camera_t camera_id) const override {
-    PYBIND11_OVERRIDE_PURE(bool, Database, ExistsCamera, camera_id);
-  }
-
   bool ExistsRig(rig_t rig_id) const override {
     PYBIND11_OVERRIDE_PURE(bool, Database, ExistsRig, rig_id);
+  }
+
+  bool ExistsCamera(camera_t camera_id) const override {
+    PYBIND11_OVERRIDE_PURE(bool, Database, ExistsCamera, camera_id);
   }
 
   bool ExistsFrame(frame_t frame_id) const override {
@@ -73,12 +73,12 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
         bool, Database, ExistsInlierMatches, image_id1, image_id2);
   }
 
-  size_t NumCameras() const override {
-    PYBIND11_OVERRIDE_PURE(size_t, Database, NumCameras);
-  }
-
   size_t NumRigs() const override {
     PYBIND11_OVERRIDE_PURE(size_t, Database, NumRigs);
+  }
+
+  size_t NumCameras() const override {
+    PYBIND11_OVERRIDE_PURE(size_t, Database, NumCameras);
   }
 
   size_t NumFrames() const override {
@@ -133,14 +133,6 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
     PYBIND11_OVERRIDE_PURE(size_t, Database, NumVerifiedImagePairs);
   }
 
-  Camera ReadCamera(camera_t camera_id) const override {
-    PYBIND11_OVERRIDE_PURE(Camera, Database, ReadCamera, camera_id);
-  }
-
-  std::vector<Camera> ReadAllCameras() const override {
-    PYBIND11_OVERRIDE_PURE(std::vector<Camera>, Database, ReadAllCameras);
-  }
-
   Rig ReadRig(rig_t rig_id) const override {
     PYBIND11_OVERRIDE_PURE(Rig, Database, ReadRig, rig_id);
   }
@@ -152,6 +144,14 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
 
   std::vector<Rig> ReadAllRigs() const override {
     PYBIND11_OVERRIDE_PURE(std::vector<Rig>, Database, ReadAllRigs);
+  }
+
+  Camera ReadCamera(camera_t camera_id) const override {
+    PYBIND11_OVERRIDE_PURE(Camera, Database, ReadCamera, camera_id);
+  }
+
+  std::vector<Camera> ReadAllCameras() const override {
+    PYBIND11_OVERRIDE_PURE(std::vector<Camera>, Database, ReadAllCameras);
   }
 
   Frame ReadFrame(frame_t frame_id) const override {
@@ -239,14 +239,14 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
     PYBIND11_OVERRIDE_PURE(ReturnType, Database, ReadTwoViewGeometryNumInliers);
   }
 
+  rig_t WriteRig(const Rig& rig, bool use_rig_id = false) override {
+    PYBIND11_OVERRIDE_PURE(rig_t, Database, WriteRig, rig, use_rig_id);
+  }
+
   camera_t WriteCamera(const Camera& camera,
                        bool use_camera_id = false) override {
     PYBIND11_OVERRIDE_PURE(
         camera_t, Database, WriteCamera, camera, use_camera_id);
-  }
-
-  rig_t WriteRig(const Rig& rig, bool use_rig_id = false) override {
-    PYBIND11_OVERRIDE_PURE(rig_t, Database, WriteRig, rig, use_rig_id);
   }
 
   frame_t WriteFrame(const Frame& frame, bool use_frame_id = false) override {
@@ -303,12 +303,12 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
                            two_view_geometry);
   }
 
-  void UpdateCamera(const Camera& camera) override {
-    PYBIND11_OVERRIDE_PURE(void, Database, UpdateCamera, camera);
-  }
-
   void UpdateRig(const Rig& rig) override {
     PYBIND11_OVERRIDE_PURE(void, Database, UpdateRig, rig);
+  }
+
+  void UpdateCamera(const Camera& camera) override {
+    PYBIND11_OVERRIDE_PURE(void, Database, UpdateCamera, camera);
   }
 
   void UpdateFrame(const Frame& frame) override {
@@ -337,12 +337,12 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
     PYBIND11_OVERRIDE_PURE(void, Database, ClearAllTables);
   }
 
-  void ClearCameras() override {
-    PYBIND11_OVERRIDE_PURE(void, Database, ClearCameras);
-  }
-
   void ClearRigs() override {
     PYBIND11_OVERRIDE_PURE(void, Database, ClearRigs);
+  }
+
+  void ClearCameras() override {
+    PYBIND11_OVERRIDE_PURE(void, Database, ClearCameras);
   }
 
   void ClearFrames() override {
@@ -391,8 +391,8 @@ void BindDatabase(py::module& m) {
       .def("close", &Database::Close)
       .def("__enter__", [](Database& self) { return &self; })
       .def("__exit__", [](Database& self, const py::args&) { self.Close(); })
-      .def("exists_camera", &Database::ExistsCamera, "camera_id"_a)
       .def("exists_rig", &Database::ExistsRig, "rig_id"_a)
+      .def("exists_camera", &Database::ExistsCamera, "camera_id"_a)
       .def("exists_frame", &Database::ExistsFrame, "rig_id"_a)
       .def("exists_image", &Database::ExistsImage, "image_id"_a)
       .def("exists_image", &Database::ExistsImageWithName, "name"_a)
@@ -407,8 +407,8 @@ void BindDatabase(py::module& m) {
            &Database::ExistsInlierMatches,
            "image_id1"_a,
            "image_id2"_a)
-      .def("num_cameras", &Database::NumCameras)
       .def("num_rigs", &Database::NumRigs)
+      .def("num_cameras", &Database::NumCameras)
       .def("num_frames", &Database::NumFrames)
       .def("num_images", &Database::NumImages)
       .def("num_pose_priors", &Database::NumPosePriors)
@@ -424,10 +424,10 @@ void BindDatabase(py::module& m) {
       .def("num_inlier_matches", &Database::NumInlierMatches)
       .def("num_matched_image_pairs", &Database::NumMatchedImagePairs)
       .def("num_verified_image_pairs", &Database::NumVerifiedImagePairs)
-      .def("read_camera", &Database::ReadCamera, "camera_id"_a)
       .def("read_rig", &Database::ReadRig, "rig_id"_a)
       .def("read_rig_with_sensor", &Database::ReadRigWithSensor, "sensor_id"_a)
       .def("read_all_rigs", &Database::ReadAllRigs)
+      .def("read_camera", &Database::ReadCamera, "camera_id"_a)
       .def("read_all_cameras", &Database::ReadAllCameras)
       .def("read_frame", &Database::ReadFrame, "frame_id"_a)
       .def("read_all_frames", &Database::ReadAllFrames)
@@ -547,8 +547,8 @@ void BindDatabase(py::module& m) {
            "image_id1"_a,
            "image_id2"_a,
            "two_view_geometry"_a)
-      .def("update_camera", &Database::UpdateCamera, "camera"_a)
       .def("update_rig", &Database::UpdateRig, "rig"_a)
+      .def("update_camera", &Database::UpdateCamera, "camera"_a)
       .def("update_frame", &Database::UpdateFrame, "frame"_a)
       .def("update_image", &Database::UpdateImage, "image"_a)
       .def("delete_matches",
@@ -560,8 +560,8 @@ void BindDatabase(py::module& m) {
            "image_id1"_a,
            "image_id2"_a)
       .def("clear_all_tables", &Database::ClearAllTables)
-      .def("clear_cameras", &Database::ClearCameras)
       .def("clear_rigs", &Database::ClearRigs)
+      .def("clear_cameras", &Database::ClearCameras)
       .def("clear_frames", &Database::ClearFrames)
       .def("clear_images", &Database::ClearImages)
       .def("clear_pose_priors", &Database::ClearPosePriors)

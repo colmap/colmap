@@ -291,16 +291,16 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   return cache;
 }
 
-void DatabaseCache::AddCamera(struct Camera camera) {
-  const camera_t camera_id = camera.camera_id;
-  THROW_CHECK(!ExistsCamera(camera_id));
-  cameras_.emplace(camera_id, std::move(camera));
-}
-
 void DatabaseCache::AddRig(class Rig rig) {
   const rig_t rig_id = rig.RigId();
   THROW_CHECK(!ExistsRig(rig_id));
   rigs_.emplace(rig_id, std::move(rig));
+}
+
+void DatabaseCache::AddCamera(struct Camera camera) {
+  const camera_t camera_id = camera.camera_id;
+  THROW_CHECK(!ExistsCamera(camera_id));
+  cameras_.emplace(camera_id, std::move(camera));
 }
 
 void DatabaseCache::AddFrame(class Frame frame) {

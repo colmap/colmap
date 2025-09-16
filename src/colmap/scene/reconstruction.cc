@@ -44,8 +44,8 @@ namespace colmap {
 Reconstruction::Reconstruction() : max_point3D_id_(0) {}
 
 Reconstruction::Reconstruction(const Reconstruction& other)
-    : cameras_(other.cameras_),
-      rigs_(other.rigs_),
+    : rigs_(other.rigs_),
+      cameras_(other.cameras_),
       frames_(other.frames_),
       images_(other.images_),
       points3D_(other.points3D_),
@@ -65,8 +65,8 @@ Reconstruction::Reconstruction(const Reconstruction& other)
 
 Reconstruction& Reconstruction::operator=(const Reconstruction& other) {
   if (this != &other) {
-    cameras_ = other.cameras_;
     rigs_ = other.rigs_;
+    cameras_ = other.cameras_;
     frames_ = other.frames_;
     images_ = other.images_;
     points3D_ = other.points3D_;
@@ -767,8 +767,8 @@ void Reconstruction::ReadBinary(const std::string& path) {
 
 void Reconstruction::WriteText(const std::string& path) const {
   THROW_CHECK_DIR_EXISTS(path);
-  WriteCamerasText(*this, JoinPaths(path, "cameras.txt"));
   WriteRigsText(*this, JoinPaths(path, "rigs.txt"));
+  WriteCamerasText(*this, JoinPaths(path, "cameras.txt"));
   WriteFramesText(*this, JoinPaths(path, "frames.txt"));
   WriteImagesText(*this, JoinPaths(path, "images.txt"));
   WritePoints3DText(*this, JoinPaths(path, "points3D.txt"));
@@ -776,8 +776,8 @@ void Reconstruction::WriteText(const std::string& path) const {
 
 void Reconstruction::WriteBinary(const std::string& path) const {
   THROW_CHECK_DIR_EXISTS(path);
-  WriteCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
   WriteRigsBinary(*this, JoinPaths(path, "rigs.bin"));
+  WriteCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
   WriteFramesBinary(*this, JoinPaths(path, "frames.bin"));
   WriteImagesBinary(*this, JoinPaths(path, "images.bin"));
   WritePoints3DBinary(*this, JoinPaths(path, "points3D.bin"));

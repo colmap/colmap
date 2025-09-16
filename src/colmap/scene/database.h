@@ -80,8 +80,8 @@ class Database {
 
   // Check if entry already exists in database. For image pairs, the order of
   // `image_id1` and `image_id2` does not matter.
-  virtual bool ExistsCamera(camera_t camera_id) const = 0;
   virtual bool ExistsRig(rig_t rig_id) const = 0;
+  virtual bool ExistsCamera(camera_t camera_id) const = 0;
   virtual bool ExistsFrame(frame_t frame_id) const = 0;
   virtual bool ExistsImage(image_t image_id) const = 0;
   virtual bool ExistsImageWithName(const std::string& name) const = 0;
@@ -92,11 +92,11 @@ class Database {
   virtual bool ExistsInlierMatches(image_t image_id1,
                                    image_t image_id2) const = 0;
 
-  // Number of rows in `cameras` table.
-  virtual size_t NumCameras() const = 0;
-
   // Number of rows in `rigs` table.
   virtual size_t NumRigs() const = 0;
+
+  // Number of rows in `cameras` table.
+  virtual size_t NumCameras() const = 0;
 
   //  Number of rows in `frames` table.
   virtual size_t NumFrames() const = 0;
@@ -143,12 +143,12 @@ class Database {
   // sure that the entry actually exists. For image pairs, the order of
   // `image_id1` and `image_id2` does not matter.
 
-  virtual Camera ReadCamera(camera_t camera_id) const = 0;
-  virtual std::vector<Camera> ReadAllCameras() const = 0;
-
   virtual Rig ReadRig(rig_t rig_id) const = 0;
   virtual std::optional<Rig> ReadRigWithSensor(sensor_t sensor_id) const = 0;
   virtual std::vector<Rig> ReadAllRigs() const = 0;
+
+  virtual Camera ReadCamera(camera_t camera_id) const = 0;
+  virtual std::vector<Camera> ReadAllCameras() const = 0;
 
   virtual Frame ReadFrame(frame_t frame_id) const = 0;
   virtual std::vector<Frame> ReadAllFrames() const = 0;
@@ -184,14 +184,14 @@ class Database {
   virtual std::vector<std::pair<image_pair_t, int>>
   ReadTwoViewGeometryNumInliers() const = 0;
 
+  // Add new rig and return its database identifier. If `use_rig_id`
+  // is false a new identifier is automatically generated.
+  virtual rig_t WriteRig(const Rig& rig, bool use_rig_id = false) = 0;
+
   // Add new camera and return its database identifier. If `use_camera_id`
   // is false a new identifier is automatically generated.
   virtual camera_t WriteCamera(const Camera& camera,
                                bool use_camera_id = false) = 0;
-
-  // Add new rig and return its database identifier. If `use_rig_id`
-  // is false a new identifier is automatically generated.
-  virtual rig_t WriteRig(const Rig& rig, bool use_rig_id = false) = 0;
 
   // Add new frame and return its database identifier. If `use_frame_id`
   // is false a new identifier is automatically generated.
@@ -223,13 +223,13 @@ class Database {
       image_t image_id2,
       const TwoViewGeometry& two_view_geometry) = 0;
 
-  // Update an existing camera in the database. The user is responsible for
-  // making sure that the entry already exists.
-  virtual void UpdateCamera(const Camera& camera) = 0;
-
   // Update an existing rig in the database. The user is responsible for
   // making sure that the entry already exists.
   virtual void UpdateRig(const Rig& rig) = 0;
+
+  // Update an existing camera in the database. The user is responsible for
+  // making sure that the entry already exists.
+  virtual void UpdateCamera(const Camera& camera) = 0;
 
   // Update an existing frame in the database. The user is responsible for
   // making sure that the entry already exists.
@@ -253,11 +253,11 @@ class Database {
   // Clear all database tables
   virtual void ClearAllTables() = 0;
 
-  // Clear the entire cameras table
-  virtual void ClearCameras() = 0;
-
   // Clear the entire rigs table
   virtual void ClearRigs() = 0;
+
+  // Clear the entire cameras table
+  virtual void ClearCameras() = 0;
 
   // Clear the entire frames table
   virtual void ClearFrames() = 0;
