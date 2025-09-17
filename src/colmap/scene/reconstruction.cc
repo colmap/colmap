@@ -192,6 +192,12 @@ void Reconstruction::TearDown() {
   std::unordered_set<rig_t> keep_rig_ids;
   for (auto frame_it = frames_.begin(); frame_it != frames_.end();) {
     if (frame_it->second.HasPose()) {
+      for (const data_t& data_id : frame_it->second.ImageIds()) {
+        auto image_it = images_.find(data_id.id);
+        if (!frame_it->second.HasPose() && image_it != images_.end()) {
+          images_.erase(image_it);
+        }
+      }
       keep_rig_ids.insert(frame_it->second.RigId());
       ++frame_it;
     } else {
