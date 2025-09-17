@@ -202,12 +202,12 @@ void Reconstruction::TearDown() {
   // Remove all unused rigs and corresponding sensors.
   for (auto it = rigs_.begin(); it != rigs_.end();) {
     if (keep_rig_ids.count(it->first) == 0) {
-      it = rigs_.erase(it);
       for (const sensor_t& sensor_id : it->second.SensorIds()) {
         if (sensor_id.type == SensorType::CAMERA) {
           cameras_.erase(sensor_id.id);
         }
       }
+      it = rigs_.erase(it);
     } else {
       ++it;
     }
