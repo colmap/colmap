@@ -5,7 +5,7 @@ CURRDIR=$(pwd)
 # Fix `brew link` error.
 find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
 
-brew update
+brew uninstall cmake  # Workaround for CI failures.
 brew install git cmake ninja gfortran ccache libomp
 brew link --force libomp
 
@@ -17,7 +17,6 @@ ln -sf $(which gfortran-14) "$(dirname $(which gfortran-14))/gfortran"
 # Setup vcpkg
 git clone https://github.com/microsoft/vcpkg ${VCPKG_INSTALLATION_ROOT}
 cd ${VCPKG_INSTALLATION_ROOT}
-git checkout ${VCPKG_COMMIT_ID}
 ./bootstrap-vcpkg.sh
 ./vcpkg integrate install
 

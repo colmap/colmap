@@ -184,7 +184,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   Camera& camera = *image.CameraPtr();
 
   for (const auto& [_, sensor_from_rig] :
-       image.FramePtr()->RigPtr()->Sensors()) {
+       image.FramePtr()->RigPtr()->NonRefSensors()) {
     THROW_CHECK(sensor_from_rig.has_value())
         << "Registration only implemented for frames with known "
            "sensor_from_rig poses";
@@ -688,7 +688,7 @@ IncrementalMapper::AdjustLocalBundle(
           reg_stats_.num_reg_frames_per_rig.at(rig_id);
       if (num_frames < num_reg_frames_for_rig) {
         const Rig& rig = reconstruction_->Rig(rig_id);
-        for (const auto& [sensor_id, _] : rig.Sensors()) {
+        for (const auto& [sensor_id, _] : rig.NonRefSensors()) {
           ba_config.SetConstantSensorFromRigPose(sensor_id);
         }
       }
@@ -875,7 +875,9 @@ void IncrementalMapper::IterativeGlobalRefinement(
     const IncrementalTriangulator::Options& tri_options,
     const bool normalize_reconstruction) {
   CompleteAndMergeTracks(tri_options);
-  VLOG(1) << "=> Retriangulated observations: " << Retriangulate(tri_options);
+  const size_t num_retriangulated_observations = Retriangulate(tri_options);
+  VLOG(1) << "=> Retriangulated observations: "
+          << num_retriangulated_observations;
   for (int i = 0; i < max_num_refinements; ++i) {
     const size_t num_observations = reconstruction_->ComputeNumObservations();
     AdjustGlobalBundle(options, ba_options);

@@ -115,7 +115,7 @@ void BindSift(py::module& m) {
   AddStringToEnumConstructor(PyNormalization);
 
   auto PySiftExtractionOptions =
-      py::class_<Opts>(m, "SiftExtractionOptions")
+      py::classh<Opts>(m, "SiftExtractionOptions")
           .def(py::init<>())
           .def_readwrite("num_threads",
                          &Opts::num_threads,
@@ -179,7 +179,7 @@ void BindSift(py::module& m) {
           .def("check", &Opts::Check);
   MakeDataclass(PySiftExtractionOptions);
 
-  py::class_<Sift>(m, "Sift")
+  py::classh<Sift>(m, "Sift")
       .def(py::init<std::optional<SiftExtractionOptions>, Device>(),
            "options"_a = std::nullopt,
            "device"_a = Device::AUTO)
@@ -196,7 +196,7 @@ void BindSift(py::module& m) {
 
   using SMOpts = SiftMatchingOptions;
   auto PySiftMatchingOptions =
-      py::class_<SMOpts>(m, "SiftMatchingOptions")
+      py::classh<SMOpts>(m, "SiftMatchingOptions")
           .def(py::init<>())
           .def_readwrite("num_threads", &SMOpts::num_threads)
           .def_readwrite("use_gpu", &SMOpts::use_gpu)

@@ -99,5 +99,5 @@ COLMAP_ADD_TEST(
         colmap_feature
 )
 if(TESTS_ENABLED AND GUI_ENABLED)
-    target_link_libraries(colmap_feature_sift_test Qt5::Widgets)
+    target_link_libraries(colmap_feature_sift_test Qt${QT_VERSION_MAJOR}::Widgets)
 endif()

@@ -27,8 +27,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindReconstruction(py::module& m) {
-  py::class_<Reconstruction, std::shared_ptr<Reconstruction>>(m,
-                                                              "Reconstruction")
+  py::classh<Reconstruction>(m, "Reconstruction")
       .def(py::init<>())
       .def(py::init<const Reconstruction&>(), "reconstruction"_a)
       .def(py::init([](const std::string& path) {
@@ -153,11 +152,11 @@ void BindReconstruction(py::module& m) {
            "Delete one observation from an image and the corresponding 3D "
            "point. Note that this deletes the entire 3D point, if the track "
            "has two elements prior to calling this method.")
-      .def("register_image",
+      .def("register_frame",
            &Reconstruction::RegisterFrame,
            "frame_id"_a,
            "Register an existing frame.")
-      .def("deregister_image",
+      .def("deregister_frame",
            &Reconstruction::DeRegisterFrame,
            "frame_id"_a,
            "De-register an existing frame, and all its references.")

@@ -30,14 +30,16 @@ class DatabaseTransactionWrapper {
 }  // namespace
 
 void BindDatabase(py::module& m) {
-  py::class_<Database, std::shared_ptr<Database>> PyDatabase(m, "Database");
+  py::classh<Database> PyDatabase(m, "Database");
   PyDatabase.def(py::init<>())
       .def(py::init<const std::string&>(), "path"_a)
       .def("open", &Database::Open, "path"_a)
       .def("close", &Database::Close)
       .def("__enter__", [](Database& self) { return &self; })
       .def("__exit__", [](Database& self, const py::args&) { self.Close(); })
+      .def("exists_rig", &Database::ExistsRig, "rig_id"_a)
       .def("exists_camera", &Database::ExistsCamera, "camera_id"_a)
+      .def("exists_frame", &Database::ExistsFrame, "frame_id"_a)
       .def("exists_image", &Database::ExistsImage, "image_id"_a)
       .def("exists_image", &Database::ExistsImageWithName, "name"_a)
       .def("exists_pose_prior", &Database::ExistsPosePrior, "image_id"_a)
@@ -148,10 +150,15 @@ void BindDatabase(py::module& m) {
             return std::make_pair(std::move(all_pair_ids),
                                   std::move(all_num_inliers));
           })
+      .def("write_rig", &Database::WriteRig, "rig"_a, "use_rig_id"_a = false)
       .def("write_camera",
            &Database::WriteCamera,
            "camera"_a,
            "use_camera_id"_a = false)
+      .def("write_frame",
+           &Database::WriteFrame,
+           "frame"_a,
+           "use_frame_id"_a = false)
       .def("write_image",
            &Database::WriteImage,
            "image"_a,
@@ -180,7 +187,9 @@ void BindDatabase(py::module& m) {
            "image_id1"_a,
            "image_id2"_a,
            "two_view_geometry"_a)
+      .def("update_rig", &Database::UpdateRig, "rig"_a)
       .def("update_camera", &Database::UpdateCamera, "camera"_a)
+      .def("update_frame", &Database::UpdateFrame, "frame"_a)
       .def("update_image", &Database::UpdateImage, "image"_a)
       .def("delete_matches",
            &Database::DeleteMatches,
@@ -191,7 +200,9 @@ void BindDatabase(py::module& m) {
            "image_id1"_a,
            "image_id2"_a)
       .def("clear_all_tables", &Database::ClearAllTables)
+      .def("clear_rigs", &Database::ClearRigs)
       .def("clear_cameras", &Database::ClearCameras)
+      .def("clear_frames", &Database::ClearFrames)
       .def("clear_images", &Database::ClearImages)
       .def("clear_pose_priors", &Database::ClearPosePriors)
       .def("clear_descriptors", &Database::ClearDescriptors)
@@ -204,7 +215,7 @@ void BindDatabase(py::module& m) {
                   "database2"_a,
                   "merged_database"_a);
 
-  py::class_<DatabaseTransactionWrapper>(m, "DatabaseTransaction")
+  py::classh<DatabaseTransactionWrapper>(m, "DatabaseTransaction")
       .def(py::init<Database*>(), "database"_a)
       .def("__enter__", &DatabaseTransactionWrapper::Enter)
       .def("__exit__", &DatabaseTransactionWrapper::Exit);

@@ -10,8 +10,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindDatabaseCache(py::module& m) {
-  py::class_<DatabaseCache, std::shared_ptr<DatabaseCache>> PyDatabaseCache(
-      m, "DatabaseCache");
+  py::classh<DatabaseCache> PyDatabaseCache(m, "DatabaseCache");
   PyDatabaseCache.def(py::init<>())
       .def_static("create",
                   &DatabaseCache::Create,

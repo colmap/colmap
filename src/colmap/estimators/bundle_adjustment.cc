@@ -160,7 +160,6 @@ bool BundleAdjustmentConfig::HasConstantSensorFromRigPose(
 
 void BundleAdjustmentConfig::SetConstantRigFromWorldPose(
     const frame_t frame_id) {
-  THROW_CHECK(HasImage(frame_id));
   constant_rig_from_world_poses_.insert(frame_id);
 }
 
@@ -495,12 +494,36 @@ void FixGaugeWithTwoCamsFromWorld(
   Image* image1 = nullptr;
   Image* image2 = nullptr;
 
+  // Check if a sensor is either a reference sensor, or a non-reference sensor
+  // with sensor_from_rig fixed.
+  auto IsParameterizedConstSensor = [&problem, &config, &options](
+                                        const Image& image) {
+    if (image.FramePtr()->RigPtr()->IsRefSensor(
+            image.CameraPtr()->SensorId())) {
+      return true;
+    }
+    Rigid3d& sensor_from_rig = image.FramePtr()->RigPtr()->SensorFromRig(
+        image.CameraPtr()->SensorId());
+    if (problem.HasParameterBlock(sensor_from_rig.rotation.coeffs().data()) &&
+        problem.IsParameterBlockConstant(
+            sensor_from_rig.rotation.coeffs().data()) &&
+        problem.HasParameterBlock(sensor_from_rig.translation.data()) &&
+        problem.IsParameterBlockConstant(sensor_from_rig.translation.data())) {
+      return true;
+    }
+    // Cover corner case when ReprojErrorConstantPoseCostFunctor is used
+    if (config.HasConstantSensorFromRigPose(image.CameraPtr()->SensorId()) ||
+        !options.refine_sensor_from_rig) {
+      return true;
+    }
+    return false;
+  };
+
   // First, search through the already fixed cameras in the problem.
   for (const image_t image_id : image_ids) {
     Image& image = reconstruction.Image(image_id);
-    if (image.FramePtr()->RigPtr()->IsRefSensor(
-            image.CameraPtr()->SensorId()) &&
-        config.HasConstantRigFromWorldPose(image.FrameId())) {
+    if (config.HasConstantRigFromWorldPose(image.FrameId()) &&
+        IsParameterizedConstSensor(image)) {
       if (image1 == nullptr) {
         image1 = &image;
       } else if (image1 != nullptr && image1->FrameId() != image.FrameId()) {
@@ -510,21 +533,16 @@ void FixGaugeWithTwoCamsFromWorld(
     }
   }
 
-  auto IsParameterizedRefSensor = [&problem](const Image& image) {
-    return image.FramePtr()->RigPtr()->IsRefSensor(
-               image.CameraPtr()->SensorId()) &&
-           problem.HasParameterBlock(
-               image.FramePtr()->RigFromWorld().translation.data());
-  };
-
   // Otherwise, search through the variable cameras in the problem.
   Eigen::Index frame2_from_world_fixed_dim = 0;
   for (const image_t image_id : image_ids) {
     Image& image = reconstruction.Image(image_id);
-    if (image1 == nullptr && IsParameterizedRefSensor(image)) {
+    if (image1 == nullptr && IsParameterizedConstSensor(image)) {
       image1 = &image;
     } else if (image1 != nullptr && image1->FrameId() != image.FrameId() &&
-               IsParameterizedRefSensor(image)) {
+               IsParameterizedConstSensor(image) &&
+               problem.HasParameterBlock(
+                   image.FramePtr()->RigFromWorld().translation.data())) {
       // Check if one of the baseline dimensions is large enough and
       // choose it as the fixed coordinate. If there is no such pair of
       // frames, then the scale is not constrained well.
@@ -628,7 +646,7 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
     if (parameterized_sensor_ids.count(rig.RefSensorId()) != 0) {
       continue;
     }
-    for (auto& [_, sensor_from_rig] : rig.Sensors()) {
+    for (auto& [_, sensor_from_rig] : rig.NonRefSensors()) {
       if (sensor_from_rig.has_value() &&
           problem.HasParameterBlock(sensor_from_rig->translation.data())) {
         problem.SetParameterBlockConstant(
