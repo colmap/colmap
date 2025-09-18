@@ -192,7 +192,7 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
 
     Bitmap bitmap;
     const std::string path = JoinPaths(*options_->image_path, image.Name());
-    if (!bitmap.Read(path, true)) {
+    if (!bitmap.Read(path, /*as_rgb=*/true, /*linearize=*/false)) {
       LOG(ERROR) << "Cannot read image at path " << path;
       continue;
     }
