@@ -39,6 +39,7 @@
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <Eigen/Eigenvalues>
 
 namespace colmap {
 
@@ -65,20 +66,28 @@ class SimilarityTransformEstimator {
   // For higher dimensions, the system will alway be over-determined.
   static const int kMinNumSamples = kDim;
 
+  // Default constructor for unweighted estimation
+  SimilarityTransformEstimator() = default;
+  
+  // Constructor with covariances for weighted estimation
+  explicit SimilarityTransformEstimator(const std::vector<Eigen::Matrix<double, kDim, kDim>>& covariances)
+      : covariances_(&covariances) {}
+
   // Estimate the similarity transform.
   //
   // @param src      Set of corresponding source points.
   // @param tgt      Set of corresponding destination points.
   //
   // @return         4x4 homogeneous transformation matrix.
-  static void Estimate(const std::vector<X_t>& src,
-                       const std::vector<Y_t>& tgt,
-                       std::vector<M_t>* tgt_from_src);
+  void Estimate(const std::vector<X_t>& src,
+                const std::vector<Y_t>& tgt,
+                std::vector<M_t>* tgt_from_src);
 
   // Calculate the transformation error for each corresponding point pair.
   //
   // Residuals are defined as the squared transformation error when
-  // transforming the source to the destination coordinates.
+  // transforming the source to the destination coordinates. Uses covariances
+  // for whitening if provided during construction.
   //
   // @param src           Set of corresponding points in the source coordinate
   //                      system as a Nx3 matrix.
@@ -86,10 +95,14 @@ class SimilarityTransformEstimator {
   //                      coordinate system as a Nx3 matrix.
   // @param tgt_from_src  4x4 homogeneous transformation matrix.
   // @param residuals     Output vector of residuals for each point pair.
-  static void Residuals(const std::vector<X_t>& src,
-                        const std::vector<Y_t>& tgt,
-                        const M_t& tgt_from_src,
-                        std::vector<double>* residuals);
+  void Residuals(const std::vector<X_t>& src,
+                 const std::vector<Y_t>& tgt,
+                 const M_t& tgt_from_src,
+                 std::vector<double>* residuals);
+
+ private:
+  // Pointer to covariance matrices for weighted estimation (null for unweighted)
+  const std::vector<Eigen::Matrix<double, kDim, kDim>>* covariances_ = nullptr;
 };
 
 bool EstimateRigid3d(const std::vector<Eigen::Vector3d>& src,
@@ -109,6 +122,7 @@ bool EstimateSim3d(const std::vector<Eigen::Vector3d>& src,
 typename RANSAC<SimilarityTransformEstimator<3, true>>::Report
 EstimateSim3dRobust(const std::vector<Eigen::Vector3d>& src,
                     const std::vector<Eigen::Vector3d>& tgt,
+                    const std::vector<Eigen::Matrix3d>& covariances,
                     const RANSACOptions& options,
                     Sim3d& tgt_from_src);
 
@@ -156,11 +170,24 @@ void SimilarityTransformEstimator<kDim, kEstimateScale>::Residuals(
     const M_t& tgt_from_src,
     std::vector<double>* residuals) {
   const size_t num_points = src.size();
+  const bool use_covariances = (covariances_ != nullptr);
   THROW_CHECK_EQ(num_points, tgt.size());
+  if (use_covariances) {
+    THROW_CHECK_EQ(num_points, covariances_->size());
+  }
   residuals->resize(num_points);
   for (size_t i = 0; i < num_points; ++i) {
-    (*residuals)[i] =
-        (tgt[i] - tgt_from_src * src[i].homogeneous()).squaredNorm();
+    const Y_t transformed_src = tgt_from_src * src[i].homogeneous();
+    const Y_t error = tgt[i] - transformed_src;
+    if (use_covariances) {
+      // Whiten the error using the covariance matrix
+      Eigen::LLT<Eigen::Matrix<double, kDim, kDim>> llt((*covariances_)[i]);
+      THROW_CHECK(llt.info() == Eigen::Success) 
+          << "Covariance matrix is not positive definite:\n" << (*covariances_)[i];
+      (*residuals)[i] = llt.matrixU().solve(error).squaredNorm();
+    } else {
+      (*residuals)[i] = error.squaredNorm();
+    }
   }
 }
 

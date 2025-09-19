@@ -223,8 +223,9 @@ bool AlignReconstructionToLocations(
   }
 
   Sim3d tgt_from_src_;
+  std::vector<Eigen::Matrix3d> identity_covariances(src.size(), Eigen::Matrix3d::Identity());
   const auto report =
-      EstimateSim3dRobust(src, dst, ransac_options, tgt_from_src_);
+      EstimateSim3dRobust(src, dst, identity_covariances, ransac_options, tgt_from_src_);
 
   if (report.support.num_inliers < static_cast<size_t>(min_common_images)) {
     return false;
@@ -244,8 +245,10 @@ bool AlignReconstructionToPosePriors(
     Sim3d* tgt_from_src) {
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> tgt;
+  std::vector<Eigen::Matrix3d> covariances;
   src.reserve(tgt_pose_priors.size());
   tgt.reserve(tgt_pose_priors.size());
+  covariances.reserve(tgt_pose_priors.size());
 
   for (const image_t image_id : src_reconstruction.RegImageIds()) {
     const auto pose_prior_it = tgt_pose_priors.find(image_id);
@@ -254,6 +257,11 @@ bool AlignReconstructionToPosePriors(
       const auto& image = src_reconstruction.Image(image_id);
       src.push_back(image.ProjectionCenter());
       tgt.push_back(pose_prior_it->second.position);
+      if (pose_prior_it->second.IsCovarianceValid()) {
+        covariances.push_back(pose_prior_it->second.position_covariance);
+      } else {
+        covariances.push_back(Eigen::Matrix3d::Identity());
+      }
     }
   }
 
@@ -263,7 +271,7 @@ bool AlignReconstructionToPosePriors(
   }
 
   if (ransac_options.max_error > 0) {
-    return EstimateSim3dRobust(src, tgt, ransac_options, *tgt_from_src).success;
+    return EstimateSim3dRobust(src, tgt, covariances, ransac_options, *tgt_from_src).success;
   }
   return EstimateSim3d(src, tgt, *tgt_from_src);
 }
@@ -422,8 +430,9 @@ bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
   RANSACOptions ransac_options;
   ransac_options.max_error = max_error;
   ransac_options.min_inlier_ratio = min_inlier_ratio;
+  std::vector<Eigen::Matrix3d> identity_covariances(src_xyz.size(), Eigen::Matrix3d::Identity());
   const auto report =
-      EstimateSim3dRobust(src_xyz, tgt_xyz, ransac_options, *tgt_from_src);
+      EstimateSim3dRobust(src_xyz, tgt_xyz, identity_covariances, ransac_options, *tgt_from_src);
   return report.success;
 }
 
