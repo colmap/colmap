@@ -190,13 +190,10 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
 void Reconstruction::TearDown() {
   // Remove all non-registered frames/images.
   std::unordered_set<rig_t> keep_rig_ids;
-  std::unordered_set<camera_t> keep_camera_ids;
   for (auto frame_it = frames_.begin(); frame_it != frames_.end();) {
     for (const data_t& data_id : frame_it->second.ImageIds()) {
       auto image_it = images_.find(data_id.id);
-      if (frame_it->second.HasPose()) {
-        keep_camera_ids.insert(image_it->second.CameraId());
-      } else if (image_it != images_.end()) {
+      if (!frame_it->second.HasPose() && image_it != images_.end()) {
         images_.erase(image_it);
       }
     }
@@ -208,19 +205,20 @@ void Reconstruction::TearDown() {
     }
   }
 
-  // Remove all unused rigs.
+  // Remove all unused rigs and corresponding sensors.
   for (auto it = rigs_.begin(); it != rigs_.end();) {
     if (keep_rig_ids.count(it->first) == 0) {
+      for (const sensor_t& sensor_id : it->second.SensorIds()) {
+        switch (sensor_id.type) {
+          case SensorType::CAMERA:
+            cameras_.erase(sensor_id.id);
+            break;
+          case SensorType::IMU:
+          case SensorType::INVALID:
+            break;
+        }
+      }
       it = rigs_.erase(it);
-    } else {
-      ++it;
-    }
-  }
-
-  // Remove all unused cameras.
-  for (auto it = cameras_.begin(); it != cameras_.end();) {
-    if (keep_camera_ids.count(it->first) == 0) {
-      it = cameras_.erase(it);
     } else {
       ++it;
     }
