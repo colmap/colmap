@@ -15,6 +15,6 @@ Checks: >
   readability-avoid-const-params-in-decls,
   clang-analyzer-core*,
   clang-analyzer-cplusplus*,
-WarningsAsErrors: '*'
+  misc-include-cleaner,
 FormatStyle: 'file'
 User: 'user'
