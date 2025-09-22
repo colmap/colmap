@@ -157,7 +157,7 @@ jobs:
             CIBW_MANYLINUX_X86_64_IMAGE="sameli/manylinux_2_34_x86_64_cuda_12.8"
             CIBW_REPAIR_WHEEL_COMMAND="auditwheel repair --exclude libcudart* --exclude libcurand* -w {dest_dir} {wheel}"
             echo "CIBW_REPAIR_WHEEL_COMMAND=${CIBW_REPAIR_WHEEL_COMMAND}" >> "$GITHUB_ENV"
-            # Change package name to pycolmap-cuda-12
+            # Change package name to pycolmap-cuda12
             sed -i 's/^name = "pycolmap"$/name = "pycolmap-cuda-12"/' ${{ github.workspace }}/pyproject.toml
             # Edit pyproject.toml to add CUDA Runtime native Libraries and CURAND native runtime libraries to dependencies
             sed -i '/requires = \[/,/]/ s/]/    "nvidia-cuda-runtime-cu12==12.9.79",\n    "nvidia-curand-cu12==10.3.10.19",]/' pyproject.toml
