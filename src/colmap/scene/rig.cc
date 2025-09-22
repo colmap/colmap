@@ -106,7 +106,7 @@ void UpdateRigAndCameraCalibsFromReconstruction(
   }
 
   // Compute the average sensor_from_rig poses over all frames.
-  for (auto& [sensor_id, sensor_from_rig] : rig.Sensors()) {
+  for (auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
     if (sensor_from_rig.has_value()) {
       // Do not compute it for explicitly provided poses in the config.
       continue;
@@ -203,8 +203,9 @@ void UpdateRigsAndFramesFromDatabase(const Database& database,
     const sensor_t& reconstruction_sensor_id =
         reconstruction_image.CameraPtr()->SensorId();
 
-    if (reconstruction_rig.Sensors().count(reconstruction_sensor_id) == 0 &&
-        database_rig.Sensors().count(database_sensor_id) != 0) {
+    if (reconstruction_rig.NonRefSensors().count(reconstruction_sensor_id) ==
+            0 &&
+        database_rig.NonRefSensors().count(database_sensor_id) != 0) {
       reconstruction_rig.AddSensor(
           reconstruction_sensor_id,
           database_rig.SensorFromRig(database_sensor_id));
