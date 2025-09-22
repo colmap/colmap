@@ -337,8 +337,8 @@ class XFeatBruteForceFeatureMatcher : public FeatureMatcher {
       return;
     }
 
-    auto features1 = FeaturesFromImage(image1, model_.input_shapes[0]);
-    auto features2 = FeaturesFromImage(image2, model_.input_shapes[1]);
+    auto features1 = FeaturesFromImage(image1);
+    auto features2 = FeaturesFromImage(image2);
 
     float min_cossim = static_cast<float>(options_.xfeat->min_cossim);
     const std::vector<int64_t> min_cossim_shape = {1};
@@ -393,23 +393,21 @@ class XFeatBruteForceFeatureMatcher : public FeatureMatcher {
  private:
   struct Features {
     std::vector<float> descriptors_data;
+    std::vector<int64_t> descriptors_shape;
     Ort::Value descriptors_tensor;
   };
 
-  Features FeaturesFromImage(const Image& image,
-                             std::vector<int64_t>& descriptors_shape) {
+  Features FeaturesFromImage(const Image& image) {
     THROW_CHECK_NE(image.image_id, kInvalidImageId);
     THROW_CHECK_NOTNULL(image.descriptors);
 
     const int num_keypoints = image.descriptors->rows();
     THROW_CHECK_EQ(image.descriptors->cols() % sizeof(float), 0);
     const int descriptor_dim = image.descriptors->cols() / sizeof(float);
+    THROW_CHECK_EQ(kDescriptorDim, descriptor_dim);
 
     Features features;
-
-    THROW_CHECK_EQ(descriptors_shape.size(), 2);
-    descriptors_shape[0] = num_keypoints;
-    descriptors_shape[1] = descriptor_dim;
+    features.descriptors_shape = {num_keypoints, descriptor_dim};
     features.descriptors_data.resize(num_keypoints * descriptor_dim);
     THROW_CHECK_EQ(image.descriptors->size(),
                    features.descriptors_data.size() * sizeof(float));
@@ -422,8 +420,8 @@ class XFeatBruteForceFeatureMatcher : public FeatureMatcher {
                                    OrtMemType::OrtMemTypeCPU),
         features.descriptors_data.data(),
         features.descriptors_data.size(),
-        descriptors_shape.data(),
-        descriptors_shape.size());
+        features.descriptors_shape.data(),
+        features.descriptors_shape.size());
 
     return features;
   }
