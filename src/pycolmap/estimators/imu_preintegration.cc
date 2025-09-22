@@ -14,7 +14,7 @@ namespace py = pybind11;
 
 void BindImuPreintegration(py::module& m) {
   using ImuPreITGOpt = ImuPreintegrationOptions;
-  py::class_<ImuPreITGOpt> PyImuPreintegrationOptions(
+  py::classh<ImuPreITGOpt> PyImuPreintegrationOptions(
       m, "ImuPreintegrationOptions");
   PyImuPreintegrationOptions.def(py::init<>())
       .def_readwrite("use_integration_noise",
@@ -27,7 +27,7 @@ void BindImuPreintegration(py::module& m) {
                      &ImuPreITGOpt::reintegrate_angle_norm_thres);
 
   using PIM = PreintegratedImuMeasurement;
-  py::class_<PIM> PyPreintegratedImuMeasurement(m,
+  py::classh<PIM> PyPreintegratedImuMeasurement(m,
                                                 "PreintegratedImuMeasurement");
   PyPreintegratedImuMeasurement
       .def(py::init<const ImuPreintegrationOptions&,
