@@ -209,8 +209,13 @@ void Reconstruction::TearDown() {
   for (auto it = rigs_.begin(); it != rigs_.end();) {
     if (keep_rig_ids.count(it->first) == 0) {
       for (const sensor_t& sensor_id : it->second.SensorIds()) {
-        if (sensor_id.type == SensorType::CAMERA) {
-          cameras_.erase(sensor_id.id);
+        switch (sensor_id.type) {
+          case SensorType::CAMERA:
+            cameras_.erase(sensor_id.id);
+            break;
+          case SensorType::IMU:
+          case SensorType::INVALID:
+            break;
         }
       }
       it = rigs_.erase(it);
