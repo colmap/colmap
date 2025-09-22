@@ -1,9 +1,6 @@
 # Custom files
 LocalConfig.cmake
 src/colmap/util/version.cc
-wheelhouse/
-compiler-cache/
-vcpkg_binarycache/
 CMakeUserPresets.json
 .clangd
 compile_commands.json
