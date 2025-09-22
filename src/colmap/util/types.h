@@ -95,11 +95,16 @@ constexpr camera_t kInvalidCameraId = std::numeric_limits<camera_t>::max();
 typedef uint32_t image_t;
 constexpr image_t kInvalidImageId = std::numeric_limits<image_t>::max();
 
+// The maximum number of images, that can be stored in the database,
+// as we generate unique image_pair_ids based on the image ids.
+constexpr size_t kMaxNumImages =
+    static_cast<size_t>(std::numeric_limits<int32_t>::max());
+
 // Unique identifier for frames.
 typedef uint32_t frame_t;
 constexpr frame_t kInvalidFrameId = std::numeric_limits<frame_t>::max();
 
-// Each image pair gets a unique ID, see `Database::ImagePairToPairId`.
+// Each image pair gets a unique ID, see `ImagePairToPairId`.
 typedef uint64_t image_pair_t;
 constexpr image_pair_t kInvalidImagePairId =
     std::numeric_limits<image_pair_t>::max();
@@ -177,8 +182,43 @@ struct data_t {
 constexpr data_t kInvalidDataId =
     data_t(kInvalidSensorId, std::numeric_limits<uint32_t>::max());
 
-// Simple implementation of C++20's std::span, as Ubuntu 20.04's default GCC
-// version does not come with full C++20 and we still want to support it.
+// Return true if image pairs should be swapped. Used to enforce a specific
+// image order to generate unique image pair identifiers independent of the
+// order in which the image identifiers are used.
+inline bool SwapImagePair(image_t image_id1, image_t image_id2) {
+  return image_id1 > image_id2;
+}
+
+inline void ThrowIfGtMaxImages(image_t image_id) {
+  if (image_id >= kMaxNumImages) {
+    throw std::runtime_error("image_id=" + std::to_string(image_id) +
+                             " >= kMaxNumImages.");
+  }
+}
+
+// Convert pair of image identifiers to unique image pair identifier.
+inline image_pair_t ImagePairToPairId(image_t image_id1, image_t image_id2) {
+  ThrowIfGtMaxImages(image_id1);
+  ThrowIfGtMaxImages(image_id2);
+  if (SwapImagePair(image_id1, image_id2)) {
+    return static_cast<image_pair_t>(kMaxNumImages) * image_id2 + image_id1;
+  } else {
+    return static_cast<image_pair_t>(kMaxNumImages) * image_id1 + image_id2;
+  }
+}
+
+// Convert unique image pair identifier to pair of image identifiers.
+inline std::pair<image_t, image_t> PairIdToImagePair(image_pair_t pair_id) {
+  const image_t image_id2 = static_cast<image_t>(pair_id % kMaxNumImages);
+  const image_t image_id1 =
+      static_cast<image_t>((pair_id - image_id2) / kMaxNumImages);
+  ThrowIfGtMaxImages(image_id1);
+  ThrowIfGtMaxImages(image_id2);
+  return std::make_pair(image_id1, image_id2);
+}
+
+// Simple implementation of C++20's std::span. Used for compatibility with CUDA
+// toolchains that lack full C++20 standard library support.
 template <typename T>
 class span {
   T* ptr_;

@@ -169,7 +169,7 @@ TEST(HomographyMatrixFromPose, PureRotation) {
   const Eigen::Matrix3d R = Eigen::Matrix3d::Identity();
   const Eigen::Vector3d t(0, 0, 0);
   const Eigen::Vector3d n(-1, 0, 0);
-  const double d = 1;
+  const double d = std::numeric_limits<double>::infinity();
   const Eigen::Matrix3d H = HomographyMatrixFromPose(K1, K2, R, t, n, d);
   EXPECT_EQ(H, Eigen::Matrix3d::Identity());
 }

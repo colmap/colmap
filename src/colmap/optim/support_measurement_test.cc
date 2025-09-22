@@ -29,10 +29,6 @@
 
 #include "colmap/optim/support_measurement.h"
 
-#include "colmap/math/math.h"
-
-#include <unordered_set>
-
 #include <gtest/gtest.h>
 
 namespace colmap {

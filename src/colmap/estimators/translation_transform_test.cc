@@ -30,7 +30,6 @@
 #include "colmap/estimators/translation_transform.h"
 
 #include "colmap/math/random.h"
-#include "colmap/optim/ransac.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>

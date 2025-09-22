@@ -63,7 +63,6 @@ namespace colmap {
 constexpr int kSqSiftDescriptorNorm = 512 * 512;
 
 bool SiftExtractionOptions::Check() const {
-  CHECK_OPTION_GT(max_image_size, 0);
   CHECK_OPTION_GT(max_num_features, 0);
   CHECK_OPTION_GT(octave_resolution, 0);
   CHECK_OPTION_GT(peak_threshold, 0.0);
@@ -573,7 +572,7 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
                                     << -std::min(0, options.sift->first_octave);
     sift_gpu_args.push_back("-maxd");
     sift_gpu_args.push_back(
-        std::to_string(options.sift->max_image_size * compensation_factor));
+        std::to_string(options.max_image_size * compensation_factor));
 
     // Keep the highest level features.
     sift_gpu_args.push_back("-tc2");
@@ -647,7 +646,7 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
     // first octave in the pyramid (which is the 'first_octave').
     const int compensation_factor =
         1 << -std::min(0, options_.sift->first_octave);
-    THROW_CHECK_EQ(options_.sift->max_image_size * compensation_factor,
+    THROW_CHECK_EQ(options_.max_image_size * compensation_factor,
                    sift_gpu_.GetMaxDimension());
 
     std::lock_guard<std::mutex> lock(*sift_gpu_mutexes_[sift_gpu_.gpu_index]);
@@ -1095,6 +1094,7 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
 
     std::function<bool(float, float, float, float)> guided_filter;
     if (two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
+        two_view_geometry->config == TwoViewGeometry::CALIBRATED_RIG ||
         two_view_geometry->config == TwoViewGeometry::UNCALIBRATED) {
       guided_filter =
           [&](const float x1, const float y1, const float x2, const float y2) {
@@ -1165,14 +1165,16 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
 };
 
 #if defined(COLMAP_GPU_ENABLED)
-// Mutexes that ensure that only one thread extracts/matches on the same GPU
-// at the same time, since SiftGPU internally uses static variables.
-static std::map<int, std::unique_ptr<std::mutex>> sift_match_gpu_mutexes_;
+// Mutexes for OpenGL version to protect static variables in SiftGPU.
+// CUDA version doesn't need this as it has its own thread safety.
+static std::map<int, std::unique_ptr<std::mutex>> sift_opengl_mutexes_;
+
+enum class SiftBackend { CUDA, GLSL };
 
 class SiftGPUFeatureMatcher : public FeatureMatcher {
  public:
   explicit SiftGPUFeatureMatcher(const FeatureMatchingOptions& options)
-      : options_(options) {
+      : options_(options), backend_(SiftBackend::GLSL) {
     THROW_CHECK(options_.sift->Check());
   }
 
@@ -1204,8 +1206,10 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     } else {
       matcher->sift_match_gpu_.SetLanguage(SiftMatchGPU::SIFTMATCH_CUDA);
     }
+    matcher->backend_ = SiftBackend::CUDA;
 #else   // COLMAP_CUDA_ENABLED
     matcher->sift_match_gpu_.SetLanguage(SiftMatchGPU::SIFTMATCH_GLSL);
+    matcher->backend_ = SiftBackend::GLSL;
 #endif  // COLMAP_CUDA_ENABLED
 
     if (matcher->sift_match_gpu_.VerifyContextGL() == 0) {
@@ -1232,9 +1236,12 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 #endif  // COLMAP_CUDA_ENABLED
 
     matcher->sift_match_gpu_.gpu_index = gpu_indices[0];
-    if (sift_match_gpu_mutexes_.count(gpu_indices[0]) == 0) {
-      sift_match_gpu_mutexes_.emplace(gpu_indices[0],
-                                      std::make_unique<std::mutex>());
+
+    // Initialize mutex for OpenGL backend regardless of compile-time flags
+    if (const auto it = sift_opengl_mutexes_.find(gpu_indices[0]);
+        it == sift_opengl_mutexes_.end()) {
+      sift_opengl_mutexes_.emplace_hint(
+          it, gpu_indices[0], std::make_unique<std::mutex>());
     }
 
     return matcher;
@@ -1253,8 +1260,12 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 
     matches->clear();
 
-    std::lock_guard<std::mutex> lock(
-        *sift_match_gpu_mutexes_[sift_match_gpu_.gpu_index]);
+    // Protect OpenGL operations with global mutex based on runtime backend
+    std::unique_lock<std::mutex> lock;
+    if (backend_ == SiftBackend::GLSL) {
+      lock = std::unique_lock<std::mutex>(
+          *sift_opengl_mutexes_.at(sift_match_gpu_.gpu_index));
+    }
 
     if (prev_image_id1_ == kInvalidImageId || prev_is_guided_ ||
         prev_image_id1_ != image1.image_id) {
@@ -1319,8 +1330,12 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 
     two_view_geometry->inlier_matches.clear();
 
-    std::lock_guard<std::mutex> lock(
-        *sift_match_gpu_mutexes_[sift_match_gpu_.gpu_index]);
+    // Protect OpenGL operations with global mutex based on runtime backend
+    std::unique_lock<std::mutex> lock;
+    if (backend_ == SiftBackend::GLSL) {
+      lock = std::unique_lock<std::mutex>(
+          *sift_opengl_mutexes_.at(sift_match_gpu_.gpu_index));
+    }
 
     constexpr size_t kFeatureShapeNumElems = 4;
 
@@ -1357,6 +1372,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     float* F_ptr = nullptr;
     float* H_ptr = nullptr;
     if (two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
+        two_view_geometry->config == TwoViewGeometry::CALIBRATED_RIG ||
         two_view_geometry->config == TwoViewGeometry::UNCALIBRATED) {
       F = two_view_geometry->F.cast<float>();
       F_ptr = F.data();
@@ -1413,6 +1429,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 
   const FeatureMatchingOptions options_;
   SiftMatchGPU sift_match_gpu_;
+  SiftBackend backend_;
   bool prev_is_guided_ = false;
   image_t prev_image_id1_ = kInvalidImageId;
   image_t prev_image_id2_ = kInvalidImageId;

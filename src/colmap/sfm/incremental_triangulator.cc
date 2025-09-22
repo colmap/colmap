@@ -79,6 +79,7 @@ bool IncrementalTriangulator::Options::Check() const {
   CHECK_OPTION_LE(re_min_ratio, 1);
   CHECK_OPTION_GE(re_max_trials, 0);
   CHECK_OPTION_GT(min_angle, 0);
+  CHECK_OPTION_GE(random_seed, -1);
   return true;
 }
 
@@ -179,6 +180,7 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
   tri_options.residual_type =
       TriangulationEstimator::ResidualType::REPROJECTION_ERROR;
   tri_options.ransac_options.max_error = options.complete_max_reproj_error;
+  tri_options.ransac_options.random_seed = options.random_seed;
 
   // Correspondence data for reference observation in given image. We iterate
   // over all observations of the image and each observation once becomes
@@ -323,10 +325,7 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
 
     // Check if images are registered yet.
 
-    image_t image_id1;
-    image_t image_id2;
-    std::tie(image_id1, image_id2) =
-        Database::PairIdToImagePair(image_pair.first);
+    const auto [image_id1, image_id2] = PairIdToImagePair(image_pair.first);
 
     const Image& image1 = reconstruction_.Image(image_id1);
     if (!image1.HasPose()) {
@@ -504,6 +503,7 @@ size_t IncrementalTriangulator::Create(
       TriangulationEstimator::ResidualType::ANGULAR_ERROR;
   tri_options.ransac_options.max_error =
       DegToRad(options.create_max_angle_error);
+  tri_options.ransac_options.random_seed = options.random_seed;
 
   // Estimate triangulation.
   Eigen::Vector3d xyz;

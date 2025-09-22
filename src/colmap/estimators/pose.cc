@@ -35,9 +35,7 @@
 #include "colmap/estimators/essential_matrix.h"
 #include "colmap/estimators/manifold.h"
 #include "colmap/geometry/essential_matrix.h"
-#include "colmap/geometry/pose.h"
-#include "colmap/geometry/triangulation.h"
-#include "colmap/sensor/models.h"
+#include "colmap/optim/loransac.h"
 #include "colmap/util/logging.h"
 
 namespace colmap {

@@ -47,7 +47,7 @@ void BindTriangulationEstimator(py::module& m) {
   AddStringToEnumConstructor(PyResType);
 
   using Options = EstimateTriangulationOptions;
-  py::class_<Options> PyTriangulationOptions(m, "EstimateTriangulationOptions");
+  py::classh<Options> PyTriangulationOptions(m, "EstimateTriangulationOptions");
   PyTriangulationOptions.def(py::init<>())
       .def_readwrite("min_tri_angle",
                      &Options::min_tri_angle,

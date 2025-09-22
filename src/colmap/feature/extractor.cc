@@ -46,17 +46,18 @@ void ThrowUnknownFeatureExtractorType(FeatureExtractorType type) {
 FeatureExtractionOptions::FeatureExtractionOptions(FeatureExtractorType type)
     : type(type), sift(std::make_shared<SiftExtractionOptions>()) {}
 
-int FeatureExtractionOptions::MaxImageSize() const {
+bool FeatureExtractionOptions::RequiresRGB() const {
   switch (type) {
     case FeatureExtractorType::SIFT:
-      return sift->max_image_size;
+      return false;
     default:
       ThrowUnknownFeatureExtractorType(type);
   }
-  return -1;
+  return false;
 }
 
 bool FeatureExtractionOptions::Check() const {
+  CHECK_OPTION_GT(max_image_size, 0);
   if (use_gpu) {
     CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
 #ifndef COLMAP_GPU_ENABLED

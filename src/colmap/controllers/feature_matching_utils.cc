@@ -35,8 +35,10 @@
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
 
-#include <fstream>
-#include <numeric>
+#if defined(COLMAP_CUDA_ENABLED)
+#include <cuda_runtime.h>
+#endif
+
 #include <unordered_set>
 
 namespace colmap {
@@ -63,7 +65,19 @@ FeatureMatcherWorker::FeatureMatcherWorker(
 
 void FeatureMatcherWorker::Run() {
   if (matching_options_.use_gpu) {
-#if !defined(COLMAP_CUDA_ENABLED)
+#if defined(COLMAP_CUDA_ENABLED)
+    // Initialize CUDA device for this worker thread
+    const std::vector<int> gpu_indices =
+        CSVToVector<int>(matching_options_.gpu_index);
+    THROW_CHECK_EQ(gpu_indices.size(), 1)
+        << "Each matching worker can only use one GPU";
+    const int gpu_index = gpu_indices[0];
+
+    if (gpu_index >= 0) {
+      SetBestCudaDevice(gpu_index);
+      LOG(INFO) << "Bind FeatureMatcherWorker to GPU device " << gpu_index;
+    }
+#else
     THROW_CHECK_NOTNULL(opengl_context_);
     THROW_CHECK(opengl_context_->MakeCurrent());
 #endif
@@ -217,10 +231,12 @@ class VerifierWorker : public Thread {
 }  // namespace
 
 FeatureMatcherController::FeatureMatcherController(
+    bool only_verification,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     std::shared_ptr<FeatureMatcherCache> cache)
-    : matching_options_(matching_options),
+    : only_verification_(only_verification),
+      matching_options_(matching_options),
       geometry_options_(geometry_options),
       cache_(std::move(cache)),
       is_setup_(false) {
@@ -242,6 +258,14 @@ FeatureMatcherController::FeatureMatcherController(
     std::iota(gpu_indices.begin(), gpu_indices.end(), 0);
   }
 #endif  // COLMAP_CUDA_ENABLED
+
+  if (only_verification_) {
+    for (int i = 0; i < num_threads; ++i) {
+      verifiers_.emplace_back(std::make_unique<VerifierWorker>(
+          geometry_options_, cache_, &verifier_queue_, &output_queue_));
+    }
+    return;
+  }
 
   if (matching_options_.use_gpu) {
     auto matching_options_copy = matching_options_;
@@ -394,25 +418,31 @@ void FeatureMatcherController::Match(
   image_pair_ids.reserve(image_pairs.size());
 
   size_t num_outputs = 0;
-  for (const auto& image_pair : image_pairs) {
+  for (const auto& [image_id1, image_id2] : image_pairs) {
     // Avoid self-matches.
-    if (image_pair.first == image_pair.second) {
+    if (image_id1 == image_id2) {
       continue;
     }
 
     // Avoid duplicate image pairs.
-    const image_pair_t pair_id =
-        Database::ImagePairToPairId(image_pair.first, image_pair.second);
-    if (image_pair_ids.count(pair_id) > 0) {
+    const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
+    if (!image_pair_ids.insert(pair_id).second) {
       continue;
     }
 
-    image_pair_ids.insert(pair_id);
+    // Avoid self-matches within a frame.
+    if (matching_options_.skip_image_pairs_in_same_frame) {
+      const Image& image1 = cache_->GetImage(image_id1);
+      const Image& image2 = cache_->GetImage(image_id2);
+      if (image1.HasFrameId() && image2.HasFrameId() &&
+          image1.FrameId() == image2.FrameId()) {
+        continue;
+      }
+    }
 
-    const bool exists_matches =
-        cache_->ExistsMatches(image_pair.first, image_pair.second);
+    const bool exists_matches = cache_->ExistsMatches(image_id1, image_id2);
     const bool exists_inlier_matches =
-        cache_->ExistsInlierMatches(image_pair.first, image_pair.second);
+        cache_->ExistsInlierMatches(image_id1, image_id2);
 
     if (exists_matches && exists_inlier_matches) {
       continue;
@@ -424,20 +454,21 @@ void FeatureMatcherController::Match(
     // from scratch and delete the existing results. This must be done before
     // pushing the jobs to the queue, otherwise database constraints might fail
     // when writing an existing result into the database.
-
     if (exists_inlier_matches) {
-      cache_->DeleteInlierMatches(image_pair.first, image_pair.second);
+      cache_->DeleteInlierMatches(image_id1, image_id2);
     }
 
     FeatureMatcherData data;
-    data.image_id1 = image_pair.first;
-    data.image_id2 = image_pair.second;
+    data.image_id1 = image_id1;
+    data.image_id2 = image_id2;
 
     if (exists_matches) {
-      data.matches = cache_->GetMatches(image_pair.first, image_pair.second);
-      cache_->DeleteMatches(image_pair.first, image_pair.second);
+      data.matches = cache_->GetMatches(image_id1, image_id2);
+      if (!only_verification_) {
+        cache_->DeleteMatches(image_id1, image_id2);
+      }
       THROW_CHECK(verifier_queue_.Push(std::move(data)));
-    } else {
+    } else if (!only_verification_) {
       THROW_CHECK(matcher_queue_.Push(std::move(data)));
     }
   }
@@ -461,7 +492,9 @@ void FeatureMatcherController::Match(
       output.two_view_geometry = TwoViewGeometry();
     }
 
-    cache_->WriteMatches(output.image_id1, output.image_id2, output.matches);
+    if (!only_verification_) {
+      cache_->WriteMatches(output.image_id1, output.image_id2, output.matches);
+    }
     cache_->WriteTwoViewGeometry(
         output.image_id1, output.image_id2, output.two_view_geometry);
   }

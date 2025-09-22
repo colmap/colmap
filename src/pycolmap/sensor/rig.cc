@@ -15,7 +15,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindSensorRig(py::module& m) {
-  py::class_<Rig, std::shared_ptr<Rig>> PyRig(m, "Rig");
+  py::classh<Rig> PyRig(m, "Rig");
   PyRig.def(py::init<>())
       .def_property("rig_id",
                     &Rig::RigId,
@@ -39,6 +39,9 @@ void BindSensorRig(py::module& m) {
       .def_property_readonly("ref_sensor_id",
                              &Rig::RefSensorId,
                              "The reference sensor's identifier.")
+      .def("sensor_ids",
+           &Rig::SensorIds,
+           "Get all sensor ids (including the reference sensor) in the rig.")
       .def(
           "sensor_from_rig",
           [](Rig& self, sensor_t sensor_id) -> py::typing::Optional<Rigid3d> {
@@ -53,8 +56,8 @@ void BindSensorRig(py::module& m) {
           "The pose of the frame, defined as the transformation from world to "
           "rig space.")
       .def_property_readonly(
-          "sensors",
-          py::overload_cast<>(&Rig::Sensors),
+          "non_ref_sensors",
+          py::overload_cast<>(&Rig::NonRefSensors),
           py::return_value_policy::reference_internal,
           "Access all sensors in the rig except for reference sensor");
   MakeDataclass(PyRig);

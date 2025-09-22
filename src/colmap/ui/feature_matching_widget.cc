@@ -129,6 +129,11 @@ void FeatureMatchingTab::CreateGeneralOptions() {
                                 "max_num_matches");
   options_widget_->AddOptionBool(&options_->feature_matching->guided_matching,
                                  "guided_matching");
+  options_widget_->AddOptionBool(&options_->feature_matching->rig_verification,
+                                 "rig_verification");
+  options_widget_->AddOptionBool(
+      &options_->feature_matching->skip_image_pairs_in_same_frame,
+      "skip_image_pairs_in_same_frame");
 
   options_widget_->AddOptionDouble(&options_->feature_matching->sift->max_ratio,
                                    "sift.max_ratio");
@@ -159,10 +164,17 @@ void FeatureMatchingTab::CreateGeneralOptions() {
       1,
       0.001,
       3);
+  options_widget_->AddOptionInt(
+      &options_->two_view_geometry->ransac_options.random_seed, "random_seed");
   options_widget_->AddOptionInt(&options_->two_view_geometry->min_num_inliers,
                                 "min_num_inliers");
   options_widget_->AddOptionBool(&options_->two_view_geometry->multiple_models,
                                  "multiple_models");
+  options_widget_->AddOptionBool(&options_->two_view_geometry->detect_watermark,
+                                 "detect_watermarks");
+  options_widget_->AddOptionBool(
+      &options_->two_view_geometry->filter_stationary_matches,
+      "filter_stationary_matches");
   options_widget_->AddSpacer();
 
   QScrollArea* options_scroll_area = new QScrollArea(this);

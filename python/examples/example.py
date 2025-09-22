@@ -14,7 +14,8 @@ from pycolmap import logging
 
 
 def incremental_mapping_with_pbar(database_path, image_path, sfm_path):
-    num_images = pycolmap.Database(database_path).num_images
+    with pycolmap.Database.open(database_path) as database:
+        num_images = database.num_images()
     with enlighten.Manager() as manager:
         with manager.counter(
             total=num_images, desc="Images registered:"

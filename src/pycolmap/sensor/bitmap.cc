@@ -16,7 +16,7 @@ typedef ptrdiff_t ssize_t;
 #endif
 
 void BindBitmap(pybind11::module& m) {
-  py::class_<Bitmap>(m, "Bitmap")
+  py::classh<Bitmap>(m, "Bitmap")
       .def(py::init<>())
       .def("to_array",
            [](const Bitmap& self) {

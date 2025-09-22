@@ -36,6 +36,7 @@ COLMAP_ADD_LIBRARY(
         camera.h camera.cc
         correspondence_graph.h correspondence_graph.cc
         database.h database.cc
+        database_sqlite.h database_sqlite.cc
         database_cache.h database_cache.cc
         frame.h frame.cc
         image.h image.cc
@@ -84,6 +85,13 @@ COLMAP_ADD_TEST(
     SRCS database_test.cc
     LINK_LIBS colmap_scene
 )
+if(TESTS_ENABLED)
+    if(MSVC)
+        target_compile_options(colmap_scene_database_test PRIVATE /utf-8)
+    else()
+        target_compile_options(colmap_scene_database_test PRIVATE -finput-charset=UTF-8 -fexec-charset=UTF-8)
+    endif()
+endif()
 COLMAP_ADD_TEST(
     NAME frame_test
     SRCS frame_test.cc

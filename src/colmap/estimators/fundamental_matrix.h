@@ -29,9 +29,7 @@
 
 #pragma once
 
-#include "colmap/estimators/homography_matrix.h"
 #include "colmap/util/eigen_alignment.h"
-#include "colmap/util/types.h"
 
 #include <vector>
 

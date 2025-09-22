@@ -30,11 +30,12 @@
 #pragma once
 
 #include "colmap/geometry/rigid3.h"
-#include "colmap/util/enum_utils.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
 #include <map>
 #include <optional>
+#include <set>
 
 namespace colmap {
 
@@ -64,15 +65,19 @@ class Rig {
   inline size_t NumSensors() const;
 
   // Access the reference sensor id (default to be the first added sensor).
-  inline sensor_t RefSensorId() const;
+  inline const sensor_t& RefSensorId() const;
 
   // Check if the sensor is the reference sensor of the rig.
   inline bool IsRefSensor(sensor_t sensor_id) const;
   inline bool HasSensorFromRig(sensor_t sensor_id) const;
 
+  // Get all sensor ids (including the reference sensor) in the rig.
+  inline std::set<sensor_t> SensorIds() const;
+
   // Access all sensors in the rig except for the reference sensor.
-  inline const std::map<sensor_t, std::optional<Rigid3d>>& Sensors() const;
-  inline std::map<sensor_t, std::optional<Rigid3d>>& Sensors();
+  inline const std::map<sensor_t, std::optional<Rigid3d>>& NonRefSensors()
+      const;
+  inline std::map<sensor_t, std::optional<Rigid3d>>& NonRefSensors();
 
   // Access sensor from rig transformations.
   inline Rigid3d& SensorFromRig(sensor_t sensor_id);
@@ -125,7 +130,7 @@ size_t Rig::NumSensors() const {
   return num_sensors;
 }
 
-sensor_t Rig::RefSensorId() const { return ref_sensor_id_; }
+const sensor_t& Rig::RefSensorId() const { return ref_sensor_id_; }
 
 bool Rig::IsRefSensor(sensor_t sensor_id) const {
   return sensor_id == ref_sensor_id_;
@@ -136,11 +141,20 @@ bool Rig::HasSensorFromRig(sensor_t sensor_id) const {
          sensors_from_rig_.at(sensor_id).has_value();
 }
 
-const std::map<sensor_t, std::optional<Rigid3d>>& Rig::Sensors() const {
+std::set<sensor_t> Rig::SensorIds() const {
+  std::set<sensor_t> sensor_ids;
+  sensor_ids.insert(ref_sensor_id_);
+  for (const auto& [sensor_id, _] : sensors_from_rig_) {
+    sensor_ids.insert(sensor_id);
+  }
+  return sensor_ids;
+}
+
+const std::map<sensor_t, std::optional<Rigid3d>>& Rig::NonRefSensors() const {
   return sensors_from_rig_;
 }
 
-std::map<sensor_t, std::optional<Rigid3d>>& Rig::Sensors() {
+std::map<sensor_t, std::optional<Rigid3d>>& Rig::NonRefSensors() {
   return sensors_from_rig_;
 }
 

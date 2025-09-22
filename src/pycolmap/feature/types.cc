@@ -2,6 +2,7 @@
 
 #include "colmap/util/logging.h"
 
+#include "pycolmap/feature/types.h"
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 
@@ -15,7 +16,7 @@ namespace py = pybind11;
 
 void BindFeatureTypes(py::module& m) {
   auto PyFeatureKeypoint =
-      py::class_<FeatureKeypoint>(m, "FeatureKeypoint")
+      py::classh<FeatureKeypoint>(m, "FeatureKeypoint")
           .def(py::init<>())
           .def_readwrite("x", &FeatureKeypoint::x)
           .def_readwrite("y", &FeatureKeypoint::y)
@@ -41,9 +42,10 @@ void BindFeatureTypes(py::module& m) {
           });
   MakeDataclass(PyFeatureKeypoint);
   py::bind_vector<FeatureKeypoints>(m, "FeatureKeypoints");
+  py::implicitly_convertible<py::iterable, FeatureKeypoints>();
 
   auto PyFeatureMatch =
-      py::class_<FeatureMatch>(m, "FeatureMatch")
+      py::classh<FeatureMatch>(m, "FeatureMatch")
           .def(py::init<>())
           .def(py::init<const point2D_t, const point2D_t>())
           .def_readwrite("point2D_idx1", &FeatureMatch::point2D_idx1)
@@ -56,4 +58,5 @@ void BindFeatureTypes(py::module& m) {
           });
   MakeDataclass(PyFeatureMatch);
   py::bind_vector<FeatureMatches>(m, "FeatureMatches");
+  py::implicitly_convertible<py::iterable, FeatureMatches>();
 }

@@ -34,10 +34,8 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/endian.h"
 
-#include <algorithm>
 #include <bitset>
 #include <cstdint>
-#include <fstream>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -104,7 +102,7 @@ class InvertedIndex {
       const DescType& descriptor,
       std::bitset<kEmbeddingDim>* binary_descriptor) const;
 
-  float GetIDFWeight(int64_t word_id) const;
+  float SquaredIDFWeight(int64_t word_id) const;
 
   void FindMatches(int64_t word_id,
                    const std::unordered_set<int>& image_ids,
@@ -313,9 +311,9 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
-float InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::GetIDFWeight(
+float InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::SquaredIDFWeight(
     const int64_t word_id) const {
-  return inverted_files_.at(word_id).IDFWeight();
+  return inverted_files_.at(word_id).SquaredIDFWeight();
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
@@ -324,7 +322,7 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::FindMatches(
     const std::unordered_set<int>& image_ids,
     std::vector<const EntryType*>* matches) const {
   matches->clear();
-  const auto& entries = inverted_files_.at(word_id).GetEntries();
+  const auto& entries = inverted_files_.at(word_id).Entries();
   for (const auto& entry : entries) {
     if (image_ids.count(entry.image_id)) {
       matches->emplace_back(&entry);
@@ -340,7 +338,7 @@ float InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::ComputeSelfSimilarity(
     const int64_t word_id = word_ids(i);
     if (word_id != kInvalidWordId) {
       const auto& inverted_file = inverted_files_.at(word_id);
-      self_similarity += inverted_file.IDFWeight() * inverted_file.IDFWeight();
+      self_similarity += inverted_file.SquaredIDFWeight();
     }
   }
   return static_cast<float>(self_similarity);
@@ -433,19 +431,20 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::
     inverted_file.ComputeIDFWeight(image_ids.size());
   }
 
-  std::unordered_map<int, double> self_similarities(image_ids.size());
+  std::unordered_map<int, double> self_similarities;
+  self_similarities.reserve(image_ids.size());
   for (const auto& inverted_file : inverted_files_) {
     inverted_file.ComputeImageSelfSimilarities(&self_similarities);
   }
 
   normalization_constants_.clear();
   normalization_constants_.reserve(image_ids.size());
-  for (const auto& self_similarity : self_similarities) {
-    if (self_similarity.second > 0.0) {
-      normalization_constants_[self_similarity.first] =
-          static_cast<float>(1.0 / std::sqrt(self_similarity.second));
+  for (const auto& [image_id, self_similarity] : self_similarities) {
+    if (self_similarity > 0.0) {
+      normalization_constants_[image_id] =
+          static_cast<float>(1.0 / std::sqrt(self_similarity));
     } else {
-      normalization_constants_[self_similarity.first] = 0.0f;
+      normalization_constants_[image_id] = 0.0f;
     }
   }
 }

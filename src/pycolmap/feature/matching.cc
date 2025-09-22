@@ -1,6 +1,7 @@
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
 
+#include "pycolmap/feature/types.h"
 #include "pycolmap/helpers.h"
 #include "pycolmap/utils.h"
 
@@ -14,8 +15,7 @@ namespace py = pybind11;
 
 void BindFeatureMatching(py::module& m) {
   auto PySiftMatchingOptions =
-      py::class_<SiftMatchingOptions, std::shared_ptr<SiftMatchingOptions>>(
-          m, "SiftMatchingOptions")
+      py::classh<SiftMatchingOptions>(m, "SiftMatchingOptions")
           .def(py::init<>())
           .def_readwrite(
               "max_ratio",
@@ -35,9 +35,7 @@ void BindFeatureMatching(py::module& m) {
   MakeDataclass(PySiftMatchingOptions);
 
   auto PyFeatureMatchingOptions =
-      py::class_<FeatureMatchingOptions,
-                 std::shared_ptr<FeatureMatchingOptions>>(
-          m, "FeatureMatchingOptions")
+      py::classh<FeatureMatchingOptions>(m, "FeatureMatchingOptions")
           .def(py::init<>())
           .def_readwrite("num_threads", &FeatureMatchingOptions::num_threads)
           .def_readwrite("use_gpu", &FeatureMatchingOptions::use_gpu)
@@ -54,6 +52,17 @@ void BindFeatureMatching(py::module& m) {
                          &FeatureMatchingOptions::guided_matching,
                          "Whether to perform guided matching, if geometric "
                          "verification succeeds.")
+          .def_readwrite("rig_verification",
+                         &FeatureMatchingOptions::rig_verification,
+                         "Whether to perform geometric verification using rig "
+                         "constraints between pairs of non-trivial frames. If "
+                         "disabled, performs geometric two-view verification "
+                         "for non-trivial frames without rig constraints.")
+          .def_readwrite(
+              "skip_image_pairs_in_same_frame",
+              &FeatureMatchingOptions::skip_image_pairs_in_same_frame,
+              "Whether to skip matching images within the same frame. This is "
+              "useful for the case of non-overlapping cameras in a rig.")
           .def_readwrite("sift", &FeatureMatchingOptions::sift)
           .def("check", &FeatureMatchingOptions::Check);
   MakeDataclass(PyFeatureMatchingOptions);

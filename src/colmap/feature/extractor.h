@@ -47,6 +47,9 @@ struct FeatureExtractionOptions {
 
   FeatureExtractorType type = FeatureExtractorType::SIFT;
 
+  // Maximum image size, otherwise image will be down-scaled.
+  int max_image_size = 3200;
+
   // Number of threads for feature extraction.
   int num_threads = -1;
 
@@ -59,7 +62,8 @@ struct FeatureExtractionOptions {
 
   std::shared_ptr<SiftExtractionOptions> sift;
 
-  int MaxImageSize() const;
+  // Whether the selected extractor requires RGB (or grayscale) images.
+  bool RequiresRGB() const;
 
   bool Check() const;
 };

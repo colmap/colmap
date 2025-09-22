@@ -445,6 +445,8 @@ void ModelViewerWidget::ClearReconstruction() {
   points3D.clear();
   reg_image_ids.clear();
   reconstruction = nullptr;
+  selected_image_id_ = kInvalidImageId;
+  selected_point3D_id_ = kInvalidPoint3DId;
   Upload();
 }
 
@@ -732,7 +734,11 @@ QImage ModelViewerWidget::GrabImage() {
 
   EnableCoordinateGrid();
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+  return image.flipped(Qt::Orientation::Vertical);
+#else
   return image.mirrored();
+#endif
 }
 
 void ModelViewerWidget::GrabMovie() { movie_grabber_widget_->show(); }

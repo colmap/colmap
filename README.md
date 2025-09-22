@@ -49,6 +49,8 @@ Download
   https://repology.org/metapackage/colmap/versions.
 * Pre-built **Docker** images are available at
   https://hub.docker.com/r/colmap/colmap.
+* Conda packages are available at https://anaconda.org/conda-forge/colmap and
+  can be installed with `conda install colmap`
 * **Python bindings** are available at https://pypi.org/project/pycolmap.
 * To **build from source**, please see https://colmap.github.io/install.html.
 

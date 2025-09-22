@@ -96,14 +96,14 @@ struct type_caster<std::vector<Eigen::Matrix<Scalar, Size, 1>>> {
 }  // namespace detail
 
 template <typename type_, typename... options>
-class class_ext_ : public class_<type_, options...> {
+class classh_ext : public classh<type_, options...> {
  public:
-  using Parent = class_<type_, options...>;
-  using Parent::class_;  // inherit constructors
+  using Parent = classh<type_, options...>;
+  using Parent::Parent;  // inherit constructors
   using type = type_;
 
   template <typename C, typename D, typename... Extra>
-  class_ext_& def_readwrite(const char* name,
+  classh_ext& def_readwrite(const char* name,
                             D C::* pm,
                             const Extra&... extra) {
     static_assert(
@@ -118,13 +118,13 @@ class class_ext_ : public class_<type_, options...> {
   }
 
   template <typename... Args>
-  class_ext_& def(Args&&... args) {
+  classh_ext& def(Args&&... args) {
     Parent::def(std::forward<Args>(args)...);
     return *this;
   }
 
   template <typename... Args>
-  class_ext_& def_property(Args&&... args) {
+  classh_ext& def_property(Args&&... args) {
     Parent::def_property(std::forward<Args>(args)...);
     return *this;
   }

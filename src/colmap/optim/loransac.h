@@ -36,8 +36,6 @@
 
 #include <cfloat>
 #include <optional>
-#include <random>
-#include <stdexcept>
 #include <vector>
 
 namespace colmap {
@@ -106,6 +104,12 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
     const std::vector<typename Estimator::X_t>& X,
     const std::vector<typename Estimator::Y_t>& Y) {
   THROW_CHECK_EQ(X.size(), Y.size());
+
+  if constexpr (is_randomized_sampler<Sampler>::value) {
+    if (options_.random_seed != -1) {
+      SetPRNGSeed(options_.random_seed);
+    }
+  }
 
   const size_t num_samples = X.size();
 

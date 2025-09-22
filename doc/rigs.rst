@@ -210,6 +210,11 @@ Next, we sequentially match the frames, since they were captured as a video::
 
     colmap sequential_matcher --database_path terrains/database.db
 
+Depending on the accuracy of the provided sensor_from_rig poses, you can optionally
+enable the option `--FeatureMatching.rig_verification 1` or, if you know that the
+sensors within the same frame do not have visual overlap, you can enable the option
+`--FeatureMatching.skip_image_pairs_in_same_frame 1`.
+
 Finally, we reconstruct the scene using the mapper while keeping the groundtruth
 sensor rig poses and camera parameters fixed::
 
@@ -234,4 +239,3 @@ robust. We provide an example Python script to reconstruct a 360° collection::
     python python/examples/panorama_sfm.py \
         --input_image_path image_directory \
         --output_path output_directory
-

@@ -29,16 +29,14 @@
 
 #include "colmap/retrieval/visual_index.h"
 
-#include "colmap/math/math.h"
-#include "colmap/retrieval/inverted_file.h"
 #include "colmap/retrieval/inverted_index.h"
 #include "colmap/retrieval/vote_and_verify.h"
 #include "colmap/util/eigen_alignment.h"
-#include "colmap/util/endian.h"
 #include "colmap/util/file.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
+
+#include <fstream>
 
 #include <Eigen/Core>
 #include <boost/heap/fibonacci_heap.hpp>
@@ -225,8 +223,8 @@ class FaissVisualIndex : public VisualIndex {
           inverted_index_.ConvertToBinaryDescriptor(
               word_id, descriptor, &query_entries[i].descriptor);
 
-          const auto idf_weight = inverted_index_.GetIDFWeight(word_id);
-          const auto squared_idf_weight = idf_weight * idf_weight;
+          const float squared_idf_weight =
+              inverted_index_.SquaredIDFWeight(word_id);
 
           inverted_index_.FindMatches(word_id, image_ids, &word_matches);
 

@@ -17,9 +17,8 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindCorrespondenceGraph(py::module& m) {
-  py::class_<CorrespondenceGraph::Correspondence,
-             std::shared_ptr<CorrespondenceGraph::Correspondence>>
-      PyCorrespondence(m, "Correspondence");
+  py::classh<CorrespondenceGraph::Correspondence> PyCorrespondence(
+      m, "Correspondence");
   PyCorrespondence.def(py::init<>())
       .def(py::init<image_t, point2D_t>(), "image_id"_a, "point2D_idx"_a)
       .def_readwrite("image_id", &CorrespondenceGraph::Correspondence::image_id)
@@ -27,8 +26,7 @@ void BindCorrespondenceGraph(py::module& m) {
                      &CorrespondenceGraph::Correspondence::point2D_idx);
   MakeDataclass(PyCorrespondence);
 
-  py::class_<CorrespondenceGraph, std::shared_ptr<CorrespondenceGraph>>(
-      m, "CorrespondenceGraph")
+  py::classh<CorrespondenceGraph>(m, "CorrespondenceGraph")
       .def(py::init<>())
       .def("num_images", &CorrespondenceGraph::NumImages)
       .def("num_image_pairs", &CorrespondenceGraph::NumImagePairs)

@@ -32,8 +32,6 @@
 #include "colmap/math/random.h"
 #include "colmap/util/misc.h"
 
-#include <numeric>
-
 namespace colmap {
 
 ProgressiveSampler::ProgressiveSampler(const size_t num_samples)
