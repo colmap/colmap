@@ -52,14 +52,39 @@ template <bool kEstimateScale>
 inline typename RANSAC<SimilarityTransformEstimator<3, kEstimateScale>>::Report
 EstimateRigidOrSim3dRobust(const std::vector<Eigen::Vector3d>& src,
                            const std::vector<Eigen::Vector3d>& tgt,
+                           const RANSACOptions& options,
+                           Eigen::Matrix3x4d& tgt_from_src) {
+  LORANSAC<SimilarityTransformEstimator<3, kEstimateScale>,
+           SimilarityTransformEstimator<3, kEstimateScale>>
+      ransac(options);
+  auto report = ransac.Estimate(src, tgt);
+  if (report.success) {
+    tgt_from_src = report.model;
+  }
+  return report;
+}
+
+template <bool kEstimateScale>
+inline typename RANSAC<CovarianceSimilarityTransformEstimator<kEstimateScale>>::Report
+EstimateRigidOrSim3dRobust(const std::vector<Eigen::Vector3d>& src,
+                           const std::vector<Eigen::Vector3d>& tgt,
                            const std::vector<Eigen::Matrix3d>& covariances,
                            const RANSACOptions& options,
                            Eigen::Matrix3x4d& tgt_from_src) {
-  SimilarityTransformEstimator<3, kEstimateScale> estimator(covariances);
-  LORANSAC<SimilarityTransformEstimator<3, kEstimateScale>,
-           SimilarityTransformEstimator<3, kEstimateScale>>
-      ransac(options, estimator, estimator);
-  auto report = ransac.Estimate(src, tgt);
+  THROW_CHECK_EQ(src.size(), tgt.size());
+  THROW_CHECK_EQ(src.size(), covariances.size());
+  std::vector<PointWithCovariance3D> src_with_cov;
+  src_with_cov.reserve(src.size());
+  for (size_t i = 0; i < src.size(); ++i) {
+    src_with_cov.emplace_back(src[i], covariances[i]);
+  }
+
+  LORANSAC<CovarianceSimilarityTransformEstimator<kEstimateScale>,
+           CovarianceSimilarityTransformEstimator<kEstimateScale>>
+      ransac(options,
+             CovarianceSimilarityTransformEstimator<kEstimateScale>(),
+             CovarianceSimilarityTransformEstimator<kEstimateScale>());
+  auto report = ransac.Estimate(src_with_cov, tgt);
   if (report.success) {
     tgt_from_src = report.model;
   }
@@ -85,9 +110,8 @@ EstimateRigid3dRobust(const std::vector<Eigen::Vector3d>& src,
                       const RANSACOptions& options,
                       Rigid3d& tgt_from_src) {
   Eigen::Matrix3x4d tgt_from_src_mat = Eigen::Matrix3x4d::Zero();
-  std::vector<Eigen::Matrix3d> identity_covariances(src.size(), Eigen::Matrix3d::Identity());
   auto report =
-      EstimateRigidOrSim3dRobust<false>(src, tgt, identity_covariances, options, tgt_from_src_mat);
+      EstimateRigidOrSim3dRobust<false>(src, tgt, options, tgt_from_src_mat);
   tgt_from_src = Rigid3d::FromMatrix(tgt_from_src_mat);
   return report;
 }
@@ -104,6 +128,20 @@ bool EstimateSim3d(const std::vector<Eigen::Vector3d>& src,
 }
 
 typename RANSAC<SimilarityTransformEstimator<3, true>>::Report
+EstimateSim3dRobust(const std::vector<Eigen::Vector3d>& src,
+                    const std::vector<Eigen::Vector3d>& tgt,
+                    const RANSACOptions& options,
+                    Sim3d& tgt_from_src) {
+  Eigen::Matrix3x4d tgt_from_src_mat = Eigen::Matrix3x4d::Zero();
+  auto report =
+      EstimateRigidOrSim3dRobust<true>(src, tgt, options, tgt_from_src_mat);
+  if (report.success) {
+    tgt_from_src = Sim3d::FromMatrix(tgt_from_src_mat);
+  }
+  return report;
+}
+
+typename RANSAC<CovarianceSimilarityTransformEstimator<true>>::Report
 EstimateSim3dRobust(const std::vector<Eigen::Vector3d>& src,
                     const std::vector<Eigen::Vector3d>& tgt,
                     const std::vector<Eigen::Matrix3d>& covariances,

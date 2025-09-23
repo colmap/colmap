@@ -489,6 +489,46 @@ auto LastValueParameterPack(Args&&... args) {
   return std::get<sizeof...(Args) - 1>(std::forward_as_tuple(args...));
 }
 
+// Cost function for similarity transform estimation (3D point alignment).
+// Estimates 7 parameters: 4 for quaternion rotation, 3 for translation, 1 for log(scale).
+// For rigid transform, the scale parameter is fixed to 0 (i.e., scale = exp(0) = 1).
+class SimilarityTransformCostFunctor
+    : public AutoDiffCostFunctor<SimilarityTransformCostFunctor,
+                                 3,
+                                 4,
+                                 3,
+                                 1> {
+ public:
+  explicit SimilarityTransformCostFunctor(const Eigen::Vector3d& src_point,
+                                          const Eigen::Vector3d& tgt_point)
+      : src_point_(src_point), tgt_point_(tgt_point) {}
+
+  template <typename T>
+  bool operator()(const T* const rotation,     // quaternion [w, x, y, z]
+                  const T* const translation,  // [tx, ty, tz]
+                  const T* const scale_param,  // log(s)
+                  T* residuals_ptr) const {
+    const EigenQuaternionMap<T> q(rotation);
+    const EigenVector3Map<T> t(translation);
+
+    // Transform source point: tgt_pred = s * R * src + t
+    // Use exponential parameterization to ensure positive scale: s = exp(param)
+    const T scale = ceres::exp(scale_param[0]);
+    const Eigen::Matrix<T, 3, 1> rotated_src = q * src_point_.cast<T>();
+    const Eigen::Matrix<T, 3, 1> transformed_src = scale * rotated_src + t;
+
+    // Compute residual: tgt - tgt_pred
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
+    residuals = tgt_point_.cast<T>() - transformed_src;
+
+    return true;
+  }
+
+ private:
+  const Eigen::Vector3d src_point_;
+  const Eigen::Vector3d tgt_point_;
+};
+
 // A cost function that wraps another one and whitens its residuals with a given
 // covariance. For example, to weight the reprojection error with a image
 // measurement covariance, one can wrap it as:
