@@ -158,7 +158,7 @@ jobs:
             CIBW_REPAIR_WHEEL_COMMAND="auditwheel repair --exclude libcudart* --exclude libcurand* -w {dest_dir} {wheel}"
             echo "CIBW_REPAIR_WHEEL_COMMAND=${CIBW_REPAIR_WHEEL_COMMAND}" >> "$GITHUB_ENV"
             # Change package name to pycolmap-cuda12
-            sed -i 's/^name = "pycolmap"$/name = "pycolmap-cuda-12"/' ${{ github.workspace }}/pyproject.toml
+            sed -i 's/^name = "pycolmap"$/name = "pycolmap-cuda12"/' ${{ github.workspace }}/pyproject.toml
             # Edit pyproject.toml to add CUDA Runtime native Libraries and CURAND native runtime libraries to dependencies
             sed -i '/requires = \[/,/]/ s/]/    "nvidia-cuda-runtime-cu12==12.9.79",\n    "nvidia-curand-cu12==10.3.10.19",]/' pyproject.toml
           else
