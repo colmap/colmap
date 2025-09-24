@@ -57,7 +57,8 @@ class ParameterizedImageReaderTests
                                                  /*extension=*/std::string>> {};
 
 TEST_P(ParameterizedImageReaderTests, Nominal) {
-  const auto [kNumImages, kWithMasks, kWithExistingImages, kAsRGB, kExtension] = GetParam();
+  const auto [kNumImages, kWithMasks, kWithExistingImages, kAsRGB, kExtension] =
+      GetParam();
 
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
