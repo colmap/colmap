@@ -81,9 +81,7 @@ EstimateRigidOrSim3dRobust(const std::vector<Eigen::Vector3d>& src,
 
   LORANSAC<CovarianceSimilarityTransformEstimator<kEstimateScale>,
            CovarianceSimilarityTransformEstimator<kEstimateScale>>
-      ransac(options,
-             CovarianceSimilarityTransformEstimator<kEstimateScale>(),
-             CovarianceSimilarityTransformEstimator<kEstimateScale>());
+      ransac(options);
   auto report = ransac.Estimate(src_with_cov, tgt);
   if (report.success) {
     tgt_from_src = report.model;
@@ -150,6 +148,7 @@ EstimateSim3dRobust(const std::vector<Eigen::Vector3d>& src,
   Eigen::Matrix3x4d tgt_from_src_mat = Eigen::Matrix3x4d::Zero();
   auto report =
       EstimateRigidOrSim3dRobust<true>(src, tgt, covariances, options, tgt_from_src_mat);
+  VLOG(2) << "Robust Sim3 alignment inliers: " << report.support.num_inliers << "/" << src.size();
   if (report.success) {
     tgt_from_src = Sim3d::FromMatrix(tgt_from_src_mat);
   }

@@ -206,7 +206,7 @@ void SimilarityTransformEstimator<kDim, kEstimateScale>::Residuals(
   THROW_CHECK_EQ(num_points, tgt.size());
   residuals->resize(num_points);
   for (size_t i = 0; i < num_points; ++i) {
-    (*residuals)[i] = 
+    (*residuals)[i] =
         (tgt[i] - tgt_from_src * src[i].homogeneous()).squaredNorm();
   }
 }
@@ -254,7 +254,6 @@ CovarianceSimilarityTransformEstimator<kEstimateScale>::EstimateWithCovariances(
     const std::vector<X_t>& src, const std::vector<Y_t>& tgt) const {
   const size_t num_points = src.size();
   THROW_CHECK_EQ(num_points, tgt.size());
-  LOG(INFO) << "num_points: " << num_points;
 
   const Eigen::Quaterniond rotation = Eigen::Quaterniond::Identity();
   const Eigen::Vector3d translation = Eigen::Vector3d::Zero();
@@ -263,26 +262,14 @@ CovarianceSimilarityTransformEstimator<kEstimateScale>::EstimateWithCovariances(
   ceres::Problem::Options problem_options;
   ceres::Problem problem(problem_options);
 
-  // Eigen stores quaternion coefficients in order [x, y, z, w].
   double rotation_params[4] = {rotation.x(), rotation.y(), rotation.z(), rotation.w()};
   double translation_params[3] = {translation.x(), translation.y(), translation.z()};
   double scale_params[1] = {log_scale};
 
   for (size_t i = 0; i < num_points; ++i) {
-    // Ensure covariance is SPD; if not, regularize or fall back to identity
-    Eigen::Matrix3d cov = src[i].covariance;
-    Eigen::LLT<Eigen::Matrix3d> llt_cov(cov);
-    if (llt_cov.info() != Eigen::Success) {
-      cov += 1e-9 * Eigen::Matrix3d::Identity();
-      llt_cov.compute(cov);
-      if (llt_cov.info() != Eigen::Success) {
-        cov = Eigen::Matrix3d::Identity();
-      }
-    }
-
     ceres::CostFunction* cost_function =
         CovarianceWeightedCostFunctor<SimilarityTransformCostFunctor>::Create(
-            cov, src[i].point, tgt[i]);
+            src[i].covariance, src[i].point, tgt[i]);
     problem.AddResidualBlock(cost_function,
                              nullptr,
                              rotation_params,
@@ -295,10 +282,9 @@ CovarianceSimilarityTransformEstimator<kEstimateScale>::EstimateWithCovariances(
     if constexpr (!kEstimateScale) {
       problem.SetParameterBlockConstant(scale_params);
     }
-    // Constrain log-scale to a reasonable range to avoid numeric overflow
-    // This keeps scale = exp(log_scale) within [~4.5e-5, ~2.2e4]
-    problem.SetParameterLowerBound(scale_params, 0, -10.0);
-    problem.SetParameterUpperBound(scale_params, 0, 10.0);
+    // Constrain log-scale to a reasonable range for numerical stability
+    problem.SetParameterLowerBound(scale_params, 0, -30.0);
+    problem.SetParameterUpperBound(scale_params, 0, 30.0);
   }
 
   ceres::Solver::Options solver_options;
@@ -313,14 +299,13 @@ CovarianceSimilarityTransformEstimator<kEstimateScale>::EstimateWithCovariances(
   ceres::Solver::Summary summary;
   ceres::Solve(solver_options, &problem, &summary);
 
-  // Reconstruct Eigen quaternion (constructor expects [w, x, y, z]).
   const Eigen::Quaterniond final_rotation(rotation_params[3],
-                                           rotation_params[0],
-                                           rotation_params[1],
-                                           rotation_params[2]);
+                                          rotation_params[0],
+                                          rotation_params[1],
+                                          rotation_params[2]);
   const Eigen::Vector3d final_translation(translation_params[0],
-                                           translation_params[1],
-                                           translation_params[2]);
+                                          translation_params[1],
+                                          translation_params[2]);
   const double final_scale = std::exp(scale_params[0]);
 
   M_t final_transform;

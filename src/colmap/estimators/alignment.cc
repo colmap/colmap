@@ -271,7 +271,6 @@ bool AlignReconstructionToPosePriors(
   }
 
   if (ransac_options.max_error > 0) {
-    LOG(INFO) << "Using robust alignment with max error: " << ransac_options.max_error;
     return EstimateSim3dRobust(src, tgt, covariances, ransac_options, *tgt_from_src).success;
   }
   return EstimateSim3d(src, tgt, *tgt_from_src);

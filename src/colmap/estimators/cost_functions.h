@@ -504,15 +504,14 @@ class SimilarityTransformCostFunctor
       : src_point_(src_point), tgt_point_(tgt_point) {}
 
   template <typename T>
-  bool operator()(const T* const rotation,     // quaternion [w, x, y, z]
-                  const T* const translation,  // [tx, ty, tz]
-                  const T* const scale_param,  // log(s)
+  bool operator()(const T* const rotation,
+                  const T* const translation,
+                  const T* const scale_param,
                   T* residuals_ptr) const {
     const EigenQuaternionMap<T> q(rotation);
     const EigenVector3Map<T> t(translation);
 
     // Transform source point: tgt_pred = s * R * src + t
-    // Use exponential parameterization to ensure positive scale: s = exp(param)
     const T scale = ceres::exp(scale_param[0]);
     const Eigen::Matrix<T, 3, 1> rotated_src = q * src_point_.cast<T>();
     const Eigen::Matrix<T, 3, 1> transformed_src = scale * rotated_src + t;
