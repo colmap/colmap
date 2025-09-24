@@ -333,7 +333,7 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   mapper.RegisterInitialImagePair(
       mapper_options, image_id1, image_id2, cam2_from_cam1);
 
-  IncrementalTriangulator::Options tri_options;
+  IncrementalTriangulator::Options tri_options = options_->Triangulation();
   tri_options.min_angle = mapper_options.init_min_tri_angle;
   for (const image_t image_id : {image_id1, image_id2}) {
     const Image& image = reconstruction.Image(image_id);

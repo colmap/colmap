@@ -226,7 +226,7 @@ TEST(IncrementalPipeline, WithNonTrivialFramesAndConstantRigsAndCameras) {
                             /*check_scale=*/true);
 
   for (const auto& [sensor_id, sensor_from_rig] :
-       reconstruction.Rig(kConstantRigId).Sensors()) {
+       reconstruction.Rig(kConstantRigId).NonRefSensors()) {
     EXPECT_THAT(
         sensor_from_rig.value(),
         Rigid3dNear(

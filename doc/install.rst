@@ -94,6 +94,7 @@ Dependencies from the default Ubuntu repositories::
         libcgal-dev \
         libceres-dev \
         libcurl4-openssl-dev \
+        libssl-dev \
         libmkl-full-dev
 
 Alternatively, you can also build against Qt 5 instead of Qt 6 using::

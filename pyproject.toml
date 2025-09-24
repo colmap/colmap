@@ -1,7 +1,7 @@
 [build-system]
 requires = [
     "scikit-build-core>=0.3.3",
-    "pybind11==3.0.0",
+    "pybind11==3.0.1",
     "pybind11_stubgen @ git+https://github.com/sarlinpe/pybind11-stubgen@sarlinpe/fix-2025-08-20",
     "numpy",
     "ruff==0.12.7",
@@ -43,9 +43,6 @@ build = "cp3{9,10,11,12,13,14}-{macosx,manylinux,win}*"
 archs = ["auto64"]
 test-requires = "pytest mypy==1.17.0 enlighten==1.13.0"
 test-command = "python -c \"import pycolmap; print(pycolmap.__version__)\" &&  python -m mypy --package pycolmap --implicit-optional && pytest {project}/python/examples/custom_incremental_pipeline_test.py"
-
-[tool.cibuildwheel.environment]
-VCPKG_COMMIT_ID = "0cb95c860ea83aafc1b24350510b30dec535989a"
 
 [tool.cibuildwheel.linux]
 before-all = "{project}/python/ci/install-colmap-almalinux.sh"

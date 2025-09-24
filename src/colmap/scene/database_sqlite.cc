@@ -359,7 +359,7 @@ Image ReadImageRow(sqlite3_stmt* sql_stmt) {
 void WriteRigSensors(const rig_t rig_id,
                      const Rig& rig,
                      sqlite3_stmt* sql_stmt) {
-  for (const auto& [sensor_id, sensor_from_rig] : rig.Sensors()) {
+  for (const auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
     Sqlite3StmtContext context(sql_stmt);
 
     SQLITE3_CALL(sqlite3_bind_int64(sql_stmt, 1, rig_id));
@@ -1420,7 +1420,7 @@ class SqliteDatabase : public Database {
             ref_sensor_id.id = new_camera_ids.at(ref_sensor_id.id);
           }
           updated_rig.AddRefSensor(ref_sensor_id);
-          for (const auto& [sensor_id, sensor_from_rig] : rig.Sensors()) {
+          for (const auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
             sensor_t updated_sensor_id = sensor_id;
             if (sensor_id.type == SensorType::CAMERA) {
               updated_sensor_id.id = new_camera_ids.at(sensor_id.id);

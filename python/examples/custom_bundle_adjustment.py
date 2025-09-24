@@ -62,7 +62,7 @@ def adjust_global_bundle(mapper, mapper_options, ba_options):
                 ba_config.set_constant_rig_from_world_pose(frame_id)
 
     for rig_id in mapper_options.constant_rigs:
-        for sensor_id in reconstruction.rig(rig_id).sensors:
+        for sensor_id in reconstruction.rig(rig_id).non_ref_sensors:
             ba_config.set_constant_sensor_from_rig_pose(sensor_id)
 
     for camera_id in mapper_options.constant_cameras:
@@ -159,7 +159,7 @@ def adjust_local_bundle(
                 rig_id in mapper_options.constant_rigs
                 or num_frames_local < mapper.num_reg_frames_per_rig[rig_id]
             ):
-                for sensor_id in reconstruction.rig(rig_id).sensors:
+                for sensor_id in reconstruction.rig(rig_id).non_ref_sensors:
                     ba_config.set_constant_sensor_from_rig_pose(sensor_id)
 
         # Fix camera intrinsics, if not all images within local bundle.
