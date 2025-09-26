@@ -44,10 +44,11 @@ void BindSensorRig(py::module& m) {
            "Get all sensor ids (including the reference sensor) in the rig.")
       .def("sensor_from_rig",
            py::overload_cast<sensor_t>(&Rig::MaybeSensorFromRig),
+           "The the transformation from rig to the sensor.")
+      .def("set_sensor_from_rig",
            py::overload_cast<sensor_t, const std::optional<Rigid3d>&>(
                &Rig::SetSensorFromRig),
-           "The pose of the frame, defined as the transformation from world to "
-           "rig space.")
+           "Set the sensor_from_rig transformation.")
       .def_property_readonly(
           "non_ref_sensors",
           py::overload_cast<>(&Rig::NonRefSensors),
