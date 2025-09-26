@@ -551,6 +551,10 @@ void BindDatabase(py::module& m) {
       .def("update_camera", &Database::UpdateCamera, "camera"_a)
       .def("update_frame", &Database::UpdateFrame, "frame"_a)
       .def("update_image", &Database::UpdateImage, "image"_a)
+      .def("update_pose_prior",
+           &Database::UpdatePosePrior,
+           "image_id"_a,
+           "pose_prior"_a)
       .def("delete_matches",
            &Database::DeleteMatches,
            "image_id1"_a,
