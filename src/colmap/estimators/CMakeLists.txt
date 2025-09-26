@@ -28,7 +28,6 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 set(FOLDER_NAME "estimators")
-
 COLMAP_ADD_LIBRARY(
     NAME colmap_estimators
     SRCS
@@ -36,6 +35,7 @@ COLMAP_ADD_LIBRARY(
         affine_transform.h affine_transform.cc
         alignment.h alignment.cc
         bundle_adjustment.h bundle_adjustment.cc
+        bundle_adjustment_caspar.h bundle_adjustment_caspar.cc
         coordinate_frame.h coordinate_frame.cc
         cost_function_utils.h
         cost_functions.h
@@ -68,6 +68,10 @@ COLMAP_ADD_LIBRARY(
         Ceres::ceres
         PoseLib::PoseLib
 )
+
+# if(CASPAR_ENABLED)
+#     target_link_libraries(colmap_estimators PRIVATE caspar_lib_core)
+# endif()
 
 if(CUDA_ENABLED)
     target_link_libraries(colmap_estimators PUBLIC colmap_util_cuda)

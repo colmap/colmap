@@ -58,6 +58,26 @@ if(CUDA_ENABLED)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-suppress-stack-size-warning")
 endif()
 
+if(CASPAR_ENABLED)
+    message(STATUS "Enabling CASPAR support")
+
+    set(CASPAR_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/estimators/generated")
+    set(CASPAR_BUILD_DIR "${CASPAR_LIB_DIR}/build")
+
+    if(NOT EXISTS "${CASPAR_BUILD_DIR}/libcaspar_lib_core.a")
+        message(FATAL_ERROR "CASPAR library not found")
+    endif()
+
+    add_library(caspar_lib_core STATIC IMPORTED GLOBAL)
+    set_target_properties(caspar_lib_core PROPERTIES
+        IMPORTED_LOCATION "${CASPAR_LIB_DIR}/libcaspar_lib_core.a"
+        INTERFACE_INCLUDE_DIRECTORIES "${CASPAR_LIB_DIR}"
+        )
+
+    find_package(CUDAToolkit REQUIRED)
+    target_link_libraries(caspar_lib_core INTERFACE CUDA::cudart)
+endif()
+
 if(COVERAGE_ENABLED)
     add_compile_options(-coverage -fprofile-update=atomic)
     add_link_options(-coverage)
