@@ -55,16 +55,9 @@ void BindFrame(py::module& m) {
            "Make the rig pointer a nullptr.")
       .def_property(
           "rig_from_world",
-          [](Frame& self) -> py::typing::Optional<Rigid3d> {
-            if (self.HasPose()) {
-              return py::cast(self.RigFromWorld());
-            } else {
-              return py::none();
-            }
-          },
-          [](Frame& self, const Rigid3d& rig_from_world) {
-            self.SetRigFromWorld(rig_from_world);
-          },
+          py::overload_cast<>(&Frame::MaybeRigFromWorld),
+          py::overload_cast<const std::optional<Rigid3d>&>(
+              &Frame::SetRigFromWorld),
           "The pose of the frame, defined as the transformation from world to "
           "rig space.")
       .def("has_pose", &Frame::HasPose, "Whether the frame has a valid pose.")
