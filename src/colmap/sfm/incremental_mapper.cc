@@ -838,6 +838,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
         options.use_robust_loss_on_prior_position;
     prior_options.prior_position_loss_scale = options.prior_position_loss_scale;
     prior_options.alignment_ransac_options.random_seed = options.random_seed;
+    prior_options.alignment_ransac_options.max_error = options.prior_ransac_max_error;
     bundle_adjuster =
         CreatePosePriorBundleAdjuster(std::move(custom_ba_options),
                                       prior_options,
