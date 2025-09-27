@@ -53,10 +53,12 @@ class ParameterizedImageReaderTests
     : public ::testing::TestWithParam<std::tuple</*num_images=*/int,
                                                  /*with_masks=*/bool,
                                                  /*with_existing_images=*/bool,
-                                                 /*as_rgb=*/bool>> {};
+                                                 /*as_rgb=*/bool,
+                                                 /*extension=*/std::string>> {};
 
 TEST_P(ParameterizedImageReaderTests, Nominal) {
-  const auto [kNumImages, kWithMasks, kWithExistingImages, kAsRGB] = GetParam();
+  const auto [kNumImages, kWithMasks, kWithExistingImages, kAsRGB, kExtension] =
+      GetParam();
 
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
@@ -71,10 +73,17 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
   }
   const Bitmap test_bitmap = CreateTestBitmap(kAsRGB);
   for (int i = 0; i < kNumImages; ++i) {
-    const std::string image_name = std::to_string(i) + ".png";
+    const std::string stem = std::to_string(i);
+    const std::string image_name = stem + kExtension;
     test_bitmap.Write(options.image_path + "/" + image_name);
     if (kWithMasks) {
-      test_bitmap.Write(options.mask_path + "/" + image_name + ".png");
+      if (i == 0) {
+        // append .png to image_name
+        test_bitmap.Write(options.mask_path + "/" + image_name + ".png");
+      } else {
+        // replace mask extension by .png
+        test_bitmap.Write(options.mask_path + "/" + stem + ".png");
+      }
     }
     if (kWithExistingImages) {
       Image image;
@@ -117,7 +126,7 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
     EXPECT_EQ(camera.ModelName(), options.camera_model);
     EXPECT_EQ(camera.width, test_bitmap.Width());
     EXPECT_EQ(camera.height, test_bitmap.Height());
-    EXPECT_EQ(image.Name(), std::to_string(i) + ".png");
+    EXPECT_EQ(image.Name(), std::to_string(i) + kExtension);
     EXPECT_EQ(bitmap.IsRGB(), kAsRGB);
     EXPECT_EQ(bitmap.ConvertToRowMajorArray(),
               test_bitmap.ConvertToRowMajorArray());
@@ -143,23 +152,33 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(std::make_tuple(/*num_images=*/0,
                                       /*with_masks=*/false,
                                       /*with_existing_images=*/true,
-                                      /*as_rgb=*/true),
+                                      /*as_rgb=*/true,
+                                      /*extension=*/".png"),
                       std::make_tuple(/*num_images=*/5,
                                       /*with_masks=*/false,
                                       /*with_existing_images=*/false,
-                                      /*as_rgb=*/true),
+                                      /*as_rgb=*/true,
+                                      /*extension=*/".png"),
                       std::make_tuple(/*num_images=*/5,
                                       /*with_masks=*/true,
                                       /*with_existing_images=*/false,
-                                      /*as_rgb=*/true),
+                                      /*as_rgb=*/true,
+                                      /*extension=*/".png"),
                       std::make_tuple(/*num_images=*/5,
                                       /*with_masks=*/true,
                                       /*with_existing_images=*/false,
-                                      /*as_rgb=*/false),
+                                      /*as_rgb=*/true,
+                                      /*extension=*/".bmp"),
+                      std::make_tuple(/*num_images=*/5,
+                                      /*with_masks=*/true,
+                                      /*with_existing_images=*/false,
+                                      /*as_rgb=*/false,
+                                      /*extension=*/".png"),
                       std::make_tuple(/*num_images=*/5,
                                       /*with_masks=*/false,
                                       /*with_existing_images=*/true,
-                                      /*as_rgb=*/true)));
+                                      /*as_rgb=*/true,
+                                      /*extension=*/".png")));
 
 }  // namespace
 }  // namespace colmap
