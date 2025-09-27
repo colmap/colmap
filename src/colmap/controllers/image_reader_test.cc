@@ -168,7 +168,7 @@ INSTANTIATE_TEST_SUITE_P(
                                       /*with_masks=*/true,
                                       /*with_existing_images=*/false,
                                       /*as_rgb=*/true,
-                                      /*extension=*/".jpg"),
+                                      /*extension=*/".bmp"),
                       std::make_tuple(/*num_images=*/5,
                                       /*with_masks=*/true,
                                       /*with_existing_images=*/false,
