@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,6 @@
 #include "colmap/estimators/translation_transform.h"
 
 #include "colmap/math/random.h"
-#include "colmap/optim/ransac.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>

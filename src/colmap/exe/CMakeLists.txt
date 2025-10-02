@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -59,9 +59,11 @@ COLMAP_ADD_LIBRARY(
         colmap_geometry
         colmap_optim
         colmap_scene
+        colmap_sfm
         colmap_util
     PRIVATE_LINK_LIBS
         Boost::boost
+        colmap_sfm
 )
 
 COLMAP_ADD_EXECUTABLE(

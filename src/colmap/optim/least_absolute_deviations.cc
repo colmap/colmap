@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,6 +30,7 @@
 #include "colmap/optim/least_absolute_deviations.h"
 
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/logging.h"
 
 #include <Eigen/SparseCholesky>
 
@@ -48,12 +49,12 @@ bool SolveLeastAbsoluteDeviations(const LeastAbsoluteDeviationsOptions& options,
                                   const Eigen::SparseMatrix<double>& A,
                                   const Eigen::VectorXd& b,
                                   Eigen::VectorXd* x) {
-  CHECK_NOTNULL(x);
-  CHECK_GT(options.rho, 0);
-  CHECK_GT(options.alpha, 0);
-  CHECK_GT(options.max_num_iterations, 0);
-  CHECK_GE(options.absolute_tolerance, 0);
-  CHECK_GE(options.relative_tolerance, 0);
+  THROW_CHECK_NOTNULL(x);
+  THROW_CHECK_GT(options.rho, 0);
+  THROW_CHECK_GT(options.alpha, 0);
+  THROW_CHECK_GT(options.max_num_iterations, 0);
+  THROW_CHECK_GE(options.absolute_tolerance, 0);
+  THROW_CHECK_GE(options.relative_tolerance, 0);
 
   Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> linear_solver;
   linear_solver.compute(A.transpose() * A);

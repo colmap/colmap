@@ -85,7 +85,7 @@ If you want to run COLMAP on a computer without an attached display (e.g.,
 cluster or cloud service), COLMAP automatically switches to use CUDA if
 supported by your system. If no CUDA enabled device is available, you can
 manually select to use CPU-based feature extraction and matching by setting the
-``--SiftExtraction.use_gpu 0`` and ``--SiftMatching.use_gpu 0`` options.
+``--FeatureExtraction.use_gpu 0`` and ``--FeatureMatching.use_gpu 0`` options.
 
 Help
 ----
@@ -117,25 +117,38 @@ The available commands can be listed using the command::
           automatic_reconstructor
           bundle_adjuster
           color_extractor
+          database_cleaner
           database_creator
+          database_merger
           delaunay_mesher
           exhaustive_matcher
           feature_extractor
           feature_importer
+          hierarchical_mapper
           image_deleter
+          image_filterer
           image_rectifier
           image_registrator
           image_undistorter
+          image_undistorter_standalone
           mapper
           matches_importer
           model_aligner
           model_analyzer
+          model_comparer
           model_converter
+          model_cropper
           model_merger
           model_orientation_aligner
+          model_splitter
+          model_transformer
           patch_match_stereo
+          point_filtering
           point_triangulator
+          pose_prior_mapper
           poisson_mesher
+          project_generator
+          rig_configurator
           rig_bundle_adjuster
           sequential_matcher
           spatial_matcher
@@ -151,38 +164,50 @@ the available options, e.g.::
     $ colmap feature_extractor -h
 
         Options can either be specified via command-line or by defining
-        them in a .ini project file passed to `--project_path`.
+        them in a .ini project file passed to ``--project_path``.
 
-          -h [ --help ]
-          --project_path arg
-          --database_path arg
-          --image_path arg
-          --image_list_path arg
-          --ImageReader.camera_model arg (=SIMPLE_RADIAL)
-          --ImageReader.single_camera arg (=0)
-          --ImageReader.camera_params arg
-          --ImageReader.default_focal_length_factor arg (=1.2)
-          --SiftExtraction.num_threads arg (=-1)
-          --SiftExtraction.use_gpu arg (=1)
-          --SiftExtraction.gpu_index arg (=-1)
-          --SiftExtraction.max_image_size arg (=3200)
-          --SiftExtraction.max_num_features arg (=8192)
-          --SiftExtraction.first_octave arg (=-1)
-          --SiftExtraction.num_octaves arg (=4)
-          --SiftExtraction.octave_resolution arg (=3)
-          --SiftExtraction.peak_threshold arg (=0.0066666666666666671)
-          --SiftExtraction.edge_threshold arg (=10)
-          --SiftExtraction.estimate_affine_shape arg (=0)
-          --SiftExtraction.max_num_orientations arg (=2)
-          --SiftExtraction.upright arg (=0)
-          --SiftExtraction.domain_size_pooling arg (=0)
-          --SiftExtraction.dsp_min_scale arg (=0.16666666666666666)
-          --SiftExtraction.dsp_max_scale arg (=3)
-          --SiftExtraction.dsp_num_scales arg (=10)
+            -h [ --help ]
+            --default_random_seed arg (=0)
+            --log_to_stderr arg (=1)
+            --log_level arg (=0)
+            --project_path arg
+            --database_path arg
+            --image_path arg
+            --camera_mode arg (=-1)
+            --image_list_path arg
+            --descriptor_normalization arg (=l1_root)
+                                                  {'l1_root', 'l2'}
+            --ImageReader.mask_path arg
+            --ImageReader.camera_model arg (=SIMPLE_RADIAL)
+            --ImageReader.single_camera arg (=0)
+            --ImageReader.single_camera_per_folder arg (=0)
+            --ImageReader.single_camera_per_image arg (=0)
+            --ImageReader.existing_camera_id arg (=-1)
+            --ImageReader.camera_params arg
+            --ImageReader.default_focal_length_factor arg (=1.2)
+            --ImageReader.camera_mask_path arg
+            --FeatureExtraction.type arg (=SIFT)
+            --FeatureExtraction.max_image_size arg (=3200)
+            --FeatureExtraction.num_threads arg (=-1)
+            --FeatureExtraction.use_gpu arg (=1)
+            --FeatureExtraction.gpu_index arg (=-1)
+            --SiftExtraction.max_num_features arg (=8192)
+            --SiftExtraction.first_octave arg (=-1)
+            --SiftExtraction.num_octaves arg (=4)
+            --SiftExtraction.octave_resolution arg (=3)
+            --SiftExtraction.peak_threshold arg (=0.0066666666666666671)
+            --SiftExtraction.edge_threshold arg (=10)
+            --SiftExtraction.estimate_affine_shape arg (=0)
+            --SiftExtraction.max_num_orientations arg (=2)
+            --SiftExtraction.upright arg (=0)
+            --SiftExtraction.domain_size_pooling arg (=0)
+            --SiftExtraction.dsp_min_scale arg (=0.16666666666666666)
+            --SiftExtraction.dsp_max_scale arg (=3)
+            --SiftExtraction.dsp_num_scales arg (=10)
 
 
 The available options can either be provided directly from the command-line or
-through a `.ini` file provided to ``--project_path``.
+through a ``.ini`` file provided to ``--project_path``.
 
 
 Commands
@@ -208,6 +233,8 @@ available as ``colmap [command]``:
 
 - ``mapper``: Sparse 3D reconstruction / mapping of the dataset using SfM after
   performing feature extraction and matching.
+
+- ``pose_prior_mapper`` Sparse 3D reconstruction / mapping using pose priors.
 
 - ``hierarchical_mapper``: Sparse 3D reconstruction / mapping of the dataset
   using hierarchical SfM after performing feature extraction and matching.
@@ -254,6 +281,8 @@ available as ``colmap [command]``:
   e.g., when a refinement of the intrinsics is needed or
   after running the ``image_registrator``.
 
+- ``database_cleaner``: Clean specific or all database tables.
+
 - ``database_creator``: Create an empty COLMAP SQLite database with the
   necessary database schema information.
 
@@ -269,20 +298,26 @@ available as ``colmap [command]``:
 - ``model_orientation_aligner``: Align the coordinate axis of a model using a
   Manhattan world assumption.
 
+- ``model_comparer``: Compare statistics of two reconstructions.
+
 - ``model_converter``: Convert the COLMAP export format to another format,
   such as PLY or NVM.
 
 - ``model_cropper``: Crop model to specific bounding box described in GPS or
   model coordinate system.
 
+- ``model_merger``: Attempt to merge two disconnected reconstructions,
+  if they have common registered images.
+
 - ``model_splitter``: Divide model in rectangular sub-models specified from
   file containing bounding box coordinates, or max extent of sub-model, or
   number of subdivisions in each dimension.
 
-- ``model_merger``: Attempt to merge two disconnected reconstructions,
-  if they have common registered images.
+- ``model_transformer``: Transform coordinate frame of a model.
 
 - ``color_extractor``: Extract mean colors for all 3D points of a model.
+
+- ``rig_configurator``: Configure rigs and frames after feature extraction.
 
 - ``vocab_tree_builder``: Create a vocabulary tree from a database with
   extracted images. This is an offline procedure and can be run once, while the

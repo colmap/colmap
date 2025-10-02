@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -33,49 +33,57 @@
 #include "colmap/scene/projection.h"
 
 namespace colmap {
-namespace {
-
-static constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
-
-}  // namespace
-
-const int Image::kNumPoint3DVisibilityPyramidLevels = 6;
 
 Image::Image()
     : image_id_(kInvalidImageId),
       name_(""),
       camera_id_(kInvalidCameraId),
-      registered_(false),
-      num_points3D_(0),
-      num_observations_(0),
-      num_correspondences_(0),
-      num_visible_points3D_(0),
-      cam_from_world_prior_(Eigen::Quaterniond(kNaN, kNaN, kNaN, kNaN),
-                            Eigen::Vector3d(kNaN, kNaN, kNaN)) {}
+      camera_ptr_(nullptr),
+      frame_id_(kInvalidFrameId),
+      frame_ptr_(nullptr),
+      num_points3D_(0) {}
 
-void Image::SetUp(const struct Camera& camera) {
-  CHECK_EQ(camera_id_, camera.camera_id);
-  point3D_visibility_pyramid_ = VisibilityPyramid(
-      kNumPoint3DVisibilityPyramidLevels, camera.width, camera.height);
-}
+Image::Image(const Image& other)
+    : image_id_(other.ImageId()),
+      name_(other.Name()),
+      camera_id_(other.CameraId()),
+      camera_ptr_(other.HasCameraPtr() ? other.CameraPtr() : nullptr),
+      frame_id_(other.FrameId()),
+      frame_ptr_(other.HasFramePtr() ? other.FramePtr() : nullptr),
+      num_points3D_(other.NumPoints3D()),
+      points2D_(other.Points2D()) {}
 
-void Image::TearDown() {
-  point3D_visibility_pyramid_ = VisibilityPyramid(0, 0, 0);
+Image& Image::operator=(const Image& other) {
+  if (this != &other) {
+    image_id_ = other.ImageId();
+    name_ = other.Name();
+    camera_id_ = other.CameraId();
+    if (other.HasCameraPtr()) {
+      camera_ptr_ = other.CameraPtr();
+    } else {
+      camera_ptr_ = nullptr;
+    }
+    if (other.HasFramePtr()) {
+      frame_ptr_ = other.FramePtr();
+    } else {
+      frame_ptr_ = nullptr;
+    }
+    num_points3D_ = other.NumPoints3D();
+    points2D_ = other.Points2D();
+  }
+  return *this;
 }
 
 void Image::SetPoints2D(const std::vector<Eigen::Vector2d>& points) {
-  CHECK(points2D_.empty());
   points2D_.resize(points.size());
-  num_correspondences_have_point3D_.resize(points.size(), 0);
   for (point2D_t point2D_idx = 0; point2D_idx < points.size(); ++point2D_idx) {
     points2D_[point2D_idx].xy = points[point2D_idx];
   }
 }
 
 void Image::SetPoints2D(const std::vector<struct Point2D>& points) {
-  CHECK(points2D_.empty());
+  THROW_CHECK(points2D_.empty());
   points2D_ = points;
-  num_correspondences_have_point3D_.resize(points.size(), 0);
   num_points3D_ = 0;
   for (const auto& point2D : points2D_) {
     if (point2D.HasPoint3D()) {
@@ -86,7 +94,7 @@ void Image::SetPoints2D(const std::vector<struct Point2D>& points) {
 
 void Image::SetPoint3DForPoint2D(const point2D_t point2D_idx,
                                  const point3D_t point3D_id) {
-  CHECK_NE(point3D_id, kInvalidPoint3DId);
+  THROW_CHECK_NE(point3D_id, kInvalidPoint3DId);
   struct Point2D& point2D = points2D_.at(point2D_idx);
   if (!point2D.HasPoint3D()) {
     num_points3D_ += 1;
@@ -110,38 +118,39 @@ bool Image::HasPoint3D(const point3D_t point3D_id) const {
                       }) != points2D_.end();
 }
 
-void Image::IncrementCorrespondenceHasPoint3D(const point2D_t point2D_idx) {
-  const struct Point2D& point2D = points2D_.at(point2D_idx);
-
-  num_correspondences_have_point3D_[point2D_idx] += 1;
-  if (num_correspondences_have_point3D_[point2D_idx] == 1) {
-    num_visible_points3D_ += 1;
-  }
-
-  point3D_visibility_pyramid_.SetPoint(point2D.xy(0), point2D.xy(1));
-
-  assert(num_visible_points3D_ <= num_observations_);
-}
-
-void Image::DecrementCorrespondenceHasPoint3D(const point2D_t point2D_idx) {
-  const struct Point2D& point2D = points2D_.at(point2D_idx);
-
-  num_correspondences_have_point3D_[point2D_idx] -= 1;
-  if (num_correspondences_have_point3D_[point2D_idx] == 0) {
-    num_visible_points3D_ -= 1;
-  }
-
-  point3D_visibility_pyramid_.ResetPoint(point2D.xy(0), point2D.xy(1));
-
-  assert(num_visible_points3D_ <= num_observations_);
-}
-
 Eigen::Vector3d Image::ProjectionCenter() const {
-  return cam_from_world_.rotation.inverse() * -cam_from_world_.translation;
+  return CamFromWorld().rotation.inverse() * -CamFromWorld().translation;
 }
 
 Eigen::Vector3d Image::ViewingDirection() const {
-  return cam_from_world_.rotation.toRotationMatrix().row(2);
+  return CamFromWorld().rotation.toRotationMatrix().row(2);
+}
+
+std::optional<Eigen::Vector2d> Image::ProjectPoint(
+    const Eigen::Vector3d& point3D) const {
+  THROW_CHECK(HasCameraPtr());
+  const Eigen::Vector3d point3D_in_cam = CamFromWorld() * point3D;
+  return camera_ptr_->ImgFromCam(point3D_in_cam);
+}
+
+std::ostream& operator<<(std::ostream& stream, const Image& image) {
+  stream << "Image(image_id="
+         << (image.ImageId() != kInvalidImageId
+                 ? std::to_string(image.ImageId())
+                 : "Invalid");
+  if (!image.HasCameraPtr()) {
+    stream << ", camera_id="
+           << (image.HasCameraId() ? std::to_string(image.CameraId())
+                                   : "Invalid");
+  } else {
+    stream << ", camera=Camera(camera_id=" << std::to_string(image.CameraId())
+           << ")";
+  }
+  stream << ", name=\"" << image.Name() << "\""
+         << ", has_pose=" << image.HasPose()
+         << ", triangulated=" << image.NumPoints3D() << "/"
+         << image.NumPoints2D() << ")";
+  return stream;
 }
 
 }  // namespace colmap

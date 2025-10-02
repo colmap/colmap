@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,16 +29,16 @@
 
 #include "colmap/ui/database_management_widget.h"
 
+#include "colmap/scene/database.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/file.h"
+#include "colmap/util/misc.h"
 
 namespace colmap {
 
-TwoViewInfoTab::TwoViewInfoTab(QWidget* parent,
-                               OptionManager* options,
-                               Database* database)
+TwoViewInfoTab::TwoViewInfoTab(QWidget* parent, OptionManager* options)
     : QWidget(parent),
       options_(options),
-      database_(database),
       matches_viewer_widget_(new FeatureImageViewerWidget(parent, "matches")) {}
 
 void TwoViewInfoTab::Clear() {
@@ -144,30 +144,29 @@ void TwoViewInfoTab::FillTable() {
   table_widget_->resizeColumnsToContents();
 }
 
-MatchesTab::MatchesTab(QWidget* parent,
-                       OptionManager* options,
-                       Database* database)
-    : TwoViewInfoTab(parent, options, database) {
+MatchesTab::MatchesTab(QWidget* parent, OptionManager* options)
+    : TwoViewInfoTab(parent, options) {
   QStringList table_header;
   table_header << "image_id"
                << "num_matches";
   InitializeTable(table_header);
 }
 
-void MatchesTab::Reload(const std::vector<Image>& images,
+void MatchesTab::Reload(const std::shared_ptr<Database>& database,
+                        const std::vector<Image>& images,
                         const image_t image_id) {
+  database_ = database;
   matches_.clear();
 
   // Find all matched images
-
   for (const auto& image : images) {
     if (image.ImageId() == image_id) {
       image_ = &image;
       continue;
     }
 
-    if (database_->ExistsMatches(image_id, image.ImageId())) {
-      const auto matches = database_->ReadMatches(image_id, image.ImageId());
+    if (database->ExistsMatches(image_id, image.ImageId())) {
+      const auto matches = database->ReadMatches(image_id, image.ImageId());
 
       if (matches.size() > 0) {
         matches_.emplace_back(&image, matches);
@@ -179,9 +178,8 @@ void MatchesTab::Reload(const std::vector<Image>& images,
 }
 
 TwoViewGeometriesTab::TwoViewGeometriesTab(QWidget* parent,
-                                           OptionManager* options,
-                                           Database* database)
-    : TwoViewInfoTab(parent, options, database) {
+                                           OptionManager* options)
+    : TwoViewInfoTab(parent, options) {
   QStringList table_header;
   table_header << "image_id"
                << "num_matches"
@@ -189,8 +187,10 @@ TwoViewGeometriesTab::TwoViewGeometriesTab(QWidget* parent,
   InitializeTable(table_header);
 }
 
-void TwoViewGeometriesTab::Reload(const std::vector<Image>& images,
+void TwoViewGeometriesTab::Reload(const std::shared_ptr<Database>& database,
+                                  const std::vector<Image>& images,
                                   const image_t image_id) {
+  database_ = database;
   matches_.clear();
   configs_.clear();
 
@@ -202,11 +202,10 @@ void TwoViewGeometriesTab::Reload(const std::vector<Image>& images,
       continue;
     }
 
-    if (database_->ExistsInlierMatches(image_id, image.ImageId())) {
+    if (database->ExistsInlierMatches(image_id, image.ImageId())) {
       const auto two_view_geometry =
-          database_->ReadTwoViewGeometry(image_id, image.ImageId());
-
-      if (two_view_geometry.inlier_matches.size() > 0) {
+          database->ReadTwoViewGeometry(image_id, image.ImageId());
+      if (!two_view_geometry.inlier_matches.empty()) {
         matches_.emplace_back(&image, two_view_geometry.inlier_matches);
         configs_.push_back(two_view_geometry.config);
       }
@@ -217,9 +216,8 @@ void TwoViewGeometriesTab::Reload(const std::vector<Image>& images,
 }
 
 OverlappingImagesWidget::OverlappingImagesWidget(QWidget* parent,
-                                                 OptionManager* options,
-                                                 Database* database)
-    : parent_(parent), options_(options) {
+                                                 OptionManager* options)
+    : parent_(parent) {
   // Do not change flag, to make sure feature database is not accessed from
   // multiple threads.
   setWindowFlags(Qt::Window);
@@ -229,10 +227,10 @@ OverlappingImagesWidget::OverlappingImagesWidget(QWidget* parent,
 
   tab_widget_ = new QTabWidget(this);
 
-  matches_tab_ = new MatchesTab(this, options_, database);
+  matches_tab_ = new MatchesTab(this, options);
   tab_widget_->addTab(matches_tab_, tr("Matches"));
 
-  two_view_geometries_tab_ = new TwoViewGeometriesTab(this, options_, database);
+  two_view_geometries_tab_ = new TwoViewGeometriesTab(this, options);
   tab_widget_->addTab(two_view_geometries_tab_, tr("Two-view geometries"));
 
   grid->addWidget(tab_widget_, 0, 0);
@@ -245,15 +243,17 @@ OverlappingImagesWidget::OverlappingImagesWidget(QWidget* parent,
   grid->addWidget(close_button, 1, 0, Qt::AlignRight);
 }
 
-void OverlappingImagesWidget::ShowMatches(const std::vector<Image>& images,
-                                          const image_t image_id) {
+void OverlappingImagesWidget::ShowMatches(
+    const std::shared_ptr<Database>& database,
+    const std::vector<Image>& images,
+    const image_t image_id) {
   parent_->setDisabled(true);
 
   setWindowTitle(
       QString::fromStdString("Matches for image " + std::to_string(image_id)));
 
-  matches_tab_->Reload(images, image_id);
-  two_view_geometries_tab_->Reload(images, image_id);
+  matches_tab_->Reload(database, images, image_id);
+  two_view_geometries_tab_->Reload(database, images, image_id);
 }
 
 void OverlappingImagesWidget::closeEvent(QCloseEvent*) {
@@ -262,8 +262,7 @@ void OverlappingImagesWidget::closeEvent(QCloseEvent*) {
   parent_->setEnabled(true);
 }
 
-CameraTab::CameraTab(QWidget* parent, Database* database)
-    : QWidget(parent), database_(database) {
+CameraTab::CameraTab(QWidget* parent) : QWidget(parent) {
   QGridLayout* grid = new QGridLayout(this);
 
   info_label_ = new QLabel(this);
@@ -303,12 +302,14 @@ CameraTab::CameraTab(QWidget* parent, Database* database)
   grid->setColumnStretch(0, 1);
 }
 
-void CameraTab::Reload() {
+void CameraTab::Reload(const std::shared_ptr<Database>& database) {
+  database_ = database;
+
   QString info;
-  info += QString("Cameras: ") + QString::number(database_->NumCameras());
+  info += QString("Cameras: ") + QString::number(database->NumCameras());
   info_label_->setText(info);
 
-  cameras_ = database_->ReadAllCameras();
+  cameras_ = database->ReadAllCameras();
 
   // Make sure, itemChanged is not invoked, while setting up the table.
   table_widget_->blockSignals(true);
@@ -417,7 +418,7 @@ void CameraTab::Add() {
   database_->WriteCamera(camera);
 
   // Reload all cameras
-  Reload();
+  Reload(database_);
 
   // Highlight new camera
   table_widget_->selectRow(cameras_.size() - 1);
@@ -460,17 +461,13 @@ void CameraTab::SetModel() {
 
   table_widget_->blockSignals(false);
 
-  Reload();
+  Reload(database_);
 }
 
 ImageTab::ImageTab(QWidget* parent,
                    CameraTab* camera_tab,
-                   OptionManager* options,
-                   Database* database)
-    : QWidget(parent),
-      camera_tab_(camera_tab),
-      options_(options),
-      database_(database) {
+                   OptionManager* options)
+    : QWidget(parent), camera_tab_(camera_tab), options_(options) {
   QGridLayout* grid = new QGridLayout(this);
 
   info_label_ = new QLabel(this);
@@ -502,19 +499,12 @@ ImageTab::ImageTab(QWidget* parent,
   grid->addWidget(overlapping_images_button, 0, 4, Qt::AlignRight);
 
   table_widget_ = new QTableWidget(this);
-  table_widget_->setColumnCount(10);
+  table_widget_->setColumnCount(3);
 
   QStringList table_header;
   table_header << "image_id"
                << "name"
-               << "camera_id"
-               << "qw"
-               << "qx"
-               << "qy"
-               << "qz"
-               << "tx"
-               << "ty"
-               << "tz";
+               << "camera_id";
   table_widget_->setHorizontalHeaderLabels(table_header);
 
   table_widget_->setShowGrid(true);
@@ -531,18 +521,19 @@ ImageTab::ImageTab(QWidget* parent,
   grid->setColumnStretch(0, 3);
 
   image_viewer_widget_ = new FeatureImageViewerWidget(parent, "keypoints");
-  overlapping_images_widget_ =
-      new OverlappingImagesWidget(parent, options, database_);
+  overlapping_images_widget_ = new OverlappingImagesWidget(parent, options);
 }
 
-void ImageTab::Reload() {
+void ImageTab::Reload(const std::shared_ptr<Database>& database) {
+  database_ = database;
+
   QString info;
-  info += QString("Images: ") + QString::number(database_->NumImages());
-  info += QString("\n");
-  info += QString("Features: ") + QString::number(database_->NumKeypoints());
+  info += QString("Images: ") + QString::number(database->NumImages());
+  info += QString('\n');
+  info += QString("Features: ") + QString::number(database->NumKeypoints());
   info_label_->setText(info);
 
-  images_ = database_->ReadAllImages();
+  images_ = database->ReadAllImages();
 
   // Make sure, itemChanged is not invoked, while setting up the table
   table_widget_->blockSignals(true);
@@ -560,34 +551,6 @@ void ImageTab::Reload() {
         i, 1, new QTableWidgetItem(QString::fromStdString(image.Name())));
     table_widget_->setItem(
         i, 2, new QTableWidgetItem(QString::number(image.CameraId())));
-    table_widget_->setItem(i,
-                           3,
-                           new QTableWidgetItem(QString::number(
-                               image.CamFromWorldPrior().rotation.w())));
-    table_widget_->setItem(i,
-                           4,
-                           new QTableWidgetItem(QString::number(
-                               image.CamFromWorldPrior().rotation.x())));
-    table_widget_->setItem(i,
-                           5,
-                           new QTableWidgetItem(QString::number(
-                               image.CamFromWorldPrior().rotation.y())));
-    table_widget_->setItem(i,
-                           6,
-                           new QTableWidgetItem(QString::number(
-                               image.CamFromWorldPrior().rotation.z())));
-    table_widget_->setItem(i,
-                           7,
-                           new QTableWidgetItem(QString::number(
-                               image.CamFromWorldPrior().translation.x())));
-    table_widget_->setItem(i,
-                           8,
-                           new QTableWidgetItem(QString::number(
-                               image.CamFromWorldPrior().translation.y())));
-    table_widget_->setItem(i,
-                           9,
-                           new QTableWidgetItem(QString::number(
-                               image.CamFromWorldPrior().translation.z())));
   }
   table_widget_->resizeColumnsToContents();
 
@@ -618,34 +581,6 @@ void ImageTab::itemChanged(QTableWidgetItem* item) {
       } else {
         image.SetCameraId(camera_id);
       }
-      break;
-    case 3:
-      image.CamFromWorldPrior().rotation.w() =
-          item->data(Qt::DisplayRole).toReal();
-      break;
-    case 4:
-      image.CamFromWorldPrior().rotation.x() =
-          item->data(Qt::DisplayRole).toReal();
-      break;
-    case 5:
-      image.CamFromWorldPrior().rotation.y() =
-          item->data(Qt::DisplayRole).toReal();
-      break;
-    case 6:
-      image.CamFromWorldPrior().rotation.z() =
-          item->data(Qt::DisplayRole).toReal();
-      break;
-    case 7:
-      image.CamFromWorldPrior().translation.x() =
-          item->data(Qt::DisplayRole).toReal();
-      break;
-    case 8:
-      image.CamFromWorldPrior().translation.y() =
-          item->data(Qt::DisplayRole).toReal();
-      break;
-    case 9:
-      image.CamFromWorldPrior().translation.z() =
-          item->data(Qt::DisplayRole).toReal();
       break;
     default:
       break;
@@ -693,7 +628,7 @@ void ImageTab::ShowMatches() {
 
   const auto& image = images_[select->selectedRows().begin()->row()];
 
-  overlapping_images_widget_->ShowMatches(images_, image.ImageId());
+  overlapping_images_widget_->ShowMatches(database_, images_, image.ImageId());
   overlapping_images_widget_->show();
   overlapping_images_widget_->raise();
 }
@@ -769,7 +704,125 @@ void ImageTab::SplitCamera() {
 
   table_widget_->blockSignals(false);
 
-  camera_tab_->Reload();
+  camera_tab_->Reload(database_);
+}
+
+PosePriorsTab::PosePriorsTab(QWidget* parent) : QWidget(parent) {
+  QGridLayout* grid = new QGridLayout(this);
+
+  info_label_ = new QLabel(this);
+  grid->addWidget(info_label_, 0, 0);
+
+  table_widget_ = new QTableWidget(this);
+  table_widget_->setColumnCount(11);
+
+  QStringList table_header;
+  table_header << "image_id"
+               << "name"
+               << "x"
+               << "y"
+               << "z"
+               << "cov_xx"
+               << "cov_yy"
+               << "cov_zz"
+               << "cov_xy"
+               << "cov_xz"
+               << "cov_yz";
+  table_widget_->setHorizontalHeaderLabels(table_header);
+
+  table_widget_->setShowGrid(true);
+  table_widget_->setSelectionBehavior(QAbstractItemView::SelectRows);
+  table_widget_->horizontalHeader()->setStretchLastSection(true);
+  table_widget_->verticalHeader()->setVisible(false);
+  table_widget_->verticalHeader()->setDefaultSectionSize(20);
+
+  // Disable selection & edition of pose priors items for now...
+  // But we could allow editing priors / covariance here
+  table_widget_->setEditTriggers(QAbstractItemView::NoEditTriggers);
+  table_widget_->setSelectionMode(QAbstractItemView::NoSelection);
+
+  connect(table_widget_,
+          &QTableWidget::itemChanged,
+          this,
+          &PosePriorsTab::itemChanged);
+
+  grid->addWidget(table_widget_, 1, 0, 1, 5);
+
+  grid->setColumnStretch(0, 3);
+}
+
+void PosePriorsTab::Reload(const std::shared_ptr<Database>& database) {
+  database_ = database;
+
+  QString info;
+  info += QString("Images: ") + QString::number(database_->NumImages());
+  info += QString('\n');
+  info += QString("PosePriors: ") + QString::number(database_->NumPosePriors());
+  info_label_->setText(info);
+
+  // Make sure, itemChanged is not invoked, while setting up the table
+  table_widget_->blockSignals(true);
+
+  table_widget_->clearContents();
+  table_widget_->setRowCount(database_->NumImages());
+
+  int row_idx = 0;
+
+  for (const auto& image : database_->ReadAllImages()) {
+    const PosePrior prior = database_->ExistsPosePrior(image.ImageId())
+                                ? database_->ReadPosePrior(image.ImageId())
+                                : PosePrior();
+
+    QTableWidgetItem* id_item =
+        new QTableWidgetItem(QString::number(image.ImageId()));
+    id_item->setFlags(Qt::ItemIsSelectable);
+    table_widget_->setItem(row_idx, 0, id_item);
+    table_widget_->setItem(
+        row_idx, 1, new QTableWidgetItem(QString::fromStdString(image.Name())));
+
+    table_widget_->setItem(
+        row_idx, 2, new QTableWidgetItem(QString::number(prior.position[0])));
+    table_widget_->setItem(
+        row_idx, 3, new QTableWidgetItem(QString::number(prior.position[1])));
+    table_widget_->setItem(
+        row_idx, 4, new QTableWidgetItem(QString::number(prior.position[2])));
+
+    table_widget_->setItem(
+        row_idx,
+        5,
+        new QTableWidgetItem(QString::number(prior.position_covariance(0, 0))));
+    table_widget_->setItem(
+        row_idx,
+        6,
+        new QTableWidgetItem(QString::number(prior.position_covariance(1, 1))));
+    table_widget_->setItem(
+        row_idx,
+        7,
+        new QTableWidgetItem(QString::number(prior.position_covariance(2, 2))));
+    table_widget_->setItem(
+        row_idx,
+        8,
+        new QTableWidgetItem(QString::number(prior.position_covariance(0, 1))));
+    table_widget_->setItem(
+        row_idx,
+        9,
+        new QTableWidgetItem(QString::number(prior.position_covariance(0, 2))));
+    table_widget_->setItem(
+        row_idx,
+        10,
+        new QTableWidgetItem(QString::number(prior.position_covariance(1, 2))));
+    ++row_idx;
+  }
+  table_widget_->resizeColumnsToContents();
+
+  table_widget_->blockSignals(false);
+}
+
+void PosePriorsTab::Clear() { table_widget_->clearContents(); }
+
+void PosePriorsTab::itemChanged(QTableWidgetItem* item) {
+  // Don't do anything
+  return;
 }
 
 DatabaseManagementWidget::DatabaseManagementWidget(QWidget* parent,
@@ -783,11 +836,13 @@ DatabaseManagementWidget::DatabaseManagementWidget(QWidget* parent,
 
   tab_widget_ = new QTabWidget(this);
 
-  camera_tab_ = new CameraTab(this, &database_);
-  image_tab_ = new ImageTab(this, camera_tab_, options_, &database_);
+  camera_tab_ = new CameraTab(this);
+  image_tab_ = new ImageTab(this, camera_tab_, options_);
+  pose_prior_tab_ = new PosePriorsTab(this);
 
   tab_widget_->addTab(image_tab_, tr("Images"));
   tab_widget_->addTab(camera_tab_, tr("Cameras"));
+  tab_widget_->addTab(pose_prior_tab_, tr("Pose Priors"));
 
   grid->addWidget(tab_widget_, 0, 0, 1, 4);
 
@@ -813,10 +868,11 @@ DatabaseManagementWidget::DatabaseManagementWidget(QWidget* parent,
 void DatabaseManagementWidget::showEvent(QShowEvent*) {
   parent_->setDisabled(true);
 
-  database_.Open(*options_->database_path);
+  database_ = Database::Open(*options_->database_path);
 
-  image_tab_->Reload();
-  camera_tab_->Reload();
+  image_tab_->Reload(database_);
+  camera_tab_->Reload(database_);
+  pose_prior_tab_->Reload(database_);
 }
 
 void DatabaseManagementWidget::hideEvent(QHideEvent*) {
@@ -824,8 +880,9 @@ void DatabaseManagementWidget::hideEvent(QHideEvent*) {
 
   image_tab_->Clear();
   camera_tab_->Clear();
+  pose_prior_tab_->Clear();
 
-  database_.Close();
+  database_->Close();
 }
 
 void DatabaseManagementWidget::ClearMatches() {
@@ -834,10 +891,9 @@ void DatabaseManagementWidget::ClearMatches() {
                             "",
                             tr("Do you really want to clear all matches?"),
                             QMessageBox::Yes | QMessageBox::No);
-  if (reply == QMessageBox::No) {
-    return;
+  if (reply == QMessageBox::Yes) {
+    database_->ClearMatches();
   }
-  database_.ClearMatches();
 }
 
 void DatabaseManagementWidget::ClearTwoViewGeometries() {
@@ -846,10 +902,9 @@ void DatabaseManagementWidget::ClearTwoViewGeometries() {
       "",
       tr("Do you really want to clear all two-view geometries?"),
       QMessageBox::Yes | QMessageBox::No);
-  if (reply == QMessageBox::No) {
-    return;
+  if (reply == QMessageBox::Yes) {
+    database_->ClearTwoViewGeometries();
   }
-  database_.ClearTwoViewGeometries();
 }
 
 }  // namespace colmap

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -31,6 +31,7 @@
 
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/sfm/observation_manager.h"
 
 #include <memory>
 
@@ -82,6 +83,9 @@ class IncrementalTriangulator {
     double max_focal_length_ratio = 10.0;
     double max_extra_param = 1.0;
 
+    // PRNG seed for all stochastic methods during triangulation.
+    int random_seed = -1;
+
     bool Check() const;
   };
 
@@ -89,7 +93,8 @@ class IncrementalTriangulator {
   // graph and the reconstruction objects must live as long as the triangulator.
   IncrementalTriangulator(
       std::shared_ptr<const CorrespondenceGraph> correspondence_graph,
-      std::shared_ptr<Reconstruction> reconstruction);
+      Reconstruction& reconstruction,
+      std::shared_ptr<ObservationManager> obs_manager = nullptr);
 
   // Triangulate observations of image.
   //
@@ -155,6 +160,9 @@ class IncrementalTriangulator {
   };
 
  private:
+  friend std::ostream& operator<<(std::ostream& stream,
+                                  const IncrementalTriangulator& triangulator);
+
   // Clear cache of bogus camera parameters and merge trials.
   void ClearCaches();
 
@@ -188,7 +196,10 @@ class IncrementalTriangulator {
   const std::shared_ptr<const CorrespondenceGraph> correspondence_graph_;
 
   // Reconstruction of the model. Modified when triangulating new points.
-  std::shared_ptr<Reconstruction> reconstruction_;
+  Reconstruction& reconstruction_;
+
+  // Class that is responsible for keeping track of 3D point statistics.
+  std::shared_ptr<ObservationManager> obs_manager_;
 
   // Cache for cameras with bogus parameters.
   std::unordered_map<camera_t, bool> camera_has_bogus_params_;
@@ -206,5 +217,8 @@ class IncrementalTriangulator {
   // deleted, merged, etc.). Cleared once `ModifiedPoints3D` is called.
   std::unordered_set<point3D_t> modified_point3D_ids_;
 };
+
+std::ostream& operator<<(std::ostream& stream,
+                         const IncrementalTriangulator& triangulator);
 
 }  // namespace colmap

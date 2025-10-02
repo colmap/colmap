@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -111,5 +111,16 @@ inline Sim3d operator*(const Sim3d& c_from_b, const Sim3d& b_from_a) {
       (c_from_b.scale * (c_from_b.rotation * b_from_a.translation));
   return c_from_a;
 }
+
+inline bool operator==(const Sim3d& left, const Sim3d& right) {
+  return left.scale == right.scale &&
+         left.rotation.coeffs() == right.rotation.coeffs() &&
+         left.translation == right.translation;
+}
+inline bool operator!=(const Sim3d& left, const Sim3d& right) {
+  return !(left == right);
+}
+
+std::ostream& operator<<(std::ostream& stream, const Sim3d& tform);
 
 }  // namespace colmap

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -31,7 +31,6 @@
 
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/types.h"
 
 #include <vector>
 
@@ -82,8 +81,8 @@ void TranslationTransformEstimator<kDim>::Estimate(
     const std::vector<X_t>& points1,
     const std::vector<Y_t>& points2,
     std::vector<M_t>* models) {
-  CHECK_EQ(points1.size(), points2.size());
-  CHECK(models != nullptr);
+  THROW_CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK(models != nullptr);
 
   models->clear();
 
@@ -108,7 +107,7 @@ void TranslationTransformEstimator<kDim>::Residuals(
     const std::vector<Y_t>& points2,
     const M_t& translation,
     std::vector<double>* residuals) {
-  CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_EQ(points1.size(), points2.size());
 
   residuals->resize(points1.size());
 

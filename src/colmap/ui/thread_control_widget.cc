@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -51,8 +51,8 @@ ThreadControlWidget::ThreadControlWidget(QWidget* parent)
 void ThreadControlWidget::StartThread(const QString& progress_text,
                                       const bool stoppable,
                                       std::unique_ptr<Thread> thread) {
-  CHECK(!thread_);
-  CHECK_NOTNULL(thread);
+  THROW_CHECK(!thread_);
+  THROW_CHECK_NOTNULL(thread);
 
   thread_ = std::move(thread);
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,29 +29,19 @@
 
 #include "colmap/mvs/fusion.h"
 
+#include "colmap/math/math.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/endian.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/threading.h"
+#include "colmap/util/timer.h"
 
 #include <Eigen/Geometry>
 
 namespace colmap {
 namespace mvs {
 namespace internal {
-
-template <typename T>
-float Median(std::vector<T>* elems) {
-  CHECK(!elems->empty());
-  const size_t mid_idx = elems->size() / 2;
-  std::nth_element(elems->begin(), elems->begin() + mid_idx, elems->end());
-  if (elems->size() % 2 == 0) {
-    const float mid_element1 = static_cast<float>((*elems)[mid_idx]);
-    const float mid_element2 = static_cast<float>(
-        *std::max_element(elems->begin(), elems->begin() + mid_idx));
-    return (mid_element1 + mid_element2) / 2.0f;
-  } else {
-    return static_cast<float>((*elems)[mid_idx]);
-  }
-}
 
 // Use the sparse model to find most connected image that has not yet been
 // fused. This is used as a heuristic to ensure that the workspace cache reuses
@@ -60,7 +50,7 @@ int FindNextImage(const std::vector<std::vector<int>>& overlapping_images,
                   const std::vector<char>& used_images,
                   const std::vector<char>& fused_images,
                   const int prev_image_idx) {
-  CHECK_EQ(used_images.size(), fused_images.size());
+  THROW_CHECK_EQ(used_images.size(), fused_images.size());
 
   for (const auto image_idx : overlapping_images.at(prev_image_idx)) {
     if (used_images.at(image_idx) && !fused_images.at(image_idx)) {
@@ -82,7 +72,7 @@ int FindNextImage(const std::vector<std::vector<int>>& overlapping_images,
 }  // namespace internal
 
 void StereoFusionOptions::Print() const {
-#define PrintOption(option) LOG(INFO) << #option ": " << (option) << std::endl
+#define PrintOption(option) LOG(INFO) << #option ": " << (option) << '\n';
   PrintHeading2("StereoFusion::Options");
   PrintOption(mask_path);
   PrintOption(max_image_size);
@@ -127,7 +117,7 @@ StereoFusion::StereoFusion(const StereoFusionOptions& options,
       max_squared_reproj_error_(options_.max_reproj_error *
                                 options_.max_reproj_error),
       min_cos_normal_error_(std::cos(DegToRad(options_.max_normal_error))) {
-  CHECK(options_.Check());
+  THROW_CHECK(options_.Check());
 }
 
 const std::vector<PlyPoint>& StereoFusion::GetFusedPoints() const {
@@ -140,6 +130,9 @@ const std::vector<std::vector<int>>& StereoFusion::GetFusedPointsVisibility()
 }
 
 void StereoFusion::Run() {
+  Timer run_timer;
+  run_timer.Start();
+
   fused_points_.clear();
   fused_points_visibility_.clear();
 
@@ -175,8 +168,8 @@ void StereoFusion::Run() {
     num_threads = GetEffectiveNumThreads(options_.num_threads);
   }
 
-  if (IsStopped()) {
-    GetTimer().PrintMinutes();
+  if (CheckIfStopped()) {
+    run_timer.PrintMinutes();
     return;
   }
 
@@ -277,7 +270,7 @@ void StereoFusion::Run() {
   for (int image_idx = 0; image_idx >= 0;
        image_idx = internal::FindNextImage(
            overlapping_images_, used_images_, fused_images_, image_idx)) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       break;
     }
 
@@ -339,7 +332,7 @@ void StereoFusion::Run() {
   }
 
   LOG(INFO) << "Number of fused points: " << fused_points_.size();
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 void StereoFusion::InitFusedPixelMask(int image_idx,
@@ -347,9 +340,13 @@ void StereoFusion::InitFusedPixelMask(int image_idx,
                                       size_t height) {
   Bitmap mask;
   Mat<char>& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
-  const std::string mask_path =
-      JoinPaths(options_.mask_path,
-                workspace_->GetModel().GetImageName(image_idx) + ".png");
+  const std::string mask_image_name =
+      workspace_->GetModel().GetImageName(image_idx);
+  std::string mask_path =
+      JoinPaths(options_.mask_path, mask_image_name + ".png");
+  if (!ExistsFile(mask_path) && HasFileExtension(mask_image_name, ".png")) {
+    mask_path = JoinPaths(options_.mask_path, mask_image_name);
+  }
   fused_pixel_mask = Mat<char>(width, height, 1);
   if (!options_.mask_path.empty() && ExistsFile(mask_path) &&
       mask.Read(mask_path, false)) {
@@ -529,28 +526,28 @@ void StereoFusion::Fuse(const int thread_id,
     PlyPoint fused_point;
 
     Eigen::Vector3f fused_normal;
-    fused_normal.x() = internal::Median(&fused_point_nx);
-    fused_normal.y() = internal::Median(&fused_point_ny);
-    fused_normal.z() = internal::Median(&fused_point_nz);
+    fused_normal.x() = Median(fused_point_nx);
+    fused_normal.y() = Median(fused_point_ny);
+    fused_normal.z() = Median(fused_point_nz);
     const float fused_normal_norm = fused_normal.norm();
     if (fused_normal_norm < std::numeric_limits<float>::epsilon()) {
       return;
     }
 
-    fused_point.x = internal::Median(&fused_point_x);
-    fused_point.y = internal::Median(&fused_point_y);
-    fused_point.z = internal::Median(&fused_point_z);
+    fused_point.x = Median(fused_point_x);
+    fused_point.y = Median(fused_point_y);
+    fused_point.z = Median(fused_point_z);
 
     fused_point.nx = fused_normal.x() / fused_normal_norm;
     fused_point.ny = fused_normal.y() / fused_normal_norm;
     fused_point.nz = fused_normal.z() / fused_normal_norm;
 
-    fused_point.r = TruncateCast<float, uint8_t>(
-        std::round(internal::Median(&fused_point_r)));
-    fused_point.g = TruncateCast<float, uint8_t>(
-        std::round(internal::Median(&fused_point_g)));
-    fused_point.b = TruncateCast<float, uint8_t>(
-        std::round(internal::Median(&fused_point_b)));
+    fused_point.r =
+        TruncateCast<float, uint8_t>(std::round(Median(fused_point_r)));
+    fused_point.g =
+        TruncateCast<float, uint8_t>(std::round(Median(fused_point_g)));
+    fused_point.b =
+        TruncateCast<float, uint8_t>(std::round(Median(fused_point_b)));
 
     task_fused_points_[thread_id].push_back(fused_point);
     task_fused_points_visibility_[thread_id].emplace_back(
@@ -562,7 +559,7 @@ void WritePointsVisibility(
     const std::string& path,
     const std::vector<std::vector<int>>& points_visibility) {
   std::fstream file(path, std::ios::out | std::ios::binary);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
   WriteBinaryLittleEndian<uint64_t>(&file, points_visibility.size());
 

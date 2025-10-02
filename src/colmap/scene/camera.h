@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -31,12 +31,12 @@
 
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
 #include <vector>
 
 #include <Eigen/Geometry>
-#include <glog/logging.h>
 
 namespace colmap {
 
@@ -77,6 +77,8 @@ struct Camera {
                                     size_t height);
 
   inline const std::string& ModelName() const;
+
+  inline sensor_t SensorId() const;
 
   // Access focal length parameters.
   double MeanFocalLength() const;
@@ -124,20 +126,27 @@ struct Camera {
                              double max_focal_length_ratio,
                              double max_extra_param) const;
 
-  // Project point in image plane to world / infinity.
-  inline Eigen::Vector2d CamFromImg(const Eigen::Vector2d& image_point) const;
+  // Project point in image plane to camera ray (not unit normalized).
+  inline std::optional<Eigen::Vector2d> CamFromImg(
+      const Eigen::Vector2d& image_point) const;
 
   // Convert pixel threshold in image plane to camera frame.
   inline double CamFromImgThreshold(double threshold) const;
 
   // Project point from camera frame to image plane.
-  inline Eigen::Vector2d ImgFromCam(const Eigen::Vector2d& cam_point) const;
+  inline std::optional<Eigen::Vector2d> ImgFromCam(
+      const Eigen::Vector3d& cam_point) const;
 
   // Rescale camera dimensions and accordingly the focal length and
   // and the principal point.
   void Rescale(double scale);
   void Rescale(size_t new_width, size_t new_height);
+
+  inline bool operator==(const Camera& other) const;
+  inline bool operator!=(const Camera& other) const;
 };
+
+std::ostream& operator<<(std::ostream& stream, const Camera& camera);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -147,9 +156,13 @@ const std::string& Camera::ModelName() const {
   return CameraModelIdToName(model_id);
 }
 
+sensor_t Camera::SensorId() const {
+  return sensor_t(SensorType::CAMERA, camera_id);
+}
+
 double Camera::FocalLength() const {
   const span<const size_t> idxs = FocalLengthIdxs();
-  DCHECK_EQ(idxs.size(), 1);
+  THROW_CHECK_EQ(idxs.size(), 1);
   return params[idxs[0]];
 }
 
@@ -172,37 +185,37 @@ void Camera::SetFocalLength(const double f) {
 
 void Camera::SetFocalLengthX(const double fx) {
   const span<const size_t> idxs = FocalLengthIdxs();
-  DCHECK_EQ(idxs.size(), 2);
+  THROW_CHECK_EQ(idxs.size(), 2);
   params[idxs[0]] = fx;
 }
 
 void Camera::SetFocalLengthY(const double fy) {
   const span<const size_t> idxs = FocalLengthIdxs();
-  DCHECK_EQ(idxs.size(), 2);
+  THROW_CHECK_EQ(idxs.size(), 2);
   params[idxs[1]] = fy;
 }
 
 double Camera::PrincipalPointX() const {
   const span<const size_t> idxs = PrincipalPointIdxs();
-  DCHECK_EQ(idxs.size(), 2);
+  THROW_CHECK_EQ(idxs.size(), 2);
   return params[idxs[0]];
 }
 
 double Camera::PrincipalPointY() const {
   const span<const size_t> idxs = PrincipalPointIdxs();
-  DCHECK_EQ(idxs.size(), 2);
+  THROW_CHECK_EQ(idxs.size(), 2);
   return params[idxs[1]];
 }
 
 void Camera::SetPrincipalPointX(const double cx) {
   const span<const size_t> idxs = PrincipalPointIdxs();
-  DCHECK_EQ(idxs.size(), 2);
+  THROW_CHECK_EQ(idxs.size(), 2);
   params[idxs[0]] = cx;
 }
 
 void Camera::SetPrincipalPointY(const double cy) {
   const span<const size_t> idxs = PrincipalPointIdxs();
-  DCHECK_EQ(idxs.size(), 2);
+  THROW_CHECK_EQ(idxs.size(), 2);
   params[idxs[1]] = cy;
 }
 
@@ -238,16 +251,27 @@ bool Camera::HasBogusParams(const double min_focal_length_ratio,
                                    max_extra_param);
 }
 
-Eigen::Vector2d Camera::CamFromImg(const Eigen::Vector2d& image_point) const {
-  return CameraModelCamFromImg(model_id, params, image_point).hnormalized();
+std::optional<Eigen::Vector2d> Camera::CamFromImg(
+    const Eigen::Vector2d& image_point) const {
+  return CameraModelCamFromImg(model_id, params, image_point);
 }
 
 double Camera::CamFromImgThreshold(const double threshold) const {
   return CameraModelCamFromImgThreshold(model_id, params, threshold);
 }
 
-Eigen::Vector2d Camera::ImgFromCam(const Eigen::Vector2d& cam_point) const {
-  return CameraModelImgFromCam(model_id, params, cam_point.homogeneous());
+std::optional<Eigen::Vector2d> Camera::ImgFromCam(
+    const Eigen::Vector3d& cam_point) const {
+  return CameraModelImgFromCam(model_id, params, cam_point);
 }
+
+bool Camera::operator==(const Camera& other) const {
+  return camera_id == other.camera_id && model_id == other.model_id &&
+         width == other.width && height == other.height &&
+         params == other.params &&
+         has_prior_focal_length == other.has_prior_focal_length;
+}
+
+bool Camera::operator!=(const Camera& other) const { return !(*this == other); }
 
 }  // namespace colmap

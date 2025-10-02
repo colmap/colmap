@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -37,7 +37,7 @@ const camera_specs_t CameraDatabase::specs_ = InitializeCameraSpecs();
 
 bool CameraDatabase::QuerySensorWidth(const std::string& make,
                                       const std::string& model,
-                                      double* sensor_width) {
+                                      double* sensor_width_mm) {
   // Clean the strings from all separators.
   std::string cleaned_make = make;
   std::string cleaned_model = model;
@@ -60,7 +60,7 @@ bool CameraDatabase::QuerySensorWidth(const std::string& make,
       for (const auto& model_elem : make_elem.second) {
         if (StringContains(cleaned_model, model_elem.first) ||
             StringContains(model_elem.first, cleaned_model)) {
-          *sensor_width = model_elem.second;
+          *sensor_width_mm = model_elem.second;
           if (cleaned_model == model_elem.first) {
             // Model exactly matches, return immediately.
             return true;

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,12 +30,10 @@
 #pragma once
 
 #include "colmap/geometry/rigid3.h"
-#include "colmap/optim/loransac.h"
+#include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
-#include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/threading.h"
 #include "colmap/util/types.h"
 
 #include <vector>
@@ -49,30 +47,19 @@ struct AbsolutePoseEstimationOptions {
   // Whether to estimate the focal length.
   bool estimate_focal_length = false;
 
-  // Number of discrete samples for focal length estimation.
-  size_t num_focal_length_samples = 30;
-
-  // Minimum focal length ratio for discrete focal length sampling
-  // around focal length of given camera.
-  double min_focal_length_ratio = 0.2;
-
-  // Maximum focal length ratio for discrete focal length sampling
-  // around focal length of given camera.
-  double max_focal_length_ratio = 5;
-
-  // Number of threads for parallel estimation of focal length.
-  int num_threads = ThreadPool::kMaxNumThreads;
-
   // Options used for P3P RANSAC.
   RANSACOptions ransac_options;
 
-  void Check() const {
-    CHECK_GT(num_focal_length_samples, 0);
-    CHECK_GT(min_focal_length_ratio, 0);
-    CHECK_GT(max_focal_length_ratio, 0);
-    CHECK_LT(min_focal_length_ratio, max_focal_length_ratio);
-    ransac_options.Check();
+  AbsolutePoseEstimationOptions() {
+    ransac_options.max_error = 12.0;
+    // Use high confidence to avoid preemptive termination of P3P RANSAC
+    // - too early termination may lead to bad registration.
+    ransac_options.min_num_trials = 100;
+    ransac_options.max_num_trials = 10000;
+    ransac_options.confidence = 0.99999;
   }
+
+  void Check() const { ransac_options.Check(); }
 };
 
 struct AbsolutePoseRefinementOptions {
@@ -86,18 +73,18 @@ struct AbsolutePoseRefinementOptions {
   double loss_function_scale = 1.0;
 
   // Whether to refine the focal length parameter group.
-  bool refine_focal_length = true;
+  bool refine_focal_length = false;
 
   // Whether to refine the extra parameter group.
-  bool refine_extra_params = true;
+  bool refine_extra_params = false;
 
   // Whether to print final summary.
-  bool print_summary = true;
+  bool print_summary = false;
 
   void Check() const {
-    CHECK_GE(gradient_tolerance, 0.0);
-    CHECK_GE(max_num_iterations, 0);
-    CHECK_GE(loss_function_scale, 0.0);
+    THROW_CHECK_GE(gradient_tolerance, 0.0);
+    THROW_CHECK_GE(max_num_iterations, 0);
+    THROW_CHECK_GE(loss_function_scale, 0.0);
   }
 };
 
@@ -132,15 +119,19 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
 // i.e. `x2 = [R | t] * X2`.
 //
 // @param ransac_options       RANSAC options.
-// @param points1              Corresponding 2D points.
-// @param points2              Corresponding 2D points.
+// @param cam_rays1            Corresponding 2D rays.
+// @param cam_rays2            Corresponding 2D rays.
 // @param cam2_from_cam1       Estimated pose between cameras.
+// @param num_inliers          Number of inliers in RANSAC.
+// @param inlier_mask          Inlier mask for 2D-2D correspondences.
 //
-// @return                     Number of RANSAC inliers.
-size_t EstimateRelativePose(const RANSACOptions& ransac_options,
-                            const std::vector<Eigen::Vector2d>& points1,
-                            const std::vector<Eigen::Vector2d>& points2,
-                            Rigid3d* cam2_from_cam1);
+// @return                     Whether pose is estimated successfully.
+bool EstimateRelativePose(const RANSACOptions& ransac_options,
+                          const std::vector<Eigen::Vector3d>& cam_rays1,
+                          const std::vector<Eigen::Vector3d>& cam_rays2,
+                          Rigid3d* cam2_from_cam1,
+                          size_t* num_inliers,
+                          std::vector<char>* inlier_mask);
 
 // Refine absolute pose (optionally focal length) from 2D-3D correspondences.
 //
@@ -178,14 +169,16 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 // is a unit vector again).
 //
 // @param options          Solver options.
-// @param points1          First set of corresponding points.
-// @param points2          Second set of corresponding points.
+// @param inlier_mask      Inlier mask for 2D-2D correspondences.
+// @param cam_points1      First set of corresponding normalized points.
+// @param cam_points2      Second set of corresponding normalized points.
 // @param cam_from_world   Refined pose between cameras.
 //
 // @return                 Flag indicating if solution is usable.
 bool RefineRelativePose(const ceres::Solver::Options& options,
-                        const std::vector<Eigen::Vector2d>& points1,
-                        const std::vector<Eigen::Vector2d>& points2,
+                        const std::vector<char>& inlier_mask,
+                        const std::vector<Eigen::Vector3d>& cam_rays1,
+                        const std::vector<Eigen::Vector3d>& cam_rays2,
                         Rigid3d* cam_from_world);
 
 // Refine essential matrix.
@@ -194,15 +187,15 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
 // and refines the relative pose using the function `RefineRelativePose`.
 //
 // @param E                3x3 essential matrix.
-// @param points1          First set of corresponding points.
-// @param points2          Second set of corresponding points.
-// @param inlier_mask      Inlier mask for corresponding points.
+// @param cam_rays1        First set of corresponding normalized rays.
+// @param cam_rays2        Second set of corresponding normalized rays.
+// @param inlier_mask      Inlier mask for corresponding rays.
 // @param options          Solver options.
 //
 // @return                 Flag indicating if solution is usable.
 bool RefineEssentialMatrix(const ceres::Solver::Options& options,
-                           const std::vector<Eigen::Vector2d>& points1,
-                           const std::vector<Eigen::Vector2d>& points2,
+                           const std::vector<Eigen::Vector3d>& cam_rays1,
+                           const std::vector<Eigen::Vector3d>& cam_rays2,
                            const std::vector<char>& inlier_mask,
                            Eigen::Matrix3d* E);
 

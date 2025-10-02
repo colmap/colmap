@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,7 @@
 
 #include "colmap/mvs/workspace.h"
 
+#include "colmap/util/file.h"
 #include "colmap/util/threading.h"
 
 #include <numeric>
@@ -167,52 +168,56 @@ CachedWorkspace::CachedImage& CachedWorkspace::CachedImage::operator=(
 CachedWorkspace::CachedWorkspace(const Options& options)
     : Workspace(options),
       cache_((size_t)(1024.0 * 1024.0 * 1024.0 * options.cache_size),
-             [](const int) { return CachedImage(); }) {}
+             [](const int) { return std::make_shared<CachedImage>(); }) {}
 
 const Bitmap& CachedWorkspace::GetBitmap(const int image_idx) {
-  auto& cached_image = cache_.GetMutable(image_idx);
-  if (!cached_image.bitmap) {
-    cached_image.bitmap = std::make_unique<Bitmap>();
-    cached_image.bitmap->Read(GetBitmapPath(image_idx), options_.image_as_rgb);
+  auto cached_image = cache_.Get(image_idx);
+  std::lock_guard<std::mutex> lock(cached_image->mutex);
+  if (!cached_image->bitmap) {
+    cached_image->bitmap = std::make_unique<Bitmap>();
+    cached_image->bitmap->Read(GetBitmapPath(image_idx), options_.image_as_rgb);
     if (options_.max_image_size > 0) {
-      cached_image.bitmap->Rescale(model_.images.at(image_idx).GetWidth(),
-                                   model_.images.at(image_idx).GetHeight());
+      cached_image->bitmap->Rescale(model_.images.at(image_idx).GetWidth(),
+                                    model_.images.at(image_idx).GetHeight());
     }
-    cached_image.num_bytes += cached_image.bitmap->NumBytes();
+    cached_image->num_bytes += cached_image->bitmap->NumBytes();
     cache_.UpdateNumBytes(image_idx);
   }
-  return *cached_image.bitmap;
+  return *cached_image->bitmap;
 }
 
 const DepthMap& CachedWorkspace::GetDepthMap(const int image_idx) {
-  auto& cached_image = cache_.GetMutable(image_idx);
-  if (!cached_image.depth_map) {
-    cached_image.depth_map = std::make_unique<DepthMap>();
-    cached_image.depth_map->Read(GetDepthMapPath(image_idx));
+  auto cached_image = cache_.Get(image_idx);
+  std::lock_guard<std::mutex> lock(cached_image->mutex);
+  if (!cached_image->depth_map) {
+    cached_image->depth_map = std::make_unique<DepthMap>();
+    cached_image->depth_map->Read(GetDepthMapPath(image_idx));
     if (options_.max_image_size > 0) {
-      cached_image.depth_map->Downsize(model_.images.at(image_idx).GetWidth(),
-                                       model_.images.at(image_idx).GetHeight());
-    }
-    cached_image.num_bytes += cached_image.depth_map->GetNumBytes();
-    cache_.UpdateNumBytes(image_idx);
-  }
-  return *cached_image.depth_map;
-}
-
-const NormalMap& CachedWorkspace::GetNormalMap(const int image_idx) {
-  auto& cached_image = cache_.GetMutable(image_idx);
-  if (!cached_image.normal_map) {
-    cached_image.normal_map = std::make_unique<NormalMap>();
-    cached_image.normal_map->Read(GetNormalMapPath(image_idx));
-    if (options_.max_image_size > 0) {
-      cached_image.normal_map->Downsize(
+      cached_image->depth_map->Downsize(
           model_.images.at(image_idx).GetWidth(),
           model_.images.at(image_idx).GetHeight());
     }
-    cached_image.num_bytes += cached_image.normal_map->GetNumBytes();
+    cached_image->num_bytes += cached_image->depth_map->GetNumBytes();
     cache_.UpdateNumBytes(image_idx);
   }
-  return *cached_image.normal_map;
+  return *cached_image->depth_map;
+}
+
+const NormalMap& CachedWorkspace::GetNormalMap(const int image_idx) {
+  auto cached_image = cache_.Get(image_idx);
+  std::lock_guard<std::mutex> lock(cached_image->mutex);
+  if (!cached_image->normal_map) {
+    cached_image->normal_map = std::make_unique<NormalMap>();
+    cached_image->normal_map->Read(GetNormalMapPath(image_idx));
+    if (options_.max_image_size > 0) {
+      cached_image->normal_map->Downsize(
+          model_.images.at(image_idx).GetWidth(),
+          model_.images.at(image_idx).GetHeight());
+    }
+    cached_image->num_bytes += cached_image->normal_map->GetNumBytes();
+    cache_.UpdateNumBytes(image_idx);
+  }
+  return *cached_image->normal_map;
 }
 
 void ImportPMVSWorkspace(const Workspace& workspace,
@@ -238,15 +243,15 @@ void ImportPMVSWorkspace(const Workspace& workspace,
 
     std::vector<int> image_idxs;
     if (num_images == -1) {
-      CHECK_EQ(elems.size(), 4);
+      THROW_CHECK_EQ(elems.size(), 4);
       const int range_lower = std::stoull(elems[2]);
       const int range_upper = std::stoull(elems[3]);
-      CHECK_LT(range_lower, range_upper);
+      THROW_CHECK_LT(range_lower, range_upper);
       num_images = range_upper - range_lower;
       image_idxs.resize(num_images);
       std::iota(image_idxs.begin(), image_idxs.end(), range_lower);
     } else {
-      CHECK_EQ(num_images + 2, elems.size());
+      THROW_CHECK_EQ(num_images + 2, elems.size());
       image_idxs.reserve(num_images);
       for (size_t i = 2; i < elems.size(); ++i) {
         const int image_idx = std::stoull(elems[i]);
@@ -271,11 +276,11 @@ void ImportPMVSWorkspace(const Workspace& workspace,
         JoinPaths(workspace_path, stereo_folder, "fusion.cfg");
     std::ofstream patch_match_file(patch_match_path, std::ios::trunc);
     std::ofstream fusion_file(fusion_path, std::ios::trunc);
-    CHECK(patch_match_file.is_open()) << patch_match_path;
-    CHECK(fusion_file.is_open()) << fusion_path;
+    THROW_CHECK_FILE_OPEN(patch_match_file, patch_match_path);
+    THROW_CHECK_FILE_OPEN(fusion_file, fusion_path);
     for (size_t i = 0; i < image_names.size(); ++i) {
       const auto& ref_image_name = image_names[i];
-      patch_match_file << ref_image_name << "\n";
+      patch_match_file << ref_image_name << '\n';
       if (overlapping_images.empty()) {
         patch_match_file << "__auto__, 20\n";
       } else {
@@ -283,9 +288,9 @@ void ImportPMVSWorkspace(const Workspace& workspace,
           patch_match_file << workspace.GetModel().GetImageName(image_idx)
                            << ", ";
         }
-        patch_match_file << "\n";
+        patch_match_file << '\n';
       }
-      fusion_file << ref_image_name << "\n";
+      fusion_file << ref_image_name << '\n';
     }
   }
 }

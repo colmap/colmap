@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -33,9 +33,15 @@ set(FOLDER_NAME "util")
 COLMAP_ADD_LIBRARY(
     NAME colmap_util
     SRCS
+        base_controller.h base_controller.cc
         cache.h
+        controller_thread.h
         eigen_alignment.h
+        endian.h endian.cc
+        enum_utils.h
+        file.h file.cc
         logging.h logging.cc
+        glog_macros.h
         misc.h misc.cc
         opengl_utils.h opengl_utils.cc
         ply.h ply.cc
@@ -46,23 +52,42 @@ COLMAP_ADD_LIBRARY(
         types.h
         version.h version.cc
     PUBLIC_LINK_LIBS
-        Boost::filesystem
         Eigen3::Eigen
         glog::glog
         SQLite::SQLite3
-    PRIVATE_LINK_LIBS
         Boost::boost
+    PRIVATE_LINK_LIBS
+        $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:-lstdc++fs>
 )
 if(TESTS_ENABLED)
     target_sources(
         colmap_util
         PRIVATE
             testing.h testing.cc
+            eigen_matchers.h
     )
 endif()
 
+if(DOWNLOAD_ENABLED)
+    target_link_libraries(colmap_util PRIVATE CURL::libcurl)
+    if(TARGET cryptopp::cryptopp)
+        target_link_libraries(colmap_util PRIVATE cryptopp::cryptopp)
+        target_compile_definitions(colmap_util PRIVATE COLMAP_USE_CRYPTOPP)
+    else()
+        target_link_libraries(colmap_util PRIVATE OpenSSL::Crypto)
+        target_compile_definitions(colmap_util PRIVATE COLMAP_USE_OPENSSL)
+    endif()
+endif()
 if(GUI_ENABLED)
-    target_link_libraries(colmap_util PUBLIC Qt5::Core Qt5::OpenGL OpenGL::GL)
+    set(COLMAP_UTIL_QT_LIBS
+        Qt${QT_VERSION_MAJOR}::Core
+        Qt${QT_VERSION_MAJOR}::OpenGL
+    )
+    if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
+        list(APPEND COLMAP_UTIL_QT_LIBS 
+            Qt${QT_VERSION_MAJOR}::OpenGLWidgets)
+    endif()
+    target_link_libraries(colmap_util PUBLIC ${COLMAP_UTIL_QT_LIBS} OpenGL::GL)
 endif()
 
 if(CUDA_ENABLED)
@@ -77,14 +102,45 @@ if(CUDA_ENABLED)
     )
 endif()
 
+if(TESTS_ENABLED)
+    COLMAP_ADD_LIBRARY(
+        NAME colmap_gtest_main
+        SRCS
+            gtest_main.cc
+        PUBLIC_LINK_LIBS
+            glog::glog
+            GTest::gmock_main
+    )
+endif()
+
 COLMAP_ADD_TEST(
     NAME cache_test
     SRCS cache_test.cc
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
+    NAME eigen_matchers_test
+    SRCS eigen_matchers_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
     NAME endian_test
     SRCS endian_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
+    NAME enum_utils_test
+    SRCS enum_utils_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
+    NAME file_test
+    SRCS file_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
+    NAME logging_test
+    SRCS logging_test.cc
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
@@ -97,6 +153,13 @@ COLMAP_ADD_TEST(
     SRCS string_test.cc
     LINK_LIBS colmap_util
 )
+if(TESTS_ENABLED)
+    if(MSVC)
+        target_compile_options(colmap_util_string_test PRIVATE /utf-8)
+    else()
+        target_compile_options(colmap_util_string_test PRIVATE -finput-charset=UTF-8 -fexec-charset=UTF-8)
+    endif()
+endif()
 COLMAP_ADD_TEST(
     NAME threading_test
     SRCS threading_test.cc

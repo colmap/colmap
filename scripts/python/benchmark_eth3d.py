@@ -1,8 +1,8 @@
-import os
-import sys
 import argparse
-import urllib.request
+import os
 import subprocess
+import sys
+import urllib.request
 
 
 def download_file(url, file_path, max_retries=3):
@@ -15,7 +15,7 @@ def download_file(url, file_path, max_retries=3):
             return
         except Exception as exc:
             print(
-                f"Failed to download {url} (trial={retry+1}) to {file_path} due to {exc}"
+                f"Failed to download {url} (trial={retry + 1}) to {file_path} due to {exc}"
             )
 
 
@@ -120,7 +120,7 @@ def process_dataset(args, dataset_name):
             "--num_threads",
             str(args.num_threads),
             "--quality",
-            "low",
+            args.quality,
             "--camera_model",
             "PINHOLE",
             "--camera_params",

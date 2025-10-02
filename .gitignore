@@ -1,17 +1,24 @@
 # Custom files
 LocalConfig.cmake
 src/colmap/util/version.cc
+CMakeUserPresets.json
+.clangd
+compile_commands.json
 
 # Custom directories
 .idea/
 .vscode
 .vs
 .DS_Store
+.cache
 build*/
 install-debug/
 install-release/
 data/
+benchmark/reconstruction/data/
+benchmark/reconstruction/runs/
 doc/_build
+vcpkg_installed/
 
 # Compiled Object files
 *.slo
@@ -42,3 +49,7 @@ doc/_build
 *.exe
 *.out
 *.app
+
+# backup files
+*~
+*.orig

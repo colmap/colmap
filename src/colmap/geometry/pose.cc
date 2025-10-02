@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -81,13 +81,6 @@ bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& P,
   return true;
 }
 
-Eigen::Matrix3d CrossProductMatrix(const Eigen::Vector3d& vector) {
-  Eigen::Matrix3d matrix;
-  matrix << 0, -vector(2), vector(1), vector(2), 0, -vector(0), -vector(1),
-      vector(0), 0;
-  return matrix;
-}
-
 void RotationMatrixToEulerAngles(const Eigen::Matrix3d& R,
                                  double* rx,
                                  double* ry,
@@ -116,8 +109,8 @@ Eigen::Matrix3d EulerAnglesToRotationMatrix(const double rx,
 Eigen::Quaterniond AverageQuaternions(
     const std::vector<Eigen::Quaterniond>& quats,
     const std::vector<double>& weights) {
-  CHECK_EQ(quats.size(), weights.size());
-  CHECK_GT(quats.size(), 0);
+  THROW_CHECK_EQ(quats.size(), weights.size());
+  THROW_CHECK_GT(quats.size(), 0);
 
   if (quats.size() == 1) {
     return quats[0];
@@ -127,7 +120,7 @@ Eigen::Quaterniond AverageQuaternions(
   double weight_sum = 0;
 
   for (size_t i = 0; i < quats.size(); ++i) {
-    CHECK_GT(weights[i], 0);
+    THROW_CHECK_GT(weights[i], 0);
     const Eigen::Vector4d qvec = quats[i].normalized().coeffs();
     A += weights[i] * qvec * qvec.transpose();
     weight_sum += weights[i];
@@ -144,48 +137,28 @@ Eigen::Quaterniond AverageQuaternions(
       average_qvec(3), average_qvec(0), average_qvec(1), average_qvec(2));
 }
 
-Rigid3d InterpolateCameraPoses(const Rigid3d& cam_from_world1,
-                               const Rigid3d& cam_from_world2,
+Rigid3d InterpolateCameraPoses(const Rigid3d& cam1_from_world,
+                               const Rigid3d& cam2_from_world,
                                double t) {
   const Eigen::Vector3d translation12 =
-      cam_from_world2.translation - cam_from_world1.translation;
-  return Rigid3d(cam_from_world1.rotation.slerp(t, cam_from_world2.rotation),
-                 cam_from_world1.translation + translation12 * t);
+      cam2_from_world.translation - cam1_from_world.translation;
+  return Rigid3d(cam1_from_world.rotation.slerp(t, cam2_from_world.rotation),
+                 cam1_from_world.translation + translation12 * t);
 }
 
-namespace {
-
-double CalculateDepth(const Eigen::Matrix3x4d& cam_from_world,
-                      const Eigen::Vector3d& point3D) {
-  const double proj_z = cam_from_world.row(2).dot(point3D.homogeneous());
-  return proj_z * cam_from_world.col(2).norm();
-}
-
-}  // namespace
-
-bool CheckCheirality(const Eigen::Matrix3d& R,
-                     const Eigen::Vector3d& t,
-                     const std::vector<Eigen::Vector2d>& points1,
-                     const std::vector<Eigen::Vector2d>& points2,
+bool CheckCheirality(const Rigid3d& cam2_from_cam1,
+                     const std::vector<Eigen::Vector3d>& cam_rays1,
+                     const std::vector<Eigen::Vector3d>& cam_rays2,
                      std::vector<Eigen::Vector3d>* points3D) {
-  CHECK_EQ(points1.size(), points2.size());
-  const Eigen::Matrix3x4d proj_matrix1 = Eigen::Matrix3x4d::Identity();
-  Eigen::Matrix3x4d proj_matrix2;
-  proj_matrix2.leftCols<3>() = R;
-  proj_matrix2.col(3) = t;
-  const double kMinDepth = std::numeric_limits<double>::epsilon();
-  const double max_depth = 1000.0f * (R.transpose() * t).norm();
+  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
   points3D->clear();
-  for (size_t i = 0; i < points1.size(); ++i) {
-    const Eigen::Vector3d point3D =
-        TriangulatePoint(proj_matrix1, proj_matrix2, points1[i], points2[i]);
-    const double depth1 = CalculateDepth(proj_matrix1, point3D);
-    if (depth1 > kMinDepth && depth1 < max_depth) {
-      const double depth2 = CalculateDepth(proj_matrix2, point3D);
-      if (depth2 > kMinDepth && depth2 < max_depth) {
-        points3D->push_back(point3D);
-      }
+  for (size_t i = 0; i < cam_rays1.size(); ++i) {
+    Eigen::Vector3d point3D_in_cam1;
+    if (!TriangulateMidPoint(
+            cam2_from_cam1, cam_rays1[i], cam_rays2[i], &point3D_in_cam1)) {
+      continue;
     }
+    points3D->push_back(point3D_in_cam1);
   }
   return !points3D->empty();
 }

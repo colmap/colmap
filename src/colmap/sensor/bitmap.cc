@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -31,6 +31,7 @@
 
 #include "colmap/math/math.h"
 #include "colmap/sensor/database.h"
+#include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
@@ -279,8 +280,8 @@ bool Bitmap::SetPixel(const int x,
 }
 
 const uint8_t* Bitmap::GetScanline(const int y) const {
-  CHECK_GE(y, 0);
-  CHECK_LT(y, height_);
+  THROW_CHECK_GE(y, 0);
+  THROW_CHECK_LT(y, height_);
   return FreeImage_GetScanLine(handle_.ptr, height_ - 1 - y);
 }
 
@@ -410,12 +411,20 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
                   FIMD_EXIF_EXIF,
                   "FocalLengthIn35mmFilm",
                   &focal_length_35mm_str)) {
-    const std::regex regex(".*?([0-9.]+).*?mm.*?");
+    static const std::regex regex(".*?([0-9.]+).*?mm.*?");
     std::cmatch result;
     if (std::regex_search(focal_length_35mm_str.c_str(), result, regex)) {
       const double focal_length_35 = std::stold(result[1]);
       if (focal_length_35 > 0) {
-        *focal_length = focal_length_35 / 35.0 * max_size;
+        // Based on https://en.wikipedia.org/wiki/35_mm_equivalent_focal_length
+        // According to CIPA guidelines, 35 mm equivalent focal length is to be
+        // calculated like this:
+        // "focal length in 35 mm camera" =
+        //   (Diagonal distance of image area in the 35 mm camera (43.27 mm) /
+        //    Diagonal distance of image area on the image sensor of the DSC)
+        //    * focal length of the lens of the DSC.
+        const double diagonal = std::sqrt(width_ * width_ + height_ * height_);
+        *focal_length = focal_length_35 / 43.27 * diagonal;
         return true;
       }
     }
@@ -433,53 +442,46 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
     if (std::regex_search(focal_length_str.c_str(), result, regex)) {
       const double focal_length_mm = std::stold(result[1]);
 
-      // Lookup sensor width in database.
-      std::string make_str;
-      std::string model_str;
-      if (ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Make", &make_str) &&
-          ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Model", &model_str)) {
-        CameraDatabase database;
-        double sensor_width;
-        if (database.QuerySensorWidth(make_str, model_str, &sensor_width)) {
-          *focal_length = focal_length_mm / sensor_width * max_size;
-          return true;
-        }
-      }
-
-      // Extract sensor width from EXIF.
-      std::string pixel_x_dim_str;
-      std::string x_res_str;
-      std::string res_unit_str;
-      if (ReadExifTag(handle_.ptr,
-                      FIMD_EXIF_EXIF,
-                      "PixelXDimension",
-                      &pixel_x_dim_str) &&
-          ReadExifTag(handle_.ptr,
-                      FIMD_EXIF_EXIF,
-                      "FocalPlaneXResolution",
-                      &x_res_str) &&
-          ReadExifTag(handle_.ptr,
-                      FIMD_EXIF_EXIF,
-                      "FocalPlaneResolutionUnit",
-                      &res_unit_str)) {
-        regex = std::regex(".*?([0-9.]+).*?");
-        if (std::regex_search(pixel_x_dim_str.c_str(), result, regex)) {
-          const double pixel_x_dim = std::stold(result[1]);
+      if (focal_length_mm > 0) {
+        std::string x_res_str;
+        std::string res_unit_str;
+        if (ReadExifTag(handle_.ptr,
+                        FIMD_EXIF_EXIF,
+                        "FocalPlaneXResolution",
+                        &x_res_str) &&
+            ReadExifTag(handle_.ptr,
+                        FIMD_EXIF_EXIF,
+                        "FocalPlaneResolutionUnit",
+                        &res_unit_str)) {
           regex = std::regex(".*?([0-9.]+).*?/.*?([0-9.]+).*?");
           if (std::regex_search(x_res_str.c_str(), result, regex)) {
             const double x_res = std::stold(result[2]) / std::stold(result[1]);
-            // Use PixelXDimension instead of actual width of image, since
-            // the image might have been resized, but the EXIF data preserved.
-            const double ccd_width = x_res * pixel_x_dim;
-            if (ccd_width > 0 && focal_length_mm > 0) {
-              if (res_unit_str == "cm") {
-                *focal_length = focal_length_mm / (ccd_width * 10.0) * max_size;
-                return true;
-              } else if (res_unit_str == "inches") {
-                *focal_length = focal_length_mm / (ccd_width * 25.4) * max_size;
-                return true;
-              }
+            double pixels_per_mm = -1.0;
+            if (res_unit_str == "mm") {
+              pixels_per_mm = x_res;
+            } else if (res_unit_str == "cm") {
+              pixels_per_mm = x_res * 10.0;
+            } else if (res_unit_str == "inches") {
+              pixels_per_mm = x_res * 25.4;
             }
+            if (pixels_per_mm > 0) {
+              *focal_length = focal_length_mm / pixels_per_mm;
+              return true;
+            }
+          }
+        }
+
+        // Fall back to look up sensor width in database.
+        std::string make_str;
+        std::string model_str;
+        if (ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Make", &make_str) &&
+            ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Model", &model_str)) {
+          CameraDatabase database;
+          double sensor_width_mm;
+          if (database.QuerySensorWidth(
+                  make_str, model_str, &sensor_width_mm)) {
+            *focal_length = focal_length_mm / sensor_width_mm * max_size;
+            return true;
           }
         }
       }
@@ -500,7 +502,7 @@ bool Bitmap::ExifLatitude(double* latitude) const {
     }
   }
   if (ReadExifTag(handle_.ptr, FIMD_EXIF_GPS, "GPSLatitude", &str)) {
-    const std::regex regex(".*?([0-9.]+):([0-9.]+):([0-9.]+).*?");
+    static const std::regex regex(".*?([0-9.]+):([0-9.]+):([0-9.]+).*?");
     std::cmatch result;
     if (std::regex_search(str.c_str(), result, regex)) {
       const double hours = std::stold(result[1]);
@@ -528,7 +530,7 @@ bool Bitmap::ExifLongitude(double* longitude) const {
     }
   }
   if (ReadExifTag(handle_.ptr, FIMD_EXIF_GPS, "GPSLongitude", &str)) {
-    const std::regex regex(".*?([0-9.]+):([0-9.]+):([0-9.]+).*?");
+    static const std::regex regex(".*?([0-9.]+):([0-9.]+):([0-9.]+).*?");
     std::cmatch result;
     if (std::regex_search(str.c_str(), result, regex)) {
       const double hours = std::stold(result[1]);
@@ -548,7 +550,7 @@ bool Bitmap::ExifLongitude(double* longitude) const {
 bool Bitmap::ExifAltitude(double* altitude) const {
   std::string str;
   if (ReadExifTag(handle_.ptr, FIMD_EXIF_GPS, "GPSAltitude", &str)) {
-    const std::regex regex(".*?([0-9.]+).*?/.*?([0-9.]+).*?");
+    static const std::regex regex(".*?([0-9.]+).*?/.*?([0-9.]+).*?");
     std::cmatch result;
     if (std::regex_search(str.c_str(), result, regex)) {
       *altitude = std::stold(result[1]) / std::stold(result[2]);
@@ -578,6 +580,10 @@ bool Bitmap::Read(const std::string& path, const bool as_rgb) {
     FIBITMAP* converted_bitmap = FreeImage_ConvertTo24Bits(handle_.ptr);
     handle_ = FreeImageHandle(converted_bitmap);
   } else if (!IsPtrGrey(handle_.ptr) && !as_rgb) {
+    if (FreeImage_GetBPP(handle_.ptr) != 24) {
+      FIBITMAP* converted_bitmap_24 = FreeImage_ConvertTo24Bits(handle_.ptr);
+      handle_ = FreeImageHandle(converted_bitmap_24);
+    }
     FIBITMAP* converted_bitmap = FreeImage_ConvertToGreyscale(handle_.ptr);
     handle_ = FreeImageHandle(converted_bitmap);
   }
@@ -664,7 +670,7 @@ void Bitmap::Rescale(const int new_width,
       fi_filter = FILTER_BOX;
       break;
     default:
-      LOG(FATAL) << "Filter not implemented";
+      LOG(FATAL_THROW) << "Filter not implemented";
   }
   SetPtr(FreeImage_Rescale(handle_.ptr, new_width, new_height, fi_filter));
 }
@@ -691,18 +697,18 @@ Bitmap Bitmap::CloneAsRGB() const {
 }
 
 void Bitmap::CloneMetadata(Bitmap* target) const {
-  CHECK_NOTNULL(target);
-  CHECK_NOTNULL(target->Data());
+  THROW_CHECK_NOTNULL(target);
+  THROW_CHECK_NOTNULL(target->Data());
   FreeImage_CloneMetadata(handle_.ptr, target->Data());
 }
 
 void Bitmap::SetPtr(FIBITMAP* ptr) {
-  CHECK_NOTNULL(ptr);
+  THROW_CHECK_NOTNULL(ptr);
 
   if (!IsPtrSupported(ptr)) {
     FreeImageHandle temp_handle(ptr);
     ptr = FreeImage_ConvertTo24Bits(temp_handle.ptr);
-    CHECK(IsPtrSupported(ptr));
+    THROW_CHECK(IsPtrSupported(ptr));
   }
 
   handle_ = FreeImageHandle(ptr);
@@ -738,6 +744,12 @@ Bitmap::FreeImageHandle& Bitmap::FreeImageHandle::operator=(
     other.ptr = nullptr;
   }
   return *this;
+}
+
+std::ostream& operator<<(std::ostream& stream, const Bitmap& bitmap) {
+  stream << "Bitmap(width=" << bitmap.Width() << ", height=" << bitmap.Height()
+         << ", channels=" << bitmap.Channels() << ")";
+  return stream;
 }
 
 float JetColormap::Red(const float gray) { return Base(gray - 0.25f); }

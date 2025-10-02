@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,7 +29,8 @@
 
 #pragma once
 
-#include <cstdio>
+#include "colmap/util/logging.h"
+
 #include <cstdlib>
 #include <string>
 
@@ -46,19 +47,19 @@ inline int SQLite3CallHelper(int result_code,
     case SQLITE_DONE:
       return result_code;
     default:
-      LOG(ERROR) << "SQLite error [" << filename << ", line " << line
-                 << "]: " << sqlite3_errstr(result_code);
-      throw std::runtime_error("SQLite error");
+      LogMessageFatalThrow<std::runtime_error>(filename.c_str(), line).stream()
+          << "SQLite error: " << sqlite3_errstr(result_code);
+      return result_code;
   }
 }
 
-#define SQLITE3_CALL(func) SQLite3CallHelper(func, __FILE__, __LINE__)
+#define SQLITE3_CALL(func) colmap::SQLite3CallHelper(func, __FILE__, __LINE__)
 
 #define SQLITE3_EXEC(database, sql, callback)                             \
   {                                                                       \
     char* err_msg = nullptr;                                              \
-    const int result_code =                                               \
-        sqlite3_exec(database, sql, callback, nullptr, &err_msg);         \
+    const int result_code = sqlite3_exec(                                 \
+        THROW_CHECK_NOTNULL(database), sql, callback, nullptr, &err_msg); \
     if (result_code != SQLITE_OK) {                                       \
       LOG(ERROR) << "SQLite error [" << __FILE__ << ", line " << __LINE__ \
                  << "]: " << err_msg;                                     \

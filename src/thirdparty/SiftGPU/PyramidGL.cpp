@@ -39,12 +39,11 @@ using namespace std;
 #include "PyramidGL.h"
 #include "FrameBufferObject.h"
 
-
-#if defined(__SSE__) || _MSC_VER > 1200
-#define USE_SSE_FOR_SIFTGPU
+#ifdef SIFTGPU_USE_SSE_FOR
+#ifndef __SSE__
+#error Compiling SSE functions but SSE is not supported by the compiler.
+#endif
 #include <xmmintrin.h>
-#else
-//#pragma message( "SSE optimization off!\n" )
 #endif
 
 
@@ -1502,7 +1501,7 @@ void PyramidNaive::GetSimplifiedOrientation()
 }
 
 
-#ifdef USE_SSE_FOR_SIFTGPU
+#ifdef SIFTGPU_USE_SSE_FOR
 	static inline float dotproduct_128d(float * p)
 	{
 		float z = 0.0f;
@@ -1542,7 +1541,7 @@ void PyramidNaive::GetSimplifiedOrientation()
 inline void PyramidGL::NormalizeDescriptor(int num, float*pd)
 {
 
-#ifdef USE_SSE_FOR_SIFTGPU
+#ifdef SIFTGPU_USE_SSE_FOR
 	for(int k = 0; k < num; k++, pd +=128)
 	{
 		float sq;

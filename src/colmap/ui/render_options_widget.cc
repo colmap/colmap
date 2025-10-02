@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -47,8 +47,8 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
       point3D_colormap_max_q_(0.98),
       image_plane_color_(ImageColormapUniform::kDefaultPlaneColor),
       image_frame_color_(ImageColormapUniform::kDefaultFrameColor) {
-  setWindowFlags(Qt::Widget | Qt::WindowStaysOnTopHint | Qt::Tool);
-  setWindowModality(Qt::NonModal);
+  setWindowFlags(Qt::Dialog);
+  setWindowModality(Qt::ApplicationModal);
   setWindowTitle("Render options");
 
   QHBoxLayout* point_size_layout = new QHBoxLayout();

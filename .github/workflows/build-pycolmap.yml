@@ -1,50 +1,62 @@
-name: Build and publish wheels
+name: PyCOLMAP
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 on:
   push:
     branches:
       - main
+      - release/*
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
     types: [ published, edited ]
-  workflow_dispatch:
 
 jobs:
   build:
-    name: Build on ${{ matrix.config.os }} ${{ matrix.config.arch }}
+    name: ${{ matrix.config.os }} ${{ matrix.config.arch }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:
         config: [
-              {os: ubuntu-latest},
-              {os: macos-13, arch: x86_64},
-              {os: macos-13, arch: arm64},
-              {os: windows-latest},
+          {os: ubuntu-24.04},
+          {os: macos-14, arch: arm64, deploymentTarget: 14.0},
+          {os: windows-2025},
         ]
     env:
       COMPILER_CACHE_VERSION: 1
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.config.deploymentTarget }}
+      # For faster builds in PRs, skip all but the oldest Python versions.
+      PULL_REQUEST_CIBW_BUILD: cp39-{macosx,manylinux,win}*
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/cache@v4
         id: cache-builds
         with:
-          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ github.run_id }}-${{ github.run_number }}
-          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}
+          key: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ github.run_id }}-${{ github.run_number }}
+          restore-keys: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}
           path: ${{ env.COMPILER_CACHE_DIR }}
+
+      - name: Select Python
+        if: github.event_name == 'pull_request' && runner.os != 'Windows'
+        run: |
+          echo "CIBW_BUILD=${PULL_REQUEST_CIBW_BUILD}" >> "$GITHUB_ENV"
+      - name: Select Python
+        if: ${{ github.event_name == 'pull_request' && runner.os == 'Windows' }}
+        shell: pwsh
+        run: |
+          echo "CIBW_BUILD=${env:PULL_REQUEST_CIBW_BUILD}" >> "${env:GITHUB_ENV}"
+
       - name: Set env (macOS)
         if: runner.os == 'macOS'
         run: |
-          if [[ ${{ matrix.config.arch }} == "x86_64" ]]; then
-            VCPKG_TARGET_TRIPLET="x64-osx"
-          elif [[ ${{ matrix.config.arch }} == "arm64" ]]; then
-            VCPKG_TARGET_TRIPLET="arm64-osx-release"
-          else
-            exit 1
-          fi
+          VCPKG_TARGET_TRIPLET="arm64-osx-release"
           echo "VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}" >> "$GITHUB_ENV"
 
           VCPKG_INSTALLATION_ROOT="/Users/runner/work/vcpkg"
@@ -53,41 +65,56 @@ jobs:
           echo "VCPKG_INSTALLATION_ROOT=${VCPKG_INSTALLATION_ROOT}" >> "$GITHUB_ENV"
           echo "CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}" >> "$GITHUB_ENV"
           echo "CMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}" >> "$GITHUB_ENV"
+          echo "ARCHFLAGS=-arch ${CMAKE_OSX_ARCHITECTURES}" >> "$GITHUB_ENV"
 
           # Fix: cibuildhweel cannot interpolate env variables.
           CONFIG_SETTINGS="cmake.define.CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
+          CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_INSTALLED_DIR=${{ github.workspace }}/build/vcpkg_installed"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.CMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}"
           echo "CIBW_CONFIG_SETTINGS_MACOS=${CONFIG_SETTINGS}" >> "$GITHUB_ENV"
 
           # vcpkg binary caching
-          VCPKG_CACHE_DIR="${COMPILER_CACHE_DIR}/vcpkg"
-          VCPKG_BINARY_SOURCES="clear;files,${VCPKG_CACHE_DIR},readwrite"
+          # !!!PLEASE!!! be nice and don't use this cache for your own purposes. This is only meant for CI purposes in this repository.
+          VCPKG_BINARY_SOURCES="clear;x-azblob,https://colmap.blob.core.windows.net/github-actions-cache,sp=r&st=2024-12-10T17:29:32Z&se=2030-12-31T01:29:32Z&spr=https&sv=2022-11-02&sr=c&sig=bWydkilTMjRn3LHKTxLgdWrFpV4h%2Finzoe9QCOcPpYQ%3D,read"
+          if [ -n "${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }}" ]; then
+            # The secrets are only accessible in runs triggered from within the target repository and not forks.
+            VCPKG_BINARY_SOURCES="${VCPKG_BINARY_SOURCES};x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},write"
+          fi
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "$GITHUB_ENV"
+
       - name: Set env (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $VCPKG_INSTALLATION_ROOT="${{ github.workspace }}/vcpkg"
+          $VCPKG_INSTALLATION_ROOT = "${{ github.workspace }}/vcpkg"
           echo "VCPKG_INSTALLATION_ROOT=${VCPKG_INSTALLATION_ROOT}" >> "${env:GITHUB_ENV}"
           $CMAKE_TOOLCHAIN_FILE = "${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
           echo "CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}" >> "${env:GITHUB_ENV}"
-          $VCPKG_TARGET_TRIPLET = "x64-windows"
+          $VCPKG_TARGET_TRIPLET = "x64-windows-release"
           echo "VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}" >> "${env:GITHUB_ENV}"
 
           # Fix: cibuildhweel cannot interpolate env variables.
           $CMAKE_TOOLCHAIN_FILE = $CMAKE_TOOLCHAIN_FILE.replace('\', '/')
+          $VCPKG_INSTALLED_DIR = "${{ github.workspace }}/build/vcpkg_installed"
+          $VCPKG_INSTALLED_DIR = $VCPKG_INSTALLED_DIR.replace('\', '/')
           $CONFIG_SETTINGS = "cmake.define.CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
           $CONFIG_SETTINGS = "${CONFIG_SETTINGS} cmake.define.VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
+          $CONFIG_SETTINGS = "${CONFIG_SETTINGS} cmake.define.VCPKG_INSTALLED_DIR=${VCPKG_INSTALLED_DIR}"
           echo "CIBW_CONFIG_SETTINGS_WINDOWS=${CONFIG_SETTINGS}" >> "${env:GITHUB_ENV}"
-          $CIBW_REPAIR_WHEEL_COMMAND = "delvewheel repair -v --add-path ${VCPKG_INSTALLATION_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/bin -w {dest_dir} {wheel}"
+          $CIBW_REPAIR_WHEEL_COMMAND = "delvewheel repair -v --add-path ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin -w {dest_dir} {wheel}"
           echo "CIBW_REPAIR_WHEEL_COMMAND_WINDOWS=${CIBW_REPAIR_WHEEL_COMMAND}" >> "${env:GITHUB_ENV}"
 
           # vcpkg binary caching
-          $VCPKG_CACHE_DIR = "${env:COMPILER_CACHE_DIR}/vcpkg"
-          $VCPKG_BINARY_SOURCES = "clear;files,${VCPKG_CACHE_DIR},readwrite"
+          # !!!PLEASE!!! be nice and don't use this cache for your own purposes. This is only meant for CI purposes in this repository.
+          $VCPKG_BINARY_SOURCES = "clear;x-azblob,https://colmap.blob.core.windows.net/github-actions-cache,sp=r&st=2024-12-10T17:29:32Z&se=2030-12-31T01:29:32Z&spr=https&sv=2022-11-02&sr=c&sig=bWydkilTMjRn3LHKTxLgdWrFpV4h%2Finzoe9QCOcPpYQ%3D,read"
+          if ("${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }}") {
+            # The secrets are only accessible in runs triggered from within the target repository and not forks.
+            $VCPKG_BINARY_SOURCES += ";x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},write"
+          }
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "${env:GITHUB_ENV}"
-      - name: Set env (Ubuntu)
+
+      - name: Set env (Linux)
         if: runner.os == 'Linux'
         run: |
           VCPKG_TARGET_TRIPLET="x64-linux-release"
@@ -101,6 +128,7 @@ jobs:
           # Fix: cibuildhweel cannot interpolate env variables.
           CONFIG_SETTINGS="cmake.define.CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
+          CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_INSTALLED_DIR=/project/build/vcpkg_installed"
           echo "CIBW_CONFIG_SETTINGS_LINUX=${CONFIG_SETTINGS}" >> "$GITHUB_ENV"
 
           # Remap caching paths to the container
@@ -112,18 +140,27 @@ jobs:
           echo "CCACHE_BASEDIR=/project" >> "$GITHUB_ENV"
 
           # vcpkg binary caching
-          VCPKG_CACHE_DIR="${CONTAINER_COMPILER_CACHE_DIR}/vcpkg"
-          VCPKG_BINARY_SOURCES="clear;files,${VCPKG_CACHE_DIR},readwrite"
+          # !!!PLEASE!!! be nice and don't use this cache for your own purposes. This is only meant for CI purposes in this repository.
+          VCPKG_BINARY_SOURCES="clear;x-azblob,https://colmap.blob.core.windows.net/github-actions-cache,sp=r&st=2024-12-10T17:29:32Z&se=2030-12-31T01:29:32Z&spr=https&sv=2022-11-02&sr=c&sig=bWydkilTMjRn3LHKTxLgdWrFpV4h%2Finzoe9QCOcPpYQ%3D,read"
+          if [ -n "${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }}" ]; then
+            # The secrets are only accessible in runs triggered from within the target repository and not forks.
+            VCPKG_BINARY_SOURCES="${VCPKG_BINARY_SOURCES};x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},write"
+          fi
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "$GITHUB_ENV"
 
           CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR"
           echo "CIBW_ENVIRONMENT_PASS_LINUX=${CIBW_ENVIRONMENT_PASS_LINUX}" >> "$GITHUB_ENV"
+
+          CIBW_MANYLINUX_X86_64_IMAGE="quay.io/pypa/manylinux_2_28_x86_64"
+          echo "CIBW_MANYLINUX_X86_64_IMAGE=${CIBW_MANYLINUX_X86_64_IMAGE}" >> "$GITHUB_ENV"
+
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.16.2
+        uses: pypa/cibuildwheel@v3.1.2
         with:
-          package-dir: ./pycolmap/
+          package-dir: ./
         env:
           CIBW_ARCHS_MACOS: ${{ matrix.config.arch }}
+
       - name: Archive wheels
         uses: actions/upload-artifact@v4
         with:
@@ -147,7 +184,7 @@ jobs:
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          skip_existing: true
+          skip-existing: true
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
-          packages_dir: ./wheelhouse/
+          packages-dir: ./wheelhouse/

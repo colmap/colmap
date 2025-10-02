@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,16 +29,16 @@
 
 #include "colmap/estimators/alignment.h"
 
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/math/random.h"
-#include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
-#include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 Sim3d TestSim3d() {
   return Sim3d(RandomUniformReal<double>(0.5, 2),
@@ -55,16 +55,73 @@ void ExpectEqualSim3d(const Sim3d& gt_tgt_from_src, const Sim3d& tgt_from_src) {
 }
 
 Reconstruction GenerateReconstructionForAlignment() {
-  // const std::string database_path = CreateTestDir() + "/database.db";
-  // Database database(database_path);
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_cameras = 2;
-  synthetic_dataset_options.num_images = 20;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   return reconstruction;
+}
+
+TEST(Alignment, AlignReconstructionToLocations) {
+  Reconstruction src_reconstruction = GenerateReconstructionForAlignment();
+  Reconstruction tgt_reconstruction = src_reconstruction;
+
+  Sim3d gt_tgt_from_src = TestSim3d();
+  tgt_reconstruction.Transform(gt_tgt_from_src);
+
+  std::vector<std::string> tgt_image_names;
+  std::vector<Eigen::Vector3d> tgt_image_locations;
+  for (const auto& [_, image] : tgt_reconstruction.Images()) {
+    tgt_image_names.push_back(image.Name());
+    tgt_image_locations.push_back(image.ProjectionCenter());
+  }
+
+  RANSACOptions ransac_options;
+  ransac_options.max_error = 1e-2;
+
+  Sim3d tgt_from_src;
+  ASSERT_FALSE(AlignReconstructionToLocations(
+      src_reconstruction,
+      tgt_image_names,
+      tgt_image_locations,
+      /*min_common_images=*/tgt_image_names.size() + 1,
+      ransac_options,
+      &tgt_from_src));
+  ASSERT_TRUE(AlignReconstructionToLocations(src_reconstruction,
+                                             tgt_image_names,
+                                             tgt_image_locations,
+                                             /*min_common_images=*/3,
+                                             ransac_options,
+                                             &tgt_from_src));
+  ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
+}
+
+TEST(Alignment, AlignReconstructionToPosePriors) {
+  Reconstruction src_reconstruction = GenerateReconstructionForAlignment();
+  Reconstruction tgt_reconstruction = src_reconstruction;
+
+  Sim3d gt_tgt_from_src = TestSim3d();
+  tgt_reconstruction.Transform(gt_tgt_from_src);
+
+  std::unordered_map<image_t, PosePrior> tgt_pose_priors;
+  for (const auto& [image_id, image] : tgt_reconstruction.Images()) {
+    PosePrior& pose_prior = tgt_pose_priors[image_id];
+    pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+    pose_prior.position = image.ProjectionCenter();
+    pose_prior.position_covariance = 1e-2 * Eigen::Matrix3d::Identity();
+  }
+
+  RANSACOptions ransac_options;
+  ransac_options.max_error = 1e-2;
+
+  Sim3d tgt_from_src;
+  ASSERT_TRUE(AlignReconstructionToPosePriors(
+      src_reconstruction, tgt_pose_priors, ransac_options, &tgt_from_src));
+  ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
 }
 
 TEST(Alignment, AlignReconstructionsViaReprojections) {
@@ -75,11 +132,12 @@ TEST(Alignment, AlignReconstructionsViaReprojections) {
   tgt_reconstruction.Transform(gt_tgt_from_src);
 
   Sim3d tgt_from_src;
-  CHECK(AlignReconstructionsViaReprojections(src_reconstruction,
-                                             tgt_reconstruction,
-                                             /*min_inlier_observations=*/0.9,
-                                             /*max_reproj_error=*/2,
-                                             &tgt_from_src));
+  ASSERT_TRUE(
+      AlignReconstructionsViaReprojections(src_reconstruction,
+                                           tgt_reconstruction,
+                                           /*min_inlier_observations=*/0.9,
+                                           /*max_reproj_error=*/2,
+                                           &tgt_from_src));
   ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
 }
 
@@ -91,10 +149,10 @@ TEST(Alignment, AlignReconstructionsViaProjCenters) {
   tgt_reconstruction.Transform(gt_tgt_from_src);
 
   Sim3d tgt_from_src;
-  CHECK(AlignReconstructionsViaProjCenters(src_reconstruction,
-                                           tgt_reconstruction,
-                                           /*max_proj_center_error=*/0.1,
-                                           &tgt_from_src));
+  ASSERT_TRUE(AlignReconstructionsViaProjCenters(src_reconstruction,
+                                                 tgt_reconstruction,
+                                                 /*max_proj_center_error=*/0.1,
+                                                 &tgt_from_src));
   ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
 }
 
@@ -106,13 +164,93 @@ TEST(Alignment, AlignReconstructionsViaPoints) {
   tgt_reconstruction.Transform(gt_tgt_from_src);
 
   Sim3d tgt_from_src;
-  CHECK(AlignReconstructionsViaPoints(src_reconstruction,
-                                      tgt_reconstruction,
-                                      /*min_common_observations=*/3,
-                                      /*max_error=*/0.01,
-                                      /*min_inlier_ratio=*/0.9,
-                                      &tgt_from_src));
+  ASSERT_TRUE(AlignReconstructionsViaPoints(src_reconstruction,
+                                            tgt_reconstruction,
+                                            /*min_common_observations=*/3,
+                                            /*max_error=*/0.01,
+                                            /*min_inlier_ratio=*/0.9,
+                                            &tgt_from_src));
   ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
 }
 
+TEST(Alignment, MergeReconstructions) {
+  // Synthesize a reconstruction which has at least two cameras
+  Reconstruction src_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 3;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 10;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.point2D_stddev = 0;
+  SynthesizeDataset(synthetic_dataset_options, &src_reconstruction);
+  Reconstruction orig_reconstruction = src_reconstruction;
+  Reconstruction tgt_reconstruction = src_reconstruction;
+
+  auto remove_rig_frames = [](Reconstruction& reconstruction, rig_t rig_id) {
+    const std::vector<frame_t> frame_ids = reconstruction.RegFrameIds();
+    for (const auto& frame_id : frame_ids) {
+      if (reconstruction.Frame(frame_id).RigId() == rig_id) {
+        reconstruction.DeRegisterFrame(frame_id);
+      }
+    }
+  };
+
+  remove_rig_frames(src_reconstruction, 1);
+  remove_rig_frames(tgt_reconstruction, 2);
+
+  // Remove all unregistered rigs/cameras/frames/images.
+  src_reconstruction.TearDown();
+  tgt_reconstruction.TearDown();
+  EXPECT_EQ(src_reconstruction.NumRigs(), 2);
+  EXPECT_EQ(src_reconstruction.NumCameras(), 2);
+  EXPECT_EQ(src_reconstruction.NumFrames(), 20);
+  EXPECT_EQ(src_reconstruction.NumRegFrames(), 20);
+  EXPECT_EQ(src_reconstruction.NumImages(), 20);
+  EXPECT_EQ(tgt_reconstruction.NumRigs(), 2);
+  EXPECT_EQ(tgt_reconstruction.NumCameras(), 2);
+  EXPECT_EQ(tgt_reconstruction.NumFrames(), 20);
+  EXPECT_EQ(tgt_reconstruction.NumRegFrames(), 20);
+  EXPECT_EQ(tgt_reconstruction.NumImages(), 20);
+
+  // Merge reconstructions.
+  ASSERT_TRUE(MergeReconstructions(
+      /*max_reproj_error=*/1e-4, src_reconstruction, tgt_reconstruction));
+  EXPECT_EQ(tgt_reconstruction.NumRigs(), 3);
+  EXPECT_EQ(tgt_reconstruction.NumCameras(), 3);
+  EXPECT_EQ(tgt_reconstruction.NumFrames(), 30);
+  EXPECT_EQ(tgt_reconstruction.NumRegFrames(), 30);
+  EXPECT_EQ(tgt_reconstruction.NumImages(), 30);
+  EXPECT_EQ(tgt_reconstruction.NumPoints3D(), 50);
+  EXPECT_EQ(tgt_reconstruction.ComputeNumObservations(),
+            orig_reconstruction.ComputeNumObservations());
+}
+
+TEST(Alignment, AlignReconstructionToOrigRigScales) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 4;
+  synthetic_dataset_options.num_frames_per_rig = 10;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.point2D_stddev = 0;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  std::unordered_map<rig_t, Rig> orig_rigs = reconstruction.Rigs();
+
+  reconstruction.Transform(TestSim3d());
+  AlignReconstructionToOrigRigScales(orig_rigs, &reconstruction);
+  for (const auto& [rig_id, orig_rig] : orig_rigs) {
+    for (const auto& [sensor_id, sensor_from_orig_rig] :
+         orig_rig.NonRefSensors()) {
+      if (!sensor_from_orig_rig.has_value()) {
+        continue;
+      }
+      EXPECT_THAT(
+          reconstruction.Rig(rig_id).SensorFromRig(sensor_id),
+          Rigid3dNear(
+              sensor_from_orig_rig.value(), /*rtol=*/1e-6, /*ttol=*/1e-6));
+    }
+  }
+}
+
+}  // namespace
 }  // namespace colmap

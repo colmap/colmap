@@ -1,6 +1,6 @@
 @echo off
 
-rem Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+rem Copyright (c), ETH Zurich and UNC Chapel Hill.
 rem All rights reserved.
 rem
 rem Redistribution and use in source and binary forms, with or without
@@ -31,8 +31,8 @@ rem POSSIBILITY OF SUCH DAMAGE.
 
 set SCRIPT_PATH=%~dp0
 
-set PATH=%SCRIPT_PATH%\lib;%PATH%
-set QT_PLUGIN_PATH=%SCRIPT_PATH%\lib;%QT_PLUGIN_PATH%
+set PATH=%SCRIPT_PATH%\bin;%PATH%
+set QT_PLUGIN_PATH=%SCRIPT_PATH%\plugins;%QT_PLUGIN_PATH%
 
 set ARGUMENTS=%*
 if "%ARGUMENTS%"=="" set ARGUMENTS=gui

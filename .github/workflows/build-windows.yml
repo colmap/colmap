@@ -1,0 +1,193 @@
+name: COLMAP (Windows)
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+on:
+  push:
+    branches:
+      - main
+      - release/*
+  pull_request:
+    types: [ assigned, opened, synchronize, reopened ]
+  release:
+    types: [ published, edited ]
+
+jobs:
+  build:
+    name: ${{ matrix.config.os }} ${{ matrix.config.cmakeBuildType }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }}
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      matrix:
+        config: [
+          {
+            os: windows-2025,
+            cmakeBuildType: Release,
+            cudaEnabled: true,
+            testsEnabled: true,
+            exportPackage: true,
+          },
+          {
+            os: windows-2025,
+            cmakeBuildType: Release,
+            cudaEnabled: false,
+            testsEnabled: true,
+            exportPackage: true,
+          },
+        ]
+
+    env:
+      COMPILER_CACHE_VERSION: 1
+      COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
+      CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      GLOG_v: 2
+      GLOG_logtostderr: 1
+      CUDA_MAJOR_VERSION: 12
+      CUDA_MINOR_VERSION: 6
+      CUDA_PATCH_VERSION: 2
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # We define the vcpkg binary sources using separate variables for read and
+      # write operations:
+      # * Read sources are defined as inline. These can be read by anyone and,
+      #   in particular, pull requests from forks. Unfortunately, we cannot
+      #   define these as action environment variables. See:
+      #   https://github.com/orgs/community/discussions/44322
+      # * Write sources are defined as action secret variables. These cannot be
+      #   read by pull requests from forks but only from pull requests from
+      #   within the target repository (i.e., created by a repository owner).
+      #   This protects us from malicious actors accessing our secrets and
+      #   gaining write access to our binary cache. For more information, see:
+      #   https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/
+      - name: Setup vcpkg binary cache
+        shell: pwsh
+        run: |
+          # !!!PLEASE!!! be nice and don't use this cache for your own purposes. This is only meant for CI purposes in this repository.
+          $VCPKG_BINARY_SOURCES = "clear;x-azblob,https://colmap.blob.core.windows.net/github-actions-cache,sp=r&st=2024-12-10T17:29:32Z&se=2030-12-31T01:29:32Z&spr=https&sv=2022-11-02&sr=c&sig=bWydkilTMjRn3LHKTxLgdWrFpV4h%2Finzoe9QCOcPpYQ%3D,read"
+          if ("${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }}") {
+            # The secrets are only accessible in runs triggered from within the target repository and not forks.
+            $VCPKG_BINARY_SOURCES += ";x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},write"
+          }
+          echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "${env:GITHUB_ENV}"
+
+      - name: Compiler cache
+        uses: actions/cache@v4
+        id: cache-builds
+        with:
+          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
+          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
+          path: ${{ env.COMPILER_CACHE_DIR }}
+
+      - name: Install ccache
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "${{ env.CCACHE_DIR }}"
+          echo "${{ env.COMPILER_CACHE_DIR }}/bin" | Out-File -Encoding utf8 -Append -FilePath $env:GITHUB_PATH
+          if (Test-Path -PathType Leaf "${{ env.COMPILER_CACHE_DIR }}/bin/ccache.exe") {
+            exit
+          }
+          .github/workflows/install-ccache.ps1 -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
+
+      - name: Install CUDA
+        uses: Jimver/cuda-toolkit@v0.2.23
+        if: matrix.config.cudaEnabled
+        id: cuda-toolkit
+        with:
+          cuda: '${{ env.CUDA_MAJOR_VERSION }}.${{ env.CUDA_MINOR_VERSION }}.${{ env.CUDA_PATCH_VERSION }}'
+          sub-packages: '["nvcc", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
+          method: 'network'
+
+      - name: Setup vcpkg
+        shell: pwsh
+        run: |
+          ./scripts/shell/enter_vs_dev_shell.ps1
+          cd ${{ github.workspace }}
+          git clone https://github.com/microsoft/vcpkg
+          cd vcpkg
+          ./bootstrap-vcpkg.bat
+
+      - name: Install CMake and Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "3.31.0"
+          ninjaVersion: "1.12.1"
+
+      - name: Configure and build
+        shell: pwsh
+        run: |
+          ./scripts/shell/enter_vs_dev_shell.ps1
+          cd ${{ github.workspace }}
+          ./vcpkg/vcpkg.exe integrate install
+          mkdir build
+          cd build
+          cmake .. `
+            -GNinja `
+            -DCMAKE_MAKE_PROGRAM=ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DTESTS_ENABLED=${{ matrix.config.testsEnabled }} `
+            -DGUI_ENABLED=ON `
+            -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} `
+            -DCMAKE_CUDA_ARCHITECTURES=all-major `
+            -DCUDAToolkit_ROOT="${{ steps.cuda-toolkit.outputs.CUDA_PATH }}" `
+            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows-release `
+            -DCMAKE_INSTALL_PREFIX=install
+          ninja
+
+      - name: Run tests
+        shell: pwsh
+        run: |
+          ./vcpkg/vcpkg.exe integrate install
+          cd build
+          $EXCLUDED_TESTS = "(feature/colmap_feature_sift_test)|(util/colmap_util_opengl_utils_test)|(mvs/colmap_mvs_gpu_mat_test)"
+          ctest -E ${EXCLUDED_TESTS} --output-on-failure
+
+      - name: Export package
+        if: matrix.config.exportPackage
+        shell: pwsh
+        run: |
+          ./vcpkg/vcpkg.exe integrate install
+
+          cd build
+          ninja install
+
+          ../vcpkg/vcpkg.exe install `
+              --triplet=x64-windows-release `
+              --x-feature=gui `
+              --x-feature=cgal `
+              $(if ($${{ matrix.config.testsEnabled }}) { echo "--x-feature=tests" }) `
+              $(if ($${{ matrix.config.cudaEnabled }}) { echo "--x-feature=cuda" })
+          ../vcpkg/vcpkg.exe export --raw --output-dir vcpkg_export --output colmap
+          cp vcpkg_export/colmap/installed/x64-windows/bin/*.dll install/bin
+          cp vcpkg_export/colmap/installed/x64-windows-release/bin/*.dll install/bin
+          cp -r vcpkg_export/colmap/installed/x64-windows/Qt6/plugins install
+          if ($${{ matrix.config.cudaEnabled }}) {
+              cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/cudart64_*.dll" install/bin
+              cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/curand64_*.dll" install/bin
+          }
+          Remove-Item -Recurse -Force install/include,install/lib,install/share
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        if: ${{ matrix.config.exportPackage && matrix.config.cudaEnabled }}
+        with:
+          name: colmap-x64-windows-cuda
+          path: build/install
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        if: ${{ matrix.config.exportPackage && !matrix.config.cudaEnabled }}
+        with:
+          name: colmap-x64-windows-nocuda
+          path: build/install
+
+      - name: Cleanup compiler cache
+        shell: pwsh
+        run: |
+          ccache --show-stats --verbose
+          ccache --evict-older-than 1d
+          ccache --show-stats --verbose

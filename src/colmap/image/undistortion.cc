@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -31,8 +31,10 @@
 
 #include "colmap/geometry/pose.h"
 #include "colmap/image/warp.h"
+#include "colmap/scene/reconstruction_io.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/threading.h"
 
 #include <fstream>
 
@@ -47,7 +49,7 @@ void WriteMatrix(const Eigen::MatrixBase<Derived>& matrix,
     for (index_t c = 0; c < matrix.cols() - 1; ++c) {
       *file << matrix(r, c) << " ";
     }
-    *file << matrix(r, matrix.cols() - 1) << std::endl;
+    *file << matrix(r, matrix.cols() - 1) << '\n';
   }
 }
 
@@ -56,10 +58,10 @@ void WriteProjectionMatrix(const std::string& path,
                            const Camera& camera,
                            const Image& image,
                            const std::string& header) {
-  CHECK(camera.model_id == PinholeCameraModel::model_id);
+  THROW_CHECK(camera.model_id == PinholeCameraModel::model_id);
 
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
   Eigen::Matrix3d calib_matrix = Eigen::Matrix3d::Identity();
   calib_matrix(0, 0) = camera.FocalLengthX();
@@ -71,7 +73,7 @@ void WriteProjectionMatrix(const std::string& path,
       calib_matrix * image.CamFromWorld().ToMatrix();
 
   if (!header.empty()) {
-    file << header << std::endl;
+    file << header << '\n';
   }
 
   WriteMatrix(img_from_world, &file);
@@ -85,69 +87,51 @@ void WriteCOLMAPCommands(const bool geometric,
                          const std::string& indent,
                          std::ofstream* file) {
   if (geometric) {
-    *file << indent << "$COLMAP_EXE_PATH/colmap patch_match_stereo \\"
-          << std::endl;
-    *file << indent << "  --workspace_path " << workspace_path << " \\"
-          << std::endl;
-    *file << indent << "  --workspace_format " << workspace_format << " \\"
-          << std::endl;
+    *file << indent << "$COLMAP_EXE_PATH/colmap patch_match_stereo \\\n";
+    *file << indent << "  --workspace_path " << workspace_path << " \\\n";
+    *file << indent << "  --workspace_format " << workspace_format << " \\\n";
     if (workspace_format == "PMVS") {
-      *file << indent << "  --pmvs_option_name " << pmvs_option_name << " \\"
-            << std::endl;
+      *file << indent << "  --pmvs_option_name " << pmvs_option_name << " \\\n";
     }
-    *file << indent << "  --PatchMatchStereo.max_image_size 2000 \\"
-          << std::endl;
-    *file << indent << "  --PatchMatchStereo.geom_consistency true"
-          << std::endl;
+    *file << indent << "  --PatchMatchStereo.max_image_size 2000 \\\n";
+    *file << indent << "  --PatchMatchStereo.geom_consistency true\n";
   } else {
-    *file << indent << "$COLMAP_EXE_PATH/colmap patch_match_stereo \\"
-          << std::endl;
-    *file << indent << "  --workspace_path " << workspace_path << " \\"
-          << std::endl;
-    *file << indent << "  --workspace_format " << workspace_format << " \\"
-          << std::endl;
+    *file << indent << "$COLMAP_EXE_PATH/colmap patch_match_stereo \\\n";
+    *file << indent << "  --workspace_path " << workspace_path << " \\\n";
+    *file << indent << "  --workspace_format " << workspace_format << " \\\n";
     if (workspace_format == "PMVS") {
-      *file << indent << "  --pmvs_option_name " << pmvs_option_name << " \\"
-            << std::endl;
+      *file << indent << "  --pmvs_option_name " << pmvs_option_name << " \\\n";
     }
-    *file << indent << "  --PatchMatchStereo.max_image_size 2000 \\"
-          << std::endl;
-    *file << indent << "  --PatchMatchStereo.geom_consistency false"
-          << std::endl;
+    *file << indent << "  --PatchMatchStereo.max_image_size 2000 \\\n";
+    *file << indent << "  --PatchMatchStereo.geom_consistency false\n";
   }
 
-  *file << indent << "$COLMAP_EXE_PATH/colmap stereo_fusion \\" << std::endl;
-  *file << indent << "  --workspace_path " << workspace_path << " \\"
-        << std::endl;
-  *file << indent << "  --workspace_format " << workspace_format << " \\"
-        << std::endl;
+  *file << indent << "$COLMAP_EXE_PATH/colmap stereo_fusion \\\n";
+  *file << indent << "  --workspace_path " << workspace_path << " \\\n";
+  *file << indent << "  --workspace_format " << workspace_format << " \\\n";
   if (workspace_format == "PMVS") {
-    *file << indent << "  --pmvs_option_name " << pmvs_option_name << " \\"
-          << std::endl;
+    *file << indent << "  --pmvs_option_name " << pmvs_option_name << " \\\n";
   }
   if (geometric) {
-    *file << indent << "  --input_type geometric \\" << std::endl;
+    *file << indent << "  --input_type geometric \\\n";
   } else {
-    *file << indent << "  --input_type photometric \\" << std::endl;
+    *file << indent << "  --input_type photometric \\\n";
   }
   *file << indent << "  --output_path "
-        << JoinPaths(workspace_path, output_prefix + "fused.ply") << std::endl;
+        << JoinPaths(workspace_path, output_prefix + "fused.ply\n");
 
-  *file << indent << "$COLMAP_EXE_PATH/colmap poisson_mesher \\" << std::endl;
+  *file << indent << "$COLMAP_EXE_PATH/colmap poisson_mesher \\\n";
   *file << indent << "  --input_path "
-        << JoinPaths(workspace_path, output_prefix + "fused.ply") << " \\"
-        << std::endl;
+        << JoinPaths(workspace_path, output_prefix + "fused.ply") << " \\\n";
   *file << indent << "  --output_path "
-        << JoinPaths(workspace_path, output_prefix + "meshed-poisson.ply")
-        << std::endl;
+        << JoinPaths(workspace_path, output_prefix + "meshed-poisson.ply\n");
 
-  *file << indent << "$COLMAP_EXE_PATH/colmap delaunay_mesher \\" << std::endl;
+  *file << indent << "$COLMAP_EXE_PATH/colmap delaunay_mesher \\\n";
   *file << indent << "  --input_path "
-        << JoinPaths(workspace_path, output_prefix) << " \\" << std::endl;
-  *file << indent << "  --input_type dense \\" << std::endl;
+        << JoinPaths(workspace_path, output_prefix) << " \\\n";
+  *file << indent << "  --input_type dense \\\n";
   *file << indent << "  --output_path "
-        << JoinPaths(workspace_path, output_prefix + "meshed-delaunay.ply")
-        << std::endl;
+        << JoinPaths(workspace_path, output_prefix + "meshed-delaunay.ply\n");
 }
 
 }  // namespace
@@ -169,6 +153,8 @@ COLMAPUndistorter::COLMAPUndistorter(const UndistortCameraOptions& options,
 
 void COLMAPUndistorter::Run() {
   PrintHeading1("Image undistortion");
+  Timer run_timer;
+  run_timer.Start();
 
   CreateDirIfNotExists(JoinPaths(output_path_, "images"));
   CreateDirIfNotExists(JoinPaths(output_path_, "sparse"));
@@ -186,11 +172,12 @@ void COLMAPUndistorter::Run() {
   ThreadPool thread_pool;
   std::vector<std::future<bool>> futures;
   futures.reserve(reconstruction_.NumRegImages());
+  std::vector<image_t> image_ids;
   if (image_ids_.empty()) {
-    for (size_t i = 0; i < reconstruction_.NumRegImages(); ++i) {
-      const image_t image_id = reconstruction_.RegImageIds().at(i);
+    for (const image_t image_id : reconstruction_.RegImageIds()) {
       futures.push_back(
           thread_pool.AddTask(&COLMAPUndistorter::Undistort, this, image_id));
+      image_ids.push_back(image_id);
     }
   } else {
     for (const image_t image_id : image_ids_) {
@@ -203,7 +190,7 @@ void COLMAPUndistorter::Run() {
   // when writing the MVS config files
   image_names_.clear();
   for (size_t i = 0; i < futures.size(); ++i) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       break;
     }
 
@@ -211,12 +198,9 @@ void COLMAPUndistorter::Run() {
         "Undistorting image [%d/%d]", i + 1, futures.size());
 
     if (futures[i].get()) {
-      if (image_ids_.empty()) {
-        const image_t image_id = reconstruction_.RegImageIds().at(i);
-        image_names_.push_back(reconstruction_.Image(image_id).Name());
-      } else {
-        image_names_.push_back(reconstruction_.Image(image_ids_[i]).Name());
-      }
+      const image_t image_id =
+          (image_ids_.empty() ? image_ids : image_ids_).at(i);
+      image_names_.push_back(reconstruction_.Image(image_id).Name());
     }
   }
 
@@ -233,7 +217,7 @@ void COLMAPUndistorter::Run() {
   WriteScript(false);
   WriteScript(true);
 
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 bool COLMAPUndistorter::Undistort(const image_t image_id) const {
@@ -241,7 +225,7 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
 
   Bitmap distorted_bitmap;
   Bitmap undistorted_bitmap;
-  const Camera& camera = reconstruction_.Camera(image.CameraId());
+  const Camera& camera = *image.CameraPtr();
   Camera undistorted_camera;
 
   const std::string input_image_path = JoinPaths(image_path_, image.Name());
@@ -274,19 +258,19 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
 void COLMAPUndistorter::WritePatchMatchConfig() const {
   const auto path = JoinPaths(output_path_, "stereo/patch-match.cfg");
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
   for (const auto& image_name : image_names_) {
-    file << image_name << std::endl;
-    file << "__auto__, " << num_patch_match_src_images_ << std::endl;
+    file << image_name << '\n';
+    file << "__auto__, " << num_patch_match_src_images_ << '\n';
   }
 }
 
 void COLMAPUndistorter::WriteFusionConfig() const {
   const auto path = JoinPaths(output_path_, "stereo/fusion.cfg");
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
   for (const auto& image_name : image_names_) {
-    file << image_name << std::endl;
+    file << image_name << '\n';
   }
 }
 
@@ -295,10 +279,10 @@ void COLMAPUndistorter::WriteScript(const bool geometric) const {
       output_path_,
       geometric ? "run-colmap-geometric.sh" : "run-colmap-photometric.sh");
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
-  file << "# You must set $COLMAP_EXE_PATH to " << std::endl
-       << "# the directory containing the COLMAP executables." << std::endl;
+  file << "# You must set $COLMAP_EXE_PATH to \n"
+       << "# the directory containing the COLMAP executables.\n";
   WriteCOLMAPCommands(geometric, ".", "COLMAP", "option-all", "", "", &file);
 }
 
@@ -312,6 +296,8 @@ PMVSUndistorter::PMVSUndistorter(const UndistortCameraOptions& options,
       reconstruction_(reconstruction) {}
 
 void PMVSUndistorter::Run() {
+  Timer run_timer;
+  run_timer.Start();
   PrintHeading1("Image undistortion (CMVS/PMVS)");
 
   CreateDirIfNotExists(JoinPaths(output_path_, "pmvs"));
@@ -328,7 +314,7 @@ void PMVSUndistorter::Run() {
   }
 
   for (size_t i = 0; i < futures.size(); ++i) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       thread_pool.Stop();
       LOG(WARNING) << "Stopped the undistortion process. Image point "
                       "locations and camera parameters for not yet processed "
@@ -346,8 +332,8 @@ void PMVSUndistorter::Run() {
   Reconstruction undistorted_reconstruction = reconstruction_;
   UndistortReconstruction(options_, &undistorted_reconstruction);
   const std::string bundle_path = JoinPaths(output_path_, "pmvs/bundle.rd.out");
-  undistorted_reconstruction.ExportBundler(bundle_path,
-                                           bundle_path + ".list.txt");
+  ExportBundler(
+      undistorted_reconstruction, bundle_path, bundle_path + ".list.txt");
 
   LOG(INFO) << "Writing visibility file...";
   WriteVisibilityData();
@@ -363,7 +349,7 @@ void PMVSUndistorter::Run() {
   WriteCMVSCOLMAPScript(false);
   WriteCMVSCOLMAPScript(true);
 
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 bool PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
@@ -372,9 +358,10 @@ bool PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
   const std::string proj_matrix_path =
       JoinPaths(output_path_, StringPrintf("pmvs/txt/%08d.txt", reg_image_idx));
 
-  const image_t image_id = reconstruction_.RegImageIds().at(reg_image_idx);
+  const image_t image_id =
+      *std::next(reconstruction_.RegImageIds().begin(), reg_image_idx);
   const Image& image = reconstruction_.Image(image_id);
-  const Camera& camera = reconstruction_.Camera(image.CameraId());
+  const Camera& camera = *image.CameraPtr();
 
   Bitmap distorted_bitmap;
   const std::string input_image_path = JoinPaths(image_path_, image.Name());
@@ -398,15 +385,13 @@ bool PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
 void PMVSUndistorter::WriteVisibilityData() const {
   const auto path = JoinPaths(output_path_, "pmvs/vis.dat");
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
-  file << "VISDATA" << std::endl;
-  file << reconstruction_.NumRegImages() << std::endl;
+  file << "VISDATA\n";
+  file << reconstruction_.NumRegImages() << '\n';
 
-  const std::vector<image_t>& reg_image_ids = reconstruction_.RegImageIds();
-
-  for (size_t i = 0; i < reg_image_ids.size(); ++i) {
-    const image_t image_id = reg_image_ids[i];
+  size_t image_idx = 0;
+  for (const image_t image_id : reconstruction_.RegImageIds()) {
     const Image& image = reconstruction_.Image(image_id);
     std::unordered_set<image_t> visible_image_ids;
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
@@ -426,42 +411,41 @@ void PMVSUndistorter::WriteVisibilityData() const {
                                                   visible_image_ids.end());
     std::sort(sorted_visible_image_ids.begin(), sorted_visible_image_ids.end());
 
-    file << i << " " << visible_image_ids.size();
+    file << image_idx++ << " " << visible_image_ids.size();
     for (const image_t visible_image_id : sorted_visible_image_ids) {
       file << " " << visible_image_id;
     }
-    file << std::endl;
+    file << '\n';
   }
 }
 
 void PMVSUndistorter::WritePMVSScript() const {
   const auto path = JoinPaths(output_path_, "run-pmvs.sh");
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
-  file << "# You must set $PMVS_EXE_PATH to " << std::endl
-       << "# the directory containing the CMVS-PMVS executables." << std::endl;
-  file << "$PMVS_EXE_PATH/pmvs2 pmvs/ option-all" << std::endl;
+  file << "# You must set $PMVS_EXE_PATH to \n"
+       << "# the directory containing the CMVS-PMVS executables.\n";
+  file << "$PMVS_EXE_PATH/pmvs2 pmvs/ option-all\n";
 }
 
 void PMVSUndistorter::WriteCMVSPMVSScript() const {
   const auto path = JoinPaths(output_path_, "run-cmvs-pmvs.sh");
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
-  file << "# You must set $PMVS_EXE_PATH to " << std::endl
-       << "# the directory containing the CMVS-PMVS executables." << std::endl;
-  file << "$PMVS_EXE_PATH/cmvs pmvs/" << std::endl;
-  file << "$PMVS_EXE_PATH/genOption pmvs/" << std::endl;
-  file << "find pmvs/ -iname \"option-*\" | sort | while read file_name"
-       << std::endl;
-  file << "do" << std::endl;
-  file << "    option_name=$(basename \"$file_name\")" << std::endl;
-  file << "    if [ \"$option_name\" = \"option-all\" ]; then" << std::endl;
-  file << "        continue" << std::endl;
-  file << "    fi" << std::endl;
-  file << "    $PMVS_EXE_PATH/pmvs2 pmvs/ $option_name" << std::endl;
-  file << "done" << std::endl;
+  file << "# You must set $PMVS_EXE_PATH to \n"
+       << "# the directory containing the CMVS-PMVS executables.\n";
+  file << "$PMVS_EXE_PATH/cmvs pmvs/\n";
+  file << "$PMVS_EXE_PATH/genOption pmvs/\n";
+  file << "find pmvs/ -iname \"option-*\" | sort | while read file_name\n";
+  file << "do\n";
+  file << "    option_name=$(basename \"$file_name\")\n";
+  file << "    if [ \"$option_name\" = \"option-all\" ]; then\n";
+  file << "        continue\n";
+  file << "    fi\n";
+  file << "    $PMVS_EXE_PATH/pmvs2 pmvs/ $option_name\n";
+  file << "done\n";
 }
 
 void PMVSUndistorter::WriteCOLMAPScript(const bool geometric) const {
@@ -469,10 +453,10 @@ void PMVSUndistorter::WriteCOLMAPScript(const bool geometric) const {
       output_path_,
       geometric ? "run-colmap-geometric.sh" : "run-colmap-photometric.sh");
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
-  file << "# You must set $COLMAP_EXE_PATH to " << std::endl
-       << "# the directory containing the COLMAP executables." << std::endl;
+  file << "# You must set $COLMAP_EXE_PATH to \n"
+       << "# the directory containing the COLMAP executables.\n";
   WriteCOLMAPCommands(
       geometric, "pmvs", "PMVS", "option-all", "option-all-", "", &file);
 }
@@ -483,23 +467,22 @@ void PMVSUndistorter::WriteCMVSCOLMAPScript(const bool geometric) const {
                 geometric ? "run-cmvs-colmap-geometric.sh"
                           : "run-cmvs-colmap-photometric.sh");
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
-  file << "# You must set $PMVS_EXE_PATH to " << std::endl
-       << "# the directory containing the CMVS-PMVS executables" << std::endl;
-  file << "# and you must set $COLMAP_EXE_PATH to " << std::endl
-       << "# the directory containing the COLMAP executables." << std::endl;
-  file << "$PMVS_EXE_PATH/cmvs pmvs/" << std::endl;
-  file << "$PMVS_EXE_PATH/genOption pmvs/" << std::endl;
-  file << "find pmvs/ -iname \"option-*\" | sort | while read file_name"
-       << std::endl;
-  file << "do" << std::endl;
-  file << "    workspace_path=$(dirname \"$file_name\")" << std::endl;
-  file << "    option_name=$(basename \"$file_name\")" << std::endl;
-  file << "    if [ \"$option_name\" = \"option-all\" ]; then" << std::endl;
-  file << "        continue" << std::endl;
-  file << "    fi" << std::endl;
-  file << "    rm -rf \"$workspace_path/stereo\"" << std::endl;
+  file << "# You must set $PMVS_EXE_PATH to \n"
+       << "# the directory containing the CMVS-PMVS executables\n";
+  file << "# and you must set $COLMAP_EXE_PATH to \n"
+       << "# the directory containing the COLMAP executables.\n";
+  file << "$PMVS_EXE_PATH/cmvs pmvs/\n";
+  file << "$PMVS_EXE_PATH/genOption pmvs/\n";
+  file << "find pmvs/ -iname \"option-*\" | sort | while read file_name\n";
+  file << "do\n";
+  file << "    workspace_path=$(dirname \"$file_name\")\n";
+  file << "    option_name=$(basename \"$file_name\")\n";
+  file << "    if [ \"$option_name\" = \"option-all\" ]; then\n";
+  file << "        continue\n";
+  file << "    fi\n";
+  file << "    rm -rf \"$workspace_path/stereo\"\n";
   WriteCOLMAPCommands(geometric,
                       "pmvs",
                       "PMVS",
@@ -507,36 +490,36 @@ void PMVSUndistorter::WriteCMVSCOLMAPScript(const bool geometric) const {
                       "$option_name-",
                       "    ",
                       &file);
-  file << "done" << std::endl;
+  file << "done\n";
 }
 
 void PMVSUndistorter::WriteOptionFile() const {
   const auto path = JoinPaths(output_path_, "pmvs/option-all");
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
-  file << "# Generated by COLMAP - all images, no clustering." << std::endl;
+  file << "# Generated by COLMAP - all images, no clustering.\n";
 
-  file << "level 1" << std::endl;
-  file << "csize 2" << std::endl;
-  file << "threshold 0.7" << std::endl;
-  file << "wsize 7" << std::endl;
-  file << "minImageNum 3" << std::endl;
-  file << "CPU " << std::thread::hardware_concurrency() << std::endl;
-  file << "setEdge 0" << std::endl;
-  file << "useBound 0" << std::endl;
-  file << "useVisData 1" << std::endl;
-  file << "sequence -1" << std::endl;
-  file << "maxAngle 10" << std::endl;
-  file << "quad 2.0" << std::endl;
+  file << "level 1\n";
+  file << "csize 2\n";
+  file << "threshold 0.7\n";
+  file << "wsize 7\n";
+  file << "minImageNum 3\n";
+  file << "CPU " << std::thread::hardware_concurrency() << '\n';
+  file << "setEdge 0\n";
+  file << "useBound 0\n";
+  file << "useVisData 1\n";
+  file << "sequence -1\n";
+  file << "maxAngle 10\n";
+  file << "quad 2.0\n";
 
   file << "timages " << reconstruction_.NumRegImages();
   for (size_t i = 0; i < reconstruction_.NumRegImages(); ++i) {
     file << " " << i;
   }
-  file << std::endl;
+  file << '\n';
 
-  file << "oimages 0" << std::endl;
+  file << "oimages 0\n";
 }
 
 CMPMVSUndistorter::CMPMVSUndistorter(const UndistortCameraOptions& options,
@@ -549,6 +532,8 @@ CMPMVSUndistorter::CMPMVSUndistorter(const UndistortCameraOptions& options,
       reconstruction_(reconstruction) {}
 
 void CMPMVSUndistorter::Run() {
+  Timer run_timer;
+  run_timer.Start();
   PrintHeading1("Image undistortion (CMP-MVS)");
 
   ThreadPool thread_pool;
@@ -560,7 +545,7 @@ void CMPMVSUndistorter::Run() {
   }
 
   for (size_t i = 0; i < futures.size(); ++i) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       break;
     }
 
@@ -570,7 +555,7 @@ void CMPMVSUndistorter::Run() {
     futures[i].get();
   }
 
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 bool CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
@@ -579,9 +564,10 @@ bool CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
   const std::string proj_matrix_path =
       JoinPaths(output_path_, StringPrintf("%05d_P.txt", reg_image_idx + 1));
 
-  const image_t image_id = reconstruction_.RegImageIds().at(reg_image_idx);
+  const image_t image_id =
+      *std::next(reconstruction_.RegImageIds().begin(), reg_image_idx);
   const Image& image = reconstruction_.Image(image_id);
-  const Camera& camera = reconstruction_.Camera(image.CameraId());
+  const Camera& camera = *image.CameraPtr();
 
   Bitmap distorted_bitmap;
   const std::string input_image_path = JoinPaths(image_path_, image.Name());
@@ -613,6 +599,8 @@ PureImageUndistorter::PureImageUndistorter(
       image_names_and_cameras_(image_names_and_cameras) {}
 
 void PureImageUndistorter::Run() {
+  Timer run_timer;
+  run_timer.Start();
   PrintHeading1("Image undistortion");
 
   CreateDirIfNotExists(output_path_);
@@ -627,7 +615,7 @@ void PureImageUndistorter::Run() {
   }
 
   for (size_t i = 0; i < futures.size(); ++i) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       break;
     }
 
@@ -637,7 +625,7 @@ void PureImageUndistorter::Run() {
     futures[i].get();
   }
 
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 bool PureImageUndistorter::Undistort(const size_t image_idx) const {
@@ -678,6 +666,8 @@ StereoImageRectifier::StereoImageRectifier(
 
 void StereoImageRectifier::Run() {
   PrintHeading1("Stereo rectification");
+  Timer run_timer;
+  run_timer.Start();
 
   ThreadPool thread_pool;
   std::vector<std::future<void>> futures;
@@ -690,7 +680,7 @@ void StereoImageRectifier::Run() {
   }
 
   for (size_t i = 0; i < futures.size(); ++i) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       break;
     }
 
@@ -700,7 +690,7 @@ void StereoImageRectifier::Run() {
     futures[i].get();
   }
 
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 void StereoImageRectifier::Rectify(const image_t image_id1,
@@ -760,23 +750,23 @@ void StereoImageRectifier::Rectify(const image_t image_id1,
 
   const auto Q_path = JoinPaths(output_path_, stereo_pair_name, "Q.txt");
   std::ofstream Q_file(Q_path, std::ios::trunc);
-  CHECK(Q_file.is_open()) << Q_path;
+  THROW_CHECK_FILE_OPEN(Q_file, Q_path);
   WriteMatrix(Q, &Q_file);
 }
 
 Camera UndistortCamera(const UndistortCameraOptions& options,
                        const Camera& camera) {
-  CHECK_GE(options.blank_pixels, 0);
-  CHECK_LE(options.blank_pixels, 1);
-  CHECK_GT(options.min_scale, 0.0);
-  CHECK_LE(options.min_scale, options.max_scale);
-  CHECK_NE(options.max_image_size, 0);
-  CHECK_GE(options.roi_min_x, 0.0);
-  CHECK_GE(options.roi_min_y, 0.0);
-  CHECK_LE(options.roi_max_x, 1.0);
-  CHECK_LE(options.roi_max_y, 1.0);
-  CHECK_LT(options.roi_min_x, options.roi_max_x);
-  CHECK_LT(options.roi_min_y, options.roi_max_y);
+  THROW_CHECK_GE(options.blank_pixels, 0);
+  THROW_CHECK_LE(options.blank_pixels, 1);
+  THROW_CHECK_GT(options.min_scale, 0.0);
+  THROW_CHECK_LE(options.min_scale, options.max_scale);
+  THROW_CHECK_NE(options.max_image_size, 0);
+  THROW_CHECK_GE(options.roi_min_x, 0.0);
+  THROW_CHECK_GE(options.roi_min_y, 0.0);
+  THROW_CHECK_LE(options.roi_max_x, 1.0);
+  THROW_CHECK_LE(options.roi_max_y, 1.0);
+  THROW_CHECK_LT(options.roi_min_x, options.roi_max_x);
+  THROW_CHECK_LT(options.roi_min_y, options.roi_max_y);
 
   Camera undistorted_camera;
   undistorted_camera.model_id = PinholeCameraModel::model_id;
@@ -786,7 +776,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
 
   // Copy focal length parameters.
   const span<const size_t> focal_length_idxs = camera.FocalLengthIdxs();
-  CHECK_LE(focal_length_idxs.size(), 2)
+  THROW_CHECK_LE(focal_length_idxs.size(), 2)
       << "Not more than two focal length parameters supported.";
   undistorted_camera.SetFocalLengthX(camera.FocalLengthX());
   undistorted_camera.SetFocalLengthY(camera.FocalLengthY());
@@ -829,7 +819,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
                                           static_cast<double>(roi_min_y));
   }
 
-  // Scale the image such the the boundary of the undistorted image.
+  // Scale in order to match the boundary of the undistorted image.
   if (roi_enabled || (camera.model_id != SimplePinholeCameraModel::model_id &&
                       camera.model_id != PinholeCameraModel::model_id)) {
     // Determine min/max coordinates along top / bottom image border.
@@ -841,19 +831,27 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
 
     for (size_t y = roi_min_y; y < roi_max_y; ++y) {
       // Left border.
-      const Eigen::Vector2d point1_in_cam =
-          camera.CamFromImg(Eigen::Vector2d(0.5, y + 0.5));
-      const Eigen::Vector2d undistorted_point1 =
-          undistorted_camera.ImgFromCam(point1_in_cam);
-      left_min_x = std::min(left_min_x, undistorted_point1(0));
-      left_max_x = std::max(left_max_x, undistorted_point1(0));
+      if (const std::optional<Eigen::Vector2d> cam_point1 =
+              camera.CamFromImg(Eigen::Vector2d(0.5, y + 0.5));
+          cam_point1.has_value()) {
+        if (const std::optional<Eigen::Vector2d> undistorted_point1 =
+                undistorted_camera.ImgFromCam(cam_point1->homogeneous());
+            undistorted_point1) {
+          left_min_x = std::min(left_min_x, undistorted_point1->x());
+          left_max_x = std::max(left_max_x, undistorted_point1->x());
+        }
+      }
       // Right border.
-      const Eigen::Vector2d point2_in_cam =
-          camera.CamFromImg(Eigen::Vector2d(camera.width - 0.5, y + 0.5));
-      const Eigen::Vector2d undistorted_point2 =
-          undistorted_camera.ImgFromCam(point2_in_cam);
-      right_min_x = std::min(right_min_x, undistorted_point2(0));
-      right_max_x = std::max(right_max_x, undistorted_point2(0));
+      if (const std::optional<Eigen::Vector2d> cam_point2 =
+              camera.CamFromImg(Eigen::Vector2d(camera.width - 0.5, y + 0.5));
+          cam_point2.has_value()) {
+        if (const std::optional<Eigen::Vector2d> undistorted_point2 =
+                undistorted_camera.ImgFromCam(cam_point2->homogeneous());
+            undistorted_point2) {
+          right_min_x = std::min(right_min_x, undistorted_point2->x());
+          right_max_x = std::max(right_max_x, undistorted_point2->x());
+        }
+      }
     }
 
     // Determine min, max coordinates along left / right image border.
@@ -865,19 +863,27 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
 
     for (size_t x = roi_min_x; x < roi_max_x; ++x) {
       // Top border.
-      const Eigen::Vector2d point1_in_cam =
-          camera.CamFromImg(Eigen::Vector2d(x + 0.5, 0.5));
-      const Eigen::Vector2d undistorted_point1 =
-          undistorted_camera.ImgFromCam(point1_in_cam);
-      top_min_y = std::min(top_min_y, undistorted_point1(1));
-      top_max_y = std::max(top_max_y, undistorted_point1(1));
+      if (const std::optional<Eigen::Vector2d> cam_point1 =
+              camera.CamFromImg(Eigen::Vector2d(x + 0.5, 0.5));
+          cam_point1) {
+        if (const std::optional<Eigen::Vector2d> undistorted_point1 =
+                undistorted_camera.ImgFromCam(cam_point1->homogeneous());
+            undistorted_point1) {
+          top_min_y = std::min(top_min_y, undistorted_point1->y());
+          top_max_y = std::max(top_max_y, undistorted_point1->y());
+        }
+      }
       // Bottom border.
-      const Eigen::Vector2d point2_in_cam =
-          camera.CamFromImg(Eigen::Vector2d(x + 0.5, camera.height - 0.5));
-      const Eigen::Vector2d undistorted_point2 =
-          undistorted_camera.ImgFromCam(point2_in_cam);
-      bottom_min_y = std::min(bottom_min_y, undistorted_point2(1));
-      bottom_max_y = std::max(bottom_max_y, undistorted_point2(1));
+      if (const std::optional<Eigen::Vector2d> cam_point2 =
+              camera.CamFromImg(Eigen::Vector2d(x + 0.5, camera.height - 0.5));
+          cam_point2) {
+        if (const std::optional<Eigen::Vector2d> undistorted_point2 =
+                undistorted_camera.ImgFromCam(cam_point2->homogeneous());
+            undistorted_point2) {
+          bottom_min_y = std::min(bottom_min_y, undistorted_point2->y());
+          bottom_max_y = std::max(bottom_max_y, undistorted_point2->y());
+        }
+      }
     }
 
     const double cx = undistorted_camera.PrincipalPointX();
@@ -948,24 +954,23 @@ void UndistortImage(const UndistortCameraOptions& options,
                     const Camera& distorted_camera,
                     Bitmap* undistorted_bitmap,
                     Camera* undistorted_camera) {
-  CHECK_EQ(distorted_camera.width, distorted_bitmap.Width());
-  CHECK_EQ(distorted_camera.height, distorted_bitmap.Height());
+  THROW_CHECK_EQ(distorted_camera.width, distorted_bitmap.Width());
+  THROW_CHECK_EQ(distorted_camera.height, distorted_bitmap.Height());
 
   *undistorted_camera = UndistortCamera(options, distorted_camera);
-  undistorted_bitmap->Allocate(static_cast<int>(undistorted_camera->width),
-                               static_cast<int>(undistorted_camera->height),
-                               distorted_bitmap.IsRGB());
-  distorted_bitmap.CloneMetadata(undistorted_bitmap);
 
   WarpImageBetweenCameras(distorted_camera,
                           *undistorted_camera,
                           distorted_bitmap,
                           undistorted_bitmap);
+
+  distorted_bitmap.CloneMetadata(undistorted_bitmap);
 }
 
 void UndistortReconstruction(const UndistortCameraOptions& options,
                              Reconstruction* reconstruction) {
-  const auto distorted_cameras = reconstruction->Cameras();
+  const std::unordered_map<camera_t, Camera> distorted_cameras =
+      reconstruction->Cameras();
   for (const auto& camera : distorted_cameras) {
     if (camera.second.IsUndistorted()) {
       continue;
@@ -975,14 +980,27 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
   }
 
   for (const auto& distorted_image : reconstruction->Images()) {
-    auto& image = reconstruction->Image(distorted_image.first);
-    const auto& distorted_camera = distorted_cameras.at(image.CameraId());
-    const auto& undistorted_camera = reconstruction->Camera(image.CameraId());
+    Image& image = reconstruction->Image(distorted_image.first);
+    const Camera& distorted_camera = distorted_cameras.at(image.CameraId());
+    const Camera& undistorted_camera = *image.CameraPtr();
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
       auto& point2D = image.Point2D(point2D_idx);
-      point2D.xy = undistorted_camera.ImgFromCam(
-          distorted_camera.CamFromImg(point2D.xy));
+      const std::optional<Eigen::Vector2d> cam_point =
+          distorted_camera.CamFromImg(point2D.xy);
+      if (!cam_point) {
+        point2D.xy =
+            Eigen::Vector2d::Constant(std::numeric_limits<double>::quiet_NaN());
+      } else {
+        const std::optional<Eigen::Vector2d> undistorted_point =
+            undistorted_camera.ImgFromCam(cam_point->homogeneous());
+        if (undistorted_point) {
+          point2D.xy = *undistorted_point;
+        } else {
+          point2D.xy = Eigen::Vector2d::Constant(
+              std::numeric_limits<double>::quiet_NaN());
+        }
+      }
     }
   }
 }
@@ -993,10 +1011,10 @@ void RectifyStereoCameras(const Camera& camera1,
                           Eigen::Matrix3d* H1,
                           Eigen::Matrix3d* H2,
                           Eigen::Matrix4d* Q) {
-  CHECK(camera1.model_id == SimplePinholeCameraModel::model_id ||
-        camera1.model_id == PinholeCameraModel::model_id);
-  CHECK(camera2.model_id == SimplePinholeCameraModel::model_id ||
-        camera2.model_id == PinholeCameraModel::model_id);
+  THROW_CHECK(camera1.model_id == SimplePinholeCameraModel::model_id ||
+              camera1.model_id == PinholeCameraModel::model_id);
+  THROW_CHECK(camera2.model_id == SimplePinholeCameraModel::model_id ||
+              camera2.model_id == PinholeCameraModel::model_id);
 
   // Compute the average rotation between the first and the second camera.
   Eigen::AngleAxisd half_cam2_from_cam1(cam2_from_cam1.rotation);
@@ -1060,10 +1078,10 @@ void RectifyAndUndistortStereoImages(const UndistortCameraOptions& options,
                                      Bitmap* undistorted_image2,
                                      Camera* undistorted_camera,
                                      Eigen::Matrix4d* Q) {
-  CHECK_EQ(distorted_camera1.width, distorted_image1.Width());
-  CHECK_EQ(distorted_camera1.height, distorted_image1.Height());
-  CHECK_EQ(distorted_camera2.width, distorted_image2.Width());
-  CHECK_EQ(distorted_camera2.height, distorted_image2.Height());
+  THROW_CHECK_EQ(distorted_camera1.width, distorted_image1.Width());
+  THROW_CHECK_EQ(distorted_camera1.height, distorted_image1.Height());
+  THROW_CHECK_EQ(distorted_camera2.width, distorted_image2.Width());
+  THROW_CHECK_EQ(distorted_camera2.height, distorted_image2.Height());
 
   *undistorted_camera = UndistortCamera(options, distorted_camera1);
   undistorted_image1->Allocate(static_cast<int>(undistorted_camera->width),

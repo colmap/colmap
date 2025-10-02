@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,7 +29,10 @@
 
 #include "colmap/geometry/homography_matrix.h"
 
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/eigen_matchers.h"
+#include "colmap/util/logging.h"
 
 #include <cmath>
 
@@ -50,68 +53,73 @@ TEST(DecomposeHomographyMatrix, Nominal) {
   Eigen::Matrix3d K;
   K << 640, 0, 320, 0, 640, 240, 0, 0, 1;
 
-  std::vector<Eigen::Matrix3d> R;
-  std::vector<Eigen::Vector3d> t;
-  std::vector<Eigen::Vector3d> n;
-  DecomposeHomographyMatrix(H, K, K, &R, &t, &n);
+  std::vector<Rigid3d> cams2_from_cams1;
+  std::vector<Eigen::Vector3d> normals;
+  DecomposeHomographyMatrix(H, K, K, &cams2_from_cams1, &normals);
 
-  EXPECT_EQ(R.size(), 4);
-  EXPECT_EQ(t.size(), 4);
-  EXPECT_EQ(n.size(), 4);
+  EXPECT_EQ(cams2_from_cams1.size(), 4);
+  EXPECT_EQ(normals.size(), 4);
 
-  Eigen::Matrix3d R_ref;
-  R_ref << 0.43307983549125, 0.545749113549648, -0.717356090899523,
+  Eigen::Matrix3d ref_rotation;
+  ref_rotation << 0.43307983549125, 0.545749113549648, -0.717356090899523,
       -0.85630229674426, 0.497582023798831, -0.138414255706431,
       0.281404038139784, 0.67421809131173, 0.682818960388909;
-  const Eigen::Vector3d t_ref(
+  const Eigen::Vector3d ref_translation(
       1.826751712278038, 1.264718492450820, 0.195080809998819);
-  const Eigen::Vector3d n_ref(
+  const Eigen::Vector3d ref_normal(
       -0.244875830334816, -0.480857890778889, -0.841909446789566);
 
   bool ref_solution_exists = false;
   for (size_t i = 0; i < 4; ++i) {
     const double kEps = 1e-6;
-    if ((R[i] - R_ref).norm() < kEps && (t[i] - t_ref).norm() < kEps &&
-        (n[i] - n_ref).norm() < kEps) {
+    if ((cams2_from_cams1[i].rotation.toRotationMatrix() - ref_rotation)
+                .norm() < kEps &&
+        (cams2_from_cams1[i].translation - ref_translation).norm() < kEps &&
+        (normals[i] - ref_normal).norm() < kEps) {
       ref_solution_exists = true;
+      break;
     }
   }
   EXPECT_TRUE(ref_solution_exists);
 }
 
 TEST(DecomposeHomographyMatrix, Random) {
-  const int numIters = 100;
+  constexpr int kNumIters = 100;
 
   const double epsilon = 1e-6;
 
-  const Eigen::Matrix3d id3 = Eigen::Matrix3d::Identity();
+  const Eigen::Matrix3d identity = Eigen::Matrix3d::Identity();
 
-  for (int i = 0; i < numIters; ++i) {
+  for (int i = 0; i < kNumIters; ++i) {
     const Eigen::Matrix3d H = Eigen::Matrix3d::Random();
 
     if (std::abs(H.determinant()) < epsilon) {
       continue;
     }
 
-    std::vector<Eigen::Matrix3d> R;
-    std::vector<Eigen::Vector3d> t;
-    std::vector<Eigen::Vector3d> n;
-    DecomposeHomographyMatrix(H, id3, id3, &R, &t, &n);
+    std::vector<Rigid3d> cams2_from_cams1;
+    std::vector<Eigen::Vector3d> normals;
+    DecomposeHomographyMatrix(
+        H, identity, identity, &cams2_from_cams1, &normals);
 
-    EXPECT_EQ(R.size(), 4);
-    EXPECT_EQ(t.size(), 4);
-    EXPECT_EQ(n.size(), 4);
+    EXPECT_EQ(cams2_from_cams1.size(), 4);
+    EXPECT_EQ(normals.size(), 4);
 
     // Test that each candidate rotation is a rotation
-    for (const Eigen::Matrix3d& candidate_R : R) {
+    for (const Rigid3d& cam2_from_cam1 : cams2_from_cams1) {
       const Eigen::Matrix3d orthog_error =
-          candidate_R.transpose() * candidate_R - id3;
+          cam2_from_cam1.rotation.toRotationMatrix().transpose() *
+              cam2_from_cam1.rotation.toRotationMatrix() -
+          identity;
 
-      // Check that candidate_R is an orthognal matrix
+      // Check that cam2_from_cam1.rotation.toRotationMatrix() is an orthognal
+      // matrix
       EXPECT_LT(orthog_error.lpNorm<Eigen::Infinity>(), epsilon);
 
       // Check determinant is 1
-      EXPECT_NEAR(candidate_R.determinant(), 1.0, epsilon);
+      EXPECT_NEAR(cam2_from_cam1.rotation.toRotationMatrix().determinant(),
+                  1.0,
+                  epsilon);
     }
   }
 }
@@ -119,35 +127,40 @@ TEST(DecomposeHomographyMatrix, Random) {
 TEST(PoseFromHomographyMatrix, Nominal) {
   const Eigen::Matrix3d K1 = Eigen::Matrix3d::Identity();
   const Eigen::Matrix3d K2 = Eigen::Matrix3d::Identity();
-  const Eigen::Matrix3d R_ref = Eigen::Matrix3d::Identity();
-  const Eigen::Vector3d t_ref(1, 0, 0);
-  const Eigen::Vector3d n_ref(-1, 0, 0);
-  const double d_ref = 1;
-  const Eigen::Matrix3d H =
-      HomographyMatrixFromPose(K1, K2, R_ref, t_ref, n_ref, d_ref);
+  const Eigen::Quaterniond ref_rotation =
+      Eigen::Quaterniond(1, 0.1, 0.2, 0.3).normalized();
+  const Eigen::Vector3d ref_translation(1, 0, 0);
+  const Eigen::Vector3d ref_normal(0, 0, -1);
+  const Eigen::Matrix3d H = HomographyMatrixFromPose(
+      K1, K2, ref_rotation.matrix(), ref_translation, ref_normal, 1);
 
-  std::vector<Eigen::Vector2d> points1;
-  points1.emplace_back(0.1, 0.4);
-  points1.emplace_back(0.2, 0.3);
-  points1.emplace_back(0.3, 0.2);
-  points1.emplace_back(0.4, 0.1);
+  std::vector<Eigen::Vector3d> rays1;
+  rays1.push_back(Eigen::Vector3d(0.1, 0.1, 1).normalized());
+  rays1.push_back(Eigen::Vector3d(0.4, 0.1, 1).normalized());
+  rays1.push_back(Eigen::Vector3d(0.1, 0.4, 1).normalized());
+  rays1.push_back(Eigen::Vector3d(0.4, 0.4, 1).normalized());
+  rays1.push_back(Eigen::Vector3d(0.0, 0.0, 1).normalized());
 
-  std::vector<Eigen::Vector2d> points2;
-  for (const auto& point1 : points1) {
-    const Eigen::Vector3d point2 = H * point1.homogeneous();
-    points2.push_back(point2.hnormalized());
+  std::vector<Eigen::Vector3d> rays2;
+  for (const auto& ray1 : rays1) {
+    const Eigen::Vector3d ray2 = H * ray1;
+    CHECK_GT(ray2.z(), 0);
+    rays2.push_back(ray2.normalized());
   }
 
-  Eigen::Matrix3d R;
-  Eigen::Vector3d t;
-  Eigen::Vector3d n;
+  Rigid3d cam2_from_cam1;
+  Eigen::Vector3d normal;
   std::vector<Eigen::Vector3d> points3D;
-  PoseFromHomographyMatrix(H, K1, K2, points1, points2, &R, &t, &n, &points3D);
+  PoseFromHomographyMatrix(
+      H, K1, K2, rays1, rays2, &cam2_from_cam1, &normal, &points3D);
 
-  EXPECT_EQ(R, R_ref);
-  EXPECT_EQ(t, t_ref);
-  EXPECT_EQ(n, n_ref);
-  EXPECT_EQ(points3D.size(), points1.size());
+  EXPECT_THAT(
+      Rigid3d(cam2_from_cam1.rotation, cam2_from_cam1.translation.normalized()),
+      Rigid3dNear(
+          Rigid3d(ref_rotation, ref_translation.normalized()), 1e-6, 1e-6));
+
+  EXPECT_THAT(normal, EigenMatrixNear(ref_normal, 1e-5));
+  EXPECT_EQ(points3D.size(), rays1.size());
 }
 
 TEST(HomographyMatrixFromPose, PureRotation) {
@@ -156,7 +169,7 @@ TEST(HomographyMatrixFromPose, PureRotation) {
   const Eigen::Matrix3d R = Eigen::Matrix3d::Identity();
   const Eigen::Vector3d t(0, 0, 0);
   const Eigen::Vector3d n(-1, 0, 0);
-  const double d = 1;
+  const double d = std::numeric_limits<double>::infinity();
   const Eigen::Matrix3d H = HomographyMatrixFromPose(K1, K2, R, t, n, d);
   EXPECT_EQ(H, Eigen::Matrix3d::Identity());
 }

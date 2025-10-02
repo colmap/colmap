@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -30,12 +30,12 @@
 
 # This script exports a COLMAP database to the file structure to run VisualSfM.
 
-import os
-import sys
 import argparse
-import sqlite3
+import os
 import shutil
-import gzip
+import sqlite3
+import struct
+
 import numpy as np
 
 
@@ -64,7 +64,7 @@ def main():
 
     try:
         os.makedirs(args.output_path)
-    except:
+    except:  # noqa E722
         pass
 
     cameras = {}
@@ -140,7 +140,7 @@ def main():
 
     with open(os.path.join(args.output_path, "matches.txt"), "w") as fid:
         cursor.execute(
-            "SELECT pair_id, data FROM two_view_geometries " "WHERE rows>=?;",
+            "SELECT pair_id, data FROM two_view_geometries WHERE rows>=?;",
             (args.min_num_matches,),
         )
         for row in cursor:

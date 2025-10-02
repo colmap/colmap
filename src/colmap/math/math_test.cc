@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -35,10 +35,9 @@ namespace colmap {
 namespace {
 
 TEST(SignOfNumber, Nominal) {
-  EXPECT_EQ(SignOfNumber(0), 0);
+  EXPECT_EQ(SignOfNumber(0), 1);
   EXPECT_EQ(SignOfNumber(-0.1), -1);
   EXPECT_EQ(SignOfNumber(0.1), 1);
-  EXPECT_EQ(SignOfNumber(std::numeric_limits<float>::quiet_NaN()), 0);
   EXPECT_EQ(SignOfNumber(std::numeric_limits<float>::infinity()), 1);
   EXPECT_EQ(SignOfNumber(-std::numeric_limits<float>::infinity()), -1);
 }
@@ -69,30 +68,47 @@ TEST(RadToDeg, Nominal) {
 
 TEST(Median, Nominal) {
   EXPECT_EQ(Median<int>({1, 2, 3, 4}), 2.5);
+  EXPECT_EQ(Median<int>({4, 1, 3, 2}), 2.5);
   EXPECT_EQ(Median<int>({1, 2, 3, 100}), 2.5);
   EXPECT_EQ(Median<int>({1, 2, 3, 4, 100}), 3);
+  EXPECT_EQ(Median<int>({4, 100, 1, 3, 2}), 3);
   EXPECT_EQ(Median<int>({-100, 1, 2, 3, 4}), 2);
   EXPECT_EQ(Median<int>({-1, -2, -3, -4}), -2.5);
+  EXPECT_EQ(Median<int>({-3, -1, -4, -2}), -2.5);
   EXPECT_EQ(Median<int>({-1, -2, 3, 4}), 1);
   // Test integer overflow scenario.
   EXPECT_EQ(Median<int8_t>({100, 115, 119, 127}), 117);
 }
 
 TEST(Percentile, Nominal) {
-  EXPECT_EQ(Percentile<int>({0}, 0), 0);
-  EXPECT_EQ(Percentile<int>({0}, 50), 0);
-  EXPECT_EQ(Percentile<int>({0}, 100), 0);
-  EXPECT_EQ(Percentile<int>({0, 1}, 0), 0);
-  EXPECT_EQ(Percentile<int>({0, 1}, 50), 1);
-  EXPECT_EQ(Percentile<int>({0, 1}, 100), 1);
-  EXPECT_EQ(Percentile<int>({0, 1, 2}, 0), 0);
-  EXPECT_EQ(Percentile<int>({0, 1, 2}, 50), 1);
-  EXPECT_EQ(Percentile<int>({0, 1, 2}, 100), 2);
-  EXPECT_EQ(Percentile<int>({0, 1, 1, 2}, 0), 0);
-  EXPECT_EQ(Percentile<int>({0, 1, 1, 2}, 33), 1);
-  EXPECT_EQ(Percentile<int>({0, 1, 1, 2}, 50), 1);
-  EXPECT_EQ(Percentile<int>({0, 1, 1, 2}, 66), 1);
-  EXPECT_EQ(Percentile<int>({0, 1, 1, 2}, 100), 2);
+  EXPECT_EQ((Percentile(std::vector<int>{0}, 0)), 0);
+  EXPECT_EQ((Percentile(std::vector<int>{0}, 50)), 0);
+  EXPECT_EQ((Percentile(std::vector<int>{0}, 100)), 0);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1}, 0)), 0);
+  EXPECT_EQ((Percentile(std::vector<int>{1, 0}, 0)), 0);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1}, 50)), 0.5);
+  EXPECT_EQ((Percentile(std::vector<int>{1, 0}, 50)), 0.5);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1}, 100)), 1);
+  EXPECT_EQ((Percentile(std::vector<int>{1, 0}, 100)), 1);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1, 2}, 0)), 0);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1, 2}, 50)), 1);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1, 2}, 100)), 2);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1, 1, 2}, 0)), 0);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1, 1, 2}, 100. / 3.)), 1);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1, 1, 2}, 50)), 1);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1, 1, 2}, 100 / 3. * 2.)), 1);
+  EXPECT_EQ((Percentile(std::vector<int>{1, 2, 0, 1}, 100 / 3. * 2.)), 1);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1, 1, 2}, 100)), 2);
+  EXPECT_EQ((Percentile(std::vector<int>{1, 2, 0, 1}, 100)), 2);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 100}, 1)), 1);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 100}, 50)), 50);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 100}, 50.1)), 50.1);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 100}, 99)), 99);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1, 2, 3}, 1)), 0.03);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1, 2, 3}, 2)), 0.06);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1, 2, 3}, 33)), 0.99);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1, 2, 3}, 34)), 1.02);
+  EXPECT_EQ((Percentile(std::vector<int>{3, 0, 1, 2}, 34)), 1.02);
 }
 
 TEST(Mean, Nominal) {
@@ -163,6 +179,8 @@ TEST(ScaleSigmoid, Nominal) {
 }
 
 TEST(NChooseK, Nominal) {
+  EXPECT_EQ(NChooseK(0, 0), 0);
+
   EXPECT_EQ(NChooseK(1, 0), 1);
   EXPECT_EQ(NChooseK(2, 0), 1);
   EXPECT_EQ(NChooseK(3, 0), 1);
@@ -179,6 +197,8 @@ TEST(NChooseK, Nominal) {
   EXPECT_EQ(NChooseK(5, 2), 10);
 
   EXPECT_EQ(NChooseK(500, 3), 20708500);
+  EXPECT_EQ(NChooseK(500, 7), 1486071034734000);
+  EXPECT_EQ(NChooseK(10000, 5), 832500291625002000);
 }
 
 TEST(TruncateCast, Nominal) {

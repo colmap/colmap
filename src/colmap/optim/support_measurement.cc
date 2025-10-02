@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -51,19 +51,23 @@ InlierSupportMeasurer::Support InlierSupportMeasurer::Evaluate(
   return support;
 }
 
-bool InlierSupportMeasurer::Compare(const Support& support1,
-                                    const Support& support2) {
-  if (support1.num_inliers > support2.num_inliers) {
+bool InlierSupportMeasurer::IsLeftBetter(const Support& left,
+                                         const Support& right) {
+  if (left.num_inliers > right.num_inliers) {
     return true;
   } else {
-    return support1.num_inliers == support2.num_inliers &&
-           support1.residual_sum < support2.residual_sum;
+    return left.num_inliers == right.num_inliers &&
+           left.residual_sum < right.residual_sum;
   }
 }
 
+UniqueInlierSupportMeasurer::UniqueInlierSupportMeasurer(
+    std::vector<size_t> unique_sample_ids)
+    : unique_sample_ids_(std::move(unique_sample_ids)) {}
+
 UniqueInlierSupportMeasurer::Support UniqueInlierSupportMeasurer::Evaluate(
     const std::vector<double>& residuals, const double max_residual) {
-  CHECK_EQ(residuals.size(), unique_sample_ids_.size());
+  THROW_CHECK_EQ(residuals.size(), unique_sample_ids_.size());
   Support support;
   support.num_inliers = 0;
   support.num_unique_inliers = 0;
@@ -81,16 +85,16 @@ UniqueInlierSupportMeasurer::Support UniqueInlierSupportMeasurer::Evaluate(
   return support;
 }
 
-bool UniqueInlierSupportMeasurer::Compare(const Support& support1,
-                                          const Support& support2) {
-  if (support1.num_unique_inliers > support2.num_unique_inliers) {
+bool UniqueInlierSupportMeasurer::IsLeftBetter(const Support& left,
+                                               const Support& right) {
+  if (left.num_unique_inliers > right.num_unique_inliers) {
     return true;
-  } else if (support1.num_unique_inliers == support2.num_unique_inliers) {
-    if (support1.num_inliers > support2.num_inliers) {
+  } else if (left.num_unique_inliers == right.num_unique_inliers) {
+    if (left.num_inliers > right.num_inliers) {
       return true;
     } else {
-      return support1.num_inliers == support2.num_inliers &&
-             support1.residual_sum < support2.residual_sum;
+      return left.num_inliers == right.num_inliers &&
+             left.residual_sum < right.residual_sum;
     }
   } else {
     return false;
@@ -115,9 +119,9 @@ MEstimatorSupportMeasurer::Support MEstimatorSupportMeasurer::Evaluate(
   return support;
 }
 
-bool MEstimatorSupportMeasurer::Compare(const Support& support1,
-                                        const Support& support2) {
-  return support1.score < support2.score;
+bool MEstimatorSupportMeasurer::IsLeftBetter(const Support& left,
+                                             const Support& right) {
+  return left.score < right.score;
 }
 
 }  // namespace colmap

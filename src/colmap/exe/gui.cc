@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,9 @@
 
 #include "colmap/exe/gui.h"
 
+#if defined(COLMAP_GUI_ENABLED)
+#include "colmap/ui/main_window.h"
+#endif
 #include "colmap/controllers/option_manager.h"
 #include "colmap/util/opengl_utils.h"
 
@@ -50,12 +53,14 @@ int RunGraphicalUserInterface(int argc, char** argv) {
     options.Parse(argc, argv);
   }
 
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 6, 0))
-  QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-  QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
-#endif
-
   QApplication app(argc, argv);
+
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 6, 0)) && \
+    (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+  app.setAttribute(Qt::AA_EnableHighDpiScaling);
+  app.setAttribute(Qt::AA_UseHighDpiPixmaps);
+#endif
+  app.setAttribute(Qt::AA_DontShowIconsInMenus, false);
 
   colmap::MainWindow main_window(options);
   main_window.show();
@@ -90,7 +95,7 @@ int RunProjectGenerator(int argc, char** argv) {
   } else if (quality == "extreme") {
     output_options.ModifyForExtremeQuality();
   } else {
-    LOG(FATAL) << "Invalid quality provided";
+    LOG(FATAL_THROW) << "Invalid quality provided";
   }
 
   output_options.Write(output_path);

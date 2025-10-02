@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -34,12 +34,12 @@
 #include "colmap/retrieval/inverted_file_entry.h"
 #include "colmap/retrieval/utils.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
 
 #include <algorithm>
 #include <bitset>
 #include <cstdint>
-#include <fstream>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -60,11 +60,11 @@ class InvertedFile {
   typedef FeatureGeometry GeomType;
   typedef InvertedFileEntry<kEmbeddingDim> EntryType;
 
-  enum Status {
-    UNUSABLE = 0x00,
-    HAS_EMBEDDING = 0x01,
-    ENTRIES_SORTED = 0x02,
-    USABLE = 0x03,
+  enum Status : uint8_t {
+    kUnusable = 0x00,
+    kHasEmbedding = 0x01,
+    kEntriesSorted = 0x02,
+    kUsable = 0x03,
   };
 
   InvertedFile();
@@ -73,7 +73,7 @@ class InvertedFile {
   size_t NumEntries() const;
 
   // Return all entries in the file.
-  const std::vector<EntryType>& GetEntries() const;
+  const std::vector<EntryType>& Entries() const;
 
   // Whether the Hamming embedding was computed for this file.
   bool HasHammingEmbedding() const;
@@ -113,7 +113,7 @@ class InvertedFile {
   void ComputeIDFWeight(int num_total_images);
 
   // Return the idf-weight of this inverted file.
-  float IDFWeight() const;
+  float SquaredIDFWeight() const;
 
   // Given a set of descriptors, learns the thresholds required for the Hamming
   // embedding. Each row in descriptors represents a single descriptor projected
@@ -136,15 +136,15 @@ class InvertedFile {
       std::unordered_map<int, double>* self_similarities) const;
 
   // Read/write the inverted file from/to a binary file.
-  void Read(std::ifstream* ifs);
-  void Write(std::ofstream* ofs) const;
+  void Read(std::istream* in);
+  void Write(std::ostream* out) const;
 
  private:
   // Whether the inverted file is initialized.
   uint8_t status_;
 
   // The inverse document frequency weight of this inverted file.
-  float idf_weight_;
+  float squared_idf_weight_;
 
   // The entries of the inverted file system.
   std::vector<EntryType> entries_;
@@ -167,7 +167,7 @@ const HammingDistWeightFunctor<kEmbeddingDim>
 
 template <int kEmbeddingDim>
 InvertedFile<kEmbeddingDim>::InvertedFile()
-    : status_(UNUSABLE), idf_weight_(0.0f) {
+    : status_(kUnusable), squared_idf_weight_(0.0f) {
   static_assert(kEmbeddingDim % 8 == 0,
                 "Dimensionality of projected space needs to"
                 " be a multiple of 8.");
@@ -185,23 +185,23 @@ size_t InvertedFile<kEmbeddingDim>::NumEntries() const {
 
 template <int kEmbeddingDim>
 const std::vector<typename InvertedFile<kEmbeddingDim>::EntryType>&
-InvertedFile<kEmbeddingDim>::GetEntries() const {
+InvertedFile<kEmbeddingDim>::Entries() const {
   return entries_;
 }
 
 template <int kEmbeddingDim>
 bool InvertedFile<kEmbeddingDim>::HasHammingEmbedding() const {
-  return status_ & HAS_EMBEDDING;
+  return status_ & kHasEmbedding;
 }
 
 template <int kEmbeddingDim>
 bool InvertedFile<kEmbeddingDim>::EntriesSorted() const {
-  return status_ & ENTRIES_SORTED;
+  return status_ & kEntriesSorted;
 }
 
 template <int kEmbeddingDim>
 bool InvertedFile<kEmbeddingDim>::IsUsable() const {
-  return status_ & USABLE;
+  return status_ & kUsable;
 }
 
 template <int kEmbeddingDim>
@@ -209,15 +209,15 @@ void InvertedFile<kEmbeddingDim>::AddEntry(const int image_id,
                                            typename DescType::Index feature_idx,
                                            const DescType& descriptor,
                                            const GeomType& geometry) {
-  CHECK_GE(image_id, 0);
-  CHECK_EQ(descriptor.size(), kEmbeddingDim);
+  THROW_CHECK_GE(image_id, 0);
+  THROW_CHECK_EQ(descriptor.size(), kEmbeddingDim);
   EntryType entry;
   entry.image_id = image_id;
   entry.feature_idx = feature_idx;
   entry.geometry = geometry;
   ConvertToBinaryDescriptor(descriptor, &entry.descriptor);
   entries_.push_back(entry);
-  status_ &= ~ENTRIES_SORTED;
+  status_ &= ~kEntriesSorted;
 }
 
 template <int kEmbeddingDim>
@@ -227,19 +227,19 @@ void InvertedFile<kEmbeddingDim>::SortEntries() {
             [](const EntryType& entry1, const EntryType& entry2) {
               return entry1.image_id < entry2.image_id;
             });
-  status_ |= ENTRIES_SORTED;
+  status_ |= kEntriesSorted;
 }
 
 template <int kEmbeddingDim>
 void InvertedFile<kEmbeddingDim>::ClearEntries() {
   entries_.clear();
-  status_ &= ~ENTRIES_SORTED;
+  status_ &= ~kEntriesSorted;
 }
 
 template <int kEmbeddingDim>
 void InvertedFile<kEmbeddingDim>::Reset() {
-  status_ = UNUSABLE;
-  idf_weight_ = 0.0f;
+  status_ = kUnusable;
+  squared_idf_weight_ = 0.0f;
   entries_.clear();
   thresholds_.setZero();
 }
@@ -248,7 +248,7 @@ template <int kEmbeddingDim>
 void InvertedFile<kEmbeddingDim>::ConvertToBinaryDescriptor(
     const DescType& descriptor,
     std::bitset<kEmbeddingDim>* binary_descriptor) const {
-  CHECK_EQ(descriptor.size(), kEmbeddingDim);
+  THROW_CHECK_EQ(descriptor.size(), kEmbeddingDim);
   for (int i = 0; i < kEmbeddingDim; ++i) {
     (*binary_descriptor)[i] = descriptor[i] > thresholds_[i];
   }
@@ -257,19 +257,21 @@ void InvertedFile<kEmbeddingDim>::ConvertToBinaryDescriptor(
 template <int kEmbeddingDim>
 void InvertedFile<kEmbeddingDim>::ComputeIDFWeight(const int num_total_images) {
   if (entries_.empty()) {
+    squared_idf_weight_ = 0.0f;
     return;
   }
 
   std::unordered_set<int> image_ids;
   GetImageIds(&image_ids);
 
-  idf_weight_ = std::log(static_cast<double>(num_total_images) /
-                         static_cast<double>(image_ids.size()));
+  const float idf_weight = std::log(static_cast<double>(num_total_images) /
+                                    static_cast<double>(image_ids.size()));
+  squared_idf_weight_ = idf_weight * idf_weight;
 }
 
 template <int kEmbeddingDim>
-float InvertedFile<kEmbeddingDim>::IDFWeight() const {
-  return idf_weight_;
+float InvertedFile<kEmbeddingDim>::SquaredIDFWeight() const {
+  return squared_idf_weight_;
 }
 
 template <int kEmbeddingDim>
@@ -288,13 +290,13 @@ void InvertedFile<kEmbeddingDim>::ComputeHammingEmbedding(
     thresholds_[n] = Median(elements);
   }
 
-  status_ |= HAS_EMBEDDING;
+  status_ |= kHasEmbedding;
 }
 
 template <int kEmbeddingDim>
 void InvertedFile<kEmbeddingDim>::ScoreFeature(
     const DescType& descriptor, std::vector<ImageScore>* image_scores) const {
-  CHECK_EQ(descriptor.size(), kEmbeddingDim);
+  THROW_CHECK_EQ(descriptor.size(), kEmbeddingDim);
 
   image_scores->clear();
 
@@ -302,11 +304,9 @@ void InvertedFile<kEmbeddingDim>::ScoreFeature(
     return;
   }
 
-  if (entries_.size() == 0) {
+  if (entries_.empty()) {
     return;
   }
-
-  const float squared_idf_weight = idf_weight_ * idf_weight_;
 
   std::bitset<kEmbeddingDim> bin_descriptor;
   ConvertToBinaryDescriptor(descriptor, &bin_descriptor);
@@ -316,31 +316,35 @@ void InvertedFile<kEmbeddingDim>::ScoreFeature(
   image_score.score = 0.0f;
   int num_image_votes = 0;
 
+  // Finalizes the voting since we now know how many features from
+  // the database image match the current image feature. This is
+  // required to perform burstiness normalization (cf. Eqn. 2 in
+  // Arandjelovic, Zisserman: Scalable descriptor
+  // distinctiveness for location recognition. ACCV 2014).
+  // Notice that the weight from the descriptor matching is already
+  // accumulated in image_score.score, i.e., we only need
+  // to apply the burstiness weighting.
+  auto maybe_add_image_score =
+      [this, &image_score, &image_scores, &num_image_votes]() {
+        if (num_image_votes > 0) {
+          image_score.score /= std::sqrt(static_cast<float>(num_image_votes));
+          image_score.score *= squared_idf_weight_;
+          image_scores->push_back(image_score);
+        }
+      };
+
   // Note that this assumes that the entries are sorted using SortEntries
   // according to their image identifiers.
   for (const auto& entry : entries_) {
     if (image_score.image_id < entry.image_id) {
-      if (num_image_votes > 0) {
-        // Finalizes the voting since we now know how many features from
-        // the database image match the current image feature. This is
-        // required to perform burstiness normalization (cf. Eqn. 2 in
-        // Arandjelovic, Zisserman: Scalable descriptor
-        // distinctiveness for location recognition. ACCV 2014).
-        // Notice that the weight from the descriptor matching is already
-        // accumulated in image_score.score, i.e., we only need
-        // to apply the burstiness weighting.
-        image_score.score /= std::sqrt(static_cast<float>(num_image_votes));
-        image_score.score *= squared_idf_weight;
-        image_scores->push_back(image_score);
-      }
-
+      maybe_add_image_score();
+      // Move to the next image.
       image_score.image_id = entry.image_id;
       image_score.score = 0.0f;
       num_image_votes = 0;
     }
 
     const size_t hamming_dist = (bin_descriptor ^ entry.descriptor).count();
-
     if (hamming_dist <= hamming_dist_weight_functor_.kMaxHammingDistance) {
       image_score.score += hamming_dist_weight_functor_(hamming_dist);
       num_image_votes += 1;
@@ -348,11 +352,7 @@ void InvertedFile<kEmbeddingDim>::ScoreFeature(
   }
 
   // Add the voting for the largest image_id in the entries.
-  if (num_image_votes > 0) {
-    image_score.score /= std::sqrt(static_cast<float>(num_image_votes));
-    image_score.score *= squared_idf_weight;
-    image_scores->push_back(image_score);
-  }
+  maybe_add_image_score();
 }
 
 template <int kEmbeddingDim>
@@ -366,48 +366,49 @@ void InvertedFile<kEmbeddingDim>::GetImageIds(
 template <int kEmbeddingDim>
 void InvertedFile<kEmbeddingDim>::ComputeImageSelfSimilarities(
     std::unordered_map<int, double>* self_similarities) const {
-  const double squared_idf_weight = idf_weight_ * idf_weight_;
   for (const auto& entry : entries_) {
-    (*self_similarities)[entry.image_id] += squared_idf_weight;
+    (*self_similarities)[entry.image_id] += squared_idf_weight_;
   }
 }
 
 template <int kEmbeddingDim>
-void InvertedFile<kEmbeddingDim>::Read(std::ifstream* ifs) {
-  CHECK(ifs->is_open());
+void InvertedFile<kEmbeddingDim>::Read(std::istream* in) {
+  THROW_CHECK(in->good());
 
-  ifs->read(reinterpret_cast<char*>(&status_), sizeof(uint8_t));
-  ifs->read(reinterpret_cast<char*>(&idf_weight_), sizeof(float));
+  status_ = ReadBinaryLittleEndian<uint8_t>(in);
+
+  float idf_weight = 0.0f;
+  in->read(reinterpret_cast<char*>(&idf_weight), sizeof(float));
+  squared_idf_weight_ = idf_weight * idf_weight;
 
   for (int i = 0; i < kEmbeddingDim; ++i) {
-    ifs->read(reinterpret_cast<char*>(&thresholds_[i]), sizeof(float));
+    in->read(reinterpret_cast<char*>(&thresholds_[i]), sizeof(float));
   }
 
-  uint32_t num_entries = 0;
-  ifs->read(reinterpret_cast<char*>(&num_entries), sizeof(uint32_t));
+  const uint32_t num_entries = ReadBinaryLittleEndian<uint32_t>(in);
   entries_.resize(num_entries);
-
   for (uint32_t i = 0; i < num_entries; ++i) {
-    entries_[i].Read(ifs);
+    entries_[i].Read(in);
   }
 }
 
 template <int kEmbeddingDim>
-void InvertedFile<kEmbeddingDim>::Write(std::ofstream* ofs) const {
-  CHECK(ofs->is_open());
+void InvertedFile<kEmbeddingDim>::Write(std::ostream* out) const {
+  THROW_CHECK(out->good());
 
-  ofs->write(reinterpret_cast<const char*>(&status_), sizeof(uint8_t));
-  ofs->write(reinterpret_cast<const char*>(&idf_weight_), sizeof(float));
+  WriteBinaryLittleEndian<uint8_t>(out, status_);
+
+  const float idf_weight = std::sqrt(squared_idf_weight_);
+  out->write(reinterpret_cast<const char*>(&idf_weight), sizeof(float));
 
   for (int i = 0; i < kEmbeddingDim; ++i) {
-    ofs->write(reinterpret_cast<const char*>(&thresholds_[i]), sizeof(float));
+    out->write(reinterpret_cast<const char*>(&thresholds_[i]), sizeof(float));
   }
 
-  const uint32_t num_entries = static_cast<uint32_t>(entries_.size());
-  ofs->write(reinterpret_cast<const char*>(&num_entries), sizeof(uint32_t));
-
+  const uint32_t num_entries = entries_.size();
+  WriteBinaryLittleEndian<uint32_t>(out, num_entries);
   for (uint32_t i = 0; i < num_entries; ++i) {
-    entries_[i].Write(ofs);
+    entries_[i].Write(out);
   }
 }
 

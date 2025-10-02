@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -31,10 +31,7 @@
 
 #include "colmap/scene/track.h"
 #include "colmap/util/eigen_alignment.h"
-#include "colmap/util/logging.h"
 #include "colmap/util/types.h"
-
-#include <vector>
 
 #include <Eigen/Core>
 
@@ -54,7 +51,27 @@ struct Point3D {
   // The track of the point as a list of image observations.
   Track track;
 
-  inline bool HasError() const { return error != -1.; }
+  inline bool HasError() const;
+
+  inline bool operator==(const Point3D& other) const;
+  inline bool operator!=(const Point3D& other) const;
 };
+
+std::ostream& operator<<(std::ostream& stream, const Point3D& point3D);
+
+////////////////////////////////////////////////////////////////////////////////
+// Implementation
+////////////////////////////////////////////////////////////////////////////////
+
+bool Point3D::HasError() const { return error != -1; }
+
+bool Point3D::operator==(const Point3D& other) const {
+  return xyz == other.xyz && color == other.color && error == other.error &&
+         track == other.track;
+}
+
+bool Point3D::operator!=(const Point3D& other) const {
+  return !(*this == other);
+}
 
 }  // namespace colmap

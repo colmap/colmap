@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -62,6 +62,13 @@ bool FindLinearPolynomialRoots(const Eigen::VectorXd& coeffs,
 bool FindQuadraticPolynomialRoots(const Eigen::VectorXd& coeffs,
                                   Eigen::VectorXd* real,
                                   Eigen::VectorXd* imag);
+
+// Find the real roots of polynomials of the form: x^3 + c2*x^2 + c1*x + c0 = 0.
+// Returns the number of found roots.
+int FindCubicPolynomialRoots(double c2,
+                             double c1,
+                             double c0,
+                             Eigen::Vector3d* real);
 
 // Find the roots of a polynomial using the Durand-Kerner method, based on:
 //

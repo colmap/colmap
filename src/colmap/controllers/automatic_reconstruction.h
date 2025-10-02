@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,9 @@
 #pragma once
 
 #include "colmap/controllers/option_manager.h"
+#include "colmap/retrieval/resources.h"
 #include "colmap/scene/reconstruction_manager.h"
+#include "colmap/util/enum_utils.h"
 #include "colmap/util/threading.h"
 
 #include <memory>
@@ -40,9 +42,9 @@ namespace colmap {
 
 class AutomaticReconstructionController : public Thread {
  public:
-  enum class DataType { INDIVIDUAL, VIDEO, INTERNET };
-  enum class Quality { LOW, MEDIUM, HIGH, EXTREME };
-  enum class Mesher { POISSON, DELAUNAY };
+  MAKE_ENUM_CLASS(DataType, 0, INDIVIDUAL, VIDEO, INTERNET);
+  MAKE_ENUM_CLASS(Quality, 0, LOW, MEDIUM, HIGH, EXTREME);
+  MAKE_ENUM_CLASS(Mesher, 0, POISSON, DELAUNAY);
 
   struct Options {
     // The path to the workspace folder in which all results are stored.
@@ -51,11 +53,15 @@ class AutomaticReconstructionController : public Thread {
     // The path to the image folder which are used as input.
     std::string image_path;
 
+    // Optional list of image names to reconstruct. The list must contain the
+    // relative path of the images with respect to the image_path.
+    std::vector<std::string> image_names;
+
     // The path to the mask folder which are used as input.
     std::string mask_path;
 
     // The path to the vocabulary tree for feature matching.
-    std::string vocab_tree_path;
+    std::string vocab_tree_path = kDefaultVocabTreeUri;
 
     // The type of input data used to choose optimal mapper settings.
     DataType data_type = DataType::INDIVIDUAL;
@@ -76,6 +82,12 @@ class AutomaticReconstructionController : public Thread {
     // Initial camera params for all images.
     std::string camera_params;
 
+    // Whether to perform feature extraction.
+    bool extraction = true;
+
+    // Whether to perform feature matching.
+    bool matching = true;
+
     // Whether to perform sparse mapping.
     bool sparse = true;
 
@@ -92,12 +104,17 @@ class AutomaticReconstructionController : public Thread {
     // The number of threads to use in all stages.
     int num_threads = -1;
 
-    // Whether to use the GPU in feature extraction and matching.
+    // The random seed to use in all stages.
+    int random_seed = -1;
+
+    // Whether to use the GPU in feature extraction, feature matching, and
+    // bundle adjustment.
     bool use_gpu = true;
 
-    // Index of the GPU used for GPU stages. For multi-GPU computation,
-    // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
-    // By default, all GPUs will be used in all stages.
+    // Index of the GPU used for GPU stages. For multi-GPU computation in
+    // feature extraction/matching, you should separate multiple GPU indices by
+    // comma, e.g., "0,1,2,3". For single-GPU stages only the first GPU will be
+    // used. By default, all available GPUs will be used in all stages.
     std::string gpu_index = "-1";
   };
 

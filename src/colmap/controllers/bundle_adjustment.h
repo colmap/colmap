@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -31,19 +31,19 @@
 
 #include "colmap/controllers/option_manager.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/util/threading.h"
+#include "colmap/util/base_controller.h"
 
 namespace colmap {
 
 // Class that controls the global bundle adjustment procedure.
-class BundleAdjustmentController : public Thread {
+class BundleAdjustmentController : public BaseController {
  public:
   BundleAdjustmentController(const OptionManager& options,
                              std::shared_ptr<Reconstruction> reconstruction);
 
- private:
   void Run();
 
+ private:
   const OptionManager options_;
   std::shared_ptr<Reconstruction> reconstruction_;
 };

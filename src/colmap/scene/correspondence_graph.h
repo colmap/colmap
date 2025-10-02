@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -171,6 +171,12 @@ class CorrespondenceGraph {
   std::unordered_map<image_pair_t, ImagePair> image_pairs_;
 };
 
+std::ostream& operator<<(
+    std::ostream& stream,
+    const CorrespondenceGraph::Correspondence& correspondence);
+std::ostream& operator<<(std::ostream& stream,
+                         const CorrespondenceGraph& correspondence_graph);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
@@ -187,18 +193,27 @@ bool CorrespondenceGraph::ExistsImage(const image_t image_id) const {
 
 point2D_t CorrespondenceGraph::NumObservationsForImage(
     const image_t image_id) const {
-  return images_.at(image_id).num_observations;
+  try {
+    return images_.at(image_id).num_observations;
+  } catch (const std::out_of_range&) {
+    throw std::out_of_range(
+        StringPrintf("Image with ID %d does not exist", image_id));
+  }
 }
 
 point2D_t CorrespondenceGraph::NumCorrespondencesForImage(
     const image_t image_id) const {
-  return images_.at(image_id).num_correspondences;
+  try {
+    return images_.at(image_id).num_correspondences;
+  } catch (const std::out_of_range&) {
+    throw std::out_of_range(
+        StringPrintf("Image with ID %d does not exist", image_id));
+  }
 }
 
 point2D_t CorrespondenceGraph::NumCorrespondencesBetweenImages(
     const image_t image_id1, const image_t image_id2) const {
-  const image_pair_t pair_id =
-      Database::ImagePairToPairId(image_id1, image_id2);
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
   const auto it = image_pairs_.find(pair_id);
   if (it == image_pairs_.end()) {
     return 0;

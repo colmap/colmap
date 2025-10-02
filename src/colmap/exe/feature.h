@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -35,18 +35,20 @@ namespace colmap {
 
 // This enum can be used as optional input for feature_extractor and
 // feature_importer to ensure that the camera flags of ImageReader are set in an
-// exclusive and unambigous way. The table below explains the corespondence of
+// exclusive and unambiguous way. The table below explains the correspondence of
 // each setting with the flags
 //
+// clang-format off
 // -----------------------------------------------------------------------------------
-// |            |                         ImageReaderOptions | | CameraMode |
-// single_camera | single_camera_per_folder | single_camera_per_image |
+// |            |                         ImageReaderOptions                         |
+// | CameraMode | single_camera | single_camera_per_folder | single_camera_per_image |
 // |------------|---------------|--------------------------|-------------------------|
-// | AUTO       | false         | false                    | false | | SINGLE |
-// true          | false                    | false                   | |
-// PER_FOLDER | false         | true                     | false | | PER_IMAGE
-// | false         | false                    | true                    |
+// | AUTO       | false         | false                    | false                   |
+// | SINGLE     | true          | false                    | false                   |
+// | PER_FOLDER | false         | true                     | false                   |
+// | PER_IMAGE  | false         | false                    | true                    |
 // -----------------------------------------------------------------------------------
+// clang-format on
 //
 // Note: When using AUTO mode a camera model will be uniquely identified by the
 // following 5 parameters from EXIF tags:
@@ -82,5 +84,6 @@ int RunSequentialMatcher(int argc, char** argv);
 int RunSpatialMatcher(int argc, char** argv);
 int RunTransitiveMatcher(int argc, char** argv);
 int RunVocabTreeMatcher(int argc, char** argv);
+int RunGeometricVerifier(int argc, char** argv);
 
 }  // namespace colmap

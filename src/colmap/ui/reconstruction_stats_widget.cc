@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -54,9 +54,10 @@ void ReconstructionStatsWidget::Show(const Reconstruction& reconstruction) {
   stats_table_->setRowCount(0);
 
   AddStatistic("Cameras", QString::number(reconstruction.NumCameras()));
+  AddStatistic("Frames", QString::number(reconstruction.NumFrames()));
+  AddStatistic("Registered frames",
+               QString::number(reconstruction.NumRegFrames()));
   AddStatistic("Images", QString::number(reconstruction.NumImages()));
-  AddStatistic("Registered images",
-               QString::number(reconstruction.NumRegImages()));
   AddStatistic("Points", QString::number(reconstruction.NumPoints3D()));
   AddStatistic("Observations",
                QString::number(reconstruction.ComputeNumObservations()));

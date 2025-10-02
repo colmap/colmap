@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -43,43 +43,36 @@ typedef std::function<int(int, char**)> command_func_t;
 
 int ShowHelp(
     const std::vector<std::pair<std::string, command_func_t>>& commands) {
-  std::cout << colmap::StringPrintf(
-                   "%s -- Structure-from-Motion and Multi-View Stereo\n(%s)",
-                   colmap::GetVersionInfo().c_str(),
-                   colmap::GetBuildInfo().c_str())
-            << std::endl
-            << std::endl;
+  std::cout << colmap::GetVersionInfo()
+            << " -- Structure-from-Motion and Multi-View Stereo\n("
+            << colmap::GetBuildInfo() << ")\n\n";
 
-  std::cout << "Usage:" << std::endl;
-  std::cout << "  colmap [command] [options]" << std::endl << std::endl;
+  std::cout << "Usage:\n";
+  std::cout << "  colmap [command] [options]\n";
 
-  std::cout << "Documentation:" << std::endl;
-  std::cout << "  https://colmap.github.io/" << std::endl << std::endl;
+  std::cout << "Documentation:\n";
+  std::cout << "  https://colmap.github.io/\n";
 
-  std::cout << "Example usage:" << std::endl;
-  std::cout << "  colmap help [ -h, --help ]" << std::endl;
-  std::cout << "  colmap gui" << std::endl;
-  std::cout << "  colmap gui -h [ --help ]" << std::endl;
-  std::cout << "  colmap automatic_reconstructor -h [ --help ]" << std::endl;
+  std::cout << "Example usage:\n";
+  std::cout << "  colmap help [ -h, --help ]\n";
+  std::cout << "  colmap gui\n";
+  std::cout << "  colmap gui -h [ --help ]\n";
+  std::cout << "  colmap automatic_reconstructor -h [ --help ]\n";
   std::cout << "  colmap automatic_reconstructor --image_path IMAGES "
-               "--workspace_path WORKSPACE"
-            << std::endl;
+               "--workspace_path WORKSPACE\n";
   std::cout << "  colmap feature_extractor --image_path IMAGES --database_path "
-               "DATABASE"
-            << std::endl;
-  std::cout << "  colmap exhaustive_matcher --database_path DATABASE"
-            << std::endl;
+               "DATABASE\n";
+  std::cout << "  colmap exhaustive_matcher --database_path DATABASE\n";
   std::cout << "  colmap mapper --image_path IMAGES --database_path DATABASE "
-               "--output_path MODEL"
-            << std::endl;
-  std::cout << "  ..." << std::endl << std::endl;
+               "--output_path MODEL\n";
+  std::cout << "  ...\n";
 
-  std::cout << "Available commands:" << std::endl;
-  std::cout << "  help" << std::endl;
+  std::cout << "Available commands:\n";
+  std::cout << "  help\n";
   for (const auto& command : commands) {
-    std::cout << "  " << command.first << std::endl;
+    std::cout << "  " << command.first << '\n';
   }
-  std::cout << std::endl;
+  std::cout << '\n';
 
   return EXIT_SUCCESS;
 }
@@ -88,9 +81,6 @@ int ShowHelp(
 
 int main(int argc, char** argv) {
   colmap::InitializeGlog(argv);
-#if defined(COLMAP_GUI_ENABLED)
-  Q_INIT_RESOURCE(resources);
-#endif
 
   std::vector<std::pair<std::string, command_func_t>> commands;
   commands.emplace_back("gui", &colmap::RunGraphicalUserInterface);
@@ -105,6 +95,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("exhaustive_matcher", &colmap::RunExhaustiveMatcher);
   commands.emplace_back("feature_extractor", &colmap::RunFeatureExtractor);
   commands.emplace_back("feature_importer", &colmap::RunFeatureImporter);
+  commands.emplace_back("geometric_verifier", &colmap::RunGeometricVerifier);
   commands.emplace_back("hierarchical_mapper", &colmap::RunHierarchicalMapper);
   commands.emplace_back("image_deleter", &colmap::RunImageDeleter);
   commands.emplace_back("image_filterer", &colmap::RunImageFilterer);
@@ -128,8 +119,10 @@ int main(int argc, char** argv) {
   commands.emplace_back("patch_match_stereo", &colmap::RunPatchMatchStereo);
   commands.emplace_back("point_filtering", &colmap::RunPointFiltering);
   commands.emplace_back("point_triangulator", &colmap::RunPointTriangulator);
+  commands.emplace_back("pose_prior_mapper", &colmap::RunPosePriorMapper);
   commands.emplace_back("poisson_mesher", &colmap::RunPoissonMesher);
   commands.emplace_back("project_generator", &colmap::RunProjectGenerator);
+  commands.emplace_back("rig_configurator", &colmap::RunRigConfigurator);
   commands.emplace_back("rig_bundle_adjuster", &colmap::RunRigBundleAdjuster);
   commands.emplace_back("sequential_matcher", &colmap::RunSequentialMatcher);
   commands.emplace_back("spatial_matcher", &colmap::RunSpatialMatcher);

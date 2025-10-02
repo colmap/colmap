@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,8 +30,9 @@
 #include "colmap/util/ply.h"
 
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/endian.h"
+#include "colmap/util/file.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 
 #include <fstream>
 
@@ -41,7 +42,7 @@ namespace colmap {
 
 std::vector<PlyPoint> ReadPly(const std::string& path) {
   std::ifstream file(path, std::ios::binary);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
   std::vector<PlyPoint> points;
 
@@ -127,9 +128,9 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
     // Show diffuse, ambient, specular colors as regular colors.
 
     if (line_elems.size() >= 3 && line_elems[0] == "property") {
-      CHECK(line_elems[1] == "float" || line_elems[1] == "float32" ||
-            line_elems[1] == "double" || line_elems[1] == "float64" ||
-            line_elems[1] == "uchar")
+      THROW_CHECK(line_elems[1] == "float" || line_elems[1] == "float32" ||
+                  line_elems[1] == "double" || line_elems[1] == "float64" ||
+                  line_elems[1] == "uchar")
           << "PLY import only supports float, double, and uchar data types";
 
       if (line == "property float x" || line == "property float32 x" ||
@@ -193,7 +194,7 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
       } else if (line_elems[1] == "uchar") {
         num_bytes_per_line += 1;
       } else {
-        LOG(FATAL) << "Invalid data type: " << line_elems[1];
+        LOG(FATAL_THROW) << "Invalid data type: " << line_elems[1];
       }
     }
   }
@@ -203,7 +204,7 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
   const bool is_rgb_missing =
       (R_index == -1) || (G_index == -1) || (B_index == -1);
 
-  CHECK(X_index != -1 && Y_index != -1 && Z_index != -1)
+  THROW_CHECK(X_index != -1 && Y_index != -1 && Z_index != -1)
       << "Invalid PLY file format: x, y, z properties missing";
 
   points.reserve(num_vertices);
@@ -324,29 +325,29 @@ void WriteTextPlyPoints(const std::string& path,
                         const bool write_normal,
                         const bool write_rgb) {
   std::ofstream file(path);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
-  file << "ply" << std::endl;
-  file << "format ascii 1.0" << std::endl;
-  file << "element vertex " << points.size() << std::endl;
+  file << "ply\n";
+  file << "format ascii 1.0\n";
+  file << "element vertex " << points.size() << '\n';
 
-  file << "property float x" << std::endl;
-  file << "property float y" << std::endl;
-  file << "property float z" << std::endl;
+  file << "property float x\n";
+  file << "property float y\n";
+  file << "property float z\n";
 
   if (write_normal) {
-    file << "property float nx" << std::endl;
-    file << "property float ny" << std::endl;
-    file << "property float nz" << std::endl;
+    file << "property float nx\n";
+    file << "property float ny\n";
+    file << "property float nz\n";
   }
 
   if (write_rgb) {
-    file << "property uchar red" << std::endl;
-    file << "property uchar green" << std::endl;
-    file << "property uchar blue" << std::endl;
+    file << "property uchar red\n";
+    file << "property uchar green\n";
+    file << "property uchar blue\n";
   }
 
-  file << "end_header" << std::endl;
+  file << "end_header\n";
 
   for (const auto& point : points) {
     file << point.x << " " << point.y << " " << point.z;
@@ -360,7 +361,7 @@ void WriteTextPlyPoints(const std::string& path,
            << static_cast<int>(point.g) << " " << static_cast<int>(point.b);
     }
 
-    file << std::endl;
+    file << '\n';
   }
 
   file.close();
@@ -371,34 +372,34 @@ void WriteBinaryPlyPoints(const std::string& path,
                           const bool write_normal,
                           const bool write_rgb) {
   std::fstream text_file(path, std::ios::out);
-  CHECK(text_file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(text_file, path);
 
-  text_file << "ply" << std::endl;
-  text_file << "format binary_little_endian 1.0" << std::endl;
-  text_file << "element vertex " << points.size() << std::endl;
+  text_file << "ply\n";
+  text_file << "format binary_little_endian 1.0\n";
+  text_file << "element vertex " << points.size() << '\n';
 
-  text_file << "property float x" << std::endl;
-  text_file << "property float y" << std::endl;
-  text_file << "property float z" << std::endl;
+  text_file << "property float x\n";
+  text_file << "property float y\n";
+  text_file << "property float z\n";
 
   if (write_normal) {
-    text_file << "property float nx" << std::endl;
-    text_file << "property float ny" << std::endl;
-    text_file << "property float nz" << std::endl;
+    text_file << "property float nx\n";
+    text_file << "property float ny\n";
+    text_file << "property float nz\n";
   }
 
   if (write_rgb) {
-    text_file << "property uchar red" << std::endl;
-    text_file << "property uchar green" << std::endl;
-    text_file << "property uchar blue" << std::endl;
+    text_file << "property uchar red\n";
+    text_file << "property uchar green\n";
+    text_file << "property uchar blue\n";
   }
 
-  text_file << "end_header" << std::endl;
+  text_file << "end_header\n";
   text_file.close();
 
   std::fstream binary_file(path,
                            std::ios::out | std::ios::binary | std::ios::app);
-  CHECK(binary_file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(binary_file, path);
 
   for (const auto& point : points) {
     WriteBinaryLittleEndian<float>(&binary_file, point.x);
@@ -423,49 +424,46 @@ void WriteBinaryPlyPoints(const std::string& path,
 
 void WriteTextPlyMesh(const std::string& path, const PlyMesh& mesh) {
   std::fstream file(path, std::ios::out);
-  CHECK(file.is_open());
+  THROW_CHECK_FILE_OPEN(file, path);
 
-  file << "ply" << std::endl;
-  file << "format ascii 1.0" << std::endl;
-  file << "element vertex " << mesh.vertices.size() << std::endl;
-  file << "property float x" << std::endl;
-  file << "property float y" << std::endl;
-  file << "property float z" << std::endl;
-  file << "element face " << mesh.faces.size() << std::endl;
-  file << "property list uchar int vertex_index" << std::endl;
-  file << "end_header" << std::endl;
+  file << "ply\n";
+  file << "format ascii 1.0\n";
+  file << "element vertex " << mesh.vertices.size() << '\n';
+  file << "property float x\n";
+  file << "property float y\n";
+  file << "property float z\n";
+  file << "element face " << mesh.faces.size() << '\n';
+  file << "property list uchar int vertex_index\n";
+  file << "end_header\n";
 
   for (const auto& vertex : mesh.vertices) {
-    file << vertex.x << " " << vertex.y << " " << vertex.z << std::endl;
+    file << vertex.x << " " << vertex.y << " " << vertex.z << '\n';
   }
 
   for (const auto& face : mesh.faces) {
-    file << StringPrintf("3 %d %d %d",
-                         face.vertex_idx1,
-                         face.vertex_idx2,
-                         face.vertex_idx3)
-         << std::endl;
+    file << "3 " << face.vertex_idx1 << " " << face.vertex_idx2 << " "
+         << face.vertex_idx3 << '\n';
   }
 }
 
 void WriteBinaryPlyMesh(const std::string& path, const PlyMesh& mesh) {
   std::fstream text_file(path, std::ios::out);
-  CHECK(text_file.is_open());
+  THROW_CHECK_FILE_OPEN(text_file, path);
 
-  text_file << "ply" << std::endl;
-  text_file << "format binary_little_endian 1.0" << std::endl;
-  text_file << "element vertex " << mesh.vertices.size() << std::endl;
-  text_file << "property float x" << std::endl;
-  text_file << "property float y" << std::endl;
-  text_file << "property float z" << std::endl;
-  text_file << "element face " << mesh.faces.size() << std::endl;
-  text_file << "property list uchar int vertex_index" << std::endl;
-  text_file << "end_header" << std::endl;
+  text_file << "ply\n";
+  text_file << "format binary_little_endian 1.0\n";
+  text_file << "element vertex " << mesh.vertices.size() << '\n';
+  text_file << "property float x\n";
+  text_file << "property float y\n";
+  text_file << "property float z\n";
+  text_file << "element face " << mesh.faces.size() << '\n';
+  text_file << "property list uchar int vertex_index\n";
+  text_file << "end_header\n";
   text_file.close();
 
   std::fstream binary_file(path,
                            std::ios::out | std::ios::binary | std::ios::app);
-  CHECK(binary_file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(binary_file, path);
 
   for (const auto& vertex : mesh.vertices) {
     WriteBinaryLittleEndian<float>(&binary_file, vertex.x);
@@ -474,9 +472,9 @@ void WriteBinaryPlyMesh(const std::string& path, const PlyMesh& mesh) {
   }
 
   for (const auto& face : mesh.faces) {
-    CHECK_LT(face.vertex_idx1, mesh.vertices.size());
-    CHECK_LT(face.vertex_idx2, mesh.vertices.size());
-    CHECK_LT(face.vertex_idx3, mesh.vertices.size());
+    THROW_CHECK_LT(face.vertex_idx1, mesh.vertices.size());
+    THROW_CHECK_LT(face.vertex_idx2, mesh.vertices.size());
+    THROW_CHECK_LT(face.vertex_idx3, mesh.vertices.size());
     const uint8_t kNumVertices = 3;
     WriteBinaryLittleEndian<uint8_t>(&binary_file, kNumVertices);
     WriteBinaryLittleEndian<int>(&binary_file, face.vertex_idx1);

@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -28,12 +28,12 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-import os
-import collections
-import numpy as np
-import struct
 import argparse
+import collections
+import os
+import struct
 
+import numpy as np
 
 CameraModel = collections.namedtuple(
     "CameraModel", ["model_id", "model_name", "num_params"]
@@ -578,7 +578,7 @@ def main():
     parser.add_argument(
         "--output_format",
         choices=[".bin", ".txt"],
-        help="outut model format",
+        help="output model format",
         default=".txt",
     )
     args = parser.parse_args()

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -56,8 +56,8 @@ Image::Image(const std::string& path,
 
 void Image::SetBitmap(const Bitmap& bitmap) {
   bitmap_ = bitmap;
-  CHECK_EQ(width_, bitmap_.Width());
-  CHECK_EQ(height_, bitmap_.Height());
+  THROW_CHECK_EQ(width_, bitmap_.Width());
+  THROW_CHECK_EQ(height_, bitmap_.Height());
 }
 
 void Image::Rescale(const float factor) { Rescale(factor, factor); }

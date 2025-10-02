@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -31,6 +31,7 @@
 
 #include "colmap/controllers/bundle_adjustment.h"
 #include "colmap/ui/main_window.h"
+#include "colmap/util/controller_thread.h"
 
 namespace colmap {
 
@@ -41,6 +42,8 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
       options_(options),
       reconstruction_(nullptr),
       thread_control_widget_(new ThreadControlWidget(this)) {
+  setWindowFlags(Qt::Dialog);
+  setWindowModality(Qt::ApplicationModal);
   setWindowTitle("Bundle adjustment");
 
   AddOptionInt(&options->bundle_adjustment->solver_options.max_num_iterations,
@@ -71,8 +74,10 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
                 "refine_principal_point");
   AddOptionBool(&options->bundle_adjustment->refine_extra_params,
                 "refine_extra_params");
-  AddOptionBool(&options->bundle_adjustment->refine_extrinsics,
-                "refine_extrinsics");
+  AddOptionBool(&options->bundle_adjustment->refine_rig_from_world,
+                "refine_rig_from_world");
+  AddOptionBool(&options->bundle_adjustment->refine_sensor_from_rig,
+                "refine_sensor_from_rig");
 
   QPushButton* run_button = new QPushButton(tr("Run"), this);
   grid_layout_->addWidget(run_button, grid_layout_->rowCount(), 1);
@@ -95,12 +100,12 @@ void BundleAdjustmentWidget::Show(
 }
 
 void BundleAdjustmentWidget::Run() {
-  CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(reconstruction_);
 
   WriteOptions();
 
-  auto thread =
-      std::make_unique<BundleAdjustmentController>(*options_, reconstruction_);
+  auto thread = std::make_unique<ControllerThread<BundleAdjustmentController>>(
+      std::make_shared<BundleAdjustmentController>(*options_, reconstruction_));
   thread->AddCallback(Thread::FINISHED_CALLBACK,
                       [this]() { render_action_->trigger(); });
 

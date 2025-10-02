@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -28,6 +28,9 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
+
+#ifndef COLMAP_SRC_UTIL_ALIGNMENT_H_
+#define COLMAP_SRC_UTIL_ALIGNMENT_H_
 
 #include <Eigen/Core>
 
@@ -103,3 +106,5 @@ EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(Eigen::Matrix<double, 3, 4>)
 #endif
 
 #undef CPP_VERSION
+
+#endif  // COLMAP_SRC_UTIL_ALIGNMENT_H_

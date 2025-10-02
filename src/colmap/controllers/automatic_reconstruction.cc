@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -31,15 +31,14 @@
 
 #include "colmap/controllers/feature_extraction.h"
 #include "colmap/controllers/feature_matching.h"
-#include "colmap/controllers/incremental_mapper.h"
+#include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/image/undistortion.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
-#include "colmap/util/misc.h"
-
-#include <glog/logging.h>
+#include "colmap/scene/database.h"
+#include "colmap/util/logging.h"
 
 namespace colmap {
 
@@ -49,13 +48,16 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     : options_(options),
       reconstruction_manager_(std::move(reconstruction_manager)),
       active_thread_(nullptr) {
-  CHECK(ExistsDir(options_.workspace_path));
-  CHECK(ExistsDir(options_.image_path));
-  CHECK_NOTNULL(reconstruction_manager_);
+  THROW_CHECK_DIR_EXISTS(options_.workspace_path);
+  THROW_CHECK_DIR_EXISTS(options_.image_path);
+  THROW_CHECK_NOTNULL(reconstruction_manager_);
 
   option_manager_.AddAllOptions();
 
   *option_manager_.image_path = options_.image_path;
+  option_manager_.image_reader->image_names = options_.image_names;
+  option_manager_.mapper->image_names = {options_.image_names.begin(),
+                                         options_.image_names.end()};
   *option_manager_.database_path =
       JoinPaths(options_.workspace_path, "database.db");
 
@@ -66,10 +68,10 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   } else if (options_.data_type == DataType::INTERNET) {
     option_manager_.ModifyForInternetData();
   } else {
-    LOG(FATAL) << "Data type not supported";
+    LOG(FATAL_THROW) << "Data type not supported";
   }
 
-  CHECK(ExistsCameraModelWithName(options_.camera_model));
+  THROW_CHECK(ExistsCameraModelWithName(options_.camera_model));
 
   if (options_.quality == Quality::LOW) {
     option_manager_.ModifyForLowQuality();
@@ -81,14 +83,20 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     option_manager_.ModifyForExtremeQuality();
   }
 
-  option_manager_.sift_extraction->num_threads = options_.num_threads;
-  option_manager_.sift_matching->num_threads = options_.num_threads;
+  option_manager_.feature_extraction->num_threads = options_.num_threads;
+  option_manager_.feature_matching->num_threads = options_.num_threads;
+  option_manager_.sequential_pairing->num_threads = options_.num_threads;
+  option_manager_.vocab_tree_pairing->num_threads = options_.num_threads;
   option_manager_.mapper->num_threads = options_.num_threads;
   option_manager_.poisson_meshing->num_threads = options_.num_threads;
 
+  option_manager_.two_view_geometry->ransac_options.random_seed =
+      options_.random_seed;
+  option_manager_.mapper->random_seed = options_.random_seed;
+
   ImageReaderOptions& reader_options = *option_manager_.image_reader;
-  reader_options.database_path = *option_manager_.database_path;
   reader_options.image_path = *option_manager_.image_path;
+  reader_options.as_rgb = option_manager_.feature_extraction->RequiresRGB();
   if (!options_.mask_path.empty()) {
     reader_options.mask_path = options_.mask_path;
     option_manager_.image_reader->mask_path = options_.mask_path;
@@ -99,42 +107,52 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   reader_options.camera_model = options_.camera_model;
   reader_options.camera_params = options_.camera_params;
 
-  option_manager_.sift_extraction->use_gpu = options_.use_gpu;
-  option_manager_.sift_matching->use_gpu = options_.use_gpu;
+  option_manager_.feature_extraction->use_gpu = options_.use_gpu;
+  option_manager_.feature_matching->use_gpu = options_.use_gpu;
+  option_manager_.mapper->ba_use_gpu = options_.use_gpu;
+  option_manager_.bundle_adjustment->use_gpu = options_.use_gpu;
 
-  option_manager_.sift_extraction->gpu_index = options_.gpu_index;
-  option_manager_.sift_matching->gpu_index = options_.gpu_index;
+  option_manager_.feature_extraction->gpu_index = options_.gpu_index;
+  option_manager_.feature_matching->gpu_index = options_.gpu_index;
   option_manager_.patch_match_stereo->gpu_index = options_.gpu_index;
+  option_manager_.mapper->ba_gpu_index = options_.gpu_index;
+  option_manager_.bundle_adjustment->gpu_index = options_.gpu_index;
 
-  feature_extractor_ = CreateFeatureExtractorController(
-      reader_options, *option_manager_.sift_extraction);
-
-  exhaustive_matcher_ =
-      CreateExhaustiveFeatureMatcher(*option_manager_.exhaustive_matching,
-                                     *option_manager_.sift_matching,
-                                     *option_manager_.two_view_geometry,
-                                     *option_manager_.database_path);
-
-  if (!options_.vocab_tree_path.empty()) {
-    option_manager_.sequential_matching->loop_detection = true;
-    option_manager_.sequential_matching->vocab_tree_path =
-        options_.vocab_tree_path;
+  if (options_.extraction) {
+    feature_extractor_ =
+        CreateFeatureExtractorController(*option_manager_.database_path,
+                                         reader_options,
+                                         *option_manager_.feature_extraction);
   }
 
-  sequential_matcher_ =
-      CreateSequentialFeatureMatcher(*option_manager_.sequential_matching,
-                                     *option_manager_.sift_matching,
-                                     *option_manager_.two_view_geometry,
-                                     *option_manager_.database_path);
+  if (options_.matching) {
+    exhaustive_matcher_ =
+        CreateExhaustiveFeatureMatcher(*option_manager_.exhaustive_pairing,
+                                       *option_manager_.feature_matching,
+                                       *option_manager_.two_view_geometry,
+                                       *option_manager_.database_path);
 
-  if (!options_.vocab_tree_path.empty()) {
-    option_manager_.vocab_tree_matching->vocab_tree_path =
-        options_.vocab_tree_path;
-    vocab_tree_matcher_ =
-        CreateVocabTreeFeatureMatcher(*option_manager_.vocab_tree_matching,
-                                      *option_manager_.sift_matching,
-                                      *option_manager_.two_view_geometry,
-                                      *option_manager_.database_path);
+    if (!options_.vocab_tree_path.empty()) {
+      option_manager_.sequential_pairing->loop_detection = true;
+      option_manager_.sequential_pairing->vocab_tree_path =
+          options_.vocab_tree_path;
+    }
+
+    sequential_matcher_ =
+        CreateSequentialFeatureMatcher(*option_manager_.sequential_pairing,
+                                       *option_manager_.feature_matching,
+                                       *option_manager_.two_view_geometry,
+                                       *option_manager_.database_path);
+
+    if (!options_.vocab_tree_path.empty()) {
+      option_manager_.vocab_tree_pairing->vocab_tree_path =
+          options_.vocab_tree_path;
+      vocab_tree_matcher_ =
+          CreateVocabTreeFeatureMatcher(*option_manager_.vocab_tree_pairing,
+                                        *option_manager_.feature_matching,
+                                        *option_manager_.two_view_geometry,
+                                        *option_manager_.database_path);
+    }
   }
 }
 
@@ -150,13 +168,17 @@ void AutomaticReconstructionController::Run() {
     return;
   }
 
-  RunFeatureExtraction();
+  if (options_.extraction) {
+    RunFeatureExtraction();
+  }
 
   if (IsStopped()) {
     return;
   }
 
-  RunFeatureMatching();
+  if (options_.matching) {
+    RunFeatureMatching();
+  }
 
   if (IsStopped()) {
     return;
@@ -176,7 +198,7 @@ void AutomaticReconstructionController::Run() {
 }
 
 void AutomaticReconstructionController::RunFeatureExtraction() {
-  CHECK(feature_extractor_);
+  THROW_CHECK_NOTNULL(feature_extractor_);
   active_thread_ = feature_extractor_.get();
   feature_extractor_->Start();
   feature_extractor_->Wait();
@@ -190,8 +212,8 @@ void AutomaticReconstructionController::RunFeatureMatching() {
     matcher = sequential_matcher_.get();
   } else if (options_.data_type == DataType::INDIVIDUAL ||
              options_.data_type == DataType::INTERNET) {
-    Database database(*option_manager_.database_path);
-    const size_t num_images = database.NumImages();
+    auto database = Database::Open(*option_manager_.database_path);
+    const size_t num_images = database->NumImages();
     if (options_.vocab_tree_path.empty() || num_images < 200) {
       matcher = exhaustive_matcher_.get();
     } else {
@@ -199,7 +221,7 @@ void AutomaticReconstructionController::RunFeatureMatching() {
     }
   }
 
-  CHECK(matcher);
+  THROW_CHECK_NOTNULL(matcher);
   active_thread_ = matcher;
   matcher->Start();
   matcher->Wait();
@@ -224,14 +246,12 @@ void AutomaticReconstructionController::RunSparseMapper() {
     }
   }
 
-  IncrementalMapperController mapper(option_manager_.mapper,
-                                     *option_manager_.image_path,
-                                     *option_manager_.database_path,
-                                     reconstruction_manager_);
-  active_thread_ = &mapper;
-  mapper.Start();
-  mapper.Wait();
-  active_thread_ = nullptr;
+  IncrementalPipeline mapper(option_manager_.mapper,
+                             *option_manager_.image_path,
+                             *option_manager_.database_path,
+                             reconstruction_manager_);
+  mapper.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
+  mapper.Run();
 
   CreateDirIfNotExists(sparse_path);
   reconstruction_manager_->Write(sparse_path);
@@ -273,10 +293,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
                                     *reconstruction_manager_->Get(i),
                                     *option_manager_.image_path,
                                     dense_path);
-      active_thread_ = &undistorter;
-      undistorter.Start();
-      undistorter.Wait();
-      active_thread_ = nullptr;
+      undistorter.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
+      undistorter.Run();
     }
 
     if (IsStopped()) {
@@ -289,10 +307,9 @@ void AutomaticReconstructionController::RunDenseMapper() {
     {
       mvs::PatchMatchController patch_match_controller(
           *option_manager_.patch_match_stereo, dense_path, "COLMAP", "");
-      active_thread_ = &patch_match_controller;
-      patch_match_controller.Start();
-      patch_match_controller.Wait();
-      active_thread_ = nullptr;
+      patch_match_controller.SetCheckIfStoppedFunc(
+          [&]() { return IsStopped(); });
+      patch_match_controller.Run();
     }
 #else   // COLMAP_CUDA_ENABLED
     LOG(WARNING) << "Skipping patch match stereo because CUDA is not available";
@@ -316,11 +333,10 @@ void AutomaticReconstructionController::RunDenseMapper() {
           dense_path,
           "COLMAP",
           "",
-          options_.quality == Quality::HIGH ? "geometric" : "photometric");
-      active_thread_ = &fuser;
-      fuser.Start();
-      fuser.Wait();
-      active_thread_ = nullptr;
+          option_manager_.patch_match_stereo->geom_consistency ? "geometric"
+                                                               : "photometric");
+      fuser.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
+      fuser.Run();
 
       LOG(INFO) << "Writing output: " << fused_path;
       WriteBinaryPlyPoints(fused_path, fuser.GetFusedPoints());

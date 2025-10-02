@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -30,8 +30,8 @@
 
 # This script exports inlier image pairs from a COLMAP database to a text file.
 
-import sqlite3
 import argparse
+import sqlite3
 
 
 def parse_args():

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -31,7 +31,6 @@
 
 #include "colmap/util/timer.h"
 
-#include <atomic>
 #include <climits>
 #include <functional>
 #include <future>
@@ -130,7 +129,7 @@ class Thread {
   bool CheckValidSetup();
 
   // Set callbacks that can be triggered within the main run function.
-  void AddCallback(int id, const std::function<void()>& func);
+  void AddCallback(int id, std::function<void()> func);
 
   // Get timing information of the thread, properly accounting for pause times.
   const Timer& GetTimer() const;
@@ -306,7 +305,7 @@ class JobQueue {
 
  private:
   size_t max_num_jobs_;
-  std::atomic<bool> stop_;
+  bool stop_;
   std::queue<T> jobs_;
   std::mutex mutex_;
   std::condition_variable push_condition_;
@@ -409,7 +408,10 @@ void JobQueue<T>::Wait() {
 
 template <typename T>
 void JobQueue<T>::Stop() {
-  stop_ = true;
+  {
+    std::unique_lock<std::mutex> lock(mutex_);
+    stop_ = true;
+  }
   push_condition_.notify_all();
   pop_condition_.notify_all();
 }

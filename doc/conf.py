@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-#
 # COLMAP documentation build configuration file, created by
 # sphinx-quickstart on Wed Jan 28 09:31:25 2015.
 #
@@ -12,8 +10,30 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys
-import os
+import re
+import subprocess
+
+from sphinx.ext import autodoc
+
+
+def get_git_revision():
+    try:
+        commit_id = (
+            subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
+            .decode()
+            .strip()
+        )
+        commit_date = (
+            subprocess.check_output(
+                ["git", "log", "-1", "--format=%cd", "--date=short"]
+            )
+            .decode()
+            .strip()
+        )
+        return f"{commit_id} ({commit_date})"
+    except Exception:
+        return "Unknown"
+
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -30,6 +50,8 @@ import os
 # ones.
 extensions = [
     "sphinx.ext.mathjax",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autodoc.typehints",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -45,15 +67,15 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = u"COLMAP"
-copyright = u"2023, Johannes L. Schoenberger"
+project = "COLMAP"
+copyright = "2025, Johannes L. Schoenberger"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
-# The short X.Y version.
-version = "3.10-dev"
+# The short MAJOR.MINOR.PATCH version.
+version = "3.13.0.dev0" + " | " + get_git_revision()
 # The full version, including alpha/beta/rc tags.
 release = version
 
@@ -129,7 +151,8 @@ html_theme_path = ["_themes"]
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-# html_static_path = ['_static']
+html_static_path = ["_static"]
+html_css_files = ["custom.css"]
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
@@ -189,7 +212,7 @@ latex_elements = {
     # The font size ('10pt', '11pt' or '12pt').
     # 'pointsize': '10pt',
     # Additional stuff for the LaTeX preamble.
-    #'preamble': '',
+    # 'preamble': '',
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
@@ -199,8 +222,8 @@ latex_documents = [
     (
         "index",
         "COLMAP.tex",
-        u"COLMAP Documentation",
-        u"Johannes L. Schoenberger",
+        "COLMAP Documentation",
+        "Johannes L. Schoenberger",
         "manual",
     ),
 ]
@@ -234,8 +257,8 @@ man_pages = [
     (
         "index",
         "colmap",
-        u"COLMAP Documentation",
-        [u"Johannes L. Schoenberger"],
+        "COLMAP Documentation",
+        ["Johannes L. Schoenberger"],
         1,
     )
 ]
@@ -253,8 +276,8 @@ texinfo_documents = [
     (
         "index",
         "COLMAP",
-        u"COLMAP Documentation",
-        u"Johannes L. Schoenberger",
+        "COLMAP Documentation",
+        "Johannes L. Schoenberger",
         "COLMAP",
         "Structure-from-Motion and Multi-View Stereo.",
         "Miscellaneous",
@@ -272,3 +295,60 @@ texinfo_documents = [
 
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 # texinfo_no_detailmenu = False
+
+# Configure how Python API docs are displayed.
+autoclass_content = "both"
+autodoc_member_order = "bysource"
+autodoc_typehints = "both"
+python_maximum_signature_line_length = 120
+
+
+class MyClassDocumenter(autodoc.ClassDocumenter):
+    def sort_members(
+        self, documenters: list[tuple[autodoc.Documenter, bool]], order: str
+    ) -> list[tuple[autodoc.Documenter, bool]]:
+        """Order the members by their definition order."""
+        class_names = list(self.object.__dict__)
+
+        def keyfunc(entry: tuple[autodoc.Documenter, bool]) -> int:
+            name = entry[0].name.split("::")[1].split(".")[1]
+            if name in class_names:
+                return class_names.index(name)
+            else:
+                return len(class_names)
+
+        documenters.sort(key=keyfunc)
+        return documenters
+
+
+# autodoc_member_order=bysource does not work for C++-defined classes since they
+# cannot be introspected and do not have an __all__ list. Instead,
+# we extract the definition order from object.__dict__.
+autodoc.ClassDocumenter = MyClassDocumenter
+
+
+def process_doc(app, what, name, obj, options, lines):
+    if not lines:
+        return
+    has_overload = lines[0] == "Overloaded function."
+    for i in range(len(lines)):
+        lines[i] = lines[i].replace("pycolmap._core", "pycolmap")
+        if has_overload and re.search(r"^\d+\. ", lines[i]):
+            index, signature = lines[i].split(". ", 1)
+            signature = "``" + signature.replace("->", "→") + "``"
+            lines[i] = ". ".join([index, signature])
+
+
+def process_sig(app, what, name, obj, options, signature, return_annotation):
+    signature = signature.replace("pycolmap._core", "pycolmap")
+    if isinstance(return_annotation, str):
+        return_annotation = return_annotation.replace(
+            "pycolmap._core", "pycolmap"
+        )
+    return signature, return_annotation
+
+
+def setup(app):
+    # Remap types from the C++ module pycolmap._core to the Python namespace.
+    app.connect("autodoc-process-docstring", process_doc)
+    app.connect("autodoc-process-signature", process_sig)

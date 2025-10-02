@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,8 +29,7 @@
 
 #pragma once
 
-#include "colmap/util/types.h"
-
+#include <cstdint>
 #include <string>
 #include <vector>
 

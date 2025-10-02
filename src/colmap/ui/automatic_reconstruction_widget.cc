@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,8 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
     : OptionsWidget(main_window),
       main_window_(main_window),
       thread_control_widget_(new ThreadControlWidget(this)) {
+  setWindowFlags(Qt::Dialog);
+  setWindowModality(Qt::ApplicationModal);
   setWindowTitle("Automatic reconstruction");
 
   AddOptionDirPath(&options_.workspace_path, "Workspace folder");
@@ -96,6 +98,7 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
   AddSpacer();
 
   AddOptionInt(&options_.num_threads, "num_threads", -1);
+  AddOptionInt(&options_.random_seed, "random_seed", -1);
   AddOptionBool(&options_.use_gpu, "GPU");
   AddOptionText(&options_.gpu_index, "gpu_index");
 

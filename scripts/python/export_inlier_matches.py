@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -30,9 +30,10 @@
 
 # This script exports inlier matches from a COLMAP database to a text file.
 
-import os
 import argparse
+import os
 import sqlite3
+
 import numpy as np
 
 

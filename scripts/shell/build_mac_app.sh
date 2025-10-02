@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -66,7 +66,11 @@ install_name_tool -change @rpath/libtbb.dylib /usr/local/lib/libtbb.dylib $BASE_
 install_name_tool -change @rpath/libtbbmalloc.dylib /usr/local/lib/libtbbmalloc.dylib $BASE_PATH/COLMAP.app/Contents/MacOS/COLMAP
 
 echo "Linking dynamic libraries"
-/usr/local/opt/qt5/bin/macdeployqt "$BASE_PATH/COLMAP.app"
+if [ -d "$(brew --prefix)/opt/qt6" ]; then
+    $(brew --prefix)/opt/qt6/bin/macdeployqt "$BASE_PATH/COLMAP.app"
+else
+    $(brew --prefix)/opt/qt5/bin/macdeployqt "$BASE_PATH/COLMAP.app"
+fi
 
 echo "Wrapping binary"
 cat <<EOM >"$BASE_PATH/COLMAP.app/Contents/MacOS/colmap_gui.sh"

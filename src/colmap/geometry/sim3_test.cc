@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -52,6 +52,25 @@ TEST(Sim3d, Default) {
   EXPECT_EQ(tform.scale, 1);
   EXPECT_EQ(tform.rotation.coeffs(), Eigen::Quaterniond::Identity().coeffs());
   EXPECT_EQ(tform.translation, Eigen::Vector3d::Zero());
+}
+
+TEST(Sim3d, Equals) {
+  Sim3d tform;
+  Sim3d other = tform;
+  EXPECT_EQ(tform, other);
+  tform.translation.x() = 1;
+  EXPECT_NE(tform, other);
+  other.translation.x() = 1;
+  EXPECT_EQ(tform, other);
+}
+
+TEST(Sim3d, Print) {
+  Sim3d tform;
+  std::ostringstream stream;
+  stream << tform;
+  EXPECT_EQ(
+      stream.str(),
+      "Sim3d(scale=1, rotation_xyzw=[0, 0, 0, 1], translation=[0, 0, 0])");
 }
 
 TEST(Sim3d, Inverse) {

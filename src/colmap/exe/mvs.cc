@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -34,7 +34,7 @@
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/util/misc.h"
+#include "colmap/util/file.h"
 
 namespace colmap {
 
@@ -111,8 +111,7 @@ int RunPatchMatchStereo(int argc, char** argv) {
                                        pmvs_option_name,
                                        config_path);
 
-  controller.Start();
-  controller.Wait();
+  controller.Run();
 
   return EXIT_SUCCESS;
 #endif  // COLMAP_CUDA_ENABLED
@@ -128,7 +127,8 @@ int RunPoissonMesher(int argc, char** argv) {
   options.AddPoissonMeshingOptions();
   options.Parse(argc, argv);
 
-  CHECK(mvs::PoissonMeshing(*options.poisson_meshing, input_path, output_path));
+  THROW_CHECK(
+      mvs::PoissonMeshing(*options.poisson_meshing, input_path, output_path));
 
   return EXIT_SUCCESS;
 }
@@ -188,8 +188,7 @@ int RunStereoFuser(int argc, char** argv) {
                           pmvs_option_name,
                           input_type);
 
-  fuser.Start();
-  fuser.Wait();
+  fuser.Run();
 
   Reconstruction reconstruction;
 

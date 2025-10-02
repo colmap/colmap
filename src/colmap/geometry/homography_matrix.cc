@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,24 +30,27 @@
 #include "colmap/geometry/homography_matrix.h"
 
 #include "colmap/geometry/pose.h"
+#include "colmap/geometry/triangulation.h"
 #include "colmap/math/math.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
 #include <array>
+#include <iomanip>
 
 #include <Eigen/Dense>
+#include <Eigen/Geometry>
 
 namespace colmap {
 namespace {
 
 double ComputeOppositeOfMinor(const Eigen::Matrix3d& matrix,
-                              const size_t row,
-                              const size_t col) {
-  const size_t col1 = col == 0 ? 1 : 0;
-  const size_t col2 = col == 2 ? 1 : 2;
-  const size_t row1 = row == 0 ? 1 : 0;
-  const size_t row2 = row == 2 ? 1 : 2;
+                              const int row,
+                              const int col) {
+  const int col1 = col == 0 ? 1 : 0;
+  const int col2 = col == 2 ? 1 : 2;
+  const int row1 = row == 0 ? 1 : 0;
+  const int row2 = row == 2 ? 1 : 2;
   return (matrix(row1, col2) * matrix(row2, col1) -
           matrix(row1, col1) * matrix(row2, col2));
 }
@@ -65,9 +68,8 @@ Eigen::Matrix3d ComputeHomographyRotation(const Eigen::Matrix3d& H_normalized,
 void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
                                const Eigen::Matrix3d& K1,
                                const Eigen::Matrix3d& K2,
-                               std::vector<Eigen::Matrix3d>* R,
-                               std::vector<Eigen::Vector3d>* t,
-                               std::vector<Eigen::Vector3d>* n) {
+                               std::vector<Rigid3d>* cams2_from_cams1,
+                               std::vector<Eigen::Vector3d>* normals) {
   // Remove calibration from homography.
   Eigen::Matrix3d H_normalized = K2.inverse() * H * K1;
 
@@ -94,11 +96,11 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
       H_normalized.transpose() * H_normalized - Eigen::Matrix3d::Identity();
 
   // Check if H is rotation matrix.
-  const double kMinInfinityNorm = 1e-3;
+  constexpr double kMinInfinityNorm = 1e-3;
   if (S.lpNorm<Eigen::Infinity>() < kMinInfinityNorm) {
-    *R = {H_normalized};
-    *t = {Eigen::Vector3d::Zero()};
-    *n = {Eigen::Vector3d::Zero()};
+    *cams2_from_cams1 = {
+        Rigid3d(Eigen::Quaterniond(H_normalized), Eigen::Vector3d::Zero())};
+    *normals = {Eigen::Vector3d::Zero()};
     return;
   }
 
@@ -106,9 +108,9 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
   const double M11 = ComputeOppositeOfMinor(S, 1, 1);
   const double M22 = ComputeOppositeOfMinor(S, 2, 2);
 
-  const double rtM00 = std::sqrt(M00);
-  const double rtM11 = std::sqrt(M11);
-  const double rtM22 = std::sqrt(M22);
+  const double rtM00 = std::sqrt(std::max(M00, 0.));
+  const double rtM11 = std::sqrt(std::max(M11, 0.));
+  const double rtM22 = std::sqrt(std::max(M22, 0.));
 
   const double M01 = ComputeOppositeOfMinor(S, 0, 1);
   const double M12 = ComputeOppositeOfMinor(S, 1, 2);
@@ -152,14 +154,15 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
   }
 
   const double traceS = S.trace();
-  const double v = 2.0 * std::sqrt(1.0 + traceS - M00 - M11 - M22);
+  const double v =
+      2.0 * std::sqrt(std::max(1.0 + traceS - M00 - M11 - M22, 0.));
 
   const double ESii = SignOfNumber(S(idx, idx));
   const double r_2 = 2 + traceS + v;
   const double nt_2 = 2 + traceS - v;
 
-  const double r = std::sqrt(r_2);
-  const double n_t = std::sqrt(nt_2);
+  const double r = std::sqrt(std::max(r_2, 0.));
+  const double n_t = std::sqrt(std::max(nt_2, 0.));
 
   const Eigen::Vector3d n1 = np1.normalized();
   const Eigen::Vector3d n2 = np2.normalized();
@@ -178,36 +181,75 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
       ComputeHomographyRotation(H_normalized, t2_star, n2, v);
   const Eigen::Vector3d t2 = R2 * t2_star;
 
-  *R = {R1, R1, R2, R2};
-  *t = {t1, -t1, t2, -t2};
-  *n = {-n1, n1, -n2, n2};
+  *cams2_from_cams1 = {Rigid3d(Eigen::Quaterniond(R1), t1),
+                       Rigid3d(Eigen::Quaterniond(R1), -t1),
+                       Rigid3d(Eigen::Quaterniond(R2), t2),
+                       Rigid3d(Eigen::Quaterniond(R2), -t2)};
+  *normals = {-n1, n1, -n2, n2};
 }
+
+namespace {
+
+double CheckCheiralityAndReprojErrorSum(
+    const Rigid3d& cam2_from_cam1,
+    const std::vector<Eigen::Vector3d>& cam_rays1,
+    const std::vector<Eigen::Vector3d>& cam_rays2,
+    std::vector<Eigen::Vector3d>* points3D) {
+  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
+  double reproj_residual_sum = 0;
+  points3D->clear();
+  for (size_t i = 0; i < cam_rays1.size(); ++i) {
+    Eigen::Vector3d point3D_in_cam1;
+    if (!TriangulateMidPoint(
+            cam2_from_cam1, cam_rays1[i], cam_rays2[i], &point3D_in_cam1)) {
+      continue;
+    }
+    const Eigen::Vector3d point3D_in_cam2 = cam2_from_cam1 * point3D_in_cam1;
+    const double error1 =
+        1 -
+        std::clamp(cam_rays1[i].dot(point3D_in_cam1.normalized()), -1.0, 1.0);
+    const double error2 =
+        1 -
+        std::clamp(cam_rays2[i].dot(point3D_in_cam2.normalized()), -1.0, 1.0);
+    reproj_residual_sum += error1 + error2;
+    points3D->push_back(point3D_in_cam1);
+  }
+  return reproj_residual_sum;
+}
+
+}  // namespace
 
 void PoseFromHomographyMatrix(const Eigen::Matrix3d& H,
                               const Eigen::Matrix3d& K1,
                               const Eigen::Matrix3d& K2,
-                              const std::vector<Eigen::Vector2d>& points1,
-                              const std::vector<Eigen::Vector2d>& points2,
-                              Eigen::Matrix3d* R,
-                              Eigen::Vector3d* t,
-                              Eigen::Vector3d* n,
+                              const std::vector<Eigen::Vector3d>& cam_rays1,
+                              const std::vector<Eigen::Vector3d>& cam_rays2,
+                              Rigid3d* cam2_from_cam1,
+                              Eigen::Vector3d* normal,
                               std::vector<Eigen::Vector3d>* points3D) {
-  CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
 
-  std::vector<Eigen::Matrix3d> R_cmbs;
-  std::vector<Eigen::Vector3d> t_cmbs;
-  std::vector<Eigen::Vector3d> n_cmbs;
-  DecomposeHomographyMatrix(H, K1, K2, &R_cmbs, &t_cmbs, &n_cmbs);
+  std::vector<Rigid3d> cams2_from_cams1;
+  std::vector<Eigen::Vector3d> normals;
+  DecomposeHomographyMatrix(H, K1, K2, &cams2_from_cams1, &normals);
+  THROW_CHECK_EQ(cams2_from_cams1.size(), normals.size());
 
   points3D->clear();
-  for (size_t i = 0; i < R_cmbs.size(); ++i) {
-    std::vector<Eigen::Vector3d> points3D_cmb;
-    CheckCheirality(R_cmbs[i], t_cmbs[i], points1, points2, &points3D_cmb);
-    if (points3D_cmb.size() >= points3D->size()) {
-      *R = R_cmbs[i];
-      *t = t_cmbs[i];
-      *n = n_cmbs[i];
-      *points3D = points3D_cmb;
+  std::vector<Eigen::Vector3d> tentative_points3D;
+  double best_reproj_residual_sum = std::numeric_limits<double>::max();
+  for (size_t i = 0; i < cams2_from_cams1.size(); ++i) {
+    // Note that we can typically eliminate 2 of the 4 solutions using the
+    // cheirality check. We can then typically narrow it down to 1 solution by
+    // picking the solution with minimal overall reprojection error.
+    const double reproj_residual_sum = CheckCheiralityAndReprojErrorSum(
+        cams2_from_cams1[i], cam_rays1, cam_rays2, &tentative_points3D);
+    if (tentative_points3D.size() > points3D->size() ||
+        (tentative_points3D.size() == points3D->size() &&
+         reproj_residual_sum < best_reproj_residual_sum)) {
+      best_reproj_residual_sum = reproj_residual_sum;
+      *cam2_from_cam1 = cams2_from_cams1[i];
+      *normal = normals[i];
+      std::swap(*points3D, tentative_points3D);
     }
   }
 }
@@ -218,7 +260,7 @@ Eigen::Matrix3d HomographyMatrixFromPose(const Eigen::Matrix3d& K1,
                                          const Eigen::Vector3d& t,
                                          const Eigen::Vector3d& n,
                                          const double d) {
-  CHECK_GT(d, 0);
+  THROW_CHECK_GT(d, 0);
   return K2 * (R - t * n.normalized().transpose() / d) * K1.inverse();
 }
 

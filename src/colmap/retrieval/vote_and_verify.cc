@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,12 +30,10 @@
 #include "colmap/retrieval/vote_and_verify.h"
 
 #include "colmap/estimators/affine_transform.h"
-#include "colmap/math/math.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
-#include <array>
 #include <unordered_map>
 
 #include <Eigen/Geometry>
@@ -137,8 +135,8 @@ void ComputeInliers(const TwoWayTransform& tform,
                     float max_scale_error,
                     size_t best_num_inliers,
                     std::vector<int>* inlier_idxs) {
-  CHECK_GT(max_transfer_error, 0);
-  CHECK_GT(max_scale_error, 0);
+  THROW_CHECK_GT(max_transfer_error, 0);
+  THROW_CHECK_GT(max_scale_error, 0);
 
   const size_t num_matches = matches.size();
   const size_t max_num_outliers = num_matches - best_num_inliers;
@@ -169,9 +167,9 @@ size_t ComputeEffectiveInlierCount(
     const float max_transfer_error,
     const float max_scale_error,
     const int num_bins) {
-  CHECK_GT(max_transfer_error, 0);
-  CHECK_GT(max_scale_error, 0);
-  CHECK_GT(num_bins, 0);
+  THROW_CHECK_GT(max_transfer_error, 0);
+  THROW_CHECK_GT(max_scale_error, 0);
+  THROW_CHECK_GT(num_bins, 0);
 
   std::vector<std::pair<float, float>> inlier_coords;
   inlier_coords.reserve(matches.size());
@@ -219,19 +217,19 @@ size_t ComputeEffectiveInlierCount(
 
 int VoteAndVerify(const VoteAndVerifyOptions& options,
                   const std::vector<FeatureGeometryMatch>& matches) {
-  CHECK_GT(options.num_levels, 0);
-  CHECK_GT(options.num_transformations, 0);
-  CHECK_GT(options.num_trans_bins, 0);
-  CHECK_EQ(options.num_trans_bins % 2, 0);
-  CHECK_GT(options.num_scale_bins, 0);
-  CHECK_EQ(options.num_scale_bins % 2, 0);
-  CHECK_GT(options.num_angle_bins, 0);
-  CHECK_EQ(options.num_angle_bins % 2, 0);
-  CHECK_GT(options.max_image_size, 0);
-  CHECK_GT(options.min_num_votes, 0);
-  CHECK_GE(options.confidence, 0);
-  CHECK_LE(options.confidence, 1);
-  CHECK_GT(options.num_eff_inlier_bins, 0);
+  THROW_CHECK_GT(options.num_levels, 0);
+  THROW_CHECK_GT(options.num_transformations, 0);
+  THROW_CHECK_GT(options.num_trans_bins, 0);
+  THROW_CHECK_EQ(options.num_trans_bins % 2, 0);
+  THROW_CHECK_GT(options.num_scale_bins, 0);
+  THROW_CHECK_EQ(options.num_scale_bins % 2, 0);
+  THROW_CHECK_GT(options.num_angle_bins, 0);
+  THROW_CHECK_EQ(options.num_angle_bins % 2, 0);
+  THROW_CHECK_GT(options.max_image_size, 0);
+  THROW_CHECK_GT(options.min_num_votes, 0);
+  THROW_CHECK_GE(options.confidence, 0);
+  THROW_CHECK_LE(options.confidence, 1);
+  THROW_CHECK_GT(options.num_eff_inlier_bins, 0);
 
   const size_t num_matches = matches.size();
   if (num_matches < AffineTransformEstimator::kMinNumSamples) {
@@ -244,7 +242,7 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
 
   const float trans_norm = 1.0f / (2.0f * max_trans);
   const float scale_norm = 1.0f / (2.0f * max_log_scale);
-  const float angle_norm = 1.0f / (2.0f * static_cast<float>(M_PI));
+  const float angle_norm = 1.0f / (2.0f * static_cast<float>(EIGEN_PI));
 
   //////////////////////////////////////////////////////////////////////////////
   // Fill the multi-resolution voting histogram.
@@ -271,7 +269,7 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
     const float x = (T.tx + max_trans) * trans_norm;
     const float y = (T.ty + max_trans) * trans_norm;
     const float s = (log_scale + max_log_scale) * scale_norm;
-    const float a = (T.angle + static_cast<float>(M_PI)) * angle_norm;
+    const float a = (T.angle + static_cast<float>(EIGEN_PI)) * angle_norm;
 
     int n_x = std::min(static_cast<int>(x * options.num_trans_bins),
                        static_cast<int>(options.num_trans_bins - 1));
@@ -406,15 +404,14 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
     }
 
     // Local optimization on matching inlier points.
-    std::vector<Eigen::Matrix<double, 2, 3>> models;
+    std::vector<Eigen::Matrix2x3d> models;
     AffineTransformEstimator::Estimate(
         best_inlier_points1, best_inlier_points2, &models);
-    CHECK_EQ(models.size(), 1);
-    const Eigen::Matrix<double, 2, 3>& A = models[0];
+    THROW_CHECK_EQ(models.size(), 1);
+    const Eigen::Matrix2x3d& A = models[0];
     Eigen::Matrix3d A_homogeneous = Eigen::Matrix3d::Identity();
     A_homogeneous.topRows<2>() = A;
-    const Eigen::Matrix<double, 2, 3> inv_A =
-        A_homogeneous.inverse().topRows<2>();
+    const Eigen::Matrix2x3d inv_A = A_homogeneous.inverse().topRows<2>();
 
     TwoWayTransform local_tform;
     local_tform.A12 = A.leftCols<2>().cast<float>();

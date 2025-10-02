@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -32,8 +32,6 @@
 #include "colmap/math/random.h"
 #include "colmap/util/misc.h"
 
-#include <numeric>
-
 namespace colmap {
 
 ProgressiveSampler::ProgressiveSampler(const size_t num_samples)
@@ -45,7 +43,7 @@ ProgressiveSampler::ProgressiveSampler(const size_t num_samples)
       T_n_p_(0) {}
 
 void ProgressiveSampler::Initialize(const size_t total_num_samples) {
-  CHECK_LE(num_samples_, total_num_samples);
+  THROW_CHECK_LE(num_samples_, total_num_samples);
   total_num_samples_ = total_num_samples;
 
   t_ = 0;

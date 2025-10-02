@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -31,10 +31,86 @@
 
 #include <unordered_set>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
+
+TEST(SwapImagePair, Nominal) {
+  EXPECT_FALSE(SwapImagePair(0, 0));
+  EXPECT_FALSE(SwapImagePair(0, 1));
+  EXPECT_TRUE(SwapImagePair(1, 0));
+  EXPECT_FALSE(SwapImagePair(1, 1));
+}
+
+TEST(ImagePairToPairId, Nominal) {
+  EXPECT_EQ(ImagePairToPairId(0, 0), 0);
+  EXPECT_EQ(ImagePairToPairId(0, 1), 1);
+  EXPECT_EQ(ImagePairToPairId(0, 2), 2);
+  EXPECT_EQ(ImagePairToPairId(0, 3), 3);
+  EXPECT_EQ(ImagePairToPairId(1, 2), kMaxNumImages + 2);
+  for (image_t i = 0; i < 20; ++i) {
+    for (image_t j = 0; j < 20; ++j) {
+      const image_pair_t pair_id = ImagePairToPairId(i, j);
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+      if (i < j) {
+        EXPECT_EQ(i, image_id1);
+        EXPECT_EQ(j, image_id2);
+      } else {
+        EXPECT_EQ(i, image_id2);
+        EXPECT_EQ(j, image_id1);
+      }
+    }
+  }
+}
+
+TEST(FilterView, Empty) {
+  const std::vector<int> container;
+  filter_view filtered_container(
+      [](const int&) { return true; }, container.begin(), container.end());
+  EXPECT_THAT(
+      std::vector<int>(filtered_container.begin(), filtered_container.end()),
+      testing::IsEmpty());
+}
+
+TEST(FilterView, All) {
+  const std::vector<int> container = {1, 2, 3, 4, 5, 6};
+  filter_view filtered_container(
+      [](const int&) { return true; }, container.begin(), container.end());
+  EXPECT_THAT(
+      std::vector<int>(filtered_container.begin(), filtered_container.end()),
+      container);
+}
+
+TEST(FilterView, None) {
+  const std::vector<int> container = {1, 2, 3, 4, 5, 6};
+  filter_view filtered_container(
+      [](const int&) { return false; }, container.begin(), container.end());
+  EXPECT_THAT(
+      std::vector<int>(filtered_container.begin(), filtered_container.end()),
+      testing::IsEmpty());
+}
+
+TEST(FilterView, Nominal) {
+  const std::vector<int> container = {1, 2, 3, 4, 5, 6};
+  filter_view filtered_container([](const int& d) { return d % 2 == 0; },
+                                 container.begin(),
+                                 container.end());
+  EXPECT_THAT(
+      std::vector<int>(filtered_container.begin(), filtered_container.end()),
+      testing::ElementsAre(2, 4, 6));
+}
+
+TEST(FilterView, RangeExpression) {
+  const std::vector<int> container = {1, 2, 3, 4, 5, 6};
+  filter_view filtered_container([](const int& d) { return d % 2 == 0; },
+                                 container.begin(),
+                                 container.end());
+  for (const int d : filtered_container) {
+    EXPECT_EQ(d % 2, 0);
+  }
+}
 
 TEST(FeatureMatchHashing, Nominal) {
   std::unordered_set<std::pair<point2D_t, point2D_t>> set;

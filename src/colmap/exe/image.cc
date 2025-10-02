@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,12 +29,17 @@
 
 #include "colmap/exe/image.h"
 
-#include "colmap/controllers/incremental_mapper.h"
+#include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/image/undistortion.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_mapper.h"
+#include "colmap/sfm/observation_manager.h"
+#include "colmap/util/base_controller.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/timer.h"
+
+#include <fstream>
 
 namespace colmap {
 namespace {
@@ -56,13 +61,13 @@ std::vector<std::pair<image_t, image_t>> ReadStereoImagePairs(
 
   for (const auto& line : stereo_pair_lines) {
     const std::vector<std::string> names = StringSplit(line, " ");
-    CHECK_EQ(names.size(), 2);
+    THROW_CHECK_EQ(names.size(), 2);
 
     const Image* image1 = reconstruction.FindImageWithName(names[0]);
     const Image* image2 = reconstruction.FindImageWithName(names[1]);
 
-    CHECK_NOTNULL(image1);
-    CHECK_NOTNULL(image2);
+    THROW_CHECK_NOTNULL(image1);
+    THROW_CHECK_NOTNULL(image2);
 
     stereo_pairs.emplace_back(image1->ImageId(), image2->ImageId());
   }
@@ -104,12 +109,14 @@ int RunImageDeleter(int argc, char** argv) {
 
       const image_t image_id = std::stoi(image_id_str);
       if (reconstruction.ExistsImage(image_id)) {
-        const auto& image = reconstruction.Image(image_id);
+        const Image& image = reconstruction.Image(image_id);
         LOG(INFO) << StringPrintf(
-            "Deleting image_id=%d, image_name=%s from reconstruction",
+            "Deleting image_id=%d, image_name=%s, frame_id=%d from "
+            "reconstruction",
             image.ImageId(),
-            image.Name().c_str());
-        reconstruction.DeRegisterImage(image_id);
+            image.Name().c_str(),
+            image.FrameId());
+        reconstruction.DeRegisterFrame(image.FrameId());
       } else {
         LOG(WARNING) << StringPrintf(
             "Skipping image_id=%s, because it does not "
@@ -120,9 +127,7 @@ int RunImageDeleter(int argc, char** argv) {
   }
 
   if (!image_names_path.empty()) {
-    const auto image_names = ReadTextFileLines(image_names_path);
-
-    for (const auto& image_name : image_names) {
+    for (const std::string& image_name : ReadTextFileLines(image_names_path)) {
       if (image_name.empty()) {
         continue;
       }
@@ -130,10 +135,12 @@ int RunImageDeleter(int argc, char** argv) {
       const Image* image = reconstruction.FindImageWithName(image_name);
       if (image != nullptr) {
         LOG(INFO) << StringPrintf(
-            "Deleting image_id=%d, image_name=%s from reconstruction",
+            "Deleting image_id=%d, image_name=%s, frame_id=%d from "
+            "reconstruction",
             image->ImageId(),
-            image->Name().c_str());
-        reconstruction.DeRegisterImage(image->ImageId());
+            image->Name().c_str(),
+            image->FrameId());
+        reconstruction.DeRegisterFrame(image->FrameId());
       } else {
         LOG(WARNING) << StringPrintf(
             "Skipping image_name=%s, because it does not "
@@ -170,19 +177,30 @@ int RunImageFilterer(int argc, char** argv) {
 
   const size_t num_reg_images = reconstruction.NumRegImages();
 
-  reconstruction.FilterImages(
-      min_focal_length_ratio, max_focal_length_ratio, max_extra_param);
+  ObservationManager(reconstruction)
+      .FilterFrames(
+          min_focal_length_ratio, max_focal_length_ratio, max_extra_param);
 
-  std::vector<image_t> filtered_image_ids;
-  for (const auto& image : reconstruction.Images()) {
-    if (image.second.IsRegistered() &&
-        image.second.NumPoints3D() < min_num_observations) {
-      filtered_image_ids.push_back(image.first);
+  std::vector<frame_t> filtered_frame_ids;
+  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
+    if (!frame.HasPose()) {
+      filtered_frame_ids.push_back(frame_id);
+    }
+    bool enough_observations = false;
+    for (const data_t& data_id : frame.ImageIds()) {
+      const Image& image = reconstruction.Image(data_id.id);
+      if (image.NumPoints3D() >= min_num_observations) {
+        enough_observations = true;
+      }
+    }
+
+    if (!enough_observations) {
+      filtered_frame_ids.push_back(frame_id);
     }
   }
 
-  for (const auto image_id : filtered_image_ids) {
-    reconstruction.DeRegisterImage(image_id);
+  for (const auto frame_id : filtered_frame_ids) {
+    reconstruction.DeRegisterFrame(frame_id);
   }
 
   const size_t num_filtered_images =
@@ -228,8 +246,7 @@ int RunImageRectifier(int argc, char** argv) {
                                  *options.image_path,
                                  output_path,
                                  stereo_pairs);
-  rectifier.Start();
-  rectifier.Wait();
+  rectifier.Run();
 
   return EXIT_SUCCESS;
 }
@@ -262,12 +279,14 @@ int RunImageRegistrator(int argc, char** argv) {
   {
     Timer timer;
     timer.Start();
-    const size_t min_num_matches =
-        static_cast<size_t>(options.mapper->min_num_matches);
-    database_cache = DatabaseCache::Create(Database(*options.database_path),
-                                           min_num_matches,
-                                           options.mapper->ignore_watermarks,
-                                           options.mapper->image_names);
+    database_cache = DatabaseCache::Create(
+        *Database::Open(*options.database_path),
+        /*min_num_matches=*/
+        static_cast<size_t>(options.mapper->min_num_matches),
+        /*ignore_watermarks=*/options.mapper->ignore_watermarks,
+        /*image_names=*/
+        {options.mapper->image_names.begin(),
+         options.mapper->image_names.end()});
     timer.PrintMinutes();
   }
 
@@ -280,15 +299,18 @@ int RunImageRegistrator(int argc, char** argv) {
   const auto mapper_options = options.mapper->Mapper();
 
   for (const auto& image : reconstruction->Images()) {
-    if (image.second.IsRegistered()) {
+    if (image.second.HasPose()) {
       continue;
     }
 
     PrintHeading1("Registering image #" + std::to_string(image.first) + " (" +
                   std::to_string(reconstruction->NumRegImages() + 1) + ")");
 
-    LOG(INFO) << "\n=> Image sees " << image.second.NumVisiblePoints3D()
-              << " / " << image.second.NumObservations() << " points";
+    LOG(INFO) << "\n=> Image sees "
+              << mapper.ObservationManager().NumVisiblePoints3D(image.first)
+              << " / "
+              << mapper.ObservationManager().NumObservations(image.first)
+              << " points";
 
     mapper.RegisterNextImage(mapper_options, image.first);
   }
@@ -345,8 +367,7 @@ int RunImageUndistorter(int argc, char** argv) {
 
   std::vector<image_t> image_ids;
   if (!image_list_path.empty()) {
-    const auto& image_names = ReadTextFileLines(image_list_path);
-    for (const auto& image_name : image_names) {
+    for (const std::string& image_name : ReadTextFileLines(image_list_path)) {
       const Image* image = reconstruction.FindImageWithName(image_name);
       if (image != nullptr) {
         image_ids.push_back(image->ImageId());
@@ -369,7 +390,7 @@ int RunImageUndistorter(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  std::unique_ptr<Thread> undistorter;
+  std::unique_ptr<BaseController> undistorter;
   if (output_type == "COLMAP") {
     undistorter =
         std::make_unique<COLMAPUndistorter>(undistort_camera_options,
@@ -395,8 +416,7 @@ int RunImageUndistorter(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  undistorter->Start();
-  undistorter->Wait();
+  undistorter->Run();
 
   return EXIT_SUCCESS;
 }
@@ -432,7 +452,7 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
 
   {
     std::ifstream file(input_file);
-    CHECK(file.is_open()) << input_file;
+    THROW_CHECK_FILE_OPEN(file, input_file);
 
     std::string line;
     std::vector<std::string> lines;
@@ -472,20 +492,19 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
         camera.params.push_back(std::stold(item));
       }
 
-      CHECK(camera.VerifyParams());
+      THROW_CHECK(camera.VerifyParams());
 
       image_names_and_cameras.emplace_back(image_name, camera);
     }
   }
 
-  std::unique_ptr<Thread> undistorter;
+  std::unique_ptr<BaseController> undistorter;
   undistorter.reset(new PureImageUndistorter(undistort_camera_options,
                                              *options.image_path,
                                              output_path,
                                              image_names_and_cameras));
 
-  undistorter->Start();
-  undistorter->Wait();
+  undistorter->Run();
 
   return EXIT_SUCCESS;
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,7 @@
 #include "colmap/ui/image_viewer_widget.h"
 
 #include "colmap/ui/model_viewer_widget.h"
-#include "colmap/util/misc.h"
+#include "colmap/util/file.h"
 
 namespace colmap {
 
@@ -256,7 +256,7 @@ DatabaseImageViewerWidget::DatabaseImageViewerWidget(
 
   table_widget_ = new QTableWidget(this);
   table_widget_->setColumnCount(2);
-  table_widget_->setRowCount(11);
+  table_widget_->setRowCount(8);
 
   QFont font;
   font.setPointSize(10);
@@ -280,34 +280,24 @@ DatabaseImageViewerWidget::DatabaseImageViewerWidget(
   table_widget_->setItem(table_row, 1, image_id_item_);
   table_row += 1;
 
-  table_widget_->setItem(table_row, 0, new QTableWidgetItem("camera_id"));
-  camera_id_item_ = new QTableWidgetItem();
-  table_widget_->setItem(table_row, 1, camera_id_item_);
+  table_widget_->setItem(table_row, 0, new QTableWidgetItem("frame_id"));
+  frame_id_item_ = new QTableWidgetItem();
+  table_widget_->setItem(table_row, 1, frame_id_item_);
   table_row += 1;
 
-  table_widget_->setItem(table_row, 0, new QTableWidgetItem("camera_model"));
-  camera_model_item_ = new QTableWidgetItem();
-  table_widget_->setItem(table_row, 1, camera_model_item_);
+  table_widget_->setItem(table_row, 0, new QTableWidgetItem("rig_id"));
+  rig_id_item_ = new QTableWidgetItem();
+  table_widget_->setItem(table_row, 1, rig_id_item_);
   table_row += 1;
 
-  table_widget_->setItem(table_row, 0, new QTableWidgetItem("camera_params"));
-  camera_params_item_ = new QTableWidgetItem();
-  table_widget_->setItem(table_row, 1, camera_params_item_);
+  table_widget_->setItem(table_row, 0, new QTableWidgetItem("camera"));
+  camera_item_ = new QTableWidgetItem();
+  table_widget_->setItem(table_row, 1, camera_item_);
   table_row += 1;
 
-  table_widget_->setItem(table_row, 0, new QTableWidgetItem("qw, qx, qy, qz"));
-  rotation_item_ = new QTableWidgetItem();
-  table_widget_->setItem(table_row, 1, rotation_item_);
-  table_row += 1;
-
-  table_widget_->setItem(table_row, 0, new QTableWidgetItem("tx, ty, tz"));
-  translation_item_ = new QTableWidgetItem();
-  table_widget_->setItem(table_row, 1, translation_item_);
-  table_row += 1;
-
-  table_widget_->setItem(table_row, 0, new QTableWidgetItem("dims"));
-  dimensions_item_ = new QTableWidgetItem();
-  table_widget_->setItem(table_row, 1, dimensions_item_);
+  table_widget_->setItem(table_row, 0, new QTableWidgetItem("cam_from_world"));
+  cam_from_world_item_ = new QTableWidgetItem();
+  table_widget_->setItem(table_row, 1, cam_from_world_item_);
   table_row += 1;
 
   table_widget_->setItem(table_row, 0, new QTableWidgetItem("num_points2D"));
@@ -320,12 +310,6 @@ DatabaseImageViewerWidget::DatabaseImageViewerWidget(
   num_points3D_item_ = new QTableWidgetItem();
   num_points3D_item_->setForeground(Qt::magenta);
   table_widget_->setItem(table_row, 1, num_points3D_item_);
-  table_row += 1;
-
-  table_widget_->setItem(
-      table_row, 0, new QTableWidgetItem("num_observations"));
-  num_obs_item_ = new QTableWidgetItem();
-  table_widget_->setItem(table_row, 1, num_obs_item_);
   table_row += 1;
 
   table_widget_->setItem(table_row, 0, new QTableWidgetItem("name"));
@@ -353,23 +337,23 @@ void DatabaseImageViewerWidget::ShowImageWithId(const image_t image_id) {
   image_id_ = image_id;
 
   const Image& image = model_viewer_widget_->images.at(image_id);
-  const Camera& camera = model_viewer_widget_->cameras.at(image.CameraId());
 
   image_id_item_->setText(QString::number(image_id));
-  camera_id_item_->setText(QString::number(image.CameraId()));
-  camera_model_item_->setText(QString::fromStdString(camera.ModelName()));
-  camera_params_item_->setText(QString::fromStdString(camera.ParamsToString()));
-  rotation_item_->setText(
-      QString::number(image.CamFromWorld().rotation.w()) + ", " +
-      QString::number(image.CamFromWorld().rotation.x()) + ", " +
-      QString::number(image.CamFromWorld().rotation.y()) + ", " +
-      QString::number(image.CamFromWorld().rotation.z()));
-  translation_item_->setText(
-      QString::number(image.CamFromWorld().translation.x()) + ", " +
-      QString::number(image.CamFromWorld().translation.y()) + ", " +
-      QString::number(image.CamFromWorld().translation.z()));
-  dimensions_item_->setText(QString::number(camera.width) + "x" +
-                            QString::number(camera.height));
+  frame_id_item_->setText(QString::number(image.FrameId()));
+  rig_id_item_->setText(QString::number(image.FramePtr()->RigId()));
+
+  std::ostringstream camera_str;
+  camera_str << *image.CameraPtr();
+  camera_item_->setText(camera_str.str().c_str());
+
+  if (image.HasPose()) {
+    std::ostringstream cam_from_world_str;
+    cam_from_world_str << image.CamFromWorld();
+    cam_from_world_item_->setText(cam_from_world_str.str().c_str());
+  } else {
+    cam_from_world_item_->setText("undefined");
+  }
+
   num_points2D_item_->setText(QString::number(image.NumPoints2D()));
 
   std::vector<char> tri_mask(image.NumPoints2D());
@@ -378,7 +362,6 @@ void DatabaseImageViewerWidget::ShowImageWithId(const image_t image_id) {
   }
 
   num_points3D_item_->setText(QString::number(image.NumPoints3D()));
-  num_obs_item_->setText(QString::number(image.NumObservations()));
   name_item_->setText(QString::fromStdString(image.Name()));
 
   ResizeTable();
@@ -405,14 +388,17 @@ void DatabaseImageViewerWidget::ResizeTable() {
 }
 
 void DatabaseImageViewerWidget::DeleteImage() {
-  QMessageBox::StandardButton reply =
-      QMessageBox::question(this,
-                            "",
-                            tr("Do you really want to delete this image?"),
-                            QMessageBox::Yes | QMessageBox::No);
+  QMessageBox::StandardButton reply = QMessageBox::question(
+      this,
+      "",
+      tr("Do you really want to delete this image? This will delete other "
+         "images in the same frame as well."),
+      QMessageBox::Yes | QMessageBox::No);
   if (reply == QMessageBox::Yes) {
     if (model_viewer_widget_->reconstruction->ExistsImage(image_id_)) {
-      model_viewer_widget_->reconstruction->DeRegisterImage(image_id_);
+      const Image& image =
+          model_viewer_widget_->reconstruction->Image(image_id_);
+      model_viewer_widget_->reconstruction->DeRegisterFrame(image.FrameId());
     }
     model_viewer_widget_->ReloadReconstruction();
   }

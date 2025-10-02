@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,6 @@
 #include "colmap/optim/combination_sampler.h"
 
 #include "colmap/math/math.h"
-#include "colmap/math/random.h"
 
 #include <numeric>
 
@@ -40,7 +39,7 @@ CombinationSampler::CombinationSampler(const size_t num_samples)
     : num_samples_(num_samples) {}
 
 void CombinationSampler::Initialize(const size_t total_num_samples) {
-  CHECK_LE(num_samples_, total_num_samples);
+  THROW_CHECK_LE(num_samples_, total_num_samples);
   total_sample_idxs_.resize(total_num_samples);
   // Note that the samples must be in increasing order for `NextCombination`.
   std::iota(total_sample_idxs_.begin(), total_sample_idxs_.end(), 0);

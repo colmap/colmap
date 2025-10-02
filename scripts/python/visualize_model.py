@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -28,10 +28,10 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
+
 import numpy as np
 import open3d
-
-from read_write_model import read_model, write_model, qvec2rotmat, rotmat2qvec
+from read_write_model import qvec2rotmat, read_model
 
 
 class Model:

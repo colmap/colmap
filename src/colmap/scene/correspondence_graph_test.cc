@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -44,11 +44,29 @@ int CountNumTransitiveCorrespondences(const CorrespondenceGraph& graph,
   return corrs.size();
 }
 
+TEST(Correspondence, Print) {
+  CorrespondenceGraph::Correspondence correspondence(1, 2);
+  std::ostringstream stream;
+  stream << correspondence;
+  EXPECT_EQ(stream.str(), "Correspondence(image_id=1, point2D_idx=2)");
+}
+
 TEST(CorrespondenceGraph, Empty) {
   CorrespondenceGraph correspondence_graph;
   EXPECT_EQ(correspondence_graph.NumImages(), 0);
   EXPECT_EQ(correspondence_graph.NumImagePairs(), 0);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesBetweenImages().size(), 0);
+}
+
+TEST(CorrespondenceGraph, Print) {
+  CorrespondenceGraph correspondence_graph;
+  correspondence_graph.AddImage(0, 10);
+  correspondence_graph.AddImage(1, 10);
+  correspondence_graph.AddCorrespondences(0, 1, {});
+  std::ostringstream stream;
+  stream << correspondence_graph;
+  EXPECT_EQ(stream.str(),
+            "CorrespondenceGraph(num_images=2, num_image_pairs=1)");
 }
 
 TEST(CorrespondenceGraph, TwoView) {
@@ -69,7 +87,7 @@ TEST(CorrespondenceGraph, TwoView) {
   correspondence_graph.Finalize();
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(0), 4);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 4);
-  const image_pair_t pair_id = Database::ImagePairToPairId(0, 1);
+  const image_pair_t pair_id = ImagePairToPairId(0, 1);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesBetweenImages().size(), 1);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesBetweenImages().at(pair_id),
             4);
@@ -179,9 +197,9 @@ TEST(CorrespondenceGraph, ThreeView) {
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(0), 2);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 3);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(2), 3);
-  const image_pair_t pair_id01 = Database::ImagePairToPairId(0, 1);
-  const image_pair_t pair_id02 = Database::ImagePairToPairId(0, 2);
-  const image_pair_t pair_id12 = Database::ImagePairToPairId(1, 2);
+  const image_pair_t pair_id01 = ImagePairToPairId(0, 1);
+  const image_pair_t pair_id02 = ImagePairToPairId(0, 2);
+  const image_pair_t pair_id12 = ImagePairToPairId(1, 2);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesBetweenImages().size(), 3);
   EXPECT_EQ(
       correspondence_graph.NumCorrespondencesBetweenImages().at(pair_id01), 1);
@@ -250,7 +268,7 @@ TEST(CorrespondenceGraph, OutOfBounds) {
   correspondence_graph.AddCorrespondences(0, 1, matches);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(0), 1);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 1);
-  const image_pair_t pair_id = Database::ImagePairToPairId(0, 1);
+  const image_pair_t pair_id = ImagePairToPairId(0, 1);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesBetweenImages().at(pair_id),
             1);
 }
@@ -273,7 +291,7 @@ TEST(CorrespondenceGraph, Duplicate) {
   correspondence_graph.AddCorrespondences(0, 1, matches);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(0), 3);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 3);
-  const image_pair_t pair_id = Database::ImagePairToPairId(0, 1);
+  const image_pair_t pair_id = ImagePairToPairId(0, 1);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesBetweenImages().at(pair_id),
             3);
 }
