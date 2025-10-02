@@ -46,13 +46,12 @@ std::unordered_map<image_t, std::vector<int>> ComputeImageTileIdxs(
     int num_tiles_per_dim, const Reconstruction& reconstruction) {
   std::unordered_map<image_t, std::vector<int>> image_tile_idxs;
   image_tile_idxs.reserve(reconstruction.NumImages());
-  for (const auto& image : reconstruction.Images()) {
-    const auto& camera = reconstruction.Camera(image.second.CameraId());
-    const point2D_t num_points2D = image.second.NumPoints2D();
-    std::vector<int>& tile_idxs = image_tile_idxs[image.second.ImageId()];
-    tile_idxs.resize(num_points2D);
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    const Camera& camera = reconstruction.Camera(image.CameraId());
+    const point2D_t num_points2D = image.NumPoints2D();
+    std::vector<int> tile_idxs(num_points2D);
     for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
-      const Point2D& point2D = image.second.Point2D(point2D_idx);
+      const Point2D& point2D = image.Point2D(point2D_idx);
       const int tile_idx_x =
           Clamp<int>(num_tiles_per_dim * point2D.xy(0) / camera.width,
                      0,
@@ -63,6 +62,7 @@ std::unordered_map<image_t, std::vector<int>> ComputeImageTileIdxs(
                      num_tiles_per_dim - 1);
       tile_idxs[point2D_idx] = tile_idx_x * num_tiles_per_dim + tile_idx_y;
     }
+    image_tile_idxs[image_id] = std::move(tile_idxs);
   }
   return image_tile_idxs;
 }
@@ -73,10 +73,11 @@ double ComputeCoverageGain(
         num_selected_points3D_per_image_tile,
     const std::unordered_map<image_t, std::vector<int>>& image_tile_idxs) {
   double gain = 0;
-  for (const auto& elem : point3D.track.Elements()) {
-    const int tile_idx = image_tile_idxs.at(elem.image_id).at(elem.point2D_idx);
-    const int n =
-        1 + num_selected_points3D_per_image_tile.at(elem.image_id)[tile_idx];
+  for (const auto& track_el : point3D.track.Elements()) {
+    const int tile_idx =
+        image_tile_idxs.at(track_el.image_id).at(track_el.point2D_idx);
+    const int n = 1 + num_selected_points3D_per_image_tile.at(
+                          track_el.image_id)[tile_idx];
     gain += 1. / std::sqrt(static_cast<double>(n)) -
             1. / std::sqrt(static_cast<double>(1 + n));
   }
@@ -147,10 +148,10 @@ std::vector<point3D_t> PruneReconstructionPoints3D(
       continue;
     }
 
-    for (const auto& elem : point3D_info.point3D->track.Elements()) {
+    for (const auto& track_el : point3D_info.point3D->track.Elements()) {
       const int tile_idx =
-          image_tile_idxs.at(elem.image_id).at(elem.point2D_idx);
-      num_selected_points3D_per_image_tile.at(elem.image_id).at(tile_idx)++;
+          image_tile_idxs.at(track_el.image_id).at(track_el.point2D_idx);
+      num_selected_points3D_per_image_tile.at(track_el.image_id).at(tile_idx)++;
     }
 
     selected_point3D_ids.insert(point3D_info.point3D_id);
@@ -163,9 +164,6 @@ std::vector<point3D_t> PruneReconstructionPoints3D(
       pruned_point3D_ids.push_back(point3D.first);
     }
   }
-
-  LOG(INFO) << "Pruned " << pruned_point3D_ids.size() << " points3D out of "
-            << num_init_points3D << " points3D";
 
   return pruned_point3D_ids;
 }

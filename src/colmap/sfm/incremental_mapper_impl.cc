@@ -430,7 +430,7 @@ std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
   // again. In the end, if we still haven't found enough images, we simply use
   // the most overlapping images.
 
-  const double min_tri_angle_rad = DegToRad(options.local_ba_min_tri_angle);
+  const double min_tri_angle_rad = DegToRad(options.ba_local_min_tri_angle);
 
   // The selection thresholds (minimum triangulation angle, minimum number of
   // shared observations), which are successively relaxed.

@@ -641,8 +641,13 @@ void OptionManager::AddMapperOptions() {
                               &mapper->mapper.filter_min_tri_angle);
   AddAndRegisterDefaultOption("Mapper.max_reg_trials",
                               &mapper->mapper.max_reg_trials);
-  AddAndRegisterDefaultOption("Mapper.local_ba_min_tri_angle",
-                              &mapper->mapper.local_ba_min_tri_angle);
+  AddAndRegisterDefaultOption("Mapper.ba_local_min_tri_angle",
+                              &mapper->mapper.ba_local_min_tri_angle);
+  AddAndRegisterDefaultOption("Mapper.ba_global_prune_points",
+                              &mapper->mapper.ba_global_prune_points);
+  AddAndRegisterDefaultOption(
+      "Mapper.ba_global_prune_points_min_coverage_gain",
+      &mapper->mapper.ba_global_prune_points_min_coverage_gain);
 
   AddDefaultOption("Mapper.image_list_path", &mapper_image_list_path_);
   AddDefaultOption("Mapper.constant_rig_list_path",

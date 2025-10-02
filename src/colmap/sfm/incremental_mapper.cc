@@ -56,7 +56,8 @@ bool IncrementalMapper::Options::Check() const {
   CHECK_OPTION_GE(abs_pose_min_inlier_ratio, 0.0);
   CHECK_OPTION_LE(abs_pose_min_inlier_ratio, 1.0);
   CHECK_OPTION_GE(local_ba_num_images, 2);
-  CHECK_OPTION_GE(local_ba_min_tri_angle, 0.0);
+  CHECK_OPTION_GE(ba_local_min_tri_angle, 0.0);
+  CHECK_OPTION_GE(ba_global_prune_points_min_coverage_gain, 0.0);
   CHECK_OPTION_GE(min_focal_length_ratio, 0.0);
   CHECK_OPTION_GE(max_focal_length_ratio, min_focal_length_ratio);
   CHECK_OPTION_GE(max_extra_param, 0.0);
@@ -820,11 +821,15 @@ bool IncrementalMapper::AdjustGlobalBundle(
     ba_config.SetConstantCamIntrinsics(camera_id);
   }
 
-  const double kMinCoverageGain = std::sqrt(1. / 24.) - std::sqrt(1. / 25.);
-  const std::vector<point3D_t> ignored_point3D_ids =
-      PruneReconstructionPoints3D(kMinCoverageGain, *reconstruction_);
-  for (const point3D_t point3D_id : ignored_point3D_ids) {
-    ba_config.IgnorePoint(point3D_id);
+  std::vector<point3D_t> ignored_point3D_ids;
+  if (options.ba_global_prune_points) {
+    ignored_point3D_ids = PruneReconstructionPoints3D(
+        options.ba_global_prune_points_min_coverage_gain, *reconstruction_);
+    LOG(INFO) << "Pruning " << ignored_point3D_ids.size() << " / "
+              << reconstruction_->NumPoints3D() << " 3D points";
+    for (const point3D_t point3D_id : ignored_point3D_ids) {
+      ba_config.IgnorePoint(point3D_id);
+    }
   }
 
   // Only use prior pose if at least 3 images have been registered.
@@ -839,7 +844,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
     // as initial experiments show that it is even faster.
     ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
     bundle_adjuster = CreateDefaultBundleAdjuster(
-        std::move(custom_ba_options), ba_config, *reconstruction_);
+        custom_ba_options, ba_config, *reconstruction_);
   } else {
     PosePriorBundleAdjustmentOptions prior_options;
     prior_options.use_robust_loss_on_prior_position =
@@ -847,11 +852,37 @@ bool IncrementalMapper::AdjustGlobalBundle(
     prior_options.prior_position_loss_scale = options.prior_position_loss_scale;
     prior_options.alignment_ransac_options.random_seed = options.random_seed;
     bundle_adjuster =
-        CreatePosePriorBundleAdjuster(std::move(custom_ba_options),
+        CreatePosePriorBundleAdjuster(custom_ba_options,
                                       prior_options,
                                       ba_config,
                                       database_cache_->PosePriors(),
                                       *reconstruction_);
+  }
+
+  // Optimize the pruned 3D points with all other parameters fixed.
+  if (options.ba_global_prune_points) {
+    if (bundle_adjuster->Solve().termination_type == ceres::FAILURE) {
+      return false;
+    }
+
+    ba_config = BundleAdjustmentConfig();
+    for (const point3D_t point3D_id : ignored_point3D_ids) {
+      ba_config.AddVariablePoint(point3D_id);
+    }
+    for (const frame_t frame_id : reconstruction_->RegFrameIds()) {
+      ba_config.SetConstantRigFromWorldPose(frame_id);
+    }
+    for (const auto& [camera_id, _] : reconstruction_->Cameras()) {
+      ba_config.SetConstantCamIntrinsics(camera_id);
+    }
+    for (const auto& [_, rig] : reconstruction_->Rigs()) {
+      for (const auto& [sensor_id, _] : rig.NonRefSensors()) {
+        ba_config.SetConstantSensorFromRigPose(sensor_id);
+      }
+    }
+
+    bundle_adjuster = CreateDefaultBundleAdjuster(
+        custom_ba_options, ba_config, *reconstruction_);
   }
 
   return bundle_adjuster->Solve().termination_type != ceres::FAILURE;
