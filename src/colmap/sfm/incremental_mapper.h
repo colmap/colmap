@@ -62,6 +62,7 @@ namespace colmap {
 //
 class IncrementalMapper {
  public:
+  // NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding)
   struct Options {
     // Minimum number of inliers for initial image pair.
     int init_min_num_inliers = 100;
@@ -98,7 +99,14 @@ class IncrementalMapper {
     int local_ba_num_images = 6;
 
     // Minimum triangulation for images to be chosen in local bundle adjustment.
-    double local_ba_min_tri_angle = 6;
+    double ba_local_min_tri_angle = 6;
+
+    // Whether to prune redundant 3D points in global bundle adjustment.
+    bool ba_global_prune_points = false;
+
+    // The minimum coverage gain for any 3D point to be included in global
+    // bundle adjustment. A larger value means more 3D points are pruned.
+    double ba_global_prune_points_min_coverage_gain = 0.05;
 
     // Thresholds for bogus camera parameters. Images with bogus camera
     // parameters are filtered and ignored in triangulation.

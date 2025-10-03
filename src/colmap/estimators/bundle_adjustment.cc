@@ -210,18 +210,28 @@ void BundleAdjustmentConfig::AddConstantPoint(const point3D_t point3D_id) {
   constant_point3D_ids_.insert(point3D_id);
 }
 
+void BundleAdjustmentConfig::IgnorePoint(const point3D_t point3D_id) {
+  CHECK(!HasVariablePoint(point3D_id));
+  CHECK(!HasConstantPoint(point3D_id));
+  ignored_point3D_ids_.insert(point3D_id);
+}
+
 bool BundleAdjustmentConfig::HasPoint(const point3D_t point3D_id) const {
   return HasVariablePoint(point3D_id) || HasConstantPoint(point3D_id);
 }
 
 bool BundleAdjustmentConfig::HasVariablePoint(
     const point3D_t point3D_id) const {
-  return variable_point3D_ids_.find(point3D_id) != variable_point3D_ids_.end();
+  return variable_point3D_ids_.count(point3D_id);
 }
 
 bool BundleAdjustmentConfig::HasConstantPoint(
     const point3D_t point3D_id) const {
-  return constant_point3D_ids_.find(point3D_id) != constant_point3D_ids_.end();
+  return constant_point3D_ids_.count(point3D_id);
+}
+
+bool BundleAdjustmentConfig::IsIgnoredPoint(const point3D_t point3D_id) const {
+  return ignored_point3D_ids_.count(point3D_id);
 }
 
 void BundleAdjustmentConfig::RemoveVariablePoint(const point3D_t point3D_id) {
@@ -771,7 +781,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     // Add residuals to bundle adjustment problem.
     size_t num_observations = 0;
     for (const Point2D& point2D : image.Points2D()) {
-      if (!point2D.HasPoint3D()) {
+      if (!point2D.HasPoint3D() || config_.IsIgnoredPoint(point2D.point3D_id)) {
         continue;
       }
 
@@ -826,7 +836,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     // Add residuals to bundle adjustment problem.
     size_t num_observations = 0;
     for (const Point2D& point2D : image.Points2D()) {
-      if (!point2D.HasPoint3D()) {
+      if (!point2D.HasPoint3D() || config_.IsIgnoredPoint(point2D.point3D_id)) {
         continue;
       }
 
@@ -876,6 +886,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
 
   void AddPointToProblem(const point3D_t point3D_id,
                          Reconstruction& reconstruction) {
+    THROW_CHECK(!config_.IsIgnoredPoint(point3D_id));
     Point3D& point3D = reconstruction.Point3D(point3D_id);
 
     size_t& num_observations = point3D_num_observations_[point3D_id];
