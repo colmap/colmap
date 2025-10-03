@@ -39,6 +39,16 @@ void BindFrame(py::module& m) {
           "data_ids",
           [](const Frame& self) { return self.DataIds(); },
           "The associated data.")
+      .def_property_readonly(
+          "image_ids",
+          [](const Frame& self) {
+            std::vector<data_t> image_ids;
+            for (const auto& image_id : self.ImageIds()) {
+              image_ids.push_back(image_id);
+            }
+            return image_ids;
+          },
+          "The associated image data.")
       .def_property(
           "rig",
           [](Frame& self) -> py::typing::Optional<Rig> {
