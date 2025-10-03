@@ -39,22 +39,22 @@ void BindSensorRig(py::module& m) {
       .def_property_readonly("ref_sensor_id",
                              &Rig::RefSensorId,
                              "The reference sensor's identifier.")
-      .def(
-          "sensor_from_rig",
-          [](Rig& self, sensor_t sensor_id) -> py::typing::Optional<Rigid3d> {
-            if (const std::optional<Rigid3d> sensor_from_rig =
-                    self.MaybeSensorFromRig(sensor_id);
-                sensor_from_rig.has_value()) {
-              return py::cast(*sensor_from_rig);
-            } else {
-              return py::none();
-            }
-          },
-          "The pose of the frame, defined as the transformation from world to "
-          "rig space.")
+      .def("sensor_ids",
+           &Rig::SensorIds,
+           "Get all sensor ids (including the reference sensor) in the rig.")
+      .def("sensor_from_rig",
+           py::overload_cast<sensor_t>(&Rig::MaybeSensorFromRig),
+           "sensor_id"_a,
+           "The the transformation from rig to the sensor.")
+      .def("set_sensor_from_rig",
+           py::overload_cast<sensor_t, const std::optional<Rigid3d>&>(
+               &Rig::SetSensorFromRig),
+           "sensor_id"_a,
+           "sensor_from_rig"_a,
+           "Set the sensor_from_rig transformation.")
       .def_property_readonly(
-          "sensors",
-          py::overload_cast<>(&Rig::Sensors),
+          "non_ref_sensors",
+          py::overload_cast<>(&Rig::NonRefSensors),
           py::return_value_policy::reference_internal,
           "Access all sensors in the rig except for reference sensor");
   MakeDataclass(PyRig);

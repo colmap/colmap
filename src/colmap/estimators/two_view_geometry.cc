@@ -406,7 +406,7 @@ EstimateRigTwoViewGeometries(
                                        &maybe_pano2_from_pano1,
                                        &num_inliers,
                                        &inlier_mask) ||
-      static_cast<int>(num_inliers) < options.min_num_inliers) {
+      num_inliers < static_cast<size_t>(options.min_num_inliers)) {
     return {};
   }
 

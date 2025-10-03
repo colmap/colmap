@@ -38,7 +38,6 @@ export PATH="${COMPILER_TOOLS_DIR}:${PATH}"
 # Setup vcpkg
 git clone https://github.com/microsoft/vcpkg ${VCPKG_INSTALLATION_ROOT}
 cd ${VCPKG_INSTALLATION_ROOT}
-git checkout ${VCPKG_COMMIT_ID}
 ./bootstrap-vcpkg.sh
 ./vcpkg integrate install
 
