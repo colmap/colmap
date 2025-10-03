@@ -116,10 +116,8 @@ void DatabaseCache::Load(const Database& database,
     std::vector<class Frame> frames = database.ReadAllFrames();
     frames_.reserve(frames.size());
     for (auto& frame : frames) {
-      for (const auto& data_id : frame.DataIds()) {
-        if (data_id.sensor_id.type == SensorType::CAMERA) {
-          image_to_frame_id.emplace(data_id.id, frame.FrameId());
-        }
+      for (const auto& data_id : frame.ImageIds()) {
+        image_to_frame_id.emplace(data_id.id, frame.FrameId());
       }
       frames_.emplace(frame.FrameId(), std::move(frame));
     }
