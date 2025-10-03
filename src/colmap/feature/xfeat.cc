@@ -178,21 +178,24 @@ class XFeatFeatureExtractor : public FeatureExtractor {
                options.gpu_index) {
     THROW_CHECK(options.Check());
 
-    THROW_CHECK_EQ(model_.input_shapes.size(), 1);
+    THROW_CHECK_EQ(model_.input_shapes.size(), 2);
     ThrowCheckNode(model_.input_names[0],
                    "images",
                    model_.input_shapes[0],
                    {1, 3, -1, -1});
+    ThrowCheckNode(model_.input_names[1], "top_k", model_.input_shapes[1], {});
 
     THROW_CHECK_EQ(model_.output_shapes.size(), 3);
+    ThrowCheckNode(model_.output_names[0],
+                   "keypoints",
+                   model_.output_shapes[0],
+                   {-1, -1, 2});
     ThrowCheckNode(
-        model_.output_names[0], "keypoints", model_.output_shapes[0], {-1, 2});
-    ThrowCheckNode(model_.output_names[1],
+        model_.output_names[1], "scores", model_.output_shapes[1], {-1, -1});
+    ThrowCheckNode(model_.output_names[2],
                    "descriptors",
-                   model_.output_shapes[1],
-                   {-1, 64});
-    ThrowCheckNode(
-        model_.output_names[2], "scores", model_.output_shapes[2], {-1});
+                   model_.output_shapes[2],
+                   {-1, -1, -1});
   }
 
   bool Extract(const Bitmap& bitmap,
@@ -232,31 +235,45 @@ class XFeatFeatureExtractor : public FeatureExtractor {
         model_.input_shapes[0].data(),
         model_.input_shapes[0].size()));
 
+    int64_t top_k = options_.xfeat->max_num_features;
+    const std::vector<int64_t> top_k_shape = {1};
+    auto top_k_tensor = Ort::Value::CreateTensor<int64_t>(
+        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
+                                   OrtMemType::OrtMemTypeCPU),
+        &top_k,
+        sizeof(int64_t),
+        top_k_shape.data(),
+        top_k_shape.size());
+    input_tensors.emplace_back(std::move(top_k_tensor));
+
     const std::vector<Ort::Value> output_tensors = model_.Run(input_tensors);
     THROW_CHECK_EQ(output_tensors.size(), 3);
 
     const std::vector<int64_t> keypoints_shape =
         output_tensors[0].GetTensorTypeAndShapeInfo().GetShape();
-    THROW_CHECK_EQ(keypoints_shape.size(), 2);
-    const int num_keypoints = keypoints_shape[0];
-    THROW_CHECK_EQ(keypoints_shape[1], 2);
-
-    const std::vector<int64_t> descriptors_shape =
-        output_tensors[1].GetTensorTypeAndShapeInfo().GetShape();
-    THROW_CHECK_EQ(descriptors_shape.size(), 2);
-    THROW_CHECK_EQ(descriptors_shape[0], num_keypoints);
-    THROW_CHECK_EQ(descriptors_shape[1], kDescriptorDim);
+    THROW_CHECK_EQ(keypoints_shape.size(), 3);
+    const int num_keypoints = keypoints_shape[1];
+    THROW_CHECK_EQ(keypoints_shape[0], 1);
+    THROW_CHECK_EQ(keypoints_shape[2], 2);
 
     const std::vector<int64_t> scores_shape =
-        output_tensors[2].GetTensorTypeAndShapeInfo().GetShape();
-    THROW_CHECK_EQ(scores_shape.size(), 1);
-    THROW_CHECK_EQ(scores_shape[0], num_keypoints);
+        output_tensors[1].GetTensorTypeAndShapeInfo().GetShape();
+    THROW_CHECK_EQ(scores_shape.size(), 2);
+    THROW_CHECK_EQ(scores_shape[0], 1);
+    THROW_CHECK_EQ(scores_shape[1], num_keypoints);
 
-    const float* keypoints_data =
-        reinterpret_cast<const float*>(output_tensors[0].GetTensorData<void>());
-    const float* descriptors_data =
-        reinterpret_cast<const float*>(output_tensors[1].GetTensorData<void>());
+    const std::vector<int64_t> descriptors_shape =
+        output_tensors[2].GetTensorTypeAndShapeInfo().GetShape();
+    THROW_CHECK_EQ(descriptors_shape.size(), 3);
+    THROW_CHECK_EQ(descriptors_shape[0], 1);
+    THROW_CHECK_EQ(descriptors_shape[1], num_keypoints);
+    THROW_CHECK_EQ(descriptors_shape[2], kDescriptorDim);
+
+    const int64_t* keypoints_data = reinterpret_cast<const int64_t*>(
+        output_tensors[0].GetTensorData<void>());
     const float* scores_data =
+        reinterpret_cast<const float*>(output_tensors[1].GetTensorData<void>());
+    const float* descriptors_data =
         reinterpret_cast<const float*>(output_tensors[2].GetTensorData<void>());
 
     // Filter features by score.
@@ -310,14 +327,10 @@ class XFeatBruteForceFeatureMatcher : public FeatureMatcher {
                options.gpu_index) {
     THROW_CHECK(options.Check());
     THROW_CHECK_EQ(model_.input_shapes.size(), 3);
-    ThrowCheckNode(model_.input_names[0],
-                   "feats0",
-                   model_.input_shapes[0],
-                   {-1, kDescriptorDim});
-    ThrowCheckNode(model_.input_names[1],
-                   "feats1",
-                   model_.input_shapes[1],
-                   {-1, kDescriptorDim});
+    ThrowCheckNode(
+        model_.input_names[0], "feats0", model_.input_shapes[0], {-1, -1});
+    ThrowCheckNode(
+        model_.input_names[1], "feats1", model_.input_shapes[1], {-1, -1});
     ThrowCheckNode(
         model_.input_names[2], "min_cossim", model_.input_shapes[2], {1});
     THROW_CHECK_EQ(model_.output_shapes.size(), 1);

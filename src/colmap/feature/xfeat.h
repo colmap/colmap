@@ -39,10 +39,10 @@ namespace colmap {
 
 struct XFeatExtractionOptions {
   // Maximum number of features to detect, keeping higher-score features.
-  int max_num_features = 8192;
+  int max_num_features = 2048;
 
   // The minimum threshold for the score of a feature.
-  double min_score = 0.0;
+  double min_score = 0.8;
 
   // The path to the ONNX model file for the XFeat extractor.
   std::string model_path = kDefaultXFeatExtractorUri;

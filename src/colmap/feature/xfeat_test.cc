@@ -54,7 +54,7 @@ void CreateImageWithSquare(const int width, const int height, Bitmap* bitmap) {
 
 TEST(XFeat, Nominal) {
   Bitmap image;
-  CreateImageWithSquare(256, 128, &image);
+  CreateImageWithSquare(1024, 768, &image);
 
   FeatureExtractionOptions extraction_options(FeatureExtractorType::XFeat);
   extraction_options.use_gpu = false;
@@ -63,7 +63,7 @@ TEST(XFeat, Nominal) {
   auto descriptors = std::make_shared<FeatureDescriptors>();
   ASSERT_TRUE(extractor->Extract(image, keypoints.get(), descriptors.get()));
   // Different platforms lead to slightly different number of keypoints.
-  EXPECT_NEAR(keypoints->size(), 490, 20);
+  EXPECT_NEAR(keypoints->size(), 2048, 20);
   EXPECT_EQ(keypoints->size(), descriptors->rows());
   EXPECT_EQ(descriptors->cols(), 64 * sizeof(float));
   for (const auto& keypoint : *keypoints) {
