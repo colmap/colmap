@@ -211,13 +211,7 @@ def update_camera_priors_from_sparse_gt(
 ) -> None:
     pycolmap.logging.info("Setting prior cameras from GT")
 
-    with pycolmap.Database.open(str(database_path)) as database:
-        camera_id_gt_to_camera_id = {}
-        for camera_id_gt, camera_gt in camera_priors_sparse_gt.cameras.items():
-            camera_gt.has_prior_focal_length = True
-            camera_id = database.write_camera(camera_gt)
-            camera_id_gt_to_camera_id[camera_id_gt] = camera_id
-
+    with pycolmap.Database(str(database_path)) as database:
         images_gt_by_name = {}
         for image_gt in camera_priors_sparse_gt.images.values():
             images_gt_by_name[image_gt.name] = image_gt
@@ -230,9 +224,9 @@ def update_camera_priors_from_sparse_gt(
                 )
                 continue
             image_gt = images_gt_by_name[image.name]
-            camera_id = camera_id_gt_to_camera_id[image_gt.camera_id]
-            image.camera_id = camera_id
-            database.update_image(image)
+            camera_gt = camera_priors_sparse_gt.cameras[image_gt.camera_id]
+            camera_gt.camera_id = image.camera_id
+            database.update_camera(camera_gt)
 
 
 def colmap_reconstruction(
