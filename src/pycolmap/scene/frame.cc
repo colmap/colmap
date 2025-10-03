@@ -42,11 +42,8 @@ void BindFrame(py::module& m) {
       .def_property_readonly(
           "image_ids",
           [](const Frame& self) {
-            std::vector<data_t> image_ids;
-            for (const auto& image_id : self.ImageIds()) {
-              image_ids.push_back(image_id);
-            }
-            return image_ids;
+            const auto image_ids = self.ImageIds();
+            return std::vector<data_t>(image_ids.begin(), image_ids.end());
           },
           "The associated image data.")
       .def_property(
