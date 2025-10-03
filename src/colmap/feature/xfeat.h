@@ -42,7 +42,7 @@ struct XFeatExtractionOptions {
   int max_num_features = 2048;
 
   // The minimum threshold for the score of a feature.
-  double min_score = 0.8;
+  double min_score = 0.0;
 
   // The path to the ONNX model file for the XFeat extractor.
   std::string model_path = kDefaultXFeatExtractorUri;
@@ -55,7 +55,7 @@ std::unique_ptr<FeatureExtractor> CreateXFeatFeatureExtractor(
 
 struct XFeatMatchingOptions {
   // The minimum cosine similarity for a match to be considered valid.
-  double min_cossim = 0.9;
+  double min_cossim = 0.85;
 
   // The path to the ONNX model file for the XFeat brute-force matcher.
   std::string model_path = kDefaultXFeatBruteForceMatcherUri;
