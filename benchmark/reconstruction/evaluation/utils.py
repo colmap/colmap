@@ -226,6 +226,7 @@ def update_camera_priors_from_sparse_gt(
             image_gt = images_gt_by_name[image.name]
             camera_gt = camera_priors_sparse_gt.cameras[image_gt.camera_id]
             camera_gt.camera_id = image.camera_id
+            camera_gt.has_prior_focal_length = True
             database.update_camera(camera_gt)
 
 
