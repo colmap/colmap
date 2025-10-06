@@ -216,6 +216,7 @@ def update_camera_priors_from_sparse_gt(
         for image_gt in camera_priors_sparse_gt.images.values():
             images_gt_by_name[image_gt.name] = image_gt
 
+        updated_camera_ids = set()
         for image in database.read_all_images():
             if image.name not in images_gt_by_name:
                 pycolmap.logging.warning(
@@ -224,10 +225,13 @@ def update_camera_priors_from_sparse_gt(
                 )
                 continue
             image_gt = images_gt_by_name[image.name]
+            if image_gt.camera_id in updated_camera_ids:
+                continue
             camera_gt = camera_priors_sparse_gt.cameras[image_gt.camera_id]
             camera_gt.camera_id = image.camera_id
             camera_gt.has_prior_focal_length = True
             database.update_camera(camera_gt)
+            updated_camera_ids.add(image_gt.camera_id)
 
 
 def colmap_reconstruction(
