@@ -53,7 +53,7 @@ struct PatchMatchOptions {
   // pixel is used to compute the NCC. For larger values, only every n-th row
   // and column is used and the computation speed thereby increases roughly by
   // a factor of window_step^2. Note that not all combinations of window sizes
-  // and steps produce nice results, especially if the step is greather than 2.
+  // and steps produce nice results, especially if the step is greater than 2.
   int window_step = 1;
 
   // Parameters for bilaterally weighted NCC.
