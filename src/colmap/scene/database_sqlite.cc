@@ -445,8 +445,8 @@ class SqliteDatabase : public Database {
     // Disabled by default
     SQLITE3_EXEC(database->database_, "PRAGMA foreign_keys=ON", nullptr);
 
-    // Enable auto vacuum to reduce DB file size
-    SQLITE3_EXEC(database->database_, "PRAGMA auto_vacuum=1", nullptr);
+    // Disable auto vacuum to speed up CloseImpl
+    SQLITE3_EXEC(database->database_, "PRAGMA auto_vacuum=0", nullptr);
 
     database->CreateTables();
     database->UpdateSchema();
