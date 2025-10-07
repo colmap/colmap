@@ -69,9 +69,9 @@ COLMAP_ADD_LIBRARY(
         PoseLib::PoseLib
 )
 
-# if(CASPAR_ENABLED)
-#     target_link_libraries(colmap_estimators PRIVATE caspar_lib_core)
-# endif()
+if(CASPAR_ENABLED)
+    target_link_libraries(colmap_estimators PRIVATE caspar_lib_core)
+endif()
 
 if(CUDA_ENABLED)
     target_link_libraries(colmap_estimators PUBLIC colmap_util_cuda)

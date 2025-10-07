@@ -70,7 +70,7 @@ if(CASPAR_ENABLED)
 
     add_library(caspar_lib_core STATIC IMPORTED GLOBAL)
     set_target_properties(caspar_lib_core PROPERTIES
-        IMPORTED_LOCATION "${CASPAR_LIB_DIR}/libcaspar_lib_core.a"
+        IMPORTED_LOCATION "${CASPAR_BUILD_DIR}/libcaspar_lib_core.a"
         INTERFACE_INCLUDE_DIRECTORIES "${CASPAR_LIB_DIR}"
         )
 
