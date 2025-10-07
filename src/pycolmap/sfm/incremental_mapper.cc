@@ -98,10 +98,6 @@ void BindIncrementalPipeline(py::module& m) {
           "The minimum number of residuals per bundle adjustment problem to "
           "enable multi-threading solving of the problems.")
       .def_readwrite(
-          "ba_local_num_images",
-          &Opts::ba_local_num_images,
-          "The number of images to optimize in local bundle adjustment.")
-      .def_readwrite(
           "ba_local_function_tolerance",
           &Opts::ba_local_function_tolerance,
           "Ceres solver function tolerance for local bundle adjustment.")
