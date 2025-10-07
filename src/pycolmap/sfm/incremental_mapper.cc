@@ -98,10 +98,6 @@ void BindIncrementalPipeline(py::module& m) {
           "The minimum number of residuals per bundle adjustment problem to "
           "enable multi-threading solving of the problems.")
       .def_readwrite(
-          "ba_local_num_images",
-          &Opts::ba_local_num_images,
-          "The number of images to optimize in local bundle adjustment.")
-      .def_readwrite(
           "ba_local_function_tolerance",
           &Opts::ba_local_function_tolerance,
           "Ceres solver function tolerance for local bundle adjustment.")
@@ -316,11 +312,11 @@ void BindIncrementalMapperOptions(py::module& m) {
                      &Opts::abs_pose_refine_extra_params,
                      "Whether to estimate the extra parameters in absolute "
                      "pose estimation.")
-      .def_readwrite("local_ba_num_images",
-                     &Opts::local_ba_num_images,
+      .def_readwrite("ba_local_num_images",
+                     &Opts::ba_local_num_images,
                      "Number of images to optimize in local bundle adjustment.")
-      .def_readwrite("local_ba_min_tri_angle",
-                     &Opts::local_ba_min_tri_angle,
+      .def_readwrite("ba_local_min_tri_angle",
+                     &Opts::ba_local_min_tri_angle,
                      "Minimum triangulation for images to be chosen in local "
                      "bundle adjustment.")
       .def_readwrite("min_focal_length_ratio",

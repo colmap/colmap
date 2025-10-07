@@ -406,7 +406,7 @@ std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
   // neighbor images, hence the subtraction of 1.
 
   const size_t num_images =
-      static_cast<size_t>(options.local_ba_num_images - 1);
+      static_cast<size_t>(options.ba_local_num_images - 1);
   const size_t num_eff_images = std::min(num_images, overlapping_images.size());
 
   // Extract most connected images and ensure sufficient triangulation angle.
@@ -430,7 +430,7 @@ std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
   // again. In the end, if we still haven't found enough images, we simply use
   // the most overlapping images.
 
-  const double min_tri_angle_rad = DegToRad(options.local_ba_min_tri_angle);
+  const double min_tri_angle_rad = DegToRad(options.ba_local_min_tri_angle);
 
   // The selection thresholds (minimum triangulation angle, minimum number of
   // shared observations), which are successively relaxed.

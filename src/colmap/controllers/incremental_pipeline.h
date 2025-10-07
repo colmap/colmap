@@ -99,9 +99,6 @@ struct IncrementalPipelineOptions {
   // enable multi-threading solving of the problems.
   int ba_min_num_residuals_for_cpu_multi_threading = 50000;
 
-  // The number of images to optimize in local bundle adjustment.
-  int ba_local_num_images = 6;
-
   // Ceres solver function tolerance for local bundle adjustment
   double ba_local_function_tolerance = 0.0;
 

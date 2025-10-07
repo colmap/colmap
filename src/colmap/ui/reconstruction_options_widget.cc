@@ -132,7 +132,7 @@ class MapperBundleAdjustmentOptionsWidget : public OptionsWidget {
     AddSpacer();
 
     AddSection("Local Bundle Adjustment");
-    AddOptionInt(&options->mapper->ba_local_num_images, "num_images");
+    AddOptionInt(&options->mapper->mapper.ba_local_num_images, "num_images");
     AddOptionInt(&options->mapper->ba_local_max_num_iterations,
                  "max_num_iterations");
     AddOptionInt(
