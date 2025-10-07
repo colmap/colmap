@@ -28,33 +28,18 @@ caslib = CasparLibrary()
 
 
 @caslib.add_factor
-def reprojection_constant_intrinsics(
+def reprojection_simple_pinhole_constant(
     cam: T.Annotated[PinholeCamera, mem.Constant],
     point: T.Annotated[Point, mem.Tunable],
     pixel: T.Annotated[Pixel, mem.Constant],
 )->sf.V2:
-    focal_length, k1, k2 = cam.calibration
+    focal_length, cx, cy = cam.calibration
+    center_pixel = sf.V2([cx, cy])
     point_cam = cam.cam_T_world * point
     depth = point_cam[2]
-    point_ideal_camera_coords = -sf.V2(point_cam[:2])/(depth + sf.epsilon() * sf.sign_no_zero(depth))
-    radial_distortion = 1 + k1*point_ideal_camera_coords.squared_norm() + k2*point_ideal_camera_coords.squared_norm()**2
-    pixel_projected = focal_length * radial_distortion * point_ideal_camera_coords
-    reprojection_error = pixel_projected - pixel
-    return reprojection_error
-
-@caslib.add_factor
-def reprojection_variable_intrinsics(
-    cam: T.Annotated[PinholeCamera, mem.Tunable],
-    point: T.Annotated[Point, mem.Tunable],
-    pixel: T.Annotated[Pixel, mem.Constant],
-)->sf.V2:
-    focal_length, k1, k2 = cam.calibration
-    point_cam = cam.cam_T_world * point
-    depth = point_cam[2]
-    point_ideal_camera_coords = -sf.V2(point_cam[:2])/(depth + sf.epsilon() * sf.sign_no_zero(depth))
-    radial_distortion = 1 + k1*point_ideal_camera_coords.squared_norm() + k2*point_ideal_camera_coords.squared_norm()**2
-    pixel_projected = focal_length * radial_distortion * point_ideal_camera_coords
-    reprojection_error = pixel_projected - pixel
+    point_ideal_camera_coords = -sf.V2(point_cam[:2] - center_pixel)/(depth + sf.epsilon() * sf.sign_no_zero(depth))
+    pixel_projected = focal_length  * point_ideal_camera_coords
+    reprojection_error = pixel_projected
     return reprojection_error
 
 
