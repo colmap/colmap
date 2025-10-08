@@ -262,10 +262,10 @@ void Reconstruction::AddCamera(struct Camera camera) {
 
 void Reconstruction::AddFrame(class Frame frame) {
   THROW_CHECK(frame.HasRigId());
-  THROW_CHECK_GT(frame.NumDataIds(), 0)
-      << "A frame with no associated data is "
-         "never useful in the reconstruction.";
   auto& rig = Rig(frame.RigId());
+  for (const auto& data_id : frame.DataIds()) {
+    THROW_CHECK(rig.HasSensor(data_id.sensor_id));
+  }
   if (frame.HasRigPtr()) {
     THROW_CHECK_EQ(frame.RigPtr(), &rig);
   } else {
@@ -290,6 +290,7 @@ void Reconstruction::AddImage(class Image image) {
   }
   THROW_CHECK(image.HasFrameId());
   auto& frame = Frame(image.FrameId());
+  THROW_CHECK(frame.HasDataId(image.DataId()));
   if (image.HasFramePtr()) {
     THROW_CHECK_EQ(image.FramePtr(), &frame);
   } else {
