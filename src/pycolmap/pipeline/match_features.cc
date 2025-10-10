@@ -156,14 +156,13 @@ void BindMatchFeatures(py::module& m) {
                          "`loop_detection_period` images.")
           .def_readwrite("loop_detection_period",
                          &SequentialPairingOptions::loop_detection_period,
-                         "The number of images to retrieve in loop detection. "
-                         "This number should be significantly bigger than the "
-                         "sequential matching overlap.")
+                         "The frequency at which loop detection is triggered, "
+                         "in number of images."")
           .def_readwrite("loop_detection_num_images",
                          &SequentialPairingOptions::loop_detection_num_images,
                          "The number of images to retrieve in loop "
                          "detection. This number should be significantly "
-                         "bigger than the sequential matching overlap.")
+                         "larger than the sequential matching overlap.")
           .def_readwrite(
               "loop_detection_num_nearest_neighbors",
               &SequentialPairingOptions::loop_detection_num_nearest_neighbors,
