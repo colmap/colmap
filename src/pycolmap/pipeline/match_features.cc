@@ -157,7 +157,7 @@ void BindMatchFeatures(py::module& m) {
           .def_readwrite("loop_detection_period",
                          &SequentialPairingOptions::loop_detection_period,
                          "The frequency at which loop detection is triggered, "
-                         "in number of images."")
+                         "in number of images.")
           .def_readwrite("loop_detection_num_images",
                          &SequentialPairingOptions::loop_detection_num_images,
                          "The number of images to retrieve in loop "
