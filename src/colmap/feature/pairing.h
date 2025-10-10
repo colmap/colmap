@@ -130,7 +130,7 @@ struct SequentialPairingOptions {
   int loop_detection_period = 10;
 
   // The number of images to retrieve in loop detection. This number should
-  // be significantly bigger than the sequential matching overlap.
+  // be significantly larger than the sequential matching overlap.
   int loop_detection_num_images = 50;
 
   // Number of nearest neighbors to retrieve per query feature.
