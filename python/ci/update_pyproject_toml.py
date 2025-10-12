@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+
 import tomlkit
 
 # Set up command-line argument parser
@@ -22,7 +23,7 @@ pyproject_path = Path("pyproject.toml")
 if not pyproject_path.exists():
     raise FileNotFoundError(pyproject_path)
 
-with open(pyproject_path, "r", encoding="utf-8") as f:
+with open(pyproject_path, encoding="utf-8") as f:
     config = tomlkit.load(f)
 
 config["project"]["name"] = args.name
