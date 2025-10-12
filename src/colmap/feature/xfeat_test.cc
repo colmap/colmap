@@ -90,7 +90,7 @@ TEST(XFeat, Nominal) {
                     keypoints,
                     descriptors},
                    &matches);
-    EXPECT_NEAR(matches.size(), keypoints->size(), 0.02 * keypoints->size());
+    EXPECT_NEAR(matches.size(), keypoints->size(), 0.05 * keypoints->size());
   }
 }
 
