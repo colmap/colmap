@@ -95,10 +95,10 @@ class IncrementalMapper {
     bool abs_pose_refine_extra_params = true;
 
     // Number of images to optimize in local bundle adjustment.
-    int local_ba_num_images = 6;
+    int ba_local_num_images = 6;
 
     // Minimum triangulation for images to be chosen in local bundle adjustment.
-    double local_ba_min_tri_angle = 6;
+    double ba_local_min_tri_angle = 6;
 
     // Thresholds for bogus camera parameters. Images with bogus camera
     // parameters are filtered and ignored in triangulation.
