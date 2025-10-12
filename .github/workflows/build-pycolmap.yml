@@ -17,15 +17,15 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.config.os }} ${{ matrix.config.arch }} cuda_${{ matrix.config.build_with_cuda }}
+    name: ${{ matrix.config.os }} ${{ matrix.config.arch }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:
         config: [
-          {os: ubuntu-24.04, build_with_cuda: "OFF"},
-          {os: macos-14, arch: arm64, deploymentTarget: 14.0, build_with_cuda: "OFF"},
-          {os: windows-2025, build_with_cuda: "OFF"},
-          {os: ubuntu-24.04, build_with_cuda: "ON"},
+          {os: ubuntu-24.04, cudaEnabled: true},
+          {os: macos-14, arch: arm64, deploymentTarget: 14.0, cudaEnabled: false},
+          {os: windows-2025, cudaEnabled: false},
+          {os: ubuntu-24.04, cudaEnabled: true},
         ]
     env:
       COMPILER_CACHE_VERSION: 1
@@ -153,7 +153,7 @@ jobs:
           CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR"
           echo "CIBW_ENVIRONMENT_PASS_LINUX=${CIBW_ENVIRONMENT_PASS_LINUX}" >> "$GITHUB_ENV"
 
-          if [ "${{ matrix.config.build_with_cuda }}" = "ON" ]; then
+          if [ "${{ matrix.config.cudaEnabled }}" = "true" ]; then
             CIBW_MANYLINUX_X86_64_IMAGE="sameli/manylinux_2_34_x86_64_cuda_12.8"
             CIBW_REPAIR_WHEEL_COMMAND="auditwheel repair --exclude libcudart* --exclude libcurand* -w {dest_dir} {wheel}"
             echo "CIBW_REPAIR_WHEEL_COMMAND=${CIBW_REPAIR_WHEEL_COMMAND}" >> "$GITHUB_ENV"
@@ -175,13 +175,13 @@ jobs:
         env:
           CIBW_ARCHS_MACOS: ${{ matrix.config.arch }}
           CIBW_ENVIRONMENT:  >
-            BUILD_CUDA_ENABLED=${{ matrix.config.build_with_cuda }}
+            BUILD_CUDA_ENABLED=${{ matrix.config.cudaEnabled }}
             VCPKG_COMMIT_ID="0cb95c860ea83aafc1b24350510b30dec535989a"
 
       - name: Archive wheels
         uses: actions/upload-artifact@v4
         with:
-          name: pycolmap-${{ matrix.config.os }}-${{ matrix.config.arch }}-cuda_${{ matrix.config.build_with_cuda }}
+          name: pycolmap-${{ matrix.config.os }}-${{ matrix.config.arch }}${{ matrix.config.cudaEnabled && '-CUDA' || '' }}
           path: wheelhouse/pycolmap*.whl
 
   pypi-publish:
