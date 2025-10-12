@@ -116,12 +116,6 @@ jobs:
           }
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "${env:GITHUB_ENV}"
 
-      - name: setup Python # setting up Python required for running the python/ci/update_pyproject_toml.py Python script 
-        if: runner.os == 'Linux'
-        uses: actions/setup-python@v6
-        with:
-          python-version: 3.12
-          run: pip install tomlkit
       - name: Set env (Linux)
         if: runner.os == 'Linux'
         run: |
