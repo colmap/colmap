@@ -337,6 +337,8 @@ void OptionManager::AddFeatureMatchingOptions() {
 
   AddAndRegisterDefaultOption("XFeatMatching.min_cossim",
                               &feature_matching->xfeat->min_cossim);
+  AddAndRegisterDefaultOption("XFeatMatching.min_conf",
+                              &feature_matching->xfeat->min_conf);
   AddAndRegisterDefaultOption("XFeatMatching.bruteforce_model_path",
                               &feature_matching->xfeat->bruteforce_model_path);
   AddAndRegisterDefaultOption("XFeatMatching.lighterglue_model_path",
