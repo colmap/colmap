@@ -61,6 +61,9 @@ struct XFeatMatchingOptions {
   // The minimum confidence for a match in LighterGlue matching.
   double min_conf = 0.1;
 
+  // The minimum score for a match in LighterGlue matching.
+  double min_score = 0.0;
+
   // The path to the ONNX model file for the XFeat brute-force matcher.
   std::string bruteforce_model_path = kDefaultXFeatBruteForceMatcherUri;
   std::string lighterglue_model_path = kDefaultXFeatLighterGlueMatcherUri;

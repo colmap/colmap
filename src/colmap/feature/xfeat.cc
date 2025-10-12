@@ -519,9 +519,14 @@ class XFeatLighterGlueFeatureMatcher : public FeatureMatcher {
 
     const int64_t* matches_data = reinterpret_cast<const int64_t*>(
         output_tensors[0].GetTensorData<void>());
-    matches->resize(num_matches);
+    const float* mscores_data =
+        reinterpret_cast<const float*>(output_tensors[1].GetTensorData<void>());
+    matches->reserve(num_matches);
     for (int i = 0; i < num_matches; ++i) {
-      FeatureMatch& match = (*matches)[i];
+      if (mscores_data[i] < options_.xfeat->min_score) {
+        continue;
+      }
+      FeatureMatch& match = matches->emplace_back();
       match.point2D_idx1 = matches_data[2 * i + 0];
       match.point2D_idx2 = matches_data[2 * i + 1];
       THROW_CHECK_GE(match.point2D_idx1, 0);
