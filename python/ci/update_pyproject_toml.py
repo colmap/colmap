@@ -3,8 +3,12 @@ from pathlib import Path
 import tomlkit
 
 # Set up command-line argument parser
-parser = argparse.ArgumentParser(description="Modify pyproject.toml for a custom build.")
-parser.add_argument("--name", required=True, help="The new package name for the wheel.")
+parser = argparse.ArgumentParser(
+    description="Modify pyproject.toml for a custom build."
+)
+parser.add_argument(
+    "--name", required=True, help="The new package name for the wheel."
+)
 parser.add_argument(
     "--add-deps",
     nargs="+",
