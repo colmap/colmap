@@ -321,7 +321,7 @@ class XFeatBruteForceFeatureMatcher : public FeatureMatcher {
  public:
   explicit XFeatBruteForceFeatureMatcher(const FeatureMatchingOptions& options)
       : options_(options),
-        model_(options.xfeat->model_path,
+        model_(options.xfeat->bruteforce_model_path,
                options.num_threads,
                options.use_gpu,
                options.gpu_index) {
@@ -443,6 +443,167 @@ class XFeatBruteForceFeatureMatcher : public FeatureMatcher {
   ONNXModel model_;
 };
 
+class XFeatLighterGlueFeatureMatcher : public FeatureMatcher {
+ public:
+  explicit XFeatLighterGlueFeatureMatcher(const FeatureMatchingOptions& options)
+      : options_(options),
+        model_(options.xfeat->lighterglue_model_path,
+               options.num_threads,
+               options.use_gpu,
+               options.gpu_index) {
+    THROW_CHECK(options.Check());
+    THROW_CHECK_EQ(model_.input_shapes.size(), 5);
+    ThrowCheckNode(
+        model_.input_names[0], "keypoints0", model_.input_shapes[0], {-1, 2});
+    ThrowCheckNode(model_.input_names[1],
+                   "descriptors0",
+                   model_.input_shapes[1],
+                   {-1, -1});
+    ThrowCheckNode(
+        model_.input_names[2], "keypoints1", model_.input_shapes[2], {-1, 2});
+    ThrowCheckNode(model_.input_names[3],
+                   "descriptors1",
+                   model_.input_shapes[3],
+                   {-1, -1});
+    THROW_CHECK_EQ(model_.output_shapes.size(), 2);
+    ThrowCheckNode(
+        model_.output_names[0], "matches", model_.output_shapes[0], {-1, 2});
+    ThrowCheckNode(
+        model_.output_names[1], "mscores", model_.output_shapes[1], {-1});
+  }
+
+  void Match(const Image& image1,
+             const Image& image2,
+             FeatureMatches* matches) override {
+    THROW_CHECK_NOTNULL(matches);
+    matches->clear();
+
+    const int num_keypoints1 = image1.descriptors->rows();
+    const int num_keypoints2 = image2.descriptors->rows();
+    if (num_keypoints1 == 0 || num_keypoints2 == 0) {
+      return;
+    }
+
+    auto features1 = FeaturesFromImage(image1);
+    auto features2 = FeaturesFromImage(image2);
+
+    float min_conf = static_cast<float>(options_.xfeat->min_conf);
+    const std::vector<int64_t> min_conf_shape = {1};
+    auto min_conf_tensor = Ort::Value::CreateTensor<float>(
+        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
+                                   OrtMemType::OrtMemTypeCPU),
+        &min_conf,
+        sizeof(float),
+        min_conf_shape.data(),
+        min_conf_shape.size());
+
+    std::vector<Ort::Value> input_tensors;
+    input_tensors.emplace_back(std::move(features1.keypoints_tensor));
+    input_tensors.emplace_back(std::move(features1.descriptors_tensor));
+    input_tensors.emplace_back(std::move(features2.keypoints_tensor));
+    input_tensors.emplace_back(std::move(features2.descriptors_tensor));
+    input_tensors.emplace_back(std::move(min_conf_tensor));
+
+    const std::vector<Ort::Value> output_tensors = model_.Run(input_tensors);
+    THROW_CHECK_EQ(output_tensors.size(), 2);
+
+    const std::vector<int64_t> matches_shape =
+        output_tensors[0].GetTensorTypeAndShapeInfo().GetShape();
+    THROW_CHECK_EQ(matches_shape.size(), 2);
+    const int num_matches = matches_shape[0];
+    THROW_CHECK_EQ(matches_shape[1], 2);
+
+    if (num_matches == 0) {
+      return;
+    }
+
+    const int64_t* matches_data = reinterpret_cast<const int64_t*>(
+        output_tensors[0].GetTensorData<void>());
+    matches->resize(num_matches);
+    for (int i = 0; i < num_matches; ++i) {
+      FeatureMatch& match = (*matches)[i];
+      match.point2D_idx1 = matches_data[2 * i + 0];
+      match.point2D_idx2 = matches_data[2 * i + 1];
+      THROW_CHECK_GE(match.point2D_idx1, 0);
+      THROW_CHECK_LT(match.point2D_idx1, num_keypoints1);
+      THROW_CHECK_GE(match.point2D_idx2, 0);
+      THROW_CHECK_LT(match.point2D_idx2, num_keypoints2);
+    }
+  }
+
+  void MatchGuided(double max_error,
+                   const Image& image1,
+                   const Image& image2,
+                   TwoViewGeometry* two_view_geometry) override {
+    THROW_CHECK_GE(max_error, 0);
+    Match(image1, image2, &two_view_geometry->inlier_matches);
+  }
+
+ private:
+  struct Features {
+    std::vector<float> keypoints_data;
+    std::vector<int64_t> keypoints_shape;
+    Ort::Value keypoints_tensor;
+    std::vector<float> descriptors_data;
+    std::vector<int64_t> descriptors_shape;
+    Ort::Value descriptors_tensor;
+  };
+
+  Features FeaturesFromImage(const Image& image) {
+    THROW_CHECK_NE(image.image_id, kInvalidImageId);
+    THROW_CHECK_NOTNULL(image.descriptors);
+
+    const int num_keypoints = image.keypoints->size();
+    THROW_CHECK_EQ(image.descriptors->rows(), num_keypoints);
+    THROW_CHECK_EQ(image.descriptors->cols() % sizeof(float), 0);
+    const int descriptor_dim = image.descriptors->cols() / sizeof(float);
+    THROW_CHECK_EQ(kDescriptorDim, descriptor_dim);
+
+    Features features;
+
+    features.keypoints_shape = {num_keypoints, 2};
+    features.keypoints_data.resize(num_keypoints * 2);
+    const float shift_x = 0.5f * image.width;
+    const float shift_y = 0.5f * image.height;
+    const float scale = 2.0f / std::max(image.width, image.height);
+    for (int i = 0; i < num_keypoints; ++i) {
+      features.keypoints_data[2 * i + 0] =
+          scale * ((*image.keypoints)[i].x - shift_x);
+      features.keypoints_data[2 * i + 1] =
+          scale * ((*image.keypoints)[i].y - shift_y);
+    }
+
+    features.keypoints_tensor = Ort::Value::CreateTensor<float>(
+        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
+                                   OrtMemType::OrtMemTypeCPU),
+        features.keypoints_data.data(),
+        features.keypoints_data.size(),
+        features.keypoints_shape.data(),
+        features.keypoints_shape.size());
+
+    features.descriptors_shape = {num_keypoints, descriptor_dim};
+    features.descriptors_data.resize(num_keypoints * descriptor_dim);
+    THROW_CHECK_EQ(image.descriptors->size(),
+                   features.descriptors_data.size() * sizeof(float));
+    std::memcpy(features.descriptors_data.data(),
+                reinterpret_cast<const void*>(image.descriptors->data()),
+                image.descriptors->size());
+
+    features.descriptors_tensor = Ort::Value::CreateTensor<float>(
+        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
+                                   OrtMemType::OrtMemTypeCPU),
+        features.descriptors_data.data(),
+        features.descriptors_data.size(),
+        features.descriptors_shape.data(),
+        features.descriptors_shape.size());
+
+    return features;
+  }
+
+  const FeatureMatchingOptions options_;
+  ONNXModel model_;
+};
+
 #endif
 
 }  // namespace
@@ -471,7 +632,14 @@ bool XFeatMatchingOptions::Check() const {
 std::unique_ptr<FeatureMatcher> CreateXFeatFeatureMatcher(
     const FeatureMatchingOptions& options) {
 #ifdef COLMAP_ONNX_ENABLED
-  return std::make_unique<XFeatBruteForceFeatureMatcher>(options);
+  switch (options.type) {
+    case FeatureMatcherType::XFEAT_BRUTEFORCE:
+      return std::make_unique<XFeatBruteForceFeatureMatcher>(options);
+    case FeatureMatcherType::XFEAT_LIGHTERGLUE:
+      return std::make_unique<XFeatLighterGlueFeatureMatcher>(options);
+    default:
+      throw std::runtime_error("Unknown XFeat matcher type.");
+  }
 #else
   throw std::runtime_error("XFeat feature matching requires ONNX support.");
 #endif

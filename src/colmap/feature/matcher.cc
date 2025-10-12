@@ -52,7 +52,8 @@ bool FeatureMatchingOptions::Check() const {
   CHECK_OPTION_GE(max_num_matches, 0);
   if (type == FeatureMatcherType::SIFT) {
     return THROW_CHECK_NOTNULL(sift)->Check();
-  } else if (type == FeatureMatcherType::XFeat) {
+  } else if (type == FeatureMatcherType::XFEAT_BRUTEFORCE ||
+             type == FeatureMatcherType::XFEAT_LIGHTERGLUE) {
     return THROW_CHECK_NOTNULL(xfeat)->Check();
   } else {
     LOG(ERROR) << "Unknown feature matcher type: " << type;
@@ -66,7 +67,8 @@ std::unique_ptr<FeatureMatcher> FeatureMatcher::Create(
   switch (options.type) {
     case FeatureMatcherType::SIFT:
       return CreateSiftFeatureMatcher(options);
-    case FeatureMatcherType::XFeat:
+    case FeatureMatcherType::XFEAT_BRUTEFORCE:
+    case FeatureMatcherType::XFEAT_LIGHTERGLUE:
       return CreateXFeatFeatureMatcher(options);
     default:
       std::ostringstream error;

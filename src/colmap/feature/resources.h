@@ -44,9 +44,15 @@ const static std::string kDefaultXFeatBruteForceMatcherUri =
     "xfeat_bruteforce_matcher.onnx;"
     "xfeat_bruteforce_matcher.onnx;"
     "bc8b01e4bb2099adb634083dfa5e8663b733a22d1b778852cd74f74236126873";
+const static std::string kDefaultXFeatLighterGlueMatcherUri =
+    "https://github.com/colmap/colmap/releases/download/3.12.5/"
+    "xfeat_lighterglue_matcher.onnx;"
+    "xfeat_lighterglue_matcher.onnx;"
+    "60978a10b2a4e2f6b1353c132d74ca7e66b432d76adc3c63750f7c096b48739d";
 #else
 const static std::string kDefaultXFeatExtractorUri = "";
 const static std::string kDefaultXFeatBruteForceMatcherUri = "";
+const static std::string kDefaultXFeatLighterGlueMatcherUri = "";
 #endif
 
 }  // namespace colmap

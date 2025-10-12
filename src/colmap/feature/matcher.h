@@ -46,7 +46,8 @@
 
 namespace colmap {
 
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType, 0, SIFT, XFeat);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(
+    FeatureMatcherType, 0, SIFT, XFEAT_BRUTEFORCE, XFEAT_LIGHTERGLUE);
 
 struct SiftMatchingOptions;
 struct XFeatMatchingOptions;

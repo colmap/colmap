@@ -54,11 +54,16 @@ std::unique_ptr<FeatureExtractor> CreateXFeatFeatureExtractor(
     const FeatureExtractionOptions& options);
 
 struct XFeatMatchingOptions {
-  // The minimum cosine similarity for a match to be considered valid.
+  // The minimum cosine similarity for a match to be considered valid
+  // in brute-force matching.
   double min_cossim = 0.85;
 
+  // The minimum confidence for a match in LighterGlue matching.
+  double min_conf = 0.1;
+
   // The path to the ONNX model file for the XFeat brute-force matcher.
-  std::string model_path = kDefaultXFeatBruteForceMatcherUri;
+  std::string bruteforce_model_path = kDefaultXFeatBruteForceMatcherUri;
+  std::string lighterglue_model_path = kDefaultXFeatLighterGlueMatcherUri;
 
   bool Check() const;
 };

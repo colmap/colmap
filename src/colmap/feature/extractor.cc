@@ -53,7 +53,7 @@ bool FeatureExtractionOptions::RequiresRGB() const {
   switch (type) {
     case FeatureExtractorType::SIFT:
       return false;
-    case FeatureExtractorType::XFeat:
+    case FeatureExtractorType::XFEAT:
       return true;
     default:
       ThrowUnknownFeatureExtractorType(type);
@@ -73,7 +73,7 @@ bool FeatureExtractionOptions::Check() const {
   }
   if (type == FeatureExtractorType::SIFT) {
     return THROW_CHECK_NOTNULL(sift)->Check();
-  } else if (type == FeatureExtractorType::XFeat) {
+  } else if (type == FeatureExtractorType::XFEAT) {
     return THROW_CHECK_NOTNULL(xfeat)->Check();
   } else {
     LOG(ERROR) << "Unknown feature extractor type: " << type;
@@ -87,7 +87,7 @@ std::unique_ptr<FeatureExtractor> FeatureExtractor::Create(
   switch (options.type) {
     case FeatureExtractorType::SIFT:
       return CreateSiftFeatureExtractor(options);
-    case FeatureExtractorType::XFeat:
+    case FeatureExtractorType::XFEAT:
       return CreateXFeatFeatureExtractor(options);
     default:
       ThrowUnknownFeatureExtractorType(options.type);

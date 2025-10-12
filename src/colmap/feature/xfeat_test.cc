@@ -56,7 +56,7 @@ TEST(XFeat, Nominal) {
   Bitmap image;
   CreateImageWithSquare(1024, 768, &image);
 
-  FeatureExtractionOptions extraction_options(FeatureExtractorType::XFeat);
+  FeatureExtractionOptions extraction_options(FeatureExtractorType::XFEAT);
   extraction_options.use_gpu = false;
   auto extractor = CreateXFeatFeatureExtractor(extraction_options);
   auto keypoints = std::make_shared<FeatureKeypoints>();
@@ -73,22 +73,25 @@ TEST(XFeat, Nominal) {
     EXPECT_LE(keypoint.y, image.Height() + 5);
   }
 
-  FeatureMatchingOptions matching_options(FeatureMatcherType::XFeat);
-  matching_options.use_gpu = false;
-  auto matcher = CreateXFeatFeatureMatcher(matching_options);
-  FeatureMatches matches;
-  matcher->Match({/*image_id=*/1,
-                  /*image_width=*/image.Width(),
-                  /*image_height=*/image.Height(),
-                  nullptr,
-                  descriptors},
-                 {/*image_id=*/2,
-                  /*image_width=*/image.Width(),
-                  /*image_height=*/image.Height(),
-                  nullptr,
-                  descriptors},
-                 &matches);
-  EXPECT_EQ(matches.size(), keypoints->size());
+  for (const auto& matcher_type : {FeatureMatcherType::XFEAT_BRUTEFORCE,
+                                   FeatureMatcherType::XFEAT_LIGHTERGLUE}) {
+    FeatureMatchingOptions matching_options(matcher_type);
+    matching_options.use_gpu = false;
+    auto matcher = CreateXFeatFeatureMatcher(matching_options);
+    FeatureMatches matches;
+    matcher->Match({/*image_id=*/1,
+                    /*image_width=*/image.Width(),
+                    /*image_height=*/image.Height(),
+                    keypoints,
+                    descriptors},
+                   {/*image_id=*/2,
+                    /*image_width=*/image.Width(),
+                    /*image_height=*/image.Height(),
+                    keypoints,
+                    descriptors},
+                   &matches);
+    EXPECT_NEAR(matches.size(), keypoints->size(), 0.02 * keypoints->size());
+  }
 }
 
 }  // namespace

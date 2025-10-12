@@ -337,8 +337,10 @@ void OptionManager::AddFeatureMatchingOptions() {
 
   AddAndRegisterDefaultOption("XFeatMatching.min_cossim",
                               &feature_matching->xfeat->min_cossim);
-  AddAndRegisterDefaultOption("XFeatMatching.model_path",
-                              &feature_matching->xfeat->model_path);
+  AddAndRegisterDefaultOption("XFeatMatching.bruteforce_model_path",
+                              &feature_matching->xfeat->bruteforce_model_path);
+  AddAndRegisterDefaultOption("XFeatMatching.lighterglue_model_path",
+                              &feature_matching->xfeat->lighterglue_model_path);
 }
 
 void OptionManager::AddTwoViewGeometryOptions() {
