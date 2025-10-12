@@ -262,6 +262,8 @@ void OptionManager::AddFeatureExtractionOptions() {
 
   AddAndRegisterDefaultOption("FeatureExtraction.type",
                               &feature_extraction_type_);
+  AddAndRegisterDefaultOption("FeatureExtraction.max_image_size",
+                              &feature_extraction->max_image_size);
   AddAndRegisterDefaultOption("FeatureExtraction.num_threads",
                               &feature_extraction->num_threads);
   AddAndRegisterDefaultOption("FeatureExtraction.use_gpu",
@@ -269,8 +271,6 @@ void OptionManager::AddFeatureExtractionOptions() {
   AddAndRegisterDefaultOption("FeatureExtraction.gpu_index",
                               &feature_extraction->gpu_index);
 
-  AddAndRegisterDefaultOption("SiftExtraction.max_image_size",
-                              &feature_extraction->max_image_size);
   AddAndRegisterDefaultOption("SiftExtraction.max_num_features",
                               &feature_extraction->sift->max_num_features);
   AddAndRegisterDefaultOption("SiftExtraction.first_octave",
