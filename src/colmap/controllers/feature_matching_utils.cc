@@ -268,27 +268,29 @@ FeatureMatcherController::FeatureMatcherController(
   }
 
   if (matching_options_.use_gpu) {
-    auto matching_options_copy = matching_options_;
+    auto worker_matching_options = matching_options_;
     // The first matching is always without guided matching.
-    matching_options_copy.guided_matching = false;
+    worker_matching_options.guided_matching = false;
     matchers_.reserve(gpu_indices.size());
     for (const auto& gpu_index : gpu_indices) {
-      matching_options_copy.gpu_index = std::to_string(gpu_index);
+      worker_matching_options.gpu_index = std::to_string(gpu_index);
       matchers_.emplace_back(
-          std::make_unique<FeatureMatcherWorker>(matching_options_copy,
+          std::make_unique<FeatureMatcherWorker>(worker_matching_options,
                                                  geometry_options_,
                                                  cache_,
                                                  &matcher_queue_,
                                                  &verifier_queue_));
     }
   } else {
-    auto matching_options_copy = matching_options_;
+    auto worker_matching_options = matching_options_;
+    // Prevent nested threading.
+    worker_matching_options.num_threads = 1;
     // The first matching is always without guided matching.
-    matching_options_copy.guided_matching = false;
+    worker_matching_options.guided_matching = false;
     matchers_.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
       matchers_.emplace_back(
-          std::make_unique<FeatureMatcherWorker>(matching_options_copy,
+          std::make_unique<FeatureMatcherWorker>(worker_matching_options,
                                                  geometry_options_,
                                                  cache_,
                                                  &matcher_queue_,
@@ -305,22 +307,25 @@ FeatureMatcherController::FeatureMatcherController(
     }
 
     if (matching_options_.use_gpu) {
-      auto matching_options_copy = matching_options_;
+      auto worker_matching_options = matching_options_;
       guided_matchers_.reserve(gpu_indices.size());
       for (const auto& gpu_index : gpu_indices) {
-        matching_options_copy.gpu_index = std::to_string(gpu_index);
+        worker_matching_options.gpu_index = std::to_string(gpu_index);
         guided_matchers_.emplace_back(
-            std::make_unique<FeatureMatcherWorker>(matching_options_copy,
+            std::make_unique<FeatureMatcherWorker>(worker_matching_options,
                                                    geometry_options_,
                                                    cache_,
                                                    &guided_matcher_queue_,
                                                    &output_queue_));
       }
     } else {
+      auto worker_matching_options = matching_options_;
+      // Prevent nested threading.
+      worker_matching_options.num_threads = 1;
       guided_matchers_.reserve(num_threads);
       for (int i = 0; i < num_threads; ++i) {
         guided_matchers_.emplace_back(
-            std::make_unique<FeatureMatcherWorker>(matching_options_,
+            std::make_unique<FeatureMatcherWorker>(worker_matching_options,
                                                    geometry_options_,
                                                    cache_,
                                                    &guided_matcher_queue_,

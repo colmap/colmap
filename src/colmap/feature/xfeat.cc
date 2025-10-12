@@ -84,7 +84,11 @@ struct ONNXModel {
             int num_threads,
             bool use_gpu,
             const std::string& gpu_index) {
-    model_path = MaybeDownloadAndCacheFile(model_path);
+    {
+      static std::mutex download_mutex;
+      const std::lock_guard<std::mutex> lock(download_mutex);
+      model_path = MaybeDownloadAndCacheFile(model_path);
+    }
 
     const int num_eff_threads = GetEffectiveNumThreads(num_threads);
     session_options.SetInterOpNumThreads(num_eff_threads);
@@ -465,11 +469,9 @@ class XFeatLighterGlueFeatureMatcher : public FeatureMatcher {
                    "descriptors1",
                    model_.input_shapes[3],
                    {-1, -1});
-    THROW_CHECK_EQ(model_.output_shapes.size(), 2);
+    THROW_CHECK_EQ(model_.output_shapes.size(), 1);
     ThrowCheckNode(
         model_.output_names[0], "matches", model_.output_shapes[0], {-1, 2});
-    ThrowCheckNode(
-        model_.output_names[1], "mscores", model_.output_shapes[1], {-1});
   }
 
   void Match(const Image& image1,
@@ -505,7 +507,7 @@ class XFeatLighterGlueFeatureMatcher : public FeatureMatcher {
     input_tensors.emplace_back(std::move(min_conf_tensor));
 
     const std::vector<Ort::Value> output_tensors = model_.Run(input_tensors);
-    THROW_CHECK_EQ(output_tensors.size(), 2);
+    THROW_CHECK_EQ(output_tensors.size(), 1);
 
     const std::vector<int64_t> matches_shape =
         output_tensors[0].GetTensorTypeAndShapeInfo().GetShape();
@@ -519,14 +521,9 @@ class XFeatLighterGlueFeatureMatcher : public FeatureMatcher {
 
     const int64_t* matches_data = reinterpret_cast<const int64_t*>(
         output_tensors[0].GetTensorData<void>());
-    const float* mscores_data =
-        reinterpret_cast<const float*>(output_tensors[1].GetTensorData<void>());
-    matches->reserve(num_matches);
+    matches->resize(num_matches);
     for (int i = 0; i < num_matches; ++i) {
-      if (mscores_data[i] < options_.xfeat->min_score) {
-        continue;
-      }
-      FeatureMatch& match = matches->emplace_back();
+      FeatureMatch& match = (*matches)[i];
       match.point2D_idx1 = matches_data[2 * i + 0];
       match.point2D_idx2 = matches_data[2 * i + 1];
       THROW_CHECK_GE(match.point2D_idx1, 0);

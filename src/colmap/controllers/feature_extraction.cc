@@ -418,11 +418,14 @@ class FeatureExtractorController : public Thread {
                "memory for the current settings.";
       }
 
-      auto custom_extraction_options = extraction_options_;
-      custom_extraction_options.use_gpu = false;
+      auto worker_extraction_options = extraction_options_;
+      // Prevent nested threading.
+      worker_extraction_options.num_threads = 1;
+      // Explicitly disable GPU.
+      worker_extraction_options.use_gpu = false;
       for (int i = 0; i < num_threads; ++i) {
         extractors_.emplace_back(
-            std::make_unique<FeatureExtractorThread>(custom_extraction_options,
+            std::make_unique<FeatureExtractorThread>(worker_extraction_options,
                                                      camera_mask,
                                                      extractor_queue_.get(),
                                                      writer_queue_.get()));

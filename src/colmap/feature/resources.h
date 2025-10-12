@@ -48,7 +48,7 @@ const static std::string kDefaultXFeatLighterGlueMatcherUri =
     "https://github.com/colmap/colmap/releases/download/3.12.5/"
     "xfeat_lighterglue_matcher.onnx;"
     "xfeat_lighterglue_matcher.onnx;"
-    "60978a10b2a4e2f6b1353c132d74ca7e66b432d76adc3c63750f7c096b48739d";
+    "43fa66b70930c8e681e79af765cae4119da6605db02f0cd56c9d2e7e41e0c5cc";
 #else
 const static std::string kDefaultXFeatExtractorUri = "";
 const static std::string kDefaultXFeatBruteForceMatcherUri = "";
