@@ -91,6 +91,12 @@ TEST(XFeat, Nominal) {
                     descriptors},
                    &matches);
     EXPECT_NEAR(matches.size(), keypoints->size(), 0.05 * keypoints->size());
+    for (const auto& match : matches) {
+      EXPECT_GE(match.point2D_idx1, 0);
+      EXPECT_GE(match.point2D_idx2, 0);
+      EXPECT_LT(match.point2D_idx1, keypoints->size());
+      EXPECT_LT(match.point2D_idx2, keypoints->size());
+    }
   }
 }
 
