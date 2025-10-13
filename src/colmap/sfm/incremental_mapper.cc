@@ -821,13 +821,13 @@ bool IncrementalMapper::AdjustGlobalBundle(
     ba_config.SetConstantCamIntrinsics(camera_id);
   }
 
-  std::vector<point3D_t> ignored_point3D_ids;
+  std::vector<point3D_t> redundant_point3D_ids;
   if (options.ba_global_prune_points) {
-    ignored_point3D_ids = PruneReconstructionPoints3D(
+    redundant_point3D_ids = FindRedundantPoints3D(
         options.ba_global_prune_points_min_coverage_gain, *reconstruction_);
-    LOG(INFO) << "Pruning " << ignored_point3D_ids.size() << " / "
-              << reconstruction_->NumPoints3D() << " 3D points";
-    for (const point3D_t point3D_id : ignored_point3D_ids) {
+    LOG(INFO) << "Ignoring " << redundant_point3D_ids.size() << " / "
+              << reconstruction_->NumPoints3D() << " redundant 3D points";
+    for (const point3D_t point3D_id : redundant_point3D_ids) {
       ba_config.IgnorePoint(point3D_id);
     }
   }
@@ -859,14 +859,14 @@ bool IncrementalMapper::AdjustGlobalBundle(
                                       *reconstruction_);
   }
 
-  // Optimize the pruned 3D points with all other parameters fixed.
+  // Optimize the redundant 3D points with all other parameters fixed.
   if (options.ba_global_prune_points) {
     if (bundle_adjuster->Solve().termination_type == ceres::FAILURE) {
       return false;
     }
 
     ba_config = BundleAdjustmentConfig();
-    for (const point3D_t point3D_id : ignored_point3D_ids) {
+    for (const point3D_t point3D_id : redundant_point3D_ids) {
       ba_config.AddVariablePoint(point3D_id);
     }
     for (const frame_t frame_id : reconstruction_->RegFrameIds()) {

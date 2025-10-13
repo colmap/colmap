@@ -86,7 +86,7 @@ double ComputeCoverageGain(
 
 }  // namespace
 
-std::vector<point3D_t> PruneReconstructionPoints3D(
+std::vector<point3D_t> FindRedundantPoints3D(
     double min_coverage_gain, const Reconstruction& reconstruction) {
   const size_t num_init_points3D = reconstruction.NumPoints3D();
   const size_t num_images = reconstruction.NumImages();
@@ -157,15 +157,15 @@ std::vector<point3D_t> PruneReconstructionPoints3D(
     selected_point3D_ids.insert(point3D_info.point3D_id);
   }
 
-  std::vector<point3D_t> pruned_point3D_ids;
-  pruned_point3D_ids.reserve(num_init_points3D - selected_point3D_ids.size());
+  std::vector<point3D_t> redundant_point3D_ids;
+  redundant_point3D_ids.reserve(num_init_points3D - selected_point3D_ids.size());
   for (const auto& point3D : reconstruction.Points3D()) {
     if (selected_point3D_ids.count(point3D.first) == 0) {
-      pruned_point3D_ids.push_back(point3D.first);
+      redundant_point3D_ids.push_back(point3D.first);
     }
   }
 
-  return pruned_point3D_ids;
+  return redundant_point3D_ids;
 }
 
 }  // namespace colmap
