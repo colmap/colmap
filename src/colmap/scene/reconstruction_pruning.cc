@@ -117,13 +117,12 @@ std::vector<point3D_t> FindRedundantPoints3D(
                       std::vector<Point3DInfo>,
                       decltype(has_left_smaller_gain)>
       priority_queue(has_left_smaller_gain, std::move(point3D_infos));
-  for (const auto& point3D : reconstruction.Points3D()) {
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     priority_queue.push(
-        {point3D.first,
-         &point3D.second,
-         ComputeCoverageGain(point3D.second,
-                             num_selected_points3D_per_image_tile,
-                             image_tile_idxs)});
+        {point3D_id,
+         &point3D,
+         ComputeCoverageGain(
+             point3D, num_selected_points3D_per_image_tile, image_tile_idxs)});
   }
 
   std::unordered_set<point3D_t> selected_point3D_ids;
@@ -158,7 +157,8 @@ std::vector<point3D_t> FindRedundantPoints3D(
   }
 
   std::vector<point3D_t> redundant_point3D_ids;
-  redundant_point3D_ids.reserve(num_init_points3D - selected_point3D_ids.size());
+  redundant_point3D_ids.reserve(num_init_points3D -
+                                selected_point3D_ids.size());
   for (const auto& point3D : reconstruction.Points3D()) {
     if (selected_point3D_ids.count(point3D.first) == 0) {
       redundant_point3D_ids.push_back(point3D.first);

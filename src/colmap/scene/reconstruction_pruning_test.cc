@@ -88,5 +88,68 @@ TEST(FindRedundantPoints3D, VaryingTrackLength) {
   }
 }
 
+TEST(FindRedundantPoints3D, VaryingSpatialDistribution) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 4;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 4;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
+  // Ensure all cameras in the rig have identical poses.
+  synthetic_dataset_options.sensor_from_rig_translation_stddev = 0.0;
+  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 0.0;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    CHECK_EQ(point3D.track.Length(),
+             synthetic_dataset_options.num_cameras_per_rig);
+    for (int i = 0; i < synthetic_dataset_options.num_cameras_per_rig; ++i) {
+      const auto& track_el = point3D.track.Element(i);
+      auto& point2D =
+          reconstruction.Image(track_el.image_id).Point2D(track_el.point2D_idx);
+      const double angle = EIGEN_PI / 4 + i * EIGEN_PI / 2;
+      const double radius =
+          0.25 * std::sqrt(synthetic_dataset_options.camera_width *
+                               synthetic_dataset_options.camera_width +
+                           synthetic_dataset_options.camera_height *
+                               synthetic_dataset_options.camera_height);
+      point2D.xy =
+          Eigen::Vector2d(std::sin(angle) * radius +
+                              synthetic_dataset_options.camera_width / 2.,
+                          std::cos(angle) * radius +
+                              synthetic_dataset_options.camera_height / 2.);
+    }
+  }
+
+  auto get_point2D = [&reconstruction](point3D_t point3D_id,
+                                       int track_el_idx) -> Point2D& {
+    const auto& track_el =
+        reconstruction.Point3D(point3D_id).track.Element(track_el_idx);
+    return reconstruction.Image(track_el.image_id)
+        .Point2D(track_el.point2D_idx);
+  };
+
+  // Make sure point 3 has the largest coverage and selected first.
+  reconstruction.Point3D(3).track.AddElement(1, 4);
+  Point2D point2D;
+  point2D.xy = Eigen::Vector2d::Zero();
+  point2D.point3D_id = 3;
+  reconstruction.Image(1).Points2D().push_back(point2D);
+
+  // Make sure point 1 has larger coverage gain by moving it to another
+  // tile, while point 2 and 4 have redundant and thus smaller coverage.
+  get_point2D(1, 0).xy *= 2;
+  EXPECT_THAT(FindRedundantPoints3D(/*min_coverage_gain=*/0.6, reconstruction),
+              testing::UnorderedElementsAre(2, 4));
+
+  // Now change point 2 to have redundant coverage with point 1 and point 4 to
+  // have unique coverage.
+  get_point2D(2, 0).xy *= 2;
+  get_point2D(4, 1).xy *= 2;
+  EXPECT_THAT(FindRedundantPoints3D(/*min_coverage_gain=*/0.6, reconstruction),
+              testing::UnorderedElementsAre(1, 2));
+}
+
 }  // namespace
 }  // namespace colmap
