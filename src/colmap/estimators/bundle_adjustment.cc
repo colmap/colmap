@@ -81,9 +81,17 @@ size_t BundleAdjustmentConfig::NumConstantPoints() const {
 size_t BundleAdjustmentConfig::NumResiduals(
     const Reconstruction& reconstruction) const {
   // Count the number of observations for all added images.
-  size_t num_observations = 0;
+  int num_observations = 0;
   for (const image_t image_id : image_ids_) {
-    num_observations += reconstruction.Image(image_id).NumPoints3D();
+    const auto& image = reconstruction.Image(image_id);
+    num_observations += image.NumPoints3D();
+    if (!ignored_point3D_ids_.empty()) {
+      for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
+        if (IsIgnoredPoint(point3D_id)) {
+          --num_observations;
+        }
+      }
+    }
   }
 
   // Count the number of observations for all added 3D points that are not
@@ -91,7 +99,7 @@ size_t BundleAdjustmentConfig::NumResiduals(
 
   auto NumObservationsForPoint = [this,
                                   &reconstruction](const point3D_t point3D_id) {
-    size_t num_observations_for_point = 0;
+    int num_observations_for_point = 0;
     const auto& point3D = reconstruction.Point3D(point3D_id);
     for (const auto& track_el : point3D.track.Elements()) {
       if (image_ids_.count(track_el.image_id) == 0) {
@@ -107,6 +115,8 @@ size_t BundleAdjustmentConfig::NumResiduals(
   for (const auto point3D_id : constant_point3D_ids_) {
     num_observations += NumObservationsForPoint(point3D_id);
   }
+
+  CHECK_GE(num_observations, 0);
 
   return 2 * num_observations;
 }

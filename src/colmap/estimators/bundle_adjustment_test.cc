@@ -1102,5 +1102,39 @@ TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorldFallback) {
   EXPECT_EQ(summary.num_effective_parameters_reduced, 307);
 }
 
+TEST(DefaultBundleAdjuster, IgnorePoint) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.point2D_stddev = 1;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.IgnorePoint(42);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDefaultBundleAdjuster(options, config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+
+  EXPECT_EQ(config.NumResiduals(reconstruction),
+            bundle_adjuster->Problem()->NumResiduals());
+
+  // 100 points, 2 images, 2 residuals per point per image
+  EXPECT_EQ(summary.num_residuals_reduced, 396);
+  // 99 x 3 point parameters
+  // + 5 rig_from_world parameters (pose of second image)
+  // + 2 x 2 camera parameters
+  EXPECT_EQ(summary.num_effective_parameters_reduced, 306);
+}
+
 }  // namespace
 }  // namespace colmap
