@@ -581,8 +581,6 @@ void OptionManager::AddMapperOptions() {
                               &mapper->ba_refine_extra_params);
   AddAndRegisterDefaultOption("Mapper.ba_refine_sensor_from_rig",
                               &mapper->ba_refine_sensor_from_rig);
-  AddAndRegisterDefaultOption("Mapper.ba_local_num_images",
-                              &mapper->ba_local_num_images);
   AddAndRegisterDefaultOption("Mapper.ba_local_function_tolerance",
                               &mapper->ba_local_function_tolerance);
   AddAndRegisterDefaultOption("Mapper.ba_local_max_num_iterations",
@@ -641,6 +639,8 @@ void OptionManager::AddMapperOptions() {
                               &mapper->mapper.filter_min_tri_angle);
   AddAndRegisterDefaultOption("Mapper.max_reg_trials",
                               &mapper->mapper.max_reg_trials);
+  AddAndRegisterDefaultOption("Mapper.ba_local_num_images",
+                              &mapper->mapper.ba_local_num_images);
   AddAndRegisterDefaultOption("Mapper.ba_local_min_tri_angle",
                               &mapper->mapper.ba_local_min_tri_angle);
   AddAndRegisterDefaultOption("Mapper.ba_global_prune_points",

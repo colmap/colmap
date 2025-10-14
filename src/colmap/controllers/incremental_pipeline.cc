@@ -85,7 +85,6 @@ IncrementalMapper::Options IncrementalPipelineOptions::Mapper() const {
   options.max_focal_length_ratio = max_focal_length_ratio;
   options.max_extra_param = max_extra_param;
   options.num_threads = num_threads;
-  options.local_ba_num_images = ba_local_num_images;
   options.fix_existing_frames = fix_existing_frames;
   options.constant_rigs = constant_rigs;
   options.constant_cameras = constant_cameras;
@@ -175,7 +174,6 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GT(min_focal_length_ratio, 0);
   CHECK_OPTION_GT(max_focal_length_ratio, 0);
   CHECK_OPTION_GE(max_extra_param, 0);
-  CHECK_OPTION_GE(ba_local_num_images, 2);
   CHECK_OPTION_GE(ba_local_max_num_iterations, 0);
   CHECK_OPTION_GT(ba_global_frames_ratio, 1.0);
   CHECK_OPTION_GT(ba_global_points_ratio, 1.0);
