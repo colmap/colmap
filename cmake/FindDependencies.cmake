@@ -4,10 +4,6 @@ else()
     set(COLMAP_FIND_TYPE REQUIRED)
 endif()
 
-if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.30")
-    cmake_policy(SET CMP0167 NEW)
-endif()
-
 # Track all the compile definitions
 set(COLMAP_COMPILE_DEFINITIONS)
 if(LSD_ENABLED)
@@ -83,6 +79,13 @@ if(CGAL_FOUND)
             CGAL INTERFACE ${CGAL_LIBRARY} ${GMP_LIBRARIES})
     endif()
     list(APPEND COLMAP_LINK_DIRS ${CGAL_LIBRARIES_DIR})
+else()
+    if(CGAL_ENABLED)
+        set(CGAL_ENABLED OFF)
+        message(STATUS "Disabling CGAL support (not found)")
+    else()
+        message(STATUS "Disabling CGAL support")
+    endif()
 endif()
 
 if(DOWNLOAD_ENABLED)
@@ -156,7 +159,7 @@ if(CUDA_ENABLED)
 
             declare_imported_cuda_target(cudart ${CUDA_LIBRARIES})
             declare_imported_cuda_target(curand ${CUDA_LIBRARIES})
-            
+
             set(CUDAToolkit_VERSION "${CUDA_VERSION_STRING}")
             set(CUDAToolkit_BIN_DIR "${CUDA_TOOLKIT_ROOT_DIR}/bin")
         else()
@@ -171,6 +174,8 @@ if(CUDA_ENABLED)
             message(STATUS "Disabling CUDA support (not found)")
         endif()
     endif()
+else()
+    message(STATUS "Disabling CUDA support")
 endif()
 
 if(CUDA_ENABLED AND CUDA_FOUND)
@@ -194,7 +199,96 @@ if(CUDA_ENABLED AND CUDA_FOUND)
                     "archs: ${CMAKE_CUDA_ARCHITECTURES})")
 else()
     set(CUDA_ENABLED OFF)
-    message(STATUS "Disabling CUDA support")
+endif()
+
+if(ONNX_ENABLED)
+    if(FETCH_ONNX)
+        include(FetchContent)
+
+        message(STATUS "Configuring onnxruntime...")
+
+        set(ONNX_VERSION "1.23.1")
+        if(IS_MACOS)
+            FetchContent_Declare(onnxruntime
+                URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-osx-arm64-${ONNX_VERSION}.tgz
+                URL_HASH SHA256=24b9d8ad4b45e481d36cd24f766d4f257834dd0254d168c11c5cb8103b2ab7b6
+                ${_fetch_content_declare_args}
+            )
+        elseif(IS_LINUX)
+            FetchContent_Declare(onnxruntime
+                URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-gpu-${ONNX_VERSION}.tgz
+                URL_HASH SHA256=d759646b084888ded846f3be36aaadea24b62a19accba2d64ff9c2e3fb714a62
+                ${_fetch_content_declare_args}
+            )
+        elseif(IS_WINDOWS)
+            FetchContent_Declare(onnxruntime
+                URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-win-x64-gpu-${ONNX_VERSION}.zip
+                URL_HASH SHA256=a2dd7aed365213d0187a653b0462bf9824d71ab2f76ea0c6df507e2a8036ca53
+                ${_fetch_content_declare_args}
+            )
+        endif()
+
+        FetchContent_MakeAvailable(onnxruntime)
+
+        if(IS_LINUX)
+            set(onnxruntime_LIB_DIR_NAME lib64)
+        else()
+            set(onnxruntime_LIB_DIR_NAME lib)
+        endif()
+
+        set(ONNX_INCLUDE_DIR ${onnxruntime_BINARY_DIR}/include/onnxruntime)
+        if(NOT EXISTS ${ONNX_INCLUDE_DIR})
+            file(MAKE_DIRECTORY ${ONNX_INCLUDE_DIR})
+            file(COPY ${onnxruntime_SOURCE_DIR}/include/ DESTINATION ${ONNX_INCLUDE_DIR}/)
+        endif()
+        set(onnxruntime_LIB_DIR ${onnxruntime_BINARY_DIR}/${onnxruntime_LIB_DIR_NAME})
+        if(NOT EXISTS ${onnxruntime_LIB_DIR})
+            file(MAKE_DIRECTORY ${onnxruntime_LIB_DIR})
+            file(COPY ${onnxruntime_SOURCE_DIR}/lib/ DESTINATION ${onnxruntime_LIB_DIR}/)
+            file(REMOVE_RECURSE ${onnxruntime_LIB_DIR}/cmake)
+            file(REMOVE_RECURSE ${onnxruntime_LIB_DIR}/pkgconfig)
+        endif()
+        if(NOT IS_WINDOWS)
+            set(ONNX_DATA_DIR ${onnxruntime_BINARY_DIR}/share/onnxruntime)
+            if(NOT EXISTS ${ONNX_DATA_DIR})
+                file(MAKE_DIRECTORY ${ONNX_DATA_DIR})
+                file(COPY ${onnxruntime_SOURCE_DIR}/lib/cmake/onnxruntime/ DESTINATION ${ONNX_DATA_DIR}/cmake/)
+                file(REMOVE_RECURSE ${onnxruntime_SOURCE_DIR}/lib/cmake)
+            endif()
+        endif()
+
+        set(onnxruntime_CONFIG_DIR_HINTS ${ONNX_DATA_DIR}/cmake CACHE PATH "ONNX Runtime config directory hints")
+        set(onnxruntime_INCLUDE_DIR_HINTS ${onnxruntime_BINARY_DIR}/include CACHE PATH "ONNX Runtime include directory hints")
+        set(onnxruntime_LIBRARY_DIR_HINTS ${onnxruntime_BINARY_DIR}/${onnxruntime_LIB_DIR_NAME} CACHE PATH "ONNX Runtime library directory hints")
+        find_package(onnxruntime ${COLMAP_FIND_TYPE})
+
+        install(
+            DIRECTORY "${onnxruntime_BINARY_DIR}/include/"
+            DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+        install(
+            DIRECTORY "${onnxruntime_LIB_DIR}/"
+            DESTINATION "${onnxruntime_LIB_DIR_NAME}")
+        if(NOT IS_WINDOWS)
+            install(
+                DIRECTORY "${onnxruntime_BINARY_DIR}/share/"
+                DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}")
+        endif()
+
+        message(STATUS "Configuring onnxruntime... done")
+    else()
+        find_package(onnxruntime ${COLMAP_FIND_TYPE})
+        if(NOT onnxruntime_FOUND)
+            message(STATUS "Disabling ONNX support (not found)")
+            set(ONNX_ENABLED OFF)
+        endif()
+    endif()
+else()
+    message(STATUS "Disabling ONNX support")
+endif()
+
+if(TARGET onnxruntime::onnxruntime)
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_ONNX_ENABLED)
+    message(STATUS "Enabling ONNX support")
 endif()
 
 if(GUI_ENABLED)
