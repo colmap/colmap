@@ -542,6 +542,11 @@ void OptionManager::AddBundleAdjustmentOptions() {
   AddAndRegisterDefaultOption(
       "BundleAdjustment.max_num_images_direct_sparse_gpu_solver",
       &bundle_adjustment->max_num_images_direct_sparse_gpu_solver);
+  AddAndRegisterDefaultOption("BundleAdjustment.ignore_redundant_points3D",
+                              &bundle_adjustment->ignore_redundant_points3D);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.ignore_redundant_points3D_min_coverage_gain",
+      &bundle_adjustment->ignore_redundant_points3D_min_coverage_gain);
 }
 
 void OptionManager::AddMapperOptions() {
@@ -605,6 +610,11 @@ void OptionManager::AddMapperOptions() {
                               &mapper->ba_local_max_refinements);
   AddAndRegisterDefaultOption("Mapper.ba_local_max_refinement_change",
                               &mapper->ba_local_max_refinement_change);
+  AddAndRegisterDefaultOption("Mapper.ba_global_ignore_redundant_points3D",
+                              &mapper->ba_global_ignore_redundant_points3D);
+  AddAndRegisterDefaultOption(
+      "Mapper.ba_global_ignore_redundant_points3D_min_coverage_gain",
+      &mapper->ba_global_ignore_redundant_points3D_min_coverage_gain);
   AddAndRegisterDefaultOption("Mapper.ba_use_gpu", &mapper->ba_use_gpu);
   AddAndRegisterDefaultOption("Mapper.ba_gpu_index", &mapper->ba_gpu_index);
   AddAndRegisterDefaultOption(
@@ -643,11 +653,6 @@ void OptionManager::AddMapperOptions() {
                               &mapper->mapper.ba_local_num_images);
   AddAndRegisterDefaultOption("Mapper.ba_local_min_tri_angle",
                               &mapper->mapper.ba_local_min_tri_angle);
-  AddAndRegisterDefaultOption("Mapper.ba_global_prune_points",
-                              &mapper->mapper.ba_global_prune_points);
-  AddAndRegisterDefaultOption(
-      "Mapper.ba_global_prune_points_min_coverage_gain",
-      &mapper->mapper.ba_global_prune_points_min_coverage_gain);
 
   AddDefaultOption("Mapper.image_list_path", &mapper_image_list_path_);
   AddDefaultOption("Mapper.constant_rig_list_path",

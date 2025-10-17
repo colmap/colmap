@@ -1102,7 +1102,7 @@ TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorldFallback) {
   EXPECT_EQ(summary.num_effective_parameters_reduced, 307);
 }
 
-TEST(DefaultBundleAdjuster, IgnorePoint) {
+TEST(DefaultBundleAdjuster, IgnoreRedundantPoints3D) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
@@ -1116,24 +1116,25 @@ TEST(DefaultBundleAdjuster, IgnorePoint) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.IgnorePoint(42);
+  config.AddVariablePoint(1);
+  config.AddConstantPoint(2);
   config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
+  options.ignore_redundant_points3D = true;
+  options.ignore_redundant_points3D_min_coverage_gain = 0.3;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateDefaultBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
   ASSERT_NE(summary.termination_type, ceres::FAILURE);
 
-  EXPECT_EQ(config.NumResiduals(reconstruction),
-            bundle_adjuster->Problem()->NumResiduals());
-
-  // 100 points, 2 images, 2 residuals per point per image
-  EXPECT_EQ(summary.num_residuals_reduced, 396);
-  // 99 x 3 point parameters
+  EXPECT_EQ(config.NumResiduals(reconstruction), 400);
+  // Expect fewer residuals and fewer parameters due to ignored points.
+  EXPECT_LT(summary.num_residuals_reduced, 400);
+  // 100 x 3 point parameters
   // + 5 rig_from_world parameters (pose of second image)
   // + 2 x 2 camera parameters
-  EXPECT_EQ(summary.num_effective_parameters_reduced, 306);
+  EXPECT_LT(summary.num_effective_parameters_reduced, 309);
 }
 
 }  // namespace

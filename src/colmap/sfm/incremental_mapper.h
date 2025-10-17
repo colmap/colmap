@@ -101,13 +101,6 @@ class IncrementalMapper {
     // Minimum triangulation for images to be chosen in local bundle adjustment.
     double ba_local_min_tri_angle = 6;
 
-    // Whether to prune redundant 3D points in global bundle adjustment.
-    bool ba_global_prune_points = false;
-
-    // The minimum coverage gain for any 3D point to be included in global
-    // bundle adjustment. A larger value means more 3D points are pruned.
-    double ba_global_prune_points_min_coverage_gain = 0.05;
-
     // Thresholds for bogus camera parameters. Images with bogus camera
     // parameters are filtered and ignored in triangulation.
     double min_focal_length_ratio = 0.1;  // Opening angle of ~130deg
