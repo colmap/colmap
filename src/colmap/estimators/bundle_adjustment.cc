@@ -1049,26 +1049,28 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
   bool AlignReconstruction() {
     RANSACOptions ransac_options = prior_options_.alignment_ransac_options;
     if (ransac_options.max_error <= 0) {
-      double max_stddev_sum = 0;
+      double sum_rms_stddev = 0.0;
       size_t num_valid_covs = 0;
       for (const auto& [_, pose_prior] : pose_priors_) {
         if (pose_prior.IsCovarianceValid()) {
-          const double max_stddev =
-              std::sqrt(Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d>(
-                            pose_prior.position_covariance)
-                            .eigenvalues()
-                            .maxCoeff());
-          max_stddev_sum += max_stddev;
-          ++num_valid_covs;
+          const double trace = pose_prior.position_covariance.trace();
+          if (trace > 0.0) {
+            const double rms_stddev = std::sqrt(trace / 3.0);
+            sum_rms_stddev += rms_stddev;
+            ++num_valid_covs;
+          }
         }
       }
       if (num_valid_covs == 0) {
         LOG(WARNING) << "No pose priors with valid covariance found.";
         return false;
       }
-      // Set max error at the 3 sigma confidence interval. Assumes no
-      // outliers.
-      ransac_options.max_error = 3 * max_stddev_sum / num_valid_covs;
+      // Set max error using the mean RMS stddev of valid pose priors. Scaled by
+      // sqrt(chi-square 95% quantile, 3 DOF) to approximate a 95% confidence
+      // radius.
+      const double mean_rms_stddev = sum_rms_stddev / num_valid_covs;
+      ransac_options.max_error =
+          std::sqrt(kChiSquare95ThreeDof) * mean_rms_stddev;
     }
 
     VLOG(2) << "Robustly aligning reconstruction with max_error="
