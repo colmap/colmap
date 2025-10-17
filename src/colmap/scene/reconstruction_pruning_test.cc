@@ -101,6 +101,9 @@ TEST(FindRedundantPoints3D, VaryingSpatialDistribution) {
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 0.0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
+  // Generate a synthetic dataset where all points are identically distributed
+  // in a circle around the camera center, i.e., each of them has the same
+  // coverage.
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     CHECK_EQ(point3D.track.Length(),
              synthetic_dataset_options.num_cameras_per_rig);
@@ -146,7 +149,7 @@ TEST(FindRedundantPoints3D, VaryingSpatialDistribution) {
   // Now change point 2 to have redundant coverage with point 1 and point 4 to
   // have unique coverage.
   get_point2D(2, 0).xy *= 2;
-  get_point2D(4, 1).xy *= 2;
+  get_point2D(4, 2).xy *= 2;
   EXPECT_THAT(FindRedundantPoints3D(/*min_coverage_gain=*/0.6, reconstruction),
               testing::UnorderedElementsAre(1, 2));
 }
