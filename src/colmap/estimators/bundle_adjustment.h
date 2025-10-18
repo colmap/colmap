@@ -165,6 +165,18 @@ struct BundleAdjustmentOptions {
   int max_num_images_direct_dense_gpu_solver = 200;
   int max_num_images_direct_sparse_gpu_solver = 4000;
 
+  // Whether to ignore redundant 3D points in bundle adjustment when jointly
+  // optimizing all parameters. If this is enabled, then the bundle adjustment
+  // problem is first solved with a reduced set of 3D points and then the
+  // remaining 3D points are optimized in a second step with all other
+  // parameters fixed. Points excplicitly configured as constant or variable are
+  // not ignored.
+  bool ignore_redundant_points3D = false;
+
+  // The minimum coverage gain for any 3D point to be included in the
+  // optimization. A larger value means more 3D points are ignored.
+  double ignore_redundant_points3D_min_coverage_gain = 0.05;
+
   // Ceres-Solver options.
   ceres::Solver::Options solver_options;
 

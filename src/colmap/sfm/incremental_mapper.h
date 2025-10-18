@@ -62,6 +62,7 @@ namespace colmap {
 //
 class IncrementalMapper {
  public:
+  // NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding)
   struct Options {
     // Minimum number of inliers for initial image pair.
     int init_min_num_inliers = 100;

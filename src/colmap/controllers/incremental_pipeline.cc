@@ -162,6 +162,9 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
       BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
   options.use_gpu = ba_use_gpu;
   options.gpu_index = ba_gpu_index;
+  options.ignore_redundant_points3D = ba_global_ignore_redundant_points3D;
+  options.ignore_redundant_points3D_min_coverage_gain =
+      ba_global_ignore_redundant_points3D_min_coverage_gain;
   return options;
 }
 
@@ -184,6 +187,7 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GE(ba_local_max_refinement_change, 0);
   CHECK_OPTION_GT(ba_global_max_refinements, 0);
   CHECK_OPTION_GE(ba_global_max_refinement_change, 0);
+  CHECK_OPTION_GE(ba_global_ignore_redundant_points3D_min_coverage_gain, 0);
   CHECK_OPTION_GE(snapshot_frames_freq, 0);
   CHECK_OPTION_GT(prior_position_loss_scale, 0.);
   CHECK_OPTION_GE(num_threads, -1);

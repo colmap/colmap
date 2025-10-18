@@ -145,6 +145,21 @@ void BindIncrementalPipeline(py::module& m) {
           "ba_global_max_refinement_change",
           &Opts::ba_global_max_refinement_change,
           "The thresholds for iterative bundle adjustment refinements.")
+      .def_readwrite(
+          "ba_global_ignore_redundant_points3D",
+          &Opts::ba_global_ignore_redundant_points3D,
+          "Whether to ignore redundant 3D points in bundle adjustment when "
+          "jointly optimizing all parameters. If this is enabled, then the "
+          "bundle adjustment problem is first solved with a reduced set of 3D "
+          "points and then the remaining 3D points are optimized in a second "
+          "step with all other parameters fixed. Points excplicitly configured "
+          "as constant or variable are not ignored.")
+      .def_readwrite(
+          "ba_global_ignore_redundant_points3D_min_coverage_gain",
+          &Opts::ba_global_ignore_redundant_points3D_min_coverage_gain,
+          "The minimum coverage gain for any 3D point to be "
+          "included in the optimization. A larger value means "
+          "more 3D points are ignored.")
       .def_readwrite("ba_use_gpu",
                      &IncrementalPipelineOptions::ba_use_gpu,
                      "Whether to use Ceres' CUDA sparse linear algebra "

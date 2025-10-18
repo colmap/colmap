@@ -183,6 +183,20 @@ void BindBundleAdjuster(py::module& m) {
                          &BAOpts::max_num_images_direct_sparse_gpu_solver,
                          "Threshold to switch between direct, sparse, and "
                          "iterative solvers.")
+          .def_readwrite(
+              "ignore_redundant_points3D",
+              &BAOpts::ignore_redundant_points3D,
+              "Whether to ignore redundant 3D points in bundle adjustment when "
+              "jointly optimizing all parameters. If this is enabled, then the "
+              "bundle adjustment problem is first solved with a reduced set of "
+              "3D points and then the remaining 3D points are optimized in a "
+              "second step with all other parameters fixed. Points excplicitly "
+              "configured as constant or variable are not ignored.")
+          .def_readwrite("ignore_redundant_points3D_min_coverage_gain",
+                         &BAOpts::ignore_redundant_points3D_min_coverage_gain,
+                         "The minimum coverage gain for any 3D point to be "
+                         "included in the optimization. A larger value means "
+                         "more 3D points are ignored.")
           .def_readwrite("solver_options",
                          &BAOpts::solver_options,
                          "Options for the Ceres solver. Using this member "

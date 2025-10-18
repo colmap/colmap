@@ -34,6 +34,7 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/scene/projection.h"
+#include "colmap/scene/reconstruction_pruning.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/sfm/incremental_mapper_impl.h"
 #include "colmap/util/misc.h"
@@ -831,7 +832,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
     // as initial experiments show that it is even faster.
     ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
     bundle_adjuster = CreateDefaultBundleAdjuster(
-        std::move(custom_ba_options), ba_config, *reconstruction_);
+        custom_ba_options, ba_config, *reconstruction_);
   } else {
     PosePriorBundleAdjustmentOptions prior_options;
     prior_options.use_robust_loss_on_prior_position =
@@ -839,7 +840,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
     prior_options.prior_position_loss_scale = options.prior_position_loss_scale;
     prior_options.alignment_ransac_options.random_seed = options.random_seed;
     bundle_adjuster =
-        CreatePosePriorBundleAdjuster(std::move(custom_ba_options),
+        CreatePosePriorBundleAdjuster(custom_ba_options,
                                       prior_options,
                                       ba_config,
                                       database_cache_->PosePriors(),

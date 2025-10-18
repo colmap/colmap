@@ -32,6 +32,7 @@
 #include "colmap/estimators/alignment.h"
 #include "colmap/estimators/cost_functions.h"
 #include "colmap/estimators/manifold.h"
+#include "colmap/scene/reconstruction_pruning.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
@@ -83,7 +84,8 @@ size_t BundleAdjustmentConfig::NumResiduals(
   // Count the number of observations for all added images.
   size_t num_observations = 0;
   for (const image_t image_id : image_ids_) {
-    num_observations += reconstruction.Image(image_id).NumPoints3D();
+    const auto& image = reconstruction.Image(image_id);
+    num_observations += image.NumPoints3D();
   }
 
   // Count the number of observations for all added 3D points that are not
@@ -94,7 +96,7 @@ size_t BundleAdjustmentConfig::NumResiduals(
     size_t num_observations_for_point = 0;
     const auto& point3D = reconstruction.Point3D(point3D_id);
     for (const auto& track_el : point3D.track.Elements()) {
-      if (image_ids_.count(track_el.image_id) == 0) {
+      if (image_ids_.find(track_el.image_id) == image_ids_.end()) {
         ++num_observations_for_point;
       }
     }
@@ -107,6 +109,8 @@ size_t BundleAdjustmentConfig::NumResiduals(
   for (const auto point3D_id : constant_point3D_ids_) {
     num_observations += NumObservationsForPoint(point3D_id);
   }
+
+  CHECK_GE(num_observations, 0);
 
   return 2 * num_observations;
 }
@@ -216,12 +220,12 @@ bool BundleAdjustmentConfig::HasPoint(const point3D_t point3D_id) const {
 
 bool BundleAdjustmentConfig::HasVariablePoint(
     const point3D_t point3D_id) const {
-  return variable_point3D_ids_.find(point3D_id) != variable_point3D_ids_.end();
+  return variable_point3D_ids_.count(point3D_id);
 }
 
 bool BundleAdjustmentConfig::HasConstantPoint(
     const point3D_t point3D_id) const {
-  return constant_point3D_ids_.find(point3D_id) != constant_point3D_ids_.end();
+  return constant_point3D_ids_.count(point3D_id);
 }
 
 void BundleAdjustmentConfig::RemoveVariablePoint(const point3D_t point3D_id) {
@@ -678,11 +682,29 @@ class DefaultBundleAdjuster : public BundleAdjuster {
                         BundleAdjustmentConfig config,
                         Reconstruction& reconstruction)
       : BundleAdjuster(std::move(options), std::move(config)),
+        reconstruction_(reconstruction),
         loss_function_(std::unique_ptr<ceres::LossFunction>(
             options_.CreateLossFunction())) {
     ceres::Problem::Options problem_options;
     problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
     problem_ = std::make_shared<ceres::Problem>(problem_options);
+
+    if (options.ignore_redundant_points3D) {
+      const std::vector<point3D_t> redundant_point3D_ids =
+          FindRedundantPoints3D(
+              /*min_coverage_gain=*/options
+                  .ignore_redundant_points3D_min_coverage_gain,
+              reconstruction);
+      ignored_redundant_point3D_ids_.reserve(redundant_point3D_ids.size());
+      for (const point3D_t point3D_id : redundant_point3D_ids) {
+        if (!config_.HasVariablePoint(point3D_id) &&
+            !config_.HasConstantPoint(point3D_id)) {
+          ignored_redundant_point3D_ids_.insert(point3D_id);
+        }
+      }
+      LOG(INFO) << "Ignoring " << ignored_redundant_point3D_ids_.size() << " / "
+                << reconstruction.NumPoints3D() << " redundant 3D points";
+    }
 
     // Set up problem
     // Warning: AddPointsToProblem assumes that AddImageToProblem is called
@@ -742,6 +764,41 @@ class DefaultBundleAdjuster : public BundleAdjuster {
       PrintSolverSummary(summary, "Bundle adjustment report");
     }
 
+    if (summary.termination_type == ceres::FAILURE) {
+      return summary;
+    }
+
+    // Optimize the redundant 3D points with all other parameters fixed.
+    if (options_.ignore_redundant_points3D) {
+      LOG(INFO) << "Optimizing redundant 3D points";
+
+      auto ignored_points3D_ba_options = options_;
+      ignored_points3D_ba_options.ignore_redundant_points3D = false;
+      auto ignored_points3D_ba_solver = CreateDefaultBundleAdjuster(
+          ignored_points3D_ba_options, config_, reconstruction_);
+
+      BundleAdjustmentConfig ignored_points3D_ba_config;
+      for (const point3D_t point3D_id : ignored_redundant_point3D_ids_) {
+        ignored_points3D_ba_config.AddVariablePoint(point3D_id);
+      }
+      for (const frame_t frame_id : reconstruction_.RegFrameIds()) {
+        ignored_points3D_ba_config.SetConstantRigFromWorldPose(frame_id);
+      }
+      for (const auto& [camera_id, _] : reconstruction_.Cameras()) {
+        ignored_points3D_ba_config.SetConstantCamIntrinsics(camera_id);
+      }
+      for (const auto& [_, rig] : reconstruction_.Rigs()) {
+        for (const auto& [sensor_id, _] : rig.NonRefSensors()) {
+          ignored_points3D_ba_config.SetConstantSensorFromRigPose(sensor_id);
+        }
+      }
+
+      if (ignored_points3D_ba_solver->Solve().termination_type ==
+          ceres::FAILURE) {
+        LOG(WARNING) << "Failed to optimize redundant 3D points";
+      }
+    }
+
     return summary;
   }
 
@@ -771,7 +828,9 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     // Add residuals to bundle adjustment problem.
     size_t num_observations = 0;
     for (const Point2D& point2D : image.Points2D()) {
-      if (!point2D.HasPoint3D()) {
+      if (!point2D.HasPoint3D() ||
+          ignored_redundant_point3D_ids_.find(point2D.point3D_id) !=
+              ignored_redundant_point3D_ids_.end()) {
         continue;
       }
 
@@ -826,7 +885,9 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     // Add residuals to bundle adjustment problem.
     size_t num_observations = 0;
     for (const Point2D& point2D : image.Points2D()) {
-      if (!point2D.HasPoint3D()) {
+      if (!point2D.HasPoint3D() ||
+          ignored_redundant_point3D_ids_.find(point2D.point3D_id) !=
+              ignored_redundant_point3D_ids_.end()) {
         continue;
       }
 
@@ -876,6 +937,8 @@ class DefaultBundleAdjuster : public BundleAdjuster {
 
   void AddPointToProblem(const point3D_t point3D_id,
                          Reconstruction& reconstruction) {
+    THROW_CHECK(ignored_redundant_point3D_ids_.find(point3D_id) ==
+                ignored_redundant_point3D_ids_.end());
     Point3D& point3D = reconstruction.Point3D(point3D_id);
 
     size_t& num_observations = point3D_num_observations_[point3D_id];
@@ -930,12 +993,15 @@ class DefaultBundleAdjuster : public BundleAdjuster {
   }
 
  private:
+  Reconstruction& reconstruction_;
+
   std::shared_ptr<ceres::Problem> problem_;
   std::unique_ptr<ceres::LossFunction> loss_function_;
 
   std::set<camera_t> parameterized_camera_ids_;
   std::set<image_t> parameterized_image_ids_;
   std::unordered_map<point3D_t, size_t> point3D_num_observations_;
+  std::unordered_set<point3D_t> ignored_redundant_point3D_ids_;
 };
 
 class PosePriorBundleAdjuster : public BundleAdjuster {

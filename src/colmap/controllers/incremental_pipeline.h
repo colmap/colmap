@@ -123,6 +123,17 @@ struct IncrementalPipelineOptions {
   int ba_global_max_refinements = 5;
   double ba_global_max_refinement_change = 0.0005;
 
+  // Whether to prune redundant 3D points in global bundle adjustment.
+  bool ba_global_ignore_redundant_points3D = false;
+
+  // Whether to ignore redundant 3D points in bundle adjustment when jointly
+  // optimizing all parameters. If this is enabled, then the bundle adjustment
+  // problem is first solved with a reduced set of 3D points and then the
+  // remaining 3D points are optimized in a second step with all other
+  // parameters fixed. Points excplicitly configured as constant or variable are
+  // not ignored.
+  double ba_global_ignore_redundant_points3D_min_coverage_gain = 0.05;
+
   // Whether to use Ceres' CUDA sparse linear algebra library, if available.
   bool ba_use_gpu = false;
   std::string ba_gpu_index = "-1";
