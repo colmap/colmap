@@ -108,7 +108,8 @@ std::vector<point3D_t> FindRedundantPoints3D(
 
   const auto has_left_smaller_gain = [](const Point3DInfo& left,
                                         const Point3DInfo& right) {
-    return left.gain < right.gain;
+    return std::tie(left.gain, left.point3D_id) <
+           std::tie(right.gain, right.point3D_id);
   };
 
   std::vector<Point3DInfo> point3D_infos;
