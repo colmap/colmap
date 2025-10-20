@@ -777,7 +777,8 @@ bool IncrementalMapper::AdjustGlobalBundle(
   BundleAdjustmentOptions custom_ba_options = ba_options;
   // Use stricter convergence criteria for first registered images.
   constexpr size_t kMinNumRegFramesForFastBA = 10;
-  const bool use_fast_ba = reconstruction_->NumRegFrames() >= kMinNumRegFramesForFastBA;
+  const bool use_fast_ba =
+      reconstruction_->NumRegFrames() >= kMinNumRegFramesForFastBA;
   if (use_fast_ba) {
     custom_ba_options.solver_options.function_tolerance /= 10;
     custom_ba_options.solver_options.gradient_tolerance /= 10;
