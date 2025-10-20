@@ -776,8 +776,9 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   BundleAdjustmentOptions custom_ba_options = ba_options;
   // Use stricter convergence criteria for first registered images.
-  const size_t kMinNumRegFramesForFastBA = 10;
-  if (reconstruction_->NumRegFrames() < kMinNumRegFramesForFastBA) {
+  constexpr size_t kMinNumRegFramesForFastBA = 10;
+  const bool use_fast_ba = reconstruction_->NumRegFrames() >= kMinNumRegFramesForFastBA;
+  if (use_fast_ba) {
     custom_ba_options.solver_options.function_tolerance /= 10;
     custom_ba_options.solver_options.gradient_tolerance /= 10;
     custom_ba_options.solver_options.parameter_tolerance /= 10;
@@ -822,11 +823,11 @@ bool IncrementalMapper::AdjustGlobalBundle(
   }
 
   std::vector<point3D_t> redundant_point3D_ids;
-  if (options.ba_global_ignore_redundant_points3D) {
+  if (use_fast_ba && options.ba_global_ignore_redundant_points3D) {
     redundant_point3D_ids = FindRedundantPoints3D(
         options.ba_global_ignore_redundant_points3D_min_coverage_gain,
         *reconstruction_);
-    VLOG(2) << "Ignoring " << redundant_point3D_ids.size() << " / "
+    VLOG(1) << "=> Ignoring " << redundant_point3D_ids.size() << " / "
             << reconstruction_->NumPoints3D() << " redundant 3D points";
     for (const point3D_t point3D_id : redundant_point3D_ids) {
       ba_config.IgnorePoint(point3D_id);
@@ -861,7 +862,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   }
 
   // Optimize the redundant 3D points with all other parameters fixed.
-  if (options.ba_global_ignore_redundant_points3D) {
+  if (use_fast_ba && options.ba_global_ignore_redundant_points3D) {
     if (bundle_adjuster->Solve().termination_type == ceres::FAILURE) {
       return false;
     }
