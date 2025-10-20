@@ -826,8 +826,8 @@ bool IncrementalMapper::AdjustGlobalBundle(
     redundant_point3D_ids = FindRedundantPoints3D(
         options.ba_global_ignore_redundant_points3D_min_coverage_gain,
         *reconstruction_);
-    LOG(INFO) << "Ignoring " << redundant_point3D_ids.size() << " / "
-              << reconstruction_->NumPoints3D() << " redundant 3D points";
+    VLOG(2) << "Ignoring " << redundant_point3D_ids.size() << " / "
+            << reconstruction_->NumPoints3D() << " redundant 3D points";
     for (const point3D_t point3D_id : redundant_point3D_ids) {
       ba_config.IgnorePoint(point3D_id);
     }
