@@ -1049,44 +1049,44 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
   bool AlignReconstruction() {
     RANSACOptions ransac_options = prior_options_.alignment_ransac_options;
     if (ransac_options.max_error <= 0) {
-      double sum_rms_stddev = 0.0;
-      size_t num_valid_covs = 0;
+      std::vector<double> rms_vars;
+      rms_vars.reserve(pose_priors_.size());
       for (const auto& [_, pose_prior] : pose_priors_) {
-        if (pose_prior.IsCovarianceValid()) {
-          const double trace = pose_prior.position_covariance.trace();
-          if (trace > 0.0) {
-            const double rms_stddev = std::sqrt(trace / 3.0);
-            sum_rms_stddev += rms_stddev;
-            ++num_valid_covs;
-          }
+        if (!pose_prior.IsCovarianceValid()) {
+          continue;
         }
+
+        const double trace = pose_prior.position_covariance.trace();
+        if (trace <= 0.0) {
+          continue;
+        }
+        rms_vars.push_back(trace / 3.0);
       }
-      if (num_valid_covs == 0) {
+
+      if (rms_vars.empty()) {
         LOG(WARNING) << "No pose priors with valid covariance found.";
         return false;
       }
-      // Set max error using the mean RMS stddev of valid pose priors. Scaled by
-      // sqrt(chi-square 95% quantile, 3 DOF) to approximate a 95% confidence
-      // radius.
-      const double mean_rms_stddev = sum_rms_stddev / num_valid_covs;
+
+      // Set max error using the median RMS variance of valid pose priors.
+      // Scaled by sqrt(chi-square 95% quantile, 3 DOF) to approximate a 95%
+      // confidence radius.
       ransac_options.max_error =
-          std::sqrt(kChiSquare95ThreeDof) * mean_rms_stddev;
+          std::sqrt(kChiSquare95ThreeDof * Median(rms_vars));
     }
 
     VLOG(2) << "Robustly aligning reconstruction with max_error="
             << ransac_options.max_error;
 
     Sim3d metric_from_orig;
-    const bool success = AlignReconstructionToPosePriors(
-        reconstruction_, pose_priors_, ransac_options, &metric_from_orig);
-
-    if (success) {
-      reconstruction_.Transform(metric_from_orig);
-    } else {
+    if (!AlignReconstructionToPosePriors(
+            reconstruction_, pose_priors_, ransac_options, &metric_from_orig)) {
       LOG(WARNING) << "Alignment w.r.t. prior positions failed";
+      return false;
     }
+    reconstruction_.Transform(metric_from_orig);
 
-    if (VLOG_IS_ON(2) && success) {
+    if (VLOG_IS_ON(2)) {
       std::vector<double> verr2_wrt_prior;
       verr2_wrt_prior.reserve(reconstruction_.NumRegImages());
       for (const image_t image_id : reconstruction_.RegImageIds()) {
@@ -1105,7 +1105,7 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
               << "  - median: " << std::sqrt(Median(verr2_wrt_prior)) << '\n';
     }
 
-    return success;
+    return true;
   }
 
  private:
