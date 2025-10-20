@@ -9,6 +9,7 @@
 #include <regex>
 #include <sstream>
 #include <string>
+#include <type_traits>
 
 #include <Eigen/Core>
 #include <glog/logging.h>
@@ -292,6 +293,31 @@ void AddDefaultsToDocstrings(py::classh<T, options...> cls) {
   }
 }
 
+template <typename T, typename = void>
+struct has_equality_operator : std::false_type {};
+
+template <typename T>
+struct has_equality_operator<
+    T,
+    std::void_t<decltype(std::declval<T&>() == std::declval<T&>())>>
+    : std::true_type {};
+
+template <typename T, typename = void>
+struct has_less_than_operator : std::false_type {};
+
+template <typename T>
+struct has_less_than_operator<
+    T,
+    std::void_t<decltype(std::declval<T&>() < std::declval<T&>())>>
+    : std::true_type {};
+
+template <typename T, typename = void>
+struct is_hashable : std::false_type {};
+
+template <typename T>
+struct is_hashable<T, std::void_t<decltype(std::hash<T>{}(std::declval<T>()))>>
+    : std::true_type {};
+
 template <typename T, typename... options>
 void MakeDataclass(py::classh<T, options...> cls,
                    const std::vector<std::string>& attributes = {}) {
@@ -335,6 +361,29 @@ void MakeDataclass(py::classh<T, options...> cls,
         self.attr("mergedict").attr("__call__")(dict);
         return self.cast<T>();
       }));
+
+  if constexpr (has_equality_operator<T>::value) {
+    cls.def(py::self == py::self);
+    if constexpr (is_hashable<T>::value) {
+      cls.def("__hash__", [](const T& self) { return std::hash<T>()(self); });
+    } else {
+      cls.attr("__hash__") = py::none();
+    }
+  } else {
+    cls.def("__eq__", [attributes](const T& self, const py::object& other) {
+      if (!py::isinstance<T>(other)) {
+        return false;
+      }
+      py::dict self_dict = ConvertToDict(self, attributes, true);
+      py::dict other_dict = ConvertToDict(other.cast<T>(), attributes, true);
+      return self_dict.equal(other_dict);
+    });
+    cls.attr("__hash__") = py::none();
+  }
+
+  if constexpr (has_less_than_operator<T>::value) {
+    cls.def(py::self < py::self);
+  }
 }
 
 // Catch python keyboard interrupts
