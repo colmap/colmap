@@ -320,14 +320,20 @@ void BindIncrementalMapperOptions(py::module& m) {
                      "Minimum triangulation for images to be chosen in local "
                      "bundle adjustment.")
       .def_readwrite(
-          "ba_global_prune_points",
-          &Opts::ba_global_prune_points,
-          "Whether to prune redundant 3D points in global bundle adjustment.")
+          "ba_global_ignore_redundant_points3D",
+          &Opts::ba_global_ignore_redundant_points3D,
+          "Whether to ignore redundant 3D points in bundle adjustment when "
+          "jointly optimizing all parameters. If this is enabled, then the "
+          "bundle adjustment problem is first solved with a reduced set of 3D "
+          "points and then the remaining 3D points are optimized in a second "
+          "step with all other parameters fixed. Points excplicitly configured "
+          "as constant or variable are not ignored.")
       .def_readwrite(
           "ba_global_prune_points_min_coverage_gain",
-          &Opts::ba_global_prune_points_min_coverage_gain,
-          "The minimum coverage gain for any 3D point to be included in global "
-          "bundle adjustment. A larger value means more 3D points are pruned.")
+          &Opts::ba_global_ignore_redundant_points3D_min_coverage_gain,
+          "The minimum coverage gain for any 3D point to be "
+          "included in the optimization. A larger value means "
+          "more 3D points are ignored.")
       .def_readwrite("min_focal_length_ratio",
                      &Opts::min_focal_length_ratio,
                      "The threshold used to filter and ignore images with "

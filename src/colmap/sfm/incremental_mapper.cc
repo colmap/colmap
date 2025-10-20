@@ -57,7 +57,7 @@ bool IncrementalMapper::Options::Check() const {
   CHECK_OPTION_LE(abs_pose_min_inlier_ratio, 1.0);
   CHECK_OPTION_GE(ba_local_num_images, 2);
   CHECK_OPTION_GE(ba_local_min_tri_angle, 0.0);
-  CHECK_OPTION_GE(ba_global_prune_points_min_coverage_gain, 0.0);
+  CHECK_OPTION_GE(ba_global_ignore_redundant_points3D_min_coverage_gain, 0.0);
   CHECK_OPTION_GE(min_focal_length_ratio, 0.0);
   CHECK_OPTION_GE(max_focal_length_ratio, min_focal_length_ratio);
   CHECK_OPTION_GE(max_extra_param, 0.0);
@@ -822,9 +822,10 @@ bool IncrementalMapper::AdjustGlobalBundle(
   }
 
   std::vector<point3D_t> redundant_point3D_ids;
-  if (options.ba_global_prune_points) {
+  if (options.ba_global_ignore_redundant_points3D) {
     redundant_point3D_ids = FindRedundantPoints3D(
-        options.ba_global_prune_points_min_coverage_gain, *reconstruction_);
+        options.ba_global_ignore_redundant_points3D_min_coverage_gain,
+        *reconstruction_);
     LOG(INFO) << "Ignoring " << redundant_point3D_ids.size() << " / "
               << reconstruction_->NumPoints3D() << " redundant 3D points";
     for (const point3D_t point3D_id : redundant_point3D_ids) {
@@ -860,7 +861,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   }
 
   // Optimize the redundant 3D points with all other parameters fixed.
-  if (options.ba_global_prune_points) {
+  if (options.ba_global_ignore_redundant_points3D) {
     if (bundle_adjuster->Solve().termination_type == ceres::FAILURE) {
       return false;
     }

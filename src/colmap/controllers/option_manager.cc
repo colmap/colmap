@@ -643,11 +643,12 @@ void OptionManager::AddMapperOptions() {
                               &mapper->mapper.ba_local_num_images);
   AddAndRegisterDefaultOption("Mapper.ba_local_min_tri_angle",
                               &mapper->mapper.ba_local_min_tri_angle);
-  AddAndRegisterDefaultOption("Mapper.ba_global_prune_points",
-                              &mapper->mapper.ba_global_prune_points);
   AddAndRegisterDefaultOption(
-      "Mapper.ba_global_prune_points_min_coverage_gain",
-      &mapper->mapper.ba_global_prune_points_min_coverage_gain);
+      "Mapper.ba_global_ignore_redundant_points3D",
+      &mapper->mapper.ba_global_ignore_redundant_points3D);
+  AddAndRegisterDefaultOption(
+      "Mapper.ba_global_ignore_redundant_points3D_min_coverage_gain",
+      &mapper->mapper.ba_global_ignore_redundant_points3D_min_coverage_gain);
 
   AddDefaultOption("Mapper.image_list_path", &mapper_image_list_path_);
   AddDefaultOption("Mapper.constant_rig_list_path",
