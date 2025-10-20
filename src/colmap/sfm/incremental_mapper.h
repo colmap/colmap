@@ -101,15 +101,17 @@ class IncrementalMapper {
     // Minimum triangulation for images to be chosen in local bundle adjustment.
     double ba_local_min_tri_angle = 6;
 
-    // Whether to ignore redundant 3D points in global bundle adjustment.
+    // Whether to ignore redundant 3D points in bundle adjustment when
+    // jointly optimizing all parameters. If this is enabled, then the bundle
+    // adjustment problem is first solved with a reduced set of 3D points and
+    // then the remaining 3D points are optimized in a second step with all
+    // other parameters fixed. Points excplicitly configured as constant or
+    // variable are not ignored. This is only activated when the reconstruction
+    // has reached sufficient size with at least 10 registered frames.
     bool ba_global_ignore_redundant_points3D = false;
 
-    // Whether to ignore redundant 3D points in bundle adjustment when jointly
-    // optimizing all parameters. If this is enabled, then the bundle adjustment
-    // problem is first solved with a reduced set of 3D points and then the
-    // remaining 3D points are optimized in a second step with all other
-    // parameters fixed. Points excplicitly configured as constant or variable
-    // are not ignored.
+    // The minimum coverage gain for any 3D point to be included in global
+    // bundle adjustment. A larger value means more 3D points are pruned.
     double ba_global_ignore_redundant_points3D_min_coverage_gain = 0.05;
 
     // Thresholds for bogus camera parameters. Images with bogus camera

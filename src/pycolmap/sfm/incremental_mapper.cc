@@ -327,7 +327,9 @@ void BindIncrementalMapperOptions(py::module& m) {
           "bundle adjustment problem is first solved with a reduced set of 3D "
           "points and then the remaining 3D points are optimized in a second "
           "step with all other parameters fixed. Points excplicitly configured "
-          "as constant or variable are not ignored.")
+          "as constant or variable are not ignored. This is only activated "
+          "when the reconstruction has reached sufficient size with at least "
+          "10 registered frames.")
       .def_readwrite(
           "ba_global_prune_points_min_coverage_gain",
           &Opts::ba_global_ignore_redundant_points3D_min_coverage_gain,
