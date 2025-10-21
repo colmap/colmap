@@ -333,6 +333,39 @@ TEST(IncrementalPipeline, WithNoise) {
                             /*num_obs_tolerance=*/0.02);
 }
 
+TEST(IncrementalPipeline, IgnoreRedundantPoints3D) {
+  const std::string database_path = CreateTestDir() + "/database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.point2D_stddev = 0;
+  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  options->mapper.ba_global_ignore_redundant_points3D = true;
+  options->mapper.ba_global_ignore_redundant_points3D_min_coverage_gain = 0.5;
+  IncrementalPipeline mapper(options,
+                             /*image_path=*/"",
+                             database_path,
+                             reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  ExpectReconstructionsNear(gt_reconstruction,
+                            *reconstruction_manager->Get(0),
+                            /*max_rotation_error_deg=*/1e-2,
+                            /*max_proj_center_error=*/1e-4,
+                            /*num_obs_tolerance=*/0);
+}
+
 TEST(IncrementalPipeline, MultiReconstruction) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
