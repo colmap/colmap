@@ -200,7 +200,7 @@ struct PosePriorBundleAdjustmentOptions {
   bool use_robust_loss_on_prior_position = false;
 
   // Threshold on the residual for the robust loss.
-  double prior_position_loss_scale = kChiSquare95ThreeDof;
+  double prior_position_loss_scale = std::sqrt(kChiSquare95ThreeDof);
 
   // Sim3 alignment options.
   RANSACOptions alignment_ransac_options;
