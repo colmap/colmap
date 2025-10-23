@@ -37,8 +37,10 @@ namespace colmap {
 namespace {
 
 TEST(CenterAndNormalizeImagePoints, Nominal) {
+  constexpr size_t kNumPoints = 11;
   std::vector<Eigen::Vector2d> points;
-  for (size_t i = 0; i < 11; ++i) {
+  points.reserve(kNumPoints);
+  for (size_t i = 0; i < kNumPoints; ++i) {
     points.emplace_back(i, i);
   }
 

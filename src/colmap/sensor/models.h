@@ -129,11 +129,13 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
   static inline std::vector<double> InitializeParams(                         \
       double focal_length, size_t width, size_t height);                      \
   template <typename T>                                                       \
-  static bool ImgFromCam(const T* params, T u, T v, T w, T* x, T* y);         \
+  static bool ImgFromCam(                                                     \
+      const T* params, const T& u, const T& v, const T& w, T* x, T* y);       \
   static inline bool CamFromImg(                                              \
       const double* params, double x, double y, double* u, double* v);        \
   template <typename T>                                                       \
-  static void Distortion(const T* extra_params, T u, T v, T* du, T* dv);
+  static void Distortion(                                                     \
+      const T* extra_params, const T& u, const T& v, T* du, T* dv);
 #endif
 
 #ifndef CAMERA_MODEL_CASES
@@ -174,10 +176,11 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
 #endif
 
 #ifndef FISHEYE_CAMERA_MODEL_DEFINITIONS
-#define FISHEYE_CAMERA_MODEL_DEFINITIONS                               \
-  template <typename T>                                                \
-  static void ImgFromFisheye(const T* params, T uu, T vv, T* x, T* y); \
-  template <typename T>                                                \
+#define FISHEYE_CAMERA_MODEL_DEFINITIONS                      \
+  template <typename T>                                       \
+  static void ImgFromFisheye(                                 \
+      const T* params, const T& uu, const T& vv, T* x, T* y); \
+  template <typename T>                                       \
   static void FisheyeFromImg(const T* params, T x, T y, T* uu, T* vv);
 #endif
 
@@ -216,13 +219,17 @@ struct BaseCameraModel {
   static inline bool IterativeUndistortion(const double* params,
                                            double* u,
                                            double* v);
+
+ private:
+  BaseCameraModel() = default;
+  friend CameraModel;
 };
 
 // Base model for Fisheye camera models
 template <typename CameraModel>
 struct BaseFisheyeCameraModel : public BaseCameraModel<CameraModel> {
   template <typename T>
-  static inline void FisheyeFromNormal(const T u, const T v, T* uu, T* vv) {
+  static inline void FisheyeFromNormal(const T& u, const T& v, T* uu, T* vv) {
     *uu = u;
     *vv = v;
     const T r = ceres::sqrt(u * u + v * v);
@@ -245,6 +252,10 @@ struct BaseFisheyeCameraModel : public BaseCameraModel<CameraModel> {
       *v *= scale;
     }
   }
+
+ private:
+  BaseFisheyeCameraModel() = default;
+  friend CameraModel;
 };
 
 // Simple Pinhole camera model.
@@ -737,7 +748,7 @@ std::vector<double> SimplePinholeCameraModel::InitializeParams(
 
 template <typename T>
 bool SimplePinholeCameraModel::ImgFromCam(
-    const T* params, T u, T v, T w, T* x, T* y) {
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
   if (w < std::numeric_limits<T>::epsilon()) {
     return false;
   }
@@ -793,7 +804,7 @@ std::vector<double> PinholeCameraModel::InitializeParams(
 
 template <typename T>
 bool PinholeCameraModel::ImgFromCam(
-    const T* params, T u, T v, T w, T* x, T* y) {
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
   if (w < std::numeric_limits<T>::epsilon()) {
     return false;
   }
@@ -851,7 +862,7 @@ std::vector<double> SimpleRadialCameraModel::InitializeParams(
 
 template <typename T>
 bool SimpleRadialCameraModel::ImgFromCam(
-    const T* params, T u, T v, T w, T* x, T* y) {
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
   if (w < std::numeric_limits<T>::epsilon()) {
     return false;
   }
@@ -860,14 +871,14 @@ bool SimpleRadialCameraModel::ImgFromCam(
   const T c1 = params[1];
   const T c2 = params[2];
 
-  u /= w;
-  v /= w;
+  const T uu = u / w;
+  const T vv = v / w;
 
   // Distortion
   T du, dv;
-  Distortion(&params[3], u, v, &du, &dv);
-  *x = u + du;
-  *y = v + dv;
+  Distortion(&params[3], uu, vv, &du, &dv);
+  *x = uu + du;
+  *y = vv + dv;
 
   // Transform to image coordinates
   *x = f * *x + c1;
@@ -891,7 +902,7 @@ bool SimpleRadialCameraModel::CamFromImg(
 
 template <typename T>
 void SimpleRadialCameraModel::Distortion(
-    const T* extra_params, const T u, const T v, T* du, T* dv) {
+    const T* extra_params, const T& u, const T& v, T* du, T* dv) {
   const T k = extra_params[0];
 
   const T u2 = u * u;
@@ -927,7 +938,8 @@ std::vector<double> RadialCameraModel::InitializeParams(
 }
 
 template <typename T>
-bool RadialCameraModel::ImgFromCam(const T* params, T u, T v, T w, T* x, T* y) {
+bool RadialCameraModel::ImgFromCam(
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
   if (w < std::numeric_limits<T>::epsilon()) {
     return false;
   }
@@ -936,14 +948,14 @@ bool RadialCameraModel::ImgFromCam(const T* params, T u, T v, T w, T* x, T* y) {
   const T c1 = params[1];
   const T c2 = params[2];
 
-  u /= w;
-  v /= w;
+  const T uu = u / w;
+  const T vv = v / w;
 
   // Distortion
   T du, dv;
-  Distortion(&params[3], u, v, &du, &dv);
-  *x = u + du;
-  *y = v + dv;
+  Distortion(&params[3], uu, vv, &du, &dv);
+  *x = uu + du;
+  *y = vv + dv;
 
   // Transform to image coordinates
   *x = f * *x + c1;
@@ -967,7 +979,7 @@ bool RadialCameraModel::CamFromImg(
 
 template <typename T>
 void RadialCameraModel::Distortion(
-    const T* extra_params, const T u, const T v, T* du, T* dv) {
+    const T* extra_params, const T& u, const T& v, T* du, T* dv) {
   const T k1 = extra_params[0];
   const T k2 = extra_params[1];
 
@@ -1004,7 +1016,8 @@ std::vector<double> OpenCVCameraModel::InitializeParams(
 }
 
 template <typename T>
-bool OpenCVCameraModel::ImgFromCam(const T* params, T u, T v, T w, T* x, T* y) {
+bool OpenCVCameraModel::ImgFromCam(
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
   if (w < std::numeric_limits<T>::epsilon()) {
     return false;
   }
@@ -1014,14 +1027,14 @@ bool OpenCVCameraModel::ImgFromCam(const T* params, T u, T v, T w, T* x, T* y) {
   const T c1 = params[2];
   const T c2 = params[3];
 
-  u /= w;
-  v /= w;
+  const T uu = u / w;
+  const T vv = v / w;
 
   // Distortion
   T du, dv;
-  Distortion(&params[4], u, v, &du, &dv);
-  *x = u + du;
-  *y = v + dv;
+  Distortion(&params[4], uu, vv, &du, &dv);
+  *x = uu + du;
+  *y = vv + dv;
 
   // Transform to image coordinates
   *x = f1 * *x + c1;
@@ -1046,7 +1059,7 @@ bool OpenCVCameraModel::CamFromImg(
 
 template <typename T>
 void OpenCVCameraModel::Distortion(
-    const T* extra_params, const T u, const T v, T* du, T* dv) {
+    const T* extra_params, const T& u, const T& v, T* du, T* dv) {
   const T k1 = extra_params[0];
   const T k2 = extra_params[1];
   const T p1 = extra_params[2];
@@ -1087,7 +1100,7 @@ std::vector<double> OpenCVFisheyeCameraModel::InitializeParams(
 
 template <typename T>
 void OpenCVFisheyeCameraModel::ImgFromFisheye(
-    const T* params, T uu, T vv, T* x, T* y) {
+    const T* params, const T& uu, const T& vv, T* x, T* y) {
   const T f1 = params[0];
   const T f2 = params[1];
   const T c1 = params[2];
@@ -1111,15 +1124,13 @@ void OpenCVFisheyeCameraModel::FisheyeFromImg(
 
 template <typename T>
 bool OpenCVFisheyeCameraModel::ImgFromCam(
-    const T* params, T u, T v, T w, T* x, T* y) {
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
   if (w < std::numeric_limits<T>::epsilon()) {
     return false;
   }
 
-  u /= w;
-  v /= w;
   T uu, vv;
-  FisheyeFromNormal(u, v, &uu, &vv);
+  FisheyeFromNormal(u / w, v / w, &uu, &vv);
 
   // Distortion
   T duu, dvv;
@@ -1144,7 +1155,7 @@ bool OpenCVFisheyeCameraModel::CamFromImg(
 
 template <typename T>
 void OpenCVFisheyeCameraModel::Distortion(
-    const T* extra_params, const T u, const T v, T* du, T* dv) {
+    const T* extra_params, const T& u, const T& v, T* du, T* dv) {
   const T k1 = extra_params[0];
   const T k2 = extra_params[1];
   const T k3 = extra_params[2];
@@ -1196,7 +1207,7 @@ std::vector<double> FullOpenCVCameraModel::InitializeParams(
 
 template <typename T>
 bool FullOpenCVCameraModel::ImgFromCam(
-    const T* params, T u, T v, T w, T* x, T* y) {
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
   if (w < std::numeric_limits<T>::epsilon()) {
     return false;
   }
@@ -1206,14 +1217,14 @@ bool FullOpenCVCameraModel::ImgFromCam(
   const T c1 = params[2];
   const T c2 = params[3];
 
-  u /= w;
-  v /= w;
+  const T uu = u / w;
+  const T vv = v / w;
 
   // Distortion
   T du, dv;
-  Distortion(&params[4], u, v, &du, &dv);
-  *x = u + du;
-  *y = v + dv;
+  Distortion(&params[4], uu, vv, &du, &dv);
+  *x = uu + du;
+  *y = vv + dv;
 
   // Transform to image coordinates
   *x = f1 * *x + c1;
@@ -1238,7 +1249,7 @@ bool FullOpenCVCameraModel::CamFromImg(
 
 template <typename T>
 void FullOpenCVCameraModel::Distortion(
-    const T* extra_params, const T u, const T v, T* du, T* dv) {
+    const T* extra_params, const T& u, const T& v, T* du, T* dv) {
   const T k1 = extra_params[0];
   const T k2 = extra_params[1];
   const T p1 = extra_params[2];
@@ -1286,7 +1297,8 @@ std::vector<double> FOVCameraModel::InitializeParams(const double focal_length,
 }
 
 template <typename T>
-bool FOVCameraModel::ImgFromCam(const T* params, T u, T v, T w, T* x, T* y) {
+bool FOVCameraModel::ImgFromCam(
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
   if (w < std::numeric_limits<T>::epsilon()) {
     return false;
   }
@@ -1296,11 +1308,8 @@ bool FOVCameraModel::ImgFromCam(const T* params, T u, T v, T w, T* x, T* y) {
   const T c1 = params[2];
   const T c2 = params[3];
 
-  u /= w;
-  v /= w;
-
   // Distortion
-  Distortion(&params[4], u, v, x, y);
+  Distortion(&params[4], u / w, v / w, x, y);
 
   // Transform to image coordinates
   *x = f1 * *x + c1;
@@ -1328,7 +1337,7 @@ bool FOVCameraModel::CamFromImg(
 
 template <typename T>
 void FOVCameraModel::Distortion(
-    const T* extra_params, const T u, const T v, T* du, T* dv) {
+    const T* extra_params, const T& u, const T& v, T* du, T* dv) {
   const T omega = extra_params[0];
 
   // Chosen arbitrarily.
@@ -1431,7 +1440,7 @@ std::vector<double> SimpleRadialFisheyeCameraModel::InitializeParams(
 
 template <typename T>
 void SimpleRadialFisheyeCameraModel::ImgFromFisheye(
-    const T* params, T uu, T vv, T* x, T* y) {
+    const T* params, const T& uu, const T& vv, T* x, T* y) {
   const T f = params[0];
   const T c1 = params[1];
   const T c2 = params[2];
@@ -1453,15 +1462,13 @@ void SimpleRadialFisheyeCameraModel::FisheyeFromImg(
 
 template <typename T>
 bool SimpleRadialFisheyeCameraModel::ImgFromCam(
-    const T* params, T u, T v, T w, T* x, T* y) {
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
   if (w < std::numeric_limits<T>::epsilon()) {
     return false;
   }
 
-  u /= w;
-  v /= w;
   T uu, vv;
-  FisheyeFromNormal(u, v, &uu, &vv);
+  FisheyeFromNormal(u / w, v / w, &uu, &vv);
 
   // Distortion
   T duu, dvv;
@@ -1486,7 +1493,7 @@ bool SimpleRadialFisheyeCameraModel::CamFromImg(
 
 template <typename T>
 void SimpleRadialFisheyeCameraModel::Distortion(
-    const T* extra_params, const T u, const T v, T* du, T* dv) {
+    const T* extra_params, const T& u, const T& v, T* du, T* dv) {
   const T k = extra_params[0];
 
   const T theta2 = u * u + v * v;
@@ -1521,7 +1528,7 @@ std::vector<double> RadialFisheyeCameraModel::InitializeParams(
 
 template <typename T>
 void RadialFisheyeCameraModel::ImgFromFisheye(
-    const T* params, T uu, T vv, T* x, T* y) {
+    const T* params, const T& uu, const T& vv, T* x, T* y) {
   const T f = params[0];
   const T c1 = params[1];
   const T c2 = params[2];
@@ -1543,15 +1550,13 @@ void RadialFisheyeCameraModel::FisheyeFromImg(
 
 template <typename T>
 bool RadialFisheyeCameraModel::ImgFromCam(
-    const T* params, T u, T v, T w, T* x, T* y) {
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
   if (w < std::numeric_limits<T>::epsilon()) {
     return false;
   }
 
-  u /= w;
-  v /= w;
   T uu, vv;
-  FisheyeFromNormal(u, v, &uu, &vv);
+  FisheyeFromNormal(u / w, v / w, &uu, &vv);
 
   // Distortion
   T duu, dvv;
@@ -1576,7 +1581,7 @@ bool RadialFisheyeCameraModel::CamFromImg(
 
 template <typename T>
 void RadialFisheyeCameraModel::Distortion(
-    const T* extra_params, const T u, const T v, T* du, T* dv) {
+    const T* extra_params, const T& u, const T& v, T* du, T* dv) {
   const T k1 = extra_params[0];
   const T k2 = extra_params[1];
 
@@ -1625,7 +1630,7 @@ std::vector<double> ThinPrismFisheyeCameraModel::InitializeParams(
 
 template <typename T>
 void ThinPrismFisheyeCameraModel::ImgFromFisheye(
-    const T* params, T uu, T vv, T* x, T* y) {
+    const T* params, const T& uu, const T& vv, T* x, T* y) {
   const T f1 = params[0];
   const T f2 = params[1];
   const T c1 = params[2];
@@ -1649,15 +1654,13 @@ void ThinPrismFisheyeCameraModel::FisheyeFromImg(
 
 template <typename T>
 bool ThinPrismFisheyeCameraModel::ImgFromCam(
-    const T* params, T u, T v, T w, T* x, T* y) {
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
   if (w < std::numeric_limits<T>::epsilon()) {
     return false;
   }
 
-  u /= w;
-  v /= w;
   T uu, vv;
-  FisheyeFromNormal(u, v, &uu, &vv);
+  FisheyeFromNormal(u / w, v / w, &uu, &vv);
 
   // Distortion
   T duu, dvv;
@@ -1682,7 +1685,7 @@ bool ThinPrismFisheyeCameraModel::CamFromImg(
 
 template <typename T>
 void ThinPrismFisheyeCameraModel::Distortion(
-    const T* extra_params, const T u, const T v, T* du, T* dv) {
+    const T* extra_params, const T& u, const T& v, T* du, T* dv) {
   const T k1 = extra_params[0];
   const T k2 = extra_params[1];
   const T p1 = extra_params[2];
@@ -1742,7 +1745,7 @@ std::vector<double> RadTanThinPrismFisheyeModel::InitializeParams(
 
 template <typename T>
 void RadTanThinPrismFisheyeModel::ImgFromFisheye(
-    const T* params, T uu, T vv, T* x, T* y) {
+    const T* params, const T& uu, const T& vv, T* x, T* y) {
   const T f1 = params[0];
   const T f2 = params[1];
   const T c1 = params[2];
@@ -1766,15 +1769,13 @@ void RadTanThinPrismFisheyeModel::FisheyeFromImg(
 
 template <typename T>
 bool RadTanThinPrismFisheyeModel::ImgFromCam(
-    const T* params, T u, T v, T w, T* x, T* y) {
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
   if (w < std::numeric_limits<T>::epsilon()) {
     return false;
   }
 
-  u /= w;
-  v /= w;
   T uu, vv;
-  FisheyeFromNormal(u, v, &uu, &vv);
+  FisheyeFromNormal(u / w, v / w, &uu, &vv);
 
   T duu, dvv;
   Distortion(&params[4], uu, vv, &duu, &dvv);
@@ -1796,7 +1797,7 @@ bool RadTanThinPrismFisheyeModel::CamFromImg(
 
 template <typename T>
 void RadTanThinPrismFisheyeModel::Distortion(
-    const T* extra_params, const T u, const T v, T* du, T* dv) {
+    const T* extra_params, const T& u, const T& v, T* du, T* dv) {
   constexpr int kNumRadialParams = 6;
   const T radial_coeffs[kNumRadialParams] = {extra_params[0],
                                              extra_params[1],

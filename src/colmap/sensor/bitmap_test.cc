@@ -250,7 +250,7 @@ TEST(Bitmap, ConvertToFromRawBitsGrey) {
   std::vector<uint8_t> raw_bits = bitmap.ConvertToRawBits();
   ASSERT_EQ(raw_bits.size(), bitmap.Pitch() * bitmap.Height());
 
-  const std::vector<uint8_t> raw_bits_copy = raw_bits;
+  const std::vector<uint8_t>& raw_bits_copy = raw_bits;
   Bitmap bitmap_copy = Bitmap::ConvertFromRawBits(raw_bits.data(),
                                                   bitmap.Pitch(),
                                                   bitmap.Width(),
@@ -277,12 +277,13 @@ TEST(Bitmap, ConvertToFromRawBitsRGB) {
   std::vector<uint8_t> raw_bits = bitmap.ConvertToRawBits();
   ASSERT_EQ(raw_bits.size(), bitmap.Pitch() * bitmap.Height() * 3);
 
-  const std::vector<uint8_t> raw_bits_copy = raw_bits;
   Bitmap bitmap_copy = Bitmap::ConvertFromRawBits(raw_bits.data(),
                                                   bitmap.Pitch(),
                                                   bitmap.Width(),
                                                   bitmap.Height(),
                                                   /*rgb=*/true);
+  const std::vector<uint8_t> raw_bits_copy = bitmap.ConvertToRawBits();
+
   EXPECT_EQ(bitmap.Width(), bitmap_copy.Width());
   EXPECT_EQ(bitmap.Height(), bitmap_copy.Height());
   EXPECT_EQ(bitmap.Channels(), bitmap_copy.Channels());

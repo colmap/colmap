@@ -157,7 +157,7 @@ TEST(SynthesizeDataset, Nominal) {
 
       for (size_t i2 = 0; i2 < i1; ++i2) {
         const image_t image_id2 = point3D.track.Element(i2).image_id;
-        const Eigen::Vector3d proj_center2 = proj_centers.at(image_id2);
+        const Eigen::Vector3d& proj_center2 = proj_centers.at(image_id2);
         max_tri_angle = std::max(max_tri_angle,
                                  CalculateTriangulationAngle(
                                      proj_center1, proj_center2, point3D.xyz));
