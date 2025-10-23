@@ -29,9 +29,12 @@
 
 #include "colmap/estimators/bundle_adjustment.h"
 
+#include "colmap/estimators/alignment.h"
 #include "colmap/geometry/rigid3_matchers.h"
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 
@@ -102,6 +105,71 @@ constexpr double kConstantPoseVarEps = 1e-9;
 
 namespace colmap {
 namespace {
+
+// Add Gaussian noise to a reconstruction to simulate pre-optimization estimate.
+void AddNoiseToReconstruction(Reconstruction& reconstruction,
+                              double rotation_stddev_deg,
+                              double translation_stddev,
+                              double point_stddev) {
+  // Perturb each registered image pose
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    Image& image = reconstruction.Image(image_id);
+    Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
+
+    const double angle = std::clamp(
+        RandomGaussian<double>(0, rotation_stddev_deg), -180.0, 180.0);
+    cam_from_world.rotation *= Eigen::Quaterniond(
+        Eigen::AngleAxisd(DegToRad(angle), Eigen::Vector3d(0, 0, 1)));
+
+    cam_from_world.translation +=
+        Eigen::Vector3d(RandomGaussian<double>(0, translation_stddev),
+                        RandomGaussian<double>(0, translation_stddev),
+                        RandomGaussian<double>(0, translation_stddev));
+  }
+
+  // Perturb 3D points
+  for (const point3D_t point3D_id : reconstruction.Point3DIds()) {
+    Point3D& point = reconstruction.Point3D(point3D_id);
+    point.xyz += Eigen::Vector3d(RandomGaussian<double>(0, point_stddev),
+                                 RandomGaussian<double>(0, point_stddev),
+                                 RandomGaussian<double>(0, point_stddev));
+  }
+}
+
+void ExpectReconstructionsNear(const Reconstruction& gt,
+                               const Reconstruction& computed,
+                               const double max_rotation_error_deg,
+                               const double max_proj_center_error,
+                               const double num_obs_tolerance,
+                               const bool align = true,
+                               const bool check_scale = false,
+                               const double max_scale_error = 0.01) {
+  EXPECT_EQ(computed.NumCameras(), gt.NumCameras());
+  EXPECT_EQ(computed.NumImages(), gt.NumImages());
+  EXPECT_EQ(computed.NumRegImages(), gt.NumRegImages());
+  EXPECT_GE(computed.ComputeNumObservations(),
+            (1 - num_obs_tolerance) * gt.ComputeNumObservations());
+
+  Sim3d gt_from_computed;
+  if (align) {
+    ASSERT_TRUE(
+        AlignReconstructionsViaProjCenters(computed,
+                                           gt,
+                                           /*max_proj_center_error=*/0.1,
+                                           &gt_from_computed));
+    if (check_scale) {
+      EXPECT_NEAR(gt_from_computed.scale, 1.0, max_scale_error);
+    }
+  }
+
+  const std::vector<ImageAlignmentError> errors =
+      ComputeImageAlignmentError(computed, gt, gt_from_computed);
+  EXPECT_EQ(errors.size(), gt.NumImages());
+  for (const auto& error : errors) {
+    EXPECT_LT(error.rotation_error_deg, max_rotation_error_deg);
+    EXPECT_LT(error.proj_center_error, max_proj_center_error);
+  }
+}
 
 TEST(BundleAdjustmentConfig, NumResiduals) {
   Reconstruction reconstruction;
@@ -1134,6 +1202,150 @@ TEST(DefaultBundleAdjuster, IgnorePoint) {
   // + 5 rig_from_world parameters (pose of second image)
   // + 2 x 2 camera parameters
   EXPECT_EQ(summary.num_effective_parameters_reduced, 306);
+}
+
+TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
+  SetPRNGSeed(0);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 7;
+  synthetic_options.num_points3D = 50;
+  synthetic_options.point2D_stddev = 0.0;
+  synthetic_options.use_prior_position = true;
+  synthetic_options.prior_position_stddev = 0.05;
+  std::string database_path = CreateTestDir() + "/database.db";
+  auto database = Database::Open(database_path);
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  Reconstruction reconstruction = gt_reconstruction;
+  AddNoiseToReconstruction(reconstruction,
+                           /*rotation_stddev_deg=*/1.0,
+                           /*translation_stddev=*/0.2,
+                           /*point_stddev=*/0.2);
+  auto database_cache = DatabaseCache::Create(*database,
+                                              /*min_num_matches=*/0,
+                                              /*ignore_watermarks=*/false,
+                                              /*image_names=*/{});
+  auto pose_priors = database_cache->PosePriors();
+
+  // Add 2 priors with very large covariance
+  auto iter = pose_priors.begin();
+  iter->second.position_covariance = Eigen::Matrix3d::Identity() * 1e6;
+  iter->second.position += Eigen::Vector3d::Constant(10);
+
+  ++iter;
+  iter->second.position_covariance = Eigen::Matrix3d::Identity() * 1e2;
+  iter->second.position += Eigen::Vector3d::Constant(1);
+
+  PosePriorBundleAdjustmentOptions prior_ba_options;
+  prior_ba_options.alignment_ransac_options.random_seed = 0;
+  prior_ba_options.alignment_ransac_options.max_error = 0.0;
+
+  BundleAdjustmentOptions ba_options;
+  BundleAdjustmentConfig ba_config;
+
+  for (const frame_t frame_id : reconstruction.RegFrameIds()) {
+    const Frame& frame = reconstruction.Frame(frame_id);
+    for (const data_t& data_id : frame.ImageIds()) {
+      ba_config.AddImage(data_id.id);
+    }
+  }
+
+  auto adjuster = CreatePosePriorBundleAdjuster(
+      ba_options, prior_ba_options, ba_config, pose_priors, reconstruction);
+  auto summary = adjuster->Solve();
+  ASSERT_TRUE(summary.IsSolutionUsable());
+
+  ExpectReconstructionsNear(gt_reconstruction,
+                            reconstruction,
+                            /*max_rotation_error_deg=*/0.1,
+                            /*max_proj_center_error=*/0.1,
+                            /*num_obs_tolerance=*/0.02,
+                            /*align=*/true);
+
+  int num_close_to_priors = 0;
+  for (const image_t id : reconstruction.RegImageIds()) {
+    const auto& image = reconstruction.Image(id);
+    if ((image.ProjectionCenter() - pose_priors.at(id).position).norm() < 0.3) {
+      ++num_close_to_priors;
+    }
+  }
+
+  EXPECT_EQ(num_close_to_priors, 5);
+}
+
+TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
+  SetPRNGSeed(0);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 7;
+  synthetic_options.num_points3D = 100;
+  synthetic_options.point2D_stddev = 0.0;
+  synthetic_options.use_prior_position = true;
+  synthetic_options.prior_position_stddev = 0.05;
+  std::string database_path = CreateTestDir() + "/database.db";
+  auto database = Database::Open(database_path);
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  Reconstruction reconstruction = gt_reconstruction;
+  AddNoiseToReconstruction(reconstruction,
+                           /*rotation_stddev_deg=*/1.0,
+                           /*translation_stddev=*/0.2,
+                           /*point_stddev=*/0.2);
+  auto database_cache = DatabaseCache::Create(*database,
+                                              /*min_num_matches=*/0,
+                                              /*ignore_watermarks=*/false,
+                                              /*image_names=*/{});
+  auto pose_priors = database_cache->PosePriors();
+
+  // Add 2 confident but wrong priors
+  auto iter = pose_priors.begin();
+  iter->second.position_covariance = Eigen::Matrix3d::Identity() * 0.01;
+  iter->second.position += Eigen::Vector3d::Constant(10);
+
+  ++iter;
+  iter->second.position_covariance = Eigen::Matrix3d::Identity() * 0.01;
+  iter->second.position += Eigen::Vector3d::Constant(10);
+
+  PosePriorBundleAdjustmentOptions prior_ba_options;
+  prior_ba_options.alignment_ransac_options.random_seed = 0;
+  prior_ba_options.use_robust_loss_on_prior_position = true;
+
+  BundleAdjustmentOptions ba_options;
+  BundleAdjustmentConfig ba_config;
+
+  for (const frame_t frame_id : reconstruction.RegFrameIds()) {
+    const Frame& frame = reconstruction.Frame(frame_id);
+    for (const data_t& data_id : frame.ImageIds()) {
+      ba_config.AddImage(data_id.id);
+    }
+  }
+
+  auto adjuster = CreatePosePriorBundleAdjuster(
+      ba_options, prior_ba_options, ba_config, pose_priors, reconstruction);
+  auto summary = adjuster->Solve();
+  ASSERT_TRUE(summary.IsSolutionUsable());
+
+  ExpectReconstructionsNear(gt_reconstruction,
+                            reconstruction,
+                            /*max_rotation_error_deg=*/0.1,
+                            /*max_proj_center_error=*/0.1,
+                            /*num_obs_tolerance=*/0.02,
+                            /*align=*/true);
+
+  int num_close_to_priors = 0;
+  for (const image_t id : reconstruction.RegImageIds()) {
+    const auto& image = reconstruction.Image(id);
+    if ((image.ProjectionCenter() - pose_priors.at(id).position).norm() < 0.3) {
+      ++num_close_to_priors;
+    }
+  }
+
+  EXPECT_EQ(num_close_to_priors, 5);
 }
 
 }  // namespace
