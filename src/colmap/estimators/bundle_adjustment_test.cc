@@ -130,9 +130,9 @@ void AddNoiseToReconstruction(Reconstruction& reconstruction,
   // Perturb 3D points
   for (const point3D_t point3D_id : reconstruction.Point3DIds()) {
     Point3D& point = reconstruction.Point3D(point3D_id);
-    point.xyz += Eigen::Vector3d(RandomGaussian<double>(0, translation_stddev),
-                                 RandomGaussian<double>(0, translation_stddev),
-                                 RandomGaussian<double>(0, translation_stddev));
+    point.xyz += Eigen::Vector3d(RandomGaussian<double>(0, point_stddev),
+                                 RandomGaussian<double>(0, point_stddev),
+                                 RandomGaussian<double>(0, point_stddev));
   }
 }
 
