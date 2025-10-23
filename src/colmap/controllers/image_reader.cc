@@ -149,7 +149,7 @@ ImageReader::Status ImageReader::Next(Rig* rig,
     if (!ExistsFile(mask_path)) {
       bool exists_mask = false;
       // Try replacing extension with .png
-      std::string base_name = image->Name();
+      const std::string& base_name = image->Name();
       const size_t last_dot = base_name.find_last_of('.');
       if (last_dot != std::string::npos) {
         std::string alt_mask_path = JoinPaths(
