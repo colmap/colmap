@@ -1577,11 +1577,11 @@ class SqliteDatabase : public Database {
   void PrepareSQLStatements() {
     sql_stmts_.clear();
 
-    auto prepare_sql_stmt = [this](const std::string_view sql,
+    auto prepare_sql_stmt = [this](const std::string& sql,
                                    sqlite3_stmt** sql_stmt) {
       THROW_CHECK_NOTNULL(database_);
       VLOG(3) << "Preparing SQL statement: " << sql;
-      SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.data(), -1, sql_stmt, 0));
+      SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1, sql_stmt, 0));
       sql_stmts_.push_back(sql_stmt);
     };
 

@@ -81,9 +81,17 @@ size_t BundleAdjustmentConfig::NumConstantPoints() const {
 size_t BundleAdjustmentConfig::NumResiduals(
     const Reconstruction& reconstruction) const {
   // Count the number of observations for all added images.
-  size_t num_observations = 0;
+  int num_observations = 0;
   for (const image_t image_id : image_ids_) {
-    num_observations += reconstruction.Image(image_id).NumPoints3D();
+    const auto& image = reconstruction.Image(image_id);
+    num_observations += image.NumPoints3D();
+    if (!ignored_point3D_ids_.empty()) {
+      for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
+        if (IsIgnoredPoint(point3D_id)) {
+          --num_observations;
+        }
+      }
+    }
   }
 
   // Count the number of observations for all added 3D points that are not
@@ -91,7 +99,7 @@ size_t BundleAdjustmentConfig::NumResiduals(
 
   auto NumObservationsForPoint = [this,
                                   &reconstruction](const point3D_t point3D_id) {
-    size_t num_observations_for_point = 0;
+    int num_observations_for_point = 0;
     const auto& point3D = reconstruction.Point3D(point3D_id);
     for (const auto& track_el : point3D.track.Elements()) {
       if (image_ids_.count(track_el.image_id) == 0) {
@@ -107,6 +115,8 @@ size_t BundleAdjustmentConfig::NumResiduals(
   for (const auto point3D_id : constant_point3D_ids_) {
     num_observations += NumObservationsForPoint(point3D_id);
   }
+
+  CHECK_GE(num_observations, 0);
 
   return 2 * num_observations;
 }
@@ -210,18 +220,28 @@ void BundleAdjustmentConfig::AddConstantPoint(const point3D_t point3D_id) {
   constant_point3D_ids_.insert(point3D_id);
 }
 
+void BundleAdjustmentConfig::IgnorePoint(const point3D_t point3D_id) {
+  CHECK(!HasVariablePoint(point3D_id));
+  CHECK(!HasConstantPoint(point3D_id));
+  ignored_point3D_ids_.insert(point3D_id);
+}
+
 bool BundleAdjustmentConfig::HasPoint(const point3D_t point3D_id) const {
   return HasVariablePoint(point3D_id) || HasConstantPoint(point3D_id);
 }
 
 bool BundleAdjustmentConfig::HasVariablePoint(
     const point3D_t point3D_id) const {
-  return variable_point3D_ids_.find(point3D_id) != variable_point3D_ids_.end();
+  return variable_point3D_ids_.count(point3D_id);
 }
 
 bool BundleAdjustmentConfig::HasConstantPoint(
     const point3D_t point3D_id) const {
-  return constant_point3D_ids_.find(point3D_id) != constant_point3D_ids_.end();
+  return constant_point3D_ids_.count(point3D_id);
+}
+
+bool BundleAdjustmentConfig::IsIgnoredPoint(const point3D_t point3D_id) const {
+  return ignored_point3D_ids_.count(point3D_id);
 }
 
 void BundleAdjustmentConfig::RemoveVariablePoint(const point3D_t point3D_id) {
@@ -771,7 +791,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     // Add residuals to bundle adjustment problem.
     size_t num_observations = 0;
     for (const Point2D& point2D : image.Points2D()) {
-      if (!point2D.HasPoint3D()) {
+      if (!point2D.HasPoint3D() || config_.IsIgnoredPoint(point2D.point3D_id)) {
         continue;
       }
 
@@ -826,7 +846,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     // Add residuals to bundle adjustment problem.
     size_t num_observations = 0;
     for (const Point2D& point2D : image.Points2D()) {
-      if (!point2D.HasPoint3D()) {
+      if (!point2D.HasPoint3D() || config_.IsIgnoredPoint(point2D.point3D_id)) {
         continue;
       }
 
@@ -876,6 +896,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
 
   void AddPointToProblem(const point3D_t point3D_id,
                          Reconstruction& reconstruction) {
+    THROW_CHECK(!config_.IsIgnoredPoint(point3D_id));
     Point3D& point3D = reconstruction.Point3D(point3D_id);
 
     size_t& num_observations = point3D_num_observations_[point3D_id];
@@ -1049,42 +1070,44 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
   bool AlignReconstruction() {
     RANSACOptions ransac_options = prior_options_.alignment_ransac_options;
     if (ransac_options.max_error <= 0) {
-      double max_stddev_sum = 0;
-      size_t num_valid_covs = 0;
+      std::vector<double> rms_vars;
+      rms_vars.reserve(pose_priors_.size());
       for (const auto& [_, pose_prior] : pose_priors_) {
-        if (pose_prior.IsCovarianceValid()) {
-          const double max_stddev =
-              std::sqrt(Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d>(
-                            pose_prior.position_covariance)
-                            .eigenvalues()
-                            .maxCoeff());
-          max_stddev_sum += max_stddev;
-          ++num_valid_covs;
+        if (!pose_prior.IsCovarianceValid()) {
+          continue;
         }
+
+        const double trace = pose_prior.position_covariance.trace();
+        if (trace <= 0.0) {
+          continue;
+        }
+        rms_vars.push_back(trace / 3.0);
       }
-      if (num_valid_covs == 0) {
+
+      if (rms_vars.empty()) {
         LOG(WARNING) << "No pose priors with valid covariance found.";
         return false;
       }
-      // Set max error at the 3 sigma confidence interval. Assumes no
-      // outliers.
-      ransac_options.max_error = 3 * max_stddev_sum / num_valid_covs;
+
+      // Set max error using the median RMS variance of valid pose priors.
+      // Scaled by sqrt(chi-square 95% quantile, 3 DOF) to approximate a 95%
+      // confidence radius.
+      ransac_options.max_error =
+          std::sqrt(kChiSquare95ThreeDof * Median(rms_vars));
     }
 
     VLOG(2) << "Robustly aligning reconstruction with max_error="
             << ransac_options.max_error;
 
     Sim3d metric_from_orig;
-    const bool success = AlignReconstructionToPosePriors(
-        reconstruction_, pose_priors_, ransac_options, &metric_from_orig);
-
-    if (success) {
-      reconstruction_.Transform(metric_from_orig);
-    } else {
+    if (!AlignReconstructionToPosePriors(
+            reconstruction_, pose_priors_, ransac_options, &metric_from_orig)) {
       LOG(WARNING) << "Alignment w.r.t. prior positions failed";
+      return false;
     }
+    reconstruction_.Transform(metric_from_orig);
 
-    if (VLOG_IS_ON(2) && success) {
+    if (VLOG_IS_ON(2)) {
       std::vector<double> verr2_wrt_prior;
       verr2_wrt_prior.reserve(reconstruction_.NumRegImages());
       for (const image_t image_id : reconstruction_.RegImageIds()) {
@@ -1103,7 +1126,7 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
               << "  - median: " << std::sqrt(Median(verr2_wrt_prior)) << '\n';
     }
 
-    return success;
+    return true;
   }
 
  private:

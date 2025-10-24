@@ -70,6 +70,10 @@ class AutoDiffCostFunctor {
     return CreateAutoDiffCostFunction<DerivedCostFunctor>(
         new DerivedCostFunctor(std::forward<Args>(args)...));
   }
+
+ private:
+  AutoDiffCostFunctor() = default;
+  friend DerivedCostFunctor;
 };
 
 // Standard bundle adjustment cost function for variable
