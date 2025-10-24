@@ -293,7 +293,6 @@ TEST(SynthesizeDataset, NoDatabase) {
 }
 
 TEST(SynthesizeDataset, Determinism) {
-  auto database = Database::Open(kInMemorySqliteDatabasePath);
   SyntheticDatasetOptions options;
 
   Reconstruction reconstruction1;
