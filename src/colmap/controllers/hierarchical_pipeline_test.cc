@@ -75,7 +75,6 @@ TEST(HierarchicalPipeline, WithoutNoise) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 20;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -105,7 +104,6 @@ TEST(HierarchicalPipeline, WithoutNoiseAndNonTrivialFrames) {
   synthetic_dataset_options.num_cameras_per_rig = 2;
   synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.point2D_stddev = 0;
   synthetic_dataset_options.sensor_from_rig_translation_stddev = 0.05;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 30;
   SynthesizeDataset(
@@ -141,7 +139,6 @@ TEST(HierarchicalPipeline, WithoutNoiseAndPanoramicNonTrivialFrames) {
   synthetic_dataset_options.num_cameras_per_rig = 3;
   synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.point2D_stddev = 0;
   synthetic_dataset_options.sensor_from_rig_translation_stddev = 0;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 30;
   SynthesizeDataset(
@@ -178,7 +175,6 @@ TEST(HierarchicalPipeline, MultiReconstruction) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction1, database.get());
   synthetic_dataset_options.num_frames_per_rig = 4;

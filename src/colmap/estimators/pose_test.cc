@@ -54,7 +54,6 @@ AbsolutePoseProblem CreateAbsolutePoseTestData() {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 2;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &problem.reconstruction);
 
   problem.image = problem.reconstruction.Image(1);

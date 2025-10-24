@@ -107,7 +107,6 @@ TwoViewGeometryPoseTestData CreateTwoViewGeometryPoseTestData(
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.point2D_stddev = 0;
   synthetic_dataset_options.camera_has_prior_focal_length = true;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
@@ -354,9 +353,11 @@ struct TwoViewGeometryTestData {
 };
 
 TwoViewGeometryTestData CreateTwoViewGeometryTestData(
-    const SyntheticDatasetOptions& synthetic_dataset_options) {
+    const SyntheticDatasetOptions& synthetic_dataset_options,
+    const SyntheticNoiseOptions& synthetic_noise_options = {}) {
   Reconstruction reconstruction;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
 
   CHECK_EQ(reconstruction.NumImages(), 2);
   const Image& image1 = reconstruction.Image(1);
@@ -388,7 +389,6 @@ TEST(EstimateTwoViewGeometry, DetectWatermark) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.point2D_stddev = 0;
   synthetic_dataset_options.camera_has_prior_focal_length = true;
   TwoViewGeometryTestData test_data =
       CreateTwoViewGeometryTestData(synthetic_dataset_options);
@@ -458,7 +458,6 @@ TEST(EstimateTwoViewGeometry, IgnoreStationaryMatches) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 500;
-  synthetic_dataset_options.point2D_stddev = 0;
   synthetic_dataset_options.camera_has_prior_focal_length = true;
   TwoViewGeometryTestData test_data =
       CreateTwoViewGeometryTestData(synthetic_dataset_options);
@@ -501,11 +500,12 @@ TEST(EstimateTwoViewGeometry, CalibratedDeterministic) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 500;
-  synthetic_dataset_options.point2D_stddev = 5;
   synthetic_dataset_options.inlier_match_ratio = 0.6;
   synthetic_dataset_options.camera_has_prior_focal_length = true;
-  const TwoViewGeometryTestData test_data =
-      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_noise_stddev = 5;
+  const TwoViewGeometryTestData test_data = CreateTwoViewGeometryTestData(
+      synthetic_dataset_options, synthetic_noise_options);
 
   TwoViewGeometryOptions two_view_geometry_options;
   two_view_geometry_options.ransac_options.random_seed = 42;
@@ -553,11 +553,12 @@ TEST(EstimateTwoViewGeometry, UncalibratedDeterministic) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 500;
-  synthetic_dataset_options.point2D_stddev = 5;
   synthetic_dataset_options.inlier_match_ratio = 0.6;
   synthetic_dataset_options.camera_has_prior_focal_length = false;
-  const TwoViewGeometryTestData test_data =
-      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_noise_stddev = 5;
+  const TwoViewGeometryTestData test_data = CreateTwoViewGeometryTestData(
+      synthetic_dataset_options, synthetic_noise_options);
 
   TwoViewGeometryOptions two_view_geometry_options;
   two_view_geometry_options.ransac_options.random_seed = 42;
@@ -605,12 +606,13 @@ TEST(EstimateTwoViewGeometry, PlanarOrPanoramicDeterministic) {
   synthetic_dataset_options.num_cameras_per_rig = 2;
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 500;
-  synthetic_dataset_options.point2D_stddev = 5;
   synthetic_dataset_options.inlier_match_ratio = 0.6;
   synthetic_dataset_options.camera_has_prior_focal_length = true;
   synthetic_dataset_options.sensor_from_rig_translation_stddev = 0;
-  const TwoViewGeometryTestData test_data =
-      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_noise_stddev = 5;
+  const TwoViewGeometryTestData test_data = CreateTwoViewGeometryTestData(
+      synthetic_dataset_options, synthetic_noise_options);
 
   TwoViewGeometryOptions two_view_geometry_options;
   two_view_geometry_options.force_H_use = true;
@@ -699,7 +701,6 @@ TEST(EstimateRigTwoViewGeometries, Nominal) {
   synthetic_dataset_options.num_cameras_per_rig = 3;
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 200;
-  synthetic_dataset_options.point2D_stddev = 0;
   synthetic_dataset_options.inlier_match_ratio = 0.6;
   synthetic_dataset_options.camera_has_prior_focal_length = true;
   const RigTwoViewGeometryTestData test_data =

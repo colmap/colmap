@@ -41,8 +41,6 @@ void BindSynthetic(py::module& m) {
                          &SyntheticDatasetOptions::camera_params)
           .def_readwrite("num_points2D_without_point3D",
                          &SyntheticDatasetOptions::num_points2D_without_point3D)
-          .def_readwrite("point2D_stddev",
-                         &SyntheticDatasetOptions::point2D_stddev)
           .def_readwrite("match_config", &SyntheticDatasetOptions::match_config)
           .def_readwrite("use_prior_position",
                          &SyntheticDatasetOptions::use_prior_position)
@@ -61,4 +59,21 @@ void BindSynthetic(py::module& m) {
       },
       "options"_a,
       "database"_a = py::none());
+
+  auto PySyntheticNoiseOptions =
+      py::classh<SyntheticNoiseOptions>(m, "SyntheticNoiseOptions")
+          .def(py::init<>())
+          .def_readwrite(
+              "rig_from_world_translation_noise_stddev",
+              &SyntheticNoiseOptions::rig_from_world_translation_noise_stddev)
+          .def_readwrite(
+              "rig_from_world_rotation_noise_stddev",
+              &SyntheticNoiseOptions::rig_from_world_rotation_noise_stddev)
+          .def_readwrite("point3D_noise_stddev",
+                         &SyntheticNoiseOptions::point3D_noise_stddev)
+          .def_readwrite("point2D_noise_stddev",
+                         &SyntheticNoiseOptions::point2D_noise_stddev);
+  MakeDataclass(PySyntheticNoiseOptions);
+
+  m.def("synthesize_noise", &SynthesizeNoise, "options"_a, "reconstruction"_a);
 }

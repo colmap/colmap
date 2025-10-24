@@ -796,7 +796,6 @@ TEST(Reconstruction, DeleteAllPoints2DAndPoints3D) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 20;
   synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   reconstruction.DeleteAllPoints2DAndPoints3D();
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
