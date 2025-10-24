@@ -35,6 +35,7 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/pairing.h"
 #include "colmap/feature/sift.h"
+#include "colmap/feature/xfeat.h"
 #include "colmap/math/random.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
@@ -261,6 +262,8 @@ void OptionManager::AddFeatureExtractionOptions() {
 
   AddAndRegisterDefaultOption("FeatureExtraction.type",
                               &feature_extraction_type_);
+  AddAndRegisterDefaultOption("FeatureExtraction.max_image_size",
+                              &feature_extraction->max_image_size);
   AddAndRegisterDefaultOption("FeatureExtraction.num_threads",
                               &feature_extraction->num_threads);
   AddAndRegisterDefaultOption("FeatureExtraction.use_gpu",
@@ -268,8 +271,6 @@ void OptionManager::AddFeatureExtractionOptions() {
   AddAndRegisterDefaultOption("FeatureExtraction.gpu_index",
                               &feature_extraction->gpu_index);
 
-  AddAndRegisterDefaultOption("SiftExtraction.max_image_size",
-                              &feature_extraction->max_image_size);
   AddAndRegisterDefaultOption("SiftExtraction.max_num_features",
                               &feature_extraction->sift->max_num_features);
   AddAndRegisterDefaultOption("SiftExtraction.first_octave",
@@ -296,6 +297,13 @@ void OptionManager::AddFeatureExtractionOptions() {
                               &feature_extraction->sift->dsp_max_scale);
   AddAndRegisterDefaultOption("SiftExtraction.dsp_num_scales",
                               &feature_extraction->sift->dsp_num_scales);
+
+  AddAndRegisterDefaultOption("XFeatExtraction.max_num_features",
+                              &feature_extraction->xfeat->max_num_features);
+  AddAndRegisterDefaultOption("XFeatExtraction.min_score",
+                              &feature_extraction->xfeat->min_score);
+  AddAndRegisterDefaultOption("XFeatExtraction.model_path",
+                              &feature_extraction->xfeat->model_path);
 }
 
 void OptionManager::AddFeatureMatchingOptions() {
@@ -326,6 +334,15 @@ void OptionManager::AddFeatureMatchingOptions() {
                               &feature_matching->sift->cross_check);
   AddAndRegisterDefaultOption("SiftMatching.cpu_brute_force_matcher",
                               &feature_matching->sift->cpu_brute_force_matcher);
+
+  AddAndRegisterDefaultOption("XFeatMatching.min_cossim",
+                              &feature_matching->xfeat->min_cossim);
+  AddAndRegisterDefaultOption("XFeatMatching.min_conf",
+                              &feature_matching->xfeat->min_conf);
+  AddAndRegisterDefaultOption("XFeatMatching.bruteforce_model_path",
+                              &feature_matching->xfeat->bruteforce_model_path);
+  AddAndRegisterDefaultOption("XFeatMatching.lighterglue_model_path",
+                              &feature_matching->xfeat->lighterglue_model_path);
 }
 
 void OptionManager::AddTwoViewGeometryOptions() {
