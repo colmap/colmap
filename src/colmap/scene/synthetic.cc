@@ -178,7 +178,6 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   THROW_CHECK_GE(options.num_points2D_without_point3D, 0);
   THROW_CHECK_GE(options.sensor_from_rig_translation_stddev, 0.);
   THROW_CHECK_GE(options.sensor_from_rig_rotation_stddev, 0.);
-  THROW_CHECK_GE(options.point2D_stddev, 0.);
   THROW_CHECK_GE(options.prior_position_stddev, 0.);
 
   if (PRNG == nullptr) {
@@ -321,12 +320,6 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
             continue;  // Point is behind the camera.
           }
           point2D.xy = proj_point2D.value();
-          if (options.point2D_stddev > 0) {
-            const Eigen::Vector2d noise(
-                RandomGaussian<double>(0, options.point2D_stddev),
-                RandomGaussian<double>(0, options.point2D_stddev));
-            point2D.xy += noise;
-          }
           if (point2D.xy(0) >= 0 && point2D.xy(1) >= 0 &&
               point2D.xy(0) <= camera.width && point2D.xy(1) <= camera.height) {
             point2D.point3D_id = point3D_id;
@@ -432,6 +425,60 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         break;
       default:
         LOG(FATAL_THROW) << "Invalid MatchConfig specified";
+    }
+  }
+
+  reconstruction->UpdatePoint3DErrors();
+}
+
+void SynthesizeNoise(const SyntheticNoiseOptions& options,
+                     Reconstruction* reconstruction) {
+  THROW_CHECK_GE(options.rig_from_world_translation_noise_stddev, 0.);
+  THROW_CHECK_GE(options.rig_from_world_rotation_noise_stddev, 0.);
+  THROW_CHECK_GE(options.point3D_noise_stddev, 0.);
+  THROW_CHECK_GE(options.point2D_noise_stddev, 0.);
+
+  for (const frame_t frame_id : reconstruction->RegFrameIds()) {
+    Rigid3d& rig_from_world = reconstruction->Frame(frame_id).RigFromWorld();
+
+    if (options.rig_from_world_rotation_noise_stddev > 0.0) {
+      const double angle =
+          std::clamp(RandomGaussian<double>(
+                         0, options.rig_from_world_rotation_noise_stddev),
+                     -180.0,
+                     180.0);
+      rig_from_world.rotation *= Eigen::Quaterniond(
+          Eigen::AngleAxisd(DegToRad(angle), Eigen::Vector3d::UnitZ()));
+    }
+
+    if (options.rig_from_world_translation_noise_stddev > 0.0) {
+      rig_from_world.translation += Eigen::Vector3d(
+          RandomGaussian<double>(
+              0, options.rig_from_world_translation_noise_stddev),
+          RandomGaussian<double>(
+              0, options.rig_from_world_translation_noise_stddev),
+          RandomGaussian<double>(
+              0, options.rig_from_world_translation_noise_stddev));
+    }
+  }
+
+  if (options.point2D_noise_stddev > 0.0) {
+    for (const auto& [image_id, _] : reconstruction->Images()) {
+      Image& image = reconstruction->Image(image_id);
+      for (auto& point2D : image.Points2D()) {
+        point2D.xy += Eigen::Vector2d(
+            RandomGaussian<double>(0, options.point2D_noise_stddev),
+            RandomGaussian<double>(0, options.point2D_noise_stddev));
+      }
+    }
+  }
+
+  if (options.point3D_noise_stddev > 0.0) {
+    for (auto& [point3D_id, _] : reconstruction->Points3D()) {
+      reconstruction->Point3D(point3D_id).xyz += Eigen::Vector3d(
+          RandomGaussian<double>(0, options.point3D_noise_stddev),
+          RandomGaussian<double>(0, options.point3D_noise_stddev),
+          RandomGaussian<double>(0, options.point3D_noise_stddev));
     }
   }
 

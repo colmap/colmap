@@ -51,7 +51,6 @@ struct SyntheticDatasetOptions {
   bool camera_has_prior_focal_length = false;
 
   int num_points2D_without_point3D = 10;
-  double point2D_stddev = 0.0;
 
   double inlier_match_ratio = 1.0;
 
@@ -72,5 +71,15 @@ struct SyntheticDatasetOptions {
 void SynthesizeDataset(const SyntheticDatasetOptions& options,
                        Reconstruction* reconstruction,
                        Database* database = nullptr);
+
+struct SyntheticNoiseOptions {
+  double rig_from_world_translation_noise_stddev = 0.0;
+  double rig_from_world_rotation_noise_stddev = 0.0;  // in degrees
+  double point3D_noise_stddev = 0.0;
+  double point2D_noise_stddev = 0.0;
+};
+
+void SynthesizeNoise(const SyntheticNoiseOptions& options,
+                     Reconstruction* reconstruction);
 
 }  // namespace colmap
