@@ -40,6 +40,50 @@
 namespace colmap {
 
 template <typename T>
+class ReconstructionEqMatcher : public testing::MatcherInterface<T> {
+ public:
+  explicit ReconstructionEqMatcher(T rhs) : rhs_(std::forward<T>(rhs)) {}
+
+  void DescribeTo(std::ostream* os) const override { *os << rhs_; }
+
+  bool MatchAndExplain(T lhs,
+                       testing::MatchResultListener* listener) const override {
+    if (lhs.Rigs() != rhs_.Rigs()) {
+      *listener << " have different rigs";
+      return false;
+    }
+    if (lhs.Cameras() != rhs_.Cameras()) {
+      *listener << " have different cameras";
+      return false;
+    }
+    if (lhs.Frames() != rhs_.Frames()) {
+      *listener << " have different frames";
+      return false;
+    }
+    if (lhs.Images() != rhs_.Images()) {
+      *listener << " have different images";
+      return false;
+    }
+    if (lhs.Points3D() != rhs_.Points3D()) {
+      *listener << " have different points";
+      return false;
+    }
+    return true;
+  }
+
+ private:
+  const Reconstruction rhs_;
+};
+
+// Matcher to check for exact equality of two reconstructions.
+template <typename T>
+testing::PolymorphicMatcher<ReconstructionEqMatcher<T>> ReconstructionEq(
+    T rhs) {
+  return testing::MakePolymorphicMatcher(
+      ReconstructionEqMatcher<T>(std::forward<T>(rhs)));
+}
+
+template <typename T>
 class ReconstructionNearMatcher : public testing::MatcherInterface<T> {
  public:
   ReconstructionNearMatcher(T rhs,

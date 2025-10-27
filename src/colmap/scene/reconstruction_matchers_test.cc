@@ -43,6 +43,32 @@ struct MockTestClass : public TestClass {
   MOCK_METHOD(void, TestMethod, (const Reconstruction&), (const, override));
 };
 
+TEST(Reconstruction, Eq) {
+  Reconstruction reconstruction1;
+  Reconstruction reconstruction2;
+  EXPECT_THAT(reconstruction1, ReconstructionEq(reconstruction2));
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction1);
+
+  reconstruction2 = reconstruction1;
+  EXPECT_THAT(reconstruction1, ReconstructionEq(reconstruction2));
+
+  reconstruction2 = reconstruction1;
+  reconstruction2.Frame(1).RigFromWorld().translation.x() += 0.1;
+  EXPECT_THAT(reconstruction1, testing::Not(ReconstructionEq(reconstruction2)));
+
+  reconstruction2 = reconstruction1;
+  reconstruction2.DeleteObservation(1, 0);
+  EXPECT_THAT(reconstruction1, testing::Not(ReconstructionEq(reconstruction2)));
+
+  testing::StrictMock<MockTestClass> mock;
+  EXPECT_CALL(mock, TestMethod(ReconstructionEq(reconstruction1))).Times(1);
+  EXPECT_CALL(mock, TestMethod(ReconstructionEq(reconstruction2))).Times(1);
+  mock.TestMethod(reconstruction1);
+  mock.TestMethod(reconstruction2);
+}
+
 TEST(Reconstruction, Near) {
   Reconstruction reconstruction1;
   Reconstruction reconstruction2;
