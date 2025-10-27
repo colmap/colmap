@@ -41,47 +41,6 @@
 namespace colmap {
 namespace {
 
-bool AreReconstructionsIdentical(const Reconstruction& gt,
-                                 const Reconstruction& computed) {
-  if (computed.NumCameras() != gt.NumCameras() ||
-      computed.NumImages() != gt.NumImages() ||
-      computed.NumRegImages() != gt.NumRegImages() ||
-      computed.NumPoints3D() != gt.NumPoints3D() ||
-      computed.ComputeNumObservations() != gt.ComputeNumObservations()) {
-    return false;
-  }
-
-  for (const auto& [camera_id, camera] : gt.Cameras()) {
-    if (!computed.ExistsCamera(camera_id)) {
-      return false;
-    }
-    if (camera.params != computed.Camera(camera_id).params) {
-      return false;
-    }
-  }
-
-  for (const auto& [image_id, image] : computed.Images()) {
-    if (!gt.ExistsImage(image_id)) {
-      return false;
-    }
-    const Image& image_gt = gt.Image(image_id);
-    if (image.CamFromWorld() != image_gt.CamFromWorld()) {
-      return false;
-    }
-  }
-
-  for (point3D_t point3D_id : computed.Point3DIds()) {
-    if (!gt.ExistsPoint3D(point3D_id)) {
-      return false;
-    }
-    if (computed.Point3D(point3D_id) != gt.Point3D(point3D_id)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 TEST(IncrementalPipeline, WithoutNoise) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
@@ -648,8 +607,8 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
         run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
     auto reconstruction_manager1 =
         run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
-    EXPECT_TRUE(AreReconstructionsIdentical(*reconstruction_manager0->Get(0),
-                                            *reconstruction_manager1->Get(0)));
+    EXPECT_THAT(*reconstruction_manager0->Get(0),
+                ReconstructionEq(*reconstruction_manager1->Get(0)));
 
     // Different seed should produce different reconstructions. Notice that, for
     // some seeds, we may still get identical results, so we try a few different
@@ -659,8 +618,8 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
          ++random_seed) {
       auto reconstruction_manager2 =
           run_mapper(/*num_threads=*/1, /*random_seed=*/random_seed);
-      if (!AreReconstructionsIdentical(*reconstruction_manager0->Get(0),
-                                       *reconstruction_manager2->Get(0))) {
+      if (!testing::Value(*reconstruction_manager0->Get(0),
+                          ReconstructionEq(*reconstruction_manager2->Get(0)))) {
         different_result = true;
         break;
       }
@@ -729,8 +688,8 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
         run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
     auto reconstruction_manager1 =
         run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
-    EXPECT_TRUE(AreReconstructionsIdentical(*reconstruction_manager0->Get(0),
-                                            *reconstruction_manager1->Get(0)));
+    EXPECT_THAT(*reconstruction_manager0->Get(0),
+                ReconstructionEq(*reconstruction_manager1->Get(0)));
 
     // Different seed should produce different reconstructions. Notice that, for
     // some seeds, we may still get identical results, so we try a few different
@@ -741,8 +700,8 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
       // Different seed should produce different reconstructions.
       auto reconstruction_manager2 =
           run_mapper(/*num_threads=*/1, /*random_seed=*/random_seed);
-      if (!AreReconstructionsIdentical(*reconstruction_manager0->Get(0),
-                                       *reconstruction_manager2->Get(0))) {
+      if (!testing::Value(*reconstruction_manager0->Get(0),
+                          ReconstructionEq(*reconstruction_manager2->Get(0)))) {
         different_result = true;
         break;
       }
