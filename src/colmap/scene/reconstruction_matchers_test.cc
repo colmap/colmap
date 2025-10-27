@@ -88,6 +88,7 @@ TEST(Reconstruction, Near) {
                                               /*align=*/true)));
 
   SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction1);
 
   reconstruction2 = reconstruction1;
