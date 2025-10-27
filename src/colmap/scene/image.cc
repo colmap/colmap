@@ -29,9 +29,6 @@
 
 #include "colmap/scene/image.h"
 
-#include "colmap/geometry/pose.h"
-#include "colmap/scene/projection.h"
-
 namespace colmap {
 
 Image::Image()
@@ -63,6 +60,7 @@ Image& Image::operator=(const Image& other) {
     } else {
       camera_ptr_ = nullptr;
     }
+    frame_id_ = other.FrameId();
     if (other.HasFramePtr()) {
       frame_ptr_ = other.FramePtr();
     } else {
