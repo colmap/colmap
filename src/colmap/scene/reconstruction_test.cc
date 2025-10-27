@@ -29,17 +29,13 @@
 
 #include "colmap/scene/reconstruction.h"
 
-#include "colmap/geometry/pose.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/scene/database_sqlite.h"
-#include "colmap/scene/reconstruction_io.h"
+#include "colmap/scene/reconstruction_io_text.h"
+#include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
-#include "colmap/util/file.h"
-#include "colmap/util/testing.h"
 
-#include <fstream>
-#include <iostream>
 #include <sstream>
 
 #include <gmock/gmock.h>
@@ -64,9 +60,9 @@ void ExpectValidPtrs(const Reconstruction& reconstruction) {
   }
 }
 
-void ExpectEqualReconstructions(const Reconstruction& reconstruction1,
-                                const Reconstruction& reconstruction2) {
-  // compare rig calibrations
+void ExpectEqualSerialization(const Reconstruction& reconstruction1,
+                              const Reconstruction& reconstruction2) {
+  // compare rigs
   std::stringstream stream1_rigs, stream2_rigs;
   WriteRigsText(reconstruction1, stream1_rigs);
   WriteRigsText(reconstruction2, stream2_rigs);
@@ -147,7 +143,8 @@ TEST(Reconstruction, ConstructCopy) {
   synthetic_dataset_options.num_points3D = 21;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   const Reconstruction reconstruction_copy(reconstruction);
-  ExpectEqualReconstructions(reconstruction, reconstruction_copy);
+  EXPECT_THAT(reconstruction, ReconstructionEq(reconstruction_copy));
+  ExpectEqualSerialization(reconstruction, reconstruction_copy);
   ExpectValidPtrs(reconstruction);
   ExpectValidPtrs(reconstruction_copy);
 }
@@ -163,7 +160,8 @@ TEST(Reconstruction, AssignCopy) {
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   Reconstruction reconstruction_copy;
   reconstruction_copy = reconstruction;
-  ExpectEqualReconstructions(reconstruction, reconstruction_copy);
+  EXPECT_THAT(reconstruction, ReconstructionEq(reconstruction_copy));
+  ExpectEqualSerialization(reconstruction, reconstruction_copy);
   ExpectValidPtrs(reconstruction);
   ExpectValidPtrs(reconstruction_copy);
 }
@@ -490,7 +488,8 @@ TEST(Reconstruction, SetRigsAndFrames) {
   const Reconstruction orig_reconstruction = reconstruction;
   reconstruction.SetRigsAndFrames(database->ReadAllRigs(),
                                   database->ReadAllFrames());
-  ExpectEqualReconstructions(reconstruction, orig_reconstruction);
+  EXPECT_THAT(reconstruction, ReconstructionEq(orig_reconstruction));
+  ExpectEqualSerialization(reconstruction, orig_reconstruction);
 }
 
 TEST(Reconstruction, RegisterFrame) {
