@@ -36,6 +36,8 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
+#include <cassert>
+
 namespace colmap {
 
 bool MergeAndFilterReconstructions(const double max_reproj_error,
