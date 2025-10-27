@@ -32,6 +32,10 @@ void BindSynthetic(py::module& m) {
           .def_readwrite(
               "sensor_from_rig_translation_stddev",
               &SyntheticDatasetOptions::sensor_from_rig_translation_stddev)
+          .def_readwrite(
+              "sensor_from_rig_rotation_stddev",
+              &SyntheticDatasetOptions::sensor_from_rig_rotation_stddev,
+              "Random rotation in degrees around the z-axis of the sensor.")
           .def_readwrite("camera_width", &SyntheticDatasetOptions::camera_width)
           .def_readwrite("camera_height",
                          &SyntheticDatasetOptions::camera_height)
@@ -64,15 +68,16 @@ void BindSynthetic(py::module& m) {
       py::classh<SyntheticNoiseOptions>(m, "SyntheticNoiseOptions")
           .def(py::init<>())
           .def_readwrite(
-              "rig_from_world_translation_noise_stddev",
-              &SyntheticNoiseOptions::rig_from_world_translation_noise_stddev)
+              "rig_from_world_translation_stddev",
+              &SyntheticNoiseOptions::rig_from_world_translation_stddev)
           .def_readwrite(
-              "rig_from_world_rotation_noise_stddev",
-              &SyntheticNoiseOptions::rig_from_world_rotation_noise_stddev)
-          .def_readwrite("point3D_noise_stddev",
-                         &SyntheticNoiseOptions::point3D_noise_stddev)
-          .def_readwrite("point2D_noise_stddev",
-                         &SyntheticNoiseOptions::point2D_noise_stddev);
+              "rig_from_world_rotation_stddev",
+              &SyntheticNoiseOptions::rig_from_world_rotation_stddev,
+              "Random rotation in degrees around the z-axis of the rig.")
+          .def_readwrite("point3D_stddev",
+                         &SyntheticNoiseOptions::point3D_stddev)
+          .def_readwrite("point2D_stddev",
+                         &SyntheticNoiseOptions::point2D_stddev);
   MakeDataclass(PySyntheticNoiseOptions);
 
   m.def("synthesize_noise", &SynthesizeNoise, "options"_a, "reconstruction"_a);

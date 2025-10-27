@@ -503,7 +503,7 @@ TEST(EstimateTwoViewGeometry, CalibratedDeterministic) {
   synthetic_dataset_options.inlier_match_ratio = 0.6;
   synthetic_dataset_options.camera_has_prior_focal_length = true;
   SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_noise_stddev = 5;
+  synthetic_noise_options.point2D_stddev = 5;
   const TwoViewGeometryTestData test_data = CreateTwoViewGeometryTestData(
       synthetic_dataset_options, synthetic_noise_options);
 
@@ -556,7 +556,7 @@ TEST(EstimateTwoViewGeometry, UncalibratedDeterministic) {
   synthetic_dataset_options.inlier_match_ratio = 0.6;
   synthetic_dataset_options.camera_has_prior_focal_length = false;
   SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_noise_stddev = 5;
+  synthetic_noise_options.point2D_stddev = 5;
   const TwoViewGeometryTestData test_data = CreateTwoViewGeometryTestData(
       synthetic_dataset_options, synthetic_noise_options);
 
@@ -610,7 +610,7 @@ TEST(EstimateTwoViewGeometry, PlanarOrPanoramicDeterministic) {
   synthetic_dataset_options.camera_has_prior_focal_length = true;
   synthetic_dataset_options.sensor_from_rig_translation_stddev = 0;
   SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_noise_stddev = 5;
+  synthetic_noise_options.point2D_stddev = 5;
   const TwoViewGeometryTestData test_data = CreateTwoViewGeometryTestData(
       synthetic_dataset_options, synthetic_noise_options);
 

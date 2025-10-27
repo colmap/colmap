@@ -86,7 +86,7 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
   synthetic_dataset_options.num_points3D = 200;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_noise_stddev = 0.01;
+  synthetic_noise_options.point2D_stddev = 0.01;
   SynthesizeNoise(synthetic_noise_options, &reconstruction);
 
   BundleAdjustmentConfig config;

@@ -433,52 +433,48 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
 void SynthesizeNoise(const SyntheticNoiseOptions& options,
                      Reconstruction* reconstruction) {
-  THROW_CHECK_GE(options.rig_from_world_translation_noise_stddev, 0.);
-  THROW_CHECK_GE(options.rig_from_world_rotation_noise_stddev, 0.);
-  THROW_CHECK_GE(options.point3D_noise_stddev, 0.);
-  THROW_CHECK_GE(options.point2D_noise_stddev, 0.);
+  THROW_CHECK_GE(options.rig_from_world_translation_stddev, 0.);
+  THROW_CHECK_GE(options.rig_from_world_rotation_stddev, 0.);
+  THROW_CHECK_GE(options.point3D_stddev, 0.);
+  THROW_CHECK_GE(options.point2D_stddev, 0.);
 
   for (const frame_t frame_id : reconstruction->RegFrameIds()) {
     Rigid3d& rig_from_world = reconstruction->Frame(frame_id).RigFromWorld();
 
-    if (options.rig_from_world_rotation_noise_stddev > 0.0) {
-      const double angle =
-          std::clamp(RandomGaussian<double>(
-                         0, options.rig_from_world_rotation_noise_stddev),
-                     -180.0,
-                     180.0);
+    if (options.rig_from_world_rotation_stddev > 0.0) {
+      const double angle = std::clamp(
+          RandomGaussian<double>(0, options.rig_from_world_rotation_stddev),
+          -180.0,
+          180.0);
       rig_from_world.rotation *= Eigen::Quaterniond(
           Eigen::AngleAxisd(DegToRad(angle), Eigen::Vector3d::UnitZ()));
     }
 
-    if (options.rig_from_world_translation_noise_stddev > 0.0) {
+    if (options.rig_from_world_translation_stddev > 0.0) {
       rig_from_world.translation += Eigen::Vector3d(
-          RandomGaussian<double>(
-              0, options.rig_from_world_translation_noise_stddev),
-          RandomGaussian<double>(
-              0, options.rig_from_world_translation_noise_stddev),
-          RandomGaussian<double>(
-              0, options.rig_from_world_translation_noise_stddev));
+          RandomGaussian<double>(0, options.rig_from_world_translation_stddev),
+          RandomGaussian<double>(0, options.rig_from_world_translation_stddev),
+          RandomGaussian<double>(0, options.rig_from_world_translation_stddev));
     }
   }
 
-  if (options.point2D_noise_stddev > 0.0) {
+  if (options.point2D_stddev > 0.0) {
     for (const auto& [image_id, _] : reconstruction->Images()) {
       Image& image = reconstruction->Image(image_id);
       for (auto& point2D : image.Points2D()) {
-        point2D.xy += Eigen::Vector2d(
-            RandomGaussian<double>(0, options.point2D_noise_stddev),
-            RandomGaussian<double>(0, options.point2D_noise_stddev));
+        point2D.xy +=
+            Eigen::Vector2d(RandomGaussian<double>(0, options.point2D_stddev),
+                            RandomGaussian<double>(0, options.point2D_stddev));
       }
     }
   }
 
-  if (options.point3D_noise_stddev > 0.0) {
+  if (options.point3D_stddev > 0.0) {
     for (auto& [point3D_id, _] : reconstruction->Points3D()) {
-      reconstruction->Point3D(point3D_id).xyz += Eigen::Vector3d(
-          RandomGaussian<double>(0, options.point3D_noise_stddev),
-          RandomGaussian<double>(0, options.point3D_noise_stddev),
-          RandomGaussian<double>(0, options.point3D_noise_stddev));
+      reconstruction->Point3D(point3D_id).xyz +=
+          Eigen::Vector3d(RandomGaussian<double>(0, options.point3D_stddev),
+                          RandomGaussian<double>(0, options.point3D_stddev),
+                          RandomGaussian<double>(0, options.point3D_stddev));
     }
   }
 

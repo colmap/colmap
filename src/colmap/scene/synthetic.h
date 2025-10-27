@@ -42,7 +42,8 @@ struct SyntheticDatasetOptions {
   int num_points3D = 100;
 
   double sensor_from_rig_translation_stddev = 0.05;
-  double sensor_from_rig_rotation_stddev = 5.;  // in degrees
+  // Random rotation in degrees around the z-axis of the sensor.
+  double sensor_from_rig_rotation_stddev = 5.;
 
   int camera_width = 1024;
   int camera_height = 768;
@@ -73,10 +74,11 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
                        Database* database = nullptr);
 
 struct SyntheticNoiseOptions {
-  double rig_from_world_translation_noise_stddev = 0.0;
-  double rig_from_world_rotation_noise_stddev = 0.0;  // in degrees
-  double point3D_noise_stddev = 0.0;
-  double point2D_noise_stddev = 0.0;
+  double rig_from_world_translation_stddev = 0.0;
+  // Random rotation in degrees around the z-axis of the rig.
+  double rig_from_world_rotation_stddev = 0.0;
+  double point3D_stddev = 0.0;
+  double point2D_stddev = 0.0;
 };
 
 void SynthesizeNoise(const SyntheticNoiseOptions& options,

@@ -90,7 +90,7 @@ def test_with_noise(tmp_path):
             synthetic_dataset_options, database
         )
         synthetic_noise_options = pycolmap.SyntheticNoiseOptions()
-        synthetic_noise_options.point2D_noise_stddev = 0.5
+        synthetic_noise_options.point2D_stddev = 0.5
         pycolmap.synthesize_noise(synthetic_noise_options, gt_reconstruction)
 
     custom_incremental_pipeline.main(
