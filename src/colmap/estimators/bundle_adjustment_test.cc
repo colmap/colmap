@@ -1228,7 +1228,7 @@ TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
               ReconstructionNear(reconstruction,
                                  /*max_rotation_error_deg=*/0.1,
                                  /*max_proj_center_error=*/0.1,
-                                 /*max_scale_error=*/-1,
+                                 /*max_scale_error=*/std::nullopt,
                                  /*num_obs_tolerance=*/0.02));
 
   int num_close_to_priors = 0;
@@ -1302,7 +1302,7 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
               ReconstructionNear(reconstruction,
                                  /*max_rotation_error_deg=*/0.1,
                                  /*max_proj_center_error=*/0.1,
-                                 /*max_scale_error=*/-1,
+                                 /*max_scale_error=*/std::nullopt,
                                  /*num_obs_tolerance=*/0.02));
 
   int num_close_to_priors = 0;

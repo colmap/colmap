@@ -49,7 +49,6 @@ COLMAP_ADD_LIBRARY(
         reconstruction_io_text.h reconstruction_io_text.cc
         reconstruction_io_utils.h reconstruction_io_utils.cc
         reconstruction_manager.h reconstruction_manager.cc
-        reconstruction_matchers.h
         reconstruction_pruning.h reconstruction_pruning.cc
         rig.h rig.cc
         scene_clustering.h scene_clustering.cc
@@ -65,6 +64,14 @@ COLMAP_ADD_LIBRARY(
         Eigen3::Eigen
         SQLite::SQLite3
 )
+
+if(TESTS_ENABLED)
+    target_sources(
+        colmap_scene
+        PRIVATE
+            reconstruction_matchers.h
+    )
+endif()
 
 COLMAP_ADD_TEST(
     NAME camera_test
