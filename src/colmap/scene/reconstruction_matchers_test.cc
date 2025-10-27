@@ -64,8 +64,9 @@ TEST(Reconstruction, Eq) {
 
   testing::StrictMock<MockTestClass> mock;
   EXPECT_CALL(mock, TestMethod(ReconstructionEq(reconstruction1))).Times(1);
-  EXPECT_CALL(mock, TestMethod(ReconstructionEq(reconstruction2))).Times(1);
+  EXPECT_CALL(mock, TestMethod(ReconstructionEq(reconstruction2))).Times(2);
   mock.TestMethod(reconstruction1);
+  mock.TestMethod(reconstruction2);
   mock.TestMethod(reconstruction2);
 }
 
@@ -112,8 +113,9 @@ TEST(Reconstruction, Near) {
 
   testing::StrictMock<MockTestClass> mock;
   EXPECT_CALL(mock, TestMethod(ReconstructionNear(reconstruction1))).Times(1);
-  EXPECT_CALL(mock, TestMethod(ReconstructionNear(reconstruction2))).Times(1);
+  EXPECT_CALL(mock, TestMethod(ReconstructionNear(reconstruction2))).Times(2);
   mock.TestMethod(reconstruction1);
+  mock.TestMethod(reconstruction2);
   mock.TestMethod(reconstruction2);
 }
 
