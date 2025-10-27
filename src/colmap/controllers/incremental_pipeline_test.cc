@@ -32,6 +32,7 @@
 #include "colmap/estimators/alignment.h"
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/scene/database.h"
+#include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
@@ -39,41 +40,6 @@
 
 namespace colmap {
 namespace {
-
-void ExpectReconstructionsNear(const Reconstruction& gt,
-                               const Reconstruction& computed,
-                               const double max_rotation_error_deg,
-                               const double max_proj_center_error,
-                               const double num_obs_tolerance,
-                               const bool align = true,
-                               const bool check_scale = false,
-                               const double max_scale_error = 0.01) {
-  EXPECT_EQ(computed.NumCameras(), gt.NumCameras());
-  EXPECT_EQ(computed.NumImages(), gt.NumImages());
-  EXPECT_EQ(computed.NumRegImages(), gt.NumRegImages());
-  EXPECT_GE(computed.ComputeNumObservations(),
-            (1 - num_obs_tolerance) * gt.ComputeNumObservations());
-
-  Sim3d gt_from_computed;
-  if (align) {
-    ASSERT_TRUE(
-        AlignReconstructionsViaProjCenters(computed,
-                                           gt,
-                                           /*max_proj_center_error=*/0.1,
-                                           &gt_from_computed));
-    if (check_scale) {
-      EXPECT_NEAR(gt_from_computed.scale, 1.0, max_scale_error);
-    }
-  }
-
-  const std::vector<ImageAlignmentError> errors =
-      ComputeImageAlignmentError(computed, gt, gt_from_computed);
-  EXPECT_EQ(errors.size(), gt.NumImages());
-  for (const auto& error : errors) {
-    EXPECT_LT(error.rotation_error_deg, max_rotation_error_deg);
-    EXPECT_LT(error.proj_center_error, max_proj_center_error);
-  }
-}
 
 bool AreReconstructionsIdentical(const Reconstruction& gt,
                                  const Reconstruction& computed) {
@@ -138,11 +104,10 @@ TEST(IncrementalPipeline, WithoutNoise) {
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
-  ExpectReconstructionsNear(gt_reconstruction,
-                            *reconstruction_manager->Get(0),
-                            /*max_rotation_error_deg=*/1e-2,
-                            /*max_proj_center_error=*/1e-4,
-                            /*num_obs_tolerance=*/0);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(*reconstruction_manager->Get(0),
+                                 /*max_rotation_error_deg=*/1e-2,
+                                 /*max_proj_center_error=*/1e-4));
 }
 
 TEST(IncrementalPipeline, WithoutNoiseAndWithNonTrivialFrames) {
@@ -172,14 +137,12 @@ TEST(IncrementalPipeline, WithoutNoiseAndWithNonTrivialFrames) {
     mapper.Run();
 
     ASSERT_EQ(reconstruction_manager->Size(), 1);
-    ExpectReconstructionsNear(gt_reconstruction,
-                              *reconstruction_manager->Get(0),
-                              /*max_rotation_error_deg=*/1e-2,
-                              /*max_proj_center_error=*/1e-3,
-                              /*num_obs_tolerance=*/0,
-                              /*align=*/true,
-                              /*check_scale=*/true,
-                              refine_sensor_from_rig ? 1e-2 : 1e-4);
+    EXPECT_THAT(gt_reconstruction,
+                ReconstructionNear(
+                    *reconstruction_manager->Get(0),
+                    /*max_rotation_error_deg=*/1e-2,
+                    /*max_proj_center_error=*/1e-3,
+                    /*max_scale_error=*/refine_sensor_from_rig ? 1e-2 : 1e-4));
   }
 }
 
@@ -214,13 +177,10 @@ TEST(IncrementalPipeline, WithNonTrivialFramesAndConstantRigsAndCameras) {
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
   auto& reconstruction = *reconstruction_manager->Get(0);
-  ExpectReconstructionsNear(gt_reconstruction,
-                            reconstruction,
-                            /*max_rotation_error_deg=*/1e-2,
-                            /*max_proj_center_error=*/1e-3,
-                            /*num_obs_tolerance=*/0,
-                            /*align=*/true,
-                            /*check_scale=*/true);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/1e-2,
+                                 /*max_proj_center_error=*/1e-3));
 
   for (const auto& [sensor_id, sensor_from_rig] :
        reconstruction.Rig(kConstantRigId).NonRefSensors()) {
@@ -262,11 +222,10 @@ TEST(IncrementalPipeline, WithoutNoiseAndWithPanoramicNonTrivialFrames) {
     mapper.Run();
 
     ASSERT_EQ(reconstruction_manager->Size(), 1);
-    ExpectReconstructionsNear(gt_reconstruction,
-                              *reconstruction_manager->Get(0),
-                              /*max_rotation_error_deg=*/1e-2,
-                              /*max_proj_center_error=*/1e-3,
-                              /*num_obs_tolerance=*/0);
+    EXPECT_THAT(gt_reconstruction,
+                ReconstructionNear(*reconstruction_manager->Get(0),
+                                   /*max_rotation_error_deg=*/1e-2,
+                                   /*max_proj_center_error=*/1e-3));
   }
 }
 
@@ -292,11 +251,10 @@ TEST(IncrementalPipeline, WithPriorFocalLength) {
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
-  ExpectReconstructionsNear(gt_reconstruction,
-                            *reconstruction_manager->Get(0),
-                            /*max_rotation_error_deg=*/1e-2,
-                            /*max_proj_center_error=*/1e-4,
-                            /*num_obs_tolerance=*/0);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(*reconstruction_manager->Get(0),
+                                 /*max_rotation_error_deg=*/1e-2,
+                                 /*max_proj_center_error=*/1e-4));
 }
 
 TEST(IncrementalPipeline, WithNoise) {
@@ -323,11 +281,12 @@ TEST(IncrementalPipeline, WithNoise) {
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
-  ExpectReconstructionsNear(gt_reconstruction,
-                            *reconstruction_manager->Get(0),
-                            /*max_rotation_error_deg=*/1e-1,
-                            /*max_proj_center_error=*/1e-1,
-                            /*num_obs_tolerance=*/0.02);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(*reconstruction_manager->Get(0),
+                                 /*max_rotation_error_deg=*/1e-1,
+                                 /*max_proj_center_error=*/1e-1,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.02));
 }
 
 TEST(IncrementalPipeline, IgnoreRedundantPoints3D) {
@@ -355,11 +314,10 @@ TEST(IncrementalPipeline, IgnoreRedundantPoints3D) {
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
-  ExpectReconstructionsNear(gt_reconstruction,
-                            *reconstruction_manager->Get(0),
-                            /*max_rotation_error_deg=*/1e-2,
-                            /*max_proj_center_error=*/1e-4,
-                            /*num_obs_tolerance=*/0);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(*reconstruction_manager->Get(0),
+                                 /*max_rotation_error_deg=*/1e-2,
+                                 /*max_proj_center_error=*/1e-4));
 }
 
 TEST(IncrementalPipeline, MultiReconstruction) {
@@ -398,16 +356,14 @@ TEST(IncrementalPipeline, MultiReconstruction) {
     computed_reconstruction1 = reconstruction_manager->Get(1).get();
     computed_reconstruction2 = reconstruction_manager->Get(0).get();
   }
-  ExpectReconstructionsNear(gt_reconstruction1,
-                            *computed_reconstruction1,
-                            /*max_rotation_error_deg=*/1e-2,
-                            /*max_proj_center_error=*/1e-4,
-                            /*num_obs_tolerance=*/0);
-  ExpectReconstructionsNear(gt_reconstruction2,
-                            *computed_reconstruction2,
-                            /*max_rotation_error_deg=*/1e-2,
-                            /*max_proj_center_error=*/1e-4,
-                            /*num_obs_tolerance=*/0);
+  EXPECT_THAT(gt_reconstruction1,
+              ReconstructionNear(*computed_reconstruction1,
+                                 /*max_rotation_error_deg=*/1e-2,
+                                 /*max_proj_center_error=*/1e-4));
+  EXPECT_THAT(gt_reconstruction2,
+              ReconstructionNear(*computed_reconstruction2,
+                                 /*max_rotation_error_deg=*/1e-2,
+                                 /*max_proj_center_error=*/1e-4));
 }
 
 TEST(IncrementalPipeline, FixExistingFrames) {
@@ -451,11 +407,10 @@ TEST(IncrementalPipeline, FixExistingFrames) {
     mapper.Run();
 
     ASSERT_EQ(reconstruction_manager->Size(), 1);
-    ExpectReconstructionsNear(gt_reconstruction,
-                              *reconstruction_manager->Get(0),
-                              /*max_rotation_error_deg=*/1e-2,
-                              /*max_proj_center_error=*/1e-4,
-                              /*num_obs_tolerance=*/0);
+    EXPECT_THAT(gt_reconstruction,
+                ReconstructionNear(*reconstruction_manager->Get(0),
+                                   /*max_rotation_error_deg=*/1e-2,
+                                   /*max_proj_center_error=*/1e-4));
   }
 }
 
@@ -482,11 +437,10 @@ TEST(IncrementalPipeline, ChainedMatches) {
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
-  ExpectReconstructionsNear(gt_reconstruction,
-                            *reconstruction_manager->Get(0),
-                            /*max_rotation_error_deg=*/1e-2,
-                            /*max_proj_center_error=*/1e-4,
-                            /*num_obs_tolerance=*/0);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(*reconstruction_manager->Get(0),
+                                 /*max_rotation_error_deg=*/1e-2,
+                                 /*max_proj_center_error=*/1e-4));
 }
 
 TEST(IncrementalPipeline, PriorBasedSfMWithoutNoise) {
@@ -522,12 +476,13 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoise) {
 
   // No noise on prior so do not align gt & computed (expected to be aligned
   // from PositionPriorBundleAdjustment)
-  ExpectReconstructionsNear(gt_reconstruction,
-                            *reconstruction_manager->Get(0),
-                            /*max_rotation_error_deg=*/1e-1,
-                            /*max_proj_center_error=*/1e-1,
-                            /*num_obs_tolerance=*/0.02,
-                            /*align=*/false);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(*reconstruction_manager->Get(0),
+                                 /*max_rotation_error_deg=*/1e-1,
+                                 /*max_proj_center_error=*/1e-1,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.02,
+                                 /*align=*/false));
 }
 
 TEST(IncrementalPipeline, PriorBasedSfMWithoutNoiseAndWithNonTrivialFrames) {
@@ -561,12 +516,12 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoiseAndWithNonTrivialFrames) {
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
-  ExpectReconstructionsNear(gt_reconstruction,
-                            *reconstruction_manager->Get(0),
-                            /*max_rotation_error_deg=*/1e-1,
-                            /*max_proj_center_error=*/1e-1,
-                            /*num_obs_tolerance=*/0.02,
-                            /*align=*/true);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(*reconstruction_manager->Get(0),
+                                 /*max_rotation_error_deg=*/1e-1,
+                                 /*max_proj_center_error=*/1e-1,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.02));
 }
 
 TEST(IncrementalPipeline, PriorBasedSfMWithNoise) {
@@ -601,12 +556,12 @@ TEST(IncrementalPipeline, PriorBasedSfMWithNoise) {
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
-  ExpectReconstructionsNear(gt_reconstruction,
-                            *reconstruction_manager->Get(0),
-                            /*max_rotation_error_deg=*/1e-1,
-                            /*max_proj_center_error=*/1e-1,
-                            /*num_obs_tolerance=*/0.02,
-                            /*align=*/true);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(*reconstruction_manager->Get(0),
+                                 /*max_rotation_error_deg=*/1e-1,
+                                 /*max_proj_center_error=*/1e-1,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.02));
 }
 
 TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
@@ -643,12 +598,12 @@ TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
-  ExpectReconstructionsNear(gt_reconstruction,
-                            *reconstruction_manager->Get(0),
-                            /*max_rotation_error_deg=*/1e-1,
-                            /*max_proj_center_error=*/1e-1,
-                            /*num_obs_tolerance=*/0.02,
-                            /*align=*/true);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(*reconstruction_manager->Get(0),
+                                 /*max_rotation_error_deg=*/1e-1,
+                                 /*max_proj_center_error=*/1e-1,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.02));
 }
 
 TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
@@ -721,12 +676,13 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
         run_mapper(/*num_threads=*/-1, /*random_seed=*/42);
     // Same seed should produce similar results, up to floating-point variations
     // in optimization.
-    ExpectReconstructionsNear(*reconstruction_manager0->Get(0),
-                              *reconstruction_manager1->Get(0),
-                              /*max_rotation_error_deg=*/1e-10,
-                              /*max_proj_center_error=*/1e-10,
-                              /*num_obs_tolerance=*/0.01,
-                              /*align=*/false);
+    EXPECT_THAT(*reconstruction_manager0->Get(0),
+                ReconstructionNear(*reconstruction_manager1->Get(0),
+                                   /*max_rotation_error_deg=*/1e-10,
+                                   /*max_proj_center_error=*/1e-10,
+                                   /*max_scale_error=*/std::nullopt,
+                                   /*num_obs_tolerance=*/0.01,
+                                   /*align=*/false));
   }
 }
 
@@ -802,12 +758,13 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
         run_mapper(/*num_threads=*/-1, /*random_seed=*/42);
     // Same seed should produce similar results, up to floating-point variations
     // in optimization.
-    ExpectReconstructionsNear(*reconstruction_manager0->Get(0),
-                              *reconstruction_manager1->Get(0),
-                              /*max_rotation_error_deg=*/1e-10,
-                              /*max_proj_center_error=*/1e-10,
-                              /*num_obs_tolerance=*/0.01,
-                              /*align=*/false);
+    EXPECT_THAT(*reconstruction_manager0->Get(0),
+                ReconstructionNear(*reconstruction_manager1->Get(0),
+                                   /*max_rotation_error_deg=*/1e-10,
+                                   /*max_proj_center_error=*/1e-10,
+                                   /*max_scale_error=*/std::nullopt,
+                                   /*num_obs_tolerance=*/0.01,
+                                   /*align=*/false));
   }
 }
 

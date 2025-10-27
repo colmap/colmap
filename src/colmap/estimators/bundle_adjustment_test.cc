@@ -32,6 +32,7 @@
 #include "colmap/estimators/alignment.h"
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/scene/database_cache.h"
+#include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/testing.h"
@@ -105,41 +106,6 @@ constexpr double kConstantPoseVarEps = 1e-9;
 
 namespace colmap {
 namespace {
-
-void ExpectReconstructionsNear(const Reconstruction& gt,
-                               const Reconstruction& computed,
-                               const double max_rotation_error_deg,
-                               const double max_proj_center_error,
-                               const double num_obs_tolerance,
-                               const bool align = true,
-                               const bool check_scale = false,
-                               const double max_scale_error = 0.01) {
-  EXPECT_EQ(computed.NumCameras(), gt.NumCameras());
-  EXPECT_EQ(computed.NumImages(), gt.NumImages());
-  EXPECT_EQ(computed.NumRegImages(), gt.NumRegImages());
-  EXPECT_GE(computed.ComputeNumObservations(),
-            (1 - num_obs_tolerance) * gt.ComputeNumObservations());
-
-  Sim3d gt_from_computed;
-  if (align) {
-    ASSERT_TRUE(
-        AlignReconstructionsViaProjCenters(computed,
-                                           gt,
-                                           /*max_proj_center_error=*/0.1,
-                                           &gt_from_computed));
-    if (check_scale) {
-      EXPECT_NEAR(gt_from_computed.scale, 1.0, max_scale_error);
-    }
-  }
-
-  const std::vector<ImageAlignmentError> errors =
-      ComputeImageAlignmentError(computed, gt, gt_from_computed);
-  EXPECT_EQ(errors.size(), gt.NumImages());
-  for (const auto& error : errors) {
-    EXPECT_LT(error.rotation_error_deg, max_rotation_error_deg);
-    EXPECT_LT(error.proj_center_error, max_proj_center_error);
-  }
-}
 
 TEST(BundleAdjustmentConfig, NumResiduals) {
   Reconstruction reconstruction;
@@ -1258,12 +1224,12 @@ TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
   auto summary = adjuster->Solve();
   ASSERT_TRUE(summary.IsSolutionUsable());
 
-  ExpectReconstructionsNear(gt_reconstruction,
-                            reconstruction,
-                            /*max_rotation_error_deg=*/0.1,
-                            /*max_proj_center_error=*/0.1,
-                            /*num_obs_tolerance=*/0.02,
-                            /*align=*/true);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.1,
+                                 /*max_scale_error=*/-1,
+                                 /*num_obs_tolerance=*/0.02));
 
   int num_close_to_priors = 0;
   for (const image_t id : reconstruction.RegImageIds()) {
@@ -1332,12 +1298,12 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
   auto summary = adjuster->Solve();
   ASSERT_TRUE(summary.IsSolutionUsable());
 
-  ExpectReconstructionsNear(gt_reconstruction,
-                            reconstruction,
-                            /*max_rotation_error_deg=*/0.1,
-                            /*max_proj_center_error=*/0.1,
-                            /*num_obs_tolerance=*/0.02,
-                            /*align=*/true);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.1,
+                                 /*max_scale_error=*/-1,
+                                 /*num_obs_tolerance=*/0.02));
 
   int num_close_to_priors = 0;
   for (const image_t id : reconstruction.RegImageIds()) {

@@ -49,6 +49,7 @@ COLMAP_ADD_LIBRARY(
         reconstruction_io_text.h reconstruction_io_text.cc
         reconstruction_io_utils.h reconstruction_io_utils.cc
         reconstruction_manager.h reconstruction_manager.cc
+        reconstruction_matchers.h
         reconstruction_pruning.h reconstruction_pruning.cc
         rig.h rig.cc
         scene_clustering.h scene_clustering.cc
@@ -131,6 +132,11 @@ COLMAP_ADD_TEST(
     NAME reconstruction_manager_test
     SRCS reconstruction_manager_test.cc
     LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME reconstruction_matchers_test
+    SRCS reconstruction_matchers_test.cc
+    LINK_LIBS colmap_scene colmap_estimators
 )
 COLMAP_ADD_TEST(
     NAME reconstruction_pruning_test
