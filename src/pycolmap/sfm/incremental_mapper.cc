@@ -190,6 +190,11 @@ void BindIncrementalPipeline(py::module& m) {
                      "independent of refine_focal_length, "
                      "refine_principal_point, and refine_extra_params.")
       .def_readwrite(
+          "max_runtime_seconds",
+          &Opts::max_runtime_seconds,
+          "Maximum runtime in seconds for the reconstruction process. If set "
+          "to a negative value, the process will run until completion.")
+      .def_readwrite(
           "mapper", &Opts::mapper, "Options of the IncrementalMapper.")
       .def_readwrite("triangulation",
                      &Opts::triangulation,
