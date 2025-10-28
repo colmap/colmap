@@ -863,7 +863,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   }
 
   // Optimize the redundant 3D points with all other parameters fixed.
-  if (is_small_reconstruction && options.ba_global_ignore_redundant_points3D) {
+  if (!is_small_reconstruction && options.ba_global_ignore_redundant_points3D) {
     if (bundle_adjuster->Solve().termination_type == ceres::FAILURE) {
       return false;
     }
