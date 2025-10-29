@@ -193,7 +193,7 @@ void BindIncrementalPipeline(py::module& m) {
           "max_runtime_seconds",
           &Opts::max_runtime_seconds,
           "Maximum runtime in seconds for the reconstruction process. If set "
-          "to a negative value, the process will run until completion.")
+          "to a non-positive value, the process will run until completion.")
       .def_readwrite(
           "mapper", &Opts::mapper, "Options of the IncrementalMapper.")
       .def_readwrite("triangulation",

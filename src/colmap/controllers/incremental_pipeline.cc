@@ -211,6 +211,7 @@ IncrementalPipeline::IncrementalPipeline(
 
 void IncrementalPipeline::Run() {
   total_run_timer_->Start();
+
   if (!LoadDatabase()) {
     return;
   }

@@ -161,7 +161,7 @@ struct IncrementalPipelineOptions {
   std::unordered_set<camera_t> constant_cameras;
 
   // Maximum runtime in seconds for the reconstruction process.
-  // If set to a negative value, the process will run until completion.
+  // If set to a non-positive value, the process will run until completion.
   int max_runtime_seconds = -1;
 
   IncrementalMapper::Options mapper;
