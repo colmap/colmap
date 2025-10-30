@@ -244,6 +244,13 @@ class Database {
   virtual void UpdatePosePrior(image_t image_id,
                                const PosePrior& pose_prior) = 0;
 
+  // Update an existing image's keypoints in the database. The user is
+  // responsible for making sure that the entry already exists.
+  virtual void UpdateKeypoints(image_t image_id,
+                               const FeatureKeypoints& keypoints) = 0;
+  virtual void UpdateKeypoints(image_t image_id,
+                               const FeatureKeypointsBlob& blob) = 0;
+
   // Delete matches of an image pair.
   virtual void DeleteMatches(image_t image_id1, image_t image_id2) = 0;
 
