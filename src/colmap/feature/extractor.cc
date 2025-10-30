@@ -30,6 +30,7 @@
 #include "colmap/feature/extractor.h"
 
 #include "colmap/feature/sift.h"
+#include "colmap/feature/xfeat.h"
 #include "colmap/util/misc.h"
 
 namespace colmap {
@@ -44,12 +45,16 @@ void ThrowUnknownFeatureExtractorType(FeatureExtractorType type) {
 }  // namespace
 
 FeatureExtractionOptions::FeatureExtractionOptions(FeatureExtractorType type)
-    : type(type), sift(std::make_shared<SiftExtractionOptions>()) {}
+    : type(type),
+      sift(std::make_shared<SiftExtractionOptions>()),
+      xfeat(std::make_shared<XFeatExtractionOptions>()) {}
 
 bool FeatureExtractionOptions::RequiresRGB() const {
   switch (type) {
     case FeatureExtractorType::SIFT:
       return false;
+    case FeatureExtractorType::XFEAT:
+      return true;
     default:
       ThrowUnknownFeatureExtractorType(type);
   }
@@ -60,14 +65,16 @@ bool FeatureExtractionOptions::Check() const {
   CHECK_OPTION_GT(max_image_size, 0);
   if (use_gpu) {
     CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
-#ifndef COLMAP_GPU_ENABLED
-    LOG(ERROR) << "Cannot use GPU feature Extraction without CUDA or OpenGL "
-                  "support. Set use_gpu or use_gpu to false.";
+#if !defined(COLMAP_GPU_ENABLED) && !defined(COLMAP_CUDA_ENABLED)
+    LOG(ERROR) << "Cannot use GPU feature extraction without CUDA or OpenGL "
+                  "support. Consider setting use_gpu to false.";
     return false;
 #endif
   }
   if (type == FeatureExtractorType::SIFT) {
     return THROW_CHECK_NOTNULL(sift)->Check();
+  } else if (type == FeatureExtractorType::XFEAT) {
+    return THROW_CHECK_NOTNULL(xfeat)->Check();
   } else {
     LOG(ERROR) << "Unknown feature extractor type: " << type;
     return false;
@@ -80,6 +87,8 @@ std::unique_ptr<FeatureExtractor> FeatureExtractor::Create(
   switch (options.type) {
     case FeatureExtractorType::SIFT:
       return CreateSiftFeatureExtractor(options);
+    case FeatureExtractorType::XFEAT:
+      return CreateXFeatFeatureExtractor(options);
     default:
       ThrowUnknownFeatureExtractorType(options.type);
   }
