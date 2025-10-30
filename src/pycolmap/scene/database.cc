@@ -330,6 +330,11 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
         void, Database, UpdateKeypoints, image_id, keypoints);
   }
 
+  void UpdateKeypoints(image_t image_id,
+                       const FeatureKeypointsBlob& blob) override {
+    PYBIND11_OVERRIDE_PURE(void, Database, UpdateKeypoints, image_id, blob);
+  }
+
   void DeleteMatches(image_t image_id1, image_t image_id2) override {
     PYBIND11_OVERRIDE_PURE(void, Database, DeleteMatches, image_id1, image_id2);
   }
