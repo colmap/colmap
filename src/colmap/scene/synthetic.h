@@ -82,6 +82,7 @@ struct SyntheticNoiseOptions {
 };
 
 void SynthesizeNoise(const SyntheticNoiseOptions& options,
-                     Reconstruction* reconstruction);
+                     Reconstruction* reconstruction,
+                     Database* database = nullptr);
 
 }  // namespace colmap

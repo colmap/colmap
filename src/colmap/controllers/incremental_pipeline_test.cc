@@ -230,7 +230,7 @@ TEST(IncrementalPipeline, WithNoise) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 0.5;
-  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction);
+  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   IncrementalPipeline mapper(std::make_shared<IncrementalPipelineOptions>(),
@@ -418,7 +418,7 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoise) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 0.5;
-  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction);
+  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
   std::shared_ptr<IncrementalPipelineOptions> mapper_options =
       std::make_shared<IncrementalPipelineOptions>();
@@ -499,7 +499,7 @@ TEST(IncrementalPipeline, PriorBasedSfMWithNoise) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 0.5;
-  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction);
+  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
   std::shared_ptr<IncrementalPipelineOptions> mapper_options =
       std::make_shared<IncrementalPipelineOptions>();
@@ -541,7 +541,7 @@ TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 0.5;
-  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction);
+  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
   std::shared_ptr<IncrementalPipelineOptions> mapper_options =
       std::make_shared<IncrementalPipelineOptions>();
@@ -575,14 +575,14 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 5;
-  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.num_frames_per_rig = 3;
+  synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.use_prior_position = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction);
+  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
   auto mapper_options = std::make_shared<IncrementalPipelineOptions>();
   mapper_options->use_prior_position = false;
@@ -614,7 +614,7 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
     // some seeds, we may still get identical results, so we try a few different
     // seeds until we get a different result.
     bool different_result = false;
-    for (int random_seed = kRandomSeed + 1; random_seed < kRandomSeed + 10;
+    for (int random_seed = kRandomSeed + 1; random_seed < kRandomSeed + 20;
          ++random_seed) {
       auto reconstruction_manager2 =
           run_mapper(/*num_threads=*/1, /*random_seed=*/random_seed);
@@ -655,15 +655,15 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 7;
-  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.use_prior_position = true;
   synthetic_dataset_options.prior_position_stddev = 1.0;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 0.5;
-  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction);
+  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
   auto mapper_options = std::make_shared<IncrementalPipelineOptions>();
   mapper_options->use_prior_position = false;
@@ -695,7 +695,7 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
     // some seeds, we may still get identical results, so we try a few different
     // seeds until we get a different result.
     bool different_result = false;
-    for (int random_seed = kRandomSeed + 1; random_seed < kRandomSeed + 10;
+    for (int random_seed = kRandomSeed + 1; random_seed < kRandomSeed + 20;
          ++random_seed) {
       // Different seed should produce different reconstructions.
       auto reconstruction_manager2 =

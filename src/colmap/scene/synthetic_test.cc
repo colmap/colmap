@@ -33,6 +33,7 @@
 #include "colmap/math/random.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/projection.h"
+#include "colmap/util/eigen_matchers.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
@@ -311,41 +312,54 @@ TEST(SynthesizeDataset, Determinism) {
 }
 
 TEST(SynthesizeNoise, Point2DNoise) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction reconstruction;
   SyntheticDatasetOptions options;
-  SynthesizeDataset(options, &reconstruction);
+  SynthesizeDataset(options, &reconstruction, database.get());
   EXPECT_LT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
 
   SyntheticNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 0.1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeNoise(synthetic_noise_options, &reconstruction, database.get());
   EXPECT_GT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
+
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    const auto& keypoints = database->ReadKeypoints(image_id);
+    for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+         ++point2D_idx) {
+      EXPECT_THAT(
+          Eigen::Vector2d(keypoints[point2D_idx].x, keypoints[point2D_idx].y),
+          EigenMatrixNear(image.Point2D(point2D_idx).xy, 1e-6));
+    }
+  }
 }
 
 TEST(SynthesizeNoise, Point3DNoise) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction reconstruction;
   SyntheticDatasetOptions options;
 
-  SynthesizeDataset(options, &reconstruction);
+  SynthesizeDataset(options, &reconstruction, database.get());
   EXPECT_LT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
 
   SyntheticNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point3D_stddev = 0.1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeNoise(synthetic_noise_options, &reconstruction, database.get());
   EXPECT_GT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
 }
 
 TEST(SynthesizeNoise, RigFromWorldNoise) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction reconstruction;
   SyntheticDatasetOptions options;
 
-  SynthesizeDataset(options, &reconstruction);
+  SynthesizeDataset(options, &reconstruction, database.get());
   EXPECT_LT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
 
   SyntheticNoiseOptions synthetic_noise_options;
   synthetic_noise_options.rig_from_world_translation_stddev = 0.1;
   synthetic_noise_options.rig_from_world_rotation_stddev = 0.1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  SynthesizeNoise(synthetic_noise_options, &reconstruction, database.get());
   EXPECT_GT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
 }
 
