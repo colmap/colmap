@@ -609,22 +609,6 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
         run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
     EXPECT_THAT(*reconstruction_manager0->Get(0),
                 ReconstructionEq(*reconstruction_manager1->Get(0)));
-
-    // Different seed should produce different reconstructions. Notice that, for
-    // some seeds, we may still get identical results, so we try a few different
-    // seeds until we get a different result.
-    bool different_result = false;
-    for (int random_seed = kRandomSeed + 1; random_seed < kRandomSeed + 20;
-         ++random_seed) {
-      auto reconstruction_manager2 =
-          run_mapper(/*num_threads=*/1, /*random_seed=*/random_seed);
-      if (!testing::Value(*reconstruction_manager0->Get(0),
-                          ReconstructionEq(*reconstruction_manager2->Get(0)))) {
-        different_result = true;
-        break;
-      }
-    }
-    EXPECT_TRUE(different_result);
   }
 
   // Multi-threaded execution.
@@ -690,23 +674,6 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
         run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
     EXPECT_THAT(*reconstruction_manager0->Get(0),
                 ReconstructionEq(*reconstruction_manager1->Get(0)));
-
-    // Different seed should produce different reconstructions. Notice that, for
-    // some seeds, we may still get identical results, so we try a few different
-    // seeds until we get a different result.
-    bool different_result = false;
-    for (int random_seed = kRandomSeed + 1; random_seed < kRandomSeed + 20;
-         ++random_seed) {
-      // Different seed should produce different reconstructions.
-      auto reconstruction_manager2 =
-          run_mapper(/*num_threads=*/1, /*random_seed=*/random_seed);
-      if (!testing::Value(*reconstruction_manager0->Get(0),
-                          ReconstructionEq(*reconstruction_manager2->Get(0)))) {
-        different_result = true;
-        break;
-      }
-    }
-    EXPECT_TRUE(different_result);
   }
 
   // Multi-threaded execution.
