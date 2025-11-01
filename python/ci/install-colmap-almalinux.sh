@@ -20,7 +20,8 @@ yum install -y \
     curl \
     zip \
     unzip \
-    tar
+    tar \
+    perl
 
 source scl_source enable gcc-toolset-12
 
@@ -45,7 +46,8 @@ cd ${VCPKG_INSTALLATION_ROOT}
 cd ${CURRDIR}
 mkdir build && cd build
 cmake3 .. -GNinja \
-    -DCUDA_ENABLED=OFF \
+    -DCUDA_ENABLED="${BUILD_CUDA_ENABLED}" \
+    -DCMAKE_CUDA_ARCHITECTURES="all-major" \
     -DGUI_ENABLED=OFF \
     -DCGAL_ENABLED=OFF \
     -DLSD_ENABLED=OFF \
