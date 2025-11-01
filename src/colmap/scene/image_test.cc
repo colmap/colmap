@@ -175,6 +175,7 @@ TEST(Image, ConstructCopy) {
   Image image;
   image.SetImageId(1);
   image.SetCameraId(1);
+  image.SetName("test");
   frame.AddDataId(image.DataId());
   image.SetFrameId(1);
   image.SetFramePtr(&frame);
@@ -198,10 +199,12 @@ TEST(Image, AssignCopy) {
   Image image;
   image.SetImageId(1);
   image.SetCameraId(1);
+  image.SetName("test");
   frame.AddDataId(image.DataId());
   image.SetFrameId(1);
   image.SetFramePtr(&frame);
-  Image image_copy = image;
+  Image image_copy;
+  image_copy = image;
   EXPECT_EQ(image, image_copy);
   EXPECT_EQ(image_copy.CamFromWorld(), Rigid3d());
   image_copy.FramePtr()->ResetPose();

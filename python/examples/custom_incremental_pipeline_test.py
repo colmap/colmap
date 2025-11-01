@@ -52,7 +52,6 @@ def test_without_noise(tmp_path):
         synthetic_dataset_options.num_cameras_per_rig = 2
         synthetic_dataset_options.num_frames_per_rig = 7
         synthetic_dataset_options.num_points3D = 50
-        synthetic_dataset_options.point2D_stddev = 0
         gt_reconstruction = pycolmap.synthesize_dataset(
             synthetic_dataset_options, database
         )
@@ -87,10 +86,12 @@ def test_with_noise(tmp_path):
         synthetic_dataset_options.num_cameras_per_rig = 2
         synthetic_dataset_options.num_frames_per_rig = 7
         synthetic_dataset_options.num_points3D = 100
-        synthetic_dataset_options.point2D_stddev = 0.5
         gt_reconstruction = pycolmap.synthesize_dataset(
             synthetic_dataset_options, database
         )
+        synthetic_noise_options = pycolmap.SyntheticNoiseOptions()
+        synthetic_noise_options.point2D_stddev = 0.5
+        pycolmap.synthesize_noise(synthetic_noise_options, gt_reconstruction)
 
     custom_incremental_pipeline.main(
         database_path=database_path,
@@ -122,7 +123,6 @@ def test_multi_reconstruction(tmp_path):
         synthetic_dataset_options.num_cameras_per_rig = 1
         synthetic_dataset_options.num_frames_per_rig = 5
         synthetic_dataset_options.num_points3D = 50
-        synthetic_dataset_options.point2D_stddev = 0
         gt_reconstruction1 = pycolmap.synthesize_dataset(
             synthetic_dataset_options, database
         )
@@ -176,7 +176,6 @@ def test_chained_matches(tmp_path):
         synthetic_dataset_options.num_cameras_per_rig = 1
         synthetic_dataset_options.num_frames_per_rig = 4
         synthetic_dataset_options.num_points3D = 100
-        synthetic_dataset_options.point2D_stddev = 0
         synthetic_dataset_options.match_config = (
             pycolmap.SyntheticDatasetMatchConfig.CHAINED
         )

@@ -655,6 +655,7 @@ void OptionManager::AddMapperOptions() {
                    &mapper_constant_rig_list_path_);
   AddDefaultOption("Mapper.constant_camera_list_path",
                    &mapper_constant_camera_list_path_);
+  AddDefaultOption("Mapper.max_runtime_seconds", &mapper->max_runtime_seconds);
 
   // IncrementalTriangulator.
   AddAndRegisterDefaultOption("Mapper.tri_max_transitivity",

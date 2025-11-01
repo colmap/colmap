@@ -30,8 +30,10 @@
 #include "colmap/scene/synthetic.h"
 
 #include "colmap/geometry/triangulation.h"
+#include "colmap/math/random.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/projection.h"
+#include "colmap/util/eigen_matchers.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
@@ -201,20 +203,6 @@ TEST(SynthesizeDataset, MultipleTimes) {
   EXPECT_EQ(reconstruction.NumPoints3D(), 2 * options.num_points3D);
 }
 
-TEST(SynthesizeDataset, WithNoise) {
-  auto database = Database::Open(kInMemorySqliteDatabasePath);
-  Reconstruction reconstruction;
-  SyntheticDatasetOptions options;
-  options.point2D_stddev = 2.0;
-  SynthesizeDataset(options, &reconstruction, database.get());
-
-  EXPECT_NEAR(reconstruction.ComputeMeanReprojectionError(),
-              options.point2D_stddev,
-              0.5 * options.point2D_stddev);
-  EXPECT_NEAR(
-      reconstruction.ComputeMeanTrackLength(), reconstruction.NumImages(), 0.1);
-}
-
 TEST(SynthesizeDataset, WithPriors) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction reconstruction;
@@ -303,6 +291,76 @@ TEST(SynthesizeDataset, NoDatabase) {
   SyntheticDatasetOptions options;
   Reconstruction reconstruction;
   SynthesizeDataset(options, &reconstruction);
+}
+
+TEST(SynthesizeDataset, Determinism) {
+  SyntheticDatasetOptions options;
+
+  Reconstruction reconstruction1;
+  SetPRNGSeed(42);
+  SynthesizeDataset(options, &reconstruction1);
+
+  Reconstruction reconstruction2;
+  SetPRNGSeed(42);
+  SynthesizeDataset(options, &reconstruction2);
+
+  EXPECT_EQ(reconstruction1.Rigs(), reconstruction2.Rigs());
+  EXPECT_EQ(reconstruction1.Frames(), reconstruction2.Frames());
+  EXPECT_EQ(reconstruction1.Cameras(), reconstruction2.Cameras());
+  EXPECT_EQ(reconstruction1.Images(), reconstruction2.Images());
+  EXPECT_EQ(reconstruction1.Points3D(), reconstruction2.Points3D());
+}
+
+TEST(SynthesizeNoise, Point2DNoise) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  SynthesizeDataset(options, &reconstruction, database.get());
+  EXPECT_LT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
+
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction, database.get());
+  EXPECT_GT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
+
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    const auto& keypoints = database->ReadKeypoints(image_id);
+    for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+         ++point2D_idx) {
+      EXPECT_THAT(
+          Eigen::Vector2d(keypoints[point2D_idx].x, keypoints[point2D_idx].y),
+          EigenMatrixNear(image.Point2D(point2D_idx).xy, 1e-6));
+    }
+  }
+}
+
+TEST(SynthesizeNoise, Point3DNoise) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+
+  SynthesizeDataset(options, &reconstruction, database.get());
+  EXPECT_LT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
+
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point3D_stddev = 0.1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction, database.get());
+  EXPECT_GT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
+}
+
+TEST(SynthesizeNoise, RigFromWorldNoise) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+
+  SynthesizeDataset(options, &reconstruction, database.get());
+  EXPECT_LT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
+
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.rig_from_world_translation_stddev = 0.1;
+  synthetic_noise_options.rig_from_world_rotation_stddev = 0.1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction, database.get());
+  EXPECT_GT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
 }
 
 }  // namespace

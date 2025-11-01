@@ -61,7 +61,6 @@ Reconstruction GenerateReconstructionForAlignment() {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   return reconstruction;
 }
@@ -181,7 +180,6 @@ TEST(Alignment, MergeReconstructions) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &src_reconstruction);
   Reconstruction orig_reconstruction = src_reconstruction;
   Reconstruction tgt_reconstruction = src_reconstruction;
@@ -232,7 +230,6 @@ TEST(Alignment, AlignReconstructionToOrigRigScales) {
   synthetic_dataset_options.num_cameras_per_rig = 4;
   synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   std::unordered_map<rig_t, Rig> orig_rigs = reconstruction.Rigs();
 
