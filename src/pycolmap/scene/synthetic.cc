@@ -80,5 +80,9 @@ void BindSynthetic(py::module& m) {
                          &SyntheticNoiseOptions::point2D_stddev);
   MakeDataclass(PySyntheticNoiseOptions);
 
-  m.def("synthesize_noise", &SynthesizeNoise, "options"_a, "reconstruction"_a);
+  m.def("synthesize_noise",
+        &SynthesizeNoise,
+        "options"_a,
+        "reconstruction"_a,
+        "database"_a = py::none());
 }
