@@ -66,6 +66,15 @@
                 "cuda"
             ]
         },
+        "onnx": {
+            "description": "Build with ONNX support.",
+            "dependencies": [
+                {
+                    "name": "onnxruntime-gpu",
+                    "platform": "windows"
+                }
+            ]
+        },
         "gui": {
             "description": "Build with GUI support.",
             "dependencies": [
