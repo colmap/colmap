@@ -129,14 +129,16 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
       const bool duplicate1 =
           std::find_if(corrs1.begin(),
                        corrs1.end(),
-                       [image_id2](const Correspondence& corr) {
-                         return corr.image_id == image_id2;
+                       [image_id2, &match](const Correspondence& corr) {
+                         return corr.image_id == image_id2 &&
+                                corr.point2D_idx == match.point2D_idx2;
                        }) != corrs1.end();
       const bool duplicate2 =
           std::find_if(corrs2.begin(),
                        corrs2.end(),
-                       [image_id1](const Correspondence& corr) {
-                         return corr.image_id == image_id1;
+                       [image_id1, &match](const Correspondence& corr) {
+                         return corr.image_id == image_id1 &&
+                                corr.point2D_idx == match.point2D_idx1;
                        }) != corrs2.end();
 
       if (duplicate1 || duplicate2) {
