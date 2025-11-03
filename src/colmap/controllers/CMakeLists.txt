@@ -74,3 +74,8 @@ COLMAP_ADD_TEST(
     SRCS image_reader_test.cc
     LINK_LIBS colmap_controllers
 )
+COLMAP_ADD_TEST(
+    NAME option_manager_test
+    SRCS option_manager_test.cc
+    LINK_LIBS colmap_controllers
+)
