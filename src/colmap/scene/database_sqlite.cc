@@ -1299,6 +1299,21 @@ class SqliteDatabase : public Database {
     SQLITE3_CALL(sqlite3_step(sql_stmt_update_pose_prior_));
   }
 
+  void UpdateKeypoints(image_t image_id,
+                       const FeatureKeypoints& keypoints) override {
+    UpdateKeypoints(image_id, FeatureKeypointsToBlob(keypoints));
+  }
+
+  void UpdateKeypoints(image_t image_id,
+                       const FeatureKeypointsBlob& blob) override {
+    Sqlite3StmtContext context(sql_stmt_update_keypoints_);
+
+    WriteDynamicMatrixBlob(sql_stmt_update_keypoints_, blob, 1);
+    SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_update_keypoints_, 4, image_id));
+
+    SQLITE3_CALL(sqlite3_step(sql_stmt_update_keypoints_));
+  }
+
   void DeleteMatches(const image_t image_id1,
                      const image_t image_id2) override {
     Sqlite3StmtContext context(sql_stmt_delete_matches_);
@@ -1660,6 +1675,9 @@ class SqliteDatabase : public Database {
         "UPDATE pose_priors SET position=?, coordinate_system=?, "
         "position_covariance=? WHERE image_id=?;",
         &sql_stmt_update_pose_prior_);
+    prepare_sql_stmt(
+        "UPDATE keypoints SET rows=?, cols=?, data=? WHERE image_id=?;",
+        &sql_stmt_update_keypoints_);
 
     //////////////////////////////////////////////////////////////////////////////
     // read_*
@@ -2192,6 +2210,7 @@ class SqliteDatabase : public Database {
   sqlite3_stmt* sql_stmt_update_frame_ = nullptr;
   sqlite3_stmt* sql_stmt_update_image_ = nullptr;
   sqlite3_stmt* sql_stmt_update_pose_prior_ = nullptr;
+  sqlite3_stmt* sql_stmt_update_keypoints_ = nullptr;
 
   // read_*
   sqlite3_stmt* sql_stmt_read_rig_ = nullptr;

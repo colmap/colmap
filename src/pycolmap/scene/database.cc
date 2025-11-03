@@ -324,6 +324,17 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
         void, Database, UpdatePosePrior, image_id, pose_prior);
   }
 
+  void UpdateKeypoints(image_t image_id,
+                       const FeatureKeypoints& keypoints) override {
+    PYBIND11_OVERRIDE_PURE(
+        void, Database, UpdateKeypoints, image_id, keypoints);
+  }
+
+  void UpdateKeypoints(image_t image_id,
+                       const FeatureKeypointsBlob& blob) override {
+    PYBIND11_OVERRIDE_PURE(void, Database, UpdateKeypoints, image_id, blob);
+  }
+
   void DeleteMatches(image_t image_id1, image_t image_id2) override {
     PYBIND11_OVERRIDE_PURE(void, Database, DeleteMatches, image_id1, image_id2);
   }
@@ -551,6 +562,15 @@ void BindDatabase(py::module& m) {
       .def("update_camera", &Database::UpdateCamera, "camera"_a)
       .def("update_frame", &Database::UpdateFrame, "frame"_a)
       .def("update_image", &Database::UpdateImage, "image"_a)
+      .def("update_pose_prior",
+           &Database::UpdatePosePrior,
+           "image_id"_a,
+           "pose_prior"_a)
+      .def("update_keypoints",
+           py::overload_cast<image_t, const FeatureKeypointsBlob&>(
+               &Database::UpdateKeypoints),
+           "image_id"_a,
+           "keypoints"_a)
       .def("delete_matches",
            &Database::DeleteMatches,
            "image_id1"_a,

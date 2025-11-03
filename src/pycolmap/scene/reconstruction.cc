@@ -152,6 +152,9 @@ void BindReconstruction(py::module& m) {
            "Delete one observation from an image and the corresponding 3D "
            "point. Note that this deletes the entire 3D point, if the track "
            "has two elements prior to calling this method.")
+      .def("delete_all_points2D_and_points3D",
+           &Reconstruction::DeleteAllPoints2DAndPoints3D,
+           "Delete all 2D points of all images and all 3D points.")
       .def("register_frame",
            &Reconstruction::RegisterFrame,
            "frame_id"_a,

@@ -432,7 +432,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 }
 
 void SynthesizeNoise(const SyntheticNoiseOptions& options,
-                     Reconstruction* reconstruction) {
+                     Reconstruction* reconstruction,
+                     Database* database) {
   THROW_CHECK_GE(options.rig_from_world_translation_stddev, 0.);
   THROW_CHECK_GE(options.rig_from_world_rotation_stddev, 0.);
   THROW_CHECK_GE(options.point3D_stddev, 0.);
@@ -465,6 +466,16 @@ void SynthesizeNoise(const SyntheticNoiseOptions& options,
         point2D.xy +=
             Eigen::Vector2d(RandomGaussian<double>(0, options.point2D_stddev),
                             RandomGaussian<double>(0, options.point2D_stddev));
+      }
+      if (database != nullptr) {
+        std::vector<FeatureKeypoint> keypoints =
+            database->ReadKeypoints(image_id);
+        for (point2D_t point2D_idx = 0; point2D_idx < keypoints.size();
+             ++point2D_idx) {
+          keypoints[point2D_idx].x = image.Point2D(point2D_idx).xy(0);
+          keypoints[point2D_idx].y = image.Point2D(point2D_idx).xy(1);
+        }
+        database->UpdateKeypoints(image.ImageId(), keypoints);
       }
     }
   }
