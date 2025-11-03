@@ -80,6 +80,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_controllers
 )
 COLMAP_ADD_TEST(
+    NAME feature_matching_test
+    SRCS feature_matching_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
     NAME option_manager_test
     SRCS option_manager_test.cc
     LINK_LIBS colmap_controllers
