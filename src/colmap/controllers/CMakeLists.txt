@@ -60,6 +60,11 @@ COLMAP_ADD_LIBRARY(
 )
 
 COLMAP_ADD_TEST(
+    NAME bundle_adjustment_test
+    SRCS bundle_adjustment_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
     NAME hierarchical_pipeline_test
     SRCS hierarchical_pipeline_test.cc
     LINK_LIBS colmap_controllers
