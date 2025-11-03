@@ -34,6 +34,7 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/scene/projection.h"
+#include "colmap/scene/reconstruction_pruning.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/sfm/incremental_mapper_impl.h"
 #include "colmap/util/misc.h"
@@ -54,8 +55,9 @@ bool IncrementalMapper::Options::Check() const {
   CHECK_OPTION_GT(abs_pose_min_num_inliers, 0);
   CHECK_OPTION_GE(abs_pose_min_inlier_ratio, 0.0);
   CHECK_OPTION_LE(abs_pose_min_inlier_ratio, 1.0);
-  CHECK_OPTION_GE(local_ba_num_images, 2);
-  CHECK_OPTION_GE(local_ba_min_tri_angle, 0.0);
+  CHECK_OPTION_GE(ba_local_num_images, 2);
+  CHECK_OPTION_GE(ba_local_min_tri_angle, 0.0);
+  CHECK_OPTION_GE(ba_global_ignore_redundant_points3D_min_coverage_gain, 0.0);
   CHECK_OPTION_GE(min_focal_length_ratio, 0.0);
   CHECK_OPTION_GE(max_focal_length_ratio, min_focal_length_ratio);
   CHECK_OPTION_GE(max_extra_param, 0.0);
@@ -185,7 +187,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   Camera& camera = *image.CameraPtr();
 
   for (const auto& [_, sensor_from_rig] :
-       image.FramePtr()->RigPtr()->Sensors()) {
+       image.FramePtr()->RigPtr()->NonRefSensors()) {
     THROW_CHECK(sensor_from_rig.has_value())
         << "Registration only implemented for frames with known "
            "sensor_from_rig poses";
@@ -696,7 +698,7 @@ IncrementalMapper::AdjustLocalBundle(
       if (options.constant_rigs.count(rig_id) ||
           num_frames < reg_stats_.num_reg_frames_per_rig.at(rig_id)) {
         const Rig& rig = reconstruction_->Rig(rig_id);
-        for (const auto& [sensor_id, _] : rig.Sensors()) {
+        for (const auto& [sensor_id, _] : rig.NonRefSensors()) {
           ba_config.SetConstantSensorFromRigPose(sensor_id);
         }
       }
@@ -774,8 +776,10 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   BundleAdjustmentOptions custom_ba_options = ba_options;
   // Use stricter convergence criteria for first registered images.
-  const size_t kMinNumRegFramesForFastBA = 10;
-  if (reconstruction_->NumRegFrames() < kMinNumRegFramesForFastBA) {
+  constexpr size_t kMinNumRegFramesForFastBA = 10;
+  const bool is_small_reconstruction =
+      reconstruction_->NumRegFrames() < kMinNumRegFramesForFastBA;
+  if (is_small_reconstruction) {
     custom_ba_options.solver_options.function_tolerance /= 10;
     custom_ba_options.solver_options.gradient_tolerance /= 10;
     custom_ba_options.solver_options.parameter_tolerance /= 10;
@@ -810,13 +814,25 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   for (const auto& rig_id : options.constant_rigs) {
     const Rig& rig = reconstruction_->Rig(rig_id);
-    for (const auto& [sensor_id, _] : rig.Sensors()) {
+    for (const auto& [sensor_id, _] : rig.NonRefSensors()) {
       ba_config.SetConstantSensorFromRigPose(sensor_id);
     }
   }
 
   for (const auto& camera_id : options.constant_cameras) {
     ba_config.SetConstantCamIntrinsics(camera_id);
+  }
+
+  std::vector<point3D_t> redundant_point3D_ids;
+  if (!is_small_reconstruction && options.ba_global_ignore_redundant_points3D) {
+    redundant_point3D_ids = FindRedundantPoints3D(
+        options.ba_global_ignore_redundant_points3D_min_coverage_gain,
+        *reconstruction_);
+    VLOG(1) << "=> Ignoring " << redundant_point3D_ids.size() << " / "
+            << reconstruction_->NumPoints3D() << " redundant 3D points";
+    for (const point3D_t point3D_id : redundant_point3D_ids) {
+      ba_config.IgnorePoint(point3D_id);
+    }
   }
 
   // Only use prior pose if at least 3 images have been registered.
@@ -831,7 +847,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
     // as initial experiments show that it is even faster.
     ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
     bundle_adjuster = CreateDefaultBundleAdjuster(
-        std::move(custom_ba_options), ba_config, *reconstruction_);
+        custom_ba_options, ba_config, *reconstruction_);
   } else {
     PosePriorBundleAdjustmentOptions prior_options;
     prior_options.use_robust_loss_on_prior_position =
@@ -839,11 +855,37 @@ bool IncrementalMapper::AdjustGlobalBundle(
     prior_options.prior_position_loss_scale = options.prior_position_loss_scale;
     prior_options.alignment_ransac_options.random_seed = options.random_seed;
     bundle_adjuster =
-        CreatePosePriorBundleAdjuster(std::move(custom_ba_options),
+        CreatePosePriorBundleAdjuster(custom_ba_options,
                                       prior_options,
                                       ba_config,
                                       database_cache_->PosePriors(),
                                       *reconstruction_);
+  }
+
+  // Optimize the redundant 3D points with all other parameters fixed.
+  if (!is_small_reconstruction && options.ba_global_ignore_redundant_points3D) {
+    if (bundle_adjuster->Solve().termination_type == ceres::FAILURE) {
+      return false;
+    }
+
+    ba_config = BundleAdjustmentConfig();
+    for (const point3D_t point3D_id : redundant_point3D_ids) {
+      ba_config.AddVariablePoint(point3D_id);
+    }
+    for (const frame_t frame_id : reconstruction_->RegFrameIds()) {
+      ba_config.SetConstantRigFromWorldPose(frame_id);
+    }
+    for (const auto& [camera_id, _] : reconstruction_->Cameras()) {
+      ba_config.SetConstantCamIntrinsics(camera_id);
+    }
+    for (const auto& [_, rig] : reconstruction_->Rigs()) {
+      for (const auto& [sensor_id, _] : rig.NonRefSensors()) {
+        ba_config.SetConstantSensorFromRigPose(sensor_id);
+      }
+    }
+
+    bundle_adjuster = CreateDefaultBundleAdjuster(
+        custom_ba_options, ba_config, *reconstruction_);
   }
 
   return bundle_adjuster->Solve().termination_type != ceres::FAILURE;
@@ -893,7 +935,9 @@ void IncrementalMapper::IterativeGlobalRefinement(
     const IncrementalTriangulator::Options& tri_options,
     const bool normalize_reconstruction) {
   CompleteAndMergeTracks(tri_options);
-  VLOG(1) << "=> Retriangulated observations: " << Retriangulate(tri_options);
+  const size_t num_retriangulated_observations = Retriangulate(tri_options);
+  VLOG(1) << "=> Retriangulated observations: "
+          << num_retriangulated_observations;
   for (int i = 0; i < max_num_refinements; ++i) {
     const size_t num_observations = reconstruction_->ComputeNumObservations();
     AdjustGlobalBundle(options, ba_options);

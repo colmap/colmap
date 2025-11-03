@@ -29,17 +29,13 @@
 
 #include "colmap/scene/reconstruction.h"
 
-#include "colmap/geometry/pose.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/scene/database_sqlite.h"
-#include "colmap/scene/reconstruction_io.h"
+#include "colmap/scene/reconstruction_io_text.h"
+#include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
-#include "colmap/util/file.h"
-#include "colmap/util/testing.h"
 
-#include <fstream>
-#include <iostream>
 #include <sstream>
 
 #include <gmock/gmock.h>
@@ -64,9 +60,9 @@ void ExpectValidPtrs(const Reconstruction& reconstruction) {
   }
 }
 
-void ExpectEqualReconstructions(const Reconstruction& reconstruction1,
-                                const Reconstruction& reconstruction2) {
-  // compare rig calibrations
+void ExpectEqualSerialization(const Reconstruction& reconstruction1,
+                              const Reconstruction& reconstruction2) {
+  // compare rigs
   std::stringstream stream1_rigs, stream2_rigs;
   WriteRigsText(reconstruction1, stream1_rigs);
   WriteRigsText(reconstruction2, stream2_rigs);
@@ -147,7 +143,8 @@ TEST(Reconstruction, ConstructCopy) {
   synthetic_dataset_options.num_points3D = 21;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   const Reconstruction reconstruction_copy(reconstruction);
-  ExpectEqualReconstructions(reconstruction, reconstruction_copy);
+  EXPECT_THAT(reconstruction, ReconstructionEq(reconstruction_copy));
+  ExpectEqualSerialization(reconstruction, reconstruction_copy);
   ExpectValidPtrs(reconstruction);
   ExpectValidPtrs(reconstruction_copy);
 }
@@ -163,7 +160,8 @@ TEST(Reconstruction, AssignCopy) {
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   Reconstruction reconstruction_copy;
   reconstruction_copy = reconstruction;
-  ExpectEqualReconstructions(reconstruction, reconstruction_copy);
+  EXPECT_THAT(reconstruction, ReconstructionEq(reconstruction_copy));
+  ExpectEqualSerialization(reconstruction, reconstruction_copy);
   ExpectValidPtrs(reconstruction);
   ExpectValidPtrs(reconstruction_copy);
 }
@@ -188,13 +186,18 @@ TEST(Reconstruction, AddRig) {
   Reconstruction reconstruction;
   Rig rig;
   rig.SetRigId(1);
+  const Camera camera =
+      Camera::CreateFromModelId(1, SimplePinholeCameraModel::model_id, 1, 1, 1);
+  rig.AddRefSensor(camera.SensorId());
+  EXPECT_ANY_THROW(reconstruction.AddRig(rig));
+  reconstruction.AddCamera(camera);
   reconstruction.AddRig(rig);
   EXPECT_TRUE(reconstruction.ExistsRig(rig.RigId()));
   EXPECT_EQ(reconstruction.Rig(rig.RigId()).RigId(), rig.RigId());
   EXPECT_EQ(reconstruction.Rigs().count(rig.RigId()), 1);
   EXPECT_EQ(reconstruction.Rigs().size(), 1);
   EXPECT_EQ(reconstruction.NumRigs(), 1);
-  EXPECT_EQ(reconstruction.NumCameras(), 0);
+  EXPECT_EQ(reconstruction.NumCameras(), 1);
   EXPECT_EQ(reconstruction.NumFrames(), 0);
   EXPECT_EQ(reconstruction.NumRegFrames(), 0);
   EXPECT_EQ(reconstruction.NumImages(), 0);
@@ -227,14 +230,26 @@ TEST(Reconstruction, AddFrame) {
   reconstruction.AddCamera(camera);
   Rig rig;
   rig.SetRigId(1);
-  rig.AddRefSensor(camera.SensorId());
   Frame frame;
   frame.SetFrameId(1);
   frame.SetRigId(rig.RigId());
-  EXPECT_ANY_THROW(reconstruction.AddFrame(frame));
-  reconstruction.AddRig(rig);
-  EXPECT_ANY_THROW(reconstruction.AddFrame(frame));
   frame.AddDataId(data_t(camera.SensorId(), 1));
+  try {
+    reconstruction.AddFrame(frame);
+  } catch (const std::exception& e) {
+    EXPECT_THAT(std::string(e.what()),
+                testing::HasSubstr("Rig with ID 1 does not exist"));
+  }
+  reconstruction.AddRig(rig);
+  try {
+    reconstruction.AddFrame(frame);
+  } catch (const std::exception& e) {
+    EXPECT_THAT(
+        std::string(e.what()),
+        testing::HasSubstr("Check failed: rig.HasSensor(data_id.sensor_id)"));
+  }
+  EXPECT_ANY_THROW(reconstruction.AddFrame(frame));
+  reconstruction.Rig(frame.RigId()).AddRefSensor(camera.SensorId());
   reconstruction.AddFrame(frame);
   EXPECT_TRUE(reconstruction.ExistsFrame(1));
   EXPECT_EQ(reconstruction.Frame(1).FrameId(), 1);
@@ -291,9 +306,20 @@ TEST(Reconstruction, AddImage) {
   image.SetCameraId(camera.camera_id);
   image.SetImageId(1);
   image.SetFrameId(frame.FrameId());
-  frame.AddDataId(image.DataId());
-  EXPECT_ANY_THROW(reconstruction.AddImage(image));
+  try {
+    reconstruction.AddImage(image);
+  } catch (const std::exception& e) {
+    EXPECT_THAT(e.what(), testing::HasSubstr("Frame with ID 1 does not exist"));
+  }
   reconstruction.AddFrame(frame);
+  try {
+    reconstruction.AddImage(image);
+  } catch (const std::exception& e) {
+    EXPECT_THAT(
+        e.what(),
+        testing::HasSubstr("Check failed: frame.HasDataId(image.DataId())"));
+  }
+  reconstruction.Frame(frame.FrameId()).AddDataId(image.DataId());
   reconstruction.AddImage(image);
   EXPECT_TRUE(reconstruction.ExistsImage(1));
   EXPECT_EQ(reconstruction.Image(1).ImageId(), 1);
@@ -462,7 +488,8 @@ TEST(Reconstruction, SetRigsAndFrames) {
   const Reconstruction orig_reconstruction = reconstruction;
   reconstruction.SetRigsAndFrames(database->ReadAllRigs(),
                                   database->ReadAllFrames());
-  ExpectEqualReconstructions(reconstruction, orig_reconstruction);
+  EXPECT_THAT(reconstruction, ReconstructionEq(orig_reconstruction));
+  ExpectEqualSerialization(reconstruction, orig_reconstruction);
 }
 
 TEST(Reconstruction, RegisterFrame) {
@@ -768,7 +795,6 @@ TEST(Reconstruction, DeleteAllPoints2DAndPoints3D) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 20;
   synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   reconstruction.DeleteAllPoints2DAndPoints3D();
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);

@@ -42,7 +42,8 @@ struct SyntheticDatasetOptions {
   int num_points3D = 100;
 
   double sensor_from_rig_translation_stddev = 0.05;
-  double sensor_from_rig_rotation_stddev = 5.;  // in degrees
+  // Random rotation in degrees around the z-axis of the sensor.
+  double sensor_from_rig_rotation_stddev = 5.;
 
   int camera_width = 1024;
   int camera_height = 768;
@@ -51,7 +52,6 @@ struct SyntheticDatasetOptions {
   bool camera_has_prior_focal_length = false;
 
   int num_points2D_without_point3D = 10;
-  double point2D_stddev = 0.0;
 
   double inlier_match_ratio = 1.0;
 
@@ -72,5 +72,17 @@ struct SyntheticDatasetOptions {
 void SynthesizeDataset(const SyntheticDatasetOptions& options,
                        Reconstruction* reconstruction,
                        Database* database = nullptr);
+
+struct SyntheticNoiseOptions {
+  double rig_from_world_translation_stddev = 0.0;
+  // Random rotation in degrees around the z-axis of the rig.
+  double rig_from_world_rotation_stddev = 0.0;
+  double point3D_stddev = 0.0;
+  double point2D_stddev = 0.0;
+};
+
+void SynthesizeNoise(const SyntheticNoiseOptions& options,
+                     Reconstruction* reconstruction,
+                     Database* database = nullptr);
 
 }  // namespace colmap

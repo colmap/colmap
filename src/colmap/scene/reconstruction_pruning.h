@@ -1,4 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,26 +29,11 @@
 
 #pragma once
 
-#include "colmap/sensor/specs.h"
-
-#include <string>
+#include "colmap/scene/reconstruction.h"
 
 namespace colmap {
 
-// Database that contains sensor widths for many cameras, which is useful
-// to automatically extract the focal length if EXIF information is incomplete.
-struct CameraDatabase {
- public:
-  CameraDatabase() = default;
-
-  size_t NumEntries() const { return specs_.size(); }
-
-  bool QuerySensorWidth(const std::string& make,
-                        const std::string& model,
-                        double* sensor_width_mm);
-
- private:
-  static const camera_specs_t specs_;
-};
+std::vector<point3D_t> FindRedundantPoints3D(
+    double min_coverage_gain, const Reconstruction& reconstruction);
 
 }  // namespace colmap

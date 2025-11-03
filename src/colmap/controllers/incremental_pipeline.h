@@ -40,6 +40,8 @@
 
 namespace colmap {
 
+class Timer;
+
 // NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding)
 struct IncrementalPipelineOptions {
   // The minimum number of matches for inlier matches to be considered.
@@ -99,9 +101,6 @@ struct IncrementalPipelineOptions {
   // enable multi-threading solving of the problems.
   int ba_min_num_residuals_for_cpu_multi_threading = 50000;
 
-  // The number of images to optimize in local bundle adjustment.
-  int ba_local_num_images = 6;
-
   // Ceres solver function tolerance for local bundle adjustment
   double ba_local_function_tolerance = 0.0;
 
@@ -160,6 +159,10 @@ struct IncrementalPipelineOptions {
   // List of cameras for which to fix the camera parameters independent
   // of refine_focal_length, refine_principal_point, and refine_extra_params.
   std::unordered_set<camera_t> constant_cameras;
+
+  // Maximum runtime in seconds for the reconstruction process.
+  // If set to a non-positive value, the process will run until completion.
+  int max_runtime_seconds = -1;
 
   IncrementalMapper::Options mapper;
   IncrementalTriangulator::Options triangulation;
@@ -234,11 +237,14 @@ class IncrementalPipeline : public BaseController {
                                 size_t ba_prev_num_points);
 
  private:
+  bool ReachedMaxRuntime() const;
+
   const std::shared_ptr<const IncrementalPipelineOptions> options_;
   const std::string image_path_;
   const std::string database_path_;
   std::shared_ptr<class ReconstructionManager> reconstruction_manager_;
   std::shared_ptr<class DatabaseCache> database_cache_;
+  std::shared_ptr<Timer> total_run_timer_;
 };
 
 }  // namespace colmap
