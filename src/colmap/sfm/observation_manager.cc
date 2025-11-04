@@ -201,8 +201,9 @@ point3D_t ObservationManager::AddPoint3D(const Eigen::Vector3d& xyz,
   const point3D_t point3D_id = reconstruction_.AddPoint3D(xyz, track, color);
 
   for (const auto& track_el : track.Elements()) {
-    SetObservationAsTriangulated(
-        track_el.image_id, track_el.point2D_idx, /*is_continued_point3D=*/false);
+    SetObservationAsTriangulated(track_el.image_id,
+                                 track_el.point2D_idx,
+                                 /*is_continued_point3D=*/false);
   }
 
   return point3D_id;
@@ -262,8 +263,9 @@ point3D_t ObservationManager::MergePoints3D(const point3D_t point3D_id1,
 
   const Track track = reconstruction_.Point3D(merged_point3D_id).track;
   for (const auto& track_el : track.Elements()) {
-    SetObservationAsTriangulated(
-        track_el.image_id, track_el.point2D_idx, /*is_continued_point3D=*/false);
+    SetObservationAsTriangulated(track_el.image_id,
+                                 track_el.point2D_idx,
+                                 /*is_continued_point3D=*/false);
   }
   return merged_point3D_id;
 }
