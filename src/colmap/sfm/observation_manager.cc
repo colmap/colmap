@@ -42,9 +42,12 @@ namespace colmap {
 
 bool MergeAndFilterReconstructions(const double max_reproj_error,
                                    const Reconstruction& src_reconstruction,
-                                   Reconstruction& tgt_reconstruction) {
-  if (!MergeReconstructions(
-          max_reproj_error, src_reconstruction, tgt_reconstruction)) {
+                                   Reconstruction& tgt_reconstruction,
+                                   ThreadPool* thread_pool) {
+  if (!MergeReconstructions(max_reproj_error,
+                            src_reconstruction,
+                            tgt_reconstruction,
+                            thread_pool)) {
     return false;
   }
   ObservationManager(tgt_reconstruction)

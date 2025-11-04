@@ -37,9 +37,12 @@
 
 namespace colmap {
 
+class ThreadPool;
+
 bool MergeAndFilterReconstructions(double max_reproj_error,
                                    const Reconstruction& src_reconstruction,
-                                   Reconstruction& tgt_reconstruction);
+                                   Reconstruction& tgt_reconstruction,
+                                   ThreadPool* thread_pool = nullptr);
 
 class ObservationManager {
  public:

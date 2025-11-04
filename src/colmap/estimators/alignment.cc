@@ -34,6 +34,7 @@
 #include "colmap/optim/loransac.h"
 #include "colmap/scene/projection.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/threading.h"
 
 #include <unordered_map>
 
@@ -49,10 +50,12 @@ struct ReconstructionAlignmentEstimator {
 
   ReconstructionAlignmentEstimator(double max_reproj_error,
                                    const Reconstruction* src_reconstruction,
-                                   const Reconstruction* tgt_reconstruction)
+                                   const Reconstruction* tgt_reconstruction,
+                                   ThreadPool* thread_pool = nullptr)
       : max_squared_reproj_error_(max_reproj_error * max_reproj_error),
         src_reconstruction_(src_reconstruction),
-        tgt_reconstruction_(tgt_reconstruction) {
+        tgt_reconstruction_(tgt_reconstruction),
+        thread_pool_(thread_pool) {
     THROW_CHECK_GE(max_reproj_error, 0);
     THROW_CHECK_NOTNULL(src_reconstruction_);
     THROW_CHECK_NOTNULL(tgt_reconstruction_);
@@ -106,78 +109,106 @@ struct ReconstructionAlignmentEstimator {
     for (size_t i = 0; i < src_images.size(); ++i) {
       const Image& src_image = *src_images[i];
       const Image& tgt_image = *tgt_images[i];
-
       THROW_CHECK_EQ(src_image.ImageId(), tgt_image.ImageId());
-
-      const Camera& src_camera = *src_image.CameraPtr();
-      const Camera& tgt_camera = *tgt_image.CameraPtr();
-
-      const Eigen::Matrix3x4d src_cam_from_world =
-          src_image.CamFromWorld().ToMatrix();
-      const Eigen::Matrix3x4d tgt_cam_from_world =
-          tgt_image.CamFromWorld().ToMatrix();
-
       THROW_CHECK_EQ(src_image.NumPoints2D(), tgt_image.NumPoints2D());
+    }
 
-      size_t num_inliers = 0;
-      size_t num_common_points = 0;
-
-      for (point2D_t point2D_idx = 0; point2D_idx < src_image.NumPoints2D();
-           ++point2D_idx) {
-        // Check if both images have a 3D point.
-
-        const auto& src_point2D = src_image.Point2D(point2D_idx);
-        if (!src_point2D.HasPoint3D()) {
-          continue;
-        }
-
-        const auto& tgt_point2D = tgt_image.Point2D(point2D_idx);
-        if (!tgt_point2D.HasPoint3D()) {
-          continue;
-        }
-
-        num_common_points += 1;
-
-        const Eigen::Vector3d src_point_in_tgt =
-            tgt_from_src *
-            src_reconstruction_->Point3D(src_point2D.point3D_id).xyz;
-        if (CalculateSquaredReprojectionError(tgt_point2D.xy,
-                                              src_point_in_tgt,
-                                              tgt_cam_from_world,
-                                              tgt_camera) >
-            max_squared_reproj_error_) {
-          continue;
-        }
-
-        const Eigen::Vector3d tgt_point_in_src =
-            src_from_tgt *
-            tgt_reconstruction_->Point3D(tgt_point2D.point3D_id).xyz;
-        if (CalculateSquaredReprojectionError(src_point2D.xy,
-                                              tgt_point_in_src,
-                                              src_cam_from_world,
-                                              src_camera) >
-            max_squared_reproj_error_) {
-          continue;
-        }
-
-        num_inliers += 1;
+    if (thread_pool_ && src_images.size() > 10) {
+      for (size_t i = 0; i < src_images.size(); ++i) {
+        thread_pool_->AddTask([this,
+                               src_image = src_images[i],
+                               tgt_image = tgt_images[i],
+                               &tgt_from_src,
+                               &src_from_tgt,
+                               residual = &(*residuals)[i]]() {
+          ComputeImageResidual(
+              *src_image, *tgt_image, tgt_from_src, src_from_tgt, residual);
+        });
       }
-
-      if (num_common_points == 0) {
-        (*residuals)[i] = 1.0;
-      } else {
-        const double negative_inlier_ratio =
-            1.0 - static_cast<double>(num_inliers) /
-                      static_cast<double>(num_common_points);
-        (*residuals)[i] = negative_inlier_ratio * negative_inlier_ratio;
+      thread_pool_->Wait();
+    } else {
+      for (size_t i = 0; i < src_images.size(); ++i) {
+        ComputeImageResidual(*src_images[i],
+                             *tgt_images[i],
+                             tgt_from_src,
+                             src_from_tgt,
+                             &(*residuals)[i]);
       }
     }
   }
 
  private:
+  void ComputeImageResidual(const Image& src_image,
+                            const Image& tgt_image,
+                            const M_t& tgt_from_src,
+                            const M_t& src_from_tgt,
+                            double* residual) const {
+    const Camera& src_camera = *src_image.CameraPtr();
+    const Camera& tgt_camera = *tgt_image.CameraPtr();
+
+    const Eigen::Matrix3x4d src_cam_from_world =
+        src_image.CamFromWorld().ToMatrix();
+    const Eigen::Matrix3x4d tgt_cam_from_world =
+        tgt_image.CamFromWorld().ToMatrix();
+
+    size_t num_inliers = 0;
+    size_t num_common_points = 0;
+
+    for (point2D_t point2D_idx = 0; point2D_idx < src_image.NumPoints2D();
+         ++point2D_idx) {
+      // Check if both images have a 3D point.
+
+      const auto& src_point2D = src_image.Point2D(point2D_idx);
+      if (!src_point2D.HasPoint3D()) {
+        continue;
+      }
+
+      const auto& tgt_point2D = tgt_image.Point2D(point2D_idx);
+      if (!tgt_point2D.HasPoint3D()) {
+        continue;
+      }
+
+      num_common_points += 1;
+
+      const Eigen::Vector3d src_point_in_tgt =
+          tgt_from_src *
+          src_reconstruction_->Point3D(src_point2D.point3D_id).xyz;
+      if (CalculateSquaredReprojectionError(tgt_point2D.xy,
+                                            src_point_in_tgt,
+                                            tgt_cam_from_world,
+                                            tgt_camera) >
+          max_squared_reproj_error_) {
+        continue;
+      }
+
+      const Eigen::Vector3d tgt_point_in_src =
+          src_from_tgt *
+          tgt_reconstruction_->Point3D(tgt_point2D.point3D_id).xyz;
+      if (CalculateSquaredReprojectionError(src_point2D.xy,
+                                            tgt_point_in_src,
+                                            src_cam_from_world,
+                                            src_camera) >
+          max_squared_reproj_error_) {
+        continue;
+      }
+
+      num_inliers += 1;
+    }
+
+    if (num_common_points == 0) {
+      *residual = 1.0;
+    } else {
+      const double negative_inlier_ratio =
+          1.0 - static_cast<double>(num_inliers) /
+                    static_cast<double>(num_common_points);
+      *residual = negative_inlier_ratio * negative_inlier_ratio;
+    }
+  }
+
   double max_squared_reproj_error_;
   const Reconstruction* src_reconstruction_;
   const Reconstruction* tgt_reconstruction_;
+  ThreadPool* thread_pool_;
 };
 
 }  // namespace
@@ -273,7 +304,8 @@ bool AlignReconstructionsViaReprojections(
     const Reconstruction& tgt_reconstruction,
     const double min_inlier_observations,
     const double max_reproj_error,
-    Sim3d* tgt_from_src) {
+    Sim3d* tgt_from_src,
+    ThreadPool* thread_pool) {
   THROW_CHECK_GE(min_inlier_observations, 0.0);
   THROW_CHECK_LE(min_inlier_observations, 1.0);
 
@@ -283,10 +315,14 @@ bool AlignReconstructionsViaReprojections(
 
   LORANSAC<ReconstructionAlignmentEstimator, ReconstructionAlignmentEstimator>
       ransac(ransac_options,
-             ReconstructionAlignmentEstimator(
-                 max_reproj_error, &src_reconstruction, &tgt_reconstruction),
-             ReconstructionAlignmentEstimator(
-                 max_reproj_error, &src_reconstruction, &tgt_reconstruction));
+             ReconstructionAlignmentEstimator(max_reproj_error,
+                                              &src_reconstruction,
+                                              &tgt_reconstruction,
+                                              thread_pool),
+             ReconstructionAlignmentEstimator(max_reproj_error,
+                                              &src_reconstruction,
+                                              &tgt_reconstruction,
+                                              thread_pool));
 
   const std::vector<std::pair<image_t, image_t>> common_image_ids =
       src_reconstruction.FindCommonRegImageIds(tgt_reconstruction);
@@ -462,13 +498,15 @@ void CopyRegisteredImage(image_t image_id,
 
 bool MergeReconstructions(const double max_reproj_error,
                           const Reconstruction& src_reconstruction,
-                          Reconstruction& tgt_reconstruction) {
+                          Reconstruction& tgt_reconstruction,
+                          ThreadPool* thread_pool) {
   Sim3d tgt_from_src;
   if (!AlignReconstructionsViaReprojections(src_reconstruction,
                                             tgt_reconstruction,
                                             /*min_inlier_observations=*/0.3,
                                             max_reproj_error,
-                                            &tgt_from_src)) {
+                                            &tgt_from_src,
+                                            thread_pool)) {
     return false;
   }
 
