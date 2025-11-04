@@ -126,6 +126,8 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
       auto& corrs1 = image1.corrs[match.point2D_idx1];
       auto& corrs2 = image2.corrs[match.point2D_idx2];
 
+      // We add valid correspondences bidirectionally, so checking from only one
+      // side is sufficient to detect duplicated matches.
       const bool duplicate =
           std::find_if(corrs1.begin(),
                        corrs1.end(),
