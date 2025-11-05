@@ -369,9 +369,11 @@ TEST(SynthesizeImages, Nominal) {
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 10;
-  synthetic_dataset_options.num_points3D = 200;
-  synthetic_dataset_options.num_points2D_without_point3D = 50;
+  synthetic_dataset_options.num_frames_per_rig = 2;
+  synthetic_dataset_options.num_points3D = 80;
+  synthetic_dataset_options.num_points2D_without_point3D = 20;
+  synthetic_dataset_options.camera_width = 320;
+  synthetic_dataset_options.camera_height = 240;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
   const std::string test_dir = CreateTestDir();
