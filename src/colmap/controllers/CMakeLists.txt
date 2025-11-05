@@ -65,7 +65,7 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_controllers
 )
 if(CUDA_ENABLED)
-    target_link_libraries(automatic_reconstruction_test
+    target_link_libraries(colmap_controllers_automatic_reconstruction_test
         colmap_util_cuda
         colmap_mvs_cuda
     )
