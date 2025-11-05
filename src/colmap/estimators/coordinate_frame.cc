@@ -323,8 +323,8 @@ void AlignToPrincipalPlane(Reconstruction* reconstruction,
       Eigen::ComputeThinV > ().matrixU();
 #else
   const Eigen::Matrix3d basis =
-      normalized_points3D.jacobiSvd(Eigen::ComputeThinU |
-      Eigen::ComputeThinV).matrixU();
+      normalized_points3D.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV)
+          .matrixU();
 #endif
   Eigen::Matrix3d rot_mat;
   rot_mat << basis.col(0), basis.col(1), basis.col(0).cross(basis.col(1));
