@@ -85,4 +85,23 @@ void BindSynthetic(py::module& m) {
         "options"_a,
         "reconstruction"_a,
         "database"_a = py::none());
+
+  auto PySyntheticImageOptions =
+      py::classh<SyntheticImageOptions>(m, "SyntheticImageOptions")
+          .def(py::init<>())
+          .def_readwrite("feature_peak_radius",
+                         &SyntheticImageOptions::feature_peak_radius)
+          .def_readwrite(
+              "feature_patch_radius",
+              &SyntheticImageOptions::feature_patch_radius,
+              "Random rotation in degrees around the z-axis of the rig.")
+          .def_readwrite("feature_patch_max_brightness",
+                         &SyntheticImageOptions::feature_patch_max_brightness);
+  MakeDataclass(PySyntheticImageOptions);
+
+  m.def("synthesize_images",
+        &SynthesizeImages,
+        "options"_a,
+        "reconstruction"_a,
+        "image_path"_a);
 }

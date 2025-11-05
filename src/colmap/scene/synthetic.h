@@ -85,4 +85,17 @@ void SynthesizeNoise(const SyntheticNoiseOptions& options,
                      Reconstruction* reconstruction,
                      Database* database = nullptr);
 
+struct SyntheticImageOptions {
+  int feature_peak_radius = 2;
+  int feature_patch_radius = 15;
+  int feature_patch_max_brightness = 128;
+};
+
+// Generates patches with a dark background and a bright feature peak for each
+// 2D point in an image. The color of the peak and the pattern of the background
+// is unique per 3D point.
+void SynthesizeImages(const SyntheticImageOptions& options,
+                      const Reconstruction& reconstruction,
+                      const std::string& image_path);
+
 }  // namespace colmap
