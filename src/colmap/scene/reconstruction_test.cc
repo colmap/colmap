@@ -648,8 +648,6 @@ TEST(Reconstruction, Crop) {
   EXPECT_EQ(reconstruction.NumRegFrames(), 3);
   EXPECT_EQ(reconstruction.NumPoints3D(), 5);
 
-  std::pair<Eigen::Vector3d, Eigen::Vector3d> bbox;
-
   // Test emtpy reconstruction after cropping.
   const Reconstruction cropped1 = reconstruction.Crop(Eigen::AlignedBox3d(
       Eigen::Vector3d(-1, -1, -1), Eigen::Vector3d(-0.5, -0.5, -0.5)));
