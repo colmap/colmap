@@ -64,6 +64,12 @@ COLMAP_ADD_TEST(
     SRCS automatic_reconstruction_test.cc
     LINK_LIBS colmap_controllers
 )
+if(CUDA_ENABLED)
+    target_link_libraries(automatic_reconstruction_test
+        colmap_util_cuda
+        colmap_mvs_cuda
+    )
+endif()
 COLMAP_ADD_TEST(
     NAME bundle_adjustment_test
     SRCS bundle_adjustment_test.cc
