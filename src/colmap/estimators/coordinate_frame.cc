@@ -319,8 +319,8 @@ void AlignToPrincipalPlane(Reconstruction* reconstruction,
   }
 #if EIGEN_VERSION_AT_LEAST(5, 0, 0)
   const Eigen::Matrix3d basis =
-      normalized_points3D.jacobiSvd < Eigen::ComputeThinU |
-      Eigen::ComputeThinV > ().matrixU();
+      normalized_points3D.jacobiSvd<Eigen::ComputeThinU | Eigen::ComputeThinV>()
+          .matrixU();
 #else
   const Eigen::Matrix3d basis =
       normalized_points3D.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV)
