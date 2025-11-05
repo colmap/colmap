@@ -93,7 +93,8 @@ struct SyntheticImageOptions {
 
 // Generates patches with a dark background and a bright feature peak for each
 // 2D point in an image. The color of the peak and the pattern of the background
-// is unique per 3D point.
+// is unique per 3D point. Notice that this approach does not result in perfect
+// feature detections and matches due to overlapping patches, etc.
 void SynthesizeImages(const SyntheticImageOptions& options,
                       const Reconstruction& reconstruction,
                       const std::string& image_path);
