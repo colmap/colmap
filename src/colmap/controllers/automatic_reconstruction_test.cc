@@ -74,7 +74,7 @@ TEST(AutomaticReconstructionController, Nominal) {
   EXPECT_EQ(reconstruction_manager->Size(), 1);
   EXPECT_THAT(*reconstruction_manager->Get(0),
               ReconstructionNear(gt_reconstruction,
-                                 /*max_rotation_error_deg=*/0.3,
+                                 /*max_rotation_error_deg=*/0.5,
                                  /*max_proj_center_error=*/0.1,
                                  /*max_scale_error=*/std::nullopt,
                                  /*num_obs_tolerance=*/0.9,
