@@ -33,6 +33,7 @@
 #include "colmap/math/random.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/projection.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/util/eigen_matchers.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
@@ -361,6 +362,31 @@ TEST(SynthesizeNoise, RigFromWorldNoise) {
   synthetic_noise_options.rig_from_world_rotation_stddev = 0.1;
   SynthesizeNoise(synthetic_noise_options, &reconstruction, database.get());
   EXPECT_GT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
+}
+
+TEST(SynthesizeImages, Nominal) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 2;
+  synthetic_dataset_options.num_points3D = 80;
+  synthetic_dataset_options.num_points2D_without_point3D = 20;
+  synthetic_dataset_options.camera_width = 320;
+  synthetic_dataset_options.camera_height = 240;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  const std::string test_dir = CreateTestDir();
+  const std::string image_path = test_dir + "/images";
+  CreateDirIfNotExists(image_path);
+  SynthesizeImages(SyntheticImageOptions(), reconstruction, image_path);
+
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    Bitmap bitmap;
+    EXPECT_TRUE(bitmap.Read(JoinPaths(image_path, image.Name())));
+    EXPECT_EQ(bitmap.Width(), image.CameraPtr()->width);
+    EXPECT_EQ(bitmap.Height(), image.CameraPtr()->height);
+  }
 }
 
 }  // namespace
