@@ -33,6 +33,8 @@
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
+#include <fstream>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -95,6 +97,85 @@ TEST(CreateFeatureExtractorController, Nominal) {
     // Check that features were extracted
     EXPECT_GT(keypoints.size(), 0);
     EXPECT_EQ(keypoints.size(), descriptors.rows());
+  }
+}
+
+TEST(CreateFeatureImporterController, Nominal) {
+  const std::string test_dir = CreateTestDir();
+  const std::string database_path = test_dir + "/database.db";
+  const std::string image_path = test_dir + "/images";
+  const std::string import_path = test_dir + "/features";
+  CreateDirIfNotExists(image_path);
+  CreateDirIfNotExists(import_path);
+
+  // Create test images
+  const int kNumImages = 2;
+  const Bitmap test_bitmap = CreateTestBitmap();
+  for (int i = 0; i < kNumImages; ++i) {
+    test_bitmap.Write(
+        std::string(image_path).append("/").append(std::to_string(i) + ".png"));
+  }
+
+  // Create feature text files for each image
+  for (int i = 0; i < kNumImages; ++i) {
+    const std::string feature_file =
+        import_path + "/" + std::to_string(i) + ".png.txt";
+    std::ofstream file(feature_file);
+    ASSERT_TRUE(file.is_open());
+
+    // Write header: num_features dimension
+    const int kNumFeatures = 3;
+    const int kDimension = 128;
+    file << kNumFeatures << " " << kDimension << "\n";
+
+    // Write features: x y scale orientation descriptor[0..127]
+    for (int j = 0; j < kNumFeatures; ++j) {
+      // Keypoint data
+      file << (10.0f + j * 5.0f) << " "  // x
+           << (20.0f + j * 5.0f) << " "  // y
+           << (1.5f + j * 0.1f) << " "   // scale
+           << (0.5f + j * 0.2f);         // orientation
+
+      // Descriptor data (128 values)
+      for (int k = 0; k < kDimension; ++k) {
+        file << " " << ((j * kDimension + k) % 256);
+      }
+      file << "\n";
+    }
+  }
+
+  // Set up options
+  ImageReaderOptions reader_options;
+  reader_options.image_path = image_path;
+
+  // Create and run the controller
+  auto controller = CreateFeatureImporterController(
+      database_path, reader_options, import_path);
+  ASSERT_NE(controller, nullptr);
+  controller->Start();
+  controller->Wait();
+
+  // Verify results in database
+  auto database = Database::Open(database_path);
+  const std::vector<Image> images = database->ReadAllImages();
+  EXPECT_EQ(images.size(), kNumImages);
+
+  for (const auto& image : images) {
+    EXPECT_TRUE(database->ExistsKeypoints(image.ImageId()));
+    EXPECT_TRUE(database->ExistsDescriptors(image.ImageId()));
+
+    const FeatureKeypoints keypoints = database->ReadKeypoints(image.ImageId());
+    const FeatureDescriptors descriptors =
+        database->ReadDescriptors(image.ImageId());
+
+    // Check that features were imported correctly
+    EXPECT_EQ(keypoints.size(), 3);
+    EXPECT_EQ(descriptors.rows(), 3);
+    EXPECT_EQ(descriptors.cols(), 128);
+
+    // Verify some keypoint values
+    EXPECT_FLOAT_EQ(keypoints[0].x, 10.0f);
+    EXPECT_FLOAT_EQ(keypoints[0].y, 20.0f);
   }
 }
 
