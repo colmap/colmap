@@ -5,6 +5,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -16,14 +17,15 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.config.os }} ${{ matrix.config.arch }}
+    name: ${{ matrix.config.os }} ${{ matrix.config.arch }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:
         config: [
-          {os: ubuntu-24.04},
-          {os: macos-14, arch: arm64, deploymentTarget: 14.0},
-          {os: windows-2025},
+          {os: ubuntu-24.04, cudaEnabled: false},
+          {os: macos-14, arch: arm64, deploymentTarget: 14.0, cudaEnabled: false},
+          {os: windows-2025, cudaEnabled: false},
+          {os: ubuntu-24.04, cudaEnabled: true},
         ]
     env:
       COMPILER_CACHE_VERSION: 1
@@ -151,8 +153,19 @@ jobs:
           CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR"
           echo "CIBW_ENVIRONMENT_PASS_LINUX=${CIBW_ENVIRONMENT_PASS_LINUX}" >> "$GITHUB_ENV"
 
-          CIBW_MANYLINUX_X86_64_IMAGE="quay.io/pypa/manylinux_2_28_x86_64"
+          if [ "${{ matrix.config.cudaEnabled }}" = "true" ]; then
+            CIBW_MANYLINUX_X86_64_IMAGE="sameli/manylinux_2_34_x86_64_cuda_12.9"
+            CIBW_REPAIR_WHEEL_COMMAND="auditwheel repair --exclude libcudart* --exclude libcurand* -w {dest_dir} {wheel}"
+            echo "CIBW_REPAIR_WHEEL_COMMAND=${CIBW_REPAIR_WHEEL_COMMAND}" >> "$GITHUB_ENV"
+            # Edit pyproject.toml to change package name to pycolmap-cuda12 and add CUDA Runtime native Libraries and CURAND native runtime libraries to dependencies
+            pip install tomlkit
+            python python/ci/update_pyproject_toml.py --name "pycolmap-cuda12" --add-deps "nvidia-cuda-runtime-cu12==12.9.79" "nvidia-curand-cu12==10.3.10.19"
+          else
+            CIBW_MANYLINUX_X86_64_IMAGE="quay.io/pypa/manylinux_2_28_x86_64"
+          fi
+
           echo "CIBW_MANYLINUX_X86_64_IMAGE=${CIBW_MANYLINUX_X86_64_IMAGE}" >> "$GITHUB_ENV"
+
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.1.2
@@ -160,19 +173,27 @@ jobs:
           package-dir: ./
         env:
           CIBW_ARCHS_MACOS: ${{ matrix.config.arch }}
+          CIBW_ENVIRONMENT:  >
+            BUILD_CUDA_ENABLED=${{ matrix.config.cudaEnabled }}
 
       - name: Archive wheels
         uses: actions/upload-artifact@v4
         with:
-          name: pycolmap-${{ matrix.config.os }}-${{ matrix.config.arch }}
-          path: wheelhouse/pycolmap-*.whl
+          name: pycolmap-${{ matrix.config.os }}-${{ matrix.config.arch }}${{ matrix.config.cudaEnabled && '-CUDA' || '' }}
+          path: wheelhouse/pycolmap*.whl
 
   pypi-publish:
     name: Publish wheels to PyPI
     needs: build
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      # This URL is only for display in the GitHub UI
+      url: https://pypi.org/p/pycolmap
+    permissions:
+      id-token: write
     # We publish the wheel to pypi when a new tag is pushed,
-    # either by creating a new GitHub release or explictly with `git tag`
+    # either by creating a new GitHub release or explicitly with `git tag`
     if: ${{ github.event_name == 'release' || startsWith(github.ref, 'refs/tags') }}
     steps:
       - name: Download wheels
@@ -182,9 +203,7 @@ jobs:
       - name: Move wheels
         run: mkdir ./wheelhouse && mv ./artifacts/**/*.whl ./wheelhouse/
       - name: Publish package
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@v1.13.0
         with:
           skip-existing: true
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
           packages-dir: ./wheelhouse/

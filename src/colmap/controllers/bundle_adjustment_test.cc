@@ -27,60 +27,60 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/estimators/utils.h"
+#include "colmap/controllers/bundle_adjustment.h"
 
-#include "colmap/geometry/essential_matrix.h"
+#include "colmap/controllers/option_manager.h"
+#include "colmap/math/random.h"
+#include "colmap/scene/synthetic.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
 
-TEST(CenterAndNormalizeImagePoints, Nominal) {
-  constexpr size_t kNumPoints = 11;
-  std::vector<Eigen::Vector2d> points;
-  points.reserve(kNumPoints);
-  for (size_t i = 0; i < kNumPoints; ++i) {
-    points.emplace_back(i, i);
-  }
+TEST(BundleAdjustmentController, EmptyReconstruction) {
+  SetPRNGSeed(1);
 
-  std::vector<Eigen::Vector2d> normed_points;
-  Eigen::Matrix3d matrix;
-  CenterAndNormalizeImagePoints(points, &normed_points, &matrix);
+  auto reconstruction = std::make_shared<Reconstruction>();
 
-  EXPECT_EQ(matrix(0, 0), 0.31622776601683794);
-  EXPECT_EQ(matrix(1, 1), 0.31622776601683794);
-  EXPECT_EQ(matrix(0, 2), -1.5811388300841898);
-  EXPECT_EQ(matrix(1, 2), -1.5811388300841898);
+  BundleAdjustmentController controller(OptionManager(), reconstruction);
+  EXPECT_NO_THROW(controller.Run());
 
-  Eigen::Vector2d mean_point(0, 0);
-  for (const auto& point : normed_points) {
-    mean_point += point;
-  }
-  EXPECT_LT(std::abs(mean_point[0]), 1e-6);
-  EXPECT_LT(std::abs(mean_point[1]), 1e-6);
+  EXPECT_EQ(reconstruction->NumRegImages(), 0);
+  EXPECT_EQ(reconstruction->NumPoints3D(), 0);
 }
 
-TEST(ComputeSquaredSampsonError, Nominal) {
-  std::vector<Eigen::Vector2d> points1;
-  points1.emplace_back(0, 0);
-  points1.emplace_back(0, 0);
-  points1.emplace_back(0, 0);
-  std::vector<Eigen::Vector2d> points2;
-  points2.emplace_back(2, 0);
-  points2.emplace_back(2, 1);
-  points2.emplace_back(2, 2);
+TEST(BundleAdjustmentController, Reconstruction) {
+  SetPRNGSeed(1);
 
-  const Eigen::Matrix3d E = EssentialMatrixFromPose(
-      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0)));
+  auto reconstruction = std::make_shared<Reconstruction>();
 
-  std::vector<double> residuals;
-  ComputeSquaredSampsonError(points1, points2, E, &residuals);
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 2;
+  synthetic_options.num_frames_per_rig = 3;
+  synthetic_options.num_points3D = 30;
+  SynthesizeDataset(synthetic_options, reconstruction.get());
+  SyntheticNoiseOptions noise_options;
+  noise_options.rig_from_world_translation_stddev = 0.01;
+  noise_options.rig_from_world_rotation_stddev = 0.5;
+  noise_options.point3D_stddev = 0.01;
+  noise_options.point2D_stddev = 0.5;
+  SynthesizeNoise(noise_options, reconstruction.get());
 
-  EXPECT_EQ(residuals.size(), 3);
-  EXPECT_EQ(residuals[0], 0);
-  EXPECT_EQ(residuals[1], 0.5);
-  EXPECT_EQ(residuals[2], 2);
+  const double initial_error = reconstruction->ComputeMeanReprojectionError();
+
+  BundleAdjustmentController controller(OptionManager(), reconstruction);
+  controller.Run();
+
+  const double final_error = reconstruction->ComputeMeanReprojectionError();
+
+  // Bundle adjustment should reduce the mean reprojection error
+  EXPECT_LT(final_error, initial_error);
+
+  // The reconstruction should still have the same structure
+  EXPECT_EQ(reconstruction->NumRegImages(), 6);
+  EXPECT_EQ(reconstruction->NumPoints3D(), 30);
 }
 
 }  // namespace

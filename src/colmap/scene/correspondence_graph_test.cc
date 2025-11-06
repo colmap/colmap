@@ -289,11 +289,11 @@ TEST(CorrespondenceGraph, Duplicate) {
   matches[4].point2D_idx1 = 3;
   matches[4].point2D_idx2 = 4;
   correspondence_graph.AddCorrespondences(0, 1, matches);
-  EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(0), 3);
-  EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 3);
+  EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(0), 4);
+  EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 4);
   const image_pair_t pair_id = ImagePairToPairId(0, 1);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesBetweenImages().at(pair_id),
-            3);
+            4);
 }
 
 }  // namespace

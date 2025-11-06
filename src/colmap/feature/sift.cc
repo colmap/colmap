@@ -1289,7 +1289,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 
     const int num_matches = sift_match_gpu_.GetSiftMatch(
         options_.max_num_matches,
-        reinterpret_cast<uint32_t(*)[2]>(matches->data()),
+        reinterpret_cast<uint32_t (*)[2]>(matches->data()),
         static_cast<float>(options_.sift->max_distance),
         static_cast<float>(options_.sift->max_ratio),
         options_.sift->cross_check);
@@ -1395,7 +1395,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 
     const int num_matches = sift_match_gpu_.GetGuidedSiftMatch(
         options_.max_num_matches,
-        reinterpret_cast<uint32_t(*)[2]>(
+        reinterpret_cast<uint32_t (*)[2]>(
             two_view_geometry->inlier_matches.data()),
         H_ptr,
         F_ptr,

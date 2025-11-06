@@ -545,7 +545,7 @@ bool AlignReconstructionToOrigRigScales(
   for (const auto& [rig_id, orig_rig] : orig_rigs) {
     double scale_sum_rig = 0;
     int scale_count_rig = 0;
-    for (auto& [sensor_id, sensor_from_orig_rig] : orig_rig.Sensors()) {
+    for (auto& [sensor_id, sensor_from_orig_rig] : orig_rig.NonRefSensors()) {
       if (!sensor_from_orig_rig.has_value()) {
         continue;
       }

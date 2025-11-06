@@ -68,12 +68,12 @@ QString DefaultBaseDir() {
 QString GetLastOpen(const QString& key) {
   QSettings s = GetQSettings();
   s.beginGroup("paths");
-  const QString per = s.value(key, "").toString();
+  QString per = s.value(key, "").toString();
   if (!per.isEmpty()) {
     s.endGroup();
     return per;
   }
-  const QString global = s.value(kLastGlobalDir, "").toString();
+  QString global = s.value(kLastGlobalDir, "").toString();
   s.endGroup();
   if (!global.isEmpty()) return global;
   return DefaultBaseDir();

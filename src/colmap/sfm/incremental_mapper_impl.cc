@@ -35,6 +35,7 @@
 #include "colmap/geometry/triangulation.h"
 #include "colmap/scene/projection.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/threading.h"
 
 #include <array>
 #include <fstream>
@@ -240,6 +241,9 @@ bool IncrementalMapperImpl::FindInitialImagePair(
     Rigid3d& cam2_from_cam1) {
   THROW_CHECK(options.Check());
 
+  const CorrespondenceGraph& correspondence_graph =
+      *database_cache.CorrespondenceGraph();
+
   std::vector<image_t> image_ids1;
   if (image_id1 != kInvalidImageId && image_id2 == kInvalidImageId) {
     // Only image_id1 provided.
@@ -255,40 +259,87 @@ bool IncrementalMapperImpl::FindInitialImagePair(
     image_ids1.push_back(image_id2);
   } else {
     // No initial seed image provided.
-    image_ids1 = IncrementalMapperImpl::FindFirstInitialImage(
-        options,
-        *database_cache.CorrespondenceGraph(),
-        reconstruction,
-        init_num_reg_trials,
-        num_registrations);
+    image_ids1 =
+        IncrementalMapperImpl::FindFirstInitialImage(options,
+                                                     correspondence_graph,
+                                                     reconstruction,
+                                                     init_num_reg_trials,
+                                                     num_registrations);
   }
 
+  struct InitInfo {
+    bool success = false;
+    image_t image_id1 = kInvalidImageId;
+    image_t image_id2 = kInvalidImageId;
+    Rigid3d cam2_from_cam1;
+  };
+
+  ThreadPool thread_pool(options.num_threads);
+  std::vector<std::future<InitInfo>> init_infos;
+  init_infos.reserve(image_ids1.size());
+
+  std::mutex init_image_pairs_mutex;
+  std::atomic_bool stop = false;
+
   // Try to find good initial pair.
-  for (size_t i1 = 0; i1 < image_ids1.size(); ++i1) {
-    image_id1 = image_ids1[i1];
-
-    const std::vector<image_t> image_ids2 =
-        IncrementalMapperImpl::FindSecondInitialImage(
-            options,
-            image_id1,
-            *database_cache.CorrespondenceGraph(),
-            reconstruction,
-            num_registrations);
-
-    for (size_t i2 = 0; i2 < image_ids2.size(); ++i2) {
-      image_id2 = image_ids2[i2];
-
-      const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
-
-      // Try every pair only once.
-      if (!init_image_pairs.emplace(pair_id).second) {
-        continue;
+  for (const image_t image_id1 : image_ids1) {
+    init_infos.push_back(thread_pool.AddTask([&, image_id1]() -> InitInfo {
+      if (stop.load()) {
+        return {};
       }
 
-      if (IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
-              options, database_cache, image_id1, image_id2, cam2_from_cam1)) {
-        return true;
+      const std::vector<image_t> image_ids2 =
+          IncrementalMapperImpl::FindSecondInitialImage(options,
+                                                        image_id1,
+                                                        correspondence_graph,
+                                                        reconstruction,
+                                                        num_registrations);
+
+      for (const image_t image_id2 : image_ids2) {
+        if (stop.load()) {
+          return {};
+        }
+
+        const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
+
+        // Try every pair only once.
+        {
+          std::lock_guard<std::mutex> lock_guard(init_image_pairs_mutex);
+          if (!init_image_pairs.emplace(pair_id).second) {
+            continue;
+          }
+        }
+
+        InitInfo init_info;
+        init_info.image_id1 = image_id1;
+        init_info.image_id2 = image_id2;
+        if (IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
+                options,
+                database_cache,
+                init_info.image_id1,
+                init_info.image_id2,
+                init_info.cam2_from_cam1)) {
+          stop.store(true);
+          init_info.success = true;
+          return init_info;
+        }
       }
+
+      return {};
+    }));
+  }
+
+  // Iterate through the already computed results and return the first
+  // successful result. This is deterministic and produces the same result
+  // as the single-threaded version.
+  for (auto& init_info_future : init_infos) {
+    const InitInfo init_info = init_info_future.get();
+    if (init_info.success) {
+      image_id1 = init_info.image_id1;
+      image_id2 = init_info.image_id2;
+      cam2_from_cam1 = init_info.cam2_from_cam1;
+      thread_pool.Stop();
+      return true;
     }
   }
 
@@ -406,7 +457,7 @@ std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
   // neighbor images, hence the subtraction of 1.
 
   const size_t num_images =
-      static_cast<size_t>(options.local_ba_num_images - 1);
+      static_cast<size_t>(options.ba_local_num_images - 1);
   const size_t num_eff_images = std::min(num_images, overlapping_images.size());
 
   // Extract most connected images and ensure sufficient triangulation angle.
@@ -414,8 +465,8 @@ std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
   std::vector<image_t> local_bundle_image_ids;
   local_bundle_image_ids.reserve(num_eff_images);
 
-  // If the number of overlapping images equals the number of desired images in
-  // the local bundle, then simply copy over the image identifiers.
+  // If the number of overlapping images equals the number of desired images
+  // in the local bundle, then simply copy over the image identifiers.
   if (overlapping_images.size() == num_eff_images) {
     for (const auto& overlapping_image : overlapping_images) {
       local_bundle_image_ids.push_back(overlapping_image.first);
@@ -430,7 +481,7 @@ std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
   // again. In the end, if we still haven't found enough images, we simply use
   // the most overlapping images.
 
-  const double min_tri_angle_rad = DegToRad(options.local_ba_min_tri_angle);
+  const double min_tri_angle_rad = DegToRad(options.ba_local_min_tri_angle);
 
   // The selection thresholds (minimum triangulation angle, minimum number of
   // shared observations), which are successively relaxed.
@@ -456,8 +507,8 @@ std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
     for (size_t overlapping_image_idx = 0;
          overlapping_image_idx < overlapping_images.size();
          ++overlapping_image_idx) {
-      // Check if the image has sufficient overlap. Since the images are ordered
-      // based on the overlap, we can just skip the remaining ones.
+      // Check if the image has sufficient overlap. Since the images are
+      // ordered based on the overlap, we can just skip the remaining ones.
       if (overlapping_images[overlapping_image_idx].second <
           min_num_shared_obs) {
         break;
@@ -618,8 +669,8 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
   VLOG(3) << "Initial general frame pair with " << num_inliers
           << " inlier matches";
 
-  // Note that we already checked for stable geometry (i.e., non-forward motion,
-  // sufficient triangulation angle) between the original image pair.
+  // Note that we already checked for stable geometry (i.e., non-forward
+  // motion, sufficient triangulation angle) between the original image pair.
   if (static_cast<int>(num_inliers) < options.init_min_num_inliers) {
     return false;
   }
@@ -709,9 +760,9 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
   const Rig& rig1 = database_cache.Rig(frame1.RigId());
   const Rig& rig2 = database_cache.Rig(frame2.RigId());
 
-  // If one or both of the frames are non-trivial, initialize using generalized
-  // relative pose solver. Note that we intentionally do this after ensuring
-  // that the given image pair has stable two-view geometry.
+  // If one or both of the frames are non-trivial, initialize using
+  // generalized relative pose solver. Note that we intentionally do this
+  // after ensuring that the given image pair has stable two-view geometry.
   if (rig1.NumSensors() > 1 || rig2.NumSensors() > 1) {
     return EstimateInitialGeneralizedTwoViewGeometry(options,
                                                      database_cache,

@@ -1,4 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -27,61 +27,13 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/estimators/utils.h"
+#pragma once
 
-#include "colmap/geometry/essential_matrix.h"
-
-#include <gtest/gtest.h>
+#include "colmap/scene/reconstruction.h"
 
 namespace colmap {
-namespace {
 
-TEST(CenterAndNormalizeImagePoints, Nominal) {
-  constexpr size_t kNumPoints = 11;
-  std::vector<Eigen::Vector2d> points;
-  points.reserve(kNumPoints);
-  for (size_t i = 0; i < kNumPoints; ++i) {
-    points.emplace_back(i, i);
-  }
+std::vector<point3D_t> FindRedundantPoints3D(
+    double min_coverage_gain, const Reconstruction& reconstruction);
 
-  std::vector<Eigen::Vector2d> normed_points;
-  Eigen::Matrix3d matrix;
-  CenterAndNormalizeImagePoints(points, &normed_points, &matrix);
-
-  EXPECT_EQ(matrix(0, 0), 0.31622776601683794);
-  EXPECT_EQ(matrix(1, 1), 0.31622776601683794);
-  EXPECT_EQ(matrix(0, 2), -1.5811388300841898);
-  EXPECT_EQ(matrix(1, 2), -1.5811388300841898);
-
-  Eigen::Vector2d mean_point(0, 0);
-  for (const auto& point : normed_points) {
-    mean_point += point;
-  }
-  EXPECT_LT(std::abs(mean_point[0]), 1e-6);
-  EXPECT_LT(std::abs(mean_point[1]), 1e-6);
-}
-
-TEST(ComputeSquaredSampsonError, Nominal) {
-  std::vector<Eigen::Vector2d> points1;
-  points1.emplace_back(0, 0);
-  points1.emplace_back(0, 0);
-  points1.emplace_back(0, 0);
-  std::vector<Eigen::Vector2d> points2;
-  points2.emplace_back(2, 0);
-  points2.emplace_back(2, 1);
-  points2.emplace_back(2, 2);
-
-  const Eigen::Matrix3d E = EssentialMatrixFromPose(
-      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0)));
-
-  std::vector<double> residuals;
-  ComputeSquaredSampsonError(points1, points2, E, &residuals);
-
-  EXPECT_EQ(residuals.size(), 3);
-  EXPECT_EQ(residuals[0], 0);
-  EXPECT_EQ(residuals[1], 0.5);
-  EXPECT_EQ(residuals[2], 2);
-}
-
-}  // namespace
 }  // namespace colmap

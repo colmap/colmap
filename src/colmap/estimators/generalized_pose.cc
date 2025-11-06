@@ -310,9 +310,9 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
   const auto loss_function =
       std::make_unique<ceres::CauchyLoss>(options.loss_function_scale);
 
-  std::vector<double*> cameras_params_data;
+  std::vector<double*> cameras_params_data(cameras->size());
   for (size_t i = 0; i < cameras->size(); i++) {
-    cameras_params_data.push_back(cameras->at(i).params.data());
+    cameras_params_data[i] = cameras->at(i).params.data();
   }
   std::vector<size_t> camera_counts(cameras->size(), 0);
   double* rig_from_world_rotation = rig_from_world->rotation.coeffs().data();
