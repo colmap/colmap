@@ -102,7 +102,9 @@ int RunFeatureExtractor(int argc, char** argv) {
                            &descriptor_normalization,
                            "{'l1_root', 'l2'}");
   options.AddFeatureExtractionOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   ImageReaderOptions reader_options = *options.image_reader;
   reader_options.image_path = *options.image_path;
@@ -163,7 +165,9 @@ int RunFeatureImporter(int argc, char** argv) {
   options.AddRequiredOption("import_path", &import_path);
   options.AddDefaultOption("image_list_path", &image_list_path);
   options.AddFeatureExtractionOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   ImageReaderOptions reader_options = *options.image_reader;
   reader_options.image_path = *options.image_path;
@@ -197,7 +201,9 @@ int RunExhaustiveMatcher(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddExhaustivePairingOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   std::unique_ptr<QApplication> app;
   if (options.feature_matching->use_gpu && kUseOpenGL) {
@@ -230,7 +236,9 @@ int RunMatchesImporter(int argc, char** argv) {
       "match_type", &match_type, "{'pairs', 'raw', 'inliers'}");
   options.AddFeatureMatchingOptions();
   options.AddTwoViewGeometryOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   std::unique_ptr<QApplication> app;
   if (options.feature_matching->use_gpu && kUseOpenGL) {
@@ -272,7 +280,9 @@ int RunSequentialMatcher(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddSequentialPairingOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   std::unique_ptr<QApplication> app;
   if (options.feature_matching->use_gpu && kUseOpenGL) {
@@ -298,7 +308,9 @@ int RunSpatialMatcher(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddSpatialPairingOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   std::unique_ptr<QApplication> app;
   if (options.feature_matching->use_gpu && kUseOpenGL) {
@@ -324,7 +336,9 @@ int RunTransitiveMatcher(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddTransitivePairingOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   std::unique_ptr<QApplication> app;
   if (options.feature_matching->use_gpu && kUseOpenGL) {
@@ -350,7 +364,9 @@ int RunVocabTreeMatcher(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddVocabTreePairingOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   std::unique_ptr<QApplication> app;
   if (options.feature_matching->use_gpu && kUseOpenGL) {
@@ -380,7 +396,9 @@ int RunGeometricVerifier(int argc, char** argv) {
   options.AddFeatureMatchingOptions();
   options.AddTwoViewGeometryOptions();
   options.AddDefaultOption("batch_size", &pairing_options.batch_size);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   auto matcher = CreateGeometicVerifier(pairing_options,
                                         *options.feature_matching,
