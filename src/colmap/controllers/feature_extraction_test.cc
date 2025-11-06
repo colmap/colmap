@@ -100,6 +100,92 @@ TEST(CreateFeatureExtractorController, Nominal) {
   }
 }
 
+TEST(CreateFeatureExtractorController, WithCameraMask) {
+  const std::string test_dir = CreateTestDir();
+  const std::string database_path = test_dir + "/database.db";
+  const std::string image_path = test_dir + "/images";
+  const std::string mask_path = test_dir + "/mask.png";
+  CreateDirIfNotExists(image_path);
+
+  // Create test image with features
+  const Bitmap test_bitmap = CreateTestBitmap();
+  test_bitmap.Write(image_path + "/test.png");
+
+  // Create a mask that only allows the center region (white = keep, black =
+  // mask) The test bitmap has a white square from (30,30) to (70,70) We'll
+  // create a mask that only keeps a smaller region
+  Bitmap mask_bitmap;
+  mask_bitmap.Allocate(100, 100, /*as_rgb=*/false);
+  mask_bitmap.Fill(BitmapColor<uint8_t>(0));  // Start with all black (masked)
+
+  // Only keep center region (40,40) to (60,60)
+  for (int y = 40; y < 60; ++y) {
+    for (int x = 40; x < 60; ++x) {
+      mask_bitmap.SetPixel(x, y, BitmapColor<uint8_t>(255));  // White = keep
+    }
+  }
+  mask_bitmap.Write(mask_path);
+
+  // Extract features without mask first to get baseline
+  ImageReaderOptions reader_options_no_mask;
+  reader_options_no_mask.image_path = image_path;
+
+  FeatureExtractionOptions extraction_options;
+  extraction_options.use_gpu = false;
+  extraction_options.num_threads = 1;
+
+  auto controller = CreateFeatureExtractorController(
+      database_path, reader_options_no_mask, extraction_options);
+  ASSERT_NE(controller, nullptr);
+  controller->Start();
+  controller->Wait();
+
+  auto database = Database::Open(database_path);
+  std::vector<Image> images = database->ReadAllImages();
+  ASSERT_EQ(images.size(), 1);
+
+  const size_t num_features_no_mask =
+      database->ReadKeypoints(images[0].ImageId()).size();
+  EXPECT_GT(num_features_no_mask, 0);
+
+  // Now extract with mask
+  const std::string database_path_masked = test_dir + "/database_masked.db";
+  ImageReaderOptions reader_options_masked;
+  reader_options_masked.image_path = image_path;
+  reader_options_masked.camera_mask_path = mask_path;
+
+  controller = CreateFeatureExtractorController(
+      database_path_masked, reader_options_masked, extraction_options);
+  ASSERT_NE(controller, nullptr);
+  controller->Start();
+  controller->Wait();
+
+  auto database_masked = Database::Open(database_path_masked);
+  images = database_masked->ReadAllImages();
+  ASSERT_EQ(images.size(), 1);
+
+  const FeatureKeypoints keypoints_masked =
+      database_masked->ReadKeypoints(images[0].ImageId());
+  const FeatureDescriptors descriptors_masked =
+      database_masked->ReadDescriptors(images[0].ImageId());
+  const size_t num_features_masked = keypoints_masked.size();
+
+  // With mask, should have fewer features
+  EXPECT_LT(num_features_masked, num_features_no_mask);
+  EXPECT_GT(num_features_masked, 0);  // But should still have some features
+
+  // All remaining keypoints should be within the unmasked region (40-60, 40-60)
+  for (const auto& kp : keypoints_masked) {
+    EXPECT_GE(kp.x, 40.0f);
+    EXPECT_LT(kp.x, 60.0f);
+    EXPECT_GE(kp.y, 40.0f);
+    EXPECT_LT(kp.y, 60.0f);
+  }
+
+  // Descriptors should match keypoints count
+  EXPECT_EQ(descriptors_masked.rows(), keypoints_masked.size());
+}
+
 TEST(CreateFeatureImporterController, Nominal) {
   const std::string test_dir = CreateTestDir();
   const std::string database_path = test_dir + "/database.db";
