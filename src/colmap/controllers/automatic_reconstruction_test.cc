@@ -52,7 +52,7 @@ TEST(AutomaticReconstructionController, Nominal) {
   synthetic_dataset_options.num_rigs = 5;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 1;
-  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.num_points3D = 200;
   synthetic_dataset_options.num_points2D_without_point3D = 10;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction);
   SynthesizeImages(SyntheticImageOptions(), gt_reconstruction, image_path);
@@ -65,6 +65,7 @@ TEST(AutomaticReconstructionController, Nominal) {
   options.single_camera = false;
   options.dense = false;  // Disable dense reconstruction to avoid GPU
   options.use_gpu = false;
+  options.random_seed = 1;
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   AutomaticReconstructionController controller(options, reconstruction_manager);
