@@ -59,7 +59,7 @@ std::vector<Eigen::AlignedBox3d> ComputeEqualPartsBboxes(
     for (int j = 0; j < split(1); ++j) {
       for (int i = 0; i < split(0); ++i) {
         Eigen::Vector3d min(bbox.min().x() + i * offset(0),
-                            bbox.min().z() + j * offset(1),
+                            bbox.min().y() + j * offset(1),
                             bbox.min().z() + k * offset(2));
         bboxes.emplace_back(min, min + offset);
       }
