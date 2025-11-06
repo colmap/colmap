@@ -60,8 +60,9 @@ COLMAP_ADD_LIBRARY(
 )
 if(CUDA_ENABLED)
     target_link_libraries(colmap_controllers
-        colmap_util_cuda
-        colmap_mvs_cuda
+        PRIVATE
+            colmap_util_cuda
+            colmap_mvs_cuda
     )
 endif()
 
