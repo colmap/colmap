@@ -108,8 +108,10 @@ TEST(CreateFeatureImporterController, Nominal) {
   CreateDirIfNotExists(image_path);
   CreateDirIfNotExists(import_path);
 
-  // Create test images
   const int kNumImages = 2;
+  const int kNumFeatures = 3;
+
+  // Create test images
   const Bitmap test_bitmap = CreateTestBitmap();
   for (int i = 0; i < kNumImages; ++i) {
     test_bitmap.Write(
@@ -124,7 +126,6 @@ TEST(CreateFeatureImporterController, Nominal) {
     ASSERT_TRUE(file.is_open());
 
     // Write header: num_features dimension
-    const int kNumFeatures = 3;
     const int kDimension = 128;
     file << kNumFeatures << " " << kDimension << "\n";
 
@@ -169,8 +170,8 @@ TEST(CreateFeatureImporterController, Nominal) {
         database->ReadDescriptors(image.ImageId());
 
     // Check that features were imported correctly
-    EXPECT_EQ(keypoints.size(), 3);
-    EXPECT_EQ(descriptors.rows(), 3);
+    EXPECT_EQ(keypoints.size(), kNumFeatures);
+    EXPECT_EQ(descriptors.rows(), kNumFeatures);
     EXPECT_EQ(descriptors.cols(), 128);
 
     // Verify some keypoint values
