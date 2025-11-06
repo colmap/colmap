@@ -116,7 +116,9 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("random_seed", &reconstruction_options.random_seed);
   options.AddDefaultOption("use_gpu", &reconstruction_options.use_gpu);
   options.AddDefaultOption("gpu_index", &reconstruction_options.gpu_index);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   if (!image_list_path.empty()) {
     reconstruction_options.image_names = ReadTextFileLines(image_list_path);
@@ -160,7 +162,9 @@ int RunBundleAdjuster(int argc, char** argv) {
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddBundleAdjustmentOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   if (!ExistsDir(input_path)) {
     LOG(ERROR) << "`input_path` is not a directory";
@@ -191,7 +195,9 @@ int RunColorExtractor(int argc, char** argv) {
   options.AddImageOptions();
   options.AddDefaultOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
@@ -211,7 +217,9 @@ int RunMapper(int argc, char** argv) {
   options.AddDefaultOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddMapperOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   if (!ExistsDir(output_path)) {
     LOG(ERROR) << "`output_path` is not a directory.";
@@ -320,7 +328,9 @@ int RunHierarchicalMapper(int argc, char** argv) {
       "leaf_max_num_images",
       &mapper_options.clustering_options.leaf_max_num_images);
   options.AddMapperOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   if (!ExistsDir(output_path)) {
     LOG(ERROR) << "`output_path` is not a directory.";
@@ -374,7 +384,9 @@ int RunPosePriorMapper(int argc, char** argv) {
                            &options.mapper->use_robust_loss_on_prior_position);
   options.AddDefaultOption("prior_position_loss_scale",
                            &options.mapper->prior_position_loss_scale);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   if (!ExistsDir(output_path)) {
     LOG(ERROR) << "`output_path` is not a directory.";
@@ -491,7 +503,9 @@ int RunPointFiltering(int argc, char** argv) {
   options.AddDefaultOption("min_track_len", &min_track_len);
   options.AddDefaultOption("max_reproj_error", &max_reproj_error);
   options.AddDefaultOption("min_tri_angle", &min_tri_angle);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
@@ -536,7 +550,9 @@ int RunPointTriangulator(int argc, char** argv) {
                            "Whether to refine the intrinsics of the cameras "
                            "(fixing the principal point)");
   options.AddMapperOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   if (!ExistsDir(input_path)) {
     LOG(ERROR) << "`input_path` is not a directory";

@@ -319,7 +319,9 @@ with the source code ``hello_world.cc``::
         std::string message;
         colmap::OptionManager options;
         options.AddRequiredOption("message", &message);
-        options.Parse(argc, argv);
+        if (!options.Parse(argc, argv)) {
+            return EXIT_FAILURE;
+        }
 
         std::cout << colmap::StringPrintf("Hello %s!\n", message.c_str());
 

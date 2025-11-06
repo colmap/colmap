@@ -50,7 +50,9 @@ int RunGraphicalUserInterface(int argc, char** argv) {
   if (argc > 1) {
     options.AddDefaultOption("import_path", &import_path);
     options.AddAllOptions();
-    options.Parse(argc, argv);
+    if (!options.Parse(argc, argv)) {
+      return EXIT_FAILURE;
+    }
   }
 
   QApplication app(argc, argv);
@@ -80,7 +82,9 @@ int RunProjectGenerator(int argc, char** argv) {
   OptionManager options;
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("quality", &quality, "{low, medium, high, extreme}");
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   OptionManager output_options;
   output_options.AddAllOptions();

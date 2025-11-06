@@ -131,7 +131,9 @@ int RunVocabTreeBuilder(int argc, char** argv) {
   options.AddDefaultOption("num_threads", &build_options.num_threads);
   options.AddDefaultOption("num_rounds", &build_options.num_rounds);
   options.AddDefaultOption("max_num_images", &max_num_images);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   LOG(INFO) << "Loading descriptors...";
   const auto descriptors =
@@ -176,7 +178,9 @@ int RunVocabTreeRetriever(int argc, char** argv) {
   options.AddDefaultOption("num_images_after_verification",
                            &query_options.num_images_after_verification);
   options.AddDefaultOption("max_num_features", &max_num_features);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   index_options.num_threads = query_options.num_threads;
 

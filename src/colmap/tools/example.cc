@@ -41,7 +41,9 @@ int main(int argc, char** argv) {
   colmap::OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   colmap::Reconstruction reconstruction;
   reconstruction.Read(input_path);
