@@ -12,8 +12,8 @@ pip install pycolmap
 ```
 
 The wheels are automatically built and pushed to
-[PyPI](https://pypi.org/project/pycolmap/) at each release. They are currently
-not built with CUDA support, which requires building from source.
+[PyPI](https://pypi.org/project/pycolmap/) at each release. 
+To benefit from GPU acceleration, wheels built for CUDA 12 (only for Linux - for now) are available under the [package `pycolmap-cuda12`](https://pypi.org/project/pycolmap-cuda12/).
 
 <details>
 <summary>[Building PyCOLMAP from source - click to expand]</summary>
