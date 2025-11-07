@@ -7,8 +7,9 @@ COLMAP 3.13.0 (11/07/2025)
 
 New Features
 ------------
-* Improved and human-readable consistency checks when configuring a reconstruction with rigs and frames.
-* Improved multi-GPU feature extractin & matching performance by avoiding global mutex.
+* Improved human-readable consistency checks when configuring a
+  reconstruction with rigs, cameras, frames, and images.
+* Improved multi-GPU feature extraction & matching performance by avoiding global mutex.
 * Improved robustness of pose prior mapper against outlier priors.
 * Improved reconstruction initialization performance through parallelization.
 * Added CUDA-enabled pycolmap package for Linux and automatic publishing to PyPI.
