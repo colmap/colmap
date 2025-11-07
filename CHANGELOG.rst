@@ -19,7 +19,7 @@ New Features
 * Added option to skip matching for image pairs within the same frame.
 * Added option to keep specific cameras or rigs constant during the reconstruction.
 * Added option to clean two-view geometries in database_cleaner.
-* Added option to specify timeout for incremental mapper
+* Added option to specify timeout for incremental mapper.
 * Added an abstract database interface for easier integration with other database backends.
 * Added experimental support for feature sub-selection for global BA.
 * Added testing tools for synthetic reconstruction noise and image generation.
