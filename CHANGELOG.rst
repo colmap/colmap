@@ -11,7 +11,7 @@ New Features
   reconstruction with rigs, cameras, frames, and images.
 * Improved multi-GPU feature extraction & matching performance by avoiding global mutex.
 * Improved robustness of pose prior mapper against outlier priors.
-* Improved reconstruction initialization performance through parallelization.
+* Improved the performance of reconstruction initialization through parallelization.
 * Added CUDA-enabled pycolmap package for Linux and automatic publishing to PyPI.
 * Added fully deterministic reconstruction using new random_seed parameter.
 * Added support for filtering stationary points in two-view geometry estimation.
