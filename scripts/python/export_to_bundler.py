@@ -61,10 +61,7 @@ def main():
     connection = sqlite3.connect(args.database_path)
     cursor = connection.cursor()
 
-    try:
-        os.makedirs(args.output_path)
-    except:  # noqa E722
-        pass
+    os.makedirs(args.output_path, exist_ok=True)
 
     cameras = {}
     cursor.execute("SELECT camera_id, params FROM cameras;")
@@ -82,14 +79,14 @@ def main():
             image_name = row[2]
             print("Copying image", image_name)
             images[image_id] = (len(images), image_name)
-            fid.write("./%s 0 %f\n" % (image_name, cameras[camera_id][0]))
+            fid.write(f"./{image_name} 0 {cameras[camera_id][0]:f}\n")
             if not os.path.exists(os.path.join(args.output_path, image_name)):
                 shutil.copyfile(
                     os.path.join(args.image_path, image_name),
                     os.path.join(args.output_path, image_name),
                 )
 
-    for image_id, (image_idx, image_name) in images.iteritems():
+    for image_id, (_image_idx, image_name) in images.iteritems():
         print("Exporting key file for", image_name)
         base_name, ext = os.path.splitext(image_name)
         key_file_name = os.path.join(args.output_path, base_name + ".key")
@@ -113,16 +110,11 @@ def main():
             descriptors = np.fromstring(row[0], dtype=np.uint8).reshape(-1, 128)
 
         with open(key_file_name, "w") as fid:
-            fid.write("%d %d\n" % (keypoints.shape[0], descriptors.shape[1]))
+            fid.write(f"{keypoints.shape[0]} {descriptors.shape[1]}\n")
             for r in range(keypoints.shape[0]):
                 fid.write(
-                    "%f %f %f %f\n"
-                    % (
-                        keypoints[r, 1],
-                        keypoints[r, 0],
-                        keypoints[r, 2],
-                        keypoints[r, 3],
-                    )
+                    f"{keypoints[r, 1]:f} {keypoints[r, 0]:f} "
+                    f"{keypoints[r, 2]:f} {keypoints[r, 3]:f}\n"
                 )
                 for i in range(0, 128, 20):
                     desc_block = descriptors[r, i : i + 20]
@@ -148,14 +140,9 @@ def main():
             image_id1, image_id2 = pair_id_to_image_ids(pair_id)
             image_idx1 = images[image_id1][0]
             image_idx2 = images[image_id2][0]
-            fid.write(
-                "%d %d\n%d\n"
-                % (image_idx1, image_idx2, inlier_matches.shape[0])
-            )
+            fid.write(f"{image_idx1} {image_idx2}\n{inlier_matches.shape[0]}\n")
             for i in range(inlier_matches.shape[0]):
-                fid.write(
-                    "%d %d\n" % (inlier_matches[i, 0], inlier_matches[i, 1])
-                )
+                fid.write(f"{inlier_matches[i, 0]} {inlier_matches[i, 1]}\n")
 
     with open(os.path.join(args.output_path, "run_bundler.sh"), "w") as fid:
         fid.write("bin/Bundler list.txt \\\n")

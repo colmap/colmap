@@ -68,7 +68,7 @@ def write_array(array, path):
     elif len(array.shape) == 3:
         height, width, channels = array.shape
     else:
-        assert False
+        raise AssertionError()
 
     with open(path, "w") as fid:
         fid.write(str(width) + "&" + str(height) + "&" + str(channels) + "&")
@@ -79,7 +79,7 @@ def write_array(array, path):
         elif len(array.shape) == 3:
             array_trans = np.transpose(array, (1, 0, 2))
         else:
-            assert False
+            raise AssertionError()
         data_1d = array_trans.reshape(-1, order="F")
         data_list = data_1d.tolist()
         endian_character = "<"
@@ -125,10 +125,10 @@ def main():
 
     # Read depth and normal maps corresponding to the same image.
     if not os.path.exists(args.depth_map):
-        raise FileNotFoundError("File not found: {}".format(args.depth_map))
+        raise FileNotFoundError(f"File not found: {args.depth_map}")
 
     if not os.path.exists(args.normal_map):
-        raise FileNotFoundError("File not found: {}".format(args.normal_map))
+        raise FileNotFoundError(f"File not found: {args.normal_map}")
 
     depth_map = read_array(args.depth_map)
     normal_map = read_array(args.normal_map)

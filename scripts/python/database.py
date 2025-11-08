@@ -54,13 +54,14 @@ CREATE_DESCRIPTORS_TABLE = """CREATE TABLE IF NOT EXISTS descriptors (
     data BLOB,
     FOREIGN KEY(image_id) REFERENCES images(image_id) ON DELETE CASCADE)"""
 
-CREATE_IMAGES_TABLE = """CREATE TABLE IF NOT EXISTS images (
+CREATE_IMAGES_TABLE = f"""CREATE TABLE IF NOT EXISTS images (
     image_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     name TEXT NOT NULL UNIQUE,
     camera_id INTEGER NOT NULL,
-    CONSTRAINT image_id_check CHECK(image_id >= 0 and image_id < {}),
+    CONSTRAINT image_id_check
+    CHECK(image_id >= 0 and image_id < {MAX_IMAGE_ID}),
     FOREIGN KEY(camera_id) REFERENCES cameras(camera_id))
-""".format(MAX_IMAGE_ID)
+"""
 
 CREATE_POSE_PRIORS_TABLE = """CREATE TABLE IF NOT EXISTS pose_priors (
     image_id INTEGER PRIMARY KEY NOT NULL,
@@ -147,7 +148,7 @@ class COLMAPDatabase(sqlite3.Connection):
         return sqlite3.connect(database_path, factory=COLMAPDatabase)
 
     def __init__(self, *args, **kwargs):
-        super(COLMAPDatabase, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.create_tables = lambda: self.executescript(CREATE_ALL)
         self.create_cameras_table = lambda: self.executescript(
@@ -259,15 +260,26 @@ class COLMAPDatabase(sqlite3.Connection):
         image_id1,
         image_id2,
         matches,
-        F=np.eye(3),
-        E=np.eye(3),
-        H=np.eye(3),
-        qvec=np.array([1.0, 0.0, 0.0, 0.0]),
-        tvec=np.zeros(3),
+        F=None,
+        E=None,
+        H=None,
+        qvec=None,
+        tvec=None,
         config=2,
     ):
         assert len(matches.shape) == 2
         assert matches.shape[1] == 2
+
+        if F is None:
+            F = np.eye(3)
+        if E is None:
+            E = np.eye(3)
+        if H is None:
+            H = np.eye(3)
+        if qvec is None:
+            qvec = np.array([1.0, 0.0, 0.0, 0.0])
+        if tvec is None:
+            tvec = np.array([0.0, 0.0, 0.0])
 
         if image_id1 > image_id2:
             matches = matches[:, ::-1]
@@ -280,7 +292,8 @@ class COLMAPDatabase(sqlite3.Connection):
         qvec = np.asarray(qvec, dtype=np.float64)
         tvec = np.asarray(tvec, dtype=np.float64)
         self.execute(
-            "INSERT INTO two_view_geometries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO two_view_geometries "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (pair_id,)
             + matches.shape
             + (
