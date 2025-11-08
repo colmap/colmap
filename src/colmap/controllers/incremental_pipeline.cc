@@ -85,7 +85,6 @@ IncrementalMapper::Options IncrementalPipelineOptions::Mapper() const {
   options.max_focal_length_ratio = max_focal_length_ratio;
   options.max_extra_param = max_extra_param;
   options.num_threads = num_threads;
-  options.local_ba_num_images = ba_local_num_images;
   options.fix_existing_frames = fix_existing_frames;
   options.constant_rigs = constant_rigs;
   options.constant_cameras = constant_cameras;
@@ -175,7 +174,6 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GT(min_focal_length_ratio, 0);
   CHECK_OPTION_GT(max_focal_length_ratio, 0);
   CHECK_OPTION_GE(max_extra_param, 0);
-  CHECK_OPTION_GE(ba_local_num_images, 2);
   CHECK_OPTION_GE(ba_local_max_num_iterations, 0);
   CHECK_OPTION_GT(ba_global_frames_ratio, 1.0);
   CHECK_OPTION_GT(ba_global_points_ratio, 1.0);
@@ -203,7 +201,8 @@ IncrementalPipeline::IncrementalPipeline(
     : options_(std::move(options)),
       image_path_(image_path),
       database_path_(database_path),
-      reconstruction_manager_(std::move(reconstruction_manager)) {
+      reconstruction_manager_(std::move(reconstruction_manager)),
+      total_run_timer_(std::make_shared<Timer>()) {
   THROW_CHECK(options_->Check());
   RegisterCallback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
   RegisterCallback(NEXT_IMAGE_REG_CALLBACK);
@@ -211,8 +210,8 @@ IncrementalPipeline::IncrementalPipeline(
 }
 
 void IncrementalPipeline::Run() {
-  Timer run_timer;
-  run_timer.Start();
+  total_run_timer_->Start();
+
   if (!LoadDatabase()) {
     return;
   }
@@ -232,9 +231,14 @@ void IncrementalPipeline::Run() {
               mapper_options,
               /*continue_reconstruction=*/continue_reconstruction);
 
+  auto ShouldStop = [this, &mapper, &num_images]() {
+    return mapper.NumTotalRegImages() == num_images || CheckIfStopped() ||
+           ReachedMaxRuntime();
+  };
+
   const size_t kNumInitRelaxations = 2;
   for (size_t i = 0; i < kNumInitRelaxations; ++i) {
-    if (mapper.NumTotalRegImages() == num_images || CheckIfStopped()) {
+    if (ShouldStop()) {
       break;
     }
 
@@ -243,7 +247,7 @@ void IncrementalPipeline::Run() {
     mapper.ResetInitializationStats();
     Reconstruct(mapper, mapper_options, /*continue_reconstruction=*/false);
 
-    if (mapper.NumTotalRegImages() == num_images || CheckIfStopped()) {
+    if (ShouldStop()) {
       break;
     }
 
@@ -253,7 +257,7 @@ void IncrementalPipeline::Run() {
     Reconstruct(mapper, mapper_options, /*continue_reconstruction=*/false);
   }
 
-  run_timer.PrintMinutes();
+  total_run_timer_->PrintMinutes();
 }
 
 bool IncrementalPipeline::LoadDatabase() {
@@ -414,7 +418,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
   bool reg_next_success = true;
   bool prev_reg_next_success = true;
   do {
-    if (CheckIfStopped()) {
+    if (CheckIfStopped() || ReachedMaxRuntime()) {
       break;
     }
 
@@ -508,7 +512,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
     }
   } while (reg_next_success || prev_reg_next_success);
 
-  if (CheckIfStopped()) {
+  if (CheckIfStopped() || ReachedMaxRuntime()) {
     return Status::INTERRUPTED;
   }
 
@@ -527,7 +531,7 @@ void IncrementalPipeline::Reconstruct(
     bool continue_reconstruction) {
   for (int num_trials = 0; num_trials < options_->init_num_trials;
        ++num_trials) {
-    if (CheckIfStopped()) {
+    if (CheckIfStopped() || ReachedMaxRuntime()) {
       break;
     }
     size_t reconstruction_idx;
@@ -650,6 +654,16 @@ void IncrementalPipeline::TriangulateReconstruction(
 
   LOG(INFO) << "Extracting colors";
   reconstruction->ExtractColorsForAllImages(image_path_);
+}
+
+bool IncrementalPipeline::ReachedMaxRuntime() const {
+  if (options_->max_runtime_seconds > 0 &&
+      total_run_timer_->ElapsedSeconds() > options_->max_runtime_seconds) {
+    LOG(INFO) << "Reached maximum runtime of " << options_->max_runtime_seconds
+              << " seconds.";
+    return true;
+  }
+  return false;
 }
 
 }  // namespace colmap

@@ -35,8 +35,8 @@
 namespace colmap {
 
 template <typename T>
-bool EigenMatrixMatchAndExplainShape(T lhs,
-                                     T rhs,
+bool EigenMatrixMatchAndExplainShape(const T& lhs,
+                                     const T& rhs,
                                      testing::MatchResultListener* listener) {
   if (lhs.rows() != rhs.rows() || lhs.cols() != rhs.cols()) {
     *listener << " have different shape (" << lhs.rows() << ", " << lhs.cols()

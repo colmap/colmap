@@ -115,7 +115,7 @@ class OptionManager {
 
   bool Check();
 
-  void Parse(int argc, char** argv);
+  bool Parse(int argc, char** argv);
   bool Read(const std::string& path);
   bool ReRead(const std::string& path);
   void Write(const std::string& path) const;

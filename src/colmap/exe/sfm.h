@@ -51,6 +51,5 @@ int RunHierarchicalMapper(int argc, char** argv);
 int RunPosePriorMapper(int argc, char** argv);
 int RunPointFiltering(int argc, char** argv);
 int RunPointTriangulator(int argc, char** argv);
-int RunRigBundleAdjuster(int argc, char** argv);
 
 }  // namespace colmap

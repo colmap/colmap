@@ -34,7 +34,8 @@
 #include "colmap/scene/camera.h"
 #include "colmap/scene/projection.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
+
+#include <cassert>
 
 namespace colmap {
 
@@ -93,9 +94,8 @@ ObservationManager::ObservationManager(
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
       if (image.Point2D(point2D_idx).HasPoint3D()) {
-        const bool kIsContinuedPoint3D = false;
         SetObservationAsTriangulated(
-            image_id, point2D_idx, kIsContinuedPoint3D);
+            image_id, point2D_idx, /*is_continued_point3D=*/false);
       }
     }
   }
@@ -200,10 +200,10 @@ point3D_t ObservationManager::AddPoint3D(const Eigen::Vector3d& xyz,
                                          const Eigen::Vector3ub& color) {
   const point3D_t point3D_id = reconstruction_.AddPoint3D(xyz, track, color);
 
-  const bool kIsContinuedPoint3D = false;
   for (const auto& track_el : track.Elements()) {
-    SetObservationAsTriangulated(
-        track_el.image_id, track_el.point2D_idx, kIsContinuedPoint3D);
+    SetObservationAsTriangulated(track_el.image_id,
+                                 track_el.point2D_idx,
+                                 /*is_continued_point3D=*/false);
   }
 
   return point3D_id;
@@ -212,19 +212,17 @@ point3D_t ObservationManager::AddPoint3D(const Eigen::Vector3d& xyz,
 void ObservationManager::AddObservation(const point3D_t point3D_id,
                                         const TrackElement& track_el) {
   reconstruction_.AddObservation(point3D_id, track_el);
-  const bool kIsContinuedPoint3D = true;
   SetObservationAsTriangulated(
-      track_el.image_id, track_el.point2D_idx, kIsContinuedPoint3D);
+      track_el.image_id, track_el.point2D_idx, /*is_continued_point3D=*/true);
 }
 
 void ObservationManager::DeletePoint3D(const point3D_t point3D_id) {
   // Note: Do not change order of these instructions, especially with respect to
   // `ObservationManager::ResetTriObservations`
   const Track& track = reconstruction_.Point3D(point3D_id).track;
-  const bool kIsDeletedPoint3D = true;
   for (const auto& track_el : track.Elements()) {
     ResetTriObservations(
-        track_el.image_id, track_el.point2D_idx, kIsDeletedPoint3D);
+        track_el.image_id, track_el.point2D_idx, /*is_deleted_point3D=*/true);
   }
 
   reconstruction_.DeletePoint3D(point3D_id);
@@ -243,33 +241,31 @@ void ObservationManager::DeleteObservation(const image_t image_id,
     return;
   }
 
-  const bool kIsDeletedPoint3D = false;
-  ResetTriObservations(image_id, point2D_idx, kIsDeletedPoint3D);
+  ResetTriObservations(image_id, point2D_idx, /*is_deleted_point3D=*/false);
   reconstruction_.DeleteObservation(image_id, point2D_idx);
 }
 
 point3D_t ObservationManager::MergePoints3D(const point3D_t point3D_id1,
                                             const point3D_t point3D_id2) {
-  const bool kIsDeletedPoint3D = true;
   const Track& track1 = reconstruction_.Point3D(point3D_id1).track;
   for (const auto& track_el : track1.Elements()) {
     ResetTriObservations(
-        track_el.image_id, track_el.point2D_idx, kIsDeletedPoint3D);
+        track_el.image_id, track_el.point2D_idx, /*is_deleted_point3D=*/true);
   }
   const Track& track2 = reconstruction_.Point3D(point3D_id2).track;
   for (const auto& track_el : track2.Elements()) {
     ResetTriObservations(
-        track_el.image_id, track_el.point2D_idx, kIsDeletedPoint3D);
+        track_el.image_id, track_el.point2D_idx, /*is_deleted_point3D=*/true);
   }
 
   point3D_t merged_point3D_id =
       reconstruction_.MergePoints3D(point3D_id1, point3D_id2);
 
   const Track track = reconstruction_.Point3D(merged_point3D_id).track;
-  const bool kIsContinuedPoint3D = false;
   for (const auto& track_el : track.Elements()) {
-    SetObservationAsTriangulated(
-        track_el.image_id, track_el.point2D_idx, kIsContinuedPoint3D);
+    SetObservationAsTriangulated(track_el.image_id,
+                                 track_el.point2D_idx,
+                                 /*is_continued_point3D=*/false);
   }
   return merged_point3D_id;
 }
@@ -377,7 +373,7 @@ size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
 
       for (size_t i2 = 0; i2 < i1; ++i2) {
         const image_t image_id2 = point3D.track.Element(i2).image_id;
-        const Eigen::Vector3d proj_center2 = proj_centers.at(image_id2);
+        const Eigen::Vector3d& proj_center2 = proj_centers.at(image_id2);
 
         const double tri_angle = CalculateTriangulationAngle(
             proj_center1, proj_center2, point3D.xyz);

@@ -32,7 +32,9 @@
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/math/random.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/file.h"
 
 #include <Eigen/Geometry>
 
@@ -178,7 +180,6 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   THROW_CHECK_GE(options.num_points2D_without_point3D, 0);
   THROW_CHECK_GE(options.sensor_from_rig_translation_stddev, 0.);
   THROW_CHECK_GE(options.sensor_from_rig_rotation_stddev, 0.);
-  THROW_CHECK_GE(options.point2D_stddev, 0.);
   THROW_CHECK_GE(options.prior_position_stddev, 0.);
 
   if (PRNG == nullptr) {
@@ -275,7 +276,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
         Image& image = images.emplace_back();
         image.SetName(
-            StringPrintf("camera%06d_frame%06d", sensor_id.id, frame_idx));
+            StringPrintf("camera%06d_frame%06d.png", sensor_id.id, frame_idx));
         image.SetCameraId(sensor_id.id);
         const image_t image_id = (database == nullptr)
                                      ? total_num_images
@@ -321,12 +322,6 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
             continue;  // Point is behind the camera.
           }
           point2D.xy = proj_point2D.value();
-          if (options.point2D_stddev > 0) {
-            const Eigen::Vector2d noise(
-                RandomGaussian<double>(0, options.point2D_stddev),
-                RandomGaussian<double>(0, options.point2D_stddev));
-            point2D.xy += noise;
-          }
           if (point2D.xy(0) >= 0 && point2D.xy(1) >= 0 &&
               point2D.xy(0) <= camera.width && point2D.xy(1) <= camera.height) {
             point2D.point3D_id = point3D_id;
@@ -436,6 +431,153 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   }
 
   reconstruction->UpdatePoint3DErrors();
+}
+
+void SynthesizeNoise(const SyntheticNoiseOptions& options,
+                     Reconstruction* reconstruction,
+                     Database* database) {
+  THROW_CHECK_GE(options.rig_from_world_translation_stddev, 0.);
+  THROW_CHECK_GE(options.rig_from_world_rotation_stddev, 0.);
+  THROW_CHECK_GE(options.point3D_stddev, 0.);
+  THROW_CHECK_GE(options.point2D_stddev, 0.);
+
+  for (const frame_t frame_id : reconstruction->RegFrameIds()) {
+    Rigid3d& rig_from_world = reconstruction->Frame(frame_id).RigFromWorld();
+
+    if (options.rig_from_world_rotation_stddev > 0.0) {
+      const double angle = std::clamp(
+          RandomGaussian<double>(0, options.rig_from_world_rotation_stddev),
+          -180.0,
+          180.0);
+      rig_from_world.rotation *= Eigen::Quaterniond(
+          Eigen::AngleAxisd(DegToRad(angle), Eigen::Vector3d::UnitZ()));
+    }
+
+    if (options.rig_from_world_translation_stddev > 0.0) {
+      rig_from_world.translation += Eigen::Vector3d(
+          RandomGaussian<double>(0, options.rig_from_world_translation_stddev),
+          RandomGaussian<double>(0, options.rig_from_world_translation_stddev),
+          RandomGaussian<double>(0, options.rig_from_world_translation_stddev));
+    }
+  }
+
+  if (options.point2D_stddev > 0.0) {
+    for (const auto& [image_id, _] : reconstruction->Images()) {
+      Image& image = reconstruction->Image(image_id);
+      for (auto& point2D : image.Points2D()) {
+        point2D.xy +=
+            Eigen::Vector2d(RandomGaussian<double>(0, options.point2D_stddev),
+                            RandomGaussian<double>(0, options.point2D_stddev));
+      }
+      if (database != nullptr) {
+        std::vector<FeatureKeypoint> keypoints =
+            database->ReadKeypoints(image_id);
+        for (point2D_t point2D_idx = 0; point2D_idx < keypoints.size();
+             ++point2D_idx) {
+          keypoints[point2D_idx].x = image.Point2D(point2D_idx).xy(0);
+          keypoints[point2D_idx].y = image.Point2D(point2D_idx).xy(1);
+        }
+        database->UpdateKeypoints(image.ImageId(), keypoints);
+      }
+    }
+  }
+
+  if (options.point3D_stddev > 0.0) {
+    for (auto& [point3D_id, _] : reconstruction->Points3D()) {
+      reconstruction->Point3D(point3D_id).xyz +=
+          Eigen::Vector3d(RandomGaussian<double>(0, options.point3D_stddev),
+                          RandomGaussian<double>(0, options.point3D_stddev),
+                          RandomGaussian<double>(0, options.point3D_stddev));
+    }
+  }
+
+  reconstruction->UpdatePoint3DErrors();
+}
+
+void SynthesizeImages(const SyntheticImageOptions& options,
+                      const Reconstruction& reconstruction,
+                      const std::string& image_path) {
+  THROW_CHECK_GT(options.feature_patch_radius, 0);
+  THROW_CHECK_LT(options.feature_peak_radius, options.feature_patch_radius);
+  THROW_CHECK_GT(options.feature_patch_max_brightness, 0);
+  THROW_CHECK_LT(options.feature_patch_max_brightness, 255);
+
+  const double patch_radius = std::sqrt(2 * options.feature_patch_radius *
+                                        options.feature_patch_radius);
+
+  int total_num_descriptors = 0;
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    const Camera& camera = *image.CameraPtr();
+
+    Bitmap bitmap;
+    bitmap.Allocate(camera.width, camera.height, /*as_rgb=*/true);
+    bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
+
+    for (const auto& point2D : image.Points2D()) {
+      const int x = static_cast<int>(std::round(point2D.xy(0)));
+      const int y = static_cast<int>(std::round(point2D.xy(1)));
+      if (x < 0 || y < 0 || x >= camera.width || y >= camera.height) {
+        continue;
+      }
+
+      std::mt19937 feature_generator(point2D.HasPoint3D()
+                                         ? point2D.point3D_id
+                                         : reconstruction.NumPoints3D() +
+                                               (++total_num_descriptors));
+
+      // Draw a circular patch around the feature with a unique pattern with the
+      // aim of producing a unique feature descriptor. Make the pattern a bit
+      // darker than the peak, so the keypoint is detected at the center.
+      const int patch_minx = std::max(x - options.feature_patch_radius, 0);
+      const int patch_maxx = std::min(x + options.feature_patch_radius,
+                                      static_cast<int>(camera.width));
+      const int patch_miny = std::max(y - options.feature_patch_radius, 0);
+      const int patch_maxy = std::min(y + options.feature_patch_radius,
+                                      static_cast<int>(camera.height));
+      for (int py = patch_miny; py < patch_maxy; ++py) {
+        for (int px = patch_minx; px < patch_maxx; ++px) {
+          const double radius =
+              std::sqrt((px - x) * (px - x) + (py - y) * (py - y));
+          if (radius > options.feature_patch_radius) {
+            continue;
+          }
+          // Adjust the brightness so it fades out to the edge of the patch.
+          std::uniform_int_distribution<int> patch_brightness_distribution(
+              0,
+              (1.0 - radius / patch_radius) *
+                  options.feature_patch_max_brightness);
+          bitmap.SetPixel(px,
+                          py,
+                          BitmapColor<uint8_t>(patch_brightness_distribution(
+                              feature_generator)));
+        }
+      }
+
+      // Draw a small, bright peak around the feature for keypoint detection.
+      const int peak_minx = std::max(x - options.feature_peak_radius, 0);
+      const int peak_maxx = std::min(x + options.feature_peak_radius,
+                                     static_cast<int>(camera.width));
+      const int peak_miny = std::max(y - options.feature_peak_radius, 0);
+      const int peak_maxy = std::min(y + options.feature_peak_radius,
+                                     static_cast<int>(camera.height));
+      std::uniform_int_distribution<int> peak_color_distribution(
+          options.feature_patch_max_brightness, 255);
+      const BitmapColor<uint8_t> peak_color(
+          peak_color_distribution(feature_generator),
+          peak_color_distribution(feature_generator),
+          peak_color_distribution(feature_generator));
+      for (int py = peak_miny; py < peak_maxy; ++py) {
+        for (int px = peak_minx; px < peak_maxx; ++px) {
+          bitmap.SetPixel(px, py, peak_color);
+        }
+      }
+    }
+
+    const std::string output_image_path = JoinPaths(image_path, image.Name());
+    if (!bitmap.Write(output_image_path)) {
+      LOG(ERROR) << "Failed to write image to " << output_image_path;
+    }
+  }
 }
 
 }  // namespace colmap
