@@ -38,9 +38,14 @@ jobs:
           fi
 
           # ✅ Require exactly one answer (Yes or No, not both)
-          YES=$(grep -iE "^- \[x\] Yes — this PR breaks COLMAP APIs\.$" <<< "$BLOCK" | wc -l | tr -d ' ')
-          NO=$(grep -iE  "^- \[x\] No — no breaking changes to COLMAP APIs\.$" <<< "$BLOCK" | wc -l | tr -d ' ')
-          if [ $((YES + NO)) -ne 1 ]; then
+          # Matches any '- [x]' or '- [X]' line beginning with Yes/No (case-insensitive)
+          # Ignores extra punctuation or trailing text (like '— this PR breaks...')
+          YES=$(printf "%s\n" "$BLOCK" | grep -iE '^[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*Yes\b' | wc -l | tr -d ' ')
+          NO=$( printf "%s\n" "$BLOCK" | grep -iE '^[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*No\b'  | wc -l | tr -d ' ' )
+          TOTAL=$((YES + NO))
+
+          echo "Found COLMAP: YES=$YES NO=$NO"
+          if [ "$TOTAL" -ne 1  ]; then
             echo "::error title=Exactly one required::Tick exactly one for COLMAP (Yes or No)."
             exit 1
           fi
@@ -73,9 +78,12 @@ jobs:
           fi
 
           # ✅ Require exactly one answer (Yes or No, not both)
-          YES=$(grep -iE "^- \[x\] Yes — this PR breaks pycolmap APIs\.$" <<< "$BLOCK" | wc -l | tr -d ' ')
-          NO=$(grep -iE  "^- \[x\] No — no breaking changes to pycolmap APIs\.$" <<< "$BLOCK" | wc -l | tr -d ' ')
-          if [ $((YES + NO)) -ne 1 ]; then
+          YES=$(printf "%s\n" "$BLOCK" | grep -iE '^[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*Yes\b' | wc -l | tr -d ' ')
+          NO=$( printf "%s\n" "$BLOCK" | grep -iE '^[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*No\b'  | wc -l | tr -d ' ' )
+          TOTAL=$((YES + NO))
+
+          echo "Found pycolmap: YES=$YES NO=$NO"
+          if [ "$TOTAL" -ne 1  ]; then
             echo "::error title=Exactly one required::Tick exactly one for pycolmap (Yes or No)."
             exit 1
           fi
