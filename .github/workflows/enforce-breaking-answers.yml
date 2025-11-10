@@ -5,14 +5,14 @@ on:
     types: [opened, edited, synchronize]
 
 permissions:
-  contents: read   # read-only; no label or write actions
+  contents: read   # read-only; no writes
 
 jobs:
-  check_colmap:
-    name: "COLMAP breaking-change answered"
+  enforce:
+    name: "Breaking-change answers"
     runs-on: ubuntu-latest
     steps:
-      - name: Validate COLMAP question (exactly one answer)
+      - name: Check COLMAP question (exactly one answer)
         env:
           BODY: ${{ github.event.pull_request.body }}
         run: |
@@ -37,7 +37,7 @@ jobs:
             exit 1
           fi
 
-          # ✅ Require exactly one answer per question (Yes or No, not both)
+          # ✅ Require exactly one answer (Yes or No, not both)
           YES=$(grep -iE "^- \[x\] Yes — this PR breaks COLMAP APIs\.$" <<< "$BLOCK" | wc -l | tr -d ' ')
           NO=$(grep -iE  "^- \[x\] No — no breaking changes to COLMAP APIs\.$" <<< "$BLOCK" | wc -l | tr -d ' ')
           if [ $((YES + NO)) -ne 1 ]; then
@@ -47,11 +47,7 @@ jobs:
 
           echo "✅ COLMAP answer OK."
 
-  check_pycolmap:
-    name: "pycolmap breaking-change answered"
-    runs-on: ubuntu-latest
-    steps:
-      - name: Validate pycolmap question (exactly one answer)
+      - name: Check pycolmap question (exactly one answer)
         env:
           BODY: ${{ github.event.pull_request.body }}
         run: |
@@ -76,7 +72,7 @@ jobs:
             exit 1
           fi
 
-          # ✅ Require exactly one answer per question (Yes or No, not both)
+          # ✅ Require exactly one answer (Yes or No, not both)
           YES=$(grep -iE "^- \[x\] Yes — this PR breaks pycolmap APIs\.$" <<< "$BLOCK" | wc -l | tr -d ' ')
           NO=$(grep -iE  "^- \[x\] No — no breaking changes to pycolmap APIs\.$" <<< "$BLOCK" | wc -l | tr -d ' ')
           if [ $((YES + NO)) -ne 1 ]; then
@@ -85,4 +81,9 @@ jobs:
           fi
 
           echo "✅ pycolmap answer OK."
+
+      - name: Summary
+        if: ${{ success() }}
+        run: |
+          echo "Both breaking-change questions answered correctly."
 
