@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION})
-option(GENERATE_STUBS "Whether to generate stubs" OFF)
+option(GENERATE_STUBS "Whether to generate stubs" ON)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD 17)
