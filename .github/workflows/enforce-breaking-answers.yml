@@ -16,36 +16,61 @@ jobs:
         env:
           BODY: ${{ github.event.pull_request.body }}
         run: |
-          echo "🔍 Checking breaking changes checklist…"
+          set -euo pipefail
 
+          # Extract PR body from event payload and normalize CRLF
+          BODY="$(jq -r '.pull_request.body // ""' "$GITHUB_EVENT_PATH" | tr -d '\r')"
+
+          if [ -z "$BODY" ]; then
+            echo "::error title=Empty PR description::Please keep the breaking changes checklist and tick exactly one option."
+            exit 1
+          fi
+
+          # Header as in your template
           HEADER="### Does this PR introduce breaking changes to **colmap/pycolmap public APIs**?"
 
+          # Ensure the header exists
           if ! grep -Fq "$HEADER" <<< "$BODY"; then
             echo "::error title=Missing question::Missing line: $HEADER"
             exit 1
           fi
 
-          # Get lines after the header (the two checkboxes)
-          LINES="$(awk -v header="$HEADER" '
-            $0 == header {found=1; next}
-            found {print}
-          ' <<< "$BODY" | head -n 5)"
+          # Extract lines after the header until the next '### ' section
+          BLOCK="$(
+            awk -v header="$HEADER" '
+              BEGIN{p=0}
+              index($0, header){p=1; next}
+              /^### / && p==1{exit}
+              p==1{print}
+            ' <<< "$BODY"
+          )"
 
-          # Count checked boxes
-          YES=$(grep -iE '^\s*>?\s*-\s*\[[xX]\]\s*Yes' <<< "$LINES" | wc -l | tr -d ' ')
-          NO=$( grep -iE '^\s*>?\s*-\s*\[[xX]\]\s*No'  <<< "$LINES" | wc -l | tr -d ' ')
+          if [ -z "$BLOCK" ]; then
+            echo "::error title=Missing options::I couldn\'t find the Yes/No checkboxes under the question."
+            exit 1
+          fi
+
+          # Count checked Yes/No boxes (allow optional leading '>' and spaces)
+          YES=$(grep -iE '^[[:space:]]*>?[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*Yes\b' <<< "$BLOCK" | wc -l | tr -d ' ')
+          NO=$( grep -iE '^[[:space:]]*>?[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*No\b'  <<< "$BLOCK" | wc -l | tr -d ' ')
           TOTAL=$((YES + NO))
 
           echo "Found: YES=$YES NO=$NO"
           if [ "$TOTAL" -ne 1 ]; then
-            echo "::error title=Exactly one required::Tick exactly one (Yes or No)."
+            echo "::error title=Exactly one required::Tick exactly one (Yes or No) under the breaking changes question."
+            echo "::notice::Tip: leave one line as '[ ]' and mark the other as '[x]'."
             exit 1
           fi
 
-          echo "✅ Breaking changes answer OK."
-
-      - name: Summary
-        if: ${{ success() }}
-        run: |
-          echo "Both breaking-change questions answered correctly."
-
+          # Nice summary in the PR checks UI
+          {
+            echo "## PR Template Check"
+            echo ""
+            echo "- Question present: ✅"
+            echo "- Exactly one checked: ✅"
+            if [ "$YES" -eq 1 ]; then
+              echo "- Selected: **Yes — breaking changes**"
+            else
+              echo "- Selected: **No — no breaking changes**"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
