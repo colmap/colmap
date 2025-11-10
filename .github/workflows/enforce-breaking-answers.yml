@@ -16,8 +16,6 @@ jobs:
         env:
           BODY: ${{ github.event.pull_request.body }}
         run: |
-          set -euo pipefail
-
           # Extract PR body and normalize CRLF (\r\n -> \n)
           BODY="$(jq -r '.pull_request.body // ""' "$GITHUB_EVENT_PATH" | tr -d '\r')"
 
