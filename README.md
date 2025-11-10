@@ -45,8 +45,10 @@ Download
 
 * Binaries for **Windows** and other resources can be downloaded
   from https://github.com/colmap/colmap/releases.
-* Binaries for **Linux/Unix/BSD** are available at https://repology.org/metapackage/colmap/versions.
-* Pre-built **Docker** images are available at https://hub.docker.com/r/colmap/colmap.
+* Binaries for **Linux/Unix/BSD** are available at
+  https://repology.org/metapackage/colmap/versions.
+* Pre-built **Docker** images are available at
+  https://hub.docker.com/r/colmap/colmap.
 * Conda packages are available at https://anaconda.org/conda-forge/colmap and
   can be installed with `conda install colmap`
 * **Python bindings** are available at https://pypi.org/project/pycolmap.
@@ -68,7 +70,8 @@ Documentation
 -------------
 
 The documentation is available at https://colmap.github.io/.
-To build and update the documentation at the website, follow these steps:
+
+To build and update the documentation at the website after a release, follow these steps:
 
 1. Build documentation locally following [these instructions](https://colmap.github.io/install.html#documentation).
 2. Clone the website repository [colmap/colmap.github.io](https://github.com/colmap/colmap.github.io).
