@@ -1,7 +1,8 @@
 name: Enforce Breaking-Change Answers
 
 on:
-  # Use pull_request_target so the job runs with base repo permissions on forked PRs.
+  pull_request:
+    types: [opened, edited, synchronize]
   pull_request_target:
     types: [opened, edited, synchronize]
 
