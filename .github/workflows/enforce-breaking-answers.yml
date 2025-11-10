@@ -1,12 +1,13 @@
 name: Enforce Breaking-Change Answers
 
 on:
-  pull_request:
+  # Use pull_request_target so the job runs with base repo permissions on forked PRs.
+  pull_request_target:
     types: [opened, edited, synchronize]
 
 permissions:
-  pull-requests: write   # needed for labeling
   contents: read
+  issues: write        # needed to add/remove labels via the Issues API
 
 jobs:
   enforce:
