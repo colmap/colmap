@@ -16,79 +16,33 @@ jobs:
         env:
           BODY: ${{ github.event.pull_request.body }}
         run: |
-          echo "🔍 Checking COLMAP…"
+          echo "🔍 Checking breaking changes checklist…"
 
-          LABEL="### 1) Does this PR introduce breaking changes to **COLMAP public APIs**?"
-          if ! grep -Fq "$LABEL" <<< "$BODY"; then
-            echo "::error title=Missing section::Include the COLMAP section: $LABEL"
+          HEADER="### Does this PR introduce breaking changes to **colmap/pycolmap public APIs**?"
+
+          if ! grep -Fq "$HEADER" <<< "$BODY"; then
+            echo "::error title=Missing question::Missing line: $HEADER"
             exit 1
           fi
 
-          # Extract the block under the COLMAP section until the next '### ' header.
-          BLOCK="$(awk -v header="$LABEL" '
-            BEGIN{p=0}
-            index($0, header){p=1; next}
-            /^### / && p==1{exit}
-            p==1{print}
-          ' <<< "$BODY")"
+          # Get lines after the header (the two checkboxes)
+          LINES="$(awk -v header="$HEADER" '
+            $0 == header {found=1; next}
+            found {print}
+          ' <<< "$BODY" | head -n 5)"
 
-          if [ -z "$BLOCK" ]; then
-            echo "::error title=Missing options::No checkbox block found under COLMAP section."
-            exit 1
-          fi
-
-          # ✅ Require exactly one answer (Yes or No, not both)
-          # Matches any '- [x]' or '- [X]' line beginning with Yes/No (case-insensitive)
-          # Ignores extra punctuation or trailing text (like '— this PR breaks...')
-          YES=$(printf "%s\n" "$BLOCK" | grep -iE '^[[:space:]]*>[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*Yes\b' | wc -l | tr -d ' ')
-          NO=$( printf "%s\n" "$BLOCK" | grep -iE '^[[:space:]]*>[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*No\b'  | wc -l | tr -d ' ' )
+          # Count checked boxes
+          YES=$(grep -iE '^\s*>?\s*-\s*\[[xX]\]\s*Yes' <<< "$LINES" | wc -l | tr -d ' ')
+          NO=$( grep -iE '^\s*>?\s*-\s*\[[xX]\]\s*No'  <<< "$LINES" | wc -l | tr -d ' ')
           TOTAL=$((YES + NO))
 
-          echo "Found COLMAP: YES=$YES NO=$NO"
-          if [ "$TOTAL" -ne 1  ]; then
-            echo "::error title=Exactly one required::Tick exactly one for COLMAP (Yes or No)."
+          echo "Found: YES=$YES NO=$NO"
+          if [ "$TOTAL" -ne 1 ]; then
+            echo "::error title=Exactly one required::Tick exactly one (Yes or No)."
             exit 1
           fi
 
-          echo "✅ COLMAP answer OK."
-
-      - name: Check pycolmap question (exactly one answer)
-        env:
-          BODY: ${{ github.event.pull_request.body }}
-        run: |
-          echo "🔍 Checking pycolmap…"
-
-          LABEL="### 2) Does this PR introduce breaking changes to **pycolmap public APIs**?"
-          if ! grep -Fq "$LABEL" <<< "$BODY"; then
-            echo "::error title=Missing section::Include the pycolmap section: $LABEL"
-            exit 1
-          fi
-
-          # Extract the block under the pycolmap section until the next '### ' header.
-          BLOCK="$(awk -v header="$LABEL" '
-            BEGIN{p=0}
-            index($0, header){p=1; next}
-            /^### / && p==1{exit}
-            p==1{print}
-          ' <<< "$BODY")"
-
-          if [ -z "$BLOCK" ]; then
-            echo "::error title=Missing options::No checkbox block found under pycolmap section."
-            exit 1
-          fi
-
-          # ✅ Require exactly one answer (Yes or No, not both)
-          YES=$(printf "%s\n" "$BLOCK" | grep -iE '^[[:space:]]*>[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*Yes\b' | wc -l | tr -d ' ')
-          NO=$( printf "%s\n" "$BLOCK" | grep -iE '^[[:space:]]*>[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*No\b'  | wc -l | tr -d ' ' )
-          TOTAL=$((YES + NO))
-
-          echo "Found pycolmap: YES=$YES NO=$NO"
-          if [ "$TOTAL" -ne 1  ]; then
-            echo "::error title=Exactly one required::Tick exactly one for pycolmap (Yes or No)."
-            exit 1
-          fi
-
-          echo "✅ pycolmap answer OK."
+          echo "✅ Breaking changes answer OK."
 
       - name: Summary
         if: ${{ success() }}

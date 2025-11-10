@@ -1,23 +1,12 @@
 ## Breaking changes checklist
 
-Please answer **both** questions below.
-Tick **exactly one** option (Yes/No) for each.
+Tick **exactly one** answer for the following question.
 
----
+### Does this PR introduce breaking changes to **colmap/pycolmap public APIs**?
 
-### 1) Does this PR introduce breaking changes to **COLMAP public APIs**?
-
-> - [ ] No — no breaking changes to COLMAP APIs.
-> - [ ] Yes — this PR breaks COLMAP APIs.
-
----
-
-### 2) Does this PR introduce breaking changes to **pycolmap public APIs**?
-
-> - [ ] No — no breaking changes to pycolmap APIs.
-> - [ ] Yes — this PR breaks pycolmap APIs.
-
+> - [] No — no breaking changes to colmap/pycolmap APIs.
+> - [] Yes — this PR breaks colmap/pycolmap APIs.
 ---
 
 ### Additional context (optional)
-- Motivation or rationale for the change:
+- Motivation or rationale for the changes:
