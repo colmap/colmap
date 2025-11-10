@@ -3,125 +3,86 @@ name: Enforce Breaking-Change Answers
 on:
   pull_request:
     types: [opened, edited, synchronize]
-  pull_request_target:
-    types: [opened, edited, synchronize]
 
 permissions:
-  contents: read
-  issues: write        # needed to add/remove labels via the Issues API
+  contents: read   # read-only; no label or write actions
 
 jobs:
-  enforce:
-     if: |
-       (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false) ||
-       (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.fork == true)
+  check_colmap:
+    name: "COLMAP breaking-change answered"
     runs-on: ubuntu-latest
     steps:
-      - name: Validate PR body for breaking-change answers
+      - name: Validate COLMAP question (exactly one answer)
         env:
           BODY: ${{ github.event.pull_request.body }}
         run: |
-          echo "🔍 Validating PR body..."
+          echo "🔍 Checking COLMAP…"
 
-          # ------------------------------------------------------------------------------
-          # This workflow enforces that:
-          # 1. Both COLMAP and pycolmap breaking-change questions exist in the PR body.
-          # 2. Each question has exactly ONE answer checked (either "Yes" OR "No", not both).
-          # ------------------------------------------------------------------------------
+          LABEL="### 1) Does this PR introduce breaking changes to **COLMAP public APIs**?"
+          if ! grep -Fq "$LABEL" <<< "$BODY"; then
+            echo "::error title=Missing section::Include the COLMAP section: $LABEL"
+            exit 1
+          fi
 
-          required_sections=("### 1) Does this PR introduce breaking changes to **COLMAP public APIs**?"
-                             "### 2) Does this PR introduce breaking changes to **pycolmap public APIs**?")
+          # Extract the block under the COLMAP section until the next '### ' header.
+          BLOCK="$(awk -v header="$LABEL" '
+            BEGIN{p=0}
+            index($0, header){p=1; next}
+            /^### / && p==1{exit}
+            p==1{print}
+          ' <<< "$BODY")"
 
-          # Ensure both section headers are present
-          for section in "${required_sections[@]}"; do
-            if ! grep -Fq "$section" <<< "$BODY"; then
-              echo "::error title=Missing section::The PR body must include the section: $section"
-              echo "Please use the repository's PR template."
-              exit 1
-            fi
-          done
+          if [ -z "$BLOCK" ]; then
+            echo "::error title=Missing options::No checkbox block found under COLMAP section."
+            exit 1
+          fi
 
-          # ------------------------------------------------------------------------------
-          # Helper function: ensure each question has exactly one checkbox selected
-          # ------------------------------------------------------------------------------
-          check_answer () {
-            local label="$1"
-            local yes_pattern="$2"
-            local no_pattern="$3"
+          # ✅ Require exactly one answer per question (Yes or No, not both)
+          YES=$(grep -iE "^- \[x\] Yes — this PR breaks COLMAP APIs\.$" <<< "$BLOCK" | wc -l | tr -d ' ')
+          NO=$(grep -iE  "^- \[x\] No — no breaking changes to COLMAP APIs\.$" <<< "$BLOCK" | wc -l | tr -d ' ')
+          if [ $((YES + NO)) -ne 1 ]; then
+            echo "::error title=Exactly one required::Tick exactly one for COLMAP (Yes or No)."
+            exit 1
+          fi
 
-            # Extract the section block for the question
-            BLOCK="$(awk -v header="$label" '
-              BEGIN{p=0}
-              index($0, header){p=1; next}
-              /^### / && p==1{exit}
-              p==1{print}
-            ' <<< "$BODY")"
+          echo "✅ COLMAP answer OK."
 
-            if [ -z "$BLOCK" ]; then
-              echo "::error title=Missing options::No checkbox block found under: $label"
-              exit 1
-            fi
+  check_pycolmap:
+    name: "pycolmap breaking-change answered"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate pycolmap question (exactly one answer)
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          echo "🔍 Checking pycolmap…"
 
-            # ✅ Require exactly one answer per question (Yes or No, not both)
-            YES_COUNT=$(grep -iE "^- \[x\] $yes_pattern" <<< "$BLOCK" | wc -l | tr -d ' ')
-            NO_COUNT=$(grep -iE "^- \[x\] $no_pattern" <<< "$BLOCK" | wc -l | tr -d ' ')
-            TOTAL=$((YES_COUNT + NO_COUNT))
+          LABEL="### 2) Does this PR introduce breaking changes to **pycolmap public APIs**?"
+          if ! grep -Fq "$LABEL" <<< "$BODY"; then
+            echo "::error title=Missing section::Include the pycolmap section: $LABEL"
+            exit 1
+          fi
 
-            if [ "$TOTAL" -ne 1 ]; then
-              echo "::error title=Exactly one selection required::$label — tick exactly one option (Yes or No)."
-              exit 1
-            fi
-          }
+          # Extract the block under the pycolmap section until the next '### ' header.
+          BLOCK="$(awk -v header="$LABEL" '
+            BEGIN{p=0}
+            index($0, header){p=1; next}
+            /^### / && p==1{exit}
+            p==1{print}
+          ' <<< "$BODY")"
 
-          check_answer \
-            "### 1) Does this PR introduce breaking changes to **COLMAP public APIs**?" \
-            "Yes — this PR breaks COLMAP APIs\." \
-            "No — no breaking changes to COLMAP APIs\."
+          if [ -z "$BLOCK" ]; then
+            echo "::error title=Missing options::No checkbox block found under pycolmap section."
+            exit 1
+          fi
 
-          check_answer \
-            "### 2) Does this PR introduce breaking changes to **pycolmap public APIs**?" \
-            "Yes — this PR breaks pycolmap APIs\." \
-            "No — no breaking changes to pycolmap APIs\."
+          # ✅ Require exactly one answer per question (Yes or No, not both)
+          YES=$(grep -iE "^- \[x\] Yes — this PR breaks pycolmap APIs\.$" <<< "$BLOCK" | wc -l | tr -d ' ')
+          NO=$(grep -iE  "^- \[x\] No — no breaking changes to pycolmap APIs\.$" <<< "$BLOCK" | wc -l | tr -d ' ')
+          if [ $((YES + NO)) -ne 1 ]; then
+            echo "::error title=Exactly one required::Tick exactly one for pycolmap (Yes or No)."
+            exit 1
+          fi
 
-          echo "✅ PR body looks good."
-
-      # --- Auto-label based on answers ---
-
-      - name: Add generic breaking label
-        if: >
-          contains(github.event.pull_request.body, 'Yes — this PR breaks COLMAP APIs.') ||
-          contains(github.event.pull_request.body, 'Yes — this PR breaks pycolmap APIs.')
-        uses: actions-ecosystem/action-add-labels@v1
-        with:
-          labels: breaking
-
-      - name: Remove generic breaking label if no breaking changes
-        if: >
-          contains(github.event.pull_request.body, 'No — no breaking changes to COLMAP APIs.') &&
-          contains(github.event.pull_request.body, 'No — no breaking changes to pycolmap APIs.')
-        uses: actions-ecosystem/action-remove-labels@v1
-        with:
-          labels: breaking
-
-      - name: Add scoped breaking:colmap label
-        if: contains(github.event.pull_request.body, 'Yes — this PR breaks COLMAP APIs.')
-        uses: actions-ecosystem/action-add-labels@v1
-        with:
-          labels: breaking:colmap
-
-      - name: Add scoped breaking:pycolmap label
-        if: contains(github.event.pull_request.body, 'Yes — this PR breaks pycolmap APIs.')
-        uses: actions-ecosystem/action-add-labels@v1
-        with:
-          labels: breaking:pycolmap
-
-      - name: Remove scoped labels when both are No
-        if: >
-          contains(github.event.pull_request.body, 'No — no breaking changes to COLMAP APIs.') &&
-          contains(github.event.pull_request.body, 'No — no breaking changes to pycolmap APIs.')
-        uses: actions-ecosystem/action-remove-labels@v1
-        with:
-          labels: |
-            breaking:colmap
-            breaking:pycolmap
+          echo "✅ pycolmap answer OK."
 
