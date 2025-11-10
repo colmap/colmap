@@ -10,8 +10,6 @@ permissions:
 
 jobs:
   sync_labels:
-    # Skip fork PRs (you said you don't need them)
-    if: ${{ github.event.pull_request.head.repo.fork == false }}
     runs-on: ubuntu-latest
     steps:
       - name: Derive desired labels from PR body and sync
