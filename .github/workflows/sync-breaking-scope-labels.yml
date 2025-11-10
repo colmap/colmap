@@ -1,0 +1,70 @@
+name: Sync Breaking Scope Labels
+
+on:
+  # Use target so fork PRs run with base-repo token (write perms).
+  pull_request_target:
+    types: [opened, edited, synchronize]
+
+permissions:
+  contents: read
+  issues: write   # labels use the Issues API
+
+jobs:
+  sync_labels:
+    name: "Sync breaking:colmap / breaking:pycolmap"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Derive desired labels from PR body and sync
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = (context.payload.pull_request.body || "").toLowerCase();
+
+            // Helper to get the section text after a header, up to next "### " or end
+            const section = (header) => {
+              const parts = body.split(header.toLowerCase());
+              if (parts.length < 2) return "";
+              return parts[1].split("### ")[0] || parts[1]; // safe if last section
+            };
+
+            const colmapBlock = section("### 1) does this pr introduce breaking changes to **colmap public apis**?");
+            const pyBlock     = section("### 2) does this pr introduce breaking changes to **pycolmap public apis**?");
+
+            // Your template uses '> - [x] ...'   (the leading '>' prevents PR "task" counting)
+            // Accept [x] or [X], ignore extra text after Yes/No
+            const CHECK_YES = />\s*-\s*\[x\]\s*yes\b/;
+            const CHECK_NO  = />\s*-\s*\[x\]\s*no\b/;
+
+            const yesColmap = CHECK_YES.test(colmapBlock);
+            const yesPy     = CHECK_YES.test(pyBlock);
+            const noColmap  = CHECK_NO.test(colmapBlock);
+            const noPy      = CHECK_NO.test(pyBlock);
+
+            // Build desired label set (scoped only)
+            const desired = new Set();
+            if (yesColmap) desired.add("breaking:colmap");
+            if (yesPy)     desired.add("breaking:pycolmap");
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+
+            // Fetch current labels
+            const { data: current } = await github.rest.issues.listLabelsOnIssue({
+              owner, repo, issue_number, per_page: 100
+            });
+            const currentNames = new Set(current.map(l => l.name));
+
+            // Only manage the two scoped labels; leave everything else untouched
+            const managed = new Set(["breaking:colmap", "breaking:pycolmap"]);
+            const toAdd = [...desired].filter(l => !currentNames.has(l));
+            const toRemove = [...currentNames].filter(l => managed.has(l) && !desired.has(l));
+
+            core.info(`Desired: ${[...desired].join(", ") || "(none)"}`);
+            core.info(`To add: ${toAdd.join(", ") || "(none)"} | To remove: ${toRemove.join(", ") || "(none)"}`);
+
+            if (toAdd.length) {
+              await github.rest.issues.addLabels({ owner, repo, issue_number, labels: toAdd });
+            }
+            for (const name of toRemove) {
+              await github.rest.issues.removeLabel({ owner, repo, issue_number, name }).catch(() => {});
+            }
