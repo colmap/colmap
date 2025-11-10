@@ -18,7 +18,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Extract PR body from event payload and normalize CRLF
+          # Extract PR body and normalize CRLF (\r\n -> \n)
           BODY="$(jq -r '.pull_request.body // ""' "$GITHUB_EVENT_PATH" | tr -d '\r')"
 
           if [ -z "$BODY" ]; then
@@ -26,7 +26,6 @@ jobs:
             exit 1
           fi
 
-          # Header as in your template
           HEADER="### Does this PR introduce breaking changes to **colmap/pycolmap public APIs**?"
 
           # Ensure the header exists
@@ -35,7 +34,7 @@ jobs:
             exit 1
           fi
 
-          # Extract lines after the header until the next '### ' section
+          # Extract the lines under the header until the next ### header
           BLOCK="$(
             awk -v header="$HEADER" '
               BEGIN{p=0}
@@ -46,11 +45,11 @@ jobs:
           )"
 
           if [ -z "$BLOCK" ]; then
-            echo "::error title=Missing options::I couldn\'t find the Yes/No checkboxes under the question."
+            echo "::error title=Missing options::Could not find the Yes/No checkboxes under the question."
             exit 1
           fi
 
-          # Count checked Yes/No boxes (allow optional leading '>' and spaces)
+          # Count checked Yes/No boxes (allow optional leading '>')
           YES=$(grep -iE '^[[:space:]]*>?[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*Yes\b' <<< "$BLOCK" | wc -l | tr -d ' ')
           NO=$( grep -iE '^[[:space:]]*>?[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*No\b'  <<< "$BLOCK" | wc -l | tr -d ' ')
           TOTAL=$((YES + NO))
@@ -62,15 +61,9 @@ jobs:
             exit 1
           fi
 
-          # Nice summary in the PR checks UI
-          {
-            echo "## PR Template Check"
-            echo ""
-            echo "- Question present: ✅"
-            echo "- Exactly one checked: ✅"
-            if [ "$YES" -eq 1 ]; then
-              echo "- Selected: **Yes — breaking changes**"
-            else
-              echo "- Selected: **No — no breaking changes**"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          echo "✅ Breaking changes checklist passed."
+
+      - name: Summary
+        if: ${{ success() }}
+        run: |
+          echo "Both breaking-change questions answered correctly."
