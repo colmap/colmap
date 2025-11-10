@@ -12,6 +12,9 @@ permissions:
 
 jobs:
   enforce:
+     if: |
+       (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false) ||
+       (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.fork == true)
     runs-on: ubuntu-latest
     steps:
       - name: Validate PR body for breaking-change answers
