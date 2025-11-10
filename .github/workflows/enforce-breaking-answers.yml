@@ -40,8 +40,8 @@ jobs:
           # ✅ Require exactly one answer (Yes or No, not both)
           # Matches any '- [x]' or '- [X]' line beginning with Yes/No (case-insensitive)
           # Ignores extra punctuation or trailing text (like '— this PR breaks...')
-          YES=$(printf "%s\n" "$BLOCK" | grep -iE '^[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*Yes\b' | wc -l | tr -d ' ')
-          NO=$( printf "%s\n" "$BLOCK" | grep -iE '^[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*No\b'  | wc -l | tr -d ' ' )
+          YES=$(printf "%s\n" "$BLOCK" | grep -iE '^[[:space:]]*>[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*Yes\b' | wc -l | tr -d ' ')
+          NO=$( printf "%s\n" "$BLOCK" | grep -iE '^[[:space:]]*>[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*No\b'  | wc -l | tr -d ' ' )
           TOTAL=$((YES + NO))
 
           echo "Found COLMAP: YES=$YES NO=$NO"
@@ -78,8 +78,8 @@ jobs:
           fi
 
           # ✅ Require exactly one answer (Yes or No, not both)
-          YES=$(printf "%s\n" "$BLOCK" | grep -iE '^[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*Yes\b' | wc -l | tr -d ' ')
-          NO=$( printf "%s\n" "$BLOCK" | grep -iE '^[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*No\b'  | wc -l | tr -d ' ' )
+          YES=$(printf "%s\n" "$BLOCK" | grep -iE '^[[:space:]]*>[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*Yes\b' | wc -l | tr -d ' ')
+          NO=$( printf "%s\n" "$BLOCK" | grep -iE '^[[:space:]]*>[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*No\b'  | wc -l | tr -d ' ' )
           TOTAL=$((YES + NO))
 
           echo "Found pycolmap: YES=$YES NO=$NO"
