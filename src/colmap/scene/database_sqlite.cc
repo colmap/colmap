@@ -227,7 +227,6 @@ Rigid3d ReadRigid3dFromStringStream(std::stringstream* stream) {
   tform.rotation.x() = ReadBinaryLittleEndian<double>(stream);
   tform.rotation.y() = ReadBinaryLittleEndian<double>(stream);
   tform.rotation.z() = ReadBinaryLittleEndian<double>(stream);
-  tform.rotation.normalize();
   tform.translation.x() = ReadBinaryLittleEndian<double>(stream);
   tform.translation.y() = ReadBinaryLittleEndian<double>(stream);
   tform.translation.z() = ReadBinaryLittleEndian<double>(stream);
