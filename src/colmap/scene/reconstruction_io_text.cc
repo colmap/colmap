@@ -104,6 +104,7 @@ void ReadRigsText(Reconstruction& reconstruction, std::istream& stream) {
 
           std::getline(line_stream, item, ' ');
           sensor_from_rig->rotation.z() = std::stold(item);
+          sensor_from_rig->rotation.normalize();
 
           std::getline(line_stream, item, ' ');
           sensor_from_rig->translation.x() = std::stold(item);
@@ -220,6 +221,7 @@ void ReadFramesText(Reconstruction& reconstruction, std::istream& stream) {
 
     std::getline(line_stream, item, ' ');
     rig_from_world.rotation.z() = std::stold(item);
+    rig_from_world.rotation.normalize();
 
     std::getline(line_stream, item, ' ');
     rig_from_world.translation.x() = std::stold(item);
@@ -304,6 +306,7 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
 
     std::getline(line_stream1, item, ' ');
     cam_from_world.rotation.z() = std::stold(item);
+    cam_from_world.rotation.normalize();
 
     std::getline(line_stream1, item, ' ');
     cam_from_world.translation.x() = std::stold(item);
