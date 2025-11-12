@@ -44,9 +44,9 @@ jobs:
       CCACHE_BASEDIR: ${{ github.workspace }}
       GLOG_v: 2
       GLOG_logtostderr: 1
-      CUDA_MAJOR_VERSION: 12
-      CUDA_MINOR_VERSION: 9
-      CUDA_PATCH_VERSION: 1
+      CUDA_MAJOR_VERSION: 11
+      CUDA_MINOR_VERSION: 8
+      CUDA_PATCH_VERSION: 89
 
     steps:
       - uses: actions/checkout@v4
