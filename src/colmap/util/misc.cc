@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -38,15 +38,15 @@ namespace colmap {
 
 void PrintHeading1(const std::string& heading) {
   std::ostringstream log;
-  log << "\n" << std::string(78, '=') << "\n";
-  log << heading << "\n";
+  log << '\n' << std::string(78, '=') << '\n';
+  log << heading << '\n';
   log << std::string(78, '=');
   LOG(INFO) << log.str();
 }
 
 void PrintHeading2(const std::string& heading) {
   std::ostringstream log;
-  log << "\n" << heading << "\n";
+  log << '\n' << heading << '\n';
   log << std::string(std::min<int>(heading.size(), 78), '-');
   LOG(INFO) << log.str();
 }

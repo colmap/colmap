@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -83,6 +83,9 @@ class IncrementalTriangulator {
     double max_focal_length_ratio = 10.0;
     double max_extra_param = 1.0;
 
+    // PRNG seed for all stochastic methods during triangulation.
+    int random_seed = -1;
+
     bool Check() const;
   };
 
@@ -157,6 +160,9 @@ class IncrementalTriangulator {
   };
 
  private:
+  friend std::ostream& operator<<(std::ostream& stream,
+                                  const IncrementalTriangulator& triangulator);
+
   // Clear cache of bogus camera parameters and merge trials.
   void ClearCaches();
 
@@ -211,5 +217,8 @@ class IncrementalTriangulator {
   // deleted, merged, etc.). Cleared once `ModifiedPoints3D` is called.
   std::unordered_set<point3D_t> modified_point3D_ids_;
 };
+
+std::ostream& operator<<(std::ostream& stream,
+                         const IncrementalTriangulator& triangulator);
 
 }  // namespace colmap

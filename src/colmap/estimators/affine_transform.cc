@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,84 +29,95 @@
 
 #include "colmap/estimators/affine_transform.h"
 
+#include "colmap/optim/loransac.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
+#include <Eigen/Geometry>
 #include <Eigen/SVD>
 
 namespace colmap {
 
-void AffineTransformEstimator::Estimate(const std::vector<X_t>& points1,
-                                        const std::vector<Y_t>& points2,
-                                        std::vector<M_t>* models) {
-  THROW_CHECK_EQ(points1.size(), points2.size());
-  THROW_CHECK_GE(points1.size(), 3);
-  THROW_CHECK(models != nullptr);
+void AffineTransformEstimator::Estimate(const std::vector<X_t>& src,
+                                        const std::vector<Y_t>& tgt,
+                                        std::vector<M_t>* tgt_from_src) {
+  const size_t num_points = src.size();
+  THROW_CHECK_EQ(num_points, tgt.size());
+  THROW_CHECK_GE(num_points, 3);
+  THROW_CHECK(tgt_from_src != nullptr);
 
-  models->clear();
+  tgt_from_src->clear();
 
   // Sets up the linear system that we solve to obtain a least squared solution
   // for the affine transformation.
-  Eigen::MatrixXd C(2 * points1.size(), 6);
-  C.setZero();
-  Eigen::VectorXd b(2 * points1.size(), 1);
-
-  for (size_t i = 0; i < points1.size(); ++i) {
-    const Eigen::Vector2d& x1 = points1[i];
-    const Eigen::Vector2d& x2 = points2[i];
-
-    C(2 * i, 0) = x1(0);
-    C(2 * i, 1) = x1(1);
-    C(2 * i, 2) = 1.0f;
-    b(2 * i) = x2(0);
-
-    C(2 * i + 1, 3) = x1(0);
-    C(2 * i + 1, 4) = x1(1);
-    C(2 * i + 1, 5) = 1.0f;
-    b(2 * i + 1) = x2(1);
+  Eigen::Matrix<double, Eigen::Dynamic, 6> A(2 * num_points, 6);
+  Eigen::VectorXd b(2 * num_points, 1);
+  for (size_t i = 0; i < num_points; ++i) {
+    A.block<1, 3>(2 * i, 0) = src[i].transpose().homogeneous();
+    A.block<1, 3>(2 * i, 3).setZero();
+    b(2 * i) = tgt[i].x();
+    A.block<1, 3>(2 * i + 1, 0).setZero();
+    A.block<1, 3>(2 * i + 1, 3) = src[i].transpose().homogeneous();
+    b(2 * i + 1) = tgt[i].y();
   }
 
-  const Eigen::VectorXd nullspace =
-      C.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
+  Eigen::Vector6d sol;
+  if (num_points == 3) {
+    sol = A.partialPivLu().solve(b);
+    if (sol.hasNaN()) {
+      return;
+    }
+  } else {
+    Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 6>> svd(
+        A, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    if (svd.rank() < 6) {
+      return;
+    }
+    sol = svd.solve(b);
+  }
 
-  Eigen::Map<const Eigen::Matrix<double, 3, 2>> A_t(nullspace.data());
-
-  models->resize(1);
-  (*models)[0] = A_t.transpose();
+  tgt_from_src->resize(1);
+  (*tgt_from_src)[0] =
+      Eigen::Map<const Eigen::Matrix<double, 3, 2>>(sol.data()).transpose();
 }
 
-void AffineTransformEstimator::Residuals(const std::vector<X_t>& points1,
-                                         const std::vector<Y_t>& points2,
-                                         const M_t& A,
+void AffineTransformEstimator::Residuals(const std::vector<X_t>& src,
+                                         const std::vector<Y_t>& tgt,
+                                         const M_t& tgt_from_src,
                                          std::vector<double>* residuals) {
-  THROW_CHECK_EQ(points1.size(), points2.size());
-
-  residuals->resize(points1.size());
-
-  // Note that this code might not be as nice as Eigen expressions,
-  // but it is significantly faster in various tests.
-
-  const double A_00 = A(0, 0);
-  const double A_01 = A(0, 1);
-  const double A_02 = A(0, 2);
-  const double A_10 = A(1, 0);
-  const double A_11 = A(1, 1);
-  const double A_12 = A(1, 2);
-
-  for (size_t i = 0; i < points1.size(); ++i) {
-    const double s_0 = points1[i](0);
-    const double s_1 = points1[i](1);
-    const double d_0 = points2[i](0);
-    const double d_1 = points2[i](1);
-
-    const double pd_0 = A_00 * s_0 + A_01 * s_1 + A_02;
-    const double pd_1 = A_10 * s_0 + A_11 * s_1 + A_12;
-
-    const double dd_0 = d_0 - pd_0;
-    const double dd_1 = d_1 - pd_1;
-
-    (*residuals)[i] = dd_0 * dd_0 + dd_1 * dd_1;
+  const size_t num_points = src.size();
+  THROW_CHECK_EQ(num_points, tgt.size());
+  residuals->resize(num_points);
+  for (size_t i = 0; i < num_points; ++i) {
+    (*residuals)[i] =
+        (tgt[i] - tgt_from_src * src[i].homogeneous()).squaredNorm();
   }
+}
+
+bool EstimateAffine2d(const std::vector<Eigen::Vector2d>& src,
+                      const std::vector<Eigen::Vector2d>& tgt,
+                      Eigen::Matrix2x3d& tgt_from_src) {
+  std::vector<Eigen::Matrix2x3d> models;
+  AffineTransformEstimator::Estimate(src, tgt, &models);
+  if (models.empty()) {
+    return false;
+  }
+  THROW_CHECK_EQ(models.size(), 1);
+  tgt_from_src = models[0];
+  return true;
+}
+
+typename RANSAC<AffineTransformEstimator>::Report EstimateAffine2dRobust(
+    const std::vector<Eigen::Vector2d>& src,
+    const std::vector<Eigen::Vector2d>& tgt,
+    const RANSACOptions& options,
+    Eigen::Matrix2x3d& tgt_from_src) {
+  LORANSAC<AffineTransformEstimator, AffineTransformEstimator> ransac(options);
+  auto report = ransac.Estimate(src, tgt);
+  if (report.success) {
+    tgt_from_src = report.model;
+  }
+  return report;
 }
 
 }  // namespace colmap

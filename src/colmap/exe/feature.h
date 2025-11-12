@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -84,5 +84,6 @@ int RunSequentialMatcher(int argc, char** argv);
 int RunSpatialMatcher(int argc, char** argv);
 int RunTransitiveMatcher(int argc, char** argv);
 int RunVocabTreeMatcher(int argc, char** argv);
+int RunGeometricVerifier(int argc, char** argv);
 
 }  // namespace colmap

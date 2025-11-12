@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -43,6 +43,8 @@ struct TwoViewGeometry {
     DEGENERATE = 1,
     // Essential matrix.
     CALIBRATED = 2,
+    // Relative pose (metric) from calibrated (non-panoramic) rig.
+    CALIBRATED_RIG = 9,
     // Fundamental matrix.
     UNCALIBRATED = 3,
     // Homography, planar scene with baseline.

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -35,36 +35,38 @@
 #include "colmap/geometry/gps.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/optim/ransac.h"
+#include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
+#include <fstream>
+
 namespace colmap {
 namespace {
 
-std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>>
-ComputeEqualPartsBounds(const Reconstruction& reconstruction,
-                        const Eigen::Vector3i& split) {
-  std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> bounds;
-  const auto bbox = reconstruction.ComputeBoundingBox();
-  const Eigen::Vector3d extent = bbox.second - bbox.first;
+std::vector<Eigen::AlignedBox3d> ComputeEqualPartsBboxes(
+    const Reconstruction& reconstruction, const Eigen::Vector3i& split) {
+  std::vector<Eigen::AlignedBox3d> bboxes;
+  const Eigen::AlignedBox3d bbox = reconstruction.ComputeBoundingBox();
+  const Eigen::Vector3d extent = bbox.diagonal();
   const Eigen::Vector3d offset(
       extent(0) / split(0), extent(1) / split(1), extent(2) / split(2));
 
   for (int k = 0; k < split(2); ++k) {
     for (int j = 0; j < split(1); ++j) {
       for (int i = 0; i < split(0); ++i) {
-        Eigen::Vector3d min_bound(bbox.first(0) + i * offset(0),
-                                  bbox.first(1) + j * offset(1),
-                                  bbox.first(2) + k * offset(2));
-        bounds.emplace_back(min_bound, min_bound + offset);
+        Eigen::Vector3d min(bbox.min().x() + i * offset(0),
+                            bbox.min().y() + j * offset(1),
+                            bbox.min().z() + k * offset(2));
+        bboxes.emplace_back(min, min + offset);
       }
     }
   }
 
-  return bounds;
+  return bboxes;
 }
 
 Eigen::Vector3d TransformLatLonAltToModelCoords(const Sim3d& tform,
@@ -77,16 +79,16 @@ Eigen::Vector3d TransformLatLonAltToModelCoords(const Sim3d& tform,
   // altitude at the end, after scaling, to set it as the z coordinate in the
   // ENU frame.
   Eigen::Vector3d xyz =
-      tform * GPSTransform(GPSTransform::WGS84)
-                  .EllToXYZ({Eigen::Vector3d(lat, lon, 0.0)})[0];
+      tform * GPSTransform(GPSTransform::Ellipsoid::WGS84)
+                  .EllipsoidToECEF({Eigen::Vector3d(lat, lon, 0.0)})[0];
   xyz(2) = tform.scale * alt;
   return xyz;
 }
 
 void WriteBoundingBox(const std::string& reconstruction_path,
-                      const std::pair<Eigen::Vector3d, Eigen::Vector3d>& bounds,
+                      const Eigen::AlignedBox3d& bbox,
                       const std::string& suffix = "") {
-  const Eigen::Vector3d extent = bounds.second - bounds.first;
+  const Eigen::Vector3d extent = bbox.diagonal();
   // write axis-aligned bounding box
   {
     const std::string path =
@@ -96,8 +98,8 @@ void WriteBoundingBox(const std::string& reconstruction_path,
 
     // Ensure that we don't lose any precision by storing in text.
     file.precision(17);
-    file << bounds.first.transpose() << "\n";
-    file << bounds.second.transpose() << "\n";
+    file << bbox.min().transpose() << '\n';
+    file << bbox.max().transpose() << '\n';
   }
   // write oriented bounding box
   {
@@ -108,10 +110,10 @@ void WriteBoundingBox(const std::string& reconstruction_path,
 
     // Ensure that we don't lose any precision by storing in text.
     file.precision(17);
-    const Eigen::Vector3d center = (bounds.first + bounds.second) * 0.5;
+    const Eigen::Vector3d center = (bbox.min() + bbox.max()) * 0.5;
     file << center.transpose() << "\n\n";
     file << "1 0 0\n0 1 0\n0 0 1\n\n";
-    file << extent.transpose() << "\n";
+    file << extent.transpose() << '\n';
   }
 }
 
@@ -120,20 +122,20 @@ std::vector<Eigen::Vector3d> ConvertCameraLocations(
     const std::string& alignment_type,
     const std::vector<Eigen::Vector3d>& ref_locations) {
   if (ref_is_gps) {
-    const GPSTransform gps_transform(GPSTransform::WGS84);
+    const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
     if (alignment_type != "enu") {
-      LOG(INFO) << "\nConverting Alignment Coordinates from GPS (lat/lon/alt) "
-                   "to ECEF.\n";
-      return gps_transform.EllToXYZ(ref_locations);
+      LOG(INFO) << "Converting Alignment Coordinates from GPS (lat/lon/alt) "
+                   "to ECEF.";
+      return gps_transform.EllipsoidToECEF(ref_locations);
     } else {
-      LOG(INFO) << "\nConverting Alignment Coordinates from GPS (lat/lon/alt) "
-                   "to ENU.\n";
-      return gps_transform.EllToENU(
+      LOG(INFO) << "Converting Alignment Coordinates from GPS (lat/lon/alt) "
+                   "to ENU.";
+      return gps_transform.EllipsoidToENU(
           ref_locations, ref_locations[0](0), ref_locations[0](1));
     }
   } else {
-    LOG(INFO) << "\nCartesian Alignment Coordinates extracted (MUST NOT BE "
-                 "GPS coords!).\n";
+    LOG(INFO) << "Cartesian Alignment Coordinates extracted (MUST NOT BE "
+                 "GPS coords!).";
     return ref_locations;
   }
 }
@@ -162,11 +164,11 @@ void ReadDatabaseCameraLocations(const std::string& database_path,
                                  const std::string& alignment_type,
                                  std::vector<std::string>* ref_image_names,
                                  std::vector<Eigen::Vector3d>* ref_locations) {
-  Database database(database_path);
-  for (const auto& image : database.ReadAllImages()) {
-    if (database.ExistsPosePrior(image.ImageId())) {
+  auto database = Database::Open(database_path);
+  for (const auto& image : database->ReadAllImages()) {
+    if (database->ExistsPosePrior(image.ImageId())) {
       ref_image_names->push_back(image.Name());
-      const auto pose_prior = database.ReadPosePrior(image.ImageId());
+      const auto pose_prior = database->ReadPosePrior(image.ImageId());
       if (ref_is_gps) {
         THROW_CHECK_EQ(static_cast<int>(pose_prior.coordinate_system),
                        static_cast<int>(PosePrior::CoordinateSystem::WGS84));
@@ -189,7 +191,7 @@ void WriteComparisonErrorsCSV(const std::string& path,
   file << "# <rotation error (deg)>, <proj center error>\n";
   for (size_t i = 0; i < errors.size(); ++i) {
     file << errors[i].rotation_error_deg << ", " << errors[i].proj_center_error
-         << "\n";
+         << '\n';
   }
 }
 
@@ -199,13 +201,12 @@ void PrintErrorStats(std::ostream& out, std::vector<double>& vals) {
     out << "Cannot extract error statistics from empty input\n";
     return;
   }
-  std::sort(vals.begin(), vals.end());
-  out << "Min:    " << vals.front() << "\n";
-  out << "Max:    " << vals.back() << "\n";
-  out << "Mean:   " << Mean(vals) << "\n";
-  out << "Median: " << Median(vals) << "\n";
-  out << "P90:    " << vals[size_t(0.9 * len)] << "\n";
-  out << "P99:    " << vals[size_t(0.99 * len)] << "\n";
+  out << "Min:    " << Percentile(vals, 0) << '\n';
+  out << "Max:    " << Percentile(vals, 100) << '\n';
+  out << "Mean:   " << Mean(vals) << '\n';
+  out << "Median: " << Median(vals) << '\n';
+  out << "P90:    " << Percentile(vals, 90) << '\n';
+  out << "P99:    " << Percentile(vals, 99) << '\n';
 }
 
 void PrintComparisonSummary(std::ostream& out,
@@ -268,6 +269,7 @@ int RunModelAligner(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
   std::string database_path;
+  std::string ref_model_path;
   std::string ref_images_path;
   bool ref_is_gps = true;
   bool merge_origins = false;
@@ -280,6 +282,7 @@ int RunModelAligner(int argc, char** argv) {
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("database_path", &database_path);
+  options.AddDefaultOption("ref_model_path", &ref_model_path);
   options.AddDefaultOption("ref_images_path", &ref_images_path);
   options.AddDefaultOption("ref_is_gps", &ref_is_gps);
   options.AddDefaultOption("merge_image_and_ref_origins", &merge_origins);
@@ -290,7 +293,9 @@ int RunModelAligner(int argc, char** argv) {
       "{plane, ecef, enu, enu-plane, enu-plane-unscaled, custom}");
   options.AddDefaultOption("min_common_images", &min_common_images);
   options.AddDefaultOption("alignment_max_error", &ransac_options.max_error);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   StringToLower(&alignment_type);
   const std::unordered_set<std::string> alignment_options{
@@ -307,16 +312,24 @@ int RunModelAligner(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  if (alignment_type != "plane" && database_path.empty() &&
-      ref_images_path.empty()) {
-    LOG(ERROR) << "Location alignment requires either database or "
-                  "location file path.";
+  if (ref_model_path.empty() && database_path.empty() &&
+      ref_images_path.empty() && alignment_type != "plane") {
+    LOG(ERROR) << "One of the following arguments must be specified: "
+                  "--ref_model_path, --database_path, "
+                  "--ref_images_path, --alignment_type=plane";
     return EXIT_FAILURE;
   }
 
   std::vector<std::string> ref_image_names;
   std::vector<Eigen::Vector3d> ref_locations;
-  if (!ref_images_path.empty() && database_path.empty()) {
+  if (!ref_model_path.empty() && database_path.empty()) {
+    Reconstruction reconstruction;
+    reconstruction.Read(ref_model_path);
+    for (const auto& image : reconstruction.Images()) {
+      ref_image_names.push_back(image.second.Name());
+      ref_locations.push_back(image.second.ProjectionCenter());
+    }
+  } else if (!ref_images_path.empty() && database_path.empty()) {
     ReadFileCameraLocations(ref_images_path,
                             ref_is_gps,
                             alignment_type,
@@ -399,7 +412,7 @@ int RunModelAligner(int argc, char** argv) {
             1.0, Eigen::Quaterniond::Identity(), trans_align);
 
         LOG(INFO) << "\n Aligning reconstruction's origin with ref origin: "
-                  << first_img_position.transpose() << "\n";
+                  << first_img_position.transpose() << '\n';
 
         reconstruction.Transform(origin_align);
 
@@ -428,12 +441,18 @@ int RunModelAnalyzer(int argc, char** argv) {
   OptionManager options;
   options.AddRequiredOption("path", &path);
   options.AddDefaultOption("verbose", &verbose);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   Reconstruction reconstruction;
   reconstruction.Read(path);
 
+  LOG(INFO) << StringPrintf("Rigs: %d", reconstruction.NumRigs());
   LOG(INFO) << StringPrintf("Cameras: %d", reconstruction.NumCameras());
+  LOG(INFO) << StringPrintf("Frames: %d", reconstruction.NumFrames());
+  LOG(INFO) << StringPrintf("Registered frames: %d",
+                            reconstruction.NumRegFrames());
   LOG(INFO) << StringPrintf("Images: %d", reconstruction.NumImages());
   LOG(INFO) << StringPrintf("Registered images: %d",
                             reconstruction.NumRegImages());
@@ -487,7 +506,9 @@ int RunModelComparer(int argc, char** argv) {
   options.AddDefaultOption("min_inlier_observations", &min_inlier_observations);
   options.AddDefaultOption("max_reproj_error", &max_reproj_error);
   options.AddDefaultOption("max_proj_center_error", &max_proj_center_error);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   if (!output_path.empty() && !ExistsDir(output_path)) {
     LOG(ERROR) << "Provided output path is not a valid directory";
@@ -532,10 +553,12 @@ bool CompareModels(const Reconstruction& reconstruction1,
                    std::vector<ImageAlignmentError>& errors,
                    Sim3d& rec2_from_rec1) {
   PrintHeading1("Reconstruction 1");
+  LOG(INFO) << StringPrintf("Frames: %d", reconstruction1.NumRegFrames());
   LOG(INFO) << StringPrintf("Images: %d", reconstruction1.NumRegImages());
   LOG(INFO) << StringPrintf("Points: %d", reconstruction1.NumPoints3D());
 
   PrintHeading1("Reconstruction 2");
+  LOG(INFO) << StringPrintf("Frames: %d", reconstruction2.NumRegFrames());
   LOG(INFO) << StringPrintf("Images: %d", reconstruction2.NumRegImages());
   LOG(INFO) << StringPrintf("Points: %d", reconstruction2.NumPoints3D());
 
@@ -568,8 +591,7 @@ bool CompareModels(const Reconstruction& reconstruction1,
     return false;
   }
 
-  LOG(INFO) << "Computed alignment transform:" << std::endl
-            << rec2_from_rec1.ToMatrix();
+  LOG(INFO) << "Computed alignment transform:\n" << rec2_from_rec1.ToMatrix();
 
   errors = ComputeImageAlignmentError(
       reconstruction1, reconstruction2, rec2_from_rec1);
@@ -593,7 +615,9 @@ int RunModelConverter(int argc, char** argv) {
                             &output_type,
                             "{BIN, TXT, NVM, Bundler, VRML, PLY, R3D, CAM}");
   options.AddDefaultOption("skip_distortion", &skip_distortion);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
@@ -646,7 +670,9 @@ int RunModelCropper(int argc, char** argv) {
   options.AddRequiredOption("output_path", &output_path);
   options.AddRequiredOption("boundary", &boundary);
   options.AddDefaultOption("gps_transform_path", &gps_transform_path);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   if (!ExistsDir(input_path)) {
     LOG(ERROR) << "`input_path` is not a directory";
@@ -669,7 +695,7 @@ int RunModelCropper(int argc, char** argv) {
   reconstruction.Read(input_path);
 
   PrintHeading2("Calculating boundary coordinates");
-  std::pair<Eigen::Vector3d, Eigen::Vector3d> bounding_box;
+  Eigen::AlignedBox3d bounding_box;
   if (boundary_elements.size() == 6) {
     Sim3d tform;
     if (!gps_transform_path.empty()) {
@@ -677,7 +703,7 @@ int RunModelCropper(int argc, char** argv) {
       is_gps = true;
       tform = Inverse(Sim3d::FromFile(gps_transform_path));
     }
-    bounding_box.first =
+    bounding_box.min() =
         is_gps ? TransformLatLonAltToModelCoords(tform,
                                                  boundary_elements[0],
                                                  boundary_elements[1],
@@ -685,7 +711,7 @@ int RunModelCropper(int argc, char** argv) {
                : Eigen::Vector3d(boundary_elements[0],
                                  boundary_elements[1],
                                  boundary_elements[2]);
-    bounding_box.second =
+    bounding_box.max() =
         is_gps ? TransformLatLonAltToModelCoords(tform,
                                                  boundary_elements[3],
                                                  boundary_elements[4],
@@ -718,7 +744,9 @@ int RunModelMerger(int argc, char** argv) {
   options.AddRequiredOption("input_path2", &input_path2);
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("max_reproj_error", &max_reproj_error);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   Reconstruction reconstruction1;
   reconstruction1.Read(input_path1);
@@ -771,7 +799,9 @@ int RunModelOrientationAligner(int argc, char** argv) {
 #endif
   options.AddDefaultOption("max_image_size",
                            &frame_estimation_options.max_image_size);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   StringToLower(&method);
 #ifdef COLMAP_LSD_ENABLED
@@ -864,7 +894,9 @@ int RunModelSplitter(int argc, char** argv) {
   options.AddDefaultOption("min_num_points", &min_num_points);
   options.AddDefaultOption("overlap_ratio", &overlap_ratio);
   options.AddDefaultOption("min_area_ratio", &min_area_ratio);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   if (!ExistsDir(input_path)) {
     LOG(ERROR) << "`input_path` is not a directory";
@@ -896,9 +928,9 @@ int RunModelSplitter(int argc, char** argv) {
 
   // Create the necessary number of reconstructions based on the split method
   // and get the bounding boxes for each sub-reconstruction
-  PrintHeading2("Computing bound_coords");
+  PrintHeading2("Computing bounding boxes");
   std::vector<std::string> tile_keys;
-  std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> exact_bounds;
+  std::vector<Eigen::AlignedBox3d> exact_bboxes;
   StringToLower(&split_type);
   if (split_type == "tiles") {
     std::ifstream file(split_params);
@@ -906,17 +938,17 @@ int RunModelSplitter(int argc, char** argv) {
 
     double x1, y1, z1, x2, y2, z2;
     std::string tile_key;
-    std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> bounds;
+    std::vector<Eigen::AlignedBox3d> bounds;
     tile_keys.clear();
     file >> tile_key >> x1 >> y1 >> z1 >> x2 >> y2 >> z2;
     while (!file.fail()) {
       tile_keys.push_back(tile_key);
       if (is_gps) {
-        exact_bounds.emplace_back(
+        exact_bboxes.emplace_back(
             TransformLatLonAltToModelCoords(tform, x1, y1, z1),
             TransformLatLonAltToModelCoords(tform, x2, y2, z2));
       } else {
-        exact_bounds.emplace_back(Eigen::Vector3d(x1, y1, z1),
+        exact_bboxes.emplace_back(Eigen::Vector3d(x1, y1, z1),
                                   Eigen::Vector3d(x2, y2, z2));
       }
       file >> tile_key >> x1 >> y1 >> z1 >> x2 >> y2 >> z2;
@@ -930,15 +962,13 @@ int RunModelSplitter(int argc, char** argv) {
       extent(i) = parts[i] * tform.scale;
     }
 
-    const auto bbox = reconstruction.ComputeBoundingBox();
-    const Eigen::Vector3d full_extent = bbox.second - bbox.first;
-    const Eigen::Vector3i split(
-        static_cast<int>(full_extent(0) / extent(0)) + 1,
-        static_cast<int>(full_extent(1) / extent(1)) + 1,
-        static_cast<int>(full_extent(2) / extent(2)) + 1);
+    const Eigen::AlignedBox3d bbox = reconstruction.ComputeBoundingBox();
+    const Eigen::Vector3d full_bbox = bbox.diagonal();
+    const Eigen::Vector3i split(static_cast<int>(full_bbox(0) / extent(0)) + 1,
+                                static_cast<int>(full_bbox(1) / extent(1)) + 1,
+                                static_cast<int>(full_bbox(2) / extent(2)) + 1);
 
-    exact_bounds = ComputeEqualPartsBounds(reconstruction, split);
-
+    exact_bboxes = ComputeEqualPartsBboxes(reconstruction, split);
   } else if (split_type == "parts") {
     auto parts = CSVToVector<int>(split_params);
     Eigen::Vector3i split(1, 1, 1);
@@ -949,36 +979,36 @@ int RunModelSplitter(int argc, char** argv) {
         return EXIT_FAILURE;
       }
     }
-    exact_bounds = ComputeEqualPartsBounds(reconstruction, split);
+    exact_bboxes = ComputeEqualPartsBboxes(reconstruction, split);
   } else {
     LOG(ERROR) << "Invalid split type: " << split_type;
     return EXIT_FAILURE;
   }
 
-  std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> bounds;
-  for (const auto& bbox : exact_bounds) {
-    const Eigen::Vector3d padding =
-        (overlap_ratio * (bbox.second - bbox.first));
-    bounds.emplace_back(bbox.first - padding, bbox.second + padding);
+  std::vector<Eigen::AlignedBox3d> padded_bboxes;
+  for (const auto& bbox : exact_bboxes) {
+    const Eigen::Vector3d padding = overlap_ratio * bbox.diagonal();
+    padded_bboxes.emplace_back(bbox.min() - padding, bbox.max() + padding);
   }
 
   PrintHeading2("Applying split and writing reconstructions");
-  const size_t num_parts = bounds.size();
+  const size_t num_parts = padded_bboxes.size();
   LOG(INFO) << StringPrintf("=> Splitting to %d parts", num_parts);
 
   const bool use_tile_keys = split_type == "tiles";
 
   auto SplitReconstruction = [&](const int idx) {
-    Reconstruction tile_recon = reconstruction.Crop(bounds[idx]);
+    Reconstruction tile_recon = reconstruction.Crop(padded_bboxes[idx]);
     // calculate area covered by model as proportion of box area
-    auto bbox_extent = bounds[idx].second - bounds[idx].first;
-    auto model_bbox = tile_recon.ComputeBoundingBox();
-    auto model_extent = model_bbox.second - model_bbox.first;
-    double area_ratio =
+    const Eigen::Vector3d bbox_extent = padded_bboxes[idx].diagonal();
+    const Eigen::AlignedBox3d model_bbox = tile_recon.ComputeBoundingBox();
+    const Eigen::Vector3d model_extent = model_bbox.diagonal();
+    const double area_ratio =
         (model_extent(0) * model_extent(1)) / (bbox_extent(0) * bbox_extent(1));
-    int tile_num_points = tile_recon.NumPoints3D();
+    const int tile_num_points = tile_recon.NumPoints3D();
 
-    std::string name = use_tile_keys ? tile_keys[idx] : std::to_string(idx);
+    const std::string name =
+        use_tile_keys ? tile_keys[idx] : std::to_string(idx);
     const bool include_tile =
         area_ratio >= min_area_ratio &&       //
         tile_num_points >= min_num_points &&  //
@@ -995,9 +1025,8 @@ int RunModelSplitter(int argc, char** argv) {
       const std::string reconstruction_path = JoinPaths(output_path, name);
       CreateDirIfNotExists(reconstruction_path);
       tile_recon.Write(reconstruction_path);
-      WriteBoundingBox(reconstruction_path, bounds[idx]);
-      WriteBoundingBox(reconstruction_path, exact_bounds[idx], "_exact");
-
+      WriteBoundingBox(reconstruction_path, padded_bboxes[idx]);
+      WriteBoundingBox(reconstruction_path, exact_bboxes[idx], "_exact");
     } else {
       LOG(INFO) << StringPrintf(
           "Skipping reconstruction %s with %d images, %d points, "
@@ -1030,7 +1059,9 @@ int RunModelTransformer(int argc, char** argv) {
   options.AddRequiredOption("output_path", &output_path);
   options.AddRequiredOption("transform_path", &transform_path);
   options.AddDefaultOption("is_inverse", &is_inverse);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   LOG(INFO) << "Reading points input: " << input_path;
   Reconstruction recon;

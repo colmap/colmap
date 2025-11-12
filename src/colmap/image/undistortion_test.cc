@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,6 +30,7 @@
 #include "colmap/image/undistortion.h"
 
 #include "colmap/geometry/pose.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
 
@@ -194,16 +195,27 @@ TEST(UndistortReconstruction, Nominal) {
   Camera camera = Camera::CreateFromModelName(1, "OPENCV", 1, 1, 1);
   camera.params[4] = 1.0;
   reconstruction.AddCamera(camera);
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
+  reconstruction.AddRig(rig);
 
   for (image_t image_id = 1; image_id <= kNumImages; ++image_id) {
+    Frame frame;
+    frame.SetRigId(1);
+    frame.SetFrameId(image_id);
+    frame.SetRigFromWorld(Rigid3d());
     Image image;
     image.SetImageId(image_id);
     image.SetCameraId(1);
+    image.SetFrameId(frame.FrameId());
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Ones()));
+    frame.AddDataId(image.DataId());
+    reconstruction.AddFrame(frame);
     reconstruction.AddImage(image);
-    reconstruction.RegisterImage(image_id);
+    reconstruction.RegisterFrame(frame.FrameId());
   }
 
   UndistortCameraOptions options;
@@ -240,16 +252,16 @@ TEST(RectifyStereoCameras, Nominal) {
   Eigen::Matrix3d H1_ref;
   H1_ref << -0.202759, -0.815848, -0.897034, 0.416329, 0.733069, -0.199657,
       0.910839, -0.175408, 0.942638;
-  EXPECT_TRUE(H1.isApprox(H1_ref.transpose(), 1e-5));
+  EXPECT_THAT(H1, EigenMatrixNear<Eigen::Matrix3d>(H1_ref.transpose(), 1e-5));
 
   Eigen::Matrix3d H2_ref;
   H2_ref << -0.082173, -1.01288, -0.698868, 0.301854, 0.472844, -0.465336,
       0.963533, 0.292411, 1.12528;
-  EXPECT_TRUE(H2.isApprox(H2_ref.transpose(), 1e-5));
+  EXPECT_THAT(H2, EigenMatrixNear<Eigen::Matrix3d>(H2_ref.transpose(), 1e-5));
 
   Eigen::Matrix4d Q_ref;
   Q_ref << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -2.67261, -0.5, -0.5, 1, 0;
-  EXPECT_TRUE(Q.isApprox(Q_ref, 1e-5));
+  EXPECT_THAT(Q, EigenMatrixNear(Q_ref, 1e-5));
 }
 
 }  // namespace

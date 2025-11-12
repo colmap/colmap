@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -28,10 +28,6 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #include "colmap/optim/support_measurement.h"
-
-#include "colmap/math/math.h"
-
-#include <unordered_set>
 
 #include <gtest/gtest.h>
 
@@ -72,9 +68,7 @@ TEST(UniqueInlierSupportMeasurer, Nominal) {
   EXPECT_EQ(support1.num_unique_inliers, 0);
   EXPECT_EQ(support1.residual_sum, std::numeric_limits<double>::max());
 
-  UniqueInlierSupportMeasurer measurer;
-  const std::vector<size_t> sample_ids = {1, 2, 2, 3};
-  measurer.SetUniqueSampleIds(sample_ids);
+  UniqueInlierSupportMeasurer measurer({1, 2, 2, 3});
   const std::vector<double> residuals = {-1.0, 0.0, 1.0, 2.0};
   support1 = measurer.Evaluate(residuals, 1.0);
   EXPECT_EQ(support1.num_inliers, 3);

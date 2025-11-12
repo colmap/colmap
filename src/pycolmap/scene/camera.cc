@@ -22,20 +22,6 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-std::string PrintCamera(const Camera& camera) {
-  const bool valid_model = ExistsCameraModelWithId(camera.model_id);
-  const std::string params_info = valid_model ? camera.ParamsInfo() : "?";
-  const std::string model_name = valid_model ? camera.ModelName() : "Invalid";
-  std::stringstream ss;
-  ss << "Camera(camera_id="
-     << (camera.camera_id != kInvalidCameraId ? std::to_string(camera.camera_id)
-                                              : "Invalid")
-     << ", model=" << model_name << ", width=" << camera.width
-     << ", height=" << camera.height << ", params=[" << camera.ParamsToString()
-     << "] (" << params_info << "))";
-  return ss.str();
-}
-
 void BindCamera(py::module& m) {
   py::enum_<CameraModelId> PyCameraModelId(m, "CameraModelId");
   PyCameraModelId.value("INVALID", CameraModelId::kInvalid);
@@ -48,7 +34,7 @@ void BindCamera(py::module& m) {
   AddStringToEnumConstructor(PyCameraModelId);
   py::implicitly_convertible<int, CameraModelId>();
 
-  py::class_<Camera, std::shared_ptr<Camera>> PyCamera(m, "Camera");
+  py::classh<Camera> PyCamera(m, "Camera");
   PyCamera.def(py::init<>())
       .def_static("create",
                   &Camera::CreateFromModelId,
@@ -59,6 +45,8 @@ void BindCamera(py::module& m) {
                   "height"_a)
       .def_readwrite(
           "camera_id", &Camera::camera_id, "Unique identifier of the camera.")
+      .def_property_readonly(
+          "sensor_id", &Camera::SensorId, "Unique identifier of the sensor.")
       .def_readwrite("model", &Camera::model_id, "Camera model.")
       .def_readwrite("width", &Camera::width, "Width of camera sensor.")
       .def_readwrite("height", &Camera::height, "Height of camera sensor.")
@@ -109,84 +97,149 @@ void BindCamera(py::module& m) {
            "Concatenate parameters as comma-separated list.")
       .def("set_params_from_string",
            &Camera::SetParamsFromString,
+           "params"_a,
            "Set camera parameters from comma-separated list.")
       .def("verify_params",
            &Camera::VerifyParams,
            "Check whether parameters are valid, i.e. the parameter vector has"
-           "\nthe correct dimensions that match the specified camera model.")
+           " the correct dimensions that match the specified camera model.")
       .def("has_bogus_params",
            &Camera::HasBogusParams,
+           "min_focal_length_ratio"_a,
+           "max_focal_length_ratio"_a,
+           "max_extra_param"_a,
            "Check whether camera has bogus parameters.")
       .def("cam_from_img",
            &Camera::CamFromImg,
-           "Project point in image plane to world / infinity.")
+           "image_point"_a,
+           "Unproject point in image plane to camera frame.")
       .def(
           "cam_from_img",
           [](const Camera& self,
              const py::EigenDRef<const Eigen::MatrixX2d>& image_points) {
-            std::vector<Eigen::Vector2d> world_points(image_points.rows());
-            for (size_t idx = 0; idx < image_points.rows(); ++idx) {
-              world_points[idx] = self.CamFromImg(image_points.row(idx));
+            std::vector<Eigen::Vector2d> cam_points(image_points.rows());
+            for (size_t i = 0; i < image_points.rows(); ++i) {
+              const std::optional<Eigen::Vector2d> cam_point =
+                  self.CamFromImg(image_points.row(i));
+              if (cam_point) {
+                cam_points[i] = *cam_point;
+              } else {
+                cam_points[i].setConstant(
+                    std::numeric_limits<double>::quiet_NaN());
+              }
             }
-            return world_points;
+            return cam_points;
           },
-          "Project list of points in image plane to world / infinity.")
+          "image_points"_a,
+          "Unproject list of points in image plane to camera frame.")
       .def(
           "cam_from_img",
           [](const Camera& self, const Point2DVector& image_points) {
-            std::vector<Eigen::Vector2d> world_points(image_points.size());
-            for (size_t idx = 0; idx < image_points.size(); ++idx) {
-              world_points[idx] = self.CamFromImg(image_points[idx].xy);
+            std::vector<Eigen::Vector2d> cam_points(image_points.size());
+            for (size_t i = 0; i < image_points.size(); ++i) {
+              const std::optional<Eigen::Vector2d> cam_point =
+                  self.CamFromImg(image_points[i].xy);
+              if (cam_point) {
+                cam_points[i] = *cam_point;
+              } else {
+                cam_points[i].setConstant(
+                    std::numeric_limits<double>::quiet_NaN());
+              }
             }
-            return world_points;
+            return cam_points;
           },
-          "Project list of points in image plane to world / infinity.")
+          "image_points"_a,
+          "Unproject list of points in image plane to camera frame.")
       .def("cam_from_img_threshold",
            &Camera::CamFromImgThreshold,
+           "threshold"_a,
            "Convert pixel threshold in image plane to world space.")
       .def("img_from_cam",
            &Camera::ImgFromCam,
-           "Project point from world / infinity to image plane.")
+           "cam_point"_a,
+           "Project point from camera frame to image plane.")
+      .def(
+          "img_from_cam",
+          [](const Camera& self, const Eigen::Vector2d& cam_point) {
+            PyErr_WarnEx(
+                PyExc_DeprecationWarning,
+                "img_from_cam() with normalized 2D points as input is "
+                "deprecated. Instead, pass 3D points in the camera frame.",
+                1);
+            return self.ImgFromCam(cam_point.homogeneous());
+          },
+          "cam_point"_a,
+          "(Deprecated) Project point from camera frame to image plane.")
       .def(
           "img_from_cam",
           [](const Camera& self,
-             const py::EigenDRef<const Eigen::MatrixX2d>& world_points) {
-            std::vector<Eigen::Vector2d> image_points(world_points.rows());
-            for (size_t idx = 0; idx < world_points.rows(); ++idx) {
-              image_points[idx] = self.ImgFromCam(world_points.row(idx));
+             const py::EigenDRef<const Eigen::MatrixX3d>& cam_points) {
+            const size_t num_points = cam_points.rows();
+            std::vector<Eigen::Vector2d> image_points(num_points);
+            for (size_t i = 0; i < num_points; ++i) {
+              const std::optional<Eigen::Vector2d> image_point =
+                  self.ImgFromCam(cam_points.row(i));
+              if (image_point) {
+                image_points[i] = *image_point;
+              } else {
+                image_points[i].setConstant(
+                    std::numeric_limits<double>::quiet_NaN());
+              }
             }
             return image_points;
           },
-          "Project list of points from world / infinity to image plane.")
+          "cam_points"_a,
+          "Project list of points from camera frame to image plane.")
       .def(
           "img_from_cam",
           [](const Camera& self,
-             const py::EigenDRef<const Eigen::MatrixX3d>& world_points) {
+             const py::EigenDRef<const Eigen::MatrixX2d>& cam_points) {
+            PyErr_WarnEx(
+                PyExc_DeprecationWarning,
+                "img_from_cam() with normalized 2D points as input is "
+                "deprecated. Instead, pass 3D points in the camera frame.",
+                1);
             return py::cast(self).attr("img_from_cam")(
-                world_points.rowwise().hnormalized());
+                cam_points.rowwise().homogeneous());
           },
-          "Project list of points from world / infinity to image plane.")
+          "cam_points"_a,
+          "(Deprecated) Project list of points from camera frame to image "
+          "plane.")
       .def(
           "img_from_cam",
-          [](const Camera& self, const Point2DVector& world_points) {
-            std::vector<Eigen::Vector2d> image_points(world_points.size());
-            for (size_t idx = 0; idx < world_points.size(); ++idx) {
-              image_points[idx] = self.ImgFromCam(world_points[idx].xy);
+          [](const Camera& self, const Point2DVector& cam_points) {
+            PyErr_WarnEx(
+                PyExc_DeprecationWarning,
+                "img_from_cam() with normalized 2D points as input is "
+                "deprecated. Instead, pass 3D points in the camera frame.",
+                1);
+            const size_t num_points = cam_points.size();
+            std::vector<Eigen::Vector2d> image_points(num_points);
+            for (size_t i = 0; i < num_points; ++i) {
+              const std::optional<Eigen::Vector2d> image_point =
+                  self.ImgFromCam(cam_points[i].xy.homogeneous());
+              if (image_point) {
+                image_points[i] = *image_point;
+              } else {
+                image_points[i].setConstant(
+                    std::numeric_limits<double>::quiet_NaN());
+              }
             }
             return image_points;
           },
-          "Project list of points from world / infinity to image plane.")
+          "cam_points"_a,
+          "Project list of points from camera frame to image plane.")
       .def("rescale",
            py::overload_cast<size_t, size_t>(&Camera::Rescale),
-           "Rescale camera dimensions to (width_height) and accordingly the "
-           "focal length and\n"
-           "and the principal point.")
+           "new_width"_a,
+           "new_height"_a,
+           "Rescale the camera dimensions and accordingly the "
+           "focal length and the principal point.")
       .def("rescale",
            py::overload_cast<double>(&Camera::Rescale),
-           "Rescale camera dimensions by given factor and accordingly the "
-           "focal length and\n"
-           "and the principal point.")
-      .def("__repr__", &PrintCamera);
+           "scale"_a,
+           "Rescale the camera dimensions and accordingly the "
+           "focal length and the principal point.");
   MakeDataclass(PyCamera,
                 {"camera_id",
                  "model",
@@ -195,19 +248,5 @@ void BindCamera(py::module& m) {
                  "params",
                  "has_prior_focal_length"});
 
-  py::bind_map<CameraMap>(m, "MapCameraIdToCamera")
-      .def("__repr__", [](const CameraMap& self) {
-        std::stringstream ss;
-        ss << "{";
-        bool is_first = true;
-        for (const auto& pair : self) {
-          if (!is_first) {
-            ss << ",\n ";
-          }
-          is_first = false;
-          ss << pair.first << ": " << PrintCamera(pair.second);
-        }
-        ss << "}";
-        return ss.str();
-      });
+  py::bind_map<CameraMap>(m, "CameraMap");
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -56,7 +56,9 @@ int RunDelaunayMesher(int argc, char** argv) {
   options.AddDefaultOption("input_type", &input_type, "{dense, sparse}");
   options.AddRequiredOption("output_path", &output_path);
   options.AddDelaunayMeshingOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   StringToLower(&input_type);
   if (input_type == "sparse") {
@@ -96,7 +98,9 @@ int RunPatchMatchStereo(int argc, char** argv) {
   options.AddDefaultOption("pmvs_option_name", &pmvs_option_name);
   options.AddDefaultOption("config_path", &config_path);
   options.AddPatchMatchStereoOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   StringToLower(&workspace_format);
   if (workspace_format != "colmap" && workspace_format != "pmvs") {
@@ -125,7 +129,9 @@ int RunPoissonMesher(int argc, char** argv) {
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddPoissonMeshingOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   THROW_CHECK(
       mvs::PoissonMeshing(*options.poisson_meshing, input_path, output_path));
@@ -153,7 +159,9 @@ int RunStereoFuser(int argc, char** argv) {
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("bbox_path", &bbox_path);
   options.AddStereoFusionOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   StringToLower(&workspace_format);
   if (workspace_format != "colmap" && workspace_format != "pmvs") {

@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -37,19 +37,22 @@ COLMAP_ADD_LIBRARY(
         inverted_file.h
         inverted_file_entry.h
         inverted_index.h
+        resources.h
         utils.h
-        visual_index.h
+        visual_index.h visual_index.cc
         vote_and_verify.h vote_and_verify.cc
     PUBLIC_LINK_LIBS
         Boost::boost
         Eigen3::Eigen
-        flann
-        lz4
     PRIVATE_LINK_LIBS
         colmap_math
         colmap_estimators
         colmap_optim
+        faiss
 )
+if(OPENMP_FOUND)
+    target_link_libraries(colmap_retrieval PUBLIC OpenMP::OpenMP_CXX)
+endif()
 
 COLMAP_ADD_TEST(
     NAME geometry_test
@@ -59,6 +62,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME inverted_file_entry_test
     SRCS inverted_file_entry_test.cc
+    LINK_LIBS colmap_retrieval
+)
+COLMAP_ADD_TEST(
+    NAME utils_test
+    SRCS utils_test.cc
     LINK_LIBS colmap_retrieval
 )
 COLMAP_ADD_TEST(

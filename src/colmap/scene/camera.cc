@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -32,8 +32,6 @@
 #include "colmap/sensor/models.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
-
-#include <iomanip>
 
 namespace colmap {
 
@@ -150,6 +148,20 @@ void Camera::Rescale(const size_t new_width, const size_t new_height) {
     LOG(FATAL_THROW)
         << "Camera model must either have 1 or 2 focal length parameters.";
   }
+}
+
+std::ostream& operator<<(std::ostream& stream, const Camera& camera) {
+  const bool valid_model = ExistsCameraModelWithId(camera.model_id);
+  const std::string camera_id_str = camera.camera_id != kInvalidCameraId
+                                        ? std::to_string(camera.camera_id)
+                                        : "Invalid";
+  const std::string params_info = valid_model ? camera.ParamsInfo() : "?";
+  const std::string model_name = valid_model ? camera.ModelName() : "Invalid";
+  stream << "Camera(camera_id=" << camera_id_str << ", model=" << model_name
+         << ", width=" << camera.width << ", height=" << camera.height
+         << ", params=[" << camera.ParamsToString() << "] (" << params_info
+         << "))";
+  return stream;
 }
 
 }  // namespace colmap

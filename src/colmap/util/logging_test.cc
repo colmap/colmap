@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -54,6 +54,24 @@ TEST(ExceptionLogging, Nominal) {
   EXPECT_THROW({ LOG(FATAL_THROW) << "Error!"; }, std::invalid_argument);
   EXPECT_THROW(
       { LOG_FATAL_THROW(std::logic_error) << "Error!"; }, std::logic_error);
+}
+
+// Ensure that the condition is evaluated exactly once
+// for both the positive and negative cases.
+TEST(ExceptionLogging, NumConditionEvals) {
+  int num_calls = 0;
+  auto func = [&num_calls]() {
+    ++num_calls;
+    return true;
+  };
+  THROW_CHECK(func());
+  EXPECT_EQ(num_calls, 1);
+  try {
+    THROW_CHECK(!func());
+  } catch (...) {
+    LOG(INFO) << "Caught exception";
+  }
+  EXPECT_EQ(num_calls, 2);
 }
 
 TEST(ExceptionLogging, Nested) {

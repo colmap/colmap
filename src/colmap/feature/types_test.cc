@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -209,6 +209,9 @@ TEST(FeatureKeypoints, Nominal) {
   EXPECT_NEAR(keypoint.ComputeScaleY(), 3.0f, 1e-6);
   EXPECT_NEAR(keypoint.ComputeOrientation(), M_PI / 2, 1e-6);
   EXPECT_NEAR(keypoint.ComputeShear(), M_PI / 4, 1e-6);
+
+  EXPECT_EQ(keypoint, keypoint);
+  EXPECT_NE(keypoint, FeatureKeypoint(1, 2, 1, 0));
 }
 
 TEST(FeatureDescriptors, Nominal) {
@@ -231,6 +234,9 @@ TEST(FeatureMatches, Nominal) {
   EXPECT_EQ(matches.size(), 1);
   EXPECT_EQ(matches[0].point2D_idx1, kInvalidPoint2DIdx);
   EXPECT_EQ(matches[0].point2D_idx2, kInvalidPoint2DIdx);
+
+  EXPECT_EQ(match, match);
+  EXPECT_NE(match, FeatureMatch(0, 1));
 }
 
 }  // namespace

@@ -16,19 +16,21 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindTwoViewGeometryScene(py::module& m) {
-  py::enum_<TwoViewGeometry::ConfigurationType>(m,
-                                                "TwoViewGeometryConfiguration")
-      .value("UNDEFINED", TwoViewGeometry::UNDEFINED)
+  py::enum_<TwoViewGeometry::ConfigurationType> PyTwoViewGeometryConfiguration(
+      m, "TwoViewGeometryConfiguration");
+  PyTwoViewGeometryConfiguration.value("UNDEFINED", TwoViewGeometry::UNDEFINED)
       .value("DEGENERATE", TwoViewGeometry::DEGENERATE)
       .value("CALIBRATED", TwoViewGeometry::CALIBRATED)
+      .value("CALIBRATED_RIG", TwoViewGeometry::CALIBRATED_RIG)
       .value("UNCALIBRATED", TwoViewGeometry::UNCALIBRATED)
       .value("PLANAR", TwoViewGeometry::PLANAR)
       .value("PANORAMIC", TwoViewGeometry::PANORAMIC)
       .value("PLANAR_OR_PANORAMIC", TwoViewGeometry::PLANAR_OR_PANORAMIC)
       .value("WATERMARK", TwoViewGeometry::WATERMARK)
       .value("MULTIPLE", TwoViewGeometry::MULTIPLE);
+  AddStringToEnumConstructor(PyTwoViewGeometryConfiguration);
 
-  py::class_<TwoViewGeometry> PyTwoViewGeometry(m, "TwoViewGeometry");
+  py::classh<TwoViewGeometry> PyTwoViewGeometry(m, "TwoViewGeometry");
   PyTwoViewGeometry.def(py::init<>())
       .def_readwrite("config", &TwoViewGeometry::config)
       .def_readwrite("E", &TwoViewGeometry::E)

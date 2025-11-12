@@ -15,11 +15,11 @@
             "name": "ceres",
             "features": [
                 "lapack",
+                "schur",
                 "suitesparse"
             ]
         },
         "eigen3",
-        "flann",
         "freeimage",
         "gflags",
         "glog",
@@ -38,6 +38,20 @@
             "host": true
         }
     ],
+    "overrides": [
+        {
+            "name": "metis",
+            "version": "2022-07-27"
+        },
+        {
+            "name": "gklib",
+            "version": "2023-03-27"
+        }
+    ],
+    "default-features": [
+        "gui",
+        "download"
+    ],
     "features": {
         "tests": {
             "description": "Build all tests.",
@@ -46,23 +60,50 @@
             ]
         },
         "cuda": {
-            "description": "Build with CUDA.",
+            "description": "Build with CUDA support.",
             "dependencies": [
                 "glew",
                 "cuda"
             ]
         },
         "gui": {
-            "description": "Build the GUI.",
+            "description": "Build with GUI support.",
             "dependencies": [
                 "glew",
-                "qt5-base"
+                "qtbase"
             ]
         },
         "cgal": {
-            "description": "Build with CGAL.",
+            "description": "Build with CGAL support.",
             "dependencies": [
                 "cgal"
+            ]
+        },
+        "download": {
+            "description": "Build with download support.",
+            "dependencies": [
+                {
+                    "name": "curl",
+                    "features": [
+                        "sspi"
+                    ],
+                    "platform": "windows"
+                },
+                {
+                    "name": "curl",
+                    "features": [
+                        "openssl"
+                    ],
+                    "platform": "!windows"
+                },
+                {
+                    "name": "cryptopp",
+                    "platform": "windows & arm64"
+                },
+                {
+                    "name": "openssl",
+                    "platform": "!(windows & arm64)"
+                }
             ]
         }
     }

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,6 +30,7 @@
 #include "colmap/estimators/coordinate_frame.h"
 
 #include "colmap/geometry/gps.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
 
@@ -42,6 +43,7 @@ TEST(CoordinateFrame, EstimateGravityVectorFromImageOrientation) {
             Eigen::Vector3d::Zero());
 }
 
+#ifdef COLMAP_LSD_ENABLED
 TEST(CoordinateFrame, EstimateManhattanWorldFrame) {
   Reconstruction reconstruction;
   std::string image_path;
@@ -50,6 +52,7 @@ TEST(CoordinateFrame, EstimateManhattanWorldFrame) {
           ManhattanWorldFrameEstimationOptions(), reconstruction, image_path),
       Eigen::Matrix3d::Zero());
 }
+#endif
 
 TEST(CoordinateFrame, AlignToPrincipalPlane) {
   // Start with reconstruction containing points on the Y-Z plane and cameras
@@ -61,13 +64,22 @@ TEST(CoordinateFrame, AlignToPrincipalPlane) {
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
   reconstruction.AddCamera(camera);
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
+  reconstruction.AddRig(rig);
+  Frame frame;
+  frame.SetFrameId(1);
+  frame.SetRigId(rig.RigId());
+  frame.AddDataId(data_t(camera.SensorId(), 1));
+  frame.SetRigFromWorld(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(-1, 0, 0)));
+  reconstruction.AddFrame(frame);
   // Setup image with projection center at (1, 0, 0)
   Image image;
   image.SetCameraId(camera.camera_id);
   image.SetImageId(1);
-  image.SetRegistered(true);
-  image.CamFromWorld() =
-      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(-1, 0, 0));
+  image.SetFrameId(1);
   reconstruction.AddImage(image);
   // Setup 4 points on the Y-Z plane
   const point3D_t p1 =
@@ -119,10 +131,10 @@ TEST(CoordinateFrame, AlignToENUPlane) {
   // Create reconstruction with 4 points with known LLA coordinates. After the
   // ENU transform all 4 points should land approximately on the X-Y plane.
   GPSTransform gps;
-  auto points = gps.EllToXYZ({Eigen::Vector3d(50, 10.1, 100),
-                              Eigen::Vector3d(50.1, 10, 100),
-                              Eigen::Vector3d(50.1, 10.1, 100),
-                              Eigen::Vector3d(50, 10, 100)});
+  auto points = gps.EllipsoidToECEF({Eigen::Vector3d(50, 10.1, 100),
+                                     Eigen::Vector3d(50.1, 10, 100),
+                                     Eigen::Vector3d(50.1, 10.1, 100),
+                                     Eigen::Vector3d(50, 10, 100)});
   Sim3d tform;
   Reconstruction reconstruction;
   std::vector<point3D_t> point_ids;
@@ -132,22 +144,26 @@ TEST(CoordinateFrame, AlignToENUPlane) {
   }
   AlignToENUPlane(&reconstruction, &tform, false);
   // Verify final locations of points
-  EXPECT_LE((reconstruction.Point3D(point_ids[0]).xyz -
-             Eigen::Vector3d(3584.8565215, -5561.5336506, 0.0742643))
-                .norm(),
-            1e-6);
-  EXPECT_LE((reconstruction.Point3D(point_ids[1]).xyz -
-             Eigen::Vector3d(-3577.3888622, 5561.6397107, 0.0783761))
-                .norm(),
-            1e-6);
-  EXPECT_LE((reconstruction.Point3D(point_ids[2]).xyz -
-             Eigen::Vector3d(3577.4152111, 5561.6397283, 0.0783613))
-                .norm(),
-            1e-6);
-  EXPECT_LE((reconstruction.Point3D(point_ids[3]).xyz -
-             Eigen::Vector3d(-3584.8301178, -5561.5336683, 0.0742791))
-                .norm(),
-            1e-6);
+  EXPECT_THAT(reconstruction.Point3D(point_ids[0]).xyz,
+              EigenMatrixNear(Eigen::Vector3d(3584.8433196335045,
+                                              -5561.5866894473402,
+                                              -0.0020947810262441635),
+                              1e-6));
+  EXPECT_THAT(reconstruction.Point3D(point_ids[1]).xyz,
+              EigenMatrixNear(Eigen::Vector3d(-3577.4020366631503,
+                                              5561.5866894469982,
+                                              0.0020947791635990143),
+                              1e-6));
+  EXPECT_THAT(reconstruction.Point3D(point_ids[2]).xyz,
+              EigenMatrixNear(Eigen::Vector3d(3577.4020366640707,
+                                              5561.5866894467654,
+                                              0.0020947791635990143),
+                              1e-6));
+  EXPECT_THAT(reconstruction.Point3D(point_ids[3]).xyz,
+              EigenMatrixNear(Eigen::Vector3d(-3584.8433196330498,
+                                              -5561.586689447573,
+                                              -0.0020947810262441635),
+                              1e-6));
 
   // Verify that straight line distance between points is preserved
   for (size_t i = 1; i < points.size(); ++i) {

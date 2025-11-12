@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,6 @@
 #include "colmap/estimators/translation_transform.h"
 
 #include "colmap/math/random.h"
-#include "colmap/optim/ransac.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>
@@ -40,10 +39,13 @@ namespace colmap {
 namespace {
 
 TEST(TranslationTransform, Estimate) {
+  constexpr size_t kNumPoints = 100;
+
   SetPRNGSeed(0);
 
   std::vector<Eigen::Vector2d> src;
-  for (size_t i = 0; i < 100; ++i) {
+  src.reserve(kNumPoints);
+  for (size_t i = 0; i < kNumPoints; ++i) {
     src.emplace_back(RandomUniformReal(-1000.0, 1000.0),
                      RandomUniformReal(-1000.0, 1000.0));
   }
@@ -52,7 +54,8 @@ TEST(TranslationTransform, Estimate) {
                               RandomUniformReal(-1000.0, 1000.0));
 
   std::vector<Eigen::Vector2d> dst;
-  for (size_t i = 0; i < src.size(); ++i) {
+  dst.reserve(kNumPoints);
+  for (size_t i = 0; i < kNumPoints; ++i) {
     dst.push_back(src[i] + translation);
   }
 

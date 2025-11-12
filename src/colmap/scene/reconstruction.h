@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -33,14 +33,12 @@
 #include "colmap/scene/camera.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/image.h"
-#include "colmap/scene/point2d.h"
 #include "colmap/scene/point3d.h"
 #include "colmap/scene/track.h"
+#include "colmap/sensor/rig.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
-#include <memory>
-#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -59,33 +57,51 @@ class Reconstruction {
  public:
   Reconstruction();
 
+  // Copy construct/assign. Updates camera pointers.
+  Reconstruction(const Reconstruction& other);
+  Reconstruction& operator=(const Reconstruction& other);
+
   // Get number of objects.
+  inline size_t NumRigs() const;
   inline size_t NumCameras() const;
+  inline size_t NumFrames() const;
+  inline size_t NumRegFrames() const;
   inline size_t NumImages() const;
-  inline size_t NumRegImages() const;
   inline size_t NumPoints3D() const;
 
   // Get const objects.
+  inline const class Rig& Rig(rig_t rig_id) const;
   inline const struct Camera& Camera(camera_t camera_id) const;
+  inline const class Frame& Frame(frame_t frame_id) const;
   inline const class Image& Image(image_t image_id) const;
   inline const struct Point3D& Point3D(point3D_t point3D_id) const;
 
   // Get mutable objects.
+  inline class Rig& Rig(rig_t rig_id);
   inline struct Camera& Camera(camera_t camera_id);
+  inline class Frame& Frame(frame_t frame_id);
   inline class Image& Image(image_t image_id);
   inline struct Point3D& Point3D(point3D_t point3D_id);
 
   // Get reference to all objects.
+  inline const std::unordered_map<rig_t, class Rig>& Rigs() const;
   inline const std::unordered_map<camera_t, struct Camera>& Cameras() const;
+  inline const std::unordered_map<frame_t, class Frame>& Frames() const;
+  inline const std::vector<frame_t>& RegFrameIds() const;
   inline const std::unordered_map<image_t, class Image>& Images() const;
-  inline const std::vector<image_t>& RegImageIds() const;
   inline const std::unordered_map<point3D_t, struct Point3D>& Points3D() const;
 
+  // Number of images in all registered frames.
+  size_t NumRegImages() const;
+  // Identifiers of all registered images.
+  std::vector<image_t> RegImageIds() const;
   // Identifiers of all 3D points.
   std::unordered_set<point3D_t> Point3DIds() const;
 
   // Check whether specific object exists.
+  inline bool ExistsRig(rig_t rig_id) const;
   inline bool ExistsCamera(camera_t camera_id) const;
+  inline bool ExistsFrame(frame_t frame_id) const;
   inline bool ExistsImage(image_t image_id) const;
   inline bool ExistsPoint3D(point3D_t point3D_id) const;
 
@@ -98,12 +114,20 @@ class Reconstruction {
   // save memory.
   void TearDown();
 
+  // Add new rig calibration.
+  void AddRig(class Rig rig);
+
   // Add new camera. There is only one camera per image, while multiple images
   // might be taken by the same camera.
   void AddCamera(struct Camera camera);
 
-  // Add new image. Its camera must have been added before. If its camera object
-  // is unset, it will be automatically populated from the added cameras.
+  // Add new frame. Its rig must have been added before. If its rig object
+  // is unset, it will be automatically populated from the added rigs.
+  void AddFrame(class Frame frame);
+
+  // Add new image. Its camera and frame must have been added before. If its
+  // camera/frame objects are unset, they will be automatically populated from
+  // the added cameras.
   void AddImage(class Image image);
 
   // Add new 3D point with known ID.
@@ -134,37 +158,40 @@ class Reconstruction {
   // Delete all 2D points of all images and all 3D points.
   void DeleteAllPoints2DAndPoints3D();
 
-  // Register an existing image.
-  void RegisterImage(image_t image_id);
+  void SetRigsAndFrames(std::vector<class Rig> rigs,
+                        std::vector<class Frame> frames);
 
-  // De-register an existing image, and all its references.
-  void DeRegisterImage(image_t image_id);
+  // Register an existing frame.
+  void RegisterFrame(frame_t frame_id);
 
-  // Check if image is registered.
-  inline bool IsImageRegistered(image_t image_id) const;
+  // De-register an existing frame, and all its references.
+  void DeRegisterFrame(frame_t frame_id);
 
-  // Normalize scene by scaling and translation to avoid degenerate
-  // visualization after bundle adjustment and to improve numerical
-  // stability of algorithms.
+  // Normalize scene by scaling and translation to improve numerical stability
+  // of algorithms.
   //
   // Translates scene such that the mean of the camera centers or point
   // locations are at the origin of the coordinate system.
   //
-  // Scales scene such that the minimum and maximum camera centers are at the
-  // given `extent`, whereas `p0` and `p1` determine the minimum and
-  // maximum percentiles of the camera centers considered.
+  // Scales scene such that the minimum and maximum camera centers (or points)
+  // are at the given `extent`, whereas `min_percentile` and `max_percentile`
+  // determine the minimum and maximum percentiles of the camera centers (or
+  // points) considered.
   Sim3d Normalize(bool fixed_scale = false,
                   double extent = 10.0,
-                  double p0 = 0.1,
-                  double p1 = 0.9,
+                  double min_percentile = 0.1,
+                  double max_percentile = 0.9,
                   bool use_images = true);
 
-  // Compute the centroid of the 3D points
-  Eigen::Vector3d ComputeCentroid(double p0 = 0.1, double p1 = 0.9) const;
+  // Compute the centroid of camera centers or 3D points.
+  Eigen::Vector3d ComputeCentroid(double min_percentile = 0.1,
+                                  double max_percentile = 0.9,
+                                  bool use_images = false) const;
 
-  // Compute the bounding box corners of the 3D points
-  std::pair<Eigen::Vector3d, Eigen::Vector3d> ComputeBoundingBox(
-      double p0 = 0.0, double p1 = 1.0) const;
+  // Compute the bounding box corners of camera centers or 3D points.
+  Eigen::AlignedBox3d ComputeBoundingBox(double min_percentile = 0.0,
+                                         double max_percentile = 1.0,
+                                         bool use_images = false) const;
 
   // Apply the 3D similarity transformation to all images and points.
   void Transform(const Sim3d& new_from_old_world);
@@ -173,8 +200,7 @@ class Reconstruction {
   // of the bounding box containing the included 3D points of the new
   // reconstruction. Only the cameras and images of the included points are
   // registered.
-  Reconstruction Crop(
-      const std::pair<Eigen::Vector3d, Eigen::Vector3d>& bbox) const;
+  Reconstruction Crop(const Eigen::AlignedBox3d& bbox) const;
 
   // Find specific image by name. Note that this uses linear search.
   const class Image* FindImageWithName(const std::string& name) const;
@@ -239,36 +265,57 @@ class Reconstruction {
   void CreateImageDirs(const std::string& path) const;
 
  private:
-  std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d>
-  ComputeBoundsAndCentroid(double p0, double p1, bool use_images) const;
+  std::pair<Eigen::AlignedBox3d, Eigen::Vector3d> ComputeBBBoxAndCentroid(
+      double min_percentile, double max_percentile, bool use_images) const;
 
+  std::unordered_map<rig_t, class Rig> rigs_;
   std::unordered_map<camera_t, struct Camera> cameras_;
+  std::unordered_map<frame_t, class Frame> frames_;
   std::unordered_map<image_t, class Image> images_;
   std::unordered_map<point3D_t, struct Point3D> points3D_;
 
-  // { image_id, ... } where `images_.at(image_id).registered == true`.
-  std::vector<image_t> reg_image_ids_;
+  // Unique set of frame_ids where `Frame(frame_id).HasPose() == true`.
+  // Note that we intentionally use a vector instead of a set here leading
+  // to O(n) complexity on calls to RegisterFrame/DeRegisterFrame, because
+  // we iterate very often over the set of registered frames.
+  std::vector<frame_t> reg_frame_ids_;
 
   // Total number of added 3D points, used to generate unique identifiers.
   point3D_t max_point3D_id_;
 };
 
+std::ostream& operator<<(std::ostream& stream,
+                         const Reconstruction& reconstruction);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
+size_t Reconstruction::NumRigs() const { return rigs_.size(); }
+
 size_t Reconstruction::NumCameras() const { return cameras_.size(); }
+
+size_t Reconstruction::NumFrames() const { return frames_.size(); }
+
+size_t Reconstruction::NumRegFrames() const { return reg_frame_ids_.size(); }
 
 size_t Reconstruction::NumImages() const { return images_.size(); }
 
-size_t Reconstruction::NumRegImages() const { return reg_image_ids_.size(); }
-
 size_t Reconstruction::NumPoints3D() const { return points3D_.size(); }
+
+const class Rig& Reconstruction::Rig(const rig_t rig_id) const {
+  try {
+    return rigs_.at(rig_id);
+  } catch (const std::out_of_range&) {
+    throw std::out_of_range(
+        StringPrintf("Rig with ID %d does not exist", rig_id));
+  }
+}
 
 const struct Camera& Reconstruction::Camera(const camera_t camera_id) const {
   try {
     return cameras_.at(camera_id);
-  } catch (const std::out_of_range& e) {
+  } catch (const std::out_of_range&) {
     throw std::out_of_range(
         StringPrintf("Camera with ID %d does not exist", camera_id));
   }
@@ -277,9 +324,18 @@ const struct Camera& Reconstruction::Camera(const camera_t camera_id) const {
 const class Image& Reconstruction::Image(const image_t image_id) const {
   try {
     return images_.at(image_id);
-  } catch (const std::out_of_range& e) {
+  } catch (const std::out_of_range&) {
     throw std::out_of_range(
         StringPrintf("Image with ID %d does not exist", image_id));
+  }
+}
+
+const class Frame& Reconstruction::Frame(const frame_t frame_id) const {
+  try {
+    return frames_.at(frame_id);
+  } catch (const std::out_of_range&) {
+    throw std::out_of_range(
+        StringPrintf("Frame with ID %d does not exist", frame_id));
   }
 }
 
@@ -287,16 +343,25 @@ const struct Point3D& Reconstruction::Point3D(
     const point3D_t point3D_id) const {
   try {
     return points3D_.at(point3D_id);
-  } catch (const std::out_of_range& e) {
+  } catch (const std::out_of_range&) {
     throw std::out_of_range(
         StringPrintf("Point3D with ID %d does not exist", point3D_id));
+  }
+}
+
+class Rig& Reconstruction::Rig(const rig_t rig_id) {
+  try {
+    return rigs_.at(rig_id);
+  } catch (const std::out_of_range&) {
+    throw std::out_of_range(
+        StringPrintf("Rig with ID %d does not exist", rig_id));
   }
 }
 
 struct Camera& Reconstruction::Camera(const camera_t camera_id) {
   try {
     return cameras_.at(camera_id);
-  } catch (const std::out_of_range& e) {
+  } catch (const std::out_of_range&) {
     throw std::out_of_range(
         StringPrintf("Camera with ID %d does not exist", camera_id));
   }
@@ -305,39 +370,64 @@ struct Camera& Reconstruction::Camera(const camera_t camera_id) {
 class Image& Reconstruction::Image(const image_t image_id) {
   try {
     return images_.at(image_id);
-  } catch (const std::out_of_range& e) {
+  } catch (const std::out_of_range&) {
     throw std::out_of_range(
         StringPrintf("Image with ID %d does not exist", image_id));
+  }
+}
+
+class Frame& Reconstruction::Frame(const frame_t frame_id) {
+  try {
+    return frames_.at(frame_id);
+  } catch (const std::out_of_range&) {
+    throw std::out_of_range(
+        StringPrintf("Frame with ID %d does not exist", frame_id));
   }
 }
 
 struct Point3D& Reconstruction::Point3D(const point3D_t point3D_id) {
   try {
     return points3D_.at(point3D_id);
-  } catch (const std::out_of_range& e) {
+  } catch (const std::out_of_range&) {
     throw std::out_of_range(
         StringPrintf("Point3D with ID %d does not exist", point3D_id));
   }
+}
+
+const std::unordered_map<rig_t, Rig>& Reconstruction::Rigs() const {
+  return rigs_;
 }
 
 const std::unordered_map<camera_t, Camera>& Reconstruction::Cameras() const {
   return cameras_;
 }
 
+const std::unordered_map<frame_t, class Frame>& Reconstruction::Frames() const {
+  return frames_;
+}
+
 const std::unordered_map<image_t, class Image>& Reconstruction::Images() const {
   return images_;
 }
 
-const std::vector<image_t>& Reconstruction::RegImageIds() const {
-  return reg_image_ids_;
+const std::vector<frame_t>& Reconstruction::RegFrameIds() const {
+  return reg_frame_ids_;
 }
 
 const std::unordered_map<point3D_t, Point3D>& Reconstruction::Points3D() const {
   return points3D_;
 }
 
+bool Reconstruction::ExistsRig(const rig_t rig_id) const {
+  return rigs_.find(rig_id) != rigs_.end();
+}
+
 bool Reconstruction::ExistsCamera(const camera_t camera_id) const {
   return cameras_.find(camera_id) != cameras_.end();
+}
+
+bool Reconstruction::ExistsFrame(const frame_t frame_id) const {
+  return frames_.find(frame_id) != frames_.end();
 }
 
 bool Reconstruction::ExistsImage(const image_t image_id) const {
@@ -346,10 +436,6 @@ bool Reconstruction::ExistsImage(const image_t image_id) const {
 
 bool Reconstruction::ExistsPoint3D(const point3D_t point3D_id) const {
   return points3D_.find(point3D_id) != points3D_.end();
-}
-
-bool Reconstruction::IsImageRegistered(const image_t image_id) const {
-  return Image(image_id).IsRegistered();
 }
 
 }  // namespace colmap

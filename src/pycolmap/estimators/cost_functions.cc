@@ -12,138 +12,178 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 template <typename CameraModel>
-using ReprojErrorCostFunctorWithNoise =
-    IsotropicNoiseCostFunctorWrapper<ReprojErrorCostFunctor<CameraModel>>;
+using CovarianceWeightedReprojErrorCostFunctor =
+    CovarianceWeightedCostFunctor<ReprojErrorCostFunctor<CameraModel>>;
 
 template <typename CameraModel>
-using ReprojErrorConstantPoseCostFunctorWithNoise =
-    IsotropicNoiseCostFunctorWrapper<
+using CovarianceWeightedReprojErrorConstantPoseCostFunctor =
+    CovarianceWeightedCostFunctor<
         ReprojErrorConstantPoseCostFunctor<CameraModel>>;
 
 template <typename CameraModel>
-using ReprojErrorConstantPoint3DCostFunctorWithNoise =
-    IsotropicNoiseCostFunctorWrapper<
+using CovarianceWeightedReprojErrorConstantPoint3DCostFunctor =
+    CovarianceWeightedCostFunctor<
         ReprojErrorConstantPoint3DCostFunctor<CameraModel>>;
 
 template <typename CameraModel>
-using RigReprojErrorCostFunctorWithNoise =
-    IsotropicNoiseCostFunctorWrapper<RigReprojErrorCostFunctor<CameraModel>>;
+using CovarianceWeightedRigReprojErrorCostFunctor =
+    CovarianceWeightedCostFunctor<RigReprojErrorCostFunctor<CameraModel>>;
 
 template <typename CameraModel>
-using RigReprojErrorConstantRigCostFunctorWithNoise =
-    IsotropicNoiseCostFunctorWrapper<
+using CovarianceWeightedRigReprojErrorConstantRigCostFunctor =
+    CovarianceWeightedCostFunctor<
         RigReprojErrorConstantRigCostFunctor<CameraModel>>;
 
 void BindCostFunctions(py::module& m_parent) {
   py::module_ m = m_parent.def_submodule("cost_functions");
   IsPyceresAvailable();  // Try to import pyceres to populate the docstrings.
 
+  m.def(
+      "ReprojErrorCost",
+      &CreateCameraCostFunction<ReprojErrorCostFunctor, const Eigen::Vector2d&>,
+      "camera_model_id"_a,
+      "point2D"_a,
+      "Reprojection error.");
   m.def("ReprojErrorCost",
-        &CameraCostFunction<ReprojErrorCostFunctor, const Eigen::Vector2d&>,
+        &CreateCameraCostFunction<CovarianceWeightedReprojErrorCostFunctor,
+                                  const Eigen::Matrix2d&,
+                                  const Eigen::Vector2d&>,
         "camera_model_id"_a,
-        "point2D"_a,
-        "Reprojection error.");
-  m.def("ReprojErrorCost",
-        &CameraCostFunction<ReprojErrorCostFunctorWithNoise,
-                            const double,
-                            const Eigen::Vector2d&>,
-        "camera_model_id"_a,
-        "stddev"_a,
+        "point2D_cov"_a,
         "point2D"_a,
         "Reprojection error with 2D detection noise.");
+
   m.def("ReprojErrorCost",
-        &CameraCostFunction<ReprojErrorConstantPoseCostFunctor,
-                            const Rigid3d&,
-                            const Eigen::Vector2d&>,
+        &CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor,
+                                  const Eigen::Vector2d&,
+                                  const Rigid3d&>,
         "camera_model_id"_a,
-        "cam_from_world"_a,
         "point2D"_a,
+        "cam_from_world"_a,
         "Reprojection error with constant camera pose.");
   m.def("ReprojErrorCost",
-        &CameraCostFunction<ReprojErrorConstantPoseCostFunctorWithNoise,
-                            const double,
-                            const Rigid3d&,
-                            const Eigen::Vector2d&>,
+        &CreateCameraCostFunction<
+            CovarianceWeightedReprojErrorConstantPoseCostFunctor,
+            const Eigen::Matrix2d&,
+            const Eigen::Vector2d&,
+            const Rigid3d&>,
         "camera_model_id"_a,
-        "stddev"_a,
-        "cam_from_world"_a,
+        "point2D_cov"_a,
         "point2D"_a,
+        "cam_from_world"_a,
         "Reprojection error with constant camera pose and 2D detection noise.");
+
   m.def("ReprojErrorCost",
-        &CameraCostFunction<ReprojErrorConstantPoint3DCostFunctor,
-                            const Eigen::Vector2d&,
-                            const Eigen::Vector3d&>,
+        &CreateCameraCostFunction<ReprojErrorConstantPoint3DCostFunctor,
+                                  const Eigen::Vector2d&,
+                                  const Eigen::Vector3d&>,
         "camera_model_id"_a,
         "point2D"_a,
         "point3D"_a,
         "Reprojection error with constant 3D point.");
   m.def("ReprojErrorCost",
-        &CameraCostFunction<ReprojErrorConstantPoint3DCostFunctorWithNoise,
-                            const double,
-                            const Eigen::Vector2d&,
-                            const Eigen::Vector3d&>,
+        &CreateCameraCostFunction<
+            CovarianceWeightedReprojErrorConstantPoint3DCostFunctor,
+            const Eigen::Matrix2d&,
+            const Eigen::Vector2d&,
+            const Eigen::Vector3d&>,
         "camera_model_id"_a,
-        "stddev"_a,
+        "point2D_cov"_a,
         "point2D"_a,
         "point3D"_a,
         "Reprojection error with constant 3D point and 2D detection noise.");
 
   m.def("RigReprojErrorCost",
-        &CameraCostFunction<RigReprojErrorCostFunctor, const Eigen::Vector2d&>,
+        &CreateCameraCostFunction<RigReprojErrorCostFunctor,
+                                  const Eigen::Vector2d&>,
         "camera_model_id"_a,
         "point2D"_a,
         "Reprojection error for camera rig.");
   m.def("RigReprojErrorCost",
-        &CameraCostFunction<RigReprojErrorCostFunctorWithNoise,
-                            const double,
-                            const Eigen::Vector2d&>,
+        &CreateCameraCostFunction<CovarianceWeightedRigReprojErrorCostFunctor,
+                                  const Eigen::Matrix2d&,
+                                  const Eigen::Vector2d&>,
         "camera_model_id"_a,
-        "stddev"_a,
+        "point2D_cov"_a,
         "point2D"_a,
         "Reprojection error for camera rig with 2D detection noise.");
+
   m.def("RigReprojErrorCost",
-        &CameraCostFunction<RigReprojErrorConstantRigCostFunctor,
-                            const Rigid3d&,
-                            const Eigen::Vector2d&>,
+        &CreateCameraCostFunction<RigReprojErrorConstantRigCostFunctor,
+                                  const Eigen::Vector2d&,
+                                  const Rigid3d&>,
         "camera_model_id"_a,
-        "cam_from_rig"_a,
         "point2D"_a,
+        "cam_from_rig"_a,
         "Reprojection error for camera rig with constant cam-from-rig pose.");
   m.def("RigReprojErrorCost",
-        &CameraCostFunction<RigReprojErrorConstantRigCostFunctorWithNoise,
-                            const double,
-                            const Rigid3d&,
-                            const Eigen::Vector2d&>,
+        &CreateCameraCostFunction<
+            CovarianceWeightedRigReprojErrorConstantRigCostFunctor,
+            const Eigen::Matrix2d&,
+            const Eigen::Vector2d&,
+            const Rigid3d&>,
         "camera_model_id"_a,
-        "stddev"_a,
-        "cam_from_rig"_a,
+        "point2D_cov"_a,
         "point2D"_a,
+        "cam_from_rig"_a,
         "Reprojection error for camera rig with constant cam-from-rig pose and "
         "2D detection noise.");
 
   m.def("SampsonErrorCost",
-        &SampsonErrorCostFunctor::Create,
-        "point2D1"_a,
-        "point2D2"_a,
+        &SampsonErrorCostFunctor::Create<const Eigen::Vector3d&,
+                                         const Eigen::Vector3d&>,
+        "cam_ray1"_a,
+        "cam_ray2"_a,
         "Sampson error for two-view geometry.");
 
-  m.def("AbsolutePoseErrorCost",
-        &AbsolutePoseErrorCostFunctor::Create,
-        "cam_from_world"_a,
-        "covariance_cam"_a,
-        "6-DoF error on the absolute pose.");
-  m.def("MetricRelativePoseErrorCost",
-        &MetricRelativePoseErrorCostFunctor::Create,
-        "i_from_j"_a,
-        "covariance_j"_a,
-        "6-DoF error between two absolute poses based on their relative pose.");
-  m.def("Point3dAlignmentCost",
-        &Point3dAlignmentCostFunctor::Create,
-        "ref_point"_a,
-        "covariance_point"_a,
-        "Error between 3D points transformed by a similarity transform.");
-  m.def("PositionPriorErrorCost",
-        &PositionPriorErrorCostFunctor::Create,
-        "world_from_cam_position_prior"_a,
-        "covariance"_a);
+  m.def("AbsolutePosePriorCost",
+        &AbsolutePosePriorCostFunctor::Create<const Rigid3d&>,
+        "cam_from_world_prior"_a,
+        "6-DoF error on the absolute camera pose.");
+  m.def("AbsolutePosePriorCost",
+        &CovarianceWeightedCostFunctor<AbsolutePosePriorCostFunctor>::Create<
+            const Rigid3d&>,
+        "cam_cov_from_world_prior"_a,
+        "cam_from_world_prior"_a,
+        "6-DoF error on the absolute camera pose with prior covariance.");
+
+  m.def("AbsolutePosePositionPriorCost",
+        &AbsolutePosePositionPriorCostFunctor::Create<const Eigen::Vector3d&>,
+        "position_in_world_prior"_a,
+        "3-DoF error on the absolute camera pose's position.");
+  m.def(
+      "AbsolutePosePositionPriorCost",
+      &CovarianceWeightedCostFunctor<
+          AbsolutePosePositionPriorCostFunctor>::Create<const Eigen::Vector3d&>,
+      "position_cov_in_world_prior"_a,
+      "position_in_world_prior"_a,
+      "3-DoF error on the absolute camera pose's position with prior "
+      "covariance.");
+
+  m.def("RelativePosePriorCost",
+        &RelativePosePriorCostFunctor::Create<const Rigid3d&>,
+        "i_from_j_prior"_a,
+        "6-DoF error between two absolute camera poses based on a prior "
+        "relative pose.");
+  m.def("RelativePosePriorCost",
+        &CovarianceWeightedCostFunctor<RelativePosePriorCostFunctor>::Create<
+            const Rigid3d&>,
+        "i_cov_from_j_prior"_a,
+        "i_from_j_prior"_a,
+        "6-DoF error between two absolute camera poses based on a prior "
+        "relative pose with prior covariance.");
+
+  m.def("Point3DAlignmentCost",
+        &Point3DAlignmentCostFunctor::Create<const Eigen::Vector3d&, bool>,
+        "point_in_b_prior"_a,
+        "use_log_scale"_a = true,
+        "Error between 3D points transformed by a 3D similarity transform.");
+  m.def("Point3DAlignmentCost",
+        &CovarianceWeightedCostFunctor<
+            Point3DAlignmentCostFunctor>::Create<const Eigen::Vector3d&, bool>,
+        "point_cov_in_b_prior"_a,
+        "point_in_b_prior"_a,
+        "use_log_scale"_a = true,
+        "Error between 3D points transformed by a 3D similarity transform. "
+        "with prior covariance");
 }

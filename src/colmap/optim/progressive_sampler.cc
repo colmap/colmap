@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -31,8 +31,6 @@
 
 #include "colmap/math/random.h"
 #include "colmap/util/misc.h"
-
-#include <numeric>
 
 namespace colmap {
 

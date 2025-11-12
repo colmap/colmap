@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -42,7 +42,7 @@ void Sim3d::ToFile(const std::string& path) const {
   file.precision(17);
   file << scale << " " << rotation.w() << " " << rotation.x() << " "
        << rotation.y() << " " << rotation.z() << " " << translation.x() << " "
-       << translation.y() << " " << translation.z() << "\n";
+       << translation.y() << " " << translation.z() << '\n';
 }
 
 Sim3d Sim3d::FromFile(const std::string& path) {
@@ -58,6 +58,15 @@ Sim3d Sim3d::FromFile(const std::string& path) {
   file >> t.translation(1);
   file >> t.translation(2);
   return t;
+}
+
+std::ostream& operator<<(std::ostream& stream, const Sim3d& tform) {
+  const static Eigen::IOFormat kVecFmt(
+      Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ");
+  stream << "Sim3d(scale=" << tform.scale << ", rotation_xyzw=["
+         << tform.rotation.coeffs().format(kVecFmt) << "], translation=["
+         << tform.translation.format(kVecFmt) << "])";
+  return stream;
 }
 
 }  // namespace colmap

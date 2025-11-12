@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,7 +29,6 @@
 
 #include "colmap/scene/correspondence_graph.h"
 
-#include "colmap/geometry/pose.h"
 #include "colmap/util/string.h"
 
 #include <map>
@@ -53,43 +52,35 @@ void CorrespondenceGraph::Finalize() {
   finalized_ = true;
 
   // Flatten all correspondences, remove images without observations.
-  for (auto it = images_.begin(); it != images_.end();) {
+  for (auto& [_, image] : images_) {
     // Count number of correspondences and observations.
-    it->second.num_observations = 0;
+    image.num_observations = 0;
     size_t num_total_corrs = 0;
-    for (auto& corr : it->second.corrs) {
+    for (auto& corr : image.corrs) {
       num_total_corrs += corr.size();
       if (!corr.empty()) {
-        it->second.num_observations += 1;
+        image.num_observations += 1;
       }
     }
 
-    // Erase image without observations.
-    if (num_total_corrs == 0) {
-      images_.erase(it++);
-      continue;
-    }
-
     // Reshuffle correspondences into flattened vector.
-    const point2D_t num_points2D = it->second.corrs.size();
-    it->second.flat_corrs.reserve(num_total_corrs);
-    it->second.flat_corr_begs.resize(num_points2D + 1);
+    const point2D_t num_points2D = image.corrs.size();
+    image.flat_corrs.reserve(num_total_corrs);
+    image.flat_corr_begs.resize(num_points2D + 1);
     for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
-      it->second.flat_corr_begs[point2D_idx] = it->second.flat_corrs.size();
-      std::vector<Correspondence>& corrs = it->second.corrs[point2D_idx];
-      it->second.flat_corrs.insert(
-          it->second.flat_corrs.end(), corrs.begin(), corrs.end());
+      image.flat_corr_begs[point2D_idx] = image.flat_corrs.size();
+      std::vector<Correspondence>& corrs = image.corrs[point2D_idx];
+      image.flat_corrs.insert(
+          image.flat_corrs.end(), corrs.begin(), corrs.end());
     }
-    it->second.flat_corr_begs[num_points2D] = it->second.flat_corrs.size();
+    image.flat_corr_begs[num_points2D] = image.flat_corrs.size();
 
     // Ensure we reserved enough space before insertion.
-    THROW_CHECK_EQ(it->second.flat_corrs.size(), num_total_corrs);
+    THROW_CHECK_EQ(image.flat_corrs.size(), num_total_corrs);
 
     // Deallocate original data.
-    it->second.corrs.clear();
-    it->second.corrs.shrink_to_fit();
-
-    ++it;
+    image.corrs.clear();
+    image.corrs.shrink_to_fit();
   }
 }
 
@@ -118,8 +109,7 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
 
   // Set the number of all correspondences for this image pair. Further below,
   // we will make sure that only unique correspondences are counted.
-  const image_pair_t pair_id =
-      Database::ImagePairToPairId(image_id1, image_id2);
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
   auto& image_pair = image_pairs_[pair_id];
   image_pair.num_correspondences += static_cast<point2D_t>(matches.size());
 
@@ -136,20 +126,17 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
       auto& corrs1 = image1.corrs[match.point2D_idx1];
       auto& corrs2 = image2.corrs[match.point2D_idx2];
 
-      const bool duplicate1 =
+      // We add valid correspondences bidirectionally, so checking from only one
+      // side is sufficient to detect duplicated matches.
+      const bool duplicate =
           std::find_if(corrs1.begin(),
                        corrs1.end(),
-                       [image_id2](const Correspondence& corr) {
-                         return corr.image_id == image_id2;
+                       [image_id2, &match](const Correspondence& corr) {
+                         return corr.image_id == image_id2 &&
+                                corr.point2D_idx == match.point2D_idx2;
                        }) != corrs1.end();
-      const bool duplicate2 =
-          std::find_if(corrs2.begin(),
-                       corrs2.end(),
-                       [image_id1](const Correspondence& corr) {
-                         return corr.image_id == image_id1;
-                       }) != corrs2.end();
 
-      if (duplicate1 || duplicate2) {
+      if (duplicate) {
         image1.num_correspondences -= 1;
         image2.num_correspondences -= 1;
         image_pair.num_correspondences -= 1;
@@ -306,6 +293,22 @@ bool CorrespondenceGraph::IsTwoViewObservation(
   const CorrespondenceRange other_range =
       FindCorrespondences(range.beg->image_id, range.beg->point2D_idx);
   return (other_range.end - other_range.beg) == 1;
+}
+
+std::ostream& operator<<(
+    std::ostream& stream,
+    const CorrespondenceGraph::Correspondence& correspondence) {
+  stream << "Correspondence(image_id=" << correspondence.image_id
+         << ", point2D_idx=" << correspondence.point2D_idx << ")";
+  return stream;
+}
+
+std::ostream& operator<<(std::ostream& stream,
+                         const CorrespondenceGraph& correspondence_graph) {
+  stream << "CorrespondenceGraph(num_images="
+         << correspondence_graph.NumImages()
+         << ", num_image_pairs=" << correspondence_graph.NumImagePairs() << ")";
+  return stream;
 }
 
 }  // namespace colmap

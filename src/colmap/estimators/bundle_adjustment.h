@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,9 +29,10 @@
 
 #pragma once
 
-#include "colmap/scene/camera_rig.h"
+#include "colmap/optim/ransac.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/enum_utils.h"
 
 #include <memory>
 #include <unordered_set>
@@ -40,6 +41,86 @@
 #include <ceres/ceres.h>
 
 namespace colmap {
+
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(
+    BundleAdjustmentGauge, -1, UNSPECIFIED, TWO_CAMS_FROM_WORLD, THREE_POINTS);
+
+// Configuration container to setup bundle adjustment problems.
+class BundleAdjustmentConfig {
+ public:
+  BundleAdjustmentConfig() = default;
+
+  void FixGauge(BundleAdjustmentGauge gauge);
+  BundleAdjustmentGauge FixedGauge() const;
+
+  size_t NumImages() const;
+
+  size_t NumPoints() const;
+  size_t NumVariablePoints() const;
+  size_t NumConstantPoints() const;
+
+  size_t NumConstantCamIntrinsics() const;
+
+  size_t NumConstantSensorFromRigPoses() const;
+  size_t NumConstantRigFromWorldPoses() const;
+
+  // Determine the number of residuals for the given reconstruction. The number
+  // of residuals equals the number of observations times two.
+  size_t NumResiduals(const Reconstruction& reconstruction) const;
+
+  // Add / remove images from the configuration.
+  void AddImage(image_t image_id);
+  bool HasImage(image_t image_id) const;
+  void RemoveImage(image_t image_id);
+
+  // Set cameras of added images as constant or variable. By default all
+  // cameras of added images are variable. Note that the corresponding images
+  // have to be added prior to calling these methods.
+  void SetConstantCamIntrinsics(camera_t camera_id);
+  void SetVariableCamIntrinsics(camera_t camera_id);
+  bool HasConstantCamIntrinsics(camera_t camera_id) const;
+
+  // Set the pose of added images as constant. The pose is defined as the
+  // rotational and translational part of the projection matrix.
+  void SetConstantSensorFromRigPose(sensor_t sensor_id);
+  void SetVariableSensorFromRigPose(sensor_t sensor_id);
+  bool HasConstantSensorFromRigPose(sensor_t sensor_id) const;
+
+  // Set the rig from world pose as constant.
+  void SetConstantRigFromWorldPose(frame_t frame_id);
+  void SetVariableRigFromWorldPose(frame_t frame_id);
+  bool HasConstantRigFromWorldPose(frame_t frame_id) const;
+
+  // Add / remove points from the configuration. Note that points can either
+  // be variable or constant but not both at the same time.
+  void AddVariablePoint(point3D_t point3D_id);
+  void AddConstantPoint(point3D_t point3D_id);
+  void IgnorePoint(point3D_t point3D_id);
+  bool HasPoint(point3D_t point3D_id) const;
+  bool HasVariablePoint(point3D_t point3D_id) const;
+  bool HasConstantPoint(point3D_t point3D_id) const;
+  bool IsIgnoredPoint(point3D_t point3D_id) const;
+  void RemoveVariablePoint(point3D_t point3D_id);
+  void RemoveConstantPoint(point3D_t point3D_id);
+
+  // Access configuration data.
+  const std::unordered_set<image_t>& Images() const;
+  const std::unordered_set<point3D_t>& VariablePoints() const;
+  const std::unordered_set<point3D_t>& ConstantPoints() const;
+  const std::unordered_set<camera_t> ConstantCamIntrinsics() const;
+  const std::unordered_set<sensor_t>& ConstantSensorFromRigPoses() const;
+  const std::unordered_set<frame_t>& ConstantRigFromWorldPoses() const;
+
+ private:
+  BundleAdjustmentGauge fixed_gauge_ = BundleAdjustmentGauge::UNSPECIFIED;
+  std::unordered_set<camera_t> constant_cam_intrinsics_;
+  std::unordered_set<image_t> image_ids_;
+  std::unordered_set<point3D_t> variable_point3D_ids_;
+  std::unordered_set<point3D_t> constant_point3D_ids_;
+  std::unordered_set<point3D_t> ignored_point3D_ids_;
+  std::unordered_set<sensor_t> constant_sensor_from_rig_poses_;
+  std::unordered_set<frame_t> constant_rig_from_world_poses_;
+};
 
 struct BundleAdjustmentOptions {
   // Loss function types: Trivial (non-robust) and Cauchy (robust) loss.
@@ -59,7 +140,8 @@ struct BundleAdjustmentOptions {
   bool refine_extra_params = true;
 
   // Whether to refine the extrinsic parameter group.
-  bool refine_extrinsics = true;
+  bool refine_sensor_from_rig = true;
+  bool refine_rig_from_world = true;
 
   // Whether to print a final summary.
   bool print_summary = true;
@@ -108,238 +190,53 @@ struct BundleAdjustmentOptions {
   // takes ownership of the loss function.
   ceres::LossFunction* CreateLossFunction() const;
 
+  // Create options tailored for given bundle adjustment config and problem.
+  ceres::Solver::Options CreateSolverOptions(
+      const BundleAdjustmentConfig& config,
+      const ceres::Problem& problem) const;
+
   bool Check() const;
 };
 
-// Configuration container to setup bundle adjustment problems.
-class BundleAdjustmentConfig {
- public:
-  BundleAdjustmentConfig();
+struct PosePriorBundleAdjustmentOptions {
+  // Whether to use a robust loss on prior locations.
+  bool use_robust_loss_on_prior_position = false;
 
-  size_t NumImages() const;
-  size_t NumPoints() const;
-  size_t NumConstantCamIntrinsics() const;
-  size_t NumConstantCamPoses() const;
-  size_t NumConstantCamPositions() const;
-  size_t NumVariablePoints() const;
-  size_t NumConstantPoints() const;
+  // Threshold on the residual for the robust loss.
+  double prior_position_loss_scale = std::sqrt(kChiSquare95ThreeDof);
 
-  // Determine the number of residuals for the given reconstruction. The number
-  // of residuals equals the number of observations times two.
-  size_t NumResiduals(const Reconstruction& reconstruction) const;
-
-  // Add / remove images from the configuration.
-  void AddImage(image_t image_id);
-  bool HasImage(image_t image_id) const;
-  void RemoveImage(image_t image_id);
-
-  // Set cameras of added images as constant or variable. By default all
-  // cameras of added images are variable. Note that the corresponding images
-  // have to be added prior to calling these methods.
-  void SetConstantCamIntrinsics(camera_t camera_id);
-  void SetVariableCamIntrinsics(camera_t camera_id);
-  bool HasConstantCamIntrinsics(camera_t camera_id) const;
-
-  // Set the pose of added images as constant. The pose is defined as the
-  // rotational and translational part of the projection matrix.
-  void SetConstantCamPose(image_t image_id);
-  void SetVariableCamPose(image_t image_id);
-  bool HasConstantCamPose(image_t image_id) const;
-
-  // Set the translational part of the pose, hence the constant pose
-  // indices may be in [0, 1, 2] and must be unique. Note that the
-  // corresponding images have to be added prior to calling these methods.
-  void SetConstantCamPositions(image_t image_id, const std::vector<int>& idxs);
-  void RemoveConstantCamPositions(image_t image_id);
-  bool HasConstantCamPositions(image_t image_id) const;
-
-  // Add / remove points from the configuration. Note that points can either
-  // be variable or constant but not both at the same time.
-  void AddVariablePoint(point3D_t point3D_id);
-  void AddConstantPoint(point3D_t point3D_id);
-  bool HasPoint(point3D_t point3D_id) const;
-  bool HasVariablePoint(point3D_t point3D_id) const;
-  bool HasConstantPoint(point3D_t point3D_id) const;
-  void RemoveVariablePoint(point3D_t point3D_id);
-  void RemoveConstantPoint(point3D_t point3D_id);
-
-  // Access configuration data.
-  const std::unordered_set<camera_t> ConstantIntrinsics() const;
-  const std::unordered_set<image_t>& Images() const;
-  const std::unordered_set<point3D_t>& VariablePoints() const;
-  const std::unordered_set<point3D_t>& ConstantPoints() const;
-  const std::unordered_set<image_t>& ConstantCamPoses() const;
-  const std::vector<int>& ConstantCamPositions(image_t image_id) const;
-
- private:
-  std::unordered_set<camera_t> constant_intrinsics_;
-  std::unordered_set<image_t> image_ids_;
-  std::unordered_set<point3D_t> variable_point3D_ids_;
-  std::unordered_set<point3D_t> constant_point3D_ids_;
-  std::unordered_set<image_t> constant_cam_poses_;
-  std::unordered_map<image_t, std::vector<int>> constant_cam_positions_;
+  // Sim3 alignment options.
+  RANSACOptions alignment_ransac_options;
 };
 
-// Bundle adjustment based on Ceres-Solver. Enables most flexible configurations
-// and provides best solution quality.
 class BundleAdjuster {
  public:
-  BundleAdjuster(const BundleAdjustmentOptions& options,
-                 const BundleAdjustmentConfig& config);
+  BundleAdjuster(BundleAdjustmentOptions options,
+                 BundleAdjustmentConfig config);
+  virtual ~BundleAdjuster() = default;
 
-  bool Solve(Reconstruction* reconstruction);
+  virtual ceres::Solver::Summary Solve() = 0;
+  virtual std::shared_ptr<ceres::Problem>& Problem() = 0;
 
-  // Set up the problem
-  void SetUpProblem(Reconstruction* reconstruction,
-                    ceres::LossFunction* loss_function);
-  ceres::Solver::Options SetUpSolverOptions(
-      const ceres::Problem& problem,
-      const ceres::Solver::Options& input_solver_options) const;
-
-  // Getter functions below
   const BundleAdjustmentOptions& Options() const;
   const BundleAdjustmentConfig& Config() const;
-  // Get the Ceres problem after the last call to "set_up"
-  std::shared_ptr<ceres::Problem> Problem();
-  // Get the Ceres solver summary after the last call to `Solve`.
-  const ceres::Solver::Summary& Summary() const;
 
  protected:
-  void AddImageToProblem(image_t image_id,
-                         Reconstruction* reconstruction,
-                         ceres::LossFunction* loss_function);
-
-  void AddPointToProblem(point3D_t point3D_id,
-                         Reconstruction* reconstruction,
-                         ceres::LossFunction* loss_function);
-
-  void ParameterizeCameras(Reconstruction* reconstruction);
-  void ParameterizePoints(Reconstruction* reconstruction);
-
-  const BundleAdjustmentOptions options_;
+  BundleAdjustmentOptions options_;
   BundleAdjustmentConfig config_;
-  std::shared_ptr<ceres::Problem> problem_;
-  ceres::Solver::Summary summary_;
-  std::unordered_set<camera_t> camera_ids_;
-  std::unordered_map<point3D_t, size_t> point3D_num_observations_;
-
-  // Hold the life of loss function for Solve()
-  std::unique_ptr<ceres::LossFunction> loss_function_;
 };
 
-class RigBundleAdjuster : public BundleAdjuster {
- public:
-  struct Options {
-    // Whether to optimize the relative poses of the camera rigs.
-    bool refine_relative_poses = true;
+std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(
+    BundleAdjustmentOptions options,
+    BundleAdjustmentConfig config,
+    Reconstruction& reconstruction);
 
-    // The maximum allowed reprojection error for an observation to be
-    // considered in the bundle adjustment. Some observations might have large
-    // reprojection errors due to the concatenation of the absolute and relative
-    // rig poses, which might be different from the absolute pose of the image
-    // in the reconstruction.
-    double max_reproj_error = 1000.0;
-  };
-
-  RigBundleAdjuster(const BundleAdjustmentOptions& options,
-                    const Options& rig_options,
-                    const BundleAdjustmentConfig& config);
-
-  bool Solve(Reconstruction* reconstruction,
-             std::vector<CameraRig>* camera_rigs);
-
-  void SetUpProblem(Reconstruction* reconstruction,
-                    std::vector<CameraRig>* camera_rigs,
-                    ceres::LossFunction* loss_function);
-
-  void TearDown(Reconstruction* reconstruction,
-                const std::vector<CameraRig>& camera_rigs);
-
- private:
-  void AddImageToProblem(image_t image_id,
-                         Reconstruction* reconstruction,
-                         std::vector<CameraRig>* camera_rigs,
-                         ceres::LossFunction* loss_function);
-
-  void AddPointToProblem(point3D_t point3D_id,
-                         Reconstruction* reconstruction,
-                         ceres::LossFunction* loss_function);
-
-  void ComputeCameraRigPoses(const Reconstruction& reconstruction,
-                             const std::vector<CameraRig>& camera_rigs);
-
-  void ParameterizeCameraRigs(Reconstruction* reconstruction);
-
-  const Options rig_options_;
-
-  // Mapping from images to camera rigs.
-  std::unordered_map<image_t, CameraRig*> image_id_to_camera_rig_;
-
-  // Mapping from images to the absolute camera rig poses.
-  std::unordered_map<image_t, Rigid3d*> image_id_to_rig_from_world_;
-
-  // For each camera rig, the absolute camera rig poses for all snapshots.
-  std::vector<std::vector<Rigid3d>> rigs_from_world_;
-
-  // The Quaternions added to the problem, used to set the local
-  // parameterization once after setting up the problem.
-  std::unordered_set<double*> parameterized_quats_;
-};
-
-class PosePriorBundleAdjuster : public BundleAdjuster {
- public:
-  struct Options {
-    Options(bool use_robust_loss_on_prior_position,
-            double prior_position_loss_scale)
-        : use_robust_loss_on_prior_position(use_robust_loss_on_prior_position),
-          prior_position_loss_scale(prior_position_loss_scale) {}
-
-    // Whether to use a robust loss on prior locations
-    bool use_robust_loss_on_prior_position = false;
-
-    // Threshold on the residual for the robust loss
-    // (chi2 for 3DOF at 95% = 7.815)
-    double prior_position_loss_scale = 7.815;
-
-    // Maximum RANSAC error for Sim3D alignment
-    double ransac_max_error = 0.;
-  };
-
-  PosePriorBundleAdjuster(
-      const BundleAdjustmentOptions& options,
-      const Options& prior_options,
-      const BundleAdjustmentConfig& config,
-      const std::unordered_map<image_t, PosePrior>& image_id_to_pose_prior);
-
-  bool Solve(Reconstruction* reconstruction);
-
-  void SetUpProblem(Reconstruction* reconstruction,
-                    ceres::LossFunction* loss_function,
-                    ceres::LossFunction* prior_loss_function);
-
- private:
-  size_t NumPosePriors() const { return image_id_to_pose_prior_.size(); };
-
-  void AddPosePriorToProblem(image_t image_id,
-                             const PosePrior& prior,
-                             Reconstruction* reconstruction,
-                             ceres::LossFunction* prior_loss_function);
-
-  bool Sim3DAlignment(Reconstruction* reconstruction);
-
-  void SetRansacMaxErrorFromPriorsCovariance();
-
-  Options prior_options_;
-  std::unique_ptr<ceres::LossFunction> prior_loss_function_;
-
-  const std::unordered_map<image_t, PosePrior>& image_id_to_pose_prior_;
-
-  // Whether to use prior camera positions
-  bool use_prior_position_ = true;
-
-  // Sim3d transformation that project reconstruction's centroid to (0.,0.,0.)
-  Sim3d normalized_from_metric_;
-};
+std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
+    BundleAdjustmentOptions options,
+    PosePriorBundleAdjustmentOptions prior_options,
+    BundleAdjustmentConfig config,
+    std::unordered_map<image_t, PosePrior> pose_priors,
+    Reconstruction& reconstruction);
 
 void PrintSolverSummary(const ceres::Solver::Summary& summary,
                         const std::string& header);

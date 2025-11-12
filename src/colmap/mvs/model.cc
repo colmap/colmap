@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -59,8 +59,8 @@ void Model::ReadFromCOLMAP(const std::string& path,
 
   images.reserve(reconstruction.NumRegImages());
   std::unordered_map<image_t, size_t> image_id_to_idx;
-  for (size_t i = 0; i < reconstruction.NumRegImages(); ++i) {
-    const auto image_id = reconstruction.RegImageIds()[i];
+  size_t image_idx = 0;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
     const auto& image = reconstruction.Image(image_id);
     const auto& camera = *image.CameraPtr();
 
@@ -73,9 +73,10 @@ void Model::ReadFromCOLMAP(const std::string& path,
 
     images.emplace_back(
         image_path, camera.width, camera.height, K.data(), R.data(), T.data());
-    image_id_to_idx.emplace(image_id, i);
+    image_id_to_idx.emplace(image_id, image_idx);
     image_names_.push_back(image.Name());
-    image_name_to_idx_.emplace(image.Name(), i);
+    image_name_to_idx_.emplace(image.Name(), image_idx);
+    ++image_idx;
   }
 
   points.reserve(reconstruction.NumPoints3D());
@@ -261,8 +262,8 @@ std::vector<std::map<int, float>> Model::ComputeTriangulationAngles(
   std::vector<std::map<int, float>> triangulation_angles(images.size());
   for (size_t image_idx = 0; image_idx < all_triangulation_angles.size();
        ++image_idx) {
-    const auto& overlapping_images = all_triangulation_angles[image_idx];
-    for (const auto& image : overlapping_images) {
+    auto& overlapping_images = all_triangulation_angles[image_idx];
+    for (auto& image : overlapping_images) {
       triangulation_angles[image_idx].emplace(
           image.first, Percentile(image.second, percentile));
     }

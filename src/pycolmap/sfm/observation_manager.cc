@@ -9,18 +9,17 @@
 #include <pybind11/pybind11.h>
 
 using namespace colmap;
+using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindObservationManager(py::module& m) {
   using ImagePairStat = ObservationManager::ImagePairStat;
-  py::class_ext_<ImagePairStat, std::shared_ptr<ImagePairStat>>(m,
-                                                                "ImagePairStat")
+  py::classh_ext<ImagePairStat>(m, "ImagePairStat")
       .def(py::init<>())
       .def_readwrite("num_tri_corrs", &ImagePairStat::num_tri_corrs)
       .def_readwrite("num_total_corrs", &ImagePairStat::num_total_corrs);
 
-  py::class_<ObservationManager, std::shared_ptr<ObservationManager>>(
-      m, "ObservationManager")
+  py::classh<ObservationManager>(m, "ObservationManager")
       .def(py::init<Reconstruction&,
                     std::shared_ptr<const CorrespondenceGraph>>(),
            "reconstruction"_a,
@@ -84,17 +83,21 @@ void BindObservationManager(py::module& m) {
            &ObservationManager::FilterObservationsWithNegativeDepth,
            "Filter observations that have negative depth. Return the number of "
            "filtered observations.")
-      .def("filter_images",
-           &ObservationManager::FilterImages,
+      .def("filter_frames",
+           &ObservationManager::FilterFrames,
            "min_focal_length_ratio"_a,
            "max_focal_length_ratio"_a,
            "max_extra_param"_a,
-           "Filter images without observations or bogus camera parameters."
-           "Return the identifiers of the filtered images.")
-      .def("deregister_image",
-           &ObservationManager::DeRegisterImage,
-           "image_id"_a,
-           "De-register an existing image, and all its references.")
+           "Filter frames without observations or bogus camera parameters."
+           "Return the identifiers of the filtered frames.")
+      .def("register_frame",
+           &ObservationManager::DeRegisterFrame,
+           "frame_id"_a,
+           "Register an existing frame, and all its references.")
+      .def("deregister_frame",
+           &ObservationManager::DeRegisterFrame,
+           "frame_id"_a,
+           "De-register an existing frame, and all its references.")
       .def("num_observations",
            &ObservationManager::NumObservations,
            "image_id"_a,
@@ -133,7 +136,5 @@ void BindObservationManager(py::module& m) {
            "any more and has a correspondence to this image point. This assumes"
            "that `IncrementCorrespondenceHasPoint3D` was called for the same"
            "image point and correspondence before.")
-      .def("__repr__", [](const ObservationManager& self) {
-        return "ObservationManager()";
-      });
+      .def("__repr__", &CreateRepresentation<ObservationManager>);
 }

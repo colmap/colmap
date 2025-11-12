@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,43 +30,14 @@
 #pragma once
 
 #include "colmap/scene/reconstruction.h"
+#include "colmap/scene/reconstruction_io_binary.h"
+#include "colmap/scene/reconstruction_io_text.h"
+
+#include <iostream>
 
 #include <Eigen/Core>
 
 namespace colmap {
-
-// Note that cameras must be read before images.
-
-void ReadCamerasText(Reconstruction& reconstruction, const std::string& path);
-
-void ReadImagesText(Reconstruction& reconstruction, const std::string& path);
-
-void ReadPoints3DText(Reconstruction& reconstruction, const std::string& path);
-
-void ReadCamerasBinary(Reconstruction& reconstruction, const std::string& path);
-
-void ReadImagesBinary(Reconstruction& reconstruction, const std::string& path);
-
-void ReadPoints3DBinary(Reconstruction& reconstruction,
-                        const std::string& path);
-
-void WriteCamerasText(const Reconstruction& reconstruction,
-                      const std::string& path);
-
-void WriteImagesText(const Reconstruction& reconstruction,
-                     const std::string& path);
-
-void WritePoints3DText(const Reconstruction& reconstruction,
-                       const std::string& path);
-
-void WriteCamerasBinary(const Reconstruction& reconstruction,
-                        const std::string& path);
-
-void WriteImagesBinary(const Reconstruction& reconstruction,
-                       const std::string& path);
-
-void WritePoints3DBinary(const Reconstruction& reconstruction,
-                         const std::string& path);
 
 // Exports in NVM format http://ccwu.me/vsfm/doc.html#nvm. Only supports
 // SIMPLE_RADIAL camera model when exporting distortion parameters. When

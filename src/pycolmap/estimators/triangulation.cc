@@ -19,7 +19,7 @@ namespace py = pybind11;
 
 py::typing::Optional<py::dict> PyEstimateTriangulation(
     const std::vector<Eigen::Vector2d>& points,
-    const std::vector<Rigid3d const*>& cams_from_world,
+    const std::vector<Rigid3d>& cams_from_world,
     const std::vector<Camera const*>& cameras,
     const EstimateTriangulationOptions& options) {
   py::gil_scoped_release release;
@@ -47,7 +47,7 @@ void BindTriangulationEstimator(py::module& m) {
   AddStringToEnumConstructor(PyResType);
 
   using Options = EstimateTriangulationOptions;
-  py::class_<Options> PyTriangulationOptions(m, "EstimateTriangulationOptions");
+  py::classh<Options> PyTriangulationOptions(m, "EstimateTriangulationOptions");
   PyTriangulationOptions.def(py::init<>())
       .def_readwrite("min_tri_angle",
                      &Options::min_tri_angle,
@@ -66,5 +66,5 @@ void BindTriangulationEstimator(py::module& m) {
                   EstimateTriangulationOptions(),
                   "EstimateTriangulationOptions()"),
         "Robustly estimate 3D point from observations in multiple views using "
-        "RANSAC");
+        "LO-RANSAC");
 }

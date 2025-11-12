@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,7 +29,7 @@
 
 #include "colmap/exe/image.h"
 
-#include "colmap/controllers/incremental_mapper.h"
+#include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/image/undistortion.h"
 #include "colmap/scene/reconstruction.h"
@@ -38,6 +38,8 @@
 #include "colmap/util/base_controller.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
+
+#include <fstream>
 
 namespace colmap {
 namespace {
@@ -92,7 +94,9 @@ int RunImageDeleter(int argc, char** argv) {
       "image_names_path",
       &image_names_path,
       "Path to text file containing one image name to delete per line");
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
@@ -107,12 +111,14 @@ int RunImageDeleter(int argc, char** argv) {
 
       const image_t image_id = std::stoi(image_id_str);
       if (reconstruction.ExistsImage(image_id)) {
-        const auto& image = reconstruction.Image(image_id);
+        const Image& image = reconstruction.Image(image_id);
         LOG(INFO) << StringPrintf(
-            "Deleting image_id=%d, image_name=%s from reconstruction",
+            "Deleting image_id=%d, image_name=%s, frame_id=%d from "
+            "reconstruction",
             image.ImageId(),
-            image.Name().c_str());
-        reconstruction.DeRegisterImage(image_id);
+            image.Name().c_str(),
+            image.FrameId());
+        reconstruction.DeRegisterFrame(image.FrameId());
       } else {
         LOG(WARNING) << StringPrintf(
             "Skipping image_id=%s, because it does not "
@@ -123,9 +129,7 @@ int RunImageDeleter(int argc, char** argv) {
   }
 
   if (!image_names_path.empty()) {
-    const auto image_names = ReadTextFileLines(image_names_path);
-
-    for (const auto& image_name : image_names) {
+    for (const std::string& image_name : ReadTextFileLines(image_names_path)) {
       if (image_name.empty()) {
         continue;
       }
@@ -133,10 +137,12 @@ int RunImageDeleter(int argc, char** argv) {
       const Image* image = reconstruction.FindImageWithName(image_name);
       if (image != nullptr) {
         LOG(INFO) << StringPrintf(
-            "Deleting image_id=%d, image_name=%s from reconstruction",
+            "Deleting image_id=%d, image_name=%s, frame_id=%d from "
+            "reconstruction",
             image->ImageId(),
-            image->Name().c_str());
-        reconstruction.DeRegisterImage(image->ImageId());
+            image->Name().c_str(),
+            image->FrameId());
+        reconstruction.DeRegisterFrame(image->FrameId());
       } else {
         LOG(WARNING) << StringPrintf(
             "Skipping image_name=%s, because it does not "
@@ -166,7 +172,9 @@ int RunImageFilterer(int argc, char** argv) {
   options.AddDefaultOption("max_focal_length_ratio", &max_focal_length_ratio);
   options.AddDefaultOption("max_extra_param", &max_extra_param);
   options.AddDefaultOption("min_num_observations", &min_num_observations);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
@@ -174,18 +182,29 @@ int RunImageFilterer(int argc, char** argv) {
   const size_t num_reg_images = reconstruction.NumRegImages();
 
   ObservationManager(reconstruction)
-      .FilterImages(
+      .FilterFrames(
           min_focal_length_ratio, max_focal_length_ratio, max_extra_param);
 
-  std::vector<image_t> filtered_image_ids;
-  for (const auto& [image_id, image] : reconstruction.Images()) {
-    if (image.IsRegistered() && image.NumPoints3D() < min_num_observations) {
-      filtered_image_ids.push_back(image_id);
+  std::vector<frame_t> filtered_frame_ids;
+  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
+    if (!frame.HasPose()) {
+      filtered_frame_ids.push_back(frame_id);
+    }
+    bool enough_observations = false;
+    for (const data_t& data_id : frame.ImageIds()) {
+      const Image& image = reconstruction.Image(data_id.id);
+      if (image.NumPoints3D() >= min_num_observations) {
+        enough_observations = true;
+      }
+    }
+
+    if (!enough_observations) {
+      filtered_frame_ids.push_back(frame_id);
     }
   }
 
-  for (const auto image_id : filtered_image_ids) {
-    reconstruction.DeRegisterImage(image_id);
+  for (const auto frame_id : filtered_frame_ids) {
+    reconstruction.DeRegisterFrame(frame_id);
   }
 
   const size_t num_filtered_images =
@@ -218,7 +237,9 @@ int RunImageRectifier(int argc, char** argv) {
   options.AddDefaultOption("max_scale", &undistort_camera_options.max_scale);
   options.AddDefaultOption("max_image_size",
                            &undistort_camera_options.max_image_size);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
@@ -245,7 +266,9 @@ int RunImageRegistrator(int argc, char** argv) {
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddMapperOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   if (!ExistsDir(input_path)) {
     LOG(ERROR) << "`input_path` is not a directory";
@@ -264,12 +287,14 @@ int RunImageRegistrator(int argc, char** argv) {
   {
     Timer timer;
     timer.Start();
-    const size_t min_num_matches =
-        static_cast<size_t>(options.mapper->min_num_matches);
-    database_cache = DatabaseCache::Create(Database(*options.database_path),
-                                           min_num_matches,
-                                           options.mapper->ignore_watermarks,
-                                           options.mapper->image_names);
+    database_cache = DatabaseCache::Create(
+        *Database::Open(*options.database_path),
+        /*min_num_matches=*/
+        static_cast<size_t>(options.mapper->min_num_matches),
+        /*ignore_watermarks=*/options.mapper->ignore_watermarks,
+        /*image_names=*/
+        {options.mapper->image_names.begin(),
+         options.mapper->image_names.end()});
     timer.PrintMinutes();
   }
 
@@ -282,7 +307,7 @@ int RunImageRegistrator(int argc, char** argv) {
   const auto mapper_options = options.mapper->Mapper();
 
   for (const auto& image : reconstruction->Images()) {
-    if (image.second.IsRegistered()) {
+    if (image.second.HasPose()) {
       continue;
     }
 
@@ -337,7 +362,9 @@ int RunImageUndistorter(int argc, char** argv) {
   options.AddDefaultOption("roi_min_y", &undistort_camera_options.roi_min_y);
   options.AddDefaultOption("roi_max_x", &undistort_camera_options.roi_max_x);
   options.AddDefaultOption("roi_max_y", &undistort_camera_options.roi_max_y);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   CreateDirIfNotExists(output_path);
 
@@ -350,8 +377,7 @@ int RunImageUndistorter(int argc, char** argv) {
 
   std::vector<image_t> image_ids;
   if (!image_list_path.empty()) {
-    const auto& image_names = ReadTextFileLines(image_list_path);
-    for (const auto& image_name : image_names) {
+    for (const std::string& image_name : ReadTextFileLines(image_list_path)) {
       const Image* image = reconstruction.FindImageWithName(image_name);
       if (image != nullptr) {
         image_ids.push_back(image->ImageId());
@@ -425,7 +451,9 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
   options.AddDefaultOption("roi_min_y", &undistort_camera_options.roi_min_y);
   options.AddDefaultOption("roi_max_x", &undistort_camera_options.roi_max_x);
   options.AddDefaultOption("roi_max_y", &undistort_camera_options.roi_max_y);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   CreateDirIfNotExists(output_path);
 

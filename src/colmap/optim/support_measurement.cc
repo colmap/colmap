@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -60,6 +60,10 @@ bool InlierSupportMeasurer::IsLeftBetter(const Support& left,
            left.residual_sum < right.residual_sum;
   }
 }
+
+UniqueInlierSupportMeasurer::UniqueInlierSupportMeasurer(
+    std::vector<size_t> unique_sample_ids)
+    : unique_sample_ids_(std::move(unique_sample_ids)) {}
 
 UniqueInlierSupportMeasurer::Support UniqueInlierSupportMeasurer::Evaluate(
     const std::vector<double>& residuals, const double max_residual) {

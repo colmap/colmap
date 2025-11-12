@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,7 +29,10 @@
 
 #include "colmap/geometry/homography_matrix.h"
 
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/eigen_matchers.h"
+#include "colmap/util/logging.h"
 
 #include <cmath>
 
@@ -74,19 +77,20 @@ TEST(DecomposeHomographyMatrix, Nominal) {
         (cams2_from_cams1[i].translation - ref_translation).norm() < kEps &&
         (normals[i] - ref_normal).norm() < kEps) {
       ref_solution_exists = true;
+      break;
     }
   }
   EXPECT_TRUE(ref_solution_exists);
 }
 
 TEST(DecomposeHomographyMatrix, Random) {
-  const int numIters = 100;
+  constexpr int kNumIters = 100;
 
   const double epsilon = 1e-6;
 
   const Eigen::Matrix3d identity = Eigen::Matrix3d::Identity();
 
-  for (int i = 0; i < numIters; ++i) {
+  for (int i = 0; i < kNumIters; ++i) {
     const Eigen::Matrix3d H = Eigen::Matrix3d::Random();
 
     if (std::abs(H.determinant()) < epsilon) {
@@ -123,35 +127,40 @@ TEST(DecomposeHomographyMatrix, Random) {
 TEST(PoseFromHomographyMatrix, Nominal) {
   const Eigen::Matrix3d K1 = Eigen::Matrix3d::Identity();
   const Eigen::Matrix3d K2 = Eigen::Matrix3d::Identity();
-  const Eigen::Matrix3d ref_rotation = Eigen::Matrix3d::Identity();
+  const Eigen::Quaterniond ref_rotation =
+      Eigen::Quaterniond(1, 0.1, 0.2, 0.3).normalized();
   const Eigen::Vector3d ref_translation(1, 0, 0);
-  const Eigen::Vector3d ref_normal(-1, 0, 0);
-  const double d_ref = 1;
+  const Eigen::Vector3d ref_normal(0, 0, -1);
   const Eigen::Matrix3d H = HomographyMatrixFromPose(
-      K1, K2, ref_rotation, ref_translation, ref_normal, d_ref);
+      K1, K2, ref_rotation.matrix(), ref_translation, ref_normal, 1);
 
-  std::vector<Eigen::Vector2d> points1;
-  points1.emplace_back(0.1, 0.4);
-  points1.emplace_back(0.2, 0.3);
-  points1.emplace_back(0.3, 0.2);
-  points1.emplace_back(0.4, 0.1);
+  std::vector<Eigen::Vector3d> rays1;
+  rays1.push_back(Eigen::Vector3d(0.1, 0.1, 1).normalized());
+  rays1.push_back(Eigen::Vector3d(0.4, 0.1, 1).normalized());
+  rays1.push_back(Eigen::Vector3d(0.1, 0.4, 1).normalized());
+  rays1.push_back(Eigen::Vector3d(0.4, 0.4, 1).normalized());
+  rays1.push_back(Eigen::Vector3d(0.0, 0.0, 1).normalized());
 
-  std::vector<Eigen::Vector2d> points2;
-  for (const auto& point1 : points1) {
-    const Eigen::Vector3d point2 = H * point1.homogeneous();
-    points2.push_back(point2.hnormalized());
+  std::vector<Eigen::Vector3d> rays2;
+  for (const auto& ray1 : rays1) {
+    const Eigen::Vector3d ray2 = H * ray1;
+    CHECK_GT(ray2.z(), 0);
+    rays2.push_back(ray2.normalized());
   }
 
   Rigid3d cam2_from_cam1;
   Eigen::Vector3d normal;
   std::vector<Eigen::Vector3d> points3D;
   PoseFromHomographyMatrix(
-      H, K1, K2, points1, points2, &cam2_from_cam1, &normal, &points3D);
+      H, K1, K2, rays1, rays2, &cam2_from_cam1, &normal, &points3D);
 
-  EXPECT_EQ(cam2_from_cam1.rotation.toRotationMatrix(), ref_rotation);
-  EXPECT_EQ(cam2_from_cam1.translation, ref_translation);
-  EXPECT_EQ(normal, ref_normal);
-  EXPECT_EQ(points3D.size(), points1.size());
+  EXPECT_THAT(
+      Rigid3d(cam2_from_cam1.rotation, cam2_from_cam1.translation.normalized()),
+      Rigid3dNear(
+          Rigid3d(ref_rotation, ref_translation.normalized()), 1e-6, 1e-6));
+
+  EXPECT_THAT(normal, EigenMatrixNear(ref_normal, 1e-5));
+  EXPECT_EQ(points3D.size(), rays1.size());
 }
 
 TEST(HomographyMatrixFromPose, PureRotation) {
@@ -160,7 +169,7 @@ TEST(HomographyMatrixFromPose, PureRotation) {
   const Eigen::Matrix3d R = Eigen::Matrix3d::Identity();
   const Eigen::Vector3d t(0, 0, 0);
   const Eigen::Vector3d n(-1, 0, 0);
-  const double d = 1;
+  const double d = std::numeric_limits<double>::infinity();
   const Eigen::Matrix3d H = HomographyMatrixFromPose(K1, K2, R, t, n, d);
   EXPECT_EQ(H, Eigen::Matrix3d::Identity());
 }

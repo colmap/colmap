@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -32,7 +32,7 @@ if(IS_MSVC)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W3")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W3")
     # Avoid pulling in too many header files through <windows.h>
-    add_definitions("-DWIN32_LEAN_AND_MEAN")
+    add_compile_definitions(WIN32_LEAN_AND_MEAN)
 elseif(IS_GNU OR IS_CLANG)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
@@ -48,6 +48,11 @@ if(CUDA_ENABLED)
     # Suppress warnings:
     # ptxas warning : Stack size for entry function X cannot be statically determined.
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-suppress-stack-size-warning")
+endif()
+
+if(COVERAGE_ENABLED)
+    add_compile_options(-coverage -fprofile-update=atomic)
+    add_link_options(-coverage)
 endif()
 
 add_subdirectory(controllers)

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -110,7 +110,7 @@ void ConsistencyGraph::Write(const std::string& path) const {
   std::fstream binary_file(path,
                            std::ios::out | std::ios::binary | std::ios::app);
   THROW_CHECK_FILE_OPEN(binary_file, path);
-  WriteBinaryLittleEndian<int>(&binary_file, data_);
+  WriteBinaryLittleEndian<int>(&binary_file, {data_.data(), data_.size()});
   binary_file.close();
 }
 

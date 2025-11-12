@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -858,16 +858,16 @@ TEST(JobQueue, StopConsumer) {
 
   EXPECT_TRUE(job_queue.Push(0));
 
-  Barrier popBarrier;
-  std::thread consumer_thread([&job_queue, &popBarrier]() {
+  Barrier pop_barrier;
+  std::thread consumer_thread([&job_queue, &pop_barrier]() {
     const auto job = job_queue.Pop();
     CHECK(job.IsValid());
     CHECK_EQ(job.Data(), 0);
-    popBarrier.Wait();
+    pop_barrier.Wait();
     CHECK(!job_queue.Pop().IsValid());
   });
 
-  popBarrier.Wait();
+  pop_barrier.Wait();
   EXPECT_EQ(job_queue.Size(), 0);
 
   job_queue.Stop();

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,12 +30,10 @@
 #include "colmap/retrieval/vote_and_verify.h"
 
 #include "colmap/estimators/affine_transform.h"
-#include "colmap/math/math.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
-#include <array>
 #include <unordered_map>
 
 #include <Eigen/Geometry>
@@ -244,7 +242,7 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
 
   const float trans_norm = 1.0f / (2.0f * max_trans);
   const float scale_norm = 1.0f / (2.0f * max_log_scale);
-  const float angle_norm = 1.0f / (2.0f * static_cast<float>(M_PI));
+  const float angle_norm = 1.0f / (2.0f * static_cast<float>(EIGEN_PI));
 
   //////////////////////////////////////////////////////////////////////////////
   // Fill the multi-resolution voting histogram.
@@ -271,7 +269,7 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
     const float x = (T.tx + max_trans) * trans_norm;
     const float y = (T.ty + max_trans) * trans_norm;
     const float s = (log_scale + max_log_scale) * scale_norm;
-    const float a = (T.angle + static_cast<float>(M_PI)) * angle_norm;
+    const float a = (T.angle + static_cast<float>(EIGEN_PI)) * angle_norm;
 
     int n_x = std::min(static_cast<int>(x * options.num_trans_bins),
                        static_cast<int>(options.num_trans_bins - 1));
@@ -406,15 +404,14 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
     }
 
     // Local optimization on matching inlier points.
-    std::vector<Eigen::Matrix<double, 2, 3>> models;
+    std::vector<Eigen::Matrix2x3d> models;
     AffineTransformEstimator::Estimate(
         best_inlier_points1, best_inlier_points2, &models);
     THROW_CHECK_EQ(models.size(), 1);
-    const Eigen::Matrix<double, 2, 3>& A = models[0];
+    const Eigen::Matrix2x3d& A = models[0];
     Eigen::Matrix3d A_homogeneous = Eigen::Matrix3d::Identity();
     A_homogeneous.topRows<2>() = A;
-    const Eigen::Matrix<double, 2, 3> inv_A =
-        A_homogeneous.inverse().topRows<2>();
+    const Eigen::Matrix2x3d inv_A = A_homogeneous.inverse().topRows<2>();
 
     TwoWayTransform local_tform;
     local_tform.A12 = A.leftCols<2>().cast<float>();

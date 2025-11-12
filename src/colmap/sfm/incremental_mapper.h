@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -62,6 +62,7 @@ namespace colmap {
 //
 class IncrementalMapper {
  public:
+  // NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding)
   struct Options {
     // Minimum number of inliers for initial image pair.
     int init_min_num_inliers = 100;
@@ -95,10 +96,23 @@ class IncrementalMapper {
     bool abs_pose_refine_extra_params = true;
 
     // Number of images to optimize in local bundle adjustment.
-    int local_ba_num_images = 6;
+    int ba_local_num_images = 6;
 
     // Minimum triangulation for images to be chosen in local bundle adjustment.
-    double local_ba_min_tri_angle = 6;
+    double ba_local_min_tri_angle = 6;
+
+    // Whether to ignore redundant 3D points in bundle adjustment when
+    // jointly optimizing all parameters. If this is enabled, then the bundle
+    // adjustment problem is first solved with a reduced set of 3D points and
+    // then the remaining 3D points are optimized in a second step with all
+    // other parameters fixed. Points excplicitly configured as constant or
+    // variable are not ignored. This is only activated when the reconstruction
+    // has reached sufficient size with at least 10 registered frames.
+    bool ba_global_ignore_redundant_points3D = false;
+
+    // The minimum coverage gain for any 3D point to be included in global
+    // bundle adjustment. A larger value means more 3D points are pruned.
+    double ba_global_ignore_redundant_points3D_min_coverage_gain = 0.05;
 
     // Thresholds for bogus camera parameters. Images with bogus camera
     // parameters are filtered and ignored in triangulation.
@@ -116,7 +130,15 @@ class IncrementalMapper {
     int max_reg_trials = 3;
 
     // If reconstruction is provided as input, fix the existing image poses.
-    bool fix_existing_images = false;
+    bool fix_existing_frames = false;
+
+    // List of rigs for which to fix the sensor_from_rig transformation,
+    // independent of ba_refine_sensor_from_rig.
+    std::unordered_set<rig_t> constant_rigs;
+
+    // List of cameras for which to fix the camera parameters independent
+    // of refine_focal_length, refine_principal_point, and refine_extra_params.
+    std::unordered_set<camera_t> constant_cameras;
 
     // Whether to use prior camera positions
     bool use_prior_position = false;
@@ -130,6 +152,9 @@ class IncrementalMapper {
 
     // Number of threads.
     int num_threads = -1;
+
+    // PRNG seed for all stochastic methods during reconstruction.
+    int random_seed = -1;
 
     // Method to find and select next best image to register.
     enum class ImageSelectionMethod {
@@ -170,9 +195,9 @@ class IncrementalMapper {
   // pairs should be passed to `RegisterInitialImagePair`. This function
   // automatically ignores image pairs that failed to register previously.
   bool FindInitialImagePair(const Options& options,
-                            TwoViewGeometry& two_view_geometry,
                             image_t& image_id1,
-                            image_t& image_id2);
+                            image_t& image_id2,
+                            Rigid3d& cam2_from_cam1);
 
   // Find best next image to register in the incremental reconstruction. The
   // images should be passed to `RegisterNextImage` and
@@ -183,9 +208,9 @@ class IncrementalMapper {
 
   // Attempt to seed the reconstruction from an image pair.
   void RegisterInitialImagePair(const Options& options,
-                                const TwoViewGeometry& two_view_geometry,
                                 image_t image_id1,
-                                image_t image_id2);
+                                image_t image_id2,
+                                const Rigid3d& cam2_from_cam1);
 
   // Attempt to register image to the existing model. This requires that
   // a previous call to `RegisterInitialImagePair` was successful.
@@ -256,17 +281,23 @@ class IncrementalMapper {
       const IncrementalTriangulator::Options& tri_options,
       bool normalize_reconstruction = true);
 
-  // Filter images and point observations.
-  size_t FilterImages(const Options& options);
+  // Filter frames and point observations.
+  size_t FilterFrames(const Options& options);
   size_t FilterPoints(const Options& options);
 
   // Getter functions
   std::shared_ptr<class Reconstruction> Reconstruction() const;
   class ObservationManager& ObservationManager() const;
   IncrementalTriangulator& Triangulator() const;
-  const std::unordered_set<image_t>& FilteredImages() const;
-  const std::unordered_set<image_t>& ExistingImageIds() const;
+  const std::unordered_set<frame_t>& FilteredFrames() const;
+  const std::unordered_set<frame_t>& ExistingFrameIds() const;
+  const std::unordered_map<rig_t, size_t>& NumRegFramesPerRig() const;
   const std::unordered_map<camera_t, size_t>& NumRegImagesPerCamera() const;
+
+  // Reset registration statistics for initialization. This can be used when
+  // relaxing the initialization thresholds, such that previously tried pairs
+  // will be tried again.
+  void ResetInitializationStats();
 
   // Number of images that are registered in at least on reconstruction.
   size_t NumTotalRegImages() const;
@@ -283,9 +314,9 @@ class IncrementalMapper {
 
   // Estimate two view geometry and checks if it is suitable for initialization.
   bool EstimateInitialTwoViewGeometry(const Options& options,
-                                      TwoViewGeometry& two_view_geometry,
                                       image_t image_id1,
-                                      image_t image_id2);
+                                      image_t image_id2,
+                                      Rigid3d& cam2_from_cam1);
 
   // Find local bundle for given image in the reconstruction. The local bundle
   // is defined as the images that are most connected, i.e. maximum number of
@@ -294,22 +325,41 @@ class IncrementalMapper {
                                        image_t image_id) const;
 
  private:
-  // Find seed images for incremental reconstruction. Suitable seed images have
-  // a large number of correspondences and have camera calibration priors. The
-  // returned list is ordered such that most suitable images are in the front.
-  std::vector<image_t> FindFirstInitialImage(const Options& options) const;
+  struct RegistrationStatistics {
+    // Number of images that are registered in at least one reconstruction.
+    size_t num_total_reg_images = 0;
 
-  // For a given first seed image, find other images that are connected to the
-  // first image. Suitable second images have a large number of correspondences
-  // to the first image and have camera calibration priors. The returned list is
-  // ordered such that most suitable images are in the front.
-  std::vector<image_t> FindSecondInitialImage(const Options& options,
-                                              image_t image_id1) const;
+    // Number of shared images between current reconstruction and all other
+    // previous reconstructions.
+    size_t num_shared_reg_images = 0;
 
-  // Register / De-register image in current reconstruction and update
-  // the number of shared images between all reconstructions.
-  void RegisterImageEvent(image_t image_id);
-  void DeRegisterImageEvent(image_t image_id);
+    // Images and image pairs that have been used for initialization. Each image
+    // and image pair is only tried once for initialization.
+    std::unordered_map<image_t, size_t> init_num_reg_trials;
+    std::unordered_set<image_pair_t> init_image_pairs;
+
+    // The number of registered frames/images per rig/camera. This information
+    // is used to avoid duplicate refinement of rig/camera parameters and
+    // degradation of already refined rig/camera parameters in local bundle
+    // adjustment when multiple frames share rigs or images share intrinsics.
+    std::unordered_map<rig_t, size_t> num_reg_frames_per_rig;
+    std::unordered_map<camera_t, size_t> num_reg_images_per_camera;
+
+    // The number of reconstructions in which images are registered.
+    std::unordered_map<image_t, size_t> num_registrations;
+
+    // Number of trials to register image in current reconstruction. Used to set
+    // an upper bound to the number of trials to register an image.
+    std::unordered_map<image_t, size_t> num_reg_trials;
+  };
+
+  // Registers a frame using generalized absolute pose estimation.
+  bool RegisterNextGeneralFrame(const Options& options, Frame& frame);
+
+  // Register / De-register frame in current reconstruction and update
+  // the (shared) registration statistics.
+  void RegisterFrameEvent(frame_t frame_id);
+  void DeRegisterFrameEvent(frame_t frame_id);
 
   // Class that holds all necessary data from database in memory.
   const std::shared_ptr<const DatabaseCache> database_cache_;
@@ -323,38 +373,16 @@ class IncrementalMapper {
   // Class that is responsible for incremental triangulation.
   std::shared_ptr<IncrementalTriangulator> triangulator_;
 
-  // Number of images that are registered in at least on reconstruction.
-  size_t num_total_reg_images_;
+  // Statistics
+  RegistrationStatistics reg_stats_;
 
-  // Number of shared images between current reconstruction and all other
-  // previous reconstructions.
-  size_t num_shared_reg_images_;
+  // Frames that have been filtered in current reconstruction.
+  std::unordered_set<frame_t> filtered_frames_;
 
-  // Images and image pairs that have been used for initialization. Each image
-  // and image pair is only tried once for initialization.
-  std::unordered_map<image_t, size_t> init_num_reg_trials_;
-  std::unordered_set<image_pair_t> init_image_pairs_;
-
-  // The number of registered images per camera. This information is used
-  // to avoid duplicate refinement of camera parameters and degradation of
-  // already refined camera parameters in local bundle adjustment when multiple
-  // images share intrinsics.
-  std::unordered_map<camera_t, size_t> num_reg_images_per_camera_;
-
-  // The number of reconstructions in which images are registered.
-  std::unordered_map<image_t, size_t> num_registrations_;
-
-  // Images that have been filtered in current reconstruction.
-  std::unordered_set<image_t> filtered_images_;
-
-  // Number of trials to register image in current reconstruction. Used to set
-  // an upper bound to the number of trials to register an image.
-  std::unordered_map<image_t, size_t> num_reg_trials_;
-
-  // Images that were registered before beginning the reconstruction.
-  // This image list will be non-empty, if the reconstruction is continued from
+  // Frames that were registered before beginning the reconstruction.
+  // This frame list will be non-empty, if the reconstruction is continued from
   // an existing reconstruction.
-  std::unordered_set<image_t> existing_image_ids_;
+  std::unordered_set<frame_t> existing_frame_ids_;
 };
 
 }  // namespace colmap

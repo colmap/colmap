@@ -18,7 +18,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindAlignmentEstimator(py::module& m) {
-  py::class_<ImageAlignmentError>(m, "ImageAlignmentError")
+  py::classh<ImageAlignmentError>(m, "ImageAlignmentError")
       .def(py::init<>())
       .def_readwrite("image_name", &ImageAlignmentError::image_name)
       .def_readwrite("rotation_error_deg",
@@ -92,14 +92,14 @@ void BindAlignmentEstimator(py::module& m) {
   m.def(
       "align_reconstruction_to_locations",
       [](const Reconstruction& src,
-         const std::vector<std::string>& image_names,
-         const std::vector<Eigen::Vector3d>& locations,
+         const std::vector<std::string>& tgt_image_names,
+         const std::vector<Eigen::Vector3d>& tgt_locations,
          const int min_common_images,
          const RANSACOptions& ransac_options) -> py::typing::Optional<Sim3d> {
         Sim3d locations_from_src;
         if (!AlignReconstructionToLocations(src,
-                                            image_names,
-                                            locations,
+                                            tgt_image_names,
+                                            tgt_locations,
                                             min_common_images,
                                             ransac_options,
                                             &locations_from_src)) {
@@ -108,9 +108,9 @@ void BindAlignmentEstimator(py::module& m) {
         return py::cast(locations_from_src);
       },
       "src"_a,
-      "image_names"_a,
-      "locations"_a,
-      "min_common_points"_a,
+      "tgt_image_names"_a,
+      "tgt_locations"_a,
+      "min_common_images"_a,
       "ransac_options"_a);
 
   m.def(
@@ -142,4 +142,9 @@ void BindAlignmentEstimator(py::module& m) {
       "min_inlier_observations"_a = 0.3,
       "max_reproj_error"_a = 8.0,
       "max_proj_center_error"_a = 0.1);
+
+  m.def("align_reconstruction_to_orig_rig_scales",
+        &AlignReconstructionToOrigRigScales,
+        "orig_rigs"_a,
+        "reconstruction"_a);
 }

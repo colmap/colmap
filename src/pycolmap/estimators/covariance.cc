@@ -1,5 +1,6 @@
 #include "colmap/estimators/covariance.h"
 
+#include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 
 #include <pybind11/eigen.h>
@@ -27,176 +28,141 @@ std::vector<const double*> ConvertListOfPyArraysToConstPointers(
 }  // namespace
 
 void BindCovarianceEstimator(py::module& m) {
-  m.def(
-      "estimate_pose_covariance_from_ba_ceres_backend",
-      [](ceres::Problem* problem,
-         Reconstruction* reconstruction) -> py::typing::Optional<py::dict> {
-        std::map<image_t, Eigen::MatrixXd> image_id_to_covar;
-        if (!EstimatePoseCovarianceCeresBackend(
-                problem, reconstruction, image_id_to_covar))
-          return py::none();
-        return py::cast(image_id_to_covar);
-      },
-      py::arg("problem"),
-      py::arg("reconstruction"));
+  auto PyBACovarianceOptionsParams =
+      py::enum_<BACovarianceOptions::Params>(m, "BACovarianceOptionsParams")
+          .value("POSES", BACovarianceOptions::Params::POSES)
+          .value("POINTS", BACovarianceOptions::Params::POINTS)
+          .value("POSES_AND_POINTS",
+                 BACovarianceOptions::Params::POSES_AND_POINTS)
+          .value("ALL", BACovarianceOptions::Params::ALL);
+  AddStringToEnumConstructor(PyBACovarianceOptionsParams);
 
-  m.def(
-      "estimate_pose_covariance_from_ba",
-      [](ceres::Problem* problem,
-         Reconstruction* reconstruction,
-         double damping) -> py::typing::Optional<py::dict> {
-        std::map<image_t, Eigen::MatrixXd> image_id_to_covar;
-        if (!EstimatePoseCovariance(
-                problem, reconstruction, image_id_to_covar, damping))
-          return py::none();
-        return py::cast(image_id_to_covar);
-      },
-      py::arg("problem"),
-      py::arg("reconstruction"),
-      py::arg("damping") = 1e-8);
-
-  using EstimatorBase = BundleAdjustmentCovarianceEstimatorBase;
-  py::class_<EstimatorBase>(m, "BundleAdjustmentCovarianceEstimatorBase")
-      .def(
-          "set_pose_blocks",
-          [](EstimatorBase& self, std::vector<py::array_t<double>>& pyarrays) {
-            std::vector<const double*> blocks =
-                ConvertListOfPyArraysToConstPointers(pyarrays);
-            return self.SetPoseBlocks(blocks);
+  py::classh<internal::PoseParam> PyExperimentalPoseParam(
+      m, "ExperimentalPoseParam");
+  PyExperimentalPoseParam.def(py::init<>())
+      .def_readwrite("image_id", &internal::PoseParam::image_id)
+      .def_property(
+          "qvec",
+          [](internal::PoseParam& self)
+              -> py::typing::Optional<py::array_t<double>> {
+            if (!self.qvec)
+              return py::none();
+            else
+              return py::array_t<double>(4, self.qvec);
           },
-          py::arg("pose_blocks"))
-      .def("has_block", &EstimatorBase::HasBlock, py::arg("parameter_block"))
-      .def("has_pose_block",
-           &EstimatorBase::HasPoseBlock,
-           py::arg("parameter_block"))
-      .def("has_reconstruction", &EstimatorBase::HasReconstruction)
-      .def("has_pose", &EstimatorBase::HasPose, py::arg("image_id"))
-      .def("compute", &EstimatorBase::Compute)
-      .def("compute_full", &EstimatorBase::ComputeFull)
-      .def("get_pose_covariance",
-           py::overload_cast<>(&EstimatorBase::GetPoseCovariance, py::const_))
-      .def("get_pose_covariance",
-           py::overload_cast<image_t>(&EstimatorBase::GetPoseCovariance,
-                                      py::const_),
-           py::arg("image_id"))
-      .def("get_pose_covariance",
-           py::overload_cast<const std::vector<image_t>&>(
-               &EstimatorBase::GetPoseCovariance, py::const_),
-           py::arg("image_ids"))
-      .def("get_pose_covariance",
-           py::overload_cast<image_t, image_t>(
-               &EstimatorBase::GetPoseCovariance, py::const_),
-           py::arg("image_id1"),
-           py::arg("image_id2"))
-      .def(
-          "get_pose_covariance",
-          [](EstimatorBase& self, py::array_t<double>& pyarray) {
+          [](internal::PoseParam& self, py::array_t<double> pyarray) {
+            THROW_CHECK_EQ(pyarray.ndim(), 1);
+            THROW_CHECK_EQ(pyarray.size(), 4);
             py::buffer_info info = pyarray.request();
-            return self.GetPoseCovariance((double*)info.ptr);
+            self.qvec = (double*)info.ptr;
+          })
+      .def_property(
+          "tvec",
+          [](internal::PoseParam& self)
+              -> py::typing::Optional<py::array_t<double>> {
+            if (!self.tvec)
+              return py::none();
+            else
+              return py::array_t<double>(3, self.tvec);
           },
-          py::arg("paramter_block"))
-      .def(
-          "get_pose_covariance",
-          [](EstimatorBase& self, std::vector<py::array_t<double>>& pyarrays) {
-            std::vector<double*> blocks;
-            for (auto it = pyarrays.begin(); it != pyarrays.end(); ++it) {
-              py::buffer_info info = it->request();
-              blocks.push_back((double*)info.ptr);
-            }
-            return self.GetPoseCovariance(blocks);
-          },
-          py::arg("parameter_blocks"))
-      .def(
-          "get_pose_covariance",
-          [](EstimatorBase& self,
-             py::array_t<double>& pyarray1,
-             py::array_t<double>& pyarray2) {
-            py::buffer_info info1 = pyarray1.request();
-            py::buffer_info info2 = pyarray2.request();
-            return self.GetPoseCovariance((double*)info1.ptr,
-                                          (double*)info2.ptr);
-          },
-          py::arg("parameter_block1"),
-          py::arg("parameter_block2"))
-
-      .def(
-          "get_covariance",
-          [](EstimatorBase& self, py::array_t<double>& pyarray) {
+          [](internal::PoseParam& self, py::array_t<double> pyarray) {
+            THROW_CHECK_EQ(pyarray.ndim(), 1);
+            THROW_CHECK_EQ(pyarray.size(), 3);
             py::buffer_info info = pyarray.request();
-            return self.GetCovariance((double*)info.ptr);
-          },
-          py::arg("paramter_block"))
-      .def(
-          "get_covariance",
-          [](EstimatorBase& self, std::vector<py::array_t<double>>& pyarrays) {
-            std::vector<double*> blocks;
-            for (auto it = pyarrays.begin(); it != pyarrays.end(); ++it) {
-              py::buffer_info info = it->request();
-              blocks.push_back((double*)info.ptr);
-            }
-            return self.GetCovariance(blocks);
-          },
-          py::arg("parameter_blocks"))
-      .def(
-          "get_covariance",
-          [](EstimatorBase& self,
-             py::array_t<double>& pyarray1,
-             py::array_t<double>& pyarray2) {
-            py::buffer_info info1 = pyarray1.request();
-            py::buffer_info info2 = pyarray2.request();
-            return self.GetCovariance((double*)info1.ptr, (double*)info2.ptr);
-          },
-          py::arg("parameter_block1"),
-          py::arg("parameter_block2"))
-      .def("has_valid_pose_covariance", &EstimatorBase::HasValidPoseCovariance)
-      .def("has_valid_full_covariance", &EstimatorBase::HasValidFullCovariance);
+            self.tvec = (double*)info.ptr;
+          });
+  MakeDataclass(PyExperimentalPoseParam);
 
-  py::class_<BundleAdjustmentCovarianceEstimatorCeresBackend, EstimatorBase>(
-      m, "BundleAdjustmentCovarianceEstimatorCeresBackend")
-      .def(py::init<ceres::Problem*, Reconstruction*>(),
-           py::arg("problem"),
-           py::arg("reconstruction"))
-      .def(
-          py::init([](ceres::Problem* problem,
-                      std::vector<py::array_t<double>>& pose_blocks_pyarrays,
-                      std::vector<py::array_t<double>>& point_blocks_pyarrays) {
-            std::vector<const double*> pose_blocks =
-                ConvertListOfPyArraysToConstPointers(pose_blocks_pyarrays);
-            std::vector<const double*> point_blocks =
-                ConvertListOfPyArraysToConstPointers(point_blocks_pyarrays);
-            return new BundleAdjustmentCovarianceEstimatorCeresBackend(
-                problem, pose_blocks, point_blocks);
-          }),
-          py::arg("problem"),
-          py::arg("pose_blocks"),
-          py::arg("point_blocks"));
+  py::classh<BACovarianceOptions> PyBACovarianceOptions(m,
+                                                        "BACovarianceOptions");
+  PyBACovarianceOptions.def(py::init<>())
+      .def_readwrite("params",
+                     &BACovarianceOptions::params,
+                     "For which parameters to compute the covariance.")
+      .def_readwrite(
+          "damping",
+          &BACovarianceOptions::damping,
+          "Damping factor for the Hessian in the Schur complement solver. "
+          "Enables to robustly deal with poorly conditioned parameters.")
+      .def_readwrite(
+          "experimental_custom_poses",
+          &BACovarianceOptions::experimental_custom_poses,
+          "WARNING: This option will be removed in a future release, use at "
+          "your own risk. For custom bundle adjustment problems, this enables "
+          "to specify a custom set of pose parameter blocks to consider. Note "
+          "that these pose blocks must not necessarily be part of the "
+          "reconstruction but they must follow the standard requirement for "
+          "applying the Schur complement trick.");
+  MakeDataclass(PyBACovarianceOptions);
 
-  py::class_<BundleAdjustmentCovarianceEstimator, EstimatorBase>(
-      m, "BundleAdjustmentCovarianceEstimator")
-      .def(py::init<ceres::Problem*, Reconstruction*, double>(),
-           py::arg("problem"),
-           py::arg("reconstruction"),
-           py::arg("damping") = 1e-8)
-      .def(py::init([](ceres::Problem* problem,
-                       std::vector<py::array_t<double>>& pose_blocks_pyarrays,
-                       std::vector<py::array_t<double>>& point_blocks_pyarrays,
-                       const double damping) {
-             std::vector<const double*> pose_blocks =
-                 ConvertListOfPyArraysToConstPointers(pose_blocks_pyarrays);
-             std::vector<const double*> point_blocks =
-                 ConvertListOfPyArraysToConstPointers(point_blocks_pyarrays);
-             return new BundleAdjustmentCovarianceEstimator(
-                 problem, pose_blocks, point_blocks, damping);
-           }),
-           py::arg("problem"),
-           py::arg("pose_blocks"),
-           py::arg("point_blocks"),
-           py::arg("damping") = 1e-8)
-      .def("factorize_full",
-           &BundleAdjustmentCovarianceEstimator::FactorizeFull)
-      .def("factorize", &BundleAdjustmentCovarianceEstimator::Factorize)
-      .def("has_valid_full_factorization",
-           &BundleAdjustmentCovarianceEstimator::HasValidFullFactorization)
-      .def("has_valid_pose_factorization",
-           &BundleAdjustmentCovarianceEstimator::HasValidPoseFactorization);
+  py::classh<BACovariance>(m, "BACovariance")
+      .def("get_point_cov",
+           &BACovariance::GetPointCov,
+           "point3D_id"_a,
+           "Covariance for 3D points, conditioned on all other variables set "
+           "constant. If some dimensions are kept constant, the respective "
+           "rows/columns are omitted. Returns null if 3D point not a variable "
+           "in the problem.")
+      .def("get_cam_cov_from_world",
+           &BACovariance::GetCamCovFromWorld,
+           "image_id"_a,
+           "Tangent space covariance in the order [rotation, translation]. If "
+           "some dimensions are kept constant, the respective rows/columns are "
+           "omitted. Returns null if image is not a variable in the problem.")
+      .def("get_cam_cross_cov_from_world",
+           &BACovariance::GetCamCrossCovFromWorld,
+           "image_id1"_a,
+           "image_id2"_a,
+           "Tangent space covariance in the order [rotation, translation]. If "
+           "some dimensions are kept constant, the respective rows/columns are "
+           "omitted. Returns null if image is not a variable in the problem.")
+      .def("get_cam2_cov_from_cam1",
+           &BACovariance::GetCam2CovFromCam1,
+           "image_id1"_a,
+           "cam1_from_world"_a,
+           "image_id2"_a,
+           "cam2_from_world"_a,
+           "Get relative pose covariance in the order [rotation, translation]. "
+           "This function returns null if some dimensions are kept constant "
+           "for either of the two poses. This does not mean that one cannot "
+           "get relative pose covariance for such case, but requires custom "
+           "logic to fill in zero block in the covariance matrix.")
+      .def(
+          "get_other_params_cov",
+          [](BACovariance& self, py::array_t<double>& pyarray) {
+            THROW_CHECK_EQ(pyarray.ndim(), 1);
+            py::buffer_info info = pyarray.request();
+            return self.GetOtherParamsCov((double*)info.ptr);
+          },
+          "param"_a,
+          "Tangent space covariance for any variable parameter block in the "
+          "problem. If some dimensions are kept constant, the respective "
+          "rows/columns are omitted. Returns null if parameter block not a "
+          "variable in the problem.");
+
+  m.def(
+      "estimate_ba_covariance_from_problem",
+      &EstimateBACovarianceFromProblem,
+      "options"_a,
+      "reconstruction"_a,
+      "problem"_a,
+      "Computes covariances for the parameters in a bundle adjustment "
+      "problem. It is important that the problem has a structure suitable for "
+      "solving using the Schur complement trick. This is the case for the "
+      "standard configuration of bundle adjustment problems, but be careful "
+      "if you modify the underlying problem with custom residuals. Returns "
+      "null if the estimation was not successful.");
+
+  m.def(
+      "estimate_ba_covariance",
+      &EstimateBACovariance,
+      "options"_a,
+      "reconstruction"_a,
+      "bundle_adjuster"_a,
+      "Computes covariances for the parameters in a bundle adjustment "
+      "problem. It is important that the problem has a structure suitable for "
+      "solving using the Schur complement trick. This is the case for the "
+      "standard configuration of bundle adjustment problems, but be careful "
+      "if you modify the underlying problem with custom residuals. Returns "
+      "null if the estimation was not successful.");
 }

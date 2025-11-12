@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -316,7 +316,6 @@ DenseReconstructionWidget::DenseReconstructionWidget(MainWindow* main_window,
   grid->setColumnStretch(4, 1);
 
   image_viewer_widget_ = new ImageViewerWidget(this);
-  image_viewer_widget_->setWindowModality(Qt::ApplicationModal);
 
   refresh_workspace_action_ = new QAction(this);
   connect(refresh_workspace_action_,
@@ -356,7 +355,7 @@ void DenseReconstructionWidget::Undistort() {
     return;
   }
 
-  if (reconstruction_ == nullptr || reconstruction_->NumRegImages() < 2) {
+  if (reconstruction_ == nullptr || reconstruction_->NumRegFrames() < 2) {
     QMessageBox::critical(
         this, "", tr("No reconstruction selected in main window"));
     return;

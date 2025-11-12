@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -35,9 +35,7 @@
 #include "colmap/estimators/essential_matrix.h"
 #include "colmap/estimators/manifold.h"
 #include "colmap/geometry/essential_matrix.h"
-#include "colmap/geometry/pose.h"
-#include "colmap/geometry/triangulation.h"
-#include "colmap/sensor/models.h"
+#include "colmap/optim/loransac.h"
 #include "colmap/util/logging.h"
 
 namespace colmap {
@@ -55,35 +53,50 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
   *num_inliers = 0;
   inlier_mask->clear();
 
-  std::vector<Eigen::Vector2d> points2D_normalized(points2D.size());
-  for (size_t i = 0; i < points2D.size(); ++i) {
-    points2D_normalized[i] = camera->CamFromImg(points2D[i]);
-  }
-
-  auto custom_ransac_options = options.ransac_options;
-  custom_ransac_options.max_error =
-      camera->CamFromImgThreshold(options.ransac_options.max_error);
-
   if (options.estimate_focal_length) {
     // TODO(jsch): Implement non-minimal solver for LORANSAC refinement.
     // Experiments showed marginal difference between RANSAC/LORANSAC for PNPF
     // after refining the estimates of this function using RefineAbsolutePose.
-    RANSAC<P4PFEstimator> ransac(custom_ransac_options);
-    auto report = ransac.Estimate(points2D_normalized, points3D);
+    const Eigen::Vector2d principal_point(camera->PrincipalPointX(),
+                                          camera->PrincipalPointY());
+    std::vector<Eigen::Vector2d> points2D_centered(points2D.size());
+    for (size_t i = 0; i < points2D.size(); ++i) {
+      points2D_centered[i] = points2D[i] - principal_point;
+    }
+    RANSAC<P4PFEstimator> ransac(options.ransac_options);
+    auto report = ransac.Estimate(points2D_centered, points3D);
     if (report.success) {
       *cam_from_world =
           Rigid3d(Eigen::Quaterniond(report.model.cam_from_world.leftCols<3>()),
                   report.model.cam_from_world.col(3));
       for (const size_t idx : camera->FocalLengthIdxs()) {
-        camera->params[idx] *= report.model.focal_length;
+        camera->params[idx] = report.model.focal_length;
       }
       *num_inliers = report.support.num_inliers;
       *inlier_mask = std::move(report.inlier_mask);
       return true;
     }
   } else {
-    LORANSAC<P3PEstimator, EPNPEstimator> ransac(custom_ransac_options);
-    auto report = ransac.Estimate(points2D_normalized, points3D);
+    std::vector<P3PEstimator::X_t> points2D_with_rays(points2D.size());
+    for (size_t i = 0; i < points2D.size(); ++i) {
+      points2D_with_rays[i].image_point = points2D[i];
+      if (const std::optional<Eigen::Vector2d> cam_point =
+              camera->CamFromImg(points2D[i]);
+          cam_point) {
+        points2D_with_rays[i].camera_ray =
+            cam_point->homogeneous().normalized();
+      } else {
+        points2D_with_rays[i].camera_ray.setZero();
+      }
+    }
+
+    ImgFromCamFunc img_from_cam_func =
+        std::bind(&Camera::ImgFromCam, camera, std::placeholders::_1);
+    LORANSAC<P3PEstimator, EPNPEstimator> ransac(
+        options.ransac_options,
+        P3PEstimator(img_from_cam_func),
+        EPNPEstimator(img_from_cam_func));
+    auto report = ransac.Estimate(points2D_with_rays, points3D);
     if (report.success) {
       *cam_from_world = Rigid3d(Eigen::Quaterniond(report.model.leftCols<3>()),
                                 report.model.col(3));
@@ -152,39 +165,50 @@ bool EstimateStructureLessAbsolutePose(
   return true;
 }
 
-size_t EstimateRelativePose(const RANSACOptions& ransac_options,
-                            const std::vector<Eigen::Vector2d>& points1,
-                            const std::vector<Eigen::Vector2d>& points2,
-                            Rigid3d* cam2_from_cam1) {
-  RANSAC<EssentialMatrixFivePointEstimator> ransac(ransac_options);
-  const auto report = ransac.Estimate(points1, points2);
+bool EstimateRelativePose(const RANSACOptions& ransac_options,
+                          const std::vector<Eigen::Vector3d>& cam_rays1,
+                          const std::vector<Eigen::Vector3d>& cam_rays2,
+                          Rigid3d* cam2_from_cam1,
+                          size_t* num_inliers,
+                          std::vector<char>* inlier_mask) {
+  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
+
+  LORANSAC<EssentialMatrixFivePointEstimator, EssentialMatrixFivePointEstimator>
+      ransac(ransac_options);
+  auto report = ransac.Estimate(cam_rays1, cam_rays2);
 
   if (!report.success) {
-    return 0;
+    return false;
   }
 
-  std::vector<Eigen::Vector2d> inliers1(report.support.num_inliers);
-  std::vector<Eigen::Vector2d> inliers2(report.support.num_inliers);
+  std::vector<Eigen::Vector3d> inlier_cam_rays1(report.support.num_inliers);
+  std::vector<Eigen::Vector3d> inlier_cam_rays2(report.support.num_inliers);
 
   size_t j = 0;
-  for (size_t i = 0; i < points1.size(); ++i) {
+  for (size_t i = 0; i < cam_rays1.size(); ++i) {
     if (report.inlier_mask[i]) {
-      inliers1[j] = points1[i];
-      inliers2[j] = points2[i];
+      inlier_cam_rays1[j] = cam_rays1[i];
+      inlier_cam_rays2[j] = cam_rays2[i];
       j += 1;
     }
   }
 
   std::vector<Eigen::Vector3d> points3D;
-  PoseFromEssentialMatrix(
-      report.model, inliers1, inliers2, cam2_from_cam1, &points3D);
+  PoseFromEssentialMatrix(report.model,
+                          inlier_cam_rays1,
+                          inlier_cam_rays2,
+                          cam2_from_cam1,
+                          &points3D);
 
   if (cam2_from_cam1->rotation.coeffs().array().isNaN().any() ||
       cam2_from_cam1->translation.array().isNaN().any()) {
-    return 0;
+    return false;
   }
 
-  return points3D.size();
+  *num_inliers = report.support.num_inliers;
+  *inlier_mask = std::move(report.inlier_mask);
+
+  return !points3D.empty();
 }
 
 bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
@@ -218,7 +242,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
       continue;
     }
     problem.AddResidualBlock(
-        CameraCostFunction<ReprojErrorConstantPoint3DCostFunctor>(
+        CreateCameraCostFunction<ReprojErrorConstantPoint3DCostFunctor>(
             camera->model_id, points2D[i], points3D[i]),
         loss_function.get(),
         cam_from_world_rotation,
@@ -308,10 +332,12 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 }
 
 bool RefineRelativePose(const ceres::Solver::Options& options,
-                        const std::vector<Eigen::Vector2d>& points1,
-                        const std::vector<Eigen::Vector2d>& points2,
+                        const std::vector<char>& inlier_mask,
+                        const std::vector<Eigen::Vector3d>& cam_rays1,
+                        const std::vector<Eigen::Vector3d>& cam_rays2,
                         Rigid3d* cam2_from_cam1) {
-  THROW_CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
+  THROW_CHECK_EQ(cam_rays1.size(), inlier_mask.size());
 
   // CostFunction assumes unit quaternions.
   cam2_from_cam1->rotation.normalize();
@@ -319,16 +345,22 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
   double* cam2_from_cam1_rotation = cam2_from_cam1->rotation.coeffs().data();
   double* cam2_from_cam1_translation = cam2_from_cam1->translation.data();
 
-  const double kMaxL2Error = 1.0;
-  ceres::LossFunction* loss_function = new ceres::CauchyLoss(kMaxL2Error);
+  constexpr double kMaxL2Error = 1.0;
+  const auto loss_function = std::make_unique<ceres::CauchyLoss>(kMaxL2Error);
 
-  ceres::Problem problem;
+  ceres::Problem::Options problem_options;
+  problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
+  ceres::Problem problem(problem_options);
 
-  for (size_t i = 0; i < points1.size(); ++i) {
+  for (size_t i = 0; i < cam_rays1.size(); ++i) {
+    // Skip outlier observations
+    if (!inlier_mask[i]) {
+      continue;
+    }
     ceres::CostFunction* cost_function =
-        SampsonErrorCostFunctor::Create(points1[i], points2[i]);
+        SampsonErrorCostFunctor::Create(cam_rays1[i], cam_rays2[i]);
     problem.AddResidualBlock(cost_function,
-                             loss_function,
+                             loss_function.get(),
                              cam2_from_cam1_rotation,
                              cam2_from_cam1_translation);
   }
@@ -343,12 +375,12 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
 }
 
 bool RefineEssentialMatrix(const ceres::Solver::Options& options,
-                           const std::vector<Eigen::Vector2d>& points1,
-                           const std::vector<Eigen::Vector2d>& points2,
+                           const std::vector<Eigen::Vector3d>& cam_rays1,
+                           const std::vector<Eigen::Vector3d>& cam_rays2,
                            const std::vector<char>& inlier_mask,
                            Eigen::Matrix3d* E) {
-  THROW_CHECK_EQ(points1.size(), points2.size());
-  THROW_CHECK_EQ(points1.size(), inlier_mask.size());
+  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
+  THROW_CHECK_EQ(cam_rays1.size(), inlier_mask.size());
 
   // Extract inlier points for decomposing the essential matrix into
   // rotation and translation components.
@@ -360,13 +392,13 @@ bool RefineEssentialMatrix(const ceres::Solver::Options& options,
     }
   }
 
-  std::vector<Eigen::Vector2d> inlier_points1(num_inliers);
-  std::vector<Eigen::Vector2d> inlier_points2(num_inliers);
+  std::vector<Eigen::Vector3d> inlier_cam_rays1(num_inliers);
+  std::vector<Eigen::Vector3d> inlier_cam_rays2(num_inliers);
   size_t j = 0;
   for (size_t i = 0; i < inlier_mask.size(); ++i) {
     if (inlier_mask[i]) {
-      inlier_points1[j] = points1[i];
-      inlier_points2[j] = points2[i];
+      inlier_cam_rays1[j] = cam_rays1[i];
+      inlier_cam_rays2[j] = cam_rays2[i];
       j += 1;
     }
   }
@@ -375,7 +407,7 @@ bool RefineEssentialMatrix(const ceres::Solver::Options& options,
   Rigid3d cam2_from_cam1;
   std::vector<Eigen::Vector3d> points3D;
   PoseFromEssentialMatrix(
-      *E, inlier_points1, inlier_points2, &cam2_from_cam1, &points3D);
+      *E, inlier_cam_rays1, inlier_cam_rays2, &cam2_from_cam1, &points3D);
 
   if (points3D.size() == 0) {
     return false;
@@ -384,8 +416,12 @@ bool RefineEssentialMatrix(const ceres::Solver::Options& options,
   // Refine essential matrix, use all points so that refinement is able to
   // consider points as inliers that were originally outliers.
 
-  const bool refinement_success = RefineRelativePose(
-      options, inlier_points1, inlier_points2, &cam2_from_cam1);
+  const bool refinement_success =
+      RefineRelativePose(options,
+                         std::vector<char>(num_inliers, true),
+                         inlier_cam_rays1,
+                         inlier_cam_rays2,
+                         &cam2_from_cam1);
 
   if (!refinement_success) {
     return false;

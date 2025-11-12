@@ -38,7 +38,7 @@ Share intrinsics
 
 COLMAP supports shared intrinsics for arbitrary groups of images and camera
 models. Images share the same intrinsics, if they refer to the same camera, as
-specified by the `camera_id` property in the database. You can add new cameras
+specified by the ``camera_id`` property in the database. You can add new cameras
 and set shared intrinsics in the database management tool. Please, refer to
 :ref:`Database Management <database-management>` for more information.
 
@@ -83,7 +83,7 @@ To increase the number of matches, you should use the more discriminative
 DSP-SIFT features instead of plain SIFT and also estimate the affine feature
 shape using the options: ``--SiftExtraction.estimate_affine_shape=true`` and
 ``--SiftExtraction.domain_size_pooling=true``. In addition, you should enable
-guided feature matching using: ``--SiftMatching.guided_matching=true``.
+guided feature matching using: ``--FeatureMatching.guided_matching=true``.
 
 By default, COLMAP ignores two-view feature tracks in triangulation, resulting
 in fewer 3D points than possible. Triangulation of two-view tracks can in rare
@@ -121,7 +121,7 @@ Example of images.txt::
 
     4 0.698777 0.714625 -0.023996 0.021129 -0.048184 0.004529 -0.313427 2 image0004.png
 
-Each image above must have the same ``image_id`` (first column) as in the database (next step). 
+Each image above must have the same ``image_id`` (first column) as in the database (next step).
 This database can be inspected either in the GUI (under ``Database management > Processing``),
 or, one can create a reconstruction with colmap and later export  it as text in order to see
 the images.txt file it creates.
@@ -217,9 +217,9 @@ camera centers of a subset or all registered images. The 3D similarity
 transformation between the reconstructed model and the target coordinate frame
 of the geo-registration is determined from these correspondences.
 
-The geo-registered 3D coordinates can either be extracted from the database 
-(tvec_prior field) or from a user specified text file. 
-For text-files, the geo-registered 3D coordinates of the camera centers for 
+The geo-registered 3D coordinates can either be extracted from the database
+(tvec_prior field) or from a user specified text file.
+For text-files, the geo-registered 3D coordinates of the camera centers for
 images must be specified with the following format::
 
     image_name1.jpg X1 Y1 Z1
@@ -232,7 +232,7 @@ In case of GPS coordinates, a conversion will be performed to turn those into
 cartesian coordinates.  The conversion can be done from GPS to ECEF
 (Earth-Centered-Earth-Fixed) or to ENU (East-North-Up) coordinates. If ENU coordinates
 are used, the first image GPS coordinates will define the origin of the ENU frame.
-It is also possible to use ECEF coordinates for alignment and then rotate the aligned 
+It is also possible to use ECEF coordinates for alignment and then rotate the aligned
 reconstruction into the ENU plane.
 
 Note that at least 3 images must be specified to estimate a 3D similarity
@@ -290,7 +290,6 @@ new images within this reconstruction, you can follow these steps::
 
     colmap vocab_tree_matcher \
         --database_path $PROJECT_PATH/database.db \
-        --VocabTreeMatching.vocab_tree_path /path/to/vocab-tree.bin \
         --VocabTreeMatching.match_list_path /path/to/image-list.txt
 
     colmap image_registrator \
@@ -340,22 +339,22 @@ external dense reconstruction software as an alternative, as described in the
 :ref:`Tutorial <dense-reconstruction>`. If you have a GPU with low compute power
 or you want to execute COLMAP on a machine without an attached display and
 without CUDA support, you can run all steps on the CPU by specifying the
-appropriate options (e.g., ``--SiftExtraction.use_gpu=false`` for the feature
+appropriate options (e.g., ``--FeatureExtraction.use_gpu=false`` for the feature
 extraction step). But note that this might result in a significant slow-down of
 the reconstruction pipeline. Please, also note that feature extraction on the
 CPU can consume excessive RAM for large images in the default settings, which
 might require manually reducing the maximum image size using
-``--SiftExtraction.max_image_size`` and/or setting
+``--FeatureExtraction.max_image_size`` and/or setting
 ``--SiftExtraction.first_octave 0`` or by manually limiting the number of
-threads using ``--SiftExtraction.num_threads``.
+threads using ``--FeatureExtraction.num_threads``.
 
 
 Multi-GPU support in feature extraction/matching
 ------------------------------------------------
 
 You can run feature extraction/matching on multiple GPUs by specifying multiple
-indices for CUDA-enabled GPUs, e.g., ``--SiftExtraction.gpu_index=0,1,2,3`` and
-``--SiftMatching.gpu_index=0,1,2,3`` runs the feature extraction/matching on 4
+indices for CUDA-enabled GPUs, e.g., ``--FeatureExtraction.gpu_index=0,1,2,3`` and
+``--FeatureMatching.gpu_index=0,1,2,3`` runs the feature extraction/matching on 4
 GPUs in parallel. Note that you can only run one thread per GPU and this
 typically also gives the best performance. By default, COLMAP runs one feature
 extraction/matching thread per CUDA-enabled GPU and this usually gives the best
@@ -375,15 +374,15 @@ or the following:
            memory. Consider reducing the maximum number of features.
 
 during feature matching, your GPU runs out of memory. Try decreasing the option
-``--SiftMatching.max_num_matches`` until the error disappears. Note that this
+``--FeatureMatching.max_num_matches`` until the error disappears. Note that this
 might lead to inferior feature matching results, since the lower-scale input
 features will be clamped in order to fit them into GPU memory. Alternatively,
 you could change to CPU-based feature matching, but this can become very slow,
 or better you buy a GPU with more memory.
 
 The maximum required GPU memory can be approximately estimated using the
-following formula: ``4 * num_matches * num_matches + 4 * num_matches * 256``.
-For example, if you set ``--SiftMatching.max_num_matches 10000``, the maximum
+following formula: ``4 * num_matches * num_matches + 4 * num_matches * 256`` for SIFT.
+For example, if you set ``--FeatureMatching.max_num_matches 10000``, the maximum
 required GPU memory will be around 400MB, which are only allocated if one of
 your images actually has that many features.
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -31,6 +31,7 @@
 
 #include "colmap/math/math.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <Eigen/Core>
 #include <gtest/gtest.h>
@@ -56,18 +57,11 @@ TEST(DecomposeProjectionMatrix, Nominal) {
     Eigen::Matrix3d R;
     Eigen::Vector3d T;
     DecomposeProjectionMatrix(P, &K, &R, &T);
-    EXPECT_TRUE(ref_K.isApprox(K, 1e-6));
-    EXPECT_TRUE(cam_from_world.rotation.toRotationMatrix().isApprox(R, 1e-6));
-    EXPECT_TRUE(cam_from_world.translation.isApprox(T, 1e-6));
+    EXPECT_THAT(ref_K, EigenMatrixNear(K, 1e-6));
+    EXPECT_THAT(cam_from_world.rotation.toRotationMatrix(),
+                EigenMatrixNear(R, 1e-6));
+    EXPECT_THAT(cam_from_world.translation, EigenMatrixNear(T, 1e-6));
   }
-}
-
-TEST(CrossProductMatrix, Nominal) {
-  EXPECT_EQ(CrossProductMatrix(Eigen::Vector3d(0, 0, 0)),
-            Eigen::Matrix3d::Zero());
-  Eigen::Matrix3d ref_matrix;
-  ref_matrix << 0, -3, 2, 3, 0, -1, -2, 1, 0;
-  EXPECT_EQ(CrossProductMatrix(Eigen::Vector3d(1, 2, 3)), ref_matrix);
 }
 
 TEST(EulerAngles, X) {
@@ -157,14 +151,15 @@ TEST(AverageQuaternions, Nominal) {
 
   quats = {Eigen::Quaterniond::Identity(), Eigen::Quaterniond(1, 1, 0, 0)};
   weights = {1.0, 1.0};
-  EXPECT_TRUE(AverageQuaternions(quats, weights)
-                  .isApprox(Eigen::Quaterniond(0.92388, 0.382683, 0, 0), 1e-6));
+  EXPECT_THAT(AverageQuaternions(quats, weights).coeffs(),
+              EigenMatrixNear(
+                  Eigen::Quaterniond(0.92388, 0.382683, 0, 0).coeffs(), 1e-6));
 
   quats = {Eigen::Quaterniond::Identity(), Eigen::Quaterniond(1, 1, 0, 0)};
   weights = {1.0, 2.0};
-  EXPECT_TRUE(
-      AverageQuaternions(quats, weights)
-          .isApprox(Eigen::Quaterniond(0.850651, 0.525731, 0, 0), 1e-6));
+  EXPECT_THAT(AverageQuaternions(quats, weights).coeffs(),
+              EigenMatrixNear(
+                  Eigen::Quaterniond(0.850651, 0.525731, 0, 0).coeffs(), 1e-6));
 }
 
 TEST(InterpolateCameraPoses, Nominal) {
@@ -175,45 +170,47 @@ TEST(InterpolateCameraPoses, Nominal) {
 
   const Rigid3d interp_cam_from_world1 =
       InterpolateCameraPoses(cam_from_world1, cam_from_world2, 0);
-  EXPECT_TRUE(
-      interp_cam_from_world1.translation.isApprox(cam_from_world1.translation));
+  EXPECT_THAT(interp_cam_from_world1.translation,
+              EigenMatrixNear(cam_from_world1.translation));
 
   const Rigid3d interp_cam_from_world2 =
       InterpolateCameraPoses(cam_from_world1, cam_from_world2, 1);
-  EXPECT_TRUE(
-      interp_cam_from_world2.translation.isApprox(cam_from_world2.translation));
+  EXPECT_THAT(interp_cam_from_world2.translation,
+              EigenMatrixNear(cam_from_world2.translation));
 
   const Rigid3d interp_cam_from_world3 =
       InterpolateCameraPoses(cam_from_world1, cam_from_world2, 0.5);
-  EXPECT_TRUE(interp_cam_from_world3.translation.isApprox(
-      (cam_from_world1.translation + cam_from_world2.translation) / 2));
+  EXPECT_THAT(
+      interp_cam_from_world3.translation,
+      EigenMatrixNear(Eigen::Vector3d(
+          (cam_from_world1.translation + cam_from_world2.translation) / 2)));
 }
 
 TEST(CheckCheirality, Nominal) {
   const Rigid3d cam2_from_cam1(Eigen::Quaterniond::Identity(),
                                Eigen::Vector3d(1, 0, 0));
 
-  std::vector<Eigen::Vector2d> points1;
-  std::vector<Eigen::Vector2d> points2;
+  std::vector<Eigen::Vector3d> rays1;
+  std::vector<Eigen::Vector3d> rays2;
   std::vector<Eigen::Vector3d> points3D;
 
-  points1.emplace_back(0, 0);
-  points2.emplace_back(0.1, 0);
-  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, points1, points2, &points3D));
+  rays1.push_back(Eigen::Vector3d(0, 0, 1).normalized());
+  rays2.push_back(Eigen::Vector3d(0.1, 0, 1).normalized());
+  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &points3D));
   EXPECT_EQ(points3D.size(), 1);
 
-  points1.emplace_back(0, 0);
-  points2.emplace_back(-0.1, 0);
-  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, points1, points2, &points3D));
+  rays1.push_back(Eigen::Vector3d(0, 0, 1).normalized());
+  rays2.push_back(Eigen::Vector3d(-0.1, 0, 1).normalized());
+  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &points3D));
   EXPECT_EQ(points3D.size(), 1);
 
-  points2[1][0] = 0.2;
-  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, points1, points2, &points3D));
+  rays2[1][0] = 0.2;
+  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, rays1, rays2, &points3D));
   EXPECT_EQ(points3D.size(), 2);
 
-  points2[0][0] = -0.2;
-  points2[1][0] = -0.2;
-  EXPECT_FALSE(CheckCheirality(cam2_from_cam1, points1, points2, &points3D));
+  rays2[0][0] = -0.2;
+  rays2[1][0] = -0.2;
+  EXPECT_FALSE(CheckCheirality(cam2_from_cam1, rays1, rays2, &points3D));
   EXPECT_EQ(points3D.size(), 0);
 }
 

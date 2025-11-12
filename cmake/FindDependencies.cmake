@@ -4,25 +4,38 @@ else()
     set(COLMAP_FIND_TYPE REQUIRED)
 endif()
 
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.30")
+    cmake_policy(SET CMP0167 NEW)
+endif()
+
+# Track all the compile definitions
+set(COLMAP_COMPILE_DEFINITIONS)
+if(LSD_ENABLED)
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_LSD_ENABLED)
+    message(STATUS "Enabling LSD support")
+else()
+    message(STATUS "Disabling LSD support")
+endif()
+
+find_package(OpenMP REQUIRED COMPONENTS C CXX)
+
 find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
              graph
              program_options
+             OPTIONAL_COMPONENTS
              system)
 
 find_package(Eigen3 ${COLMAP_FIND_TYPE})
 
 find_package(FreeImage ${COLMAP_FIND_TYPE})
 
-find_package(FLANN ${COLMAP_FIND_TYPE})
-find_package(LZ4 ${COLMAP_FIND_TYPE})
-
 find_package(Metis ${COLMAP_FIND_TYPE})
 
 find_package(Glog ${COLMAP_FIND_TYPE})
 if(DEFINED glog_VERSION_MAJOR)
   # Older versions of glog don't export version variables.
-  add_definitions("-DGLOG_VERSION_MAJOR=${glog_VERSION_MAJOR}")
-  add_definitions("-DGLOG_VERSION_MINOR=${glog_VERSION_MINOR}")
+  list(APPEND COLMAP_COMPILE_DEFINITIONS GLOG_VERSION_MAJOR=${glog_VERSION_MAJOR})
+  list(APPEND COLMAP_COMPILE_DEFINITIONS GLOG_VERSION_MINOR=${glog_VERSION_MINOR})
 endif()
 
 find_package(SQLite3 ${COLMAP_FIND_TYPE})
@@ -48,17 +61,6 @@ if(TESTS_ENABLED)
     find_package(GTest ${COLMAP_FIND_TYPE})
 endif()
 
-if(OPENMP_ENABLED)
-    find_package(OpenMP QUIET)
-endif()
-
-if(OPENMP_ENABLED AND OPENMP_FOUND)
-    message(STATUS "Enabling OpenMP support")
-    add_definitions("-DCOLMAP_OPENMP_ENABLED")
-else()
-    message(STATUS "Disabling OpenMP support")
-endif()
-
 if(CGAL_ENABLED)
     set(CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE TRUE)
     # We do not use CGAL data. This prevents an unnecessary warning by CMake.
@@ -67,7 +69,7 @@ if(CGAL_ENABLED)
 endif()
 
 if(CGAL_FOUND)
-    add_definitions("-DCOLMAP_CGAL_ENABLED")
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_CGAL_ENABLED)
     list(APPEND CGAL_LIBRARY ${CGAL_LIBRARIES})
     message(STATUS "Found CGAL")
     message(STATUS "  Includes : ${CGAL_INCLUDE_DIRS}")
@@ -81,6 +83,49 @@ if(CGAL_FOUND)
             CGAL INTERFACE ${CGAL_LIBRARY} ${GMP_LIBRARIES})
     endif()
     list(APPEND COLMAP_LINK_DIRS ${CGAL_LIBRARIES_DIR})
+endif()
+
+if(DOWNLOAD_ENABLED)
+    # The OpenSSL package in vcpkg seems broken under Windows and leads to
+    # missing certificate verification when connecting to SSL servers. We
+    # therefore use curl[schannel] (i.e., native Windows SSL/TLS) under Windows
+    # and curl[openssl] otherwise.
+    find_package(CURL QUIET)
+    set(CRYPTO_FOUND FALSE)
+    if(IS_MSVC AND IS_ARM64)
+        # OpenSSL crashes for ARM64 under Windows. We therefore fall back to
+        # CryptoPP as an alternative to OpenSSL for SHA256 computation.
+        find_package(CryptoPP QUIET)
+        if(CryptoPP_FOUND)
+            set(CRYPTO_FOUND TRUE)
+        else()
+            message(STATUS "CryptoPP not found")
+        endif()
+    else()
+        find_package(OpenSSL QUIET COMPONENTS Crypto)
+        if(OpenSSL_FOUND)
+            set(CRYPTO_FOUND TRUE)
+        else()
+            message(STATUS "OpenSSL::Crypto not found")
+        endif()
+    endif()
+    if(CURL_FOUND AND CRYPTO_FOUND)
+        message(STATUS "Enabling download support")
+        list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_DOWNLOAD_ENABLED)
+    else()
+        set(DOWNLOAD_ENABLED OFF)
+        message(STATUS "Disabling download support (Curl/Crypto not found)")
+    endif()
+else()
+    message(STATUS "Disabling download support")
+endif()
+
+if(NOT FETCH_POSELIB)
+    find_package(PoseLib ${COLMAP_FIND_TYPE})
+endif()
+
+if(NOT FETCH_FAISS)
+    find_package(faiss ${COLMAP_FIND_TYPE})
 endif()
 
 set(COLMAP_LINK_DIRS ${Boost_LIBRARY_DIRS})
@@ -115,7 +160,7 @@ if(CUDA_ENABLED)
             set(CUDAToolkit_VERSION "${CUDA_VERSION_STRING}")
             set(CUDAToolkit_BIN_DIR "${CUDA_TOOLKIT_ROOT_DIR}/bin")
         else()
-            message(STATUS "CUDA not found")
+            message(STATUS "Disabling CUDA support (not found)")
         endif()
     else()
         find_package(CUDAToolkit QUIET)
@@ -123,7 +168,7 @@ if(CUDA_ENABLED)
             set(CUDA_FOUND ON)
             enable_language(CUDA)
         else()
-            message(STATUS "CUDA not found")
+            message(STATUS "Disabling CUDA support (not found)")
         endif()
     endif()
 endif()
@@ -133,10 +178,13 @@ if(CUDA_ENABLED AND CUDA_FOUND)
         set(CMAKE_CUDA_ARCHITECTURES "native")
     endif()
 
-    add_definitions("-DCOLMAP_CUDA_ENABLED")
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_CUDA_ENABLED)
 
     # Do not show warnings if the architectures are deprecated.
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-gpu-targets")
+    # Suppress warnings related to Eigen:
+    # Calling a constexpr __host__ function from a __host__ __device__ function is not allowed.
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr")
     # Explicitly set PIC flags for CUDA targets.
     if(NOT IS_MSVC)
         set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fPIC")
@@ -150,11 +198,19 @@ else()
 endif()
 
 if(GUI_ENABLED)
-    find_package(Qt5 5.4 ${COLMAP_FIND_TYPE} COMPONENTS Core OpenGL Widgets)
+    find_package(QT NAMES Qt5 Qt6 REQUIRED)
+    set(COLMAP_QT_COMPONENTS Core OpenGL Widgets)
+    if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
+        list(APPEND COLMAP_QT_COMPONENTS OpenGLWidgets)
+    endif()
+    find_package(Qt${QT_VERSION_MAJOR} ${COLMAP_FIND_TYPE} ${COLMAP_QT_COMPONENTS})
     message(STATUS "Found Qt")
-    message(STATUS "  Module : ${Qt5Core_DIR}")
-    message(STATUS "  Module : ${Qt5OpenGL_DIR}")
-    message(STATUS "  Module : ${Qt5Widgets_DIR}")
+    message(STATUS "  Module : ${Qt${QT_VERSION_MAJOR}Core_DIR}")
+    message(STATUS "  Module : ${Qt${QT_VERSION_MAJOR}OpenGL_DIR}")
+    message(STATUS "  Module : ${Qt${QT_VERSION_MAJOR}Widgets_DIR}")
+    if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
+        message(STATUS "  Module : ${Qt${QT_VERSION_MAJOR}OpenGLWidgets_DIR}")
+    endif()
     if(Qt5_FOUND)
         # Qt5 was built with -reduce-relocations.
         if(Qt5_POSITION_INDEPENDENT_CODE)
@@ -170,14 +226,16 @@ if(GUI_ENABLED)
                 endif()
             endif()
         endif()
+    endif()
 
+    if(QT_FOUND)
         # Enable automatic compilation of Qt resource files.
         set(CMAKE_AUTORCC ON)
     endif()
 endif()
 
-if(GUI_ENABLED AND Qt5_FOUND)
-    add_definitions("-DCOLMAP_GUI_ENABLED")
+if(GUI_ENABLED AND Qt${QT_VERSION_MAJOR}_FOUND)
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_GUI_ENABLED)
     message(STATUS "Enabling GUI support")
 else()
     set(GUI_ENABLED OFF)
@@ -189,7 +247,6 @@ if(OPENGL_ENABLED)
         message(STATUS "Disabling GUI also disables OpenGL")
         set(OPENGL_ENABLED OFF)
     else()
-        add_definitions("-DCOLMAP_OPENGL_ENABLED")
         message(STATUS "Enabling OpenGL support")
     endif()
 else()
@@ -198,7 +255,7 @@ endif()
 
 set(GPU_ENABLED OFF)
 if(OPENGL_ENABLED OR CUDA_ENABLED)
-    add_definitions("-DCOLMAP_GPU_ENABLED")
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_GPU_ENABLED)
     message(STATUS "Enabling GPU support (OpenGL: ${OPENGL_ENABLED}, CUDA: ${CUDA_ENABLED})")
     set(GPU_ENABLED ON)
 endif()

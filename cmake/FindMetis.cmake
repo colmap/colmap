@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -84,6 +84,11 @@ else()
         GKlib
         PATHS
         ${METIS_CHECK_LIBRARY_DIRS})
+
+    if(GK_LIBRARIES)
+        set(METIS_LIBRARIES ${METIS_LIBRARIES} ${GK_LIBRARIES})
+        message(STATUS "Found GKlib")
+    endif()
 
     if(METIS_INCLUDE_DIRS AND METIS_LIBRARIES)
         set(METIS_FOUND TRUE)

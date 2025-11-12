@@ -1,5 +1,9 @@
 name: COLMAP (Mac)
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 on:
   push:
     branches:
@@ -18,7 +22,7 @@ jobs:
       matrix:
         config: [
           {
-            os: macos-14,
+            os: macos-15,
             arch: arm64,
             cmakeBuildType: Release,
           },
@@ -29,6 +33,8 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
+      GLOG_v: 2
+      GLOG_logtostderr: 1
 
     steps:
       - uses: actions/checkout@v4
@@ -44,26 +50,29 @@ jobs:
           # Fix `brew link` error.
           find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
 
+          brew uninstall cmake  # Workaround for CI failures.
           brew install \
             cmake \
             ninja \
             boost \
             eigen \
-            flann \
             freeimage \
+            curl \
             metis \
             glog \
             googletest \
             ceres-solver \
-            qt5 \
+            qt \
             glew \
             cgal \
             sqlite3 \
-            ccache
+            ccache \
+            libomp
+          brew link --force libomp
 
       - name: Configure and build
         run: |
-          export PATH="/usr/local/opt/qt@5/bin:$PATH"
+          export PATH="/usr/local/opt/qt/bin:$PATH"
           cmake --version
           mkdir build
           cd build
@@ -71,7 +80,7 @@ jobs:
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DTESTS_ENABLED=ON \
-            -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5)"
+            -DQt6_DIR="$(brew --prefix qt)/lib/cmake/Qt6"
           ninja
 
       - name: Run tests

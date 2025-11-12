@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -39,6 +39,7 @@ namespace {
 TEST(Camera, Empty) {
   Camera camera;
   EXPECT_EQ(camera.camera_id, kInvalidCameraId);
+  EXPECT_EQ(camera.SensorId(), sensor_t(SensorType::CAMERA, kInvalidCameraId));
   EXPECT_EQ(camera.model_id, CameraModelId::kInvalid);
   EXPECT_EQ(camera.ModelName(), "");
   EXPECT_EQ(camera.width, 0);
@@ -52,11 +53,38 @@ TEST(Camera, Empty) {
   EXPECT_EQ(camera.params.data(), camera.params.data());
 }
 
+TEST(Camera, Equals) {
+  Camera camera = Camera::CreateFromModelId(
+      1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
+  Camera other = camera;
+  EXPECT_EQ(camera, other);
+  camera.SetFocalLength(2.);
+  EXPECT_NE(camera, other);
+  other.SetFocalLength(2.);
+  EXPECT_EQ(camera, other);
+}
+
+TEST(Camera, Print) {
+  Camera camera = Camera::CreateFromModelId(
+      1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
+  std::ostringstream stream;
+  stream << camera;
+  EXPECT_EQ(stream.str(),
+            "Camera(camera_id=1, model=SIMPLE_PINHOLE, width=1, height=1, "
+            "params=[1, 0.5, 0.5] (f, cx, cy))");
+}
+
 TEST(Camera, CameraId) {
   Camera camera;
   EXPECT_EQ(camera.camera_id, kInvalidCameraId);
   camera.camera_id = 1;
   EXPECT_EQ(camera.camera_id, 1);
+}
+
+TEST(Camera, SensorId) {
+  Camera camera;
+  camera.camera_id = 1;
+  EXPECT_EQ(camera.SensorId(), sensor_t(SensorType::CAMERA, 1));
 }
 
 TEST(Camera, FocalLength) {
@@ -124,16 +152,16 @@ TEST(Camera, ParamsInfo) {
 TEST(Camera, ParamsToString) {
   Camera camera = Camera::CreateFromModelId(
       1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
-  EXPECT_EQ(camera.ParamsToString(), "1.000000, 0.500000, 0.500000");
+  EXPECT_EQ(camera.ParamsToString(), "1, 0.5, 0.5");
 }
 
 TEST(Camera, ParamsFromString) {
   Camera camera;
   camera.model_id = SimplePinholeCameraModel::model_id;
-  EXPECT_TRUE(camera.SetParamsFromString("1.000000, 0.500000, 0.500000"));
+  EXPECT_TRUE(camera.SetParamsFromString("1, 0.5, 0.5"));
   const std::vector<double> params{1.0, 0.5, 0.5};
   EXPECT_EQ(camera.params, params);
-  EXPECT_FALSE(camera.SetParamsFromString("1.000000, 0.500000"));
+  EXPECT_FALSE(camera.SetParamsFromString("1, 0.5"));
   EXPECT_EQ(camera.params, params);
 }
 
@@ -205,7 +233,7 @@ TEST(Camera, CreateFromModelId) {
   EXPECT_EQ(camera.PrincipalPointIdxs().size(), 2);
   EXPECT_EQ(camera.ExtraParamsIdxs().size(), 0);
   EXPECT_EQ(camera.ParamsInfo(), "f, cx, cy");
-  EXPECT_EQ(camera.ParamsToString(), "1.000000, 0.500000, 0.500000");
+  EXPECT_EQ(camera.ParamsToString(), "1, 0.5, 0.5");
   EXPECT_EQ(camera.FocalLength(), 1.0);
   EXPECT_EQ(camera.PrincipalPointX(), 0.5);
   EXPECT_EQ(camera.PrincipalPointY(), 0.5);
@@ -230,7 +258,7 @@ TEST(Camera, CreateFromModelName) {
   EXPECT_EQ(camera.PrincipalPointIdxs().size(), 2);
   EXPECT_EQ(camera.ExtraParamsIdxs().size(), 0);
   EXPECT_EQ(camera.ParamsInfo(), "f, cx, cy");
-  EXPECT_EQ(camera.ParamsToString(), "1.000000, 0.500000, 0.500000");
+  EXPECT_EQ(camera.ParamsToString(), "1, 0.5, 0.5");
   EXPECT_EQ(camera.FocalLength(), 1.0);
   EXPECT_EQ(camera.PrincipalPointX(), 0.5);
   EXPECT_EQ(camera.PrincipalPointY(), 0.5);
@@ -247,10 +275,10 @@ TEST(Camera, CamFromImg) {
   Camera camera;
   EXPECT_THROW(camera.CamFromImg(Eigen::Vector2d::Zero()), std::domain_error);
   camera = Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
-  EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.0, 0.0))(0), -0.5);
-  EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.0, 0.0))(1), -0.5);
-  EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.5, 0.5))(0), 0.0);
-  EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.5, 0.5))(1), 0.0);
+  EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.0, 0.0)).value(),
+            Eigen::Vector2d(-0.5, -0.5));
+  EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.5, 0.5)).value(),
+            Eigen::Vector2d(0, 0));
 }
 
 TEST(Camera, CamFromImgThreshold) {
@@ -268,12 +296,12 @@ TEST(Camera, CamFromImgThreshold) {
 
 TEST(Camera, ImgFromCam) {
   Camera camera;
-  EXPECT_THROW(camera.ImgFromCam(Eigen::Vector2d::Zero()), std::domain_error);
+  EXPECT_THROW(camera.ImgFromCam(Eigen::Vector3d::Zero()), std::domain_error);
   camera = Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
-  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector2d(0.0, 0.0))(0), 0.5);
-  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector2d(0.0, 0.0))(1), 0.5);
-  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector2d(-0.5, -0.5))(0), 0.0);
-  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector2d(-0.5, -0.5))(1), 0.0);
+  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector3d(0.0, 0.0, 1)).value(),
+            Eigen::Vector2d(0.5, 0.5));
+  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector3d(-0.5, -0.5, 1)).value(),
+            Eigen::Vector2d(0.0, 0.0));
 }
 
 TEST(Camera, Rescale) {

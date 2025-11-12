@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,9 +30,9 @@
 #pragma once
 
 #include "colmap/scene/correspondence_graph.h"
-#include "colmap/scene/image.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/track.h"
+#include "colmap/scene/visibility_pyramid.h"
 #include "colmap/util/types.h"
 
 namespace colmap {
@@ -53,9 +53,12 @@ class ObservationManager {
     size_t num_total_corrs = 0;
   };
 
-  explicit ObservationManager(Reconstruction& reconstruction,
+  explicit ObservationManager(class Reconstruction& reconstruction,
                               std::shared_ptr<const CorrespondenceGraph>
                                   correspondence_graph = nullptr);
+
+  inline const class Reconstruction& Reconstruction() const;
+  inline class Reconstruction& Reconstruction();
 
   inline const std::unordered_map<image_pair_t, ImagePairStat>& ImagePairs()
       const;
@@ -106,16 +109,15 @@ class ObservationManager {
       double max_reproj_error,
       const std::unordered_set<point3D_t>& point3D_ids);
 
-  // Filter images without observations or bogus camera parameters.
+  // Filter frames without observations or bogus camera parameters.
   //
-  // @return    The identifiers of the filtered images.
-  std::vector<image_t> FilterImages(double min_focal_length_ratio,
+  // @return    The identifiers of the filtered frames.
+  std::vector<frame_t> FilterFrames(double min_focal_length_ratio,
                                     double max_focal_length_ratio,
                                     double max_extra_param);
 
-  // Register / de-register an existing image, and all its references.
-  void RegisterImage(image_t image_id);
-  void DeRegisterImage(image_t image_id);
+  // De-register an existing frame, and all its references.
+  void DeRegisterFrame(frame_t frame_id);
 
   // Get the number of observations, i.e. the number of image points that
   // have at least one correspondence to another image.
@@ -152,6 +154,9 @@ class ObservationManager {
                                          point2D_t point2D_idx);
 
  private:
+  friend std::ostream& operator<<(std::ostream& stream,
+                                  const ObservationManager& obs_manager);
+
   void SetObservationAsTriangulated(image_t image_id,
                                     point2D_t point2D_idx,
                                     bool is_continued_point3D);
@@ -183,11 +188,22 @@ class ObservationManager {
     VisibilityPyramid point3D_visibility_pyramid;
   };
 
-  Reconstruction& reconstruction_;
+  class Reconstruction& reconstruction_;
   const std::shared_ptr<const CorrespondenceGraph> correspondence_graph_;
   std::unordered_map<image_pair_t, ImagePairStat> image_pair_stats_;
   std::unordered_map<image_t, ImageStat> image_stats_;
 };
+
+std::ostream& operator<<(std::ostream& stream,
+                         const ObservationManager& obs_manager);
+
+const class Reconstruction& ObservationManager::Reconstruction() const {
+  return reconstruction_;
+}
+
+class Reconstruction& ObservationManager::Reconstruction() {
+  return reconstruction_;
+}
 
 const std::unordered_map<image_pair_t, ObservationManager::ImagePairStat>&
 ObservationManager::ImagePairs() const {

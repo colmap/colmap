@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -34,7 +34,8 @@
 #include "colmap/scene/camera.h"
 #include "colmap/scene/projection.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
+
+#include <cassert>
 
 namespace colmap {
 
@@ -51,7 +52,7 @@ bool MergeAndFilterReconstructions(const double max_reproj_error,
 }
 
 ObservationManager::ObservationManager(
-    Reconstruction& reconstruction,
+    class Reconstruction& reconstruction,
     std::shared_ptr<const CorrespondenceGraph> correspondence_graph)
     : reconstruction_(reconstruction),
       correspondence_graph_(std::move(correspondence_graph)) {
@@ -87,14 +88,13 @@ ObservationManager::ObservationManager(
 
   // If an existing model was loaded from disk and there were already images
   // registered previously, we need to set observations as triangulated.
-  for (const auto image_id : reconstruction_.RegImageIds()) {
+  for (const image_t image_id : reconstruction_.RegImageIds()) {
     const Image& image = reconstruction_.Image(image_id);
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
       if (image.Point2D(point2D_idx).HasPoint3D()) {
-        const bool kIsContinuedPoint3D = false;
         SetObservationAsTriangulated(
-            image_id, point2D_idx, kIsContinuedPoint3D);
+            image_id, point2D_idx, /*is_continued_point3D=*/false);
       }
     }
   }
@@ -103,7 +103,7 @@ ObservationManager::ObservationManager(
 void ObservationManager::IncrementCorrespondenceHasPoint3D(
     const image_t image_id, const point2D_t point2D_idx) {
   const Image& image = reconstruction_.Image(image_id);
-  const struct Point2D& point2D = image.Point2D(point2D_idx);
+  const Point2D& point2D = image.Point2D(point2D_idx);
   ImageStat& stats = image_stats_.at(image_id);
 
   stats.num_correspondences_have_point3D[point2D_idx] += 1;
@@ -119,7 +119,7 @@ void ObservationManager::IncrementCorrespondenceHasPoint3D(
 void ObservationManager::DecrementCorrespondenceHasPoint3D(
     const image_t image_id, const point2D_t point2D_idx) {
   const Image& image = reconstruction_.Image(image_id);
-  const struct Point2D& point2D = image.Point2D(point2D_idx);
+  const Point2D& point2D = image.Point2D(point2D_idx);
   ImageStat& stats = image_stats_.at(image_id);
 
   stats.num_correspondences_have_point3D[point2D_idx] -= 1;
@@ -140,7 +140,7 @@ void ObservationManager::SetObservationAsTriangulated(
     return;
   }
   const Image& image = reconstruction_.Image(image_id);
-  THROW_CHECK(image.IsRegistered());
+  THROW_CHECK(image.HasPose());
 
   const Point2D& point2D = image.Point2D(point2D_idx);
   THROW_CHECK(point2D.HasPoint3D());
@@ -155,8 +155,7 @@ void ObservationManager::SetObservationAsTriangulated(
     // only count the correspondences once (not twice forward and backward).
     if (point2D.point3D_id == corr_point2D.point3D_id &&
         (is_continued_point3D || image_id < corr->image_id)) {
-      const image_pair_t pair_id =
-          Database::ImagePairToPairId(image_id, corr->image_id);
+      const image_pair_t pair_id = ImagePairToPairId(image_id, corr->image_id);
       auto& stats = image_pair_stats_[pair_id];
       stats.num_tri_corrs += 1;
       THROW_CHECK_LE(stats.num_tri_corrs, stats.num_total_corrs)
@@ -173,7 +172,7 @@ void ObservationManager::ResetTriObservations(const image_t image_id,
     return;
   }
   const Image& image = reconstruction_.Image(image_id);
-  THROW_CHECK(image.IsRegistered());
+  THROW_CHECK(image.HasPose());
   const Point2D& point2D = image.Point2D(point2D_idx);
   THROW_CHECK(point2D.HasPoint3D());
 
@@ -187,8 +186,7 @@ void ObservationManager::ResetTriObservations(const image_t image_id,
     // only count the correspondences once (not twice forward and backward).
     if (point2D.point3D_id == corr_point2D.point3D_id &&
         (!is_deleted_point3D || image_id < corr->image_id)) {
-      const image_pair_t pair_id =
-          Database::ImagePairToPairId(image_id, corr->image_id);
+      const image_pair_t pair_id = ImagePairToPairId(image_id, corr->image_id);
       THROW_CHECK_GT(image_pair_stats_[pair_id].num_tri_corrs, 0)
           << "The scene graph graph must not contain duplicate matches";
       image_pair_stats_[pair_id].num_tri_corrs -= 1;
@@ -201,10 +199,10 @@ point3D_t ObservationManager::AddPoint3D(const Eigen::Vector3d& xyz,
                                          const Eigen::Vector3ub& color) {
   const point3D_t point3D_id = reconstruction_.AddPoint3D(xyz, track, color);
 
-  const bool kIsContinuedPoint3D = false;
   for (const auto& track_el : track.Elements()) {
-    SetObservationAsTriangulated(
-        track_el.image_id, track_el.point2D_idx, kIsContinuedPoint3D);
+    SetObservationAsTriangulated(track_el.image_id,
+                                 track_el.point2D_idx,
+                                 /*is_continued_point3D=*/false);
   }
 
   return point3D_id;
@@ -213,19 +211,17 @@ point3D_t ObservationManager::AddPoint3D(const Eigen::Vector3d& xyz,
 void ObservationManager::AddObservation(const point3D_t point3D_id,
                                         const TrackElement& track_el) {
   reconstruction_.AddObservation(point3D_id, track_el);
-  const bool kIsContinuedPoint3D = true;
   SetObservationAsTriangulated(
-      track_el.image_id, track_el.point2D_idx, kIsContinuedPoint3D);
+      track_el.image_id, track_el.point2D_idx, /*is_continued_point3D=*/true);
 }
 
 void ObservationManager::DeletePoint3D(const point3D_t point3D_id) {
   // Note: Do not change order of these instructions, especially with respect to
   // `ObservationManager::ResetTriObservations`
   const Track& track = reconstruction_.Point3D(point3D_id).track;
-  const bool kIsDeletedPoint3D = true;
   for (const auto& track_el : track.Elements()) {
     ResetTriObservations(
-        track_el.image_id, track_el.point2D_idx, kIsDeletedPoint3D);
+        track_el.image_id, track_el.point2D_idx, /*is_deleted_point3D=*/true);
   }
 
   reconstruction_.DeletePoint3D(point3D_id);
@@ -244,33 +240,31 @@ void ObservationManager::DeleteObservation(const image_t image_id,
     return;
   }
 
-  const bool kIsDeletedPoint3D = false;
-  ResetTriObservations(image_id, point2D_idx, kIsDeletedPoint3D);
+  ResetTriObservations(image_id, point2D_idx, /*is_deleted_point3D=*/false);
   reconstruction_.DeleteObservation(image_id, point2D_idx);
 }
 
 point3D_t ObservationManager::MergePoints3D(const point3D_t point3D_id1,
                                             const point3D_t point3D_id2) {
-  const bool kIsDeletedPoint3D = true;
   const Track& track1 = reconstruction_.Point3D(point3D_id1).track;
   for (const auto& track_el : track1.Elements()) {
     ResetTriObservations(
-        track_el.image_id, track_el.point2D_idx, kIsDeletedPoint3D);
+        track_el.image_id, track_el.point2D_idx, /*is_deleted_point3D=*/true);
   }
   const Track& track2 = reconstruction_.Point3D(point3D_id2).track;
   for (const auto& track_el : track2.Elements()) {
     ResetTriObservations(
-        track_el.image_id, track_el.point2D_idx, kIsDeletedPoint3D);
+        track_el.image_id, track_el.point2D_idx, /*is_deleted_point3D=*/true);
   }
 
   const point3D_t merged_point3D_id =
       reconstruction_.MergePoints3D(point3D_id1, point3D_id2);
 
   const Track track = reconstruction_.Point3D(merged_point3D_id).track;
-  const bool kIsContinuedPoint3D = false;
   for (const auto& track_el : track.Elements()) {
-    SetObservationAsTriangulated(
-        track_el.image_id, track_el.point2D_idx, kIsContinuedPoint3D);
+    SetObservationAsTriangulated(track_el.image_id,
+                                 track_el.point2D_idx,
+                                 /*is_continued_point3D=*/false);
   }
   return merged_point3D_id;
 }
@@ -279,12 +273,12 @@ size_t ObservationManager::FilterPoints3D(
     const double max_reproj_error,
     const double min_tri_angle,
     const std::unordered_set<point3D_t>& point3D_ids) {
-  size_t num_filtered = 0;
-  num_filtered +=
+  size_t num_filtered_observations = 0;
+  num_filtered_observations +=
       FilterPoints3DWithLargeReprojectionError(max_reproj_error, point3D_ids);
-  num_filtered +=
+  num_filtered_observations +=
       FilterPoints3DWithSmallTriangulationAngle(min_tri_angle, point3D_ids);
-  return num_filtered;
+  return num_filtered_observations;
 }
 
 size_t ObservationManager::FilterPoints3DInImages(
@@ -310,28 +304,30 @@ size_t ObservationManager::FilterAllPoints3D(const double max_reproj_error,
   // a point stable through a large triangulation angle.
   const std::unordered_set<point3D_t>& point3D_ids =
       reconstruction_.Point3DIds();
-  size_t num_filtered = 0;
-  num_filtered +=
+  size_t num_filtered_observations = 0;
+  num_filtered_observations +=
       FilterPoints3DWithLargeReprojectionError(max_reproj_error, point3D_ids);
-  num_filtered +=
+  num_filtered_observations +=
       FilterPoints3DWithSmallTriangulationAngle(min_tri_angle, point3D_ids);
-  return num_filtered;
+  return num_filtered_observations;
 }
 
 size_t ObservationManager::FilterObservationsWithNegativeDepth() {
   size_t num_filtered = 0;
-  for (const auto image_id : reconstruction_.RegImageIds()) {
-    const Image& image = reconstruction_.Image(image_id);
-    const Eigen::Matrix3x4d cam_from_world = image.CamFromWorld().ToMatrix();
-    for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
-         ++point2D_idx) {
-      const Point2D& point2D = image.Point2D(point2D_idx);
-      if (point2D.HasPoint3D()) {
-        const struct Point3D& point3D =
-            reconstruction_.Point3D(point2D.point3D_id);
-        if (!HasPointPositiveDepth(cam_from_world, point3D.xyz)) {
-          DeleteObservation(image_id, point2D_idx);
-          num_filtered += 1;
+  for (const frame_t frame_id : reconstruction_.RegFrameIds()) {
+    for (const data_t& data_id : reconstruction_.Frame(frame_id).ImageIds()) {
+      const Image& image = reconstruction_.Image(data_id.id);
+      const Eigen::Matrix3x4d cam_from_world = image.CamFromWorld().ToMatrix();
+      for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+           ++point2D_idx) {
+        const Point2D& point2D = image.Point2D(point2D_idx);
+        if (point2D.HasPoint3D()) {
+          const struct Point3D& point3D =
+              reconstruction_.Point3D(point2D.point3D_id);
+          if (!HasPointPositiveDepth(cam_from_world, point3D.xyz)) {
+            DeleteObservation(data_id.id, point2D_idx);
+            num_filtered += 1;
+          }
         }
       }
     }
@@ -342,8 +338,8 @@ size_t ObservationManager::FilterObservationsWithNegativeDepth() {
 size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
     const double min_tri_angle,
     const std::unordered_set<point3D_t>& point3D_ids) {
-  // Number of filtered points.
-  size_t num_filtered = 0;
+  // Number of filtered observations.
+  size_t num_filtered_observations = 0;
 
   // Minimum triangulation angle in radians.
   const double min_tri_angle_rad = DegToRad(min_tri_angle);
@@ -376,7 +372,7 @@ size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
 
       for (size_t i2 = 0; i2 < i1; ++i2) {
         const image_t image_id2 = point3D.track.Element(i2).image_id;
-        const Eigen::Vector3d proj_center2 = proj_centers.at(image_id2);
+        const Eigen::Vector3d& proj_center2 = proj_centers.at(image_id2);
 
         const double tri_angle = CalculateTriangulationAngle(
             proj_center1, proj_center2, point3D.xyz);
@@ -393,12 +389,12 @@ size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
     }
 
     if (!keep_point) {
-      num_filtered += 1;
+      num_filtered_observations += point3D.track.Length();
       DeletePoint3D(point3D_id);
     }
   }
 
-  return num_filtered;
+  return num_filtered_observations;
 }
 
 size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
@@ -406,8 +402,8 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
     const std::unordered_set<point3D_t>& point3D_ids) {
   const double max_squared_reproj_error = max_reproj_error * max_reproj_error;
 
-  // Number of filtered points.
-  size_t num_filtered = 0;
+  // Number of filtered observations.
+  size_t num_filtered_observations = 0;
 
   for (const auto point3D_id : point3D_ids) {
     if (!reconstruction_.ExistsPoint3D(point3D_id)) {
@@ -417,7 +413,7 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
     struct Point3D& point3D = reconstruction_.Point3D(point3D_id);
 
     if (point3D.track.Length() < 2) {
-      num_filtered += point3D.track.Length();
+      num_filtered_observations += point3D.track.Length();
       DeletePoint3D(point3D_id);
       continue;
     }
@@ -440,10 +436,10 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
     }
 
     if (track_els_to_delete.size() >= point3D.track.Length() - 1) {
-      num_filtered += point3D.track.Length();
+      num_filtered_observations += point3D.track.Length();
       DeletePoint3D(point3D_id);
     } else {
-      num_filtered += track_els_to_delete.size();
+      num_filtered_observations += track_els_to_delete.size();
       for (const auto& track_el : track_els_to_delete) {
         DeleteObservation(track_el.image_id, track_el.point2D_idx);
       }
@@ -451,59 +447,67 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
     }
   }
 
-  return num_filtered;
+  return num_filtered_observations;
 }
 
-void ObservationManager::RegisterImage(const image_t image_id) {
-  Image& image = reconstruction_.Image(image_id);
-  const point2D_t num_points2D = image.NumPoints2D();
-  for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
-    const auto corr_range =
-        correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
-    for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
-      image_stats_[corr->image_id].num_visible_correspondences += 1;
+void ObservationManager::DeRegisterFrame(const frame_t frame_id) {
+  const Frame& frame = reconstruction_.Frame(frame_id);
+  for (const data_t& data_id : frame.DataIds()) {
+    Image& image = reconstruction_.Image(data_id.id);
+    const auto num_points2D = image.NumPoints2D();
+    for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
+      if (image.Point2D(point2D_idx).HasPoint3D()) {
+        DeleteObservation(data_id.id, point2D_idx);
+      }
     }
   }
-  reconstruction_.RegisterImage(image_id);
+  reconstruction_.DeRegisterFrame(frame_id);
 }
 
-void ObservationManager::DeRegisterImage(const image_t image_id) {
-  Image& image = reconstruction_.Image(image_id);
-  const point2D_t num_points2D = image.NumPoints2D();
-  for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
-    const auto corr_range =
-        correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
-    for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
-      image_stats_[corr->image_id].num_visible_correspondences -= 1;
-    }
-    if (image.Point2D(point2D_idx).HasPoint3D()) {
-      DeleteObservation(image_id, point2D_idx);
-    }
-  }
-  reconstruction_.DeRegisterImage(image_id);
-}
-
-std::vector<image_t> ObservationManager::FilterImages(
+std::vector<frame_t> ObservationManager::FilterFrames(
     const double min_focal_length_ratio,
     const double max_focal_length_ratio,
     const double max_extra_param) {
-  std::vector<image_t> filtered_image_ids;
-  for (const image_t image_id : reconstruction_.RegImageIds()) {
-    const Image& image = reconstruction_.Image(image_id);
-    if (image.NumPoints3D() == 0 ||
-        image.CameraPtr()->HasBogusParams(
-            min_focal_length_ratio, max_focal_length_ratio, max_extra_param)) {
-      filtered_image_ids.push_back(image_id);
+  std::vector<frame_t> filtered_frame_ids;
+  for (const frame_t frame_id : reconstruction_.RegFrameIds()) {
+    const Frame& frame = reconstruction_.Frame(frame_id);
+    int num_points3D = 0;
+    for (const data_t& data_id : frame.ImageIds()) {
+      const Image& image = reconstruction_.Image(data_id.id);
+      num_points3D += image.NumPoints3D();
+      if (image.CameraPtr()->HasBogusParams(min_focal_length_ratio,
+                                            max_focal_length_ratio,
+                                            max_extra_param)) {
+        // Flag the frame for filtering.
+        num_points3D = 0;
+        break;
+      }
+    }
+    if (num_points3D == 0) {
+      filtered_frame_ids.push_back(frame_id);
     }
   }
 
-  // Only de-register after iterating over reg_image_ids_ to avoid
+  // Only de-register after iterating over reg_frame_ids_ to avoid
   // simultaneous iteration and modification of the vector.
-  for (const image_t image_id : filtered_image_ids) {
-    DeRegisterImage(image_id);
+  for (const frame_t frame_id : filtered_frame_ids) {
+    DeRegisterFrame(frame_id);
   }
 
-  return filtered_image_ids;
+  return filtered_frame_ids;
+}
+
+std::ostream& operator<<(std::ostream& stream,
+                         const ObservationManager& obs_manager) {
+  stream << "ObservationManager(reconstruction=" << obs_manager.reconstruction_
+         << ", correspondence_graph=";
+  if (obs_manager.correspondence_graph_ == nullptr) {
+    stream << "null";
+  } else {
+    stream << obs_manager.correspondence_graph_;
+  }
+  stream << ")";
+  return stream;
 }
 
 }  // namespace colmap
