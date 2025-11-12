@@ -204,7 +204,7 @@ class IncrementalMapper {
   // `RegisterNextImageFallback`, respectively. This function automatically
   // ignores images that failed to register for `max_reg_trials`.
   std::vector<image_t> FindNextImages(const Options& options,
-                                      bool structureLessFallback = false);
+                                      bool structure_less_fallback = false);
 
   // Attempt to seed the reconstruction from an image pair.
   void RegisterInitialImagePair(const Options& options,
