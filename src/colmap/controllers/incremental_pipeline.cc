@@ -374,7 +374,7 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   return Status::SUCCESS;
 }
 
-bool IncrementalPipeline::ShouldRunGlobalRefinement(
+bool IncrementalPipeline::CheckRunGlobalRefinement(
     const Reconstruction& reconstruction,
     const size_t ba_prev_num_reg_frames,
     const size_t ba_prev_num_points) {
@@ -428,9 +428,9 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
     const auto obs_manager = mapper.ObservationManager();
 
     image_t next_image_id = kInvalidImageId;
-    for (const bool structureLessFallback : {false, true}) {
+    for (const bool structure_less_fallback : {false, true}) {
       const std::vector<image_t> next_images = mapper.FindNextImages(
-          mapper_options, /*structureLessFallback=*/structureLessFallback);
+          mapper_options, /*structure_less_fallback=*/structure_less_fallback);
 
       if (next_images.empty()) {
         break;
@@ -444,120 +444,120 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
           mapper.ObservationManager().NumVisiblePoints3D(next_image_id),
           mapper.ObservationManager().NumObservations(next_image_id));
 
-        if (structureLessFallback) {
-          LOG(INFO) << StringPrintf(
-              "Registering image with structure-less fallback #%d (%d)",
-              next_image_id,
-              reconstruction->NumRegImages() + 1);
-          LOG(INFO) << StringPrintf(
-              "=> Image sees %d correspondences",
-              obs_manager.NumVisibleCorrespondences(next_image_id));
-          reg_next_success = mapper.RegisterNextImageStructureLessFallback(
-              mapper_options, next_image_id);
-        } else {
-          LOG(INFO) << StringPrintf("Registering image #%d (%d)",
-                                    next_image_id,
-                                    reconstruction->NumRegImages() + 1);
-          LOG(INFO) << StringPrintf(
-              "=> Image sees %d / %d points",
-              obs_manager.NumVisiblePoints3D(next_image_id),
-              obs_manager.NumObservations(next_image_id));
-          reg_next_success =
-              mapper.RegisterNextImage(mapper_options, next_image_id);
-        }
-
-        if (reg_next_success) {
-          break;
-        } else {
-          LOG(INFO) << "=> Failed to register, trying another image.";
-
-          // If initial pair fails to continue for some time, abort and try
-          // different initial pair. This ensures we don't get stuck endlessly
-          // extending degenerate small models.
-          constexpr size_t kMinNumInitialRegTrials = 30;
-          if (reg_trial >= kMinNumInitialRegTrials &&
-              reconstruction->NumRegImages() < options_->min_model_size) {
-            break;
-          }
-        }
+      if (structure_less_fallback) {
+        LOG(INFO) << StringPrintf(
+            "Registering image with structure-less fallback #%d (%d)",
+            next_image_id,
+            reconstruction->NumRegImages() + 1);
+        LOG(INFO) << StringPrintf(
+            "=> Image sees %d correspondences",
+            obs_manager.NumVisibleCorrespondences(next_image_id));
+        reg_next_success = mapper.RegisterNextImageStructureLessFallback(
+            mapper_options, next_image_id);
+      } else {
+        LOG(INFO) << StringPrintf("Registering image #%d (%d)",
+                                  next_image_id,
+                                  reconstruction->NumRegImages() + 1);
+        LOG(INFO) << StringPrintf("=> Image sees %d / %d points",
+                                  obs_manager.NumVisiblePoints3D(next_image_id),
+                                  obs_manager.NumObservations(next_image_id));
+        reg_next_success =
+            mapper.RegisterNextImage(mapper_options, next_image_id);
       }
 
       if (reg_next_success) {
         break;
       } else {
-        LOG(INFO) << "=> Could not register, trying another image.";
+        LOG(INFO) << "=> Failed to register, trying another image.";
 
-        // If initial pair fails to continue for some time,
-        // abort and try different initial pair.
-        const size_t kMinNumInitialRegTrials = 30;
+        // If initial pair fails to continue for some time, abort and try
+        // different initial pair. This ensures we don't get stuck endlessly
+        // extending degenerate small models.
+        constexpr size_t kMinNumInitialRegTrials = 30;
         if (reg_trial >= kMinNumInitialRegTrials &&
-            reconstruction->NumRegFrames() <
-                static_cast<size_t>(options_->min_model_size)) {
+            reconstruction->NumRegImages() < options_->min_model_size) {
           break;
         }
       }
     }
 
     if (reg_next_success) {
-      const Image& image = reconstruction->Image(next_image_id);
-      for (const data_t& data_id : image.FramePtr()->ImageIds()) {
-        mapper.TriangulateImage(options_->Triangulation(), data_id.id);
-      }
-      mapper.IterativeLocalRefinement(options_->ba_local_max_refinements,
-                                      options_->ba_local_max_refinement_change,
-                                      mapper_options,
-                                      options_->LocalBundleAdjustment(),
-                                      options_->Triangulation(),
-                                      next_image_id);
-
-      if (CheckRunGlobalRefinement(
-              *reconstruction, ba_prev_num_reg_frames, ba_prev_num_points)) {
-        IterativeGlobalRefinement(*options_, mapper_options, mapper);
-        ba_prev_num_points = reconstruction->NumPoints3D();
-        ba_prev_num_reg_frames = reconstruction->NumRegFrames();
-      }
-
-      if (options_->extract_colors) {
-        for (const data_t& data_id : image.FramePtr()->ImageIds()) {
-          ExtractColors(image_path_, data_id.id, *reconstruction);
-        }
-      }
-
-      if (options_->snapshot_frames_freq > 0 &&
-          reconstruction->NumRegFrames() >=
-              options_->snapshot_frames_freq + snapshot_prev_num_reg_frames) {
-        snapshot_prev_num_reg_frames = reconstruction->NumRegFrames();
-        WriteSnapshot(*reconstruction, options_->snapshot_path);
-      }
-
-      Callback(NEXT_IMAGE_REG_CALLBACK);
-    }
-
-    const size_t max_model_overlap =
-        static_cast<size_t>(options_->max_model_overlap);
-    if (mapper.NumSharedRegImages() >= max_model_overlap) {
       break;
-    }
+    } else {
+      LOG(INFO) << "=> Could not register, trying another image.";
 
-    // If no image could be registered, try a single final global iterative
-    // bundle adjustment and try again to register one image. If this fails
-    // once, then exit the incremental mapping.
-    if (!reg_next_success && prev_reg_next_success) {
-      IterativeGlobalRefinement(*options_, mapper_options, mapper);
+      // If initial pair fails to continue for some time,
+      // abort and try different initial pair.
+      const size_t kMinNumInitialRegTrials = 30;
+      if (reg_trial >= kMinNumInitialRegTrials &&
+          reconstruction->NumRegFrames() <
+              static_cast<size_t>(options_->min_model_size)) {
+        break;
+      }
     }
-  } while (reg_next_success || prev_reg_next_success);
-
-  if (CheckIfStopped() || ReachedMaxRuntime()) {
-    return Status::INTERRUPTED;
   }
 
-  // Only run final global BA, if last incremental BA was not global.
-  if (reconstruction->NumRegFrames() > 0 &&
-      reconstruction->NumRegFrames() != ba_prev_num_reg_frames &&
-      reconstruction->NumPoints3D() != ba_prev_num_points) {
+  if (reg_next_success) {
+    const Image& image = reconstruction->Image(next_image_id);
+    for (const data_t& data_id : image.FramePtr()->ImageIds()) {
+      mapper.TriangulateImage(options_->Triangulation(), data_id.id);
+    }
+    mapper.IterativeLocalRefinement(options_->ba_local_max_refinements,
+                                    options_->ba_local_max_refinement_change,
+                                    mapper_options,
+                                    options_->LocalBundleAdjustment(),
+                                    options_->Triangulation(),
+                                    next_image_id);
+
+    if (CheckRunGlobalRefinement(
+            *reconstruction, ba_prev_num_reg_frames, ba_prev_num_points)) {
+      IterativeGlobalRefinement(*options_, mapper_options, mapper);
+      ba_prev_num_points = reconstruction->NumPoints3D();
+      ba_prev_num_reg_frames = reconstruction->NumRegFrames();
+    }
+
+    if (options_->extract_colors) {
+      for (const data_t& data_id : image.FramePtr()->ImageIds()) {
+        ExtractColors(image_path_, data_id.id, *reconstruction);
+      }
+    }
+
+    if (options_->snapshot_frames_freq > 0 &&
+        reconstruction->NumRegFrames() >=
+            options_->snapshot_frames_freq + snapshot_prev_num_reg_frames) {
+      snapshot_prev_num_reg_frames = reconstruction->NumRegFrames();
+      WriteSnapshot(*reconstruction, options_->snapshot_path);
+    }
+
+    Callback(NEXT_IMAGE_REG_CALLBACK);
+  }
+
+  const size_t max_model_overlap =
+      static_cast<size_t>(options_->max_model_overlap);
+  if (mapper.NumSharedRegImages() >= max_model_overlap) {
+    break;
+  }
+
+  // If no image could be registered, try a single final global iterative
+  // bundle adjustment and try again to register one image. If this fails
+  // once, then exit the incremental mapping.
+  if (!reg_next_success && prev_reg_next_success) {
     IterativeGlobalRefinement(*options_, mapper_options, mapper);
   }
-  return Status::SUCCESS;
+}
+while (reg_next_success || prev_reg_next_success);
+
+if (CheckIfStopped() || ReachedMaxRuntime()) {
+  return Status::INTERRUPTED;
+}
+
+// Only run final global BA, if last incremental BA was not global.
+if (reconstruction->NumRegFrames() > 0 &&
+    reconstruction->NumRegFrames() != ba_prev_num_reg_frames &&
+    reconstruction->NumPoints3D() != ba_prev_num_points) {
+  IterativeGlobalRefinement(*options_, mapper_options, mapper);
+}
+return Status::SUCCESS;
 }
 
 void IncrementalPipeline::Reconstruct(

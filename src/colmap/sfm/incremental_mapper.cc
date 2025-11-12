@@ -29,8 +29,8 @@
 
 #include "colmap/sfm/incremental_mapper.h"
 
-#include "colmap/estimators/generalized_relative_pose.h"
 #include "colmap/estimators/generalized_pose.h"
+#include "colmap/estimators/generalized_relative_pose.h"
 #include "colmap/estimators/pose.h"
 #include "colmap/estimators/triangulation.h"
 #include "colmap/estimators/two_view_geometry.h"
@@ -134,9 +134,13 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
       cam2_from_cam1);
 }
 
-std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
-  return IncrementalMapperImpl::FindNextImages(
-      options, *obs_manager_, filtered_frames_, reg_stats_.num_reg_trials);
+std::vector<image_t> IncrementalMapper::FindNextImages(
+    const Options& options, bool structure_less_fallback) {
+  return IncrementalMapperImpl::FindNextImages(structure_less_fallback,
+                                               options,
+                                               *obs_manager_,
+                                               filtered_frames_,
+                                               reg_stats_.num_reg_trials);
 }
 
 void IncrementalMapper::RegisterInitialImagePair(
@@ -641,7 +645,8 @@ bool IncrementalMapper::RegisterNextImageStructureLessFallback(
 
     GRNPObservation observation;
     observation.cam_from_rig = Rigid3d();
-    if (const auto cam_point = camera.CamFromImg(point2D.xy); cam_point.has_value()) {
+    if (const auto cam_point = camera.CamFromImg(point2D.xy);
+        cam_point.has_value()) {
       observation.ray_in_cam = cam_point->homogeneous().normalized();
     } else {
       observation.ray_in_cam.setZero();
@@ -668,8 +673,12 @@ bool IncrementalMapper::RegisterNextImageStructureLessFallback(
 
       GRNPObservation corr_observation;
       corr_observation.cam_from_rig = corr_image.CamFromWorld();
-      corr_observation.ray_in_cam =
-          corr_camera.CamFromImg(corr_point2D.xy).homogeneous().normalized();
+      if (const auto cam_point = corr_camera.CamFromImg(corr_point2D.xy);
+          cam_point.has_value()) {
+        observation.ray_in_cam = cam_point->homogeneous().normalized();
+      } else {
+        observation.ray_in_cam.setZero();
+      }
 
       point2D_idxs.push_back(point2D_idx);
       corrs.push_back(*corr);
@@ -702,7 +711,7 @@ bool IncrementalMapper::RegisterNextImageStructureLessFallback(
       options.abs_pose_min_inlier_ratio;
 
   BundleAdjustmentOptions abs_pose_refinement_options;
-  if (num_reg_images_per_camera_[image.CameraId()] > 0) {
+  if (reg_stats_.num_reg_images_per_camera[image.CameraId()] > 0) {
     // Camera already refined from another image with the same camera.
     if (camera.HasBogusParams(options.min_focal_length_ratio,
                               options.max_focal_length_ratio,
@@ -735,11 +744,11 @@ bool IncrementalMapper::RegisterNextImageStructureLessFallback(
 
   size_t num_inliers;
   std::vector<char> inlier_mask;
-
+  Rigid3d cam_from_world;
   if (!EstimateStructureLessAbsolutePose(abs_pose_options,
                                          points_world,
                                          points_cam,
-                                         &image.CamFromWorld(),
+                                         &cam_from_world,
                                          &camera,
                                          &num_inliers,
                                          &inlier_mask)) {
@@ -754,8 +763,8 @@ bool IncrementalMapper::RegisterNextImageStructureLessFallback(
   // Continue tracks
   //////////////////////////////////////////////////////////////////////////////
 
-  obs_manager_->RegisterImage(image_id);
-  RegisterImageEvent(image_id);
+  reconstruction_->RegisterFrame(image.FrameId());
+  RegisterFrameEvent(image.FrameId());
 
   std::vector<std::vector<CorrespondenceGraph::Correspondence>> inlier_corrs(
       num_points2D);
@@ -772,7 +781,7 @@ bool IncrementalMapper::RegisterNextImageStructureLessFallback(
   abs_pose_refinement_config.AddImage(image_id);
 
   std::vector<Eigen::Vector2d> tri_points;
-  std::vector<Rigid3d const*> tri_cams_from_world;
+  std::vector<Rigid3d> tri_cams_from_world;
   std::vector<const Camera*> tri_cameras;
   std::vector<char> tri_inlier_mask;
   for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
@@ -807,12 +816,12 @@ bool IncrementalMapper::RegisterNextImageStructureLessFallback(
       const Camera& corr_camera =
           reconstruction_->Camera(corr_image.CameraId());
       tri_points.push_back(corr_image.Point2D(corr.point2D_idx).xy);
-      tri_cams_from_world.push_back(&corr_image.CamFromWorld());
+      tri_cams_from_world.push_back(corr_image.CamFromWorld());
       tri_cameras.push_back(&corr_camera);
     }
 
     tri_points.push_back(image.Point2D(point2D_idx).xy);
-    tri_cams_from_world.push_back(&image.CamFromWorld());
+    tri_cams_from_world.push_back(image.CamFromWorld());
     tri_cameras.push_back(&camera);
 
     Eigen::Vector3d tri_xyz;
@@ -845,13 +854,12 @@ bool IncrementalMapper::RegisterNextImageStructureLessFallback(
     abs_pose_refinement_config.AddVariablePoint(point3D_id);
   }
 
-  BundleAdjuster abs_pose_refinement(abs_pose_refinement_options,
-                                     abs_pose_refinement_config);
-  if (!abs_pose_refinement.Solve(reconstruction_.get())) {
-    return false;
-  }
-
-  return true;
+  auto abs_pose_refinement =
+      CreateDefaultBundleAdjuster(abs_pose_refinement_options,
+                                  abs_pose_refinement_config,
+                                  *reconstruction_);
+  const auto abs_pose_summary = abs_pose_refinement->Solve();
+  return abs_pose_summary.termination_type == ceres::USER_SUCCESS;
 }
 
 size_t IncrementalMapper::TriangulateImage(
