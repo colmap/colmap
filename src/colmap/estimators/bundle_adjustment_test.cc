@@ -29,7 +29,6 @@
 
 #include "colmap/estimators/bundle_adjustment.h"
 
-#include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
@@ -195,6 +194,8 @@ TEST(CasparBundleAdjuster, TwoView) {
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.point2D_stddev = 1;
+  synthetic_dataset_options.camera_model_id = CameraModelId::kSimpleRadial;
+
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   const Reconstruction orig_reconstruction = reconstruction;
 
@@ -204,9 +205,120 @@ TEST(CasparBundleAdjuster, TwoView) {
   config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
+  caspar::SolverParams params;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultCasparBundleAdjuster(options, config, reconstruction);
+      CreateCasparBundleAdjuster(options, config, reconstruction, params);
   const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+}
+
+TEST(CasparBundleAdjuster, CompareWithDefaultBundleAdjuster) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 5;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.point2D_stddev = 1;
+  synthetic_dataset_options.camera_model_id = CameraModelId::kSimpleRadial;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  // Create two independent copies
+  Reconstruction reconstruction_ceres = reconstruction;
+  Reconstruction reconstruction_caspar = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+
+  // Run Ceres
+  auto ceres_summary =
+      CreateDefaultBundleAdjuster(options, config, reconstruction_ceres)
+          ->Solve();
+  ASSERT_NE(ceres_summary.termination_type, ceres::FAILURE);
+
+  // Run Caspar
+  caspar::SolverParams params;
+  auto caspar_summary =
+      CreateCasparBundleAdjuster(options, config, reconstruction_caspar, params)
+          ->Solve();
+  ASSERT_NE(caspar_summary.termination_type, ceres::FAILURE);
+
+  // Compare final costs
+  const double ceres_rmse =
+      std::sqrt(ceres_summary.final_cost / ceres_summary.num_residuals_reduced);
+  const double caspar_rmse = std::sqrt(
+      caspar_summary.final_cost / 400);  // 100 points * 2 images * 2 residuals
+
+  LOG(INFO) << "Ceres RMSE:  " << ceres_rmse << " px";
+  LOG(INFO) << "Caspar RMSE: " << caspar_rmse << " px";
+
+  // Both should converge to low error
+  EXPECT_LT(ceres_rmse, 2.0);
+  EXPECT_LT(caspar_rmse, 2.0);
+
+  // Should be reasonably close to each other
+  EXPECT_NEAR(ceres_rmse, caspar_rmse, 0.5);
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Compare 3D Points
+  //////////////////////////////////////////////////////////////////////////////
+
+  LOG(INFO) << "\n=== Comparing 3D Points ===";
+
+  std::vector<double> point_position_errors;
+  point_position_errors.reserve(reconstruction_ceres.NumPoints3D());
+
+  for (const auto& point3D_id : reconstruction_ceres.Point3DIds()) {
+    const Point3D& point_ceres = reconstruction_ceres.Point3D(point3D_id);
+    const Point3D& point_caspar = reconstruction_caspar.Point3D(point3D_id);
+
+    const double error = (point_ceres.xyz - point_caspar.xyz).norm();
+    point_position_errors.push_back(error);
+  }
+
+  std::sort(point_position_errors.begin(), point_position_errors.end());
+
+  const double mean_point_error =
+      std::accumulate(
+          point_position_errors.begin(), point_position_errors.end(), 0.0) /
+      point_position_errors.size();
+  const double median_point_error =
+      point_position_errors[point_position_errors.size() / 2];
+  const double max_point_error = point_position_errors.back();
+
+  LOG(INFO) << "Point position differences:";
+  LOG(INFO) << "  Mean:   " << mean_point_error;
+  LOG(INFO) << "  Median: " << median_point_error;
+  LOG(INFO) << "  Max:    " << max_point_error;
+  LOG(INFO) << "  Total points: " << point_position_errors.size();
+
+  // Show first 10 points in detail
+  LOG(INFO) << "\n=== First 10 Points Detailed Comparison ===";
+  int count = 0;
+  for (const auto& point3D_id : reconstruction_ceres.Point3DIds()) {
+    if (count >= 10) break;
+
+    const Point3D& point_ceres = reconstruction_ceres.Point3D(point3D_id);
+    const Point3D& point_caspar = reconstruction_caspar.Point3D(point3D_id);
+
+    const Eigen::Vector3d diff = point_ceres.xyz - point_caspar.xyz;
+
+    LOG(INFO) << "Point " << point3D_id << ":";
+    LOG(INFO) << "  Ceres:  [" << point_ceres.xyz.transpose() << "]";
+    LOG(INFO) << "  Caspar: [" << point_caspar.xyz.transpose() << "]";
+    LOG(INFO) << "  Diff:   [" << diff.transpose() << "]";
+    LOG(INFO) << "  Error:  " << diff.norm();
+
+    count++;
+  }
+
+  // Points should be very close
+  EXPECT_LT(mean_point_error, 0.025);
+  EXPECT_LT(max_point_error, 0.1);
 }
 
 TEST(DefaultBundleAdjuster, TwoViewRig) {

@@ -32,11 +32,25 @@
 #include "colmap/estimators/alignment.h"
 #include "colmap/estimators/cost_functions.h"
 #include "colmap/estimators/manifold.h"
+#include "colmap/geometry/rigid3.h"
+#include "colmap/scene/image.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/util/cuda.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
+#include "colmap/util/types.h"
 
+#include <cstddef>
 #include <iomanip>
+#include <memory>
+
+#include "bundle_adjustment.h"
+#include "generated/solver.h"
+#include "generated/solver_params.h"
+#include <ceres/problem.h>
+#include <ceres/solver.h>
+#include <ceres/types.h>
 
 namespace colmap {
 namespace {
@@ -1192,6 +1206,224 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
   Sim3d normalized_from_metric_;
 };
 
+class CasparBundleAdjuster : public BundleAdjuster {
+ public:
+  CasparBundleAdjuster(BundleAdjustmentOptions options,
+                       BundleAdjustmentConfig config,
+                       Reconstruction& reconstruction,
+                       caspar::SolverParams params)
+      : BundleAdjuster(std::move(options), std::move(config)),
+        reconstruction_(reconstruction) {
+    LOG(INFO) << "Using Caspar bundle adjuster";
+    for (const image_t image_id : config_.Images()) {
+      // Add all images
+      Image& image = reconstruction.Image(image_id);
+      Camera& camera = *image.CameraPtr();
+      if (image.HasTrivialFrame()) {
+        Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
+        for (const Point2D& point2D : image.Points2D()) {
+          if (!point2D.HasPoint3D()) {
+            continue;
+          }
+          num_factors_ += 1;
+          size_t factor_idx = num_factors_ - 1;
+          Point3D& point3D = reconstruction.Point3D(point2D.point3D_id);
+          THROW_CHECK_GT(point3D.track.Length(), 1);  // what does this mean
+
+          // Indices
+          caspar_factor_idx_to_image_id_[factor_idx] = image_id;
+          size_t factor_cam_idx;
+          size_t factor_point_idx;
+
+          // Has point been seen before? If not, load data, else index
+
+          auto it_point = point3d_to_caspar_idx_.find(point2D.point3D_id);
+
+          if (it_point == point3d_to_caspar_idx_.end()) {
+            num_points_ += 1;
+            factor_point_idx = num_points_ - 1;
+            caspar_point_idx_to_point3d_[factor_point_idx] = point2D.point3D_id;
+            point3d_to_caspar_idx_[point2D.point3D_id] = factor_point_idx;
+            point3D_num_observations_[point2D.point3D_id] = 1;
+
+            point3D_caspar_data_.push_back(point3D.xyz.x());
+            point3D_caspar_data_.push_back(point3D.xyz.y());
+            point3D_caspar_data_.push_back(point3D.xyz.z());
+          } else {
+            point3D_num_observations_[point2D.point3D_id] += 1;
+            factor_point_idx = it_point->second;
+          }
+
+          caspar_factor_idx_to_image_id_[factor_idx] = image.ImageId();
+
+          // Has cam been seen before? Else, use index
+          auto it_img = imageId_to_caspar_idx_.find(image_id);
+          if (it_img == imageId_to_caspar_idx_.end()) {
+            num_cams_ += 1;
+            factor_cam_idx = num_cams_ - 1;
+            caspar_cam_idx_to_image_id_[factor_cam_idx] = image_id;
+            imageId_to_caspar_idx_[image_id] = factor_cam_idx;
+
+            // Normalize quaternion
+            cam_from_world.rotation.normalize();
+
+            // Copy quaternion, Caspar expects quaternion first
+            camera_caspar_data_.push_back(
+                static_cast<float>(cam_from_world.rotation.x()));
+            camera_caspar_data_.push_back(
+                static_cast<float>(cam_from_world.rotation.y()));
+            camera_caspar_data_.push_back(
+                static_cast<float>(cam_from_world.rotation.z()));
+            camera_caspar_data_.push_back(
+                static_cast<float>(cam_from_world.rotation.w()));
+
+            // Copy translation
+            camera_caspar_data_.push_back(
+                static_cast<float>(cam_from_world.translation.x()));
+            camera_caspar_data_.push_back(
+                static_cast<float>(cam_from_world.translation.y()));
+            camera_caspar_data_.push_back(
+                static_cast<float>(cam_from_world.translation.z()));
+
+            // Copy intrinsics
+            for (const double& param : camera.params) {
+              camera_caspar_data_.push_back(static_cast<float>(param));
+            }
+          } else {
+            factor_cam_idx = it_img->second;
+          }
+          // Pixel data
+          pixel_caspar_data_.push_back(point2D.xy.x());
+          pixel_caspar_data_.push_back(point2D.xy.y());
+
+          // Store indices
+          caspar_cam_idx_.push_back(factor_cam_idx);
+          caspar_point_idx_.push_back(factor_point_idx);
+        }
+      }
+    }
+
+    // Skip points outside of images for now
+    // for (const auto point3D_id : config.VariablePoints()) {
+    //   Point3D& point3D = reconstruction.Point3D(point3D_id);
+    //   size_t& num_observations = point3D_num_observations_[point3D_id];
+
+    //   // Is 3D point already fully contained in the problem? I.e. its entire
+    //   // track is contained in `variable_image_ids`, `constant_image_ids`,
+    //   // `constant_x_image_ids`.
+    //   if (num_observations == point3D.track.Length()) {
+    //     return;
+    //   }
+
+    //   // For now we only add the point if we optimize the camera parameters,
+    //   // should be an option to be constant eventually, when const cam is
+    //   // imlemented
+    // }
+
+    // Skip adding constant points for now, add when const point is added
+  }
+
+  // Does nothing
+  std::shared_ptr<ceres::Problem>& Problem() override { return problem_; }
+
+  ceres::Solver::Summary Solve()
+      override {  // Need a separate function to write the
+                  // solved stuff to the reconstruction
+    caspar::GraphSolver solver(params, num_points_, num_cams_, num_factors_);
+
+    // Constant data
+    solver.set_simple_radial_pixel_data_from_stacked_host(
+        pixel_caspar_data_.data(), 0, num_factors_);
+    // Nodes to be optimized
+    solver.set_Point_nodes_from_stacked_host(
+        point3D_caspar_data_.data(), 0, num_points_);
+    solver.set_SimpleRadialCamera_nodes_from_stacked_host(
+        camera_caspar_data_.data(), 0, num_cams_);
+
+    // Set indices - point <-> cam relationships
+    solver.set_simple_radial_point_indices_from_host(caspar_point_idx_.data(),
+                                                     num_factors_);
+    solver.set_simple_radial_cam_indices_from_host(caspar_cam_idx_.data(),
+                                                   num_factors_);
+    solver.finish_indices();
+    const float result = solver.solve(true);
+    // Load result from GPU
+    solver.get_Point_nodes_to_stacked_host(
+        point3D_caspar_data_.data(), 0, num_points_);
+    solver.get_SimpleRadialCamera_nodes_to_stacked_host(
+        camera_caspar_data_.data(), 0, num_cams_);
+
+    // Load to reconstruction
+    for (size_t point_idx = 0; point_idx < num_points_; point_idx++) {
+      point3D_t point_id = caspar_point_idx_to_point3d_[point_idx];
+      Point3D& point = reconstruction_.Point3D(point_id);
+      point.xyz.x() = point3D_caspar_data_[point_idx * 3];
+      point.xyz.y() = point3D_caspar_data_[point_idx * 3 + 1];
+      point.xyz.z() = point3D_caspar_data_[point_idx * 3 + 2];
+    }
+
+    // Copy solved cams - calculate offset per camera
+    size_t offset = 0;
+    for (size_t i = 0; i < num_cams_; ++i) {
+      image_t img_id = caspar_cam_idx_to_image_id_[i];
+      Image& img = reconstruction_.Image(img_id);
+      Camera& camera = *img.CameraPtr();
+      Rigid3d& cam_from_world = img.FramePtr()->RigFromWorld();
+
+      // Copy rotation (w, x, y, z)
+      cam_from_world.rotation =
+          Eigen::Quaterniond(camera_caspar_data_[offset + 3],   // w
+                             camera_caspar_data_[offset + 0],   // x
+                             camera_caspar_data_[offset + 1],   // y
+                             camera_caspar_data_[offset + 2]);  // z
+
+      // Copy translation
+      cam_from_world.translation =
+          Eigen::Vector3d(camera_caspar_data_[offset + 4],
+                          camera_caspar_data_[offset + 5],
+                          camera_caspar_data_[offset + 6]);
+      // Copy intrinsics
+      for (size_t j = 0; j < camera.params.size(); ++j) {
+        camera.params[j] = camera_caspar_data_[offset + 7 + j];
+      }
+
+      // Move offset for next camera (pose + intrinsics)
+      offset += 7 + camera.params.size();
+    }
+
+    ceres::Solver::Summary summary;  // Incomplete
+    summary.final_cost = result;
+    summary.termination_type = ceres::CONVERGENCE;
+    return summary;
+  }
+
+ private:
+  Reconstruction& reconstruction_;
+  const caspar::SolverParams params;  // Solver created in runtime
+  size_t num_factors_ = 0;
+  size_t num_points_ = 0;
+  size_t num_cams_ = 0;
+  // Caspar needs contiguous data
+  std::vector<float> pixel_caspar_data_;
+  std::vector<float> point3D_caspar_data_;
+  std::vector<float> camera_caspar_data_;
+  std::set<camera_t> parameterized_camera_ids_;
+  std::set<image_t> parameterized_image_ids_;
+  // Track indices
+  std::vector<unsigned int> caspar_point_idx_;
+  std::vector<unsigned int> caspar_cam_idx_;
+
+  std::unordered_map<size_t, point3D_t> caspar_point_idx_to_point3d_;
+  std::unordered_map<size_t, image_t> caspar_cam_idx_to_image_id_;
+  std::unordered_map<size_t, image_t> caspar_factor_idx_to_image_id_;
+  std::unordered_map<point3D_t, size_t> point3d_to_caspar_idx_;
+  std::unordered_map<image_t, size_t> imageId_to_caspar_idx_;
+  std::unordered_map<point3D_t, size_t> point3D_num_observations_;
+
+  // Unused
+  std::shared_ptr<ceres::Problem> problem_;
+};
+
 }  // namespace
 
 std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(
@@ -1213,6 +1445,17 @@ std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
                                                    std::move(config),
                                                    std::move(pose_priors),
                                                    reconstruction);
+}
+
+std::unique_ptr<BundleAdjuster> CreateCasparBundleAdjuster(
+    BundleAdjustmentOptions options,
+    BundleAdjustmentConfig config,
+    Reconstruction& reconstruction,
+    caspar::SolverParams params) {
+  std::cout << "@@@ USING CASPAR BUNDLE ADJUSTER @@@";
+
+  return std::make_unique<CasparBundleAdjuster>(
+      std::move(options), std::move(config), reconstruction, params);
 }
 
 void PrintSolverSummary(const ceres::Solver::Summary& summary,

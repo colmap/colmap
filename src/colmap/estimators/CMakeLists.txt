@@ -35,7 +35,6 @@ COLMAP_ADD_LIBRARY(
         affine_transform.h affine_transform.cc
         alignment.h alignment.cc
         bundle_adjustment.h bundle_adjustment.cc
-        bundle_adjustment_caspar.h bundle_adjustment_caspar.cc
         coordinate_frame.h coordinate_frame.cc
         cost_function_utils.h
         cost_functions.h

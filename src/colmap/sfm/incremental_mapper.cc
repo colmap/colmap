@@ -29,7 +29,9 @@
 
 #include "colmap/sfm/incremental_mapper.h"
 
+#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/generalized_pose.h"
+#include "colmap/estimators/generated/solver_params.h"
 #include "colmap/estimators/pose.h"
 #include "colmap/estimators/triangulation.h"
 #include "colmap/estimators/two_view_geometry.h"
@@ -1004,9 +1006,10 @@ IncrementalMapper::AdjustLocalBundle(
 
     // Adjust the local bundle.
     image_ids = ba_config.Images();
+    caspar::SolverParams params;
     std::unique_ptr<BundleAdjuster> bundle_adjuster =
-        CreateDefaultBundleAdjuster(
-            ba_options, std::move(ba_config), *reconstruction_);
+        CreateCasparBundleAdjuster(
+            ba_options, std::move(ba_config), *reconstruction_, params);
     const ceres::Solver::Summary summary = bundle_adjuster->Solve();
 
     report.num_adjusted_observations = summary.num_residuals / 2;
@@ -1109,14 +1112,17 @@ bool IncrementalMapper::AdjustGlobalBundle(
       options.use_prior_position && ba_config.NumImages() > 2;
 
   std::unique_ptr<BundleAdjuster> bundle_adjuster;
+  LOG(INFO) << "Created bundle adjustment unique pointer";
   if (!use_prior_position) {
     // Fixing the gauge with two cameras leads to a more stable optimization
     // with fewer steps as compared to fixing three points.
     // TODO(jsch): Investigate whether it is safe to not fix the gauge at all,
     // as initial experiments show that it is even faster.
     ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
-    bundle_adjuster = CreateDefaultBundleAdjuster(
-        custom_ba_options, ba_config, *reconstruction_);
+    caspar::SolverParams params;
+    LOG(INFO) << "Creating Caspar Bundle Adjuster";
+    bundle_adjuster = CreateCasparBundleAdjuster(
+        std::move(custom_ba_options), ba_config, *reconstruction_, params);
   } else {
     PosePriorBundleAdjustmentOptions prior_options;
     if (options.use_robust_loss_on_prior_position) {
