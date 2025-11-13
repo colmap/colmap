@@ -407,7 +407,8 @@ void WriteFrameData(const frame_t frame_id,
 
 class SqliteDatabase : public Database {
  public:
-  SqliteDatabase() : database_(nullptr) {}
+  SqliteDatabase(bool disable_auto_vacuum = false)
+      : disable_auto_vacuum_(disable_auto_vacuum), database_(nullptr) {}
 
   // Open and close database. The same database should not be opened
   // concurrently in multiple threads or processes.
@@ -415,8 +416,15 @@ class SqliteDatabase : public Database {
   // On Windows, the input path is converted from the local code page to UTF-8
   // for compatibility with SQLite. On POSIX platforms, the path is assumed to
   // be UTF-8.
-  static std::shared_ptr<Database> Open(const std::string& path) {
-    auto database = std::make_shared<SqliteDatabase>();
+  static std::shared_ptr<Database> Open(const std::string& path,
+                                        const Options& options = {}) {
+    bool disable_auto_vacuum = false;
+    auto iter = options.find("disable_auto_vacuum");
+    if (iter != options.end()) {
+      disable_auto_vacuum = std::stoi(iter->second);
+    }
+
+    auto database = std::make_shared<SqliteDatabase>(disable_auto_vacuum);
 
     // SQLITE_OPEN_NOMUTEX specifies that the connection should not have a
     // mutex (so that we don't serialize the connection's operations).
@@ -446,7 +454,11 @@ class SqliteDatabase : public Database {
     SQLITE3_EXEC(database->database_, "PRAGMA foreign_keys=ON", nullptr);
 
     // Disable auto vacuum to speed up CloseImpl
-    SQLITE3_EXEC(database->database_, "PRAGMA auto_vacuum=0", nullptr);
+    if (disable_auto_vacuum) {
+      SQLITE3_EXEC(database->database_, "PRAGMA auto_vacuum=1", nullptr);
+    } else {
+      SQLITE3_EXEC(database->database_, "PRAGMA auto_vacuum=0", nullptr);
+    }
 
     database->CreateTables();
     database->UpdateSchema();
@@ -459,7 +471,10 @@ class SqliteDatabase : public Database {
     if (database_ != nullptr) {
       FinalizeSQLStatements();
       if (database_entry_deleted_) {
-        SQLITE3_EXEC(database_, "VACUUM", nullptr);
+        if (!disable_auto_vacuum_) {
+          SQLITE3_EXEC(database_, "VACUUM", nullptr);
+        }
+
         database_entry_deleted_ = false;
       }
       SQLITE3_CALL(sqlite3_close_v2(database_));
@@ -2163,7 +2178,7 @@ class SqliteDatabase : public Database {
 
     return max;
   }
-
+  bool disable_auto_vacuum_ = true;
   sqlite3* database_ = nullptr;
 
   // Check if elements got removed from the database to only apply
@@ -2263,8 +2278,9 @@ std::mutex SqliteDatabase::update_schema_mutex_;
 
 }  // namespace
 
-std::shared_ptr<Database> OpenSqliteDatabase(const std::string& path) {
-  return SqliteDatabase::Open(path);
+std::shared_ptr<Database> OpenSqliteDatabase(const std::string& path,
+                                             const Database::Options& options) {
+  return SqliteDatabase::Open(path, options);
 }
 
 }  // namespace colmap
