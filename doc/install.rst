@@ -363,7 +363,7 @@ You need Python and Sphinx to build the HTML documentation::
 
     cd path/to/colmap/doc
     sudo apt-get install python
-    pip install sphinx
+    pip install sphinx sphinx_rtd_theme
     make html
     open _build/html/index.html
 
