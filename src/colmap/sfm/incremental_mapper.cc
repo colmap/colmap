@@ -30,7 +30,9 @@
 #include "colmap/sfm/incremental_mapper.h"
 
 #include "colmap/estimators/generalized_pose.h"
+#include "colmap/estimators/generalized_relative_pose.h"
 #include "colmap/estimators/pose.h"
+#include "colmap/estimators/triangulation.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/scene/projection.h"
@@ -41,6 +43,7 @@
 
 #include <array>
 #include <fstream>
+#include <optional>
 
 namespace colmap {
 
@@ -131,9 +134,13 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
       cam2_from_cam1);
 }
 
-std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
-  return IncrementalMapperImpl::FindNextImages(
-      options, *obs_manager_, filtered_frames_, reg_stats_.num_reg_trials);
+std::vector<image_t> IncrementalMapper::FindNextImages(
+    const Options& options, bool structure_less_fallback) {
+  return IncrementalMapperImpl::FindNextImages(structure_less_fallback,
+                                               options,
+                                               *obs_manager_,
+                                               filtered_frames_,
+                                               reg_stats_.num_reg_trials);
 }
 
 void IncrementalMapper::RegisterInitialImagePair(
@@ -602,11 +609,264 @@ bool IncrementalMapper::RegisterNextGeneralFrame(const Options& options,
   return true;
 }
 
+bool IncrementalMapper::RegisterNextImageStructureLessFallback(
+    const Options& options, const image_t image_id) {
+  THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(obs_manager_);
+  THROW_CHECK_GE(reconstruction_->NumRegImages(), 2);
+
+  THROW_CHECK(options.Check());
+
+  Image& image = reconstruction_->Image(image_id);
+  Camera& camera = *image.CameraPtr();
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Search for structure-less correspondences
+  //////////////////////////////////////////////////////////////////////////////
+
+  // Check if enough 2D-2D correspondences.
+  if (obs_manager_->NumVisibleCorrespondences(image_id) <
+      static_cast<size_t>(options.abs_pose_min_num_inliers)) {
+    return false;
+  }
+
+  const std::shared_ptr<const CorrespondenceGraph> correspondence_graph =
+      database_cache_->CorrespondenceGraph();
+
+  std::vector<point2D_t> point2D_idxs;
+  std::vector<CorrespondenceGraph::Correspondence> corrs;
+  std::vector<GRNPObservation> points_world;
+  std::vector<GRNPObservation> points_cam;
+  std::unordered_set<image_t> corr_image_ids;
+
+  const point2D_t num_points2D = image.NumPoints2D();
+  for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
+    const Point2D& point2D = image.Point2D(point2D_idx);
+
+    GRNPObservation observation;
+    observation.cam_from_rig = Rigid3d();
+    if (const auto cam_point = camera.CamFromImg(point2D.xy);
+        cam_point.has_value()) {
+      observation.ray_in_cam = cam_point->homogeneous().normalized();
+    } else {
+      observation.ray_in_cam.setZero();
+    }
+
+    const auto corr_range =
+        correspondence_graph->FindCorrespondences(image_id, point2D_idx);
+    for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+      const Image& corr_image = reconstruction_->Image(corr->image_id);
+      if (!corr_image.HasPose()) {
+        continue;
+      }
+
+      const Camera& corr_camera = *corr_image.CameraPtr();
+
+      // Avoid correspondences to images with bogus camera parameters.
+      if (corr_camera.HasBogusParams(options.min_focal_length_ratio,
+                                     options.max_focal_length_ratio,
+                                     options.max_extra_param)) {
+        continue;
+      }
+
+      const Point2D& corr_point2D = corr_image.Point2D(corr->point2D_idx);
+
+      GRNPObservation corr_observation;
+      corr_observation.cam_from_rig = corr_image.CamFromWorld();
+      if (const auto cam_point = corr_camera.CamFromImg(corr_point2D.xy);
+          cam_point.has_value()) {
+        observation.ray_in_cam = cam_point->homogeneous().normalized();
+      } else {
+        observation.ray_in_cam.setZero();
+      }
+
+      point2D_idxs.push_back(point2D_idx);
+      corrs.push_back(*corr);
+      points_world.push_back(corr_observation);
+      points_cam.push_back(observation);
+      corr_image_ids.insert(corr->image_id);
+    }
+  }
+
+  // Check if we pass the minimum number of inliers and if we have any hope of
+  // estimating the scale of the relative translation. Note that we can only
+  // estimate the scale from the reconstruction to the next image, if there are
+  // correspondences to at least 2 registered images. The check here is simple
+  // and ignores other types of degeneracies, where the projection centers of
+  // all registered images coincide, etc. We let the RANSAC and subsequent
+  // filtering deal with these.
+  if (points_cam.size() <
+          static_cast<size_t>(options.abs_pose_min_num_inliers) ||
+      corr_image_ids.size() < 2) {
+    return false;
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Structure-less resectioning
+  //////////////////////////////////////////////////////////////////////////////
+
+  StructureLessAbsolutePoseEstimationOptions abs_pose_options;
+  abs_pose_options.ransac_options.max_error = options.abs_pose_max_error;
+  abs_pose_options.ransac_options.min_inlier_ratio =
+      options.abs_pose_min_inlier_ratio;
+
+  BundleAdjustmentOptions abs_pose_refinement_options;
+  if (reg_stats_.num_reg_images_per_camera[image.CameraId()] > 0) {
+    // Camera already refined from another image with the same camera.
+    if (camera.HasBogusParams(options.min_focal_length_ratio,
+                              options.max_focal_length_ratio,
+                              options.max_extra_param)) {
+      // Previously refined camera has bogus parameters,
+      // so reset parameters and try to re-estimage.
+      camera.params = database_cache_->Camera(image.CameraId()).params;
+      abs_pose_refinement_options.refine_focal_length = true;
+      abs_pose_refinement_options.refine_extra_params = true;
+    } else {
+      abs_pose_refinement_options.refine_focal_length = false;
+      abs_pose_refinement_options.refine_extra_params = false;
+    }
+  } else {
+    // Camera not refined before. Note that the camera parameters might have
+    // been changed before but the image was filtered, so we explicitly reset
+    // the camera parameters and try to re-estimate them.
+    camera.params = database_cache_->Camera(image.CameraId()).params;
+    abs_pose_refinement_options.refine_focal_length = true;
+    abs_pose_refinement_options.refine_extra_params = true;
+  }
+
+  if (!options.abs_pose_refine_focal_length) {
+    abs_pose_refinement_options.refine_focal_length = false;
+  }
+
+  if (!options.abs_pose_refine_extra_params) {
+    abs_pose_refinement_options.refine_extra_params = false;
+  }
+
+  size_t num_inliers;
+  std::vector<char> inlier_mask;
+  Rigid3d cam_from_world;
+  if (!EstimateStructureLessAbsolutePose(abs_pose_options,
+                                         points_world,
+                                         points_cam,
+                                         &cam_from_world,
+                                         &camera,
+                                         &num_inliers,
+                                         &inlier_mask)) {
+    return false;
+  }
+
+  if (num_inliers < static_cast<size_t>(options.abs_pose_min_num_inliers)) {
+    return false;
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Continue tracks
+  //////////////////////////////////////////////////////////////////////////////
+
+  reconstruction_->RegisterFrame(image.FrameId());
+  RegisterFrameEvent(image.FrameId());
+
+  std::vector<std::vector<CorrespondenceGraph::Correspondence>> inlier_corrs(
+      num_points2D);
+
+  THROW_CHECK_EQ(point2D_idxs.size(), corrs.size());
+  THROW_CHECK_EQ(point2D_idxs.size(), inlier_mask.size());
+  for (size_t i = 0; i < inlier_mask.size(); ++i) {
+    if (inlier_mask[i]) {
+      inlier_corrs[point2D_idxs[i]].push_back(corrs[i]);
+    }
+  }
+
+  BundleAdjustmentConfig abs_pose_refinement_config;
+  abs_pose_refinement_config.AddImage(image_id);
+
+  std::vector<Eigen::Vector2d> tri_points;
+  std::vector<Rigid3d> tri_cams_from_world;
+  std::vector<const Camera*> tri_cameras;
+  std::vector<char> tri_inlier_mask;
+  for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
+    if (inlier_corrs[point2D_idx].empty()) {
+      continue;
+    }
+
+    // Check if any of the corresponding inlier points is already triangulated.
+    // Simply add the current 2D point to the first track we find.
+    bool continued_track = false;
+    for (const auto& corr : inlier_corrs[point2D_idx]) {
+      const Image& corr_image = reconstruction_->Image(corr.image_id);
+      const Point2D& corr_point2D = corr_image.Point2D(corr.point2D_idx);
+      if (corr_point2D.HasPoint3D()) {
+        obs_manager_->AddObservation(corr_point2D.point3D_id,
+                                     TrackElement(image_id, point2D_idx));
+        triangulator_->AddModifiedPoint3D(corr_point2D.point3D_id);
+        continued_track = true;
+        break;
+      }
+    }
+
+    if (continued_track) {
+      continue;
+    }
+
+    tri_points.clear();
+    tri_cams_from_world.clear();
+    tri_cameras.clear();
+    for (const auto& corr : inlier_corrs[point2D_idx]) {
+      const Image& corr_image = reconstruction_->Image(corr.image_id);
+      const Camera& corr_camera =
+          reconstruction_->Camera(corr_image.CameraId());
+      tri_points.push_back(corr_image.Point2D(corr.point2D_idx).xy);
+      tri_cams_from_world.push_back(corr_image.CamFromWorld());
+      tri_cameras.push_back(&corr_camera);
+    }
+
+    tri_points.push_back(image.Point2D(point2D_idx).xy);
+    tri_cams_from_world.push_back(image.CamFromWorld());
+    tri_cameras.push_back(&camera);
+
+    Eigen::Vector3d tri_xyz;
+    EstimateTriangulationOptions tri_options;
+    tri_options.min_tri_angle = options.filter_min_tri_angle;
+    tri_options.ransac_options.max_error = options.abs_pose_max_error;
+    if (!EstimateTriangulation(tri_options,
+                               tri_points,
+                               tri_cams_from_world,
+                               tri_cameras,
+                               &tri_inlier_mask,
+                               &tri_xyz) ||
+        !tri_inlier_mask.back()) {
+      // Skip this 2D point, if we failed to triangulate and if it is itself not
+      // in the inlier set.
+      continue;
+    }
+
+    Track track;
+    track.AddElement(image_id, point2D_idx);
+    for (size_t i = 0; i < tri_inlier_mask.size() - 1; ++i) {
+      if (tri_inlier_mask[i]) {
+        const auto& inlier_corr = inlier_corrs[point2D_idx][i];
+        track.AddElement(inlier_corr.image_id, inlier_corr.point2D_idx);
+      }
+    }
+
+    const point3D_t point3D_id = obs_manager_->AddPoint3D(tri_xyz, track);
+    triangulator_->AddModifiedPoint3D(point3D_id);
+    abs_pose_refinement_config.AddVariablePoint(point3D_id);
+  }
+
+  auto abs_pose_refinement =
+      CreateDefaultBundleAdjuster(abs_pose_refinement_options,
+                                  abs_pose_refinement_config,
+                                  *reconstruction_);
+  const auto abs_pose_summary = abs_pose_refinement->Solve();
+  return abs_pose_summary.termination_type == ceres::USER_SUCCESS;
+}
+
 size_t IncrementalMapper::TriangulateImage(
     const IncrementalTriangulator::Options& tri_options,
     const image_t image_id) {
   THROW_CHECK_NOTNULL(reconstruction_);
-  VLOG(1) << "=> Continued observations: "
+  VLOG(1) << "=> Existing observations: "
           << reconstruction_->Image(image_id).NumPoints3D();
   const size_t num_tris =
       triangulator_->TriangulateImage(tri_options, image_id);

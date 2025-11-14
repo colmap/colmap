@@ -351,6 +351,7 @@ bool IncrementalMapperImpl::FindInitialImagePair(
 }
 
 std::vector<image_t> IncrementalMapperImpl::FindNextImages(
+    bool structure_less_fallback,
     const IncrementalMapper::Options& options,
     const ObservationManager& obs_manager,
     const std::unordered_set<image_t>& filtered_images,
@@ -358,20 +359,29 @@ std::vector<image_t> IncrementalMapperImpl::FindNextImages(
   THROW_CHECK(options.Check());
   const Reconstruction& reconstruction = obs_manager.Reconstruction();
 
-  std::function<float(image_t, const class ObservationManager&)>
-      rank_image_func;
-  switch (options.image_selection_method) {
-    case IncrementalMapper::Options::ImageSelectionMethod::
-        MAX_VISIBLE_POINTS_NUM:
-      rank_image_func = RankNextImageMaxVisiblePointsNum;
-      break;
-    case IncrementalMapper::Options::ImageSelectionMethod::
-        MAX_VISIBLE_POINTS_RATIO:
-      rank_image_func = RankNextImageMaxVisiblePointsRatio;
-      break;
-    case IncrementalMapper::Options::ImageSelectionMethod::MIN_UNCERTAINTY:
-      rank_image_func = RankNextImageMinUncertainty;
-      break;
+  std::function<float(image_t, const ObservationManager&)> rank_image_func;
+  if (structure_less_fallback) {
+    rank_image_func = [](image_t image_id,
+                         const ObservationManager& obs_manager) {
+      return static_cast<float>(
+          obs_manager.NumVisibleCorrespondences(image_id));
+    };
+  } else {
+    std::function<float(image_t, const class ObservationManager&)>
+        rank_image_func;
+    switch (options.image_selection_method) {
+      case IncrementalMapper::Options::ImageSelectionMethod::
+          MAX_VISIBLE_POINTS_NUM:
+        rank_image_func = RankNextImageMaxVisiblePointsNum;
+        break;
+      case IncrementalMapper::Options::ImageSelectionMethod::
+          MAX_VISIBLE_POINTS_RATIO:
+        rank_image_func = RankNextImageMaxVisiblePointsRatio;
+        break;
+      case IncrementalMapper::Options::ImageSelectionMethod::MIN_UNCERTAINTY:
+        rank_image_func = RankNextImageMinUncertainty;
+        break;
+    }
   }
 
   std::vector<std::pair<image_t, float>> image_ranks;

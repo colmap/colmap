@@ -424,42 +424,61 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
 
     prev_reg_next_success = reg_next_success;
     reg_next_success = false;
+    image_t next_image_id = kInvalidImageId;
 
-    const std::vector<image_t> next_images =
-        mapper.FindNextImages(mapper_options);
+    for (const bool structure_less_fallback : {false, true}) {
+      const std::vector<image_t> next_images = mapper.FindNextImages(
+          mapper_options, /*structure_less_fallback=*/structure_less_fallback);
 
-    if (next_images.empty()) {
-      break;
-    }
+      if (next_images.empty()) {
+        break;
+      }
 
-    image_t next_image_id;
-    for (size_t reg_trial = 0; reg_trial < next_images.size(); ++reg_trial) {
-      next_image_id = next_images[reg_trial];
+      for (size_t reg_trial = 0; reg_trial < next_images.size(); ++reg_trial) {
+        next_image_id = next_images[reg_trial];
 
-      LOG(INFO) << StringPrintf("Registering image #%d (num_reg_frames=%d)",
-                                next_image_id,
-                                reconstruction->NumRegFrames());
-      LOG(INFO) << StringPrintf(
-          "=> Image sees %d / %d points",
-          mapper.ObservationManager().NumVisiblePoints3D(next_image_id),
-          mapper.ObservationManager().NumObservations(next_image_id));
+        LOG(INFO) << StringPrintf("Registering image #%d (num_reg_frames=%d)",
+                                  next_image_id,
+                                  reconstruction->NumRegFrames());
+        LOG(INFO) << StringPrintf(
+            "=> Image sees %d / %d points",
+            mapper.ObservationManager().NumVisiblePoints3D(next_image_id),
+            mapper.ObservationManager().NumObservations(next_image_id));
 
-      reg_next_success =
-          mapper.RegisterNextImage(mapper_options, next_image_id);
+        if (structure_less_fallback) {
+          LOG(INFO) << StringPrintf(
+              "Registering image with structure-less fallback #%d (%d)",
+              next_image_id,
+              reconstruction->NumRegImages() + 1);
+          LOG(INFO) << StringPrintf(
+              "=> Image sees %d correspondences",
+              mapper.ObservationManager().NumVisibleCorrespondences(
+                  next_image_id));
+          reg_next_success = mapper.RegisterNextImageStructureLessFallback(
+              mapper_options, next_image_id);
+        } else {
+          reg_next_success =
+              mapper.RegisterNextImage(mapper_options, next_image_id);
+        }
+
+        if (reg_next_success) {
+          break;
+        } else {
+          LOG(INFO) << "=> Could not register, trying another image.";
+
+          // If initial pair fails to continue for some time,
+          // abort and try different initial pair.
+          const size_t kMinNumInitialRegTrials = 30;
+          if (reg_trial >= kMinNumInitialRegTrials &&
+              reconstruction->NumRegFrames() <
+                  static_cast<size_t>(options_->min_model_size)) {
+            break;
+          }
+        }
+      }
 
       if (reg_next_success) {
         break;
-      } else {
-        LOG(INFO) << "=> Could not register, trying another image.";
-
-        // If initial pair fails to continue for some time,
-        // abort and try different initial pair.
-        const size_t kMinNumInitialRegTrials = 30;
-        if (reg_trial >= kMinNumInitialRegTrials &&
-            reconstruction->NumRegFrames() <
-                static_cast<size_t>(options_->min_model_size)) {
-          break;
-        }
       }
     }
 
