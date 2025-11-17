@@ -466,9 +466,16 @@ void BindIncrementalMapperImpl(py::module& m) {
            "two_view_geometry"_a,
            "image_id1"_a,
            "image_id2"_a)
-      .def("find_next_images", &IncrementalMapper::FindNextImages, "options"_a)
+      .def("find_next_images",
+           &IncrementalMapper::FindNextImages,
+           "options"_a,
+           "structure_less_fallback"_a)
       .def("register_next_image",
            &IncrementalMapper::RegisterNextImage,
+           "options"_a,
+           "image_id"_a)
+      .def("register_next_structure_less_image",
+           &IncrementalMapper::RegisterNextStructureLessImage,
            "options"_a,
            "image_id"_a)
       .def("triangulate_image",

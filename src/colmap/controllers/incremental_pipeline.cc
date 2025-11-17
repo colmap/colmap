@@ -450,15 +450,13 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
 
         if (structure_less_fallback) {
           LOG(INFO) << StringPrintf(
-              "Registering image with structure-less fallback #%d (%d)",
-              next_image_id,
-              reconstruction->NumRegImages() + 1);
+              "Registering image with structure-less fallback");
           LOG(INFO) << StringPrintf(
               "=> Image sees %d / %d correspondences",
               mapper.ObservationManager().NumVisibleCorrespondences(
                   next_image_id),
               mapper.ObservationManager().NumCorrespondences(next_image_id));
-          reg_next_success = mapper.RegisterNextImageStructureLessFallback(
+          reg_next_success = mapper.RegisterNextStructureLessImage(
               mapper_options, next_image_id);
         } else {
           reg_next_success =

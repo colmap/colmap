@@ -601,8 +601,8 @@ bool IncrementalMapper::RegisterNextGeneralFrame(const Options& options,
   return true;
 }
 
-bool IncrementalMapper::RegisterNextImageStructureLessFallback(
-    const Options& options, const image_t image_id) {
+bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
+                                                       const image_t image_id) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
   THROW_CHECK_GE(reconstruction_->NumRegImages(), 2);

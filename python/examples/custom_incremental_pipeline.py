@@ -120,34 +120,59 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
             break
         prev_reg_next_success = reg_next_success
         reg_next_success = False
-        next_images = mapper.find_next_images(mapper_options)
-        if len(next_images) == 0:
-            break
-        for reg_trial in range(len(next_images)):
-            next_image_id = next_images[reg_trial]
-            logging.info(
-                f"Registering image #{next_image_id} "
-                f"(num_reg_frames={reconstruction.num_reg_frames() + 1})"
+        for structure_less_fallback in [False, True]:
+            next_images = mapper.find_next_images(
+                mapper_options, structure_less_fallback=structure_less_fallback
             )
-            num_vis = mapper.observation_manager.num_visible_points3D(
-                next_image_id
-            )
-            num_obs = mapper.observation_manager.num_observations(next_image_id)
-            logging.info(f"=> Image sees {num_vis} / {num_obs} points")
-            reg_next_success = mapper.register_next_image(
-                mapper_options, next_image_id
-            )
+            for reg_trial, next_image_id in enumerate(next_images):
+                logging.info(
+                    f"Registering image #{next_image_id} "
+                    f"(num_reg_frames={reconstruction.num_reg_frames() + 1})"
+                )
+                if structure_less_fallback:
+                    logging.info(
+                        "Registering image with structure-less fallback"
+                    )
+                    num_vis = (
+                        mapper.observation_manager.num_visible_correspondences(
+                            next_image_id
+                        )
+                    )
+                    num_obs = mapper.observation_manager.num_correspondences(
+                        next_image_id
+                    )
+                    logging.info(
+                        f"=> Image sees {num_vis} / {num_obs} correspondences"
+                    )
+                    reg_next_success = (
+                        mapper.register_next_structure_less_image(
+                            mapper_options, next_image_id
+                        )
+                    )
+                else:
+                    num_vis = mapper.observation_manager.num_visible_points3D(
+                        next_image_id
+                    )
+                    num_obs = mapper.observation_manager.num_observations(
+                        next_image_id
+                    )
+                    logging.info(f"=> Image sees {num_vis} / {num_obs} points")
+                    reg_next_success = mapper.register_next_image(
+                        mapper_options, next_image_id
+                    )
+                if reg_next_success:
+                    break
+                else:
+                    logging.info("=> Could not register, trying another image.")
+                # If initial pair fails to continue for some time,
+                # abort and try different initial pair.
+                kMinNumInitialRegTrials = 30
+                if (
+                    reg_trial >= kMinNumInitialRegTrials
+                    and reconstruction.num_reg_frames() < options.min_model_size
+                ):
+                    break
             if reg_next_success:
-                break
-            else:
-                logging.info("=> Could not register, trying another image.")
-            # If initial pair fails to continue for some time,
-            # abort and try different initial pair.
-            kMinNumInitialRegTrials = 30
-            if (
-                reg_trial >= kMinNumInitialRegTrials
-                and reconstruction.num_reg_frames() < options.min_model_size
-            ):
                 break
         if reg_next_success:
             for data_id in reconstruction.images[next_image_id].frame.data_ids:

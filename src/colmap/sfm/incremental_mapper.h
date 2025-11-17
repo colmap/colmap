@@ -218,8 +218,7 @@ class IncrementalMapper {
 
   // Attempts to register image using structure-less resectioning as proposed in
   // "Structure from Motion Using Structure-less Resection" by Zheng and Wu.
-  bool RegisterNextImageStructureLessFallback(const Options& options,
-                                              image_t image_id);
+  bool RegisterNextStructureLessImage(const Options& options, image_t image_id);
 
   // Triangulate observations of image.
   size_t TriangulateImage(const IncrementalTriangulator::Options& tri_options,
