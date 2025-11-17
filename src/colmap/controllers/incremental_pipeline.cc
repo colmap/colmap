@@ -429,7 +429,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
     // Try to register next image. Always prefer structure-based registration
     // first, and if that fails, try (less reliable) structure-less
     // registration.
-    for (const bool structure_less_fallback : {true}) {
+    for (const bool structure_less_fallback : {false, true}) {
       const std::vector<image_t> next_images = mapper.FindNextImages(
           mapper_options, /*structure_less_fallback=*/structure_less_fallback);
 
