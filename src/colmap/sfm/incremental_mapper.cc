@@ -104,7 +104,10 @@ void IncrementalMapper::EndReconstruction(const bool discard) {
   THROW_CHECK_NOTNULL(reconstruction_);
 
   if (discard) {
-    for (const frame_t frame_id : reconstruction_->RegFrameIds()) {
+    // Need to copy data, because de-registration removes
+    // elements from the underlying vector.
+    const std::vector<frame_t> reg_frame_ids = reconstruction_->RegFrameIds();
+    for (const frame_t frame_id : reg_frame_ids) {
       DeRegisterFrameEvent(frame_id);
     }
   }
@@ -1335,8 +1338,6 @@ void IncrementalMapper::RegisterFrameEvent(const frame_t frame_id) {
 }
 
 void IncrementalMapper::DeRegisterFrameEvent(const frame_t frame_id) {
-  obs_manager_->DeRegisterFrame(frame_id);
-
   const Frame& frame = reconstruction_->Frame(frame_id);
 
   size_t& num_reg_frames_for_rig =
@@ -1360,6 +1361,8 @@ void IncrementalMapper::DeRegisterFrameEvent(const frame_t frame_id) {
       reg_stats_.num_shared_reg_images -= 1;
     }
   }
+
+  obs_manager_->DeRegisterFrame(frame_id);
 }
 
 bool IncrementalMapper::EstimateInitialTwoViewGeometry(
