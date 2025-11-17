@@ -211,7 +211,7 @@ def update_camera_priors_from_sparse_gt(
 ) -> None:
     pycolmap.logging.info("Setting prior cameras from GT")
 
-    with pycolmap.Database(str(database_path)) as database:
+    with pycolmap.Database.open(str(database_path)) as database:
         images_gt_by_name = {}
         for image_gt in camera_priors_sparse_gt.images.values():
             images_gt_by_name[image_gt.name] = image_gt
