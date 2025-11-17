@@ -627,69 +627,54 @@ bool IncrementalMapper::RegisterNextImageStructureLessFallback(
 
   std::vector<point2D_t> point2D_idxs;
   std::vector<CorrespondenceGraph::Correspondence> corrs;
-  std::vector<GRNPObservation> world_points;
-  std::vector<GRNPObservation> cam_points;
-  std::unordered_set<image_t> corr_image_ids;
+  std::vector<Eigen::Vector2d> points2D;
+  std::vector<Eigen::Vector2d> world_points2D;
+  std::vector<size_t> world_camera_idxs;
+  std::vector<Rigid3d> world_cams_from_world;
+  std::vector<Camera> world_cameras;
+  std::unordered_map<image_t, size_t> world_image_id_to_camera_idx;
 
   const point2D_t num_points2D = image.NumPoints2D();
   for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
     const Point2D& point2D = image.Point2D(point2D_idx);
 
-    GRNPObservation observation;
-    observation.cam_from_rig = Rigid3d();
-    if (const auto cam_point = camera.CamFromImg(point2D.xy);
-        cam_point.has_value()) {
-      observation.ray_in_cam = cam_point->homogeneous().normalized();
-    } else {
-      observation.ray_in_cam.setZero();
-    }
-
     const auto corr_range =
         correspondence_graph->FindCorrespondences(image_id, point2D_idx);
     for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
-      const Image& corr_image = reconstruction_->Image(corr->image_id);
-      if (!corr_image.HasPose()) {
+      const Image& world_image = reconstruction_->Image(corr->image_id);
+      if (!world_image.HasPose()) {
         continue;
       }
 
-      const Camera& corr_camera = *corr_image.CameraPtr();
+      const Camera& world_camera = *world_image.CameraPtr();
 
       // Avoid correspondences to images with bogus camera parameters.
-      if (corr_camera.HasBogusParams(options.min_focal_length_ratio,
-                                     options.max_focal_length_ratio,
-                                     options.max_extra_param)) {
+      if (world_camera.HasBogusParams(options.min_focal_length_ratio,
+                                      options.max_focal_length_ratio,
+                                      options.max_extra_param)) {
         continue;
       }
 
-      const Point2D& corr_point2D = corr_image.Point2D(corr->point2D_idx);
+      world_points2D.push_back(world_image.Point2D(corr->point2D_idx).xy);
+      points2D.push_back(point2D.xy);
 
-      GRNPObservation corr_observation;
-      corr_observation.cam_from_rig = corr_image.CamFromWorld();
-      if (const auto cam_point = corr_camera.CamFromImg(corr_point2D.xy);
-          cam_point.has_value()) {
-        corr_observation.ray_in_cam = cam_point->homogeneous().normalized();
-      } else {
-        corr_observation.ray_in_cam.setZero();
+      const auto res = world_image_id_to_camera_idx.insert(
+          {corr->image_id, world_cameras.size()});
+      if (res.second) {
+        world_cams_from_world.push_back(world_image.CamFromWorld());
+        world_cameras.push_back(world_camera);
       }
+
+      world_camera_idxs.push_back(res.first->second);
 
       point2D_idxs.push_back(point2D_idx);
       corrs.push_back(*corr);
-      world_points.push_back(corr_observation);
-      cam_points.push_back(observation);
-      corr_image_ids.insert(corr->image_id);
     }
   }
 
-  // Check if we pass the minimum number of inliers and if we have any hope of
-  // estimating the scale of the relative translation. Note that we can only
-  // estimate the scale from the reconstruction to the next image, if there are
-  // correspondences to at least 2 registered images. The check here is simple
-  // and ignores other types of degeneracies, where the projection centers of
-  // all registered images coincide, etc. We let the RANSAC and subsequent
-  // filtering deal with these.
-  if (cam_points.size() <
-          static_cast<size_t>(options.abs_pose_min_num_inliers) ||
-      corr_image_ids.size() < 2) {
+  // Check if we pass the minimum number of inliers.
+  if (world_points2D.size() <
+      static_cast<size_t>(options.abs_pose_min_num_inliers)) {
     return false;
   }
 
@@ -743,8 +728,11 @@ bool IncrementalMapper::RegisterNextImageStructureLessFallback(
   std::vector<char> inlier_mask;
   Rigid3d cam_from_world;
   if (!EstimateStructureLessAbsolutePose(abs_pose_options,
-                                         world_points,
-                                         cam_points,
+                                         points2D,
+                                         world_points2D,
+                                         world_camera_idxs,
+                                         world_cams_from_world,
+                                         world_cameras,
                                          camera,
                                          &cam_from_world,
                                          &num_inliers,

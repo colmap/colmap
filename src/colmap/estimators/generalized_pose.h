@@ -29,7 +29,6 @@
 
 #pragma once
 
-#include "colmap/estimators/generalized_relative_pose.h"
 #include "colmap/estimators/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/optim/ransac.h"
@@ -143,13 +142,16 @@ struct StructureLessAbsolutePoseEstimationOptions {
 // Estimate absolute camera pose using 2D-2D correspondences.
 // The 2D-2D correspondences are assumed to be structureless, i.e. the
 // 3D points are not known. Based on the following paper:
-// "Structure from Motion Using Structure-less Resection", Zheng and Wu, 2015.
+// "Structure from Motion Using Structure-less Resection", Zheng and Wu, 2013.
 bool EstimateStructureLessAbsolutePose(
     const StructureLessAbsolutePoseEstimationOptions& options,
-    const std::vector<GRNPObservation>& points_world,
-    const std::vector<GRNPObservation>& points_cam,
-    const Camera& camera,
-    Rigid3d* cam_from_world,
+    const std::vector<Eigen::Vector2d>& query_points2D,
+    const std::vector<Eigen::Vector2d>& world_points2D,
+    const std::vector<size_t>& world_camera_idxs,
+    const std::vector<Rigid3d>& world_cams_from_world,
+    const std::vector<Camera>& world_cameras,
+    const Camera& query_camera,
+    Rigid3d* query_cam_from_world,
     size_t* num_inliers,
     std::vector<char>* inlier_mask);
 
