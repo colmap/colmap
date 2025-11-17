@@ -52,6 +52,7 @@ Download
 * Conda packages are available at https://anaconda.org/conda-forge/colmap and
   can be installed with `conda install colmap`
 * **Python bindings** are available at https://pypi.org/project/pycolmap.
+  CUDA-enabled wheels are available at https://pypi.org/project/pycolmap-cuda12.
 * To **build from source**, please see https://colmap.github.io/install.html.
 
 
