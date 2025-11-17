@@ -433,10 +433,6 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
       const std::vector<image_t> next_images = mapper.FindNextImages(
           mapper_options, /*structure_less_fallback=*/structure_less_fallback);
 
-      if (next_images.empty()) {
-        break;
-      }
-
       for (size_t reg_trial = 0; reg_trial < next_images.size(); ++reg_trial) {
         next_image_id = next_images[reg_trial];
 
