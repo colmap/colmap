@@ -252,9 +252,9 @@ TEST(ObservationManager, FilterFrames) {
   ObservationManager obs_manager(reconstruction);
   const point3D_t point3D_id1 =
       reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
-  reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
-  reconstruction.AddObservation(point3D_id1, TrackElement(2, 0));
-  reconstruction.AddObservation(point3D_id1, TrackElement(3, 0));
+  obs_manager.AddObservation(point3D_id1, TrackElement(1, 0));
+  obs_manager.AddObservation(point3D_id1, TrackElement(2, 0));
+  obs_manager.AddObservation(point3D_id1, TrackElement(3, 0));
   obs_manager.FilterFrames(/*min_focal_length_ratio=*/0.0,
                            /*max_focal_length_ratio=*/10.0,
                            /*max_extra_param=*/1.0);

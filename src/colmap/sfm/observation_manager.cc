@@ -456,10 +456,12 @@ void ObservationManager::RegisterFrame(const frame_t frame_id) {
     Image& image = reconstruction_.Image(data_id.id);
     const auto num_points2D = image.NumPoints2D();
     for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
-      const auto corr_range =
-          correspondence_graph_->FindCorrespondences(data_id.id, point2D_idx);
-      for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
-        image_stats_[corr->image_id].num_visible_correspondences += 1;
+      if (correspondence_graph_) {
+        const auto corr_range =
+            correspondence_graph_->FindCorrespondences(data_id.id, point2D_idx);
+        for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+          image_stats_[corr->image_id].num_visible_correspondences += 1;
+        }
       }
     }
   }
@@ -472,10 +474,12 @@ void ObservationManager::DeRegisterFrame(const frame_t frame_id) {
     Image& image = reconstruction_.Image(data_id.id);
     const auto num_points2D = image.NumPoints2D();
     for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
-      const auto corr_range =
-          correspondence_graph_->FindCorrespondences(data_id.id, point2D_idx);
-      for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
-        image_stats_[corr->image_id].num_visible_correspondences -= 1;
+      if (correspondence_graph_) {
+        const auto corr_range =
+            correspondence_graph_->FindCorrespondences(data_id.id, point2D_idx);
+        for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+          image_stats_[corr->image_id].num_visible_correspondences -= 1;
+        }
       }
       if (image.Point2D(point2D_idx).HasPoint3D()) {
         DeleteObservation(data_id.id, point2D_idx);
