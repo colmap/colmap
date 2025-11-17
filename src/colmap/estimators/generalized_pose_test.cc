@@ -440,10 +440,11 @@ TEST(EstimateStructureLessAbsolutePose, WithOutliers) {
   std::iota(shuffled_idxs.begin(), shuffled_idxs.end(), 0);
   std::shuffle(shuffled_idxs.begin(), shuffled_idxs.end(), *PRNG);
   for (size_t i = 0; i < num_outliers; ++i) {
-    problem.query_points2D[shuffled_idxs[i]] += Eigen::Vector2d(100, 100);
+    problem.query_points2D[shuffled_idxs[i]] += Eigen::Vector2d(1000, 1000);
   }
 
   StructureLessAbsolutePoseEstimationOptions options;
+  options.ransac_options.max_error = 1e-3;
   Rigid3d cam_from_world;
   size_t num_inliers;
   std::vector<char> inlier_mask;
@@ -461,10 +462,10 @@ TEST(EstimateStructureLessAbsolutePose, WithOutliers) {
             problem.world_points2D.size() * (1 - kOutlierRatio) * 0.9);
   EXPECT_THAT(
       cam_from_world,
-      Rigid3dNear(problem.gt_cam_from_world, /*rtol=*/1e-1, /*ttol=*/1e-2));
+      Rigid3dNear(problem.gt_cam_from_world, /*rtol=*/1e-3, /*ttol=*/1e-3));
 }
 
-TEST(EstimateStructureLessAbsolutePose, InsufficientBaseline) {
+TEST(EstimateStructureLessAbsolutePose, PanoramicWorldCameras) {
   SetPRNGSeed();
 
   const StructureLessAbsolutePoseProblem problem =
