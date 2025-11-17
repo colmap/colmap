@@ -44,7 +44,7 @@ bool MergeAndFilterReconstructions(double max_reproj_error,
 class ObservationManager {
  public:
   // The number of levels in the 3D point multi-resolution visibility pyramid.
-  static const int kNumPoint3DVisibilityPyramidLevels = 6;
+  static constexpr int kNumPoint3DVisibilityPyramidLevels = 6;
 
   struct ImagePairStat {
     // The number of triangulated correspondences between two images.
