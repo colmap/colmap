@@ -431,4 +431,63 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
   return summary.IsSolutionUsable();
 }
 
+bool EstimateStructureLessAbsolutePose(
+    const StructureLessAbsolutePoseEstimationOptions& options,
+    const std::vector<GRNPObservation>& world_points,
+    const std::vector<GRNPObservation>& cam_points,
+    const Camera& camera,
+    Rigid3d* cam_from_world,
+    size_t* num_inliers,
+    std::vector<char>* inlier_mask) {
+  THROW_CHECK_EQ(world_points.size(), cam_points.size());
+  options.Check();
+
+  auto custom_ransac_options = options.ransac_options;
+  custom_ransac_options.max_error =
+      camera.CamFromImgThreshold(options.ransac_options.max_error);
+  LORANSAC<GR6PEstimator, GR8PEstimator> ransac(custom_ransac_options);
+  auto report = ransac.Estimate(world_points, cam_points);
+  if (!report.success) {
+    return false;
+  }
+
+  // Check that the translation scale is constrained,
+  // which requires at least one pair of inlier world cameras
+  // to have sufficient baseline.
+  constexpr double kMinBaselineSquared = 1e-8;
+  bool translation_scale_constrained = false;
+  const int num_points = world_points.size();
+  for (size_t i = 0; i < num_points; ++i) {
+    if (!report.inlier_mask[i]) {
+      continue;
+    }
+    for (size_t j = 0; j < num_points; ++j) {
+      if (!report.inlier_mask[j]) {
+        continue;
+      }
+      const double squared_baseline =
+          (world_points[i].cam_from_rig.translation -
+           world_points[j].cam_from_rig.translation)
+              .squaredNorm();
+      if (squared_baseline >= kMinBaselineSquared) {
+        translation_scale_constrained = true;
+        break;
+      }
+    }
+    if (translation_scale_constrained) {
+      break;
+    }
+  }
+
+  if (!translation_scale_constrained) {
+    return false;
+  }
+
+  *cam_from_world = report.model;
+  *num_inliers = report.support.num_inliers;
+  *inlier_mask = std::move(report.inlier_mask);
+
+  return true;
+}
+
 }  // namespace colmap

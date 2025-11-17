@@ -630,8 +630,8 @@ bool IncrementalMapper::RegisterNextImageStructureLessFallback(
 
   std::vector<point2D_t> point2D_idxs;
   std::vector<CorrespondenceGraph::Correspondence> corrs;
-  std::vector<GRNPObservation> points_world;
-  std::vector<GRNPObservation> points_cam;
+  std::vector<GRNPObservation> world_points;
+  std::vector<GRNPObservation> cam_points;
   std::unordered_set<image_t> corr_image_ids;
 
   const point2D_t num_points2D = image.NumPoints2D();
@@ -670,15 +670,15 @@ bool IncrementalMapper::RegisterNextImageStructureLessFallback(
       corr_observation.cam_from_rig = corr_image.CamFromWorld();
       if (const auto cam_point = corr_camera.CamFromImg(corr_point2D.xy);
           cam_point.has_value()) {
-        observation.ray_in_cam = cam_point->homogeneous().normalized();
+        corr_observation.ray_in_cam = cam_point->homogeneous().normalized();
       } else {
-        observation.ray_in_cam.setZero();
+        corr_observation.ray_in_cam.setZero();
       }
 
       point2D_idxs.push_back(point2D_idx);
       corrs.push_back(*corr);
-      points_world.push_back(corr_observation);
-      points_cam.push_back(observation);
+      world_points.push_back(corr_observation);
+      cam_points.push_back(observation);
       corr_image_ids.insert(corr->image_id);
     }
   }
@@ -690,7 +690,7 @@ bool IncrementalMapper::RegisterNextImageStructureLessFallback(
   // and ignores other types of degeneracies, where the projection centers of
   // all registered images coincide, etc. We let the RANSAC and subsequent
   // filtering deal with these.
-  if (points_cam.size() <
+  if (cam_points.size() <
           static_cast<size_t>(options.abs_pose_min_num_inliers) ||
       corr_image_ids.size() < 2) {
     return false;
@@ -706,6 +706,11 @@ bool IncrementalMapper::RegisterNextImageStructureLessFallback(
       options.abs_pose_min_inlier_ratio;
 
   BundleAdjustmentOptions abs_pose_refinement_options;
+  abs_pose_refinement_options.loss_function_type =
+      BundleAdjustmentOptions::LossFunctionType::CAUCHY;
+  abs_pose_refinement_options.solver_options.logging_type =
+      ceres::LoggingType::SILENT;
+  abs_pose_refinement_options.print_summary = false;
   if (reg_stats_.num_reg_images_per_camera[image.CameraId()] > 0) {
     // Camera already refined from another image with the same camera.
     if (camera.HasBogusParams(options.min_focal_length_ratio,
@@ -741,10 +746,10 @@ bool IncrementalMapper::RegisterNextImageStructureLessFallback(
   std::vector<char> inlier_mask;
   Rigid3d cam_from_world;
   if (!EstimateStructureLessAbsolutePose(abs_pose_options,
-                                         points_world,
-                                         points_cam,
+                                         world_points,
+                                         cam_points,
+                                         camera,
                                          &cam_from_world,
-                                         &camera,
                                          &num_inliers,
                                          &inlier_mask)) {
     return false;
@@ -755,16 +760,17 @@ bool IncrementalMapper::RegisterNextImageStructureLessFallback(
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  // Continue tracks
+  // Continue or triangulate tracks
   //////////////////////////////////////////////////////////////////////////////
+
+  image.FramePtr()->SetCamFromWorld(image.CameraId(), cam_from_world);
 
   RegisterFrameEvent(image.FrameId());
 
-  std::vector<std::vector<CorrespondenceGraph::Correspondence>> inlier_corrs(
-      num_points2D);
-
   THROW_CHECK_EQ(point2D_idxs.size(), corrs.size());
   THROW_CHECK_EQ(point2D_idxs.size(), inlier_mask.size());
+  std::vector<std::vector<CorrespondenceGraph::Correspondence>> inlier_corrs(
+      num_points2D);
   for (size_t i = 0; i < inlier_mask.size(); ++i) {
     if (inlier_mask[i]) {
       inlier_corrs[point2D_idxs[i]].push_back(corrs[i]);
@@ -801,6 +807,8 @@ bool IncrementalMapper::RegisterNextImageStructureLessFallback(
     if (continued_track) {
       continue;
     }
+
+    // Otherwise, robustly triangulate a new point.
 
     tri_points.clear();
     tri_cams_from_world.clear();
@@ -848,12 +856,13 @@ bool IncrementalMapper::RegisterNextImageStructureLessFallback(
     abs_pose_refinement_config.AddVariablePoint(point3D_id);
   }
 
+  // Refine pose using triangulated 3D point structure.
   auto abs_pose_refinement =
       CreateDefaultBundleAdjuster(abs_pose_refinement_options,
                                   abs_pose_refinement_config,
                                   *reconstruction_);
   const auto abs_pose_summary = abs_pose_refinement->Solve();
-  return abs_pose_summary.termination_type == ceres::USER_SUCCESS;
+  return abs_pose_summary.termination_type != ceres::FAILURE;
 }
 
 size_t IncrementalMapper::TriangulateImage(

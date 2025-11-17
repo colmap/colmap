@@ -109,62 +109,6 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
   return false;
 }
 
-bool EstimateStructureLessAbsolutePose(
-    const StructureLessAbsolutePoseEstimationOptions& options,
-    const std::vector<GRNPObservation>& points_world,
-    const std::vector<GRNPObservation>& points_cam,
-    Rigid3d* cam_from_world,
-    Camera* camera,
-    size_t* num_inliers,
-    std::vector<char>* inlier_mask) {
-  THROW_CHECK_EQ(points_world.size(), points_cam.size());
-  options.Check();
-
-  auto custom_ransac_options = options.ransac_options;
-  custom_ransac_options.max_error =
-      camera->CamFromImgThreshold(options.ransac_options.max_error);
-  RANSAC<GR6PEstimator> ransac(custom_ransac_options);
-  auto report = ransac.Estimate(points_world, points_cam);
-  if (!report.success) {
-    return false;
-  }
-
-  const size_t num_points = points_world.size();
-  const double scaled_translation =
-      options.min_translation_baseline_scale * report.model.translation.norm();
-  bool translation_scale_constrained = false;
-  for (size_t i = 0; i < num_points; ++i) {
-    if (!report.inlier_mask[i]) {
-      continue;
-    }
-    for (size_t j = 0; j < num_points; ++j) {
-      if (!report.inlier_mask[j]) {
-        continue;
-      }
-      const double baseline = (points_world[i].cam_from_rig.translation -
-                               points_world[j].cam_from_rig.translation)
-                                  .norm();
-      if (baseline >= scaled_translation) {
-        translation_scale_constrained = true;
-        break;
-      }
-    }
-    if (translation_scale_constrained) {
-      break;
-    }
-  }
-
-  if (!translation_scale_constrained) {
-    return false;
-  }
-
-  *cam_from_world = report.model;
-  *num_inliers = report.support.num_inliers;
-  *inlier_mask = std::move(report.inlier_mask);
-
-  return true;
-}
-
 bool EstimateRelativePose(const RANSACOptions& ransac_options,
                           const std::vector<Eigen::Vector3d>& cam_rays1,
                           const std::vector<Eigen::Vector3d>& cam_rays2,

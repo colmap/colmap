@@ -123,4 +123,33 @@ bool RefineGeneralizedAbsolutePose(
     std::vector<Camera>* cameras,
     Eigen::Matrix6d* rig_from_world_cov = nullptr);
 
+struct StructureLessAbsolutePoseEstimationOptions {
+  // Options used for RANSAC.
+  RANSACOptions ransac_options;
+
+  StructureLessAbsolutePoseEstimationOptions() {
+    ransac_options.max_error = 12.0;
+    // Use high confidence to avoid preemptive termination o RANSAC
+    // - too early termination may lead to bad registration.
+    ransac_options.min_num_trials = 100;
+    ransac_options.max_num_trials = 10000;
+    ransac_options.confidence = 0.99999;
+  }
+
+  void Check() const { ransac_options.Check(); }
+};
+
+// Estimate absolute camera pose using 2D-2D correspondences.
+// The 2D-2D correspondences are assumed to be structureless, i.e. the
+// 3D points are not known. Based on the following paper:
+// "Structure from Motion Using Structure-less Resection", Zheng and Wu, 2015.
+bool EstimateStructureLessAbsolutePose(
+    const StructureLessAbsolutePoseEstimationOptions& options,
+    const std::vector<GRNPObservation>& points_world,
+    const std::vector<GRNPObservation>& points_cam,
+    const Camera& camera,
+    Rigid3d* cam_from_world,
+    size_t* num_inliers,
+    std::vector<char>* inlier_mask);
+
 }  // namespace colmap

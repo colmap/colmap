@@ -367,8 +367,6 @@ std::vector<image_t> IncrementalMapperImpl::FindNextImages(
           obs_manager.NumVisibleCorrespondences(image_id));
     };
   } else {
-    std::function<float(image_t, const class ObservationManager&)>
-        rank_image_func;
     switch (options.image_selection_method) {
       case IncrementalMapper::Options::ImageSelectionMethod::
           MAX_VISIBLE_POINTS_NUM:

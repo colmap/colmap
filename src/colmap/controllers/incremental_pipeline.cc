@@ -426,7 +426,10 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
     reg_next_success = false;
     image_t next_image_id = kInvalidImageId;
 
-    for (const bool structure_less_fallback : {false, true}) {
+    // Try to register next image. Always prefer structure-based registration
+    // first, and if that fails, try (less reliable) structure-less
+    // registration.
+    for (const bool structure_less_fallback : {true}) {
       const std::vector<image_t> next_images = mapper.FindNextImages(
           mapper_options, /*structure_less_fallback=*/structure_less_fallback);
 
@@ -451,9 +454,10 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
               next_image_id,
               reconstruction->NumRegImages() + 1);
           LOG(INFO) << StringPrintf(
-              "=> Image sees %d correspondences",
+              "=> Image sees %d / %d correspondences",
               mapper.ObservationManager().NumVisibleCorrespondences(
-                  next_image_id));
+                  next_image_id),
+              mapper.ObservationManager().NumCorrespondences(next_image_id));
           reg_next_success = mapper.RegisterNextImageStructureLessFallback(
               mapper_options, next_image_id);
         } else {
