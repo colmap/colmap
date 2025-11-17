@@ -176,9 +176,6 @@ void IncrementalMapper::RegisterInitialImagePair(
   // Update Reconstruction
   //////////////////////////////////////////////////////////////////////////////
 
-  reconstruction_->RegisterFrame(image1.FrameId());
-  reconstruction_->RegisterFrame(image2.FrameId());
-
   RegisterFrameEvent(image1.FrameId());
   RegisterFrameEvent(image2.FrameId());
 }
@@ -412,7 +409,6 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
 
   image.FramePtr()->SetCamFromWorld(image.CameraId(), cam_from_world);
 
-  reconstruction_->RegisterFrame(image.FrameId());
   RegisterFrameEvent(image.FrameId());
 
   for (size_t i = 0; i < inlier_mask.size(); ++i) {
@@ -590,7 +586,6 @@ bool IncrementalMapper::RegisterNextGeneralFrame(const Options& options,
 
   frame.SetRigFromWorld(rig_from_world);
 
-  reconstruction_->RegisterFrame(frame.FrameId());
   RegisterFrameEvent(frame.FrameId());
 
   for (size_t i = 0; i < inlier_mask.size(); ++i) {
@@ -763,7 +758,6 @@ bool IncrementalMapper::RegisterNextImageStructureLessFallback(
   // Continue tracks
   //////////////////////////////////////////////////////////////////////////////
 
-  reconstruction_->RegisterFrame(image.FrameId());
   RegisterFrameEvent(image.FrameId());
 
   std::vector<std::vector<CorrespondenceGraph::Correspondence>> inlier_corrs(
@@ -1321,6 +1315,8 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
 }
 
 void IncrementalMapper::RegisterFrameEvent(const frame_t frame_id) {
+  obs_manager_->RegisterFrame(frame_id);
+
   const Frame& frame = reconstruction_->Frame(frame_id);
 
   size_t& num_reg_frames_for_rig =
@@ -1345,6 +1341,8 @@ void IncrementalMapper::RegisterFrameEvent(const frame_t frame_id) {
 }
 
 void IncrementalMapper::DeRegisterFrameEvent(const frame_t frame_id) {
+  obs_manager_->DeRegisterFrame(frame_id);
+
   const Frame& frame = reconstruction_->Frame(frame_id);
 
   size_t& num_reg_frames_for_rig =

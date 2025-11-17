@@ -116,7 +116,8 @@ class ObservationManager {
                                     double max_focal_length_ratio,
                                     double max_extra_param);
 
-  // De-register an existing frame, and all its references.
+  // Register/De-register an existing frame, and all its references.
+  void RegisterFrame(frame_t frame_id);
   void DeRegisterFrame(frame_t frame_id);
 
   // Get the number of observations, i.e. the number of image points that
