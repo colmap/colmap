@@ -456,7 +456,7 @@ bool EstimateStructureLessAbsolutePose(
   // to have sufficient baseline.
   constexpr double kMinBaselineSquared = 1e-8;
   bool translation_scale_constrained = false;
-  const int num_points = world_points.size();
+  const size_t num_points = world_points.size();
   for (size_t i = 0; i < num_points; ++i) {
     if (!report.inlier_mask[i]) {
       continue;

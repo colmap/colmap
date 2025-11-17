@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/estimators/generalized_relative_pose.h"
 #include "colmap/estimators/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/optim/ransac.h"
