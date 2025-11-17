@@ -430,7 +430,7 @@ TEST(EstimateStructureLessAbsolutePose, WithOutliers) {
   SetPRNGSeed();
 
   StructureLessAbsolutePoseProblem problem =
-      BuildStructureLessAbsolutePoseProblem(/*num_world_cams=*/3);
+      BuildStructureLessAbsolutePoseProblem(/*num_world_cams=*/10);
 
   // Add outliers by perturbing some query observations.
   const double kOutlierRatio = 0.3;
