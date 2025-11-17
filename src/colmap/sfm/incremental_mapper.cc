@@ -30,7 +30,6 @@
 #include "colmap/sfm/incremental_mapper.h"
 
 #include "colmap/estimators/generalized_pose.h"
-#include "colmap/estimators/generalized_relative_pose.h"
 #include "colmap/estimators/pose.h"
 #include "colmap/estimators/triangulation.h"
 #include "colmap/estimators/two_view_geometry.h"
@@ -42,8 +41,6 @@
 #include "colmap/util/misc.h"
 
 #include <array>
-#include <fstream>
-#include <optional>
 
 namespace colmap {
 
