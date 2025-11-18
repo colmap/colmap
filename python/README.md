@@ -77,7 +77,7 @@ pycolmap.extract_features(database_path, image_dir, extraction_options={"sift": 
 # equivalent to
 ops = pycolmap.FeatureExtractionOptions()
 ops.sift.max_num_features = 512
-pycolmap.extract_features(database_path, image_dir, sift_options=ops)
+pycolmap.extract_features(database_path, image_dir, extraction_options=ops)
 ```
 
 To list available options and their default parameters:
