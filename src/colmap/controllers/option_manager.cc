@@ -861,6 +861,7 @@ void OptionManager::Reset() {
   added_poisson_meshing_options_ = false;
   added_delaunay_meshing_options_ = false;
   added_render_options_ = false;
+  added_two_view_geometry_options_ = false; 
 }
 
 void OptionManager::ResetOptions(const bool reset_paths) {
