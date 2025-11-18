@@ -619,9 +619,12 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
   // Search for structure-less correspondences
   //////////////////////////////////////////////////////////////////////////////
 
+  // Each 2D-2D correspondence contributes 1 geometric constraint, whereas each
+  // 2D-3D correspondence contributes 2, so require 2x the number of inliers.
+  const size_t min_num_inliers = 2 * options.abs_pose_min_num_inliers;
+
   // Check if enough 2D-2D correspondences.
-  if (obs_manager_->NumVisibleCorrespondences(image_id) <
-      static_cast<size_t>(options.abs_pose_min_num_inliers)) {
+  if (obs_manager_->NumVisibleCorrespondences(image_id) < min_num_inliers) {
     return false;
   }
 
@@ -676,8 +679,10 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
   }
 
   // Check if we pass the minimum number of inliers.
-  if (world_points2D.size() <
-      static_cast<size_t>(options.abs_pose_min_num_inliers)) {
+  if (world_points2D.size() < min_num_inliers) {
+    VLOG(2) << "Image observes insufficient number of points for registration ("
+            << obs_manager_->NumVisiblePoints3D(image_id) << " < "
+            << min_num_inliers << ")";
     return false;
   }
 
@@ -686,7 +691,9 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
   //////////////////////////////////////////////////////////////////////////////
 
   StructureLessAbsolutePoseEstimationOptions abs_pose_options;
-  abs_pose_options.ransac_options.max_error = options.abs_pose_max_error;
+  // Structure-less resectioning uses epipolar Sampson error, so we are stricter
+  // in accepting 2D-2D correspondences inliers.
+  abs_pose_options.ransac_options.max_error = 0.5 * options.abs_pose_max_error;
   abs_pose_options.ransac_options.min_inlier_ratio =
       options.abs_pose_min_inlier_ratio;
 
@@ -740,16 +747,22 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
                                          &cam_from_world,
                                          &num_inliers,
                                          &inlier_mask)) {
+    VLOG(2) << "Absolute pose estimation failed";
     return false;
   }
 
-  if (num_inliers < static_cast<size_t>(options.abs_pose_min_num_inliers)) {
+  if (num_inliers < min_num_inliers) {
+    VLOG(2) << "Absolute pose estimation failed due to insufficient inliers ("
+            << num_inliers << " < " << min_num_inliers << ")";
     return false;
   }
 
   //////////////////////////////////////////////////////////////////////////////
   // Continue or triangulate tracks
   //////////////////////////////////////////////////////////////////////////////
+
+  VLOG(2) << "Continuing or triangulating tracks for " << num_inliers
+          << " inlier 2D-2D correspondences";
 
   image.FramePtr()->SetCamFromWorld(image.CameraId(), cam_from_world);
 
@@ -850,7 +863,12 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
                                   abs_pose_refinement_config,
                                   *reconstruction_);
   const auto abs_pose_summary = abs_pose_refinement->Solve();
-  return abs_pose_summary.termination_type != ceres::FAILURE;
+  if (abs_pose_summary.termination_type == ceres::FAILURE) {
+    VLOG(2) << "Absolute pose refinement failed";
+    return false;
+  }
+
+  return true;
 }
 
 size_t IncrementalMapper::TriangulateImage(
