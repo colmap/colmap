@@ -848,6 +848,7 @@ void OptionManager::Reset() {
   added_image_options_ = false;
   added_feature_extraction_options_ = false;
   added_feature_matching_options_ = false;
+  added_two_view_geometry_options_ = false; 
   added_exhaustive_pairing_options_ = false;
   added_sequential_pairing_options_ = false;
   added_vocab_tree_pairing_options_ = false;
@@ -861,7 +862,6 @@ void OptionManager::Reset() {
   added_poisson_meshing_options_ = false;
   added_delaunay_meshing_options_ = false;
   added_render_options_ = false;
-  added_two_view_geometry_options_ = false; 
 }
 
 void OptionManager::ResetOptions(const bool reset_paths) {
