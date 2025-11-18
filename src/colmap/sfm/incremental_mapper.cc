@@ -134,9 +134,9 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
       cam2_from_cam1);
 }
 
-std::vector<image_t> IncrementalMapper::FindNextImages(
-    const Options& options, bool structure_less_fallback) {
-  return IncrementalMapperImpl::FindNextImages(structure_less_fallback,
+std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options,
+                                                       bool structure_less) {
+  return IncrementalMapperImpl::FindNextImages(structure_less,
                                                options,
                                                *obs_manager_,
                                                filtered_frames_,

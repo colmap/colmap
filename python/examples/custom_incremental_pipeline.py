@@ -109,8 +109,17 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
             pycolmap.IncrementalMapperCallback.INITIAL_IMAGE_PAIR_REG_CALLBACK
         )
 
-    # incremental mapping
     options = controller.options
+
+    structure_less_flags = []
+    if options.structure_less_registration_only:
+        structure_less_flags = [True]
+    else:
+        if options.structure_less_registration_fallback:
+            structure_less_flags = [False, True]
+        else:
+            structure_less_flags = [False]
+
     snapshot_prev_num_reg_frames = reconstruction.num_reg_frames()
     ba_prev_num_reg_frames = reconstruction.num_reg_frames()
     ba_prev_num_points = reconstruction.num_points3D()
@@ -120,16 +129,16 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
             break
         prev_reg_next_success = reg_next_success
         reg_next_success = False
-        for structure_less_fallback in [False, True]:
+        for structure_less in structure_less_flags:
             next_images = mapper.find_next_images(
-                mapper_options, structure_less_fallback=structure_less_fallback
+                mapper_options, structure_less=structure_less
             )
             for reg_trial, next_image_id in enumerate(next_images):
                 logging.info(
                     f"Registering image #{next_image_id} "
                     f"(num_reg_frames={reconstruction.num_reg_frames() + 1})"
                 )
-                if structure_less_fallback:
+                if structure_less:
                     logging.info(
                         "Registering image with structure-less fallback"
                     )

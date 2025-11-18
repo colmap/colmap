@@ -564,6 +564,10 @@ void OptionManager::AddMapperOptions() {
   AddAndRegisterDefaultOption("Mapper.init_image_id2", &mapper->init_image_id2);
   AddAndRegisterDefaultOption("Mapper.init_num_trials",
                               &mapper->init_num_trials);
+  AddAndRegisterDefaultOption("Mapper.structure_less_registration_fallback",
+                              &mapper->structure_less_registration_fallback);
+  AddAndRegisterDefaultOption("Mapper.structure_less_registration_only",
+                              &mapper->structure_less_registration_only);
   AddAndRegisterDefaultOption("Mapper.extract_colors", &mapper->extract_colors);
   AddAndRegisterDefaultOption("Mapper.num_threads", &mapper->num_threads);
   AddAndRegisterDefaultOption("Mapper.random_seed", &mapper->random_seed);

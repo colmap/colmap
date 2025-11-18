@@ -415,6 +415,17 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
   size_t ba_prev_num_reg_frames = reconstruction->NumRegFrames();
   size_t ba_prev_num_points = reconstruction->NumPoints3D();
 
+  std::vector<bool> structure_less_flags;
+  if (options_->structure_less_registration_only) {
+    structure_less_flags = {true};
+  } else {
+    if (options_->structure_less_registration_fallback) {
+      structure_less_flags = {false, true};
+    } else {
+      structure_less_flags = {false};
+    }
+  }
+
   bool reg_next_success = true;
   bool prev_reg_next_success = true;
   do {
@@ -429,9 +440,9 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
     // Try to register next image. Always prefer structure-based registration
     // first, and if that fails, try (less reliable) structure-less
     // registration.
-    for (const bool structure_less_fallback : {false, true}) {
+    for (const bool structure_less : structure_less_flags) {
       const std::vector<image_t> next_images = mapper.FindNextImages(
-          mapper_options, /*structure_less_fallback=*/structure_less_fallback);
+          mapper_options, /*structure_less=*/structure_less);
 
       for (size_t reg_trial = 0; reg_trial < next_images.size(); ++reg_trial) {
         next_image_id = next_images[reg_trial];
@@ -444,7 +455,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
             mapper.ObservationManager().NumVisiblePoints3D(next_image_id),
             mapper.ObservationManager().NumObservations(next_image_id));
 
-        if (structure_less_fallback) {
+        if (structure_less) {
           LOG(INFO) << StringPrintf(
               "Registering image with structure-less fallback");
           LOG(INFO) << StringPrintf(

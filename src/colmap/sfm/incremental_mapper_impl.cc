@@ -351,7 +351,7 @@ bool IncrementalMapperImpl::FindInitialImagePair(
 }
 
 std::vector<image_t> IncrementalMapperImpl::FindNextImages(
-    bool structure_less_fallback,
+    bool structure_less,
     const IncrementalMapper::Options& options,
     const ObservationManager& obs_manager,
     const std::unordered_set<image_t>& filtered_images,
@@ -360,7 +360,7 @@ std::vector<image_t> IncrementalMapperImpl::FindNextImages(
   const Reconstruction& reconstruction = obs_manager.Reconstruction();
 
   std::function<float(image_t, const ObservationManager&)> rank_image_func;
-  if (structure_less_fallback) {
+  if (structure_less) {
     rank_image_func = [](image_t image_id,
                          const ObservationManager& obs_manager) {
       return static_cast<float>(
