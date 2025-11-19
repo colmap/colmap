@@ -1256,7 +1256,14 @@ class CasparBundleAdjuster : public BundleAdjuster {
   void AddImage(const image_t image_id) {
     Image& image = reconstruction_.Image(image_id);
 
+    if (image.CameraPtr()->model_id != CameraModelId::kSimpleRadial) {
+      LOG(ERROR) << "ERROR! TRIED TO ADD NON SIMPLE RADIAL CAMERA!";
+      return;
+    }
+
     if (!image.HasTrivialFrame()) {
+      LOG(ERROR) << "ERROR! TRIED TO ADD NON TRIVIAL FRAME!!";
+
       return;
     }
 
@@ -1313,6 +1320,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
     const bool pose_var = IsPoseVariable(image.FrameId());
     const bool intrinsics_var = AreIntrinsicsVariable(camera.camera_id);
     const bool point_var = IsPointVariable(point2D.point3D_id);
+    const bool is_scale_fixed =
+        gauge_fixed_scale_frames_.count(image.FrameId());
 
     if (!pose_var && !intrinsics_var && !point_var) {
       return;  // Nothing to optimise
@@ -1335,6 +1344,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
       AddSimpleRadialFixedPoseAndPointFactor(image, camera, point2D, point3D);
     } else if (!pose_var && !intrinsics_var && point_var) {
       AddSimpleRadialFixedCamFactor(image, camera, point2D, point3D);
+    }
+
+    if (is_scale_fixed) {
     }
   }
 
@@ -1573,40 +1585,33 @@ class CasparBundleAdjuster : public BundleAdjuster {
     }
   }
 
-  // NOT IMPLEMENTED: Simplified logic - fix first two frames
   void FixGaugeWithTwoCamsFromWorld() {
     if (!options_.refine_rig_from_world) {
       return;
     }
 
-    // Collect frames that are:
-    // 1. In the config (part of this BA problem)
-    // 2. Would be variable (not marked constant in config)
-    // 3. Are reference sensors
-    std::vector<frame_t> variable_frames_in_problem;
+    // Track both frame_id AND camera_id
+    std::vector<std::pair<frame_t, camera_t>> variable_frames_in_problem;
     std::unordered_set<frame_t> frames_seen;
 
     for (const image_t image_id : config_.Images()) {
       const Image& image = reconstruction_.Image(image_id);
       const frame_t frame_id = image.FrameId();
 
-      // Skip if already processed this frame
       if (frames_seen.count(frame_id)) continue;
       frames_seen.insert(frame_id);
 
-      // Only consider reference sensors (matching Ceres logic)
       if (!image.FramePtr()->RigPtr()->IsRefSensor(
               image.CameraPtr()->SensorId())) {
         continue;
       }
 
-      // Check if frame would be variable (not constant in config)
       if (!config_.HasConstantRigFromWorldPose(frame_id)) {
-        variable_frames_in_problem.push_back(frame_id);
+        // Store BOTH frame_id and camera_id
+        variable_frames_in_problem.push_back({frame_id, image.CameraId()});
       }
     }
 
-    // Need at least 2 variable frames
     if (variable_frames_in_problem.size() < 2) {
       LOG(WARNING) << "Only " << variable_frames_in_problem.size()
                    << " variable frame(s) in problem. "
@@ -1615,30 +1620,30 @@ class CasparBundleAdjuster : public BundleAdjuster {
       return;
     }
 
-    // Select first frame
-    frame_t frame1_id = variable_frames_in_problem[0];
+    auto [frame1_id, camera1_id] = variable_frames_in_problem[0];
 
     // Find second frame with maximum baseline
     frame_t frame2_id = std::numeric_limits<frame_t>::max();
+    camera_t camera2_id = std::numeric_limits<camera_t>::max();
     double best_baseline = 0;
 
     const Rigid3d& pose1 = reconstruction_.Frame(frame1_id).RigFromWorld();
 
     for (size_t i = 1; i < variable_frames_in_problem.size(); ++i) {
-      const frame_t candidate_id = variable_frames_in_problem[i];
-      const Rigid3d& pose2 = reconstruction_.Frame(candidate_id).RigFromWorld();
-
+      auto [candidate_frame_id, candidate_camera_id] =
+          variable_frames_in_problem[i];
+      const Rigid3d& pose2 =
+          reconstruction_.Frame(candidate_frame_id).RigFromWorld();
       const Eigen::Vector3d baseline = (pose1 * Inverse(pose2)).translation;
-
       const double baseline_magnitude = baseline.cwiseAbs().maxCoeff();
 
       if (baseline_magnitude > best_baseline) {
         best_baseline = baseline_magnitude;
-        frame2_id = candidate_id;
+        frame2_id = candidate_frame_id;
+        camera2_id = candidate_camera_id;
       }
     }
 
-    // Check baseline threshold (matching Ceres: > 1e-9)
     if (best_baseline <= 1e-9) {
       LOG(WARNING) << "Best baseline too small: " << best_baseline
                    << ". Falling back to three points.";
@@ -1646,9 +1651,25 @@ class CasparBundleAdjuster : public BundleAdjuster {
       return;
     }
 
-    // Fix both frames
-    gauge_fixed_frames_.insert(frame1_id);
-    gauge_fixed_frames_.insert(frame2_id);
+    // Fix first frame
+    gauge_fixed_pose_frames_.insert(frame1_id);
+
+    // Add scale constraint for second frame
+    const Rigid3d& pose2 = reconstruction_.Frame(frame2_id).RigFromWorld();
+    const double distance = (pose1.translation - pose2.translation).norm();
+
+    // Now you have camera2_id!
+    const size_t pose2_idx = GetOrCreatePose(camera2_id, frame2_id, pose2);
+
+    simple_radial_scale_constraint_pose_indices_.push_back(pose2_idx);
+    simple_radial_scale_constraint_points_.push_back(pose1.translation.x());
+    simple_radial_scale_constraint_points_.push_back(pose1.translation.y());
+    simple_radial_scale_constraint_points_.push_back(pose1.translation.z());
+    simple_radial_scale_constraint_distance_constraints_.push_back(distance);
+    simple_radial_scale_constraint_weights_.push_back(1e15);
+    num_simple_radial_scale_constraint_++;
+
+    gauge_fixed_scale_frames_.insert(frame2_id);
 
     LOG(INFO) << "Fixed gauge with frames " << frame1_id << " and " << frame2_id
               << " (baseline: " << best_baseline << ")";
@@ -1657,15 +1678,20 @@ class CasparBundleAdjuster : public BundleAdjuster {
   void FixGaugeWithThreePoints() {
     FixedGaugeWithThreePoints fixed_gauge;
 
-    for (const auto& [point_id, num_obs] : point3D_num_observations_) {
-      if (config_.HasConstantPoint(point_id)) {
-        const Point3D& point = reconstruction_.Point3D(point_id);
-        if (fixed_gauge.MaybeAddFixedPoint(point.xyz)) {
-          gauge_fixed_points_.insert(point_id);
-          if (fixed_gauge.num_fixed_points >= 3) {
-            return;
-          }
-        }
+    // Pick points with MOST observations, not just any 3 points
+    std::vector<std::pair<size_t, point3D_t>> points_by_obs;
+    for (const auto& [pid, num_obs] : point3D_num_observations_) {
+      points_by_obs.push_back({num_obs, pid});
+    }
+    std::sort(points_by_obs.rbegin(), points_by_obs.rend());
+
+    // Try to fix the most-observed, well-distributed points
+    for (const auto& [num_obs, pid] : points_by_obs) {
+      if (fixed_gauge.MaybeAddFixedPoint(reconstruction_.Point3D(pid).xyz)) {
+        gauge_fixed_points_.insert(pid);
+        LOG(INFO) << "Fixed point " << pid << " with " << num_obs
+                  << " observations";
+        if (fixed_gauge.num_fixed_points >= 3) break;
       }
     }
 
@@ -1707,7 +1733,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
   };
 
   bool IsPoseVariable(const frame_t frame_id) {
-    if (gauge_fixed_frames_.count(frame_id)) return false;
+    if (gauge_fixed_pose_frames_.count(frame_id)) return false;
 
     if (!options_.refine_rig_from_world) return false;
 
@@ -1747,6 +1773,35 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   void SetupSolverData(caspar::GraphSolver& solver) {
+    // Track what's actually being sent to solver
+    LOG(INFO) << "=== CASPAR SOLVER SETUP ===";
+    LOG(INFO) << "Total points: " << num_points_;
+    LOG(INFO) << "Total poses: " << num_poses_;
+    LOG(INFO) << "Total calibs: " << num_calibs_;
+    LOG(INFO) << "Total cameras: " << num_cameras_;
+
+    // Log gauge-fixed elements
+    LOG(INFO) << "Gauge-fixed points: " << gauge_fixed_points_.size();
+    for (auto pid : gauge_fixed_points_) {
+      const Point3D& p = reconstruction_.Point3D(pid);
+      LOG(INFO) << "  Point " << pid << ": " << p.xyz.transpose();
+    }
+
+    LOG(INFO) << "Gauge-fixed frames: " << gauge_fixed_pose_frames_.size();
+    for (auto fid : gauge_fixed_pose_frames_) {
+      const Rigid3d& pose = reconstruction_.Frame(fid).RigFromWorld();
+      LOG(INFO) << "  Frame " << fid
+                << " pos: " << pose.translation.transpose();
+    }
+
+    // Log residual counts by type
+    LOG(INFO) << "Residual counts:";
+    LOG(INFO) << "  simple_radial: " << num_simple_radial_;
+    LOG(INFO) << "  fixed_intrinsics: " << num_simple_radial_fixed_intrinsics_;
+    LOG(INFO) << "  fixed_pose: " << num_simple_radial_fixed_pose_;
+    LOG(INFO) << "  fixed_cam: " << num_simple_radial_fixed_cam_;
+    LOG(INFO) << "  fixed_point: " << num_simple_radial_fixed_point_;
+
     // Load optimizable nodes
     if (num_points_ > 0) {
       solver.set_Point_nodes_from_stacked_host(
@@ -1877,6 +1932,25 @@ class CasparBundleAdjuster : public BundleAdjuster {
               num_simple_radial_fixed_pose_and_point_);
     }
 
+    if (num_simple_radial_scale_constraint_ > 0) {
+      solver.set_simple_radial_scale_constraint_cam_T_world_indices_from_host(
+          simple_radial_scale_constraint_pose_indices_.data(),
+          num_simple_radial_scale_constraint_);
+      solver.set_simple_radial_scale_constraint_point_data_from_stacked_host(
+          simple_radial_scale_constraint_points_.data(),
+          0,
+          num_simple_radial_scale_constraint_);
+      solver
+          .set_simple_radial_scale_constraint_distance_constraint_data_from_stacked_host(
+              simple_radial_scale_constraint_distance_constraints_.data(),
+              0,
+              num_simple_radial_scale_constraint_);
+      solver.set_simple_radial_scale_constraint_weight_data_from_stacked_host(
+          simple_radial_scale_constraint_weights_.data(),
+          0,
+          num_simple_radial_scale_constraint_);
+    }
+
     solver.finish_indices();
   }
 
@@ -1915,7 +1989,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
       pose.rotation.y() = pose_data_[idx * pose_stride + 1];
       pose.rotation.z() = pose_data_[idx * pose_stride + 2];
       pose.rotation.w() = pose_data_[idx * pose_stride + 3];
-      pose.rotation.normalize();
+      // pose.rotation.normalize(); Dont know if we should
 
       pose.translation.x() = pose_data_[idx * pose_stride + 4];
       pose.translation.y() = pose_data_[idx * pose_stride + 5];
@@ -1942,7 +2016,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
       pose.rotation.y() = camera_data_[idx * camera_stride + 1];
       pose.rotation.z() = camera_data_[idx * camera_stride + 2];
       pose.rotation.w() = camera_data_[idx * camera_stride + 3];
-      pose.rotation.normalize();
+      // pose.rotation.normalize(); ??
 
       pose.translation.x() = camera_data_[idx * camera_stride + 4];
       pose.translation.y() = camera_data_[idx * camera_stride + 5];
@@ -1965,12 +2039,58 @@ class CasparBundleAdjuster : public BundleAdjuster {
   // Does nothing
   std::shared_ptr<ceres::Problem>& Problem() override { return dummy_problem_; }
 
-  ceres::Solver::Summary Solve()
-      override {  // Need a separate function to write the
-                  // solved stuff to the reconstruction
-    caspar::SolverParams
-        params;  // Use default for now, make configurable later
+  // Add validation
+  bool ValidateData() {
+    if (num_points_ == 0 && num_calibs_ == 0 && num_cameras_ == 0 &&
+        num_poses_ == 0) {
+      LOG(ERROR) << "No data to optimize";
+      return false;
+    }
 
+    size_t total_residuals = ComputeTotalResiduals();
+    if (total_residuals == 0) {
+      LOG(ERROR) << "No residuals to optimize";
+      return false;
+    }
+
+    // Check gauge constraints are sufficient
+    if (gauge_fixed_points_.size() < 3 ||
+        (gauge_fixed_pose_frames_.size() < 1 &&
+         gauge_fixed_scale_frames_.size() < 1)) {
+      LOG(WARNING) << "Insufficient gauge constraints";
+    }
+
+    return true;
+  }
+
+  ceres::Solver::Summary Solve() override {
+    size_t total_residuals = ComputeTotalResiduals();
+
+    if (!ValidateData()) {
+      ceres::Solver::Summary summary;
+      summary.termination_type = ceres::FAILURE;
+      summary.message = "Invalid data for optimization";
+      return summary;
+    }
+
+    // Compute scene scale before optimization
+    auto ComputeSceneScale = [&]() {
+      double total_dist = 0;
+      int count = 0;
+      for (const auto& [idx, point_id] : index_to_point_id_) {
+        if (count > 0) {
+          const Point3D& p = reconstruction_.Point3D(point_id);
+          total_dist += p.xyz.norm();
+        }
+        if (++count >= 100) break;  // Sample first 100 points
+      }
+      return total_dist / count + 1e-5;
+    };
+
+    double scale_before = ComputeSceneScale();
+    LOG(INFO) << "Scene scale BEFORE: " << scale_before;
+
+    caspar::SolverParams params;
     params.solver_iter_max = 500;
     params.pcg_iter_max = 20;
     caspar::GraphSolver solver =
@@ -1985,15 +2105,22 @@ class CasparBundleAdjuster : public BundleAdjuster {
                             num_simple_radial_fixed_cam_,
                             num_simple_radial_fixed_point_,
                             num_simple_radial_fixed_intrinsics_and_point_,
-                            num_simple_radial_fixed_pose_and_point_);
+                            num_simple_radial_fixed_pose_and_point_,
+                            num_simple_radial_scale_constraint_);
     SetupSolverData(solver);
-    const float result = solver.solve(true);  // Logging on
+
+    const float result = solver.solve(true);
+
     ReadSolverResults(solver);
     WriteResultsToReconstruction();
 
+    double scale_after = ComputeSceneScale();
+    LOG(INFO) << "Scene scale AFTER: " << scale_after;
+    LOG(INFO) << "Scale ratio: " << scale_after / scale_before;
+    LOG(INFO) << "Cost AFTER: " << result;
     ceres::Solver::Summary summary;  // Incomplete
     summary.final_cost = result;
-    summary.num_residuals_reduced = ComputeTotalResiduals();
+    summary.num_residuals_reduced = total_residuals;
     summary.termination_type = ceres::CONVERGENCE;
     return summary;
   }
@@ -2003,7 +2130,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
   std::shared_ptr<ceres::Problem> dummy_problem_;
 
   // Gauge tracking
-  std::unordered_set<frame_t> gauge_fixed_frames_;
+  std::unordered_set<frame_t> gauge_fixed_pose_frames_;
+  std::unordered_set<frame_t> gauge_fixed_scale_frames_;
   std::unordered_set<point3D_t> gauge_fixed_points_;
   std::unordered_set<camera_t>
       cameras_from_outside_config_;  // I.e. not in images
@@ -2022,6 +2150,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
   size_t num_simple_radial_fixed_point_ = 0;
   size_t num_simple_radial_fixed_intrinsics_and_point_ = 0;
   size_t num_simple_radial_fixed_pose_and_point_ = 0;
+  size_t num_simple_radial_scale_constraint_ = 0;
 
   // Node data
   std::vector<float> point_data_;   // x,y,z,x,y,z...
@@ -2043,7 +2172,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
       index_to_frame_camera_;
   std::unordered_map<point3D_t, size_t> point3D_num_observations_;
 
-  // -- Factor data for 7 factors of simple_radial cam type --
+  // -- Factor data for 8 factors of simple_radial cam type --
   // Factor data - simple_radial
   std::vector<unsigned int> simple_radial_camera_indices_;
   std::vector<unsigned int> simple_radial_point_indices_;
@@ -2083,6 +2212,12 @@ class CasparBundleAdjuster : public BundleAdjuster {
   std::vector<float> simple_radial_fixed_pose_and_point_poses_;
   std::vector<float> simple_radial_fixed_pose_and_point_points_;
   std::vector<float> simple_radial_fixed_pose_and_point_pixels_;
+
+  // Factor data - simple_radial_scale_constraint
+  std::vector<unsigned int> simple_radial_scale_constraint_pose_indices_;
+  std::vector<float> simple_radial_scale_constraint_points_;
+  std::vector<float> simple_radial_scale_constraint_distance_constraints_;
+  std::vector<float> simple_radial_scale_constraint_weights_;
 };
 
 }  // namespace

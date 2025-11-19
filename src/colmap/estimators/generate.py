@@ -67,8 +67,8 @@ def simple_radial(
 @caslib.add_factor
 def simple_radial_fixed_intrinsics(
     cam_T_world: T.Annotated[sf.Pose3, mem.Tunable],
-    cam_calib: T.Annotated[SimpleRadialCalib, mem.Constant],
     point: T.Annotated[Point, mem.Tunable],
+    cam_calib: T.Annotated[SimpleRadialCalib, mem.Constant],
     pixel: T.Annotated[Pixel, mem.Constant],
 )->sf.V2:
     focal_length, cx, cy, k = cam_calib
@@ -84,9 +84,9 @@ def simple_radial_fixed_intrinsics(
 
 @caslib.add_factor
 def simple_radial_fixed_pose(
-    cam_T_world: T.Annotated[sf.Pose3, mem.Constant],
     cam_calib: T.Annotated[SimpleRadialCalib, mem.Tunable],
     point: T.Annotated[Point, mem.Tunable],
+    cam_T_world: T.Annotated[sf.Pose3, mem.Constant],
     pixel: T.Annotated[Pixel, mem.Constant],
 )->sf.V2:
     focal_length, cx, cy, k = cam_calib
@@ -102,8 +102,8 @@ def simple_radial_fixed_pose(
 
 @caslib.add_factor
 def simple_radial_fixed_cam(
-    cam: T.Annotated[SimpleRadialCamera, mem.Constant],
     point: T.Annotated[Point, mem.Tunable],
+    cam: T.Annotated[SimpleRadialCamera, mem.Constant],
     pixel: T.Annotated[Pixel, mem.Constant],
 )->sf.V2:
     cam_T_world = cam.cam_T_world
@@ -158,9 +158,9 @@ def simple_radial_fixed_intrinsics_and_point(
 
 @caslib.add_factor
 def simple_radial_fixed_pose_and_point(
-    cam_T_world: T.Annotated[sf.Pose3, mem.Constant],
     cam_calib: T.Annotated[SimpleRadialCalib, mem.Tunable],
-    point: T.Annotated[Point, mem.Constant],
+    cam_T_world: T.Annotated[sf.Pose3, mem.Constant],
+    point: T.Annotated[sf.V3, mem.Constant],
     pixel: T.Annotated[Pixel, mem.Constant],
 )->sf.V2:
     focal_length, cx, cy, k = cam_calib
@@ -173,6 +173,17 @@ def simple_radial_fixed_pose_and_point(
     reprojection_error = pixel_projected - pixel
     return reprojection_error
 
+@caslib.add_factor
+def simple_radial_scale_constraint(
+    cam_T_world: T.Annotated[sf.Pose3, mem.Tunable],
+    point: T.Annotated[Point, mem.Constant],
+    distance_constraint: T.Annotated[sf.V1, mem.Constant] = 1.0,
+    weight: T.Annotated[sf.V1, mem.Constant] = 1e6,
+)->sf.V1:
+    cam_position = sf.V3(cam_T_world.t)
+    actual_distance = (point - cam_position).norm()
+    distance_error = distance_constraint - actual_distance
+    return distance_error * weight
 
 # New factors can easily be added
 # @caslib.add_factor 
