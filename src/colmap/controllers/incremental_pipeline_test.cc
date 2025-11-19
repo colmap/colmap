@@ -601,7 +601,7 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
 
   constexpr int kRandomSeed = 42;
 
-    // Single-threaded execution.
+  // Single-threaded execution.
   {
     auto reconstruction_manager0 =
         run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
