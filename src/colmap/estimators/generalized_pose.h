@@ -128,7 +128,7 @@ struct StructureLessAbsolutePoseEstimationOptions {
   RANSACOptions ransac_options;
 
   StructureLessAbsolutePoseEstimationOptions() {
-    ransac_options.max_error = 12.0;
+    ransac_options.max_error = 6.0;
     // Use high confidence to avoid preemptive termination o RANSAC
     // - too early termination may lead to bad registration.
     ransac_options.min_num_trials = 100;

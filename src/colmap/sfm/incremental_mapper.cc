@@ -136,11 +136,12 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
 
 std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options,
                                                        bool structure_less) {
-  return IncrementalMapperImpl::FindNextImages(structure_less,
-                                               options,
-                                               *obs_manager_,
-                                               filtered_frames_,
-                                               reg_stats_.num_reg_trials);
+  return IncrementalMapperImpl::FindNextImages(
+      options,
+      *obs_manager_,
+      filtered_frames_,
+      /*num_reg_trials=*/reg_stats_.num_reg_trials,
+      /*structure_less=*/structure_less);
 }
 
 void IncrementalMapper::RegisterInitialImagePair(

@@ -75,11 +75,11 @@ class IncrementalMapperImpl {
 
   // Implement IncrementalMapper::FindNextImages
   static std::vector<image_t> FindNextImages(
-      bool structure_less,
       const IncrementalMapper::Options& options,
       const ObservationManager& obs_manager,
       const std::unordered_set<image_t>& filtered_images,
-      std::unordered_map<image_t, size_t>& num_reg_trials);
+      std::unordered_map<image_t, size_t>& num_reg_trials,
+      bool structure_less = false);
 
   // Implement IncrementalMapper::FindLocalBundle
   static std::vector<image_t> FindLocalBundle(
