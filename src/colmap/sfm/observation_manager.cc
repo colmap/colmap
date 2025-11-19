@@ -96,6 +96,13 @@ ObservationManager::ObservationManager(
         SetObservationAsTriangulated(
             image_id, point2D_idx, /*is_continued_point3D=*/false);
       }
+      if (correspondence_graph_) {
+        const auto corr_range =
+            correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
+        for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+          image_stats_[corr->image_id].num_visible_correspondences += 1;
+        }
+      }
     }
   }
 }
