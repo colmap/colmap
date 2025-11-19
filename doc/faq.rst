@@ -388,7 +388,7 @@ your images actually has that many features.
 
 
 Speedup bundle adjustemnt
--------------------------------------------------------------
+-------------------------
 
 The following describes practical ways to reduce bundle adjustment runtime.
 
