@@ -371,7 +371,7 @@ If you encounter the following error message::
 or the following:
 
     ERROR: Feature matching failed. This probably caused by insufficient GPU
-           memory. Consider reducing the maximum number of features.
+    memory. Consider reducing the maximum number of features.
 
 during feature matching, your GPU runs out of memory. Try decreasing the option
 ``--FeatureMatching.max_num_matches`` until the error disappears. Note that this
@@ -385,6 +385,63 @@ following formula: ``4 * num_matches * num_matches + 4 * num_matches * 256`` for
 For example, if you set ``--FeatureMatching.max_num_matches 10000``, the maximum
 required GPU memory will be around 400MB, which are only allocated if one of
 your images actually has that many features.
+
+
+Speedup bundle adjustemnt
+-------------------------------------------------------------
+
+The following describes practical ways to reduce bundle adjustment runtime.
+
+- **Reduce the problem size** 
+
+  Limit the number of correspondences so that BA solves a smaller problem:
+
+  - Reduce features by decreasing ``--SiftExtraction.max_image_size`` and/or
+    ``--SiftExtraction.max_num_features``.
+  - Reduce matching pairs (and avoid ``exhaustive_matcher`` when possible) by
+    decreasing ``--SequentialMatching.overlap``,
+    ``--SpatialMatching.max_num_neighbors``, or ``--VocabTreeMatching.num_images``.
+  - Reduce matches by decreasing ``--FeatureMatching.max_num_matches``.
+  - Enable experimental landmark pruning to drop redundant 3D points using
+    ``--Mapper.ba_global_ignore_redundant_points3D 1``.
+
+- **Utilize GPU acceleration**
+
+  Enable GPU-based Ceres solvers for bundle adjustment by setting 
+  ``--Mapper.ba_use_gpu 1`` for the ``mapper`` and ``--BundleAdjustment.use_gpu 1``
+  for the standalone ``bundle_adjuster``. Several parameters control when and which
+  GPU solver is used:
+
+  - The GPU solver is activated only when the number of images exceeds 
+    ``--BundleAdjustmentOptions.min_num_images_gpu_solver``.
+  - Select between the direct dense, direct sparse, and iterative sparse GPU solvers
+    using ``--BundleAdjustment.max_num_images_direct_dense_gpu_solver`` and
+    ``--BundleAdjustment.max_num_images_direct_sparse_gpu_solver``
+      
+  .. Attention:: COLMAP's official CUDA-enabled binaries are not distributed with 
+     ceres[cuda] until Ceres 2.3 is officially released. To use the GPU solvers you
+     must compile Ceres with the CUDA/cuDSS support and link that build to COLMAP. 
+
+  **Note:** Low GPU utilization for the Schur-based sparse solver (cuDSS) can occur 
+  when the Schur-complement matrix becomes less sparse (i.e., exhibits more fill-in).
+  Typical causes include:
+
+  - High image covisibility
+  - Shared camera intrinsics.
+
+- **Additional practical tips**
+
+  - Improve initial conditions by tuning observation-filtering parameters so BA
+    receives more inliers and fewer outliers, or by supplying accurate priors
+    (e.g., intrinsics, poses).
+  - Fix or restrict refinement of parameters when possible (e.g., hold intrinsics 
+    fixed if they are known) to reduce the number of optimized variables.
+  - Reduce LM iterations or relax convergence tolerances to trade a small amount of 
+    accuracy for runtime: ``--Mapper.ba_global_max_num_iterations``, 
+    ``--Mapper.ba_global_function_tolerance``.
+  - Reduce the frequency of expensive global BA passes with mapper options: 
+    ``--Mapper.ba_global_frames_freq``, ``--Mapper.ba_global_points_freq``,
+    ``--Mapper.ba_global_frames_ratio`` and ``--Mapper.ba_global_points_ratio``.
 
 
 Trading off completeness and accuracy in dense reconstruction
