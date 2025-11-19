@@ -78,7 +78,7 @@ struct IncrementalPipelineOptions {
   // Enable fallback to structure-less image registration using 2D-2D
   // correspondences, if structured-based registration fails using 2D-3D
   // correspondences.
-  bool structure_less_registration_fallback = false;
+  bool structure_less_registration_fallback = true;
 
   // Only use structure-less and skip structure-based image registration.
   bool structure_less_registration_only = false;
