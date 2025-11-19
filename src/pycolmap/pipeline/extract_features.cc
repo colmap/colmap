@@ -24,7 +24,6 @@ void ExtractFeatures(const std::string& database_path,
                      const std::string& image_path,
                      const std::vector<std::string>& image_names,
                      const CameraMode camera_mode,
-                     const std::string& camera_model,
                      ImageReaderOptions reader_options,
                      FeatureExtractionOptions extraction_options,
                      const Device device) {
@@ -33,7 +32,6 @@ void ExtractFeatures(const std::string& database_path,
   THROW_CHECK(extraction_options.Check());
 
   UpdateImageReaderOptionsFromCameraMode(reader_options, camera_mode);
-  reader_options.camera_model = camera_model;
   reader_options.image_path = image_path;
 
   if (!image_names.empty()) {
@@ -60,7 +58,6 @@ void BindExtractFeatures(py::module& m) {
       "image_path"_a,
       "image_names"_a = std::vector<std::string>(),
       "camera_mode"_a = CameraMode::AUTO,
-      "camera_model"_a = "SIMPLE_RADIAL",
       py::arg_v("reader_options", ImageReaderOptions(), "ImageReaderOptions()"),
       py::arg_v("extraction_options",
                 FeatureExtractionOptions(),
