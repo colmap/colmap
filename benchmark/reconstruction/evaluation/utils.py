@@ -279,8 +279,6 @@ def colmap_reconstruction(
         image_path,
         "--workspace_path",
         workspace_path,
-        "--vocab_tree_path",
-        args.data_path / "vocab_tree_flickr100K_words256K.bin",
         "--use_gpu",
         "1" if args.use_gpu else "0",
         "--num_threads",
