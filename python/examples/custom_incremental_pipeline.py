@@ -142,16 +142,16 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
                     logging.info(
                         "Registering image with structure-less fallback"
                     )
+                    num_vis = (
+                        mapper.observation_manager.num_visible_correspondences(
+                            next_image_id
+                        )
+                    )
+                    num_corrs = mapper.observation_manager.num_correspondences(
+                        next_image_id
+                    )
                     logging.info(
-                        f"=> Image sees {
-                            mapper.observation_manager.num_visible_correspondences(
-                                next_image_id
-                            )
-                        } / {
-                            mapper.observation_manager.num_correspondences(
-                                next_image_id
-                            )
-                        } correspondences"
+                        f"=> Image sees {num_vis} / {num_corrs} correspondences"
                     )
                     reg_next_success = (
                         mapper.register_next_structure_less_image(
@@ -159,17 +159,13 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
                         )
                     )
                 else:
-                    logging.info(
-                        f"=> Image sees {
-                            mapper.observation_manager.num_visible_points3D(
-                                next_image_id
-                            )
-                        } / {
-                            mapper.observation_manager.num_observations(
-                                next_image_id
-                            )
-                        } points"
+                    num_vis = mapper.observation_manager.num_visible_points3D(
+                        next_image_id
                     )
+                    num_obs = mapper.observation_manager.num_observations(
+                        next_image_id
+                    )
+                    logging.info(f"=> Image sees {num_vis} / {num_obs} points")
                     reg_next_success = mapper.register_next_image(
                         mapper_options, next_image_id
                     )
