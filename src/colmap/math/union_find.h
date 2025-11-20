@@ -31,7 +31,7 @@
 
 #include <unordered_map>
 
-namespace {
+namespace colmap {
 
 // Helper class to perform union-find operations.
 template <typename T>
