@@ -252,9 +252,9 @@ TEST(ObservationManager, FilterFrames) {
   ObservationManager obs_manager(reconstruction);
   const point3D_t point3D_id1 =
       reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
-  reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
-  reconstruction.AddObservation(point3D_id1, TrackElement(2, 0));
-  reconstruction.AddObservation(point3D_id1, TrackElement(3, 0));
+  obs_manager.AddObservation(point3D_id1, TrackElement(1, 0));
+  obs_manager.AddObservation(point3D_id1, TrackElement(2, 0));
+  obs_manager.AddObservation(point3D_id1, TrackElement(3, 0));
   obs_manager.FilterFrames(/*min_focal_length_ratio=*/0.0,
                            /*max_focal_length_ratio=*/10.0,
                            /*max_extra_param=*/1.0);
@@ -325,6 +325,113 @@ TEST(ObservationManager, NumVisiblePoints3D) {
   EXPECT_EQ(obs_manager.NumVisiblePoints3D(kImageId1), 1);
   obs_manager.DecrementCorrespondenceHasPoint3D(kImageId1, 1);
   EXPECT_EQ(obs_manager.NumVisiblePoints3D(kImageId1), 0);
+}
+
+TEST(ObservationManager, NumVisibleCorrespondences) {
+  Reconstruction reconstruction;
+  const image_t kImageId1 = 1;
+  const image_t kImageId2 = 2;
+  const image_t kImageId3 = 3;
+  const camera_t kCameraId = 1;
+
+  const Camera camera = Camera::CreateFromModelId(kCameraId,
+                                                  CameraModelId::kPinhole,
+                                                  /*focal_length=*/10,
+                                                  /*width=*/10,
+                                                  /*height=*/10);
+  reconstruction.AddCamera(camera);
+
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(camera.SensorId());
+  reconstruction.AddRig(rig);
+
+  Frame frame;
+  frame.SetFrameId(1);
+  frame.SetRigId(rig.RigId());
+  frame.AddDataId(data_t(camera.SensorId(), kImageId1));
+  frame.AddDataId(data_t(camera.SensorId(), kImageId2));
+  frame.AddDataId(data_t(camera.SensorId(), kImageId3));
+  reconstruction.AddFrame(frame);
+
+  Image image1;
+  image1.SetImageId(kImageId1);
+  image1.SetCameraId(kCameraId);
+  image1.SetFrameId(frame.FrameId());
+  image1.SetPoints2D(std::vector<Eigen::Vector2d>(10));
+  reconstruction.AddImage(image1);
+
+  Image image2;
+  image2.SetImageId(kImageId2);
+  image2.SetCameraId(kCameraId);
+  image2.SetFrameId(frame.FrameId());
+  image2.SetPoints2D(std::vector<Eigen::Vector2d>(10));
+  reconstruction.AddImage(image2);
+
+  Image image3;
+  image3.SetImageId(kImageId3);
+  image3.SetCameraId(kCameraId);
+  image3.SetFrameId(frame.FrameId());
+  image3.SetPoints2D(std::vector<Eigen::Vector2d>(10));
+  reconstruction.AddImage(image3);
+
+  auto correspondence_graph = std::make_shared<CorrespondenceGraph>();
+  correspondence_graph->AddImage(kImageId1, 10);
+  correspondence_graph->AddImage(kImageId2, 10);
+  correspondence_graph->AddImage(kImageId3, 10);
+
+  FeatureMatches matches12;
+  for (size_t i = 0; i < 5; ++i) {
+    matches12.emplace_back(i, i);
+  }
+  correspondence_graph->AddCorrespondences(kImageId1, kImageId2, matches12);
+
+  FeatureMatches matches13;
+  for (size_t i = 5; i < 8; ++i) {
+    matches13.emplace_back(i, i);
+  }
+  correspondence_graph->AddCorrespondences(kImageId1, kImageId3, matches13);
+
+  FeatureMatches matches23;
+  for (size_t i = 0; i < 2; ++i) {
+    matches23.emplace_back(i, i + 5);
+  }
+  correspondence_graph->AddCorrespondences(kImageId2, kImageId3, matches23);
+
+  correspondence_graph->Finalize();
+
+  ObservationManager obs_manager(reconstruction, correspondence_graph);
+
+  // Initially, frame is not registered, so visible correspondences should be 0
+  EXPECT_EQ(obs_manager.NumVisibleCorrespondences(kImageId1), 0);
+  EXPECT_EQ(obs_manager.NumVisibleCorrespondences(kImageId2), 0);
+  EXPECT_EQ(obs_manager.NumVisibleCorrespondences(kImageId3), 0);
+
+  // Set pose and register the frame (contains all three images)
+  reconstruction.Frame(1).SetRigFromWorld(Rigid3d());
+  obs_manager.RegisterFrame(1);
+  // All images now have visible correspondences with each other
+  // Image 1: 5 (to image 2) + 3 (to image 3) = 8
+  // Image 2: 5 (to image 1) + 2 (to image 3) = 7
+  // Image 3: 3 (to image 1) + 2 (to image 2) = 5
+  EXPECT_EQ(obs_manager.NumVisibleCorrespondences(kImageId1), 8);
+  EXPECT_EQ(obs_manager.NumVisibleCorrespondences(kImageId2), 7);
+  EXPECT_EQ(obs_manager.NumVisibleCorrespondences(kImageId3), 5);
+
+  // Deregister the frame
+  obs_manager.DeRegisterFrame(1);
+  // All visible correspondences should drop back to 0
+  EXPECT_EQ(obs_manager.NumVisibleCorrespondences(kImageId1), 0);
+  EXPECT_EQ(obs_manager.NumVisibleCorrespondences(kImageId2), 0);
+  EXPECT_EQ(obs_manager.NumVisibleCorrespondences(kImageId3), 0);
+}
+
+TEST(ObservationManager, NumVisibleCorrespondencesWithoutCorrespondenceGraph) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(2, reconstruction);
+  ObservationManager obs_manager(reconstruction);
+  EXPECT_EQ(obs_manager.NumVisibleCorrespondences(1), 0);
+  EXPECT_EQ(obs_manager.NumVisibleCorrespondences(2), 0);
 }
 
 TEST(ObservationManager, Point3DVisibilityScore) {

@@ -75,7 +75,9 @@ struct Sqlite3StmtContext {
 };
 
 void SwapFeatureMatchesBlob(FeatureMatchesBlob* matches) {
-  matches->col(0).swap(matches->col(1));
+  for (Eigen::Index i = 0; i < matches->rows(); ++i) {
+    std::swap((*matches)(i, 0), (*matches)(i, 1));
+  }
 }
 
 FeatureKeypointsBlob FeatureKeypointsToBlob(const FeatureKeypoints& keypoints) {

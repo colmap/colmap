@@ -112,6 +112,11 @@ if(TESTS_ENABLED)
 endif()
 
 COLMAP_ADD_TEST(
+    NAME base_controller_test
+    SRCS base_controller_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
     NAME cache_test
     SRCS cache_test.cc
     LINK_LIBS colmap_util
@@ -144,6 +149,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME misc_test
     SRCS misc_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
+    NAME ply_test
+    SRCS ply_test.cc
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(

@@ -145,6 +145,7 @@ jobs:
             libboost-system-dev \
             libeigen3-dev \
             libceres-dev \
+            libsuitesparse-dev \
             libfreeimage-dev \
             libmetis-dev \
             libgoogle-glog-dev \
