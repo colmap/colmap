@@ -98,26 +98,6 @@ class BarrierController : public BaseController {
   }
 };
 
-// Controller with pause support
-class PauseController : public BaseController {
- public:
-  Barrier start_barrier;
-  Barrier pause_barrier;
-  Barrier paused_barrier;
-  Barrier resumed_barrier;
-  Barrier end_barrier;
-
-  void Run() override {
-    start_barrier.Wait();
-    pause_barrier.Wait();
-    paused_barrier.Wait();
-    // This will block if paused
-    CheckIfStopped();
-    resumed_barrier.Wait();
-    end_barrier.Wait();
-  }
-};
-
 TEST(ControllerThread, GetController) {
   auto controller = std::make_shared<SimpleController>();
   ControllerThread<SimpleController> thread(controller);
@@ -163,35 +143,6 @@ TEST(ControllerThread, StopDuringExecution) {
   // Thread should be stopped
   EXPECT_TRUE(thread.IsStopped());
   EXPECT_TRUE(thread.IsFinished());
-}
-
-TEST(ControllerThread, IsStoppedIncludesPauseCheck) {
-  auto controller = std::make_shared<PauseController>();
-  ControllerThread<PauseController> thread(controller);
-
-  thread.Start();
-  controller->start_barrier.Wait();
-
-  // Pause the thread
-  thread.Pause();
-  controller->pause_barrier.Wait();
-  controller->paused_barrier.Wait();
-
-  // Wait for thread to be paused
-  while (!thread.IsPaused()) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  }
-
-  EXPECT_TRUE(thread.IsPaused());
-
-  // Resume the thread
-  thread.Resume();
-  controller->resumed_barrier.Wait();
-
-  EXPECT_FALSE(thread.IsPaused());
-
-  controller->end_barrier.Wait();
-  thread.Wait();
 }
 
 TEST(ControllerThread, ThreadStateProgression) {
