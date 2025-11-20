@@ -32,10 +32,10 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
+#include <memory>
+
 #include <Eigen/CholmodSupport>
 #include <Eigen/SparseCholesky>
-
-#include <memory>
 
 namespace colmap {
 namespace {
