@@ -129,7 +129,7 @@ class Model:
         self.__vis.destroy_window()
 
 
-def draw_camera(K, R, t, w, h, scale=1, color=[0.8, 0.2, 0.8]):
+def draw_camera(K, R, t, w, h, scale=1, color=None):
     """Create axis, plane and pyramed geometries in Open3D format.
     :param K: calibration matrix (camera intrinsics)
     :param R: rotation matrix
@@ -140,6 +140,9 @@ def draw_camera(K, R, t, w, h, scale=1, color=[0.8, 0.2, 0.8]):
     :param color: color of the image plane and pyramid lines
     :return: camera model geometries (axis, plane and pyramid)
     """
+
+    if color is None:
+        color = [0.8, 0.2, 0.8]
 
     # intrinsics
     K = K.copy() / scale

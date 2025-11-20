@@ -50,12 +50,12 @@ def parse_args():
 def main():
     args = parse_args()
 
-    with open(args.nvm_path, "r") as fid:
+    with open(args.nvm_path) as fid:
         fid.readline()
         fid.readline()
         num_images = int(fid.readline())
 
-        for i in range(num_images + 1):
+        for _ in range(num_images + 1):
             fid.readline()
 
         num_points = int(fid.readline())
@@ -102,7 +102,7 @@ def main():
     with open(args.ply_path, "w") as fid:
         fid.write("ply\n")
         fid.write("format ascii 1.0\n")
-        fid.write("element vertex %d\n" % xyz.shape[0])
+        fid.write(f"element vertex {xyz.shape[0]}\n")
         fid.write("property float x\n")
         fid.write("property float y\n")
         fid.write("property float z\n")
@@ -117,15 +117,9 @@ def main():
             if i % 1000 == 0:
                 print("Writing point", i, "/", xyz.shape[0])
             fid.write(
-                "%f %f %f 0 0 0 %d %d %d\n"
-                % (
-                    xyz[i, 0],
-                    xyz[i, 1],
-                    xyz[i, 2],
-                    rgb[i, 0],
-                    rgb[i, 1],
-                    rgb[i, 2],
-                )
+                f"{xyz[i, 0]} {xyz[i, 1]} {xyz[i, 2]} "
+                "0 0 0 "
+                f"{rgb[i, 0]} {rgb[i, 1]} {rgb[i, 2]}\n"
             )
 
 

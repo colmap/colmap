@@ -79,11 +79,10 @@ def main():
             image_name1 = images[image_id1]
             image_name2 = images[image_id2]
             fid.write(
-                "%s %s %d\n"
-                % (image_name1, image_name2, inlier_matches.shape[0])
+                f"{image_name1} {image_name2} {inlier_matches.shape[0]}\n"
             )
             for i in range(inlier_matches.shape[0]):
-                fid.write("%d %d\n" % tuple(inlier_matches[i]))
+                fid.write(f"{inlier_matches[i][0]} {inlier_matches[i][1]}\n")
 
     cursor.close()
     connection.close()
