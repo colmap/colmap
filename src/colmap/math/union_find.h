@@ -37,7 +37,8 @@ namespace colmap {
 template <typename T>
 class UnionFind {
  public:
-  explicit UnionFind(size_t expected_size = 0) {
+  UnionFind() = default;
+  explicit UnionFind(size_t expected_size) {
     parent_.reserve(expected_size);
   }
 
