@@ -122,6 +122,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
+    NAME controller_thread_test
+    SRCS controller_thread_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
     NAME eigen_matchers_test
     SRCS eigen_matchers_test.cc
     LINK_LIBS colmap_util
