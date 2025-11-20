@@ -107,6 +107,10 @@ void BindObservationManager(py::module& m) {
            &ObservationManager::NumCorrespondences,
            "image_id"_a,
            "Number of correspondences for all image points.")
+      .def("num_visible_correspondences",
+           &ObservationManager::NumVisibleCorrespondences,
+           "image_id"_a,
+           "Number of visible correspondences for all image points.")
       .def("num_visible_points3D",
            &ObservationManager::NumVisiblePoints3D,
            "image_id"_a,

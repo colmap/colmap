@@ -200,9 +200,11 @@ class IncrementalMapper {
                             Rigid3d& cam2_from_cam1);
 
   // Find best next image to register in the incremental reconstruction. The
-  // images should be passed to `RegisterNextImage`. This function automatically
-  // ignores images that failed to registered for `max_reg_trials`.
-  std::vector<image_t> FindNextImages(const Options& options);
+  // images should be passed to `RegisterNextImage` and
+  // `RegisterNextImageFallback`, respectively. This function automatically
+  // ignores images that failed to register for `max_reg_trials`.
+  std::vector<image_t> FindNextImages(const Options& options,
+                                      bool structure_less = false);
 
   // Attempt to seed the reconstruction from an image pair.
   void RegisterInitialImagePair(const Options& options,
@@ -213,6 +215,10 @@ class IncrementalMapper {
   // Attempt to register image to the existing model. This requires that
   // a previous call to `RegisterInitialImagePair` was successful.
   bool RegisterNextImage(const Options& options, image_t image_id);
+
+  // Attempts to register image using structure-less resectioning as proposed in
+  // "Structure from Motion Using Structure-less Resection" by Zheng and Wu.
+  bool RegisterNextStructureLessImage(const Options& options, image_t image_id);
 
   // Triangulate observations of image.
   size_t TriangulateImage(const IncrementalTriangulator::Options& tri_options,
