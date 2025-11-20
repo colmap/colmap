@@ -156,7 +156,7 @@ if(CUDA_ENABLED)
 
             declare_imported_cuda_target(cudart ${CUDA_LIBRARIES})
             declare_imported_cuda_target(curand ${CUDA_LIBRARIES})
-            
+
             set(CUDAToolkit_VERSION "${CUDA_VERSION_STRING}")
             set(CUDAToolkit_BIN_DIR "${CUDA_TOOLKIT_ROOT_DIR}/bin")
         else()

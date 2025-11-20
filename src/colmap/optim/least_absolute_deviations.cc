@@ -32,6 +32,7 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
+#include <Eigen/CholmodSupport>
 #include <Eigen/SparseCholesky>
 
 namespace colmap {
@@ -42,6 +43,40 @@ Eigen::VectorXd Shrinkage(const Eigen::VectorXd& a, const double kappa) {
   const Eigen::VectorXd a_minus_kappa = a.array() - kappa;
   return a_plus_kappa.cwiseMin(0) + a_minus_kappa.cwiseMax(0);
 }
+
+struct LinearSolver {
+  virtual ~LinearSolver() = default;
+  virtual bool Solve(const Eigen::VectorXd& b, Eigen::VectorXd* x) = 0;
+};
+
+struct SimplicialLLTLinearSolver : public LinearSolver {
+  explicit SimplicialLLTLinearSolver(const Eigen::SparseMatrix<double>& A) {
+    linear_solver_.compute(A.transpose() * A);
+  }
+
+  bool Solve(const Eigen::VectorXd& b, Eigen::VectorXd* x) override {
+    x->noalias() = linear_solver_.solve(b);
+    return linear_solver_.info() == Eigen::Success;
+  }
+
+ private:
+  Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> linear_solver_;
+};
+
+struct SupernodalCholmodLLTLinearSolver : public LinearSolver {
+  explicit SupernodalCholmodLLTLinearSolver(
+      const Eigen::SparseMatrix<double>& A) {
+    linear_solver_.compute(A.transpose() * A);
+  }
+
+  bool Solve(const Eigen::VectorXd& b, Eigen::VectorXd* x) override {
+    x->noalias() = linear_solver_.solve(b);
+    return linear_solver_.info() == Eigen::Success;
+  }
+
+ private:
+  Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> linear_solver_;
+};
 
 }  // namespace
 
@@ -56,8 +91,22 @@ bool SolveLeastAbsoluteDeviations(const LeastAbsoluteDeviationsOptions& options,
   THROW_CHECK_GE(options.absolute_tolerance, 0);
   THROW_CHECK_GE(options.relative_tolerance, 0);
 
-  Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> linear_solver;
-  linear_solver.compute(A.transpose() * A);
+  if (A.rows() < A.cols()) {
+    LOG(INFO) << "Undertermined systems not supported.";
+    return false;
+  }
+
+  std::unique_ptr<LinearSolver> linear_solver;
+  switch (options.solver_type) {
+    case LeastAbsoluteDeviationsOptions::SolverType::SimplicialLLT:
+      linear_solver = std::make_unique<SimplicialLLTLinearSolver>(A);
+      break;
+    case LeastAbsoluteDeviationsOptions::SolverType::SupernodalCholmodLLT:
+      linear_solver = std::make_unique<SupernodalCholmodLLTLinearSolver>(A);
+      break;
+    default:
+      LOG(FATAL) << "Unknown linear solver type";
+  }
 
   Eigen::VectorXd z = Eigen::VectorXd::Zero(A.rows());
   Eigen::VectorXd z_old(A.rows());
@@ -73,18 +122,17 @@ bool SolveLeastAbsoluteDeviations(const LeastAbsoluteDeviationsOptions& options,
       std::sqrt(A.cols()) * options.absolute_tolerance;
 
   for (int i = 0; i < options.max_num_iterations; ++i) {
-    *x = linear_solver.solve(A.transpose() * (b + z - u));
-    if (linear_solver.info() != Eigen::Success) {
+    if (!linear_solver->Solve(A.transpose() * (b + z - u), x)) {
       return false;
     }
 
-    Ax = A * *x;
-    Ax_hat = options.alpha * Ax + (1 - options.alpha) * (z + b);
+    Ax.noalias() = A * *x;
+    Ax_hat.noalias() = options.alpha * Ax + (1 - options.alpha) * (z + b);
 
-    z_old = z;
-    z = Shrinkage(Ax_hat - b + u, 1 / options.rho);
+    std::swap(z, z_old);
+    z.noalias() = Shrinkage(Ax_hat - b + u, 1 / options.rho);
 
-    u += Ax_hat - z - b;
+    u.noalias() += Ax_hat - z - b;
 
     const double r_norm = (Ax - z - b).norm();
     const double s_norm = (-options.rho * A.transpose() * (z - z_old)).norm();
