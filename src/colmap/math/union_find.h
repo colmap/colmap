@@ -70,4 +70,4 @@ class UnionFind {
   std::unordered_map<T, T> parent_;
 };
 
-}  // namespace
+}  // namespace colmap
