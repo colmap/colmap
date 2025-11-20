@@ -86,15 +86,15 @@ TEST(Ply, RoundTripTextPlyPointsFullData) {
   // Create test points with full data
   for (int i = 0; i < 3; ++i) {
     PlyPoint p;
-    p.x = static_cast<float>(i * 1.0);
-    p.y = static_cast<float>(i * 2.0);
-    p.z = static_cast<float>(i * 3.0);
-    p.nx = static_cast<float>(i * 0.1);
-    p.ny = static_cast<float>(i * 0.2);
-    p.nz = static_cast<float>(i * 0.3);
-    p.r = static_cast<uint8_t>(i * 10);
-    p.g = static_cast<uint8_t>(i * 20);
-    p.b = static_cast<uint8_t>(i * 30);
+    p.x = i * 1.0f;
+    p.y = i * 2.0f;
+    p.z = i * 3.0f;
+    p.nx = i * 0.1f;
+    p.ny = i * 0.2f;
+    p.nz = i * 0.3f;
+    p.r = i * 10;
+    p.g = i * 20;
+    p.b = i * 30;
     original_points.push_back(p);
   }
 
@@ -161,15 +161,15 @@ TEST(Ply, RoundTripBinaryPlyPointsFullData) {
   // Create test points
   for (int i = 0; i < 5; ++i) {
     PlyPoint p;
-    p.x = static_cast<float>(i * 1.5);
-    p.y = static_cast<float>(i * 2.5);
-    p.z = static_cast<float>(i * 3.5);
-    p.nx = static_cast<float>(i * 0.15);
-    p.ny = static_cast<float>(i * 0.25);
-    p.nz = static_cast<float>(i * 0.35);
-    p.r = static_cast<uint8_t>(i * 15);
-    p.g = static_cast<uint8_t>(i * 25);
-    p.b = static_cast<uint8_t>(i * 35);
+    p.x = i * 1.5f;
+    p.y = i * 2.5f;
+    p.z = i * 3.5f;
+    p.nx = i * 0.15f;
+    p.ny = i * 0.25f;
+    p.nz = i * 0.35f;
+    p.r = i * 15;
+    p.g = i * 25;
+    p.b = i * 35;
     original_points.push_back(p);
   }
 
