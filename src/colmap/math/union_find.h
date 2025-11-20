@@ -38,9 +38,7 @@ template <typename T>
 class UnionFind {
  public:
   UnionFind() = default;
-  explicit UnionFind(size_t expected_size) {
-    parent_.reserve(expected_size);
-  }
+  explicit UnionFind(size_t expected_size) { parent_.reserve(expected_size); }
 
   // Find the root of the element x.
   T Find(const T& x) {
