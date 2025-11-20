@@ -45,7 +45,7 @@ struct Sqlite3StmtContext {
 };
 
 void SwapFeatureMatchesBlob(FeatureMatchesBlob* matches) {
-  for (size_t i = 0; i < matches->rows(); ++i) {
+  for (Eigen::Index i = 0; i < matches->rows(); ++i) {
     std::swap((*matches)(i, 0), (*matches)(i, 1));
   }
 }

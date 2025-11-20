@@ -93,6 +93,7 @@ Dependencies from the default Ubuntu repositories::
         libqt6openglwidgets6 \
         libcgal-dev \
         libceres-dev \
+        libsuitesparse-dev \
         libcurl4-openssl-dev \
         libssl-dev \
         libmkl-full-dev
@@ -158,6 +159,7 @@ Dependencies from `Homebrew <http://brew.sh/>`__::
         glog \
         googletest \
         ceres-solver \
+        suitesparse \
         qt \
         glew \
         cgal \
@@ -259,6 +261,7 @@ Install miniconda and run the following commands::
         glog \
         gtest \
         ceres-solver \
+        suitesparse \
         qt \
         glew \
         sqlite \

@@ -49,6 +49,12 @@ struct LeastAbsoluteDeviationsOptions {
   // Absolute and relative solution thresholds, as suggested by Boyd et al.
   double absolute_tolerance = 1e-4;
   double relative_tolerance = 1e-2;
+
+  enum class SolverType {
+    SimplicialLLT,
+    SupernodalCholmodLLT,
+  };
+  SolverType solver_type = SolverType::SimplicialLLT;
 };
 
 // Least absolute deviations (LAD) fitting via ADMM by solving the problem:
