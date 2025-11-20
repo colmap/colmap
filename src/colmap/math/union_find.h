@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <unordered_map>
 
 namespace colmap {
@@ -37,8 +38,7 @@ namespace colmap {
 template <typename T>
 class UnionFind {
  public:
-  UnionFind() = default;
-  explicit UnionFind(size_t expected_size) { parent_.reserve(expected_size); }
+  void Reserve(size_t capacity) { parent_.reserve(capacity); }
 
   // Find the root of the element x.
   T Find(const T& x) {

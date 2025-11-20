@@ -42,9 +42,10 @@ TEST(UnionFind, DefaultConstructor) {
   EXPECT_EQ(uf.Find(3), 3);
 }
 
-TEST(UnionFind, ConstructorWithExpectedSize) {
+TEST(UnionFind, Reserve) {
   // Test constructor with expected size parameter
-  UnionFind<int> uf(100);
+  UnionFind<int> uf;
+  uf.Reserve(10);
   EXPECT_EQ(uf.Find(1), 1);
   EXPECT_EQ(uf.Find(2), 2);
 }
@@ -156,15 +157,17 @@ TEST(UnionFind, PathCompression) {
 }
 
 TEST(UnionFind, LargeNumberOfElements) {
-  UnionFind<int> uf(1000);
+  constexpr int kNumElements = 1000;
+  UnionFind<int> uf;
+  uf.Reserve(kNumElements);
   // Union many elements
-  for (int i = 0; i < 1000; ++i) {
-    uf.Union(i, (i + 1) % 1000);
+  for (int i = 0; i < kNumElements; ++i) {
+    uf.Union(i, (i + 1) % kNumElements);
   }
 
   // All elements should be in the same set
   const int root = uf.Find(0);
-  for (int i = 1; i < 1000; ++i) {
+  for (int i = 1; i < kNumElements; ++i) {
     EXPECT_EQ(uf.Find(i), root);
   }
 }
