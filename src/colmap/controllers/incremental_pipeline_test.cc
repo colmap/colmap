@@ -258,7 +258,6 @@ TEST(IncrementalPipeline, IgnoreRedundantPoints3D) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 7;
   synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.camera_has_prior_focal_length = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -276,6 +275,35 @@ TEST(IncrementalPipeline, IgnoreRedundantPoints3D) {
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(*reconstruction_manager->Get(0),
                                  /*max_rotation_error_deg=*/1e-2,
+                                 /*max_proj_center_error=*/1e-4));
+}
+
+TEST(IncrementalPipeline, StructureLessRegistrationOnly) {
+  const std::string database_path = CreateTestDir() + "/database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  options->structure_less_registration_only = true;
+  IncrementalPipeline mapper(options,
+                             /*image_path=*/"",
+                             database_path,
+                             reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(*reconstruction_manager->Get(0),
+                                 /*max_rotation_error_deg=*/1e-3,
                                  /*max_proj_center_error=*/1e-4));
 }
 
