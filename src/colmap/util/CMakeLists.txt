@@ -154,6 +154,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
+    NAME ply_test
+    SRCS ply_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
     NAME string_test
     SRCS string_test.cc
     LINK_LIBS colmap_util
