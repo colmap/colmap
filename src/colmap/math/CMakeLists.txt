@@ -38,6 +38,7 @@ COLMAP_ADD_LIBRARY(
         matrix.h
         polynomial.h polynomial.cc
         random.h random.cc
+        union_find.h
     PUBLIC_LINK_LIBS
         colmap_util
         Boost::graph
@@ -70,5 +71,10 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME random_test
     SRCS random_test.cc
+    LINK_LIBS colmap_math
+)
+COLMAP_ADD_TEST(
+    NAME union_find_test
+    SRCS union_find_test.cc
     LINK_LIBS colmap_math
 )
