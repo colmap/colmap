@@ -45,7 +45,6 @@ COLMAP_ADD_LIBRARY(
         misc.h misc.cc
         opengl_utils.h opengl_utils.cc
         ply.h ply.cc
-        sqlite3_utils.h
         string.h string.cc
         threading.h threading.cc
         timer.h timer.cc
@@ -84,7 +83,7 @@ if(GUI_ENABLED)
         Qt${QT_VERSION_MAJOR}::OpenGL
     )
     if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
-        list(APPEND COLMAP_UTIL_QT_LIBS 
+        list(APPEND COLMAP_UTIL_QT_LIBS
             Qt${QT_VERSION_MAJOR}::OpenGLWidgets)
     endif()
     target_link_libraries(colmap_util PUBLIC ${COLMAP_UTIL_QT_LIBS} OpenGL::GL)
