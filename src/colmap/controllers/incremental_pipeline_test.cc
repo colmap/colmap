@@ -258,7 +258,6 @@ TEST(IncrementalPipeline, IgnoreRedundantPoints3D) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 7;
   synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.camera_has_prior_focal_length = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -276,6 +275,35 @@ TEST(IncrementalPipeline, IgnoreRedundantPoints3D) {
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(*reconstruction_manager->Get(0),
                                  /*max_rotation_error_deg=*/1e-2,
+                                 /*max_proj_center_error=*/1e-4));
+}
+
+TEST(IncrementalPipeline, StructureLessRegistrationOnly) {
+  const std::string database_path = CreateTestDir() + "/database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  options->structure_less_registration_only = true;
+  IncrementalPipeline mapper(options,
+                             /*image_path=*/"",
+                             database_path,
+                             reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(*reconstruction_manager->Get(0),
+                                 /*max_rotation_error_deg=*/1e-3,
                                  /*max_proj_center_error=*/1e-4));
 }
 
@@ -584,10 +612,9 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
   synthetic_noise_options.point2D_stddev = 1;
   SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
-  auto mapper_options = std::make_shared<IncrementalPipelineOptions>();
-  mapper_options->use_prior_position = false;
-
   auto run_mapper = [&](int num_threads, int random_seed) {
+    auto mapper_options = std::make_shared<IncrementalPipelineOptions>();
+    mapper_options->use_prior_position = false;
     mapper_options->num_threads = num_threads;
     mapper_options->random_seed = random_seed;
     auto reconstruction_manager = std::make_shared<ReconstructionManager>();
@@ -600,9 +627,10 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
     return reconstruction_manager;
   };
 
+  constexpr int kRandomSeed = 42;
+
   // Single-threaded execution.
   {
-    constexpr int kRandomSeed = 42;
     auto reconstruction_manager0 =
         run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
     auto reconstruction_manager1 =
@@ -614,9 +642,9 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
   // Multi-threaded execution.
   {
     auto reconstruction_manager0 =
-        run_mapper(/*num_threads=*/-1, /*random_seed=*/42);
+        run_mapper(/*num_threads=*/3, /*random_seed=*/kRandomSeed);
     auto reconstruction_manager1 =
-        run_mapper(/*num_threads=*/-1, /*random_seed=*/42);
+        run_mapper(/*num_threads=*/3, /*random_seed=*/kRandomSeed);
     // Same seed should produce similar results, up to floating-point variations
     // in optimization.
     EXPECT_THAT(*reconstruction_manager0->Get(0),
@@ -649,10 +677,9 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
   synthetic_noise_options.point2D_stddev = 0.5;
   SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
-  auto mapper_options = std::make_shared<IncrementalPipelineOptions>();
-  mapper_options->use_prior_position = false;
-
   auto run_mapper = [&](int num_threads, int random_seed) {
+    auto mapper_options = std::make_shared<IncrementalPipelineOptions>();
+    mapper_options->use_prior_position = true;
     mapper_options->num_threads = num_threads;
     mapper_options->random_seed = random_seed;
     auto reconstruction_manager = std::make_shared<ReconstructionManager>();
@@ -665,9 +692,10 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
     return reconstruction_manager;
   };
 
+  constexpr int kRandomSeed = 42;
+
   // Single-threaded execution.
   {
-    constexpr int kRandomSeed = 42;
     auto reconstruction_manager0 =
         run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
     auto reconstruction_manager1 =
@@ -679,9 +707,9 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
   // Multi-threaded execution.
   {
     auto reconstruction_manager0 =
-        run_mapper(/*num_threads=*/-1, /*random_seed=*/42);
+        run_mapper(/*num_threads=*/3, /*random_seed=*/kRandomSeed);
     auto reconstruction_manager1 =
-        run_mapper(/*num_threads=*/-1, /*random_seed=*/42);
+        run_mapper(/*num_threads=*/3, /*random_seed=*/kRandomSeed);
     // Same seed should produce similar results, up to floating-point variations
     // in optimization.
     EXPECT_THAT(*reconstruction_manager0->Get(0),

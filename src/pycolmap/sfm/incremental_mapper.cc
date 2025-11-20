@@ -55,6 +55,15 @@ void BindIncrementalPipeline(py::module& m) {
       .def_readwrite("init_num_trials",
                      &Opts::init_num_trials,
                      "The number of trials to initialize the reconstruction.")
+      .def_readwrite("structure_less_registration_fallback",
+                     &Opts::structure_less_registration_fallback,
+                     "Enable fallback to structure-less image registration "
+                     "using 2D-2D correspondences, if structured-based "
+                     "registration fails using 2D-3D correspondences.")
+      .def_readwrite("structure_less_registration_only",
+                     &Opts::structure_less_registration_only,
+                     "Only use structure-less and skip structure-based image "
+                     "registration.")
       .def_readwrite("extract_colors",
                      &Opts::extract_colors,
                      "Whether to extract colors for reconstructed points.")
@@ -466,9 +475,16 @@ void BindIncrementalMapperImpl(py::module& m) {
            "two_view_geometry"_a,
            "image_id1"_a,
            "image_id2"_a)
-      .def("find_next_images", &IncrementalMapper::FindNextImages, "options"_a)
+      .def("find_next_images",
+           &IncrementalMapper::FindNextImages,
+           "options"_a,
+           "structure_less"_a)
       .def("register_next_image",
            &IncrementalMapper::RegisterNextImage,
+           "options"_a,
+           "image_id"_a)
+      .def("register_next_structure_less_image",
+           &IncrementalMapper::RegisterNextStructureLessImage,
            "options"_a,
            "image_id"_a)
       .def("triangulate_image",
