@@ -42,7 +42,7 @@ COLMAP_ADD_LIBRARY(
     PUBLIC_LINK_LIBS
         colmap_math
         Eigen3::Eigen
-        SuiteSparse::CHOLMOD
+        CHOLMOD::CHOLMOD
 )
 
 COLMAP_ADD_TEST(
