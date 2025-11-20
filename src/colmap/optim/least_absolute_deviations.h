@@ -31,6 +31,8 @@
 
 #include "colmap/util/eigen_alignment.h"
 
+#include <memory>
+
 #include <Eigen/Core>
 #include <Eigen/SparseCore>
 
