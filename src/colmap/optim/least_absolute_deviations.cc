@@ -35,6 +35,8 @@
 #include <Eigen/CholmodSupport>
 #include <Eigen/SparseCholesky>
 
+#include <memory>
+
 namespace colmap {
 namespace {
 
