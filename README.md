@@ -71,9 +71,9 @@ Documentation
 
 The documentation is available at https://colmap.github.io/.
 
-To build and update the documentation at the documentationwebsite, follow these steps:
+To build and update the documentation at the documentation website, follow these steps:
 
-1. Build documentation locally following [these instructions](https://colmap.github.io/install.html#documentation).
+1. Build the documentation locally following [these instructions](https://colmap.github.io/install.html#documentation).
 2. Clone the website repository [colmap/colmap.github.io](https://github.com/colmap/colmap.github.io).
 3. Copy the contents of the generated files at `_build/html` to the cloned respository root.
 4. Create a pull request to the [colmap/colmap.github.io](https://github.com/colmap/colmap.github.io) repository with the updated files.
