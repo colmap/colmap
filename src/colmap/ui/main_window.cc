@@ -112,6 +112,8 @@ MainWindow::MainWindow(const OptionManager& options)
   resize(1024, 600);
   UpdateWindowTitle();
 
+  setAcceptDrops(true);
+
   CreateWidgets();
   CreateActions();
   CreateMenus();
@@ -124,11 +126,69 @@ MainWindow::MainWindow(const OptionManager& options)
   options_.AddAllOptions();
 }
 
-void MainWindow::ImportReconstruction(const std::string& path) {
-  const size_t idx = reconstruction_manager_->Read(path);
-  reconstruction_manager_widget_->Update();
-  reconstruction_manager_widget_->SelectReconstruction(idx);
-  RenderNow();
+void MainWindow::ImportReconstruction(const std::string& import_path) {
+  if (import_path.empty()) {
+    return;
+  }
+
+  SetLastOpen(kLastImportExport, QString::fromStdString(import_path));
+
+  const std::string project_path = JoinPaths(import_path, "project.ini");
+
+  const std::string cameras_bin_path = JoinPaths(import_path, "cameras.bin");
+  const std::string images_bin_path = JoinPaths(import_path, "images.bin");
+  const std::string points3D_bin_path = JoinPaths(import_path, "points3D.bin");
+  const std::string cameras_txt_path = JoinPaths(import_path, "cameras.txt");
+  const std::string images_txt_path = JoinPaths(import_path, "images.txt");
+  const std::string points3D_txt_path = JoinPaths(import_path, "points3D.txt");
+
+  const bool is_valid_reconstruction_dir =
+      (colmap::ExistsFile(cameras_bin_path) &&
+       colmap::ExistsFile(images_bin_path) &&
+       colmap::ExistsFile(points3D_bin_path)) ||
+      (colmap::ExistsFile(cameras_txt_path) &&
+       colmap::ExistsFile(images_txt_path) &&
+       colmap::ExistsFile(points3D_txt_path));
+  if (!is_valid_reconstruction_dir) {
+    QMessageBox::critical(this,
+                          "",
+                          tr("cameras, images, and points3D files do not exist "
+                             "in chosen directory."));
+    return;
+  }
+
+  if (!ReconstructionOverwrite()) {
+    return;
+  }
+
+  bool edit_project = false;
+  if (ExistsFile(project_path)) {
+    options_.ReRead(project_path);
+  } else {
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        this,
+        "",
+        tr("Directory does not contain a <i>project.ini</i>. To "
+           "resume the reconstruction, you need to specify a valid "
+           "database and image path. Do you want to select the paths "
+           "now (or press <i>No</i> to only visualize the reconstruction)?"),
+        QMessageBox::Yes | QMessageBox::No);
+    if (reply == QMessageBox::Yes) {
+      edit_project = true;
+    }
+  }
+
+  thread_control_widget_->StartFunction(
+      "Importing...", [this, import_path, edit_project]() {
+        const size_t idx = reconstruction_manager_->Read(import_path);
+        reconstruction_manager_widget_->Update();
+        reconstruction_manager_widget_->SelectReconstruction(idx);
+        action_bundle_adjustment_->setEnabled(true);
+        action_render_now_->trigger();
+        if (edit_project) {
+          action_project_edit_->trigger();
+        }
+      });
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
@@ -168,6 +228,36 @@ void MainWindow::closeEvent(QCloseEvent* event) {
 
     window_closed_ = true;
   }
+}
+
+void MainWindow::dragEnterEvent(QDragEnterEvent* event) {
+  const QMimeData* mime_data = event->mimeData();
+  if (mime_data->hasUrls()) {
+    return event->acceptProposedAction();
+  }
+  event->ignore();
+}
+
+void MainWindow::dropEvent(QDropEvent* event) {
+  const QMimeData* mime_data = event->mimeData();
+  if (!mime_data->hasUrls()) {
+    event->ignore();
+    return;
+  }
+
+  if (mime_data->urls().size() > 1) {
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        this,
+        "",
+        tr("Multiple paths detected. The first path will be used. Continue?"),
+        QMessageBox::Yes | QMessageBox::No);
+
+    if (reply == QMessageBox::No) {
+      return;
+    }
+  }
+
+  ImportReconstruction(mime_data->urls().first().toLocalFile().toStdString());
 }
 
 void MainWindow::CreateWidgets() {
@@ -813,64 +903,7 @@ void MainWindow::Import() {
           .toUtf8()
           .constData();
 
-  // Selection canceled?
-  if (import_path == "") {
-    return;
-  }
-
-  SetLastOpen(kLastImportExport, QString::fromStdString(import_path));
-
-  const std::string project_path = JoinPaths(import_path, "project.ini");
-  const std::string cameras_bin_path = JoinPaths(import_path, "cameras.bin");
-  const std::string images_bin_path = JoinPaths(import_path, "images.bin");
-  const std::string points3D_bin_path = JoinPaths(import_path, "points3D.bin");
-  const std::string cameras_txt_path = JoinPaths(import_path, "cameras.txt");
-  const std::string images_txt_path = JoinPaths(import_path, "images.txt");
-  const std::string points3D_txt_path = JoinPaths(import_path, "points3D.txt");
-
-  if ((!ExistsFile(cameras_bin_path) || !ExistsFile(images_bin_path) ||
-       !ExistsFile(points3D_bin_path)) &&
-      (!ExistsFile(cameras_txt_path) || !ExistsFile(images_txt_path) ||
-       !ExistsFile(points3D_txt_path))) {
-    QMessageBox::critical(this,
-                          "",
-                          tr("cameras, images, and points3D files do not exist "
-                             "in chosen directory."));
-    return;
-  }
-
-  if (!ReconstructionOverwrite()) {
-    return;
-  }
-
-  bool edit_project = false;
-  if (ExistsFile(project_path)) {
-    options_.ReRead(project_path);
-  } else {
-    QMessageBox::StandardButton reply = QMessageBox::question(
-        this,
-        "",
-        tr("Directory does not contain a <i>project.ini</i>. To "
-           "resume the reconstruction, you need to specify a valid "
-           "database and image path. Do you want to select the paths "
-           "now (or press <i>No</i> to only visualize the reconstruction)?"),
-        QMessageBox::Yes | QMessageBox::No);
-    if (reply == QMessageBox::Yes) {
-      edit_project = true;
-    }
-  }
-
-  thread_control_widget_->StartFunction(
-      "Importing...", [this, import_path, edit_project]() {
-        const size_t idx = reconstruction_manager_->Read(import_path);
-        reconstruction_manager_widget_->Update();
-        reconstruction_manager_widget_->SelectReconstruction(idx);
-        action_bundle_adjustment_->setEnabled(true);
-        action_render_now_->trigger();
-        if (edit_project) {
-          action_project_edit_->trigger();
-        }
-      });
+  ImportReconstruction(import_path);
 }
 
 void MainWindow::ImportFrom() {
