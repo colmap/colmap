@@ -362,13 +362,12 @@ meaningful traces for reported issues.
 Documentation
 -------------
 
-You need Python and Sphinx to build the HTML documentation::
+In order to build the documentation, a Python installation is required. Then, follow these commands:
 
     cd path/to/colmap/doc
-    sudo apt-get install python
-    pip install sphinx
+    pip install -r requirements.txt
     make html
-    open _build/html/index.html
+    open _build/html/index.html # preview results
 
 Alternatively, you can build the documentation as PDF, EPUB, etc.::
 
