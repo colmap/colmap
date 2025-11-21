@@ -31,31 +31,14 @@
 
 #include "colmap/util/eigen_alignment.h"
 
+#include <memory>
+
 #include <Eigen/Core>
 #include <Eigen/SparseCore>
 
 namespace colmap {
 
-struct LeastAbsoluteDeviationsOptions {
-  // Augmented Lagrangian parameter.
-  double rho = 1.0;
-
-  // Over-relaxation parameter, typical values are between 1.0 and 1.8.
-  double alpha = 1.0;
-
-  // Maximum solver iterations.
-  int max_num_iterations = 1000;
-
-  // Absolute and relative solution thresholds, as suggested by Boyd et al.
-  double absolute_tolerance = 1e-4;
-  double relative_tolerance = 1e-2;
-
-  enum class SolverType {
-    SimplicialLLT,
-    SupernodalCholmodLLT,
-  };
-  SolverType solver_type = SolverType::SimplicialLLT;
-};
+struct LeastAbsoluteDeviationLinearSolverImpl;
 
 // Least absolute deviations (LAD) fitting via ADMM by solving the problem:
 //
@@ -66,9 +49,37 @@ struct LeastAbsoluteDeviationsOptions {
 // "Distributed Optimization and Statistical Learning via the Alternating
 // Direction Method of Multipliers" by Boyd et al. and the Matlab implementation
 // at https://web.stanford.edu/~boyd/papers/admm/least_abs_deviations/lad.html
-bool SolveLeastAbsoluteDeviations(const LeastAbsoluteDeviationsOptions& options,
-                                  const Eigen::SparseMatrix<double>& A,
-                                  const Eigen::VectorXd& b,
-                                  Eigen::VectorXd* x);
+struct LeastAbsoluteDeviationSolver {
+  struct Options {
+    // Augmented Lagrangian parameter.
+    double rho = 1.0;
+
+    // Over-relaxation parameter, typical values are between 1.0 and 1.8.
+    double alpha = 1.0;
+
+    // Maximum solver iterations.
+    int max_num_iterations = 1000;
+
+    // Absolute and relative solution thresholds, as suggested by Boyd et al.
+    double absolute_tolerance = 1e-4;
+    double relative_tolerance = 1e-2;
+
+    enum class SolverType {
+      SimplicialLLT,
+      SupernodalCholmodLLT,
+    };
+    SolverType solver_type = SolverType::SimplicialLLT;
+  };
+
+  LeastAbsoluteDeviationSolver(const Options& options,
+                               const Eigen::SparseMatrix<double>& A);
+
+  bool Solve(const Eigen::VectorXd& b, Eigen::VectorXd* x) const;
+
+ private:
+  const Options& options_;
+  const Eigen::SparseMatrix<double>& A_;
+  const std::shared_ptr<LeastAbsoluteDeviationLinearSolverImpl> linear_solver_;
+};
 
 }  // namespace colmap

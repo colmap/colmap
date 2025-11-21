@@ -40,10 +40,10 @@ namespace {
 
 class ParameterizedLeastAbsoluteDeviationsTests
     : public ::testing::TestWithParam<
-          LeastAbsoluteDeviationsOptions::SolverType> {
+          LeastAbsoluteDeviationSolver::Options::SolverType> {
  protected:
-  static LeastAbsoluteDeviationsOptions GetOptions() {
-    LeastAbsoluteDeviationsOptions options;
+  static LeastAbsoluteDeviationSolver::Options GetOptions() {
+    LeastAbsoluteDeviationSolver::Options options;
     options.solver_type = GetParam();
     return options;
   }
@@ -65,8 +65,9 @@ TEST_P(ParameterizedLeastAbsoluteDeviationsTests, OverDetermined) {
 
   Eigen::VectorXd x = Eigen::VectorXd::Zero(A.cols());
 
-  LeastAbsoluteDeviationsOptions options = GetOptions();
-  EXPECT_TRUE(SolveLeastAbsoluteDeviations(options, A, b, &x));
+  LeastAbsoluteDeviationSolver::Options options = GetOptions();
+  LeastAbsoluteDeviationSolver solver(options, A);
+  EXPECT_TRUE(solver.Solve(b, &x));
 
   // Reference solution obtained with Boyd's Matlab implementation.
   EXPECT_THAT(x, EigenMatrixNear(Eigen::Vector3d(0, 0, 1 / 3.0)));
@@ -91,8 +92,9 @@ TEST_P(ParameterizedLeastAbsoluteDeviationsTests, WellDetermined) {
 
   Eigen::VectorXd x = Eigen::VectorXd::Zero(A.cols());
 
-  LeastAbsoluteDeviationsOptions options = GetOptions();
-  EXPECT_TRUE(SolveLeastAbsoluteDeviations(options, A, b, &x));
+  LeastAbsoluteDeviationSolver::Options options = GetOptions();
+  LeastAbsoluteDeviationSolver solver(options, A);
+  EXPECT_TRUE(solver.Solve(b, &x));
 
   // Reference solution obtained with Boyd's Matlab implementation.
   EXPECT_THAT(x, EigenMatrixNear(Eigen::Vector3d(0, 0, 1 / 3.0)));
@@ -106,8 +108,8 @@ TEST_P(ParameterizedLeastAbsoluteDeviationsTests, UnderDetermined) {
   Eigen::SparseMatrix<double> A(2, 3);
   Eigen::VectorXd b(A.rows());
   Eigen::VectorXd x = Eigen::VectorXd::Zero(A.cols());
-  LeastAbsoluteDeviationsOptions options = GetOptions();
-  EXPECT_FALSE(SolveLeastAbsoluteDeviations(options, A, b, &x));
+  LeastAbsoluteDeviationSolver::Options options = GetOptions();
+  EXPECT_THROW(LeastAbsoluteDeviationSolver(options, A), std::runtime_error);
 }
 
 TEST_P(ParameterizedLeastAbsoluteDeviationsTests, SimpleOverdeterminedSystem) {
@@ -128,12 +130,13 @@ TEST_P(ParameterizedLeastAbsoluteDeviationsTests, SimpleOverdeterminedSystem) {
   Eigen::VectorXd b(4);
   b << 1.0, 2.0, 3.0, 6.0;
 
-  LeastAbsoluteDeviationsOptions options = GetOptions();
+  LeastAbsoluteDeviationSolver::Options options = GetOptions();
 
   Eigen::VectorXd x = Eigen::VectorXd::Zero(3);
   EXPECT_GT((A * x - b).lpNorm<1>(), 1e-1);
 
-  SolveLeastAbsoluteDeviations(options, A, b, &x);
+  LeastAbsoluteDeviationSolver solver(options, A);
+  solver.Solve(b, &x);
   EXPECT_LE((A * x - b).lpNorm<1>(), 1e-6);
 }
 
@@ -149,11 +152,12 @@ TEST_P(ParameterizedLeastAbsoluteDeviationsTests, DiagonalSystem) {
     b(i) = (i + 1.0) * (i + 2.0);
   }
 
-  LeastAbsoluteDeviationsOptions options = GetOptions();
+  LeastAbsoluteDeviationSolver::Options options = GetOptions();
   options.max_num_iterations = 100;
 
   Eigen::VectorXd x = Eigen::VectorXd::Zero(n);
-  SolveLeastAbsoluteDeviations(options, A, b, &x);
+  LeastAbsoluteDeviationSolver solver(options, A);
+  solver.Solve(b, &x);
 
   // For diagonal systems, the L1 solution should be close to x_i = b_i / A_ii
   Eigen::VectorXd expected(n);
@@ -175,11 +179,12 @@ TEST_P(ParameterizedLeastAbsoluteDeviationsTests, OverdeterminedWithOutliers) {
   Eigen::VectorXd b(6);
   b << 2.0, 5.0, 8.0, 11.0, 1000.0, 17.0;  // b[4] is an outlier
 
-  LeastAbsoluteDeviationsOptions options = GetOptions();
+  LeastAbsoluteDeviationSolver::Options options = GetOptions();
   options.max_num_iterations = 1000;
 
   Eigen::VectorXd x = Eigen::VectorXd::Zero(2);
-  SolveLeastAbsoluteDeviations(options, A, b, &x);
+  LeastAbsoluteDeviationSolver solver(options, A);
+  solver.Solve(b, &x);
 
   // The L1 solution should be more robust to the outlier than L2
   // Expected solution is approximately [2, 3]
@@ -198,10 +203,11 @@ TEST_P(ParameterizedLeastAbsoluteDeviationsTests, IdentityMatrix) {
   Eigen::VectorXd b(n);
   b << 1.0, 2.0, 3.0, 4.0;
 
-  LeastAbsoluteDeviationsOptions options = GetOptions();
+  LeastAbsoluteDeviationSolver::Options options = GetOptions();
 
   Eigen::VectorXd x = Eigen::VectorXd::Zero(n);
-  SolveLeastAbsoluteDeviations(options, A, b, &x);
+  LeastAbsoluteDeviationSolver solver(options, A);
+  solver.Solve(b, &x);
 
   // Solution should be exactly b for identity matrix
   EXPECT_LE((x - b).norm(), 1e-3);
@@ -219,10 +225,11 @@ TEST_P(ParameterizedLeastAbsoluteDeviationsTests, ScaledIdentityMatrix) {
   Eigen::VectorXd b(n);
   b << 5.0, 10.0, 15.0;
 
-  LeastAbsoluteDeviationsOptions options = GetOptions();
+  LeastAbsoluteDeviationSolver::Options options = GetOptions();
 
   Eigen::VectorXd x = Eigen::VectorXd::Zero(n);
-  SolveLeastAbsoluteDeviations(options, A, b, &x);
+  LeastAbsoluteDeviationSolver solver(options, A);
+  solver.Solve(b, &x);
 
   // Solution should be b / scale
   Eigen::VectorXd expected = b / scale;
@@ -255,22 +262,24 @@ TEST_P(ParameterizedLeastAbsoluteDeviationsTests, ToleranceSettings) {
   // Loose tolerance
   Eigen::VectorXd x1 = Eigen::VectorXd::Zero(3);
   {
-    LeastAbsoluteDeviationsOptions options = GetOptions();
+    LeastAbsoluteDeviationSolver::Options options = GetOptions();
     options.absolute_tolerance = 1e-1;
     options.relative_tolerance = 1e-1;
 
-    SolveLeastAbsoluteDeviations(options, A, b, &x1);
+    LeastAbsoluteDeviationSolver solver(options, A);
+    solver.Solve(b, &x1);
   }
 
   // Tight tolerance
   Eigen::VectorXd x2 = Eigen::VectorXd::Zero(3);
   {
-    LeastAbsoluteDeviationsOptions options = GetOptions();
+    LeastAbsoluteDeviationSolver::Options options = GetOptions();
     options.absolute_tolerance = 1e-6;
     options.relative_tolerance = 1e-4;
     options.max_num_iterations = 2000;
 
-    SolveLeastAbsoluteDeviations(options, A, b, &x2);
+    LeastAbsoluteDeviationSolver solver(options, A);
+    solver.Solve(b, &x2);
   }
 
   // The tighter tolerance solution should have lower or equal residual
@@ -283,8 +292,9 @@ INSTANTIATE_TEST_SUITE_P(
     LeastAbsoluteDeviationsTests,
     ParameterizedLeastAbsoluteDeviationsTests,
     ::testing::Values(
-        LeastAbsoluteDeviationsOptions::SolverType::SimplicialLLT,
-        LeastAbsoluteDeviationsOptions::SolverType::SupernodalCholmodLLT));
+        LeastAbsoluteDeviationSolver::Options::SolverType::SimplicialLLT,
+        LeastAbsoluteDeviationSolver::Options::SolverType::
+            SupernodalCholmodLLT));
 
 }  // namespace
 }  // namespace colmap
