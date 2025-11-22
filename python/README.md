@@ -35,8 +35,7 @@ python -m pip install . `
     -C skbuild.cmake.define.VCPKG_TARGET_TRIPLET="x64-windows"
 ```
 
-> [!NOTE]
-> If you get linker errors when building PyCOLMAP on Windows, be sure that the repository version matches the version you installed via VCPKG.
+If you get linker errors when building PyCOLMAP on Windows, be sure that the repository version matches the version you installed via VCPKG.
 
 
 </details>
