@@ -20,17 +20,24 @@ To benefit from GPU acceleration, wheels built for CUDA 12 (only for Linux - for
 
 1. Install COLMAP from source following [the official guide](https://colmap.github.io/install.html).
 
-3. Build PyCOLMAP:
+1. Build PyCOLMAP from the root of the repository:
   - On Linux and macOS:
 ```bash
 python -m pip install .
 ```
-  - On Windows, after installing COLMAP [via VCPKG](https://colmap.github.io/install.html#id3), run in powershell:
+  - On Windows, after installing COLMAP [via VCPKG](https://colmap.github.io/install.html#id3):
+    1. Determine the installed COLMAP version via: `<VCPKG-ROOT>\packages\colmap_<TRIPLET>\tools\colmap\colmap.exe help`
+    2. Check out the corresponding version tag: `git checkout tags/3.XX.X`
+    3. Execute the following in PowerShell, after replacing or instantiating $VCPKG_INSTALLATION_ROOT with your installation root:
 ```powershell
 python -m pip install . `
     -C skbuild.cmake.define.CMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
     -C skbuild.cmake.define.VCPKG_TARGET_TRIPLET="x64-windows"
 ```
+
+> [!NOTE]
+> If you get linker errors when building PyCOLMAP on Windows, be sure that the repository version matches the version you installed via VCPKG.
+
 
 </details>
 
