@@ -41,10 +41,11 @@ void Database::Register(Factory factory) {
 
 Database::~Database() = default;
 
-std::shared_ptr<Database> Database::Open(const std::string& path) {
+std::shared_ptr<Database> Database::Open(const std::string& path,
+                                         const Options& options) {
   for (auto it = factories_.rbegin(); it != factories_.rend(); ++it) {
     try {
-      return (*it)(path);
+      return (*it)(path, options);
     } catch (const std::exception& e) {
       LOG(WARNING)
           << "Failed to open database with registered factory, because: "
