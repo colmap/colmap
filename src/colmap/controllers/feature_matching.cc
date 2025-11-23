@@ -43,8 +43,8 @@
 namespace colmap {
 namespace {
 
-void RigVerification(const std::shared_ptr<Database> database,
-                     const std::shared_ptr<FeatureMatcherCache> cache,
+void RigVerification(const std::shared_ptr<Database>& database,
+                     const std::shared_ptr<FeatureMatcherCache>& cache,
                      const TwoViewGeometryOptions& geometry_options,
                      const int num_threads) {
   std::unordered_map<rig_t, Rig> rigs;
