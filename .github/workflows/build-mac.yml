@@ -50,7 +50,7 @@ jobs:
           # Fix `brew link` error.
           find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
 
-          brew uninstall cmake  # Workaround for CI failures.
+          brew uninstall ceres-solver  # Workaround for CI failures.
           brew install \
             cmake \
             ninja \
