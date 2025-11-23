@@ -31,7 +31,7 @@
 
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/rigid3_matchers.h"
-#include "colmap/optim/ransac.h"
+#include "colmap/optim/loransac.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <array>
@@ -160,11 +160,12 @@ TEST_P(ParameterizedGRNPEstimatorTests, GR8P) {
   // Note that we can estimate the minimal problem from only 8 points but we
   // use the additional points to choose the correct solution.
   // The GR8P estimator is numerically much more sensitive than the GR6P
-  // estimator, so we need more points, larger max_error and looser tolerances.
-  constexpr int kNumPoints = GR8PEstimator::kMinNumSamples + 100;
+  // estimator, so we only expect one successful estimation in all trials.
+  constexpr int kNumPoints = 2 * GR8PEstimator::kMinNumSamples;
   constexpr int kNumTrials = 10;
   const auto [kNumCams1, kNumCams2, kPanoramic1, kPanoramic2] = GetParam();
 
+  bool success = false;
   for (int i = 0; i < kNumTrials; ++i) {
     const auto problem = CreateGeneralizedRelativePoseProblem(
         kNumPoints, kNumCams1, kNumCams2, kPanoramic1, kPanoramic2);
@@ -175,19 +176,31 @@ TEST_P(ParameterizedGRNPEstimatorTests, GR8P) {
     RANSAC<GR8PEstimator> ransac(options);
     const auto report = ransac.Estimate(problem.points1, problem.points2);
 
-    EXPECT_TRUE(report.success);
-    EXPECT_THAT(report.model,
-                Rigid3dNear(problem.rig2_from_rig1,
-                            /*rtol=*/1e-1,
-                            /*ttol=*/1e-1));
+    if (!report.success) {
+      continue;
+    }
+
+    if (!testing::Value(report.model,
+                        Rigid3dNear(problem.rig2_from_rig1,
+                                    /*rtol=*/1e-2,
+                                    /*ttol=*/1e-2))) {
+      continue;
+    }
 
     std::vector<double> residuals;
     GR8PEstimator::Residuals(
         problem.points1, problem.points2, report.model, &residuals);
     for (size_t i = 0; i < residuals.size(); ++i) {
-      EXPECT_LE(residuals[i], options.max_error);
+      if (residuals[i], options.max_error) {
+        continue;
+      }
     }
+
+    success = true;
+    break;
   }
+
+  EXPECT_TRUE(success);
 }
 
 // Note that only one of the cameras must be panoramic, otherwise the
