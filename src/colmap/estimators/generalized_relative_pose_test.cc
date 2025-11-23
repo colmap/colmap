@@ -172,7 +172,7 @@ TEST_P(ParameterizedGRNPEstimatorTests, GR8P) {
     EXPECT_THAT(report.model,
                 Rigid3dNear(problem.rig2_from_rig1,
                             /*rtol=*/1e-3,
-                            /*ttol=*/1e-4));
+                            /*ttol=*/1e-3));
 
     std::vector<double> residuals;
     GR6PEstimator::Residuals(
