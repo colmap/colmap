@@ -19,9 +19,9 @@ namespace {
 double RelAngleError(double angle_12, double angle_1, double angle_2) {
   double est = (angle_2 - angle_1) - angle_12;
 
-  while (est >= EIGEN_PI) est -= TWO_PI;
+  while (est >= EIGEN_PI) est -= 2 * EIGEN_PI;
 
-  while (est < -EIGEN_PI) est += TWO_PI;
+  while (est < -EIGEN_PI) est += 2 * EIGEN_PI;
 
   // Inject random noise if the angle is too close to the boundary to break the
   // possible balance at the local minima
@@ -525,11 +525,12 @@ bool RotationEstimator::SolveL1Regression(
 
     // Check the residual. If it is small, stop
     // TODO: strange bug for the L1 solver: update norm state constant
+    constexpr double kEps = 1e-12;
     if (ComputeAverageStepSize(frames) <
             options_.l1_step_convergence_threshold ||
-        std::abs(last_norm - curr_norm) < EPS) {
-      if (std::abs(last_norm - curr_norm) < EPS)
-        LOG(INFO) << "std::abs(last_norm - curr_norm) < EPS";
+        std::abs(last_norm - curr_norm) < kEps) {
+      if (std::abs(last_norm - curr_norm) < kEps)
+        LOG(INFO) << "std::abs(last_norm - curr_norm) < " << kEps;
       iteration++;
       break;
     }

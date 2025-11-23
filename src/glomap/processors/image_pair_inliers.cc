@@ -100,7 +100,8 @@ double ImagePairInliers::ScoreErrorFundamental() {
 
   bool status = false;
   for (auto i = 0; i < 3; i++) {
-    if ((epipole(i) > EPS) || (epipole(i) < -EPS)) {
+    constexpr double kEps = 1e-12;
+    if ((epipole(i) > kEps) || (epipole(i) < -kEps)) {
       status = true;
       break;
     }
