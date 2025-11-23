@@ -34,6 +34,7 @@ cmake_minimum_required(VERSION 3.12)
 # Options
 ################################################################################
 
+option(GLOMAP_ENABLED "Whether to enable GLOMAP" OFF)
 option(SIMD_ENABLED "Whether to enable SIMD optimizations" ON)
 option(OPENMP_ENABLED "Whether to enable OpenMP parallelization" ON)
 option(IPO_ENABLED "Whether to enable interprocedural optimization" ON)
@@ -257,6 +258,9 @@ include_directories(src)
 link_directories(${COLMAP_LINK_DIRS})
 
 add_subdirectory(src/colmap)
+if(GLOMAP_ENABLED)
+    add_subdirectory(src/glomap)
+endif()
 add_subdirectory(src/thirdparty)
 
 ################################################################################
