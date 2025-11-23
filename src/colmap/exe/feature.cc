@@ -390,22 +390,89 @@ int RunVocabTreeMatcher(int argc, char** argv) {
 
 int RunGeometricVerifier(int argc, char** argv) {
   ExistingMatchedPairingOptions pairing_options;
+  VerifierOptions verifier_options;
 
   OptionManager options;
   options.AddDatabaseOptions();
-  options.AddFeatureMatchingOptions();
   options.AddTwoViewGeometryOptions();
   options.AddDefaultOption("batch_size", &pairing_options.batch_size);
+  options.AddDefaultOption("num_threads", &verifier_options.num_threads);
+  options.AddDefaultOption("rig_verification",
+                           &verifier_options.rig_verification);
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
 
-  auto matcher = CreateGeometricVerifier(pairing_options,
-                                         *options.feature_matching,
-                                         *options.two_view_geometry,
-                                         *options.database_path);
-  matcher->Start();
-  matcher->Wait();
+  auto verifier = CreateGeometricVerifier(pairing_options,
+                                          *options.two_view_geometry,
+                                          *options.database_path,
+                                          verifier_options);
+  verifier->Start();
+  verifier->Wait();
+
+  return EXIT_SUCCESS;
+}
+
+int RunGuidedGeometricVerifier(int argc, char** argv) {
+  std::string input_path;
+  ExistingMatchedPairingOptions pairing_options;
+  VerifierOptions verifier_options;
+
+  OptionManager options;
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddDatabaseOptions();
+  options.AddTwoViewGeometryOptions();
+  options.AddDefaultOption("batch_size", &pairing_options.batch_size);
+  options.AddDefaultOption("num_threads", &verifier_options.num_threads);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsDir(input_path)) {
+    LOG(ERROR) << "`input_path` is not a directory";
+    return EXIT_FAILURE;
+  }
+
+  auto reconstruction = std::make_shared<Reconstruction>();
+  reconstruction->Read(input_path);
+
+  // Set all relative pose from given reconstruction
+  auto database = Database::Open(*options.database_path);
+  std::vector<std::pair<image_pair_t, TwoViewGeometry>> two_view_geometries;
+  two_view_geometries = database->ReadTwoViewGeometries();
+  database->ClearTwoViewGeometries();
+  for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    if (!reconstruction->ExistsImage(image_id1) ||
+        !reconstruction->ExistsImage(image_id2)) {
+      database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+      continue;
+    }
+    Image& image1 = reconstruction->Image(image_id1);
+    Image& image2 = reconstruction->Image(image_id2);
+    if (!image1.HasPose() || !image2.HasPose()) {
+      database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+      continue;
+    }
+    const Rigid3d cam1_from_world = image1.CamFromWorld();
+    const Rigid3d cam2_from_world = image2.CamFromWorld();
+
+    TwoViewGeometry two_view_geometry_copy = two_view_geometry;
+    two_view_geometry_copy.cam2_from_cam1 =
+        cam2_from_world * Inverse(cam1_from_world);
+    database->WriteTwoViewGeometry(
+        image_id1, image_id2, two_view_geometry_copy);
+  }
+
+  // We do not need rig verification in this case.
+  verifier_options.rig_verification = false;
+  verifier_options.use_existing_relative_pose = true;
+  auto verifier = CreateGeometricVerifier(pairing_options,
+                                          *options.two_view_geometry,
+                                          *options.database_path,
+                                          verifier_options);
+  verifier->Start();
+  verifier->Wait();
 
   return EXIT_SUCCESS;
 }

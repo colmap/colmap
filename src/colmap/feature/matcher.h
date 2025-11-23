@@ -73,7 +73,8 @@ struct FeatureMatchingOptions {
   // Maximum number of matches.
   int max_num_matches = 32768;
 
-  // Whether to perform guided matching.
+  // Whether to perform guided matching. When enabled, the geometric
+  // verification will also use the existing relative transformations.
   bool guided_matching = false;
 
   // Whether to perform geometric verification using rig constraints

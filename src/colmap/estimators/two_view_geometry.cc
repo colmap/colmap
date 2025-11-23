@@ -830,4 +830,72 @@ void FilterStationaryMatches(double max_error,
                  matches->end());
 }
 
+TwoViewGeometry TwoViewGeometryFromKnownRelativePose(
+    const Camera& camera1,
+    const std::vector<Eigen::Vector2d>& points1,
+    const Camera& camera2,
+    const std::vector<Eigen::Vector2d>& points2,
+    const Rigid3d& cam2_from_cam1,
+    const FeatureMatches& matches,
+    int min_num_inliers,
+    double max_error) {
+  TwoViewGeometry geometry;
+
+  if (matches.size() < static_cast<size_t>(min_num_inliers)) {
+    geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+    return geometry;
+  }
+
+  // Extract corresponding points.
+  std::vector<Eigen::Vector2d> matched_img_points1(matches.size());
+  std::vector<Eigen::Vector2d> matched_img_points2(matches.size());
+  std::vector<Eigen::Vector3d> matched_cam_rays1(matches.size());
+  std::vector<Eigen::Vector3d> matched_cam_rays2(matches.size());
+  for (size_t i = 0; i < matches.size(); ++i) {
+    const point2D_t idx1 = matches[i].point2D_idx1;
+    const point2D_t idx2 = matches[i].point2D_idx2;
+    matched_img_points1[i] = points1[idx1];
+    matched_img_points2[i] = points2[idx2];
+    if (const std::optional<Eigen::Vector2d> cam_point1 =
+            camera1.CamFromImg(points1[idx1]);
+        cam_point1) {
+      matched_cam_rays1[i] = cam_point1->homogeneous().normalized();
+    } else {
+      matched_cam_rays1[i].setZero();
+    }
+    if (const std::optional<Eigen::Vector2d> cam_point2 =
+            camera2.CamFromImg(points2[idx2]);
+        cam_point2) {
+      matched_cam_rays2[i] = cam_point2->homogeneous().normalized();
+    } else {
+      matched_cam_rays2[i].setZero();
+    }
+  }
+
+  // For now, we use the average threshold from cameras following the design of
+  // EstimateCalibratedTwoViewGeometry.
+  double max_error_in_cam = (camera1.CamFromImgThreshold(max_error) +
+                             camera2.CamFromImgThreshold(max_error)) /
+                            2;
+
+  Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
+  std::vector<double> residuals(matches.size());
+  EssentialMatrixFivePointEstimator::Residuals(
+      matched_cam_rays1, matched_cam_rays2, E, &residuals);
+  FeatureMatches inlier_matches;
+  double squared_max_error_in_cam = max_error_in_cam * max_error_in_cam;
+  for (size_t i = 0; i < matches.size(); ++i) {
+    if (residuals[i] <= squared_max_error_in_cam) {
+      inlier_matches.push_back(matches[i]);
+    }
+  }
+  if (inlier_matches.size() < static_cast<size_t>(min_num_inliers)) {
+    return geometry;
+  }
+  geometry.cam2_from_cam1 = cam2_from_cam1;
+  geometry.E = E;
+  geometry.inlier_matches = inlier_matches;
+  return geometry;
+}
+
 }  // namespace colmap

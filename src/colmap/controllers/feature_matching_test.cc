@@ -317,14 +317,13 @@ TEST(CreateGeometricVerifier, Nominal) {
 
   ExistingMatchedPairingOptions pairing_options;
 
-  FeatureMatchingOptions matching_options;
-  matching_options.use_gpu = false;
-  matching_options.num_threads = 1;
+  VerifierOptions verifier_options;
+  verifier_options.num_threads = 1;
 
   TwoViewGeometryOptions geometry_options;
 
   auto verifier = CreateGeometricVerifier(
-      pairing_options, matching_options, geometry_options, database_path);
+      pairing_options, geometry_options, database_path, verifier_options);
   ASSERT_NE(verifier, nullptr);
   verifier->Start();
   verifier->Wait();

@@ -207,4 +207,15 @@ void FilterStationaryMatches(double max_error,
                              const std::vector<Eigen::Vector2d>& points2,
                              FeatureMatches* matches);
 
+// Compute two-view geometry from known pose and filter matches.
+TwoViewGeometry TwoViewGeometryFromKnownRelativePose(
+    const Camera& camera1,
+    const std::vector<Eigen::Vector2d>& points1,
+    const Camera& camera2,
+    const std::vector<Eigen::Vector2d>& points2,
+    const Rigid3d& cam2_from_cam1,
+    const FeatureMatches& matches,
+    int min_num_inliers = 15,
+    double max_error = 4.0);
+
 }  // namespace colmap
