@@ -153,6 +153,7 @@ TEST_P(ParameterizedGRNPEstimatorTests, GR6P) {
 }
 
 TEST_P(ParameterizedGRNPEstimatorTests, GR8P) {
+  SetPRNGSeed(1);
   // In theory, we don't need RANSAC as we generate exact correspondences, but
   // we use it in this test to do the choosing of the best solution for us.
   constexpr int kNumPoints = 8;
@@ -171,8 +172,8 @@ TEST_P(ParameterizedGRNPEstimatorTests, GR8P) {
     EXPECT_TRUE(report.success);
     EXPECT_THAT(report.model,
                 Rigid3dNear(problem.rig2_from_rig1,
-                            /*rtol=*/1e-3,
-                            /*ttol=*/1e-3));
+                            /*rtol=*/1e-4,
+                            /*ttol=*/1e-4));
 
     std::vector<double> residuals;
     GR6PEstimator::Residuals(
