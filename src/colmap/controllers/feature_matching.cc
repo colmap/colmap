@@ -469,7 +469,7 @@ std::unique_ptr<Thread> CreateFeaturePairsFeatureMatcher(
       pairing_options, matching_options, geometry_options, database_path);
 }
 
-std::unique_ptr<Thread> CreateGeometicVerifier(
+std::unique_ptr<Thread> CreateGeometricVerifier(
     const ExistingMatchedPairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
