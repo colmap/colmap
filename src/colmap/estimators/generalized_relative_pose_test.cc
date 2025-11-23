@@ -120,6 +120,8 @@ class ParameterizedGRNPEstimatorTests
                                                  /*panoramic2=*/bool>> {};
 
 TEST_P(ParameterizedGRNPEstimatorTests, GR6P) {
+  SetPRNGSeed(1);
+
   // Note that we can estimate the minimal problem from only 6 points but we
   // need a 7th point to choose the correct solution. In theory, we don't need
   // RANSAC as we generate exact correspondences, but we use it in this test to
@@ -154,6 +156,7 @@ TEST_P(ParameterizedGRNPEstimatorTests, GR6P) {
 
 TEST_P(ParameterizedGRNPEstimatorTests, GR8P) {
   SetPRNGSeed(1);
+
   // In theory, we don't need RANSAC as we generate exact correspondences, but
   // we use it in this test to do the choosing of the best solution for us.
   constexpr int kNumPoints = 8;
