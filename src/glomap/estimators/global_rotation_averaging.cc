@@ -4,8 +4,8 @@
 #include "glomap/math/rigid3d.h"
 #include "glomap/math/tree.h"
 
-#include <colmap/geometry/pose.h>
-#include <colmap/optim/least_absolute_deviations.h>
+#include "colmap/geometry/pose.h"
+#include "colmap/optim/least_absolute_deviations.h"
 
 #include <iostream>
 #include <queue>

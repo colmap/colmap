@@ -3,7 +3,7 @@
 
 #include "glomap/scene/types_sfm.h"
 
-#include <colmap/math/union_find.h>
+#include "colmap/math/union_find.h"
 
 namespace glomap {
 

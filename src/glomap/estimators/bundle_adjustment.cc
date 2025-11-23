@@ -1,10 +1,10 @@
 #include "bundle_adjustment.h"
 
-#include <colmap/estimators/cost_functions.h>
-#include <colmap/estimators/manifold.h>
-#include <colmap/sensor/models.h>
-#include <colmap/util/cuda.h>
-#include <colmap/util/misc.h>
+#include "colmap/estimators/cost_functions.h"
+#include "colmap/estimators/manifold.h"
+#include "colmap/sensor/models.h"
+#include "colmap/util/cuda.h"
+#include "colmap/util/misc.h"
 
 namespace glomap {
 

@@ -3,8 +3,8 @@
 #include "glomap/estimators/cost_function.h"
 #include "glomap/math/rigid3d.h"
 
-#include <colmap/util/cuda.h>
-#include <colmap/util/misc.h>
+#include "colmap/util/cuda.h"
+#include "colmap/util/misc.h"
 
 namespace glomap {
 namespace {

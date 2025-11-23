@@ -8,7 +8,7 @@
 #include "glomap/estimators/view_graph_calibration.h"
 #include "glomap/types.h"
 
-#include <colmap/scene/database.h>
+#include "colmap/scene/database.h"
 
 namespace glomap {
 

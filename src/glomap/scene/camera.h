@@ -2,8 +2,8 @@
 
 #include "glomap/types.h"
 
-#include <colmap/scene/camera.h>
-#include <colmap/sensor/models.h>
+#include "colmap/scene/camera.h"
+#include "colmap/sensor/models.h"
 
 #include <PoseLib/misc/colmap_models.h>
 

@@ -2,7 +2,7 @@
 
 #include "glomap/scene/types_sfm.h"
 
-#include <colmap/geometry/pose.h>
+#include "colmap/geometry/pose.h"
 
 namespace glomap {
 

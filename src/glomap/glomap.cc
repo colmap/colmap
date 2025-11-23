@@ -1,7 +1,7 @@
 #include "glomap/exe/global_mapper.h"
 #include "glomap/exe/rotation_averager.h"
 
-#include <colmap/util/logging.h>
+#include "colmap/util/logging.h"
 
 #include <iostream>
 

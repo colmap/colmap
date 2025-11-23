@@ -4,7 +4,7 @@
 #include "glomap/scene/types.h"
 #include "glomap/types.h"
 
-#include <colmap/scene/frame.h>
+#include "colmap/scene/frame.h"
 
 namespace glomap {
 

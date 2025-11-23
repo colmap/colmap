@@ -3,7 +3,7 @@
 
 #include "glomap/scene/types_sfm.h"
 
-#include <colmap/scene/database.h>
+#include "colmap/scene/database.h"
 
 namespace glomap {
 

@@ -3,9 +3,9 @@
 #include "glomap/io/colmap_io.h"
 #include "glomap/types.h"
 
-#include <colmap/estimators/alignment.h>
-#include <colmap/scene/synthetic.h>
-#include <colmap/util/testing.h>
+#include "colmap/estimators/alignment.h"
+#include "colmap/scene/synthetic.h"
+#include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 

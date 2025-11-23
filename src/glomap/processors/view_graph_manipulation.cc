@@ -2,8 +2,8 @@
 
 #include "glomap/math/two_view_geometry.h"
 
-#include <colmap/math/union_find.h>
-#include <colmap/util/threading.h>
+#include "colmap/math/union_find.h"
+#include "colmap/util/threading.h"
 
 namespace glomap {
 

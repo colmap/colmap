@@ -2,7 +2,7 @@
 
 #include "glomap/math/two_view_geometry.h"
 
-#include <colmap/scene/reconstruction_io_utils.h>
+#include "colmap/scene/reconstruction_io_utils.h"
 
 namespace glomap {
 

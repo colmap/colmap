@@ -1,6 +1,6 @@
 #include "glomap/processors/image_undistorter.h"
 
-#include <colmap/util/threading.h>
+#include "colmap/util/threading.h"
 
 namespace glomap {
 

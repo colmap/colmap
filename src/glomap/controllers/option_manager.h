@@ -1,6 +1,6 @@
 #pragma once
 
-#include <colmap/util/logging.h>
+#include "colmap/util/logging.h"
 
 #include <iostream>
 #include <memory>

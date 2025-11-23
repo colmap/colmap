@@ -1,6 +1,6 @@
 #include "glomap/estimators/relpose_estimation.h"
 
-#include <colmap/util/threading.h>
+#include "colmap/util/threading.h"
 
 #include <PoseLib/robust.h>
 
