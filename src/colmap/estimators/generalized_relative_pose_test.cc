@@ -191,7 +191,7 @@ TEST_P(ParameterizedGRNPEstimatorTests, GR8P) {
     GR8PEstimator::Residuals(
         problem.points1, problem.points2, report.model, &residuals);
     for (size_t i = 0; i < residuals.size(); ++i) {
-      if (residuals[i], options.max_error) {
+      if (residuals[i] > options.max_error) {
         continue;
       }
     }
