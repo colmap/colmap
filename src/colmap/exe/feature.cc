@@ -400,10 +400,10 @@ int RunGeometricVerifier(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  auto matcher = CreateGeometicVerifier(pairing_options,
-                                        *options.feature_matching,
-                                        *options.two_view_geometry,
-                                        *options.database_path);
+  auto matcher = CreateGeometricVerifier(pairing_options,
+                                         *options.feature_matching,
+                                         *options.two_view_geometry,
+                                         *options.database_path);
   matcher->Start();
   matcher->Wait();
 

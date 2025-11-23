@@ -308,7 +308,7 @@ TEST(CreateFeaturePairsFeatureMatcher, Nominal) {
   EXPECT_GE(database->ReadTwoViewGeometries().size(), 2);
 }
 
-TEST(CreateGeometicVerifier, Nominal) {
+TEST(CreateGeometricVerifier, Nominal) {
   const std::string test_dir = CreateTestDir();
   const std::string database_path = test_dir + "/database.db";
   auto database = Database::Open(database_path);
@@ -323,7 +323,7 @@ TEST(CreateGeometicVerifier, Nominal) {
 
   TwoViewGeometryOptions geometry_options;
 
-  auto verifier = CreateGeometicVerifier(
+  auto verifier = CreateGeometricVerifier(
       pairing_options, matching_options, geometry_options, database_path);
   ASSERT_NE(verifier, nullptr);
   verifier->Start();

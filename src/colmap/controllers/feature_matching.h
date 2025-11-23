@@ -154,7 +154,7 @@ std::unique_ptr<Thread> CreateFeaturePairsFeatureMatcher(
     const std::string& database_path);
 
 // Perform geometric verification of existing matched image pairs.
-std::unique_ptr<Thread> CreateGeometicVerifier(
+std::unique_ptr<Thread> CreateGeometricVerifier(
     const ExistingMatchedPairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
