@@ -41,8 +41,8 @@ double ImagePairInliers::ScoreErrorEssential() {
 
   // Conver the threshold from pixel space to normalized space
   thres = options.max_epipolar_error_E * 0.5 *
-          (1. / cameras->at(images.at(image_id1).camera_id).FocalLength() +
-           1. / cameras->at(images.at(image_id2).camera_id).FocalLength());
+          (1. / cameras->at(images.at(image_id1).camera_id).MeanFocalLength() +
+           1. / cameras->at(images.at(image_id2).camera_id).MeanFocalLength());
 
   // Square the threshold for faster computation
   double sq_threshold = thres * thres;

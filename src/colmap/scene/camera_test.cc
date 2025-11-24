@@ -104,9 +104,11 @@ TEST(Camera, FocalLength) {
   camera.SetFocalLengthX(2.0);
   EXPECT_EQ(camera.FocalLengthX(), 2.0);
   EXPECT_EQ(camera.FocalLengthY(), 1.0);
+  EXPECT_EQ(camera.MeanFocalLength(), 1.5);
   camera.SetFocalLengthY(2.0);
   EXPECT_EQ(camera.FocalLengthX(), 2.0);
   EXPECT_EQ(camera.FocalLengthY(), 2.0);
+  EXPECT_EQ(camera.MeanFocalLength(), 2.0);
 }
 
 TEST(Camera, PrincipalPoint) {

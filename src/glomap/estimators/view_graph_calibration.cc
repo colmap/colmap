@@ -54,7 +54,7 @@ void ViewGraphCalibrator::Reset(
   focals_.clear();
   focals_.reserve(cameras.size());
   for (const auto& [camera_id, camera] : cameras) {
-    focals_[camera_id] = camera.FocalLength();
+    focals_[camera_id] = camera.MeanFocalLength();
   }
 
   // Set up the problem
@@ -126,11 +126,11 @@ void ViewGraphCalibrator::CopyBackResults(
     if (!problem_->HasParameterBlock(&(focals_[camera_id]))) continue;
 
     // if the estimated parameter is too crazy, reject it
-    if (focals_[camera_id] / camera.FocalLength() > options_.thres_higher_ratio ||
-        focals_[camera_id] / camera.FocalLength() < options_.thres_lower_ratio) {
+    if (focals_[camera_id] / camera.MeanFocalLength() > options_.thres_higher_ratio ||
+        focals_[camera_id] / camera.MeanFocalLength() < options_.thres_lower_ratio) {
       VLOG(2) << "Ignoring degenerate camera camera " << camera_id
               << " focal: " << focals_[camera_id]
-              << " original focal: " << camera.FocalLength();
+              << " original focal: " << camera.MeanFocalLength();
       counter++;
 
       continue;
