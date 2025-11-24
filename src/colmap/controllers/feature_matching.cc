@@ -212,8 +212,8 @@ class FeatureMatcherThread : public Thread {
              EstimateRigTwoViewGeometries(
                  rig1, rig2, images, cameras, matches, geometry_options_)) {
           const auto& [image_id1, image_id2] = image_pair;
-          cache_->DeleteTwoViewGeometry(image_id1, image_id2);
-          cache_->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+          cache_->UpdateTwoViewGeometry(
+              image_id1, image_id2, two_view_geometry);
         }
       });
     }
