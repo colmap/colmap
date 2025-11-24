@@ -197,11 +197,12 @@ double ImagePairInliers::ScoreErrorHomography() {
   return score;
 }
 
-void ImagePairsInlierCount(ViewGraph& view_graph,
-                           const std::unordered_map<camera_t, colmap::Camera>& cameras,
-                           const std::unordered_map<image_t, Image>& images,
-                           const InlierThresholdOptions& options,
-                           bool clean_inliers) {
+void ImagePairsInlierCount(
+    ViewGraph& view_graph,
+    const std::unordered_map<camera_t, colmap::Camera>& cameras,
+    const std::unordered_map<image_t, Image>& images,
+    const InlierThresholdOptions& options,
+    bool clean_inliers) {
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (!clean_inliers && image_pair.inliers.size() > 0) continue;
     image_pair.inliers.clear();

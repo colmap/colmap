@@ -18,8 +18,8 @@ typedef boost::graph_traits<weighted_graph>::edge_descriptor edge_desc;
 typedef boost::graph_traits<weighted_graph>::vertex_descriptor vertex_desc;
 
 int BreadthFirstSearch(const std::vector<std::vector<int>>& adjacency_list,
-        int root,
-        std::vector<int>& parents) {
+                       int root,
+                       std::vector<int>& parents) {
   const int num_vertices = adjacency_list.size();
 
   // Create a vector to store the visited status of each vertex
@@ -59,7 +59,6 @@ int BreadthFirstSearch(const std::vector<std::vector<int>>& adjacency_list,
 
 }  // namespace
 
-
 image_t MaximumSpanningTree(const ViewGraph& view_graph,
                             const std::unordered_map<image_t, Image>& images,
                             std::unordered_map<image_t, image_t>& parents,
@@ -69,14 +68,18 @@ image_t MaximumSpanningTree(const ViewGraph& view_graph,
   std::unordered_map<int, image_t> idx_to_image_id;
   idx_to_image_id.reserve(images.size());
   for (const auto& [image_id, image] : images) {
-    if (!image.IsRegistered()) { continue; }
+    if (!image.IsRegistered()) {
+      continue;
+    }
     idx_to_image_id[image_id_to_idx.size()] = image_id;
     image_id_to_idx[image_id] = image_id_to_idx.size();
   }
 
   double max_weight = 0;
   for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
-    if (!image_pair.is_valid) {continue;}
+    if (!image_pair.is_valid) {
+      continue;
+    }
     if (type == WeightType::INLIER_RATIO) {
       max_weight = std::max(max_weight, image_pair.weight);
     } else {
@@ -91,7 +94,9 @@ image_t MaximumSpanningTree(const ViewGraph& view_graph,
 
   edge_desc e;
   for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
-    if (!image_pair.is_valid) {continue;}
+    if (!image_pair.is_valid) {
+      continue;
+    }
 
     const Image& image1 = images.at(image_pair.image_id1);
     const Image& image2 = images.at(image_pair.image_id2);

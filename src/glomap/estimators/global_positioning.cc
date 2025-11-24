@@ -1,10 +1,10 @@
 #include "glomap/estimators/global_positioning.h"
 
-#include "glomap/estimators/cost_function.h"
-#include "glomap/math/rigid3d.h"
-
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
+
+#include "glomap/estimators/cost_function.h"
+#include "glomap/math/rigid3d.h"
 
 namespace glomap {
 namespace {
@@ -25,12 +25,13 @@ GlobalPositioner::GlobalPositioner(const GlobalPositionerOptions& options)
   random_generator_.seed(options_.seed);
 }
 
-bool GlobalPositioner::Solve(const ViewGraph& view_graph,
-                             std::unordered_map<rig_t, Rig>& rigs,
-                             std::unordered_map<camera_t, colmap::Camera>& cameras,
-                             std::unordered_map<frame_t, Frame>& frames,
-                             std::unordered_map<image_t, Image>& images,
-                             std::unordered_map<track_t, Track>& tracks) {
+bool GlobalPositioner::Solve(
+    const ViewGraph& view_graph,
+    std::unordered_map<rig_t, Rig>& rigs,
+    std::unordered_map<camera_t, colmap::Camera>& cameras,
+    std::unordered_map<frame_t, Frame>& frames,
+    std::unordered_map<image_t, Image>& images,
+    std::unordered_map<track_t, Track>& tracks) {
   if (rigs.size() > 1) {
     LOG(ERROR) << "Number of camera rigs = " << rigs.size();
   }

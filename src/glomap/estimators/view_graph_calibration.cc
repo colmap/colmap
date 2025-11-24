@@ -1,17 +1,18 @@
 #include "glomap/estimators/view_graph_calibration.h"
 
+#include "colmap/scene/two_view_geometry.h"
+
 #include "glomap/estimators/cost_function.h"
 #include "glomap/math/two_view_geometry.h"
-
-#include "colmap/scene/two_view_geometry.h"
 
 #include <thread>
 
 namespace glomap {
 
-bool ViewGraphCalibrator::Solve(ViewGraph& view_graph,
-                                std::unordered_map<camera_t, colmap::Camera>& cameras,
-                                std::unordered_map<image_t, Image>& images) {
+bool ViewGraphCalibrator::Solve(
+    ViewGraph& view_graph,
+    std::unordered_map<camera_t, colmap::Camera>& cameras,
+    std::unordered_map<image_t, Image>& images) {
   // Reset the problem
   LOG(INFO) << "Start ViewGraphCalibrator";
 
@@ -126,8 +127,10 @@ void ViewGraphCalibrator::CopyBackResults(
     if (!problem_->HasParameterBlock(&(focals_[camera_id]))) continue;
 
     // if the estimated parameter is too crazy, reject it
-    if (focals_[camera_id] / camera.MeanFocalLength() > options_.thres_higher_ratio ||
-        focals_[camera_id] / camera.MeanFocalLength() < options_.thres_lower_ratio) {
+    if (focals_[camera_id] / camera.MeanFocalLength() >
+            options_.thres_higher_ratio ||
+        focals_[camera_id] / camera.MeanFocalLength() <
+            options_.thres_lower_ratio) {
       VLOG(2) << "Ignoring degenerate camera camera " << camera_id
               << " focal: " << focals_[camera_id]
               << " original focal: " << camera.MeanFocalLength();

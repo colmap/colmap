@@ -7,18 +7,20 @@
 namespace glomap {
 namespace {
 
-inline poselib::Camera ColmapCameraToPoseLibCamera(const colmap::Camera& camera) {
+inline poselib::Camera ColmapCameraToPoseLibCamera(
+    const colmap::Camera& camera) {
   poselib::Camera pose_lib_camera(
       camera.ModelName(), camera.params, camera.width, camera.height);
   return pose_lib_camera;
 }
 
-}
+}  // namespace
 
-void EstimateRelativePoses(ViewGraph& view_graph,
-                           std::unordered_map<camera_t, colmap::Camera>& cameras,
-                           std::unordered_map<image_t, Image>& images,
-                           const RelativePoseEstimationOptions& options) {
+void EstimateRelativePoses(
+    ViewGraph& view_graph,
+    std::unordered_map<camera_t, colmap::Camera>& cameras,
+    std::unordered_map<image_t, Image>& images,
+    const RelativePoseEstimationOptions& options) {
   std::vector<image_pair_t> valid_pair_ids;
   for (auto& [image_pair_id, image_pair] : view_graph.image_pairs) {
     if (!image_pair.is_valid) continue;
