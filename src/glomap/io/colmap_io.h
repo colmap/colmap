@@ -8,7 +8,7 @@ namespace glomap {
 void WriteGlomapReconstruction(
     const std::string& reconstruction_path,
     const std::unordered_map<rig_t, Rig>& rigs,
-    const std::unordered_map<camera_t, Camera>& cameras,
+    const std::unordered_map<camera_t, colmap::Camera>& cameras,
     const std::unordered_map<frame_t, Frame>& frames,
     const std::unordered_map<image_t, Image>& images,
     const std::unordered_map<track_t, Track>& tracks,

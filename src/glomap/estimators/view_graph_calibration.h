@@ -34,30 +34,30 @@ class ViewGraphCalibrator {
 
   // Entry point for the calibration
   bool Solve(ViewGraph& view_graph,
-             std::unordered_map<camera_t, Camera>& cameras,
+             std::unordered_map<camera_t, colmap::Camera>& cameras,
              std::unordered_map<image_t, Image>& images);
 
  private:
   // Reset the problem
-  void Reset(const std::unordered_map<camera_t, Camera>& cameras);
+  void Reset(const std::unordered_map<camera_t, colmap::Camera>& cameras);
 
   // Add the image pairs to the problem
   void AddImagePairsToProblem(
       const ViewGraph& view_graph,
-      const std::unordered_map<camera_t, Camera>& cameras,
+      const std::unordered_map<camera_t, colmap::Camera>& cameras,
       const std::unordered_map<image_t, Image>& images);
 
   // Add a single image pair to the problem
   void AddImagePair(const ImagePair& image_pair,
-                    const std::unordered_map<camera_t, Camera>& cameras,
+                    const std::unordered_map<camera_t, colmap::Camera>& cameras,
                     const std::unordered_map<image_t, Image>& images);
 
   // Set the cameras to be constant if they have prior intrinsics
   size_t ParameterizeCameras(
-      const std::unordered_map<camera_t, Camera>& cameras);
+      const std::unordered_map<camera_t, colmap::Camera>& cameras);
 
   // Convert the results back to the camera
-  void CopyBackResults(std::unordered_map<camera_t, Camera>& cameras);
+  void CopyBackResults(std::unordered_map<camera_t, colmap::Camera>& cameras);
 
   // Filter the image pairs based on the calibration results
   size_t FilterImagePairs(ViewGraph& view_graph) const;

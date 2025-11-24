@@ -177,7 +177,7 @@ image_t ViewGraphManipulater::EstablishStrongClusters(
 
 void ViewGraphManipulater::UpdateImagePairsConfig(
     ViewGraph& view_graph,
-    const std::unordered_map<camera_t, Camera>& cameras,
+    const std::unordered_map<camera_t, colmap::Camera>& cameras,
     const std::unordered_map<image_t, Image>& images) {
   // For each camera, check the number of times that the camera is involved in a
   // pair with configuration 2 First: the total occurence; second: the number of
@@ -189,8 +189,8 @@ void ViewGraphManipulater::UpdateImagePairsConfig(
     camera_t camera_id1 = images.at(image_pair.image_id1).camera_id;
     camera_t camera_id2 = images.at(image_pair.image_id2).camera_id;
 
-    const Camera& camera1 = cameras.at(camera_id1);
-    const Camera& camera2 = cameras.at(camera_id2);
+    const colmap::Camera& camera1 = cameras.at(camera_id1);
+    const colmap::Camera& camera2 = cameras.at(camera_id2);
     if (!camera1.has_prior_focal_length || !camera2.has_prior_focal_length)
       continue;
 
@@ -223,9 +223,9 @@ void ViewGraphManipulater::UpdateImagePairsConfig(
     camera_t camera_id1 = images.at(image_pair.image_id1).camera_id;
     camera_t camera_id2 = images.at(image_pair.image_id2).camera_id;
 
-    const Camera& camera1 =
+    const colmap::Camera& camera1 =
         cameras.at(images.at(image_pair.image_id1).camera_id);
-    const Camera& camera2 =
+    const colmap::Camera& camera2 =
         cameras.at(images.at(image_pair.image_id2).camera_id);
 
     if (camera_validity[camera_id1] && camera_validity[camera_id2]) {
@@ -239,7 +239,7 @@ void ViewGraphManipulater::UpdateImagePairsConfig(
 // Decompose the relative camera postion from the camera config
 void ViewGraphManipulater::DecomposeRelPose(
     ViewGraph& view_graph,
-    std::unordered_map<camera_t, Camera>& cameras,
+    std::unordered_map<camera_t, colmap::Camera>& cameras,
     std::unordered_map<image_t, Image>& images) {
   std::vector<image_pair_t> image_pair_ids;
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {

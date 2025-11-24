@@ -225,7 +225,7 @@ void StereoFusion::Run() {
 
     Eigen::Matrix<float, 3, 3, Eigen::RowMajor> K =
         Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(
-            image.GetK());
+            image.CalibrationMatrix());
     K(0, 0) *= bitmap_scales_.at(image_idx).first;
     K(0, 2) *= bitmap_scales_.at(image_idx).first;
     K(1, 1) *= bitmap_scales_.at(image_idx).second;

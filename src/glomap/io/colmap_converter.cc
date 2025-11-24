@@ -20,7 +20,7 @@ void ConvertGlomapToColmapImage(const Image& image,
 }
 
 void ConvertGlomapToColmap(const std::unordered_map<rig_t, Rig>& rigs,
-                           const std::unordered_map<camera_t, Camera>& cameras,
+                           const std::unordered_map<camera_t, colmap::Camera>& cameras,
                            const std::unordered_map<frame_t, Frame>& frames,
                            const std::unordered_map<image_t, Image>& images,
                            const std::unordered_map<track_t, Track>& tracks,
@@ -132,7 +132,7 @@ void ConvertGlomapToColmap(const std::unordered_map<rig_t, Rig>& rigs,
 
 void ConvertColmapToGlomap(const colmap::Reconstruction& reconstruction,
                            std::unordered_map<rig_t, Rig>& rigs,
-                           std::unordered_map<camera_t, Camera>& cameras,
+                           std::unordered_map<camera_t, colmap::Camera>& cameras,
                            std::unordered_map<frame_t, Frame>& frames,
                            std::unordered_map<image_t, Image>& images,
                            std::unordered_map<track_t, Track>& tracks) {
@@ -213,7 +213,7 @@ void ConvertColmapPoints3DToGlomapTracks(
 void ConvertDatabaseToGlomap(const colmap::Database& database,
                              ViewGraph& view_graph,
                              std::unordered_map<rig_t, Rig>& rigs,
-                             std::unordered_map<camera_t, Camera>& cameras,
+                             std::unordered_map<camera_t, colmap::Camera>& cameras,
                              std::unordered_map<frame_t, Frame>& frames,
                              std::unordered_map<image_t, Image>& images) {
   // Add the images
@@ -423,7 +423,7 @@ void ConvertDatabaseToGlomap(const colmap::Database& database,
             << view_graph.image_pairs.size() << " are invalid";
 }
 
-void CreateOneRigPerCamera(const std::unordered_map<camera_t, Camera>& cameras,
+void CreateOneRigPerCamera(const std::unordered_map<camera_t, colmap::Camera>& cameras,
                            std::unordered_map<rig_t, Rig>& rigs) {
   for (const auto& [camera_id, camera] : cameras) {
     Rig rig;

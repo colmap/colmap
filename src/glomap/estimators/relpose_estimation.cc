@@ -5,9 +5,18 @@
 #include <PoseLib/robust.h>
 
 namespace glomap {
+namespace {
+
+inline poselib::Camera ColmapCameraToPoseLibCamera(const colmap::Camera& camera) {
+  poselib::Camera pose_lib_camera(
+      camera.ModelName(), camera.params, camera.width, camera.height);
+  return pose_lib_camera;
+}
+
+}
 
 void EstimateRelativePoses(ViewGraph& view_graph,
-                           std::unordered_map<camera_t, Camera>& cameras,
+                           std::unordered_map<camera_t, colmap::Camera>& cameras,
                            std::unordered_map<image_t, Image>& images,
                            const RelativePoseEstimationOptions& options) {
   std::vector<image_pair_t> valid_pair_ids;
@@ -44,8 +53,8 @@ void EstimateRelativePoses(ViewGraph& view_graph,
         const Image& image2 = images[image_pair.image_id2];
         const Eigen::MatrixXi& matches = image_pair.matches;
 
-        const Camera& camera1 = cameras[image1.camera_id];
-        const Camera& camera2 = cameras[image2.camera_id];
+        const colmap::Camera& camera1 = cameras[image1.camera_id];
+        const colmap::Camera& camera2 = cameras[image2.camera_id];
         poselib::Camera camera_poselib1 = ColmapCameraToPoseLibCamera(camera1);
         poselib::Camera camera_poselib2 = ColmapCameraToPoseLibCamera(camera2);
         bool valid_camera_model =

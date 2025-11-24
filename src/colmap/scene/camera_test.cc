@@ -114,12 +114,15 @@ TEST(Camera, PrincipalPoint) {
       Camera::CreateFromModelId(1, PinholeCameraModel::model_id, 1.0, 1, 1);
   EXPECT_EQ(camera.PrincipalPointX(), 0.5);
   EXPECT_EQ(camera.PrincipalPointY(), 0.5);
+  EXPECT_EQ(camera.PrincipalPoint(), Eigen::Vector2d(0.5, 0.5));
   camera.SetPrincipalPointX(2.0);
   EXPECT_EQ(camera.PrincipalPointX(), 2.0);
   EXPECT_EQ(camera.PrincipalPointY(), 0.5);
+  EXPECT_EQ(camera.PrincipalPoint(), Eigen::Vector2d(2.0, 0.5));
   camera.SetPrincipalPointY(2.0);
   EXPECT_EQ(camera.PrincipalPointX(), 2.0);
   EXPECT_EQ(camera.PrincipalPointY(), 2.0);
+  EXPECT_EQ(camera.PrincipalPoint(), Eigen::Vector2d(2.0, 2.0));
 }
 
 TEST(Camera, ParamIdxs) {

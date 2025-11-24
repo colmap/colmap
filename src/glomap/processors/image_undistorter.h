@@ -4,7 +4,7 @@
 
 namespace glomap {
 
-void UndistortImages(std::unordered_map<camera_t, Camera>& cameras,
+void UndistortImages(std::unordered_map<camera_t, colmap::Camera>& cameras,
                      std::unordered_map<image_t, Image>& images,
                      bool clean_points = true);
 

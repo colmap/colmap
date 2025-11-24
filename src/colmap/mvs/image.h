@@ -60,7 +60,7 @@ class Image {
   inline const std::string& GetPath() const;
   inline const float* GetR() const;
   inline const float* GetT() const;
-  inline const float* GetK() const;
+  inline const float* CalibrationMatrix() const;
   inline const float* GetP() const;
   inline const float* GetInvP() const;
   inline const float* GetViewingDirection() const;
@@ -118,7 +118,7 @@ const float* Image::GetR() const { return R_; }
 
 const float* Image::GetT() const { return T_; }
 
-const float* Image::GetK() const { return K_; }
+const float* Image::CalibrationMatrix() const { return K_; }
 
 const float* Image::GetP() const { return P_; }
 
