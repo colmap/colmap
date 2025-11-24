@@ -34,6 +34,7 @@
 #include "colmap/estimators/generalized_pose.h"
 #include "colmap/estimators/homography_matrix.h"
 #include "colmap/estimators/translation_transform.h"
+#include "colmap/estimators/utils.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/homography_matrix.h"
 #include "colmap/geometry/triangulation.h"
@@ -880,7 +881,7 @@ TwoViewGeometry TwoViewGeometryFromKnownRelativePose(
 
   Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
   std::vector<double> residuals(matches.size());
-  EssentialMatrixFivePointEstimator::Residuals(
+  ComputeSquaredSampsonError(
       matched_cam_rays1, matched_cam_rays2, E, &residuals);
   FeatureMatches inlier_matches;
   double squared_max_error_in_cam = max_error_in_cam * max_error_in_cam;
