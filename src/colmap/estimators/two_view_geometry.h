@@ -207,7 +207,7 @@ void FilterStationaryMatches(double max_error,
                              const std::vector<Eigen::Vector2d>& points2,
                              FeatureMatches* matches);
 
-// Compute two-view geometry from known pose and filter matches.
+// Compute two-view geometry from known relative pose and input matches.
 TwoViewGeometry TwoViewGeometryFromKnownRelativePose(
     const Camera& camera1,
     const std::vector<Eigen::Vector2d>& points1,
