@@ -656,6 +656,30 @@ TEST(EstimateTwoViewGeometry, PlanarOrPanoramicDeterministic) {
   EXPECT_NE(geometry1.H, geometry3.H);
 }
 
+TEST(TwoViewGeometryFromKnownRelativePose, Nominal) {
+  constexpr int kNumTests = 100;
+  for (int seed = 0; seed < kNumTests; ++seed) {
+    SetPRNGSeed(seed);
+    const TwoViewGeometryPoseTestData test_data =
+        CreateTwoViewGeometryPoseTestData(
+            TwoViewGeometry::ConfigurationType::CALIBRATED);
+
+    TwoViewGeometry geometry =
+        TwoViewGeometryFromKnownRelativePose(test_data.camera1,
+                                             test_data.points1,
+                                             test_data.camera2,
+                                             test_data.points2,
+                                             test_data.geometry.cam2_from_cam1,
+                                             test_data.geometry.inlier_matches,
+                                             /*min_num_inliers=*/15,
+                                             /*max_error=*/4.0);
+
+    EXPECT_EQ(geometry.cam2_from_cam1, test_data.geometry.cam2_from_cam1);
+    EXPECT_EQ(geometry.E, test_data.geometry.E);
+    EXPECT_EQ(geometry.inlier_matches, test_data.geometry.inlier_matches);
+  }
+}
+
 struct RigTwoViewGeometryTestData {
   Rig rig1;
   Rig rig2;
