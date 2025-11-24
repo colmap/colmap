@@ -335,10 +335,16 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
     PYBIND11_OVERRIDE_PURE(void, Database, UpdateKeypoints, image_id, blob);
   }
 
-  void UpdateTwoViewGeometry(image_t image_id,
-                             const FeatureKeypointsBlob& blob) override {
-    PYBIND11_OVERRIDE_PURE(
-        void, Database, UpdateTwoViewGeometry, image_id, blob);
+  void UpdateTwoViewGeometry(
+      image_t image_id1,
+      image_t image_id2,
+      const TwoViewGeometry& two_view_geometry) override {
+    PYBIND11_OVERRIDE_PURE(void,
+                           Database,
+                           UpdateTwoViewGeometry,
+                           image_id1,
+                           image_id2,
+                           two_view_geometry);
   }
 
   void DeleteMatches(image_t image_id1, image_t image_id2) override {
