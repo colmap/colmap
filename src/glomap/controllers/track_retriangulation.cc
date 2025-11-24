@@ -1,10 +1,10 @@
 #include "glomap/controllers/track_retriangulation.h"
 
-#include "glomap/io/colmap_converter.h"
-
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/scene/database_cache.h"
+
+#include "glomap/io/colmap_converter.h"
 
 #include <set>
 

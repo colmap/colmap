@@ -1,10 +1,10 @@
 #pragma once
 
+#include "colmap/scene/frame.h"
+
 #include "glomap/math/gravity.h"
 #include "glomap/scene/types.h"
 #include "glomap/types.h"
-
-#include "colmap/scene/frame.h"
 
 namespace glomap {
 

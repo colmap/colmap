@@ -1,8 +1,8 @@
 #pragma once
 
-#include "glomap/scene/types_sfm.h"
-
 #include "colmap/geometry/pose.h"
+
+#include "glomap/scene/types_sfm.h"
 
 namespace glomap {
 

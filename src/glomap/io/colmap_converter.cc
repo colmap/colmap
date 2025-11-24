@@ -1,8 +1,8 @@
 #include "glomap/io/colmap_converter.h"
 
-#include "glomap/math/two_view_geometry.h"
-
 #include "colmap/scene/reconstruction_io_utils.h"
+
+#include "glomap/math/two_view_geometry.h"
 
 namespace glomap {
 
@@ -19,14 +19,15 @@ void ConvertGlomapToColmapImage(const Image& image,
   }
 }
 
-void ConvertGlomapToColmap(const std::unordered_map<rig_t, Rig>& rigs,
-                           const std::unordered_map<camera_t, colmap::Camera>& cameras,
-                           const std::unordered_map<frame_t, Frame>& frames,
-                           const std::unordered_map<image_t, Image>& images,
-                           const std::unordered_map<track_t, Track>& tracks,
-                           colmap::Reconstruction& reconstruction,
-                           int cluster_id,
-                           bool include_image_points) {
+void ConvertGlomapToColmap(
+    const std::unordered_map<rig_t, Rig>& rigs,
+    const std::unordered_map<camera_t, colmap::Camera>& cameras,
+    const std::unordered_map<frame_t, Frame>& frames,
+    const std::unordered_map<image_t, Image>& images,
+    const std::unordered_map<track_t, Track>& tracks,
+    colmap::Reconstruction& reconstruction,
+    int cluster_id,
+    bool include_image_points) {
   // Clear the colmap reconstruction
   reconstruction = colmap::Reconstruction();
 
@@ -130,12 +131,13 @@ void ConvertGlomapToColmap(const std::unordered_map<rig_t, Rig>& rigs,
   reconstruction.UpdatePoint3DErrors();
 }
 
-void ConvertColmapToGlomap(const colmap::Reconstruction& reconstruction,
-                           std::unordered_map<rig_t, Rig>& rigs,
-                           std::unordered_map<camera_t, colmap::Camera>& cameras,
-                           std::unordered_map<frame_t, Frame>& frames,
-                           std::unordered_map<image_t, Image>& images,
-                           std::unordered_map<track_t, Track>& tracks) {
+void ConvertColmapToGlomap(
+    const colmap::Reconstruction& reconstruction,
+    std::unordered_map<rig_t, Rig>& rigs,
+    std::unordered_map<camera_t, colmap::Camera>& cameras,
+    std::unordered_map<frame_t, Frame>& frames,
+    std::unordered_map<image_t, Image>& images,
+    std::unordered_map<track_t, Track>& tracks) {
   // Clear the glomap reconstruction
   cameras.clear();
   images.clear();
@@ -210,12 +212,13 @@ void ConvertColmapPoints3DToGlomapTracks(
 
 // For ease of debug, go through the database twice: first extract the
 // available pairs, then read matches from pairs.
-void ConvertDatabaseToGlomap(const colmap::Database& database,
-                             ViewGraph& view_graph,
-                             std::unordered_map<rig_t, Rig>& rigs,
-                             std::unordered_map<camera_t, colmap::Camera>& cameras,
-                             std::unordered_map<frame_t, Frame>& frames,
-                             std::unordered_map<image_t, Image>& images) {
+void ConvertDatabaseToGlomap(
+    const colmap::Database& database,
+    ViewGraph& view_graph,
+    std::unordered_map<rig_t, Rig>& rigs,
+    std::unordered_map<camera_t, colmap::Camera>& cameras,
+    std::unordered_map<frame_t, Frame>& frames,
+    std::unordered_map<image_t, Image>& images) {
   // Add the images
   std::vector<colmap::Image> images_colmap = database.ReadAllImages();
   image_t counter = 0;
@@ -423,8 +426,9 @@ void ConvertDatabaseToGlomap(const colmap::Database& database,
             << view_graph.image_pairs.size() << " are invalid";
 }
 
-void CreateOneRigPerCamera(const std::unordered_map<camera_t, colmap::Camera>& cameras,
-                           std::unordered_map<rig_t, Rig>& rigs) {
+void CreateOneRigPerCamera(
+    const std::unordered_map<camera_t, colmap::Camera>& cameras,
+    std::unordered_map<rig_t, Rig>& rigs) {
   for (const auto& [camera_id, camera] : cameras) {
     Rig rig;
     rig.SetRigId(camera_id);

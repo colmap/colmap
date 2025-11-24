@@ -51,7 +51,8 @@ void FundamentalFromMotionAndCameras(const colmap::Camera& camera1,
                                      Eigen::Matrix3d* F) {
   Eigen::Matrix3d E;
   EssentialFromMotion(pose, &E);
-  *F = camera2.CalibrationMatrix().transpose().inverse() * E * camera1.CalibrationMatrix().inverse();
+  *F = camera2.CalibrationMatrix().transpose().inverse() * E *
+       camera1.CalibrationMatrix().inverse();
 }
 
 double SampsonError(const Eigen::Matrix3d& E,
