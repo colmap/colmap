@@ -458,13 +458,10 @@ int RunGuidedGeometricVerifier(int argc, char** argv) {
     const Rigid3d cam2_from_world = image2.CamFromWorld();
 
     TwoViewGeometry two_view_geometry_copy = two_view_geometry;
-    if (two_view_geometry_copy.config !=
-        TwoViewGeometry::ConfigurationType::WATERMARK) {
-      two_view_geometry_copy.config =
-          TwoViewGeometry::ConfigurationType::CALIBRATED;
-      two_view_geometry_copy.cam2_from_cam1 =
-          cam2_from_world * Inverse(cam1_from_world);
-    }
+    two_view_geometry_copy.config =
+        TwoViewGeometry::ConfigurationType::CALIBRATED;
+    two_view_geometry_copy.cam2_from_cam1 =
+        cam2_from_world * Inverse(cam1_from_world);
     database->WriteTwoViewGeometry(
         image_id1, image_id2, two_view_geometry_copy);
   }
