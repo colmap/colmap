@@ -45,13 +45,13 @@ void EssentialFromMotion(const Rigid3d& pose, Eigen::Matrix3d* E) {
 }
 
 // Get the essential matrix from relative pose
-void FundamentalFromMotionAndCameras(const Camera& camera1,
-                                     const Camera& camera2,
+void FundamentalFromMotionAndCameras(const colmap::Camera& camera1,
+                                     const colmap::Camera& camera2,
                                      const Rigid3d& pose,
                                      Eigen::Matrix3d* F) {
   Eigen::Matrix3d E;
   EssentialFromMotion(pose, &E);
-  *F = camera2.GetK().transpose().inverse() * E * camera1.GetK().inverse();
+  *F = camera2.CalibrationMatrix().transpose().inverse() * E * camera1.CalibrationMatrix().inverse();
 }
 
 double SampsonError(const Eigen::Matrix3d& E,

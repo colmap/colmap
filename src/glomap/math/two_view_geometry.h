@@ -1,6 +1,5 @@
 #pragma once
 
-#include "glomap/scene/camera.h"
 #include "glomap/scene/types.h"
 #include "glomap/types.h"
 
@@ -24,8 +23,8 @@ double GetOrientationSignum(const Eigen::Matrix3d& F,
 void EssentialFromMotion(const Rigid3d& pose, Eigen::Matrix3d* E);
 
 // Get the essential matrix from relative pose
-void FundamentalFromMotionAndCameras(const Camera& camera1,
-                                     const Camera& camera2,
+void FundamentalFromMotionAndCameras(const colmap::Camera& camera1,
+                                     const colmap::Camera& camera2,
                                      const Rigid3d& pose,
                                      Eigen::Matrix3d* F);
 

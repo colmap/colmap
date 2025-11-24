@@ -10,7 +10,7 @@
 namespace glomap {
 
 bool ViewGraphCalibrator::Solve(ViewGraph& view_graph,
-                                std::unordered_map<camera_t, Camera>& cameras,
+                                std::unordered_map<camera_t, colmap::Camera>& cameras,
                                 std::unordered_map<image_t, Image>& images) {
   // Reset the problem
   LOG(INFO) << "Start ViewGraphCalibrator";
@@ -49,12 +49,12 @@ bool ViewGraphCalibrator::Solve(ViewGraph& view_graph,
 }
 
 void ViewGraphCalibrator::Reset(
-    const std::unordered_map<camera_t, Camera>& cameras) {
+    const std::unordered_map<camera_t, colmap::Camera>& cameras) {
   // Initialize the problem
   focals_.clear();
   focals_.reserve(cameras.size());
   for (const auto& [camera_id, camera] : cameras) {
-    focals_[camera_id] = camera.Focal();
+    focals_[camera_id] = camera.MeanFocalLength();
   }
 
   // Set up the problem
@@ -66,7 +66,7 @@ void ViewGraphCalibrator::Reset(
 
 void ViewGraphCalibrator::AddImagePairsToProblem(
     const ViewGraph& view_graph,
-    const std::unordered_map<camera_t, Camera>& cameras,
+    const std::unordered_map<camera_t, colmap::Camera>& cameras,
     const std::unordered_map<image_t, Image>& images) {
   for (auto& [image_pair_id, image_pair] : view_graph.image_pairs) {
     if (image_pair.config != colmap::TwoViewGeometry::CALIBRATED &&
@@ -80,7 +80,7 @@ void ViewGraphCalibrator::AddImagePairsToProblem(
 
 void ViewGraphCalibrator::AddImagePair(
     const ImagePair& image_pair,
-    const std::unordered_map<camera_t, Camera>& cameras,
+    const std::unordered_map<camera_t, colmap::Camera>& cameras,
     const std::unordered_map<image_t, Image>& images) {
   const camera_t camera_id1 = images.at(image_pair.image_id1).camera_id;
   const camera_t camera_id2 = images.at(image_pair.image_id2).camera_id;
@@ -103,7 +103,7 @@ void ViewGraphCalibrator::AddImagePair(
 }
 
 size_t ViewGraphCalibrator::ParameterizeCameras(
-    const std::unordered_map<camera_t, Camera>& cameras) {
+    const std::unordered_map<camera_t, colmap::Camera>& cameras) {
   size_t num_cameras = 0;
   for (auto& [camera_id, camera] : cameras) {
     if (!problem_->HasParameterBlock(&(focals_[camera_id]))) continue;
@@ -120,24 +120,21 @@ size_t ViewGraphCalibrator::ParameterizeCameras(
 }
 
 void ViewGraphCalibrator::CopyBackResults(
-    std::unordered_map<camera_t, Camera>& cameras) {
+    std::unordered_map<camera_t, colmap::Camera>& cameras) {
   size_t counter = 0;
   for (auto& [camera_id, camera] : cameras) {
     if (!problem_->HasParameterBlock(&(focals_[camera_id]))) continue;
 
     // if the estimated parameter is too crazy, reject it
-    if (focals_[camera_id] / camera.Focal() > options_.thres_higher_ratio ||
-        focals_[camera_id] / camera.Focal() < options_.thres_lower_ratio) {
+    if (focals_[camera_id] / camera.MeanFocalLength() > options_.thres_higher_ratio ||
+        focals_[camera_id] / camera.MeanFocalLength() < options_.thres_lower_ratio) {
       VLOG(2) << "Ignoring degenerate camera camera " << camera_id
               << " focal: " << focals_[camera_id]
-              << " original focal: " << camera.Focal();
+              << " original focal: " << camera.MeanFocalLength();
       counter++;
 
       continue;
     }
-
-    // Marke that the camera has refined intrinsics
-    camera.has_refined_focal_length = true;
 
     // Update the focal length
     for (const size_t idx : camera.FocalLengthIdxs()) {
