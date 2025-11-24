@@ -89,8 +89,8 @@ class Database {
   virtual bool ExistsKeypoints(image_t image_id) const = 0;
   virtual bool ExistsDescriptors(image_t image_id) const = 0;
   virtual bool ExistsMatches(image_t image_id1, image_t image_id2) const = 0;
-  virtual bool ExistsInlierMatches(image_t image_id1,
-                                   image_t image_id2) const = 0;
+  virtual bool ExistsTwoViewGeometry(image_t image_id1,
+                                     image_t image_id2) const = 0;
 
   // Number of rows in `rigs` table.
   virtual size_t NumRigs() const = 0;
@@ -251,8 +251,17 @@ class Database {
   virtual void UpdateKeypoints(image_t image_id,
                                const FeatureKeypointsBlob& blob) = 0;
 
+  // Update an existing two view geometry in the database.
+  virtual void UpdateTwoViewGeometry(
+      image_t image_id1,
+      image_t image_id2,
+      const TwoViewGeometry& two_view_geometry) = 0;
+
   // Delete matches of an image pair.
   virtual void DeleteMatches(image_t image_id1, image_t image_id2) = 0;
+
+  // Delete two view geometry of an image pair.
+  virtual void DeleteTwoViewGeometry(image_t image_id1, image_t image_id2) = 0;
 
   // Delete inlier matches of an image pair.
   virtual void DeleteInlierMatches(image_t image_id1, image_t image_id2) = 0;

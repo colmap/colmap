@@ -511,8 +511,14 @@ TEST_P(ParameterizedDatabaseTests, TwoViewGeometry) {
             two_view_geometry.inlier_matches.size());
   EXPECT_EQ(database->NumInlierMatches(), 1000);
   database->DeleteInlierMatches(image_id1, image_id2);
+  EXPECT_TRUE(database->ExistsTwoViewGeometry(image_id1, image_id2));
+  EXPECT_EQ(database->NumInlierMatches(), 0);
+  database->DeleteTwoViewGeometry(image_id1, image_id2);
+  EXPECT_FALSE(database->ExistsTwoViewGeometry(image_id1, image_id2));
   EXPECT_EQ(database->NumInlierMatches(), 0);
   database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+  EXPECT_ANY_THROW(
+      database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry));
   EXPECT_EQ(database->NumInlierMatches(), 1000);
   database->ClearTwoViewGeometries();
   EXPECT_EQ(database->NumInlierMatches(), 0);

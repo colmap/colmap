@@ -67,10 +67,11 @@ int TrackFilter::FilterTracksByAngle(
       const Image& image = images.at(image_id);
       const Eigen::Vector3d& feature_undist =
           image.features_undist.at(feature_id);
-      const Eigen::Vector3d pt_calc = (image.CamFromWorld() * track.xyz).normalized();
-      const double thres_cam = (cameras.at(image.camera_id).has_prior_focal_length)
-                             ? thres
-                             : thres_uncalib;
+      const Eigen::Vector3d pt_calc =
+          (image.CamFromWorld() * track.xyz).normalized();
+      const double thres_cam =
+          (cameras.at(image.camera_id).has_prior_focal_length) ? thres
+                                                               : thres_uncalib;
 
       if (pt_calc.dot(feature_undist) > thres_cam) {
         observation_new.emplace_back(image_id, feature_id);

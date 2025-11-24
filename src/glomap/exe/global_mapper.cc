@@ -1,13 +1,13 @@
 #include "glomap/controllers/global_mapper.h"
 
+#include "colmap/util/file.h"
+#include "colmap/util/misc.h"
+#include "colmap/util/timer.h"
+
 #include "glomap/controllers/option_manager.h"
 #include "glomap/io/colmap_io.h"
 #include "glomap/io/pose_io.h"
 #include "glomap/types.h"
-
-#include "colmap/util/file.h"
-#include "colmap/util/misc.h"
-#include "colmap/util/timer.h"
 
 namespace glomap {
 // -------------------------------------

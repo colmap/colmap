@@ -1,15 +1,15 @@
 #include "glomap/controllers/rotation_averager.h"
 
+#include "colmap/estimators/alignment.h"
+#include "colmap/math/random.h"
+#include "colmap/scene/synthetic.h"
+#include "colmap/util/testing.h"
+
 #include "glomap/controllers/global_mapper.h"
 #include "glomap/estimators/gravity_refinement.h"
 #include "glomap/io/colmap_io.h"
 #include "glomap/math/rigid3d.h"
 #include "glomap/types.h"
-
-#include "colmap/estimators/alignment.h"
-#include "colmap/math/random.h"
-#include "colmap/scene/synthetic.h"
-#include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 

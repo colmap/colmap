@@ -1,11 +1,9 @@
-#include "tree.h"
+#include "glomap/math/tree.h"
 
-// BGL includes
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/kruskal_min_spanning_tree.hpp>
 
 namespace glomap {
-
 namespace {
 
 typedef boost::adjacency_list<boost::vecS,
@@ -19,61 +17,47 @@ typedef boost::property_map<weighted_graph, boost::edge_weight_t>::type
 typedef boost::graph_traits<weighted_graph>::edge_descriptor edge_desc;
 typedef boost::graph_traits<weighted_graph>::vertex_descriptor vertex_desc;
 
-}  // namespace
-
-// Function to perform breadth-first search (BFS) on a graph represented by an
-// adjacency list
-int BFS(const std::vector<std::vector<int>>& graph,
-        int root,
-        std::vector<int>& parents,
-        std::vector<std::pair<int, int>> banned_edges) {
-  int num_vertices = graph.size();
+int BreadthFirstSearch(const std::vector<std::vector<int>>& adjacency_list,
+                       int root,
+                       std::vector<int>& parents) {
+  const int num_vertices = adjacency_list.size();
 
   // Create a vector to store the visited status of each vertex
-  std::vector<bool> visited(num_vertices, false);
+  std::vector<char> visited(num_vertices, false);
 
   // Create a vector to store the parent vertex for each vertex
   parents.clear();
   parents.resize(num_vertices, -1);
   parents[root] = root;
 
-  // Create a queue for BFS traversal
-  std::queue<int> q;
+  // Create a queue for BreadthFirstSearch traversal
+  std::queue<int> queue;
 
   // Mark the start vertex as visited and enqueue it
   visited[root] = true;
-  q.push(root);
+  queue.push(root);
 
   int counter = 0;
-  while (!q.empty()) {
-    int current_vertex = q.front();
-    q.pop();
+  while (!queue.empty()) {
+    const int current_vertex = queue.front();
+    queue.pop();
 
     // Process the current vertex
     // Traverse the adjacent vertices
-    for (int neighbor : graph[current_vertex]) {
-      if (std::find(banned_edges.begin(),
-                    banned_edges.end(),
-                    std::make_pair(current_vertex, neighbor)) !=
-          banned_edges.end())
-        continue;
-      if (std::find(banned_edges.begin(),
-                    banned_edges.end(),
-                    std::make_pair(neighbor, current_vertex)) !=
-          banned_edges.end())
-        continue;
-
+    for (const int neighbor : adjacency_list[current_vertex]) {
       if (!visited[neighbor]) {
         visited[neighbor] = true;
         parents[neighbor] = current_vertex;
-        q.push(neighbor);
-        counter++;
+        queue.push(neighbor);
+        ++counter;
       }
     }
   }
 
   return counter;
 }
+
+}  // namespace
 
 image_t MaximumSpanningTree(const ViewGraph& view_graph,
                             const std::unordered_map<image_t, Image>& images,
@@ -83,20 +67,25 @@ image_t MaximumSpanningTree(const ViewGraph& view_graph,
   image_id_to_idx.reserve(images.size());
   std::unordered_map<int, image_t> idx_to_image_id;
   idx_to_image_id.reserve(images.size());
-  for (auto& [image_id, image] : images) {
-    if (image.IsRegistered() == false) continue;
+  for (const auto& [image_id, image] : images) {
+    if (!image.IsRegistered()) {
+      continue;
+    }
     idx_to_image_id[image_id_to_idx.size()] = image_id;
     image_id_to_idx[image_id] = image_id_to_idx.size();
   }
 
   double max_weight = 0;
   for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
-    if (image_pair.is_valid == false) continue;
-    if (type == INLIER_RATIO)
+    if (!image_pair.is_valid) {
+      continue;
+    }
+    if (type == WeightType::INLIER_RATIO) {
       max_weight = std::max(max_weight, image_pair.weight);
-    else
+    } else {
       max_weight =
           std::max(max_weight, static_cast<double>(image_pair.inliers.size()));
+    }
   }
 
   // establish graph
@@ -104,13 +93,15 @@ image_t MaximumSpanningTree(const ViewGraph& view_graph,
   weight_map weights_boost = boost::get(boost::edge_weight, G);
 
   edge_desc e;
-  for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
-    if (image_pair.is_valid == false) continue;
+  for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
+    if (!image_pair.is_valid) {
+      continue;
+    }
 
     const Image& image1 = images.at(image_pair.image_id1);
     const Image& image2 = images.at(image_pair.image_id2);
 
-    if (image1.IsRegistered() == false || image2.IsRegistered() == false) {
+    if (!image1.IsRegistered() || !image2.IsRegistered()) {
       continue;
     }
 
@@ -120,12 +111,13 @@ image_t MaximumSpanningTree(const ViewGraph& view_graph,
     // Set the weight to be negative, then the result would be a maximum
     // spanning tree
     e = boost::add_edge(idx1, idx2, G).first;
-    if (type == INLIER_NUM)
+    if (type == WeightType::INLIER_NUM) {
       weights_boost[e] = max_weight - image_pair.inliers.size();
-    else if (type == INLIER_RATIO)
+    } else if (type == WeightType::INLIER_RATIO) {
       weights_boost[e] = max_weight - image_pair.weight;
-    else
+    } else {
       weights_boost[e] = max_weight - image_pair.inliers.size();
+    }
   }
 
   std::vector<edge_desc>
@@ -141,7 +133,7 @@ image_t MaximumSpanningTree(const ViewGraph& view_graph,
   }
 
   std::vector<int> parents_idx;
-  BFS(edges_list, 0, parents_idx);
+  BreadthFirstSearch(edges_list, 0, parents_idx);
 
   // change the index back to image id
   parents.clear();
@@ -152,4 +144,4 @@ image_t MaximumSpanningTree(const ViewGraph& view_graph,
   return idx_to_image_id[0];
 }
 
-};  // namespace glomap
+}  // namespace glomap

@@ -1,13 +1,13 @@
 #include "glomap/controllers/rotation_averager.h"
 
+#include "colmap/util/file.h"
+#include "colmap/util/timer.h"
+
 #include "glomap/controllers/option_manager.h"
 #include "glomap/estimators/gravity_refinement.h"
 #include "glomap/io/colmap_io.h"
 #include "glomap/io/pose_io.h"
 #include "glomap/types.h"
-
-#include "colmap/util/file.h"
-#include "colmap/util/timer.h"
 
 namespace glomap {
 // -------------------------------------

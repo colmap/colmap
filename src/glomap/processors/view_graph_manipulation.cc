@@ -1,9 +1,9 @@
 #include "view_graph_manipulation.h"
 
-#include "glomap/math/two_view_geometry.h"
-
 #include "colmap/math/union_find.h"
 #include "colmap/util/threading.h"
+
+#include "glomap/math/two_view_geometry.h"
 
 namespace glomap {
 
