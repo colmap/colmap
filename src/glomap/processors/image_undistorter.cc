@@ -4,7 +4,7 @@
 
 namespace glomap {
 
-void UndistortImages(std::unordered_map<camera_t, Camera>& cameras,
+void UndistortImages(std::unordered_map<camera_t, colmap::Camera>& cameras,
                      std::unordered_map<image_t, Image>& images,
                      bool clean_points) {
   std::vector<image_t> image_ids;
@@ -25,7 +25,7 @@ void UndistortImages(std::unordered_map<camera_t, Camera>& cameras,
     if (image.features_undist.size() == num_points && !clean_points)
       continue;  // already undistorted
 
-    const Camera& camera = cameras[image.camera_id];
+    const colmap::Camera& camera = cameras[image.camera_id];
 
     thread_pool.AddTask([&image, &camera, num_points]() {
       image.features_undist.clear();

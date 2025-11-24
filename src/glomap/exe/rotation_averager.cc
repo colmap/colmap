@@ -68,12 +68,12 @@ int RunRotationAverager(int argc, char** argv) {
   ReadRelPose(relpose_path, images, view_graph);
 
   std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<camera_t, Camera> cameras;
+  std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<frame_t, Frame> frames;
 
   for (auto& [image_id, image] : images) {
     image.camera_id = image.image_id;
-    cameras[image.camera_id] = Camera();
+    cameras[image.camera_id] = colmap::Camera();
   }
 
   CreateOneRigPerCamera(cameras, rigs);

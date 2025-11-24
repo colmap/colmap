@@ -1,7 +1,5 @@
 #include "glomap/math/rigid3d.h"
 
-#include "glomap/scene/camera.h"
-
 namespace glomap {
 
 double CalcAngle(const Rigid3d& pose1, const Rigid3d& pose2) {
