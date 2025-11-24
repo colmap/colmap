@@ -522,6 +522,10 @@ TEST_P(ParameterizedDatabaseTests, TwoViewGeometry) {
   EXPECT_EQ(database->NumInlierMatches(), 1000);
   database->ClearTwoViewGeometries();
   EXPECT_EQ(database->NumInlierMatches(), 0);
+  two_view_geometry.inlier_matches.clear();
+  database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+  EXPECT_EQ(two_view_geometry.cam2_from_cam1,
+            database->ReadTwoViewGeometry(image_id1, image_id2).cam2_from_cam1);
 }
 
 TEST_P(ParameterizedDatabaseTests, Merge) {
