@@ -3,7 +3,7 @@
 #include "glomap/io/colmap_io.h"
 #include "glomap/types.h"
 
-#include "colmap/estimators/alignment.h"
+#include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
@@ -11,32 +11,6 @@
 
 namespace glomap {
 namespace {
-
-void ExpectEqualReconstructions(const colmap::Reconstruction& gt,
-                                const colmap::Reconstruction& computed,
-                                const double max_rotation_error_deg,
-                                const double max_proj_center_error,
-                                const double num_obs_tolerance) {
-  EXPECT_EQ(computed.NumCameras(), gt.NumCameras());
-  EXPECT_EQ(computed.NumImages(), gt.NumImages());
-  EXPECT_EQ(computed.NumRegImages(), gt.NumRegImages());
-  EXPECT_GE(computed.ComputeNumObservations(),
-            (1 - num_obs_tolerance) * gt.ComputeNumObservations());
-
-  colmap::Sim3d gtFromComputed;
-  colmap::AlignReconstructionsViaProjCenters(computed,
-                                             gt,
-                                             /*max_proj_center_error=*/0.1,
-                                             &gtFromComputed);
-
-  const std::vector<colmap::ImageAlignmentError> errors =
-      colmap::ComputeImageAlignmentError(computed, gt, gtFromComputed);
-  EXPECT_EQ(errors.size(), gt.NumImages());
-  for (const auto& error : errors) {
-    EXPECT_LT(error.rotation_error_deg, max_rotation_error_deg);
-    EXPECT_LT(error.proj_center_error, max_proj_center_error);
-  }
-}
 
 GlobalMapperOptions CreateTestOptions() {
   GlobalMapperOptions options;
@@ -79,11 +53,10 @@ TEST(GlobalMapper, WithoutNoise) {
   colmap::Reconstruction reconstruction;
   ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);
 
-  ExpectEqualReconstructions(gt_reconstruction,
-                             reconstruction,
-                             /*max_rotation_error_deg=*/1e-2,
-                             /*max_proj_center_error=*/1e-4,
-                             /*num_obs_tolerance=*/0);
+  EXPECT_THAT(gt_reconstruction,
+              colmap::ReconstructionNear(reconstruction,
+                                         /*max_rotation_error_deg=*/1e-2,
+                                         /*max_proj_center_error=*/1e-4));
 }
 
 TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
@@ -118,11 +91,10 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
   colmap::Reconstruction reconstruction;
   ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);
 
-  ExpectEqualReconstructions(gt_reconstruction,
-                             reconstruction,
-                             /*max_rotation_error_deg=*/1e-2,
-                             /*max_proj_center_error=*/1e-4,
-                             /*num_obs_tolerance=*/0);
+  EXPECT_THAT(gt_reconstruction,
+              colmap::ReconstructionNear(reconstruction,
+                                         /*max_rotation_error_deg=*/1e-2,
+                                         /*max_proj_center_error=*/1e-4));
 }
 
 TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
@@ -167,11 +139,10 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
   colmap::Reconstruction reconstruction;
   ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);
 
-  ExpectEqualReconstructions(gt_reconstruction,
-                             reconstruction,
-                             /*max_rotation_error_deg=*/1e-2,
-                             /*max_proj_center_error=*/1e-4,
-                             /*num_obs_tolerance=*/0);
+  EXPECT_THAT(gt_reconstruction,
+              colmap::ReconstructionNear(reconstruction,
+                                         /*max_rotation_error_deg=*/1e-2,
+                                         /*max_proj_center_error=*/1e-4));
 }
 
 TEST(GlobalMapper, WithNoiseAndOutliers) {
@@ -208,11 +179,12 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
   colmap::Reconstruction reconstruction;
   ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);
 
-  ExpectEqualReconstructions(gt_reconstruction,
-                             reconstruction,
-                             /*max_rotation_error_deg=*/1e-1,
-                             /*max_proj_center_error=*/1e-1,
-                             /*num_obs_tolerance=*/0.02);
+  EXPECT_THAT(gt_reconstruction,
+              colmap::ReconstructionNear(reconstruction,
+                                         /*max_rotation_error_deg=*/1e-1,
+                                         /*max_proj_center_error=*/1e-1,
+                                         /*max_scale_error=*/std::nullopt,
+                                         /*num_obs_tolerance=*/0.02));
 }
 
 }  // namespace
