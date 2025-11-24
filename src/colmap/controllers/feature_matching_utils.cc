@@ -219,6 +219,10 @@ class VerifierWorker : public Thread {
             data.two_view_geometry.config !=
                 TwoViewGeometry::ConfigurationType::DEGENERATE &&
             data.two_view_geometry.config !=
+                TwoViewGeometry::ConfigurationType::MULTIPLE &&
+            data.two_view_geometry.config !=
+                TwoViewGeometry::ConfigurationType::WATERMARK &&
+            data.two_view_geometry.config !=
                 TwoViewGeometry::ConfigurationType::UNDEFINED) {
           data.two_view_geometry = TwoViewGeometryFromKnownRelativePose(
               camera1,
@@ -242,7 +246,7 @@ class VerifierWorker : public Thread {
  private:
   const TwoViewGeometryOptions options_;
   std::shared_ptr<FeatureMatcherCache> cache_;
-  bool use_existing_relative_pose_;
+  const bool use_existing_relative_pose_;
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;
 };
@@ -507,10 +511,10 @@ void FeatureMatcherController::Match(
   THROW_CHECK_EQ(output_queue_.Size(), 0);
 }
 
-FeatureMatchesVerifierController::FeatureMatchesVerifierController(
+GeometricVerifierController::GeometricVerifierController(
+    const GeometricVerifierOptions& options,
     const TwoViewGeometryOptions& geometry_options,
-    std::shared_ptr<FeatureMatcherCache> cache,
-    const VerifierOptions& options)
+    std::shared_ptr<FeatureMatcherCache> cache)
     : geometry_options_(geometry_options),
       cache_(std::move(cache)),
       options_(options),
@@ -530,7 +534,7 @@ FeatureMatchesVerifierController::FeatureMatchesVerifierController(
   }
 }
 
-FeatureMatchesVerifierController::~FeatureMatchesVerifierController() {
+GeometricVerifierController::~GeometricVerifierController() {
   verifier_queue_.Wait();
   output_queue_.Wait();
 
@@ -546,7 +550,15 @@ FeatureMatchesVerifierController::~FeatureMatchesVerifierController() {
   }
 }
 
-bool FeatureMatchesVerifierController::Setup() {
+const GeometricVerifierOptions& GeometricVerifierController::Options() const {
+  return options_;
+}
+
+GeometricVerifierOptions& GeometricVerifierController::Options() {
+  return options_;
+}
+
+bool GeometricVerifierController::Setup() {
   for (auto& verifier : verifiers_) {
     verifier->Start();
   }
@@ -555,7 +567,7 @@ bool FeatureMatchesVerifierController::Setup() {
   return true;
 }
 
-void FeatureMatchesVerifierController::Verify(
+void GeometricVerifierController::Verify(
     const std::vector<std::pair<image_t, image_t>>& image_pairs) {
   THROW_CHECK_NOTNULL(cache_);
   THROW_CHECK(is_setup_);

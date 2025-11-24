@@ -890,8 +890,10 @@ TwoViewGeometry TwoViewGeometryFromKnownRelativePose(
     }
   }
   if (inlier_matches.size() < static_cast<size_t>(min_num_inliers)) {
+    geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
     return geometry;
   }
+  geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
   geometry.cam2_from_cam1 = cam2_from_cam1;
   geometry.E = E;
   geometry.inlier_matches = inlier_matches;

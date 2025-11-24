@@ -153,8 +153,8 @@ std::unique_ptr<Thread> CreateFeaturePairsFeatureMatcher(
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path);
 
-// Verifier options for CreateGeometricVerifier
-struct VerifierOptions {
+// Options for CreateGeometricVerifier
+struct GeometricVerifierOptions {
   int num_threads = -1;
   bool rig_verification = false;
   bool use_existing_relative_pose = false;
@@ -162,9 +162,9 @@ struct VerifierOptions {
 
 // Perform geometric verification of existing matched image pairs.
 std::unique_ptr<Thread> CreateGeometricVerifier(
+    const GeometricVerifierOptions& verifier_options,
     const ExistingMatchedPairingOptions& pairing_options,
     const TwoViewGeometryOptions& geometry_options,
-    const std::string& database_path,
-    const VerifierOptions& verifier_options);
+    const std::string& database_path);
 
 }  // namespace colmap

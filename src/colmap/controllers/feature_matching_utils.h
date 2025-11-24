@@ -107,17 +107,16 @@ class FeatureMatcherController {
   JobQueue<FeatureMatcherData> output_queue_;
 };
 
-class FeatureMatchesVerifierController {
+class GeometricVerifierController {
  public:
-  FeatureMatchesVerifierController(
-      const TwoViewGeometryOptions& geometry_options,
-      std::shared_ptr<FeatureMatcherCache> cache,
-      const VerifierOptions& options);
+  GeometricVerifierController(const GeometricVerifierOptions& verifier_options,
+                              const TwoViewGeometryOptions& geometry_options,
+                              std::shared_ptr<FeatureMatcherCache> cache);
 
-  inline const VerifierOptions& Options() const;
-  inline VerifierOptions& Options();
+  const GeometricVerifierOptions& Options() const;
+  GeometricVerifierOptions& Options();
 
-  ~FeatureMatchesVerifierController();
+  ~GeometricVerifierController();
 
   // Setup the verifiers and return if successful.
   bool Setup();
@@ -128,7 +127,7 @@ class FeatureMatchesVerifierController {
  private:
   TwoViewGeometryOptions geometry_options_;
   std::shared_ptr<FeatureMatcherCache> cache_;
-  VerifierOptions options_;
+  GeometricVerifierOptions options_;
 
   bool is_setup_;
 
@@ -138,13 +137,5 @@ class FeatureMatchesVerifierController {
   JobQueue<FeatureMatcherData> verifier_queue_;
   JobQueue<FeatureMatcherData> output_queue_;
 };
-
-const VerifierOptions& FeatureMatchesVerifierController::Options() const {
-  return options_;
-}
-
-VerifierOptions& FeatureMatchesVerifierController::Options() {
-  return options_;
-}
 
 }  // namespace colmap

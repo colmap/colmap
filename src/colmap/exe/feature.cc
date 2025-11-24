@@ -390,7 +390,7 @@ int RunVocabTreeMatcher(int argc, char** argv) {
 
 int RunGeometricVerifier(int argc, char** argv) {
   ExistingMatchedPairingOptions pairing_options;
-  VerifierOptions verifier_options;
+  GeometricVerifierOptions verifier_options;
 
   OptionManager options;
   options.AddDatabaseOptions();
@@ -403,10 +403,10 @@ int RunGeometricVerifier(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  auto verifier = CreateGeometricVerifier(pairing_options,
+  auto verifier = CreateGeometricVerifier(verifier_options,
+                                          pairing_options,
                                           *options.two_view_geometry,
-                                          *options.database_path,
-                                          verifier_options);
+                                          *options.database_path);
   verifier->Start();
   verifier->Wait();
 
@@ -416,7 +416,7 @@ int RunGeometricVerifier(int argc, char** argv) {
 int RunGuidedGeometricVerifier(int argc, char** argv) {
   std::string input_path;
   ExistingMatchedPairingOptions pairing_options;
-  VerifierOptions verifier_options;
+  GeometricVerifierOptions verifier_options;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
@@ -458,8 +458,13 @@ int RunGuidedGeometricVerifier(int argc, char** argv) {
     const Rigid3d cam2_from_world = image2.CamFromWorld();
 
     TwoViewGeometry two_view_geometry_copy = two_view_geometry;
-    two_view_geometry_copy.cam2_from_cam1 =
-        cam2_from_world * Inverse(cam1_from_world);
+    if (two_view_geometry_copy.config !=
+        TwoViewGeometry::ConfigurationType::WATERMARK) {
+      two_view_geometry_copy.config =
+          TwoViewGeometry::ConfigurationType::CALIBRATED;
+      two_view_geometry_copy.cam2_from_cam1 =
+          cam2_from_world * Inverse(cam1_from_world);
+    }
     database->WriteTwoViewGeometry(
         image_id1, image_id2, two_view_geometry_copy);
   }
@@ -467,10 +472,10 @@ int RunGuidedGeometricVerifier(int argc, char** argv) {
   // We do not need rig verification in this case.
   verifier_options.rig_verification = false;
   verifier_options.use_existing_relative_pose = true;
-  auto verifier = CreateGeometricVerifier(pairing_options,
+  auto verifier = CreateGeometricVerifier(verifier_options,
+                                          pairing_options,
                                           *options.two_view_geometry,
-                                          *options.database_path,
-                                          verifier_options);
+                                          *options.database_path);
   verifier->Start();
   verifier->Wait();
 
