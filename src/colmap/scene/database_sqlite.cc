@@ -1169,6 +1169,9 @@ class SqliteDatabase : public Database {
   void WriteTwoViewGeometry(const image_t image_id1,
                             const image_t image_id2,
                             const TwoViewGeometry& two_view_geometry) override {
+    THROW_CHECK(!ExistsTwoViewGeometry(image_id1, image_id2))
+        << "Two view geometry between image " << image_id1 << " and "
+        << image_id2 << " already exists.";
     Sqlite3StmtContext context(sql_stmt_write_two_view_geometry_);
 
     const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
