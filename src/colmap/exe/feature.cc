@@ -413,31 +413,14 @@ int RunGeometricVerifier(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
-int RunGuidedGeometricVerifier(int argc, char** argv) {
-  std::string input_path;
-  ExistingMatchedPairingOptions pairing_options;
-  GeometricVerifierOptions verifier_options;
-
-  OptionManager options;
-  options.AddRequiredOption("input_path", &input_path);
-  options.AddDatabaseOptions();
-  options.AddTwoViewGeometryOptions();
-  options.AddDefaultOption("batch_size", &pairing_options.batch_size);
-  options.AddDefaultOption("num_threads", &verifier_options.num_threads);
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (!ExistsDir(input_path)) {
-    LOG(ERROR) << "`input_path` is not a directory";
-    return EXIT_FAILURE;
-  }
-
-  auto reconstruction = std::make_shared<Reconstruction>();
-  reconstruction->Read(input_path);
-
-  // Set all relative pose from given reconstruction
-  auto database = Database::Open(*options.database_path);
+void RunGuidedGeometricVerifierImpl(
+    const std::shared_ptr<Reconstruction>& reconstruction,
+    const std::string& database_path,
+    const ExistingMatchedPairingOptions& pairing_options,
+    const TwoViewGeometryOptions& geometry_options,
+    const int num_threads) {
+  // Set all relative poses from a given reconstruction.
+  auto database = Database::Open(database_path);
   std::vector<std::pair<image_pair_t, TwoViewGeometry>> two_view_geometries;
   two_view_geometries = database->ReadTwoViewGeometries();
   database->ClearTwoViewGeometries();
@@ -467,15 +450,46 @@ int RunGuidedGeometricVerifier(int argc, char** argv) {
         image_id1, image_id2, two_view_geometry_copy);
   }
 
+  GeometricVerifierOptions verifier_options;
+  verifier_options.num_threads = num_threads;
   // We do not need rig verification in this case.
   verifier_options.rig_verification = false;
   verifier_options.use_existing_relative_pose = true;
-  auto verifier = CreateGeometricVerifier(verifier_options,
-                                          pairing_options,
-                                          *options.two_view_geometry,
-                                          *options.database_path);
+
+  auto verifier = CreateGeometricVerifier(
+      verifier_options, pairing_options, geometry_options, database_path);
   verifier->Start();
   verifier->Wait();
+}
+
+int RunGuidedGeometricVerifier(int argc, char** argv) {
+  std::string input_path;
+  ExistingMatchedPairingOptions pairing_options;
+  int num_threads = -1;
+
+  OptionManager options;
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddDatabaseOptions();
+  options.AddTwoViewGeometryOptions();
+  options.AddDefaultOption("batch_size", &pairing_options.batch_size);
+  options.AddDefaultOption("num_threads", &num_threads);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsDir(input_path)) {
+    LOG(ERROR) << "`input_path` is not a directory";
+    return EXIT_FAILURE;
+  }
+
+  auto reconstruction = std::make_shared<Reconstruction>();
+  reconstruction->Read(input_path);
+
+  RunGuidedGeometricVerifierImpl(reconstruction,
+                                 *options.database_path,
+                                 pairing_options,
+                                 *options.two_view_geometry,
+                                 num_threads);
 
   return EXIT_SUCCESS;
 }

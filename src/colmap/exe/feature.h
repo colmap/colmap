@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/controllers/feature_matching.h"
 #include "colmap/controllers/image_reader.h"
 
 namespace colmap {
@@ -75,6 +76,13 @@ bool VerifySiftGPUParams(bool use_gpu);
 
 bool VerifyCameraParams(const std::string& camera_model,
                         const std::string& params);
+
+void RunGuidedGeometricVerifierImpl(
+    const std::shared_ptr<Reconstruction>& reconstruction,
+    const std::string& database_path,
+    const ExistingMatchedPairingOptions& pairing_options,
+    const TwoViewGeometryOptions& geometry_options,
+    const int num_threads);
 
 int RunFeatureExtractor(int argc, char** argv);
 int RunFeatureImporter(int argc, char** argv);
