@@ -290,7 +290,7 @@ void ViewGraphManipulater::DecomposeRelPose(
       image_pair.config = two_view_geometry.config;
       image_pair.cam2_from_cam1 = two_view_geometry.cam2_from_cam1;
 
-      if (image_pair.cam2_from_cam1.translation.norm() > EPS) {
+      if (image_pair.cam2_from_cam1.translation.norm() > 1e-12) {
         image_pair.cam2_from_cam1.translation =
             image_pair.cam2_from_cam1.translation.normalized();
       }
