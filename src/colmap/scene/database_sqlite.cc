@@ -1200,27 +1200,13 @@ class SqliteDatabase : public Database {
         two_view_geometry_ptr->cam2_from_cam1.rotation.y(),
         two_view_geometry_ptr->cam2_from_cam1.rotation.z());
 
-    if (two_view_geometry_ptr->inlier_matches.size() > 0) {
-      WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ft, 6);
-      WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Et, 7);
-      WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ht, 8);
-      WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, quat_wxyz, 9);
-      WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_,
-                            two_view_geometry_ptr->cam2_from_cam1.translation,
-                            10);
-    } else {
-      WriteStaticMatrixBlob(
-          sql_stmt_write_two_view_geometry_, Eigen::MatrixXd(0, 0), 6);
-      WriteStaticMatrixBlob(
-          sql_stmt_write_two_view_geometry_, Eigen::MatrixXd(0, 0), 7);
-      WriteStaticMatrixBlob(
-          sql_stmt_write_two_view_geometry_, Eigen::MatrixXd(0, 0), 8);
-      WriteStaticMatrixBlob(
-          sql_stmt_write_two_view_geometry_, Eigen::MatrixXd(0, 0), 9);
-      WriteStaticMatrixBlob(
-          sql_stmt_write_two_view_geometry_, Eigen::MatrixXd(0, 0), 10);
-    }
-
+    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ft, 6);
+    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Et, 7);
+    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ht, 8);
+    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, quat_wxyz, 9);
+    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_,
+                          two_view_geometry_ptr->cam2_from_cam1.translation,
+                          10);
     SQLITE3_CALL(sqlite3_step(sql_stmt_write_two_view_geometry_));
   }
 

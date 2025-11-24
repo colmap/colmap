@@ -421,33 +421,32 @@ void RunGuidedGeometricVerifierImpl(
     int num_threads) {
   // Set all relative poses from a given reconstruction.
   auto database = Database::Open(database_path);
-  std::vector<std::pair<image_pair_t, TwoViewGeometry>> two_view_geometries;
-  two_view_geometries = database->ReadTwoViewGeometries();
+  std::vector<std::pair<image_pair_t, FeatureMatches>> all_matches =
+      database->ReadAllMatches();
   database->ClearTwoViewGeometries();
-  for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
+  for (const auto& [pair_id, matches] : all_matches) {
+    if (matches.size() <
+        static_cast<size_t>(geometry_options.min_num_inliers)) {
+      continue;
+    }
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     if (!reconstruction->ExistsImage(image_id1) ||
         !reconstruction->ExistsImage(image_id2)) {
-      database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
       continue;
     }
     Image& image1 = reconstruction->Image(image_id1);
     Image& image2 = reconstruction->Image(image_id2);
     if (!image1.HasPose() || !image2.HasPose()) {
-      database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
       continue;
     }
     const Rigid3d cam1_from_world = image1.CamFromWorld();
     const Rigid3d cam2_from_world = image2.CamFromWorld();
 
-    TwoViewGeometry two_view_geometry_copy = two_view_geometry;
-    two_view_geometry_copy.config =
-        TwoViewGeometry::ConfigurationType::CALIBRATED;
-    two_view_geometry_copy.cam2_from_cam1 =
+    TwoViewGeometry two_view_geometry;
+    two_view_geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
+    two_view_geometry.cam2_from_cam1 =
         cam2_from_world * Inverse(cam1_from_world);
-    two_view_geometry_copy.inlier_matches.clear();
-    database->WriteTwoViewGeometry(
-        image_id1, image_id2, two_view_geometry_copy);
+    database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
   }
 
   GeometricVerifierOptions verifier_options;
