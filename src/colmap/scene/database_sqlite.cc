@@ -1358,6 +1358,18 @@ class SqliteDatabase : public Database {
     SQLITE3_CALL(sqlite3_step(sql_stmt_update_keypoints_));
   }
 
+  void UpdateTwoViewGeometry(
+      const image_t image_id1,
+      const image_t image_id2,
+      const TwoViewGeometry& two_view_geometry) override {
+    // Do nothing if the image pair does not exist, to align with the UPDATE
+    // behavior in SQL.
+    if (ExistsTwoViewGeometry(image_id1, image_id2)) {
+      DeleteTwoViewGeometry(image_id1, image_id2);
+      WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+    }
+  }
+
   void DeleteMatches(const image_t image_id1,
                      const image_t image_id2) override {
     Sqlite3StmtContext context(sql_stmt_delete_matches_);
@@ -1388,8 +1400,7 @@ class SqliteDatabase : public Database {
     }
     TwoViewGeometry geom = ReadTwoViewGeometry(image_id1, image_id2);
     geom.inlier_matches.clear();
-    DeleteTwoViewGeometry(image_id1, image_id2);
-    WriteTwoViewGeometry(image_id1, image_id2, geom);
+    UpdateTwoViewGeometry(image_id1, image_id2, geom);
   }
 
   void ClearAllTables() override {

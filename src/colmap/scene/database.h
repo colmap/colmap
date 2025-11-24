@@ -253,6 +253,12 @@ class Database {
   virtual void UpdateKeypoints(image_t image_id,
                                const FeatureKeypointsBlob& blob) = 0;
 
+  // Update an existing two view geometry in the database.
+  virtual void UpdateTwoViewGeometry(
+      image_t image_id1,
+      image_t image_id2,
+      const TwoViewGeometry& two_view_geometry) = 0;
+
   // Delete matches of an image pair.
   virtual void DeleteMatches(image_t image_id1, image_t image_id2) = 0;
 
