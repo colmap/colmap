@@ -63,21 +63,17 @@ int TrackFilter::FilterTracksByAngle(
   double thres_uncalib = std::cos(DegToRad(max_angle_error * 2));
   for (auto& [track_id, track] : tracks) {
     std::vector<Observation> observation_new;
-    for (auto& [image_id, feature_id] : track.observations) {
+    for (const auto& [image_id, feature_id] : track.observations) {
       const Image& image = images.at(image_id);
-      // const Camera& camera = image.camera;
       const Eigen::Vector3d& feature_undist =
           image.features_undist.at(feature_id);
-      Eigen::Vector3d pt_calc = image.CamFromWorld() * track.xyz;
-      if (pt_calc(2) < 1e-12) continue;
-
-      pt_calc = pt_calc.normalized();
-      double thres_cam = (cameras.at(image.camera_id).has_prior_focal_length)
+      const Eigen::Vector3d pt_calc = (image.CamFromWorld() * track.xyz).normalized();
+      const double thres_cam = (cameras.at(image.camera_id).has_prior_focal_length)
                              ? thres
                              : thres_uncalib;
 
       if (pt_calc.dot(feature_undist) > thres_cam) {
-        observation_new.emplace_back(std::make_pair(image_id, feature_id));
+        observation_new.emplace_back(image_id, feature_id);
       }
     }
     if (observation_new.size() != track.observations.size()) {
