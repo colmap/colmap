@@ -73,12 +73,6 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
         bool, Database, ExistsTwoViewGeometry, image_id1, image_id2);
   }
 
-  bool ExistsInlierMatches(image_t image_id1,
-                           image_t image_id2) const override {
-    PYBIND11_OVERRIDE_PURE(
-        bool, Database, ExistsInlierMatches, image_id1, image_id2);
-  }
-
   size_t NumRigs() const override {
     PYBIND11_OVERRIDE_PURE(size_t, Database, NumRigs);
   }
@@ -433,10 +427,6 @@ void BindDatabase(py::module& m) {
            "image_id2"_a)
       .def("exists_two_view_geometry",
            &Database::ExistsTwoViewGeometry,
-           "image_id1"_a,
-           "image_id2"_a)
-      .def("exists_inlier_matches",
-           &Database::ExistsInlierMatches,
            "image_id1"_a,
            "image_id2"_a)
       .def("num_rigs", &Database::NumRigs)

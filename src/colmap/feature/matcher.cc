@@ -211,12 +211,6 @@ bool FeatureMatcherCache::ExistsTwoViewGeometry(const image_t image_id1,
   return database_->ExistsTwoViewGeometry(image_id1, image_id2);
 }
 
-bool FeatureMatcherCache::ExistsInlierMatches(const image_t image_id1,
-                                              const image_t image_id2) {
-  std::lock_guard<std::mutex> lock(database_mutex_);
-  return database_->ExistsInlierMatches(image_id1, image_id2);
-}
-
 void FeatureMatcherCache::UpdateTwoViewGeometry(
     const image_t image_id1,
     const image_t image_id2,

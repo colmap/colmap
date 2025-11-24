@@ -547,15 +547,6 @@ class SqliteDatabase : public Database {
                        ImagePairToPairId(image_id1, image_id2));
   }
 
-  bool ExistsInlierMatches(const image_t image_id1,
-                           const image_t image_id2) const override {
-    if (!ExistsTwoViewGeometry(image_id1, image_id2)) {
-      return false;
-    }
-    TwoViewGeometry geom = ReadTwoViewGeometry(image_id1, image_id2);
-    return !geom.inlier_matches.empty();
-  }
-
   size_t NumRigs() const override { return CountRows("rigs"); }
 
   size_t NumCameras() const override { return CountRows("cameras"); }

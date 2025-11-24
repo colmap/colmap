@@ -145,7 +145,6 @@ class FeatureMatcherCache {
 
   bool ExistsMatches(image_t image_id1, image_t image_id2);
   bool ExistsTwoViewGeometry(image_t image_id1, image_t image_id2);
-  bool ExistsInlierMatches(image_t image_id1, image_t image_id2);
 
   void UpdateTwoViewGeometry(image_t image_id1,
                              image_t image_id2,

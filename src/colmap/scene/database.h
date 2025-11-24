@@ -91,8 +91,6 @@ class Database {
   virtual bool ExistsMatches(image_t image_id1, image_t image_id2) const = 0;
   virtual bool ExistsTwoViewGeometry(image_t image_id1,
                                      image_t image_id2) const = 0;
-  virtual bool ExistsInlierMatches(image_t image_id1,
-                                   image_t image_id2) const = 0;
 
   // Number of rows in `rigs` table.
   virtual size_t NumRigs() const = 0;
