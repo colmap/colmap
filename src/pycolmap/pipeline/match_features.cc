@@ -247,6 +247,7 @@ void BindMatchFeatures(py::module& m) {
 
   auto PyGeometricVerifierOptions =
       py::classh<GeometricVerifierOptions>(m, "GeometricVerifierOptions")
+          .def(py::init<>())
           .def_readwrite("num_threads", &GeometricVerifierOptions::num_threads)
           .def_readwrite("rig_verification",
                          &GeometricVerifierOptions::rig_verification)
