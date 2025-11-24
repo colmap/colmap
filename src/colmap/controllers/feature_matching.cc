@@ -212,7 +212,7 @@ class FeatureMatcherThread : public Thread {
              EstimateRigTwoViewGeometries(
                  rig1, rig2, images, cameras, matches, geometry_options_)) {
           const auto& [image_id1, image_id2] = image_pair;
-          cache_->DeleteInlierMatches(image_id1, image_id2);
+          cache_->DeleteTwoViewGeometry(image_id1, image_id2);
           cache_->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
         }
       });
@@ -385,7 +385,7 @@ class FeaturePairsFeatureMatcher : public Thread {
       const Image& image2 = *image_name_to_image[image_name2];
 
       bool skip_pair = false;
-      if (database_->ExistsInlierMatches(image1.ImageId(), image2.ImageId())) {
+      if (database_->ExistsTwoViewGeometry(image1.ImageId(), image2.ImageId())) {
         LOG(INFO) << "SKIP: Matches for image pair already exist in database.";
         skip_pair = true;
       }

@@ -101,7 +101,7 @@ void SynthesizeExhaustiveMatches(double inlier_match_ratio,
       if (!database->ExistsMatches(image_id1, image_id2)) {
         database->WriteMatches(image_id1, image_id2, matches);
       }
-      if (!database->ExistsInlierMatches(image_id1, image_id2)) {
+      if (!database->ExistsTwoViewGeometry(image_id1, image_id2)) {
         database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
       }
     }
@@ -162,7 +162,7 @@ void SynthesizeChainedMatches(double inlier_match_ratio,
     if (!database->ExistsMatches(image_id1, image_id2)) {
       database->WriteMatches(image_id1, image_id2, matches);
     }
-    if (!database->ExistsInlierMatches(image_id1, image_id2)) {
+    if (!database->ExistsTwoViewGeometry(image_id1, image_id2)) {
       database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
     }
   }

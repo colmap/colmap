@@ -441,8 +441,8 @@ void FeatureMatcherController::Match(
     }
 
     const bool exists_matches = cache_->ExistsMatches(image_id1, image_id2);
-    const bool exists_inlier_matches =
-        cache_->ExistsInlierMatches(image_id1, image_id2);
+    const bool exists_two_view_geometry =
+        cache_->ExistsTwoViewGeometry(image_id1, image_id2);
 
     if (exists_matches && exists_inlier_matches) {
       continue;
@@ -454,8 +454,8 @@ void FeatureMatcherController::Match(
     // from scratch and delete the existing results. This must be done before
     // pushing the jobs to the queue, otherwise database constraints might fail
     // when writing an existing result into the database.
-    if (exists_inlier_matches) {
-      cache_->DeleteInlierMatches(image_id1, image_id2);
+    if (exists_two_view_geometry) {
+      cache_->DeleteTwoViewGeometry(image_id1, image_id2);
     }
 
     FeatureMatcherData data;
