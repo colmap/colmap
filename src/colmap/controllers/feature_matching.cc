@@ -385,7 +385,8 @@ class FeaturePairsFeatureMatcher : public Thread {
       const Image& image2 = *image_name_to_image[image_name2];
 
       bool skip_pair = false;
-      if (database_->ExistsTwoViewGeometry(image1.ImageId(), image2.ImageId())) {
+      if (database_->ExistsTwoViewGeometry(image1.ImageId(),
+                                           image2.ImageId())) {
         LOG(INFO) << "SKIP: Matches for image pair already exist in database.";
         skip_pair = true;
       }

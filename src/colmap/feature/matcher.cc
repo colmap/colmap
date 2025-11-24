@@ -206,7 +206,7 @@ bool FeatureMatcherCache::ExistsMatches(const image_t image_id1,
 }
 
 bool FeatureMatcherCache::ExistsTwoViewGeometry(const image_t image_id1,
-                                              const image_t image_id2) {
+                                                const image_t image_id2) {
   std::lock_guard<std::mutex> lock(database_mutex_);
   return database_->ExistsTwoViewGeometry(image_id1, image_id2);
 }
@@ -239,7 +239,7 @@ void FeatureMatcherCache::DeleteMatches(const image_t image_id1,
 }
 
 void FeatureMatcherCache::DeleteTwoViewGeometry(const image_t image_id1,
-                                              const image_t image_id2) {
+                                                const image_t image_id2) {
   std::lock_guard<std::mutex> lock(database_mutex_);
   database_->DeleteTwoViewGeometry(image_id1, image_id2);
 }
