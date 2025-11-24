@@ -202,7 +202,7 @@ void TwoViewGeometriesTab::Reload(const std::shared_ptr<Database>& database,
       continue;
     }
 
-    if (database->ExistsInlierMatches(image_id, image.ImageId())) {
+    if (database->ExistsTwoViewGeometry(image_id, image.ImageId())) {
       const auto two_view_geometry =
           database->ReadTwoViewGeometry(image_id, image.ImageId());
       if (!two_view_geometry.inlier_matches.empty()) {

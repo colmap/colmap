@@ -1,9 +1,9 @@
 #include "gravity_refinement.h"
 
+#include "colmap/estimators/manifold.h"
+
 #include "glomap/estimators/cost_function.h"
 #include "glomap/math/gravity.h"
-
-#include "colmap/estimators/manifold.h"
 
 namespace glomap {
 void GravityRefiner::RefineGravity(const ViewGraph& view_graph,

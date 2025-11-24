@@ -37,10 +37,11 @@ class ImagePairInliers {
   const InlierThresholdOptions& options;
 };
 
-void ImagePairsInlierCount(ViewGraph& view_graph,
-                           const std::unordered_map<camera_t, colmap::Camera>& cameras,
-                           const std::unordered_map<image_t, Image>& images,
-                           const InlierThresholdOptions& options,
-                           bool clean_inliers);
+void ImagePairsInlierCount(
+    ViewGraph& view_graph,
+    const std::unordered_map<camera_t, colmap::Camera>& cameras,
+    const std::unordered_map<image_t, Image>& images,
+    const InlierThresholdOptions& options,
+    bool clean_inliers);
 
 }  // namespace glomap

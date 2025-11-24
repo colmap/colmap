@@ -1,9 +1,9 @@
 
 #pragma once
 
-#include "glomap/scene/types_sfm.h"
-
 #include "colmap/math/union_find.h"
+
+#include "glomap/scene/types_sfm.h"
 
 namespace glomap {
 
