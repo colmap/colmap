@@ -100,7 +100,7 @@ double ImagePairInliers::ScoreErrorFundamental() {
 
   bool status = false;
   for (auto i = 0; i < 3; i++) {
-    if ((epipole(i) > EPS) || (epipole(i) < -EPS)) {
+    if (std::abs(epipole(i)) > 1e-12) {
       status = true;
       break;
     }
