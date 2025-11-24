@@ -541,8 +541,8 @@ class SqliteDatabase : public Database {
                        ImagePairToPairId(image_id1, image_id2));
   }
 
-  bool ExistsInlierMatches(const image_t image_id1,
-                           const image_t image_id2) const override {
+  bool ExistsTwoViewGeometry(const image_t image_id1,
+                             const image_t image_id2) const override {
     return ExistsRowId(sql_stmt_exists_two_view_geometry_,
                        ImagePairToPairId(image_id1, image_id2));
   }
@@ -1160,6 +1160,9 @@ class SqliteDatabase : public Database {
   void WriteTwoViewGeometry(const image_t image_id1,
                             const image_t image_id2,
                             const TwoViewGeometry& two_view_geometry) override {
+    THROW_CHECK(!ExistsTwoViewGeometry(image_id1, image_id2))
+        << "Two view geometry between image " << image_id1 << " and "
+        << image_id2 << " already exists.";
     Sqlite3StmtContext context(sql_stmt_write_two_view_geometry_);
 
     const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
@@ -1346,6 +1349,18 @@ class SqliteDatabase : public Database {
     SQLITE3_CALL(sqlite3_step(sql_stmt_update_keypoints_));
   }
 
+  void UpdateTwoViewGeometry(
+      const image_t image_id1,
+      const image_t image_id2,
+      const TwoViewGeometry& two_view_geometry) override {
+    // Do nothing if the image pair does not exist, to align with the UPDATE
+    // behavior in SQL.
+    if (ExistsTwoViewGeometry(image_id1, image_id2)) {
+      DeleteTwoViewGeometry(image_id1, image_id2);
+      WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+    }
+  }
+
   void DeleteMatches(const image_t image_id1,
                      const image_t image_id2) override {
     Sqlite3StmtContext context(sql_stmt_delete_matches_);
@@ -1357,8 +1372,8 @@ class SqliteDatabase : public Database {
     database_entry_deleted_ = true;
   }
 
-  void DeleteInlierMatches(const image_t image_id1,
-                           const image_t image_id2) override {
+  void DeleteTwoViewGeometry(const image_t image_id1,
+                             const image_t image_id2) override {
     Sqlite3StmtContext context(sql_stmt_delete_two_view_geometry_);
 
     const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
@@ -1367,6 +1382,16 @@ class SqliteDatabase : public Database {
                                     static_cast<sqlite3_int64>(pair_id)));
     SQLITE3_CALL(sqlite3_step(sql_stmt_delete_two_view_geometry_));
     database_entry_deleted_ = true;
+  }
+
+  void DeleteInlierMatches(const image_t image_id1,
+                           const image_t image_id2) override {
+    if (!ExistsTwoViewGeometry(image_id1, image_id2)) {
+      return;
+    }
+    TwoViewGeometry geom = ReadTwoViewGeometry(image_id1, image_id2);
+    geom.inlier_matches.clear();
+    UpdateTwoViewGeometry(image_id1, image_id2, geom);
   }
 
   void ClearAllTables() override {
