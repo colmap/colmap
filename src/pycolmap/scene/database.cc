@@ -67,6 +67,12 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
     PYBIND11_OVERRIDE_PURE(bool, Database, ExistsMatches, image_id1, image_id2);
   }
 
+  bool ExistsTwoViewGeometry(image_t image_id1,
+                             image_t image_id2) const override {
+    PYBIND11_OVERRIDE_PURE(
+        bool, Database, ExistsTwoViewGeometry, image_id1, image_id2);
+  }
+
   bool ExistsInlierMatches(image_t image_id1,
                            image_t image_id2) const override {
     PYBIND11_OVERRIDE_PURE(
@@ -339,6 +345,11 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
     PYBIND11_OVERRIDE_PURE(void, Database, DeleteMatches, image_id1, image_id2);
   }
 
+  void DeleteTwoViewGeometry(image_t image_id1, image_t image_id2) override {
+    PYBIND11_OVERRIDE_PURE(
+        void, Database, DeleteTwoViewGeometry, image_id1, image_id2);
+  }
+
   void DeleteInlierMatches(image_t image_id1, image_t image_id2) override {
     PYBIND11_OVERRIDE_PURE(
         void, Database, DeleteInlierMatches, image_id1, image_id2);
@@ -412,6 +423,10 @@ void BindDatabase(py::module& m) {
       .def("exists_descriptors", &Database::ExistsDescriptors, "image_id"_a)
       .def("exists_matches",
            &Database::ExistsMatches,
+           "image_id1"_a,
+           "image_id2"_a)
+      .def("exists_two_view_geometry",
+           &Database::ExistsTwoViewGeometry,
            "image_id1"_a,
            "image_id2"_a)
       .def("exists_inlier_matches",
@@ -573,6 +588,10 @@ void BindDatabase(py::module& m) {
            "keypoints"_a)
       .def("delete_matches",
            &Database::DeleteMatches,
+           "image_id1"_a,
+           "image_id2"_a)
+      .def("delete_two_view_geometry",
+           &Database::DeleteTwoViewGeometry,
            "image_id1"_a,
            "image_id2"_a)
       .def("delete_inlier_matches",
