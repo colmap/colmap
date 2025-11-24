@@ -92,7 +92,7 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
   // Here, we assume that largest connected component is already retrieved, so
   // we do not need to do that again compute maximum spanning tree.
   std::unordered_map<image_t, image_t> parents;
-  image_t root = MaximumSpanningTree(view_graph, images, parents, INLIER_NUM);
+  const image_t root = MaximumSpanningTree(view_graph, images, parents, WeightType::INLIER_NUM);
 
   // Iterate through the tree to initialize the rotation
   // Establish child info
