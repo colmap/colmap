@@ -217,7 +217,9 @@ class VerifierWorker : public Thread {
 
         if (use_existing_relative_pose_ &&
             data.two_view_geometry.config !=
-                TwoViewGeometry::ConfigurationType::DEGENERATE) {
+                TwoViewGeometry::ConfigurationType::DEGENERATE &&
+            data.two_view_geometry.config !=
+                TwoViewGeometry::ConfigurationType::UNDEFINED) {
           data.two_view_geometry = TwoViewGeometryFromKnownRelativePose(
               camera1,
               points1,
