@@ -100,16 +100,11 @@ void PatchMatch::Check() const {
     THROW_CHECK_EQ(image.GetHeight(), image.GetBitmap().Height()) << image_idx;
 
     // Make sure, the calibration matrix only contains fx, fy, cx, cy.
-    THROW_CHECK_LT(std::abs(image.CalibrationMatrix()[1] - 0.0f), 1e-6f)
-        << image_idx;
-    THROW_CHECK_LT(std::abs(image.CalibrationMatrix()[3] - 0.0f), 1e-6f)
-        << image_idx;
-    THROW_CHECK_LT(std::abs(image.CalibrationMatrix()[6] - 0.0f), 1e-6f)
-        << image_idx;
-    THROW_CHECK_LT(std::abs(image.CalibrationMatrix()[7] - 0.0f), 1e-6f)
-        << image_idx;
-    THROW_CHECK_LT(std::abs(image.CalibrationMatrix()[8] - 1.0f), 1e-6f)
-        << image_idx;
+    THROW_CHECK_LT(std::abs(image.GetK()[1] - 0.0f), 1e-6f) << image_idx;
+    THROW_CHECK_LT(std::abs(image.GetK()[3] - 0.0f), 1e-6f) << image_idx;
+    THROW_CHECK_LT(std::abs(image.GetK()[6] - 0.0f), 1e-6f) << image_idx;
+    THROW_CHECK_LT(std::abs(image.GetK()[7] - 0.0f), 1e-6f) << image_idx;
+    THROW_CHECK_LT(std::abs(image.GetK()[8] - 1.0f), 1e-6f) << image_idx;
 
     if (options_.geom_consistency) {
       THROW_CHECK_LT(image_idx, problem_.depth_maps->size()) << image_idx;

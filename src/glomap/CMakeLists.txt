@@ -28,7 +28,6 @@ COLMAP_ADD_LIBRARY(
         processors/track_filter.h processors/track_filter.cc
         processors/view_graph_manipulation.h processors/view_graph_manipulation.cc
         scene/view_graph.h scene/view_graph.cc
-        scene/camera.h
         scene/frame.h
         scene/image_pair.h
         scene/image.h
