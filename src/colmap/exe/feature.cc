@@ -462,6 +462,7 @@ int RunGuidedGeometricVerifier(int argc, char** argv) {
         TwoViewGeometry::ConfigurationType::CALIBRATED;
     two_view_geometry_copy.cam2_from_cam1 =
         cam2_from_world * Inverse(cam1_from_world);
+    two_view_geometry_copy.inlier_matches.clear();
     database->WriteTwoViewGeometry(
         image_id1, image_id2, two_view_geometry_copy);
   }

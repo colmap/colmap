@@ -611,7 +611,7 @@ void GeometricVerifierController::Verify(
     // pushing the jobs to the queue, otherwise database constraints might fail
     // when writing an existing result into the database.
     if (exists_inlier_matches) {
-      cache_->DeleteInlierMatches(image_id1, image_id2);
+      cache_->DeleteTwoViewGeometry(image_id1, image_id2);
     }
 
     FeatureMatcherData data;
@@ -620,6 +620,11 @@ void GeometricVerifierController::Verify(
 
     if (exists_matches) {
       data.matches = cache_->GetMatches(image_id1, image_id2);
+      // There exists a two view geometry without inlier matches.
+      if (cache_->ExistsTwoViewGeometry(image_id1, image_id2)) {
+        data.two_view_geometry =
+            cache_->GetTwoViewGeometry(image_id1, image_id2);
+      }
       THROW_CHECK(verifier_queue_.Push(std::move(data)));
     }
   }
@@ -643,6 +648,9 @@ void GeometricVerifierController::Verify(
       output.two_view_geometry = TwoViewGeometry();
     }
 
+    if (cache_->ExistsTwoViewGeometry(output.image_id1, output.image_id2)) {
+      cache_->DeleteTwoViewGeometry(output.image_id1, output.image_id2);
+    }
     cache_->WriteTwoViewGeometry(
         output.image_id1, output.image_id2, output.two_view_geometry);
   }
