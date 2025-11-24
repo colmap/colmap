@@ -418,7 +418,7 @@ void RunGuidedGeometricVerifierImpl(
     const std::string& database_path,
     const ExistingMatchedPairingOptions& pairing_options,
     const TwoViewGeometryOptions& geometry_options,
-    const int num_threads) {
+    int num_threads) {
   // Set all relative poses from a given reconstruction.
   auto database = Database::Open(database_path);
   std::vector<std::pair<image_pair_t, TwoViewGeometry>> two_view_geometries;

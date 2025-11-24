@@ -82,7 +82,7 @@ void RunGuidedGeometricVerifierImpl(
     const std::string& database_path,
     const ExistingMatchedPairingOptions& pairing_options,
     const TwoViewGeometryOptions& geometry_options,
-    const int num_threads);
+    int num_threads);
 
 int RunFeatureExtractor(int argc, char** argv);
 int RunFeatureImporter(int argc, char** argv);
