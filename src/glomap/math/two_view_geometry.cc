@@ -45,13 +45,13 @@ void EssentialFromMotion(const Rigid3d& pose, Eigen::Matrix3d* E) {
 }
 
 // Get the essential matrix from relative pose
-void FundamentalFromMotionAndCameras(const Camera& camera1,
-                                     const Camera& camera2,
+void FundamentalFromMotionAndCameras(const colmap::Camera& camera1,
+                                     const colmap::Camera& camera2,
                                      const Rigid3d& pose,
                                      Eigen::Matrix3d* F) {
   Eigen::Matrix3d E;
   EssentialFromMotion(pose, &E);
-  *F = camera2.GetK().transpose().inverse() * E * camera1.GetK().inverse();
+  *F = camera2.CalibrationMatrix().transpose().inverse() * E * camera1.CalibrationMatrix().inverse();
 }
 
 double SampsonError(const Eigen::Matrix3d& E,
@@ -71,22 +71,22 @@ double SampsonError(const Eigen::Matrix3d& E,
 double SampsonError(const Eigen::Matrix3d& E,
                     const Eigen::Vector3d& x1,
                     const Eigen::Vector3d& x2) {
-  Eigen::Vector3d Ex1 = E * x1 / (EPS + x1[2]);
-  Eigen::Vector3d Etx2 = E.transpose() * x2 / (EPS + x2[2]);
-
-  double C = Ex1.dot(x2);
-  double Cx = Ex1.head(2).squaredNorm();
-  double Cy = Etx2.head(2).squaredNorm();
-  double r2 = C * C / (Cx + Cy);
-
-  return r2;
+  const Eigen::Vector3d Ex1 = E * x1 / x1[2];
+  const Eigen::Vector3d Etx2 = E.transpose() * x2 / x2[2];
+  const double C = Ex1.dot(x2);
+  const double denom = Ex1.head(2).squaredNorm() + Etx2.head(2).squaredNorm();
+  if (denom == 0) {
+    return std::numeric_limits<double>::max();
+  }
+  return C * C / denom;
 }
 
 double HomographyError(const Eigen::Matrix3d& H,
                        const Eigen::Vector2d& x1,
                        const Eigen::Vector2d& x2) {
+  constexpr double kEps = 1e-12;
   Eigen::Vector3d Hx1 = H * x1.homogeneous();
-  Eigen::Vector2d Hx1_norm = Hx1.head(2) / (EPS + Hx1[2]);
+  Eigen::Vector2d Hx1_norm = Hx1.head(2) / (kEps + Hx1[2]);
   double r2 = (Hx1_norm - x2).squaredNorm();
 
   return r2;

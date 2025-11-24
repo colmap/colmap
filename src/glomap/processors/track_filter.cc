@@ -6,7 +6,7 @@ namespace glomap {
 
 int TrackFilter::FilterTracksByReprojection(
     const ViewGraph& view_graph,
-    const std::unordered_map<camera_t, Camera>& cameras,
+    const std::unordered_map<camera_t, colmap::Camera>& cameras,
     const std::unordered_map<image_t, Image>& images,
     std::unordered_map<track_t, Track>& tracks,
     double max_reprojection_error,
@@ -17,7 +17,8 @@ int TrackFilter::FilterTracksByReprojection(
     for (auto& [image_id, feature_id] : track.observations) {
       const Image& image = images.at(image_id);
       Eigen::Vector3d pt_calc = image.CamFromWorld() * track.xyz;
-      if (pt_calc(2) < EPS) continue;
+      constexpr double kEps = 1e-12;
+      if (pt_calc(2) < kEps) continue;
 
       double reprojection_error = max_reprojection_error;
       if (in_normalized_image) {
@@ -26,7 +27,7 @@ int TrackFilter::FilterTracksByReprojection(
 
         Eigen::Vector2d pt_reproj = pt_calc.head(2) / pt_calc(2);
         reprojection_error =
-            (pt_reproj - feature_undist.head(2) / (feature_undist(2) + EPS))
+            (pt_reproj - feature_undist.head(2) / (feature_undist(2) + kEps))
                 .norm();
       } else {
         Eigen::Vector2d pt_dist;
@@ -53,7 +54,7 @@ int TrackFilter::FilterTracksByReprojection(
 
 int TrackFilter::FilterTracksByAngle(
     const ViewGraph& view_graph,
-    const std::unordered_map<camera_t, Camera>& cameras,
+    const std::unordered_map<camera_t, colmap::Camera>& cameras,
     const std::unordered_map<image_t, Image>& images,
     std::unordered_map<track_t, Track>& tracks,
     double max_angle_error) {
@@ -62,21 +63,17 @@ int TrackFilter::FilterTracksByAngle(
   double thres_uncalib = std::cos(DegToRad(max_angle_error * 2));
   for (auto& [track_id, track] : tracks) {
     std::vector<Observation> observation_new;
-    for (auto& [image_id, feature_id] : track.observations) {
+    for (const auto& [image_id, feature_id] : track.observations) {
       const Image& image = images.at(image_id);
-      // const Camera& camera = image.camera;
       const Eigen::Vector3d& feature_undist =
           image.features_undist.at(feature_id);
-      Eigen::Vector3d pt_calc = image.CamFromWorld() * track.xyz;
-      if (pt_calc(2) < EPS) continue;
-
-      pt_calc = pt_calc.normalized();
-      double thres_cam = (cameras.at(image.camera_id).has_prior_focal_length)
+      const Eigen::Vector3d pt_calc = (image.CamFromWorld() * track.xyz).normalized();
+      const double thres_cam = (cameras.at(image.camera_id).has_prior_focal_length)
                              ? thres
                              : thres_uncalib;
 
       if (pt_calc.dot(feature_undist) > thres_cam) {
-        observation_new.emplace_back(std::make_pair(image_id, feature_id));
+        observation_new.emplace_back(image_id, feature_id);
       }
     }
     if (observation_new.size() != track.observations.size()) {

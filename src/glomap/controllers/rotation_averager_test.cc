@@ -141,7 +141,7 @@ TEST(RotationEstimator, WithoutNoise) {
 
   ViewGraph view_graph;
   std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<camera_t, Camera> cameras;
+  std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
   std::unordered_map<track_t, Track> tracks;
@@ -186,7 +186,7 @@ TEST(RotationEstimator, WithoutNoiseWithNoneTrivialKnownRig) {
 
   ViewGraph view_graph;
   std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<camera_t, Camera> cameras;
+  std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
   std::unordered_map<track_t, Track> tracks;
@@ -229,7 +229,7 @@ TEST(RotationEstimator, WithoutNoiseWithNoneTrivialUnknownRig) {
 
   ViewGraph view_graph;
   std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<camera_t, Camera> cameras;
+  std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
   std::unordered_map<track_t, Track> tracks;
@@ -284,7 +284,7 @@ TEST(RotationEstimator, WithNoiseAndOutliers) {
 
   ViewGraph view_graph;
   std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<camera_t, Camera> cameras;
+  std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<image_t, Image> images;
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<track_t, Track> tracks;
@@ -333,7 +333,7 @@ TEST(RotationEstimator, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
 
   ViewGraph view_graph;
   std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<camera_t, Camera> cameras;
+  std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<image_t, Image> images;
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<track_t, Track> tracks;
@@ -380,7 +380,7 @@ TEST(RotationEstimator, RefineGravity) {
 
   ViewGraph view_graph;
   std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<camera_t, Camera> cameras;
+  std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
   std::unordered_map<track_t, Track> tracks;
@@ -423,7 +423,7 @@ TEST(RotationEstimator, RefineGravityWithNontrivialRigs) {
 
   ViewGraph view_graph;
   std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<camera_t, Camera> cameras;
+  std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
   std::unordered_map<track_t, Track> tracks;

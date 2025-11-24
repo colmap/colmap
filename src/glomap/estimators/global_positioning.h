@@ -62,7 +62,7 @@ class GlobalPositioner {
   // Assume tracks here are already filtered
   bool Solve(const ViewGraph& view_graph,
              std::unordered_map<rig_t, Rig>& rigs,
-             std::unordered_map<camera_t, Camera>& cameras,
+             std::unordered_map<camera_t, colmap::Camera>& cameras,
              std::unordered_map<frame_t, Frame>& frames,
              std::unordered_map<image_t, Image>& images,
              std::unordered_map<track_t, Track>& tracks);
@@ -87,7 +87,7 @@ class GlobalPositioner {
   // Add tracks to the problem
   void AddPointToCameraConstraints(
       std::unordered_map<rig_t, Rig>& rigs,
-      std::unordered_map<camera_t, Camera>& cameras,
+      std::unordered_map<camera_t, colmap::Camera>& cameras,
       std::unordered_map<frame_t, Frame>& frames,
       std::unordered_map<image_t, Image>& images,
       std::unordered_map<track_t, Track>& tracks);
@@ -95,7 +95,7 @@ class GlobalPositioner {
   // Add a single track to the problem
   void AddTrackToProblem(track_t track_id,
                          std::unordered_map<rig_t, Rig>& rigs,
-                         std::unordered_map<camera_t, Camera>& cameras,
+                         std::unordered_map<camera_t, colmap::Camera>& cameras,
                          std::unordered_map<frame_t, Frame>& frames,
                          std::unordered_map<image_t, Image>& images,
                          std::unordered_map<track_t, Track>& tracks);

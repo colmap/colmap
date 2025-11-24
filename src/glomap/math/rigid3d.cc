@@ -1,7 +1,5 @@
 #include "glomap/math/rigid3d.h"
 
-#include "glomap/scene/camera.h"
-
 namespace glomap {
 
 double CalcAngle(const Rigid3d& pose1, const Rigid3d& pose2) {
@@ -44,7 +42,7 @@ Eigen::Vector3d RotationToAngleAxis(const Eigen::Matrix3d& rot) {
 
 Eigen::Matrix3d AngleAxisToRotation(const Eigen::Vector3d& aa_vec) {
   double aa_norm = aa_vec.norm();
-  if (aa_norm > EPS) {
+  if (aa_norm > 1e-12) {
     return Eigen::AngleAxis<double>(aa_norm, aa_vec.normalized())
         .toRotationMatrix();
   } else {

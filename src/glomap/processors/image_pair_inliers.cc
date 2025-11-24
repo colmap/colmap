@@ -41,8 +41,8 @@ double ImagePairInliers::ScoreErrorEssential() {
 
   // Conver the threshold from pixel space to normalized space
   thres = options.max_epipolar_error_E * 0.5 *
-          (1. / cameras->at(images.at(image_id1).camera_id).Focal() +
-           1. / cameras->at(images.at(image_id2).camera_id).Focal());
+          (1. / cameras->at(images.at(image_id1).camera_id).MeanFocalLength() +
+           1. / cameras->at(images.at(image_id2).camera_id).MeanFocalLength());
 
   // Square the threshold for faster computation
   double sq_threshold = thres * thres;
@@ -100,7 +100,7 @@ double ImagePairInliers::ScoreErrorFundamental() {
 
   bool status = false;
   for (auto i = 0; i < 3; i++) {
-    if ((epipole(i) > EPS) || (epipole(i) < -EPS)) {
+    if (std::abs(epipole(i)) > 1e-12) {
       status = true;
       break;
     }
@@ -198,7 +198,7 @@ double ImagePairInliers::ScoreErrorHomography() {
 }
 
 void ImagePairsInlierCount(ViewGraph& view_graph,
-                           const std::unordered_map<camera_t, Camera>& cameras,
+                           const std::unordered_map<camera_t, colmap::Camera>& cameras,
                            const std::unordered_map<image_t, Image>& images,
                            const InlierThresholdOptions& options,
                            bool clean_inliers) {

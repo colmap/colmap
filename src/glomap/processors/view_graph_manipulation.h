@@ -25,12 +25,12 @@ struct ViewGraphManipulater {
 
   static void UpdateImagePairsConfig(
       ViewGraph& view_graph,
-      const std::unordered_map<camera_t, Camera>& cameras,
+      const std::unordered_map<camera_t, colmap::Camera>& cameras,
       const std::unordered_map<image_t, Image>& images);
 
   // Decompose the relative camera postion from the camera config
   static void DecomposeRelPose(ViewGraph& view_graph,
-                               std::unordered_map<camera_t, Camera>& cameras,
+                               std::unordered_map<camera_t, colmap::Camera>& cameras,
                                std::unordered_map<image_t, Image>& images);
 };
 
