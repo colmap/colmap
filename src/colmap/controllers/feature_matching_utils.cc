@@ -444,7 +444,7 @@ void FeatureMatcherController::Match(
     const bool exists_two_view_geometry =
         cache_->ExistsTwoViewGeometry(image_id1, image_id2);
 
-    if (exists_matches && exists_inlier_matches) {
+    if (exists_matches && exists_two_view_geometry) {
       continue;
     }
 
