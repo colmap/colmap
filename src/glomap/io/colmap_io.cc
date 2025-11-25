@@ -12,8 +12,8 @@ void WriteGlomapReconstruction(
     const std::unordered_map<frame_t, Frame>& frames,
     const std::unordered_map<image_t, Image>& images,
     const std::unordered_map<track_t, Track>& tracks,
-    const std::string output_format,
-    const std::string image_path) {
+    const std::string& output_format,
+    const std::string& image_path) {
   // Check whether reconstruction pruning is applied.
   // If so, export seperate reconstruction
   int largest_component_num = -1;
@@ -62,13 +62,13 @@ void WriteGlomapReconstruction(
         LOG(ERROR) << "Unsupported output type";
       }
     }
-    std::cout << std::endl;
+    std::cout << '\n';
   }
 }
 
 void WriteColmapReconstruction(const std::string& reconstruction_path,
                                const colmap::Reconstruction& reconstruction,
-                               const std::string output_format) {
+                               const std::string& output_format) {
   colmap::CreateDirIfNotExists(reconstruction_path, true);
   if (output_format == "txt") {
     reconstruction.WriteText(reconstruction_path);
