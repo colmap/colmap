@@ -6,7 +6,7 @@ namespace glomap {
 image_t PruneWeaklyConnectedImages(
     std::unordered_map<frame_t, Frame>& frames,
     std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, colmap::Point3D>& tracks,
+    std::unordered_map<point3D_t, Point3D>& tracks,
     int min_num_images,
     int min_num_observations) {
   // Prepare the 2d-3d correspondences

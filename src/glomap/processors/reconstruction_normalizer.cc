@@ -7,7 +7,7 @@ colmap::Sim3d NormalizeReconstruction(
     std::unordered_map<camera_t, colmap::Camera>& cameras,
     std::unordered_map<frame_t, Frame>& frames,
     std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, colmap::Point3D>& tracks,
+    std::unordered_map<point3D_t, Point3D>& tracks,
     bool fixed_scale,
     double extent,
     double p0,

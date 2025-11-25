@@ -3,7 +3,7 @@
 namespace glomap {
 
 size_t TrackEngine::EstablishFullTracks(
-    std::unordered_map<point3D_t, colmap::Point3D>& tracks) {
+    std::unordered_map<point3D_t, Point3D>& tracks) {
   tracks.clear();
   uf_ = {};
 
@@ -63,7 +63,7 @@ void TrackEngine::BlindConcatenation() {
 }
 
 void TrackEngine::TrackCollection(
-    std::unordered_map<point3D_t, colmap::Point3D>& tracks) {
+    std::unordered_map<point3D_t, Point3D>& tracks) {
   std::unordered_map<uint64_t, std::unordered_set<uint64_t>> track_map;
   std::unordered_map<uint64_t, int> track_counter;
 
@@ -152,8 +152,8 @@ void TrackEngine::TrackCollection(
 }
 
 size_t TrackEngine::FindTracksForProblem(
-    const std::unordered_map<point3D_t, colmap::Point3D>& tracks_full,
-    std::unordered_map<point3D_t, colmap::Point3D>& tracks_selected) {
+    const std::unordered_map<point3D_t, Point3D>& tracks_full,
+    std::unordered_map<point3D_t, Point3D>& tracks_selected) {
   // Sort the tracks by length
   std::vector<std::pair<size_t, point3D_t>> track_lengths;
 
@@ -171,7 +171,7 @@ size_t TrackEngine::FindTracksForProblem(
 
   // If we only want to select a subset of images, then only add the tracks
   // corresponding to those images
-  std::unordered_map<point3D_t, colmap::Point3D> tracks;
+  std::unordered_map<point3D_t, Point3D> tracks;
   for (const auto& [image_id, image] : images_) {
     if (!image.IsRegistered()) continue;
 
@@ -184,7 +184,7 @@ size_t TrackEngine::FindTracksForProblem(
 
     // Collect the image ids. For each image, only increment the counter by 1
     std::unordered_set<image_t> image_ids;
-    colmap::Point3D track_temp;
+    Point3D track_temp;
     for (const auto& observation : track.track.Elements()) {
       if (tracks_per_camera.count(observation.image_id) == 0) continue;
 

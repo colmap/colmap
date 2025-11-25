@@ -1,5 +1,7 @@
 #include "glomap/math/two_view_geometry.h"
 
+#include "colmap/geometry/rigid3.h"
+
 namespace glomap {
 // Code from PoseLib by Viktor Larsson
 bool CheckCheirality(const Rigid3d& pose,

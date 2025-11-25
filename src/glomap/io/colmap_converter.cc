@@ -24,7 +24,7 @@ void ConvertGlomapToColmap(
     const std::unordered_map<camera_t, colmap::Camera>& cameras,
     const std::unordered_map<frame_t, Frame>& frames,
     const std::unordered_map<image_t, Image>& images,
-    const std::unordered_map<point3D_t, colmap::Point3D>& tracks,
+    const std::unordered_map<point3D_t, Point3D>& tracks,
     colmap::Reconstruction& reconstruction,
     int cluster_id,
     bool include_image_points) {
@@ -79,7 +79,7 @@ void ConvertGlomapToColmap(
 
   // Add points
   for (const auto& [track_id, track] : tracks) {
-    colmap::Point3D colmap_point;
+    Point3D colmap_point;
     colmap_point.xyz = track.xyz;
     colmap_point.color = track.color;
     colmap_point.error = track.error;
@@ -138,7 +138,7 @@ void ConvertColmapToGlomap(
     std::unordered_map<camera_t, colmap::Camera>& cameras,
     std::unordered_map<frame_t, Frame>& frames,
     std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, colmap::Point3D>& tracks) {
+    std::unordered_map<point3D_t, Point3D>& tracks) {
   // Clear the glomap reconstruction
   cameras.clear();
   images.clear();
@@ -186,7 +186,7 @@ void ConvertColmapToGlomap(
 
 void ConvertColmapPoints3DToGlomapTracks(
     const colmap::Reconstruction& reconstruction,
-    std::unordered_map<point3D_t, colmap::Point3D>& tracks) {
+    std::unordered_map<point3D_t, Point3D>& tracks) {
   // Read tracks
   tracks.clear();
   tracks.reserve(reconstruction.NumPoints3D());

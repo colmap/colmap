@@ -13,7 +13,7 @@ bool BundleAdjuster::Solve(
     std::unordered_map<camera_t, colmap::Camera>& cameras,
     std::unordered_map<frame_t, Frame>& frames,
     std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, colmap::Point3D>& tracks) {
+    std::unordered_map<point3D_t, Point3D>& tracks) {
   // Check if the input data is valid
   if (images.empty()) {
     LOG(ERROR) << "Number of images = " << images.size();
@@ -118,7 +118,7 @@ void BundleAdjuster::AddPointToCameraConstraints(
     std::unordered_map<camera_t, colmap::Camera>& cameras,
     std::unordered_map<frame_t, Frame>& frames,
     std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, colmap::Point3D>& tracks) {
+    std::unordered_map<point3D_t, Point3D>& tracks) {
   for (auto& [track_id, track] : tracks) {
     if (track.track.Length() < options_.min_num_view_per_track) continue;
 
@@ -194,7 +194,7 @@ void BundleAdjuster::AddCamerasAndPointsToParameterGroups(
     std::unordered_map<rig_t, Rig>& rigs,
     std::unordered_map<camera_t, colmap::Camera>& cameras,
     std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<point3D_t, colmap::Point3D>& tracks) {
+    std::unordered_map<point3D_t, Point3D>& tracks) {
   if (tracks.size() == 0) return;
 
   // Create a custom ordering for Schur-based problems.
@@ -246,7 +246,7 @@ void BundleAdjuster::ParameterizeVariables(
     std::unordered_map<rig_t, Rig>& rigs,
     std::unordered_map<camera_t, colmap::Camera>& cameras,
     std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<point3D_t, colmap::Point3D>& tracks) {
+    std::unordered_map<point3D_t, Point3D>& tracks) {
   frame_t center;
 
   // Parameterize rotations, and set rotations and translations to be constant

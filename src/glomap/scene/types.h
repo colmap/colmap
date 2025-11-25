@@ -1,14 +1,19 @@
 #pragma once
 
-#include "colmap/geometry/rigid3.h"
-// #include "colmap/scene/camera_rig.h"
-#include "colmap/scene/database.h"
 #include "colmap/util/types.h"
 
 #include <cstdint>
 #include <limits>
 #include <unordered_map>
 #include <unordered_set>
+
+namespace colmap {
+
+class Rig;
+struct Point3D;
+struct Rigid3d;
+
+}  // namespace colmap
 
 namespace glomap {
 
@@ -32,9 +37,8 @@ using colmap::rig_t;
 using colmap::image_pair_t;
 using colmap::kInvalidImagePairId;
 
-// Unique identifier per added 3D point. Since we add many 3D points,
-// delete them, and possibly re-add them again, the maximum number of allowed
-// unique indices should be large.
+// Unique identifier for 3D points.
+using colmap::Point3D;
 using colmap::point3D_t;
 
 using colmap::Rigid3d;

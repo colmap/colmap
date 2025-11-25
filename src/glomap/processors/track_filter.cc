@@ -8,7 +8,7 @@ int TrackFilter::FilterTracksByReprojection(
     const ViewGraph& view_graph,
     const std::unordered_map<camera_t, colmap::Camera>& cameras,
     const std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, colmap::Point3D>& tracks,
+    std::unordered_map<point3D_t, Point3D>& tracks,
     double max_reprojection_error,
     bool in_normalized_image) {
   int counter = 0;
@@ -58,7 +58,7 @@ int TrackFilter::FilterTracksByAngle(
     const ViewGraph& view_graph,
     const std::unordered_map<camera_t, colmap::Camera>& cameras,
     const std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, colmap::Point3D>& tracks,
+    std::unordered_map<point3D_t, Point3D>& tracks,
     double max_angle_error) {
   int counter = 0;
   double thres = std::cos(DegToRad(max_angle_error));
@@ -93,7 +93,7 @@ int TrackFilter::FilterTracksByAngle(
 int TrackFilter::FilterTrackTriangulationAngle(
     const ViewGraph& view_graph,
     const std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, colmap::Point3D>& tracks,
+    std::unordered_map<point3D_t, Point3D>& tracks,
     double min_angle) {
   int counter = 0;
   double thres = std::cos(DegToRad(min_angle));
