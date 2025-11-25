@@ -29,7 +29,6 @@ image_pair_t ViewGraphManipulater::SparsifyGraph(
 
   // Go through the adjacency list and keep edge with probability
   // ((expected_degree * average_degree) / (degree1 * degree2))
-  // Create a thread-local random number generator and distribution.
   std::mt19937 rng(std::random_device{}());
   std::uniform_real_distribution<double> dist(0.0, 1.0);
 
