@@ -111,12 +111,13 @@ image_t MaximumSpanningTree(const ViewGraph& view_graph,
     // Set the weight to be negative, then the result would be a maximum
     // spanning tree
     e = boost::add_edge(idx1, idx2, G).first;
-    if (type == WeightType::INLIER_NUM) {
-      weights_boost[e] = max_weight - image_pair.inliers.size();
-    } else if (type == WeightType::INLIER_RATIO) {
-      weights_boost[e] = max_weight - image_pair.weight;
-    } else {
-      weights_boost[e] = max_weight - image_pair.inliers.size();
+    switch (type) {
+      case WeightType::INLIER_NUM:
+        weights_boost[e] = max_weight - image_pair.inliers.size();
+        break;
+      case WeightType::INLIER_RATIO:
+        weights_boost[e] = max_weight - image_pair.weight;
+        break;
     }
   }
 

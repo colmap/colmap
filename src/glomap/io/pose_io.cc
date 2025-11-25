@@ -153,7 +153,7 @@ void ReadGravity(const std::string& gravity_path,
     std::getline(line_stream, name, ' ');
 
     // Gravity
-    for (double i = 0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
       std::getline(line_stream, item, ' ');
       gravity[i] = std::stod(item);
     }
