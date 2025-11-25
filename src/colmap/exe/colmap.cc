@@ -96,6 +96,8 @@ int main(int argc, char** argv) {
   commands.emplace_back("feature_extractor", &colmap::RunFeatureExtractor);
   commands.emplace_back("feature_importer", &colmap::RunFeatureImporter);
   commands.emplace_back("geometric_verifier", &colmap::RunGeometricVerifier);
+  commands.emplace_back("guided_geometric_verifier",
+                        &colmap::RunGuidedGeometricVerifier);
   commands.emplace_back("hierarchical_mapper", &colmap::RunHierarchicalMapper);
   commands.emplace_back("image_deleter", &colmap::RunImageDeleter);
   commands.emplace_back("image_filterer", &colmap::RunImageFilterer);

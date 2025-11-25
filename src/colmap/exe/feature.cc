@@ -390,22 +390,105 @@ int RunVocabTreeMatcher(int argc, char** argv) {
 
 int RunGeometricVerifier(int argc, char** argv) {
   ExistingMatchedPairingOptions pairing_options;
+  GeometricVerifierOptions verifier_options;
 
   OptionManager options;
   options.AddDatabaseOptions();
-  options.AddFeatureMatchingOptions();
   options.AddTwoViewGeometryOptions();
   options.AddDefaultOption("batch_size", &pairing_options.batch_size);
+  options.AddDefaultOption("num_threads", &verifier_options.num_threads);
+  options.AddDefaultOption("rig_verification",
+                           &verifier_options.rig_verification);
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
 
-  auto matcher = CreateGeometricVerifier(pairing_options,
-                                         *options.feature_matching,
-                                         *options.two_view_geometry,
-                                         *options.database_path);
-  matcher->Start();
-  matcher->Wait();
+  auto verifier = CreateGeometricVerifier(verifier_options,
+                                          pairing_options,
+                                          *options.two_view_geometry,
+                                          *options.database_path);
+  verifier->Start();
+  verifier->Wait();
+
+  return EXIT_SUCCESS;
+}
+
+void RunGuidedGeometricVerifierImpl(
+    const Reconstruction& reconstruction,
+    const std::string& database_path,
+    const ExistingMatchedPairingOptions& pairing_options,
+    const TwoViewGeometryOptions& geometry_options,
+    int num_threads) {
+  // Set all relative poses from a given reconstruction.
+  auto database = Database::Open(database_path);
+  std::vector<std::pair<image_pair_t, FeatureMatches>> all_matches =
+      database->ReadAllMatches();
+  database->ClearTwoViewGeometries();
+  for (const auto& [pair_id, matches] : all_matches) {
+    if (matches.size() <
+        static_cast<size_t>(geometry_options.min_num_inliers)) {
+      continue;
+    }
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    if (!reconstruction.ExistsImage(image_id1) ||
+        !reconstruction.ExistsImage(image_id2)) {
+      continue;
+    }
+    const Image& image1 = reconstruction.Image(image_id1);
+    const Image& image2 = reconstruction.Image(image_id2);
+    if (!image1.HasPose() || !image2.HasPose()) {
+      continue;
+    }
+    const Rigid3d cam1_from_world = image1.CamFromWorld();
+    const Rigid3d cam2_from_world = image2.CamFromWorld();
+
+    TwoViewGeometry two_view_geometry;
+    two_view_geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
+    two_view_geometry.cam2_from_cam1 =
+        cam2_from_world * Inverse(cam1_from_world);
+    database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+  }
+
+  GeometricVerifierOptions verifier_options;
+  verifier_options.num_threads = num_threads;
+  // We do not need rig verification in this case.
+  verifier_options.rig_verification = false;
+  verifier_options.use_existing_relative_pose = true;
+
+  auto verifier = CreateGeometricVerifier(
+      verifier_options, pairing_options, geometry_options, database_path);
+  verifier->Start();
+  verifier->Wait();
+}
+
+int RunGuidedGeometricVerifier(int argc, char** argv) {
+  std::string input_path;
+  ExistingMatchedPairingOptions pairing_options;
+  int num_threads = -1;
+
+  OptionManager options;
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddDatabaseOptions();
+  options.AddTwoViewGeometryOptions();
+  options.AddDefaultOption("batch_size", &pairing_options.batch_size);
+  options.AddDefaultOption("num_threads", &num_threads);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsDir(input_path)) {
+    LOG(ERROR) << "`input_path` is not a directory";
+    return EXIT_FAILURE;
+  }
+
+  Reconstruction reconstruction;
+  reconstruction.Read(input_path);
+
+  RunGuidedGeometricVerifierImpl(reconstruction,
+                                 *options.database_path,
+                                 pairing_options,
+                                 *options.two_view_geometry,
+                                 num_threads);
 
   return EXIT_SUCCESS;
 }
