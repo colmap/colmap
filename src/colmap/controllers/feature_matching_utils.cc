@@ -169,6 +169,35 @@ void FeatureMatcherWorker::Run() {
 
 namespace {
 
+// A thread that does nothing but forward the data from input to output.
+class PassThroughWorker : public Thread {
+ public:
+  using Input = FeatureMatcherData;
+  using Output = FeatureMatcherData;
+
+  PassThroughWorker(JobQueue<Input>* input_queue,
+                    JobQueue<Output>* output_queue)
+      : input_queue_(input_queue), output_queue_(output_queue) {}
+
+ protected:
+  void Run() override {
+    while (true) {
+      if (IsStopped()) {
+        break;
+      }
+      auto input_job = input_queue_->Pop();
+      if (input_job.IsValid()) {
+        auto& data = input_job.Data();
+        THROW_CHECK(output_queue_->Push(std::move(data)));
+      }
+    }
+  }
+
+ private:
+  JobQueue<Input>* input_queue_;
+  JobQueue<Output>* output_queue_;
+};
+
 class VerifierWorker : public Thread {
  public:
   typedef FeatureMatcherData Input;
@@ -342,8 +371,13 @@ FeatureMatcherController::FeatureMatcherController(
     }
   } else {
     for (int i = 0; i < num_threads; ++i) {
-      verifiers_.emplace_back(std::make_unique<VerifierWorker>(
-          geometry_options_, cache_, &verifier_queue_, &output_queue_));
+      if (matching_options_.skip_geometric_verification) {
+        verifiers_.emplace_back(std::make_unique<PassThroughWorker>(
+            &verifier_queue_, &output_queue_));
+      } else {
+        verifiers_.emplace_back(std::make_unique<VerifierWorker>(
+            geometry_options_, cache_, &verifier_queue_, &output_queue_));
+      }
     }
   }
 }

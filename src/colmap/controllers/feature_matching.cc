@@ -206,7 +206,8 @@ class FeatureMatcherThread : public Thread {
     // feature matching operates on pairs of images instead of pairs of frames.
     // Rig verification operates on pairs of frames and we require all image
     // pairs between two frames to be matched before running rig verification.
-    if (matching_options_.rig_verification) {
+    if (!matching_options_.skip_geometric_verification &&
+        matching_options_.rig_verification) {
       run_timer.Restart();
       PrintHeading1("Rig verification");
       RigVerification(
