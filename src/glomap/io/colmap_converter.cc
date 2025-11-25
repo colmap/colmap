@@ -154,7 +154,7 @@ void ConvertColmapToGlomap(
 
   // Add frames
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    frames[frame_id] = frame;
+    frames[frame_id] = Frame(frame);
     frames[frame_id].SetRigPtr(rigs.find(frame.RigId()) != rigs.end()
                                    ? &rigs[frame.RigId()]
                                    : nullptr);

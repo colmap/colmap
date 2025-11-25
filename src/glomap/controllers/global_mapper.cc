@@ -89,7 +89,11 @@ bool GlobalMapper::Solve(const colmap::Database& database,
     run_timer.Start();
 
     // The first run is for filtering
-    SolveRotationAveraging(view_graph, rigs, frames, images, options_.opt_ra);
+    SolveRotationAveraging(view_graph,
+                           rigs,
+                           frames,
+                           images,
+                           RotationAveragerOptions(options_.opt_ra));
 
     RelPoseFilter::FilterRotations(
         view_graph, images, options_.inlier_thresholds.max_rotation_error);
@@ -99,8 +103,11 @@ bool GlobalMapper::Solve(const colmap::Database& database,
     }
 
     // The second run is for final estimation
-    if (!SolveRotationAveraging(
-            view_graph, rigs, frames, images, options_.opt_ra)) {
+    if (!SolveRotationAveraging(view_graph,
+                                rigs,
+                                frames,
+                                images,
+                                RotationAveragerOptions(options_.opt_ra))) {
       return false;
     }
     RelPoseFilter::FilterRotations(
