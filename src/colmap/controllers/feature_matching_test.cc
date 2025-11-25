@@ -332,5 +332,59 @@ TEST(CreateGeometricVerifier, Nominal) {
   EXPECT_GE(database->ReadTwoViewGeometries().size(), 3);
 }
 
+TEST(CreateGeometricVerifier, Guided) {
+  const std::string test_dir = CreateTestDir();
+  const std::string database_path = test_dir + "/database.db";
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.inlier_match_ratio = 0.6;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  // Clear all inlier matches. cam2_from_cam1 is already gt from the synthesized
+  // database.
+  std::vector<std::pair<image_pair_t, TwoViewGeometry>> gt_two_view_geometries =
+      database->ReadTwoViewGeometries();
+  for (const auto& [pair_id, _] : gt_two_view_geometries) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    database->DeleteInlierMatches(image_id1, image_id2);
+  }
+
+  ExistingMatchedPairingOptions pairing_options;
+  GeometricVerifierOptions verifier_options;
+  verifier_options.num_threads = 1;
+  verifier_options.use_existing_relative_pose = true;
+
+  TwoViewGeometryOptions geometry_options;
+
+  auto verifier = CreateGeometricVerifier(
+      verifier_options, pairing_options, geometry_options, database_path);
+  ASSERT_NE(verifier, nullptr);
+  verifier->Start();
+  verifier->Wait();
+
+  // Check validity after guided geometric verification.
+  std::vector<std::pair<image_pair_t, TwoViewGeometry>> two_view_geometries =
+      database->ReadTwoViewGeometries();
+  EXPECT_GE(two_view_geometries.size(), gt_two_view_geometries.size());
+  for (size_t i = 0; i < two_view_geometries.size(); ++i) {
+    EXPECT_EQ(two_view_geometries[i].first, gt_two_view_geometries[i].first);
+    EXPECT_EQ(two_view_geometries[i].second.cam2_from_cam1,
+              gt_two_view_geometries[i].second.cam2_from_cam1);
+    EXPECT_TRUE(gt_two_view_geometries[i].second.E.isApprox(
+        two_view_geometries[i].second.E));
+    // Should at least have all the original inliers. Some generated outliers
+    // can be accidentally inliers as well.
+    EXPECT_GE(two_view_geometries[i].second.inlier_matches.size(),
+              gt_two_view_geometries[i].second.inlier_matches.size());
+  }
+}
+
 }  // namespace
 }  // namespace colmap
