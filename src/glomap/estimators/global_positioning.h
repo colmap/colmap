@@ -65,20 +65,22 @@ class GlobalPositioner {
              std::unordered_map<camera_t, colmap::Camera>& cameras,
              std::unordered_map<frame_t, Frame>& frames,
              std::unordered_map<image_t, Image>& images,
-             std::unordered_map<track_t, Track>& tracks);
+             std::unordered_map<point3D_t, colmap::Point3D>& tracks);
 
   GlobalPositionerOptions& GetOptions() { return options_; }
 
  protected:
-  void SetupProblem(const ViewGraph& view_graph,
-                    const std::unordered_map<rig_t, Rig>& rigs,
-                    const std::unordered_map<track_t, Track>& tracks);
+  void SetupProblem(
+      const ViewGraph& view_graph,
+      const std::unordered_map<rig_t, Rig>& rigs,
+      const std::unordered_map<point3D_t, colmap::Point3D>& tracks);
 
   // Initialize all cameras to be random.
-  void InitializeRandomPositions(const ViewGraph& view_graph,
-                                 std::unordered_map<frame_t, Frame>& frames,
-                                 std::unordered_map<image_t, Image>& images,
-                                 std::unordered_map<track_t, Track>& tracks);
+  void InitializeRandomPositions(
+      const ViewGraph& view_graph,
+      std::unordered_map<frame_t, Frame>& frames,
+      std::unordered_map<image_t, Image>& images,
+      std::unordered_map<point3D_t, colmap::Point3D>& tracks);
 
   // Creates camera to camera constraints from relative translations. (3D)
   void AddCameraToCameraConstraints(const ViewGraph& view_graph,
@@ -90,26 +92,28 @@ class GlobalPositioner {
       std::unordered_map<camera_t, colmap::Camera>& cameras,
       std::unordered_map<frame_t, Frame>& frames,
       std::unordered_map<image_t, Image>& images,
-      std::unordered_map<track_t, Track>& tracks);
+      std::unordered_map<point3D_t, colmap::Point3D>& tracks);
 
   // Add a single track to the problem
-  void AddTrackToProblem(track_t track_id,
-                         std::unordered_map<rig_t, Rig>& rigs,
-                         std::unordered_map<camera_t, colmap::Camera>& cameras,
-                         std::unordered_map<frame_t, Frame>& frames,
-                         std::unordered_map<image_t, Image>& images,
-                         std::unordered_map<track_t, Track>& tracks);
+  void AddTrackToProblem(
+      point3D_t track_id,
+      std::unordered_map<rig_t, Rig>& rigs,
+      std::unordered_map<camera_t, colmap::Camera>& cameras,
+      std::unordered_map<frame_t, Frame>& frames,
+      std::unordered_map<image_t, Image>& images,
+      std::unordered_map<point3D_t, colmap::Point3D>& tracks);
 
   // Set the parameter groups
   void AddCamerasAndPointsToParameterGroups(
       std::unordered_map<rig_t, Rig>& rigs,
       std::unordered_map<frame_t, Frame>& frames,
-      std::unordered_map<track_t, Track>& tracks);
+      std::unordered_map<point3D_t, colmap::Point3D>& tracks);
 
   // Parameterize the variables, set some variables to be constant if desired
-  void ParameterizeVariables(std::unordered_map<rig_t, Rig>& rigs,
-                             std::unordered_map<frame_t, Frame>& frames,
-                             std::unordered_map<track_t, Track>& tracks);
+  void ParameterizeVariables(
+      std::unordered_map<rig_t, Rig>& rigs,
+      std::unordered_map<frame_t, Frame>& frames,
+      std::unordered_map<point3D_t, colmap::Point3D>& tracks);
 
   // During the optimization, the camera translation is set to be the camera
   // center Convert the results back to camera poses

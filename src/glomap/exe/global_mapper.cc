@@ -68,7 +68,7 @@ int RunMapper(int argc, char** argv) {
   std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
-  std::unordered_map<track_t, Track> tracks;
+  std::unordered_map<point3D_t, colmap::Point3D> tracks;
 
   auto database = colmap::Database::Open(database_path);
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
@@ -141,7 +141,7 @@ int RunMapperResume(int argc, char** argv) {
   std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
-  std::unordered_map<track_t, Track> tracks;
+  std::unordered_map<point3D_t, colmap::Point3D> tracks;
   colmap::Reconstruction reconstruction;
   reconstruction.Read(input_path);
   ConvertColmapToGlomap(reconstruction, rigs, cameras, frames, images, tracks);

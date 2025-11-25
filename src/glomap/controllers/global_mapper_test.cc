@@ -68,7 +68,7 @@ TEST(GlobalMapper, WithoutNoise) {
   std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
-  std::unordered_map<track_t, Track> tracks;
+  std::unordered_map<point3D_t, colmap::Point3D> tracks;
 
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
@@ -107,7 +107,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
   std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
-  std::unordered_map<track_t, Track> tracks;
+  std::unordered_map<point3D_t, colmap::Point3D> tracks;
 
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
@@ -147,7 +147,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
   std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
-  std::unordered_map<track_t, Track> tracks;
+  std::unordered_map<point3D_t, colmap::Point3D> tracks;
 
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
@@ -197,7 +197,7 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
   std::unordered_map<rig_t, Rig> rigs;
   std::unordered_map<image_t, Image> images;
   std::unordered_map<frame_t, Frame> frames;
-  std::unordered_map<track_t, Track> tracks;
+  std::unordered_map<point3D_t, colmap::Point3D> tracks;
 
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 

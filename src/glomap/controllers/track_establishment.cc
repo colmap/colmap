@@ -3,7 +3,7 @@
 namespace glomap {
 
 size_t TrackEngine::EstablishFullTracks(
-    std::unordered_map<track_t, Track>& tracks) {
+    std::unordered_map<point3D_t, colmap::Point3D>& tracks) {
   tracks.clear();
   uf_ = {};
 
@@ -62,7 +62,8 @@ void TrackEngine::BlindConcatenation() {
   std::cout << std::endl;
 }
 
-void TrackEngine::TrackCollection(std::unordered_map<track_t, Track>& tracks) {
+void TrackEngine::TrackCollection(
+    std::unordered_map<point3D_t, colmap::Point3D>& tracks) {
   std::unordered_map<uint64_t, std::unordered_set<uint64_t>> track_map;
   std::unordered_map<uint64_t, int> track_counter;
 
@@ -110,7 +111,7 @@ void TrackEngine::TrackCollection(std::unordered_map<track_t, Track>& tracks) {
 
   counter = 0;
   size_t discarded_counter = 0;
-  for (auto& [track_id, correspondence_set] : track_map) {
+  for (const auto& [track_id, correspondence_set] : track_map) {
     if ((counter + 1) % 1000 == 0 || counter == track_map.size() - 1) {
       std::cout << "\r Establishing tracks " << counter + 1 << " / "
                 << track_map.size() << std::flush;
@@ -118,19 +119,19 @@ void TrackEngine::TrackCollection(std::unordered_map<track_t, Track>& tracks) {
     counter++;
 
     std::unordered_map<image_t, std::vector<Eigen::Vector2d>> image_id_set;
-    for (auto point_global_id : correspondence_set) {
+    for (const uint64_t point_global_id : correspondence_set) {
       // image_id is the higher 32 bits and feature_id is the lower 32 bits
-      image_t image_id = point_global_id >> 32;
-      feature_t feature_id = point_global_id & 0xFFFFFFFF;
+      const image_t image_id = point_global_id >> 32;
+      const uint64_t feature_id = point_global_id & 0xFFFFFFFF;
       if (image_id_set.find(image_id) != image_id_set.end()) {
         for (const auto& feature : image_id_set.at(image_id)) {
           if ((feature - images_.at(image_id).features[feature_id]).norm() >
               options_.thres_inconsistency) {
-            tracks[track_id].observations.clear();
+            tracks[track_id].track.SetElements({});
             break;
           }
         }
-        if (tracks[track_id].observations.size() == 0) {
+        if (tracks[track_id].track.Length() == 0) {
           discarded_counter++;
           break;
         }
@@ -141,7 +142,7 @@ void TrackEngine::TrackCollection(std::unordered_map<track_t, Track>& tracks) {
       image_id_set[image_id].push_back(
           images_.at(image_id).features[feature_id]);
 
-      tracks[track_id].observations.emplace_back(image_id, feature_id);
+      tracks[track_id].track.AddElement(image_id, feature_id);
     }
   }
 
@@ -151,27 +152,26 @@ void TrackEngine::TrackCollection(std::unordered_map<track_t, Track>& tracks) {
 }
 
 size_t TrackEngine::FindTracksForProblem(
-    const std::unordered_map<track_t, Track>& tracks_full,
-    std::unordered_map<track_t, Track>& tracks_selected) {
+    const std::unordered_map<point3D_t, colmap::Point3D>& tracks_full,
+    std::unordered_map<point3D_t, colmap::Point3D>& tracks_selected) {
   // Sort the tracks by length
-  std::vector<std::pair<size_t, track_t>> track_lengths;
+  std::vector<std::pair<size_t, point3D_t>> track_lengths;
 
   // std::unordered_map<ViewId, std::vector<TrackId>> map_track;
   for (const auto& [track_id, track] : tracks_full) {
-    if (track.observations.size() < options_.min_num_view_per_track) continue;
+    if (track.track.Length() < options_.min_num_view_per_track) continue;
     // FUTURE: have a more elegant way of filtering tracks
-    if (track.observations.size() > options_.max_num_view_per_track) continue;
-    track_lengths.emplace_back(
-        std::make_pair(track.observations.size(), track_id));
+    if (track.track.Length() > options_.max_num_view_per_track) continue;
+    track_lengths.emplace_back(std::make_pair(track.track.Length(), track_id));
   }
   std::sort(std::rbegin(track_lengths), std::rend(track_lengths));
 
   // Initialize the track per camera number to zero
-  std::unordered_map<image_t, track_t> tracks_per_camera;
+  std::unordered_map<image_t, point3D_t> tracks_per_camera;
 
   // If we only want to select a subset of images, then only add the tracks
   // corresponding to those images
-  std::unordered_map<track_t, Track> tracks;
+  std::unordered_map<point3D_t, colmap::Point3D> tracks;
   for (const auto& [image_id, image] : images_) {
     if (!image.IsRegistered()) continue;
 
@@ -184,14 +184,13 @@ size_t TrackEngine::FindTracksForProblem(
 
     // Collect the image ids. For each image, only increment the counter by 1
     std::unordered_set<image_t> image_ids;
-    Track track_temp;
-    for (const auto& [image_id, feature_id] : track.observations) {
-      if (tracks_per_camera.count(image_id) == 0) continue;
+    colmap::Point3D track_temp;
+    for (const auto& observation : track.track.Elements()) {
+      if (tracks_per_camera.count(observation.image_id) == 0) continue;
 
-      track_temp.track_id = track_id;
-      track_temp.observations.emplace_back(
-          std::make_pair(image_id, feature_id));
-      image_ids.insert(image_id);
+      track_temp.track.AddElement(observation.image_id,
+                                  observation.point2D_idx);
+      image_ids.insert(observation.image_id);
     }
 
     if (image_ids.size() < options_.min_num_view_per_track) continue;
@@ -200,9 +199,9 @@ size_t TrackEngine::FindTracksForProblem(
     // multiple insertion into the set to be efficient
     bool added = false;
     // for (auto &image_id : image_ids) {
-    for (const auto& [image_id, feature_id] : track_temp.observations) {
+    for (const auto& observation : track_temp.track.Elements()) {
       // Getting the current number of tracks
-      auto& track_per_camera = tracks_per_camera[image_id];
+      auto& track_per_camera = tracks_per_camera[observation.image_id];
       if (track_per_camera > options_.min_num_tracks_per_view) continue;
 
       // Otherwise, increase the track number per camera

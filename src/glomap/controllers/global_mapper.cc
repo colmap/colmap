@@ -16,13 +16,14 @@
 namespace glomap {
 
 // TODO: Rig normalizaiton has not be done
-bool GlobalMapper::Solve(const colmap::Database& database,
-                         ViewGraph& view_graph,
-                         std::unordered_map<rig_t, Rig>& rigs,
-                         std::unordered_map<camera_t, colmap::Camera>& cameras,
-                         std::unordered_map<frame_t, Frame>& frames,
-                         std::unordered_map<image_t, Image>& images,
-                         std::unordered_map<track_t, Track>& tracks) {
+bool GlobalMapper::Solve(
+    const colmap::Database& database,
+    ViewGraph& view_graph,
+    std::unordered_map<rig_t, Rig>& rigs,
+    std::unordered_map<camera_t, colmap::Camera>& cameras,
+    std::unordered_map<frame_t, Frame>& frames,
+    std::unordered_map<image_t, Image>& images,
+    std::unordered_map<point3D_t, colmap::Point3D>& tracks) {
   // 0. Preprocessing
   if (!options_.skip_preprocessing) {
     std::cout << "-------------------------------------" << std::endl;
@@ -125,11 +126,12 @@ bool GlobalMapper::Solve(const colmap::Database& database,
     std::cout << "Running track establishment ..." << std::endl;
     std::cout << "-------------------------------------" << std::endl;
     TrackEngine track_engine(view_graph, images, options_.opt_track);
-    std::unordered_map<track_t, Track> tracks_full;
+    std::unordered_map<point3D_t, colmap::Point3D> tracks_full;
     track_engine.EstablishFullTracks(tracks_full);
 
     // Filter the tracks
-    track_t num_tracks = track_engine.FindTracksForProblem(tracks_full, tracks);
+    point3D_t num_tracks =
+        track_engine.FindTracksForProblem(tracks_full, tracks);
     LOG(INFO) << "Before filtering: " << tracks_full.size()
               << ", after filtering: " << num_tracks << std::endl;
 
