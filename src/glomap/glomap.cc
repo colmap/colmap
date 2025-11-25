@@ -10,23 +10,21 @@ namespace {
 typedef std::function<int(int, char**)> command_func_t;
 int ShowHelp(
     const std::vector<std::pair<std::string, command_func_t>>& commands) {
-  std::cout << "GLOMAP -- Global Structure-from-Motion" << std::endl << '\n';
+  std::cout << "GLOMAP -- Global Structure-from-Motion\n\n";
 
 #ifdef GLOMAP_CUDA_ENABLED
-  std::cout << "This version was compiled with CUDA!" << std::endl << '\n';
+  std::cout << "This version was compiled with CUDA!\n\n";
 #else
-  std::cout << "This version was NOT compiled CUDA!" << std::endl << '\n';
+  std::cout << "This version was NOT compiled CUDA!\n\n";
 #endif
 
-  std::cout << "Usage:" << '\n';
-  std::cout << "  glomap mapper --database_path DATABASE --output_path MODEL"
-            << '\n';
+  std::cout << "Usage:\n";
+  std::cout << "  glomap mapper --database_path DATABASE --output_path MODEL\n";
   std::cout << "  glomap mapper_resume --input_path MODEL_INPUT --output_path "
-               "MODEL_OUTPUT"
-            << '\n';
+               "MODEL_OUTPUT\n";
 
-  std::cout << "Available commands:" << '\n';
-  std::cout << "  help" << '\n';
+  std::cout << "Available commands:\n";
+  std::cout << "  help\n";
   for (const auto& command : commands) {
     std::cout << "  " << command.first << '\n';
   }
