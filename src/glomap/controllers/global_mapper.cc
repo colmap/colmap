@@ -22,7 +22,7 @@ bool GlobalMapper::Solve(const colmap::Database& database,
                          std::unordered_map<camera_t, colmap::Camera>& cameras,
                          std::unordered_map<frame_t, Frame>& frames,
                          std::unordered_map<image_t, Image>& images,
-                         std::unordered_map<track_t, Track>& tracks) {
+                         std::unordered_map<point3D_t, Point3D>& tracks) {
   // 0. Preprocessing
   if (!options_.skip_preprocessing) {
     std::cout << "-------------------------------------" << '\n';
@@ -132,11 +132,12 @@ bool GlobalMapper::Solve(const colmap::Database& database,
     std::cout << "Running track establishment ..." << '\n';
     std::cout << "-------------------------------------" << '\n';
     TrackEngine track_engine(view_graph, images, options_.opt_track);
-    std::unordered_map<track_t, Track> tracks_full;
+    std::unordered_map<point3D_t, Point3D> tracks_full;
     track_engine.EstablishFullTracks(tracks_full);
 
     // Filter the tracks
-    track_t num_tracks = track_engine.FindTracksForProblem(tracks_full, tracks);
+    point3D_t num_tracks =
+        track_engine.FindTracksForProblem(tracks_full, tracks);
     LOG(INFO) << "Before filtering: " << tracks_full.size()
               << ", after filtering: " << num_tracks << '\n';
 

@@ -16,7 +16,7 @@ void ConvertGlomapToColmap(
     const std::unordered_map<camera_t, colmap::Camera>& cameras,
     const std::unordered_map<frame_t, Frame>& frames,
     const std::unordered_map<image_t, Image>& images,
-    const std::unordered_map<track_t, Track>& tracks,
+    const std::unordered_map<point3D_t, Point3D>& tracks,
     colmap::Reconstruction& reconstruction,
     int cluster_id = -1,
     bool include_image_points = false);
@@ -27,11 +27,11 @@ void ConvertColmapToGlomap(
     std::unordered_map<camera_t, colmap::Camera>& cameras,
     std::unordered_map<frame_t, Frame>& frames,
     std::unordered_map<image_t, Image>& images,
-    std::unordered_map<track_t, Track>& tracks);
+    std::unordered_map<point3D_t, Point3D>& tracks);
 
 void ConvertColmapPoints3DToGlomapTracks(
     const colmap::Reconstruction& reconstruction,
-    std::unordered_map<track_t, Track>& tracks);
+    std::unordered_map<point3D_t, Point3D>& tracks);
 
 void ConvertDatabaseToGlomap(
     const colmap::Database& database,

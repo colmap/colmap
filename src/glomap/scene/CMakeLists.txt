@@ -36,7 +36,6 @@ COLMAP_ADD_LIBRARY(
         frame.h
         image_pair.h
         image.h
-        track.h
         types_sfm.h
         types.h
     PUBLIC_LINK_LIBS
