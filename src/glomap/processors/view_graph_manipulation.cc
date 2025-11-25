@@ -29,6 +29,9 @@ image_pair_t ViewGraphManipulater::SparsifyGraph(
 
   // Go through the adjacency list and keep edge with probability
   // ((expected_degree * average_degree) / (degree1 * degree2))
+  std::mt19937 rng(std::random_device{}());
+  std::uniform_real_distribution<double> dist(0.0, 1.0);
+
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (!image_pair.is_valid) continue;
 
@@ -47,9 +50,7 @@ image_pair_t ViewGraphManipulater::SparsifyGraph(
       continue;
     }
 
-    // TODO: Replace rand() with thread-safe random number generator.
-    if (rand() / double(RAND_MAX) <
-        (expected_degree * average_degree) / (degree1 * degree2)) {
+    if (dist(rng) < (expected_degree * average_degree) / (degree1 * degree2)) {
       chosen_edges.insert(pair_id);
     }
   }
@@ -74,8 +75,7 @@ image_t ViewGraphManipulater::EstablishStrongClusters(
     StrongClusterCriteria criteria,
     double min_thres,
     int min_num_images) {
-  image_t num_img_before =
-      view_graph.KeepLargestConnectedComponents(frames, images);
+  view_graph.KeepLargestConnectedComponents(frames, images);
 
   // Construct the initial cluster by keeping the pairs with weight > min_thres
   colmap::UnionFind<image_pair_t> uf;

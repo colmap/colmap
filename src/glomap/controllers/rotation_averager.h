@@ -6,7 +6,7 @@ namespace glomap {
 
 struct RotationAveragerOptions : public RotationEstimatorOptions {
   RotationAveragerOptions() = default;
-  RotationAveragerOptions(const RotationEstimatorOptions& options)
+  explicit RotationAveragerOptions(const RotationEstimatorOptions& options)
       : RotationEstimatorOptions(options) {}
   bool use_stratified = true;
 };

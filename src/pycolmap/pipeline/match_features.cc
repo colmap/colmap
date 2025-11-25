@@ -60,13 +60,42 @@ void VerifyMatches(const std::string& database_path,
   FeatureMatchingOptions matching_options;
   matching_options.use_gpu = false;
 
-  ImportedPairingOptions matcher_options;
-  matcher_options.match_list_path = pairs_path;
+  ImportedPairingOptions pairing_options;
+  pairing_options.match_list_path = pairs_path;
 
   std::unique_ptr<Thread> matcher = CreateImagePairsFeatureMatcher(
-      matcher_options, matching_options, verification_options, database_path);
+      pairing_options, matching_options, verification_options, database_path);
   matcher->Start();
   PyWait(matcher.get());
+}
+
+void GeometricVerification(const std::string& database_path,
+                           const GeometricVerifierOptions& verifier_options,
+                           const ExistingMatchedPairingOptions& pairing_options,
+                           const TwoViewGeometryOptions& geometry_options) {
+  THROW_CHECK_FILE_EXISTS(database_path);
+
+  py::gil_scoped_release release;  // verification is multi-threaded
+  std::unique_ptr<Thread> verifier = CreateGeometricVerifier(
+      verifier_options, pairing_options, geometry_options, database_path);
+  verifier->Start();
+  PyWait(verifier.get());
+}
+
+void GuidedGeometricVerification(
+    const Reconstruction& reconstruction,
+    const std::string& database_path,
+    const ExistingMatchedPairingOptions& pairing_options,
+    const TwoViewGeometryOptions& geometry_options,
+    int num_threads = -1) {
+  THROW_CHECK_FILE_EXISTS(database_path);
+
+  py::gil_scoped_release release;  // verification is multi-threaded
+  RunGuidedGeometricVerifierImpl(reconstruction,
+                                 database_path,
+                                 pairing_options,
+                                 geometry_options,
+                                 num_threads);
 }
 
 void BindMatchFeatures(py::module& m) {
@@ -207,6 +236,25 @@ void BindMatchFeatures(py::module& m) {
           .def("check", &ImportedPairingOptions::Check);
   MakeDataclass(PyImportedPairingOptions);
 
+  auto PyExistingMatchedPairingOptions =
+      py::classh<ExistingMatchedPairingOptions>(m,
+                                                "ExistingMatchedPairingOptions")
+          .def(py::init<>())
+          .def_readwrite("batch_size",
+                         &ExistingMatchedPairingOptions::batch_size)
+          .def("check", &ExistingMatchedPairingOptions::Check);
+  MakeDataclass(PyExistingMatchedPairingOptions);
+
+  auto PyGeometricVerifierOptions =
+      py::classh<GeometricVerifierOptions>(m, "GeometricVerifierOptions")
+          .def(py::init<>())
+          .def_readwrite("num_threads", &GeometricVerifierOptions::num_threads)
+          .def_readwrite("rig_verification",
+                         &GeometricVerifierOptions::rig_verification)
+          .def_readwrite("use_existing_relative_pose",
+                         &GeometricVerifierOptions::use_existing_relative_pose);
+  MakeDataclass(PyGeometricVerifierOptions);
+
   m.def(
       "match_exhaustive",
       &MatchFeatures<ExhaustivePairingOptions, CreateExhaustiveFeatureMatcher>,
@@ -276,6 +324,34 @@ void BindMatchFeatures(py::module& m) {
         py::arg_v(
             "options", TwoViewGeometryOptions(), "TwoViewGeometryOptions()"),
         "Run geometric verification of the matches");
+
+  m.def("geometric_verification",
+        &GeometricVerification,
+        "database_path"_a,
+        py::arg_v("verifier_options",
+                  GeometricVerifierOptions(),
+                  "GeometricVerifierOptions()"),
+        py::arg_v("pairing_options",
+                  ExistingMatchedPairingOptions(),
+                  "ExistingMatchedPairingOptions()"),
+        py::arg_v("two_view_geometry_options",
+                  TwoViewGeometryOptions(),
+                  "TwoViewGeometryOptions()"),
+        "Run geometric verification on all image pairs in the database");
+
+  m.def("guided_geometric_verification",
+        &GuidedGeometricVerification,
+        "reconstruction"_a,
+        "database_path"_a,
+        py::arg_v("pairing_options",
+                  ExistingMatchedPairingOptions(),
+                  "ExistingMatchedPairingOptions()"),
+        py::arg_v("two_view_geometry_options",
+                  TwoViewGeometryOptions(),
+                  "TwoViewGeometryOptions()"),
+        py::arg("num_threads") = -1,
+        "Run geometric verification given an existing colmap reconstruction on "
+        "all image pairs in the database");
 
   py::classh<PairGenerator>(m, "PairGenerator")
       .def("reset", &PairGenerator::Reset)

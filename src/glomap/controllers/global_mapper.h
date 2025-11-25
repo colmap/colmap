@@ -43,7 +43,8 @@ struct GlobalMapperOptions {
 // TODO: Refactor the code to reuse the pipeline code more
 class GlobalMapper {
  public:
-  GlobalMapper(const GlobalMapperOptions& options) : options_(options) {}
+  explicit GlobalMapper(const GlobalMapperOptions& options)
+      : options_(options) {}
 
   bool Solve(const colmap::Database& database,
              ViewGraph& view_graph,

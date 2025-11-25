@@ -57,7 +57,7 @@ struct GlobalPositionerOptions : public OptimizationBaseOptions {
 
 class GlobalPositioner {
  public:
-  GlobalPositioner(const GlobalPositionerOptions& options);
+  explicit GlobalPositioner(const GlobalPositionerOptions& options);
 
   // Returns true if the optimization was a success, false if there was a
   // failure.

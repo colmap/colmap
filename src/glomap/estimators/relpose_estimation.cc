@@ -129,7 +129,7 @@ void EstimateRelativePoses(
     thread_pool.Wait();
   }
 
-  std::cout << "\r Estimating relative pose: 100%" << std::endl;
+  std::cout << "\r Estimating relative pose: 100%" << '\n';
   LOG(INFO) << "Estimating relative pose done";
 }
 

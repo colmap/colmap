@@ -37,7 +37,8 @@ struct BundleAdjusterOptions : public OptimizationBaseOptions {
 };
 class BundleAdjuster {
  public:
-  BundleAdjuster(const BundleAdjusterOptions& options) : options_(options) {}
+  explicit BundleAdjuster(const BundleAdjusterOptions& options)
+      : options_(options) {}
 
   // Returns true if the optimization was a success, false if there was a
   // failure.

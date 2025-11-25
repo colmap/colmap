@@ -40,7 +40,6 @@ bool BundleAdjuster::Solve(
   // Set the solver options.
   ceres::Solver::Summary summary;
 
-  int num_images = images.size();
 #ifdef GLOMAP_CUDA_ENABLED
   bool cuda_solver_enabled = false;
 
@@ -127,8 +126,7 @@ void BundleAdjuster::AddPointToCameraConstraints(
 
       Image& image = images[observation.image_id];
       Frame* frame_ptr = image.frame_ptr;
-      camera_t camera_id = image.camera_id;
-      image_t rig_id = image.frame_ptr->RigId();
+      const image_t rig_id = image.frame_ptr->RigId();
 
       ceres::CostFunction* cost_function = nullptr;
       // if (image_id_to_camera_rig_index_.find(observation.first) ==
