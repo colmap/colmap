@@ -16,24 +16,30 @@
 namespace glomap {
 namespace {
 
-double RelAngleError(double angle_12, double angle_1, double angle_2) {
+double RelAngleError(std::mt19937& rng,
+                     double angle_12,
+                     double angle_1,
+                     double angle_2) {
   double est = (angle_2 - angle_1) - angle_12;
 
-  while (est >= EIGEN_PI) est -= 2 * EIGEN_PI;
-
-  while (est < -EIGEN_PI) est += 2 * EIGEN_PI;
+  while (est >= EIGEN_PI) {
+    est -= 2 * EIGEN_PI;
+  }
+  while (est < -EIGEN_PI) {
+    est += 2 * EIGEN_PI;
+  }
 
   // Inject random noise if the angle is too close to the boundary to break the
   // possible balance at the local minima
   constexpr double kEps = 0.01;
-  if (est > EIGEN_PI - kEps || est < -EIGEN_PI + kEps) {
-    std::mt19937 rng(std::random_device{}());
+  if (std::abs(est) > EIGEN_PI - kEps) {
     std::uniform_real_distribution<double> dist(0.0, kEps);
     const double jitter = dist(rng);
-    if (est < 0)
+    if (est < 0) {
       est += jitter;
-    else
+    } else {
       est -= jitter;
+    }
   }
 
   return est;
@@ -701,6 +707,8 @@ void RotationEstimator::UpdateGlobalRotations(
 
 void RotationEstimator::ComputeResiduals(
     const ViewGraph& view_graph, std::unordered_map<image_t, Image>& images) {
+  std::mt19937 rng(std::random_device{}());
+
   int curr_pos = 0;
   for (const auto& [pair_id, pair_info] : rel_temp_info_) {
     const image_t image_id1 = view_graph.image_pairs.at(pair_id).image_id1;
@@ -710,7 +718,8 @@ void RotationEstimator::ComputeResiduals(
 
     if (pair_info.has_gravity) {
       tangent_space_residual_[pair_info.index] =
-          (RelAngleError(pair_info.angle_rel,
+          (RelAngleError(rng,
+                         pair_info.angle_rel,
                          rotation_estimated_[image_id_to_idx_[image_id1]],
                          rotation_estimated_[image_id_to_idx_[image_id2]]));
     } else {
