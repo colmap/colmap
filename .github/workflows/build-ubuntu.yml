@@ -24,7 +24,7 @@ jobs:
           {
             os: ubuntu-24.04,
             qtVersion: 6,
-            cmakeBuildType: RelWithDebInfo,
+            cmakeBuildType: Release,
             asanEnabled: false,
             guiEnabled: true,
             cudaEnabled: false,
