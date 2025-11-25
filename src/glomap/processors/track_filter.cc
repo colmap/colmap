@@ -59,8 +59,8 @@ int TrackFilter::FilterTracksByAngle(
     std::unordered_map<track_t, Track>& tracks,
     double max_angle_error) {
   int counter = 0;
-  double thres = std::cos(DegToRad(max_angle_error));
-  double thres_uncalib = std::cos(DegToRad(max_angle_error * 2));
+  double thres = std::cos(colmap::DegToRad(max_angle_error));
+  double thres_uncalib = std::cos(colmap::DegToRad(max_angle_error * 2));
   for (auto& [track_id, track] : tracks) {
     std::vector<Observation> observation_new;
     for (const auto& [image_id, feature_id] : track.observations) {
@@ -93,7 +93,7 @@ int TrackFilter::FilterTrackTriangulationAngle(
     std::unordered_map<track_t, Track>& tracks,
     double min_angle) {
   int counter = 0;
-  double thres = std::cos(DegToRad(min_angle));
+  double thres = std::cos(colmap::DegToRad(min_angle));
   for (auto& [track_id, track] : tracks) {
     std::vector<Observation> observation_new;
     std::vector<Eigen::Vector3d> pts_calc;

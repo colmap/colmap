@@ -171,7 +171,7 @@ void RotationEstimator::SetupLinearSystem(
   }
 
   // First, we need to determine which cameras need to be estimated
-  std::unordered_map<camera_t, Eigen::Vector3d> cam_from_rig_rotations;
+  std::unordered_map<camera_t, Eigen::AngleAxisd> cam_from_rig_rotations;
   for (auto& [camera_id, rig_id] : camera_id_to_rig_id) {
     sensor_t sensor_id(SensorType::CAMERA, camera_id);
     if (rigs[rig_id].IsRefSensor(sensor_id)) continue;
@@ -185,7 +185,7 @@ void RotationEstimator::SetupLinearSystem(
           // If the camera is not part of a rig, then we can use the first image
           // to initialize the rotation
           cam_from_rig_rotations[camera_id] =
-              Rigid3dToAngleAxis(cam_from_rig.value());
+              Eigen::AngleAxisd(cam_from_rig->rotation);
         }
       }
     }
@@ -193,7 +193,7 @@ void RotationEstimator::SetupLinearSystem(
 
   for (auto& [frame_id, frame] : frames) {
     // Skip the unregistered frames
-    if (frames[frame_id].is_registered == false) continue;
+    if (!frames[frame_id].is_registered) continue;
     frame_id_to_idx_[frame_id] = num_dof;
     image_t image_id_ref = -1;
     for (auto& data_id : frame.ImageIds()) {
@@ -221,8 +221,9 @@ void RotationEstimator::SetupLinearSystem(
         // Initialize the frame's rig from world to identity
         frame.SetRigFromWorld(Rigid3d());
       }
+      const Eigen::AngleAxisd rig_from_world(frame.RigFromWorld().rotation);
       rotation_estimated_.segment(num_dof, 3) =
-          Rigid3dToAngleAxis(frame.RigFromWorld());
+          rig_from_world.angle() * rig_from_world.axis();
       num_dof += 3;
     }
   }
@@ -233,10 +234,10 @@ void RotationEstimator::SetupLinearSystem(
     // If the camera is not part of a rig, then we can use the first image
     // to initialize the rotation
     camera_id_to_idx_[camera_id] = num_dof;
-    if (cam_from_rig_rotations.find(camera_id) !=
-        cam_from_rig_rotations.end()) {
+    if (const auto it = cam_from_rig_rotations.find(camera_id);
+        it != cam_from_rig_rotations.end()) {
       rotation_estimated_.segment(num_dof, 3) =
-          cam_from_rig_rotations[camera_id];
+          it->second.angle() * it->second.axis();
     } else {
       // If the camera is part of a rig, then we can use the rig rotation
       // to initialize the rotation
@@ -248,10 +249,11 @@ void RotationEstimator::SetupLinearSystem(
   // If no cameras are set to be fixed, then take the first camera
   if (fixed_camera_id_ == -1) {
     for (auto& [frame_id, frame] : frames) {
-      if (frames[frame_id].is_registered == false) continue;
+      if (!frames[frame_id].is_registered) continue;
 
       fixed_camera_id_ = frame.DataIds().begin()->id;
-      fixed_camera_rotation_ = Rigid3dToAngleAxis(frame.RigFromWorld());
+      const Eigen::AngleAxisd rig_from_world(frame.RigFromWorld().rotation);
+      fixed_camera_rotation_ = rig_from_world.angle() * rig_from_world.axis();
 
       break;
     }
@@ -363,8 +365,7 @@ void RotationEstimator::SetupLinearSystem(
     frame_t frame_id1 = images[image_id1].frame_id;
     frame_t frame_id2 = images[image_id2].frame_id;
 
-    if (frames[frame_id1].is_registered == false ||
-        frames[frame_id2].is_registered == false) {
+    if (!frames[frame_id1].is_registered || !frames[frame_id2].is_registered) {
       continue;  // skip unregistered frames
     }
 
@@ -550,7 +551,7 @@ bool RotationEstimator::SolveIRLS(const ViewGraph& view_graph,
 
   llt.analyzePattern(sparse_matrix_.transpose() * sparse_matrix_);
 
-  const double sigma = DegToRad(options_.irls_loss_parameter_sigma);
+  const double sigma = colmap::DegToRad(options_.irls_loss_parameter_sigma);
   VLOG(2) << "sigma: " << options_.irls_loss_parameter_sigma;
 
   Eigen::ArrayXd weights_irls(sparse_matrix_.rows());
@@ -631,7 +632,7 @@ void RotationEstimator::UpdateGlobalRotations(
     std::unordered_map<frame_t, Frame>& frames,
     std::unordered_map<image_t, Image>& images) {
   for (auto& [frame_id, frame] : frames) {
-    if (frames[frame_id].is_registered == false) continue;
+    if (!frames[frame_id].is_registered) continue;
     image_t vector_idx = frame_id_to_idx_[frame_id];
     if (!(options_.use_gravity && frame.HasGravity())) {
       Eigen::Matrix3d R_ori =
@@ -650,7 +651,7 @@ void RotationEstimator::UpdateGlobalRotations(
     cam_from_rigs[camera_id] = std::vector<Eigen::Matrix3d>();
   }
   for (auto& [frame_id, frame] : frames) {
-    if (frames.at(frame_id).is_registered == false) continue;
+    if (!frames.at(frame_id).is_registered) continue;
     // Update the rig from world for the frame
     Eigen::Matrix3d R_ori;
     if (!options_.use_gravity || !frame.HasGravity()) {
@@ -778,7 +779,7 @@ void RotationEstimator::ConvertResults(
     std::unordered_map<frame_t, Frame>& frames,
     std::unordered_map<image_t, Image>& images) {
   for (auto& [frame_id, frame] : frames) {
-    if (frames[frame_id].is_registered == false) continue;
+    if (!frames[frame_id].is_registered) continue;
 
     image_t image_id_begin = frame.DataIds().begin()->id;
 

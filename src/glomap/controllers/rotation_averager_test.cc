@@ -16,44 +16,37 @@
 namespace glomap {
 namespace {
 
-void CreateRandomRotation(const double stddev, Eigen::Quaterniond& q) {
-  std::random_device rd{};
-  std::mt19937 gen{rd()};
-
-  // Construct a random axis
-  double theta = colmap::RandomUniformReal<double>(0, 2 * M_PI);
-  double phi = colmap::RandomUniformReal<double>(0, M_PI);
-  Eigen::Vector3d axis(std::cos(theta) * std::sin(phi),
-                       std::sin(theta) * std::sin(phi),
-                       std::cos(phi));
-
-  // Construct a random angle
+Eigen::AngleAxisd CreateRandomRotation(std::mt19937& rng, double stddev) {
+  const double theta = colmap::RandomUniformReal<double>(0, 2 * M_PI);
+  const double phi = colmap::RandomUniformReal<double>(0, M_PI);
+  const Eigen::Vector3d axis(std::cos(theta) * std::sin(phi),
+                             std::sin(theta) * std::sin(phi),
+                             std::cos(phi));
   std::normal_distribution<double> d{0, stddev};
-  double angle = d(gen);
-  q = Eigen::AngleAxisd(angle, axis);
+  const double angle = d(rng);
+  return Eigen::AngleAxisd(angle, axis);
 }
 
 void PrepareGravity(const colmap::Reconstruction& gt,
                     std::unordered_map<frame_t, Frame>& frames,
                     double gravity_noise_stddev = 0.0,
                     double outlier_ratio = 0.0) {
+  std::mt19937 rng{std::random_device{}()};
   const Eigen::Vector3d kGravityInWorld = Eigen::Vector3d(0, 1, 0);
   for (auto& frame_id : gt.RegFrameIds()) {
     Eigen::Vector3d gravityInRig =
         gt.Frame(frame_id).RigFromWorld().rotation * kGravityInWorld;
 
     if (gravity_noise_stddev > 0.0) {
-      Eigen::Quaterniond noise;
-      CreateRandomRotation(DegToRad(gravity_noise_stddev), noise);
-      gravityInRig = noise * gravityInRig;
+      gravityInRig =
+          CreateRandomRotation(rng, colmap::DegToRad(gravity_noise_stddev)) *
+          gravityInRig;
     }
 
     if (outlier_ratio > 0.0 &&
         colmap::RandomUniformReal<double>(0, 1) < outlier_ratio) {
-      Eigen::Quaterniond q;
-      CreateRandomRotation(1., q);
-      gravityInRig =
-          Rigid3dToAngleAxis(Rigid3d(q, Eigen::Vector3d::Zero())).normalized();
+      const Eigen::AngleAxisd q = CreateRandomRotation(rng, 1.);
+      gravityInRig = (q.angle() * q.axis()).normalized();
     }
 
     frames[frame_id].gravity_info.SetGravity(gravityInRig);
@@ -85,22 +78,23 @@ RotationAveragerOptions CreateRATestOptions(bool use_gravity = false) {
 void ExpectEqualRotations(const colmap::Reconstruction& gt,
                           const colmap::Reconstruction& computed,
                           const double max_rotation_error_deg) {
+  const double max_rotation_error_rad =
+      colmap::DegToRad(max_rotation_error_deg);
   const std::vector<image_t> reg_image_ids = gt.RegImageIds();
   for (size_t i = 0; i < reg_image_ids.size(); i++) {
     const image_t image_id1 = reg_image_ids[i];
     for (size_t j = 0; j < i; j++) {
       const image_t image_id2 = reg_image_ids[j];
 
-      const Rigid3d cam2_from_cam1 =
-          computed.Image(image_id2).CamFromWorld() *
-          Inverse(computed.Image(image_id1).CamFromWorld());
-      const Rigid3d cam2_from_cam1_gt =
-          gt.Image(image_id2).CamFromWorld() *
-          Inverse(gt.Image(image_id1).CamFromWorld());
+      const Eigen::Quaterniond cam2_from_cam1 =
+          computed.Image(image_id2).CamFromWorld().rotation *
+          computed.Image(image_id1).CamFromWorld().rotation.inverse();
+      const Eigen::Quaterniond cam2_from_cam1_gt =
+          gt.Image(image_id2).CamFromWorld().rotation *
+          gt.Image(image_id1).CamFromWorld().rotation.inverse();
 
-      const double rotation_error_deg =
-          CalcAngle(cam2_from_cam1_gt, cam2_from_cam1);
-      EXPECT_LT(rotation_error_deg, max_rotation_error_deg);
+      EXPECT_LT(cam2_from_cam1.angularDistance(cam2_from_cam1_gt),
+                max_rotation_error_rad);
     }
   }
 }

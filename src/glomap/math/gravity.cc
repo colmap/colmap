@@ -94,7 +94,7 @@ double CalcAngle(const Eigen::Vector3d& gravity1,
                  const Eigen::Vector3d& gravity2) {
   double cos_r = gravity1.dot(gravity2) / (gravity1.norm() * gravity2.norm());
   cos_r = std::min(std::max(cos_r, -1.), 1.);
-
   return std::acos(cos_r) * 180 / EIGEN_PI;
 }
+
 }  // namespace glomap
