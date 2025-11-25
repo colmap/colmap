@@ -114,7 +114,7 @@ int RunRotationAverager(int argc, char** argv) {
 
   // Write out the estimated rotation
   WriteGlobalRotation(output_path, images);
-  LOG(INFO) << "Global rotation averaging done" << std::endl;
+  LOG(INFO) << "Global rotation averaging done" << '\n';
 
   return EXIT_SUCCESS;
 }

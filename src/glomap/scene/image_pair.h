@@ -21,7 +21,7 @@ struct ImagePair {
       : image_id1(image_id1),
         image_id2(image_id2),
         pair_id(colmap::ImagePairToPairId(image_id1, image_id2)),
-        cam2_from_cam1(cam2_from_cam1) {}
+        cam2_from_cam1(std::move(cam2_from_cam1)) {}
 
   // Ids are kept constant
   const image_t image_id1;

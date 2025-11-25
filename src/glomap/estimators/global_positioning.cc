@@ -497,8 +497,8 @@ void GlobalPositioner::ParameterizeVariables(
     }
   }
 
-  int num_images = frames.size();
 #ifdef GLOMAP_CUDA_ENABLED
+  const int num_images = frames.size();
   bool cuda_solver_enabled = false;
 
 #if (CERES_VERSION_MAJOR >= 3 ||                                \
