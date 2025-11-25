@@ -10,7 +10,7 @@ namespace glomap {
 struct Image {
   Image() : image_id(-1), file_name("") {}
   Image(image_t img_id, camera_t cam_id, std::string file_name)
-      : image_id(img_id), file_name(file_name), camera_id(cam_id) {}
+      : image_id(img_id), file_name(std::move(file_name)), camera_id(cam_id) {}
 
   // Basic information
   // image_id, file_name need to be specified at construction time

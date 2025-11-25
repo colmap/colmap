@@ -25,11 +25,15 @@ double RelAngleError(double angle_12, double angle_1, double angle_2) {
 
   // Inject random noise if the angle is too close to the boundary to break the
   // possible balance at the local minima
-  if (est > EIGEN_PI - 0.01 || est < -EIGEN_PI + 0.01) {
+  constexpr double kEps = 0.01;
+  if (est > EIGEN_PI - kEps || est < -EIGEN_PI + kEps) {
+    std::mt19937 rng(std::random_device{}());
+    std::uniform_real_distribution<double> dist(0.0, kEps);
+    const double jitter = dist(rng);
     if (est < 0)
-      est += (rand() % 1000) / 1000.0 * 0.01;
+      est += jitter;
     else
-      est -= (rand() % 1000) / 1000.0 * 0.01;
+      est -= jitter;
   }
 
   return est;
@@ -341,7 +345,7 @@ void RotationEstimator::SetupLinearSystem(
     }
   }
 
-  VLOG(2) << counter << " image pairs are gravity aligned" << std::endl;
+  VLOG(2) << counter << " image pairs are gravity aligned" << '\n';
 
   std::vector<Eigen::Triplet<double>> coeffs;
   coeffs.reserve(rel_temp_info_.size() * 6 + 3);
@@ -698,15 +702,11 @@ void RotationEstimator::UpdateGlobalRotations(
 void RotationEstimator::ComputeResiduals(
     const ViewGraph& view_graph, std::unordered_map<image_t, Image>& images) {
   int curr_pos = 0;
-  for (auto& [pair_id, pair_info] : rel_temp_info_) {
-    image_t image_id1 = view_graph.image_pairs.at(pair_id).image_id1;
-    image_t image_id2 = view_graph.image_pairs.at(pair_id).image_id2;
-
-    int idx1 = image_id_to_idx_[image_id1];
-    int idx2 = image_id_to_idx_[image_id2];
-
-    int idx_cam1 = pair_info.idx_cam1;
-    int idx_cam2 = pair_info.idx_cam2;
+  for (const auto& [pair_id, pair_info] : rel_temp_info_) {
+    const image_t image_id1 = view_graph.image_pairs.at(pair_id).image_id1;
+    const image_t image_id2 = view_graph.image_pairs.at(pair_id).image_id2;
+    const int idx_cam1 = pair_info.idx_cam1;
+    const int idx_cam2 = pair_info.idx_cam2;
 
     if (pair_info.has_gravity) {
       tangent_space_residual_[pair_info.index] =

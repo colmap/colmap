@@ -244,7 +244,7 @@ void ConvertDatabaseToGlomap(
     //   ite.first->second.cam_from_world = Rigid3d();
     // }
   }
-  std::cout << std::endl;
+  std::cout << '\n';
 
   // Read keypoints
   for (auto& [image_id, image] : images) {

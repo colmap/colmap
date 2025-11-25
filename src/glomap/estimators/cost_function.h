@@ -13,7 +13,7 @@ namespace glomap {
 // Computes the error between a translation direction and the direction formed
 // from two positions such that t_ij - scale * (c_j - c_i) is minimized.
 struct BATAPairwiseDirectionError {
-  BATAPairwiseDirectionError(const Eigen::Vector3d& translation_obs)
+  explicit BATAPairwiseDirectionError(const Eigen::Vector3d& translation_obs)
       : translation_obs_(translation_obs) {}
 
   // The error is given by the position error described above.
@@ -216,7 +216,7 @@ class FetzerFocalLengthCost {
     d_12 = ds[2];
   }
 
-  static ceres::CostFunction* Create(const Eigen::Matrix3d i1_F_i0,
+  static ceres::CostFunction* Create(const Eigen::Matrix3d& i1_F_i0,
                                      const Eigen::Vector2d& principal_point0,
                                      const Eigen::Vector2d& principal_point1) {
     return (new ceres::AutoDiffCostFunction<FetzerFocalLengthCost, 2, 1, 1>(
@@ -274,7 +274,7 @@ class FetzerFocalLengthSameCameraCost {
     d_12 = ds[2];
   }
 
-  static ceres::CostFunction* Create(const Eigen::Matrix3d i1_F_i0,
+  static ceres::CostFunction* Create(const Eigen::Matrix3d& i1_F_i0,
                                      const Eigen::Vector2d& principal_point) {
     return (
         new ceres::AutoDiffCostFunction<FetzerFocalLengthSameCameraCost, 2, 1>(
@@ -313,7 +313,7 @@ class FetzerFocalLengthSameCameraCost {
 // GravError
 // ----------------------------------------
 struct GravError {
-  GravError(const Eigen::Vector3d& grav_obs) : grav_obs_(grav_obs) {}
+  explicit GravError(const Eigen::Vector3d& grav_obs) : grav_obs_(grav_obs) {}
 
   template <typename T>
   bool operator()(const T* const gvec, T* residuals) const {

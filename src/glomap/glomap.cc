@@ -10,28 +10,27 @@ namespace {
 typedef std::function<int(int, char**)> command_func_t;
 int ShowHelp(
     const std::vector<std::pair<std::string, command_func_t>>& commands) {
-  std::cout << "GLOMAP -- Global Structure-from-Motion" << std::endl
-            << std::endl;
+  std::cout << "GLOMAP -- Global Structure-from-Motion" << std::endl << '\n';
 
 #ifdef GLOMAP_CUDA_ENABLED
-  std::cout << "This version was compiled with CUDA!" << std::endl << std::endl;
+  std::cout << "This version was compiled with CUDA!" << std::endl << '\n';
 #else
-  std::cout << "This version was NOT compiled CUDA!" << std::endl << std::endl;
+  std::cout << "This version was NOT compiled CUDA!" << std::endl << '\n';
 #endif
 
-  std::cout << "Usage:" << std::endl;
+  std::cout << "Usage:" << '\n';
   std::cout << "  glomap mapper --database_path DATABASE --output_path MODEL"
-            << std::endl;
+            << '\n';
   std::cout << "  glomap mapper_resume --input_path MODEL_INPUT --output_path "
                "MODEL_OUTPUT"
-            << std::endl;
+            << '\n';
 
-  std::cout << "Available commands:" << std::endl;
-  std::cout << "  help" << std::endl;
+  std::cout << "Available commands:" << '\n';
+  std::cout << "  help" << '\n';
   for (const auto& command : commands) {
-    std::cout << "  " << command.first << std::endl;
+    std::cout << "  " << command.first << '\n';
   }
-  std::cout << std::endl;
+  std::cout << '\n';
 
   return EXIT_SUCCESS;
 }
@@ -64,8 +63,7 @@ int main(int argc, char** argv) {
     }
     if (matched_command_func == nullptr) {
       std::cout << "Command " << command << " not recognized. "
-                << "To list the available commands, run `glomap help`."
-                << std::endl;
+                << "To list the available commands, run `glomap help`." << '\n';
       return EXIT_FAILURE;
     } else {
       int command_argc = argc - 1;
