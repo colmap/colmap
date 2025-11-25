@@ -78,7 +78,7 @@ bool VerifyCameraParams(const std::string& camera_model,
                         const std::string& params);
 
 void RunGuidedGeometricVerifierImpl(
-    const std::shared_ptr<Reconstruction>& reconstruction,
+    const Reconstruction& reconstruction,
     const std::string& database_path,
     const ExistingMatchedPairingOptions& pairing_options,
     const TwoViewGeometryOptions& geometry_options,

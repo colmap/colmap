@@ -414,7 +414,7 @@ int RunGeometricVerifier(int argc, char** argv) {
 }
 
 void RunGuidedGeometricVerifierImpl(
-    const std::shared_ptr<Reconstruction>& reconstruction,
+    const Reconstruction& reconstruction,
     const std::string& database_path,
     const ExistingMatchedPairingOptions& pairing_options,
     const TwoViewGeometryOptions& geometry_options,
@@ -430,12 +430,12 @@ void RunGuidedGeometricVerifierImpl(
       continue;
     }
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    if (!reconstruction->ExistsImage(image_id1) ||
-        !reconstruction->ExistsImage(image_id2)) {
+    if (!reconstruction.ExistsImage(image_id1) ||
+        !reconstruction.ExistsImage(image_id2)) {
       continue;
     }
-    Image& image1 = reconstruction->Image(image_id1);
-    Image& image2 = reconstruction->Image(image_id2);
+    const Image& image1 = reconstruction.Image(image_id1);
+    const Image& image2 = reconstruction.Image(image_id2);
     if (!image1.HasPose() || !image2.HasPose()) {
       continue;
     }
@@ -481,8 +481,8 @@ int RunGuidedGeometricVerifier(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  auto reconstruction = std::make_shared<Reconstruction>();
-  reconstruction->Read(input_path);
+  Reconstruction reconstruction;
+  reconstruction.Read(input_path);
 
   RunGuidedGeometricVerifierImpl(reconstruction,
                                  *options.database_path,
