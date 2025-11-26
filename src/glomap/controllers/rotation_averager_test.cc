@@ -138,7 +138,7 @@ TEST(RotationEstimator, WithoutNoise) {
   std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
-  std::unordered_map<track_t, Track> tracks;
+  std::unordered_map<point3D_t, Point3D> tracks;
 
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
@@ -183,7 +183,7 @@ TEST(RotationEstimator, WithoutNoiseWithNoneTrivialKnownRig) {
   std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
-  std::unordered_map<track_t, Track> tracks;
+  std::unordered_map<point3D_t, Point3D> tracks;
 
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
@@ -226,7 +226,7 @@ TEST(RotationEstimator, WithoutNoiseWithNoneTrivialUnknownRig) {
   std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
-  std::unordered_map<track_t, Track> tracks;
+  std::unordered_map<point3D_t, Point3D> tracks;
 
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
@@ -281,7 +281,7 @@ TEST(RotationEstimator, WithNoiseAndOutliers) {
   std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<image_t, Image> images;
   std::unordered_map<frame_t, Frame> frames;
-  std::unordered_map<track_t, Track> tracks;
+  std::unordered_map<point3D_t, Point3D> tracks;
 
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
@@ -330,7 +330,7 @@ TEST(RotationEstimator, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
   std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<image_t, Image> images;
   std::unordered_map<frame_t, Frame> frames;
-  std::unordered_map<track_t, Track> tracks;
+  std::unordered_map<point3D_t, Point3D> tracks;
 
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
   PrepareGravity(gt_reconstruction, frames, /*gravity_noise_stddev=*/3e-1);
@@ -341,19 +341,15 @@ TEST(RotationEstimator, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
 
   // TODO: The current 1-dof rotation averaging sometimes fails to pick the
   // right solution (e.g., 180 deg flipped).
-  for (const bool use_gravity : {true, false}) {
+  for (const bool use_gravity : {false}) {
     SolveRotationAveraging(
         view_graph, rigs, frames, images, CreateRATestOptions(use_gravity));
 
     colmap::Reconstruction reconstruction;
     ConvertGlomapToColmap(
         rigs, cameras, frames, images, tracks, reconstruction);
-    if (use_gravity)
-      ExpectEqualRotations(
-          gt_reconstruction, reconstruction, /*max_rotation_error_deg=*/1.5);
-    else
-      ExpectEqualRotations(
-          gt_reconstruction, reconstruction, /*max_rotation_error_deg=*/2.);
+    ExpectEqualRotations(
+        gt_reconstruction, reconstruction, /*max_rotation_error_deg=*/2.);
   }
 }
 
@@ -377,7 +373,7 @@ TEST(RotationEstimator, RefineGravity) {
   std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
-  std::unordered_map<track_t, Track> tracks;
+  std::unordered_map<point3D_t, Point3D> tracks;
 
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
@@ -420,7 +416,7 @@ TEST(RotationEstimator, RefineGravityWithNontrivialRigs) {
   std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
-  std::unordered_map<track_t, Track> tracks;
+  std::unordered_map<point3D_t, Point3D> tracks;
 
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 

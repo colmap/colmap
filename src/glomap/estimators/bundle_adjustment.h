@@ -37,7 +37,8 @@ struct BundleAdjusterOptions : public OptimizationBaseOptions {
 };
 class BundleAdjuster {
  public:
-  BundleAdjuster(const BundleAdjusterOptions& options) : options_(options) {}
+  explicit BundleAdjuster(const BundleAdjusterOptions& options)
+      : options_(options) {}
 
   // Returns true if the optimization was a success, false if there was a
   // failure.
@@ -46,7 +47,7 @@ class BundleAdjuster {
              std::unordered_map<camera_t, colmap::Camera>& cameras,
              std::unordered_map<frame_t, Frame>& frames,
              std::unordered_map<image_t, Image>& images,
-             std::unordered_map<track_t, Track>& tracks);
+             std::unordered_map<point3D_t, Point3D>& tracks);
 
   BundleAdjusterOptions& GetOptions() { return options_; }
 
@@ -60,21 +61,21 @@ class BundleAdjuster {
       std::unordered_map<camera_t, colmap::Camera>& cameras,
       std::unordered_map<frame_t, Frame>& frames,
       std::unordered_map<image_t, Image>& images,
-      std::unordered_map<track_t, Track>& tracks);
+      std::unordered_map<point3D_t, Point3D>& tracks);
 
   // Set the parameter groups
   void AddCamerasAndPointsToParameterGroups(
       std::unordered_map<rig_t, Rig>& rigs,
       std::unordered_map<camera_t, colmap::Camera>& cameras,
       std::unordered_map<frame_t, Frame>& frames,
-      std::unordered_map<track_t, Track>& tracks);
+      std::unordered_map<point3D_t, Point3D>& tracks);
 
   // Parameterize the variables, set some variables to be constant if desired
   void ParameterizeVariables(
       std::unordered_map<rig_t, Rig>& rigs,
       std::unordered_map<camera_t, colmap::Camera>& cameras,
       std::unordered_map<frame_t, Frame>& frames,
-      std::unordered_map<track_t, Track>& tracks);
+      std::unordered_map<point3D_t, Point3D>& tracks);
 
   BundleAdjusterOptions options_;
 

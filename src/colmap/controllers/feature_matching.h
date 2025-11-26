@@ -153,10 +153,25 @@ std::unique_ptr<Thread> CreateFeaturePairsFeatureMatcher(
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path);
 
+// Options for CreateGeometricVerifier
+struct GeometricVerifierOptions {
+  // Number of threads for geometric verification.
+  int num_threads = -1;
+
+  // Whether to perform rig verification at the end. Unnecessary when we have
+  // existing relative poses for each matched pair.
+  bool rig_verification = false;
+
+  // Whether to use the existing relative pose stored in TwoViewGeometry in the
+  // database. If no TwoViewGeometry is found we will fall back to geometric
+  // verification with RANSAC.
+  bool use_existing_relative_pose = false;
+};
+
 // Perform geometric verification of existing matched image pairs.
 std::unique_ptr<Thread> CreateGeometricVerifier(
+    const GeometricVerifierOptions& verifier_options,
     const ExistingMatchedPairingOptions& pairing_options,
-    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path);
 

@@ -16,7 +16,7 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
                          std::unordered_map<camera_t, colmap::Camera>& cameras,
                          std::unordered_map<frame_t, Frame>& frames,
                          std::unordered_map<image_t, Image>& images,
-                         std::unordered_map<track_t, Track>& tracks) {
+                         std::unordered_map<point3D_t, Point3D>& tracks) {
   // Following code adapted from COLMAP
   auto database_cache =
       colmap::DatabaseCache::Create(database,
@@ -43,7 +43,7 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
                         cameras,
                         frames,
                         images,
-                        std::unordered_map<track_t, Track>(),
+                        std::unordered_map<point3D_t, Point3D>(),
                         *reconstruction_ptr);
 
   colmap::IncrementalPipelineOptions options_colmap;
@@ -69,12 +69,9 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
   for (const image_t image_id : reg_image_ids) {
     std::cout << "\r Triangulating image " << image_idx++ + 1 << " / "
               << reg_image_ids.size() << std::flush;
-
-    const auto& image = reconstruction_ptr->Image(image_id);
-
-    int num_tris = mapper.TriangulateImage(tri_options, image_id);
+    mapper.TriangulateImage(tri_options, image_id);
   }
-  std::cout << std::endl;
+  std::cout << '\n';
 
   // Merge and complete tracks.
   mapper.CompleteAndMergeTracks(tri_options);
@@ -119,7 +116,7 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
       break;
     }
   }
-  std::cout << std::endl;
+  std::cout << '\n';
 
   // Add the removed images to the reconstruction
   for (const auto& image_id : image_ids_notconnected) {

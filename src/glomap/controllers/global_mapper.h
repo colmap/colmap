@@ -43,7 +43,8 @@ struct GlobalMapperOptions {
 // TODO: Refactor the code to reuse the pipeline code more
 class GlobalMapper {
  public:
-  GlobalMapper(const GlobalMapperOptions& options) : options_(options) {}
+  explicit GlobalMapper(const GlobalMapperOptions& options)
+      : options_(options) {}
 
   bool Solve(const colmap::Database& database,
              ViewGraph& view_graph,
@@ -51,7 +52,7 @@ class GlobalMapper {
              std::unordered_map<camera_t, colmap::Camera>& cameras,
              std::unordered_map<frame_t, Frame>& frames,
              std::unordered_map<image_t, Image>& images,
-             std::unordered_map<track_t, Track>& tracks);
+             std::unordered_map<point3D_t, Point3D>& tracks);
 
  private:
   const GlobalMapperOptions options_;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "colmap/scene/camera.h"
+
 #include "glomap/scene/types.h"
 #include "glomap/types.h"
 

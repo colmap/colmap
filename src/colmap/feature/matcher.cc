@@ -156,6 +156,12 @@ FeatureMatches FeatureMatcherCache::GetMatches(const image_t image_id1,
   return database_->ReadMatches(image_id1, image_id2);
 }
 
+TwoViewGeometry FeatureMatcherCache::GetTwoViewGeometry(
+    const image_t image_id1, const image_t image_id2) {
+  std::lock_guard<std::mutex> lock(database_mutex_);
+  return database_->ReadTwoViewGeometry(image_id1, image_id2);
+}
+
 std::vector<frame_t> FeatureMatcherCache::GetFrameIds() {
   MaybeLoadFrames();
 
@@ -209,6 +215,16 @@ bool FeatureMatcherCache::ExistsTwoViewGeometry(const image_t image_id1,
                                                 const image_t image_id2) {
   std::lock_guard<std::mutex> lock(database_mutex_);
   return database_->ExistsTwoViewGeometry(image_id1, image_id2);
+}
+
+bool FeatureMatcherCache::ExistsInlierMatches(const image_t image_id1,
+                                              const image_t image_id2) {
+  std::lock_guard<std::mutex> lock(database_mutex_);
+  if (!database_->ExistsTwoViewGeometry(image_id1, image_id2)) {
+    return false;
+  }
+  auto two_view_geometry = database_->ReadTwoViewGeometry(image_id1, image_id2);
+  return !two_view_geometry.inlier_matches.empty();
 }
 
 void FeatureMatcherCache::UpdateTwoViewGeometry(

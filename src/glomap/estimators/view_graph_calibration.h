@@ -29,7 +29,7 @@ struct ViewGraphCalibratorOptions : public OptimizationBaseOptions {
 
 class ViewGraphCalibrator {
  public:
-  ViewGraphCalibrator(const ViewGraphCalibratorOptions& options)
+  explicit ViewGraphCalibrator(const ViewGraphCalibratorOptions& options)
       : options_(options) {}
 
   // Entry point for the calibration

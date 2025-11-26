@@ -37,15 +37,13 @@ double ImagePairInliers::ScoreErrorEssential() {
   image_t image_id1 = image_pair.image_id1;
   image_t image_id2 = image_pair.image_id2;
 
-  double thres = options.max_epipolar_error_E;
-
-  // Conver the threshold from pixel space to normalized space
-  thres = options.max_epipolar_error_E * 0.5 *
-          (1. / cameras->at(images.at(image_id1).camera_id).MeanFocalLength() +
-           1. / cameras->at(images.at(image_id2).camera_id).MeanFocalLength());
+  const double thres =
+      options.max_epipolar_error_E * 0.5 *
+      (1. / cameras->at(images.at(image_id1).camera_id).MeanFocalLength() +
+       1. / cameras->at(images.at(image_id2).camera_id).MeanFocalLength());
 
   // Square the threshold for faster computation
-  double sq_threshold = thres * thres;
+  const double sq_threshold = thres * thres;
   double score = 0.;
   Eigen::Vector3d pt1, pt2;
 

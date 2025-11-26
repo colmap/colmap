@@ -27,7 +27,8 @@ struct GravityRefinerOptions : public OptimizationBaseOptions {
 
 class GravityRefiner {
  public:
-  GravityRefiner(const GravityRefinerOptions& options) : options_(options) {}
+  explicit GravityRefiner(const GravityRefinerOptions& options)
+      : options_(options) {}
   void RefineGravity(const ViewGraph& view_graph,
                      std::unordered_map<frame_t, Frame>& frames,
                      std::unordered_map<image_t, Image>& images);

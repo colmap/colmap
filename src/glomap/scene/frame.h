@@ -28,7 +28,7 @@ struct GravityInfo {
 
 struct Frame : public colmap::Frame {
   Frame() : colmap::Frame() {}
-  Frame(const colmap::Frame& frame) : colmap::Frame(frame) {}
+  explicit Frame(const colmap::Frame& frame) : colmap::Frame(frame) {}
 
   // whether the frame is within the largest connected component
   bool is_registered = false;
