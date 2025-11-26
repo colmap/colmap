@@ -313,6 +313,8 @@ void OptionManager::AddFeatureMatchingOptions() {
                               &feature_matching->gpu_index);
   AddAndRegisterDefaultOption("FeatureMatching.guided_matching",
                               &feature_matching->guided_matching);
+  AddAndRegisterDefaultOption("FeatureMatching.skip_geometric_verification",
+                              &feature_matching->skip_geometric_verification);
   AddAndRegisterDefaultOption("FeatureMatching.rig_verification",
                               &feature_matching->rig_verification);
   AddAndRegisterDefaultOption(

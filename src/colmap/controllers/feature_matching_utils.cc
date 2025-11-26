@@ -280,6 +280,13 @@ FeatureMatcherController::FeatureMatcherController(
   }
 #endif  // COLMAP_CUDA_ENABLED
 
+  // If skip_geometric_verification, match directly to output_queue_.
+  const bool skip_geometric_verification =
+      matching_options_.skip_geometric_verification &&
+      !matching_options_.guided_matching;
+  JobQueue<FeatureMatcherData>* matcher_output_queue =
+      skip_geometric_verification ? &output_queue_ : &verifier_queue_;
+
   if (matching_options_.use_gpu) {
     auto matching_options_copy = matching_options_;
     // The first matching is always without guided matching.
@@ -292,7 +299,7 @@ FeatureMatcherController::FeatureMatcherController(
                                                  geometry_options_,
                                                  cache_,
                                                  &matcher_queue_,
-                                                 &verifier_queue_));
+                                                 matcher_output_queue));
     }
   } else {
     auto matching_options_copy = matching_options_;
@@ -305,7 +312,7 @@ FeatureMatcherController::FeatureMatcherController(
                                                  geometry_options_,
                                                  cache_,
                                                  &matcher_queue_,
-                                                 &verifier_queue_));
+                                                 matcher_output_queue));
     }
   }
 
@@ -340,7 +347,7 @@ FeatureMatcherController::FeatureMatcherController(
                                                    &output_queue_));
       }
     }
-  } else {
+  } else if (!matching_options.skip_geometric_verification) {
     for (int i = 0; i < num_threads; ++i) {
       verifiers_.emplace_back(std::make_unique<VerifierWorker>(
           geometry_options_, cache_, &verifier_queue_, &output_queue_));
