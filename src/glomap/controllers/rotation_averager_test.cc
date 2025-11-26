@@ -15,6 +15,7 @@ namespace glomap {
 namespace {
 
 Eigen::Vector3d CreateRandomAxis(std::mt19937& rng) {
+  // Note that the axis is not uniform on the sphere.
   const double theta = colmap::RandomUniformReal<double>(0, 2 * EIGEN_PI);
   const double phi = colmap::RandomUniformReal<double>(0, EIGEN_PI);
   return Eigen::Vector3d(std::cos(theta) * std::sin(phi),
