@@ -32,7 +32,6 @@ import argparse
 import datetime
 import multiprocessing
 import os
-import socket
 import time
 import urllib
 import xml.etree.ElementTree as ElementTree
@@ -86,7 +85,7 @@ def parse_page(page, api_key, text, min_date, max_date):
                 compose_url(page, api_key, text, min_date, max_date),
                 timeout=MAX_PAGE_TIMEOUT,
             )
-        except socket.timeout:
+        except TimeoutError:
             continue
         else:
             break
@@ -103,7 +102,7 @@ def parse_page(page, api_key, text, min_date, max_date):
     root = ElementTree.fromstring(response)
 
     if root.attrib["stat"] != "ok":
-        raise IOError
+        raise OSError
 
     photos = []
     for photo in root.iter("photo"):
@@ -112,7 +111,7 @@ def parse_page(page, api_key, text, min_date, max_date):
     return root.find("photos").attrib, photos
 
 
-class PhotoDownloader(object):
+class PhotoDownloader:
     def __init__(self, image_path):
         self.image_path = image_path
 
@@ -122,7 +121,7 @@ class PhotoDownloader(object):
         # but could be .png, .gif, etc).
         url = None
         for url_suffix in ("o", "l", "k", "h", "b", "c", "z"):
-            url_attr = "url_%s" % url_suffix
+            url_attr = "url_" + url_suffix
             if photo.get(url_attr) is not None:
                 url = photo.get(url_attr)
                 break
@@ -133,7 +132,10 @@ class PhotoDownloader(object):
             url_filename = urlparse.urlparse(url).path
             image_ext = os.path.splitext(url_filename)[1]
 
-            image_name = "%s_%s%s" % (photo["id"], photo["secret"], image_ext)
+            image_name = "{}_{}{}".format(
+                photo["id"], photo["secret"], image_ext
+            )
+
             path = os.path.join(self.image_path, image_name)
             if not os.path.exists(path):
                 print(url)

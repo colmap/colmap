@@ -62,10 +62,7 @@ def main():
     connection = sqlite3.connect(args.database_path)
     cursor = connection.cursor()
 
-    try:
-        os.makedirs(args.output_path)
-    except:  # noqa E722
-        pass
+    os.makedirs(args.output_path, exist_ok=True)
 
     cameras = {}
     cursor.execute("SELECT camera_id, params FROM cameras;")
@@ -94,8 +91,8 @@ def main():
     sift_version_v4 = 808334422
     sift_eof_marker = 1179600383
 
-    for image_id, (image_idx, image_name) in images.iteritems():
-        print("Exporting key file for", image_name)
+    for image_id, (_image_idx, image_name) in images.iteritems():
+        print(f"Exporting key file for {image_name}")
         base_name, ext = os.path.splitext(image_name)
         key_file_name = os.path.join(args.output_path, base_name + ".sift")
         if os.path.exists(key_file_name):
@@ -128,11 +125,11 @@ def main():
                 fid.write(struct.pack("i", sift_eof_marker))
         else:
             with open(key_file_name, "w") as fid:
-                fid.write(
-                    "%d %d\n" % (keypoints.shape[0], descriptors.shape[1])
-                )
+                fid.write(f"{keypoints.shape[0]} {descriptors.shape[1]}\n")
                 for r in range(keypoints.shape[0]):
-                    fid.write("%f %f 0 0 " % (keypoints[r, 0], keypoints[r, 1]))
+                    fid.write(
+                        f"{keypoints[r, 0]:.6f} {keypoints[r, 1]:.6f} 0 0 "
+                    )
                     fid.write(
                         " ".join(map(str, descriptors[r].ravel().tolist()))
                     )
@@ -152,14 +149,13 @@ def main():
             image_name1 = images[image_id1][1]
             image_name2 = images[image_id2][1]
             fid.write(
-                "%s %s %d\n"
-                % (image_name1, image_name2, inlier_matches.shape[0])
+                f"{image_name1} {image_name2} {inlier_matches.shape[0]}\n"
             )
             line1 = ""
             line2 = ""
             for i in range(inlier_matches.shape[0]):
-                line1 += "%d " % inlier_matches[i, 0]
-                line2 += "%d " % inlier_matches[i, 1]
+                line1 += f"{inlier_matches[i, 0]} "
+                line2 += f"{inlier_matches[i, 1]} "
             fid.write(line1 + "\n")
             fid.write(line2 + "\n")
 

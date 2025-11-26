@@ -45,7 +45,7 @@ def parse_args():
 
 
 def request_trial(func, *args, **kwargs):
-    for i in range(MAX_REQUEST_TRIALS):
+    for _ in range(MAX_REQUEST_TRIALS):
         try:
             response = func(*args, **kwargs)
         except:  # noqa E722
@@ -72,7 +72,8 @@ def main():
             "typedef std::vector<std::pair<std::string, float>> make_specs_t;\n"
         )
         f.write(
-            "typedef std::unordered_map<std::string, make_specs_t> camera_specs_t;;\n\n"
+            "typedef std::unordered_map<std::string, make_specs_t> "
+            "camera_specs_t;\n\n"
         )
         f.write("camera_specs_t InitializeCameraSpecs();\n\n")
 
@@ -91,8 +92,8 @@ def main():
         for make in makes:
             f.write("  {\n")
             f.write(
-                '    auto& make_specs = specs["%s"];\n'
-                % make.lower().replace(" ", "")
+                "    auto& make_specs = specs["
+                f'"{make.lower().replace(" ", "")}"];\n'
             )
 
             models_response = request_trial(
@@ -110,9 +111,7 @@ def main():
                 if model is None:
                     continue
 
-                url = "http://www.digicamdb.com/specs/{0}_{1}".format(
-                    make, model
-                )
+                url = f"http://www.digicamdb.com/specs/{make}_{model}"
                 specs_response = request_trial(requests.get, url)
 
                 specs_tree = soupparser.fromstring(specs_response.text)
@@ -129,7 +128,8 @@ def main():
                             float(sensor_width.replace(" ", "")),
                         )
                         models_code += (
-                            '    make_specs.emplace_back("%s", %.4ff);\n' % data
+                            '    make_specs.emplace_back("'
+                            f'{data[0]}", {data[1]:.4f}f);\n'
                         )
 
                         print(make, model_name)
@@ -137,7 +137,7 @@ def main():
 
                         num_models += 1
 
-            f.write("    make_specs.reserve(%d);\n" % num_models)
+            f.write(f"    make_specs.reserve({num_models});\n")
             f.write(models_code)
             f.write("  }\n\n")
 

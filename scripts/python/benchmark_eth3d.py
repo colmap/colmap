@@ -15,7 +15,8 @@ def download_file(url, file_path, max_retries=3):
             return
         except Exception as exc:
             print(
-                f"Failed to download {url} (trial={retry + 1}) to {file_path} due to {exc}"
+                f"Failed to download {url} "
+                f"(trial={retry + 1}) to {file_path} due to {exc}"
             )
 
 
@@ -29,7 +30,7 @@ def check_small_errors_or_exit(
     print(f"Evaluating errors for {dataset_name}")
 
     error = False
-    with open(errors_csv_path, "r") as fid:
+    with open(errors_csv_path) as fid:
         num_images = 0
         for line in fid:
             line = line.strip()
@@ -73,13 +74,13 @@ def process_dataset(args, dataset_name):
         ["7zz", "x", "-y", f"{dataset_name}.7z"], cwd=workspace_path
     )
 
-    # Find undistorted parameters of first camera and initialize all images with it.
+    # Find undistorted parameters of first camera
+    # and initialize all images with it.
     with open(
         os.path.join(
             workspace_path,
             f"{dataset_name}/dslr_calibration_undistorted/cameras.txt",
         ),
-        "r",
     ) as fid:
         for line in fid:
             if not line.startswith("#"):
@@ -97,7 +98,6 @@ def process_dataset(args, dataset_name):
             workspace_path,
             f"{dataset_name}/dslr_calibration_undistorted/images.txt",
         ),
-        "r",
     ) as fid:
         for line in fid:
             if not line.startswith("#") and line.strip():
