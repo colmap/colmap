@@ -4,7 +4,6 @@
 #include "colmap/util/misc.h"
 
 #include "glomap/estimators/cost_function.h"
-#include "glomap/math/rigid3d.h"
 
 namespace glomap {
 namespace {

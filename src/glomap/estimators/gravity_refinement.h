@@ -1,7 +1,6 @@
 #pragma once
 
 #include "glomap/estimators/optimization_base.h"
-#include "glomap/math/rigid3d.h"
 #include "glomap/scene/types_sfm.h"
 #include "glomap/types.h"
 

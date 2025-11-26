@@ -7,9 +7,7 @@
 
 #include "glomap/controllers/global_mapper.h"
 #include "glomap/estimators/gravity_refinement.h"
-#include "glomap/io/colmap_io.h"
-#include "glomap/math/rigid3d.h"
-#include "glomap/types.h"
+#include "glomap/io/colmap_converter.h"
 
 #include <gtest/gtest.h>
 
@@ -17,8 +15,8 @@ namespace glomap {
 namespace {
 
 Eigen::AngleAxisd CreateRandomRotation(std::mt19937& rng, double stddev) {
-  const double theta = colmap::RandomUniformReal<double>(0, 2 * M_PI);
-  const double phi = colmap::RandomUniformReal<double>(0, M_PI);
+  const double theta = colmap::RandomUniformReal<double>(0, 2 * EIGEN_PI);
+  const double phi = colmap::RandomUniformReal<double>(0, EIGEN_PI);
   const Eigen::Vector3d axis(std::cos(theta) * std::sin(phi),
                              std::sin(theta) * std::sin(phi),
                              std::cos(phi));
@@ -45,8 +43,7 @@ void PrepareGravity(const colmap::Reconstruction& gt,
 
     if (outlier_ratio > 0.0 &&
         colmap::RandomUniformReal<double>(0, 1) < outlier_ratio) {
-      const Eigen::AngleAxisd q = CreateRandomRotation(rng, 1.);
-      gravityInRig = (q.angle() * q.axis()).normalized();
+      gravityInRig = CreateRandomRotation(rng, 1.).axis();
     }
 
     frames[frame_id].gravity_info.SetGravity(gravityInRig);

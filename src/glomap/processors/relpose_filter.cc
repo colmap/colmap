@@ -1,7 +1,5 @@
 #include "glomap/processors/relpose_filter.h"
 
-#include "glomap/math/rigid3d.h"
-
 namespace glomap {
 
 void RelPoseFilter::FilterRotations(
