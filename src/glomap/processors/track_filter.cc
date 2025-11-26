@@ -1,7 +1,5 @@
 #include "glomap/processors/track_filter.h"
 
-#include "glomap/math/rigid3d.h"
-
 namespace glomap {
 
 int TrackFilter::FilterTracksByReprojection(
@@ -61,8 +59,8 @@ int TrackFilter::FilterTracksByAngle(
     std::unordered_map<point3D_t, Point3D>& tracks,
     double max_angle_error) {
   int counter = 0;
-  double thres = std::cos(DegToRad(max_angle_error));
-  double thres_uncalib = std::cos(DegToRad(max_angle_error * 2));
+  double thres = std::cos(colmap::DegToRad(max_angle_error));
+  double thres_uncalib = std::cos(colmap::DegToRad(max_angle_error * 2));
   for (auto& [track_id, track] : tracks) {
     std::vector<colmap::TrackElement> observation_new;
     for (const auto& observation : track.track.Elements()) {
@@ -96,7 +94,7 @@ int TrackFilter::FilterTrackTriangulationAngle(
     std::unordered_map<point3D_t, Point3D>& tracks,
     double min_angle) {
   int counter = 0;
-  double thres = std::cos(DegToRad(min_angle));
+  double thres = std::cos(colmap::DegToRad(min_angle));
   for (auto& [track_id, track] : tracks) {
     std::vector<colmap::TrackElement> observation_new;
     std::vector<Eigen::Vector3d> pts_calc;

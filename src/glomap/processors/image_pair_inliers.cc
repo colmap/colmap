@@ -48,8 +48,7 @@ double ImagePairInliers::ScoreErrorEssential() {
   Eigen::Vector3d pt1, pt2;
 
   // TODO: determine the best threshold for triangulation angle
-  // double thres_angle = std::cos(DegToRad(1.));
-  double thres_epipole = std::cos(DegToRad(3.));
+  double thres_epipole = std::cos(colmap::DegToRad(3.));
   double thres_angle = 1;
   thres_angle += 1e-6;
   thres_epipole += 1e-6;

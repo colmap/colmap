@@ -81,6 +81,31 @@ bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& P,
   return true;
 }
 
+Eigen::Vector3d RotationMatrixToAngleAxis(const Eigen::Matrix3d& R) {
+  const Eigen::AngleAxisd aa(R);
+  return aa.angle() * aa.axis();
+}
+
+Eigen::Matrix3d AngleAxisToRotationMatrix(const Eigen::Vector3d& w) {
+  const double angle = w.norm();
+  if (angle > 1e-12) {
+    return Eigen::AngleAxis<double>(angle, w / angle).toRotationMatrix();
+  } else {
+    // Small angle approximation: I + [w]_x.
+    Eigen::Matrix3d R;
+    R(0, 0) = 1;
+    R(1, 0) = w[2];
+    R(2, 0) = -w[1];
+    R(0, 1) = -w[2];
+    R(1, 1) = 1;
+    R(2, 1) = w[0];
+    R(0, 2) = w[1];
+    R(1, 2) = -w[0];
+    R(2, 2) = 1;
+    return R;
+  }
+}
+
 void RotationMatrixToEulerAngles(const Eigen::Matrix3d& R,
                                  double* rx,
                                  double* ry,

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "glomap/estimators/optimization_base.h"
-#include "glomap/math/rigid3d.h"
 #include "glomap/scene/types_sfm.h"
 #include "glomap/types.h"
 
@@ -21,7 +20,7 @@ struct GravityRefinerOptions : public OptimizationBaseOptions {
 
   std::shared_ptr<ceres::LossFunction> CreateLossFunction() {
     return std::make_shared<ceres::ArctanLoss>(
-        1 - std::cos(DegToRad(max_gravity_error)));
+        1 - std::cos(colmap::DegToRad(max_gravity_error)));
   }
 };
 

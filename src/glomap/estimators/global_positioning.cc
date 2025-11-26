@@ -4,7 +4,6 @@
 #include "colmap/util/misc.h"
 
 #include "glomap/estimators/cost_function.h"
-#include "glomap/math/rigid3d.h"
 
 namespace glomap {
 namespace {
@@ -146,8 +145,12 @@ void GlobalPositioner::InitializeRandomPositions(
 
   if (!options_.generate_random_positions || !options_.optimize_positions) {
     for (auto& [frame_id, frame] : frames) {
-      if (constrained_positions.find(frame_id) != constrained_positions.end())
-        frame.RigFromWorld().translation = CenterFromPose(frame.RigFromWorld());
+      if (constrained_positions.find(frame_id) != constrained_positions.end()) {
+        // Will be converted back to rig_from_world after the optimization.
+        frame.RigFromWorld().translation =
+            frame.RigFromWorld().rotation.inverse() *
+            -frame.RigFromWorld().translation;
+      }
     }
     return;
   }
@@ -159,7 +162,10 @@ void GlobalPositioner::InitializeRandomPositions(
       frame.RigFromWorld().translation =
           100.0 * RandVector3d(random_generator_, -1, 1);
     } else {
-      frame.RigFromWorld().translation = CenterFromPose(frame.RigFromWorld());
+      // Will be converted back to rig_from_world after the optimization.
+      frame.RigFromWorld().translation =
+          frame.RigFromWorld().rotation.inverse() *
+          -frame.RigFromWorld().translation;
     }
   }
 
@@ -571,10 +577,8 @@ void GlobalPositioner::ConvertResults(
   // translation now stores the camera position, needs to convert back
   for (auto& [frame_id, frame] : frames) {
     frame.RigFromWorld().translation =
-        -(frame.RigFromWorld().rotation * frame.RigFromWorld().translation);
-
-    rig_t idx_rig = frame.RigId();
-    frame.RigFromWorld().translation *= rig_scales_[idx_rig];
+        frame.RigFromWorld().rotation * -frame.RigFromWorld().translation;
+    frame.RigFromWorld().translation *= rig_scales_[frame.RigId()];
   }
 
   // Update the rig scales
@@ -584,10 +588,8 @@ void GlobalPositioner::ConvertResults(
         if (problem_->HasParameterBlock(
                 rig.SensorFromRig(sensor_id).translation.data())) {
           cam_from_rig->translation =
-              -(cam_from_rig->rotation * cam_from_rig->translation);
+              cam_from_rig->rotation * -cam_from_rig->translation;
         } else {
-          // If the camera is part of a rig, then scale the translation
-          // by the rig scale
           cam_from_rig->translation *= rig_scales_[rig_id];
         }
       }

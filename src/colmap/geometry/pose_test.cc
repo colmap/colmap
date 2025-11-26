@@ -64,6 +64,19 @@ TEST(DecomposeProjectionMatrix, Nominal) {
   }
 }
 
+TEST(RotationMatrixToAngleAxis, Roundtrip) {
+  const Eigen::Matrix3d R = Eigen::Quaterniond::UnitRandom().toRotationMatrix();
+  EXPECT_THAT(AngleAxisToRotationMatrix(RotationMatrixToAngleAxis(R)),
+              EigenMatrixNear(R, 1e-6));
+}
+
+TEST(AngleAxisToRotationMatrix, Roundtrip) {
+  const Eigen::AngleAxisd aa(Eigen::Quaterniond::UnitRandom());
+  const Eigen::Vector3d w = aa.angle() * aa.axis();
+  EXPECT_THAT(RotationMatrixToAngleAxis(AngleAxisToRotationMatrix(w)),
+              EigenMatrixNear(w, 1e-6));
+}
+
 TEST(EulerAngles, X) {
   const double rx = 0.3;
   const double ry = 0;

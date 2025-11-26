@@ -111,7 +111,7 @@ void GravityRefiner::RefineGravity(const ViewGraph& view_graph,
     // Check the error with respect to the neighbors
     int counter_outlier = 0;
     for (int i = 0; i < gravities.size(); i++) {
-      double error = RadToDeg(
+      double error = colmap::RadToDeg(
           std::acos(std::max(std::min(gravities[i].dot(gravity), 1.), -1.)));
       if (error > options_.max_gravity_error * 2) counter_outlier++;
     }
@@ -132,6 +132,9 @@ void GravityRefiner::IdentifyErrorProneGravity(
     const std::unordered_map<image_t, Image>& images,
     std::unordered_set<frame_t>& error_prone_frames) {
   error_prone_frames.clear();
+
+  const double max_gravity_error_rad =
+      colmap::DegToRad(options_.max_gravity_error);
 
   // image_id: (mistake, total)
   std::unordered_map<frame_t, std::pair<int, int>> frame_counter;
@@ -155,14 +158,13 @@ void GravityRefiner::IdentifyErrorProneGravity(
       // Convert it to the closest upright rotation
       const Eigen::Matrix3d R_rel_up = AngleToRotUp(RotUpToAngle(R_rel));
 
-      const double angle = CalcAngle(R_rel, R_rel_up);
-
       // increment the total count
       frame_counter[image1.frame_id].second++;
       frame_counter[image2.frame_id].second++;
 
       // increment the mistake count
-      if (angle > options_.max_gravity_error) {
+      if (Eigen::Quaterniond(R_rel).angularDistance(
+              Eigen::Quaterniond(R_rel_up)) > max_gravity_error_rad) {
         frame_counter[image1.frame_id].first++;
         frame_counter[image2.frame_id].first++;
       }
