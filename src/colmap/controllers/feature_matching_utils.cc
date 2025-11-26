@@ -284,7 +284,7 @@ FeatureMatcherController::FeatureMatcherController(
   const bool skip_geometric_verification =
       matching_options_.skip_geometric_verification &&
       !matching_options_.guided_matching;
-  JobQueue<FeatureMatcherData>* target_queue =
+  JobQueue<FeatureMatcherData>* matcher_output_queue =
       skip_geometric_verification ? &output_queue_ : &verifier_queue_;
 
   if (matching_options_.use_gpu) {
@@ -299,7 +299,7 @@ FeatureMatcherController::FeatureMatcherController(
                                                  geometry_options_,
                                                  cache_,
                                                  &matcher_queue_,
-                                                 target_queue));
+                                                 matcher_output_queue));
     }
   } else {
     auto matching_options_copy = matching_options_;
@@ -312,7 +312,7 @@ FeatureMatcherController::FeatureMatcherController(
                                                  geometry_options_,
                                                  cache_,
                                                  &matcher_queue_,
-                                                 target_queue));
+                                                 matcher_output_queue));
     }
   }
 
