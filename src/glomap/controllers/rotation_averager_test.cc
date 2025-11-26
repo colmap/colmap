@@ -14,15 +14,18 @@
 namespace glomap {
 namespace {
 
-Eigen::AngleAxisd CreateRandomRotation(std::mt19937& rng, double stddev) {
+Eigen::Vector3d CreateRandomAxis(std::mt19937& rng) {
   const double theta = colmap::RandomUniformReal<double>(0, 2 * EIGEN_PI);
   const double phi = colmap::RandomUniformReal<double>(0, EIGEN_PI);
-  const Eigen::Vector3d axis(std::cos(theta) * std::sin(phi),
-                             std::sin(theta) * std::sin(phi),
-                             std::cos(phi));
+  return Eigen::Vector3d(std::cos(theta) * std::sin(phi),
+                         std::sin(theta) * std::sin(phi),
+                         std::cos(phi));
+}
+
+Eigen::AngleAxisd CreateRandomRotation(std::mt19937& rng, double stddev) {
   std::normal_distribution<double> d{0, stddev};
   const double angle = d(rng);
-  return Eigen::AngleAxisd(angle, axis);
+  return Eigen::AngleAxisd(angle, CreateRandomAxis(rng));
 }
 
 void PrepareGravity(const colmap::Reconstruction& gt,
@@ -43,7 +46,7 @@ void PrepareGravity(const colmap::Reconstruction& gt,
 
     if (outlier_ratio > 0.0 &&
         colmap::RandomUniformReal<double>(0, 1) < outlier_ratio) {
-      gravityInRig = CreateRandomRotation(rng, 1.).axis();
+      gravityInRig = CreateRandomAxis(rng);
     }
 
     frames[frame_id].gravity_info.SetGravity(gravityInRig);
