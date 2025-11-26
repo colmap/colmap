@@ -347,12 +347,10 @@ FeatureMatcherController::FeatureMatcherController(
                                                    &output_queue_));
       }
     }
-  } else {
+  } else if (!matching_options.skip_geometric_verification) {
     for (int i = 0; i < num_threads; ++i) {
-      if (!matching_options_.skip_geometric_verification) {
-        verifiers_.emplace_back(std::make_unique<VerifierWorker>(
-            geometry_options_, cache_, &verifier_queue_, &output_queue_));
-      }
+      verifiers_.emplace_back(std::make_unique<VerifierWorker>(
+          geometry_options_, cache_, &verifier_queue_, &output_queue_));
     }
   }
 }
