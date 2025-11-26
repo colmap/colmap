@@ -1,8 +1,6 @@
 #include "glomap/io/colmap_converter.h"
 
-#include "colmap/scene/reconstruction_io_utils.h"
-
-#include "glomap/math/two_view_geometry.h"
+#include "colmap/geometry/essential_matrix.h"
 
 namespace glomap {
 
@@ -372,11 +370,12 @@ void ConvertDatabaseToGlomap(
     if (two_view.config == colmap::TwoViewGeometry::UNCALIBRATED) {
       image_pair.F = two_view.F;
     } else if (two_view.config == colmap::TwoViewGeometry::CALIBRATED) {
-      FundamentalFromMotionAndCameras(
-          cameras.at(images.at(image_pair.image_id1).camera_id),
-          cameras.at(images.at(image_pair.image_id2).camera_id),
-          two_view.cam2_from_cam1,
-          &image_pair.F);
+      image_pair.F = colmap::FundamentalFromEssentialMatrix(
+          cameras.at(images.at(image_pair.image_id2).camera_id)
+              .CalibrationMatrix(),
+          colmap::EssentialMatrixFromPose(image_pair.cam2_from_cam1),
+          cameras.at(images.at(image_pair.image_id1).camera_id)
+              .CalibrationMatrix());
     } else if (two_view.config == colmap::TwoViewGeometry::PLANAR ||
                two_view.config == colmap::TwoViewGeometry::PANORAMIC ||
                two_view.config ==

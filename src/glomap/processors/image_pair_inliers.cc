@@ -1,5 +1,7 @@
 #include "glomap/processors/image_pair_inliers.h"
 
+#include "colmap/geometry/essential_matrix.h"
+
 #include "glomap/math/two_view_geometry.h"
 
 namespace glomap {
@@ -18,14 +20,12 @@ double ImagePairInliers::ScoreError() {
 }
 
 double ImagePairInliers::ScoreErrorEssential() {
-  const Rigid3d& cam2_from_cam1 = image_pair.cam2_from_cam1;
-  Eigen::Matrix3d E;
-  EssentialFromMotion(cam2_from_cam1, &E);
+  const Eigen::Matrix3d E =
+      colmap::EssentialMatrixFromPose(image_pair.cam2_from_cam1);
 
   // eij = camera i on image j
-  Eigen::Vector3d epipole12, epipole21;
-  epipole12 = cam2_from_cam1.translation;
-  epipole21 = Inverse(cam2_from_cam1).translation;
+  Eigen::Vector3d epipole12 = image_pair.cam2_from_cam1.translation;
+  Eigen::Vector3d epipole21 = Inverse(image_pair.cam2_from_cam1).translation;
 
   if (epipole12[2] < 0) epipole12 = -epipole12;
   if (epipole21[2] < 0) epipole21 = -epipole21;
@@ -34,8 +34,8 @@ double ImagePairInliers::ScoreErrorEssential() {
     image_pair.inliers.clear();
   }
 
-  image_t image_id1 = image_pair.image_id1;
-  image_t image_id2 = image_pair.image_id2;
+  const image_t image_id1 = image_pair.image_id1;
+  const image_t image_id2 = image_pair.image_id2;
 
   const double thres =
       options.max_epipolar_error_E * 0.5 *
@@ -60,14 +60,16 @@ double ImagePairInliers::ScoreErrorEssential() {
     const double r2 = SampsonError(E, pt1, pt2);
 
     if (r2 < sq_threshold) {
-      bool cheirality = CheckCheirality(cam2_from_cam1, pt1, pt2, 1e-2, 100.);
+      bool cheirality =
+          CheckCheirality(image_pair.cam2_from_cam1, pt1, pt2, 1e-2, 100.);
 
       // Check whether two image rays have small triangulation angle or are too
       // close to the epipoles
       bool not_denegerate = true;
 
       // Check whether two image rays are too close
-      double diff_angle = pt1.dot(cam2_from_cam1.rotation.inverse() * pt2);
+      double diff_angle =
+          pt1.dot(image_pair.cam2_from_cam1.rotation.inverse() * pt2);
       not_denegerate = (diff_angle < thres_angle);
 
       // Check whether two points are too close to the epipoles
