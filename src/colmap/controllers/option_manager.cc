@@ -317,6 +317,9 @@ void OptionManager::AddFeatureMatchingOptions() {
                               &feature_matching->skip_geometric_verification);
   AddAndRegisterDefaultOption("FeatureMatching.rig_verification",
                               &feature_matching->rig_verification);
+  AddAndRegisterDefaultOption(
+      "FeatureMatching.skip_image_pairs_in_same_frame",
+      &feature_matching->skip_image_pairs_in_same_frame);
   AddAndRegisterDefaultOption("FeatureMatching.max_num_matches",
                               &feature_matching->max_num_matches);
 

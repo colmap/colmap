@@ -1,5 +1,7 @@
 #pragma once
 
+#include "colmap/geometry/rigid3.h"
+
 #include "glomap/scene/types.h"
 #include "glomap/types.h"
 

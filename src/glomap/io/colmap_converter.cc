@@ -1,8 +1,6 @@
 #include "glomap/io/colmap_converter.h"
 
-#include "colmap/scene/reconstruction_io_utils.h"
-
-#include "glomap/math/two_view_geometry.h"
+#include "colmap/geometry/essential_matrix.h"
 
 namespace glomap {
 
@@ -24,7 +22,7 @@ void ConvertGlomapToColmap(
     const std::unordered_map<camera_t, colmap::Camera>& cameras,
     const std::unordered_map<frame_t, Frame>& frames,
     const std::unordered_map<image_t, Image>& images,
-    const std::unordered_map<track_t, Track>& tracks,
+    const std::unordered_map<point3D_t, Point3D>& tracks,
     colmap::Reconstruction& reconstruction,
     int cluster_id,
     bool include_image_points) {
@@ -50,7 +48,7 @@ void ConvertGlomapToColmap(
 
   // Prepare the 2d-3d correspondences
   size_t min_supports = 2;
-  std::unordered_map<image_t, std::vector<track_t>> image_to_point3D;
+  std::unordered_map<image_t, std::vector<point3D_t>> image_to_point3D;
   if (tracks.size() > 0 || include_image_points) {
     // Initialize every point to corresponds to invalid point
     for (auto& [image_id, image] : images) {
@@ -58,18 +56,19 @@ void ConvertGlomapToColmap(
           (cluster_id != -1 && image.ClusterId() != cluster_id))
         continue;
       image_to_point3D[image_id] =
-          std::vector<track_t>(image.features.size(), -1);
+          std::vector<point3D_t>(image.features.size(), -1);
     }
 
     if (tracks.size() > 0) {
       for (auto& [track_id, track] : tracks) {
-        if (track.observations.size() < min_supports) {
+        if (track.track.Length() < min_supports) {
           continue;
         }
-        for (auto& observation : track.observations) {
-          if (image_to_point3D.find(observation.first) !=
+        for (auto& observation : track.track.Elements()) {
+          if (image_to_point3D.find(observation.image_id) !=
               image_to_point3D.end()) {
-            image_to_point3D[observation.first][observation.second] = track_id;
+            image_to_point3D[observation.image_id][observation.point2D_idx] =
+                track_id;
           }
         }
       }
@@ -78,20 +77,20 @@ void ConvertGlomapToColmap(
 
   // Add points
   for (const auto& [track_id, track] : tracks) {
-    colmap::Point3D colmap_point;
+    Point3D colmap_point;
     colmap_point.xyz = track.xyz;
     colmap_point.color = track.color;
-    colmap_point.error = 0;
+    colmap_point.error = track.error;
 
     // Add track element
-    for (auto& observation : track.observations) {
-      const Image& image = images.at(observation.first);
+    for (auto& observation : track.track.Elements()) {
+      const Image& image = images.at(observation.image_id);
       if (!image.IsRegistered() ||
           (cluster_id != -1 && image.ClusterId() != cluster_id))
         continue;
       colmap::TrackElement colmap_track_el;
-      colmap_track_el.image_id = observation.first;
-      colmap_track_el.point2D_idx = observation.second;
+      colmap_track_el.image_id = observation.image_id;
+      colmap_track_el.point2D_idx = observation.point2D_idx;
 
       colmap_point.track.AddElement(colmap_track_el);
     }
@@ -109,7 +108,7 @@ void ConvertGlomapToColmap(
         image_to_point3D.find(image_id) != image_to_point3D.end();
     ConvertGlomapToColmapImage(image, image_colmap, keep_points);
     if (keep_points) {
-      std::vector<track_t>& track_ids = image_to_point3D[image_id];
+      std::vector<point3D_t>& track_ids = image_to_point3D[image_id];
       for (size_t i = 0; i < image.features.size(); i++) {
         if (track_ids[i] != -1 && reconstruction.ExistsPoint3D(track_ids[i])) {
           image_colmap.SetPoint3DForPoint2D(i, track_ids[i]);
@@ -137,7 +136,7 @@ void ConvertColmapToGlomap(
     std::unordered_map<camera_t, colmap::Camera>& cameras,
     std::unordered_map<frame_t, Frame>& frames,
     std::unordered_map<image_t, Image>& images,
-    std::unordered_map<track_t, Track>& tracks) {
+    std::unordered_map<point3D_t, Point3D>& tracks) {
   // Clear the glomap reconstruction
   cameras.clear();
   images.clear();
@@ -185,28 +184,14 @@ void ConvertColmapToGlomap(
 
 void ConvertColmapPoints3DToGlomapTracks(
     const colmap::Reconstruction& reconstruction,
-    std::unordered_map<track_t, Track>& tracks) {
+    std::unordered_map<point3D_t, Point3D>& tracks) {
   // Read tracks
   tracks.clear();
   tracks.reserve(reconstruction.NumPoints3D());
 
   auto& points3D = reconstruction.Points3D();
   for (auto& [point3d_id, point3D] : points3D) {
-    Track track;
-    const colmap::Track& track_colmap = point3D.track;
-    track.xyz = point3D.xyz;
-    track.color = point3D.color;
-    track.track_id = point3d_id;
-    track.is_initialized = true;
-
-    const std::vector<colmap::TrackElement>& elements = track_colmap.Elements();
-    track.observations.reserve(track_colmap.Length());
-    for (auto& element : elements) {
-      track.observations.push_back(
-          Observation(element.image_id, element.point2D_idx));
-    }
-
-    tracks.insert(std::make_pair(point3d_id, track));
+    tracks.insert(std::make_pair(point3d_id, point3D));
   }
 }
 
@@ -385,11 +370,12 @@ void ConvertDatabaseToGlomap(
     if (two_view.config == colmap::TwoViewGeometry::UNCALIBRATED) {
       image_pair.F = two_view.F;
     } else if (two_view.config == colmap::TwoViewGeometry::CALIBRATED) {
-      FundamentalFromMotionAndCameras(
-          cameras.at(images.at(image_pair.image_id1).camera_id),
-          cameras.at(images.at(image_pair.image_id2).camera_id),
-          two_view.cam2_from_cam1,
-          &image_pair.F);
+      image_pair.F = colmap::FundamentalFromEssentialMatrix(
+          cameras.at(images.at(image_pair.image_id2).camera_id)
+              .CalibrationMatrix(),
+          colmap::EssentialMatrixFromPose(image_pair.cam2_from_cam1),
+          cameras.at(images.at(image_pair.image_id1).camera_id)
+              .CalibrationMatrix());
     } else if (two_view.config == colmap::TwoViewGeometry::PLANAR ||
                two_view.config == colmap::TwoViewGeometry::PANORAMIC ||
                two_view.config ==
@@ -407,7 +393,7 @@ void ConvertDatabaseToGlomap(
     std::vector<Eigen::Vector2d>& keypoints2 =
         images[image_pair.image_id2].features;
 
-    feature_t count = 0;
+    size_t count = 0;
     for (int i = 0; i < feature_matches.size(); i++) {
       colmap::point2D_t point2D_idx1 = feature_matches[i].point2D_idx1;
       colmap::point2D_t point2D_idx2 = feature_matches[i].point2D_idx2;

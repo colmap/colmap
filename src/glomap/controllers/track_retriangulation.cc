@@ -16,7 +16,7 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
                          std::unordered_map<camera_t, colmap::Camera>& cameras,
                          std::unordered_map<frame_t, Frame>& frames,
                          std::unordered_map<image_t, Image>& images,
-                         std::unordered_map<track_t, Track>& tracks) {
+                         std::unordered_map<point3D_t, Point3D>& tracks) {
   // Following code adapted from COLMAP
   auto database_cache =
       colmap::DatabaseCache::Create(database,
@@ -43,7 +43,7 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
                         cameras,
                         frames,
                         images,
-                        std::unordered_map<track_t, Track>(),
+                        std::unordered_map<point3D_t, Point3D>(),
                         *reconstruction_ptr);
 
   colmap::IncrementalPipelineOptions options_colmap;

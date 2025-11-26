@@ -52,7 +52,7 @@ class GlobalMapper {
              std::unordered_map<camera_t, colmap::Camera>& cameras,
              std::unordered_map<frame_t, Frame>& frames,
              std::unordered_map<image_t, Image>& images,
-             std::unordered_map<track_t, Track>& tracks);
+             std::unordered_map<point3D_t, Point3D>& tracks);
 
  private:
   const GlobalMapperOptions options_;

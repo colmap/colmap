@@ -1,5 +1,7 @@
 #include "glomap/math/two_view_geometry.h"
 
+#include "colmap/geometry/rigid3.h"
+
 namespace glomap {
 // Code from PoseLib by Viktor Larsson
 bool CheckCheirality(const Rigid3d& pose,
@@ -36,23 +38,6 @@ double GetOrientationSignum(const Eigen::Matrix3d& F,
   double signum1 = F(0, 0) * pt2[0] + F(1, 0) * pt2[1] + F(2, 0);
   double signum2 = epipole(1) - epipole(2) * pt1[1];
   return signum1 * signum2;
-}
-
-void EssentialFromMotion(const Rigid3d& pose, Eigen::Matrix3d* E) {
-  *E << 0.0, -pose.translation(2), pose.translation(1), pose.translation(2),
-      0.0, -pose.translation(0), -pose.translation(1), pose.translation(0), 0.0;
-  *E = (*E) * pose.rotation.toRotationMatrix();
-}
-
-// Get the essential matrix from relative pose
-void FundamentalFromMotionAndCameras(const colmap::Camera& camera1,
-                                     const colmap::Camera& camera2,
-                                     const Rigid3d& pose,
-                                     Eigen::Matrix3d* F) {
-  Eigen::Matrix3d E;
-  EssentialFromMotion(pose, &E);
-  *F = camera2.CalibrationMatrix().transpose().inverse() * E *
-       camera1.CalibrationMatrix().inverse();
 }
 
 double SampsonError(const Eigen::Matrix3d& E,
