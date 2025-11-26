@@ -56,19 +56,16 @@ void BindFeatureMatching(py::module& m) {
               "skip_geometric_verification",
               &FeatureMatchingOptions::skip_geometric_verification,
               "Skips the geometric verification stage and forwards matches "
-              "unchanged. "
-              "Ignored when guided matching is enabled, because guided "
-              "matching depends "
-              "on the two-view geometry produced by geometric verification.")
+              "unchanged. Ignored when guided matching is enabled, because "
+              "guided matching depends on the two-view geometry produced by "
+              "geometric verification.")
           .def_readwrite("rig_verification",
                          &FeatureMatchingOptions::rig_verification,
                          "Whether to perform geometric verification using rig "
-                         "constraints between "
-                         "pairs of non-trivial frames. If disabled, performs "
-                         "geometric two-view "
-                         "verification for non-trivial frames without rig "
-                         "constraints. Ignored "
-                         "when skip_geometric_verification is enabled.")
+                         "constraints between pairs of non-trivial frames. If "
+                         "disabled, performs geometric two-view verification "
+                         "for non-trivial frames without rig constraints. "
+                         "Ignored when skip_geometric_verification is enabled.")
           .def_readwrite(
               "skip_image_pairs_in_same_frame",
               &FeatureMatchingOptions::skip_image_pairs_in_same_frame,

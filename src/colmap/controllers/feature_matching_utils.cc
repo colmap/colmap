@@ -169,35 +169,6 @@ void FeatureMatcherWorker::Run() {
 
 namespace {
 
-// A thread that does nothing but forward the data from input to output.
-class PassThroughWorker : public Thread {
- public:
-  using Input = FeatureMatcherData;
-  using Output = FeatureMatcherData;
-
-  PassThroughWorker(JobQueue<Input>* input_queue,
-                    JobQueue<Output>* output_queue)
-      : input_queue_(input_queue), output_queue_(output_queue) {}
-
- protected:
-  void Run() override {
-    while (true) {
-      if (IsStopped()) {
-        break;
-      }
-      auto input_job = input_queue_->Pop();
-      if (input_job.IsValid()) {
-        auto& data = input_job.Data();
-        THROW_CHECK(output_queue_->Push(std::move(data)));
-      }
-    }
-  }
-
- private:
-  JobQueue<Input>* input_queue_;
-  JobQueue<Output>* output_queue_;
-};
-
 class VerifierWorker : public Thread {
  public:
   typedef FeatureMatcherData Input;
@@ -309,6 +280,13 @@ FeatureMatcherController::FeatureMatcherController(
   }
 #endif  // COLMAP_CUDA_ENABLED
 
+  // If skip_geometric_verification, match directly to output_queue_.
+  const bool skip_geometric_verification =
+      matching_options_.skip_geometric_verification &&
+      !matching_options_.guided_matching;
+  JobQueue<FeatureMatcherData>* target_queue =
+      skip_geometric_verification ? &output_queue_ : &verifier_queue_;
+
   if (matching_options_.use_gpu) {
     auto matching_options_copy = matching_options_;
     // The first matching is always without guided matching.
@@ -321,7 +299,7 @@ FeatureMatcherController::FeatureMatcherController(
                                                  geometry_options_,
                                                  cache_,
                                                  &matcher_queue_,
-                                                 &verifier_queue_));
+                                                 target_queue));
     }
   } else {
     auto matching_options_copy = matching_options_;
@@ -334,7 +312,7 @@ FeatureMatcherController::FeatureMatcherController(
                                                  geometry_options_,
                                                  cache_,
                                                  &matcher_queue_,
-                                                 &verifier_queue_));
+                                                 target_queue));
     }
   }
 
@@ -371,10 +349,7 @@ FeatureMatcherController::FeatureMatcherController(
     }
   } else {
     for (int i = 0; i < num_threads; ++i) {
-      if (matching_options_.skip_geometric_verification) {
-        verifiers_.emplace_back(std::make_unique<PassThroughWorker>(
-            &verifier_queue_, &output_queue_));
-      } else {
+      if (!matching_options_.skip_geometric_verification) {
         verifiers_.emplace_back(std::make_unique<VerifierWorker>(
             geometry_options_, cache_, &verifier_queue_, &output_queue_));
       }
