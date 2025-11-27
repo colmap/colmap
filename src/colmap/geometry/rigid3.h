@@ -98,7 +98,7 @@ inline Rigid3d Inverse(const Rigid3d& b_from_a) {
   return a_from_b;
 }
 
-inline Eigen::Vector3d OriginBInA(const Rigid3d& b_from_a) {
+inline Eigen::Vector3d TgtOriginInSrc(const Rigid3d& b_from_a) {
   return b_from_a.rotation.inverse() * -b_from_a.translation;
 }
 

@@ -147,7 +147,7 @@ void GlobalPositioner::InitializeRandomPositions(
     for (auto& [frame_id, frame] : frames) {
       if (constrained_positions.find(frame_id) != constrained_positions.end()) {
         // Will be converted back to rig_from_world after the optimization.
-        frame.RigFromWorld().translation = OriginBInA(frame.RigFromWorld());
+        frame.RigFromWorld().translation = TgtOriginInSrc(frame.RigFromWorld());
       }
     }
     return;
@@ -161,7 +161,7 @@ void GlobalPositioner::InitializeRandomPositions(
           100.0 * RandVector3d(random_generator_, -1, 1);
     } else {
       // Will be converted back to rig_from_world after the optimization.
-      frame.RigFromWorld().translation = OriginBInA(frame.RigFromWorld());
+      frame.RigFromWorld().translation = TgtOriginInSrc(frame.RigFromWorld());
     }
   }
 
@@ -570,7 +570,7 @@ void GlobalPositioner::ConvertResults(
     std::unordered_map<frame_t, Frame>& frames) {
   // translation now stores the camera position, needs to convert back
   for (auto& [frame_id, frame] : frames) {
-    frame.RigFromWorld().translation = OriginBInA(frame.RigFromWorld());
+    frame.RigFromWorld().translation = TgtOriginInSrc(frame.RigFromWorld());
     frame.RigFromWorld().translation *= rig_scales_[frame.RigId()];
   }
 
@@ -580,7 +580,7 @@ void GlobalPositioner::ConvertResults(
       if (cam_from_rig.has_value()) {
         if (problem_->HasParameterBlock(
                 rig.SensorFromRig(sensor_id).translation.data())) {
-          cam_from_rig->translation = OriginBInA(*cam_from_rig);
+          cam_from_rig->translation = TgtOriginInSrc(*cam_from_rig);
         } else {
           cam_from_rig->translation *= rig_scales_[rig_id];
         }
