@@ -40,6 +40,13 @@ void BindFrame(py::module& m) {
           [](const Frame& self) { return self.DataIds(); },
           "The associated data.")
       .def_property_readonly(
+          "data_ids",
+          [](const Frame& self, SensorType type) {
+            const auto data_ids = self.DataIds(type);
+            return std::vector<data_t>(data_ids.begin(), data_ids.end());
+          },
+          "The associated data for a given sensor type.")
+      .def_property_readonly(
           "image_ids",
           [](const Frame& self) {
             const auto image_ids = self.ImageIds();
