@@ -39,7 +39,7 @@ void BindFrame(py::module& m) {
           "data_ids",
           [](const Frame& self) { return self.DataIds(); },
           "The associated data.")
-      .def_property_readonly(
+      .def(
           "data_ids",
           [](const Frame& self, SensorType type) {
             const auto data_ids = self.DataIds(type);
