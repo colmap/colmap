@@ -62,10 +62,13 @@ void MergeClusters(const SceneClustering::Cluster& cluster,
     for (size_t i = 0; i < reconstructions.size(); ++i) {
       const int num_reg_images_i = reconstructions[i]->NumRegImages();
       for (size_t j = 0; j < i; ++j) {
-        const double kMaxReprojError = 8.0;
         const int num_reg_images_j = reconstructions[j]->NumRegImages();
-        if (MergeAndFilterReconstructions(
-                kMaxReprojError, *reconstructions[j], *reconstructions[i])) {
+        MergeReconstructionsOptions merge_options;
+        merge_options.camera_merge_method =
+            MergeReconstructionsOptions::CameraMergeMethod::TARGET;
+        merge_options.max_reproj_error = 8.0;
+        if (MergeReconstructions(
+                merge_options, *reconstructions[j], *reconstructions[i])) {
           LOG(INFO) << StringPrintf(
               "=> Merged clusters with %d and %d images into %d images",
               num_reg_images_i,

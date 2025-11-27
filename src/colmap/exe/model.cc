@@ -737,16 +737,29 @@ int RunModelMerger(int argc, char** argv) {
   std::string input_path1;
   std::string input_path2;
   std::string output_path;
-  double max_reproj_error = 64.0;
+  std::string camera_merge_method = "refined";
+  MergeReconstructionsOptions merge_options;
 
   OptionManager options;
-  options.AddRequiredOption("input_path1", &input_path1);
-  options.AddRequiredOption("input_path2", &input_path2);
+  options.AddRequiredOption(
+      "input_path1", &input_path1, "Path to the source model (merged from)");
+  options.AddRequiredOption(
+      "input_path2", &input_path2, "Path to the target model (merged into)");
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("max_reproj_error", &max_reproj_error);
+  options.AddDefaultOption("max_reproj_error", &merge_options.max_reproj_error);
+  options.AddDefaultOption("min_inlier_observations",
+                           &merge_options.min_inlier_observations);
+  options.AddDefaultOption("merge_camera_method",
+                           &camera_merge_method,
+                           "{source, target, best, refined}");
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
+
+  StringToUpper(&camera_merge_method);
+  merge_options.camera_merge_method =
+      MergeReconstructionsOptions::CameraMergeMethodFromString(
+          camera_merge_method);
 
   Reconstruction reconstruction1;
   reconstruction1.Read(input_path1);
@@ -761,12 +774,22 @@ int RunModelMerger(int argc, char** argv) {
   LOG(INFO) << StringPrintf("Points: %d", reconstruction2.NumPoints3D());
 
   PrintHeading2("Merging reconstructions");
-  if (MergeAndFilterReconstructions(
-          max_reproj_error, reconstruction1, reconstruction2)) {
+  if (MergeReconstructions(merge_options, reconstruction1, reconstruction2)) {
     LOG(INFO) << "=> Merge succeeded";
     PrintHeading2("Merged reconstruction");
     LOG(INFO) << StringPrintf("Images: %d", reconstruction2.NumRegImages());
     LOG(INFO) << StringPrintf("Points: %d", reconstruction2.NumPoints3D());
+
+    std::cout << "\nPoint3D error stats: \n";
+    std::vector<double> point3D_errors;
+    point3D_errors.reserve(reconstruction2.NumPoints3D());
+    for (const auto& [point3D_id, point3D] : reconstruction2.Points3D()) {
+      if (point3D.HasError()) {
+        point3D_errors.push_back(point3D.error);
+      }
+    }
+    PrintErrorStats(std::cout, point3D_errors);
+
   } else {
     LOG(INFO) << "=> Merge failed";
   }

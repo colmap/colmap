@@ -96,8 +96,28 @@ std::vector<ImageAlignmentError> ComputeImageAlignmentError(
     const Sim3d& tgt_from_src);
 
 // Aligns the source to the target reconstruction and merges cameras, images,
-// points3D into the target using the alignment. Returns false on failure.
-bool MergeReconstructions(double max_reproj_error,
+// points3D into the target using the alignment. Both reconstructions must come
+// from the same database to keep identifiers consistent. Returns false on
+// failure.
+struct MergeReconstructionsOptions {
+  // Method for selecting or merging camera intrinsics
+  // SOURCE:  Use cameras from the source reconstruction
+  // TARGET:  Use cameras from the target reconstruction
+  // BETTER:  Choose the camera with the smaller reprojection error
+  // REFINED: Merge cameras and refine by optimization
+  MAKE_ENUM_CLASS(CameraMergeMethod, 0, SOURCE, TARGET, BETTER, REFINED);
+
+  CameraMergeMethod camera_merge_method = CameraMergeMethod::REFINED;
+
+  // Minimum required inlier ratio per overlapping image pair.
+  double min_inlier_observations = 0.3;
+
+  // Maximum reprojection error for considering a point3D as inlier.
+  double max_reproj_error = 64;
+
+  bool Check() const;
+};
+bool MergeReconstructions(const MergeReconstructionsOptions& options,
                           const Reconstruction& src_reconstruction,
                           Reconstruction& tgt_reconstruction);
 

@@ -6,6 +6,7 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/logging.h"
 
+#include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 
 #include <pybind11/eigen.h>
@@ -142,6 +143,50 @@ void BindAlignmentEstimator(py::module& m) {
       "min_inlier_observations"_a = 0.3,
       "max_reproj_error"_a = 8.0,
       "max_proj_center_error"_a = 0.1);
+
+  using CameraMergeMethod = MergeReconstructionsOptions::CameraMergeMethod;
+  auto PyCameraMergeMethod =
+      py::enum_<CameraMergeMethod>(m, "CameraMergeMethod")
+          .value("SOURCE", CameraMergeMethod::SOURCE)
+          .value("TARGET", CameraMergeMethod::TARGET)
+          .value("BETTER", CameraMergeMethod::BETTER)
+          .value("REFINED", CameraMergeMethod::REFINED);
+  AddStringToEnumConstructor(PyCameraMergeMethod);
+
+  using MergeOpts = MergeReconstructionsOptions;
+  auto PyMergeOpts = py::classh<MergeOpts>(m, "MergeReconstructionsOptions");
+  PyMergeOpts.def(py::init<>())
+      .def_readwrite("camera_merge_method",
+                     &MergeOpts::camera_merge_method,
+                     "Method for selecting or merging camera intrinsics.")
+      .def_readwrite(
+          "min_inlier_observations",
+          &MergeOpts::min_inlier_observations,
+          "Minimum required inlier ratio per overlapping image pair.")
+      .def_readwrite(
+          "max_reproj_error",
+          &MergeOpts::max_reproj_error,
+          "Maximum reprojection error for considering a point3D as inlier.")
+      .def("check", &MergeOpts::Check);
+  MakeDataclass(PyMergeOpts);
+
+  m.def(
+      "merge_reconstructions",
+      [](const MergeReconstructionsOptions& options,
+         const Reconstruction& src_reconstruction,
+         const Reconstruction& tgt_reconstruction)
+          -> py::typing::Optional<Reconstruction> {
+        Reconstruction merged_reconstruction = tgt_reconstruction;
+        if (!MergeReconstructions(
+                options, src_reconstruction, merged_reconstruction)) {
+          return py::none();
+        }
+
+        return py::cast(merged_reconstruction);
+      },
+      "options"_a,
+      "src_reconstruction"_a,
+      "tgt_reconstruction"_a);
 
   m.def("align_reconstruction_to_orig_rig_scales",
         &AlignReconstructionToOrigRigScales,

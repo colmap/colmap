@@ -33,6 +33,7 @@
 #include "colmap/geometry/sim3.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 
 #include <gtest/gtest.h>
@@ -63,6 +64,53 @@ Reconstruction GenerateReconstructionForAlignment() {
   synthetic_dataset_options.num_points3D = 50;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   return reconstruction;
+}
+
+void GenerateReconstructionsForMerge(Reconstruction& orig_reconstruction,
+                                     Reconstruction& src_reconstruction,
+                                     Reconstruction& tgt_reconstruction,
+                                     double src_camera_error = 0,
+                                     double tgt_camera_error = 0) {
+  // Synthesize a reconstruction which has at least two cameras
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 3;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 10;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(synthetic_dataset_options, &src_reconstruction);
+  orig_reconstruction = src_reconstruction;
+  tgt_reconstruction = src_reconstruction;
+
+  auto remove_rig_frames = [](Reconstruction& reconstruction, rig_t rig_id) {
+    const std::vector<frame_t> frame_ids = reconstruction.RegFrameIds();
+    for (const auto& frame_id : frame_ids) {
+      if (reconstruction.Frame(frame_id).RigId() == rig_id) {
+        reconstruction.DeRegisterFrame(frame_id);
+      }
+    }
+  };
+
+  remove_rig_frames(src_reconstruction, 1);
+  remove_rig_frames(tgt_reconstruction, 2);
+
+  src_reconstruction.Camera(3).params[0] += src_camera_error;
+  tgt_reconstruction.Camera(3).params[0] += tgt_camera_error;
+  src_reconstruction.UpdatePoint3DErrors();
+  tgt_reconstruction.UpdatePoint3DErrors();
+
+  // Remove all unregistered rigs/cameras/frames/images.
+  src_reconstruction.TearDown();
+  tgt_reconstruction.TearDown();
+  EXPECT_EQ(src_reconstruction.NumRigs(), 2);
+  EXPECT_EQ(src_reconstruction.NumCameras(), 2);
+  EXPECT_EQ(src_reconstruction.NumFrames(), 20);
+  EXPECT_EQ(src_reconstruction.NumRegFrames(), 20);
+  EXPECT_EQ(src_reconstruction.NumImages(), 20);
+  EXPECT_EQ(tgt_reconstruction.NumRigs(), 2);
+  EXPECT_EQ(tgt_reconstruction.NumCameras(), 2);
+  EXPECT_EQ(tgt_reconstruction.NumFrames(), 20);
+  EXPECT_EQ(tgt_reconstruction.NumRegFrames(), 20);
+  EXPECT_EQ(tgt_reconstruction.NumImages(), 20);
 }
 
 TEST(Alignment, AlignReconstructionToLocations) {
@@ -173,54 +221,110 @@ TEST(Alignment, AlignReconstructionsViaPoints) {
 }
 
 TEST(Alignment, MergeReconstructions) {
-  // Synthesize a reconstruction which has at least two cameras
-  Reconstruction src_reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 3;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 10;
-  synthetic_dataset_options.num_points3D = 50;
-  SynthesizeDataset(synthetic_dataset_options, &src_reconstruction);
-  Reconstruction orig_reconstruction = src_reconstruction;
-  Reconstruction tgt_reconstruction = src_reconstruction;
-
-  auto remove_rig_frames = [](Reconstruction& reconstruction, rig_t rig_id) {
-    const std::vector<frame_t> frame_ids = reconstruction.RegFrameIds();
-    for (const auto& frame_id : frame_ids) {
-      if (reconstruction.Frame(frame_id).RigId() == rig_id) {
-        reconstruction.DeRegisterFrame(frame_id);
-      }
-    }
-  };
-
-  remove_rig_frames(src_reconstruction, 1);
-  remove_rig_frames(tgt_reconstruction, 2);
-
-  // Remove all unregistered rigs/cameras/frames/images.
-  src_reconstruction.TearDown();
-  tgt_reconstruction.TearDown();
-  EXPECT_EQ(src_reconstruction.NumRigs(), 2);
-  EXPECT_EQ(src_reconstruction.NumCameras(), 2);
-  EXPECT_EQ(src_reconstruction.NumFrames(), 20);
-  EXPECT_EQ(src_reconstruction.NumRegFrames(), 20);
-  EXPECT_EQ(src_reconstruction.NumImages(), 20);
-  EXPECT_EQ(tgt_reconstruction.NumRigs(), 2);
-  EXPECT_EQ(tgt_reconstruction.NumCameras(), 2);
-  EXPECT_EQ(tgt_reconstruction.NumFrames(), 20);
-  EXPECT_EQ(tgt_reconstruction.NumRegFrames(), 20);
-  EXPECT_EQ(tgt_reconstruction.NumImages(), 20);
+  Reconstruction orig_reconstruction, src_reconstruction, tgt_reconstruction;
+  GenerateReconstructionsForMerge(
+      orig_reconstruction, src_reconstruction, tgt_reconstruction);
 
   // Merge reconstructions.
+  MergeReconstructionsOptions merge_options;
+  merge_options.max_reproj_error = 1e-4;
   ASSERT_TRUE(MergeReconstructions(
-      /*max_reproj_error=*/1e-4, src_reconstruction, tgt_reconstruction));
-  EXPECT_EQ(tgt_reconstruction.NumRigs(), 3);
-  EXPECT_EQ(tgt_reconstruction.NumCameras(), 3);
-  EXPECT_EQ(tgt_reconstruction.NumFrames(), 30);
-  EXPECT_EQ(tgt_reconstruction.NumRegFrames(), 30);
-  EXPECT_EQ(tgt_reconstruction.NumImages(), 30);
-  EXPECT_EQ(tgt_reconstruction.NumPoints3D(), 50);
+      merge_options, src_reconstruction, tgt_reconstruction));
+
+  EXPECT_THAT(tgt_reconstruction,
+              ReconstructionNear(orig_reconstruction,
+                                 /*max_rotation_error_deg=*/1e-12,
+                                 /*max_proj_center_error=*/1e-12,
+                                 std::nullopt,
+                                 /*num_obs_tolerance=*/0));
+
+  EXPECT_EQ(tgt_reconstruction.NumRigs(), orig_reconstruction.NumRigs());
+  EXPECT_EQ(tgt_reconstruction.NumCameras(), orig_reconstruction.NumCameras());
+  EXPECT_EQ(tgt_reconstruction.NumFrames(), orig_reconstruction.NumFrames());
+  EXPECT_EQ(tgt_reconstruction.NumRegFrames(),
+            orig_reconstruction.NumRegFrames());
+  EXPECT_EQ(tgt_reconstruction.NumImages(), orig_reconstruction.NumImages());
+  EXPECT_EQ(tgt_reconstruction.NumPoints3D(),
+            orig_reconstruction.NumPoints3D());
   EXPECT_EQ(tgt_reconstruction.ComputeNumObservations(),
             orig_reconstruction.ComputeNumObservations());
+}
+
+TEST(Alignment, MergeReconstructionsCameraMergeMethod) {
+  Reconstruction orig_reconstruction, src_reconstruction, tgt_reconstruction;
+  GenerateReconstructionsForMerge(orig_reconstruction,
+                                  src_reconstruction,
+                                  tgt_reconstruction,
+                                  /*src_camera_error=*/1,
+                                  /*tgt_camera_error=*/5);
+
+  std::unordered_set<camera_t> common_camera_ids;
+  for (const auto& [camera_id, _] : src_reconstruction.Cameras()) {
+    if (tgt_reconstruction.ExistsCamera(camera_id)) {
+      common_camera_ids.insert(camera_id);
+    }
+  }
+
+  MergeReconstructionsOptions merge_options;
+  merge_options.max_reproj_error = 1;
+
+  {
+    Reconstruction merged_reconstruction = tgt_reconstruction;
+    merge_options.camera_merge_method =
+        MergeReconstructionsOptions::CameraMergeMethod::TARGET;
+
+    ASSERT_TRUE(MergeReconstructions(
+        merge_options, src_reconstruction, merged_reconstruction));
+
+    for (camera_t camera_id : common_camera_ids) {
+      EXPECT_EQ(merged_reconstruction.Camera(camera_id),
+                tgt_reconstruction.Camera(camera_id));
+    }
+  }
+
+  {
+    Reconstruction merged_reconstruction = tgt_reconstruction;
+    merge_options.camera_merge_method =
+        MergeReconstructionsOptions::CameraMergeMethod::SOURCE;
+
+    ASSERT_TRUE(MergeReconstructions(
+        merge_options, src_reconstruction, merged_reconstruction));
+
+    for (camera_t camera_id : common_camera_ids) {
+      EXPECT_EQ(merged_reconstruction.Camera(camera_id),
+                src_reconstruction.Camera(camera_id));
+    }
+  }
+
+  {
+    Reconstruction merged_reconstruction = tgt_reconstruction;
+    merge_options.camera_merge_method =
+        MergeReconstructionsOptions::CameraMergeMethod::BETTER;
+
+    ASSERT_TRUE(MergeReconstructions(
+        merge_options, src_reconstruction, merged_reconstruction));
+
+    for (camera_t camera_id : common_camera_ids) {
+      EXPECT_EQ(merged_reconstruction.Camera(camera_id),
+                src_reconstruction.Camera(camera_id));
+    }
+  }
+
+  {
+    Reconstruction merged_reconstruction = tgt_reconstruction;
+    merge_options.camera_merge_method =
+        MergeReconstructionsOptions::CameraMergeMethod::REFINED;
+
+    ASSERT_TRUE(MergeReconstructions(
+        merge_options, src_reconstruction, merged_reconstruction));
+
+    EXPECT_THAT(merged_reconstruction,
+                ReconstructionNear(orig_reconstruction,
+                                   /*max_rotation_error_deg=*/1e-4,
+                                   /*max_proj_center_error=*/1e-4,
+                                   std::nullopt,
+                                   /*num_obs_tolerance=*/0));
+  }
 }
 
 TEST(Alignment, AlignReconstructionToOrigRigScales) {
