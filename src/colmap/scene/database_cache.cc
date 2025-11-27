@@ -345,7 +345,6 @@ bool DatabaseCache::SetupPosePriors() {
 
   std::vector<Eigen::Vector3d> v_gps_prior;
 
-
   std::set<PosePrior::CoordinateSystem> coordinate_systems;
   for (const auto& [_, pose_prior] : pose_priors_) {
     coordinate_systems.insert(pose_prior.coordinate_system);
