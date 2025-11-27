@@ -184,7 +184,8 @@ class FeatureMatcherCache {
   std::unique_ptr<std::unordered_map<camera_t, Camera>> cameras_cache_;
   std::unique_ptr<std::unordered_map<frame_t, Frame>> frames_cache_;
   std::unique_ptr<std::unordered_map<image_t, Image>> images_cache_;
-  std::unique_ptr<std::unordered_map<image_t, PosePrior>> pose_priors_cache_;
+  std::unique_ptr<std::unordered_map<pose_prior_t, PosePrior>>
+      pose_priors_cache_;
   std::unique_ptr<ThreadSafeLRUCache<image_t, FeatureKeypoints>>
       keypoints_cache_;
   std::unique_ptr<ThreadSafeLRUCache<image_t, FeatureDescriptors>>

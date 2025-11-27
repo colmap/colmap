@@ -437,6 +437,19 @@ void WriteFrameData(const frame_t frame_id,
   }
 }
 
+// TODO(jsch): Change is_deprecated_image_prior default to true after next
+// version release (3.14 or 4.0) and remove the parameter in (3.15 or 4.1).
+void MaybeThrowDeprecatedPosePriorError(bool is_deprecated_image_prior) {
+  if (is_deprecated_image_prior) {
+    throw std::runtime_error(
+        "PosePrior API has changed: pose priors are now associated with "
+        "frames, not images. Please update your code to use frames "
+        "instead of image IDs. Data is automatically migrated upon opening a "
+        "database. Update your API usage accordingly and add pose priors to "
+        "frame data.");
+  }
+}
+
 class SqliteDatabase : public Database {
  public:
   SqliteDatabase() : database_(nullptr) {}
@@ -523,8 +536,10 @@ class SqliteDatabase : public Database {
     return ExistsRowString(sql_stmt_exists_image_name_, name);
   }
 
-  bool ExistsPosePrior(const image_t image_id) const override {
-    return ExistsRowId(sql_stmt_exists_pose_prior_, image_id);
+  bool ExistsPosePrior(const pose_prior_t pose_prior_id,
+                       bool is_deprecated_image_prior) const override {
+    MaybeThrowDeprecatedPosePriorError(is_deprecated_image_prior);
+    return ExistsRowId(sql_stmt_exists_pose_prior_, pose_prior_id);
   }
 
   bool ExistsKeypoints(const image_t image_id) const override {
@@ -745,19 +760,23 @@ class SqliteDatabase : public Database {
     return images;
   }
 
-  PosePrior ReadPosePrior(const image_t image_id) const override {
+  PosePrior ReadPosePrior(const pose_prior_t pose_prior_id,
+                          bool is_deprecated_image_prior) const override {
+    MaybeThrowDeprecatedPosePriorError(is_deprecated_image_prior);
+
     Sqlite3StmtContext context(sql_stmt_read_pose_prior_);
 
-    SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_read_pose_prior_, 1, image_id));
+    SQLITE3_CALL(
+        sqlite3_bind_int64(sql_stmt_read_pose_prior_, 1, pose_prior_id));
     PosePrior prior;
     const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_pose_prior_));
     if (rc == SQLITE_ROW) {
       prior.position = ReadStaticMatrixBlob<Eigen::Vector3d>(
           sql_stmt_read_pose_prior_, rc, 1);
-      prior.coordinate_system = static_cast<PosePrior::CoordinateSystem>(
-          sqlite3_column_int64(sql_stmt_read_pose_prior_, 2));
       prior.position_covariance = ReadStaticMatrixBlob<Eigen::Matrix3d>(
-          sql_stmt_read_pose_prior_, rc, 3);
+          sql_stmt_read_pose_prior_, rc, 2);
+      prior.coordinate_system = static_cast<PosePrior::CoordinateSystem>(
+          sqlite3_column_int64(sql_stmt_read_pose_prior_, 3));
     }
     return prior;
   }
@@ -1090,18 +1109,29 @@ class SqliteDatabase : public Database {
         sqlite3_last_insert_rowid(THROW_CHECK_NOTNULL(database_)));
   }
 
-  void WritePosePrior(const image_t image_id,
-                      const PosePrior& pose_prior) override {
+  void WritePosePrior(const PosePrior& pose_prior,
+                      bool use_pose_prior_id) override {
     Sqlite3StmtContext context(sql_stmt_write_pose_prior_);
 
-    SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_pose_prior_, 1, image_id));
+    if (use_pose_prior_id) {
+      THROW_CHECK(!ExistsPosePrior(pose_prior.pose_prior_id,
+                                   /*is_deprecated_image_prior=*/false))
+          << "pose_prior_id must be unique";
+      SQLITE3_CALL(sqlite3_bind_int64(
+          sql_stmt_write_pose_prior_, 1, pose_prior.pose_prior_id));
+    } else {
+      SQLITE3_CALL(sqlite3_bind_null(sql_stmt_write_pose_prior_, 1));
+    }
+
+    SQLITE3_CALL(sqlite3_bind_int64(
+        sql_stmt_write_pose_prior_, 1, pose_prior.pose_prior_id));
     WriteStaticMatrixBlob(sql_stmt_write_pose_prior_, pose_prior.position, 2);
+    WriteStaticMatrixBlob(
+        sql_stmt_write_pose_prior_, pose_prior.position_covariance, 3);
     SQLITE3_CALL(sqlite3_bind_int64(
         sql_stmt_write_pose_prior_,
-        3,
+        4,
         static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
-    WriteStaticMatrixBlob(
-        sql_stmt_write_pose_prior_, pose_prior.position_covariance, 4);
     SQLITE3_CALL(sqlite3_step(sql_stmt_write_pose_prior_));
   }
 
@@ -1305,17 +1335,18 @@ class SqliteDatabase : public Database {
     SQLITE3_CALL(sqlite3_step(sql_stmt_update_image_));
   }
 
-  void UpdatePosePrior(image_t image_id, const PosePrior& pose_prior) override {
+  void UpdatePosePrior(const PosePrior& pose_prior) override {
     Sqlite3StmtContext context(sql_stmt_update_pose_prior_);
 
     WriteStaticMatrixBlob(sql_stmt_update_pose_prior_, pose_prior.position, 1);
+    WriteStaticMatrixBlob(
+        sql_stmt_update_pose_prior_, pose_prior.position_covariance, 2);
     SQLITE3_CALL(sqlite3_bind_int64(
         sql_stmt_update_pose_prior_,
-        2,
+        3,
         static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
-    WriteStaticMatrixBlob(
-        sql_stmt_update_pose_prior_, pose_prior.position_covariance, 3);
-    SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_update_pose_prior_, 4, image_id));
+    SQLITE3_CALL(sqlite3_bind_int64(
+        sql_stmt_update_pose_prior_, 4, pose_prior.pose_prior_id));
 
     SQLITE3_CALL(sqlite3_step(sql_stmt_update_pose_prior_));
   }
@@ -1446,184 +1477,6 @@ class SqliteDatabase : public Database {
     database_entry_deleted_ = true;
   }
 
-  void Merge(const Database& database1,
-             const Database& database2,
-             Database* merged_database) {
-    // Merge the cameras.
-
-    std::unordered_map<camera_t, camera_t> new_camera_ids1;
-    for (const auto& camera : database1.ReadAllCameras()) {
-      const camera_t new_camera_id = merged_database->WriteCamera(camera);
-      new_camera_ids1.emplace(camera.camera_id, new_camera_id);
-    }
-
-    std::unordered_map<camera_t, camera_t> new_camera_ids2;
-    for (const auto& camera : database2.ReadAllCameras()) {
-      const camera_t new_camera_id = merged_database->WriteCamera(camera);
-      new_camera_ids2.emplace(camera.camera_id, new_camera_id);
-    }
-
-    // Merge the rigs.
-
-    auto update_rig =
-        [](const Rig& rig,
-           const std::unordered_map<camera_t, camera_t>& new_camera_ids) {
-          if (rig.NumSensors() == 0) {
-            return rig;
-          }
-          Rig updated_rig;
-          updated_rig.SetRigId(rig.RigId());
-          sensor_t ref_sensor_id = rig.RefSensorId();
-          if (ref_sensor_id.type == SensorType::CAMERA) {
-            ref_sensor_id.id = new_camera_ids.at(ref_sensor_id.id);
-          }
-          updated_rig.AddRefSensor(ref_sensor_id);
-          for (const auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
-            sensor_t updated_sensor_id = sensor_id;
-            if (sensor_id.type == SensorType::CAMERA) {
-              updated_sensor_id.id = new_camera_ids.at(sensor_id.id);
-            }
-            updated_rig.AddSensor(updated_sensor_id, sensor_from_rig);
-          }
-          return updated_rig;
-        };
-
-    std::unordered_map<rig_t, rig_t> new_rig_ids1;
-    for (auto& rig : database1.ReadAllRigs()) {
-      const rig_t new_rig_id =
-          merged_database->WriteRig(update_rig(rig, new_camera_ids1));
-      new_rig_ids1.emplace(rig.RigId(), new_rig_id);
-    }
-
-    std::unordered_map<rig_t, rig_t> new_rig_ids2;
-    for (auto& rig : database2.ReadAllRigs()) {
-      const rig_t new_rig_id =
-          merged_database->WriteRig(update_rig(rig, new_camera_ids2));
-      new_rig_ids2.emplace(rig.RigId(), new_rig_id);
-    }
-
-    // Merge the images.
-
-    std::unordered_map<image_t, image_t> new_image_ids1;
-    for (auto& image : database1.ReadAllImages()) {
-      image.SetCameraId(new_camera_ids1.at(image.CameraId()));
-      THROW_CHECK(!merged_database->ExistsImageWithName(image.Name()))
-          << "The two databases must not contain images with the same name, "
-             "but "
-             "there are images with name "
-          << image.Name() << " in both databases";
-      const image_t new_image_id = merged_database->WriteImage(image);
-      new_image_ids1.emplace(image.ImageId(), new_image_id);
-      const auto keypoints = database1.ReadKeypoints(image.ImageId());
-      const auto descriptors = database1.ReadDescriptors(image.ImageId());
-      merged_database->WriteKeypoints(new_image_id, keypoints);
-      merged_database->WriteDescriptors(new_image_id, descriptors);
-      if (database1.ExistsPosePrior(image.ImageId())) {
-        merged_database->WritePosePrior(
-            new_image_id, database1.ReadPosePrior(image.ImageId()));
-      }
-    }
-
-    std::unordered_map<image_t, image_t> new_image_ids2;
-    for (auto& image : database2.ReadAllImages()) {
-      image.SetCameraId(new_camera_ids2.at(image.CameraId()));
-      THROW_CHECK(!merged_database->ExistsImageWithName(image.Name()))
-          << "The two databases must not contain images with the same name, "
-             "but "
-             "there are images with name "
-          << image.Name() << " in both databases";
-      const image_t new_image_id = merged_database->WriteImage(image);
-      new_image_ids2.emplace(image.ImageId(), new_image_id);
-      const auto keypoints = database2.ReadKeypoints(image.ImageId());
-      const auto descriptors = database2.ReadDescriptors(image.ImageId());
-      merged_database->WriteKeypoints(new_image_id, keypoints);
-      merged_database->WriteDescriptors(new_image_id, descriptors);
-      if (database2.ExistsPosePrior(image.ImageId())) {
-        merged_database->WritePosePrior(
-            new_image_id, database2.ReadPosePrior(image.ImageId()));
-      }
-    }
-
-    // Merge the frames.
-
-    auto update_frame =
-        [](const Frame& frame,
-           const std::unordered_map<camera_t, camera_t>& new_camera_ids,
-           const std::unordered_map<image_t, image_t>& new_image_ids) {
-          Frame updated_frame;
-          updated_frame.SetFrameId(frame.FrameId());
-          updated_frame.SetRigId(frame.RigId());
-          for (data_t data_id : frame.DataIds()) {
-            if (data_id.sensor_id.type == SensorType::CAMERA) {
-              data_id.id = new_image_ids.at(data_id.id);
-              data_id.sensor_id.id = new_camera_ids.at(data_id.sensor_id.id);
-              updated_frame.AddDataId(data_id);
-            } else {
-              std::ostringstream error;
-              error << "Data type not supported: " << data_id.sensor_id.type;
-              throw std::runtime_error(error.str());
-            }
-          }
-          return updated_frame;
-        };
-
-    for (Frame& frame : database1.ReadAllFrames()) {
-      merged_database->WriteFrame(
-          update_frame(frame, new_camera_ids1, new_image_ids1));
-    }
-
-    for (Frame& frame : database2.ReadAllFrames()) {
-      merged_database->WriteFrame(
-          update_frame(frame, new_camera_ids2, new_image_ids2));
-    }
-
-    // Merge the matches.
-
-    for (const auto& matches : database1.ReadAllMatches()) {
-      const auto image_pair = PairIdToImagePair(matches.first);
-
-      const image_t new_image_id1 = new_image_ids1.at(image_pair.first);
-      const image_t new_image_id2 = new_image_ids1.at(image_pair.second);
-
-      merged_database->WriteMatches(
-          new_image_id1, new_image_id2, matches.second);
-    }
-
-    for (const auto& matches : database2.ReadAllMatches()) {
-      const auto image_pair = PairIdToImagePair(matches.first);
-
-      const image_t new_image_id1 = new_image_ids2.at(image_pair.first);
-      const image_t new_image_id2 = new_image_ids2.at(image_pair.second);
-
-      merged_database->WriteMatches(
-          new_image_id1, new_image_id2, matches.second);
-    }
-
-    // Merge the two-view geometries.
-
-    for (const auto& [pair_id, two_view_geometry] :
-         database1.ReadTwoViewGeometries()) {
-      const auto image_pair = PairIdToImagePair(pair_id);
-
-      const image_t new_image_id1 = new_image_ids1.at(image_pair.first);
-      const image_t new_image_id2 = new_image_ids1.at(image_pair.second);
-
-      merged_database->WriteTwoViewGeometry(
-          new_image_id1, new_image_id2, two_view_geometry);
-    }
-
-    for (const auto& [pair_id, two_view_geometry] :
-         database2.ReadTwoViewGeometries()) {
-      const auto image_pair = PairIdToImagePair(pair_id);
-
-      const image_t new_image_id1 = new_image_ids2.at(image_pair.first);
-      const image_t new_image_id2 = new_image_ids2.at(image_pair.second);
-
-      merged_database->WriteTwoViewGeometry(
-          new_image_id1, new_image_id2, two_view_geometry);
-    }
-  }
-
   void BeginTransaction() const override {
     SQLITE3_EXEC(THROW_CHECK_NOTNULL(database_), "BEGIN TRANSACTION", nullptr);
   }
@@ -1664,7 +1517,7 @@ class SqliteDatabase : public Database {
                      &sql_stmt_exists_image_id_);
     prepare_sql_stmt("SELECT 1 FROM images WHERE name = ?;",
                      &sql_stmt_exists_image_name_);
-    prepare_sql_stmt("SELECT 1 FROM pose_priors WHERE image_id = ?;",
+    prepare_sql_stmt("SELECT 1 FROM pose_priors WHERE pose_prior_id = ?;",
                      &sql_stmt_exists_pose_prior_);
     prepare_sql_stmt("SELECT 1 FROM keypoints WHERE image_id = ?;",
                      &sql_stmt_exists_keypoints_);
@@ -1715,8 +1568,8 @@ class SqliteDatabase : public Database {
     prepare_sql_stmt("UPDATE images SET name=?, camera_id=? WHERE image_id=?;",
                      &sql_stmt_update_image_);
     prepare_sql_stmt(
-        "UPDATE pose_priors SET position=?, coordinate_system=?, "
-        "position_covariance=? WHERE image_id=?;",
+        "UPDATE pose_priors SET position=?, position_covariance=?, "
+        "coordinate_system=? WHERE pose_prior_id=?;",
         &sql_stmt_update_pose_prior_);
     prepare_sql_stmt(
         "UPDATE keypoints SET rows=?, cols=?, data=? WHERE image_id=?;",
@@ -1770,8 +1623,10 @@ class SqliteDatabase : public Database {
     prepare_sql_stmt("SELECT * FROM images;", &sql_stmt_read_images_);
     prepare_sql_stmt("SELECT * FROM images WHERE name = ?;",
                      &sql_stmt_read_image_with_name_);
-    prepare_sql_stmt("SELECT * FROM pose_priors WHERE image_id = ?;",
-                     &sql_stmt_read_pose_prior_);
+    prepare_sql_stmt(
+        "SELECT pose_prior_id, position, position_covariance, "
+        "coordinate_system FROM pose_priors WHERE pose_prior_id = ?;",
+        &sql_stmt_read_pose_prior_);
     prepare_sql_stmt(
         "SELECT rows, cols, data FROM keypoints WHERE image_id = ?;",
         &sql_stmt_read_keypoints_);
@@ -1798,8 +1653,8 @@ class SqliteDatabase : public Database {
     // write_*
     //////////////////////////////////////////////////////////////////////////////
     prepare_sql_stmt(
-        "INSERT INTO pose_priors(image_id, position, coordinate_system, "
-        "position_covariance) VALUES(?, ?, ?, ?);",
+        "INSERT INTO pose_priors(pose_prior_id, position, position_covariance, "
+        "coordinate_system) VALUES(?, ?, ?, ?);",
         &sql_stmt_write_pose_prior_);
     prepare_sql_stmt(
         "INSERT INTO keypoints(image_id, rows, cols, data) VALUES(?, ?, ?, ?);",
@@ -1950,12 +1805,10 @@ class SqliteDatabase : public Database {
   void CreatePosePriorTable() const {
     const std::string sql =
         "CREATE TABLE IF NOT EXISTS pose_priors"
-        "   (image_id                   INTEGER  PRIMARY KEY  NOT NULL,"
+        "   (pose_prior_id              INTEGER  PRIMARY KEY  NOT NULL,"
         "    position                   BLOB,"
-        "    coordinate_system          INTEGER               NOT NULL,"
         "    position_covariance        BLOB,"
-        "    FOREIGN KEY(image_id) REFERENCES images(image_id) ON DELETE "
-        "CASCADE);";
+        "    coordinate_system          INTEGER               NOT NULL);";
 
     SQLITE3_EXEC(database_, sql.c_str(), nullptr);
   }
@@ -2019,7 +1872,7 @@ class SqliteDatabase : public Database {
     }
   }
 
-  void UpdateSchema() const {
+  void UpdateSchema() {
     if (!ExistsColumn("two_view_geometries", "F")) {
       SQLITE3_EXEC(database_,
                    "ALTER TABLE two_view_geometries ADD COLUMN F BLOB;",
@@ -2067,6 +1920,28 @@ class SqliteDatabase : public Database {
       WriteStaticMatrixBlob(update_stmt, PosePrior().position_covariance, 1);
       SQLITE3_CALL(sqlite3_step(update_stmt));
       SQLITE3_CALL(sqlite3_finalize(update_stmt));
+    }
+
+    if (ExistsColumn("pose_priors", "image_id") &&
+        !ExistsColumn("pose_priors", "pose_prior_id")) {
+      SQLITE3_EXEC(database_,
+                   "ALTER TABLE pose_priors RENAME COLUMN image_id TO "
+                   "pose_prior_id;",
+                   nullptr);
+
+      // Migrate existing data to frame_data table.
+      for (Frame& frame : ReadAllFrames()) {
+        for (const auto& data_id : frame.ImageIds()) {
+          // Note that in the old schema pose_prior_id == image_id.
+          if (ExistsPosePrior(data_id.id,
+                              /*is_deprecated_image_prior=*/false)) {
+            frame.AddDataId(
+                data_t(sensor_t(SensorType::POSE_PRIOR, sensor_t::kInvalidId),
+                       data_id.id));
+          }
+        }
+        UpdateFrame(frame);
+      }
     }
 
     // Update user version number.

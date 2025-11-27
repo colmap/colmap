@@ -347,7 +347,7 @@ void FeatureMatcherCache::MaybeLoadPosePriors() {
   }
 
   pose_priors_cache_ =
-      std::make_unique<std::unordered_map<image_t, PosePrior>>();
+      std::make_unique<std::unordered_map<pose_prior_t, PosePrior>>();
   pose_priors_cache_->reserve(database_->NumPosePriors());
   for (const auto& image : *images_cache_) {
     if (database_->ExistsPosePrior(image.first)) {

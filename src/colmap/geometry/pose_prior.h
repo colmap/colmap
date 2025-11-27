@@ -48,6 +48,7 @@ struct PosePrior {
                   CARTESIAN   // = 1
   );
 
+  pose_prior_t pose_prior_id = kInvalidPosePriorId;
   Eigen::Vector3d position =
       Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
   Eigen::Matrix3d position_covariance =

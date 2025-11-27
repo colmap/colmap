@@ -230,10 +230,11 @@ void DatabaseCache::Load(const Database& database,
       image.SetPoints2D(
           FeatureKeypointsToPointsVector(database.ReadKeypoints(image_id)));
       images_.emplace(image_id, std::move(image));
+    }
 
-      if (database.ExistsPosePrior(image_id)) {
-        pose_priors_.emplace(image_id, database.ReadPosePrior(image_id));
-      }
+    std::vector<struct PosePrior> pose_priors = database.ReadAllPosePriors();
+    for (auto& pose_prior : pose_priors) {
+      pose_priors_.emplace(pose_prior.pose_prior_id, std::move(pose_prior));
     }
 
     LOG(INFO) << StringPrintf(" %d in %.3fs (connected %d)",
@@ -314,11 +315,9 @@ void DatabaseCache::AddImage(class Image image) {
   images_.emplace(image_id, std::move(image));
 }
 
-void DatabaseCache::AddPosePrior(image_t image_id,
-                                 struct PosePrior pose_prior) {
-  THROW_CHECK(ExistsImage(image_id));
-  THROW_CHECK(!ExistsPosePrior(image_id));
-  pose_priors_.emplace(image_id, std::move(pose_prior));
+void DatabaseCache::AddPosePrior(struct PosePrior pose_prior) {
+  THROW_CHECK(!ExistsPosePrior(pose_prior.pose_prior_id));
+  pose_priors_.emplace(pose_prior.pose_prior_id, std::move(pose_prior));
 }
 
 const class Image* DatabaseCache::FindImageWithName(
@@ -344,30 +343,26 @@ bool DatabaseCache::SetupPosePriors() {
 
   bool prior_is_gps = true;
 
-  // Get sorted image ids for GPS to cartesian conversion
-  std::set<image_t> image_ids_with_prior;
-  for (const auto& [image_id, _] : pose_priors_) {
-    image_ids_with_prior.insert(image_id);
-  }
-
-  // Get GPS priors
   std::vector<Eigen::Vector3d> v_gps_prior;
-  v_gps_prior.reserve(NumPosePriors());
 
-  for (const image_t image_id : image_ids_with_prior) {
-    const struct PosePrior& pose_prior = PosePrior(image_id);
+
+  std::set<PosePrior::CoordinateSystem> coordinate_systems;
+  for (const auto& [_, pose_prior] : pose_priors_) {
+    coordinate_systems.insert(pose_prior.coordinate_system);
     if (pose_prior.coordinate_system != PosePrior::CoordinateSystem::WGS84) {
       prior_is_gps = false;
     } else {
-      // Image with the lowest id is to be used as the origin for prior
-      // position conversion
       v_gps_prior.push_back(pose_prior.position);
     }
   }
 
-  // Convert geographic to cartesian
+  if (coordinate_systems.size() > 1) {
+    LOG(ERROR) << "Inconsistent coordinate systems defined as pose priors";
+    return false;
+  }
+
   if (prior_is_gps) {
-    // GPS reference to be used for EllipsoidToENU conversion
+    // GPS reference to be used for EllipsoidToENU conversion.
     const double ref_lat = v_gps_prior[0][0];
     const double ref_lon = v_gps_prior[0][1];
 
@@ -376,16 +371,11 @@ bool DatabaseCache::SetupPosePriors() {
         gps_transform.EllipsoidToENU(v_gps_prior, ref_lat, ref_lon);
 
     auto xyz_prior_it = v_xyz_prior.begin();
-    for (const auto& image_id : image_ids_with_prior) {
-      struct PosePrior& pose_prior = PosePrior(image_id);
+    for (auto& [_, pose_prior] : pose_priors_) {
       pose_prior.position = *xyz_prior_it;
       pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
       ++xyz_prior_it;
     }
-  } else if (!prior_is_gps && !v_gps_prior.empty()) {
-    LOG(ERROR)
-        << "Database is mixing GPS & non-GPS prior positions... Aborting";
-    return false;
   }
 
   timer.PrintMinutes();

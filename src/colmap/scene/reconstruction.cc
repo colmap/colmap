@@ -214,6 +214,7 @@ void Reconstruction::TearDown() {
             cameras_.erase(sensor_id.id);
             break;
           case SensorType::IMU:
+          case SensorType::POSE_PRIOR:
           case SensorType::INVALID:
             break;
         }
@@ -240,6 +241,7 @@ void Reconstruction::AddRig(class Rig rig) {
                "should be called before AddRig.";
         break;
       case SensorType::IMU:
+      case SensorType::POSE_PRIOR:
       case SensorType::INVALID:
         break;
     }

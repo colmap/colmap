@@ -239,7 +239,7 @@ bool AlignReconstructionToLocations(
 
 bool AlignReconstructionToPosePriors(
     const Reconstruction& src_reconstruction,
-    const std::unordered_map<image_t, PosePrior>& tgt_pose_priors,
+    const std::unordered_map<pose_prior_t, PosePrior>& tgt_pose_priors,
     const RANSACOptions& ransac_options,
     Sim3d* tgt_from_src) {
   std::vector<Eigen::Vector3d> src;
