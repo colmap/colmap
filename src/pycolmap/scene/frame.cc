@@ -45,6 +45,7 @@ void BindFrame(py::module& m) {
             const auto data_ids = self.DataIds(type);
             return std::vector<data_t>(data_ids.begin(), data_ids.end());
           },
+          "type"_a,
           "The associated data for a given sensor type.")
       .def_property_readonly(
           "image_ids",
