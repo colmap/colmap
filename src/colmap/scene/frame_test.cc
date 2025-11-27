@@ -134,6 +134,25 @@ TEST(Frame, AddDataId) {
   EXPECT_ANY_THROW(frame.AddDataId(data_t(sensor_id3, 2)));
 }
 
+TEST(Frame, FilteredDataIds) {
+  Frame frame;
+  const data_t data_id1(sensor_t(SensorType::IMU, 0), 2);
+  frame.AddDataId(data_id1);
+  const data_t data_id2(sensor_t(SensorType::CAMERA, 0), 2);
+  frame.AddDataId(data_id2);
+  const data_t data_id3(sensor_t(SensorType::CAMERA, 1), 1);
+  frame.AddDataId(data_id3);
+  EXPECT_THAT(std::vector<data_t>(frame.DataIds(SensorType::IMU).begin(),
+                                  frame.DataIds(SensorType::IMU).end()),
+              testing::UnorderedElementsAre(data_id1));
+  EXPECT_THAT(std::vector<data_t>(frame.DataIds(SensorType::CAMERA).begin(),
+                                  frame.DataIds(SensorType::CAMERA).end()),
+              testing::UnorderedElementsAre(data_id2, data_id3));
+  EXPECT_THAT(std::vector<data_t>(frame.DataIds(SensorType::INVALID).begin(),
+                                  frame.DataIds(SensorType::INVALID).end()),
+              testing::IsEmpty());
+}
+
 TEST(Frame, ImageIds) {
   Frame frame;
   const data_t data_id1(sensor_t(SensorType::IMU, 0), 2);

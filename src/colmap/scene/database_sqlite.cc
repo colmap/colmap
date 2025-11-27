@@ -1000,110 +1000,115 @@ class SqliteDatabase : public Database {
   rig_t WriteRig(const Rig& rig, const bool use_rig_id) override {
     THROW_CHECK(rig.NumSensors() > 0) << "Rig must have at least one sensor";
 
-    Sqlite3StmtContext context(sql_stmt_add_rig_);
+    Sqlite3StmtContext context(sql_stmt_write_rig_);
 
     if (use_rig_id) {
       THROW_CHECK(!ExistsRig(rig.RigId())) << "rig_id must be unique";
-      SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_add_rig_, 1, rig.RigId()));
+      SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_rig_, 1, rig.RigId()));
     } else {
-      SQLITE3_CALL(sqlite3_bind_null(sql_stmt_add_rig_, 1));
+      SQLITE3_CALL(sqlite3_bind_null(sql_stmt_write_rig_, 1));
     }
 
     SQLITE3_CALL(
-        sqlite3_bind_int64(sql_stmt_add_rig_,
+        sqlite3_bind_int64(sql_stmt_write_rig_,
                            2,
                            static_cast<sqlite3_int64>(rig.RefSensorId().id)));
     SQLITE3_CALL(
-        sqlite3_bind_int64(sql_stmt_add_rig_,
+        sqlite3_bind_int64(sql_stmt_write_rig_,
                            3,
                            static_cast<sqlite3_int64>(rig.RefSensorId().type)));
 
-    SQLITE3_CALL(sqlite3_step(sql_stmt_add_rig_));
+    SQLITE3_CALL(sqlite3_step(sql_stmt_write_rig_));
 
     const rig_t rig_id = static_cast<rig_t>(
         sqlite3_last_insert_rowid(THROW_CHECK_NOTNULL(database_)));
 
-    WriteRigSensors(rig_id, rig, sql_stmt_add_rig_sensor_);
+    WriteRigSensors(rig_id, rig, sql_stmt_write_rig_sensor_);
 
     return rig_id;
   }
 
   camera_t WriteCamera(const Camera& camera,
                        const bool use_camera_id) override {
-    Sqlite3StmtContext context(sql_stmt_add_camera_);
+    Sqlite3StmtContext context(sql_stmt_write_camera_);
 
     if (use_camera_id) {
       THROW_CHECK(!ExistsCamera(camera.camera_id))
           << "camera_id must be unique";
       SQLITE3_CALL(
-          sqlite3_bind_int64(sql_stmt_add_camera_, 1, camera.camera_id));
+          sqlite3_bind_int64(sql_stmt_write_camera_, 1, camera.camera_id));
     } else {
-      SQLITE3_CALL(sqlite3_bind_null(sql_stmt_add_camera_, 1));
+      SQLITE3_CALL(sqlite3_bind_null(sql_stmt_write_camera_, 1));
     }
 
+    SQLITE3_CALL(
+        sqlite3_bind_int64(sql_stmt_write_camera_,
+                           2,
+                           static_cast<sqlite3_int64>(camera.model_id)));
     SQLITE3_CALL(sqlite3_bind_int64(
-        sql_stmt_add_camera_, 2, static_cast<sqlite3_int64>(camera.model_id)));
+        sql_stmt_write_camera_, 3, static_cast<sqlite3_int64>(camera.width)));
     SQLITE3_CALL(sqlite3_bind_int64(
-        sql_stmt_add_camera_, 3, static_cast<sqlite3_int64>(camera.width)));
-    SQLITE3_CALL(sqlite3_bind_int64(
-        sql_stmt_add_camera_, 4, static_cast<sqlite3_int64>(camera.height)));
+        sql_stmt_write_camera_, 4, static_cast<sqlite3_int64>(camera.height)));
 
     const size_t num_params_bytes = sizeof(double) * camera.params.size();
-    SQLITE3_CALL(sqlite3_bind_blob(sql_stmt_add_camera_,
+    SQLITE3_CALL(sqlite3_bind_blob(sql_stmt_write_camera_,
                                    5,
                                    camera.params.data(),
                                    static_cast<int>(num_params_bytes),
                                    SQLITE_STATIC));
 
     SQLITE3_CALL(sqlite3_bind_int64(
-        sql_stmt_add_camera_, 6, camera.has_prior_focal_length));
+        sql_stmt_write_camera_, 6, camera.has_prior_focal_length));
 
-    SQLITE3_CALL(sqlite3_step(sql_stmt_add_camera_));
+    SQLITE3_CALL(sqlite3_step(sql_stmt_write_camera_));
 
     return static_cast<camera_t>(
         sqlite3_last_insert_rowid(THROW_CHECK_NOTNULL(database_)));
   }
 
   frame_t WriteFrame(const Frame& frame, const bool use_frame_id) override {
-    Sqlite3StmtContext context(sql_stmt_add_frame_);
+    Sqlite3StmtContext context(sql_stmt_write_frame_);
 
     if (use_frame_id) {
       THROW_CHECK(!ExistsFrame(frame.FrameId())) << "frame_id must be unique";
-      SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_add_frame_, 1, frame.FrameId()));
+      SQLITE3_CALL(
+          sqlite3_bind_int64(sql_stmt_write_frame_, 1, frame.FrameId()));
     } else {
-      SQLITE3_CALL(sqlite3_bind_null(sql_stmt_add_frame_, 1));
+      SQLITE3_CALL(sqlite3_bind_null(sql_stmt_write_frame_, 1));
     }
 
-    SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_add_frame_, 2, frame.RigId()));
+    SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_frame_, 2, frame.RigId()));
 
-    SQLITE3_CALL(sqlite3_step(sql_stmt_add_frame_));
+    SQLITE3_CALL(sqlite3_step(sql_stmt_write_frame_));
 
     const frame_t frame_id = static_cast<frame_t>(
         sqlite3_last_insert_rowid(THROW_CHECK_NOTNULL(database_)));
 
-    WriteFrameData(frame_id, frame, sql_stmt_add_frame_data_);
+    WriteFrameData(frame_id, frame, sql_stmt_write_frame_data_);
 
     return frame_id;
   }
 
   image_t WriteImage(const Image& image, const bool use_image_id) override {
-    Sqlite3StmtContext context(sql_stmt_add_image_);
+    Sqlite3StmtContext context(sql_stmt_write_image_);
 
     if (use_image_id) {
       THROW_CHECK(!ExistsImage(image.ImageId())) << "image_id must be unique";
-      SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_add_image_, 1, image.ImageId()));
+      SQLITE3_CALL(
+          sqlite3_bind_int64(sql_stmt_write_image_, 1, image.ImageId()));
     } else {
-      SQLITE3_CALL(sqlite3_bind_null(sql_stmt_add_image_, 1));
+      SQLITE3_CALL(sqlite3_bind_null(sql_stmt_write_image_, 1));
     }
 
-    SQLITE3_CALL(sqlite3_bind_text(sql_stmt_add_image_,
+    SQLITE3_CALL(sqlite3_bind_text(sql_stmt_write_image_,
                                    2,
                                    image.Name().c_str(),
                                    static_cast<int>(image.Name().size()),
                                    SQLITE_STATIC));
-    SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_add_image_, 3, image.CameraId()));
+    SQLITE3_CALL(
+        sqlite3_bind_int64(sql_stmt_write_image_, 3, image.CameraId()));
 
-    SQLITE3_CALL(sqlite3_step(sql_stmt_add_image_));
+    SQLITE3_CALL(sqlite3_step(sql_stmt_write_image_));
 
     return static_cast<image_t>(
         sqlite3_last_insert_rowid(THROW_CHECK_NOTNULL(database_)));
@@ -1265,7 +1270,7 @@ class SqliteDatabase : public Database {
     }
 
     // Write the updated rig sensors.
-    WriteRigSensors(rig.RigId(), rig, sql_stmt_add_rig_sensor_);
+    WriteRigSensors(rig.RigId(), rig, sql_stmt_write_rig_sensor_);
   }
 
   void UpdateCamera(const Camera& camera) override {
@@ -1316,7 +1321,7 @@ class SqliteDatabase : public Database {
     }
 
     // Write the updated frame data.
-    WriteFrameData(frame.FrameId(), frame, sql_stmt_add_frame_data_);
+    WriteFrameData(frame.FrameId(), frame, sql_stmt_write_frame_data_);
   }
 
   void UpdateImage(const Image& image) override {
@@ -1529,31 +1534,6 @@ class SqliteDatabase : public Database {
                      &sql_stmt_exists_two_view_geometry_);
 
     //////////////////////////////////////////////////////////////////////////////
-    // add_*
-    //////////////////////////////////////////////////////////////////////////////
-    prepare_sql_stmt(
-        "INSERT INTO rigs(rig_id, ref_sensor_id, ref_sensor_type) "
-        "VALUES(?, ?, ?);",
-        &sql_stmt_add_rig_);
-    prepare_sql_stmt(
-        "INSERT INTO rig_sensors(rig_id, sensor_id, sensor_type, "
-        "sensor_from_rig) VALUES(?, ?, ?, ?);",
-        &sql_stmt_add_rig_sensor_);
-    prepare_sql_stmt(
-        "INSERT INTO cameras(camera_id, model, width, height, params, "
-        "prior_focal_length) VALUES(?, ?, ?, ?, ?, ?);",
-        &sql_stmt_add_camera_);
-    prepare_sql_stmt("INSERT INTO frames(frame_id, rig_id) VALUES(?, ?);",
-                     &sql_stmt_add_frame_);
-    prepare_sql_stmt(
-        "INSERT INTO frame_data(frame_id, data_id, sensor_id, sensor_type) "
-        "VALUES(?, ?, ?, ?);",
-        &sql_stmt_add_frame_data_);
-    prepare_sql_stmt(
-        "INSERT INTO images(image_id, name, camera_id) VALUES(?, ?, ?);",
-        &sql_stmt_add_image_);
-
-    //////////////////////////////////////////////////////////////////////////////
     // update_*
     //////////////////////////////////////////////////////////////////////////////
     prepare_sql_stmt(
@@ -1652,6 +1632,27 @@ class SqliteDatabase : public Database {
     //////////////////////////////////////////////////////////////////////////////
     // write_*
     //////////////////////////////////////////////////////////////////////////////
+    prepare_sql_stmt(
+        "INSERT INTO rigs(rig_id, ref_sensor_id, ref_sensor_type) "
+        "VALUES(?, ?, ?);",
+        &sql_stmt_write_rig_);
+    prepare_sql_stmt(
+        "INSERT INTO rig_sensors(rig_id, sensor_id, sensor_type, "
+        "sensor_from_rig) VALUES(?, ?, ?, ?);",
+        &sql_stmt_write_rig_sensor_);
+    prepare_sql_stmt(
+        "INSERT INTO cameras(camera_id, model, width, height, params, "
+        "prior_focal_length) VALUES(?, ?, ?, ?, ?, ?);",
+        &sql_stmt_write_camera_);
+    prepare_sql_stmt("INSERT INTO frames(frame_id, rig_id) VALUES(?, ?);",
+                     &sql_stmt_write_frame_);
+    prepare_sql_stmt(
+        "INSERT INTO frame_data(frame_id, data_id, sensor_id, sensor_type) "
+        "VALUES(?, ?, ?, ?);",
+        &sql_stmt_write_frame_data_);
+    prepare_sql_stmt(
+        "INSERT INTO images(image_id, name, camera_id) VALUES(?, ?, ?);",
+        &sql_stmt_write_image_);
     prepare_sql_stmt(
         "INSERT INTO pose_priors(pose_prior_id, position, position_covariance, "
         "coordinate_system) VALUES(?, ?, ?, ?);",
@@ -2114,14 +2115,6 @@ class SqliteDatabase : public Database {
   sqlite3_stmt* sql_stmt_exists_matches_ = nullptr;
   sqlite3_stmt* sql_stmt_exists_two_view_geometry_ = nullptr;
 
-  // add_*
-  sqlite3_stmt* sql_stmt_add_rig_ = nullptr;
-  sqlite3_stmt* sql_stmt_add_rig_sensor_ = nullptr;
-  sqlite3_stmt* sql_stmt_add_camera_ = nullptr;
-  sqlite3_stmt* sql_stmt_add_frame_ = nullptr;
-  sqlite3_stmt* sql_stmt_add_frame_data_ = nullptr;
-  sqlite3_stmt* sql_stmt_add_image_ = nullptr;
-
   // update_*
   sqlite3_stmt* sql_stmt_update_rig_ = nullptr;
   sqlite3_stmt* sql_stmt_update_camera_ = nullptr;
@@ -2153,6 +2146,12 @@ class SqliteDatabase : public Database {
   sqlite3_stmt* sql_stmt_read_two_view_geometry_num_inliers_ = nullptr;
 
   // write_*
+  sqlite3_stmt* sql_stmt_write_rig_ = nullptr;
+  sqlite3_stmt* sql_stmt_write_rig_sensor_ = nullptr;
+  sqlite3_stmt* sql_stmt_write_camera_ = nullptr;
+  sqlite3_stmt* sql_stmt_write_frame_ = nullptr;
+  sqlite3_stmt* sql_stmt_write_frame_data_ = nullptr;
+  sqlite3_stmt* sql_stmt_write_image_ = nullptr;
   sqlite3_stmt* sql_stmt_write_pose_prior_ = nullptr;
   sqlite3_stmt* sql_stmt_write_keypoints_ = nullptr;
   sqlite3_stmt* sql_stmt_write_descriptors_ = nullptr;
