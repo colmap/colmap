@@ -1022,8 +1022,10 @@ class SqliteDatabase : public Database {
       SQLITE3_CALL(sqlite3_bind_null(sql_stmt_write_camera_, 1));
     }
 
-    SQLITE3_CALL(sqlite3_bind_int64(
-        sql_stmt_write_camera_, 2, static_cast<sqlite3_int64>(camera.model_id)));
+    SQLITE3_CALL(
+        sqlite3_bind_int64(sql_stmt_write_camera_,
+                           2,
+                           static_cast<sqlite3_int64>(camera.model_id)));
     SQLITE3_CALL(sqlite3_bind_int64(
         sql_stmt_write_camera_, 3, static_cast<sqlite3_int64>(camera.width)));
     SQLITE3_CALL(sqlite3_bind_int64(
@@ -1050,7 +1052,8 @@ class SqliteDatabase : public Database {
 
     if (use_frame_id) {
       THROW_CHECK(!ExistsFrame(frame.FrameId())) << "frame_id must be unique";
-      SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_frame_, 1, frame.FrameId()));
+      SQLITE3_CALL(
+          sqlite3_bind_int64(sql_stmt_write_frame_, 1, frame.FrameId()));
     } else {
       SQLITE3_CALL(sqlite3_bind_null(sql_stmt_write_frame_, 1));
     }
@@ -1072,7 +1075,8 @@ class SqliteDatabase : public Database {
 
     if (use_image_id) {
       THROW_CHECK(!ExistsImage(image.ImageId())) << "image_id must be unique";
-      SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_image_, 1, image.ImageId()));
+      SQLITE3_CALL(
+          sqlite3_bind_int64(sql_stmt_write_image_, 1, image.ImageId()));
     } else {
       SQLITE3_CALL(sqlite3_bind_null(sql_stmt_write_image_, 1));
     }
@@ -1082,7 +1086,8 @@ class SqliteDatabase : public Database {
                                    image.Name().c_str(),
                                    static_cast<int>(image.Name().size()),
                                    SQLITE_STATIC));
-    SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_image_, 3, image.CameraId()));
+    SQLITE3_CALL(
+        sqlite3_bind_int64(sql_stmt_write_image_, 3, image.CameraId()));
 
     SQLITE3_CALL(sqlite3_step(sql_stmt_write_image_));
 
