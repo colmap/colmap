@@ -52,9 +52,7 @@ struct Image {
   inline data_t DataId() const;
 };
 
-Eigen::Vector3d Image::Center() const {
-  return OriginBInA(CamFromWorld());
-}
+Eigen::Vector3d Image::Center() const { return OriginBInA(CamFromWorld()); }
 
 // Concrete implementation of the methods
 Rigid3d Image::CamFromWorld() const {
