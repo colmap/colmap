@@ -88,15 +88,18 @@ class Frame {
   // Set the world to frame from the given camera from world transformation.
   void SetCamFromWorld(camera_t camera_id, const Rigid3d& cam_from_world);
 
-  // Convenience method with view into all image data identifiers.
-  inline auto ImageIds() const {
+  // Convenience method with view into all data identifiers of a sensor type.
+  inline auto DataIds(SensorType type) const {
     return filter_view(
-        [](const data_t& data_id) {
-          return data_id.sensor_id.type == SensorType::CAMERA;
+        [type](const data_t& data_id) {
+          return data_id.sensor_id.type == type;
         },
         data_ids_.begin(),
         data_ids_.end());
   }
+
+  // Convenience method with view into all image data identifiers.
+  inline auto ImageIds() const { return DataIds(SensorType::CAMERA); }
 
   inline bool operator==(const Frame& other) const;
   inline bool operator!=(const Frame& other) const;
