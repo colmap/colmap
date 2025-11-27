@@ -38,11 +38,13 @@
 #include <string_view>
 #include <vector>
 
-#define THROW_CHECK_FILE_EXISTS(path) \
-  THROW_CHECK(ExistsFile(path)) << "File " << (path) << " does not exist."
+#define THROW_CHECK_FILE_EXISTS(path)   \
+  THROW_CHECK(colmap::ExistsFile(path)) \
+      << "File " << (path) << " does not exist."
 
-#define THROW_CHECK_DIR_EXISTS(path) \
-  THROW_CHECK(ExistsDir(path)) << "Directory " << (path) << " does not exist."
+#define THROW_CHECK_DIR_EXISTS(path)   \
+  THROW_CHECK(colmap::ExistsDir(path)) \
+      << "Directory " << (path) << " does not exist."
 
 #define THROW_CHECK_PATH_OPEN(path)                           \
   THROW_CHECK(std::ofstream(path, std::ios::trunc).is_open()) \
@@ -55,7 +57,7 @@
       << ". Is the path a directory or does the parent dir not exist?"
 
 #define THROW_CHECK_HAS_FILE_EXTENSION(path, ext)                        \
-  THROW_CHECK(HasFileExtension(path, ext))                               \
+  THROW_CHECK(colmap::HasFileExtension(path, ext))                       \
       << "Path " << (path) << " does not match file extension " << (ext) \
       << "."
 
