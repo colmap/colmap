@@ -270,34 +270,85 @@ TEST_P(ParameterizedDatabaseTests, PosePrior) {
   std::shared_ptr<Database> database = GetParam()(kInMemorySqliteDatabasePath);
   Camera camera;
   camera.camera_id = database->WriteCamera(camera);
+
+  // Create a frame first
+  Frame frame;
+  frame.SetFrameId(database->WriteFrame(frame));
+
+  // Create an image associated with the frame
   Image image;
   image.SetName("test");
   image.SetCameraId(camera.camera_id);
+  image.SetFrameId(frame.FrameId());
   image.SetImageId(database->WriteImage(image));
+
   EXPECT_EQ(database->NumPosePriors(), 0);
   PosePrior pose_prior(Eigen::Vector3d(0.1, 0.2, 0.3),
                        PosePrior::CoordinateSystem::CARTESIAN);
   EXPECT_TRUE(pose_prior.IsValid());
   EXPECT_FALSE(pose_prior.IsCovarianceValid());
-  database->WritePosePrior(image.ImageId(), pose_prior);
+
+  // Write pose prior using frame ID with explicit flag
+  database->WritePosePrior(frame.FrameId(),
+                           pose_prior,
+                           /*is_deprecated_image_prior=*/false);
   EXPECT_EQ(database->NumPosePriors(), 1);
-  auto read_pose_prior = database->ReadPosePrior(image.ImageId());
+
+  // Read pose prior using frame ID
+  auto read_pose_prior =
+      database->ReadPosePrior(frame.FrameId(),
+                              /*is_deprecated_image_prior=*/false);
   EXPECT_EQ(read_pose_prior.position, pose_prior.position);
   EXPECT_EQ(read_pose_prior.coordinate_system, pose_prior.coordinate_system);
   EXPECT_TRUE(read_pose_prior.IsValid());
   EXPECT_FALSE(read_pose_prior.IsCovarianceValid());
+
+  // Update with covariance
   pose_prior.position_covariance = Eigen::Matrix3d::Identity();
   EXPECT_TRUE(pose_prior.IsCovarianceValid());
-  database->UpdatePosePrior(image.ImageId(), pose_prior);
-  read_pose_prior = database->ReadPosePrior(image.ImageId());
+  database->UpdatePosePrior(frame.FrameId(),
+                            pose_prior,
+                            /*is_deprecated_image_prior=*/false);
+  read_pose_prior =
+      database->ReadPosePrior(frame.FrameId(),
+                              /*is_deprecated_image_prior=*/false);
   EXPECT_EQ(read_pose_prior.position, pose_prior.position);
   EXPECT_EQ(read_pose_prior.position_covariance,
             pose_prior.position_covariance);
   EXPECT_EQ(read_pose_prior.coordinate_system, pose_prior.coordinate_system);
   EXPECT_TRUE(read_pose_prior.IsValid());
   EXPECT_TRUE(read_pose_prior.IsCovarianceValid());
+
   database->ClearPosePriors();
   EXPECT_EQ(database->NumPosePriors(), 0);
+}
+
+TEST_P(ParameterizedDatabaseTests, PosePriorBackwardsCompatibility) {
+  std::shared_ptr<Database> database = GetParam()(kInMemorySqliteDatabasePath);
+  Camera camera;
+  camera.camera_id = database->WriteCamera(camera);
+  Image image;
+  image.SetName("test");
+  image.SetCameraId(camera.camera_id);
+  image.SetImageId(database->WriteImage(image));
+
+  PosePrior pose_prior(Eigen::Vector3d(0.1, 0.2, 0.3),
+                       PosePrior::CoordinateSystem::CARTESIAN);
+
+  // Test that using image_id with default flag throws error
+  EXPECT_THROW(
+      { database->WritePosePrior(image.ImageId(), pose_prior); },
+      std::runtime_error);
+
+  // Test that error message is helpful
+  try {
+    database->WritePosePrior(image.ImageId(), pose_prior);
+    FAIL() << "Expected runtime_error";
+  } catch (const std::runtime_error& e) {
+    std::string error_msg = e.what();
+    EXPECT_TRUE(error_msg.find("deprecated") != std::string::npos ||
+                error_msg.find("frame") != std::string::npos);
+  }
 }
 
 TEST_P(ParameterizedDatabaseTests, Keypoints) {

@@ -230,9 +230,16 @@ void DatabaseCache::Load(const Database& database,
       image.SetPoints2D(
           FeatureKeypointsToPointsVector(database.ReadKeypoints(image_id)));
       images_.emplace(image_id, std::move(image));
+    }
 
-      if (database.ExistsPosePrior(image_id)) {
-        pose_priors_.emplace(image_id, database.ReadPosePrior(image_id));
+    // Now load pose priors based on frames after images are loaded
+    for (const auto& [frame_id, frame] : frames_) {
+      if (database.ExistsPosePrior(frame_id,
+                                   /*is_deprecated_image_prior=*/false)) {
+        pose_priors_.emplace(
+            frame_id,
+            database.ReadPosePrior(frame_id,
+                                   /*is_deprecated_image_prior=*/false));
       }
     }
 
@@ -314,11 +321,20 @@ void DatabaseCache::AddImage(class Image image) {
   images_.emplace(image_id, std::move(image));
 }
 
-void DatabaseCache::AddPosePrior(image_t image_id,
-                                 struct PosePrior pose_prior) {
-  THROW_CHECK(ExistsImage(image_id));
-  THROW_CHECK(!ExistsPosePrior(image_id));
-  pose_priors_.emplace(image_id, std::move(pose_prior));
+void DatabaseCache::AddPosePrior(frame_t frame_id,
+                                 struct PosePrior pose_prior,
+                                 bool is_deprecated_image_prior) {
+  if (is_deprecated_image_prior) {
+    throw std::runtime_error(
+        "PosePrior API has changed: pose priors are now associated with "
+        "frames, "
+        "not images. Please update your code to use frame IDs instead of image "
+        "IDs. "
+        "To migrate: use image.FrameId() to get the frame ID for an image.");
+  }
+  THROW_CHECK(ExistsFrame(frame_id));
+  THROW_CHECK(!ExistsPosePrior(frame_id, /*is_deprecated_image_prior=*/false));
+  pose_priors_.emplace(frame_id, std::move(pose_prior));
 }
 
 const class Image* DatabaseCache::FindImageWithName(
@@ -344,22 +360,23 @@ bool DatabaseCache::SetupPosePriors() {
 
   bool prior_is_gps = true;
 
-  // Get sorted image ids for GPS to cartesian conversion
-  std::set<image_t> image_ids_with_prior;
-  for (const auto& [image_id, _] : pose_priors_) {
-    image_ids_with_prior.insert(image_id);
+  // Get sorted frame ids for GPS to cartesian conversion
+  std::set<frame_t> frame_ids_with_prior;
+  for (const auto& [frame_id, _] : pose_priors_) {
+    frame_ids_with_prior.insert(frame_id);
   }
 
   // Get GPS priors
   std::vector<Eigen::Vector3d> v_gps_prior;
   v_gps_prior.reserve(NumPosePriors());
 
-  for (const image_t image_id : image_ids_with_prior) {
-    const struct PosePrior& pose_prior = PosePrior(image_id);
+  for (const frame_t frame_id : frame_ids_with_prior) {
+    const struct PosePrior& pose_prior =
+        PosePrior(frame_id, /*is_deprecated_image_prior=*/false);
     if (pose_prior.coordinate_system != PosePrior::CoordinateSystem::WGS84) {
       prior_is_gps = false;
     } else {
-      // Image with the lowest id is to be used as the origin for prior
+      // Frame with the lowest id is to be used as the origin for prior
       // position conversion
       v_gps_prior.push_back(pose_prior.position);
     }
@@ -376,8 +393,9 @@ bool DatabaseCache::SetupPosePriors() {
         gps_transform.EllipsoidToENU(v_gps_prior, ref_lat, ref_lon);
 
     auto xyz_prior_it = v_xyz_prior.begin();
-    for (const auto& image_id : image_ids_with_prior) {
-      struct PosePrior& pose_prior = PosePrior(image_id);
+    for (const auto& frame_id : frame_ids_with_prior) {
+      struct PosePrior& pose_prior =
+          PosePrior(frame_id, /*is_deprecated_image_prior=*/false);
       pose_prior.position = *xyz_prior_it;
       pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
       ++xyz_prior_it;

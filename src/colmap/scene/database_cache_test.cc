@@ -79,10 +79,12 @@ std::shared_ptr<Database> CreateTestDatabase() {
   frame2.AddDataId(image4.DataId());
   frame2.SetFrameId(database->WriteFrame(frame2));
 
-  database->WritePosePrior(image1.ImageId(),
-                           PosePrior(Eigen::Vector3d::Random()));
-  database->WritePosePrior(image2.ImageId(),
-                           PosePrior(Eigen::Vector3d::Random()));
+  database->WritePosePrior(frame1.FrameId(),
+                           PosePrior(Eigen::Vector3d::Random()),
+                           /*is_deprecated_image_prior=*/false);
+  database->WritePosePrior(frame2.FrameId(),
+                           PosePrior(Eigen::Vector3d::Random()),
+                           /*is_deprecated_image_prior=*/false);
 
   database->WriteKeypoints(image1.ImageId(), FeatureKeypoints(10));
   database->WriteKeypoints(image2.ImageId(), FeatureKeypoints(5));
@@ -219,21 +221,41 @@ std::shared_ptr<Database> CreateLegacyTestDatabase() {
   const Camera camera = Camera::CreateFromModelId(
       kInvalidCameraId, SimplePinholeCameraModel::model_id, 1, 1, 1);
   const camera_t camera_id = database->WriteCamera(camera);
+
+  // Create frames for the images
+  Frame frame1;
+  frame1.SetFrameId(database->WriteFrame(frame1));
+  Frame frame2;
+  frame2.SetFrameId(database->WriteFrame(frame2));
+  Frame frame3;
+  frame3.SetFrameId(database->WriteFrame(frame3));
+
   Image image1;
   image1.SetName("image1");
   image1.SetCameraId(camera_id);
+  image1.SetFrameId(frame1.FrameId());
   Image image2;
   image2.SetName("image2");
   image2.SetCameraId(camera_id);
+  image2.SetFrameId(frame2.FrameId());
   Image image3;
   image3.SetName("image3");
   image3.SetCameraId(camera_id);
+  image3.SetFrameId(frame3.FrameId());
   const image_t image_id1 = database->WriteImage(image1);
   const image_t image_id2 = database->WriteImage(image2);
   const image_t image_id3 = database->WriteImage(image3);
-  database->WritePosePrior(image_id1, PosePrior(Eigen::Vector3d::Random()));
-  database->WritePosePrior(image_id2, PosePrior(Eigen::Vector3d::Random()));
-  database->WritePosePrior(image_id3, PosePrior(Eigen::Vector3d::Random()));
+
+  // Write pose priors using frame IDs
+  database->WritePosePrior(frame1.FrameId(),
+                           PosePrior(Eigen::Vector3d::Random()),
+                           /*is_deprecated_image_prior=*/false);
+  database->WritePosePrior(frame2.FrameId(),
+                           PosePrior(Eigen::Vector3d::Random()),
+                           /*is_deprecated_image_prior=*/false);
+  database->WritePosePrior(frame3.FrameId(),
+                           PosePrior(Eigen::Vector3d::Random()),
+                           /*is_deprecated_image_prior=*/false);
   database->WriteKeypoints(image_id1, FeatureKeypoints(10));
   database->WriteKeypoints(image_id2, FeatureKeypoints(5));
   database->WriteKeypoints(image_id3, FeatureKeypoints(7));

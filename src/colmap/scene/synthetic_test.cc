@@ -212,13 +212,11 @@ TEST(SynthesizeDataset, WithPriors) {
   options.prior_position_stddev = 0.;
   SynthesizeDataset(options, &reconstruction, database.get());
 
-  for (const auto& image : reconstruction.Images()) {
-    if (database->ExistsPosePrior(image.first)) {
-      EXPECT_NEAR((image.second.ProjectionCenter() -
-                   database->ReadPosePrior(image.first).position)
-                      .norm(),
-                  0.,
-                  1e-9);
+  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
+    if (database->ExistsPosePrior(frame_id)) {
+      EXPECT_THAT(
+          OriginBInA(frame.RigFromWorld()),
+          EigenMatrixNear(database->ReadPosePrior(frame_id).position, 1e-9));
     }
   }
 }

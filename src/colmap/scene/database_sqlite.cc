@@ -437,6 +437,19 @@ void WriteFrameData(const frame_t frame_id,
   }
 }
 
+// TODO(jsch): Change is_deprecated_image_prior default to true after next
+// version release (3.14 or 4.0) and remove the parameter in (3.15 or 4.1).
+void MaybeThrowDeprecatedPosePriorError(bool is_deprecated_image_prior) {
+  if (is_deprecated_image_prior) {
+    throw std::runtime_error(
+        "PosePrior API has changed: pose priors are now associated with "
+        "frames, not images. Please update your code to use frame IDs "
+        "instead of image IDs. To migrate: use image.FrameId() to get the "
+        "frame ID for an image and explicitly set the "
+        "is_deprecated_image_prior parameter to false.");
+  }
+}
+
 class SqliteDatabase : public Database {
  public:
   SqliteDatabase() : database_(nullptr) {}
@@ -523,8 +536,11 @@ class SqliteDatabase : public Database {
     return ExistsRowString(sql_stmt_exists_image_name_, name);
   }
 
-  bool ExistsPosePrior(const image_t image_id) const override {
-    return ExistsRowId(sql_stmt_exists_pose_prior_, image_id);
+  bool ExistsPosePrior(
+      const frame_t frame_id,
+      const bool is_deprecated_image_prior = true) const override {
+    MaybeThrowDeprecatedPosePriorError(is_deprecated_image_prior);
+    return ExistsRowId(sql_stmt_exists_pose_prior_, frame_id);
   }
 
   bool ExistsKeypoints(const image_t image_id) const override {
@@ -745,10 +761,14 @@ class SqliteDatabase : public Database {
     return images;
   }
 
-  PosePrior ReadPosePrior(const image_t image_id) const override {
+  PosePrior ReadPosePrior(
+      const frame_t frame_id,
+      const bool is_deprecated_image_prior = true) const override {
+    MaybeThrowDeprecatedPosePriorError(is_deprecated_image_prior);
+
     Sqlite3StmtContext context(sql_stmt_read_pose_prior_);
 
-    SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_read_pose_prior_, 1, image_id));
+    SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_read_pose_prior_, 1, frame_id));
     PosePrior prior;
     const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_pose_prior_));
     if (rc == SQLITE_ROW) {
@@ -1090,11 +1110,14 @@ class SqliteDatabase : public Database {
         sqlite3_last_insert_rowid(THROW_CHECK_NOTNULL(database_)));
   }
 
-  void WritePosePrior(const image_t image_id,
-                      const PosePrior& pose_prior) override {
+  void WritePosePrior(const frame_t frame_id,
+                      const PosePrior& pose_prior,
+                      const bool is_deprecated_image_prior = true) override {
+    MaybeThrowDeprecatedPosePriorError(is_deprecated_image_prior);
+
     Sqlite3StmtContext context(sql_stmt_write_pose_prior_);
 
-    SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_pose_prior_, 1, image_id));
+    SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_pose_prior_, 1, frame_id));
     WriteStaticMatrixBlob(sql_stmt_write_pose_prior_, pose_prior.position, 2);
     SQLITE3_CALL(sqlite3_bind_int64(
         sql_stmt_write_pose_prior_,
@@ -1305,7 +1328,11 @@ class SqliteDatabase : public Database {
     SQLITE3_CALL(sqlite3_step(sql_stmt_update_image_));
   }
 
-  void UpdatePosePrior(image_t image_id, const PosePrior& pose_prior) override {
+  void UpdatePosePrior(frame_t frame_id,
+                       const PosePrior& pose_prior,
+                       const bool is_deprecated_image_prior = true) override {
+    MaybeThrowDeprecatedPosePriorError(is_deprecated_image_prior);
+
     Sqlite3StmtContext context(sql_stmt_update_pose_prior_);
 
     WriteStaticMatrixBlob(sql_stmt_update_pose_prior_, pose_prior.position, 1);
@@ -1315,7 +1342,7 @@ class SqliteDatabase : public Database {
         static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
     WriteStaticMatrixBlob(
         sql_stmt_update_pose_prior_, pose_prior.position_covariance, 3);
-    SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_update_pose_prior_, 4, image_id));
+    SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_update_pose_prior_, 4, frame_id));
 
     SQLITE3_CALL(sqlite3_step(sql_stmt_update_pose_prior_));
   }
@@ -1518,10 +1545,6 @@ class SqliteDatabase : public Database {
       const auto descriptors = database1.ReadDescriptors(image.ImageId());
       merged_database->WriteKeypoints(new_image_id, keypoints);
       merged_database->WriteDescriptors(new_image_id, descriptors);
-      if (database1.ExistsPosePrior(image.ImageId())) {
-        merged_database->WritePosePrior(
-            new_image_id, database1.ReadPosePrior(image.ImageId()));
-      }
     }
 
     std::unordered_map<image_t, image_t> new_image_ids2;
@@ -1538,10 +1561,6 @@ class SqliteDatabase : public Database {
       const auto descriptors = database2.ReadDescriptors(image.ImageId());
       merged_database->WriteKeypoints(new_image_id, keypoints);
       merged_database->WriteDescriptors(new_image_id, descriptors);
-      if (database2.ExistsPosePrior(image.ImageId())) {
-        merged_database->WritePosePrior(
-            new_image_id, database2.ReadPosePrior(image.ImageId()));
-      }
     }
 
     // Merge the frames.
@@ -1568,13 +1587,31 @@ class SqliteDatabase : public Database {
         };
 
     for (Frame& frame : database1.ReadAllFrames()) {
-      merged_database->WriteFrame(
+      const frame_t new_frame_id = merged_database->WriteFrame(
           update_frame(frame, new_camera_ids1, new_image_ids1));
+      // Merge pose priors associated with frames
+      if (database1.ExistsPosePrior(frame.FrameId(),
+                                    /*is_deprecated_image_prior=*/false)) {
+        merged_database->WritePosePrior(
+            new_frame_id,
+            database1.ReadPosePrior(frame.FrameId(),
+                                    /*is_deprecated_image_prior=*/false),
+            /*is_deprecated_image_prior=*/false);
+      }
     }
 
     for (Frame& frame : database2.ReadAllFrames()) {
-      merged_database->WriteFrame(
+      const frame_t new_frame_id = merged_database->WriteFrame(
           update_frame(frame, new_camera_ids2, new_image_ids2));
+      // Merge pose priors associated with frames
+      if (database2.ExistsPosePrior(frame.FrameId(),
+                                    /*is_deprecated_image_prior=*/false)) {
+        merged_database->WritePosePrior(
+            new_frame_id,
+            database2.ReadPosePrior(frame.FrameId(),
+                                    /*is_deprecated_image_prior=*/false),
+            /*is_deprecated_image_prior=*/false);
+      }
     }
 
     // Merge the matches.
@@ -1664,7 +1701,7 @@ class SqliteDatabase : public Database {
                      &sql_stmt_exists_image_id_);
     prepare_sql_stmt("SELECT 1 FROM images WHERE name = ?;",
                      &sql_stmt_exists_image_name_);
-    prepare_sql_stmt("SELECT 1 FROM pose_priors WHERE image_id = ?;",
+    prepare_sql_stmt("SELECT 1 FROM pose_priors WHERE frame_id = ?;",
                      &sql_stmt_exists_pose_prior_);
     prepare_sql_stmt("SELECT 1 FROM keypoints WHERE image_id = ?;",
                      &sql_stmt_exists_keypoints_);
@@ -1716,7 +1753,7 @@ class SqliteDatabase : public Database {
                      &sql_stmt_update_image_);
     prepare_sql_stmt(
         "UPDATE pose_priors SET position=?, coordinate_system=?, "
-        "position_covariance=? WHERE image_id=?;",
+        "position_covariance=? WHERE frame_id=?;",
         &sql_stmt_update_pose_prior_);
     prepare_sql_stmt(
         "UPDATE keypoints SET rows=?, cols=?, data=? WHERE image_id=?;",
@@ -1770,7 +1807,7 @@ class SqliteDatabase : public Database {
     prepare_sql_stmt("SELECT * FROM images;", &sql_stmt_read_images_);
     prepare_sql_stmt("SELECT * FROM images WHERE name = ?;",
                      &sql_stmt_read_image_with_name_);
-    prepare_sql_stmt("SELECT * FROM pose_priors WHERE image_id = ?;",
+    prepare_sql_stmt("SELECT * FROM pose_priors WHERE frame_id = ?;",
                      &sql_stmt_read_pose_prior_);
     prepare_sql_stmt(
         "SELECT rows, cols, data FROM keypoints WHERE image_id = ?;",
@@ -1798,7 +1835,7 @@ class SqliteDatabase : public Database {
     // write_*
     //////////////////////////////////////////////////////////////////////////////
     prepare_sql_stmt(
-        "INSERT INTO pose_priors(image_id, position, coordinate_system, "
+        "INSERT INTO pose_priors(frame_id, position, coordinate_system, "
         "position_covariance) VALUES(?, ?, ?, ?);",
         &sql_stmt_write_pose_prior_);
     prepare_sql_stmt(
@@ -1950,11 +1987,11 @@ class SqliteDatabase : public Database {
   void CreatePosePriorTable() const {
     const std::string sql =
         "CREATE TABLE IF NOT EXISTS pose_priors"
-        "   (image_id                   INTEGER  PRIMARY KEY  NOT NULL,"
+        "   (frame_id                   INTEGER  PRIMARY KEY  NOT NULL,"
         "    position                   BLOB,"
         "    coordinate_system          INTEGER               NOT NULL,"
         "    position_covariance        BLOB,"
-        "    FOREIGN KEY(image_id) REFERENCES images(image_id) ON DELETE "
+        "    FOREIGN KEY(frame_id) REFERENCES frames(frame_id) ON DELETE "
         "CASCADE);";
 
     SQLITE3_EXEC(database_, sql.c_str(), nullptr);
@@ -2067,6 +2104,42 @@ class SqliteDatabase : public Database {
       WriteStaticMatrixBlob(update_stmt, PosePrior().position_covariance, 1);
       SQLITE3_CALL(sqlite3_step(update_stmt));
       SQLITE3_CALL(sqlite3_finalize(update_stmt));
+    }
+
+    if (!ExistsColumn("pose_priors", "frame_id") &&
+        ExistsColumn("pose_priors", "image_id")) {
+      // Recreate table with frame_id as primary key instead of image_id.
+      // SQLite doesn't allow modifying primary keys with ALTER TABLE,
+      // so we need to recreate the table.
+
+      // Create temporary table with new schema.
+      const std::string create_temp_sql =
+          "CREATE TABLE pose_priors_new"
+          "   (frame_id                   INTEGER  PRIMARY KEY  NOT NULL,"
+          "    position                   BLOB,"
+          "    coordinate_system          INTEGER               NOT NULL,"
+          "    position_covariance        BLOB,"
+          "    FOREIGN KEY(frame_id) REFERENCES frames(frame_id) "
+          "    ON DELETE CASCADE);";
+      SQLITE3_EXEC(database_, create_temp_sql.c_str(), nullptr);
+
+      // Migrate data from image_id to frame_id via frame_data table.
+      const std::string migrate_sql =
+          "INSERT INTO pose_priors_new (frame_id, position, coordinate_system, "
+          "position_covariance) "
+          "SELECT frame_data.frame_id, pose_priors.position, "
+          "pose_priors.coordinate_system, pose_priors.position_covariance "
+          "FROM pose_priors "
+          "INNER JOIN frame_data "
+          "  ON frame_data.data_id = pose_priors.image_id "
+          "  AND frame_data.sensor_type = 0;";
+      SQLITE3_EXEC(database_, migrate_sql.c_str(), nullptr);
+
+      // Drop old table and rename new table.
+      SQLITE3_EXEC(database_, "DROP TABLE pose_priors;", nullptr);
+      SQLITE3_EXEC(database_,
+                   "ALTER TABLE pose_priors_new RENAME TO pose_priors;",
+                   nullptr);
     }
 
     // Update user version number.

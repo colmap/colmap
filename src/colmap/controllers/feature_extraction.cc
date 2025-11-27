@@ -289,19 +289,23 @@ class FeatureWriterThread : public Thread {
 
         if (image_data.image.ImageId() == kInvalidImageId) {
           image_data.image.SetImageId(database_->WriteImage(image_data.image));
+
+          Frame frame;
+          frame.SetRigId(image_data.rig.RigId());
+          frame.AddDataId(image_data.image.DataId());
+          const frame_t frame_id = database_->WriteFrame(frame);
+
           if (image_data.pose_prior.IsValid()) {
             LOG(INFO) << StringPrintf(
                 "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
                 image_data.pose_prior.position.x(),
                 image_data.pose_prior.position.y(),
                 image_data.pose_prior.position.z());
-            database_->WritePosePrior(image_data.image.ImageId(),
-                                      image_data.pose_prior);
+            // Write pose prior using frame ID, not image ID
+            database_->WritePosePrior(frame_id,
+                                      image_data.pose_prior,
+                                      /*is_deprecated_image_prior=*/false);
           }
-          Frame frame;
-          frame.SetRigId(image_data.rig.RigId());
-          frame.AddDataId(image_data.image.DataId());
-          database_->WriteFrame(frame);
         }
 
         if (!database_->ExistsKeypoints(image_data.image.ImageId())) {

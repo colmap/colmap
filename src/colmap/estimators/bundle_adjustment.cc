@@ -964,12 +964,18 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
   PosePriorBundleAdjuster(BundleAdjustmentOptions options,
                           PosePriorBundleAdjustmentOptions prior_options,
                           BundleAdjustmentConfig config,
-                          std::unordered_map<image_t, PosePrior> pose_priors,
+                          std::unordered_map<frame_t, PosePrior> pose_priors,
                           Reconstruction& reconstruction)
       : BundleAdjuster(std::move(options), std::move(config)),
         prior_options_(prior_options),
-        pose_priors_(std::move(pose_priors)),
         reconstruction_(reconstruction) {
+    for (const image_t image_id : config_.Images()) {
+      const frame_t frame_id = reconstruction_.Image(image_id).FrameId();
+      if (const auto it = pose_priors.find(frame_id); it != pose_priors.end()) {
+        parameterized_pose_priors_.insert({frame_id, it->second});
+      }
+    }
+
     const bool use_prior_position = AlignReconstruction();
 
     // Fix 7-DOFs of BA problem if not enough valid pose priors.
@@ -991,12 +997,8 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
             prior_options_.prior_position_loss_scale);
       }
 
-      for (const image_t image_id : config_.Images()) {
-        const auto pose_prior_it = pose_priors_.find(image_id);
-        if (pose_prior_it != pose_priors_.end()) {
-          AddPosePriorToProblem(
-              image_id, pose_prior_it->second, reconstruction);
-        }
+      for (const auto& [frame_id, pose_prior] : parameterized_pose_priors_) {
+        AddPosePriorToProblem(frame_id, pose_prior, reconstruction);
       }
     }
   }
@@ -1027,56 +1029,46 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     return default_bundle_adjuster_->Problem();
   }
 
-  void AddPosePriorToProblem(image_t image_id,
+  void AddPosePriorToProblem(frame_t frame_id,
                              const PosePrior& prior,
                              Reconstruction& reconstruction) {
     if (!prior.IsValid() || !prior.IsCovarianceValid()) {
-      LOG(ERROR) << "Could not add prior for image #" << image_id;
+      LOG(ERROR) << "Ignoring invalid pose prior for frame #" << frame_id;
       return;
     }
 
-    Image& image = reconstruction.Image(image_id);
-    if (!image.HasTrivialFrame()) {
-      // TODO(jsch): Only enforce the pose prior on the reference sensor. This
-      // fails if only a non-reference sensor image has a corresponding pose
-      // prior stored. This will be replaced with dedicated modeling of a
-      // GNSS/GPS sensor.
-      return;
-    }
-
-    THROW_CHECK(image.HasPose());
-    Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
+    Frame& frame = reconstruction.Frame(frame_id);
+    Rigid3d& rig_from_world = frame.RigFromWorld();
 
     std::shared_ptr<ceres::Problem>& problem =
         default_bundle_adjuster_->Problem();
 
-    double* cam_from_world_translation = cam_from_world.translation.data();
-    if (!problem->HasParameterBlock(cam_from_world_translation)) {
+    double* rig_from_world_translation = rig_from_world.translation.data();
+    // rig_from_world.rotation is normalized in ParameterizeImages().
+    double* rig_from_world_rotation = rig_from_world.rotation.coeffs().data();
+    if (!problem->HasParameterBlock(rig_from_world_translation) ||
+        !problem->HasParameterBlock(rig_from_world_rotation)) {
       return;
     }
-
-    // cam_from_world.rotation is normalized in AddImageToProblem()
-    double* cam_from_world_rotation = cam_from_world.rotation.coeffs().data();
 
     problem->AddResidualBlock(
         CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
             Create(prior.position_covariance,
                    normalized_from_metric_ * prior.position),
         prior_loss_function_.get(),
-        cam_from_world_rotation,
-        cam_from_world_translation);
+        rig_from_world_rotation,
+        rig_from_world_translation);
   }
 
   bool AlignReconstruction() {
     RANSACOptions ransac_options = prior_options_.alignment_ransac_options;
     if (ransac_options.max_error <= 0) {
       std::vector<double> rms_vars;
-      rms_vars.reserve(pose_priors_.size());
-      for (const auto& [_, pose_prior] : pose_priors_) {
+      rms_vars.reserve(parameterized_pose_priors_.size());
+      for (const auto& [_, pose_prior] : parameterized_pose_priors_) {
         if (!pose_prior.IsCovarianceValid()) {
           continue;
         }
-
         const double trace = pose_prior.position_covariance.trace();
         if (trace <= 0.0) {
           continue;
@@ -1100,8 +1092,10 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
             << ransac_options.max_error;
 
     Sim3d metric_from_orig;
-    if (!AlignReconstructionToPosePriors(
-            reconstruction_, pose_priors_, ransac_options, &metric_from_orig)) {
+    if (!AlignReconstructionToPosePriors(reconstruction_,
+                                         parameterized_pose_priors_,
+                                         ransac_options,
+                                         &metric_from_orig)) {
       LOG(WARNING) << "Alignment w.r.t. prior positions failed";
       return false;
     }
@@ -1110,15 +1104,15 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     if (VLOG_IS_ON(2)) {
       std::vector<double> verr2_wrt_prior;
       verr2_wrt_prior.reserve(reconstruction_.NumRegImages());
-      for (const image_t image_id : reconstruction_.RegImageIds()) {
-        const auto pose_prior_it = pose_priors_.find(image_id);
-        if (pose_prior_it != pose_priors_.end() &&
-            pose_prior_it->second.IsValid()) {
-          const auto& image = reconstruction_.Image(image_id);
-          verr2_wrt_prior.push_back(
-              (image.ProjectionCenter() - pose_prior_it->second.position)
-                  .squaredNorm());
+
+      for (const auto& [frame_id, pose_prior] : parameterized_pose_priors_) {
+        if (!pose_prior.IsValid()) {
+          continue;
         }
+        const auto& frame = reconstruction_.Frame(frame_id);
+        const Eigen::Vector3d frame_position = OriginBInA(frame.RigFromWorld());
+        verr2_wrt_prior.push_back(
+            (frame_position - pose_prior.position).squaredNorm());
       }
 
       VLOG(2) << "Alignment error w.r.t. prior positions:\n"
@@ -1131,7 +1125,8 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
 
  private:
   const PosePriorBundleAdjustmentOptions prior_options_;
-  const std::unordered_map<image_t, PosePrior> pose_priors_;
+  // The subset of pose priors that are part of the bundle adjustment config.
+  std::unordered_map<frame_t, PosePrior> parameterized_pose_priors_;
   Reconstruction& reconstruction_;
 
   std::unique_ptr<DefaultBundleAdjuster> default_bundle_adjuster_;
@@ -1154,7 +1149,7 @@ std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
     BundleAdjustmentOptions options,
     PosePriorBundleAdjustmentOptions prior_options,
     BundleAdjustmentConfig config,
-    std::unordered_map<image_t, PosePrior> pose_priors,
+    std::unordered_map<frame_t, PosePrior> pose_priors,
     Reconstruction& reconstruction) {
   return std::make_unique<PosePriorBundleAdjuster>(std::move(options),
                                                    prior_options,

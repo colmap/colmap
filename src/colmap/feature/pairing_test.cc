@@ -245,12 +245,15 @@ TEST(SpatialPairGenerator, Nominal) {
   CreateSyntheticDatabase(kNumImages, *database);
   const std::vector<Image> images = database->ReadAllImages();
   CHECK_EQ(images.size(), kNumImages);
-  database->WritePosePrior(images[0].ImageId(),
-                           PosePrior(Eigen::Vector3d(1, 2, 3)));
-  database->WritePosePrior(images[1].ImageId(),
-                           PosePrior(Eigen::Vector3d(2, 3, 4)));
-  database->WritePosePrior(images[2].ImageId(),
-                           PosePrior(Eigen::Vector3d(2, 4, 12)));
+  database->WritePosePrior(images[0].FrameId(),
+                           PosePrior(Eigen::Vector3d(1, 2, 3)),
+                           /*is_deprecated_image_prior=*/false);
+  database->WritePosePrior(images[1].FrameId(),
+                           PosePrior(Eigen::Vector3d(2, 3, 4)),
+                           /*is_deprecated_image_prior=*/false);
+  database->WritePosePrior(images[2].FrameId(),
+                           PosePrior(Eigen::Vector3d(2, 4, 12)),
+                           /*is_deprecated_image_prior=*/false);
 
   SpatialPairingOptions options;
   options.max_num_neighbors = 1;
@@ -332,14 +335,17 @@ TEST(SpatialPairGenerator, LargeCoordinates) {
   const std::vector<Image> images = database->ReadAllImages();
   CHECK_EQ(images.size(), kNumImages);
   database->WritePosePrior(
-      images[0].ImageId(),
-      PosePrior(Eigen::Vector3d(1, 2, 3) + Eigen::Vector3d::Constant(1e16)));
+      images[0].FrameId(),
+      PosePrior(Eigen::Vector3d(1, 2, 3) + Eigen::Vector3d::Constant(1e16)),
+      /*is_deprecated_image_prior=*/false);
   database->WritePosePrior(
-      images[1].ImageId(),
-      PosePrior(Eigen::Vector3d(2, 3, 4) + Eigen::Vector3d::Constant(1e16)));
+      images[1].FrameId(),
+      PosePrior(Eigen::Vector3d(2, 3, 4) + Eigen::Vector3d::Constant(1e16)),
+      /*is_deprecated_image_prior=*/false);
   database->WritePosePrior(
-      images[2].ImageId(),
-      PosePrior(Eigen::Vector3d(2, 4, 12) + Eigen::Vector3d::Constant(1e16)));
+      images[2].FrameId(),
+      PosePrior(Eigen::Vector3d(2, 4, 12) + Eigen::Vector3d::Constant(1e16)),
+      /*is_deprecated_image_prior=*/false);
 
   SpatialPairingOptions options;
   options.max_num_neighbors = 1;
@@ -367,14 +373,18 @@ TEST(SpatialPairGenerator, MinNumNeighborsControlsMatchingDistance) {
   CreateSyntheticDatabase(kNumImages, *database);
   const auto images = database->ReadAllImages();
 
-  database->WritePosePrior(images[0].ImageId(),
-                           PosePrior(Eigen::Vector3d(1, 1, 2)));
-  database->WritePosePrior(images[1].ImageId(),
-                           PosePrior(Eigen::Vector3d(1, 2, 3)));
-  database->WritePosePrior(images[2].ImageId(),
-                           PosePrior(Eigen::Vector3d(2, 3, 4)));
-  database->WritePosePrior(images[3].ImageId(),
-                           PosePrior(Eigen::Vector3d(2, 4, 12)));
+  database->WritePosePrior(images[0].FrameId(),
+                           PosePrior(Eigen::Vector3d(1, 1, 2)),
+                           /*is_deprecated_image_prior=*/false);
+  database->WritePosePrior(images[1].FrameId(),
+                           PosePrior(Eigen::Vector3d(1, 2, 3)),
+                           /*is_deprecated_image_prior=*/false);
+  database->WritePosePrior(images[2].FrameId(),
+                           PosePrior(Eigen::Vector3d(2, 3, 4)),
+                           /*is_deprecated_image_prior=*/false);
+  database->WritePosePrior(images[3].FrameId(),
+                           PosePrior(Eigen::Vector3d(2, 4, 12)),
+                           /*is_deprecated_image_prior=*/false);
 
   SpatialPairingOptions options;
   options.ignore_z = false;
@@ -511,12 +521,15 @@ TEST(SpatialPairGenerator, ReadPositionPriorData) {
     CreateSyntheticDatabase(kNumImages, *database);
     const std::vector<Image> images = database->ReadAllImages();
     CHECK_EQ(images.size(), kNumImages);
-    database->WritePosePrior(images[0].ImageId(),
-                             PosePrior(Eigen::Vector3d(0, 0, 2)));
-    database->WritePosePrior(images[1].ImageId(),
-                             PosePrior(Eigen::Vector3d(2, 3, 4)));
-    database->WritePosePrior(images[2].ImageId(),
-                             PosePrior(Eigen::Vector3d(2, 4, 12)));
+    database->WritePosePrior(images[0].FrameId(),
+                             PosePrior(Eigen::Vector3d(0, 0, 2)),
+                             /*is_deprecated_image_prior=*/false);
+    database->WritePosePrior(images[1].FrameId(),
+                             PosePrior(Eigen::Vector3d(2, 3, 4)),
+                             /*is_deprecated_image_prior=*/false);
+    database->WritePosePrior(images[2].FrameId(),
+                             PosePrior(Eigen::Vector3d(2, 4, 12)),
+                             /*is_deprecated_image_prior=*/false);
 
     SpatialPairingOptions options;
     options.max_num_neighbors = 1;
@@ -538,12 +551,15 @@ TEST(SpatialPairGenerator, ReadPositionPriorData) {
     CreateSyntheticDatabase(kNumImages, *database);
     const std::vector<Image> images = database->ReadAllImages();
     CHECK_EQ(images.size(), kNumImages);
-    database->WritePosePrior(images[0].ImageId(),
-                             PosePrior(Eigen::Vector3d(0, 0, 2)));
-    database->WritePosePrior(images[1].ImageId(),
-                             PosePrior(Eigen::Vector3d(2, 3, 4)));
-    database->WritePosePrior(images[2].ImageId(),
-                             PosePrior(Eigen::Vector3d(2, 4, 12)));
+    database->WritePosePrior(images[0].FrameId(),
+                             PosePrior(Eigen::Vector3d(0, 0, 2)),
+                             /*is_deprecated_image_prior=*/false);
+    database->WritePosePrior(images[1].FrameId(),
+                             PosePrior(Eigen::Vector3d(2, 3, 4)),
+                             /*is_deprecated_image_prior=*/false);
+    database->WritePosePrior(images[2].FrameId(),
+                             PosePrior(Eigen::Vector3d(2, 4, 12)),
+                             /*is_deprecated_image_prior=*/false);
 
     SpatialPairingOptions options;
     options.max_num_neighbors = 1;
@@ -565,12 +581,15 @@ TEST(SpatialPairGenerator, ReadPositionPriorData) {
     CreateSyntheticDatabase(kNumImages, *database);
     const std::vector<Image> images = database->ReadAllImages();
     CHECK_EQ(images.size(), kNumImages);
-    database->WritePosePrior(images[0].ImageId(),
-                             PosePrior(Eigen::Vector3d(0, 0, 0)));
-    database->WritePosePrior(images[1].ImageId(),
-                             PosePrior(Eigen::Vector3d(2, 3, 4)));
-    database->WritePosePrior(images[2].ImageId(),
-                             PosePrior(Eigen::Vector3d(2, 4, 12)));
+    database->WritePosePrior(images[0].FrameId(),
+                             PosePrior(Eigen::Vector3d(0, 0, 0)),
+                             /*is_deprecated_image_prior=*/false);
+    database->WritePosePrior(images[1].FrameId(),
+                             PosePrior(Eigen::Vector3d(2, 3, 4)),
+                             /*is_deprecated_image_prior=*/false);
+    database->WritePosePrior(images[2].FrameId(),
+                             PosePrior(Eigen::Vector3d(2, 4, 12)),
+                             /*is_deprecated_image_prior=*/false);
 
     SpatialPairingOptions options;
     options.max_num_neighbors = 1;
@@ -592,12 +611,15 @@ TEST(SpatialPairGenerator, ReadPositionPriorData) {
     CreateSyntheticDatabase(kNumImages, *database);
     const std::vector<Image> images = database->ReadAllImages();
     CHECK_EQ(images.size(), kNumImages);
-    database->WritePosePrior(images[0].ImageId(),
-                             PosePrior(Eigen::Vector3d(0, 0, 0)));
-    database->WritePosePrior(images[1].ImageId(),
-                             PosePrior(Eigen::Vector3d(2, 3, 4)));
-    database->WritePosePrior(images[2].ImageId(),
-                             PosePrior(Eigen::Vector3d(2, 4, 12)));
+    database->WritePosePrior(images[0].FrameId(),
+                             PosePrior(Eigen::Vector3d(0, 0, 0)),
+                             /*is_deprecated_image_prior=*/false);
+    database->WritePosePrior(images[1].FrameId(),
+                             PosePrior(Eigen::Vector3d(2, 3, 4)),
+                             /*is_deprecated_image_prior=*/false);
+    database->WritePosePrior(images[2].FrameId(),
+                             PosePrior(Eigen::Vector3d(2, 4, 12)),
+                             /*is_deprecated_image_prior=*/false);
 
     SpatialPairingOptions options;
     options.max_num_neighbors = 1;

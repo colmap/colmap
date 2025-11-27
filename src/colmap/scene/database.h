@@ -85,7 +85,8 @@ class Database {
   virtual bool ExistsFrame(frame_t frame_id) const = 0;
   virtual bool ExistsImage(image_t image_id) const = 0;
   virtual bool ExistsImageWithName(const std::string& name) const = 0;
-  virtual bool ExistsPosePrior(image_t image_id) const = 0;
+  virtual bool ExistsPosePrior(frame_t frame_id,
+                               bool is_deprecated_image_prior = true) const = 0;
   virtual bool ExistsKeypoints(image_t image_id) const = 0;
   virtual bool ExistsDescriptors(image_t image_id) const = 0;
   virtual bool ExistsMatches(image_t image_id1, image_t image_id2) const = 0;
@@ -158,7 +159,8 @@ class Database {
       const std::string& name) const = 0;
   virtual std::vector<Image> ReadAllImages() const = 0;
 
-  virtual PosePrior ReadPosePrior(image_t image_id) const = 0;
+  virtual PosePrior ReadPosePrior(
+      frame_t frame_id, bool is_deprecated_image_prior = true) const = 0;
 
   virtual FeatureKeypointsBlob ReadKeypointsBlob(image_t image_id) const = 0;
   virtual FeatureKeypoints ReadKeypoints(image_t image_id) const = 0;
@@ -204,8 +206,9 @@ class Database {
   // Write a new entry in the database. The user is responsible for making sure
   // that the entry does not yet exist. For image pairs, the order of
   // `image_id1` and `image_id2` does not matter.
-  virtual void WritePosePrior(image_t image_id,
-                              const PosePrior& pose_prior) = 0;
+  virtual void WritePosePrior(frame_t frame_id,
+                              const PosePrior& pose_prior,
+                              bool is_deprecated_image_prior = true) = 0;
   virtual void WriteKeypoints(image_t image_id,
                               const FeatureKeypoints& keypoints) = 0;
   virtual void WriteKeypoints(image_t image_id,
@@ -241,8 +244,9 @@ class Database {
 
   // Update an existing pose_prior in the database. The user is responsible for
   // making sure that the entry already exists.
-  virtual void UpdatePosePrior(image_t image_id,
-                               const PosePrior& pose_prior) = 0;
+  virtual void UpdatePosePrior(frame_t frame_id,
+                               const PosePrior& pose_prior,
+                               bool is_deprecated_image_prior = true) = 0;
 
   // Update an existing image's keypoints in the database. The user is
   // responsible for making sure that the entry already exists.

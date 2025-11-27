@@ -1232,9 +1232,10 @@ TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
                                  /*num_obs_tolerance=*/0.02));
 
   int num_close_to_priors = 0;
-  for (const image_t id : reconstruction.RegImageIds()) {
-    const auto& image = reconstruction.Image(id);
-    if ((image.ProjectionCenter() - pose_priors.at(id).position).norm() < 0.3) {
+  for (const image_t frame_id : reconstruction.RegFrameIds()) {
+    const auto& frame = reconstruction.Frame(frame_id);
+    const Eigen::Vector3d frame_position = OriginBInA(frame.RigFromWorld());
+    if ((frame_position - pose_priors.at(frame_id).position).norm() < 0.3) {
       ++num_close_to_priors;
     }
   }
@@ -1306,9 +1307,10 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
                                  /*num_obs_tolerance=*/0.02));
 
   int num_close_to_priors = 0;
-  for (const image_t id : reconstruction.RegImageIds()) {
-    const auto& image = reconstruction.Image(id);
-    if ((image.ProjectionCenter() - pose_priors.at(id).position).norm() < 0.3) {
+  for (const image_t frame_id : reconstruction.RegFrameIds()) {
+    const auto& frame = reconstruction.Frame(frame_id);
+    const Eigen::Vector3d frame_position = OriginBInA(frame.RigFromWorld());
+    if ((frame_position - pose_priors.at(frame_id).position).norm() < 0.3) {
       ++num_close_to_priors;
     }
   }

@@ -85,7 +85,9 @@ class DatabaseCache {
   void AddCamera(struct Camera camera);
   void AddFrame(class Frame frame);
   void AddImage(class Image image);
-  void AddPosePrior(image_t image_id, struct PosePrior pose_prior);
+  void AddPosePrior(frame_t frame_id,
+                    struct PosePrior pose_prior,
+                    bool is_deprecated_image_prior = true);
 
   // Get specific objects.
   inline class Rig& Rig(rig_t rig_id);
@@ -96,15 +98,17 @@ class DatabaseCache {
   inline const class Frame& Frame(frame_t frame_id) const;
   inline class Image& Image(image_t image_id);
   inline const class Image& Image(image_t image_id) const;
-  inline struct PosePrior& PosePrior(image_t image_id);
-  inline const struct PosePrior& PosePrior(image_t image_id) const;
+  inline struct PosePrior& PosePrior(frame_t frame_id,
+                                     bool is_deprecated_image_prior = true);
+  inline const struct PosePrior& PosePrior(
+      frame_t frame_id, bool is_deprecated_image_prior = true) const;
 
   // Get all objects.
   inline const std::unordered_map<rig_t, class Rig>& Rigs() const;
   inline const std::unordered_map<camera_t, struct Camera>& Cameras() const;
   inline const std::unordered_map<frame_t, class Frame>& Frames() const;
   inline const std::unordered_map<image_t, class Image>& Images() const;
-  inline const std::unordered_map<image_t, struct PosePrior>& PosePriors()
+  inline const std::unordered_map<frame_t, struct PosePrior>& PosePriors()
       const;
 
   // Check whether specific object exists.
@@ -112,7 +116,8 @@ class DatabaseCache {
   inline bool ExistsCamera(camera_t camera_id) const;
   inline bool ExistsFrame(frame_t frame_id) const;
   inline bool ExistsImage(image_t image_id) const;
-  inline bool ExistsPosePrior(image_t image_id) const;
+  inline bool ExistsPosePrior(frame_t frame_id,
+                              bool is_deprecated_image_prior = true) const;
 
   // Get reference to const correspondence graph.
   inline std::shared_ptr<const class CorrespondenceGraph> CorrespondenceGraph()
@@ -131,7 +136,7 @@ class DatabaseCache {
   std::unordered_map<camera_t, struct Camera> cameras_;
   std::unordered_map<frame_t, class Frame> frames_;
   std::unordered_map<image_t, class Image> images_;
-  std::unordered_map<image_t, struct PosePrior> pose_priors_;
+  std::unordered_map<frame_t, struct PosePrior> pose_priors_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -178,12 +183,30 @@ const class Image& DatabaseCache::Image(const image_t image_id) const {
   return images_.at(image_id);
 }
 
-struct PosePrior& DatabaseCache::PosePrior(image_t image_id) {
-  return pose_priors_.at(image_id);
+struct PosePrior& DatabaseCache::PosePrior(frame_t frame_id,
+                                           bool is_deprecated_image_prior) {
+  if (is_deprecated_image_prior) {
+    throw std::runtime_error(
+        "PosePrior API has changed: pose priors are now associated with "
+        "frames, "
+        "not images. Please update your code to use frame IDs instead of image "
+        "IDs. "
+        "To migrate: use image.FrameId() to get the frame ID for an image.");
+  }
+  return pose_priors_.at(frame_id);
 }
 
-const struct PosePrior& DatabaseCache::PosePrior(image_t image_id) const {
-  return pose_priors_.at(image_id);
+const struct PosePrior& DatabaseCache::PosePrior(
+    frame_t frame_id, bool is_deprecated_image_prior) const {
+  if (is_deprecated_image_prior) {
+    throw std::runtime_error(
+        "PosePrior API has changed: pose priors are now associated with "
+        "frames, "
+        "not images. Please update your code to use frame IDs instead of image "
+        "IDs. "
+        "To migrate: use image.FrameId() to get the frame ID for an image.");
+  }
+  return pose_priors_.at(frame_id);
 }
 
 const std::unordered_map<rig_t, class Rig>& DatabaseCache::Rigs() const {
@@ -203,7 +226,7 @@ const std::unordered_map<image_t, class Image>& DatabaseCache::Images() const {
   return images_;
 }
 
-const std::unordered_map<image_t, struct PosePrior>& DatabaseCache::PosePriors()
+const std::unordered_map<frame_t, struct PosePrior>& DatabaseCache::PosePriors()
     const {
   return pose_priors_;
 }
@@ -224,8 +247,17 @@ bool DatabaseCache::ExistsImage(const image_t image_id) const {
   return images_.find(image_id) != images_.end();
 }
 
-bool DatabaseCache::ExistsPosePrior(const image_t image_id) const {
-  return pose_priors_.find(image_id) != pose_priors_.end();
+bool DatabaseCache::ExistsPosePrior(const frame_t frame_id,
+                                    bool is_deprecated_image_prior) const {
+  if (is_deprecated_image_prior) {
+    throw std::runtime_error(
+        "PosePrior API has changed: pose priors are now associated with "
+        "frames, "
+        "not images. Please update your code to use frame IDs instead of image "
+        "IDs. "
+        "To migrate: use image.FrameId() to get the frame ID for an image.");
+  }
+  return pose_priors_.find(frame_id) != pose_priors_.end();
 }
 
 std::shared_ptr<const class CorrespondenceGraph>

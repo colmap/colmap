@@ -239,7 +239,7 @@ bool AlignReconstructionToLocations(
 
 bool AlignReconstructionToPosePriors(
     const Reconstruction& src_reconstruction,
-    const std::unordered_map<image_t, PosePrior>& tgt_pose_priors,
+    const std::unordered_map<frame_t, PosePrior>& tgt_pose_priors,
     const RANSACOptions& ransac_options,
     Sim3d* tgt_from_src) {
   std::vector<Eigen::Vector3d> src;
@@ -247,13 +247,16 @@ bool AlignReconstructionToPosePriors(
   src.reserve(tgt_pose_priors.size());
   tgt.reserve(tgt_pose_priors.size());
 
-  for (const image_t image_id : src_reconstruction.RegImageIds()) {
-    const auto pose_prior_it = tgt_pose_priors.find(image_id);
+  // Iterate over registered frames instead of images
+  for (const frame_t frame_id : src_reconstruction.RegFrameIds()) {
+    const auto pose_prior_it = tgt_pose_priors.find(frame_id);
     if (pose_prior_it != tgt_pose_priors.end() &&
         pose_prior_it->second.IsValid()) {
-      const auto& image = src_reconstruction.Image(image_id);
-      src.push_back(image.ProjectionCenter());
-      tgt.push_back(pose_prior_it->second.position);
+      const auto& frame = src_reconstruction.Frame(frame_id);
+      if (frame.HasPose()) {
+        src.push_back(OriginBInA(frame.RigFromWorld()));
+        tgt.push_back(pose_prior_it->second.position);
+      }
     }
   }
 

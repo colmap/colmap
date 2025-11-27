@@ -107,10 +107,10 @@ TEST(Alignment, AlignReconstructionToPosePriors) {
   tgt_reconstruction.Transform(gt_tgt_from_src);
 
   std::unordered_map<image_t, PosePrior> tgt_pose_priors;
-  for (const auto& [image_id, image] : tgt_reconstruction.Images()) {
-    PosePrior& pose_prior = tgt_pose_priors[image_id];
+  for (const auto& [frame_id, frame] : tgt_reconstruction.Frames()) {
+    PosePrior& pose_prior = tgt_pose_priors[frame_id];
     pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
-    pose_prior.position = image.ProjectionCenter();
+    pose_prior.position = OriginBInA(frame.RigFromWorld());
     pose_prior.position_covariance = 1e-2 * Eigen::Matrix3d::Identity();
   }
 
