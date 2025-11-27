@@ -169,8 +169,7 @@ bool EstimateTriangulation(const EstimateTriangulationOptions& options,
       point_data[i].cam_point.setZero();
     }
     pose_data[i].cam_from_world = cams_from_world[i].ToMatrix();
-    pose_data[i].proj_center =
-        cams_from_world[i].rotation.inverse() * -cams_from_world[i].translation;
+    pose_data[i].proj_center = OriginBInA(cams_from_world[i]);
     pose_data[i].camera = cameras[i];
   }
 

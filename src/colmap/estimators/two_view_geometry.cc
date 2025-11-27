@@ -573,9 +573,7 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
 
   if (!points3D.empty()) {
     const Eigen::Vector3d proj_center1 = Eigen::Vector3d::Zero();
-    const Eigen::Vector3d proj_center2 =
-        geometry->cam2_from_cam1.rotation.inverse() *
-        -geometry->cam2_from_cam1.translation;
+    const Eigen::Vector3d proj_center2 = OriginBInA(geometry->cam2_from_cam1);
     geometry->tri_angle = Median(
         CalculateTriangulationAngles(proj_center1, proj_center2, points3D));
   }

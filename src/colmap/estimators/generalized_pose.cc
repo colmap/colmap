@@ -63,12 +63,9 @@ bool IsPanoramicRig(const std::vector<size_t>& camera_idxs,
                     const std::vector<Rigid3d>& cams_from_rig) {
   const std::set<size_t> camera_idx_set(camera_idxs.begin(), camera_idxs.end());
   const size_t first_camera_idx = *camera_idx_set.begin();
-  const Eigen::Vector3d first_origin_in_rig =
-      cams_from_rig[first_camera_idx].rotation.inverse() *
-      -cams_from_rig[first_camera_idx].translation;
+  const Eigen::Vector3d first_origin_in_rig = OriginBInA(cams_from_rig[first_camera_idx]);
   for (auto it = ++camera_idx_set.begin(); it != camera_idx_set.end(); ++it) {
-    const Eigen::Vector3d other_origin_in_rig =
-        cams_from_rig[*it].rotation.inverse() * -cams_from_rig[*it].translation;
+    const Eigen::Vector3d other_origin_in_rig = OriginBInA(cams_from_rig[*it]);
     if (!first_origin_in_rig.isApprox(other_origin_in_rig, 1e-6)) {
       return false;
     }

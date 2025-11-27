@@ -98,6 +98,10 @@ inline Rigid3d Inverse(const Rigid3d& b_from_a) {
   return a_from_b;
 }
 
+inline Eigen::Vector3d OriginBInA(const Rigid3d& b_from_a) {
+  return b_from_a.rotation.inverse() * -b_from_a.translation;
+}
+
 // Update covariance (6 x 6) for rigid3d.inverse()
 //
 // [Reference] Joan Solà, Jeremie Deray, Dinesh Atchuthan, A micro Lie theory
