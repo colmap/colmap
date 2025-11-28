@@ -204,11 +204,14 @@ class Database {
   // is false a new identifier is automatically generated.
   virtual image_t WriteImage(const Image& image, bool use_image_id = false) = 0;
 
+  // Add new pose prior and return its database identifier. If
+  // `use_pose_prior_id` is false a new identifier is automatically generated.
+  virtual pose_prior_t WritePosePrior(const PosePrior& pose_prior,
+                                      bool use_pose_prior_id = false) = 0;
+
   // Write a new entry in the database. The user is responsible for making sure
   // that the entry does not yet exist. For image pairs, the order of
   // `image_id1` and `image_id2` does not matter.
-  virtual void WritePosePrior(const PosePrior& pose_prior,
-                              bool use_pose_prior_id = false) = 0;
   virtual void WriteKeypoints(image_t image_id,
                               const FeatureKeypoints& keypoints) = 0;
   virtual void WriteKeypoints(image_t image_id,

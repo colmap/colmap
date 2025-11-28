@@ -130,14 +130,20 @@ const Image& FeatureMatcherCache::GetImage(const image_t image_id) {
   return images_cache_->at(image_id);
 }
 
-const PosePrior* FeatureMatcherCache::GetPosePriorOrNull(
+const PosePrior* FeatureMatcherCache::FindImagePosePriorOrNull(
     const image_t image_id) {
   MaybeLoadPosePriors();
-  const auto it = pose_priors_cache_->find(image_id);
-  if (it == pose_priors_cache_->end()) {
-    return nullptr;
+
+  // Return the first pose prior in the frame.
+  const auto& image = GetImage(image_id);
+  const auto& frame = GetFrame(image.FrameId());
+  for (const auto& data_id : frame.DataIds()) {
+    if (data_id.sensor_id.type == SensorType::POSE_PRIOR) {
+      return &pose_priors_cache_->at(data_id.id);
+    }
   }
-  return &it->second;
+
+  return nullptr;
 }
 
 std::shared_ptr<FeatureKeypoints> FeatureMatcherCache::GetKeypoints(
@@ -346,14 +352,13 @@ void FeatureMatcherCache::MaybeLoadPosePriors() {
     return;
   }
 
+  std::vector<PosePrior> pose_priors = database_->ReadAllPosePriors();
   pose_priors_cache_ =
       std::make_unique<std::unordered_map<pose_prior_t, PosePrior>>();
-  pose_priors_cache_->reserve(database_->NumPosePriors());
-  for (const auto& image : *images_cache_) {
-    if (database_->ExistsPosePrior(image.first)) {
-      pose_priors_cache_->emplace(image.first,
-                                  database_->ReadPosePrior(image.first));
-    }
+  pose_priors_cache_->reserve(pose_priors.size());
+  for (PosePrior& pose_prior : pose_priors) {
+    pose_priors_cache_->emplace(pose_prior.pose_prior_id,
+                                std::move(pose_prior));
   }
 }
 

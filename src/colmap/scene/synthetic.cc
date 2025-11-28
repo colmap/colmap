@@ -286,6 +286,37 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         frame.AddDataId(image.DataId());
       }
 
+      if (options.use_prior_position) {
+        PosePrior noisy_prior(proj_center,
+                              PosePrior::CoordinateSystem::CARTESIAN);
+
+        if (options.prior_position_stddev > 0.) {
+          noisy_prior.position += Eigen::Vector3d(
+              RandomGaussian<double>(0, options.prior_position_stddev),
+              RandomGaussian<double>(0, options.prior_position_stddev),
+              RandomGaussian<double>(0, options.prior_position_stddev));
+          noisy_prior.position_covariance = options.prior_position_stddev *
+                                            options.prior_position_stddev *
+                                            Eigen::Matrix3d::Identity();
+        } else {
+          noisy_prior.position_covariance = Eigen::Matrix3d::Identity();
+        }
+
+        if (options.use_geographic_coords_prior) {
+          static const GPSTransform gps_trans;
+          static constexpr double kLat0 = 47.37851943807808;
+          static constexpr double kLon0 = 8.549099927632087;
+          static constexpr double kAlt0 = 451.5;
+          noisy_prior.position = gps_trans.ENUToEllipsoid(
+              {noisy_prior.position}, kLat0, kLon0, kAlt0)[0];
+          noisy_prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
+        }
+
+        noisy_prior.pose_prior_id = database->WritePosePrior(noisy_prior);
+
+        frame.AddDataId(noisy_prior.DataId());
+      }
+
       const frame_t frame_id =
           (database == nullptr)
               ? (rig_idx * options.num_frames_per_rig + frame_idx + 1)
@@ -374,37 +405,6 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
             auto& point3D = reconstruction->Point3D(point2D.point3D_id);
             point3D.track.AddElement(image.ImageId(), point2D_idx);
           }
-        }
-
-        if (options.use_prior_position) {
-          PosePrior noisy_prior(proj_center,
-                                PosePrior::CoordinateSystem::CARTESIAN);
-
-          if (options.prior_position_stddev > 0.) {
-            noisy_prior.position += Eigen::Vector3d(
-                RandomGaussian<double>(0, options.prior_position_stddev),
-                RandomGaussian<double>(0, options.prior_position_stddev),
-                RandomGaussian<double>(0, options.prior_position_stddev));
-            noisy_prior.position_covariance = options.prior_position_stddev *
-                                              options.prior_position_stddev *
-                                              Eigen::Matrix3d::Identity();
-          } else {
-            noisy_prior.position_covariance = Eigen::Matrix3d::Identity();
-          }
-
-          if (options.use_geographic_coords_prior) {
-            static const GPSTransform gps_trans;
-
-            static const double lat0 = 47.37851943807808;
-            static const double lon0 = 8.549099927632087;
-            static const double alt0 = 451.5;
-
-            noisy_prior.position = gps_trans.ENUToEllipsoid(
-                {noisy_prior.position}, lat0, lon0, alt0)[0];
-            noisy_prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
-          }
-
-          database->WritePosePrior(image.ImageId(), noisy_prior);
         }
 
         if (database != nullptr) {

@@ -289,18 +289,22 @@ class FeatureWriterThread : public Thread {
 
         if (image_data.image.ImageId() == kInvalidImageId) {
           image_data.image.SetImageId(database_->WriteImage(image_data.image));
+
+          Frame frame;
+          frame.SetRigId(image_data.rig.RigId());
+          frame.AddDataId(image_data.image.DataId());
+
           if (image_data.pose_prior.IsValid()) {
             LOG(INFO) << StringPrintf(
                 "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
                 image_data.pose_prior.position.x(),
                 image_data.pose_prior.position.y(),
                 image_data.pose_prior.position.z());
-            database_->WritePosePrior(image_data.image.ImageId(),
-                                      image_data.pose_prior);
+            image_data.pose_prior.pose_prior_id =
+                database_->WritePosePrior(image_data.pose_prior);
+            frame.AddDataId(image_data.pose_prior.DataId());
           }
-          Frame frame;
-          frame.SetRigId(image_data.rig.RigId());
-          frame.AddDataId(image_data.image.DataId());
+
           database_->WriteFrame(frame);
         }
 
@@ -582,12 +586,16 @@ class FeatureImporterController : public Thread {
 
         if (image.ImageId() == kInvalidImageId) {
           image.SetImageId(database->WriteImage(image));
-          if (pose_prior.IsValid()) {
-            database->WritePosePrior(image.ImageId(), pose_prior);
-          }
+
           Frame frame;
           frame.SetRigId(rig.RigId());
           frame.AddDataId(image.DataId());
+
+          if (pose_prior.IsValid()) {
+            pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
+            frame.AddDataId(pose_prior.DataId());
+          }
+
           database->WriteFrame(frame);
         }
 

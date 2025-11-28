@@ -31,6 +31,33 @@
 
 namespace colmap {
 
+void Frame::SetRigPtr(class Rig* rig) {
+  THROW_CHECK_NOTNULL(rig);
+  THROW_CHECK_NE(rig->RigId(), kInvalidRigId);
+  for (const auto& data_id : data_ids_) {
+    switch (data_id.sensor_id.type) {
+      case SensorType::CAMERA:
+        THROW_CHECK(rig->HasSensor(data_id.sensor_id));
+        break;
+      case SensorType::POSE_PRIOR:
+        // Note that pose priors do not (yet) have a corresponding sensor.
+      case SensorType::IMU:
+        // Note that we do not (yet) support IMU measurement data.
+        break;
+      case SensorType::INVALID:
+        LOG(FATAL_THROW) << "Invalid sensor type: " << data_id.sensor_id.type;
+        break;
+    }
+  }
+  if (HasRigPtr()) {
+    rig_id_ = rig->RigId();
+    rig_ptr_ = rig;
+  } else {
+    THROW_CHECK_EQ(rig->RigId(), rig_id_);
+    rig_ptr_ = rig;
+  }
+}
+
 void Frame::SetCamFromWorld(camera_t camera_id, const Rigid3d& cam_from_world) {
   THROW_CHECK_NOTNULL(rig_ptr_);
   const sensor_t sensor_id(SensorType::CAMERA, camera_id);

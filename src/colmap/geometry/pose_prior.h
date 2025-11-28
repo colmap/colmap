@@ -73,20 +73,17 @@ struct PosePrior {
     return position_covariance.allFinite();
   }
 
-  inline bool operator==(const PosePrior& other) const;
-  inline bool operator!=(const PosePrior& other) const;
+  inline data_t DataId() const {
+    // Note that pose priors do not have a corresponding sensor id,
+    // as we do not support storing an associated sensor calibration (yet).
+    return data_t(sensor_t(SensorType::POSE_PRIOR, sensor_t::kInvalidId),
+                  pose_prior_id);
+  }
+
+  bool operator==(const PosePrior& other) const;
+  bool operator!=(const PosePrior& other) const;
 };
 
 std::ostream& operator<<(std::ostream& stream, const PosePrior& prior);
-
-bool PosePrior::operator==(const PosePrior& other) const {
-  return coordinate_system == other.coordinate_system &&
-         position == other.position &&
-         position_covariance == other.position_covariance;
-}
-
-bool PosePrior::operator!=(const PosePrior& other) const {
-  return !(*this == other);
-}
 
 }  // namespace colmap

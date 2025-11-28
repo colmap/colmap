@@ -781,6 +781,27 @@ class SqliteDatabase : public Database {
     return prior;
   }
 
+  std::vector<PosePrior> ReadAllPosePriors() const override {
+    Sqlite3StmtContext context(sql_stmt_read_pose_priors_);
+
+    std::vector<PosePrior> pose_priors;
+    while (SQLITE3_CALL(sqlite3_step(sql_stmt_read_pose_priors_)) ==
+           SQLITE_ROW) {
+      PosePrior prior;
+      prior.pose_prior_id = static_cast<pose_prior_t>(
+          sqlite3_column_int64(sql_stmt_read_pose_priors_, 0));
+      prior.position = ReadStaticMatrixBlob<Eigen::Vector3d>(
+          sql_stmt_read_pose_priors_, SQLITE_ROW, 1);
+      prior.position_covariance = ReadStaticMatrixBlob<Eigen::Matrix3d>(
+          sql_stmt_read_pose_priors_, SQLITE_ROW, 2);
+      prior.coordinate_system = static_cast<PosePrior::CoordinateSystem>(
+          sqlite3_column_int64(sql_stmt_read_pose_priors_, 3));
+      pose_priors.push_back(prior);
+    }
+
+    return pose_priors;
+  }
+
   FeatureKeypointsBlob ReadKeypointsBlob(
       const image_t image_id) const override {
     Sqlite3StmtContext context(sql_stmt_read_keypoints_);
@@ -1114,8 +1135,8 @@ class SqliteDatabase : public Database {
         sqlite3_last_insert_rowid(THROW_CHECK_NOTNULL(database_)));
   }
 
-  void WritePosePrior(const PosePrior& pose_prior,
-                      bool use_pose_prior_id) override {
+  pose_prior_t WritePosePrior(const PosePrior& pose_prior,
+                              bool use_pose_prior_id) override {
     Sqlite3StmtContext context(sql_stmt_write_pose_prior_);
 
     if (use_pose_prior_id) {
@@ -1128,8 +1149,6 @@ class SqliteDatabase : public Database {
       SQLITE3_CALL(sqlite3_bind_null(sql_stmt_write_pose_prior_, 1));
     }
 
-    SQLITE3_CALL(sqlite3_bind_int64(
-        sql_stmt_write_pose_prior_, 1, pose_prior.pose_prior_id));
     WriteStaticMatrixBlob(sql_stmt_write_pose_prior_, pose_prior.position, 2);
     WriteStaticMatrixBlob(
         sql_stmt_write_pose_prior_, pose_prior.position_covariance, 3);
@@ -1138,6 +1157,9 @@ class SqliteDatabase : public Database {
         4,
         static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
     SQLITE3_CALL(sqlite3_step(sql_stmt_write_pose_prior_));
+
+    return static_cast<image_t>(
+        sqlite3_last_insert_rowid(THROW_CHECK_NOTNULL(database_)));
   }
 
   void WriteKeypoints(const image_t image_id,
@@ -1607,6 +1629,10 @@ class SqliteDatabase : public Database {
         "SELECT pose_prior_id, position, position_covariance, "
         "coordinate_system FROM pose_priors WHERE pose_prior_id = ?;",
         &sql_stmt_read_pose_prior_);
+    prepare_sql_stmt(
+        "SELECT pose_prior_id, position, position_covariance, "
+        "coordinate_system FROM pose_priors;",
+        &sql_stmt_read_pose_priors_);
     prepare_sql_stmt(
         "SELECT rows, cols, data FROM keypoints WHERE image_id = ?;",
         &sql_stmt_read_keypoints_);
@@ -2136,6 +2162,7 @@ class SqliteDatabase : public Database {
   sqlite3_stmt* sql_stmt_read_image_with_name_ = nullptr;
   sqlite3_stmt* sql_stmt_read_images_ = nullptr;
   sqlite3_stmt* sql_stmt_read_pose_prior_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_pose_priors_ = nullptr;
   sqlite3_stmt* sql_stmt_read_keypoints_ = nullptr;
   sqlite3_stmt* sql_stmt_read_descriptors_ = nullptr;
   sqlite3_stmt* sql_stmt_read_matches_ = nullptr;
