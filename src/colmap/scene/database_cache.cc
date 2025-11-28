@@ -157,7 +157,6 @@ void DatabaseCache::Load(const Database& database,
     const size_t num_images = images.size();
 
     for (auto& image : images) {
-      image_to_frame_id.emplace(image.ImageId(), image.FrameId());
       // For backwards compatibility with old databases from before having
       // support for rigs/frames, we create a frame for each image.
       if (!has_frames) {
@@ -168,6 +167,8 @@ void DatabaseCache::Load(const Database& database,
         image.SetFrameId(frame.FrameId());
         frames_.emplace(frame.FrameId(), std::move(frame));
       }
+
+      image_to_frame_id.emplace(image.ImageId(), image.FrameId());
     }
 
     // Determines for which images data should be loaded.
