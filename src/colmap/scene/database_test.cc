@@ -241,11 +241,19 @@ TEST_P(ParameterizedDatabaseTests, Image) {
   Camera camera = Camera::CreateFromModelName(
       kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
   camera.camera_id = database->WriteCamera(camera);
+  Rig rig;
+  rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera.camera_id));
+  rig.SetRigId(database->WriteRig(rig));
   EXPECT_EQ(database->NumImages(), 0);
   Image image;
   image.SetName("test");
   image.SetCameraId(camera.camera_id);
   image.SetImageId(database->WriteImage(image));
+  Frame frame;
+  frame.SetRigId(rig.RigId());
+  frame.AddDataId(image.DataId());
+  frame.SetFrameId(database->WriteFrame(frame));
+  image.SetFrameId(frame.FrameId());
   EXPECT_EQ(database->NumImages(), 1);
   EXPECT_TRUE(database->ExistsImage(image.ImageId()));
   EXPECT_EQ(database->ReadImage(image.ImageId()), image);
@@ -257,7 +265,10 @@ TEST_P(ParameterizedDatabaseTests, Image) {
   Image image2 = image;
   image2.SetName("test2");
   image2.SetImageId(image.ImageId() + 1);
-  database->WriteImage(image2, true);
+  EXPECT_EQ(database->WriteImage(image2, /*use_image_id=*/true),
+            image2.ImageId());
+  frame.AddDataId(image2.DataId());
+  database->UpdateFrame(frame);
   EXPECT_EQ(database->NumImages(), 2);
   EXPECT_TRUE(database->ExistsImage(image.ImageId()));
   EXPECT_TRUE(database->ExistsImage(image2.ImageId()));
