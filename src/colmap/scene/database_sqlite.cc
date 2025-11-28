@@ -1304,7 +1304,8 @@ class SqliteDatabase : public Database {
 
   void UpdateImage(const Image& image) override {
     if (image.HasFrameId()) {
-      THROW_CHECK(ExistsFrame(image.FrameId()));
+      const Frame frame = ReadFrame(image.FrameId());
+      THROW_CHECK(frame.HasDataId(image.DataId()));
     }
 
     Sqlite3StmtContext context(sql_stmt_update_image_);
