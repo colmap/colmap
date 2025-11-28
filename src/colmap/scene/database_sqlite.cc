@@ -384,11 +384,7 @@ Image ReadImageRow(sqlite3_stmt* sql_stmt) {
   image.SetName(std::string(
       reinterpret_cast<const char*>(sqlite3_column_text(sql_stmt, 1))));
   image.SetCameraId(static_cast<camera_t>(sqlite3_column_int64(sql_stmt, 2)));
-  if (sqlite3_column_type(sql_stmt, 3) == SQLITE_NULL) {
-    // Backwards compatibility with old databases without rigs/frames.
-    // Assume one frame per image.
-    image.SetFrameId(image.ImageId());
-  } else {
+  if (sqlite3_column_type(sql_stmt, 3) != SQLITE_NULL) {
     image.SetFrameId(static_cast<frame_t>(sqlite3_column_int64(sql_stmt, 3)));
   }
 
