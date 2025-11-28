@@ -301,8 +301,7 @@ TEST_P(ParameterizedDatabaseTests, PosePrior) {
   EXPECT_EQ(read_pose_prior.coordinate_system, pose_prior.coordinate_system);
   EXPECT_TRUE(read_pose_prior.IsValid());
   EXPECT_TRUE(read_pose_prior.IsCovarianceValid());
-  EXPECT_THAT(database->ReadAllPosePriors(),
-              testing::ElementsAre(pose_prior));
+  EXPECT_THAT(database->ReadAllPosePriors(), testing::ElementsAre(pose_prior));
   database->ClearPosePriors();
   EXPECT_EQ(database->NumPosePriors(), 0);
 }
