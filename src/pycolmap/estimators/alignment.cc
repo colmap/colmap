@@ -149,8 +149,7 @@ void BindAlignmentEstimator(py::module& m) {
       py::enum_<CameraMergeMethod>(m, "CameraMergeMethod")
           .value("SOURCE", CameraMergeMethod::SOURCE)
           .value("TARGET", CameraMergeMethod::TARGET)
-          .value("BETTER", CameraMergeMethod::BETTER)
-          .value("REFINED", CameraMergeMethod::REFINED);
+          .value("BETTER", CameraMergeMethod::BETTER);
   AddStringToEnumConstructor(PyCameraMergeMethod);
 
   using MergeOpts = MergeReconstructionsOptions;
@@ -167,6 +166,13 @@ void BindAlignmentEstimator(py::module& m) {
           "max_reproj_error",
           &MergeOpts::max_reproj_error,
           "Maximum reprojection error for considering a point3D as inlier.")
+      .def_readwrite("refine_after_merge",
+                     &MergeOpts::refine_after_merge,
+                     "Whether to run bundle adjustment after merging.")
+      .def_readwrite(
+          "ba_options",
+          &MergeOpts::ba_options,
+          "Bundle adjustment options when refining the merged reconstruction.")
       .def("check", &MergeOpts::Check);
   MakeDataclass(PyMergeOpts);
 

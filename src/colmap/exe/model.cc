@@ -737,7 +737,7 @@ int RunModelMerger(int argc, char** argv) {
   std::string input_path1;
   std::string input_path2;
   std::string output_path;
-  std::string camera_merge_method = "refined";
+  std::string camera_merge_method = "better";
   MergeReconstructionsOptions merge_options;
 
   OptionManager options;
@@ -749,9 +749,11 @@ int RunModelMerger(int argc, char** argv) {
   options.AddDefaultOption("max_reproj_error", &merge_options.max_reproj_error);
   options.AddDefaultOption("min_inlier_observations",
                            &merge_options.min_inlier_observations);
-  options.AddDefaultOption("merge_camera_method",
-                           &camera_merge_method,
-                           "{source, target, best, refined}");
+  options.AddDefaultOption(
+      "merge_camera_method", &camera_merge_method, "{source, target, better}");
+  options.AddDefaultOption("refine_after_merge",
+                           &merge_options.refine_after_merge);
+  options.AddBundleAdjustmentOptions();
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
@@ -760,6 +762,7 @@ int RunModelMerger(int argc, char** argv) {
   merge_options.camera_merge_method =
       MergeReconstructionsOptions::CameraMergeMethodFromString(
           camera_merge_method);
+  merge_options.ba_options = *options.bundle_adjustment;
 
   Reconstruction reconstruction1;
   reconstruction1.Read(input_path1);

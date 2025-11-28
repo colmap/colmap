@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/reconstruction.h"
@@ -104,16 +105,21 @@ struct MergeReconstructionsOptions {
   // SOURCE:  Use cameras from the source reconstruction
   // TARGET:  Use cameras from the target reconstruction
   // BETTER:  Choose the camera with the smaller reprojection error
-  // REFINED: Merge cameras and refine by optimization
-  MAKE_ENUM_CLASS(CameraMergeMethod, 0, SOURCE, TARGET, BETTER, REFINED);
+  MAKE_ENUM_CLASS(CameraMergeMethod, 0, SOURCE, TARGET, BETTER);
 
-  CameraMergeMethod camera_merge_method = CameraMergeMethod::REFINED;
+  CameraMergeMethod camera_merge_method = CameraMergeMethod::BETTER;
 
   // Minimum required inlier ratio per overlapping image pair.
   double min_inlier_observations = 0.3;
 
   // Maximum reprojection error for considering a point3D as inlier.
   double max_reproj_error = 64;
+
+  // Whether to run bundle adjustment after merging.
+  bool refine_after_merge = true;
+
+  // Bundle adjustment options when refining the merged reconstruction.
+  BundleAdjustmentOptions ba_options;
 
   bool Check() const;
 };

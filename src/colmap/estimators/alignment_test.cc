@@ -267,6 +267,7 @@ TEST(Alignment, MergeReconstructionsCameraMergeMethod) {
 
   MergeReconstructionsOptions merge_options;
   merge_options.max_reproj_error = 1;
+  merge_options.refine_after_merge = false;
 
   {
     Reconstruction merged_reconstruction = tgt_reconstruction;
@@ -309,22 +310,29 @@ TEST(Alignment, MergeReconstructionsCameraMergeMethod) {
                 src_reconstruction.Camera(camera_id));
     }
   }
+}
 
-  {
-    Reconstruction merged_reconstruction = tgt_reconstruction;
-    merge_options.camera_merge_method =
-        MergeReconstructionsOptions::CameraMergeMethod::REFINED;
+TEST(Alignment, MergeReconstructionsRefineAfterMerge) {
+  Reconstruction orig_reconstruction, src_reconstruction, tgt_reconstruction;
+  GenerateReconstructionsForMerge(orig_reconstruction,
+                                  src_reconstruction,
+                                  tgt_reconstruction,
+                                  /*src_camera_error=*/1,
+                                  /*tgt_camera_error=*/5);
 
-    ASSERT_TRUE(MergeReconstructions(
-        merge_options, src_reconstruction, merged_reconstruction));
+  MergeReconstructionsOptions merge_options;
+  merge_options.max_reproj_error = 1;
+  merge_options.refine_after_merge = true;
 
-    EXPECT_THAT(merged_reconstruction,
-                ReconstructionNear(orig_reconstruction,
-                                   /*max_rotation_error_deg=*/1e-4,
-                                   /*max_proj_center_error=*/1e-4,
-                                   std::nullopt,
-                                   /*num_obs_tolerance=*/0));
-  }
+  ASSERT_TRUE(MergeReconstructions(
+      merge_options, src_reconstruction, tgt_reconstruction));
+
+  EXPECT_THAT(tgt_reconstruction,
+              ReconstructionNear(orig_reconstruction,
+                                 /*max_rotation_error_deg=*/1e-4,
+                                 /*max_proj_center_error=*/1e-4,
+                                 std::nullopt,
+                                 /*num_obs_tolerance=*/0));
 }
 
 TEST(Alignment, AlignReconstructionToOrigRigScales) {

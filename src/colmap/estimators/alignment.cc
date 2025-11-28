@@ -29,7 +29,6 @@
 
 #include "colmap/estimators/alignment.h"
 
-#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/optim/loransac.h"
@@ -459,38 +458,63 @@ void CopyRegisteredImage(image_t image_id,
   tgt_reconstruction.AddImage(std::move(tgt_image));
 }
 
-double ComputeMeanReprojectionErrorForCamera(
-    const Reconstruction& reconstruction, camera_t camera_id) {
-  double reproj_error = 0.;
-  size_t num_points3D = 0;
-  for (const auto& [image_id, image] : reconstruction.Images()) {
-    if (!(image.CameraId() != camera_id)) {
-      continue;
-    }
-    for (const auto& point2D : image.Points2D()) {
-      if (point2D.HasPoint3D()) {
-        const auto& point3D = reconstruction.Point3D(point2D.point3D_id);
-        if (point3D.HasError()) {
-          reproj_error += point3D.error;
-          ++num_points3D;
-        }
+void ReplaceCamerasWithLowerReprojectionError(
+    const Reconstruction& src_reconstruction,
+    Reconstruction& tgt_reconstruction) {
+  std::unordered_map<camera_t, double> src_squared_reproj_errors;
+  std::unordered_map<camera_t, double> tgt_squared_reproj_errors;
+
+  for (const auto& [_, point3D] : tgt_reconstruction.Points3D()) {
+    for (const TrackElement& element : point3D.track.Elements()) {
+      const Image& tgt_image = tgt_reconstruction.Image(element.image_id);
+      const camera_t camera_id = tgt_image.CameraId();
+
+      if (!src_reconstruction.ExistsCamera(camera_id)) {
+        continue;
       }
+
+      const Camera& src_camera = src_reconstruction.Camera(camera_id);
+      const Camera& tgt_camera = tgt_reconstruction.Camera(camera_id);
+      THROW_CHECK_EQ(src_camera.model_id, tgt_camera.model_id);
+
+      const Point2D& point2D = tgt_image.Point2D(element.point2D_idx);
+
+      if (src_squared_reproj_errors.count(camera_id) == 0) {
+        src_squared_reproj_errors[camera_id] = 0;
+      }
+      if (tgt_squared_reproj_errors.count(camera_id) == 0) {
+        tgt_squared_reproj_errors[camera_id] = 0;
+      }
+      src_squared_reproj_errors[camera_id] += CalculateSquaredReprojectionError(
+          point2D.xy, point3D.xyz, tgt_image.CamFromWorld(), src_camera);
+      tgt_squared_reproj_errors[camera_id] += CalculateSquaredReprojectionError(
+          point2D.xy, point3D.xyz, tgt_image.CamFromWorld(), tgt_camera);
     }
   }
-  return reproj_error / num_points3D;
+
+  for (const auto& [camera_id, camera] : tgt_reconstruction.Cameras()) {
+    if (src_squared_reproj_errors[camera_id] <
+        tgt_squared_reproj_errors[camera_id]) {
+      tgt_reconstruction.Camera(camera_id) =
+          src_reconstruction.Camera(camera_id);
+    }
+  }
 }
 }  // namespace
 
 bool MergeReconstructionsOptions::Check() const {
   CHECK_OPTION_GE(min_inlier_observations, 0);
-  CHECK_OPTION_LT(min_inlier_observations, 1);
+  CHECK_OPTION_LE(min_inlier_observations, 1);
   CHECK_OPTION_GT(max_reproj_error, 0);
+  CHECK_OPTION(ba_options.Check());
   return true;
 }
 
 bool MergeReconstructions(const MergeReconstructionsOptions& options,
                           const Reconstruction& src_reconstruction,
                           Reconstruction& tgt_reconstruction) {
+  THROW_CHECK(options.Check());
+
   Sim3d tgt_from_src;
   if (!AlignReconstructionsViaReprojections(src_reconstruction,
                                             tgt_reconstruction,
@@ -524,30 +548,6 @@ bool MergeReconstructions(const MergeReconstructionsOptions& options,
       "Reconstruction merge with %zu common images and %zu copied from source",
       common_image_ids.size(),
       missing_image_ids.size());
-
-  for (const image_t image_id : src_reconstruction.RegImageIds()) {
-    camera_t camera_id = src_reconstruction.Image(image_id).CameraId();
-
-    if (!tgt_reconstruction.ExistsCamera(camera_id)) {
-      continue;
-    }
-    THROW_CHECK_EQ(src_reconstruction.Camera(camera_id).model_id,
-                   tgt_reconstruction.Camera(camera_id).model_id);
-
-    bool replace_with_src_camera =
-        options.camera_merge_method ==
-            MergeReconstructionsOptions::CameraMergeMethod::SOURCE ||
-        (options.camera_merge_method ==
-             MergeReconstructionsOptions::CameraMergeMethod::BETTER &&
-         ComputeMeanReprojectionErrorForCamera(tgt_reconstruction, camera_id) >
-             ComputeMeanReprojectionErrorForCamera(src_reconstruction,
-                                                   camera_id));
-
-    if (replace_with_src_camera) {
-      tgt_reconstruction.Camera(camera_id) =
-          src_reconstruction.Camera(camera_id);
-    }
-  }
 
   // Merge the two point clouds using the following two rules:
   //    - copy points to this src_reconstruction with non-conflicting tracks,
@@ -592,6 +592,23 @@ bool MergeReconstructions(const MergeReconstructionsOptions& options,
     }
   }
 
+  if (options.camera_merge_method ==
+      MergeReconstructionsOptions::CameraMergeMethod::SOURCE) {
+    for (const auto& [camera_id, _] : tgt_reconstruction.Cameras()) {
+      if (src_reconstruction.ExistsCamera(camera_id)) {
+        Camera& tgt_camera = tgt_reconstruction.Camera(camera_id);
+        const Camera& src_camera = src_reconstruction.Camera(camera_id);
+
+        THROW_CHECK_EQ(src_camera.model_id, tgt_camera.model_id);
+        tgt_camera = src_camera;
+      }
+    }
+  } else if (options.camera_merge_method ==
+             MergeReconstructionsOptions::CameraMergeMethod::BETTER) {
+    ReplaceCamerasWithLowerReprojectionError(src_reconstruction,
+                                             tgt_reconstruction);
+  }
+
   tgt_reconstruction.UpdatePoint3DErrors();
 
   size_t num_filtered_points3D = 0;
@@ -607,12 +624,8 @@ bool MergeReconstructions(const MergeReconstructionsOptions& options,
   LOG(INFO) << StringPrintf(" => Filtered %zu points", num_filtered_points3D);
 
   bool merge_success = true;
-  if (options.camera_merge_method ==
-      MergeReconstructionsOptions::CameraMergeMethod::REFINED) {
+  if (options.refine_after_merge) {
     LOG(INFO) << "Global bundle adjustment";
-
-    BundleAdjustmentOptions ba_options;
-    ba_options.refine_principal_point = true;
 
     BundleAdjustmentConfig ba_config;
     for (const frame_t frame_id : tgt_reconstruction.RegFrameIds()) {
@@ -622,8 +635,8 @@ bool MergeReconstructions(const MergeReconstructionsOptions& options,
       }
     }
 
-    auto bundle_adjuster =
-        CreateDefaultBundleAdjuster(ba_options, ba_config, tgt_reconstruction);
+    auto bundle_adjuster = CreateDefaultBundleAdjuster(
+        options.ba_options, ba_config, tgt_reconstruction);
 
     auto summary = bundle_adjuster->Solve();
     merge_success &= summary.IsSolutionUsable();
