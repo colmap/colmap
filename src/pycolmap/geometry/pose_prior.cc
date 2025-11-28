@@ -37,6 +37,7 @@ void BindPosePrior(py::module& m) {
            "position"_a,
            "position_covariance"_a,
            "coordinate_system"_a)
+      .def_readwrite("pose_prior_id", &PosePrior::pose_prior_id)
       .def_readwrite("position", &PosePrior::position)
       .def_readwrite("position_covariance", &PosePrior::position_covariance)
       .def_readwrite("coordinate_system", &PosePrior::coordinate_system)

@@ -59,12 +59,16 @@ void ImportImages(const std::string& database_path,
     DatabaseTransaction database_transaction(database.get());
     if (image.ImageId() == kInvalidImageId) {
       image.SetImageId(database->WriteImage(image));
-      if (pose_prior.IsValid()) {
-        database->WritePosePrior(image.ImageId(), pose_prior);
-      }
+
       Frame frame;
       frame.SetRigId(rig.RigId());
       frame.AddDataId(image.DataId());
+
+      if (pose_prior.IsValid()) {
+        pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
+        frame.AddDataId(pose_prior.DataId());
+      }
+
       database->WriteFrame(frame);
     }
   }
