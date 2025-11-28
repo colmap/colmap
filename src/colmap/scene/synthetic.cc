@@ -298,9 +298,10 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         cams_from_world.push_back(cam_from_world);
 
         if (options.use_prior_position) {
-          PosePrior pose_prior(
-              cam_from_world.rotation.inverse() * -cam_from_world.translation,
-              PosePrior::CoordinateSystem::CARTESIAN);
+          PosePrior pose_prior;
+          pose_prior.position =
+              cam_from_world.rotation.inverse() * -cam_from_world.translation;
+          pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
 
           if (options.prior_position_stddev > 0.) {
             pose_prior.position += Eigen::Vector3d(
@@ -326,8 +327,6 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
           pose_prior.corr_data_id = image.DataId();
           pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
-
-          frame.AddDataId(pose_prior.DataId());
         }
       }
 

@@ -39,8 +39,6 @@ void Frame::SetRigPtr(class Rig* rig) {
       case SensorType::CAMERA:
         THROW_CHECK(rig->HasSensor(data_id.sensor_id));
         break;
-      case SensorType::POSE_PRIOR:
-        // Note that pose priors do not (yet) have a corresponding sensor.
       case SensorType::IMU:
         // Note that we do not (yet) support IMU measurement data.
         break;

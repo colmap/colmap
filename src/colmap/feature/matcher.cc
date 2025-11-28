@@ -134,15 +134,10 @@ const PosePrior* FeatureMatcherCache::FindImagePosePriorOrNull(
     const image_t image_id) {
   MaybeLoadPosePriors();
 
-  // Return the first pose prior in the frame.
-  const auto& image = GetImage(image_id);
-  const auto& frame = GetFrame(image.FrameId());
-  for (const auto& data_id : frame.DataIds()) {
-    if (data_id.sensor_id.type == SensorType::POSE_PRIOR) {
-      return &pose_priors_cache_->at(data_id.id);
-    }
+  const auto it = pose_priors_cache_->find(image_id);
+  if (it != pose_priors_cache_->end()) {
+    return &it->second;
   }
-
   return nullptr;
 }
 
@@ -357,8 +352,10 @@ void FeatureMatcherCache::MaybeLoadPosePriors() {
       std::make_unique<std::unordered_map<pose_prior_t, PosePrior>>();
   pose_priors_cache_->reserve(pose_priors.size());
   for (PosePrior& pose_prior : pose_priors) {
-    pose_priors_cache_->emplace(pose_prior.pose_prior_id,
-                                std::move(pose_prior));
+    if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
+      pose_priors_cache_->emplace(pose_prior.corr_data_id.id,
+                                  std::move(pose_prior));
+    }
   }
 }
 

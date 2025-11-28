@@ -303,7 +303,6 @@ class FeatureWriterThread : public Thread {
             image_data.pose_prior.corr_data_id = image_data.image.DataId();
             image_data.pose_prior.pose_prior_id =
                 database_->WritePosePrior(image_data.pose_prior);
-            frame.AddDataId(image_data.pose_prior.DataId());
           }
 
           database_->WriteFrame(frame);
@@ -593,8 +592,8 @@ class FeatureImporterController : public Thread {
           frame.AddDataId(image.DataId());
 
           if (pose_prior.IsValid()) {
+            pose_prior.corr_data_id = image.DataId();
             pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
-            frame.AddDataId(pose_prior.DataId());
           }
 
           database->WriteFrame(frame);

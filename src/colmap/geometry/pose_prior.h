@@ -62,29 +62,9 @@ struct PosePrior {
       Eigen::Matrix3d::Constant(std::numeric_limits<double>::quiet_NaN());
   CoordinateSystem coordinate_system = CoordinateSystem::UNDEFINED;
 
-  PosePrior() = default;
-  explicit PosePrior(const Eigen::Vector3d& position) : position(position) {}
-  PosePrior(const Eigen::Vector3d& position, const CoordinateSystem system)
-      : position(position), coordinate_system(system) {}
-  PosePrior(const Eigen::Vector3d& position, const Eigen::Matrix3d& covariance)
-      : position(position), position_covariance(covariance) {}
-  PosePrior(const Eigen::Vector3d& position,
-            const Eigen::Matrix3d& covariance,
-            const CoordinateSystem system)
-      : position(position),
-        position_covariance(covariance),
-        coordinate_system(system) {}
-
   inline bool IsValid() const { return position.allFinite(); }
   inline bool IsCovarianceValid() const {
     return position_covariance.allFinite();
-  }
-
-  inline data_t DataId() const {
-    // Note that pose priors do not have a corresponding sensor id,
-    // as we do not support storing an associated sensor calibration (yet).
-    return data_t(sensor_t(SensorType::POSE_PRIOR, sensor_t::kInvalidId),
-                  pose_prior_id);
   }
 
   bool operator==(const PosePrior& other) const;

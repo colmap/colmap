@@ -275,10 +275,13 @@ TEST_P(ParameterizedDatabaseTests, PosePrior) {
   image.SetCameraId(camera.camera_id);
   image.SetImageId(database->WriteImage(image));
   EXPECT_EQ(database->NumPosePriors(), 0);
-  PosePrior pose_prior(Eigen::Vector3d(0.1, 0.2, 0.3),
-                       PosePrior::CoordinateSystem::CARTESIAN);
+  PosePrior pose_prior;
+  pose_prior.corr_data_id = image.DataId();
+  pose_prior.position = Eigen::Vector3d(0.1, 0.2, 0.3);
+  pose_prior.position_covariance = Eigen::Matrix3d::Random();
+  pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
   EXPECT_TRUE(pose_prior.IsValid());
-  EXPECT_FALSE(pose_prior.IsCovarianceValid());
+  EXPECT_TRUE(pose_prior.IsCovarianceValid());
   pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
   EXPECT_EQ(database->NumPosePriors(), 1);
   auto read_pose_prior = database->ReadPosePrior(
@@ -286,7 +289,7 @@ TEST_P(ParameterizedDatabaseTests, PosePrior) {
   EXPECT_EQ(read_pose_prior.position, pose_prior.position);
   EXPECT_EQ(read_pose_prior.coordinate_system, pose_prior.coordinate_system);
   EXPECT_TRUE(read_pose_prior.IsValid());
-  EXPECT_FALSE(read_pose_prior.IsCovarianceValid());
+  EXPECT_TRUE(read_pose_prior.IsCovarianceValid());
   pose_prior.position_covariance = Eigen::Matrix3d::Identity();
   EXPECT_TRUE(pose_prior.IsCovarianceValid());
   database->UpdatePosePrior(pose_prior);
@@ -298,6 +301,8 @@ TEST_P(ParameterizedDatabaseTests, PosePrior) {
   EXPECT_EQ(read_pose_prior.coordinate_system, pose_prior.coordinate_system);
   EXPECT_TRUE(read_pose_prior.IsValid());
   EXPECT_TRUE(read_pose_prior.IsCovarianceValid());
+  EXPECT_THAT(database->ReadAllPosePriors(),
+              testing::ElementsAre(pose_prior));
   database->ClearPosePriors();
   EXPECT_EQ(database->NumPosePriors(), 0);
 }
@@ -573,8 +578,15 @@ TEST_P(ParameterizedDatabaseTests, Merge) {
   frame2.AddDataId(data_t(camera2.SensorId(), image_id4));
   frame2.SetFrameId(database2->WriteFrame(frame2));
 
-  database1->WritePosePrior(PosePrior(Eigen::Vector3d::Constant(0.1)));
-  database2->WritePosePrior(PosePrior(Eigen::Vector3d::Constant(0.2)));
+  PosePrior pose_prior1;
+  pose_prior1.corr_data_id = data_t(camera1.SensorId(), image_id1);
+  pose_prior1.position = Eigen::Vector3d::Random();
+  pose_prior1.pose_prior_id = database1->WritePosePrior(pose_prior1);
+
+  PosePrior pose_prior2;
+  pose_prior2.corr_data_id = data_t(camera2.SensorId(), image_id2);
+  pose_prior2.position = Eigen::Vector3d::Random();
+  pose_prior2.pose_prior_id = database1->WritePosePrior(pose_prior2);
 
   auto keypoints1 = FeatureKeypoints(10);
   keypoints1[0].x = 100;
@@ -626,15 +638,26 @@ TEST_P(ParameterizedDatabaseTests, Merge) {
           EXPECT_TRUE(merged_database->ExistsCamera(data_id.sensor_id.id));
           EXPECT_TRUE(merged_database->ExistsImage(data_id.id));
           break;
-        case SensorType::POSE_PRIOR:
-          EXPECT_TRUE(merged_database->ExistsPosePrior(data_id.id));
-          break;
         default:
           GTEST_FAIL() << "Unexpected sensor type: " << data_id.sensor_id.type;
           break;
       }
     }
   }
+  for (const auto& pose_prior : merged_database->ReadAllPosePriors()) {
+    switch (pose_prior.corr_data_id.sensor_id.type) {
+      case SensorType::CAMERA:
+        EXPECT_TRUE(merged_database->ExistsCamera(
+            pose_prior.corr_data_id.sensor_id.id));
+        EXPECT_TRUE(merged_database->ExistsImage(pose_prior.corr_data_id.id));
+        break;
+      default:
+        GTEST_FAIL() << "Unexpected sensor type: "
+                     << pose_prior.corr_data_id.sensor_id.type;
+        break;
+    }
+  }
+
   EXPECT_EQ(merged_database->ReadAllImages()[0].CameraId(), 1);
   EXPECT_EQ(merged_database->ReadAllImages()[1].CameraId(), 1);
   EXPECT_EQ(merged_database->ReadAllImages()[2].CameraId(), 2);

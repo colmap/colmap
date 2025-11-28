@@ -388,6 +388,23 @@ Image ReadImageRow(sqlite3_stmt* sql_stmt) {
   return image;
 }
 
+PosePrior ReadPosePriorRow(sqlite3_stmt* sql_stmt) {
+  PosePrior pose_prior;
+  pose_prior.pose_prior_id =
+      static_cast<pose_prior_t>(sqlite3_column_int64(sql_stmt, 0));
+  pose_prior.corr_data_id.id = sqlite3_column_int64(sql_stmt, 1);
+  pose_prior.corr_data_id.sensor_id.id = sqlite3_column_int64(sql_stmt, 2);
+  pose_prior.corr_data_id.sensor_id.type =
+      static_cast<SensorType>(sqlite3_column_int64(sql_stmt, 3));
+  pose_prior.position =
+      ReadStaticMatrixBlob<Eigen::Vector3d>(sql_stmt, SQLITE_ROW, 4);
+  pose_prior.position_covariance =
+      ReadStaticMatrixBlob<Eigen::Matrix3d>(sql_stmt, SQLITE_ROW, 5);
+  pose_prior.coordinate_system = static_cast<PosePrior::CoordinateSystem>(
+      sqlite3_column_int64(sql_stmt, 6));
+  return pose_prior;
+}
+
 void WriteRigSensors(const rig_t rig_id,
                      const Rig& rig,
                      sqlite3_stmt* sql_stmt) {
@@ -768,17 +785,13 @@ class SqliteDatabase : public Database {
 
     SQLITE3_CALL(
         sqlite3_bind_int64(sql_stmt_read_pose_prior_, 1, pose_prior_id));
-    PosePrior prior;
+
+    PosePrior pose_prior;
     const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_pose_prior_));
     if (rc == SQLITE_ROW) {
-      prior.position = ReadStaticMatrixBlob<Eigen::Vector3d>(
-          sql_stmt_read_pose_prior_, rc, 1);
-      prior.position_covariance = ReadStaticMatrixBlob<Eigen::Matrix3d>(
-          sql_stmt_read_pose_prior_, rc, 2);
-      prior.coordinate_system = static_cast<PosePrior::CoordinateSystem>(
-          sqlite3_column_int64(sql_stmt_read_pose_prior_, 3));
+      pose_prior = ReadPosePriorRow(sql_stmt_read_pose_prior_);
     }
-    return prior;
+    return pose_prior;
   }
 
   std::vector<PosePrior> ReadAllPosePriors() const override {
@@ -787,16 +800,7 @@ class SqliteDatabase : public Database {
     std::vector<PosePrior> pose_priors;
     while (SQLITE3_CALL(sqlite3_step(sql_stmt_read_pose_priors_)) ==
            SQLITE_ROW) {
-      PosePrior prior;
-      prior.pose_prior_id = static_cast<pose_prior_t>(
-          sqlite3_column_int64(sql_stmt_read_pose_priors_, 0));
-      prior.position = ReadStaticMatrixBlob<Eigen::Vector3d>(
-          sql_stmt_read_pose_priors_, SQLITE_ROW, 1);
-      prior.position_covariance = ReadStaticMatrixBlob<Eigen::Matrix3d>(
-          sql_stmt_read_pose_priors_, SQLITE_ROW, 2);
-      prior.coordinate_system = static_cast<PosePrior::CoordinateSystem>(
-          sqlite3_column_int64(sql_stmt_read_pose_priors_, 3));
-      pose_priors.push_back(prior);
+      pose_priors.push_back(ReadPosePriorRow(sql_stmt_read_pose_priors_));
     }
 
     return pose_priors;
@@ -1149,12 +1153,20 @@ class SqliteDatabase : public Database {
       SQLITE3_CALL(sqlite3_bind_null(sql_stmt_write_pose_prior_, 1));
     }
 
-    WriteStaticMatrixBlob(sql_stmt_write_pose_prior_, pose_prior.position, 2);
-    WriteStaticMatrixBlob(
-        sql_stmt_write_pose_prior_, pose_prior.position_covariance, 3);
+    SQLITE3_CALL(sqlite3_bind_int64(
+        sql_stmt_write_pose_prior_, 2, pose_prior.corr_data_id.id));
+    SQLITE3_CALL(sqlite3_bind_int64(
+        sql_stmt_write_pose_prior_, 3, pose_prior.corr_data_id.sensor_id.id));
     SQLITE3_CALL(sqlite3_bind_int64(
         sql_stmt_write_pose_prior_,
         4,
+        static_cast<sqlite3_int64>(pose_prior.corr_data_id.sensor_id.type)));
+    WriteStaticMatrixBlob(sql_stmt_write_pose_prior_, pose_prior.position, 5);
+    WriteStaticMatrixBlob(
+        sql_stmt_write_pose_prior_, pose_prior.position_covariance, 6);
+    SQLITE3_CALL(sqlite3_bind_int64(
+        sql_stmt_write_pose_prior_,
+        7,
         static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
     SQLITE3_CALL(sqlite3_step(sql_stmt_write_pose_prior_));
 
@@ -1365,15 +1377,23 @@ class SqliteDatabase : public Database {
   void UpdatePosePrior(const PosePrior& pose_prior) override {
     Sqlite3StmtContext context(sql_stmt_update_pose_prior_);
 
-    WriteStaticMatrixBlob(sql_stmt_update_pose_prior_, pose_prior.position, 1);
-    WriteStaticMatrixBlob(
-        sql_stmt_update_pose_prior_, pose_prior.position_covariance, 2);
+    SQLITE3_CALL(sqlite3_bind_int64(
+        sql_stmt_update_pose_prior_, 1, pose_prior.corr_data_id.id));
+    SQLITE3_CALL(sqlite3_bind_int64(
+        sql_stmt_update_pose_prior_, 2, pose_prior.corr_data_id.sensor_id.id));
     SQLITE3_CALL(sqlite3_bind_int64(
         sql_stmt_update_pose_prior_,
         3,
+        static_cast<sqlite3_int64>(pose_prior.corr_data_id.sensor_id.type)));
+    WriteStaticMatrixBlob(sql_stmt_update_pose_prior_, pose_prior.position, 4);
+    WriteStaticMatrixBlob(
+        sql_stmt_update_pose_prior_, pose_prior.position_covariance, 5);
+    SQLITE3_CALL(sqlite3_bind_int64(
+        sql_stmt_update_pose_prior_,
+        6,
         static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
     SQLITE3_CALL(sqlite3_bind_int64(
-        sql_stmt_update_pose_prior_, 4, pose_prior.pose_prior_id));
+        sql_stmt_update_pose_prior_, 7, pose_prior.pose_prior_id));
 
     SQLITE3_CALL(sqlite3_step(sql_stmt_update_pose_prior_));
   }
@@ -1570,7 +1590,8 @@ class SqliteDatabase : public Database {
     prepare_sql_stmt("UPDATE images SET name=?, camera_id=? WHERE image_id=?;",
                      &sql_stmt_update_image_);
     prepare_sql_stmt(
-        "UPDATE pose_priors SET position=?, position_covariance=?, "
+        "UPDATE pose_priors SET corr_data_id=?, corr_sensor_id=?, "
+        "corr_sensor_type=?, position=?, position_covariance=?, "
         "coordinate_system=? WHERE pose_prior_id=?;",
         &sql_stmt_update_pose_prior_);
     prepare_sql_stmt(
@@ -1626,12 +1647,13 @@ class SqliteDatabase : public Database {
     prepare_sql_stmt("SELECT * FROM images WHERE name = ?;",
                      &sql_stmt_read_image_with_name_);
     prepare_sql_stmt(
-        "SELECT pose_prior_id, position, position_covariance, "
-        "coordinate_system FROM pose_priors WHERE pose_prior_id = ?;",
+        "SELECT pose_prior_id, corr_data_id, corr_sensor_id, corr_sensor_type, "
+        "position, position_covariance, coordinate_system FROM pose_priors "
+        "WHERE pose_prior_id = ?;",
         &sql_stmt_read_pose_prior_);
     prepare_sql_stmt(
-        "SELECT pose_prior_id, position, position_covariance, "
-        "coordinate_system FROM pose_priors;",
+        "SELECT pose_prior_id, corr_data_id, corr_sensor_id, corr_sensor_type, "
+        "position, position_covariance, coordinate_system FROM pose_priors;",
         &sql_stmt_read_pose_priors_);
     prepare_sql_stmt(
         "SELECT rows, cols, data FROM keypoints WHERE image_id = ?;",
@@ -1680,8 +1702,9 @@ class SqliteDatabase : public Database {
         "INSERT INTO images(image_id, name, camera_id) VALUES(?, ?, ?);",
         &sql_stmt_write_image_);
     prepare_sql_stmt(
-        "INSERT INTO pose_priors(pose_prior_id, position, position_covariance, "
-        "coordinate_system) VALUES(?, ?, ?, ?);",
+        "INSERT INTO pose_priors(pose_prior_id, corr_data_id, corr_sensor_id, "
+        "corr_sensor_type, position, position_covariance, coordinate_system) "
+        "VALUES(?, ?, ?, ?, ?, ?, ?);",
         &sql_stmt_write_pose_prior_);
     prepare_sql_stmt(
         "INSERT INTO keypoints(image_id, rows, cols, data) VALUES(?, ?, ?, ?);",
@@ -1833,6 +1856,9 @@ class SqliteDatabase : public Database {
     const std::string sql =
         "CREATE TABLE IF NOT EXISTS pose_priors"
         "   (pose_prior_id              INTEGER  PRIMARY KEY  NOT NULL,"
+        "    corr_data_id               INTEGER               NOT NULL,"
+        "    corr_sensor_id             INTEGER               NOT NULL,"
+        "    corr_sensor_type           INTEGER               NOT NULL,"
         "    position                   BLOB,"
         "    position_covariance        BLOB,"
         "    coordinate_system          INTEGER               NOT NULL);";
@@ -1951,10 +1977,14 @@ class SqliteDatabase : public Database {
 
     if (ExistsColumn("pose_priors", "image_id") &&
         !ExistsColumn("pose_priors", "pose_prior_id")) {
-      SQLITE3_EXEC(database_,
-                   "ALTER TABLE pose_priors RENAME COLUMN image_id TO "
-                   "pose_prior_id;",
-                   nullptr);
+      SQLITE3_EXEC(
+          database_,
+          "ALTER TABLE pose_priors RENAME COLUMN image_id TO pose_prior_id;"
+          "ALTER TABLE pose_priors ADD COLUMN corr_data_id INTEGER NOT NULL;"
+          "ALTER TABLE pose_priors ADD COLUMN corr_sensor_id INTEGER NOT NULL;"
+          "ALTER TABLE pose_priors ADD COLUMN corr_sensor_type INTEGER NOT "
+          "NULL;",
+          nullptr);
 
       // Migrate existing data to frame_data table.
       for (Frame& frame : ReadAllFrames()) {
@@ -1962,9 +1992,10 @@ class SqliteDatabase : public Database {
           // Note that in the old schema pose_prior_id == image_id.
           if (ExistsPosePrior(data_id.id,
                               /*is_deprecated_image_prior=*/false)) {
-            frame.AddDataId(
-                data_t(sensor_t(SensorType::POSE_PRIOR, sensor_t::kInvalidId),
-                       data_id.id));
+            PosePrior pose_prior =
+                ReadPosePrior(data_id.id, /*is_deprecated_image_prior=*/false);
+            pose_prior.corr_data_id = data_id;
+            UpdatePosePrior(pose_prior);
           }
         }
         UpdateFrame(frame);

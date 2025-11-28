@@ -68,22 +68,24 @@ std::shared_ptr<Database> CreateTestDatabase() {
   image4.SetCameraId(camera2.camera_id);
   image4.SetImageId(database->WriteImage(image4));
 
-  PosePrior pose_prior1(Eigen::Vector3d::Random());
+  PosePrior pose_prior1;
+  pose_prior1.corr_data_id = image1.DataId();
+  pose_prior1.position = Eigen::Vector3d::Random();
   pose_prior1.pose_prior_id = database->WritePosePrior(pose_prior1);
-  PosePrior pose_prior2(Eigen::Vector3d::Random());
+  PosePrior pose_prior2;
+  pose_prior1.corr_data_id = image2.DataId();
+  pose_prior2.position = Eigen::Vector3d::Random();
   pose_prior2.pose_prior_id = database->WritePosePrior(pose_prior2);
 
   Frame frame1;
   frame1.SetRigId(rig_id);
   frame1.AddDataId(image1.DataId());
   frame1.AddDataId(image2.DataId());
-  frame1.AddDataId(pose_prior1.DataId());
   frame1.SetFrameId(database->WriteFrame(frame1));
   Frame frame2;
   frame2.SetRigId(rig_id);
   frame2.AddDataId(image3.DataId());
   frame2.AddDataId(image4.DataId());
-  frame2.AddDataId(pose_prior2.DataId());
   frame2.SetFrameId(database->WriteFrame(frame2));
 
   database->WriteKeypoints(image1.ImageId(), FeatureKeypoints(10));
@@ -334,7 +336,8 @@ TEST(DatabaseCache, ConstructFromCustom) {
   cache.AddImage(image);
 
   constexpr pose_prior_t kPosePriorId = 45;
-  PosePrior pose_prior(Eigen::Vector3d::Random());
+  PosePrior pose_prior;
+  pose_prior.position = Eigen::Vector3d::Random();
   pose_prior.pose_prior_id = kPosePriorId;
   cache.AddPosePrior(pose_prior);
 

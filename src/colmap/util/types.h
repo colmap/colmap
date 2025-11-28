@@ -130,11 +130,9 @@ enum class SensorType {
   INVALID = -1,
   CAMERA = 0,
   IMU = 1,
-  POSE_PRIOR = 2,
 };
 #else
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(
-    SensorType, -1, INVALID, CAMERA, IMU, POSE_PRIOR);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(SensorType, -1, INVALID, CAMERA, IMU);
 #endif
 
 struct sensor_t {

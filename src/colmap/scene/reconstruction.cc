@@ -214,7 +214,6 @@ void Reconstruction::TearDown() {
             cameras_.erase(sensor_id.id);
             break;
           case SensorType::IMU:
-          case SensorType::POSE_PRIOR:
           case SensorType::INVALID:
             break;
         }
@@ -241,7 +240,6 @@ void Reconstruction::AddRig(class Rig rig) {
                "should be called before AddRig.";
         break;
       case SensorType::IMU:
-      case SensorType::POSE_PRIOR:
       case SensorType::INVALID:
         break;
     }
@@ -270,8 +268,6 @@ void Reconstruction::AddFrame(class Frame frame) {
       case SensorType::CAMERA:
         THROW_CHECK(rig.HasSensor(data_id.sensor_id));
         break;
-      case SensorType::POSE_PRIOR:
-        // Note that pose priors do not (yet) have a corresponding sensor.
       case SensorType::IMU:
         // Note that we do not (yet) support IMU measurement data.
         break;
