@@ -83,6 +83,12 @@ TEST(Rigid3d, Inverse) {
   }
 }
 
+TEST(Rigid3d, TgtOriginInSrc) {
+  const Rigid3d b_from_a = TestRigid3d();
+  const Eigen::Vector3d origin_b_in_a = TgtOriginInSrc(b_from_a);
+  EXPECT_LT((b_from_a * origin_b_in_a - Eigen::Vector3d::Zero()).norm(), 1e-6);
+}
+
 TEST(Rigid3d, ToMatrix) {
   const Rigid3d b_from_a = TestRigid3d();
   const Eigen::Matrix3x4d b_from_a_mat = b_from_a.ToMatrix();

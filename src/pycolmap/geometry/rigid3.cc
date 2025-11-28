@@ -39,6 +39,8 @@ void BindRigid3(py::module& m) {
                     t.translation.transpose();
            })
       .def("inverse", static_cast<Rigid3d (*)(const Rigid3d&)>(&Inverse))
+      .def("tgt_origin_in_src",
+           static_cast<Rigid3d (*)(const Rigid3d&)>(&TgtOriginInSrc))
       .def_static("interpolate",
                   &InterpolateCameraPoses,
                   "cam_from_world1"_a,

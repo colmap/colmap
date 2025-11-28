@@ -52,9 +52,7 @@ struct Image {
   inline data_t DataId() const;
 };
 
-Eigen::Vector3d Image::Center() const {
-  return CamFromWorld().rotation.inverse() * -CamFromWorld().translation;
-}
+Eigen::Vector3d Image::Center() const { return TgtOriginInSrc(CamFromWorld()); }
 
 // Concrete implementation of the methods
 Rigid3d Image::CamFromWorld() const {
