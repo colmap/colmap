@@ -221,7 +221,6 @@ bool Image::HasCameraPtr() const { return camera_ptr_ != nullptr; }
 frame_t Image::FrameId() const { return frame_id_; }
 
 void Image::SetFrameId(const frame_t frame_id) {
-  THROW_CHECK_NE(frame_id, kInvalidFrameId);
   THROW_CHECK(!HasFramePtr());
   frame_id_ = frame_id;
 }
