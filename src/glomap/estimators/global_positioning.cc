@@ -88,7 +88,7 @@ bool GlobalPositioner::Solve(
     LOG(INFO) << summary.BriefReport();
   }
 
-  ConvertResults(rigs, frames);
+  ConvertBackResults(rigs, frames);
   return summary.IsSolutionUsable();
 }
 
@@ -565,22 +565,25 @@ void GlobalPositioner::ParameterizeVariables(
   }
 }
 
-void GlobalPositioner::ConvertResults(
+void GlobalPositioner::ConvertBackResults(
     std::unordered_map<rig_t, Rig>& rigs,
     std::unordered_map<frame_t, Frame>& frames) {
-  // translation now stores the camera position, needs to convert back
+  // Translations store the frame/camera centers. Convert them back
+  // and apply the rig scales.
+
   for (auto& [frame_id, frame] : frames) {
-    frame.RigFromWorld().translation = TgtOriginInSrc(frame.RigFromWorld());
+    frame.RigFromWorld().translation =
+        frame.RigFromWorld().rotation * -frame.RigFromWorld().translation;
     frame.RigFromWorld().translation *= rig_scales_[frame.RigId()];
   }
 
-  // Update the rig scales
   for (auto& [rig_id, rig] : rigs) {
     for (auto& [sensor_id, cam_from_rig] : rig.NonRefSensors()) {
       if (cam_from_rig.has_value()) {
         if (problem_->HasParameterBlock(
                 rig.SensorFromRig(sensor_id).translation.data())) {
-          cam_from_rig->translation = TgtOriginInSrc(*cam_from_rig);
+          cam_from_rig->translation =
+              cam_from_rig->rotation * -cam_from_rig->translation;
         } else {
           cam_from_rig->translation *= rig_scales_[rig_id];
         }

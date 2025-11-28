@@ -116,8 +116,8 @@ class GlobalPositioner {
 
   // During the optimization, the camera translation is set to be the camera
   // center Convert the results back to camera poses
-  void ConvertResults(std::unordered_map<rig_t, Rig>& rigs,
-                      std::unordered_map<frame_t, Frame>& frames);
+  void ConvertBackResults(std::unordered_map<rig_t, Rig>& rigs,
+                          std::unordered_map<frame_t, Frame>& frames);
 
   GlobalPositionerOptions options_;
 
