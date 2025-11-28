@@ -265,10 +265,10 @@ TEST_P(ParameterizedDatabaseTests, Image) {
   Image image2 = image;
   image2.SetName("test2");
   image2.SetImageId(image.ImageId() + 1);
-  EXPECT_EQ(database->WriteImage(image2, /*use_image_id=*/true),
-            image2.ImageId());
   frame.AddDataId(image2.DataId());
   database->UpdateFrame(frame);
+  EXPECT_EQ(database->WriteImage(image2, /*use_image_id=*/true),
+            image2.ImageId());
   EXPECT_EQ(database->NumImages(), 2);
   EXPECT_TRUE(database->ExistsImage(image.ImageId()));
   EXPECT_TRUE(database->ExistsImage(image2.ImageId()));

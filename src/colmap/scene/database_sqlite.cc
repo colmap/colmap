@@ -1075,7 +1075,8 @@ class SqliteDatabase : public Database {
 
   image_t WriteImage(const Image& image, const bool use_image_id) override {
     if (image.HasFrameId()) {
-      THROW_CHECK(ExistsFrame(image.FrameId()));
+      const Frame frame = ReadFrame(image.FrameId());
+      THROW_CHECK(frame.HasDataId(image.DataId()));
     }
 
     Sqlite3StmtContext context(sql_stmt_write_image_);
