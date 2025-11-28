@@ -212,14 +212,21 @@ TEST(SynthesizeDataset, WithPriors) {
   options.prior_position_stddev = 0.;
   SynthesizeDataset(options, &reconstruction, database.get());
 
-  for (const auto& image : reconstruction.Images()) {
-    if (database->ExistsPosePrior(image.first)) {
-      EXPECT_NEAR((image.second.ProjectionCenter() -
-                   database->ReadPosePrior(image.first).position)
-                      .norm(),
-                  0.,
-                  1e-9);
-    }
+  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
+    const auto it =
+        std::find_if(frame.DataIds().begin(),
+                     frame.DataIds().end(),
+                     [](const auto& data_id) {
+                       return data_id.sensor_id.type == SensorType::POSE_PRIOR;
+                     });
+    ASSERT_TRUE(it != frame.DataIds().end());
+    EXPECT_THAT(
+        frame.RigFromWorld().rotation.inverse() *
+            -frame.RigFromWorld().translation,
+        EigenMatrixNear(
+            database->ReadPosePrior(it->id, /*is_legacy_image_prior=*/false)
+                .position,
+            1e-9));
   }
 }
 

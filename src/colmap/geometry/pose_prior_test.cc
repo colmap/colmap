@@ -36,6 +36,7 @@ namespace {
 
 TEST(PosePrior, Equals) {
   PosePrior prior;
+  prior.pose_prior_id = 0;
   prior.position = Eigen::Vector3d::Zero();
   prior.position_covariance = Eigen::Matrix3d::Identity();
   prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
@@ -49,14 +50,16 @@ TEST(PosePrior, Equals) {
 
 TEST(PosePrior, Print) {
   PosePrior prior;
+  prior.pose_prior_id = 0;
   prior.position = Eigen::Vector3d::Zero();
   prior.position_covariance = Eigen::Matrix3d::Identity();
   prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
   std::ostringstream stream;
   stream << prior;
   EXPECT_EQ(stream.str(),
-            "PosePrior(position=[0, 0, 0], position_covariance=[1, 0, 0, 0, 1, "
-            "0, 0, 0, 1], coordinate_system=CARTESIAN)");
+            "PosePrior(pose_prior_id=0, position=[0, 0, 0], "
+            "position_covariance=[1, 0, 0, 0, 1, 0, 0, 0, 1], "
+            "coordinate_system=CARTESIAN)");
 }
 
 }  // namespace

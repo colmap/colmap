@@ -961,11 +961,12 @@ class DefaultBundleAdjuster : public BundleAdjuster {
 
 class PosePriorBundleAdjuster : public BundleAdjuster {
  public:
-  PosePriorBundleAdjuster(BundleAdjustmentOptions options,
-                          PosePriorBundleAdjustmentOptions prior_options,
-                          BundleAdjustmentConfig config,
-                          std::unordered_map<image_t, PosePrior> pose_priors,
-                          Reconstruction& reconstruction)
+  PosePriorBundleAdjuster(
+      BundleAdjustmentOptions options,
+      PosePriorBundleAdjustmentOptions prior_options,
+      BundleAdjustmentConfig config,
+      std::unordered_map<pose_prior_t, PosePrior> pose_priors,
+      Reconstruction& reconstruction)
       : BundleAdjuster(std::move(options), std::move(config)),
         prior_options_(prior_options),
         pose_priors_(std::move(pose_priors)),
@@ -1131,7 +1132,7 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
 
  private:
   const PosePriorBundleAdjustmentOptions prior_options_;
-  const std::unordered_map<image_t, PosePrior> pose_priors_;
+  const std::unordered_map<pose_prior_t, PosePrior> pose_priors_;
   Reconstruction& reconstruction_;
 
   std::unique_ptr<DefaultBundleAdjuster> default_bundle_adjuster_;
@@ -1154,7 +1155,7 @@ std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
     BundleAdjustmentOptions options,
     PosePriorBundleAdjustmentOptions prior_options,
     BundleAdjustmentConfig config,
-    std::unordered_map<image_t, PosePrior> pose_priors,
+    std::unordered_map<pose_prior_t, PosePrior> pose_priors,
     Reconstruction& reconstruction) {
   return std::make_unique<PosePriorBundleAdjuster>(std::move(options),
                                                    prior_options,

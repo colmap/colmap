@@ -70,12 +70,9 @@ void UpdateDatabasePosePriorsCovariance(const std::string& database_path,
       << "Setting up database pose priors with the same covariance matrix: \n"
       << covariance << '\n';
 
-  for (const auto& image : database->ReadAllImages()) {
-    if (database->ExistsPosePrior(image.ImageId())) {
-      PosePrior prior = database->ReadPosePrior(image.ImageId());
-      prior.position_covariance = covariance;
-      database->UpdatePosePrior(image.ImageId(), prior);
-    }
+  for (auto& pose_prior : database->ReadAllPosePriors()) {
+    pose_prior.position_covariance = covariance;
+    database->UpdatePosePrior(pose_prior);
   }
 }
 
