@@ -207,6 +207,93 @@ int RunColorExtractor(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+int RunIncrementalModelRefiner(int argc, char** argv) {
+  std::string input_path;
+  std::string output_path;
+
+  OptionManager options;
+  options.AddDatabaseOptions();
+  options.AddImageOptions();
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddMapperOptions();
+  options.Parse(argc, argv);
+
+  if (!ExistsDir(input_path)) {
+    std::cerr << "ERROR: `input_path` is not a directory" << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsDir(output_path)) {
+    std::cerr << "ERROR: `output_path` is not a directory" << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  const auto& mapper_options = *options.mapper;
+  const auto& ba_options = *options.bundle_adjustment;
+
+  PrintHeading1("Loading database");
+
+  std::shared_ptr<DatabaseCache> database_cache;
+
+  {
+    Timer timer;
+    timer.Start();
+    const Database database(*options.database_path);
+    const size_t min_num_matches =
+        static_cast<size_t>(mapper_options.min_num_matches);
+    std::unordered_set<std::string> image_names(
+        mapper_options.image_names.begin(), mapper_options.image_names.end());
+    database_cache = DatabaseCache::Create(database,
+                                           min_num_matches,
+                                           mapper_options.ignore_watermarks,
+                                           image_names);
+
+    timer.PrintMinutes();
+  }
+
+  PrintHeading1("Loading model");
+  IncrementalMapper mapper(database_cache);
+  auto reconstruction = std::make_shared<Reconstruction>();
+  reconstruction->Read(input_path);
+  mapper.BeginReconstruction(reconstruction);
+
+  CHECK_GE(reconstruction->NumRegImages(), 2)
+      << "Need at least two images for refinement";
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Iteratively run bundle adjustment and re-triangulate
+  //////////////////////////////////////////////////////////////////////////////
+  for (int i = 0; i < mapper_options.ba_global_max_refinements; ++i) {
+    // Avoid degeneracies in bundle adjustment.
+    const size_t num_observations = reconstruction->ComputeNumObservations();
+
+    PrintHeading1("Bundle adjustment");
+    mapper.AdjustGlobalBundle(mapper_options.mapper, ba_options);
+
+    size_t num_changed_observations = 0;
+    num_changed_observations +=
+        mapper.CompleteAndMergeTracks(mapper_options.triangulation);
+    num_changed_observations += mapper.FilterPoints(mapper_options.mapper);
+    const double changed =
+        static_cast<double>(num_changed_observations) / num_observations;
+    std::cout << StringPrintf("  => Changed observations: %.6f", changed)
+              << std::endl;
+    if (changed < mapper_options.ba_global_max_refinement_change) {
+      break;
+    }
+  }
+
+  PrintHeading1("Extracting colors");
+  reconstruction->ExtractColorsForAllImages(*options.image_path);
+
+  mapper.EndReconstruction(false);
+
+  reconstruction->Write(output_path);
+
+  return EXIT_SUCCESS;
+}
+
 int RunMapper(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
