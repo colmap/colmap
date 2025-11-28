@@ -48,7 +48,14 @@ struct PosePrior {
                   CARTESIAN   // = 1
   );
 
+  // The unique identifier of the pose prior.
   pose_prior_t pose_prior_id = kInvalidPosePriorId;
+
+  // The identifier of the associated sensor for which this prior defines the
+  // pose. For example, this can refer to a camera or an IMU sensor.
+  data_t corr_data_id = kInvalidDataId;
+
+  // The position of the associated sensor in the world coordinate system.
   Eigen::Vector3d position =
       Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
   Eigen::Matrix3d position_covariance =

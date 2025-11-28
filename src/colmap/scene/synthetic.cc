@@ -271,6 +271,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
       std::vector<Image> images;
       images.reserve(options.num_cameras_per_rig);
+      std::vector<Rigid3d> cams_from_world;
+      cams_from_world.reserve(options.num_cameras_per_rig);
       for (const auto& sensor_id : camera_sensor_ids) {
         ++total_num_images;
 
@@ -284,37 +286,49 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         image.SetImageId(image_id);
 
         frame.AddDataId(image.DataId());
-      }
 
-      if (options.use_prior_position) {
-        PosePrior noisy_prior(proj_center,
-                              PosePrior::CoordinateSystem::CARTESIAN);
+        // Need to compose cam_from_world manually, because the frame/rig
+        // pointer references are not yet set up.
+        const Camera& camera = reconstruction->Camera(image.CameraId());
+        const Rigid3d sensor_from_rig =
+            rig.IsRefSensor(camera.SensorId())
+                ? Rigid3d()
+                : rig.SensorFromRig(camera.SensorId());
+        const Rigid3d cam_from_world = sensor_from_rig * rig_from_world;
+        cams_from_world.push_back(cam_from_world);
 
-        if (options.prior_position_stddev > 0.) {
-          noisy_prior.position += Eigen::Vector3d(
-              RandomGaussian<double>(0, options.prior_position_stddev),
-              RandomGaussian<double>(0, options.prior_position_stddev),
-              RandomGaussian<double>(0, options.prior_position_stddev));
-          noisy_prior.position_covariance = options.prior_position_stddev *
-                                            options.prior_position_stddev *
-                                            Eigen::Matrix3d::Identity();
-        } else {
-          noisy_prior.position_covariance = Eigen::Matrix3d::Identity();
+        if (options.use_prior_position) {
+          PosePrior pose_prior(
+              cam_from_world.rotation.inverse() * -cam_from_world.translation,
+              PosePrior::CoordinateSystem::CARTESIAN);
+
+          if (options.prior_position_stddev > 0.) {
+            pose_prior.position += Eigen::Vector3d(
+                RandomGaussian<double>(0, options.prior_position_stddev),
+                RandomGaussian<double>(0, options.prior_position_stddev),
+                RandomGaussian<double>(0, options.prior_position_stddev));
+            pose_prior.position_covariance = options.prior_position_stddev *
+                                             options.prior_position_stddev *
+                                             Eigen::Matrix3d::Identity();
+          } else {
+            pose_prior.position_covariance = Eigen::Matrix3d::Identity();
+          }
+
+          if (options.use_wgs84_prior) {
+            static const GPSTransform gps_trans;
+            static constexpr double kLat0 = 47.37851943807808;
+            static constexpr double kLon0 = 8.549099927632087;
+            static constexpr double kAlt0 = 451.5;
+            pose_prior.position = gps_trans.ENUToEllipsoid(
+                {pose_prior.position}, kLat0, kLon0, kAlt0)[0];
+            pose_prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
+          }
+
+          pose_prior.corr_data_id = image.DataId();
+          pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
+
+          frame.AddDataId(pose_prior.DataId());
         }
-
-        if (options.use_geographic_coords_prior) {
-          static const GPSTransform gps_trans;
-          static constexpr double kLat0 = 47.37851943807808;
-          static constexpr double kLon0 = 8.549099927632087;
-          static constexpr double kAlt0 = 451.5;
-          noisy_prior.position = gps_trans.ENUToEllipsoid(
-              {noisy_prior.position}, kLat0, kLon0, kAlt0)[0];
-          noisy_prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
-        }
-
-        noisy_prior.pose_prior_id = database->WritePosePrior(noisy_prior);
-
-        frame.AddDataId(noisy_prior.DataId());
       }
 
       const frame_t frame_id =
@@ -324,15 +338,13 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       frame.SetFrameId(frame_id);
       reconstruction->AddFrame(std::move(frame));
 
-      for (Image& image : images) {
-        image.SetFrameId(frame_id);
-
+      for (int camera_idx = 0; camera_idx < options.num_cameras_per_rig;
+           ++camera_idx) {
+        Image& image = images[camera_idx];
         const Camera& camera = reconstruction->Camera(image.CameraId());
-        const Rigid3d sensor_from_rig =
-            rig.IsRefSensor(camera.SensorId())
-                ? Rigid3d()
-                : rig.SensorFromRig(camera.SensorId());
-        const Rigid3d cam_from_world = sensor_from_rig * rig_from_world;
+        const Rigid3d& cam_from_world = cams_from_world[camera_idx];
+
+        image.SetFrameId(frame_id);
 
         std::vector<Point2D> points2D;
         points2D.reserve(options.num_points3D +

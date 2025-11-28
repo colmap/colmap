@@ -300,6 +300,7 @@ class FeatureWriterThread : public Thread {
                 image_data.pose_prior.position.x(),
                 image_data.pose_prior.position.y(),
                 image_data.pose_prior.position.z());
+            image_data.pose_prior.corr_data_id = image_data.image.DataId();
             image_data.pose_prior.pose_prior_id =
                 database_->WritePosePrior(image_data.pose_prior);
             frame.AddDataId(image_data.pose_prior.DataId());
