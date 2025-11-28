@@ -180,8 +180,11 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
 
   PosePrior ReadPosePrior(pose_prior_t pose_prior_id,
                           bool is_legacy_image_prior = true) const override {
-    PYBIND11_OVERRIDE_PURE(
-        PosePrior, Database, ReadPosePrior, pose_prior_id, is_legacy_image_prior);
+    PYBIND11_OVERRIDE_PURE(PosePrior,
+                           Database,
+                           ReadPosePrior,
+                           pose_prior_id,
+                           is_legacy_image_prior);
   }
 
   std::vector<PosePrior> ReadAllPosePriors() const override {
