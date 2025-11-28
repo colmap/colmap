@@ -1074,6 +1074,10 @@ class SqliteDatabase : public Database {
   }
 
   image_t WriteImage(const Image& image, const bool use_image_id) override {
+    if (image.HasFrameId()) {
+      THROW_CHECK(ExistsFrame(image.FrameId()));
+    }
+
     Sqlite3StmtContext context(sql_stmt_write_image_);
 
     if (use_image_id) {
@@ -1298,6 +1302,10 @@ class SqliteDatabase : public Database {
   }
 
   void UpdateImage(const Image& image) override {
+    if (image.HasFrameId()) {
+      THROW_CHECK(ExistsFrame(image.FrameId()));
+    }
+
     Sqlite3StmtContext context(sql_stmt_update_image_);
 
     SQLITE3_CALL(sqlite3_bind_text(sql_stmt_update_image_,

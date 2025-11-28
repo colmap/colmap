@@ -159,7 +159,9 @@ void DatabaseCache::Load(const Database& database,
     for (auto& image : images) {
       // For backwards compatibility with old databases from before having
       // support for rigs/frames, we create a frame for each image.
-      if (!has_frames) {
+      if (has_frames) {
+        THROW_CHECK(image.HasFrameId());
+      } else {
         class Frame frame;
         frame.SetFrameId(image.ImageId());
         frame.SetRigId(image.CameraId());
