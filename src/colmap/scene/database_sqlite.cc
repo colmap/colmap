@@ -384,6 +384,9 @@ Image ReadImageRow(sqlite3_stmt* sql_stmt) {
   image.SetName(std::string(
       reinterpret_cast<const char*>(sqlite3_column_text(sql_stmt, 1))));
   image.SetCameraId(static_cast<camera_t>(sqlite3_column_int64(sql_stmt, 2)));
+  if (sqlite3_column_type(sql_stmt, 3) != SQLITE_NULL) {
+    image.SetFrameId(static_cast<frame_t>(sqlite3_column_int64(sql_stmt, 3)));
+  }
 
   return image;
 }
@@ -1115,6 +1118,11 @@ class SqliteDatabase : public Database {
   }
 
   image_t WriteImage(const Image& image, const bool use_image_id) override {
+    if (image.HasFrameId()) {
+      const Frame frame = ReadFrame(image.FrameId());
+      THROW_CHECK(frame.HasDataId(image.DataId()));
+    }
+
     Sqlite3StmtContext context(sql_stmt_write_image_);
 
     if (use_image_id) {
@@ -1359,6 +1367,11 @@ class SqliteDatabase : public Database {
   }
 
   void UpdateImage(const Image& image) override {
+    if (image.HasFrameId()) {
+      const Frame frame = ReadFrame(image.FrameId());
+      THROW_CHECK(frame.HasDataId(image.DataId()));
+    }
+
     Sqlite3StmtContext context(sql_stmt_update_image_);
 
     SQLITE3_CALL(sqlite3_bind_text(sql_stmt_update_image_,
@@ -1641,11 +1654,27 @@ class SqliteDatabase : public Database {
         "WHERE frames.frame_id = ? "
         "ORDER BY frames.frame_id;",
         &sql_stmt_read_frame_);
-    prepare_sql_stmt("SELECT * FROM images WHERE image_id = ?;",
-                     &sql_stmt_read_image_id_);
-    prepare_sql_stmt("SELECT * FROM images;", &sql_stmt_read_images_);
-    prepare_sql_stmt("SELECT * FROM images WHERE name = ?;",
-                     &sql_stmt_read_image_with_name_);
+    prepare_sql_stmt(
+        StringPrintf("SELECT images.image_id, images.name, images.camera_id, "
+                     "frame_data.frame_id FROM images LEFT JOIN frame_data ON "
+                     "images.image_id = frame_data.data_id AND "
+                     "frame_data.sensor_type = %d WHERE images.image_id = ?;",
+                     SensorType::CAMERA),
+        &sql_stmt_read_image_id_);
+    prepare_sql_stmt(
+        StringPrintf("SELECT images.image_id, images.name, images.camera_id, "
+                     "frame_data.frame_id FROM images LEFT JOIN frame_data ON "
+                     "images.image_id = frame_data.data_id AND "
+                     "frame_data.sensor_type = %d WHERE images.name = ?;",
+                     SensorType::CAMERA),
+        &sql_stmt_read_image_with_name_);
+    prepare_sql_stmt(
+        StringPrintf("SELECT images.image_id, images.name, images.camera_id, "
+                     "frame_data.frame_id FROM images LEFT JOIN frame_data ON "
+                     "images.image_id = frame_data.data_id AND "
+                     "frame_data.sensor_type = %d;",
+                     SensorType::CAMERA),
+        &sql_stmt_read_images_);
     prepare_sql_stmt(
         "SELECT pose_prior_id, corr_data_id, corr_sensor_id, corr_sensor_type, "
         "position, position_covariance, coordinate_system FROM pose_priors "

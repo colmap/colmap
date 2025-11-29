@@ -313,27 +313,10 @@ void FeatureMatcherCache::MaybeLoadImages() {
     return;
   }
 
-  // Handle legacy databases without frames.
-  const bool has_frames = !frames_cache_->empty();
-  std::unordered_map<image_t, frame_t> image_to_frame_id;
-  if (has_frames) {
-    for (const auto& [frame_id, frame] : *frames_cache_) {
-      for (const auto& data_id : frame.ImageIds()) {
-        image_to_frame_id.emplace(data_id.id, frame.FrameId());
-      }
-    }
-  }
-
   std::vector<Image> images = database_->ReadAllImages();
   images_cache_ = std::make_unique<std::unordered_map<image_t, Image>>();
   images_cache_->reserve(images.size());
   for (Image& image : images) {
-    if (has_frames) {
-      if (const auto it = image_to_frame_id.find(image.ImageId());
-          it != image_to_frame_id.end()) {
-        image.SetFrameId(it->second);
-      }
-    }
     images_cache_->emplace(image.ImageId(), std::move(image));
   }
 }
