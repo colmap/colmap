@@ -13,7 +13,7 @@ namespace glomap {
 // -------------------------------------
 // Mappers starting from COLMAP database
 // -------------------------------------
-int RunMapper(int argc, char** argv) {
+int RunGlobalMapper(int argc, char** argv) {
   std::string database_path;
   std::string output_path;
 
@@ -107,7 +107,7 @@ int RunMapper(int argc, char** argv) {
 // -------------------------------------
 // Mappers starting from COLMAP reconstruction
 // -------------------------------------
-int RunMapperResume(int argc, char** argv) {
+int RunGlobalMapperResume(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
   std::string image_path = "";
