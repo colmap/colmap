@@ -43,13 +43,12 @@ void RunPointTriangulatorImpl(
     bool clear_points,
     bool refine_intrinsics);
 
-void RunMapperImpl(
+bool RunMapperImpl(
     const std::string& database_path,
     const std::string& image_path,
     const std::string& output_path,
     const std::shared_ptr<IncrementalPipelineOptions>& mapper_options,
     std::shared_ptr<ReconstructionManager>& reconstruction_manager,
-    OptionManager* option_manager = nullptr,
     std::function<void()> initial_image_pair_callback = {},
     std::function<void()> next_image_callback = {});
 

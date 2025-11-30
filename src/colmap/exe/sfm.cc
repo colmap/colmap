@@ -207,13 +207,12 @@ int RunColorExtractor(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
-void RunMapperImpl(
+bool RunMapperImpl(
     const std::string& database_path,
     const std::string& image_path,
     const std::string& output_path,
     const std::shared_ptr<IncrementalPipelineOptions>& mapper_options,
     std::shared_ptr<ReconstructionManager>& reconstruction_manager,
-    OptionManager* option_manager,
     std::function<void()> initial_image_pair_callback,
     std::function<void()> next_image_callback) {
   // If fix_existing_frames is enabled, we store the initial positions of
@@ -222,8 +221,8 @@ void RunMapperImpl(
   // stability.
   std::vector<Eigen::Vector3d> orig_fixed_image_positions;
   std::vector<image_t> fixed_image_ids;
-  const bool input_is_empty = reconstruction_manager->Size() == 0;
-  if (mapper_options->fix_existing_frames && !input_is_empty) {
+  const bool exists_input_reconstruction = reconstruction_manager->Size() > 0;
+  if (mapper_options->fix_existing_frames && exists_input_reconstruction) {
     std::tie(fixed_image_ids, orig_fixed_image_positions) =
         ExtractExistingImages(*reconstruction_manager->Get(0));
   }
@@ -235,7 +234,7 @@ void RunMapperImpl(
   // models to as their reconstruction finishes instead of writing all results
   // after all reconstructions finished.
   size_t prev_num_reconstructions = 0;
-  if (input_is_empty) {
+  if (!exists_input_reconstruction) {
     mapper.AddCallback(IncrementalPipeline::LAST_IMAGE_REG_CALLBACK, [&]() {
       // If the number of reconstructions has not changed, the last model
       // was discarded for some reason.
@@ -245,17 +244,9 @@ void RunMapperImpl(
         CreateDirIfNotExists(reconstruction_path);
         reconstruction_manager->Get(prev_num_reconstructions)
             ->Write(reconstruction_path);
-        if (option_manager) {
-          option_manager->Write(JoinPaths(reconstruction_path, "project.ini"));
-        }
         prev_num_reconstructions = reconstruction_manager->Size();
       }
     });
-  }
-
-  if (next_image_callback) {
-    mapper.AddCallback(IncrementalPipeline::NEXT_IMAGE_REG_CALLBACK,
-                       std::move(next_image_callback));
   }
 
   if (initial_image_pair_callback) {
@@ -263,15 +254,20 @@ void RunMapperImpl(
                        std::move(initial_image_pair_callback));
   }
 
+  if (next_image_callback) {
+    mapper.AddCallback(IncrementalPipeline::NEXT_IMAGE_REG_CALLBACK,
+                       std::move(next_image_callback));
+  }
+
   mapper.Run();
 
   if (reconstruction_manager->Size() == 0) {
-    return;
+    return false;
   }
 
   // In case the reconstruction is continued from an existing reconstruction, do
   // not create sub-folders but directly write the results.
-  if (!input_is_empty) {
+  if (exists_input_reconstruction) {
     const auto& reconstruction = reconstruction_manager->Get(0);
 
     // Transform the final reconstruction back to the original coordinate frame.
@@ -299,6 +295,8 @@ void RunMapperImpl(
 
     reconstruction->Write(output_path);
   }
+
+  return true;
 }
 
 int RunMapper(int argc, char** argv) {
@@ -329,16 +327,21 @@ int RunMapper(int argc, char** argv) {
     reconstruction_manager->Read(input_path);
   }
 
-  RunMapperImpl(*options.database_path,
-                *options.image_path,
-                output_path,
-                options.mapper,
-                reconstruction_manager,
-                &options);
-
-  if (reconstruction_manager->Size() == 0) {
+  if (!RunMapperImpl(*options.database_path,
+                     *options.image_path,
+                     output_path,
+                     options.mapper,
+                     reconstruction_manager)) {
     LOG(ERROR) << "failed to create sparse model";
     return EXIT_FAILURE;
+  }
+
+  if (input_path == "") {
+    for (int i = 0; i < reconstruction_manager->Size(); i++) {
+      const std::string reconstruction_path =
+          JoinPaths(output_path, std::to_string(i));
+      options.Write(JoinPaths(reconstruction_path, "project.ini"));
+    }
   }
 
   return EXIT_SUCCESS;
@@ -442,16 +445,21 @@ int RunPosePriorMapper(int argc, char** argv) {
     reconstruction_manager->Read(input_path);
   }
 
-  RunMapperImpl(*options.database_path,
-                *options.image_path,
-                output_path,
-                options.mapper,
-                reconstruction_manager,
-                &options);
-
-  if (reconstruction_manager->Size() == 0) {
+  if (!RunMapperImpl(*options.database_path,
+                     *options.image_path,
+                     output_path,
+                     options.mapper,
+                     reconstruction_manager)) {
     LOG(ERROR) << "failed to create sparse model";
     return EXIT_FAILURE;
+  }
+
+  if (input_path == "") {
+    for (int i = 0; i < reconstruction_manager->Size(); i++) {
+      const std::string reconstruction_path =
+          JoinPaths(output_path, std::to_string(i));
+      options.Write(JoinPaths(reconstruction_path, "project.ini"));
+    }
   }
 
   return EXIT_SUCCESS;

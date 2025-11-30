@@ -63,7 +63,7 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
   auto options_ = std::make_shared<IncrementalPipelineOptions>(options);
 
   PyInterrupt py_interrupt(1.0);  // Check for interrupts every second
-  auto initial_image_pair_callback_local =
+  auto next_image_callback_py_interruptible =
       [&py_interrupt, next_image_callback = std::move(next_image_callback)]() {
         if (py_interrupt.Raised()) {
           throw py::error_already_set();
@@ -73,14 +73,15 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
         }
       };
 
-  RunMapperImpl(database_path,
-                image_path,
-                output_path,
-                options_,
-                reconstruction_manager,
-                nullptr,
-                initial_image_pair_callback,
-                initial_image_pair_callback_local);
+  if (!RunMapperImpl(database_path,
+                     image_path,
+                     output_path,
+                     options_,
+                     reconstruction_manager,
+                     initial_image_pair_callback,
+                     next_image_callback_py_interruptible)) {
+    return {};
+  }
 
   std::map<size_t, std::shared_ptr<Reconstruction>> reconstructions;
   for (size_t i = 0; i < reconstruction_manager->Size(); ++i) {
