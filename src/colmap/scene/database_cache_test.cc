@@ -31,6 +31,7 @@
 
 #include "colmap/scene/database_sqlite.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -159,10 +160,7 @@ TEST(DatabaseCache, ConstructFromDatabase) {
   EXPECT_TRUE(cache->ExistsImage(images[3].ImageId()));
   EXPECT_EQ(cache->Image(images[3].ImageId()).NumPoints2D(), 3);
 
-  for (const auto& pose_prior : database->ReadAllPosePriors()) {
-    EXPECT_TRUE(cache->ExistsPosePrior(pose_prior.pose_prior_id));
-    EXPECT_EQ(cache->PosePrior(pose_prior.pose_prior_id), pose_prior);
-  }
+  EXPECT_EQ(cache->PosePriors(), database->ReadAllPosePriors());
 
   const auto correspondence_graph = cache->CorrespondenceGraph();
   EXPECT_TRUE(correspondence_graph->ExistsImage(images[0].ImageId()));
@@ -348,7 +346,7 @@ TEST(DatabaseCache, ConstructFromCustom) {
   EXPECT_TRUE(cache.ExistsCamera(kCameraId));
   EXPECT_TRUE(cache.ExistsFrame(kFrameId));
   EXPECT_TRUE(cache.ExistsImage(kImageId));
-  EXPECT_TRUE(cache.ExistsPosePrior(kPosePriorId));
+  EXPECT_THAT(cache.PosePriors(), testing::ElementsAre(pose_prior));
 }
 
 }  // namespace

@@ -96,23 +96,19 @@ class DatabaseCache {
   inline const class Frame& Frame(frame_t frame_id) const;
   inline class Image& Image(image_t image_id);
   inline const class Image& Image(image_t image_id) const;
-  inline struct PosePrior& PosePrior(pose_prior_t pose_prior_id);
-  inline const struct PosePrior& PosePrior(pose_prior_t pose_prior_id) const;
 
   // Get all objects.
   inline const std::unordered_map<rig_t, class Rig>& Rigs() const;
   inline const std::unordered_map<camera_t, struct Camera>& Cameras() const;
   inline const std::unordered_map<frame_t, class Frame>& Frames() const;
   inline const std::unordered_map<image_t, class Image>& Images() const;
-  inline const std::unordered_map<pose_prior_t, struct PosePrior>& PosePriors()
-      const;
+  inline const std::vector<struct PosePrior>& PosePriors() const;
 
   // Check whether specific object exists.
   inline bool ExistsRig(rig_t rig_id) const;
   inline bool ExistsCamera(camera_t camera_id) const;
   inline bool ExistsFrame(frame_t frame_id) const;
   inline bool ExistsImage(image_t image_id) const;
-  inline bool ExistsPosePrior(pose_prior_t pose_prior_id) const;
 
   // Get reference to const correspondence graph.
   inline std::shared_ptr<const class CorrespondenceGraph> CorrespondenceGraph()
@@ -131,7 +127,7 @@ class DatabaseCache {
   std::unordered_map<camera_t, struct Camera> cameras_;
   std::unordered_map<frame_t, class Frame> frames_;
   std::unordered_map<image_t, class Image> images_;
-  std::unordered_map<pose_prior_t, struct PosePrior> pose_priors_;
+  std::vector<struct PosePrior> pose_priors_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -178,15 +174,6 @@ const class Image& DatabaseCache::Image(const image_t image_id) const {
   return images_.at(image_id);
 }
 
-struct PosePrior& DatabaseCache::PosePrior(pose_prior_t pose_prior_id) {
-  return pose_priors_.at(pose_prior_id);
-}
-
-const struct PosePrior& DatabaseCache::PosePrior(
-    pose_prior_t pose_prior_id) const {
-  return pose_priors_.at(pose_prior_id);
-}
-
 const std::unordered_map<rig_t, class Rig>& DatabaseCache::Rigs() const {
   return rigs_;
 }
@@ -204,8 +191,7 @@ const std::unordered_map<image_t, class Image>& DatabaseCache::Images() const {
   return images_;
 }
 
-const std::unordered_map<pose_prior_t, struct PosePrior>&
-DatabaseCache::PosePriors() const {
+const std::vector<struct PosePrior>& DatabaseCache::PosePriors() const {
   return pose_priors_;
 }
 
@@ -223,10 +209,6 @@ bool DatabaseCache::ExistsFrame(const frame_t frame_id) const {
 
 bool DatabaseCache::ExistsImage(const image_t image_id) const {
   return images_.find(image_id) != images_.end();
-}
-
-bool DatabaseCache::ExistsPosePrior(const pose_prior_t pose_prior_id) const {
-  return pose_priors_.find(pose_prior_id) != pose_priors_.end();
 }
 
 std::shared_ptr<const class CorrespondenceGraph>

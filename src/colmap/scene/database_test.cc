@@ -294,6 +294,7 @@ TEST_P(ParameterizedDatabaseTests, PosePrior) {
   EXPECT_TRUE(pose_prior.IsValid());
   EXPECT_TRUE(pose_prior.IsCovarianceValid());
   pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
+  EXPECT_ANY_THROW(database->WritePosePrior(pose_prior));
   EXPECT_EQ(database->NumPosePriors(), 1);
   auto read_pose_prior = database->ReadPosePrior(
       pose_prior.pose_prior_id, /*is_legacy_image_prior=*/false);

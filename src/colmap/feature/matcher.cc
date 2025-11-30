@@ -332,12 +332,15 @@ void FeatureMatcherCache::MaybeLoadPosePriors() {
 
   std::vector<PosePrior> pose_priors = database_->ReadAllPosePriors();
   pose_priors_cache_ =
-      std::make_unique<std::unordered_map<pose_prior_t, PosePrior>>();
+      std::make_unique<std::unordered_map<image_t, PosePrior>>();
   pose_priors_cache_->reserve(pose_priors.size());
   for (PosePrior& pose_prior : pose_priors) {
     if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
-      pose_priors_cache_->emplace(pose_prior.corr_data_id.id,
-                                  std::move(pose_prior));
+      THROW_CHECK(
+          pose_priors_cache_
+              ->emplace(pose_prior.corr_data_id.id, std::move(pose_prior))
+              .second)
+          << "Duplicate pose prior for image " << pose_prior.corr_data_id.id;
     }
   }
 }

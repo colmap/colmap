@@ -239,7 +239,7 @@ bool AlignReconstructionToLocations(
 
 bool AlignReconstructionToPosePriors(
     const Reconstruction& src_reconstruction,
-    const std::unordered_map<pose_prior_t, PosePrior>& tgt_pose_priors,
+    const std::vector<PosePrior>& tgt_pose_priors,
     const RANSACOptions& ransac_options,
     Sim3d* tgt_from_src) {
   std::vector<Eigen::Vector3d> src;
@@ -247,10 +247,20 @@ bool AlignReconstructionToPosePriors(
   src.reserve(tgt_pose_priors.size());
   tgt.reserve(tgt_pose_priors.size());
 
+  std::unordered_map<image_t, PosePrior> tgt_image_to_pose_prior;
+  for (const auto& pose_prior : tgt_pose_priors) {
+    if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA &&
+        pose_prior.IsValid()) {
+      THROW_CHECK(tgt_image_to_pose_prior
+                      .emplace(pose_prior.corr_data_id.id, pose_prior)
+                      .second)
+          << "Duplicate pose prior for image " << pose_prior.corr_data_id.id;
+    }
+  }
+
   for (const image_t image_id : src_reconstruction.RegImageIds()) {
-    const auto pose_prior_it = tgt_pose_priors.find(image_id);
-    if (pose_prior_it != tgt_pose_priors.end() &&
-        pose_prior_it->second.IsValid()) {
+    const auto pose_prior_it = tgt_image_to_pose_prior.find(image_id);
+    if (pose_prior_it != tgt_image_to_pose_prior.end()) {
       const auto& image = src_reconstruction.Image(image_id);
       src.push_back(image.ProjectionCenter());
       tgt.push_back(pose_prior_it->second.position);

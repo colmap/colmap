@@ -106,7 +106,7 @@ TEST(Alignment, AlignReconstructionToPosePriors) {
   Sim3d gt_tgt_from_src = TestSim3d();
   tgt_reconstruction.Transform(gt_tgt_from_src);
 
-  std::unordered_map<pose_prior_t, PosePrior> tgt_pose_priors;
+  std::vector<PosePrior> tgt_pose_priors;
   for (const auto& [image_id, image] : tgt_reconstruction.Images()) {
     PosePrior& pose_prior = tgt_pose_priors[image_id];
     pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;

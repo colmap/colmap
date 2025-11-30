@@ -1890,7 +1890,9 @@ class SqliteDatabase : public Database {
         "    corr_sensor_type           INTEGER               NOT NULL,"
         "    position                   BLOB,"
         "    position_covariance        BLOB,"
-        "    coordinate_system          INTEGER               NOT NULL);";
+        "    coordinate_system          INTEGER               NOT NULL);"
+        "CREATE UNIQUE INDEX IF NOT EXISTS pose_prior_data_assignment ON "
+        "   pose_priors(corr_data_id, corr_sensor_id, corr_sensor_type);";
 
     SQLITE3_EXEC(database_, sql.c_str(), nullptr);
   }

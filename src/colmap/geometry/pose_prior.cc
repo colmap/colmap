@@ -49,6 +49,7 @@ bool PosePrior::operator==(const PosePrior& other) const {
     }
   }
   return pose_prior_id == other.pose_prior_id &&
+         corr_data_id == other.corr_data_id &&
          coordinate_system == other.coordinate_system;
 }
 
@@ -59,8 +60,11 @@ bool PosePrior::operator!=(const PosePrior& other) const {
 std::ostream& operator<<(std::ostream& stream, const PosePrior& prior) {
   const static Eigen::IOFormat kVecFmt(
       Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ");
-  stream << "PosePrior(pose_prior_id=" << prior.pose_prior_id << ", position=["
-         << prior.position.format(kVecFmt) << "], position_covariance=["
+  stream << "PosePrior(pose_prior_id=" << prior.pose_prior_id
+         << ", corr_data_id=(" << prior.corr_data_id.sensor_id.type << ", "
+         << prior.corr_data_id.sensor_id.id << ", " << prior.corr_data_id.id
+         << "), position=[" << prior.position.format(kVecFmt)
+         << "], position_covariance=["
          << prior.position_covariance.format(kVecFmt) << "], coordinate_system="
          << PosePrior::CoordinateSystemToString(prior.coordinate_system) << ")";
   return stream;

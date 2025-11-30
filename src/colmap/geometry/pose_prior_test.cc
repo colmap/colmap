@@ -37,6 +37,7 @@ namespace {
 TEST(PosePrior, Equals) {
   PosePrior prior;
   prior.pose_prior_id = 0;
+  prior.corr_data_id = data_t(sensor_t(SensorType::CAMERA, 1), 2);
   prior.position = Eigen::Vector3d::Zero();
   prior.position_covariance = Eigen::Matrix3d::Identity();
   prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
@@ -48,16 +49,36 @@ TEST(PosePrior, Equals) {
   EXPECT_EQ(prior, other);
 }
 
+TEST(PosePrior, NaNEquals) {
+  PosePrior prior;
+  PosePrior other = prior;
+  EXPECT_EQ(prior, other);
+  prior.position =
+      Eigen::Vector3d(1, 2, std::numeric_limits<double>::quiet_NaN());
+  other.position =
+      Eigen::Vector3d(1, 2, std::numeric_limits<double>::quiet_NaN());
+  EXPECT_EQ(prior, other);
+  prior.position_covariance = Eigen::Matrix3d::Identity();
+  prior.position_covariance(0, 0) = std::numeric_limits<double>::quiet_NaN();
+  other.position_covariance = Eigen::Matrix3d::Identity();
+  other.position_covariance(0, 0) = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_EQ(prior, other);
+  other.position.z() = 3;
+  EXPECT_NE(prior, other);
+}
+
 TEST(PosePrior, Print) {
   PosePrior prior;
   prior.pose_prior_id = 0;
+  prior.corr_data_id = data_t(sensor_t(SensorType::CAMERA, 1), 2);
   prior.position = Eigen::Vector3d::Zero();
   prior.position_covariance = Eigen::Matrix3d::Identity();
   prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
   std::ostringstream stream;
   stream << prior;
   EXPECT_EQ(stream.str(),
-            "PosePrior(pose_prior_id=0, position=[0, 0, 0], "
+            "PosePrior(pose_prior_id=0, corr_data_id=(CAMERA, 1, 2), "
+            "position=[0, 0, 0], "
             "position_covariance=[1, 0, 0, 0, 1, 0, 0, 0, 1], "
             "coordinate_system=CARTESIAN)");
 }

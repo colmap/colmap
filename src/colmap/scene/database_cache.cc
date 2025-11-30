@@ -224,10 +224,7 @@ void DatabaseCache::Load(const Database& database,
       images_.emplace(image_id, std::move(image));
     }
 
-    std::vector<struct PosePrior> pose_priors = database.ReadAllPosePriors();
-    for (auto& pose_prior : pose_priors) {
-      pose_priors_.emplace(pose_prior.pose_prior_id, std::move(pose_prior));
-    }
+    pose_priors_ = database.ReadAllPosePriors();
 
     LOG(INFO) << StringPrintf(" %d in %.3fs (connected %d)",
                               num_images,
@@ -308,8 +305,7 @@ void DatabaseCache::AddImage(class Image image) {
 }
 
 void DatabaseCache::AddPosePrior(struct PosePrior pose_prior) {
-  THROW_CHECK(!ExistsPosePrior(pose_prior.pose_prior_id));
-  pose_priors_.emplace(pose_prior.pose_prior_id, std::move(pose_prior));
+  pose_priors_.push_back(std::move(pose_prior));
 }
 
 const class Image* DatabaseCache::FindImageWithName(
@@ -335,15 +331,14 @@ bool DatabaseCache::SetupPosePriors() {
 
   bool prior_is_gps = true;
 
-  std::vector<Eigen::Vector3d> v_gps_prior;
-
+  std::vector<Eigen::Vector3d> gps_prior_positions;
   std::set<PosePrior::CoordinateSystem> coordinate_systems;
-  for (const auto& [_, pose_prior] : pose_priors_) {
+  for (const auto& pose_prior : pose_priors_) {
     coordinate_systems.insert(pose_prior.coordinate_system);
     if (pose_prior.coordinate_system != PosePrior::CoordinateSystem::WGS84) {
       prior_is_gps = false;
     } else {
-      v_gps_prior.push_back(pose_prior.position);
+      gps_prior_positions.push_back(pose_prior.position);
     }
   }
 
@@ -354,15 +349,15 @@ bool DatabaseCache::SetupPosePriors() {
 
   if (prior_is_gps) {
     // GPS reference to be used for EllipsoidToENU conversion.
-    const double ref_lat = v_gps_prior[0][0];
-    const double ref_lon = v_gps_prior[0][1];
+    const double ref_lat = gps_prior_positions[0][0];
+    const double ref_lon = gps_prior_positions[0][1];
 
     const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
     const std::vector<Eigen::Vector3d> v_xyz_prior =
-        gps_transform.EllipsoidToENU(v_gps_prior, ref_lat, ref_lon);
+        gps_transform.EllipsoidToENU(gps_prior_positions, ref_lat, ref_lon);
 
     auto xyz_prior_it = v_xyz_prior.begin();
-    for (auto& [_, pose_prior] : pose_priors_) {
+    for (auto& pose_prior : pose_priors_) {
       pose_prior.position = *xyz_prior_it;
       pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
       ++xyz_prior_it;

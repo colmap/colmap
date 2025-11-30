@@ -961,12 +961,11 @@ class DefaultBundleAdjuster : public BundleAdjuster {
 
 class PosePriorBundleAdjuster : public BundleAdjuster {
  public:
-  PosePriorBundleAdjuster(
-      BundleAdjustmentOptions options,
-      PosePriorBundleAdjustmentOptions prior_options,
-      BundleAdjustmentConfig config,
-      std::unordered_map<pose_prior_t, PosePrior> pose_priors,
-      Reconstruction& reconstruction)
+  PosePriorBundleAdjuster(BundleAdjustmentOptions options,
+                          PosePriorBundleAdjustmentOptions prior_options,
+                          BundleAdjustmentConfig config,
+                          std::vector<PosePrior> pose_priors,
+                          Reconstruction& reconstruction)
       : BundleAdjuster(std::move(options), std::move(config)),
         prior_options_(prior_options),
         pose_priors_(std::move(pose_priors)),
@@ -992,12 +991,15 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
             prior_options_.prior_position_loss_scale);
       }
 
-      for (const image_t image_id : config_.Images()) {
-        const auto pose_prior_it = pose_priors_.find(image_id);
-        if (pose_prior_it != pose_priors_.end()) {
-          AddPosePriorToProblem(
-              image_id, pose_prior_it->second, reconstruction);
+      for (const auto& pose_prior : pose_priors_) {
+        if (pose_prior.corr_data_id.sensor_id.type != SensorType::CAMERA ||
+            !pose_prior.IsValid() ||
+            config_.HasImage(pose_prior.corr_data_id.id)) {
+          continue;
         }
+
+        AddPosePriorToProblem(
+            pose_prior.corr_data_id.id, pose_prior, reconstruction);
       }
     }
   }
@@ -1073,8 +1075,10 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     if (ransac_options.max_error <= 0) {
       std::vector<double> rms_vars;
       rms_vars.reserve(pose_priors_.size());
-      for (const auto& [_, pose_prior] : pose_priors_) {
-        if (!pose_prior.IsCovarianceValid()) {
+      for (const auto& pose_prior : pose_priors_) {
+        if (pose_prior.corr_data_id.sensor_id.type != SensorType::CAMERA ||
+            !pose_prior.IsValid() || !pose_prior.IsCovarianceValid() ||
+            config_.HasImage(pose_prior.corr_data_id.id)) {
           continue;
         }
 
@@ -1108,20 +1112,20 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     }
     reconstruction_.Transform(metric_from_orig);
 
+    // Compute alignment error w.r.t. prior positions.
     if (VLOG_IS_ON(2)) {
       std::vector<double> verr2_wrt_prior;
-      verr2_wrt_prior.reserve(reconstruction_.NumRegImages());
-      for (const image_t image_id : reconstruction_.RegImageIds()) {
-        const auto pose_prior_it = pose_priors_.find(image_id);
-        if (pose_prior_it != pose_priors_.end() &&
-            pose_prior_it->second.IsValid()) {
-          const auto& image = reconstruction_.Image(image_id);
-          verr2_wrt_prior.push_back(
-              (image.ProjectionCenter() - pose_prior_it->second.position)
-                  .squaredNorm());
+      verr2_wrt_prior.reserve(config_.NumImages());
+      for (const auto& pose_prior : pose_priors_) {
+        if (pose_prior.corr_data_id.sensor_id.type != SensorType::CAMERA ||
+            !pose_prior.IsValid() || !pose_prior.IsCovarianceValid() ||
+            config_.HasImage(pose_prior.corr_data_id.id)) {
+          continue;
         }
+        const auto& image = reconstruction_.Image(pose_prior.corr_data_id.id);
+        verr2_wrt_prior.push_back(
+            (image.ProjectionCenter() - pose_prior.position).squaredNorm());
       }
-
       VLOG(2) << "Alignment error w.r.t. prior positions:\n"
               << "  - rmse:   " << std::sqrt(Mean(verr2_wrt_prior)) << '\n'
               << "  - median: " << std::sqrt(Median(verr2_wrt_prior)) << '\n';
@@ -1132,7 +1136,7 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
 
  private:
   const PosePriorBundleAdjustmentOptions prior_options_;
-  const std::unordered_map<pose_prior_t, PosePrior> pose_priors_;
+  const std::vector<PosePrior> pose_priors_;
   Reconstruction& reconstruction_;
 
   std::unique_ptr<DefaultBundleAdjuster> default_bundle_adjuster_;
@@ -1155,7 +1159,7 @@ std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
     BundleAdjustmentOptions options,
     PosePriorBundleAdjustmentOptions prior_options,
     BundleAdjustmentConfig config,
-    std::unordered_map<pose_prior_t, PosePrior> pose_priors,
+    std::vector<PosePrior> pose_priors,
     Reconstruction& reconstruction) {
   return std::make_unique<PosePriorBundleAdjuster>(std::move(options),
                                                    prior_options,
