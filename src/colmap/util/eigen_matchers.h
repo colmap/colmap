@@ -84,7 +84,12 @@ class EigenMatrixNearMatcher : public testing::MatcherInterface<T> {
     if (!EigenMatrixMatchAndExplainShape(lhs, rhs_, listener)) {
       return false;
     }
-    return lhs.isApprox(rhs_, tol_);
+    if (rhs_.isZero()) {
+      // isApprox() is not well-defined for zero matrices.
+      return lhs.norm() <= tol_;
+    } else {
+      return lhs.isApprox(rhs_, tol_);
+    }
   }
 
  private:
