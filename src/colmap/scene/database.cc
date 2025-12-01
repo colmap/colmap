@@ -115,6 +115,7 @@ void Database::Merge(const Database& database1,
   std::unordered_map<image_t, image_t> new_image_ids1;
   for (auto& image : database1.ReadAllImages()) {
     image.SetCameraId(new_camera_ids1.at(image.CameraId()));
+    image.SetFrameId(kInvalidFrameId);
     THROW_CHECK(!merged_database->ExistsImageWithName(image.Name()))
         << "The two databases must not contain images with the same name, but "
            "there are images with name "
@@ -134,6 +135,7 @@ void Database::Merge(const Database& database1,
   std::unordered_map<image_t, image_t> new_image_ids2;
   for (auto& image : database2.ReadAllImages()) {
     image.SetCameraId(new_camera_ids2.at(image.CameraId()));
+    image.SetFrameId(kInvalidFrameId);
     THROW_CHECK(!merged_database->ExistsImageWithName(image.Name()))
         << "The two databases must not contain images with the same name, but "
            "there are images with name "
