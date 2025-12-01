@@ -210,7 +210,7 @@ TEST_P(ParameterizedLeastAbsoluteDeviationsTests, IdentityMatrix) {
   solver.Solve(b, &x);
 
   // Solution should be exactly b for identity matrix
-  EXPECT_LE((x - b).norm(), 1e-3);
+  EXPECT_THAT(x, EigenMatrixNear(b, 1e-3));
 }
 
 TEST_P(ParameterizedLeastAbsoluteDeviationsTests, ScaledIdentityMatrix) {
@@ -233,7 +233,7 @@ TEST_P(ParameterizedLeastAbsoluteDeviationsTests, ScaledIdentityMatrix) {
 
   // Solution should be b / scale
   Eigen::VectorXd expected = b / scale;
-  EXPECT_LE((x - expected).norm(), 1e-3);
+  EXPECT_THAT(x, EigenMatrixNear(expected, 1e-3));
 }
 
 TEST_P(ParameterizedLeastAbsoluteDeviationsTests, ToleranceSettings) {
