@@ -43,6 +43,15 @@ void RunPointTriangulatorImpl(
     bool clear_points,
     bool refine_intrinsics);
 
+bool RunMapperImpl(
+    const std::string& database_path,
+    const std::string& image_path,
+    const std::string& output_path,
+    const std::shared_ptr<IncrementalPipelineOptions>& mapper_options,
+    std::shared_ptr<ReconstructionManager>& reconstruction_manager,
+    std::function<void()> initial_image_pair_callback = {},
+    std::function<void()> next_image_callback = {});
+
 int RunAutomaticReconstructor(int argc, char** argv);
 int RunBundleAdjuster(int argc, char** argv);
 int RunColorExtractor(int argc, char** argv);
