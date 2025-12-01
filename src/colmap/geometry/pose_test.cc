@@ -41,8 +41,8 @@ namespace {
 
 TEST(ComputeClosestRotationMatrix, Nominal) {
   const Eigen::Matrix3d A = Eigen::Matrix3d::Identity();
-  EXPECT_LT((ComputeClosestRotationMatrix(A) - A).norm(), 1e-6);
-  EXPECT_LT((ComputeClosestRotationMatrix(2 * A) - A).norm(), 1e-6);
+  EXPECT_THAT(ComputeClosestRotationMatrix(A), EigenMatrixNear(A, 1e-6));
+  EXPECT_THAT(ComputeClosestRotationMatrix(2 * A), EigenMatrixNear(A, 1e-6));
 }
 
 TEST(DecomposeProjectionMatrix, Nominal) {
