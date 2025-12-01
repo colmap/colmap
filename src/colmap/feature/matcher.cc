@@ -336,11 +336,10 @@ void FeatureMatcherCache::MaybeLoadPosePriors() {
   pose_priors_cache_->reserve(pose_priors.size());
   for (PosePrior& pose_prior : pose_priors) {
     if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
+      const image_t image_id = pose_prior.corr_data_id.id;
       THROW_CHECK(
-          pose_priors_cache_
-              ->emplace(pose_prior.corr_data_id.id, std::move(pose_prior))
-              .second)
-          << "Duplicate pose prior for image " << pose_prior.corr_data_id.id;
+          pose_priors_cache_->emplace(image_id, std::move(pose_prior)).second)
+          << "Duplicate pose prior for image " << image_id;
     }
   }
 }

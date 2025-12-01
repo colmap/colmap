@@ -1066,12 +1066,13 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
       return;
     }
 
+    ceres::Problem& problem = *default_bundle_adjuster_->Problem();
     Frame& frame = *image.FramePtr();
     const Eigen::Vector3d position_in_world_prior =
         normalized_from_metric_ * pose_prior.position;
 
     if (image.HasTrivialFrame()) {
-      Problem()->AddResidualBlock(
+      problem.AddResidualBlock(
           CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
               Create(pose_prior.position_covariance, position_in_world_prior),
           prior_loss_function_.get(),
@@ -1080,7 +1081,7 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     } else {
       Rigid3d& cam_from_rig =
           frame.RigPtr()->SensorFromRig(image.CameraPtr()->SensorId());
-      Problem()->AddResidualBlock(
+      problem.AddResidualBlock(
           CovarianceWeightedCostFunctor<
               AbsoluteRigPosePositionPriorCostFunctor>::
               Create(pose_prior.position_covariance, position_in_world_prior),
