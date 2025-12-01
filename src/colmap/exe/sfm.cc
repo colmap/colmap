@@ -319,7 +319,7 @@ int RunMapper(int argc, char** argv) {
   }
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  if (input_path != "") {
+  if (!input_path.empty()) {
     if (!ExistsDir(input_path)) {
       LOG(ERROR) << "`input_path` is not a directory.";
       return EXIT_FAILURE;
