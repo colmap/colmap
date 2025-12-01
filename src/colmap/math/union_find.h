@@ -57,8 +57,7 @@ class UnionFind {
   }
 
   // Find the root of x only if x already exists in the structure, otherwise
-  // returns std::nullopt. Does not insert new elements or modify the union-find
-  // structure.
+  // returns std::nullopt. Does not insert new elements.
   std::optional<T> FindIfExists(const T& x) const {
     auto it = parent_.find(x);
     if (it == parent_.end()) {
