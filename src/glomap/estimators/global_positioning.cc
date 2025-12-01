@@ -147,7 +147,8 @@ void GlobalPositioner::InitializeRandomPositions(
     for (auto& [frame_id, frame] : frames) {
       if (constrained_positions.find(frame_id) != constrained_positions.end()) {
         // Will be converted back to rig_from_world after the optimization.
-        frame.RigFromWorld().translation = TgtOriginInSrc(frame.RigFromWorld());
+        frame.RigFromWorld().translation =
+            frame.RigFromWorld().TgtOriginInSrc();
       }
     }
     return;
@@ -161,7 +162,7 @@ void GlobalPositioner::InitializeRandomPositions(
           100.0 * RandVector3d(random_generator_, -1, 1);
     } else {
       // Will be converted back to rig_from_world after the optimization.
-      frame.RigFromWorld().translation = TgtOriginInSrc(frame.RigFromWorld());
+      frame.RigFromWorld().translation = frame.RigFromWorld().TgtOriginInSrc();
     }
   }
 

@@ -85,7 +85,7 @@ TEST(Rigid3d, Inverse) {
 
 TEST(Rigid3d, TgtOriginInSrc) {
   const Rigid3d b_from_a = TestRigid3d();
-  const Eigen::Vector3d origin_b_in_a = TgtOriginInSrc(b_from_a);
+  const Eigen::Vector3d origin_b_in_a = b_from_a.TgtOriginInSrc();
   EXPECT_LT((b_from_a * origin_b_in_a - Eigen::Vector3d::Zero()).norm(), 1e-6);
 }
 

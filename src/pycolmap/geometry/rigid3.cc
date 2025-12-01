@@ -26,6 +26,7 @@ void BindRigid3(py::module& m) {
       .def_readwrite("rotation", &Rigid3d::rotation)
       .def_readwrite("translation", &Rigid3d::translation)
       .def("matrix", &Rigid3d::ToMatrix)
+      .def("tgt_origin_in_src", &Rigid3d::TgtOriginInSrc)
       .def("adjoint", &Rigid3d::Adjoint)
       .def("adjoint_inverse", &Rigid3d::AdjointInverse)
       .def(py::self * Rigid3d())
@@ -39,8 +40,6 @@ void BindRigid3(py::module& m) {
                     t.translation.transpose();
            })
       .def("inverse", static_cast<Rigid3d (*)(const Rigid3d&)>(&Inverse))
-      .def("tgt_origin_in_src",
-           static_cast<Rigid3d (*)(const Rigid3d&)>(&TgtOriginInSrc))
       .def_static("interpolate",
                   &InterpolateCameraPoses,
                   "cam_from_world1"_a,

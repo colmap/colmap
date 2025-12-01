@@ -53,8 +53,8 @@ void GR6PEstimator::Estimate(const std::vector<X_t>& points1,
   std::vector<Eigen::Vector3d> rays_in_rig1(6);
   std::vector<Eigen::Vector3d> rays_in_rig2(6);
   for (int i = 0; i < 6; ++i) {
-    origins_in_rig1[i] = TgtOriginInSrc(points1[i].cam_from_rig);
-    origins_in_rig2[i] = TgtOriginInSrc(points2[i].cam_from_rig);
+    origins_in_rig1[i] = points1[i].cam_from_rig.TgtOriginInSrc();
+    origins_in_rig2[i] = points2[i].cam_from_rig.TgtOriginInSrc();
     rays_in_rig1[i] =
         points1[i].cam_from_rig.rotation.inverse() * points1[i].ray_in_cam;
     rays_in_rig2[i] =

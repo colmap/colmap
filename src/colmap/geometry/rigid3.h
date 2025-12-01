@@ -88,6 +88,11 @@ struct Rigid3d {
     adjoint_inv.block<3, 3>(3, 3) = adjoint_inv.block<3, 3>(0, 0);
     return adjoint_inv;
   }
+
+  // Return the origin position of the target in the source frame.
+  inline Eigen::Vector3d TgtOriginInSrc() const {
+    return rotation.inverse() * -translation;
+  }
 };
 
 // Return inverse transform.
@@ -96,11 +101,6 @@ inline Rigid3d Inverse(const Rigid3d& b_from_a) {
   a_from_b.rotation = b_from_a.rotation.inverse();
   a_from_b.translation = a_from_b.rotation * -b_from_a.translation;
   return a_from_b;
-}
-
-// Return the origin position of the target frame in the source frame.
-inline Eigen::Vector3d TgtOriginInSrc(const Rigid3d& b_from_a) {
-  return b_from_a.rotation.inverse() * -b_from_a.translation;
 }
 
 // Update covariance (6 x 6) for rigid3d.inverse()
