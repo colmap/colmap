@@ -117,7 +117,7 @@ bool Image::HasPoint3D(const point3D_t point3D_id) const {
 }
 
 Eigen::Vector3d Image::ProjectionCenter() const {
-  return CamFromWorld().rotation.inverse() * -CamFromWorld().translation;
+  return CamFromWorld().TgtOriginInSrc();
 }
 
 Eigen::Vector3d Image::ViewingDirection() const {
