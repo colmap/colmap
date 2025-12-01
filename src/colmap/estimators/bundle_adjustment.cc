@@ -981,11 +981,12 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     pose_priors_.erase(
         std::remove_if(pose_priors_.begin(),
                        pose_priors_.end(),
-                       [](const auto& pose_prior) {
+                       [this](const auto& pose_prior) {
                          return !pose_prior.IsValid() ||
                                 !pose_prior.IsCovarianceValid() ||
                                 pose_prior.corr_data_id.sensor_id.type !=
-                                    SensorType::CAMERA;
+                                    SensorType::CAMERA ||
+                                !config_.HasImage(pose_prior.corr_data_id.id);
                        }),
         pose_priors_.end());
 
