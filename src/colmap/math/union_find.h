@@ -30,6 +30,7 @@
 #pragma once
 
 #include <cstddef>
+#include <optional>
 #include <unordered_map>
 
 namespace colmap {
@@ -40,9 +41,9 @@ class UnionFind {
  public:
   void Reserve(size_t capacity) { parent_.reserve(capacity); }
 
-  // Find the root of the element x.
+  // Find the root of the element x. If x is not in the structure, it is
+  // inserted as its own parent.
   T Find(const T& x) {
-    // If x is not in parent map, initialize it with x as its parent.
     auto parent_it = parent_.find(x);
     if (parent_it == parent_.end()) {
       parent_.emplace_hint(parent_it, x, x);
@@ -53,6 +54,17 @@ class UnionFind {
       parent_it->second = Find(parent_it->second);
     }
     return parent_it->second;
+  }
+
+  // Find the root of x only if x already exists in the structure, otherwise
+  // returns std::nullopt. Does not insert new elements or modify the union-find
+  // structure.
+  std::optional<T> FindIfExists(const T& x) const {
+    auto it = parent_.find(x);
+    if (it == parent_.end()) {
+      return std::nullopt;
+    }
+    return it->second;
   }
 
   // Unite the sets containing x and y.
