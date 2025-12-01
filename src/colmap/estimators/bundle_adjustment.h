@@ -186,6 +186,9 @@ struct BundleAdjustmentOptions {
 #endif  // CERES_VERSION_MAJOR
   }
 
+  // Create loss function for given options.
+  std::unique_ptr<ceres::LossFunction> CreateLossFunction() const;
+
   // Create options tailored for given bundle adjustment config and problem.
   ceres::Solver::Options CreateSolverOptions(
       const BundleAdjustmentConfig& config,

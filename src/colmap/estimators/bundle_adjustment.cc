@@ -288,6 +288,11 @@ const BundleAdjustmentConfig& BundleAdjuster::Config() const { return config_; }
 // BundleAdjustmentOptions
 ////////////////////////////////////////////////////////////////////////////////
 
+std::unique_ptr<ceres::LossFunction>
+BundleAdjustmentOptions::CreateLossFunction() const {
+  return ::colmap::CreateLossFunction(loss_function_type, loss_function_scale);
+}
+
 ceres::Solver::Options BundleAdjustmentOptions::CreateSolverOptions(
     const BundleAdjustmentConfig& config, const ceres::Problem& problem) const {
   ceres::Solver::Options custom_solver_options = solver_options;
@@ -701,8 +706,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
                         BundleAdjustmentConfig config,
                         Reconstruction& reconstruction)
       : BundleAdjuster(std::move(options), std::move(config)),
-        loss_function_(CreateLossFunction(options_.loss_function_type,
-                                          options_.loss_function_scale)) {
+        loss_function_(options_.CreateLossFunction()) {
     ceres::Problem::Options problem_options;
     problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
     problem_ = std::make_shared<ceres::Problem>(problem_options);
