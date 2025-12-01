@@ -186,10 +186,6 @@ struct BundleAdjustmentOptions {
 #endif  // CERES_VERSION_MAJOR
   }
 
-  // Create a new loss function based on the specified options. The caller
-  // takes ownership of the loss function.
-  ceres::LossFunction* CreateLossFunction() const;
-
   // Create options tailored for given bundle adjustment config and problem.
   ceres::Solver::Options CreateSolverOptions(
       const BundleAdjustmentConfig& config,
@@ -199,8 +195,9 @@ struct BundleAdjustmentOptions {
 };
 
 struct PosePriorBundleAdjustmentOptions {
-  // Whether to use a robust loss on prior locations.
-  bool use_robust_loss_on_prior_position = false;
+  // Loss function for prior position loss.
+  BundleAdjustmentOptions::LossFunctionType prior_position_loss_function_type =
+      BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
 
   // Threshold on the residual for the robust loss.
   double prior_position_loss_scale = std::sqrt(kChiSquare95ThreeDof);

@@ -108,7 +108,9 @@ TEST(Alignment, AlignReconstructionToPosePriors) {
 
   std::vector<PosePrior> tgt_pose_priors;
   for (const auto& [image_id, image] : tgt_reconstruction.Images()) {
-    PosePrior& pose_prior = tgt_pose_priors[image_id];
+    PosePrior& pose_prior = tgt_pose_priors.emplace_back();
+    pose_prior.pose_prior_id = tgt_pose_priors.size();
+    pose_prior.corr_data_id = image.DataId();
     pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
     pose_prior.position = image.ProjectionCenter();
     pose_prior.position_covariance = 1e-2 * Eigen::Matrix3d::Identity();

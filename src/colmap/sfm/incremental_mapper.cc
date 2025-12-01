@@ -1120,8 +1120,10 @@ bool IncrementalMapper::AdjustGlobalBundle(
         custom_ba_options, ba_config, *reconstruction_);
   } else {
     PosePriorBundleAdjustmentOptions prior_options;
-    prior_options.use_robust_loss_on_prior_position =
-        options.use_robust_loss_on_prior_position;
+    if (options.use_robust_loss_on_prior_position) {
+      prior_options.prior_position_loss_function_type =
+          BundleAdjustmentOptions::LossFunctionType::CAUCHY;
+    }
     prior_options.prior_position_loss_scale = options.prior_position_loss_scale;
     prior_options.alignment_ransac_options.random_seed = options.random_seed;
     bundle_adjuster =
