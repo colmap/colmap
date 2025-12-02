@@ -35,6 +35,7 @@
 #include "colmap/exe/mvs.h"
 #include "colmap/exe/sfm.h"
 #include "colmap/exe/vocab_tree.h"
+#include "colmap/sensor/oiio_init.h"
 #include "colmap/util/version.h"
 
 #include "glomap/exe/global_mapper.h"
@@ -84,6 +85,7 @@ int ShowHelp(
 
 int main(int argc, char** argv) {
   colmap::InitializeGlog(argv);
+  colmap::InitializeOpenImageIO();
 
   std::vector<std::pair<std::string, command_func_t>> commands;
   commands.emplace_back("gui", &colmap::RunGraphicalUserInterface);
