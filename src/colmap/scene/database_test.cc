@@ -282,15 +282,14 @@ TEST_P(ParameterizedDatabaseTests, PosePrior) {
   Camera camera;
   camera.camera_id = database->WriteCamera(camera);
   Image image;
-  image.SetName("test");
   image.SetCameraId(camera.camera_id);
-  image.SetImageId(database->WriteImage(image));
   EXPECT_EQ(database->NumPosePriors(), 0);
   PosePrior pose_prior;
   pose_prior.corr_data_id = image.DataId();
   pose_prior.position = Eigen::Vector3d(0.1, 0.2, 0.3);
   pose_prior.position_covariance = Eigen::Matrix3d::Random();
   pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  pose_prior.gravity = Eigen::Vector3d::Random();
   pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
   EXPECT_ANY_THROW(database->WritePosePrior(pose_prior));
   EXPECT_EQ(database->NumPosePriors(), 1);

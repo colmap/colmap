@@ -1058,8 +1058,6 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
   void AddImagePosePriorToProblem(image_t image_id,
                                   const PosePrior& pose_prior,
                                   Reconstruction& reconstruction) {
-    THROW_CHECK_EQ(image_id, pose_prior.corr_data_id.id);
-
     Image& image = reconstruction.Image(image_id);
 
     const bool constant_sensor_from_rig =

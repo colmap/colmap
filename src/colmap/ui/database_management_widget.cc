@@ -713,7 +713,7 @@ PosePriorsTab::PosePriorsTab(QWidget* parent) : QWidget(parent) {
   grid->addWidget(info_label_, 0, 0);
 
   table_widget_ = new QTableWidget(this);
-  table_widget_->setColumnCount(11);
+  table_widget_->setColumnCount(14);
 
   QStringList table_header;
   table_header << "image_id"
@@ -726,7 +726,10 @@ PosePriorsTab::PosePriorsTab(QWidget* parent) : QWidget(parent) {
                << "cov_zz"
                << "cov_xy"
                << "cov_xz"
-               << "cov_yz";
+               << "cov_yz"
+               << "gx"
+               << "gy"
+               << "gz";
   table_widget_->setHorizontalHeaderLabels(table_header);
 
   table_widget_->setShowGrid(true);
@@ -754,9 +757,8 @@ void PosePriorsTab::Reload(const std::shared_ptr<Database>& database) {
   database_ = database;
 
   QString info;
-  info += QString("Images: ") + QString::number(database_->NumImages());
-  info += QString('\n');
-  info += QString("PosePriors: ") + QString::number(database_->NumPosePriors());
+  info +=
+      QString("Pose Priors: ") + QString::number(database_->NumPosePriors());
   info_label_->setText(info);
 
   // Make sure, itemChanged is not invoked, while setting up the table
@@ -767,10 +769,12 @@ void PosePriorsTab::Reload(const std::shared_ptr<Database>& database) {
 
   int row_idx = 0;
 
-  for (const auto& image : database_->ReadAllImages()) {
-    const PosePrior prior = database_->ExistsPosePrior(image.ImageId())
-                                ? database_->ReadPosePrior(image.ImageId())
-                                : PosePrior();
+  for (const auto& prior : database_->ReadAllPosePriors()) {
+    if (prior.corr_data_id.sensor_id.type != SensorType::CAMERA) {
+      continue;
+    }
+
+    const auto& image = database_->ReadImage(prior.corr_data_id.id);
 
     QTableWidgetItem* id_item =
         new QTableWidgetItem(QString::number(image.ImageId()));
@@ -810,10 +814,18 @@ void PosePriorsTab::Reload(const std::shared_ptr<Database>& database) {
         row_idx,
         10,
         new QTableWidgetItem(QString::number(prior.position_covariance(1, 2))));
+
+    table_widget_->setItem(
+        row_idx, 11, new QTableWidgetItem(QString::number(prior.gravity[0])));
+    table_widget_->setItem(
+        row_idx, 12, new QTableWidgetItem(QString::number(prior.gravity[1])));
+    table_widget_->setItem(
+        row_idx, 13, new QTableWidgetItem(QString::number(prior.gravity[2])));
+
     ++row_idx;
   }
-  table_widget_->resizeColumnsToContents();
 
+  table_widget_->resizeColumnsToContents();
   table_widget_->blockSignals(false);
 }
 

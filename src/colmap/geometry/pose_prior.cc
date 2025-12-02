@@ -29,28 +29,37 @@
 
 #include "colmap/geometry/pose_prior.h"
 
-namespace colmap {
+#include "colmap/util/logging.h"
 
-bool PosePrior::operator==(const PosePrior& other) const {
-  // Handle NaNs explicitly and consider them equal, whereas the default C++
-  // comparison operator returns false for a NaN == NaN comparison.
-  for (int i = 0; i < 3; ++i) {
-    if ((std::isnan(position(i)) != std::isnan(other.position(i)) ||
-         (!std::isnan(position(i)) && position(i) != other.position(i)))) {
-      return false;
-    }
-    for (int j = 0; j < 3; ++j) {
-      if ((std::isnan(position_covariance(i, j)) !=
-               std::isnan(other.position_covariance(i, j)) ||
-           (!std::isnan(position_covariance(i, j)) &&
-            position_covariance(i, j) != other.position_covariance(i, j)))) {
+namespace colmap {
+namespace {
+
+// Handle NaNs explicitly and consider them equal, whereas the default C++
+// comparison operator returns false for a NaN == NaN comparison.
+template <typename T>
+bool IsNaNEqual(const T& left, const T& right) {
+  THROW_CHECK_EQ(left.rows(), right.rows());
+  THROW_CHECK_EQ(left.cols(), right.cols());
+  for (int i = 0; i < left.rows(); ++i) {
+    for (int j = 0; j < left.cols(); ++j) {
+      if ((std::isnan(left(i, j)) != std::isnan(right(i, j)) ||
+           (!std::isnan(left(i, j)) && left(i, j) != right(i, j)))) {
         return false;
       }
     }
   }
+  return true;
+}
+
+}  // namespace
+
+bool PosePrior::operator==(const PosePrior& other) const {
   return pose_prior_id == other.pose_prior_id &&
          corr_data_id == other.corr_data_id &&
-         coordinate_system == other.coordinate_system;
+         coordinate_system == other.coordinate_system &&
+         IsNaNEqual(position, other.position) &&
+         IsNaNEqual(position_covariance, other.position_covariance) &&
+         IsNaNEqual(gravity, other.gravity);
 }
 
 bool PosePrior::operator!=(const PosePrior& other) const {
@@ -66,7 +75,8 @@ std::ostream& operator<<(std::ostream& stream, const PosePrior& prior) {
          << "), position=[" << prior.position.format(kVecFmt)
          << "], position_covariance=["
          << prior.position_covariance.format(kVecFmt) << "], coordinate_system="
-         << PosePrior::CoordinateSystemToString(prior.coordinate_system) << ")";
+         << PosePrior::CoordinateSystemToString(prior.coordinate_system)
+         << ", gravity=[" << prior.gravity.format(kVecFmt) << "])";
   return stream;
 }
 

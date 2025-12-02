@@ -62,8 +62,12 @@ struct PosePrior {
   Eigen::Matrix3d position_covariance = Eigen::Matrix3d::Constant(kNaN);
   CoordinateSystem coordinate_system = CoordinateSystem::UNDEFINED;
 
+  // The gravity (down) in the sensor coordinate system.
+  Eigen::Vector3d gravity = Eigen::Vector3d::Constant(kNaN);
+
   inline bool HasPosition() const { return position.allFinite(); }
   inline bool HasPositionCov() const { return position_covariance.allFinite(); }
+  inline bool HasGravity() const { return gravity.allFinite(); }
 
   bool operator==(const PosePrior& other) const;
   bool operator!=(const PosePrior& other) const;

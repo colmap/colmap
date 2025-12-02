@@ -405,6 +405,8 @@ PosePrior ReadPosePriorRow(sqlite3_stmt* sql_stmt) {
       ReadStaticMatrixBlob<Eigen::Matrix3d>(sql_stmt, SQLITE_ROW, 5);
   pose_prior.coordinate_system = static_cast<PosePrior::CoordinateSystem>(
       sqlite3_column_int64(sql_stmt, 6));
+  pose_prior.gravity =
+      ReadStaticMatrixBlob<Eigen::Vector3d>(sql_stmt, SQLITE_ROW, 7);
   return pose_prior;
 }
 
@@ -1176,6 +1178,7 @@ class SqliteDatabase : public Database {
         sql_stmt_write_pose_prior_,
         7,
         static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
+    WriteStaticMatrixBlob(sql_stmt_write_pose_prior_, pose_prior.gravity, 8);
     SQLITE3_CALL(sqlite3_step(sql_stmt_write_pose_prior_));
 
     return static_cast<image_t>(
@@ -1405,8 +1408,9 @@ class SqliteDatabase : public Database {
         sql_stmt_update_pose_prior_,
         6,
         static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
+    WriteStaticMatrixBlob(sql_stmt_update_pose_prior_, pose_prior.gravity, 7);
     SQLITE3_CALL(sqlite3_bind_int64(
-        sql_stmt_update_pose_prior_, 7, pose_prior.pose_prior_id));
+        sql_stmt_update_pose_prior_, 8, pose_prior.pose_prior_id));
 
     SQLITE3_CALL(sqlite3_step(sql_stmt_update_pose_prior_));
   }
@@ -1605,7 +1609,7 @@ class SqliteDatabase : public Database {
     prepare_sql_stmt(
         "UPDATE pose_priors SET corr_data_id=?, corr_sensor_id=?, "
         "corr_sensor_type=?, position=?, position_covariance=?, "
-        "coordinate_system=? WHERE pose_prior_id=?;",
+        "coordinate_system=?, gravity=? WHERE pose_prior_id=?;",
         &sql_stmt_update_pose_prior_);
     prepare_sql_stmt(
         "UPDATE keypoints SET rows=?, cols=?, data=? WHERE image_id=?;",
@@ -1677,12 +1681,13 @@ class SqliteDatabase : public Database {
         &sql_stmt_read_images_);
     prepare_sql_stmt(
         "SELECT pose_prior_id, corr_data_id, corr_sensor_id, corr_sensor_type, "
-        "position, position_covariance, coordinate_system FROM pose_priors "
-        "WHERE pose_prior_id = ?;",
+        "position, position_covariance, coordinate_system, gravity FROM "
+        "pose_priors WHERE pose_prior_id = ?;",
         &sql_stmt_read_pose_prior_);
     prepare_sql_stmt(
         "SELECT pose_prior_id, corr_data_id, corr_sensor_id, corr_sensor_type, "
-        "position, position_covariance, coordinate_system FROM pose_priors;",
+        "position, position_covariance, coordinate_system, gravity FROM "
+        "pose_priors;",
         &sql_stmt_read_pose_priors_);
     prepare_sql_stmt(
         "SELECT rows, cols, data FROM keypoints WHERE image_id = ?;",
@@ -1732,8 +1737,8 @@ class SqliteDatabase : public Database {
         &sql_stmt_write_image_);
     prepare_sql_stmt(
         "INSERT INTO pose_priors(pose_prior_id, corr_data_id, corr_sensor_id, "
-        "corr_sensor_type, position, position_covariance, coordinate_system) "
-        "VALUES(?, ?, ?, ?, ?, ?, ?);",
+        "corr_sensor_type, position, position_covariance, coordinate_system, "
+        "gravity) VALUES(?, ?, ?, ?, ?, ?, ?, ?);",
         &sql_stmt_write_pose_prior_);
     prepare_sql_stmt(
         "INSERT INTO keypoints(image_id, rows, cols, data) VALUES(?, ?, ?, ?);",
@@ -1890,6 +1895,7 @@ class SqliteDatabase : public Database {
         "    corr_sensor_type           INTEGER               NOT NULL,"
         "    position                   BLOB,"
         "    position_covariance        BLOB,"
+        "    gravity                    BLOB,"
         "    coordinate_system          INTEGER               NOT NULL);"
         "CREATE UNIQUE INDEX IF NOT EXISTS pose_prior_data_assignment ON "
         "   pose_priors(corr_data_id, corr_sensor_id, corr_sensor_type);";
@@ -1987,23 +1993,61 @@ class SqliteDatabase : public Database {
                    nullptr);
     }
 
-    if (!ExistsColumn("pose_priors", "position_covariance")) {
-      // Create position_covariance matrix column
+    auto maybe_add_pose_prior_column = [&](const std::string& column_name,
+                                           const auto& default_value) {
+      if (ExistsColumn("pose_priors", column_name)) {
+        return;
+      }
       SQLITE3_EXEC(
           database_,
-          "ALTER TABLE pose_priors ADD COLUMN position_covariance BLOB "
-          "DEFAULT NULL;",
+          StringPrintf(
+              "ALTER TABLE pose_priors ADD COLUMN %s BLOB DEFAULT NULL;",
+              column_name.c_str())
+              .c_str(),
           nullptr);
-
-      // Set position_covariance column to NaN matrices
-      const std::string update_sql =
-          "UPDATE pose_priors SET position_covariance = ?;";
+      // Set to NaN matrices.
       sqlite3_stmt* update_stmt;
       SQLITE3_CALL(sqlite3_prepare_v2(
-          database_, update_sql.c_str(), -1, &update_stmt, 0));
-      WriteStaticMatrixBlob(update_stmt, PosePrior().position_covariance, 1);
+          database_,
+          StringPrintf("UPDATE pose_priors SET %s = ?;", column_name.c_str())
+              .c_str(),
+          -1,
+          &update_stmt,
+          0));
+      WriteStaticMatrixBlob(update_stmt, default_value, 1);
       SQLITE3_CALL(sqlite3_step(update_stmt));
       SQLITE3_CALL(sqlite3_finalize(update_stmt));
+    };
+
+    maybe_add_pose_prior_column("position_covariance",
+                                PosePrior().position_covariance);
+    maybe_add_pose_prior_column("gravity", PosePrior().gravity);
+
+    if (ExistsColumn("pose_priors", "image_id") &&
+        !ExistsColumn("pose_priors", "pose_prior_id")) {
+      SQLITE3_EXEC(
+          database_,
+          "ALTER TABLE pose_priors RENAME COLUMN image_id TO pose_prior_id;"
+          "ALTER TABLE pose_priors ADD COLUMN corr_data_id INTEGER NOT NULL;"
+          "ALTER TABLE pose_priors ADD COLUMN corr_sensor_id INTEGER NOT NULL;"
+          "ALTER TABLE pose_priors ADD COLUMN corr_sensor_type INTEGER NOT "
+          "NULL;",
+          nullptr);
+
+      // Migrate existing data to frame_data table.
+      for (Frame& frame : ReadAllFrames()) {
+        for (const auto& data_id : frame.ImageIds()) {
+          // Note that in the old schema pose_prior_id == image_id.
+          if (ExistsPosePrior(data_id.id,
+                              /*is_deprecated_image_prior=*/false)) {
+            PosePrior pose_prior =
+                ReadPosePrior(data_id.id, /*is_deprecated_image_prior=*/false);
+            pose_prior.corr_data_id = data_id;
+            UpdatePosePrior(pose_prior);
+          }
+        }
+        UpdateFrame(frame);
+      }
     }
 
     if (ExistsColumn("pose_priors", "image_id") &&
