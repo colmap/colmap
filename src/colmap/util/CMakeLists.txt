@@ -43,6 +43,7 @@ COLMAP_ADD_LIBRARY(
         logging.h logging.cc
         glog_macros.h
         misc.h misc.cc
+        oiio_utils.h oiio_utils.cc
         opengl_utils.h opengl_utils.cc
         ply.h ply.cc
         string.h string.cc
