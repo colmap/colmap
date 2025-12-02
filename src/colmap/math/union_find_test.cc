@@ -245,5 +245,22 @@ TEST(UnionFind, ReverseUnion) {
   }
 }
 
+TEST(UnionFind, FindIfExists) {
+  UnionFind<int> uf;
+  auto missing = uf.FindIfExists(42);
+  EXPECT_FALSE(missing.has_value());
+
+  EXPECT_EQ(uf.Find(42), 42);
+  auto root = uf.FindIfExists(42);
+  EXPECT_TRUE(root.has_value());
+  EXPECT_EQ(*root, 42);
+
+  EXPECT_FALSE(uf.FindIfExists(1).has_value());
+  EXPECT_FALSE(uf.FindIfExists(2).has_value());
+  uf.Union(2, 1);
+  EXPECT_TRUE(uf.FindIfExists(1).has_value());
+  EXPECT_TRUE(uf.FindIfExists(2).has_value());
+}
+
 }  // namespace
 }  // namespace colmap

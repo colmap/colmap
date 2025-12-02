@@ -47,6 +47,8 @@ COLMAP_ADD_LIBRARY(
         colmap_estimators
         colmap_sfm
         colmap_util
+    PRIVATE_LINK_LIBS
+        Boost::boost
 )
 
 if(MSVC)
