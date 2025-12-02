@@ -86,7 +86,7 @@ class Database {
   virtual bool ExistsImage(image_t image_id) const = 0;
   virtual bool ExistsImageWithName(const std::string& name) const = 0;
   virtual bool ExistsPosePrior(pose_prior_t pose_prior_id,
-                               bool is_legacy_image_prior = true) const = 0;
+                               bool is_deprecated_image_prior = true) const = 0;
   virtual bool ExistsKeypoints(image_t image_id) const = 0;
   virtual bool ExistsDescriptors(image_t image_id) const = 0;
   virtual bool ExistsMatches(image_t image_id1, image_t image_id2) const = 0;
@@ -159,8 +159,9 @@ class Database {
       const std::string& name) const = 0;
   virtual std::vector<Image> ReadAllImages() const = 0;
 
-  virtual PosePrior ReadPosePrior(pose_prior_t pose_prior_id,
-                                  bool is_legacy_image_prior = true) const = 0;
+  virtual PosePrior ReadPosePrior(
+      pose_prior_t pose_prior_id,
+      bool is_deprecated_image_prior = true) const = 0;
   virtual std::vector<PosePrior> ReadAllPosePriors() const = 0;
 
   virtual FeatureKeypointsBlob ReadKeypointsBlob(image_t image_id) const = 0;

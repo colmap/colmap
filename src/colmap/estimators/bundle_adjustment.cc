@@ -1058,6 +1058,8 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
   void AddImagePosePriorToProblem(image_t image_id,
                                   const PosePrior& pose_prior,
                                   Reconstruction& reconstruction) {
+    THROW_CHECK_EQ(image_id, pose_prior.corr_data_id.id);
+
     Image& image = reconstruction.Image(image_id);
 
     const bool constant_sensor_from_rig =
@@ -1072,13 +1074,19 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
 
     ceres::Problem& problem = *default_bundle_adjuster_->Problem();
     Frame& frame = *image.FramePtr();
-    const Eigen::Vector3d position_in_world_prior =
+
+    const Eigen::Vector3d normalized_position =
         normalized_from_metric_ * pose_prior.position;
+    const Eigen::Matrix3d sR =
+        normalized_from_metric_.scale *
+        normalized_from_metric_.rotation.toRotationMatrix();
+    const Eigen::Matrix3d normalized_position_cov =
+        sR * pose_prior.position_covariance * sR.transpose();
 
     if (image.HasTrivialFrame()) {
       problem.AddResidualBlock(
           CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
-              Create(pose_prior.position_covariance, position_in_world_prior),
+              Create(normalized_position_cov, normalized_position),
           prior_loss_function_.get(),
           frame.RigFromWorld().rotation.coeffs().data(),
           frame.RigFromWorld().translation.data());
@@ -1088,7 +1096,7 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
       problem.AddResidualBlock(
           CovarianceWeightedCostFunctor<
               AbsoluteRigPosePositionPriorCostFunctor>::
-              Create(pose_prior.position_covariance, position_in_world_prior),
+              Create(normalized_position_cov, normalized_position),
           prior_loss_function_.get(),
           cam_from_rig.rotation.coeffs().data(),
           cam_from_rig.translation.data(),
@@ -1217,30 +1225,8 @@ void PrintSolverSummary(const ceres::Solver::Summary& summary,
 
   log << std::right << std::setw(16) << "Termination : ";
 
-  std::string termination = "";
-
-  switch (summary.termination_type) {
-    case ceres::CONVERGENCE:
-      termination = "Convergence";
-      break;
-    case ceres::NO_CONVERGENCE:
-      termination = "No convergence";
-      break;
-    case ceres::FAILURE:
-      termination = "Failure";
-      break;
-    case ceres::USER_SUCCESS:
-      termination = "User success";
-      break;
-    case ceres::USER_FAILURE:
-      termination = "User failure";
-      break;
-    default:
-      termination = "Unknown";
-      break;
-  }
-
-  log << std::right << termination << "\n\n";
+  log << std::right << ceres::TerminationTypeToString(summary.termination_type)
+      << "\n\n";
   LOG(INFO) << log.str();
 }
 

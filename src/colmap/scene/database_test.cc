@@ -297,7 +297,7 @@ TEST_P(ParameterizedDatabaseTests, PosePrior) {
   EXPECT_ANY_THROW(database->WritePosePrior(pose_prior));
   EXPECT_EQ(database->NumPosePriors(), 1);
   auto read_pose_prior = database->ReadPosePrior(
-      pose_prior.pose_prior_id, /*is_legacy_image_prior=*/false);
+      pose_prior.pose_prior_id, /*is_deprecated_image_prior=*/false);
   EXPECT_EQ(read_pose_prior.position, pose_prior.position);
   EXPECT_EQ(read_pose_prior.coordinate_system, pose_prior.coordinate_system);
   EXPECT_TRUE(read_pose_prior.HasPosition());
@@ -306,7 +306,7 @@ TEST_P(ParameterizedDatabaseTests, PosePrior) {
   EXPECT_TRUE(pose_prior.HasPositionCov());
   database->UpdatePosePrior(pose_prior);
   read_pose_prior = database->ReadPosePrior(pose_prior.pose_prior_id,
-                                            /*is_legacy_image_prior=*/false);
+                                            /*is_deprecated_image_prior=*/false);
   EXPECT_EQ(read_pose_prior.position, pose_prior.position);
   EXPECT_EQ(read_pose_prior.position_covariance,
             pose_prior.position_covariance);
