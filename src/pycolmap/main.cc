@@ -40,7 +40,7 @@ PYBIND11_MODULE(_core, m) {
   m.attr("COLMAP_version") = py::str(GetVersionInfo());
   m.attr("COLMAP_build") = py::str(GetBuildInfo());
 
-  // Open ImageIO initialization
+  // OpenImageIO initialization
   m.def("_init_image_io",
         &InitializeOpenImageIO,
         "Explicitly initialize OpenImageIO resources.");
