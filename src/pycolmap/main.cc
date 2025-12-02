@@ -1,5 +1,5 @@
 #include "colmap/math/random.h"
-#include "colmap/util/oiio_utils.h"
+#include "colmap/sensor/oiio_init.h"
 #include "colmap/util/version.h"
 
 #include "pycolmap/helpers.h"
