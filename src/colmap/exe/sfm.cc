@@ -337,7 +337,7 @@ int RunMapper(int argc, char** argv) {
   }
 
   if (input_path.empty()) {
-    for (int i = 0; i < reconstruction_manager->Size(); i++) {
+    for (size_t i = 0; i < reconstruction_manager->Size(); ++i) {
       const std::string reconstruction_path =
           JoinPaths(output_path, std::to_string(i));
       options.Write(JoinPaths(reconstruction_path, "project.ini"));
@@ -455,7 +455,7 @@ int RunPosePriorMapper(int argc, char** argv) {
   }
 
   if (input_path.empty()) {
-    for (int i = 0; i < reconstruction_manager->Size(); i++) {
+    for (size_t i = 0; i < reconstruction_manager->Size(); ++i) {
       const std::string reconstruction_path =
           JoinPaths(output_path, std::to_string(i));
       options.Write(JoinPaths(reconstruction_path, "project.ini"));
