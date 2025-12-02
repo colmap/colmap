@@ -296,12 +296,14 @@ TEST_P(ParameterizedDatabaseTests, PosePrior) {
   pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
   EXPECT_ANY_THROW(database->WritePosePrior(pose_prior));
   EXPECT_EQ(database->NumPosePriors(), 1);
-  EXPECT_EQ(database->ReadPosePrior(
-      pose_prior.pose_prior_id, /*is_legacy_image_prior=*/false), pose_prior);
+  EXPECT_EQ(database->ReadPosePrior(pose_prior.pose_prior_id,
+                                    /*is_legacy_image_prior=*/false),
+            pose_prior);
   pose_prior.position_covariance = Eigen::Matrix3d::Identity();
   database->UpdatePosePrior(pose_prior);
-  EXPECT_EQ(database->ReadPosePrior(
-      pose_prior.pose_prior_id, /*is_legacy_image_prior=*/false), pose_prior);
+  EXPECT_EQ(database->ReadPosePrior(pose_prior.pose_prior_id,
+                                    /*is_legacy_image_prior=*/false),
+            pose_prior);
   EXPECT_THAT(database->ReadAllPosePriors(), testing::ElementsAre(pose_prior));
   database->ClearPosePriors();
   EXPECT_EQ(database->NumPosePriors(), 0);
