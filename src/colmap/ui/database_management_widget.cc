@@ -449,7 +449,6 @@ void CameraTab::SetModel() {
   table_widget_->blockSignals(true);
 
   for (QModelIndex& index : select->selectedRows()) {
-    LOG(INFO) << index.row();
     auto& camera = cameras_.at(index.row());
     camera = Camera::CreateFromModelName(camera.camera_id,
                                          camera_model.toUtf8().constData(),
