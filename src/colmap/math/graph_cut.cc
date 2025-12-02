@@ -31,8 +31,13 @@
 
 #include <unordered_map>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Werror"
+
 #include <boost/graph/stoer_wagner_min_cut.hpp>
 #include <boost/property_map/property_map.hpp>
+
+#pragma GCC diagnostic pop
 
 #ifdef _MSC_VER
 #pragma warning(push)

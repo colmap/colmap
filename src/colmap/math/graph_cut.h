@@ -34,10 +34,15 @@
 #include <unordered_map>
 #include <vector>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Werror"
+
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/boykov_kolmogorov_max_flow.hpp>
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/one_bit_color_map.hpp>
+
+#pragma GCC diagnostic pop
 
 namespace colmap {
 
