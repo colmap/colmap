@@ -32,7 +32,7 @@
 #include <unordered_map>
 
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Werror"
+#pragma GCC diagnostic ignored "-Werror=maybe-uninitialized"
 
 #include <boost/graph/stoer_wagner_min_cut.hpp>
 #include <boost/property_map/property_map.hpp>

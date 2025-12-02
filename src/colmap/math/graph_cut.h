@@ -35,7 +35,7 @@
 #include <vector>
 
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Werror"
+#pragma GCC diagnostic ignored "-Werror=maybe-uninitialized"
 
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/boykov_kolmogorov_max_flow.hpp>
