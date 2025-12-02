@@ -59,8 +59,7 @@ bool PosePrior::operator==(const PosePrior& other) const {
          coordinate_system == other.coordinate_system &&
          IsNaNEqual(position, other.position) &&
          IsNaNEqual(position_covariance, other.position_covariance) &&
-         IsNaNEqual(gravity, other.gravity) &&
-         IsNaNEqual(gravity_covariance, other.gravity_covariance);
+         IsNaNEqual(gravity, other.gravity);
 }
 
 bool PosePrior::operator!=(const PosePrior& other) const {
@@ -77,9 +76,7 @@ std::ostream& operator<<(std::ostream& stream, const PosePrior& prior) {
          << "], position_covariance=["
          << prior.position_covariance.format(kVecFmt) << "], coordinate_system="
          << PosePrior::CoordinateSystemToString(prior.coordinate_system)
-         << ", gravity=[" << prior.gravity.format(kVecFmt)
-         << "], gravity_covariance=["
-         << prior.gravity_covariance.format(kVecFmt) << "])";
+         << ", gravity=[" << prior.gravity.format(kVecFmt) << "])";
   return stream;
 }
 

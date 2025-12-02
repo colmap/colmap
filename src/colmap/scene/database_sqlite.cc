@@ -407,8 +407,6 @@ PosePrior ReadPosePriorRow(sqlite3_stmt* sql_stmt) {
       sqlite3_column_int64(sql_stmt, 6));
   pose_prior.gravity =
       ReadStaticMatrixBlob<Eigen::Vector3d>(sql_stmt, SQLITE_ROW, 7);
-  pose_prior.gravity_covariance =
-      ReadStaticMatrixBlob<Eigen::Matrix3d>(sql_stmt, SQLITE_ROW, 8);
   return pose_prior;
 }
 
@@ -1181,8 +1179,6 @@ class SqliteDatabase : public Database {
         7,
         static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
     WriteStaticMatrixBlob(sql_stmt_write_pose_prior_, pose_prior.gravity, 8);
-    WriteStaticMatrixBlob(
-        sql_stmt_write_pose_prior_, pose_prior.gravity_covariance, 9);
     SQLITE3_CALL(sqlite3_step(sql_stmt_write_pose_prior_));
 
     return static_cast<image_t>(
@@ -1413,10 +1409,8 @@ class SqliteDatabase : public Database {
         6,
         static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
     WriteStaticMatrixBlob(sql_stmt_update_pose_prior_, pose_prior.gravity, 7);
-    WriteStaticMatrixBlob(
-        sql_stmt_update_pose_prior_, pose_prior.gravity_covariance, 8);
     SQLITE3_CALL(sqlite3_bind_int64(
-        sql_stmt_update_pose_prior_, 9, pose_prior.pose_prior_id));
+        sql_stmt_update_pose_prior_, 8, pose_prior.pose_prior_id));
 
     SQLITE3_CALL(sqlite3_step(sql_stmt_update_pose_prior_));
   }
@@ -1615,8 +1609,7 @@ class SqliteDatabase : public Database {
     prepare_sql_stmt(
         "UPDATE pose_priors SET corr_data_id=?, corr_sensor_id=?, "
         "corr_sensor_type=?, position=?, position_covariance=?, "
-        "coordinate_system=?, gravity=?, gravity_covariance=? WHERE "
-        "pose_prior_id=?;",
+        "coordinate_system=?, gravity=? WHERE pose_prior_id=?;",
         &sql_stmt_update_pose_prior_);
     prepare_sql_stmt(
         "UPDATE keypoints SET rows=?, cols=?, data=? WHERE image_id=?;",
@@ -1688,13 +1681,13 @@ class SqliteDatabase : public Database {
         &sql_stmt_read_images_);
     prepare_sql_stmt(
         "SELECT pose_prior_id, corr_data_id, corr_sensor_id, corr_sensor_type, "
-        "position, position_covariance, coordinate_system, gravity, "
-        "gravity_covariance FROM pose_priors WHERE pose_prior_id = ?;",
+        "position, position_covariance, coordinate_system, gravity FROM "
+        "pose_priors WHERE pose_prior_id = ?;",
         &sql_stmt_read_pose_prior_);
     prepare_sql_stmt(
         "SELECT pose_prior_id, corr_data_id, corr_sensor_id, corr_sensor_type, "
-        "position, position_covariance, coordinate_system, gravity, "
-        "gravity_covariance FROM pose_priors;",
+        "position, position_covariance, coordinate_system, gravity FROM "
+        "pose_priors;",
         &sql_stmt_read_pose_priors_);
     prepare_sql_stmt(
         "SELECT rows, cols, data FROM keypoints WHERE image_id = ?;",
@@ -1745,8 +1738,7 @@ class SqliteDatabase : public Database {
     prepare_sql_stmt(
         "INSERT INTO pose_priors(pose_prior_id, corr_data_id, corr_sensor_id, "
         "corr_sensor_type, position, position_covariance, coordinate_system, "
-        "gravity, gravity_covariance) "
-        "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?);",
+        "gravity) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?);",
         &sql_stmt_write_pose_prior_);
     prepare_sql_stmt(
         "INSERT INTO keypoints(image_id, rows, cols, data) VALUES(?, ?, ?, ?);",
@@ -1904,7 +1896,6 @@ class SqliteDatabase : public Database {
         "    position                   BLOB,"
         "    position_covariance        BLOB,"
         "    gravity                    BLOB,"
-        "    gravity_covariance         BLOB,"
         "    coordinate_system          INTEGER               NOT NULL);"
         "CREATE UNIQUE INDEX IF NOT EXISTS pose_prior_data_assignment ON "
         "   pose_priors(corr_data_id, corr_sensor_id, corr_sensor_type);";
@@ -2031,8 +2022,6 @@ class SqliteDatabase : public Database {
     maybe_add_pose_prior_column("position_covariance",
                                 PosePrior().position_covariance);
     maybe_add_pose_prior_column("gravity", PosePrior().gravity);
-    maybe_add_pose_prior_column("gravity_covariance",
-                                PosePrior().gravity_covariance);
 
     if (ExistsColumn("pose_priors", "image_id") &&
         !ExistsColumn("pose_priors", "pose_prior_id")) {

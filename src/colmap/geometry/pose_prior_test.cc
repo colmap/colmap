@@ -42,7 +42,6 @@ TEST(PosePrior, Equals) {
   prior.position_covariance = Eigen::Matrix3d::Identity();
   prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
   prior.gravity = Eigen::Vector3d::UnitZ();
-  prior.gravity_covariance = Eigen::Matrix3d::Identity();
   PosePrior other = prior;
   EXPECT_EQ(prior, other);
   prior.position.x() = 1;
@@ -77,15 +76,13 @@ TEST(PosePrior, Print) {
   prior.position_covariance = Eigen::Matrix3d::Identity();
   prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
   prior.gravity = Eigen::Vector3d::UnitZ();
-  prior.gravity_covariance = Eigen::Matrix3d::Identity();
   std::ostringstream stream;
   stream << prior;
   EXPECT_EQ(stream.str(),
             "PosePrior(pose_prior_id=0, corr_data_id=(CAMERA, 1, 2), "
             "position=[0, 0, 0], "
             "position_covariance=[1, 0, 0, 0, 1, 0, 0, 0, 1], "
-            "coordinate_system=CARTESIAN, gravity=[0, 0, 1], "
-            "gravity_covariance=[1, 0, 0, 0, 1, 0, 0, 0, 1])");
+            "coordinate_system=CARTESIAN, gravity=[0, 0, 1])");
 }
 
 }  // namespace
