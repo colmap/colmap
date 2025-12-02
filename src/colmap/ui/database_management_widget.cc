@@ -757,7 +757,8 @@ void PosePriorsTab::Reload(const std::shared_ptr<Database>& database) {
   database_ = database;
 
   QString info;
-  info += QString("Pose Priors: ") + QString::number(database_->NumPosePriors());
+  info +=
+      QString("Pose Priors: ") + QString::number(database_->NumPosePriors());
   info_label_->setText(info);
 
   // Make sure, itemChanged is not invoked, while setting up the table
