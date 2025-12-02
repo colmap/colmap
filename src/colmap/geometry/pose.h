@@ -51,6 +51,10 @@ bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& proj_matrix,
                                Eigen::Matrix3d* R,
                                Eigen::Vector3d* T);
 
+// Convert rotation matrix to/from angle axis.
+Eigen::Vector3d RotationMatrixToAngleAxis(const Eigen::Matrix3d& R);
+Eigen::Matrix3d AngleAxisToRotationMatrix(const Eigen::Vector3d& w);
+
 // Convert 3D rotation matrix to Euler angles.
 //
 // The convention `R = Rx * Ry * Rz` is used,

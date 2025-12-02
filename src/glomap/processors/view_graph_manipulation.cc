@@ -1,5 +1,6 @@
 #include "view_graph_manipulation.h"
 
+#include "colmap/geometry/essential_matrix.h"
 #include "colmap/math/union_find.h"
 #include "colmap/util/threading.h"
 
@@ -230,8 +231,10 @@ void ViewGraphManipulater::UpdateImagePairsConfig(
 
     if (camera_validity[camera_id1] && camera_validity[camera_id2]) {
       image_pair.config = colmap::TwoViewGeometry::CALIBRATED;
-      FundamentalFromMotionAndCameras(
-          camera1, camera2, image_pair.cam2_from_cam1, &image_pair.F);
+      image_pair.F = colmap::FundamentalFromEssentialMatrix(
+          camera2.CalibrationMatrix(),
+          colmap::EssentialMatrixFromPose(image_pair.cam2_from_cam1),
+          camera1.CalibrationMatrix());
     }
   }
 }

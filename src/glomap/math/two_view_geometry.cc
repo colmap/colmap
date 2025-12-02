@@ -40,23 +40,6 @@ double GetOrientationSignum(const Eigen::Matrix3d& F,
   return signum1 * signum2;
 }
 
-void EssentialFromMotion(const Rigid3d& pose, Eigen::Matrix3d* E) {
-  *E << 0.0, -pose.translation(2), pose.translation(1), pose.translation(2),
-      0.0, -pose.translation(0), -pose.translation(1), pose.translation(0), 0.0;
-  *E = (*E) * pose.rotation.toRotationMatrix();
-}
-
-// Get the essential matrix from relative pose
-void FundamentalFromMotionAndCameras(const colmap::Camera& camera1,
-                                     const colmap::Camera& camera2,
-                                     const Rigid3d& pose,
-                                     Eigen::Matrix3d* F) {
-  Eigen::Matrix3d E;
-  EssentialFromMotion(pose, &E);
-  *F = camera2.CalibrationMatrix().transpose().inverse() * E *
-       camera1.CalibrationMatrix().inverse();
-}
-
 double SampsonError(const Eigen::Matrix3d& E,
                     const Eigen::Vector2d& x1,
                     const Eigen::Vector2d& x2) {

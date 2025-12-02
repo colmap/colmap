@@ -4,7 +4,6 @@
 #include "colmap/optim/least_absolute_deviations.h"
 
 #include "glomap/estimators/rotation_initializer.h"
-#include "glomap/math/rigid3d.h"
 #include "glomap/math/tree.h"
 
 #include <iostream>
@@ -181,7 +180,7 @@ void RotationEstimator::SetupLinearSystem(
   }
 
   // First, we need to determine which cameras need to be estimated
-  std::unordered_map<camera_t, Eigen::Vector3d> cam_from_rig_rotations;
+  std::unordered_map<camera_t, Eigen::AngleAxisd> cam_from_rig_rotations;
   for (auto& [camera_id, rig_id] : camera_id_to_rig_id) {
     sensor_t sensor_id(SensorType::CAMERA, camera_id);
     if (rigs[rig_id].IsRefSensor(sensor_id)) continue;
@@ -195,7 +194,7 @@ void RotationEstimator::SetupLinearSystem(
           // If the camera is not part of a rig, then we can use the first image
           // to initialize the rotation
           cam_from_rig_rotations[camera_id] =
-              Rigid3dToAngleAxis(cam_from_rig.value());
+              Eigen::AngleAxisd(cam_from_rig->rotation);
         }
       }
     }
@@ -203,7 +202,7 @@ void RotationEstimator::SetupLinearSystem(
 
   for (auto& [frame_id, frame] : frames) {
     // Skip the unregistered frames
-    if (frames[frame_id].is_registered == false) continue;
+    if (!frames[frame_id].is_registered) continue;
     frame_id_to_idx_[frame_id] = num_dof;
     image_t image_id_ref = -1;
     for (auto& data_id : frame.ImageIds()) {
@@ -231,8 +230,9 @@ void RotationEstimator::SetupLinearSystem(
         // Initialize the frame's rig from world to identity
         frame.SetRigFromWorld(Rigid3d());
       }
+      const Eigen::AngleAxisd rig_from_world(frame.RigFromWorld().rotation);
       rotation_estimated_.segment(num_dof, 3) =
-          Rigid3dToAngleAxis(frame.RigFromWorld());
+          rig_from_world.angle() * rig_from_world.axis();
       num_dof += 3;
     }
   }
@@ -243,10 +243,10 @@ void RotationEstimator::SetupLinearSystem(
     // If the camera is not part of a rig, then we can use the first image
     // to initialize the rotation
     camera_id_to_idx_[camera_id] = num_dof;
-    if (cam_from_rig_rotations.find(camera_id) !=
-        cam_from_rig_rotations.end()) {
+    if (const auto it = cam_from_rig_rotations.find(camera_id);
+        it != cam_from_rig_rotations.end()) {
       rotation_estimated_.segment(num_dof, 3) =
-          cam_from_rig_rotations[camera_id];
+          it->second.angle() * it->second.axis();
     } else {
       // If the camera is part of a rig, then we can use the rig rotation
       // to initialize the rotation
@@ -258,11 +258,11 @@ void RotationEstimator::SetupLinearSystem(
   // If no cameras are set to be fixed, then take the first camera
   if (fixed_camera_id_ == -1) {
     for (auto& [frame_id, frame] : frames) {
-      if (frames[frame_id].is_registered == false) continue;
+      if (!frames[frame_id].is_registered) continue;
 
       fixed_camera_id_ = frame.DataIds().begin()->id;
-      fixed_camera_rotation_ = Rigid3dToAngleAxis(frame.RigFromWorld());
-
+      const Eigen::AngleAxisd rig_from_world(frame.RigFromWorld().rotation);
+      fixed_camera_rotation_ = rig_from_world.angle() * rig_from_world.axis();
       break;
     }
   }
@@ -338,7 +338,8 @@ void RotationEstimator::SetupLinearSystem(
 
     if (options_.use_gravity && has_gravity1 && has_gravity2) {
       counter++;
-      Eigen::Vector3d aa = RotationToAngleAxis(rel_temp_info_[pair_id].R_rel);
+      Eigen::Vector3d aa =
+          colmap::RotationMatrixToAngleAxis(rel_temp_info_[pair_id].R_rel);
       double error = aa[0] * aa[0] + aa[2] * aa[2];
 
       // Keep track of the error for x and z axis for gravity-aligned relative
@@ -373,8 +374,7 @@ void RotationEstimator::SetupLinearSystem(
     frame_t frame_id1 = images[image_id1].frame_id;
     frame_t frame_id2 = images[image_id2].frame_id;
 
-    if (frames[frame_id1].is_registered == false ||
-        frames[frame_id2].is_registered == false) {
+    if (!frames[frame_id1].is_registered || !frames[frame_id2].is_registered) {
       continue;  // skip unregistered frames
     }
 
@@ -560,7 +560,7 @@ bool RotationEstimator::SolveIRLS(const ViewGraph& view_graph,
 
   llt.analyzePattern(sparse_matrix_.transpose() * sparse_matrix_);
 
-  const double sigma = DegToRad(options_.irls_loss_parameter_sigma);
+  const double sigma = colmap::DegToRad(options_.irls_loss_parameter_sigma);
   VLOG(2) << "sigma: " << options_.irls_loss_parameter_sigma;
 
   Eigen::ArrayXd weights_irls(sparse_matrix_.rows());
@@ -641,15 +641,15 @@ void RotationEstimator::UpdateGlobalRotations(
     std::unordered_map<frame_t, Frame>& frames,
     std::unordered_map<image_t, Image>& images) {
   for (auto& [frame_id, frame] : frames) {
-    if (frames[frame_id].is_registered == false) continue;
+    if (!frames[frame_id].is_registered) continue;
     image_t vector_idx = frame_id_to_idx_[frame_id];
     if (!(options_.use_gravity && frame.HasGravity())) {
-      Eigen::Matrix3d R_ori =
-          AngleAxisToRotation(rotation_estimated_.segment(vector_idx, 3));
-
-      rotation_estimated_.segment(vector_idx, 3) = RotationToAngleAxis(
-          R_ori *
-          AngleAxisToRotation(-tangent_space_step_.segment(vector_idx, 3)));
+      const Eigen::Matrix3d R_ori = colmap::AngleAxisToRotationMatrix(
+          rotation_estimated_.segment(vector_idx, 3));
+      rotation_estimated_.segment(vector_idx, 3) =
+          colmap::RotationMatrixToAngleAxis(
+              R_ori * colmap::AngleAxisToRotationMatrix(
+                          -tangent_space_step_.segment(vector_idx, 3)));
     } else {
       rotation_estimated_[vector_idx] -= tangent_space_step_[vector_idx];
     }
@@ -660,11 +660,11 @@ void RotationEstimator::UpdateGlobalRotations(
     cam_from_rigs[camera_id] = std::vector<Eigen::Matrix3d>();
   }
   for (auto& [frame_id, frame] : frames) {
-    if (frames.at(frame_id).is_registered == false) continue;
+    if (!frames.at(frame_id).is_registered) continue;
     // Update the rig from world for the frame
     Eigen::Matrix3d R_ori;
     if (!options_.use_gravity || !frame.HasGravity()) {
-      R_ori = AngleAxisToRotation(
+      R_ori = colmap::AngleAxisToRotationMatrix(
           rotation_estimated_.segment(frame_id_to_idx_[frame_id], 3));
     } else {
       R_ori = AngleToRotUp(rotation_estimated_[frame_id_to_idx_[frame_id]]);
@@ -672,9 +672,8 @@ void RotationEstimator::UpdateGlobalRotations(
 
     // Update the cam_from_rig for the cameras in the frame
     for (const auto& data_id : frame.ImageIds()) {
-      image_t image_id = data_id.id;
-      if (images.find(image_id) == images.end()) continue;
-      const auto& image = images.at(image_id);
+      if (images.find(data_id.id) == images.end()) continue;
+      const auto& image = images.at(data_id.id);
       if (camera_id_to_idx_.find(image.camera_id) != camera_id_to_idx_.end()) {
         cam_from_rigs[image.camera_id].push_back(R_ori);
       }
@@ -685,23 +684,21 @@ void RotationEstimator::UpdateGlobalRotations(
   // Note: the update is non trivial, and we need to average the rotations from
   // all the frames
   for (auto& [camera_id, camera_idx] : camera_id_to_idx_) {
-    Eigen::Matrix3d R_ori =
-        AngleAxisToRotation(rotation_estimated_.segment(camera_idx, 3));
-
+    const Eigen::Matrix3d R_ori = colmap::AngleAxisToRotationMatrix(
+        rotation_estimated_.segment(camera_idx, 3));
     std::vector<Eigen::Quaterniond> rig_rotations;
-    Eigen::Matrix3d R_update =
-        AngleAxisToRotation(-tangent_space_step_.segment(camera_idx, 3));
+    const Eigen::Matrix3d R_update = colmap::AngleAxisToRotationMatrix(
+        -tangent_space_step_.segment(camera_idx, 3));
     for (const auto& R : cam_from_rigs[camera_id]) {
       // Update the rotation for the camera
       rig_rotations.push_back(
           Eigen::Quaterniond(R_ori * R * R_update * R.transpose()));
     }
     // Average the rotations for the rig
-    Eigen::Quaterniond R_ave = colmap::AverageQuaternions(
+    const Eigen::Quaterniond R_ave = colmap::AverageQuaternions(
         rig_rotations, std::vector<double>(rig_rotations.size(), 1));
-
     rotation_estimated_.segment(camera_idx, 3) =
-        RotationToAngleAxis(R_ave.toRotationMatrix());
+        colmap::RotationMatrixToAngleAxis(R_ave.toRotationMatrix());
   }
 }
 
@@ -727,43 +724,48 @@ void RotationEstimator::ComputeResiduals(
       if (options_.use_gravity && images[image_id1].HasGravity()) {
         R_1 = AngleToRotUp(rotation_estimated_[image_id_to_idx_[image_id1]]);
       } else {
-        R_1 = AngleAxisToRotation(
+        R_1 = colmap::AngleAxisToRotationMatrix(
             rotation_estimated_.segment(image_id_to_idx_[image_id1], 3));
       }
 
       if (options_.use_gravity && images[image_id2].HasGravity()) {
         R_2 = AngleToRotUp(rotation_estimated_[image_id_to_idx_[image_id2]]);
       } else {
-        R_2 = AngleAxisToRotation(
+        R_2 = colmap::AngleAxisToRotationMatrix(
             rotation_estimated_.segment(image_id_to_idx_[image_id2], 3));
       }
 
       if (idx_cam1 != -1) {
         // If the camera is not part of a rig, then we can use the first image
         // to initialize the rotation
-        R_1 =
-            AngleAxisToRotation(rotation_estimated_.segment(idx_cam1, 3)) * R_1;
+        R_1 = colmap::AngleAxisToRotationMatrix(
+                  rotation_estimated_.segment(idx_cam1, 3)) *
+              R_1;
       }
       if (idx_cam2 != -1) {
-        R_2 =
-            AngleAxisToRotation(rotation_estimated_.segment(idx_cam2, 3)) * R_2;
+        R_2 = colmap::AngleAxisToRotationMatrix(
+                  rotation_estimated_.segment(idx_cam2, 3)) *
+              R_2;
       }
 
       tangent_space_residual_.segment(pair_info.index, 3) =
-          -RotationToAngleAxis(R_2.transpose() * pair_info.R_rel * R_1);
+          -colmap::RotationMatrixToAngleAxis(R_2.transpose() * pair_info.R_rel *
+                                             R_1);
     }
   }
 
-  if (options_.use_gravity && images[fixed_camera_id_].HasGravity())
+  if (options_.use_gravity && images[fixed_camera_id_].HasGravity()) {
     tangent_space_residual_[tangent_space_residual_.size() - 1] =
         rotation_estimated_[image_id_to_idx_[fixed_camera_id_]] -
         fixed_camera_rotation_[1];
-  else
+  } else {
     tangent_space_residual_.segment(tangent_space_residual_.size() - 3, 3) =
-        RotationToAngleAxis(
-            AngleAxisToRotation(fixed_camera_rotation_).transpose() *
-            AngleAxisToRotation(rotation_estimated_.segment(
+        colmap::RotationMatrixToAngleAxis(
+            colmap::AngleAxisToRotationMatrix(fixed_camera_rotation_)
+                .transpose() *
+            colmap::AngleAxisToRotationMatrix(rotation_estimated_.segment(
                 image_id_to_idx_[fixed_camera_id_], 3)));
+  }
 }
 
 double RotationEstimator::ComputeAverageStepSize(
@@ -787,7 +789,7 @@ void RotationEstimator::ConvertResults(
     std::unordered_map<frame_t, Frame>& frames,
     std::unordered_map<image_t, Image>& images) {
   for (auto& [frame_id, frame] : frames) {
-    if (frames[frame_id].is_registered == false) continue;
+    if (!frames[frame_id].is_registered) continue;
 
     image_t image_id_begin = frame.DataIds().begin()->id;
 
@@ -804,8 +806,9 @@ void RotationEstimator::ConvertResults(
           Eigen::Vector3d::Zero()));
     } else {
       frame.SetRigFromWorld(Rigid3d(
-          Eigen::Quaterniond(AngleAxisToRotation(rotation_estimated_.segment(
-              image_id_to_idx_[image_id_begin], 3))),
+          Eigen::Quaterniond(
+              colmap::AngleAxisToRotationMatrix(rotation_estimated_.segment(
+                  image_id_to_idx_[image_id_begin], 3))),
           Eigen::Vector3d::Zero()));
     }
   }
@@ -817,7 +820,7 @@ void RotationEstimator::ConvertResults(
         continue;  // Skip cameras that are not estimated
       }
       Rigid3d cam_from_rig;
-      cam_from_rig.rotation = AngleAxisToRotation(
+      cam_from_rig.rotation = colmap::AngleAxisToRotationMatrix(
           rotation_estimated_.segment(camera_id_to_idx_[sensor_id.id], 3));
       cam_from_rig.translation.setConstant(
           std::numeric_limits<double>::quiet_NaN());  // No translation yet

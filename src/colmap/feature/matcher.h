@@ -76,9 +76,16 @@ struct FeatureMatchingOptions {
   // Whether to perform guided matching.
   bool guided_matching = false;
 
+  // Skips the geometric verification stage and forwards matches unchanged.
+  // This option is ignored when guided matching is enabled, because guided
+  // matching depends on the two-view geometry produced by geometric
+  // verification.
+  bool skip_geometric_verification = false;
+
   // Whether to perform geometric verification using rig constraints
   // between pairs of non-trivial frames. If disabled, performs geometric
   // two-view verification for non-trivial frames without rig constraints.
+  // This option is ignored when skip_geometric_verification is true.
   bool rig_verification = false;
 
   // Whether to skip matching images within the same frame.

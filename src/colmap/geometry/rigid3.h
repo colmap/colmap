@@ -88,6 +88,11 @@ struct Rigid3d {
     adjoint_inv.block<3, 3>(3, 3) = adjoint_inv.block<3, 3>(0, 0);
     return adjoint_inv;
   }
+
+  // Return the origin position of the target in the source frame.
+  inline Eigen::Vector3d TgtOriginInSrc() const {
+    return rotation.inverse() * -translation;
+  }
 };
 
 // Return inverse transform.

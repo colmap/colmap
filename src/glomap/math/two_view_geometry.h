@@ -21,15 +21,6 @@ double GetOrientationSignum(const Eigen::Matrix3d& F,
                             const Eigen::Vector2d& pt1,
                             const Eigen::Vector2d& pt2);
 
-// Get the essential matrix from relative pose
-void EssentialFromMotion(const Rigid3d& pose, Eigen::Matrix3d* E);
-
-// Get the essential matrix from relative pose
-void FundamentalFromMotionAndCameras(const colmap::Camera& camera1,
-                                     const colmap::Camera& camera2,
-                                     const Rigid3d& pose,
-                                     Eigen::Matrix3d* F);
-
 // Sampson error for the essential matrix
 // Input the normalized image coordinates (2d)
 double SampsonError(const Eigen::Matrix3d& E,

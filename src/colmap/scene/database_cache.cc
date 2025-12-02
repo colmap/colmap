@@ -110,15 +110,10 @@ void DatabaseCache::Load(const Database& database,
   timer.Restart();
   LOG(INFO) << "Loading frames...";
 
-  std::unordered_map<image_t, frame_t> image_to_frame_id;
-
   {
     std::vector<class Frame> frames = database.ReadAllFrames();
     frames_.reserve(frames.size());
     for (auto& frame : frames) {
-      for (const auto& data_id : frame.ImageIds()) {
-        image_to_frame_id.emplace(data_id.id, frame.FrameId());
-      }
       frames_.emplace(frame.FrameId(), std::move(frame));
     }
   }
@@ -155,23 +150,18 @@ void DatabaseCache::Load(const Database& database,
   LOG(INFO) << "Loading images...";
 
   std::unordered_set<frame_t> frame_ids;
+  std::unordered_map<image_t, frame_t> image_to_frame_id;
 
   {
     std::vector<class Image> images = database.ReadAllImages();
     const size_t num_images = images.size();
 
-    if (has_frames) {
-      for (auto& image : images) {
-        image.SetFrameId(image_to_frame_id.at(image.ImageId()));
-      }
-    } else {
-      for (auto& image : images) {
-        image_to_frame_id.emplace(image.ImageId(), image.ImageId());
-        if (!image_names.empty() && image_names.count(image.Name()) == 0) {
-          continue;
-        }
-        // For backwards compatibility with old databases from before having
-        // support for rigs/frames, we create a frame for each image.
+    for (auto& image : images) {
+      // For backwards compatibility with old databases from before having
+      // support for rigs/frames, we create a frame for each image.
+      if (has_frames) {
+        THROW_CHECK(image.HasFrameId());
+      } else {
         class Frame frame;
         frame.SetFrameId(image.ImageId());
         frame.SetRigId(image.CameraId());
@@ -179,6 +169,8 @@ void DatabaseCache::Load(const Database& database,
         image.SetFrameId(frame.FrameId());
         frames_.emplace(frame.FrameId(), std::move(frame));
       }
+
+      image_to_frame_id.emplace(image.ImageId(), image.FrameId());
     }
 
     // Determines for which images data should be loaded.
