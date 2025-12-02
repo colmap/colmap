@@ -81,7 +81,6 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DTESTS_ENABLED=ON \
             -DWERROR_ENABLED=ON \
-            -DGLOMAP_ENABLED=ON \
             -DQt6_DIR="$(brew --prefix qt)/lib/cmake/Qt6"
           ninja
 

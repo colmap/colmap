@@ -3,7 +3,6 @@
 #include "glomap/controllers/global_mapper.h"
 #include "glomap/estimators/gravity_refinement.h"
 
-#include <boost/filesystem/operations.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 
 namespace config = boost::program_options;
