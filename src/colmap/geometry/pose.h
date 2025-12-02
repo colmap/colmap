@@ -90,6 +90,20 @@ Eigen::Quaterniond AverageQuaternions(
     const std::vector<Eigen::Quaterniond>& quats,
     const std::vector<double>& weights);
 
+// Compute a quaternion from lie algebra
+//
+// @param omega         The angles in so(3)
+//
+// @return              The quaternion corresponds to omega in so(3)
+Eigen::Quaterniond QuaternionFromAngleAxis(const Eigen::Vector3d& omega);
+
+// Compute the right Jacobian J_r from lie algebra
+//
+// @param omega         The angles in so(3)
+//
+// @return              The right jacobian of the angle J_r(omega)
+Eigen::Matrix3d RightJacobianFromAngleAxis(const Eigen::Vector3d& omega);
+
 // Linearly interpolate camera pose.
 Rigid3d InterpolateCameraPoses(const Rigid3d& cam1_from_world,
                                const Rigid3d& cam2_from_world,

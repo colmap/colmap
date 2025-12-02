@@ -344,6 +344,17 @@ inline void EigenQuaternionToAngleAxis(const T* eigen_quaternion,
   ceres::QuaternionToAngleAxis(quaternion, angle_axis);
 }
 
+template <typename T>
+inline void EigenAngleAxisToQuaternion(const T* angle_axis,
+                                       T* eigen_quaternion) {
+  T quaternion[4];
+  ceres::AngleAxisToQuaternion(angle_axis, quaternion);
+  eigen_quaternion[0] = quaternion[1];
+  eigen_quaternion[1] = quaternion[2];
+  eigen_quaternion[2] = quaternion[3];
+  eigen_quaternion[3] = quaternion[0];
+}
+
 // 6-DoF error on the absolute camera pose. The residual is the log of the error
 // pose, splitting SE(3) into SO(3) x R^3. The residual is computed in the
 // camera frame. Its first and last three components correspond to the rotation

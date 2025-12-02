@@ -46,6 +46,7 @@ COLMAP_ADD_LIBRARY(
         generalized_absolute_pose.h generalized_absolute_pose.cc
         generalized_relative_pose.h generalized_relative_pose.cc
         homography_matrix.h homography_matrix.cc
+        imu_preintegration.h imu_preintegration.cc
         pose.h pose.cc
         generalized_pose.h generalized_pose.cc
         similarity_transform.h similarity_transform.cc
