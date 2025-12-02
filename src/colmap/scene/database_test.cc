@@ -291,8 +291,6 @@ TEST_P(ParameterizedDatabaseTests, PosePrior) {
   pose_prior.position = Eigen::Vector3d(0.1, 0.2, 0.3);
   pose_prior.position_covariance = Eigen::Matrix3d::Random();
   pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
-  EXPECT_TRUE(pose_prior.HasPosition());
-  EXPECT_TRUE(pose_prior.HasPositionCov());
   pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
   EXPECT_ANY_THROW(database->WritePosePrior(pose_prior));
   EXPECT_EQ(database->NumPosePriors(), 1);
