@@ -459,7 +459,7 @@ void WriteFrameData(const frame_t frame_id,
   }
 }
 
-// TODO(jsch): Change is_deprecated_image_prior default to true after next
+// TODO(jsch): Change is_deprecated_image_prior default to false after next
 // version release (3.14 or 4.0) and remove the parameter in (3.15 or 4.1).
 void MaybeThrowDeprecatedPosePriorError(bool is_deprecated_image_prior) {
   if (is_deprecated_image_prior) {
@@ -2022,6 +2022,33 @@ class SqliteDatabase : public Database {
     maybe_add_pose_prior_column("position_covariance",
                                 PosePrior().position_covariance);
     maybe_add_pose_prior_column("gravity", PosePrior().gravity);
+
+    if (ExistsColumn("pose_priors", "image_id") &&
+        !ExistsColumn("pose_priors", "pose_prior_id")) {
+      SQLITE3_EXEC(
+          database_,
+          "ALTER TABLE pose_priors RENAME COLUMN image_id TO pose_prior_id;"
+          "ALTER TABLE pose_priors ADD COLUMN corr_data_id INTEGER NOT NULL;"
+          "ALTER TABLE pose_priors ADD COLUMN corr_sensor_id INTEGER NOT NULL;"
+          "ALTER TABLE pose_priors ADD COLUMN corr_sensor_type INTEGER NOT "
+          "NULL;",
+          nullptr);
+
+      // Migrate existing data to frame_data table.
+      for (Frame& frame : ReadAllFrames()) {
+        for (const auto& data_id : frame.ImageIds()) {
+          // Note that in the old schema pose_prior_id == image_id.
+          if (ExistsPosePrior(data_id.id,
+                              /*is_deprecated_image_prior=*/false)) {
+            PosePrior pose_prior =
+                ReadPosePrior(data_id.id, /*is_deprecated_image_prior=*/false);
+            pose_prior.corr_data_id = data_id;
+            UpdatePosePrior(pose_prior);
+          }
+        }
+        UpdateFrame(frame);
+      }
+    }
 
     if (ExistsColumn("pose_priors", "image_id") &&
         !ExistsColumn("pose_priors", "pose_prior_id")) {

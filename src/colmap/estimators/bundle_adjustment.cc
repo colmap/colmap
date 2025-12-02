@@ -1217,30 +1217,8 @@ void PrintSolverSummary(const ceres::Solver::Summary& summary,
 
   log << std::right << std::setw(16) << "Termination : ";
 
-  std::string termination = "";
-
-  switch (summary.termination_type) {
-    case ceres::CONVERGENCE:
-      termination = "Convergence";
-      break;
-    case ceres::NO_CONVERGENCE:
-      termination = "No convergence";
-      break;
-    case ceres::FAILURE:
-      termination = "Failure";
-      break;
-    case ceres::USER_SUCCESS:
-      termination = "User success";
-      break;
-    case ceres::USER_FAILURE:
-      termination = "User failure";
-      break;
-    default:
-      termination = "Unknown";
-      break;
-  }
-
-  log << std::right << termination << "\n\n";
+  log << std::right << ceres::TerminationTypeToString(summary.termination_type)
+      << "\n\n";
   LOG(INFO) << log.str();
 }
 
