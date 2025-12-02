@@ -52,9 +52,12 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
   }
 
   bool ExistsPosePrior(pose_prior_t pose_prior_id,
-                       bool is_legacy_image_prior = true) const override {
-    PYBIND11_OVERRIDE_PURE(
-        bool, Database, ExistsPosePrior, pose_prior_id, is_legacy_image_prior);
+                       bool is_deprecated_image_prior = true) const override {
+    PYBIND11_OVERRIDE_PURE(bool,
+                           Database,
+                           ExistsPosePrior,
+                           pose_prior_id,
+                           is_deprecated_image_prior);
   }
 
   bool ExistsKeypoints(image_t image_id) const override {
@@ -178,13 +181,14 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
     PYBIND11_OVERRIDE_PURE(std::vector<Image>, Database, ReadAllImages);
   }
 
-  PosePrior ReadPosePrior(pose_prior_t pose_prior_id,
-                          bool is_legacy_image_prior = true) const override {
+  PosePrior ReadPosePrior(
+      pose_prior_t pose_prior_id,
+      bool is_deprecated_image_prior = true) const override {
     PYBIND11_OVERRIDE_PURE(PosePrior,
                            Database,
                            ReadPosePrior,
                            pose_prior_id,
-                           is_legacy_image_prior);
+                           is_deprecated_image_prior);
   }
 
   std::vector<PosePrior> ReadAllPosePriors() const override {
@@ -438,7 +442,7 @@ void BindDatabase(py::module& m) {
       .def("exists_pose_prior",
            &Database::ExistsPosePrior,
            "pose_prior_id"_a,
-           "is_legacy_image_prior"_a = true)
+           "is_deprecated_image_prior"_a = true)
       .def("exists_keypoints", &Database::ExistsKeypoints, "image_id"_a)
       .def("exists_descriptors", &Database::ExistsDescriptors, "image_id"_a)
       .def("exists_matches",
@@ -479,7 +483,7 @@ void BindDatabase(py::module& m) {
       .def("read_pose_prior",
            &Database::ReadPosePrior,
            "pose_prior_id"_a,
-           "is_legacy_image_prior"_a = true)
+           "is_deprecated_image_prior"_a = true)
       .def("read_all_pose_priors", &Database::ReadAllPosePriors)
       .def("read_keypoints", &Database::ReadKeypointsBlob, "image_id"_a)
       .def("read_descriptors", &Database::ReadDescriptors, "image_id"_a)
