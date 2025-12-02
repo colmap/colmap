@@ -31,13 +31,17 @@
 
 #include <unordered_map>
 
+#if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Werror=maybe-uninitialized"
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 
 #include <boost/graph/stoer_wagner_min_cut.hpp>
 #include <boost/property_map/property_map.hpp>
 
+#if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
+#endif
 
 #ifdef _MSC_VER
 #pragma warning(push)
