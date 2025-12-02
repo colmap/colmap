@@ -42,10 +42,10 @@ COLMAP_ADD_LIBRARY(
     PUBLIC_LINK_LIBS
         Ceres::ceres
         Eigen3::Eigen
+        OpenImageIO::OpenImageIO
     PRIVATE_LINK_LIBS
         colmap_geometry
         colmap_util
-        OpenImageIO::OpenImageIO
 )
 
 COLMAP_ADD_TEST(
