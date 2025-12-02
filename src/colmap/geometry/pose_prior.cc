@@ -66,32 +66,6 @@ bool PosePrior::operator!=(const PosePrior& other) const {
   return !(*this == other);
 }
 
-bool PosePrior::operator==(const PosePrior& other) const {
-  // Handle NaNs explicitly and consider them equal, whereas the default C++
-  // comparison operator returns false for a NaN == NaN comparison.
-  for (int i = 0; i < 3; ++i) {
-    if ((std::isnan(position(i)) != std::isnan(other.position(i)) ||
-         (!std::isnan(position(i)) && position(i) != other.position(i)))) {
-      return false;
-    }
-    for (int j = 0; j < 3; ++j) {
-      if ((std::isnan(position_covariance(i, j)) !=
-               std::isnan(other.position_covariance(i, j)) ||
-           (!std::isnan(position_covariance(i, j)) &&
-            position_covariance(i, j) != other.position_covariance(i, j)))) {
-        return false;
-      }
-    }
-  }
-  return pose_prior_id == other.pose_prior_id &&
-         corr_data_id == other.corr_data_id &&
-         coordinate_system == other.coordinate_system;
-}
-
-bool PosePrior::operator!=(const PosePrior& other) const {
-  return !(*this == other);
-}
-
 std::ostream& operator<<(std::ostream& stream, const PosePrior& prior) {
   const static Eigen::IOFormat kVecFmt(
       Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ");
