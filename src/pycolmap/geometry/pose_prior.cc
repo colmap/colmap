@@ -24,19 +24,8 @@ void BindPosePrior(py::module& m) {
 
   py::classh_ext<PosePrior> PyPosePrior(m, "PosePrior");
   PyPosePrior.def(py::init<>())
-      .def(py::init<const Eigen::Vector3d&>(), "position"_a)
-      .def(py::init<const Eigen::Vector3d&, const PosePriorCoordinateSystem>(),
-           "position"_a,
-           "coordinate_system"_a)
-      .def(py::init<const Eigen::Vector3d&, const Eigen::Matrix3d&>(),
-           "position"_a,
-           "position_covariance"_a)
-      .def(py::init<const Eigen::Vector3d&,
-                    const Eigen::Matrix3d&,
-                    const PosePriorCoordinateSystem>(),
-           "position"_a,
-           "position_covariance"_a,
-           "coordinate_system"_a)
+      .def_readwrite("pose_prior_id", &PosePrior::pose_prior_id)
+      .def_readwrite("corr_data_id", &PosePrior::corr_data_id)
       .def_readwrite("position", &PosePrior::position)
       .def_readwrite("position_covariance", &PosePrior::position_covariance)
       .def_readwrite("coordinate_system", &PosePrior::coordinate_system)

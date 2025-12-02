@@ -563,7 +563,7 @@ TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
   synthetic_dataset_options.num_points3D = 100;
 
   synthetic_dataset_options.use_prior_position = true;
-  synthetic_dataset_options.use_geographic_coords_prior = true;
+  synthetic_dataset_options.use_wgs84_prior = true;
   synthetic_dataset_options.prior_position_stddev = 1.5;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());

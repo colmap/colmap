@@ -212,14 +212,18 @@ TEST(SynthesizeDataset, WithPriors) {
   options.prior_position_stddev = 0.;
   SynthesizeDataset(options, &reconstruction, database.get());
 
-  for (const auto& image : reconstruction.Images()) {
-    if (database->ExistsPosePrior(image.first)) {
-      EXPECT_NEAR((image.second.ProjectionCenter() -
-                   database->ReadPosePrior(image.first).position)
-                      .norm(),
-                  0.,
-                  1e-9);
-    }
+  const std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  std::unordered_map<image_t, const PosePrior*> image_to_prior;
+  for (const auto& pose_prior : pose_priors) {
+    EXPECT_EQ(pose_prior.corr_data_id.sensor_id.type, SensorType::CAMERA);
+    image_to_prior[pose_prior.corr_data_id.id] = &pose_prior;
+  }
+
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    EXPECT_TRUE(image_to_prior.count(image_id));
+    const PosePrior& pose_prior = *image_to_prior.at(image_id);
+    EXPECT_THAT(image.ProjectionCenter(),
+                EigenMatrixNear(pose_prior.position, 1e-9));
   }
 }
 

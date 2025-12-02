@@ -51,8 +51,13 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
     PYBIND11_OVERRIDE_PURE(bool, Database, ExistsImageWithName, name);
   }
 
-  bool ExistsPosePrior(image_t image_id) const override {
-    PYBIND11_OVERRIDE_PURE(bool, Database, ExistsPosePrior, image_id);
+  bool ExistsPosePrior(pose_prior_t pose_prior_id,
+                       bool is_deprecated_image_prior = true) const override {
+    PYBIND11_OVERRIDE_PURE(bool,
+                           Database,
+                           ExistsPosePrior,
+                           pose_prior_id,
+                           is_deprecated_image_prior);
   }
 
   bool ExistsKeypoints(image_t image_id) const override {
@@ -176,8 +181,18 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
     PYBIND11_OVERRIDE_PURE(std::vector<Image>, Database, ReadAllImages);
   }
 
-  PosePrior ReadPosePrior(image_t image_id) const override {
-    PYBIND11_OVERRIDE_PURE(PosePrior, Database, ReadPosePrior, image_id);
+  PosePrior ReadPosePrior(
+      pose_prior_t pose_prior_id,
+      bool is_deprecated_image_prior = true) const override {
+    PYBIND11_OVERRIDE_PURE(PosePrior,
+                           Database,
+                           ReadPosePrior,
+                           pose_prior_id,
+                           is_deprecated_image_prior);
+  }
+
+  std::vector<PosePrior> ReadAllPosePriors() const override {
+    PYBIND11_OVERRIDE_PURE(std::vector<PosePrior>, Database, ReadAllPosePriors);
   }
 
   FeatureKeypointsBlob ReadKeypointsBlob(image_t image_id) const override {
@@ -257,9 +272,10 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
     PYBIND11_OVERRIDE_PURE(image_t, Database, WriteImage, image, use_image_id);
   }
 
-  void WritePosePrior(image_t image_id, const PosePrior& pose_prior) override {
+  pose_prior_t WritePosePrior(const PosePrior& pose_prior,
+                              bool use_pose_prior_id = false) override {
     PYBIND11_OVERRIDE_PURE(
-        void, Database, WritePosePrior, image_id, pose_prior);
+        pose_prior_t, Database, WritePosePrior, pose_prior, use_pose_prior_id);
   }
 
   void WriteKeypoints(image_t image_id,
@@ -319,9 +335,8 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
     PYBIND11_OVERRIDE_PURE(void, Database, UpdateImage, image);
   }
 
-  void UpdatePosePrior(image_t image_id, const PosePrior& pose_prior) override {
-    PYBIND11_OVERRIDE_PURE(
-        void, Database, UpdatePosePrior, image_id, pose_prior);
+  void UpdatePosePrior(const PosePrior& pose_prior) override {
+    PYBIND11_OVERRIDE_PURE(void, Database, UpdatePosePrior, pose_prior);
   }
 
   void UpdateKeypoints(image_t image_id,
@@ -424,7 +439,10 @@ void BindDatabase(py::module& m) {
       .def("exists_frame", &Database::ExistsFrame, "frame_id"_a)
       .def("exists_image", &Database::ExistsImage, "image_id"_a)
       .def("exists_image", &Database::ExistsImageWithName, "name"_a)
-      .def("exists_pose_prior", &Database::ExistsPosePrior, "image_id"_a)
+      .def("exists_pose_prior",
+           &Database::ExistsPosePrior,
+           "pose_prior_id"_a,
+           "is_deprecated_image_prior"_a = true)
       .def("exists_keypoints", &Database::ExistsKeypoints, "image_id"_a)
       .def("exists_descriptors", &Database::ExistsDescriptors, "image_id"_a)
       .def("exists_matches",
@@ -462,7 +480,11 @@ void BindDatabase(py::module& m) {
       .def("read_image", &Database::ReadImage, "image_id"_a)
       .def("read_image_with_name", &Database::ReadImageWithName, "name"_a)
       .def("read_all_images", &Database::ReadAllImages)
-      .def("read_pose_prior", &Database::ReadPosePrior, "image_id"_a)
+      .def("read_pose_prior",
+           &Database::ReadPosePrior,
+           "pose_prior_id"_a,
+           "is_deprecated_image_prior"_a = true)
+      .def("read_all_pose_priors", &Database::ReadAllPosePriors)
       .def("read_keypoints", &Database::ReadKeypointsBlob, "image_id"_a)
       .def("read_descriptors", &Database::ReadDescriptors, "image_id"_a)
       .def("read_matches",
@@ -553,8 +575,8 @@ void BindDatabase(py::module& m) {
            "use_image_id"_a = false)
       .def("write_pose_prior",
            &Database::WritePosePrior,
-           "image_id"_a,
-           "pose_prior"_a)
+           "pose_prior"_a,
+           "use_pose_prior_id"_a = false)
       .def("write_keypoints",
            py::overload_cast<image_t, const FeatureKeypointsBlob&>(
                &Database::WriteKeypoints),
@@ -579,10 +601,7 @@ void BindDatabase(py::module& m) {
       .def("update_camera", &Database::UpdateCamera, "camera"_a)
       .def("update_frame", &Database::UpdateFrame, "frame"_a)
       .def("update_image", &Database::UpdateImage, "image"_a)
-      .def("update_pose_prior",
-           &Database::UpdatePosePrior,
-           "image_id"_a,
-           "pose_prior"_a)
+      .def("update_pose_prior", &Database::UpdatePosePrior, "pose_prior"_a)
       .def("update_keypoints",
            py::overload_cast<image_t, const FeatureKeypointsBlob&>(
                &Database::UpdateKeypoints),
