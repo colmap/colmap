@@ -48,6 +48,8 @@ struct PosePrior {
                   CARTESIAN   // = 1
   );
 
+  constexpr static double kNaN = std::numeric_limits<double>::quiet_NaN();
+
   // The unique identifier of the pose prior.
   pose_prior_t pose_prior_id = kInvalidPosePriorId;
 
@@ -56,16 +58,12 @@ struct PosePrior {
   data_t corr_data_id = kInvalidDataId;
 
   // The position of the associated sensor in the world coordinate system.
-  Eigen::Vector3d position =
-      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
-  Eigen::Matrix3d position_covariance =
-      Eigen::Matrix3d::Constant(std::numeric_limits<double>::quiet_NaN());
+  Eigen::Vector3d position = Eigen::Vector3d::Constant(kNaN);
+  Eigen::Matrix3d position_covariance = Eigen::Matrix3d::Constant(kNaN);
   CoordinateSystem coordinate_system = CoordinateSystem::UNDEFINED;
 
-  inline bool IsValid() const { return position.allFinite(); }
-  inline bool IsCovarianceValid() const {
-    return position_covariance.allFinite();
-  }
+  inline bool HasPosition() const { return position.allFinite(); }
+  inline bool HasPositionCov() const { return position_covariance.allFinite(); }
 
   bool operator==(const PosePrior& other) const;
   bool operator!=(const PosePrior& other) const;

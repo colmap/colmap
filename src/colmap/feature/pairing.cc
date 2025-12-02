@@ -666,7 +666,7 @@ Eigen::RowMajorMatrixXf SpatialPairGenerator::ReadPositionPriorData(
       continue;
     }
 
-    if ((!options_.ignore_z && !pose_prior->IsValid()) ||
+    if ((!options_.ignore_z && !pose_prior->HasPosition()) ||
         (options_.ignore_z && !pose_prior->position.head<2>().allFinite())) {
       continue;
     }

@@ -250,7 +250,7 @@ bool AlignReconstructionToPosePriors(
   std::unordered_map<image_t, PosePrior> tgt_image_to_pose_prior;
   for (const auto& pose_prior : tgt_pose_priors) {
     if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA &&
-        pose_prior.IsValid()) {
+        pose_prior.HasPosition()) {
       THROW_CHECK(tgt_image_to_pose_prior
                       .emplace(pose_prior.corr_data_id.id, pose_prior)
                       .second)

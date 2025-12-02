@@ -290,7 +290,7 @@ class FeatureWriterThread : public Thread {
         if (image_data.image.ImageId() == kInvalidImageId) {
           image_data.image.SetImageId(database_->WriteImage(image_data.image));
 
-          if (image_data.pose_prior.IsValid()) {
+          if (image_data.pose_prior.HasPosition()) {
             LOG(INFO) << StringPrintf(
                 "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
                 image_data.pose_prior.position.x(),
@@ -586,7 +586,7 @@ class FeatureImporterController : public Thread {
         if (image.ImageId() == kInvalidImageId) {
           image.SetImageId(database->WriteImage(image));
 
-          if (pose_prior.IsValid()) {
+          if (pose_prior.HasPosition()) {
             pose_prior.corr_data_id = image.DataId();
             pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
           }

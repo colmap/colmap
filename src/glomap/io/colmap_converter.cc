@@ -219,7 +219,7 @@ void ConvertDatabaseToGlomap(
 
     // TODO: Implement the logic of reading prior pose from the database
     // const colmap::PosePrior prior = database.ReadPosePrior(image_id);
-    // if (prior.IsValid()) {
+    // if (prior.HasPosition()) {
     //   const colmap::Rigid3d
     //   world_from_cam_prior(Eigen::Quaterniond::Identity(),
     //                                              prior.position);
