@@ -40,9 +40,9 @@ PYBIND11_MODULE(_core, m) {
   m.attr("COLMAP_version") = py::str(GetVersionInfo());
   m.attr("COLMAP_build") = py::str(GetBuildInfo());
 
-  // open imageio initialization
+  // Open ImageIO initialization
   m.def("_init_image_io",
-        &colmap::InitializeOpenImageIO,
+        &InitializeOpenImageIO,
         "Explicitly initialize OpenImageIO resources.");
 
   auto PyDevice = py::enum_<Device>(m, "Device")
