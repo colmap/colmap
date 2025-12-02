@@ -36,6 +36,7 @@ COLMAP_ADD_LIBRARY(
         bitmap.h bitmap.cc
         database.h database.cc
         models.h models.cc
+        oiio_init.h oiio_init.cc
         rig.h rig.cc
         specs.h specs.cc
     PUBLIC_LINK_LIBS

@@ -31,10 +31,10 @@
 
 #include "colmap/math/math.h"
 #include "colmap/sensor/database.h"
+#include "colmap/sensor/oiio_init.h"
 #include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
-#include "colmap/util/oiio_utils.h"
 
 #include <OpenImageIO/color.h>
 #include <OpenImageIO/imagebufalgo.h>
