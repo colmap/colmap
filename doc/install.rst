@@ -93,6 +93,7 @@ Dependencies from the default Ubuntu repositories::
         libqt6openglwidgets6 \
         libcgal-dev \
         libceres-dev \
+        libsuitesparse-dev \
         libcurl4-openssl-dev \
         libssl-dev \
         libmkl-full-dev
@@ -158,6 +159,7 @@ Dependencies from `Homebrew <http://brew.sh/>`__::
         glog \
         googletest \
         ceres-solver \
+        suitesparse \
         qt \
         glew \
         cgal \
@@ -259,6 +261,7 @@ Install miniconda and run the following commands::
         glog \
         gtest \
         ceres-solver \
+        suitesparse \
         qt \
         glew \
         sqlite \
@@ -319,7 +322,9 @@ with the source code ``hello_world.cc``::
         std::string message;
         colmap::OptionManager options;
         options.AddRequiredOption("message", &message);
-        options.Parse(argc, argv);
+        if (!options.Parse(argc, argv)) {
+            return EXIT_FAILURE;
+        }
 
         std::cout << colmap::StringPrintf("Hello %s!\n", message.c_str());
 
@@ -357,13 +362,12 @@ meaningful traces for reported issues.
 Documentation
 -------------
 
-You need Python and Sphinx to build the HTML documentation::
+In order to build the documentation, a Python installation is required. Then, follow these commands:
 
     cd path/to/colmap/doc
-    sudo apt-get install python
-    pip install sphinx
+    pip install -r requirements.txt
     make html
-    open _build/html/index.html
+    open _build/html/index.html # preview results
 
 Alternatively, you can build the documentation as PDF, EPUB, etc.::
 

@@ -112,12 +112,10 @@ std::vector<point3D_t> FindRedundantPoints3D(
            std::tie(right.gain, right.point3D_id);
   };
 
-  std::vector<Point3DInfo> point3D_infos;
-  point3D_infos.reserve(num_init_points3D);
   std::priority_queue<Point3DInfo,
                       std::vector<Point3DInfo>,
                       decltype(has_left_smaller_gain)>
-      priority_queue(has_left_smaller_gain, std::move(point3D_infos));
+      priority_queue(has_left_smaller_gain);
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     priority_queue.push(
         {point3D_id,

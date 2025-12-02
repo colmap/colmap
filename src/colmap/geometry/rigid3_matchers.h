@@ -79,9 +79,14 @@ class Rigid3dNearMatcher : public testing::MatcherInterface<T> {
       *listener << " exceed rotation threshold " << rtol_;
       return false;
     }
-    if (!lhs.translation.isApprox(rhs_.translation, ttol_)) {
-      *listener << " exceed translation threshold " << ttol_;
-      return false;
+    if (rhs_.translation.isZero()) {
+      // isApprox() is not well-defined for zero matrices.
+      return lhs.translation.norm() <= ttol_;
+    } else {
+      if (!lhs.translation.isApprox(rhs_.translation, ttol_)) {
+        *listener << " exceed translation threshold " << ttol_;
+        return false;
+      }
     }
     return true;
   }

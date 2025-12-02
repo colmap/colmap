@@ -188,7 +188,6 @@ double DegToRad(const double deg) {
   return deg * 0.0174532925199432954743716805978692718781530857086181640625;
 }
 
-// Convert angle in radians to degree.
 float RadToDeg(const float rad) {
   return rad * 57.29577951308232286464772187173366546630859375f;
 }

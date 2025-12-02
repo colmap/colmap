@@ -313,8 +313,13 @@ void OptionManager::AddFeatureMatchingOptions() {
                               &feature_matching->gpu_index);
   AddAndRegisterDefaultOption("FeatureMatching.guided_matching",
                               &feature_matching->guided_matching);
+  AddAndRegisterDefaultOption("FeatureMatching.skip_geometric_verification",
+                              &feature_matching->skip_geometric_verification);
   AddAndRegisterDefaultOption("FeatureMatching.rig_verification",
                               &feature_matching->rig_verification);
+  AddAndRegisterDefaultOption(
+      "FeatureMatching.skip_image_pairs_in_same_frame",
+      &feature_matching->skip_image_pairs_in_same_frame);
   AddAndRegisterDefaultOption("FeatureMatching.max_num_matches",
                               &feature_matching->max_num_matches);
 
@@ -564,6 +569,10 @@ void OptionManager::AddMapperOptions() {
   AddAndRegisterDefaultOption("Mapper.init_image_id2", &mapper->init_image_id2);
   AddAndRegisterDefaultOption("Mapper.init_num_trials",
                               &mapper->init_num_trials);
+  AddAndRegisterDefaultOption("Mapper.structure_less_registration_fallback",
+                              &mapper->structure_less_registration_fallback);
+  AddAndRegisterDefaultOption("Mapper.structure_less_registration_only",
+                              &mapper->structure_less_registration_only);
   AddAndRegisterDefaultOption("Mapper.extract_colors", &mapper->extract_colors);
   AddAndRegisterDefaultOption("Mapper.num_threads", &mapper->num_threads);
   AddAndRegisterDefaultOption("Mapper.random_seed", &mapper->random_seed);
@@ -848,6 +857,7 @@ void OptionManager::Reset() {
   added_image_options_ = false;
   added_feature_extraction_options_ = false;
   added_feature_matching_options_ = false;
+  added_two_view_geometry_options_ = false;
   added_exhaustive_pairing_options_ = false;
   added_sequential_pairing_options_ = false;
   added_vocab_tree_pairing_options_ = false;
@@ -927,7 +937,7 @@ bool OptionManager::Check() {
   return success;
 }
 
-void OptionManager::Parse(const int argc, char** argv) {
+bool OptionManager::Parse(const int argc, char** argv) {
   config::variables_map vmap;
 
   try {
@@ -947,8 +957,7 @@ void OptionManager::Parse(const int argc, char** argv) {
     if (vmap.count("project_path")) {
       *project_path = vmap["project_path"].as<std::string>();
       if (!Read(*project_path)) {
-        // NOLINTNEXTLINE(concurrency-mt-unsafe)
-        exit(EXIT_FAILURE);
+        return false;
       }
     } else {
       vmap.notify();
@@ -975,19 +984,18 @@ void OptionManager::Parse(const int argc, char** argv) {
     }
   } catch (std::exception& exc) {
     LOG(ERROR) << "Failed to parse options - " << exc.what() << ".";
-    // NOLINTNEXTLINE(concurrency-mt-unsafe)
-    exit(EXIT_FAILURE);
+    return false;
   } catch (...) {
     LOG(ERROR) << "Failed to parse options for unknown reason.";
-    // NOLINTNEXTLINE(concurrency-mt-unsafe)
-    exit(EXIT_FAILURE);
+    return false;
   }
 
   if (!Check()) {
     LOG(ERROR) << "Invalid options provided.";
-    // NOLINTNEXTLINE(concurrency-mt-unsafe)
-    exit(EXIT_FAILURE);
+    return false;
   }
+
+  return true;
 }
 
 bool OptionManager::Read(const std::string& path) {

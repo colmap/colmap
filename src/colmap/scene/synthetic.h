@@ -65,7 +65,7 @@ struct SyntheticDatasetOptions {
   MatchConfig match_config = MatchConfig::EXHAUSTIVE;
 
   bool use_prior_position = false;
-  bool use_geographic_coords_prior = false;
+  bool use_wgs84_prior = false;
   double prior_position_stddev = 1.5;
 };
 

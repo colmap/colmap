@@ -211,7 +211,7 @@ def update_camera_priors_from_sparse_gt(
 ) -> None:
     pycolmap.logging.info("Setting prior cameras from GT")
 
-    with pycolmap.Database(str(database_path)) as database:
+    with pycolmap.Database.open(str(database_path)) as database:
         images_gt_by_name = {}
         for image_gt in camera_priors_sparse_gt.images.values():
             images_gt_by_name[image_gt.name] = image_gt
@@ -279,8 +279,6 @@ def colmap_reconstruction(
         image_path,
         "--workspace_path",
         workspace_path,
-        "--vocab_tree_path",
-        args.data_path / "vocab_tree_flickr100K_words256K.bin",
         "--use_gpu",
         "1" if args.use_gpu else "0",
         "--num_threads",

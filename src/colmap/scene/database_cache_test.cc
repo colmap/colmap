@@ -31,6 +31,7 @@
 
 #include "colmap/scene/database_sqlite.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -68,6 +69,15 @@ std::shared_ptr<Database> CreateTestDatabase() {
   image4.SetCameraId(camera2.camera_id);
   image4.SetImageId(database->WriteImage(image4));
 
+  PosePrior pose_prior1;
+  pose_prior1.corr_data_id = image1.DataId();
+  pose_prior1.position = Eigen::Vector3d::Random();
+  pose_prior1.pose_prior_id = database->WritePosePrior(pose_prior1);
+  PosePrior pose_prior2;
+  pose_prior1.corr_data_id = image2.DataId();
+  pose_prior2.position = Eigen::Vector3d::Random();
+  pose_prior2.pose_prior_id = database->WritePosePrior(pose_prior2);
+
   Frame frame1;
   frame1.SetRigId(rig_id);
   frame1.AddDataId(image1.DataId());
@@ -78,11 +88,6 @@ std::shared_ptr<Database> CreateTestDatabase() {
   frame2.AddDataId(image3.DataId());
   frame2.AddDataId(image4.DataId());
   frame2.SetFrameId(database->WriteFrame(frame2));
-
-  database->WritePosePrior(image1.ImageId(),
-                           PosePrior(Eigen::Vector3d::Random()));
-  database->WritePosePrior(image2.ImageId(),
-                           PosePrior(Eigen::Vector3d::Random()));
 
   database->WriteKeypoints(image1.ImageId(), FeatureKeypoints(10));
   database->WriteKeypoints(image2.ImageId(), FeatureKeypoints(5));
@@ -155,12 +160,7 @@ TEST(DatabaseCache, ConstructFromDatabase) {
   EXPECT_TRUE(cache->ExistsImage(images[3].ImageId()));
   EXPECT_EQ(cache->Image(images[3].ImageId()).NumPoints2D(), 3);
 
-  EXPECT_TRUE(cache->ExistsPosePrior(images[0].ImageId()));
-  EXPECT_TRUE(cache->PosePrior(images[0].ImageId()).IsValid());
-  EXPECT_TRUE(cache->ExistsPosePrior(images[1].ImageId()));
-  EXPECT_TRUE(cache->PosePrior(images[1].ImageId()).IsValid());
-  EXPECT_FALSE(cache->ExistsPosePrior(images[2].ImageId()));
-  EXPECT_FALSE(cache->ExistsPosePrior(images[3].ImageId()));
+  EXPECT_EQ(cache->PosePriors(), database->ReadAllPosePriors());
 
   const auto correspondence_graph = cache->CorrespondenceGraph();
   EXPECT_TRUE(correspondence_graph->ExistsImage(images[0].ImageId()));
@@ -231,9 +231,6 @@ std::shared_ptr<Database> CreateLegacyTestDatabase() {
   const image_t image_id1 = database->WriteImage(image1);
   const image_t image_id2 = database->WriteImage(image2);
   const image_t image_id3 = database->WriteImage(image3);
-  database->WritePosePrior(image_id1, PosePrior(Eigen::Vector3d::Random()));
-  database->WritePosePrior(image_id2, PosePrior(Eigen::Vector3d::Random()));
-  database->WritePosePrior(image_id3, PosePrior(Eigen::Vector3d::Random()));
   database->WriteKeypoints(image_id1, FeatureKeypoints(10));
   database->WriteKeypoints(image_id2, FeatureKeypoints(5));
   database->WriteKeypoints(image_id3, FeatureKeypoints(7));
@@ -260,7 +257,7 @@ TEST(DatabaseCache, ConstructFromLegacyDatabaseWithoutRigsAndFrames) {
                                      /*image_names=*/{});
   EXPECT_EQ(cache->NumCameras(), 1);
   EXPECT_EQ(cache->NumImages(), 3);
-  EXPECT_EQ(cache->NumPosePriors(), 3);
+  EXPECT_EQ(cache->NumPosePriors(), 0);
   EXPECT_TRUE(cache->ExistsCamera(1));
   EXPECT_EQ(cache->Camera(1).model_id, CameraModelId::kSimplePinhole);
   EXPECT_TRUE(cache->ExistsImage(1));
@@ -269,9 +266,6 @@ TEST(DatabaseCache, ConstructFromLegacyDatabaseWithoutRigsAndFrames) {
   EXPECT_EQ(cache->Image(1).NumPoints2D(), 10);
   EXPECT_EQ(cache->Image(2).NumPoints2D(), 5);
   EXPECT_EQ(cache->Image(3).NumPoints2D(), 7);
-  EXPECT_TRUE(cache->PosePrior(1).IsValid());
-  EXPECT_TRUE(cache->PosePrior(2).IsValid());
-  EXPECT_TRUE(cache->PosePrior(3).IsValid());
   const auto correspondence_graph = cache->CorrespondenceGraph();
   EXPECT_TRUE(cache->CorrespondenceGraph()->ExistsImage(1));
   EXPECT_EQ(cache->CorrespondenceGraph()->NumCorrespondencesForImage(1), 2);
@@ -294,15 +288,13 @@ TEST(DatabaseCache, ConstructFromLegacyDatabaseWithCustomImages) {
       /*image_names=*/{images[0].Name(), images[2].Name()});
   EXPECT_EQ(cache->NumCameras(), 1);
   EXPECT_EQ(cache->NumImages(), 2);
-  EXPECT_EQ(cache->NumPosePriors(), 2);
+  EXPECT_EQ(cache->NumPosePriors(), 0);
   EXPECT_TRUE(cache->ExistsCamera(1));
   EXPECT_EQ(cache->Camera(1).model_id, CameraModelId::kSimplePinhole);
   EXPECT_TRUE(cache->ExistsImage(1));
   EXPECT_TRUE(cache->ExistsImage(3));
   EXPECT_EQ(cache->Image(1).NumPoints2D(), 10);
   EXPECT_EQ(cache->Image(3).NumPoints2D(), 7);
-  EXPECT_TRUE(cache->PosePrior(1).IsValid());
-  EXPECT_TRUE(cache->PosePrior(3).IsValid());
   const auto correspondence_graph = cache->CorrespondenceGraph();
   EXPECT_TRUE(cache->CorrespondenceGraph()->ExistsImage(1));
   EXPECT_EQ(cache->CorrespondenceGraph()->NumCorrespondencesForImage(1), 1);
@@ -340,7 +332,12 @@ TEST(DatabaseCache, ConstructFromCustom) {
   image.SetName("image");
   image.SetCameraId(kCameraId);
   cache.AddImage(image);
-  cache.AddPosePrior(kImageId, PosePrior(Eigen::Vector3d::Random()));
+
+  constexpr pose_prior_t kPosePriorId = 45;
+  PosePrior pose_prior;
+  pose_prior.position = Eigen::Vector3d::Random();
+  pose_prior.pose_prior_id = kPosePriorId;
+  cache.AddPosePrior(pose_prior);
 
   EXPECT_EQ(cache.NumCameras(), 1);
   EXPECT_EQ(cache.NumImages(), 1);
@@ -349,7 +346,7 @@ TEST(DatabaseCache, ConstructFromCustom) {
   EXPECT_TRUE(cache.ExistsCamera(kCameraId));
   EXPECT_TRUE(cache.ExistsFrame(kFrameId));
   EXPECT_TRUE(cache.ExistsImage(kImageId));
-  EXPECT_TRUE(cache.ExistsPosePrior(kImageId));
+  EXPECT_THAT(cache.PosePriors(), testing::ElementsAre(pose_prior));
 }
 
 }  // namespace

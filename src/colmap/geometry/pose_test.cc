@@ -41,8 +41,8 @@ namespace {
 
 TEST(ComputeClosestRotationMatrix, Nominal) {
   const Eigen::Matrix3d A = Eigen::Matrix3d::Identity();
-  EXPECT_LT((ComputeClosestRotationMatrix(A) - A).norm(), 1e-6);
-  EXPECT_LT((ComputeClosestRotationMatrix(2 * A) - A).norm(), 1e-6);
+  EXPECT_THAT(ComputeClosestRotationMatrix(A), EigenMatrixNear(A, 1e-6));
+  EXPECT_THAT(ComputeClosestRotationMatrix(2 * A), EigenMatrixNear(A, 1e-6));
 }
 
 TEST(DecomposeProjectionMatrix, Nominal) {
@@ -62,6 +62,19 @@ TEST(DecomposeProjectionMatrix, Nominal) {
                 EigenMatrixNear(R, 1e-6));
     EXPECT_THAT(cam_from_world.translation, EigenMatrixNear(T, 1e-6));
   }
+}
+
+TEST(RotationMatrixToAngleAxis, Roundtrip) {
+  const Eigen::Matrix3d R = Eigen::Quaterniond::UnitRandom().toRotationMatrix();
+  EXPECT_THAT(AngleAxisToRotationMatrix(RotationMatrixToAngleAxis(R)),
+              EigenMatrixNear(R, 1e-6));
+}
+
+TEST(AngleAxisToRotationMatrix, Roundtrip) {
+  const Eigen::AngleAxisd aa(Eigen::Quaterniond::UnitRandom());
+  const Eigen::Vector3d w = aa.angle() * aa.axis();
+  EXPECT_THAT(RotationMatrixToAngleAxis(AngleAxisToRotationMatrix(w)),
+              EigenMatrixNear(w, 1e-6));
 }
 
 TEST(EulerAngles, X) {

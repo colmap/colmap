@@ -12,8 +12,8 @@ pip install pycolmap
 ```
 
 The wheels are automatically built and pushed to
-[PyPI](https://pypi.org/project/pycolmap/) at each release. They are currently
-not built with CUDA support, which requires building from source.
+[PyPI](https://pypi.org/project/pycolmap/) at each release. 
+To benefit from GPU acceleration, wheels built for CUDA 12 (only for Linux - for now) are available under the [package `pycolmap-cuda12`](https://pypi.org/project/pycolmap-cuda12/).
 
 <details>
 <summary>[Building PyCOLMAP from source - click to expand]</summary>
@@ -73,11 +73,11 @@ to build the package from source and is not available with the PyPI wheels.
 All of the above steps are easily configurable with python dicts which are
 recursively merged into their respective defaults, for example:
 ```python
-pycolmap.extract_features(database_path, image_dir, sift_options={"max_num_features": 512})
+pycolmap.extract_features(database_path, image_dir, extraction_options={"sift": {"max_num_features": 512}})
 # equivalent to
-ops = pycolmap.SiftExtractionOptions()
-ops.max_num_features = 512
-pycolmap.extract_features(database_path, image_dir, sift_options=ops)
+ops = pycolmap.FeatureExtractionOptions()
+ops.sift.max_num_features = 512
+pycolmap.extract_features(database_path, image_dir, extraction_options=ops)
 ```
 
 To list available options and their default parameters:

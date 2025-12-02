@@ -48,8 +48,8 @@ void BindSynthetic(py::module& m) {
           .def_readwrite("match_config", &SyntheticDatasetOptions::match_config)
           .def_readwrite("use_prior_position",
                          &SyntheticDatasetOptions::use_prior_position)
-          .def_readwrite("use_geographic_coords_prior",
-                         &SyntheticDatasetOptions::use_geographic_coords_prior)
+          .def_readwrite("use_wgs84_prior",
+                         &SyntheticDatasetOptions::use_wgs84_prior)
           .def_readwrite("prior_position_stddev",
                          &SyntheticDatasetOptions::prior_position_stddev);
   MakeDataclass(PySyntheticDatasetOptions);

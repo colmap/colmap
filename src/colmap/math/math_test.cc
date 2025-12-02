@@ -66,6 +66,13 @@ TEST(RadToDeg, Nominal) {
   EXPECT_LT(std::abs(RadToDeg(M_PI) - 180.0), 1e-6);
 }
 
+TEST(RadToDeg, Roundtrip) {
+  for (int i = 0; i < 360; ++i) {
+    const auto angle = static_cast<double>(i);
+    EXPECT_NEAR(angle, RadToDeg(DegToRad(angle)), 1e-6);
+  }
+}
+
 TEST(Median, Nominal) {
   EXPECT_EQ(Median<int>({1, 2, 3, 4}), 2.5);
   EXPECT_EQ(Median<int>({4, 1, 3, 2}), 2.5);

@@ -79,5 +79,25 @@ TEST(EigenMatrix, Near) {
   mock.TestMethod(y);
 }
 
+TEST(EigenMatrix, NearZeroLeft) {
+  Eigen::MatrixXd x = Eigen::MatrixXd::Zero(2, 3);
+  Eigen::MatrixXd y = x;
+  EXPECT_THAT(x, EigenMatrixNear(y, 1e-8));
+  x(0, 0) += 1e-16;
+  EXPECT_THAT(x, EigenMatrixNear(y, 1e-8));
+  x(0, 0) += 1e-7;
+  EXPECT_THAT(x, testing::Not(EigenMatrixNear(y, 1e-8)));
+}
+
+TEST(EigenMatrix, NearZeroRight) {
+  Eigen::MatrixXd x = Eigen::MatrixXd::Zero(2, 3);
+  Eigen::MatrixXd y = x;
+  EXPECT_THAT(x, EigenMatrixNear(y, 1e-8));
+  y(0, 0) += 1e-16;
+  EXPECT_THAT(x, EigenMatrixNear(y, 1e-8));
+  y(0, 0) += 1e-7;
+  EXPECT_THAT(x, testing::Not(EigenMatrixNear(y, 1e-8)));
+}
+
 }  // namespace
 }  // namespace colmap

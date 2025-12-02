@@ -29,42 +29,55 @@
 
 #pragma once
 
-#include "colmap/util/logging.h"
-
-#include <cstdlib>
-#include <string>
-
-#include <sqlite3.h>
+#include <cstddef>
+#include <optional>
+#include <unordered_map>
 
 namespace colmap {
 
-inline int SQLite3CallHelper(int result_code,
-                             const std::string& filename,
-                             int line) {
-  switch (result_code) {
-    case SQLITE_OK:
-    case SQLITE_ROW:
-    case SQLITE_DONE:
-      return result_code;
-    default:
-      LogMessageFatalThrow<std::runtime_error>(filename.c_str(), line).stream()
-          << "SQLite error: " << sqlite3_errstr(result_code);
-      return result_code;
-  }
-}
+// Helper class to perform union-find operations.
+template <typename T>
+class UnionFind {
+ public:
+  void Reserve(size_t capacity) { parent_.reserve(capacity); }
 
-#define SQLITE3_CALL(func) colmap::SQLite3CallHelper(func, __FILE__, __LINE__)
-
-#define SQLITE3_EXEC(database, sql, callback)                             \
-  {                                                                       \
-    char* err_msg = nullptr;                                              \
-    const int result_code = sqlite3_exec(                                 \
-        THROW_CHECK_NOTNULL(database), sql, callback, nullptr, &err_msg); \
-    if (result_code != SQLITE_OK) {                                       \
-      LOG(ERROR) << "SQLite error [" << __FILE__ << ", line " << __LINE__ \
-                 << "]: " << err_msg;                                     \
-      sqlite3_free(err_msg);                                              \
-    }                                                                     \
+  // Find the root of the element x. If x is not in the structure, it is
+  // inserted as its own parent.
+  T Find(const T& x) {
+    auto parent_it = parent_.find(x);
+    if (parent_it == parent_.end()) {
+      parent_.emplace_hint(parent_it, x, x);
+      return x;
+    }
+    // Path compression.
+    if (parent_it->second != x) {
+      parent_it->second = Find(parent_it->second);
+    }
+    return parent_it->second;
   }
+
+  // Find the root of x only if x already exists in the structure, otherwise
+  // returns std::nullopt. Does not insert new elements.
+  std::optional<T> FindIfExists(const T& x) const {
+    auto it = parent_.find(x);
+    if (it == parent_.end()) {
+      return std::nullopt;
+    }
+    return it->second;
+  }
+
+  // Unite the sets containing x and y.
+  void Union(const T& x, const T& y) {
+    const T root_x = Find(x);
+    const T root_y = Find(y);
+    if (root_x != root_y) {
+      parent_[root_x] = root_y;
+    }
+  }
+
+ private:
+  // Map to store the parent of each element.
+  std::unordered_map<T, T> parent_;
+};
 
 }  // namespace colmap

@@ -264,7 +264,17 @@ void Reconstruction::AddFrame(class Frame frame) {
   THROW_CHECK(frame.HasRigId());
   auto& rig = Rig(frame.RigId());
   for (const auto& data_id : frame.DataIds()) {
-    THROW_CHECK(rig.HasSensor(data_id.sensor_id));
+    switch (data_id.sensor_id.type) {
+      case SensorType::CAMERA:
+        THROW_CHECK(rig.HasSensor(data_id.sensor_id));
+        break;
+      case SensorType::IMU:
+        // Note that we do not (yet) support IMU measurement data.
+        break;
+      case SensorType::INVALID:
+        LOG(FATAL_THROW) << "Invalid sensor type: " << data_id.sensor_id.type;
+        break;
+    }
   }
   if (frame.HasRigPtr()) {
     THROW_CHECK_EQ(frame.RigPtr(), &rig);

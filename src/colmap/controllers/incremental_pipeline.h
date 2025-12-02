@@ -75,6 +75,14 @@ struct IncrementalPipelineOptions {
   // The number of trials to initialize the reconstruction.
   int init_num_trials = 200;
 
+  // Enable fallback to structure-less image registration using 2D-2D
+  // correspondences, if structured-based registration fails using 2D-3D
+  // correspondences.
+  bool structure_less_registration_fallback = true;
+
+  // Only use structure-less and skip structure-based image registration.
+  bool structure_less_registration_only = false;
+
   // Whether to extract colors for reconstructed points.
   bool extract_colors = true;
 

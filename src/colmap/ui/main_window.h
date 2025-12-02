@@ -61,10 +61,12 @@ class MainWindow : public QMainWindow {
  public:
   explicit MainWindow(const OptionManager& options);
 
-  void ImportReconstruction(const std::string& path);
+  void ImportReconstruction(const std::string& import_path);
 
  protected:
-  void closeEvent(QCloseEvent* event);
+  void closeEvent(QCloseEvent* event) override;
+  void dragEnterEvent(QDragEnterEvent* event) override;
+  void dropEvent(QDropEvent* event) override;
 
  private:
   friend class AutomaticReconstructionWidget;

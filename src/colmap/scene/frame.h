@@ -67,7 +67,7 @@ class Frame {
   // Access to the underlying, shared rig object.
   // This is typically only set when the frame was added to a reconstruction.
   inline class Rig* RigPtr() const;
-  inline void SetRigPtr(class Rig* rig);
+  void SetRigPtr(class Rig* rig);
   inline void ResetRigPtr();
   // Check if the frame has a non-trivial rig.
   inline bool HasRigPtr() const;
@@ -88,15 +88,18 @@ class Frame {
   // Set the world to frame from the given camera from world transformation.
   void SetCamFromWorld(camera_t camera_id, const Rigid3d& cam_from_world);
 
-  // Convenience method with view into all image data identifiers.
-  inline auto ImageIds() const {
+  // Convenience method with view into all data identifiers of a sensor type.
+  inline auto DataIds(SensorType type) const {
     return filter_view(
-        [](const data_t& data_id) {
-          return data_id.sensor_id.type == SensorType::CAMERA;
+        [type](const data_t& data_id) {
+          return data_id.sensor_id.type == type;
         },
         data_ids_.begin(),
         data_ids_.end());
   }
+
+  // Convenience method with view into all image data identifiers.
+  inline auto ImageIds() const { return DataIds(SensorType::CAMERA); }
 
   inline bool operator==(const Frame& other) const;
   inline bool operator!=(const Frame& other) const;
@@ -153,21 +156,6 @@ void Frame::SetRigId(const rig_t rig_id) {
 bool Frame::HasRigId() const { return rig_id_ != kInvalidRigId; }
 
 Rig* Frame::RigPtr() const { return THROW_CHECK_NOTNULL(rig_ptr_); }
-
-void Frame::SetRigPtr(class Rig* rig) {
-  THROW_CHECK_NOTNULL(rig);
-  THROW_CHECK_NE(rig->RigId(), kInvalidRigId);
-  for (const auto& data_id : data_ids_) {
-    THROW_CHECK(rig->HasSensor(data_id.sensor_id));
-  }
-  if (HasRigPtr()) {
-    rig_id_ = rig->RigId();
-    rig_ptr_ = rig;
-  } else {
-    THROW_CHECK_EQ(rig->RigId(), rig_id_);
-    rig_ptr_ = rig;
-  }
-}
 
 void Frame::ResetRigPtr() { rig_ptr_ = nullptr; }
 
