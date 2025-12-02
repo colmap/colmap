@@ -1077,9 +1077,11 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
 
     const Eigen::Vector3d normalized_position =
         normalized_from_metric_ * pose_prior.position;
+    const Eigen::Matrix3d sR =
+        normalized_from_metric_.scale *
+        normalized_from_metric_.rotation.toRotationMatrix();
     const Eigen::Matrix3d normalized_position_cov =
-        normalized_from_metric_.scale * normalized_from_metric_.scale *
-        pose_prior.position_covariance;
+        sR * pose_prior.position_covariance * sR.transpose();
 
     if (image.HasTrivialFrame()) {
       problem.AddResidualBlock(
