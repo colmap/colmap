@@ -5,6 +5,7 @@ from .utils import import_module_symbols
 
 try:
     from . import _core
+    _core._init_image_io()
 except ImportError as e:
     raise RuntimeError(
         textwrap.dedent("""
