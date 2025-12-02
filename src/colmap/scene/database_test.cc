@@ -282,37 +282,26 @@ TEST_P(ParameterizedDatabaseTests, PosePrior) {
   Camera camera;
   camera.camera_id = database->WriteCamera(camera);
   Image image;
-  image.SetName("test");
   image.SetCameraId(camera.camera_id);
-  image.SetImageId(database->WriteImage(image));
   EXPECT_EQ(database->NumPosePriors(), 0);
   PosePrior pose_prior;
   pose_prior.corr_data_id = image.DataId();
   pose_prior.position = Eigen::Vector3d(0.1, 0.2, 0.3);
   pose_prior.position_covariance = Eigen::Matrix3d::Random();
   pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  pose_prior.gravity = Eigen::Vector3d::Random();
+  pose_prior.gravity_covariance = Eigen::Matrix3d::Random();
   EXPECT_TRUE(pose_prior.HasPosition());
   EXPECT_TRUE(pose_prior.HasPositionCov());
   pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
   EXPECT_ANY_THROW(database->WritePosePrior(pose_prior));
   EXPECT_EQ(database->NumPosePriors(), 1);
-  auto read_pose_prior = database->ReadPosePrior(
-      pose_prior.pose_prior_id, /*is_legacy_image_prior=*/false);
-  EXPECT_EQ(read_pose_prior.position, pose_prior.position);
-  EXPECT_EQ(read_pose_prior.coordinate_system, pose_prior.coordinate_system);
-  EXPECT_TRUE(read_pose_prior.HasPosition());
-  EXPECT_TRUE(read_pose_prior.HasPositionCov());
+  EXPECT_EQ(database->ReadPosePrior(
+      pose_prior.pose_prior_id, /*is_legacy_image_prior=*/false), pose_prior);
   pose_prior.position_covariance = Eigen::Matrix3d::Identity();
-  EXPECT_TRUE(pose_prior.HasPositionCov());
   database->UpdatePosePrior(pose_prior);
-  read_pose_prior = database->ReadPosePrior(pose_prior.pose_prior_id,
-                                            /*is_legacy_image_prior=*/false);
-  EXPECT_EQ(read_pose_prior.position, pose_prior.position);
-  EXPECT_EQ(read_pose_prior.position_covariance,
-            pose_prior.position_covariance);
-  EXPECT_EQ(read_pose_prior.coordinate_system, pose_prior.coordinate_system);
-  EXPECT_TRUE(read_pose_prior.HasPosition());
-  EXPECT_TRUE(read_pose_prior.HasPositionCov());
+  EXPECT_EQ(database->ReadPosePrior(
+      pose_prior.pose_prior_id, /*is_legacy_image_prior=*/false), pose_prior);
   EXPECT_THAT(database->ReadAllPosePriors(), testing::ElementsAre(pose_prior));
   database->ClearPosePriors();
   EXPECT_EQ(database->NumPosePriors(), 0);
