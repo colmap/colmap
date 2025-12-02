@@ -88,7 +88,7 @@ bool GlobalPositioner::Solve(
     LOG(INFO) << summary.BriefReport();
   }
 
-  ConvertResults(rigs, frames);
+  ConvertBackResults(rigs, frames);
   return summary.IsSolutionUsable();
 }
 
@@ -148,8 +148,7 @@ void GlobalPositioner::InitializeRandomPositions(
       if (constrained_positions.find(frame_id) != constrained_positions.end()) {
         // Will be converted back to rig_from_world after the optimization.
         frame.RigFromWorld().translation =
-            frame.RigFromWorld().rotation.inverse() *
-            -frame.RigFromWorld().translation;
+            frame.RigFromWorld().TgtOriginInSrc();
       }
     }
     return;
@@ -163,9 +162,7 @@ void GlobalPositioner::InitializeRandomPositions(
           100.0 * RandVector3d(random_generator_, -1, 1);
     } else {
       // Will be converted back to rig_from_world after the optimization.
-      frame.RigFromWorld().translation =
-          frame.RigFromWorld().rotation.inverse() *
-          -frame.RigFromWorld().translation;
+      frame.RigFromWorld().translation = frame.RigFromWorld().TgtOriginInSrc();
     }
   }
 
@@ -349,8 +346,6 @@ void GlobalPositioner::AddTrackToProblem(
 
       if (!cam_from_rig_translation.hasNaN()) {
         const Eigen::Vector3d translation_rig =
-            // image.cam_from_world.rotation.inverse() *
-            // cam_from_rig.translation;
             image.CamFromWorld().rotation.inverse() * cam_from_rig_translation;
 
         ceres::CostFunction* cost_function =
@@ -571,17 +566,18 @@ void GlobalPositioner::ParameterizeVariables(
   }
 }
 
-void GlobalPositioner::ConvertResults(
+void GlobalPositioner::ConvertBackResults(
     std::unordered_map<rig_t, Rig>& rigs,
     std::unordered_map<frame_t, Frame>& frames) {
-  // translation now stores the camera position, needs to convert back
+  // Translations store the frame/camera centers. Convert them back
+  // and apply the rig scales.
+
   for (auto& [frame_id, frame] : frames) {
     frame.RigFromWorld().translation =
         frame.RigFromWorld().rotation * -frame.RigFromWorld().translation;
     frame.RigFromWorld().translation *= rig_scales_[frame.RigId()];
   }
 
-  // Update the rig scales
   for (auto& [rig_id, rig] : rigs) {
     for (auto& [sensor_id, cam_from_rig] : rig.NonRefSensors()) {
       if (cam_from_rig.has_value()) {

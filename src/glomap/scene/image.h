@@ -53,7 +53,7 @@ struct Image {
 };
 
 Eigen::Vector3d Image::Center() const {
-  return CamFromWorld().rotation.inverse() * -CamFromWorld().translation;
+  return CamFromWorld().TgtOriginInSrc();
 }
 
 // Concrete implementation of the methods
