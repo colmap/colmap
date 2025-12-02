@@ -239,7 +239,7 @@ TEST(ApplyRigConfig, WithDifferingDatabaseAndReconstructionIds) {
     differing_rig.SetRigId(rig.RigId() + 1);
     differing_rig.AddRefSensor(
         sensor_t(rig.RefSensorId().type, rig.RefSensorId().id + 1));
-    for (const auto& [sensor_id, sensor_from_rig] : rig.Sensors()) {
+    for (const auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
       differing_rig.AddSensor(sensor_t(sensor_id.type, sensor_id.id + 1),
                               sensor_from_rig);
     }
@@ -340,7 +340,7 @@ TEST(ApplyRigConfig, WithoutReconstruction) {
   EXPECT_EQ(database->NumRigs(), 1);
   EXPECT_EQ(database->NumFrames(), 5);
   const auto [sensor_id2, sensor2_from_rig] =
-      *database->ReadAllRigs().at(0).Sensors().begin();
+      *database->ReadAllRigs().at(0).NonRefSensors().begin();
   EXPECT_EQ(sensor2_from_rig.value().rotation.coeffs(),
             camera2.cam_from_rig.value().rotation.coeffs());
   EXPECT_EQ(sensor2_from_rig.value().translation,

@@ -34,6 +34,7 @@
 #include "colmap/estimators/generalized_pose.h"
 #include "colmap/estimators/homography_matrix.h"
 #include "colmap/estimators/translation_transform.h"
+#include "colmap/estimators/utils.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/homography_matrix.h"
 #include "colmap/geometry/triangulation.h"
@@ -406,7 +407,7 @@ EstimateRigTwoViewGeometries(
                                        &maybe_pano2_from_pano1,
                                        &num_inliers,
                                        &inlier_mask) ||
-      num_inliers < options.min_num_inliers) {
+      num_inliers < static_cast<size_t>(options.min_num_inliers)) {
     return {};
   }
 
@@ -573,8 +574,7 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
   if (!points3D.empty()) {
     const Eigen::Vector3d proj_center1 = Eigen::Vector3d::Zero();
     const Eigen::Vector3d proj_center2 =
-        geometry->cam2_from_cam1.rotation.inverse() *
-        -geometry->cam2_from_cam1.translation;
+        geometry->cam2_from_cam1.TgtOriginInSrc();
     geometry->tri_angle = Median(
         CalculateTriangulationAngles(proj_center1, proj_center2, points3D));
   }
@@ -828,6 +828,76 @@ void FilterStationaryMatches(double max_error,
                                          max_error_squared;
                                 }),
                  matches->end());
+}
+
+TwoViewGeometry TwoViewGeometryFromKnownRelativePose(
+    const Camera& camera1,
+    const std::vector<Eigen::Vector2d>& points1,
+    const Camera& camera2,
+    const std::vector<Eigen::Vector2d>& points2,
+    const Rigid3d& cam2_from_cam1,
+    const FeatureMatches& matches,
+    int min_num_inliers,
+    double max_error) {
+  THROW_CHECK_GE(min_num_inliers, 0);
+  THROW_CHECK_GT(max_error, 0);
+
+  TwoViewGeometry geometry;
+  const size_t num_matches = matches.size();
+
+  if (num_matches < static_cast<size_t>(min_num_inliers)) {
+    geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+    return geometry;
+  }
+
+  // Extract corresponding points.
+  std::vector<Eigen::Vector3d> matched_cam_rays1(num_matches);
+  std::vector<Eigen::Vector3d> matched_cam_rays2(num_matches);
+  for (size_t i = 0; i < num_matches; ++i) {
+    const point2D_t idx1 = matches[i].point2D_idx1;
+    const point2D_t idx2 = matches[i].point2D_idx2;
+    if (const std::optional<Eigen::Vector2d> cam_point1 =
+            camera1.CamFromImg(points1[idx1]);
+        cam_point1) {
+      matched_cam_rays1[i] = cam_point1->homogeneous().normalized();
+    } else {
+      matched_cam_rays1[i].setZero();
+    }
+    if (const std::optional<Eigen::Vector2d> cam_point2 =
+            camera2.CamFromImg(points2[idx2]);
+        cam_point2) {
+      matched_cam_rays2[i] = cam_point2->homogeneous().normalized();
+    } else {
+      matched_cam_rays2[i].setZero();
+    }
+  }
+
+  // For now, we use the average threshold from cameras following the design of
+  // EstimateCalibratedTwoViewGeometry.
+  const double max_error_in_cam = (camera1.CamFromImgThreshold(max_error) +
+                                   camera2.CamFromImgThreshold(max_error)) /
+                                  2;
+
+  const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
+  std::vector<double> residuals(num_matches);
+  ComputeSquaredSampsonError(
+      matched_cam_rays1, matched_cam_rays2, E, &residuals);
+  FeatureMatches inlier_matches;
+  const double squared_max_error_in_cam = max_error_in_cam * max_error_in_cam;
+  for (size_t i = 0; i < num_matches; ++i) {
+    if (residuals[i] <= squared_max_error_in_cam) {
+      inlier_matches.push_back(matches[i]);
+    }
+  }
+  if (inlier_matches.size() < static_cast<size_t>(min_num_inliers)) {
+    geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+    return geometry;
+  }
+  geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
+  geometry.cam2_from_cam1 = cam2_from_cam1;
+  geometry.E = E;
+  geometry.inlier_matches = inlier_matches;
+  return geometry;
 }
 
 }  // namespace colmap

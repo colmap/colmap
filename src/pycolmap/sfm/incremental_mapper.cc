@@ -55,6 +55,15 @@ void BindIncrementalPipeline(py::module& m) {
       .def_readwrite("init_num_trials",
                      &Opts::init_num_trials,
                      "The number of trials to initialize the reconstruction.")
+      .def_readwrite("structure_less_registration_fallback",
+                     &Opts::structure_less_registration_fallback,
+                     "Enable fallback to structure-less image registration "
+                     "using 2D-2D correspondences, if structured-based "
+                     "registration fails using 2D-3D correspondences.")
+      .def_readwrite("structure_less_registration_only",
+                     &Opts::structure_less_registration_only,
+                     "Only use structure-less and skip structure-based image "
+                     "registration.")
       .def_readwrite("extract_colors",
                      &Opts::extract_colors,
                      "Whether to extract colors for reconstructed points.")
@@ -97,10 +106,6 @@ void BindIncrementalPipeline(py::module& m) {
           &Opts::ba_min_num_residuals_for_cpu_multi_threading,
           "The minimum number of residuals per bundle adjustment problem to "
           "enable multi-threading solving of the problems.")
-      .def_readwrite(
-          "ba_local_num_images",
-          &Opts::ba_local_num_images,
-          "The number of images to optimize in local bundle adjustment.")
       .def_readwrite(
           "ba_local_function_tolerance",
           &Opts::ba_local_function_tolerance,
@@ -193,6 +198,11 @@ void BindIncrementalPipeline(py::module& m) {
                      "List of cameras for which to fix the camera parameters "
                      "independent of refine_focal_length, "
                      "refine_principal_point, and refine_extra_params.")
+      .def_readwrite(
+          "max_runtime_seconds",
+          &Opts::max_runtime_seconds,
+          "Maximum runtime in seconds for the reconstruction process. If set "
+          "to a non-positive value, the process will run until completion.")
       .def_readwrite(
           "mapper", &Opts::mapper, "Options of the IncrementalMapper.")
       .def_readwrite("triangulation",
@@ -316,13 +326,30 @@ void BindIncrementalMapperOptions(py::module& m) {
                      &Opts::abs_pose_refine_extra_params,
                      "Whether to estimate the extra parameters in absolute "
                      "pose estimation.")
-      .def_readwrite("local_ba_num_images",
-                     &Opts::local_ba_num_images,
+      .def_readwrite("ba_local_num_images",
+                     &Opts::ba_local_num_images,
                      "Number of images to optimize in local bundle adjustment.")
-      .def_readwrite("local_ba_min_tri_angle",
-                     &Opts::local_ba_min_tri_angle,
+      .def_readwrite("ba_local_min_tri_angle",
+                     &Opts::ba_local_min_tri_angle,
                      "Minimum triangulation for images to be chosen in local "
                      "bundle adjustment.")
+      .def_readwrite(
+          "ba_global_ignore_redundant_points3D",
+          &Opts::ba_global_ignore_redundant_points3D,
+          "Whether to ignore redundant 3D points in bundle adjustment when "
+          "jointly optimizing all parameters. If this is enabled, then the "
+          "bundle adjustment problem is first solved with a reduced set of 3D "
+          "points and then the remaining 3D points are optimized in a second "
+          "step with all other parameters fixed. Points excplicitly configured "
+          "as constant or variable are not ignored. This is only activated "
+          "when the reconstruction has reached sufficient size with at least "
+          "10 registered frames.")
+      .def_readwrite(
+          "ba_global_prune_points_min_coverage_gain",
+          &Opts::ba_global_ignore_redundant_points3D_min_coverage_gain,
+          "The minimum coverage gain for any 3D point to be "
+          "included in the optimization. A larger value means "
+          "more 3D points are ignored.")
       .def_readwrite("min_focal_length_ratio",
                      &Opts::min_focal_length_ratio,
                      "The threshold used to filter and ignore images with "
@@ -448,9 +475,16 @@ void BindIncrementalMapperImpl(py::module& m) {
            "two_view_geometry"_a,
            "image_id1"_a,
            "image_id2"_a)
-      .def("find_next_images", &IncrementalMapper::FindNextImages, "options"_a)
+      .def("find_next_images",
+           &IncrementalMapper::FindNextImages,
+           "options"_a,
+           "structure_less"_a)
       .def("register_next_image",
            &IncrementalMapper::RegisterNextImage,
+           "options"_a,
+           "image_id"_a)
+      .def("register_next_structure_less_image",
+           &IncrementalMapper::RegisterNextStructureLessImage,
            "options"_a,
            "image_id"_a)
       .def("triangulate_image",

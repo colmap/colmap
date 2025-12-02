@@ -61,7 +61,6 @@ Reconstruction GenerateReconstructionForAlignment() {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   return reconstruction;
 }
@@ -107,9 +106,11 @@ TEST(Alignment, AlignReconstructionToPosePriors) {
   Sim3d gt_tgt_from_src = TestSim3d();
   tgt_reconstruction.Transform(gt_tgt_from_src);
 
-  std::unordered_map<image_t, PosePrior> tgt_pose_priors;
+  std::vector<PosePrior> tgt_pose_priors;
   for (const auto& [image_id, image] : tgt_reconstruction.Images()) {
-    PosePrior& pose_prior = tgt_pose_priors[image_id];
+    PosePrior& pose_prior = tgt_pose_priors.emplace_back();
+    pose_prior.pose_prior_id = tgt_pose_priors.size();
+    pose_prior.corr_data_id = image.DataId();
     pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
     pose_prior.position = image.ProjectionCenter();
     pose_prior.position_covariance = 1e-2 * Eigen::Matrix3d::Identity();
@@ -181,7 +182,6 @@ TEST(Alignment, MergeReconstructions) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &src_reconstruction);
   Reconstruction orig_reconstruction = src_reconstruction;
   Reconstruction tgt_reconstruction = src_reconstruction;
@@ -232,14 +232,14 @@ TEST(Alignment, AlignReconstructionToOrigRigScales) {
   synthetic_dataset_options.num_cameras_per_rig = 4;
   synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   std::unordered_map<rig_t, Rig> orig_rigs = reconstruction.Rigs();
 
   reconstruction.Transform(TestSim3d());
   AlignReconstructionToOrigRigScales(orig_rigs, &reconstruction);
   for (const auto& [rig_id, orig_rig] : orig_rigs) {
-    for (const auto& [sensor_id, sensor_from_orig_rig] : orig_rig.Sensors()) {
+    for (const auto& [sensor_id, sensor_from_orig_rig] :
+         orig_rig.NonRefSensors()) {
       if (!sensor_from_orig_rig.has_value()) {
         continue;
       }

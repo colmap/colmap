@@ -661,16 +661,13 @@ Eigen::RowMajorMatrixXf SpatialPairGenerator::ReadPositionPriorData(
   position_idxs_.reserve(image_ids_.size());
 
   for (size_t i = 0; i < image_ids_.size(); ++i) {
-    const PosePrior* pose_prior = cache.GetPosePriorOrNull(image_ids_[i]);
+    const PosePrior* pose_prior = cache.FindImagePosePriorOrNull(image_ids_[i]);
     if (pose_prior == nullptr) {
       continue;
     }
 
-    const Eigen::Vector3d& position_prior = pose_prior->position;
-    if ((position_prior(0) == 0 && position_prior(1) == 0 &&
-         position_prior(2) == 0) ||
-        (options_.ignore_z && position_prior(0) == 0 &&
-         position_prior(1) == 0)) {
+    if ((!options_.ignore_z && !pose_prior->HasPosition()) ||
+        (options_.ignore_z && !pose_prior->position.head<2>().allFinite())) {
       continue;
     }
 
@@ -679,9 +676,9 @@ Eigen::RowMajorMatrixXf SpatialPairGenerator::ReadPositionPriorData(
 
     switch (pose_prior->coordinate_system) {
       case PosePrior::CoordinateSystem::WGS84: {
-        ells[0](0) = position_prior(0);
-        ells[0](1) = position_prior(1);
-        ells[0](2) = options_.ignore_z ? 0 : position_prior(2);
+        ells[0](0) = pose_prior->position(0);
+        ells[0](1) = pose_prior->position(1);
+        ells[0](2) = options_.ignore_z ? 0 : pose_prior->position(2);
 
         const std::vector<Eigen::Vector3d> xyzs =
             gps_transform.EllipsoidToECEF(ells);
@@ -694,10 +691,10 @@ Eigen::RowMajorMatrixXf SpatialPairGenerator::ReadPositionPriorData(
         LOG(WARNING) << "Unknown coordinate system for image " << image_ids_[i]
                      << ", assuming cartesian.";
       case PosePrior::CoordinateSystem::CARTESIAN:
-        position_matrix(position_idx, 0) = position_prior(0);
-        position_matrix(position_idx, 1) = position_prior(1);
+        position_matrix(position_idx, 0) = pose_prior->position(0);
+        position_matrix(position_idx, 1) = pose_prior->position(1);
         position_matrix(position_idx, 2) =
-            options_.ignore_z ? 0 : position_prior(2);
+            options_.ignore_z ? 0 : pose_prior->position(2);
     }
   }
 

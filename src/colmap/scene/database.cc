@@ -86,7 +86,7 @@ void Database::Merge(const Database& database1,
           ref_sensor_id.id = new_camera_ids.at(ref_sensor_id.id);
         }
         updated_rig.AddRefSensor(ref_sensor_id);
-        for (const auto& [sensor_id, sensor_from_rig] : rig.Sensors()) {
+        for (const auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
           sensor_t updated_sensor_id = sensor_id;
           if (sensor_id.type == SensorType::CAMERA) {
             updated_sensor_id.id = new_camera_ids.at(sensor_id.id);
@@ -115,6 +115,7 @@ void Database::Merge(const Database& database1,
   std::unordered_map<image_t, image_t> new_image_ids1;
   for (auto& image : database1.ReadAllImages()) {
     image.SetCameraId(new_camera_ids1.at(image.CameraId()));
+    image.SetFrameId(kInvalidFrameId);
     THROW_CHECK(!merged_database->ExistsImageWithName(image.Name()))
         << "The two databases must not contain images with the same name, but "
            "there are images with name "
@@ -125,15 +126,12 @@ void Database::Merge(const Database& database1,
     const auto descriptors = database1.ReadDescriptors(image.ImageId());
     merged_database->WriteKeypoints(new_image_id, keypoints);
     merged_database->WriteDescriptors(new_image_id, descriptors);
-    if (database1.ExistsPosePrior(image.ImageId())) {
-      merged_database->WritePosePrior(new_image_id,
-                                      database1.ReadPosePrior(image.ImageId()));
-    }
   }
 
   std::unordered_map<image_t, image_t> new_image_ids2;
   for (auto& image : database2.ReadAllImages()) {
     image.SetCameraId(new_camera_ids2.at(image.CameraId()));
+    image.SetFrameId(kInvalidFrameId);
     THROW_CHECK(!merged_database->ExistsImageWithName(image.Name()))
         << "The two databases must not contain images with the same name, but "
            "there are images with name "
@@ -144,10 +142,6 @@ void Database::Merge(const Database& database1,
     const auto descriptors = database2.ReadDescriptors(image.ImageId());
     merged_database->WriteKeypoints(new_image_id, keypoints);
     merged_database->WriteDescriptors(new_image_id, descriptors);
-    if (database2.ExistsPosePrior(image.ImageId())) {
-      merged_database->WritePosePrior(new_image_id,
-                                      database2.ReadPosePrior(image.ImageId()));
-    }
   }
 
   // Merge the frames.
@@ -160,15 +154,18 @@ void Database::Merge(const Database& database1,
         updated_frame.SetFrameId(frame.FrameId());
         updated_frame.SetRigId(frame.RigId());
         for (data_t data_id : frame.DataIds()) {
-          if (data_id.sensor_id.type == SensorType::CAMERA) {
-            data_id.id = new_image_ids.at(data_id.id);
-            data_id.sensor_id.id = new_camera_ids.at(data_id.sensor_id.id);
-            updated_frame.AddDataId(data_id);
-          } else {
-            std::ostringstream error;
-            error << "Data type not supported: " << data_id.sensor_id.type;
-            throw std::runtime_error(error.str());
+          switch (data_id.sensor_id.type) {
+            case SensorType::CAMERA:
+              data_id.id = new_image_ids.at(data_id.id);
+              data_id.sensor_id.id = new_camera_ids.at(data_id.sensor_id.id);
+              break;
+            default:
+              std::ostringstream error;
+              error << "Data type not supported: " << data_id.sensor_id.type;
+              throw std::runtime_error(error.str());
           }
+
+          updated_frame.AddDataId(data_id);
         }
         return updated_frame;
       };
@@ -181,6 +178,39 @@ void Database::Merge(const Database& database1,
   for (Frame& frame : database2.ReadAllFrames()) {
     merged_database->WriteFrame(
         update_frame(frame, new_camera_ids2, new_image_ids2));
+  }
+
+  // Merge the pose priors.
+
+  auto update_pose_prior =
+      [](const PosePrior& pose_prior,
+         const std::unordered_map<camera_t, camera_t>& new_camera_ids,
+         const std::unordered_map<image_t, image_t>& new_image_ids) {
+        PosePrior updated_pose_prior = pose_prior;
+        switch (pose_prior.corr_data_id.sensor_id.type) {
+          case SensorType::CAMERA:
+            updated_pose_prior.corr_data_id.id =
+                new_image_ids.at(pose_prior.corr_data_id.id);
+            updated_pose_prior.corr_data_id.sensor_id.id =
+                new_camera_ids.at(pose_prior.corr_data_id.sensor_id.id);
+            break;
+          default:
+            std::ostringstream error;
+            error << "Data type not supported: "
+                  << pose_prior.corr_data_id.sensor_id.type;
+            throw std::runtime_error(error.str());
+        }
+        return updated_pose_prior;
+      };
+
+  for (auto& pose_prior : database1.ReadAllPosePriors()) {
+    merged_database->WritePosePrior(
+        update_pose_prior(pose_prior, new_camera_ids1, new_image_ids1));
+  }
+
+  for (auto& pose_prior : database2.ReadAllPosePriors()) {
+    merged_database->WritePosePrior(
+        update_pose_prior(pose_prior, new_camera_ids2, new_image_ids2));
   }
 
   // Merge the matches.

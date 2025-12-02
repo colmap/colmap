@@ -13,9 +13,11 @@ Pre-built wheels for Linux, macOS, and Windows can be installed using pip::
    pip install pycolmap
 
 The wheels are automatically built and pushed to `PyPI
-<https://pypi.org/project/pycolmap/>`_ at each release. They are currently not
-built with CUDA support, which requires building from source. To build PyCOLMAP
-from source, follow these steps:
+<https://pypi.org/project/pycolmap/>`_ at each release.
+To benefit from GPU acceleration, wheels built for CUDA 12 (only for Linux - for now)
+are available under the `package pycolmap-cuda12 <https://pypi.org/project/pycolmap-cuda12/)>`_.
+
+To build PyCOLMAP from source, follow these steps:
 
 1. Install COLMAP from source following :ref:`installation`.
 2. Build PyCOLMAP:

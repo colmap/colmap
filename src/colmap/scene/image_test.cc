@@ -64,11 +64,12 @@ TEST(Image, Print) {
   Image image;
   image.SetImageId(1);
   image.SetCameraId(2);
+  image.SetFrameId(3);
   image.SetName("test");
   std::ostringstream stream;
   stream << image;
   EXPECT_EQ(stream.str(),
-            "Image(image_id=1, camera_id=2, name=\"test\", "
+            "Image(image_id=1, camera_id=2, frame_id=3, name=\"test\", "
             "has_pose=0, triangulated=0/0)");
 }
 
@@ -175,6 +176,7 @@ TEST(Image, ConstructCopy) {
   Image image;
   image.SetImageId(1);
   image.SetCameraId(1);
+  image.SetName("test");
   frame.AddDataId(image.DataId());
   image.SetFrameId(1);
   image.SetFramePtr(&frame);
@@ -198,10 +200,12 @@ TEST(Image, AssignCopy) {
   Image image;
   image.SetImageId(1);
   image.SetCameraId(1);
+  image.SetName("test");
   frame.AddDataId(image.DataId());
   image.SetFrameId(1);
   image.SetFramePtr(&frame);
-  Image image_copy = image;
+  Image image_copy;
+  image_copy = image;
   EXPECT_EQ(image, image_copy);
   EXPECT_EQ(image_copy.CamFromWorld(), Rigid3d());
   image_copy.FramePtr()->ResetPose();

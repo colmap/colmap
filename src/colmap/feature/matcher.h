@@ -76,9 +76,16 @@ struct FeatureMatchingOptions {
   // Whether to perform guided matching.
   bool guided_matching = false;
 
+  // Skips the geometric verification stage and forwards matches unchanged.
+  // This option is ignored when guided matching is enabled, because guided
+  // matching depends on the two-view geometry produced by geometric
+  // verification.
+  bool skip_geometric_verification = false;
+
   // Whether to perform geometric verification using rig constraints
   // between pairs of non-trivial frames. If disabled, performs geometric
   // two-view verification for non-trivial frames without rig constraints.
+  // This option is ignored when skip_geometric_verification is true.
   bool rig_verification = false;
 
   // Whether to skip matching images within the same frame.
@@ -131,10 +138,11 @@ class FeatureMatcherCache {
   const Camera& GetCamera(camera_t camera_id);
   const Frame& GetFrame(frame_t frame_id);
   const Image& GetImage(image_t image_id);
-  const PosePrior* GetPosePriorOrNull(image_t image_id);
+  const PosePrior* FindImagePosePriorOrNull(image_t image_id);
   std::shared_ptr<FeatureKeypoints> GetKeypoints(image_t image_id);
   std::shared_ptr<FeatureDescriptors> GetDescriptors(image_t image_id);
   FeatureMatches GetMatches(image_t image_id1, image_t image_id2);
+  TwoViewGeometry GetTwoViewGeometry(image_t image_id1, image_t image_id2);
   std::vector<frame_t> GetFrameIds();
   std::vector<image_t> GetImageIds();
   ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>&
@@ -144,7 +152,12 @@ class FeatureMatcherCache {
   bool ExistsDescriptors(image_t image_id);
 
   bool ExistsMatches(image_t image_id1, image_t image_id2);
+  bool ExistsTwoViewGeometry(image_t image_id1, image_t image_id2);
   bool ExistsInlierMatches(image_t image_id1, image_t image_id2);
+
+  void UpdateTwoViewGeometry(image_t image_id1,
+                             image_t image_id2,
+                             const TwoViewGeometry& two_view_geometry);
 
   void WriteMatches(image_t image_id1,
                     image_t image_id2,
@@ -154,6 +167,7 @@ class FeatureMatcherCache {
                             const TwoViewGeometry& two_view_geometry);
 
   void DeleteMatches(image_t image_id1, image_t image_id2);
+  void DeleteTwoViewGeometry(image_t image_id1, image_t image_id2);
   void DeleteInlierMatches(image_t image_id1, image_t image_id2);
 
   size_t MaxNumKeypoints();

@@ -129,6 +129,9 @@ void FeatureMatchingTab::CreateGeneralOptions() {
                                 "max_num_matches");
   options_widget_->AddOptionBool(&options_->feature_matching->guided_matching,
                                  "guided_matching");
+  options_widget_->AddOptionBool(
+      &options_->feature_matching->skip_geometric_verification,
+      "skip_geometric_verification");
   options_widget_->AddOptionBool(&options_->feature_matching->rig_verification,
                                  "rig_verification");
   options_widget_->AddOptionBool(

@@ -64,11 +64,10 @@ bool IsPanoramicRig(const std::vector<size_t>& camera_idxs,
   const std::set<size_t> camera_idx_set(camera_idxs.begin(), camera_idxs.end());
   const size_t first_camera_idx = *camera_idx_set.begin();
   const Eigen::Vector3d first_origin_in_rig =
-      cams_from_rig[first_camera_idx].rotation.inverse() *
-      -cams_from_rig[first_camera_idx].translation;
+      cams_from_rig[first_camera_idx].TgtOriginInSrc();
   for (auto it = ++camera_idx_set.begin(); it != camera_idx_set.end(); ++it) {
     const Eigen::Vector3d other_origin_in_rig =
-        cams_from_rig[*it].rotation.inverse() * -cams_from_rig[*it].translation;
+        cams_from_rig[*it].TgtOriginInSrc();
     if (!first_origin_in_rig.isApprox(other_origin_in_rig, 1e-6)) {
       return false;
     }
@@ -310,9 +309,9 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
   const auto loss_function =
       std::make_unique<ceres::CauchyLoss>(options.loss_function_scale);
 
-  std::vector<double*> cameras_params_data;
+  std::vector<double*> cameras_params_data(cameras->size());
   for (size_t i = 0; i < cameras->size(); i++) {
-    cameras_params_data.push_back(cameras->at(i).params.data());
+    cameras_params_data[i] = cameras->at(i).params.data();
   }
   std::vector<size_t> camera_counts(cameras->size(), 0);
   double* rig_from_world_rotation = rig_from_world->rotation.coeffs().data();
@@ -429,6 +428,67 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
   }
 
   return summary.IsSolutionUsable();
+}
+
+bool EstimateStructureLessAbsolutePose(
+    const StructureLessAbsolutePoseEstimationOptions& options,
+    const std::vector<Eigen::Vector2d>& query_points2D,
+    const std::vector<Eigen::Vector2d>& world_points2D,
+    const std::vector<size_t>& world_camera_idxs,
+    const std::vector<Rigid3d>& world_cams_from_world,
+    const std::vector<Camera>& world_cameras,
+    const Camera& query_camera,
+    Rigid3d* query_cam_from_world,
+    size_t* num_inliers,
+    std::vector<char>* inlier_mask) {
+  THROW_CHECK_EQ(world_points2D.size(), query_points2D.size());
+  THROW_CHECK_EQ(world_points2D.size(), world_camera_idxs.size());
+  THROW_CHECK_EQ(world_cams_from_world.size(), world_cameras.size());
+  ThrowCheckCameras(world_camera_idxs, world_cams_from_world, world_cameras);
+  options.Check();
+
+  if (IsPanoramicRig(world_camera_idxs, world_cams_from_world)) {
+    return false;
+  }
+
+  const size_t num_points = world_points2D.size();
+  std::vector<GRNPObservation> world_obs(num_points);
+  std::vector<GRNPObservation> query_obs(num_points);
+  for (size_t i = 0; i < num_points; ++i) {
+    const size_t world_camera_idx = world_camera_idxs[i];
+    world_obs[i].cam_from_rig = world_cams_from_world[world_camera_idx];
+    if (const std::optional<Eigen::Vector2d> world_cam_point =
+            world_cameras[world_camera_idx].CamFromImg(world_points2D[i]);
+        world_cam_point.has_value()) {
+      world_obs[i].ray_in_cam = world_cam_point->homogeneous().normalized();
+    } else {
+      world_obs[i].ray_in_cam.setZero();
+    }
+
+    query_obs[i].cam_from_rig = Rigid3d();
+    if (const std::optional<Eigen::Vector2d> query_cam_point =
+            query_camera.CamFromImg(query_points2D[i]);
+        query_cam_point.has_value()) {
+      query_obs[i].ray_in_cam = query_cam_point->homogeneous().normalized();
+    } else {
+      query_obs[i].ray_in_cam.setZero();
+    }
+  }
+
+  auto custom_ransac_options = options.ransac_options;
+  custom_ransac_options.max_error =
+      query_camera.CamFromImgThreshold(options.ransac_options.max_error);
+  LORANSAC<GR6PEstimator, GR8PEstimator> ransac(custom_ransac_options);
+  auto report = ransac.Estimate(world_obs, query_obs);
+  if (!report.success) {
+    return false;
+  }
+
+  *query_cam_from_world = report.model;
+  *num_inliers = report.support.num_inliers;
+  *inlier_mask = std::move(report.inlier_mask);
+
+  return true;
 }
 
 }  // namespace colmap

@@ -49,7 +49,10 @@ Download
   https://repology.org/metapackage/colmap/versions.
 * Pre-built **Docker** images are available at
   https://hub.docker.com/r/colmap/colmap.
+* Conda packages are available at https://anaconda.org/conda-forge/colmap and
+  can be installed with `conda install colmap`
 * **Python bindings** are available at https://pypi.org/project/pycolmap.
+  CUDA-enabled wheels are available at https://pypi.org/project/pycolmap-cuda12.
 * To **build from source**, please see https://colmap.github.io/install.html.
 
 
@@ -68,6 +71,13 @@ Documentation
 
 The documentation is available at https://colmap.github.io/.
 
+To build and update the documentation at the documentation website, follow these steps:
+
+1. Build the documentation locally following [these instructions](https://colmap.github.io/install.html#documentation).
+2. Clone the website repository [colmap/colmap.github.io](https://github.com/colmap/colmap.github.io).
+3. Copy the contents of the generated files at `_build/html` to the cloned respository root.
+4. Create a pull request to the [colmap/colmap.github.io](https://github.com/colmap/colmap.github.io) repository with the updated files.
+5. (optional if main release) Copy the previous release as legacy to the "legacy" folder, under a folder with the release number [as seen here](https://github.com/colmap/colmap.github.io/tree/master/legacy)
 
 Support
 -------

@@ -4,7 +4,7 @@
 
 # Check version
 version_string=$(clang-format --version | sed -E 's/^.*(\d+\.\d+\.\d+-.*).*$/\1/')
-expected_version_string='19.1.0'
+expected_version_string='20.1.5'
 if [[ "$version_string" =~ "$expected_version_string" ]]; then
     echo "clang-format version '$version_string' matches '$expected_version_string'"
 else
@@ -16,7 +16,7 @@ fi
 root_folder=$(git rev-parse --show-toplevel)
 all_files=$( \
     git ls-tree --full-tree -r --name-only HEAD . \
-    | grep "^src/\(colmap\|pycolmap\).*\(\.cc\|\.h\|\.hpp\|\.cpp\|\.cu\)$" \
+    | grep "^src/\(colmap\|glomap\|pycolmap\).*\(\.cc\|\.h\|\.hpp\|\.cpp\|\.cu\)$" \
     | sed "s~^~$root_folder/~")
 num_files=$(echo $all_files | wc -w)
 echo "Formatting ${num_files} files"

@@ -53,10 +53,8 @@ void GR6PEstimator::Estimate(const std::vector<X_t>& points1,
   std::vector<Eigen::Vector3d> rays_in_rig1(6);
   std::vector<Eigen::Vector3d> rays_in_rig2(6);
   for (int i = 0; i < 6; ++i) {
-    origins_in_rig1[i] = points1[i].cam_from_rig.rotation.inverse() *
-                         -points1[i].cam_from_rig.translation;
-    origins_in_rig2[i] = points2[i].cam_from_rig.rotation.inverse() *
-                         -points2[i].cam_from_rig.translation;
+    origins_in_rig1[i] = points1[i].cam_from_rig.TgtOriginInSrc();
+    origins_in_rig2[i] = points2[i].cam_from_rig.TgtOriginInSrc();
     rays_in_rig1[i] =
         points1[i].cam_from_rig.rotation.inverse() * points1[i].ray_in_cam;
     rays_in_rig2[i] =
@@ -518,8 +516,8 @@ void GR8PEstimator::Estimate(const std::vector<X_t>& points1,
   for (size_t i = 0; i < points1.size(); ++i) {
     const Eigen::Vector3d f1 = plueckers1[i].head<3>();
     const Eigen::Vector3d f2 = plueckers2[i].head<3>();
-    const Eigen::Vector3d t1 = origins_in_rig1[i];
-    const Eigen::Vector3d t2 = origins_in_rig2[i];
+    const Eigen::Vector3d& t1 = origins_in_rig1[i];
+    const Eigen::Vector3d& t2 = origins_in_rig2[i];
 
     const Eigen::Matrix3d F = f2 * f2.transpose();
     xxF += f1[0] * f1[0] * F;

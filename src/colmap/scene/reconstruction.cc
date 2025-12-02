@@ -135,7 +135,12 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
   // Add cameras.
   cameras_.reserve(database_cache.NumCameras());
   for (const auto& [camera_id, camera] : database_cache.Cameras()) {
-    if (!ExistsCamera(camera_id)) {
+    if (ExistsCamera(camera_id)) {
+      struct Camera& existing_camera = Camera(camera_id);
+      THROW_CHECK_EQ(existing_camera.model_id, camera.model_id);
+      THROW_CHECK_EQ(existing_camera.width, camera.width);
+      THROW_CHECK_EQ(existing_camera.height, camera.height);
+    } else {
       AddCamera(camera);
     }
   }
@@ -143,7 +148,11 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
   // Add rigs.
   rigs_.reserve(database_cache.NumRigs());
   for (const auto& [rig_id, rig] : database_cache.Rigs()) {
-    if (!ExistsRig(rig_id)) {
+    if (ExistsRig(rig_id)) {
+      class Rig& existing_rig = Rig(rig_id);
+      THROW_CHECK(existing_rig.RefSensorId() == rig.RefSensorId());
+      THROW_CHECK(existing_rig.SensorIds() == rig.SensorIds());
+    } else {
       AddRig(rig);
     }
   }
@@ -151,7 +160,11 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
   // Add frames.
   frames_.reserve(database_cache.NumFrames());
   for (const auto& [frame_id, frame] : database_cache.Frames()) {
-    if (!ExistsFrame(frame_id)) {
+    if (ExistsFrame(frame_id)) {
+      class Frame& existing_frame = Frame(frame_id);
+      THROW_CHECK(existing_frame.RigId() == frame.RigId());
+      THROW_CHECK(existing_frame.DataIds() == frame.DataIds());
+    } else {
       AddFrame(frame);
     }
   }
@@ -177,13 +190,10 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
 void Reconstruction::TearDown() {
   // Remove all non-registered frames/images.
   std::unordered_set<rig_t> keep_rig_ids;
-  std::unordered_set<camera_t> keep_camera_ids;
   for (auto frame_it = frames_.begin(); frame_it != frames_.end();) {
     for (const data_t& data_id : frame_it->second.ImageIds()) {
       auto image_it = images_.find(data_id.id);
-      if (frame_it->second.HasPose()) {
-        keep_camera_ids.insert(image_it->second.CameraId());
-      } else if (image_it != images_.end()) {
+      if (!frame_it->second.HasPose() && image_it != images_.end()) {
         images_.erase(image_it);
       }
     }
@@ -195,19 +205,20 @@ void Reconstruction::TearDown() {
     }
   }
 
-  // Remove all unused rigs.
+  // Remove all unused rigs and corresponding sensors.
   for (auto it = rigs_.begin(); it != rigs_.end();) {
     if (keep_rig_ids.count(it->first) == 0) {
+      for (const sensor_t& sensor_id : it->second.SensorIds()) {
+        switch (sensor_id.type) {
+          case SensorType::CAMERA:
+            cameras_.erase(sensor_id.id);
+            break;
+          case SensorType::IMU:
+          case SensorType::INVALID:
+            break;
+        }
+      }
       it = rigs_.erase(it);
-    } else {
-      ++it;
-    }
-  }
-
-  // Remove all unused cameras.
-  for (auto it = cameras_.begin(); it != cameras_.end();) {
-    if (keep_camera_ids.count(it->first) == 0) {
-      it = cameras_.erase(it);
     } else {
       ++it;
     }
@@ -235,7 +246,7 @@ void Reconstruction::AddRig(class Rig rig) {
   };
 
   check_exists_sensor(rig.RefSensorId());
-  for (const auto& [sensor_id, _] : rig.Sensors()) {
+  for (const auto& [sensor_id, _] : rig.NonRefSensors()) {
     check_exists_sensor(sensor_id);
   }
 
@@ -251,10 +262,20 @@ void Reconstruction::AddCamera(struct Camera camera) {
 
 void Reconstruction::AddFrame(class Frame frame) {
   THROW_CHECK(frame.HasRigId());
-  THROW_CHECK_GT(frame.NumDataIds(), 0)
-      << "A frame with no associated data is "
-         "never useful in the reconstruction.";
   auto& rig = Rig(frame.RigId());
+  for (const auto& data_id : frame.DataIds()) {
+    switch (data_id.sensor_id.type) {
+      case SensorType::CAMERA:
+        THROW_CHECK(rig.HasSensor(data_id.sensor_id));
+        break;
+      case SensorType::IMU:
+        // Note that we do not (yet) support IMU measurement data.
+        break;
+      case SensorType::INVALID:
+        LOG(FATAL_THROW) << "Invalid sensor type: " << data_id.sensor_id.type;
+        break;
+    }
+  }
   if (frame.HasRigPtr()) {
     THROW_CHECK_EQ(frame.RigPtr(), &rig);
   } else {
@@ -279,6 +300,7 @@ void Reconstruction::AddImage(class Image image) {
   }
   THROW_CHECK(image.HasFrameId());
   auto& frame = Frame(image.FrameId());
+  THROW_CHECK(frame.HasDataId(image.DataId()));
   if (image.HasFramePtr()) {
     THROW_CHECK_EQ(image.FramePtr(), &frame);
   } else {
@@ -538,7 +560,7 @@ Reconstruction::ComputeBBBoxAndCentroid(const double min_percentile,
 
 void Reconstruction::Transform(const Sim3d& new_from_old_world) {
   for (auto& [_, rig] : rigs_) {
-    for (auto& [_, sensor_from_rig] : rig.Sensors()) {
+    for (auto& [_, sensor_from_rig] : rig.NonRefSensors()) {
       if (sensor_from_rig.has_value()) {
         sensor_from_rig->translation *= new_from_old_world.scale;
       }

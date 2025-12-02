@@ -24,7 +24,7 @@ jobs:
           {
             os: ubuntu-24.04,
             qtVersion: 6,
-            cmakeBuildType: RelWithDebInfo,
+            cmakeBuildType: Release,
             asanEnabled: false,
             guiEnabled: true,
             cudaEnabled: false,
@@ -122,7 +122,7 @@ jobs:
         if: matrix.config.checkCodeFormat
         run: |
           set +x -euo pipefail
-          python -m pip install ruff==0.12.7 clang-format==19.1.0
+          python -m pip install ruff==0.12.7 clang-format==20.1.5
           ./scripts/format/c++.sh
           ./scripts/format/python.sh
           git diff --name-only
@@ -147,6 +147,7 @@ jobs:
             libceres-dev \
             libopenimageio-dev \
             openimageio-tools \
+            libsuitesparse-dev \
             libmetis-dev \
             libgoogle-glog-dev \
             libgtest-dev \
@@ -206,6 +207,7 @@ jobs:
             -DCMAKE_INSTALL_PREFIX=./install \
             -DCMAKE_CUDA_ARCHITECTURES=50 \
             -DTESTS_ENABLED=ON \
+            -DWERROR_ENABLED=ON \
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} \
             -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \
             -DASAN_ENABLED=${{ matrix.config.asanEnabled }} \

@@ -70,6 +70,10 @@ class AutoDiffCostFunctor {
     return CreateAutoDiffCostFunction<DerivedCostFunctor>(
         new DerivedCostFunctor(std::forward<Args>(args)...));
   }
+
+ private:
+  AutoDiffCostFunctor() = default;
+  friend DerivedCostFunctor;
 };
 
 // Standard bundle adjustment cost function for variable
@@ -340,41 +344,41 @@ inline void EigenQuaternionToAngleAxis(const T* eigen_quaternion,
   ceres::QuaternionToAngleAxis(quaternion, angle_axis);
 }
 
-// 6-DoF error on the absolute camera pose. The residual is the log of the error
+// 6-DoF error on the absolute sensor pose. The residual is the log of the error
 // pose, splitting SE(3) into SO(3) x R^3. The residual is computed in the
-// camera frame. Its first and last three components correspond to the rotation
+// sensor frame. Its first and last three components correspond to the rotation
 // and translation errors, respectively.
 struct AbsolutePosePriorCostFunctor
     : public AutoDiffCostFunctor<AbsolutePosePriorCostFunctor, 6, 4, 3> {
  public:
-  explicit AbsolutePosePriorCostFunctor(const Rigid3d& cam_from_world_prior)
-      : world_from_cam_prior_(Inverse(cam_from_world_prior)) {}
+  explicit AbsolutePosePriorCostFunctor(const Rigid3d& sensor_from_world_prior)
+      : world_from_sensor_prior_(Inverse(sensor_from_world_prior)) {}
 
   template <typename T>
-  bool operator()(const T* const cam_from_world_rotation,
-                  const T* const cam_from_world_translation,
+  bool operator()(const T* const sensor_from_world_rotation,
+                  const T* const sensor_from_world_translation,
                   T* residuals_ptr) const {
     const Eigen::Quaternion<T> param_from_prior_rotation =
-        EigenQuaternionMap<T>(cam_from_world_rotation) *
-        world_from_cam_prior_.rotation.cast<T>();
+        EigenQuaternionMap<T>(sensor_from_world_rotation) *
+        world_from_sensor_prior_.rotation.cast<T>();
     EigenQuaternionToAngleAxis(param_from_prior_rotation.coeffs().data(),
                                residuals_ptr);
 
     Eigen::Map<Eigen::Matrix<T, 3, 1>> param_from_prior_translation(
         residuals_ptr + 3);
     param_from_prior_translation =
-        EigenVector3Map<T>(cam_from_world_translation) +
-        EigenQuaternionMap<T>(cam_from_world_rotation) *
-            world_from_cam_prior_.translation.cast<T>();
+        EigenVector3Map<T>(sensor_from_world_translation) +
+        EigenQuaternionMap<T>(sensor_from_world_rotation) *
+            world_from_sensor_prior_.translation.cast<T>();
 
     return true;
   }
 
  private:
-  const Rigid3d world_from_cam_prior_;
+  const Rigid3d world_from_sensor_prior_;
 };
 
-// 3-DoF error on the camera position in the world coordinate frame.
+// 3-DoF error on the sensor position in the world coordinate frame.
 struct AbsolutePosePositionPriorCostFunctor
     : public AutoDiffCostFunctor<AbsolutePosePositionPriorCostFunctor,
                                  3,
@@ -386,13 +390,50 @@ struct AbsolutePosePositionPriorCostFunctor
       : position_in_world_prior_(position_in_world_prior) {}
 
   template <typename T>
-  bool operator()(const T* const cam_from_world_rotation,
-                  const T* const cam_from_world_translation,
+  bool operator()(const T* const sensor_from_world_rotation,
+                  const T* const sensor_from_world_translation,
                   T* residuals_ptr) const {
     Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
     residuals = position_in_world_prior_.cast<T>() +
-                EigenQuaternionMap<T>(cam_from_world_rotation).inverse() *
-                    EigenVector3Map<T>(cam_from_world_translation);
+                EigenQuaternionMap<T>(sensor_from_world_rotation).inverse() *
+                    EigenVector3Map<T>(sensor_from_world_translation);
+    return true;
+  }
+
+ private:
+  const Eigen::Vector3d position_in_world_prior_;
+};
+
+// 3-DoF error on the rig sensor position in the world coordinate frame.
+struct AbsoluteRigPosePositionPriorCostFunctor
+    : public AutoDiffCostFunctor<AbsoluteRigPosePositionPriorCostFunctor,
+                                 3,
+                                 4,
+                                 3,
+                                 4,
+                                 3> {
+ public:
+  explicit AbsoluteRigPosePositionPriorCostFunctor(
+      const Eigen::Vector3d& position_in_world_prior)
+      : position_in_world_prior_(position_in_world_prior) {}
+
+  template <typename T>
+  bool operator()(const T* const sensor_from_rig_rotation,
+                  const T* const sensor_from_rig_translation,
+                  const T* const rig_from_world_rotation,
+                  const T* const rig_from_world_translation,
+                  T* residuals_ptr) const {
+    const Eigen::Quaternion<T> sensor_from_world_rotation =
+        EigenQuaternionMap<T>(sensor_from_rig_rotation) *
+        EigenQuaternionMap<T>(rig_from_world_rotation);
+    const Eigen::Matrix<T, 3, 1> sensor_from_world_translation =
+        EigenVector3Map<T>(sensor_from_rig_translation) +
+        EigenQuaternionMap<T>(sensor_from_rig_rotation) *
+            EigenVector3Map<T>(rig_from_world_translation);
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
+    residuals =
+        position_in_world_prior_.cast<T>() +
+        sensor_from_world_rotation.inverse() * sensor_from_world_translation;
     return true;
   }
 

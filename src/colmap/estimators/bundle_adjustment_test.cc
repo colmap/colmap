@@ -30,8 +30,10 @@
 #include "colmap/estimators/bundle_adjustment.h"
 
 #include "colmap/geometry/rigid3_matchers.h"
+#include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 
@@ -141,8 +143,10 @@ TEST(DefaultBundleAdjuster, TwoView) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.point2D_stddev = 1;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
   const Reconstruction orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -186,8 +190,10 @@ TEST(DefaultBundleAdjuster, TwoViewRig) {
   synthetic_dataset_options.num_cameras_per_rig = 2;
   synthetic_dataset_options.num_frames_per_rig = 2;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.point2D_stddev = 1;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
   const Reconstruction orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -237,8 +243,10 @@ TEST(DefaultBundleAdjuster, ManyViewRig) {
   synthetic_dataset_options.num_cameras_per_rig = 3;
   synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.point2D_stddev = 1;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
   const Reconstruction orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -289,8 +297,10 @@ TEST(DefaultBundleAdjuster, ManyViewRigConstantSensorFromRig) {
   synthetic_dataset_options.num_cameras_per_rig = 3;
   synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.point2D_stddev = 1;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
   const Reconstruction orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -342,8 +352,10 @@ TEST(DefaultBundleAdjuster, ManyViewRigConstantRigFromWorld) {
   synthetic_dataset_options.num_cameras_per_rig = 3;
   synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.point2D_stddev = 1;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
   const Reconstruction orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -402,8 +414,10 @@ TEST(DefaultBundleAdjuster, TwoViewConstantCamera) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.point2D_stddev = 1;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
   const Reconstruction orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -448,9 +462,11 @@ TEST(DefaultBundleAdjuster, PartiallyContainedTracks) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.point2D_stddev = 1;
   synthetic_dataset_options.num_points2D_without_point3D = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
   const auto variable_point3D_id =
       reconstruction.Image(3).Point2D(0).point3D_id;
   reconstruction.DeleteObservation(3, 0);
@@ -507,9 +523,11 @@ TEST(DefaultBundleAdjuster, PartiallyContainedTracksForceToOptimizePoint) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.point2D_stddev = 1;
   synthetic_dataset_options.num_points2D_without_point3D = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
 
   const point3D_t variable_point3D_id =
       reconstruction.Image(3).Point2D(0).point3D_id;
@@ -576,8 +594,10 @@ TEST(DefaultBundleAdjuster, ConstantPoints) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.point2D_stddev = 1;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
   const auto orig_reconstruction = reconstruction;
 
   const point3D_t constant_point3D_id1 = 1;
@@ -631,8 +651,10 @@ TEST(DefaultBundleAdjuster, VariableImage) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.point2D_stddev = 1;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -682,8 +704,10 @@ TEST(DefaultBundleAdjuster, ConstantFocalLength) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.point2D_stddev = 1;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -742,8 +766,10 @@ TEST(DefaultBundleAdjuster, VariablePrincipalPoint) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.point2D_stddev = 1;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -814,8 +840,10 @@ TEST(DefaultBundleAdjuster, ConstantExtraParam) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.point2D_stddev = 1;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -954,6 +982,127 @@ TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorld) {
   ExpectValidSolve(320);
 }
 
+TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorldFixSensorFromRig) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentOptions options;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.AddImage(3);
+  config.AddImage(4);
+
+  auto ExpectValidSolve = [&options, &config, &reconstruction](
+                              const int num_effective_parameters_reduced) {
+    const auto summary1 =
+        CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
+    ASSERT_NE(summary1.termination_type, ceres::FAILURE);
+    EXPECT_EQ(summary1.num_effective_parameters_reduced,
+              num_effective_parameters_reduced);
+  };
+
+  options.refine_rig_from_world = false;
+  options.refine_sensor_from_rig = false;
+  ExpectValidSolve(308);
+
+  options.refine_rig_from_world = true;
+  ExpectValidSolve(320);
+
+  options.refine_rig_from_world = false;
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  ExpectValidSolve(308);
+
+  options.refine_rig_from_world = true;
+  ExpectValidSolve(313);
+
+  config.SetConstantRigFromWorldPose(1);
+  ExpectValidSolve(313);
+
+  config.SetConstantRigFromWorldPose(2);
+  ExpectValidSolve(308);
+}
+
+TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorldNoReferenceSensor) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  // Delete observations from the two reference images.
+  THROW_CHECK(reconstruction.Image(1).HasTrivialFrame());
+  THROW_CHECK(reconstruction.Image(3).HasTrivialFrame());
+  for (point2D_t i = 0; i < reconstruction.Image(1).NumPoints2D(); ++i) {
+    if (reconstruction.Image(1).Point2D(i).HasPoint3D()) {
+      reconstruction.DeleteObservation(1, i);
+    }
+  }
+  for (point2D_t i = 0; i < reconstruction.Image(3).NumPoints2D(); ++i) {
+    if (reconstruction.Image(3).Point2D(i).HasPoint3D()) {
+      reconstruction.DeleteObservation(3, i);
+    }
+  }
+
+  // Only add two non-reference images.
+  BundleAdjustmentOptions options;
+  BundleAdjustmentConfig config;
+  config.AddImage(2);
+  config.AddImage(4);
+
+  auto ExpectValidSolve = [&options, &config, &reconstruction](
+                              const int num_effective_parameters_reduced) {
+    const auto summary1 =
+        CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
+    THROW_CHECK_NE(summary1.termination_type, ceres::FAILURE);
+    THROW_CHECK_EQ(summary1.num_effective_parameters_reduced,
+                   num_effective_parameters_reduced);
+  };
+
+  // refine_sensor_from_rig should have no effect when there are no reference
+  // sensors
+  options.refine_rig_from_world = true;
+  options.refine_sensor_from_rig = true;
+  ExpectValidSolve(316);
+
+  options.refine_rig_from_world = false;
+  ExpectValidSolve(304);
+
+  options.refine_rig_from_world = true;
+  ExpectValidSolve(316);
+
+  options.refine_rig_from_world = false;
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  ExpectValidSolve(304);
+
+  options.refine_sensor_from_rig = false;
+  ExpectValidSolve(304);
+
+  options.refine_rig_from_world = true;
+  ExpectValidSolve(309);
+
+  config.SetConstantRigFromWorldPose(1);
+  ExpectValidSolve(309);
+  options.refine_rig_from_world = false;
+  ExpectValidSolve(304);
+
+  config.SetConstantRigFromWorldPose(2);
+  options.refine_rig_from_world = true;
+  ExpectValidSolve(304);
+  options.refine_rig_from_world = false;
+  ExpectValidSolve(304);
+}
+
 TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorldFallback) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
@@ -979,6 +1128,155 @@ TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorldFallback) {
   ASSERT_NE(summary.termination_type, ceres::FAILURE);
   EXPECT_EQ(summary.num_effective_parameters, 316);
   EXPECT_EQ(summary.num_effective_parameters_reduced, 307);
+}
+
+TEST(DefaultBundleAdjuster, IgnorePoint) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.IgnorePoint(42);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDefaultBundleAdjuster(options, config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+
+  EXPECT_EQ(config.NumResiduals(reconstruction),
+            bundle_adjuster->Problem()->NumResiduals());
+
+  // 100 points, 2 images, 2 residuals per point per image
+  EXPECT_EQ(summary.num_residuals_reduced, 396);
+  // 99 x 3 point parameters
+  // + 5 rig_from_world parameters (pose of second image)
+  // + 2 x 2 camera parameters
+  EXPECT_EQ(summary.num_effective_parameters_reduced, 306);
+}
+
+TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
+  SetPRNGSeed(0);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 7;
+  synthetic_options.num_points3D = 50;
+  synthetic_options.use_prior_position = true;
+  synthetic_options.prior_position_stddev = 0.05;
+  std::string database_path = CreateTestDir() + "/database.db";
+  auto database = Database::Open(database_path);
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  Reconstruction reconstruction = gt_reconstruction;
+
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point3D_stddev = 0.2;
+  synthetic_noise_options.rig_from_world_rotation_stddev = 1.0;
+  synthetic_noise_options.rig_from_world_translation_stddev = 0.2;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  // Add 2 outlier priors with very large covariance
+  pose_priors.at(0).position += Eigen::Vector3d::Constant(10);
+  pose_priors.at(0).position_covariance = Eigen::Matrix3d::Identity() * 1e6;
+  pose_priors.at(1).position += Eigen::Vector3d::Constant(1);
+  pose_priors.at(1).position_covariance = Eigen::Matrix3d::Identity() * 1e2;
+
+  PosePriorBundleAdjustmentOptions prior_ba_options;
+  prior_ba_options.alignment_ransac_options.random_seed = 0;
+  prior_ba_options.alignment_ransac_options.max_error = 0.0;
+
+  BundleAdjustmentOptions ba_options;
+  BundleAdjustmentConfig ba_config;
+
+  for (const frame_t frame_id : reconstruction.RegFrameIds()) {
+    const Frame& frame = reconstruction.Frame(frame_id);
+    for (const data_t& data_id : frame.ImageIds()) {
+      ba_config.AddImage(data_id.id);
+    }
+  }
+
+  auto adjuster = CreatePosePriorBundleAdjuster(
+      ba_options, prior_ba_options, ba_config, pose_priors, reconstruction);
+  auto summary = adjuster->Solve();
+  ASSERT_TRUE(summary.IsSolutionUsable());
+
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.1,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.02));
+}
+
+TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
+  SetPRNGSeed(0);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 7;
+  synthetic_options.num_points3D = 100;
+  synthetic_options.use_prior_position = true;
+  synthetic_options.prior_position_stddev = 0.05;
+  std::string database_path = CreateTestDir() + "/database.db";
+  auto database = Database::Open(database_path);
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  Reconstruction reconstruction = gt_reconstruction;
+
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point3D_stddev = 0.2;
+  synthetic_noise_options.rig_from_world_rotation_stddev = 1.0;
+  synthetic_noise_options.rig_from_world_translation_stddev = 0.2;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  // Add 2 confident but wrong priors.
+  pose_priors[0].position_covariance = Eigen::Matrix3d::Identity() * 0.01;
+  pose_priors[0].position += Eigen::Vector3d::Constant(10);
+  pose_priors[1].position_covariance = Eigen::Matrix3d::Identity() * 1.01;
+  pose_priors[1].position += Eigen::Vector3d::Constant(10);
+
+  PosePriorBundleAdjustmentOptions prior_ba_options;
+  prior_ba_options.alignment_ransac_options.random_seed = 0;
+  prior_ba_options.prior_position_loss_function_type =
+      BundleAdjustmentOptions::LossFunctionType::CAUCHY;
+
+  BundleAdjustmentOptions ba_options;
+  BundleAdjustmentConfig ba_config;
+
+  for (const frame_t frame_id : reconstruction.RegFrameIds()) {
+    const Frame& frame = reconstruction.Frame(frame_id);
+    for (const data_t& data_id : frame.ImageIds()) {
+      ba_config.AddImage(data_id.id);
+    }
+  }
+
+  auto adjuster = CreatePosePriorBundleAdjuster(
+      ba_options, prior_ba_options, ba_config, pose_priors, reconstruction);
+  auto summary = adjuster->Solve();
+  ASSERT_TRUE(summary.IsSolutionUsable());
+
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.1,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.02));
 }
 
 }  // namespace

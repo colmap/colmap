@@ -72,6 +72,15 @@ struct FeatureKeypoint {
   float a12;
   float a21;
   float a22;
+
+  inline bool operator==(const FeatureKeypoint& other) const {
+    return x == other.x && y == other.y && a11 == other.a11 &&
+           a12 == other.a12 && a21 == other.a21 && a22 == other.a22;
+  }
+
+  inline bool operator!=(const FeatureKeypoint& other) const {
+    return !(*this == other);
+  }
 };
 
 typedef Eigen::Matrix<uint8_t, 1, Eigen::Dynamic, Eigen::RowMajor>
@@ -93,6 +102,15 @@ struct FeatureMatch {
 
   // Feature index in second image.
   point2D_t point2D_idx2 = kInvalidPoint2DIdx;
+
+  inline bool operator==(const FeatureMatch& other) const {
+    return point2D_idx1 == other.point2D_idx1 &&
+           point2D_idx2 == other.point2D_idx2;
+  }
+
+  inline bool operator!=(const FeatureMatch& other) const {
+    return !(*this == other);
+  }
 };
 
 typedef std::vector<FeatureMatch> FeatureMatches;

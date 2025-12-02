@@ -34,6 +34,7 @@
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
 
@@ -252,38 +253,74 @@ TEST(SampsonErrorCostFunctor, Nominal) {
 
 TEST(AbsolutePosePositionPriorCostFunctor, Nominal) {
   std::unique_ptr<ceres::CostFunction> cost_function(
-      AbsolutePosePositionPriorCostFunctor::Create(Eigen::Vector3d(0, 0, 0)));
-
-  double cam_from_world_rotation[4] = {0, 0, 0, 1};
-  double cam_from_world_translation[3] = {0, 0, 0};
-
-  double residuals[3];
-  const double* parameters[2] = {cam_from_world_rotation,
-                                 cam_from_world_translation};
-  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
-  EXPECT_EQ(residuals[0], 0);
-  EXPECT_EQ(residuals[1], 0);
-  EXPECT_EQ(residuals[2], 0);
-
-  const Rigid3d cam_from_world(Eigen::Quaterniond::UnitRandom(),
-                               Eigen::Vector3d::Random());
-  const Rigid3d world_from_cam = Inverse(cam_from_world);
-
-  cost_function.reset(
       AbsolutePosePositionPriorCostFunctor::Create(Eigen::Vector3d::Zero()));
-  parameters[0] = cam_from_world.rotation.coeffs().data();
-  parameters[1] = cam_from_world.translation.data();
-  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
-  EXPECT_NEAR(residuals[0], -world_from_cam.translation[0], 1e-6);
-  EXPECT_NEAR(residuals[1], -world_from_cam.translation[1], 1e-6);
-  EXPECT_NEAR(residuals[2], -world_from_cam.translation[2], 1e-6);
+
+  Rigid3d sensor_from_world(Eigen::Quaterniond::Identity(),
+                            Eigen::Vector3d::Zero());
+
+  Eigen::Vector3d residuals =
+      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+  const double* parameters[2] = {sensor_from_world.rotation.coeffs().data(),
+                                 sensor_from_world.translation.data()};
+
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals.data(), nullptr));
+  EXPECT_THAT(residuals, EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-6));
+
+  sensor_from_world =
+      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+  const Eigen::Vector3d position_in_world =
+      Inverse(sensor_from_world).translation;
+  residuals =
+      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals.data(), nullptr));
+  EXPECT_THAT(residuals,
+              EigenMatrixNear(Eigen::Vector3d(-position_in_world), 1e-6));
 
   cost_function.reset(
-      AbsolutePosePositionPriorCostFunctor::Create(world_from_cam.translation));
-  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
-  EXPECT_EQ(residuals[0], 0);
-  EXPECT_EQ(residuals[1], 0);
-  EXPECT_EQ(residuals[2], 0);
+      AbsolutePosePositionPriorCostFunctor::Create(position_in_world));
+  residuals =
+      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals.data(), nullptr));
+  EXPECT_THAT(residuals, EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-6));
+}
+
+TEST(AbsoluteRigPosePositionPriorCostFunctor, Nominal) {
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      AbsoluteRigPosePositionPriorCostFunctor::Create(Eigen::Vector3d::Zero()));
+
+  Rigid3d sensor_from_rig(Eigen::Quaterniond::Identity(),
+                          Eigen::Vector3d::Zero());
+  Rigid3d rig_from_world(Eigen::Quaterniond::Identity(),
+                         Eigen::Vector3d::Zero());
+
+  Eigen::Vector3d residuals =
+      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+  const double* parameters[4] = {sensor_from_rig.rotation.coeffs().data(),
+                                 sensor_from_rig.translation.data(),
+                                 rig_from_world.rotation.coeffs().data(),
+                                 rig_from_world.translation.data()};
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals.data(), nullptr));
+  EXPECT_THAT(residuals, EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-6));
+
+  sensor_from_rig =
+      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+  rig_from_world =
+      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+  const Rigid3d sensor_from_world = sensor_from_rig * rig_from_world;
+  const Eigen::Vector3d position_in_world =
+      Inverse(sensor_from_world).translation;
+  residuals =
+      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals.data(), nullptr));
+  EXPECT_THAT(residuals,
+              EigenMatrixNear(Eigen::Vector3d(-position_in_world), 1e-6));
+
+  cost_function.reset(
+      AbsoluteRigPosePositionPriorCostFunctor::Create(position_in_world));
+  residuals =
+      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals.data(), nullptr));
+  EXPECT_THAT(residuals, EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-6));
 }
 
 TEST(AbsolutePosePriorCostFunctor, Nominal) {
@@ -465,7 +502,7 @@ TEST(CovarianceWeightedCostFunctor, AbsolutePosePositionPriorCostFunctor) {
 
   std::unique_ptr<ceres::CostFunction> cost_function(
       CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
-          Create(2 * Eigen::Matrix3d::Identity(), Eigen::Vector3d(0, 0, 0)));
+          Create(2 * Eigen::Matrix3d::Identity(), Eigen::Vector3d::Zero()));
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_NEAR(
       residuals[0], -0.5 * std::sqrt(2) * world_from_cam.translation[0], 1e-6);

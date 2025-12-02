@@ -95,9 +95,11 @@ class BundleAdjustmentConfig {
   // be variable or constant but not both at the same time.
   void AddVariablePoint(point3D_t point3D_id);
   void AddConstantPoint(point3D_t point3D_id);
+  void IgnorePoint(point3D_t point3D_id);
   bool HasPoint(point3D_t point3D_id) const;
   bool HasVariablePoint(point3D_t point3D_id) const;
   bool HasConstantPoint(point3D_t point3D_id) const;
+  bool IsIgnoredPoint(point3D_t point3D_id) const;
   void RemoveVariablePoint(point3D_t point3D_id);
   void RemoveConstantPoint(point3D_t point3D_id);
 
@@ -115,6 +117,7 @@ class BundleAdjustmentConfig {
   std::unordered_set<image_t> image_ids_;
   std::unordered_set<point3D_t> variable_point3D_ids_;
   std::unordered_set<point3D_t> constant_point3D_ids_;
+  std::unordered_set<point3D_t> ignored_point3D_ids_;
   std::unordered_set<sensor_t> constant_sensor_from_rig_poses_;
   std::unordered_set<frame_t> constant_rig_from_world_poses_;
 };
@@ -183,9 +186,8 @@ struct BundleAdjustmentOptions {
 #endif  // CERES_VERSION_MAJOR
   }
 
-  // Create a new loss function based on the specified options. The caller
-  // takes ownership of the loss function.
-  ceres::LossFunction* CreateLossFunction() const;
+  // Create loss function for given options.
+  std::unique_ptr<ceres::LossFunction> CreateLossFunction() const;
 
   // Create options tailored for given bundle adjustment config and problem.
   ceres::Solver::Options CreateSolverOptions(
@@ -196,12 +198,12 @@ struct BundleAdjustmentOptions {
 };
 
 struct PosePriorBundleAdjustmentOptions {
-  // Whether to use a robust loss on prior locations.
-  bool use_robust_loss_on_prior_position = false;
+  // Loss function for prior position loss.
+  BundleAdjustmentOptions::LossFunctionType prior_position_loss_function_type =
+      BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
 
-  // Threshold on the residual for the robust loss
-  // (chi2 for 3DOF at 95% = 7.815).
-  double prior_position_loss_scale = 7.815;
+  // Threshold on the residual for the robust loss.
+  double prior_position_loss_scale = std::sqrt(kChiSquare95ThreeDof);
 
   // Sim3 alignment options.
   RANSACOptions alignment_ransac_options;
@@ -233,7 +235,7 @@ std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
     BundleAdjustmentOptions options,
     PosePriorBundleAdjustmentOptions prior_options,
     BundleAdjustmentConfig config,
-    std::unordered_map<image_t, PosePrior> pose_priors,
+    std::vector<PosePrior> pose_priors,
     Reconstruction& reconstruction);
 
 void PrintSolverSummary(const ceres::Solver::Summary& summary,

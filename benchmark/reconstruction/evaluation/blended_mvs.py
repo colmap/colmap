@@ -146,14 +146,20 @@ class DatasetBlendedMVS(Dataset):
                 height=height,
                 params=intrinsic[(0, 1, 0, 1), (0, 1, 2, 2)],
             )
+            rig = pycolmap.Rig(rig_id=i)
+            rig.add_ref_sensor(camera.sensor_id)
             image = pycolmap.Image(
                 image_id=i,
                 camera_id=i,
                 name=image_name,
                 cam_from_world=pycolmap.Rigid3d(extrinsic),
             )
+            frame = pycolmap.Frame(frame_id=i)
+            frame.add_data_id(image.data_id)
             sparse_gt.add_camera(camera)
+            sparse_gt.add_rig(rig)
             sparse_gt.add_image(image)
+            sparse_gt.add_frame(frame)
 
         scene_info.sparse_gt_path.mkdir(exist_ok=True)
         sparse_gt.write(scene_info.sparse_gt_path)
