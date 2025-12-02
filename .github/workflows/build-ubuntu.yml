@@ -207,6 +207,7 @@ jobs:
             -DCMAKE_INSTALL_PREFIX=./install \
             -DCMAKE_CUDA_ARCHITECTURES=50 \
             -DTESTS_ENABLED=ON \
+            -DWERROR_ENABLED=ON \
             -DGLOMAP_ENABLED=ON \
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} \
             -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \
