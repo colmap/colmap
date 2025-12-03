@@ -158,7 +158,6 @@ Bitmap::Bitmap(const int width,
 }
 
 Bitmap::Bitmap(const Bitmap& other) {
-  EnsureOpenImageIOInitialized();
   width_ = other.width_;
   height_ = other.height_;
   channels_ = other.channels_;
@@ -168,7 +167,6 @@ Bitmap::Bitmap(const Bitmap& other) {
 }
 
 Bitmap::Bitmap(Bitmap&& other) noexcept {
-  EnsureOpenImageIOInitialized();
   width_ = other.width_;
   height_ = other.height_;
   channels_ = other.channels_;
@@ -181,7 +179,6 @@ Bitmap::Bitmap(Bitmap&& other) noexcept {
 }
 
 Bitmap& Bitmap::operator=(const Bitmap& other) {
-  EnsureOpenImageIOInitialized();
   width_ = other.width_;
   height_ = other.height_;
   channels_ = other.channels_;
@@ -192,7 +189,6 @@ Bitmap& Bitmap::operator=(const Bitmap& other) {
 }
 
 Bitmap& Bitmap::operator=(Bitmap&& other) noexcept {
-  EnsureOpenImageIOInitialized();
   if (this != &other) {
     width_ = other.width_;
     height_ = other.height_;
