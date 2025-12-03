@@ -320,7 +320,6 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
           if (options.prior_position) {
             pose_prior.position = cam_from_world.TgtOriginInSrc();
-            pose_prior.position_covariance = 1e-3 * Eigen::Matrix3d::Identity();
             pose_prior.coordinate_system =
                 PosePrior::CoordinateSystem::CARTESIAN;
             switch (options.prior_position_coordinate_system) {
