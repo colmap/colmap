@@ -6,9 +6,11 @@
 #include "glomap/math/gravity.h"
 
 namespace glomap {
-void GravityRefiner::RefineGravity(const ViewGraph& view_graph,
-                                   std::unordered_map<frame_t, Frame>& frames,
-                                   std::unordered_map<image_t, Image>& images) {
+void GravityRefiner::RefineGravity(
+    const ViewGraph& view_graph,
+    std::unordered_map<frame_t, Frame>& frames,
+    std::unordered_map<image_t, Image>& images,
+    std::vector<colmap::PosePrior>& pose_priors) {
   const std::unordered_map<image_t, std::unordered_set<image_t>>&
       adjacency_list = view_graph.CreateImageAdjacencyList();
   if (adjacency_list.empty()) {
@@ -16,15 +18,36 @@ void GravityRefiner::RefineGravity(const ViewGraph& view_graph,
     return;
   }
 
+  std::unordered_map<image_t, frame_t> image_to_frame;
+  for (const auto& [image_id, image] : images) {
+    image_to_frame[image_id] = image.frame_id;
+  }
+
+  std::unordered_map<image_t, colmap::PosePrior*> image_to_pose_prior;
+  std::unordered_map<frame_t, colmap::PosePrior*> frame_to_pose_prior;
+  for (auto& pose_prior : pose_priors) {
+    if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
+      THROW_CHECK(
+          image_to_pose_prior.emplace(pose_prior.corr_data_id.id, &pose_prior)
+              .second)
+          << "Duplicate pose prior for image " << pose_prior.corr_data_id.id;
+      const frame_t frame_id = image_to_frame.at(pose_prior.corr_data_id.id);
+      THROW_CHECK(frame_to_pose_prior.emplace(frame_id, &pose_prior).second)
+          << "Duplicate pose prior for frame" << frame_id;
+    }
+  }
+
   // Identify the images that are error prone
   int counter_rect = 0;
   std::unordered_set<frame_t> error_prone_frames;
-  IdentifyErrorProneGravity(view_graph, frames, images, error_prone_frames);
+  IdentifyErrorProneGravity(
+      view_graph, frames, images, image_to_pose_prior, error_prone_frames);
 
   if (error_prone_frames.empty()) {
     LOG(INFO) << "No error prone frames found";
     return;
   }
+
   // Get the relevant pair ids for frames
   std::unordered_map<frame_t, std::unordered_set<image_pair_t>>
       adjacency_list_frames_to_pair_id;
@@ -39,7 +62,7 @@ void GravityRefiner::RefineGravity(const ViewGraph& view_graph,
 
   int counter_progress = 0;
   // Iterate through the error prone images
-  for (auto frame_id : error_prone_frames) {
+  for (const frame_t frame_id : error_prone_frames) {
     if ((counter_progress + 1) % 10 == 0 ||
         counter_progress == error_prone_frames.size() - 1) {
       std::cout << "\r Refining frame " << counter_progress + 1 << " / "
@@ -55,13 +78,17 @@ void GravityRefiner::RefineGravity(const ViewGraph& view_graph,
     problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
     ceres::Problem problem(problem_options);
     int counter = 0;
-    Eigen::Vector3d gravity = frames[frame_id].gravity_info.GetGravity();
+    Eigen::Vector3d gravity = frame_to_pose_prior.at(frame_id)->gravity;
     for (const auto& pair_id : neighbors) {
       const image_t image_id1 = view_graph.image_pairs.at(pair_id).image_id1;
       const image_t image_id2 = view_graph.image_pairs.at(pair_id).image_id2;
-      if (!images.at(image_id1).HasGravity() ||
-          !images.at(image_id2).HasGravity())
+
+      const auto pose_prior1_it = image_to_pose_prior.find(image_id1);
+      const auto pose_prior2_it = image_to_pose_prior.find(image_id2);
+      if (pose_prior1_it == image_to_pose_prior.end() ||
+          pose_prior2_it == image_to_pose_prior.end()) {
         continue;
+      }
 
       // Get the cam_from_rig
       Rigid3d cam1_from_rig1, cam2_from_rig2;
@@ -83,14 +110,14 @@ void GravityRefiner::RefineGravity(const ViewGraph& view_graph,
             (colmap::Inverse(view_graph.image_pairs.at(pair_id).cam2_from_cam1 *
                              cam1_from_rig1)
                  .rotation.toRotationMatrix() *
-             images[image_id2].GetRAlign())
+             GetAlignRot(pose_prior2_it->second->gravity))
                 .col(1));
       } else if (images.at(image_id2).frame_id == frame_id) {
         gravities.emplace_back(
             ((colmap::Inverse(cam2_from_rig2) *
               view_graph.image_pairs.at(pair_id).cam2_from_cam1)
                  .rotation.toRotationMatrix() *
-             images[image_id1].GetRAlign())
+             GetAlignRot(pose_prior1_it->second->gravity))
                 .col(1));
       }
 
@@ -111,18 +138,20 @@ void GravityRefiner::RefineGravity(const ViewGraph& view_graph,
     // Check the error with respect to the neighbors
     int counter_outlier = 0;
     for (int i = 0; i < gravities.size(); i++) {
-      double error = colmap::RadToDeg(
+      const double error = colmap::RadToDeg(
           std::acos(std::max(std::min(gravities[i].dot(gravity), 1.), -1.)));
       if (error > options_.max_gravity_error * 2) counter_outlier++;
     }
     // If the refined gravity now consistent with more images, then accept it
-    if (double(counter_outlier) / double(gravities.size()) <
+    if (static_cast<double>(counter_outlier) /
+            static_cast<double>(gravities.size()) <
         options_.max_outlier_ratio) {
       counter_rect++;
-      frames[frame_id].gravity_info.SetGravity(gravity);
+      frame_to_pose_prior.at(frame_id)->gravity = gravity;
     }
   }
-  LOG(INFO) << "Number of rectified frames: " << counter_rect << " / "
+
+  LOG(INFO) << "Number of refined gravities: " << counter_rect << " / "
             << error_prone_frames.size();
 }
 
@@ -130,6 +159,7 @@ void GravityRefiner::IdentifyErrorProneGravity(
     const ViewGraph& view_graph,
     const std::unordered_map<frame_t, Frame>& frames,
     const std::unordered_map<image_t, Image>& images,
+    std::unordered_map<image_t, colmap::PosePrior*>& image_to_pose_prior,
     std::unordered_set<frame_t>& error_prone_frames) {
   error_prone_frames.clear();
 
@@ -146,17 +176,26 @@ void GravityRefiner::IdentifyErrorProneGravity(
 
   for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (!image_pair.is_valid) continue;
-    const auto& image1 = images.at(image_pair.image_id1);
-    const auto& image2 = images.at(image_pair.image_id2);
 
-    if (image1.HasGravity() && image2.HasGravity()) {
+    const auto pose_prior1_it = image_to_pose_prior.find(image_pair.image_id1);
+    const auto pose_prior2_it = image_to_pose_prior.find(image_pair.image_id2);
+    if (pose_prior1_it == image_to_pose_prior.end() ||
+        pose_prior2_it == image_to_pose_prior.end()) {
+      continue;
+    }
+
+    if (pose_prior1_it->second->HasGravity() &&
+        pose_prior2_it->second->HasGravity()) {
       // Calculate the gravity aligned relative rotation
       const Eigen::Matrix3d R_rel =
-          image2.GetRAlign().transpose() *
+          GetAlignRot(pose_prior2_it->second->gravity).transpose() *
           image_pair.cam2_from_cam1.rotation.toRotationMatrix() *
-          image1.GetRAlign();
+          GetAlignRot(pose_prior1_it->second->gravity);
       // Convert it to the closest upright rotation
       const Eigen::Matrix3d R_rel_up = AngleToRotUp(RotUpToAngle(R_rel));
+
+      const auto& image1 = images.at(image_pair.image_id1);
+      const auto& image2 = images.at(image_pair.image_id2);
 
       // increment the total count
       frame_counter[image1.frame_id].second++;
@@ -174,11 +213,13 @@ void GravityRefiner::IdentifyErrorProneGravity(
   // Filter the images with too many mistakes
   for (const auto& [frame_id, counter] : frame_counter) {
     if (counter.second < options_.min_num_neighbors) continue;
-    if (double(counter.first) / double(counter.second) >=
+    if (static_cast<double>(counter.first) /
+            static_cast<double>(counter.second) >=
         options_.max_outlier_ratio) {
       error_prone_frames.insert(frame_id);
     }
   }
   LOG(INFO) << "Number of error prone frames: " << error_prone_frames.size();
 }
+
 }  // namespace glomap

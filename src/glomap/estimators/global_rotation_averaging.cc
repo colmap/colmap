@@ -4,6 +4,7 @@
 #include "colmap/optim/least_absolute_deviations.h"
 
 #include "glomap/estimators/rotation_initializer.h"
+#include "glomap/math/gravity.h"
 #include "glomap/math/tree.h"
 
 #include <iostream>
@@ -44,51 +45,83 @@ double RelAngleError(std::mt19937& rng,
   return est;
 }
 
+bool CheckKnownSensorFromRig(const std::unordered_map<rig_t, Rig>& rigs) {
+  bool all_known = true;
+  for (auto& [rig_id, rig] : rigs) {
+    for (auto& [sensor_id, sensor] : rig.NonRefSensors()) {
+      if (!sensor.has_value()) {
+        LOG(ERROR) << "Rig " << rig_id
+                   << " with unknown sensor_from_rig for sensor "
+                   << sensor_id.id
+                   << ", but gravity aligned rotation is "
+                      "requested. Please specify the rig calibration.";
+        all_known = false;
+      }
+    }
+  }
+  return all_known;
+}
+
+std::unordered_map<frame_t, colmap::PosePrior*> ExtractFrameToPosePrior(
+    const std::unordered_map<image_t, Image>& images,
+    std::vector<colmap::PosePrior>& pose_priors) {
+  std::unordered_map<image_t, frame_t> image_to_frame;
+  for (const auto& [image_id, image] : images) {
+    image_to_frame[image_id] = image.frame_id;
+  }
+
+  std::unordered_map<frame_t, colmap::PosePrior*> frame_to_pose_prior;
+  for (auto& pose_prior : pose_priors) {
+    if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
+      const frame_t frame_id = image_to_frame.at(pose_prior.corr_data_id.id);
+      THROW_CHECK(frame_to_pose_prior.emplace(frame_id, &pose_prior).second)
+          << "Duplicate pose prior for frame" << frame_id;
+    }
+  }
+
+  return frame_to_pose_prior;
+}
+
 }  // namespace
 
 bool RotationEstimator::EstimateRotations(
     const ViewGraph& view_graph,
     std::unordered_map<rig_t, Rig>& rigs,
     std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<image_t, Image>& images) {
+    std::unordered_map<image_t, Image>& images,
+    std::vector<colmap::PosePrior>& pose_priors) {
   // Now, for the gravity aligned case, we only support the trivial rigs or rigs
   // with known sensor_from_rig
-  if (options_.use_gravity) {
-    for (auto& [rig_id, rig] : rigs) {
-      for (auto& [sensor_id, sensor] : rig.NonRefSensors()) {
-        if (!sensor.has_value()) {
-          LOG(ERROR) << "Rig " << rig_id << " has no sensor with ID "
-                     << sensor_id.id
-                     << ", but the gravity aligned rotation is "
-                        "requested. Please add the rig calibration.";
-          return false;
-        }
-      }
-    }
+  if (options_.use_gravity && !CheckKnownSensorFromRig(rigs)) {
+    return false;
   }
+
+  std::unordered_map<frame_t, colmap::PosePrior*> frame_to_pose_prior =
+      ExtractFrameToPosePrior(images, pose_priors);
+
   // Initialize the rotation from maximum spanning tree
   if (!options_.skip_initialization && !options_.use_gravity) {
     InitializeFromMaximumSpanningTree(view_graph, rigs, frames, images);
   }
 
   // Set up the linear system
-  SetupLinearSystem(view_graph, rigs, frames, images);
+  SetupLinearSystem(view_graph, rigs, frames, images, frame_to_pose_prior);
 
   // Solve the linear system for L1 norm optimization
   if (options_.max_num_l1_iterations > 0) {
-    if (!SolveL1Regression(view_graph, frames, images)) {
+    if (!SolveL1Regression(view_graph, frames, images, frame_to_pose_prior)) {
       return false;
     }
   }
 
   // Solve the linear system for IRLS optimization
   if (options_.max_num_irls_iterations > 0) {
-    if (!SolveIRLS(view_graph, frames, images)) {
+    if (!SolveIRLS(view_graph, frames, images, frame_to_pose_prior)) {
       return false;
     }
   }
 
-  ConvertResults(rigs, frames, images);
+  ConvertResults(rigs, frames, frame_to_pose_prior);
 
   return true;
 }
@@ -97,7 +130,7 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
     const ViewGraph& view_graph,
     std::unordered_map<rig_t, Rig>& rigs,
     std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<image_t, Image>& images) {
+    const std::unordered_map<image_t, Image>& images) {
   // Here, we assume that largest connected component is already retrieved, so
   // we do not need to do that again compute maximum spanning tree.
   std::unordered_map<image_t, image_t> parents;
@@ -150,9 +183,11 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
 // TODO: refine the code
 void RotationEstimator::SetupLinearSystem(
     const ViewGraph& view_graph,
-    std::unordered_map<rig_t, Rig>& rigs,
-    std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<image_t, Image>& images) {
+    const std::unordered_map<rig_t, Rig>& rigs,
+    const std::unordered_map<frame_t, Frame>& frames,
+    const std::unordered_map<image_t, Image>& images,
+    const std::unordered_map<frame_t, colmap::PosePrior*>&
+        frame_to_pose_prior) {
   // Clear all the structures
   sparse_matrix_.resize(0, 0);
   tangent_space_step_.resize(0);
@@ -183,9 +218,9 @@ void RotationEstimator::SetupLinearSystem(
   std::unordered_map<camera_t, Eigen::AngleAxisd> cam_from_rig_rotations;
   for (auto& [camera_id, rig_id] : camera_id_to_rig_id) {
     sensor_t sensor_id(SensorType::CAMERA, camera_id);
-    if (rigs[rig_id].IsRefSensor(sensor_id)) continue;
+    if (rigs.at(rig_id).IsRefSensor(sensor_id)) continue;
 
-    auto cam_from_rig = rigs[rig_id].MaybeSensorFromRig(sensor_id);
+    auto cam_from_rig = rigs.at(rig_id).MaybeSensorFromRig(sensor_id);
     if (!cam_from_rig.has_value() ||
         cam_from_rig.value().translation.hasNaN()) {
       if (camera_id_to_idx_.find(camera_id) == camera_id_to_idx_.end()) {
@@ -202,35 +237,38 @@ void RotationEstimator::SetupLinearSystem(
 
   for (auto& [frame_id, frame] : frames) {
     // Skip the unregistered frames
-    if (!frames[frame_id].is_registered) continue;
+    if (!frames.at(frame_id).is_registered) continue;
     frame_id_to_idx_[frame_id] = num_dof;
     image_t image_id_ref = -1;
     for (auto& data_id : frame.ImageIds()) {
       image_t image_id = data_id.id;
       if (images.find(image_id) == images.end()) continue;
       image_id_to_idx_[image_id] = num_dof;  // point to the first element
-      if (images[image_id].HasTrivialFrame()) {
+      if (images.at(image_id).HasTrivialFrame()) {
         image_id_ref = image_id;
       }
     }
 
-    if (options_.use_gravity && frame.gravity_info.has_gravity) {
+    const auto pose_prior_it = frame_to_pose_prior.find(frame_id);
+    if (options_.use_gravity && pose_prior_it != frame_to_pose_prior.end() &&
+        pose_prior_it->second->HasGravity()) {
       rotation_estimated_[num_dof] =
-          RotUpToAngle(frame.gravity_info.GetRAlign().transpose() *
+          RotUpToAngle(GetAlignRot(pose_prior_it->second->gravity).transpose() *
                        frame.RigFromWorld().rotation.toRotationMatrix());
       num_dof++;
 
-      if (fixed_camera_id_ == -1) {
+      if (fixed_image_id_ == -1) {
         fixed_camera_rotation_ =
             Eigen::Vector3d(0, rotation_estimated_[num_dof - 1], 0);
-        fixed_camera_id_ = image_id_ref;
+        fixed_image_id_ = image_id_ref;
       }
     } else {
-      if (!frame.MaybeRigFromWorld().has_value()) {
-        // Initialize the frame's rig from world to identity
-        frame.SetRigFromWorld(Rigid3d());
+      Eigen::AngleAxisd rig_from_world;
+      if (frame.MaybeRigFromWorld().has_value()) {
+        rig_from_world = Eigen::AngleAxisd(frame.RigFromWorld().rotation);
+      } else {
+        rig_from_world = Eigen::AngleAxisd::Identity();
       }
-      const Eigen::AngleAxisd rig_from_world(frame.RigFromWorld().rotation);
       rotation_estimated_.segment(num_dof, 3) =
           rig_from_world.angle() * rig_from_world.axis();
       num_dof += 3;
@@ -256,11 +294,11 @@ void RotationEstimator::SetupLinearSystem(
   }
 
   // If no cameras are set to be fixed, then take the first camera
-  if (fixed_camera_id_ == -1) {
+  if (fixed_image_id_ == -1) {
     for (auto& [frame_id, frame] : frames) {
-      if (!frames[frame_id].is_registered) continue;
+      if (!frames.at(frame_id).is_registered) continue;
 
-      fixed_camera_id_ = frame.DataIds().begin()->id;
+      fixed_image_id_ = frame.DataIds().begin()->id;
       const Eigen::AngleAxisd rig_from_world(frame.RigFromWorld().rotation);
       fixed_camera_rotation_ = rig_from_world.angle() * rig_from_world.axis();
       break;
@@ -274,35 +312,31 @@ void RotationEstimator::SetupLinearSystem(
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (!image_pair.is_valid) continue;
 
-    image_t image_id1 = image_pair.image_id1;
-    image_t image_id2 = image_pair.image_id2;
+    const auto& image1 = images.at(image_pair.image_id1);
+    const auto& image2 = images.at(image_pair.image_id2);
+    const auto& frame1 = frames.at(image1.frame_id);
+    const auto& frame2 = frames.at(image2.frame_id);
 
-    camera_t camera_id1 = images[image_id1].camera_id;
-    camera_t camera_id2 = images[image_id2].camera_id;
-
-    int vector_idx1 = image_id_to_idx_[image_id1];
-    int vector_idx2 = image_id_to_idx_[image_id2];
+    const int image_idx1 = image_id_to_idx_[image_pair.image_id1];
+    const int image_idx2 = image_id_to_idx_[image_pair.image_id2];
 
     Rigid3d cam1_from_rig1, cam2_from_rig2;
-    int idx_rig1 = frames[images[image_id1].frame_id].RigId();
-    int idx_rig2 = frames[images[image_id2].frame_id].RigId();
 
-    // int idx_camera1 = -1, idx_camera2 = -1;
     bool has_sensor_from_rig1 = false;
     bool has_sensor_from_rig2 = false;
-    if (!images[image_id1].HasTrivialFrame()) {
-      auto cam1_from_rig1_opt = rigs[idx_rig1].MaybeSensorFromRig(
-          sensor_t(SensorType::CAMERA, camera_id1));
-      if (camera_id_to_idx_.find(camera_id1) == camera_id_to_idx_.end()) {
-        cam1_from_rig1 = cam1_from_rig1_opt.value();
+    if (!image1.HasTrivialFrame()) {
+      if (camera_id_to_idx_.find(image1.camera_id) == camera_id_to_idx_.end()) {
+        cam1_from_rig1 =
+            rigs.at(frame1.RigId())
+                .SensorFromRig(sensor_t(SensorType::CAMERA, image1.camera_id));
         has_sensor_from_rig1 = true;
       }
     }
-    if (!images[image_id2].HasTrivialFrame()) {
-      auto cam2_from_rig2_opt = rigs[idx_rig2].MaybeSensorFromRig(
-          sensor_t(SensorType::CAMERA, camera_id2));
-      if (camera_id_to_idx_.find(camera_id2) == camera_id_to_idx_.end()) {
-        cam2_from_rig2 = cam2_from_rig2_opt.value();
+    if (!image2.HasTrivialFrame()) {
+      if (camera_id_to_idx_.find(image2.camera_id) == camera_id_to_idx_.end()) {
+        cam2_from_rig2 =
+            rigs.at(frame2.RigId())
+                .SensorFromRig(sensor_t(SensorType::CAMERA, image2.camera_id));
         has_sensor_from_rig2 = true;
       }
     }
@@ -310,7 +344,7 @@ void RotationEstimator::SetupLinearSystem(
     // If both images are from the same rig and there is no need to estimate
     // the cam_from_rig, skip the estimation
     if (has_sensor_from_rig1 && has_sensor_from_rig2 &&
-        vector_idx1 == vector_idx2) {
+        image_idx1 == image_idx2) {
       continue;  // Skip the self loop
     }
 
@@ -319,19 +353,24 @@ void RotationEstimator::SetupLinearSystem(
          image_pair.cam2_from_cam1.rotation * cam1_from_rig1.rotation)
             .toRotationMatrix();
 
+    const auto pose_prior1_it = frame_to_pose_prior.find(image1.frame_id);
+    const auto pose_prior2_it = frame_to_pose_prior.find(image2.frame_id);
+
     // Align the relative rotation to the gravity
-    bool has_gravity1 = images[image_id1].HasGravity();
-    bool has_gravity2 = images[image_id2].HasGravity();
+    const bool has_gravity1 = pose_prior1_it != frame_to_pose_prior.end() &&
+                              pose_prior1_it->second->HasGravity();
+    const bool has_gravity2 = pose_prior2_it != frame_to_pose_prior.end() &&
+                              pose_prior2_it->second->HasGravity();
     if (options_.use_gravity) {
       if (has_gravity1) {
         rel_temp_info_[pair_id].R_rel =
             rel_temp_info_[pair_id].R_rel *
-            images[image_id1].frame_ptr->gravity_info.GetRAlign();
+            GetAlignRot(pose_prior1_it->second->gravity);
       }
 
       if (has_gravity2) {
         rel_temp_info_[pair_id].R_rel =
-            images[image_id2].frame_ptr->gravity_info.GetRAlign().transpose() *
+            GetAlignRot(pose_prior2_it->second->gravity).transpose() *
             rel_temp_info_[pair_id].R_rel;
       }
     }
@@ -365,29 +404,25 @@ void RotationEstimator::SetupLinearSystem(
     if (!image_pair.is_valid) continue;
     if (rel_temp_info_.find(pair_id) == rel_temp_info_.end()) continue;
 
-    image_t image_id1 = image_pair.image_id1;
-    image_t image_id2 = image_pair.image_id2;
+    const auto& image1 = images.at(image_pair.image_id1);
+    const auto& image2 = images.at(image_pair.image_id2);
+    const auto& frame1 = frames.at(image1.frame_id);
+    const auto& frame2 = frames.at(image2.frame_id);
 
-    camera_t camera_id1 = images[image_id1].camera_id;
-    camera_t camera_id2 = images[image_id2].camera_id;
+    const int image_idx1 = image_id_to_idx_[image_pair.image_id1];
+    const int image_idx2 = image_id_to_idx_[image_pair.image_id2];
 
-    frame_t frame_id1 = images[image_id1].frame_id;
-    frame_t frame_id2 = images[image_id2].frame_id;
-
-    if (!frames[frame_id1].is_registered || !frames[frame_id2].is_registered) {
+    if (!frame1.is_registered || !frame2.is_registered) {
       continue;  // skip unregistered frames
     }
 
-    int vector_idx1 = image_id_to_idx_[image_id1];
-    int vector_idx2 = image_id_to_idx_[image_id2];
-
     int vector_idx_cam1 = -1;
     int vector_idx_cam2 = -1;
-    if (camera_id_to_idx_.find(camera_id1) != camera_id_to_idx_.end()) {
-      vector_idx_cam1 = camera_id_to_idx_[camera_id1];
+    if (camera_id_to_idx_.find(image1.camera_id) != camera_id_to_idx_.end()) {
+      vector_idx_cam1 = camera_id_to_idx_[image1.camera_id];
     }
-    if (camera_id_to_idx_.find(camera_id2) != camera_id_to_idx_.end()) {
-      vector_idx_cam2 = camera_id_to_idx_[camera_id2];
+    if (camera_id_to_idx_.find(image2.camera_id) != camera_id_to_idx_.end()) {
+      vector_idx_cam2 = camera_id_to_idx_[image2.camera_id];
     }
 
     rel_temp_info_[pair_id].index = curr_pos;
@@ -396,34 +431,42 @@ void RotationEstimator::SetupLinearSystem(
 
     // TODO: figure out the logic for the gravity aligned case
     if (rel_temp_info_[pair_id].has_gravity) {
-      coeffs.emplace_back(Eigen::Triplet<double>(curr_pos, vector_idx1, -1));
-      coeffs.emplace_back(Eigen::Triplet<double>(curr_pos, vector_idx2, 1));
+      coeffs.emplace_back(Eigen::Triplet<double>(curr_pos, image_idx1, -1));
+      coeffs.emplace_back(Eigen::Triplet<double>(curr_pos, image_idx2, 1));
       if (image_pair.weight >= 0)
         weights.emplace_back(image_pair.weight);
       else
         weights.emplace_back(1);
       curr_pos++;
     } else {
+      const auto pose_prior1_it = frame_to_pose_prior.find(image1.frame_id);
+      const auto pose_prior2_it = frame_to_pose_prior.find(image2.frame_id);
+
+      const bool has_gravity1 = pose_prior1_it != frame_to_pose_prior.end() &&
+                                pose_prior1_it->second->HasGravity();
+      const bool has_gravity2 = pose_prior2_it != frame_to_pose_prior.end() &&
+                                pose_prior2_it->second->HasGravity();
+
       // If it is not gravity aligned, then we need to consider 3 dof
-      if (!options_.use_gravity || !images[image_id1].HasGravity()) {
+      if (!options_.use_gravity || !has_gravity1) {
         for (int i = 0; i < 3; i++) {
           coeffs.emplace_back(
-              Eigen::Triplet<double>(curr_pos + i, vector_idx1 + i, -1));
+              Eigen::Triplet<double>(curr_pos + i, image_idx1 + i, -1));
         }
       } else
         // else, other components are zero, and can be safely ignored
         coeffs.emplace_back(
-            Eigen::Triplet<double>(curr_pos + 1, vector_idx1, -1));
+            Eigen::Triplet<double>(curr_pos + 1, image_idx1, -1));
 
       // Similarly for the second componenet
-      if (!options_.use_gravity || !images[image_id2].HasGravity()) {
+      if (!options_.use_gravity || !has_gravity2) {
         for (int i = 0; i < 3; i++) {
           coeffs.emplace_back(
-              Eigen::Triplet<double>(curr_pos + i, vector_idx2 + i, 1));
+              Eigen::Triplet<double>(curr_pos + i, image_idx2 + i, 1));
         }
       } else
         coeffs.emplace_back(
-            Eigen::Triplet<double>(curr_pos + 1, vector_idx2, 1));
+            Eigen::Triplet<double>(curr_pos + 1, image_idx2, 1));
       for (int i = 0; i < 3; i++) {
         if (image_pair.weight >= 0)
           weights.emplace_back(image_pair.weight);
@@ -454,18 +497,22 @@ void RotationEstimator::SetupLinearSystem(
     }
   }
 
+  const Image& fixed_image = images.at(fixed_image_id_);
+  const auto fixed_pose_prior_it =
+      frame_to_pose_prior.find(fixed_image.frame_id);
+
   // Set some cameras to be fixed
   // if some cameras have gravity, then add a single term constraint
   // Else, change to 3 constriants
-  if (options_.use_gravity && images[fixed_camera_id_].HasGravity()) {
-    coeffs.emplace_back(Eigen::Triplet<double>(
-        curr_pos, image_id_to_idx_[fixed_camera_id_], 1));
+  if (options_.use_gravity && fixed_pose_prior_it->second->HasGravity()) {
+    coeffs.emplace_back(
+        Eigen::Triplet<double>(curr_pos, image_id_to_idx_[fixed_image_id_], 1));
     weights.emplace_back(1);
     curr_pos++;
   } else {
     for (int i = 0; i < 3; i++) {
       coeffs.emplace_back(Eigen::Triplet<double>(
-          curr_pos + i, image_id_to_idx_[fixed_camera_id_] + i, 1));
+          curr_pos + i, image_id_to_idx_[fixed_image_id_] + i, 1));
       weights.emplace_back(1);
     }
     curr_pos += 3;
@@ -489,8 +536,10 @@ void RotationEstimator::SetupLinearSystem(
 
 bool RotationEstimator::SolveL1Regression(
     const ViewGraph& view_graph,
-    std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<image_t, Image>& images) {
+    const std::unordered_map<frame_t, Frame>& frames,
+    const std::unordered_map<image_t, Image>& images,
+    const std::unordered_map<frame_t, colmap::PosePrior*>&
+        frame_to_pose_prior) {
   colmap::LeastAbsoluteDeviationSolver::Options l1_solver_options;
   l1_solver_options.max_num_iterations = 10;
   l1_solver_options.solver_type = colmap::LeastAbsoluteDeviationSolver::
@@ -503,7 +552,7 @@ bool RotationEstimator::SolveL1Regression(
   double last_norm = 0;
   double curr_norm = 0;
 
-  ComputeResiduals(view_graph, images);
+  ComputeResiduals(view_graph, images, frame_to_pose_prior);
   VLOG(2) << "ComputeResiduals done";
 
   int iteration = 0;
@@ -531,13 +580,13 @@ bool RotationEstimator::SolveL1Regression(
                        .sum();
 
     curr_norm = tangent_space_step_.norm();
-    UpdateGlobalRotations(view_graph, frames, images);
-    ComputeResiduals(view_graph, images);
+    UpdateGlobalRotations(view_graph, frames, images, frame_to_pose_prior);
+    ComputeResiduals(view_graph, images, frame_to_pose_prior);
 
     // Check the residual. If it is small, stop
     // TODO: strange bug for the L1 solver: update norm state constant
     constexpr double kEps = 1e-12;
-    if (ComputeAverageStepSize(frames) <
+    if (ComputeAverageStepSize(frames, frame_to_pose_prior) <
             options_.l1_step_convergence_threshold ||
         std::abs(last_norm - curr_norm) < kEps) {
       if (std::abs(last_norm - curr_norm) < kEps)
@@ -552,9 +601,12 @@ bool RotationEstimator::SolveL1Regression(
   return true;
 }
 
-bool RotationEstimator::SolveIRLS(const ViewGraph& view_graph,
-                                  std::unordered_map<frame_t, Frame>& frames,
-                                  std::unordered_map<image_t, Image>& images) {
+bool RotationEstimator::SolveIRLS(
+    const ViewGraph& view_graph,
+    std::unordered_map<frame_t, Frame>& frames,
+    std::unordered_map<image_t, Image>& images,
+    const std::unordered_map<frame_t, colmap::PosePrior*>&
+        frame_to_pose_prior) {
   // TODO: Determine what is the best solver for this part
   Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> llt;
 
@@ -566,12 +618,20 @@ bool RotationEstimator::SolveIRLS(const ViewGraph& view_graph,
   Eigen::ArrayXd weights_irls(sparse_matrix_.rows());
   Eigen::SparseMatrix<double> at_weight;
 
-  if (options_.use_gravity && images[fixed_camera_id_].HasGravity())
-    weights_irls[sparse_matrix_.rows() - 1] = 1;
-  else
-    weights_irls.segment(sparse_matrix_.rows() - 3, 3).setConstant(1);
+  const Image& fixed_image = images.at(fixed_image_id_);
+  const auto fixed_pose_prior_it =
+      frame_to_pose_prior.find(fixed_image.frame_id);
+  const bool fixed_image_has_gravity =
+      fixed_pose_prior_it != frame_to_pose_prior.end() &&
+      fixed_pose_prior_it->second->HasGravity();
 
-  ComputeResiduals(view_graph, images);
+  if (options_.use_gravity && fixed_image_has_gravity) {
+    weights_irls[sparse_matrix_.rows() - 1] = 1;
+  } else {
+    weights_irls.segment(sparse_matrix_.rows() - 3, 3).setConstant(1);
+  }
+
+  ComputeResiduals(view_graph, images, frame_to_pose_prior);
   int iteration = 0;
   for (iteration = 0; iteration < options_.max_num_irls_iterations;
        iteration++) {
@@ -621,11 +681,11 @@ bool RotationEstimator::SolveIRLS(const ViewGraph& view_graph,
     // Solve the least squares problem..
     tangent_space_step_.setZero();
     tangent_space_step_ = llt.solve(at_weight * tangent_space_residual_);
-    UpdateGlobalRotations(view_graph, frames, images);
-    ComputeResiduals(view_graph, images);
+    UpdateGlobalRotations(view_graph, frames, images, frame_to_pose_prior);
+    ComputeResiduals(view_graph, images, frame_to_pose_prior);
 
     // Check the residual. If it is small, stop
-    if (ComputeAverageStepSize(frames) <
+    if (ComputeAverageStepSize(frames, frame_to_pose_prior) <
         options_.irls_step_convergence_threshold) {
       iteration++;
       break;
@@ -638,32 +698,40 @@ bool RotationEstimator::SolveIRLS(const ViewGraph& view_graph,
 
 void RotationEstimator::UpdateGlobalRotations(
     const ViewGraph& view_graph,
-    std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<image_t, Image>& images) {
-  for (auto& [frame_id, frame] : frames) {
-    if (!frames[frame_id].is_registered) continue;
-    image_t vector_idx = frame_id_to_idx_[frame_id];
-    if (!(options_.use_gravity && frame.HasGravity())) {
+    const std::unordered_map<frame_t, Frame>& frames,
+    const std::unordered_map<image_t, Image>& images,
+    const std::unordered_map<frame_t, colmap::PosePrior*>&
+        frame_to_pose_prior) {
+  for (const auto& [frame_id, frame] : frames) {
+    if (!frame.is_registered) continue;
+    const frame_t frame_idx = frame_id_to_idx_[frame_id];
+    const auto pose_prior_it = frame_to_pose_prior.find(frame_id);
+    const bool has_gravity = pose_prior_it != frame_to_pose_prior.end() &&
+                             pose_prior_it->second->HasGravity();
+    if (!(options_.use_gravity && has_gravity)) {
       const Eigen::Matrix3d R_ori = colmap::AngleAxisToRotationMatrix(
-          rotation_estimated_.segment(vector_idx, 3));
-      rotation_estimated_.segment(vector_idx, 3) =
+          rotation_estimated_.segment(frame_idx, 3));
+      rotation_estimated_.segment(frame_idx, 3) =
           colmap::RotationMatrixToAngleAxis(
               R_ori * colmap::AngleAxisToRotationMatrix(
-                          -tangent_space_step_.segment(vector_idx, 3)));
+                          -tangent_space_step_.segment(frame_idx, 3)));
     } else {
-      rotation_estimated_[vector_idx] -= tangent_space_step_[vector_idx];
+      rotation_estimated_[frame_idx] -= tangent_space_step_[frame_idx];
     }
   }
 
   std::unordered_map<camera_t, std::vector<Eigen::Matrix3d>> cam_from_rigs;
-  for (auto& [camera_id, camera_idx] : camera_id_to_idx_) {
+  for (const auto& [camera_id, camera_idx] : camera_id_to_idx_) {
     cam_from_rigs[camera_id] = std::vector<Eigen::Matrix3d>();
   }
-  for (auto& [frame_id, frame] : frames) {
+  for (const auto& [frame_id, frame] : frames) {
     if (!frames.at(frame_id).is_registered) continue;
+    const auto pose_prior_it = frame_to_pose_prior.find(frame_id);
+    const bool has_gravity = pose_prior_it != frame_to_pose_prior.end() &&
+                             pose_prior_it->second->HasGravity();
     // Update the rig from world for the frame
     Eigen::Matrix3d R_ori;
-    if (!options_.use_gravity || !frame.HasGravity()) {
+    if (!options_.use_gravity || !has_gravity) {
       R_ori = colmap::AngleAxisToRotationMatrix(
           rotation_estimated_.segment(frame_id_to_idx_[frame_id], 3));
     } else {
@@ -703,7 +771,10 @@ void RotationEstimator::UpdateGlobalRotations(
 }
 
 void RotationEstimator::ComputeResiduals(
-    const ViewGraph& view_graph, std::unordered_map<image_t, Image>& images) {
+    const ViewGraph& view_graph,
+    const std::unordered_map<image_t, Image>& images,
+    const std::unordered_map<frame_t, colmap::PosePrior*>&
+        frame_to_pose_prior) {
   std::mt19937 rng(std::random_device{}());
 
   int curr_pos = 0;
@@ -721,14 +792,24 @@ void RotationEstimator::ComputeResiduals(
                          rotation_estimated_[image_id_to_idx_[image_id2]]));
     } else {
       Eigen::Matrix3d R_1, R_2;
-      if (options_.use_gravity && images[image_id1].HasGravity()) {
+      const Image& image1 = images.at(image_id1);
+      const Image& image2 = images.at(image_id2);
+
+      const auto pose_prior_it1 = frame_to_pose_prior.find(image1.frame_id);
+      const auto pose_prior_it2 = frame_to_pose_prior.find(image2.frame_id);
+      const bool has_gravity1 = pose_prior_it1 != frame_to_pose_prior.end() &&
+                                pose_prior_it1->second->HasGravity();
+      const bool has_gravity2 = pose_prior_it2 != frame_to_pose_prior.end() &&
+                                pose_prior_it2->second->HasGravity();
+
+      if (options_.use_gravity && has_gravity1) {
         R_1 = AngleToRotUp(rotation_estimated_[image_id_to_idx_[image_id1]]);
       } else {
         R_1 = colmap::AngleAxisToRotationMatrix(
             rotation_estimated_.segment(image_id_to_idx_[image_id1], 3));
       }
 
-      if (options_.use_gravity && images[image_id2].HasGravity()) {
+      if (options_.use_gravity && has_gravity2) {
         R_2 = AngleToRotUp(rotation_estimated_[image_id_to_idx_[image_id2]]);
       } else {
         R_2 = colmap::AngleAxisToRotationMatrix(
@@ -754,9 +835,15 @@ void RotationEstimator::ComputeResiduals(
     }
   }
 
-  if (options_.use_gravity && images[fixed_camera_id_].HasGravity()) {
+  const Image& fixed_image = images.at(fixed_image_id_);
+  const auto fixed_pose_prior_it =
+      frame_to_pose_prior.find(fixed_image.frame_id);
+  const bool fixed_image_has_gravity =
+      fixed_pose_prior_it != frame_to_pose_prior.end() &&
+      fixed_pose_prior_it->second->HasGravity();
+  if (options_.use_gravity && fixed_image_has_gravity) {
     tangent_space_residual_[tangent_space_residual_.size() - 1] =
-        rotation_estimated_[image_id_to_idx_[fixed_camera_id_]] -
+        rotation_estimated_[image_id_to_idx_[fixed_image_id_]] -
         fixed_camera_rotation_[1];
   } else {
     tangent_space_residual_.segment(tangent_space_residual_.size() - 3, 3) =
@@ -764,17 +851,21 @@ void RotationEstimator::ComputeResiduals(
             colmap::AngleAxisToRotationMatrix(fixed_camera_rotation_)
                 .transpose() *
             colmap::AngleAxisToRotationMatrix(rotation_estimated_.segment(
-                image_id_to_idx_[fixed_camera_id_], 3)));
+                image_id_to_idx_[fixed_image_id_], 3)));
   }
 }
 
 double RotationEstimator::ComputeAverageStepSize(
-    const std::unordered_map<frame_t, Frame>& frames) {
+    const std::unordered_map<frame_t, Frame>& frames,
+    const std::unordered_map<frame_t, colmap::PosePrior*>&
+        frame_to_pose_prior) {
   double total_update = 0;
   for (const auto& [frame_id, frame] : frames) {
     if (frames.at(frame_id).is_registered) continue;
-
-    if (options_.use_gravity && frame.HasGravity()) {
+    const auto pose_prior_it = frame_to_pose_prior.find(frame_id);
+    const bool has_gravity = pose_prior_it != frame_to_pose_prior.end() &&
+                             pose_prior_it->second->HasGravity();
+    if (options_.use_gravity && has_gravity) {
       total_update += std::abs(tangent_space_step_[frame_id_to_idx_[frame_id]]);
     } else {
       total_update +=
@@ -787,20 +878,23 @@ double RotationEstimator::ComputeAverageStepSize(
 void RotationEstimator::ConvertResults(
     std::unordered_map<rig_t, Rig>& rigs,
     std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<image_t, Image>& images) {
+    const std::unordered_map<frame_t, colmap::PosePrior*>&
+        frame_to_pose_prior) {
   for (auto& [frame_id, frame] : frames) {
     if (!frames[frame_id].is_registered) continue;
 
-    image_t image_id_begin = frame.DataIds().begin()->id;
+    const image_t image_id_begin = frame.DataIds().begin()->id;
 
     // Set the rig from world rotation
     // If the frame has gravity, then use the first image's gravity
-    bool use_gravity = options_.use_gravity && frame.HasGravity();
+    const auto pose_prior_it = frame_to_pose_prior.find(frame_id);
+    const bool has_gravity = pose_prior_it != frame_to_pose_prior.end() &&
+                             pose_prior_it->second->HasGravity();
 
-    if (use_gravity) {
+    if (options_.use_gravity && has_gravity) {
       frame.SetRigFromWorld(Rigid3d(
           Eigen::Quaterniond(
-              frame.gravity_info.GetRAlign() *
+              GetAlignRot(pose_prior_it->second->gravity) *
               AngleToRotUp(
                   rotation_estimated_[image_id_to_idx_[image_id_begin]])),
           Eigen::Vector3d::Zero()));
