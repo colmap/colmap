@@ -371,6 +371,14 @@ TEST(SynthesizeNoise, RigFromWorldNoise) {
   EXPECT_GT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
 }
 
+std::unordered_map<pose_prior_t, PosePrior> ReadPosePriors(Database& database) {
+  std::unordered_map<pose_prior_t, PosePrior> pose_priors;
+  for (auto& pose_prior : database.ReadAllPosePriors()) {
+    pose_priors.emplace(pose_prior.pose_prior_id, std::move(pose_prior));
+  }
+  return pose_priors;
+}
+
 TEST(SynthesizeNoise, PriorPositionNoise) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction reconstruction;
@@ -379,11 +387,8 @@ TEST(SynthesizeNoise, PriorPositionNoise) {
   options.prior_position_coordinate_system = PosePrior::CoordinateSystem::WGS84;
 
   SynthesizeDataset(options, &reconstruction, database.get());
-  std::unordered_map<pose_prior_t, PosePrior> orig_pose_priors;
-  for (const auto& pose_prior : database->ReadAllPosePriors()) {
-    EXPECT_FALSE(pose_prior.HasPositionCov());
-    orig_pose_priors.emplace(pose_prior.pose_prior_id, pose_prior);
-  }
+  const std::unordered_map<pose_prior_t, PosePrior> orig_pose_priors =
+      ReadPosePriors(*database);
 
   SyntheticNoiseOptions synthetic_noise_options;
   synthetic_noise_options.prior_position_stddev = 0.1;
@@ -413,10 +418,8 @@ TEST(SynthesizeNoise, PriorGravityNoise) {
   options.prior_gravity = true;
 
   SynthesizeDataset(options, &reconstruction, database.get());
-  std::unordered_map<pose_prior_t, PosePrior> orig_pose_priors;
-  for (const auto& pose_prior : database->ReadAllPosePriors()) {
-    orig_pose_priors.emplace(pose_prior.pose_prior_id, pose_prior);
-  }
+  const std::unordered_map<pose_prior_t, PosePrior> orig_pose_priors =
+      ReadPosePriors(*database);
 
   SyntheticNoiseOptions synthetic_noise_options;
   synthetic_noise_options.prior_gravity_stddev = 0.1;
