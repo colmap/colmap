@@ -1174,8 +1174,7 @@ TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
   synthetic_options.num_cameras_per_rig = 1;
   synthetic_options.num_frames_per_rig = 7;
   synthetic_options.num_points3D = 50;
-  synthetic_options.use_prior_position = true;
-  synthetic_options.prior_position_stddev = 0.05;
+  synthetic_options.prior_position = true;
   std::string database_path = CreateTestDir() + "/database.db";
   auto database = Database::Open(database_path);
   SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
@@ -1186,6 +1185,7 @@ TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
   synthetic_noise_options.point3D_stddev = 0.2;
   synthetic_noise_options.rig_from_world_rotation_stddev = 1.0;
   synthetic_noise_options.rig_from_world_translation_stddev = 0.2;
+  synthetic_noise_options.prior_position_stddev = 0.05;
   SynthesizeNoise(synthetic_noise_options, &reconstruction);
 
   std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
@@ -1230,8 +1230,7 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
   synthetic_options.num_cameras_per_rig = 1;
   synthetic_options.num_frames_per_rig = 7;
   synthetic_options.num_points3D = 100;
-  synthetic_options.use_prior_position = true;
-  synthetic_options.prior_position_stddev = 0.05;
+  synthetic_options.prior_position = true;
   std::string database_path = CreateTestDir() + "/database.db";
   auto database = Database::Open(database_path);
   SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
@@ -1242,6 +1241,7 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
   synthetic_noise_options.point3D_stddev = 0.2;
   synthetic_noise_options.rig_from_world_rotation_stddev = 1.0;
   synthetic_noise_options.rig_from_world_translation_stddev = 0.2;
+  synthetic_noise_options.prior_position_stddev = 0.05;
   SynthesizeNoise(synthetic_noise_options, &reconstruction);
 
   std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
