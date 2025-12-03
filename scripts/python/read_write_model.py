@@ -110,7 +110,7 @@ def read_cameras_text(path):
         void Reconstruction::ReadCamerasText(const std::string& path)
     """
     cameras = {}
-    with open(path, "r") as fid:
+    with open(path) as fid:
         while True:
             line = fid.readline()
             if not line:
@@ -177,7 +177,7 @@ def write_cameras_text(cameras, path):
     HEADER = (
         "# Camera list with one line of data per camera:\n"
         + "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]\n"
-        + "# Number of cameras: {}\n".format(len(cameras))
+        + f"# Number of cameras: {len(cameras)}\n"
     )
     with open(path, "w") as fid:
         fid.write(HEADER)
@@ -211,7 +211,7 @@ def read_images_text(path):
         void Reconstruction::WriteImagesText(const std::string& path)
     """
     images = {}
-    with open(path, "r") as fid:
+    with open(path) as fid:
         while True:
             line = fid.readline()
             if not line:
@@ -310,9 +310,8 @@ def write_images_text(images, path):
         "# Image list with two lines of data per image:\n"
         + "#   IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, NAME\n"
         + "#   POINTS2D[] as (X, Y, POINT3D_ID)\n"
-        + "# Number of images: {}, mean observations per image: {}\n".format(
-            len(images), mean_observations
-        )
+        + f"# Number of images: {len(images)}, "
+        + f"mean observations per image: {mean_observations}\n"
     )
 
     with open(path, "w") as fid:
@@ -329,7 +328,7 @@ def write_images_text(images, path):
             fid.write(first_line + "\n")
 
             points_strings = []
-            for xy, point3D_id in zip(img.xys, img.point3D_ids):
+            for xy, point3D_id in zip(img.xys, img.point3D_ids, strict=True):
                 points_strings.append(" ".join(map(str, [*xy, point3D_id])))
             fid.write(" ".join(points_strings) + "\n")
 
@@ -351,7 +350,7 @@ def write_images_binary(images, path_to_model_file):
                 write_next_bytes(fid, char.encode("utf-8"), "c")
             write_next_bytes(fid, b"\x00", "c")
             write_next_bytes(fid, len(img.point3D_ids), "Q")
-            for xy, p3d_id in zip(img.xys, img.point3D_ids):
+            for xy, p3d_id in zip(img.xys, img.point3D_ids, strict=True):
                 write_next_bytes(fid, [*xy, p3d_id], "ddq")
 
 
@@ -362,7 +361,7 @@ def read_points3D_text(path):
         void Reconstruction::WritePoints3DText(const std::string& path)
     """
     points3D = {}
-    with open(path, "r") as fid:
+    with open(path) as fid:
         while True:
             line = fid.readline()
             if not line:
@@ -439,10 +438,10 @@ def write_points3D_text(points3D, path):
         ) / len(points3D)
     HEADER = (
         "# 3D point list with one line of data per point:\n"
-        + "#   POINT3D_ID, X, Y, Z, R, G, B, ERROR, TRACK[] as (IMAGE_ID, POINT2D_IDX)\n"
-        + "# Number of points: {}, mean track length: {}\n".format(
-            len(points3D), mean_track_length
-        )
+        + "#   POINT3D_ID, X, Y, Z, R, G, B, ERROR, TRACK[] as "
+        + "(IMAGE_ID, POINT2D_IDX)\n"
+        + f"# Number of points: {len(points3D)}, "
+        + f"mean track length: {mean_track_length}\n"
     )
 
     with open(path, "w") as fid:
@@ -451,7 +450,9 @@ def write_points3D_text(points3D, path):
             point_header = [pt.id, *pt.xyz, *pt.rgb, pt.error]
             fid.write(" ".join(map(str, point_header)) + " ")
             track_strings = []
-            for image_id, point2D in zip(pt.image_ids, pt.point2D_idxs):
+            for image_id, point2D in zip(
+                pt.image_ids, pt.point2D_idxs, strict=True
+            ):
                 track_strings.append(" ".join(map(str, [image_id, point2D])))
             fid.write(" ".join(track_strings) + "\n")
 
@@ -471,7 +472,9 @@ def write_points3D_binary(points3D, path_to_model_file):
             write_next_bytes(fid, pt.error, "d")
             track_length = pt.image_ids.shape[0]
             write_next_bytes(fid, track_length, "Q")
-            for image_id, point2D_id in zip(pt.image_ids, pt.point2D_idxs):
+            for image_id, point2D_id in zip(
+                pt.image_ids, pt.point2D_idxs, strict=True
+            ):
                 write_next_bytes(fid, [image_id, point2D_id], "ii")
 
 

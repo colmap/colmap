@@ -50,12 +50,12 @@ def parse_args():
 def main():
     args = parse_args()
 
-    with open(args.bundler_path, "r") as fid:
+    with open(args.bundler_path) as fid:
         line = fid.readline()
         line = fid.readline()
         num_images, num_points = map(int, line.split())
 
-        for i in range(5 * num_images):
+        for _ in range(5 * num_images):
             fid.readline()
 
         xyz = np.zeros((num_points, 3), dtype=np.float64)
@@ -64,7 +64,7 @@ def main():
 
         for i in range(num_points):
             if i % 1000 == 0:
-                print("Reading point", i, "/", num_points)
+                print(f"Reading point {i} / {num_points}")
             xyz[i] = map(float, fid.readline().split())
             rgb[i] = map(int, fid.readline().split())
             track_lengths[i] = int(fid.readline().split()[0])
@@ -101,7 +101,7 @@ def main():
     with open(args.ply_path, "w") as fid:
         fid.write("ply\n")
         fid.write("format ascii 1.0\n")
-        fid.write("element vertex %d\n" % xyz.shape[0])
+        fid.write(f"element vertex {xyz.shape[0]}\n")
         fid.write("property float x\n")
         fid.write("property float y\n")
         fid.write("property float z\n")
@@ -114,17 +114,11 @@ def main():
         fid.write("end_header\n")
         for i in range(xyz.shape[0]):
             if i % 1000 == 0:
-                print("Writing point", i, "/", xyz.shape[0])
+                print(f"Writing point {i} / {xyz.shape[0]}")
             fid.write(
-                "%f %f %f 0 0 0 %d %d %d\n"
-                % (
-                    xyz[i, 0],
-                    xyz[i, 1],
-                    xyz[i, 2],
-                    rgb[i, 0],
-                    rgb[i, 1],
-                    rgb[i, 2],
-                )
+                f"{xyz[i, 0]} {xyz[i, 1]} {xyz[i, 2]} "
+                "0 0 0 "
+                f"{rgb[i, 0]} {rgb[i, 1]} {rgb[i, 2]}\n"
             )
 
 

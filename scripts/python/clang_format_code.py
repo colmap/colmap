@@ -48,7 +48,7 @@ def main():
 
     exts = map(string.lower, args.exts.split(","))
 
-    for root, subdirs, files in os.walk(args.path):
+    for root, _subdirs, files in os.walk(args.path):
         for f in files:
             name, ext = os.path.splitext(f)
             if ext.lower() in exts:

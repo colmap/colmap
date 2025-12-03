@@ -64,22 +64,21 @@ def main():
         image_id_to_name[image_id] = name
 
     # Iterate over entries in the two_view_geometries table
-    output = open(args.match_list_path, "w")
-    cursor.execute("SELECT pair_id, rows FROM two_view_geometries;")
-    for row in cursor:
-        pair_id = row[0]
-        rows = row[1]
+    with open(args.match_list_path, "w") as output:
+        cursor.execute("SELECT pair_id, rows FROM two_view_geometries;")
+        for row in cursor:
+            pair_id = row[0]
+            rows = row[1]
 
-        if rows < args.min_num_matches:
-            continue
+            if rows < args.min_num_matches:
+                continue
 
-        image_id1, image_id2 = pair_id_to_image_ids(pair_id)
-        image_name1 = image_id_to_name[image_id1]
-        image_name2 = image_id_to_name[image_id2]
+            image_id1, image_id2 = pair_id_to_image_ids(pair_id)
+            image_name1 = image_id_to_name[image_id1]
+            image_name2 = image_id_to_name[image_id2]
 
-        output.write("%s %s\n" % (image_name1, image_name2))
+            output.write(f"{image_name1} {image_name2}\n")
 
-    output.close()
     cursor.close()
     connection.close()
 

@@ -4,7 +4,7 @@
 
 # Check version
 version_string=$(ruff --version | sed -E 's/^.*(\d+\.\d+-.*).*$/\1/')
-expected_version_string='0.12.7'
+expected_version_string='0.14.3'
 if [[ "$version_string" =~ "$expected_version_string" ]]; then
     echo "ruff version '$version_string' matches '$expected_version_string'"
 else
