@@ -87,55 +87,53 @@ void BindBitmap(pybind11::module& m) {
            "width"_a,
            "height"_a,
            "as_rgb"_a,
-           "linear_colorspace"_a = false),
+           "linear_colorspace"_a = false)
       .def("to_array", &ArrayFromBitmap)
-          .def_static("from_array",
-                      &BitmapFromArray,
-                      "array"_a,
-                      "linear_colorspace"_a = false,
-                      "Create bitmap as a copy of array. Returns RGB bitmap, "
-                      "if array has shape (H, W, 3), or grayscale bitmap, if "
-                      "array has shape (H, W[, 1]).")
-          .def("write",
-               &Bitmap::Write,
-               "path"_a,
-               "delinearize_colorspace"_a = true,
-               "Write bitmap to file at given path. Defaults to converting to "
-               "sRGB colorspace for file storage.")
-          .def_static(
-              "read",
-              [](const std::string& path,
-                 bool as_rgb,
-                 bool linearize_colorspace) -> py::typing::Optional<Bitmap> {
-                Bitmap bitmap;
-                if (!bitmap.Read(
-                        path,
-                        /*as_rgb=*/as_rgb,
-                        /*linearize_colorspace=*/linearize_colorspace)) {
-                  return py::none();
-                }
-                return py::cast(bitmap);
-              },
-              "path"_a,
-              "as_rgb"_a,
-              "linearize_colorspace"_a = false,
-              "Read bitmap at given path and convert to grey- or colorscale. "
-              "Defaults to keeping the original colorspace (potentially "
-              "non-linear) for image processing.")
-          .def("rescale",
-               &Bitmap::Rescale,
-               "new_width"_a,
-               "new_height"_a,
-               "filter"_a = BitmapRescaleFilter::kBilinear,
-               "Rescale image to the new dimensions.")
-          .def_property_readonly("width", &Bitmap::Width, "Width of the image.")
-          .def_property_readonly(
-              "height", &Bitmap::Height, "Height of the image.")
-          .def_property_readonly(
-              "channels", &Bitmap::Channels, "Number of channels of the image.")
-          .def_property_readonly(
-              "is_rgb", &Bitmap::IsRGB, "Whether the image is colorscale.")
-          .def_property_readonly(
-              "is_grey", &Bitmap::IsGrey, "Whether the image is greyscale.")
-          .def("__repr__", &CreateRepresentation<Bitmap>);
+      .def_static("from_array",
+                  &BitmapFromArray,
+                  "array"_a,
+                  "linear_colorspace"_a = false,
+                  "Create bitmap as a copy of array. Returns RGB bitmap, "
+                  "if array has shape (H, W, 3), or grayscale bitmap, if "
+                  "array has shape (H, W[, 1]).")
+      .def("write",
+           &Bitmap::Write,
+           "path"_a,
+           "delinearize_colorspace"_a = true,
+           "Write bitmap to file at given path. Defaults to converting to "
+           "sRGB colorspace for file storage.")
+      .def_static(
+          "read",
+          [](const std::string& path,
+             bool as_rgb,
+             bool linearize_colorspace) -> py::typing::Optional<Bitmap> {
+            Bitmap bitmap;
+            if (!bitmap.Read(path,
+                             /*as_rgb=*/as_rgb,
+                             /*linearize_colorspace=*/linearize_colorspace)) {
+              return py::none();
+            }
+            return py::cast(bitmap);
+          },
+          "path"_a,
+          "as_rgb"_a,
+          "linearize_colorspace"_a = false,
+          "Read bitmap at given path and convert to grey- or colorscale. "
+          "Defaults to keeping the original colorspace (potentially "
+          "non-linear) for image processing.")
+      .def("rescale",
+           &Bitmap::Rescale,
+           "new_width"_a,
+           "new_height"_a,
+           "filter"_a = BitmapRescaleFilter::kBilinear,
+           "Rescale image to the new dimensions.")
+      .def_property_readonly("width", &Bitmap::Width, "Width of the image.")
+      .def_property_readonly("height", &Bitmap::Height, "Height of the image.")
+      .def_property_readonly(
+          "channels", &Bitmap::Channels, "Number of channels of the image.")
+      .def_property_readonly(
+          "is_rgb", &Bitmap::IsRGB, "Whether the image is colorscale.")
+      .def_property_readonly(
+          "is_grey", &Bitmap::IsGrey, "Whether the image is greyscale.")
+      .def("__repr__", &CreateRepresentation<Bitmap>);
 }
