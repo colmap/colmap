@@ -115,6 +115,9 @@ struct MergeReconstructionsOptions {
   // Maximum reprojection error for considering a point3D as inlier.
   double max_reproj_error = 64;
 
+  // Whether to filter outlier obsevations after mergeing.
+  bool filter_obsevations_after_merge = true;
+
   // Whether to run bundle adjustment after merging.
   bool refine_after_merge = true;
 

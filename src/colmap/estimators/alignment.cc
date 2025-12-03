@@ -1,4 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
+﻿// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -461,8 +461,8 @@ void CopyRegisteredImage(image_t image_id,
 void ReplaceCamerasWithLowerReprojectionError(
     const Reconstruction& src_reconstruction,
     Reconstruction& tgt_reconstruction) {
-  std::unordered_map<camera_t, double> src_squared_reproj_errors;
-  std::unordered_map<camera_t, double> tgt_squared_reproj_errors;
+  std::unordered_map<camera_t, std::vector<double>> src_squared_reproj_errors;
+  std::unordered_map<camera_t, std::vector<double>> tgt_squared_reproj_errors;
 
   for (const auto& [_, point3D] : tgt_reconstruction.Points3D()) {
     for (const TrackElement& element : point3D.track.Elements()) {
@@ -479,22 +479,31 @@ void ReplaceCamerasWithLowerReprojectionError(
 
       const Point2D& point2D = tgt_image.Point2D(element.point2D_idx);
 
+      const double approx_num_points3D_per_camera =
+          std::ceil(static_cast<double>(tgt_reconstruction.NumPoints3D()) /
+                    tgt_reconstruction.NumCameras());
       if (src_squared_reproj_errors.count(camera_id) == 0) {
-        src_squared_reproj_errors[camera_id] = 0;
+        src_squared_reproj_errors[camera_id].reserve(
+            approx_num_points3D_per_camera);
       }
       if (tgt_squared_reproj_errors.count(camera_id) == 0) {
-        tgt_squared_reproj_errors[camera_id] = 0;
+        tgt_squared_reproj_errors[camera_id].reserve(
+            approx_num_points3D_per_camera);
       }
-      src_squared_reproj_errors[camera_id] += CalculateSquaredReprojectionError(
-          point2D.xy, point3D.xyz, tgt_image.CamFromWorld(), src_camera);
-      tgt_squared_reproj_errors[camera_id] += CalculateSquaredReprojectionError(
-          point2D.xy, point3D.xyz, tgt_image.CamFromWorld(), tgt_camera);
+      src_squared_reproj_errors[camera_id].push_back(
+          CalculateSquaredReprojectionError(
+              point2D.xy, point3D.xyz, tgt_image.CamFromWorld(), src_camera));
+      tgt_squared_reproj_errors[camera_id].push_back(
+          CalculateSquaredReprojectionError(
+              point2D.xy, point3D.xyz, tgt_image.CamFromWorld(), tgt_camera));
     }
   }
 
   for (const auto& [camera_id, camera] : tgt_reconstruction.Cameras()) {
-    if (src_squared_reproj_errors[camera_id] <
-        tgt_squared_reproj_errors[camera_id]) {
+    if (src_squared_reproj_errors.count(camera_id) &&
+        tgt_squared_reproj_errors.count(camera_id) &&
+        Percentile(src_squared_reproj_errors.at(camera_id), 95) <
+            Percentile(tgt_squared_reproj_errors.at(camera_id), 95)) {
       tgt_reconstruction.Camera(camera_id) =
           src_reconstruction.Camera(camera_id);
     }
@@ -609,19 +618,47 @@ bool MergeReconstructions(const MergeReconstructionsOptions& options,
                                              tgt_reconstruction);
   }
 
-  tgt_reconstruction.UpdatePoint3DErrors();
+  if (options.filter_obsevations_after_merge) {
+    tgt_reconstruction.UpdatePoint3DErrors();
 
-  size_t num_filtered_points3D = 0;
-  std::unordered_set<point3D_t> points3D_ids = tgt_reconstruction.Point3DIds();
-  for (const point3D_t point3D_id : points3D_ids) {
-    const Point3D& point3D = tgt_reconstruction.Point3D(point3D_id);
-    if (point3D.track.Length() < 2 ||
-        (point3D.HasError() && point3D.error > options.max_reproj_error)) {
-      tgt_reconstruction.DeletePoint3D(point3D_id);
-      ++num_filtered_points3D;
+    const double max_squared_reproj_error =
+        options.max_reproj_error * options.max_reproj_error;
+    size_t num_filtered_observations = 0;
+    std::unordered_set<point3D_t> points3D_ids =
+        tgt_reconstruction.Point3DIds();
+    for (const point3D_t point3D_id : points3D_ids) {
+      const Point3D& point3D = tgt_reconstruction.Point3D(point3D_id);
+      if (point3D.track.Length() < 2) {
+        num_filtered_observations += point3D.track.Length();
+        tgt_reconstruction.DeletePoint3D(point3D_id);
+      }
+
+      std::vector<TrackElement> track_els_to_delete;
+      for (const auto& track_el : point3D.track.Elements()) {
+        const Image& image = tgt_reconstruction.Image(track_el.image_id);
+        const struct Camera& camera = *image.CameraPtr();
+        const Point2D& point2D = image.Point2D(track_el.point2D_idx);
+        const double squared_reproj_error = CalculateSquaredReprojectionError(
+            point2D.xy, point3D.xyz, image.CamFromWorld(), camera);
+        if (squared_reproj_error > max_squared_reproj_error) {
+          track_els_to_delete.push_back(track_el);
+        }
+      }
+
+      if (track_els_to_delete.size() >= point3D.track.Length() - 1) {
+        num_filtered_observations += point3D.track.Length();
+        tgt_reconstruction.DeletePoint3D(point3D_id);
+      } else {
+        num_filtered_observations += track_els_to_delete.size();
+        for (const auto& track_el : track_els_to_delete) {
+          tgt_reconstruction.DeleteObservation(track_el.image_id,
+                                               track_el.point2D_idx);
+        }
+      }
     }
+    LOG(INFO) << StringPrintf(" => Filtered %zu observations",
+                              num_filtered_observations);
   }
-  LOG(INFO) << StringPrintf(" => Filtered %zu points", num_filtered_points3D);
 
   bool merge_success = true;
   if (options.refine_after_merge) {
