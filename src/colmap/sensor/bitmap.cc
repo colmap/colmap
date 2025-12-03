@@ -34,6 +34,7 @@
 #include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/oiio_utils.h"
 
 #include <OpenImageIO/color.h>
 #include <OpenImageIO/imagebufalgo.h>
@@ -41,6 +42,11 @@
 
 namespace colmap {
 namespace {
+
+struct OIIOInitializer {
+  OIIOInitializer() { InitializeOpenImageIO(); }
+};
+const OIIOInitializer oiio_initializer;
 
 struct OIIOMetaData : public Bitmap::MetaData {
   OIIOMetaData() = default;
