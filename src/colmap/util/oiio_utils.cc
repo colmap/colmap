@@ -1,4 +1,4 @@
-#include "colmap/sensor/oiio_init.h"
+#include "colmap/util/oiio_utils.h"
 
 #include <cstdlib>
 #include <mutex>

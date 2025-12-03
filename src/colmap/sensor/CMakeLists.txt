@@ -36,16 +36,15 @@ COLMAP_ADD_LIBRARY(
         bitmap.h bitmap.cc
         database.h database.cc
         models.h models.cc
-        oiio_init.h oiio_init.cc
         rig.h rig.cc
         specs.h specs.cc
     PUBLIC_LINK_LIBS
         Ceres::ceres
         Eigen3::Eigen
-        OpenImageIO::OpenImageIO
     PRIVATE_LINK_LIBS
         colmap_geometry
         colmap_util
+        OpenImageIO::OpenImageIO
 )
 
 COLMAP_ADD_TEST(

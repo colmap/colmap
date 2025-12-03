@@ -31,7 +31,6 @@
 
 #include "colmap/math/math.h"
 #include "colmap/sensor/database.h"
-#include "colmap/sensor/oiio_init.h"
 #include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
@@ -42,10 +41,6 @@
 
 namespace colmap {
 namespace {
-
-struct OIIOInitializer {
-  OIIOInitializer() { InitializeOpenImageIO(); }
-};
 
 struct OIIOMetaData : public Bitmap::MetaData {
   OIIOMetaData() = default;
@@ -76,7 +71,6 @@ std::vector<uint8_t> ConvertColorSpace(const uint8_t* src_data,
                                        int channels,
                                        const std::string_view& from,
                                        const std::string_view& to) {
-  const OIIOInitializer initializer;
   const OIIO::ImageSpec image_spec(
       width, height, channels, OIIO::TypeDesc::UINT8);
   const int pitch = width * channels;
@@ -90,7 +84,6 @@ std::vector<uint8_t> ConvertColorSpace(const uint8_t* src_data,
 
 void SetImageSpecColorSpace(OIIO::ImageSpec& image_spec,
                             const OIIO::string_view& colorspace) {
-  const OIIOInitializer initializer;
 #if OIIO_VERSION >= OIIO_MAKE_VERSION(3, 0, 0)
   image_spec.set_colorspace(colorspace);
 #else
@@ -119,7 +112,6 @@ void SetImageSpecColorSpace(OIIO::ImageSpec& image_spec,
 
 bool IsEquivalentColorSpace(const std::string_view& colorspace1,
                             const std::string_view& colorspace2) {
-  const OIIOInitializer initializer;
 #if OIIO_VERSION >= OIIO_MAKE_VERSION(3, 0, 0)
   return OIIO::equivalent_colorspace(colorspace1, colorspace2);
 #else
@@ -145,7 +137,6 @@ Bitmap::Bitmap(const int width,
                const int height,
                const bool as_rgb,
                const bool linear_colorspace) {
-  const OIIOInitializer initializer;
   width_ = width;
   height_ = height;
   channels_ = as_rgb ? 3 : 1;
@@ -160,7 +151,6 @@ Bitmap::Bitmap(const int width,
 }
 
 Bitmap::Bitmap(const Bitmap& other) {
-  const OIIOInitializer initializer;
   width_ = other.width_;
   height_ = other.height_;
   channels_ = other.channels_;
@@ -182,7 +172,6 @@ Bitmap::Bitmap(Bitmap&& other) noexcept {
 }
 
 Bitmap& Bitmap::operator=(const Bitmap& other) {
-  const OIIOInitializer initializer;
   width_ = other.width_;
   height_ = other.height_;
   channels_ = other.channels_;
@@ -456,7 +445,6 @@ bool Bitmap::Read(const std::string& path,
     return false;
   }
 
-  const OIIOInitializer initializer;
   OIIO::ImageSpec config;
   config["oiio:reorient"] = 0;
 
@@ -502,7 +490,6 @@ bool Bitmap::Read(const std::string& path,
 
 bool Bitmap::Write(const std::string& path,
                    const bool delinearize_colorspace) const {
-  const OIIOInitializer initializer;
   const auto output = OIIO::ImageOutput::create(path);
   if (!output) {
     std::cerr << "Could not create an ImageOutput for " << path
@@ -560,7 +547,6 @@ bool Bitmap::Write(const std::string& path,
 void Bitmap::Rescale(const int new_width,
                      const int new_height,
                      RescaleFilter filter) {
-  const OIIOInitializer initializer;
   const OIIO::ImageBuf buf(
       OIIO::ImageSpec(width_, height_, channels_, OIIO::TypeDesc::UINT8),
       data_.data());
@@ -581,7 +567,6 @@ void Bitmap::Rescale(const int new_width,
 Bitmap Bitmap::Clone() const { return *this; }
 
 Bitmap Bitmap::CloneAsGrey() const {
-  const OIIOInitializer initializer;
   if (IsGrey()) {
     return Clone();
   } else {
@@ -602,7 +587,6 @@ Bitmap Bitmap::CloneAsGrey() const {
 }
 
 Bitmap Bitmap::CloneAsRGB() const {
-  const OIIOInitializer initializer;
   if (IsRGB()) {
     return Clone();
   } else {
@@ -626,7 +610,6 @@ Bitmap Bitmap::CloneAsRGB() const {
 void Bitmap::SetMetaData(const std::string_view& name,
                          const std::string_view& type,
                          const void* value) {
-  const OIIOInitializer initializer;
   THROW_CHECK_NE(type, "string");
   auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
   OIIO::TypeDesc type_desc;
@@ -638,7 +621,6 @@ void Bitmap::SetMetaData(const std::string_view& name,
 
 void Bitmap::SetMetaData(const std::string_view& name,
                          const std::string_view& value) {
-  const OIIOInitializer initializer;
   auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
   meta_data->image_spec.attribute(OIIOFromStdStringView(name),
                                   OIIOFromStdStringView(value));
@@ -647,7 +629,6 @@ void Bitmap::SetMetaData(const std::string_view& name,
 bool Bitmap::GetMetaData(const std::string_view& name,
                          const std::string_view& type,
                          void* value) const {
-  const OIIOInitializer initializer;
   THROW_CHECK_NE(type, "string");
   auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
   OIIO::TypeDesc type_desc;
@@ -659,7 +640,6 @@ bool Bitmap::GetMetaData(const std::string_view& name,
 
 bool Bitmap::GetMetaData(const std::string_view& name,
                          std::string_view* value) const {
-  const OIIOInitializer initializer;
   auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
   OIIO::ustring ustring_value;
   if (meta_data->image_spec.getattribute(
@@ -671,7 +651,6 @@ bool Bitmap::GetMetaData(const std::string_view& name,
 }
 
 void Bitmap::CloneMetadata(Bitmap* target) const {
-  const OIIOInitializer initializer;
   THROW_CHECK_NOTNULL(target);
   target->meta_data_ = OIIOMetaData::Clone(meta_data_);
   auto* target_meta_data = OIIOMetaData::Upcast(target->meta_data_.get());

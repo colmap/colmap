@@ -35,7 +35,7 @@
 #include "colmap/exe/mvs.h"
 #include "colmap/exe/sfm.h"
 #include "colmap/exe/vocab_tree.h"
-#include "colmap/sensor/oiio_init.h"
+#include "colmap/util/oiio_utils.h"
 #include "colmap/util/version.h"
 
 #include "glomap/exe/global_mapper.h"

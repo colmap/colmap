@@ -1,5 +1,4 @@
 #include "colmap/math/random.h"
-#include "colmap/sensor/oiio_init.h"
 #include "colmap/util/version.h"
 
 #include "pycolmap/helpers.h"
@@ -39,11 +38,6 @@ PYBIND11_MODULE(_core, m) {
   m.attr("has_cuda") = IsGPU(Device::AUTO);
   m.attr("COLMAP_version") = py::str(GetVersionInfo());
   m.attr("COLMAP_build") = py::str(GetBuildInfo());
-
-  // OpenImageIO initialization
-  m.def("_init_image_io",
-        &InitializeOpenImageIO,
-        "Explicitly initialize OpenImageIO resources.");
 
   auto PyDevice = py::enum_<Device>(m, "Device")
                       .value("auto", Device::AUTO)

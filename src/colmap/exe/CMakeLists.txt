@@ -84,7 +84,6 @@ COLMAP_ADD_EXECUTABLE(
         colmap_controllers
         colmap_retrieval
         colmap_scene
-        colmap_sensor
         colmap_sfm
         colmap_util
         colmap_glomap_exe
