@@ -34,7 +34,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <ios>
 #include <limits>
 #include <memory>
 #include <string>
@@ -68,7 +67,9 @@ struct BitmapColor {
 class Bitmap {
  public:
   Bitmap();
-  Bitmap(int width, int height, bool as_rgb, bool linear_colorspace = true);
+
+  // Construct bitmap with given dimensions.
+  Bitmap(int width, int height, bool as_rgb, bool linear_colorspace = false);
 
   Bitmap(const Bitmap& other);
   Bitmap(Bitmap&& other) noexcept;
@@ -125,13 +126,14 @@ class Bitmap {
   bool ExifAltitude(double* altitude) const;
 
   // Read bitmap at given path and convert to grey- or colorscale. Defaults to
-  // linearizing the colorspace for image processing.
+  // keeping the original colorspace (potentially non-linear) for image
+  // processing.
   bool Read(const std::string& path,
             bool as_rgb = true,
             bool linearize_colorspace = false);
 
-  // Write bitmap to file at given path. If the bitmap is linearized, write it
-  // de-linearized to the file in sRGB.
+  // Write bitmap to file at given path. Defaults to converting to sRGB
+  // colorspace for file storage.
   bool Write(const std::string& path, bool delinearize_colorspace = true) const;
 
   // Rescale image to the new dimensions.

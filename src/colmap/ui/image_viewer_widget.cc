@@ -120,7 +120,7 @@ void ImageViewerWidget::ShowPixmap(const QPixmap& pixmap) {
 
 void ImageViewerWidget::ReadAndShow(const std::string& path) {
   Bitmap bitmap;
-  if (!bitmap.Read(path, /*as_rgb=*/true, /*linearize=*/false)) {
+  if (!bitmap.Read(path, /*as_rgb=*/true)) {
     LOG(ERROR) << "Cannot read image at path " << path;
     return;
   }
@@ -173,7 +173,7 @@ void FeatureImageViewerWidget::ReadAndShowWithKeypoints(
     const FeatureKeypoints& keypoints,
     const std::vector<char>& tri_mask) {
   Bitmap bitmap;
-  if (!bitmap.Read(path, /*as_rgb=*/true, /*linearize=*/false)) {
+  if (!bitmap.Read(path, /*as_rgb=*/true)) {
     LOG(ERROR) << "Cannot read image at path " << path;
     return;
   }
@@ -216,8 +216,8 @@ void FeatureImageViewerWidget::ReadAndShowWithMatches(
     const FeatureMatches& matches) {
   Bitmap bitmap1;
   Bitmap bitmap2;
-  if (!bitmap1.Read(path1, /*as_rgb=*/true, /*linearize=*/false) ||
-      !bitmap2.Read(path2, /*as_rgb=*/true, /*linearize=*/false)) {
+  if (!bitmap1.Read(path1, /*as_rgb=*/true) ||
+      !bitmap2.Read(path2, /*as_rgb=*/true)) {
     LOG(ERROR) << "Cannot read images at paths " << path1 << " and " << path2;
     return;
   }

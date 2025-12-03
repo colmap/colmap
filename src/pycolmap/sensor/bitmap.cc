@@ -35,7 +35,8 @@ py::array_t<uint8_t> ArrayFromBitmap(const Bitmap& self) {
   return output;
 }
 
-Bitmap BitmapFromArray(py::array_t<uint8_t, py::array::c_style> array) {
+Bitmap BitmapFromArray(py::array_t<uint8_t, py::array::c_style> array,
+                       bool linear_colorspace) {
   int channels = 1;
   if (array.ndim() == 3) {
     channels = array.shape(2);
@@ -54,10 +55,13 @@ Bitmap BitmapFromArray(py::array_t<uint8_t, py::array::c_style> array) {
     throw std::runtime_error("Input array must have 1 or 3 channels!");
   }
 
-  const bool is_rgb = channels != 1;
+  const bool as_rgb = channels != 1;
   const size_t pitch = width * channels;
 
-  Bitmap output(width, height, is_rgb);
+  Bitmap output(width,
+                height,
+                /*as_rgb=*/as_rgb,
+                /*linear_colorspace=*/linear_colorspace);
 
   const uint8_t* input_row_ptr = static_cast<uint8_t*>(array.request().ptr);
   std::memcpy(output.RowMajorData().data(), input_row_ptr, output.NumBytes());
@@ -73,45 +77,65 @@ void BindBitmap(pybind11::module& m) {
 
   py::classh<Bitmap>(m, "Bitmap")
       .def(py::init<>())
+      .def(py::init<>(
+               [](int width, int height, bool as_rgb, bool linear_colorspace) {
+                 return Bitmap(width,
+                               height,
+                               /*as_rgb=*/as_rgb,
+                               /*linear_colorspace=*/linear_colorspace);
+               }),
+           "width"_a,
+           "height"_a,
+           "as_rgb"_a,
+           "linear_colorspace"_a = false),
       .def("to_array", &ArrayFromBitmap)
-      .def_static(
-          "from_array",
-          &BitmapFromArray,
-          "array"_a,
-          "Create bitmap as a copy of array. Returns RGB bitmap, if array has "
-          "shape (H, W, 3), or grayscale bitmap, if array has shape (H, W[, "
-          "1]).")
-      .def("write",
-           &Bitmap::Write,
-           "path"_a,
-           "delinearize_colorspace"_a,
-           "Write bitmap to file.")
-      .def_static(
-          "read",
-          [](const std::string& path,
-             bool as_rgb) -> py::typing::Optional<Bitmap> {
-            Bitmap bitmap;
-            if (!bitmap.Read(path, as_rgb)) {
-              return py::none();
-            }
-            return py::cast(bitmap);
-          },
-          "path"_a,
-          "as_rgb"_a,
-          "Read bitmap from file.")
-      .def("rescale",
-           &Bitmap::Rescale,
-           "new_width"_a,
-           "new_height"_a,
-           "filter"_a = BitmapRescaleFilter::kBilinear,
-           "Rescale image to the new dimensions.")
-      .def_property_readonly("width", &Bitmap::Width, "Width of the image.")
-      .def_property_readonly("height", &Bitmap::Height, "Height of the image.")
-      .def_property_readonly(
-          "channels", &Bitmap::Channels, "Number of channels of the image.")
-      .def_property_readonly(
-          "is_rgb", &Bitmap::IsRGB, "Whether the image is colorscale.")
-      .def_property_readonly(
-          "is_grey", &Bitmap::IsGrey, "Whether the image is greyscale.")
-      .def("__repr__", &CreateRepresentation<Bitmap>);
+          .def_static("from_array",
+                      &BitmapFromArray,
+                      "array"_a,
+                      "linear_colorspace"_a = false,
+                      "Create bitmap as a copy of array. Returns RGB bitmap, "
+                      "if array has shape (H, W, 3), or grayscale bitmap, if "
+                      "array has shape (H, W[, 1]).")
+          .def("write",
+               &Bitmap::Write,
+               "path"_a,
+               "delinearize_colorspace"_a = true,
+               "Write bitmap to file at given path. Defaults to converting to "
+               "sRGB colorspace for file storage.")
+          .def_static(
+              "read",
+              [](const std::string& path,
+                 bool as_rgb,
+                 bool linearize_colorspace) -> py::typing::Optional<Bitmap> {
+                Bitmap bitmap;
+                if (!bitmap.Read(
+                        path,
+                        /*as_rgb=*/as_rgb,
+                        /*linearize_colorspace=*/linearize_colorspace)) {
+                  return py::none();
+                }
+                return py::cast(bitmap);
+              },
+              "path"_a,
+              "as_rgb"_a,
+              "linearize_colorspace"_a = false,
+              "Read bitmap at given path and convert to grey- or colorscale. "
+              "Defaults to keeping the original colorspace (potentially "
+              "non-linear) for image processing.")
+          .def("rescale",
+               &Bitmap::Rescale,
+               "new_width"_a,
+               "new_height"_a,
+               "filter"_a = BitmapRescaleFilter::kBilinear,
+               "Rescale image to the new dimensions.")
+          .def_property_readonly("width", &Bitmap::Width, "Width of the image.")
+          .def_property_readonly(
+              "height", &Bitmap::Height, "Height of the image.")
+          .def_property_readonly(
+              "channels", &Bitmap::Channels, "Number of channels of the image.")
+          .def_property_readonly(
+              "is_rgb", &Bitmap::IsRGB, "Whether the image is colorscale.")
+          .def_property_readonly(
+              "is_grey", &Bitmap::IsGrey, "Whether the image is greyscale.")
+          .def("__repr__", &CreateRepresentation<Bitmap>);
 }

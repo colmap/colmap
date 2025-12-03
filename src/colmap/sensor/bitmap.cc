@@ -29,11 +29,9 @@
 
 #include "colmap/sensor/bitmap.h"
 
-#include "colmap/math/math.h"
 #include "colmap/sensor/database.h"
 #include "colmap/util/file.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 #include "colmap/util/oiio_utils.h"
 
 #include <OpenImageIO/color.h>
@@ -135,7 +133,7 @@ bool IsEquivalentColorSpace(const std::string_view& colorspace1,
 }  // namespace
 
 Bitmap::Bitmap()
-    : width_(0), height_(0), channels_(0), linear_colorspace_(true) {
+    : width_(0), height_(0), channels_(0), linear_colorspace_(false) {
   EnsureOpenImageIOInitialized();
 }
 
