@@ -72,7 +72,7 @@ std::vector<uint8_t> ConvertColorSpace(const uint8_t* src_data,
                                        int channels,
                                        const std::string_view& from,
                                        const std::string_view& to) {
-  InitializeOpenImageIO();
+  EnsureOpenImageIOInitialized();
   const OIIO::ImageSpec image_spec(
       width, height, channels, OIIO::TypeDesc::UINT8);
   const int pitch = width * channels;
@@ -86,7 +86,7 @@ std::vector<uint8_t> ConvertColorSpace(const uint8_t* src_data,
 
 void SetImageSpecColorSpace(OIIO::ImageSpec& image_spec,
                             const OIIO::string_view& colorspace) {
-  InitializeOpenImageIO();
+  EnsureOpenImageIOInitialized();
 #if OIIO_VERSION >= OIIO_MAKE_VERSION(3, 0, 0)
   image_spec.set_colorspace(colorspace);
 #else
@@ -115,7 +115,7 @@ void SetImageSpecColorSpace(OIIO::ImageSpec& image_spec,
 
 bool IsEquivalentColorSpace(const std::string_view& colorspace1,
                             const std::string_view& colorspace2) {
-  InitializeOpenImageIO();
+  EnsureOpenImageIOInitialized();
 #if OIIO_VERSION >= OIIO_MAKE_VERSION(3, 0, 0)
   return OIIO::equivalent_colorspace(colorspace1, colorspace2);
 #else
@@ -136,14 +136,14 @@ bool IsEquivalentColorSpace(const std::string_view& colorspace1,
 
 Bitmap::Bitmap()
     : width_(0), height_(0), channels_(0), linear_colorspace_(true) {
-  InitializeOpenImageIO();
+  EnsureOpenImageIOInitialized();
 }
 
 Bitmap::Bitmap(const int width,
                const int height,
                const bool as_rgb,
                const bool linear_colorspace) {
-  InitializeOpenImageIO();
+  EnsureOpenImageIOInitialized();
   width_ = width;
   height_ = height;
   channels_ = as_rgb ? 3 : 1;
@@ -158,7 +158,7 @@ Bitmap::Bitmap(const int width,
 }
 
 Bitmap::Bitmap(const Bitmap& other) {
-  InitializeOpenImageIO();
+  EnsureOpenImageIOInitialized();
   width_ = other.width_;
   height_ = other.height_;
   channels_ = other.channels_;
@@ -168,7 +168,7 @@ Bitmap::Bitmap(const Bitmap& other) {
 }
 
 Bitmap::Bitmap(Bitmap&& other) noexcept {
-  InitializeOpenImageIO();
+  EnsureOpenImageIOInitialized();
   width_ = other.width_;
   height_ = other.height_;
   channels_ = other.channels_;
@@ -181,7 +181,7 @@ Bitmap::Bitmap(Bitmap&& other) noexcept {
 }
 
 Bitmap& Bitmap::operator=(const Bitmap& other) {
-  InitializeOpenImageIO();
+  EnsureOpenImageIOInitialized();
   width_ = other.width_;
   height_ = other.height_;
   channels_ = other.channels_;
@@ -192,7 +192,7 @@ Bitmap& Bitmap::operator=(const Bitmap& other) {
 }
 
 Bitmap& Bitmap::operator=(Bitmap&& other) noexcept {
-  InitializeOpenImageIO();
+  EnsureOpenImageIOInitialized();
   if (this != &other) {
     width_ = other.width_;
     height_ = other.height_;

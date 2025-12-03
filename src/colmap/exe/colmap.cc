@@ -85,7 +85,7 @@ int ShowHelp(
 
 int main(int argc, char** argv) {
   colmap::InitializeGlog(argv);
-  colmap::InitializeOpenImageIO();
+  colmap::EnsureOpenImageIOInitialized();
 
   std::vector<std::pair<std::string, command_func_t>> commands;
   commands.emplace_back("gui", &colmap::RunGraphicalUserInterface);

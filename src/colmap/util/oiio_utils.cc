@@ -7,7 +7,7 @@ namespace colmap {
 
 static std::once_flag oiio_setup_flag;
 
-void InitializeOpenImageIO() {
+void EnsureOpenImageIOInitialized() {
   std::call_once(oiio_setup_flag, []() {
     OIIO::attribute("threads", 1);
     OIIO::attribute("exr_threads", 1);

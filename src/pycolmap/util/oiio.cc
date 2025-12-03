@@ -4,4 +4,4 @@
 
 namespace py = pybind11;
 
-void BindOpenImageIO(py::module& m) { colmap::InitializeOpenImageIO(); }
+void BindOpenImageIO(py::module& m) { colmap::EnsureOpenImageIOInitialized(); }
