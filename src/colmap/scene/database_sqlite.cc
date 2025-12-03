@@ -515,8 +515,9 @@ class SqliteDatabase : public Database {
     // Enable auto vacuum to reduce DB file size
     SQLITE3_EXEC(database->database_, "PRAGMA auto_vacuum=1", nullptr);
 
+    database->PreMigrateTables();
     database->CreateTables();
-    database->UpdateSchema();
+    database->PostMigrateTables();
     database->PrepareSQLStatements();
 
     return database;
@@ -1962,119 +1963,63 @@ class SqliteDatabase : public Database {
     }
   }
 
-  void UpdateSchema() {
-    if (!ExistsColumn("two_view_geometries", "F")) {
+  void PreMigrateTables() {
+    if (ExistsColumn("pose_priors", "image_id")) {
+      // To be migrated and dropped in PostMigrateTables() after creating the
+      // new table in CreateTables().
       SQLITE3_EXEC(database_,
-                   "ALTER TABLE two_view_geometries ADD COLUMN F BLOB;",
+                   "ALTER TABLE pose_priors RENAME TO pose_priors_old;",
                    nullptr);
     }
+  }
 
-    if (!ExistsColumn("two_view_geometries", "E")) {
-      SQLITE3_EXEC(database_,
-                   "ALTER TABLE two_view_geometries ADD COLUMN E BLOB;",
-                   nullptr);
-    }
+  void PostMigrateTables() {
+    auto maybe_add_two_view_geometries_blob_column =
+        [this](const std::string& column_name) {
+          if (!ExistsColumn("two_view_geometries", column_name)) {
+            SQLITE3_EXEC(
+                database_,
+                StringPrintf(
+                    "ALTER TABLE two_view_geometries ADD COLUMN %s BLOB;",
+                    column_name.c_str())
+                    .c_str(),
+                nullptr);
+          }
+        };
 
-    if (!ExistsColumn("two_view_geometries", "H")) {
-      SQLITE3_EXEC(database_,
-                   "ALTER TABLE two_view_geometries ADD COLUMN H BLOB;",
-                   nullptr);
-    }
+    maybe_add_two_view_geometries_blob_column("F");
+    maybe_add_two_view_geometries_blob_column("E");
+    maybe_add_two_view_geometries_blob_column("H");
+    maybe_add_two_view_geometries_blob_column("qvec");
+    maybe_add_two_view_geometries_blob_column("tvec");
 
-    if (!ExistsColumn("two_view_geometries", "qvec")) {
-      SQLITE3_EXEC(database_,
-                   "ALTER TABLE two_view_geometries ADD COLUMN qvec BLOB;",
-                   nullptr);
-    }
+    if (ExistsTable("pose_priors_old")) {
+      LOG(INFO) << "Migrating pose_priors table";
 
-    if (!ExistsColumn("two_view_geometries", "tvec")) {
-      SQLITE3_EXEC(database_,
-                   "ALTER TABLE two_view_geometries ADD COLUMN tvec BLOB;",
-                   nullptr);
-    }
-
-    auto maybe_add_pose_prior_column = [&](const std::string& column_name,
-                                           const auto& default_value) {
-      if (ExistsColumn("pose_priors", column_name)) {
-        return;
-      }
-      SQLITE3_EXEC(
-          database_,
-          StringPrintf(
-              "ALTER TABLE pose_priors ADD COLUMN %s BLOB DEFAULT NULL;",
-              column_name.c_str())
-              .c_str(),
-          nullptr);
-      // Set to NaN matrices.
-      sqlite3_stmt* update_stmt;
+      sqlite3_stmt* sql_stmt;
       SQLITE3_CALL(sqlite3_prepare_v2(
-          database_,
-          StringPrintf("UPDATE pose_priors SET %s = ?;", column_name.c_str())
-              .c_str(),
+          THROW_CHECK_NOTNULL(database_),
+          "INSERT INTO pose_priors (pose_prior_id, corr_data_id, "
+          "corr_sensor_id, corr_sensor_type, position, "
+          "position_covariance, coordinate_system, gravity) "
+          "SELECT pose_priors_old.image_id, pose_priors_old.image_id, "
+          "images.camera_id, ?, position, position_covariance, "
+          "coordinate_system, ? FROM pose_priors_old JOIN images ON "
+          "pose_priors_old.image_id = images.image_id;",
           -1,
-          &update_stmt,
+          &sql_stmt,
           0));
-      WriteStaticMatrixBlob(update_stmt, default_value, 1);
-      SQLITE3_CALL(sqlite3_step(update_stmt));
-      SQLITE3_CALL(sqlite3_finalize(update_stmt));
-    };
 
-    maybe_add_pose_prior_column("position_covariance",
-                                PosePrior().position_covariance);
-    maybe_add_pose_prior_column("gravity", PosePrior().gravity);
+      SQLITE3_CALL(sqlite3_bind_int64(
+          sql_stmt, 1, static_cast<sqlite3_int64>(SensorType::CAMERA)));
+      const PosePrior pose_prior;
+      WriteStaticMatrixBlob(sql_stmt, pose_prior.gravity, 2);
+      SQLITE3_CALL(sqlite3_step(sql_stmt));
+      SQLITE3_CALL(sqlite3_finalize(sql_stmt));
 
-    if (ExistsColumn("pose_priors", "image_id") &&
-        !ExistsColumn("pose_priors", "pose_prior_id")) {
-      SQLITE3_EXEC(
-          database_,
-          "ALTER TABLE pose_priors RENAME COLUMN image_id TO pose_prior_id;"
-          "ALTER TABLE pose_priors ADD COLUMN corr_data_id INTEGER NOT NULL;"
-          "ALTER TABLE pose_priors ADD COLUMN corr_sensor_id INTEGER NOT NULL;"
-          "ALTER TABLE pose_priors ADD COLUMN corr_sensor_type INTEGER NOT "
-          "NULL;",
-          nullptr);
-
-      // Migrate existing data to frame_data table.
-      for (Frame& frame : ReadAllFrames()) {
-        for (const auto& data_id : frame.ImageIds()) {
-          // Note that in the old schema pose_prior_id == image_id.
-          if (ExistsPosePrior(data_id.id,
-                              /*is_deprecated_image_prior=*/false)) {
-            PosePrior pose_prior =
-                ReadPosePrior(data_id.id, /*is_deprecated_image_prior=*/false);
-            pose_prior.corr_data_id = data_id;
-            UpdatePosePrior(pose_prior);
-          }
-        }
-        UpdateFrame(frame);
-      }
-    }
-
-    if (ExistsColumn("pose_priors", "image_id") &&
-        !ExistsColumn("pose_priors", "pose_prior_id")) {
-      SQLITE3_EXEC(
-          database_,
-          "ALTER TABLE pose_priors RENAME COLUMN image_id TO pose_prior_id;"
-          "ALTER TABLE pose_priors ADD COLUMN corr_data_id INTEGER NOT NULL;"
-          "ALTER TABLE pose_priors ADD COLUMN corr_sensor_id INTEGER NOT NULL;"
-          "ALTER TABLE pose_priors ADD COLUMN corr_sensor_type INTEGER NOT "
-          "NULL;",
-          nullptr);
-
-      // Migrate existing data to frame_data table.
-      for (Frame& frame : ReadAllFrames()) {
-        for (const auto& data_id : frame.ImageIds()) {
-          // Note that in the old schema pose_prior_id == image_id.
-          if (ExistsPosePrior(data_id.id,
-                              /*is_deprecated_image_prior=*/false)) {
-            PosePrior pose_prior =
-                ReadPosePrior(data_id.id, /*is_deprecated_image_prior=*/false);
-            pose_prior.corr_data_id = data_id;
-            UpdatePosePrior(pose_prior);
-          }
-        }
-        UpdateFrame(frame);
-      }
+      SQLITE3_EXEC(THROW_CHECK_NOTNULL(database_),
+                   "DROP TABLE pose_priors_old;",
+                   nullptr);
     }
 
     // Update user version number.
@@ -2133,7 +2078,6 @@ class SqliteDatabase : public Database {
     Sqlite3StmtContext context(sql_stmt);
     SQLITE3_CALL(
         sqlite3_bind_int64(sql_stmt, 1, static_cast<sqlite3_int64>(row_id)));
-
     return SQLITE3_CALL(sqlite3_step(sql_stmt)) == SQLITE_ROW;
   }
 
