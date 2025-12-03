@@ -533,20 +533,23 @@ void SynthesizeNoise(const SyntheticNoiseOptions& options,
             RandomGaussian<double>(0, options.prior_position_stddev),
             RandomGaussian<double>(0, options.prior_position_stddev),
             RandomGaussian<double>(0, options.prior_position_stddev));
-        pose_prior.position_covariance = options.prior_position_stddev *
-                                         options.prior_position_stddev *
-                                         Eigen::Matrix3d::Identity();
+        if (!pose_prior.HasPositionCov()) {
+          pose_prior.position_covariance = Eigen::Matrix3d::Zero();
+        }
+        pose_prior.position_covariance += options.prior_position_stddev *
+                                          options.prior_position_stddev *
+                                          Eigen::Matrix3d::Identity();
         if (prior_in_wgs84) {
           PosePriorPositionCartesianToWGS84(pose_prior);
         }
       }
       if (options.prior_gravity_stddev > 0.) {
+        const double angle =
+            RandomGaussian<double>(0, DegToRad(options.prior_gravity_stddev));
+        const Eigen::Vector3d axis =
+            pose_prior.gravity.cross(Eigen::Vector3d::Random()).normalized();
         pose_prior.gravity =
-            (Eigen::AngleAxisd(RandomGaussian<double>(
-                                   0, DegToRad(options.prior_gravity_stddev)),
-                               Eigen::Vector3d::Random().normalized()) *
-             pose_prior.gravity.normalized())
-                .normalized();
+            (Eigen::AngleAxisd(angle, axis) * pose_prior.gravity).normalized();
       }
       database->UpdatePosePrior(pose_prior);
     }
