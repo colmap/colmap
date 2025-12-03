@@ -153,7 +153,9 @@ int RunRigConfigurator(int argc, char** argv) {
     reconstruction->Read(input_path);
   }
 
-  auto database = Database::Open(database_path);
+  Database::Options database_options;
+  database_options["disable_auto_vacuum"] = "1";
+  auto database = Database::Open(database_path, database_options);
 
   ApplyRigConfig(
       ReadRigConfig(rig_config_path),
