@@ -34,6 +34,7 @@
 #include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/oiio_utils.h"
 
 #include <OpenImageIO/color.h>
 #include <OpenImageIO/imagebufalgo.h>
@@ -41,19 +42,6 @@
 
 namespace colmap {
 namespace {
-
-struct OIIOInitializer {
-  OIIOInitializer() {
-    OIIO::attribute("threads", 1);
-    OIIO::attribute("exr_threads", 1);
-  }
-
-#if OIIO_VERSION >= OIIO_MAKE_VERSION(2, 5, 3)
-  ~OIIOInitializer() { OIIO::shutdown(); }
-#endif
-};
-
-const static auto initializer = OIIOInitializer();
 
 struct OIIOMetaData : public Bitmap::MetaData {
   OIIOMetaData() = default;
@@ -84,6 +72,7 @@ std::vector<uint8_t> ConvertColorSpace(const uint8_t* src_data,
                                        int channels,
                                        const std::string_view& from,
                                        const std::string_view& to) {
+  EnsureOpenImageIOInitialized();
   const OIIO::ImageSpec image_spec(
       width, height, channels, OIIO::TypeDesc::UINT8);
   const int pitch = width * channels;
@@ -97,6 +86,7 @@ std::vector<uint8_t> ConvertColorSpace(const uint8_t* src_data,
 
 void SetImageSpecColorSpace(OIIO::ImageSpec& image_spec,
                             const OIIO::string_view& colorspace) {
+  EnsureOpenImageIOInitialized();
 #if OIIO_VERSION >= OIIO_MAKE_VERSION(3, 0, 0)
   image_spec.set_colorspace(colorspace);
 #else
@@ -125,6 +115,7 @@ void SetImageSpecColorSpace(OIIO::ImageSpec& image_spec,
 
 bool IsEquivalentColorSpace(const std::string_view& colorspace1,
                             const std::string_view& colorspace2) {
+  EnsureOpenImageIOInitialized();
 #if OIIO_VERSION >= OIIO_MAKE_VERSION(3, 0, 0)
   return OIIO::equivalent_colorspace(colorspace1, colorspace2);
 #else
@@ -144,12 +135,15 @@ bool IsEquivalentColorSpace(const std::string_view& colorspace1,
 }  // namespace
 
 Bitmap::Bitmap()
-    : width_(0), height_(0), channels_(0), linear_colorspace_(true) {}
+    : width_(0), height_(0), channels_(0), linear_colorspace_(true) {
+  EnsureOpenImageIOInitialized();
+}
 
 Bitmap::Bitmap(const int width,
                const int height,
                const bool as_rgb,
                const bool linear_colorspace) {
+  EnsureOpenImageIOInitialized();
   width_ = width;
   height_ = height;
   channels_ = as_rgb ? 3 : 1;
