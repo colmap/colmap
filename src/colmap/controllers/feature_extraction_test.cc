@@ -41,8 +41,7 @@ namespace colmap {
 namespace {
 
 Bitmap CreateTestBitmap() {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 100, /*as_rgb=*/false);
+  Bitmap bitmap(100, 100, /*as_rgb=*/false);
   bitmap.Fill(BitmapColor<uint8_t>(0));
   for (int y = 30; y < 70; ++y) {
     for (int x = 30; x < 70; ++x) {
@@ -114,8 +113,7 @@ TEST(CreateFeatureExtractorController, WithCameraMask) {
   // Create a mask that only allows the center region (white = keep, black =
   // mask) The test bitmap has a white square from (30,30) to (70,70) We'll
   // create a mask that only keeps a smaller region
-  Bitmap mask_bitmap;
-  mask_bitmap.Allocate(100, 100, /*as_rgb=*/false);
+  Bitmap mask_bitmap(100, 100, /*as_rgb=*/false);
   mask_bitmap.Fill(BitmapColor<uint8_t>(0));  // Start with all black (masked)
 
   // Only keep center region (40,40) to (60,60)

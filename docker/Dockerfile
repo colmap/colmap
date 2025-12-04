@@ -24,7 +24,8 @@ RUN apt-get update && \
         libboost-graph-dev \
         libboost-system-dev \
         libeigen3-dev \
-        libfreeimage-dev \
+        libopenimageio-dev \
+        openimageio-tools \
         libmetis-dev \
         libgoogle-glog-dev \
         libgtest-dev \
@@ -39,6 +40,11 @@ RUN apt-get update && \
         libcurl4-openssl-dev \
         libssl-dev \
         libmkl-full-dev
+
+# Fix issue in Ubuntu's openimageio CMake config.
+# We don't depend on any of openimageio's OpenCV functionality,
+# but it still requires the OpenCV include directory to exist.
+RUN mkdir -p /usr/include/opencv4
 
 # Build and install COLMAP.
 RUN git clone https://github.com/colmap/colmap.git
@@ -70,7 +76,7 @@ RUN apt-get update && \
         libopengl0 \
         libmetis5 \
         libceres4t64 \
-        libfreeimage3 \
+        libopenimageio2.4t64 \
         libgcc-s1 \
         libgl1 \
         libglew2.2 \

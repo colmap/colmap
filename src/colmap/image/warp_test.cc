@@ -37,20 +37,20 @@ namespace colmap {
 namespace {
 namespace {
 
-void GenerateRandomBitmap(const int width,
-                          const int height,
-                          const bool as_rgb,
-                          Bitmap* bitmap) {
-  bitmap->Allocate(width, height, as_rgb);
+const Bitmap GenerateRandomBitmap(const int width,
+                                  const int height,
+                                  const bool as_rgb) {
+  Bitmap bitmap(width, height, as_rgb);
   for (int x = 0; x < width; ++x) {
     for (int y = 0; y < height; ++y) {
       BitmapColor<uint8_t> color;
       color.r = RandomUniformInteger<int>(0, 255);
       color.g = RandomUniformInteger<int>(0, 255);
       color.b = RandomUniformInteger<int>(0, 255);
-      bitmap->SetPixel(x, y, color);
+      bitmap.SetPixel(x, y, color);
     }
   }
+  return bitmap;
 }
 
 // Check that the two bitmaps are equal, ignoring a 1px boundary.
@@ -91,14 +91,12 @@ void CheckBitmapsTransposed(const Bitmap& bitmap1, const Bitmap& bitmap2) {
 
 TEST(Warp, IdenticalCameras) {
   const Camera camera = Camera::CreateFromModelName(1, "PINHOLE", 1, 100, 100);
-  Bitmap source_image_gray;
-  GenerateRandomBitmap(100, 100, false, &source_image_gray);
+  const Bitmap source_image_gray = GenerateRandomBitmap(100, 100, false);
   Bitmap target_image_gray;
   WarpImageBetweenCameras(
       camera, camera, source_image_gray, &target_image_gray);
   CheckBitmapsEqual(source_image_gray, target_image_gray);
-  Bitmap source_image_rgb;
-  GenerateRandomBitmap(100, 100, true, &source_image_rgb);
+  const Bitmap source_image_rgb = GenerateRandomBitmap(100, 100, true);
   Bitmap target_image_rgb;
   WarpImageBetweenCameras(camera, camera, source_image_rgb, &target_image_rgb);
   CheckBitmapsEqual(source_image_rgb, target_image_rgb);
@@ -109,8 +107,7 @@ TEST(Warp, ShiftedCameras) {
       Camera::CreateFromModelName(1, "PINHOLE", 1, 100, 100);
   Camera target_camera = source_camera;
   target_camera.SetPrincipalPointX(0.0);
-  Bitmap source_image_gray;
-  GenerateRandomBitmap(100, 100, true, &source_image_gray);
+  const Bitmap source_image_gray = GenerateRandomBitmap(100, 100, true);
   Bitmap target_image_gray;
   WarpImageBetweenCameras(
       source_camera, target_camera, source_image_gray, &target_image_gray);
@@ -132,18 +129,14 @@ TEST(Warp, ShiftedCameras) {
 }
 
 TEST(Warp, WarpImageWithHomographyIdentity) {
-  Bitmap source_image_gray;
-  GenerateRandomBitmap(100, 100, false, &source_image_gray);
-  Bitmap target_image_gray;
-  target_image_gray.Allocate(100, 100, false);
+  const Bitmap source_image_gray = GenerateRandomBitmap(100, 100, false);
+  Bitmap target_image_gray(100, 100, false);
   WarpImageWithHomography(
       Eigen::Matrix3d::Identity(), source_image_gray, &target_image_gray);
   CheckBitmapsEqual(source_image_gray, target_image_gray);
 
-  Bitmap source_image_rgb;
-  GenerateRandomBitmap(100, 100, true, &source_image_rgb);
-  Bitmap target_image_rgb;
-  target_image_rgb.Allocate(100, 100, true);
+  const Bitmap source_image_rgb = GenerateRandomBitmap(100, 100, true);
+  Bitmap target_image_rgb(100, 100, true);
   WarpImageWithHomography(
       Eigen::Matrix3d::Identity(), source_image_rgb, &target_image_rgb);
   CheckBitmapsEqual(source_image_rgb, target_image_rgb);
@@ -153,27 +146,21 @@ TEST(Warp, WarpImageWithHomographyTransposed) {
   Eigen::Matrix3d H;
   H << 0, 1, 0, 1, 0, 0, 0, 0, 1;
 
-  Bitmap source_image_gray;
-  GenerateRandomBitmap(100, 100, false, &source_image_gray);
-  Bitmap target_image_gray;
-  target_image_gray.Allocate(100, 100, false);
+  const Bitmap source_image_gray = GenerateRandomBitmap(100, 100, false);
+  Bitmap target_image_gray(100, 100, false);
   WarpImageWithHomography(H, source_image_gray, &target_image_gray);
   CheckBitmapsTransposed(source_image_gray, target_image_gray);
 
-  Bitmap source_image_rgb;
-  GenerateRandomBitmap(100, 100, true, &source_image_rgb);
-  Bitmap target_image_rgb;
-  target_image_rgb.Allocate(100, 100, true);
+  const Bitmap source_image_rgb = GenerateRandomBitmap(100, 100, true);
+  Bitmap target_image_rgb(100, 100, true);
   WarpImageWithHomography(H, source_image_rgb, &target_image_rgb);
   CheckBitmapsTransposed(source_image_rgb, target_image_rgb);
 }
 
 TEST(Warp, WarpImageWithHomographyBetweenCamerasIdentity) {
   const Camera camera = Camera::CreateFromModelName(1, "PINHOLE", 1, 100, 100);
-  Bitmap source_image_gray;
-  GenerateRandomBitmap(100, 100, false, &source_image_gray);
+  const Bitmap source_image_gray = GenerateRandomBitmap(100, 100, false);
   Bitmap target_image_gray;
-  target_image_gray.Allocate(100, 100, false);
   WarpImageWithHomographyBetweenCameras(Eigen::Matrix3d::Identity(),
                                         camera,
                                         camera,
@@ -181,10 +168,8 @@ TEST(Warp, WarpImageWithHomographyBetweenCamerasIdentity) {
                                         &target_image_gray);
   CheckBitmapsEqual(source_image_gray, target_image_gray);
 
-  Bitmap source_image_rgb;
-  GenerateRandomBitmap(100, 100, true, &source_image_rgb);
+  const Bitmap source_image_rgb = GenerateRandomBitmap(100, 100, true);
   Bitmap target_image_rgb;
-  target_image_rgb.Allocate(100, 100, true);
   WarpImageWithHomographyBetweenCameras(Eigen::Matrix3d::Identity(),
                                         camera,
                                         camera,
@@ -199,18 +184,14 @@ TEST(Warp, WarpImageWithHomographyBetweenCamerasTransposed) {
   Eigen::Matrix3d H;
   H << 0, 1, 0, 1, 0, 0, 0, 0, 1;
 
-  Bitmap source_image_gray;
-  GenerateRandomBitmap(100, 100, false, &source_image_gray);
+  const Bitmap source_image_gray = GenerateRandomBitmap(100, 100, false);
   Bitmap target_image_gray;
-  target_image_gray.Allocate(100, 100, false);
   WarpImageWithHomographyBetweenCameras(
       H, camera, camera, source_image_gray, &target_image_gray);
   CheckBitmapsTransposed(source_image_gray, target_image_gray);
 
-  Bitmap source_image_rgb;
-  GenerateRandomBitmap(100, 100, true, &source_image_rgb);
+  const Bitmap source_image_rgb = GenerateRandomBitmap(100, 100, true);
   Bitmap target_image_rgb;
-  target_image_rgb.Allocate(100, 100, true);
   WarpImageWithHomographyBetweenCameras(
       H, camera, camera, source_image_rgb, &target_image_rgb);
   CheckBitmapsTransposed(source_image_rgb, target_image_rgb);

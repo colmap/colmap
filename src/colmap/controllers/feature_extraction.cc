@@ -204,7 +204,7 @@ class FeatureExtractorThread : public Thread {
                             &image_data.keypoints,
                             &image_data.descriptors);
             }
-            if (image_data.mask.Data()) {
+            if (!image_data.mask.IsEmpty()) {
               MaskKeypoints(image_data.mask,
                             &image_data.keypoints,
                             &image_data.descriptors);
@@ -214,7 +214,9 @@ class FeatureExtractorThread : public Thread {
           }
         }
 
-        image_data.bitmap.Deallocate();
+        // Release the memory, since it is not used afterwards.
+        image_data.bitmap = Bitmap();
+        image_data.mask = Bitmap();
 
         output_queue_->Push(std::move(image_data));
       } else {
@@ -281,7 +283,7 @@ class FeatureWriterThread : public Thread {
             image_data.camera.has_prior_focal_length ? " (Prior)" : "");
         LOG(INFO) << "  Features:        " << image_data.keypoints.size()
                   << " (" << extractor_type_str_ << ")";
-        if (image_data.mask.Data()) {
+        if (!image_data.mask.IsEmpty()) {
           LOG(INFO) << "  Mask:            Yes";
         }
 
@@ -480,7 +482,9 @@ class FeatureExtractorController : public Thread {
                                              &image_data.mask);
 
       if (image_data.status != ImageReader::Status::SUCCESS) {
-        image_data.bitmap.Deallocate();
+        // Release the memory, since it is not used afterwards.
+        image_data.bitmap = Bitmap();
+        image_data.mask = Bitmap();
       }
 
       if (should_resize) {
