@@ -261,6 +261,10 @@ void Reconstruction::AddCamera(struct Camera camera) {
 }
 
 void Reconstruction::AddCameraWithTrivialRig(struct Camera camera) {
+  THROW_CHECK(!ExistsRig(camera.camera_id))
+      << "AddCameraWithTrivialRig tried to add a rig with the same id as the "
+         "camera, but failed because Rig "
+      << camera.camera_id << "already exists in the reconstruction. ";
   class Rig rig;
   rig.SetRigId(camera.camera_id);
   rig.AddRefSensor(camera.SensorId());
@@ -319,6 +323,10 @@ void Reconstruction::AddImage(class Image image) {
 }
 
 void Reconstruction::AddImageWithTrivialFrame(class Image image) {
+  THROW_CHECK(!ExistsFrame(image.ImageId()))
+      << "AddImageWithTrivialFrame tried to add a frame with the same id as "
+         "the image, but failed because Frame "
+      << image.ImageId() << "already exists in the reconstruction.";
   class Frame frame;
   frame.SetFrameId(image.ImageId());
   frame.SetRigId(image.CameraId());
