@@ -261,10 +261,10 @@ void Reconstruction::AddCamera(struct Camera camera) {
 }
 
 void Reconstruction::AddCameraWithTrivialRig(struct Camera camera) {
-  AddCamera(std::move(camera));
   class Rig rig;
   rig.SetRigId(camera.camera_id);
   rig.AddRefSensor(camera.SensorId());
+  AddCamera(std::move(camera));
   AddRig(rig);
 }
 
@@ -334,9 +334,10 @@ void Reconstruction::AddImageWithTrivialFrame(class Image image) {
 
 void Reconstruction::AddImageWithTrivialFrame(class Image image,
                                               const Rigid3d& cam_from_world) {
+  const frame_t frame_id = image.ImageId();
   AddImageWithTrivialFrame(std::move(image));
-  Frame(image.ImageId()).SetRigFromWorld(cam_from_world);
-  RegisterFrame(image.ImageId());
+  Frame(frame_id).SetRigFromWorld(cam_from_world);
+  RegisterFrame(frame_id);
 }
 
 void Reconstruction::AddPoint3D(const point3D_t point3D_id,
