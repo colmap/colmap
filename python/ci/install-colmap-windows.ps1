@@ -16,7 +16,7 @@ cd ${env:VCPKG_INSTALLATION_ROOT}
 
 cd ${CURRDIR}
 & "./scripts/shell/enter_vs_dev_shell.ps1"
-& "${env:VCPKG_INSTALLATION_ROOT}/vcpkg.exe" integrate install
+& "${env:VCPKG_ROOT}/vcpkg.exe" integrate install
 
 # Build COLMAP
 mkdir build

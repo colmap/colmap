@@ -28,7 +28,7 @@ python -m pip install .
   - On Windows, after installing COLMAP [via VCPKG](https://colmap.github.io/install.html#id3), run in powershell:
 ```powershell
 python -m pip install . `
-    --cmake.define.CMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+    --cmake.define.CMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
     --cmake.define.VCPKG_TARGET_TRIPLET="x64-windows"
 ```
 

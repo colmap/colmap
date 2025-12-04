@@ -1084,12 +1084,12 @@ void RectifyAndUndistortStereoImages(const UndistortCameraOptions& options,
   THROW_CHECK_EQ(distorted_camera2.height, distorted_image2.Height());
 
   *undistorted_camera = UndistortCamera(options, distorted_camera1);
-  undistorted_image1->Allocate(static_cast<int>(undistorted_camera->width),
+  *undistorted_image1 = Bitmap(static_cast<int>(undistorted_camera->width),
                                static_cast<int>(undistorted_camera->height),
                                distorted_image1.IsRGB());
   distorted_image1.CloneMetadata(undistorted_image1);
 
-  undistorted_image2->Allocate(static_cast<int>(undistorted_camera->width),
+  *undistorted_image2 = Bitmap(static_cast<int>(undistorted_camera->width),
                                static_cast<int>(undistorted_camera->height),
                                distorted_image2.IsRGB());
   distorted_image2.CloneMetadata(undistorted_image2);
