@@ -45,7 +45,7 @@ double RelAngleError(std::mt19937& rng,
   return est;
 }
 
-bool CheckKnownSensorFromRig(const std::unordered_map<rig_t, Rig>& rigs) {
+bool AllSensorsFromRigKnown(const std::unordered_map<rig_t, Rig>& rigs) {
   bool all_known = true;
   for (auto& [rig_id, rig] : rigs) {
     for (auto& [sensor_id, sensor] : rig.NonRefSensors()) {
@@ -90,9 +90,9 @@ bool RotationEstimator::EstimateRotations(
     std::unordered_map<frame_t, Frame>& frames,
     std::unordered_map<image_t, Image>& images,
     std::vector<colmap::PosePrior>& pose_priors) {
-  // Now, for the gravity aligned case, we only support the trivial rigs or rigs
-  // with known sensor_from_rig
-  if (options_.use_gravity && !CheckKnownSensorFromRig(rigs)) {
+  // Now, for the gravity aligned case, we only support trivial rigs only or
+  // non-trivial rigs with known sensor_from_rig.
+  if (options_.use_gravity && !AllSensorsFromRigKnown(rigs)) {
     return false;
   }
 
@@ -200,8 +200,7 @@ void RotationEstimator::SetupLinearSystem(
   // Initialize the structures for estimated rotation
   image_id_to_idx_.reserve(images.size());
   camera_id_to_idx_.reserve(images.size());
-  rotation_estimated_.resize(
-      6 * images.size());  // allocate more memory than needed
+  rotation_estimated_.resize(6 * images.size());
   image_t num_dof = 0;
   std::unordered_map<camera_t, rig_t> camera_id_to_rig_id;
   for (auto& [frame_id, frame] : frames) {
@@ -250,8 +249,9 @@ void RotationEstimator::SetupLinearSystem(
     }
 
     const auto pose_prior_it = frame_to_pose_prior.find(frame_id);
-    if (options_.use_gravity && pose_prior_it != frame_to_pose_prior.end() &&
-        pose_prior_it->second->HasGravity()) {
+    const bool has_gravity = pose_prior_it != frame_to_pose_prior.end() &&
+                             pose_prior_it->second->HasGravity();
+    if (options_.use_gravity && has_gravity) {
       rotation_estimated_[num_dof] =
           RotUpToAngle(GetAlignRot(pose_prior_it->second->gravity).transpose() *
                        frame.RigFromWorld().rotation.toRotationMatrix());
@@ -500,11 +500,14 @@ void RotationEstimator::SetupLinearSystem(
   const Image& fixed_image = images.at(fixed_image_id_);
   const auto fixed_pose_prior_it =
       frame_to_pose_prior.find(fixed_image.frame_id);
+  const bool fixed_image_has_gravity =
+      fixed_pose_prior_it != frame_to_pose_prior.end() &&
+      fixed_pose_prior_it->second->HasGravity();
 
   // Set some cameras to be fixed
   // if some cameras have gravity, then add a single term constraint
   // Else, change to 3 constriants
-  if (options_.use_gravity && fixed_pose_prior_it->second->HasGravity()) {
+  if (options_.use_gravity && fixed_image_has_gravity) {
     coeffs.emplace_back(
         Eigen::Triplet<double>(curr_pos, image_id_to_idx_[fixed_image_id_], 1));
     weights.emplace_back(1);

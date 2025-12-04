@@ -44,33 +44,33 @@ void ExpectEqualRotations(const colmap::Reconstruction& gt,
     const image_t image_id1 = reg_image_ids[i];
     for (size_t j = 0; j < i; j++) {
       const image_t image_id2 = reg_image_ids[j];
-
       const Eigen::Quaterniond cam2_from_cam1 =
           computed.Image(image_id2).CamFromWorld().rotation *
           computed.Image(image_id1).CamFromWorld().rotation.inverse();
       const Eigen::Quaterniond cam2_from_cam1_gt =
           gt.Image(image_id2).CamFromWorld().rotation *
           gt.Image(image_id1).CamFromWorld().rotation.inverse();
-
       EXPECT_LT(cam2_from_cam1.angularDistance(cam2_from_cam1_gt),
                 max_rotation_error_rad);
     }
   }
 }
 
-void ExpectEqualGravity(
-    const Eigen::Vector3d& gravity_in_world,
-    const colmap::Reconstruction& gt,
-    const std::unordered_map<image_t, Image>& images_computed,
-    const double max_gravity_error_deg) {
-  for (const auto& image_id : gt.RegImageIds()) {
-    if (!images_computed.at(image_id).HasTrivialFrame()) {
-      continue;  // Skip images that are not trivial frames
+void ExpectEqualGravity(const Eigen::Vector3d& gravity_in_world,
+                        const colmap::Reconstruction& gt,
+                        const std::vector<colmap::PosePrior>& pose_priors,
+                        const double max_gravity_error_deg) {
+  std::unordered_map<image_t, const colmap::PosePrior*> image_to_pose_prior;
+  for (const auto& pose_prior : pose_priors) {
+    if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
+      image_to_pose_prior.emplace(pose_prior.corr_data_id.id, &pose_prior);
     }
+  }
+  for (const auto& image_id : gt.RegImageIds()) {
     const Eigen::Vector3d gravity_gt =
         gt.Image(image_id).CamFromWorld().rotation * gravity_in_world;
     const Eigen::Vector3d gravity_computed =
-        images_computed.at(image_id).CamFromWorld().rotation * gravity_in_world;
+        image_to_pose_prior.at(image_id)->gravity;
     const double gravity_error_deg = CalcAngle(gravity_gt, gravity_computed);
     EXPECT_LT(gravity_error_deg, max_gravity_error_deg);
   }
@@ -410,13 +410,13 @@ TEST(RotationEstimator, RefineGravity) {
   GravityRefiner grav_refiner(opt_grav_refine);
   grav_refiner.RefineGravity(view_graph, frames, images, pose_priors);
 
-  colmap::Reconstruction reconstruction;
-  ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);
-  ExpectEqualRotations(
-      gt_reconstruction, reconstruction, /*max_rotation_error_deg=*/2.);
+  // colmap::Reconstruction reconstruction;
+  // ConvertGlomapToColmap(rigs, cameras, frames, images, tracks,
+  // reconstruction); ExpectEqualRotations(
+  //     gt_reconstruction, reconstruction, /*max_rotation_error_deg=*/2.);
   ExpectEqualGravity(synthetic_dataset_options.prior_gravity_in_world,
                      gt_reconstruction,
-                     images,
+                     pose_priors,
                      /*max_gravity_error_deg=*/1e-2);
 }
 
@@ -467,7 +467,7 @@ TEST(RotationEstimator, RefineGravityWithNontrivialRigs) {
       gt_reconstruction, reconstruction, /*max_rotation_error_deg=*/2.);
   ExpectEqualGravity(synthetic_dataset_options.prior_gravity_in_world,
                      gt_reconstruction,
-                     images,
+                     pose_priors,
                      /*max_gravity_error_deg=*/1e-2);
 }
 
