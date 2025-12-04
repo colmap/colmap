@@ -355,8 +355,6 @@ void RotationEstimator::SetupLinearSystem(
 
     const auto pose_prior1_it = frame_to_pose_prior.find(image1.frame_id);
     const auto pose_prior2_it = frame_to_pose_prior.find(image2.frame_id);
-
-    // Align the relative rotation to the gravity
     const bool has_gravity1 = pose_prior1_it != frame_to_pose_prior.end() &&
                               pose_prior1_it->second->HasGravity();
     const bool has_gravity2 = pose_prior2_it != frame_to_pose_prior.end() &&
@@ -441,7 +439,6 @@ void RotationEstimator::SetupLinearSystem(
     } else {
       const auto pose_prior1_it = frame_to_pose_prior.find(image1.frame_id);
       const auto pose_prior2_it = frame_to_pose_prior.find(image2.frame_id);
-
       const bool has_gravity1 = pose_prior1_it != frame_to_pose_prior.end() &&
                                 pose_prior1_it->second->HasGravity();
       const bool has_gravity2 = pose_prior2_it != frame_to_pose_prior.end() &&

@@ -21,22 +21,23 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
     std::unordered_map<image_t, colmap::PosePrior*> image_to_pose_prior;
     for (auto& pose_prior : pose_priors) {
       if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
-        THROW_CHECK(
-            image_to_pose_prior.emplace(pose_prior.corr_data_id.id, &pose_prior)
-                .second)
-            << "Duplicate pose prior for image " << pose_prior.corr_data_id.id;
+        const image_t image_id = pose_prior.corr_data_id.id;
+        THROW_CHECK(image_to_pose_prior.emplace(image_id, &pose_prior).second)
+            << "Duplicate pose prior for image " << image_id;
       }
     }
 
     // Prepare two sets: ones all with gravity, and one does not have gravity.
     // Solve them separately first, then solve them in a single system
     for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
-      if (!image_pair.is_valid) continue;
+      if (!image_pair.is_valid) {
+        continue;
+      }
 
-      const Image& image1 = images[image_pair.image_id1];
-      const Image& image2 = images[image_pair.image_id2];
-
-      if (!image1.IsRegistered() || !image2.IsRegistered()) continue;
+      if (!images[image_pair.image_id1].IsRegistered() ||
+          !images[image_pair.image_id2].IsRegistered()) {
+        continue;
+      }
 
       total_pairs++;
 
