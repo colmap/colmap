@@ -26,7 +26,10 @@ yum install -y \
     zip \
     unzip \
     tar \
-    perl
+    perl \
+    libXmu-devel \
+    libXi-devel \
+    mesa-libGL-devel
 
 source scl_source enable gcc-toolset-12
 
