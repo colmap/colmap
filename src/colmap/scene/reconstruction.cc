@@ -260,6 +260,14 @@ void Reconstruction::AddCamera(struct Camera camera) {
   THROW_CHECK(cameras_.emplace(camera_id, std::move(camera)).second);
 }
 
+void Reconstruction::AddCameraWithTrivialRig(struct Camera camera) {
+  AddCamera(camera);
+  class Rig rig;
+  rig.SetRigId(camera.camera_id);
+  rig.AddRefSensor(camera.SensorId());
+  AddRig(rig);
+}
+
 void Reconstruction::AddFrame(class Frame frame) {
   THROW_CHECK(frame.HasRigId());
   auto& rig = Rig(frame.RigId());
@@ -308,6 +316,23 @@ void Reconstruction::AddImage(class Image image) {
   }
   const image_t image_id = image.ImageId();
   THROW_CHECK(images_.emplace(image_id, std::move(image)).second);
+}
+
+void Reconstruction::AddImageWithTrivialFrame(class Image image) {
+  class Frame frame;
+  frame.SetFrameId(image.ImageId());
+  frame.SetRigId(image.CameraId());
+  frame.AddDataId(image.DataId());
+  image.SetFrameId(frame.FrameId());
+  AddFrame(frame);
+  AddImage(image);
+}
+
+void Reconstruction::AddImageWithTrivialFrame(class Image image,
+                                              const Rigid3d& cam_from_world) {
+  AddImageWithTrivialFrame(image);
+  Frame(image.ImageId()).SetRigFromWorld(cam_from_world);
+  RegisterFrame(image.ImageId());
 }
 
 void Reconstruction::AddPoint3D(const point3D_t point3D_id,
