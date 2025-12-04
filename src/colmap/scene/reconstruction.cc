@@ -323,7 +323,11 @@ void Reconstruction::AddImageWithTrivialFrame(class Image image) {
   frame.SetFrameId(image.ImageId());
   frame.SetRigId(image.CameraId());
   frame.AddDataId(image.DataId());
-  image.SetFrameId(frame.FrameId());
+  if (image.HasFrameId()) {
+    THROW_CHECK_EQ(image.FrameId(), frame.FrameId());
+  } else {
+    image.SetFrameId(frame.FrameId());
+  }
   AddFrame(frame);
   AddImage(image);
 }
