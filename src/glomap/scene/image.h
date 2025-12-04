@@ -42,7 +42,7 @@ struct Image {
   inline int ClusterId() const;
 
   // Check if cam_from_world needs to be composed with sensor_from_rig pose.
-  inline bool HasTrivialFrame() const;
+  inline bool IsReferenceInFrame() const;
 
   // Easy way to check if the image has gravity information
   inline bool HasGravity() const;
@@ -70,14 +70,14 @@ int Image::ClusterId() const {
   return frame_ptr != nullptr ? frame_ptr->cluster_id : -1;
 }
 
-bool Image::HasTrivialFrame() const {
+bool Image::IsReferenceInFrame() const {
   return THROW_CHECK_NOTNULL(frame_ptr)->RigPtr()->IsRefSensor(
       sensor_t(SensorType::CAMERA, camera_id));
 }
 
 bool Image::HasGravity() const {
   return frame_ptr->HasGravity() &&
-         (HasTrivialFrame() ||
+         (IsReferenceInFrame() ||
           frame_ptr->RigPtr()
               ->MaybeSensorFromRig(sensor_t(SensorType::CAMERA, camera_id))
               .has_value());
@@ -85,7 +85,7 @@ bool Image::HasGravity() const {
 
 Eigen::Matrix3d Image::GetRAlign() const {
   if (HasGravity()) {
-    if (HasTrivialFrame()) {
+    if (IsReferenceInFrame()) {
       return frame_ptr->gravity_info.GetRAlign();
     } else {
       return frame_ptr->RigPtr()

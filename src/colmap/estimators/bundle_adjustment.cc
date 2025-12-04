@@ -632,7 +632,7 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
     const sensor_t sensor_id = image.CameraPtr()->SensorId();
     const bool not_parameterized_before =
         parameterized_sensor_ids.insert(sensor_id).second;
-    if (not_parameterized_before && !image.HasTrivialFrame()) {
+    if (not_parameterized_before && !image.IsReferenceInFrame()) {
       Rigid3d& sensor_from_rig =
           image.FramePtr()->RigPtr()->SensorFromRig(sensor_id);
       // CostFunction assumes unit quaternions.
@@ -788,7 +788,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
                          Reconstruction& reconstruction) {
     Image& image = reconstruction.Image(image_id);
 
-    if (image.HasTrivialFrame()) {
+    if (image.IsReferenceInFrame()) {
       AddImageWithTrivialFrame(image, reconstruction);
     } else {
       AddImageWithNonTrivialFrame(image, reconstruction);
@@ -798,7 +798,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
   void AddImageWithTrivialFrame(Image& image, Reconstruction& reconstruction) {
     Camera& camera = *image.CameraPtr();
 
-    THROW_CHECK(image.HasTrivialFrame());
+    THROW_CHECK(image.IsReferenceInFrame());
     Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
 
     const bool constant_cam_from_world =
@@ -848,7 +848,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     Camera& camera = *image.CameraPtr();
     const sensor_t sensor_id = camera.SensorId();
 
-    THROW_CHECK(!image.HasTrivialFrame());
+    THROW_CHECK(!image.IsReferenceInFrame());
     Rigid3d& cam_from_rig =
         image.FramePtr()->RigPtr()->SensorFromRig(sensor_id);
     Rigid3d& rig_from_world = image.FramePtr()->RigFromWorld();
@@ -937,7 +937,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
       Camera& camera = *image.CameraPtr();
       const Point2D& point2D = image.Point2D(track_el.point2D_idx);
 
-      if (image.HasTrivialFrame()) {
+      if (image.IsReferenceInFrame()) {
         Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
 
         problem_->AddResidualBlock(
@@ -1095,7 +1095,7 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
         normalized_from_metric_scaled_rotation * position_cov *
         normalized_from_metric_scaled_rotation.transpose();
 
-    if (image.HasTrivialFrame()) {
+    if (image.IsReferenceInFrame()) {
       problem.AddResidualBlock(
           CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
               Create(normalized_position_cov, normalized_position),
