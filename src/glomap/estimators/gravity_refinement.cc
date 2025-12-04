@@ -6,6 +6,22 @@
 #include "glomap/math/gravity.h"
 
 namespace glomap {
+namespace {
+
+Eigen::Matrix3d GetImageAlignRot(const Image& image,
+                                 const colmap::PosePrior& pose_prior) {
+  THROW_CHECK(pose_prior.HasGravity());
+  if (image.HasTrivialFrame()) {
+    return GetAlignRot(pose_prior.gravity);
+  } else {
+    return image.frame_ptr->RigPtr()
+               ->SensorFromRig(sensor_t(SensorType::CAMERA, image.camera_id))
+               .rotation *
+           GetAlignRot(pose_prior.gravity);
+  }
+}
+
+}  // namespace
 
 void GravityRefiner::RefineGravity(
     const ViewGraph& view_graph,
@@ -85,8 +101,9 @@ void GravityRefiner::RefineGravity(
     int counter = 0;
     Eigen::Vector3d gravity = frame_to_pose_prior.at(frame_id)->gravity;
     for (const auto& pair_id : neighbors) {
-      const image_t image_id1 = view_graph.image_pairs.at(pair_id).image_id1;
-      const image_t image_id2 = view_graph.image_pairs.at(pair_id).image_id2;
+      const auto& pair = view_graph.image_pairs.at(pair_id);
+      const image_t image_id1 = pair.image_id1;
+      const image_t image_id2 = pair.image_id2;
 
       const auto pose_prior1_it = image_to_pose_prior.find(image_id1);
       const auto pose_prior2_it = image_to_pose_prior.find(image_id2);
@@ -98,34 +115,33 @@ void GravityRefiner::RefineGravity(
         continue;
       }
 
+      const auto& image1 = images.at(image_id1);
+      const auto& image2 = images.at(image_id2);
+
       // Get the cam_from_rig
       Rigid3d cam1_from_rig1, cam2_from_rig2;
-      if (!images.at(image_id1).HasTrivialFrame()) {
-        cam1_from_rig1 =
-            images.at(image_id1).frame_ptr->RigPtr()->SensorFromRig(
-                sensor_t(SensorType::CAMERA, images.at(image_id1).camera_id));
+      if (!image1.HasTrivialFrame()) {
+        cam1_from_rig1 = image1.frame_ptr->RigPtr()->SensorFromRig(
+            sensor_t(SensorType::CAMERA, image1.camera_id));
       }
-      if (!images.at(image_id2).HasTrivialFrame()) {
-        cam2_from_rig2 =
-            images.at(image_id2).frame_ptr->RigPtr()->SensorFromRig(
-                sensor_t(SensorType::CAMERA, images.at(image_id2).camera_id));
+      if (!image2.HasTrivialFrame()) {
+        cam2_from_rig2 = image2.frame_ptr->RigPtr()->SensorFromRig(
+            sensor_t(SensorType::CAMERA, image2.camera_id));
       }
 
       // Note: for the case where both cameras are from the same frames, we only
       // consider a single cost term
-      if (images.at(image_id1).frame_id == frame_id) {
+      if (image1.frame_id == frame_id) {
         gravities.emplace_back(
-            (colmap::Inverse(view_graph.image_pairs.at(pair_id).cam2_from_cam1 *
-                             cam1_from_rig1)
+            (colmap::Inverse(pair.cam2_from_cam1 * cam1_from_rig1)
                  .rotation.toRotationMatrix() *
-             GetAlignRot(pose_prior2_it->second->gravity))
+             GetImageAlignRot(image2, *pose_prior2_it->second))
                 .col(1));
-      } else if (images.at(image_id2).frame_id == frame_id) {
+      } else if (image2.frame_id == frame_id) {
         gravities.emplace_back(
-            ((colmap::Inverse(cam2_from_rig2) *
-              view_graph.image_pairs.at(pair_id).cam2_from_cam1)
+            ((colmap::Inverse(cam2_from_rig2) * pair.cam2_from_cam1)
                  .rotation.toRotationMatrix() *
-             GetAlignRot(pose_prior1_it->second->gravity))
+             GetImageAlignRot(image1, *pose_prior1_it->second))
                 .col(1));
       }
 
@@ -191,29 +207,29 @@ void GravityRefiner::IdentifyErrorProneGravity(
                               pose_prior1_it->second->HasGravity();
     const bool has_gravity2 = pose_prior2_it != image_to_pose_prior.end() &&
                               pose_prior2_it->second->HasGravity();
+    if (!has_gravity1 || !has_gravity2) {
+      continue;
+    }
 
-    if (has_gravity1 && has_gravity2) {
-      // Calculate the gravity aligned relative rotation
-      const Eigen::Matrix3d R_rel =
-          GetAlignRot(pose_prior2_it->second->gravity).transpose() *
-          image_pair.cam2_from_cam1.rotation.toRotationMatrix() *
-          GetAlignRot(pose_prior1_it->second->gravity);
-      // Convert it to the closest upright rotation
-      const Eigen::Matrix3d R_rel_up = AngleToRotUp(RotUpToAngle(R_rel));
+    const auto& image1 = images.at(image_pair.image_id1);
+    const auto& image2 = images.at(image_pair.image_id2);
+    // Calculate the gravity aligned relative rotation
+    const Eigen::Matrix3d R_rel =
+        GetImageAlignRot(image2, *pose_prior2_it->second).transpose() *
+        image_pair.cam2_from_cam1.rotation.toRotationMatrix() *
+        GetImageAlignRot(image1, *pose_prior1_it->second);
+    // Convert it to the closest upright rotation
+    const Eigen::Matrix3d R_rel_up = AngleToRotUp(RotUpToAngle(R_rel));
 
-      const auto& image1 = images.at(image_pair.image_id1);
-      const auto& image2 = images.at(image_pair.image_id2);
+    // increment the total count
+    frame_counter[image1.frame_id].second++;
+    frame_counter[image2.frame_id].second++;
 
-      // increment the total count
-      frame_counter[image1.frame_id].second++;
-      frame_counter[image2.frame_id].second++;
-
-      // increment the mistake count
-      if (Eigen::Quaterniond(R_rel).angularDistance(
-              Eigen::Quaterniond(R_rel_up)) > max_gravity_error_rad) {
-        frame_counter[image1.frame_id].first++;
-        frame_counter[image2.frame_id].first++;
-      }
+    // increment the mistake count
+    if (Eigen::Quaterniond(R_rel).angularDistance(
+            Eigen::Quaterniond(R_rel_up)) > max_gravity_error_rad) {
+      frame_counter[image1.frame_id].first++;
+      frame_counter[image2.frame_id].first++;
     }
   }
 
