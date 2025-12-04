@@ -417,7 +417,7 @@ std::vector<PoseParam> GetPoseParams(const Reconstruction& reconstruction,
   params.reserve(reconstruction.NumImages());
   for (const auto& [image_id, image] : reconstruction.Images()) {
     // TODO(jsch): Add support for non-trivial frames.
-    THROW_CHECK(image.IsReferenceInFrame());
+    THROW_CHECK(image.IsRefInFrame());
     const Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
 
     const double* qvec = cam_from_world.rotation.coeffs().data();
