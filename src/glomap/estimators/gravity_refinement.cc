@@ -34,8 +34,8 @@ Eigen::Vector3d* GetImageGravityOrNull(
 
 void GravityRefiner::RefineGravity(
     const ViewGraph& view_graph,
-    std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<image_t, Image>& images,
+    const std::unordered_map<frame_t, Frame>& frames,
+    const std::unordered_map<image_t, Image>& images,
     std::vector<colmap::PosePrior>& pose_priors) {
   const std::unordered_map<image_t, std::unordered_set<image_t>>&
       adjacency_list = view_graph.CreateImageAdjacencyList();
@@ -83,7 +83,7 @@ void GravityRefiner::RefineGravity(
       adjacency_list_frames_to_pair_id;
   for (auto& [image_id, neighbors] : adjacency_list) {
     for (const auto& neighbor : neighbors) {
-      adjacency_list_frames_to_pair_id[images[image_id].frame_id].insert(
+      adjacency_list_frames_to_pair_id[images.at(image_id).frame_id].insert(
           colmap::ImagePairToPairId(image_id, neighbor));
     }
   }

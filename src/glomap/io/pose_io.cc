@@ -180,9 +180,7 @@ std::vector<colmap::PosePrior> ReadGravity(
         counter++;
         auto& pose_prior = pose_priors.emplace_back();
         pose_prior.pose_prior_id = ite->second;
-        pose_prior.corr_data_id.id = ite->second;
-        pose_prior.corr_data_id.sensor_id.type = SensorType::CAMERA;
-        pose_prior.corr_data_id.sensor_id.id = image.camera_id;
+        pose_prior.corr_data_id = image.DataId();
         pose_prior.gravity = gravity;
         Rigid3d& cam_from_world = image.frame_ptr->RigFromWorld();
         // Set the rotation from the camera to the world

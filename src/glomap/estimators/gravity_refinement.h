@@ -30,8 +30,8 @@ class GravityRefiner {
       : options_(options) {}
 
   void RefineGravity(const ViewGraph& view_graph,
-                     std::unordered_map<frame_t, Frame>& frames,
-                     std::unordered_map<image_t, Image>& images,
+                     const std::unordered_map<frame_t, Frame>& frames,
+                     const std::unordered_map<image_t, Image>& images,
                      std::vector<colmap::PosePrior>& pose_priors);
 
  private:

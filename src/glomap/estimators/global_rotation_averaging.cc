@@ -62,15 +62,15 @@ bool AllSensorsFromRigKnown(const std::unordered_map<rig_t, Rig>& rigs) {
   return all_known;
 }
 
-std::unordered_map<frame_t, colmap::PosePrior*> ExtractFrameToPosePrior(
+std::unordered_map<frame_t, const colmap::PosePrior*> ExtractFrameToPosePrior(
     const std::unordered_map<image_t, Image>& images,
-    std::vector<colmap::PosePrior>& pose_priors) {
+    const std::vector<colmap::PosePrior>& pose_priors) {
   std::unordered_map<image_t, frame_t> image_to_frame;
   for (const auto& [image_id, image] : images) {
     image_to_frame[image_id] = image.frame_id;
   }
 
-  std::unordered_map<frame_t, colmap::PosePrior*> frame_to_pose_prior;
+  std::unordered_map<frame_t, const colmap::PosePrior*> frame_to_pose_prior;
   for (auto& pose_prior : pose_priors) {
     if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
       const image_t image_id = pose_prior.corr_data_id.id;
@@ -86,8 +86,9 @@ std::unordered_map<frame_t, colmap::PosePrior*> ExtractFrameToPosePrior(
   return frame_to_pose_prior;
 }
 
-Eigen::Vector3d* GetFrameGravityOrNull(
-    const std::unordered_map<frame_t, colmap::PosePrior*>& frame_to_pose_prior,
+const Eigen::Vector3d* GetFrameGravityOrNull(
+    const std::unordered_map<frame_t, const colmap::PosePrior*>&
+        frame_to_pose_prior,
     frame_t frame_id) {
   auto it = frame_to_pose_prior.find(frame_id);
   if (it == frame_to_pose_prior.end() || !it->second->HasGravity()) {
@@ -102,15 +103,15 @@ bool RotationEstimator::EstimateRotations(
     const ViewGraph& view_graph,
     std::unordered_map<rig_t, Rig>& rigs,
     std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<image_t, Image>& images,
-    std::vector<colmap::PosePrior>& pose_priors) {
+    const std::unordered_map<image_t, Image>& images,
+    const std::vector<colmap::PosePrior>& pose_priors) {
   // Now, for the gravity aligned case, we only support trivial rigs only or
   // non-trivial rigs with known sensor_from_rig.
   if (options_.use_gravity && !AllSensorsFromRigKnown(rigs)) {
     return false;
   }
 
-  std::unordered_map<frame_t, colmap::PosePrior*> frame_to_pose_prior =
+  std::unordered_map<frame_t, const colmap::PosePrior*> frame_to_pose_prior =
       ExtractFrameToPosePrior(images, pose_priors);
 
   // Initialize the rotation from maximum spanning tree
@@ -200,7 +201,7 @@ void RotationEstimator::SetupLinearSystem(
     const std::unordered_map<rig_t, Rig>& rigs,
     const std::unordered_map<frame_t, Frame>& frames,
     const std::unordered_map<image_t, Image>& images,
-    const std::unordered_map<frame_t, colmap::PosePrior*>&
+    const std::unordered_map<frame_t, const colmap::PosePrior*>&
         frame_to_pose_prior) {
   // Clear all the structures
   sparse_matrix_.resize(0, 0);
@@ -262,7 +263,7 @@ void RotationEstimator::SetupLinearSystem(
       }
     }
 
-    Eigen::Vector3d* frame_gravity =
+    const Eigen::Vector3d* frame_gravity =
         GetFrameGravityOrNull(frame_to_pose_prior, frame_id);
     if (options_.use_gravity && frame_gravity != nullptr) {
       rotation_estimated_[num_dof] =
@@ -366,9 +367,9 @@ void RotationEstimator::SetupLinearSystem(
          image_pair.cam2_from_cam1.rotation * cam1_from_rig1.rotation)
             .toRotationMatrix();
 
-    Eigen::Vector3d* frame_gravity1 =
+    const Eigen::Vector3d* frame_gravity1 =
         GetFrameGravityOrNull(frame_to_pose_prior, image1.frame_id);
-    Eigen::Vector3d* frame_gravity2 =
+    const Eigen::Vector3d* frame_gravity2 =
         GetFrameGravityOrNull(frame_to_pose_prior, image2.frame_id);
     if (options_.use_gravity) {
       if (frame_gravity1 != nullptr) {
@@ -546,7 +547,7 @@ bool RotationEstimator::SolveL1Regression(
     const ViewGraph& view_graph,
     const std::unordered_map<frame_t, Frame>& frames,
     const std::unordered_map<image_t, Image>& images,
-    const std::unordered_map<frame_t, colmap::PosePrior*>&
+    const std::unordered_map<frame_t, const colmap::PosePrior*>&
         frame_to_pose_prior) {
   colmap::LeastAbsoluteDeviationSolver::Options l1_solver_options;
   l1_solver_options.max_num_iterations = 10;
@@ -612,8 +613,8 @@ bool RotationEstimator::SolveL1Regression(
 bool RotationEstimator::SolveIRLS(
     const ViewGraph& view_graph,
     std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<image_t, Image>& images,
-    const std::unordered_map<frame_t, colmap::PosePrior*>&
+    const std::unordered_map<image_t, Image>& images,
+    const std::unordered_map<frame_t, const colmap::PosePrior*>&
         frame_to_pose_prior) {
   // TODO: Determine what is the best solver for this part
   Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> llt;
@@ -708,7 +709,7 @@ void RotationEstimator::UpdateGlobalRotations(
     const ViewGraph& view_graph,
     const std::unordered_map<frame_t, Frame>& frames,
     const std::unordered_map<image_t, Image>& images,
-    const std::unordered_map<frame_t, colmap::PosePrior*>&
+    const std::unordered_map<frame_t, const colmap::PosePrior*>&
         frame_to_pose_prior) {
   for (const auto& [frame_id, frame] : frames) {
     if (!frame.is_registered) continue;
@@ -781,7 +782,7 @@ void RotationEstimator::UpdateGlobalRotations(
 void RotationEstimator::ComputeResiduals(
     const ViewGraph& view_graph,
     const std::unordered_map<image_t, Image>& images,
-    const std::unordered_map<frame_t, colmap::PosePrior*>&
+    const std::unordered_map<frame_t, const colmap::PosePrior*>&
         frame_to_pose_prior) {
   std::mt19937 rng(std::random_device{}());
 
@@ -803,9 +804,9 @@ void RotationEstimator::ComputeResiduals(
       const Image& image1 = images.at(image_id1);
       const Image& image2 = images.at(image_id2);
 
-      Eigen::Vector3d* frame_gravity1 =
+      const Eigen::Vector3d* frame_gravity1 =
           GetFrameGravityOrNull(frame_to_pose_prior, image1.frame_id);
-      Eigen::Vector3d* frame_gravity2 =
+      const Eigen::Vector3d* frame_gravity2 =
           GetFrameGravityOrNull(frame_to_pose_prior, image2.frame_id);
 
       if (options_.use_gravity && frame_gravity1 != nullptr) {
@@ -863,7 +864,7 @@ void RotationEstimator::ComputeResiduals(
 
 double RotationEstimator::ComputeAverageStepSize(
     const std::unordered_map<frame_t, Frame>& frames,
-    const std::unordered_map<frame_t, colmap::PosePrior*>&
+    const std::unordered_map<frame_t, const colmap::PosePrior*>&
         frame_to_pose_prior) {
   double total_update = 0;
   for (const auto& [frame_id, frame] : frames) {
@@ -884,7 +885,7 @@ double RotationEstimator::ComputeAverageStepSize(
 void RotationEstimator::ConvertResults(
     std::unordered_map<rig_t, Rig>& rigs,
     std::unordered_map<frame_t, Frame>& frames,
-    const std::unordered_map<frame_t, colmap::PosePrior*>&
+    const std::unordered_map<frame_t, const colmap::PosePrior*>&
         frame_to_pose_prior) {
   for (auto& [frame_id, frame] : frames) {
     if (!frames[frame_id].is_registered) continue;

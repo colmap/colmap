@@ -84,8 +84,8 @@ class RotationEstimator {
   bool EstimateRotations(const ViewGraph& view_graph,
                          std::unordered_map<rig_t, Rig>& rigs,
                          std::unordered_map<frame_t, Frame>& frames,
-                         std::unordered_map<image_t, Image>& images,
-                         std::vector<colmap::PosePrior>& pose_priors);
+                         const std::unordered_map<image_t, Image>& images,
+                         const std::vector<colmap::PosePrior>& pose_priors);
 
  protected:
   // Initialize the rotation from the maximum spanning tree
@@ -99,25 +99,27 @@ class RotationEstimator {
   // Sets up the sparse linear system such that dR_ij = dR_j - dR_i. This is the
   // first-order approximation of the angle-axis rotations. This should only be
   // called once.
-  void SetupLinearSystem(const ViewGraph& view_graph,
-                         const std::unordered_map<rig_t, Rig>& rigs,
-                         const std::unordered_map<frame_t, Frame>& frames,
-                         const std::unordered_map<image_t, Image>& images,
-                         const std::unordered_map<frame_t, colmap::PosePrior*>&
-                             frame_to_pose_prior);
+  void SetupLinearSystem(
+      const ViewGraph& view_graph,
+      const std::unordered_map<rig_t, Rig>& rigs,
+      const std::unordered_map<frame_t, Frame>& frames,
+      const std::unordered_map<image_t, Image>& images,
+      const std::unordered_map<frame_t, const colmap::PosePrior*>&
+          frame_to_pose_prior);
 
   // Performs the L1 robust loss minimization.
-  bool SolveL1Regression(const ViewGraph& view_graph,
-                         const std::unordered_map<frame_t, Frame>& frames,
-                         const std::unordered_map<image_t, Image>& images,
-                         const std::unordered_map<frame_t, colmap::PosePrior*>&
-                             frame_to_pose_prior);
+  bool SolveL1Regression(
+      const ViewGraph& view_graph,
+      const std::unordered_map<frame_t, Frame>& frames,
+      const std::unordered_map<image_t, Image>& images,
+      const std::unordered_map<frame_t, const colmap::PosePrior*>&
+          frame_to_pose_prior);
 
   // Performs the iteratively reweighted least squares.
   bool SolveIRLS(const ViewGraph& view_graph,
                  std::unordered_map<frame_t, Frame>& frames,
-                 std::unordered_map<image_t, Image>& images,
-                 const std::unordered_map<frame_t, colmap::PosePrior*>&
+                 const std::unordered_map<image_t, Image>& images,
+                 const std::unordered_map<frame_t, const colmap::PosePrior*>&
                      frame_to_pose_prior);
 
   // Updates the global rotations based on the current rotation change.
@@ -125,30 +127,32 @@ class RotationEstimator {
       const ViewGraph& view_graph,
       const std::unordered_map<frame_t, Frame>& frames,
       const std::unordered_map<image_t, Image>& images,
-      const std::unordered_map<frame_t, colmap::PosePrior*>&
+      const std::unordered_map<frame_t, const colmap::PosePrior*>&
           frame_to_pose_prior);
 
   // Computes the relative rotation (tangent space) residuals based on the
   // current global orientation estimates.
-  void ComputeResiduals(const ViewGraph& view_graph,
-                        const std::unordered_map<image_t, Image>& images,
-                        const std::unordered_map<frame_t, colmap::PosePrior*>&
-                            frame_to_pose_prior);
+  void ComputeResiduals(
+      const ViewGraph& view_graph,
+      const std::unordered_map<image_t, Image>& images,
+      const std::unordered_map<frame_t, const colmap::PosePrior*>&
+          frame_to_pose_prior);
 
   // Computes the average size of the most recent step of the algorithm.
   // The is the average over all non-fixed global_orientations_ of their
   // rotation magnitudes.
   double ComputeAverageStepSize(
       const std::unordered_map<frame_t, Frame>& frames,
-      const std::unordered_map<frame_t, colmap::PosePrior*>&
+      const std::unordered_map<frame_t, const colmap::PosePrior*>&
           frame_to_pose_prior);
 
   // Converts the results from the tangent space to the global rotations and
   // updates the frames and images with the new rotations.
-  void ConvertResults(std::unordered_map<rig_t, Rig>& rigs,
-                      std::unordered_map<frame_t, Frame>& frames,
-                      const std::unordered_map<frame_t, colmap::PosePrior*>&
-                          frame_to_pose_prior);
+  void ConvertResults(
+      std::unordered_map<rig_t, Rig>& rigs,
+      std::unordered_map<frame_t, Frame>& frames,
+      const std::unordered_map<frame_t, const colmap::PosePrior*>&
+          frame_to_pose_prior);
 
   // Data
   // Options for the solver.

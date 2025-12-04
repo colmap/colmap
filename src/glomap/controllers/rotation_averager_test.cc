@@ -19,7 +19,7 @@ void SynthesizeGravityOutliers(std::vector<colmap::PosePrior>& pose_priors,
   for (auto& pose_prior : pose_priors) {
     if (pose_prior.HasGravity() &&
         colmap::RandomUniformReal<double>(0, 1) < outlier_ratio) {
-      pose_prior.gravity = Eigen::Vector3d::Random();
+      pose_prior.gravity = Eigen::Vector3d::Random().normalized();
     }
   }
 }
