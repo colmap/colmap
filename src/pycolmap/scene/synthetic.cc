@@ -80,9 +80,9 @@ void BindSynthetic(py::module& m) {
           .def_readwrite("point2D_stddev",
                          &SyntheticNoiseOptions::point2D_stddev)
           .def_readwrite("prior_position_stddev",
-                         &SyntheticDatasetOptions::prior_position_stddev)
+                         &SyntheticNoiseOptions::prior_position_stddev)
           .def_readwrite("prior_gravity_stddev",
-                         &SyntheticDatasetOptions::prior_gravity_stddev);
+                         &SyntheticNoiseOptions::prior_gravity_stddev);
   MakeDataclass(PySyntheticNoiseOptions);
 
   m.def("synthesize_noise",
