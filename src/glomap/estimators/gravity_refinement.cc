@@ -20,6 +20,7 @@ void GravityRefiner::RefineGravity(
   }
 
   std::unordered_map<image_t, frame_t> image_to_frame;
+  image_to_frame.reserve(images.size());
   for (const auto& [image_id, image] : images) {
     image_to_frame[image_id] = image.frame_id;
   }
@@ -29,10 +30,11 @@ void GravityRefiner::RefineGravity(
   for (auto& pose_prior : pose_priors) {
     if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
       const image_t image_id = pose_prior.corr_data_id.id;
-      THROW_CHECK(image_to_pose_prior.emplace(image_id, &pose_prior).second)
-          << "Duplicate pose prior for image " << image_id;
       const Image& image = images.at(image_id);
+      // TODO(jsch): Can only handle trivial frames.
       if (image.HasTrivialFrame()) {
+        THROW_CHECK(image_to_pose_prior.emplace(image_id, &pose_prior).second)
+          << "Duplicate pose prior for image " << image_id;
         const frame_t frame_id = image_to_frame.at(image_id);
         THROW_CHECK(frame_to_pose_prior.emplace(frame_id, &pose_prior).second)
             << "Duplicate pose prior for frame" << frame_id;
