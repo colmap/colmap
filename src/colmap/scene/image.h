@@ -104,7 +104,7 @@ class Image {
   inline void SetFramePtr(class Frame* frame);
   inline void ResetFramePtr();
   inline bool HasFramePtr() const;
-  // Check if cam_from_world needs to be composed with sensor_from_rig pose.
+  // Check if the image was captured by the reference sensor in the rig.
   inline bool IsRefInFrame() const;
 
   // Composition of sensor_from_rig and rig_from_world transformations.
