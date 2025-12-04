@@ -34,7 +34,7 @@ void GravityRefiner::RefineGravity(
       // TODO(jsch): Can only handle trivial frames.
       if (image.HasTrivialFrame()) {
         THROW_CHECK(image_to_pose_prior.emplace(image_id, &pose_prior).second)
-          << "Duplicate pose prior for image " << image_id;
+            << "Duplicate pose prior for image " << image_id;
         const frame_t frame_id = image_to_frame.at(image_id);
         THROW_CHECK(frame_to_pose_prior.emplace(frame_id, &pose_prior).second)
             << "Duplicate pose prior for frame" << frame_id;
