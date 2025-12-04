@@ -198,6 +198,9 @@ struct BundleAdjustmentOptions {
 };
 
 struct PosePriorBundleAdjustmentOptions {
+  // Fallback if no prior position covariance is provided.
+  double prior_position_fallback_stddev = 1.0;
+
   // Loss function for prior position loss.
   BundleAdjustmentOptions::LossFunctionType prior_position_loss_function_type =
       BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
@@ -207,6 +210,8 @@ struct PosePriorBundleAdjustmentOptions {
 
   // Sim3 alignment options.
   RANSACOptions alignment_ransac_options;
+
+  bool Check() const;
 };
 
 class BundleAdjuster {

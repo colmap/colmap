@@ -402,6 +402,12 @@ bool BundleAdjustmentOptions::Check() const {
   return true;
 }
 
+bool PosePriorBundleAdjustmentOptions::Check() const {
+  CHECK_OPTION_GT(prior_position_fallback_stddev, 0);
+  CHECK_OPTION_GT(prior_position_loss_scale, 0);
+  return true;
+}
+
 namespace {
 
 void ParameterizeCameras(const BundleAdjustmentOptions& options,
@@ -981,13 +987,14 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
         prior_options_(prior_options),
         pose_priors_(std::move(pose_priors)),
         reconstruction_(reconstruction) {
+    THROW_CHECK(prior_options_.Check());
+
     // Filter irrelevant pose priors.
     pose_priors_.erase(
         std::remove_if(pose_priors_.begin(),
                        pose_priors_.end(),
                        [this](const auto& pose_prior) {
                          return !pose_prior.HasPosition() ||
-                                !pose_prior.HasPositionCov() ||
                                 pose_prior.corr_data_id.sensor_id.type !=
                                     SensorType::CAMERA ||
                                 !config_.HasImage(pose_prior.corr_data_id.id);
@@ -1075,11 +1082,18 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
 
     const Eigen::Vector3d normalized_position =
         normalized_from_metric_ * pose_prior.position;
-    const Eigen::Matrix3d sR =
+    const Eigen::Matrix3d normalized_from_metric_scaled_rotation =
         normalized_from_metric_.scale *
         normalized_from_metric_.rotation.toRotationMatrix();
+    const Eigen::Matrix3d position_cov =
+        pose_prior.HasPositionCov()
+            ? pose_prior.position_covariance
+            : (prior_options_.prior_position_fallback_stddev *
+               prior_options_.prior_position_fallback_stddev *
+               Eigen::Matrix3d::Identity());
     const Eigen::Matrix3d normalized_position_cov =
-        sR * pose_prior.position_covariance * sR.transpose();
+        normalized_from_metric_scaled_rotation * position_cov *
+        normalized_from_metric_scaled_rotation.transpose();
 
     if (image.HasTrivialFrame()) {
       problem.AddResidualBlock(
@@ -1118,7 +1132,8 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
 
       if (rms_vars.empty()) {
         LOG(WARNING) << "No pose priors with valid covariance found.";
-        return false;
+        rms_vars.push_back(prior_options_.prior_position_fallback_stddev *
+                           prior_options_.prior_position_fallback_stddev);
       }
 
       // Set max error using the median RMS variance of valid pose priors.

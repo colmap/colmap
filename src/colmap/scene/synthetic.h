@@ -64,9 +64,11 @@ struct SyntheticDatasetOptions {
   };
   MatchConfig match_config = MatchConfig::EXHAUSTIVE;
 
-  bool use_prior_position = false;
-  bool use_wgs84_prior = false;
-  double prior_position_stddev = 1.5;
+  bool prior_position = false;
+  PosePrior::CoordinateSystem prior_position_coordinate_system =
+      PosePrior::CoordinateSystem::CARTESIAN;
+  bool prior_gravity = false;
+  Eigen::Vector3d prior_gravity_in_world = Eigen::Vector3d::UnitY();
 };
 
 void SynthesizeDataset(const SyntheticDatasetOptions& options,
@@ -79,6 +81,11 @@ struct SyntheticNoiseOptions {
   double rig_from_world_rotation_stddev = 0.0;
   double point3D_stddev = 0.0;
   double point2D_stddev = 0.0;
+
+  // Translational standard deviation of the prior position in meters.
+  double prior_position_stddev = 1.5;
+  // Rotational standard deviation of the prior gravity in degrees.
+  double prior_gravity_stddev = 1.0;
 };
 
 void SynthesizeNoise(const SyntheticNoiseOptions& options,

@@ -46,12 +46,13 @@ void BindSynthetic(py::module& m) {
           .def_readwrite("num_points2D_without_point3D",
                          &SyntheticDatasetOptions::num_points2D_without_point3D)
           .def_readwrite("match_config", &SyntheticDatasetOptions::match_config)
-          .def_readwrite("use_prior_position",
-                         &SyntheticDatasetOptions::use_prior_position)
-          .def_readwrite("use_wgs84_prior",
-                         &SyntheticDatasetOptions::use_wgs84_prior)
-          .def_readwrite("prior_position_stddev",
-                         &SyntheticDatasetOptions::prior_position_stddev);
+          .def_readwrite("prior_position",
+                         &SyntheticDatasetOptions::prior_position)
+          .def_readwrite("prior_gravity",
+                         &SyntheticDatasetOptions::prior_gravity)
+          .def_readwrite(
+              "prior_position_coordinate_system",
+              &SyntheticDatasetOptions::prior_position_coordinate_system);
   MakeDataclass(PySyntheticDatasetOptions);
 
   m.def(
@@ -77,7 +78,11 @@ void BindSynthetic(py::module& m) {
           .def_readwrite("point3D_stddev",
                          &SyntheticNoiseOptions::point3D_stddev)
           .def_readwrite("point2D_stddev",
-                         &SyntheticNoiseOptions::point2D_stddev);
+                         &SyntheticNoiseOptions::point2D_stddev)
+          .def_readwrite("prior_position_stddev",
+                         &SyntheticNoiseOptions::prior_position_stddev)
+          .def_readwrite("prior_gravity_stddev",
+                         &SyntheticNoiseOptions::prior_gravity_stddev);
   MakeDataclass(PySyntheticNoiseOptions);
 
   m.def("synthesize_noise",

@@ -59,7 +59,9 @@ struct PosePrior {
 
   // The position of the associated sensor in the world coordinate system.
   Eigen::Vector3d position = Eigen::Vector3d::Constant(kNaN);
+  // The position covariance in the Cartesian world coordinate system.
   Eigen::Matrix3d position_covariance = Eigen::Matrix3d::Constant(kNaN);
+  // The coordinate system of the position in the world.
   CoordinateSystem coordinate_system = CoordinateSystem::UNDEFINED;
 
   // The gravity (down) in the sensor coordinate system.
