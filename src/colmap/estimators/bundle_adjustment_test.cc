@@ -1041,8 +1041,8 @@ TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorldNoReferenceSensor) {
   const Reconstruction orig_reconstruction = reconstruction;
 
   // Delete observations from the two reference images.
-  THROW_CHECK(reconstruction.Image(1).HasTrivialFrame());
-  THROW_CHECK(reconstruction.Image(3).HasTrivialFrame());
+  THROW_CHECK(reconstruction.Image(1).IsRefInFrame());
+  THROW_CHECK(reconstruction.Image(3).IsRefInFrame());
   for (point2D_t i = 0; i < reconstruction.Image(1).NumPoints2D(); ++i) {
     if (reconstruction.Image(1).Point2D(i).HasPoint3D()) {
       reconstruction.DeleteObservation(1, i);
