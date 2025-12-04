@@ -162,7 +162,7 @@ void ReadGravity(const std::string& gravity_path,
     auto ite = name_idx.find(name);
     if (ite != name_idx.end()) {
       counter++;
-      if (images[ite->second].IsReferenceInFrame()) {
+      if (images[ite->second].IsRefInFrame()) {
         images[ite->second].frame_ptr->gravity_info.SetGravity(gravity);
         Rigid3d& cam_from_world = images[ite->second].frame_ptr->RigFromWorld();
         // Set the rotation from the camera to the world

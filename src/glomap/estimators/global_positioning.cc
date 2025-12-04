@@ -174,7 +174,7 @@ void GlobalPositioner::AddCameraToCameraConstraints(
   // For cam to cam constraint, only support the trivial frames now
   for (const auto& [image_id, image] : images) {
     if (!image.IsRegistered()) continue;
-    if (!image.IsReferenceInFrame()) {
+    if (!image.IsRefInFrame()) {
       LOG(ERROR) << "Now, only trivial frames are supported for the camera to "
                     "camera constraints";
     }
@@ -325,7 +325,7 @@ void GlobalPositioner::AddTrackToProblem(
             : loss_function_ptcam_uncalibrated_.get();
 
     // If the image is not part of a camera rig, use the standard BATA error
-    if (image.IsReferenceInFrame()) {
+    if (image.IsRefInFrame()) {
       ceres::CostFunction* cost_function =
           BATAPairwiseDirectionError::Create(translation);
 

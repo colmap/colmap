@@ -152,6 +152,10 @@ void BindSceneImage(py::module& m) {
       .def("reset_frame_ptr",
            &Image::ResetFramePtr,
            "Make the frame pointer a nullptr.")
+      .def("is_ref_in_frame",
+           &Image::IsRefInFrame,
+           "Check if cam_from_world needs to be composed with sensor_from_rig "
+           "pose.")
       .def("num_points2D",
            &Image::NumPoints2D,
            "Get the number of image points (keypoints).")

@@ -105,7 +105,7 @@ void ExpectEqualGravity(
     const std::unordered_map<image_t, Image>& images_computed,
     const double max_gravity_error_deg) {
   for (const auto& image_id : gt.RegImageIds()) {
-    if (!images_computed.at(image_id).IsReferenceInFrame()) {
+    if (!images_computed.at(image_id).IsRefInFrame()) {
       continue;  // Skip images that are not trivial frames
     }
     const Eigen::Vector3d gravity_gt =
