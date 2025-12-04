@@ -208,8 +208,9 @@ TEST(SynthesizeDataset, WithPriors) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction reconstruction;
   SyntheticDatasetOptions options;
-  options.use_prior_position = true;
-  options.prior_position_stddev = 0.;
+  options.prior_position = true;
+  options.prior_gravity = true;
+  options.prior_gravity_in_world = Eigen::Vector3d::Random().normalized();
   SynthesizeDataset(options, &reconstruction, database.get());
 
   const std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
@@ -224,6 +225,8 @@ TEST(SynthesizeDataset, WithPriors) {
     const PosePrior& pose_prior = *image_to_prior.at(image_id);
     EXPECT_THAT(image.ProjectionCenter(),
                 EigenMatrixNear(pose_prior.position, 1e-9));
+    EXPECT_THAT(image.CamFromWorld().rotation * options.prior_gravity_in_world,
+                EigenMatrixNear(pose_prior.gravity, 1e-9));
   }
 }
 
@@ -366,6 +369,69 @@ TEST(SynthesizeNoise, RigFromWorldNoise) {
   synthetic_noise_options.rig_from_world_rotation_stddev = 0.1;
   SynthesizeNoise(synthetic_noise_options, &reconstruction, database.get());
   EXPECT_GT(reconstruction.ComputeMeanReprojectionError(), 1e-3);
+}
+
+std::unordered_map<pose_prior_t, PosePrior> ReadPosePriors(Database& database) {
+  std::unordered_map<pose_prior_t, PosePrior> pose_priors;
+  for (auto& pose_prior : database.ReadAllPosePriors()) {
+    pose_priors.emplace(pose_prior.pose_prior_id, std::move(pose_prior));
+  }
+  return pose_priors;
+}
+
+TEST(SynthesizeNoise, PriorPositionNoise) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.prior_position = true;
+  options.prior_position_coordinate_system = PosePrior::CoordinateSystem::WGS84;
+
+  SynthesizeDataset(options, &reconstruction, database.get());
+  const std::unordered_map<pose_prior_t, PosePrior> orig_pose_priors =
+      ReadPosePriors(*database);
+
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.prior_position_stddev = 0.1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction, database.get());
+  for (const auto& pose_prior : database->ReadAllPosePriors()) {
+    // Check that some noise was added.
+    EXPECT_THAT(pose_prior.position,
+                testing::Not(EigenMatrixEq(
+                    orig_pose_priors.at(pose_prior.pose_prior_id).position)));
+    // Check that the noisy positions are somewhat close to the original ones.
+    EXPECT_THAT(
+        pose_prior.position,
+        EigenMatrixNear(orig_pose_priors.at(pose_prior.pose_prior_id).position,
+                        10 * synthetic_noise_options.prior_position_stddev));
+    EXPECT_TRUE(pose_prior.HasPositionCov());
+    EXPECT_NEAR(pose_prior.position_covariance.trace() / 3.0,
+                synthetic_noise_options.prior_position_stddev *
+                    synthetic_noise_options.prior_position_stddev,
+                1e-6);
+  }
+}
+
+TEST(SynthesizeNoise, PriorGravityNoise) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.prior_gravity = true;
+
+  SynthesizeDataset(options, &reconstruction, database.get());
+  const std::unordered_map<pose_prior_t, PosePrior> orig_pose_priors =
+      ReadPosePriors(*database);
+
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.prior_gravity_stddev = 0.1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction, database.get());
+  for (const auto& pose_prior : database->ReadAllPosePriors()) {
+    const double angle = std::acos(pose_prior.gravity.dot(
+        orig_pose_priors.at(pose_prior.pose_prior_id).gravity));
+    // Check that some noise was added.
+    EXPECT_GT(angle, 0);
+    // Check that the noisy directions are somewhat close to the original ones.
+    EXPECT_LT(angle, 10 * synthetic_noise_options.prior_gravity_stddev);
+  }
 }
 
 TEST(SynthesizeImages, Nominal) {

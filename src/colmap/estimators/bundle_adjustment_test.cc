@@ -1174,8 +1174,7 @@ TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
   synthetic_options.num_cameras_per_rig = 1;
   synthetic_options.num_frames_per_rig = 7;
   synthetic_options.num_points3D = 50;
-  synthetic_options.use_prior_position = true;
-  synthetic_options.prior_position_stddev = 0.05;
+  synthetic_options.prior_position = true;
   std::string database_path = CreateTestDir() + "/database.db";
   auto database = Database::Open(database_path);
   SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
@@ -1186,6 +1185,7 @@ TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
   synthetic_noise_options.point3D_stddev = 0.2;
   synthetic_noise_options.rig_from_world_rotation_stddev = 1.0;
   synthetic_noise_options.rig_from_world_translation_stddev = 0.2;
+  synthetic_noise_options.prior_position_stddev = 0.05;
   SynthesizeNoise(synthetic_noise_options, &reconstruction);
 
   std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
@@ -1222,6 +1222,54 @@ TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
                                  /*num_obs_tolerance=*/0.02));
 }
 
+TEST(PosePriorBundleAdjuster, MissingPositionCov) {
+  SetPRNGSeed(0);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 7;
+  synthetic_options.num_points3D = 100;
+  synthetic_options.prior_position = true;
+  std::string database_path = CreateTestDir() + "/database.db";
+  auto database = Database::Open(database_path);
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  Reconstruction reconstruction = gt_reconstruction;
+
+  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  for (PosePrior& pose_prior : pose_priors) {
+    EXPECT_FALSE(pose_prior.HasPositionCov());
+  }
+
+  PosePriorBundleAdjustmentOptions prior_ba_options;
+  prior_ba_options.alignment_ransac_options.random_seed = 0;
+  prior_ba_options.prior_position_loss_function_type =
+      BundleAdjustmentOptions::LossFunctionType::CAUCHY;
+
+  BundleAdjustmentOptions ba_options;
+  BundleAdjustmentConfig ba_config;
+
+  for (const frame_t frame_id : reconstruction.RegFrameIds()) {
+    const Frame& frame = reconstruction.Frame(frame_id);
+    for (const data_t& data_id : frame.ImageIds()) {
+      ba_config.AddImage(data_id.id);
+    }
+  }
+
+  auto adjuster = CreatePosePriorBundleAdjuster(
+      ba_options, prior_ba_options, ba_config, pose_priors, reconstruction);
+  auto summary = adjuster->Solve();
+  ASSERT_TRUE(summary.IsSolutionUsable());
+
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.1,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.02));
+}
+
 TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
   SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
@@ -1230,8 +1278,7 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
   synthetic_options.num_cameras_per_rig = 1;
   synthetic_options.num_frames_per_rig = 7;
   synthetic_options.num_points3D = 100;
-  synthetic_options.use_prior_position = true;
-  synthetic_options.prior_position_stddev = 0.05;
+  synthetic_options.prior_position = true;
   std::string database_path = CreateTestDir() + "/database.db";
   auto database = Database::Open(database_path);
   SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
@@ -1242,6 +1289,7 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
   synthetic_noise_options.point3D_stddev = 0.2;
   synthetic_noise_options.rig_from_world_rotation_stddev = 1.0;
   synthetic_noise_options.rig_from_world_translation_stddev = 0.2;
+  synthetic_noise_options.prior_position_stddev = 0.05;
   SynthesizeNoise(synthetic_noise_options, &reconstruction);
 
   std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
