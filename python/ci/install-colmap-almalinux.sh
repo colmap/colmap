@@ -5,6 +5,11 @@ CURRDIR=$(pwd)
 
 export PATH="/usr/bin"
 
+# Install config manager and EPEL release
+yum install -y dnf-plugins-core epel-release
+# Enable the PowerTools repository (required for ninja-build)
+yum config-manager --set-enabled powertools
+
 # Install toolchain under AlmaLinux 8,
 # see https://almalinux.pkgs.org/8/almalinux-appstream-x86_64/
 yum install -y \
