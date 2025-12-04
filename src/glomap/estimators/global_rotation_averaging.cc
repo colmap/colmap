@@ -86,6 +86,16 @@ std::unordered_map<frame_t, colmap::PosePrior*> ExtractFrameToPosePrior(
   return frame_to_pose_prior;
 }
 
+Eigen::Vector3d* GetFrameGravityOrNull(
+    const std::unordered_map<frame_t, colmap::PosePrior*>& frame_to_pose_prior,
+    frame_t frame_id) {
+  auto it = frame_to_pose_prior.find(frame_id);
+  if (it == frame_to_pose_prior.end() || !it->second->HasGravity()) {
+    return nullptr;
+  }
+  return &it->second->gravity;
+}
+
 }  // namespace
 
 bool RotationEstimator::EstimateRotations(
@@ -252,12 +262,11 @@ void RotationEstimator::SetupLinearSystem(
       }
     }
 
-    const auto pose_prior_it = frame_to_pose_prior.find(frame_id);
-    const bool has_gravity = pose_prior_it != frame_to_pose_prior.end() &&
-                             pose_prior_it->second->HasGravity();
-    if (options_.use_gravity && has_gravity) {
+    Eigen::Vector3d* frame_gravity =
+        GetFrameGravityOrNull(frame_to_pose_prior, frame_id);
+    if (options_.use_gravity && frame_gravity != nullptr) {
       rotation_estimated_[num_dof] =
-          RotUpToAngle(GetAlignRot(pose_prior_it->second->gravity).transpose() *
+          RotUpToAngle(GetAlignRot(*frame_gravity).transpose() *
                        frame.RigFromWorld().rotation.toRotationMatrix());
       num_dof++;
 
@@ -357,27 +366,25 @@ void RotationEstimator::SetupLinearSystem(
          image_pair.cam2_from_cam1.rotation * cam1_from_rig1.rotation)
             .toRotationMatrix();
 
-    const auto pose_prior1_it = frame_to_pose_prior.find(image1.frame_id);
-    const auto pose_prior2_it = frame_to_pose_prior.find(image2.frame_id);
-    const bool has_gravity1 = pose_prior1_it != frame_to_pose_prior.end() &&
-                              pose_prior1_it->second->HasGravity();
-    const bool has_gravity2 = pose_prior2_it != frame_to_pose_prior.end() &&
-                              pose_prior2_it->second->HasGravity();
+    Eigen::Vector3d* frame_gravity1 =
+        GetFrameGravityOrNull(frame_to_pose_prior, image1.frame_id);
+    Eigen::Vector3d* frame_gravity2 =
+        GetFrameGravityOrNull(frame_to_pose_prior, image2.frame_id);
     if (options_.use_gravity) {
-      if (has_gravity1) {
+      if (frame_gravity1 != nullptr) {
         rel_temp_info_[pair_id].R_rel =
-            rel_temp_info_[pair_id].R_rel *
-            GetAlignRot(pose_prior1_it->second->gravity);
+            rel_temp_info_[pair_id].R_rel * GetAlignRot(*frame_gravity1);
       }
 
-      if (has_gravity2) {
+      if (frame_gravity2 != nullptr) {
         rel_temp_info_[pair_id].R_rel =
-            GetAlignRot(pose_prior2_it->second->gravity).transpose() *
+            GetAlignRot(*frame_gravity2).transpose() *
             rel_temp_info_[pair_id].R_rel;
       }
     }
 
-    if (options_.use_gravity && has_gravity1 && has_gravity2) {
+    if (options_.use_gravity && frame_gravity1 != nullptr &&
+        frame_gravity2 != nullptr) {
       counter++;
       Eigen::Vector3d aa =
           colmap::RotationMatrixToAngleAxis(rel_temp_info_[pair_id].R_rel);
@@ -441,15 +448,10 @@ void RotationEstimator::SetupLinearSystem(
         weights.emplace_back(1);
       curr_pos++;
     } else {
-      const auto pose_prior1_it = frame_to_pose_prior.find(image1.frame_id);
-      const auto pose_prior2_it = frame_to_pose_prior.find(image2.frame_id);
-      const bool has_gravity1 = pose_prior1_it != frame_to_pose_prior.end() &&
-                                pose_prior1_it->second->HasGravity();
-      const bool has_gravity2 = pose_prior2_it != frame_to_pose_prior.end() &&
-                                pose_prior2_it->second->HasGravity();
-
       // If it is not gravity aligned, then we need to consider 3 dof
-      if (!options_.use_gravity || !has_gravity1) {
+      if (!options_.use_gravity ||
+          GetFrameGravityOrNull(frame_to_pose_prior, image1.frame_id) ==
+              nullptr) {
         for (int i = 0; i < 3; i++) {
           coeffs.emplace_back(
               Eigen::Triplet<double>(curr_pos + i, image_idx1 + i, -1));
@@ -460,7 +462,9 @@ void RotationEstimator::SetupLinearSystem(
             Eigen::Triplet<double>(curr_pos + 1, image_idx1, -1));
 
       // Similarly for the second componenet
-      if (!options_.use_gravity || !has_gravity2) {
+      if (!options_.use_gravity ||
+          GetFrameGravityOrNull(frame_to_pose_prior, image2.frame_id) ==
+              nullptr) {
         for (int i = 0; i < 3; i++) {
           coeffs.emplace_back(
               Eigen::Triplet<double>(curr_pos + i, image_idx2 + i, 1));
@@ -799,21 +803,19 @@ void RotationEstimator::ComputeResiduals(
       const Image& image1 = images.at(image_id1);
       const Image& image2 = images.at(image_id2);
 
-      const auto pose_prior_it1 = frame_to_pose_prior.find(image1.frame_id);
-      const auto pose_prior_it2 = frame_to_pose_prior.find(image2.frame_id);
-      const bool has_gravity1 = pose_prior_it1 != frame_to_pose_prior.end() &&
-                                pose_prior_it1->second->HasGravity();
-      const bool has_gravity2 = pose_prior_it2 != frame_to_pose_prior.end() &&
-                                pose_prior_it2->second->HasGravity();
+      Eigen::Vector3d* frame_gravity1 =
+          GetFrameGravityOrNull(frame_to_pose_prior, image1.frame_id);
+      Eigen::Vector3d* frame_gravity2 =
+          GetFrameGravityOrNull(frame_to_pose_prior, image2.frame_id);
 
-      if (options_.use_gravity && has_gravity1) {
+      if (options_.use_gravity && frame_gravity1 != nullptr) {
         R_1 = AngleToRotUp(rotation_estimated_[image_id_to_idx_[image_id1]]);
       } else {
         R_1 = colmap::AngleAxisToRotationMatrix(
             rotation_estimated_.segment(image_id_to_idx_[image_id1], 3));
       }
 
-      if (options_.use_gravity && has_gravity2) {
+      if (options_.use_gravity && frame_gravity2 != nullptr) {
         R_2 = AngleToRotUp(rotation_estimated_[image_id_to_idx_[image_id2]]);
       } else {
         R_2 = colmap::AngleAxisToRotationMatrix(
