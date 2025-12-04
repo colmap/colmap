@@ -572,8 +572,7 @@ void SynthesizeImages(const SyntheticImageOptions& options,
   for (const auto& [image_id, image] : reconstruction.Images()) {
     const Camera& camera = *image.CameraPtr();
 
-    Bitmap bitmap;
-    bitmap.Allocate(camera.width, camera.height, /*as_rgb=*/true);
+    Bitmap bitmap(camera.width, camera.height, /*as_rgb=*/true);
     bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
 
     for (const auto& point2D : image.Points2D()) {
