@@ -395,6 +395,25 @@ TEST(Reconstruction, AddImageWithTrivialFrame) {
   ExpectValidPtrs(reconstruction);
 }
 
+TEST(Reconstruction, AddImageWithTrivialFrameExistsNonTrivialRig) {
+  Reconstruction reconstruction;
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
+  reconstruction.AddCameraWithTrivialRig(camera);
+  camera.camera_id = 2;
+  reconstruction.Rig(1).AddSensor(camera.SensorId());
+  THROW_CHECK_EQ(reconstruction.Rig(1).NumSensors(), 2);
+
+  Image image;
+  image.SetImageId(1);
+  // The rig has multiple cameras
+  image.SetCameraId(1);
+  EXPECT_ANY_THROW(reconstruction.AddImageWithTrivialFrame(image));
+  // No rig with id 2 found in the reconstruction
+  image.SetCameraId(2);
+  EXPECT_ANY_THROW(reconstruction.AddImageWithTrivialFrame(image));
+}
+
 TEST(Reconstruction, AddImageWithTrivialFrameSetCamFromWorld) {
   Reconstruction reconstruction;
   Camera camera =
