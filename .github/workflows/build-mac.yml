@@ -56,7 +56,7 @@ jobs:
             ninja \
             boost \
             eigen \
-            freeimage \
+            openimageio \
             curl \
             metis \
             glog \
