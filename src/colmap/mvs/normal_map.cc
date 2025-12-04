@@ -101,8 +101,7 @@ Bitmap NormalMap::ToBitmap() const {
   THROW_CHECK_GT(height_, 0);
   THROW_CHECK_EQ(depth_, 3);
 
-  Bitmap bitmap;
-  bitmap.Allocate(width_, height_, true);
+  Bitmap bitmap(width_, height_, true);
 
   for (size_t y = 0; y < height_; ++y) {
     for (size_t x = 0; x < width_; ++x) {
