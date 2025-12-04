@@ -85,8 +85,11 @@ void GravityRefiner::RefineGravity(
 
       const auto pose_prior1_it = image_to_pose_prior.find(image_id1);
       const auto pose_prior2_it = image_to_pose_prior.find(image_id2);
-      if (pose_prior1_it == image_to_pose_prior.end() ||
-          pose_prior2_it == image_to_pose_prior.end()) {
+      const bool has_gravity1 = pose_prior1_it != image_to_pose_prior.end() &&
+                                pose_prior1_it->second->HasGravity();
+      const bool has_gravity2 = pose_prior2_it != image_to_pose_prior.end() &&
+                                pose_prior2_it->second->HasGravity();
+      if (!has_gravity1 || !has_gravity2) {
         continue;
       }
 
@@ -179,13 +182,12 @@ void GravityRefiner::IdentifyErrorProneGravity(
 
     const auto pose_prior1_it = image_to_pose_prior.find(image_pair.image_id1);
     const auto pose_prior2_it = image_to_pose_prior.find(image_pair.image_id2);
-    if (pose_prior1_it == image_to_pose_prior.end() ||
-        pose_prior2_it == image_to_pose_prior.end()) {
-      continue;
-    }
+    const bool has_gravity1 = pose_prior1_it != image_to_pose_prior.end() &&
+                              pose_prior1_it->second->HasGravity();
+    const bool has_gravity2 = pose_prior2_it != image_to_pose_prior.end() &&
+                              pose_prior2_it->second->HasGravity();
 
-    if (pose_prior1_it->second->HasGravity() &&
-        pose_prior2_it->second->HasGravity()) {
+    if (has_gravity1 && has_gravity2) {
       // Calculate the gravity aligned relative rotation
       const Eigen::Matrix3d R_rel =
           GetAlignRot(pose_prior2_it->second->gravity).transpose() *
