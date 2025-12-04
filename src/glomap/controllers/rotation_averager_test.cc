@@ -14,6 +14,16 @@
 namespace glomap {
 namespace {
 
+void SynthesizeGravityOutliers(std::vector<colmap::PosePrior>& pose_priors,
+                               double outlier_ratio = 0.0) {
+  for (auto& pose_prior : pose_priors) {
+    if (pose_prior.HasGravity() &&
+        colmap::RandomUniformReal<double>(0, 1) < outlier_ratio) {
+      pose_prior.gravity = Eigen::Vector3d::Random();
+    }
+  }
+}
+
 GlobalMapperOptions CreateMapperTestOptions() {
   GlobalMapperOptions options;
   options.skip_view_graph_calibration = false;
@@ -89,6 +99,7 @@ TEST(RotationEstimator, WithoutNoise) {
   synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
+  synthetic_dataset_options.prior_gravity = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -98,7 +109,7 @@ TEST(RotationEstimator, WithoutNoise) {
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
   std::unordered_map<point3D_t, Point3D> tracks;
-  std::vector<colmap::PosePrior> pose_priors;
+  std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
@@ -143,6 +154,7 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialKnownRig) {
   synthetic_dataset_options.num_frames_per_rig = 4;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
+  synthetic_dataset_options.prior_gravity = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -152,7 +164,7 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialKnownRig) {
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
   std::unordered_map<point3D_t, Point3D> tracks;
-  std::vector<colmap::PosePrior> pose_priors;
+  std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
@@ -195,6 +207,7 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialUnknownRig) {
   synthetic_dataset_options.num_frames_per_rig = 4;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
+  synthetic_dataset_options.prior_gravity = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -204,7 +217,7 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialUnknownRig) {
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
   std::unordered_map<point3D_t, Point3D> tracks;
-  std::vector<colmap::PosePrior> pose_priors;
+  std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
@@ -256,10 +269,12 @@ TEST(RotationEstimator, WithNoiseAndOutliers) {
   synthetic_dataset_options.num_frames_per_rig = 7;
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.inlier_match_ratio = 0.6;
+  synthetic_dataset_options.prior_gravity = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   colmap::SyntheticNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 1;
+  synthetic_noise_options.prior_gravity_stddev = 3e-1;
   colmap::SynthesizeNoise(
       synthetic_noise_options, &gt_reconstruction, database.get());
 
@@ -269,7 +284,8 @@ TEST(RotationEstimator, WithNoiseAndOutliers) {
   std::unordered_map<image_t, Image> images;
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<point3D_t, Point3D> tracks;
-  std::vector<colmap::PosePrior> pose_priors;
+  std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
+  SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
@@ -314,10 +330,12 @@ TEST(RotationEstimator, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
   synthetic_dataset_options.num_frames_per_rig = 7;
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.inlier_match_ratio = 0.6;
+  synthetic_dataset_options.prior_gravity = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   colmap::SyntheticNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 1;
+  synthetic_noise_options.prior_gravity_stddev = 3e-1;
   colmap::SynthesizeNoise(
       synthetic_noise_options, &gt_reconstruction, database.get());
 
@@ -327,7 +345,8 @@ TEST(RotationEstimator, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
   std::unordered_map<image_t, Image> images;
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<point3D_t, Point3D> tracks;
-  std::vector<colmap::PosePrior> pose_priors;
+  std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
+  SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
@@ -356,16 +375,6 @@ TEST(RotationEstimator, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
         rigs, cameras, frames, images, tracks, reconstruction);
     ExpectEqualRotations(
         gt_reconstruction, reconstruction, /*max_rotation_error_deg=*/2.);
-  }
-}
-
-void SynthesizeGravityOutliers(std::vector<colmap::PosePrior>& pose_priors,
-                               double outlier_ratio = 0.0) {
-  for (auto& pose_prior : pose_priors) {
-    if (pose_prior.HasGravity() &&
-        colmap::RandomUniformReal<double>(0, 1) < outlier_ratio) {
-      pose_prior.gravity = Eigen::Vector3d::Random();
-    }
   }
 }
 
@@ -410,17 +419,13 @@ TEST(RotationEstimator, RefineGravity) {
   GravityRefiner grav_refiner(opt_grav_refine);
   grav_refiner.RefineGravity(view_graph, frames, images, pose_priors);
 
-  // colmap::Reconstruction reconstruction;
-  // ConvertGlomapToColmap(rigs, cameras, frames, images, tracks,
-  // reconstruction); ExpectEqualRotations(
-  //     gt_reconstruction, reconstruction, /*max_rotation_error_deg=*/2.);
   ExpectEqualGravity(synthetic_dataset_options.prior_gravity_in_world,
                      gt_reconstruction,
                      pose_priors,
                      /*max_gravity_error_deg=*/1e-2);
 }
 
-TEST(RotationEstimator, RefineGravityWithNontrivialRigs) {
+TEST(RotationEstimator, RefineGravityWithNonTrivialRigs) {
   colmap::SetPRNGSeed(1);
 
   const std::string database_path = colmap::CreateTestDir() + "/database.db";
@@ -461,10 +466,6 @@ TEST(RotationEstimator, RefineGravityWithNontrivialRigs) {
   GravityRefiner grav_refiner(opt_grav_refine);
   grav_refiner.RefineGravity(view_graph, frames, images, pose_priors);
 
-  colmap::Reconstruction reconstruction;
-  ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);
-  ExpectEqualRotations(
-      gt_reconstruction, reconstruction, /*max_rotation_error_deg=*/2.);
   ExpectEqualGravity(synthetic_dataset_options.prior_gravity_in_world,
                      gt_reconstruction,
                      pose_priors,

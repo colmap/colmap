@@ -73,9 +73,13 @@ std::unordered_map<frame_t, colmap::PosePrior*> ExtractFrameToPosePrior(
   std::unordered_map<frame_t, colmap::PosePrior*> frame_to_pose_prior;
   for (auto& pose_prior : pose_priors) {
     if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
-      const frame_t frame_id = image_to_frame.at(pose_prior.corr_data_id.id);
-      THROW_CHECK(frame_to_pose_prior.emplace(frame_id, &pose_prior).second)
-          << "Duplicate pose prior for frame" << frame_id;
+      const image_t image_id = pose_prior.corr_data_id.id;
+      const Image& image = images.at(image_id);
+      if (image.HasTrivialFrame()) {
+        const frame_t frame_id = image_to_frame.at(pose_prior.corr_data_id.id);
+        THROW_CHECK(frame_to_pose_prior.emplace(frame_id, &pose_prior).second)
+            << "Duplicate pose prior for frame" << frame_id;
+      }
     }
   }
 
