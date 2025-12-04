@@ -261,7 +261,7 @@ void Reconstruction::AddCamera(struct Camera camera) {
 }
 
 void Reconstruction::AddCameraWithTrivialRig(struct Camera camera) {
-  AddCamera(camera);
+  AddCamera(std::move(camera));
   class Rig rig;
   rig.SetRigId(camera.camera_id);
   rig.AddRefSensor(camera.SensorId());
@@ -329,12 +329,12 @@ void Reconstruction::AddImageWithTrivialFrame(class Image image) {
     image.SetFrameId(frame.FrameId());
   }
   AddFrame(frame);
-  AddImage(image);
+  AddImage(std::move(image));
 }
 
 void Reconstruction::AddImageWithTrivialFrame(class Image image,
                                               const Rigid3d& cam_from_world) {
-  AddImageWithTrivialFrame(image);
+  AddImageWithTrivialFrame(std::move(image));
   Frame(image.ImageId()).SetRigFromWorld(cam_from_world);
   RegisterFrame(image.ImageId());
 }
