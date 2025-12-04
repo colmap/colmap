@@ -111,6 +111,12 @@ void BindReconstruction(py::module& m) {
            "camera"_a,
            "Add new camera. There is only one camera per image, while multiple "
            "images might be taken by the same camera.")
+      .def("add_camera_with_trivial_rig",
+           &Reconstruction::AddCameraWithTrivialRig,
+           "camera"_a,
+           "Add a new camera and also create a trivial rig whose rig_id "
+           "matches the "
+           "camera_id. The camera becomes the rig's only sensor.")
       .def("add_frame", &Reconstruction::AddFrame, "frame"_a, "Add new frame.")
       .def(
           "add_image",
@@ -119,6 +125,22 @@ void BindReconstruction(py::module& m) {
           "Add new image. Its camera must have been added before. If its "
           "camera object is unset, it will be automatically populated from the "
           "added cameras.")
+      .def("add_image_with_trivial_frame",
+           py::overload_cast<Image>(&Reconstruction::AddImageWithTrivialFrame),
+           "image"_a,
+           "Add a new image and create a frame with the same ID (frame_id = "
+           "image_id). "
+           "Assumes a rig exists whose rig_id equals the camera_id of the "
+           "image.")
+      .def("add_image_with_trivial_frame",
+           py::overload_cast<Image, const Rigid3d&>(
+               &Reconstruction::AddImageWithTrivialFrame),
+           "image"_a,
+           "cam_from_world"_a,
+           "Add a new image, create a trivial frame (frame_id = image_id), and "
+           "also "
+           "register the frame with an input pose.")
+
       .def("add_point3D",
            py::overload_cast<const Eigen::Vector3d&,
                              Track,
