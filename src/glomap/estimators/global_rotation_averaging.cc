@@ -75,7 +75,7 @@ std::unordered_map<frame_t, const colmap::PosePrior*> ExtractFrameToPosePrior(
     if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
       const image_t image_id = pose_prior.corr_data_id.id;
       const Image& image = images.at(image_id);
-      if (image.HasTrivialFrame()) {
+      if (image.IsRefInFrame()) {
         const frame_t frame_id = image_to_frame.at(pose_prior.corr_data_id.id);
         THROW_CHECK(frame_to_pose_prior.emplace(frame_id, &pose_prior).second)
             << "Duplicate pose prior for frame" << frame_id;
@@ -105,8 +105,6 @@ bool RotationEstimator::EstimateRotations(
     std::unordered_map<frame_t, Frame>& frames,
     const std::unordered_map<image_t, Image>& images,
     const std::vector<colmap::PosePrior>& pose_priors) {
-  // Now, for the gravity aligned case, we only support trivial rigs only or
-  // non-trivial rigs with known sensor_from_rig.
   if (options_.use_gravity && !AllSensorsFromRigKnown(rigs)) {
     return false;
   }

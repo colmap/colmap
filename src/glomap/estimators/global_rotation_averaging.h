@@ -81,6 +81,8 @@ class RotationEstimator {
 
   // Estimates the global orientations of all views based on an initial
   // guess. Returns true on successful estimation and false otherwise.
+  // In the gravity aligned case, currently only gravity measurements
+  // for the reference sensor are supported
   bool EstimateRotations(const ViewGraph& view_graph,
                          std::unordered_map<rig_t, Rig>& rigs,
                          std::unordered_map<frame_t, Frame>& frames,
