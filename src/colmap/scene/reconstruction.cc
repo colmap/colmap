@@ -327,6 +327,14 @@ void Reconstruction::AddImageWithTrivialFrame(class Image image) {
       << "AddImageWithTrivialFrame tried to add a frame with the same id as "
          "the image, but failed because Frame "
       << image.ImageId() << "already exists in the reconstruction.";
+  THROW_CHECK(ExistsRig(image.CameraId()))
+      << "Rig " << image.CameraId() << " that contains Camera "
+      << image.CameraId() << " does not exist in the reconstruction.";
+  auto& rig = Rig(image.CameraId());
+  THROW_CHECK_EQ(rig.NumSensors(), 1)
+      << "AddImageWithTrivialFrame requires that the camera is from a rig that "
+         "contains exactly one sensor (the camera itself).";
+  THROW_CHECK(rig.IsRefSensor(Camera(image.CameraId()).SensorId()));
   class Frame frame;
   frame.SetFrameId(image.ImageId());
   frame.SetRigId(image.CameraId());
