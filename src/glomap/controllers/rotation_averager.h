@@ -15,6 +15,7 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
                             std::unordered_map<rig_t, Rig>& rigs,
                             std::unordered_map<frame_t, Frame>& frames,
                             std::unordered_map<image_t, Image>& images,
+                            std::vector<colmap::PosePrior>& pose_priors,
                             const RotationAveragerOptions& options);
 
 }  // namespace glomap

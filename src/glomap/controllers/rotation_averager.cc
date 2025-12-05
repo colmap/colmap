@@ -9,6 +9,7 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
                             std::unordered_map<rig_t, Rig>& rigs,
                             std::unordered_map<frame_t, Frame>& frames,
                             std::unordered_map<image_t, Image>& images,
+                            std::vector<colmap::PosePrior>& pose_priors,
                             const RotationAveragerOptions& options) {
   view_graph.KeepLargestConnectedComponents(frames, images);
 
@@ -17,19 +18,39 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
   ViewGraph view_graph_grav;
   image_pair_t total_pairs = 0;
   if (solve_1dof_system) {
+    std::unordered_map<image_t, colmap::PosePrior*> image_to_pose_prior;
+    for (auto& pose_prior : pose_priors) {
+      if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
+        const image_t image_id = pose_prior.corr_data_id.id;
+        THROW_CHECK(image_to_pose_prior.emplace(image_id, &pose_prior).second)
+            << "Duplicate pose prior for image " << image_id;
+      }
+    }
+
     // Prepare two sets: ones all with gravity, and one does not have gravity.
     // Solve them separately first, then solve them in a single system
     for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
-      if (!image_pair.is_valid) continue;
+      if (!image_pair.is_valid) {
+        continue;
+      }
 
-      const Image& image1 = images[image_pair.image_id1];
-      const Image& image2 = images[image_pair.image_id2];
-
-      if (!image1.IsRegistered() || !image2.IsRegistered()) continue;
+      if (!images[image_pair.image_id1].IsRegistered() ||
+          !images[image_pair.image_id2].IsRegistered()) {
+        continue;
+      }
 
       total_pairs++;
 
-      if (image1.HasGravity() && image2.HasGravity()) {
+      const auto pose_prior1_it =
+          image_to_pose_prior.find(image_pair.image_id1);
+      const auto pose_prior2_it =
+          image_to_pose_prior.find(image_pair.image_id2);
+      const bool has_gravity1 = pose_prior1_it != image_to_pose_prior.end() &&
+                                pose_prior1_it->second->HasGravity();
+      const bool has_gravity2 = pose_prior2_it != image_to_pose_prior.end() &&
+                                pose_prior2_it->second->HasGravity();
+
+      if (has_gravity1 && has_gravity2) {
         view_graph_grav.image_pairs.emplace(
             pair_id,
             ImagePair(image_pair.image_id1,
@@ -56,7 +77,7 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
     view_graph_grav.KeepLargestConnectedComponents(frames, images);
     RotationEstimator rotation_estimator_grav(options);
     if (!rotation_estimator_grav.EstimateRotations(
-            view_graph_grav, rigs, frames, images)) {
+            view_graph_grav, rigs, frames, images, pose_priors)) {
       return false;
     }
     view_graph.KeepLargestConnectedComponents(frames, images);
@@ -163,7 +184,7 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
     options_trivial.skip_initialization = options.skip_initialization;
     RotationEstimator rotation_estimator_trivial(options_trivial);
     rotation_estimator_trivial.EstimateRotations(
-        view_graph, rigs_trivial, frames_trivial, images_trivial);
+        view_graph, rigs_trivial, frames_trivial, images_trivial, pose_priors);
 
     // Collect the results
     std::unordered_map<image_t, Rigid3d> cams_from_world;
@@ -177,8 +198,8 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
     RotationEstimatorOptions options_ra = options;
     options_ra.skip_initialization = true;
     RotationEstimator rotation_estimator(options_ra);
-    status_ra =
-        rotation_estimator.EstimateRotations(view_graph, rigs, frames, images);
+    status_ra = rotation_estimator.EstimateRotations(
+        view_graph, rigs, frames, images, pose_priors);
     view_graph.KeepLargestConnectedComponents(frames, images);
   } else {
     RotationAveragerOptions options_ra = options;
@@ -190,8 +211,8 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
     }
 
     RotationEstimator rotation_estimator(options_ra);
-    status_ra =
-        rotation_estimator.EstimateRotations(view_graph, rigs, frames, images);
+    status_ra = rotation_estimator.EstimateRotations(
+        view_graph, rigs, frames, images, pose_priors);
     view_graph.KeepLargestConnectedComponents(frames, images);
   }
   return status_ra;

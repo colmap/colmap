@@ -22,7 +22,8 @@ bool GlobalMapper::Solve(const colmap::Database& database,
                          std::unordered_map<camera_t, colmap::Camera>& cameras,
                          std::unordered_map<frame_t, Frame>& frames,
                          std::unordered_map<image_t, Image>& images,
-                         std::unordered_map<point3D_t, Point3D>& tracks) {
+                         std::unordered_map<point3D_t, Point3D>& tracks,
+                         std::vector<colmap::PosePrior>& pose_priors) {
   // 0. Preprocessing
   if (!options_.skip_preprocessing) {
     std::cout << "-------------------------------------" << '\n';
@@ -93,6 +94,7 @@ bool GlobalMapper::Solve(const colmap::Database& database,
                            rigs,
                            frames,
                            images,
+                           pose_priors,
                            RotationAveragerOptions(options_.opt_ra));
 
     RelPoseFilter::FilterRotations(
@@ -107,6 +109,7 @@ bool GlobalMapper::Solve(const colmap::Database& database,
                                 rigs,
                                 frames,
                                 images,
+                                pose_priors,
                                 RotationAveragerOptions(options_.opt_ra))) {
       return false;
     }
