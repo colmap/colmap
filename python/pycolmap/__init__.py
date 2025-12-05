@@ -1,5 +1,6 @@
 import contextlib
 import ctypes
+import glob
 import os
 import platform
 import textwrap
@@ -13,11 +14,11 @@ def _preload_cuda_deps():
         return
 
     cuda_libs = [
-        ("nvidia.cuda_runtime", "libcudart.so.12"),
-        ("nvidia.curand", "libcurand.so.10"),
+        ("nvidia.cuda_runtime", "libcudart.so.*[0-9]"),
+        ("nvidia.curand", "libcurand.so.*[0-9]"),
     ]
 
-    for module_name, lib_name in cuda_libs:
+    for module_name, lib_glob in cuda_libs:
         try:
             import importlib
 
@@ -25,9 +26,16 @@ def _preload_cuda_deps():
         except ImportError:
             continue
 
-        lib_dir = os.path.join(os.path.dirname(module.__file__), "lib")
-        lib_path = os.path.join(lib_dir, lib_name)
-        if os.path.exists(lib_path):
+        if hasattr(module, "__file__") and module.__file__ is not None:
+            lib_dir = os.path.join(os.path.dirname(module.__file__), "lib")
+        elif hasattr(module, "__path__"):
+            lib_dir = os.path.join(list(module.__path__)[0], "lib")
+        else:
+            continue
+
+        candidate_paths = glob.glob(os.path.join(lib_dir, lib_glob))
+        if candidate_paths:
+            lib_path = candidate_paths[0]
             try:
                 ctypes.CDLL(lib_path)
             except contextlib.suppress(OSError):
