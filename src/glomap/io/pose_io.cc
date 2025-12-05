@@ -176,7 +176,7 @@ std::vector<colmap::PosePrior> ReadGravity(
     auto ite = image_name_to_id.find(name);
     if (ite != image_name_to_id.end()) {
       auto& image = images[ite->second];
-      if (image.HasTrivialFrame()) {
+      if (image.IsRefInFrame()) {
         counter++;
         auto& pose_prior = pose_priors.emplace_back();
         pose_prior.pose_prior_id = ite->second;

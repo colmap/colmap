@@ -217,6 +217,29 @@ TEST(Reconstruction, AddCamera) {
   EXPECT_EQ(reconstruction.Cameras().size(), 1);
   EXPECT_EQ(reconstruction.NumRigs(), 0);
   EXPECT_EQ(reconstruction.NumCameras(), 1);
+  EXPECT_EQ(reconstruction.NumFrames(), 0);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 0);
+  EXPECT_EQ(reconstruction.NumImages(), 0);
+  EXPECT_EQ(reconstruction.NumRegImages(), 0);
+  EXPECT_EQ(reconstruction.NumPoints3D(), 0);
+}
+
+TEST(Reconstruction, AddCameraWithTrivialRig) {
+  Reconstruction reconstruction;
+  Camera camera =
+      Camera::CreateFromModelId(1, SimplePinholeCameraModel::model_id, 1, 1, 1);
+  reconstruction.AddCameraWithTrivialRig(camera);
+  EXPECT_TRUE(reconstruction.ExistsCamera(camera.camera_id));
+  EXPECT_EQ(reconstruction.Camera(camera.camera_id).camera_id,
+            camera.camera_id);
+  EXPECT_EQ(reconstruction.Cameras().count(camera.camera_id), 1);
+  EXPECT_EQ(reconstruction.Cameras().size(), 1);
+  EXPECT_TRUE(reconstruction.ExistsRig(camera.camera_id));
+  EXPECT_EQ(reconstruction.Rig(camera.camera_id).RigId(), camera.camera_id);
+  EXPECT_EQ(reconstruction.Rig(camera.camera_id).NumSensors(), 1);
+  EXPECT_EQ(reconstruction.NumRigs(), 1);
+  EXPECT_EQ(reconstruction.NumCameras(), 1);
+  EXPECT_EQ(reconstruction.NumFrames(), 0);
   EXPECT_EQ(reconstruction.NumRegFrames(), 0);
   EXPECT_EQ(reconstruction.NumImages(), 0);
   EXPECT_EQ(reconstruction.NumRegImages(), 0);
@@ -337,6 +360,85 @@ TEST(Reconstruction, AddImage) {
   reconstruction.RegisterFrame(1);
   EXPECT_EQ(reconstruction.NumRegFrames(), 1);
   EXPECT_EQ(reconstruction.NumRegImages(), 1);
+  ExpectValidPtrs(reconstruction);
+}
+
+TEST(Reconstruction, AddImageWithTrivialFrame) {
+  Reconstruction reconstruction;
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
+  reconstruction.AddCameraWithTrivialRig(camera);
+  Image image;
+  image.SetCameraId(camera.camera_id);
+  image.SetImageId(1);
+  reconstruction.AddImageWithTrivialFrame(image);
+
+  EXPECT_TRUE(reconstruction.ExistsImage(1));
+  EXPECT_EQ(reconstruction.Image(1).ImageId(), 1);
+  EXPECT_EQ(reconstruction.Image(1).FrameId(), 1);
+  EXPECT_FALSE(reconstruction.Image(1).HasPose());
+  EXPECT_EQ(reconstruction.Images().count(1), 1);
+  EXPECT_EQ(reconstruction.Images().size(), 1);
+  EXPECT_TRUE(reconstruction.ExistsFrame(1));
+  EXPECT_EQ(reconstruction.Frame(1).NumDataIds(), 1);
+  EXPECT_EQ(reconstruction.NumRigs(), 1);
+  EXPECT_EQ(reconstruction.NumCameras(), 1);
+  EXPECT_EQ(reconstruction.NumFrames(), 1);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 0);
+  EXPECT_EQ(reconstruction.NumImages(), 1);
+  EXPECT_EQ(reconstruction.NumRegImages(), 0);
+  EXPECT_EQ(reconstruction.NumPoints3D(), 0);
+  reconstruction.Image(1).FramePtr()->SetRigFromWorld(Rigid3d());
+  reconstruction.RegisterFrame(1);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 1);
+  EXPECT_EQ(reconstruction.NumRegImages(), 1);
+  ExpectValidPtrs(reconstruction);
+}
+
+TEST(Reconstruction, AddImageWithTrivialFrameExistsNonTrivialRig) {
+  Reconstruction reconstruction;
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
+  reconstruction.AddCameraWithTrivialRig(camera);
+  camera.camera_id = 2;
+  reconstruction.Rig(1).AddSensor(camera.SensorId());
+  THROW_CHECK_EQ(reconstruction.Rig(1).NumSensors(), 2);
+
+  Image image;
+  image.SetImageId(1);
+  // The rig has multiple cameras
+  image.SetCameraId(1);
+  EXPECT_ANY_THROW(reconstruction.AddImageWithTrivialFrame(image));
+  // No rig with id 2 found in the reconstruction
+  image.SetCameraId(2);
+  EXPECT_ANY_THROW(reconstruction.AddImageWithTrivialFrame(image));
+}
+
+TEST(Reconstruction, AddImageWithTrivialFrameSetCamFromWorld) {
+  Reconstruction reconstruction;
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
+  reconstruction.AddCameraWithTrivialRig(camera);
+  Image image;
+  image.SetCameraId(camera.camera_id);
+  image.SetImageId(1);
+  reconstruction.AddImageWithTrivialFrame(image, Rigid3d());
+  EXPECT_TRUE(reconstruction.ExistsImage(1));
+  EXPECT_EQ(reconstruction.Image(1).ImageId(), 1);
+  EXPECT_EQ(reconstruction.Image(1).FrameId(), 1);
+  EXPECT_TRUE(reconstruction.Image(1).HasPose());
+  EXPECT_EQ(reconstruction.Images().count(1), 1);
+  EXPECT_EQ(reconstruction.Images().size(), 1);
+  EXPECT_TRUE(reconstruction.ExistsFrame(1));
+  EXPECT_EQ(reconstruction.Frame(1).NumDataIds(), 1);
+  EXPECT_TRUE(reconstruction.Frame(1).HasPose());
+  EXPECT_EQ(reconstruction.NumRigs(), 1);
+  EXPECT_EQ(reconstruction.NumCameras(), 1);
+  EXPECT_EQ(reconstruction.NumFrames(), 1);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 1);
+  EXPECT_EQ(reconstruction.NumImages(), 1);
+  EXPECT_EQ(reconstruction.NumRegImages(), 1);
+  EXPECT_EQ(reconstruction.NumPoints3D(), 0);
   ExpectValidPtrs(reconstruction);
 }
 

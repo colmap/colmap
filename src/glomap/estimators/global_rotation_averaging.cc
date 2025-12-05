@@ -258,7 +258,7 @@ void RotationEstimator::SetupLinearSystem(
       image_t image_id = data_id.id;
       if (images.find(image_id) == images.end()) continue;
       image_id_to_idx_[image_id] = num_dof;  // point to the first element
-      if (images.at(image_id).HasTrivialFrame()) {
+      if (images.at(image_id).IsRefInFrame()) {
         image_id_ref = image_id;
       }
     }
@@ -338,7 +338,7 @@ void RotationEstimator::SetupLinearSystem(
 
     bool has_sensor_from_rig1 = false;
     bool has_sensor_from_rig2 = false;
-    if (!image1.HasTrivialFrame()) {
+    if (!image1.IsRefInFrame()) {
       if (camera_id_to_idx_.find(image1.camera_id) == camera_id_to_idx_.end()) {
         cam1_from_rig1 =
             rigs.at(frame1.RigId())
@@ -346,7 +346,7 @@ void RotationEstimator::SetupLinearSystem(
         has_sensor_from_rig1 = true;
       }
     }
-    if (!image2.HasTrivialFrame()) {
+    if (!image2.IsRefInFrame()) {
       if (camera_id_to_idx_.find(image2.camera_id) == camera_id_to_idx_.end()) {
         cam2_from_rig2 =
             rigs.at(frame2.RigId())

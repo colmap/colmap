@@ -104,8 +104,8 @@ class Image {
   inline void SetFramePtr(class Frame* frame);
   inline void ResetFramePtr();
   inline bool HasFramePtr() const;
-  // Check if cam_from_world needs to be composed with sensor_from_rig pose.
-  inline bool HasTrivialFrame() const;
+  // Check if the image was captured by the reference sensor in the rig.
+  inline bool IsRefInFrame() const;
 
   // Composition of sensor_from_rig and rig_from_world transformations.
   // If the corresponding frame is trivial, this is equal to rig_from_world.
@@ -248,7 +248,7 @@ void Image::ResetFramePtr() { frame_ptr_ = nullptr; }
 
 bool Image::HasFramePtr() const { return frame_ptr_ != nullptr; }
 
-bool Image::HasTrivialFrame() const {
+bool Image::IsRefInFrame() const {
   return THROW_CHECK_NOTNULL(frame_ptr_)
       ->RigPtr()
       ->IsRefSensor(sensor_t(SensorType::CAMERA, camera_id_));

@@ -40,7 +40,7 @@ struct Image {
   inline int ClusterId() const;
 
   // Check if cam_from_world needs to be composed with sensor_from_rig pose.
-  inline bool HasTrivialFrame() const;
+  inline bool IsRefInFrame() const;
 
   inline data_t DataId() const;
 };
@@ -63,7 +63,7 @@ int Image::ClusterId() const {
   return frame_ptr != nullptr ? frame_ptr->cluster_id : -1;
 }
 
-bool Image::HasTrivialFrame() const {
+bool Image::IsRefInFrame() const {
   return THROW_CHECK_NOTNULL(frame_ptr)->RigPtr()->IsRefSensor(
       sensor_t(SensorType::CAMERA, camera_id));
 }

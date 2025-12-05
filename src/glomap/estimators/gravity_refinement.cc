@@ -127,11 +127,11 @@ void GravityRefiner::RefineGravity(
 
       // Get the cam_from_rig
       Rigid3d cam1_from_rig1, cam2_from_rig2;
-      if (!image1.HasTrivialFrame()) {
+      if (!image1.IsRefInFrame()) {
         cam1_from_rig1 = image1.frame_ptr->RigPtr()->SensorFromRig(
             sensor_t(SensorType::CAMERA, image1.camera_id));
       }
-      if (!image2.HasTrivialFrame()) {
+      if (!image2.IsRefInFrame()) {
         cam2_from_rig2 = image2.frame_ptr->RigPtr()->SensorFromRig(
             sensor_t(SensorType::CAMERA, image2.camera_id));
       }
