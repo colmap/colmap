@@ -10,7 +10,7 @@ namespace {
 
 Eigen::Matrix3d GetImageAlignRot(const Image& image,
                                  const Eigen::Vector3d& gravity) {
-  if (image.HasTrivialFrame()) {
+  if (image.IsRefInFrame()) {
     return GetAlignRot(gravity);
   } else {
     return image.frame_ptr->RigPtr()
@@ -57,7 +57,7 @@ void GravityRefiner::RefineGravity(
       const image_t image_id = pose_prior.corr_data_id.id;
       const Image& image = images.at(image_id);
       // TODO(jsch): Can only handle trivial frames.
-      if (image.HasTrivialFrame()) {
+      if (image.IsRefInFrame()) {
         THROW_CHECK(image_to_pose_prior.emplace(image_id, &pose_prior).second)
             << "Duplicate pose prior for image " << image_id;
         const frame_t frame_id = image_to_frame.at(image_id);
