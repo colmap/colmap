@@ -440,12 +440,12 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoise) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.use_prior_position = true;
-  synthetic_dataset_options.prior_position_stddev = 0.0;
+  synthetic_dataset_options.prior_position = true;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 0.5;
+  synthetic_noise_options.prior_position_stddev = 0.0;
   SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
   std::shared_ptr<IncrementalPipelineOptions> mapper_options =
@@ -484,8 +484,7 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoiseAndWithNonTrivialFrames) {
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.camera_has_prior_focal_length = false;
 
-  synthetic_dataset_options.use_prior_position = true;
-  synthetic_dataset_options.prior_position_stddev = 0.0;
+  synthetic_dataset_options.prior_position = true;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -521,12 +520,12 @@ TEST(IncrementalPipeline, PriorBasedSfMWithNoise) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 7;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.use_prior_position = true;
-  synthetic_dataset_options.prior_position_stddev = 1.5;
+  synthetic_dataset_options.prior_position = true;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 0.5;
+  synthetic_noise_options.prior_position_stddev = 1.5;
   SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
   std::shared_ptr<IncrementalPipelineOptions> mapper_options =
@@ -562,13 +561,14 @@ TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
   synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 100;
 
-  synthetic_dataset_options.use_prior_position = true;
-  synthetic_dataset_options.use_geographic_coords_prior = true;
-  synthetic_dataset_options.prior_position_stddev = 1.5;
+  synthetic_dataset_options.prior_position = true;
+  synthetic_dataset_options.prior_position_coordinate_system =
+      PosePrior::CoordinateSystem::WGS84;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 0.5;
+  synthetic_noise_options.prior_position_stddev = 1.5;
   SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
   std::shared_ptr<IncrementalPipelineOptions> mapper_options =
@@ -605,7 +605,7 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 3;
   synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.use_prior_position = false;
+  synthetic_dataset_options.prior_position = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
@@ -669,12 +669,12 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.use_prior_position = true;
-  synthetic_dataset_options.prior_position_stddev = 1.0;
+  synthetic_dataset_options.prior_position = true;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 0.5;
+  synthetic_noise_options.prior_position_stddev = 1.0;
   SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
   auto run_mapper = [&](int num_threads, int random_seed) {

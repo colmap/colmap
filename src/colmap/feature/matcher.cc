@@ -130,14 +130,15 @@ const Image& FeatureMatcherCache::GetImage(const image_t image_id) {
   return images_cache_->at(image_id);
 }
 
-const PosePrior* FeatureMatcherCache::GetPosePriorOrNull(
+const PosePrior* FeatureMatcherCache::FindImagePosePriorOrNull(
     const image_t image_id) {
   MaybeLoadPosePriors();
+
   const auto it = pose_priors_cache_->find(image_id);
-  if (it == pose_priors_cache_->end()) {
-    return nullptr;
+  if (it != pose_priors_cache_->end()) {
+    return &it->second;
   }
-  return &it->second;
+  return nullptr;
 }
 
 std::shared_ptr<FeatureKeypoints> FeatureMatcherCache::GetKeypoints(
@@ -329,13 +330,16 @@ void FeatureMatcherCache::MaybeLoadPosePriors() {
     return;
   }
 
+  std::vector<PosePrior> pose_priors = database_->ReadAllPosePriors();
   pose_priors_cache_ =
       std::make_unique<std::unordered_map<image_t, PosePrior>>();
-  pose_priors_cache_->reserve(database_->NumPosePriors());
-  for (const auto& image : *images_cache_) {
-    if (database_->ExistsPosePrior(image.first)) {
-      pose_priors_cache_->emplace(image.first,
-                                  database_->ReadPosePrior(image.first));
+  pose_priors_cache_->reserve(pose_priors.size());
+  for (PosePrior& pose_prior : pose_priors) {
+    if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
+      const image_t image_id = pose_prior.corr_data_id.id;
+      THROW_CHECK(
+          pose_priors_cache_->emplace(image_id, std::move(pose_prior)).second)
+          << "Duplicate pose prior for image " << image_id;
     }
   }
 }

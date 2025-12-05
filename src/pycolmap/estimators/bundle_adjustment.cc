@@ -193,9 +193,13 @@ void BindBundleAdjuster(py::module& m) {
   auto PyPosePriorBundleAdjustmentOptions =
       py::classh<PosePriorBAOpts>(m, "PosePriorBundleAdjustmentOptions")
           .def(py::init<>())
-          .def_readwrite("use_robust_loss_on_prior_position",
-                         &PosePriorBAOpts::use_robust_loss_on_prior_position,
-                         "Whether to use a robust loss on prior locations.")
+          .def_readwrite(
+              "prior_position_fallback_stddev",
+              &PosePriorBAOpts::prior_position_fallback_stddev,
+              "Fallback if no prior position covariance is provided.")
+          .def_readwrite("prior_position_loss_function_type",
+                         &PosePriorBAOpts::prior_position_loss_function_type,
+                         "Loss function for prior position loss.")
           .def_readwrite("prior_position_loss_scale",
                          &PosePriorBAOpts::prior_position_loss_scale,
                          "Threshold on the residual for the robust loss (chi2 "

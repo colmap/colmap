@@ -39,6 +39,26 @@
 #include <iomanip>
 
 namespace colmap {
+namespace {
+
+std::unique_ptr<ceres::LossFunction> CreateLossFunction(
+    BundleAdjustmentOptions::LossFunctionType loss_function_type,
+    double loss_function_scale) {
+  switch (loss_function_type) {
+    case BundleAdjustmentOptions::LossFunctionType::TRIVIAL:
+      return std::make_unique<ceres::TrivialLoss>();
+      break;
+    case BundleAdjustmentOptions::LossFunctionType::SOFT_L1:
+      return std::make_unique<ceres::SoftLOneLoss>(loss_function_scale);
+      break;
+    case BundleAdjustmentOptions::LossFunctionType::CAUCHY:
+      return std::make_unique<ceres::CauchyLoss>(loss_function_scale);
+      break;
+  }
+  return nullptr;
+}
+
+}  // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
 // BundleAdjustmentConfig
@@ -268,21 +288,9 @@ const BundleAdjustmentConfig& BundleAdjuster::Config() const { return config_; }
 // BundleAdjustmentOptions
 ////////////////////////////////////////////////////////////////////////////////
 
-ceres::LossFunction* BundleAdjustmentOptions::CreateLossFunction() const {
-  ceres::LossFunction* loss_function = nullptr;
-  switch (loss_function_type) {
-    case LossFunctionType::TRIVIAL:
-      loss_function = new ceres::TrivialLoss();
-      break;
-    case LossFunctionType::SOFT_L1:
-      loss_function = new ceres::SoftLOneLoss(loss_function_scale);
-      break;
-    case LossFunctionType::CAUCHY:
-      loss_function = new ceres::CauchyLoss(loss_function_scale);
-      break;
-  }
-  THROW_CHECK_NOTNULL(loss_function);
-  return loss_function;
+std::unique_ptr<ceres::LossFunction>
+BundleAdjustmentOptions::CreateLossFunction() const {
+  return ::colmap::CreateLossFunction(loss_function_type, loss_function_scale);
 }
 
 ceres::Solver::Options BundleAdjustmentOptions::CreateSolverOptions(
@@ -391,6 +399,12 @@ bool BundleAdjustmentOptions::Check() const {
                   max_num_images_direct_sparse_cpu_solver);
   CHECK_OPTION_LT(max_num_images_direct_dense_gpu_solver,
                   max_num_images_direct_sparse_gpu_solver);
+  return true;
+}
+
+bool PosePriorBundleAdjustmentOptions::Check() const {
+  CHECK_OPTION_GT(prior_position_fallback_stddev, 0);
+  CHECK_OPTION_GT(prior_position_loss_scale, 0);
   return true;
 }
 
@@ -698,8 +712,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
                         BundleAdjustmentConfig config,
                         Reconstruction& reconstruction)
       : BundleAdjuster(std::move(options), std::move(config)),
-        loss_function_(std::unique_ptr<ceres::LossFunction>(
-            options_.CreateLossFunction())) {
+        loss_function_(options_.CreateLossFunction()) {
     ceres::Problem::Options problem_options;
     problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
     problem_ = std::make_shared<ceres::Problem>(problem_options);
@@ -766,6 +779,10 @@ class DefaultBundleAdjuster : public BundleAdjuster {
   }
 
   std::shared_ptr<ceres::Problem>& Problem() override { return problem_; }
+
+  const std::set<image_t>& ParameterizedImageIds() const {
+    return parameterized_image_ids_;
+  }
 
   void AddImageToProblem(const image_t image_id,
                          Reconstruction& reconstruction) {
@@ -964,12 +981,26 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
   PosePriorBundleAdjuster(BundleAdjustmentOptions options,
                           PosePriorBundleAdjustmentOptions prior_options,
                           BundleAdjustmentConfig config,
-                          std::unordered_map<image_t, PosePrior> pose_priors,
+                          std::vector<PosePrior> pose_priors,
                           Reconstruction& reconstruction)
       : BundleAdjuster(std::move(options), std::move(config)),
         prior_options_(prior_options),
         pose_priors_(std::move(pose_priors)),
         reconstruction_(reconstruction) {
+    THROW_CHECK(prior_options_.Check());
+
+    // Filter irrelevant pose priors.
+    pose_priors_.erase(
+        std::remove_if(pose_priors_.begin(),
+                       pose_priors_.end(),
+                       [this](const auto& pose_prior) {
+                         return !pose_prior.HasPosition() ||
+                                pose_prior.corr_data_id.sensor_id.type !=
+                                    SensorType::CAMERA ||
+                                !config_.HasImage(pose_prior.corr_data_id.id);
+                       }),
+        pose_priors_.end());
+
     const bool use_prior_position = AlignReconstruction();
 
     // Fix 7-DOFs of BA problem if not enough valid pose priors.
@@ -982,20 +1013,24 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
       config_.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
     }
 
+    // WARNING: Do not move this above the reconstruction normalization.
     default_bundle_adjuster_ = std::make_unique<DefaultBundleAdjuster>(
         options_, config_, reconstruction);
 
     if (use_prior_position) {
-      if (prior_options_.use_robust_loss_on_prior_position) {
-        prior_loss_function_ = std::make_unique<ceres::CauchyLoss>(
-            prior_options_.prior_position_loss_scale);
-      }
+      prior_loss_function_ =
+          CreateLossFunction(prior_options_.prior_position_loss_function_type,
+                             prior_options_.prior_position_loss_scale);
 
-      for (const image_t image_id : config_.Images()) {
-        const auto pose_prior_it = pose_priors_.find(image_id);
-        if (pose_prior_it != pose_priors_.end()) {
-          AddPosePriorToProblem(
-              image_id, pose_prior_it->second, reconstruction);
+      // Only consider parameterized images for pose priors. Notice that some
+      // images may be configured to be included in the BA problem but have no
+      // reprojection constraints, etc.
+      const std::set<image_t>& parameterized_image_ids =
+          default_bundle_adjuster_->ParameterizedImageIds();
+      for (const auto& pose_prior : pose_priors_) {
+        if (parameterized_image_ids.count(pose_prior.corr_data_id.id) > 0) {
+          AddImagePosePriorToProblem(
+              pose_prior.corr_data_id.id, pose_prior, reconstruction);
         }
       }
     }
@@ -1027,44 +1062,59 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     return default_bundle_adjuster_->Problem();
   }
 
-  void AddPosePriorToProblem(image_t image_id,
-                             const PosePrior& prior,
-                             Reconstruction& reconstruction) {
-    if (!prior.IsValid() || !prior.IsCovarianceValid()) {
-      LOG(ERROR) << "Could not add prior for image #" << image_id;
-      return;
-    }
-
+  void AddImagePosePriorToProblem(image_t image_id,
+                                  const PosePrior& pose_prior,
+                                  Reconstruction& reconstruction) {
     Image& image = reconstruction.Image(image_id);
-    if (!image.HasTrivialFrame()) {
-      // TODO(jsch): Only enforce the pose prior on the reference sensor. This
-      // fails if only a non-reference sensor image has a corresponding pose
-      // prior stored. This will be replaced with dedicated modeling of a
-      // GNSS/GPS sensor.
+
+    const bool constant_sensor_from_rig =
+        !options_.refine_sensor_from_rig ||
+        config_.HasConstantSensorFromRigPose(image.CameraPtr()->SensorId());
+    const bool constant_rig_from_world =
+        !options_.refine_rig_from_world ||
+        config_.HasConstantRigFromWorldPose(image.FrameId());
+    if (constant_sensor_from_rig && constant_rig_from_world) {
       return;
     }
 
-    THROW_CHECK(image.HasPose());
-    Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
+    ceres::Problem& problem = *default_bundle_adjuster_->Problem();
+    Frame& frame = *image.FramePtr();
 
-    std::shared_ptr<ceres::Problem>& problem =
-        default_bundle_adjuster_->Problem();
+    const Eigen::Vector3d normalized_position =
+        normalized_from_metric_ * pose_prior.position;
+    const Eigen::Matrix3d normalized_from_metric_scaled_rotation =
+        normalized_from_metric_.scale *
+        normalized_from_metric_.rotation.toRotationMatrix();
+    const Eigen::Matrix3d position_cov =
+        pose_prior.HasPositionCov()
+            ? pose_prior.position_covariance
+            : (prior_options_.prior_position_fallback_stddev *
+               prior_options_.prior_position_fallback_stddev *
+               Eigen::Matrix3d::Identity());
+    const Eigen::Matrix3d normalized_position_cov =
+        normalized_from_metric_scaled_rotation * position_cov *
+        normalized_from_metric_scaled_rotation.transpose();
 
-    double* cam_from_world_translation = cam_from_world.translation.data();
-    if (!problem->HasParameterBlock(cam_from_world_translation)) {
-      return;
+    if (image.HasTrivialFrame()) {
+      problem.AddResidualBlock(
+          CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
+              Create(normalized_position_cov, normalized_position),
+          prior_loss_function_.get(),
+          frame.RigFromWorld().rotation.coeffs().data(),
+          frame.RigFromWorld().translation.data());
+    } else {
+      Rigid3d& cam_from_rig =
+          frame.RigPtr()->SensorFromRig(image.CameraPtr()->SensorId());
+      problem.AddResidualBlock(
+          CovarianceWeightedCostFunctor<
+              AbsoluteRigPosePositionPriorCostFunctor>::
+              Create(normalized_position_cov, normalized_position),
+          prior_loss_function_.get(),
+          cam_from_rig.rotation.coeffs().data(),
+          cam_from_rig.translation.data(),
+          frame.RigFromWorld().rotation.coeffs().data(),
+          frame.RigFromWorld().translation.data());
     }
-
-    // cam_from_world.rotation is normalized in AddImageToProblem()
-    double* cam_from_world_rotation = cam_from_world.rotation.coeffs().data();
-
-    problem->AddResidualBlock(
-        CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
-            Create(prior.position_covariance,
-                   normalized_from_metric_ * prior.position),
-        prior_loss_function_.get(),
-        cam_from_world_rotation,
-        cam_from_world_translation);
   }
 
   bool AlignReconstruction() {
@@ -1072,11 +1122,7 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     if (ransac_options.max_error <= 0) {
       std::vector<double> rms_vars;
       rms_vars.reserve(pose_priors_.size());
-      for (const auto& [_, pose_prior] : pose_priors_) {
-        if (!pose_prior.IsCovarianceValid()) {
-          continue;
-        }
-
+      for (const auto& pose_prior : pose_priors_) {
         const double trace = pose_prior.position_covariance.trace();
         if (trace <= 0.0) {
           continue;
@@ -1086,7 +1132,8 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
 
       if (rms_vars.empty()) {
         LOG(WARNING) << "No pose priors with valid covariance found.";
-        return false;
+        rms_vars.push_back(prior_options_.prior_position_fallback_stddev *
+                           prior_options_.prior_position_fallback_stddev);
       }
 
       // Set max error using the median RMS variance of valid pose priors.
@@ -1107,20 +1154,15 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     }
     reconstruction_.Transform(metric_from_orig);
 
+    // Compute alignment error w.r.t. prior positions.
     if (VLOG_IS_ON(2)) {
       std::vector<double> verr2_wrt_prior;
-      verr2_wrt_prior.reserve(reconstruction_.NumRegImages());
-      for (const image_t image_id : reconstruction_.RegImageIds()) {
-        const auto pose_prior_it = pose_priors_.find(image_id);
-        if (pose_prior_it != pose_priors_.end() &&
-            pose_prior_it->second.IsValid()) {
-          const auto& image = reconstruction_.Image(image_id);
-          verr2_wrt_prior.push_back(
-              (image.ProjectionCenter() - pose_prior_it->second.position)
-                  .squaredNorm());
-        }
+      verr2_wrt_prior.reserve(config_.NumImages());
+      for (const auto& pose_prior : pose_priors_) {
+        const auto& image = reconstruction_.Image(pose_prior.corr_data_id.id);
+        verr2_wrt_prior.push_back(
+            (image.ProjectionCenter() - pose_prior.position).squaredNorm());
       }
-
       VLOG(2) << "Alignment error w.r.t. prior positions:\n"
               << "  - rmse:   " << std::sqrt(Mean(verr2_wrt_prior)) << '\n'
               << "  - median: " << std::sqrt(Median(verr2_wrt_prior)) << '\n';
@@ -1131,7 +1173,7 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
 
  private:
   const PosePriorBundleAdjustmentOptions prior_options_;
-  const std::unordered_map<image_t, PosePrior> pose_priors_;
+  std::vector<PosePrior> pose_priors_;
   Reconstruction& reconstruction_;
 
   std::unique_ptr<DefaultBundleAdjuster> default_bundle_adjuster_;
@@ -1154,7 +1196,7 @@ std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
     BundleAdjustmentOptions options,
     PosePriorBundleAdjustmentOptions prior_options,
     BundleAdjustmentConfig config,
-    std::unordered_map<image_t, PosePrior> pose_priors,
+    std::vector<PosePrior> pose_priors,
     Reconstruction& reconstruction) {
   return std::make_unique<PosePriorBundleAdjuster>(std::move(options),
                                                    prior_options,
@@ -1196,30 +1238,8 @@ void PrintSolverSummary(const ceres::Solver::Summary& summary,
 
   log << std::right << std::setw(16) << "Termination : ";
 
-  std::string termination = "";
-
-  switch (summary.termination_type) {
-    case ceres::CONVERGENCE:
-      termination = "Convergence";
-      break;
-    case ceres::NO_CONVERGENCE:
-      termination = "No convergence";
-      break;
-    case ceres::FAILURE:
-      termination = "Failure";
-      break;
-    case ceres::USER_SUCCESS:
-      termination = "User success";
-      break;
-    case ceres::USER_FAILURE:
-      termination = "User failure";
-      break;
-    default:
-      termination = "Unknown";
-      break;
-  }
-
-  log << std::right << termination << "\n\n";
+  log << std::right << ceres::TerminationTypeToString(summary.termination_type)
+      << "\n\n";
   LOG(INFO) << log.str();
 }
 

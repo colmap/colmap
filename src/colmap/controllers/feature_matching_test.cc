@@ -48,7 +48,7 @@ void CreateTestDatabase(int num_images, Database& database) {
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 20;
   synthetic_dataset_options.num_points2D_without_point3D = 3;
-  synthetic_dataset_options.use_prior_position = true;
+  synthetic_dataset_options.prior_position = true;
   SynthesizeDataset(
       synthetic_dataset_options, &unused_reconstruction, &database);
 }

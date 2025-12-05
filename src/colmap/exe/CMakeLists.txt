@@ -86,6 +86,7 @@ COLMAP_ADD_EXECUTABLE(
         colmap_scene
         colmap_sfm
         colmap_util
+        colmap_glomap_exe
         ${OPTIONAL_LIBS}
         Boost::boost
 )

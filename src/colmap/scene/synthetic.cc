@@ -168,6 +168,25 @@ void SynthesizeChainedMatches(double inlier_match_ratio,
   }
 }
 
+static const GPSTransform kGPSTransform;
+static constexpr double kLat0 = 47.37851943807808;
+static constexpr double kLon0 = 8.549099927632087;
+static constexpr double kAlt0 = 451.5;
+
+void PosePriorPositionCartesianToWGS84(PosePrior& pose_prior) {
+  pose_prior.position = kGPSTransform.ENUToEllipsoid(
+      {pose_prior.position}, kLat0, kLon0, kAlt0)[0];
+  pose_prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
+}
+
+void PosePriorPositionWGS84ToCartesian(PosePrior& pose_prior) {
+  pose_prior.position = kGPSTransform.EllipsoidToENU(
+      {Eigen::Vector3d(kLat0, kLon0, kAlt0), pose_prior.position},
+      kLat0,
+      kLon0)[1];
+  pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+}
+
 }  // namespace
 
 void SynthesizeDataset(const SyntheticDatasetOptions& options,
@@ -180,7 +199,6 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   THROW_CHECK_GE(options.num_points2D_without_point3D, 0);
   THROW_CHECK_GE(options.sensor_from_rig_translation_stddev, 0.);
   THROW_CHECK_GE(options.sensor_from_rig_rotation_stddev, 0.);
-  THROW_CHECK_GE(options.prior_position_stddev, 0.);
 
   if (PRNG == nullptr) {
     SetPRNGSeed();
@@ -271,6 +289,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
       std::vector<Image> images;
       images.reserve(options.num_cameras_per_rig);
+      std::vector<Rigid3d> cams_from_world;
+      cams_from_world.reserve(options.num_cameras_per_rig);
       for (const auto& sensor_id : camera_sensor_ids) {
         ++total_num_images;
 
@@ -284,6 +304,44 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         image.SetImageId(image_id);
 
         frame.AddDataId(image.DataId());
+
+        // Need to compose cam_from_world manually, because the frame/rig
+        // pointer references are not yet set up.
+        const Camera& camera = reconstruction->Camera(image.CameraId());
+        const Rigid3d sensor_from_rig =
+            rig.IsRefSensor(camera.SensorId())
+                ? Rigid3d()
+                : rig.SensorFromRig(camera.SensorId());
+        const Rigid3d cam_from_world = sensor_from_rig * rig_from_world;
+        cams_from_world.push_back(cam_from_world);
+
+        if (options.prior_position || options.prior_gravity) {
+          PosePrior pose_prior;
+
+          if (options.prior_position) {
+            pose_prior.position = cam_from_world.TgtOriginInSrc();
+            pose_prior.coordinate_system =
+                PosePrior::CoordinateSystem::CARTESIAN;
+            switch (options.prior_position_coordinate_system) {
+              case PosePrior::CoordinateSystem::CARTESIAN:
+                break;
+              case PosePrior::CoordinateSystem::WGS84:
+                PosePriorPositionCartesianToWGS84(pose_prior);
+                break;
+              default:
+                LOG(FATAL) << "Invalid PosePrior::CoordinateSystem specified";
+            }
+          }
+
+          if (options.prior_gravity) {
+            pose_prior.gravity =
+                (cam_from_world.rotation * options.prior_gravity_in_world)
+                    .normalized();
+          }
+
+          pose_prior.corr_data_id = image.DataId();
+          pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
+        }
       }
 
       const frame_t frame_id =
@@ -293,15 +351,13 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       frame.SetFrameId(frame_id);
       reconstruction->AddFrame(std::move(frame));
 
-      for (Image& image : images) {
-        image.SetFrameId(frame_id);
-
+      for (int camera_idx = 0; camera_idx < options.num_cameras_per_rig;
+           ++camera_idx) {
+        Image& image = images[camera_idx];
         const Camera& camera = reconstruction->Camera(image.CameraId());
-        const Rigid3d sensor_from_rig =
-            rig.IsRefSensor(camera.SensorId())
-                ? Rigid3d()
-                : rig.SensorFromRig(camera.SensorId());
-        const Rigid3d cam_from_world = sensor_from_rig * rig_from_world;
+        const Rigid3d& cam_from_world = cams_from_world[camera_idx];
+
+        image.SetFrameId(frame_id);
 
         std::vector<Point2D> points2D;
         points2D.reserve(options.num_points3D +
@@ -310,8 +366,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         // Create 3D point observations by projecting 3D points to the image.
         for (auto& [point3D_id, point3D] : reconstruction->Points3D()) {
           if (new_points3D_ids.count(point3D_id) == 0) {
-            // If a non-empty reconstruction is given, only add tracks for newly
-            // added images and 3D points.
+            // If a non-empty reconstruction is given, only add tracks for
+            // newly added images and 3D points.
             continue;
           }
 
@@ -353,7 +409,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
             const auto& point2D = points2D[point2D_idx];
             keypoints.emplace_back(point2D.xy(0), point2D.xy(1));
             // Generate a unique descriptor for each 3D point. If the 2D point
-            // does not observe a 3D point, generate a random unique descriptor.
+            // does not observe a 3D point, generate a random unique
+            // descriptor.
             std::mt19937 feature_generator(point2D.HasPoint3D()
                                                ? point2D.point3D_id
                                                : options.num_points3D +
@@ -374,37 +431,6 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
             auto& point3D = reconstruction->Point3D(point2D.point3D_id);
             point3D.track.AddElement(image.ImageId(), point2D_idx);
           }
-        }
-
-        if (options.use_prior_position) {
-          PosePrior noisy_prior(proj_center,
-                                PosePrior::CoordinateSystem::CARTESIAN);
-
-          if (options.prior_position_stddev > 0.) {
-            noisy_prior.position += Eigen::Vector3d(
-                RandomGaussian<double>(0, options.prior_position_stddev),
-                RandomGaussian<double>(0, options.prior_position_stddev),
-                RandomGaussian<double>(0, options.prior_position_stddev));
-            noisy_prior.position_covariance = options.prior_position_stddev *
-                                              options.prior_position_stddev *
-                                              Eigen::Matrix3d::Identity();
-          } else {
-            noisy_prior.position_covariance = Eigen::Matrix3d::Identity();
-          }
-
-          if (options.use_geographic_coords_prior) {
-            static const GPSTransform gps_trans;
-
-            static const double lat0 = 47.37851943807808;
-            static const double lon0 = 8.549099927632087;
-            static const double alt0 = 451.5;
-
-            noisy_prior.position = gps_trans.ENUToEllipsoid(
-                {noisy_prior.position}, lat0, lon0, alt0)[0];
-            noisy_prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
-          }
-
-          database->WritePosePrior(image.ImageId(), noisy_prior);
         }
 
         if (database != nullptr) {
@@ -440,6 +466,8 @@ void SynthesizeNoise(const SyntheticNoiseOptions& options,
   THROW_CHECK_GE(options.rig_from_world_rotation_stddev, 0.);
   THROW_CHECK_GE(options.point3D_stddev, 0.);
   THROW_CHECK_GE(options.point2D_stddev, 0.);
+  THROW_CHECK_GE(options.prior_position_stddev, 0.);
+  THROW_CHECK_GE(options.prior_gravity_stddev, 0.);
 
   for (const frame_t frame_id : reconstruction->RegFrameIds()) {
     Rigid3d& rig_from_world = reconstruction->Frame(frame_id).RigFromWorld();
@@ -491,6 +519,41 @@ void SynthesizeNoise(const SyntheticNoiseOptions& options,
     }
   }
 
+  if (database != nullptr && (options.prior_position_stddev > 0.0 ||
+                              options.prior_gravity_stddev > 0.0)) {
+    for (auto& pose_prior : database->ReadAllPosePriors()) {
+      if (options.prior_position_stddev > 0.) {
+        const bool prior_in_wgs84 =
+            pose_prior.coordinate_system == PosePrior::CoordinateSystem::WGS84;
+        if (prior_in_wgs84) {
+          PosePriorPositionWGS84ToCartesian(pose_prior);
+        }
+        pose_prior.position += Eigen::Vector3d(
+            RandomGaussian<double>(0, options.prior_position_stddev),
+            RandomGaussian<double>(0, options.prior_position_stddev),
+            RandomGaussian<double>(0, options.prior_position_stddev));
+        if (!pose_prior.HasPositionCov()) {
+          pose_prior.position_covariance = Eigen::Matrix3d::Zero();
+        }
+        pose_prior.position_covariance += options.prior_position_stddev *
+                                          options.prior_position_stddev *
+                                          Eigen::Matrix3d::Identity();
+        if (prior_in_wgs84) {
+          PosePriorPositionCartesianToWGS84(pose_prior);
+        }
+      }
+      if (options.prior_gravity_stddev > 0.) {
+        const double angle =
+            RandomGaussian<double>(0, DegToRad(options.prior_gravity_stddev));
+        const Eigen::Vector3d axis =
+            pose_prior.gravity.cross(Eigen::Vector3d::Random()).normalized();
+        pose_prior.gravity =
+            (Eigen::AngleAxisd(angle, axis) * pose_prior.gravity).normalized();
+      }
+      database->UpdatePosePrior(pose_prior);
+    }
+  }
+
   reconstruction->UpdatePoint3DErrors();
 }
 
@@ -526,9 +589,9 @@ void SynthesizeImages(const SyntheticImageOptions& options,
                                          : reconstruction.NumPoints3D() +
                                                (++total_num_descriptors));
 
-      // Draw a circular patch around the feature with a unique pattern with the
-      // aim of producing a unique feature descriptor. Make the pattern a bit
-      // darker than the peak, so the keypoint is detected at the center.
+      // Draw a circular patch around the feature with a unique pattern with
+      // the aim of producing a unique feature descriptor. Make the pattern a
+      // bit darker than the peak, so the keypoint is detected at the center.
       const int patch_minx = std::max(x - options.feature_patch_radius, 0);
       const int patch_maxx = std::min(x + options.feature_patch_radius,
                                       static_cast<int>(camera.width));

@@ -29,9 +29,7 @@
 
 #include "colmap/estimators/bundle_adjustment.h"
 
-#include "colmap/estimators/alignment.h"
 #include "colmap/geometry/rigid3_matchers.h"
-#include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
@@ -1176,8 +1174,7 @@ TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
   synthetic_options.num_cameras_per_rig = 1;
   synthetic_options.num_frames_per_rig = 7;
   synthetic_options.num_points3D = 50;
-  synthetic_options.use_prior_position = true;
-  synthetic_options.prior_position_stddev = 0.05;
+  synthetic_options.prior_position = true;
   std::string database_path = CreateTestDir() + "/database.db";
   auto database = Database::Open(database_path);
   SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
@@ -1188,22 +1185,15 @@ TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
   synthetic_noise_options.point3D_stddev = 0.2;
   synthetic_noise_options.rig_from_world_rotation_stddev = 1.0;
   synthetic_noise_options.rig_from_world_translation_stddev = 0.2;
+  synthetic_noise_options.prior_position_stddev = 0.05;
   SynthesizeNoise(synthetic_noise_options, &reconstruction);
 
-  auto database_cache = DatabaseCache::Create(*database,
-                                              /*min_num_matches=*/0,
-                                              /*ignore_watermarks=*/false,
-                                              /*image_names=*/{});
-  auto pose_priors = database_cache->PosePriors();
-
-  // Add 2 priors with very large covariance
-  auto iter = pose_priors.begin();
-  iter->second.position_covariance = Eigen::Matrix3d::Identity() * 1e6;
-  iter->second.position += Eigen::Vector3d::Constant(10);
-
-  ++iter;
-  iter->second.position_covariance = Eigen::Matrix3d::Identity() * 1e2;
-  iter->second.position += Eigen::Vector3d::Constant(1);
+  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  // Add 2 outlier priors with very large covariance
+  pose_priors.at(0).position += Eigen::Vector3d::Constant(10);
+  pose_priors.at(0).position_covariance = Eigen::Matrix3d::Identity() * 1e6;
+  pose_priors.at(1).position += Eigen::Vector3d::Constant(1);
+  pose_priors.at(1).position_covariance = Eigen::Matrix3d::Identity() * 1e2;
 
   PosePriorBundleAdjustmentOptions prior_ba_options;
   prior_ba_options.alignment_ransac_options.random_seed = 0;
@@ -1230,19 +1220,9 @@ TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
                                  /*max_proj_center_error=*/0.1,
                                  /*max_scale_error=*/std::nullopt,
                                  /*num_obs_tolerance=*/0.02));
-
-  int num_close_to_priors = 0;
-  for (const image_t id : reconstruction.RegImageIds()) {
-    const auto& image = reconstruction.Image(id);
-    if ((image.ProjectionCenter() - pose_priors.at(id).position).norm() < 0.3) {
-      ++num_close_to_priors;
-    }
-  }
-
-  EXPECT_EQ(num_close_to_priors, 5);
 }
 
-TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
+TEST(PosePriorBundleAdjuster, MissingPositionCov) {
   SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
@@ -1250,38 +1230,22 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
   synthetic_options.num_cameras_per_rig = 1;
   synthetic_options.num_frames_per_rig = 7;
   synthetic_options.num_points3D = 100;
-  synthetic_options.use_prior_position = true;
-  synthetic_options.prior_position_stddev = 0.05;
+  synthetic_options.prior_position = true;
   std::string database_path = CreateTestDir() + "/database.db";
   auto database = Database::Open(database_path);
   SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
 
   Reconstruction reconstruction = gt_reconstruction;
 
-  SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point3D_stddev = 0.2;
-  synthetic_noise_options.rig_from_world_rotation_stddev = 1.0;
-  synthetic_noise_options.rig_from_world_translation_stddev = 0.2;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
-
-  auto database_cache = DatabaseCache::Create(*database,
-                                              /*min_num_matches=*/0,
-                                              /*ignore_watermarks=*/false,
-                                              /*image_names=*/{});
-  auto pose_priors = database_cache->PosePriors();
-
-  // Add 2 confident but wrong priors
-  auto iter = pose_priors.begin();
-  iter->second.position_covariance = Eigen::Matrix3d::Identity() * 0.01;
-  iter->second.position += Eigen::Vector3d::Constant(10);
-
-  ++iter;
-  iter->second.position_covariance = Eigen::Matrix3d::Identity() * 0.01;
-  iter->second.position += Eigen::Vector3d::Constant(10);
+  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  for (PosePrior& pose_prior : pose_priors) {
+    EXPECT_FALSE(pose_prior.HasPositionCov());
+  }
 
   PosePriorBundleAdjustmentOptions prior_ba_options;
   prior_ba_options.alignment_ransac_options.random_seed = 0;
-  prior_ba_options.use_robust_loss_on_prior_position = true;
+  prior_ba_options.prior_position_loss_function_type =
+      BundleAdjustmentOptions::LossFunctionType::CAUCHY;
 
   BundleAdjustmentOptions ba_options;
   BundleAdjustmentConfig ba_config;
@@ -1304,16 +1268,63 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
                                  /*max_proj_center_error=*/0.1,
                                  /*max_scale_error=*/std::nullopt,
                                  /*num_obs_tolerance=*/0.02));
+}
 
-  int num_close_to_priors = 0;
-  for (const image_t id : reconstruction.RegImageIds()) {
-    const auto& image = reconstruction.Image(id);
-    if ((image.ProjectionCenter() - pose_priors.at(id).position).norm() < 0.3) {
-      ++num_close_to_priors;
+TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
+  SetPRNGSeed(0);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 7;
+  synthetic_options.num_points3D = 100;
+  synthetic_options.prior_position = true;
+  std::string database_path = CreateTestDir() + "/database.db";
+  auto database = Database::Open(database_path);
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  Reconstruction reconstruction = gt_reconstruction;
+
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point3D_stddev = 0.2;
+  synthetic_noise_options.rig_from_world_rotation_stddev = 1.0;
+  synthetic_noise_options.rig_from_world_translation_stddev = 0.2;
+  synthetic_noise_options.prior_position_stddev = 0.05;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  // Add 2 confident but wrong priors.
+  pose_priors[0].position_covariance = Eigen::Matrix3d::Identity() * 0.01;
+  pose_priors[0].position += Eigen::Vector3d::Constant(10);
+  pose_priors[1].position_covariance = Eigen::Matrix3d::Identity() * 1.01;
+  pose_priors[1].position += Eigen::Vector3d::Constant(10);
+
+  PosePriorBundleAdjustmentOptions prior_ba_options;
+  prior_ba_options.alignment_ransac_options.random_seed = 0;
+  prior_ba_options.prior_position_loss_function_type =
+      BundleAdjustmentOptions::LossFunctionType::CAUCHY;
+
+  BundleAdjustmentOptions ba_options;
+  BundleAdjustmentConfig ba_config;
+
+  for (const frame_t frame_id : reconstruction.RegFrameIds()) {
+    const Frame& frame = reconstruction.Frame(frame_id);
+    for (const data_t& data_id : frame.ImageIds()) {
+      ba_config.AddImage(data_id.id);
     }
   }
 
-  EXPECT_EQ(num_close_to_priors, 5);
+  auto adjuster = CreatePosePriorBundleAdjuster(
+      ba_options, prior_ba_options, ba_config, pose_priors, reconstruction);
+  auto summary = adjuster->Solve();
+  ASSERT_TRUE(summary.IsSolutionUsable());
+
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.1,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.02));
 }
 
 }  // namespace
