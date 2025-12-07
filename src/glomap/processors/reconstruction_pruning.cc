@@ -16,13 +16,13 @@ image_t PruneWeaklyConnectedImages(
     if (track.track.Length() <= 2) continue;
 
     for (size_t i = 0; i < track.track.Length(); i++) {
-      image_t image_id1 = track.track.Element(i).image_id;
-      frame_t frame_id1 = images[image_id1].frame_id;
+      const image_t image_id1 = track.track.Element(i).image_id;
+      const frame_t frame_id1 = images[image_id1].FrameId();
 
       frame_observation_count[frame_id1]++;
       for (size_t j = i + 1; j < track.track.Length(); j++) {
-        image_t image_id2 = track.track.Element(j).image_id;
-        frame_t frame_id2 = images[image_id2].frame_id;
+        const image_t image_id2 = track.track.Element(j).image_id;
+        const frame_t frame_id2 = images[image_id2].FrameId();
         if (frame_id1 == frame_id2) continue;
         const image_pair_t pair_id =
             colmap::ImagePairToPairId(frame_id1, frame_id2);

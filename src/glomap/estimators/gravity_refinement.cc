@@ -13,8 +13,9 @@ Eigen::Matrix3d GetImageAlignRot(const Image& image,
   if (image.IsRefInFrame()) {
     return GetAlignRot(gravity);
   } else {
-    return image.frame_ptr->RigPtr()
-               ->SensorFromRig(sensor_t(SensorType::CAMERA, image.camera_id))
+    return image.FramePtr()
+               ->RigPtr()
+               ->SensorFromRig(sensor_t(SensorType::CAMERA, image.CameraId()))
                .rotation *
            GetAlignRot(gravity);
   }
@@ -47,7 +48,7 @@ void GravityRefiner::RefineGravity(
   std::unordered_map<image_t, frame_t> image_to_frame;
   image_to_frame.reserve(images.size());
   for (const auto& [image_id, image] : images) {
-    image_to_frame[image_id] = image.frame_id;
+    image_to_frame[image_id] = image.FrameId();
   }
 
   std::unordered_map<image_t, colmap::PosePrior*> image_to_pose_prior;
@@ -83,7 +84,7 @@ void GravityRefiner::RefineGravity(
       adjacency_list_frames_to_pair_id;
   for (auto& [image_id, neighbors] : adjacency_list) {
     for (const auto& neighbor : neighbors) {
-      adjacency_list_frames_to_pair_id[images.at(image_id).frame_id].insert(
+      adjacency_list_frames_to_pair_id[images.at(image_id).FrameId()].insert(
           colmap::ImagePairToPairId(image_id, neighbor));
     }
   }
@@ -128,23 +129,23 @@ void GravityRefiner::RefineGravity(
       // Get the cam_from_rig
       Rigid3d cam1_from_rig1, cam2_from_rig2;
       if (!image1.IsRefInFrame()) {
-        cam1_from_rig1 = image1.frame_ptr->RigPtr()->SensorFromRig(
-            sensor_t(SensorType::CAMERA, image1.camera_id));
+        cam1_from_rig1 = image1.FramePtr()->RigPtr()->SensorFromRig(
+            sensor_t(SensorType::CAMERA, image1.CameraId()));
       }
       if (!image2.IsRefInFrame()) {
-        cam2_from_rig2 = image2.frame_ptr->RigPtr()->SensorFromRig(
-            sensor_t(SensorType::CAMERA, image2.camera_id));
+        cam2_from_rig2 = image2.FramePtr()->RigPtr()->SensorFromRig(
+            sensor_t(SensorType::CAMERA, image2.CameraId()));
       }
 
       // Note: for the case where both cameras are from the same frames, we only
       // consider a single cost term
-      if (image1.frame_id == frame_id) {
+      if (image1.FrameId() == frame_id) {
         gravities.emplace_back(
             (colmap::Inverse(pair.cam2_from_cam1 * cam1_from_rig1)
                  .rotation.toRotationMatrix() *
              GetImageAlignRot(image2, *image_gravity2))
                 .col(1));
-      } else if (image2.frame_id == frame_id) {
+      } else if (image2.FrameId() == frame_id) {
         gravities.emplace_back(
             ((colmap::Inverse(cam2_from_rig2) * pair.cam2_from_cam1)
                  .rotation.toRotationMatrix() *
@@ -227,14 +228,14 @@ void GravityRefiner::IdentifyErrorProneGravity(
     const Eigen::Matrix3d R_rel_up = AngleToRotUp(RotUpToAngle(R_rel));
 
     // increment the total count
-    frame_counter[image1.frame_id].second++;
-    frame_counter[image2.frame_id].second++;
+    frame_counter[image1.FrameId()].second++;
+    frame_counter[image2.FrameId()].second++;
 
     // increment the mistake count
     if (Eigen::Quaterniond(R_rel).angularDistance(
             Eigen::Quaterniond(R_rel_up)) > max_gravity_error_rad) {
-      frame_counter[image1.frame_id].first++;
-      frame_counter[image2.frame_id].first++;
+      frame_counter[image1.FrameId()].first++;
+      frame_counter[image2.FrameId()].first++;
     }
   }
 

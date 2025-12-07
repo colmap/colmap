@@ -55,68 +55,70 @@ std::vector<std::unordered_set<frame_t>> FindConnectedComponents(
 
 int ViewGraph::KeepLargestConnectedComponents(
     std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<image_t, Image>& images) {
+    const std::unordered_map<image_t, Image>& images) {
   const std::vector<std::unordered_set<frame_t>> connected_components =
       FindConnectedComponents(CreateFrameAdjacencyList(images));
 
-  int max_idx = -1;
-  int max_img = 0;
-  for (int comp = 0; comp < connected_components.size(); comp++) {
-    if (connected_components[comp].size() > max_img) {
-      max_img = connected_components[comp].size();
-      max_idx = comp;
+  int max_comp = -1;
+  int max_num_reg_images = 0;
+  for (int comp = 0; comp < connected_components.size(); ++comp) {
+    if (connected_components[comp].size() > max_num_reg_images) {
+      int num_reg_images = 0;
+      for (auto& [image_id, image] : images) {
+        if (image.HasPose()) {
+          ++num_reg_images;
+        }
+      }
+      if (num_reg_images > max_num_reg_images)
+        max_num_reg_images = connected_components[comp].size();
+      max_comp = comp;
     }
   }
 
-  if (max_img == 0) return 0;
+  if (max_comp == -1) {
+    return 0;
+  }
 
   const std::unordered_set<frame_t>& largest_component =
-      connected_components[max_idx];
-
-  // Set all frames to not registered
+      connected_components[max_comp];
   for (auto& [frame_id, frame] : frames) {
-    frame.is_registered = false;
+    if (largest_component.count(frame_id) == 0) {
+      frame.ResetPose();
+    }
   }
-  // Set the frames in the largest component to registered
-  for (auto frame_id : largest_component) {
-    frames[frame_id].is_registered = true;
-  }
-  // set all pairs not in the largest component to invalid
+
   for (auto& [pair_id, image_pair] : image_pairs) {
-    if (!images[image_pair.image_id1].IsRegistered() ||
-        !images[image_pair.image_id2].IsRegistered()) {
+    if (!images.at(image_pair.image_id1).HasPose() ||
+        !images.at(image_pair.image_id2).HasPose()) {
       image_pair.is_valid = false;
     }
   }
 
-  for (auto& [image_id, image] : images) {
-    if (image.IsRegistered()) max_img++;
-  }
-  return max_img;
+  return max_num_reg_images;
 }
 
 int ViewGraph::MarkConnectedComponents(
     std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<image_t, Image>& images,
-    int min_num_img) {
+    const std::unordered_map<image_t, Image>& images,
+    int min_num_images) {
   const std::vector<std::unordered_set<frame_t>> connected_components =
       FindConnectedComponents(CreateFrameAdjacencyList(images));
   const int num_comp = connected_components.size();
 
-  std::vector<std::pair<int, int>> cluster_num_img(num_comp);
+  std::vector<std::pair<int, int>> comp_num_images(num_comp);
   for (int comp = 0; comp < num_comp; comp++) {
-    cluster_num_img[comp] =
+    comp_num_images[comp] =
         std::make_pair(connected_components[comp].size(), comp);
   }
-  std::sort(cluster_num_img.begin(), cluster_num_img.end(), std::greater<>());
+  std::sort(comp_num_images.begin(), comp_num_images.end(), std::greater<>());
 
   // Set the cluster number of every frame to be -1
   for (auto& [frame_id, frame] : frames) frame.cluster_id = -1;
 
   int comp = 0;
   for (; comp < num_comp; comp++) {
-    if (cluster_num_img[comp].first < min_num_img) break;
-    for (auto frame_id : connected_components[cluster_num_img[comp].second]) {
+    if (comp_num_images[comp].first < min_num_images) break;
+    for (auto frame_id : connected_components[comp_num_images[comp].second]) {
       frames[frame_id].cluster_id = comp;
     }
   }
@@ -142,8 +144,8 @@ ViewGraph::CreateFrameAdjacencyList(
   std::unordered_map<frame_t, std::unordered_set<frame_t>> adjacency_list;
   for (const auto& [_, image_pair] : image_pairs) {
     if (image_pair.is_valid) {
-      const frame_t frame_id1 = images.at(image_pair.image_id1).frame_id;
-      const frame_t frame_id2 = images.at(image_pair.image_id2).frame_id;
+      const frame_t frame_id1 = images.at(image_pair.image_id1).FrameId();
+      const frame_t frame_id2 = images.at(image_pair.image_id2).FrameId();
       adjacency_list[frame_id1].insert(frame_id2);
       adjacency_list[frame_id2].insert(frame_id1);
     }

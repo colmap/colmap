@@ -13,7 +13,7 @@ std::unordered_map<std::string, image_t> ExtractImageNameToId(
     const std::unordered_map<image_t, Image>& images) {
   std::unordered_map<std::string, image_t> image_name_to_id;
   for (const auto& [image_id, image] : images) {
-    image_name_to_id[image.file_name] = image_id;
+    image_name_to_id[image.Name()] = image_id;
   }
   return image_name_to_id;
 }
@@ -57,14 +57,20 @@ void ReadRelPose(const std::string& file_path,
 
     if (image_name_to_id.find(file1) == image_name_to_id.end()) {
       max_image_id += 1;
-      images.insert(
-          std::make_pair(max_image_id, Image(max_image_id, -1, file1)));
+      Image image1;
+      image1.SetImageId(max_image_id);
+      image1.SetCameraId(-1);
+      image1.SetName(file1);
+      images.insert(std::make_pair(max_image_id, std::move(image1)));
       image_name_to_id[file1] = max_image_id;
     }
     if (image_name_to_id.find(file2) == image_name_to_id.end()) {
       max_image_id += 1;
-      images.insert(
-          std::make_pair(max_image_id, Image(max_image_id, -1, file2)));
+      Image image2;
+      image2.SetImageId(max_image_id);
+      image2.SetCameraId(-1);
+      image2.SetName(file2);
+      images.insert(std::make_pair(max_image_id, std::move(image2)));
       image_name_to_id[file2] = max_image_id;
     }
 
@@ -182,7 +188,7 @@ std::vector<colmap::PosePrior> ReadGravity(
         pose_prior.pose_prior_id = ite->second;
         pose_prior.corr_data_id = image.DataId();
         pose_prior.gravity = gravity;
-        Rigid3d& cam_from_world = image.frame_ptr->RigFromWorld();
+        Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
         // Set the rotation from the camera to the world
         // Make sure the initialization is aligned with the gravity.
         cam_from_world.rotation = Eigen::Quaterniond(GetAlignRot(gravity));
@@ -203,14 +209,14 @@ void WriteGlobalRotation(const std::string& file_path,
   std::ofstream file(file_path);
   std::set<image_t> existing_images;
   for (const auto& [image_id, image] : images) {
-    if (image.IsRegistered()) {
+    if (image.HasPose()) {
       existing_images.insert(image_id);
     }
   }
   for (const auto& image_id : existing_images) {
     const auto& image = images.at(image_id);
-    if (!image.IsRegistered()) continue;
-    file << image.file_name;
+    if (!image.HasPose()) continue;
+    file << image.Name();
     Rigid3d cam_from_world = image.CamFromWorld();
     for (int i = 0; i < 4; i++) {
       file << " " << cam_from_world.rotation.coeffs()[(i + 3) % 4];
@@ -230,7 +236,7 @@ void WriteRelPose(const std::string& file_path,
     if (image_pair.is_valid) {
       const auto& image1 = images.at(image_pair.image_id1);
       const auto& image2 = images.at(image_pair.image_id2);
-      name_pair[image1.file_name + " " + image2.file_name] = pair_id;
+      name_pair[image1.Name() + " " + image2.Name()] = pair_id;
     }
   }
 
@@ -238,8 +244,8 @@ void WriteRelPose(const std::string& file_path,
   for (const auto& [name, pair_id] : name_pair) {
     const auto image_pair = view_graph.image_pairs.at(pair_id);
     if (!image_pair.is_valid) continue;
-    file << images.at(image_pair.image_id1).file_name << " "
-         << images.at(image_pair.image_id2).file_name;
+    file << images.at(image_pair.image_id1).Name() << " "
+         << images.at(image_pair.image_id2).Name();
     for (int i = 0; i < 4; i++) {
       file << " " << image_pair.cam2_from_cam1.rotation.coeffs()[(i + 3) % 4];
     }
