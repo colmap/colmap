@@ -260,6 +260,18 @@ void Reconstruction::AddCamera(struct Camera camera) {
   THROW_CHECK(cameras_.emplace(camera_id, std::move(camera)).second);
 }
 
+void Reconstruction::AddCameraWithTrivialRig(struct Camera camera) {
+  THROW_CHECK(!ExistsRig(camera.camera_id))
+      << "AddCameraWithTrivialRig tried to add a rig with the same id as the "
+         "camera, but failed because Rig "
+      << camera.camera_id << "already exists in the reconstruction. ";
+  class Rig rig;
+  rig.SetRigId(camera.camera_id);
+  rig.AddRefSensor(camera.SensorId());
+  AddCamera(std::move(camera));
+  AddRig(rig);
+}
+
 void Reconstruction::AddFrame(class Frame frame) {
   THROW_CHECK(frame.HasRigId());
   auto& rig = Rig(frame.RigId());
@@ -308,6 +320,40 @@ void Reconstruction::AddImage(class Image image) {
   }
   const image_t image_id = image.ImageId();
   THROW_CHECK(images_.emplace(image_id, std::move(image)).second);
+}
+
+void Reconstruction::AddImageWithTrivialFrame(class Image image) {
+  THROW_CHECK(!ExistsFrame(image.ImageId()))
+      << "AddImageWithTrivialFrame tried to add a frame with the same id as "
+         "the image, but failed because Frame "
+      << image.ImageId() << "already exists in the reconstruction.";
+  THROW_CHECK(ExistsRig(image.CameraId()))
+      << "Rig " << image.CameraId() << " that contains Camera "
+      << image.CameraId() << " does not exist in the reconstruction.";
+  auto& rig = Rig(image.CameraId());
+  THROW_CHECK_EQ(rig.NumSensors(), 1)
+      << "AddImageWithTrivialFrame requires that the camera is from a rig that "
+         "contains exactly one sensor (the camera itself).";
+  THROW_CHECK(rig.IsRefSensor(Camera(image.CameraId()).SensorId()));
+  class Frame frame;
+  frame.SetFrameId(image.ImageId());
+  frame.SetRigId(image.CameraId());
+  frame.AddDataId(image.DataId());
+  if (image.HasFrameId()) {
+    THROW_CHECK_EQ(image.FrameId(), frame.FrameId());
+  } else {
+    image.SetFrameId(frame.FrameId());
+  }
+  AddFrame(frame);
+  AddImage(std::move(image));
+}
+
+void Reconstruction::AddImageWithTrivialFrame(class Image image,
+                                              const Rigid3d& cam_from_world) {
+  const frame_t frame_id = image.ImageId();
+  AddImageWithTrivialFrame(std::move(image));
+  Frame(frame_id).SetRigFromWorld(cam_from_world);
+  RegisterFrame(frame_id);
 }
 
 void Reconstruction::AddPoint3D(const point3D_t point3D_id,

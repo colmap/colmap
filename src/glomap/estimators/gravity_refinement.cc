@@ -65,12 +65,12 @@ void GravityRefiner::RefineGravity(const ViewGraph& view_graph,
 
       // Get the cam_from_rig
       Rigid3d cam1_from_rig1, cam2_from_rig2;
-      if (!images.at(image_id1).HasTrivialFrame()) {
+      if (!images.at(image_id1).IsRefInFrame()) {
         cam1_from_rig1 =
             images.at(image_id1).frame_ptr->RigPtr()->SensorFromRig(
                 sensor_t(SensorType::CAMERA, images.at(image_id1).camera_id));
       }
-      if (!images.at(image_id2).HasTrivialFrame()) {
+      if (!images.at(image_id2).IsRefInFrame()) {
         cam2_from_rig2 =
             images.at(image_id2).frame_ptr->RigPtr()->SensorFromRig(
                 sensor_t(SensorType::CAMERA, images.at(image_id2).camera_id));
