@@ -1,7 +1,6 @@
 #pragma once
+
 #include "colmap/scene/database.h"
-#include "colmap/scene/reconstruction_manager.h"
-#include "colmap/util/base_controller.h"
 
 #include "glomap/estimators/bundle_adjustment.h"
 #include "glomap/estimators/global_positioning.h"

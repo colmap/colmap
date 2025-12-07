@@ -1,4 +1,4 @@
-#include "option_manager.h"
+#include "glomap/controllers/option_manager.h"
 
 #include "glomap/estimators/gravity_refinement.h"
 #include "glomap/sfm/global_mapper.h"

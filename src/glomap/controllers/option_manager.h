@@ -2,7 +2,6 @@
 
 #include "colmap/util/logging.h"
 
-#include <iostream>
 #include <memory>
 
 #include <boost/program_options.hpp>
