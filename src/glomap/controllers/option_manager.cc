@@ -1,7 +1,7 @@
 #include "option_manager.h"
 
-#include "glomap/controllers/global_mapper.h"
 #include "glomap/estimators/gravity_refinement.h"
+#include "glomap/sfm/global_mapper.h"
 
 #include <boost/property_tree/ini_parser.hpp>
 

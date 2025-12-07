@@ -1,5 +1,6 @@
-#include "glomap/controllers/global_mapper.h"
+#include "glomap/sfm/global_mapper.h"
 
+#include "colmap/controllers/global_pipeline.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
@@ -62,44 +63,14 @@ int RunGlobalMapper(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  // Load the database
-  ViewGraph view_graph;
-  std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<camera_t, colmap::Camera> cameras;
-  std::unordered_map<frame_t, Frame> frames;
-  std::unordered_map<image_t, Image> images;
-  std::unordered_map<point3D_t, Point3D> tracks;
+  auto reconstruction_manager =
+      std::make_shared<colmap::ReconstructionManager>();
 
-  auto database = colmap::Database::Open(database_path);
-  ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
+  colmap::GlobalPipeline pipeline(
+      *options.mapper, image_path, database_path, reconstruction_manager);
+  pipeline.Run();
 
-  if (view_graph.image_pairs.empty()) {
-    LOG(ERROR) << "Can't continue without image pairs";
-    return EXIT_FAILURE;
-  }
-
-  GlobalMapper global_mapper(*options.mapper);
-
-  // Main solver
-  LOG(INFO) << "Loaded database";
-  colmap::Timer run_timer;
-  run_timer.Start();
-  global_mapper.Solve(
-      *database, view_graph, rigs, cameras, frames, images, tracks);
-  run_timer.Pause();
-
-  LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
-            << " seconds";
-
-  WriteGlomapReconstruction(output_path,
-                            rigs,
-                            cameras,
-                            frames,
-                            images,
-                            tracks,
-                            output_format,
-                            image_path);
-  LOG(INFO) << "Export to COLMAP reconstruction done";
+  reconstruction_manager->Write(output_path);
 
   return EXIT_SUCCESS;
 }

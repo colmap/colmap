@@ -3,7 +3,6 @@
 #include "colmap/util/file.h"
 #include "colmap/util/timer.h"
 
-#include "glomap/controllers/rotation_averager.h"
 #include "glomap/io/colmap_converter.h"
 #include "glomap/processors/image_pair_inliers.h"
 #include "glomap/processors/image_undistorter.h"
@@ -12,6 +11,7 @@
 #include "glomap/processors/relpose_filter.h"
 #include "glomap/processors/track_filter.h"
 #include "glomap/processors/view_graph_manipulation.h"
+#include "glomap/sfm/rotation_averager.h"
 
 namespace glomap {
 
