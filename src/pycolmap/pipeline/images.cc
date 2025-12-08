@@ -64,7 +64,7 @@ void ImportImages(const std::string& database_path,
       frame.SetRigId(rig.RigId());
       frame.AddDataId(image.DataId());
 
-      if (pose_prior.HasPosition()) {
+      if (pose_prior.HasPosition() || pose_prior.HasGravity()) {
         pose_prior.corr_data_id = image.DataId();
         database->WritePosePrior(pose_prior);
       }

@@ -292,12 +292,18 @@ class FeatureWriterThread : public Thread {
         if (image_data.image.ImageId() == kInvalidImageId) {
           image_data.image.SetImageId(database_->WriteImage(image_data.image));
 
-          if (image_data.pose_prior.HasPosition()) {
-            LOG(INFO) << StringPrintf(
+          if (image_data.pose_prior.HasPosition() ||
+              image_data.pose_prior.HasGravity()) {
+            LOG_IF(INFO, image_data.pose_prior.HasPosition()) << StringPrintf(
                 "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
                 image_data.pose_prior.position.x(),
                 image_data.pose_prior.position.y(),
                 image_data.pose_prior.position.z());
+            LOG_IF(INFO, image_data.pose_prior.HasGravity())
+                << StringPrintf("  Gravity:         [%.3f, %.3f, %.3f]",
+                                image_data.pose_prior.gravity.x(),
+                                image_data.pose_prior.gravity.y(),
+                                image_data.pose_prior.gravity.z());
             image_data.pose_prior.corr_data_id = image_data.image.DataId();
             image_data.pose_prior.pose_prior_id =
                 database_->WritePosePrior(image_data.pose_prior);
@@ -590,7 +596,7 @@ class FeatureImporterController : public Thread {
         if (image.ImageId() == kInvalidImageId) {
           image.SetImageId(database->WriteImage(image));
 
-          if (pose_prior.HasPosition()) {
+          if (pose_prior.HasPosition() || pose_prior.HasGravity()) {
             pose_prior.corr_data_id = image.DataId();
             pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
           }

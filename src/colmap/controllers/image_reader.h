@@ -82,6 +82,10 @@ struct ImageReaderOptions {
   // value `default_focal_length_factor * max(width, height)`.
   double default_focal_length_factor = 1.2;
 
+  // Extract IMU acceleration as gravity direction.
+  // This only holds approximately when the camera is stationary.
+  bool extract_accel_as_gravity = false;
+
   // Whether to read images as grayscale or RGB.
   bool as_rgb = false;
 

@@ -442,6 +442,27 @@ bool Bitmap::ExifAltitude(double* altitude) const {
   return false;
 }
 
+bool Bitmap::ExifGravity(double gravity[3]) const {
+  // Try to read acceleration vector from EXIF metadata.
+  // Common EXIF tags include "Exif:AccelerationVector" which stores
+  // the device acceleration in sensor coordinates (x, y, z) in m/s^2.
+  float acceleration[3] = {0.0f, 0.0f, 0.0f};
+
+  // Try standard EXIF acceleration and fallback vector tags.
+  if (GetMetaData("Exif:AccelerationVector", "point", &acceleration) ||
+      GetMetaData("Exif:Acceleration", "point", &acceleration)) {
+    // The gravity vector is the negative of the acceleration vector
+    // when the device is stationary (since accelerometer measures proper
+    // acceleration, which includes gravity).
+    gravity[0] = -static_cast<double>(acceleration[0]);
+    gravity[1] = -static_cast<double>(acceleration[1]);
+    gravity[2] = -static_cast<double>(acceleration[2]);
+    return true;
+  }
+
+  return false;
+}
+
 bool Bitmap::Read(const std::string& path,
                   const bool as_rgb,
                   const bool linearize_colorspace) {

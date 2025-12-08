@@ -124,6 +124,7 @@ class Bitmap {
   bool ExifLatitude(double* latitude) const;
   bool ExifLongitude(double* longitude) const;
   bool ExifAltitude(double* altitude) const;
+  bool ExifGravity(double gravity[3]) const;
 
   // Read bitmap at given path and convert to grey- or colorscale. Defaults to
   // keeping the original colorspace (potentially non-linear) for image

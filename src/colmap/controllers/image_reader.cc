@@ -307,6 +307,12 @@ ImageReader::Status ImageReader::Next(Rig* rig,
       pose_prior->position = position_prior;
       pose_prior->coordinate_system = PosePrior::CoordinateSystem::WGS84;
     }
+
+    Eigen::Vector3d gravity;
+    if (options_.extract_accel_as_gravity &&
+        bitmap->ExifGravity(gravity.data())) {
+      pose_prior->gravity = gravity;
+    }
   }
 
   *camera = prev_camera_;

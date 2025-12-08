@@ -444,6 +444,41 @@ TEST(Bitmap, ExifAltitude) {
   EXPECT_EQ(altitude, -kAltitudeVal);
 }
 
+TEST(Bitmap, ExifGravity) {
+  Bitmap bitmap(100, 80, /*as_rgb=*/true);
+
+  double gravity[3] = {0.0, 0.0, 0.0};
+  EXPECT_FALSE(bitmap.ExifGravity(gravity));
+
+  // Set acceleration vector in sensor coordinates (x, y, z) in m/s^2
+  // Accelerometer measures proper acceleration, so when device is stationary
+  // and upright, it measures acceleration upward (opposite to gravity)
+  const float kAccelerationVector[3] = {0.5f, -0.3f, 9.8f};
+  bitmap.SetMetaData("Exif:AccelerationVector", "point", kAccelerationVector);
+
+  EXPECT_TRUE(bitmap.ExifGravity(gravity));
+  // Gravity should be negative of acceleration
+  EXPECT_NEAR(gravity[0], -0.5, 1e-6);
+  EXPECT_NEAR(gravity[1], 0.3, 1e-6);
+  EXPECT_NEAR(gravity[2], -9.8, 1e-6);
+}
+
+TEST(Bitmap, ExifGravityFallback) {
+  Bitmap bitmap(100, 80, /*as_rgb=*/true);
+
+  double gravity[3] = {0.0, 0.0, 0.0};
+  EXPECT_FALSE(bitmap.ExifGravity(gravity));
+
+  // Test fallback to alternative tag name
+  const float kAccelerationVector[3] = {1.2f, -2.4f, 8.9f};
+  bitmap.SetMetaData("Exif:Acceleration", "point", kAccelerationVector);
+
+  EXPECT_TRUE(bitmap.ExifGravity(gravity));
+  EXPECT_NEAR(gravity[0], -1.2, 1e-6);
+  EXPECT_NEAR(gravity[1], 2.4, 1e-6);
+  EXPECT_NEAR(gravity[2], -8.9, 1e-6);
+}
+
 TEST(Bitmap, ReadWriteAsRGB) {
   Bitmap bitmap(2, 3, /*as_rgb=*/true);
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0, 0, 0));
