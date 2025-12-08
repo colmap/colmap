@@ -587,6 +587,8 @@ Bitmap Bitmap::CloneAsGrey() const {
                      .0722f * data_[3 * i + 2]);
     }
     cloned.meta_data_ = OIIOMetaData::Clone(meta_data_);
+    auto* cloned_meta_data = OIIOMetaData::Upcast(cloned.meta_data_.get());
+    cloned_meta_data->image_spec.nchannels = 1;
     return cloned;
   }
 }
@@ -608,6 +610,8 @@ Bitmap Bitmap::CloneAsRGB() const {
       cloned.data_[3 * i + 2] = data_[i];
     }
     cloned.meta_data_ = OIIOMetaData::Clone(meta_data_);
+    auto* cloned_meta_data = OIIOMetaData::Upcast(cloned.meta_data_.get());
+    cloned_meta_data->image_spec.nchannels = 3;
     return cloned;
   }
 }
