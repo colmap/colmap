@@ -288,7 +288,7 @@ TEST(Bitmap, CloneAsRGB) {
   const std::string filename = test_dir + "/bitmap.png";
   EXPECT_TRUE(cloned_bitmap.Write(filename));
   Bitmap read_bitmap;
-  EXPECT_TRUE(read_bitmap.Read(filename));
+  EXPECT_TRUE(read_bitmap.Read(filename, /*as_rgb=*/true));
   EXPECT_EQ(read_bitmap.RowMajorData(), cloned_bitmap.RowMajorData());
 }
 
@@ -307,7 +307,7 @@ TEST(Bitmap, CloneAsGrey) {
   const std::string filename = test_dir + "/bitmap.png";
   EXPECT_TRUE(cloned_bitmap.Write(filename));
   Bitmap read_bitmap;
-  EXPECT_TRUE(read_bitmap.Read(filename));
+  EXPECT_TRUE(read_bitmap.Read(filename, /*as_rgb=*/false));
   EXPECT_EQ(read_bitmap.RowMajorData(), cloned_bitmap.RowMajorData());
 }
 
