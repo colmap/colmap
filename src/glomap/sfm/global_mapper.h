@@ -1,13 +1,14 @@
 #pragma once
+
 #include "colmap/scene/database.h"
 
-#include "glomap/controllers/track_establishment.h"
-#include "glomap/controllers/track_retriangulation.h"
 #include "glomap/estimators/bundle_adjustment.h"
 #include "glomap/estimators/global_positioning.h"
 #include "glomap/estimators/global_rotation_averaging.h"
 #include "glomap/estimators/relpose_estimation.h"
 #include "glomap/estimators/view_graph_calibration.h"
+#include "glomap/sfm/track_establishment.h"
+#include "glomap/sfm/track_retriangulation.h"
 
 namespace glomap {
 

@@ -1,14 +1,36 @@
-#include "glomap/controllers/track_retriangulation.h"
+#include "glomap/sfm/track_retriangulation.h"
 
-#include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/scene/database_cache.h"
+#include "colmap/sfm/incremental_mapper.h"
 
 #include "glomap/io/colmap_converter.h"
 
-#include <set>
-
 namespace glomap {
+namespace {
+
+colmap::BundleAdjustmentOptions GetBundleAdjustmentOptions() {
+  colmap::BundleAdjustmentOptions options;
+  options.solver_options.function_tolerance = 0.0;
+  options.solver_options.gradient_tolerance = 1.0;
+  options.solver_options.parameter_tolerance = 0.0;
+  options.solver_options.max_num_iterations = 50;
+  options.solver_options.max_linear_solver_iterations = 100;
+  options.solver_options.logging_type = ceres::LoggingType::SILENT;
+  if (VLOG_IS_ON(2)) {
+    options.solver_options.minimizer_progress_to_stdout = true;
+    options.solver_options.logging_type =
+        ceres::LoggingType::PER_MINIMIZER_ITERATION;
+  }
+  options.solver_options.num_threads = -1;
+#if CERES_VERSION_MAJOR < 2
+  options.solver_options.num_linear_solver_threads = -1;
+#endif  // CERES_VERSION_MAJOR
+  options.print_summary = false;
+  return options;
+}
+
+}  // namespace
 
 bool RetriangulateTracks(const TriangulatorOptions& options,
                          const colmap::Database& database,
@@ -37,33 +59,29 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
   }
 
   // Convert the glomap data structures to colmap data structures
-  std::shared_ptr<colmap::Reconstruction> reconstruction_ptr =
+  std::shared_ptr<colmap::Reconstruction> reconstruction =
       std::make_shared<colmap::Reconstruction>();
   ConvertGlomapToColmap(rigs,
                         cameras,
                         frames,
                         images,
                         std::unordered_map<point3D_t, Point3D>(),
-                        *reconstruction_ptr);
+                        *reconstruction);
 
-  colmap::IncrementalPipelineOptions options_colmap;
-  options_colmap.triangulation.complete_max_reproj_error =
-      options.tri_complete_max_reproj_error;
-  options_colmap.triangulation.merge_max_reproj_error =
-      options.tri_merge_max_reproj_error;
-  options_colmap.triangulation.min_angle = options.tri_min_angle;
+  colmap::IncrementalTriangulator::Options tri_options;
+  tri_options.complete_max_reproj_error = options.tri_complete_max_reproj_error;
+  tri_options.merge_max_reproj_error = options.tri_merge_max_reproj_error;
+  tri_options.min_angle = options.tri_min_angle;
 
-  reconstruction_ptr->DeleteAllPoints2DAndPoints3D();
-  reconstruction_ptr->TranscribeImageIdsToDatabase(database);
+  reconstruction->DeleteAllPoints2DAndPoints3D();
+  reconstruction->TranscribeImageIdsToDatabase(database);
 
   colmap::IncrementalMapper mapper(database_cache);
-  mapper.BeginReconstruction(reconstruction_ptr);
+  mapper.BeginReconstruction(reconstruction);
 
   // Triangulate all images.
-  const auto tri_options = options_colmap.Triangulation();
-  const auto mapper_options = options_colmap.Mapper();
 
-  const std::vector<image_t> reg_image_ids = reconstruction_ptr->RegImageIds();
+  const std::vector<image_t> reg_image_ids = reconstruction->RegImageIds();
 
   size_t image_idx = 0;
   for (const image_t image_id : reg_image_ids) {
@@ -75,13 +93,7 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
 
   // Merge and complete tracks.
   mapper.CompleteAndMergeTracks(tri_options);
-
-  auto ba_options = options_colmap.GlobalBundleAdjustment();
-  ba_options.refine_focal_length = false;
-  ba_options.refine_principal_point = false;
-  ba_options.refine_extra_params = false;
-  ba_options.refine_sensor_from_rig = false;
-  ba_options.refine_rig_from_world = false;
+  const auto ba_options = GetBundleAdjustmentOptions();
 
   // Configure bundle adjustment.
   colmap::BundleAdjustmentConfig ba_config;
@@ -89,30 +101,32 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
     ba_config.AddImage(image_id);
   }
 
-  colmap::ObservationManager observation_manager(*reconstruction_ptr);
+  colmap::ObservationManager observation_manager(*reconstruction);
 
-  for (int i = 0; i < options_colmap.ba_global_max_refinements; ++i) {
+  const int kNumRefinements = 5;
+  const double kMaxRefinementChange = 0.0005;
+  for (int i = 0; i < kNumRefinements; ++i) {
     std::cout << "\r Global bundle adjustment iteration " << i + 1 << " / "
-              << options_colmap.ba_global_max_refinements << std::flush;
+              << kNumRefinements << std::flush;
     // Avoid degeneracies in bundle adjustment.
     observation_manager.FilterObservationsWithNegativeDepth();
 
-    const size_t num_observations =
-        reconstruction_ptr->ComputeNumObservations();
+    const size_t num_observations = reconstruction->ComputeNumObservations();
 
     std::unique_ptr<colmap::BundleAdjuster> bundle_adjuster;
     bundle_adjuster =
-        CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_ptr);
+        CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction);
     if (bundle_adjuster->Solve().termination_type == ceres::FAILURE) {
       return false;
     }
 
     size_t num_changed_observations = 0;
     num_changed_observations += mapper.CompleteAndMergeTracks(tri_options);
-    num_changed_observations += mapper.FilterPoints(mapper_options);
+    num_changed_observations +=
+        mapper.FilterPoints(colmap::IncrementalMapper::Options());
     const double changed =
         static_cast<double>(num_changed_observations) / num_observations;
-    if (changed < options_colmap.ba_global_max_refinement_change) {
+    if (changed < kMaxRefinementChange) {
       break;
     }
   }
@@ -123,12 +137,11 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
     images[image_id].frame_ptr->is_registered = true;
     colmap::Image image_colmap;
     ConvertGlomapToColmapImage(images[image_id], image_colmap, true);
-    reconstruction_ptr->AddImage(std::move(image_colmap));
+    reconstruction->AddImage(std::move(image_colmap));
   }
 
   // Convert the colmap data structures back to glomap data structures
-  ConvertColmapToGlomap(
-      *reconstruction_ptr, rigs, cameras, frames, images, tracks);
+  ConvertColmapToGlomap(*reconstruction, rigs, cameras, frames, images, tracks);
 
   return true;
 }

@@ -1,13 +1,13 @@
-#include "glomap/controllers/rotation_averager.h"
+#include "glomap/sfm/rotation_averager.h"
 
 #include "colmap/math/random.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
-#include "glomap/controllers/global_mapper.h"
 #include "glomap/estimators/gravity_refinement.h"
 #include "glomap/io/colmap_converter.h"
 #include "glomap/math/gravity.h"
+#include "glomap/sfm/global_mapper.h"
 
 #include <gtest/gtest.h>
 

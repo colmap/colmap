@@ -1,4 +1,4 @@
-#include "glomap/controllers/global_mapper.h"
+#include "glomap/sfm/global_mapper.h"
 
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"

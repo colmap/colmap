@@ -164,7 +164,14 @@ def parse_args() -> argparse.Namespace:
         default=multiprocessing.cpu_count(),
         help="Number of processes for parallel reconstruction.",
     )
-    parser.add_argument("--quality", default="high")
+    parser.add_argument(
+        "--mapper",
+        default="incremental",
+        choices=["incremental", "hierarchical", "global"],
+    )
+    parser.add_argument(
+        "--quality", default="high", choices=["low", "medium", "high"]
+    )
     parser.add_argument(
         "--error_type",
         default="relative",
@@ -283,6 +290,8 @@ def colmap_reconstruction(
         "1" if args.use_gpu else "0",
         "--num_threads",
         str(num_threads),
+        "--mapper",
+        args.mapper,
         "--quality",
         args.quality,
     ]
