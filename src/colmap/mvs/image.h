@@ -31,12 +31,7 @@
 
 #include "colmap/sensor/bitmap.h"
 
-#include <cstdint>
-#include <fstream>
-#include <set>
 #include <string>
-#include <unordered_map>
-#include <vector>
 
 namespace colmap {
 namespace mvs {

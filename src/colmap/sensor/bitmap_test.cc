@@ -284,6 +284,12 @@ TEST(Bitmap, CloneAsRGB) {
   BitmapColor<uint8_t> color;
   EXPECT_TRUE(cloned_bitmap.GetPixel(0, 0, &color));
   EXPECT_EQ(color, BitmapColor<uint8_t>(10, 10, 10));
+  const std::string test_dir = CreateTestDir();
+  const std::string filename = test_dir + "/bitmap.png";
+  EXPECT_TRUE(cloned_bitmap.Write(filename));
+  Bitmap read_bitmap;
+  EXPECT_TRUE(read_bitmap.Read(filename, /*as_rgb=*/true));
+  EXPECT_EQ(read_bitmap.RowMajorData(), cloned_bitmap.RowMajorData());
 }
 
 TEST(Bitmap, CloneAsGrey) {
@@ -297,6 +303,12 @@ TEST(Bitmap, CloneAsGrey) {
   BitmapColor<uint8_t> color;
   EXPECT_TRUE(cloned_bitmap.GetPixel(0, 0, &color));
   EXPECT_EQ(color, BitmapColor<uint8_t>(19, 19, 19));
+  const std::string test_dir = CreateTestDir();
+  const std::string filename = test_dir + "/bitmap.png";
+  EXPECT_TRUE(cloned_bitmap.Write(filename));
+  Bitmap read_bitmap;
+  EXPECT_TRUE(read_bitmap.Read(filename, /*as_rgb=*/false));
+  EXPECT_EQ(read_bitmap.RowMajorData(), cloned_bitmap.RowMajorData());
 }
 
 TEST(Bitmap, SetGetMetaData) {
