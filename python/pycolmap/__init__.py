@@ -20,8 +20,8 @@ def _preload_cuda_lib(module_name: str, lib_name: str):
         # using as reference https://github.com/pytorch/pytorch/pull/163661.
 
         # Resolve the library directory robustly
-        if getattr(module, "__file__", None):
-            lib_dir = Path(module.__file__).parent / "lib"
+        if module_file_path := getattr(module, "__file__", None):
+            lib_dir = Path(module_file_path).parent / "lib"
         elif paths := getattr(module, "__path__", None):
             # Implicit namespace packages have __path__ but no __file__
             lib_dir = Path(list(paths)[0]) / "lib"
