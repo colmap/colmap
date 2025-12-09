@@ -35,8 +35,6 @@
 
 namespace colmap {
 
-class OptionManager;
-
 class ReconstructionManager {
  public:
   // The number of reconstructions managed.
