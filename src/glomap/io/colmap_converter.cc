@@ -241,6 +241,8 @@ void ConvertDatabaseToGlomap(
     }
   }
 
+  LOG(INFO) << "Read " << images.size() << " images";
+
   // Add the cameras
   std::vector<colmap::Camera> cameras_colmap = database.ReadAllCameras();
   for (auto& camera : cameras_colmap) {

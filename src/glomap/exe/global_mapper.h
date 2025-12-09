@@ -1,6 +1,6 @@
 #pragma once
 
-#include "glomap/controllers/global_mapper.h"
+#include "glomap/sfm/global_mapper.h"
 
 namespace glomap {
 
