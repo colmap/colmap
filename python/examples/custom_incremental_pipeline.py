@@ -50,15 +50,15 @@ def initialize_reconstruction(
         if ret is None:
             logging.info("No good initial image pair found.")
             return pycolmap.IncrementalMapperStatus.NO_INITIAL_PAIR
-        init_pair, two_view_geometry = ret
+        init_pair, init_cam2_from_cam1 = ret
     else:
         if not all(reconstruction.exists_image(i) for i in init_pair):
             logging.info(f"=> Initial image pair {init_pair} does not exist.")
             return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
-        two_view_geometry = mapper.estimate_initial_two_view_geometry(
+        init_cam2_from_cam1 = mapper.estimate_initial_two_view_geometry(
             mapper_options, *init_pair
         )
-        if two_view_geometry is None:
+        if init_cam2_from_cam1 is None:
             logging.info("Provided pair is insuitable for initialization")
             return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
 
@@ -66,7 +66,7 @@ def initialize_reconstruction(
         f"Registering initial image pair #{init_pair[0]} and #{init_pair[1]}"
     )
     mapper.register_initial_image_pair(
-        mapper_options, two_view_geometry, *init_pair
+        mapper_options, *init_pair, init_cam2_from_cam1
     )
     for image_id in init_pair:
         for data_id in reconstruction.images[image_id].frame.data_ids:
@@ -109,8 +109,17 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
             pycolmap.IncrementalMapperCallback.INITIAL_IMAGE_PAIR_REG_CALLBACK
         )
 
-    # incremental mapping
     options = controller.options
+
+    structure_less_flags = []
+    if options.structure_less_registration_only:
+        structure_less_flags = [True]
+    else:
+        if options.structure_less_registration_fallback:
+            structure_less_flags = [False, True]
+        else:
+            structure_less_flags = [False]
+
     snapshot_prev_num_reg_frames = reconstruction.num_reg_frames()
     ba_prev_num_reg_frames = reconstruction.num_reg_frames()
     ba_prev_num_points = reconstruction.num_points3D()
@@ -120,34 +129,59 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
             break
         prev_reg_next_success = reg_next_success
         reg_next_success = False
-        next_images = mapper.find_next_images(mapper_options)
-        if len(next_images) == 0:
-            break
-        for reg_trial in range(len(next_images)):
-            next_image_id = next_images[reg_trial]
-            logging.info(
-                f"Registering image #{next_image_id} "
-                f"(num_reg_frames={reconstruction.num_reg_frames() + 1})"
+        for structure_less in structure_less_flags:
+            next_images = mapper.find_next_images(
+                mapper_options, structure_less=structure_less
             )
-            num_vis = mapper.observation_manager.num_visible_points3D(
-                next_image_id
-            )
-            num_obs = mapper.observation_manager.num_observations(next_image_id)
-            logging.info(f"=> Image sees {num_vis} / {num_obs} points")
-            reg_next_success = mapper.register_next_image(
-                mapper_options, next_image_id
-            )
+            for reg_trial, next_image_id in enumerate(next_images):
+                logging.info(
+                    f"Registering image #{next_image_id} "
+                    f"(num_reg_frames={reconstruction.num_reg_frames() + 1})"
+                )
+                if structure_less:
+                    logging.info(
+                        "Registering image with structure-less fallback"
+                    )
+                    num_vis = (
+                        mapper.observation_manager.num_visible_correspondences(
+                            next_image_id
+                        )
+                    )
+                    num_corrs = mapper.observation_manager.num_correspondences(
+                        next_image_id
+                    )
+                    logging.info(
+                        f"=> Image sees {num_vis} / {num_corrs} correspondences"
+                    )
+                    reg_next_success = (
+                        mapper.register_next_structure_less_image(
+                            mapper_options, next_image_id
+                        )
+                    )
+                else:
+                    num_vis = mapper.observation_manager.num_visible_points3D(
+                        next_image_id
+                    )
+                    num_obs = mapper.observation_manager.num_observations(
+                        next_image_id
+                    )
+                    logging.info(f"=> Image sees {num_vis} / {num_obs} points")
+                    reg_next_success = mapper.register_next_image(
+                        mapper_options, next_image_id
+                    )
+                if reg_next_success:
+                    break
+                else:
+                    logging.info("=> Could not register, trying another image.")
+                # If initial pair fails to continue for some time,
+                # abort and try different initial pair.
+                kMinNumInitialRegTrials = 30
+                if (
+                    reg_trial >= kMinNumInitialRegTrials
+                    and reconstruction.num_reg_frames() < options.min_model_size
+                ):
+                    break
             if reg_next_success:
-                break
-            else:
-                logging.info("=> Could not register, trying another image.")
-            # If initial pair fails to continue for some time,
-            # abort and try different initial pair.
-            kMinNumInitialRegTrials = 30
-            if (
-                reg_trial >= kMinNumInitialRegTrials
-                and reconstruction.num_reg_frames() < options.min_model_size
-            ):
                 break
         if reg_next_success:
             for data_id in reconstruction.images[next_image_id].frame.data_ids:
@@ -198,7 +232,7 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
     if (
         reconstruction.num_reg_frames() >= 2
         and reconstruction.num_reg_frames() != ba_prev_num_reg_frames
-        and reconstruction.num_points3D != ba_prev_num_points
+        and reconstruction.num_points3D() != ba_prev_num_points
     ):
         iterative_global_refinement(options, mapper_options, mapper)
     return pycolmap.IncrementalMapperStatus.SUCCESS
@@ -224,6 +258,9 @@ def reconstruct(controller, mapper, mapper_options, continue_reconstruction):
         if status == pycolmap.IncrementalMapperStatus.INTERRUPTED:
             logging.info("Keeping reconstruction due to interrupt")
             mapper.end_reconstruction(False)
+            pycolmap.align_reconstruction_to_orig_rig_scales(
+                database_cache.rigs, reconstruction
+            )
         elif status == pycolmap.IncrementalMapperStatus.NO_INITIAL_PAIR:
             logging.info("Disacarding reconstruction due to no initial pair")
             mapper.end_reconstruction(True)
@@ -254,6 +291,9 @@ def reconstruct(controller, mapper, mapper_options, continue_reconstruction):
             else:
                 logging.info("Keeping successful reconstruction")
                 mapper.end_reconstruction(False)
+                pycolmap.align_reconstruction_to_orig_rig_scales(
+                    database_cache.rigs, reconstruction
+                )
             controller.callback(
                 pycolmap.IncrementalMapperCallback.LAST_IMAGE_REG_CALLBACK
             )
@@ -335,7 +375,8 @@ def main(
     )
 
     # main runner
-    num_images = pycolmap.Database(database_path).num_images
+    with pycolmap.Database.open(database_path) as database:
+        num_images = database.num_images()
     with enlighten.Manager() as manager:
         with manager.counter(
             total=num_images, desc="Images registered:"

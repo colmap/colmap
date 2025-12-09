@@ -84,14 +84,16 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 7;
   synthetic_dataset_options.num_points3D = 200;
-  synthetic_dataset_options.point2D_stddev = 0.01;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.01;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
 
   BundleAdjustmentConfig config;
   for (const auto& [image_id, image] : reconstruction.Images()) {
     config.AddImage(image_id);
     if (test_options.fixed_cam_poses) {
-      config.SetConstantRigFromWorldPose(image_id);
+      config.SetConstantRigFromWorldPose(image.FrameId());
     }
     if (test_options.fixed_cam_intrinsics) {
       config.SetConstantCamIntrinsics(image.CameraId());

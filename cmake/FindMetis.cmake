@@ -85,6 +85,11 @@ else()
         PATHS
         ${METIS_CHECK_LIBRARY_DIRS})
 
+    if(GK_LIBRARIES)
+        set(METIS_LIBRARIES ${METIS_LIBRARIES} ${GK_LIBRARIES})
+        message(STATUS "Found GKlib")
+    endif()
+
     if(METIS_INCLUDE_DIRS AND METIS_LIBRARIES)
         set(METIS_FOUND TRUE)
         message(STATUS "Found Metis")

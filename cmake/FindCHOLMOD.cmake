@@ -28,77 +28,72 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-# Find package module for FreeImage library.
+# Find package module for CHOLMOD library.
 #
 # The following variables are set by this module:
 #
-#   FREEIMAGE_FOUND: TRUE if FreeImage is found.
-#   freeimage::FreeImage: Imported target to link against.
+#   CHOLMOD_FOUND: TRUE if CHOLMOD is found.
+#   CHOLMOD::CHOLMOD: Imported target to link against.
 #
 # The following variables control the behavior of this module:
 #
-# FREEIMAGE_INCLUDE_DIR_HINTS: List of additional directories in which to
-#                              search for FreeImage includes.
-# FREEIMAGE_LIBRARY_DIR_HINTS: List of additional directories in which to
-#                              search for FreeImage libraries.
+# CHOLMOD_INCLUDE_DIR_HINTS: List of additional directories in which to
+#                         search for CHOLMOD includes.
+# CHOLMOD_LIBRARY_DIR_HINTS: List of additional directories in which to
+#                         search for CHOLMOD libraries.
 
-set(FREEIMAGE_INCLUDE_DIR_HINTS "" CACHE PATH "FreeImage include directory")
-set(FREEIMAGE_LIBRARY_DIR_HINTS "" CACHE PATH "FreeImage library directory")
+set(CHOLMOD_INCLUDE_DIR_HINTS "" CACHE PATH "CHOLMOD include directory")
+set(CHOLMOD_LIBRARY_DIR_HINTS "" CACHE PATH "CHOLMOD library directory")
 
-unset(FREEIMAGE_FOUND)
+unset(CHOLMOD_FOUND)
+unset(CHOLMOD_INCLUDE_DIRS)
+unset(CHOLMOD_LIBRARIES)
 
-find_package(FreeImage CONFIG QUIET)
-if(FreeImage_FOUND)
-    if(TARGET freeimage::FreeImage)
-        set(FREEIMAGE_FOUND TRUE)
-        message(STATUS "Found FreeImage")
-        message(STATUS "  Target : freeimage::FreeImage")
-    endif()
+find_package(CHOLMOD CONFIG QUIET)
+if(TARGET CHOLMOD::CHOLMOD)
+    set(CHOLMOD_FOUND TRUE)
+    message(STATUS "Found CHOLMOD")
+    message(STATUS "  Target : CHOLMOD::CHOLMOD")
 else()
-    list(APPEND FREEIMAGE_CHECK_INCLUDE_DIRS
-        ${FREEIMAGE_INCLUDE_DIR_HINTS}
+    find_path(CHOLMOD_INCLUDE_DIRS
+        NAMES
+        suitesparse/cholmod.h
+        PATHS
+        ${CHOLMOD_INCLUDE_DIR_HINTS}
         /usr/include
         /usr/local/include
+        /sw/include
         /opt/include
-        /opt/local/include
-    )
-
-    list(APPEND FREEIMAGE_CHECK_LIBRARY_DIRS
-        ${FREEIMAGE_LIBRARY_DIR_HINTS}
+        /opt/local/include)
+    find_library(CHOLMOD_LIBRARIES
+        NAMES
+        cholmod
+        PATHS
+        ${CHOLMOD_LIBRARY_DIR_HINTS}
+        /usr/lib64
         /usr/lib
+        /usr/local/lib64
         /usr/local/lib
+        /sw/lib
         /opt/lib
-        /opt/local/lib
-    )
+        /opt/local/lib)
 
-    find_path(FREEIMAGE_INCLUDE_DIRS
-        NAMES
-        FreeImage.h
-        PATHS
-        ${FREEIMAGE_CHECK_INCLUDE_DIRS})
-    find_library(FREEIMAGE_LIBRARIES
-        NAMES
-        freeimage
-        PATHS
-        ${FREEIMAGE_CHECK_LIBRARY_DIRS})
-
-    if(FREEIMAGE_INCLUDE_DIRS AND FREEIMAGE_LIBRARIES)
-        set(FREEIMAGE_FOUND TRUE)
+    if(CHOLMOD_INCLUDE_DIRS AND CHOLMOD_LIBRARIES)
+        set(CHOLMOD_FOUND TRUE)
+        message(STATUS "Found CHOLMOD")
+        message(STATUS "  Includes : ${CHOLMOD_INCLUDE_DIRS}")
+        message(STATUS "  Libraries : ${CHOLMOD_LIBRARIES}")
+    else()
+        set(CHOLMOD_FOUND FALSE)
     endif()
 
-    if(FREEIMAGE_FOUND)
-        message(STATUS "Found FreeImage")
-        message(STATUS "  Includes : ${FREEIMAGE_INCLUDE_DIRS}")
-        message(STATUS "  Libraries : ${FREEIMAGE_LIBRARIES}")
-    endif()
-
-    add_library(freeimage::FreeImage INTERFACE IMPORTED)
+    add_library(CHOLMOD::CHOLMOD INTERFACE IMPORTED)
     target_include_directories(
-        freeimage::FreeImage INTERFACE ${FREEIMAGE_INCLUDE_DIRS})
+        CHOLMOD::CHOLMOD INTERFACE ${CHOLMOD_INCLUDE_DIRS}/suitesparse)
     target_link_libraries(
-        freeimage::FreeImage INTERFACE ${FREEIMAGE_LIBRARIES})
+        CHOLMOD::CHOLMOD INTERFACE ${CHOLMOD_LIBRARIES})
 endif()
 
-if(NOT FREEIMAGE_FOUND AND FREEIMAGE_FIND_REQUIRED)
-    message(FATAL_ERROR "Could not find FreeImage")
+if(NOT CHOLMOD_FOUND AND CHOLMOD_FIND_REQUIRED)
+    message(FATAL_ERROR "Could not find CHOLMOD")
 endif()

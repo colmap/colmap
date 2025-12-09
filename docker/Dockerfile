@@ -1,5 +1,5 @@
 ARG UBUNTU_VERSION=24.04
-ARG NVIDIA_CUDA_VERSION=12.9.0
+ARG NVIDIA_CUDA_VERSION=12.9.1
 
 #
 # Docker builder stage.
@@ -24,19 +24,27 @@ RUN apt-get update && \
         libboost-graph-dev \
         libboost-system-dev \
         libeigen3-dev \
-        libfreeimage-dev \
+        libopenimageio-dev \
+        openimageio-tools \
         libmetis-dev \
         libgoogle-glog-dev \
         libgtest-dev \
         libgmock-dev \
         libsqlite3-dev \
         libglew-dev \
-        qtbase5-dev \
-        libqt5opengl5-dev \
+        qt6-base-dev \
+        libqt6opengl6-dev \
+        libqt6openglwidgets6 \
         libcgal-dev \
         libceres-dev \
         libcurl4-openssl-dev \
+        libssl-dev \
         libmkl-full-dev
+
+# Fix issue in Ubuntu's openimageio CMake config.
+# We don't depend on any of openimageio's OpenCV functionality,
+# but it still requires the OpenCV include directory to exist.
+RUN mkdir -p /usr/include/opencv4
 
 # Build and install COLMAP.
 RUN git clone https://github.com/colmap/colmap.git
@@ -64,17 +72,27 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends --no-install-suggests \
         libboost-program-options1.83.0 \
         libc6 \
+        libomp5 \
+        libopengl0 \
+        libmetis5 \
         libceres4t64 \
-        libfreeimage3 \
+        libopenimageio2.4t64 \
         libgcc-s1 \
         libgl1 \
         libglew2.2 \
         libgoogle-glog0v6t64 \
-        libqt5core5a \
-        libqt5gui5 \
-        libqt5widgets5 \
+        libqt6core6 \
+        libqt6gui6 \
+        libqt6widgets6 \
+        libqt6openglwidgets6 \
         libcurl4 \
-        libmkl-intel-lp64
+        libssl3t64 \
+        libmkl-locale \
+        libmkl-intel-lp64 \
+        libmkl-intel-thread \
+        libmkl-core && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy all files from /colmap-install/ in the builder stage to /usr/local/ in
 # the runtime stage. This simulates installing COLMAP in the default location

@@ -29,7 +29,6 @@
 
 #include "colmap/scene/correspondence_graph.h"
 
-#include "colmap/geometry/pose.h"
 #include "colmap/util/string.h"
 
 #include <map>
@@ -110,8 +109,7 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
 
   // Set the number of all correspondences for this image pair. Further below,
   // we will make sure that only unique correspondences are counted.
-  const image_pair_t pair_id =
-      Database::ImagePairToPairId(image_id1, image_id2);
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
   auto& image_pair = image_pairs_[pair_id];
   image_pair.num_correspondences += static_cast<point2D_t>(matches.size());
 
@@ -128,20 +126,17 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
       auto& corrs1 = image1.corrs[match.point2D_idx1];
       auto& corrs2 = image2.corrs[match.point2D_idx2];
 
-      const bool duplicate1 =
+      // We add valid correspondences bidirectionally, so checking from only one
+      // side is sufficient to detect duplicated matches.
+      const bool duplicate =
           std::find_if(corrs1.begin(),
                        corrs1.end(),
-                       [image_id2](const Correspondence& corr) {
-                         return corr.image_id == image_id2;
+                       [image_id2, &match](const Correspondence& corr) {
+                         return corr.image_id == image_id2 &&
+                                corr.point2D_idx == match.point2D_idx2;
                        }) != corrs1.end();
-      const bool duplicate2 =
-          std::find_if(corrs2.begin(),
-                       corrs2.end(),
-                       [image_id1](const Correspondence& corr) {
-                         return corr.image_id == image_id1;
-                       }) != corrs2.end();
 
-      if (duplicate1 || duplicate2) {
+      if (duplicate) {
         image1.num_correspondences -= 1;
         image2.num_correspondences -= 1;
         image_pair.num_correspondences -= 1;

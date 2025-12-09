@@ -30,7 +30,7 @@
 #pragma once
 
 #include "colmap/controllers/image_reader.h"
-#include "colmap/feature/sift.h"
+#include "colmap/feature/extractor.h"
 #include "colmap/util/threading.h"
 
 namespace colmap {
@@ -39,7 +39,7 @@ namespace colmap {
 std::unique_ptr<Thread> CreateFeatureExtractorController(
     const std::string& database_path,
     const ImageReaderOptions& reader_options,
-    const SiftExtractionOptions& sift_options);
+    const FeatureExtractionOptions& extraction_options);
 
 // Import features from text files. Each image must have a corresponding text
 // file with the same name and an additional ".txt" suffix.

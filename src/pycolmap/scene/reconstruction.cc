@@ -1,6 +1,7 @@
 #include "colmap/scene/reconstruction.h"
 
 #include "colmap/scene/correspondence_graph.h"
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/file.h"
@@ -26,8 +27,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindReconstruction(py::module& m) {
-  py::class_<Reconstruction, std::shared_ptr<Reconstruction>>(m,
-                                                              "Reconstruction")
+  py::classh<Reconstruction>(m, "Reconstruction")
       .def(py::init<>())
       .def(py::init<const Reconstruction&>(), "reconstruction"_a)
       .def(py::init([](const std::string& path) {
@@ -103,6 +103,7 @@ void BindReconstruction(py::module& m) {
       .def("exists_frame", &Reconstruction::ExistsFrame, "frame_id"_a)
       .def("exists_image", &Reconstruction::ExistsImage, "image_id"_a)
       .def("exists_point3D", &Reconstruction::ExistsPoint3D, "point3D_id"_a)
+      .def("load", &Reconstruction::Load, "database_cache"_a)
       .def("tear_down", &Reconstruction::TearDown)
       .def("add_rig", &Reconstruction::AddRig, "rig"_a, "Add new rig.")
       .def("add_camera",
@@ -110,6 +111,12 @@ void BindReconstruction(py::module& m) {
            "camera"_a,
            "Add new camera. There is only one camera per image, while multiple "
            "images might be taken by the same camera.")
+      .def("add_camera_with_trivial_rig",
+           &Reconstruction::AddCameraWithTrivialRig,
+           "camera"_a,
+           "Add a new camera and also create a trivial rig whose rig_id "
+           "matches the "
+           "camera_id. The camera becomes the rig's only sensor.")
       .def("add_frame", &Reconstruction::AddFrame, "frame"_a, "Add new frame.")
       .def(
           "add_image",
@@ -118,6 +125,22 @@ void BindReconstruction(py::module& m) {
           "Add new image. Its camera must have been added before. If its "
           "camera object is unset, it will be automatically populated from the "
           "added cameras.")
+      .def("add_image_with_trivial_frame",
+           py::overload_cast<Image>(&Reconstruction::AddImageWithTrivialFrame),
+           "image"_a,
+           "Add a new image and create a frame with the same ID (frame_id = "
+           "image_id). "
+           "Assumes a rig exists whose rig_id equals the camera_id of the "
+           "image.")
+      .def("add_image_with_trivial_frame",
+           py::overload_cast<Image, const Rigid3d&>(
+               &Reconstruction::AddImageWithTrivialFrame),
+           "image"_a,
+           "cam_from_world"_a,
+           "Add a new image, create a trivial frame (frame_id = image_id), and "
+           "also "
+           "register the frame with an input pose.")
+
       .def("add_point3D",
            py::overload_cast<const Eigen::Vector3d&,
                              Track,
@@ -151,11 +174,14 @@ void BindReconstruction(py::module& m) {
            "Delete one observation from an image and the corresponding 3D "
            "point. Note that this deletes the entire 3D point, if the track "
            "has two elements prior to calling this method.")
-      .def("register_image",
+      .def("delete_all_points2D_and_points3D",
+           &Reconstruction::DeleteAllPoints2DAndPoints3D,
+           "Delete all 2D points of all images and all 3D points.")
+      .def("register_frame",
            &Reconstruction::RegisterFrame,
            "frame_id"_a,
            "Register an existing frame.")
-      .def("deregister_image",
+      .def("deregister_frame",
            &Reconstruction::DeRegisterFrame,
            "frame_id"_a,
            "De-register an existing frame, and all its references.")

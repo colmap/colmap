@@ -32,7 +32,6 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
-#include "colmap/util/logging.h"
 
 #include <Eigen/Core>
 #include <ceres/ceres.h>
@@ -71,6 +70,10 @@ class AutoDiffCostFunctor {
     return CreateAutoDiffCostFunction<DerivedCostFunctor>(
         new DerivedCostFunctor(std::forward<Args>(args)...));
   }
+
+ private:
+  AutoDiffCostFunctor() = default;
+  friend DerivedCostFunctor;
 };
 
 // Standard bundle adjustment cost function for variable
@@ -288,8 +291,9 @@ class RigReprojErrorConstantRigCostFunctor
 class SampsonErrorCostFunctor
     : public AutoDiffCostFunctor<SampsonErrorCostFunctor, 1, 4, 3> {
  public:
-  SampsonErrorCostFunctor(const Eigen::Vector2d& x1, const Eigen::Vector2d& x2)
-      : x1_(x1(0)), y1_(x1(1)), x2_(x2(0)), y2_(x2(1)) {}
+  SampsonErrorCostFunctor(const Eigen::Vector3d& cam_ray1,
+                          const Eigen::Vector3d& cam_ray2)
+      : cam_ray1_(cam_ray1), cam_ray2_(cam_ray2) {}
 
   template <typename T>
   bool operator()(const T* const cam2_from_cam1_rotation,
@@ -307,26 +311,27 @@ class SampsonErrorCostFunctor
     // Essential matrix.
     const Eigen::Matrix<T, 3, 3> E = t_x * R;
 
-    // Homogeneous image coordinates.
-    const Eigen::Matrix<T, 3, 1> x1_h(T(x1_), T(y1_), T(1));
-    const Eigen::Matrix<T, 3, 1> x2_h(T(x2_), T(y2_), T(1));
-
     // Squared sampson error.
-    const Eigen::Matrix<T, 3, 1> Ex1 = E * x1_h;
-    const Eigen::Matrix<T, 3, 1> Etx2 = E.transpose() * x2_h;
-    const T x2tEx1 = x2_h.transpose() * Ex1;
-    residuals[0] = x2tEx1 * x2tEx1 /
-                   (Ex1(0) * Ex1(0) + Ex1(1) * Ex1(1) + Etx2(0) * Etx2(0) +
-                    Etx2(1) * Etx2(1));
+    const Eigen::Matrix<T, 3, 1> epipolar_line1 = E * cam_ray1_.cast<T>();
+    const Eigen::Matrix<T, 3, 1> cam_ray2 = cam_ray2_.cast<T>();
+    const T num = cam_ray2.dot(epipolar_line1);
+    const Eigen::Matrix<T, 4, 1> denom(cam_ray2.dot(E.col(0)),
+                                       cam_ray2.dot(E.col(1)),
+                                       epipolar_line1.x(),
+                                       epipolar_line1.y());
+    const T denom_norm = denom.norm();
+    if (denom_norm == static_cast<T>(0)) {
+      residuals[0] = static_cast<T>(0);
+    } else {
+      residuals[0] = num / denom_norm;
+    }
 
     return true;
   }
 
  private:
-  const double x1_;
-  const double y1_;
-  const double x2_;
-  const double y2_;
+  const Eigen::Vector3d cam_ray1_;
+  const Eigen::Vector3d cam_ray2_;
 };
 
 template <typename T>
@@ -339,41 +344,41 @@ inline void EigenQuaternionToAngleAxis(const T* eigen_quaternion,
   ceres::QuaternionToAngleAxis(quaternion, angle_axis);
 }
 
-// 6-DoF error on the absolute camera pose. The residual is the log of the error
+// 6-DoF error on the absolute sensor pose. The residual is the log of the error
 // pose, splitting SE(3) into SO(3) x R^3. The residual is computed in the
-// camera frame. Its first and last three components correspond to the rotation
+// sensor frame. Its first and last three components correspond to the rotation
 // and translation errors, respectively.
 struct AbsolutePosePriorCostFunctor
     : public AutoDiffCostFunctor<AbsolutePosePriorCostFunctor, 6, 4, 3> {
  public:
-  explicit AbsolutePosePriorCostFunctor(const Rigid3d& cam_from_world_prior)
-      : world_from_cam_prior_(Inverse(cam_from_world_prior)) {}
+  explicit AbsolutePosePriorCostFunctor(const Rigid3d& sensor_from_world_prior)
+      : world_from_sensor_prior_(Inverse(sensor_from_world_prior)) {}
 
   template <typename T>
-  bool operator()(const T* const cam_from_world_rotation,
-                  const T* const cam_from_world_translation,
+  bool operator()(const T* const sensor_from_world_rotation,
+                  const T* const sensor_from_world_translation,
                   T* residuals_ptr) const {
     const Eigen::Quaternion<T> param_from_prior_rotation =
-        EigenQuaternionMap<T>(cam_from_world_rotation) *
-        world_from_cam_prior_.rotation.cast<T>();
+        EigenQuaternionMap<T>(sensor_from_world_rotation) *
+        world_from_sensor_prior_.rotation.cast<T>();
     EigenQuaternionToAngleAxis(param_from_prior_rotation.coeffs().data(),
                                residuals_ptr);
 
     Eigen::Map<Eigen::Matrix<T, 3, 1>> param_from_prior_translation(
         residuals_ptr + 3);
     param_from_prior_translation =
-        EigenVector3Map<T>(cam_from_world_translation) +
-        EigenQuaternionMap<T>(cam_from_world_rotation) *
-            world_from_cam_prior_.translation.cast<T>();
+        EigenVector3Map<T>(sensor_from_world_translation) +
+        EigenQuaternionMap<T>(sensor_from_world_rotation) *
+            world_from_sensor_prior_.translation.cast<T>();
 
     return true;
   }
 
  private:
-  const Rigid3d world_from_cam_prior_;
+  const Rigid3d world_from_sensor_prior_;
 };
 
-// 3-DoF error on the camera position in the world coordinate frame.
+// 3-DoF error on the sensor position in the world coordinate frame.
 struct AbsolutePosePositionPriorCostFunctor
     : public AutoDiffCostFunctor<AbsolutePosePositionPriorCostFunctor,
                                  3,
@@ -385,13 +390,50 @@ struct AbsolutePosePositionPriorCostFunctor
       : position_in_world_prior_(position_in_world_prior) {}
 
   template <typename T>
-  bool operator()(const T* const cam_from_world_rotation,
-                  const T* const cam_from_world_translation,
+  bool operator()(const T* const sensor_from_world_rotation,
+                  const T* const sensor_from_world_translation,
                   T* residuals_ptr) const {
     Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
     residuals = position_in_world_prior_.cast<T>() +
-                EigenQuaternionMap<T>(cam_from_world_rotation).inverse() *
-                    EigenVector3Map<T>(cam_from_world_translation);
+                EigenQuaternionMap<T>(sensor_from_world_rotation).inverse() *
+                    EigenVector3Map<T>(sensor_from_world_translation);
+    return true;
+  }
+
+ private:
+  const Eigen::Vector3d position_in_world_prior_;
+};
+
+// 3-DoF error on the rig sensor position in the world coordinate frame.
+struct AbsoluteRigPosePositionPriorCostFunctor
+    : public AutoDiffCostFunctor<AbsoluteRigPosePositionPriorCostFunctor,
+                                 3,
+                                 4,
+                                 3,
+                                 4,
+                                 3> {
+ public:
+  explicit AbsoluteRigPosePositionPriorCostFunctor(
+      const Eigen::Vector3d& position_in_world_prior)
+      : position_in_world_prior_(position_in_world_prior) {}
+
+  template <typename T>
+  bool operator()(const T* const sensor_from_rig_rotation,
+                  const T* const sensor_from_rig_translation,
+                  const T* const rig_from_world_rotation,
+                  const T* const rig_from_world_translation,
+                  T* residuals_ptr) const {
+    const Eigen::Quaternion<T> sensor_from_world_rotation =
+        EigenQuaternionMap<T>(sensor_from_rig_rotation) *
+        EigenQuaternionMap<T>(rig_from_world_rotation);
+    const Eigen::Matrix<T, 3, 1> sensor_from_world_translation =
+        EigenVector3Map<T>(sensor_from_rig_translation) +
+        EigenQuaternionMap<T>(sensor_from_rig_rotation) *
+            EigenVector3Map<T>(rig_from_world_translation);
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
+    residuals =
+        position_in_world_prior_.cast<T>() +
+        sensor_from_world_rotation.inverse() * sensor_from_world_translation;
     return true;
   }
 
@@ -452,18 +494,26 @@ struct RelativePosePriorCostFunctor
 struct Point3DAlignmentCostFunctor
     : public AutoDiffCostFunctor<Point3DAlignmentCostFunctor, 3, 3, 4, 3, 1> {
  public:
-  explicit Point3DAlignmentCostFunctor(const Eigen::Vector3d& point_in_b_prior)
-      : point_in_b_prior_(point_in_b_prior) {}
+  explicit Point3DAlignmentCostFunctor(const Eigen::Vector3d& point_in_b_prior,
+                                       bool use_log_scale = true)
+      : point_in_b_prior_(point_in_b_prior), use_log_scale_(use_log_scale) {}
 
   template <typename T>
-  bool operator()(const T* const point_in_a,
-                  const T* const b_from_a_rotation,
-                  const T* const b_from_a_translation,
-                  const T* const b_from_a_scale,
-                  T* residuals_ptr) const {
+  bool operator()(
+      const T* const point_in_a,
+      const T* const b_from_a_rotation,
+      const T* const b_from_a_translation,
+      const T* const b_from_a_scale_param,  // could be scale or log_scale
+                                            // depending on use_log_scale_
+      T* residuals_ptr) const {
+    // Select whether to exponentiate
+    const T b_from_a_scale = use_log_scale_
+                                 ? ceres::exp(b_from_a_scale_param[0])
+                                 : b_from_a_scale_param[0];
+
     const Eigen::Matrix<T, 3, 1> point_in_b =
         EigenQuaternionMap<T>(b_from_a_rotation) *
-            EigenVector3Map<T>(point_in_a) * b_from_a_scale[0] +
+            EigenVector3Map<T>(point_in_a) * b_from_a_scale +
         EigenVector3Map<T>(b_from_a_translation);
     Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
     residuals = point_in_b - point_in_b_prior_.cast<T>();
@@ -472,6 +522,7 @@ struct Point3DAlignmentCostFunctor
 
  private:
   const Eigen::Vector3d point_in_b_prior_;
+  const bool use_log_scale_;
 };
 
 template <typename... Args>

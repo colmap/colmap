@@ -33,16 +33,12 @@
 #include "colmap/scene/camera.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/image.h"
-#include "colmap/scene/point2d.h"
 #include "colmap/scene/point3d.h"
 #include "colmap/scene/track.h"
 #include "colmap/sensor/rig.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
-#include <memory>
-#include <set>
-#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -125,6 +121,10 @@ class Reconstruction {
   // might be taken by the same camera.
   void AddCamera(struct Camera camera);
 
+  // Add a new camera and also add a rig using the same id rig_id = camera_id,
+  // with the camera being its only sensor.
+  void AddCameraWithTrivialRig(struct Camera camera);
+
   // Add new frame. Its rig must have been added before. If its rig object
   // is unset, it will be automatically populated from the added rigs.
   void AddFrame(class Frame frame);
@@ -133,6 +133,16 @@ class Reconstruction {
   // camera/frame objects are unset, they will be automatically populated from
   // the added cameras.
   void AddImage(class Image image);
+
+  // Add a new image and also add a frame using the same id frame_id = image_id,
+  // with the image being its only data. Here we also assume that the
+  // corresponding rig for the frame has the same id as the corresponding camera
+  // of the image, i.e., rig_id = image.camera_id.
+  void AddImageWithTrivialFrame(class Image image);
+
+  // AddImageWithTrivialFrame and also register the frame with an input pose.
+  void AddImageWithTrivialFrame(class Image image,
+                                const Rigid3d& cam_from_world);
 
   // Add new 3D point with known ID.
   void AddPoint3D(point3D_t point3D_id, struct Point3D point3D);

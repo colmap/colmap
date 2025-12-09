@@ -29,6 +29,7 @@
 
 #include "colmap/scene/database_cache.h"
 
+#include "colmap/geometry/gps.h"
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
 
@@ -109,17 +110,10 @@ void DatabaseCache::Load(const Database& database,
   timer.Restart();
   LOG(INFO) << "Loading frames...";
 
-  std::unordered_map<image_t, frame_t> image_to_frame_id;
-
   {
     std::vector<class Frame> frames = database.ReadAllFrames();
     frames_.reserve(frames.size());
     for (auto& frame : frames) {
-      for (const auto& data_id : frame.DataIds()) {
-        if (data_id.sensor_id.type == SensorType::CAMERA) {
-          image_to_frame_id.emplace(data_id.id, frame.FrameId());
-        }
-      }
       frames_.emplace(frame.FrameId(), std::move(frame));
     }
   }
@@ -156,27 +150,27 @@ void DatabaseCache::Load(const Database& database,
   LOG(INFO) << "Loading images...";
 
   std::unordered_set<frame_t> frame_ids;
+  std::unordered_map<image_t, frame_t> image_to_frame_id;
 
   {
     std::vector<class Image> images = database.ReadAllImages();
     const size_t num_images = images.size();
 
-    if (has_frames) {
-      for (auto& image : images) {
-        image.SetFrameId(image_to_frame_id.at(image.ImageId()));
-      }
-    } else {
-      for (auto& image : images) {
-        // For backwards compatibility with old databases from before having
-        // support for rigs/frames, we create a frame for each image.
+    for (auto& image : images) {
+      // For backwards compatibility with old databases from before having
+      // support for rigs/frames, we create a frame for each image.
+      if (has_frames) {
+        THROW_CHECK(image.HasFrameId());
+      } else {
         class Frame frame;
         frame.SetFrameId(image.ImageId());
         frame.SetRigId(image.CameraId());
         frame.AddDataId(image.DataId());
         image.SetFrameId(frame.FrameId());
-        image_to_frame_id.emplace(image.ImageId(), frame.FrameId());
         frames_.emplace(frame.FrameId(), std::move(frame));
       }
+
+      image_to_frame_id.emplace(image.ImageId(), image.FrameId());
     }
 
     // Determines for which images data should be loaded.
@@ -197,8 +191,7 @@ void DatabaseCache::Load(const Database& database,
     connected_frame_ids.reserve(frame_ids.size());
     for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
       if (UseInlierMatchesCheck(two_view_geometry)) {
-        const auto [image_id1, image_id2] =
-            Database::PairIdToImagePair(pair_id);
+        const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
         const frame_t frame_id1 = image_to_frame_id.at(image_id1);
         const frame_t frame_id2 = image_to_frame_id.at(image_id2);
         if (frame_ids.count(frame_id1) > 0 && frame_ids.count(frame_id2) > 0) {
@@ -229,11 +222,9 @@ void DatabaseCache::Load(const Database& database,
       image.SetPoints2D(
           FeatureKeypointsToPointsVector(database.ReadKeypoints(image_id)));
       images_.emplace(image_id, std::move(image));
-
-      if (database.ExistsPosePrior(image_id)) {
-        pose_priors_.emplace(image_id, database.ReadPosePrior(image_id));
-      }
     }
+
+    pose_priors_ = database.ReadAllPosePriors();
 
     LOG(INFO) << StringPrintf(" %d in %.3fs (connected %d)",
                               num_images,
@@ -257,7 +248,7 @@ void DatabaseCache::Load(const Database& database,
   size_t num_ignored_image_pairs = 0;
   for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
     if (UseInlierMatchesCheck(two_view_geometry)) {
-      const auto [image_id1, image_id2] = Database::PairIdToImagePair(pair_id);
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
       const frame_t frame_id1 = image_to_frame_id.at(image_id1);
       const frame_t frame_id2 = image_to_frame_id.at(image_id2);
       if (frame_ids.count(frame_id1) > 0 && frame_ids.count(frame_id2) > 0) {
@@ -313,11 +304,8 @@ void DatabaseCache::AddImage(class Image image) {
   images_.emplace(image_id, std::move(image));
 }
 
-void DatabaseCache::AddPosePrior(image_t image_id,
-                                 struct PosePrior pose_prior) {
-  THROW_CHECK(ExistsImage(image_id));
-  THROW_CHECK(!ExistsPosePrior(image_id));
-  pose_priors_.emplace(image_id, std::move(pose_prior));
+void DatabaseCache::AddPosePrior(struct PosePrior pose_prior) {
+  pose_priors_.push_back(std::move(pose_prior));
 }
 
 const class Image* DatabaseCache::FindImageWithName(
@@ -343,48 +331,37 @@ bool DatabaseCache::SetupPosePriors() {
 
   bool prior_is_gps = true;
 
-  // Get sorted image ids for GPS to cartesian conversion
-  std::set<image_t> image_ids_with_prior;
-  for (const auto& [image_id, _] : pose_priors_) {
-    image_ids_with_prior.insert(image_id);
-  }
-
-  // Get GPS priors
-  std::vector<Eigen::Vector3d> v_gps_prior;
-  v_gps_prior.reserve(NumPosePriors());
-
-  for (const image_t image_id : image_ids_with_prior) {
-    const struct PosePrior& pose_prior = PosePrior(image_id);
+  std::vector<Eigen::Vector3d> gps_prior_positions;
+  std::set<PosePrior::CoordinateSystem> coordinate_systems;
+  for (const auto& pose_prior : pose_priors_) {
+    coordinate_systems.insert(pose_prior.coordinate_system);
     if (pose_prior.coordinate_system != PosePrior::CoordinateSystem::WGS84) {
       prior_is_gps = false;
     } else {
-      // Image with the lowest id is to be used as the origin for prior
-      // position conversion
-      v_gps_prior.push_back(pose_prior.position);
+      gps_prior_positions.push_back(pose_prior.position);
     }
   }
 
-  // Convert geographic to cartesian
+  if (coordinate_systems.size() > 1) {
+    LOG(ERROR) << "Inconsistent coordinate systems defined as pose priors";
+    return false;
+  }
+
   if (prior_is_gps) {
-    // GPS reference to be used for EllipsoidToENU conversion
-    const double ref_lat = v_gps_prior[0][0];
-    const double ref_lon = v_gps_prior[0][1];
+    // GPS reference to be used for EllipsoidToENU conversion.
+    const double ref_lat = gps_prior_positions[0][0];
+    const double ref_lon = gps_prior_positions[0][1];
 
     const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
     const std::vector<Eigen::Vector3d> v_xyz_prior =
-        gps_transform.EllipsoidToENU(v_gps_prior, ref_lat, ref_lon);
+        gps_transform.EllipsoidToENU(gps_prior_positions, ref_lat, ref_lon);
 
     auto xyz_prior_it = v_xyz_prior.begin();
-    for (const auto& image_id : image_ids_with_prior) {
-      struct PosePrior& pose_prior = PosePrior(image_id);
+    for (auto& pose_prior : pose_priors_) {
       pose_prior.position = *xyz_prior_it;
       pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
       ++xyz_prior_it;
     }
-  } else if (!prior_is_gps && !v_gps_prior.empty()) {
-    LOG(ERROR)
-        << "Database is mixing GPS & non-GPS prior positions... Aborting";
-    return false;
   }
 
   timer.PrintMinutes();

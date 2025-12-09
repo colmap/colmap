@@ -30,12 +30,10 @@
 #include "colmap/exe/database.h"
 
 #include "colmap/controllers/option_manager.h"
-#include "colmap/geometry/pose.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/rig.h"
 #include "colmap/util/file.h"
-#include "colmap/util/misc.h"
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -46,37 +44,41 @@ int RunDatabaseCleaner(int argc, char** argv) {
   std::string type;
 
   OptionManager options;
-  options.AddRequiredOption("type", &type, "{all, images, features, matches}");
+  options.AddRequiredOption(
+      "type", &type, "{all, images, features, matches, two_view_geometries}");
   options.AddDatabaseOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   StringToLower(&type);
-  Database database(*options.database_path);
-  PrintHeading1("Clearing database");
-  {
-    DatabaseTransaction transaction(&database);
-    if (type == "all") {
-      PrintHeading2("Clearing all tables");
-      database.ClearAllTables();
-    } else if (type == "images") {
-      PrintHeading2("Clearing Images and all dependent tables");
-      database.ClearImages();
-      database.ClearTwoViewGeometries();
-      database.ClearMatches();
-    } else if (type == "features") {
-      PrintHeading2("Clearing image features and matches");
-      database.ClearDescriptors();
-      database.ClearKeypoints();
-      database.ClearTwoViewGeometries();
-      database.ClearMatches();
-    } else if (type == "matches") {
-      PrintHeading2("Clearing image matches");
-      database.ClearTwoViewGeometries();
-      database.ClearMatches();
-    } else {
-      LOG(ERROR) << "Invalid cleanup type; no changes in database";
-      return EXIT_FAILURE;
-    }
+  auto database = Database::Open(*options.database_path);
+
+  DatabaseTransaction transaction(database.get());
+  if (type == "all") {
+    LOG(INFO) << "Clearing all tables";
+    database->ClearAllTables();
+  } else if (type == "images") {
+    LOG(INFO) << "Clearing images and all dependent tables";
+    database->ClearImages();
+    database->ClearMatches();
+    database->ClearTwoViewGeometries();
+  } else if (type == "features") {
+    LOG(INFO) << "Clearing features, matches, and two-view geometries";
+    database->ClearDescriptors();
+    database->ClearKeypoints();
+    database->ClearMatches();
+    database->ClearTwoViewGeometries();
+  } else if (type == "matches") {
+    LOG(INFO) << "Clearing matches and two-view geometries";
+    database->ClearMatches();
+    database->ClearTwoViewGeometries();
+  } else if (type == "two_view_geometries") {
+    LOG(INFO) << "Clearing two-view geometries";
+    database->ClearTwoViewGeometries();
+  } else {
+    LOG(ERROR) << "Invalid cleanup type; no changes in database";
+    return EXIT_FAILURE;
   }
 
   return EXIT_SUCCESS;
@@ -85,9 +87,11 @@ int RunDatabaseCleaner(int argc, char** argv) {
 int RunDatabaseCreator(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
-  Database database(*options.database_path);
+  auto database = Database::Open(*options.database_path);
 
   return EXIT_SUCCESS;
 }
@@ -101,17 +105,19 @@ int RunDatabaseMerger(int argc, char** argv) {
   options.AddRequiredOption("database_path1", &database_path1);
   options.AddRequiredOption("database_path2", &database_path2);
   options.AddRequiredOption("merged_database_path", &merged_database_path);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   if (ExistsFile(merged_database_path)) {
     LOG(ERROR) << "Merged database file must not exist.";
     return EXIT_FAILURE;
   }
 
-  Database database1(database_path1);
-  Database database2(database_path2);
-  Database merged_database(merged_database_path);
-  Database::Merge(database1, database2, &merged_database);
+  auto database1 = Database::Open(database_path1);
+  auto database2 = Database::Open(database_path2);
+  auto merged_database = Database::Open(merged_database_path);
+  Database::Merge(*database1, *database2, merged_database.get());
 
   return EXIT_SUCCESS;
 }
@@ -137,7 +143,9 @@ int RunRigConfigurator(int argc, char** argv) {
       "output_path",
       &output_path,
       "Optional output reconstruction with configured rigs/frames.");
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   std::optional<Reconstruction> reconstruction;
   if (!input_path.empty()) {
@@ -145,11 +153,11 @@ int RunRigConfigurator(int argc, char** argv) {
     reconstruction->Read(input_path);
   }
 
-  Database database(database_path);
+  auto database = Database::Open(database_path);
 
   ApplyRigConfig(
       ReadRigConfig(rig_config_path),
-      database,
+      *database,
       reconstruction.has_value() ? &reconstruction.value() : nullptr);
 
   if (reconstruction.has_value() && !output_path.empty()) {

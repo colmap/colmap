@@ -62,6 +62,7 @@ namespace colmap {
 //
 class IncrementalMapper {
  public:
+  // NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding)
   struct Options {
     // Minimum number of inliers for initial image pair.
     int init_min_num_inliers = 100;
@@ -95,10 +96,23 @@ class IncrementalMapper {
     bool abs_pose_refine_extra_params = true;
 
     // Number of images to optimize in local bundle adjustment.
-    int local_ba_num_images = 6;
+    int ba_local_num_images = 6;
 
     // Minimum triangulation for images to be chosen in local bundle adjustment.
-    double local_ba_min_tri_angle = 6;
+    double ba_local_min_tri_angle = 6;
+
+    // Whether to ignore redundant 3D points in bundle adjustment when
+    // jointly optimizing all parameters. If this is enabled, then the bundle
+    // adjustment problem is first solved with a reduced set of 3D points and
+    // then the remaining 3D points are optimized in a second step with all
+    // other parameters fixed. Points excplicitly configured as constant or
+    // variable are not ignored. This is only activated when the reconstruction
+    // has reached sufficient size with at least 10 registered frames.
+    bool ba_global_ignore_redundant_points3D = false;
+
+    // The minimum coverage gain for any 3D point to be included in global
+    // bundle adjustment. A larger value means more 3D points are pruned.
+    double ba_global_ignore_redundant_points3D_min_coverage_gain = 0.05;
 
     // Thresholds for bogus camera parameters. Images with bogus camera
     // parameters are filtered and ignored in triangulation.
@@ -118,6 +132,14 @@ class IncrementalMapper {
     // If reconstruction is provided as input, fix the existing image poses.
     bool fix_existing_frames = false;
 
+    // List of rigs for which to fix the sensor_from_rig transformation,
+    // independent of ba_refine_sensor_from_rig.
+    std::unordered_set<rig_t> constant_rigs;
+
+    // List of cameras for which to fix the camera parameters independent
+    // of refine_focal_length, refine_principal_point, and refine_extra_params.
+    std::unordered_set<camera_t> constant_cameras;
+
     // Whether to use prior camera positions
     bool use_prior_position = false;
 
@@ -130,6 +152,9 @@ class IncrementalMapper {
 
     // Number of threads.
     int num_threads = -1;
+
+    // PRNG seed for all stochastic methods during reconstruction.
+    int random_seed = -1;
 
     // Method to find and select next best image to register.
     enum class ImageSelectionMethod {
@@ -170,24 +195,30 @@ class IncrementalMapper {
   // pairs should be passed to `RegisterInitialImagePair`. This function
   // automatically ignores image pairs that failed to register previously.
   bool FindInitialImagePair(const Options& options,
-                            TwoViewGeometry& two_view_geometry,
                             image_t& image_id1,
-                            image_t& image_id2);
+                            image_t& image_id2,
+                            Rigid3d& cam2_from_cam1);
 
   // Find best next image to register in the incremental reconstruction. The
-  // images should be passed to `RegisterNextImage`. This function automatically
-  // ignores images that failed to registered for `max_reg_trials`.
-  std::vector<image_t> FindNextImages(const Options& options);
+  // images should be passed to `RegisterNextImage` and
+  // `RegisterNextImageFallback`, respectively. This function automatically
+  // ignores images that failed to register for `max_reg_trials`.
+  std::vector<image_t> FindNextImages(const Options& options,
+                                      bool structure_less = false);
 
   // Attempt to seed the reconstruction from an image pair.
   void RegisterInitialImagePair(const Options& options,
-                                const TwoViewGeometry& two_view_geometry,
                                 image_t image_id1,
-                                image_t image_id2);
+                                image_t image_id2,
+                                const Rigid3d& cam2_from_cam1);
 
   // Attempt to register image to the existing model. This requires that
   // a previous call to `RegisterInitialImagePair` was successful.
   bool RegisterNextImage(const Options& options, image_t image_id);
+
+  // Attempts to register image using structure-less resectioning as proposed in
+  // "Structure from Motion Using Structure-less Resection" by Zheng and Wu.
+  bool RegisterNextStructureLessImage(const Options& options, image_t image_id);
 
   // Triangulate observations of image.
   size_t TriangulateImage(const IncrementalTriangulator::Options& tri_options,
@@ -284,7 +315,7 @@ class IncrementalMapper {
   bool EstimateInitialTwoViewGeometry(const Options& options,
                                       image_t image_id1,
                                       image_t image_id2,
-                                      TwoViewGeometry& two_view_geometry);
+                                      Rigid3d& cam2_from_cam1);
 
   // Find local bundle for given image in the reconstruction. The local bundle
   // is defined as the images that are most connected, i.e. maximum number of

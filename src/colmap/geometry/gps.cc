@@ -186,7 +186,6 @@ std::vector<Eigen::Vector3d> GPSTransform::EllipsoidToENU(
     const double ref_lon) const {
   // Convert GPS (lat / lon / alt) to ECEF
   std::vector<Eigen::Vector3d> xyz_in_ecef = EllipsoidToECEF(lat_lon_alt);
-
   return ECEFToENU(xyz_in_ecef, ref_lat, ref_lon);
 }
 

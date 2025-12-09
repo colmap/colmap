@@ -17,16 +17,17 @@ else()
     message(STATUS "Disabling LSD support")
 endif()
 
-find_package(OpenMP REQUIRED)
+find_package(OpenMP REQUIRED COMPONENTS C CXX)
 
 find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
              graph
              program_options
+             OPTIONAL_COMPONENTS
              system)
 
 find_package(Eigen3 ${COLMAP_FIND_TYPE})
 
-find_package(FreeImage ${COLMAP_FIND_TYPE})
+find_package(OpenImageIO ${COLMAP_FIND_TYPE})
 
 find_package(Metis ${COLMAP_FIND_TYPE})
 
@@ -45,6 +46,8 @@ find_package(OpenGL ${COLMAP_FIND_TYPE})
 find_package(Glew ${COLMAP_FIND_TYPE})
 
 find_package(Git)
+
+find_package(CHOLMOD REQUIRED)
 
 find_package(Ceres ${COLMAP_FIND_TYPE})
 if(NOT TARGET Ceres::ceres)
@@ -87,7 +90,7 @@ endif()
 if(DOWNLOAD_ENABLED)
     # The OpenSSL package in vcpkg seems broken under Windows and leads to
     # missing certificate verification when connecting to SSL servers. We
-    # therefore use curl[schannel] (i.e., native Windows SSL/TLS) under Windows
+    # therefore use curl[sspi] (i.e., native Windows SSL/TLS) under Windows
     # and curl[openssl] otherwise.
     find_package(CURL QUIET)
     set(CRYPTO_FOUND FALSE)
@@ -155,7 +158,7 @@ if(CUDA_ENABLED)
 
             declare_imported_cuda_target(cudart ${CUDA_LIBRARIES})
             declare_imported_cuda_target(curand ${CUDA_LIBRARIES})
-            
+
             set(CUDAToolkit_VERSION "${CUDA_VERSION_STRING}")
             set(CUDAToolkit_BIN_DIR "${CUDA_TOOLKIT_ROOT_DIR}/bin")
         else()
@@ -197,11 +200,19 @@ else()
 endif()
 
 if(GUI_ENABLED)
-    find_package(Qt5 5.4 ${COLMAP_FIND_TYPE} COMPONENTS Core OpenGL Widgets)
+    find_package(QT NAMES Qt5 Qt6 REQUIRED)
+    set(COLMAP_QT_COMPONENTS Core OpenGL Widgets)
+    if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
+        list(APPEND COLMAP_QT_COMPONENTS OpenGLWidgets)
+    endif()
+    find_package(Qt${QT_VERSION_MAJOR} ${COLMAP_FIND_TYPE} ${COLMAP_QT_COMPONENTS})
     message(STATUS "Found Qt")
-    message(STATUS "  Module : ${Qt5Core_DIR}")
-    message(STATUS "  Module : ${Qt5OpenGL_DIR}")
-    message(STATUS "  Module : ${Qt5Widgets_DIR}")
+    message(STATUS "  Module : ${Qt${QT_VERSION_MAJOR}Core_DIR}")
+    message(STATUS "  Module : ${Qt${QT_VERSION_MAJOR}OpenGL_DIR}")
+    message(STATUS "  Module : ${Qt${QT_VERSION_MAJOR}Widgets_DIR}")
+    if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
+        message(STATUS "  Module : ${Qt${QT_VERSION_MAJOR}OpenGLWidgets_DIR}")
+    endif()
     if(Qt5_FOUND)
         # Qt5 was built with -reduce-relocations.
         if(Qt5_POSITION_INDEPENDENT_CODE)
@@ -217,13 +228,15 @@ if(GUI_ENABLED)
                 endif()
             endif()
         endif()
+    endif()
 
+    if(QT_FOUND)
         # Enable automatic compilation of Qt resource files.
         set(CMAKE_AUTORCC ON)
     endif()
 endif()
 
-if(GUI_ENABLED AND Qt5_FOUND)
+if(GUI_ENABLED AND Qt${QT_VERSION_MAJOR}_FOUND)
     list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_GUI_ENABLED)
     message(STATUS "Enabling GUI support")
 else()

@@ -37,14 +37,14 @@ MatchMatrixWidget::MatchMatrixWidget(QWidget* parent, OptionManager* options)
 }
 
 void MatchMatrixWidget::Show() {
-  Database database(*options_->database_path);
+  const auto database = Database::Open(*options_->database_path);
 
-  if (database.NumImages() == 0) {
+  if (database->NumImages() == 0) {
     return;
   }
 
   // Sort the images according to their name.
-  std::vector<Image> images = database.ReadAllImages();
+  std::vector<Image> images = database->ReadAllImages();
   std::sort(images.begin(),
             images.end(),
             [](const Image& image1, const Image& image2) {
@@ -52,8 +52,7 @@ void MatchMatrixWidget::Show() {
             });
 
   // Allocate the match matrix image.
-  Bitmap match_matrix;
-  match_matrix.Allocate(images.size(), images.size(), true);
+  Bitmap match_matrix(images.size(), images.size(), true);
   match_matrix.Fill(BitmapColor<uint8_t>(255));
 
   // Map image identifiers to match matrix locations.
@@ -63,7 +62,7 @@ void MatchMatrixWidget::Show() {
   }
 
   const std::vector<std::pair<image_pair_t, int>> pair_ids_and_num_inliers =
-      database.ReadTwoViewGeometryNumInliers();
+      database->ReadTwoViewGeometryNumInliers();
 
   // Fill the match matrix.
   if (!pair_ids_and_num_inliers.empty()) {
@@ -76,7 +75,7 @@ void MatchMatrixWidget::Show() {
                        ->second);
     for (const auto& [pair_id, num_inliers] : pair_ids_and_num_inliers) {
       const double value = std::log1p(num_inliers) / max_value;
-      const auto [image_id1, image_id2] = Database::PairIdToImagePair(pair_id);
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
       const size_t idx1 = image_id_to_idx.at(image_id1);
       const size_t idx2 = image_id_to_idx.at(image_id2);
       const BitmapColor<float> color(255 * JetColormap::Red(value),

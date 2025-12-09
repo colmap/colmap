@@ -29,7 +29,6 @@
 
 #include "colmap/estimators/coordinate_frame.h"
 
-#include "colmap/estimators/utils.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/image/line.h"
@@ -318,9 +317,15 @@ void AlignToPrincipalPlane(Reconstruction* reconstruction,
   for (const auto& point : reconstruction->Points3D()) {
     normalized_points3D.col(pidx++) = point.second.xyz - centroid;
   }
+#if EIGEN_VERSION_AT_LEAST(5, 0, 0)
+  const Eigen::Matrix3d basis =
+      normalized_points3D.jacobiSvd<Eigen::ComputeThinU | Eigen::ComputeThinV>()
+          .matrixU();
+#else
   const Eigen::Matrix3d basis =
       normalized_points3D.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV)
           .matrixU();
+#endif
   Eigen::Matrix3d rot_mat;
   rot_mat << basis.col(0), basis.col(1), basis.col(0).cross(basis.col(1));
   rot_mat.transposeInPlace();

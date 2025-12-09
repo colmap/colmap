@@ -18,15 +18,14 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindTrack(py::module& m) {
-  py::class_<TrackElement, std::shared_ptr<TrackElement>> PyTrackElement(
-      m, "TrackElement");
+  py::classh<TrackElement> PyTrackElement(m, "TrackElement");
   PyTrackElement.def(py::init<>())
       .def(py::init<image_t, point2D_t>(), "image_id"_a, "point2D_idx"_a)
       .def_readwrite("image_id", &TrackElement::image_id)
       .def_readwrite("point2D_idx", &TrackElement::point2D_idx);
   MakeDataclass(PyTrackElement);
 
-  py::class_<Track, std::shared_ptr<Track>> PyTrack(m, "Track");
+  py::classh<Track> PyTrack(m, "Track");
   PyTrack.def(py::init<>())
       .def(py::init([](const std::vector<TrackElement>& elements) {
              auto track = std::make_shared<Track>();

@@ -29,8 +29,6 @@
 
 #include "colmap/estimators/absolute_pose.h"
 
-#include "colmap/estimators/utils.h"
-#include "colmap/math/polynomial.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 

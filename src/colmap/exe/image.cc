@@ -39,6 +39,8 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
+#include <fstream>
+
 namespace colmap {
 namespace {
 
@@ -92,7 +94,9 @@ int RunImageDeleter(int argc, char** argv) {
       "image_names_path",
       &image_names_path,
       "Path to text file containing one image name to delete per line");
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
@@ -168,7 +172,9 @@ int RunImageFilterer(int argc, char** argv) {
   options.AddDefaultOption("max_focal_length_ratio", &max_focal_length_ratio);
   options.AddDefaultOption("max_extra_param", &max_extra_param);
   options.AddDefaultOption("min_num_observations", &min_num_observations);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
@@ -231,7 +237,9 @@ int RunImageRectifier(int argc, char** argv) {
   options.AddDefaultOption("max_scale", &undistort_camera_options.max_scale);
   options.AddDefaultOption("max_image_size",
                            &undistort_camera_options.max_image_size);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
@@ -258,7 +266,9 @@ int RunImageRegistrator(int argc, char** argv) {
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddMapperOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   if (!ExistsDir(input_path)) {
     LOG(ERROR) << "`input_path` is not a directory";
@@ -277,13 +287,14 @@ int RunImageRegistrator(int argc, char** argv) {
   {
     Timer timer;
     timer.Start();
-    const size_t min_num_matches =
-        static_cast<size_t>(options.mapper->min_num_matches);
-    database_cache = DatabaseCache::Create(Database(*options.database_path),
-                                           min_num_matches,
-                                           options.mapper->ignore_watermarks,
-                                           {options.mapper->image_names.begin(),
-                                            options.mapper->image_names.end()});
+    database_cache = DatabaseCache::Create(
+        *Database::Open(*options.database_path),
+        /*min_num_matches=*/
+        static_cast<size_t>(options.mapper->min_num_matches),
+        /*ignore_watermarks=*/options.mapper->ignore_watermarks,
+        /*image_names=*/
+        {options.mapper->image_names.begin(),
+         options.mapper->image_names.end()});
     timer.PrintMinutes();
   }
 
@@ -351,7 +362,9 @@ int RunImageUndistorter(int argc, char** argv) {
   options.AddDefaultOption("roi_min_y", &undistort_camera_options.roi_min_y);
   options.AddDefaultOption("roi_max_x", &undistort_camera_options.roi_max_x);
   options.AddDefaultOption("roi_max_y", &undistort_camera_options.roi_max_y);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   CreateDirIfNotExists(output_path);
 
@@ -438,7 +451,9 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
   options.AddDefaultOption("roi_min_y", &undistort_camera_options.roi_min_y);
   options.AddDefaultOption("roi_max_x", &undistort_camera_options.roi_max_x);
   options.AddDefaultOption("roi_max_y", &undistort_camera_options.roi_max_y);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   CreateDirIfNotExists(output_path);
 

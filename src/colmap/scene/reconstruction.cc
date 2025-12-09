@@ -29,13 +29,12 @@
 
 #include "colmap/scene/reconstruction.h"
 
-#include "colmap/geometry/gps.h"
 #include "colmap/geometry/normalization.h"
 #include "colmap/geometry/pose.h"
-#include "colmap/geometry/triangulation.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/projection.h"
-#include "colmap/scene/reconstruction_io.h"
+#include "colmap/scene/reconstruction_io_binary.h"
+#include "colmap/scene/reconstruction_io_text.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/file.h"
 #include "colmap/util/ply.h"
@@ -92,7 +91,12 @@ size_t Reconstruction::NumRegImages() const {
   for (const frame_t frame_id : reg_frame_ids_) {
     const class Frame& frame = Frame(frame_id);
     if (frame.HasPose()) {
-      for ([[maybe_unused]] const data_t& data_id : frame.ImageIds()) {
+      for (const data_t& data_id : frame.ImageIds()) {
+        THROW_CHECK(ExistsImage(data_id.id))
+            << "The reconstruction object is broken as image " << data_id.id
+            << " in frame " << frame.FrameId()
+            << " does not exist in the reconstruction. The most likely cause "
+               "is missing AddImage(*) calls after adding frames.";
         ++num_reg_images;
       }
     }
@@ -105,6 +109,11 @@ std::vector<image_t> Reconstruction::RegImageIds() const {
   for (const frame_t frame_id : reg_frame_ids_) {
     const auto& frame = Frame(frame_id);
     for (const data_t& data_id : frame.ImageIds()) {
+      THROW_CHECK(ExistsImage(data_id.id))
+          << "The reconstruction object is broken as image " << data_id.id
+          << " in frame " << frame.FrameId()
+          << " does not exist in the reconstruction. The most likely cause "
+             "is missing AddImage(*) calls after adding frames.";
       reg_image_ids.push_back(data_id.id);
     }
   }
@@ -123,26 +132,39 @@ std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
 }
 
 void Reconstruction::Load(const DatabaseCache& database_cache) {
-  // Add rigs.
-  rigs_.reserve(database_cache.NumRigs());
-  for (const auto& [rig_id, rig] : database_cache.Rigs()) {
-    if (!ExistsRig(rig_id)) {
-      AddRig(rig);
-    }
-  }
-
   // Add cameras.
   cameras_.reserve(database_cache.NumCameras());
   for (const auto& [camera_id, camera] : database_cache.Cameras()) {
-    if (!ExistsCamera(camera_id)) {
+    if (ExistsCamera(camera_id)) {
+      struct Camera& existing_camera = Camera(camera_id);
+      THROW_CHECK_EQ(existing_camera.model_id, camera.model_id);
+      THROW_CHECK_EQ(existing_camera.width, camera.width);
+      THROW_CHECK_EQ(existing_camera.height, camera.height);
+    } else {
       AddCamera(camera);
+    }
+  }
+
+  // Add rigs.
+  rigs_.reserve(database_cache.NumRigs());
+  for (const auto& [rig_id, rig] : database_cache.Rigs()) {
+    if (ExistsRig(rig_id)) {
+      class Rig& existing_rig = Rig(rig_id);
+      THROW_CHECK(existing_rig.RefSensorId() == rig.RefSensorId());
+      THROW_CHECK(existing_rig.SensorIds() == rig.SensorIds());
+    } else {
+      AddRig(rig);
     }
   }
 
   // Add frames.
   frames_.reserve(database_cache.NumFrames());
   for (const auto& [frame_id, frame] : database_cache.Frames()) {
-    if (!ExistsFrame(frame_id)) {
+    if (ExistsFrame(frame_id)) {
+      class Frame& existing_frame = Frame(frame_id);
+      THROW_CHECK(existing_frame.RigId() == frame.RigId());
+      THROW_CHECK(existing_frame.DataIds() == frame.DataIds());
+    } else {
       AddFrame(frame);
     }
   }
@@ -168,13 +190,10 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
 void Reconstruction::TearDown() {
   // Remove all non-registered frames/images.
   std::unordered_set<rig_t> keep_rig_ids;
-  std::unordered_set<camera_t> keep_camera_ids;
   for (auto frame_it = frames_.begin(); frame_it != frames_.end();) {
     for (const data_t& data_id : frame_it->second.ImageIds()) {
       auto image_it = images_.find(data_id.id);
-      if (frame_it->second.HasPose()) {
-        keep_camera_ids.insert(image_it->second.CameraId());
-      } else if (image_it != images_.end()) {
+      if (!frame_it->second.HasPose() && image_it != images_.end()) {
         images_.erase(image_it);
       }
     }
@@ -186,19 +205,20 @@ void Reconstruction::TearDown() {
     }
   }
 
-  // Remove all unused rigs.
+  // Remove all unused rigs and corresponding sensors.
   for (auto it = rigs_.begin(); it != rigs_.end();) {
     if (keep_rig_ids.count(it->first) == 0) {
+      for (const sensor_t& sensor_id : it->second.SensorIds()) {
+        switch (sensor_id.type) {
+          case SensorType::CAMERA:
+            cameras_.erase(sensor_id.id);
+            break;
+          case SensorType::IMU:
+          case SensorType::INVALID:
+            break;
+        }
+      }
       it = rigs_.erase(it);
-    } else {
-      ++it;
-    }
-  }
-
-  // Remove all unused cameras.
-  for (auto it = cameras_.begin(); it != cameras_.end();) {
-    if (keep_camera_ids.count(it->first) == 0) {
-      it = cameras_.erase(it);
     } else {
       ++it;
     }
@@ -211,6 +231,25 @@ void Reconstruction::TearDown() {
 }
 
 void Reconstruction::AddRig(class Rig rig) {
+  auto check_exists_sensor = [&](const auto& sensor_id) {
+    switch (sensor_id.type) {
+      case SensorType::CAMERA:
+        THROW_CHECK(ExistsCamera(sensor_id.id))
+            << "Camera " << sensor_id.id << " from rig " << rig.RigId()
+            << " not found in the reconstruction. Note that AddCamera "
+               "should be called before AddRig.";
+        break;
+      case SensorType::IMU:
+      case SensorType::INVALID:
+        break;
+    }
+  };
+
+  check_exists_sensor(rig.RefSensorId());
+  for (const auto& [sensor_id, _] : rig.NonRefSensors()) {
+    check_exists_sensor(sensor_id);
+  }
+
   const rig_t rig_id = rig.RigId();
   THROW_CHECK(rigs_.emplace(rig_id, std::move(rig)).second);
 }
@@ -221,9 +260,34 @@ void Reconstruction::AddCamera(struct Camera camera) {
   THROW_CHECK(cameras_.emplace(camera_id, std::move(camera)).second);
 }
 
+void Reconstruction::AddCameraWithTrivialRig(struct Camera camera) {
+  THROW_CHECK(!ExistsRig(camera.camera_id))
+      << "AddCameraWithTrivialRig tried to add a rig with the same id as the "
+         "camera, but failed because Rig "
+      << camera.camera_id << "already exists in the reconstruction. ";
+  class Rig rig;
+  rig.SetRigId(camera.camera_id);
+  rig.AddRefSensor(camera.SensorId());
+  AddCamera(std::move(camera));
+  AddRig(rig);
+}
+
 void Reconstruction::AddFrame(class Frame frame) {
   THROW_CHECK(frame.HasRigId());
   auto& rig = Rig(frame.RigId());
+  for (const auto& data_id : frame.DataIds()) {
+    switch (data_id.sensor_id.type) {
+      case SensorType::CAMERA:
+        THROW_CHECK(rig.HasSensor(data_id.sensor_id));
+        break;
+      case SensorType::IMU:
+        // Note that we do not (yet) support IMU measurement data.
+        break;
+      case SensorType::INVALID:
+        LOG(FATAL_THROW) << "Invalid sensor type: " << data_id.sensor_id.type;
+        break;
+    }
+  }
   if (frame.HasRigPtr()) {
     THROW_CHECK_EQ(frame.RigPtr(), &rig);
   } else {
@@ -248,6 +312,7 @@ void Reconstruction::AddImage(class Image image) {
   }
   THROW_CHECK(image.HasFrameId());
   auto& frame = Frame(image.FrameId());
+  THROW_CHECK(frame.HasDataId(image.DataId()));
   if (image.HasFramePtr()) {
     THROW_CHECK_EQ(image.FramePtr(), &frame);
   } else {
@@ -255,6 +320,40 @@ void Reconstruction::AddImage(class Image image) {
   }
   const image_t image_id = image.ImageId();
   THROW_CHECK(images_.emplace(image_id, std::move(image)).second);
+}
+
+void Reconstruction::AddImageWithTrivialFrame(class Image image) {
+  THROW_CHECK(!ExistsFrame(image.ImageId()))
+      << "AddImageWithTrivialFrame tried to add a frame with the same id as "
+         "the image, but failed because Frame "
+      << image.ImageId() << "already exists in the reconstruction.";
+  THROW_CHECK(ExistsRig(image.CameraId()))
+      << "Rig " << image.CameraId() << " that contains Camera "
+      << image.CameraId() << " does not exist in the reconstruction.";
+  auto& rig = Rig(image.CameraId());
+  THROW_CHECK_EQ(rig.NumSensors(), 1)
+      << "AddImageWithTrivialFrame requires that the camera is from a rig that "
+         "contains exactly one sensor (the camera itself).";
+  THROW_CHECK(rig.IsRefSensor(Camera(image.CameraId()).SensorId()));
+  class Frame frame;
+  frame.SetFrameId(image.ImageId());
+  frame.SetRigId(image.CameraId());
+  frame.AddDataId(image.DataId());
+  if (image.HasFrameId()) {
+    THROW_CHECK_EQ(image.FrameId(), frame.FrameId());
+  } else {
+    image.SetFrameId(frame.FrameId());
+  }
+  AddFrame(frame);
+  AddImage(std::move(image));
+}
+
+void Reconstruction::AddImageWithTrivialFrame(class Image image,
+                                              const Rigid3d& cam_from_world) {
+  const frame_t frame_id = image.ImageId();
+  AddImageWithTrivialFrame(std::move(image));
+  Frame(frame_id).SetRigFromWorld(cam_from_world);
+  RegisterFrame(frame_id);
 }
 
 void Reconstruction::AddPoint3D(const point3D_t point3D_id,
@@ -507,7 +606,7 @@ Reconstruction::ComputeBBBoxAndCentroid(const double min_percentile,
 
 void Reconstruction::Transform(const Sim3d& new_from_old_world) {
   for (auto& [_, rig] : rigs_) {
-    for (auto& [_, sensor_from_rig] : rig.Sensors()) {
+    for (auto& [_, sensor_from_rig] : rig.NonRefSensors()) {
       if (sensor_from_rig.has_value()) {
         sensor_from_rig->translation *= new_from_old_world.scale;
       }
@@ -526,11 +625,11 @@ void Reconstruction::Transform(const Sim3d& new_from_old_world) {
 
 Reconstruction Reconstruction::Crop(const Eigen::AlignedBox3d& bbox) const {
   Reconstruction cropped_reconstruction;
-  for (const auto& [_, rig] : rigs_) {
-    cropped_reconstruction.AddRig(rig);
-  }
   for (const auto& [_, camera] : cameras_) {
     cropped_reconstruction.AddCamera(camera);
+  }
+  for (const auto& [_, rig] : rigs_) {
+    cropped_reconstruction.AddRig(rig);
   }
   for (auto [_, frame] : frames_) {
     frame.ResetRigPtr();
@@ -697,16 +796,16 @@ void Reconstruction::Read(const std::string& path) {
 void Reconstruction::Write(const std::string& path) const { WriteBinary(path); }
 
 void Reconstruction::ReadText(const std::string& path) {
-  rigs_.clear();
   cameras_.clear();
+  rigs_.clear();
   frames_.clear();
   images_.clear();
   points3D_.clear();
+  ReadCamerasText(*this, JoinPaths(path, "cameras.txt"));
   const std::string rigs_path = JoinPaths(path, "rigs.txt");
   if (ExistsFile(rigs_path)) {
     ReadRigsText(*this, rigs_path);
   }
-  ReadCamerasText(*this, JoinPaths(path, "cameras.txt"));
   const std::string frames_path = JoinPaths(path, "frames.txt");
   if (ExistsFile(frames_path)) {
     ReadFramesText(*this, frames_path);
@@ -716,16 +815,16 @@ void Reconstruction::ReadText(const std::string& path) {
 }
 
 void Reconstruction::ReadBinary(const std::string& path) {
-  rigs_.clear();
   cameras_.clear();
+  rigs_.clear();
   frames_.clear();
   images_.clear();
   points3D_.clear();
+  ReadCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
   const std::string rigs_path = JoinPaths(path, "rigs.bin");
   if (ExistsFile(rigs_path)) {
     ReadRigsBinary(*this, rigs_path);
   }
-  ReadCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
   const std::string frames_path = JoinPaths(path, "frames.bin");
   if (ExistsFile(frames_path)) {
     ReadFramesBinary(*this, frames_path);
@@ -799,7 +898,8 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
   const class Image& image = Image(image_id);
 
   Bitmap bitmap;
-  if (!bitmap.Read(JoinPaths(path, image.Name()))) {
+  if (!bitmap.Read(JoinPaths(path, image.Name()),
+                   /*as_rgb=*/true)) {
     return false;
   }
 
@@ -831,7 +931,8 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
     const std::string image_path = JoinPaths(path, image.Name());
 
     Bitmap bitmap;
-    if (!bitmap.Read(image_path)) {
+    if (!bitmap.Read(image_path,
+                     /*as_rgb=*/true)) {
       LOG(WARNING) << "Could not read image " << image.Name() << " at path "
                    << image_path;
       continue;

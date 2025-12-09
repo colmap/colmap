@@ -50,15 +50,19 @@ int RunGraphicalUserInterface(int argc, char** argv) {
   if (argc > 1) {
     options.AddDefaultOption("import_path", &import_path);
     options.AddAllOptions();
-    options.Parse(argc, argv);
+    if (!options.Parse(argc, argv)) {
+      return EXIT_FAILURE;
+    }
   }
 
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 6, 0))
-  QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-  QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
-#endif
-
   QApplication app(argc, argv);
+
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 6, 0)) && \
+    (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+  app.setAttribute(Qt::AA_EnableHighDpiScaling);
+  app.setAttribute(Qt::AA_UseHighDpiPixmaps);
+#endif
+  app.setAttribute(Qt::AA_DontShowIconsInMenus, false);
 
   colmap::MainWindow main_window(options);
   main_window.show();
@@ -78,7 +82,9 @@ int RunProjectGenerator(int argc, char** argv) {
   OptionManager options;
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("quality", &quality, "{low, medium, high, extreme}");
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   OptionManager output_options;
   output_options.AddAllOptions();

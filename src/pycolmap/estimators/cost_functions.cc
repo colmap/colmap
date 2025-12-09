@@ -130,10 +130,10 @@ void BindCostFunctions(py::module& m_parent) {
         "2D detection noise.");
 
   m.def("SampsonErrorCost",
-        &SampsonErrorCostFunctor::Create<const Eigen::Vector2d&,
-                                         const Eigen::Vector2d&>,
-        "point2D1"_a,
-        "point2D2"_a,
+        &SampsonErrorCostFunctor::Create<const Eigen::Vector3d&,
+                                         const Eigen::Vector3d&>,
+        "cam_ray1"_a,
+        "cam_ray2"_a,
         "Sampson error for two-view geometry.");
 
   m.def("AbsolutePosePriorCost",
@@ -174,14 +174,16 @@ void BindCostFunctions(py::module& m_parent) {
         "relative pose with prior covariance.");
 
   m.def("Point3DAlignmentCost",
-        &Point3DAlignmentCostFunctor::Create<const Eigen::Vector3d&>,
+        &Point3DAlignmentCostFunctor::Create<const Eigen::Vector3d&, bool>,
         "point_in_b_prior"_a,
+        "use_log_scale"_a = true,
         "Error between 3D points transformed by a 3D similarity transform.");
   m.def("Point3DAlignmentCost",
-        &CovarianceWeightedCostFunctor<Point3DAlignmentCostFunctor>::Create<
-            const Eigen::Vector3d&>,
+        &CovarianceWeightedCostFunctor<
+            Point3DAlignmentCostFunctor>::Create<const Eigen::Vector3d&, bool>,
         "point_cov_in_b_prior"_a,
         "point_in_b_prior"_a,
+        "use_log_scale"_a = true,
         "Error between 3D points transformed by a 3D similarity transform. "
         "with prior covariance");
 }

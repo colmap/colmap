@@ -27,45 +27,63 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#include "colmap/feature/extractor.h"
 
-#include "colmap/util/logging.h"
-
-#include <cstdio>
-#include <cstdlib>
-#include <string>
-
-#include <sqlite3.h>
+#include "colmap/feature/sift.h"
+#include "colmap/util/misc.h"
 
 namespace colmap {
+namespace {
 
-inline int SQLite3CallHelper(int result_code,
-                             const std::string& filename,
-                             int line) {
-  switch (result_code) {
-    case SQLITE_OK:
-    case SQLITE_ROW:
-    case SQLITE_DONE:
-      return result_code;
-    default:
-      LogMessageFatalThrow<std::runtime_error>(filename.c_str(), line).stream()
-          << "SQLite error: " << sqlite3_errstr(result_code);
-      return result_code;
-  }
+void ThrowUnknownFeatureExtractorType(FeatureExtractorType type) {
+  std::ostringstream error;
+  error << "Unknown feature extractor type: " << type;
+  throw std::runtime_error(error.str());
 }
 
-#define SQLITE3_CALL(func) SQLite3CallHelper(func, __FILE__, __LINE__)
+}  // namespace
 
-#define SQLITE3_EXEC(database, sql, callback)                             \
-  {                                                                       \
-    char* err_msg = nullptr;                                              \
-    const int result_code =                                               \
-        sqlite3_exec(database, sql, callback, nullptr, &err_msg);         \
-    if (result_code != SQLITE_OK) {                                       \
-      LOG(ERROR) << "SQLite error [" << __FILE__ << ", line " << __LINE__ \
-                 << "]: " << err_msg;                                     \
-      sqlite3_free(err_msg);                                              \
-    }                                                                     \
+FeatureExtractionOptions::FeatureExtractionOptions(FeatureExtractorType type)
+    : type(type), sift(std::make_shared<SiftExtractionOptions>()) {}
+
+bool FeatureExtractionOptions::RequiresRGB() const {
+  switch (type) {
+    case FeatureExtractorType::SIFT:
+      return false;
+    default:
+      ThrowUnknownFeatureExtractorType(type);
   }
+  return false;
+}
+
+bool FeatureExtractionOptions::Check() const {
+  CHECK_OPTION_GT(max_image_size, 0);
+  if (use_gpu) {
+    CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
+#ifndef COLMAP_GPU_ENABLED
+    LOG(ERROR) << "Cannot use GPU feature Extraction without CUDA or OpenGL "
+                  "support. Set use_gpu or use_gpu to false.";
+    return false;
+#endif
+  }
+  if (type == FeatureExtractorType::SIFT) {
+    return THROW_CHECK_NOTNULL(sift)->Check();
+  } else {
+    LOG(ERROR) << "Unknown feature extractor type: " << type;
+    return false;
+  }
+  return true;
+}
+
+std::unique_ptr<FeatureExtractor> FeatureExtractor::Create(
+    const FeatureExtractionOptions& options) {
+  switch (options.type) {
+    case FeatureExtractorType::SIFT:
+      return CreateSiftFeatureExtractor(options);
+    default:
+      ThrowUnknownFeatureExtractorType(options.type);
+  }
+  return nullptr;
+}
 
 }  // namespace colmap

@@ -35,11 +35,14 @@
 #include "colmap/geometry/gps.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/optim/ransac.h"
+#include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
+
+#include <fstream>
 
 namespace colmap {
 namespace {
@@ -56,7 +59,7 @@ std::vector<Eigen::AlignedBox3d> ComputeEqualPartsBboxes(
     for (int j = 0; j < split(1); ++j) {
       for (int i = 0; i < split(0); ++i) {
         Eigen::Vector3d min(bbox.min().x() + i * offset(0),
-                            bbox.min().z() + j * offset(1),
+                            bbox.min().y() + j * offset(1),
                             bbox.min().z() + k * offset(2));
         bboxes.emplace_back(min, min + offset);
       }
@@ -161,11 +164,11 @@ void ReadDatabaseCameraLocations(const std::string& database_path,
                                  const std::string& alignment_type,
                                  std::vector<std::string>* ref_image_names,
                                  std::vector<Eigen::Vector3d>* ref_locations) {
-  Database database(database_path);
-  for (const auto& image : database.ReadAllImages()) {
-    if (database.ExistsPosePrior(image.ImageId())) {
+  auto database = Database::Open(database_path);
+  for (const auto& image : database->ReadAllImages()) {
+    if (database->ExistsPosePrior(image.ImageId())) {
       ref_image_names->push_back(image.Name());
-      const auto pose_prior = database.ReadPosePrior(image.ImageId());
+      const auto pose_prior = database->ReadPosePrior(image.ImageId());
       if (ref_is_gps) {
         THROW_CHECK_EQ(static_cast<int>(pose_prior.coordinate_system),
                        static_cast<int>(PosePrior::CoordinateSystem::WGS84));
@@ -290,7 +293,9 @@ int RunModelAligner(int argc, char** argv) {
       "{plane, ecef, enu, enu-plane, enu-plane-unscaled, custom}");
   options.AddDefaultOption("min_common_images", &min_common_images);
   options.AddDefaultOption("alignment_max_error", &ransac_options.max_error);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   StringToLower(&alignment_type);
   const std::unordered_set<std::string> alignment_options{
@@ -436,7 +441,9 @@ int RunModelAnalyzer(int argc, char** argv) {
   OptionManager options;
   options.AddRequiredOption("path", &path);
   options.AddDefaultOption("verbose", &verbose);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   Reconstruction reconstruction;
   reconstruction.Read(path);
@@ -499,7 +506,9 @@ int RunModelComparer(int argc, char** argv) {
   options.AddDefaultOption("min_inlier_observations", &min_inlier_observations);
   options.AddDefaultOption("max_reproj_error", &max_reproj_error);
   options.AddDefaultOption("max_proj_center_error", &max_proj_center_error);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   if (!output_path.empty() && !ExistsDir(output_path)) {
     LOG(ERROR) << "Provided output path is not a valid directory";
@@ -606,7 +615,9 @@ int RunModelConverter(int argc, char** argv) {
                             &output_type,
                             "{BIN, TXT, NVM, Bundler, VRML, PLY, R3D, CAM}");
   options.AddDefaultOption("skip_distortion", &skip_distortion);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
@@ -659,7 +670,9 @@ int RunModelCropper(int argc, char** argv) {
   options.AddRequiredOption("output_path", &output_path);
   options.AddRequiredOption("boundary", &boundary);
   options.AddDefaultOption("gps_transform_path", &gps_transform_path);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   if (!ExistsDir(input_path)) {
     LOG(ERROR) << "`input_path` is not a directory";
@@ -731,7 +744,9 @@ int RunModelMerger(int argc, char** argv) {
   options.AddRequiredOption("input_path2", &input_path2);
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("max_reproj_error", &max_reproj_error);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   Reconstruction reconstruction1;
   reconstruction1.Read(input_path1);
@@ -784,7 +799,9 @@ int RunModelOrientationAligner(int argc, char** argv) {
 #endif
   options.AddDefaultOption("max_image_size",
                            &frame_estimation_options.max_image_size);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   StringToLower(&method);
 #ifdef COLMAP_LSD_ENABLED
@@ -877,7 +894,9 @@ int RunModelSplitter(int argc, char** argv) {
   options.AddDefaultOption("min_num_points", &min_num_points);
   options.AddDefaultOption("overlap_ratio", &overlap_ratio);
   options.AddDefaultOption("min_area_ratio", &min_area_ratio);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   if (!ExistsDir(input_path)) {
     LOG(ERROR) << "`input_path` is not a directory";
@@ -1040,7 +1059,9 @@ int RunModelTransformer(int argc, char** argv) {
   options.AddRequiredOption("output_path", &output_path);
   options.AddRequiredOption("transform_path", &transform_path);
   options.AddDefaultOption("is_inverse", &is_inverse);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   LOG(INFO) << "Reading points input: " << input_path;
   Reconstruction recon;

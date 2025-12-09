@@ -110,8 +110,7 @@ TEST(UndistortCamera, BlankPixels) {
       Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 100, 100, 100);
   distorted_camera.params[3] = 0.5;
 
-  Bitmap distorted_image;
-  distorted_image.Allocate(100, 100, false);
+  Bitmap distorted_image(100, 100, false);
   distorted_image.Fill(BitmapColor<uint8_t>(255));
 
   Bitmap undistorted_image;
@@ -154,8 +153,7 @@ TEST(UndistortCamera, NoBlankPixels) {
       Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 100, 100, 100);
   distorted_camera.params[3] = 0.5;
 
-  Bitmap distorted_image;
-  distorted_image.Allocate(100, 100, false);
+  Bitmap distorted_image(100, 100, false);
   distorted_image.Fill(BitmapColor<uint8_t>(255));
 
   Bitmap undistorted_image;
@@ -179,9 +177,9 @@ TEST(UndistortCamera, NoBlankPixels) {
     for (int x = 0; x < undistorted_image.Width(); ++x) {
       BitmapColor<uint8_t> color;
       EXPECT_TRUE(undistorted_image.GetPixel(x, y, &color));
-      EXPECT_NE(color.r, 0);
-      EXPECT_EQ(color.g, 0);
-      EXPECT_EQ(color.b, 0);
+      ASSERT_NE(color.r, 0);
+      ASSERT_NE(color.g, 0);
+      ASSERT_NE(color.b, 0);
     }
   }
 }
@@ -205,7 +203,6 @@ TEST(UndistortReconstruction, Nominal) {
     frame.SetRigId(1);
     frame.SetFrameId(image_id);
     frame.SetRigFromWorld(Rigid3d());
-    reconstruction.AddFrame(frame);
     Image image;
     image.SetImageId(image_id);
     image.SetCameraId(1);
@@ -213,6 +210,8 @@ TEST(UndistortReconstruction, Nominal) {
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Ones()));
+    frame.AddDataId(image.DataId());
+    reconstruction.AddFrame(frame);
     reconstruction.AddImage(image);
     reconstruction.RegisterFrame(frame.FrameId());
   }

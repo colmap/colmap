@@ -30,9 +30,9 @@
 #pragma once
 
 #include "colmap/scene/correspondence_graph.h"
-#include "colmap/scene/image.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/track.h"
+#include "colmap/scene/visibility_pyramid.h"
 #include "colmap/util/types.h"
 
 namespace colmap {
@@ -43,6 +43,9 @@ bool MergeAndFilterReconstructions(double max_reproj_error,
 
 class ObservationManager {
  public:
+  // The number of levels in the 3D point multi-resolution visibility pyramid.
+  static constexpr int kNumPoint3DVisibilityPyramidLevels = 6;
+
   struct ImagePairStat {
     // The number of triangulated correspondences between two images.
     size_t num_tri_corrs = 0;
@@ -113,7 +116,8 @@ class ObservationManager {
                                     double max_focal_length_ratio,
                                     double max_extra_param);
 
-  // De-register an existing frame, and all its references.
+  // Register/De-register an existing frame, and all its references.
+  void RegisterFrame(frame_t frame_id);
   void DeRegisterFrame(frame_t frame_id);
 
   // Get the number of observations, i.e. the number of image points that
@@ -122,6 +126,9 @@ class ObservationManager {
 
   // Get the number of correspondences for all image points.
   inline point2D_t NumCorrespondences(image_t image_id) const;
+
+  // Get the number of visible correspondences for all image points.
+  inline point2D_t NumVisibleCorrespondences(image_t image_id) const;
 
   // Get the number of observations that see a triangulated point, i.e. the
   // number of image points that have at least one correspondence to a
@@ -134,9 +141,6 @@ class ObservationManager {
   // the next best image in incremental reconstruction, because a more
   // uniform distribution of observations results in more robust registration.
   inline size_t Point3DVisibilityScore(image_t image_id) const;
-
-  // The number of levels in the 3D point multi-resolution visibility pyramid.
-  static const int kNumPoint3DVisibilityPyramidLevels;
 
   // Indicate that another image has a point that is triangulated and has
   // a correspondence to this image point.
@@ -168,6 +172,9 @@ class ObservationManager {
 
     // The sum of correspondences per image point.
     point2D_t num_correspondences;
+
+    // The sum of correspondences that have a corresponding registered image.
+    point2D_t num_visible_correspondences;
 
     // The number of 2D points, which have at least one corresponding 2D point
     // in another image that is part of a 3D point track, i.e. the sum of
@@ -210,6 +217,11 @@ point2D_t ObservationManager::NumObservations(const image_t image_id) const {
 
 point2D_t ObservationManager::NumCorrespondences(const image_t image_id) const {
   return image_stats_.at(image_id).num_correspondences;
+}
+
+point2D_t ObservationManager::NumVisibleCorrespondences(
+    const image_t image_id) const {
+  return image_stats_.at(image_id).num_visible_correspondences;
 }
 
 point2D_t ObservationManager::NumVisiblePoints3D(const image_t image_id) const {

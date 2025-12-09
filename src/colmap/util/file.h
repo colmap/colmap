@@ -29,22 +29,22 @@
 
 #pragma once
 
-#include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
 #include <filesystem>
-#include <fstream>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#define THROW_CHECK_FILE_EXISTS(path) \
-  THROW_CHECK(ExistsFile(path)) << "File " << (path) << " does not exist."
+#define THROW_CHECK_FILE_EXISTS(path)   \
+  THROW_CHECK(colmap::ExistsFile(path)) \
+      << "File " << (path) << " does not exist."
 
-#define THROW_CHECK_DIR_EXISTS(path) \
-  THROW_CHECK(ExistsDir(path)) << "Directory " << (path) << " does not exist."
+#define THROW_CHECK_DIR_EXISTS(path)   \
+  THROW_CHECK(colmap::ExistsDir(path)) \
+      << "Directory " << (path) << " does not exist."
 
 #define THROW_CHECK_PATH_OPEN(path)                           \
   THROW_CHECK(std::ofstream(path, std::ios::trunc).is_open()) \
@@ -57,7 +57,7 @@
       << ". Is the path a directory or does the parent dir not exist?"
 
 #define THROW_CHECK_HAS_FILE_EXTENSION(path, ext)                        \
-  THROW_CHECK(HasFileExtension(path, ext))                               \
+  THROW_CHECK(colmap::HasFileExtension(path, ext))                       \
       << "Path " << (path) << " does not match file extension " << (ext) \
       << "."
 
@@ -99,6 +99,14 @@ std::string GetPathBaseName(const std::string& path);
 
 // Get the path of the parent directory for the given path.
 std::string GetParentDir(const std::string& path);
+
+// Normalize the path by removing repeated separators and dots and, on Windows,
+// replacing \\ separators by /.
+std::string NormalizePath(const std::filesystem::path& path);
+
+// Get the normalized relative path of full_path w.r.t. base_path.
+std::string GetNormalizedRelativePath(const std::string& full_path,
+                                      const std::string& base_path);
 
 // Join multiple paths into one path.
 template <typename... T>

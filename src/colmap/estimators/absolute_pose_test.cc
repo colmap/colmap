@@ -29,7 +29,6 @@
 
 #include "colmap/estimators/absolute_pose.h"
 
-#include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
@@ -137,6 +136,7 @@ TEST(AbsolutePose, P4PF) {
 
         // Project points to camera coordinate system.
         std::vector<Eigen::Vector2d> points2D;
+        points2D.reserve(points3D.size());
         for (size_t i = 0; i < points3D.size(); ++i) {
           points2D.push_back(
               f * (expected_cam_from_world * points3D[i]).hnormalized());

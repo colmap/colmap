@@ -50,10 +50,10 @@ namespace {
 // subset of images are selected.
 retrieval::VisualIndex::Descriptors LoadRandomDatabaseDescriptors(
     const std::string& database_path, const int max_num_images) {
-  Database database(database_path);
-  DatabaseTransaction database_transaction(&database);
+  auto database = Database::Open(database_path);
+  DatabaseTransaction database_transaction(database.get());
 
-  const std::vector<Image> images = database.ReadAllImages();
+  const std::vector<Image> images = database->ReadAllImages();
 
   retrieval::VisualIndex::Descriptors descriptors;
 
@@ -63,7 +63,7 @@ retrieval::VisualIndex::Descriptors LoadRandomDatabaseDescriptors(
     // All images in the database.
     image_idxs.resize(images.size());
     std::iota(image_idxs.begin(), image_idxs.end(), 0);
-    num_descriptors = database.NumDescriptors();
+    num_descriptors = database->NumDescriptors();
   } else {
     // Random subset of images in the database.
     THROW_CHECK_LE(max_num_images, images.size());
@@ -72,7 +72,7 @@ retrieval::VisualIndex::Descriptors LoadRandomDatabaseDescriptors(
     random_sampler.Sample(&image_idxs);
     for (const size_t image_idx : image_idxs) {
       const auto& image = images.at(image_idx);
-      num_descriptors += database.NumDescriptorsForImage(image.ImageId());
+      num_descriptors += database->NumDescriptorsForImage(image.ImageId());
     }
   }
 
@@ -82,7 +82,7 @@ retrieval::VisualIndex::Descriptors LoadRandomDatabaseDescriptors(
   for (const size_t image_idx : image_idxs) {
     const auto& image = images.at(image_idx);
     const FeatureDescriptors image_descriptors =
-        database.ReadDescriptors(image.ImageId());
+        database->ReadDescriptors(image.ImageId());
     descriptors.block(descriptor_row, 0, image_descriptors.rows(), 128) =
         image_descriptors.cast<float>();
     descriptor_row += image_descriptors.rows();
@@ -131,7 +131,9 @@ int RunVocabTreeBuilder(int argc, char** argv) {
   options.AddDefaultOption("num_threads", &build_options.num_threads);
   options.AddDefaultOption("num_rounds", &build_options.num_rounds);
   options.AddDefaultOption("max_num_images", &max_num_images);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   LOG(INFO) << "Loading descriptors...";
   const auto descriptors =
@@ -176,19 +178,22 @@ int RunVocabTreeRetriever(int argc, char** argv) {
   options.AddDefaultOption("num_images_after_verification",
                            &query_options.num_images_after_verification);
   options.AddDefaultOption("max_num_features", &max_num_features);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   index_options.num_threads = query_options.num_threads;
 
   auto visual_index = retrieval::VisualIndex::Read(vocab_tree_path);
 
-  Database database(*options.database_path);
+  auto database = Database::Open(*options.database_path);
 
   const auto database_images =
-      ReadVocabTreeRetrievalImageList(database_image_list_path, &database);
+      ReadVocabTreeRetrievalImageList(database_image_list_path, database.get());
   const auto query_images =
       (!query_image_list_path.empty() || output_index_path.empty())
-          ? ReadVocabTreeRetrievalImageList(query_image_list_path, &database)
+          ? ReadVocabTreeRetrievalImageList(query_image_list_path,
+                                            database.get())
           : std::vector<Image>();
 
   //////////////////////////////////////////////////////////////////////////////
@@ -208,9 +213,9 @@ int RunVocabTreeRetriever(int argc, char** argv) {
     }
 
     FeatureKeypoints keypoints =
-        database.ReadKeypoints(database_images[i].ImageId());
+        database->ReadKeypoints(database_images[i].ImageId());
     FeatureDescriptors descriptors =
-        database.ReadDescriptors(database_images[i].ImageId());
+        database->ReadDescriptors(database_images[i].ImageId());
     if (max_num_features > 0 && descriptors.rows() > max_num_features) {
       ExtractTopScaleFeatures(&keypoints, &descriptors, max_num_features);
     }
@@ -256,8 +261,8 @@ int RunVocabTreeRetriever(int argc, char** argv) {
                               query_images.size())
               << std::flush;
 
-    auto keypoints = database.ReadKeypoints(query_images[i].ImageId());
-    auto descriptors = database.ReadDescriptors(query_images[i].ImageId());
+    auto keypoints = database->ReadKeypoints(query_images[i].ImageId());
+    auto descriptors = database->ReadDescriptors(query_images[i].ImageId());
     if (max_num_features > 0 && descriptors.rows() > max_num_features) {
       ExtractTopScaleFeatures(&keypoints, &descriptors, max_num_features);
     }

@@ -15,7 +15,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindRigid3(py::module& m) {
-  py::class_ext_<Rigid3d> PyRigid3d(m, "Rigid3d");
+  py::classh_ext<Rigid3d> PyRigid3d(m, "Rigid3d");
   PyRigid3d.def(py::init<>())
       .def(py::init<const Eigen::Quaterniond&, const Eigen::Vector3d&>(),
            "rotation"_a,
@@ -26,6 +26,7 @@ void BindRigid3(py::module& m) {
       .def_readwrite("rotation", &Rigid3d::rotation)
       .def_readwrite("translation", &Rigid3d::translation)
       .def("matrix", &Rigid3d::ToMatrix)
+      .def("tgt_origin_in_src", &Rigid3d::TgtOriginInSrc)
       .def("adjoint", &Rigid3d::Adjoint)
       .def("adjoint_inverse", &Rigid3d::AdjointInverse)
       .def(py::self * Rigid3d())

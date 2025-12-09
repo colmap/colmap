@@ -32,7 +32,6 @@
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
-#include "colmap/util/types.h"
 
 namespace colmap {
 
@@ -43,6 +42,8 @@ struct SyntheticDatasetOptions {
   int num_points3D = 100;
 
   double sensor_from_rig_translation_stddev = 0.05;
+  // Random rotation in degrees around the z-axis of the sensor.
+  double sensor_from_rig_rotation_stddev = 5.;
 
   int camera_width = 1024;
   int camera_height = 768;
@@ -51,7 +52,6 @@ struct SyntheticDatasetOptions {
   bool camera_has_prior_focal_length = false;
 
   int num_points2D_without_point3D = 10;
-  double point2D_stddev = 0.0;
 
   double inlier_match_ratio = 1.0;
 
@@ -64,13 +64,46 @@ struct SyntheticDatasetOptions {
   };
   MatchConfig match_config = MatchConfig::EXHAUSTIVE;
 
-  bool use_prior_position = false;
-  bool use_geographic_coords_prior = false;
-  double prior_position_stddev = 1.5;
+  bool prior_position = false;
+  PosePrior::CoordinateSystem prior_position_coordinate_system =
+      PosePrior::CoordinateSystem::CARTESIAN;
+  bool prior_gravity = false;
+  Eigen::Vector3d prior_gravity_in_world = Eigen::Vector3d::UnitY();
 };
 
 void SynthesizeDataset(const SyntheticDatasetOptions& options,
                        Reconstruction* reconstruction,
                        Database* database = nullptr);
+
+struct SyntheticNoiseOptions {
+  double rig_from_world_translation_stddev = 0.0;
+  // Random rotation in degrees around the z-axis of the rig.
+  double rig_from_world_rotation_stddev = 0.0;
+  double point3D_stddev = 0.0;
+  double point2D_stddev = 0.0;
+
+  // Translational standard deviation of the prior position in meters.
+  double prior_position_stddev = 1.5;
+  // Rotational standard deviation of the prior gravity in degrees.
+  double prior_gravity_stddev = 1.0;
+};
+
+void SynthesizeNoise(const SyntheticNoiseOptions& options,
+                     Reconstruction* reconstruction,
+                     Database* database = nullptr);
+
+struct SyntheticImageOptions {
+  int feature_peak_radius = 2;
+  int feature_patch_radius = 15;
+  int feature_patch_max_brightness = 128;
+};
+
+// Generates patches with a dark background and a bright feature peak for each
+// 2D point in an image. The color of the peak and the pattern of the background
+// is unique per 3D point. Notice that this approach does not result in perfect
+// feature detections and matches due to overlapping patches, etc.
+void SynthesizeImages(const SyntheticImageOptions& options,
+                      const Reconstruction& reconstruction,
+                      const std::string& image_path);
 
 }  // namespace colmap

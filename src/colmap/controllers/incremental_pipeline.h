@@ -33,7 +33,14 @@
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/util/base_controller.h"
 
+#include <memory>
+#include <string>
+#include <unordered_set>
+#include <vector>
+
 namespace colmap {
+
+class Timer;
 
 // NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding)
 struct IncrementalPipelineOptions {
@@ -68,11 +75,22 @@ struct IncrementalPipelineOptions {
   // The number of trials to initialize the reconstruction.
   int init_num_trials = 200;
 
+  // Enable fallback to structure-less image registration using 2D-2D
+  // correspondences, if structured-based registration fails using 2D-3D
+  // correspondences.
+  bool structure_less_registration_fallback = true;
+
+  // Only use structure-less and skip structure-based image registration.
+  bool structure_less_registration_only = false;
+
   // Whether to extract colors for reconstructed points.
   bool extract_colors = true;
 
   // The number of threads to use during reconstruction.
   int num_threads = -1;
+
+  // PRNG seed for all stochastic methods during reconstruction.
+  int random_seed = -1;
 
   // Thresholds for filtering images with degenerate intrinsics.
   double min_focal_length_ratio = 0.1;
@@ -90,9 +108,6 @@ struct IncrementalPipelineOptions {
   // The minimum number of residuals per bundle adjustment problem to
   // enable multi-threading solving of the problems.
   int ba_min_num_residuals_for_cpu_multi_threading = 50000;
-
-  // The number of images to optimize in local bundle adjustment.
-  int ba_local_num_images = 6;
 
   // Ceres solver function tolerance for local bundle adjustment
   double ba_local_function_tolerance = 0.0;
@@ -144,6 +159,18 @@ struct IncrementalPipelineOptions {
 
   // If reconstruction is provided as input, fix the existing frame poses.
   bool fix_existing_frames = false;
+
+  // List of rigs for which to fix the sensor_from_rig transformation,
+  // independent of ba_refine_sensor_from_rig.
+  std::unordered_set<rig_t> constant_rigs;
+
+  // List of cameras for which to fix the camera parameters independent
+  // of refine_focal_length, refine_principal_point, and refine_extra_params.
+  std::unordered_set<camera_t> constant_cameras;
+
+  // Maximum runtime in seconds for the reconstruction process.
+  // If set to a non-positive value, the process will run until completion.
+  int max_runtime_seconds = -1;
 
   IncrementalMapper::Options mapper;
   IncrementalTriangulator::Options triangulation;
@@ -218,11 +245,14 @@ class IncrementalPipeline : public BaseController {
                                 size_t ba_prev_num_points);
 
  private:
+  bool ReachedMaxRuntime() const;
+
   const std::shared_ptr<const IncrementalPipelineOptions> options_;
   const std::string image_path_;
   const std::string database_path_;
   std::shared_ptr<class ReconstructionManager> reconstruction_manager_;
   std::shared_ptr<class DatabaseCache> database_cache_;
+  std::shared_ptr<Timer> total_run_timer_;
 };
 
 }  // namespace colmap

@@ -81,6 +81,31 @@ bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& P,
   return true;
 }
 
+Eigen::Vector3d RotationMatrixToAngleAxis(const Eigen::Matrix3d& R) {
+  const Eigen::AngleAxisd aa(R);
+  return aa.angle() * aa.axis();
+}
+
+Eigen::Matrix3d AngleAxisToRotationMatrix(const Eigen::Vector3d& w) {
+  const double angle = w.norm();
+  if (angle > 1e-12) {
+    return Eigen::AngleAxis<double>(angle, w / angle).toRotationMatrix();
+  } else {
+    // Small angle approximation: I + [w]_x.
+    Eigen::Matrix3d R;
+    R(0, 0) = 1;
+    R(1, 0) = w[2];
+    R(2, 0) = -w[1];
+    R(0, 1) = -w[2];
+    R(1, 1) = 1;
+    R(2, 1) = w[0];
+    R(0, 2) = w[1];
+    R(1, 2) = -w[0];
+    R(2, 2) = 1;
+    return R;
+  }
+}
+
 void RotationMatrixToEulerAngles(const Eigen::Matrix3d& R,
                                  double* rx,
                                  double* ry,
@@ -146,44 +171,19 @@ Rigid3d InterpolateCameraPoses(const Rigid3d& cam1_from_world,
                  cam1_from_world.translation + translation12 * t);
 }
 
-namespace {
-
-double CalculateDepth(const Eigen::Matrix3x4d& cam_from_world,
-                      const Eigen::Vector3d& point3D) {
-  const double proj_z = cam_from_world.row(2).dot(point3D.homogeneous());
-  return proj_z * cam_from_world.col(2).norm();
-}
-
-}  // namespace
-
 bool CheckCheirality(const Rigid3d& cam2_from_cam1,
-                     const std::vector<Eigen::Vector2d>& points1,
-                     const std::vector<Eigen::Vector2d>& points2,
+                     const std::vector<Eigen::Vector3d>& cam_rays1,
+                     const std::vector<Eigen::Vector3d>& cam_rays2,
                      std::vector<Eigen::Vector3d>* points3D) {
-  THROW_CHECK_EQ(points1.size(), points2.size());
-  const Eigen::Matrix3x4d cam1_from_world = Eigen::Matrix3x4d::Identity();
-  const Eigen::Matrix3x4d cam2_from_world = cam2_from_cam1.ToMatrix();
-  constexpr double kMinDepth = std::numeric_limits<double>::epsilon();
-  const double max_depth = 1000.0 * cam2_from_cam1.translation.norm();
+  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
   points3D->clear();
-  for (size_t i = 0; i < points1.size(); ++i) {
-    Eigen::Vector3d point3D;
-    if (!TriangulatePoint(cam1_from_world,
-                          cam2_from_world,
-                          points1[i],
-                          points2[i],
-                          &point3D)) {
+  for (size_t i = 0; i < cam_rays1.size(); ++i) {
+    Eigen::Vector3d point3D_in_cam1;
+    if (!TriangulateMidPoint(
+            cam2_from_cam1, cam_rays1[i], cam_rays2[i], &point3D_in_cam1)) {
       continue;
     }
-    const double depth1 = CalculateDepth(cam1_from_world, point3D);
-    if (depth1 < kMinDepth || depth1 > max_depth) {
-      continue;
-    }
-    const double depth2 = CalculateDepth(cam2_from_world, point3D);
-    if (depth2 < kMinDepth || depth2 > max_depth) {
-      continue;
-    }
-    points3D->push_back(point3D);
+    points3D->push_back(point3D_in_cam1);
   }
   return !points3D->empty();
 }

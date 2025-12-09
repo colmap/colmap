@@ -30,11 +30,14 @@
 #pragma once
 
 #include "colmap/feature/types.h"
-#include "colmap/geometry/rigid3.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
+#include "colmap/scene/image.h"
+#include "colmap/scene/rig.h"
 #include "colmap/scene/two_view_geometry.h"
-#include "colmap/util/logging.h"
+
+#include <unordered_map>
+#include <vector>
 
 namespace colmap {
 
@@ -75,6 +78,17 @@ struct TwoViewGeometryOptions {
 
   // Whether to ignore watermark models in multiple model estimation.
   bool multiple_ignore_watermark = true;
+
+  // Maximum translational error of matched points to be considered
+  // inliers of a watermark.
+  double watermark_detection_max_error = 4.0;
+
+  // Whether to filter stationary matches. This is useful when a camera is
+  // rigidly mounted on a moving vehicle and the vehicle itself is visible.
+  bool filter_stationary_matches = false;
+
+  // Maximum displacement for points to be considered stationary matches.
+  double stationary_matches_max_error = 4.0;
 
   // In case the user asks for it, only going to estimate a Homography
   // between both cameras.
@@ -122,7 +136,28 @@ TwoViewGeometry EstimateTwoViewGeometry(
     const std::vector<Eigen::Vector2d>& points1,
     const Camera& camera2,
     const std::vector<Eigen::Vector2d>& points2,
-    const FeatureMatches& matches,
+    FeatureMatches matches,
+    const TwoViewGeometryOptions& options);
+
+// Estimate the two-view geometries for all matched images between a pair of
+// rigs.
+//
+// @param rig1            First rig.
+// @param rig2            Second rig.
+// @param images          Images in first and second rig.
+// @param cameras         Cameras in first and second rig.
+// @param matches         Feature matches between first and second rig.
+// @param options         Two-view geometry estimation options.
+//
+// @return                Two-view geometries for all matched images.
+std::vector<std::pair<std::pair<image_t, image_t>, TwoViewGeometry>>
+EstimateRigTwoViewGeometries(
+    const Rig& rig1,
+    const Rig& rig2,
+    const std::unordered_map<image_t, Image>& images,
+    const std::unordered_map<camera_t, Camera>& cameras,
+    const std::vector<std::pair<std::pair<image_t, image_t>, FeatureMatches>>&
+        matches,
     const TwoViewGeometryOptions& options);
 
 // Estimate relative pose for two-view geometry.
@@ -155,14 +190,32 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     const FeatureMatches& matches,
     const TwoViewGeometryOptions& options);
 
-// Detect if inlier matches are caused by a watermark.
-// A watermark causes a pure translation in the border are of the image.
-bool DetectWatermark(const Camera& camera1,
-                     const std::vector<Eigen::Vector2d>& points1,
-                     const Camera& camera2,
-                     const std::vector<Eigen::Vector2d>& points2,
-                     size_t num_inliers,
-                     const std::vector<char>& inlier_mask,
-                     const TwoViewGeometryOptions& options);
+// Detect if inlier matches are caused by a watermark, where a
+// watermark causes a pure translation in the border of the image.
+bool DetectWatermarkMatches(const Camera& camera1,
+                            const std::vector<Eigen::Vector2d>& points1,
+                            const Camera& camera2,
+                            const std::vector<Eigen::Vector2d>& points2,
+                            size_t num_inliers,
+                            const std::vector<char>& inlier_mask,
+                            const TwoViewGeometryOptions& options);
+
+// Remove matches that are caused by static content that has the same
+// position in both images.
+void FilterStationaryMatches(double max_error,
+                             const std::vector<Eigen::Vector2d>& points1,
+                             const std::vector<Eigen::Vector2d>& points2,
+                             FeatureMatches* matches);
+
+// Compute two-view geometry from known relative pose and input matches.
+TwoViewGeometry TwoViewGeometryFromKnownRelativePose(
+    const Camera& camera1,
+    const std::vector<Eigen::Vector2d>& points1,
+    const Camera& camera2,
+    const std::vector<Eigen::Vector2d>& points2,
+    const Rigid3d& cam2_from_cam1,
+    const FeatureMatches& matches,
+    int min_num_inliers = 15,
+    double max_error = 4.0);
 
 }  // namespace colmap

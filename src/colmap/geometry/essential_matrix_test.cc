@@ -80,17 +80,17 @@ TEST(PoseFromEssentialMatrix, Nominal) {
   points3D[2] = Eigen::Vector3d(0.1, 0, 1);
   points3D[3] = Eigen::Vector3d(0.1, 0.1, 1);
 
-  std::vector<Eigen::Vector2d> points1(4);
-  std::vector<Eigen::Vector2d> points2(4);
+  std::vector<Eigen::Vector3d> rays1(4);
+  std::vector<Eigen::Vector3d> rays2(4);
   for (size_t i = 0; i < points3D.size(); ++i) {
-    points1[i] = (cam1_from_world * points3D[i]).hnormalized();
-    points2[i] = (cam2_from_world * points3D[i]).hnormalized();
+    rays1[i] = (cam1_from_world * points3D[i]).normalized();
+    rays2[i] = (cam2_from_world * points3D[i]).normalized();
   }
 
   points3D.clear();
 
   Rigid3d cam2_from_cam1_est;
-  PoseFromEssentialMatrix(E, points1, points2, &cam2_from_cam1_est, &points3D);
+  PoseFromEssentialMatrix(E, rays1, rays2, &cam2_from_cam1_est, &points3D);
 
   EXPECT_EQ(points3D.size(), 4);
 

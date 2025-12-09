@@ -38,7 +38,7 @@ Share intrinsics
 
 COLMAP supports shared intrinsics for arbitrary groups of images and camera
 models. Images share the same intrinsics, if they refer to the same camera, as
-specified by the `camera_id` property in the database. You can add new cameras
+specified by the ``camera_id`` property in the database. You can add new cameras
 and set shared intrinsics in the database management tool. Please, refer to
 :ref:`Database Management <database-management>` for more information.
 
@@ -83,7 +83,7 @@ To increase the number of matches, you should use the more discriminative
 DSP-SIFT features instead of plain SIFT and also estimate the affine feature
 shape using the options: ``--SiftExtraction.estimate_affine_shape=true`` and
 ``--SiftExtraction.domain_size_pooling=true``. In addition, you should enable
-guided feature matching using: ``--SiftMatching.guided_matching=true``.
+guided feature matching using: ``--FeatureMatching.guided_matching=true``.
 
 By default, COLMAP ignores two-view feature tracks in triangulation, resulting
 in fewer 3D points than possible. Triangulation of two-view tracks can in rare
@@ -121,7 +121,7 @@ Example of images.txt::
 
     4 0.698777 0.714625 -0.023996 0.021129 -0.048184 0.004529 -0.313427 2 image0004.png
 
-Each image above must have the same ``image_id`` (first column) as in the database (next step). 
+Each image above must have the same ``image_id`` (first column) as in the database (next step).
 This database can be inspected either in the GUI (under ``Database management > Processing``),
 or, one can create a reconstruction with colmap and later export  it as text in order to see
 the images.txt file it creates.
@@ -217,9 +217,9 @@ camera centers of a subset or all registered images. The 3D similarity
 transformation between the reconstructed model and the target coordinate frame
 of the geo-registration is determined from these correspondences.
 
-The geo-registered 3D coordinates can either be extracted from the database 
-(tvec_prior field) or from a user specified text file. 
-For text-files, the geo-registered 3D coordinates of the camera centers for 
+The geo-registered 3D coordinates can either be extracted from the database
+(tvec_prior field) or from a user specified text file.
+For text-files, the geo-registered 3D coordinates of the camera centers for
 images must be specified with the following format::
 
     image_name1.jpg X1 Y1 Z1
@@ -232,7 +232,7 @@ In case of GPS coordinates, a conversion will be performed to turn those into
 cartesian coordinates.  The conversion can be done from GPS to ECEF
 (Earth-Centered-Earth-Fixed) or to ENU (East-North-Up) coordinates. If ENU coordinates
 are used, the first image GPS coordinates will define the origin of the ENU frame.
-It is also possible to use ECEF coordinates for alignment and then rotate the aligned 
+It is also possible to use ECEF coordinates for alignment and then rotate the aligned
 reconstruction into the ENU plane.
 
 Note that at least 3 images must be specified to estimate a 3D similarity
@@ -339,22 +339,22 @@ external dense reconstruction software as an alternative, as described in the
 :ref:`Tutorial <dense-reconstruction>`. If you have a GPU with low compute power
 or you want to execute COLMAP on a machine without an attached display and
 without CUDA support, you can run all steps on the CPU by specifying the
-appropriate options (e.g., ``--SiftExtraction.use_gpu=false`` for the feature
+appropriate options (e.g., ``--FeatureExtraction.use_gpu=false`` for the feature
 extraction step). But note that this might result in a significant slow-down of
 the reconstruction pipeline. Please, also note that feature extraction on the
 CPU can consume excessive RAM for large images in the default settings, which
 might require manually reducing the maximum image size using
-``--SiftExtraction.max_image_size`` and/or setting
+``--FeatureExtraction.max_image_size`` and/or setting
 ``--SiftExtraction.first_octave 0`` or by manually limiting the number of
-threads using ``--SiftExtraction.num_threads``.
+threads using ``--FeatureExtraction.num_threads``.
 
 
 Multi-GPU support in feature extraction/matching
 ------------------------------------------------
 
 You can run feature extraction/matching on multiple GPUs by specifying multiple
-indices for CUDA-enabled GPUs, e.g., ``--SiftExtraction.gpu_index=0,1,2,3`` and
-``--SiftMatching.gpu_index=0,1,2,3`` runs the feature extraction/matching on 4
+indices for CUDA-enabled GPUs, e.g., ``--FeatureExtraction.gpu_index=0,1,2,3`` and
+``--FeatureMatching.gpu_index=0,1,2,3`` runs the feature extraction/matching on 4
 GPUs in parallel. Note that you can only run one thread per GPU and this
 typically also gives the best performance. By default, COLMAP runs one feature
 extraction/matching thread per CUDA-enabled GPU and this usually gives the best
@@ -371,20 +371,77 @@ If you encounter the following error message::
 or the following:
 
     ERROR: Feature matching failed. This probably caused by insufficient GPU
-           memory. Consider reducing the maximum number of features.
+    memory. Consider reducing the maximum number of features.
 
 during feature matching, your GPU runs out of memory. Try decreasing the option
-``--SiftMatching.max_num_matches`` until the error disappears. Note that this
+``--FeatureMatching.max_num_matches`` until the error disappears. Note that this
 might lead to inferior feature matching results, since the lower-scale input
 features will be clamped in order to fit them into GPU memory. Alternatively,
 you could change to CPU-based feature matching, but this can become very slow,
 or better you buy a GPU with more memory.
 
 The maximum required GPU memory can be approximately estimated using the
-following formula: ``4 * num_matches * num_matches + 4 * num_matches * 256``.
-For example, if you set ``--SiftMatching.max_num_matches 10000``, the maximum
+following formula: ``4 * num_matches * num_matches + 4 * num_matches * 256`` for SIFT.
+For example, if you set ``--FeatureMatching.max_num_matches 10000``, the maximum
 required GPU memory will be around 400MB, which are only allocated if one of
 your images actually has that many features.
+
+
+Speedup bundle adjustemnt
+-------------------------
+
+The following describes practical ways to reduce bundle adjustment runtime.
+
+- **Reduce the problem size** 
+
+  Limit the number of correspondences so that BA solves a smaller problem:
+
+  - Reduce features by decreasing ``--SiftExtraction.max_image_size`` and/or
+    ``--SiftExtraction.max_num_features``.
+  - Reduce matching pairs (and avoid ``exhaustive_matcher`` when possible) by
+    decreasing ``--SequentialMatching.overlap``,
+    ``--SpatialMatching.max_num_neighbors``, or ``--VocabTreeMatching.num_images``.
+  - Reduce matches by decreasing ``--FeatureMatching.max_num_matches``.
+  - Enable experimental landmark pruning to drop redundant 3D points using
+    ``--Mapper.ba_global_ignore_redundant_points3D 1``.
+
+- **Utilize GPU acceleration**
+
+  Enable GPU-based Ceres solvers for bundle adjustment by setting 
+  ``--Mapper.ba_use_gpu 1`` for the ``mapper`` and ``--BundleAdjustment.use_gpu 1``
+  for the standalone ``bundle_adjuster``. Several parameters control when and which
+  GPU solver is used:
+
+  - The GPU solver is activated only when the number of images exceeds 
+    ``--BundleAdjustmentOptions.min_num_images_gpu_solver``.
+  - Select between the direct dense, direct sparse, and iterative sparse GPU solvers
+    using ``--BundleAdjustment.max_num_images_direct_dense_gpu_solver`` and
+    ``--BundleAdjustment.max_num_images_direct_sparse_gpu_solver``
+      
+  .. Attention:: COLMAP's official CUDA-enabled binaries are not distributed with 
+     ceres[cuda] until Ceres 2.3 is officially released. To use the GPU solvers you
+     must compile Ceres with the CUDA/cuDSS support and link that build to COLMAP. 
+
+  **Note:** Low GPU utilization for the Schur-based sparse solver (cuDSS) can occur 
+  when the Schur-complement matrix becomes less sparse (i.e., exhibits more fill-in).
+  Typical causes include:
+
+  - High image covisibility
+  - Shared camera intrinsics.
+
+- **Additional practical tips**
+
+  - Improve initial conditions by tuning observation-filtering parameters so BA
+    receives more inliers and fewer outliers, or by supplying accurate priors
+    (e.g., intrinsics, poses).
+  - Fix or restrict refinement of parameters when possible (e.g., hold intrinsics 
+    fixed if they are known) to reduce the number of optimized variables.
+  - Reduce LM iterations or relax convergence tolerances to trade a small amount of 
+    accuracy for runtime: ``--Mapper.ba_global_max_num_iterations``, 
+    ``--Mapper.ba_global_function_tolerance``.
+  - Reduce the frequency of expensive global BA passes with mapper options: 
+    ``--Mapper.ba_global_frames_freq``, ``--Mapper.ba_global_points_freq``,
+    ``--Mapper.ba_global_frames_ratio`` and ``--Mapper.ba_global_points_ratio``.
 
 
 Trading off completeness and accuracy in dense reconstruction

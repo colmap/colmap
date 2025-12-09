@@ -30,7 +30,6 @@
 #include "colmap/scene/scene_clustering.h"
 
 #include "colmap/math/graph_cut.h"
-#include "colmap/math/random.h"
 
 #include <set>
 
@@ -321,7 +320,7 @@ SceneClustering SceneClustering::Create(const Options& options,
   std::vector<int> all_num_inliers;
   all_num_inliers.reserve(pair_ids_and_num_inliers.size());
   for (const auto& [pair_id, num_inliers] : pair_ids_and_num_inliers) {
-    all_image_pairs.push_back(Database::PairIdToImagePair(pair_id));
+    all_image_pairs.push_back(PairIdToImagePair(pair_id));
     all_num_inliers.push_back(num_inliers);
   }
 

@@ -185,7 +185,7 @@ bool ComputeLInverse(Eigen::SparseMatrix<double>& S, Eigen::MatrixXd& L_inv) {
 
   const Eigen::VectorXd D_dense = ldlt_S.vectorD();
 
-  const int rank = D_dense.nonZeros();
+  const int rank = (D_dense.array().abs() > 1e-6).count();
   if (rank < S.rows()) {
     LOG(WARNING) << StringPrintf(
         "Unable to compute covariance. The Schur complement on pose/other "
@@ -417,7 +417,7 @@ std::vector<PoseParam> GetPoseParams(const Reconstruction& reconstruction,
   params.reserve(reconstruction.NumImages());
   for (const auto& [image_id, image] : reconstruction.Images()) {
     // TODO(jsch): Add support for non-trivial frames.
-    THROW_CHECK(image.HasTrivialFrame());
+    THROW_CHECK(image.IsRefInFrame());
     const Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
 
     const double* qvec = cam_from_world.rotation.coeffs().data();

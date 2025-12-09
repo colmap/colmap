@@ -133,8 +133,10 @@ void TriangulationEstimator::Residuals(const std::vector<X_t>& point_data,
                                             pose_data[i].cam_from_world,
                                             *pose_data[i].camera);
     } else if (residual_type_ == ResidualType::ANGULAR_ERROR) {
-      const double angular_error = CalculateNormalizedAngularError(
-          point_data[i].cam_point, xyz, pose_data[i].cam_from_world);
+      const double angular_error = CalculateAngularReprojectionError(
+          point_data[i].cam_point.homogeneous().normalized(),
+          xyz,
+          pose_data[i].cam_from_world);
       (*residuals)[i] = angular_error * angular_error;
     }
   }
@@ -167,8 +169,7 @@ bool EstimateTriangulation(const EstimateTriangulationOptions& options,
       point_data[i].cam_point.setZero();
     }
     pose_data[i].cam_from_world = cams_from_world[i].ToMatrix();
-    pose_data[i].proj_center =
-        cams_from_world[i].rotation.inverse() * -cams_from_world[i].translation;
+    pose_data[i].proj_center = cams_from_world[i].TgtOriginInSrc();
     pose_data[i].camera = cameras[i];
   }
 

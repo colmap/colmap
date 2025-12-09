@@ -29,13 +29,10 @@
 
 #pragma once
 
-#include "colmap/geometry/gps.h"
 #include "colmap/geometry/rigid3.h"
-#include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/frame.h"
 #include "colmap/scene/point2d.h"
-#include "colmap/scene/visibility_pyramid.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
@@ -107,8 +104,8 @@ class Image {
   inline void SetFramePtr(class Frame* frame);
   inline void ResetFramePtr();
   inline bool HasFramePtr() const;
-  // Check if cam_from_world needs to be composed with sensor_from_rig pose.
-  inline bool HasTrivialFrame() const;
+  // Check if the image was captured by the reference sensor in the rig.
+  inline bool IsRefInFrame() const;
 
   // Composition of sensor_from_rig and rig_from_world transformations.
   // If the corresponding frame is trivial, this is equal to rig_from_world.
@@ -224,7 +221,6 @@ bool Image::HasCameraPtr() const { return camera_ptr_ != nullptr; }
 frame_t Image::FrameId() const { return frame_id_; }
 
 void Image::SetFrameId(const frame_t frame_id) {
-  THROW_CHECK_NE(frame_id, kInvalidFrameId);
   THROW_CHECK(!HasFramePtr());
   frame_id_ = frame_id;
 }
@@ -236,6 +232,9 @@ class Frame* Image::FramePtr() const { return THROW_CHECK_NOTNULL(frame_ptr_); }
 void Image::SetFramePtr(class Frame* frame) {
   THROW_CHECK_NOTNULL(frame);
   THROW_CHECK_NE(frame->FrameId(), kInvalidFrameId);
+  THROW_CHECK(frame->HasDataId(DataId()))
+      << "Image " << ImageId() << " does not exist in frame "
+      << frame->FrameId();
   if (!HasFramePtr()) {
     THROW_CHECK_EQ(frame->FrameId(), frame_id_);
     frame_ptr_ = frame;
@@ -249,7 +248,7 @@ void Image::ResetFramePtr() { frame_ptr_ = nullptr; }
 
 bool Image::HasFramePtr() const { return frame_ptr_ != nullptr; }
 
-bool Image::HasTrivialFrame() const {
+bool Image::IsRefInFrame() const {
   return THROW_CHECK_NOTNULL(frame_ptr_)
       ->RigPtr()
       ->IsRefSensor(sensor_t(SensorType::CAMERA, camera_id_));

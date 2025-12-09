@@ -29,8 +29,9 @@
 
 #include "colmap/controllers/incremental_pipeline.h"
 
+#include "colmap/estimators/alignment.h"
+#include "colmap/scene/database.h"
 #include "colmap/util/file.h"
-#include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
 namespace colmap {
@@ -68,7 +69,7 @@ void WriteSnapshot(const Reconstruction& reconstruction,
           .count();
   // Write reconstruction to unique path with current timestamp.
   const std::string path =
-      JoinPaths(snapshot_path, StringPrintf("%010d", timestamp));
+      JoinPaths(snapshot_path, StringPrintf("%010zu", timestamp));
   CreateDirIfNotExists(path);
   VLOG(1) << "=> Writing to " << path;
   reconstruction.Write(path);
@@ -84,11 +85,13 @@ IncrementalMapper::Options IncrementalPipelineOptions::Mapper() const {
   options.max_focal_length_ratio = max_focal_length_ratio;
   options.max_extra_param = max_extra_param;
   options.num_threads = num_threads;
-  options.local_ba_num_images = ba_local_num_images;
   options.fix_existing_frames = fix_existing_frames;
+  options.constant_rigs = constant_rigs;
+  options.constant_cameras = constant_cameras;
   options.use_prior_position = use_prior_position;
   options.use_robust_loss_on_prior_position = use_robust_loss_on_prior_position;
   options.prior_position_loss_scale = prior_position_loss_scale;
+  options.random_seed = random_seed;
   return options;
 }
 
@@ -98,6 +101,7 @@ IncrementalTriangulator::Options IncrementalPipelineOptions::Triangulation()
   options.min_focal_length_ratio = min_focal_length_ratio;
   options.max_focal_length_ratio = max_focal_length_ratio;
   options.max_extra_param = max_extra_param;
+  options.random_seed = random_seed;
   return options;
 }
 
@@ -170,7 +174,6 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GT(min_focal_length_ratio, 0);
   CHECK_OPTION_GT(max_focal_length_ratio, 0);
   CHECK_OPTION_GE(max_extra_param, 0);
-  CHECK_OPTION_GE(ba_local_num_images, 2);
   CHECK_OPTION_GE(ba_local_max_num_iterations, 0);
   CHECK_OPTION_GT(ba_global_frames_ratio, 1.0);
   CHECK_OPTION_GT(ba_global_points_ratio, 1.0);
@@ -183,6 +186,8 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GE(ba_global_max_refinement_change, 0);
   CHECK_OPTION_GE(snapshot_frames_freq, 0);
   CHECK_OPTION_GT(prior_position_loss_scale, 0.);
+  CHECK_OPTION_GE(num_threads, -1);
+  CHECK_OPTION_GE(random_seed, -1);
   CHECK_OPTION(Mapper().Check());
   CHECK_OPTION(Triangulation().Check());
   return true;
@@ -196,7 +201,8 @@ IncrementalPipeline::IncrementalPipeline(
     : options_(std::move(options)),
       image_path_(image_path),
       database_path_(database_path),
-      reconstruction_manager_(std::move(reconstruction_manager)) {
+      reconstruction_manager_(std::move(reconstruction_manager)),
+      total_run_timer_(std::make_shared<Timer>()) {
   THROW_CHECK(options_->Check());
   RegisterCallback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
   RegisterCallback(NEXT_IMAGE_REG_CALLBACK);
@@ -204,8 +210,8 @@ IncrementalPipeline::IncrementalPipeline(
 }
 
 void IncrementalPipeline::Run() {
-  Timer run_timer;
-  run_timer.Start();
+  total_run_timer_->Start();
+
   if (!LoadDatabase()) {
     return;
   }
@@ -225,9 +231,14 @@ void IncrementalPipeline::Run() {
               mapper_options,
               /*continue_reconstruction=*/continue_reconstruction);
 
+  auto ShouldStop = [this, &mapper, &num_images]() {
+    return mapper.NumTotalRegImages() == num_images || CheckIfStopped() ||
+           ReachedMaxRuntime();
+  };
+
   const size_t kNumInitRelaxations = 2;
   for (size_t i = 0; i < kNumInitRelaxations; ++i) {
-    if (mapper.NumTotalRegImages() == num_images || CheckIfStopped()) {
+    if (ShouldStop()) {
       break;
     }
 
@@ -236,7 +247,7 @@ void IncrementalPipeline::Run() {
     mapper.ResetInitializationStats();
     Reconstruct(mapper, mapper_options, /*continue_reconstruction=*/false);
 
-    if (mapper.NumTotalRegImages() == num_images || CheckIfStopped()) {
+    if (ShouldStop()) {
       break;
     }
 
@@ -246,7 +257,7 @@ void IncrementalPipeline::Run() {
     Reconstruct(mapper, mapper_options, /*continue_reconstruction=*/false);
   }
 
-  run_timer.PrintMinutes();
+  total_run_timer_->PrintMinutes();
 }
 
 bool IncrementalPipeline::LoadDatabase() {
@@ -264,12 +275,13 @@ bool IncrementalPipeline::LoadDatabase() {
     }
   }
 
-  Database database(database_path_);
   Timer timer;
   timer.Start();
-  const size_t min_num_matches = static_cast<size_t>(options_->min_num_matches);
   database_cache_ = DatabaseCache::Create(
-      database, min_num_matches, options_->ignore_watermarks, image_names);
+      *Database::Open(database_path_),
+      /*min_num_matches=*/static_cast<size_t>(options_->min_num_matches),
+      /*ignore_watermarks=*/options_->ignore_watermarks,
+      /*image_names=*/image_names);
   timer.PrintMinutes();
 
   if (database_cache_->NumImages() == 0) {
@@ -294,11 +306,11 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   image_t image_id2 = static_cast<image_t>(options_->init_image_id2);
 
   // Try to find good initial pair.
-  TwoViewGeometry two_view_geometry;
+  Rigid3d cam2_from_cam1;
   if (!options_->IsInitialPairProvided()) {
     LOG(INFO) << "Finding good initial image pair";
     const bool find_init_success = mapper.FindInitialImagePair(
-        mapper_options, two_view_geometry, image_id1, image_id2);
+        mapper_options, image_id1, image_id2, cam2_from_cam1);
     if (!find_init_success) {
       LOG(INFO) << "=> No good initial image pair found.";
       return Status::NO_INITIAL_PAIR;
@@ -313,7 +325,7 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
       return Status::NO_INITIAL_PAIR;
     }
     const bool provided_init_success = mapper.EstimateInitialTwoViewGeometry(
-        mapper_options, image_id1, image_id2, two_view_geometry);
+        mapper_options, image_id1, image_id2, cam2_from_cam1);
     if (!provided_init_success) {
       LOG(INFO) << "=> Provided pair is unsuitable for initialization.";
       return Status::BAD_INITIAL_PAIR;
@@ -323,9 +335,9 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   LOG(INFO) << StringPrintf(
       "Registering initial image pair #%d and #%d", image_id1, image_id2);
   mapper.RegisterInitialImagePair(
-      mapper_options, two_view_geometry, image_id1, image_id2);
+      mapper_options, image_id1, image_id2, cam2_from_cam1);
 
-  IncrementalTriangulator::Options tri_options;
+  IncrementalTriangulator::Options tri_options = options_->Triangulation();
   tri_options.min_angle = mapper_options.init_min_tri_angle;
   for (const image_t image_id : {image_id1, image_id2}) {
     const Image& image = reconstruction.Image(image_id);
@@ -342,6 +354,12 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
 
   // Initial image pair failed to register.
   if (reconstruction.NumRegFrames() == 0 || reconstruction.NumPoints3D() == 0) {
+    return Status::BAD_INITIAL_PAIR;
+  }
+
+  // Number of triangulated points not enough for registering future images.
+  if (static_cast<int>(reconstruction.NumPoints3D()) <
+      mapper_options.abs_pose_min_num_inliers) {
     return Status::BAD_INITIAL_PAIR;
   }
 
@@ -397,51 +415,79 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
   size_t ba_prev_num_reg_frames = reconstruction->NumRegFrames();
   size_t ba_prev_num_points = reconstruction->NumPoints3D();
 
+  std::vector<bool> structure_less_flags;
+  if (options_->structure_less_registration_only) {
+    structure_less_flags = {true};
+  } else {
+    if (options_->structure_less_registration_fallback) {
+      structure_less_flags = {false, true};
+    } else {
+      structure_less_flags = {false};
+    }
+  }
+
   bool reg_next_success = true;
   bool prev_reg_next_success = true;
   do {
-    if (CheckIfStopped()) {
+    if (CheckIfStopped() || ReachedMaxRuntime()) {
       break;
     }
 
     prev_reg_next_success = reg_next_success;
     reg_next_success = false;
+    image_t next_image_id = kInvalidImageId;
 
-    const std::vector<image_t> next_images =
-        mapper.FindNextImages(mapper_options);
+    // Try to register next image. Always prefer structure-based registration
+    // first, and if that fails, try (less reliable) structure-less
+    // registration.
+    for (const bool structure_less : structure_less_flags) {
+      const std::vector<image_t> next_images = mapper.FindNextImages(
+          mapper_options, /*structure_less=*/structure_less);
 
-    if (next_images.empty()) {
-      break;
-    }
+      for (size_t reg_trial = 0; reg_trial < next_images.size(); ++reg_trial) {
+        next_image_id = next_images[reg_trial];
 
-    image_t next_image_id;
-    for (size_t reg_trial = 0; reg_trial < next_images.size(); ++reg_trial) {
-      next_image_id = next_images[reg_trial];
+        LOG(INFO) << StringPrintf("Registering image #%d (num_reg_frames=%d)",
+                                  next_image_id,
+                                  reconstruction->NumRegFrames());
+        LOG(INFO) << StringPrintf(
+            "=> Image sees %d / %d points",
+            mapper.ObservationManager().NumVisiblePoints3D(next_image_id),
+            mapper.ObservationManager().NumObservations(next_image_id));
 
-      LOG(INFO) << StringPrintf("Registering image #%d (num_reg_frames=%d)",
-                                next_image_id,
-                                reconstruction->NumRegFrames());
-      LOG(INFO) << StringPrintf(
-          "=> Image sees %d / %d points",
-          mapper.ObservationManager().NumVisiblePoints3D(next_image_id),
-          mapper.ObservationManager().NumObservations(next_image_id));
+        if (structure_less) {
+          LOG(INFO) << StringPrintf(
+              "Registering image with structure-less fallback");
+          LOG(INFO) << StringPrintf(
+              "=> Image sees %d / %d correspondences",
+              mapper.ObservationManager().NumVisibleCorrespondences(
+                  next_image_id),
+              mapper.ObservationManager().NumCorrespondences(next_image_id));
+          reg_next_success = mapper.RegisterNextStructureLessImage(
+              mapper_options, next_image_id);
+        } else {
+          reg_next_success =
+              mapper.RegisterNextImage(mapper_options, next_image_id);
+        }
 
-      reg_next_success =
-          mapper.RegisterNextImage(mapper_options, next_image_id);
+        if (reg_next_success) {
+          break;
+        } else {
+          LOG(INFO) << "=> Could not register, trying another image.";
+
+          // If initial pair fails to continue for some time,
+          // abort and try different initial pair.
+          const size_t kMinNumInitialRegTrials = 30;
+          if (reg_trial >= kMinNumInitialRegTrials &&
+              reconstruction->NumRegFrames() <
+                  static_cast<size_t>(options_->min_model_size)) {
+            break;
+          }
+        }
+      }
 
       if (reg_next_success) {
         break;
-      } else {
-        LOG(INFO) << "=> Could not register, trying another image.";
-
-        // If initial pair fails to continue for some time,
-        // abort and try different initial pair.
-        const size_t kMinNumInitialRegTrials = 30;
-        if (reg_trial >= kMinNumInitialRegTrials &&
-            reconstruction->NumRegFrames() <
-                static_cast<size_t>(options_->min_model_size)) {
-          break;
-        }
       }
     }
 
@@ -494,7 +540,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
     }
   } while (reg_next_success || prev_reg_next_success);
 
-  if (CheckIfStopped()) {
+  if (CheckIfStopped() || ReachedMaxRuntime()) {
     return Status::INTERRUPTED;
   }
 
@@ -513,7 +559,7 @@ void IncrementalPipeline::Reconstruct(
     bool continue_reconstruction) {
   for (int num_trials = 0; num_trials < options_->init_num_trials;
        ++num_trials) {
-    if (CheckIfStopped()) {
+    if (CheckIfStopped() || ReachedMaxRuntime()) {
       break;
     }
     size_t reconstruction_idx;
@@ -529,8 +575,11 @@ void IncrementalPipeline::Reconstruct(
         ReconstructSubModel(mapper, mapper_options, reconstruction);
     switch (status) {
       case Status::INTERRUPTED: {
+        reconstruction->UpdatePoint3DErrors();
         LOG(INFO) << "Keeping reconstruction due to interrupt";
         mapper.EndReconstruction(/*discard=*/false);
+        AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
+                                           reconstruction.get());
         return;
       }
 
@@ -572,8 +621,11 @@ void IncrementalPipeline::Reconstruct(
           mapper.EndReconstruction(/*discard=*/true);
           reconstruction_manager_->Delete(reconstruction_idx);
         } else {
+          reconstruction->UpdatePoint3DErrors();
           LOG(INFO) << "Keeping successful reconstruction";
           mapper.EndReconstruction(/*discard=*/false);
+          AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
+                                             reconstruction.get());
         }
 
         Callback(LAST_IMAGE_REG_CALLBACK);
@@ -626,8 +678,20 @@ void IncrementalPipeline::TriangulateReconstruction(
                                    /*normalize_reconstruction=*/false);
   mapper.EndReconstruction(/*discard=*/false);
 
+  reconstruction->UpdatePoint3DErrors();
+
   LOG(INFO) << "Extracting colors";
   reconstruction->ExtractColorsForAllImages(image_path_);
+}
+
+bool IncrementalPipeline::ReachedMaxRuntime() const {
+  if (options_->max_runtime_seconds > 0 &&
+      total_run_timer_->ElapsedSeconds() > options_->max_runtime_seconds) {
+    LOG(INFO) << "Reached maximum runtime of " << options_->max_runtime_seconds
+              << " seconds.";
+    return true;
+  }
+  return false;
 }
 
 }  // namespace colmap

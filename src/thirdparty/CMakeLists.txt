@@ -2,29 +2,13 @@ set(FOLDER_NAME "thirdparty")
 
 # Only show moderate warnings for external library code.
 if(IS_MSVC)
-    if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
-        string(REGEX REPLACE "/W[0-4]" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-        set(REMOVED_WARNING_LEVEL TRUE)
-    elseif(CMAKE_CXX_FLAGS MATCHES "/Wall")
-        string(REGEX REPLACE "/Wall" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-        set(REMOVED_WARNING_LEVEL TRUE)
-    endif()
-    if(CMAKE_C_FLAGS MATCHES "/W[0-4]")
-        string(REGEX REPLACE "/W[0-4]" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-        set(REMOVED_WARNING_LEVEL TRUE)
-    elseif(CMAKE_C_FLAGS MATCHES "/Wall")
-        string(REGEX REPLACE "/Wall" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-        set(REMOVED_WARNING_LEVEL TRUE)
-    endif()
+    string(REGEX REPLACE "/W[0-4]" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+    string(REGEX REPLACE "/Wall" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+    string(REGEX REPLACE "/W[0-4]" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    string(REGEX REPLACE "/Wall" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 elseif(IS_GNU OR IS_CLANG)
-    if(CMAKE_CXX_FLAGS MATCHES "-Wall")
-        string(REGEX REPLACE "-Wall" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-        set(REMOVED_WARNING_LEVEL TRUE)
-    endif()
-    if(CMAKE_C_FLAGS MATCHES "-Wall")
-        string(REGEX REPLACE "-Wall" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-        set(REMOVED_WARNING_LEVEL TRUE)
-    endif()
+    string(REGEX REPLACE "-Wall" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+    string(REGEX REPLACE "-Wall" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
 
 if(IS_MSVC)
@@ -71,8 +55,8 @@ endif()
 if(FETCH_FAISS)
     include(FetchContent)
     FetchContent_Declare(faiss
-        URL https://github.com/ahojnnes/faiss/archive/84a2fd7235be00add67d755e0300314cac669547.zip
-        URL_HASH SHA256=919ae53ff365fd85ab2a0a51b0dd58aff03718b025817b411a95f1afeb43649f
+        URL https://github.com/ahojnnes/faiss/archive/36b77353dc435383e0c23a709e7997a29d049041.zip
+        URL_HASH SHA256=aaf90b3dd3e353ff0bc3391581788cda7c510749023d1937707fc99c38ef2587
         ${_fetch_content_declare_args}
     )
     message(STATUS "Configuring faiss...")

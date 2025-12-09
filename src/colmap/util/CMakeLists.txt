@@ -41,10 +41,11 @@ COLMAP_ADD_LIBRARY(
         enum_utils.h
         file.h file.cc
         logging.h logging.cc
+        glog_macros.h
         misc.h misc.cc
+        oiio_utils.h oiio_utils.cc
         opengl_utils.h opengl_utils.cc
         ply.h ply.cc
-        sqlite3_utils.h
         string.h string.cc
         threading.h threading.cc
         timer.h timer.cc
@@ -53,8 +54,8 @@ COLMAP_ADD_LIBRARY(
     PUBLIC_LINK_LIBS
         Eigen3::Eigen
         glog::glog
-        SQLite::SQLite3
         Boost::boost
+        OpenImageIO::OpenImageIO
     PRIVATE_LINK_LIBS
         $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:-lstdc++fs>
 )
@@ -76,10 +77,17 @@ if(DOWNLOAD_ENABLED)
         target_link_libraries(colmap_util PRIVATE OpenSSL::Crypto)
         target_compile_definitions(colmap_util PRIVATE COLMAP_USE_OPENSSL)
     endif()
- endif()
-
+endif()
 if(GUI_ENABLED)
-    target_link_libraries(colmap_util PUBLIC Qt5::Core Qt5::OpenGL OpenGL::GL)
+    set(COLMAP_UTIL_QT_LIBS
+        Qt${QT_VERSION_MAJOR}::Core
+        Qt${QT_VERSION_MAJOR}::OpenGL
+    )
+    if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
+        list(APPEND COLMAP_UTIL_QT_LIBS
+            Qt${QT_VERSION_MAJOR}::OpenGLWidgets)
+    endif()
+    target_link_libraries(colmap_util PUBLIC ${COLMAP_UTIL_QT_LIBS} OpenGL::GL)
 endif()
 
 if(CUDA_ENABLED)
@@ -106,8 +114,18 @@ if(TESTS_ENABLED)
 endif()
 
 COLMAP_ADD_TEST(
+    NAME base_controller_test
+    SRCS base_controller_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
     NAME cache_test
     SRCS cache_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
+    NAME controller_thread_test
+    SRCS controller_thread_test.cc
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
@@ -141,10 +159,22 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
+    NAME ply_test
+    SRCS ply_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
     NAME string_test
     SRCS string_test.cc
     LINK_LIBS colmap_util
 )
+if(TESTS_ENABLED)
+    if(MSVC)
+        target_compile_options(colmap_util_string_test PRIVATE /utf-8)
+    else()
+        target_compile_options(colmap_util_string_test PRIVATE -finput-charset=UTF-8 -fexec-charset=UTF-8)
+    endif()
+endif()
 COLMAP_ADD_TEST(
     NAME threading_test
     SRCS threading_test.cc
