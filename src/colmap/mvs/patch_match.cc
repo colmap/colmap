@@ -461,9 +461,9 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
     LOG(INFO) << "Reading inputs...";
     std::vector<int> src_image_idxs;
     for (const auto image_idx : used_image_idxs) {
-      std::string image_path = workspace_->GetBitmapPath(image_idx);
-      std::string depth_path = workspace_->GetDepthMapPath(image_idx);
-      std::string normal_path = workspace_->GetNormalMapPath(image_idx);
+      const std::string image_path = workspace_->GetBitmapPath(image_idx);
+      const std::string depth_path = workspace_->GetDepthMapPath(image_idx);
+      const std::string normal_path = workspace_->GetNormalMapPath(image_idx);
 
       if (!ExistsFile(image_path) ||
           (options.geom_consistency && !ExistsFile(depth_path)) ||

@@ -373,6 +373,12 @@ set(COLMAP_EXPORT_LIBS
     colmap_sensor
     colmap_sfm
     colmap_util
+    colmap_glomap_estimators
+    colmap_glomap_io
+    colmap_glomap_math
+    colmap_glomap_processors
+    colmap_glomap_scene
+    colmap_glomap_sfm
     # Third-party.
     colmap_poisson_recon
     colmap_vlfeat

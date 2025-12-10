@@ -27,15 +27,39 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-set(FOLDER_NAME "glomap_exe")
+set(FOLDER_NAME "glomap_sfm")
 
 COLMAP_ADD_LIBRARY(
-    NAME colmap_glomap_exe
+    NAME colmap_glomap_sfm
     SRCS
         global_mapper.h global_mapper.cc
         rotation_averager.h rotation_averager.cc
+        track_establishment.h track_establishment.cc
+        track_retriangulation.h track_retriangulation.cc
     PUBLIC_LINK_LIBS
-        colmap_glomap_controllers
-        colmap_glomap_sfm
-        colmap_controllers
+        colmap_glomap_estimators
+        colmap_glomap_io
+        colmap_glomap_math
+        colmap_glomap_processors
+        colmap_glomap_scene
+        colmap_estimators
+        colmap_sfm
+        colmap_util
+    PRIVATE_LINK_LIBS
+        Boost::boost
+)
+
+if(MSVC)
+    target_compile_options(colmap_glomap_sfm PRIVATE /bigobj)
+endif()
+
+COLMAP_ADD_TEST(
+    NAME glomap_global_mapper_test
+    SRCS global_mapper_test.cc
+    LINK_LIBS colmap_glomap_sfm
+)
+COLMAP_ADD_TEST(
+    NAME glomap_rotation_averager_test
+    SRCS rotation_averager_test.cc
+    LINK_LIBS colmap_glomap_sfm
 )
