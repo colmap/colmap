@@ -134,6 +134,9 @@ TEST(BundleAdjustmentConfig, NumResiduals) {
 
   config.AddImage(image_ids[3]);
   EXPECT_EQ(config.NumResiduals(reconstruction), 800);
+
+  config.IgnorePoint(3);
+  EXPECT_EQ(config.NumResiduals(reconstruction), 792);
 }
 
 TEST(DefaultBundleAdjuster, TwoView) {
