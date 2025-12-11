@@ -21,14 +21,14 @@ def _preload_cuda_lib(module_name: str, lib_name: str):
 
         # Resolve the library directory robustly
         if module_file_path := getattr(module, "__file__", None):
-            lib_dir = Path(module_file_path).parent / "lib"
+            lib_dir = Path(module_file_path).parent
         elif paths := getattr(module, "__path__", None):
             # Implicit namespace packages have __path__ but no __file__
-            lib_dir = Path(list(paths)[0]) / "lib"
+            lib_dir = Path(list(paths)[0])
         else:
             return
         # Find the first file matching the pattern
-        if lib_path := next(lib_dir.glob(lib_name), None):
+        if lib_path := next((lib_dir / "lib").glob(lib_name), None):
             with contextlib.suppress(OSError):
                 ctypes.CDLL(str(lib_path))
 
