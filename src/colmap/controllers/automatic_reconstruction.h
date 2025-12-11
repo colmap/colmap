@@ -44,6 +44,7 @@ class AutomaticReconstructionController : public Thread {
  public:
   MAKE_ENUM_CLASS(DataType, 0, INDIVIDUAL, VIDEO, INTERNET);
   MAKE_ENUM_CLASS(Quality, 0, LOW, MEDIUM, HIGH, EXTREME);
+  MAKE_ENUM_CLASS(Mapper, 0, INCREMENTAL, HIERARCHICAL, GLOBAL);
   MAKE_ENUM_CLASS(Mesher, 0, POISSON, DELAUNAY);
 
   struct Options {
@@ -97,6 +98,9 @@ class AutomaticReconstructionController : public Thread {
 #else
     bool dense = false;
 #endif
+
+    // The mapping algorithm to be used.
+    Mapper mapper = Mapper::INCREMENTAL;
 
     // The meshing algorithm to be used.
     Mesher mesher = Mesher::POISSON;
