@@ -29,38 +29,30 @@
 
 #pragma once
 
-#include "colmap/scene/reconstruction.h"
+#include "colmap/scene/reconstruction_manager.h"
+#include "colmap/util/base_controller.h"
+
+#include "glomap/sfm/global_mapper.h"
 
 #include <memory>
 
 namespace colmap {
 
-class ReconstructionManager {
+class GlobalPipeline : public BaseController {
  public:
-  // The number of reconstructions managed.
-  size_t Size() const;
+  GlobalPipeline(
+      const glomap::GlobalMapperOptions& options,
+      const std::string& image_path,
+      const std::string& database_path,
+      std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager);
 
-  // Get a reference to a specific reconstruction.
-  std::shared_ptr<const Reconstruction> Get(size_t idx) const;
-  std::shared_ptr<Reconstruction>& Get(size_t idx);
-
-  // Add a new empty reconstruction and return its index.
-  size_t Add();
-
-  // Delete a specific reconstruction.
-  void Delete(size_t idx);
-
-  // Delete all reconstructions.
-  void Clear();
-
-  // Read and add a new reconstruction and return its index.
-  size_t Read(const std::string& path);
-
-  // Write all managed reconstructions into sub-folders "0", "1", "2", ...
-  void Write(const std::string& path) const;
+  void Run() override;
 
  private:
-  std::vector<std::shared_ptr<Reconstruction>> reconstructions_;
+  const glomap::GlobalMapperOptions options_;
+  const std::string image_path_;
+  const std::string database_path_;
+  std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager_;
 };
 
 }  // namespace colmap

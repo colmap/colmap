@@ -36,5 +36,6 @@ COLMAP_ADD_LIBRARY(
         rotation_averager.h rotation_averager.cc
     PUBLIC_LINK_LIBS
         colmap_glomap_controllers
-        colmap_exe
+        colmap_glomap_sfm
+        colmap_controllers
 )

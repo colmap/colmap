@@ -1,4 +1,4 @@
-#include "glomap/controllers/rotation_averager.h"
+#include "glomap/sfm/rotation_averager.h"
 
 #include "glomap/estimators/rotation_initializer.h"
 #include "glomap/io/colmap_converter.h"

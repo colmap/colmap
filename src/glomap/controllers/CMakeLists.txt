@@ -32,36 +32,11 @@ set(FOLDER_NAME "glomap_controllers")
 COLMAP_ADD_LIBRARY(
     NAME colmap_glomap_controllers
     SRCS
-        global_mapper.h global_mapper.cc
         option_manager.h option_manager.cc
-        rotation_averager.h rotation_averager.cc
-        track_establishment.h track_establishment.cc
-        track_retriangulation.h track_retriangulation.cc
     PUBLIC_LINK_LIBS
         colmap_glomap_estimators
-        colmap_glomap_io
-        colmap_glomap_math
-        colmap_glomap_processors
-        colmap_glomap_scene
         colmap_controllers
-        colmap_estimators
-        colmap_sfm
         colmap_util
     PRIVATE_LINK_LIBS
         Boost::boost
-)
-
-if(MSVC)
-    target_compile_options(colmap_glomap_controllers PRIVATE /bigobj)
-endif()
-
-COLMAP_ADD_TEST(
-    NAME glomap_global_mapper_test
-    SRCS global_mapper_test.cc
-    LINK_LIBS colmap_glomap_controllers
-)
-COLMAP_ADD_TEST(
-    NAME glomap_rotation_averager_test
-    SRCS rotation_averager_test.cc
-    LINK_LIBS colmap_glomap_controllers
 )

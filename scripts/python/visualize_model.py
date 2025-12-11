@@ -31,30 +31,28 @@ import argparse
 
 import numpy as np
 import open3d
-from read_write_model import qvec2rotmat, read_model
+
+import pycolmap
 
 
 class Model:
     def __init__(self):
-        self.cameras = []
-        self.images = []
-        self.points3D = []
+        self.recon = None
         self.__vis = None
 
-    def read_model(self, path, ext=""):
-        self.cameras, self.images, self.points3D = read_model(path, ext)
+    def read_model(self, path):
+        self.recon = pycolmap.Reconstruction(path)
 
     def add_points(self, min_track_len=3, remove_statistical_outlier=True):
         pcd = open3d.geometry.PointCloud()
 
         xyz = []
         rgb = []
-        for point3D in self.points3D.values():
-            track_len = len(point3D.point2D_idxs)
-            if track_len < min_track_len:
+        for point in self.recon.points3D.values():
+            if point.track.length() < min_track_len:
                 continue
-            xyz.append(point3D.xyz)
-            rgb.append(point3D.rgb / 255)
+            xyz.append(point.xyz)
+            rgb.append(point.color / 255)
 
         pcd.points = open3d.utility.Vector3dVector(xyz)
         pcd.colors = open3d.utility.Vector3dVector(rgb)
@@ -71,30 +69,28 @@ class Model:
         self.__vis.update_renderer()
 
     def add_cameras(self, scale=1):
-        frames = []
-        for img in self.images.values():
-            # rotation
-            R = qvec2rotmat(img.qvec)
-
-            # translation
-            t = img.tvec
-
-            # invert
-            t = -R.T @ t
-            R = R.T
+        frustums = []
+        for img in self.recon.images.values():
+            # extrinsics
+            world_from_cam = img.cam_from_world().inverse()
+            R = world_from_cam.rotation.matrix()
+            t = world_from_cam.translation
 
             # intrinsics
-            cam = self.cameras[img.camera_id]
-
-            if cam.model in ("SIMPLE_PINHOLE", "SIMPLE_RADIAL", "RADIAL"):
+            cam = img.camera
+            if cam.model in (
+                pycolmap.CameraModelId.SIMPLE_PINHOLE,
+                pycolmap.CameraModelId.SIMPLE_RADIAL,
+                pycolmap.CameraModelId.RADIAL,
+            ):
                 fx = fy = cam.params[0]
                 cx = cam.params[1]
                 cy = cam.params[2]
             elif cam.model in (
-                "PINHOLE",
-                "OPENCV",
-                "OPENCV_FISHEYE",
-                "FULL_OPENCV",
+                pycolmap.CameraModelId.PINHOLE,
+                pycolmap.CameraModelId.OPENCV,
+                pycolmap.CameraModelId.OPENCV_FISHEYE,
+                pycolmap.CameraModelId.FULL_OPENCV,
             ):
                 fx = cam.params[0]
                 fy = cam.params[1]
@@ -110,12 +106,12 @@ class Model:
             K[0, 2] = cx
             K[1, 2] = cy
 
-            # create axis, plane and pyramed geometries that will be drawn
+            # create axis, plane and pyramid geometries that will be drawn
             cam_model = draw_camera(K, R, t, cam.width, cam.height, scale)
-            frames.extend(cam_model)
+            frustums.extend(cam_model)
 
         # add geometries to visualizer
-        for i in frames:
+        for i in frustums:
             self.__vis.add_geometry(i)
 
     def create_window(self):
@@ -201,12 +197,6 @@ def parse_args():
     parser.add_argument(
         "--input_model", required=True, help="path to input model folder"
     )
-    parser.add_argument(
-        "--input_format",
-        choices=[".bin", ".txt"],
-        help="input model format",
-        default="",
-    )
     args = parser.parse_args()
     return args
 
@@ -216,11 +206,11 @@ def main():
 
     # read COLMAP model
     model = Model()
-    model.read_model(args.input_model, ext=args.input_format)
+    model.read_model(args.input_model)
 
-    print("num_cameras:", len(model.cameras))
-    print("num_images:", len(model.images))
-    print("num_points3D:", len(model.points3D))
+    print("num_cameras:", model.recon.num_cameras())
+    print("num_images:", model.recon.num_images())
+    print("num_points3D:", model.recon.num_points3D())
 
     # display using Open3D visualization tools
     model.create_window()

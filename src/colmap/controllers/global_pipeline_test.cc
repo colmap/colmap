@@ -27,40 +27,47 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#include "colmap/controllers/global_pipeline.h"
 
-#include "colmap/scene/reconstruction.h"
+#include "colmap/scene/database.h"
+#include "colmap/scene/reconstruction_matchers.h"
+#include "colmap/scene/synthetic.h"
+#include "colmap/util/testing.h"
 
-#include <memory>
+#include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
-class ReconstructionManager {
- public:
-  // The number of reconstructions managed.
-  size_t Size() const;
+// TODO(jsch): Create parameterized tests for the different mapper
+// implementations (incremental, hierarchical, global)
+TEST(GlobalPipeline, Nominal) {
+  const std::string database_path = CreateTestDir() + "/database.db";
 
-  // Get a reference to a specific reconstruction.
-  std::shared_ptr<const Reconstruction> Get(size_t idx) const;
-  std::shared_ptr<Reconstruction>& Get(size_t idx);
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
 
-  // Add a new empty reconstruction and return its index.
-  size_t Add();
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  GlobalPipeline mapper(glomap::GlobalMapperOptions(),
+                        /*image_path=*/"",
+                        database_path,
+                        reconstruction_manager);
+  mapper.Run();
 
-  // Delete a specific reconstruction.
-  void Delete(size_t idx);
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(*reconstruction_manager->Get(0),
+                                 /*max_rotation_error_deg=*/1e-2,
+                                 /*max_proj_center_error=*/1e-4));
+}
 
-  // Delete all reconstructions.
-  void Clear();
-
-  // Read and add a new reconstruction and return its index.
-  size_t Read(const std::string& path);
-
-  // Write all managed reconstructions into sub-folders "0", "1", "2", ...
-  void Write(const std::string& path) const;
-
- private:
-  std::vector<std::shared_ptr<Reconstruction>> reconstructions_;
-};
-
+}  // namespace
 }  // namespace colmap

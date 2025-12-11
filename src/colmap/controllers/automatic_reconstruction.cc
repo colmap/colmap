@@ -31,6 +31,8 @@
 
 #include "colmap/controllers/feature_extraction.h"
 #include "colmap/controllers/feature_matching.h"
+#include "colmap/controllers/global_pipeline.h"
+#include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/image/undistortion.h"
@@ -246,12 +248,38 @@ void AutomaticReconstructionController::RunSparseMapper() {
     }
   }
 
-  IncrementalPipeline mapper(option_manager_.mapper,
-                             *option_manager_.image_path,
-                             *option_manager_.database_path,
-                             reconstruction_manager_);
-  mapper.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
-  mapper.Run();
+  std::unique_ptr<BaseController> mapper;
+  switch (options_.mapper) {
+    case Mapper::INCREMENTAL: {
+      mapper =
+          std::make_unique<IncrementalPipeline>(option_manager_.mapper,
+                                                *option_manager_.image_path,
+                                                *option_manager_.database_path,
+                                                reconstruction_manager_);
+      break;
+    }
+    case Mapper::HIERARCHICAL: {
+      HierarchicalPipeline::Options options;
+      options.image_path = *option_manager_.image_path;
+      options.database_path = *option_manager_.database_path;
+      options.incremental_options = *option_manager_.mapper;
+      mapper = std::make_unique<HierarchicalPipeline>(options,
+                                                      reconstruction_manager_);
+      break;
+    }
+    case Mapper::GLOBAL: {
+      mapper = std::make_unique<GlobalPipeline>(glomap::GlobalMapperOptions(),
+                                                *option_manager_.image_path,
+                                                *option_manager_.database_path,
+                                                reconstruction_manager_);
+      break;
+    }
+    default:
+      LOG(FATAL_THROW) << "Mapper not supported";
+  }
+
+  mapper->SetCheckIfStoppedFunc([&]() { return IsStopped(); });
+  mapper->Run();
 
   CreateDirIfNotExists(sparse_path);
   reconstruction_manager_->Write(sparse_path);

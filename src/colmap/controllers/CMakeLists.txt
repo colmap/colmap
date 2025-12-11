@@ -39,6 +39,7 @@ COLMAP_ADD_LIBRARY(
         feature_extraction.h feature_extraction.cc
         feature_matching.h feature_matching.cc
         feature_matching_utils.h feature_matching_utils.cc
+        global_pipeline.h global_pipeline.cc
         image_reader.h image_reader.cc
         incremental_pipeline.h incremental_pipeline.cc
         option_manager.h option_manager.cc
@@ -55,6 +56,7 @@ COLMAP_ADD_LIBRARY(
         colmap_math
         colmap_mvs
         colmap_sfm
+        colmap_glomap_sfm
         Ceres::ceres
         Boost::boost
 )
@@ -99,6 +101,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME feature_matching_test
     SRCS feature_matching_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME global_pipeline_test
+    SRCS global_pipeline_test.cc
     LINK_LIBS colmap_controllers
 )
 COLMAP_ADD_TEST(
