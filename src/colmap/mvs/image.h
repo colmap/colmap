@@ -66,8 +66,8 @@ class Image {
 
  private:
   std::string path_;
-  size_t width_;
-  size_t height_;
+  size_t width_ = 0;
+  size_t height_ = 0;
   float K_[9];
   float R_[9];
   float T_[3];
