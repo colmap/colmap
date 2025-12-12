@@ -47,16 +47,17 @@ GlobalPipeline::GlobalPipeline(
       reconstruction_manager_(std::move(reconstruction_manager)) {}
 
 void GlobalPipeline::Run() {
+  auto database = Database::Open(database_path_);
+
   glomap::ViewGraph view_graph;
   std::unordered_map<rig_t, Rig> rigs;
   std::unordered_map<camera_t, Camera> cameras;
   std::unordered_map<frame_t, glomap::Frame> frames;
   std::unordered_map<image_t, glomap::Image> images;
   std::unordered_map<point3D_t, Point3D> tracks;
-
-  auto database = Database::Open(database_path_);
   glomap::ConvertDatabaseToGlomap(
       *database, view_graph, rigs, cameras, frames, images);
+  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
 
   if (view_graph.image_pairs.empty()) {
     LOG(ERROR) << "Cannot continue without image pairs";
@@ -66,8 +67,14 @@ void GlobalPipeline::Run() {
   Timer run_timer;
   run_timer.Start();
   glomap::GlobalMapper global_mapper(options_);
-  global_mapper.Solve(
-      *database, view_graph, rigs, cameras, frames, images, tracks);
+  global_mapper.Solve(*database,
+                      view_graph,
+                      rigs,
+                      cameras,
+                      frames,
+                      images,
+                      tracks,
+                      pose_priors);
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 
