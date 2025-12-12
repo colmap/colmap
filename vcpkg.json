@@ -70,7 +70,8 @@
             "description": "Build with GUI support.",
             "dependencies": [
                 "glew",
-                "qtbase"
+                "qtbase",
+                "qtwayland"
             ]
         },
         "cgal": {

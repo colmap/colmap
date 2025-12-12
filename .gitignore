@@ -53,3 +53,5 @@ vcpkg_installed/
 # backup files
 *~
 *.orig
+
+install
