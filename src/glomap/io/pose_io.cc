@@ -30,7 +30,7 @@ void ReadRelPose(const std::string& file_path,
   camera_t max_camera_id = 0;
   for (const auto& [image_id, image] : images) {
     max_image_id = std::max(max_image_id, image_id);
-    max_camera_id = std::max(max_camera_id, image.camera_id);
+    max_camera_id = std::max(max_camera_id, image.CameraId());
   }
 
   // Mark every edge in te view graph as invalid
