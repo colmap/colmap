@@ -105,6 +105,15 @@ TEST(Bitmap, AllocateGrey) {
   EXPECT_FALSE(bitmap.IsEmpty());
 }
 
+TEST(Bitmap, MoveConstructEmpty) {
+  Bitmap bitmap;
+  Bitmap moved_bitmap(std::move(bitmap));
+  EXPECT_EQ(moved_bitmap.Width(), 0);
+  EXPECT_EQ(moved_bitmap.Height(), 0);
+  EXPECT_EQ(moved_bitmap.Channels(), 0);
+  EXPECT_TRUE(moved_bitmap.IsEmpty());
+}
+
 TEST(Bitmap, MoveConstruct) {
   Bitmap bitmap(2, 1, /*as_rgb=*/true);
   Bitmap moved_bitmap(std::move(bitmap));
@@ -115,8 +124,16 @@ TEST(Bitmap, MoveConstruct) {
   EXPECT_EQ(bitmap.Width(), 0);
   EXPECT_EQ(bitmap.Height(), 0);
   EXPECT_EQ(bitmap.Channels(), 0);
-  EXPECT_EQ(bitmap.NumBytes(), 0);
+  EXPECT_TRUE(bitmap.IsEmpty());
   // NOLINTEND(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
+}
+
+TEST(Bitmap, MoveAssignEmpty) {
+  Bitmap bitmap;
+  Bitmap moved_bitmap = std::move(bitmap);
+  EXPECT_EQ(moved_bitmap.Width(), 0);
+  EXPECT_EQ(moved_bitmap.Height(), 0);
+  EXPECT_EQ(moved_bitmap.Channels(), 0);
 }
 
 TEST(Bitmap, MoveAssign) {
@@ -129,8 +146,46 @@ TEST(Bitmap, MoveAssign) {
   EXPECT_EQ(bitmap.Width(), 0);
   EXPECT_EQ(bitmap.Height(), 0);
   EXPECT_EQ(bitmap.Channels(), 0);
-  EXPECT_EQ(bitmap.NumBytes(), 0);
+  EXPECT_TRUE(bitmap.IsEmpty());
   // NOLINTEND(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
+}
+
+TEST(Bitmap, ConstructCopyEmpty) {
+  Bitmap bitmap;
+  const Bitmap& copied_bitmap(bitmap);
+  EXPECT_EQ(copied_bitmap.Width(), 0);
+  EXPECT_EQ(copied_bitmap.Height(), 0);
+  EXPECT_EQ(copied_bitmap.Channels(), 0);
+}
+
+TEST(Bitmap, ConstructCopy) {
+  Bitmap bitmap(2, 1, /*as_rgb=*/true);
+  const Bitmap& copied_bitmap(bitmap);
+  EXPECT_EQ(copied_bitmap.Width(), 2);
+  EXPECT_EQ(copied_bitmap.Height(), 1);
+  EXPECT_EQ(copied_bitmap.Channels(), 3);
+  EXPECT_EQ(bitmap.Width(), 2);
+  EXPECT_EQ(bitmap.Height(), 1);
+  EXPECT_EQ(bitmap.Channels(), 3);
+}
+
+TEST(Bitmap, AssignCopyEmpty) {
+  Bitmap bitmap;
+  const Bitmap& copied_bitmap = bitmap;
+  EXPECT_EQ(copied_bitmap.Width(), 0);
+  EXPECT_EQ(copied_bitmap.Height(), 0);
+  EXPECT_EQ(copied_bitmap.Channels(), 0);
+}
+
+TEST(Bitmap, AssignCopy) {
+  Bitmap bitmap(2, 1, /*as_rgb=*/true);
+  const Bitmap& copied_bitmap = bitmap;
+  EXPECT_EQ(copied_bitmap.Width(), 2);
+  EXPECT_EQ(copied_bitmap.Height(), 1);
+  EXPECT_EQ(copied_bitmap.Channels(), 3);
+  EXPECT_EQ(bitmap.Width(), 2);
+  EXPECT_EQ(bitmap.Height(), 1);
+  EXPECT_EQ(bitmap.Channels(), 3);
 }
 
 TEST(Bitmap, BitsPerPixel) {
@@ -284,6 +339,12 @@ TEST(Bitmap, CloneAsRGB) {
   BitmapColor<uint8_t> color;
   EXPECT_TRUE(cloned_bitmap.GetPixel(0, 0, &color));
   EXPECT_EQ(color, BitmapColor<uint8_t>(10, 10, 10));
+  const std::string test_dir = CreateTestDir();
+  const std::string filename = test_dir + "/bitmap.png";
+  EXPECT_TRUE(cloned_bitmap.Write(filename));
+  Bitmap read_bitmap;
+  EXPECT_TRUE(read_bitmap.Read(filename, /*as_rgb=*/true));
+  EXPECT_EQ(read_bitmap.RowMajorData(), cloned_bitmap.RowMajorData());
 }
 
 TEST(Bitmap, CloneAsGrey) {
@@ -297,6 +358,12 @@ TEST(Bitmap, CloneAsGrey) {
   BitmapColor<uint8_t> color;
   EXPECT_TRUE(cloned_bitmap.GetPixel(0, 0, &color));
   EXPECT_EQ(color, BitmapColor<uint8_t>(19, 19, 19));
+  const std::string test_dir = CreateTestDir();
+  const std::string filename = test_dir + "/bitmap.png";
+  EXPECT_TRUE(cloned_bitmap.Write(filename));
+  Bitmap read_bitmap;
+  EXPECT_TRUE(read_bitmap.Read(filename, /*as_rgb=*/false));
+  EXPECT_EQ(read_bitmap.RowMajorData(), cloned_bitmap.RowMajorData());
 }
 
 TEST(Bitmap, SetGetMetaData) {

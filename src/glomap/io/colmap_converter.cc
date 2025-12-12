@@ -236,6 +236,8 @@ void ConvertDatabaseToGlomap(
     }
   }
 
+  LOG(INFO) << "Read " << images.size() << " images";
+
   // Add the cameras
   std::vector<colmap::Camera> cameras_colmap = database.ReadAllCameras();
   for (auto& camera : cameras_colmap) {
@@ -417,6 +419,7 @@ void CreateOneRigPerCamera(
     Rig rig;
     rig.SetRigId(camera_id);
     rig.AddRefSensor(camera.SensorId());
+    rigs[rig.RigId()] = rig;
   }
 }
 

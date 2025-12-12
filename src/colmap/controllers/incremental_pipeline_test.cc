@@ -29,7 +29,6 @@
 
 #include "colmap/controllers/incremental_pipeline.h"
 
-#include "colmap/estimators/alignment.h"
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"

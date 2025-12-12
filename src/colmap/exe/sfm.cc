@@ -83,6 +83,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   std::string image_list_path;
   std::string data_type = "individual";
   std::string quality = "high";
+  std::string mapper = "incremental";
   std::string mesher = "poisson";
 
   OptionManager options;
@@ -108,6 +109,8 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("matching", &reconstruction_options.matching);
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
+  options.AddDefaultOption(
+      "mapper", &mapper, "{incremental, hierarchical, global}");
   options.AddDefaultOption("mesher", &mesher, "{poisson, delaunay}");
   options.AddDefaultOption("num_threads", &reconstruction_options.num_threads);
   options.AddDefaultOption("random_seed", &reconstruction_options.random_seed);
@@ -128,6 +131,10 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   StringToUpper(&quality);
   reconstruction_options.quality =
       AutomaticReconstructionController::QualityFromString(quality);
+
+  StringToUpper(&mapper);
+  reconstruction_options.mapper =
+      AutomaticReconstructionController::MapperFromString(mapper);
 
   StringToUpper(&mesher);
   reconstruction_options.mesher =
@@ -565,7 +572,7 @@ void RunPointTriangulatorImpl(
   if (clear_points) {
     reconstruction->DeleteAllPoints2DAndPoints3D();
     reconstruction->TranscribeImageIdsToDatabase(
-        *OpenSqliteDatabase(database_path));
+        *Database::Open(database_path));
   }
 
   auto options_tmp = std::make_shared<IncrementalPipelineOptions>(options);

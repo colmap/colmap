@@ -1,4 +1,4 @@
-#include "glomap/controllers/rotation_averager.h"
+#include "glomap/sfm/rotation_averager.h"
 
 #include "colmap/util/file.h"
 #include "colmap/util/timer.h"
@@ -74,7 +74,7 @@ int RunRotationAverager(int argc, char** argv) {
 
   for (auto& [image_id, image] : images) {
     image.SetCameraId(image.ImageId());
-    cameras[image.CameraId()] = colmap::Camera();
+    cameras[image.CameraId()].camera_id = image.CameraId();
   }
 
   CreateOneRigPerCamera(cameras, rigs);

@@ -27,8 +27,10 @@ void ReadRelPose(const std::string& file_path,
       ExtractImageNameToId(images);
 
   image_t max_image_id = 0;
+  camera_t max_camera_id = 0;
   for (const auto& [image_id, image] : images) {
     max_image_id = std::max(max_image_id, image_id);
+    max_camera_id = std::max(max_camera_id, image.camera_id);
   }
 
   // Mark every edge in te view graph as invalid
@@ -57,18 +59,20 @@ void ReadRelPose(const std::string& file_path,
 
     if (image_name_to_id.find(file1) == image_name_to_id.end()) {
       max_image_id += 1;
+      max_camera_id += 1;
       Image image1;
       image1.SetImageId(max_image_id);
-      image1.SetCameraId(-1);
+      image1.SetCameraId(max_camera_id);
       image1.SetName(file1);
       images.insert(std::make_pair(max_image_id, std::move(image1)));
       image_name_to_id[file1] = max_image_id;
     }
     if (image_name_to_id.find(file2) == image_name_to_id.end()) {
       max_image_id += 1;
+      max_camera_id += 1;
       Image image2;
       image2.SetImageId(max_image_id);
-      image2.SetCameraId(-1);
+      image2.SetCameraId(max_camera_id);
       image2.SetName(file2);
       images.insert(std::make_pair(max_image_id, std::move(image2)));
       image_name_to_id[file2] = max_image_id;

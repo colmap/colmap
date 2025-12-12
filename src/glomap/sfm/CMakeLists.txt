@@ -27,42 +27,39 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+set(FOLDER_NAME "glomap_sfm")
 
-import argparse
-import os
-import string
-import subprocess
+COLMAP_ADD_LIBRARY(
+    NAME colmap_glomap_sfm
+    SRCS
+        global_mapper.h global_mapper.cc
+        rotation_averager.h rotation_averager.cc
+        track_establishment.h track_establishment.cc
+        track_retriangulation.h track_retriangulation.cc
+    PUBLIC_LINK_LIBS
+        colmap_glomap_estimators
+        colmap_glomap_io
+        colmap_glomap_math
+        colmap_glomap_processors
+        colmap_glomap_scene
+        colmap_estimators
+        colmap_sfm
+        colmap_util
+    PRIVATE_LINK_LIBS
+        Boost::boost
+)
 
+if(MSVC)
+    target_compile_options(colmap_glomap_sfm PRIVATE /bigobj)
+endif()
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--path", required=True)
-    parser.add_argument("--exts", default=".h,.cc")
-    parser.add_argument("--style", default="File")
-    args = parser.parse_args()
-    return args
-
-
-def main():
-    args = parse_args()
-
-    exts = map(string.lower, args.exts.split(","))
-
-    for root, subdirs, files in os.walk(args.path):
-        for f in files:
-            name, ext = os.path.splitext(f)
-            if ext.lower() in exts:
-                file_path = os.path.join(root, f)
-                proc = subprocess.Popen(
-                    ["clang-format", "--style", args.style, file_path],
-                    stdout=subprocess.PIPE,
-                )
-
-                text = "".join(proc.stdout)
-
-                with open(file_path, "w") as fd:
-                    fd.write(text)
-
-
-if __name__ == "__main__":
-    main()
+COLMAP_ADD_TEST(
+    NAME glomap_global_mapper_test
+    SRCS global_mapper_test.cc
+    LINK_LIBS colmap_glomap_sfm
+)
+COLMAP_ADD_TEST(
+    NAME glomap_rotation_averager_test
+    SRCS rotation_averager_test.cc
+    LINK_LIBS colmap_glomap_sfm
+)

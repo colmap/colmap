@@ -205,7 +205,7 @@ class IncrementalPipeline : public BaseController {
       const std::string& database_path,
       std::shared_ptr<class ReconstructionManager> reconstruction_manager);
 
-  void Run();
+  void Run() override;
 
   bool LoadDatabase();
 

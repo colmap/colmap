@@ -1,4 +1,4 @@
-#include "glomap/controllers/rotation_averager.h"
+#include "glomap/sfm/rotation_averager.h"
 
 #include "glomap/estimators/rotation_initializer.h"
 #include "glomap/io/colmap_converter.h"
@@ -191,6 +191,7 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
     RotationEstimator rotation_estimator_trivial(options_trivial);
     rotation_estimator_trivial.EstimateRotations(
         view_graph, rigs_trivial, frames_trivial, images_trivial, pose_priors);
+
     // Collect the results
     std::unordered_map<image_t, Rigid3d> trivial_cams_from_world;
     for (const auto& [image_id, image] : images_trivial) {
