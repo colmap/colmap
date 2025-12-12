@@ -36,6 +36,18 @@ jobs:
       # For faster builds in PRs, skip all but the oldest Python versions.
       PULL_REQUEST_CIBW_BUILD: cp39-{macosx,manylinux,win}*
     steps:
+      - name: Free disk space
+        if: runner.os == 'Linux' && matrix.config.cudaEnabled
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
       - uses: actions/checkout@v4
 
       - uses: actions/cache@v4
@@ -46,7 +58,7 @@ jobs:
           path: ${{ env.COMPILER_CACHE_DIR }}
 
       - name: Select Python
-        if: github.event_name == 'pull_request' && runner.os != 'Windows'
+        if: github.event_name == 'pull_request' && runner.os != 'Windows' && matrix.config.cudaEnabled == false
         run: |
           echo "CIBW_BUILD=${PULL_REQUEST_CIBW_BUILD}" >> "$GITHUB_ENV"
       - name: Select Python
@@ -154,12 +166,12 @@ jobs:
           echo "CIBW_ENVIRONMENT_PASS_LINUX=${CIBW_ENVIRONMENT_PASS_LINUX}" >> "$GITHUB_ENV"
 
           if [ "${{ matrix.config.cudaEnabled }}" = "true" ]; then
-            CIBW_MANYLINUX_X86_64_IMAGE="sameli/manylinux_2_34_x86_64_cuda_12.9"
+            CIBW_MANYLINUX_X86_64_IMAGE="pytorch/manylinux2_28-builder:cuda12.9"
             CIBW_REPAIR_WHEEL_COMMAND="auditwheel repair --exclude libcudart* --exclude libcurand* -w {dest_dir} {wheel}"
             echo "CIBW_REPAIR_WHEEL_COMMAND=${CIBW_REPAIR_WHEEL_COMMAND}" >> "$GITHUB_ENV"
             # Edit pyproject.toml to change package name to pycolmap-cuda12 and add CUDA Runtime native Libraries and CURAND native runtime libraries to dependencies
             pip install tomlkit
-            python python/ci/update_pyproject_toml.py --name "pycolmap-cuda12" --add-deps "nvidia-cuda-runtime-cu12==12.9.79" "nvidia-curand-cu12==10.3.10.19"
+            python python/ci/update_pyproject_toml.py --name "pycolmap-cuda12" --add-deps "cuda-toolkit[cudart,curand]>=12,<13"
           else
             CIBW_MANYLINUX_X86_64_IMAGE="quay.io/pypa/manylinux_2_28_x86_64"
           fi
