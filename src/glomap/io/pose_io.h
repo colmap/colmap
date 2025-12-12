@@ -21,8 +21,9 @@ void ReadRelWeight(const std::string& file_path,
 // IMAGE_NAME GX GY GZ
 // Gravity should be the direction of [0,1,0] in the image frame
 // image.cam_from_world * [0,1,0]^T = g
-void ReadGravity(const std::string& gravity_path,
-                 std::unordered_map<image_t, Image>& images);
+std::vector<colmap::PosePrior> ReadGravity(
+    const std::string& gravity_path,
+    std::unordered_map<image_t, Image>& images);
 
 // Output would be of the format:
 // IMAGE_NAME QW QX QY QZ
@@ -34,4 +35,5 @@ void WriteGlobalRotation(const std::string& file_path,
 void WriteRelPose(const std::string& file_path,
                   const std::unordered_map<image_t, Image>& images,
                   const ViewGraph& view_graph);
+
 }  // namespace glomap

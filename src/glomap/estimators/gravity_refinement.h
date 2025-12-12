@@ -28,15 +28,18 @@ class GravityRefiner {
  public:
   explicit GravityRefiner(const GravityRefinerOptions& options)
       : options_(options) {}
+
   void RefineGravity(const ViewGraph& view_graph,
-                     std::unordered_map<frame_t, Frame>& frames,
-                     std::unordered_map<image_t, Image>& images);
+                     const std::unordered_map<frame_t, Frame>& frames,
+                     const std::unordered_map<image_t, Image>& images,
+                     std::vector<colmap::PosePrior>& pose_priors);
 
  private:
   void IdentifyErrorProneGravity(
       const ViewGraph& view_graph,
       const std::unordered_map<frame_t, Frame>& frames,
       const std::unordered_map<image_t, Image>& images,
+      std::unordered_map<image_t, colmap::PosePrior*>& image_to_pose_prior,
       std::unordered_set<image_t>& error_prone_images);
   GravityRefinerOptions options_;
   std::shared_ptr<ceres::LossFunction> loss_function_;

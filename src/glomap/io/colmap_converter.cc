@@ -410,6 +410,7 @@ void ConvertDatabaseToGlomap(
     }
     image_pair.matches.conservativeResize(count, 2);
   }
+  std::cout << '\n';
   LOG(INFO) << "Pairs read done. " << invalid_count << " / "
             << view_graph.image_pairs.size() << " are invalid";
 }
@@ -421,6 +422,7 @@ void CreateOneRigPerCamera(
     Rig rig;
     rig.SetRigId(camera_id);
     rig.AddRefSensor(camera.SensorId());
+    rigs[rig.RigId()] = rig;
   }
 }
 

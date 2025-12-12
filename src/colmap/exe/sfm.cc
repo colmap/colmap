@@ -572,7 +572,7 @@ void RunPointTriangulatorImpl(
   if (clear_points) {
     reconstruction->DeleteAllPoints2DAndPoints3D();
     reconstruction->TranscribeImageIdsToDatabase(
-        *OpenSqliteDatabase(database_path));
+        *Database::Open(database_path));
   }
 
   auto options_tmp = std::make_shared<IncrementalPipelineOptions>(options);

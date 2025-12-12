@@ -1,9 +1,7 @@
 #pragma once
 
-#include "glomap/math/gravity.h"
 #include "glomap/scene/frame.h"
 #include "glomap/scene/types.h"
-#include "glomap/types.h"
 
 namespace glomap {
 
@@ -44,11 +42,6 @@ struct Image {
   // Check if cam_from_world needs to be composed with sensor_from_rig pose.
   inline bool IsRefInFrame() const;
 
-  // Easy way to check if the image has gravity information
-  inline bool HasGravity() const;
-
-  inline Eigen::Matrix3d GetRAlign() const;
-
   inline data_t DataId() const;
 };
 
@@ -73,29 +66,6 @@ int Image::ClusterId() const {
 bool Image::IsRefInFrame() const {
   return THROW_CHECK_NOTNULL(frame_ptr)->RigPtr()->IsRefSensor(
       sensor_t(SensorType::CAMERA, camera_id));
-}
-
-bool Image::HasGravity() const {
-  return frame_ptr->HasGravity() &&
-         (IsRefInFrame() ||
-          frame_ptr->RigPtr()
-              ->MaybeSensorFromRig(sensor_t(SensorType::CAMERA, camera_id))
-              .has_value());
-}
-
-Eigen::Matrix3d Image::GetRAlign() const {
-  if (HasGravity()) {
-    if (IsRefInFrame()) {
-      return frame_ptr->gravity_info.GetRAlign();
-    } else {
-      return frame_ptr->RigPtr()
-                 ->SensorFromRig(sensor_t(SensorType::CAMERA, camera_id))
-                 .rotation.toRotationMatrix() *
-             frame_ptr->gravity_info.GetRAlign();
-    }
-  } else {
-    return Eigen::Matrix3d::Identity();
-  }
 }
 
 data_t Image::DataId() const {

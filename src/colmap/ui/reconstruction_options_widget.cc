@@ -100,8 +100,14 @@ class MapperInitializationOptionsWidget : public OptionsWidget {
  public:
   MapperInitializationOptionsWidget(QWidget* parent, OptionManager* options)
       : OptionsWidget(parent) {
-    AddOptionInt(&options->mapper->init_image_id1, "init_image_id1", -1);
-    AddOptionInt(&options->mapper->init_image_id2, "init_image_id2", -1);
+    AddOptionInt(&options->mapper->init_image_id1,
+                 "init_image_id1",
+                 -1,
+                 static_cast<int>(2e9));
+    AddOptionInt(&options->mapper->init_image_id2,
+                 "init_image_id2",
+                 -1,
+                 static_cast<int>(2e9));
     AddOptionInt(&options->mapper->init_num_trials, "init_num_trials");
     AddOptionInt(&options->mapper->mapper.init_min_num_inliers,
                  "init_min_num_inliers");

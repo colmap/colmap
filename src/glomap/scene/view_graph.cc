@@ -89,6 +89,7 @@ int ViewGraph::KeepLargestConnectedComponents(
     }
   }
 
+  max_img = 0;
   for (auto& [image_id, image] : images) {
     if (image.IsRegistered()) max_img++;
   }
