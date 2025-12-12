@@ -105,7 +105,7 @@ size_t BundleAdjustmentConfig::NumResiduals(
   for (const image_t image_id : image_ids_) {
     const auto& image = reconstruction.Image(image_id);
     for (const auto& point2D : image.Points2D()) {
-      if (point2D.HasPoint3D() && !IsIgnoredPoint(point2D.Point3DId())) {
+      if (point2D.HasPoint3D() && !IsIgnoredPoint(point2D.point3D_id)) {
         ++num_observations;
       }
     }
