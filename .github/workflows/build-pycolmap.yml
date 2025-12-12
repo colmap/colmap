@@ -58,7 +58,7 @@ jobs:
           path: ${{ env.COMPILER_CACHE_DIR }}
 
       - name: Select Python
-        if: github.event_name == 'pull_request' && runner.os != 'Windows' && matrix.config.cudaEnabled == false
+        if: github.event_name == 'pull_request' && runner.os != 'Windows'
         run: |
           echo "CIBW_BUILD=${PULL_REQUEST_CIBW_BUILD}" >> "$GITHUB_ENV"
       - name: Select Python
