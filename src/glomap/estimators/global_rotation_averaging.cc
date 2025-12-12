@@ -866,7 +866,7 @@ double RotationEstimator::ComputeAverageStepSize(
         frame_to_pose_prior) {
   double total_update = 0;
   for (const auto& [frame_id, frame] : frames) {
-    if (frames.at(frame_id).is_registered) continue;
+    if (!frames.at(frame_id).is_registered) continue;
     const auto pose_prior_it = frame_to_pose_prior.find(frame_id);
     const bool has_gravity = pose_prior_it != frame_to_pose_prior.end() &&
                              pose_prior_it->second->HasGravity();

@@ -422,6 +422,7 @@ void CreateOneRigPerCamera(
     Rig rig;
     rig.SetRigId(camera_id);
     rig.AddRefSensor(camera.SensorId());
+    rigs[rig.RigId()] = rig;
   }
 }
 
