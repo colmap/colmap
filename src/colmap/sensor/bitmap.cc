@@ -161,7 +161,9 @@ Bitmap::Bitmap(const Bitmap& other) {
   channels_ = other.channels_;
   linear_colorspace_ = other.linear_colorspace_;
   data_ = other.data_;
-  meta_data_ = OIIOMetaData::Clone(other.meta_data_);
+  if (!other.IsEmpty()) {
+    meta_data_ = OIIOMetaData::Clone(other.meta_data_);
+  }
 }
 
 Bitmap::Bitmap(Bitmap&& other) noexcept {
@@ -182,7 +184,11 @@ Bitmap& Bitmap::operator=(const Bitmap& other) {
   channels_ = other.channels_;
   linear_colorspace_ = other.linear_colorspace_;
   data_ = other.data_;
-  meta_data_ = OIIOMetaData::Clone(other.meta_data_);
+  if (other.IsEmpty()) {
+    meta_data_ = nullptr;
+  } else {
+    meta_data_ = OIIOMetaData::Clone(other.meta_data_);
+  }
   return *this;
 }
 
