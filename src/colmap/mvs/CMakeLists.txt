@@ -77,6 +77,11 @@ COLMAP_ADD_TEST(
     SRCS normal_map_test.cc
     LINK_LIBS colmap_mvs
 )
+COLMAP_ADD_TEST(
+    NAME workspace_test
+    SRCS workspace_test.cc
+    LINK_LIBS colmap_mvs
+)
 
 if(CUDA_ENABLED)
     COLMAP_ADD_LIBRARY(
