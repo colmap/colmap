@@ -150,20 +150,39 @@ TEST(Bitmap, MoveAssign) {
   // NOLINTEND(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
 }
 
-TEST(Bitmap, CopyAssignEmpty) {
+TEST(Bitmap, ConstructCopyEmpty) {
   Bitmap bitmap;
-  Bitmap moved_bitmap = bitmap;
-  EXPECT_EQ(moved_bitmap.Width(), 0);
-  EXPECT_EQ(moved_bitmap.Height(), 0);
-  EXPECT_EQ(moved_bitmap.Channels(), 0);
+  Bitmap copied_bitmap(bitmap);
+  EXPECT_EQ(copied_bitmap.Width(), 0);
+  EXPECT_EQ(copied_bitmap.Height(), 0);
+  EXPECT_EQ(copied_bitmap.Channels(), 0);
 }
 
-TEST(Bitmap, CopyAssign) {
+TEST(Bitmap, ConstructCopy) {
   Bitmap bitmap(2, 1, /*as_rgb=*/true);
-  Bitmap moved_bitmap = bitmap;
-  EXPECT_EQ(moved_bitmap.Width(), 2);
-  EXPECT_EQ(moved_bitmap.Height(), 1);
-  EXPECT_EQ(moved_bitmap.Channels(), 3);
+  Bitmap copied_bitmap(bitmap);
+  EXPECT_EQ(copied_bitmap.Width(), 2);
+  EXPECT_EQ(copied_bitmap.Height(), 1);
+  EXPECT_EQ(copied_bitmap.Channels(), 3);
+  EXPECT_EQ(bitmap.Width(), 2);
+  EXPECT_EQ(bitmap.Height(), 1);
+  EXPECT_EQ(bitmap.Channels(), 3);
+}
+
+TEST(Bitmap, AssignCopyEmpty) {
+  Bitmap bitmap;
+  Bitmap copied_bitmap = bitmap;
+  EXPECT_EQ(copied_bitmap.Width(), 0);
+  EXPECT_EQ(copied_bitmap.Height(), 0);
+  EXPECT_EQ(copied_bitmap.Channels(), 0);
+}
+
+TEST(Bitmap, AssignCopy) {
+  Bitmap bitmap(2, 1, /*as_rgb=*/true);
+  Bitmap copied_bitmap = bitmap;
+  EXPECT_EQ(copied_bitmap.Width(), 2);
+  EXPECT_EQ(copied_bitmap.Height(), 1);
+  EXPECT_EQ(copied_bitmap.Channels(), 3);
   EXPECT_EQ(bitmap.Width(), 2);
   EXPECT_EQ(bitmap.Height(), 1);
   EXPECT_EQ(bitmap.Channels(), 3);
