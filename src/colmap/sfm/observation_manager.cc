@@ -39,18 +39,6 @@
 
 namespace colmap {
 
-bool MergeAndFilterReconstructions(const double max_reproj_error,
-                                   const Reconstruction& src_reconstruction,
-                                   Reconstruction& tgt_reconstruction) {
-  if (!MergeReconstructions(
-          max_reproj_error, src_reconstruction, tgt_reconstruction)) {
-    return false;
-  }
-  ObservationManager(tgt_reconstruction)
-      .FilterAllPoints3D(max_reproj_error, /*min_tri_angle=*/0);
-  return true;
-}
-
 ObservationManager::ObservationManager(
     class Reconstruction& reconstruction,
     std::shared_ptr<const CorrespondenceGraph> correspondence_graph)
