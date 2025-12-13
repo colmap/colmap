@@ -34,8 +34,8 @@
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
-#include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 namespace colmap {
 namespace mvs {
