@@ -25,7 +25,7 @@ void UndistortImages(std::unordered_map<camera_t, colmap::Camera>& cameras,
     if (image.features_undist.size() == num_points && !clean_points)
       continue;  // already undistorted
 
-    const colmap::Camera& camera = cameras[image.camera_id];
+    const colmap::Camera& camera = cameras[image.CameraId()];
 
     thread_pool.AddTask([&image, &camera, num_points]() {
       image.features_undist.clear();

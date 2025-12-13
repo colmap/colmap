@@ -55,8 +55,8 @@ void EstimateRelativePoses(
         const Image& image2 = images[image_pair.image_id2];
         const Eigen::MatrixXi& matches = image_pair.matches;
 
-        const colmap::Camera& camera1 = cameras[image1.camera_id];
-        const colmap::Camera& camera2 = cameras[image2.camera_id];
+        const colmap::Camera& camera1 = cameras[image1.CameraId()];
+        const colmap::Camera& camera2 = cameras[image2.CameraId()];
         poselib::Camera camera_poselib1 = ColmapCameraToPoseLibCamera(camera1);
         poselib::Camera camera_poselib2 = ColmapCameraToPoseLibCamera(camera2);
         bool valid_camera_model =

@@ -73,9 +73,8 @@ int RunRotationAverager(int argc, char** argv) {
   std::vector<colmap::PosePrior> pose_priors;
 
   for (auto& [image_id, image] : images) {
-    image.camera_id = image.image_id;
-    cameras[image.camera_id] = colmap::Camera();
-    cameras[image.camera_id].camera_id = image.camera_id;
+    image.SetCameraId(image.ImageId());
+    cameras[image.CameraId()].camera_id = image.CameraId();
   }
 
   CreateOneRigPerCamera(cameras, rigs);

@@ -14,7 +14,7 @@ void RelPoseFilter::FilterRotations(
     const Image& image1 = images.at(image_pair.image_id1);
     const Image& image2 = images.at(image_pair.image_id2);
 
-    if (!image1.IsRegistered() || !image2.IsRegistered()) {
+    if (!image1.HasPose() || !image2.HasPose()) {
       continue;
     }
 

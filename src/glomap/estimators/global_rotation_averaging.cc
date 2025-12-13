@@ -67,7 +67,7 @@ std::unordered_map<frame_t, const colmap::PosePrior*> ExtractFrameToPosePrior(
     const std::vector<colmap::PosePrior>& pose_priors) {
   std::unordered_map<image_t, frame_t> image_to_frame;
   for (const auto& [image_id, image] : images) {
-    image_to_frame[image_id] = image.frame_id;
+    image_to_frame[image_id] = image.FrameId();
   }
 
   std::unordered_map<frame_t, const colmap::PosePrior*> frame_to_pose_prior;
@@ -149,13 +149,14 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
   std::unordered_map<image_t, image_t> parents;
   const image_t root =
       MaximumSpanningTree(view_graph, images, parents, WeightType::INLIER_NUM);
+  THROW_CHECK(images.at(root).HasPose());
 
   // Iterate through the tree to initialize the rotation
   // Establish child info
   std::unordered_map<image_t, std::vector<image_t>> children;
   for (const auto& [image_id, image] : images) {
-    if (!image.IsRegistered()) continue;
-    children.insert(std::make_pair(image_id, std::vector<image_t>()));
+    if (!image.HasPose()) continue;
+    children.emplace(image_id, std::vector<image_t>());
   }
   for (auto& [child, parent] : parents) {
     if (root == child) continue;
@@ -165,7 +166,7 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
   std::queue<image_t> indexes;
   indexes.push(root);
 
-  std::unordered_map<image_t, Rigid3d> cam_from_worlds;
+  std::unordered_map<image_t, Rigid3d> cams_from_world;
   while (!indexes.empty()) {
     image_t curr = indexes.front();
     indexes.pop();
@@ -180,17 +181,17 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
         colmap::ImagePairToPairId(curr, parents[curr]));
     if (image_pair.image_id1 == curr) {
       // 1_R_w = 2_R_1^T * 2_R_w
-      cam_from_worlds[curr].rotation =
-          (Inverse(image_pair.cam2_from_cam1) * cam_from_worlds[parents[curr]])
+      cams_from_world[curr].rotation =
+          (Inverse(image_pair.cam2_from_cam1) * cams_from_world[parents[curr]])
               .rotation;
     } else {
       // 2_R_w = 2_R_1 * 1_R_w
-      cam_from_worlds[curr].rotation =
-          (image_pair.cam2_from_cam1 * cam_from_worlds[parents[curr]]).rotation;
+      cams_from_world[curr].rotation =
+          (image_pair.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation;
     }
   }
 
-  ConvertRotationsFromImageToRig(cam_from_worlds, images, rigs, frames);
+  ConvertRotationsFromImageToRig(cams_from_world, images, rigs, frames);
 }
 
 // TODO: refine the code
@@ -221,8 +222,8 @@ void RotationEstimator::SetupLinearSystem(
       image_t image_id = data_id.id;
       if (images.find(image_id) == images.end()) continue;
       const auto& image = images.at(image_id);
-      if (!image.IsRegistered()) continue;
-      camera_id_to_rig_id[image.camera_id] = frame.RigId();
+      if (!image.HasPose()) continue;
+      camera_id_to_rig_id[image.CameraId()] = frame.RigId();
     }
   }
 
@@ -249,7 +250,7 @@ void RotationEstimator::SetupLinearSystem(
 
   for (auto& [frame_id, frame] : frames) {
     // Skip the unregistered frames
-    if (!frames.at(frame_id).is_registered) continue;
+    if (!frames.at(frame_id).HasPose()) continue;
     frame_id_to_idx_[frame_id] = num_dof;
     image_t image_id_ref = -1;
     for (auto& data_id : frame.ImageIds()) {
@@ -308,7 +309,7 @@ void RotationEstimator::SetupLinearSystem(
   // If no cameras are set to be fixed, then take the first camera
   if (fixed_image_id_ == -1) {
     for (auto& [frame_id, frame] : frames) {
-      if (!frames.at(frame_id).is_registered) continue;
+      if (!frames.at(frame_id).HasPose()) continue;
 
       fixed_image_id_ = frame.DataIds().begin()->id;
       const Eigen::AngleAxisd rig_from_world(frame.RigFromWorld().rotation);
@@ -326,8 +327,8 @@ void RotationEstimator::SetupLinearSystem(
 
     const auto& image1 = images.at(image_pair.image_id1);
     const auto& image2 = images.at(image_pair.image_id2);
-    const auto& frame1 = frames.at(image1.frame_id);
-    const auto& frame2 = frames.at(image2.frame_id);
+    const auto& frame1 = frames.at(image1.FrameId());
+    const auto& frame2 = frames.at(image2.FrameId());
 
     const int image_idx1 = image_id_to_idx_[image_pair.image_id1];
     const int image_idx2 = image_id_to_idx_[image_pair.image_id2];
@@ -337,18 +338,20 @@ void RotationEstimator::SetupLinearSystem(
     bool has_sensor_from_rig1 = false;
     bool has_sensor_from_rig2 = false;
     if (!image1.IsRefInFrame()) {
-      if (camera_id_to_idx_.find(image1.camera_id) == camera_id_to_idx_.end()) {
+      if (camera_id_to_idx_.find(image1.CameraId()) ==
+          camera_id_to_idx_.end()) {
         cam1_from_rig1 =
             rigs.at(frame1.RigId())
-                .SensorFromRig(sensor_t(SensorType::CAMERA, image1.camera_id));
+                .SensorFromRig(sensor_t(SensorType::CAMERA, image1.CameraId()));
         has_sensor_from_rig1 = true;
       }
     }
     if (!image2.IsRefInFrame()) {
-      if (camera_id_to_idx_.find(image2.camera_id) == camera_id_to_idx_.end()) {
+      if (camera_id_to_idx_.find(image2.CameraId()) ==
+          camera_id_to_idx_.end()) {
         cam2_from_rig2 =
             rigs.at(frame2.RigId())
-                .SensorFromRig(sensor_t(SensorType::CAMERA, image2.camera_id));
+                .SensorFromRig(sensor_t(SensorType::CAMERA, image2.CameraId()));
         has_sensor_from_rig2 = true;
       }
     }
@@ -366,9 +369,9 @@ void RotationEstimator::SetupLinearSystem(
             .toRotationMatrix();
 
     const Eigen::Vector3d* frame_gravity1 =
-        GetFrameGravityOrNull(frame_to_pose_prior, image1.frame_id);
+        GetFrameGravityOrNull(frame_to_pose_prior, image1.FrameId());
     const Eigen::Vector3d* frame_gravity2 =
-        GetFrameGravityOrNull(frame_to_pose_prior, image2.frame_id);
+        GetFrameGravityOrNull(frame_to_pose_prior, image2.FrameId());
     if (options_.use_gravity) {
       if (frame_gravity1 != nullptr) {
         rel_temp_info_[pair_id].R_rel =
@@ -414,23 +417,23 @@ void RotationEstimator::SetupLinearSystem(
 
     const auto& image1 = images.at(image_pair.image_id1);
     const auto& image2 = images.at(image_pair.image_id2);
-    const auto& frame1 = frames.at(image1.frame_id);
-    const auto& frame2 = frames.at(image2.frame_id);
+    const auto& frame1 = frames.at(image1.FrameId());
+    const auto& frame2 = frames.at(image2.FrameId());
 
     const int image_idx1 = image_id_to_idx_[image_pair.image_id1];
     const int image_idx2 = image_id_to_idx_[image_pair.image_id2];
 
-    if (!frame1.is_registered || !frame2.is_registered) {
+    if (!frame1.HasPose() || !frame2.HasPose()) {
       continue;  // skip unregistered frames
     }
 
     int vector_idx_cam1 = -1;
     int vector_idx_cam2 = -1;
-    if (camera_id_to_idx_.find(image1.camera_id) != camera_id_to_idx_.end()) {
-      vector_idx_cam1 = camera_id_to_idx_[image1.camera_id];
+    if (camera_id_to_idx_.find(image1.CameraId()) != camera_id_to_idx_.end()) {
+      vector_idx_cam1 = camera_id_to_idx_[image1.CameraId()];
     }
-    if (camera_id_to_idx_.find(image2.camera_id) != camera_id_to_idx_.end()) {
-      vector_idx_cam2 = camera_id_to_idx_[image2.camera_id];
+    if (camera_id_to_idx_.find(image2.CameraId()) != camera_id_to_idx_.end()) {
+      vector_idx_cam2 = camera_id_to_idx_[image2.CameraId()];
     }
 
     rel_temp_info_[pair_id].index = curr_pos;
@@ -449,7 +452,7 @@ void RotationEstimator::SetupLinearSystem(
     } else {
       // If it is not gravity aligned, then we need to consider 3 dof
       if (!options_.use_gravity ||
-          GetFrameGravityOrNull(frame_to_pose_prior, image1.frame_id) ==
+          GetFrameGravityOrNull(frame_to_pose_prior, image1.FrameId()) ==
               nullptr) {
         for (int i = 0; i < 3; i++) {
           coeffs.emplace_back(
@@ -462,7 +465,7 @@ void RotationEstimator::SetupLinearSystem(
 
       // Similarly for the second componenet
       if (!options_.use_gravity ||
-          GetFrameGravityOrNull(frame_to_pose_prior, image2.frame_id) ==
+          GetFrameGravityOrNull(frame_to_pose_prior, image2.FrameId()) ==
               nullptr) {
         for (int i = 0; i < 3; i++) {
           coeffs.emplace_back(
@@ -503,7 +506,7 @@ void RotationEstimator::SetupLinearSystem(
 
   const Image& fixed_image = images.at(fixed_image_id_);
   const auto fixed_pose_prior_it =
-      frame_to_pose_prior.find(fixed_image.frame_id);
+      frame_to_pose_prior.find(fixed_image.FrameId());
   const bool fixed_image_has_gravity =
       fixed_pose_prior_it != frame_to_pose_prior.end() &&
       fixed_pose_prior_it->second->HasGravity();
@@ -627,7 +630,7 @@ bool RotationEstimator::SolveIRLS(
 
   const Image& fixed_image = images.at(fixed_image_id_);
   const auto fixed_pose_prior_it =
-      frame_to_pose_prior.find(fixed_image.frame_id);
+      frame_to_pose_prior.find(fixed_image.FrameId());
   const bool fixed_image_has_gravity =
       fixed_pose_prior_it != frame_to_pose_prior.end() &&
       fixed_pose_prior_it->second->HasGravity();
@@ -710,7 +713,7 @@ void RotationEstimator::UpdateGlobalRotations(
     const std::unordered_map<frame_t, const colmap::PosePrior*>&
         frame_to_pose_prior) {
   for (const auto& [frame_id, frame] : frames) {
-    if (!frame.is_registered) continue;
+    if (!frame.HasPose()) continue;
     const frame_t frame_idx = frame_id_to_idx_[frame_id];
     const auto pose_prior_it = frame_to_pose_prior.find(frame_id);
     const bool has_gravity = pose_prior_it != frame_to_pose_prior.end() &&
@@ -732,7 +735,7 @@ void RotationEstimator::UpdateGlobalRotations(
     cam_from_rigs[camera_id] = std::vector<Eigen::Matrix3d>();
   }
   for (const auto& [frame_id, frame] : frames) {
-    if (!frames.at(frame_id).is_registered) continue;
+    if (!frames.at(frame_id).HasPose()) continue;
     const auto pose_prior_it = frame_to_pose_prior.find(frame_id);
     const bool has_gravity = pose_prior_it != frame_to_pose_prior.end() &&
                              pose_prior_it->second->HasGravity();
@@ -749,8 +752,8 @@ void RotationEstimator::UpdateGlobalRotations(
     for (const auto& data_id : frame.ImageIds()) {
       if (images.find(data_id.id) == images.end()) continue;
       const auto& image = images.at(data_id.id);
-      if (camera_id_to_idx_.find(image.camera_id) != camera_id_to_idx_.end()) {
-        cam_from_rigs[image.camera_id].push_back(R_ori);
+      if (camera_id_to_idx_.find(image.CameraId()) != camera_id_to_idx_.end()) {
+        cam_from_rigs[image.CameraId()].push_back(R_ori);
       }
     }
   }
@@ -803,9 +806,9 @@ void RotationEstimator::ComputeResiduals(
       const Image& image2 = images.at(image_id2);
 
       const Eigen::Vector3d* frame_gravity1 =
-          GetFrameGravityOrNull(frame_to_pose_prior, image1.frame_id);
+          GetFrameGravityOrNull(frame_to_pose_prior, image1.FrameId());
       const Eigen::Vector3d* frame_gravity2 =
-          GetFrameGravityOrNull(frame_to_pose_prior, image2.frame_id);
+          GetFrameGravityOrNull(frame_to_pose_prior, image2.FrameId());
 
       if (options_.use_gravity && frame_gravity1 != nullptr) {
         R_1 = AngleToRotUp(rotation_estimated_[image_id_to_idx_[image_id1]]);
@@ -842,7 +845,7 @@ void RotationEstimator::ComputeResiduals(
 
   const Image& fixed_image = images.at(fixed_image_id_);
   const auto fixed_pose_prior_it =
-      frame_to_pose_prior.find(fixed_image.frame_id);
+      frame_to_pose_prior.find(fixed_image.FrameId());
   const bool fixed_image_has_gravity =
       fixed_pose_prior_it != frame_to_pose_prior.end() &&
       fixed_pose_prior_it->second->HasGravity();
@@ -866,7 +869,7 @@ double RotationEstimator::ComputeAverageStepSize(
         frame_to_pose_prior) {
   double total_update = 0;
   for (const auto& [frame_id, frame] : frames) {
-    if (!frames.at(frame_id).is_registered) continue;
+    if (frames.at(frame_id).HasPose()) continue;
     const auto pose_prior_it = frame_to_pose_prior.find(frame_id);
     const bool has_gravity = pose_prior_it != frame_to_pose_prior.end() &&
                              pose_prior_it->second->HasGravity();
@@ -886,7 +889,7 @@ void RotationEstimator::ConvertResults(
     const std::unordered_map<frame_t, const colmap::PosePrior*>&
         frame_to_pose_prior) {
   for (auto& [frame_id, frame] : frames) {
-    if (!frames[frame_id].is_registered) continue;
+    if (!frames[frame_id].HasPose()) continue;
 
     const image_t image_id_begin = frame.DataIds().begin()->id;
 

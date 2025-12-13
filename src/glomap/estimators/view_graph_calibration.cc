@@ -83,8 +83,8 @@ void ViewGraphCalibrator::AddImagePair(
     const ImagePair& image_pair,
     const std::unordered_map<camera_t, colmap::Camera>& cameras,
     const std::unordered_map<image_t, Image>& images) {
-  const camera_t camera_id1 = images.at(image_pair.image_id1).camera_id;
-  const camera_t camera_id2 = images.at(image_pair.image_id2).camera_id;
+  const camera_t camera_id1 = images.at(image_pair.image_id1).CameraId();
+  const camera_t camera_id2 = images.at(image_pair.image_id2).CameraId();
 
   if (camera_id1 == camera_id2) {
     problem_->AddResidualBlock(

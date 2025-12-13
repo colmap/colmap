@@ -65,14 +65,15 @@ image_t MaximumSpanningTree(const ViewGraph& view_graph,
                             WeightType type) {
   std::unordered_map<image_t, int> image_id_to_idx;
   image_id_to_idx.reserve(images.size());
-  std::unordered_map<int, image_t> idx_to_image_id;
-  idx_to_image_id.reserve(images.size());
+  std::unordered_map<int, image_t> image_idx_to_id;
+  image_idx_to_id.reserve(images.size());
   for (const auto& [image_id, image] : images) {
-    if (!image.IsRegistered()) {
+    if (!image.HasPose()) {
       continue;
     }
-    idx_to_image_id[image_id_to_idx.size()] = image_id;
-    image_id_to_idx[image_id] = image_id_to_idx.size();
+    const int image_idx = image_id_to_idx.size();
+    image_idx_to_id[image_idx] = image_id;
+    image_id_to_idx[image_id] = image_idx;
   }
 
   double max_weight = 0;
@@ -101,7 +102,7 @@ image_t MaximumSpanningTree(const ViewGraph& view_graph,
     const Image& image1 = images.at(image_pair.image_id1);
     const Image& image2 = images.at(image_pair.image_id2);
 
-    if (!image1.IsRegistered() || !image2.IsRegistered()) {
+    if (!image1.HasPose() || !image2.HasPose()) {
       continue;
     }
 
@@ -127,8 +128,8 @@ image_t MaximumSpanningTree(const ViewGraph& view_graph,
 
   std::vector<std::vector<int>> edges_list(image_id_to_idx.size());
   for (const auto& edge : mst) {
-    auto source = boost::source(edge, G);
-    auto target = boost::target(edge, G);
+    const auto source = boost::source(edge, G);
+    const auto target = boost::target(edge, G);
     edges_list[source].push_back(target);
     edges_list[target].push_back(source);
   }
@@ -139,10 +140,10 @@ image_t MaximumSpanningTree(const ViewGraph& view_graph,
   // change the index back to image id
   parents.clear();
   for (int i = 0; i < parents_idx.size(); i++) {
-    parents[idx_to_image_id[i]] = idx_to_image_id[parents_idx[i]];
+    parents[image_idx_to_id[i]] = image_idx_to_id[parents_idx[i]];
   }
 
-  return idx_to_image_id[0];
+  return image_idx_to_id[0];
 }
 
 }  // namespace glomap

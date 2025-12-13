@@ -23,7 +23,7 @@ image_pair_t ViewGraphManipulater::SparsifyGraph(
   // Here, the average is the mean of the degrees
   double average_degree = 0;
   for (const auto& [image_id, neighbors] : adjacency_list) {
-    if (images[image_id].IsRegistered() == false) continue;
+    if (!images[image_id].HasPose()) continue;
     average_degree += neighbors.size();
   }
   average_degree = average_degree / num_img;
@@ -39,9 +39,7 @@ image_pair_t ViewGraphManipulater::SparsifyGraph(
     image_t image_id1 = image_pair.image_id1;
     image_t image_id2 = image_pair.image_id2;
 
-    if (images[image_id1].IsRegistered() == false ||
-        images[image_id2].IsRegistered() == false)
-      continue;
+    if (!images[image_id1].HasPose() || !images[image_id2].HasPose()) continue;
 
     int degree1 = adjacency_list.at(image_id1).size();
     int degree2 = adjacency_list.at(image_id2).size();
@@ -90,8 +88,8 @@ image_t ViewGraphManipulater::EstablishStrongClusters(
              (criteria == INLIER_NUM && image_pair.inliers.size() > min_thres);
     status = status || (criteria == WEIGHT && image_pair.weight > min_thres);
     if (status) {
-      uf.Union(image_pair_t(images[image_pair.image_id1].frame_id),
-               image_pair_t(images[image_pair.image_id2].frame_id));
+      uf.Union(image_pair_t(images[image_pair.image_id1].FrameId()),
+               image_pair_t(images[image_pair.image_id2].FrameId()));
     }
   }
 
@@ -124,8 +122,8 @@ image_t ViewGraphManipulater::EstablishStrongClusters(
       image_t image_id1 = image_pair.image_id1;
       image_t image_id2 = image_pair.image_id2;
 
-      image_pair_t root1 = uf.Find(image_pair_t(images[image_id1].frame_id));
-      image_pair_t root2 = uf.Find(image_pair_t(images[image_id2].frame_id));
+      image_pair_t root1 = uf.Find(image_pair_t(images[image_id1].FrameId()));
+      image_pair_t root2 = uf.Find(image_pair_t(images[image_id2].FrameId()));
 
       if (root1 == root2) {
         continue;
@@ -160,8 +158,8 @@ image_t ViewGraphManipulater::EstablishStrongClusters(
     image_t image_id1 = image_pair.image_id1;
     image_t image_id2 = image_pair.image_id2;
 
-    frame_t frame_id1 = images[image_id1].frame_id;
-    frame_t frame_id2 = images[image_id2].frame_id;
+    frame_t frame_id1 = images[image_id1].FrameId();
+    frame_t frame_id2 = images[image_id2].FrameId();
 
     if (uf.Find(image_pair_t(frame_id1)) != uf.Find(image_pair_t(frame_id2))) {
       image_pair.is_valid = false;
@@ -187,8 +185,8 @@ void ViewGraphManipulater::UpdateImagePairsConfig(
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (image_pair.is_valid == false) continue;
 
-    camera_t camera_id1 = images.at(image_pair.image_id1).camera_id;
-    camera_t camera_id2 = images.at(image_pair.image_id2).camera_id;
+    const camera_t camera_id1 = images.at(image_pair.image_id1).CameraId();
+    const camera_t camera_id2 = images.at(image_pair.image_id2).CameraId();
 
     const colmap::Camera& camera1 = cameras.at(camera_id1);
     const colmap::Camera& camera2 = cameras.at(camera_id2);
@@ -221,13 +219,13 @@ void ViewGraphManipulater::UpdateImagePairsConfig(
     if (image_pair.is_valid == false) continue;
     if (image_pair.config != colmap::TwoViewGeometry::UNCALIBRATED) continue;
 
-    camera_t camera_id1 = images.at(image_pair.image_id1).camera_id;
-    camera_t camera_id2 = images.at(image_pair.image_id2).camera_id;
+    const camera_t camera_id1 = images.at(image_pair.image_id1).CameraId();
+    const camera_t camera_id2 = images.at(image_pair.image_id2).CameraId();
 
     const colmap::Camera& camera1 =
-        cameras.at(images.at(image_pair.image_id1).camera_id);
+        cameras.at(images.at(image_pair.image_id1).CameraId());
     const colmap::Camera& camera2 =
-        cameras.at(images.at(image_pair.image_id2).camera_id);
+        cameras.at(images.at(image_pair.image_id2).CameraId());
 
     if (camera_validity[camera_id1] && camera_validity[camera_id2]) {
       image_pair.config = colmap::TwoViewGeometry::CALIBRATED;
@@ -247,9 +245,10 @@ void ViewGraphManipulater::DecomposeRelPose(
   std::vector<image_pair_t> image_pair_ids;
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (image_pair.is_valid == false) continue;
-    if (!cameras[images[image_pair.image_id1].camera_id]
+    if (!cameras[images[image_pair.image_id1].CameraId()]
              .has_prior_focal_length ||
-        !cameras[images[image_pair.image_id2].camera_id].has_prior_focal_length)
+        !cameras[images[image_pair.image_id2].CameraId()]
+             .has_prior_focal_length)
       continue;
     image_pair_ids.push_back(pair_id);
   }
@@ -261,11 +260,11 @@ void ViewGraphManipulater::DecomposeRelPose(
   for (int64_t idx = 0; idx < num_image_pairs; idx++) {
     thread_pool.AddTask([&, idx]() {
       ImagePair& image_pair = view_graph.image_pairs.at(image_pair_ids[idx]);
-      image_t image_id1 = image_pair.image_id1;
-      image_t image_id2 = image_pair.image_id2;
+      const image_t image_id1 = image_pair.image_id1;
+      const image_t image_id2 = image_pair.image_id2;
 
-      camera_t camera_id1 = images.at(image_id1).camera_id;
-      camera_t camera_id2 = images.at(image_id2).camera_id;
+      const camera_t camera_id1 = images.at(image_id1).CameraId();
+      const camera_t camera_id2 = images.at(image_id2).CameraId();
 
       // Use the two-view geometry to re-estimate the relative pose
       colmap::TwoViewGeometry two_view_geometry;
