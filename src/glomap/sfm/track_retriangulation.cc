@@ -50,10 +50,10 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
   // Check whether the image is in the database cache. If not, set the image
   // as not registered to avoid memory error.
   std::vector<image_t> image_ids_notconnected;
-  for (auto& image : images) {
-    if (!database_cache->ExistsImage(image.first) && image.second.HasPose()) {
-      image_ids_notconnected.push_back(image.first);
-      image.second.FramePtr()->ResetPose();
+  for (auto& [image_id, image] : images) {
+    if (!database_cache->ExistsImage(image_id) && image.HasPose()) {
+      image_ids_notconnected.push_back(image_id);
+      image.FramePtr()->ResetPose();
     }
   }
 
