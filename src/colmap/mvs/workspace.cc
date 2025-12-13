@@ -69,25 +69,34 @@ void Workspace::Load(const std::vector<std::string>& image_names) {
     const size_t height = model_.images.at(image_idx).GetHeight();
 
     // Read and rescale bitmap
-    bitmaps_[image_idx] = std::make_unique<Bitmap>();
-    bitmaps_[image_idx]->Read(GetBitmapPath(image_idx), options_.image_as_rgb);
+    auto bitmap = std::make_unique<Bitmap>();
+    bitmap->Read(GetBitmapPath(image_idx), options_.image_as_rgb);
+    THROW_CHECK_EQ(bitmap->Width(), width);
+    THROW_CHECK_EQ(bitmap->Height(), height);
     if (options_.max_image_size > 0) {
-      bitmaps_[image_idx]->Rescale((int)width, (int)height);
+      bitmap->Rescale(static_cast<int>(width), static_cast<int>(height));
     }
+    bitmaps_[image_idx] = std::move(bitmap);
 
     // Read and rescale depth map
-    depth_maps_[image_idx] = std::make_unique<DepthMap>();
-    depth_maps_[image_idx]->Read(GetDepthMapPath(image_idx));
+    auto depth_map = std::make_unique<DepthMap>();
+    depth_map->Read(GetDepthMapPath(image_idx));
+    THROW_CHECK_EQ(depth_map->GetWidth(), width);
+    THROW_CHECK_EQ(depth_map->GetHeight(), height);
     if (options_.max_image_size > 0) {
-      depth_maps_[image_idx]->Downsize(width, height);
+      depth_map->Downsize(width, height);
     }
+    depth_maps_[image_idx] = std::move(depth_map);
 
     // Read and rescale normal map
-    normal_maps_[image_idx] = std::make_unique<NormalMap>();
-    normal_maps_[image_idx]->Read(GetNormalMapPath(image_idx));
+    auto normal_map = std::make_unique<NormalMap>();
+    normal_map->Read(GetNormalMapPath(image_idx));
+    THROW_CHECK_EQ(normal_map->GetWidth(), width);
+    THROW_CHECK_EQ(normal_map->GetHeight(), height);
     if (options_.max_image_size > 0) {
-      normal_maps_[image_idx]->Downsize(width, height);
+      normal_map->Downsize(width, height);
     }
+    normal_maps_[image_idx] = std::move(normal_map);
   };
 
   const int num_threads = GetEffectiveNumThreads(options_.num_threads);
