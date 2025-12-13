@@ -58,6 +58,7 @@ class Frame {
   // Check whether the data is associated with the frame.
   inline bool HasDataId(data_t data_id) const;
 
+  // Clear all the associated data.
   void ClearDataIds();
 
   // Access the unique identifier of the rig. Note that multiple frames
