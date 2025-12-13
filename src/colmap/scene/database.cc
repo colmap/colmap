@@ -150,9 +150,8 @@ void Database::Merge(const Database& database1,
       [](const Frame& frame,
          const std::unordered_map<camera_t, camera_t>& new_camera_ids,
          const std::unordered_map<image_t, image_t>& new_image_ids) {
-        Frame updated_frame;
-        updated_frame.SetFrameId(frame.FrameId());
-        updated_frame.SetRigId(frame.RigId());
+        Frame updated_frame = frame;
+        updated_frame.ClearDataIds();
         for (data_t data_id : frame.DataIds()) {
           switch (data_id.sensor_id.type) {
             case SensorType::CAMERA:
@@ -164,7 +163,6 @@ void Database::Merge(const Database& database1,
               error << "Data type not supported: " << data_id.sensor_id.type;
               throw std::runtime_error(error.str());
           }
-
           updated_frame.AddDataId(data_id);
         }
         return updated_frame;

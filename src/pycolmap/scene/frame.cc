@@ -35,6 +35,9 @@ void BindFrame(py::module& m) {
       .def("has_data",
            &Frame::HasDataId,
            "Check whether frame has associated data.")
+      .def("clear_data_ids",
+           &Frame::ClearDataIds,
+           "Clear all the associated data.")
       .def_property_readonly(
           "data_ids",
           [](const Frame& self) { return self.DataIds(); },
