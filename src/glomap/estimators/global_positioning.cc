@@ -129,8 +129,8 @@ void GlobalPositioner::InitializeRandomPositions(
   constrained_positions.reserve(frames.size());
   for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (image_pair.is_valid == false) continue;
-    constrained_positions.insert(images[image_pair.image_id1].frame_id);
-    constrained_positions.insert(images[image_pair.image_id2].frame_id);
+    constrained_positions.insert(images[image_pair.image_id1].FrameId());
+    constrained_positions.insert(images[image_pair.image_id2].FrameId());
   }
 
   for (const auto& [track_id, track] : tracks) {
@@ -138,8 +138,8 @@ void GlobalPositioner::InitializeRandomPositions(
     for (const auto& observation : tracks[track_id].track.Elements()) {
       if (images.find(observation.image_id) == images.end()) continue;
       Image& image = images[observation.image_id];
-      if (!image.IsRegistered()) continue;
-      constrained_positions.insert(images[observation.image_id].frame_id);
+      if (!image.HasPose()) continue;
+      constrained_positions.insert(images[observation.image_id].FrameId());
     }
   }
 
@@ -173,7 +173,7 @@ void GlobalPositioner::AddCameraToCameraConstraints(
     const ViewGraph& view_graph, std::unordered_map<image_t, Image>& images) {
   // For cam to cam constraint, only support the trivial frames now
   for (const auto& [image_id, image] : images) {
-    if (!image.IsRegistered()) continue;
+    if (!image.HasPose()) continue;
     if (!image.IsRefInFrame()) {
       LOG(ERROR) << "Now, only trivial frames are supported for the camera to "
                     "camera constraints";
@@ -202,8 +202,8 @@ void GlobalPositioner::AddCameraToCameraConstraints(
     problem_->AddResidualBlock(
         cost_function,
         loss_function_.get(),
-        images[image_id1].frame_ptr->RigFromWorld().translation.data(),
-        images[image_id2].frame_ptr->RigFromWorld().translation.data(),
+        images[image_id1].FramePtr()->RigFromWorld().translation.data(),
+        images[image_id2].FramePtr()->RigFromWorld().translation.data(),
         &scale);
 
     problem_->SetParameterLowerBound(&scale, 0, 1e-5);
@@ -288,7 +288,7 @@ void GlobalPositioner::AddTrackToProblem(
     if (images.find(observation.image_id) == images.end()) continue;
 
     Image& image = images[observation.image_id];
-    if (!image.IsRegistered()) continue;
+    if (!image.HasPose()) continue;
 
     const Eigen::Vector3d& feature_undist =
         image.features_undist[observation.point2D_idx];
@@ -320,7 +320,7 @@ void GlobalPositioner::AddTrackToProblem(
     // functions
     // Down weight the uncalibrated cameras
     ceres::LossFunction* loss_function =
-        (cameras[image.camera_id].has_prior_focal_length)
+        (cameras[image.CameraId()].has_prior_focal_length)
             ? loss_function_ptcam_calibrated_.get()
             : loss_function_ptcam_uncalibrated_.get();
 
@@ -332,15 +332,15 @@ void GlobalPositioner::AddTrackToProblem(
       problem_->AddResidualBlock(
           cost_function,
           loss_function,
-          image.frame_ptr->RigFromWorld().translation.data(),
+          image.FramePtr()->RigFromWorld().translation.data(),
           track.xyz.data(),
           &scale);
       // If the image is part of a camera rig, use the RigBATA error
     } else {
-      rig_t rig_id = image.frame_ptr->RigId();
+      rig_t rig_id = image.FramePtr()->RigId();
       // Otherwise, use the camera rig translation from the frame
       Rigid3d& cam_from_rig = rigs.at(rig_id).SensorFromRig(
-          sensor_t(SensorType::CAMERA, image.camera_id));
+          sensor_t(SensorType::CAMERA, image.CameraId()));
 
       Eigen::Vector3d cam_from_rig_translation = cam_from_rig.translation;
 
@@ -354,7 +354,7 @@ void GlobalPositioner::AddTrackToProblem(
         problem_->AddResidualBlock(
             cost_function,
             loss_function,
-            image.frame_ptr->RigFromWorld().translation.data(),
+            image.FramePtr()->RigFromWorld().translation.data(),
             track.xyz.data(),
             &scale,
             &rig_scales_[rig_id]);
@@ -365,13 +365,13 @@ void GlobalPositioner::AddTrackToProblem(
         // global one
         ceres::CostFunction* cost_function =
             RigUnknownBATAPairwiseDirectionError::Create(
-                translation, image.frame_ptr->RigFromWorld().rotation);
+                translation, image.FramePtr()->RigFromWorld().rotation);
 
         problem_->AddResidualBlock(
             cost_function,
             loss_function,
             track.xyz.data(),
-            image.frame_ptr->RigFromWorld().translation.data(),
+            image.FramePtr()->RigFromWorld().translation.data(),
             cam_from_rig.translation.data(),
             &scale);
       }

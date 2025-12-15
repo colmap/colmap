@@ -34,8 +34,8 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
         continue;
       }
 
-      if (!images[image_pair.image_id1].IsRegistered() ||
-          !images[image_pair.image_id2].IsRegistered()) {
+      if (!images[image_pair.image_id1].HasPose() ||
+          !images[image_pair.image_id2].HasPose()) {
         continue;
       }
 
@@ -112,16 +112,15 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
       Rig rig_trivial;
       rig_trivial.SetRigId(rig_id);
       rig_trivial.AddRefSensor(rig.RefSensorId());
-      camera_id_to_rig_id[rig.RefSensorId().id] = rig_id;
-
-      for (const auto& [sensor_id, sensor] : rig.NonRefSensors()) {
+      for (const auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
         if (sensor_id.type != SensorType::CAMERA) continue;
         if (rig.MaybeSensorFromRig(sensor_id).has_value()) {
-          rig_trivial.AddSensor(sensor_id, sensor);
+          rig_trivial.AddSensor(sensor_id, sensor_from_rig);
           camera_id_to_rig_id[sensor_id.id] = rig_id;
         }
       }
-      rigs_trivial[rig_trivial.RigId()] = rig_trivial;
+      camera_id_to_rig_id[rig.RefSensorId().id] = rig_id;
+      rigs_trivial[rig_trivial.RigId()] = std::move(rig_trivial);
     }
 
     // For each camera with unknown cam_from_rig, create a separate trivial rig.
@@ -129,8 +128,8 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
       Rig rig_trivial;
       rig_trivial.SetRigId(++max_rig_id);
       rig_trivial.AddRefSensor(sensor_t(SensorType::CAMERA, camera_id));
-      rigs_trivial[rig_trivial.RigId()] = rig_trivial;
       camera_id_to_rig_id[camera_id] = rig_trivial.RigId();
+      rigs_trivial[rig_trivial.RigId()] = std::move(rig_trivial);
     }
 
     frame_t max_frame_id = 0;
@@ -140,38 +139,44 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
     }
     max_frame_id++;
 
+    const Eigen::Quaterniond kUnknownRotation = Eigen::Quaterniond(
+        Eigen::Vector4d::Constant(std::numeric_limits<double>::quiet_NaN()));
+    const Eigen::Vector3d kUnknownTranslation =
+        Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+    const Rigid3d kUnknownPose(kUnknownRotation, kUnknownTranslation);
+
     for (auto& [frame_id, frame] : frames) {
-      Frame frame_trivial = Frame();
+      Frame& frame_trivial = frames_trivial[frame_id];
       frame_trivial.SetFrameId(frame_id);
       frame_trivial.SetRigId(frame.RigId());
       frame_trivial.SetRigPtr(rigs_trivial.find(frame.RigId()) !=
                                       rigs_trivial.end()
                                   ? &rigs_trivial[frame.RigId()]
                                   : nullptr);
-      frames_trivial[frame_id] = frame_trivial;
+      frame_trivial.SetRigFromWorld(kUnknownPose);
 
       for (const auto& data_id : frame.ImageIds()) {
         const auto& image = images.at(data_id.id);
-        if (!image.IsRegistered()) continue;
-        auto& image_trivial =
-            images_trivial
-                .emplace(data_id.id,
-                         Image(data_id.id, image.camera_id, image.file_name))
-                .first->second;
+        if (!image.HasPose()) {
+          continue;
+        }
 
-        if (unknown_cams_from_rig.find(image_trivial.camera_id) ==
-            unknown_cams_from_rig.end()) {
-          frames_trivial[frame_id].AddDataId(image_trivial.DataId());
-          image_trivial.frame_id = frame_id;
-          image_trivial.frame_ptr = &frames_trivial[frame_id];
+        auto& image_trivial = images_trivial[image.ImageId()];
+        image_trivial.SetImageId(image.ImageId());
+        image_trivial.SetCameraId(image.CameraId());
+        image_trivial.SetName(image.Name());
+
+        if (unknown_cams_from_rig.count(image_trivial.CameraId()) == 0) {
+          frame_trivial.AddDataId(image_trivial.DataId());
+          image_trivial.SetFrameId(frame_id);
+          image_trivial.SetFramePtr(&frame_trivial);
         } else {
-          // If the camera is not in any rig, then create a trivial frame
-          // for it
-          CreateFrameForImage(Rigid3d(),
+          // If cam_from_rig is unknown, then create a trivial frame.
+          CreateFrameForImage(kUnknownPose,
                               image_trivial,
                               rigs_trivial,
                               frames_trivial,
-                              camera_id_to_rig_id[image.camera_id],
+                              camera_id_to_rig_id[image.CameraId()],
                               max_frame_id);
           max_frame_id++;
         }
@@ -179,6 +184,7 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
     }
 
     view_graph.KeepLargestConnectedComponents(frames_trivial, images_trivial);
+
     // Run the trivial rotation averaging
     RotationEstimatorOptions options_trivial = options;
     options_trivial.skip_initialization = options.skip_initialization;
@@ -187,13 +193,15 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
         view_graph, rigs_trivial, frames_trivial, images_trivial, pose_priors);
 
     // Collect the results
-    std::unordered_map<image_t, Rigid3d> cams_from_world;
+    std::unordered_map<image_t, Rigid3d> trivial_cams_from_world;
     for (const auto& [image_id, image] : images_trivial) {
-      if (!image.IsRegistered()) continue;
-      cams_from_world[image_id] = image.CamFromWorld();
+      if (!image.HasPose()) continue;
+      trivial_cams_from_world[image_id] = image.CamFromWorld();
     }
 
-    ConvertRotationsFromImageToRig(cams_from_world, images, rigs, frames);
+    LOG(INFO) << "Creating trivial rigs";
+    ConvertRotationsFromImageToRig(
+        trivial_cams_from_world, images, rigs, frames);
 
     RotationEstimatorOptions options_ra = options;
     options_ra.skip_initialization = true;
