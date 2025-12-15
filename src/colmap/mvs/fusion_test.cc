@@ -29,13 +29,10 @@
 
 #include "colmap/mvs/fusion.h"
 
-#include "colmap/mvs/consistency_graph.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
-
-#include <fstream>
 
 #include <gtest/gtest.h>
 
