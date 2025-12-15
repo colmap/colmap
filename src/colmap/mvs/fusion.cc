@@ -37,9 +37,9 @@
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
 
-#include <Eigen/Geometry>
-
 #include <unordered_set>
+
+#include <Eigen/Geometry>
 
 namespace colmap {
 namespace mvs {
