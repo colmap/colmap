@@ -56,7 +56,7 @@ TEST(StereoFusion, Integration) {
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 2;
-  synthetic_dataset_options.camera_width = 20;
+  synthetic_dataset_options.camera_width = 30;
   synthetic_dataset_options.camera_height = 20;
   Reconstruction reconstruction;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
