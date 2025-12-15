@@ -1,5 +1,6 @@
 #pragma once
 
+#include "glomap/scene/frame.h"
 #include "glomap/scene/image.h"
 #include "glomap/scene/image_pair.h"
 #include "glomap/scene/types.h"
@@ -22,16 +23,17 @@ struct ViewGraph {
       const std::unordered_map<image_t, Image>& images) const;
 
   // Mark the images which are not connected to any other images as not
-  // registered Returns the number of images in the largest connected component.
+  // registered. Returns the number of images in the largest connected
+  // component.
   int KeepLargestConnectedComponents(
       std::unordered_map<frame_t, Frame>& frames,
-      std::unordered_map<image_t, Image>& images);
+      const std::unordered_map<image_t, Image>& images);
 
   // Mark connected clusters of images, where the cluster_id is sorted by the
   // the number of images.
   int MarkConnectedComponents(std::unordered_map<frame_t, Frame>& frames,
-                              std::unordered_map<image_t, Image>& images,
-                              int min_num_img = -1);
+                              const std::unordered_map<image_t, Image>& images,
+                              int min_num_images = -1);
 };
 
 }  // namespace glomap
