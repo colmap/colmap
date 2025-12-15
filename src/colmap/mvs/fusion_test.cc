@@ -88,7 +88,7 @@ TEST(StereoFusion, Integration) {
     Bitmap bitmap(synthetic_dataset_options.camera_width,
                   synthetic_dataset_options.camera_height,
                   true);
-    bitmap.Fill(BitmapColor<uint8_t>(128, 128, 128));
+    bitmap.Fill(BitmapColor<uint8_t>(0, 64, 128));
     bitmap.Write(JoinPaths(temp_dir, "images", image.Name()));
   }
 
@@ -124,6 +124,9 @@ TEST(StereoFusion, Integration) {
     EXPECT_LT(point.y, 10.0f);
     EXPECT_GT(point.z, -10.0f);
     EXPECT_LT(point.z, 10.0f);
+    EXPECT_EQ(point.r, 0);
+    EXPECT_EQ(point.g, 64);
+    EXPECT_EQ(point.b, 128);
     EXPECT_FLOAT_EQ(
         point.nx * point.nx + point.ny * point.ny + point.nz * point.nz, 1.0f);
   }
