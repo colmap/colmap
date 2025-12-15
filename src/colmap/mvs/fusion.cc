@@ -39,6 +39,8 @@
 
 #include <Eigen/Geometry>
 
+#include <unordered_set>
+
 namespace colmap {
 namespace mvs {
 namespace internal {
