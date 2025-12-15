@@ -68,38 +68,35 @@ TEST(StereoFusion, Integration) {
     image_names.push_back(image.Name());
 
     // Create depth map with constant depth.
-    Mat<float> depth_map(synthetic_dataset_options.camera_width, synthetic_dataset_options.camera_height, 1);
+    Mat<float> depth_map(synthetic_dataset_options.camera_width,
+                         synthetic_dataset_options.camera_height,
+                         1);
     depth_map.Fill(5.0f);
     depth_map.Write(JoinPaths(
-        temp_dir,
-        "stereo",
-        "depth_maps",
-        image.Name() + ".geometric.bin"));
+        temp_dir, "stereo", "depth_maps", image.Name() + ".geometric.bin"));
 
     // Create normal map pointing in z direction.
-    Mat<float> normal_map(
-        synthetic_dataset_options.camera_width, synthetic_dataset_options.camera_height, 3);
-    for (int i = 0; i < normal_map.GetHeight() * normal_map.GetWidth();
-         ++i) {
+    Mat<float> normal_map(synthetic_dataset_options.camera_width,
+                          synthetic_dataset_options.camera_height,
+                          3);
+    for (int i = 0; i < normal_map.GetHeight() * normal_map.GetWidth(); ++i) {
       normal_map.GetPtr()[3 * i + 0] = 0.0f;  // nx
       normal_map.GetPtr()[3 * i + 1] = 0.0f;  // ny
       normal_map.GetPtr()[3 * i + 2] = 1.0f;  // nz
     }
     normal_map.Write(JoinPaths(
-        temp_dir,
-        "stereo",
-        "normal_maps",
-        image.Name() + ".geometric.bin"));
+        temp_dir, "stereo", "normal_maps", image.Name() + ".geometric.bin"));
 
     // Create bitmap.
-    Bitmap bitmap(synthetic_dataset_options.camera_width, synthetic_dataset_options.camera_height, true);
+    Bitmap bitmap(synthetic_dataset_options.camera_width,
+                  synthetic_dataset_options.camera_height,
+                  true);
     bitmap.Fill(BitmapColor<uint8_t>(128, 128, 128));
     bitmap.Write(JoinPaths(temp_dir, "images", image.Name()));
   }
 
   // Write fusion config
-  std::ofstream fusion_cfg(
-      JoinPaths(temp_dir, "stereo", "fusion.cfg"));
+  std::ofstream fusion_cfg(JoinPaths(temp_dir, "stereo", "fusion.cfg"));
   for (const auto& name : image_names) {
     fusion_cfg << name << "\n";
   }
@@ -130,8 +127,8 @@ TEST(StereoFusion, Integration) {
     EXPECT_LT(point.y, 10.0f);
     EXPECT_GT(point.z, -10.0f);
     EXPECT_LT(point.z, 10.0f);
-    EXPECT_FLOAT_EQ(point.nx * point.nx + point.ny * point.ny + point.nz * point.nz,
-                    1.0f);
+    EXPECT_FLOAT_EQ(
+        point.nx * point.nx + point.ny * point.ny + point.nz * point.nz, 1.0f);
   }
 
   for (const auto& vis : visibility) {
