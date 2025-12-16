@@ -76,7 +76,8 @@ TEST(StereoFusion, Integration) {
     Mat<float> normal_map(synthetic_dataset_options.camera_width,
                           synthetic_dataset_options.camera_height,
                           3);
-    for (int i = 0; i < normal_map.GetHeight() * normal_map.GetWidth(); ++i) {
+    const size_t num_pixels = normal_map.GetHeight() * normal_map.GetWidth();
+    for (size_t i = 0; i < num_pixels; ++i) {
       normal_map.GetPtr()[3 * i + 0] = 0.0f;  // nx
       normal_map.GetPtr()[3 * i + 1] = 0.0f;  // ny
       normal_map.GetPtr()[3 * i + 2] = 1.0f;  // nz
