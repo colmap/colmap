@@ -282,6 +282,8 @@ void OptionManager::AddGravityRefinerOptions() {
                               &gravity_refiner->min_num_neighbors);
 }
 void OptionManager::Reset() {
+  FLAGS_logtostderr = true;
+
   const bool kResetPaths = true;
   ResetOptions(kResetPaths);
 

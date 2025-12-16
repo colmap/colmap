@@ -29,20 +29,13 @@
 
 #pragma once
 
-#include "colmap/math/math.h"
-#include "colmap/mvs/depth_map.h"
-#include "colmap/mvs/image.h"
 #include "colmap/mvs/mat.h"
-#include "colmap/mvs/model.h"
-#include "colmap/mvs/normal_map.h"
 #include "colmap/mvs/workspace.h"
 #include "colmap/util/base_controller.h"
-#include "colmap/util/cache.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/ply.h"
 
 #include <cfloat>
-#include <unordered_set>
 #include <vector>
 
 #include <Eigen/Core>

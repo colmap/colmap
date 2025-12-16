@@ -28,10 +28,9 @@ int TrackFilter::FilterTracksByReprojection(
             (pt_reproj - feature_undist.head(2) / (feature_undist(2) + kEps))
                 .norm();
       } else {
-        Eigen::Vector2d pt_dist;
-        pt_dist = cameras.at(image.camera_id)
-                      .ImgFromCam(pt_calc)
-                      .value_or(Eigen::Vector2d::Zero());
+        const Eigen::Vector2d pt_dist = cameras.at(image.CameraId())
+                                            .ImgFromCam(pt_calc)
+                                            .value_or(Eigen::Vector2d::Zero());
         reprojection_error =
             (pt_dist - image.features.at(observation.point2D_idx)).norm();
       }
@@ -70,8 +69,8 @@ int TrackFilter::FilterTracksByAngle(
       const Eigen::Vector3d pt_calc =
           (image.CamFromWorld() * track.xyz).normalized();
       const double thres_cam =
-          (cameras.at(image.camera_id).has_prior_focal_length) ? thres
-                                                               : thres_uncalib;
+          (cameras.at(image.CameraId()).has_prior_focal_length) ? thres
+                                                                : thres_uncalib;
 
       if (pt_calc.dot(feature_undist) > thres_cam) {
         observation_new.emplace_back(observation.image_id,
@@ -101,7 +100,8 @@ int TrackFilter::FilterTrackTriangulationAngle(
     pts_calc.reserve(track.track.Length());
     for (auto& observation : track.track.Elements()) {
       const Image& image = images.at(observation.image_id);
-      Eigen::Vector3d pt_calc = (track.xyz - image.Center()).normalized();
+      Eigen::Vector3d pt_calc =
+          (track.xyz - image.ProjectionCenter()).normalized();
       pts_calc.emplace_back(pt_calc);
     }
     bool status = false;
