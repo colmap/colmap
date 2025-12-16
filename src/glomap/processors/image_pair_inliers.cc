@@ -39,8 +39,8 @@ double ImagePairInliers::ScoreErrorEssential() {
 
   const double thres =
       options.max_epipolar_error_E * 0.5 *
-      (1. / cameras->at(images.at(image_id1).camera_id).MeanFocalLength() +
-       1. / cameras->at(images.at(image_id2).camera_id).MeanFocalLength());
+      (1. / cameras->at(images.at(image_id1).CameraId()).MeanFocalLength() +
+       1. / cameras->at(images.at(image_id2).CameraId()).MeanFocalLength());
 
   // Square the threshold for faster computation
   const double sq_threshold = thres * thres;

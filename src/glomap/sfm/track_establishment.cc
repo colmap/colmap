@@ -1,4 +1,4 @@
-#include "track_establishment.h"
+#include "glomap/sfm/track_establishment.h"
 
 namespace glomap {
 
@@ -156,15 +156,13 @@ size_t TrackEngine::FindTracksForProblem(
     std::unordered_map<point3D_t, Point3D>& tracks_selected) {
   // Sort the tracks by length
   std::vector<std::pair<size_t, point3D_t>> track_lengths;
-
-  // std::unordered_map<ViewId, std::vector<TrackId>> map_track;
   for (const auto& [track_id, track] : tracks_full) {
     if (track.track.Length() < options_.min_num_view_per_track) continue;
     // FUTURE: have a more elegant way of filtering tracks
     if (track.track.Length() > options_.max_num_view_per_track) continue;
-    track_lengths.emplace_back(std::make_pair(track.track.Length(), track_id));
+    track_lengths.emplace_back(track.track.Length(), track_id);
   }
-  std::sort(std::rbegin(track_lengths), std::rend(track_lengths));
+  std::sort(track_lengths.begin(), track_lengths.end(), std::greater<>());
 
   // Initialize the track per camera number to zero
   std::unordered_map<image_t, point3D_t> tracks_per_camera;
@@ -173,8 +171,7 @@ size_t TrackEngine::FindTracksForProblem(
   // corresponding to those images
   std::unordered_map<point3D_t, Point3D> tracks;
   for (const auto& [image_id, image] : images_) {
-    if (!image.IsRegistered()) continue;
-
+    if (!image.HasPose()) continue;
     tracks_per_camera[image_id] = 0;
   }
 

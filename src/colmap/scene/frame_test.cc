@@ -84,6 +84,9 @@ TEST(Frame, SetUp) {
   EXPECT_TRUE(frame.HasDataId(data_id2));
   EXPECT_THAT(frame.DataIds(),
               testing::UnorderedElementsAre(data_id1, data_id2));
+  frame.ClearDataIds();
+  EXPECT_EQ(frame.NumDataIds(), 0);
+  EXPECT_THAT(frame.DataIds(), testing::IsEmpty());
   EXPECT_FALSE(frame.HasPose());
 }
 

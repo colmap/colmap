@@ -1,4 +1,4 @@
-#include "glomap/controllers/global_mapper.h"
+#include "glomap/sfm/global_mapper.h"
 
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
@@ -11,6 +11,8 @@
 
 namespace glomap {
 namespace {
+
+// TODO(jsch): Add tests for pose priors.
 
 GlobalMapperOptions CreateTestOptions() {
   GlobalMapperOptions options;
@@ -43,12 +45,19 @@ TEST(GlobalMapper, WithoutNoise) {
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
   std::unordered_map<point3D_t, Point3D> tracks;
+  std::vector<colmap::PosePrior> pose_priors;
 
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   GlobalMapper global_mapper(CreateTestOptions());
-  global_mapper.Solve(
-      *database, view_graph, rigs, cameras, frames, images, tracks);
+  global_mapper.Solve(*database,
+                      view_graph,
+                      rigs,
+                      cameras,
+                      frames,
+                      images,
+                      tracks,
+                      pose_priors);
 
   colmap::Reconstruction reconstruction;
   ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);
@@ -81,12 +90,19 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
   std::unordered_map<point3D_t, Point3D> tracks;
+  std::vector<colmap::PosePrior> pose_priors;
 
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   GlobalMapper global_mapper(CreateTestOptions());
-  global_mapper.Solve(
-      *database, view_graph, rigs, cameras, frames, images, tracks);
+  global_mapper.Solve(*database,
+                      view_graph,
+                      rigs,
+                      cameras,
+                      frames,
+                      images,
+                      tracks,
+                      pose_priors);
 
   colmap::Reconstruction reconstruction;
   ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);
@@ -120,6 +136,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
   std::unordered_map<point3D_t, Point3D> tracks;
+  std::vector<colmap::PosePrior> pose_priors;
 
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
@@ -133,8 +150,14 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
   }
 
   GlobalMapper global_mapper(CreateTestOptions());
-  global_mapper.Solve(
-      *database, view_graph, rigs, cameras, frames, images, tracks);
+  global_mapper.Solve(*database,
+                      view_graph,
+                      rigs,
+                      cameras,
+                      frames,
+                      images,
+                      tracks,
+                      pose_priors);
 
   colmap::Reconstruction reconstruction;
   ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);
@@ -169,12 +192,19 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
   std::unordered_map<image_t, Image> images;
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<point3D_t, Point3D> tracks;
+  std::vector<colmap::PosePrior> pose_priors;
 
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   GlobalMapper global_mapper(CreateTestOptions());
-  global_mapper.Solve(
-      *database, view_graph, rigs, cameras, frames, images, tracks);
+  global_mapper.Solve(*database,
+                      view_graph,
+                      rigs,
+                      cameras,
+                      frames,
+                      images,
+                      tracks,
+                      pose_priors);
 
   colmap::Reconstruction reconstruction;
   ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);

@@ -1,19 +1,36 @@
-#include "pose_io.h"
+#include "glomap/io/pose_io.h"
+
+#include "glomap/math/gravity.h"
 
 #include <fstream>
 #include <map>
 #include <set>
 
 namespace glomap {
+namespace {
+
+std::unordered_map<std::string, image_t> ExtractImageNameToId(
+    const std::unordered_map<image_t, Image>& images) {
+  std::unordered_map<std::string, image_t> image_name_to_id;
+  for (const auto& [image_id, image] : images) {
+    image_name_to_id[image.Name()] = image_id;
+  }
+  return image_name_to_id;
+}
+
+}  // namespace
+
 void ReadRelPose(const std::string& file_path,
                  std::unordered_map<image_t, Image>& images,
                  ViewGraph& view_graph) {
-  std::unordered_map<std::string, image_t> name_idx;
-  image_t max_image_id = 0;
-  for (const auto& [image_id, image] : images) {
-    name_idx[image.file_name] = image_id;
+  std::unordered_map<std::string, image_t> image_name_to_id =
+      ExtractImageNameToId(images);
 
+  image_t max_image_id = 0;
+  camera_t max_camera_id = 0;
+  for (const auto& [image_id, image] : images) {
     max_image_id = std::max(max_image_id, image_id);
+    max_camera_id = std::max(max_camera_id, image.CameraId());
   }
 
   // Mark every edge in te view graph as invalid
@@ -40,21 +57,29 @@ void ReadRelPose(const std::string& file_path,
     std::getline(line_stream, item, ' ');
     file2 = item;
 
-    if (name_idx.find(file1) == name_idx.end()) {
+    if (image_name_to_id.find(file1) == image_name_to_id.end()) {
       max_image_id += 1;
-      images.insert(
-          std::make_pair(max_image_id, Image(max_image_id, -1, file1)));
-      name_idx[file1] = max_image_id;
+      max_camera_id += 1;
+      Image image1;
+      image1.SetImageId(max_image_id);
+      image1.SetCameraId(max_camera_id);
+      image1.SetName(file1);
+      images.insert(std::make_pair(max_image_id, std::move(image1)));
+      image_name_to_id[file1] = max_image_id;
     }
-    if (name_idx.find(file2) == name_idx.end()) {
+    if (image_name_to_id.find(file2) == image_name_to_id.end()) {
       max_image_id += 1;
-      images.insert(
-          std::make_pair(max_image_id, Image(max_image_id, -1, file2)));
-      name_idx[file2] = max_image_id;
+      max_camera_id += 1;
+      Image image2;
+      image2.SetImageId(max_image_id);
+      image2.SetCameraId(max_camera_id);
+      image2.SetName(file2);
+      images.insert(std::make_pair(max_image_id, std::move(image2)));
+      image_name_to_id[file2] = max_image_id;
     }
 
-    image_t index1 = name_idx[file1];
-    image_t index2 = name_idx[file2];
+    const image_t index1 = image_name_to_id[file1];
+    const image_t index2 = image_name_to_id[file2];
 
     const image_pair_t pair_id = colmap::ImagePairToPairId(index1, index2);
 
@@ -87,10 +112,8 @@ void ReadRelPose(const std::string& file_path,
 void ReadRelWeight(const std::string& file_path,
                    const std::unordered_map<image_t, Image>& images,
                    ViewGraph& view_graph) {
-  std::unordered_map<std::string, image_t> name_idx;
-  for (const auto& [image_id, image] : images) {
-    name_idx[image.file_name] = image_id;
-  }
+  const std::unordered_map<std::string, image_t> image_name_to_id =
+      ExtractImageNameToId(images);
 
   std::ifstream file(file_path);
 
@@ -111,12 +134,12 @@ void ReadRelWeight(const std::string& file_path,
     std::getline(line_stream, item, ' ');
     file2 = item;
 
-    if (name_idx.find(file1) == name_idx.end() ||
-        name_idx.find(file2) == name_idx.end())
+    if (image_name_to_id.find(file1) == image_name_to_id.end() ||
+        image_name_to_id.find(file2) == image_name_to_id.end())
       continue;
 
-    image_t index1 = name_idx[file1];
-    image_t index2 = name_idx[file2];
+    image_t index1 = image_name_to_id.at(file1);
+    image_t index2 = image_name_to_id.at(file2);
 
     image_pair_t pair_id = colmap::ImagePairToPairId(index1, index2);
 
@@ -132,12 +155,13 @@ void ReadRelWeight(const std::string& file_path,
 
 // TODO: now, we only store 1 single gravity per rig.
 // for ease of implementation, we only store from the image with trivial frame
-void ReadGravity(const std::string& gravity_path,
-                 std::unordered_map<image_t, Image>& images) {
-  std::unordered_map<std::string, image_t> name_idx;
-  for (const auto& [image_id, image] : images) {
-    name_idx[image.file_name] = image_id;
-  }
+std::vector<colmap::PosePrior> ReadGravity(
+    const std::string& gravity_path,
+    std::unordered_map<image_t, Image>& images) {
+  const std::unordered_map<std::string, image_t> image_name_to_id =
+      ExtractImageNameToId(images);
+
+  std::vector<colmap::PosePrior> pose_priors;
 
   std::ifstream file(gravity_path);
 
@@ -159,20 +183,29 @@ void ReadGravity(const std::string& gravity_path,
     }
 
     // Check whether the image present
-    auto ite = name_idx.find(name);
-    if (ite != name_idx.end()) {
-      counter++;
-      if (images[ite->second].IsRefInFrame()) {
-        images[ite->second].frame_ptr->gravity_info.SetGravity(gravity);
-        Rigid3d& cam_from_world = images[ite->second].frame_ptr->RigFromWorld();
+    auto ite = image_name_to_id.find(name);
+    if (ite != image_name_to_id.end()) {
+      auto& image = images[ite->second];
+      if (image.IsRefInFrame()) {
+        counter++;
+        auto& pose_prior = pose_priors.emplace_back();
+        pose_prior.pose_prior_id = ite->second;
+        pose_prior.corr_data_id = image.DataId();
+        pose_prior.gravity = gravity;
+        Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
         // Set the rotation from the camera to the world
-        // Make sure the initialization is aligned with the gravity
-        cam_from_world.rotation = Eigen::Quaterniond(
-            images[ite->second].frame_ptr->gravity_info.GetRAlign());
+        // Make sure the initialization is aligned with the gravity.
+        cam_from_world.rotation = Eigen::Quaterniond(GetAlignRot(gravity));
+      } else {
+        LOG(INFO) << "Ignoring gravity of image " << name
+                  << " because it is not from the reference sensor";
       }
     }
   }
+
   LOG(INFO) << counter << " images are loaded with gravity";
+
+  return pose_priors;
 }
 
 void WriteGlobalRotation(const std::string& file_path,
@@ -180,14 +213,14 @@ void WriteGlobalRotation(const std::string& file_path,
   std::ofstream file(file_path);
   std::set<image_t> existing_images;
   for (const auto& [image_id, image] : images) {
-    if (image.IsRegistered()) {
+    if (image.HasPose()) {
       existing_images.insert(image_id);
     }
   }
   for (const auto& image_id : existing_images) {
     const auto& image = images.at(image_id);
-    if (!image.IsRegistered()) continue;
-    file << image.file_name;
+    if (!image.HasPose()) continue;
+    file << image.Name();
     Rigid3d cam_from_world = image.CamFromWorld();
     for (int i = 0; i < 4; i++) {
       file << " " << cam_from_world.rotation.coeffs()[(i + 3) % 4];
@@ -207,7 +240,7 @@ void WriteRelPose(const std::string& file_path,
     if (image_pair.is_valid) {
       const auto& image1 = images.at(image_pair.image_id1);
       const auto& image2 = images.at(image_pair.image_id2);
-      name_pair[image1.file_name + " " + image2.file_name] = pair_id;
+      name_pair[image1.Name() + " " + image2.Name()] = pair_id;
     }
   }
 
@@ -215,8 +248,8 @@ void WriteRelPose(const std::string& file_path,
   for (const auto& [name, pair_id] : name_pair) {
     const auto image_pair = view_graph.image_pairs.at(pair_id);
     if (!image_pair.is_valid) continue;
-    file << images.at(image_pair.image_id1).file_name << " "
-         << images.at(image_pair.image_id2).file_name;
+    file << images.at(image_pair.image_id1).Name() << " "
+         << images.at(image_pair.image_id2).Name();
     for (int i = 0; i < 4; i++) {
       file << " " << image_pair.cam2_from_cam1.rotation.coeffs()[(i + 3) % 4];
     }
@@ -228,4 +261,5 @@ void WriteRelPose(const std::string& file_path,
 
   LOG(INFO) << name_pair.size() << " relpose are written";
 }
+
 }  // namespace glomap

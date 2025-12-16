@@ -1,4 +1,4 @@
-#include "glomap/controllers/rotation_averager.h"
+#include "glomap/sfm/rotation_averager.h"
 
 #include "colmap/util/file.h"
 #include "colmap/util/timer.h"
@@ -70,10 +70,11 @@ int RunRotationAverager(int argc, char** argv) {
   std::unordered_map<rig_t, Rig> rigs;
   std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<frame_t, Frame> frames;
+  std::vector<colmap::PosePrior> pose_priors;
 
   for (auto& [image_id, image] : images) {
-    image.camera_id = image.image_id;
-    cameras[image.camera_id] = colmap::Camera();
+    image.SetCameraId(image.ImageId());
+    cameras[image.CameraId()].camera_id = image.CameraId();
   }
 
   CreateOneRigPerCamera(cameras, rigs);
@@ -85,7 +86,7 @@ int RunRotationAverager(int argc, char** argv) {
   }
 
   if (gravity_path != "") {
-    ReadGravity(gravity_path, images);
+    pose_priors = ReadGravity(gravity_path, images);
   }
 
   if (use_weight) {
@@ -98,13 +99,17 @@ int RunRotationAverager(int argc, char** argv) {
 
   if (refine_gravity && gravity_path != "") {
     GravityRefiner grav_refiner(*options.gravity_refiner);
-    grav_refiner.RefineGravity(view_graph, frames, images);
+    grav_refiner.RefineGravity(view_graph, frames, images, pose_priors);
   }
 
   colmap::Timer run_timer;
   run_timer.Start();
-  if (!SolveRotationAveraging(
-          view_graph, rigs, frames, images, rotation_averager_options)) {
+  if (!SolveRotationAveraging(view_graph,
+                              rigs,
+                              frames,
+                              images,
+                              pose_priors,
+                              rotation_averager_options)) {
     LOG(ERROR) << "Failed to solve global rotation averaging";
     return EXIT_FAILURE;
   }

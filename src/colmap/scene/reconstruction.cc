@@ -696,21 +696,34 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
   std::unordered_map<image_t, class Image> new_images;
   new_images.reserve(NumImages());
 
-  for (auto& image : images_) {
+  for (auto& [_, image] : images_) {
     const std::optional<class Image> database_image =
-        database.ReadImageWithName(image.second.Name());
+        database.ReadImageWithName(image.Name());
     if (!database_image.has_value()) {
-      LOG(FATAL_THROW) << "Image with name " << image.second.Name()
+      LOG(FATAL_THROW) << "Image with name " << image.Name()
                        << " does not exist in database";
     }
-    old_to_new_image_ids.emplace(image.second.ImageId(),
-                                 database_image->ImageId());
-    image.second.SetImageId(database_image->ImageId());
-    new_images.emplace(database_image->ImageId(), image.second);
+    old_to_new_image_ids.emplace(image.ImageId(), database_image->ImageId());
+    image.SetImageId(database_image->ImageId());
+    THROW_CHECK(new_images.emplace(database_image->ImageId(), image).second);
   }
 
   images_ = std::move(new_images);
 
+  // Transcribe frame data.
+  for (auto& [_, frame] : frames_) {
+    auto new_frame = frame;
+    new_frame.ClearDataIds();
+    for (data_t data_id : frame.DataIds()) {
+      if (data_id.sensor_id.type == SensorType::CAMERA) {
+        data_id.id = old_to_new_image_ids.at(data_id.id);
+      }
+      new_frame.AddDataId(data_id);
+    }
+    frame = std::move(new_frame);
+  }
+
+  // Transcribe point tracks.
   for (auto& point3D : points3D_) {
     for (auto& track_el : point3D.second.track.Elements()) {
       track_el.image_id = old_to_new_image_ids.at(track_el.image_id);

@@ -20,6 +20,7 @@ add_subdirectory(estimators)
 add_subdirectory(processors)
 add_subdirectory(controllers)
 add_subdirectory(exe)
+add_subdirectory(sfm)
 
 COLMAP_ADD_EXECUTABLE(
     NAME glomap_main

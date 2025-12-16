@@ -68,6 +68,16 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_mvs
 )
 COLMAP_ADD_TEST(
+    NAME fusion_test
+    SRCS fusion_test.cc
+    LINK_LIBS colmap_mvs
+)
+COLMAP_ADD_TEST(
+    NAME image_test
+    SRCS image_test.cc
+    LINK_LIBS colmap_mvs
+)
+COLMAP_ADD_TEST(
     NAME mat_test
     SRCS mat_test.cc
     LINK_LIBS colmap_mvs
@@ -75,6 +85,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME normal_map_test
     SRCS normal_map_test.cc
+    LINK_LIBS colmap_mvs
+)
+COLMAP_ADD_TEST(
+    NAME workspace_test
+    SRCS workspace_test.cc
     LINK_LIBS colmap_mvs
 )
 

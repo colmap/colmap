@@ -1,10 +1,7 @@
-#include "global_mapper.h"
+#include "glomap/sfm/global_mapper.h"
 
-#include "colmap/util/file.h"
 #include "colmap/util/timer.h"
 
-#include "glomap/controllers/rotation_averager.h"
-#include "glomap/io/colmap_converter.h"
 #include "glomap/processors/image_pair_inliers.h"
 #include "glomap/processors/image_undistorter.h"
 #include "glomap/processors/reconstruction_normalizer.h"
@@ -12,6 +9,7 @@
 #include "glomap/processors/relpose_filter.h"
 #include "glomap/processors/track_filter.h"
 #include "glomap/processors/view_graph_manipulation.h"
+#include "glomap/sfm/rotation_averager.h"
 
 namespace glomap {
 
@@ -22,7 +20,8 @@ bool GlobalMapper::Solve(const colmap::Database& database,
                          std::unordered_map<camera_t, colmap::Camera>& cameras,
                          std::unordered_map<frame_t, Frame>& frames,
                          std::unordered_map<image_t, Image>& images,
-                         std::unordered_map<point3D_t, Point3D>& tracks) {
+                         std::unordered_map<point3D_t, Point3D>& tracks,
+                         std::vector<colmap::PosePrior>& pose_priors) {
   // 0. Preprocessing
   if (!options_.skip_preprocessing) {
     std::cout << "-------------------------------------" << '\n';
@@ -93,6 +92,7 @@ bool GlobalMapper::Solve(const colmap::Database& database,
                            rigs,
                            frames,
                            images,
+                           pose_priors,
                            RotationAveragerOptions(options_.opt_ra));
 
     RelPoseFilter::FilterRotations(
@@ -107,6 +107,7 @@ bool GlobalMapper::Solve(const colmap::Database& database,
                                 rigs,
                                 frames,
                                 images,
+                                pose_priors,
                                 RotationAveragerOptions(options_.opt_ra))) {
       return false;
     }

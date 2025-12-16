@@ -161,7 +161,9 @@ Bitmap::Bitmap(const Bitmap& other) {
   channels_ = other.channels_;
   linear_colorspace_ = other.linear_colorspace_;
   data_ = other.data_;
-  meta_data_ = OIIOMetaData::Clone(other.meta_data_);
+  if (!other.IsEmpty()) {
+    meta_data_ = OIIOMetaData::Clone(other.meta_data_);
+  }
 }
 
 Bitmap::Bitmap(Bitmap&& other) noexcept {
@@ -182,7 +184,11 @@ Bitmap& Bitmap::operator=(const Bitmap& other) {
   channels_ = other.channels_;
   linear_colorspace_ = other.linear_colorspace_;
   data_ = other.data_;
-  meta_data_ = OIIOMetaData::Clone(other.meta_data_);
+  if (other.IsEmpty()) {
+    meta_data_ = nullptr;
+  } else {
+    meta_data_ = OIIOMetaData::Clone(other.meta_data_);
+  }
   return *this;
 }
 
@@ -608,6 +614,8 @@ Bitmap Bitmap::CloneAsGrey() const {
                      .0722f * data_[3 * i + 2]);
     }
     cloned.meta_data_ = OIIOMetaData::Clone(meta_data_);
+    auto* cloned_meta_data = OIIOMetaData::Upcast(cloned.meta_data_.get());
+    cloned_meta_data->image_spec.nchannels = 1;
     return cloned;
   }
 }
@@ -629,6 +637,8 @@ Bitmap Bitmap::CloneAsRGB() const {
       cloned.data_[3 * i + 2] = data_[i];
     }
     cloned.meta_data_ = OIIOMetaData::Clone(meta_data_);
+    auto* cloned_meta_data = OIIOMetaData::Upcast(cloned.meta_data_.get());
+    cloned_meta_data->image_spec.nchannels = 3;
     return cloned;
   }
 }

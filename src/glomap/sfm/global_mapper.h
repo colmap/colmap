@@ -1,13 +1,14 @@
 #pragma once
+
 #include "colmap/scene/database.h"
 
-#include "glomap/controllers/track_establishment.h"
-#include "glomap/controllers/track_retriangulation.h"
 #include "glomap/estimators/bundle_adjustment.h"
 #include "glomap/estimators/global_positioning.h"
 #include "glomap/estimators/global_rotation_averaging.h"
 #include "glomap/estimators/relpose_estimation.h"
 #include "glomap/estimators/view_graph_calibration.h"
+#include "glomap/sfm/track_establishment.h"
+#include "glomap/sfm/track_retriangulation.h"
 
 namespace glomap {
 
@@ -52,7 +53,8 @@ class GlobalMapper {
              std::unordered_map<camera_t, colmap::Camera>& cameras,
              std::unordered_map<frame_t, Frame>& frames,
              std::unordered_map<image_t, Image>& images,
-             std::unordered_map<point3D_t, Point3D>& tracks);
+             std::unordered_map<point3D_t, Point3D>& tracks,
+             std::vector<colmap::PosePrior>& pose_priors);
 
  private:
   const GlobalMapperOptions options_;
