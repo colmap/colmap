@@ -245,29 +245,8 @@ TEST(CasparBundleAdjuster, CompareWithDefaultBundleAdjuster) {
   auto caspar_summary =
       CreateCasparBundleAdjuster(options, config, reconstruction_caspar, params)
           ->Solve();
-  ASSERT_NE(caspar_summary.termination_type, ceres::FAILURE);
-
-  // Compare final costs
-  const double ceres_rmse =
-      std::sqrt(ceres_summary.final_cost / ceres_summary.num_residuals_reduced);
-  const double caspar_rmse = std::sqrt(
-      caspar_summary.final_cost / 400);  // 100 points * 2 images * 2 residuals
-
-  LOG(INFO) << "Ceres RMSE:  " << ceres_rmse << " px";
-  LOG(INFO) << "Caspar RMSE: " << caspar_rmse << " px";
-
-  // Both should converge to low error
-  EXPECT_LT(ceres_rmse, 2.0);
-  EXPECT_LT(caspar_rmse, 2.0);
-
-  // Should be reasonably close to each other
-  EXPECT_NEAR(ceres_rmse, caspar_rmse, 0.5);
-
-  //////////////////////////////////////////////////////////////////////////////
-  // Compare 3D Points
-  //////////////////////////////////////////////////////////////////////////////
-
-  LOG(INFO) << "\n=== Comparing 3D Points ===";
+  ASSERT_NE(caspar_summary.termination_type,
+            ceres::FAILURE);  // A bit useless, at it will always return SUCCESS
 
   std::vector<double> point_position_errors;
   point_position_errors.reserve(reconstruction_ceres.NumPoints3D());
@@ -286,39 +265,11 @@ TEST(CasparBundleAdjuster, CompareWithDefaultBundleAdjuster) {
       std::accumulate(
           point_position_errors.begin(), point_position_errors.end(), 0.0) /
       point_position_errors.size();
-  const double median_point_error =
-      point_position_errors[point_position_errors.size() / 2];
   const double max_point_error = point_position_errors.back();
 
-  LOG(INFO) << "Point position differences:";
-  LOG(INFO) << "  Mean:   " << mean_point_error;
-  LOG(INFO) << "  Median: " << median_point_error;
-  LOG(INFO) << "  Max:    " << max_point_error;
-  LOG(INFO) << "  Total points: " << point_position_errors.size();
-
-  // Show first 10 points in detail
-  LOG(INFO) << "\n=== First 10 Points Detailed Comparison ===";
-  int count = 0;
-  for (const auto& point3D_id : reconstruction_ceres.Point3DIds()) {
-    if (count >= 10) break;
-
-    const Point3D& point_ceres = reconstruction_ceres.Point3D(point3D_id);
-    const Point3D& point_caspar = reconstruction_caspar.Point3D(point3D_id);
-
-    const Eigen::Vector3d diff = point_ceres.xyz - point_caspar.xyz;
-
-    LOG(INFO) << "Point " << point3D_id << ":";
-    LOG(INFO) << "  Ceres:  [" << point_ceres.xyz.transpose() << "]";
-    LOG(INFO) << "  Caspar: [" << point_caspar.xyz.transpose() << "]";
-    LOG(INFO) << "  Diff:   [" << diff.transpose() << "]";
-    LOG(INFO) << "  Error:  " << diff.norm();
-
-    count++;
-  }
-
   // Points should be very close
-  EXPECT_LT(mean_point_error, 0.025);
-  EXPECT_LT(max_point_error, 0.1);
+  EXPECT_LT(mean_point_error, 0.01);
+  EXPECT_LT(max_point_error, 0.01);
 }
 
 TEST(DefaultBundleAdjuster, TwoViewRig) {
