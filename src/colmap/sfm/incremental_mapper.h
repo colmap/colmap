@@ -150,6 +150,10 @@ class IncrementalMapper {
     // (chi2 for 3DOF at 95% = 7.815)
     double prior_position_loss_scale = 7.815;
 
+    // Maximum error for RANSAC pose prior alignment. If 0, automatically 
+    // computed from covariance matrices using 3-sigma rule.
+    double prior_ransac_max_error = 0.0;
+
     // Number of threads.
     int num_threads = -1;
 

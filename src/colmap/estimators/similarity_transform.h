@@ -29,6 +29,8 @@
 
 #pragma once
 
+#include "colmap/estimators/cost_functions.h"
+#include "colmap/estimators/manifold.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/optim/ransac.h"
@@ -39,8 +41,22 @@
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <Eigen/Eigenvalues>
+#include <ceres/ceres.h>
 
 namespace colmap {
+
+// 3D point with associated covariance
+struct PointWithCovariance3D {
+  Eigen::Vector3d point;
+  Eigen::Matrix3d covariance;
+
+  PointWithCovariance3D() = default;
+  PointWithCovariance3D(const Eigen::Vector3d& p, const Eigen::Matrix3d& cov)
+      : point(p), covariance(cov) {}
+  explicit PointWithCovariance3D(const Eigen::Vector3d& p)
+      : point(p), covariance(Eigen::Matrix3d::Identity()) {}
+};
 
 // N-D similarity transform estimator from corresponding point pairs in the
 // source and destination coordinate systems.
@@ -92,6 +108,30 @@ class SimilarityTransformEstimator {
                         std::vector<double>* residuals);
 };
 
+// Covariance-aware similarity transform estimator
+// Uses Ceres and covariance whitening; embeds covariance with the sampled data
+template <bool kEstimateScale = true>
+class CovarianceSimilarityTransformEstimator {
+ public:
+  typedef PointWithCovariance3D X_t;
+  typedef Eigen::Vector3d Y_t;
+  typedef Eigen::Matrix3x4d M_t;
+  static const int kMinNumSamples = 3;
+
+  void Estimate(const std::vector<X_t>& src,
+                const std::vector<Y_t>& tgt,
+                std::vector<M_t>* tgt_from_src);
+
+  void Residuals(const std::vector<X_t>& src,
+                 const std::vector<Y_t>& tgt,
+                 const M_t& tgt_from_src,
+                 std::vector<double>* residuals);
+
+ private:
+  M_t EstimateWithCovariances(const std::vector<X_t>& src,
+                              const std::vector<Y_t>& tgt) const;
+};
+
 bool EstimateRigid3d(const std::vector<Eigen::Vector3d>& src,
                      const std::vector<Eigen::Vector3d>& tgt,
                      Rigid3d& tgt_from_src);
@@ -109,6 +149,13 @@ bool EstimateSim3d(const std::vector<Eigen::Vector3d>& src,
 typename RANSAC<SimilarityTransformEstimator<3, true>>::Report
 EstimateSim3dRobust(const std::vector<Eigen::Vector3d>& src,
                     const std::vector<Eigen::Vector3d>& tgt,
+                    const RANSACOptions& options,
+                    Sim3d& tgt_from_src);
+
+typename RANSAC<CovarianceSimilarityTransformEstimator<true>>::Report
+EstimateSim3dRobust(const std::vector<Eigen::Vector3d>& src,
+                    const std::vector<Eigen::Vector3d>& tgt,
+                    const std::vector<Eigen::Matrix3d>& covariances,
                     const RANSACOptions& options,
                     Sim3d& tgt_from_src);
 
@@ -162,6 +209,110 @@ void SimilarityTransformEstimator<kDim, kEstimateScale>::Residuals(
     (*residuals)[i] =
         (tgt[i] - tgt_from_src * src[i].homogeneous()).squaredNorm();
   }
+}
+
+template <bool kEstimateScale>
+void CovarianceSimilarityTransformEstimator<kEstimateScale>::Estimate(
+    const std::vector<X_t>& src,
+    const std::vector<Y_t>& tgt,
+    std::vector<M_t>* models) {
+  THROW_CHECK_EQ(src.size(), tgt.size());
+  THROW_CHECK_GE(src.size(), kMinNumSamples);
+  THROW_CHECK(models != nullptr);
+
+  models->clear();
+  const M_t sol = EstimateWithCovariances(src, tgt);
+  if (sol.hasNaN()) {
+    return;
+  }
+  models->resize(1);
+  (*models)[0] = sol;
+}
+
+template <bool kEstimateScale>
+void CovarianceSimilarityTransformEstimator<kEstimateScale>::Residuals(
+    const std::vector<X_t>& src,
+    const std::vector<Y_t>& tgt,
+    const M_t& tgt_from_src,
+    std::vector<double>* residuals) {
+  const size_t num_points = src.size();
+  THROW_CHECK_EQ(num_points, tgt.size());
+  residuals->resize(num_points);
+  for (size_t i = 0; i < num_points; ++i) {
+    const Y_t transformed_src = tgt_from_src * src[i].point.homogeneous();
+    const Y_t error = tgt[i] - transformed_src;
+    Eigen::LLT<Eigen::Matrix3d> llt(src[i].covariance);
+    THROW_CHECK(llt.info() == Eigen::Success)
+        << "Covariance matrix is not positive definite:\n" << src[i].covariance;
+    (*residuals)[i] = llt.matrixU().solve(error).squaredNorm();
+  }
+}
+
+template <bool kEstimateScale>
+typename CovarianceSimilarityTransformEstimator<kEstimateScale>::M_t
+CovarianceSimilarityTransformEstimator<kEstimateScale>::EstimateWithCovariances(
+    const std::vector<X_t>& src, const std::vector<Y_t>& tgt) const {
+  const size_t num_points = src.size();
+  THROW_CHECK_EQ(num_points, tgt.size());
+
+  const Eigen::Quaterniond rotation = Eigen::Quaterniond::Identity();
+  const Eigen::Vector3d translation = Eigen::Vector3d::Zero();
+  const double log_scale = 0.0;
+
+  ceres::Problem::Options problem_options;
+  ceres::Problem problem(problem_options);
+
+  double rotation_params[4] = {rotation.x(), rotation.y(), rotation.z(), rotation.w()};
+  double translation_params[3] = {translation.x(), translation.y(), translation.z()};
+  double scale_params[1] = {log_scale};
+
+  for (size_t i = 0; i < num_points; ++i) {
+    ceres::CostFunction* cost_function =
+        CovarianceWeightedCostFunctor<SimilarityTransformCostFunctor>::Create(
+            src[i].covariance, src[i].point, tgt[i]);
+    problem.AddResidualBlock(cost_function,
+                             nullptr,
+                             rotation_params,
+                             translation_params,
+                             scale_params);
+  }
+
+  if (problem.NumResiduals() > 0) {
+    SetQuaternionManifold(&problem, rotation_params);
+    if constexpr (!kEstimateScale) {
+      problem.SetParameterBlockConstant(scale_params);
+    }
+    // Constrain log-scale to a reasonable range for numerical stability
+    problem.SetParameterLowerBound(scale_params, 0, -30.0);
+    problem.SetParameterUpperBound(scale_params, 0, 30.0);
+  }
+
+  ceres::Solver::Options solver_options;
+  solver_options.linear_solver_type = ceres::DENSE_QR;
+  solver_options.minimizer_progress_to_stdout = false;
+  solver_options.logging_type = ceres::SILENT;
+  solver_options.max_num_iterations = 50;
+  solver_options.function_tolerance = 1e-12;
+  solver_options.gradient_tolerance = 1e-12;
+  solver_options.parameter_tolerance = 1e-12;
+
+  ceres::Solver::Summary summary;
+  ceres::Solve(solver_options, &problem, &summary);
+
+  const Eigen::Quaterniond final_rotation(rotation_params[3],
+                                          rotation_params[0],
+                                          rotation_params[1],
+                                          rotation_params[2]);
+  const Eigen::Vector3d final_translation(translation_params[0],
+                                          translation_params[1],
+                                          translation_params[2]);
+  const double final_scale = std::exp(scale_params[0]);
+
+  M_t final_transform;
+  final_transform.template leftCols<3>() =
+      final_scale * final_rotation.toRotationMatrix();
+  final_transform.template rightCols<1>() = final_translation;
+  return final_transform;
 }
 
 }  // namespace colmap

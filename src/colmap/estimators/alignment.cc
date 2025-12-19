@@ -244,8 +244,10 @@ bool AlignReconstructionToPosePriors(
     Sim3d* tgt_from_src) {
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> tgt;
+  std::vector<Eigen::Matrix3d> covariances;
   src.reserve(tgt_pose_priors.size());
   tgt.reserve(tgt_pose_priors.size());
+  covariances.reserve(tgt_pose_priors.size());
 
   std::unordered_map<image_t, PosePrior> tgt_image_to_pose_prior;
   for (const auto& pose_prior : tgt_pose_priors) {
@@ -264,6 +266,12 @@ bool AlignReconstructionToPosePriors(
       const auto& image = src_reconstruction.Image(image_id);
       src.push_back(image.ProjectionCenter());
       tgt.push_back(pose_prior_it->second.position);
+      if (pose_prior_it->second.IsCovarianceValid()) {
+        covariances.push_back(pose_prior_it->second.position_covariance);
+      } else {
+        LOG(WARNING) << "Invalid covariance for image " << image.Name();
+        covariances.push_back(Eigen::Matrix3d::Identity());
+      }
     }
   }
 
@@ -273,7 +281,7 @@ bool AlignReconstructionToPosePriors(
   }
 
   if (ransac_options.max_error > 0) {
-    return EstimateSim3dRobust(src, tgt, ransac_options, *tgt_from_src).success;
+    return EstimateSim3dRobust(src, tgt, covariances, ransac_options, *tgt_from_src).success;
   }
   return EstimateSim3d(src, tgt, *tgt_from_src);
 }

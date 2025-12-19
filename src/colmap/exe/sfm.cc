@@ -418,6 +418,8 @@ int RunPosePriorMapper(int argc, char** argv) {
   options.AddDefaultOption("prior_position_std_x", &prior_position_std_x);
   options.AddDefaultOption("prior_position_std_y", &prior_position_std_y);
   options.AddDefaultOption("prior_position_std_z", &prior_position_std_z);
+  options.AddDefaultOption("prior_ransac_max_error",
+                           &options.mapper->prior_ransac_max_error);
   options.AddDefaultOption("use_robust_loss_on_prior_position",
                            &options.mapper->use_robust_loss_on_prior_position);
   options.AddDefaultOption("prior_position_loss_scale",

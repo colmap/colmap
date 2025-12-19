@@ -64,6 +64,31 @@ EstimateRigidOrSim3dRobust(const std::vector<Eigen::Vector3d>& src,
   return report;
 }
 
+template <bool kEstimateScale>
+inline typename RANSAC<CovarianceSimilarityTransformEstimator<kEstimateScale>>::Report
+EstimateRigidOrSim3dRobust(const std::vector<Eigen::Vector3d>& src,
+                           const std::vector<Eigen::Vector3d>& tgt,
+                           const std::vector<Eigen::Matrix3d>& covariances,
+                           const RANSACOptions& options,
+                           Eigen::Matrix3x4d& tgt_from_src) {
+  THROW_CHECK_EQ(src.size(), tgt.size());
+  THROW_CHECK_EQ(src.size(), covariances.size());
+  std::vector<PointWithCovariance3D> src_with_cov;
+  src_with_cov.reserve(src.size());
+  for (size_t i = 0; i < src.size(); ++i) {
+    src_with_cov.emplace_back(src[i], covariances[i]);
+  }
+
+  LORANSAC<CovarianceSimilarityTransformEstimator<kEstimateScale>,
+           CovarianceSimilarityTransformEstimator<kEstimateScale>>
+      ransac(options);
+  auto report = ransac.Estimate(src_with_cov, tgt);
+  if (report.success) {
+    tgt_from_src = report.model;
+  }
+  return report;
+}
+
 }  // namespace
 
 bool EstimateRigid3d(const std::vector<Eigen::Vector3d>& src,
@@ -108,6 +133,22 @@ EstimateSim3dRobust(const std::vector<Eigen::Vector3d>& src,
   Eigen::Matrix3x4d tgt_from_src_mat = Eigen::Matrix3x4d::Zero();
   auto report =
       EstimateRigidOrSim3dRobust<true>(src, tgt, options, tgt_from_src_mat);
+  if (report.success) {
+    tgt_from_src = Sim3d::FromMatrix(tgt_from_src_mat);
+  }
+  return report;
+}
+
+typename RANSAC<CovarianceSimilarityTransformEstimator<true>>::Report
+EstimateSim3dRobust(const std::vector<Eigen::Vector3d>& src,
+                    const std::vector<Eigen::Vector3d>& tgt,
+                    const std::vector<Eigen::Matrix3d>& covariances,
+                    const RANSACOptions& options,
+                    Sim3d& tgt_from_src) {
+  Eigen::Matrix3x4d tgt_from_src_mat = Eigen::Matrix3x4d::Zero();
+  auto report =
+      EstimateRigidOrSim3dRobust<true>(src, tgt, covariances, options, tgt_from_src_mat);
+  VLOG(2) << "Robust Sim3 alignment inliers: " << report.support.num_inliers << "/" << src.size();
   if (report.success) {
     tgt_from_src = Sim3d::FromMatrix(tgt_from_src_mat);
   }

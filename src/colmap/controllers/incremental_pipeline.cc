@@ -91,6 +91,7 @@ IncrementalMapper::Options IncrementalPipelineOptions::Mapper() const {
   options.use_prior_position = use_prior_position;
   options.use_robust_loss_on_prior_position = use_robust_loss_on_prior_position;
   options.prior_position_loss_scale = prior_position_loss_scale;
+  options.prior_ransac_max_error = prior_ransac_max_error;
   options.random_seed = random_seed;
   return options;
 }
