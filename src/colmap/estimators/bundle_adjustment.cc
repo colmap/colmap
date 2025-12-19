@@ -1221,6 +1221,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
                        Reconstruction& reconstruction,
                        caspar::SolverParams params)
       : BundleAdjuster(std::move(options), std::move(config)),
+        params_(params),
         reconstruction_(reconstruction) {
     LOG(INFO) << "Using Caspar bundle adjuster";
 
@@ -2073,28 +2074,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
       return summary;
     }
 
-    // Compute scene scale before optimization
-    auto ComputeSceneScale = [&]() {
-      double total_dist = 0;
-      int count = 0;
-      for (const auto& [idx, point_id] : index_to_point_id_) {
-        if (count > 0) {
-          const Point3D& p = reconstruction_.Point3D(point_id);
-          total_dist += p.xyz.norm();
-        }
-        if (++count >= 100) break;  // Sample first 100 points
-      }
-      return total_dist / count + 1e-5;
-    };
-
-    double scale_before = ComputeSceneScale();
-    LOG(INFO) << "Scene scale BEFORE: " << scale_before;
-
-    caspar::SolverParams params;
-    params.solver_iter_max = 500;
-    params.pcg_iter_max = 20;
     caspar::GraphSolver solver =
-        caspar::GraphSolver(params,
+        caspar::GraphSolver(params_,
                             num_points_,
                             num_poses_,
                             num_calibs_,
@@ -2114,10 +2095,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
     ReadSolverResults(solver);
     WriteResultsToReconstruction();
 
-    double scale_after = ComputeSceneScale();
-    LOG(INFO) << "Scene scale AFTER: " << scale_after;
-    LOG(INFO) << "Scale ratio: " << scale_after / scale_before;
-    LOG(INFO) << "Cost AFTER: " << result;
     ceres::Solver::Summary summary;  // Incomplete
     summary.final_cost = result;
     summary.num_residuals_reduced = total_residuals;
@@ -2126,6 +2103,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
  private:
+  caspar::SolverParams params_;
   Reconstruction& reconstruction_;
   std::shared_ptr<ceres::Problem> dummy_problem_;
 
