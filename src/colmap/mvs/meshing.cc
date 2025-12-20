@@ -210,8 +210,8 @@ class DelaunayMeshingInput {
  public:
   struct Image {
     camera_t camera_id = kInvalidCameraId;
-    Eigen::Matrix3x4f proj_matrix = Eigen::Matrix3x4f::Identity();
-    Eigen::Vector3f proj_center = Eigen::Vector3f::Zero();
+    Eigen::Matrix3x4f cam_from_world = Eigen::Matrix3x4f::Identity();
+    Eigen::Vector3f cam_in_world = Eigen::Vector3f::Zero();
     std::vector<size_t> point_idxs;
   };
 
@@ -250,8 +250,9 @@ class DelaunayMeshingInput {
       const auto& image = reconstruction.Image(image_id);
       DelaunayMeshingInput::Image input_image;
       input_image.camera_id = image.CameraId();
-      input_image.proj_matrix = image.CamFromWorld().ToMatrix().cast<float>();
-      input_image.proj_center = image.ProjectionCenter().cast<float>();
+      input_image.cam_from_world =
+          image.CamFromWorld().ToMatrix().cast<float>();
+      input_image.cam_in_world = image.ProjectionCenter().cast<float>();
       input_image.point_idxs.reserve(image.NumPoints3D());
       for (const auto& point2D : image.Points2D()) {
         if (point2D.HasPoint3D()) {
@@ -275,8 +276,9 @@ class DelaunayMeshingInput {
         const auto& image = reconstruction.Image(image_id);
         DelaunayMeshingInput::Image input_image;
         input_image.camera_id = image.CameraId();
-        input_image.proj_matrix = image.CamFromWorld().ToMatrix().cast<float>();
-        input_image.proj_center = image.ProjectionCenter().cast<float>();
+        input_image.cam_from_world =
+            image.CamFromWorld().ToMatrix().cast<float>();
+        input_image.cam_in_world = image.ProjectionCenter().cast<float>();
         images.push_back(input_image);
       }
     }
@@ -375,9 +377,9 @@ class DelaunayMeshingInput {
               CGALToEigen(cell->vertex(i)->point());
 
           const Eigen::Vector3f point_local =
-              image.proj_matrix * point.position.homogeneous();
+              image.cam_from_world * point.position.homogeneous();
           const Eigen::Vector3f cell_point_local =
-              image.proj_matrix * cell_point.homogeneous();
+              image.cam_from_world * cell_point.homogeneous();
 
           // Ensure that both points are infront of camera.
           if (point_local.z() <= 0 || cell_point_local.z() <= 0) {
@@ -743,7 +745,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
     // Image that is integrated into s-t graph.
     const auto& image = input_data.images[image_idx];
-    const K::Point_3 image_position = EigenToCGAL(image.proj_center);
+    const K::Point_3 image_position = EigenToCGAL(image.cam_in_world);
 
     // Intersections between viewing rays and Delaunay triangulation.
     std::vector<DelaunayTriangulationRayCaster::Intersection> intersections;
