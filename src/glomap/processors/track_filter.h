@@ -15,7 +15,6 @@ struct TrackFilter {
 
   static int FilterTracksByAngle(
       const ViewGraph& view_graph,
-      const std::unordered_map<camera_t, colmap::Camera>& cameras,
       const std::unordered_map<image_t, Image>& images,
       std::unordered_map<point3D_t, Point3D>& tracks,
       double max_angle_error = 1.);

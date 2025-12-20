@@ -66,8 +66,8 @@ void EstimateRelativePoses(
         points2D_1.clear();
         points2D_2.clear();
         for (size_t idx = 0; idx < matches.rows(); idx++) {
-          points2D_1.push_back(image1.features[matches(idx, 0)]);
-          points2D_2.push_back(image2.features[matches(idx, 1)]);
+          points2D_1.push_back(image1.Point2D(matches(idx, 0)).xy);
+          points2D_2.push_back(image2.Point2D(matches(idx, 1)).xy);
         }
         // If the camera model is not supported by poselib
         if (!valid_camera_model) {

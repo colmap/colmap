@@ -33,7 +33,6 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_glomap_processors
     SRCS
         image_pair_inliers.h image_pair_inliers.cc
-        image_undistorter.h image_undistorter.cc
         reconstruction_normalizer.h reconstruction_normalizer.cc
         reconstruction_pruning.h reconstruction_pruning.cc
         relpose_filter.h relpose_filter.cc

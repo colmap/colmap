@@ -3,7 +3,6 @@
 #include "colmap/util/timer.h"
 
 #include "glomap/processors/image_pair_inliers.h"
-#include "glomap/processors/image_undistorter.h"
 #include "glomap/processors/reconstruction_normalizer.h"
 #include "glomap/processors/reconstruction_pruning.h"
 #include "glomap/processors/relpose_filter.h"
@@ -58,7 +57,6 @@ bool GlobalMapper::Solve(const colmap::Database& database,
     colmap::Timer run_timer;
     run_timer.Start();
     // Relative pose relies on the undistorted images
-    UndistortImages(cameras, images, true);
     EstimateRelativePoses(view_graph, cameras, images, options_.opt_relpose);
 
     InlierThresholdOptions inlier_thresholds = options_.inlier_thresholds;
@@ -159,9 +157,6 @@ bool GlobalMapper::Solve(const colmap::Database& database,
 
     colmap::Timer run_timer;
     run_timer.Start();
-    // Undistort images in case all previous steps are skipped
-    // Skip images where an undistortion already been done
-    UndistortImages(cameras, images, false);
 
     GlobalPositioner gp_engine(options_.opt_gp);
 
@@ -171,11 +166,7 @@ bool GlobalMapper::Solve(const colmap::Database& database,
     }
     // Filter tracks based on the estimation
     TrackFilter::FilterTracksByAngle(
-        view_graph,
-        cameras,
-        images,
-        tracks,
-        options_.inlier_thresholds.max_angle_error);
+        view_graph, images, tracks, options_.inlier_thresholds.max_angle_error);
 
     // Filter tracks based on triangulation angle and reprojection error
     TrackFilter::FilterTrackTriangulationAngle(
@@ -243,7 +234,6 @@ bool GlobalMapper::Solve(const colmap::Database& database,
       // For the filtering, in each round, the criteria for outlier is
       // tightened. If only few tracks are changed, no need to start bundle
       // adjustment right away. Instead, use a more strict criteria to filter
-      UndistortImages(cameras, images, true);
       LOG(INFO) << "Filtering tracks by reprojection ...";
 
       bool status = true;
@@ -269,7 +259,6 @@ bool GlobalMapper::Solve(const colmap::Database& database,
     }
 
     // Filter tracks based on the estimation
-    UndistortImages(cameras, images, true);
     LOG(INFO) << "Filtering tracks by reprojection ...";
     TrackFilter::FilterTracksByReprojection(
         view_graph,
@@ -313,7 +302,6 @@ bool GlobalMapper::Solve(const colmap::Database& database,
       }
 
       // Filter tracks based on the estimation
-      UndistortImages(cameras, images, true);
       LOG(INFO) << "Filtering tracks by reprojection ...";
       TrackFilter::FilterTracksByReprojection(
           view_graph,
@@ -331,7 +319,6 @@ bool GlobalMapper::Solve(const colmap::Database& database,
     NormalizeReconstruction(rigs, cameras, frames, images, tracks);
 
     // Filter tracks based on the estimation
-    UndistortImages(cameras, images, true);
     LOG(INFO) << "Filtering tracks by reprojection ...";
     TrackFilter::FilterTracksByReprojection(
         view_graph,

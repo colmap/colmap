@@ -260,11 +260,11 @@ void ViewGraphManipulater::DecomposeRelPose(
   for (int64_t idx = 0; idx < num_image_pairs; idx++) {
     thread_pool.AddTask([&, idx]() {
       ImagePair& image_pair = view_graph.image_pairs.at(image_pair_ids[idx]);
-      const image_t image_id1 = image_pair.image_id1;
-      const image_t image_id2 = image_pair.image_id2;
+      const Image& image1 = images.at(image_pair.image_id1);
+      const Image& image2 = images.at(image_pair.image_id2);
 
-      const camera_t camera_id1 = images.at(image_id1).CameraId();
-      const camera_t camera_id2 = images.at(image_id2).CameraId();
+      const camera_t camera_id1 = image1.CameraId();
+      const camera_t camera_id2 = image2.CameraId();
 
       // Use the two-view geometry to re-estimate the relative pose
       colmap::TwoViewGeometry two_view_geometry;
@@ -273,10 +273,23 @@ void ViewGraphManipulater::DecomposeRelPose(
       two_view_geometry.H = image_pair.H;
       two_view_geometry.config = image_pair.config;
 
+      std::vector<Eigen::Vector2d> points1(image1.NumPoints2D());
+      for (colmap::point2D_t point2D_idx = 0;
+           point2D_idx < image1.NumPoints2D();
+           point2D_idx++) {
+        points1[point2D_idx] = image1.Point2D(point2D_idx).xy;
+      }
+      std::vector<Eigen::Vector2d> points2(image2.NumPoints2D());
+      for (colmap::point2D_t point2D_idx = 0;
+           point2D_idx < image2.NumPoints2D();
+           point2D_idx++) {
+        points2[point2D_idx] = image2.Point2D(point2D_idx).xy;
+      }
+
       colmap::EstimateTwoViewGeometryPose(cameras[camera_id1],
-                                          images[image_id1].features,
+                                          points1,
                                           cameras[camera_id2],
-                                          images[image_id2].features,
+                                          points2,
                                           &two_view_geometry);
 
       // if it planar, then use the estimated relative pose

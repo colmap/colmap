@@ -125,7 +125,7 @@ void TrackEngine::TrackCollection(
       const uint64_t feature_id = point_global_id & 0xFFFFFFFF;
       if (image_id_set.find(image_id) != image_id_set.end()) {
         for (const auto& feature : image_id_set.at(image_id)) {
-          if ((feature - images_.at(image_id).features[feature_id]).norm() >
+          if ((feature - images_.at(image_id).Point2D(feature_id).xy).norm() >
               options_.thres_inconsistency) {
             tracks[track_id].track.SetElements({});
             break;
@@ -140,7 +140,7 @@ void TrackEngine::TrackCollection(
             std::make_pair(image_id, std::vector<Eigen::Vector2d>()));
 
       image_id_set[image_id].push_back(
-          images_.at(image_id).features[feature_id]);
+          images_.at(image_id).Point2D(feature_id).xy);
 
       tracks[track_id].track.AddElement(image_id, feature_id);
     }

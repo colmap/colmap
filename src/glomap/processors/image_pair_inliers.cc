@@ -36,16 +36,16 @@ double ImagePairInliers::ScoreErrorEssential() {
 
   const image_t image_id1 = image_pair.image_id1;
   const image_t image_id2 = image_pair.image_id2;
+  const colmap::Image& image1 = images.at(image_id1);
+  const colmap::Image& image2 = images.at(image_id2);
 
-  const double thres =
-      options.max_epipolar_error_E * 0.5 *
-      (1. / cameras->at(images.at(image_id1).CameraId()).MeanFocalLength() +
-       1. / cameras->at(images.at(image_id2).CameraId()).MeanFocalLength());
+  const double thres = options.max_epipolar_error_E * 0.5 *
+                       (1. / image1.CameraPtr()->MeanFocalLength() +
+                        1. / image2.CameraPtr()->MeanFocalLength());
 
   // Square the threshold for faster computation
   const double sq_threshold = thres * thres;
   double score = 0.;
-  Eigen::Vector3d pt1, pt2;
 
   // TODO: determine the best threshold for triangulation angle
   double thres_epipole = std::cos(colmap::DegToRad(3.));
@@ -53,9 +53,20 @@ double ImagePairInliers::ScoreErrorEssential() {
   thres_angle += 1e-6;
   thres_epipole += 1e-6;
   for (size_t k = 0; k < image_pair.matches.rows(); ++k) {
-    // Use the undistorted features
-    pt1 = images.at(image_id1).features_undist[image_pair.matches(k, 0)];
-    pt2 = images.at(image_id2).features_undist[image_pair.matches(k, 1)];
+    const std::optional<Eigen::Vector2d> cam_point1 =
+        image1.CameraPtr()->CamFromImg(
+            image1.Point2D(image_pair.matches(k, 0)).xy);
+    const std::optional<Eigen::Vector2d> cam_point2 =
+        image2.CameraPtr()->CamFromImg(
+            image2.Point2D(image_pair.matches(k, 1)).xy);
+    if (!cam_point1.has_value() || !cam_point2.has_value()) {
+      score += sq_threshold;
+      continue;
+    }
+
+    const Eigen::Vector3d pt1 = cam_point1->homogeneous().normalized();
+    const Eigen::Vector3d pt2 = cam_point2->homogeneous().normalized();
+
     const double r2 = SampsonError(E, pt1, pt2);
 
     if (r2 < sq_threshold) {
@@ -113,20 +124,19 @@ double ImagePairInliers::ScoreErrorFundamental() {
   int positive_count = 0;
   int negative_count = 0;
 
-  image_t image_id1 = image_pair.image_id1;
-  image_t image_id2 = image_pair.image_id2;
+  const Image& image1 = images.at(image_pair.image_id1);
+  const Image& image2 = images.at(image_pair.image_id2);
 
   double thres = options.max_epipolar_error_F;
   double sq_threshold = thres * thres;
 
   double score = 0.;
-  Eigen::Vector2d pt1, pt2;
 
   std::vector<int> inliers_pre;
   std::vector<double> errors;
   for (size_t k = 0; k < image_pair.matches.rows(); ++k) {
-    pt1 = images.at(image_id1).features[image_pair.matches(k, 0)];
-    pt2 = images.at(image_id2).features[image_pair.matches(k, 1)];
+    const Eigen::Vector2d& pt1 = image1.Point2D(image_pair.matches(k, 0)).xy;
+    const Eigen::Vector2d& pt2 = image2.Point2D(image_pair.matches(k, 1)).xy;
     const double r2 = SampsonError(image_pair.F, pt1, pt2);
 
     if (r2 < sq_threshold) {
@@ -167,16 +177,15 @@ double ImagePairInliers::ScoreErrorHomography() {
     image_pair.inliers.clear();
   }
 
-  image_t image_id1 = image_pair.image_id1;
-  image_t image_id2 = image_pair.image_id2;
+  const Image& image1 = images.at(image_pair.image_id1);
+  const Image& image2 = images.at(image_pair.image_id2);
 
   double thres = options.max_epipolar_error_H;
   double sq_threshold = thres * thres;
   double score = 0.;
-  Eigen::Vector2d pt1, pt2;
   for (size_t k = 0; k < image_pair.matches.rows(); ++k) {
-    pt1 = images.at(image_id1).features[image_pair.matches(k, 0)];
-    pt2 = images.at(image_id2).features[image_pair.matches(k, 1)];
+    const Eigen::Vector2d& pt1 = image1.Point2D(image_pair.matches(k, 0)).xy;
+    const Eigen::Vector2d& pt2 = image2.Point2D(image_pair.matches(k, 1)).xy;
     const double r2 = HomographyError(image_pair.H, pt1, pt2);
 
     if (r2 < sq_threshold) {

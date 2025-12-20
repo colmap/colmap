@@ -290,19 +290,19 @@ void GlobalPositioner::AddTrackToProblem(
     Image& image = images[observation.image_id];
     if (!image.HasPose()) continue;
 
-    const Eigen::Vector3d& feature_undist =
-        image.features_undist[observation.point2D_idx];
-    if (feature_undist.array().isNaN().any()) {
-      LOG(WARNING)
-          << "Ignoring feature because it failed to undistort: track_id="
-          << track_id << ", image_id=" << observation.image_id
-          << ", feature_id=" << observation.point2D_idx;
+    const std::optional<Eigen::Vector2d> cam_point =
+        image.CameraPtr()->CamFromImg(
+            image.Point2D(observation.point2D_idx).xy);
+    if (!cam_point.has_value()) {
+      LOG(WARNING) << "Ignoring feature because it failed to project: track_id="
+                   << track_id << ", image_id=" << observation.image_id
+                   << ", feature_id=" << observation.point2D_idx;
       continue;
     }
 
     const Eigen::Vector3d translation =
         image.CamFromWorld().rotation.inverse() *
-        image.features_undist[observation.point2D_idx];
+        cam_point->homogeneous().normalized();
 
     double& scale = scales_.emplace_back(1);
 

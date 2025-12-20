@@ -12,7 +12,7 @@ void ConvertGlomapToColmapImage(const Image& image,
   image_colmap.SetName(image.Name());
   image_colmap.SetFrameId(image.FrameId());
   if (keep_points) {
-    image_colmap.SetPoints2D(image.features);
+    image_colmap.SetPoints2D(image.Points2D());
   }
 }
 
@@ -56,7 +56,7 @@ void ConvertGlomapToColmap(
            frames.at(image.FrameId()).cluster_id != cluster_id))
         continue;
       image_to_point3D[image_id] =
-          std::vector<point3D_t>(image.features.size(), -1);
+          std::vector<point3D_t>(image.NumPoints2D(), -1);
     }
 
     if (tracks.size() > 0) {
@@ -110,7 +110,7 @@ void ConvertGlomapToColmap(
     ConvertGlomapToColmapImage(image, image_colmap, keep_points);
     if (keep_points) {
       std::vector<point3D_t>& track_ids = image_to_point3D[image_id];
-      for (size_t i = 0; i < image.features.size(); i++) {
+      for (size_t i = 0; i < image.NumPoints2D(); i++) {
         if (track_ids[i] != -1 && reconstruction.ExistsPoint3D(track_ids[i])) {
           image_colmap.SetPoint3DForPoint2D(i, track_ids[i]);
         }
@@ -163,13 +163,10 @@ void ConvertColmapToGlomap(
     image.SetImageId(image_colmap.ImageId());
     image.SetFrameId(image_colmap.FrameId());
     image.SetCameraId(image_colmap.CameraId());
+    image.SetCameraPtr(&cameras.at(image_colmap.CameraId()));
     image.SetName(image_colmap.Name());
     image.SetFramePtr(&frames.at(image.FrameId()));
-    image.features.clear();
-    image.features.reserve(image_colmap.NumPoints2D());
-    for (auto& point2D : image_colmap.Points2D()) {
-      image.features.push_back(point2D.xy);
-    }
+    image.SetPoints2D(image_colmap.Points2D());
   }
 
   ConvertColmapPoints3DToGlomapTracks(reconstruction, tracks);
@@ -197,6 +194,12 @@ void ConvertDatabaseToGlomap(
     std::unordered_map<camera_t, colmap::Camera>& cameras,
     std::unordered_map<frame_t, Frame>& frames,
     std::unordered_map<image_t, Image>& images) {
+  // Add the cameras
+  std::vector<colmap::Camera> cameras_colmap = database.ReadAllCameras();
+  for (auto& camera : cameras_colmap) {
+    cameras[camera.camera_id] = camera;
+  }
+
   // Add the images
   std::vector<colmap::Image> images_colmap = database.ReadAllImages();
   image_t counter = 0;
@@ -210,6 +213,7 @@ void ConvertDatabaseToGlomap(
     Image& glomap_image = images[image_id];
     glomap_image.SetImageId(image_id);
     glomap_image.SetCameraId(image.CameraId());
+    glomap_image.SetCameraPtr(&cameras.at(image.CameraId()));
     glomap_image.SetName(image.Name());
 
     // TODO: Implement the logic of reading prior pose from the database
@@ -229,20 +233,16 @@ void ConvertDatabaseToGlomap(
   // Read keypoints
   for (auto& [image_id, image] : images) {
     const colmap::FeatureKeypoints keypoints = database.ReadKeypoints(image_id);
-    const int num_keypoints = keypoints.size();
-    image.features.resize(num_keypoints);
-    for (int i = 0; i < num_keypoints; i++) {
-      image.features[i] = Eigen::Vector2d(keypoints[i].x, keypoints[i].y);
+    const colmap::point2D_t num_points2D = keypoints.size();
+    image.Points2D().resize(num_points2D);
+    for (colmap::point2D_t point2D_idx = 0; point2D_idx < num_points2D;
+         point2D_idx++) {
+      image.Point2D(point2D_idx).xy =
+          Eigen::Vector2d(keypoints[point2D_idx].x, keypoints[point2D_idx].y);
     }
   }
 
   LOG(INFO) << "Read " << images.size() << " images";
-
-  // Add the cameras
-  std::vector<colmap::Camera> cameras_colmap = database.ReadAllCameras();
-  for (auto& camera : cameras_colmap) {
-    cameras[camera.camera_id] = camera;
-  }
 
   // Add the rigs
   std::vector<colmap::Rig> rigs_colmap = database.ReadAllRigs();
@@ -387,10 +387,8 @@ void ConvertDatabaseToGlomap(
     // Collect the matches
     image_pair.matches = Eigen::MatrixXi(feature_matches.size(), 2);
 
-    std::vector<Eigen::Vector2d>& keypoints1 =
-        images[image_pair.image_id1].features;
-    std::vector<Eigen::Vector2d>& keypoints2 =
-        images[image_pair.image_id2].features;
+    const Image& image1 = images[image_pair.image_id1];
+    const Image& image2 = images[image_pair.image_id2];
 
     size_t count = 0;
     for (int i = 0; i < feature_matches.size(); i++) {
@@ -398,8 +396,8 @@ void ConvertDatabaseToGlomap(
       colmap::point2D_t point2D_idx2 = feature_matches[i].point2D_idx2;
       if (point2D_idx1 != colmap::kInvalidPoint2DIdx &&
           point2D_idx2 != colmap::kInvalidPoint2DIdx) {
-        if (keypoints1.size() <= point2D_idx1 ||
-            keypoints2.size() <= point2D_idx2)
+        if (point2D_idx1 >= image1.NumPoints2D() ||
+            point2D_idx2 >= image2.NumPoints2D())
           continue;
         image_pair.matches.row(count) << point2D_idx1, point2D_idx2;
         count++;
