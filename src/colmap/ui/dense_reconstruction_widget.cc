@@ -136,7 +136,7 @@ class MeshingOptionsTab : public OptionsWidget {
     AddSection("Poisson Meshing");
     AddOptionDouble(&options->poisson_meshing->point_weight, "point_weight", 0);
     AddOptionInt(&options->poisson_meshing->depth, "depth", 1);
-    AddOptionDouble(&options->poisson_meshing->color, "color", 0);
+    AddOptionBool(&options->poisson_meshing->color, "color");
     AddOptionDouble(&options->poisson_meshing->trim, "trim", 0);
     AddOptionInt(&options->poisson_meshing->num_threads, "num_threads", -1);
 
