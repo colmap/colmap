@@ -29,14 +29,12 @@
 
 #include "colmap/geometry/homography_matrix.h"
 
-#include "colmap/geometry/pose.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/math.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
 #include <array>
-#include <iomanip>
 
 #include <Eigen/Dense>
 #include <Eigen/Geometry>

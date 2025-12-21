@@ -34,8 +34,6 @@
 #include "colmap/util/eigen_matchers.h"
 #include "colmap/util/testing.h"
 
-#include <fstream>
-
 #include <Eigen/Core>
 #include <gtest/gtest.h>
 

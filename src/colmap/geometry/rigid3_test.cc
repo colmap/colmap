@@ -30,7 +30,6 @@
 #include "colmap/geometry/rigid3.h"
 
 #include "colmap/util/eigen_matchers.h"
-#include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 

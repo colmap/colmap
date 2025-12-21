@@ -29,7 +29,6 @@
 
 #include "colmap/geometry/pose.h"
 
-#include "colmap/math/math.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/eigen_matchers.h"
 
