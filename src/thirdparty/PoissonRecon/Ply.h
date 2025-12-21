@@ -340,7 +340,6 @@ public:
 	PlyOrientedVertex( void ) { ; }
 	PlyOrientedVertex( Point3D< Real > p , Point3D< Real > n ) : point(p) , normal(n) { ; }
   	PlyOrientedVertex operator + ( PlyOrientedVertex p ) const { return PlyOrientedVertex( point+p.point , normal+p.normal ); }
-	PlyOrientedVertex operator - ( PlyOrientedVertex p ) const { return PlyOrientedVertex( point-p.point , normal-p.normal ); }
 	template< class _Real > PlyOrientedVertex operator * ( _Real s ) const { return PlyOrientedVertex( point*s , normal*s ); }
 	template< class _Real > PlyOrientedVertex operator / ( _Real s ) const { return PlyOrientedVertex( point/s , normal/s ); }
 	PlyOrientedVertex& operator += ( PlyOrientedVertex p ) { point += p.point , normal += p.normal ; return *this; }
@@ -386,7 +385,6 @@ public:
 		}
 
 	  	_PlyColorVertex operator + ( _PlyColorVertex p ) const { return _PlyColorVertex( point+p.point , color+p.color ); }
-		_PlyColorVertex operator - ( _PlyColorVertex p ) const { return _PlyColorVertex( point-p.point , color-p.color ); }
 		template< class _Real > _PlyColorVertex operator * ( _Real s ) const { return _PlyColorVertex( point*s , color*s ); }
 		template< class _Real > _PlyColorVertex operator / ( _Real s ) const { return _PlyColorVertex( point/s , color/s ); }
 		_PlyColorVertex& operator += ( _PlyColorVertex p ) { point += p.point , color += p.color ; return *this; }
@@ -672,6 +670,30 @@ int PlyWritePolygons(char* fileName,
 	}
 
 	delete[] ply_face.vertices;
+	for (int i = 0; i < ply->nelems; i++)
+	{
+		free(ply->elems[i]->name);
+		free(ply->elems[i]->store_prop);
+		for (int j = 0; j < ply->elems[i]->nprops; j++)
+		{
+			free(ply->elems[i]->props[j]->name);
+			free(ply->elems[i]->props[j]);
+		}
+		free(ply->elems[i]->props);
+	}
+	for (int i = 0; i < ply->nelems; i++)
+		free(ply->elems[i]);
+	free(ply->elems);
+	for (int i = 0; i < ply->num_comments; i++)
+		free(ply->comments[i]);
+	free(ply->comments);
+	if (ply->num_obj_info)
+	{
+		for (int i = 0; i < ply->num_obj_info; i++)
+			free(ply->obj_info[i]);
+		free(ply->obj_info);
+	}
+	ply_free_other_elements(ply->other_elems);
 	ply_close(ply);
 	return 1;
 }
@@ -750,7 +772,7 @@ int PlyReadPolygons(char* fileName,
 				ply_get_element (ply, (void *) &ply_face);
 				polygons[j].resize(ply_face.nr_vertices);
 				for(k=0;k<ply_face.nr_vertices;k++)	polygons[j][k]=ply_face.vertices[k];
-				delete[] ply_face.vertices;
+				free(ply_face.vertices);
 			}  // for, read faces
 		}  // if face
 		else{ply_get_other_element (ply, elem_name, num_elems);}
@@ -847,6 +869,30 @@ int PlyWritePolygons( char* fileName , CoredMeshData< Vertex >* mesh , int file_
 		delete[] ply_face.vertices;
 	}  // for, write faces
 	
+	for (int i = 0; i < ply->nelems; i++)
+	{
+		free(ply->elems[i]->name);
+		free(ply->elems[i]->store_prop);
+		for (int j = 0; j < ply->elems[i]->nprops; j++)
+		{
+			free(ply->elems[i]->props[j]->name);
+			free(ply->elems[i]->props[j]);
+		}
+		free(ply->elems[i]->props);
+	}
+	for (int i = 0; i < ply->nelems; i++)
+		free(ply->elems[i]);
+	free(ply->elems);
+	for (int i = 0; i < ply->num_comments; i++)
+		free(ply->comments[i]);
+	free(ply->comments);
+	if (ply->num_obj_info)
+	{
+		for (int i = 0; i < ply->num_obj_info; i++)
+			free(ply->obj_info[i]);
+		free(ply->obj_info);
+	}
+	ply_free_other_elements(ply->other_elems);
 	ply_close( ply );
 	return 1;
 }
@@ -911,6 +957,30 @@ int PlyWritePolygons( char* fileName , CoredMeshData< Vertex >* mesh , int file_
 		delete[] ply_face.vertices;
 	}  // for, write faces
 	
+	for (int i = 0; i < ply->nelems; i++)
+	{
+		free(ply->elems[i]->name);
+		free(ply->elems[i]->store_prop);
+		for (int j = 0; j < ply->elems[i]->nprops; j++)
+		{
+			free(ply->elems[i]->props[j]->name);
+			free(ply->elems[i]->props[j]);
+		}
+		free(ply->elems[i]->props);
+	}
+	for (int i = 0; i < ply->nelems; i++)
+		free(ply->elems[i]);
+	free(ply->elems);
+	for (int i = 0; i < ply->num_comments; i++)
+		free(ply->comments[i]);
+	free(ply->comments);
+	if (ply->num_obj_info)
+	{
+		for (int i = 0; i < ply->num_obj_info; i++)
+			free(ply->obj_info[i]);
+		free(ply->obj_info);
+	}
+	ply_free_other_elements(ply->other_elems);
 	ply_close( ply );
 	return 1;
 }
