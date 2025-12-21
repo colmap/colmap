@@ -226,7 +226,7 @@ TEST(CalculateTriangulationAngle, Nominal) {
                   Eigen::Vector3d::Zero(),
                   Eigen::Vector3d(50, 0, 50),
                   {Eigen::Vector3d(50, 0, 0), Eigen::Vector3d(0, 0, 50)}),
-              testing::Each(testing::DoubleNear(M_PI / 2, 1e-6)));
+              testing::Each(testing::DoubleNear(EIGEN_PI / 2, 1e-6)));
   // Opposing rays.
   EXPECT_THAT(CalculateTriangulationAngles(Eigen::Vector3d::Zero(),
                                            Eigen::Vector3d(0, 0, 50),
@@ -247,19 +247,19 @@ TEST(CalculateAngleBetweenVectors, ParallelVectors) {
 TEST(CalculateAngleBetweenVectors, OppositeVectors) {
   const Eigen::Vector3d v1(1, 0, 0);
   const Eigen::Vector3d v2(-1, 0, 0);
-  EXPECT_NEAR(CalculateAngleBetweenVectors(v1, v2), M_PI, 1e-10);
+  EXPECT_NEAR(CalculateAngleBetweenVectors(v1, v2), EIGEN_PI, 1e-10);
 }
 
 TEST(CalculateAngleBetweenVectors, PerpendicularVectors) {
   const Eigen::Vector3d v1(1, 0, 0);
   const Eigen::Vector3d v2(0, 1, 0);
-  EXPECT_NEAR(CalculateAngleBetweenVectors(v1, v2), M_PI / 2, 1e-10);
+  EXPECT_NEAR(CalculateAngleBetweenVectors(v1, v2), EIGEN_PI / 2, 1e-10);
 }
 
 TEST(CalculateAngleBetweenVectors, PerpendicularVectorsDifferentMagnitudes) {
   const Eigen::Vector3d v1(3, 0, 0);
   const Eigen::Vector3d v2(0, 5, 0);
-  EXPECT_NEAR(CalculateAngleBetweenVectors(v1, v2), M_PI / 2, 1e-10);
+  EXPECT_NEAR(CalculateAngleBetweenVectors(v1, v2), EIGEN_PI / 2, 1e-10);
 }
 
 TEST(CalculateAngleBetweenVectors, ZeroVector) {
@@ -278,7 +278,7 @@ TEST(CalculateAngleBetweenVectors, BothZeroVectors) {
 TEST(CalculateAngleBetweenVectors, FortyFiveDegrees) {
   const Eigen::Vector3d v1(1, 0, 0);
   const Eigen::Vector3d v2(1, 1, 0);
-  EXPECT_NEAR(CalculateAngleBetweenVectors(v1, v2), M_PI / 4, 1e-10);
+  EXPECT_NEAR(CalculateAngleBetweenVectors(v1, v2), EIGEN_PI / 4, 1e-10);
 }
 
 TEST(CalculateAngleBetweenVectors, IdenticalVectors) {

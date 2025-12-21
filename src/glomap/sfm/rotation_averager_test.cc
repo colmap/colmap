@@ -88,7 +88,7 @@ void ExpectEqualGravity(const Eigen::Vector3d& gravity_in_world,
         image_to_pose_prior.at(image_id)->gravity;
     const double gravity_error_rad =
         colmap::CalculateAngleBetweenVectors(gravity_gt, gravity_computed);
-    EXPECT_LT(gravity_error_rad, max_gravity_error_deg);
+    EXPECT_LT(gravity_error_rad, max_gravity_error_rad);
   }
 }
 
