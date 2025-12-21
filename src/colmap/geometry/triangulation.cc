@@ -181,13 +181,13 @@ std::vector<double> CalculateTriangulationAngles(
 
 double CalculateAngleBetweenVectors(const Eigen::Vector3d& v1,
                                     const Eigen::Vector3d& v2) {
-  const double norm1 = v1.squaredNorm();
-  const double norm2 = v2.squaredNorm();
-  if (norm1 == 0.0 || norm2 == 0.0) {
+  const double squared_norm1 = v1.squaredNorm();
+  const double squared_norm2 = v2.squaredNorm();
+  if (squared_norm1 == 0.0 || squared_norm2 == 0.0) {
     return 0.0;
   }
-  return std::acos(
-      std::clamp(v1.dot(v2) / std::sqrt(norm1 * norm2), -1.0, 1.0));
+  return std::acos(std::clamp(
+      v1.dot(v2) / std::sqrt(squared_norm1 * squared_norm2), -1.0, 1.0));
 }
 
 }  // namespace colmap
