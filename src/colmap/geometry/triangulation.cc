@@ -30,8 +30,8 @@
 #include "colmap/geometry/triangulation.h"
 
 #include "colmap/geometry/essential_matrix.h"
-#include "colmap/geometry/pose.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/logging.h"
 
 #include <Eigen/Dense>
 
@@ -156,56 +156,38 @@ bool TriangulateOptimalPoint(const Eigen::Matrix3x4d& cam1_from_world_mat,
                           xyz);
 }
 
-namespace {
-
-inline double CalculateTriangulationAngleWithKnownBaseline(
-    double baseline_length_squared,
-    const Eigen::Vector3d& proj_center1,
-    const Eigen::Vector3d& proj_center2,
-    const Eigen::Vector3d& point3D) {
-  const double ray_length_squared1 = (point3D - proj_center1).squaredNorm();
-  const double ray_length_squared2 = (point3D - proj_center2).squaredNorm();
-
-  // Using "law of cosines" to compute the enclosing angle between rays.
-  const double denominator =
-      2.0 * std::sqrt(ray_length_squared1 * ray_length_squared2);
-  if (denominator == 0.0) {
-    return 0.0;
-  }
-  const double nominator =
-      ray_length_squared1 + ray_length_squared2 - baseline_length_squared;
-  const double angle =
-      std::acos(std::clamp(nominator / denominator, -1.0, 1.0));
-
-  // Triangulation is unstable for acute angles (far away points) and
-  // obtuse angles (close points), so always compute the minimum angle
-  // between the two intersecting rays.
-  return std::min(angle, M_PI - angle);
-}
-
-}  // namespace
-
 double CalculateTriangulationAngle(const Eigen::Vector3d& proj_center1,
                                    const Eigen::Vector3d& proj_center2,
                                    const Eigen::Vector3d& point3D) {
-  const double baseline_length_squared =
-      (proj_center1 - proj_center2).squaredNorm();
-  return CalculateTriangulationAngleWithKnownBaseline(
-      baseline_length_squared, proj_center1, proj_center2, point3D);
+  const double angle = CalculateAngleBetweenVectors(point3D - proj_center1,
+                                                    point3D - proj_center2);
+  // Triangulation is unstable for acute angles (far away points) and
+  // obtuse angles (close points), so always compute the minimum angle
+  // between the two intersecting rays.
+  return std::min(angle, static_cast<double>(EIGEN_PI) - angle);
 }
 
 std::vector<double> CalculateTriangulationAngles(
     const Eigen::Vector3d& proj_center1,
     const Eigen::Vector3d& proj_center2,
     const std::vector<Eigen::Vector3d>& points3D) {
-  const double baseline_length_squared =
-      (proj_center1 - proj_center2).squaredNorm();
   std::vector<double> angles(points3D.size());
   for (size_t i = 0; i < points3D.size(); ++i) {
-    angles[i] = CalculateTriangulationAngleWithKnownBaseline(
-        baseline_length_squared, proj_center1, proj_center2, points3D[i]);
+    angles[i] =
+        CalculateTriangulationAngle(proj_center1, proj_center2, points3D[i]);
   }
   return angles;
+}
+
+double CalculateAngleBetweenVectors(const Eigen::Vector3d& v1,
+                                    const Eigen::Vector3d& v2) {
+  const double squared_norm1 = v1.squaredNorm();
+  const double squared_norm2 = v2.squaredNorm();
+  if (squared_norm1 == 0.0 || squared_norm2 == 0.0) {
+    return 0.0;
+  }
+  return std::acos(std::clamp(
+      v1.dot(v2) / std::sqrt(squared_norm1 * squared_norm2), -1.0, 1.0));
 }
 
 }  // namespace colmap

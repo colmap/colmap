@@ -32,6 +32,7 @@
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/matrix.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/logging.h"
 
 #include <Eigen/Eigenvalues>
 
