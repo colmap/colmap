@@ -56,6 +56,9 @@ COLMAP_ADD_LIBRARY(
 if(CGAL_ENABLED)
     target_link_libraries(colmap_mvs PRIVATE CGAL)
 endif()
+if(OPENMP_FOUND)
+    target_link_libraries(colmap_mvs PRIVATE OpenMP::OpenMP_CXX)
+endif()
 
 COLMAP_ADD_TEST(
     NAME consistency_graph_test

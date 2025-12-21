@@ -25,170 +25,138 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING 
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.
 */
+#ifndef SPARSE_MATRIX_INCLUDED
+#define SPARSE_MATRIX_INCLUDED
 
-#ifndef __SPARSEMATRIX_HPP
-#define __SPARSEMATRIX_HPP
-
-#define NEW_SPARSE_MATRIX 1
-#define ZERO_TESTING_JACOBI 1
-
-
+#include <float.h>
+#include <complex>
+#include <unordered_map>
+#include "SparseMatrixInterface.h"
 #include "Array.h"
 
-template <class T>
-struct MatrixEntry
+namespace PoissonRecon
 {
-	MatrixEntry( void )		    { N =-1; Value = 0; }
-	MatrixEntry( int i )	    { N = i; Value = 0; }
-	MatrixEntry( int i , T v )	{ N = i; Value = v; }
-	int N;
-	T Value;
-};
 
-template<class T> class SparseMatrix
-{
-private:
-	bool _contiguous;
-	int _maxEntriesPerRow;
-	void _init( void );
-public:
-	int rows;
-	Pointer( int ) rowSizes;
-	Pointer( Pointer( MatrixEntry< T > ) ) m_ppElements;
-	Pointer( MatrixEntry< T > ) operator[] ( int idx ) { return m_ppElements[idx]; }
-	ConstPointer( MatrixEntry< T > ) operator[] ( int idx ) const { return m_ppElements[idx]; }
+	template< class T , class IndexType , size_t MaxRowSize=0 > class SparseMatrix;
 
-	SparseMatrix( void );
-	SparseMatrix( int rows );
-	SparseMatrix( int rows , int maxEntriesPerRow );
-	void Resize( int rows );
-	void Resize( int rows , int maxEntriesPerRow );
-	void SetRowSize( int row , int count );
-	int Entries( void ) const;
-
-	SparseMatrix( const SparseMatrix& M );
-	~SparseMatrix();
-
-	void SetZero();
-
-	SparseMatrix<T>& operator = (const SparseMatrix<T>& M);
-
-	SparseMatrix<T> operator * (const T& V) const;
-	SparseMatrix<T>& operator *= (const T& V);
-
-	template< class T2 > void Multiply( ConstPointer( T2 ) in , Pointer( T2 ) out , int threads=1 ) const;
-	template< class T2 > void MultiplyAndAddAverage( ConstPointer( T2 ) in , Pointer( T2 ) out , int threads=1 ) const;
-
-	bool write( FILE* fp ) const;
-	bool write( const char* fileName ) const;
-	bool read( FILE* fp );
-	bool read( const char* fileName );
-
-	template< class T2 > void getDiagonal( Pointer( T2 ) diagonal , int threads=1 ) const;
-	template< class T2 > static int SolveJacobi( const SparseMatrix<T>& M , ConstPointer( T2 ) b , Pointer( T2 ) x , Pointer( T2 ) Mx , T2 sor , int threads=1 );
-	template< class T2 > static int SolveJacobi( const SparseMatrix<T>& M , ConstPointer( T2 ) diagonal , ConstPointer( T2 ) b , Pointer( T2 ) x , Pointer( T2 ) Mx , T2 sor , int threads=1 );
-	template< class T2 > static int SolveGS( const SparseMatrix<T>& M , ConstPointer( T2 ) b , Pointer( T2 ) x , bool forward );
-	template< class T2 > static int SolveGS( const SparseMatrix<T>& M , ConstPointer( T2 ) diagonal , ConstPointer( T2 ) b , Pointer( T2 ) x , bool forward );
-	template< class T2 > static int SolveGS( const std::vector< std::vector< int > >& mcIndices , const SparseMatrix<T>& M , ConstPointer( T2 ) diagonal , ConstPointer( T2 ) b , Pointer( T2 ) x , bool forward , int threads=1 );
-	template< class T2 > static int SolveGS( const std::vector< std::vector< int > >& mcIndices , const SparseMatrix<T>& M , ConstPointer( T2 ) b , Pointer( T2 ) x , bool forward , int threads=1 );
-	template< class T2 > static int SolveCG( const SparseMatrix<T>& M , ConstPointer( T2 ) b , int iters , Pointer( T2 ) x , T2 eps=1e-8 , int reset=1 , bool addDCTerm=false , bool solveNormal=false , int threads=1 );
-};
-
-
-#if !NEW_SPARSE_MATRIX
-template< class T2 >
-struct MapReduceVector
-{
-private:
-	int _dim;
-public:
-	std::vector< T2* > out;
-	MapReduceVector( void ) { _dim = 0; }
-	~MapReduceVector( void )
+	template< class T , class IndexType > class SparseMatrix< T , IndexType , 0 > : public SparseMatrixInterface< T , ConstPointer( MatrixEntry< T , IndexType > ) >
 	{
-		if( _dim ) for( int t=0 ; t<int(out.size()) ; t++ ) delete[] out[t];
-		out.resize( 0 );
-	}
-	T2* operator[]( int t ) { return out[t]; }
-	const T2* operator[]( int t ) const { return out[t]; }
-	int threads( void ) const { return int( out.size() ); }
-	void resize( int threads , int dim )
-	{
-		if( threads!=out.size() || _dim<dim )
+		template< class T2 , class IndexType2 , size_t MaxRowSize2 > friend class SparseMatrix;
+		Pointer( Pointer( MatrixEntry< T , IndexType > ) ) _entries;
+	public:
+		static void Swap( SparseMatrix& M1 , SparseMatrix& M2 )
 		{
-			for( int t=0 ; t<int(out.size()) ; t++ ) delete[] out[t];
-			out.resize( threads );
-			for( int t=0 ; t<int(out.size()) ; t++ ) out[t] = new T2[dim];
-			_dim = dim;
+			std::swap( M1.rowNum , M2.rowNum );
+			std::swap( M1.rowSizes , M2.rowSizes );
+			std::swap( M1._entries , M2._entries );
 		}
-	}
+		typedef SparseMatrixInterface< T , ConstPointer( MatrixEntry< T , IndexType > ) > Interface;
+		typedef ConstPointer( MatrixEntry< T , IndexType > ) RowIterator;
 
-};
+		size_t rowNum;
+		Pointer( size_t ) rowSizes;
 
-template< class T >
-class SparseSymmetricMatrix : public SparseMatrix< T >
-{
-public:
+		SparseMatrix( void );
+		SparseMatrix( const SparseMatrix& M );
+		SparseMatrix( SparseMatrix&& M );
+		template< class T2 , class IndexType2 >
+		SparseMatrix( const SparseMatrix< T2 , IndexType2 , 0 >& M );
+		~SparseMatrix();
+		SparseMatrix& operator = ( SparseMatrix&& M );
+		SparseMatrix< T , IndexType >& operator = ( const SparseMatrix< T , IndexType >& M );
+		template< class T2 , class IndexType2 >
+		SparseMatrix< T , IndexType , 0 >& operator = ( const SparseMatrix< T2 , IndexType2 , 0 >& M );
 
-	template< class T2 >
-	Vector< T2 > operator * ( const Vector<T2>& V ) const;
+		template< class T2 > void operator()( const T2* in , T2* out ) const;
 
-	template< class T2 >
-	Vector< T2 > Multiply( const Vector<T2>& V ) const;
+		template< class T2 , class IndexType2 >
+		SparseMatrix< T , IndexType , 0 >& copy( const SparseMatrix< T2 , IndexType2 , 0 >& M );
 
-	template< class T2 >
-	void Multiply( const Vector<T2>& In, Vector<T2>& Out , bool addDCTerm=false ) const;
+		inline ConstPointer( MatrixEntry< T , IndexType > ) begin( size_t row ) const { return _entries[row]; }
+		inline ConstPointer( MatrixEntry< T , IndexType > ) end  ( size_t row ) const { return _entries[row] + (unsigned long long)rowSizes[row]; }
+		inline size_t rows                              ( void )       const { return rowNum; }
+		inline size_t rowSize                           ( size_t idx ) const { return rowSizes[idx]; }
 
-	template< class T2 >
-	void Multiply( const Vector<T2>& In, Vector<T2>& Out , MapReduceVector< T2 >& OutScratch , bool addDCTerm=false ) const;
+		SparseMatrix( size_t rowNum );
+		void resize	( size_t rowNum );
+		void setRowSize( size_t row , size_t count );
+		void resetRowSize( size_t row , size_t count );
+		inline      Pointer( MatrixEntry< T , IndexType > ) operator[] ( size_t idx )       { return _entries[idx]; }
+		inline ConstPointer( MatrixEntry< T , IndexType > ) operator[] ( size_t idx ) const { return _entries[idx]; }
 
-	template< class T2 >
-	void Multiply( const Vector<T2>& In, Vector<T2>& Out , std::vector< T2* >& OutScratch , const std::vector< int >& bounds ) const;
+		// With copy move, these should be well-behaved from a memory perspective
+		static SparseMatrix Identity( size_t dim );
+		SparseMatrix transpose(                  T (*TransposeFunction)( const T& )=NULL ) const;
+		SparseMatrix transpose( size_t outRows , T (*TransposeFunction)( const T& )=NULL ) const;
+		SparseMatrix  operator *  ( T s ) const;
+		SparseMatrix  operator /  ( T s ) const;
+		SparseMatrix  operator *  ( const SparseMatrix& M ) const;
+		SparseMatrix  operator +  ( const SparseMatrix& M ) const;
+		SparseMatrix  operator -  ( const SparseMatrix& M ) const;
+		SparseMatrix& operator *= ( T s );
+		SparseMatrix& operator /= ( T s );
+		SparseMatrix& operator *= ( const SparseMatrix& M );
+		SparseMatrix& operator += ( const SparseMatrix& M );
+		SparseMatrix& operator -= ( const SparseMatrix& M );
 
-	template< class T2 >
-	static int SolveCG( const SparseSymmetricMatrix<T>& M , const Vector<T2>& b , int iters , Vector<T2>& x ,                                T2 eps=1e-8 , int reset=1 , int threads=0  , bool addDCTerm=false , bool solveNormal=false );
-
-	template< class T2 >
-	static int SolveCG( const SparseSymmetricMatrix<T>& M , const Vector<T2>& b , int iters , Vector<T2>& x , MapReduceVector<T2>& scratch , T2 eps=1e-8 , int reset=1 ,                  bool addDCTerm=false , bool solveNormal=false );
-#ifdef WIN32
-	template< class T2 >
-	static int SolveCGAtomic( const SparseSymmetricMatrix<T>& M , const Vector<T2>& b , int iters , Vector<T2>& x , T2 eps=1e-8 , int reset=1 , int threads=0  , bool solveNormal=false );
-#endif // WIN32
-	template< class T2 >
-	static int SolveJacobi( const SparseSymmetricMatrix<T>& M , const Vector<T2>& diagonal , const Vector<T2>& b ,             Vector<T2>& x , MapReduceVector<T2>& scratch , Vector<T2>& Mx , T2 sor        , int reset );
-	template< class T2 >
-	static int SolveJacobi( const SparseSymmetricMatrix<T>& M ,                              const Vector<T2>& b , int iters , Vector<T2>& x , MapReduceVector<T2>& scratch ,                  T2 sor=T2(1.) , int reset=1 );
-	template< class T2 >
-	static int SolveJacobi( const SparseSymmetricMatrix<T>& M , const Vector<T2>& diagonal , const Vector<T2>& b ,             Vector<T2>& x ,                                Vector<T2>& Mx , T2 sor        , int reset );
-	template< class T2 >
-	static int SolveJacobi( const SparseSymmetricMatrix<T>& M ,                              const Vector<T2>& b , int iters , Vector<T2>& x ,                                                 T2 sor=T2(1.) , int reset=1 );
-
-	enum
-	{
-		ORDERING_UPPER_TRIANGULAR ,
-		ORDERING_LOWER_TRIANGULAR ,
-		ORDERING_NONE
+		template< class A_const_iterator , class B_const_iterator >
+		static SparseMatrix Multiply( const SparseMatrixInterface< T , A_const_iterator >& A , const SparseMatrixInterface< T , B_const_iterator >& B );
+		template< class const_iterator >
+		static SparseMatrix Transpose( const SparseMatrixInterface< T , const_iterator >& At , T (*TransposeFunction)( const T& )=NULL );
+		template< class const_iterator >
+		static SparseMatrix Transpose( const SparseMatrixInterface< T , const_iterator >& At , size_t outRows , T (*TransposeFunction)( const T& )=NULL );
 	};
-	template< class T2 >
-	static int SolveGS( const std::vector< std::vector< int > >& mcIndices , const SparseSymmetricMatrix<T>& M , const Vector<T2>& diagonal , const Vector<T2>& b ,             Vector<T2>& x , MapReduceVector<T2>& scratch , Vector<T2>& Mx , Vector<T2>& dx , bool forward , int reset   );
-	template< class T2 >
-	static int SolveGS( const std::vector< std::vector< int > >& mcIndices , const SparseSymmetricMatrix<T>& M ,                              const Vector<T2>& b , int iters , Vector<T2>& x , MapReduceVector<T2>& scratch ,                                   bool forward , int reset=1 );
 
-	template< class T2 >
-	static int SolveGS( const SparseSymmetricMatrix<T>& M , const Vector<T2>& diagonal , const Vector<T2>& b ,             Vector<T2>& x , MapReduceVector<T2>& scratch , Vector<T2>& Mx , Vector<T2>& dx , bool forward , int reset   , int ordering );
-	template< class T2 >
-	static int SolveGS( const SparseSymmetricMatrix<T>& M ,                              const Vector<T2>& b , int iters , Vector<T2>& x , MapReduceVector<T2>& scratch ,                                   bool forward , int reset=1 , int ordering=ORDERING_NONE );
-	template< class T2 >
-	static int SolveGS( const SparseSymmetricMatrix<T>& M , const Vector<T2>& diagonal , const Vector<T2>& b ,             Vector<T2>& x ,                                Vector<T2>& Mx , Vector<T2>& dx , bool forward , int reset   , int ordering );
-	template< class T2 >
-	static int SolveGS( const SparseSymmetricMatrix<T>& M ,                              const Vector<T2>& b , int iters , Vector<T2>& x ,                                                                  bool forward , int reset=1 , int ordering=ORDERING_NONE );
+	template< class T , class IndexType , size_t MaxRowSize > class SparseMatrix : public SparseMatrixInterface< T , ConstPointer( MatrixEntry< T , IndexType > ) >
+	{
+		template< class T2 , class IndexType2 > friend class _SparseMatrix;
+		Pointer( MatrixEntry< T , IndexType > ) _entries;
+		size_t _rowNum;
+		Pointer( size_t ) _rowSizes;
+		size_t _maxRows;
+	public:
+		static void Swap( SparseMatrix& M1 , SparseMatrix& M2 )
+		{
+			std::swap( M1._rowNum , M2._rowNum );
+			std::swap( M1._rowSizes , M2._rowSizes );
+			std::swap( M1._entries , M2._entries );
+		}
+		typedef SparseMatrixInterface< T , ConstPointer( MatrixEntry< T , IndexType > ) > Interface;
+		typedef ConstPointer( MatrixEntry< T , IndexType > ) RowIterator;
 
-	template< class T2 >
-	void getDiagonal( Vector< T2 >& diagonal , int threads=1 ) const;
-};
-#endif // !NEW_SPARSE_MATRIX
+		SparseMatrix( void );
+		SparseMatrix( const SparseMatrix& M );
+		SparseMatrix( SparseMatrix&& M );
+		template< class T2 , class IndexType2 >
+		SparseMatrix( const SparseMatrix< T2 , IndexType2 , MaxRowSize >& M );
+		SparseMatrix& operator = ( SparseMatrix&& M );
+		SparseMatrix< T , IndexType , MaxRowSize >& operator = ( const SparseMatrix< T , IndexType , MaxRowSize >& M );
+		template< class T2 , class IndexType2 >
+		SparseMatrix< T , IndexType , MaxRowSize >& operator = ( const SparseMatrix< T2 , IndexType2 , MaxRowSize >& M );
+		~SparseMatrix( void );
+
+		template< class T2 > void operator()( const T2* in , T2* out ) const;
+
+		inline ConstPointer( MatrixEntry< T , IndexType > ) begin( size_t row ) const { return _entries + MaxRowSize * row; }
+		inline ConstPointer( MatrixEntry< T , IndexType > ) end  ( size_t row ) const { return _entries + MaxRowSize * row + (unsigned long long)_rowSizes[row]; }
+		inline size_t rows                              ( void )       const { return _rowNum; }
+		inline size_t rowSize                           ( size_t idx ) const { return _rowSizes[idx]; }
+
+		SparseMatrix( size_t rowNum );
+		void resize	( size_t rowNum );
+		void setRowSize( size_t row , size_t rowSize );
+		void resetRowSize( size_t row , size_t rowSize );
+		inline      Pointer( MatrixEntry< T , IndexType > ) operator[] ( size_t idx )       { return _entries + MaxRowSize * idx; }
+		inline ConstPointer( MatrixEntry< T , IndexType > ) operator[] ( size_t idx ) const { return _entries + MaxRowSize * idx; }
+
+		// With copy move, these should be well-behaved from a memory perspective
+		SparseMatrix  operator *  ( T s ) const;
+		SparseMatrix  operator /  ( T s ) const;
+		SparseMatrix& operator *= ( T s );
+		SparseMatrix& operator /= ( T s );
+	};
 
 #include "SparseMatrix.inl"
+}
 
-#endif
-
+#endif // SPARSE_MATRIX_INCLUDED

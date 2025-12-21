@@ -33,6 +33,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include <omp.h>
+
 #if defined(COLMAP_CGAL_ENABLED)
 #include <CGAL/Delaunay_triangulation_3.h>
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
@@ -128,72 +130,92 @@ bool PoissonMeshing(const PoissonMeshingOptions& options,
   THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
   THROW_CHECK_PATH_OPEN(output_path);
 
-  std::vector<std::string> args;
+  bool success = true;
 
-  args.push_back("./binary");
+#pragma omp parallel num_threads(1)
+  {
+    omp_set_num_threads(GetEffectiveNumThreads(options.num_threads));
+#ifdef _MSC_VER
+    omp_set_nested(1);
+#else
+    omp_set_max_active_levels(1);
+#endif
 
-  args.push_back("--in");
-  args.push_back(input_path);
+    std::vector<std::string> args;
 
-  args.push_back("--out");
-  args.push_back(output_path);
+    args.push_back("./poisson_recon");
 
-  args.push_back("--pointWeight");
-  args.push_back(std::to_string(options.point_weight));
+    args.push_back("--in");
+    args.push_back(input_path);
 
-  args.push_back("--depth");
-  args.push_back(std::to_string(options.depth));
+    args.push_back("--out");
+    args.push_back(output_path);
 
-  if (options.color > 0) {
-    args.push_back("--color");
-    args.push_back(std::to_string(options.color));
+    args.push_back("--pointWeight");
+    args.push_back(std::to_string(options.point_weight));
+
+    args.push_back("--depth");
+    args.push_back(std::to_string(options.depth));
+
+    // Full depth cannot exceed system depth.
+    if (options.depth < 5) {
+      args.push_back("--fullDepth");
+      args.push_back(std::to_string(options.depth));
+    }
+
+    if (options.color) {
+      args.push_back("--colors");
+    }
+
+    if (options.num_threads > 0) {
+      args.push_back("--parallel");
+      args.push_back("0");
+    }
+
+    if (options.trim > 0) {
+      args.push_back("--density");
+    }
+
+    std::vector<const char*> args_cstr;
+    args_cstr.reserve(args.size());
+    for (const auto& arg : args) {
+      args_cstr.push_back(arg.c_str());
+    }
+
+    if (RunPoissonRecon(args_cstr.size(),
+                        const_cast<char**>(args_cstr.data())) != EXIT_SUCCESS) {
+      success = false;
+    }
+
+    if (success && options.trim != 0) {
+      args.clear();
+      args_cstr.clear();
+
+      args.push_back("./surface_trimmer");
+
+      args.push_back("--in");
+      args.push_back(output_path);
+
+      args.push_back("--out");
+      args.push_back(output_path);
+
+      args.push_back("--trim");
+      args.push_back(std::to_string(options.trim));
+
+      args_cstr.reserve(args.size());
+      for (const auto& arg : args) {
+        args_cstr.push_back(arg.c_str());
+      }
+
+      if (RunSurfaceTrimmer(args_cstr.size(),
+                            const_cast<char**>(args_cstr.data())) !=
+          EXIT_SUCCESS) {
+        success = false;
+      }
+    }
   }
 
-  if (options.num_threads > 0) {
-    args.push_back("--threads");
-    args.push_back(std::to_string(options.num_threads));
-  }
-
-  if (options.trim > 0) {
-    args.push_back("--density");
-  }
-
-  std::vector<const char*> args_cstr;
-  args_cstr.reserve(args.size());
-  for (const auto& arg : args) {
-    args_cstr.push_back(arg.c_str());
-  }
-
-  if (PoissonRecon(args_cstr.size(), const_cast<char**>(args_cstr.data())) !=
-      EXIT_SUCCESS) {
-    return false;
-  }
-
-  if (options.trim == 0) {
-    return true;
-  }
-
-  args.clear();
-  args_cstr.clear();
-
-  args.push_back("./binary");
-
-  args.push_back("--in");
-  args.push_back(output_path);
-
-  args.push_back("--out");
-  args.push_back(output_path);
-
-  args.push_back("--trim");
-  args.push_back(std::to_string(options.trim));
-
-  args_cstr.reserve(args.size());
-  for (const auto& arg : args) {
-    args_cstr.push_back(arg.c_str());
-  }
-
-  return SurfaceTrimmer(args_cstr.size(),
-                        const_cast<char**>(args_cstr.data())) == EXIT_SUCCESS;
+  return success;
 }
 
 #if defined(COLMAP_CGAL_ENABLED)
