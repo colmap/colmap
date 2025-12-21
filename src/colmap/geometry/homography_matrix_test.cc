@@ -32,7 +32,6 @@
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/eigen_matchers.h"
-#include "colmap/util/logging.h"
 
 #include <cmath>
 
