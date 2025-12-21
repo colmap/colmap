@@ -1,12 +1,12 @@
 #include "glomap/sfm/rotation_averager.h"
 
+#include "colmap/geometry/triangulation.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
 #include "glomap/estimators/gravity_refinement.h"
 #include "glomap/io/colmap_converter.h"
-#include "glomap/math/gravity.h"
 #include "glomap/sfm/global_mapper.h"
 
 #include <gtest/gtest.h>
@@ -70,6 +70,7 @@ void ExpectEqualGravity(const Eigen::Vector3d& gravity_in_world,
                         const colmap::Reconstruction& gt,
                         const std::vector<colmap::PosePrior>& pose_priors,
                         const double max_gravity_error_deg) {
+  const double max_gravity_error_rad = colmap::DegToRad(max_gravity_error_deg);
   std::unordered_map<image_t, const colmap::PosePrior*> image_to_pose_prior;
   for (const auto& pose_prior : pose_priors) {
     if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
@@ -85,8 +86,9 @@ void ExpectEqualGravity(const Eigen::Vector3d& gravity_in_world,
         gt.Image(image_id).CamFromWorld().rotation * gravity_in_world;
     const Eigen::Vector3d gravity_computed =
         image_to_pose_prior.at(image_id)->gravity;
-    const double gravity_error_deg = CalcAngle(gravity_gt, gravity_computed);
-    EXPECT_LT(gravity_error_deg, max_gravity_error_deg);
+    const double gravity_error_rad =
+        colmap::CalculateAngleBetweenVectors(gravity_gt, gravity_computed);
+    EXPECT_LT(gravity_error_rad, max_gravity_error_deg);
   }
 }
 
