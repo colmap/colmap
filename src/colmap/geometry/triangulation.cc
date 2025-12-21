@@ -164,7 +164,7 @@ double CalculateTriangulationAngle(const Eigen::Vector3d& proj_center1,
   // Triangulation is unstable for acute angles (far away points) and
   // obtuse angles (close points), so always compute the minimum angle
   // between the two intersecting rays.
-  return std::min(angle, M_PI - angle);
+  return std::min(angle, static_cast<double>(EIGEN_PI) - angle);
 }
 
 std::vector<double> CalculateTriangulationAngles(
