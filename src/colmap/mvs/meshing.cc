@@ -99,7 +99,6 @@ namespace mvs {
 bool PoissonMeshingOptions::Check() const {
   CHECK_OPTION_GE(point_weight, 0);
   CHECK_OPTION_GT(depth, 0);
-  CHECK_OPTION_GE(color, 0);
   CHECK_OPTION_GE(trim, 0);
   CHECK_OPTION_GE(num_threads, -1);
   CHECK_OPTION_NE(num_threads, 0);
