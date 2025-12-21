@@ -7,12 +7,9 @@ namespace glomap {
 void ConvertGlomapToColmapImage(const Image& image,
                                 colmap::Image& image_colmap,
                                 bool keep_points) {
-  image_colmap.SetImageId(image.ImageId());
-  image_colmap.SetCameraId(image.CameraId());
-  image_colmap.SetName(image.Name());
-  image_colmap.SetFrameId(image.FrameId());
-  if (keep_points) {
-    image_colmap.SetPoints2D(image.Points2D());
+  image_colmap = image;
+  if (!keep_points) {
+    image_colmap.Points2D() = {};
   }
 }
 
