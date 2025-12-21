@@ -54,3 +54,9 @@ COLMAP_ADD_LIBRARY(
         Ceres::ceres
         PoseLib::PoseLib
 )
+
+COLMAP_ADD_TEST(
+    NAME glomap_cost_function_test
+    SRCS cost_function_test.cc
+    LINK_LIBS colmap_glomap_estimators
+)

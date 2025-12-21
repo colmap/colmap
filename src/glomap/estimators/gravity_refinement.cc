@@ -153,9 +153,9 @@ void GravityRefiner::RefineGravity(
                 .col(1));
       }
 
-      ceres::CostFunction* coor_cost =
-          GravError::CreateCost(gravities[counter]);
-      problem.AddResidualBlock(coor_cost, loss_function_.get(), gravity.data());
+      problem.AddResidualBlock(GravityError::CreateCost(gravities[counter]),
+                               loss_function_.get(),
+                               gravity.data());
       counter++;
     }
 

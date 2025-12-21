@@ -181,12 +181,13 @@ void GlobalPositioner::AddCameraToCameraConstraints(
   }
 
   for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
-    if (image_pair.is_valid == false) continue;
+    if (image_pair.is_valid == false) {
+      continue;
+    }
 
-    const image_t image_id1 = image_pair.image_id1;
-    const image_t image_id2 = image_pair.image_id2;
-    if (images.find(image_id1) == images.end() ||
-        images.find(image_id2) == images.end()) {
+    const auto image1_it = images.find(image_pair.image_id1);
+    const auto image2_it = images.find(image_pair.image_id2);
+    if (image1_it == images.end() || image2_it == images.end()) {
       continue;
     }
 
@@ -195,15 +196,17 @@ void GlobalPositioner::AddCameraToCameraConstraints(
     double& scale = scales_.emplace_back(1);
 
     const Eigen::Vector3d translation =
-        -(images[image_id2].CamFromWorld().rotation.inverse() *
-          image_pair.cam2_from_cam1.translation);
+        image2_it->second.CamFromWorld().rotation.inverse() *
+        -image_pair.cam2_from_cam1.translation;
     ceres::CostFunction* cost_function =
         BATAPairwiseDirectionError::Create(translation);
     problem_->AddResidualBlock(
         cost_function,
         loss_function_.get(),
-        images[image_id1].FramePtr()->RigFromWorld().translation.data(),
-        images[image_id2].FramePtr()->RigFromWorld().translation.data(),
+        // Note that the translations are converted to the rig centers
+        // during the pre-processing.
+        image1_it->second.FramePtr()->RigFromWorld().translation.data(),
+        image2_it->second.FramePtr()->RigFromWorld().translation.data(),
         &scale);
 
     problem_->SetParameterLowerBound(&scale, 0, 1e-5);
@@ -300,21 +303,21 @@ void GlobalPositioner::AddTrackToProblem(
       continue;
     }
 
-    const Eigen::Vector3d translation =
+    const Eigen::Vector3d cam_from_point3D_dir =
         image.CamFromWorld().rotation.inverse() *
         cam_point->homogeneous().normalized();
 
+    CHECK_GE(scales_.capacity(), scales_.size())
+        << "Not enough capacity was reserved for the scales.";
     double& scale = scales_.emplace_back(1);
 
     if (!options_.generate_scales && random_initialization) {
-      const Eigen::Vector3d trans_calc =
+      const Eigen::Vector3d cam_from_point3D_translation =
           track.xyz - image.CamFromWorld().translation;
       scale = std::max(1e-5,
-                       translation.dot(trans_calc) / trans_calc.squaredNorm());
+                       cam_from_point3D_dir.dot(cam_from_point3D_translation) /
+                           cam_from_point3D_translation.squaredNorm());
     }
-
-    CHECK_GE(scales_.capacity(), scales_.size())
-        << "Not enough capacity was reserved for the scales.";
 
     // For calibrated and uncalibrated cameras, use different loss
     // functions
@@ -327,35 +330,38 @@ void GlobalPositioner::AddTrackToProblem(
     // If the image is not part of a camera rig, use the standard BATA error
     if (image.IsRefInFrame()) {
       ceres::CostFunction* cost_function =
-          BATAPairwiseDirectionError::Create(translation);
+          BATAPairwiseDirectionError::Create(cam_from_point3D_dir);
 
       problem_->AddResidualBlock(
           cost_function,
           loss_function,
+          // Note that the translations are converted to the rig centers
+          // during the pre-processing.
           image.FramePtr()->RigFromWorld().translation.data(),
           track.xyz.data(),
           &scale);
-      // If the image is part of a camera rig, use the RigBATA error
     } else {
-      rig_t rig_id = image.FramePtr()->RigId();
-      // Otherwise, use the camera rig translation from the frame
-      Rigid3d& cam_from_rig = rigs.at(rig_id).SensorFromRig(
-          sensor_t(SensorType::CAMERA, image.CameraId()));
+      // If the image is part of a camera rig, use the RigBATA error.
 
-      Eigen::Vector3d cam_from_rig_translation = cam_from_rig.translation;
+      const rig_t rig_id = image.FramePtr()->RigId();
+      Rigid3d& cam_from_rig =
+          rigs.at(rig_id).SensorFromRig(image.CameraPtr()->SensorId());
 
-      if (!cam_from_rig_translation.hasNaN()) {
-        const Eigen::Vector3d translation_rig =
-            image.CamFromWorld().rotation.inverse() * cam_from_rig_translation;
+      if (!cam_from_rig.translation.hasNaN()) {
+        const Eigen::Vector3d cam_from_rig_dir =
+            image.CamFromWorld().rotation.inverse() * cam_from_rig.translation;
 
         ceres::CostFunction* cost_function =
-            RigBATAPairwiseDirectionError::Create(translation, translation_rig);
+            RigBATAPairwiseDirectionError::Create(cam_from_point3D_dir,
+                                                  cam_from_rig_dir);
 
         problem_->AddResidualBlock(
             cost_function,
             loss_function,
-            image.FramePtr()->RigFromWorld().translation.data(),
             track.xyz.data(),
+            // Note that the translations are converted to the rig centers
+            // during the pre-processing.
+            image.FramePtr()->RigFromWorld().translation.data(),
             &scale,
             &rig_scales_[rig_id]);
       } else {
@@ -365,12 +371,15 @@ void GlobalPositioner::AddTrackToProblem(
         // global one
         ceres::CostFunction* cost_function =
             RigUnknownBATAPairwiseDirectionError::Create(
-                translation, image.FramePtr()->RigFromWorld().rotation);
+                cam_from_point3D_dir,
+                image.FramePtr()->RigFromWorld().rotation);
 
         problem_->AddResidualBlock(
             cost_function,
             loss_function,
             track.xyz.data(),
+            // Note that the translations are converted to the rig centers
+            // during the pre-processing.
             image.FramePtr()->RigFromWorld().translation.data(),
             cam_from_rig.translation.data(),
             &scale);
