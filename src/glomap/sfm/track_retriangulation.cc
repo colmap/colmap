@@ -135,9 +135,7 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
   for (const auto& image_id : image_ids_notconnected) {
     const auto& image = images[image_id];
     image.FramePtr()->SetRigFromWorld(Rigid3d());
-    colmap::Image image_colmap;
-    ConvertGlomapToColmapImage(images[image_id], image_colmap, true);
-    reconstruction->AddImage(std::move(image_colmap));
+    reconstruction->AddImage(images[image_id]);
   }
 
   // Convert the colmap data structures back to glomap data structures

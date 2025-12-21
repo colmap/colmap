@@ -7,10 +7,6 @@
 
 namespace glomap {
 
-void ConvertGlomapToColmapImage(const Image& image,
-                                colmap::Image& image_colmap,
-                                bool keep_points = false);
-
 void ConvertGlomapToColmap(
     const std::unordered_map<rig_t, Rig>& rigs,
     const std::unordered_map<camera_t, colmap::Camera>& cameras,
