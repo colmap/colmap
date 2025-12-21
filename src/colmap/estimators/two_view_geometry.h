@@ -166,7 +166,6 @@ EstimateRigTwoViewGeometries(
 // @param points1         Feature points in first image.
 // @param camera2         Camera of second image.
 // @param points2         Feature points in second image.
-// @param matches         Feature matches between first and second image.
 // @param options         Two-view geometry estimation options.
 bool EstimateTwoViewGeometryPose(const Camera& camera1,
                                  const std::vector<Eigen::Vector2d>& points1,

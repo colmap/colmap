@@ -135,7 +135,7 @@ void BundleAdjuster::AddPointToCameraConstraints(
         cost_function =
             colmap::CreateCameraCostFunction<colmap::ReprojErrorCostFunctor>(
                 cameras[image.CameraId()].model_id,
-                image.features[observation.point2D_idx]);
+                image.Point2D(observation.point2D_idx).xy);
         problem_->AddResidualBlock(
             cost_function,
             loss_function_.get(),
@@ -149,7 +149,7 @@ void BundleAdjuster::AddPointToCameraConstraints(
         cost_function = colmap::CreateCameraCostFunction<
             colmap::RigReprojErrorConstantRigCostFunctor>(
             cameras[image.CameraId()].model_id,
-            image.features[observation.point2D_idx],
+            image.Point2D(observation.point2D_idx).xy,
             cam_from_rig);
         problem_->AddResidualBlock(
             cost_function,
@@ -166,7 +166,7 @@ void BundleAdjuster::AddPointToCameraConstraints(
         cost_function =
             colmap::CreateCameraCostFunction<colmap::RigReprojErrorCostFunctor>(
                 cameras[image.CameraId()].model_id,
-                image.features[observation.point2D_idx]);
+                image.Point2D(observation.point2D_idx).xy);
         problem_->AddResidualBlock(
             cost_function,
             loss_function_.get(),

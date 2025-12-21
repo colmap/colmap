@@ -10,6 +10,7 @@
 namespace colmap {
 
 class Rig;
+class Image;
 struct Point3D;
 struct Rigid3d;
 
@@ -25,6 +26,7 @@ namespace glomap {
 using colmap::camera_t;
 
 // Unique identifier for images.
+using colmap::Image;
 using colmap::image_t;
 
 // Unique identifier for frames.

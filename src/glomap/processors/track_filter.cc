@@ -20,19 +20,20 @@ int TrackFilter::FilterTracksByReprojection(
 
       double reprojection_error = max_reprojection_error;
       if (in_normalized_image) {
-        const Eigen::Vector3d& feature_undist =
-            image.features_undist.at(observation.point2D_idx);
-
+        const std::optional<Eigen::Vector2d> cam_point =
+            image.CameraPtr()->CamFromImg(
+                image.Point2D(observation.point2D_idx).xy);
         Eigen::Vector2d pt_reproj = pt_calc.head(2) / pt_calc(2);
-        reprojection_error =
-            (pt_reproj - feature_undist.head(2) / (feature_undist(2) + kEps))
-                .norm();
+        if (cam_point.has_value()) {
+          reprojection_error = (pt_reproj - *cam_point).norm();
+        }
       } else {
-        const Eigen::Vector2d pt_dist = cameras.at(image.CameraId())
-                                            .ImgFromCam(pt_calc)
-                                            .value_or(Eigen::Vector2d::Zero());
-        reprojection_error =
-            (pt_dist - image.features.at(observation.point2D_idx)).norm();
+        const std::optional<Eigen::Vector2d> img_point =
+            image.CameraPtr()->ImgFromCam(pt_calc);
+        if (img_point.has_value()) {
+          reprojection_error =
+              (*img_point - image.Point2D(observation.point2D_idx).xy).norm();
+        }
       }
 
       // If the reprojection error is smaller than the threshold, then keep it
@@ -53,7 +54,6 @@ int TrackFilter::FilterTracksByReprojection(
 
 int TrackFilter::FilterTracksByAngle(
     const ViewGraph& view_graph,
-    const std::unordered_map<camera_t, colmap::Camera>& cameras,
     const std::unordered_map<image_t, Image>& images,
     std::unordered_map<point3D_t, Point3D>& tracks,
     double max_angle_error) {
@@ -64,15 +64,16 @@ int TrackFilter::FilterTracksByAngle(
     std::vector<colmap::TrackElement> observation_new;
     for (const auto& observation : track.track.Elements()) {
       const Image& image = images.at(observation.image_id);
-      const Eigen::Vector3d& feature_undist =
-          image.features_undist.at(observation.point2D_idx);
+      const std::optional<Eigen::Vector2d> cam_point =
+          image.CameraPtr()->CamFromImg(
+              image.Point2D(observation.point2D_idx).xy);
       const Eigen::Vector3d pt_calc =
           (image.CamFromWorld() * track.xyz).normalized();
       const double thres_cam =
-          (cameras.at(image.CameraId()).has_prior_focal_length) ? thres
-                                                                : thres_uncalib;
+          (image.CameraPtr()->has_prior_focal_length) ? thres : thres_uncalib;
 
-      if (pt_calc.dot(feature_undist) > thres_cam) {
+      if (cam_point.has_value() &&
+          pt_calc.dot(cam_point->homogeneous().normalized()) > thres_cam) {
         observation_new.emplace_back(observation.image_id,
                                      observation.point2D_idx);
       }
