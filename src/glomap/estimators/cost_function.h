@@ -138,7 +138,7 @@ inline std::array<Eigen::Vector4d, 3> FetzerFocalLengthCostHelper(
     const Eigen::Matrix3d& i1_G_i0) {
   const Eigen::JacobiSVD<Eigen::Matrix3d> svd(
       i1_G_i0, Eigen::ComputeFullU | Eigen::ComputeFullV);
-  const Eigen::Vector3d s = svd.singularValues();
+  const Eigen::Vector3d& s = svd.singularValues();
 
   const Eigen::Vector3d v_0 = svd.matrixV().col(0);
   const Eigen::Vector3d v_1 = svd.matrixV().col(1);

@@ -236,7 +236,7 @@ TEST(FetzerFocalLengthSameCameraCost, CreateCostFunction) {
 TEST(GravityError, ZeroResidual) {
   const Eigen::Vector3d measured_gravity =
       Eigen::Vector3d::Random().normalized();
-  const Eigen::Vector3d gravity = measured_gravity;
+  const Eigen::Vector3d& gravity = measured_gravity;
 
   GravityError cost_function(measured_gravity);
 
