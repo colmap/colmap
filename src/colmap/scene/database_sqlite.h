@@ -39,6 +39,7 @@ namespace colmap {
 // Can be used to construct temporary in-memory database.
 constexpr inline char kInMemorySqliteDatabasePath[] = ":memory:";
 
-std::shared_ptr<Database> OpenSqliteDatabase(const std::string& path);
+std::shared_ptr<Database> OpenSqliteDatabase(
+    const std::string& path, const Database::Options& options = {});
 
 }  // namespace colmap
