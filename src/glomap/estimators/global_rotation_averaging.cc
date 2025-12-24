@@ -266,7 +266,7 @@ void RotationEstimator::SetupLinearSystem(
         GetFrameGravityOrNull(frame_to_pose_prior, frame_id);
     if (options_.use_gravity && frame_gravity != nullptr) {
       rotation_estimated_[num_dof] =
-          RotUpToAngle(GetAlignRot(*frame_gravity).transpose() *
+          YawFromRotation(RotationFromGravity(*frame_gravity).transpose() *
                        frame.RigFromWorld().rotation.toRotationMatrix());
       num_dof++;
 
@@ -375,12 +375,12 @@ void RotationEstimator::SetupLinearSystem(
     if (options_.use_gravity) {
       if (frame_gravity1 != nullptr) {
         rel_temp_info_[pair_id].R_rel =
-            rel_temp_info_[pair_id].R_rel * GetAlignRot(*frame_gravity1);
+            rel_temp_info_[pair_id].R_rel * RotationFromGravity(*frame_gravity1);
       }
 
       if (frame_gravity2 != nullptr) {
         rel_temp_info_[pair_id].R_rel =
-            GetAlignRot(*frame_gravity2).transpose() *
+            RotationFromGravity(*frame_gravity2).transpose() *
             rel_temp_info_[pair_id].R_rel;
       }
     }
@@ -745,7 +745,7 @@ void RotationEstimator::UpdateGlobalRotations(
       R_ori = colmap::AngleAxisToRotationMatrix(
           rotation_estimated_.segment(frame_id_to_idx_[frame_id], 3));
     } else {
-      R_ori = AngleToRotUp(rotation_estimated_[frame_id_to_idx_[frame_id]]);
+      R_ori = RotationFromYaw(rotation_estimated_[frame_id_to_idx_[frame_id]]);
     }
 
     // Update the cam_from_rig for the cameras in the frame
@@ -811,14 +811,14 @@ void RotationEstimator::ComputeResiduals(
           GetFrameGravityOrNull(frame_to_pose_prior, image2.FrameId());
 
       if (options_.use_gravity && frame_gravity1 != nullptr) {
-        R_1 = AngleToRotUp(rotation_estimated_[image_id_to_idx_[image_id1]]);
+        R_1 = RotationFromYaw(rotation_estimated_[image_id_to_idx_[image_id1]]);
       } else {
         R_1 = colmap::AngleAxisToRotationMatrix(
             rotation_estimated_.segment(image_id_to_idx_[image_id1], 3));
       }
 
       if (options_.use_gravity && frame_gravity2 != nullptr) {
-        R_2 = AngleToRotUp(rotation_estimated_[image_id_to_idx_[image_id2]]);
+        R_2 = RotationFromYaw(rotation_estimated_[image_id_to_idx_[image_id2]]);
       } else {
         R_2 = colmap::AngleAxisToRotationMatrix(
             rotation_estimated_.segment(image_id_to_idx_[image_id2], 3));
@@ -902,8 +902,8 @@ void RotationEstimator::ConvertResults(
     if (options_.use_gravity && has_gravity) {
       frame.SetRigFromWorld(Rigid3d(
           Eigen::Quaterniond(
-              GetAlignRot(pose_prior_it->second->gravity) *
-              AngleToRotUp(
+              RotationFromGravity(pose_prior_it->second->gravity) *
+              RotationFromYaw(
                   rotation_estimated_[image_id_to_idx_[image_id_begin]])),
           Eigen::Vector3d::Zero()));
     } else {

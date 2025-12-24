@@ -2,19 +2,22 @@
 
 #include <Eigen/Core>
 
+#include <vector>
+
 namespace glomap {
 
-// Get the aligment rotation matrix by QR decomposition
-// The second col of output is gravity direction
-Eigen::Matrix3d GetAlignRot(const Eigen::Vector3d& gravity);
+// Compute rotation matrix from gravity direction via Householder QR.
+// The second column of the output matrix is the gravity direction.
+Eigen::Matrix3d RotationFromGravity(const Eigen::Vector3d& gravity);
 
-// Get the rotation angle for an upright rotation matrix
-double RotUpToAngle(const Eigen::Matrix3d& R_up);
+// Extract yaw angle from a gravity-aligned rotation matrix.
+double YawFromRotation(const Eigen::Matrix3d& rotation);
 
-// Get the upright rotation matrix from a rotation angle
-Eigen::Matrix3d AngleToRotUp(double angle);
+// Construct rotation matrix from yaw angle (rotation about Y-axis).
+Eigen::Matrix3d RotationFromYaw(double yaw);
 
-// Estimate the average gravity direction from a set of gravity directions
-Eigen::Vector3d AverageGravity(const std::vector<Eigen::Vector3d>& gravities);
+// Compute the average direction from normalized gravity direction vectors.
+Eigen::Vector3d AverageGravityDirection(
+    const std::vector<Eigen::Vector3d>& gravities);
 
 }  // namespace glomap

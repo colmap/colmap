@@ -1,20 +1,20 @@
 #include "gravity.h"
 
 #include "colmap/geometry/pose.h"
-
-#include "glomap/scene/types_sfm.h"
+#include "colmap/util/logging.h"
 
 #include <Eigen/QR>
 
 namespace glomap {
 
-// The second col of R_align is gravity direction
-Eigen::Matrix3d GetAlignRot(const Eigen::Vector3d& gravity) {
-  Eigen::Matrix3d R;
-  Eigen::Vector3d v = gravity.normalized();
-  R.col(1) = v;
+Eigen::Matrix3d RotationFromGravity(const Eigen::Vector3d& gravity) {
+  THROW_CHECK_LT(std::abs(gravity.norm() - 1.0), 1e-6)
+      << "Gravity vector must be normalized";
 
-  Eigen::Matrix3d Q = v.householderQr().householderQ();
+  Eigen::Matrix3d R;
+  R.col(1) = gravity;
+
+  Eigen::Matrix3d Q = gravity.householderQr().householderQ();
   Eigen::Matrix<double, 3, 2> N = Q.rightCols(2);
   R.col(0) = N.col(0);
   R.col(2) = N.col(1);
@@ -24,66 +24,42 @@ Eigen::Matrix3d GetAlignRot(const Eigen::Vector3d& gravity) {
   return R;
 }
 
-double RotUpToAngle(const Eigen::Matrix3d& R_up) {
-  return colmap::RotationMatrixToAngleAxis(R_up)[1];
+double YawFromRotation(const Eigen::Matrix3d& rotation) {
+  return colmap::RotationMatrixToAngleAxis(rotation)[1];
 }
 
-Eigen::Matrix3d AngleToRotUp(double angle) {
-  return colmap::AngleAxisToRotationMatrix(Eigen::Vector3d(0, angle, 0));
+Eigen::Matrix3d RotationFromYaw(double yaw) {
+  return colmap::AngleAxisToRotationMatrix(Eigen::Vector3d(0, yaw, 0));
 }
 
-// Code adapted from
-// https://gist.github.com/PeteBlackerThe3rd/f73e9d569e29f23e8bd828d7886636a0
-Eigen::Vector3d AverageGravity(const std::vector<Eigen::Vector3d>& gravities) {
-  if (gravities.size() == 0) {
-    std::cerr
-        << "Error trying to calculate the average gravities of an empty set!\n";
+Eigen::Vector3d AverageGravityDirection(
+    const std::vector<Eigen::Vector3d>& gravities) {
+  if (gravities.empty()) {
+    LOG(ERROR) << "Cannot average empty set of gravity directions";
     return Eigen::Vector3d::Zero();
   }
 
-  // first build a 3x3 matrix which is the elementwise sum of the product of
-  // each quaternion with itself
+  // Build outer product sum matrix for principal component analysis.
   Eigen::Matrix3d A = Eigen::Matrix3d::Zero();
-
-  for (int g = 0; g < gravities.size(); ++g)
-    A += gravities[g] * gravities[g].transpose();
-
-  // normalise with the number of gravities
+  for (const auto& g : gravities) {
+    THROW_CHECK_LT(std::abs(g.norm() - 1.0), 1e-6)
+        << "Gravity vectors must be normalized";
+    A += g * g.transpose();
+  }
   A /= gravities.size();
 
-  // Compute the SVD of this 3x3 matrix
-  Eigen::JacobiSVD<Eigen::MatrixXd> svd(
-      A, Eigen::ComputeThinU | Eigen::ComputeThinV);
+  // The first singular vector corresponds to the principal direction.
+  Eigen::JacobiSVD<Eigen::Matrix3d> svd(A, Eigen::ComputeFullU);
+  Eigen::Vector3d average = svd.matrixU().col(0);
 
-  Eigen::VectorXd singular_values = svd.singularValues();
-  Eigen::MatrixXd U = svd.matrixU();
-
-  // find the eigen vector corresponding to the largest eigen value
-  int largest_eigen_value_index = -1;
-  float largest_eigen_value;
-  bool first = true;
-
-  for (int i = 0; i < singular_values.rows(); ++i) {
-    if (first) {
-      largest_eigen_value = singular_values(i);
-      largest_eigen_value_index = i;
-      first = false;
-    } else if (singular_values(i) > largest_eigen_value) {
-      largest_eigen_value = singular_values(i);
-      largest_eigen_value_index = i;
+  // Ensure consistent sign by aligning with majority of input vectors.
+  int negative_count = 0;
+  for (const auto& g : gravities) {
+    if (g.dot(average) < 0) {
+      negative_count++;
     }
   }
-
-  Eigen::Vector3d average;
-  average(0) = U(0, largest_eigen_value_index);
-  average(1) = U(1, largest_eigen_value_index);
-  average(2) = U(2, largest_eigen_value_index);
-
-  int negative_counter = 0;
-  for (int g = 0; g < gravities.size(); ++g) {
-    if (gravities[g].dot(average) < 0) negative_counter++;
-  }
-  if (negative_counter > gravities.size() / 2) {
+  if (negative_count > static_cast<int>(gravities.size()) / 2) {
     average = -average;
   }
 

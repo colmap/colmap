@@ -195,7 +195,7 @@ std::vector<colmap::PosePrior> ReadGravity(
         Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
         // Set the rotation from the camera to the world
         // Make sure the initialization is aligned with the gravity.
-        cam_from_world.rotation = Eigen::Quaterniond(GetAlignRot(gravity));
+        cam_from_world.rotation = Eigen::Quaterniond(RotationFromGravity(gravity));
       } else {
         LOG(INFO) << "Ignoring gravity of image " << name
                   << " because it is not from the reference sensor";
