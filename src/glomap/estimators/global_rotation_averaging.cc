@@ -267,7 +267,7 @@ void RotationEstimator::SetupLinearSystem(
     if (options_.use_gravity && frame_gravity != nullptr) {
       rotation_estimated_[num_dof] =
           YawFromRotation(RotationFromGravity(*frame_gravity).transpose() *
-                       frame.RigFromWorld().rotation.toRotationMatrix());
+                          frame.RigFromWorld().rotation.toRotationMatrix());
       num_dof++;
 
       if (fixed_image_id_ == -1) {
@@ -374,8 +374,8 @@ void RotationEstimator::SetupLinearSystem(
         GetFrameGravityOrNull(frame_to_pose_prior, image2.FrameId());
     if (options_.use_gravity) {
       if (frame_gravity1 != nullptr) {
-        rel_temp_info_[pair_id].R_rel =
-            rel_temp_info_[pair_id].R_rel * RotationFromGravity(*frame_gravity1);
+        rel_temp_info_[pair_id].R_rel = rel_temp_info_[pair_id].R_rel *
+                                        RotationFromGravity(*frame_gravity1);
       }
 
       if (frame_gravity2 != nullptr) {
