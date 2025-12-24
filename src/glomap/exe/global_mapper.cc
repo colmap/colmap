@@ -146,7 +146,7 @@ int RunGlobalMapperResume(int argc, char** argv) {
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
   std::unordered_map<point3D_t, Point3D> tracks;
-  std::vector<colmap::PosePrior> pose_priors;
+  std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
   colmap::Reconstruction reconstruction;
   reconstruction.Read(input_path);

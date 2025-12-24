@@ -175,7 +175,10 @@ Alternatively, you can also produce a dense model without a sparse model as::
 Since the sparse point cloud is used to automatically select neighboring images
 during the dense stereo stage, you have to manually specify the source images,
 as described :ref:`here <faq-dense-manual-source>`. The dense stereo stage
-now also requires a manual specification of the depth range::
+now also requires a manual specification of the depth range.
+
+Finally, in this case, fusion will fail to successfully match points if min_num_pixels is
+left at the default (greater than 1). So also set that parameter, as below::
 
     colmap patch_match_stereo \
         --workspace_path path/to/dense/workspace \
@@ -184,6 +187,7 @@ now also requires a manual specification of the depth range::
 
     colmap stereo_fusion \
         --workspace_path path/to/dense/workspace \
+        --StereoFusion.min_num_pixels 1 \
         --output_path path/to/dense/workspace/fused.ply
 
 
