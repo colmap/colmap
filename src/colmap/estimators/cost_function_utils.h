@@ -72,9 +72,8 @@ class AutoDiffCostFunctor {
   friend DerivedCostFunctor;
 };
 
-// Normal (Gaussian) prior cost functor for a single parameter against a fixed
-// prior. Computes residual = param - prior. Use CovarianceWeightedCostFunctor
-// to add covariance weighting if needed.
+// Cost functor for a single parameter against a fixed prior.
+// Computes residual = param - prior.
 template <int N>
 class NormalPriorCostFunctor
     : public AutoDiffCostFunctor<NormalPriorCostFunctor<N>, N, N> {
@@ -95,9 +94,8 @@ class NormalPriorCostFunctor
   const VectorN prior_;
 };
 
-// Normal (Gaussian) error cost functor between two parameters.
-// Computes residual = param0 - param1. Use CovarianceWeightedCostFunctor
-// to add covariance weighting if needed.
+// Cost functor for the difference between two parameters.
+// Computes residual = param0 - param1.
 template <int N>
 class NormalErrorCostFunctor
     : public AutoDiffCostFunctor<NormalErrorCostFunctor<N>, N, N, N> {
