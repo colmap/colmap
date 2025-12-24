@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/estimators/cost_function_utils.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
@@ -39,42 +40,6 @@
 #include <ceres/rotation.h>
 
 namespace colmap {
-
-template <typename T>
-using EigenVector3Map = Eigen::Map<const Eigen::Matrix<T, 3, 1>>;
-template <typename T>
-using EigenQuaternionMap = Eigen::Map<const Eigen::Quaternion<T>>;
-
-template <typename CostFunctor, int kNumResiduals, int... kParameterDims>
-ceres::CostFunction* CreateAutoDiffCostFunction(
-    CostFunctor* functor, std::integer_sequence<int, kParameterDims...>) {
-  return new ceres::AutoDiffCostFunction<CostFunctor,
-                                         kNumResiduals,
-                                         kParameterDims...>(functor);
-}
-
-template <typename CostFunctor>
-ceres::CostFunction* CreateAutoDiffCostFunction(CostFunctor* functor) {
-  return CreateAutoDiffCostFunction<CostFunctor, CostFunctor::kNumResiduals>(
-      functor, typename CostFunctor::kParameterDims{});
-}
-
-template <class DerivedCostFunctor, int NumResiduals, int... ParamDims>
-class AutoDiffCostFunctor {
- public:
-  static constexpr int kNumResiduals = NumResiduals;
-  using kParameterDims = std::integer_sequence<int, ParamDims...>;
-
-  template <typename... Args>
-  static ceres::CostFunction* Create(Args&&... args) {
-    return CreateAutoDiffCostFunction<DerivedCostFunctor>(
-        new DerivedCostFunctor(std::forward<Args>(args)...));
-  }
-
- private:
-  AutoDiffCostFunctor() = default;
-  friend DerivedCostFunctor;
-};
 
 // Standard bundle adjustment cost function for variable
 // camera pose, calibration, and point parameters.
@@ -523,62 +488,6 @@ struct Point3DAlignmentCostFunctor
  private:
   const Eigen::Vector3d point_in_b_prior_;
   const bool use_log_scale_;
-};
-
-template <typename... Args>
-auto LastValueParameterPack(Args&&... args) {
-  return std::get<sizeof...(Args) - 1>(std::forward_as_tuple(args...));
-}
-
-// A cost function that wraps another one and whitens its residuals with a given
-// covariance. For example, to weight the reprojection error with a image
-// measurement covariance, one can wrap it as:
-//
-//    using ReprojCostFunctor = ReprojErrorCostFunctor<PinholeCameraModel>;
-//    ceres::CostFunction* cost_function =
-//        CovarianceWeightedCostFunctor<ReprojCostFunctor>::Create(
-//            point2D_cov, point2D));
-template <class CostFunctor>
-class CovarianceWeightedCostFunctor {
- public:
-  static constexpr int kNumResiduals = CostFunctor::kNumResiduals;
-  using kParameterDims = typename CostFunctor::kParameterDims;
-
-  // Covariance or sqrt information matrix type.
-  using CovMat = Eigen::Matrix<double, kNumResiduals, kNumResiduals>;
-
-  template <typename... Args>
-  explicit CovarianceWeightedCostFunctor(const CovMat& cov, Args&&... args)
-      : left_sqrt_info_(LeftSqrtInformation(cov)),
-        cost_(std::forward<Args>(args)...) {}
-
-  template <typename... Args>
-  static ceres::CostFunction* Create(const CovMat& cov, Args&&... args) {
-    return CreateAutoDiffCostFunction(
-        new CovarianceWeightedCostFunctor<CostFunctor>(
-            cov, std::forward<Args>(args)...));
-  }
-
-  template <typename... Args>
-  bool operator()(Args... args) const {
-    if (!cost_(args...)) {
-      return false;
-    }
-
-    auto residuals_ptr = LastValueParameterPack(args...);
-    typedef typename std::remove_reference<decltype(*residuals_ptr)>::type T;
-    Eigen::Map<Eigen::Matrix<T, kNumResiduals, 1>> residuals(residuals_ptr);
-    residuals.applyOnTheLeft(left_sqrt_info_.template cast<T>());
-    return true;
-  }
-
- private:
-  CovMat LeftSqrtInformation(const CovMat& cov) {
-    return cov.inverse().llt().matrixL().transpose();
-  }
-
-  const CovMat left_sqrt_info_;
-  const CostFunctor cost_;
 };
 
 template <template <typename> class CostFunctor, typename... Args>
