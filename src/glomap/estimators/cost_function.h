@@ -8,8 +8,9 @@
 namespace glomap {
 
 // Computes the error between a translation direction and the direction formed
-// from two positions such that t_ij - scale * (p_j - p_i) is minimized.
-// The positions can either be camera centers or camera centers and 3D points.
+// from two positions such that: t_ij - scale * (p_j - p_i) is minimized.
+// The positions can either be two camera centers or one camera center and one
+// 3D point.
 struct BATAPairwiseDirectionError {
   explicit BATAPairwiseDirectionError(const Eigen::Vector3d& pos2_from_pos1_dir)
       : pos2_from_pos1_dir_(pos2_from_pos1_dir) {}
@@ -37,13 +38,13 @@ struct BATAPairwiseDirectionError {
 };
 
 // Computes the error between a translation direction and the direction formed
-// from two positions such that t_ij - scale * (c_j - c_i + rig_scale * t_rig)
-// is minimized.
+// from a camera (c) and 3D point (p), such that:
+// t_ij - scale * (p - c + rig_scale * t_rig) is minimized.
 struct RigBATAPairwiseDirectionError {
   RigBATAPairwiseDirectionError(const Eigen::Vector3d& cam_from_point3D_dir,
-                                const Eigen::Vector3d& cam_from_rig_dir)
+                                const Eigen::Vector3d& cam_from_rig_translation)
       : cam_from_point3D_dir_(cam_from_point3D_dir),
-        cam_from_rig_dir_(cam_from_rig_dir) {}
+        cam_from_rig_translation_(cam_from_rig_translation) {}
 
   template <typename T>
   bool operator()(const T* point3D,
@@ -56,33 +57,33 @@ struct RigBATAPairwiseDirectionError {
         cam_from_point3D_dir_.cast<T>() -
         scale[0] * (Eigen::Map<const Eigen::Matrix<T, 3, 1>>(point3D) -
                     Eigen::Map<const Eigen::Matrix<T, 3, 1>>(rig_in_world) +
-                    rig_scale[0] * cam_from_rig_dir_.cast<T>());
+                    rig_scale[0] * cam_from_rig_translation_.cast<T>());
     return true;
   }
 
   static ceres::CostFunction* Create(
       const Eigen::Vector3d& cam_from_point3D_dir,
-      const Eigen::Vector3d& cam_from_rig_dir) {
+      const Eigen::Vector3d& cam_from_rig_translation) {
     return (
         new ceres::
             AutoDiffCostFunction<RigBATAPairwiseDirectionError, 3, 3, 3, 1, 1>(
                 new RigBATAPairwiseDirectionError(cam_from_point3D_dir,
-                                                  cam_from_rig_dir)));
+                                                  cam_from_rig_translation)));
   }
 
   const Eigen::Vector3d cam_from_point3D_dir_;
-  const Eigen::Vector3d cam_from_rig_dir_;
+  const Eigen::Vector3d cam_from_rig_translation_;
 };
 
 // Computes the error between a translation direction and the direction formed
-// from three positions such that v - scale * ((X - r_c_w) - r_R_w^T * c_c_r) is
-// minimized.
+// from a camera (c) and 3D point (p) with unknown rig translation, such that:
+// t_ij - scale * (p - c + t_rig) is minimized.
 struct RigUnknownBATAPairwiseDirectionError {
   RigUnknownBATAPairwiseDirectionError(
       const Eigen::Vector3d& cam_from_point3D_dir,
       const Eigen::Quaterniond& rig_from_world_rot)
       : cam_from_point3D_dir_(cam_from_point3D_dir),
-        rig_from_world_rot_(rig_from_world_rot) {}
+        world_from_rig_rot_(rig_from_world_rot.inverse()) {}
 
   // The error is given by the position error described above.
   template <typename T>
@@ -91,8 +92,8 @@ struct RigUnknownBATAPairwiseDirectionError {
                   const T* cam_in_rig,
                   const T* scale,
                   T* residuals) const {
-    const Eigen::Matrix<T, 3, 1> cam_from_rig_dir =
-        rig_from_world_rot_.cast<T>().inverse() *
+    const Eigen::Matrix<T, 3, 1> cam_from_rig_translation =
+        world_from_rig_rot_.cast<T>() *
         Eigen::Map<const Eigen::Matrix<T, 3, 1>>(cam_in_rig);
 
     Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals_vec(residuals);
@@ -100,7 +101,7 @@ struct RigUnknownBATAPairwiseDirectionError {
         cam_from_point3D_dir_.cast<T>() -
         scale[0] * (Eigen::Map<const Eigen::Matrix<T, 3, 1>>(point3D) -
                     Eigen::Map<const Eigen::Matrix<T, 3, 1>>(rig_in_world) -
-                    cam_from_rig_dir);
+                    cam_from_rig_translation);
     return true;
   }
 
@@ -119,7 +120,7 @@ struct RigUnknownBATAPairwiseDirectionError {
   }
 
   const Eigen::Vector3d cam_from_point3D_dir_;
-  const Eigen::Quaterniond rig_from_world_rot_;
+  const Eigen::Quaterniond world_from_rig_rot_;
 };
 
 inline Eigen::Vector4d FetzerFocalLengthCostHelper(const Eigen::Vector3d& ai,
