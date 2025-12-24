@@ -21,12 +21,3 @@ add_subdirectory(processors)
 add_subdirectory(controllers)
 add_subdirectory(exe)
 add_subdirectory(sfm)
-
-COLMAP_ADD_EXECUTABLE(
-    NAME glomap_main
-    SRCS
-        glomap.cc
-    LINK_LIBS
-        colmap_glomap_exe
-)
-set_target_properties(glomap_main PROPERTIES OUTPUT_NAME glomap)
