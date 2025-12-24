@@ -199,7 +199,7 @@ void GlobalPositioner::AddCameraToCameraConstraints(
         image2_it->second.CamFromWorld().rotation.inverse() *
         -image_pair.cam2_from_cam1.translation;
     ceres::CostFunction* cost_function =
-        BATAPairwiseDirectionError::Create(translation);
+        BATAPairwiseDirectionCostFunctor::Create(translation);
     problem_->AddResidualBlock(
         cost_function,
         loss_function_.get(),
@@ -330,7 +330,7 @@ void GlobalPositioner::AddTrackToProblem(
     // If the image is not part of a camera rig, use the standard BATA error
     if (image.IsRefInFrame()) {
       ceres::CostFunction* cost_function =
-          BATAPairwiseDirectionError::Create(cam_from_point3D_dir);
+          BATAPairwiseDirectionCostFunctor::Create(cam_from_point3D_dir);
 
       problem_->AddResidualBlock(
           cost_function,
@@ -352,8 +352,8 @@ void GlobalPositioner::AddTrackToProblem(
             image.CamFromWorld().rotation.inverse() * cam_from_rig.translation;
 
         ceres::CostFunction* cost_function =
-            RigBATAPairwiseDirectionError::Create(cam_from_point3D_dir,
-                                                  cam_from_rig_dir);
+            RigBATAPairwiseDirectionCostFunctor::Create(cam_from_point3D_dir,
+                                                        cam_from_rig_dir);
 
         problem_->AddResidualBlock(
             cost_function,
@@ -370,7 +370,7 @@ void GlobalPositioner::AddTrackToProblem(
         // the rig is not needed, as it would natrually be consistent with the
         // global one
         ceres::CostFunction* cost_function =
-            RigUnknownBATAPairwiseDirectionError::Create(
+            RigUnknownBATAPairwiseDirectionCostFunctor::Create(
                 cam_from_point3D_dir,
                 image.FramePtr()->RigFromWorld().rotation);
 

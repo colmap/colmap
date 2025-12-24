@@ -11,8 +11,9 @@ namespace glomap {
 // from two positions such that: t_ij - scale * (p_j - p_i) is minimized.
 // The positions can either be two camera centers or one camera center and one
 // 3D point.
-struct BATAPairwiseDirectionError {
-  explicit BATAPairwiseDirectionError(const Eigen::Vector3d& pos2_from_pos1_dir)
+struct BATAPairwiseDirectionCostFunctor {
+  explicit BATAPairwiseDirectionCostFunctor(
+      const Eigen::Vector3d& pos2_from_pos1_dir)
       : pos2_from_pos1_dir_(pos2_from_pos1_dir) {}
 
   template <typename T>
@@ -30,8 +31,9 @@ struct BATAPairwiseDirectionError {
   static ceres::CostFunction* Create(
       const Eigen::Vector3d& pos2_from_pos1_dir) {
     return (
-        new ceres::AutoDiffCostFunction<BATAPairwiseDirectionError, 3, 3, 3, 1>(
-            new BATAPairwiseDirectionError(pos2_from_pos1_dir)));
+        new ceres::
+            AutoDiffCostFunction<BATAPairwiseDirectionCostFunctor, 3, 3, 3, 1>(
+                new BATAPairwiseDirectionCostFunctor(pos2_from_pos1_dir)));
   }
 
   const Eigen::Vector3d pos2_from_pos1_dir_;
@@ -40,9 +42,10 @@ struct BATAPairwiseDirectionError {
 // Computes the error between a translation direction and the direction formed
 // from a camera (c) and 3D point (p), such that:
 // t_ij - scale * (p - c + rig_scale * t_rig) is minimized.
-struct RigBATAPairwiseDirectionError {
-  RigBATAPairwiseDirectionError(const Eigen::Vector3d& cam_from_point3D_dir,
-                                const Eigen::Vector3d& cam_from_rig_translation)
+struct RigBATAPairwiseDirectionCostFunctor {
+  RigBATAPairwiseDirectionCostFunctor(
+      const Eigen::Vector3d& cam_from_point3D_dir,
+      const Eigen::Vector3d& cam_from_rig_translation)
       : cam_from_point3D_dir_(cam_from_point3D_dir),
         cam_from_rig_translation_(cam_from_rig_translation) {}
 
@@ -64,11 +67,14 @@ struct RigBATAPairwiseDirectionError {
   static ceres::CostFunction* Create(
       const Eigen::Vector3d& cam_from_point3D_dir,
       const Eigen::Vector3d& cam_from_rig_translation) {
-    return (
-        new ceres::
-            AutoDiffCostFunction<RigBATAPairwiseDirectionError, 3, 3, 3, 1, 1>(
-                new RigBATAPairwiseDirectionError(cam_from_point3D_dir,
-                                                  cam_from_rig_translation)));
+    return (new ceres::AutoDiffCostFunction<RigBATAPairwiseDirectionCostFunctor,
+                                            3,
+                                            3,
+                                            3,
+                                            1,
+                                            1>(
+        new RigBATAPairwiseDirectionCostFunctor(cam_from_point3D_dir,
+                                                cam_from_rig_translation)));
   }
 
   const Eigen::Vector3d cam_from_point3D_dir_;
@@ -78,8 +84,8 @@ struct RigBATAPairwiseDirectionError {
 // Computes the error between a translation direction and the direction formed
 // from a camera (c) and 3D point (p) with unknown rig translation, such that:
 // t_ij - scale * (p - c + t_rig) is minimized.
-struct RigUnknownBATAPairwiseDirectionError {
-  RigUnknownBATAPairwiseDirectionError(
+struct RigUnknownBATAPairwiseDirectionCostFunctor {
+  RigUnknownBATAPairwiseDirectionCostFunctor(
       const Eigen::Vector3d& cam_from_point3D_dir,
       const Eigen::Quaterniond& rig_from_world_rot)
       : cam_from_point3D_dir_(cam_from_point3D_dir),
@@ -108,15 +114,14 @@ struct RigUnknownBATAPairwiseDirectionError {
   static ceres::CostFunction* Create(
       const Eigen::Vector3d& cam_from_point3D_dir,
       const Eigen::Quaterniond& rig_from_world_rot) {
-    return (
-        new ceres::AutoDiffCostFunction<RigUnknownBATAPairwiseDirectionError,
-                                        3,
-                                        3,
-                                        3,
-                                        3,
-                                        1>(
-            new RigUnknownBATAPairwiseDirectionError(cam_from_point3D_dir,
-                                                     rig_from_world_rot)));
+    return (new ceres::AutoDiffCostFunction<
+            RigUnknownBATAPairwiseDirectionCostFunctor,
+            3,
+            3,
+            3,
+            3,
+            1>(new RigUnknownBATAPairwiseDirectionCostFunctor(
+        cam_from_point3D_dir, rig_from_world_rot)));
   }
 
   const Eigen::Vector3d cam_from_point3D_dir_;
@@ -171,11 +176,11 @@ inline std::array<Eigen::Vector4d, 3> FetzerFocalLengthCostHelper(
   return {d_01, d_02, d_12};
 }
 
-class FetzerFocalLengthCost {
+class FetzerFocalLengthCostFunctor {
  public:
-  FetzerFocalLengthCost(const Eigen::Matrix3d& i1_F_i0,
-                        const Eigen::Vector2d& principal_point0,
-                        const Eigen::Vector2d& principal_point1) {
+  FetzerFocalLengthCostFunctor(const Eigen::Matrix3d& i1_F_i0,
+                               const Eigen::Vector2d& principal_point0,
+                               const Eigen::Vector2d& principal_point1) {
     Eigen::Matrix3d K0 = Eigen::Matrix3d::Identity(3, 3);
     K0(0, 2) = principal_point0(0);
     K0(1, 2) = principal_point0(1);
@@ -197,9 +202,10 @@ class FetzerFocalLengthCost {
   static ceres::CostFunction* Create(const Eigen::Matrix3d& i1_F_i0,
                                      const Eigen::Vector2d& principal_point0,
                                      const Eigen::Vector2d& principal_point1) {
-    return (new ceres::AutoDiffCostFunction<FetzerFocalLengthCost, 2, 1, 1>(
-        new FetzerFocalLengthCost(
-            i1_F_i0, principal_point0, principal_point1)));
+    return (
+        new ceres::AutoDiffCostFunction<FetzerFocalLengthCostFunctor, 2, 1, 1>(
+            new FetzerFocalLengthCostFunctor(
+                i1_F_i0, principal_point0, principal_point1)));
   }
 
   template <typename T>
@@ -231,10 +237,10 @@ class FetzerFocalLengthCost {
 };
 
 // Calibration error for the image pairs sharing the camera
-class FetzerFocalLengthSameCameraCost {
+class FetzerFocalLengthSameCameraCostFunctor {
  public:
-  FetzerFocalLengthSameCameraCost(const Eigen::Matrix3d& i1_F_i0,
-                                  const Eigen::Vector2d& principal_point) {
+  FetzerFocalLengthSameCameraCostFunctor(
+      const Eigen::Matrix3d& i1_F_i0, const Eigen::Vector2d& principal_point) {
     Eigen::Matrix3d K0 = Eigen::Matrix3d::Identity(3, 3);
     K0(0, 2) = principal_point(0);
     K0(1, 2) = principal_point(1);
@@ -256,8 +262,10 @@ class FetzerFocalLengthSameCameraCost {
   static ceres::CostFunction* Create(const Eigen::Matrix3d& i1_F_i0,
                                      const Eigen::Vector2d& principal_point) {
     return (
-        new ceres::AutoDiffCostFunction<FetzerFocalLengthSameCameraCost, 2, 1>(
-            new FetzerFocalLengthSameCameraCost(i1_F_i0, principal_point)));
+        new ceres::
+            AutoDiffCostFunction<FetzerFocalLengthSameCameraCostFunctor, 2, 1>(
+                new FetzerFocalLengthSameCameraCostFunctor(i1_F_i0,
+                                                           principal_point)));
   }
 
   template <typename T>
@@ -288,8 +296,8 @@ class FetzerFocalLengthSameCameraCost {
   Eigen::Vector4d d_12;
 };
 
-struct GravityError {
-  explicit GravityError(const Eigen::Vector3d& measured_gravity)
+struct GravityCostFunctor {
+  explicit GravityCostFunctor(const Eigen::Vector3d& measured_gravity)
       : measured_gravity_(measured_gravity) {}
 
   template <typename T>
@@ -301,10 +309,9 @@ struct GravityError {
     return true;
   }
 
-  static ceres::CostFunction* CreateCost(
-      const Eigen::Vector3d& measured_gravity) {
-    return (new ceres::AutoDiffCostFunction<GravityError, 3, 3>(
-        new GravityError(measured_gravity)));
+  static ceres::CostFunction* Create(const Eigen::Vector3d& measured_gravity) {
+    return (new ceres::AutoDiffCostFunction<GravityCostFunctor, 3, 3>(
+        new GravityCostFunctor(measured_gravity)));
   }
 
  private:
