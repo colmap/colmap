@@ -32,13 +32,38 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
 #include <vector>
 
 #include <Eigen/Core>
+#include <Eigen/QR>
+#include <Eigen/SVD>
 
 namespace colmap {
+
+// Average unit vectors by finding the principal component of the outer product
+// sum matrix. Uses SVD to find the direction with maximum variance.
+// Supports optional weights (uniform weights if empty).
+// Result is sign-corrected to align with the majority of input vectors.
+//
+// @param vectors        Matrix where each column is a unit vector.
+// @param weights        Non-negative weights (uniform if empty).
+//
+// @return               The average unit vector.
+Eigen::VectorXd AverageUnitVectors(const Eigen::MatrixXd& vectors,
+                                   const Eigen::VectorXd& weights = {});
+
+// Convenience function to average 3D direction vectors.
+//
+// @param directions     The 3D direction vectors to be averaged.
+// @param weights        Non-negative weights (uniform if empty).
+//
+// @return               The average direction vector.
+Eigen::Vector3d AverageDirections(
+    const std::vector<Eigen::Vector3d>& directions,
+    const std::vector<double>& weights = {});
 
 // Compute the closes rotation matrix with the closest Frobenius norm by setting
 // the singular values of the given matrix to 1.
@@ -109,5 +134,32 @@ bool CheckCheirality(const Rigid3d& cam2_from_cam1,
 
 Rigid3d TransformCameraWorld(const Sim3d& new_from_old_world,
                              const Rigid3d& cam_from_world);
+
+// Compute a gravity-aligned rotation matrix from a gravity direction via
+// Householder QR. The second column of the output matrix is the gravity
+// direction. This rotation transforms from a coordinate frame where gravity
+// is aligned with the Y axis to the world frame with the given gravity
+// direction.
+//
+// @param gravity        Normalized gravity direction vector.
+//
+// @return               3x3 rotation matrix with Y-axis aligned to gravity.
+Eigen::Matrix3d GravityAlignedRotation(const Eigen::Vector3d& gravity);
+
+// Extract yaw angle (rotation about Y-axis) from a gravity-aligned rotation
+// matrix, i.e., a rotation where gravity is aligned with the Y axis.
+//
+// @param rotation       3x3 rotation matrix.
+//
+// @return               Yaw angle in radians.
+double YAxisAngleFromRotation(const Eigen::Matrix3d& rotation);
+
+// Construct gravity-aligned rotation matrix from yaw angle, i.e., a rotation
+// about the Y-axis (gravity direction).
+//
+// @param angle          Yaw angle in radians.
+//
+// @return               3x3 rotation matrix.
+Eigen::Matrix3d RotationFromYAxisAngle(double angle);
 
 }  // namespace colmap

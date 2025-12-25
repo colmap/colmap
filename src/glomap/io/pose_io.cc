@@ -1,6 +1,6 @@
 #include "glomap/io/pose_io.h"
 
-#include "glomap/math/gravity.h"
+#include "colmap/geometry/pose.h"
 
 #include <fstream>
 #include <map>
@@ -196,7 +196,7 @@ std::vector<colmap::PosePrior> ReadGravity(
         // Set the rotation from the camera to the world
         // Make sure the initialization is aligned with the gravity.
         cam_from_world.rotation =
-            Eigen::Quaterniond(GravityAlignedRotation(gravity));
+            Eigen::Quaterniond(colmap::GravityAlignedRotation(gravity));
       } else {
         LOG(INFO) << "Ignoring gravity of image " << name
                   << " because it is not from the reference sensor";
