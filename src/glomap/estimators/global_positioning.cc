@@ -94,6 +94,10 @@ void GlobalPositioner::SetupProblem(
   problem_ = std::make_unique<ceres::Problem>(problem_options);
   loss_function_ = options_.CreateLossFunction();
 
+  // Clear temporary storage from previous runs.
+  frame_centers_.clear();
+  cam_in_rig_.clear();
+
   // Allocate enough memory for the scales. One for each residual.
   // Due to possibly invalid image pairs or tracks, the actual number of
   // residuals may be smaller.
@@ -126,33 +130,22 @@ void GlobalPositioner::InitializeRandomPositions(
     if (track.track.Length() < options_.min_num_view_per_track) continue;
     for (const auto& observation : track.track.Elements()) {
       if (!reconstruction.ExistsImage(observation.image_id)) continue;
-      Image& image = reconstruction.Image(observation.image_id);
+      const Image& image = reconstruction.Image(observation.image_id);
       if (!image.HasPose()) continue;
       constrained_positions.insert(image.FrameId());
     }
   }
 
-  if (!options_.generate_random_positions || !options_.optimize_positions) {
-    for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-      if (constrained_positions.find(frame_id) != constrained_positions.end()) {
-        // Will be converted back to rig_from_world after the optimization.
-        reconstruction.Frame(frame_id).RigFromWorld().translation =
-            frame.RigFromWorld().TgtOriginInSrc();
-      }
-    }
-    return;
-  }
-
-  // Generate random positions for the cameras centers.
+  // Initialize frame centers in temporary storage.
+  // The reconstruction poses remain in cam_from_world convention.
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    // Only set the cameras to be random if they are needed to be optimized
-    if (constrained_positions.find(frame_id) != constrained_positions.end()) {
-      reconstruction.Frame(frame_id).RigFromWorld().translation =
-          100.0 * RandVector3d(random_generator_, -1, 1);
+    if (constrained_positions.find(frame_id) == constrained_positions.end()) {
+      continue;
+    }
+    if (options_.generate_random_positions && options_.optimize_positions) {
+      frame_centers_[frame_id] = 100.0 * RandVector3d(random_generator_, -1, 1);
     } else {
-      // Will be converted back to rig_from_world after the optimization.
-      reconstruction.Frame(frame_id).RigFromWorld().translation =
-          frame.RigFromWorld().TgtOriginInSrc();
+      frame_centers_[frame_id] = frame.RigFromWorld().TgtOriginInSrc();
     }
   }
 
@@ -192,14 +185,11 @@ void GlobalPositioner::AddCameraToCameraConstraints(
         -image_pair.cam2_from_cam1.translation;
     ceres::CostFunction* cost_function =
         BATAPairwiseDirectionCostFunctor::Create(translation);
-    problem_->AddResidualBlock(
-        cost_function,
-        loss_function_.get(),
-        // Note that the translations are converted to the rig centers
-        // during the pre-processing.
-        image1.FramePtr()->RigFromWorld().translation.data(),
-        image2.FramePtr()->RigFromWorld().translation.data(),
-        &scale);
+    problem_->AddResidualBlock(cost_function,
+                               loss_function_.get(),
+                               frame_centers_[image1.FrameId()].data(),
+                               frame_centers_[image2.FrameId()].data(),
+                               &scale);
 
     problem_->SetParameterLowerBound(&scale, 0, 1e-5);
   }
@@ -296,7 +286,7 @@ void GlobalPositioner::AddTrackToProblem(
 
     if (!options_.generate_scales && random_initialization) {
       const Eigen::Vector3d cam_from_point3D_translation =
-          track.xyz - image.CamFromWorld().translation;
+          track.xyz - frame_centers_[image.FrameId()];
       scale = std::max(1e-5,
                        cam_from_point3D_dir.dot(cam_from_point3D_translation) /
                            cam_from_point3D_translation.squaredNorm());
@@ -316,14 +306,11 @@ void GlobalPositioner::AddTrackToProblem(
       ceres::CostFunction* cost_function =
           BATAPairwiseDirectionCostFunctor::Create(cam_from_point3D_dir);
 
-      problem_->AddResidualBlock(
-          cost_function,
-          loss_function,
-          // Note that the translations are converted to the rig centers
-          // during the pre-processing.
-          image.FramePtr()->RigFromWorld().translation.data(),
-          track.xyz.data(),
-          &scale);
+      problem_->AddResidualBlock(cost_function,
+                                 loss_function,
+                                 frame_centers_[image.FrameId()].data(),
+                                 track.xyz.data(),
+                                 &scale);
     } else {
       // If the image is part of a camera rig, use the RigBATA error.
 
@@ -339,34 +326,32 @@ void GlobalPositioner::AddTrackToProblem(
             RigBATAPairwiseDirectionCostFunctor::Create(cam_from_point3D_dir,
                                                         cam_from_rig_dir);
 
-        problem_->AddResidualBlock(
-            cost_function,
-            loss_function,
-            track.xyz.data(),
-            // Note that the translations are converted to the rig centers
-            // during the pre-processing.
-            image.FramePtr()->RigFromWorld().translation.data(),
-            &scale,
-            &rig_scales_[rig_id]);
+        problem_->AddResidualBlock(cost_function,
+                                   loss_function,
+                                   track.xyz.data(),
+                                   frame_centers_[image.FrameId()].data(),
+                                   &scale,
+                                   &rig_scales_[rig_id]);
       } else {
-        // If the cam_from_rig contains nan values, it means that it needs to be
-        // re-estimated In this case, use the rigged cost NOTE: the scale for
-        // the rig is not needed, as it would natrually be consistent with the
-        // global one
+        // If the cam_from_rig contains nan values, it needs to be re-estimated.
+        // Initialize cam_in_rig_ if not already done.
+        const sensor_t sensor_id = image.CameraPtr()->SensorId();
+        if (cam_in_rig_.find(sensor_id) == cam_in_rig_.end()) {
+          // Will be initialized to random values in ParameterizeVariables().
+          cam_in_rig_[sensor_id] = Eigen::Vector3d::Zero();
+        }
+
         ceres::CostFunction* cost_function =
             RigUnknownBATAPairwiseDirectionCostFunctor::Create(
                 cam_from_point3D_dir,
                 image.FramePtr()->RigFromWorld().rotation);
 
-        problem_->AddResidualBlock(
-            cost_function,
-            loss_function,
-            track.xyz.data(),
-            // Note that the translations are converted to the rig centers
-            // during the pre-processing.
-            image.FramePtr()->RigFromWorld().translation.data(),
-            cam_from_rig.translation.data(),
-            &scale);
+        problem_->AddResidualBlock(cost_function,
+                                   loss_function,
+                                   track.xyz.data(),
+                                   frame_centers_[image.FrameId()].data(),
+                                   cam_in_rig_[sensor_id].data(),
+                                   &scale);
       }
     }
 
@@ -399,26 +384,16 @@ void GlobalPositioner::AddCamerasAndPointsToParameterGroups(
     group_id++;
   }
 
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    if (!frame.HasPose()) continue;
-    if (problem_->HasParameterBlock(
-            reconstruction.Frame(frame_id).RigFromWorld().translation.data())) {
-      parameter_ordering->AddElementToGroup(
-          reconstruction.Frame(frame_id).RigFromWorld().translation.data(),
-          group_id);
+  for (auto& [frame_id, center] : frame_centers_) {
+    if (problem_->HasParameterBlock(center.data())) {
+      parameter_ordering->AddElementToGroup(center.data(), group_id);
     }
   }
 
-  // Add the cam_from_rigs to be estimated into the parameter group
-  for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
-    for (const auto& [sensor_id, sensor] : rig.NonRefSensors()) {
-      if (sensor_id.type == SensorType::CAMERA) {
-        Eigen::Vector3d& translation =
-            reconstruction.Rig(rig_id).SensorFromRig(sensor_id).translation;
-        if (problem_->HasParameterBlock(translation.data())) {
-          parameter_ordering->AddElementToGroup(translation.data(), group_id);
-        }
-      }
+  // Add the cam_in_rig to be estimated into the parameter group
+  for (auto& [sensor_id, center] : cam_in_rig_) {
+    if (problem_->HasParameterBlock(center.data())) {
+      parameter_ordering->AddElementToGroup(center.data(), group_id);
     }
   }
 
@@ -436,30 +411,21 @@ void GlobalPositioner::ParameterizeVariables(
   // For the global positioning, do not set any camera to be constant for easier
   // convergence
 
-  // First, for cam_from_rig that needs to be estimated, we need to initialize
-  // the center
+  // Initialize cam_in_rig_ with random values if optimizing positions.
   if (options_.optimize_positions) {
-    for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
-      for (const auto& [sensor_id, sensor] : rig.NonRefSensors()) {
-        if (sensor_id.type == SensorType::CAMERA) {
-          Eigen::Vector3d& translation =
-              reconstruction.Rig(rig_id).SensorFromRig(sensor_id).translation;
-          if (problem_->HasParameterBlock(translation.data())) {
-            translation = RandVector3d(random_generator_, -1, 1);
-          }
-        }
+    for (auto& [sensor_id, center] : cam_in_rig_) {
+      if (problem_->HasParameterBlock(center.data())) {
+        center = RandVector3d(random_generator_, -1, 1);
       }
     }
   }
 
-  // If do not optimize the positions, set the camera positions to be constant
+  // If not optimizing positions, set frame centers to be constant.
   if (!options_.optimize_positions) {
-    for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-      if (!frame.HasPose()) continue;
-      if (problem_->HasParameterBlock(
-              reconstruction.Frame(frame_id).RigFromWorld().translation.data()))
-        problem_->SetParameterBlockConstant(
-            reconstruction.Frame(frame_id).RigFromWorld().translation.data());
+    for (auto& [frame_id, center] : frame_centers_) {
+      if (problem_->HasParameterBlock(center.data())) {
+        problem_->SetParameterBlockConstant(center.data());
+      }
     }
   }
 
@@ -565,28 +531,35 @@ void GlobalPositioner::ParameterizeVariables(
 
 void GlobalPositioner::ConvertBackResults(
     colmap::Reconstruction& reconstruction) {
-  // Translations store the frame/camera centers. Convert them back
+  // Convert optimized frame centers back to rig_from_world translations
   // and apply the rig scales.
-
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    reconstruction.Frame(frame_id).RigFromWorld().translation =
-        reconstruction.Frame(frame_id).RigFromWorld().rotation *
-        -reconstruction.Frame(frame_id).RigFromWorld().translation;
-    reconstruction.Frame(frame_id).RigFromWorld().translation *=
-        rig_scales_[frame.RigId()];
+  for (const auto& [frame_id, center] : frame_centers_) {
+    Rigid3d& rig_from_world = reconstruction.Frame(frame_id).RigFromWorld();
+    rig_from_world.translation = rig_from_world.rotation * -center;
+    rig_from_world.translation *=
+        rig_scales_[reconstruction.Frame(frame_id).RigId()];
   }
 
+  // Convert optimized cam_in_rig back to sensor_from_rig translations.
+  for (const auto& [sensor_id, center] : cam_in_rig_) {
+    // Find the rig containing this sensor.
+    for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
+      if (!rig.HasSensor(sensor_id)) {
+        continue;
+      }
+      Rigid3d& sensor_from_rig = reconstruction.Rig(rig_id).SensorFromRig(sensor_id);
+      sensor_from_rig.translation = sensor_from_rig.rotation * -center;
+      break;
+    }
+  }
+
+  // Apply rig scales to sensor_from_rig translations that were not optimized.
   for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
     for (const auto& [sensor_id, cam_from_rig] : rig.NonRefSensors()) {
-      if (cam_from_rig.has_value()) {
-        Rigid3d& sensor_from_rig =
-            reconstruction.Rig(rig_id).SensorFromRig(sensor_id);
-        if (problem_->HasParameterBlock(sensor_from_rig.translation.data())) {
-          sensor_from_rig.translation =
-              sensor_from_rig.rotation * -sensor_from_rig.translation;
-        } else {
-          sensor_from_rig.translation *= rig_scales_[rig_id];
-        }
+      if (cam_from_rig.has_value() &&
+          cam_in_rig_.find(sensor_id) == cam_in_rig_.end()) {
+        reconstruction.Rig(rig_id).SensorFromRig(sensor_id).translation *=
+            rig_scales_[rig_id];
       }
     }
   }
