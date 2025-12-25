@@ -59,9 +59,11 @@ inline int SQLite3CallHelper(int result_code,
     const int result_code = sqlite3_exec(                                 \
         THROW_CHECK_NOTNULL(database), sql, callback, nullptr, &err_msg); \
     if (result_code != SQLITE_OK) {                                       \
-      LOG(ERROR) << "SQLite error [" << __FILE__ << ", line " << __LINE__ \
-                 << "]: " << err_msg;                                     \
+      const std::string err_msg_str =                                     \
+          err_msg ? err_msg : sqlite3_errstr(result_code);                \
       sqlite3_free(err_msg);                                              \
+      LogMessageFatalThrow<std::runtime_error>(__FILE__, __LINE__).stream() \
+          << "SQLite error: " << err_msg_str;                             \
     }                                                                     \
   }
 
