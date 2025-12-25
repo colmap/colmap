@@ -9,6 +9,7 @@
 
 namespace colmap {
 
+class Frame;
 class Rig;
 class Image;
 struct Point3D;
@@ -30,6 +31,7 @@ using colmap::Image;
 using colmap::image_t;
 
 // Unique identifier for frames.
+using colmap::Frame;
 using colmap::frame_t;
 
 // Unique identifier for camera rigs.

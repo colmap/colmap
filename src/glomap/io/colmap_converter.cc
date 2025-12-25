@@ -11,6 +11,7 @@ void ConvertGlomapToColmap(
     const std::unordered_map<image_t, Image>& images,
     const std::unordered_map<point3D_t, Point3D>& tracks,
     colmap::Reconstruction& reconstruction,
+    const std::unordered_map<frame_t, int>& cluster_ids,
     int cluster_id,
     bool include_image_points) {
   // Clear the colmap reconstruction
@@ -33,6 +34,12 @@ void ConvertGlomapToColmap(
     reconstruction.AddFrame(frame_curr);
   }
 
+  // Helper to get cluster id for a frame (returns -1 if not in map)
+  auto get_cluster_id = [&cluster_ids](frame_t frame_id) -> int {
+    auto it = cluster_ids.find(frame_id);
+    return it != cluster_ids.end() ? it->second : -1;
+  };
+
   // Prepare the 2d-3d correspondences
   size_t min_supports = 2;
   std::unordered_map<image_t, std::vector<point3D_t>> image_to_point3D;
@@ -40,8 +47,7 @@ void ConvertGlomapToColmap(
     // Initialize every point to corresponds to invalid point
     for (auto& [image_id, image] : images) {
       if (!image.HasPose() ||
-          (cluster_id != -1 &&
-           frames.at(image.FrameId()).cluster_id != cluster_id))
+          (cluster_id != -1 && get_cluster_id(image.FrameId()) != cluster_id))
         continue;
       image_to_point3D[image_id] =
           std::vector<point3D_t>(image.NumPoints2D(), -1);
@@ -74,8 +80,7 @@ void ConvertGlomapToColmap(
     for (auto& observation : track.track.Elements()) {
       const Image& image = images.at(observation.image_id);
       if (!image.HasPose() ||
-          (cluster_id != -1 &&
-           frames.at(image.FrameId()).cluster_id != cluster_id))
+          (cluster_id != -1 && get_cluster_id(image.FrameId()) != cluster_id))
         continue;
       colmap::TrackElement colmap_track_el;
       colmap_track_el.image_id = observation.image_id;
@@ -116,7 +121,7 @@ void ConvertGlomapToColmap(
   // Deregister frames
   for (auto& [frame_id, frame] : frames) {
     if ((cluster_id != 0 && !frame.HasPose()) ||
-        (frame.cluster_id != cluster_id && cluster_id != -1)) {
+        (get_cluster_id(frame_id) != cluster_id && cluster_id != -1)) {
       reconstruction.DeRegisterFrame(frame_id);
     }
   }

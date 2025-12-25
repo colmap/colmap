@@ -12,20 +12,20 @@ void WriteGlomapReconstruction(
     const std::unordered_map<frame_t, Frame>& frames,
     const std::unordered_map<image_t, Image>& images,
     const std::unordered_map<point3D_t, Point3D>& tracks,
+    const std::unordered_map<frame_t, int>& cluster_ids,
     const std::string& output_format,
     const std::string& image_path) {
   // Check whether reconstruction pruning is applied.
-  // If so, export seperate reconstruction
+  // If so, export separate reconstruction
   int largest_component_num = -1;
-  for (const auto& [frame_id, frame] : frames) {
-    if (frame.cluster_id > largest_component_num)
-      largest_component_num = frame.cluster_id;
+  for (const auto& [frame_id, cluster_id] : cluster_ids) {
+    if (cluster_id > largest_component_num) largest_component_num = cluster_id;
   }
-  // If it is not seperated into several clusters, then output them as whole
+  // If it is not separated into several clusters, then output them as whole
   if (largest_component_num == -1) {
     colmap::Reconstruction reconstruction;
     ConvertGlomapToColmap(
-        rigs, cameras, frames, images, tracks, reconstruction);
+        rigs, cameras, frames, images, tracks, reconstruction, cluster_ids);
     // Read in colors
     if (image_path != "") {
       LOG(INFO) << "Extracting colors ...";
@@ -44,8 +44,14 @@ void WriteGlomapReconstruction(
       std::cout << "\r Exporting reconstruction " << comp + 1 << " / "
                 << largest_component_num + 1 << std::flush;
       colmap::Reconstruction reconstruction;
-      ConvertGlomapToColmap(
-          rigs, cameras, frames, images, tracks, reconstruction, comp);
+      ConvertGlomapToColmap(rigs,
+                            cameras,
+                            frames,
+                            images,
+                            tracks,
+                            reconstruction,
+                            cluster_ids,
+                            comp);
       // Read in colors
       if (image_path != "") {
         reconstruction.ExtractColorsForAllImages(image_path);

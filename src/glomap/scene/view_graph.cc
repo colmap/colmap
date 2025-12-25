@@ -98,8 +98,9 @@ int ViewGraph::KeepLargestConnectedComponents(
 }
 
 int ViewGraph::MarkConnectedComponents(
-    std::unordered_map<frame_t, Frame>& frames,
+    const std::unordered_map<frame_t, Frame>& frames,
     const std::unordered_map<image_t, Image>& images,
+    std::unordered_map<frame_t, int>& cluster_ids,
     int min_num_images) {
   const std::vector<std::unordered_set<frame_t>> connected_components =
       FindConnectedComponents(CreateFrameAdjacencyList(images));
@@ -112,14 +113,17 @@ int ViewGraph::MarkConnectedComponents(
   }
   std::sort(comp_num_images.begin(), comp_num_images.end(), std::greater<>());
 
-  // Set the cluster number of every frame to be -1
-  for (auto& [frame_id, frame] : frames) frame.cluster_id = -1;
+  // Clear and populate cluster_ids output parameter
+  cluster_ids.clear();
+  for (const auto& [frame_id, frame] : frames) {
+    cluster_ids[frame_id] = -1;
+  }
 
   int comp = 0;
   for (; comp < num_comp; comp++) {
     if (comp_num_images[comp].first < min_num_images) break;
     for (auto frame_id : connected_components[comp_num_images[comp].second]) {
-      frames[frame_id].cluster_id = comp;
+      cluster_ids[frame_id] = comp;
     }
   }
 

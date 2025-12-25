@@ -1,8 +1,8 @@
 #pragma once
 
+#include "colmap/scene/frame.h"
 #include "colmap/sensor/models.h"
 
-#include "glomap/scene/frame.h"
 #include "glomap/scene/view_graph.h"
 
 namespace glomap {
@@ -22,6 +22,7 @@ struct ViewGraphManipulater {
       ViewGraph& view_graph,
       std::unordered_map<frame_t, Frame>& frames,
       std::unordered_map<image_t, Image>& images,
+      std::unordered_map<frame_t, int>& cluster_ids,
       StrongClusterCriteria criteria = INLIER_NUM,
       double min_thres = 100,  // require strong edges
       int min_num_images = 2);

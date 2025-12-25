@@ -33,7 +33,6 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_glomap_scene
     SRCS
         view_graph.h view_graph.cc
-        frame.h
         image_pair.h
         types.h
     PUBLIC_LINK_LIBS
