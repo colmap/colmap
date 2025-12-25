@@ -179,8 +179,8 @@ double ImagePairInliers::ScoreErrorFundamental() {
   for (size_t k = 0; k < image_pair.matches.rows(); ++k) {
     const Eigen::Vector2d& pt1 = image1.Point2D(image_pair.matches(k, 0)).xy;
     const Eigen::Vector2d& pt2 = image2.Point2D(image_pair.matches(k, 1)).xy;
-    const double r2 =
-        colmap::ComputeSquaredSampsonError(pt1.homogeneous(), pt2.homogeneous(), image_pair.F);
+    const double r2 = colmap::ComputeSquaredSampsonError(
+        pt1.homogeneous(), pt2.homogeneous(), image_pair.F);
 
     if (r2 < sq_threshold) {
       signums.push_back(GetOrientationSignum(image_pair.F, epipole, pt1, pt2));
@@ -229,7 +229,8 @@ double ImagePairInliers::ScoreErrorHomography() {
   for (size_t k = 0; k < image_pair.matches.rows(); ++k) {
     const Eigen::Vector2d& pt1 = image1.Point2D(image_pair.matches(k, 0)).xy;
     const Eigen::Vector2d& pt2 = image2.Point2D(image_pair.matches(k, 1)).xy;
-    const double r2 = colmap::ComputeSquaredHomographyError(pt1, pt2, image_pair.H);
+    const double r2 =
+        colmap::ComputeSquaredHomographyError(pt1, pt2, image_pair.H);
 
     if (r2 < sq_threshold) {
       // TODO: cheirality check for homography. Is that a thing?
