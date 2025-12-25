@@ -682,8 +682,7 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
   // Check if we pass the minimum number of inliers.
   if (world_points2D.size() < min_num_inliers) {
     VLOG(2) << "Image observes insufficient number of points for registration ("
-            << obs_manager_->NumVisiblePoints3D(image_id) << " < "
-            << min_num_inliers << ")";
+            << world_points2D.size() << " < " << min_num_inliers << ")";
     return false;
   }
 
