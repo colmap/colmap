@@ -266,7 +266,7 @@ void RotationEstimator::SetupLinearSystem(
         GetFrameGravityOrNull(frame_to_pose_prior, frame_id);
     if (options_.use_gravity && frame_gravity != nullptr) {
       rotation_estimated_[num_dof] = YAxisAngleFromRotation(
-          RotationFromGravity(*frame_gravity).transpose() *
+          GravityAlignedRotation(*frame_gravity).transpose() *
           frame.RigFromWorld().rotation.toRotationMatrix());
       num_dof++;
 
@@ -375,12 +375,12 @@ void RotationEstimator::SetupLinearSystem(
     if (options_.use_gravity) {
       if (frame_gravity1 != nullptr) {
         rel_temp_info_[pair_id].R_rel = rel_temp_info_[pair_id].R_rel *
-                                        RotationFromGravity(*frame_gravity1);
+                                        GravityAlignedRotation(*frame_gravity1);
       }
 
       if (frame_gravity2 != nullptr) {
         rel_temp_info_[pair_id].R_rel =
-            RotationFromGravity(*frame_gravity2).transpose() *
+            GravityAlignedRotation(*frame_gravity2).transpose() *
             rel_temp_info_[pair_id].R_rel;
       }
     }
@@ -905,7 +905,7 @@ void RotationEstimator::ConvertResults(
     if (options_.use_gravity && has_gravity) {
       frame.SetRigFromWorld(Rigid3d(
           Eigen::Quaterniond(
-              RotationFromGravity(pose_prior_it->second->gravity) *
+              GravityAlignedRotation(pose_prior_it->second->gravity) *
               RotationFromYAxisAngle(
                   rotation_estimated_[image_id_to_idx_[image_id_begin]])),
           Eigen::Vector3d::Zero()));

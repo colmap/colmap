@@ -141,7 +141,7 @@ void GravityRefiner::RefineGravity(
     if (gravities.size() < options_.min_num_neighbors) continue;
 
     // Then, run refinment
-    gravity = AverageGravityDirection(gravities);
+    gravity = AverageDirections(gravities);
     colmap::SetSphereManifold<3>(&problem, gravity.data());
     ceres::Solver::Summary summary_solver;
     ceres::Solve(options_.solver_options, &problem, &summary_solver);
@@ -200,9 +200,9 @@ void GravityRefiner::IdentifyErrorProneGravity(
     const auto& image2 = images.at(image_pair.image_id2);
     // Calculate the gravity aligned relative rotation
     const Eigen::Matrix3d R_rel =
-        RotationFromGravity(*image_gravity2).transpose() *
+        GravityAlignedRotation(*image_gravity2).transpose() *
         image_pair.cam2_from_cam1.rotation.toRotationMatrix() *
-        RotationFromGravity(*image_gravity1);
+        GravityAlignedRotation(*image_gravity1);
     // Convert it to the closest upright rotation
     const Eigen::Matrix3d R_rel_up =
         RotationFromYAxisAngle(YAxisAngleFromRotation(R_rel));

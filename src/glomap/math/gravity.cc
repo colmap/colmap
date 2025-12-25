@@ -7,7 +7,7 @@
 
 namespace glomap {
 
-Eigen::Matrix3d RotationFromGravity(const Eigen::Vector3d& gravity) {
+Eigen::Matrix3d GravityAlignedRotation(const Eigen::Vector3d& gravity) {
   THROW_CHECK_LT(std::abs(gravity.norm() - 1.0), 1e-6)
       << "Gravity vector must be normalized";
 
@@ -32,21 +32,21 @@ Eigen::Matrix3d RotationFromYAxisAngle(double angle) {
   return colmap::AngleAxisToRotationMatrix(Eigen::Vector3d(0, angle, 0));
 }
 
-Eigen::Vector3d AverageGravityDirection(
-    const std::vector<Eigen::Vector3d>& gravities) {
-  if (gravities.empty()) {
-    LOG(ERROR) << "Cannot average empty set of gravity directions";
+Eigen::Vector3d AverageDirections(
+    const std::vector<Eigen::Vector3d>& directions) {
+  if (directions.empty()) {
+    LOG(ERROR) << "Cannot average empty set of directions";
     return Eigen::Vector3d::Zero();
   }
 
   // Build outer product sum matrix for principal component analysis.
   Eigen::Matrix3d A = Eigen::Matrix3d::Zero();
-  for (const auto& g : gravities) {
-    THROW_CHECK_LT(std::abs(g.norm() - 1.0), 1e-6)
-        << "Gravity vectors must be normalized";
-    A += g * g.transpose();
+  for (const auto& d : directions) {
+    THROW_CHECK_LT(std::abs(d.norm() - 1.0), 1e-6)
+        << "Direction vectors must be normalized";
+    A += d * d.transpose();
   }
-  A /= gravities.size();
+  A /= directions.size();
 
   // The first singular vector corresponds to the principal direction.
   Eigen::JacobiSVD<Eigen::Matrix3d> svd(A, Eigen::ComputeFullU);
@@ -54,12 +54,12 @@ Eigen::Vector3d AverageGravityDirection(
 
   // Ensure consistent sign by aligning with majority of input vectors.
   int negative_count = 0;
-  for (const auto& g : gravities) {
-    if (g.dot(average) < 0) {
+  for (const auto& d : directions) {
+    if (d.dot(average) < 0) {
       negative_count++;
     }
   }
-  if (negative_count > static_cast<int>(gravities.size()) / 2) {
+  if (negative_count > static_cast<int>(directions.size()) / 2) {
     average = -average;
   }
 
