@@ -228,35 +228,52 @@ TEST(CheckCheirality, Nominal) {
 }
 
 TEST(AverageUnitVectors, Nominal) {
-  std::vector<Eigen::Vector3d> vectors;
-  std::vector<double> weights;
+  Eigen::Matrix3Xd vectors(3, 1);
+  vectors.col(0) = Eigen::Vector3d::UnitX();
+  Eigen::VectorXd avg = AverageUnitVectors(vectors);
+  EXPECT_THAT(avg, EigenMatrixNear(Eigen::Vector3d::UnitX(), 1e-6));
 
-  vectors = {Eigen::Vector3d::UnitX()};
-  EXPECT_THAT(AverageUnitVectors<3>(vectors),
-              EigenMatrixNear(Eigen::Vector3d(Eigen::Vector3d::UnitX()), 1e-6));
+  vectors.resize(3, 2);
+  vectors.col(0) = Eigen::Vector3d::UnitZ();
+  vectors.col(1) = Eigen::Vector3d::UnitZ();
+  avg = AverageUnitVectors(vectors);
+  EXPECT_THAT(avg, EigenMatrixNear(Eigen::Vector3d::UnitZ(), 1e-6));
 
-  vectors = {Eigen::Vector3d::UnitZ(), Eigen::Vector3d::UnitZ()};
-  EXPECT_THAT(AverageUnitVectors<3>(vectors),
-              EigenMatrixNear(Eigen::Vector3d(Eigen::Vector3d::UnitZ()), 1e-6));
-
-  vectors = {Eigen::Vector3d::UnitX(), Eigen::Vector3d::UnitY()};
-  weights = {1.0, 1.0};
-  EXPECT_THAT(AverageUnitVectors<3>(vectors, weights),
-              EigenMatrixNear(AverageUnitVectors<3>(vectors), 1e-6));
-
-  vectors = {Eigen::Vector3d::UnitX(), Eigen::Vector3d::UnitY()};
-  weights = {3.0, 1.0};
-  Eigen::Vector3d avg = AverageUnitVectors<3>(vectors, weights);
-  EXPECT_GT(avg.dot(Eigen::Vector3d::UnitX()),
-            avg.dot(Eigen::Vector3d::UnitY()));
+  vectors.col(0) = Eigen::Vector3d::UnitX();
+  vectors.col(1) = Eigen::Vector3d::UnitY();
+  avg = AverageUnitVectors(vectors);
+  EXPECT_EQ(avg.size(), 3);
   EXPECT_NEAR(avg.norm(), 1.0, 1e-6);
 
-  vectors = {Eigen::Vector3d(1, 0.1, 0).normalized(),
-             Eigen::Vector3d(1, -0.1, 0).normalized(),
-             Eigen::Vector3d(1, 0, 0.1).normalized(),
-             Eigen::Vector3d(-1, 0, 0)};
-  avg = AverageUnitVectors<3>(vectors);
-  EXPECT_GT(avg.x(), 0);
+  std::vector<double> weights = {3.0, 1.0};
+  avg = AverageUnitVectors(vectors, weights);
+  EXPECT_GT(avg(0), avg(1));
+
+  vectors.resize(3, 4);
+  vectors.col(0) = Eigen::Vector3d(1, 0.1, 0).normalized();
+  vectors.col(1) = Eigen::Vector3d(1, -0.1, 0).normalized();
+  vectors.col(2) = Eigen::Vector3d(1, 0, 0.1).normalized();
+  vectors.col(3) = Eigen::Vector3d(-1, 0, 0);
+  avg = AverageUnitVectors(vectors);
+  EXPECT_GT(avg(0), 0);
+
+  Eigen::Matrix4Xd vectors4d(4, 2);
+  vectors4d.col(0) = Eigen::Vector4d(1, 0, 0, 0);
+  vectors4d.col(1) = Eigen::Vector4d(0, 1, 0, 0);
+  avg = AverageUnitVectors(vectors4d);
+  EXPECT_EQ(avg.size(), 4);
+  EXPECT_NEAR(avg.norm(), 1.0, 1e-6);
+}
+
+TEST(AverageDirections, Nominal) {
+  std::vector<Eigen::Vector3d> vectors = {Eigen::Vector3d(1, 0.1, 0),
+                                          Eigen::Vector3d(1, -0.1, 0)};
+  Eigen::Vector3d avg = AverageDirections(vectors);
+  EXPECT_THAT(avg, EigenMatrixNear(Eigen::Vector3d::UnitX(), 1e-6));
+
+  std::vector<double> weights = {1.0, 1.0};
+  avg = AverageDirections(vectors, weights);
+  EXPECT_THAT(avg, EigenMatrixNear(Eigen::Vector3d::UnitX(), 1e-6));
 }
 
 TEST(GravityAlignedRotation, Nominal) {

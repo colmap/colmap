@@ -36,6 +36,63 @@
 
 namespace colmap {
 
+Eigen::VectorXd AverageUnitVectors(const Eigen::MatrixXd& vectors,
+                                   const std::vector<double>& weights) {
+  THROW_CHECK_GT(vectors.cols(), 0) << "Cannot average empty set of vectors";
+  THROW_CHECK(weights.empty() ||
+              weights.size() == static_cast<size_t>(vectors.cols()))
+      << "Weights size must match vectors size";
+
+  if (vectors.cols() == 1) {
+    return vectors.col(0).normalized();
+  }
+
+  // Build weighted outer product sum matrix.
+  Eigen::MatrixXd A = Eigen::MatrixXd::Zero(vectors.rows(), vectors.rows());
+  double weight_sum = 0;
+
+  for (Eigen::Index i = 0; i < vectors.cols(); ++i) {
+    const double w = weights.empty() ? 1.0 : weights[i];
+    THROW_CHECK_GT(w, 0) << "Weights must be positive";
+    const Eigen::VectorXd v = vectors.col(i).normalized();
+    A += w * v * v.transpose();
+    weight_sum += w;
+  }
+
+  A /= weight_sum;
+
+  // The first singular vector corresponds to the principal direction.
+  Eigen::JacobiSVD<Eigen::MatrixXd> svd(A, Eigen::ComputeFullU);
+  Eigen::VectorXd average = svd.matrixU().col(0);
+
+  // Ensure consistent sign by aligning with majority of input vectors.
+  double negative_weight = 0;
+  double positive_weight = 0;
+  for (Eigen::Index i = 0; i < vectors.cols(); ++i) {
+    const double w = weights.empty() ? 1.0 : weights[i];
+    if (vectors.col(i).dot(average) < 0) {
+      negative_weight += w;
+    } else {
+      positive_weight += w;
+    }
+  }
+  if (negative_weight > positive_weight) {
+    average = -average;
+  }
+
+  return average;
+}
+
+Eigen::Vector3d AverageDirections(
+    const std::vector<Eigen::Vector3d>& directions,
+    const std::vector<double>& weights) {
+  Eigen::Matrix3Xd mat(3, directions.size());
+  for (size_t i = 0; i < directions.size(); ++i) {
+    mat.col(i) = directions[i];
+  }
+  return AverageUnitVectors(mat, weights);
+}
+
 Eigen::Matrix3d ComputeClosestRotationMatrix(const Eigen::Matrix3d& matrix) {
   const Eigen::JacobiSVD<Eigen::Matrix3d> svd(
       matrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
@@ -135,15 +192,14 @@ Eigen::Quaterniond AverageQuaternions(
     const std::vector<double>& weights) {
   THROW_CHECK_EQ(quats.size(), weights.size());
 
-  // Convert quaternions to coefficient vectors.
-  std::vector<Eigen::Vector4d> qvecs;
-  qvecs.reserve(quats.size());
-  for (const auto& q : quats) {
-    qvecs.push_back(q.normalized().coeffs());
+  // Convert quaternions to coefficient matrix (each column is a quaternion).
+  Eigen::Matrix4Xd qmat(4, quats.size());
+  for (size_t i = 0; i < quats.size(); ++i) {
+    qmat.col(i) = quats[i].normalized().coeffs();
   }
 
   // Average using the unified unit vector averaging.
-  const Eigen::Vector4d avg = AverageUnitVectors<4>(qvecs, weights);
+  const Eigen::VectorXd avg = AverageUnitVectors(qmat, weights);
 
   // Convert back to quaternion (Eigen order: x, y, z, w in coeffs).
   return Eigen::Quaterniond(avg(3), avg(0), avg(1), avg(2));

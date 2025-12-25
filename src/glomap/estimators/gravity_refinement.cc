@@ -141,7 +141,7 @@ void GravityRefiner::RefineGravity(
     if (gravities.size() < options_.min_num_neighbors) continue;
 
     // Then, run refinment
-    gravity = colmap::AverageUnitVectors<3>(gravities);
+    gravity = colmap::AverageDirections(gravities);
     colmap::SetSphereManifold<3>(&problem, gravity.data());
     ceres::Solver::Summary summary_solver;
     ceres::Solve(options_.solver_options, &problem, &summary_solver);

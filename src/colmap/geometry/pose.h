@@ -48,13 +48,21 @@ namespace colmap {
 // Supports optional weights (uniform weights if empty).
 // Result is sign-corrected to align with the majority of input vectors.
 //
-// @param vectors        The unit vectors to be averaged.
+// @param vectors        Matrix where each column is a unit vector.
 // @param weights        Non-negative weights (uniform if empty).
 //
 // @return               The average unit vector.
-template <int N>
-Eigen::Vector<double, N> AverageUnitVectors(
-    const std::vector<Eigen::Vector<double, N>>& vectors,
+Eigen::VectorXd AverageUnitVectors(const Eigen::MatrixXd& vectors,
+                                   const std::vector<double>& weights = {});
+
+// Convenience function to average 3D direction vectors.
+//
+// @param directions     The 3D direction vectors to be averaged.
+// @param weights        Non-negative weights (uniform if empty).
+//
+// @return               The average direction vector.
+Eigen::Vector3d AverageDirections(
+    const std::vector<Eigen::Vector3d>& directions,
     const std::vector<double>& weights = {});
 
 // Compute the closes rotation matrix with the closest Frobenius norm by setting
@@ -153,57 +161,5 @@ double YAxisAngleFromRotation(const Eigen::Matrix3d& rotation);
 //
 // @return               3x3 rotation matrix.
 Eigen::Matrix3d RotationFromYAxisAngle(double angle);
-
-////////////////////////////////////////////////////////////////////////////////
-// Implementation
-////////////////////////////////////////////////////////////////////////////////
-
-template <int N>
-Eigen::Vector<double, N> AverageUnitVectors(
-    const std::vector<Eigen::Vector<double, N>>& vectors,
-    const std::vector<double>& weights) {
-  THROW_CHECK(!vectors.empty()) << "Cannot average empty set of vectors";
-  THROW_CHECK(weights.empty() || weights.size() == vectors.size())
-      << "Weights size must match vectors size";
-
-  if (vectors.size() == 1) {
-    return vectors[0].normalized();
-  }
-
-  // Build weighted outer product sum matrix.
-  Eigen::Matrix<double, N, N> A = Eigen::Matrix<double, N, N>::Zero();
-  double weight_sum = 0;
-
-  for (size_t i = 0; i < vectors.size(); ++i) {
-    const double w = weights.empty() ? 1.0 : weights[i];
-    THROW_CHECK_GT(w, 0) << "Weights must be positive";
-    const Eigen::Vector<double, N> v = vectors[i].normalized();
-    A += w * v * v.transpose();
-    weight_sum += w;
-  }
-
-  A /= weight_sum;
-
-  // The first singular vector corresponds to the principal direction.
-  Eigen::JacobiSVD<Eigen::Matrix<double, N, N>> svd(A, Eigen::ComputeFullU);
-  Eigen::Vector<double, N> average = svd.matrixU().col(0);
-
-  // Ensure consistent sign by aligning with majority of input vectors.
-  double negative_weight = 0;
-  double positive_weight = 0;
-  for (size_t i = 0; i < vectors.size(); ++i) {
-    const double w = weights.empty() ? 1.0 : weights[i];
-    if (vectors[i].dot(average) < 0) {
-      negative_weight += w;
-    } else {
-      positive_weight += w;
-    }
-  }
-  if (negative_weight > positive_weight) {
-    average = -average;
-  }
-
-  return average;
-}
 
 }  // namespace colmap
