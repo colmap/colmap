@@ -1,7 +1,6 @@
-
 #pragma once
 
-#include "glomap/scene/types_sfm.h"
+#include "glomap/scene/view_graph.h"
 
 namespace glomap {
 
