@@ -272,8 +272,9 @@ TEST(GravityAlignedRotation, Nominal) {
   for (int i = 0; i < 100; ++i) {
     gravity = Eigen::Vector3d::Random().normalized();
     R = GravityAlignedRotation(gravity);
-    EXPECT_THAT(Eigen::Matrix3d(R.transpose() * R),
-                EigenMatrixNear(Eigen::Matrix3d(Eigen::Matrix3d::Identity()), 1e-6));
+    EXPECT_THAT(
+        Eigen::Matrix3d(R.transpose() * R),
+        EigenMatrixNear(Eigen::Matrix3d(Eigen::Matrix3d::Identity()), 1e-6));
     EXPECT_NEAR(R.determinant(), 1.0, 1e-6);
   }
 }
@@ -291,12 +292,14 @@ TEST(YAxisAngleFromRotation, Roundtrip) {
 
 TEST(RotationFromYAxisAngle, Nominal) {
   Eigen::Matrix3d R = RotationFromYAxisAngle(0);
-  EXPECT_THAT(R, EigenMatrixNear(Eigen::Matrix3d(Eigen::Matrix3d::Identity()), 1e-6));
+  EXPECT_THAT(
+      R, EigenMatrixNear(Eigen::Matrix3d(Eigen::Matrix3d::Identity()), 1e-6));
   EXPECT_NEAR(YAxisAngleFromRotation(R), 0.0, 1e-6);
 
   R = RotationFromYAxisAngle(M_PI / 2);
-  EXPECT_THAT(Eigen::Vector3d(R * Eigen::Vector3d::UnitX()),
-              EigenMatrixNear(Eigen::Vector3d(-Eigen::Vector3d::UnitZ()), 1e-6));
+  EXPECT_THAT(
+      Eigen::Vector3d(R * Eigen::Vector3d::UnitX()),
+      EigenMatrixNear(Eigen::Vector3d(-Eigen::Vector3d::UnitZ()), 1e-6));
 }
 
 }  // namespace
