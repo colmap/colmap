@@ -104,6 +104,11 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
     // Create a temporary reconstruction for trivial rotation averaging
     colmap::Reconstruction recon_trivial;
 
+    // Add all cameras first (required before adding rigs)
+    for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
+      recon_trivial.AddCamera(camera);
+    }
+
     // For cameras with known cam_from_rig, create rigs with only those sensors.
     std::unordered_map<camera_t, rig_t> camera_id_to_rig_id;
     for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
@@ -167,17 +172,26 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
         image_trivial.SetImageId(image.ImageId());
         image_trivial.SetCameraId(image.CameraId());
         image_trivial.SetName(image.Name());
-        recon_trivial.AddImage(image_trivial);
 
-        Image& img_ref = recon_trivial.Image(image.ImageId());
-        if (unknown_cams_from_rig.count(img_ref.CameraId()) == 0) {
-          frame_trivial.AddDataId(img_ref.DataId());
-          img_ref.SetFrameId(frame_id);
-          img_ref.SetFramePtr(&frame_trivial);
+        if (unknown_cams_from_rig.count(image.CameraId()) == 0) {
+          // Image belongs to the existing frame
+          frame_trivial.AddDataId(image_trivial.DataId());
+          image_trivial.SetFrameId(frame_id);
+          recon_trivial.AddImage(std::move(image_trivial));
         } else {
-          // If cam_from_rig is unknown, then create a trivial frame.
-          colmap::CreateFrameForImage(img_ref, kUnknownPose, recon_trivial);
-          img_ref.SetFramePtr(&recon_trivial.Frame(img_ref.ImageId()));
+          // If cam_from_rig is unknown, create a trivial frame with the correct
+          // rig_id (not camera_id, since we created separate rigs for these)
+          const frame_t new_frame_id = ++max_frame_id;
+          const rig_t rig_id = camera_id_to_rig_id.at(image.CameraId());
+          Frame new_frame;
+          new_frame.SetFrameId(new_frame_id);
+          new_frame.SetRigId(rig_id);
+          new_frame.AddDataId(image_trivial.DataId());
+          new_frame.SetRigFromWorld(kUnknownPose);
+          recon_trivial.AddFrame(new_frame);
+
+          image_trivial.SetFrameId(new_frame_id);
+          recon_trivial.AddImage(std::move(image_trivial));
         }
       }
     }

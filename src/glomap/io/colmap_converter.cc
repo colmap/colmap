@@ -4,52 +4,6 @@
 
 namespace glomap {
 
-namespace {
-
-// Helper to create a trivial rig for a camera if it's not already in a rig.
-void EnsureCameraHasRig(colmap::Reconstruction& reconstruction,
-                        camera_t camera_id,
-                        std::unordered_map<camera_t, rig_t>& camera_to_rig,
-                        rig_t& max_rig_id) {
-  if (camera_to_rig.find(camera_id) != camera_to_rig.end()) {
-    return;  // Camera already has a rig
-  }
-
-  // Create a new trivial rig for this camera
-  Rig rig;
-  rig.SetRigId(++max_rig_id);
-  rig.AddRefSensor(reconstruction.Camera(camera_id).SensorId());
-  reconstruction.AddRig(rig);
-  camera_to_rig[camera_id] = rig.RigId();
-}
-
-// Helper to create a trivial frame for an image if it doesn't have one.
-void EnsureImageHasFrame(
-    colmap::Reconstruction& reconstruction,
-    image_t image_id,
-    const std::unordered_map<camera_t, rig_t>& camera_to_rig,
-    frame_t& max_frame_id) {
-  Image& image = reconstruction.Image(image_id);
-  if (image.FrameId() != colmap::kInvalidFrameId) {
-    return;  // Image already has a frame
-  }
-
-  frame_t frame_id = ++max_frame_id;
-  rig_t rig_id = camera_to_rig.at(image.CameraId());
-
-  Frame frame;
-  frame.SetFrameId(frame_id);
-  frame.SetRigId(rig_id);
-  frame.AddDataId(image.DataId());
-  frame.SetRigFromWorld(Rigid3d());
-  reconstruction.AddFrame(frame);
-
-  image.SetFrameId(frame_id);
-  image.SetFramePtr(&reconstruction.Frame(frame_id));
-}
-
-}  // namespace
-
 void ConvertDatabaseToGlomap(const colmap::Database& database,
                              colmap::Reconstruction& reconstruction,
                              ViewGraph& view_graph) {
@@ -82,11 +36,19 @@ void ConvertDatabaseToGlomap(const colmap::Database& database,
 
   // Create trivial rigs for cameras not in any rig
   for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
-    EnsureCameraHasRig(reconstruction, camera_id, camera_to_rig, max_rig_id);
+    if (camera_to_rig.find(camera_id) != camera_to_rig.end()) {
+      continue;  // Camera already has a rig
+    }
+    Rig rig;
+    rig.SetRigId(++max_rig_id);
+    rig.AddRefSensor(camera.SensorId());
+    reconstruction.AddRig(rig);
+    camera_to_rig[camera_id] = rig.RigId();
   }
 
-  // Add all images
-  for (auto& image : database.ReadAllImages()) {
+  // Read all images from database (but don't add to reconstruction yet)
+  std::vector<Image> images = database.ReadAllImages();
+  for (auto& image : images) {
     const colmap::FeatureKeypoints keypoints =
         database.ReadKeypoints(image.ImageId());
     const colmap::point2D_t num_points2D = keypoints.size();
@@ -96,13 +58,9 @@ void ConvertDatabaseToGlomap(const colmap::Database& database,
       image.Point2D(point2D_idx).xy =
           Eigen::Vector2d(keypoints[point2D_idx].x, keypoints[point2D_idx].y);
     }
-
-    reconstruction.AddImage(std::move(image));
   }
 
-  LOG(INFO) << "Read " << reconstruction.NumImages() << " images";
-
-  // Add all frames from database
+  // Add all frames from database first (before adding images)
   frame_t max_frame_id = 0;
   for (auto& frame : database.ReadAllFrames()) {
     frame_t frame_id = frame.FrameId();
@@ -115,29 +73,38 @@ void ConvertDatabaseToGlomap(const colmap::Database& database,
     glomap_frame.SetRigFromWorld(Rigid3d());
 
     for (auto data_id : frame.ImageIds()) {
-      image_t image_id = data_id.id;
       glomap_frame.AddDataId(data_id);
-
-      if (reconstruction.ExistsImage(image_id)) {
-        reconstruction.Image(image_id).SetFrameId(frame_id);
-      }
     }
 
     reconstruction.AddFrame(glomap_frame);
+  }
 
-    for (auto data_id : frame.ImageIds()) {
-      image_t image_id = data_id.id;
-      if (reconstruction.ExistsImage(image_id)) {
-        reconstruction.Image(image_id).SetFramePtr(
-            &reconstruction.Frame(frame_id));
-      }
+  // Create trivial frames for images that don't have a frame in the database
+  for (auto& image : images) {
+    if (image.HasFrameId() && reconstruction.ExistsFrame(image.FrameId())) {
+      continue;  // Image already has a valid frame
     }
+
+    frame_t frame_id = ++max_frame_id;
+    rig_t rig_id = camera_to_rig.at(image.CameraId());
+
+    Frame frame;
+    frame.SetFrameId(frame_id);
+    frame.SetRigId(rig_id);
+    frame.AddDataId(image.DataId());
+    frame.SetRigFromWorld(Rigid3d());
+    reconstruction.AddFrame(frame);
+
+    image.SetFrameId(frame_id);
   }
 
-  // Create trivial frames for images without frames
-  for (auto& [image_id, image] : reconstruction.Images()) {
-    EnsureImageHasFrame(reconstruction, image_id, camera_to_rig, max_frame_id);
+  // Now add all images to reconstruction (frames already exist)
+  // Note: AddImage also sets the frame pointer automatically
+  for (auto& image : images) {
+    reconstruction.AddImage(std::move(image));
   }
+
+  LOG(INFO) << "Read " << reconstruction.NumImages() << " images";
 
   // Build view graph from matches
   std::vector<std::pair<colmap::image_pair_t, colmap::FeatureMatches>>
