@@ -248,7 +248,7 @@ TEST(AverageUnitVectors, Nominal) {
   EXPECT_EQ(avg.size(), 3);
   EXPECT_NEAR(avg.norm(), 1.0, 1e-6);
 
-  std::vector<double> weights = {3.0, 1.0};
+  Eigen::Vector2d weights(3.0, 1.0);
   avg = AverageUnitVectors(vectors, weights);
   EXPECT_GT(avg(0), avg(1));
 
