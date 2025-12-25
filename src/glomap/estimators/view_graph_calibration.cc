@@ -88,18 +88,18 @@ void ViewGraphCalibrator::AddImagePair(
 
   if (camera_id1 == camera_id2) {
     problem_->AddResidualBlock(
-        FetzerFocalLengthSameCameraCost::Create(
+        FetzerFocalLengthSameCameraCostFunctor::Create(
             image_pair.F, cameras.at(camera_id1).PrincipalPoint()),
         loss_function_.get(),
         &(focals_[camera_id1]));
   } else {
-    problem_->AddResidualBlock(
-        FetzerFocalLengthCost::Create(image_pair.F,
-                                      cameras.at(camera_id1).PrincipalPoint(),
-                                      cameras.at(camera_id2).PrincipalPoint()),
-        loss_function_.get(),
-        &(focals_[camera_id1]),
-        &(focals_[camera_id2]));
+    problem_->AddResidualBlock(FetzerFocalLengthCostFunctor::Create(
+                                   image_pair.F,
+                                   cameras.at(camera_id1).PrincipalPoint(),
+                                   cameras.at(camera_id2).PrincipalPoint()),
+                               loss_function_.get(),
+                               &(focals_[camera_id1]),
+                               &(focals_[camera_id2]));
   }
 }
 
