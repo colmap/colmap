@@ -547,7 +547,8 @@ void GlobalPositioner::ConvertBackResults(
       if (!rig.HasSensor(sensor_id)) {
         continue;
       }
-      Rigid3d& sensor_from_rig = reconstruction.Rig(rig_id).SensorFromRig(sensor_id);
+      Rigid3d& sensor_from_rig =
+          reconstruction.Rig(rig_id).SensorFromRig(sensor_id);
       sensor_from_rig.translation = sensor_from_rig.rotation * -center;
       break;
     }

@@ -116,8 +116,9 @@ class GlobalPositioner {
 
   std::unordered_map<rig_t, double> rig_scales_;
 
-  // Temporary storage for frame centers (world coordinates) during optimization.
-  // This allows keeping RigFromWorld().translation in cam_from_world convention.
+  // Temporary storage for frame centers (world coordinates) during
+  // optimization. This allows keeping RigFromWorld().translation in
+  // cam_from_world convention.
   std::unordered_map<frame_t, Eigen::Vector3d> frame_centers_;
 
   // Temporary storage for camera-in-rig positions when cam_from_rig is unknown
