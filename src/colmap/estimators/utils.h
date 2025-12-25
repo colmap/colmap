@@ -56,6 +56,17 @@ void CenterAndNormalizeImagePoints(const std::vector<Eigen::Vector2d>& points,
                                    std::vector<Eigen::Vector2d>* normed_points,
                                    Eigen::Matrix3d* normed_from_orig);
 
+// Calculate the squared Sampson error for a single point pair and a given
+// fundamental or essential matrix.
+//
+// @param ray1        First point/ray in homogeneous coordinates.
+// @param ray2        Second point/ray in homogeneous coordinates.
+// @param E           3x3 fundamental or essential matrix.
+// @return            Squared Sampson error.
+double ComputeSquaredSampsonError(const Eigen::Vector3d& ray1,
+                                  const Eigen::Vector3d& ray2,
+                                  const Eigen::Matrix3d& E);
+
 // Calculate the residuals of a set of corresponding points and a given
 // fundamental or essential matrix.
 //
@@ -73,5 +84,16 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& rays1,
                                 const std::vector<Eigen::Vector3d>& rays2,
                                 const Eigen::Matrix3d& E,
                                 std::vector<double>* residuals);
+
+// Calculate the squared reprojection error for a single point pair under
+// a homography transformation.
+//
+// @param point1      First point.
+// @param point2      Second point.
+// @param H           3x3 homography matrix.
+// @return            Squared reprojection error.
+double ComputeSquaredHomographyError(const Eigen::Vector2d& point1,
+                                     const Eigen::Vector2d& point2,
+                                     const Eigen::Matrix3d& H);
 
 }  // namespace colmap

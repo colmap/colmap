@@ -34,7 +34,6 @@ COLMAP_ADD_LIBRARY(
     SRCS
         gravity.h gravity.cc
         tree.h tree.cc
-        two_view_geometry.h two_view_geometry.cc
     PUBLIC_LINK_LIBS
         colmap_math
         colmap_util
