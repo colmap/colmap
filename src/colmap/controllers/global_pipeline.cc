@@ -31,7 +31,7 @@
 
 #include "colmap/util/timer.h"
 
-#include "glomap/io/colmap_converter.h"
+#include "glomap/io/colmap_io.h"
 #include "glomap/sfm/global_mapper.h"
 
 namespace colmap {
@@ -51,7 +51,7 @@ void GlobalPipeline::Run() {
 
   glomap::ViewGraph view_graph;
   Reconstruction reconstruction;
-  glomap::ConvertDatabaseToGlomap(*database, reconstruction, view_graph);
+  glomap::InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
   std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
 
   if (view_graph.image_pairs.empty()) {
@@ -91,8 +91,8 @@ void GlobalPipeline::Run() {
                 << max_cluster_id + 1 << std::flush;
       Reconstruction& output_reconstruction =
           *reconstruction_manager_->Get(reconstruction_manager_->Add());
-      output_reconstruction =
-          glomap::ExtractCluster(reconstruction, cluster_ids, comp);
+      output_reconstruction = glomap::SubReconstructionByClusterId(
+          reconstruction, cluster_ids, comp);
       // Read in colors
       if (image_path_ != "") {
         output_reconstruction.ExtractColorsForAllImages(image_path_);

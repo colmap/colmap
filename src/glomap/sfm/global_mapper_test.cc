@@ -4,7 +4,6 @@
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
-#include "glomap/io/colmap_converter.h"
 #include "glomap/io/colmap_io.h"
 
 #include <gtest/gtest.h>
@@ -43,7 +42,7 @@ TEST(GlobalMapper, WithoutNoise) {
   colmap::Reconstruction reconstruction;
   std::vector<colmap::PosePrior> pose_priors;
 
-  ConvertDatabaseToGlomap(*database, reconstruction, view_graph);
+  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
 
   GlobalMapper global_mapper(CreateTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
@@ -76,7 +75,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
   colmap::Reconstruction reconstruction;
   std::vector<colmap::PosePrior> pose_priors;
 
-  ConvertDatabaseToGlomap(*database, reconstruction, view_graph);
+  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
 
   GlobalMapper global_mapper(CreateTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
@@ -110,7 +109,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
   colmap::Reconstruction reconstruction;
   std::vector<colmap::PosePrior> pose_priors;
 
-  ConvertDatabaseToGlomap(*database, reconstruction, view_graph);
+  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
 
   // Set the rig sensors to be unknown
   for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
@@ -154,7 +153,7 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
   colmap::Reconstruction reconstruction;
   std::vector<colmap::PosePrior> pose_priors;
 
-  ConvertDatabaseToGlomap(*database, reconstruction, view_graph);
+  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
 
   GlobalMapper global_mapper(CreateTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;

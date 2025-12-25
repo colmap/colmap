@@ -3,7 +3,7 @@
 #include "colmap/scene/reconstruction_io_utils.h"
 
 #include "glomap/estimators/rotation_initializer.h"
-#include "glomap/io/colmap_converter.h"
+#include "glomap/io/colmap_io.h"
 
 namespace glomap {
 

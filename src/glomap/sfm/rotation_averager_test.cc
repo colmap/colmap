@@ -6,7 +6,7 @@
 #include "colmap/util/testing.h"
 
 #include "glomap/estimators/gravity_refinement.h"
-#include "glomap/io/colmap_converter.h"
+#include "glomap/io/colmap_io.h"
 #include "glomap/sfm/global_mapper.h"
 
 #include <gtest/gtest.h>
@@ -113,7 +113,7 @@ TEST(RotationEstimator, WithoutNoise) {
   colmap::Reconstruction reconstruction;
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
-  ConvertDatabaseToGlomap(*database, reconstruction, view_graph);
+  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
@@ -157,7 +157,7 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialKnownRig) {
   colmap::Reconstruction reconstruction;
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
-  ConvertDatabaseToGlomap(*database, reconstruction, view_graph);
+  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
@@ -199,7 +199,7 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialUnknownRig) {
   colmap::Reconstruction reconstruction;
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
-  ConvertDatabaseToGlomap(*database, reconstruction, view_graph);
+  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
 
   for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
     for (const auto& [sensor_id, sensor] : rig.NonRefSensors()) {
@@ -256,7 +256,7 @@ TEST(RotationEstimator, WithNoiseAndOutliers) {
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
   SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
-  ConvertDatabaseToGlomap(*database, reconstruction, view_graph);
+  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
@@ -305,7 +305,7 @@ TEST(RotationEstimator, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
   SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
-  ConvertDatabaseToGlomap(*database, reconstruction, view_graph);
+  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
@@ -348,7 +348,7 @@ TEST(RotationEstimator, RefineGravity) {
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
   SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
-  ConvertDatabaseToGlomap(*database, reconstruction, view_graph);
+  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
@@ -386,7 +386,7 @@ TEST(RotationEstimator, RefineGravityWithNonTrivialRigs) {
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
   SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
-  ConvertDatabaseToGlomap(*database, reconstruction, view_graph);
+  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;

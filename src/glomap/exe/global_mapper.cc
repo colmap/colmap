@@ -5,7 +5,6 @@
 #include "colmap/util/timer.h"
 
 #include "glomap/controllers/option_manager.h"
-#include "glomap/io/colmap_converter.h"
 #include "glomap/io/colmap_io.h"
 
 namespace glomap {
@@ -65,7 +64,7 @@ int RunGlobalMapper(int argc, char** argv) {
 
   colmap::Reconstruction reconstruction;
   ViewGraph view_graph;
-  ConvertDatabaseToGlomap(*database, reconstruction, view_graph);
+  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
 
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
@@ -88,7 +87,7 @@ int RunGlobalMapper(int argc, char** argv) {
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 
-  WriteGlomapReconstruction(
+  WriteReconstructionsByClusters(
       output_path, reconstruction, cluster_ids, output_format, image_path);
   LOG(INFO) << "Export to COLMAP reconstruction done";
 
@@ -146,7 +145,7 @@ int RunGlobalMapperResume(int argc, char** argv) {
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 
-  WriteGlomapReconstruction(
+  WriteReconstructionsByClusters(
       output_path, reconstruction, cluster_ids, output_format, image_path);
   LOG(INFO) << "Export to COLMAP reconstruction done";
 
