@@ -10,11 +10,13 @@ namespace glomap {
 // The second column of the output matrix is the gravity direction.
 Eigen::Matrix3d RotationFromGravity(const Eigen::Vector3d& gravity);
 
-// Extract yaw angle from a gravity-aligned rotation matrix.
-double YawFromRotation(const Eigen::Matrix3d& rotation);
+// Extract yaw angle (rotation about Y-axis) from a gravity-aligned rotation
+// matrix, i.e., a rotation where gravity is aligned with the Y axis.
+double YAxisAngleFromRotation(const Eigen::Matrix3d& rotation);
 
-// Construct rotation matrix from yaw angle (rotation about Y-axis).
-Eigen::Matrix3d RotationFromYaw(double yaw);
+// Construct gravity-aligned rotation matrix from yaw angle, i.e., a rotation
+// about the Y-axis (gravity direction).
+Eigen::Matrix3d RotationFromYAxisAngle(double angle);
 
 // Compute the average direction from normalized gravity direction vectors.
 Eigen::Vector3d AverageGravityDirection(

@@ -265,9 +265,9 @@ void RotationEstimator::SetupLinearSystem(
     const Eigen::Vector3d* frame_gravity =
         GetFrameGravityOrNull(frame_to_pose_prior, frame_id);
     if (options_.use_gravity && frame_gravity != nullptr) {
-      rotation_estimated_[num_dof] =
-          YawFromRotation(RotationFromGravity(*frame_gravity).transpose() *
-                          frame.RigFromWorld().rotation.toRotationMatrix());
+      rotation_estimated_[num_dof] = YAxisAngleFromRotation(
+          RotationFromGravity(*frame_gravity).transpose() *
+          frame.RigFromWorld().rotation.toRotationMatrix());
       num_dof++;
 
       if (fixed_image_id_ == -1) {
@@ -745,7 +745,8 @@ void RotationEstimator::UpdateGlobalRotations(
       R_ori = colmap::AngleAxisToRotationMatrix(
           rotation_estimated_.segment(frame_id_to_idx_[frame_id], 3));
     } else {
-      R_ori = RotationFromYaw(rotation_estimated_[frame_id_to_idx_[frame_id]]);
+      R_ori = RotationFromYAxisAngle(
+          rotation_estimated_[frame_id_to_idx_[frame_id]]);
     }
 
     // Update the cam_from_rig for the cameras in the frame
@@ -811,14 +812,16 @@ void RotationEstimator::ComputeResiduals(
           GetFrameGravityOrNull(frame_to_pose_prior, image2.FrameId());
 
       if (options_.use_gravity && frame_gravity1 != nullptr) {
-        R_1 = RotationFromYaw(rotation_estimated_[image_id_to_idx_[image_id1]]);
+        R_1 = RotationFromYAxisAngle(
+            rotation_estimated_[image_id_to_idx_[image_id1]]);
       } else {
         R_1 = colmap::AngleAxisToRotationMatrix(
             rotation_estimated_.segment(image_id_to_idx_[image_id1], 3));
       }
 
       if (options_.use_gravity && frame_gravity2 != nullptr) {
-        R_2 = RotationFromYaw(rotation_estimated_[image_id_to_idx_[image_id2]]);
+        R_2 = RotationFromYAxisAngle(
+            rotation_estimated_[image_id_to_idx_[image_id2]]);
       } else {
         R_2 = colmap::AngleAxisToRotationMatrix(
             rotation_estimated_.segment(image_id_to_idx_[image_id2], 3));
@@ -903,7 +906,7 @@ void RotationEstimator::ConvertResults(
       frame.SetRigFromWorld(Rigid3d(
           Eigen::Quaterniond(
               RotationFromGravity(pose_prior_it->second->gravity) *
-              RotationFromYaw(
+              RotationFromYAxisAngle(
                   rotation_estimated_[image_id_to_idx_[image_id_begin]])),
           Eigen::Vector3d::Zero()));
     } else {

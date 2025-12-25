@@ -24,12 +24,12 @@ Eigen::Matrix3d RotationFromGravity(const Eigen::Vector3d& gravity) {
   return R;
 }
 
-double YawFromRotation(const Eigen::Matrix3d& rotation) {
+double YAxisAngleFromRotation(const Eigen::Matrix3d& rotation) {
   return colmap::RotationMatrixToAngleAxis(rotation)[1];
 }
 
-Eigen::Matrix3d RotationFromYaw(double yaw) {
-  return colmap::AngleAxisToRotationMatrix(Eigen::Vector3d(0, yaw, 0));
+Eigen::Matrix3d RotationFromYAxisAngle(double angle) {
+  return colmap::AngleAxisToRotationMatrix(Eigen::Vector3d(0, angle, 0));
 }
 
 Eigen::Vector3d AverageGravityDirection(

@@ -204,7 +204,8 @@ void GravityRefiner::IdentifyErrorProneGravity(
         image_pair.cam2_from_cam1.rotation.toRotationMatrix() *
         RotationFromGravity(*image_gravity1);
     // Convert it to the closest upright rotation
-    const Eigen::Matrix3d R_rel_up = RotationFromYaw(YawFromRotation(R_rel));
+    const Eigen::Matrix3d R_rel_up =
+        RotationFromYAxisAngle(YAxisAngleFromRotation(R_rel));
 
     // increment the total count
     frame_counter[image1.FrameId()].second++;
