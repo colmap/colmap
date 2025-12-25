@@ -68,13 +68,15 @@ void GlobalPipeline::Run() {
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 
-  int largest_component_num = -1;
+  int max_cluster_id = -1;
   for (const auto& [frame_id, cluster_id] : cluster_ids) {
-    if (cluster_id > largest_component_num) largest_component_num = cluster_id;
+    if (cluster_id > max_cluster_id) {
+      max_cluster_id = cluster_id;
+    }
   }
 
   // If it is not separated into several clusters, then output them as whole.
-  if (largest_component_num == -1) {
+  if (max_cluster_id == -1) {
     Reconstruction& output_reconstruction =
         *reconstruction_manager_->Get(reconstruction_manager_->Add());
     output_reconstruction = std::move(reconstruction);
@@ -84,9 +86,9 @@ void GlobalPipeline::Run() {
       output_reconstruction.ExtractColorsForAllImages(image_path_);
     }
   } else {
-    for (int comp = 0; comp <= largest_component_num; comp++) {
+    for (int comp = 0; comp <= max_cluster_id; comp++) {
       std::cout << "\r Exporting reconstruction " << comp + 1 << " / "
-                << largest_component_num + 1 << std::flush;
+                << max_cluster_id + 1 << std::flush;
       Reconstruction& output_reconstruction =
           *reconstruction_manager_->Get(reconstruction_manager_->Add());
       output_reconstruction =
