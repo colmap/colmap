@@ -1,9 +1,10 @@
 #pragma once
+
 #include "colmap/scene/database.h"
-#include "colmap/scene/image.h"
 #include "colmap/scene/reconstruction.h"
 
-#include "glomap/scene/types_sfm.h"
+#include "glomap/scene/frame.h"
+#include "glomap/scene/view_graph.h"
 
 namespace glomap {
 

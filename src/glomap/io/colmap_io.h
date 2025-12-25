@@ -1,7 +1,6 @@
 #pragma once
 
 #include "glomap/io/colmap_converter.h"
-#include "glomap/scene/types_sfm.h"
 
 namespace glomap {
 
