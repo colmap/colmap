@@ -36,13 +36,13 @@
 namespace glomap {
 namespace {
 
-TEST(BATAPairwiseDirectionError, ZeroResidual) {
+TEST(BATAPairwiseDirectionCostFunctor, ZeroResidual) {
   const Eigen::Vector3d pos1(1, 2, 3);
   const Eigen::Vector3d pos2(2, 3, 4);
   const double scale = 1.0;
   const Eigen::Vector3d direction = pos2 - pos1;
 
-  BATAPairwiseDirectionError cost_function(direction);
+  BATAPairwiseDirectionCostFunctor cost_function(direction);
 
   Eigen::Vector3d residuals;
   EXPECT_TRUE(
@@ -52,13 +52,13 @@ TEST(BATAPairwiseDirectionError, ZeroResidual) {
               colmap::EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
 }
 
-TEST(BATAPairwiseDirectionError, NonZeroResidual) {
+TEST(BATAPairwiseDirectionCostFunctor, NonZeroResidual) {
   const Eigen::Vector3d pos1(1, 2, 3);
   const Eigen::Vector3d pos2(4, 5, 6);
   const double scale = 2.0;
   const Eigen::Vector3d direction(1, 1, 1);
 
-  BATAPairwiseDirectionError cost_function(direction);
+  BATAPairwiseDirectionCostFunctor cost_function(direction);
 
   Eigen::Vector3d residuals;
   EXPECT_TRUE(
@@ -68,13 +68,13 @@ TEST(BATAPairwiseDirectionError, NonZeroResidual) {
   EXPECT_THAT(residuals, colmap::EigenMatrixNear(expected_residuals, 1e-10));
 }
 
-TEST(BATAPairwiseDirectionError, DifferentScale) {
+TEST(BATAPairwiseDirectionCostFunctor, DifferentScale) {
   const Eigen::Vector3d pos1(1, 2, 3);
   const Eigen::Vector3d pos2(2, 4, 6);
   const double scale = 0.5;
   const Eigen::Vector3d direction = scale * (pos2 - pos1);
 
-  BATAPairwiseDirectionError cost_function(direction);
+  BATAPairwiseDirectionCostFunctor cost_function(direction);
 
   Eigen::Vector3d residuals;
   EXPECT_TRUE(
@@ -84,14 +84,14 @@ TEST(BATAPairwiseDirectionError, DifferentScale) {
               colmap::EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
 }
 
-TEST(BATAPairwiseDirectionError, CreateCostFunction) {
+TEST(BATAPairwiseDirectionCostFunctor, CreateCostFunction) {
   const Eigen::Vector3d direction(1, 0, 0);
   std::unique_ptr<ceres::CostFunction> cost_function(
-      BATAPairwiseDirectionError::Create(direction));
+      BATAPairwiseDirectionCostFunctor::Create(direction));
   ASSERT_NE(cost_function, nullptr);
 }
 
-TEST(RigBATAPairwiseDirectionError, ZeroResidual) {
+TEST(RigBATAPairwiseDirectionCostFunctor, ZeroResidual) {
   const Eigen::Vector3d point3D(1, 2, 3);
   const Eigen::Vector3d rig_in_world(3, 2, 1);
   const double scale = 1.5;
@@ -100,8 +100,8 @@ TEST(RigBATAPairwiseDirectionError, ZeroResidual) {
   const Eigen::Vector3d cam_from_point3D_dir =
       scale * (point3D - rig_in_world + rig_scale * cam_from_rig_dir);
 
-  RigBATAPairwiseDirectionError cost_function(cam_from_point3D_dir,
-                                              cam_from_rig_dir);
+  RigBATAPairwiseDirectionCostFunctor cost_function(cam_from_point3D_dir,
+                                                    cam_from_rig_dir);
 
   Eigen::Vector3d residuals;
   EXPECT_TRUE(cost_function(point3D.data(),
@@ -114,7 +114,7 @@ TEST(RigBATAPairwiseDirectionError, ZeroResidual) {
               colmap::EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
 }
 
-TEST(RigBATAPairwiseDirectionError, NonZeroResidual) {
+TEST(RigBATAPairwiseDirectionCostFunctor, NonZeroResidual) {
   const Eigen::Vector3d point3D(3, 4, 5);
   const Eigen::Vector3d rig_in_world(1, 2, 3);
   const double scale = 2.0;
@@ -122,8 +122,8 @@ TEST(RigBATAPairwiseDirectionError, NonZeroResidual) {
   const Eigen::Vector3d cam_from_rig_dir(0.1, 0.2, 0.3);
   const Eigen::Vector3d cam_from_point3D_dir(1, 1, 1);
 
-  RigBATAPairwiseDirectionError cost_function(cam_from_point3D_dir,
-                                              cam_from_rig_dir);
+  RigBATAPairwiseDirectionCostFunctor cost_function(cam_from_point3D_dir,
+                                                    cam_from_rig_dir);
 
   Eigen::Vector3d residuals;
   EXPECT_TRUE(cost_function(point3D.data(),
@@ -138,16 +138,16 @@ TEST(RigBATAPairwiseDirectionError, NonZeroResidual) {
   EXPECT_THAT(residuals, colmap::EigenMatrixNear(expected_residuals, 1e-10));
 }
 
-TEST(RigBATAPairwiseDirectionError, CreateCostFunction) {
+TEST(RigBATAPairwiseDirectionCostFunctor, CreateCostFunction) {
   const Eigen::Vector3d cam_from_point3D_dir(1, 0, 0);
   const Eigen::Vector3d cam_from_rig_dir(0, 1, 0);
   std::unique_ptr<ceres::CostFunction> cost_function(
-      RigBATAPairwiseDirectionError::Create(cam_from_point3D_dir,
-                                            cam_from_rig_dir));
+      RigBATAPairwiseDirectionCostFunctor::Create(cam_from_point3D_dir,
+                                                  cam_from_rig_dir));
   ASSERT_NE(cost_function, nullptr);
 }
 
-TEST(RigUnknownBATAPairwiseDirectionError, ZeroResidual) {
+TEST(RigUnknownBATAPairwiseDirectionCostFunctor, ZeroResidual) {
   const Eigen::Vector3d point3D(5, 5, 5);
   const Eigen::Vector3d rig_in_world(1, 1, 1);
   const Eigen::Vector3d cam_in_rig(0.5, 0.5, 0.5);
@@ -158,8 +158,8 @@ TEST(RigUnknownBATAPairwiseDirectionError, ZeroResidual) {
   const Eigen::Vector3d cam_from_point3D_dir =
       scale * (point3D - rig_in_world - cam_from_rig_dir);
 
-  RigUnknownBATAPairwiseDirectionError cost_function(cam_from_point3D_dir,
-                                                     rig_from_world_rot);
+  RigUnknownBATAPairwiseDirectionCostFunctor cost_function(cam_from_point3D_dir,
+                                                           rig_from_world_rot);
 
   Eigen::Vector3d residuals;
   EXPECT_TRUE(cost_function(point3D.data(),
@@ -172,7 +172,7 @@ TEST(RigUnknownBATAPairwiseDirectionError, ZeroResidual) {
               colmap::EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
 }
 
-TEST(RigUnknownBATAPairwiseDirectionError, NonZeroResidual) {
+TEST(RigUnknownBATAPairwiseDirectionCostFunctor, NonZeroResidual) {
   const Eigen::Vector3d point3D(3, 4, 5);
   const Eigen::Vector3d rig_in_world(1, 2, 3);
   const Eigen::Vector3d cam_in_rig(0.2, 0.3, 0.4);
@@ -181,8 +181,8 @@ TEST(RigUnknownBATAPairwiseDirectionError, NonZeroResidual) {
       Eigen::Quaterniond(0.707, 0.707, 0, 0).normalized();
   const Eigen::Vector3d cam_from_point3D_dir(1, 1, 1);
 
-  RigUnknownBATAPairwiseDirectionError cost_function(cam_from_point3D_dir,
-                                                     rig_from_world_rot);
+  RigUnknownBATAPairwiseDirectionCostFunctor cost_function(cam_from_point3D_dir,
+                                                           rig_from_world_rot);
 
   Eigen::Vector3d residuals;
   EXPECT_TRUE(cost_function(point3D.data(),
@@ -199,46 +199,46 @@ TEST(RigUnknownBATAPairwiseDirectionError, NonZeroResidual) {
   EXPECT_THAT(residuals, colmap::EigenMatrixNear(expected_residuals, 1e-10));
 }
 
-TEST(RigUnknownBATAPairwiseDirectionError, CreateCostFunction) {
+TEST(RigUnknownBATAPairwiseDirectionCostFunctor, CreateCostFunction) {
   const Eigen::Vector3d cam_from_point3D_dir(1, 0, 0);
   const Eigen::Quaterniond rig_from_world_rot = Eigen::Quaterniond::Identity();
   std::unique_ptr<ceres::CostFunction> cost_function(
-      RigUnknownBATAPairwiseDirectionError::Create(cam_from_point3D_dir,
-                                                   rig_from_world_rot));
+      RigUnknownBATAPairwiseDirectionCostFunctor::Create(cam_from_point3D_dir,
+                                                         rig_from_world_rot));
   ASSERT_NE(cost_function, nullptr);
 }
 
-// TODO(jsch): Add meaningful tests for FetzerFocalLengthCost.
+// TODO(jsch): Add meaningful tests for FetzerFocalLengthCostFunctor.
 
-TEST(FetzerFocalLengthCost, CreateCostFunction) {
+TEST(FetzerFocalLengthCostFunctor, CreateCostFunction) {
   Eigen::Matrix3d F;
   F << 0, 0, 0.1, 0, 0, 0.2, -0.1, -0.2, 0;
   const Eigen::Vector2d pp0(320, 240);
   const Eigen::Vector2d pp1(320, 240);
 
   std::unique_ptr<ceres::CostFunction> cost_function(
-      FetzerFocalLengthCost::Create(F, pp0, pp1));
+      FetzerFocalLengthCostFunctor::Create(F, pp0, pp1));
   ASSERT_NE(cost_function, nullptr);
 }
 
-// TODO(jsch): Add meaningful tests for FetzerFocalLengthSameCameraCost.
+// TODO(jsch): Add meaningful tests for FetzerFocalLengthSameCameraCostFunctor.
 
-TEST(FetzerFocalLengthSameCameraCost, CreateCostFunction) {
+TEST(FetzerFocalLengthSameCameraCostFunctor, CreateCostFunction) {
   Eigen::Matrix3d F;
   F << 0, 0, 0.1, 0, 0, 0.2, -0.1, -0.2, 0;
   const Eigen::Vector2d pp(320, 240);
 
   std::unique_ptr<ceres::CostFunction> cost_function(
-      FetzerFocalLengthSameCameraCost::Create(F, pp));
+      FetzerFocalLengthSameCameraCostFunctor::Create(F, pp));
   ASSERT_NE(cost_function, nullptr);
 }
 
-TEST(GravityError, ZeroResidual) {
+TEST(GravityCostFunctor, ZeroResidual) {
   const Eigen::Vector3d measured_gravity =
       Eigen::Vector3d::Random().normalized();
   const Eigen::Vector3d& gravity = measured_gravity;
 
-  GravityError cost_function(measured_gravity);
+  GravityCostFunctor cost_function(measured_gravity);
 
   Eigen::Vector3d residuals;
   EXPECT_TRUE(cost_function(gravity.data(), residuals.data()));
@@ -247,12 +247,12 @@ TEST(GravityError, ZeroResidual) {
               colmap::EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
 }
 
-TEST(GravityError, NonZeroResidual) {
+TEST(GravityCostFunctor, NonZeroResidual) {
   const Eigen::Vector3d measured_gravity =
       Eigen::Vector3d::Random().normalized();
   const Eigen::Vector3d gravity = Eigen::Vector3d::Random().normalized();
 
-  GravityError cost_function(measured_gravity);
+  GravityCostFunctor cost_function(measured_gravity);
 
   Eigen::Vector3d residuals;
   EXPECT_TRUE(cost_function(gravity.data(), residuals.data()));
@@ -261,10 +261,10 @@ TEST(GravityError, NonZeroResidual) {
   EXPECT_THAT(residuals, colmap::EigenMatrixNear(expected_residuals, 1e-10));
 }
 
-TEST(GravityError, CreateCostFunction) {
+TEST(GravityCostFunctor, CreateCostFunction) {
   const Eigen::Vector3d measured_gravity(0, 0, 1);
   std::unique_ptr<ceres::CostFunction> cost_function(
-      GravityError::CreateCost(measured_gravity));
+      GravityCostFunctor::Create(measured_gravity));
   ASSERT_NE(cost_function, nullptr);
 }
 

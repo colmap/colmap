@@ -153,7 +153,7 @@ void GravityRefiner::RefineGravity(
                 .col(1));
       }
 
-      problem.AddResidualBlock(GravityError::CreateCost(gravities[counter]),
+      problem.AddResidualBlock(GravityCostFunctor::Create(gravities[counter]),
                                loss_function_.get(),
                                gravity.data());
       counter++;
