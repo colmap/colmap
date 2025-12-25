@@ -1,6 +1,6 @@
 #pragma once
 
-#include "glomap/scene/frame.h"
+#include "colmap/scene/frame.h"
 #include "glomap/scene/types.h"
 
 namespace glomap {

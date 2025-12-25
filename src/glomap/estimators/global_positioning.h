@@ -4,7 +4,7 @@
 #include "colmap/sensor/models.h"
 
 #include "glomap/estimators/optimization_base.h"
-#include "glomap/scene/frame.h"
+#include "colmap/scene/frame.h"
 #include "glomap/scene/view_graph.h"
 #include "glomap/types.h"
 

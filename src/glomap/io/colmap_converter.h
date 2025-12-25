@@ -3,7 +3,7 @@
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 
-#include "glomap/scene/frame.h"
+#include "colmap/scene/frame.h"
 #include "glomap/scene/view_graph.h"
 
 namespace glomap {
