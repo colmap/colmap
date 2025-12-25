@@ -124,11 +124,10 @@ void PruneWeaklyConnectedImages(std::unordered_map<frame_t, Frame>& frames,
       visibility_graph,
       frames,
       images,
+      cluster_ids,
       ViewGraphManipulater::WEIGHT,
       std::max(median_count - median_count_diff, 20.),
       min_num_images);
-
-  cluster_ids = std::move(visibility_graph.cluster_ids);
 }
 
 }  // namespace glomap
