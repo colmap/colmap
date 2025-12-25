@@ -1,8 +1,8 @@
 #pragma once
 
+#include "colmap/scene/frame.h"
 #include "colmap/sensor/models.h"
 
-#include "colmap/scene/frame.h"
 #include "glomap/scene/view_graph.h"
 
 namespace glomap {
