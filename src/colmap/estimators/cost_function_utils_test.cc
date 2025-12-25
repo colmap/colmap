@@ -29,6 +29,8 @@
 
 #include "colmap/estimators/cost_function_utils.h"
 
+#include "colmap/util/eigen_matchers.h"
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -42,19 +44,17 @@ TEST(NormalPriorCostFunctor, Nominal) {
   ASSERT_NE(cost_function, nullptr);
   EXPECT_EQ(cost_function->num_residuals(), 3);
 
-  double residuals[3];
+  Eigen::Vector3d residuals;
   const double* parameters_zero[1] = {prior.data()};
-  EXPECT_TRUE(cost_function->Evaluate(parameters_zero, residuals, nullptr));
-  EXPECT_NEAR(residuals[0], 0.0, 1e-10);
-  EXPECT_NEAR(residuals[1], 0.0, 1e-10);
-  EXPECT_NEAR(residuals[2], 0.0, 1e-10);
+  EXPECT_TRUE(
+      cost_function->Evaluate(parameters_zero, residuals.data(), nullptr));
+  EXPECT_THAT(residuals, EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
 
   const Eigen::Vector3d param(4, 5, 6);
   const double* parameters[1] = {param.data()};
-  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
-  EXPECT_NEAR(residuals[0], param[0] - prior[0], 1e-10);
-  EXPECT_NEAR(residuals[1], param[1] - prior[1], 1e-10);
-  EXPECT_NEAR(residuals[2], param[2] - prior[2], 1e-10);
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals.data(), nullptr));
+  EXPECT_THAT(residuals,
+              EigenMatrixNear(Eigen::Vector3d(param - prior), 1e-10));
 }
 
 TEST(NormalErrorCostFunctor, Nominal) {
@@ -66,18 +66,16 @@ TEST(NormalErrorCostFunctor, Nominal) {
   ASSERT_NE(cost_function, nullptr);
   EXPECT_EQ(cost_function->num_residuals(), 3);
 
-  double residuals[3];
+  Eigen::Vector3d residuals;
   const double* parameters_zero[2] = {param0.data(), param0.data()};
-  EXPECT_TRUE(cost_function->Evaluate(parameters_zero, residuals, nullptr));
-  EXPECT_NEAR(residuals[0], 0.0, 1e-10);
-  EXPECT_NEAR(residuals[1], 0.0, 1e-10);
-  EXPECT_NEAR(residuals[2], 0.0, 1e-10);
+  EXPECT_TRUE(
+      cost_function->Evaluate(parameters_zero, residuals.data(), nullptr));
+  EXPECT_THAT(residuals, EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
 
   const double* parameters[2] = {param0.data(), param1.data()};
-  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
-  EXPECT_NEAR(residuals[0], param0[0] - param1[0], 1e-10);
-  EXPECT_NEAR(residuals[1], param0[1] - param1[1], 1e-10);
-  EXPECT_NEAR(residuals[2], param0[2] - param1[2], 1e-10);
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals.data(), nullptr));
+  EXPECT_THAT(residuals,
+              EigenMatrixNear(Eigen::Vector3d(param0 - param1), 1e-10));
 }
 
 TEST(CovarianceWeightedCostFunctor, NormalPriorCostFunctor) {
@@ -90,12 +88,14 @@ TEST(CovarianceWeightedCostFunctor, NormalPriorCostFunctor) {
       CovarianceWeightedCostFunctor<NormalPriorCostFunctor<3>>::Create(
           covariance, prior));
 
-  double residuals[3];
+  Eigen::Vector3d residuals;
   const double* parameters[1] = {param.data()};
-  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
-  EXPECT_NEAR(residuals[0], 0.5 * (param[0] - prior[0]), 1e-10);
-  EXPECT_NEAR(residuals[1], 1.0 * (param[1] - prior[1]), 1e-10);
-  EXPECT_NEAR(residuals[2], 1.0 * (param[2] - prior[2]), 1e-10);
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals.data(), nullptr));
+  EXPECT_THAT(residuals,
+              EigenMatrixNear(Eigen::Vector3d(0.5 * (param[0] - prior[0]),
+                                              1.0 * (param[1] - prior[1]),
+                                              1.0 * (param[2] - prior[2])),
+                              1e-10));
 }
 
 TEST(CovarianceWeightedCostFunctor, NormalErrorCostFunctor) {
@@ -108,12 +108,14 @@ TEST(CovarianceWeightedCostFunctor, NormalErrorCostFunctor) {
       CovarianceWeightedCostFunctor<NormalErrorCostFunctor<3>>::Create(
           covariance));
 
-  double residuals[3];
+  Eigen::Vector3d residuals;
   const double* parameters[2] = {param0.data(), param1.data()};
-  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
-  EXPECT_NEAR(residuals[0], 0.5 * (param0[0] - param1[0]), 1e-10);
-  EXPECT_NEAR(residuals[1], 1.0 * (param0[1] - param1[1]), 1e-10);
-  EXPECT_NEAR(residuals[2], 1.0 * (param0[2] - param1[2]), 1e-10);
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals.data(), nullptr));
+  EXPECT_THAT(residuals,
+              EigenMatrixNear(Eigen::Vector3d(0.5 * (param0[0] - param1[0]),
+                                              1.0 * (param0[1] - param1[1]),
+                                              1.0 * (param0[2] - param1[2])),
+                              1e-10));
 }
 
 }  // namespace
