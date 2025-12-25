@@ -30,6 +30,7 @@
 #include "colmap/geometry/pose.h"
 
 #include "colmap/math/math.h"
+#include "colmap/math/random.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/eigen_matchers.h"
 
@@ -302,9 +303,9 @@ TEST(GravityAlignedRotation, Nominal) {
 }
 
 TEST(YAxisAngleFromRotation, Roundtrip) {
+  SetPRNGSeed(0);
   for (int i = 0; i < 100; ++i) {
-    const double angle =
-        (static_cast<double>(rand()) / RAND_MAX - 0.5) * 2 * M_PI;
+    const double angle = RandomUniformReal<double>(-M_PI, M_PI);
     const Eigen::Matrix3d R = RotationFromYAxisAngle(angle);
     const double recovered_angle = YAxisAngleFromRotation(R);
     EXPECT_THAT(RotationFromYAxisAngle(recovered_angle),
