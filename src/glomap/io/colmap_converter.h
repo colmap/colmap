@@ -14,6 +14,7 @@ void ConvertGlomapToColmap(
     const std::unordered_map<image_t, Image>& images,
     const std::unordered_map<point3D_t, Point3D>& tracks,
     colmap::Reconstruction& reconstruction,
+    const std::unordered_map<frame_t, int>& cluster_ids = {},
     int cluster_id = -1,
     bool include_image_points = false);
 

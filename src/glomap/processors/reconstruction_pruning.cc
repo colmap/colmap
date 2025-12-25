@@ -3,12 +3,12 @@
 #include "glomap/processors/view_graph_manipulation.h"
 
 namespace glomap {
-image_t PruneWeaklyConnectedImages(
-    std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, Point3D>& tracks,
-    int min_num_images,
-    int min_num_observations) {
+void PruneWeaklyConnectedImages(std::unordered_map<frame_t, Frame>& frames,
+                                std::unordered_map<image_t, Image>& images,
+                                std::unordered_map<point3D_t, Point3D>& tracks,
+                                std::unordered_map<frame_t, int>& cluster_ids,
+                                int min_num_images,
+                                int min_num_observations) {
   // Prepare the 2d-3d correspondences
   std::unordered_map<image_pair_t, int> pair_covisibility_count;
   std::unordered_map<frame_t, int> frame_observation_count;
@@ -120,7 +120,7 @@ image_t PruneWeaklyConnectedImages(
   LOG(INFO) << "Threshold for Strong Clustering: "
             << median_count - median_count_diff;
 
-  return ViewGraphManipulater::EstablishStrongClusters(
+  ViewGraphManipulater::EstablishStrongClusters(
       visibility_graph,
       frames,
       images,
@@ -128,7 +128,7 @@ image_t PruneWeaklyConnectedImages(
       std::max(median_count - median_count_diff, 20.),
       min_num_images);
 
-  // return visibility_graph.MarkConnectedComponents(images, min_num_images);
+  cluster_ids = std::move(visibility_graph.cluster_ids);
 }
 
 }  // namespace glomap

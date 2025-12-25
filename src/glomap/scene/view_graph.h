@@ -11,6 +11,7 @@ namespace glomap {
 
 struct ViewGraph {
   std::unordered_map<image_pair_t, ImagePair> image_pairs;
+  std::unordered_map<frame_t, int> cluster_ids;
 
   // Create the adjacency list for the images in the view graph.
   std::unordered_map<image_t, std::unordered_set<image_t>>
@@ -29,8 +30,8 @@ struct ViewGraph {
       const std::unordered_map<image_t, Image>& images);
 
   // Mark connected clusters of images, where the cluster_id is sorted by the
-  // the number of images.
-  int MarkConnectedComponents(std::unordered_map<frame_t, Frame>& frames,
+  // the number of images. Populates `cluster_ids` member.
+  int MarkConnectedComponents(const std::unordered_map<frame_t, Frame>& frames,
                               const std::unordered_map<image_t, Image>& images,
                               int min_num_images = -1);
 };
