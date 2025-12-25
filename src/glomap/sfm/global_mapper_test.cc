@@ -5,7 +5,6 @@
 #include "colmap/util/testing.h"
 
 #include "glomap/io/colmap_io.h"
-#include "glomap/types.h"
 
 #include <gtest/gtest.h>
 
