@@ -40,7 +40,7 @@ class GravityRefiner {
       const std::unordered_map<frame_t, Frame>& frames,
       const std::unordered_map<image_t, Image>& images,
       std::unordered_map<image_t, colmap::PosePrior*>& image_to_pose_prior,
-      std::unordered_set<image_t>& error_prone_images);
+      std::unordered_set<frame_t>& error_prone_frames);
   GravityRefinerOptions options_;
   std::shared_ptr<ceres::LossFunction> loss_function_;
 };
