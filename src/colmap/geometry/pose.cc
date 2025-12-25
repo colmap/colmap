@@ -34,9 +34,55 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
-#include <Eigen/Eigenvalues>
-
 namespace colmap {
+
+Eigen::VectorXd AverageUnitVectors(const Eigen::MatrixXd& vectors,
+                                   const Eigen::VectorXd& weights) {
+  THROW_CHECK_GT(vectors.cols(), 0) << "Cannot average empty set of vectors";
+  THROW_CHECK(weights.size() == 0 || weights.size() == vectors.cols())
+      << "Weights size must match vectors size";
+
+  if (vectors.cols() == 1) {
+    return vectors.col(0).normalized();
+  }
+
+  // Determine weights: use provided weights or uniform weights.
+  const Eigen::VectorXd w =
+      weights.size() > 0 ? weights : Eigen::VectorXd::Ones(vectors.cols());
+  THROW_CHECK((w.array() > 0).all()) << "Weights must be positive";
+
+  // Normalize all columns and build weighted outer product sum matrix:
+  // A = N * diag(w) * N^T / sum(w)
+  const Eigen::MatrixXd normalized = vectors.colwise().normalized();
+  const Eigen::MatrixXd A =
+      normalized * w.asDiagonal() * normalized.transpose() / w.sum();
+
+  // The first singular vector corresponds to the principal direction.
+  Eigen::JacobiSVD<Eigen::MatrixXd> svd(A, Eigen::ComputeFullU);
+  Eigen::VectorXd average = svd.matrixU().col(0);
+
+  // Ensure consistent sign by aligning with majority of input vectors.
+  // Compute dot products of all vectors with the average.
+  const Eigen::VectorXd dots = vectors.transpose() * average;
+  const Eigen::ArrayXd negative_mask = (dots.array() < 0).cast<double>();
+  const double negative_weight = (negative_mask * w.array()).sum();
+  if (negative_weight > w.sum() - negative_weight) {
+    average = -average;
+  }
+
+  return average;
+}
+
+Eigen::Vector3d AverageDirections(
+    const std::vector<Eigen::Vector3d>& directions,
+    const std::vector<double>& weights) {
+  Eigen::Matrix3Xd mat(3, directions.size());
+  for (size_t i = 0; i < directions.size(); ++i) {
+    mat.col(i) = directions[i];
+  }
+  return AverageUnitVectors(
+      mat, Eigen::Map<const Eigen::VectorXd>(weights.data(), weights.size()));
+}
 
 Eigen::Matrix3d ComputeClosestRotationMatrix(const Eigen::Matrix3d& matrix) {
   const Eigen::JacobiSVD<Eigen::Matrix3d> svd(
@@ -136,31 +182,19 @@ Eigen::Quaterniond AverageQuaternions(
     const std::vector<Eigen::Quaterniond>& quats,
     const std::vector<double>& weights) {
   THROW_CHECK_EQ(quats.size(), weights.size());
-  THROW_CHECK_GT(quats.size(), 0);
 
-  if (quats.size() == 1) {
-    return quats[0];
-  }
-
-  Eigen::Matrix4d A = Eigen::Matrix4d::Zero();
-  double weight_sum = 0;
-
+  // Convert quaternions to coefficient matrix (each column is a quaternion).
+  Eigen::Matrix4Xd qmat(4, quats.size());
   for (size_t i = 0; i < quats.size(); ++i) {
-    THROW_CHECK_GT(weights[i], 0);
-    const Eigen::Vector4d qvec = quats[i].normalized().coeffs();
-    A += weights[i] * qvec * qvec.transpose();
-    weight_sum += weights[i];
+    qmat.col(i) = quats[i].normalized().coeffs();
   }
 
-  A.array() /= weight_sum;
+  // Average using the unified unit vector averaging.
+  const Eigen::VectorXd avg = AverageUnitVectors(
+      qmat, Eigen::Map<const Eigen::VectorXd>(weights.data(), weights.size()));
 
-  const Eigen::Matrix4d eigenvectors =
-      Eigen::SelfAdjointEigenSolver<Eigen::Matrix4d>(A).eigenvectors();
-
-  const Eigen::Vector4d average_qvec = eigenvectors.col(3);
-
-  return Eigen::Quaterniond(
-      average_qvec(3), average_qvec(0), average_qvec(1), average_qvec(2));
+  // Convert back to quaternion (Eigen order: x, y, z, w in coeffs).
+  return Eigen::Quaterniond(avg(3), avg(0), avg(1), avg(2));
 }
 
 Rigid3d InterpolateCameraPoses(const Rigid3d& cam1_from_world,
@@ -196,6 +230,35 @@ Rigid3d TransformCameraWorld(const Sim3d& new_from_old_world,
       Inverse(new_from_old_world);
   return Rigid3d(cam_from_new_world.rotation,
                  cam_from_new_world.translation * new_from_old_world.scale);
+}
+
+Eigen::Matrix3d GravityAlignedRotation(const Eigen::Vector3d& gravity) {
+  THROW_CHECK_LT(std::abs(gravity.norm() - 1.0), 1e-6)
+      << "Gravity vector must be normalized";
+
+  Eigen::Matrix3d R;
+  R.col(1) = gravity;
+
+  // Use Householder QR to find orthonormal basis vectors for the null space.
+  Eigen::Matrix3d Q = gravity.householderQr().householderQ();
+  Eigen::Matrix<double, 3, 2> N = Q.rightCols(2);
+  R.col(0) = N.col(0);
+  R.col(2) = N.col(1);
+
+  // Ensure right-handed coordinate system.
+  if (R.determinant() < 0) {
+    R.col(2) = -R.col(2);
+  }
+
+  return R;
+}
+
+double YAxisAngleFromRotation(const Eigen::Matrix3d& rotation) {
+  return RotationMatrixToAngleAxis(rotation)[1];
+}
+
+Eigen::Matrix3d RotationFromYAxisAngle(double angle) {
+  return AngleAxisToRotationMatrix(Eigen::Vector3d(0, angle, 0));
 }
 
 }  // namespace colmap

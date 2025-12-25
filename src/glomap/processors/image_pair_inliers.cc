@@ -1,10 +1,52 @@
 #include "glomap/processors/image_pair_inliers.h"
 
+#include "colmap/estimators/utils.h"
 #include "colmap/geometry/essential_matrix.h"
 
-#include "glomap/math/two_view_geometry.h"
-
 namespace glomap {
+namespace {
+
+// Cheirality check for essential matrix.
+// Code from PoseLib by Viktor Larsson.
+bool CheckCheirality(const Rigid3d& pose,
+                     const Eigen::Vector3d& x1,
+                     const Eigen::Vector3d& x2,
+                     double min_depth = 0.,
+                     double max_depth = 100.) {
+  // This code assumes that x1 and x2 are unit vectors
+  const Eigen::Vector3d Rx1 = pose.rotation * x1;
+
+  // [1 a; a 1] * [lambda1; lambda2] = [b1; b2]
+  // [lambda1; lambda2] = [1 -a; -a 1] * [b1; b2] / (1 - a*a)
+  const double a = -Rx1.dot(x2);
+  const double b1 = -Rx1.dot(pose.translation);
+  const double b2 = x2.dot(pose.translation);
+
+  // Note that we drop the factor 1.0/(1-a*a) since it is always positive.
+  const double lambda1 = b1 - a * b2;
+  const double lambda2 = -a * b1 + b2;
+
+  min_depth = min_depth * (1 - a * a);
+  max_depth = max_depth * (1 - a * a);
+
+  bool status = lambda1 > min_depth && lambda2 > min_depth;
+  status = status && (lambda1 < max_depth) && (lambda2 < max_depth);
+  return status;
+}
+
+// Get the orientation signum for fundamental matrix.
+// For cheirality check of fundamental matrix.
+// Code from GC-RANSAC by Daniel Barath.
+double GetOrientationSignum(const Eigen::Matrix3d& F,
+                            const Eigen::Vector3d& epipole,
+                            const Eigen::Vector2d& pt1,
+                            const Eigen::Vector2d& pt2) {
+  double signum1 = F(0, 0) * pt2[0] + F(1, 0) * pt2[1] + F(2, 0);
+  double signum2 = epipole(1) - epipole(2) * pt1[1];
+  return signum1 * signum2;
+}
+
+}  // namespace
 
 double ImagePairInliers::ScoreError() {
   // Count inliers base on the type
@@ -67,7 +109,7 @@ double ImagePairInliers::ScoreErrorEssential() {
     const Eigen::Vector3d pt1 = cam_point1->homogeneous().normalized();
     const Eigen::Vector3d pt2 = cam_point2->homogeneous().normalized();
 
-    const double r2 = SampsonError(E, pt1, pt2);
+    const double r2 = colmap::ComputeSquaredSampsonError(pt1, pt2, E);
 
     if (r2 < sq_threshold) {
       bool cheirality =
@@ -137,7 +179,8 @@ double ImagePairInliers::ScoreErrorFundamental() {
   for (size_t k = 0; k < image_pair.matches.rows(); ++k) {
     const Eigen::Vector2d& pt1 = image1.Point2D(image_pair.matches(k, 0)).xy;
     const Eigen::Vector2d& pt2 = image2.Point2D(image_pair.matches(k, 1)).xy;
-    const double r2 = SampsonError(image_pair.F, pt1, pt2);
+    const double r2 = colmap::ComputeSquaredSampsonError(
+        pt1.homogeneous(), pt2.homogeneous(), image_pair.F);
 
     if (r2 < sq_threshold) {
       signums.push_back(GetOrientationSignum(image_pair.F, epipole, pt1, pt2));
@@ -186,7 +229,8 @@ double ImagePairInliers::ScoreErrorHomography() {
   for (size_t k = 0; k < image_pair.matches.rows(); ++k) {
     const Eigen::Vector2d& pt1 = image1.Point2D(image_pair.matches(k, 0)).xy;
     const Eigen::Vector2d& pt2 = image2.Point2D(image_pair.matches(k, 1)).xy;
-    const double r2 = HomographyError(image_pair.H, pt1, pt2);
+    const double r2 =
+        colmap::ComputeSquaredHomographyError(pt1, pt2, image_pair.H);
 
     if (r2 < sq_threshold) {
       // TODO: cheirality check for homography. Is that a thing?

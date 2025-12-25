@@ -4,8 +4,6 @@
 #include "colmap/math/union_find.h"
 #include "colmap/util/threading.h"
 
-#include "glomap/math/two_view_geometry.h"
-
 namespace glomap {
 
 image_pair_t ViewGraphManipulater::SparsifyGraph(
@@ -71,6 +69,7 @@ image_t ViewGraphManipulater::EstablishStrongClusters(
     ViewGraph& view_graph,
     std::unordered_map<frame_t, Frame>& frames,
     std::unordered_map<image_t, Image>& images,
+    std::unordered_map<frame_t, int>& cluster_ids,
     StrongClusterCriteria criteria,
     double min_thres,
     int min_num_images) {
@@ -165,7 +164,8 @@ image_t ViewGraphManipulater::EstablishStrongClusters(
       image_pair.is_valid = false;
     }
   }
-  int num_comp = view_graph.MarkConnectedComponents(frames, images);
+  int num_comp =
+      view_graph.MarkConnectedComponents(frames, images, cluster_ids);
 
   LOG(INFO) << "Clustering take " << iteration << " iterations. "
             << "Images are grouped into " << num_comp

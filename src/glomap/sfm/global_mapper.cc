@@ -20,7 +20,8 @@ bool GlobalMapper::Solve(const colmap::Database* database,
                          std::unordered_map<frame_t, Frame>& frames,
                          std::unordered_map<image_t, Image>& images,
                          std::unordered_map<point3D_t, Point3D>& tracks,
-                         std::vector<colmap::PosePrior>& pose_priors) {
+                         std::vector<colmap::PosePrior>& pose_priors,
+                         std::unordered_map<frame_t, int>& cluster_ids) {
   // 0. Preprocessing
   if (!options_.skip_preprocessing) {
     std::cout << "-------------------------------------" << '\n';
@@ -344,7 +345,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     run_timer.Start();
 
     // Prune weakly connected images
-    PruneWeaklyConnectedImages(frames, images, tracks);
+    PruneWeaklyConnectedImages(frames, images, tracks, cluster_ids);
 
     run_timer.PrintSeconds();
   }

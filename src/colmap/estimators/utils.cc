@@ -69,11 +69,9 @@ void CenterAndNormalizeImagePoints(const std::vector<Eigen::Vector2d>& points,
   }
 }
 
-namespace {
-
-inline double ComputeSquaredSampsonError(const Eigen::Vector3d& ray1,
-                                         const Eigen::Vector3d& ray2,
-                                         const Eigen::Matrix3d& E) {
+double ComputeSquaredSampsonError(const Eigen::Vector3d& ray1,
+                                  const Eigen::Vector3d& ray2,
+                                  const Eigen::Matrix3d& E) {
   const Eigen::Vector3d epipolar_line1 = E * ray1;
   const double num = ray2.dot(epipolar_line1);
   const Eigen::Vector4d denom(ray2.dot(E.col(0)),
@@ -87,7 +85,15 @@ inline double ComputeSquaredSampsonError(const Eigen::Vector3d& ray1,
   return num * num / denom_sq_norm;
 }
 
-}  // namespace
+double ComputeSquaredHomographyError(const Eigen::Vector2d& point1,
+                                     const Eigen::Vector2d& point2,
+                                     const Eigen::Matrix3d& H) {
+  const Eigen::Vector3d Hp1 = H * point1.homogeneous();
+  if (Hp1[2] == 0) {
+    return std::numeric_limits<double>::max();
+  }
+  return (point2 - Hp1.hnormalized()).squaredNorm();
+}
 
 void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
                                 const std::vector<Eigen::Vector2d>& points2,

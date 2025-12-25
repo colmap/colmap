@@ -1,8 +1,10 @@
 #pragma once
 
+#include "colmap/geometry/pose_prior.h"
+#include "colmap/scene/frame.h"
+
 #include "glomap/estimators/optimization_base.h"
-#include "glomap/scene/types_sfm.h"
-#include "glomap/types.h"
+#include "glomap/scene/view_graph.h"
 
 #include <ceres/ceres.h>
 

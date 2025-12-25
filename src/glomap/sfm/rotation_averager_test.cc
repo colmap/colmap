@@ -120,6 +120,7 @@ TEST(RotationEstimator, WithoutNoise) {
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
+  std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
@@ -127,7 +128,8 @@ TEST(RotationEstimator, WithoutNoise) {
                       frames,
                       images,
                       tracks,
-                      pose_priors);
+                      pose_priors,
+                      cluster_ids);
 
   // TODO: The current 1-dof rotation averaging sometimes fails to pick the
   // right solution (e.g., 180 deg flipped).
@@ -175,6 +177,7 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialKnownRig) {
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
+  std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
@@ -182,7 +185,8 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialKnownRig) {
                       frames,
                       images,
                       tracks,
-                      pose_priors);
+                      pose_priors,
+                      cluster_ids);
 
   for (const bool use_gravity : {true, false}) {
     SolveRotationAveraging(view_graph,
@@ -236,6 +240,7 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialUnknownRig) {
   }
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
+  std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
@@ -243,7 +248,8 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialUnknownRig) {
                       frames,
                       images,
                       tracks,
-                      pose_priors);
+                      pose_priors,
+                      cluster_ids);
 
   // For unknown rigs, it is not supported to use gravity.
   for (const bool use_gravity : {false}) {
@@ -296,6 +302,7 @@ TEST(RotationEstimator, WithNoiseAndOutliers) {
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
+  std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
@@ -303,7 +310,8 @@ TEST(RotationEstimator, WithNoiseAndOutliers) {
                       frames,
                       images,
                       tracks,
-                      pose_priors);
+                      pose_priors,
+                      cluster_ids);
 
   // TODO: The current 1-dof rotation averaging sometimes fails to pick the
   // right solution (e.g., 180 deg flipped).
@@ -357,6 +365,7 @@ TEST(RotationEstimator, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
+  std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
@@ -364,7 +373,8 @@ TEST(RotationEstimator, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
                       frames,
                       images,
                       tracks,
-                      pose_priors);
+                      pose_priors,
+                      cluster_ids);
 
   // TODO: The current 1-dof rotation averaging sometimes fails to pick the
   // right solution (e.g., 180 deg flipped).
@@ -412,6 +422,7 @@ TEST(RotationEstimator, RefineGravity) {
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
+  std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
@@ -419,7 +430,8 @@ TEST(RotationEstimator, RefineGravity) {
                       frames,
                       images,
                       tracks,
-                      pose_priors);
+                      pose_priors,
+                      cluster_ids);
 
   GravityRefinerOptions opt_grav_refine;
   GravityRefiner grav_refiner(opt_grav_refine);
@@ -459,6 +471,7 @@ TEST(RotationEstimator, RefineGravityWithNonTrivialRigs) {
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
+  std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
@@ -466,7 +479,8 @@ TEST(RotationEstimator, RefineGravityWithNonTrivialRigs) {
                       frames,
                       images,
                       tracks,
-                      pose_priors);
+                      pose_priors,
+                      cluster_ids);
 
   GravityRefinerOptions opt_grav_refine;
   GravityRefiner grav_refiner(opt_grav_refine);

@@ -1,7 +1,10 @@
 #pragma once
 
-#include "glomap/scene/types_sfm.h"
-#include "glomap/types.h"
+#include "colmap/geometry/pose_prior.h"
+#include "colmap/scene/frame.h"
+#include "colmap/scene/rig.h"
+
+#include "glomap/scene/view_graph.h"
 
 #include <string>
 #include <vector>

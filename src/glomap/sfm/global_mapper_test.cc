@@ -5,7 +5,6 @@
 #include "colmap/util/testing.h"
 
 #include "glomap/io/colmap_io.h"
-#include "glomap/types.h"
 
 #include <gtest/gtest.h>
 
@@ -50,6 +49,7 @@ TEST(GlobalMapper, WithoutNoise) {
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   GlobalMapper global_mapper(CreateTestOptions());
+  std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
@@ -57,7 +57,8 @@ TEST(GlobalMapper, WithoutNoise) {
                       frames,
                       images,
                       tracks,
-                      pose_priors);
+                      pose_priors,
+                      cluster_ids);
 
   colmap::Reconstruction reconstruction;
   ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);
@@ -95,6 +96,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   GlobalMapper global_mapper(CreateTestOptions());
+  std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
@@ -102,7 +104,8 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
                       frames,
                       images,
                       tracks,
-                      pose_priors);
+                      pose_priors,
+                      cluster_ids);
 
   colmap::Reconstruction reconstruction;
   ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);
@@ -150,6 +153,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
   }
 
   GlobalMapper global_mapper(CreateTestOptions());
+  std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
@@ -157,7 +161,8 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
                       frames,
                       images,
                       tracks,
-                      pose_priors);
+                      pose_priors,
+                      cluster_ids);
 
   colmap::Reconstruction reconstruction;
   ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);
@@ -197,6 +202,7 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   GlobalMapper global_mapper(CreateTestOptions());
+  std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
@@ -204,7 +210,8 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
                       frames,
                       images,
                       tracks,
-                      pose_priors);
+                      pose_priors,
+                      cluster_ids);
 
   colmap::Reconstruction reconstruction;
   ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);

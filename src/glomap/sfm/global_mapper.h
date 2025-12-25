@@ -7,6 +7,7 @@
 #include "glomap/estimators/global_rotation_averaging.h"
 #include "glomap/estimators/relpose_estimation.h"
 #include "glomap/estimators/view_graph_calibration.h"
+#include "glomap/processors/image_pair_inliers.h"
 #include "glomap/sfm/track_establishment.h"
 #include "glomap/sfm/track_retriangulation.h"
 
@@ -55,7 +56,8 @@ class GlobalMapper {
              std::unordered_map<frame_t, Frame>& frames,
              std::unordered_map<image_t, Image>& images,
              std::unordered_map<point3D_t, Point3D>& tracks,
-             std::vector<colmap::PosePrior>& pose_priors);
+             std::vector<colmap::PosePrior>& pose_priors,
+             std::unordered_map<frame_t, int>& cluster_ids);
 
  private:
   const GlobalMapperOptions options_;

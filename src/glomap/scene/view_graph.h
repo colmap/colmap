@@ -1,6 +1,5 @@
 #pragma once
 
-#include "glomap/scene/frame.h"
 #include "glomap/scene/image_pair.h"
 #include "glomap/scene/types.h"
 
@@ -29,9 +28,10 @@ struct ViewGraph {
       const std::unordered_map<image_t, Image>& images);
 
   // Mark connected clusters of images, where the cluster_id is sorted by the
-  // the number of images.
-  int MarkConnectedComponents(std::unordered_map<frame_t, Frame>& frames,
+  // the number of images. Populates `cluster_ids` output parameter.
+  int MarkConnectedComponents(const std::unordered_map<frame_t, Frame>& frames,
                               const std::unordered_map<image_t, Image>& images,
+                              std::unordered_map<frame_t, int>& cluster_ids,
                               int min_num_images = -1);
 };
 

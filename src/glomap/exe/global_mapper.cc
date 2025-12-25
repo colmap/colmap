@@ -82,6 +82,7 @@ int RunGlobalMapper(int argc, char** argv) {
   LOG(INFO) << "Loaded database";
   colmap::Timer run_timer;
   run_timer.Start();
+  std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
@@ -89,7 +90,8 @@ int RunGlobalMapper(int argc, char** argv) {
                       frames,
                       images,
                       tracks,
-                      pose_priors);
+                      pose_priors,
+                      cluster_ids);
   run_timer.Pause();
 
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
@@ -101,6 +103,7 @@ int RunGlobalMapper(int argc, char** argv) {
                             frames,
                             images,
                             tracks,
+                            cluster_ids,
                             output_format,
                             image_path);
   LOG(INFO) << "Export to COLMAP reconstruction done";
@@ -156,8 +159,16 @@ int RunGlobalMapperResume(int argc, char** argv) {
   // Main solver
   colmap::Timer run_timer;
   run_timer.Start();
-  global_mapper.Solve(
-      nullptr, view_graph, rigs, cameras, frames, images, tracks, pose_priors);
+  std::unordered_map<frame_t, int> cluster_ids;
+  global_mapper.Solve(nullptr,
+                      view_graph,
+                      rigs,
+                      cameras,
+                      frames,
+                      images,
+                      tracks,
+                      pose_priors,
+                      cluster_ids);
   run_timer.Pause();
 
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
@@ -169,6 +180,7 @@ int RunGlobalMapperResume(int argc, char** argv) {
                             frames,
                             images,
                             tracks,
+                            cluster_ids,
                             output_format,
                             image_path);
   LOG(INFO) << "Export to COLMAP reconstruction done";

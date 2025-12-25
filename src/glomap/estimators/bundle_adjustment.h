@@ -1,9 +1,11 @@
 #pragma once
 
-// #include "glomap/estimators/bundle_adjustment.h"
+#include "colmap/scene/frame.h"
+#include "colmap/scene/rig.h"
+#include "colmap/sensor/models.h"
+
 #include "glomap/estimators/optimization_base.h"
-#include "glomap/scene/types_sfm.h"
-#include "glomap/types.h"
+#include "glomap/scene/types.h"
 
 #include <ceres/ceres.h>
 
