@@ -4,7 +4,6 @@
 
 #include "glomap/estimators/optimization_base.h"
 #include "glomap/scene/types.h"
-#include "glomap/types.h"
 
 #include <ceres/ceres.h>
 

@@ -8,7 +8,6 @@
 #include "glomap/estimators/gravity_refinement.h"
 #include "glomap/io/colmap_io.h"
 #include "glomap/io/pose_io.h"
-#include "glomap/types.h"
 
 namespace glomap {
 // -------------------------------------
