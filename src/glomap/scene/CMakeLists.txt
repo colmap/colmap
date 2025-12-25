@@ -35,7 +35,6 @@ COLMAP_ADD_LIBRARY(
         view_graph.h view_graph.cc
         frame.h
         image_pair.h
-        types_sfm.h
         types.h
     PUBLIC_LINK_LIBS
         colmap_scene
