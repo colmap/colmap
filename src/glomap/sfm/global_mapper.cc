@@ -88,7 +88,9 @@ bool GlobalMapper::Solve(const colmap::Database& database,
                            RotationAveragerOptions(options_.opt_ra));
 
     RelPoseFilter::FilterRotations(
-        view_graph, reconstruction, options_.inlier_thresholds.max_rotation_error);
+        view_graph,
+        reconstruction,
+        options_.inlier_thresholds.max_rotation_error);
     if (view_graph.KeepLargestConnectedComponents(reconstruction) == 0) {
       LOG(ERROR) << "no connected components are found";
       return false;
@@ -102,7 +104,9 @@ bool GlobalMapper::Solve(const colmap::Database& database,
       return false;
     }
     RelPoseFilter::FilterRotations(
-        view_graph, reconstruction, options_.inlier_thresholds.max_rotation_error);
+        view_graph,
+        reconstruction,
+        options_.inlier_thresholds.max_rotation_error);
     image_t num_img = view_graph.KeepLargestConnectedComponents(reconstruction);
     if (num_img == 0) {
       LOG(ERROR) << "no connected components are found";
@@ -131,8 +135,8 @@ bool GlobalMapper::Solve(const colmap::Database& database,
 
     // Filter the tracks into a selected subset
     std::unordered_map<point3D_t, Point3D> selected_tracks;
-    point3D_t num_tracks = track_engine.FindTracksForProblem(
-        unfiltered_tracks, selected_tracks);
+    point3D_t num_tracks =
+        track_engine.FindTracksForProblem(unfiltered_tracks, selected_tracks);
 
     // Add selected tracks to reconstruction
     for (auto& [track_id, track] : selected_tracks) {

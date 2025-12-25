@@ -205,9 +205,11 @@ void BundleAdjuster::AddCamerasAndPointsToParameterGroups(
             reconstruction.Frame(frame_id).RigFromWorld().translation.data())) {
       parameter_ordering->AddElementToGroup(
           reconstruction.Frame(frame_id).RigFromWorld().translation.data(), 1);
-      parameter_ordering->AddElementToGroup(
-          reconstruction.Frame(frame_id).RigFromWorld().rotation.coeffs().data(),
-          1);
+      parameter_ordering->AddElementToGroup(reconstruction.Frame(frame_id)
+                                                .RigFromWorld()
+                                                .rotation.coeffs()
+                                                .data(),
+                                            1);
     }
   }
 
@@ -245,21 +247,21 @@ void BundleAdjuster::ParameterizeVariables(
   int counter = 0;
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     if (!frame.HasPose()) continue;
-    if (problem_->HasParameterBlock(
-            reconstruction.Frame(frame_id)
-                .RigFromWorld()
-                .rotation.coeffs()
-                .data())) {
-      colmap::SetQuaternionManifold(
-          problem_.get(),
-          reconstruction.Frame(frame_id).RigFromWorld().rotation.coeffs().data());
+    if (problem_->HasParameterBlock(reconstruction.Frame(frame_id)
+                                        .RigFromWorld()
+                                        .rotation.coeffs()
+                                        .data())) {
+      colmap::SetQuaternionManifold(problem_.get(),
+                                    reconstruction.Frame(frame_id)
+                                        .RigFromWorld()
+                                        .rotation.coeffs()
+                                        .data());
 
       if (!options_.optimize_rotations || counter == 0)
-        problem_->SetParameterBlockConstant(
-            reconstruction.Frame(frame_id)
-                .RigFromWorld()
-                .rotation.coeffs()
-                .data());
+        problem_->SetParameterBlockConstant(reconstruction.Frame(frame_id)
+                                                .RigFromWorld()
+                                                .rotation.coeffs()
+                                                .data());
       if (!options_.optimize_translation || counter == 0)
         problem_->SetParameterBlockConstant(
             reconstruction.Frame(frame_id).RigFromWorld().translation.data());
@@ -277,10 +279,11 @@ void BundleAdjuster::ParameterizeVariables(
         for (auto idx : camera.PrincipalPointIdxs()) {
           principal_point_idxs.push_back(idx);
         }
-        colmap::SetSubsetManifold(camera.params.size(),
-                                  principal_point_idxs,
-                                  problem_.get(),
-                                  reconstruction.Camera(camera_id).params.data());
+        colmap::SetSubsetManifold(
+            camera.params.size(),
+            principal_point_idxs,
+            problem_.get(),
+            reconstruction.Camera(camera_id).params.data());
       }
     }
   } else if (!options_.optimize_intrinsics &&

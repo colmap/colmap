@@ -110,10 +110,8 @@ int RunRotationAverager(int argc, char** argv) {
 
   colmap::Timer run_timer;
   run_timer.Start();
-  if (!SolveRotationAveraging(view_graph,
-                              reconstruction,
-                              pose_priors,
-                              rotation_averager_options)) {
+  if (!SolveRotationAveraging(
+          view_graph, reconstruction, pose_priors, rotation_averager_options)) {
     LOG(ERROR) << "Failed to solve global rotation averaging";
     return EXIT_FAILURE;
   }

@@ -226,7 +226,8 @@ void RotationEstimator::SetupLinearSystem(
     sensor_t sensor_id(SensorType::CAMERA, camera_id);
     if (reconstruction.Rig(rig_id).IsRefSensor(sensor_id)) continue;
 
-    auto cam_from_rig = reconstruction.Rig(rig_id).MaybeSensorFromRig(sensor_id);
+    auto cam_from_rig =
+        reconstruction.Rig(rig_id).MaybeSensorFromRig(sensor_id);
     if (!cam_from_rig.has_value() ||
         cam_from_rig.value().translation.hasNaN()) {
       if (camera_id_to_idx_.find(camera_id) == camera_id_to_idx_.end()) {

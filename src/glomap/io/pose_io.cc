@@ -156,8 +156,7 @@ void ReadRelWeight(const std::string& file_path,
 // TODO: now, we only store 1 single gravity per rig.
 // for ease of implementation, we only store from the image with trivial frame
 std::vector<colmap::PosePrior> ReadGravity(
-    const std::string& gravity_path,
-    colmap::Reconstruction& reconstruction) {
+    const std::string& gravity_path, colmap::Reconstruction& reconstruction) {
   std::unordered_map<std::string, image_t> image_name_to_id;
   for (const auto& [image_id, image] : reconstruction.Images()) {
     image_name_to_id[image.Name()] = image_id;

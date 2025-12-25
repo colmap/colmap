@@ -130,8 +130,9 @@ TEST(RotationEstimator, WithoutNoise) {
                            pose_priors,
                            CreateRATestOptions(use_gravity));
 
-    ExpectEqualRotations(
-        gt_reconstruction, reconstruction_copy, /*max_rotation_error_deg=*/1e-2);
+    ExpectEqualRotations(gt_reconstruction,
+                         reconstruction_copy,
+                         /*max_rotation_error_deg=*/1e-2);
   }
 }
 
@@ -171,8 +172,9 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialKnownRig) {
                            pose_priors,
                            CreateRATestOptions(use_gravity));
 
-    ExpectEqualRotations(
-        gt_reconstruction, reconstruction_copy, /*max_rotation_error_deg=*/1e-2);
+    ExpectEqualRotations(gt_reconstruction,
+                         reconstruction_copy,
+                         /*max_rotation_error_deg=*/1e-2);
   }
 }
 
@@ -221,8 +223,9 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialUnknownRig) {
                            pose_priors,
                            CreateRATestOptions(use_gravity));
 
-    ExpectEqualRotations(
-        gt_reconstruction, reconstruction_copy, /*max_rotation_error_deg=*/1e-2);
+    ExpectEqualRotations(gt_reconstruction,
+                         reconstruction_copy,
+                         /*max_rotation_error_deg=*/1e-2);
   }
 }
 

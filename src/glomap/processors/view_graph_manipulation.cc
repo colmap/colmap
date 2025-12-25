@@ -175,8 +175,7 @@ image_t ViewGraphManipulater::EstablishStrongClusters(
 }
 
 void ViewGraphManipulater::UpdateImagePairsConfig(
-    ViewGraph& view_graph,
-    const colmap::Reconstruction& reconstruction) {
+    ViewGraph& view_graph, const colmap::Reconstruction& reconstruction) {
   // For each camera, check the number of times that the camera is involved in a
   // pair with configuration 2 First: the total occurence; second: the number of
   // pairs with configuration 2

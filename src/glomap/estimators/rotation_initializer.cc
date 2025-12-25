@@ -120,8 +120,8 @@ bool ConvertRotationsFromImageToRig(
       weights.resize(rig_from_world_rotations.size(), 1);
       const Eigen::Quaterniond rig_from_world_rotation =
           colmap::AverageQuaternions(rig_from_world_rotations, weights);
-      reconstruction.Frame(frame_id)
-          .SetRigFromWorld(Rigid3d(rig_from_world_rotation, kNaNTranslation));
+      reconstruction.Frame(frame_id).SetRigFromWorld(
+          Rigid3d(rig_from_world_rotation, kNaNTranslation));
     }
   }
 

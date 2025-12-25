@@ -7,11 +7,10 @@ namespace glomap {
 namespace {
 
 // Helper to create a trivial rig for a camera if it's not already in a rig.
-void EnsureCameraHasRig(
-    colmap::Reconstruction& reconstruction,
-    camera_t camera_id,
-    std::unordered_map<camera_t, rig_t>& camera_to_rig,
-    rig_t& max_rig_id) {
+void EnsureCameraHasRig(colmap::Reconstruction& reconstruction,
+                        camera_t camera_id,
+                        std::unordered_map<camera_t, rig_t>& camera_to_rig,
+                        rig_t& max_rig_id) {
   if (camera_to_rig.find(camera_id) != camera_to_rig.end()) {
     return;  // Camera already has a rig
   }
@@ -161,9 +160,9 @@ void ConvertDatabaseToGlomap(const colmap::Database& database,
     colmap::FeatureMatches& feature_matches = all_matches[match_idx].second;
 
     // Initialize the image pair
-    auto [it, inserted] = image_pairs.insert(std::make_pair(
-        colmap::ImagePairToPairId(image_id1, image_id2),
-        ImagePair(image_id1, image_id2)));
+    auto [it, inserted] = image_pairs.insert(
+        std::make_pair(colmap::ImagePairToPairId(image_id1, image_id2),
+                       ImagePair(image_id1, image_id2)));
     ImagePair& image_pair = it->second;
 
     colmap::TwoViewGeometry two_view =

@@ -88,8 +88,7 @@ bool GlobalPositioner::Solve(const ViewGraph& view_graph,
 }
 
 void GlobalPositioner::SetupProblem(
-    const ViewGraph& view_graph,
-    const colmap::Reconstruction& reconstruction) {
+    const ViewGraph& view_graph, const colmap::Reconstruction& reconstruction) {
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
   problem_ = std::make_unique<ceres::Problem>(problem_options);
@@ -308,8 +307,9 @@ void GlobalPositioner::AddTrackToProblem(
     // Down weight the uncalibrated cameras
     colmap::Camera& camera = reconstruction.Camera(image.CameraId());
     ceres::LossFunction* loss_function =
-        (camera.has_prior_focal_length) ? loss_function_ptcam_calibrated_.get()
-                                        : loss_function_ptcam_uncalibrated_.get();
+        (camera.has_prior_focal_length)
+            ? loss_function_ptcam_calibrated_.get()
+            : loss_function_ptcam_uncalibrated_.get();
 
     // If the image is not part of a camera rig, use the standard BATA error
     if (image.IsRefInFrame()) {
