@@ -79,7 +79,7 @@ void GlobalPipeline::Run() {
   if (max_cluster_id == -1) {
     Reconstruction& output_reconstruction =
         *reconstruction_manager_->Get(reconstruction_manager_->Add());
-    output_reconstruction = std::move(reconstruction);
+    output_reconstruction = reconstruction;
     // Read in colors
     if (image_path_ != "") {
       LOG(INFO) << "Extracting colors ...";
