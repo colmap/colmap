@@ -8,10 +8,9 @@ namespace glomap {
 
 image_pair_t ViewGraphManipulater::SparsifyGraph(
     ViewGraph& view_graph,
-    std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<image_t, Image>& images,
+    colmap::Reconstruction& reconstruction,
     int expected_degree) {
-  image_t num_img = view_graph.KeepLargestConnectedComponents(frames, images);
+  image_t num_img = view_graph.KeepLargestConnectedComponents(reconstruction);
 
   // Keep track of chosen edges
   std::unordered_set<image_pair_t> chosen_edges;
@@ -21,7 +20,7 @@ image_pair_t ViewGraphManipulater::SparsifyGraph(
   // Here, the average is the mean of the degrees
   double average_degree = 0;
   for (const auto& [image_id, neighbors] : adjacency_list) {
-    if (!images[image_id].HasPose()) continue;
+    if (!reconstruction.Image(image_id).HasPose()) continue;
     average_degree += neighbors.size();
   }
   average_degree = average_degree / num_img;
@@ -37,7 +36,9 @@ image_pair_t ViewGraphManipulater::SparsifyGraph(
     image_t image_id1 = image_pair.image_id1;
     image_t image_id2 = image_pair.image_id2;
 
-    if (!images[image_id1].HasPose() || !images[image_id2].HasPose()) continue;
+    if (!reconstruction.Image(image_id1).HasPose() ||
+        !reconstruction.Image(image_id2).HasPose())
+      continue;
 
     int degree1 = adjacency_list.at(image_id1).size();
     int degree2 = adjacency_list.at(image_id2).size();
@@ -60,24 +61,23 @@ image_pair_t ViewGraphManipulater::SparsifyGraph(
   }
 
   // Keep the largest connected component
-  view_graph.KeepLargestConnectedComponents(frames, images);
+  view_graph.KeepLargestConnectedComponents(reconstruction);
 
   return chosen_edges.size();
 }
 
 image_t ViewGraphManipulater::EstablishStrongClusters(
     ViewGraph& view_graph,
-    std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<image_t, Image>& images,
+    colmap::Reconstruction& reconstruction,
     std::unordered_map<frame_t, int>& cluster_ids,
     StrongClusterCriteria criteria,
     double min_thres,
     int min_num_images) {
-  view_graph.KeepLargestConnectedComponents(frames, images);
+  view_graph.KeepLargestConnectedComponents(reconstruction);
 
   // Construct the initial cluster by keeping the pairs with weight > min_thres
   colmap::UnionFind<image_pair_t> uf;
-  uf.Reserve(frames.size());
+  uf.Reserve(reconstruction.NumFrames());
   // Go through the edges, and add the edge with weight > min_thres
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (image_pair.is_valid == false) continue;
@@ -87,8 +87,9 @@ image_t ViewGraphManipulater::EstablishStrongClusters(
              (criteria == INLIER_NUM && image_pair.inliers.size() > min_thres);
     status = status || (criteria == WEIGHT && image_pair.weight > min_thres);
     if (status) {
-      uf.Union(image_pair_t(images[image_pair.image_id1].FrameId()),
-               image_pair_t(images[image_pair.image_id2].FrameId()));
+      uf.Union(
+          image_pair_t(reconstruction.Image(image_pair.image_id1).FrameId()),
+          image_pair_t(reconstruction.Image(image_pair.image_id2).FrameId()));
     }
   }
 
@@ -121,8 +122,10 @@ image_t ViewGraphManipulater::EstablishStrongClusters(
       image_t image_id1 = image_pair.image_id1;
       image_t image_id2 = image_pair.image_id2;
 
-      image_pair_t root1 = uf.Find(image_pair_t(images[image_id1].FrameId()));
-      image_pair_t root2 = uf.Find(image_pair_t(images[image_id2].FrameId()));
+      image_pair_t root1 =
+          uf.Find(image_pair_t(reconstruction.Image(image_id1).FrameId()));
+      image_pair_t root2 =
+          uf.Find(image_pair_t(reconstruction.Image(image_id2).FrameId()));
 
       if (root1 == root2) {
         continue;
@@ -154,18 +157,15 @@ image_t ViewGraphManipulater::EstablishStrongClusters(
   for (auto& [image_pair_id, image_pair] : view_graph.image_pairs) {
     if (image_pair.is_valid == false) continue;
 
-    image_t image_id1 = image_pair.image_id1;
-    image_t image_id2 = image_pair.image_id2;
-
-    frame_t frame_id1 = images[image_id1].FrameId();
-    frame_t frame_id2 = images[image_id2].FrameId();
+    frame_t frame_id1 = reconstruction.Image(image_pair.image_id1).FrameId();
+    frame_t frame_id2 = reconstruction.Image(image_pair.image_id2).FrameId();
 
     if (uf.Find(image_pair_t(frame_id1)) != uf.Find(image_pair_t(frame_id2))) {
       image_pair.is_valid = false;
     }
   }
   int num_comp =
-      view_graph.MarkConnectedComponents(frames, images, cluster_ids);
+      view_graph.MarkConnectedComponents(reconstruction, cluster_ids);
 
   LOG(INFO) << "Clustering take " << iteration << " iterations. "
             << "Images are grouped into " << num_comp
@@ -176,8 +176,7 @@ image_t ViewGraphManipulater::EstablishStrongClusters(
 
 void ViewGraphManipulater::UpdateImagePairsConfig(
     ViewGraph& view_graph,
-    const std::unordered_map<camera_t, colmap::Camera>& cameras,
-    const std::unordered_map<image_t, Image>& images) {
+    const colmap::Reconstruction& reconstruction) {
   // For each camera, check the number of times that the camera is involved in a
   // pair with configuration 2 First: the total occurence; second: the number of
   // pairs with configuration 2
@@ -185,11 +184,13 @@ void ViewGraphManipulater::UpdateImagePairsConfig(
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (image_pair.is_valid == false) continue;
 
-    const camera_t camera_id1 = images.at(image_pair.image_id1).CameraId();
-    const camera_t camera_id2 = images.at(image_pair.image_id2).CameraId();
+    const camera_t camera_id1 =
+        reconstruction.Image(image_pair.image_id1).CameraId();
+    const camera_t camera_id2 =
+        reconstruction.Image(image_pair.image_id2).CameraId();
 
-    const colmap::Camera& camera1 = cameras.at(camera_id1);
-    const colmap::Camera& camera2 = cameras.at(camera_id2);
+    const colmap::Camera& camera1 = reconstruction.Camera(camera_id1);
+    const colmap::Camera& camera2 = reconstruction.Camera(camera_id2);
     if (!camera1.has_prior_focal_length || !camera2.has_prior_focal_length)
       continue;
 
@@ -219,13 +220,13 @@ void ViewGraphManipulater::UpdateImagePairsConfig(
     if (image_pair.is_valid == false) continue;
     if (image_pair.config != colmap::TwoViewGeometry::UNCALIBRATED) continue;
 
-    const camera_t camera_id1 = images.at(image_pair.image_id1).CameraId();
-    const camera_t camera_id2 = images.at(image_pair.image_id2).CameraId();
+    const camera_t camera_id1 =
+        reconstruction.Image(image_pair.image_id1).CameraId();
+    const camera_t camera_id2 =
+        reconstruction.Image(image_pair.image_id2).CameraId();
 
-    const colmap::Camera& camera1 =
-        cameras.at(images.at(image_pair.image_id1).CameraId());
-    const colmap::Camera& camera2 =
-        cameras.at(images.at(image_pair.image_id2).CameraId());
+    const colmap::Camera& camera1 = reconstruction.Camera(camera_id1);
+    const colmap::Camera& camera2 = reconstruction.Camera(camera_id2);
 
     if (camera_validity[camera_id1] && camera_validity[camera_id2]) {
       image_pair.config = colmap::TwoViewGeometry::CALIBRATED;
@@ -239,16 +240,16 @@ void ViewGraphManipulater::UpdateImagePairsConfig(
 
 // Decompose the relative camera postion from the camera config
 void ViewGraphManipulater::DecomposeRelPose(
-    ViewGraph& view_graph,
-    std::unordered_map<camera_t, colmap::Camera>& cameras,
-    std::unordered_map<image_t, Image>& images) {
+    ViewGraph& view_graph, colmap::Reconstruction& reconstruction) {
   std::vector<image_pair_t> image_pair_ids;
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (image_pair.is_valid == false) continue;
-    if (!cameras[images[image_pair.image_id1].CameraId()]
-             .has_prior_focal_length ||
-        !cameras[images[image_pair.image_id2].CameraId()]
-             .has_prior_focal_length)
+    const camera_t camera_id1 =
+        reconstruction.Image(image_pair.image_id1).CameraId();
+    const camera_t camera_id2 =
+        reconstruction.Image(image_pair.image_id2).CameraId();
+    if (!reconstruction.Camera(camera_id1).has_prior_focal_length ||
+        !reconstruction.Camera(camera_id2).has_prior_focal_length)
       continue;
     image_pair_ids.push_back(pair_id);
   }
@@ -260,11 +261,13 @@ void ViewGraphManipulater::DecomposeRelPose(
   for (int64_t idx = 0; idx < num_image_pairs; idx++) {
     thread_pool.AddTask([&, idx]() {
       ImagePair& image_pair = view_graph.image_pairs.at(image_pair_ids[idx]);
-      const Image& image1 = images.at(image_pair.image_id1);
-      const Image& image2 = images.at(image_pair.image_id2);
+      const Image& image1 = reconstruction.Image(image_pair.image_id1);
+      const Image& image2 = reconstruction.Image(image_pair.image_id2);
 
       const camera_t camera_id1 = image1.CameraId();
       const camera_t camera_id2 = image2.CameraId();
+      const colmap::Camera& camera1 = reconstruction.Camera(camera_id1);
+      const colmap::Camera& camera2 = reconstruction.Camera(camera_id2);
 
       // Use the two-view geometry to re-estimate the relative pose
       colmap::TwoViewGeometry two_view_geometry;
@@ -286,20 +289,16 @@ void ViewGraphManipulater::DecomposeRelPose(
         points2[point2D_idx] = image2.Point2D(point2D_idx).xy;
       }
 
-      colmap::EstimateTwoViewGeometryPose(cameras[camera_id1],
-                                          points1,
-                                          cameras[camera_id2],
-                                          points2,
-                                          &two_view_geometry);
+      colmap::EstimateTwoViewGeometryPose(
+          camera1, points1, camera2, points2, &two_view_geometry);
 
       // if it planar, then use the estimated relative pose
       if (image_pair.config == colmap::TwoViewGeometry::PLANAR &&
-          cameras[camera_id1].has_prior_focal_length &&
-          cameras[camera_id2].has_prior_focal_length) {
+          camera1.has_prior_focal_length && camera2.has_prior_focal_length) {
         image_pair.config = colmap::TwoViewGeometry::CALIBRATED;
         return;
-      } else if (!(cameras[camera_id1].has_prior_focal_length &&
-                   cameras[camera_id2].has_prior_focal_length))
+      } else if (!(camera1.has_prior_focal_length &&
+                   camera2.has_prior_focal_length))
         return;
 
       image_pair.config = two_view_geometry.config;

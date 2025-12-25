@@ -5,6 +5,7 @@
 #include "colmap/util/timer.h"
 
 #include "glomap/controllers/option_manager.h"
+#include "glomap/io/colmap_converter.h"
 #include "glomap/io/colmap_io.h"
 
 namespace glomap {
@@ -62,14 +63,11 @@ int RunGlobalMapper(int argc, char** argv) {
 
   auto database = colmap::Database::Open(database_path);
 
+  colmap::Reconstruction reconstruction;
   ViewGraph view_graph;
-  std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<camera_t, colmap::Camera> cameras;
-  std::unordered_map<frame_t, Frame> frames;
-  std::unordered_map<image_t, Image> images;
-  std::unordered_map<point3D_t, Point3D> tracks;
+  ConvertDatabaseToGlomap(*database, reconstruction, view_graph);
+
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
-  ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   if (view_graph.image_pairs.empty()) {
     LOG(ERROR) << "Can't continue without image pairs";
@@ -83,29 +81,15 @@ int RunGlobalMapper(int argc, char** argv) {
   colmap::Timer run_timer;
   run_timer.Start();
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(*database,
-                      view_graph,
-                      rigs,
-                      cameras,
-                      frames,
-                      images,
-                      tracks,
-                      pose_priors,
-                      cluster_ids);
+  global_mapper.Solve(
+      *database, view_graph, reconstruction, pose_priors, cluster_ids);
   run_timer.Pause();
 
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 
-  WriteGlomapReconstruction(output_path,
-                            rigs,
-                            cameras,
-                            frames,
-                            images,
-                            tracks,
-                            cluster_ids,
-                            output_format,
-                            image_path);
+  WriteGlomapReconstruction(
+      output_path, reconstruction, cluster_ids, output_format, image_path);
   LOG(INFO) << "Export to COLMAP reconstruction done";
 
   return EXIT_SUCCESS;
@@ -144,16 +128,10 @@ int RunGlobalMapperResume(int argc, char** argv) {
   ViewGraph view_graph;                        // dummy variable
   std::shared_ptr<colmap::Database> database;  // dummy variable
 
-  std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<camera_t, colmap::Camera> cameras;
-  std::unordered_map<frame_t, Frame> frames;
-  std::unordered_map<image_t, Image> images;
-  std::unordered_map<point3D_t, Point3D> tracks;
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
   colmap::Reconstruction reconstruction;
   reconstruction.Read(input_path);
-  ConvertColmapToGlomap(reconstruction, rigs, cameras, frames, images, tracks);
 
   GlobalMapper global_mapper(*options.mapper);
 
@@ -161,29 +139,15 @@ int RunGlobalMapperResume(int argc, char** argv) {
   colmap::Timer run_timer;
   run_timer.Start();
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(*database,
-                      view_graph,
-                      rigs,
-                      cameras,
-                      frames,
-                      images,
-                      tracks,
-                      pose_priors,
-                      cluster_ids);
+  global_mapper.Solve(
+      *database, view_graph, reconstruction, pose_priors, cluster_ids);
   run_timer.Pause();
 
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 
-  WriteGlomapReconstruction(output_path,
-                            rigs,
-                            cameras,
-                            frames,
-                            images,
-                            tracks,
-                            cluster_ids,
-                            output_format,
-                            image_path);
+  WriteGlomapReconstruction(
+      output_path, reconstruction, cluster_ids, output_format, image_path);
   LOG(INFO) << "Export to COLMAP reconstruction done";
 
   return EXIT_SUCCESS;

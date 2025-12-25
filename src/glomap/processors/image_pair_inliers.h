@@ -1,5 +1,6 @@
 #pragma once
 
+#include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
 
 #include "glomap/scene/view_graph.h"
@@ -9,14 +10,11 @@ namespace glomap {
 
 class ImagePairInliers {
  public:
-  ImagePairInliers(
-      ImagePair& image_pair,
-      const std::unordered_map<image_t, Image>& images,
-      const InlierThresholdOptions& options,
-      const std::unordered_map<camera_t, colmap::Camera>* cameras = nullptr)
+  ImagePairInliers(ImagePair& image_pair,
+                   const colmap::Reconstruction& reconstruction,
+                   const InlierThresholdOptions& options)
       : image_pair(image_pair),
-        images(images),
-        cameras(cameras),
+        reconstruction(reconstruction),
         options(options) {}
 
   // use the sampson error and put the inlier result into the image pair
@@ -33,16 +31,13 @@ class ImagePairInliers {
   double ScoreErrorHomography();
 
   ImagePair& image_pair;
-  const std::unordered_map<image_t, Image>& images;
-  const std::unordered_map<camera_t, colmap::Camera>* cameras;
+  const colmap::Reconstruction& reconstruction;
   const InlierThresholdOptions& options;
 };
 
-void ImagePairsInlierCount(
-    ViewGraph& view_graph,
-    const std::unordered_map<camera_t, colmap::Camera>& cameras,
-    const std::unordered_map<image_t, Image>& images,
-    const InlierThresholdOptions& options,
-    bool clean_inliers);
+void ImagePairsInlierCount(ViewGraph& view_graph,
+                           const colmap::Reconstruction& reconstruction,
+                           const InlierThresholdOptions& options,
+                           bool clean_inliers);
 
 }  // namespace glomap

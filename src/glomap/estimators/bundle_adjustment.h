@@ -1,8 +1,6 @@
 #pragma once
 
-#include "colmap/scene/frame.h"
-#include "colmap/scene/rig.h"
-#include "colmap/sensor/models.h"
+#include "colmap/scene/reconstruction.h"
 
 #include "glomap/estimators/optimization_base.h"
 #include "glomap/scene/types.h"
@@ -38,6 +36,7 @@ struct BundleAdjusterOptions : public OptimizationBaseOptions {
     return std::make_shared<ceres::HuberLoss>(thres_loss_function);
   }
 };
+
 class BundleAdjuster {
  public:
   explicit BundleAdjuster(const BundleAdjusterOptions& options)
@@ -46,11 +45,7 @@ class BundleAdjuster {
   // Returns true if the optimization was a success, false if there was a
   // failure.
   // Assume tracks here are already filtered
-  bool Solve(std::unordered_map<rig_t, Rig>& rigs,
-             std::unordered_map<camera_t, colmap::Camera>& cameras,
-             std::unordered_map<frame_t, Frame>& frames,
-             std::unordered_map<image_t, Image>& images,
-             std::unordered_map<point3D_t, Point3D>& tracks);
+  bool Solve(colmap::Reconstruction& reconstruction);
 
   BundleAdjusterOptions& GetOptions() { return options_; }
 
@@ -59,26 +54,14 @@ class BundleAdjuster {
   void Reset();
 
   // Add tracks to the problem
-  void AddPointToCameraConstraints(
-      std::unordered_map<rig_t, Rig>& rigs,
-      std::unordered_map<camera_t, colmap::Camera>& cameras,
-      std::unordered_map<frame_t, Frame>& frames,
-      std::unordered_map<image_t, Image>& images,
-      std::unordered_map<point3D_t, Point3D>& tracks);
+  void AddPointToCameraConstraints(colmap::Reconstruction& reconstruction);
 
   // Set the parameter groups
   void AddCamerasAndPointsToParameterGroups(
-      std::unordered_map<rig_t, Rig>& rigs,
-      std::unordered_map<camera_t, colmap::Camera>& cameras,
-      std::unordered_map<frame_t, Frame>& frames,
-      std::unordered_map<point3D_t, Point3D>& tracks);
+      colmap::Reconstruction& reconstruction);
 
   // Parameterize the variables, set some variables to be constant if desired
-  void ParameterizeVariables(
-      std::unordered_map<rig_t, Rig>& rigs,
-      std::unordered_map<camera_t, colmap::Camera>& cameras,
-      std::unordered_map<frame_t, Frame>& frames,
-      std::unordered_map<point3D_t, Point3D>& tracks);
+  void ParameterizeVariables(colmap::Reconstruction& reconstruction);
 
   BundleAdjusterOptions options_;
 

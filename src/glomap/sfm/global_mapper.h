@@ -1,12 +1,14 @@
 #pragma once
 
 #include "colmap/scene/database.h"
+#include "colmap/scene/reconstruction.h"
 
 #include "glomap/estimators/bundle_adjustment.h"
 #include "glomap/estimators/global_positioning.h"
 #include "glomap/estimators/global_rotation_averaging.h"
 #include "glomap/estimators/relpose_estimation.h"
 #include "glomap/estimators/view_graph_calibration.h"
+#include "glomap/scene/view_graph.h"
 #include "glomap/sfm/track_establishment.h"
 #include "glomap/sfm/track_retriangulation.h"
 
@@ -49,11 +51,7 @@ class GlobalMapper {
 
   bool Solve(const colmap::Database& database,
              ViewGraph& view_graph,
-             std::unordered_map<rig_t, Rig>& rigs,
-             std::unordered_map<camera_t, colmap::Camera>& cameras,
-             std::unordered_map<frame_t, Frame>& frames,
-             std::unordered_map<image_t, Image>& images,
-             std::unordered_map<point3D_t, Point3D>& tracks,
+             colmap::Reconstruction& reconstruction,
              std::vector<colmap::PosePrior>& pose_priors,
              std::unordered_map<frame_t, int>& cluster_ids);
 

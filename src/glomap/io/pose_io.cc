@@ -157,9 +157,11 @@ void ReadRelWeight(const std::string& file_path,
 // for ease of implementation, we only store from the image with trivial frame
 std::vector<colmap::PosePrior> ReadGravity(
     const std::string& gravity_path,
-    std::unordered_map<image_t, Image>& images) {
-  const std::unordered_map<std::string, image_t> image_name_to_id =
-      ExtractImageNameToId(images);
+    colmap::Reconstruction& reconstruction) {
+  std::unordered_map<std::string, image_t> image_name_to_id;
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    image_name_to_id[image.Name()] = image_id;
+  }
 
   std::vector<colmap::PosePrior> pose_priors;
 
@@ -185,14 +187,15 @@ std::vector<colmap::PosePrior> ReadGravity(
     // Check whether the image present
     auto ite = image_name_to_id.find(name);
     if (ite != image_name_to_id.end()) {
-      auto& image = images[ite->second];
+      const auto& image = reconstruction.Image(ite->second);
       if (image.IsRefInFrame()) {
         counter++;
         auto& pose_prior = pose_priors.emplace_back();
         pose_prior.pose_prior_id = ite->second;
         pose_prior.corr_data_id = image.DataId();
         pose_prior.gravity = gravity;
-        Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
+        Rigid3d& cam_from_world =
+            reconstruction.Frame(image.FrameId()).RigFromWorld();
         // Set the rotation from the camera to the world
         // Make sure the initialization is aligned with the gravity.
         cam_from_world.rotation =

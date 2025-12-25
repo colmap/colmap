@@ -4,203 +4,90 @@
 
 namespace glomap {
 
-void ConvertGlomapToColmap(
-    const std::unordered_map<rig_t, Rig>& rigs,
-    const std::unordered_map<camera_t, colmap::Camera>& cameras,
-    const std::unordered_map<frame_t, Frame>& frames,
-    const std::unordered_map<image_t, Image>& images,
-    const std::unordered_map<point3D_t, Point3D>& tracks,
+namespace {
+
+// Helper to create a trivial rig for a camera if it's not already in a rig.
+void EnsureCameraHasRig(
     colmap::Reconstruction& reconstruction,
-    const std::unordered_map<frame_t, int>& cluster_ids,
-    int cluster_id,
-    bool include_image_points) {
-  // Clear the colmap reconstruction
+    camera_t camera_id,
+    std::unordered_map<camera_t, rig_t>& camera_to_rig,
+    rig_t& max_rig_id) {
+  if (camera_to_rig.find(camera_id) != camera_to_rig.end()) {
+    return;  // Camera already has a rig
+  }
+
+  // Create a new trivial rig for this camera
+  Rig rig;
+  rig.SetRigId(++max_rig_id);
+  rig.AddRefSensor(reconstruction.Camera(camera_id).SensorId());
+  reconstruction.AddRig(rig);
+  camera_to_rig[camera_id] = rig.RigId();
+}
+
+// Helper to create a trivial frame for an image if it doesn't have one.
+void EnsureImageHasFrame(
+    colmap::Reconstruction& reconstruction,
+    image_t image_id,
+    const std::unordered_map<camera_t, rig_t>& camera_to_rig,
+    frame_t& max_frame_id) {
+  Image& image = reconstruction.Image(image_id);
+  if (image.FrameId() != colmap::kInvalidFrameId) {
+    return;  // Image already has a frame
+  }
+
+  frame_t frame_id = ++max_frame_id;
+  rig_t rig_id = camera_to_rig.at(image.CameraId());
+
+  Frame frame;
+  frame.SetFrameId(frame_id);
+  frame.SetRigId(rig_id);
+  frame.AddDataId(image.DataId());
+  frame.SetRigFromWorld(Rigid3d());
+  reconstruction.AddFrame(frame);
+
+  image.SetFrameId(frame_id);
+  image.SetFramePtr(&reconstruction.Frame(frame_id));
+}
+
+}  // namespace
+
+void ConvertDatabaseToGlomap(const colmap::Database& database,
+                             colmap::Reconstruction& reconstruction,
+                             ViewGraph& view_graph) {
   reconstruction = colmap::Reconstruction();
+  view_graph.image_pairs.clear();
 
-  // Add cameras
-  for (const auto& [camera_id, camera] : cameras) {
-    reconstruction.AddCamera(camera);
-  }
-
-  // Add rigs
-  for (const auto& [rig_id, rig] : rigs) {
-    reconstruction.AddRig(rig);
-  }
-
-  // Add frames
-  for (auto& [frame_id, frame] : frames) {
-    Frame frame_curr = frame;  // Copy the frame to avoid dangling pointer
-    frame_curr.ResetRigPtr();
-    reconstruction.AddFrame(frame_curr);
-  }
-
-  // Helper to get cluster id for a frame (returns -1 if not in map)
-  auto get_cluster_id = [&cluster_ids](frame_t frame_id) -> int {
-    auto it = cluster_ids.find(frame_id);
-    return it != cluster_ids.end() ? it->second : -1;
-  };
-
-  // Prepare the 2d-3d correspondences
-  size_t min_supports = 2;
-  std::unordered_map<image_t, std::vector<point3D_t>> image_to_point3D;
-  if (tracks.size() > 0 || include_image_points) {
-    // Initialize every point to corresponds to invalid point
-    for (auto& [image_id, image] : images) {
-      if (!image.HasPose() ||
-          (cluster_id != -1 && get_cluster_id(image.FrameId()) != cluster_id))
-        continue;
-      image_to_point3D[image_id] =
-          std::vector<point3D_t>(image.NumPoints2D(), -1);
-    }
-
-    if (tracks.size() > 0) {
-      for (auto& [track_id, track] : tracks) {
-        if (track.track.Length() < min_supports) {
-          continue;
-        }
-        for (auto& observation : track.track.Elements()) {
-          if (image_to_point3D.find(observation.image_id) !=
-              image_to_point3D.end()) {
-            image_to_point3D[observation.image_id][observation.point2D_idx] =
-                track_id;
-          }
-        }
-      }
-    }
-  }
-
-  // Add points
-  for (const auto& [track_id, track] : tracks) {
-    Point3D colmap_point;
-    colmap_point.xyz = track.xyz;
-    colmap_point.color = track.color;
-    colmap_point.error = track.error;
-
-    // Add track element
-    for (auto& observation : track.track.Elements()) {
-      const Image& image = images.at(observation.image_id);
-      if (!image.HasPose() ||
-          (cluster_id != -1 && get_cluster_id(image.FrameId()) != cluster_id))
-        continue;
-      colmap::TrackElement colmap_track_el;
-      colmap_track_el.image_id = observation.image_id;
-      colmap_track_el.point2D_idx = observation.point2D_idx;
-
-      colmap_point.track.AddElement(colmap_track_el);
-    }
-
-    if (colmap_point.track.Length() < min_supports) continue;
-
-    colmap_point.track.Compress();
-    reconstruction.AddPoint3D(track_id, std::move(colmap_point));
-  }
-
-  // Add images
-  for (const auto& [image_id, image] : images) {
-    colmap::Image image_colmap = image;
-    image_colmap.ResetCameraPtr();
-    image_colmap.ResetFramePtr();
-
-    const bool keep_points =
-        image_to_point3D.find(image_id) != image_to_point3D.end();
-    if (!keep_points) {
-      image_colmap.Points2D().clear();
-    }
-    if (keep_points) {
-      std::vector<point3D_t>& track_ids = image_to_point3D[image_id];
-      for (size_t i = 0; i < image.NumPoints2D(); i++) {
-        if (track_ids[i] != -1 && reconstruction.ExistsPoint3D(track_ids[i])) {
-          image_colmap.SetPoint3DForPoint2D(i, track_ids[i]);
-        }
-      }
-    }
-
-    reconstruction.AddImage(std::move(image_colmap));
-  }
-
-  // Deregister frames
-  for (auto& [frame_id, frame] : frames) {
-    if ((cluster_id != 0 && !frame.HasPose()) ||
-        (get_cluster_id(frame_id) != cluster_id && cluster_id != -1)) {
-      reconstruction.DeRegisterFrame(frame_id);
-    }
-  }
-
-  reconstruction.UpdatePoint3DErrors();
-}
-
-void ConvertColmapToGlomap(
-    const colmap::Reconstruction& reconstruction,
-    std::unordered_map<rig_t, Rig>& rigs,
-    std::unordered_map<camera_t, colmap::Camera>& cameras,
-    std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, Point3D>& tracks) {
-  // Clear the glomap reconstruction
-  cameras.clear();
-  images.clear();
-
-  // Add cameras
-  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
-    cameras[camera_id] = camera;
-  }
-
-  // Add rigs
-  for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
-    rigs[rig_id] = rig;
-  }
-
-  // Add frames
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    frames[frame_id] = Frame(frame);
-    frames[frame_id].SetRigPtr(&rigs.at(frame.RigId()));
-  }
-
-  for (auto& [image_id, image_colmap] : reconstruction.Images()) {
-    Image& image = images[image_colmap.ImageId()];
-    image.SetImageId(image_colmap.ImageId());
-    image.SetFrameId(image_colmap.FrameId());
-    image.SetCameraId(image_colmap.CameraId());
-    image.SetCameraPtr(&cameras.at(image_colmap.CameraId()));
-    image.SetName(image_colmap.Name());
-    image.SetFramePtr(&frames.at(image.FrameId()));
-    image.SetPoints2D(image_colmap.Points2D());
-  }
-
-  ConvertColmapPoints3DToGlomapTracks(reconstruction, tracks);
-}
-
-void ConvertColmapPoints3DToGlomapTracks(
-    const colmap::Reconstruction& reconstruction,
-    std::unordered_map<point3D_t, Point3D>& tracks) {
-  // Read tracks
-  tracks.clear();
-  tracks.reserve(reconstruction.NumPoints3D());
-
-  auto& points3D = reconstruction.Points3D();
-  for (auto& [point3d_id, point3D] : points3D) {
-    tracks.insert(std::make_pair(point3d_id, point3D));
-  }
-}
-
-// For ease of debug, go through the database twice: first extract the
-// available pairs, then read matches from pairs.
-void ConvertDatabaseToGlomap(
-    const colmap::Database& database,
-    ViewGraph& view_graph,
-    std::unordered_map<rig_t, Rig>& rigs,
-    std::unordered_map<camera_t, colmap::Camera>& cameras,
-    std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<image_t, Image>& images) {
-  // Add the cameras
+  // Add all cameras
   for (auto& camera : database.ReadAllCameras()) {
-    cameras[camera.camera_id] = std::move(camera);
+    reconstruction.AddCamera(std::move(camera));
   }
 
-  // Add the images
-  for (auto& image : database.ReadAllImages()) {
-    image.SetCameraPtr(&cameras[image.CameraId()]);
+  // Add all rigs from database
+  rig_t max_rig_id = 0;
+  std::unordered_map<camera_t, rig_t> camera_to_rig;
 
+  for (auto& rig : database.ReadAllRigs()) {
+    max_rig_id = std::max(max_rig_id, rig.RigId());
+    reconstruction.AddRig(rig);
+
+    sensor_t sensor_id = rig.RefSensorId();
+    if (sensor_id.type == SensorType::CAMERA) {
+      camera_to_rig[sensor_id.id] = rig.RigId();
+    }
+    for (const auto& [non_ref_sensor_id, sensor_pose] : rig.NonRefSensors()) {
+      if (non_ref_sensor_id.type == SensorType::CAMERA) {
+        camera_to_rig[non_ref_sensor_id.id] = rig.RigId();
+      }
+    }
+  }
+
+  // Create trivial rigs for cameras not in any rig
+  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
+    EnsureCameraHasRig(reconstruction, camera_id, camera_to_rig, max_rig_id);
+  }
+
+  // Add all images
+  for (auto& image : database.ReadAllImages()) {
     const colmap::FeatureKeypoints keypoints =
         database.ReadKeypoints(image.ImageId());
     const colmap::point2D_t num_points2D = keypoints.size();
@@ -211,120 +98,73 @@ void ConvertDatabaseToGlomap(
           Eigen::Vector2d(keypoints[point2D_idx].x, keypoints[point2D_idx].y);
     }
 
-    images[image.ImageId()] = std::move(image);
+    reconstruction.AddImage(std::move(image));
   }
 
-  LOG(INFO) << "Read " << images.size() << " images";
+  LOG(INFO) << "Read " << reconstruction.NumImages() << " images";
 
-  // TODO(jsch): Read pose priors.
-
-  // Add the rigs
-  std::vector<colmap::Rig> rigs_colmap = database.ReadAllRigs();
-  for (auto& rig : rigs_colmap) {
-    rigs[rig.RigId()] = rig;
-  }
-
-  // Add the frames
-  std::vector<colmap::Frame> frames_colmap = database.ReadAllFrames();
-  for (auto& frame : frames_colmap) {
+  // Add all frames from database
+  frame_t max_frame_id = 0;
+  for (auto& frame : database.ReadAllFrames()) {
     frame_t frame_id = frame.FrameId();
     if (frame_id == colmap::kInvalidFrameId) continue;
-    Frame& glomap_frame = frames[frame_id];
+    max_frame_id = std::max(max_frame_id, frame_id);
+
+    Frame glomap_frame;
     glomap_frame.SetFrameId(frame_id);
     glomap_frame.SetRigId(frame.RigId());
-    glomap_frame.SetRigPtr(rigs.find(frame.RigId()) != rigs.end()
-                               ? &rigs[frame.RigId()]
-                               : nullptr);
     glomap_frame.SetRigFromWorld(Rigid3d());
 
     for (auto data_id : frame.ImageIds()) {
       image_t image_id = data_id.id;
       glomap_frame.AddDataId(data_id);
-      if (auto it = images.find(image_id); it != images.end()) {
-        it->second.SetFrameId(frame_id);
-        it->second.SetFramePtr(&glomap_frame);
+
+      if (reconstruction.ExistsImage(image_id)) {
+        reconstruction.Image(image_id).SetFrameId(frame_id);
+      }
+    }
+
+    reconstruction.AddFrame(glomap_frame);
+
+    for (auto data_id : frame.ImageIds()) {
+      image_t image_id = data_id.id;
+      if (reconstruction.ExistsImage(image_id)) {
+        reconstruction.Image(image_id).SetFramePtr(
+            &reconstruction.Frame(frame_id));
       }
     }
   }
 
-  // cameras that are not used in any rig
-  rig_t max_rig_id = 0;
-  std::unordered_map<camera_t, rig_t> cameras_id_to_rig_id;
-  for (const auto& [rig_id, rig] : rigs) {
-    max_rig_id = std::max(max_rig_id, rig_id);
-
-    sensor_t sensor_id = rig.RefSensorId();
-    if (sensor_id.type == SensorType::CAMERA) {
-      cameras_id_to_rig_id[rig.RefSensorId().id] = rig_id;
-    }
-    const std::map<sensor_t, std::optional<Rigid3d>>& sensors =
-        rig.NonRefSensors();
-    for (const auto& [sensor_id, sensor_pose] : sensors) {
-      if (sensor_id.type == SensorType::CAMERA) {
-        cameras_id_to_rig_id[sensor_id.id] = rig_id;
-      }
-    }
+  // Create trivial frames for images without frames
+  for (auto& [image_id, image] : reconstruction.Images()) {
+    EnsureImageHasFrame(reconstruction, image_id, camera_to_rig, max_frame_id);
   }
 
-  // For cameras that are not in any rig, add camera rigs
-  for (const auto& [camera_id, camera] : cameras) {
-    if (cameras_id_to_rig_id.find(camera_id) == cameras_id_to_rig_id.end()) {
-      Rig rig;
-      rig.SetRigId(++max_rig_id);
-      rig.AddRefSensor(camera.SensorId());
-      rigs[rig.RigId()] = rig;
-      cameras_id_to_rig_id[camera_id] = rig.RigId();
-    }
-  }
-
-  frame_t max_frame_id = 0;
-  // For frames that are not in any rig, add camera rigs
-  for (const auto& [frame_id, frame] : frames) {
-    if (frame_id == colmap::kInvalidFrameId) continue;
-    max_frame_id = std::max(max_frame_id, frame_id);
-  }
-
-  // For images without frames, initialize trivial frames
-  for (auto& [image_id, image] : images) {
-    if (image.FrameId() == colmap::kInvalidFrameId) {
-      frame_t frame_id = ++max_frame_id;
-
-      CreateFrameForImage(Rigid3d(),
-                          image,
-                          rigs,
-                          frames,
-                          cameras_id_to_rig_id[image.CameraId()],
-                          frame_id);
-    }
-  }
-
-  // Add the matches
+  // Build view graph from matches
   std::vector<std::pair<colmap::image_pair_t, colmap::FeatureMatches>>
       all_matches = database.ReadAllMatches();
 
-  // Go through all matches and store the matche with enough observations in
-  // the view_graph
   size_t invalid_count = 0;
   std::unordered_map<image_pair_t, ImagePair>& image_pairs =
       view_graph.image_pairs;
+
   for (size_t match_idx = 0; match_idx < all_matches.size(); match_idx++) {
-    if ((match_idx + 1) % 1000 == 0 || match_idx == all_matches.size() - 1)
+    if ((match_idx + 1) % 1000 == 0 || match_idx == all_matches.size() - 1) {
       std::cout << "\r Loading Image Pair " << match_idx + 1 << " / "
                 << all_matches.size() << std::flush;
+    }
+
     // Read the image pair from COLMAP database
     colmap::image_pair_t pair_id = all_matches[match_idx].first;
-    std::pair<colmap::image_t, colmap::image_t> image_pair_colmap =
-        colmap::PairIdToImagePair(pair_id);
-    colmap::image_t image_id1 = image_pair_colmap.first;
-    colmap::image_t image_id2 = image_pair_colmap.second;
+    auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 
     colmap::FeatureMatches& feature_matches = all_matches[match_idx].second;
 
     // Initialize the image pair
-    auto ite = image_pairs.insert(
-        std::make_pair(colmap::ImagePairToPairId(image_id1, image_id2),
-                       ImagePair(image_id1, image_id2)));
-    ImagePair& image_pair = ite.first->second;
+    auto [it, inserted] = image_pairs.insert(std::make_pair(
+        colmap::ImagePairToPairId(image_id1, image_id2),
+        ImagePair(image_id1, image_id2)));
+    ImagePair& image_pair = it->second;
 
     colmap::TwoViewGeometry two_view =
         database.ReadTwoViewGeometry(image_id1, image_id2);
@@ -339,16 +179,17 @@ void ConvertDatabaseToGlomap(
       continue;
     }
 
-    // Collect the fundemental matrices
+    const Image& image1 = reconstruction.Image(image_id1);
+    const Image& image2 = reconstruction.Image(image_id2);
+
+    // Collect the fundamental matrices
     if (two_view.config == colmap::TwoViewGeometry::UNCALIBRATED) {
       image_pair.F = two_view.F;
     } else if (two_view.config == colmap::TwoViewGeometry::CALIBRATED) {
       image_pair.F = colmap::FundamentalFromEssentialMatrix(
-          cameras.at(images.at(image_pair.image_id2).CameraId())
-              .CalibrationMatrix(),
+          reconstruction.Camera(image2.CameraId()).CalibrationMatrix(),
           colmap::EssentialMatrixFromPose(image_pair.cam2_from_cam1),
-          cameras.at(images.at(image_pair.image_id1).CameraId())
-              .CalibrationMatrix());
+          reconstruction.Camera(image1.CameraId()).CalibrationMatrix());
     } else if (two_view.config == colmap::TwoViewGeometry::PLANAR ||
                two_view.config == colmap::TwoViewGeometry::PANORAMIC ||
                two_view.config ==
@@ -361,9 +202,6 @@ void ConvertDatabaseToGlomap(
     // Collect the matches
     image_pair.matches = Eigen::MatrixXi(feature_matches.size(), 2);
 
-    const Image& image1 = images[image_pair.image_id1];
-    const Image& image2 = images[image_pair.image_id2];
-
     size_t count = 0;
     for (int i = 0; i < feature_matches.size(); i++) {
       colmap::point2D_t point2D_idx1 = feature_matches[i].point2D_idx1;
@@ -371,8 +209,9 @@ void ConvertDatabaseToGlomap(
       if (point2D_idx1 != colmap::kInvalidPoint2DIdx &&
           point2D_idx2 != colmap::kInvalidPoint2DIdx) {
         if (point2D_idx1 >= image1.NumPoints2D() ||
-            point2D_idx2 >= image2.NumPoints2D())
+            point2D_idx2 >= image2.NumPoints2D()) {
           continue;
+        }
         image_pair.matches.row(count) << point2D_idx1, point2D_idx2;
         count++;
       }
@@ -384,38 +223,42 @@ void ConvertDatabaseToGlomap(
             << view_graph.image_pairs.size() << " are invalid";
 }
 
-void CreateOneRigPerCamera(
-    const std::unordered_map<camera_t, colmap::Camera>& cameras,
-    std::unordered_map<rig_t, Rig>& rigs) {
-  for (const auto& [camera_id, camera] : cameras) {
-    Rig rig;
-    rig.SetRigId(camera_id);
-    rig.AddRefSensor(camera.SensorId());
-    rigs[rig.RigId()] = rig;
+colmap::Reconstruction ExtractCluster(
+    const colmap::Reconstruction& reconstruction,
+    const std::unordered_map<frame_t, int>& cluster_ids,
+    int cluster_id) {
+  // If no filtering needed, return a copy
+  if (cluster_id == -1 || cluster_ids.empty()) {
+    return reconstruction;
   }
-}
 
-void CreateFrameForImage(const Rigid3d& rig_from_world,
-                         Image& image,
-                         std::unordered_map<rig_t, Rig>& rigs,
-                         std::unordered_map<frame_t, Frame>& frames,
-                         rig_t rig_id,
-                         frame_t frame_id) {
-  Frame& frame = frames[frame_id];
-  if (frame_id == colmap::kInvalidFrameId) {
-    frame_id = image.ImageId();
-  }
-  if (rig_id == colmap::kInvalidRigId) {
-    rig_id = image.CameraId();
-  }
-  frame.SetFrameId(frame_id);
-  frame.SetRigId(rig_id);
-  frame.SetRigPtr(&rigs.at(rig_id));
-  frame.AddDataId(image.DataId());
-  frame.SetRigFromWorld(rig_from_world);
+  // Helper to get cluster id for a frame
+  auto get_cluster_id = [&cluster_ids](frame_t frame_id) -> int {
+    auto it = cluster_ids.find(frame_id);
+    return it != cluster_ids.end() ? it->second : -1;
+  };
 
-  image.SetFrameId(frame_id);
-  image.SetFramePtr(&frame);
+  // Make a copy of the reconstruction
+  colmap::Reconstruction filtered = reconstruction;
+
+  // Collect frames to deregister (those not in this cluster)
+  std::vector<frame_t> frames_to_deregister;
+  for (const auto& [frame_id, frame] : filtered.Frames()) {
+    if (!frame.HasPose() || get_cluster_id(frame_id) != cluster_id) {
+      frames_to_deregister.push_back(frame_id);
+    }
+  }
+
+  // Deregister frames not in this cluster
+  // This also removes point observations from those frames' images
+  for (frame_t frame_id : frames_to_deregister) {
+    if (filtered.Frame(frame_id).HasPose()) {
+      filtered.DeRegisterFrame(frame_id);
+    }
+  }
+
+  filtered.UpdatePoint3DErrors();
+  return filtered;
 }
 
 }  // namespace glomap

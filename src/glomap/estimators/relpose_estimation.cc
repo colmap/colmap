@@ -16,11 +16,9 @@ inline poselib::Camera ColmapCameraToPoseLibCamera(
 
 }  // namespace
 
-void EstimateRelativePoses(
-    ViewGraph& view_graph,
-    std::unordered_map<camera_t, colmap::Camera>& cameras,
-    std::unordered_map<image_t, Image>& images,
-    const RelativePoseEstimationOptions& options) {
+void EstimateRelativePoses(ViewGraph& view_graph,
+                           colmap::Reconstruction& reconstruction,
+                           const RelativePoseEstimationOptions& options) {
   std::vector<image_pair_t> valid_pair_ids;
   for (auto& [image_pair_id, image_pair] : view_graph.image_pairs) {
     if (!image_pair.is_valid) continue;
@@ -51,12 +49,14 @@ void EstimateRelativePoses(
 
         ImagePair& image_pair =
             view_graph.image_pairs[valid_pair_ids[pair_idx]];
-        const Image& image1 = images[image_pair.image_id1];
-        const Image& image2 = images[image_pair.image_id2];
+        const Image& image1 = reconstruction.Image(image_pair.image_id1);
+        const Image& image2 = reconstruction.Image(image_pair.image_id2);
         const Eigen::MatrixXi& matches = image_pair.matches;
 
-        const colmap::Camera& camera1 = cameras[image1.CameraId()];
-        const colmap::Camera& camera2 = cameras[image2.CameraId()];
+        const colmap::Camera& camera1 =
+            reconstruction.Camera(image1.CameraId());
+        const colmap::Camera& camera2 =
+            reconstruction.Camera(image2.CameraId());
         poselib::Camera camera_poselib1 = ColmapCameraToPoseLibCamera(camera1);
         poselib::Camera camera_poselib2 = ColmapCameraToPoseLibCamera(camera2);
         bool valid_camera_model =

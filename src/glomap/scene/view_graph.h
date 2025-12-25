@@ -1,5 +1,7 @@
 #pragma once
 
+#include "colmap/scene/reconstruction.h"
+
 #include "glomap/scene/image_pair.h"
 #include "glomap/scene/types.h"
 
@@ -17,20 +19,16 @@ struct ViewGraph {
 
   // Create the adjacency list for the frames in the view graph.
   std::unordered_map<frame_t, std::unordered_set<frame_t>>
-  CreateFrameAdjacencyList(
-      const std::unordered_map<image_t, Image>& images) const;
+  CreateFrameAdjacencyList(const colmap::Reconstruction& reconstruction) const;
 
   // Mark the images which are not connected to any other images as not
   // registered. Returns the number of images in the largest connected
   // component.
-  int KeepLargestConnectedComponents(
-      std::unordered_map<frame_t, Frame>& frames,
-      const std::unordered_map<image_t, Image>& images);
+  int KeepLargestConnectedComponents(colmap::Reconstruction& reconstruction);
 
   // Mark connected clusters of images, where the cluster_id is sorted by the
   // the number of images. Populates `cluster_ids` output parameter.
-  int MarkConnectedComponents(const std::unordered_map<frame_t, Frame>& frames,
-                              const std::unordered_map<image_t, Image>& images,
+  int MarkConnectedComponents(const colmap::Reconstruction& reconstruction,
                               std::unordered_map<frame_t, int>& cluster_ids,
                               int min_num_images = -1);
 };

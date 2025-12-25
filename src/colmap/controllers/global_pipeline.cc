@@ -50,13 +50,8 @@ void GlobalPipeline::Run() {
   auto database = Database::Open(database_path_);
 
   glomap::ViewGraph view_graph;
-  std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<camera_t, Camera> cameras;
-  std::unordered_map<frame_t, glomap::Frame> frames;
-  std::unordered_map<image_t, glomap::Image> images;
-  std::unordered_map<point3D_t, Point3D> tracks;
-  glomap::ConvertDatabaseToGlomap(
-      *database, view_graph, rigs, cameras, frames, images);
+  Reconstruction reconstruction;
+  glomap::ConvertDatabaseToGlomap(*database, reconstruction, view_graph);
   std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
 
   if (view_graph.image_pairs.empty()) {
@@ -68,15 +63,8 @@ void GlobalPipeline::Run() {
   run_timer.Start();
   glomap::GlobalMapper global_mapper(options_);
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(*database,
-                      view_graph,
-                      rigs,
-                      cameras,
-                      frames,
-                      images,
-                      tracks,
-                      pose_priors,
-                      cluster_ids);
+  global_mapper.Solve(
+      *database, view_graph, reconstruction, pose_priors, cluster_ids);
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 
@@ -87,32 +75,25 @@ void GlobalPipeline::Run() {
 
   // If it is not separated into several clusters, then output them as whole.
   if (largest_component_num == -1) {
-    colmap::Reconstruction& reconstruction =
+    Reconstruction& output_reconstruction =
         *reconstruction_manager_->Get(reconstruction_manager_->Add());
-    glomap::ConvertGlomapToColmap(
-        rigs, cameras, frames, images, tracks, reconstruction, cluster_ids);
+    output_reconstruction = std::move(reconstruction);
     // Read in colors
     if (image_path_ != "") {
       LOG(INFO) << "Extracting colors ...";
-      reconstruction.ExtractColorsForAllImages(image_path_);
+      output_reconstruction.ExtractColorsForAllImages(image_path_);
     }
   } else {
     for (int comp = 0; comp <= largest_component_num; comp++) {
       std::cout << "\r Exporting reconstruction " << comp + 1 << " / "
                 << largest_component_num + 1 << std::flush;
-      colmap::Reconstruction& reconstruction =
+      Reconstruction& output_reconstruction =
           *reconstruction_manager_->Get(reconstruction_manager_->Add());
-      glomap::ConvertGlomapToColmap(rigs,
-                                    cameras,
-                                    frames,
-                                    images,
-                                    tracks,
-                                    reconstruction,
-                                    cluster_ids,
-                                    comp);
+      output_reconstruction =
+          glomap::ExtractCluster(reconstruction, cluster_ids, comp);
       // Read in colors
       if (image_path_ != "") {
-        reconstruction.ExtractColorsForAllImages(image_path_);
+        output_reconstruction.ExtractColorsForAllImages(image_path_);
       }
     }
     std::cout << '\n';

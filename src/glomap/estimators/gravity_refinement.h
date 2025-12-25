@@ -1,7 +1,7 @@
 #pragma once
 
 #include "colmap/geometry/pose_prior.h"
-#include "colmap/scene/frame.h"
+#include "colmap/scene/reconstruction.h"
 
 #include "glomap/estimators/optimization_base.h"
 #include "glomap/scene/view_graph.h"
@@ -33,15 +33,13 @@ class GravityRefiner {
       : options_(options) {}
 
   void RefineGravity(const ViewGraph& view_graph,
-                     const std::unordered_map<frame_t, Frame>& frames,
-                     const std::unordered_map<image_t, Image>& images,
+                     const colmap::Reconstruction& reconstruction,
                      std::vector<colmap::PosePrior>& pose_priors);
 
  private:
   void IdentifyErrorProneGravity(
       const ViewGraph& view_graph,
-      const std::unordered_map<frame_t, Frame>& frames,
-      const std::unordered_map<image_t, Image>& images,
+      const colmap::Reconstruction& reconstruction,
       std::unordered_map<image_t, colmap::PosePrior*>& image_to_pose_prior,
       std::unordered_set<frame_t>& error_prone_frames);
   GravityRefinerOptions options_;

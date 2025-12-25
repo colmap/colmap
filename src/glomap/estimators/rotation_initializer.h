@@ -1,7 +1,6 @@
 #pragma once
 
-#include "colmap/scene/frame.h"
-#include "colmap/scene/rig.h"
+#include "colmap/scene/reconstruction.h"
 
 #include "glomap/scene/types.h"
 
@@ -10,8 +9,6 @@ namespace glomap {
 // Initialize the rotations of the rigs from the images
 bool ConvertRotationsFromImageToRig(
     const std::unordered_map<image_t, Rigid3d>& cam_from_worlds,
-    const std::unordered_map<image_t, Image>& images,
-    std::unordered_map<rig_t, Rig>& rigs,
-    std::unordered_map<frame_t, Frame>& frames);
+    colmap::Reconstruction& reconstruction);
 
 }  // namespace glomap

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "colmap/scene/reconstruction.h"
+
 #include "glomap/estimators/global_rotation_averaging.h"
 
 namespace glomap {
@@ -12,9 +14,7 @@ struct RotationAveragerOptions : public RotationEstimatorOptions {
 };
 
 bool SolveRotationAveraging(ViewGraph& view_graph,
-                            std::unordered_map<rig_t, Rig>& rigs,
-                            std::unordered_map<frame_t, Frame>& frames,
-                            std::unordered_map<image_t, Image>& images,
+                            colmap::Reconstruction& reconstruction,
                             std::vector<colmap::PosePrior>& pose_priors,
                             const RotationAveragerOptions& options);
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
 
 #include "glomap/estimators/optimization_base.h"
@@ -35,31 +36,25 @@ class ViewGraphCalibrator {
       : options_(options) {}
 
   // Entry point for the calibration
-  bool Solve(ViewGraph& view_graph,
-             std::unordered_map<camera_t, colmap::Camera>& cameras,
-             std::unordered_map<image_t, Image>& images);
+  bool Solve(ViewGraph& view_graph, colmap::Reconstruction& reconstruction);
 
  private:
   // Reset the problem
-  void Reset(const std::unordered_map<camera_t, colmap::Camera>& cameras);
+  void Reset(const colmap::Reconstruction& reconstruction);
 
   // Add the image pairs to the problem
-  void AddImagePairsToProblem(
-      const ViewGraph& view_graph,
-      const std::unordered_map<camera_t, colmap::Camera>& cameras,
-      const std::unordered_map<image_t, Image>& images);
+  void AddImagePairsToProblem(const ViewGraph& view_graph,
+                              const colmap::Reconstruction& reconstruction);
 
   // Add a single image pair to the problem
   void AddImagePair(const ImagePair& image_pair,
-                    const std::unordered_map<camera_t, colmap::Camera>& cameras,
-                    const std::unordered_map<image_t, Image>& images);
+                    const colmap::Reconstruction& reconstruction);
 
   // Set the cameras to be constant if they have prior intrinsics
-  size_t ParameterizeCameras(
-      const std::unordered_map<camera_t, colmap::Camera>& cameras);
+  size_t ParameterizeCameras(const colmap::Reconstruction& reconstruction);
 
   // Convert the results back to the camera
-  void CopyBackResults(std::unordered_map<camera_t, colmap::Camera>& cameras);
+  void CopyBackResults(colmap::Reconstruction& reconstruction);
 
   // Filter the image pairs based on the calibration results
   size_t FilterImagePairs(ViewGraph& view_graph) const;

@@ -3,70 +3,55 @@
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 
+#include "glomap/io/colmap_converter.h"
+
 namespace glomap {
 
 void WriteGlomapReconstruction(
     const std::string& reconstruction_path,
-    const std::unordered_map<rig_t, Rig>& rigs,
-    const std::unordered_map<camera_t, colmap::Camera>& cameras,
-    const std::unordered_map<frame_t, Frame>& frames,
-    const std::unordered_map<image_t, Image>& images,
-    const std::unordered_map<point3D_t, Point3D>& tracks,
+    const colmap::Reconstruction& reconstruction,
     const std::unordered_map<frame_t, int>& cluster_ids,
     const std::string& output_format,
     const std::string& image_path) {
-  // Check whether reconstruction pruning is applied.
-  // If so, export separate reconstruction
-  int largest_component_num = -1;
+  // Find the maximum cluster id to determine if we have multiple clusters
+  int max_cluster_id = -1;
   for (const auto& [frame_id, cluster_id] : cluster_ids) {
-    if (cluster_id > largest_component_num) largest_component_num = cluster_id;
-  }
-  // If it is not separated into several clusters, then output them as whole
-  if (largest_component_num == -1) {
-    colmap::Reconstruction reconstruction;
-    ConvertGlomapToColmap(
-        rigs, cameras, frames, images, tracks, reconstruction, cluster_ids);
-    // Read in colors
-    if (image_path != "") {
-      LOG(INFO) << "Extracting colors ...";
-      reconstruction.ExtractColorsForAllImages(image_path);
+    if (cluster_id > max_cluster_id) {
+      max_cluster_id = cluster_id;
     }
-    colmap::CreateDirIfNotExists(reconstruction_path + "/0", true);
+  }
+
+  // Helper to write a single reconstruction
+  auto write_reconstruction = [&](const colmap::Reconstruction& recon,
+                                  const std::string& path) {
+    colmap::Reconstruction recon_copy = recon;
+    if (!image_path.empty()) {
+      LOG(INFO) << "Extracting colors ...";
+      recon_copy.ExtractColorsForAllImages(image_path);
+    }
+    colmap::CreateDirIfNotExists(path, true);
     if (output_format == "txt") {
-      reconstruction.WriteText(reconstruction_path + "/0");
+      recon_copy.WriteText(path);
     } else if (output_format == "bin") {
-      reconstruction.WriteBinary(reconstruction_path + "/0");
+      recon_copy.WriteBinary(path);
     } else {
       LOG(ERROR) << "Unsupported output type";
     }
+  };
+
+  // If no clusters, output as single reconstruction
+  if (max_cluster_id == -1) {
+    write_reconstruction(reconstruction, reconstruction_path + "/0");
   } else {
-    for (int comp = 0; comp <= largest_component_num; comp++) {
+    // Export each cluster separately
+    for (int comp = 0; comp <= max_cluster_id; comp++) {
       std::cout << "\r Exporting reconstruction " << comp + 1 << " / "
-                << largest_component_num + 1 << std::flush;
-      colmap::Reconstruction reconstruction;
-      ConvertGlomapToColmap(rigs,
-                            cameras,
-                            frames,
-                            images,
-                            tracks,
-                            reconstruction,
-                            cluster_ids,
-                            comp);
-      // Read in colors
-      if (image_path != "") {
-        reconstruction.ExtractColorsForAllImages(image_path);
-      }
-      colmap::CreateDirIfNotExists(
-          reconstruction_path + "/" + std::to_string(comp), true);
-      if (output_format == "txt") {
-        reconstruction.WriteText(reconstruction_path + "/" +
-                                 std::to_string(comp));
-      } else if (output_format == "bin") {
-        reconstruction.WriteBinary(reconstruction_path + "/" +
-                                   std::to_string(comp));
-      } else {
-        LOG(ERROR) << "Unsupported output type";
-      }
+                << max_cluster_id + 1 << std::flush;
+
+      colmap::Reconstruction cluster_recon =
+          ExtractCluster(reconstruction, cluster_ids, comp);
+      write_reconstruction(cluster_recon,
+                           reconstruction_path + "/" + std::to_string(comp));
     }
     std::cout << '\n';
   }

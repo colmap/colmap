@@ -1,5 +1,6 @@
 #include "glomap/sfm/rotation_averager.h"
 
+#include "colmap/scene/reconstruction_io_utils.h"
 #include "colmap/util/file.h"
 #include "colmap/util/timer.h"
 
@@ -63,51 +64,55 @@ int RunRotationAverager(int argc, char** argv) {
 
   // Load the database
   ViewGraph view_graph;
-  std::unordered_map<image_t, Image> images;
+  colmap::Reconstruction reconstruction;
 
-  ReadRelPose(relpose_path, images, view_graph);
+  // Read relative poses and build view graph
+  // First read into a temporary images map
+  std::unordered_map<image_t, Image> temp_images;
+  ReadRelPose(relpose_path, temp_images, view_graph);
 
-  std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<camera_t, colmap::Camera> cameras;
-  std::unordered_map<frame_t, Frame> frames;
-  std::vector<colmap::PosePrior> pose_priors;
-
-  for (auto& [image_id, image] : images) {
+  // Add cameras and images to reconstruction
+  for (auto& [image_id, image] : temp_images) {
     image.SetCameraId(image.ImageId());
-    cameras[image.CameraId()].camera_id = image.CameraId();
+
+    // Add camera if it doesn't exist
+    if (!reconstruction.ExistsCamera(image.CameraId())) {
+      colmap::Camera camera;
+      camera.camera_id = image.CameraId();
+      reconstruction.AddCamera(std::move(camera));
+    }
+
+    reconstruction.AddImage(std::move(image));
   }
 
-  CreateOneRigPerCamera(cameras, rigs);
-
-  // For frames that are not in any rig, add camera rigs
-  // For images without frames, initialize trivial frames
-  for (auto& [image_id, image] : images) {
-    CreateFrameForImage(Rigid3d(), image, rigs, frames);
+  // Create one rig per camera and frames for images
+  colmap::CreateOneRigPerCamera(reconstruction);
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    colmap::CreateFrameForImage(image, Rigid3d(), reconstruction);
   }
 
+  std::vector<colmap::PosePrior> pose_priors;
   if (gravity_path != "") {
-    pose_priors = ReadGravity(gravity_path, images);
+    pose_priors = ReadGravity(gravity_path, reconstruction);
   }
 
   if (use_weight) {
-    ReadRelWeight(weight_path, images, view_graph);
+    ReadRelWeight(weight_path, reconstruction.Images(), view_graph);
   }
 
-  int num_img = view_graph.KeepLargestConnectedComponents(frames, images);
-  LOG(INFO) << num_img << " / " << images.size()
+  int num_img = view_graph.KeepLargestConnectedComponents(reconstruction);
+  LOG(INFO) << num_img << " / " << reconstruction.NumImages()
             << " are within the largest connected component";
 
   if (refine_gravity && gravity_path != "") {
     GravityRefiner grav_refiner(*options.gravity_refiner);
-    grav_refiner.RefineGravity(view_graph, frames, images, pose_priors);
+    grav_refiner.RefineGravity(view_graph, reconstruction, pose_priors);
   }
 
   colmap::Timer run_timer;
   run_timer.Start();
   if (!SolveRotationAveraging(view_graph,
-                              rigs,
-                              frames,
-                              images,
+                              reconstruction,
                               pose_priors,
                               rotation_averager_options)) {
     LOG(ERROR) << "Failed to solve global rotation averaging";
@@ -118,7 +123,7 @@ int RunRotationAverager(int argc, char** argv) {
             << run_timer.ElapsedSeconds() << " seconds";
 
   // Write out the estimated rotation
-  WriteGlobalRotation(output_path, images);
+  WriteGlobalRotation(output_path, reconstruction.Images());
   LOG(INFO) << "Global rotation averaging done" << '\n';
 
   return EXIT_SUCCESS;

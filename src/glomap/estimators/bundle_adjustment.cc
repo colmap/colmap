@@ -8,19 +8,14 @@
 
 namespace glomap {
 
-bool BundleAdjuster::Solve(
-    std::unordered_map<rig_t, Rig>& rigs,
-    std::unordered_map<camera_t, colmap::Camera>& cameras,
-    std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, Point3D>& tracks) {
+bool BundleAdjuster::Solve(colmap::Reconstruction& reconstruction) {
   // Check if the input data is valid
-  if (images.empty()) {
-    LOG(ERROR) << "Number of images = " << images.size();
+  if (reconstruction.NumImages() == 0) {
+    LOG(ERROR) << "Number of images = " << reconstruction.NumImages();
     return false;
   }
-  if (tracks.empty()) {
-    LOG(ERROR) << "Number of tracks = " << tracks.size();
+  if (reconstruction.NumPoints3D() == 0) {
+    LOG(ERROR) << "Number of tracks = " << reconstruction.NumPoints3D();
     return false;
   }
 
@@ -28,14 +23,14 @@ bool BundleAdjuster::Solve(
   Reset();
 
   // Add the constraints that the point tracks impose on the problem
-  AddPointToCameraConstraints(rigs, cameras, frames, images, tracks);
+  AddPointToCameraConstraints(reconstruction);
 
   // Add the cameras and points to the parameter groups for schur-based
   // optimization
-  AddCamerasAndPointsToParameterGroups(rigs, cameras, frames, tracks);
+  AddCamerasAndPointsToParameterGroups(reconstruction);
 
   // Parameterize the variables
-  ParameterizeVariables(rigs, cameras, frames, tracks);
+  ParameterizeVariables(reconstruction);
 
   // Set the solver options.
   ceres::Solver::Summary summary;
@@ -43,10 +38,13 @@ bool BundleAdjuster::Solve(
 #ifdef GLOMAP_CUDA_ENABLED
   bool cuda_solver_enabled = false;
 
+  const size_t num_images = reconstruction.NumImages();
+
 #if (CERES_VERSION_MAJOR >= 3 ||                                \
      (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 2)) && \
     !defined(CERES_NO_CUDA)
-  if (options_.use_gpu && num_images >= options_.min_num_images_gpu_solver) {
+  if (options_.use_gpu &&
+      static_cast<int>(num_images) >= options_.min_num_images_gpu_solver) {
     cuda_solver_enabled = true;
     options_.solver_options.dense_linear_algebra_library_type = ceres::CUDA;
   }
@@ -62,7 +60,8 @@ bool BundleAdjuster::Solve(
 #if (CERES_VERSION_MAJOR >= 3 ||                                \
      (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 3)) && \
     !defined(CERES_NO_CUDSS)
-  if (options_.use_gpu && num_images >= options_.min_num_images_gpu_solver) {
+  if (options_.use_gpu &&
+      static_cast<int>(num_images) >= options_.min_num_images_gpu_solver) {
     cuda_solver_enabled = true;
     options_.solver_options.sparse_linear_algebra_library_type =
         ceres::CUDA_SPARSE;
@@ -113,42 +112,37 @@ void BundleAdjuster::Reset() {
 }
 
 void BundleAdjuster::AddPointToCameraConstraints(
-    std::unordered_map<rig_t, Rig>& rigs,
-    std::unordered_map<camera_t, colmap::Camera>& cameras,
-    std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, Point3D>& tracks) {
-  for (auto& [track_id, track] : tracks) {
+    colmap::Reconstruction& reconstruction) {
+  for (const auto& [track_id, track] : reconstruction.Points3D()) {
     if (track.track.Length() < options_.min_num_view_per_track) continue;
 
-    for (const auto& observation : tracks[track_id].track.Elements()) {
-      if (images.find(observation.image_id) == images.end()) continue;
+    for (const auto& observation : track.track.Elements()) {
+      if (!reconstruction.ExistsImage(observation.image_id)) continue;
 
-      Image& image = images[observation.image_id];
+      Image& image = reconstruction.Image(observation.image_id);
       colmap::Frame* frame = image.FramePtr();
-      const image_t rig_id = frame->RigId();
+      const rig_t rig_id = frame->RigId();
+      colmap::Camera& camera = reconstruction.Camera(image.CameraId());
 
       ceres::CostFunction* cost_function = nullptr;
-      // if (image_id_to_camera_rig_index_.find(observation.first) ==
-      //     image_id_to_camera_rig_index_.end()) {
       if (image.IsRefInFrame()) {
         cost_function =
             colmap::CreateCameraCostFunction<colmap::ReprojErrorCostFunctor>(
-                cameras[image.CameraId()].model_id,
-                image.Point2D(observation.point2D_idx).xy);
+                camera.model_id, image.Point2D(observation.point2D_idx).xy);
         problem_->AddResidualBlock(
             cost_function,
             loss_function_.get(),
             frame->RigFromWorld().rotation.coeffs().data(),
             frame->RigFromWorld().translation.data(),
-            tracks[track_id].xyz.data(),
-            cameras[image.CameraId()].params.data());
+            reconstruction.Point3D(track_id).xyz.data(),
+            camera.params.data());
       } else if (!options_.optimize_rig_poses) {
-        const Rigid3d& cam_from_rig = rigs[rig_id].SensorFromRig(
-            sensor_t(SensorType::CAMERA, image.CameraId()));
+        Rig& rig = reconstruction.Rig(rig_id);
+        const Rigid3d& cam_from_rig =
+            rig.SensorFromRig(sensor_t(SensorType::CAMERA, image.CameraId()));
         cost_function = colmap::CreateCameraCostFunction<
             colmap::RigReprojErrorConstantRigCostFunctor>(
-            cameras[image.CameraId()].model_id,
+            camera.model_id,
             image.Point2D(observation.point2D_idx).xy,
             cam_from_rig);
         problem_->AddResidualBlock(
@@ -156,17 +150,17 @@ void BundleAdjuster::AddPointToCameraConstraints(
             loss_function_.get(),
             frame->RigFromWorld().rotation.coeffs().data(),
             frame->RigFromWorld().translation.data(),
-            tracks[track_id].xyz.data(),
-            cameras[image.CameraId()].params.data());
+            reconstruction.Point3D(track_id).xyz.data(),
+            camera.params.data());
       } else {
         // If the image is part of a camera rig, use the RigBATA error
         // Down weight the uncalibrated cameras
-        Rigid3d& cam_from_rig = rigs[rig_id].SensorFromRig(
-            sensor_t(SensorType::CAMERA, image.CameraId()));
+        Rig& rig = reconstruction.Rig(rig_id);
+        Rigid3d& cam_from_rig =
+            rig.SensorFromRig(sensor_t(SensorType::CAMERA, image.CameraId()));
         cost_function =
             colmap::CreateCameraCostFunction<colmap::RigReprojErrorCostFunctor>(
-                cameras[image.CameraId()].model_id,
-                image.Point2D(observation.point2D_idx).xy);
+                camera.model_id, image.Point2D(observation.point2D_idx).xy);
         problem_->AddResidualBlock(
             cost_function,
             loss_function_.get(),
@@ -174,26 +168,22 @@ void BundleAdjuster::AddPointToCameraConstraints(
             cam_from_rig.translation.data(),
             frame->RigFromWorld().rotation.coeffs().data(),
             frame->RigFromWorld().translation.data(),
-            tracks[track_id].xyz.data(),
-            cameras[image.CameraId()].params.data());
+            reconstruction.Point3D(track_id).xyz.data(),
+            camera.params.data());
       }
 
       if (cost_function != nullptr) {
       } else {
         LOG(ERROR) << "Camera model not supported: "
-                   << colmap::CameraModelIdToName(
-                          cameras[image.CameraId()].model_id);
+                   << colmap::CameraModelIdToName(camera.model_id);
       }
     }
   }
 }
 
 void BundleAdjuster::AddCamerasAndPointsToParameterGroups(
-    std::unordered_map<rig_t, Rig>& rigs,
-    std::unordered_map<camera_t, colmap::Camera>& cameras,
-    std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<point3D_t, Point3D>& tracks) {
-  if (tracks.size() == 0) return;
+    colmap::Reconstruction& reconstruction) {
+  if (reconstruction.NumPoints3D() == 0) return;
 
   // Create a custom ordering for Schur-based problems.
   options_.solver_options.linear_solver_ordering.reset(
@@ -201,31 +191,37 @@ void BundleAdjuster::AddCamerasAndPointsToParameterGroups(
   ceres::ParameterBlockOrdering* parameter_ordering =
       options_.solver_options.linear_solver_ordering.get();
   // Add point parameters to group 0.
-  for (auto& [track_id, track] : tracks) {
-    if (problem_->HasParameterBlock(track.xyz.data()))
-      parameter_ordering->AddElementToGroup(track.xyz.data(), 0);
+  for (const auto& [track_id, track] : reconstruction.Points3D()) {
+    if (problem_->HasParameterBlock(
+            reconstruction.Point3D(track_id).xyz.data()))
+      parameter_ordering->AddElementToGroup(
+          reconstruction.Point3D(track_id).xyz.data(), 0);
   }
 
   // Add frame parameters to group 1.
-  for (auto& [frame_id, frame] : frames) {
+  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     if (!frame.HasPose()) continue;
-    if (problem_->HasParameterBlock(frame.RigFromWorld().translation.data())) {
+    if (problem_->HasParameterBlock(
+            reconstruction.Frame(frame_id).RigFromWorld().translation.data())) {
       parameter_ordering->AddElementToGroup(
-          frame.RigFromWorld().translation.data(), 1);
+          reconstruction.Frame(frame_id).RigFromWorld().translation.data(), 1);
       parameter_ordering->AddElementToGroup(
-          frame.RigFromWorld().rotation.coeffs().data(), 1);
+          reconstruction.Frame(frame_id).RigFromWorld().rotation.coeffs().data(),
+          1);
     }
   }
 
   // Add the cam_from_rigs to be estimated into the parameter group
-  for (auto& [rig_id, rig] : rigs) {
+  for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
     for (const auto& [sensor_id, sensor] : rig.NonRefSensors()) {
       if (sensor_id.type == SensorType::CAMERA) {
-        Eigen::Vector3d& translation = rig.SensorFromRig(sensor_id).translation;
+        Eigen::Vector3d& translation =
+            reconstruction.Rig(rig_id).SensorFromRig(sensor_id).translation;
         if (problem_->HasParameterBlock(translation.data())) {
           parameter_ordering->AddElementToGroup(translation.data(), 1);
         }
-        Eigen::Quaterniond& rotation = rig.SensorFromRig(sensor_id).rotation;
+        Eigen::Quaterniond& rotation =
+            reconstruction.Rig(rig_id).SensorFromRig(sensor_id).rotation;
         if (problem_->HasParameterBlock(rotation.coeffs().data())) {
           parameter_ordering->AddElementToGroup(rotation.coeffs().data(), 1);
         }
@@ -234,35 +230,39 @@ void BundleAdjuster::AddCamerasAndPointsToParameterGroups(
   }
 
   // Add camera parameters to group 1.
-  for (auto& [camera_id, camera] : cameras) {
-    if (problem_->HasParameterBlock(camera.params.data()))
-      parameter_ordering->AddElementToGroup(camera.params.data(), 1);
+  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
+    if (problem_->HasParameterBlock(
+            reconstruction.Camera(camera_id).params.data()))
+      parameter_ordering->AddElementToGroup(
+          reconstruction.Camera(camera_id).params.data(), 1);
   }
 }
 
 void BundleAdjuster::ParameterizeVariables(
-    std::unordered_map<rig_t, Rig>& rigs,
-    std::unordered_map<camera_t, colmap::Camera>& cameras,
-    std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<point3D_t, Point3D>& tracks) {
-  frame_t center;
-
+    colmap::Reconstruction& reconstruction) {
   // Parameterize rotations, and set rotations and translations to be constant
   // if desired FUTURE: Consider fix the scale of the reconstruction
   int counter = 0;
-  for (auto& [frame_id, frame] : frames) {
+  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     if (!frame.HasPose()) continue;
     if (problem_->HasParameterBlock(
-            frame.RigFromWorld().rotation.coeffs().data())) {
+            reconstruction.Frame(frame_id)
+                .RigFromWorld()
+                .rotation.coeffs()
+                .data())) {
       colmap::SetQuaternionManifold(
-          problem_.get(), frame.RigFromWorld().rotation.coeffs().data());
+          problem_.get(),
+          reconstruction.Frame(frame_id).RigFromWorld().rotation.coeffs().data());
 
       if (!options_.optimize_rotations || counter == 0)
         problem_->SetParameterBlockConstant(
-            frame.RigFromWorld().rotation.coeffs().data());
+            reconstruction.Frame(frame_id)
+                .RigFromWorld()
+                .rotation.coeffs()
+                .data());
       if (!options_.optimize_translation || counter == 0)
         problem_->SetParameterBlockConstant(
-            frame.RigFromWorld().translation.data());
+            reconstruction.Frame(frame_id).RigFromWorld().translation.data());
 
       counter++;
     }
@@ -270,8 +270,9 @@ void BundleAdjuster::ParameterizeVariables(
 
   // Parameterize the camera parameters, or set them to be constant if desired
   if (options_.optimize_intrinsics && !options_.optimize_principal_point) {
-    for (auto& [camera_id, camera] : cameras) {
-      if (problem_->HasParameterBlock(camera.params.data())) {
+    for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
+      if (problem_->HasParameterBlock(
+              reconstruction.Camera(camera_id).params.data())) {
         std::vector<int> principal_point_idxs;
         for (auto idx : camera.PrincipalPointIdxs()) {
           principal_point_idxs.push_back(idx);
@@ -279,24 +280,27 @@ void BundleAdjuster::ParameterizeVariables(
         colmap::SetSubsetManifold(camera.params.size(),
                                   principal_point_idxs,
                                   problem_.get(),
-                                  camera.params.data());
+                                  reconstruction.Camera(camera_id).params.data());
       }
     }
   } else if (!options_.optimize_intrinsics &&
              !options_.optimize_principal_point) {
-    for (auto& [camera_id, camera] : cameras) {
-      if (problem_->HasParameterBlock(camera.params.data())) {
-        problem_->SetParameterBlockConstant(camera.params.data());
+    for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
+      if (problem_->HasParameterBlock(
+              reconstruction.Camera(camera_id).params.data())) {
+        problem_->SetParameterBlockConstant(
+            reconstruction.Camera(camera_id).params.data());
       }
     }
   }
 
   // If we optimize the rig poses, then parameterize them
   if (options_.optimize_rig_poses) {
-    for (auto& [rig_id, rig] : rigs) {
+    for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
       for (const auto& [sensor_id, sensor] : rig.NonRefSensors()) {
         if (sensor_id.type == SensorType::CAMERA) {
-          Eigen::Quaterniond& rotation = rig.SensorFromRig(sensor_id).rotation;
+          Eigen::Quaterniond& rotation =
+              reconstruction.Rig(rig_id).SensorFromRig(sensor_id).rotation;
           if (problem_->HasParameterBlock(rotation.coeffs().data())) {
             colmap::SetQuaternionManifold(problem_.get(),
                                           rotation.coeffs().data());
@@ -307,9 +311,11 @@ void BundleAdjuster::ParameterizeVariables(
   }
 
   if (!options_.optimize_points) {
-    for (auto& [track_id, track] : tracks) {
-      if (problem_->HasParameterBlock(track.xyz.data())) {
-        problem_->SetParameterBlockConstant(track.xyz.data());
+    for (const auto& [track_id, track] : reconstruction.Points3D()) {
+      if (problem_->HasParameterBlock(
+              reconstruction.Point3D(track_id).xyz.data())) {
+        problem_->SetParameterBlockConstant(
+            reconstruction.Point3D(track_id).xyz.data());
       }
     }
   }
