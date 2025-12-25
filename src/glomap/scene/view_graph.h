@@ -1,6 +1,5 @@
 #pragma once
 
-#include "glomap/scene/frame.h"
 #include "glomap/scene/image_pair.h"
 #include "glomap/scene/types.h"
 

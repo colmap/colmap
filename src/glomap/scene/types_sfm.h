@@ -3,7 +3,6 @@
 // Types defined by GLOMAP
 #include "colmap/scene/image.h"
 
-#include "glomap/scene/frame.h"
 #include "glomap/scene/types.h"
 #include "glomap/scene/view_graph.h"
 #include "glomap/types.h"
