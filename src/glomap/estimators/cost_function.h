@@ -1,6 +1,8 @@
 
 #pragma once
 
+#include "colmap/estimators/cost_function_utils.h"
+
 #include <Eigen/Core>
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
@@ -296,26 +298,8 @@ class FetzerFocalLengthSameCameraCostFunctor {
   Eigen::Vector4d d_12;
 };
 
-struct GravityCostFunctor {
-  explicit GravityCostFunctor(const Eigen::Vector3d& measured_gravity)
-      : measured_gravity_(measured_gravity) {}
-
-  template <typename T>
-  bool operator()(const T* const gravity, T* residuals) const {
-    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals_vec(residuals);
-    residuals_vec = Eigen::Map<const Eigen::Matrix<T, 3, 1>>(gravity) -
-                    measured_gravity_.cast<T>();
-
-    return true;
-  }
-
-  static ceres::CostFunction* Create(const Eigen::Vector3d& measured_gravity) {
-    return (new ceres::AutoDiffCostFunction<GravityCostFunctor, 3, 3>(
-        new GravityCostFunctor(measured_gravity)));
-  }
-
- private:
-  const Eigen::Vector3d measured_gravity_;
-};
+// Computes residual between estimated gravity and measured gravity prior.
+// This is a type alias to the generic NormalPriorCostFunctor for 3D vectors.
+using GravityCostFunctor = colmap::NormalPriorCostFunctor<3>;
 
 }  // namespace glomap

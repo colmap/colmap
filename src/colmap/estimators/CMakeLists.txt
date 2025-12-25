@@ -37,6 +37,7 @@ COLMAP_ADD_LIBRARY(
         alignment.h alignment.cc
         bundle_adjustment.h bundle_adjustment.cc
         coordinate_frame.h coordinate_frame.cc
+        cost_function_utils.h
         cost_functions.h
         manifold.h
         covariance.h covariance.cc
@@ -104,6 +105,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME cost_functions_test
     SRCS cost_functions_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME cost_function_utils_test
+    SRCS cost_function_utils_test.cc
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
