@@ -34,8 +34,6 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
-#include <Eigen/Eigenvalues>
-
 namespace colmap {
 
 Eigen::Matrix3d ComputeClosestRotationMatrix(const Eigen::Matrix3d& matrix) {
@@ -136,31 +134,19 @@ Eigen::Quaterniond AverageQuaternions(
     const std::vector<Eigen::Quaterniond>& quats,
     const std::vector<double>& weights) {
   THROW_CHECK_EQ(quats.size(), weights.size());
-  THROW_CHECK_GT(quats.size(), 0);
 
-  if (quats.size() == 1) {
-    return quats[0];
+  // Convert quaternions to coefficient vectors.
+  std::vector<Eigen::Vector4d> qvecs;
+  qvecs.reserve(quats.size());
+  for (const auto& q : quats) {
+    qvecs.push_back(q.normalized().coeffs());
   }
 
-  Eigen::Matrix4d A = Eigen::Matrix4d::Zero();
-  double weight_sum = 0;
+  // Average using the unified unit vector averaging.
+  const Eigen::Vector4d avg = AverageUnitVectors<4>(qvecs, weights);
 
-  for (size_t i = 0; i < quats.size(); ++i) {
-    THROW_CHECK_GT(weights[i], 0);
-    const Eigen::Vector4d qvec = quats[i].normalized().coeffs();
-    A += weights[i] * qvec * qvec.transpose();
-    weight_sum += weights[i];
-  }
-
-  A.array() /= weight_sum;
-
-  const Eigen::Matrix4d eigenvectors =
-      Eigen::SelfAdjointEigenSolver<Eigen::Matrix4d>(A).eigenvectors();
-
-  const Eigen::Vector4d average_qvec = eigenvectors.col(3);
-
-  return Eigen::Quaterniond(
-      average_qvec(3), average_qvec(0), average_qvec(1), average_qvec(2));
+  // Convert back to quaternion (Eigen order: x, y, z, w in coeffs).
+  return Eigen::Quaterniond(avg(3), avg(0), avg(1), avg(2));
 }
 
 Rigid3d InterpolateCameraPoses(const Rigid3d& cam1_from_world,
@@ -196,6 +182,35 @@ Rigid3d TransformCameraWorld(const Sim3d& new_from_old_world,
       Inverse(new_from_old_world);
   return Rigid3d(cam_from_new_world.rotation,
                  cam_from_new_world.translation * new_from_old_world.scale);
+}
+
+Eigen::Matrix3d GravityAlignedRotation(const Eigen::Vector3d& gravity) {
+  THROW_CHECK_LT(std::abs(gravity.norm() - 1.0), 1e-6)
+      << "Gravity vector must be normalized";
+
+  Eigen::Matrix3d R;
+  R.col(1) = gravity;
+
+  // Use Householder QR to find orthonormal basis vectors for the null space.
+  Eigen::Matrix3d Q = gravity.householderQr().householderQ();
+  Eigen::Matrix<double, 3, 2> N = Q.rightCols(2);
+  R.col(0) = N.col(0);
+  R.col(2) = N.col(1);
+
+  // Ensure right-handed coordinate system.
+  if (R.determinant() < 0) {
+    R.col(2) = -R.col(2);
+  }
+
+  return R;
+}
+
+double YAxisAngleFromRotation(const Eigen::Matrix3d& rotation) {
+  return RotationMatrixToAngleAxis(rotation)[1];
+}
+
+Eigen::Matrix3d RotationFromYAxisAngle(double angle) {
+  return AngleAxisToRotationMatrix(Eigen::Vector3d(0, angle, 0));
 }
 
 }  // namespace colmap

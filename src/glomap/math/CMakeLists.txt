@@ -32,7 +32,6 @@ set(FOLDER_NAME "glomap_math")
 COLMAP_ADD_LIBRARY(
     NAME colmap_glomap_math
     SRCS
-        gravity.h gravity.cc
         tree.h tree.cc
         two_view_geometry.h two_view_geometry.cc
     PUBLIC_LINK_LIBS

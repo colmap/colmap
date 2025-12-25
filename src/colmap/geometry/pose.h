@@ -32,13 +32,30 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
 #include <vector>
 
 #include <Eigen/Core>
+#include <Eigen/QR>
+#include <Eigen/SVD>
 
 namespace colmap {
+
+// Average unit vectors by finding the principal component of the outer product
+// sum matrix. Uses SVD to find the direction with maximum variance.
+// Supports optional weights (uniform weights if empty).
+// Result is sign-corrected to align with the majority of input vectors.
+//
+// @param vectors        The unit vectors to be averaged.
+// @param weights        Non-negative weights (uniform if empty).
+//
+// @return               The average unit vector.
+template <int N>
+Eigen::Vector<double, N> AverageUnitVectors(
+    const std::vector<Eigen::Vector<double, N>>& vectors,
+    const std::vector<double>& weights = {});
 
 // Compute the closes rotation matrix with the closest Frobenius norm by setting
 // the singular values of the given matrix to 1.
@@ -109,5 +126,84 @@ bool CheckCheirality(const Rigid3d& cam2_from_cam1,
 
 Rigid3d TransformCameraWorld(const Sim3d& new_from_old_world,
                              const Rigid3d& cam_from_world);
+
+// Compute a gravity-aligned rotation matrix from a gravity direction via
+// Householder QR. The second column of the output matrix is the gravity
+// direction. This rotation transforms from a coordinate frame where gravity
+// is aligned with the Y axis to the world frame with the given gravity
+// direction.
+//
+// @param gravity        Normalized gravity direction vector.
+//
+// @return               3x3 rotation matrix with Y-axis aligned to gravity.
+Eigen::Matrix3d GravityAlignedRotation(const Eigen::Vector3d& gravity);
+
+// Extract yaw angle (rotation about Y-axis) from a gravity-aligned rotation
+// matrix, i.e., a rotation where gravity is aligned with the Y axis.
+//
+// @param rotation       3x3 rotation matrix.
+//
+// @return               Yaw angle in radians.
+double YAxisAngleFromRotation(const Eigen::Matrix3d& rotation);
+
+// Construct gravity-aligned rotation matrix from yaw angle, i.e., a rotation
+// about the Y-axis (gravity direction).
+//
+// @param angle          Yaw angle in radians.
+//
+// @return               3x3 rotation matrix.
+Eigen::Matrix3d RotationFromYAxisAngle(double angle);
+
+////////////////////////////////////////////////////////////////////////////////
+// Implementation
+////////////////////////////////////////////////////////////////////////////////
+
+template <int N>
+Eigen::Vector<double, N> AverageUnitVectors(
+    const std::vector<Eigen::Vector<double, N>>& vectors,
+    const std::vector<double>& weights) {
+  THROW_CHECK(!vectors.empty()) << "Cannot average empty set of vectors";
+  THROW_CHECK(weights.empty() || weights.size() == vectors.size())
+      << "Weights size must match vectors size";
+
+  if (vectors.size() == 1) {
+    return vectors[0].normalized();
+  }
+
+  // Build weighted outer product sum matrix.
+  Eigen::Matrix<double, N, N> A = Eigen::Matrix<double, N, N>::Zero();
+  double weight_sum = 0;
+
+  for (size_t i = 0; i < vectors.size(); ++i) {
+    const double w = weights.empty() ? 1.0 : weights[i];
+    THROW_CHECK_GT(w, 0) << "Weights must be positive";
+    const Eigen::Vector<double, N> v = vectors[i].normalized();
+    A += w * v * v.transpose();
+    weight_sum += w;
+  }
+
+  A /= weight_sum;
+
+  // The first singular vector corresponds to the principal direction.
+  Eigen::JacobiSVD<Eigen::Matrix<double, N, N>> svd(A, Eigen::ComputeFullU);
+  Eigen::Vector<double, N> average = svd.matrixU().col(0);
+
+  // Ensure consistent sign by aligning with majority of input vectors.
+  double negative_weight = 0;
+  double positive_weight = 0;
+  for (size_t i = 0; i < vectors.size(); ++i) {
+    const double w = weights.empty() ? 1.0 : weights[i];
+    if (vectors[i].dot(average) < 0) {
+      negative_weight += w;
+    } else {
+      positive_weight += w;
+    }
+  }
+  if (negative_weight > positive_weight) {
+    average = -average;
+  }
+
+  return average;
+}
 
 }  // namespace colmap
