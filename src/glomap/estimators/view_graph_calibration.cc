@@ -3,7 +3,6 @@
 #include "colmap/scene/two_view_geometry.h"
 
 #include "glomap/estimators/cost_function.h"
-#include "glomap/math/two_view_geometry.h"
 
 #include <thread>
 

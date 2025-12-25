@@ -1,6 +1,8 @@
 #pragma once
 
-#include "glomap/scene/types_sfm.h"
+#include "colmap/geometry/pose_prior.h"
+
+#include "glomap/scene/view_graph.h"
 
 #include <unordered_map>
 
