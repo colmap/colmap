@@ -82,7 +82,7 @@ int RunGlobalMapper(int argc, char** argv) {
   LOG(INFO) << "Loaded database";
   colmap::Timer run_timer;
   run_timer.Start();
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,
@@ -139,14 +139,13 @@ int RunGlobalMapperResume(int argc, char** argv) {
 
   // Load the reconstruction
   ViewGraph view_graph;                        // dummy variable
-  std::shared_ptr<colmap::Database> database;  // dummy variable
+  std::vector<colmap::PosePrior> pose_priors;  // dummy variable
 
   std::unordered_map<rig_t, Rig> rigs;
   std::unordered_map<camera_t, colmap::Camera> cameras;
   std::unordered_map<frame_t, Frame> frames;
   std::unordered_map<image_t, Image> images;
   std::unordered_map<point3D_t, Point3D> tracks;
-  std::vector<colmap::PosePrior> pose_priors;  // no pose priors
 
   colmap::Reconstruction reconstruction;
   reconstruction.Read(input_path);
@@ -157,14 +156,8 @@ int RunGlobalMapperResume(int argc, char** argv) {
   // Main solver
   colmap::Timer run_timer;
   run_timer.Start();
-  global_mapper.Solve(*database,
-                      view_graph,
-                      rigs,
-                      cameras,
-                      frames,
-                      images,
-                      tracks,
-                      pose_priors);
+  global_mapper.Solve(
+      nullptr, view_graph, rigs, cameras, frames, images, tracks, pose_priors);
   run_timer.Pause();
 
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()

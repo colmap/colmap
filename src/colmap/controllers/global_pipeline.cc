@@ -67,7 +67,7 @@ void GlobalPipeline::Run() {
   Timer run_timer;
   run_timer.Start();
   glomap::GlobalMapper global_mapper(options_);
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,

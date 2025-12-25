@@ -120,7 +120,7 @@ TEST(RotationEstimator, WithoutNoise) {
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,
@@ -175,7 +175,7 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialKnownRig) {
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,
@@ -236,7 +236,7 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialUnknownRig) {
   }
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,
@@ -296,7 +296,7 @@ TEST(RotationEstimator, WithNoiseAndOutliers) {
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,
@@ -357,7 +357,7 @@ TEST(RotationEstimator, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,
@@ -412,7 +412,7 @@ TEST(RotationEstimator, RefineGravity) {
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,
@@ -459,7 +459,7 @@ TEST(RotationEstimator, RefineGravityWithNonTrivialRigs) {
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,

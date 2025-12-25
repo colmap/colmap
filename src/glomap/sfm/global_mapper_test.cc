@@ -50,7 +50,7 @@ TEST(GlobalMapper, WithoutNoise) {
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   GlobalMapper global_mapper(CreateTestOptions());
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,
@@ -95,7 +95,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   GlobalMapper global_mapper(CreateTestOptions());
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,
@@ -150,7 +150,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
   }
 
   GlobalMapper global_mapper(CreateTestOptions());
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,
@@ -197,7 +197,7 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
   ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
 
   GlobalMapper global_mapper(CreateTestOptions());
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,
