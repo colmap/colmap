@@ -3,7 +3,6 @@
 #include "colmap/estimators/two_view_geometry.h"
 
 #include "glomap/scene/types.h"
-#include "glomap/types.h"
 
 #include <Eigen/Core>
 

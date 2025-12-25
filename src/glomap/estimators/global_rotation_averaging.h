@@ -5,7 +5,6 @@
 #include "colmap/scene/rig.h"
 
 #include "glomap/scene/view_graph.h"
-#include "glomap/types.h"
 
 #include <string>
 #include <vector>
