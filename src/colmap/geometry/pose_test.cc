@@ -226,5 +226,78 @@ TEST(CheckCheirality, Nominal) {
   EXPECT_EQ(points3D.size(), 0);
 }
 
+TEST(AverageUnitVectors, Nominal) {
+  std::vector<Eigen::Vector3d> vectors;
+  std::vector<double> weights;
+
+  vectors = {Eigen::Vector3d::UnitX()};
+  EXPECT_THAT(AverageUnitVectors<3>(vectors),
+              EigenMatrixNear(Eigen::Vector3d(Eigen::Vector3d::UnitX()), 1e-6));
+
+  vectors = {Eigen::Vector3d::UnitZ(), Eigen::Vector3d::UnitZ()};
+  EXPECT_THAT(AverageUnitVectors<3>(vectors),
+              EigenMatrixNear(Eigen::Vector3d(Eigen::Vector3d::UnitZ()), 1e-6));
+
+  vectors = {Eigen::Vector3d::UnitX(), Eigen::Vector3d::UnitY()};
+  weights = {1.0, 1.0};
+  EXPECT_THAT(AverageUnitVectors<3>(vectors, weights),
+              EigenMatrixNear(AverageUnitVectors<3>(vectors), 1e-6));
+
+  vectors = {Eigen::Vector3d::UnitX(), Eigen::Vector3d::UnitY()};
+  weights = {3.0, 1.0};
+  Eigen::Vector3d avg = AverageUnitVectors<3>(vectors, weights);
+  EXPECT_GT(avg.dot(Eigen::Vector3d::UnitX()),
+            avg.dot(Eigen::Vector3d::UnitY()));
+  EXPECT_NEAR(avg.norm(), 1.0, 1e-6);
+
+  vectors = {Eigen::Vector3d(1, 0.1, 0).normalized(),
+             Eigen::Vector3d(1, -0.1, 0).normalized(),
+             Eigen::Vector3d(1, 0, 0.1).normalized(),
+             Eigen::Vector3d(-1, 0, 0)};
+  avg = AverageUnitVectors<3>(vectors);
+  EXPECT_GT(avg.x(), 0);
+}
+
+TEST(GravityAlignedRotation, Nominal) {
+  Eigen::Vector3d gravity = Eigen::Vector3d(0.5, 0.5, 0.5).normalized();
+  Eigen::Matrix3d R = GravityAlignedRotation(gravity);
+  EXPECT_THAT(Eigen::Vector3d(R.col(1)), EigenMatrixNear(gravity, 1e-6));
+
+  gravity = Eigen::Vector3d::UnitY();
+  R = GravityAlignedRotation(gravity);
+  EXPECT_THAT(Eigen::Vector3d(R.col(1)),
+              EigenMatrixNear(Eigen::Vector3d(Eigen::Vector3d::UnitY()), 1e-6));
+  EXPECT_NEAR(R.determinant(), 1.0, 1e-6);
+
+  for (int i = 0; i < 100; ++i) {
+    gravity = Eigen::Vector3d::Random().normalized();
+    R = GravityAlignedRotation(gravity);
+    EXPECT_THAT(Eigen::Matrix3d(R.transpose() * R),
+                EigenMatrixNear(Eigen::Matrix3d(Eigen::Matrix3d::Identity()), 1e-6));
+    EXPECT_NEAR(R.determinant(), 1.0, 1e-6);
+  }
+}
+
+TEST(YAxisAngleFromRotation, Roundtrip) {
+  for (int i = 0; i < 100; ++i) {
+    const double angle =
+        (static_cast<double>(rand()) / RAND_MAX - 0.5) * 2 * M_PI;
+    const Eigen::Matrix3d R = RotationFromYAxisAngle(angle);
+    const double recovered_angle = YAxisAngleFromRotation(R);
+    EXPECT_THAT(RotationFromYAxisAngle(recovered_angle),
+                EigenMatrixNear(R, 1e-6));
+  }
+}
+
+TEST(RotationFromYAxisAngle, Nominal) {
+  Eigen::Matrix3d R = RotationFromYAxisAngle(0);
+  EXPECT_THAT(R, EigenMatrixNear(Eigen::Matrix3d(Eigen::Matrix3d::Identity()), 1e-6));
+  EXPECT_NEAR(YAxisAngleFromRotation(R), 0.0, 1e-6);
+
+  R = RotationFromYAxisAngle(M_PI / 2);
+  EXPECT_THAT(Eigen::Vector3d(R * Eigen::Vector3d::UnitX()),
+              EigenMatrixNear(Eigen::Vector3d(-Eigen::Vector3d::UnitZ()), 1e-6));
+}
+
 }  // namespace
 }  // namespace colmap
