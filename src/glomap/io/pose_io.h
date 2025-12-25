@@ -1,7 +1,6 @@
 #pragma once
 
 #include "colmap/geometry/pose_prior.h"
-#include "colmap/scene/reconstruction.h"
 
 #include "glomap/scene/view_graph.h"
 
@@ -25,7 +24,8 @@ void ReadRelWeight(const std::string& file_path,
 // Gravity should be the direction of [0,1,0] in the image frame
 // image.cam_from_world * [0,1,0]^T = g
 std::vector<colmap::PosePrior> ReadGravity(
-    const std::string& gravity_path, colmap::Reconstruction& reconstruction);
+    const std::string& gravity_path,
+    const std::unordered_map<image_t, Image>& images);
 
 // Output would be of the format:
 // IMAGE_NAME QW QX QY QZ

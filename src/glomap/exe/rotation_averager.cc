@@ -1,5 +1,6 @@
 #include "glomap/sfm/rotation_averager.h"
 
+#include "colmap/geometry/pose.h"
 #include "colmap/scene/reconstruction_io_utils.h"
 #include "colmap/util/file.h"
 #include "colmap/util/timer.h"
@@ -92,7 +93,20 @@ int RunRotationAverager(int argc, char** argv) {
 
   std::vector<colmap::PosePrior> pose_priors;
   if (gravity_path != "") {
-    pose_priors = ReadGravity(gravity_path, reconstruction);
+    pose_priors = ReadGravity(gravity_path, reconstruction.Images());
+    // Initialize frame rotations from gravity.
+    // Currently rotation averaging only supports gravity prior on reference
+    // sensors.
+    for (const auto& pose_prior : pose_priors) {
+      const auto& image = reconstruction.Image(pose_prior.pose_prior_id);
+      if (!image.IsRefInFrame()) {
+        continue;
+      }
+      Rigid3d& rig_from_world =
+          reconstruction.Frame(image.FrameId()).RigFromWorld();
+      rig_from_world.rotation = Eigen::Quaterniond(
+          colmap::GravityAlignedRotation(pose_prior.gravity));
+    }
   }
 
   if (use_weight) {
