@@ -67,6 +67,7 @@ void GlobalPipeline::Run() {
   Timer run_timer;
   run_timer.Start();
   glomap::GlobalMapper global_mapper(options_);
+  std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(*database,
                       view_graph,
                       rigs,
@@ -74,22 +75,22 @@ void GlobalPipeline::Run() {
                       frames,
                       images,
                       tracks,
-                      pose_priors);
+                      pose_priors,
+                      cluster_ids);
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 
   int largest_component_num = -1;
-  for (const auto& [frame_id, frame] : frames) {
-    if (frame.cluster_id > largest_component_num)
-      largest_component_num = frame.cluster_id;
+  for (const auto& [frame_id, cluster_id] : cluster_ids) {
+    if (cluster_id > largest_component_num) largest_component_num = cluster_id;
   }
 
-  // If it is not seperated into several clusters, then output them as whole.
+  // If it is not separated into several clusters, then output them as whole.
   if (largest_component_num == -1) {
     colmap::Reconstruction& reconstruction =
         *reconstruction_manager_->Get(reconstruction_manager_->Add());
     glomap::ConvertGlomapToColmap(
-        rigs, cameras, frames, images, tracks, reconstruction);
+        rigs, cameras, frames, images, tracks, reconstruction, cluster_ids);
     // Read in colors
     if (image_path_ != "") {
       LOG(INFO) << "Extracting colors ...";
@@ -101,8 +102,14 @@ void GlobalPipeline::Run() {
                 << largest_component_num + 1 << std::flush;
       colmap::Reconstruction& reconstruction =
           *reconstruction_manager_->Get(reconstruction_manager_->Add());
-      glomap::ConvertGlomapToColmap(
-          rigs, cameras, frames, images, tracks, reconstruction, comp);
+      glomap::ConvertGlomapToColmap(rigs,
+                                    cameras,
+                                    frames,
+                                    images,
+                                    tracks,
+                                    reconstruction,
+                                    cluster_ids,
+                                    comp);
       // Read in colors
       if (image_path_ != "") {
         reconstruction.ExtractColorsForAllImages(image_path_);
