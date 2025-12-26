@@ -294,11 +294,11 @@ void RotationAveragingProblem::BuildPairConstraints(
       gravity_aligned_count++;
       const Eigen::Vector3d aa =
           colmap::RotationMatrixToAngleAxis(R_cam2_from_cam1);
-      constraint.constraint = PairConstraint::GravityAligned1DOF{
-          aa[1], aa[0] * aa[0] + aa[2] * aa[2]};
+      constraint.constraint =
+          GravityAligned1DOF{aa[1], aa[0] * aa[0] + aa[2] * aa[2]};
     } else {
       // General case: use 3-DOF constraint.
-      constraint.constraint = PairConstraint::Full3DOF{R_cam2_from_cam1};
+      constraint.constraint = Full3DOF{R_cam2_from_cam1};
     }
   }
 
@@ -350,8 +350,7 @@ void RotationAveragingProblem::BuildConstraintMatrix(
 
     const double pair_weight = image_pair.weight >= 0 ? image_pair.weight : 1.0;
 
-    if (std::holds_alternative<PairConstraint::GravityAligned1DOF>(
-            constraint.constraint)) {
+    if (std::holds_alternative<GravityAligned1DOF>(constraint.constraint)) {
       // 1-DOF constraint: single row.
       coeffs.emplace_back(curr_row, frame_idx1, -1);
       coeffs.emplace_back(curr_row, frame_idx2, 1);
@@ -444,8 +443,7 @@ void RotationAveragingProblem::ComputeResiduals() {
     const int frame_idx2 = frame_id_to_param_idx_.at(frame_id2);
 
     if (const auto* constraint_1dof =
-            std::get_if<PairConstraint::GravityAligned1DOF>(
-                &constraint.constraint)) {
+            std::get_if<GravityAligned1DOF>(&constraint.constraint)) {
       // 1-DOF case: compute Y-axis angle residual.
       residuals_[constraint.row_index] = ComputeGravityAligned1DOFResidual(
           rng,
@@ -454,8 +452,7 @@ void RotationAveragingProblem::ComputeResiduals() {
           rotation_estimated_[frame_idx2]);
     } else {
       // 3-DOF case: compute full rotation error.
-      const auto& full =
-          std::get<PairConstraint::Full3DOF>(constraint.constraint);
+      const auto& full = std::get<Full3DOF>(constraint.constraint);
 
       Eigen::Matrix3d R_1, R_2;
 
@@ -708,15 +705,15 @@ std::optional<Eigen::ArrayXd> RotationAveragingSolver::ComputeIRLSWeights(
     double err_squared = 0;
     bool is_1dof = false;
 
-    if (const auto* constraint_1dof =
-            std::get_if<PairConstraint::GravityAligned1DOF>(
+    if (const auto* c1 =
+            std::get_if<RotationAveragingProblem::GravityAligned1DOF>(
                 &constraint.constraint)) {
-      // 1-DOF case: Y-axis error plus xz_error.
-      err_squared = std::pow(problem.Residuals()[constraint.row_index], 2) +
-                    constraint_1dof->xz_error;
+      // 1-DOF: Y-axis error plus xz_error.
+      err_squared =
+          std::pow(problem.Residuals()[constraint.row_index], 2) + c1->xz_error;
       is_1dof = true;
     } else {
-      // 3-DOF case: full rotation error.
+      // 3-DOF: full rotation error.
       err_squared =
           problem.Residuals().segment<3>(constraint.row_index).squaredNorm();
     }
