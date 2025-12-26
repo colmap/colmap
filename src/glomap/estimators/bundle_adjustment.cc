@@ -39,13 +39,13 @@ bool RunBundleAdjustment(const BundleAdjusterOptions& options,
   ba_options.constant_rig_from_world_rotation = constant_rotation;
   ba_options.print_summary = false;
 
-  // Build config
+  // Add all images with valid poses and fix the first frame to define the
+  // gauge (consistent with original glomap).
   colmap::BundleAdjustmentConfig ba_config;
   bool first_frame = true;
   for (const auto& [image_id, image] : reconstruction.Images()) {
     if (image.HasPose()) {
       ba_config.AddImage(image_id);
-      // Fix the first frame to define the gauge (like original glomap)
       if (first_frame) {
         ba_config.SetConstantRigFromWorldPose(image.FrameId());
         first_frame = false;
