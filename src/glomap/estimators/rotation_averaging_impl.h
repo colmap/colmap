@@ -70,14 +70,14 @@ class RotationAveragingProblem {
 
  private:
   // Allocates parameter indices for frames and cameras, initializes rotations.
-  int AllocateParameters(const colmap::Reconstruction& reconstruction);
+  size_t AllocateParameters(const colmap::Reconstruction& reconstruction);
 
   // Builds PairConstraint for each valid image pair.
   void BuildPairConstraints(const ViewGraph& view_graph,
                             const colmap::Reconstruction& reconstruction);
 
   // Builds sparse matrix A and edge weight vector.
-  void BuildConstraintMatrix(int num_params,
+  void BuildConstraintMatrix(size_t num_params,
                              const ViewGraph& view_graph,
                              const colmap::Reconstruction& reconstruction);
 

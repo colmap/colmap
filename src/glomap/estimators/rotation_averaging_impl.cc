@@ -90,12 +90,12 @@ RotationAveragingProblem::RotationAveragingProblem(
   frame_to_pose_prior_ =
       ExtractFrameToPosePrior(reconstruction.Images(), pose_priors);
 
-  const int num_params = AllocateParameters(reconstruction);
+  const size_t num_params = AllocateParameters(reconstruction);
   BuildPairConstraints(view_graph, reconstruction);
   BuildConstraintMatrix(num_params, view_graph, reconstruction);
 }
 
-int RotationAveragingProblem::AllocateParameters(
+size_t RotationAveragingProblem::AllocateParameters(
     const colmap::Reconstruction& reconstruction) {
   // Build mapping from camera to rig for all registered images.
   camera_id_to_param_idx_.reserve(reconstruction.NumCameras());
@@ -138,7 +138,7 @@ int RotationAveragingProblem::AllocateParameters(
   }
 
   // Allocate frame parameters and cache frame info.
-  int num_params = 0;
+  size_t num_params = 0;
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     if (!frame.HasPose()) continue;
     frame_id_to_param_idx_[frame_id] = num_params;
@@ -306,7 +306,7 @@ void RotationAveragingProblem::BuildPairConstraints(
 }
 
 void RotationAveragingProblem::BuildConstraintMatrix(
-    int num_params,
+    size_t num_params,
     const ViewGraph& view_graph,
     const colmap::Reconstruction& reconstruction) {
   std::vector<Eigen::Triplet<double>> coeffs;
