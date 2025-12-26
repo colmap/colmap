@@ -2,6 +2,7 @@
 
 #include "glomap/estimators/rotation_averaging.h"
 
+#include <optional>
 #include <variant>
 
 #include <Eigen/Sparse>
@@ -88,24 +89,10 @@ class RotationAveragingProblem {
   int NumParameters() const { return constraint_matrix_.cols(); }
   int NumResiduals() const { return constraint_matrix_.rows(); }
 
-  // For IRLS weight computation - iterates over all constraints.
-  // Callback signature: void(int row_index, bool is_gravity_1dof, double
-  // xz_error)
-  template <typename Callback>
-  void ForEachConstraint(Callback&& callback) const {
-    for (const auto& [pair_id, constraint] : pair_constraints_) {
-      if (const auto* constraint_1dof =
-              std::get_if<PairConstraint::GravityAligned1DOF>(
-                  &constraint.constraint)) {
-        callback(constraint.row_index, true, constraint_1dof->xz_error);
-      } else {
-        callback(constraint.row_index, false, 0.0);
-      }
-    }
-  }
-
-  // Returns the number of gauge-fixing rows (1 for gravity, 3 otherwise).
-  int GaugeFixingRows() const { return gauge_fixing_rows_; }
+  // Computes IRLS weights for all constraints.
+  // Returns nullopt if any weight is NaN.
+  std::optional<Eigen::ArrayXd> ComputeIRLSWeights(
+      RotationEstimatorOptions::WeightType weight_type, double sigma) const;
 
  private:
   // Allocates parameter indices for frames and cameras, initializes rotations.

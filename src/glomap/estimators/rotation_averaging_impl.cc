@@ -584,6 +584,58 @@ double RotationAveragingProblem::AverageStepSize(
   return total_update / frame_id_to_param_idx_.size();
 }
 
+std::optional<Eigen::ArrayXd> RotationAveragingProblem::ComputeIRLSWeights(
+    RotationEstimatorOptions::WeightType weight_type, double sigma) const {
+  Eigen::ArrayXd weights(NumResiduals());
+
+  for (const auto& [pair_id, constraint] : pair_constraints_) {
+    double err_squared = 0;
+    bool is_1dof = false;
+
+    if (const auto* constraint_1dof =
+            std::get_if<PairConstraint::GravityAligned1DOF>(
+                &constraint.constraint)) {
+      // 1-DOF case: Y-axis error plus xz_error.
+      err_squared = std::pow(residuals_[constraint.row_index], 2) +
+                    constraint_1dof->xz_error;
+      is_1dof = true;
+    } else {
+      // 3-DOF case: full rotation error.
+      err_squared = residuals_.segment<3>(constraint.row_index).squaredNorm();
+    }
+
+    // Compute the weight.
+    double w = 0;
+    if (weight_type == RotationEstimatorOptions::GEMAN_MCCLURE) {
+      double tmp = err_squared + sigma * sigma;
+      w = sigma * sigma / (tmp * tmp);
+    } else if (weight_type == RotationEstimatorOptions::HALF_NORM) {
+      w = std::pow(err_squared, (0.5 - 2) / 2);
+    }
+
+    if (std::isnan(w)) {
+      LOG(ERROR) << "nan weight!";
+      return std::nullopt;
+    }
+
+    // Set weights for appropriate number of equations.
+    if (is_1dof) {
+      weights[constraint.row_index] = w;
+    } else {
+      weights.segment<3>(constraint.row_index).setConstant(w);
+    }
+  }
+
+  // Set gauge-fixing weights to 1.
+  if (gauge_fixing_rows_ == 1) {
+    weights[NumResiduals() - 1] = 1;
+  } else {
+    weights.segment(NumResiduals() - 3, 3).setConstant(1);
+  }
+
+  return weights;
+}
+
 void RotationAveragingProblem::ApplyResultsToReconstruction(
     colmap::Reconstruction& reconstruction) {
   for (const auto& [frame_id, frame_idx] : frame_id_to_param_idx_) {
@@ -709,17 +761,8 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
   const double sigma = colmap::DegToRad(options_.irls_loss_parameter_sigma);
   VLOG(2) << "sigma: " << options_.irls_loss_parameter_sigma;
 
-  Eigen::ArrayXd weights_irls(problem.NumResiduals());
   Eigen::SparseMatrix<double> at_weight;
   Eigen::VectorXd step(problem.NumParameters());
-
-  // Initialize gauge-fixing weights.
-  const int gauge_rows = problem.GaugeFixingRows();
-  if (gauge_rows == 1) {
-    weights_irls[problem.NumResiduals() - 1] = 1;
-  } else {
-    weights_irls.segment(problem.NumResiduals() - 3, 3).setConstant(1);
-  }
 
   int iteration = 0;
   for (iteration = 0; iteration < options_.max_num_irls_iterations;
@@ -729,50 +772,14 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
     problem.ComputeResiduals();
 
     // Compute the weights for IRLS.
-    bool has_nan_weight = false;
-    problem.ForEachConstraint([&](int row_idx,
-                                  bool is_gravity_1dof,
-                                  double xz_error) {
-      double err_squared = 0;
-      double w = 0;
-
-      if (is_gravity_1dof) {
-        // 1-DOF case: Y-axis error plus stored xz_error.
-        err_squared = std::pow(problem.Residuals()[row_idx], 2) + xz_error;
-      } else {
-        // 3-DOF case: full rotation error.
-        err_squared = problem.Residuals().segment<3>(row_idx).squaredNorm();
-      }
-
-      // Compute the weight.
-      if (options_.weight_type == RotationEstimatorOptions::GEMAN_MCCLURE) {
-        double tmp = err_squared + sigma * sigma;
-        w = sigma * sigma / (tmp * tmp);
-      } else if (options_.weight_type == RotationEstimatorOptions::HALF_NORM) {
-        w = std::pow(err_squared, (0.5 - 2) / 2);
-      }
-
-      if (std::isnan(w)) {
-        LOG(ERROR) << "nan weight!";
-        has_nan_weight = true;
-        return;
-      }
-
-      // Set weights for appropriate number of equations.
-      if (is_gravity_1dof) {
-        weights_irls[row_idx] = w;
-      } else {
-        weights_irls.segment<3>(row_idx).setConstant(w);
-      }
-    });
-
-    if (has_nan_weight) {
+    auto weights_irls = problem.ComputeIRLSWeights(options_.weight_type, sigma);
+    if (!weights_irls) {
       return false;
     }
 
     // Update the factorization for the weighted values.
     at_weight = problem.ConstraintMatrix().transpose() *
-                weights_irls.matrix().asDiagonal() *
+                weights_irls->matrix().asDiagonal() *
                 problem.EdgeWeights().matrix().asDiagonal();
 
     llt.factorize(at_weight * problem.ConstraintMatrix());
