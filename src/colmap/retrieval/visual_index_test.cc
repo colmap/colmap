@@ -46,7 +46,7 @@ class ParameterizedVisualIndexTests
 TEST_P(ParameterizedVisualIndexTests, Nominal) {
   const auto [desc_dim, embedding_dim] = GetParam();
 
-  SetPRNGSeed(0);
+  SetPRNGSeed(1);
 
   {
     auto visual_index = VisualIndex::Create(desc_dim, embedding_dim);
@@ -174,7 +174,7 @@ TEST_P(ParameterizedVisualIndexTests, ReadWrite) {
 TEST_P(ParameterizedVisualIndexTests, SpatialVerification) {
   const auto [desc_dim, embedding_dim] = GetParam();
 
-  SetPRNGSeed(0);
+  SetPRNGSeed(1);
 
   VisualIndex::BuildOptions build_options;
   // Keep test runtimes low.
