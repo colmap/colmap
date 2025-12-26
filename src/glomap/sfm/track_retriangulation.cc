@@ -49,7 +49,7 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
   for (const auto& [image_id, image] : reconstruction.Images()) {
     if (!database_cache->ExistsImage(image_id) && image.HasPose()) {
       image_ids_notconnected.push_back(image_id);
-      reconstruction.Image(image_id).FramePtr()->ResetPose();
+      image.FramePtr()->ResetPose();
     }
   }
 

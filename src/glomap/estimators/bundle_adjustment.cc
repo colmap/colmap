@@ -117,7 +117,7 @@ void BundleAdjuster::AddPointToCameraConstraints(
     if (track.track.Length() < options_.min_num_view_per_track) continue;
 
     for (const auto& observation : track.track.Elements()) {
-      if (!reconstruction.ExistsImage(observation.image_id)) continue;
+      THROW_CHECK(reconstruction.ExistsImage(observation.image_id));
 
       Image& image = reconstruction.Image(observation.image_id);
       colmap::Frame* frame = image.FramePtr();

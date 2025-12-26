@@ -67,7 +67,7 @@ void ViewGraphCalibrator::AddImagePairsToProblem(
     if (image_pair.config != colmap::TwoViewGeometry::CALIBRATED &&
         image_pair.config != colmap::TwoViewGeometry::UNCALIBRATED)
       continue;
-    if (image_pair.is_valid == false) continue;
+    if (!image_pair.is_valid) continue;
 
     AddImagePair(image_pair, reconstruction);
   }
@@ -161,7 +161,7 @@ size_t ViewGraphCalibrator::FilterImagePairs(ViewGraph& view_graph) const {
     if (image_pair.config != colmap::TwoViewGeometry::CALIBRATED &&
         image_pair.config != colmap::TwoViewGeometry::UNCALIBRATED)
       continue;
-    if (image_pair.is_valid == false) continue;
+    if (!image_pair.is_valid) continue;
 
     const Eigen::Vector2d error(residuals[counter], residuals[counter + 1]);
 

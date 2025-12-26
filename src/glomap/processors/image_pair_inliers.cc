@@ -255,7 +255,7 @@ void ImagePairsInlierCount(ViewGraph& view_graph,
     if (!clean_inliers && image_pair.inliers.size() > 0) continue;
     image_pair.inliers.clear();
 
-    if (image_pair.is_valid == false) continue;
+    if (!image_pair.is_valid) continue;
     ImagePairInliers inlier_finder(image_pair, reconstruction, options);
     inlier_finder.ScoreError();
   }

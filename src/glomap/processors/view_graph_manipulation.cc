@@ -80,7 +80,7 @@ image_t ViewGraphManipulater::EstablishStrongClusters(
   uf.Reserve(reconstruction.NumFrames());
   // Go through the edges, and add the edge with weight > min_thres
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
-    if (image_pair.is_valid == false) continue;
+    if (!image_pair.is_valid) continue;
 
     bool status = false;
     status = status ||
@@ -109,7 +109,7 @@ image_t ViewGraphManipulater::EstablishStrongClusters(
     std::unordered_map<image_pair_t, std::unordered_map<image_pair_t, int>>
         num_pairs;
     for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
-      if (image_pair.is_valid == false) continue;
+      if (!image_pair.is_valid) continue;
 
       // If the number of inliers < 0.75 of the threshold, skip
       bool status = false;
@@ -155,7 +155,7 @@ image_t ViewGraphManipulater::EstablishStrongClusters(
   }
 
   for (auto& [image_pair_id, image_pair] : view_graph.image_pairs) {
-    if (image_pair.is_valid == false) continue;
+    if (!image_pair.is_valid) continue;
 
     frame_t frame_id1 = reconstruction.Image(image_pair.image_id1).FrameId();
     frame_t frame_id2 = reconstruction.Image(image_pair.image_id2).FrameId();
@@ -181,7 +181,7 @@ void ViewGraphManipulater::UpdateImagePairsConfig(
   // pairs with configuration 2
   std::unordered_map<camera_t, std::pair<int, int>> camera_counter;
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
-    if (image_pair.is_valid == false) continue;
+    if (!image_pair.is_valid) continue;
 
     const camera_t camera_id1 =
         reconstruction.Image(image_pair.image_id1).CameraId();
@@ -216,7 +216,7 @@ void ViewGraphManipulater::UpdateImagePairsConfig(
   }
 
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
-    if (image_pair.is_valid == false) continue;
+    if (!image_pair.is_valid) continue;
     if (image_pair.config != colmap::TwoViewGeometry::UNCALIBRATED) continue;
 
     const camera_t camera_id1 =
@@ -242,7 +242,7 @@ void ViewGraphManipulater::DecomposeRelPose(
     ViewGraph& view_graph, colmap::Reconstruction& reconstruction) {
   std::vector<image_pair_t> image_pair_ids;
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
-    if (image_pair.is_valid == false) continue;
+    if (!image_pair.is_valid) continue;
     const camera_t camera_id1 =
         reconstruction.Image(image_pair.image_id1).CameraId();
     const camera_t camera_id2 =
