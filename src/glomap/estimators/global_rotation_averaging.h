@@ -37,14 +37,14 @@ namespace glomap {
 struct PairConstraint {
   // 1-DOF constraint for pairs where both frames have gravity priors.
   // Gravity alignment reduces full 3D rotation to Y-axis rotation only.
-  struct Gravity1DOF {
-    double angle;     // Relative Y-axis rotation between frames
+  struct GravityAligned1DOF {
+    double angle_cam2_from_cam1;  // Relative Y-axis rotation
     double xz_error;  // Squared error in x,z axes (for IRLS weighting)
   };
 
   // 3-DOF constraint for the general case (no gravity or partial gravity).
   struct Full3DOF {
-    Eigen::Matrix3d R_rel;  // Relative rotation (gravity-aligned if applicable)
+    Eigen::Matrix3d R_cam2_from_cam1;  // Relative rotation
   };
 
   // Starting row in sparse matrix A where this pair's equations begin.
@@ -59,7 +59,7 @@ struct PairConstraint {
   int cam1_from_rig_param_idx = -1;
   int cam2_from_rig_param_idx = -1;
 
-  std::variant<Gravity1DOF, Full3DOF> constraint;
+  std::variant<GravityAligned1DOF, Full3DOF> constraint;
 };
 
 struct RotationEstimatorOptions {

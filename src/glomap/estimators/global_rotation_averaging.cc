@@ -18,23 +18,23 @@ namespace {
 // Computes the 1-DOF residual for gravity-aligned rotation constraints.
 // Returns (angle_2 - angle_1) - angle_12, wrapped to [-π, π] with jitter
 // near boundaries to avoid local minima.
-double ComputeGravity1DOFResidual(std::mt19937& rng,
-                                  double angle_12,
-                                  double angle_1,
-                                  double angle_2) {
+double ComputeGravityAligned1DOFResidual(std::mt19937& rng,
+                                         double angle_12,
+                                         double angle_1,
+                                         double angle_2) {
   double residual = (angle_2 - angle_1) - angle_12;
 
-  while (residual >= M_PI) {
-    residual -= 2 * M_PI;
+  while (residual >= EIGEN_PI) {
+    residual -= 2 * EIGEN_PI;
   }
-  while (residual < -M_PI) {
-    residual += 2 * M_PI;
+  while (residual < -EIGEN_PI) {
+    residual += 2 * EIGEN_PI;
   }
 
   // Inject random noise if the angle is too close to the boundary to break the
   // possible balance at the local minima
   constexpr double kEps = 0.01;
-  if (std::abs(residual) > M_PI - kEps) {
+  if (std::abs(residual) > EIGEN_PI - kEps) {
     std::uniform_real_distribution<double> dist(0.0, kEps);
     const double jitter = dist(rng);
     if (residual < 0) {
@@ -213,7 +213,7 @@ void RotationEstimator::SetupLinearSystem(
   // Initialize the structures for estimated rotation
   camera_id_to_param_idx_.reserve(reconstruction.NumCameras());
   rotation_estimated_.resize(6 * reconstruction.NumImages());
-  image_t num_params = 0;
+  size_t num_params = 0;
   std::unordered_map<camera_t, rig_t> camera_id_to_rig_id;
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     for (const auto& data_id : frame.ImageIds()) {
@@ -355,7 +355,7 @@ void RotationEstimator::SetupLinearSystem(
     }
 
     // Compute relative rotation between rigs (accounting for cam_from_rig)
-    Eigen::Matrix3d R_rel =
+    Eigen::Matrix3d R_cam2_from_cam1 =
         (cam2_from_rig2.rotation.inverse() *
          image_pair.cam2_from_cam1.rotation * cam1_from_rig1.rotation)
             .toRotationMatrix();
@@ -368,11 +368,13 @@ void RotationEstimator::SetupLinearSystem(
     // Apply gravity alignment transformations if available
     if (options_.use_gravity) {
       if (frame_gravity1 != nullptr) {
-        R_rel = R_rel * colmap::GravityAlignedRotation(*frame_gravity1);
+        R_cam2_from_cam1 =
+            R_cam2_from_cam1 * colmap::GravityAlignedRotation(*frame_gravity1);
       }
       if (frame_gravity2 != nullptr) {
-        R_rel =
-            colmap::GravityAlignedRotation(*frame_gravity2).transpose() * R_rel;
+        R_cam2_from_cam1 =
+            colmap::GravityAlignedRotation(*frame_gravity2).transpose() *
+            R_cam2_from_cam1;
       }
     }
 
@@ -382,14 +384,16 @@ void RotationEstimator::SetupLinearSystem(
         frame_gravity2 != nullptr) {
       // Both frames have gravity: use 1-DOF constraint
       counter++;
-      const Eigen::Vector3d aa = colmap::RotationMatrixToAngleAxis(R_rel);
-      constraint.constraint = PairConstraint::Gravity1DOF{
-          .angle = aa[1],
+      const Eigen::Vector3d aa =
+          colmap::RotationMatrixToAngleAxis(R_cam2_from_cam1);
+      constraint.constraint = PairConstraint::GravityAligned1DOF{
+          .angle_cam2_from_cam1 = aa[1],
           .xz_error = aa[0] * aa[0] + aa[2] * aa[2],
       };
     } else {
       // General case: use 3-DOF constraint
-      constraint.constraint = PairConstraint::Full3DOF{.R_rel = R_rel};
+      constraint.constraint =
+          PairConstraint::Full3DOF{.R_cam2_from_cam1 = R_cam2_from_cam1};
     }
   }
 
@@ -435,7 +439,7 @@ void RotationEstimator::SetupLinearSystem(
     constraint.cam2_from_rig_param_idx = vector_idx_cam2;
 
     const bool is_gravity_aligned =
-        std::holds_alternative<PairConstraint::Gravity1DOF>(
+        std::holds_alternative<PairConstraint::GravityAligned1DOF>(
             constraint.constraint);
     if (is_gravity_aligned) {
       coeffs.emplace_back(Eigen::Triplet<double>(curr_pos, frame_idx1, -1));
@@ -643,11 +647,12 @@ bool RotationEstimator::SolveIRLS(
       double err_squared = 0;
       double w = 0;
 
-      if (const auto* grav = std::get_if<PairConstraint::Gravity1DOF>(
-              &constraint.constraint)) {
+      if (const auto* constraint_1dof =
+              std::get_if<PairConstraint::GravityAligned1DOF>(
+                  &constraint.constraint)) {
         // 1-DOF case: Y-axis error plus stored xz_error
-        err_squared =
-            std::pow(tangent_space_residual_[row_idx], 2) + grav->xz_error;
+        err_squared = std::pow(tangent_space_residual_[row_idx], 2) +
+                      constraint_1dof->xz_error;
       } else {
         // 3-DOF case: full rotation error
         err_squared = tangent_space_residual_.segment<3>(row_idx).squaredNorm();
@@ -667,7 +672,7 @@ bool RotationEstimator::SolveIRLS(
       }
 
       // Set weights for appropriate number of equations
-      if (std::holds_alternative<PairConstraint::Gravity1DOF>(
+      if (std::holds_alternative<PairConstraint::GravityAligned1DOF>(
               constraint.constraint)) {
         weights_irls[row_idx] = w;
       } else {
@@ -790,14 +795,16 @@ void RotationEstimator::ComputeResiduals(
     const int frame_idx1 = frame_id_to_param_idx_.at(image1.FrameId());
     const int frame_idx2 = frame_id_to_param_idx_.at(image2.FrameId());
 
-    if (const auto* grav =
-            std::get_if<PairConstraint::Gravity1DOF>(&constraint.constraint)) {
+    if (const auto* constraint_1dof =
+            std::get_if<PairConstraint::GravityAligned1DOF>(
+                &constraint.constraint)) {
       // 1-DOF case: compute Y-axis angle residual
       tangent_space_residual_[constraint.row_index] =
-          ComputeGravity1DOFResidual(rng,
-                                     grav->angle,
-                                     rotation_estimated_[frame_idx1],
-                                     rotation_estimated_[frame_idx2]);
+          ComputeGravityAligned1DOFResidual(
+              rng,
+              constraint_1dof->angle_cam2_from_cam1,
+              rotation_estimated_[frame_idx1],
+              rotation_estimated_[frame_idx2]);
     } else {
       // 3-DOF case: compute full rotation error
       const auto& full =
@@ -836,8 +843,8 @@ void RotationEstimator::ComputeResiduals(
       }
 
       tangent_space_residual_.segment(constraint.row_index, 3) =
-          -colmap::RotationMatrixToAngleAxis(R_2.transpose() * full.R_rel *
-                                             R_1);
+          -colmap::RotationMatrixToAngleAxis(R_2.transpose() *
+                                             full.R_cam2_from_cam1 * R_1);
     }
   }
 
