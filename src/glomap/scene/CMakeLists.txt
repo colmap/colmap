@@ -39,3 +39,9 @@ COLMAP_ADD_LIBRARY(
         colmap_scene
         colmap_util
 )
+
+COLMAP_ADD_TEST(
+    NAME glomap_view_graph_test
+    SRCS view_graph_test.cc
+    LINK_LIBS colmap_glomap_scene
+)
