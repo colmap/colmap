@@ -42,7 +42,6 @@
 namespace colmap {
 namespace {
 
-// Helper function to create a synthetic reconstruction with dummy images.
 Reconstruction CreateSyntheticReconstructionWithBitmaps(
     const std::string& image_path,
     int num_images = 2,
