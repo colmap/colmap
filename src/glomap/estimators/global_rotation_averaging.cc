@@ -44,9 +44,10 @@ double RelAngleError(std::mt19937& rng,
   return est;
 }
 
-bool AllSensorsFromRigKnown(const colmap::Reconstruction& reconstruction) {
+bool AllSensorsFromRigKnown(
+    const std::unordered_map<rig_t, colmap::Rig>& rigs) {
   bool all_known = true;
-  for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
+  for (const auto& [rig_id, rig] : rigs) {
     for (const auto& [sensor_id, sensor] : rig.NonRefSensors()) {
       if (!sensor.has_value()) {
         LOG(ERROR) << "Rig " << rig_id
@@ -62,10 +63,10 @@ bool AllSensorsFromRigKnown(const colmap::Reconstruction& reconstruction) {
 }
 
 std::unordered_map<frame_t, const colmap::PosePrior*> ExtractFrameToPosePrior(
-    const colmap::Reconstruction& reconstruction,
+    const std::unordered_map<image_t, Image>& images,
     const std::vector<colmap::PosePrior>& pose_priors) {
   std::unordered_map<image_t, frame_t> image_to_frame;
-  for (const auto& [image_id, image] : reconstruction.Images()) {
+  for (const auto& [image_id, image] : images) {
     image_to_frame[image_id] = image.FrameId();
   }
 
@@ -73,8 +74,9 @@ std::unordered_map<frame_t, const colmap::PosePrior*> ExtractFrameToPosePrior(
   for (const auto& pose_prior : pose_priors) {
     if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
       const image_t image_id = pose_prior.corr_data_id.id;
-      if (!reconstruction.ExistsImage(image_id)) continue;
-      const Image& image = reconstruction.Image(image_id);
+      const auto it = images.find(image_id);
+      if (it == images.end()) continue;
+      const Image& image = it->second;
       if (image.IsRefInFrame()) {
         const frame_t frame_id = image_to_frame.at(pose_prior.corr_data_id.id);
         THROW_CHECK(frame_to_pose_prior.emplace(frame_id, &pose_prior).second)
@@ -103,12 +105,12 @@ bool RotationEstimator::EstimateRotations(
     const ViewGraph& view_graph,
     colmap::Reconstruction& reconstruction,
     const std::vector<colmap::PosePrior>& pose_priors) {
-  if (options_.use_gravity && !AllSensorsFromRigKnown(reconstruction)) {
+  if (options_.use_gravity && !AllSensorsFromRigKnown(reconstruction.Rigs())) {
     return false;
   }
 
   std::unordered_map<frame_t, const colmap::PosePrior*> frame_to_pose_prior =
-      ExtractFrameToPosePrior(reconstruction, pose_priors);
+      ExtractFrameToPosePrior(reconstruction.Images(), pose_priors);
 
   // Initialize the rotation from maximum spanning tree
   if (!options_.skip_initialization && !options_.use_gravity) {
