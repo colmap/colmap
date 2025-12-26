@@ -189,6 +189,9 @@ class Thread {
 //    }
 //    thread_pool.Wait();
 //
+// Exceptions thrown from the tasks are caught and propagated to the caller
+// through both the returned future and the Wait() call. Repeated calls to
+// Wait() will throw any remaining exceptions one by one.
 class ThreadPool {
  public:
   static const int kMaxNumThreads = -1;
@@ -208,7 +211,7 @@ class ThreadPool {
   // Add new task to the thread pool.
   template <class func_t, class... args_t>
   auto AddTask(func_t&& f, args_t&&... args)
-      -> std::future<result_of_t<func_t, args_t...>>;
+      -> std::shared_future<result_of_t<func_t, args_t...>>;
 
   // Stop the execution of all workers.
   void Stop();
@@ -238,6 +241,7 @@ class ThreadPool {
   int num_active_workers_;
 
   std::unordered_map<std::thread::id, int> thread_id_to_index_;
+  std::vector<std::function<void()>> future_checkers_;
 };
 
 // A job queue class for the producer-consumer paradigm.
@@ -325,20 +329,21 @@ size_t ThreadPool::NumThreads() const { return workers_.size(); }
 
 template <class func_t, class... args_t>
 auto ThreadPool::AddTask(func_t&& f, args_t&&... args)
-    -> std::future<result_of_t<func_t, args_t...>> {
+    -> std::shared_future<result_of_t<func_t, args_t...>> {
   typedef result_of_t<func_t, args_t...> return_t;
 
   auto task = std::make_shared<std::packaged_task<return_t()>>(
       std::bind(std::forward<func_t>(f), std::forward<args_t>(args)...));
 
-  std::future<return_t> result = task->get_future();
+  std::shared_future<return_t> result = task->get_future().share();
 
   {
     std::unique_lock<std::mutex> lock(mutex_);
     if (stopped_) {
       throw std::runtime_error("Cannot add task to stopped thread pool.");
     }
-    tasks_.emplace([task]() { (*task)(); });
+    tasks_.emplace([task = std::move(task)]() { (*task)(); });
+    future_checkers_.push_back([result]() { result.get(); });
   }
 
   task_condition_.notify_one();
