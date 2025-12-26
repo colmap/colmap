@@ -41,7 +41,8 @@ struct ViewGraph {
   // Mark image pairs as invalid if they have fewer than min_num_inliers.
   void FilterByNumInliers(int min_num_inliers = 30);
 
-  // Mark image pairs as invalid if their inlier ratio is below min_inlier_ratio.
+  // Mark image pairs as invalid if their inlier ratio is below
+  // min_inlier_ratio.
   void FilterByInlierRatio(double min_inlier_ratio = 0.25);
 };
 
