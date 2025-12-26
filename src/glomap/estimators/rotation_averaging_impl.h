@@ -27,14 +27,15 @@ namespace glomap {
 struct PairConstraint {
   // 1-DOF constraint for pairs where both frames have gravity priors.
   // Gravity alignment reduces full 3D rotation to Y-axis rotation only.
-  struct Gravity1DOF {
-    double angle;     // Relative Y-axis rotation between frames
+  struct GravityAligned1DOF {
+    double angle_cam2_from_cam1;  // Relative Y-axis rotation between frames
     double xz_error;  // Squared error in x,z axes (for IRLS weighting)
   };
 
   // 3-DOF constraint for the general case (no gravity or partial gravity).
   struct Full3DOF {
-    Eigen::Matrix3d R_rel;  // Relative rotation (gravity-aligned if applicable)
+    Eigen::Matrix3d
+        R_cam2_from_cam1;  // Relative rotation (gravity-aligned if applicable)
   };
 
   // Image IDs for this pair (cached from view graph).
@@ -42,7 +43,7 @@ struct PairConstraint {
   image_t image_id2 = colmap::kInvalidImageId;
 
   // Starting row in sparse matrix A where this pair's equations begin.
-  // - Gravity1DOF: occupies 1 row
+  // - GravityAligned1DOF: occupies 1 row
   // - Full3DOF: occupies 3 consecutive rows
   int row_index = -1;
 
@@ -53,7 +54,7 @@ struct PairConstraint {
   int cam1_from_rig_param_idx = -1;
   int cam2_from_rig_param_idx = -1;
 
-  std::variant<Gravity1DOF, Full3DOF> constraint;
+  std::variant<GravityAligned1DOF, Full3DOF> constraint;
 };
 
 // Holds the rotation averaging problem data and provides methods to update
@@ -93,9 +94,10 @@ class RotationAveragingProblem {
   template <typename Callback>
   void ForEachConstraint(Callback&& callback) const {
     for (const auto& [pair_id, constraint] : pair_constraints_) {
-      if (const auto* grav = std::get_if<PairConstraint::Gravity1DOF>(
-              &constraint.constraint)) {
-        callback(constraint.row_index, true, grav->xz_error);
+      if (const auto* constraint_1dof =
+              std::get_if<PairConstraint::GravityAligned1DOF>(
+                  &constraint.constraint)) {
+        callback(constraint.row_index, true, constraint_1dof->xz_error);
       } else {
         callback(constraint.row_index, false, 0.0);
       }
