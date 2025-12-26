@@ -37,7 +37,7 @@
 namespace colmap {
 namespace {
 
-TEST(Bitmap, BitmapColorEmpty) {
+TEST(BitmapColor, Empty) {
   BitmapColor<uint8_t> color;
   EXPECT_EQ(color.r, 0);
   EXPECT_EQ(color.g, 0);
@@ -46,26 +46,40 @@ TEST(Bitmap, BitmapColorEmpty) {
   EXPECT_EQ(color, BitmapColor<uint8_t>(0, 0, 0));
 }
 
-TEST(Bitmap, BitmapGrayColor) {
+TEST(BitmapColor, Gray) {
   BitmapColor<uint8_t> color(5);
   EXPECT_EQ(color.r, 5);
   EXPECT_EQ(color.g, 5);
   EXPECT_EQ(color.b, 5);
 }
 
-TEST(Bitmap, BitmapRGBColor) {
+TEST(BitmapColor, RGB) {
   BitmapColor<uint8_t> color(1, 2, 3);
   EXPECT_EQ(color.r, 1);
   EXPECT_EQ(color.g, 2);
   EXPECT_EQ(color.b, 3);
 }
 
-TEST(Bitmap, BitmapColorCast) {
+TEST(BitmapColor, Cast) {
   BitmapColor<float> color1(1.1f, 2.9f, -3.0f);
   BitmapColor<uint8_t> color2 = color1.Cast<uint8_t>();
   EXPECT_EQ(color2.r, 1);
   EXPECT_EQ(color2.g, 3);
   EXPECT_EQ(color2.b, 0);
+}
+
+TEST(BitmapColor, PrintUint8) {
+  BitmapColor<uint8_t> color(1, 2, 3);
+  std::ostringstream stream;
+  stream << color;
+  EXPECT_EQ(stream.str(), "RGB(1, 2, 3)");
+}
+
+TEST(BitmapColor, PrintFloat) {
+  BitmapColor<float> color(1.3f, 2.4f, 3.5f);
+  std::ostringstream stream;
+  stream << color;
+  EXPECT_EQ(stream.str(), "RGB(1.3, 2.4, 3.5)");
 }
 
 TEST(Bitmap, Empty) {

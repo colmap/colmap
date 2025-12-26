@@ -29,11 +29,10 @@
 
 #pragma once
 
-#include "colmap/util/string.h"
-
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <string>
@@ -237,12 +236,15 @@ bool BitmapColor<T>::operator!=(const BitmapColor<T>& rhs) const {
 }
 
 template <typename T>
-std::ostream& operator<<(std::ostream& output, const BitmapColor<T>& color) {
-  output << StringPrintf("RGB(%f, %f, %f)",
-                         static_cast<double>(color.r),
-                         static_cast<double>(color.g),
-                         static_cast<double>(color.b));
-  return output;
+std::ostream& operator<<(std::ostream& stream, const BitmapColor<T>& color) {
+  if (std::is_same<T, char>::value || std::is_same<T, unsigned char>::value) {
+    stream << "RGB(" << static_cast<int>(color.r) << ", "
+           << static_cast<int>(color.g) << ", " << static_cast<int>(color.b)
+           << ")";
+  } else {
+    stream << "RGB(" << color.r << ", " << color.g << ", " << color.b << ")";
+  }
+  return stream;
 }
 
 int Bitmap::Width() const { return width_; }
