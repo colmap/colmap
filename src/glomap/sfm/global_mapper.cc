@@ -127,10 +127,11 @@ bool GlobalMapper::Solve(const colmap::Database& database,
     std::cout << "Running track establishment ..." << '\n';
     std::cout << "-------------------------------------" << '\n';
 
-    // TrackEngine reads images from reconstruction, writes unfiltered tracks
-    // to a temporary map, then filters into the main reconstruction
+    // TrackEngine reads images, writes unfiltered tracks to a temporary map,
+    // then filters into the main reconstruction
     std::unordered_map<point3D_t, Point3D> unfiltered_tracks;
-    TrackEngine track_engine(view_graph, reconstruction, options_.opt_track);
+    TrackEngine track_engine(
+        view_graph, reconstruction.Images(), options_.opt_track);
     track_engine.EstablishFullTracks(unfiltered_tracks);
 
     // Filter the tracks into a selected subset

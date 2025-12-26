@@ -64,7 +64,7 @@ void TrackEngine::BlindConcatenation() {
 
 void TrackEngine::TrackCollection(
     std::unordered_map<point3D_t, Point3D>& tracks) {
-  const auto& images = reconstruction_.Images();
+  const auto& images = images_;
   std::unordered_map<uint64_t, std::unordered_set<uint64_t>> track_map;
   std::unordered_map<uint64_t, int> track_counter;
 
@@ -155,7 +155,7 @@ void TrackEngine::TrackCollection(
 size_t TrackEngine::FindTracksForProblem(
     const std::unordered_map<point3D_t, Point3D>& tracks_full,
     std::unordered_map<point3D_t, Point3D>& tracks_selected) {
-  const auto& images = reconstruction_.Images();
+  const auto& images = images_;
 
   // Sort the tracks by length
   std::vector<std::pair<size_t, point3D_t>> track_lengths;

@@ -558,7 +558,7 @@ bool RotationEstimator::SolveL1Regression(
   double last_norm = 0;
   double curr_norm = 0;
 
-  ComputeResiduals(view_graph, reconstruction, frame_to_pose_prior);
+  ComputeResiduals(view_graph, reconstruction.Images(), frame_to_pose_prior);
   VLOG(2) << "ComputeResiduals done";
 
   int iteration = 0;
@@ -587,12 +587,12 @@ bool RotationEstimator::SolveL1Regression(
 
     curr_norm = tangent_space_step_.norm();
     UpdateGlobalRotations(view_graph, reconstruction, frame_to_pose_prior);
-    ComputeResiduals(view_graph, reconstruction, frame_to_pose_prior);
+    ComputeResiduals(view_graph, reconstruction.Images(), frame_to_pose_prior);
 
     // Check the residual. If it is small, stop
     // TODO: strange bug for the L1 solver: update norm state constant
     constexpr double kEps = 1e-12;
-    if (ComputeAverageStepSize(reconstruction, frame_to_pose_prior) <
+    if (ComputeAverageStepSize(reconstruction.Frames(), frame_to_pose_prior) <
             options_.l1_step_convergence_threshold ||
         std::abs(last_norm - curr_norm) < kEps) {
       if (std::abs(last_norm - curr_norm) < kEps)
@@ -636,7 +636,7 @@ bool RotationEstimator::SolveIRLS(
     weights_irls.segment(sparse_matrix_.rows() - 3, 3).setConstant(1);
   }
 
-  ComputeResiduals(view_graph, reconstruction, frame_to_pose_prior);
+  ComputeResiduals(view_graph, reconstruction.Images(), frame_to_pose_prior);
   int iteration = 0;
   for (iteration = 0; iteration < options_.max_num_irls_iterations;
        iteration++) {
@@ -687,10 +687,10 @@ bool RotationEstimator::SolveIRLS(
     tangent_space_step_.setZero();
     tangent_space_step_ = llt.solve(at_weight * tangent_space_residual_);
     UpdateGlobalRotations(view_graph, reconstruction, frame_to_pose_prior);
-    ComputeResiduals(view_graph, reconstruction, frame_to_pose_prior);
+    ComputeResiduals(view_graph, reconstruction.Images(), frame_to_pose_prior);
 
     // Check the residual. If it is small, stop
-    if (ComputeAverageStepSize(reconstruction, frame_to_pose_prior) <
+    if (ComputeAverageStepSize(reconstruction.Frames(), frame_to_pose_prior) <
         options_.irls_step_convergence_threshold) {
       iteration++;
       break;
@@ -777,7 +777,7 @@ void RotationEstimator::UpdateGlobalRotations(
 
 void RotationEstimator::ComputeResiduals(
     const ViewGraph& view_graph,
-    const colmap::Reconstruction& reconstruction,
+    const std::unordered_map<image_t, Image>& images,
     const std::unordered_map<frame_t, const colmap::PosePrior*>&
         frame_to_pose_prior) {
   std::mt19937 rng(std::random_device{}());
@@ -797,8 +797,8 @@ void RotationEstimator::ComputeResiduals(
                          rotation_estimated_[image_id_to_idx_[image_id2]]));
     } else {
       Eigen::Matrix3d R_1, R_2;
-      const Image& image1 = reconstruction.Image(image_id1);
-      const Image& image2 = reconstruction.Image(image_id2);
+      const Image& image1 = images.at(image_id1);
+      const Image& image2 = images.at(image_id2);
 
       const Eigen::Vector3d* frame_gravity1 =
           GetFrameGravityOrNull(frame_to_pose_prior, image1.FrameId());
@@ -840,7 +840,7 @@ void RotationEstimator::ComputeResiduals(
     }
   }
 
-  const Image& fixed_image = reconstruction.Image(fixed_image_id_);
+  const Image& fixed_image = images.at(fixed_image_id_);
   const auto fixed_pose_prior_it =
       frame_to_pose_prior.find(fixed_image.FrameId());
   const bool fixed_image_has_gravity =
@@ -861,11 +861,11 @@ void RotationEstimator::ComputeResiduals(
 }
 
 double RotationEstimator::ComputeAverageStepSize(
-    const colmap::Reconstruction& reconstruction,
+    const std::unordered_map<frame_t, Frame>& frames,
     const std::unordered_map<frame_t, const colmap::PosePrior*>&
         frame_to_pose_prior) {
   double total_update = 0;
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
+  for (const auto& [frame_id, frame] : frames) {
     if (frame.HasPose()) continue;
     const auto pose_prior_it = frame_to_pose_prior.find(frame_id);
     const bool has_gravity = pose_prior_it != frame_to_pose_prior.end() &&
