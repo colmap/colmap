@@ -71,17 +71,21 @@ TEST(ViewGraph, FilterByNumInliers) {
   ImagePair pair2 = SynthesizeImagePair(1, 3, 20);
   ImagePair pair3 = SynthesizeImagePair(2, 3, 30);
   ImagePair pair4 = SynthesizeImagePair(2, 4, 50, 100, false);
-  view_graph.image_pairs.emplace(pair1.pair_id, std::move(pair1));
-  view_graph.image_pairs.emplace(pair2.pair_id, std::move(pair2));
-  view_graph.image_pairs.emplace(pair3.pair_id, std::move(pair3));
-  view_graph.image_pairs.emplace(pair4.pair_id, std::move(pair4));
+  const image_pair_t pair_id1 = pair1.pair_id;
+  const image_pair_t pair_id2 = pair2.pair_id;
+  const image_pair_t pair_id3 = pair3.pair_id;
+  const image_pair_t pair_id4 = pair4.pair_id;
+  view_graph.image_pairs.emplace(pair_id1, std::move(pair1));
+  view_graph.image_pairs.emplace(pair_id2, std::move(pair2));
+  view_graph.image_pairs.emplace(pair_id3, std::move(pair3));
+  view_graph.image_pairs.emplace(pair_id4, std::move(pair4));
 
   view_graph.FilterByNumInliers(30);
 
-  EXPECT_TRUE(view_graph.image_pairs.at(pair1.pair_id).is_valid);
-  EXPECT_FALSE(view_graph.image_pairs.at(pair2.pair_id).is_valid);
-  EXPECT_TRUE(view_graph.image_pairs.at(pair3.pair_id).is_valid);
-  EXPECT_FALSE(view_graph.image_pairs.at(pair4.pair_id).is_valid);
+  EXPECT_TRUE(view_graph.image_pairs.at(pair_id1).is_valid);
+  EXPECT_FALSE(view_graph.image_pairs.at(pair_id2).is_valid);
+  EXPECT_TRUE(view_graph.image_pairs.at(pair_id3).is_valid);
+  EXPECT_FALSE(view_graph.image_pairs.at(pair_id4).is_valid);
 }
 
 TEST(ViewGraph, FilterByInlierRatio) {
@@ -91,17 +95,21 @@ TEST(ViewGraph, FilterByInlierRatio) {
   ImagePair pair2 = SynthesizeImagePair(1, 3, 10);
   ImagePair pair3 = SynthesizeImagePair(2, 3, 25);
   ImagePair pair4 = SynthesizeImagePair(2, 4, 50, 100, false);
-  view_graph.image_pairs.emplace(pair1.pair_id, std::move(pair1));
-  view_graph.image_pairs.emplace(pair2.pair_id, std::move(pair2));
-  view_graph.image_pairs.emplace(pair3.pair_id, std::move(pair3));
-  view_graph.image_pairs.emplace(pair4.pair_id, std::move(pair4));
+  const image_pair_t pair_id1 = pair1.pair_id;
+  const image_pair_t pair_id2 = pair2.pair_id;
+  const image_pair_t pair_id3 = pair3.pair_id;
+  const image_pair_t pair_id4 = pair4.pair_id;
+  view_graph.image_pairs.emplace(pair_id1, std::move(pair1));
+  view_graph.image_pairs.emplace(pair_id2, std::move(pair2));
+  view_graph.image_pairs.emplace(pair_id3, std::move(pair3));
+  view_graph.image_pairs.emplace(pair_id4, std::move(pair4));
 
   view_graph.FilterByInlierRatio(0.25);
 
-  EXPECT_TRUE(view_graph.image_pairs.at(pair1.pair_id).is_valid);
-  EXPECT_FALSE(view_graph.image_pairs.at(pair2.pair_id).is_valid);
-  EXPECT_TRUE(view_graph.image_pairs.at(pair3.pair_id).is_valid);
-  EXPECT_FALSE(view_graph.image_pairs.at(pair4.pair_id).is_valid);
+  EXPECT_TRUE(view_graph.image_pairs.at(pair_id1).is_valid);
+  EXPECT_FALSE(view_graph.image_pairs.at(pair_id2).is_valid);
+  EXPECT_TRUE(view_graph.image_pairs.at(pair_id3).is_valid);
+  EXPECT_FALSE(view_graph.image_pairs.at(pair_id4).is_valid);
 }
 
 TEST(ViewGraph, FilterByRelativeRotation) {
@@ -132,19 +140,23 @@ TEST(ViewGraph, FilterByRelativeRotation) {
   pair3.cam2_from_cam1 = AddRotationError(GetRelativePose(id1, id4), 90.0);
   ImagePair pair4 = SynthesizeImagePair(id2, id3, 50, 100, false);
   pair4.cam2_from_cam1 = GetRelativePose(id2, id3);
-  view_graph.image_pairs.emplace(pair1.pair_id, std::move(pair1));
-  view_graph.image_pairs.emplace(pair2.pair_id, std::move(pair2));
-  view_graph.image_pairs.emplace(pair3.pair_id, std::move(pair3));
-  view_graph.image_pairs.emplace(pair4.pair_id, std::move(pair4));
+  const image_pair_t pair_id1 = pair1.pair_id;
+  const image_pair_t pair_id2 = pair2.pair_id;
+  const image_pair_t pair_id3 = pair3.pair_id;
+  const image_pair_t pair_id4 = pair4.pair_id;
+  view_graph.image_pairs.emplace(pair_id1, std::move(pair1));
+  view_graph.image_pairs.emplace(pair_id2, std::move(pair2));
+  view_graph.image_pairs.emplace(pair_id3, std::move(pair3));
+  view_graph.image_pairs.emplace(pair_id4, std::move(pair4));
 
   reconstruction.Image(id4).FramePtr()->ResetPose();
 
   view_graph.FilterByRelativeRotation(reconstruction, 5.0);
 
-  EXPECT_TRUE(view_graph.image_pairs.at(pair1.pair_id).is_valid);
-  EXPECT_FALSE(view_graph.image_pairs.at(pair2.pair_id).is_valid);
-  EXPECT_TRUE(view_graph.image_pairs.at(pair3.pair_id).is_valid);
-  EXPECT_FALSE(view_graph.image_pairs.at(pair4.pair_id).is_valid);
+  EXPECT_TRUE(view_graph.image_pairs.at(pair_id1).is_valid);
+  EXPECT_FALSE(view_graph.image_pairs.at(pair_id2).is_valid);
+  EXPECT_TRUE(view_graph.image_pairs.at(pair_id3).is_valid);
+  EXPECT_FALSE(view_graph.image_pairs.at(pair_id4).is_valid);
 }
 
 }  // namespace
