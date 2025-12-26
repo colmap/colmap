@@ -41,12 +41,12 @@ bool RunBundleAdjustment(const BundleAdjusterOptions& options,
 
   // Set up 2D-3D links in Image.Point2D entries (glomap doesn't set these up)
   // This is needed for colmap's BA which uses Image.Point2D.HasPoint3D()
-  for (const auto& [track_id, point3D] : reconstruction.Points3D()) {
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     for (const auto& track_el : point3D.track.Elements()) {
       if (reconstruction.ExistsImage(track_el.image_id)) {
         colmap::Image& image = reconstruction.Image(track_el.image_id);
         if (track_el.point2D_idx < image.NumPoints2D()) {
-          image.SetPoint3DForPoint2D(track_el.point2D_idx, track_id);
+          image.SetPoint3DForPoint2D(track_el.point2D_idx, point3D_id);
         }
       }
     }
@@ -67,18 +67,18 @@ bool RunBundleAdjustment(const BundleAdjusterOptions& options,
   }
 
   // Filter short tracks
-  for (const auto& [track_id, track] : reconstruction.Points3D()) {
-    if (static_cast<int>(track.track.Length()) <
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    if (static_cast<int>(point3D.track.Length()) <
         options.min_num_view_per_track) {
-      ba_config.IgnorePoint(track_id);
+      ba_config.IgnorePoint(point3D_id);
     }
   }
 
   // Handle optimize_points = false
   if (!options.optimize_points) {
-    for (const auto& [track_id, _] : reconstruction.Points3D()) {
-      if (!ba_config.IsIgnoredPoint(track_id)) {
-        ba_config.AddConstantPoint(track_id);
+    for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
+      if (!ba_config.IsIgnoredPoint(point3D_id)) {
+        ba_config.AddConstantPoint(point3D_id);
       }
     }
   }

@@ -103,8 +103,8 @@ void GlobalPositioner::SetupProblem(
   // residuals may be smaller.
   scales_.clear();
   size_t total_observations = 0;
-  for (const auto& [track_id, track] : reconstruction.Points3D()) {
-    total_observations += track.track.Length();
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    total_observations += point3D.track.Length();
   }
   scales_.reserve(view_graph.image_pairs.size() + total_observations);
 
@@ -126,9 +126,9 @@ void GlobalPositioner::InitializeRandomPositions(
         reconstruction.Image(image_pair.image_id2).FrameId());
   }
 
-  for (const auto& [track_id, track] : reconstruction.Points3D()) {
-    if (track.track.Length() < options_.min_num_view_per_track) continue;
-    for (const auto& observation : track.track.Elements()) {
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    if (point3D.track.Length() < options_.min_num_view_per_track) continue;
+    for (const auto& observation : point3D.track.Elements()) {
       THROW_CHECK(reconstruction.ExistsImage(observation.image_id));
       const Image& image = reconstruction.Image(observation.image_id);
       if (!image.HasPose()) continue;
@@ -240,10 +240,10 @@ void GlobalPositioner::AddPointToCameraConstraints(
     loss_function_ptcam_calibrated_ = loss_function_;
   }
 
-  for (const auto& [track_id, track] : reconstruction.Points3D()) {
-    if (track.track.Length() < options_.min_num_view_per_track) continue;
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    if (point3D.track.Length() < options_.min_num_view_per_track) continue;
 
-    AddTrackToProblem(track_id, reconstruction);
+    AddTrackToProblem(point3D_id, reconstruction);
   }
 }
 
@@ -375,11 +375,9 @@ void GlobalPositioner::AddCamerasAndPointsToParameterGroups(
   // Add point parameters to group 1.
   int group_id = 1;
   if (reconstruction.NumPoints3D() > 0) {
-    for (const auto& [track_id, track] : reconstruction.Points3D()) {
-      if (problem_->HasParameterBlock(
-              reconstruction.Point3D(track_id).xyz.data()))
-        parameter_ordering->AddElementToGroup(
-            reconstruction.Point3D(track_id).xyz.data(), group_id);
+    for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+      if (problem_->HasParameterBlock(point3D.xyz.data()))
+        parameter_ordering->AddElementToGroup(point3D.xyz.data(), group_id);
     }
     group_id++;
   }
@@ -431,11 +429,9 @@ void GlobalPositioner::ParameterizeVariables(
 
   // If do not optimize the rotations, set the camera rotations to be constant
   if (!options_.optimize_points) {
-    for (const auto& [track_id, track] : reconstruction.Points3D()) {
-      if (problem_->HasParameterBlock(
-              reconstruction.Point3D(track_id).xyz.data())) {
-        problem_->SetParameterBlockConstant(
-            reconstruction.Point3D(track_id).xyz.data());
+    for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+      if (problem_->HasParameterBlock(point3D.xyz.data())) {
+        problem_->SetParameterBlockConstant(point3D.xyz.data());
       }
     }
   }

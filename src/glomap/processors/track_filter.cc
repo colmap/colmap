@@ -8,11 +8,11 @@ int TrackFilter::FilterTracksByReprojection(
     double max_reprojection_error,
     bool in_normalized_image) {
   int counter = 0;
-  for (const auto& [track_id, track] : reconstruction.Points3D()) {
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     std::vector<colmap::TrackElement> observation_new;
-    for (const auto& observation : track.track.Elements()) {
+    for (const auto& observation : point3D.track.Elements()) {
       const Image& image = reconstruction.Image(observation.image_id);
-      Eigen::Vector3d pt_calc = image.CamFromWorld() * track.xyz;
+      Eigen::Vector3d pt_calc = image.CamFromWorld() * point3D.xyz;
       constexpr double kEps = 1e-12;
       if (pt_calc(2) < kEps) continue;
 
@@ -40,9 +40,9 @@ int TrackFilter::FilterTracksByReprojection(
                                      observation.point2D_idx);
       }
     }
-    if (observation_new.size() != track.track.Length()) {
+    if (observation_new.size() != point3D.track.Length()) {
       counter++;
-      reconstruction.Point3D(track_id).track.SetElements(observation_new);
+      reconstruction.Point3D(point3D_id).track.SetElements(observation_new);
     }
   }
   LOG(INFO) << "Filtered " << counter << " / " << reconstruction.NumPoints3D()
@@ -56,15 +56,15 @@ int TrackFilter::FilterTracksByAngle(const ViewGraph& view_graph,
   int counter = 0;
   double thres = std::cos(colmap::DegToRad(max_angle_error));
   double thres_uncalib = std::cos(colmap::DegToRad(max_angle_error * 2));
-  for (const auto& [track_id, track] : reconstruction.Points3D()) {
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     std::vector<colmap::TrackElement> observation_new;
-    for (const auto& observation : track.track.Elements()) {
+    for (const auto& observation : point3D.track.Elements()) {
       const Image& image = reconstruction.Image(observation.image_id);
       const std::optional<Eigen::Vector2d> cam_point =
           image.CameraPtr()->CamFromImg(
               image.Point2D(observation.point2D_idx).xy);
       const Eigen::Vector3d pt_calc =
-          (image.CamFromWorld() * track.xyz).normalized();
+          (image.CamFromWorld() * point3D.xyz).normalized();
       const double thres_cam =
           (image.CameraPtr()->has_prior_focal_length) ? thres : thres_uncalib;
 
@@ -74,9 +74,9 @@ int TrackFilter::FilterTracksByAngle(const ViewGraph& view_graph,
                                      observation.point2D_idx);
       }
     }
-    if (observation_new.size() != track.track.Length()) {
+    if (observation_new.size() != point3D.track.Length()) {
       counter++;
-      reconstruction.Point3D(track_id).track.SetElements(observation_new);
+      reconstruction.Point3D(point3D_id).track.SetElements(observation_new);
     }
   }
   LOG(INFO) << "Filtered " << counter << " / " << reconstruction.NumPoints3D()
@@ -90,18 +90,18 @@ int TrackFilter::FilterTrackTriangulationAngle(
     double min_angle) {
   int counter = 0;
   double thres = std::cos(colmap::DegToRad(min_angle));
-  for (const auto& [track_id, track] : reconstruction.Points3D()) {
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     std::vector<Eigen::Vector3d> pts_calc;
-    pts_calc.reserve(track.track.Length());
-    for (const auto& observation : track.track.Elements()) {
+    pts_calc.reserve(point3D.track.Length());
+    for (const auto& observation : point3D.track.Elements()) {
       const Image& image = reconstruction.Image(observation.image_id);
       Eigen::Vector3d pt_calc =
-          (track.xyz - image.ProjectionCenter()).normalized();
+          (point3D.xyz - image.ProjectionCenter()).normalized();
       pts_calc.emplace_back(pt_calc);
     }
     bool status = false;
-    for (size_t i = 0; i < track.track.Length(); i++) {
-      for (size_t j = i + 1; j < track.track.Length(); j++) {
+    for (size_t i = 0; i < point3D.track.Length(); i++) {
+      for (size_t j = i + 1; j < point3D.track.Length(); j++) {
         if (pts_calc[i].dot(pts_calc[j]) < thres) {
           status = true;
           break;
@@ -112,7 +112,7 @@ int TrackFilter::FilterTrackTriangulationAngle(
     // If the triangulation angle is too small, just remove it
     if (!status) {
       counter++;
-      reconstruction.Point3D(track_id).track.SetElements({});
+      reconstruction.Point3D(point3D_id).track.SetElements({});
     }
   }
   LOG(INFO) << "Filtered " << counter << " / " << reconstruction.NumPoints3D()

@@ -10,16 +10,16 @@ void PruneWeaklyConnectedImages(colmap::Reconstruction& reconstruction,
   // Prepare the 2d-3d correspondences
   std::unordered_map<image_pair_t, int> pair_covisibility_count;
   std::unordered_map<frame_t, int> frame_observation_count;
-  for (const auto& [track_id, track] : reconstruction.Points3D()) {
-    if (track.track.Length() <= 2) continue;
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    if (point3D.track.Length() <= 2) continue;
 
-    for (size_t i = 0; i < track.track.Length(); i++) {
-      const image_t image_id1 = track.track.Element(i).image_id;
+    for (size_t i = 0; i < point3D.track.Length(); i++) {
+      const image_t image_id1 = point3D.track.Element(i).image_id;
       const frame_t frame_id1 = reconstruction.Image(image_id1).FrameId();
 
       frame_observation_count[frame_id1]++;
-      for (size_t j = i + 1; j < track.track.Length(); j++) {
-        const image_t image_id2 = track.track.Element(j).image_id;
+      for (size_t j = i + 1; j < point3D.track.Length(); j++) {
+        const image_t image_id2 = point3D.track.Element(j).image_id;
         const frame_t frame_id2 = reconstruction.Image(image_id2).FrameId();
         if (frame_id1 == frame_id2) continue;
         const image_pair_t pair_id =
