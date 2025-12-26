@@ -145,10 +145,10 @@ int RotationAveragingProblem::AllocateParameters(
 
     const Eigen::Vector3d* frame_gravity =
         GetFrameGravityOrNull(frame_to_pose_prior_, frame_id);
-    const bool has_gravity =
-        options_.use_gravity && frame_gravity != nullptr;
+    const bool has_gravity = options_.use_gravity && frame_gravity != nullptr;
 
-    // Cache camera_id -> frame_id mapping for UpdateState cam_from_rig averaging.
+    // Cache camera_id -> frame_id mapping for UpdateState cam_from_rig
+    // averaging.
     for (const auto& data_id : frame.ImageIds()) {
       if (!reconstruction.ExistsImage(data_id.id)) continue;
       const auto& image = reconstruction.Image(data_id.id);
@@ -216,8 +216,7 @@ int RotationAveragingProblem::AllocateParameters(
 }
 
 void RotationAveragingProblem::BuildPairConstraints(
-    const ViewGraph& view_graph,
-    const colmap::Reconstruction& reconstruction) {
+    const ViewGraph& view_graph, const colmap::Reconstruction& reconstruction) {
   int gravity_aligned_count = 0;
 
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
@@ -500,12 +499,11 @@ void RotationAveragingProblem::ComputeResiduals() {
     residuals_[residuals_.size() - 1] =
         rotation_estimated_[fixed_frame_idx] - fixed_frame_rotation_[1];
   } else {
-    residuals_.segment(residuals_.size() - 3, 3) =
-        colmap::RotationMatrixToAngleAxis(
-            colmap::AngleAxisToRotationMatrix(fixed_frame_rotation_)
-                .transpose() *
-            colmap::AngleAxisToRotationMatrix(
-                rotation_estimated_.segment(fixed_frame_idx, 3)));
+    residuals_
+        .segment(residuals_.size() - 3, 3) = colmap::RotationMatrixToAngleAxis(
+        colmap::AngleAxisToRotationMatrix(fixed_frame_rotation_).transpose() *
+        colmap::AngleAxisToRotationMatrix(
+            rotation_estimated_.segment(fixed_frame_idx, 3)));
   }
 }
 
@@ -730,43 +728,41 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
 
     // Compute the weights for IRLS.
     bool has_nan_weight = false;
-    problem.ForEachConstraint(
-        [&](int row_idx, bool is_gravity_1dof, double xz_error) {
-          double err_squared = 0;
-          double w = 0;
+    problem.ForEachConstraint([&](int row_idx,
+                                  bool is_gravity_1dof,
+                                  double xz_error) {
+      double err_squared = 0;
+      double w = 0;
 
-          if (is_gravity_1dof) {
-            // 1-DOF case: Y-axis error plus stored xz_error.
-            err_squared =
-                std::pow(problem.Residuals()[row_idx], 2) + xz_error;
-          } else {
-            // 3-DOF case: full rotation error.
-            err_squared =
-                problem.Residuals().segment<3>(row_idx).squaredNorm();
-          }
+      if (is_gravity_1dof) {
+        // 1-DOF case: Y-axis error plus stored xz_error.
+        err_squared = std::pow(problem.Residuals()[row_idx], 2) + xz_error;
+      } else {
+        // 3-DOF case: full rotation error.
+        err_squared = problem.Residuals().segment<3>(row_idx).squaredNorm();
+      }
 
-          // Compute the weight.
-          if (options_.weight_type == RotationEstimatorOptions::GEMAN_MCCLURE) {
-            double tmp = err_squared + sigma * sigma;
-            w = sigma * sigma / (tmp * tmp);
-          } else if (options_.weight_type ==
-                     RotationEstimatorOptions::HALF_NORM) {
-            w = std::pow(err_squared, (0.5 - 2) / 2);
-          }
+      // Compute the weight.
+      if (options_.weight_type == RotationEstimatorOptions::GEMAN_MCCLURE) {
+        double tmp = err_squared + sigma * sigma;
+        w = sigma * sigma / (tmp * tmp);
+      } else if (options_.weight_type == RotationEstimatorOptions::HALF_NORM) {
+        w = std::pow(err_squared, (0.5 - 2) / 2);
+      }
 
-          if (std::isnan(w)) {
-            LOG(ERROR) << "nan weight!";
-            has_nan_weight = true;
-            return;
-          }
+      if (std::isnan(w)) {
+        LOG(ERROR) << "nan weight!";
+        has_nan_weight = true;
+        return;
+      }
 
-          // Set weights for appropriate number of equations.
-          if (is_gravity_1dof) {
-            weights_irls[row_idx] = w;
-          } else {
-            weights_irls.segment<3>(row_idx).setConstant(w);
-          }
-        });
+      // Set weights for appropriate number of equations.
+      if (is_gravity_1dof) {
+        weights_irls[row_idx] = w;
+      } else {
+        weights_irls.segment<3>(row_idx).setConstant(w);
+      }
+    });
 
     if (has_nan_weight) {
       return false;

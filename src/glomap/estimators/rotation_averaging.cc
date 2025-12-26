@@ -1,10 +1,10 @@
 #include "glomap/estimators/rotation_averaging.h"
 
+#include "colmap/geometry/pose.h"
+
 #include "glomap/estimators/rotation_averaging_impl.h"
 #include "glomap/estimators/rotation_initializer.h"
 #include "glomap/math/tree.h"
-
-#include "colmap/geometry/pose.h"
 
 #include <queue>
 
