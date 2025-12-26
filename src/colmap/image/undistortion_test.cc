@@ -30,12 +30,43 @@
 #include "colmap/image/undistortion.h"
 
 #include "colmap/geometry/pose.h"
+#include "colmap/scene/synthetic.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/util/eigen_matchers.h"
+#include "colmap/util/file.h"
+#include "colmap/util/string.h"
+#include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
+
+// Helper function to create a synthetic reconstruction with dummy images.
+Reconstruction CreateSyntheticReconstructionWithBitmaps(
+    const std::string& image_path,
+    int num_images = 2,
+    int image_width = 100,
+    int image_height = 100) {
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = num_images;
+  synthetic_dataset_options.camera_width = image_width;
+  synthetic_dataset_options.camera_height = image_height;
+
+  Reconstruction reconstruction;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  // Create dummy images.
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    Bitmap bitmap(image_width, image_height, true);
+    bitmap.Fill(BitmapColor<uint8_t>(128, 128, 128));
+    bitmap.Write(JoinPaths(image_path, image.Name()));
+  }
+
+  return reconstruction;
+}
 
 TEST(UndistortCamera, Nominal) {
   UndistortCameraOptions options;
@@ -260,6 +291,216 @@ TEST(RectifyStereoCameras, Nominal) {
   Eigen::Matrix4d Q_ref;
   Q_ref << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -2.67261, -0.5, -0.5, 1, 0;
   EXPECT_THAT(Q, EigenMatrixNear(Q_ref, 1e-5));
+}
+
+TEST(RectifyAndUndistortStereoImages, Nominal) {
+  UndistortCameraOptions options;
+
+  // Create two distorted cameras with radial distortion.
+  Camera distorted_camera1 =
+      Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 100, 100, 100);
+  distorted_camera1.params[3] = 0.1;  // Add some radial distortion
+
+  Camera distorted_camera2 =
+      Camera::CreateFromModelName(2, "SIMPLE_RADIAL", 100, 100, 100);
+  distorted_camera2.params[3] = 0.1;  // Add some radial distortion
+
+  // Create dummy distorted images.
+  Bitmap distorted_image1(100, 100, true);
+  distorted_image1.Fill(BitmapColor<uint8_t>(255, 0, 0));  // Red image
+
+  Bitmap distorted_image2(100, 100, true);
+  distorted_image2.Fill(BitmapColor<uint8_t>(0, 255, 0));  // Green image
+
+  // Create relative pose between cameras (typical stereo baseline).
+  const Rigid3d cam2_from_cam1(
+      Eigen::Quaterniond(EulerAnglesToRotationMatrix(0.0, 0.05, 0.0)),
+      Eigen::Vector3d(0.1, 0.0, 0.0));  // 0.1m baseline
+
+  Bitmap undistorted_image1;
+  Bitmap undistorted_image2;
+  Camera undistorted_camera;
+  Eigen::Matrix4d Q;
+
+  // Rectify and undistort stereo images.
+  RectifyAndUndistortStereoImages(options,
+                                  distorted_image1,
+                                  distorted_image2,
+                                  distorted_camera1,
+                                  distorted_camera2,
+                                  cam2_from_cam1,
+                                  &undistorted_image1,
+                                  &undistorted_image2,
+                                  &undistorted_camera,
+                                  &Q);
+  EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
+  EXPECT_EQ(undistorted_camera.width, undistorted_image1.Width());
+  EXPECT_EQ(undistorted_camera.height, undistorted_image1.Height());
+  EXPECT_EQ(undistorted_image1.Width(), undistorted_image2.Width());
+  EXPECT_EQ(undistorted_image1.Height(), undistorted_image2.Height());
+}
+
+TEST(COLMAPUndistorter, Integration) {
+  std::string temp_dir = CreateTestDir();
+  std::string image_path = JoinPaths(temp_dir, "input_images");
+  std::string output_path = JoinPaths(temp_dir, "output");
+  CreateDirIfNotExists(image_path);
+  CreateDirIfNotExists(output_path);
+
+  // Create synthetic reconstruction with dummy images.
+  Reconstruction reconstruction =
+      CreateSyntheticReconstructionWithBitmaps(image_path);
+
+  // Run COLMAP undistorter.
+  UndistortCameraOptions options;
+  COLMAPUndistorter undistorter(
+      options, reconstruction, image_path, output_path);
+  undistorter.Run();
+
+  // Verify output directories were created.
+  EXPECT_TRUE(ExistsDir(JoinPaths(output_path, "images")));
+  EXPECT_TRUE(ExistsDir(JoinPaths(output_path, "sparse")));
+  EXPECT_TRUE(ExistsDir(JoinPaths(output_path, "stereo")));
+
+  // Verify undistorted images were written.
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    EXPECT_TRUE(ExistsFile(JoinPaths(output_path, "images", image.Name())));
+  }
+}
+
+TEST(PMVSUndistorter, Integration) {
+  std::string temp_dir = CreateTestDir();
+  std::string image_path = JoinPaths(temp_dir, "input_images");
+  std::string output_path = JoinPaths(temp_dir, "pmvs_output");
+  CreateDirIfNotExists(image_path);
+  CreateDirIfNotExists(output_path);
+
+  // Create synthetic reconstruction with dummy images.
+  Reconstruction reconstruction =
+      CreateSyntheticReconstructionWithBitmaps(image_path);
+
+  // Run PMVS undistorter.
+  UndistortCameraOptions options;
+  PMVSUndistorter undistorter(options, reconstruction, image_path, output_path);
+  undistorter.Run();
+
+  // Verify PMVS output structure was created (under pmvs/ subdirectory).
+  EXPECT_TRUE(ExistsDir(JoinPaths(output_path, "pmvs")));
+  EXPECT_TRUE(ExistsDir(JoinPaths(output_path, "pmvs", "models")));
+  EXPECT_TRUE(ExistsDir(JoinPaths(output_path, "pmvs", "txt")));
+  EXPECT_TRUE(ExistsDir(JoinPaths(output_path, "pmvs", "visualize")));
+
+  // Verify undistorted images were written with numbered names.
+  // PMVS writes images as 00000000.jpg, 00000001.jpg, etc.
+  size_t num_images = reconstruction.NumRegImages();
+  for (size_t i = 0; i < num_images; ++i) {
+    std::string image_name = StringPrintf("%08zu.jpg", i);
+    EXPECT_TRUE(
+        ExistsFile(JoinPaths(output_path, "pmvs", "visualize", image_name)));
+  }
+}
+
+TEST(CMPMVSUndistorter, Integration) {
+  std::string temp_dir = CreateTestDir();
+  std::string image_path = JoinPaths(temp_dir, "input_images");
+  std::string output_path = JoinPaths(temp_dir, "cmpmvs_output");
+  CreateDirIfNotExists(image_path);
+  CreateDirIfNotExists(output_path);
+
+  // Create synthetic reconstruction with dummy images.
+  Reconstruction reconstruction =
+      CreateSyntheticReconstructionWithBitmaps(image_path);
+
+  // Run CMP-MVS undistorter.
+  UndistortCameraOptions options;
+  CMPMVSUndistorter undistorter(
+      options, reconstruction, image_path, output_path);
+  undistorter.Run();
+
+  // Verify CMP-MVS output structure was created.
+  EXPECT_TRUE(ExistsDir(output_path));
+
+  // Verify undistorted images were written with sequential numbering.
+  // CMP-MVS writes images as 00001.jpg, 00002.jpg, etc.
+  size_t num_images = reconstruction.NumRegImages();
+  for (size_t i = 1; i <= num_images; ++i) {
+    std::string image_name = StringPrintf("%05zu.jpg", i);
+    EXPECT_TRUE(ExistsFile(JoinPaths(output_path, image_name)));
+  }
+}
+
+TEST(PureImageUndistorter, Integration) {
+  std::string temp_dir = CreateTestDir();
+  std::string image_path = JoinPaths(temp_dir, "input_images");
+  std::string output_path = JoinPaths(temp_dir, "pure_output");
+  CreateDirIfNotExists(image_path);
+
+  // Create test images and cameras.
+  std::vector<std::pair<std::string, Camera>> image_names_and_cameras;
+  for (int i = 1; i <= 2; ++i) {
+    std::string image_name = "image" + std::to_string(i) + ".png";
+    Camera camera =
+        Camera::CreateFromModelName(i, "SIMPLE_RADIAL", 1.0, 100, 100);
+    image_names_and_cameras.emplace_back(image_name, camera);
+
+    // Create dummy image.
+    Bitmap bitmap(100, 100, true);
+    bitmap.Fill(BitmapColor<uint8_t>(128, 128, 128));
+    bitmap.Write(JoinPaths(image_path, image_name));
+  }
+
+  // Run pure image undistorter.
+  UndistortCameraOptions options;
+  PureImageUndistorter undistorter(
+      options, image_path, output_path, image_names_and_cameras);
+  undistorter.Run();
+
+  // Verify output directory was created.
+  EXPECT_TRUE(ExistsDir(output_path));
+
+  // Verify undistorted images were written.
+  for (const auto& [image_name, camera] : image_names_and_cameras) {
+    EXPECT_TRUE(ExistsFile(JoinPaths(output_path, image_name)));
+  }
+}
+
+TEST(StereoImageRectifier, Integration) {
+  std::string temp_dir = CreateTestDir();
+  std::string image_path = JoinPaths(temp_dir, "input_images");
+  std::string output_path = JoinPaths(temp_dir, "stereo_output");
+  CreateDirIfNotExists(image_path);
+  CreateDirIfNotExists(output_path);
+
+  // Create synthetic reconstruction with dummy images.
+  Reconstruction reconstruction =
+      CreateSyntheticReconstructionWithBitmaps(image_path);
+
+  // Create stereo pair from first two images.
+  std::vector<std::pair<image_t, image_t>> stereo_pairs;
+  auto image_ids = reconstruction.RegImageIds();
+  ASSERT_GE(image_ids.size(), 2);
+  stereo_pairs.emplace_back(image_ids[0], image_ids[1]);
+
+  // Run stereo image rectifier.
+  UndistortCameraOptions options;
+  StereoImageRectifier rectifier(
+      options, reconstruction, image_path, output_path, stereo_pairs);
+  rectifier.Run();
+
+  // Verify output directory was created.
+  EXPECT_TRUE(ExistsDir(output_path));
+
+  // Verify rectified images were written.
+  // StereoImageRectifier creates a subdirectory for each stereo pair.
+  const auto& image1 = reconstruction.Image(image_ids[0]);
+  const auto& image2 = reconstruction.Image(image_ids[1]);
+  const std::string stereo_pair_name =
+      StringPrintf("%s-%s", image1.Name().c_str(), image2.Name().c_str());
+  EXPECT_TRUE(ExistsDir(JoinPaths(output_path, stereo_pair_name)));
+  EXPECT_TRUE(
+      ExistsFile(JoinPaths(output_path, stereo_pair_name, image1.Name())));
+  EXPECT_TRUE(
+      ExistsFile(JoinPaths(output_path, stereo_pair_name, image2.Name())));
 }
 
 }  // namespace
