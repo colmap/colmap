@@ -123,7 +123,7 @@ class GlobalPositioner {
 
   // Temporary storage for camera-in-rig positions when cam_from_rig is unknown
   // and needs to be estimated.
-  std::unordered_map<sensor_t, Eigen::Vector3d> cam_in_rig_;
+  std::unordered_map<sensor_t, Eigen::Vector3d> cams_in_rig_;
 };
 
 }  // namespace glomap

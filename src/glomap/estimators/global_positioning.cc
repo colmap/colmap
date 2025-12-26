@@ -96,7 +96,7 @@ void GlobalPositioner::SetupProblem(
 
   // Clear temporary storage from previous runs.
   frame_centers_.clear();
-  cam_in_rig_.clear();
+  cams_in_rig_.clear();
 
   // Allocate enough memory for the scales. One for each residual.
   // Due to possibly invalid image pairs or tracks, the actual number of
@@ -334,11 +334,11 @@ void GlobalPositioner::AddTrackToProblem(
                                    &rig_scales_[rig_id]);
       } else {
         // If the cam_from_rig contains nan values, it needs to be re-estimated.
-        // Initialize cam_in_rig_ if not already done.
+        // Initialize cams_in_rig_ if not already done.
         const sensor_t sensor_id = image.CameraPtr()->SensorId();
-        if (cam_in_rig_.find(sensor_id) == cam_in_rig_.end()) {
+        if (cams_in_rig_.find(sensor_id) == cams_in_rig_.end()) {
           // Will be initialized to random values in ParameterizeVariables().
-          cam_in_rig_[sensor_id] = Eigen::Vector3d::Zero();
+          cams_in_rig_[sensor_id] = Eigen::Vector3d::Zero();
         }
 
         ceres::CostFunction* cost_function =
@@ -350,7 +350,7 @@ void GlobalPositioner::AddTrackToProblem(
                                    loss_function,
                                    track.xyz.data(),
                                    frame_centers_[image.FrameId()].data(),
-                                   cam_in_rig_[sensor_id].data(),
+                                   cams_in_rig_[sensor_id].data(),
                                    &scale);
       }
     }
@@ -391,7 +391,7 @@ void GlobalPositioner::AddCamerasAndPointsToParameterGroups(
   }
 
   // Add the cam_in_rig to be estimated into the parameter group
-  for (auto& [sensor_id, center] : cam_in_rig_) {
+  for (auto& [sensor_id, center] : cams_in_rig_) {
     if (problem_->HasParameterBlock(center.data())) {
       parameter_ordering->AddElementToGroup(center.data(), group_id);
     }
@@ -411,9 +411,9 @@ void GlobalPositioner::ParameterizeVariables(
   // For the global positioning, do not set any camera to be constant for easier
   // convergence
 
-  // Initialize cam_in_rig_ with random values if optimizing positions.
+  // Initialize cams_in_rig_ with random values if optimizing positions.
   if (options_.optimize_positions) {
-    for (auto& [sensor_id, center] : cam_in_rig_) {
+    for (auto& [sensor_id, center] : cams_in_rig_) {
       if (problem_->HasParameterBlock(center.data())) {
         center = RandVector3d(random_generator_, -1, 1);
       }
@@ -541,7 +541,7 @@ void GlobalPositioner::ConvertBackResults(
   }
 
   // Convert optimized cam_in_rig back to sensor_from_rig translations.
-  for (const auto& [sensor_id, center] : cam_in_rig_) {
+  for (const auto& [sensor_id, center] : cams_in_rig_) {
     // Find the rig containing this sensor.
     for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
       if (!rig.HasSensor(sensor_id)) {
@@ -558,7 +558,7 @@ void GlobalPositioner::ConvertBackResults(
   for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
     for (const auto& [sensor_id, cam_from_rig] : rig.NonRefSensors()) {
       if (cam_from_rig.has_value() &&
-          cam_in_rig_.find(sensor_id) == cam_in_rig_.end()) {
+          cams_in_rig_.find(sensor_id) == cams_in_rig_.end()) {
         reconstruction.Rig(rig_id).SensorFromRig(sensor_id).translation *=
             rig_scales_[rig_id];
       }
