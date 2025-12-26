@@ -250,12 +250,12 @@ TEST_P(ParameterizedVisualIndexTests, SpatialVerification) {
                       descriptors,
                       &image_scores_with_verification);
   EXPECT_EQ(image_scores_with_verification.size(), kNumImages);
-  // Make sure inlier images have all keypoints as inliers.
+  // Make sure inlier images have more keypoints as inliers.
   for (const auto& score : image_scores_with_verification) {
     if (score.image_id % 2 == 0) {
       EXPECT_GT(score.score, kNumFeatures / 2);
     } else {
-      EXPECT_LT(score.score, kNumFeatures / 2);
+      EXPECT_LT(score.score, kNumFeatures / 4);
     }
   }
 
