@@ -35,14 +35,17 @@ struct ViewGraph {
 
   // Mark image pairs as invalid if their relative rotation differs from the
   // reconstructed rotation by more than max_angle_deg.
+  // Keeps existing invalid edges as invalid.
   void FilterByRelativeRotation(const colmap::Reconstruction& reconstruction,
                                 double max_angle_deg = 5.0);
 
   // Mark image pairs as invalid if they have fewer than min_num_inliers.
+  // Keeps existing invalid edges as invalid.
   void FilterByNumInliers(int min_num_inliers = 30);
 
   // Mark image pairs as invalid if their inlier ratio is below
   // min_inlier_ratio.
+  // Keeps existing invalid edges as invalid.
   void FilterByInlierRatio(double min_inlier_ratio = 0.25);
 };
 
