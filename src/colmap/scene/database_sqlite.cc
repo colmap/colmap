@@ -53,16 +53,18 @@ inline int SQLite3CallHelper(int result_code,
 
 #define SQLITE3_CALL(func) SQLite3CallHelper(func, __FILE__, __LINE__)
 
-#define SQLITE3_EXEC(database, sql, callback)                             \
-  {                                                                       \
-    char* err_msg = nullptr;                                              \
-    const int result_code = sqlite3_exec(                                 \
-        THROW_CHECK_NOTNULL(database), sql, callback, nullptr, &err_msg); \
-    if (result_code != SQLITE_OK) {                                       \
-      LOG(ERROR) << "SQLite error [" << __FILE__ << ", line " << __LINE__ \
-                 << "]: " << err_msg;                                     \
-      sqlite3_free(err_msg);                                              \
-    }                                                                     \
+#define SQLITE3_EXEC(database, sql, callback)                               \
+  {                                                                         \
+    char* err_msg = nullptr;                                                \
+    const int result_code = sqlite3_exec(                                   \
+        THROW_CHECK_NOTNULL(database), sql, callback, nullptr, &err_msg);   \
+    if (result_code != SQLITE_OK) {                                         \
+      const std::string err_msg_str =                                       \
+          err_msg ? err_msg : sqlite3_errstr(result_code);                  \
+      sqlite3_free(err_msg);                                                \
+      LogMessageFatalThrow<std::runtime_error>(__FILE__, __LINE__).stream() \
+          << "SQLite error: " << err_msg_str;                               \
+    }                                                                       \
   }
 
 struct Sqlite3StmtContext {
