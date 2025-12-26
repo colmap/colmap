@@ -88,11 +88,11 @@ class RotationAveragingProblem {
   const Eigen::ArrayXd& EdgeWeights() const { return edge_weights_; }
   int NumParameters() const { return constraint_matrix_.cols(); }
   int NumResiduals() const { return constraint_matrix_.rows(); }
-
-  // Computes IRLS weights for all constraints.
-  // Returns nullopt if any weight is NaN.
-  std::optional<Eigen::ArrayXd> ComputeIRLSWeights(
-      RotationEstimatorOptions::WeightType weight_type, double sigma) const;
+  int GaugeFixingRows() const { return gauge_fixing_rows_; }
+  const std::unordered_map<image_pair_t, PairConstraint>& PairConstraints()
+      const {
+    return pair_constraints_;
+  }
 
  private:
   // Allocates parameter indices for frames and cameras, initializes rotations.
@@ -163,6 +163,11 @@ class RotationAveragingSolver {
 
   // Iteratively reweighted least squares phase.
   bool SolveIRLS(RotationAveragingProblem& problem);
+
+  // Computes IRLS weights for all constraints.
+  // Returns nullopt if any weight is NaN.
+  std::optional<Eigen::ArrayXd> ComputeIRLSWeights(
+      const RotationAveragingProblem& problem, double sigma) const;
 
   const RotationEstimatorOptions& options_;
 };

@@ -584,58 +584,6 @@ double RotationAveragingProblem::AverageStepSize(
   return total_update / frame_id_to_param_idx_.size();
 }
 
-std::optional<Eigen::ArrayXd> RotationAveragingProblem::ComputeIRLSWeights(
-    RotationEstimatorOptions::WeightType weight_type, double sigma) const {
-  Eigen::ArrayXd weights(NumResiduals());
-
-  for (const auto& [pair_id, constraint] : pair_constraints_) {
-    double err_squared = 0;
-    bool is_1dof = false;
-
-    if (const auto* constraint_1dof =
-            std::get_if<PairConstraint::GravityAligned1DOF>(
-                &constraint.constraint)) {
-      // 1-DOF case: Y-axis error plus xz_error.
-      err_squared = std::pow(residuals_[constraint.row_index], 2) +
-                    constraint_1dof->xz_error;
-      is_1dof = true;
-    } else {
-      // 3-DOF case: full rotation error.
-      err_squared = residuals_.segment<3>(constraint.row_index).squaredNorm();
-    }
-
-    // Compute the weight.
-    double w = 0;
-    if (weight_type == RotationEstimatorOptions::GEMAN_MCCLURE) {
-      double tmp = err_squared + sigma * sigma;
-      w = sigma * sigma / (tmp * tmp);
-    } else if (weight_type == RotationEstimatorOptions::HALF_NORM) {
-      w = std::pow(err_squared, (0.5 - 2) / 2);
-    }
-
-    if (std::isnan(w)) {
-      LOG(ERROR) << "nan weight!";
-      return std::nullopt;
-    }
-
-    // Set weights for appropriate number of equations.
-    if (is_1dof) {
-      weights[constraint.row_index] = w;
-    } else {
-      weights.segment<3>(constraint.row_index).setConstant(w);
-    }
-  }
-
-  // Set gauge-fixing weights to 1.
-  if (gauge_fixing_rows_ == 1) {
-    weights[NumResiduals() - 1] = 1;
-  } else {
-    weights.segment(NumResiduals() - 3, 3).setConstant(1);
-  }
-
-  return weights;
-}
-
 void RotationAveragingProblem::ApplyResultsToReconstruction(
     colmap::Reconstruction& reconstruction) {
   for (const auto& [frame_id, frame_idx] : frame_id_to_param_idx_) {
@@ -752,6 +700,60 @@ bool RotationAveragingSolver::SolveL1Regression(
   return true;
 }
 
+std::optional<Eigen::ArrayXd> RotationAveragingSolver::ComputeIRLSWeights(
+    const RotationAveragingProblem& problem, double sigma) const {
+  Eigen::ArrayXd weights(problem.NumResiduals());
+
+  for (const auto& [pair_id, constraint] : problem.PairConstraints()) {
+    double err_squared = 0;
+    bool is_1dof = false;
+
+    if (const auto* constraint_1dof =
+            std::get_if<PairConstraint::GravityAligned1DOF>(
+                &constraint.constraint)) {
+      // 1-DOF case: Y-axis error plus xz_error.
+      err_squared = std::pow(problem.Residuals()[constraint.row_index], 2) +
+                    constraint_1dof->xz_error;
+      is_1dof = true;
+    } else {
+      // 3-DOF case: full rotation error.
+      err_squared =
+          problem.Residuals().segment<3>(constraint.row_index).squaredNorm();
+    }
+
+    // Compute the weight.
+    double w = 0;
+    if (options_.weight_type == RotationEstimatorOptions::GEMAN_MCCLURE) {
+      double tmp = err_squared + sigma * sigma;
+      w = sigma * sigma / (tmp * tmp);
+    } else if (options_.weight_type == RotationEstimatorOptions::HALF_NORM) {
+      w = std::pow(err_squared, (0.5 - 2) / 2);
+    }
+
+    if (std::isnan(w)) {
+      LOG(ERROR) << "nan weight!";
+      return std::nullopt;
+    }
+
+    // Set weights for appropriate number of equations.
+    if (is_1dof) {
+      weights[constraint.row_index] = w;
+    } else {
+      weights.segment<3>(constraint.row_index).setConstant(w);
+    }
+  }
+
+  // Set gauge-fixing weights to 1.
+  const int gauge_rows = problem.GaugeFixingRows();
+  if (gauge_rows == 1) {
+    weights[problem.NumResiduals() - 1] = 1;
+  } else {
+    weights.segment(problem.NumResiduals() - 3, 3).setConstant(1);
+  }
+
+  return weights;
+}
+
 bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
   Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> llt;
 
@@ -772,7 +774,7 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
     problem.ComputeResiduals();
 
     // Compute the weights for IRLS.
-    auto weights_irls = problem.ComputeIRLSWeights(options_.weight_type, sigma);
+    auto weights_irls = ComputeIRLSWeights(problem, sigma);
     if (!weights_irls) {
       return false;
     }
