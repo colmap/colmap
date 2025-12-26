@@ -128,6 +128,31 @@ class RotationEstimator {
       const std::unordered_map<frame_t, const colmap::PosePrior*>&
           frame_to_pose_prior);
 
+  // Allocates parameter indices for frames and cameras, initializes rotations,
+  // and sets the fixed frame for gauge fixing.
+  // Returns the total number of parameters allocated.
+  int AllocateParameters(
+      const colmap::Reconstruction& reconstruction,
+      const std::unordered_map<frame_t, const colmap::PosePrior*>&
+          frame_to_pose_prior);
+
+  // Builds PairConstraint objects for each valid image pair.
+  // Computes relative rotations and determines constraint type (1-DOF or
+  // 3-DOF).
+  void BuildPairConstraints(
+      const ViewGraph& view_graph,
+      const colmap::Reconstruction& reconstruction,
+      const std::unordered_map<frame_t, const colmap::PosePrior*>&
+          frame_to_pose_prior);
+
+  // Builds the sparse matrix A and weight vector from the pair constraints.
+  void BuildSparseMatrix(
+      const ViewGraph& view_graph,
+      const colmap::Reconstruction& reconstruction,
+      const std::unordered_map<frame_t, const colmap::PosePrior*>&
+          frame_to_pose_prior,
+      int num_params);
+
   // Performs the L1 robust loss minimization.
   bool SolveL1Regression(
       const ViewGraph& view_graph,
