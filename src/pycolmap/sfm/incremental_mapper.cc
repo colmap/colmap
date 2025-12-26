@@ -180,6 +180,10 @@ void BindIncrementalPipeline(py::module& m) {
                      "Frequency of registered images according to which "
                      "reconstruction snapshots will be saved.")
       .def_readwrite(
+          "image_path",
+          &Opts::image_path,
+          "The image path at which to find the images to extract point colors.")
+      .def_readwrite(
           "image_names",
           &Opts::image_names,
           "Optional list of image names to reconstruct. If no images are "
@@ -237,17 +241,13 @@ void BindIncrementalPipeline(py::module& m) {
 
   py::classh<IncrementalPipeline>(m, "IncrementalPipeline")
       .def(py::init<std::shared_ptr<const IncrementalPipelineOptions>,
-                    const std::string&,
-                    const std::string&,
+                    std::shared_ptr<Database>,
                     std::shared_ptr<ReconstructionManager>>(),
            "options"_a,
            "image_path"_a,
            "database_path"_a,
            "reconstruction_manager"_a)
       .def_property_readonly("options", &IncrementalPipeline::Options)
-      .def_property_readonly("image_path", &IncrementalPipeline::ImagePath)
-      .def_property_readonly("database_path",
-                             &IncrementalPipeline::DatabasePath)
       .def_property_readonly("reconstruction_manager",
                              &IncrementalPipeline::ReconstructionManager)
       .def_property_readonly("database_cache",

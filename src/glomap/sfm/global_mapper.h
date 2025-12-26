@@ -16,6 +16,10 @@
 namespace glomap {
 
 struct GlobalMapperOptions {
+  // The image path at which to find the images to extract point colors.
+  // If not specified, all point colors will be black.
+  std::string image_path;
+
   // Options for each component
   ViewGraphCalibratorOptions opt_vgcalib;
   RelativePoseEstimationOptions opt_relpose;

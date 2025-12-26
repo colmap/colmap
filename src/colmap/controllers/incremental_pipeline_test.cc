@@ -56,8 +56,7 @@ TEST(IncrementalPipeline, WithoutNoise) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   IncrementalPipeline mapper(std::make_shared<IncrementalPipelineOptions>(),
-                             /*image_path=*/"",
-                             database_path,
+                             database,
                              reconstruction_manager);
   mapper.Run();
 
@@ -88,10 +87,7 @@ TEST(IncrementalPipeline, WithoutNoiseAndWithNonTrivialFrames) {
     auto reconstruction_manager = std::make_shared<ReconstructionManager>();
     auto options = std::make_shared<IncrementalPipelineOptions>();
     options->ba_refine_sensor_from_rig = refine_sensor_from_rig;
-    IncrementalPipeline mapper(options,
-                               /*image_path=*/"",
-                               database_path,
-                               reconstruction_manager);
+    IncrementalPipeline mapper(options, database, reconstruction_manager);
     mapper.Run();
 
     ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -127,10 +123,7 @@ TEST(IncrementalPipeline, WithNonTrivialFramesAndConstantRigsAndCameras) {
   auto options = std::make_shared<IncrementalPipelineOptions>();
   options->constant_rigs.insert(kConstantRigId);
   options->constant_cameras.insert(kConstantCameraId);
-  IncrementalPipeline mapper(options,
-                             /*image_path=*/"",
-                             database_path,
-                             reconstruction_manager);
+  IncrementalPipeline mapper(options, database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -173,10 +166,7 @@ TEST(IncrementalPipeline, WithoutNoiseAndWithPanoramicNonTrivialFrames) {
     auto reconstruction_manager = std::make_shared<ReconstructionManager>();
     auto options = std::make_shared<IncrementalPipelineOptions>();
     options->ba_refine_sensor_from_rig = refine_sensor_from_rig;
-    IncrementalPipeline mapper(options,
-                               /*image_path=*/"",
-                               database_path,
-                               reconstruction_manager);
+    IncrementalPipeline mapper(options, database, reconstruction_manager);
     mapper.Run();
 
     ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -203,8 +193,7 @@ TEST(IncrementalPipeline, WithPriorFocalLength) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   IncrementalPipeline mapper(std::make_shared<IncrementalPipelineOptions>(),
-                             /*image_path=*/"",
-                             database_path,
+                             database,
                              reconstruction_manager);
   mapper.Run();
 
@@ -233,8 +222,7 @@ TEST(IncrementalPipeline, WithNoise) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   IncrementalPipeline mapper(std::make_shared<IncrementalPipelineOptions>(),
-                             /*image_path=*/"",
-                             database_path,
+                             database,
                              reconstruction_manager);
   mapper.Run();
 
@@ -264,10 +252,7 @@ TEST(IncrementalPipeline, IgnoreRedundantPoints3D) {
   auto options = std::make_shared<IncrementalPipelineOptions>();
   options->mapper.ba_global_ignore_redundant_points3D = true;
   options->mapper.ba_global_ignore_redundant_points3D_min_coverage_gain = 0.5;
-  IncrementalPipeline mapper(options,
-                             /*image_path=*/"",
-                             database_path,
-                             reconstruction_manager);
+  IncrementalPipeline mapper(options, database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -293,10 +278,7 @@ TEST(IncrementalPipeline, StructureLessRegistrationOnly) {
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   auto options = std::make_shared<IncrementalPipelineOptions>();
   options->structure_less_registration_only = true;
-  IncrementalPipeline mapper(options,
-                             /*image_path=*/"",
-                             database_path,
-                             reconstruction_manager);
+  IncrementalPipeline mapper(options, database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -326,10 +308,7 @@ TEST(IncrementalPipeline, MultiReconstruction) {
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   auto mapper_options = std::make_shared<IncrementalPipelineOptions>();
   mapper_options->min_model_size = 4;
-  IncrementalPipeline mapper(mapper_options,
-                             /*image_path=*/"",
-                             database_path,
-                             reconstruction_manager);
+  IncrementalPipeline mapper(mapper_options, database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 2);
@@ -386,10 +365,7 @@ TEST(IncrementalPipeline, FixExistingFrames) {
       }
     }
     options->fix_existing_frames = fix_existing_frames;
-    IncrementalPipeline mapper(options,
-                               /*image_path=*/"",
-                               database_path,
-                               reconstruction_manager);
+    IncrementalPipeline mapper(options, database, reconstruction_manager);
     mapper.Run();
 
     ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -417,8 +393,7 @@ TEST(IncrementalPipeline, ChainedMatches) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   IncrementalPipeline mapper(std::make_shared<IncrementalPipelineOptions>(),
-                             /*image_path=*/"",
-                             database_path,
+                             database,
                              reconstruction_manager);
   mapper.Run();
 
@@ -452,10 +427,7 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoise) {
   mapper_options->use_prior_position = true;
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  IncrementalPipeline mapper(mapper_options,
-                             /*image_path=*/"",
-                             database_path,
-                             reconstruction_manager);
+  IncrementalPipeline mapper(mapper_options, database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -494,10 +466,7 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoiseAndWithNonTrivialFrames) {
   mapper_options->use_robust_loss_on_prior_position = true;
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  IncrementalPipeline mapper(mapper_options,
-                             /*image_path=*/"",
-                             database_path,
-                             reconstruction_manager);
+  IncrementalPipeline mapper(mapper_options, database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -534,10 +503,7 @@ TEST(IncrementalPipeline, PriorBasedSfMWithNoise) {
   mapper_options->use_robust_loss_on_prior_position = true;
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  IncrementalPipeline mapper(mapper_options,
-                             /*image_path=*/"",
-                             database_path,
-                             reconstruction_manager);
+  IncrementalPipeline mapper(mapper_options, database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -577,10 +543,7 @@ TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
   mapper_options->use_robust_loss_on_prior_position = true;
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  IncrementalPipeline mapper(mapper_options,
-                             /*image_path=*/"",
-                             database_path,
-                             reconstruction_manager);
+  IncrementalPipeline mapper(mapper_options, database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -617,10 +580,8 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
     mapper_options->num_threads = num_threads;
     mapper_options->random_seed = random_seed;
     auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-    IncrementalPipeline mapper(mapper_options,
-                               /*image_path=*/"",
-                               database_path,
-                               reconstruction_manager);
+    IncrementalPipeline mapper(
+        mapper_options, database, reconstruction_manager);
     mapper.Run();
     EXPECT_EQ(reconstruction_manager->Size(), 1);
     return reconstruction_manager;
@@ -682,10 +643,8 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
     mapper_options->num_threads = num_threads;
     mapper_options->random_seed = random_seed;
     auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-    IncrementalPipeline mapper(mapper_options,
-                               /*image_path=*/"",
-                               database_path,
-                               reconstruction_manager);
+    IncrementalPipeline mapper(
+        mapper_options, database, reconstruction_manager);
     mapper.Run();
     EXPECT_EQ(reconstruction_manager->Size(), 1);
     return reconstruction_manager;

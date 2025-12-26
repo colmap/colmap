@@ -59,6 +59,11 @@ typedef Eigen::Matrix<point2D_t, Eigen::Dynamic, 2, Eigen::RowMajor>
 // and trailing `EndTransaction`.
 class Database {
  public:
+  Database() = default;
+  // Closes the database, if not closed before.
+  virtual ~Database();
+  NON_COPYABLE(Database);
+
   // Factory function to create a database implementation for a given path.
   // The factory should be robust to handle non-supported files and return a
   // runtime_error in that case.
@@ -69,14 +74,14 @@ class Database {
   // registrations are tried first.
   static void Register(Factory factory);
 
-  // Closes the database, if not closed before.
-  virtual ~Database();
-
   // Open database and throw a runtime_error if none of the factories succeeds.
   static std::shared_ptr<Database> Open(const std::string& path);
 
   // Explicitly close the database before destruction.
   virtual void Close() = 0;
+
+  // Return a clone of the database.
+  virtual std::shared_ptr<Database> Clone() const = 0;
 
   // Check if entry already exists in database. For image pairs, the order of
   // `image_id1` and `image_id2` does not matter.
