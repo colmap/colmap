@@ -171,7 +171,10 @@ TEST(Bitmap, ConstructCopy) {
 
 TEST(Bitmap, AssignCopyEmpty) {
   Bitmap bitmap;
-  const Bitmap& copied_bitmap = bitmap;
+  // Warning: Do not simplify the following line to `Bitmap copied_bitmap = bitmap;`
+  // otherwise the compiler will not necessarily generate a copy assignment.
+  Bitmap copied_bitmap;
+  copied_bitmap = bitmap;
   EXPECT_EQ(copied_bitmap.Width(), 0);
   EXPECT_EQ(copied_bitmap.Height(), 0);
   EXPECT_EQ(copied_bitmap.Channels(), 0);
@@ -179,7 +182,10 @@ TEST(Bitmap, AssignCopyEmpty) {
 
 TEST(Bitmap, AssignCopy) {
   Bitmap bitmap(2, 1, /*as_rgb=*/true);
-  const Bitmap& copied_bitmap = bitmap;
+  // Warning: Do not simplify the following line to `Bitmap copied_bitmap = bitmap;`
+  // otherwise the compiler will not necessarily generate a copy assignment.
+  Bitmap copied_bitmap;
+  copied_bitmap = bitmap;
   EXPECT_EQ(copied_bitmap.Width(), 2);
   EXPECT_EQ(copied_bitmap.Height(), 1);
   EXPECT_EQ(copied_bitmap.Channels(), 3);
