@@ -211,7 +211,7 @@ int RunColorExtractor(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
-bool RunMapperImpl(
+bool RunIncrementalMapperImpl(
     const std::string& database_path,
     const std::string& image_path,
     const std::string& output_path,
@@ -334,11 +334,11 @@ int RunMapper(int argc, char** argv) {
     reconstruction_manager->Read(input_path);
   }
 
-  if (!RunMapperImpl(*options.database_path,
-                     *options.image_path,
-                     output_path,
-                     options.mapper,
-                     reconstruction_manager)) {
+  if (!RunIncrementalMapperImpl(*options.database_path,
+                                *options.image_path,
+                                output_path,
+                                options.mapper,
+                                reconstruction_manager)) {
     LOG(ERROR) << "failed to create sparse model";
     return EXIT_FAILURE;
   }
@@ -454,11 +454,11 @@ int RunPosePriorMapper(int argc, char** argv) {
     reconstruction_manager->Read(input_path);
   }
 
-  if (!RunMapperImpl(*options.database_path,
-                     *options.image_path,
-                     output_path,
-                     options.mapper,
-                     reconstruction_manager)) {
+  if (!RunIncrementalMapperImpl(*options.database_path,
+                                *options.image_path,
+                                output_path,
+                                options.mapper,
+                                reconstruction_manager)) {
     LOG(ERROR) << "failed to create sparse model";
     return EXIT_FAILURE;
   }
