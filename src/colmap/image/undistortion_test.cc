@@ -347,7 +347,7 @@ TEST(COLMAPUndistorter, Integration) {
   CreateDirIfNotExists(output_path);
 
   // Create synthetic reconstruction with dummy images.
-  Reconstruction reconstruction =
+  const Reconstruction reconstruction =
       CreateSyntheticReconstructionWithBitmaps(image_path);
 
   // Run COLMAP undistorter.
@@ -375,7 +375,7 @@ TEST(PMVSUndistorter, Integration) {
   CreateDirIfNotExists(output_path);
 
   // Create synthetic reconstruction with dummy images.
-  Reconstruction reconstruction =
+  const Reconstruction reconstruction =
       CreateSyntheticReconstructionWithBitmaps(image_path);
 
   // Run PMVS undistorter.
@@ -391,9 +391,9 @@ TEST(PMVSUndistorter, Integration) {
 
   // Verify undistorted images were written with numbered names.
   // PMVS writes images as 00000000.jpg, 00000001.jpg, etc.
-  size_t num_images = reconstruction.NumRegImages();
+  const size_t num_images = reconstruction.NumRegImages();
   for (size_t i = 0; i < num_images; ++i) {
-    std::string image_name = StringPrintf("%08zu.jpg", i);
+    const std::string image_name = StringPrintf("%08zu.jpg", i);
     EXPECT_TRUE(
         ExistsFile(JoinPaths(output_path, "pmvs", "visualize", image_name)));
   }
@@ -407,7 +407,7 @@ TEST(CMPMVSUndistorter, Integration) {
   CreateDirIfNotExists(output_path);
 
   // Create synthetic reconstruction with dummy images.
-  Reconstruction reconstruction =
+  const Reconstruction reconstruction =
       CreateSyntheticReconstructionWithBitmaps(image_path);
 
   // Run CMP-MVS undistorter.
@@ -421,9 +421,9 @@ TEST(CMPMVSUndistorter, Integration) {
 
   // Verify undistorted images were written with sequential numbering.
   // CMP-MVS writes images as 00001.jpg, 00002.jpg, etc.
-  size_t num_images = reconstruction.NumRegImages();
+  const size_t num_images = reconstruction.NumRegImages();
   for (size_t i = 1; i <= num_images; ++i) {
-    std::string image_name = StringPrintf("%05zu.jpg", i);
+    const std::string image_name = StringPrintf("%05zu.jpg", i);
     EXPECT_TRUE(ExistsFile(JoinPaths(output_path, image_name)));
   }
 }
@@ -471,12 +471,12 @@ TEST(StereoImageRectifier, Integration) {
   CreateDirIfNotExists(output_path);
 
   // Create synthetic reconstruction with dummy images.
-  Reconstruction reconstruction =
+  const Reconstruction reconstruction =
       CreateSyntheticReconstructionWithBitmaps(image_path);
 
   // Create stereo pair from first two images.
   std::vector<std::pair<image_t, image_t>> stereo_pairs;
-  auto image_ids = reconstruction.RegImageIds();
+  const std::vector<image_t> image_ids = reconstruction.RegImageIds();
   ASSERT_GE(image_ids.size(), 2);
   stereo_pairs.emplace_back(image_ids[0], image_ids[1]);
 
