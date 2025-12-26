@@ -188,10 +188,10 @@ class RotationEstimator {
   Eigen::VectorXd rotation_estimated_;
 
   // Parameter index mappings into solution vector x.
-  std::unordered_map<frame_t, int>
-      frame_id_to_param_idx_;  // -> rig_from_world params
-  std::unordered_map<camera_t, int>
-      camera_id_to_param_idx_;  // -> cam_from_rig params (unknown only)
+  // Maps frame ID to rig_from_world rotation params.
+  std::unordered_map<frame_t, int> frame_id_to_param_idx_;
+  // Maps camera ID to cam_from_rig rotation params (unknown only).
+  std::unordered_map<camera_t, int> camera_id_to_param_idx_;
 
   // Preprocessed constraints for each image pair.
   std::unordered_map<image_pair_t, PairConstraint> pair_constraints_;
