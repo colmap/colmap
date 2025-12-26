@@ -35,7 +35,8 @@ COLMAP_ADD_LIBRARY(
         bundle_adjustment.h bundle_adjustment.cc
         cost_function.h
         global_positioning.h global_positioning.cc
-        global_rotation_averaging.h global_rotation_averaging.cc
+        rotation_averaging.h rotation_averaging.cc
+        rotation_averaging_impl.h rotation_averaging_impl.cc
         gravity_refinement.h gravity_refinement.cc
         optimization_base.h
         relpose_estimation.h relpose_estimation.cc

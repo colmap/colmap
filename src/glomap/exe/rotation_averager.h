@@ -1,6 +1,6 @@
 #pragma once
 
-#include "glomap/estimators/global_rotation_averaging.h"
+#include "glomap/estimators/rotation_averaging.h"
 
 namespace glomap {
 
