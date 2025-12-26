@@ -32,6 +32,17 @@ struct ViewGraph {
   int MarkConnectedComponents(const colmap::Reconstruction& reconstruction,
                               std::unordered_map<frame_t, int>& cluster_ids,
                               int min_num_images = -1);
+
+  // Mark image pairs as invalid if their relative rotation differs from the
+  // reconstructed rotation by more than max_angle_deg.
+  void FilterByRelativeRotation(const colmap::Reconstruction& reconstruction,
+                                double max_angle_deg = 5.0);
+
+  // Mark image pairs as invalid if they have fewer than min_num_inliers.
+  void FilterByNumInliers(int min_num_inliers = 30);
+
+  // Mark image pairs as invalid if their inlier ratio is below min_inlier_ratio.
+  void FilterByInlierRatio(double min_inlier_ratio = 0.25);
 };
 
 }  // namespace glomap
