@@ -39,19 +39,6 @@ bool RunBundleAdjustment(const BundleAdjusterOptions& options,
   ba_options.constant_rig_from_world_rotation = constant_rotation;
   ba_options.print_summary = false;
 
-  // Set up 2D-3D links in Image.Point2D entries (glomap doesn't set these up)
-  // This is needed for colmap's BA which uses Image.Point2D.HasPoint3D()
-  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
-    for (const auto& track_el : point3D.track.Elements()) {
-      if (reconstruction.ExistsImage(track_el.image_id)) {
-        colmap::Image& image = reconstruction.Image(track_el.image_id);
-        if (track_el.point2D_idx < image.NumPoints2D()) {
-          image.SetPoint3DForPoint2D(track_el.point2D_idx, point3D_id);
-        }
-      }
-    }
-  }
-
   // Build config
   colmap::BundleAdjustmentConfig ba_config;
   bool first_frame = true;

@@ -720,6 +720,26 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
     problem_ = std::make_shared<ceres::Problem>(problem_options);
 
+    // Verify that 2D-3D links are properly set up: for each Point3D track
+    // element, the corresponding Image.Point2D.point3D_id must be set.
+    for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+      for (const auto& track_el : point3D.track.Elements()) {
+        THROW_CHECK(reconstruction.ExistsImage(track_el.image_id))
+            << "Point3D " << point3D_id << " references non-existent image "
+            << track_el.image_id;
+        const Image& image = reconstruction.Image(track_el.image_id);
+        THROW_CHECK_LT(track_el.point2D_idx, image.NumPoints2D())
+            << "Point3D " << point3D_id << " references invalid point2D_idx "
+            << track_el.point2D_idx << " in image " << track_el.image_id;
+        const Point2D& point2D = image.Point2D(track_el.point2D_idx);
+        THROW_CHECK_EQ(point2D.point3D_id, point3D_id)
+            << "2D-3D links not set up: Point3D " << point3D_id
+            << " has track element (image_id=" << track_el.image_id
+            << ", point2D_idx=" << track_el.point2D_idx
+            << ") but Image.Point2D.point3D_id=" << point2D.point3D_id;
+      }
+    }
+
     // Set up problem
     // Warning: AddPointsToProblem assumes that AddImageToProblem is called
     // first. Do not change order of instructions!
