@@ -377,7 +377,8 @@ void GlobalPositioner::AddCamerasAndPointsToParameterGroups(
   if (reconstruction.NumPoints3D() > 0) {
     for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
       if (problem_->HasParameterBlock(point3D.xyz.data()))
-        parameter_ordering->AddElementToGroup(point3D.xyz.data(), group_id);
+        parameter_ordering->AddElementToGroup(
+            reconstruction.Point3D(point3D_id).xyz.data(), group_id);
     }
     group_id++;
   }
@@ -431,7 +432,8 @@ void GlobalPositioner::ParameterizeVariables(
   if (!options_.optimize_points) {
     for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
       if (problem_->HasParameterBlock(point3D.xyz.data())) {
-        problem_->SetParameterBlockConstant(point3D.xyz.data());
+        problem_->SetParameterBlockConstant(
+            reconstruction.Point3D(point3D_id).xyz.data());
       }
     }
   }
