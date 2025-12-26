@@ -309,8 +309,27 @@ void RotationAveragingProblem::BuildConstraintMatrix(
     size_t num_params,
     const ViewGraph& view_graph,
     const colmap::Reconstruction& reconstruction) {
+  // Count coefficients for accurate reservation.
+  size_t num_coeffs = num_gauge_fixing_residuals_;
+  for (const auto& [pair_id, constraint] : pair_constraints_) {
+    if (std::holds_alternative<GravityAligned1DOF>(constraint.constraint)) {
+      num_coeffs += 2;
+    } else {
+      // 3-DOF: up to 6 for frames + 6 for cam_from_rig.
+      num_coeffs += 6;
+      if (camera_id_to_param_idx_.count(
+              reconstruction.Image(constraint.image_id1).CameraId())) {
+        num_coeffs += 3;
+      }
+      if (camera_id_to_param_idx_.count(
+              reconstruction.Image(constraint.image_id2).CameraId())) {
+        num_coeffs += 3;
+      }
+    }
+  }
+
   std::vector<Eigen::Triplet<double>> coeffs;
-  coeffs.reserve(pair_constraints_.size() * 6 + 3);
+  coeffs.reserve(num_coeffs);
 
   std::vector<double> weights;
   if (options_.use_weight) {
@@ -532,8 +551,9 @@ void RotationAveragingProblem::UpdateState(const Eigen::VectorXd& step) {
               estimated_rotations_.segment(frame_param_idx, 3));
       estimated_rotations_.segment(frame_param_idx, 3) =
           colmap::RotationMatrixToAngleAxis(
-              estimated_rig_from_world * colmap::AngleAxisToRotationMatrix(
-                                             -step.segment(frame_param_idx, 3)));
+              estimated_rig_from_world *
+              colmap::AngleAxisToRotationMatrix(
+                  -step.segment(frame_param_idx, 3)));
     } else {
       estimated_rotations_[frame_param_idx] -= step[frame_param_idx];
     }
@@ -564,8 +584,8 @@ void RotationAveragingProblem::UpdateState(const Eigen::VectorXd& step) {
     std::vector<Eigen::Quaterniond> rig_rotations;
     for (const frame_t frame_id : camera_to_frame_ids_[camera_id]) {
       const Eigen::Matrix3d& R = frame_rotations[frame_id];
-      rig_rotations.push_back(
-          Eigen::Quaterniond(estimated_cam_from_rig * R * R_update * R.transpose()));
+      rig_rotations.push_back(Eigen::Quaterniond(estimated_cam_from_rig * R *
+                                                 R_update * R.transpose()));
     }
 
     // Average the rotations for the rig.
