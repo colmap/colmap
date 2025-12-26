@@ -387,13 +387,10 @@ void RotationEstimator::SetupLinearSystem(
       const Eigen::Vector3d aa =
           colmap::RotationMatrixToAngleAxis(R_cam2_from_cam1);
       constraint.constraint = PairConstraint::GravityAligned1DOF{
-          .angle_cam2_from_cam1 = aa[1],
-          .xz_error = aa[0] * aa[0] + aa[2] * aa[2],
-      };
+          aa[1], aa[0] * aa[0] + aa[2] * aa[2]};
     } else {
       // General case: use 3-DOF constraint
-      constraint.constraint =
-          PairConstraint::Full3DOF{.R_cam2_from_cam1 = R_cam2_from_cam1};
+      constraint.constraint = PairConstraint::Full3DOF{R_cam2_from_cam1};
     }
   }
 
