@@ -24,17 +24,17 @@ double ComputeGravity1DOFResidual(std::mt19937& rng,
                                   double angle_2) {
   double residual = (angle_2 - angle_1) - angle_12;
 
-  while (residual >= EIGEN_PI) {
-    residual -= 2 * EIGEN_PI;
+  while (residual >= M_PI) {
+    residual -= 2 * M_PI;
   }
-  while (residual < -EIGEN_PI) {
-    residual += 2 * EIGEN_PI;
+  while (residual < -M_PI) {
+    residual += 2 * M_PI;
   }
 
   // Inject random noise if the angle is too close to the boundary to break the
   // possible balance at the local minima
   constexpr double kEps = 0.01;
-  if (std::abs(residual) > EIGEN_PI - kEps) {
+  if (std::abs(residual) > M_PI - kEps) {
     std::uniform_real_distribution<double> dist(0.0, kEps);
     const double jitter = dist(rng);
     if (residual < 0) {
