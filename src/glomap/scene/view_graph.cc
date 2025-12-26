@@ -181,7 +181,8 @@ void ViewGraph::FilterByRelativeRotation(
     }
   }
 
-  LOG(INFO) << "Filtered " << num_invalid << " relative rotation with angle > "
+  LOG(INFO) << "Marked " << num_invalid
+            << " image pairs as invalid with relative rotation error > "
             << max_angle_deg << " degrees";
 }
 
@@ -196,8 +197,9 @@ void ViewGraph::FilterByNumInliers(int min_num_inliers) {
     }
   }
 
-  LOG(INFO) << "Filtered " << num_invalid
-            << " relative poses with inlier number < " << min_num_inliers;
+  LOG(INFO) << "Marked " << num_invalid
+            << " image pairs as invalid with inlier count < "
+            << min_num_inliers;
 }
 
 void ViewGraph::FilterByInlierRatio(double min_inlier_ratio) {
@@ -213,8 +215,9 @@ void ViewGraph::FilterByInlierRatio(double min_inlier_ratio) {
     }
   }
 
-  LOG(INFO) << "Filtered " << num_invalid
-            << " relative poses with inlier ratio < " << min_inlier_ratio;
+  LOG(INFO) << "Marked " << num_invalid
+            << " image pairs as invalid with inlier ratio < "
+            << min_inlier_ratio;
 }
 
 }  // namespace glomap
