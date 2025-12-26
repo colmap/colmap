@@ -1,11 +1,11 @@
 #include "glomap/sfm/global_mapper.h"
 
+#include "colmap/sfm/observation_manager.h"
 #include "colmap/util/timer.h"
 
 #include "glomap/processors/image_pair_inliers.h"
 #include "glomap/processors/reconstruction_pruning.h"
 #include "glomap/processors/relpose_filter.h"
-#include "glomap/processors/track_filter.h"
 #include "glomap/processors/view_graph_manipulation.h"
 #include "glomap/sfm/rotation_averager.h"
 
@@ -171,15 +171,20 @@ bool GlobalMapper::Solve(const colmap::Database* database,
       return false;
     }
     // Filter tracks based on the estimation
-    TrackFilter::FilterObservationsWithLargeAngularError(
-        reconstruction, options_.inlier_thresholds.max_angle_error);
+    colmap::ObservationManager obs_manager(reconstruction);
+    obs_manager.FilterPoints3DWithLargeAngularError(
+        options_.inlier_thresholds.max_angle_error,
+        reconstruction.Point3DIds());
 
     // Filter tracks based on triangulation angle and reprojection error
-    TrackFilter::FilterTracksWithSmallTriangulationAngle(
-        reconstruction, options_.inlier_thresholds.min_triangulation_angle);
+    obs_manager.FilterPoints3DWithSmallTriangulationAngle(
+        options_.inlier_thresholds.min_triangulation_angle,
+        reconstruction.Point3DIds());
     // Set the threshold to be larger to avoid removing too many tracks
-    TrackFilter::FilterObservationsWithLargeReprojectionError(
-        reconstruction, 10 * options_.inlier_thresholds.max_reprojection_error);
+    obs_manager.FilterPoints3DWithLargeReprojectionError(
+        10 * options_.inlier_thresholds.max_reprojection_error,
+        reconstruction.Point3DIds(),
+        /*use_normalized_error=*/true);
     // Normalize the structure
     // If the camera rig is used, the structure do not need to be normalized
     reconstruction.Normalize();
@@ -235,14 +240,15 @@ bool GlobalMapper::Solve(const colmap::Database* database,
       // adjustment right away. Instead, use a more strict criteria to filter
       LOG(INFO) << "Filtering tracks by reprojection ...";
 
+      colmap::ObservationManager obs_manager(reconstruction);
       bool status = true;
       size_t filtered_num = 0;
       while (status && ite < options_.num_iteration_bundle_adjustment) {
         double scaling = std::max(3 - ite, 1);
-        filtered_num +=
-            TrackFilter::FilterObservationsWithLargeReprojectionError(
-                reconstruction,
-                scaling * options_.inlier_thresholds.max_reprojection_error);
+        filtered_num += obs_manager.FilterPoints3DWithLargeReprojectionError(
+            scaling * options_.inlier_thresholds.max_reprojection_error,
+            reconstruction.Point3DIds(),
+            /*use_normalized_error=*/true);
 
         if (filtered_num > 1e-3 * reconstruction.NumPoints3D()) {
           status = false;
@@ -257,10 +263,16 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
     // Filter tracks based on the estimation
     LOG(INFO) << "Filtering tracks by reprojection ...";
-    TrackFilter::FilterObservationsWithLargeReprojectionError(
-        reconstruction, options_.inlier_thresholds.max_reprojection_error);
-    TrackFilter::FilterTracksWithSmallTriangulationAngle(
-        reconstruction, options_.inlier_thresholds.min_triangulation_angle);
+    {
+      colmap::ObservationManager obs_manager(reconstruction);
+      obs_manager.FilterPoints3DWithLargeReprojectionError(
+          options_.inlier_thresholds.max_reprojection_error,
+          reconstruction.Point3DIds(),
+          /*use_normalized_error=*/true);
+      obs_manager.FilterPoints3DWithSmallTriangulationAngle(
+          options_.inlier_thresholds.min_triangulation_angle,
+          reconstruction.Point3DIds());
+    }
 
     run_timer.PrintSeconds();
   }
@@ -288,8 +300,11 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
       // Filter tracks based on the estimation
       LOG(INFO) << "Filtering tracks by reprojection ...";
-      TrackFilter::FilterObservationsWithLargeReprojectionError(
-          reconstruction, options_.inlier_thresholds.max_reprojection_error);
+      colmap::ObservationManager(reconstruction)
+          .FilterPoints3DWithLargeReprojectionError(
+              options_.inlier_thresholds.max_reprojection_error,
+              reconstruction.Point3DIds(),
+              /*use_normalized_error=*/true);
       if (!ba_engine.Solve(reconstruction)) {
         return false;
       }
@@ -301,10 +316,16 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
     // Filter tracks based on the estimation
     LOG(INFO) << "Filtering tracks by reprojection ...";
-    TrackFilter::FilterObservationsWithLargeReprojectionError(
-        reconstruction, options_.inlier_thresholds.max_reprojection_error);
-    TrackFilter::FilterTracksWithSmallTriangulationAngle(
-        reconstruction, options_.inlier_thresholds.min_triangulation_angle);
+    {
+      colmap::ObservationManager obs_manager(reconstruction);
+      obs_manager.FilterPoints3DWithLargeReprojectionError(
+          options_.inlier_thresholds.max_reprojection_error,
+          reconstruction.Point3DIds(),
+          /*use_normalized_error=*/true);
+      obs_manager.FilterPoints3DWithSmallTriangulationAngle(
+          options_.inlier_thresholds.min_triangulation_angle,
+          reconstruction.Point3DIds());
+    }
   }
 
   // 8. Reconstruction pruning

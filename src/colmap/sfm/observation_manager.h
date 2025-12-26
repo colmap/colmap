@@ -105,9 +105,30 @@ class ObservationManager {
 
   size_t FilterPoints3DWithSmallTriangulationAngle(
       double min_tri_angle, const std::unordered_set<point3D_t>& point3D_ids);
+  // Filter observations with large reprojection error.
+  //
+  // @param max_reproj_error     Maximum reprojection error threshold.
+  // @param point3D_ids          The points to be filtered.
+  // @param use_normalized_error If true, compute error in normalized camera
+  //                             coordinates; otherwise in pixel coordinates.
+  //
+  // @return                     The number of filtered observations.
   size_t FilterPoints3DWithLargeReprojectionError(
       double max_reproj_error,
-      const std::unordered_set<point3D_t>& point3D_ids);
+      const std::unordered_set<point3D_t>& point3D_ids,
+      bool use_normalized_error = false);
+
+  // Filter observations with large angular reprojection error. The angular
+  // error is the angle between the observed ray and the computed ray from the
+  // 3D point. Uses a relaxed threshold (2x) for cameras without prior focal
+  // length.
+  //
+  // @param max_angle_error   Maximum angular error in degrees.
+  // @param point3D_ids       The points to be filtered.
+  //
+  // @return                  The number of filtered observations.
+  size_t FilterPoints3DWithLargeAngularError(
+      double max_angle_error, const std::unordered_set<point3D_t>& point3D_ids);
 
   // Filter frames without observations or bogus camera parameters.
   //
