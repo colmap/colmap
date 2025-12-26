@@ -129,7 +129,7 @@ void GlobalPositioner::InitializeRandomPositions(
   for (const auto& [track_id, track] : reconstruction.Points3D()) {
     if (track.track.Length() < options_.min_num_view_per_track) continue;
     for (const auto& observation : track.track.Elements()) {
-      if (!reconstruction.ExistsImage(observation.image_id)) continue;
+      THROW_CHECK(reconstruction.ExistsImage(observation.image_id));
       const Image& image = reconstruction.Image(observation.image_id);
       if (!image.HasPose()) continue;
       constrained_positions.insert(image.FrameId());
