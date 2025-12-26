@@ -81,65 +81,7 @@ int RunGlobalMapper(int argc, char** argv) {
   run_timer.Start();
   std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(
-      *database, view_graph, reconstruction, pose_priors, cluster_ids);
-  run_timer.Pause();
-
-  LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
-            << " seconds";
-
-  WriteReconstructionsByClusters(
-      output_path, reconstruction, cluster_ids, output_format, image_path);
-  LOG(INFO) << "Export to COLMAP reconstruction done";
-
-  return EXIT_SUCCESS;
-}
-
-// -------------------------------------
-// Mappers starting from COLMAP reconstruction
-// -------------------------------------
-int RunGlobalMapperResume(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
-  std::string image_path = "";
-  std::string output_format = "bin";
-
-  OptionManager options;
-  options.AddRequiredOption("input_path", &input_path);
-  options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("image_path", &image_path);
-  options.AddDefaultOption("output_format", &output_format, "{bin, txt}");
-  options.AddGlobalMapperResumeFullOptions();
-
-  options.Parse(argc, argv);
-
-  if (!colmap::ExistsDir(input_path)) {
-    LOG(ERROR) << "`input_path` is not a directory";
-    return EXIT_FAILURE;
-  }
-
-  // Check whether output_format is valid
-  if (output_format != "bin" && output_format != "txt") {
-    LOG(ERROR) << "Invalid output format";
-    return EXIT_FAILURE;
-  }
-
-  // Load the reconstruction
-  ViewGraph view_graph;                        // dummy variable
-  std::shared_ptr<colmap::Database> database;  // dummy variable
-
-  std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
-
-  colmap::Reconstruction reconstruction;
-  reconstruction.Read(input_path);
-
-  GlobalMapper global_mapper(*options.mapper);
-
-  // Main solver
-  colmap::Timer run_timer;
-  run_timer.Start();
-  std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(
-      *database, view_graph, reconstruction, pose_priors, cluster_ids);
+      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
   run_timer.Pause();
 
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()

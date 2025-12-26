@@ -12,7 +12,7 @@
 namespace glomap {
 
 // TODO: Rig normalizaiton has not be done
-bool GlobalMapper::Solve(const colmap::Database& database,
+bool GlobalMapper::Solve(const colmap::Database* database,
                          ViewGraph& view_graph,
                          colmap::Reconstruction& reconstruction,
                          std::vector<colmap::PosePrior>& pose_priors,
@@ -275,13 +275,14 @@ bool GlobalMapper::Solve(const colmap::Database& database,
 
   // 7. Retriangulation
   if (!options_.skip_retriangulation) {
+    THROW_CHECK_NOTNULL(database);
     std::cout << "-------------------------------------" << '\n';
     std::cout << "Running retriangulation ..." << '\n';
     std::cout << "-------------------------------------" << '\n';
     for (int ite = 0; ite < options_.num_iteration_retriangulation; ite++) {
       colmap::Timer run_timer;
       run_timer.Start();
-      RetriangulateTracks(options_.opt_triangulator, database, reconstruction);
+      RetriangulateTracks(options_.opt_triangulator, *database, reconstruction);
       run_timer.PrintSeconds();
 
       std::cout << "-------------------------------------" << '\n';
