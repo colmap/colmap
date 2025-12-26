@@ -10,31 +10,6 @@
 #include "glomap/sfm/rotation_averager.h"
 
 namespace glomap {
-namespace {
-
-void SetPoint3DForPoints2D(colmap::Reconstruction& reconstruction) {
-  // First, reset all point3D_id to invalid
-  for (const auto& [image_id, image] : reconstruction.Images()) {
-    for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
-         ++point2D_idx) {
-      reconstruction.Image(image_id).ResetPoint3DForPoint2D(point2D_idx);
-    }
-  }
-
-  // Then, set up the links from Point3D.track
-  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
-    for (const auto& track_el : point3D.track.Elements()) {
-      if (reconstruction.ExistsImage(track_el.image_id)) {
-        colmap::Image& image = reconstruction.Image(track_el.image_id);
-        if (track_el.point2D_idx < image.NumPoints2D()) {
-          image.SetPoint3DForPoint2D(track_el.point2D_idx, point3D_id);
-        }
-      }
-    }
-  }
-}
-
-}  // namespace
 
 // TODO: Rig normalizaiton has not be done
 bool GlobalMapper::Solve(const colmap::Database* database,
@@ -165,14 +140,13 @@ bool GlobalMapper::Solve(const colmap::Database* database,
         track_engine.FindTracksForProblem(unfiltered_tracks, selected_tracks);
 
     // Add selected tracks to reconstruction
+    THROW_CHECK_EQ(reconstruction.NumPoints3D(), 0);
     for (auto& [track_id, track] : selected_tracks) {
       reconstruction.AddPoint3D(track_id, std::move(track));
     }
+
     LOG(INFO) << "Before filtering: " << unfiltered_tracks.size()
               << ", after filtering: " << num_tracks << '\n';
-
-    SetPoint3DForPoints2D(reconstruction);
-
     run_timer.PrintSeconds();
   }
 
