@@ -8,6 +8,7 @@
 #include "glomap/scene/view_graph.h"
 
 #include <string>
+#include <variant>
 #include <vector>
 
 #include <Eigen/Sparse>
@@ -17,27 +18,48 @@
 // to the paper "Gravity Aligned Rotation Averaging"
 namespace glomap {
 
-// The struct to store the temporary information for each image pair
-struct ImagePairTempInfo {
-  // The index of relative pose in the residual vector
-  image_pair_t index = -1;
+// The linear system being solved is: A * x = b
+// where:
+//   x = [rig_from_world_rotations..., unknown_cam_from_rig_rotations...]
+//   b = residuals from relative rotation constraints
+//   A = sparse matrix encoding the constraint equations
+//
+// For each image pair (i, j), the constraint is (in tangent space):
+//   cam2_from_cam1 ≈ cam2_from_rig * rig2_from_world * world_from_rig1 *
+//   rig1_from_cam
+//
+// where cam_from_rig is identity for the reference camera, a known value if
+// calibrated, or an additional unknown to be optimized.
 
-  // Whether the relative rotation is gravity aligned
-  double has_gravity = false;
+// Preprocessed constraint information for an image pair.
+// Built once in SetupLinearSystem(), used during L1/IRLS solving.
+// The constraint geometry is fixed; only residuals change during optimization.
+struct PairConstraint {
+  // 1-DOF constraint for pairs where both frames have gravity priors.
+  // Gravity alignment reduces full 3D rotation to Y-axis rotation only.
+  struct Gravity1DOF {
+    double angle;     // Relative Y-axis rotation between frames
+    double xz_error;  // Squared error in x,z axes (for IRLS weighting)
+  };
 
-  // The relative rotation between the two images (x, z component)
-  double xz_error = 0;
+  // 3-DOF constraint for the general case (no gravity or partial gravity).
+  struct Full3DOF {
+    Eigen::Matrix3d R_rel;  // Relative rotation (gravity-aligned if applicable)
+  };
 
-  // R_rel is gravity aligned if gravity prior is available, otherwise it is the
-  // relative rotation between the two images
-  Eigen::Matrix3d R_rel = Eigen::Matrix3d::Identity();
+  // Starting row in sparse matrix A where this pair's equations begin.
+  // - Gravity1DOF: occupies 1 row
+  // - Full3DOF: occupies 3 consecutive rows
+  int row_index = -1;
 
-  // angle_rel is the converted angle if gravity prior is available for both
-  // images
-  double angle_rel = 0;
+  // Column indices in x for unknown cam_from_rig rotations.
+  // -1 means the camera's cam_from_rig is known (or it's the reference camera).
+  // If >= 0, points to 3 consecutive entries in x (always 3D, not reduced by
+  // gravity).
+  int cam1_from_rig_param_idx = -1;
+  int cam2_from_rig_param_idx = -1;
 
-  int idx_cam1 = -1;  // index of the first camera in the rig
-  int idx_cam2 = -1;  // index of the second camera in the rig
+  std::variant<Gravity1DOF, Full3DOF> constraint;
 };
 
 struct RotationEstimatorOptions {
@@ -165,19 +187,20 @@ class RotationEstimator {
 
   Eigen::VectorXd rotation_estimated_;
 
-  // Varaibles for intermidiate results
-  std::unordered_map<image_t, int> image_id_to_idx_;
-  std::unordered_map<frame_t, int> frame_id_to_idx_;
+  // Parameter index mappings into solution vector x.
+  std::unordered_map<frame_t, int>
+      frame_id_to_param_idx_;  // -> rig_from_world params
   std::unordered_map<camera_t, int>
-      camera_id_to_idx_;  // Note: for reference cameras, it does not have this
-  std::unordered_map<image_pair_t, ImagePairTempInfo> rel_temp_info_;
+      camera_id_to_param_idx_;  // -> cam_from_rig params (unknown only)
 
-  // The fixed image id. This is used to remove the ambiguity of the linear
-  image_t fixed_image_id_ = -1;
+  // Preprocessed constraints for each image pair.
+  std::unordered_map<image_pair_t, PairConstraint> pair_constraints_;
 
-  // The fixed camera rotation (if with initialization, it would not be identity
-  // matrix)
-  Eigen::Vector3d fixed_camera_rotation_;
+  // The fixed frame id. This is used to remove gauge ambiguity.
+  frame_t fixed_frame_id_ = colmap::kInvalidFrameId;
+
+  // The fixed frame's rotation (non-identity if initialization was used).
+  Eigen::Vector3d fixed_frame_rotation_;
 
   // The weights for the edges
   Eigen::ArrayXd weights_;
