@@ -71,9 +71,8 @@ void Workspace::Load(const std::vector<std::string>& image_names) {
     // Read and rescale bitmap
     auto bitmap = std::make_unique<Bitmap>();
     bitmap->Read(GetBitmapPath(image_idx), options_.image_as_rgb);
-    THROW_CHECK_EQ(bitmap->Width(), width);
-    THROW_CHECK_EQ(bitmap->Height(), height);
-    if (options_.max_image_size > 0) {
+    if (bitmap->Width() != static_cast<int>(width) ||
+        bitmap->Height() != static_cast<int>(height)) {
       bitmap->Rescale(static_cast<int>(width), static_cast<int>(height));
     }
     bitmaps_[image_idx] = std::move(bitmap);
@@ -81,9 +80,7 @@ void Workspace::Load(const std::vector<std::string>& image_names) {
     // Read and rescale depth map
     auto depth_map = std::make_unique<DepthMap>();
     depth_map->Read(GetDepthMapPath(image_idx));
-    THROW_CHECK_EQ(depth_map->GetWidth(), width);
-    THROW_CHECK_EQ(depth_map->GetHeight(), height);
-    if (options_.max_image_size > 0) {
+    if (depth_map->GetWidth() != width || depth_map->GetHeight() != height) {
       depth_map->Downsize(width, height);
     }
     depth_maps_[image_idx] = std::move(depth_map);
@@ -91,9 +88,7 @@ void Workspace::Load(const std::vector<std::string>& image_names) {
     // Read and rescale normal map
     auto normal_map = std::make_unique<NormalMap>();
     normal_map->Read(GetNormalMapPath(image_idx));
-    THROW_CHECK_EQ(normal_map->GetWidth(), width);
-    THROW_CHECK_EQ(normal_map->GetHeight(), height);
-    if (options_.max_image_size > 0) {
+    if (normal_map->GetWidth() != width || normal_map->GetHeight() != height) {
       normal_map->Downsize(width, height);
     }
     normal_maps_[image_idx] = std::move(normal_map);
