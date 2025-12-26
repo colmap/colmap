@@ -14,10 +14,10 @@ namespace {
 
 void SetPoint3DForPoints2D(colmap::Reconstruction& reconstruction) {
   // First, reset all point3D_id to invalid
-  for (auto& [image_id, image] : reconstruction.Images()) {
+  for (const auto& [image_id, image] : reconstruction.Images()) {
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
-      image.ResetPoint3DForPoint2D(point2D_idx);
+      reconstruction.Image(image_id).ResetPoint3DForPoint2D(point2D_idx);
     }
   }
 
@@ -171,7 +171,6 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     LOG(INFO) << "Before filtering: " << unfiltered_tracks.size()
               << ", after filtering: " << num_tracks << '\n';
 
-    // Set Image.Point2D.point3D_id for colmap's BA
     SetPoint3DForPoints2D(reconstruction);
 
     run_timer.PrintSeconds();
@@ -306,11 +305,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
       run_timer.Start();
       RetriangulateTracks(options_.opt_triangulator, *database, reconstruction);
 
-      // Set Image.Point2D.point3D_id for colmap's BA
-      SetPoint3DForPoints2D(reconstruction);
-
       run_timer.PrintSeconds();
-
       std::cout << "-------------------------------------" << '\n';
       std::cout << "Running bundle adjustment ..." << '\n';
       std::cout << "-------------------------------------" << '\n';
