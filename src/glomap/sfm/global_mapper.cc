@@ -171,19 +171,15 @@ bool GlobalMapper::Solve(const colmap::Database* database,
       return false;
     }
     // Filter tracks based on the estimation
-    TrackFilter::FilterTracksByAngle(
-        view_graph, reconstruction, options_.inlier_thresholds.max_angle_error);
+    TrackFilter::FilterObservationsWithLargeAngularError(
+        reconstruction, options_.inlier_thresholds.max_angle_error);
 
     // Filter tracks based on triangulation angle and reprojection error
-    TrackFilter::FilterTrackTriangulationAngle(
-        view_graph,
-        reconstruction,
-        options_.inlier_thresholds.min_triangulation_angle);
+    TrackFilter::FilterTracksWithSmallTriangulationAngle(
+        reconstruction, options_.inlier_thresholds.min_triangulation_angle);
     // Set the threshold to be larger to avoid removing too many tracks
-    TrackFilter::FilterTracksByReprojection(
-        view_graph,
-        reconstruction,
-        10 * options_.inlier_thresholds.max_reprojection_error);
+    TrackFilter::FilterObservationsWithLargeReprojectionError(
+        reconstruction, 10 * options_.inlier_thresholds.max_reprojection_error);
     // Normalize the structure
     // If the camera rig is used, the structure do not need to be normalized
     reconstruction.Normalize();
@@ -243,10 +239,10 @@ bool GlobalMapper::Solve(const colmap::Database* database,
       size_t filtered_num = 0;
       while (status && ite < options_.num_iteration_bundle_adjustment) {
         double scaling = std::max(3 - ite, 1);
-        filtered_num += TrackFilter::FilterTracksByReprojection(
-            view_graph,
-            reconstruction,
-            scaling * options_.inlier_thresholds.max_reprojection_error);
+        filtered_num +=
+            TrackFilter::FilterObservationsWithLargeReprojectionError(
+                reconstruction,
+                scaling * options_.inlier_thresholds.max_reprojection_error);
 
         if (filtered_num > 1e-3 * reconstruction.NumPoints3D()) {
           status = false;
@@ -261,14 +257,10 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
     // Filter tracks based on the estimation
     LOG(INFO) << "Filtering tracks by reprojection ...";
-    TrackFilter::FilterTracksByReprojection(
-        view_graph,
-        reconstruction,
-        options_.inlier_thresholds.max_reprojection_error);
-    TrackFilter::FilterTrackTriangulationAngle(
-        view_graph,
-        reconstruction,
-        options_.inlier_thresholds.min_triangulation_angle);
+    TrackFilter::FilterObservationsWithLargeReprojectionError(
+        reconstruction, options_.inlier_thresholds.max_reprojection_error);
+    TrackFilter::FilterTracksWithSmallTriangulationAngle(
+        reconstruction, options_.inlier_thresholds.min_triangulation_angle);
 
     run_timer.PrintSeconds();
   }
@@ -296,10 +288,8 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
       // Filter tracks based on the estimation
       LOG(INFO) << "Filtering tracks by reprojection ...";
-      TrackFilter::FilterTracksByReprojection(
-          view_graph,
-          reconstruction,
-          options_.inlier_thresholds.max_reprojection_error);
+      TrackFilter::FilterObservationsWithLargeReprojectionError(
+          reconstruction, options_.inlier_thresholds.max_reprojection_error);
       if (!ba_engine.Solve(reconstruction)) {
         return false;
       }
@@ -311,14 +301,10 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
     // Filter tracks based on the estimation
     LOG(INFO) << "Filtering tracks by reprojection ...";
-    TrackFilter::FilterTracksByReprojection(
-        view_graph,
-        reconstruction,
-        options_.inlier_thresholds.max_reprojection_error);
-    TrackFilter::FilterTrackTriangulationAngle(
-        view_graph,
-        reconstruction,
-        options_.inlier_thresholds.min_triangulation_angle);
+    TrackFilter::FilterObservationsWithLargeReprojectionError(
+        reconstruction, options_.inlier_thresholds.max_reprojection_error);
+    TrackFilter::FilterTracksWithSmallTriangulationAngle(
+        reconstruction, options_.inlier_thresholds.min_triangulation_angle);
   }
 
   // 8. Reconstruction pruning

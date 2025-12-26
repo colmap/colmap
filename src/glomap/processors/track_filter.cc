@@ -2,8 +2,7 @@
 
 namespace glomap {
 
-int TrackFilter::FilterTracksByReprojection(
-    const ViewGraph& view_graph,
+int TrackFilter::FilterObservationsWithLargeReprojectionError(
     colmap::Reconstruction& reconstruction,
     double max_reprojection_error,
     bool in_normalized_image) {
@@ -50,9 +49,8 @@ int TrackFilter::FilterTracksByReprojection(
   return counter;
 }
 
-int TrackFilter::FilterTracksByAngle(const ViewGraph& view_graph,
-                                     colmap::Reconstruction& reconstruction,
-                                     double max_angle_error) {
+int TrackFilter::FilterObservationsWithLargeAngularError(
+    colmap::Reconstruction& reconstruction, double max_angle_error) {
   int counter = 0;
   double thres = std::cos(colmap::DegToRad(max_angle_error));
   double thres_uncalib = std::cos(colmap::DegToRad(max_angle_error * 2));
@@ -80,14 +78,12 @@ int TrackFilter::FilterTracksByAngle(const ViewGraph& view_graph,
     }
   }
   LOG(INFO) << "Filtered " << counter << " / " << reconstruction.NumPoints3D()
-            << " tracks by angle error";
+            << " tracks by angular reprojection error";
   return counter;
 }
 
-int TrackFilter::FilterTrackTriangulationAngle(
-    const ViewGraph& view_graph,
-    colmap::Reconstruction& reconstruction,
-    double min_angle) {
+int TrackFilter::FilterTracksWithSmallTriangulationAngle(
+    colmap::Reconstruction& reconstruction, double min_angle) {
   int counter = 0;
   double thres = std::cos(colmap::DegToRad(min_angle));
   for (const auto& [track_id, track] : reconstruction.Points3D()) {
