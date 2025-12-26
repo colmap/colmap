@@ -84,7 +84,7 @@ class RotationAveragingProblem {
                              const ViewGraph& view_graph,
                              const colmap::Reconstruction& reconstruction);
 
-  const RotationEstimatorOptions& options_;
+  const RotationEstimatorOptions options_;
 
   // Pose priors indexed by frame ID.
   std::unordered_map<frame_t, const colmap::PosePrior*> frame_to_pose_prior_;
@@ -95,7 +95,7 @@ class RotationAveragingProblem {
   Eigen::VectorXd edge_weights_;
 
   // Current rotation estimates in tangent space (angle-axis).
-  Eigen::VectorXd rotation_estimated_;
+  Eigen::VectorXd estimated_rotations_;
 
   // Parameter index mappings.
   std::unordered_map<frame_t, int> frame_id_to_param_idx_;
@@ -135,7 +135,7 @@ class RotationAveragingSolver {
   std::optional<Eigen::VectorXd> ComputeIRLSWeights(
       const RotationAveragingProblem& problem, double sigma) const;
 
-  const RotationEstimatorOptions& options_;
+  const RotationEstimatorOptions options_;
 };
 
 }  // namespace glomap
