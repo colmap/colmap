@@ -202,14 +202,9 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     run_timer.Start();
 
     for (int ite = 0; ite < options_.num_iteration_bundle_adjustment; ite++) {
-      BundleAdjuster ba_engine(options_.opt_ba);
-
-      BundleAdjusterOptions& ba_engine_options_inner = ba_engine.GetOptions();
-
-      // Staged bundle adjustment
-      // 6.1. First stage: optimize positions only
-      ba_engine_options_inner.optimize_rotations = false;
-      if (!ba_engine.Solve(reconstruction)) {
+      // 6.1. First stage: optimize positions only (rotation constant)
+      if (!RunBundleAdjustment(
+              options_.opt_ba, /*constant_rotation=*/true, reconstruction)) {
         return false;
       }
       LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
@@ -218,10 +213,9 @@ bool GlobalMapper::Solve(const colmap::Database* database,
       run_timer.PrintSeconds();
 
       // 6.2. Second stage: optimize rotations if desired
-      ba_engine_options_inner.optimize_rotations =
-          options_.opt_ba.optimize_rotations;
-      if (ba_engine_options_inner.optimize_rotations &&
-          !ba_engine.Solve(reconstruction)) {
+      if (options_.opt_ba.optimize_rotations &&
+          !RunBundleAdjustment(
+              options_.opt_ba, /*constant_rotation=*/false, reconstruction)) {
         return false;
       }
       LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
@@ -289,8 +283,8 @@ bool GlobalMapper::Solve(const colmap::Database* database,
       std::cout << "Running bundle adjustment ..." << '\n';
       std::cout << "-------------------------------------" << '\n';
       LOG(INFO) << "Bundle adjustment start" << '\n';
-      BundleAdjuster ba_engine(options_.opt_ba);
-      if (!ba_engine.Solve(reconstruction)) {
+      if (!RunBundleAdjustment(
+              options_.opt_ba, /*constant_rotation=*/false, reconstruction)) {
         return false;
       }
 
@@ -300,7 +294,8 @@ bool GlobalMapper::Solve(const colmap::Database* database,
           view_graph,
           reconstruction,
           options_.inlier_thresholds.max_reprojection_error);
-      if (!ba_engine.Solve(reconstruction)) {
+      if (!RunBundleAdjustment(
+              options_.opt_ba, /*constant_rotation=*/false, reconstruction)) {
         return false;
       }
       run_timer.PrintSeconds();
