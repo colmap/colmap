@@ -13,7 +13,7 @@
 namespace glomap {
 
 // TODO: Rig normalizaiton has not be done
-bool GlobalMapper::Solve(const colmap::Database& database,
+bool GlobalMapper::Solve(const colmap::Database* database,
                          ViewGraph& view_graph,
                          std::unordered_map<rig_t, Rig>& rigs,
                          std::unordered_map<camera_t, colmap::Camera>& cameras,
@@ -278,6 +278,7 @@ bool GlobalMapper::Solve(const colmap::Database& database,
 
   // 7. Retriangulation
   if (!options_.skip_retriangulation) {
+    THROW_CHECK_NOTNULL(database);
     std::cout << "-------------------------------------" << '\n';
     std::cout << "Running retriangulation ..." << '\n';
     std::cout << "-------------------------------------" << '\n';
@@ -285,7 +286,7 @@ bool GlobalMapper::Solve(const colmap::Database& database,
       colmap::Timer run_timer;
       run_timer.Start();
       RetriangulateTracks(options_.opt_triangulator,
-                          database,
+                          *database,
                           rigs,
                           cameras,
                           frames,

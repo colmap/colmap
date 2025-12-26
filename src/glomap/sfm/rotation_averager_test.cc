@@ -121,7 +121,7 @@ TEST(RotationEstimator, WithoutNoise) {
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,
@@ -178,7 +178,7 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialKnownRig) {
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,
@@ -241,7 +241,7 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialUnknownRig) {
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,
@@ -303,7 +303,7 @@ TEST(RotationEstimator, WithNoiseAndOutliers) {
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,
@@ -366,7 +366,7 @@ TEST(RotationEstimator, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,
@@ -423,7 +423,7 @@ TEST(RotationEstimator, RefineGravity) {
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,
@@ -472,7 +472,7 @@ TEST(RotationEstimator, RefineGravityWithNonTrivialRigs) {
 
   GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,

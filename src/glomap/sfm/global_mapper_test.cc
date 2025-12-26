@@ -50,7 +50,7 @@ TEST(GlobalMapper, WithoutNoise) {
 
   GlobalMapper global_mapper(CreateTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,
@@ -97,7 +97,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
 
   GlobalMapper global_mapper(CreateTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,
@@ -154,7 +154,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
 
   GlobalMapper global_mapper(CreateTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,
@@ -203,7 +203,7 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
 
   GlobalMapper global_mapper(CreateTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,

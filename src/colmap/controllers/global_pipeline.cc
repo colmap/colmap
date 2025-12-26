@@ -68,7 +68,7 @@ void GlobalPipeline::Run() {
   run_timer.Start();
   glomap::GlobalMapper global_mapper(options_);
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(*database,
+  global_mapper.Solve(database.get(),
                       view_graph,
                       rigs,
                       cameras,

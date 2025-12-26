@@ -27,8 +27,6 @@ class OptionManager {
   void AddImageOptions();
   void AddGlobalMapperOptions();
   void AddGlobalMapperFullOptions();
-  void AddGlobalMapperResumeOptions();
-  void AddGlobalMapperResumeFullOptions();
   void AddViewGraphCalibrationOptions();
   void AddRelativePoseEstimationOptions();
   void AddRotationEstimatorOptions();
