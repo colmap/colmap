@@ -17,14 +17,8 @@ double ComputeGravityAligned1DOFResidual(std::mt19937& rng,
                                          double angle_12,
                                          double angle_1,
                                          double angle_2) {
-  double residual = (angle_2 - angle_1) - angle_12;
-
-  while (residual >= EIGEN_PI) {
-    residual -= 2 * EIGEN_PI;
-  }
-  while (residual < -EIGEN_PI) {
-    residual += 2 * EIGEN_PI;
-  }
+  double residual =
+      std::remainder((angle_2 - angle_1) - angle_12, 2 * EIGEN_PI);
 
   // Inject random noise if the angle is too close to the boundary to break the
   // possible balance at the local minima.
@@ -95,6 +89,12 @@ RotationAveragingProblem::RotationAveragingProblem(
   BuildConstraintMatrix(num_params, view_graph, reconstruction);
 }
 
+bool RotationAveragingProblem::HasFrameGravity(frame_t frame_id) const {
+  const auto it = frame_to_pose_prior_.find(frame_id);
+  return options_.use_gravity && it != frame_to_pose_prior_.end() &&
+         it->second->HasGravity();
+}
+
 size_t RotationAveragingProblem::AllocateParameters(
     const colmap::Reconstruction& reconstruction) {
   // Build mapping from camera to rig for all registered images.
@@ -145,7 +145,7 @@ size_t RotationAveragingProblem::AllocateParameters(
 
     const Eigen::Vector3d* frame_gravity =
         GetFrameGravityOrNull(frame_to_pose_prior_, frame_id);
-    const bool has_gravity = options_.use_gravity && frame_gravity != nullptr;
+    const bool has_gravity = HasFrameGravity(frame_id);
 
     // Cache camera_id -> frame_id mapping for UpdateState cam_from_rig
     // averaging.
@@ -170,7 +170,7 @@ size_t RotationAveragingProblem::AllocateParameters(
         fixed_frame_rotation_ =
             Eigen::Vector3d(0, rotation_estimated_[num_params - 1], 0);
         fixed_frame_id_ = frame_id;
-        gauge_fixing_rows_ = 1;
+        num_gauge_fixing_residuals_ = 1;
       }
     } else {
       // General frame: 3-DOF.
@@ -206,7 +206,7 @@ size_t RotationAveragingProblem::AllocateParameters(
       fixed_frame_id_ = frame_id;
       const Eigen::AngleAxisd rig_from_world(frame.RigFromWorld().rotation);
       fixed_frame_rotation_ = rig_from_world.angle() * rig_from_world.axis();
-      gauge_fixing_rows_ = 3;
+      num_gauge_fixing_residuals_ = 3;
       break;
     }
   }
@@ -224,11 +224,11 @@ void RotationAveragingProblem::BuildPairConstraints(
 
     const auto& image1 = reconstruction.Image(image_pair.image_id1);
     const auto& image2 = reconstruction.Image(image_pair.image_id2);
-    const auto& frame1 = reconstruction.Frame(image1.FrameId());
-    const auto& frame2 = reconstruction.Frame(image2.FrameId());
+    const auto& frame1 = *image1.FramePtr();
+    const auto& frame2 = *image2.FramePtr();
 
-    const int frame_idx1 = frame_id_to_param_idx_[image1.FrameId()];
-    const int frame_idx2 = frame_id_to_param_idx_[image2.FrameId()];
+    const int frame_idx1 = frame_id_to_param_idx_[frame1.FrameId()];
+    const int frame_idx2 = frame_id_to_param_idx_[frame2.FrameId()];
 
     // Get known cam_from_rig transforms (identity for reference cameras).
     Rigid3d cam1_from_rig1, cam2_from_rig2;
@@ -267,9 +267,9 @@ void RotationAveragingProblem::BuildPairConstraints(
             .toRotationMatrix();
 
     const Eigen::Vector3d* frame_gravity1 =
-        GetFrameGravityOrNull(frame_to_pose_prior_, image1.FrameId());
+        GetFrameGravityOrNull(frame_to_pose_prior_, frame1.FrameId());
     const Eigen::Vector3d* frame_gravity2 =
-        GetFrameGravityOrNull(frame_to_pose_prior_, image2.FrameId());
+        GetFrameGravityOrNull(frame_to_pose_prior_, frame2.FrameId());
 
     // Apply gravity alignment transformations if available.
     if (options_.use_gravity) {
@@ -302,7 +302,7 @@ void RotationAveragingProblem::BuildPairConstraints(
     }
   }
 
-  VLOG(2) << gravity_aligned_count << " image pairs are gravity aligned\n";
+  VLOG(2) << gravity_aligned_count << " image pairs are gravity aligned";
 }
 
 void RotationAveragingProblem::BuildConstraintMatrix(
@@ -313,7 +313,9 @@ void RotationAveragingProblem::BuildConstraintMatrix(
   coeffs.reserve(pair_constraints_.size() * 6 + 3);
 
   std::vector<double> weights;
-  weights.reserve(3 * view_graph.image_pairs.size());
+  if (options_.use_weight) {
+    weights.reserve(3 * view_graph.image_pairs.size());
+  }
 
   size_t curr_row = 0;
 
@@ -323,13 +325,13 @@ void RotationAveragingProblem::BuildConstraintMatrix(
 
     const auto& image1 = reconstruction.Image(image_pair.image_id1);
     const auto& image2 = reconstruction.Image(image_pair.image_id2);
-    const auto& frame1 = reconstruction.Frame(image1.FrameId());
-    const auto& frame2 = reconstruction.Frame(image2.FrameId());
+    const auto& frame1 = *image1.FramePtr();
+    const auto& frame2 = *image2.FramePtr();
 
     if (!frame1.HasPose() || !frame2.HasPose()) continue;
 
-    const int frame_idx1 = frame_id_to_param_idx_[image1.FrameId()];
-    const int frame_idx2 = frame_id_to_param_idx_[image2.FrameId()];
+    const int frame_idx1 = frame_id_to_param_idx_[frame1.FrameId()];
+    const int frame_idx2 = frame_id_to_param_idx_[frame2.FrameId()];
 
     // Look up camera parameter indices (-1 if cam_from_rig is known).
     int cam1_param_idx = -1;
@@ -354,14 +356,16 @@ void RotationAveragingProblem::BuildConstraintMatrix(
       // 1-DOF constraint: single row.
       coeffs.emplace_back(curr_row, frame_idx1, -1);
       coeffs.emplace_back(curr_row, frame_idx2, 1);
-      weights.push_back(pair_weight);
+      if (options_.use_weight) {
+        weights.push_back(pair_weight);
+      }
       curr_row++;
     } else {
       // 3-DOF constraint: three rows.
       const Eigen::Vector3d* frame_gravity1 =
-          GetFrameGravityOrNull(frame_to_pose_prior_, image1.FrameId());
+          GetFrameGravityOrNull(frame_to_pose_prior_, frame1.FrameId());
       const Eigen::Vector3d* frame_gravity2 =
-          GetFrameGravityOrNull(frame_to_pose_prior_, image2.FrameId());
+          GetFrameGravityOrNull(frame_to_pose_prior_, frame2.FrameId());
 
       if (!options_.use_gravity || frame_gravity1 == nullptr) {
         for (int i = 0; i < 3; i++) {
@@ -395,8 +399,10 @@ void RotationAveragingProblem::BuildConstraintMatrix(
         }
       }
 
-      for (int i = 0; i < 3; i++) {
-        weights.push_back(pair_weight);
+      if (options_.use_weight) {
+        for (int i = 0; i < 3; i++) {
+          weights.push_back(pair_weight);
+        }
       }
       curr_row += 3;
     }
@@ -404,16 +410,20 @@ void RotationAveragingProblem::BuildConstraintMatrix(
 
   // Add gauge-fixing constraint for the fixed frame.
   const int fixed_frame_idx = frame_id_to_param_idx_[fixed_frame_id_];
-  if (gauge_fixing_rows_ == 1) {
+  if (num_gauge_fixing_residuals_ == 1) {
     // 1-DOF gauge fix.
     coeffs.emplace_back(curr_row, fixed_frame_idx, 1);
-    weights.push_back(1);
+    if (options_.use_weight) {
+      weights.push_back(1);
+    }
     curr_row++;
   } else {
     // 3-DOF gauge fix.
     for (int i = 0; i < 3; i++) {
       coeffs.emplace_back(curr_row + i, fixed_frame_idx + i, 1);
-      weights.push_back(1);
+      if (options_.use_weight) {
+        weights.push_back(1);
+      }
     }
     curr_row += 3;
   }
@@ -424,9 +434,9 @@ void RotationAveragingProblem::BuildConstraintMatrix(
 
   // Set up weight vector.
   if (!options_.use_weight) {
-    edge_weights_ = Eigen::ArrayXd::Ones(curr_row);
+    edge_weights_ = Eigen::VectorXd::Ones(curr_row);
   } else {
-    edge_weights_ = Eigen::Map<Eigen::ArrayXd>(weights.data(), weights.size());
+    edge_weights_ = Eigen::Map<Eigen::VectorXd>(weights.data(), weights.size());
   }
 
   // Initialize residual vector.
@@ -494,7 +504,7 @@ void RotationAveragingProblem::ComputeResiduals() {
 
   // Fixed frame residual.
   const int fixed_frame_idx = frame_id_to_param_idx_.at(fixed_frame_id_);
-  if (gauge_fixing_rows_ == 1) {
+  if (num_gauge_fixing_residuals_ == 1) {
     residuals_[residuals_.size() - 1] =
         rotation_estimated_[fixed_frame_idx] - fixed_frame_rotation_[1];
   } else {
@@ -507,16 +517,9 @@ void RotationAveragingProblem::ComputeResiduals() {
 }
 
 void RotationAveragingProblem::UpdateState(const Eigen::VectorXd& step) {
-  // Helper to check if frame has gravity.
-  auto has_gravity = [&](frame_t frame_id) {
-    const auto it = frame_to_pose_prior_.find(frame_id);
-    return options_.use_gravity && it != frame_to_pose_prior_.end() &&
-           it->second->HasGravity();
-  };
-
   // Update frame rotations.
   for (const auto& [frame_id, frame_idx] : frame_id_to_param_idx_) {
-    if (!has_gravity(frame_id)) {
+    if (!HasFrameGravity(frame_id)) {
       const Eigen::Matrix3d R_ori = colmap::AngleAxisToRotationMatrix(
           rotation_estimated_.segment(frame_idx, 3));
       rotation_estimated_.segment(frame_idx, 3) =
@@ -531,7 +534,7 @@ void RotationAveragingProblem::UpdateState(const Eigen::VectorXd& step) {
   // Compute current frame rotations for cam_from_rig averaging.
   std::unordered_map<frame_t, Eigen::Matrix3d> frame_rotations;
   for (const auto& [frame_id, frame_idx] : frame_id_to_param_idx_) {
-    if (!has_gravity(frame_id)) {
+    if (!HasFrameGravity(frame_id)) {
       frame_rotations[frame_id] = colmap::AngleAxisToRotationMatrix(
           rotation_estimated_.segment(frame_idx, 3));
     } else {
@@ -568,11 +571,7 @@ double RotationAveragingProblem::AverageStepSize(
     const Eigen::VectorXd& step) const {
   double total_update = 0;
   for (const auto& [frame_id, frame_idx] : frame_id_to_param_idx_) {
-    const auto it = frame_to_pose_prior_.find(frame_id);
-    const bool has_gravity = options_.use_gravity &&
-                             it != frame_to_pose_prior_.end() &&
-                             it->second->HasGravity();
-    if (has_gravity) {
+    if (HasFrameGravity(frame_id)) {
       total_update += std::abs(step[frame_idx]);
     } else {
       total_update += step.segment(frame_idx, 3).norm();
@@ -584,15 +583,13 @@ double RotationAveragingProblem::AverageStepSize(
 void RotationAveragingProblem::ApplyResultsToReconstruction(
     colmap::Reconstruction& reconstruction) {
   for (const auto& [frame_id, frame_idx] : frame_id_to_param_idx_) {
-    const auto it = frame_to_pose_prior_.find(frame_id);
-    const bool has_gravity = options_.use_gravity &&
-                             it != frame_to_pose_prior_.end() &&
-                             it->second->HasGravity();
+    const Eigen::Vector3d* frame_gravity =
+        GetFrameGravityOrNull(frame_to_pose_prior_, frame_id);
 
-    if (has_gravity) {
+    if (HasFrameGravity(frame_id)) {
       reconstruction.Frame(frame_id).SetRigFromWorld(Rigid3d(
           Eigen::Quaterniond(
-              colmap::GravityAlignedRotation(it->second->gravity) *
+              colmap::GravityAlignedRotation(*frame_gravity) *
               colmap::RotationFromYAxisAngle(rotation_estimated_[frame_idx])),
           Eigen::Vector3d::Zero()));
     } else {
@@ -623,12 +620,14 @@ void RotationAveragingProblem::ApplyResultsToReconstruction(
 
 bool RotationAveragingSolver::Solve(RotationAveragingProblem& problem) {
   if (options_.max_num_l1_iterations > 0) {
+    VLOG(2) << "Solving L1 regression problem";
     if (!SolveL1Regression(problem)) {
       return false;
     }
   }
 
   if (options_.max_num_irls_iterations > 0) {
+    VLOG(2) << "Solving IRLS problem";
     if (!SolveIRLS(problem)) {
       return false;
     }
@@ -645,10 +644,10 @@ bool RotationAveragingSolver::SolveL1Regression(
       Options::SolverType::SupernodalCholmodLLT;
 
   const Eigen::SparseMatrix<double> A =
-      problem.EdgeWeights().matrix().asDiagonal() * problem.ConstraintMatrix();
+      problem.EdgeWeights().asDiagonal() * problem.ConstraintMatrix();
 
   colmap::LeastAbsoluteDeviationSolver l1_solver(l1_solver_options, A);
-  double last_norm = 0;
+  double prev_norm = 0;
   double curr_norm = 0;
 
   Eigen::VectorXd step(problem.NumParameters());
@@ -659,12 +658,11 @@ bool RotationAveragingSolver::SolveL1Regression(
 
     problem.ComputeResiduals();
 
-    last_norm = curr_norm;
+    prev_norm = curr_norm;
 
     step.setZero();
-    l1_solver.Solve(
-        problem.EdgeWeights().matrix().asDiagonal() * problem.Residuals(),
-        &step);
+    l1_solver.Solve(problem.EdgeWeights().asDiagonal() * problem.Residuals(),
+                    &step);
     if (step.array().isNaN().any()) {
       LOG(ERROR) << "nan error";
       return false;
@@ -684,9 +682,9 @@ bool RotationAveragingSolver::SolveL1Regression(
     constexpr double kEps = 1e-12;
     if (problem.AverageStepSize(step) <
             options_.l1_step_convergence_threshold ||
-        std::abs(last_norm - curr_norm) < kEps) {
-      if (std::abs(last_norm - curr_norm) < kEps)
-        LOG(INFO) << "std::abs(last_norm - curr_norm) < " << kEps;
+        std::abs(prev_norm - curr_norm) < kEps) {
+      if (std::abs(prev_norm - curr_norm) < kEps)
+        LOG(INFO) << "std::abs(prev_norm - curr_norm) < " << kEps;
       iteration++;
       break;
     }
@@ -697,9 +695,9 @@ bool RotationAveragingSolver::SolveL1Regression(
   return true;
 }
 
-std::optional<Eigen::ArrayXd> RotationAveragingSolver::ComputeIRLSWeights(
+std::optional<Eigen::VectorXd> RotationAveragingSolver::ComputeIRLSWeights(
     const RotationAveragingProblem& problem, double sigma) const {
-  Eigen::ArrayXd weights(problem.NumResiduals());
+  Eigen::VectorXd weights(problem.NumResiduals());
 
   for (const auto& [pair_id, constraint] : problem.PairConstraints()) {
     double err_squared = 0;
@@ -709,8 +707,8 @@ std::optional<Eigen::ArrayXd> RotationAveragingSolver::ComputeIRLSWeights(
             std::get_if<RotationAveragingProblem::GravityAligned1DOF>(
                 &constraint.constraint)) {
       // 1-DOF: Y-axis error plus xz_error.
-      err_squared =
-          std::pow(problem.Residuals()[constraint.row_index], 2) + c1->xz_error;
+      const double residual = problem.Residuals()[constraint.row_index];
+      err_squared = residual * residual + c1->xz_error;
       is_1dof = true;
     } else {
       // 3-DOF: full rotation error.
@@ -724,7 +722,9 @@ std::optional<Eigen::ArrayXd> RotationAveragingSolver::ComputeIRLSWeights(
       double tmp = err_squared + sigma * sigma;
       w = sigma * sigma / (tmp * tmp);
     } else if (options_.weight_type == RotationEstimatorOptions::HALF_NORM) {
-      w = std::pow(err_squared, (0.5 - 2) / 2);
+      // Exponent for half-norm weight: (p - 2) / 2 where p = 0.5.
+      constexpr double kHalfNormExponent = (0.5 - 2) / 2;
+      w = std::pow(err_squared, kHalfNormExponent);
     }
 
     if (std::isnan(w)) {
@@ -741,7 +741,7 @@ std::optional<Eigen::ArrayXd> RotationAveragingSolver::ComputeIRLSWeights(
   }
 
   // Set gauge-fixing weights to 1.
-  const int gauge_rows = problem.GaugeFixingRows();
+  const int gauge_rows = problem.NumGaugeFixingResiduals();
   if (gauge_rows == 1) {
     weights[problem.NumResiduals() - 1] = 1;
   } else {
@@ -758,7 +758,6 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
                      problem.ConstraintMatrix());
 
   const double sigma = colmap::DegToRad(options_.irls_loss_parameter_sigma);
-  VLOG(2) << "sigma: " << options_.irls_loss_parameter_sigma;
 
   Eigen::SparseMatrix<double> at_weight;
   Eigen::VectorXd step(problem.NumParameters());
@@ -766,8 +765,6 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
   int iteration = 0;
   for (iteration = 0; iteration < options_.max_num_irls_iterations;
        iteration++) {
-    VLOG(2) << "IRLS iteration: " << iteration;
-
     problem.ComputeResiduals();
 
     // Compute the weights for IRLS.
@@ -778,8 +775,7 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
 
     // Update the factorization for the weighted values.
     at_weight = problem.ConstraintMatrix().transpose() *
-                weights_irls->matrix().asDiagonal() *
-                problem.EdgeWeights().matrix().asDiagonal();
+                weights_irls->asDiagonal() * problem.EdgeWeights().asDiagonal();
 
     llt.factorize(at_weight * problem.ConstraintMatrix());
 
@@ -788,9 +784,11 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
     step = llt.solve(at_weight * problem.Residuals());
     problem.UpdateState(step);
 
+    const double avg_step = problem.AverageStepSize(step);
+    VLOG(2) << "IRLS iteration " << iteration << ", average step: " << avg_step;
+
     // Check convergence.
-    if (problem.AverageStepSize(step) <
-        options_.irls_step_convergence_threshold) {
+    if (avg_step < options_.irls_step_convergence_threshold) {
       iteration++;
       break;
     }

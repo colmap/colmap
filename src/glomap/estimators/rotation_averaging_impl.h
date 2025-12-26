@@ -59,16 +59,19 @@ class RotationAveragingProblem {
     return constraint_matrix_;
   }
   const Eigen::VectorXd& Residuals() const { return residuals_; }
-  const Eigen::ArrayXd& EdgeWeights() const { return edge_weights_; }
+  const Eigen::VectorXd& EdgeWeights() const { return edge_weights_; }
   int NumParameters() const { return constraint_matrix_.cols(); }
   int NumResiduals() const { return constraint_matrix_.rows(); }
-  int GaugeFixingRows() const { return gauge_fixing_rows_; }
+  int NumGaugeFixingResiduals() const { return num_gauge_fixing_residuals_; }
   const std::unordered_map<image_pair_t, PairConstraint>& PairConstraints()
       const {
     return pair_constraints_;
   }
 
  private:
+  // Returns true if frame has gravity prior and gravity mode is enabled.
+  bool HasFrameGravity(frame_t frame_id) const;
+
   // Allocates parameter indices for frames and cameras, initializes rotations.
   size_t AllocateParameters(const colmap::Reconstruction& reconstruction);
 
@@ -89,7 +92,7 @@ class RotationAveragingProblem {
   // Linear system components.
   Eigen::SparseMatrix<double> constraint_matrix_;  // Matrix A.
   Eigen::VectorXd residuals_;                      // Vector b.
-  Eigen::ArrayXd edge_weights_;
+  Eigen::VectorXd edge_weights_;
 
   // Current rotation estimates in tangent space (angle-axis).
   Eigen::VectorXd rotation_estimated_;
@@ -104,7 +107,7 @@ class RotationAveragingProblem {
   // Gauge fixing (removes rotational ambiguity).
   frame_t fixed_frame_id_ = colmap::kInvalidFrameId;
   Eigen::Vector3d fixed_frame_rotation_;
-  int gauge_fixing_rows_ = 3;  // 1 for gravity-aligned, 3 otherwise.
+  int num_gauge_fixing_residuals_ = 3;  // 1 for gravity-aligned, 3 otherwise.
 
   // Cached lookups for ComputeResiduals and UpdateState.
   std::unordered_map<image_t, frame_t> image_id_to_frame_id_;
@@ -129,7 +132,7 @@ class RotationAveragingSolver {
 
   // Computes IRLS weights for all constraints.
   // Returns nullopt if any weight is NaN.
-  std::optional<Eigen::ArrayXd> ComputeIRLSWeights(
+  std::optional<Eigen::VectorXd> ComputeIRLSWeights(
       const RotationAveragingProblem& problem, double sigma) const;
 
   const RotationEstimatorOptions& options_;

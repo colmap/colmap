@@ -33,8 +33,8 @@ bool AllSensorsFromRigKnown(
 
 bool RotationEstimator::EstimateRotations(
     const ViewGraph& view_graph,
-    colmap::Reconstruction& reconstruction,
-    const std::vector<colmap::PosePrior>& pose_priors) {
+    const std::vector<colmap::PosePrior>& pose_priors,
+    colmap::Reconstruction& reconstruction) {
   if (options_.use_gravity && !AllSensorsFromRigKnown(reconstruction.Rigs())) {
     return false;
   }
@@ -96,12 +96,10 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
     const ImagePair& image_pair = view_graph.image_pairs.at(
         colmap::ImagePairToPairId(curr, parents[curr]));
     if (image_pair.image_id1 == curr) {
-      // 1_R_w = 2_R_1^T * 2_R_w
       cams_from_world[curr].rotation =
           (Inverse(image_pair.cam2_from_cam1) * cams_from_world[parents[curr]])
               .rotation;
     } else {
-      // 2_R_w = 2_R_1 * 1_R_w
       cams_from_world[curr].rotation =
           (image_pair.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation;
     }

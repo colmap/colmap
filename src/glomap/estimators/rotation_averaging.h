@@ -29,8 +29,8 @@ struct RotationEstimatorOptions {
   // Average step size threshold to terminate the IRLS minimization.
   double irls_step_convergence_threshold = 0.001;
 
-  // Gravity direction axis.
-  Eigen::Vector3d axis = Eigen::Vector3d(0, 1, 0);
+  // Gravity direction.
+  Eigen::Vector3d gravity_dir = Eigen::Vector3d(0, 1, 0);
 
   // The point where the Huber-like cost function switches from L1 to L2.
   double irls_loss_parameter_sigma = 5.0;  // in degrees
@@ -64,8 +64,8 @@ class RotationEstimator {
   // Estimates the global orientations of all views.
   // Returns true on successful estimation.
   bool EstimateRotations(const ViewGraph& view_graph,
-                         colmap::Reconstruction& reconstruction,
-                         const std::vector<colmap::PosePrior>& pose_priors);
+                         const std::vector<colmap::PosePrior>& pose_priors,
+                         colmap::Reconstruction& reconstruction);
 
  private:
   // Initializes rotations from maximum spanning tree.
