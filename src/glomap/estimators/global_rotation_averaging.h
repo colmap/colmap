@@ -2,6 +2,7 @@
 
 #include "colmap/geometry/pose_prior.h"
 #include "colmap/scene/frame.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/scene/rig.h"
 
 #include "glomap/scene/view_graph.h"
@@ -87,51 +88,41 @@ class RotationEstimator {
   // In the gravity aligned case, currently only gravity measurements
   // for the reference sensor are supported
   bool EstimateRotations(const ViewGraph& view_graph,
-                         std::unordered_map<rig_t, Rig>& rigs,
-                         std::unordered_map<frame_t, Frame>& frames,
-                         const std::unordered_map<image_t, Image>& images,
+                         colmap::Reconstruction& reconstruction,
                          const std::vector<colmap::PosePrior>& pose_priors);
 
  protected:
   // Initialize the rotation from the maximum spanning tree
   // Number of inliers serve as weights
   void InitializeFromMaximumSpanningTree(
-      const ViewGraph& view_graph,
-      std::unordered_map<rig_t, Rig>& rigs,
-      std::unordered_map<frame_t, Frame>& frames,
-      const std::unordered_map<image_t, Image>& images);
+      const ViewGraph& view_graph, colmap::Reconstruction& reconstruction);
 
   // Sets up the sparse linear system such that dR_ij = dR_j - dR_i. This is the
   // first-order approximation of the angle-axis rotations. This should only be
   // called once.
   void SetupLinearSystem(
       const ViewGraph& view_graph,
-      const std::unordered_map<rig_t, Rig>& rigs,
-      const std::unordered_map<frame_t, Frame>& frames,
-      const std::unordered_map<image_t, Image>& images,
+      const colmap::Reconstruction& reconstruction,
       const std::unordered_map<frame_t, const colmap::PosePrior*>&
           frame_to_pose_prior);
 
   // Performs the L1 robust loss minimization.
   bool SolveL1Regression(
       const ViewGraph& view_graph,
-      const std::unordered_map<frame_t, Frame>& frames,
-      const std::unordered_map<image_t, Image>& images,
+      const colmap::Reconstruction& reconstruction,
       const std::unordered_map<frame_t, const colmap::PosePrior*>&
           frame_to_pose_prior);
 
   // Performs the iteratively reweighted least squares.
   bool SolveIRLS(const ViewGraph& view_graph,
-                 std::unordered_map<frame_t, Frame>& frames,
-                 const std::unordered_map<image_t, Image>& images,
+                 const colmap::Reconstruction& reconstruction,
                  const std::unordered_map<frame_t, const colmap::PosePrior*>&
                      frame_to_pose_prior);
 
   // Updates the global rotations based on the current rotation change.
   void UpdateGlobalRotations(
       const ViewGraph& view_graph,
-      const std::unordered_map<frame_t, Frame>& frames,
-      const std::unordered_map<image_t, Image>& images,
+      const colmap::Reconstruction& reconstruction,
       const std::unordered_map<frame_t, const colmap::PosePrior*>&
           frame_to_pose_prior);
 
@@ -139,7 +130,7 @@ class RotationEstimator {
   // current global orientation estimates.
   void ComputeResiduals(
       const ViewGraph& view_graph,
-      const std::unordered_map<image_t, Image>& images,
+      const std::unordered_map<image_t, colmap::Image>& images,
       const std::unordered_map<frame_t, const colmap::PosePrior*>&
           frame_to_pose_prior);
 
@@ -147,15 +138,14 @@ class RotationEstimator {
   // The is the average over all non-fixed global_orientations_ of their
   // rotation magnitudes.
   double ComputeAverageStepSize(
-      const std::unordered_map<frame_t, Frame>& frames,
+      const std::unordered_map<frame_t, colmap::Frame>& frames,
       const std::unordered_map<frame_t, const colmap::PosePrior*>&
           frame_to_pose_prior);
 
   // Converts the results from the tangent space to the global rotations and
   // updates the frames and images with the new rotations.
   void ConvertResults(
-      std::unordered_map<rig_t, Rig>& rigs,
-      std::unordered_map<frame_t, Frame>& frames,
+      colmap::Reconstruction& reconstruction,
       const std::unordered_map<frame_t, const colmap::PosePrior*>&
           frame_to_pose_prior);
 

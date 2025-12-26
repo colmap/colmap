@@ -4,7 +4,7 @@
 #include "colmap/scene/database_cache.h"
 #include "colmap/sfm/incremental_mapper.h"
 
-#include "glomap/io/colmap_converter.h"
+#include "glomap/scene/types.h"
 
 namespace glomap {
 namespace {
@@ -34,11 +34,7 @@ colmap::BundleAdjustmentOptions GetBundleAdjustmentOptions() {
 
 bool RetriangulateTracks(const TriangulatorOptions& options,
                          const colmap::Database& database,
-                         std::unordered_map<rig_t, Rig>& rigs,
-                         std::unordered_map<camera_t, colmap::Camera>& cameras,
-                         std::unordered_map<frame_t, Frame>& frames,
-                         std::unordered_map<image_t, Image>& images,
-                         std::unordered_map<point3D_t, Point3D>& tracks) {
+                         colmap::Reconstruction& reconstruction) {
   // Following code adapted from COLMAP
   auto database_cache =
       colmap::DatabaseCache::Create(database,
@@ -50,37 +46,31 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
   // Check whether the image is in the database cache. If not, set the image
   // as not registered to avoid memory error.
   std::vector<image_t> image_ids_notconnected;
-  for (auto& [image_id, image] : images) {
+  for (const auto& [image_id, image] : reconstruction.Images()) {
     if (!database_cache->ExistsImage(image_id) && image.HasPose()) {
       image_ids_notconnected.push_back(image_id);
       image.FramePtr()->ResetPose();
     }
   }
 
-  // Convert the glomap data structures to colmap data structures
-  std::shared_ptr<colmap::Reconstruction> reconstruction =
-      std::make_shared<colmap::Reconstruction>();
-  ConvertGlomapToColmap(rigs,
-                        cameras,
-                        frames,
-                        images,
-                        std::unordered_map<point3D_t, Point3D>(),
-                        *reconstruction);
+  // Create a shared_ptr copy for IncrementalMapper which requires shared_ptr
+  std::shared_ptr<colmap::Reconstruction> recon_ptr =
+      std::make_shared<colmap::Reconstruction>(reconstruction);
 
   colmap::IncrementalTriangulator::Options tri_options;
   tri_options.complete_max_reproj_error = options.tri_complete_max_reproj_error;
   tri_options.merge_max_reproj_error = options.tri_merge_max_reproj_error;
   tri_options.min_angle = options.tri_min_angle;
 
-  reconstruction->DeleteAllPoints2DAndPoints3D();
-  reconstruction->TranscribeImageIdsToDatabase(database);
+  recon_ptr->DeleteAllPoints2DAndPoints3D();
+  recon_ptr->TranscribeImageIdsToDatabase(database);
 
   colmap::IncrementalMapper mapper(database_cache);
-  mapper.BeginReconstruction(reconstruction);
+  mapper.BeginReconstruction(recon_ptr);
 
   // Triangulate all images.
 
-  const std::vector<image_t> reg_image_ids = reconstruction->RegImageIds();
+  const std::vector<image_t> reg_image_ids = recon_ptr->RegImageIds();
 
   size_t image_idx = 0;
   for (const image_t image_id : reg_image_ids) {
@@ -100,7 +90,7 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
     ba_config.AddImage(image_id);
   }
 
-  colmap::ObservationManager observation_manager(*reconstruction);
+  colmap::ObservationManager observation_manager(*recon_ptr);
 
   const int kNumRefinements = 5;
   const double kMaxRefinementChange = 0.0005;
@@ -110,11 +100,11 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
     // Avoid degeneracies in bundle adjustment.
     observation_manager.FilterObservationsWithNegativeDepth();
 
-    const size_t num_observations = reconstruction->ComputeNumObservations();
+    const size_t num_observations = recon_ptr->ComputeNumObservations();
 
     std::unique_ptr<colmap::BundleAdjuster> bundle_adjuster;
     bundle_adjuster =
-        CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction);
+        CreateDefaultBundleAdjuster(ba_options, ba_config, *recon_ptr);
     if (bundle_adjuster->Solve().termination_type == ceres::FAILURE) {
       return false;
     }
@@ -131,15 +121,15 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
   }
   std::cout << '\n';
 
-  // Add the removed images to the reconstruction
+  // Add the removed images back to the reconstruction
   for (const auto& image_id : image_ids_notconnected) {
-    const auto& image = images[image_id];
-    image.FramePtr()->SetRigFromWorld(Rigid3d());
-    reconstruction->AddImage(images[image_id]);
+    reconstruction.Image(image_id).FramePtr()->SetRigFromWorld(
+        colmap::Rigid3d());
+    recon_ptr->AddImage(reconstruction.Image(image_id));
   }
 
-  // Convert the colmap data structures back to glomap data structures
-  ConvertColmapToGlomap(*reconstruction, rigs, cameras, frames, images, tracks);
+  // Copy the results back to the original reconstruction
+  reconstruction = *recon_ptr;
 
   return true;
 }

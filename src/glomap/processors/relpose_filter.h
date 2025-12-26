@@ -1,5 +1,7 @@
 #pragma once
 
+#include "colmap/scene/reconstruction.h"
+
 #include "glomap/scene/view_graph.h"
 
 namespace glomap {
@@ -7,7 +9,7 @@ namespace glomap {
 struct RelPoseFilter {
   // Filter relative pose based on rotation angle.
   static void FilterRotations(ViewGraph& view_graph,
-                              const std::unordered_map<image_t, Image>& images,
+                              const colmap::Reconstruction& reconstruction,
                               double max_angle_deg = 5.0);
 
   // Filter relative pose based on number of inliers

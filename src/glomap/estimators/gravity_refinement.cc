@@ -22,8 +22,7 @@ Eigen::Vector3d* GetImageGravityOrNull(
 
 void GravityRefiner::RefineGravity(
     const ViewGraph& view_graph,
-    const std::unordered_map<frame_t, Frame>& frames,
-    const std::unordered_map<image_t, Image>& images,
+    const colmap::Reconstruction& reconstruction,
     std::vector<colmap::PosePrior>& pose_priors) {
   const std::unordered_map<image_t, std::unordered_set<image_t>>&
       adjacency_list = view_graph.CreateImageAdjacencyList();
@@ -37,7 +36,7 @@ void GravityRefiner::RefineGravity(
   for (auto& pose_prior : pose_priors) {
     if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
       const image_t image_id = pose_prior.corr_data_id.id;
-      const Image& image = images.at(image_id);
+      const Image& image = reconstruction.Image(image_id);
       // TODO(jsch): Can only handle trivial frames.
       if (image.IsRefInFrame()) {
         THROW_CHECK(image_to_pose_prior.emplace(image_id, &pose_prior).second)
@@ -53,7 +52,7 @@ void GravityRefiner::RefineGravity(
   int counter_rect = 0;
   std::unordered_set<frame_t> error_prone_frames;
   IdentifyErrorProneGravity(
-      view_graph, frames, images, image_to_pose_prior, error_prone_frames);
+      view_graph, reconstruction, image_to_pose_prior, error_prone_frames);
 
   if (error_prone_frames.empty()) {
     LOG(INFO) << "No error prone frames found";
@@ -63,10 +62,10 @@ void GravityRefiner::RefineGravity(
   // Get the relevant pair ids for frames
   std::unordered_map<frame_t, std::unordered_set<image_pair_t>>
       adjacency_list_frames_to_pair_id;
-  for (auto& [image_id, neighbors] : adjacency_list) {
+  for (const auto& [image_id, neighbors] : adjacency_list) {
     for (const auto& neighbor : neighbors) {
-      adjacency_list_frames_to_pair_id[images.at(image_id).FrameId()].insert(
-          colmap::ImagePairToPairId(image_id, neighbor));
+      adjacency_list_frames_to_pair_id[reconstruction.Image(image_id).FrameId()]
+          .insert(colmap::ImagePairToPairId(image_id, neighbor));
     }
   }
 
@@ -104,8 +103,8 @@ void GravityRefiner::RefineGravity(
         continue;
       }
 
-      const auto& image1 = images.at(image_id1);
-      const auto& image2 = images.at(image_id2);
+      const auto& image1 = reconstruction.Image(image_id1);
+      const auto& image2 = reconstruction.Image(image_id2);
 
       // Get the cam_from_rig
       Rigid3d cam1_from_rig1, cam2_from_rig2;
@@ -168,8 +167,7 @@ void GravityRefiner::RefineGravity(
 
 void GravityRefiner::IdentifyErrorProneGravity(
     const ViewGraph& view_graph,
-    const std::unordered_map<frame_t, Frame>& frames,
-    const std::unordered_map<image_t, Image>& images,
+    const colmap::Reconstruction& reconstruction,
     std::unordered_map<image_t, colmap::PosePrior*>& image_to_pose_prior,
     std::unordered_set<frame_t>& error_prone_frames) {
   error_prone_frames.clear();
@@ -179,9 +177,9 @@ void GravityRefiner::IdentifyErrorProneGravity(
 
   // image_id: (mistake, total)
   std::unordered_map<frame_t, std::pair<int, int>> frame_counter;
-  frame_counter.reserve(frames.size());
+  frame_counter.reserve(reconstruction.NumFrames());
   // Set the counter of all images to 0
-  for (const auto& [frame_id, frame] : frames) {
+  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     frame_counter[frame_id] = std::make_pair(0, 0);
   }
 
@@ -196,8 +194,8 @@ void GravityRefiner::IdentifyErrorProneGravity(
       continue;
     }
 
-    const auto& image1 = images.at(image_pair.image_id1);
-    const auto& image2 = images.at(image_pair.image_id2);
+    const auto& image1 = reconstruction.Image(image_pair.image_id1);
+    const auto& image2 = reconstruction.Image(image_pair.image_id2);
     // Calculate the gravity aligned relative rotation
     const Eigen::Matrix3d R_rel =
         colmap::GravityAlignedRotation(*image_gravity2).transpose() *

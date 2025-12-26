@@ -64,6 +64,7 @@ void TrackEngine::BlindConcatenation() {
 
 void TrackEngine::TrackCollection(
     std::unordered_map<point3D_t, Point3D>& tracks) {
+  const auto& images = images_;
   std::unordered_map<uint64_t, std::unordered_set<uint64_t>> track_map;
   std::unordered_map<uint64_t, int> track_counter;
 
@@ -125,7 +126,7 @@ void TrackEngine::TrackCollection(
       const uint64_t feature_id = point_global_id & 0xFFFFFFFF;
       if (image_id_set.find(image_id) != image_id_set.end()) {
         for (const auto& feature : image_id_set.at(image_id)) {
-          if ((feature - images_.at(image_id).Point2D(feature_id).xy).norm() >
+          if ((feature - images.at(image_id).Point2D(feature_id).xy).norm() >
               options_.thres_inconsistency) {
             tracks[track_id].track.SetElements({});
             break;
@@ -140,7 +141,7 @@ void TrackEngine::TrackCollection(
             std::make_pair(image_id, std::vector<Eigen::Vector2d>()));
 
       image_id_set[image_id].push_back(
-          images_.at(image_id).Point2D(feature_id).xy);
+          images.at(image_id).Point2D(feature_id).xy);
 
       tracks[track_id].track.AddElement(image_id, feature_id);
     }
@@ -154,6 +155,8 @@ void TrackEngine::TrackCollection(
 size_t TrackEngine::FindTracksForProblem(
     const std::unordered_map<point3D_t, Point3D>& tracks_full,
     std::unordered_map<point3D_t, Point3D>& tracks_selected) {
+  const auto& images = images_;
+
   // Sort the tracks by length
   std::vector<std::pair<size_t, point3D_t>> track_lengths;
   for (const auto& [track_id, track] : tracks_full) {
@@ -170,7 +173,7 @@ size_t TrackEngine::FindTracksForProblem(
   // If we only want to select a subset of images, then only add the tracks
   // corresponding to those images
   std::unordered_map<point3D_t, Point3D> tracks;
-  for (const auto& [image_id, image] : images_) {
+  for (const auto& [image_id, image] : images) {
     if (!image.HasPose()) continue;
     tracks_per_camera[image_id] = 0;
   }
@@ -215,11 +218,11 @@ size_t TrackEngine::FindTracksForProblem(
     if (tracks.size() > options_.max_num_tracks) break;
   }
 
-  // To avoid flushing the track_full, we copy the selected tracks to the
-  // selected tracks
-  tracks_selected = tracks;
+  // Move the selected tracks to the output
+  size_t num_tracks = tracks.size();
+  tracks_selected = std::move(tracks);
 
-  return tracks.size();
+  return num_tracks;
 }
 
 }  // namespace glomap

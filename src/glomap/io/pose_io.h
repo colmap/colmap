@@ -25,7 +25,7 @@ void ReadRelWeight(const std::string& file_path,
 // image.cam_from_world * [0,1,0]^T = g
 std::vector<colmap::PosePrior> ReadGravity(
     const std::string& gravity_path,
-    std::unordered_map<image_t, Image>& images);
+    const std::unordered_map<image_t, Image>& images);
 
 // Output would be of the format:
 // IMAGE_NAME QW QX QY QZ

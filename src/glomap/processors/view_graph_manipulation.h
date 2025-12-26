@@ -1,6 +1,7 @@
 #pragma once
 
 #include "colmap/scene/frame.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
 
 #include "glomap/scene/view_graph.h"
@@ -14,29 +15,23 @@ struct ViewGraphManipulater {
   };
 
   static image_pair_t SparsifyGraph(ViewGraph& view_graph,
-                                    std::unordered_map<frame_t, Frame>& frames,
-                                    std::unordered_map<image_t, Image>& images,
+                                    colmap::Reconstruction& reconstruction,
                                     int expected_degree = 50);
 
   static image_t EstablishStrongClusters(
       ViewGraph& view_graph,
-      std::unordered_map<frame_t, Frame>& frames,
-      std::unordered_map<image_t, Image>& images,
+      colmap::Reconstruction& reconstruction,
       std::unordered_map<frame_t, int>& cluster_ids,
       StrongClusterCriteria criteria = INLIER_NUM,
       double min_thres = 100,  // require strong edges
       int min_num_images = 2);
 
   static void UpdateImagePairsConfig(
-      ViewGraph& view_graph,
-      const std::unordered_map<camera_t, colmap::Camera>& cameras,
-      const std::unordered_map<image_t, Image>& images);
+      ViewGraph& view_graph, const colmap::Reconstruction& reconstruction);
 
   // Decompose the relative camera postion from the camera config
-  static void DecomposeRelPose(
-      ViewGraph& view_graph,
-      std::unordered_map<camera_t, colmap::Camera>& cameras,
-      std::unordered_map<image_t, Image>& images);
+  static void DecomposeRelPose(ViewGraph& view_graph,
+                               colmap::Reconstruction& reconstruction);
 };
 
 }  // namespace glomap

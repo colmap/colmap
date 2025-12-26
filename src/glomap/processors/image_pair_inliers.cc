@@ -76,10 +76,8 @@ double ImagePairInliers::ScoreErrorEssential() {
     image_pair.inliers.clear();
   }
 
-  const image_t image_id1 = image_pair.image_id1;
-  const image_t image_id2 = image_pair.image_id2;
-  const colmap::Image& image1 = images.at(image_id1);
-  const colmap::Image& image2 = images.at(image_id2);
+  const colmap::Image& image1 = reconstruction.Image(image_pair.image_id1);
+  const colmap::Image& image2 = reconstruction.Image(image_pair.image_id2);
 
   const double thres = options.max_epipolar_error_E * 0.5 *
                        (1. / image1.CameraPtr()->MeanFocalLength() +
@@ -166,8 +164,8 @@ double ImagePairInliers::ScoreErrorFundamental() {
   int positive_count = 0;
   int negative_count = 0;
 
-  const Image& image1 = images.at(image_pair.image_id1);
-  const Image& image2 = images.at(image_pair.image_id2);
+  const Image& image1 = reconstruction.Image(image_pair.image_id1);
+  const Image& image2 = reconstruction.Image(image_pair.image_id2);
 
   double thres = options.max_epipolar_error_F;
   double sq_threshold = thres * thres;
@@ -220,8 +218,8 @@ double ImagePairInliers::ScoreErrorHomography() {
     image_pair.inliers.clear();
   }
 
-  const Image& image1 = images.at(image_pair.image_id1);
-  const Image& image2 = images.at(image_pair.image_id2);
+  const Image& image1 = reconstruction.Image(image_pair.image_id1);
+  const Image& image2 = reconstruction.Image(image_pair.image_id2);
 
   double thres = options.max_epipolar_error_H;
   double sq_threshold = thres * thres;
@@ -249,18 +247,16 @@ double ImagePairInliers::ScoreErrorHomography() {
   return score;
 }
 
-void ImagePairsInlierCount(
-    ViewGraph& view_graph,
-    const std::unordered_map<camera_t, colmap::Camera>& cameras,
-    const std::unordered_map<image_t, Image>& images,
-    const InlierThresholdOptions& options,
-    bool clean_inliers) {
+void ImagePairsInlierCount(ViewGraph& view_graph,
+                           const colmap::Reconstruction& reconstruction,
+                           const InlierThresholdOptions& options,
+                           bool clean_inliers) {
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (!clean_inliers && image_pair.inliers.size() > 0) continue;
     image_pair.inliers.clear();
 
-    if (image_pair.is_valid == false) continue;
-    ImagePairInliers inlier_finder(image_pair, images, options, &cameras);
+    if (!image_pair.is_valid) continue;
+    ImagePairInliers inlier_finder(image_pair, reconstruction, options);
     inlier_finder.ScoreError();
   }
 }

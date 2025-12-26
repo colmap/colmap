@@ -4,15 +4,15 @@ namespace glomap {
 
 void RelPoseFilter::FilterRotations(
     ViewGraph& view_graph,
-    const std::unordered_map<image_t, Image>& images,
+    const colmap::Reconstruction& reconstruction,
     double max_angle_deg) {
   const double max_angle_rad = colmap::DegToRad(max_angle_deg);
   int num_invalid = 0;
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (!image_pair.is_valid) continue;
 
-    const Image& image1 = images.at(image_pair.image_id1);
-    const Image& image2 = images.at(image_pair.image_id2);
+    const Image& image1 = reconstruction.Image(image_pair.image_id1);
+    const Image& image2 = reconstruction.Image(image_pair.image_id2);
 
     if (!image1.HasPose() || !image2.HasPose()) {
       continue;

@@ -8,26 +8,24 @@
 
 namespace glomap {
 
-bool ViewGraphCalibrator::Solve(
-    ViewGraph& view_graph,
-    std::unordered_map<camera_t, colmap::Camera>& cameras,
-    std::unordered_map<image_t, Image>& images) {
+bool ViewGraphCalibrator::Solve(ViewGraph& view_graph,
+                                colmap::Reconstruction& reconstruction) {
   // Reset the problem
   LOG(INFO) << "Start ViewGraphCalibrator";
 
-  Reset(cameras);
+  Reset(reconstruction);
 
   // Set the solver options.
-  if (cameras.size() < 50)
+  if (reconstruction.NumCameras() < 50)
     options_.solver_options.linear_solver_type = ceres::DENSE_NORMAL_CHOLESKY;
   else
     options_.solver_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
 
   // Add the image pairs into the problem
-  AddImagePairsToProblem(view_graph, cameras, images);
+  AddImagePairsToProblem(view_graph, reconstruction);
 
   // Set the cameras to be constant if they have prior intrinsics
-  const size_t num_cameras = ParameterizeCameras(cameras);
+  const size_t num_cameras = ParameterizeCameras(reconstruction);
 
   if (num_cameras == 0) {
     LOG(INFO) << "No cameras to optimize";
@@ -42,18 +40,17 @@ bool ViewGraphCalibrator::Solve(
   VLOG(2) << summary.FullReport();
 
   // Convert the results back to the camera
-  CopyBackResults(cameras);
+  CopyBackResults(reconstruction);
   FilterImagePairs(view_graph);
 
   return summary.IsSolutionUsable();
 }
 
-void ViewGraphCalibrator::Reset(
-    const std::unordered_map<camera_t, colmap::Camera>& cameras) {
+void ViewGraphCalibrator::Reset(const colmap::Reconstruction& reconstruction) {
   // Initialize the problem
   focals_.clear();
-  focals_.reserve(cameras.size());
-  for (const auto& [camera_id, camera] : cameras) {
+  focals_.reserve(reconstruction.NumCameras());
+  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
     focals_[camera_id] = camera.MeanFocalLength();
   }
 
@@ -65,47 +62,46 @@ void ViewGraphCalibrator::Reset(
 }
 
 void ViewGraphCalibrator::AddImagePairsToProblem(
-    const ViewGraph& view_graph,
-    const std::unordered_map<camera_t, colmap::Camera>& cameras,
-    const std::unordered_map<image_t, Image>& images) {
+    const ViewGraph& view_graph, const colmap::Reconstruction& reconstruction) {
   for (auto& [image_pair_id, image_pair] : view_graph.image_pairs) {
     if (image_pair.config != colmap::TwoViewGeometry::CALIBRATED &&
         image_pair.config != colmap::TwoViewGeometry::UNCALIBRATED)
       continue;
-    if (image_pair.is_valid == false) continue;
+    if (!image_pair.is_valid) continue;
 
-    AddImagePair(image_pair, cameras, images);
+    AddImagePair(image_pair, reconstruction);
   }
 }
 
 void ViewGraphCalibrator::AddImagePair(
-    const ImagePair& image_pair,
-    const std::unordered_map<camera_t, colmap::Camera>& cameras,
-    const std::unordered_map<image_t, Image>& images) {
-  const camera_t camera_id1 = images.at(image_pair.image_id1).CameraId();
-  const camera_t camera_id2 = images.at(image_pair.image_id2).CameraId();
+    const ImagePair& image_pair, const colmap::Reconstruction& reconstruction) {
+  const camera_t camera_id1 =
+      reconstruction.Image(image_pair.image_id1).CameraId();
+  const camera_t camera_id2 =
+      reconstruction.Image(image_pair.image_id2).CameraId();
 
   if (camera_id1 == camera_id2) {
     problem_->AddResidualBlock(
         FetzerFocalLengthSameCameraCostFunctor::Create(
-            image_pair.F, cameras.at(camera_id1).PrincipalPoint()),
+            image_pair.F, reconstruction.Camera(camera_id1).PrincipalPoint()),
         loss_function_.get(),
         &(focals_[camera_id1]));
   } else {
-    problem_->AddResidualBlock(FetzerFocalLengthCostFunctor::Create(
-                                   image_pair.F,
-                                   cameras.at(camera_id1).PrincipalPoint(),
-                                   cameras.at(camera_id2).PrincipalPoint()),
-                               loss_function_.get(),
-                               &(focals_[camera_id1]),
-                               &(focals_[camera_id2]));
+    problem_->AddResidualBlock(
+        FetzerFocalLengthCostFunctor::Create(
+            image_pair.F,
+            reconstruction.Camera(camera_id1).PrincipalPoint(),
+            reconstruction.Camera(camera_id2).PrincipalPoint()),
+        loss_function_.get(),
+        &(focals_[camera_id1]),
+        &(focals_[camera_id2]));
   }
 }
 
 size_t ViewGraphCalibrator::ParameterizeCameras(
-    const std::unordered_map<camera_t, colmap::Camera>& cameras) {
+    const colmap::Reconstruction& reconstruction) {
   size_t num_cameras = 0;
-  for (auto& [camera_id, camera] : cameras) {
+  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
     if (!problem_->HasParameterBlock(&(focals_[camera_id]))) continue;
 
     num_cameras++;
@@ -120,9 +116,9 @@ size_t ViewGraphCalibrator::ParameterizeCameras(
 }
 
 void ViewGraphCalibrator::CopyBackResults(
-    std::unordered_map<camera_t, colmap::Camera>& cameras) {
+    colmap::Reconstruction& reconstruction) {
   size_t counter = 0;
-  for (auto& [camera_id, camera] : cameras) {
+  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
     if (!problem_->HasParameterBlock(&(focals_[camera_id]))) continue;
 
     // if the estimated parameter is too crazy, reject it
@@ -139,8 +135,9 @@ void ViewGraphCalibrator::CopyBackResults(
     }
 
     // Update the focal length
-    for (const size_t idx : camera.FocalLengthIdxs()) {
-      camera.params[idx] = focals_[camera_id];
+    colmap::Camera& cam_ref = reconstruction.Camera(camera_id);
+    for (const size_t idx : cam_ref.FocalLengthIdxs()) {
+      cam_ref.params[idx] = focals_[camera_id];
     }
   }
   LOG(INFO) << counter << " cameras are rejected in view graph calibration";
@@ -164,7 +161,7 @@ size_t ViewGraphCalibrator::FilterImagePairs(ViewGraph& view_graph) const {
     if (image_pair.config != colmap::TwoViewGeometry::CALIBRATED &&
         image_pair.config != colmap::TwoViewGeometry::UNCALIBRATED)
       continue;
-    if (image_pair.is_valid == false) continue;
+    if (!image_pair.is_valid) continue;
 
     const Eigen::Vector2d error(residuals[counter], residuals[counter + 1]);
 

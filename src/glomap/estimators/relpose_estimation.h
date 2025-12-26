@@ -1,5 +1,6 @@
 #pragma once
 
+#include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
 
 #include "glomap/scene/view_graph.h"
@@ -16,10 +17,8 @@ struct RelativePoseEstimationOptions {
   RelativePoseEstimationOptions() { ransac_options.max_iterations = 50000; }
 };
 
-void EstimateRelativePoses(
-    ViewGraph& view_graph,
-    std::unordered_map<camera_t, colmap::Camera>& cameras,
-    std::unordered_map<image_t, Image>& images,
-    const RelativePoseEstimationOptions& options);
+void EstimateRelativePoses(ViewGraph& view_graph,
+                           colmap::Reconstruction& reconstruction,
+                           const RelativePoseEstimationOptions& options);
 
 }  // namespace glomap

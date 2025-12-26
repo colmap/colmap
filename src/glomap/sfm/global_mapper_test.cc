@@ -39,29 +39,15 @@ TEST(GlobalMapper, WithoutNoise) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   ViewGraph view_graph;
-  std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<camera_t, colmap::Camera> cameras;
-  std::unordered_map<frame_t, Frame> frames;
-  std::unordered_map<image_t, Image> images;
-  std::unordered_map<point3D_t, Point3D> tracks;
+  colmap::Reconstruction reconstruction;
   std::vector<colmap::PosePrior> pose_priors;
 
-  ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
+  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
 
   GlobalMapper global_mapper(CreateTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(database.get(),
-                      view_graph,
-                      rigs,
-                      cameras,
-                      frames,
-                      images,
-                      tracks,
-                      pose_priors,
-                      cluster_ids);
-
-  colmap::Reconstruction reconstruction;
-  ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);
+  global_mapper.Solve(
+      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
 
   EXPECT_THAT(gt_reconstruction,
               colmap::ReconstructionNear(reconstruction,
@@ -86,29 +72,15 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   ViewGraph view_graph;
-  std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<camera_t, colmap::Camera> cameras;
-  std::unordered_map<frame_t, Frame> frames;
-  std::unordered_map<image_t, Image> images;
-  std::unordered_map<point3D_t, Point3D> tracks;
+  colmap::Reconstruction reconstruction;
   std::vector<colmap::PosePrior> pose_priors;
 
-  ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
+  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
 
   GlobalMapper global_mapper(CreateTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(database.get(),
-                      view_graph,
-                      rigs,
-                      cameras,
-                      frames,
-                      images,
-                      tracks,
-                      pose_priors,
-                      cluster_ids);
-
-  colmap::Reconstruction reconstruction;
-  ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);
+  global_mapper.Solve(
+      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
 
   EXPECT_THAT(gt_reconstruction,
               colmap::ReconstructionNear(reconstruction,
@@ -134,38 +106,24 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   ViewGraph view_graph;
-  std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<camera_t, colmap::Camera> cameras;
-  std::unordered_map<frame_t, Frame> frames;
-  std::unordered_map<image_t, Image> images;
-  std::unordered_map<point3D_t, Point3D> tracks;
+  colmap::Reconstruction reconstruction;
   std::vector<colmap::PosePrior> pose_priors;
 
-  ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
+  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
 
   // Set the rig sensors to be unknown
-  for (auto& [rig_id, rig] : rigs) {
-    for (auto& [sensor_id, sensor] : rig.NonRefSensors()) {
+  for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
+    for (const auto& [sensor_id, sensor] : rig.NonRefSensors()) {
       if (sensor.has_value()) {
-        rig.ResetSensorFromRig(sensor_id);
+        reconstruction.Rig(rig_id).ResetSensorFromRig(sensor_id);
       }
     }
   }
 
   GlobalMapper global_mapper(CreateTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(database.get(),
-                      view_graph,
-                      rigs,
-                      cameras,
-                      frames,
-                      images,
-                      tracks,
-                      pose_priors,
-                      cluster_ids);
-
-  colmap::Reconstruction reconstruction;
-  ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);
+  global_mapper.Solve(
+      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
 
   EXPECT_THAT(gt_reconstruction,
               colmap::ReconstructionNear(reconstruction,
@@ -192,29 +150,15 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
       synthetic_noise_options, &gt_reconstruction, database.get());
 
   ViewGraph view_graph;
-  std::unordered_map<camera_t, colmap::Camera> cameras;
-  std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<image_t, Image> images;
-  std::unordered_map<frame_t, Frame> frames;
-  std::unordered_map<point3D_t, Point3D> tracks;
+  colmap::Reconstruction reconstruction;
   std::vector<colmap::PosePrior> pose_priors;
 
-  ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
+  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
 
   GlobalMapper global_mapper(CreateTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(database.get(),
-                      view_graph,
-                      rigs,
-                      cameras,
-                      frames,
-                      images,
-                      tracks,
-                      pose_priors,
-                      cluster_ids);
-
-  colmap::Reconstruction reconstruction;
-  ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);
+  global_mapper.Solve(
+      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
 
   EXPECT_THAT(gt_reconstruction,
               colmap::ReconstructionNear(reconstruction,
