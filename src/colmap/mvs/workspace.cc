@@ -71,7 +71,8 @@ void Workspace::Load(const std::vector<std::string>& image_names) {
     // Read and rescale bitmap
     auto bitmap = std::make_unique<Bitmap>();
     bitmap->Read(GetBitmapPath(image_idx), options_.image_as_rgb);
-    if (bitmap->Width() != width || bitmap->Height() != height) {
+    if (bitmap->Width() != static_cast<int>(width) ||
+        bitmap->Height() != static_cast<int>(height)) {
       bitmap->Rescale(static_cast<int>(width), static_cast<int>(height));
     }
     bitmaps_[image_idx] = std::move(bitmap);
