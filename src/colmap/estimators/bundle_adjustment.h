@@ -123,8 +123,8 @@ class BundleAdjustmentConfig {
 };
 
 struct BundleAdjustmentOptions {
-  // Loss function types: Trivial (non-robust) and Cauchy (robust) loss.
-  enum class LossFunctionType { TRIVIAL, SOFT_L1, CAUCHY };
+  // Loss function types: Trivial (non-robust) and robust loss functions.
+  enum class LossFunctionType { TRIVIAL, SOFT_L1, CAUCHY, HUBER };
   LossFunctionType loss_function_type = LossFunctionType::TRIVIAL;
 
   // Scaling factor determines residual at which robustification takes place.
@@ -142,6 +142,11 @@ struct BundleAdjustmentOptions {
   // Whether to refine the extrinsic parameter group.
   bool refine_sensor_from_rig = true;
   bool refine_rig_from_world = true;
+
+  // Whether to keep the rotation component of rig_from_world constant.
+  // Only takes effect when refine_rig_from_world is true.
+  // When true, only translation is refined.
+  bool constant_rig_from_world_rotation = false;
 
   // Whether to print a final summary.
   bool print_summary = true;

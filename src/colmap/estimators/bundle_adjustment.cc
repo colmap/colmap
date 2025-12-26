@@ -54,6 +54,9 @@ std::unique_ptr<ceres::LossFunction> CreateLossFunction(
     case BundleAdjustmentOptions::LossFunctionType::CAUCHY:
       return std::make_unique<ceres::CauchyLoss>(loss_function_scale);
       break;
+    case BundleAdjustmentOptions::LossFunctionType::HUBER:
+      return std::make_unique<ceres::HuberLoss>(loss_function_scale);
+      break;
   }
   return nullptr;
 }
@@ -659,6 +662,9 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
           problem.SetParameterBlockConstant(
               rig_from_world.rotation.coeffs().data());
           problem.SetParameterBlockConstant(rig_from_world.translation.data());
+        } else if (options.constant_rig_from_world_rotation) {
+          problem.SetParameterBlockConstant(
+              rig_from_world.rotation.coeffs().data());
         }
       }
     }
