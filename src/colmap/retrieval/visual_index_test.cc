@@ -181,6 +181,8 @@ TEST_P(ParameterizedVisualIndexTests, SpatialVerification) {
   build_options.num_iterations = 10;
   build_options.num_rounds = 1;
   build_options.num_visual_words = 100;
+  // Use a single thread for deterministic results.
+  build_options.num_threads = 1;
 
   VisualIndex::Descriptors train_descriptors =
       VisualIndex::Descriptors::Random(1000, desc_dim);
