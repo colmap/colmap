@@ -31,10 +31,6 @@ bool AllSensorsFromRigKnown(
 
 }  // namespace
 
-// ============================================================================
-// RotationEstimator implementation
-// ============================================================================
-
 bool RotationEstimator::EstimateRotations(
     const ViewGraph& view_graph,
     colmap::Reconstruction& reconstruction,
