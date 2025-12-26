@@ -50,7 +50,8 @@ class GlobalMapper {
   explicit GlobalMapper(const GlobalMapperOptions& options)
       : options_(options) {}
 
-  bool Solve(const colmap::Database& database,
+  // database can be nullptr if skip_retriangulation is true
+  bool Solve(const colmap::Database* database,
              ViewGraph& view_graph,
              colmap::Reconstruction& reconstruction,
              std::vector<colmap::PosePrior>& pose_priors,

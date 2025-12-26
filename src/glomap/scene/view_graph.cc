@@ -56,7 +56,8 @@ std::vector<std::unordered_set<frame_t>> FindConnectedComponents(
 int ViewGraph::KeepLargestConnectedComponents(
     colmap::Reconstruction& reconstruction) {
   const std::vector<std::unordered_set<frame_t>> connected_components =
-      FindConnectedComponents(CreateFrameAdjacencyList(reconstruction));
+      FindConnectedComponents(
+          CreateFrameAdjacencyList(reconstruction.Images()));
 
   int max_comp = -1;
   int max_num_reg_images = 0;
@@ -101,7 +102,8 @@ int ViewGraph::MarkConnectedComponents(
     std::unordered_map<frame_t, int>& cluster_ids,
     int min_num_images) {
   const std::vector<std::unordered_set<frame_t>> connected_components =
-      FindConnectedComponents(CreateFrameAdjacencyList(reconstruction));
+      FindConnectedComponents(
+          CreateFrameAdjacencyList(reconstruction.Images()));
   const int num_comp = connected_components.size();
 
   std::vector<std::pair<int, int>> comp_num_images(num_comp);
@@ -142,14 +144,12 @@ ViewGraph::CreateImageAdjacencyList() const {
 
 std::unordered_map<frame_t, std::unordered_set<frame_t>>
 ViewGraph::CreateFrameAdjacencyList(
-    const colmap::Reconstruction& reconstruction) const {
+    const std::unordered_map<image_t, colmap::Image>& images) const {
   std::unordered_map<frame_t, std::unordered_set<frame_t>> adjacency_list;
   for (const auto& [_, image_pair] : image_pairs) {
     if (image_pair.is_valid) {
-      const frame_t frame_id1 =
-          reconstruction.Image(image_pair.image_id1).FrameId();
-      const frame_t frame_id2 =
-          reconstruction.Image(image_pair.image_id2).FrameId();
+      const frame_t frame_id1 = images.at(image_pair.image_id1).FrameId();
+      const frame_t frame_id2 = images.at(image_pair.image_id2).FrameId();
       adjacency_list[frame_id1].insert(frame_id2);
       adjacency_list[frame_id2].insert(frame_id1);
     }

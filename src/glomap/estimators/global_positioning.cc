@@ -119,7 +119,7 @@ void GlobalPositioner::InitializeRandomPositions(
   std::unordered_set<frame_t> constrained_positions;
   constrained_positions.reserve(reconstruction.NumFrames());
   for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
-    if (image_pair.is_valid == false) continue;
+    if (!image_pair.is_valid) continue;
     constrained_positions.insert(
         reconstruction.Image(image_pair.image_id1).FrameId());
     constrained_positions.insert(
@@ -164,7 +164,7 @@ void GlobalPositioner::AddCameraToCameraConstraints(
   }
 
   for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
-    if (image_pair.is_valid == false) {
+    if (!image_pair.is_valid) {
       continue;
     }
 

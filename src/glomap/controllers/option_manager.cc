@@ -95,41 +95,6 @@ void OptionManager::AddGlobalMapperFullOptions() {
   AddInlierThresholdOptions();
 }
 
-void OptionManager::AddGlobalMapperResumeOptions() {
-  if (added_mapper_options_) {
-    return;
-  }
-  added_mapper_options_ = true;
-
-  // These several steps cannot be used if the reconstruction is resumed from a
-  // reconstruction
-  mapper->skip_preprocessing = true;
-  mapper->skip_view_graph_calibration = true;
-  mapper->skip_relative_pose_estimation = true;
-  mapper->skip_rotation_averaging = true;
-  mapper->skip_track_establishment = true;
-  mapper->skip_retriangulation = true;
-
-  AddAndRegisterDefaultOption("ba_iteration_num",
-                              &mapper->num_iteration_bundle_adjustment);
-  AddAndRegisterDefaultOption("retriangulation_iteration_num",
-                              &mapper->num_iteration_retriangulation);
-  AddAndRegisterDefaultOption("skip_global_positioning",
-                              &mapper->skip_global_positioning);
-  AddAndRegisterDefaultOption("skip_bundle_adjustment",
-                              &mapper->skip_bundle_adjustment);
-  AddAndRegisterDefaultOption("skip_pruning", &mapper->skip_pruning);
-}
-
-void OptionManager::AddGlobalMapperResumeFullOptions() {
-  AddGlobalMapperResumeOptions();
-
-  AddGlobalPositionerOptions();
-  AddBundleAdjusterOptions();
-  AddTriangulatorOptions();
-  AddInlierThresholdOptions();
-}
-
 void OptionManager::AddViewGraphCalibrationOptions() {
   if (added_view_graph_calibration_options_) {
     return;

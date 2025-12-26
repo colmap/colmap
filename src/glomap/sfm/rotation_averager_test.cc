@@ -118,7 +118,7 @@ TEST(RotationEstimator, WithoutNoise) {
   GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(
-      *database, view_graph, reconstruction, pose_priors, cluster_ids);
+      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
 
   // TODO: The current 1-dof rotation averaging sometimes fails to pick the
   // right solution (e.g., 180 deg flipped).
@@ -162,7 +162,7 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialKnownRig) {
   GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(
-      *database, view_graph, reconstruction, pose_priors, cluster_ids);
+      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
 
   for (const bool use_gravity : {true, false}) {
     // Make a copy for this iteration
@@ -212,7 +212,7 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialUnknownRig) {
   GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(
-      *database, view_graph, reconstruction, pose_priors, cluster_ids);
+      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
 
   // For unknown rigs, it is not supported to use gravity.
   for (const bool use_gravity : {false}) {
@@ -261,7 +261,7 @@ TEST(RotationEstimator, WithNoiseAndOutliers) {
   GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(
-      *database, view_graph, reconstruction, pose_priors, cluster_ids);
+      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
 
   // TODO: The current 1-dof rotation averaging sometimes fails to pick the
   // right solution (e.g., 180 deg flipped).
@@ -310,7 +310,7 @@ TEST(RotationEstimator, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
   GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(
-      *database, view_graph, reconstruction, pose_priors, cluster_ids);
+      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
 
   // TODO: The current 1-dof rotation averaging sometimes fails to pick the
   // right solution (e.g., 180 deg flipped).
@@ -353,7 +353,7 @@ TEST(RotationEstimator, RefineGravity) {
   GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(
-      *database, view_graph, reconstruction, pose_priors, cluster_ids);
+      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
 
   GravityRefinerOptions opt_grav_refine;
   GravityRefiner grav_refiner(opt_grav_refine);
@@ -391,7 +391,7 @@ TEST(RotationEstimator, RefineGravityWithNonTrivialRigs) {
   GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(
-      *database, view_graph, reconstruction, pose_priors, cluster_ids);
+      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
 
   GravityRefinerOptions opt_grav_refine;
   GravityRefiner grav_refiner(opt_grav_refine);

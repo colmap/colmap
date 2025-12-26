@@ -130,7 +130,7 @@ class RotationEstimator {
   // current global orientation estimates.
   void ComputeResiduals(
       const ViewGraph& view_graph,
-      const colmap::Reconstruction& reconstruction,
+      const std::unordered_map<image_t, colmap::Image>& images,
       const std::unordered_map<frame_t, const colmap::PosePrior*>&
           frame_to_pose_prior);
 
@@ -138,7 +138,7 @@ class RotationEstimator {
   // The is the average over all non-fixed global_orientations_ of their
   // rotation magnitudes.
   double ComputeAverageStepSize(
-      const colmap::Reconstruction& reconstruction,
+      const std::unordered_map<frame_t, colmap::Frame>& frames,
       const std::unordered_map<frame_t, const colmap::PosePrior*>&
           frame_to_pose_prior);
 

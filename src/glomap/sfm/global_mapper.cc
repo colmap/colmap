@@ -12,7 +12,7 @@
 namespace glomap {
 
 // TODO: Rig normalizaiton has not be done
-bool GlobalMapper::Solve(const colmap::Database& database,
+bool GlobalMapper::Solve(const colmap::Database* database,
                          ViewGraph& view_graph,
                          colmap::Reconstruction& reconstruction,
                          std::vector<colmap::PosePrior>& pose_priors,
@@ -127,10 +127,11 @@ bool GlobalMapper::Solve(const colmap::Database& database,
     std::cout << "Running track establishment ..." << '\n';
     std::cout << "-------------------------------------" << '\n';
 
-    // TrackEngine reads images from reconstruction, writes unfiltered tracks
-    // to a temporary map, then filters into the main reconstruction
+    // TrackEngine reads images, writes unfiltered tracks to a temporary map,
+    // then filters into the main reconstruction
     std::unordered_map<point3D_t, Point3D> unfiltered_tracks;
-    TrackEngine track_engine(view_graph, reconstruction, options_.opt_track);
+    TrackEngine track_engine(
+        view_graph, reconstruction.Images(), options_.opt_track);
     track_engine.EstablishFullTracks(unfiltered_tracks);
 
     // Filter the tracks into a selected subset
@@ -274,13 +275,14 @@ bool GlobalMapper::Solve(const colmap::Database& database,
 
   // 7. Retriangulation
   if (!options_.skip_retriangulation) {
+    THROW_CHECK_NOTNULL(database);
     std::cout << "-------------------------------------" << '\n';
     std::cout << "Running retriangulation ..." << '\n';
     std::cout << "-------------------------------------" << '\n';
     for (int ite = 0; ite < options_.num_iteration_retriangulation; ite++) {
       colmap::Timer run_timer;
       run_timer.Start();
-      RetriangulateTracks(options_.opt_triangulator, database, reconstruction);
+      RetriangulateTracks(options_.opt_triangulator, *database, reconstruction);
       run_timer.PrintSeconds();
 
       std::cout << "-------------------------------------" << '\n';

@@ -64,7 +64,7 @@ void GlobalPipeline::Run() {
   glomap::GlobalMapper global_mapper(options_);
   std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(
-      *database, view_graph, reconstruction, pose_priors, cluster_ids);
+      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 

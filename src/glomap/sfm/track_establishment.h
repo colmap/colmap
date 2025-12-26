@@ -1,7 +1,7 @@
 #pragma once
 
 #include "colmap/math/union_find.h"
-#include "colmap/scene/reconstruction.h"
+#include "colmap/scene/image.h"
 
 #include "glomap/scene/view_graph.h"
 
@@ -27,11 +27,9 @@ struct TrackEstablishmentOptions {
 class TrackEngine {
  public:
   TrackEngine(const ViewGraph& view_graph,
-              const colmap::Reconstruction& reconstruction,
+              const std::unordered_map<image_t, colmap::Image>& images,
               const TrackEstablishmentOptions& options)
-      : options_(options),
-        view_graph_(view_graph),
-        reconstruction_(reconstruction) {}
+      : options_(options), view_graph_(view_graph), images_(images) {}
 
   // Establish tracks from the view graph. Exclude the tracks that are not
   // consistent. Return the number of tracks.
@@ -53,7 +51,7 @@ class TrackEngine {
   const TrackEstablishmentOptions& options_;
 
   const ViewGraph& view_graph_;
-  const colmap::Reconstruction& reconstruction_;
+  const std::unordered_map<image_t, colmap::Image>& images_;
 
   // Internal structure used for concatenating tracks
   colmap::UnionFind<image_pair_t> uf_;
