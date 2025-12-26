@@ -10,81 +10,10 @@ namespace glomap {
 bool SolveRotationAveraging(ViewGraph& view_graph,
                             colmap::Reconstruction& reconstruction,
                             std::vector<colmap::PosePrior>& pose_priors,
-                            const RotationAveragerOptions& options) {
+                            const RotationEstimatorOptions& options) {
   view_graph.KeepLargestConnectedComponents(reconstruction);
 
-  bool solve_1dof_system = options.use_gravity && options.use_stratified;
-
-  ViewGraph view_graph_grav;
-  image_pair_t total_pairs = 0;
-  if (solve_1dof_system) {
-    std::unordered_map<image_t, colmap::PosePrior*> image_to_pose_prior;
-    for (auto& pose_prior : pose_priors) {
-      if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
-        const image_t image_id = pose_prior.corr_data_id.id;
-        THROW_CHECK(image_to_pose_prior.emplace(image_id, &pose_prior).second)
-            << "Duplicate pose prior for image " << image_id;
-      }
-    }
-
-    // Prepare two sets: ones all with gravity, and one does not have gravity.
-    // Solve them separately first, then solve them in a single system
-    for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
-      if (!image_pair.is_valid) {
-        continue;
-      }
-
-      if (!reconstruction.Image(image_pair.image_id1).HasPose() ||
-          !reconstruction.Image(image_pair.image_id2).HasPose()) {
-        continue;
-      }
-
-      total_pairs++;
-
-      const auto pose_prior1_it =
-          image_to_pose_prior.find(image_pair.image_id1);
-      const auto pose_prior2_it =
-          image_to_pose_prior.find(image_pair.image_id2);
-      const bool has_gravity1 = pose_prior1_it != image_to_pose_prior.end() &&
-                                pose_prior1_it->second->HasGravity();
-      const bool has_gravity2 = pose_prior2_it != image_to_pose_prior.end() &&
-                                pose_prior2_it->second->HasGravity();
-
-      if (has_gravity1 && has_gravity2) {
-        view_graph_grav.image_pairs.emplace(
-            pair_id,
-            ImagePair(image_pair.image_id1,
-                      image_pair.image_id2,
-                      image_pair.cam2_from_cam1));
-      }
-    }
-  }
-
-  const size_t grav_pairs = view_graph_grav.image_pairs.size();
-
-  LOG(INFO) << "Total image pairs: " << total_pairs
-            << ", gravity image pairs: " << grav_pairs;
-
-  // If there is no image pairs with gravity or most image pairs are with
-  // gravity, then just run the 3dof version
-  const bool status = grav_pairs == 0 || grav_pairs > total_pairs * 0.95;
-  solve_1dof_system = solve_1dof_system && !status;
-
-  if (solve_1dof_system) {
-    // Run the 1dof optimization
-    LOG(INFO) << "Solving subset 1DoF rotation averaging problem in the mixed "
-                 "prior system";
-    view_graph_grav.KeepLargestConnectedComponents(reconstruction);
-    RotationEstimator rotation_estimator_grav(options);
-    if (!rotation_estimator_grav.EstimateRotations(
-            view_graph_grav, reconstruction, pose_priors)) {
-      return false;
-    }
-    view_graph.KeepLargestConnectedComponents(reconstruction);
-  }
-
-  // By default, run trivial rotation averaging for cameras with unknown
-  // cam_from_rig.
+  // Collect cameras with unknown cam_from_rig.
   std::unordered_set<camera_t> unknown_cams_from_rig;
   rig_t max_rig_id = 0;
   for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
@@ -222,7 +151,7 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
         view_graph, reconstruction, pose_priors);
     view_graph.KeepLargestConnectedComponents(reconstruction);
   } else {
-    RotationAveragerOptions options_ra = options;
+    RotationEstimatorOptions options_ra = options;
     // For cases where there are some cameras without known cam_from_rig
     // transformation, we need to run the rotation averaging with the
     // skip_initialization flag set to false for convergence

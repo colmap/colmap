@@ -52,6 +52,11 @@ struct RotationEstimatorOptions {
 
   // Flag to use gravity priors for rotation averaging.
   bool use_gravity = false;
+
+  // Flag to use stratified solving for mixed gravity systems.
+  // If true and use_gravity is true, first solves the 1-DOF system with
+  // gravity-only pairs, then solves the full 3-DOF system.
+  bool use_stratified = true;
 };
 
 // High-level interface for rotation averaging.
@@ -68,6 +73,19 @@ class RotationEstimator {
                          const std::vector<colmap::PosePrior>& pose_priors);
 
  private:
+  // Maybe solves 1-DOF rotation averaging on the gravity-aligned subset.
+  // This is the first phase of stratified solving for mixed gravity systems.
+  bool MaybeSolveGravityAlignedSubset(
+      const ViewGraph& view_graph,
+      colmap::Reconstruction& reconstruction,
+      const std::vector<colmap::PosePrior>& pose_priors);
+
+  // Core rotation averaging solver.
+  bool SolveRotationAveraging(
+      const ViewGraph& view_graph,
+      colmap::Reconstruction& reconstruction,
+      const std::vector<colmap::PosePrior>& pose_priors);
+
   // Initializes rotations from maximum spanning tree.
   void InitializeFromMaximumSpanningTree(
       const ViewGraph& view_graph, colmap::Reconstruction& reconstruction);

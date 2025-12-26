@@ -55,10 +55,9 @@ int RunRotationAverager(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  RotationAveragerOptions rotation_averager_options;
+  RotationEstimatorOptions rotation_averager_options;
   rotation_averager_options.skip_initialization = true;
   rotation_averager_options.use_gravity = true;
-
   rotation_averager_options.use_stratified = use_stratified;
   rotation_averager_options.use_weight = use_weight;
 

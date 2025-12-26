@@ -36,8 +36,8 @@ GlobalMapperOptions CreateMapperTestOptions() {
   return options;
 }
 
-RotationAveragerOptions CreateRATestOptions(bool use_gravity = false) {
-  RotationAveragerOptions options;
+RotationEstimatorOptions CreateRATestOptions(bool use_gravity = false) {
+  RotationEstimatorOptions options;
   options.skip_initialization = false;
   options.use_gravity = use_gravity;
   options.use_stratified = true;
