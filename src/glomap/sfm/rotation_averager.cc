@@ -36,10 +36,14 @@ colmap::Reconstruction CreateExpandedReconstruction(
   // Create expanded rigs with known sensors only.
   // Cameras with unknown cam_from_rig get their own singleton rigs.
   std::unordered_map<camera_t, rig_t> singleton_rig_ids;
-  rig_t next_rig_id = 0;
 
+  // First, find the max rig ID to avoid conflicts when creating singleton rigs.
+  rig_t next_rig_id = 0;
   for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
     next_rig_id = std::max(next_rig_id, rig_id + 1);
+  }
+
+  for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
 
     Rig rig_expanded;
     rig_expanded.SetRigId(rig_id);
