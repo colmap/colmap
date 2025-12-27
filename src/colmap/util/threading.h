@@ -186,8 +186,8 @@ class AggregateException : public std::exception {
   explicit AggregateException(std::vector<std::exception_ptr> excs)
       // NOLINTNEXTLINE(bugprone-throw-keyword-missing)
       : exceptions_(std::move(excs)) {
-    message_ = std::to_string(exceptions_.size()) +
-               " task(s) threw exception(s):\n";
+    message_ =
+        std::to_string(exceptions_.size()) + " task(s) threw exception(s):\n";
     for (size_t i = 0; i < exceptions_.size(); ++i) {
       try {
         std::rethrow_exception(exceptions_[i]);
