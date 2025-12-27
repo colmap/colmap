@@ -243,24 +243,24 @@ void GlobalPositioner::AddPointToCameraConstraints(
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     if (point3D.track.Length() < options_.min_num_view_per_track) continue;
 
-    AddTrackToProblem(point3D_id, reconstruction);
+    AddPoint3DToProblem(point3D_id, reconstruction);
   }
 }
 
-void GlobalPositioner::AddTrackToProblem(
-    point3D_t track_id, colmap::Reconstruction& reconstruction) {
+void GlobalPositioner::AddPoint3DToProblem(
+    point3D_t point3D_id, colmap::Reconstruction& reconstruction) {
   const bool random_initialization =
       options_.optimize_points && options_.generate_random_points;
 
-  Point3D& track = reconstruction.Point3D(track_id);
+  Point3D& point3D = reconstruction.Point3D(point3D_id);
 
   // Only set the points to be random if they are needed to be optimized
   if (random_initialization) {
-    track.xyz = 100.0 * RandVector3d(random_generator_, -1, 1);
+    point3D.xyz = 100.0 * RandVector3d(random_generator_, -1, 1);
   }
 
   // For each view in the track add the point to camera correspondences.
-  for (const auto& observation : track.track.Elements()) {
+  for (const auto& observation : point3D.track.Elements()) {
     if (!reconstruction.ExistsImage(observation.image_id)) continue;
 
     Image& image = reconstruction.Image(observation.image_id);
@@ -270,8 +270,8 @@ void GlobalPositioner::AddTrackToProblem(
         image.CameraPtr()->CamFromImg(
             image.Point2D(observation.point2D_idx).xy);
     if (!cam_point.has_value()) {
-      LOG(WARNING) << "Ignoring feature because it failed to project: track_id="
-                   << track_id << ", image_id=" << observation.image_id
+      LOG(WARNING) << "Ignoring feature because it failed to project: point3D_id="
+                   << point3D_id << ", image_id=" << observation.image_id
                    << ", feature_id=" << observation.point2D_idx;
       continue;
     }
@@ -286,7 +286,7 @@ void GlobalPositioner::AddTrackToProblem(
 
     if (!options_.generate_scales && random_initialization) {
       const Eigen::Vector3d cam_from_point3D_translation =
-          track.xyz - frame_centers_[image.FrameId()];
+          point3D.xyz - frame_centers_[image.FrameId()];
       scale = std::max(1e-5,
                        cam_from_point3D_dir.dot(cam_from_point3D_translation) /
                            cam_from_point3D_translation.squaredNorm());
@@ -309,7 +309,7 @@ void GlobalPositioner::AddTrackToProblem(
       problem_->AddResidualBlock(cost_function,
                                  loss_function,
                                  frame_centers_[image.FrameId()].data(),
-                                 track.xyz.data(),
+                                 point3D.xyz.data(),
                                  &scale);
     } else {
       // If the image is part of a camera rig, use the RigBATA error.
@@ -328,7 +328,7 @@ void GlobalPositioner::AddTrackToProblem(
 
         problem_->AddResidualBlock(cost_function,
                                    loss_function,
-                                   track.xyz.data(),
+                                   point3D.xyz.data(),
                                    frame_centers_[image.FrameId()].data(),
                                    &scale,
                                    &rig_scales_[rig_id]);
@@ -348,7 +348,7 @@ void GlobalPositioner::AddTrackToProblem(
 
         problem_->AddResidualBlock(cost_function,
                                    loss_function,
-                                   track.xyz.data(),
+                                   point3D.xyz.data(),
                                    frame_centers_[image.FrameId()].data(),
                                    cams_in_rig_[sensor_id].data(),
                                    &scale);
