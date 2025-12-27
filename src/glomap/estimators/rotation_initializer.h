@@ -6,9 +6,11 @@
 
 namespace glomap {
 
-// Initialize the rotations of the rigs from the images
-bool ConvertRotationsFromImageToRig(
-    const std::unordered_map<image_t, Rigid3d>& cam_from_worlds,
+// Initialize rig rotations by averaging per-image rotations.
+// Estimates cam_from_rig for cameras with unknown calibration,
+// then computes rig_from_world for each frame.
+bool InitializeRigRotationsFromImages(
+    const std::unordered_map<image_t, Rigid3d>& cams_from_world,
     colmap::Reconstruction& reconstruction);
 
 }  // namespace glomap

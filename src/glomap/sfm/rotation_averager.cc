@@ -213,7 +213,7 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
     }
 
     LOG(INFO) << "Creating trivial rigs";
-    ConvertRotationsFromImageToRig(trivial_cams_from_world, reconstruction);
+    InitializeRigRotationsFromImages(trivial_cams_from_world, reconstruction);
 
     RotationEstimatorOptions options_ra = options;
     options_ra.skip_initialization = true;
