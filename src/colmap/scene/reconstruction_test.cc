@@ -493,6 +493,24 @@ TEST(Reconstruction, AddPoint3D) {
   EXPECT_EQ(reconstruction.NumRegFrames(), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
   EXPECT_EQ(reconstruction.Point3DIds().count(point3D_id), 1);
+
+  Reconstruction reconstruction2;
+  GenerateReconstruction(2, &reconstruction2);
+  struct Point3D point3D;
+  point3D.xyz = Eigen::Vector3d(1.0, 2.0, 3.0);
+  point3D.track.AddElement(1, 0);
+  point3D.track.AddElement(2, 1);
+  reconstruction2.AddPoint3D(5, point3D);
+  EXPECT_EQ(reconstruction2.Point3D(5).track.Length(), 2);
+  EXPECT_TRUE(reconstruction2.Image(1).Point2D(0).HasPoint3D());
+  EXPECT_TRUE(reconstruction2.Image(2).Point2D(1).HasPoint3D());
+  EXPECT_EQ(reconstruction2.NumRigs(), 1);
+  EXPECT_EQ(reconstruction2.NumCameras(), 1);
+  EXPECT_EQ(reconstruction2.NumFrames(), 2);
+  EXPECT_EQ(reconstruction2.NumImages(), 2);
+  EXPECT_EQ(reconstruction2.NumRegFrames(), 2);
+  EXPECT_EQ(reconstruction2.NumPoints3D(), 1);
+  EXPECT_EQ(reconstruction2.Point3DIds().count(5), 1);
 }
 
 TEST(Reconstruction, AddObservation) {
