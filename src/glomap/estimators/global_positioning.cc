@@ -270,9 +270,10 @@ void GlobalPositioner::AddPoint3DToProblem(
         image.CameraPtr()->CamFromImg(
             image.Point2D(observation.point2D_idx).xy);
     if (!cam_point.has_value()) {
-      LOG(WARNING) << "Ignoring feature because it failed to project: point3D_id="
-                   << point3D_id << ", image_id=" << observation.image_id
-                   << ", feature_id=" << observation.point2D_idx;
+      LOG(WARNING)
+          << "Ignoring feature because it failed to project: point3D_id="
+          << point3D_id << ", image_id=" << observation.image_id
+          << ", feature_id=" << observation.point2D_idx;
       continue;
     }
 
