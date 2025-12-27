@@ -82,8 +82,8 @@ int ViewGraph::KeepLargestConnectedComponents(
   const std::unordered_set<frame_t>& largest_component =
       connected_components[max_comp];
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    if (largest_component.count(frame_id) == 0) {
-      reconstruction.Frame(frame_id).ResetPose();
+    if (largest_component.count(frame_id) == 0 && frame.HasPose()) {
+      reconstruction.DeRegisterFrame(frame_id);
     }
   }
 

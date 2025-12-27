@@ -34,7 +34,6 @@ COLMAP_ADD_LIBRARY(
     SRCS
         image_pair_inliers.h image_pair_inliers.cc
         reconstruction_pruning.h reconstruction_pruning.cc
-        track_filter.h track_filter.cc
         view_graph_manipulation.h view_graph_manipulation.cc
     PUBLIC_LINK_LIBS
         colmap_glomap_estimators

@@ -36,6 +36,7 @@
 #include <future>
 #include <list>
 #include <queue>
+#include <string>
 #include <thread>
 #include <type_traits>
 #include <unordered_map>
@@ -178,6 +179,40 @@ class Thread {
   std::unordered_map<int, std::list<std::function<void()>>> callbacks_;
 };
 
+// Exception that aggregates multiple exceptions from parallel tasks.
+// Thrown by ThreadPool::Wait() when one or more tasks threw exceptions.
+class AggregateException : public std::exception {
+ public:
+  explicit AggregateException(std::vector<std::exception_ptr> excs)
+      // NOLINTNEXTLINE(bugprone-throw-keyword-missing)
+      : exceptions_(std::move(excs)) {
+    message_ =
+        std::to_string(exceptions_.size()) + " task(s) threw exception(s):\n";
+    for (size_t i = 0; i < exceptions_.size(); ++i) {
+      try {
+        std::rethrow_exception(exceptions_[i]);
+      } catch (const std::exception& e) {
+        message_ += e.what();
+      } catch (...) {
+        message_ += "Unknown exception";
+      }
+      if (i + 1 < exceptions_.size()) {
+        message_ += "\n";
+      }
+    }
+  }
+
+  const char* what() const noexcept override { return message_.c_str(); }
+
+  const std::vector<std::exception_ptr>& exceptions() const {
+    return exceptions_;
+  }
+
+ private:
+  std::vector<std::exception_ptr> exceptions_;
+  std::string message_;
+};
+
 // A thread pool class to submit generic tasks (functors) to a pool of workers:
 //
 //    ThreadPool thread_pool;
@@ -190,8 +225,8 @@ class Thread {
 //    thread_pool.Wait();
 //
 // Exceptions thrown from the tasks are caught and propagated to the caller
-// through both the returned future and the Wait() call. Repeated calls to
-// Wait() will throw any remaining exceptions one by one.
+// through both the returned future and the Wait() call. Wait() throws an
+// AggregateException containing all task exceptions at once.
 class ThreadPool {
  public:
   static const int kMaxNumThreads = -1;
