@@ -189,6 +189,9 @@ class Thread {
 //    }
 //    thread_pool.Wait();
 //
+// Exceptions thrown from the tasks are caught and propagated to the caller
+// through both the returned future and the Wait() call. Repeated calls to
+// Wait() will throw any remaining exceptions one by one.
 class ThreadPool {
  public:
   static const int kMaxNumThreads = -1;
@@ -208,7 +211,7 @@ class ThreadPool {
   // Add new task to the thread pool.
   template <class func_t, class... args_t>
   auto AddTask(func_t&& f, args_t&&... args)
-      -> std::future<result_of_t<func_t, args_t...>>;
+      -> std::shared_future<result_of_t<func_t, args_t...>>;
 
   // Stop the execution of all workers.
   void Stop();
@@ -227,8 +230,11 @@ class ThreadPool {
  private:
   void WorkerFunc(int index);
 
+  void CheckFinishedTasks();
+
   std::vector<std::thread> workers_;
-  std::queue<std::function<void()>> tasks_;
+  std::queue<std::function<std::function<void()>()>> tasks_;
+  std::vector<std::function<void()>> finished_task_checkers_;
 
   std::mutex mutex_;
   std::condition_variable task_condition_;
@@ -325,20 +331,23 @@ size_t ThreadPool::NumThreads() const { return workers_.size(); }
 
 template <class func_t, class... args_t>
 auto ThreadPool::AddTask(func_t&& f, args_t&&... args)
-    -> std::future<result_of_t<func_t, args_t...>> {
+    -> std::shared_future<result_of_t<func_t, args_t...>> {
   typedef result_of_t<func_t, args_t...> return_t;
 
   auto task = std::make_shared<std::packaged_task<return_t()>>(
       std::bind(std::forward<func_t>(f), std::forward<args_t>(args)...));
 
-  std::future<return_t> result = task->get_future();
+  std::shared_future<return_t> result = task->get_future().share();
 
   {
     std::unique_lock<std::mutex> lock(mutex_);
     if (stopped_) {
       throw std::runtime_error("Cannot add task to stopped thread pool.");
     }
-    tasks_.emplace([task]() { (*task)(); });
+    tasks_.emplace([task = std::move(task), result]() {
+      (*task)();
+      return [result = std::move(result)]() { result.get(); };
+    });
   }
 
   task_condition_.notify_one();

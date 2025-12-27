@@ -489,7 +489,7 @@ TEST(ThreadPool, NoArgNoReturn) {
   };
 
   ThreadPool pool(4);
-  std::vector<std::future<void>> futures;
+  std::vector<std::shared_future<void>> futures;
   futures.reserve(100);
   for (int i = 0; i < 100; ++i) {
     futures.push_back(pool.AddTask(Func));
@@ -508,7 +508,7 @@ TEST(ThreadPool, ArgNoReturn) {
   };
 
   ThreadPool pool(4);
-  std::vector<std::future<void>> futures;
+  std::vector<std::shared_future<void>> futures;
   futures.reserve(100);
   for (int i = 0; i < 100; ++i) {
     futures.push_back(pool.AddTask(Func, i));
@@ -523,7 +523,7 @@ TEST(ThreadPool, NoArgReturn) {
   std::function<int(void)> Func = []() { return 0; };
 
   ThreadPool pool(4);
-  std::vector<std::future<int>> futures;
+  std::vector<std::shared_future<int>> futures;
   futures.reserve(100);
   for (int i = 0; i < 100; ++i) {
     futures.push_back(pool.AddTask(Func));
@@ -543,7 +543,7 @@ TEST(ThreadPool, ArgReturn) {
   };
 
   ThreadPool pool(4);
-  std::vector<std::future<int>> futures;
+  std::vector<std::shared_future<int>> futures;
   futures.reserve(100);
   for (int i = 0; i < 100; ++i) {
     futures.push_back(pool.AddTask(Func, i));
@@ -563,7 +563,7 @@ TEST(ThreadPool, Stop) {
   };
 
   ThreadPool pool(4);
-  std::vector<std::future<int>> futures;
+  std::vector<std::shared_future<int>> futures;
   futures.reserve(100);
   for (int i = 0; i < 100; ++i) {
     futures.push_back(pool.AddTask(Func, i));
@@ -639,6 +639,48 @@ TEST(ThreadPool, GetThreadIndex) {
     EXPECT_LE(result, 3);
   }
 }
+
+TEST(ThreadPool, FutureAndStopPropagateException) {
+  ThreadPool pool(1);
+  auto future = pool.AddTask([]() { throw std::runtime_error("Error"); });
+  EXPECT_THROW(future.get(), std::runtime_error);
+  EXPECT_THROW(pool.Stop(), std::runtime_error);
+  EXPECT_NO_THROW(pool.Stop());
+}
+
+TEST(ThreadPool, WaitPropagatesException) {
+  ThreadPool pool(1);
+  pool.AddTask([]() { throw std::runtime_error("Error"); });
+  EXPECT_THROW(pool.Wait(), std::runtime_error);
+  EXPECT_NO_THROW(pool.Wait());
+}
+
+TEST(ThreadPool, WaitPropagatesMultipleException) {
+  ThreadPool pool(1);
+  pool.AddTask([]() { throw std::runtime_error("Error"); });
+  pool.AddTask([]() { throw std::runtime_error("Error"); });
+  EXPECT_THROW(pool.Wait(), std::runtime_error);
+  EXPECT_THROW(pool.Wait(), std::runtime_error);
+  EXPECT_NO_THROW(pool.Wait());
+}
+
+TEST(ThreadPool, FutureAndWaitPropagatesException) {
+  ThreadPool pool(1);
+  auto future = pool.AddTask([]() { throw std::runtime_error("Error"); });
+  EXPECT_THROW(future.get(), std::runtime_error);
+  EXPECT_THROW(future.get(), std::runtime_error);
+  EXPECT_THROW(pool.Wait(), std::runtime_error);
+  EXPECT_NO_THROW(pool.Wait());
+}
+
+// The following test succeeds but we cannot reliably test this,
+// because gtest's EXPECT_DEATH macro is not thread-safe.
+// TEST(ThreadPool, DestructorPropagatesException) {
+//   auto pool = std::make_unique<ThreadPool>(1);
+//   auto future = pool->AddTask([]() { throw std::runtime_error("Error"); });
+//   EXPECT_THROW(future.get(), std::runtime_error);
+//   EXPECT_DEATH(pool.reset(), "Uncaught exception in thread pool destructor");
+// }
 
 TEST(JobQueue, SingleProducerSingleConsumer) {
   JobQueue<int> job_queue;
