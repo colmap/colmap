@@ -33,7 +33,7 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_glomap_estimators
     SRCS
         bundle_adjustment.h bundle_adjustment.cc
-        cost_function.h
+        cost_functions.h
         global_positioning.h global_positioning.cc
         global_rotation_averaging.h global_rotation_averaging.cc
         gravity_refinement.h gravity_refinement.cc
@@ -56,7 +56,7 @@ COLMAP_ADD_LIBRARY(
 )
 
 COLMAP_ADD_TEST(
-    NAME glomap_cost_function_test
-    SRCS cost_function_test.cc
+    NAME glomap_cost_functions_test
+    SRCS cost_functions_test.cc
     LINK_LIBS colmap_glomap_estimators
 )

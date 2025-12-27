@@ -3,7 +3,7 @@
 #include "colmap/estimators/manifold.h"
 #include "colmap/geometry/pose.h"
 
-#include "glomap/estimators/cost_function.h"
+#include "glomap/estimators/cost_functions.h"
 
 namespace glomap {
 namespace {
