@@ -186,7 +186,7 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
     }
   }
 
-  ConvertRotationsFromImageToRig(cams_from_world, reconstruction);
+  InitializeRigRotationsFromImages(cams_from_world, reconstruction);
 }
 
 }  // namespace glomap

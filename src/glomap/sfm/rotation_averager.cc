@@ -167,13 +167,13 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
     }
 
     LOG(INFO) << "Initializing rig rotations from trivial reconstruction";
-    ConvertRotationsFromImageToRig(trivial_cams_from_world, reconstruction);
+    InitializeRigRotationsFromImages(trivial_cams_from_world, reconstruction);
 
     // Run rotation averaging on the original reconstruction with initialization
     // from the trivial reconstruction.
     RotationEstimatorOptions options_ra = options;
     options_ra.skip_initialization = true;
-    options_ra.use_stratified = false;  // Already initialized from trivial RA.
+    options_ra.use_stratified = false;
     RotationEstimator rotation_estimator(options_ra);
     if (!rotation_estimator.EstimateRotations(
             view_graph, pose_priors, reconstruction)) {
