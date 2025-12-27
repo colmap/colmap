@@ -699,6 +699,23 @@ TEST(ThreadPool, CatchAggregateException) {
   EXPECT_TRUE(caught);
 }
 
+TEST(ThreadPool, AggregateExceptionMessage) {
+  ThreadPool pool(1);
+  pool.AddTask([]() { throw std::runtime_error("First error message"); });
+  pool.AddTask([]() { throw std::runtime_error("Second error message"); });
+
+  try {
+    pool.Wait();
+    FAIL() << "Expected AggregateException";
+  } catch (const AggregateException& e) {
+    std::string what = e.what();
+    // Order of exceptions is non-deterministic, so check components separately.
+    EXPECT_TRUE(what.find("2 task(s) threw exception(s):") == 0);
+    EXPECT_TRUE(what.find("First error message") != std::string::npos);
+    EXPECT_TRUE(what.find("Second error message") != std::string::npos);
+  }
+}
+
 TEST(JobQueue, SingleProducerSingleConsumer) {
   JobQueue<int> job_queue;
 

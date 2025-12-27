@@ -186,8 +186,20 @@ class AggregateException : public std::exception {
   explicit AggregateException(std::vector<std::exception_ptr> excs)
       // NOLINTNEXTLINE(bugprone-throw-keyword-missing)
       : exceptions_(std::move(excs)) {
-    message_ = "One or more tasks threw exceptions (" +
-               std::to_string(exceptions_.size()) + " total)";
+    message_ = std::to_string(exceptions_.size()) +
+               " task(s) threw exception(s):\n";
+    for (size_t i = 0; i < exceptions_.size(); ++i) {
+      try {
+        std::rethrow_exception(exceptions_[i]);
+      } catch (const std::exception& e) {
+        message_ += e.what();
+      } catch (...) {
+        message_ += "Unknown exception";
+      }
+      if (i + 1 < exceptions_.size()) {
+        message_ += "\n";
+      }
+    }
   }
 
   const char* what() const noexcept override { return message_.c_str(); }

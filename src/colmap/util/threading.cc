@@ -192,6 +192,7 @@ ThreadPool::ThreadPool(const int num_threads)
 }
 
 ThreadPool::~ThreadPool() {
+  // Destructors should not throw, so we catch and log fatal instead.
   try {
     Stop();
   } catch (const AggregateException& e) {
