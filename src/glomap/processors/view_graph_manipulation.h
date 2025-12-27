@@ -14,9 +14,13 @@ struct ViewGraphManipulater {
     WEIGHT,
   };
 
+  // Sparsifies the view graph by probabilistically removing edges.
+  // @param random_seed If >= 0, uses deterministic seeding; if < 0, uses
+  //                    random_device (non-deterministic).
   static image_pair_t SparsifyGraph(ViewGraph& view_graph,
                                     colmap::Reconstruction& reconstruction,
-                                    int expected_degree = 50);
+                                    int expected_degree = 50,
+                                    int random_seed = -1);
 
   static image_t EstablishStrongClusters(
       ViewGraph& view_graph,

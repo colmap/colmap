@@ -61,6 +61,7 @@ void OptionManager::AddGlobalMapperOptions() {
   }
   added_mapper_options_ = true;
 
+  AddAndRegisterDefaultOption("random_seed", &mapper->random_seed);
   AddAndRegisterDefaultOption("ba_iteration_num",
                               &mapper->num_iteration_bundle_adjustment);
   AddAndRegisterDefaultOption("retriangulation_iteration_num",

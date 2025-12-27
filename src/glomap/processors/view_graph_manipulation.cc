@@ -1,6 +1,7 @@
 #include "view_graph_manipulation.h"
 
 #include "colmap/geometry/essential_matrix.h"
+#include "colmap/math/random.h"
 #include "colmap/math/union_find.h"
 #include "colmap/util/threading.h"
 
@@ -9,7 +10,8 @@ namespace glomap {
 image_pair_t ViewGraphManipulater::SparsifyGraph(
     ViewGraph& view_graph,
     colmap::Reconstruction& reconstruction,
-    int expected_degree) {
+    int expected_degree,
+    int random_seed) {
   image_t num_img = view_graph.KeepLargestConnectedComponents(reconstruction);
 
   // Keep track of chosen edges
@@ -27,8 +29,9 @@ image_pair_t ViewGraphManipulater::SparsifyGraph(
 
   // Go through the adjacency list and keep edge with probability
   // ((expected_degree * average_degree) / (degree1 * degree2))
-  std::mt19937 rng(std::random_device{}());
-  std::uniform_real_distribution<double> dist(0.0, 1.0);
+  if (random_seed >= 0) {
+    colmap::SetPRNGSeed(static_cast<unsigned>(random_seed));
+  }
 
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (!image_pair.is_valid) continue;
@@ -48,7 +51,8 @@ image_pair_t ViewGraphManipulater::SparsifyGraph(
       continue;
     }
 
-    if (dist(rng) < (expected_degree * average_degree) / (degree1 * degree2)) {
+    if (colmap::RandomUniformReal(0.0, 1.0) <
+        (expected_degree * average_degree) / (degree1 * degree2)) {
       chosen_edges.insert(pair_id);
     }
   }

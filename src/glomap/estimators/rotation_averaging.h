@@ -17,6 +17,12 @@
 namespace glomap {
 
 struct RotationEstimatorOptions {
+  // PRNG seed for stochastic methods during rotation averaging.
+  // If -1 (default), the seed is derived from the current time
+  // (non-deterministic). If >= 0, the rotation averaging is deterministic with
+  // the given seed.
+  int random_seed = -1;
+
   // Maximum number of times to run L1 minimization.
   int max_num_l1_iterations = 5;
 
