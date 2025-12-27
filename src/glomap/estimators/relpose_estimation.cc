@@ -1,5 +1,6 @@
 #include "glomap/estimators/relpose_estimation.h"
 
+#include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 
 #include <PoseLib/robust.h>
@@ -34,8 +35,8 @@ void EstimateRelativePoses(ViewGraph& view_graph,
 
   LOG(INFO) << "Estimating relative pose for " << num_image_pairs << " pairs";
   for (int64_t chunk_id = 0; chunk_id < kNumChunks; chunk_id++) {
-    std::cout << "\r Estimating relative pose: " << chunk_id * kNumChunks << "%"
-              << std::flush;
+    VLOG(1) << "Estimating relative pose: " << chunk_id * 100 / kNumChunks
+            << "%";
     const int64_t start = chunk_id * interval;
     const int64_t end =
         std::min<int64_t>((chunk_id + 1) * interval, num_image_pairs);
@@ -129,8 +130,7 @@ void EstimateRelativePoses(ViewGraph& view_graph,
     thread_pool.Wait();
   }
 
-  std::cout << "\r Estimating relative pose: 100%" << '\n';
-  LOG(INFO) << "Estimating relative pose done";
+  LOG(INFO) << "Relative pose estimation done";
 }
 
 }  // namespace glomap

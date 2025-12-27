@@ -20,7 +20,9 @@ bool GlobalMapper::Solve(const colmap::Database* database,
                          std::unordered_map<frame_t, int>& cluster_ids) {
   // 0. Preprocessing
   if (!options_.skip_preprocessing) {
-    LOG(INFO) << "Running preprocessing ...";
+    LOG(INFO) << "========================";
+    LOG(INFO) << "Running preprocessing...";
+    LOG(INFO) << "========================";
 
     colmap::Timer run_timer;
     run_timer.Start();
@@ -33,7 +35,9 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
   // 1. Run view graph calibration
   if (!options_.skip_view_graph_calibration) {
-    LOG(INFO) << "Running view graph calibration ...";
+    LOG(INFO) << "==================================";
+    LOG(INFO) << "Running view graph calibration...";
+    LOG(INFO) << "==================================";
     ViewGraphCalibrator vgcalib_engine(options_.opt_vgcalib);
     if (!vgcalib_engine.Solve(view_graph, reconstruction)) {
       return false;
@@ -43,7 +47,9 @@ bool GlobalMapper::Solve(const colmap::Database* database,
   // 2. Run relative pose estimation
   //   TODO: Use generalized relative pose estimation for rigs.
   if (!options_.skip_relative_pose_estimation) {
-    LOG(INFO) << "Running relative pose estimation ...";
+    LOG(INFO) << "====================================";
+    LOG(INFO) << "Running relative pose estimation...";
+    LOG(INFO) << "====================================";
 
     colmap::Timer run_timer;
     run_timer.Start();
@@ -67,7 +73,9 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
   // 3. Run rotation averaging for three times
   if (!options_.skip_rotation_averaging) {
-    LOG(INFO) << "Running rotation averaging ...";
+    LOG(INFO) << "=============================";
+    LOG(INFO) << "Running rotation averaging...";
+    LOG(INFO) << "=============================";
 
     colmap::Timer run_timer;
     run_timer.Start();
@@ -107,7 +115,9 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
   // 4. Track establishment and selection
   if (!options_.skip_track_establishment) {
-    LOG(INFO) << "Running track establishment ...";
+    LOG(INFO) << "==============================";
+    LOG(INFO) << "Running track establishment...";
+    LOG(INFO) << "==============================";
 
     colmap::Timer run_timer;
     run_timer.Start();
@@ -136,7 +146,9 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
   // 5. Global positioning
   if (!options_.skip_global_positioning) {
-    LOG(INFO) << "Running global positioning ...";
+    LOG(INFO) << "=============================";
+    LOG(INFO) << "Running global positioning...";
+    LOG(INFO) << "=============================";
 
     if (options_.opt_gp.constraint_type !=
         GlobalPositionerOptions::ConstraintType::ONLY_POINTS) {
@@ -207,7 +219,9 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
   // 6. Bundle adjustment
   if (!options_.skip_bundle_adjustment) {
-    LOG(INFO) << "Running bundle adjustment ...";
+    LOG(INFO) << "============================";
+    LOG(INFO) << "Running bundle adjustment...";
+    LOG(INFO) << "============================";
 
     colmap::Timer run_timer;
     run_timer.Start();
@@ -290,7 +304,9 @@ bool GlobalMapper::Solve(const colmap::Database* database,
   // 7. Retriangulation
   if (!options_.skip_retriangulation) {
     THROW_CHECK_NOTNULL(database);
-    LOG(INFO) << "Running retriangulation ...";
+    LOG(INFO) << "==========================";
+    LOG(INFO) << "Running retriangulation...";
+    LOG(INFO) << "==========================";
     for (int ite = 0; ite < options_.num_iteration_retriangulation; ite++) {
       colmap::Timer run_timer;
       run_timer.Start();
@@ -335,7 +351,9 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
   // 8. Reconstruction pruning
   if (!options_.skip_pruning) {
-    LOG(INFO) << "Running postprocessing ...";
+    LOG(INFO) << "=========================";
+    LOG(INFO) << "Running postprocessing...";
+    LOG(INFO) << "=========================";
 
     colmap::Timer run_timer;
     run_timer.Start();
