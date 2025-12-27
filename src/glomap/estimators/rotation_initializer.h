@@ -6,7 +6,7 @@
 
 namespace glomap {
 
-// Initialize rig rotations from per-image rotations.
+// Initialize rig rotations by averaging per-image rotations.
 // Estimates cam_from_rig for cameras with unknown calibration,
 // then computes rig_from_world for each frame.
 bool InitializeRigRotationsFromImages(
