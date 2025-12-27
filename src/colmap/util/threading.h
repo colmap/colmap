@@ -232,6 +232,7 @@ class ThreadPool {
 
   std::vector<std::thread> workers_;
   std::queue<std::function<void()>> tasks_;
+  std::queue<std::function<void()>> future_checkers_;
 
   std::mutex mutex_;
   std::condition_variable task_condition_;
@@ -241,7 +242,6 @@ class ThreadPool {
   int num_active_workers_;
 
   std::unordered_map<std::thread::id, int> thread_id_to_index_;
-  std::vector<std::function<void()>> future_checkers_;
 };
 
 // A job queue class for the producer-consumer paradigm.
@@ -343,7 +343,7 @@ auto ThreadPool::AddTask(func_t&& f, args_t&&... args)
       throw std::runtime_error("Cannot add task to stopped thread pool.");
     }
     tasks_.emplace([task = std::move(task)]() { (*task)(); });
-    future_checkers_.push_back([result]() { result.get(); });
+    future_checkers_.emplace([result]() { result.get(); });
   }
 
   task_condition_.notify_one();

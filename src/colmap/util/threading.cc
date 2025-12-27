@@ -203,9 +203,9 @@ void ThreadPool::Stop() {
 
     stopped_ = true;
 
-    std::queue<std::function<void()>> empty_tasks;
-    std::swap(tasks_, empty_tasks);
-    future_checkers_.clear();
+    // Clear and release the queues.
+    std::queue<std::function<void()>>().swap(tasks_);
+    std::queue<std::function<void()>>().swap(future_checkers_);
   }
 
   task_condition_.notify_all();
@@ -226,8 +226,8 @@ void ThreadPool::Wait() {
 
   // Check remaining futures to propagate any exceptions.
   while (!future_checkers_.empty()) {
-    auto checker = std::move(future_checkers_.back());
-    future_checkers_.pop_back();
+    auto checker = std::move(future_checkers_.front());
+    future_checkers_.pop();
     checker();
   }
 }
