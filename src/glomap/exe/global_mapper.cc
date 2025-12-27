@@ -12,17 +12,15 @@ namespace glomap {
 // Mappers starting from COLMAP database
 // -------------------------------------
 int RunGlobalMapper(int argc, char** argv) {
-  std::string database_path;
   std::string output_path;
 
-  std::string image_path = "";
   std::string constraint_type = "ONLY_POINTS";
   std::string output_format = "bin";
 
   OptionManager options;
-  options.AddRequiredOption("database_path", &database_path);
+  options.AddDatabaseOptions();
+  options.AddImageOptions();
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("image_path", &image_path);
   options.AddDefaultOption("constraint_type",
                            &constraint_type,
                            "{ONLY_POINTS, ONLY_CAMERAS, "
@@ -31,11 +29,6 @@ int RunGlobalMapper(int argc, char** argv) {
   options.AddGlobalMapperFullOptions();
 
   options.Parse(argc, argv);
-
-  if (!colmap::ExistsFile(database_path)) {
-    LOG(ERROR) << "`database_path` is not a file";
-    return EXIT_FAILURE;
-  }
 
   if (constraint_type == "ONLY_POINTS") {
     options.mapper->opt_gp.constraint_type =
@@ -60,7 +53,7 @@ int RunGlobalMapper(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  auto database = colmap::Database::Open(database_path);
+  auto database = colmap::Database::Open(*options.database_path);
 
   colmap::Reconstruction reconstruction;
   ViewGraph view_graph;
@@ -72,6 +65,8 @@ int RunGlobalMapper(int argc, char** argv) {
     LOG(ERROR) << "Can't continue without image pairs";
     return EXIT_FAILURE;
   }
+
+  options.mapper->image_path = *options.image_path;
 
   GlobalMapper global_mapper(*options.mapper);
 
@@ -87,8 +82,11 @@ int RunGlobalMapper(int argc, char** argv) {
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 
-  WriteReconstructionsByClusters(
-      output_path, reconstruction, cluster_ids, output_format, image_path);
+  WriteReconstructionsByClusters(output_path,
+                                 reconstruction,
+                                 cluster_ids,
+                                 output_format,
+                                 *options.image_path);
   LOG(INFO) << "Export to COLMAP reconstruction done";
 
   return EXIT_SUCCESS;

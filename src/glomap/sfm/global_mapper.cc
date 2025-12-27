@@ -5,7 +5,6 @@
 
 #include "glomap/processors/image_pair_inliers.h"
 #include "glomap/processors/reconstruction_pruning.h"
-#include "glomap/processors/relpose_filter.h"
 #include "glomap/processors/view_graph_manipulation.h"
 #include "glomap/sfm/rotation_averager.h"
 
@@ -59,10 +58,8 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     // Undistort the images and filter edges by inlier number
     ImagePairsInlierCount(view_graph, reconstruction, inlier_thresholds, true);
 
-    RelPoseFilter::FilterInlierNum(view_graph,
-                                   options_.inlier_thresholds.min_inlier_num);
-    RelPoseFilter::FilterInlierRatio(
-        view_graph, options_.inlier_thresholds.min_inlier_ratio);
+    view_graph.FilterByNumInliers(options_.inlier_thresholds.min_inlier_num);
+    view_graph.FilterByInlierRatio(options_.inlier_thresholds.min_inlier_ratio);
 
     if (view_graph.KeepLargestConnectedComponents(reconstruction) == 0) {
       LOG(ERROR) << "no connected components are found";
@@ -87,10 +84,8 @@ bool GlobalMapper::Solve(const colmap::Database* database,
                            pose_priors,
                            RotationAveragerOptions(options_.opt_ra));
 
-    RelPoseFilter::FilterRotations(
-        view_graph,
-        reconstruction,
-        options_.inlier_thresholds.max_rotation_error);
+    view_graph.FilterByRelativeRotation(
+        reconstruction, options_.inlier_thresholds.max_rotation_error);
     if (view_graph.KeepLargestConnectedComponents(reconstruction) == 0) {
       LOG(ERROR) << "no connected components are found";
       return false;
@@ -103,10 +98,8 @@ bool GlobalMapper::Solve(const colmap::Database* database,
                                 RotationAveragerOptions(options_.opt_ra))) {
       return false;
     }
-    RelPoseFilter::FilterRotations(
-        view_graph,
-        reconstruction,
-        options_.inlier_thresholds.max_rotation_error);
+    view_graph.FilterByRelativeRotation(
+        reconstruction, options_.inlier_thresholds.max_rotation_error);
     image_t num_img = view_graph.KeepLargestConnectedComponents(reconstruction);
     if (num_img == 0) {
       LOG(ERROR) << "no connected components are found";

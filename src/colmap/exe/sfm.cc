@@ -211,7 +211,7 @@ int RunColorExtractor(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
-bool RunMapperImpl(
+bool RunIncrementalMapperImpl(
     const std::string& database_path,
     const std::string& image_path,
     const std::string& output_path,
@@ -231,8 +231,11 @@ bool RunMapperImpl(
         ExtractExistingImages(*reconstruction_manager->Get(0));
   }
 
-  IncrementalPipeline mapper(
-      mapper_options, image_path, database_path, reconstruction_manager);
+  mapper_options->image_path = image_path;
+
+  auto database = Database::Open(database_path);
+
+  IncrementalPipeline mapper(mapper_options, database, reconstruction_manager);
 
   // In case a new reconstruction is started, write results of individual sub-
   // models to as their reconstruction finishes instead of writing all results
@@ -331,11 +334,11 @@ int RunMapper(int argc, char** argv) {
     reconstruction_manager->Read(input_path);
   }
 
-  if (!RunMapperImpl(*options.database_path,
-                     *options.image_path,
-                     output_path,
-                     options.mapper,
-                     reconstruction_manager)) {
+  if (!RunIncrementalMapperImpl(*options.database_path,
+                                *options.image_path,
+                                output_path,
+                                options.mapper,
+                                reconstruction_manager)) {
     LOG(ERROR) << "failed to create sparse model";
     return EXIT_FAILURE;
   }
@@ -356,7 +359,7 @@ int RunHierarchicalMapper(int argc, char** argv) {
   std::string output_path;
 
   OptionManager options;
-  options.AddRequiredOption("database_path", &mapper_options.database_path);
+  options.AddDatabaseOptions();
   options.AddRequiredOption("image_path", &mapper_options.image_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("num_workers", &mapper_options.num_workers);
@@ -377,8 +380,10 @@ int RunHierarchicalMapper(int argc, char** argv) {
 
   mapper_options.incremental_options = *options.mapper;
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  HierarchicalPipeline hierarchical_mapper(mapper_options,
-                                           reconstruction_manager);
+  HierarchicalPipeline hierarchical_mapper(
+      mapper_options,
+      Database::Open(*options.database_path),
+      reconstruction_manager);
   hierarchical_mapper.Run();
 
   if (reconstruction_manager->Size() == 0) {
@@ -449,11 +454,11 @@ int RunPosePriorMapper(int argc, char** argv) {
     reconstruction_manager->Read(input_path);
   }
 
-  if (!RunMapperImpl(*options.database_path,
-                     *options.image_path,
-                     output_path,
-                     options.mapper,
-                     reconstruction_manager)) {
+  if (!RunIncrementalMapperImpl(*options.database_path,
+                                *options.image_path,
+                                output_path,
+                                options.mapper,
+                                reconstruction_manager)) {
     LOG(ERROR) << "failed to create sparse model";
     return EXIT_FAILURE;
   }
@@ -575,15 +580,16 @@ void RunPointTriangulatorImpl(
         *Database::Open(database_path));
   }
 
-  auto options_tmp = std::make_shared<IncrementalPipelineOptions>(options);
-  options_tmp->fix_existing_frames = true;
-  options_tmp->ba_refine_focal_length = refine_intrinsics;
-  options_tmp->ba_refine_principal_point = false;
-  options_tmp->ba_refine_extra_params = refine_intrinsics;
+  auto custom_options = std::make_shared<IncrementalPipelineOptions>(options);
+  custom_options->image_path = image_path;
+  custom_options->fix_existing_frames = true;
+  custom_options->ba_refine_focal_length = refine_intrinsics;
+  custom_options->ba_refine_principal_point = false;
+  custom_options->ba_refine_extra_params = refine_intrinsics;
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   IncrementalPipeline mapper(
-      options_tmp, image_path, database_path, reconstruction_manager);
+      custom_options, Database::Open(database_path), reconstruction_manager);
   mapper.TriangulateReconstruction(reconstruction);
   reconstruction->Write(output_path);
 }

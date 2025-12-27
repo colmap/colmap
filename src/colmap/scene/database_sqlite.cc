@@ -476,7 +476,9 @@ void MaybeThrowDeprecatedPosePriorError(bool is_deprecated_image_prior) {
 
 class SqliteDatabase : public Database {
  public:
-  SqliteDatabase() : database_(nullptr) {}
+  SqliteDatabase() = delete;
+  explicit SqliteDatabase(const std::string& path)
+      : path_(path), database_(nullptr) {}
 
   // Open and close database. The same database should not be opened
   // concurrently in multiple threads or processes.
@@ -485,7 +487,7 @@ class SqliteDatabase : public Database {
   // for compatibility with SQLite. On POSIX platforms, the path is assumed to
   // be UTF-8.
   static std::shared_ptr<Database> Open(const std::string& path) {
-    auto database = std::make_shared<SqliteDatabase>();
+    auto database = std::make_shared<SqliteDatabase>(path);
 
     // SQLITE_OPEN_NOMUTEX specifies that the connection should not have a
     // mutex (so that we don't serialize the connection's operations).
@@ -540,6 +542,11 @@ class SqliteDatabase : public Database {
   ~SqliteDatabase() override { CloseImpl(); }
 
   void Close() override { CloseImpl(); }
+
+  std::shared_ptr<Database> Clone() const override {
+    LOG(ERROR) << "Cloning " << path_;
+    return Open(path_);
+  }
 
   bool ExistsRig(const rig_t rig_id) const override {
     return ExistsRowId(sql_stmt_exists_rig_, rig_id);
@@ -2160,6 +2167,8 @@ class SqliteDatabase : public Database {
 
     return max;
   }
+
+  const std::string path_;
 
   sqlite3* database_ = nullptr;
 

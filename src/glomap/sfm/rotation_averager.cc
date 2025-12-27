@@ -77,7 +77,7 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
     view_graph_grav.KeepLargestConnectedComponents(reconstruction);
     RotationEstimator rotation_estimator_grav(options);
     if (!rotation_estimator_grav.EstimateRotations(
-            view_graph_grav, reconstruction, pose_priors)) {
+            view_graph_grav, pose_priors, reconstruction)) {
       return false;
     }
     view_graph.KeepLargestConnectedComponents(reconstruction);
@@ -203,7 +203,7 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
     options_trivial.skip_initialization = options.skip_initialization;
     RotationEstimator rotation_estimator_trivial(options_trivial);
     rotation_estimator_trivial.EstimateRotations(
-        view_graph, recon_trivial, pose_priors);
+        view_graph, pose_priors, recon_trivial);
 
     // Collect the results
     std::unordered_map<image_t, Rigid3d> trivial_cams_from_world;
@@ -219,7 +219,7 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
     options_ra.skip_initialization = true;
     RotationEstimator rotation_estimator(options_ra);
     status_ra = rotation_estimator.EstimateRotations(
-        view_graph, reconstruction, pose_priors);
+        view_graph, pose_priors, reconstruction);
     view_graph.KeepLargestConnectedComponents(reconstruction);
   } else {
     RotationAveragerOptions options_ra = options;
@@ -232,7 +232,7 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
 
     RotationEstimator rotation_estimator(options_ra);
     status_ra = rotation_estimator.EstimateRotations(
-        view_graph, reconstruction, pose_priors);
+        view_graph, pose_priors, reconstruction);
     view_graph.KeepLargestConnectedComponents(reconstruction);
   }
   return status_ra;
