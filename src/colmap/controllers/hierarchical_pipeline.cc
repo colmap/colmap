@@ -29,7 +29,6 @@
 
 #include "colmap/controllers/hierarchical_pipeline.h"
 
-#include "colmap/estimators/alignment.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/scene_clustering.h"
 #include "colmap/sfm/observation_manager.h"
@@ -113,9 +112,12 @@ bool HierarchicalPipeline::Options::Check() const {
 
 HierarchicalPipeline::HierarchicalPipeline(
     const Options& options,
+    std::shared_ptr<Database> database,
     std::shared_ptr<ReconstructionManager> reconstruction_manager)
     : options_(options),
-      reconstruction_manager_(std::move(reconstruction_manager)) {
+      database_(std::move(THROW_CHECK_NOTNULL(database))),
+      reconstruction_manager_(
+          std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {
   THROW_CHECK(options_.Check());
   if (options_.incremental_options.ba_refine_sensor_from_rig) {
     LOG(WARNING)
@@ -136,10 +138,8 @@ void HierarchicalPipeline::Run() {
   // Cluster scene graph
   //////////////////////////////////////////////////////////////////////////////
 
-  auto database = Database::Open(options_.database_path);
-
   LOG(INFO) << "Reading images...";
-  const auto images = database->ReadAllImages();
+  const auto images = database_->ReadAllImages();
   std::unordered_map<image_t, std::string> image_id_to_name;
   image_id_to_name.reserve(images.size());
   for (const auto& image : images) {
@@ -147,7 +147,7 @@ void HierarchicalPipeline::Run() {
   }
 
   SceneClustering scene_clustering =
-      SceneClustering::Create(options_.clustering_options, *database);
+      SceneClustering::Create(options_.clustering_options, *database_);
 
   auto leaf_clusters = scene_clustering.GetLeafClusters();
 
@@ -180,8 +180,9 @@ void HierarchicalPipeline::Run() {
       std::max(1, num_eff_threads / num_eff_workers);
 
   // Function to reconstruct one cluster using incremental mapping.
+  std::mutex database_mutex;
   auto ReconstructCluster =
-      [this, &image_id_to_name, num_threads_per_worker](
+      [this, &image_id_to_name, &database_mutex, num_threads_per_worker](
           const SceneClustering::Cluster& cluster,
           std::shared_ptr<ReconstructionManager> reconstruction_manager) {
         if (cluster.image_ids.empty()) {
@@ -190,20 +191,29 @@ void HierarchicalPipeline::Run() {
 
         auto incremental_options = std::make_shared<IncrementalPipelineOptions>(
             options_.incremental_options);
+        incremental_options->image_path = options_.image_path;
         incremental_options->max_model_overlap = 3;
         incremental_options->init_num_trials = options_.init_num_trials;
         if (incremental_options->num_threads < 0) {
           incremental_options->num_threads = num_threads_per_worker;
         }
 
-        for (const auto image_id : cluster.image_ids) {
+        for (const image_t image_id : cluster.image_ids) {
           incremental_options->image_names.push_back(
               image_id_to_name.at(image_id));
         }
 
+        // Writing to the database is not thread-safe and opening the database
+        // incurs write operations due to automatic schema migration, etc. So,
+        // we need to clone it for each worker thread to avoid race conditions.
+        std::shared_ptr<Database> cloned_database;
+        {
+          std::lock_guard<std::mutex> lock(database_mutex);
+          cloned_database = database_->Clone();
+        }
+
         IncrementalPipeline mapper(std::move(incremental_options),
-                                   options_.image_path,
-                                   options_.database_path,
+                                   cloned_database,
                                    std::move(reconstruction_manager));
         mapper.Run();
       };

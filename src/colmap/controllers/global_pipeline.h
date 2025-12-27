@@ -42,16 +42,14 @@ class GlobalPipeline : public BaseController {
  public:
   GlobalPipeline(
       const glomap::GlobalMapperOptions& options,
-      const std::string& image_path,
-      const std::string& database_path,
+      std::shared_ptr<Database> database,
       std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager);
 
   void Run() override;
 
  private:
   const glomap::GlobalMapperOptions options_;
-  const std::string image_path_;
-  const std::string database_path_;
+  const std::shared_ptr<Database> database_;
   std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager_;
 };
 
