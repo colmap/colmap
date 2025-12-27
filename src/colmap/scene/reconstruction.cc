@@ -131,6 +131,180 @@ std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
   return point3D_ids;
 }
 
+bool Reconstruction::IsValid() const {
+  // Check object associations: rig-frame-image-camera references and pointers.
+  // Check rigs.
+  for (const auto& [rig_id, rig] : rigs_) {
+    for (const sensor_t& sensor_id : rig.SensorIds()) {
+      switch (sensor_id.type) {
+        case SensorType::CAMERA:
+          if (!ExistsCamera(sensor_id.id)) {
+            LOG(WARNING) << "Rig " << rig_id << " has sensor (camera) "
+                         << sensor_id.id << " which does not exist";
+            return false;
+          }
+          break;
+        case SensorType::IMU:
+        case SensorType::INVALID:
+          // Only camera sensors are currently supported.
+          break;
+      }
+    }
+  }
+  // Check frames.
+  for (const auto& [frame_id, frame] : frames_) {
+    if (!frame.HasRigId()) {
+      LOG(WARNING) << "Frame " << frame_id << " has no rig_id";
+      return false;
+    }
+    if (!ExistsRig(frame.RigId())) {
+      LOG(WARNING) << "Frame " << frame_id << " references non-existent rig "
+                   << frame.RigId();
+      return false;
+    }
+    if (!frame.HasRigPtr()) {
+      LOG(WARNING) << "Frame " << frame_id << " has no rig pointer";
+      return false;
+    }
+    if (frame.RigPtr() != &rigs_.at(frame.RigId())) {
+      LOG(WARNING) << "Frame " << frame_id
+                   << " rig pointer does not match rig_id";
+      return false;
+    }
+    for (const auto& data_id : frame.DataIds()) {
+      if (!frame.RigPtr()->HasSensor(data_id.sensor_id)) {
+        LOG(WARNING) << "Frame " << frame_id << " has data with sensor_id "
+                     << data_id.sensor_id.id << " that does not exist in rig "
+                     << frame.RigId();
+        return false;
+      }
+      switch (data_id.sensor_id.type) {
+        case SensorType::CAMERA:
+          if (!ExistsImage(data_id.id)) {
+            LOG(WARNING) << "Frame " << frame_id << " references image "
+                         << data_id.id << " which does not exist";
+            return false;
+          }
+          break;
+        case SensorType::IMU:
+        case SensorType::INVALID:
+          // Only camera data is currently supported.
+          break;
+      }
+    }
+  }
+  // Check images.
+  for (const auto& [image_id, image] : images_) {
+    if (!image.HasCameraId()) {
+      LOG(WARNING) << "Image " << image_id << " has no camera_id";
+      return false;
+    }
+    if (!ExistsCamera(image.CameraId())) {
+      LOG(WARNING) << "Image " << image_id << " references non-existent camera "
+                   << image.CameraId();
+      return false;
+    }
+    if (!image.HasCameraPtr()) {
+      LOG(WARNING) << "Image " << image_id << " has no camera pointer";
+      return false;
+    }
+    if (image.CameraPtr() != &cameras_.at(image.CameraId())) {
+      LOG(WARNING) << "Image " << image_id
+                   << " camera pointer does not match camera_id";
+      return false;
+    }
+    if (!image.HasFrameId()) {
+      LOG(WARNING) << "Image " << image_id << " has no frame_id";
+      return false;
+    }
+    if (!ExistsFrame(image.FrameId())) {
+      LOG(WARNING) << "Image " << image_id << " references non-existent frame "
+                   << image.FrameId();
+      return false;
+    }
+    if (!image.HasFramePtr()) {
+      LOG(WARNING) << "Image " << image_id << " has no frame pointer";
+      return false;
+    }
+    if (image.FramePtr() != &frames_.at(image.FrameId())) {
+      LOG(WARNING) << "Image " << image_id
+                   << " frame pointer does not match frame_id";
+      return false;
+    }
+    if (!image.FramePtr()->HasDataId(image.DataId())) {
+      LOG(WARNING) << "Image " << image_id << " data_id not found in frame "
+                   << image.FrameId();
+      return false;
+    }
+    // Check 2D-3D associations: point2D -> point3D direction.
+    point2D_t actual_num_points3D = 0;
+    for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+         ++point2D_idx) {
+      const Point2D& point2D = image.Point2D(point2D_idx);
+      if (point2D.HasPoint3D()) {
+        ++actual_num_points3D;
+        if (!ExistsPoint3D(point2D.point3D_id)) {
+          LOG(WARNING) << "Image " << image_id << " point2D " << point2D_idx
+                       << " references non-existent point3D "
+                       << point2D.point3D_id;
+          return false;
+        }
+      }
+    }
+    if (image.NumPoints3D() != actual_num_points3D) {
+      LOG(WARNING) << "Image " << image_id
+                   << " NumPoints3D()=" << image.NumPoints3D()
+                   << " does not match actual count=" << actual_num_points3D;
+      return false;
+    }
+  }
+  // Check 2D-3D associations: point3D -> point2D direction.
+  for (const auto& [point3D_id, point3D] : points3D_) {
+    for (const auto& track_el : point3D.track.Elements()) {
+      if (!ExistsImage(track_el.image_id)) {
+        LOG(WARNING) << "Point3D " << point3D_id << " track references image "
+                     << track_el.image_id << " which does not exist";
+        return false;
+      }
+      const class Image& image = Image(track_el.image_id);
+      if (track_el.point2D_idx >= image.NumPoints2D()) {
+        LOG(WARNING) << "Point3D " << point3D_id << " track references point2D "
+                     << track_el.point2D_idx << " in image "
+                     << track_el.image_id << " which only has "
+                     << image.NumPoints2D() << " points";
+        return false;
+      }
+      const Point2D& point2D = image.Point2D(track_el.point2D_idx);
+      if (!point2D.HasPoint3D()) {
+        LOG(WARNING) << "Point3D " << point3D_id << " track references point2D "
+                     << track_el.point2D_idx << " in image "
+                     << track_el.image_id << " which has no point3D set";
+        return false;
+      }
+      if (point2D.point3D_id != point3D_id) {
+        LOG(WARNING) << "Point3D " << point3D_id << " track references point2D "
+                     << track_el.point2D_idx << " in image "
+                     << track_el.image_id
+                     << " which points to different point3D "
+                     << point2D.point3D_id;
+        return false;
+      }
+    }
+  }
+  // Check registered frames exist and have poses.
+  for (const frame_t frame_id : reg_frame_ids_) {
+    if (!ExistsFrame(frame_id)) {
+      LOG(WARNING) << "Registered frame " << frame_id << " does not exist";
+      return false;
+    }
+    if (!Frame(frame_id).HasPose()) {
+      LOG(WARNING) << "Registered frame " << frame_id << " has no pose";
+      return false;
+    }
+  }
+  return true;
+}
+
 void Reconstruction::Load(const DatabaseCache& database_cache) {
   // Add cameras.
   cameras_.reserve(database_cache.NumCameras());
