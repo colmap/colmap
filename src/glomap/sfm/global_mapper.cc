@@ -127,26 +127,26 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     std::cout << "Running track establishment ..." << '\n';
     std::cout << "-------------------------------------" << '\n';
 
-    // TrackEngine reads images, writes unfiltered tracks to a temporary map,
+    // TrackEngine reads images, writes unfiltered points3D to a temporary map,
     // then filters into the main reconstruction
-    std::unordered_map<point3D_t, Point3D> unfiltered_tracks;
+    std::unordered_map<point3D_t, Point3D> unfiltered_points3D;
     TrackEngine track_engine(
         view_graph, reconstruction.Images(), options_.opt_track);
-    track_engine.EstablishFullTracks(unfiltered_tracks);
+    track_engine.EstablishFullTracks(unfiltered_points3D);
 
-    // Filter the tracks into a selected subset
-    std::unordered_map<point3D_t, Point3D> selected_tracks;
-    point3D_t num_tracks =
-        track_engine.FindTracksForProblem(unfiltered_tracks, selected_tracks);
+    // Filter the points3D into a selected subset
+    std::unordered_map<point3D_t, Point3D> selected_points3D;
+    point3D_t num_points3D = track_engine.FindTracksForProblem(
+        unfiltered_points3D, selected_points3D);
 
-    // Add selected tracks to reconstruction
+    // Add selected points3D to reconstruction
     THROW_CHECK_EQ(reconstruction.NumPoints3D(), 0);
-    for (auto& [track_id, track] : selected_tracks) {
-      reconstruction.AddPoint3D(track_id, std::move(track));
+    for (auto& [point3D_id, point3D] : selected_points3D) {
+      reconstruction.AddPoint3D(point3D_id, std::move(point3D));
     }
 
-    LOG(INFO) << "Before filtering: " << unfiltered_tracks.size()
-              << ", after filtering: " << num_tracks << '\n';
+    LOG(INFO) << "Before filtering: " << unfiltered_points3D.size()
+              << ", after filtering: " << num_points3D << '\n';
     run_timer.PrintSeconds();
   }
 
