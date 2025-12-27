@@ -56,10 +56,8 @@ TEST(GlobalPipeline, Nominal) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  GlobalPipeline mapper(glomap::GlobalMapperOptions(),
-                        /*image_path=*/"",
-                        database_path,
-                        reconstruction_manager);
+  GlobalPipeline mapper(
+      glomap::GlobalMapperOptions(), database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);

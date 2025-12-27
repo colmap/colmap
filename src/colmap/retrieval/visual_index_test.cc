@@ -180,7 +180,7 @@ TEST_P(ParameterizedVisualIndexTests, SpatialVerification) {
   // Keep test runtimes low.
   build_options.num_iterations = 10;
   build_options.num_rounds = 1;
-  build_options.num_visual_words = 100;
+  build_options.num_visual_words = 200;
   // Use a single thread for deterministic results.
   build_options.num_threads = 1;
 
@@ -188,7 +188,7 @@ TEST_P(ParameterizedVisualIndexTests, SpatialVerification) {
       VisualIndex::Descriptors::Random(1000, desc_dim);
   auto visual_index = VisualIndex::Create(desc_dim, embedding_dim);
   visual_index->Build(build_options, train_descriptors);
-  EXPECT_EQ(visual_index->NumVisualWords(), 100);
+  EXPECT_EQ(visual_index->NumVisualWords(), build_options.num_visual_words);
 
   // Add multiple images with geometries and descriptors
   VisualIndex::IndexOptions index_options;
