@@ -684,7 +684,7 @@ TEST(ThreadPool, FutureAndWaitPropagatesException) {
   EXPECT_NO_THROW(pool.Wait());
 }
 
-TEST(ThreadPool, NaiveTryCatchWorks) {
+TEST(ThreadPool, CatchAggregateException) {
   ThreadPool pool(1);
   pool.AddTask([]() { throw std::runtime_error("Error 1"); });
   pool.AddTask([]() { throw std::runtime_error("Error 2"); });
