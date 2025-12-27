@@ -640,47 +640,64 @@ TEST(ThreadPool, GetThreadIndex) {
   }
 }
 
-TEST(ThreadPool, FutureAndStopPropagateException) {
+TEST(ThreadPool, FuturePropagatesException) {
   ThreadPool pool(1);
   auto future = pool.AddTask([]() { throw std::runtime_error("Error"); });
   EXPECT_THROW(future.get(), std::runtime_error);
-  EXPECT_THROW(pool.Stop(), std::runtime_error);
-  EXPECT_NO_THROW(pool.Stop());
+  EXPECT_THROW(pool.Wait(), AggregateException);
 }
 
 TEST(ThreadPool, WaitPropagatesException) {
   ThreadPool pool(1);
   pool.AddTask([]() { throw std::runtime_error("Error"); });
-  EXPECT_THROW(pool.Wait(), std::runtime_error);
+  EXPECT_THROW(pool.Wait(), AggregateException);
   EXPECT_NO_THROW(pool.Wait());
 }
 
-TEST(ThreadPool, WaitPropagatesMultipleException) {
+TEST(ThreadPool, WaitPropagatesMultipleExceptions) {
+  ThreadPool pool(1);
+  pool.AddTask([]() { throw std::runtime_error("Error 1"); });
+  pool.AddTask([]() { throw std::runtime_error("Error 2"); });
+
+  try {
+    pool.Wait();
+    FAIL() << "Expected AggregateException";
+  } catch (const AggregateException& e) {
+    EXPECT_EQ(e.exceptions().size(), 2);
+  }
+  EXPECT_NO_THROW(pool.Wait());
+}
+
+TEST(ThreadPool, StopPropagatesException) {
   ThreadPool pool(1);
   pool.AddTask([]() { throw std::runtime_error("Error"); });
-  pool.AddTask([]() { throw std::runtime_error("Error"); });
-  EXPECT_THROW(pool.Wait(), std::runtime_error);
-  EXPECT_THROW(pool.Wait(), std::runtime_error);
-  EXPECT_NO_THROW(pool.Wait());
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  EXPECT_THROW(pool.Stop(), AggregateException);
+  EXPECT_NO_THROW(pool.Stop());
 }
 
 TEST(ThreadPool, FutureAndWaitPropagatesException) {
   ThreadPool pool(1);
   auto future = pool.AddTask([]() { throw std::runtime_error("Error"); });
   EXPECT_THROW(future.get(), std::runtime_error);
-  EXPECT_THROW(future.get(), std::runtime_error);
-  EXPECT_THROW(pool.Wait(), std::runtime_error);
+  EXPECT_THROW(pool.Wait(), AggregateException);
   EXPECT_NO_THROW(pool.Wait());
 }
 
-// The following test succeeds but we cannot reliably test this,
-// because gtest's EXPECT_DEATH macro is not thread-safe.
-// TEST(ThreadPool, DestructorPropagatesException) {
-//   auto pool = std::make_unique<ThreadPool>(1);
-//   auto future = pool->AddTask([]() { throw std::runtime_error("Error"); });
-//   EXPECT_THROW(future.get(), std::runtime_error);
-//   EXPECT_DEATH(pool.reset(), "Uncaught exception in thread pool destructor");
-// }
+TEST(ThreadPool, NaiveTryCatchWorks) {
+  ThreadPool pool(1);
+  pool.AddTask([]() { throw std::runtime_error("Error 1"); });
+  pool.AddTask([]() { throw std::runtime_error("Error 2"); });
+
+  bool caught = false;
+  try {
+    pool.Wait();
+  } catch (const AggregateException& e) {
+    caught = true;
+    EXPECT_EQ(e.exceptions().size(), 2);
+  }
+  EXPECT_TRUE(caught);
+}
 
 TEST(JobQueue, SingleProducerSingleConsumer) {
   JobQueue<int> job_queue;
