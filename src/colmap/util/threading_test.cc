@@ -640,10 +640,12 @@ TEST(ThreadPool, GetThreadIndex) {
   }
 }
 
-TEST(ThreadPool, FuturePropagatesException) {
+TEST(ThreadPool, FutureAndStopPropagateException) {
   ThreadPool pool(1);
   auto future = pool.AddTask([]() { throw std::runtime_error("Error"); });
   EXPECT_THROW(future.get(), std::runtime_error);
+  EXPECT_THROW(pool.Stop(), std::runtime_error);
+  EXPECT_NO_THROW(pool.Stop());
 }
 
 TEST(ThreadPool, WaitPropagatesException) {
@@ -670,6 +672,15 @@ TEST(ThreadPool, FutureAndWaitPropagatesException) {
   EXPECT_THROW(pool.Wait(), std::runtime_error);
   EXPECT_NO_THROW(pool.Wait());
 }
+
+// The following test succeeds but we cannot reliably test this,
+// because gtest's EXPECT_DEATH macro is not thread-safe.
+// TEST(ThreadPool, DestructorPropagatesException) {
+//   auto pool = std::make_unique<ThreadPool>(1);
+//   auto future = pool->AddTask([]() { throw std::runtime_error("Error"); });
+//   EXPECT_THROW(future.get(), std::runtime_error);
+//   EXPECT_DEATH(pool.reset(), "Uncaught exception in thread pool destructor");
+// }
 
 TEST(JobQueue, SingleProducerSingleConsumer) {
   JobQueue<int> job_queue;

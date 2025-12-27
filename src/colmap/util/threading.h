@@ -230,9 +230,11 @@ class ThreadPool {
  private:
   void WorkerFunc(int index);
 
+  void CheckFinishedTasks();
+
   std::vector<std::thread> workers_;
-  std::queue<std::function<void()>> tasks_;
-  std::queue<std::function<void()>> future_checkers_;
+  std::queue<std::function<std::function<void()>()>> tasks_;
+  std::vector<std::function<void()>> finished_task_checkers_;
 
   std::mutex mutex_;
   std::condition_variable task_condition_;
@@ -342,8 +344,10 @@ auto ThreadPool::AddTask(func_t&& f, args_t&&... args)
     if (stopped_) {
       throw std::runtime_error("Cannot add task to stopped thread pool.");
     }
-    tasks_.emplace([task = std::move(task)]() { (*task)(); });
-    future_checkers_.emplace([result]() { result.get(); });
+    tasks_.emplace([task = std::move(task), result]() {
+      (*task)();
+      return [result = std::move(result)]() { result.get(); };
+    });
   }
 
   task_condition_.notify_one();

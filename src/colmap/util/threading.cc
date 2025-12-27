@@ -191,7 +191,13 @@ ThreadPool::ThreadPool(const int num_threads)
   }
 }
 
-ThreadPool::~ThreadPool() { Stop(); }
+ThreadPool::~ThreadPool() {
+  try {
+    Stop();
+  } catch (...) {
+    LOG(FATAL) << "Uncaught exception in thread pool destructor";
+  }
+}
 
 void ThreadPool::Stop() {
   {
@@ -201,11 +207,13 @@ void ThreadPool::Stop() {
       return;
     }
 
+    CheckFinishedTasks();
+
     stopped_ = true;
 
-    // Clear and release the queues.
-    std::queue<std::function<void()>>().swap(tasks_);
-    std::queue<std::function<void()>>().swap(future_checkers_);
+    // Clear the queues.
+    tasks_ = {};
+    finished_task_checkers_ = {};
   }
 
   task_condition_.notify_all();
@@ -224,10 +232,13 @@ void ThreadPool::Wait() {
         lock, [this]() { return tasks_.empty() && num_active_workers_ == 0; });
   }
 
-  // Check remaining futures to propagate any exceptions.
-  while (!future_checkers_.empty()) {
-    auto checker = std::move(future_checkers_.front());
-    future_checkers_.pop();
+  CheckFinishedTasks();
+}
+
+void ThreadPool::CheckFinishedTasks() {
+  while (!finished_task_checkers_.empty()) {
+    auto checker = std::move(finished_task_checkers_.back());
+    finished_task_checkers_.pop_back();
     checker();
   }
 }
@@ -239,7 +250,7 @@ void ThreadPool::WorkerFunc(const int index) {
   }
 
   while (true) {
-    std::function<void()> task;
+    std::function<std::function<void()>()> task;
     {
       std::unique_lock<std::mutex> lock(mutex_);
       task_condition_.wait(lock,
@@ -252,11 +263,12 @@ void ThreadPool::WorkerFunc(const int index) {
       num_active_workers_ += 1;
     }
 
-    task();
+    std::function<void()> finished_task_checker = task();
 
     {
       std::unique_lock<std::mutex> lock(mutex_);
       num_active_workers_ -= 1;
+      finished_task_checkers_.push_back(std::move(finished_task_checker));
     }
 
     finished_condition_.notify_all();
