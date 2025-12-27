@@ -103,7 +103,8 @@ colmap::Reconstruction CreateExpandedReconstruction(
       image_expanded.SetCameraId(image.CameraId());
       image_expanded.SetName(image.Name());
 
-      // Check if camera belongs to this frame's rig (ref sensor or known cam_from_rig).
+      // Check if camera belongs to this frame's rig (ref sensor or known
+      // cam_from_rig).
       const sensor_t sensor_id(SensorType::CAMERA, image.CameraId());
       const bool belongs_to_frame_rig =
           original_rig.RefSensorId() == sensor_id ||
@@ -164,7 +165,8 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
       expanded_cams_from_world[image_id] = image.CamFromWorld();
     }
 
-    LOG(INFO) << "Initializing cam_from_rig from preliminary rotation estimates";
+    LOG(INFO)
+        << "Initializing cam_from_rig from preliminary rotation estimates";
     InitializeRigRotationsFromImages(expanded_cams_from_world, reconstruction);
 
     // Run rotation averaging on the original reconstruction with initialization
