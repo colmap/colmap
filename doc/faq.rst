@@ -205,6 +205,10 @@ they can be merged into a single model as post-processing step::
         --input_path2 /path/to/sub-model2 \
         --output_path /path/to/merged-model
 
+The order of input models can affect the merge result. Note that when using
+``model_merger`` elsewhere, you should ensure that all models originate from the
+same database to avoid inconsistencies in their identifiers.
+
 To improve the quality of the alignment between the two sub-models, it is
 recommended to run another global bundle adjustment after the merge::
 

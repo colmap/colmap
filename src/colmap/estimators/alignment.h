@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/reconstruction.h"
@@ -96,8 +97,36 @@ std::vector<ImageAlignmentError> ComputeImageAlignmentError(
     const Sim3d& tgt_from_src);
 
 // Aligns the source to the target reconstruction and merges cameras, images,
-// points3D into the target using the alignment. Returns false on failure.
-bool MergeReconstructions(double max_reproj_error,
+// points3D into the target using the alignment. Both reconstructions must come
+// from the same database to keep identifiers consistent. Returns false on
+// failure.
+struct MergeReconstructionsOptions {
+  // Method for selecting or merging camera intrinsics
+  // SOURCE:  Use cameras from the source reconstruction
+  // TARGET:  Use cameras from the target reconstruction
+  // BETTER:  Choose the camera with the smaller reprojection error
+  MAKE_ENUM_CLASS(CameraMergeMethod, 0, SOURCE, TARGET, BETTER);
+
+  CameraMergeMethod camera_merge_method = CameraMergeMethod::BETTER;
+
+  // Minimum required inlier ratio per overlapping image pair.
+  double min_inlier_observations = 0.3;
+
+  // Maximum reprojection error for considering a point3D as inlier.
+  double max_reproj_error = 64;
+
+  // Whether to filter outlier obsevations after mergeing.
+  bool filter_obsevations_after_merge = true;
+
+  // Whether to run bundle adjustment after merging.
+  bool refine_after_merge = true;
+
+  // Bundle adjustment options when refining the merged reconstruction.
+  BundleAdjustmentOptions ba_options;
+
+  bool Check() const;
+};
+bool MergeReconstructions(const MergeReconstructionsOptions& options,
                           const Reconstruction& src_reconstruction,
                           Reconstruction& tgt_reconstruction);
 

@@ -37,10 +37,6 @@
 
 namespace colmap {
 
-bool MergeAndFilterReconstructions(double max_reproj_error,
-                                   const Reconstruction& src_reconstruction,
-                                   Reconstruction& tgt_reconstruction);
-
 class ObservationManager {
  public:
   // The number of levels in the 3D point multi-resolution visibility pyramid.
