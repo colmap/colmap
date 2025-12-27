@@ -27,19 +27,6 @@ bool HasUnknownCamsFromRig(const colmap::Reconstruction& reconstruction) {
 // independently.
 colmap::Reconstruction CreateExpandedReconstruction(
     const colmap::Reconstruction& reconstruction) {
-  // Collect cameras with unknown cam_from_rig and find max rig ID.
-  std::unordered_set<camera_t> unknown_cams_from_rig;
-  rig_t max_rig_id = 0;
-  for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
-    max_rig_id = std::max(max_rig_id, rig_id);
-    for (const auto& [sensor_id, sensor] : rig.NonRefSensors()) {
-      if (sensor_id.type != SensorType::CAMERA) continue;
-      if (!rig.MaybeSensorFromRig(sensor_id).has_value()) {
-        unknown_cams_from_rig.insert(sensor_id.id);
-      }
-    }
-  }
-
   colmap::Reconstruction recon_expanded;
 
   // Add all cameras first (required before adding rigs).
@@ -47,29 +34,32 @@ colmap::Reconstruction CreateExpandedReconstruction(
     recon_expanded.AddCamera(camera);
   }
 
-  // For cameras with known cam_from_rig, create rigs with only those sensors.
-  std::unordered_map<camera_t, rig_t> camera_id_to_rig_id;
+  // Create expanded rigs with known sensors only.
+  // Cameras with unknown cam_from_rig get their own singleton rigs.
+  std::unordered_map<camera_t, rig_t> singleton_rig_ids;
+  rig_t next_rig_id = 0;
+
   for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
+    next_rig_id = std::max(next_rig_id, rig_id + 1);
+
     Rig rig_expanded;
     rig_expanded.SetRigId(rig_id);
     rig_expanded.AddRefSensor(rig.RefSensorId());
+
     for (const auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
       if (sensor_id.type != SensorType::CAMERA) continue;
       if (rig.MaybeSensorFromRig(sensor_id).has_value()) {
         rig_expanded.AddSensor(sensor_id, sensor_from_rig);
-        camera_id_to_rig_id[sensor_id.id] = rig_id;
+      } else {
+        // Create singleton rig for this camera.
+        const rig_t singleton_rig_id = next_rig_id++;
+        Rig rig_singleton;
+        rig_singleton.SetRigId(singleton_rig_id);
+        rig_singleton.AddRefSensor(sensor_id);
+        recon_expanded.AddRig(rig_singleton);
+        singleton_rig_ids[sensor_id.id] = singleton_rig_id;
       }
     }
-    camera_id_to_rig_id[rig.RefSensorId().id] = rig_id;
-    recon_expanded.AddRig(rig_expanded);
-  }
-
-  // For each camera with unknown cam_from_rig, create a separate singleton rig.
-  for (const auto& camera_id : unknown_cams_from_rig) {
-    Rig rig_expanded;
-    rig_expanded.SetRigId(++max_rig_id);
-    rig_expanded.AddRefSensor(sensor_t(SensorType::CAMERA, camera_id));
-    camera_id_to_rig_id[camera_id] = rig_expanded.RigId();
     recon_expanded.AddRig(rig_expanded);
   }
 
@@ -90,15 +80,17 @@ colmap::Reconstruction CreateExpandedReconstruction(
     Frame frame_expanded;
     frame_expanded.SetFrameId(frame_id);
     frame_expanded.SetRigId(frame.RigId());
-    frame_expanded.SetRigFromWorld(kUnknownPose);
+    if (frame.HasPose()) {
+      frame_expanded.SetRigFromWorld(frame.RigFromWorld());
+    } else {
+      frame_expanded.SetRigFromWorld(kUnknownPose);
+    }
     recon_expanded.AddFrame(frame_expanded);
   }
 
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     Frame& frame_expanded = recon_expanded.Frame(frame_id);
-    frame_expanded.SetRigPtr(recon_expanded.ExistsRig(frame.RigId())
-                                 ? &recon_expanded.Rig(frame.RigId())
-                                 : nullptr);
+    const Rig& original_rig = reconstruction.Rig(frame.RigId());
 
     for (const auto& data_id : frame.ImageIds()) {
       const auto& image = reconstruction.Image(data_id.id);
@@ -111,19 +103,23 @@ colmap::Reconstruction CreateExpandedReconstruction(
       image_expanded.SetCameraId(image.CameraId());
       image_expanded.SetName(image.Name());
 
-      if (unknown_cams_from_rig.count(image.CameraId()) == 0) {
-        // Image belongs to the existing frame.
+      // Check if camera belongs to this frame's rig (ref sensor or known cam_from_rig).
+      const sensor_t sensor_id(SensorType::CAMERA, image.CameraId());
+      const bool belongs_to_frame_rig =
+          original_rig.RefSensorId() == sensor_id ||
+          original_rig.MaybeSensorFromRig(sensor_id).has_value();
+
+      if (belongs_to_frame_rig) {
+        // Camera belongs to this frame's rig.
         frame_expanded.AddDataId(image_expanded.DataId());
         image_expanded.SetFrameId(frame_id);
         recon_expanded.AddImage(std::move(image_expanded));
       } else {
-        // If cam_from_rig is unknown, create a new frame with a singleton rig
-        // (not camera_id, since we created separate rigs for these).
+        // Camera has its own singleton rig, create a new frame for it.
         const frame_t new_frame_id = ++max_frame_id;
-        const rig_t rig_id = camera_id_to_rig_id.at(image.CameraId());
         Frame new_frame;
         new_frame.SetFrameId(new_frame_id);
-        new_frame.SetRigId(rig_id);
+        new_frame.SetRigId(singleton_rig_ids.at(image.CameraId()));
         new_frame.AddDataId(image_expanded.DataId());
         new_frame.SetRigFromWorld(kUnknownPose);
         recon_expanded.AddFrame(new_frame);
@@ -148,7 +144,8 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
   // If there are cameras with unknown cam_from_rig, run expanded rotation
   // averaging first to estimate their orientations.
   if (HasUnknownCamsFromRig(reconstruction)) {
-    LOG(INFO) << "Running expanded rotation averaging for rigged cameras";
+    LOG(INFO) << "Detected cameras with unknown cam_from_rig, "
+                 "estimating rotations with these cameras as independent";
 
     colmap::Reconstruction recon_expanded =
         CreateExpandedReconstruction(reconstruction);
@@ -167,7 +164,7 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
       expanded_cams_from_world[image_id] = image.CamFromWorld();
     }
 
-    LOG(INFO) << "Initializing rig rotations from expanded reconstruction";
+    LOG(INFO) << "Initializing cam_from_rig from preliminary rotation estimates";
     InitializeRigRotationsFromImages(expanded_cams_from_world, reconstruction);
 
     // Run rotation averaging on the original reconstruction with initialization
