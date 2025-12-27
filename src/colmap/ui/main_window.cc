@@ -772,11 +772,13 @@ void MainWindow::CreateControllers() {
     mapper_controller_->Wait();
   }
 
+  options_.mapper->image_path = *options_.image_path;
+
   mapper_controller_ = std::make_unique<ControllerThread<IncrementalPipeline>>(
-      std::make_shared<IncrementalPipeline>(options_.mapper,
-                                            *options_.image_path,
-                                            *options_.database_path,
-                                            reconstruction_manager_));
+      std::make_shared<IncrementalPipeline>(
+          options_.mapper,
+          Database::Open(*options_.database_path),
+          reconstruction_manager_));
   mapper_controller_->GetController()->AddCallback(
       IncrementalPipeline::INITIAL_IMAGE_PAIR_REG_CALLBACK, [this]() {
         if (!mapper_controller_->IsStopped()) {

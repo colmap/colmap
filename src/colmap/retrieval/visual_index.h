@@ -73,7 +73,8 @@ class VisualIndex {
     // is assigned to.
     int num_neighbors = 5;
 
-    // Whether to perform spatial verification after image retrieval.
+    // Perform spatial verification after image retrieval, if > 0.
+    // Defines the number of neighbors to re-rank using spatial verification.
     int num_images_after_verification = 0;
 
     // The number of checks in the nearest neighbor search.

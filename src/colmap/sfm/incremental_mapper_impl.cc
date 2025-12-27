@@ -275,7 +275,7 @@ bool IncrementalMapperImpl::FindInitialImagePair(
   };
 
   ThreadPool thread_pool(options.num_threads);
-  std::vector<std::future<InitInfo>> init_infos;
+  std::vector<std::shared_future<InitInfo>> init_infos;
   init_infos.reserve(image_ids1.size());
 
   std::mutex init_image_pairs_mutex;

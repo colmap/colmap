@@ -59,29 +59,32 @@ class RotationAveragingProblem {
     return constraint_matrix_;
   }
   const Eigen::VectorXd& Residuals() const { return residuals_; }
-  const Eigen::ArrayXd& EdgeWeights() const { return edge_weights_; }
+  const Eigen::VectorXd& EdgeWeights() const { return edge_weights_; }
   int NumParameters() const { return constraint_matrix_.cols(); }
   int NumResiduals() const { return constraint_matrix_.rows(); }
-  int GaugeFixingRows() const { return gauge_fixing_rows_; }
+  int NumGaugeFixingResiduals() const { return num_gauge_fixing_residuals_; }
   const std::unordered_map<image_pair_t, PairConstraint>& PairConstraints()
       const {
     return pair_constraints_;
   }
 
  private:
+  // Returns true if frame has gravity prior and gravity mode is enabled.
+  bool HasFrameGravity(frame_t frame_id) const;
+
   // Allocates parameter indices for frames and cameras, initializes rotations.
-  int AllocateParameters(const colmap::Reconstruction& reconstruction);
+  size_t AllocateParameters(const colmap::Reconstruction& reconstruction);
 
   // Builds PairConstraint for each valid image pair.
   void BuildPairConstraints(const ViewGraph& view_graph,
                             const colmap::Reconstruction& reconstruction);
 
   // Builds sparse matrix A and edge weight vector.
-  void BuildConstraintMatrix(int num_params,
+  void BuildConstraintMatrix(size_t num_params,
                              const ViewGraph& view_graph,
                              const colmap::Reconstruction& reconstruction);
 
-  const RotationEstimatorOptions& options_;
+  const RotationEstimatorOptions options_;
 
   // Pose priors indexed by frame ID.
   std::unordered_map<frame_t, const colmap::PosePrior*> frame_to_pose_prior_;
@@ -89,10 +92,10 @@ class RotationAveragingProblem {
   // Linear system components.
   Eigen::SparseMatrix<double> constraint_matrix_;  // Matrix A.
   Eigen::VectorXd residuals_;                      // Vector b.
-  Eigen::ArrayXd edge_weights_;
+  Eigen::VectorXd edge_weights_;
 
   // Current rotation estimates in tangent space (angle-axis).
-  Eigen::VectorXd rotation_estimated_;
+  Eigen::VectorXd estimated_rotations_;
 
   // Parameter index mappings.
   std::unordered_map<frame_t, int> frame_id_to_param_idx_;
@@ -104,7 +107,7 @@ class RotationAveragingProblem {
   // Gauge fixing (removes rotational ambiguity).
   frame_t fixed_frame_id_ = colmap::kInvalidFrameId;
   Eigen::Vector3d fixed_frame_rotation_;
-  int gauge_fixing_rows_ = 3;  // 1 for gravity-aligned, 3 otherwise.
+  int num_gauge_fixing_residuals_ = 3;  // 1 for gravity-aligned, 3 otherwise.
 
   // Cached lookups for ComputeResiduals and UpdateState.
   std::unordered_map<image_t, frame_t> image_id_to_frame_id_;
@@ -129,10 +132,10 @@ class RotationAveragingSolver {
 
   // Computes IRLS weights for all constraints.
   // Returns nullopt if any weight is NaN.
-  std::optional<Eigen::ArrayXd> ComputeIRLSWeights(
+  std::optional<Eigen::VectorXd> ComputeIRLSWeights(
       const RotationAveragingProblem& problem, double sigma) const;
 
-  const RotationEstimatorOptions& options_;
+  const RotationEstimatorOptions options_;
 };
 
 }  // namespace glomap

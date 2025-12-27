@@ -73,13 +73,13 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
         }
       };
 
-  if (!RunMapperImpl(database_path,
-                     image_path,
-                     output_path,
-                     options_,
-                     reconstruction_manager,
-                     initial_image_pair_callback,
-                     next_image_callback_py_interruptible)) {
+  if (!RunIncrementalMapperImpl(database_path,
+                                image_path,
+                                output_path,
+                                options_,
+                                reconstruction_manager,
+                                initial_image_pair_callback,
+                                next_image_callback_py_interruptible)) {
     return {};
   }
 

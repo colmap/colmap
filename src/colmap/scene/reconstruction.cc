@@ -359,6 +359,17 @@ void Reconstruction::AddImageWithTrivialFrame(class Image image,
 void Reconstruction::AddPoint3D(const point3D_t point3D_id,
                                 struct Point3D point3D) {
   max_point3D_id_ = std::max(max_point3D_id_, point3D_id);
+
+  for (const auto& track_el : point3D.track.Elements()) {
+    class Image& image = Image(track_el.image_id);
+    const Point2D& point2D = image.Point2D(track_el.point2D_idx);
+    if (point2D.HasPoint3D()) {
+      THROW_CHECK_EQ(point2D.point3D_id, point3D_id);
+    } else {
+      image.SetPoint3DForPoint2D(track_el.point2D_idx, point3D_id);
+    }
+    THROW_CHECK_LE(image.NumPoints3D(), image.NumPoints2D());
+  }
   THROW_CHECK(points3D_.emplace(point3D_id, std::move(point3D)).second);
 }
 
@@ -366,20 +377,11 @@ point3D_t Reconstruction::AddPoint3D(const Eigen::Vector3d& xyz,
                                      Track track,
                                      const Eigen::Vector3ub& color) {
   const point3D_t point3D_id = ++max_point3D_id_;
-  THROW_CHECK(!ExistsPoint3D(point3D_id));
-
-  for (const auto& track_el : track.Elements()) {
-    class Image& image = Image(track_el.image_id);
-    THROW_CHECK(!image.Point2D(track_el.point2D_idx).HasPoint3D());
-    image.SetPoint3DForPoint2D(track_el.point2D_idx, point3D_id);
-    THROW_CHECK_LE(image.NumPoints3D(), image.NumPoints2D());
-  }
-
-  struct Point3D& point3D = points3D_[point3D_id];
+  struct Point3D point3D;
   point3D.xyz = xyz;
   point3D.track = std::move(track);
   point3D.color = color;
-
+  AddPoint3D(point3D_id, std::move(point3D));
   return point3D_id;
 }
 
