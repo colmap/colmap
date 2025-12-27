@@ -44,7 +44,6 @@ colmap::Reconstruction CreateExpandedReconstruction(
   }
 
   for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
-
     Rig rig_expanded;
     rig_expanded.SetRigId(rig_id);
     rig_expanded.AddRefSensor(rig.RefSensorId());
