@@ -405,12 +405,9 @@ size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
 }
 
 size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
-    const double max_reproj_error,
+    const double max_error,
     const std::unordered_set<point3D_t>& point3D_ids,
-    const bool use_normalized_error) {
-  const double max_squared_reproj_error = max_reproj_error * max_reproj_error;
-
-  // Number of filtered observations.
+    const ReprojectionErrorType error_type) {
   size_t num_filtered_observations = 0;
 
   for (const auto point3D_id : point3D_ids) {
@@ -426,8 +423,7 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
       continue;
     }
 
-    double reproj_error_sum = 0.0;
-
+    double error_sum = 0.0;
     std::vector<TrackElement> track_els_to_delete;
 
     for (const auto& track_el : point3D.track.Elements()) {
@@ -435,33 +431,67 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
       const Camera& camera = *image.CameraPtr();
       const Point2D& point2D = image.Point2D(track_el.point2D_idx);
 
-      double squared_reproj_error;
-      if (use_normalized_error) {
-        const Eigen::Vector3d point3D_in_cam =
-            image.CamFromWorld() * point3D.xyz;
-        constexpr double kMinDepth = 1e-12;
-        if (point3D_in_cam.z() < kMinDepth) {
-          track_els_to_delete.push_back(track_el);
-          continue;
+      bool should_filter = false;
+      double observation_error = 0.0;
+
+      switch (error_type) {
+        case ReprojectionErrorType::PIXEL: {
+          const double squared_error = CalculateSquaredReprojectionError(
+              point2D.xy, point3D.xyz, image.CamFromWorld(), camera);
+          should_filter = squared_error > max_error * max_error;
+          observation_error = std::sqrt(squared_error);
+          break;
         }
-        const std::optional<Eigen::Vector2d> cam_point =
-            camera.CamFromImg(point2D.xy);
-        if (!cam_point.has_value()) {
-          track_els_to_delete.push_back(track_el);
-          continue;
+        case ReprojectionErrorType::NORMALIZED: {
+          const Eigen::Vector3d point3D_in_cam =
+              image.CamFromWorld() * point3D.xyz;
+          constexpr double kMinDepth = 1e-12;
+          if (point3D_in_cam.z() < kMinDepth) {
+            should_filter = true;
+            break;
+          }
+          const std::optional<Eigen::Vector2d> cam_point =
+              camera.CamFromImg(point2D.xy);
+          if (!cam_point.has_value()) {
+            should_filter = true;
+            break;
+          }
+          const Eigen::Vector2d reproj_point =
+              point3D_in_cam.hnormalized().head<2>();
+          const double squared_error =
+              (reproj_point - *cam_point).squaredNorm();
+          should_filter = squared_error > max_error * max_error;
+          observation_error = std::sqrt(squared_error);
+          break;
         }
-        const Eigen::Vector2d reproj_point =
-            point3D_in_cam.hnormalized().head<2>();
-        squared_reproj_error = (reproj_point - *cam_point).squaredNorm();
-      } else {
-        squared_reproj_error = CalculateSquaredReprojectionError(
-            point2D.xy, point3D.xyz, image.CamFromWorld(), camera);
+        case ReprojectionErrorType::ANGULAR: {
+          const std::optional<Eigen::Vector2d> cam_point =
+              camera.CamFromImg(point2D.xy);
+          if (!cam_point.has_value()) {
+            should_filter = true;
+            break;
+          }
+          const Eigen::Vector3d point3D_in_cam =
+              (image.CamFromWorld() * point3D.xyz).normalized();
+          const double cos_angle =
+              point3D_in_cam.dot(cam_point->homogeneous().normalized());
+          // Use relaxed threshold for cameras without prior focal length.
+          const double cos_threshold =
+              camera.has_prior_focal_length
+                  ? std::cos(DegToRad(max_error))
+                  : std::cos(DegToRad(max_error * 2.0));
+          should_filter = cos_angle < cos_threshold;
+          // Convert to angular error in degrees for error tracking.
+          observation_error =
+              RadToDeg(std::acos(std::clamp(cos_angle, -1.0, 1.0)));
+          break;
+        }
       }
 
-      if (squared_reproj_error > max_squared_reproj_error) {
+      if (should_filter) {
         track_els_to_delete.push_back(track_el);
       } else {
-        reproj_error_sum += std::sqrt(squared_reproj_error);
+        error_sum += observation_error;
       }
     }
 
@@ -473,71 +503,7 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
       for (const auto& track_el : track_els_to_delete) {
         DeleteObservation(track_el.image_id, track_el.point2D_idx);
       }
-      point3D.error = reproj_error_sum / point3D.track.Length();
-    }
-  }
-
-  return num_filtered_observations;
-}
-
-size_t ObservationManager::FilterPoints3DWithLargeAngularError(
-    const double max_angle_error,
-    const std::unordered_set<point3D_t>& point3D_ids) {
-  const double cos_max_angle = std::cos(DegToRad(max_angle_error));
-  const double cos_max_angle_uncalib =
-      std::cos(DegToRad(max_angle_error * 2.0));
-
-  size_t num_filtered_observations = 0;
-
-  for (const auto point3D_id : point3D_ids) {
-    if (!reconstruction_.ExistsPoint3D(point3D_id)) {
-      continue;
-    }
-
-    struct Point3D& point3D = reconstruction_.Point3D(point3D_id);
-
-    if (point3D.track.Length() < 2) {
-      num_filtered_observations += point3D.track.Length();
-      DeletePoint3D(point3D_id);
-      continue;
-    }
-
-    std::vector<TrackElement> track_els_to_delete;
-
-    for (const auto& track_el : point3D.track.Elements()) {
-      const Image& image = reconstruction_.Image(track_el.image_id);
-      const Camera& camera = *image.CameraPtr();
-      const Point2D& point2D = image.Point2D(track_el.point2D_idx);
-
-      const std::optional<Eigen::Vector2d> cam_point =
-          camera.CamFromImg(point2D.xy);
-      if (!cam_point.has_value()) {
-        track_els_to_delete.push_back(track_el);
-        continue;
-      }
-
-      const Eigen::Vector3d point3D_in_cam =
-          (image.CamFromWorld() * point3D.xyz).normalized();
-      const double cos_angle =
-          point3D_in_cam.dot(cam_point->homogeneous().normalized());
-
-      // Use relaxed threshold for cameras without prior focal length.
-      const double cos_threshold =
-          camera.has_prior_focal_length ? cos_max_angle : cos_max_angle_uncalib;
-
-      if (cos_angle < cos_threshold) {
-        track_els_to_delete.push_back(track_el);
-      }
-    }
-
-    if (track_els_to_delete.size() >= point3D.track.Length() - 1) {
-      num_filtered_observations += point3D.track.Length();
-      DeletePoint3D(point3D_id);
-    } else {
-      num_filtered_observations += track_els_to_delete.size();
-      for (const auto& track_el : track_els_to_delete) {
-        DeleteObservation(track_el.image_id, track_el.point2D_idx);
-      }
+      point3D.error = error_sum / point3D.track.Length();
     }
   }
 

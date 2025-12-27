@@ -165,9 +165,10 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     }
     // Filter tracks based on the estimation
     colmap::ObservationManager obs_manager(reconstruction);
-    obs_manager.FilterPoints3DWithLargeAngularError(
+    obs_manager.FilterPoints3DWithLargeReprojectionError(
         options_.inlier_thresholds.max_angle_error,
-        reconstruction.Point3DIds());
+        reconstruction.Point3DIds(),
+        colmap::ReprojectionErrorType::ANGULAR);
 
     // Filter tracks based on triangulation angle and reprojection error
     obs_manager.FilterPoints3DWithSmallTriangulationAngle(
@@ -177,7 +178,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     obs_manager.FilterPoints3DWithLargeReprojectionError(
         10 * options_.inlier_thresholds.max_reprojection_error,
         reconstruction.Point3DIds(),
-        /*use_normalized_error=*/true);
+        colmap::ReprojectionErrorType::NORMALIZED);
     // Normalize the structure
     // If the camera rig is used, the structure do not need to be normalized
     reconstruction.Normalize();
@@ -241,7 +242,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
         filtered_num += obs_manager.FilterPoints3DWithLargeReprojectionError(
             scaling * options_.inlier_thresholds.max_reprojection_error,
             reconstruction.Point3DIds(),
-            /*use_normalized_error=*/true);
+            colmap::ReprojectionErrorType::NORMALIZED);
 
         if (filtered_num > 1e-3 * reconstruction.NumPoints3D()) {
           status = false;
@@ -261,7 +262,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
       obs_manager.FilterPoints3DWithLargeReprojectionError(
           options_.inlier_thresholds.max_reprojection_error,
           reconstruction.Point3DIds(),
-          /*use_normalized_error=*/true);
+          colmap::ReprojectionErrorType::NORMALIZED);
       obs_manager.FilterPoints3DWithSmallTriangulationAngle(
           options_.inlier_thresholds.min_triangulation_angle,
           reconstruction.Point3DIds());
@@ -297,7 +298,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
           .FilterPoints3DWithLargeReprojectionError(
               options_.inlier_thresholds.max_reprojection_error,
               reconstruction.Point3DIds(),
-              /*use_normalized_error=*/true);
+              colmap::ReprojectionErrorType::NORMALIZED);
       if (!ba_engine.Solve(reconstruction)) {
         return false;
       }
@@ -314,7 +315,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
       obs_manager.FilterPoints3DWithLargeReprojectionError(
           options_.inlier_thresholds.max_reprojection_error,
           reconstruction.Point3DIds(),
-          /*use_normalized_error=*/true);
+          colmap::ReprojectionErrorType::NORMALIZED);
       obs_manager.FilterPoints3DWithSmallTriangulationAngle(
           options_.inlier_thresholds.min_triangulation_angle,
           reconstruction.Point3DIds());

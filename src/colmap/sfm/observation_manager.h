@@ -33,9 +33,14 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/track.h"
 #include "colmap/scene/visibility_pyramid.h"
+#include "colmap/util/enum_utils.h"
 #include "colmap/util/types.h"
 
 namespace colmap {
+
+// Type of error metric used for filtering 3D point observations.
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(
+    ReprojectionErrorType, 0, PIXEL, NORMALIZED, ANGULAR);
 
 bool MergeAndFilterReconstructions(double max_reproj_error,
                                    const Reconstruction& src_reconstruction,
@@ -105,30 +110,22 @@ class ObservationManager {
 
   size_t FilterPoints3DWithSmallTriangulationAngle(
       double min_tri_angle, const std::unordered_set<point3D_t>& point3D_ids);
+
   // Filter observations with large reprojection error.
   //
-  // @param max_reproj_error     Maximum reprojection error threshold.
-  // @param point3D_ids          The points to be filtered.
-  // @param use_normalized_error If true, compute error in normalized camera
-  //                             coordinates; otherwise in pixel coordinates.
+  // @param max_error       Maximum error threshold. For PIXEL and NORMALIZED,
+  //                        this is the reprojection error. For ANGULAR, this
+  //                        is the angular error in degrees.
+  // @param point3D_ids     The points to be filtered.
+  // @param error_type      Type of error metric to use. For ANGULAR, uses a
+  //                        relaxed threshold (2x) for cameras without prior
+  //                        focal length.
   //
-  // @return                     The number of filtered observations.
+  // @return                The number of filtered observations.
   size_t FilterPoints3DWithLargeReprojectionError(
-      double max_reproj_error,
+      double max_error,
       const std::unordered_set<point3D_t>& point3D_ids,
-      bool use_normalized_error = false);
-
-  // Filter observations with large angular reprojection error. The angular
-  // error is the angle between the observed ray and the computed ray from the
-  // 3D point. Uses a relaxed threshold (2x) for cameras without prior focal
-  // length.
-  //
-  // @param max_angle_error   Maximum angular error in degrees.
-  // @param point3D_ids       The points to be filtered.
-  //
-  // @return                  The number of filtered observations.
-  size_t FilterPoints3DWithLargeAngularError(
-      double max_angle_error, const std::unordered_set<point3D_t>& point3D_ids);
+      ReprojectionErrorType error_type = ReprojectionErrorType::PIXEL);
 
   // Filter frames without observations or bogus camera parameters.
   //
