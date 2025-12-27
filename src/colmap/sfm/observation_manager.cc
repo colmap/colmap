@@ -472,18 +472,30 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
             break;
           }
           const Eigen::Vector3d point3D_in_cam =
-              (image.CamFromWorld() * point3D.xyz).normalized();
-          const double cos_angle =
-              point3D_in_cam.dot(cam_point->homogeneous().normalized());
+              image.CamFromWorld() * point3D.xyz;
+          const Eigen::Vector3d cam_ray = cam_point->homogeneous();
+          // Compute cos(angle) without sqrt: cos = dot / (|a|*|b|)
+          // Compare squared values to avoid sqrt during filtering.
+          const double dot = point3D_in_cam.dot(cam_ray);
+          const double sq_norm_prod =
+              point3D_in_cam.squaredNorm() * cam_ray.squaredNorm();
           // Use relaxed threshold (2x) for cameras without prior focal length.
           const double cos_threshold =
               camera.has_prior_focal_length
                   ? std::cos(DegToRad(max_error))
                   : std::cos(DegToRad(max_error * 2.0));
-          should_filter = cos_angle < cos_threshold;
-          // Convert to angular error in degrees for error tracking.
-          observation_error =
-              RadToDeg(std::acos(std::clamp(cos_angle, -1.0, 1.0)));
+          // cos_angle < cos_threshold, but avoiding sqrt:
+          // For positive dot: dot^2 / sq_norm_prod < cos_threshold^2
+          // For negative dot: always filter (angle > 90 deg)
+          const double cos_threshold_sq = cos_threshold * cos_threshold;
+          should_filter =
+              dot < 0 || dot * dot < cos_threshold_sq * sq_norm_prod;
+          if (!should_filter) {
+            // Only compute expensive sqrt and acos when not filtering.
+            const double cos_angle = dot / std::sqrt(sq_norm_prod);
+            observation_error =
+                RadToDeg(std::acos(std::clamp(cos_angle, -1.0, 1.0)));
+          }
           break;
         }
       }
