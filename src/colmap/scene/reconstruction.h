@@ -106,7 +106,7 @@ class Reconstruction {
   inline bool ExistsPoint3D(point3D_t point3D_id) const;
 
   // Check whether the reconstruction object is internally consistent.
-  bool CheckIsValid() const;
+  bool IsValid() const;
 
   // Load data from given `DatabaseCache`.
   void Load(const DatabaseCache& database_cache);

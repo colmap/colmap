@@ -103,8 +103,8 @@ void BindReconstruction(py::module& m) {
       .def("exists_frame", &Reconstruction::ExistsFrame, "frame_id"_a)
       .def("exists_image", &Reconstruction::ExistsImage, "image_id"_a)
       .def("exists_point3D", &Reconstruction::ExistsPoint3D, "point3D_id"_a)
-      .def("check_is_valid",
-           &Reconstruction::CheckIsValid,
+      .def("is_valid",
+           &Reconstruction::IsValid,
            "Check whether the reconstruction object is internally consistent.")
       .def("load", &Reconstruction::Load, "database_cache"_a)
       .def("tear_down", &Reconstruction::TearDown)

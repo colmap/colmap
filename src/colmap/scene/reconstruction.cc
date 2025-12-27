@@ -131,17 +131,23 @@ std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
   return point3D_ids;
 }
 
-bool Reconstruction::CheckIsValid() const {
+bool Reconstruction::IsValid() const {
   // Check object associations: rig-frame-image-camera references and pointers.
   // Check rigs.
   for (const auto& [rig_id, rig] : rigs_) {
     for (const sensor_t& sensor_id : rig.SensorIds()) {
-      if (sensor_id.type == SensorType::CAMERA) {
-        if (!ExistsCamera(sensor_id.id)) {
-          LOG(WARNING) << "Rig " << rig_id << " has sensor (camera) "
-                       << sensor_id.id << " which does not exist";
-          return false;
-        }
+      switch (sensor_id.type) {
+        case SensorType::CAMERA:
+          if (!ExistsCamera(sensor_id.id)) {
+            LOG(WARNING) << "Rig " << rig_id << " has sensor (camera) "
+                         << sensor_id.id << " which does not exist";
+            return false;
+          }
+          break;
+        case SensorType::IMU:
+        case SensorType::INVALID:
+          // Only camera sensors are currently supported.
+          break;
       }
     }
   }
