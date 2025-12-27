@@ -192,8 +192,12 @@ ThreadPool::ThreadPool(const int num_threads)
 }
 
 ThreadPool::~ThreadPool() {
+  // Destructors should not throw, so we catch and log fatal instead.
   try {
     Stop();
+  } catch (const AggregateException& e) {
+    LOG(FATAL) << "Uncaught exceptions in thread pool destructor: "
+               << e.exceptions().size() << " exception(s) not handled";
   } catch (...) {
     LOG(FATAL) << "Uncaught exception in thread pool destructor";
   }
@@ -236,10 +240,18 @@ void ThreadPool::Wait() {
 }
 
 void ThreadPool::CheckFinishedTasks() {
+  std::vector<std::exception_ptr> exceptions;
   while (!finished_task_checkers_.empty()) {
     auto checker = std::move(finished_task_checkers_.back());
     finished_task_checkers_.pop_back();
-    checker();
+    try {
+      checker();
+    } catch (...) {
+      exceptions.push_back(std::current_exception());
+    }
+  }
+  if (!exceptions.empty()) {
+    throw AggregateException(std::move(exceptions));
   }
 }
 
