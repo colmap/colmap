@@ -1019,5 +1019,36 @@ TEST(Reconstruction, TranscribeImageIdsToDatabase) {
           db_image1.ImageId(), db_image2.ImageId(), db_image3.ImageId()));
 }
 
+TEST(Reconstruction, IsValid) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(2, &reconstruction);
+  Track track;
+  track.AddElement(1, 0);
+  track.AddElement(2, 1);
+  reconstruction.AddPoint3D(Eigen::Vector3d::Random(), track);
+  EXPECT_TRUE(reconstruction.IsValid());
+
+  // Test empty frame pointer for image.
+  {
+    Reconstruction reconstruction_copy(reconstruction);
+    reconstruction_copy.Image(1).ResetFramePtr();
+    EXPECT_FALSE(reconstruction_copy.IsValid());
+  }
+
+  // Test breaking track consistency by directly modifying point3D track.
+  {
+    Reconstruction reconstruction_copy(reconstruction);
+    reconstruction_copy.Point3D(1).track.SetElement(0, TrackElement(1, 5));
+    EXPECT_FALSE(reconstruction_copy.IsValid());
+  }
+
+  // Test registered frame without pose.
+  {
+    Reconstruction reconstruction_copy(reconstruction);
+    reconstruction_copy.Frame(1).ResetPose();
+    EXPECT_FALSE(reconstruction_copy.IsValid());
+  }
+}
+
 }  // namespace
 }  // namespace colmap
