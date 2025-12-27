@@ -105,7 +105,7 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
     std::unique_ptr<colmap::BundleAdjuster> bundle_adjuster;
     bundle_adjuster =
         CreateDefaultBundleAdjuster(ba_options, ba_config, *recon_ptr);
-    if (bundle_adjuster->Solve().termination_type == ceres::FAILURE) {
+    if (!bundle_adjuster->Solve().IsSolutionUsable()) {
       return false;
     }
 
