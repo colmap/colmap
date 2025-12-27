@@ -60,9 +60,12 @@ typedef Eigen::Matrix<point2D_t, Eigen::Dynamic, 2, Eigen::RowMajor>
 class Database {
  public:
   Database() = default;
+
   // Closes the database, if not closed before.
   virtual ~Database();
-  NON_COPYABLE(Database);
+
+  NON_COPYABLE(Database);  // Use Clone() instead.
+  NON_MOVABLE(Database);
 
   // Factory function to create a database implementation for a given path.
   // The factory should be robust to handle non-supported files and return a
