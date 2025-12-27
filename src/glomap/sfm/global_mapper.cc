@@ -2,6 +2,7 @@
 
 #include "colmap/scene/projection.h"
 #include "colmap/sfm/observation_manager.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/timer.h"
 
 #include "glomap/processors/image_pair_inliers.h"
@@ -19,9 +20,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
                          std::unordered_map<frame_t, int>& cluster_ids) {
   // 0. Preprocessing
   if (!options_.skip_preprocessing) {
-    std::cout << "-------------------------------------" << '\n';
-    std::cout << "Running preprocessing ..." << '\n';
-    std::cout << "-------------------------------------" << '\n';
+    LOG(INFO) << "Running preprocessing ...";
 
     colmap::Timer run_timer;
     run_timer.Start();
@@ -34,9 +33,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
   // 1. Run view graph calibration
   if (!options_.skip_view_graph_calibration) {
-    std::cout << "-------------------------------------" << '\n';
-    std::cout << "Running view graph calibration ..." << '\n';
-    std::cout << "-------------------------------------" << '\n';
+    LOG(INFO) << "Running view graph calibration ...";
     ViewGraphCalibrator vgcalib_engine(options_.opt_vgcalib);
     if (!vgcalib_engine.Solve(view_graph, reconstruction)) {
       return false;
@@ -46,9 +43,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
   // 2. Run relative pose estimation
   //   TODO: Use generalized relative pose estimation for rigs.
   if (!options_.skip_relative_pose_estimation) {
-    std::cout << "-------------------------------------" << '\n';
-    std::cout << "Running relative pose estimation ..." << '\n';
-    std::cout << "-------------------------------------" << '\n';
+    LOG(INFO) << "Running relative pose estimation ...";
 
     colmap::Timer run_timer;
     run_timer.Start();
@@ -72,9 +67,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
   // 3. Run rotation averaging for three times
   if (!options_.skip_rotation_averaging) {
-    std::cout << "-------------------------------------" << '\n';
-    std::cout << "Running rotation averaging ..." << '\n';
-    std::cout << "-------------------------------------" << '\n';
+    LOG(INFO) << "Running rotation averaging ...";
 
     colmap::Timer run_timer;
     run_timer.Start();
@@ -107,19 +100,17 @@ bool GlobalMapper::Solve(const colmap::Database* database,
       return false;
     }
     LOG(INFO) << num_img << " / " << reconstruction.NumImages()
-              << " images are within the connected component." << '\n';
+              << " images are within the connected component.";
 
     run_timer.PrintSeconds();
   }
 
   // 4. Track establishment and selection
   if (!options_.skip_track_establishment) {
+    LOG(INFO) << "Running track establishment ...";
+
     colmap::Timer run_timer;
     run_timer.Start();
-
-    std::cout << "-------------------------------------" << '\n';
-    std::cout << "Running track establishment ..." << '\n';
-    std::cout << "-------------------------------------" << '\n';
 
     // TrackEngine reads images, writes unfiltered tracks to a temporary map,
     // then filters into the main reconstruction
@@ -138,16 +129,14 @@ bool GlobalMapper::Solve(const colmap::Database* database,
       reconstruction.AddPoint3D(track_id, std::move(track));
     }
     LOG(INFO) << "Before filtering: " << unfiltered_tracks.size()
-              << ", after filtering: " << num_tracks << '\n';
+              << ", after filtering: " << num_tracks;
 
     run_timer.PrintSeconds();
   }
 
   // 5. Global positioning
   if (!options_.skip_global_positioning) {
-    std::cout << "-------------------------------------" << '\n';
-    std::cout << "Running global positioning ..." << '\n';
-    std::cout << "-------------------------------------" << '\n';
+    LOG(INFO) << "Running global positioning ...";
 
     if (options_.opt_gp.constraint_type !=
         GlobalPositionerOptions::ConstraintType::ONLY_POINTS) {
@@ -218,10 +207,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
   // 6. Bundle adjustment
   if (!options_.skip_bundle_adjustment) {
-    std::cout << "-------------------------------------" << '\n';
-    std::cout << "Running bundle adjustment ..." << '\n';
-    std::cout << "-------------------------------------" << '\n';
-    LOG(INFO) << "Bundle adjustment start" << '\n';
+    LOG(INFO) << "Running bundle adjustment ...";
 
     colmap::Timer run_timer;
     run_timer.Start();
@@ -304,19 +290,14 @@ bool GlobalMapper::Solve(const colmap::Database* database,
   // 7. Retriangulation
   if (!options_.skip_retriangulation) {
     THROW_CHECK_NOTNULL(database);
-    std::cout << "-------------------------------------" << '\n';
-    std::cout << "Running retriangulation ..." << '\n';
-    std::cout << "-------------------------------------" << '\n';
+    LOG(INFO) << "Running retriangulation ...";
     for (int ite = 0; ite < options_.num_iteration_retriangulation; ite++) {
       colmap::Timer run_timer;
       run_timer.Start();
       RetriangulateTracks(options_.opt_triangulator, *database, reconstruction);
       run_timer.PrintSeconds();
 
-      std::cout << "-------------------------------------" << '\n';
-      std::cout << "Running bundle adjustment ..." << '\n';
-      std::cout << "-------------------------------------" << '\n';
-      LOG(INFO) << "Bundle adjustment start" << '\n';
+      LOG(INFO) << "Running bundle adjustment ...";
       BundleAdjuster ba_engine(options_.opt_ba);
       if (!ba_engine.Solve(reconstruction)) {
         return false;
@@ -354,9 +335,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
   // 8. Reconstruction pruning
   if (!options_.skip_pruning) {
-    std::cout << "-------------------------------------" << '\n';
-    std::cout << "Running postprocessing ..." << '\n';
-    std::cout << "-------------------------------------" << '\n';
+    LOG(INFO) << "Running postprocessing ...";
 
     colmap::Timer run_timer;
     run_timer.Start();

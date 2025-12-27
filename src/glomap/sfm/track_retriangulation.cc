@@ -3,6 +3,7 @@
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/sfm/incremental_mapper.h"
+#include "colmap/util/logging.h"
 
 #include "glomap/scene/types.h"
 
@@ -72,13 +73,10 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
 
   const std::vector<image_t> reg_image_ids = recon_ptr->RegImageIds();
 
-  size_t image_idx = 0;
   for (const image_t image_id : reg_image_ids) {
-    std::cout << "\r Triangulating image " << image_idx++ + 1 << " / "
-              << reg_image_ids.size() << std::flush;
     mapper.TriangulateImage(tri_options, image_id);
   }
-  std::cout << '\n';
+  LOG(INFO) << "Triangulated " << reg_image_ids.size() << " images";
 
   // Merge and complete tracks.
   mapper.CompleteAndMergeTracks(tri_options);
@@ -95,8 +93,8 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
   const int kNumRefinements = 5;
   const double kMaxRefinementChange = 0.0005;
   for (int i = 0; i < kNumRefinements; ++i) {
-    std::cout << "\r Global bundle adjustment iteration " << i + 1 << " / "
-              << kNumRefinements << std::flush;
+    VLOG(1) << "Global bundle adjustment iteration " << i + 1 << " / "
+            << kNumRefinements;
     // Avoid degeneracies in bundle adjustment.
     observation_manager.FilterObservationsWithNegativeDepth();
 
@@ -116,10 +114,10 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
     const double changed =
         static_cast<double>(num_changed_observations) / num_observations;
     if (changed < kMaxRefinementChange) {
+      LOG(INFO) << "Converged after " << i + 1 << " iterations";
       break;
     }
   }
-  std::cout << '\n';
 
   // Add the removed images back to the reconstruction
   for (const auto& image_id : image_ids_notconnected) {
