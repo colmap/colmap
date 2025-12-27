@@ -410,6 +410,10 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
     const ReprojectionErrorType error_type) {
   size_t num_filtered_observations = 0;
 
+  // Precompute squared/converted thresholds to avoid redundant computations.
+  const double max_squared_error = max_error * max_error;
+  const double max_angular_error_rad = DegToRad(max_error);
+
   for (const auto point3D_id : point3D_ids) {
     if (!reconstruction_.ExistsPoint3D(point3D_id)) {
       continue;
@@ -438,7 +442,7 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
         case ReprojectionErrorType::PIXEL: {
           const double squared_error = CalculateSquaredReprojectionError(
               point2D.xy, point3D.xyz, image.CamFromWorld(), camera);
-          should_filter = squared_error > max_error * max_error;
+          should_filter = squared_error > max_squared_error;
           observation_error = std::sqrt(squared_error);
           break;
         }
@@ -460,14 +464,14 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
               point3D_in_cam.hnormalized().head<2>();
           const double squared_error =
               (reproj_point - *cam_point).squaredNorm();
-          should_filter = squared_error > max_error * max_error;
+          should_filter = squared_error > max_squared_error;
           observation_error = std::sqrt(squared_error);
           break;
         }
         case ReprojectionErrorType::ANGULAR: {
           const double error = CalculateAngularReprojectionError(
               point2D.xy, point3D.xyz, image.CamFromWorld(), camera);
-          should_filter = error > DegToRad(max_error);
+          should_filter = error > max_angular_error_rad;
           observation_error = RadToDeg(error);
           break;
         }
