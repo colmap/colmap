@@ -91,7 +91,7 @@ def initialize_reconstruction(
     ):
         return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
     if options.extract_colors:
-        reconstruction.extract_colors_for_all_images(controller.image_path)
+        reconstruction.extract_colors_for_all_images(options.image_path)
     return pycolmap.IncrementalMapperStatus.SUCCESS
 
 
@@ -208,12 +208,12 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
             if (
                 options.extract_colors
                 and not reconstruction.extract_colors_for_image(
-                    next_image_id, controller.image_path
+                    next_image_id, options.image_path
                 )
             ):
                 logging.warning(
                     f"Could not read image {next_image_id} "
-                    f"at path {controller.image_path}"
+                    f"at path {options.image_path}"
                 )
             if (
                 options.snapshot_frames_freq > 0
