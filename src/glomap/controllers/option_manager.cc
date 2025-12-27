@@ -128,15 +128,12 @@ void OptionManager::AddGlobalMapperOptions() {
   AddAndRegisterDefaultOption(
       "Thresholds.min_triangulation_angle",
       &mapper->inlier_thresholds.min_triangulation_angle);
-  AddAndRegisterDefaultOption(
-      "Thresholds.max_epipolar_error_E",
-      &mapper->inlier_thresholds.max_epipolar_error_E);
-  AddAndRegisterDefaultOption(
-      "Thresholds.max_epipolar_error_F",
-      &mapper->inlier_thresholds.max_epipolar_error_F);
-  AddAndRegisterDefaultOption(
-      "Thresholds.max_epipolar_error_H",
-      &mapper->inlier_thresholds.max_epipolar_error_H);
+  AddAndRegisterDefaultOption("Thresholds.max_epipolar_error_E",
+                              &mapper->inlier_thresholds.max_epipolar_error_E);
+  AddAndRegisterDefaultOption("Thresholds.max_epipolar_error_F",
+                              &mapper->inlier_thresholds.max_epipolar_error_F);
+  AddAndRegisterDefaultOption("Thresholds.max_epipolar_error_H",
+                              &mapper->inlier_thresholds.max_epipolar_error_H);
   AddAndRegisterDefaultOption("Thresholds.min_inlier_num",
                               &mapper->inlier_thresholds.min_inlier_num);
   AddAndRegisterDefaultOption("Thresholds.min_inlier_ratio",
@@ -166,9 +163,7 @@ void OptionManager::Reset() {
   added_gravity_refiner_options_ = false;
 }
 
-bool OptionManager::Check() {
-  return colmap::BaseOptionManager::Check();
-}
+bool OptionManager::Check() { return colmap::BaseOptionManager::Check(); }
 
 void OptionManager::ResetOptions(const bool reset_paths) {
   colmap::BaseOptionManager::ResetOptions(reset_paths);

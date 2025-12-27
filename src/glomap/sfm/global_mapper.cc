@@ -250,10 +250,8 @@ bool GlobalMapper::Solve(const colmap::Database* database,
         return false;
       }
       LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
-                << options_.num_iterations_ba
-                << ", stage 2 finished";
-      if (ite != options_.num_iterations_ba - 1)
-        run_timer.PrintSeconds();
+                << options_.num_iterations_ba << ", stage 2 finished";
+      if (ite != options_.num_iterations_ba - 1) run_timer.PrintSeconds();
 
       // Normalize the structure
       reconstruction.Normalize();

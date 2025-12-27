@@ -879,8 +879,7 @@ bool OptionManager::Read(const std::string& path) {
 void OptionManager::PostParse() {
   feature_extraction->type =
       FeatureExtractorTypeFromString(feature_extraction_type_);
-  feature_matching->type =
-      FeatureMatcherTypeFromString(feature_matching_type_);
+  feature_matching->type = FeatureMatcherTypeFromString(feature_matching_type_);
   if (!mapper_image_list_path_.empty()) {
     mapper->image_names = ReadTextFileLines(mapper_image_list_path_);
   }
