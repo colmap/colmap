@@ -149,7 +149,7 @@ TEST(ViewGraph, FilterByRelativeRotation) {
   view_graph.image_pairs.emplace(pair_id3, std::move(pair3));
   view_graph.image_pairs.emplace(pair_id4, std::move(pair4));
 
-  reconstruction.Image(id4).FramePtr()->ResetPose();
+  reconstruction.DeRegisterFrame(reconstruction.Image(id4).FrameId());
 
   view_graph.FilterByRelativeRotation(reconstruction, 5.0);
 
