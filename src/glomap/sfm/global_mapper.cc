@@ -19,6 +19,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
   // Propagate random seed to component options for deterministic behavior.
   GlobalMapperOptions options = options_;
   if (options.random_seed >= 0) {
+    options.opt_relpose.random_seed = options.random_seed;
     options.opt_ra.random_seed = options.random_seed;
     options.opt_gp.random_seed = options.random_seed;
   }
