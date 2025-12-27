@@ -73,6 +73,18 @@ class RotationEstimator {
                          colmap::Reconstruction& reconstruction);
 
  private:
+  // Maybe solves 1-DOF rotation averaging on the gravity-aligned subset.
+  // This is the first phase of stratified solving for mixed gravity systems.
+  bool MaybeSolveGravityAlignedSubset(
+      const ViewGraph& view_graph,
+      const std::vector<colmap::PosePrior>& pose_priors,
+      colmap::Reconstruction& reconstruction);
+
+  // Core rotation averaging solver.
+  bool SolveRotationAveraging(const ViewGraph& view_graph,
+                              const std::vector<colmap::PosePrior>& pose_priors,
+                              colmap::Reconstruction& reconstruction);
+
   // Initializes rotations from maximum spanning tree.
   void InitializeFromMaximumSpanningTree(
       const ViewGraph& view_graph, colmap::Reconstruction& reconstruction);
