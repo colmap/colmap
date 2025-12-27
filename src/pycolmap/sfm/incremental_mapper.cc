@@ -244,8 +244,7 @@ void BindIncrementalPipeline(py::module& m) {
                     std::shared_ptr<Database>,
                     std::shared_ptr<ReconstructionManager>>(),
            "options"_a,
-           "image_path"_a,
-           "database_path"_a,
+           "database"_a,
            "reconstruction_manager"_a)
       .def_property_readonly("options", &IncrementalPipeline::Options)
       .def_property_readonly("reconstruction_manager",
