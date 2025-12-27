@@ -36,6 +36,7 @@
 #include <future>
 #include <list>
 #include <queue>
+#include <string>
 #include <thread>
 #include <type_traits>
 #include <unordered_map>
@@ -182,8 +183,8 @@ class Thread {
 // Thrown by ThreadPool::Wait() when one or more tasks threw exceptions.
 class AggregateException : public std::exception {
  public:
-  explicit AggregateException(std::vector<std::exception_ptr> exceptions)
-      : exceptions_(std::move(exceptions)) {
+  explicit AggregateException(std::vector<std::exception_ptr> excs)
+      : exceptions_(std::move(excs)) {
     message_ = "One or more tasks threw exceptions (" +
                std::to_string(exceptions_.size()) + " total)";
   }
