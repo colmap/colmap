@@ -195,13 +195,12 @@ bool IncrementalPipelineOptions::Check() const {
 
 IncrementalPipeline::IncrementalPipeline(
     std::shared_ptr<const IncrementalPipelineOptions> options,
-    const std::string& image_path,
-    const std::string& database_path,
+    std::shared_ptr<class Database> database,
     std::shared_ptr<class ReconstructionManager> reconstruction_manager)
-    : options_(std::move(options)),
-      image_path_(image_path),
-      database_path_(database_path),
-      reconstruction_manager_(std::move(reconstruction_manager)),
+    : options_(std::move(THROW_CHECK_NOTNULL(options))),
+      database_(std::move(THROW_CHECK_NOTNULL(database))),
+      reconstruction_manager_(
+          THROW_CHECK_NOTNULL(std::move(reconstruction_manager))),
       total_run_timer_(std::make_shared<Timer>()) {
   THROW_CHECK(options_->Check());
   RegisterCallback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
@@ -278,7 +277,7 @@ bool IncrementalPipeline::LoadDatabase() {
   Timer timer;
   timer.Start();
   database_cache_ = DatabaseCache::Create(
-      *Database::Open(database_path_),
+      *database_,
       /*min_num_matches=*/static_cast<size_t>(options_->min_num_matches),
       /*ignore_watermarks=*/options_->ignore_watermarks,
       /*image_names=*/image_names);
@@ -367,7 +366,7 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
     for (const image_t image_id : {image_id1, image_id2}) {
       const Image& image = reconstruction.Image(image_id);
       for (const data_t& data_id : image.FramePtr()->ImageIds()) {
-        ExtractColors(image_path_, data_id.id, reconstruction);
+        ExtractColors(options_->image_path, data_id.id, reconstruction);
       }
     }
   }
@@ -512,7 +511,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
 
       if (options_->extract_colors) {
         for (const data_t& data_id : image.FramePtr()->ImageIds()) {
-          ExtractColors(image_path_, data_id.id, *reconstruction);
+          ExtractColors(options_->image_path, data_id.id, *reconstruction);
         }
       }
 
@@ -681,7 +680,7 @@ void IncrementalPipeline::TriangulateReconstruction(
   reconstruction->UpdatePoint3DErrors();
 
   LOG(INFO) << "Extracting colors";
-  reconstruction->ExtractColorsForAllImages(image_path_);
+  reconstruction->ExtractColorsForAllImages(options_->image_path);
 }
 
 bool IncrementalPipeline::ReachedMaxRuntime() const {

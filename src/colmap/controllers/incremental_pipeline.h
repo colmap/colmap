@@ -150,8 +150,12 @@ struct IncrementalPipelineOptions {
   // Path to a folder with reconstruction snapshots during incremental
   // reconstruction. Snapshots will be saved according to the specified
   // frequency of registered images.
-  std::string snapshot_path = "";
+  std::string snapshot_path;
   int snapshot_frames_freq = 0;
+
+  // The image path at which to find the images to extract point colors.
+  // If not specified, all point colors will be black.
+  std::string image_path;
 
   // Optional list of image names to reconstruct. If no images are specified,
   // all images will be reconstructed by default.
@@ -201,8 +205,7 @@ class IncrementalPipeline : public BaseController {
 
   IncrementalPipeline(
       std::shared_ptr<const IncrementalPipelineOptions> options,
-      const std::string& image_path,
-      const std::string& database_path,
+      std::shared_ptr<class Database> database,
       std::shared_ptr<class ReconstructionManager> reconstruction_manager);
 
   void Run() override;
@@ -210,8 +213,6 @@ class IncrementalPipeline : public BaseController {
   bool LoadDatabase();
 
   // getter functions for python pipelines
-  const std::string& ImagePath() const { return image_path_; }
-  const std::string& DatabasePath() const { return database_path_; }
   const std::shared_ptr<const IncrementalPipelineOptions>& Options() const {
     return options_;
   }
@@ -248,8 +249,7 @@ class IncrementalPipeline : public BaseController {
   bool ReachedMaxRuntime() const;
 
   const std::shared_ptr<const IncrementalPipelineOptions> options_;
-  const std::string image_path_;
-  const std::string database_path_;
+  const std::shared_ptr<class Database> database_;
   std::shared_ptr<class ReconstructionManager> reconstruction_manager_;
   std::shared_ptr<class DatabaseCache> database_cache_;
   std::shared_ptr<Timer> total_run_timer_;
