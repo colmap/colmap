@@ -184,7 +184,8 @@ class Thread {
 class AggregateException : public std::exception {
  public:
   explicit AggregateException(std::vector<std::exception_ptr> excs)
-      : exceptions_(std::move(excs)) {
+      : exceptions_(
+            std::move(excs)) {  // NOLINT(bugprone-throw-keyword-missing)
     message_ = "One or more tasks threw exceptions (" +
                std::to_string(exceptions_.size()) + " total)";
   }
