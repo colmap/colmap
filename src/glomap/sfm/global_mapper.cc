@@ -1,5 +1,6 @@
 #include "glomap/sfm/global_mapper.h"
 
+#include "colmap/scene/projection.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/timer.h"
 
@@ -165,10 +166,39 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     }
     // Filter tracks based on the estimation
     colmap::ObservationManager obs_manager(reconstruction);
+    // First pass: use relaxed threshold (2x) for cameras without prior focal.
     obs_manager.FilterPoints3DWithLargeReprojectionError(
-        options_.inlier_thresholds.max_angle_error,
+        2.0 * options_.inlier_thresholds.max_angle_error,
         reconstruction.Point3DIds(),
         colmap::ReprojectionErrorType::ANGULAR);
+    // Second pass: apply strict threshold for cameras with prior focal length.
+    const double max_angle_error_rad =
+        colmap::DegToRad(options_.inlier_thresholds.max_angle_error);
+    std::vector<std::pair<colmap::image_t, colmap::point2D_t>> obs_to_delete;
+    for (const auto point3D_id : reconstruction.Point3DIds()) {
+      if (!reconstruction.ExistsPoint3D(point3D_id)) {
+        continue;
+      }
+      const auto& point3D = reconstruction.Point3D(point3D_id);
+      for (const auto& track_el : point3D.track.Elements()) {
+        const auto& image = reconstruction.Image(track_el.image_id);
+        const auto& camera = *image.CameraPtr();
+        if (!camera.has_prior_focal_length) {
+          continue;
+        }
+        const auto& point2D = image.Point2D(track_el.point2D_idx);
+        const double error = colmap::CalculateAngularReprojectionError(
+            point2D.xy, point3D.xyz, image.CamFromWorld(), camera);
+        if (error > max_angle_error_rad) {
+          obs_to_delete.emplace_back(track_el.image_id, track_el.point2D_idx);
+        }
+      }
+    }
+    for (const auto& [image_id, point2D_idx] : obs_to_delete) {
+      if (reconstruction.Image(image_id).Point2D(point2D_idx).HasPoint3D()) {
+        obs_manager.DeleteObservation(image_id, point2D_idx);
+      }
+    }
 
     // Filter tracks based on triangulation angle and reprojection error
     obs_manager.FilterPoints3DWithSmallTriangulationAngle(

@@ -465,25 +465,10 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
           break;
         }
         case ReprojectionErrorType::ANGULAR: {
-          const std::optional<Eigen::Vector2d> cam_point =
-              camera.CamFromImg(point2D.xy);
-          if (!cam_point.has_value()) {
-            should_filter = true;
-            break;
-          }
-          const Eigen::Vector3d point3D_in_cam =
-              (image.CamFromWorld() * point3D.xyz).normalized();
-          const double cos_angle =
-              point3D_in_cam.dot(cam_point->homogeneous().normalized());
-          // Use relaxed threshold (2x) for cameras without prior focal length.
-          const double cos_threshold =
-              camera.has_prior_focal_length
-                  ? std::cos(DegToRad(max_error))
-                  : std::cos(DegToRad(max_error * 2.0));
-          should_filter = cos_angle < cos_threshold;
-          // Convert to angular error in degrees for error tracking.
-          observation_error =
-              RadToDeg(std::acos(std::clamp(cos_angle, -1.0, 1.0)));
+          const double error = CalculateAngularReprojectionError(
+              point2D.xy, point3D.xyz, image.CamFromWorld(), camera);
+          should_filter = error > DegToRad(max_error);
+          observation_error = RadToDeg(error);
           break;
         }
       }

@@ -195,17 +195,15 @@ TEST(ObservationManager, FilterPoints3DWithLargeReprojectionErrorTypes) {
                 0.009, {id2}, ReprojectionErrorType::NORMALIZED),
             2);
 
-  // ANGULAR: 0.57 degree error. Without has_prior_focal_length, the threshold
-  // is relaxed by 2x, so 0.5deg becomes 1.0deg and the point is not filtered.
+  // ANGULAR: 0.57 degree error.
   const point3D_t id3 = reconstruction.AddPoint3D(kPoint3D, Track());
   reconstruction.AddObservation(id3, TrackElement(1, 0));
   reconstruction.AddObservation(id3, TrackElement(2, 0));
+  // Threshold 0.6deg does not filter 0.57deg error.
   EXPECT_EQ(obs_manager.FilterPoints3DWithLargeReprojectionError(
-                0.5, {id3}, ReprojectionErrorType::ANGULAR),
+                0.6, {id3}, ReprojectionErrorType::ANGULAR),
             0);
-  // After setting has_prior_focal_length, the threshold is used as-is,
-  // so 0.5deg filters the 0.57deg error.
-  reconstruction.Camera(kCameraId).has_prior_focal_length = true;
+  // Threshold 0.5deg filters the 0.57deg error.
   EXPECT_EQ(obs_manager.FilterPoints3DWithLargeReprojectionError(
                 0.5, {id3}, ReprojectionErrorType::ANGULAR),
             2);
