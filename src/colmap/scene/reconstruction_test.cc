@@ -1031,7 +1031,7 @@ TEST(Reconstruction, CheckIsValid) {
   // Test wrong frame pointer for image.
   {
     Reconstruction reconstruction_copy(reconstruction);
-    reconstruction_copy.Image(1).SetFramePtr(&reconstruction_copy.Frame(2));
+    reconstruction_copy.Image(1).SetFrameId(2);
     EXPECT_FALSE(reconstruction_copy.CheckIsValid());
   }
 
