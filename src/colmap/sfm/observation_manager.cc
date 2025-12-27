@@ -475,7 +475,7 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
               (image.CamFromWorld() * point3D.xyz).normalized();
           const double cos_angle =
               point3D_in_cam.dot(cam_point->homogeneous().normalized());
-          // Use relaxed threshold for cameras without prior focal length.
+          // Use relaxed threshold (2x) for cameras without prior focal length.
           const double cos_threshold =
               camera.has_prior_focal_length
                   ? std::cos(DegToRad(max_error))
