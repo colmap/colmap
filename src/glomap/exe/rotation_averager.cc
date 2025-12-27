@@ -33,7 +33,9 @@ int RunRotationAverager(int argc, char** argv) {
   options.AddDefaultOption("refine_gravity", &refine_gravity);
   options.AddDefaultOption("use_weight", &use_weight);
   options.AddGravityRefinerOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   if (!colmap::ExistsFile(relpose_path)) {
     LOG(ERROR) << "`relpose_path` is not a file";

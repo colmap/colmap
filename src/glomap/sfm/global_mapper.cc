@@ -226,7 +226,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     colmap::Timer run_timer;
     run_timer.Start();
 
-    for (int ite = 0; ite < options_.num_iteration_bundle_adjustment; ite++) {
+    for (int ite = 0; ite < options_.num_iterations_ba; ite++) {
       BundleAdjuster ba_engine(options_.opt_ba);
 
       BundleAdjusterOptions& ba_engine_options_inner = ba_engine.GetOptions();
@@ -238,7 +238,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
         return false;
       }
       LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
-                << options_.num_iteration_bundle_adjustment
+                << options_.num_iterations_ba
                 << ", stage 1 finished (position only)";
       run_timer.PrintSeconds();
 
@@ -250,9 +250,9 @@ bool GlobalMapper::Solve(const colmap::Database* database,
         return false;
       }
       LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
-                << options_.num_iteration_bundle_adjustment
+                << options_.num_iterations_ba
                 << ", stage 2 finished";
-      if (ite != options_.num_iteration_bundle_adjustment - 1)
+      if (ite != options_.num_iterations_ba - 1)
         run_timer.PrintSeconds();
 
       // Normalize the structure
@@ -267,7 +267,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
       colmap::ObservationManager obs_manager(reconstruction);
       bool status = true;
       size_t filtered_num = 0;
-      while (status && ite < options_.num_iteration_bundle_adjustment) {
+      while (status && ite < options_.num_iterations_ba) {
         double scaling = std::max(3 - ite, 1);
         filtered_num += obs_manager.FilterPoints3DWithLargeReprojectionError(
             scaling * options_.inlier_thresholds.max_reprojection_error,
@@ -307,7 +307,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     std::cout << "-------------------------------------" << '\n';
     std::cout << "Running retriangulation ..." << '\n';
     std::cout << "-------------------------------------" << '\n';
-    for (int ite = 0; ite < options_.num_iteration_retriangulation; ite++) {
+    for (int ite = 0; ite < options_.num_iterations_retriangulation; ite++) {
       colmap::Timer run_timer;
       run_timer.Start();
       RetriangulateTracks(options_.opt_triangulator, *database, reconstruction);
