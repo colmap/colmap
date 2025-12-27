@@ -144,12 +144,9 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
                             const RotationEstimatorOptions& options) {
   view_graph.KeepLargestConnectedComponents(reconstruction);
 
-  const bool has_unknown_cams = HasUnknownCamsFromRig(reconstruction);
-  bool status_ra = false;
-
   // If there are cameras with unknown cam_from_rig, run trivial rotation
   // averaging first to estimate their orientations.
-  if (has_unknown_cams && !options.skip_initialization) {
+  if (HasUnknownCamsFromRig(reconstruction)) {
     LOG(INFO) << "Running trivial rotation averaging for rigged cameras";
 
     colmap::Reconstruction recon_trivial =
@@ -157,44 +154,42 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
 
     view_graph.KeepLargestConnectedComponents(recon_trivial);
 
-    // Run the trivial rotation averaging.
-    RotationEstimatorOptions options_trivial = options;
-    options_trivial.skip_initialization = options.skip_initialization;
-    RotationEstimator rotation_estimator_trivial(options_trivial);
+    // Run rotation averaging on the trivial reconstruction.
+    RotationEstimator rotation_estimator_trivial(options);
     rotation_estimator_trivial.EstimateRotations(
         view_graph, pose_priors, recon_trivial);
 
-    // Collect the results.
+    // Collect the results and initialize the original reconstruction.
     std::unordered_map<image_t, Rigid3d> trivial_cams_from_world;
     for (const auto& [image_id, image] : recon_trivial.Images()) {
       if (!image.HasPose()) continue;
       trivial_cams_from_world[image_id] = image.CamFromWorld();
     }
 
-    LOG(INFO) << "Creating trivial rigs";
+    LOG(INFO) << "Initializing rig rotations from trivial reconstruction";
     ConvertRotationsFromImageToRig(trivial_cams_from_world, reconstruction);
 
+    // Run rotation averaging on the original reconstruction with initialization
+    // from the trivial reconstruction.
     RotationEstimatorOptions options_ra = options;
     options_ra.skip_initialization = true;
+    options_ra.use_stratified = false;  // Already initialized from trivial RA.
     RotationEstimator rotation_estimator(options_ra);
-    status_ra = rotation_estimator.EstimateRotations(
-        view_graph, pose_priors, reconstruction);
-    view_graph.KeepLargestConnectedComponents(reconstruction);
-  } else {
-    RotationEstimatorOptions options_ra = options;
-    // For cases where there are some cameras without known cam_from_rig
-    // transformation, we need to run the rotation averaging with the
-    // skip_initialization flag set to false for convergence.
-    if (has_unknown_cams) {
-      options_ra.skip_initialization = false;
+    if (!rotation_estimator.EstimateRotations(
+            view_graph, pose_priors, reconstruction)) {
+      return false;
     }
-
-    RotationEstimator rotation_estimator(options_ra);
-    status_ra = rotation_estimator.EstimateRotations(
-        view_graph, pose_priors, reconstruction);
-    view_graph.KeepLargestConnectedComponents(reconstruction);
+  } else {
+    // No unknown cam_from_rig, run rotation averaging directly.
+    RotationEstimator rotation_estimator(options);
+    if (!rotation_estimator.EstimateRotations(
+            view_graph, pose_priors, reconstruction)) {
+      return false;
+    }
   }
-  return status_ra;
+
+  view_graph.KeepLargestConnectedComponents(reconstruction);
+  return true;
 }
 
 }  // namespace glomap
