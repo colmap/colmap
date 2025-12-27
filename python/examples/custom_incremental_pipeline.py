@@ -362,6 +362,7 @@ def main(
 ):
     if options is None:
         options = pycolmap.IncrementalPipelineOptions()
+    options.image_path = str(image_path)
     if not database_path.exists():
         logging.fatal(f"Database path does not exist: {database_path}")
     if not image_path.exists():
@@ -370,27 +371,26 @@ def main(
     reconstruction_manager = pycolmap.ReconstructionManager()
     if input_path is not None and input_path != "":
         reconstruction_manager.read(input_path)
-    mapper = pycolmap.IncrementalPipeline(
-        options, image_path, database_path, reconstruction_manager
-    )
 
-    # main runner
     with pycolmap.Database.open(database_path) as database:
+        mapper = pycolmap.IncrementalPipeline(
+            options, database, reconstruction_manager
+        )
         num_images = database.num_images()
-    with enlighten.Manager() as manager:
-        with manager.counter(
-            total=num_images, desc="Images registered:"
-        ) as pbar:
-            pbar.update(0, force=True)
-            mapper.add_callback(
-                pycolmap.IncrementalMapperCallback.INITIAL_IMAGE_PAIR_REG_CALLBACK,
-                lambda: pbar.update(2),
-            )
-            mapper.add_callback(
-                pycolmap.IncrementalMapperCallback.NEXT_IMAGE_REG_CALLBACK,
-                lambda: pbar.update(1),
-            )
-            main_incremental_mapper(mapper)
+        with enlighten.Manager() as manager:
+            with manager.counter(
+                total=num_images, desc="Images registered:"
+            ) as pbar:
+                pbar.update(0, force=True)
+                mapper.add_callback(
+                    pycolmap.IncrementalMapperCallback.INITIAL_IMAGE_PAIR_REG_CALLBACK,
+                    lambda: pbar.update(2),
+                )
+                mapper.add_callback(
+                    pycolmap.IncrementalMapperCallback.NEXT_IMAGE_REG_CALLBACK,
+                    lambda: pbar.update(1),
+                )
+                main_incremental_mapper(mapper)
 
     # write and output
     reconstruction_manager.write(output_path)
