@@ -117,11 +117,11 @@ void PruneWeaklyConnectedImages(colmap::Reconstruction& reconstruction,
   LOG(INFO) << "Threshold for Strong Clustering: "
             << median_count - median_count_diff;
 
-  ViewGraphManipulater::EstablishStrongClusters(
+  ViewGraphManipulator::EstablishStrongClusters(
       visibility_graph,
       reconstruction,
       cluster_ids,
-      ViewGraphManipulater::WEIGHT,
+      ViewGraphManipulator::WEIGHT,
       std::max(median_count - median_count_diff, 20.),
       min_num_images);
 }

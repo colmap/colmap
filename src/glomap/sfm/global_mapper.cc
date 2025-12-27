@@ -33,8 +33,8 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     run_timer.Start();
     // If camera intrinsics seem to be good, force the pair to use essential
     // matrix
-    ViewGraphManipulater::UpdateImagePairsConfig(view_graph, reconstruction);
-    ViewGraphManipulater::DecomposeRelPose(view_graph, reconstruction);
+    ViewGraphManipulator::UpdateImagePairsConfig(view_graph, reconstruction);
+    ViewGraphManipulator::DecomposeRelPose(view_graph, reconstruction);
     run_timer.PrintSeconds();
   }
 
