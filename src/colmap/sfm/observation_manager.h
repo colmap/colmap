@@ -117,9 +117,7 @@ class ObservationManager {
   //                        this is the reprojection error. For ANGULAR, this
   //                        is the angular error in degrees.
   // @param point3D_ids     The points to be filtered.
-  // @param error_type      Type of error metric to use. For ANGULAR, uses a
-  //                        relaxed threshold (2x) for cameras without prior
-  //                        focal length.
+  // @param error_type      Type of error metric to use.
   //
   // @return                The number of filtered observations.
   size_t FilterPoints3DWithLargeReprojectionError(
