@@ -5,8 +5,8 @@
 
 #include "glomap/estimators/bundle_adjustment.h"
 #include "glomap/estimators/global_positioning.h"
-#include "glomap/estimators/global_rotation_averaging.h"
 #include "glomap/estimators/relpose_estimation.h"
+#include "glomap/estimators/rotation_averaging.h"
 #include "glomap/estimators/view_graph_calibration.h"
 #include "glomap/processors/image_pair_inliers.h"
 #include "glomap/scene/view_graph.h"
