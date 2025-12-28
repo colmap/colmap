@@ -1,10 +1,10 @@
 #include "glomap/estimators/rotation_averaging.h"
 
 #include "colmap/geometry/pose.h"
+#include "colmap/math/spanning_tree.h"
 
 #include "glomap/estimators/rotation_averaging_impl.h"
 #include "glomap/estimators/rotation_initializer.h"
-#include "glomap/math/tree.h"
 
 #include <queue>
 
@@ -27,6 +27,59 @@ bool AllSensorsFromRigKnown(
     }
   }
   return all_known;
+}
+
+// Compute maximum spanning tree of the view graph weighted by inlier count.
+// Returns the root image_id and populates the parents map.
+image_t ComputeMaximumSpanningTree(
+    const ViewGraph& view_graph,
+    const std::unordered_map<image_t, Image>& images,
+    std::unordered_map<image_t, image_t>& parents) {
+  // Build mapping between image_id and contiguous indices.
+  std::unordered_map<image_t, int> image_id_to_idx;
+  std::vector<image_t> idx_to_image_id;
+  image_id_to_idx.reserve(images.size());
+  idx_to_image_id.reserve(images.size());
+
+  for (const auto& [image_id, image] : images) {
+    if (image.HasPose()) {
+      image_id_to_idx[image_id] = static_cast<int>(idx_to_image_id.size());
+      idx_to_image_id.push_back(image_id);
+    }
+  }
+
+  // Build edges and weights from view graph.
+  std::vector<std::pair<int, int>> edges;
+  std::vector<double> weights;
+  edges.reserve(view_graph.image_pairs.size());
+  weights.reserve(view_graph.image_pairs.size());
+
+  for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
+    if (!image_pair.is_valid) {
+      continue;
+    }
+    const auto it1 = image_id_to_idx.find(image_pair.image_id1);
+    const auto it2 = image_id_to_idx.find(image_pair.image_id2);
+    if (it1 == image_id_to_idx.end() || it2 == image_id_to_idx.end()) {
+      continue;
+    }
+    edges.emplace_back(it1->second, it2->second);
+    weights.push_back(static_cast<double>(image_pair.inliers.size()));
+  }
+
+  // Compute spanning tree using generic algorithm.
+  const colmap::SpanningTree tree = colmap::ComputeMaximumSpanningTree(
+      idx_to_image_id.size(), edges, weights);
+
+  // Convert back to image_id based parent map.
+  parents.clear();
+  for (size_t i = 0; i < idx_to_image_id.size(); ++i) {
+    if (tree.parents[i] >= 0) {
+      parents[idx_to_image_id[i]] = idx_to_image_id[tree.parents[i]];
+    }
+  }
+
+  return idx_to_image_id[tree.root];
 }
 
 }  // namespace
@@ -63,8 +116,8 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
   // Here, we assume that largest connected component is already retrieved, so
   // we do not need to do that again. Compute maximum spanning tree.
   std::unordered_map<image_t, image_t> parents;
-  const image_t root = MaximumSpanningTree(
-      view_graph, reconstruction.Images(), parents, WeightType::INLIER_NUM);
+  const image_t root =
+      ComputeMaximumSpanningTree(view_graph, reconstruction.Images(), parents);
   THROW_CHECK(reconstruction.Image(root).HasPose());
 
   // Iterate through the tree to initialize the rotation.

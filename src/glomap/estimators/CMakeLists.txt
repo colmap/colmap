@@ -43,7 +43,6 @@ COLMAP_ADD_LIBRARY(
         rotation_initializer.h rotation_initializer.cc
         view_graph_calibration.h view_graph_calibration.cc
     PUBLIC_LINK_LIBS
-        colmap_glomap_math
         colmap_glomap_scene
         colmap_estimators
         colmap_geometry
