@@ -189,6 +189,12 @@ void BindBundleAdjuster(py::module& m) {
                          &BAOpts::max_num_images_direct_sparse_gpu_solver,
                          "Threshold to switch between direct, sparse, and "
                          "iterative solvers.")
+          .def_readwrite(
+              "auto_select_solver_type",
+              &BAOpts::auto_select_solver_type,
+              "Whether to automatically select solver type based on "
+              "problem size. When False, uses the linear_solver_type "
+              "and preconditioner_type from solver_options directly.")
           .def_readwrite("solver_options",
                          &BAOpts::solver_options,
                          "Options for the Ceres solver. Using this member "

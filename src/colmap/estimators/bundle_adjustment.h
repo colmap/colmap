@@ -173,6 +173,11 @@ struct BundleAdjustmentOptions {
   int max_num_images_direct_dense_gpu_solver = 200;
   int max_num_images_direct_sparse_gpu_solver = 4000;
 
+  // Whether to automatically select solver type based on problem size.
+  // When false, uses the linear_solver_type and preconditioner_type
+  // from solver_options directly.
+  bool auto_select_solver_type = true;
+
   // Ceres-Solver options.
   ceres::Solver::Options solver_options;
 

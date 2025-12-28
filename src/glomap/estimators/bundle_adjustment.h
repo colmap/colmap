@@ -37,6 +37,9 @@ struct BundleAdjusterOptions {
     solver_options.max_num_iterations = 200;
     solver_options.minimizer_progress_to_stdout = false;
     solver_options.function_tolerance = 1e-5;
+    // Use SPARSE_SCHUR with CLUSTER_TRIDIAGONAL for global SfM
+    solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
+    solver_options.preconditioner_type = ceres::CLUSTER_TRIDIAGONAL;
   }
 
   // Convert to colmap BundleAdjustmentOptions
