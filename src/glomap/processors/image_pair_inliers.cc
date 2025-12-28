@@ -251,11 +251,11 @@ void ImagePairsInlierCount(ViewGraph& view_graph,
                            const colmap::Reconstruction& reconstruction,
                            const InlierThresholdOptions& options,
                            bool clean_inliers) {
-  for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
+  for (auto& [pair_id, image_pair] : view_graph.ImagePairs()) {
     if (!clean_inliers && image_pair.inliers.size() > 0) continue;
     image_pair.inliers.clear();
 
-    if (!image_pair.is_valid) continue;
+    if (!view_graph.IsValid(pair_id)) continue;
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     ImagePairInliers inlier_finder(
         image_id1, image_id2, image_pair, reconstruction, options);

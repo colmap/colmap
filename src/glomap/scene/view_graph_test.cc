@@ -31,14 +31,14 @@
 
 #include "colmap/scene/synthetic.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace glomap {
 namespace {
 
-ImagePair SynthesizeImagePair(int num_inliers = 50,
-                              int num_matches = 100,
-                              bool is_valid = true) {
+ImagePair SynthesizeImagePair(int num_inliers = 50, int num_matches = 100) {
+  THROW_CHECK_LE(num_inliers, num_matches);
   ImagePair pair;
   // Match feature i in image 1 to feature i in image 2.
   pair.matches.resize(num_matches, 2);
@@ -51,7 +51,6 @@ ImagePair SynthesizeImagePair(int num_inliers = 50,
   for (int i = 0; i < num_inliers; ++i) {
     pair.inliers[i] = i;
   }
-  pair.is_valid = is_valid;
   return pair;
 }
 
@@ -60,6 +59,35 @@ colmap::Rigid3d AddRotationError(const colmap::Rigid3d& pose,
   const Eigen::Quaterniond error_rotation(
       Eigen::AngleAxisd(colmap::DegToRad(error_deg), Eigen::Vector3d::UnitZ()));
   return colmap::Rigid3d(error_rotation * pose.rotation, pose.translation);
+}
+
+TEST(ViewGraph, Nominal) {
+  ViewGraph view_graph;
+
+  // Empty view graph.
+  EXPECT_TRUE(view_graph.Empty());
+  EXPECT_EQ(view_graph.NumImagePairs(), 0);
+  EXPECT_EQ(view_graph.NumValidImagePairs(), 0);
+
+  // Add some pairs.
+  view_graph.AddImagePair(1, 2, SynthesizeImagePair());
+  view_graph.AddImagePair(1, 3, SynthesizeImagePair());
+  view_graph.AddImagePair(2, 3, SynthesizeImagePair());
+
+  EXPECT_FALSE(view_graph.Empty());
+  EXPECT_EQ(view_graph.NumImagePairs(), 3);
+  EXPECT_EQ(view_graph.NumValidImagePairs(), 3);
+
+  // Invalidate one pair.
+  view_graph.SetInvalidImagePair(colmap::ImagePairToPairId(1, 2));
+  EXPECT_EQ(view_graph.NumImagePairs(), 3);
+  EXPECT_EQ(view_graph.NumValidImagePairs(), 2);
+
+  // Clear the view graph.
+  view_graph.Clear();
+  EXPECT_TRUE(view_graph.Empty());
+  EXPECT_EQ(view_graph.NumImagePairs(), 0);
+  EXPECT_EQ(view_graph.NumValidImagePairs(), 0);
 }
 
 TEST(ViewGraph, AddImagePair) {
@@ -71,9 +99,9 @@ TEST(ViewGraph, AddImagePair) {
       colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0));
   view_graph.AddImagePair(1, 2, pair);
 
-  EXPECT_EQ(view_graph.image_pairs.size(), 1);
-  const auto& stored =
-      view_graph.image_pairs.at(colmap::ImagePairToPairId(1, 2));
+  EXPECT_EQ(view_graph.NumImagePairs(), 1);
+  const auto& [stored, swapped] = view_graph.ImagePair(1, 2);
+  EXPECT_FALSE(swapped);
   EXPECT_EQ(stored.cam2_from_cam1.translation.x(), 1);
 
   // Add with swapped IDs should invert the pair.
@@ -82,9 +110,9 @@ TEST(ViewGraph, AddImagePair) {
       colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(2, 0, 0));
   view_graph.AddImagePair(4, 3, pair2);  // 4 > 3, should swap and invert
 
-  EXPECT_EQ(view_graph.image_pairs.size(), 2);
-  const auto& stored2 =
-      view_graph.image_pairs.at(colmap::ImagePairToPairId(3, 4));
+  EXPECT_EQ(view_graph.NumImagePairs(), 2);
+  const auto& [stored2, swapped2] = view_graph.ImagePair(3, 4);
+  EXPECT_FALSE(swapped2);
   EXPECT_EQ(stored2.cam2_from_cam1.translation.x(), -2);
 
   // Duplicate should throw.
@@ -111,22 +139,21 @@ TEST(ViewGraph, Pair) {
   view_graph.AddImagePair(1, 2, pair);
 
   // Normal order: swapped = false.
-  auto [ref1, swapped1] = view_graph.Pair(1, 2);
+  auto [ref1, swapped1] = view_graph.ImagePair(1, 2);
   EXPECT_FALSE(swapped1);
   EXPECT_EQ(ref1.cam2_from_cam1.translation.x(), 1);
 
   // Reversed order: swapped = true.
-  auto [ref2, swapped2] = view_graph.Pair(2, 1);
+  auto [ref2, swapped2] = view_graph.ImagePair(2, 1);
   EXPECT_TRUE(swapped2);
   EXPECT_EQ(ref2.cam2_from_cam1.translation.x(), 1);  // Same reference
 
-  // Modify through reference.
-  ref1.is_valid = false;
-  EXPECT_FALSE(
-      view_graph.image_pairs.at(colmap::ImagePairToPairId(1, 2)).is_valid);
+  // Modify validity through ViewGraph.
+  view_graph.SetInvalidImagePair(colmap::ImagePairToPairId(1, 2));
+  EXPECT_FALSE(view_graph.IsValid(colmap::ImagePairToPairId(1, 2)));
 
   // Non-existent pair should throw.
-  EXPECT_THROW(view_graph.Pair(1, 3), std::out_of_range);
+  EXPECT_THROW(view_graph.ImagePair(1, 3), std::out_of_range);
 }
 
 TEST(ViewGraph, GetImagePair) {
@@ -145,9 +172,7 @@ TEST(ViewGraph, GetImagePair) {
   EXPECT_EQ(copy2.cam2_from_cam1.translation.x(), -1);
 
   // Original unchanged.
-  EXPECT_EQ(view_graph.image_pairs.at(colmap::ImagePairToPairId(1, 2))
-                .cam2_from_cam1.translation.x(),
-            1);
+  EXPECT_EQ(view_graph.ImagePair(1, 2).first.cam2_from_cam1.translation.x(), 1);
 
   // Non-existent pair should throw.
   EXPECT_THROW(view_graph.GetImagePair(1, 3), std::out_of_range);
@@ -160,11 +185,11 @@ TEST(ViewGraph, DeleteImagePair) {
 
   EXPECT_TRUE(view_graph.DeleteImagePair(1, 2));
   EXPECT_FALSE(view_graph.HasImagePair(1, 2));
-  EXPECT_EQ(view_graph.image_pairs.size(), 1);
+  EXPECT_EQ(view_graph.NumImagePairs(), 1);
 
   // Delete with reversed order.
   EXPECT_TRUE(view_graph.DeleteImagePair(3, 1));
-  EXPECT_EQ(view_graph.image_pairs.size(), 0);
+  EXPECT_EQ(view_graph.NumImagePairs(), 0);
 
   // Delete non-existent returns false.
   EXPECT_FALSE(view_graph.DeleteImagePair(1, 2));
@@ -183,9 +208,7 @@ TEST(ViewGraph, UpdateImagePair) {
       colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(5, 0, 0));
   view_graph.UpdateImagePair(1, 2, updated);
 
-  EXPECT_EQ(view_graph.image_pairs.at(colmap::ImagePairToPairId(1, 2))
-                .cam2_from_cam1.translation.x(),
-            5);
+  EXPECT_EQ(view_graph.ImagePair(1, 2).first.cam2_from_cam1.translation.x(), 5);
 
   // Update with reversed order should invert.
   ImagePair updated2 = SynthesizeImagePair();
@@ -193,13 +216,45 @@ TEST(ViewGraph, UpdateImagePair) {
       colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(3, 0, 0));
   view_graph.UpdateImagePair(2, 1, updated2);
 
-  EXPECT_EQ(view_graph.image_pairs.at(colmap::ImagePairToPairId(1, 2))
-                .cam2_from_cam1.translation.x(),
+  EXPECT_EQ(view_graph.ImagePair(1, 2).first.cam2_from_cam1.translation.x(),
             -3);
 
   // Update non-existent should throw.
   EXPECT_THROW(view_graph.UpdateImagePair(1, 3, SynthesizeImagePair()),
                std::runtime_error);
+}
+
+TEST(ViewGraph, ValidImagePairs) {
+  ViewGraph view_graph;
+
+  const image_pair_t pair_id1 = colmap::ImagePairToPairId(1, 2);
+  const image_pair_t pair_id2 = colmap::ImagePairToPairId(1, 3);
+  const image_pair_t pair_id3 = colmap::ImagePairToPairId(2, 3);
+  view_graph.AddImagePair(1, 2, SynthesizeImagePair());
+  view_graph.AddImagePair(1, 3, SynthesizeImagePair());
+  view_graph.AddImagePair(2, 3, SynthesizeImagePair());
+
+  auto GetValidPairIds = [&]() {
+    std::vector<image_pair_t> ids;
+    for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
+      ids.push_back(pair_id);
+    }
+    return ids;
+  };
+
+  // All pairs start valid.
+  EXPECT_THAT(GetValidPairIds(),
+              testing::UnorderedElementsAre(pair_id1, pair_id2, pair_id3));
+
+  // Invalidate one pair.
+  view_graph.SetInvalidImagePair(pair_id2);
+  EXPECT_THAT(GetValidPairIds(),
+              testing::UnorderedElementsAre(pair_id1, pair_id3));
+
+  // Re-validate the pair.
+  view_graph.SetValidImagePair(pair_id2);
+  EXPECT_THAT(GetValidPairIds(),
+              testing::UnorderedElementsAre(pair_id1, pair_id2, pair_id3));
 }
 
 TEST(ViewGraph, FilterByNumInliers) {
@@ -212,14 +267,15 @@ TEST(ViewGraph, FilterByNumInliers) {
   view_graph.AddImagePair(1, 2, SynthesizeImagePair(50));
   view_graph.AddImagePair(1, 3, SynthesizeImagePair(20));
   view_graph.AddImagePair(2, 3, SynthesizeImagePair(30));
-  view_graph.AddImagePair(2, 4, SynthesizeImagePair(50, 100, false));
+  view_graph.AddImagePair(2, 4, SynthesizeImagePair(50));
+  view_graph.SetInvalidImagePair(pair_id4);  // Already invalid
 
   view_graph.FilterByNumInliers(30);
 
-  EXPECT_TRUE(view_graph.image_pairs.at(pair_id1).is_valid);
-  EXPECT_FALSE(view_graph.image_pairs.at(pair_id2).is_valid);
-  EXPECT_TRUE(view_graph.image_pairs.at(pair_id3).is_valid);
-  EXPECT_FALSE(view_graph.image_pairs.at(pair_id4).is_valid);
+  EXPECT_TRUE(view_graph.IsValid(pair_id1));
+  EXPECT_FALSE(view_graph.IsValid(pair_id2));
+  EXPECT_TRUE(view_graph.IsValid(pair_id3));
+  EXPECT_FALSE(view_graph.IsValid(pair_id4));
 }
 
 TEST(ViewGraph, FilterByInlierRatio) {
@@ -232,15 +288,15 @@ TEST(ViewGraph, FilterByInlierRatio) {
   view_graph.AddImagePair(1, 2, SynthesizeImagePair(50));  // 50% ratio
   view_graph.AddImagePair(1, 3, SynthesizeImagePair(10));  // 10% ratio
   view_graph.AddImagePair(2, 3, SynthesizeImagePair(25));  // 25% ratio
-  view_graph.AddImagePair(
-      2, 4, SynthesizeImagePair(50, 100, false));  // invalid
+  view_graph.AddImagePair(2, 4, SynthesizeImagePair(50));
+  view_graph.SetInvalidImagePair(pair_id4);  // Already invalid
 
   view_graph.FilterByInlierRatio(0.25);
 
-  EXPECT_TRUE(view_graph.image_pairs.at(pair_id1).is_valid);
-  EXPECT_FALSE(view_graph.image_pairs.at(pair_id2).is_valid);
-  EXPECT_TRUE(view_graph.image_pairs.at(pair_id3).is_valid);
-  EXPECT_FALSE(view_graph.image_pairs.at(pair_id4).is_valid);
+  EXPECT_TRUE(view_graph.IsValid(pair_id1));
+  EXPECT_FALSE(view_graph.IsValid(pair_id2));
+  EXPECT_TRUE(view_graph.IsValid(pair_id3));
+  EXPECT_FALSE(view_graph.IsValid(pair_id4));
 }
 
 TEST(ViewGraph, FilterByRelativeRotation) {
@@ -269,7 +325,7 @@ TEST(ViewGraph, FilterByRelativeRotation) {
   pair2.cam2_from_cam1 = AddRotationError(GetRelativePose(id1, id3), 10.0);
   ImagePair pair3 = SynthesizeImagePair();
   pair3.cam2_from_cam1 = AddRotationError(GetRelativePose(id1, id4), 90.0);
-  ImagePair pair4 = SynthesizeImagePair(50, 100, false);
+  ImagePair pair4 = SynthesizeImagePair(50);
   pair4.cam2_from_cam1 = GetRelativePose(id2, id3);
 
   const image_pair_t pair_id1 = colmap::ImagePairToPairId(id1, id2);
@@ -280,15 +336,16 @@ TEST(ViewGraph, FilterByRelativeRotation) {
   view_graph.AddImagePair(id1, id3, std::move(pair2));
   view_graph.AddImagePair(id1, id4, std::move(pair3));
   view_graph.AddImagePair(id2, id3, std::move(pair4));
+  view_graph.SetInvalidImagePair(pair_id4);  // Already invalid
 
   reconstruction.DeRegisterFrame(reconstruction.Image(id4).FrameId());
 
   view_graph.FilterByRelativeRotation(reconstruction, 5.0);
 
-  EXPECT_TRUE(view_graph.image_pairs.at(pair_id1).is_valid);
-  EXPECT_FALSE(view_graph.image_pairs.at(pair_id2).is_valid);
-  EXPECT_TRUE(view_graph.image_pairs.at(pair_id3).is_valid);
-  EXPECT_FALSE(view_graph.image_pairs.at(pair_id4).is_valid);
+  EXPECT_TRUE(view_graph.IsValid(pair_id1));
+  EXPECT_FALSE(view_graph.IsValid(pair_id2));
+  EXPECT_TRUE(view_graph.IsValid(pair_id3));
+  EXPECT_FALSE(view_graph.IsValid(pair_id4));
 }
 
 }  // namespace
