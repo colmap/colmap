@@ -161,7 +161,8 @@ void InitializeGlomapFromDatabase(const colmap::Database& database,
         two_view.config == colmap::TwoViewGeometry::MULTIPLE) {
       invalid_count++;
       view_graph.AddImagePair(image_id1, image_id2, std::move(image_pair));
-      view_graph.SetInvalidImagePair(colmap::ImagePairToPairId(image_id1, image_id2));
+      view_graph.SetInvalidImagePair(
+          colmap::ImagePairToPairId(image_id1, image_id2));
       continue;
     }
 

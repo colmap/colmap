@@ -191,7 +191,7 @@ void ViewGraphManipulator::DecomposeRelPose(
     thread_pool.AddTask([&, idx]() {
       const image_pair_t pair_id = image_pair_ids[idx];
       const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-      ImagePair& image_pair = view_graph.Pair(image_id1, image_id2).first;
+      ImagePair& image_pair = view_graph.ImagePair(image_id1, image_id2).first;
       const Image& image1 = reconstruction.Image(image_id1);
       const Image& image2 = reconstruction.Image(image_id2);
 
@@ -248,7 +248,8 @@ void ViewGraphManipulator::DecomposeRelPose(
   for (size_t idx = 0; idx < image_pair_ids.size(); idx++) {
     const auto [image_id1, image_id2] =
         colmap::PairIdToImagePair(image_pair_ids[idx]);
-    const ImagePair& image_pair = view_graph.Pair(image_id1, image_id2).first;
+    const ImagePair& image_pair =
+        view_graph.ImagePair(image_id1, image_id2).first;
     if (image_pair.config != colmap::TwoViewGeometry::CALIBRATED &&
         image_pair.config != colmap::TwoViewGeometry::PLANAR_OR_PANORAMIC)
       counter++;

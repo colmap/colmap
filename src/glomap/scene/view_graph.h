@@ -17,26 +17,30 @@ class ViewGraph {
   ~ViewGraph() = default;
 
   // Image pair accessors.
-  inline std::unordered_map<image_pair_t, ImagePair>& ImagePairs();
-  inline const std::unordered_map<image_pair_t, ImagePair>& ImagePairs() const;
+  inline std::unordered_map<image_pair_t, class ImagePair>& ImagePairs();
+  inline const std::unordered_map<image_pair_t, class ImagePair>& ImagePairs()
+      const;
   inline size_t NumImagePairs() const;
   inline size_t NumValidImagePairs() const;
   inline bool Empty() const;
   inline void Clear();
 
   // Image pair operations.
-  inline ImagePair& AddImagePair(image_t image_id1,
-                                 image_t image_id2,
-                                 ImagePair image_pair);
+  inline class ImagePair& AddImagePair(image_t image_id1,
+                                       image_t image_id2,
+                                       class ImagePair image_pair);
   inline bool HasImagePair(image_t image_id1, image_t image_id2) const;
-  inline std::pair<ImagePair&, bool> Pair(image_t image_id1, image_t image_id2);
-  inline std::pair<const ImagePair&, bool> Pair(image_t image_id1,
-                                                image_t image_id2) const;
-  inline ImagePair GetImagePair(image_t image_id1, image_t image_id2) const;
+  // Returns a reference to the image pair and whether the IDs were swapped.
+  inline std::pair<class ImagePair&, bool> ImagePair(image_t image_id1,
+                                                     image_t image_id2);
+  inline std::pair<const class ImagePair&, bool> ImagePair(
+      image_t image_id1, image_t image_id2) const;
+  inline class ImagePair GetImagePair(image_t image_id1,
+                                      image_t image_id2) const;
   inline bool DeleteImagePair(image_t image_id1, image_t image_id2);
   inline void UpdateImagePair(image_t image_id1,
                               image_t image_id2,
-                              ImagePair image_pair);
+                              class ImagePair image_pair);
 
   // Validity operations.
   inline bool IsValid(image_pair_t pair_id) const;
@@ -46,7 +50,7 @@ class ViewGraph {
   // Returns a filter view over valid image pairs only.
   auto ValidImagePairs() const {
     return colmap::filter_view(
-        [this](const std::pair<const image_pair_t, ImagePair>& kv) {
+        [this](const std::pair<const image_pair_t, class ImagePair>& kv) {
           return IsValid(kv.first);
         },
         image_pairs_.begin(),
@@ -91,7 +95,7 @@ class ViewGraph {
  private:
   // Map from pair ID to image pair data. The pair ID is computed from the
   // two image IDs using ImagePairToPairId, with the smaller ID first.
-  std::unordered_map<image_pair_t, ImagePair> image_pairs_;
+  std::unordered_map<image_pair_t, class ImagePair> image_pairs_;
   // Set of invalid pair IDs. Pairs not in this set are considered valid.
   std::unordered_set<image_pair_t> invalid_pairs_;
 };
@@ -100,11 +104,11 @@ class ViewGraph {
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-std::unordered_map<image_pair_t, ImagePair>& ViewGraph::ImagePairs() {
+std::unordered_map<image_pair_t, class ImagePair>& ViewGraph::ImagePairs() {
   return image_pairs_;
 }
 
-const std::unordered_map<image_pair_t, ImagePair>& ViewGraph::ImagePairs()
+const std::unordered_map<image_pair_t, class ImagePair>& ViewGraph::ImagePairs()
     const {
   return image_pairs_;
 }
@@ -122,9 +126,9 @@ void ViewGraph::Clear() {
   invalid_pairs_.clear();
 }
 
-ImagePair& ViewGraph::AddImagePair(image_t image_id1,
-                                   image_t image_id2,
-                                   ImagePair image_pair) {
+class ImagePair& ViewGraph::AddImagePair(image_t image_id1,
+                                         image_t image_id2,
+                                         class ImagePair image_pair) {
   if (colmap::SwapImagePair(image_id1, image_id2)) {
     image_pair.Invert();
   }
@@ -143,15 +147,15 @@ bool ViewGraph::HasImagePair(image_t image_id1, image_t image_id2) const {
   return image_pairs_.find(pair_id) != image_pairs_.end();
 }
 
-std::pair<ImagePair&, bool> ViewGraph::Pair(image_t image_id1,
-                                            image_t image_id2) {
+std::pair<class ImagePair&, bool> ViewGraph::ImagePair(image_t image_id1,
+                                                       image_t image_id2) {
   const bool swapped = colmap::SwapImagePair(image_id1, image_id2);
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
   return {image_pairs_.at(pair_id), swapped};
 }
 
-std::pair<const ImagePair&, bool> ViewGraph::Pair(image_t image_id1,
-                                                  image_t image_id2) const {
+std::pair<const class ImagePair&, bool> ViewGraph::ImagePair(
+    image_t image_id1, image_t image_id2) const {
   const bool swapped = colmap::SwapImagePair(image_id1, image_id2);
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
   return {image_pairs_.at(pair_id), swapped};
@@ -162,10 +166,11 @@ bool ViewGraph::DeleteImagePair(image_t image_id1, image_t image_id2) {
   return image_pairs_.erase(pair_id) > 0;
 }
 
-ImagePair ViewGraph::GetImagePair(image_t image_id1, image_t image_id2) const {
+class ImagePair ViewGraph::GetImagePair(image_t image_id1,
+                                        image_t image_id2) const {
   const bool swapped = colmap::SwapImagePair(image_id1, image_id2);
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  ImagePair result = image_pairs_.at(pair_id);
+  class ImagePair result = image_pairs_.at(pair_id);
   if (swapped) {
     result.Invert();
   }
@@ -174,7 +179,7 @@ ImagePair ViewGraph::GetImagePair(image_t image_id1, image_t image_id2) const {
 
 void ViewGraph::UpdateImagePair(image_t image_id1,
                                 image_t image_id2,
-                                ImagePair image_pair) {
+                                class ImagePair image_pair) {
   if (colmap::SwapImagePair(image_id1, image_id2)) {
     image_pair.Invert();
   }

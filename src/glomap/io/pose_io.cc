@@ -98,7 +98,7 @@ void ReadRelPose(const std::string& file_path,
       image_pair.config = colmap::TwoViewGeometry::CALIBRATED;
       view_graph.AddImagePair(index1, index2, std::move(image_pair));
     } else {
-      auto [image_pair, swapped] = view_graph.Pair(index1, index2);
+      auto [image_pair, swapped] = view_graph.ImagePair(index1, index2);
       image_pair.cam2_from_cam1 = swapped ? Inverse(pose_rel) : pose_rel;
       image_pair.config = colmap::TwoViewGeometry::CALIBRATED;
       view_graph.SetValidImagePair(colmap::ImagePairToPairId(index1, index2));
@@ -143,7 +143,7 @@ void ReadRelWeight(const std::string& file_path,
     if (!view_graph.HasImagePair(index1, index2)) continue;
 
     std::getline(line_stream, item, ' ');
-    view_graph.Pair(index1, index2).first.weight = std::stod(item);
+    view_graph.ImagePair(index1, index2).first.weight = std::stod(item);
     counter++;
   }
   LOG(INFO) << counter << " weights are used are loaded";
@@ -238,7 +238,8 @@ void WriteRelPose(const std::string& file_path,
   // Write the image pairs
   for (const auto& [name, pair_id] : name_pair) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-    const ImagePair& image_pair = view_graph.Pair(image_id1, image_id2).first;
+    const ImagePair& image_pair =
+        view_graph.ImagePair(image_id1, image_id2).first;
     file << images.at(image_id1).Name() << " " << images.at(image_id2).Name();
     for (int i = 0; i < 4; i++) {
       file << " " << image_pair.cam2_from_cam1.rotation.coeffs()[(i + 3) % 4];

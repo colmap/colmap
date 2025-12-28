@@ -100,7 +100,7 @@ TEST(ViewGraph, AddImagePair) {
   view_graph.AddImagePair(1, 2, pair);
 
   EXPECT_EQ(view_graph.NumImagePairs(), 1);
-  const auto& [stored, swapped] = view_graph.Pair(1, 2);
+  const auto& [stored, swapped] = view_graph.ImagePair(1, 2);
   EXPECT_FALSE(swapped);
   EXPECT_EQ(stored.cam2_from_cam1.translation.x(), 1);
 
@@ -111,7 +111,7 @@ TEST(ViewGraph, AddImagePair) {
   view_graph.AddImagePair(4, 3, pair2);  // 4 > 3, should swap and invert
 
   EXPECT_EQ(view_graph.NumImagePairs(), 2);
-  const auto& [stored2, swapped2] = view_graph.Pair(3, 4);
+  const auto& [stored2, swapped2] = view_graph.ImagePair(3, 4);
   EXPECT_FALSE(swapped2);
   EXPECT_EQ(stored2.cam2_from_cam1.translation.x(), -2);
 
@@ -139,12 +139,12 @@ TEST(ViewGraph, Pair) {
   view_graph.AddImagePair(1, 2, pair);
 
   // Normal order: swapped = false.
-  auto [ref1, swapped1] = view_graph.Pair(1, 2);
+  auto [ref1, swapped1] = view_graph.ImagePair(1, 2);
   EXPECT_FALSE(swapped1);
   EXPECT_EQ(ref1.cam2_from_cam1.translation.x(), 1);
 
   // Reversed order: swapped = true.
-  auto [ref2, swapped2] = view_graph.Pair(2, 1);
+  auto [ref2, swapped2] = view_graph.ImagePair(2, 1);
   EXPECT_TRUE(swapped2);
   EXPECT_EQ(ref2.cam2_from_cam1.translation.x(), 1);  // Same reference
 
@@ -153,7 +153,7 @@ TEST(ViewGraph, Pair) {
   EXPECT_FALSE(view_graph.IsValid(colmap::ImagePairToPairId(1, 2)));
 
   // Non-existent pair should throw.
-  EXPECT_THROW(view_graph.Pair(1, 3), std::out_of_range);
+  EXPECT_THROW(view_graph.ImagePair(1, 3), std::out_of_range);
 }
 
 TEST(ViewGraph, GetImagePair) {
@@ -172,7 +172,7 @@ TEST(ViewGraph, GetImagePair) {
   EXPECT_EQ(copy2.cam2_from_cam1.translation.x(), -1);
 
   // Original unchanged.
-  EXPECT_EQ(view_graph.Pair(1, 2).first.cam2_from_cam1.translation.x(), 1);
+  EXPECT_EQ(view_graph.ImagePair(1, 2).first.cam2_from_cam1.translation.x(), 1);
 
   // Non-existent pair should throw.
   EXPECT_THROW(view_graph.GetImagePair(1, 3), std::out_of_range);
@@ -208,7 +208,7 @@ TEST(ViewGraph, UpdateImagePair) {
       colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(5, 0, 0));
   view_graph.UpdateImagePair(1, 2, updated);
 
-  EXPECT_EQ(view_graph.Pair(1, 2).first.cam2_from_cam1.translation.x(), 5);
+  EXPECT_EQ(view_graph.ImagePair(1, 2).first.cam2_from_cam1.translation.x(), 5);
 
   // Update with reversed order should invert.
   ImagePair updated2 = SynthesizeImagePair();
@@ -216,7 +216,8 @@ TEST(ViewGraph, UpdateImagePair) {
       colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(3, 0, 0));
   view_graph.UpdateImagePair(2, 1, updated2);
 
-  EXPECT_EQ(view_graph.Pair(1, 2).first.cam2_from_cam1.translation.x(), -3);
+  EXPECT_EQ(view_graph.ImagePair(1, 2).first.cam2_from_cam1.translation.x(),
+            -3);
 
   // Update non-existent should throw.
   EXPECT_THROW(view_graph.UpdateImagePair(1, 3, SynthesizeImagePair()),
