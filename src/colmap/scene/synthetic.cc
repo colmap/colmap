@@ -127,7 +127,7 @@ void SynthesizeChainedMatches(double inlier_match_ratio,
       }
       const image_pair_t pair_id =
           ImagePairToPairId(prev_track_el.image_id, curr_track_el.image_id);
-      if (SwapImagePair(prev_track_el.image_id, curr_track_el.image_id)) {
+      if (ShouldSwapImagePair(prev_track_el.image_id, curr_track_el.image_id)) {
         two_view_geometries[pair_id].inlier_matches.emplace_back(
             curr_track_el.point2D_idx, prev_track_el.point2D_idx);
       } else {
