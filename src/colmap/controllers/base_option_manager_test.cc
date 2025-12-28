@@ -27,13 +27,8 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/controllers/option_manager.h"
+#include "colmap/controllers/base_option_manager.h"
 
-#include "colmap/controllers/image_reader.h"
-#include "colmap/controllers/incremental_pipeline.h"
-#include "colmap/estimators/bundle_adjustment.h"
-#include "colmap/feature/sift.h"
-#include "colmap/mvs/patch_match_options.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
@@ -42,8 +37,8 @@
 namespace colmap {
 namespace {
 
-TEST(OptionManager, Reset) {
-  OptionManager options;
+TEST(BaseOptionManager, Reset) {
+  BaseOptionManager options;
   *options.database_path = "/test/path";
   *options.image_path = "/test/images";
   options.AddDatabaseOptions();
@@ -57,29 +52,24 @@ TEST(OptionManager, Reset) {
   EXPECT_EQ(*options.image_path, "");
 }
 
-TEST(OptionManager, ResetOptions) {
-  OptionManager options;
+TEST(BaseOptionManager, ResetOptions) {
+  BaseOptionManager options;
   *options.database_path = "/test/path";
   *options.image_path = "/test/images";
-  const int original_num_threads = options.feature_extraction->num_threads;
-  options.feature_extraction->num_threads = original_num_threads + 42;
 
   options.ResetOptions(/*reset_paths=*/true);
   EXPECT_EQ(*options.database_path, "");
   EXPECT_EQ(*options.image_path, "");
-  EXPECT_EQ(options.feature_extraction->num_threads, original_num_threads);
 
   *options.database_path = "/test/path";
   *options.image_path = "/test/images";
-  options.feature_extraction->num_threads = original_num_threads + 42;
   options.ResetOptions(/*reset_paths=*/false);
   EXPECT_EQ(*options.database_path, "/test/path");
   EXPECT_EQ(*options.image_path, "/test/images");
-  EXPECT_EQ(options.feature_extraction->num_threads, original_num_threads);
 }
 
-TEST(OptionManager, AddOptionsIdempotent) {
-  OptionManager options;
+TEST(BaseOptionManager, AddOptionsIdempotent) {
+  BaseOptionManager options;
 
   // Adding options multiple times should not cause issues
   options.AddLogOptions();
@@ -88,77 +78,48 @@ TEST(OptionManager, AddOptionsIdempotent) {
   options.AddRandomOptions();
   options.AddRandomOptions();
 
-  options.AddFeatureExtractionOptions();
-  options.AddFeatureExtractionOptions();
+  options.AddDatabaseOptions();
+  options.AddDatabaseOptions();
 
-  options.AddFeatureMatchingOptions();
-  options.AddFeatureMatchingOptions();
-
-  options.AddMapperOptions();
-  options.AddMapperOptions();
+  options.AddImageOptions();
+  options.AddImageOptions();
 
   // If idempotency is not maintained, the above would cause errors
   SUCCEED();
 }
 
-TEST(OptionManager, AddAllOptions) {
-  OptionManager options;
-  options.AddAllOptions();
-
-  // Verify that at least some key options are initialized
-  EXPECT_NE(options.image_reader, nullptr);
-  EXPECT_NE(options.feature_extraction, nullptr);
-  EXPECT_NE(options.feature_matching, nullptr);
-  EXPECT_NE(options.bundle_adjustment, nullptr);
-  EXPECT_NE(options.mapper, nullptr);
-  EXPECT_NE(options.patch_match_stereo, nullptr);
-}
-
-TEST(OptionManager, WriteAndRead) {
+TEST(BaseOptionManager, WriteAndRead) {
   const std::string test_dir = CreateTestDir();
   const std::string config_path = test_dir + "/config.ini";
 
   // Create necessary directories
   CreateDirIfNotExists(test_dir + "/images");
 
-  // Create and configure an OptionManager
-  OptionManager options_write;
+  // Create and configure a BaseOptionManager
+  BaseOptionManager options_write;
   options_write.AddDatabaseOptions();
   options_write.AddImageOptions();
-  options_write.AddFeatureExtractionOptions();
-  options_write.AddMapperOptions();
 
   *options_write.database_path = test_dir + "/database.db";
   *options_write.image_path = test_dir + "/images";
-  options_write.feature_extraction->max_image_size = 2048;
-  options_write.feature_extraction->sift->max_num_features = 4096;
-  options_write.mapper->min_num_matches = 20;
 
   // Write to file
   options_write.Write(config_path);
   EXPECT_TRUE(ExistsFile(config_path));
 
   // Read from file
-  OptionManager options_read;
+  BaseOptionManager options_read;
   options_read.AddDatabaseOptions();
   options_read.AddImageOptions();
-  options_read.AddFeatureExtractionOptions();
-  options_read.AddMapperOptions();
 
   EXPECT_TRUE(options_read.Read(config_path));
 
   // Verify that values were read correctly
   EXPECT_EQ(*options_read.database_path, *options_write.database_path);
   EXPECT_EQ(*options_read.image_path, *options_write.image_path);
-  EXPECT_EQ(options_read.feature_extraction->max_image_size,
-            options_write.feature_extraction->max_image_size);
-  EXPECT_EQ(options_read.feature_extraction->sift->max_num_features,
-            options_write.feature_extraction->sift->max_num_features);
-  EXPECT_EQ(options_read.mapper->min_num_matches,
-            options_write.mapper->min_num_matches);
 }
 
-TEST(OptionManager, ReRead) {
+TEST(BaseOptionManager, ReRead) {
   const std::string test_dir = CreateTestDir();
   const std::string config_path = test_dir + "/config.ini";
 
@@ -166,34 +127,34 @@ TEST(OptionManager, ReRead) {
   CreateDirIfNotExists(test_dir + "/images");
 
   // Create and write initial config
-  OptionManager options_write;
-  options_write.AddAllOptions();
+  BaseOptionManager options_write;
+  options_write.AddDatabaseOptions();
+  options_write.AddImageOptions();
   *options_write.database_path = test_dir + "/database.db";
   *options_write.image_path = test_dir + "/images";
-  options_write.feature_extraction->max_image_size = 2048;
   options_write.Write(config_path);
 
   // Read with ReRead
-  OptionManager options_read;
+  BaseOptionManager options_read;
   EXPECT_TRUE(options_read.ReRead(config_path));
 
   // Verify values
   EXPECT_EQ(*options_read.database_path, *options_write.database_path);
   EXPECT_EQ(*options_read.image_path, *options_write.image_path);
-  EXPECT_EQ(options_read.feature_extraction->max_image_size, 2048);
 }
 
-TEST(OptionManager, ReadNonExistentFile) {
-  OptionManager options;
-  options.AddAllOptions();
+TEST(BaseOptionManager, ReadNonExistentFile) {
+  BaseOptionManager options;
+  options.AddDatabaseOptions();
+  options.AddImageOptions();
 
   EXPECT_FALSE(options.Read("/path/that/does/not/exist.ini"));
 }
 
-TEST(OptionManager, Check) {
+TEST(BaseOptionManager, Check) {
   const std::string test_dir = CreateTestDir();
 
-  OptionManager options;
+  BaseOptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
 
@@ -208,10 +169,10 @@ TEST(OptionManager, Check) {
   EXPECT_TRUE(options.Check());
 }
 
-TEST(OptionManager, CheckDatabaseParentDir) {
+TEST(BaseOptionManager, CheckDatabaseParentDir) {
   const std::string test_dir = CreateTestDir();
 
-  OptionManager options;
+  BaseOptionManager options;
   options.AddDatabaseOptions();
 
   // Should succeed when database parent dir exists
@@ -224,14 +185,13 @@ TEST(OptionManager, CheckDatabaseParentDir) {
   EXPECT_FALSE(options.Check());
 }
 
-TEST(OptionManager, ParseWithOptions) {
+TEST(BaseOptionManager, ParseWithOptions) {
   const std::string test_dir = CreateTestDir();
   CreateDirIfNotExists(test_dir + "/images");
 
-  OptionManager options;
+  BaseOptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
-  options.AddFeatureExtractionOptions();
 
   const std::string database_path = test_dir + "/database.db";
   const std::string image_path = test_dir + "/images";
@@ -243,10 +203,6 @@ TEST(OptionManager, ParseWithOptions) {
       database_path,
       "--image_path",
       image_path,
-      "--SiftExtraction.max_image_size",
-      "1024",
-      "--SiftExtraction.max_num_features",
-      "2048",
   };
 
   std::vector<char*> argv;
@@ -260,31 +216,26 @@ TEST(OptionManager, ParseWithOptions) {
   // Verify parsed values
   EXPECT_EQ(*options.database_path, database_path);
   EXPECT_EQ(*options.image_path, image_path);
-  EXPECT_EQ(options.feature_extraction->max_image_size, 1024);
-  EXPECT_EQ(options.feature_extraction->sift->max_num_features, 2048);
 }
 
-TEST(OptionManager, ParseWithProjectPath) {
+TEST(BaseOptionManager, ParseWithProjectPath) {
   const std::string test_dir = CreateTestDir();
   const std::string config_path = test_dir + "/config.ini";
   CreateDirIfNotExists(test_dir + "/images");
 
   // Create and write a config file
-  OptionManager options_write;
+  BaseOptionManager options_write;
   options_write.AddDatabaseOptions();
   options_write.AddImageOptions();
-  options_write.AddFeatureExtractionOptions();
 
   *options_write.database_path = test_dir + "/database.db";
   *options_write.image_path = test_dir + "/images";
-  options_write.feature_extraction->max_image_size = 3000;
   options_write.Write(config_path);
 
   // Parse using project_path
-  OptionManager options;
+  BaseOptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
-  options.AddFeatureExtractionOptions();
 
   const std::vector<std::string> args = {
       "colmap",
@@ -303,11 +254,10 @@ TEST(OptionManager, ParseWithProjectPath) {
   // Verify values were loaded from config file
   EXPECT_EQ(*options.database_path, *options_write.database_path);
   EXPECT_EQ(*options.image_path, *options_write.image_path);
-  EXPECT_EQ(options.feature_extraction->max_image_size, 3000);
 }
 
-TEST(OptionManager, ParseEmptyArguments) {
-  OptionManager options;
+TEST(BaseOptionManager, ParseEmptyArguments) {
+  BaseOptionManager options;
 
   const std::vector<std::string> args = {"colmap"};
   std::vector<char*> argv;
@@ -320,10 +270,10 @@ TEST(OptionManager, ParseEmptyArguments) {
   EXPECT_TRUE(options.Parse(argv.size(), argv.data()));
 }
 
-TEST(OptionManager, ParseUnknownArgumentsFails) {
+TEST(BaseOptionManager, ParseUnknownArgumentsFails) {
   const std::string test_dir = CreateTestDir();
 
-  OptionManager options;
+  BaseOptionManager options;
   options.AddDatabaseOptions();
 
   const std::string database_path = test_dir + "/database.db";

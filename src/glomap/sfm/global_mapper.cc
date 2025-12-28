@@ -219,7 +219,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     colmap::Timer run_timer;
     run_timer.Start();
 
-    for (int ite = 0; ite < options.num_iteration_bundle_adjustment; ite++) {
+    for (int ite = 0; ite < options.num_iterations_ba; ite++) {
       BundleAdjuster ba_engine(options.opt_ba);
 
       BundleAdjusterOptions& ba_engine_options_inner = ba_engine.GetOptions();
@@ -231,7 +231,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
         return false;
       }
       LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
-                << options.num_iteration_bundle_adjustment
+                << options.num_iterations_ba
                 << ", stage 1 finished (position only)";
       run_timer.PrintSeconds();
 
@@ -243,10 +243,8 @@ bool GlobalMapper::Solve(const colmap::Database* database,
         return false;
       }
       LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
-                << options.num_iteration_bundle_adjustment
-                << ", stage 2 finished";
-      if (ite != options.num_iteration_bundle_adjustment - 1)
-        run_timer.PrintSeconds();
+                << options.num_iterations_ba << ", stage 2 finished";
+      if (ite != options.num_iterations_ba - 1) run_timer.PrintSeconds();
 
       // Normalize the structure
       reconstruction.Normalize();
@@ -260,7 +258,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
       colmap::ObservationManager obs_manager(reconstruction);
       bool status = true;
       size_t filtered_num = 0;
-      while (status && ite < options.num_iteration_bundle_adjustment) {
+      while (status && ite < options.num_iterations_ba) {
         double scaling = std::max(3 - ite, 1);
         filtered_num += obs_manager.FilterPoints3DWithLargeReprojectionError(
             scaling * options.inlier_thresholds.max_reprojection_error,
@@ -298,7 +296,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
   if (!options.skip_retriangulation) {
     THROW_CHECK_NOTNULL(database);
     LOG(INFO) << "----- Running retriangulation -----";
-    for (int ite = 0; ite < options.num_iteration_retriangulation; ite++) {
+    for (int ite = 0; ite < options.num_iterations_retriangulation; ite++) {
       colmap::Timer run_timer;
       run_timer.Start();
       RetriangulateTracks(options.opt_triangulator, *database, reconstruction);

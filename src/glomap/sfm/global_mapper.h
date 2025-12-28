@@ -39,8 +39,8 @@ struct GlobalMapperOptions {
   InlierThresholdOptions inlier_thresholds;
 
   // Control the number of iterations for each component
-  int num_iteration_bundle_adjustment = 3;
-  int num_iteration_retriangulation = 1;
+  int num_iterations_ba = 3;
+  int num_iterations_retriangulation = 1;
 
   // Control the flow of the global sfm
   bool skip_preprocessing = false;

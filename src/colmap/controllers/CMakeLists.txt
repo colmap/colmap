@@ -34,6 +34,7 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_controllers
     SRCS
         automatic_reconstruction.h automatic_reconstruction.cc
+        base_option_manager.h base_option_manager.cc
         bundle_adjustment.h bundle_adjustment.cc
         hierarchical_pipeline.h hierarchical_pipeline.cc
         feature_extraction.h feature_extraction.cc
@@ -106,6 +107,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME global_pipeline_test
     SRCS global_pipeline_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME base_option_manager_test
+    SRCS base_option_manager_test.cc
     LINK_LIBS colmap_controllers
 )
 COLMAP_ADD_TEST(
