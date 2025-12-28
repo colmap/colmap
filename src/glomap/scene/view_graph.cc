@@ -87,11 +87,11 @@ int ViewGraph::KeepLargestConnectedComponents(
     }
   }
 
-  for (auto& [pair_id, image_pair] : image_pairs) {
+  for (const auto& [pair_id, image_pair] : image_pairs_) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     if (!reconstruction.Image(image_id1).HasPose() ||
         !reconstruction.Image(image_id2).HasPose()) {
-      image_pair.is_valid = false;
+      SetInvalidImagePair(pair_id);
     }
   }
 
@@ -134,12 +134,10 @@ int ViewGraph::MarkConnectedComponents(
 std::unordered_map<image_t, std::unordered_set<image_t>>
 ViewGraph::CreateImageAdjacencyList() const {
   std::unordered_map<image_t, std::unordered_set<image_t>> adjacency_list;
-  for (const auto& [pair_id, image_pair] : image_pairs) {
-    if (image_pair.is_valid) {
-      const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-      adjacency_list[image_id1].insert(image_id2);
-      adjacency_list[image_id2].insert(image_id1);
-    }
+  for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    adjacency_list[image_id1].insert(image_id2);
+    adjacency_list[image_id2].insert(image_id1);
   }
   return adjacency_list;
 }
@@ -148,14 +146,12 @@ std::unordered_map<frame_t, std::unordered_set<frame_t>>
 ViewGraph::CreateFrameAdjacencyList(
     const std::unordered_map<image_t, colmap::Image>& images) const {
   std::unordered_map<frame_t, std::unordered_set<frame_t>> adjacency_list;
-  for (const auto& [pair_id, image_pair] : image_pairs) {
-    if (image_pair.is_valid) {
-      const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-      const frame_t frame_id1 = images.at(image_id1).FrameId();
-      const frame_t frame_id2 = images.at(image_id2).FrameId();
-      adjacency_list[frame_id1].insert(frame_id2);
-      adjacency_list[frame_id2].insert(frame_id1);
-    }
+  for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const frame_t frame_id1 = images.at(image_id1).FrameId();
+    const frame_t frame_id2 = images.at(image_id2).FrameId();
+    adjacency_list[frame_id1].insert(frame_id2);
+    adjacency_list[frame_id2].insert(frame_id1);
   }
   return adjacency_list;
 }
@@ -164,9 +160,7 @@ void ViewGraph::FilterByRelativeRotation(
     const colmap::Reconstruction& reconstruction, double max_angle_deg) {
   const double max_angle_rad = colmap::DegToRad(max_angle_deg);
   int num_invalid = 0;
-  for (auto& [pair_id, image_pair] : image_pairs) {
-    if (!image_pair.is_valid) continue;
-
+  for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const Image& image1 = reconstruction.Image(image_id1);
     const Image& image2 = reconstruction.Image(image_id2);
@@ -180,7 +174,7 @@ void ViewGraph::FilterByRelativeRotation(
         image1.CamFromWorld().rotation.inverse();
     if (cam2_from_cam1.angularDistance(image_pair.cam2_from_cam1.rotation) >
         max_angle_rad) {
-      image_pair.is_valid = false;
+      SetInvalidImagePair(pair_id);
       num_invalid++;
     }
   }
@@ -192,11 +186,9 @@ void ViewGraph::FilterByRelativeRotation(
 
 void ViewGraph::FilterByNumInliers(int min_num_inliers) {
   int num_invalid = 0;
-  for (auto& [pair_id, image_pair] : image_pairs) {
-    if (!image_pair.is_valid) continue;
-
+  for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
     if (image_pair.inliers.size() < min_num_inliers) {
-      image_pair.is_valid = false;
+      SetInvalidImagePair(pair_id);
       num_invalid++;
     }
   }
@@ -208,13 +200,11 @@ void ViewGraph::FilterByNumInliers(int min_num_inliers) {
 
 void ViewGraph::FilterByInlierRatio(double min_inlier_ratio) {
   int num_invalid = 0;
-  for (auto& [pair_id, image_pair] : image_pairs) {
-    if (!image_pair.is_valid) continue;
-
+  for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
     const double inlier_ratio = image_pair.inliers.size() /
                                 static_cast<double>(image_pair.matches.rows());
     if (inlier_ratio < min_inlier_ratio) {
-      image_pair.is_valid = false;
+      SetInvalidImagePair(pair_id);
       num_invalid++;
     }
   }
@@ -222,72 +212,6 @@ void ViewGraph::FilterByInlierRatio(double min_inlier_ratio) {
   LOG(INFO) << "Marked " << num_invalid
             << " image pairs as invalid with inlier ratio < "
             << min_inlier_ratio;
-}
-
-ImagePair& ViewGraph::AddImagePair(image_t image_id1,
-                                   image_t image_id2,
-                                   ImagePair image_pair) {
-  if (colmap::ShouldSwapImagePair(image_id1, image_id2)) {
-    image_pair.Invert();
-  }
-  const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  auto [it, inserted] = image_pairs.emplace(pair_id, std::move(image_pair));
-  if (!inserted) {
-    throw std::runtime_error(
-        "Image pair already exists: " + std::to_string(image_id1) + ", " +
-        std::to_string(image_id2));
-  }
-  return it->second;
-}
-
-bool ViewGraph::HasImagePair(image_t image_id1, image_t image_id2) const {
-  const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  return image_pairs.find(pair_id) != image_pairs.end();
-}
-
-std::pair<ImagePair&, bool> ViewGraph::Pair(image_t image_id1,
-                                            image_t image_id2) {
-  const bool swapped = colmap::ShouldSwapImagePair(image_id1, image_id2);
-  const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  return {image_pairs.at(pair_id), swapped};
-}
-
-std::pair<const ImagePair&, bool> ViewGraph::Pair(image_t image_id1,
-                                                  image_t image_id2) const {
-  const bool swapped = colmap::ShouldSwapImagePair(image_id1, image_id2);
-  const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  return {image_pairs.at(pair_id), swapped};
-}
-
-ImagePair ViewGraph::GetImagePair(image_t image_id1, image_t image_id2) const {
-  const bool swapped = colmap::ShouldSwapImagePair(image_id1, image_id2);
-  const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  ImagePair result = image_pairs.at(pair_id);
-  if (swapped) {
-    result.Invert();
-  }
-  return result;
-}
-
-bool ViewGraph::DeleteImagePair(image_t image_id1, image_t image_id2) {
-  const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  return image_pairs.erase(pair_id) > 0;
-}
-
-void ViewGraph::UpdateImagePair(image_t image_id1,
-                                image_t image_id2,
-                                ImagePair image_pair) {
-  if (colmap::ShouldSwapImagePair(image_id1, image_id2)) {
-    image_pair.Invert();
-  }
-  const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  auto it = image_pairs.find(pair_id);
-  if (it == image_pairs.end()) {
-    throw std::runtime_error(
-        "Image pair does not exist: " + std::to_string(image_id1) + ", " +
-        std::to_string(image_id2));
-  }
-  it->second = std::move(image_pair);
 }
 
 }  // namespace glomap

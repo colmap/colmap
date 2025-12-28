@@ -63,7 +63,7 @@ int RunGlobalMapper(int argc, char** argv) {
 
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
-  if (view_graph.image_pairs.empty()) {
+  if (view_graph.Empty()) {
     LOG(ERROR) << "Can't continue without image pairs";
     return EXIT_FAILURE;
   }
