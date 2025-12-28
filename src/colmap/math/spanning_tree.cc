@@ -37,11 +37,12 @@
 namespace colmap {
 namespace {
 
-using BoostGraph = boost::adjacency_list<boost::vecS,
-                                         boost::vecS,
-                                         boost::undirectedS,
-                                         boost::no_property,
-                                         boost::property<boost::edge_weight_t, double>>;
+using BoostGraph =
+    boost::adjacency_list<boost::vecS,
+                          boost::vecS,
+                          boost::undirectedS,
+                          boost::no_property,
+                          boost::property<boost::edge_weight_t, double>>;
 using EdgeDescriptor = boost::graph_traits<BoostGraph>::edge_descriptor;
 
 // Build parent pointers from adjacency list using BFS from root.

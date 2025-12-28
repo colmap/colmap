@@ -64,7 +64,8 @@ TEST(SpanningTree, Nominal) {
 }
 
 TEST(SpanningTree, DisconnectedGraph) {
-  // Two components: {0,1} and {2,3}. Only component containing root is included.
+  // Two components: {0,1} and {2,3}. Only component containing root is
+  // included.
   const std::vector<std::pair<int, int>> edges = {{0, 1}, {2, 3}};
   const std::vector<double> weights = {1.0, 2.0};
 

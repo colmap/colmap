@@ -51,9 +51,11 @@ struct SpanningTree {
 // Compute the maximum spanning tree of an undirected weighted graph.
 //
 // The graph is specified by:
-// - num_nodes: Number of nodes in the graph (nodes are indexed 0 to num_nodes-1)
+// - num_nodes: Number of nodes in the graph (nodes are indexed 0 to
+// num_nodes-1)
 // - edges: List of edges as (node1, node2) pairs
-// - weights: Weight for each edge (higher weight = preferred in max spanning tree)
+// - weights: Weight for each edge (higher weight = preferred in max spanning
+// tree)
 // - root: The root node for the resulting tree (default 0)
 //
 // Returns a SpanningTree with parent pointers rooted at the specified root.
