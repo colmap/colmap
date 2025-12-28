@@ -24,6 +24,7 @@ void OptionManager::AddGlobalMapperOptions() {
   added_global_mapper_options_ = true;
 
   // Global mapper options
+  AddAndRegisterDefaultOption("Mapper.random_seed", &mapper->random_seed);
   AddAndRegisterDefaultOption("Mapper.num_iterations_ba",
                               &mapper->num_iterations_ba);
   AddAndRegisterDefaultOption("Mapper.num_iterations_retriangulation",

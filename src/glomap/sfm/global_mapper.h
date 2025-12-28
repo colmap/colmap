@@ -16,6 +16,12 @@
 namespace glomap {
 
 struct GlobalMapperOptions {
+  // PRNG seed for all stochastic methods during reconstruction.
+  // If -1 (default), the seed is derived from the current time
+  // (non-deterministic). If >= 0, the pipeline is deterministic with the given
+  // seed.
+  int random_seed = -1;
+
   // The image path at which to find the images to extract point colors.
   // If not specified, all point colors will be black.
   std::string image_path;
