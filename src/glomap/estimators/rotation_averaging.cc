@@ -474,10 +474,10 @@ colmap::Reconstruction CreateExpandedReconstruction(
 
 }  // namespace
 
-bool SolveRotationAveraging(ViewGraph& view_graph,
+bool SolveRotationAveraging(const RotationEstimatorOptions& options,
+                            ViewGraph& view_graph,
                             colmap::Reconstruction& reconstruction,
-                            std::vector<colmap::PosePrior>& pose_priors,
-                            const RotationEstimatorOptions& options) {
+                            std::vector<colmap::PosePrior>& pose_priors) {
   view_graph.KeepLargestConnectedComponents(reconstruction);
 
   // If there are cameras with unknown cam_from_rig, run expanded rotation

@@ -63,11 +63,6 @@ class RotationAveragingController : public BaseController {
 
   void Run() override;
 
-  // Access the result after Run() completes.
-  const std::shared_ptr<Reconstruction>& GetReconstruction() const {
-    return reconstruction_;
-  }
-
  private:
   const RotationAveragingControllerOptions options_;
   const std::shared_ptr<Database> database_;
