@@ -227,7 +227,7 @@ void ViewGraph::FilterByInlierRatio(double min_inlier_ratio) {
 ImagePair& ViewGraph::AddImagePair(image_t image_id1,
                                    image_t image_id2,
                                    ImagePair image_pair) {
-  if (colmap::SwapImagePair(image_id1, image_id2)) {
+  if (colmap::ShouldSwapImagePair(image_id1, image_id2)) {
     image_pair.Invert();
   }
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
@@ -247,20 +247,20 @@ bool ViewGraph::HasImagePair(image_t image_id1, image_t image_id2) const {
 
 std::pair<ImagePair&, bool> ViewGraph::Pair(image_t image_id1,
                                             image_t image_id2) {
-  const bool swapped = colmap::SwapImagePair(image_id1, image_id2);
+  const bool swapped = colmap::ShouldSwapImagePair(image_id1, image_id2);
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
   return {image_pairs.at(pair_id), swapped};
 }
 
 std::pair<const ImagePair&, bool> ViewGraph::Pair(image_t image_id1,
                                                   image_t image_id2) const {
-  const bool swapped = colmap::SwapImagePair(image_id1, image_id2);
+  const bool swapped = colmap::ShouldSwapImagePair(image_id1, image_id2);
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
   return {image_pairs.at(pair_id), swapped};
 }
 
 ImagePair ViewGraph::GetImagePair(image_t image_id1, image_t image_id2) const {
-  const bool swapped = colmap::SwapImagePair(image_id1, image_id2);
+  const bool swapped = colmap::ShouldSwapImagePair(image_id1, image_id2);
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
   ImagePair result = image_pairs.at(pair_id);
   if (swapped) {
@@ -277,7 +277,7 @@ bool ViewGraph::DeleteImagePair(image_t image_id1, image_t image_id2) {
 void ViewGraph::UpdateImagePair(image_t image_id1,
                                 image_t image_id2,
                                 ImagePair image_pair) {
-  if (colmap::SwapImagePair(image_id1, image_id2)) {
+  if (colmap::ShouldSwapImagePair(image_id1, image_id2)) {
     image_pair.Invert();
   }
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
