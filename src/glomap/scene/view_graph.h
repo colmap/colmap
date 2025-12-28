@@ -11,7 +11,23 @@
 namespace glomap {
 
 struct ViewGraph {
+  // Image pairs indexed by normalized pair_id (smaller image ID first).
+  // All methods below normalize IDs and invert geometry as needed.
   std::unordered_map<image_pair_t, ImagePair> image_pairs;
+
+  // Image pair operations.
+  ImagePair& AddImagePair(image_t image_id1,
+                          image_t image_id2,
+                          ImagePair image_pair);
+  bool HasImagePair(image_t image_id1, image_t image_id2) const;
+  std::pair<ImagePair&, bool> Pair(image_t image_id1, image_t image_id2);
+  std::pair<const ImagePair&, bool> Pair(image_t image_id1,
+                                         image_t image_id2) const;
+  ImagePair GetImagePair(image_t image_id1, image_t image_id2) const;
+  bool DeleteImagePair(image_t image_id1, image_t image_id2);
+  void UpdateImagePair(image_t image_id1,
+                       image_t image_id2,
+                       ImagePair image_pair);
 
   // Create the adjacency list for the images in the view graph.
   std::unordered_map<image_t, std::unordered_set<image_t>>

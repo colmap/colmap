@@ -26,10 +26,14 @@ struct InlierThresholdOptions {
 
 class ImagePairInliers {
  public:
-  ImagePairInliers(ImagePair& image_pair,
+  ImagePairInliers(image_t image_id1,
+                   image_t image_id2,
+                   ImagePair& image_pair,
                    const colmap::Reconstruction& reconstruction,
                    const InlierThresholdOptions& options)
-      : image_pair(image_pair),
+      : image_id1(image_id1),
+        image_id2(image_id2),
+        image_pair(image_pair),
         reconstruction(reconstruction),
         options(options) {}
 
@@ -46,6 +50,8 @@ class ImagePairInliers {
   // Error for the case of homography matrix
   double ScoreErrorHomography();
 
+  image_t image_id1;
+  image_t image_id2;
   ImagePair& image_pair;
   const colmap::Reconstruction& reconstruction;
   const InlierThresholdOptions& options;

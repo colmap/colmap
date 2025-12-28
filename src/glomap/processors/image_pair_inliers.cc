@@ -76,8 +76,8 @@ double ImagePairInliers::ScoreErrorEssential() {
     image_pair.inliers.clear();
   }
 
-  const colmap::Image& image1 = reconstruction.Image(image_pair.image_id1);
-  const colmap::Image& image2 = reconstruction.Image(image_pair.image_id2);
+  const colmap::Image& image1 = reconstruction.Image(image_id1);
+  const colmap::Image& image2 = reconstruction.Image(image_id2);
 
   const double thres = options.max_epipolar_error_E * 0.5 *
                        (1. / image1.CameraPtr()->MeanFocalLength() +
@@ -164,8 +164,8 @@ double ImagePairInliers::ScoreErrorFundamental() {
   int positive_count = 0;
   int negative_count = 0;
 
-  const Image& image1 = reconstruction.Image(image_pair.image_id1);
-  const Image& image2 = reconstruction.Image(image_pair.image_id2);
+  const Image& image1 = reconstruction.Image(image_id1);
+  const Image& image2 = reconstruction.Image(image_id2);
 
   double thres = options.max_epipolar_error_F;
   double sq_threshold = thres * thres;
@@ -218,8 +218,8 @@ double ImagePairInliers::ScoreErrorHomography() {
     image_pair.inliers.clear();
   }
 
-  const Image& image1 = reconstruction.Image(image_pair.image_id1);
-  const Image& image2 = reconstruction.Image(image_pair.image_id2);
+  const Image& image1 = reconstruction.Image(image_id1);
+  const Image& image2 = reconstruction.Image(image_id2);
 
   double thres = options.max_epipolar_error_H;
   double sq_threshold = thres * thres;
@@ -256,7 +256,9 @@ void ImagePairsInlierCount(ViewGraph& view_graph,
     image_pair.inliers.clear();
 
     if (!image_pair.is_valid) continue;
-    ImagePairInliers inlier_finder(image_pair, reconstruction, options);
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    ImagePairInliers inlier_finder(
+        image_id1, image_id2, image_pair, reconstruction, options);
     inlier_finder.ScoreError();
   }
 }

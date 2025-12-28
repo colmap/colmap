@@ -49,12 +49,13 @@ void PruneWeaklyConnectedImages(colmap::Reconstruction& reconstruction,
           frame_observation_count[image_id2] < min_num_observations)
         continue;
 
-      visibility_graph_frame.image_pairs.insert(
-          std::make_pair(pair_id, ImagePair(image_id1, image_id2)));
+      ImagePair image_pair;
+      image_pair.is_valid = true;
+      image_pair.weight = count;
+      visibility_graph_frame.AddImagePair(
+          image_id1, image_id2, std::move(image_pair));
 
       pair_count.push_back(count);
-      visibility_graph_frame.image_pairs[pair_id].is_valid = true;
-      visibility_graph_frame.image_pairs[pair_id].weight = count;
     }
   }
   LOG(INFO) << "Established visibility graph with " << counter << " pairs";
@@ -72,13 +73,13 @@ void PruneWeaklyConnectedImages(colmap::Reconstruction& reconstruction,
   }
 
   ViewGraph visibility_graph;
-  for (auto& [pair_id, image_pair] : visibility_graph_frame.image_pairs) {
+  for (auto& [pair_id, frame_image_pair] : visibility_graph_frame.image_pairs) {
     const auto [frame_id1, frame_id2] = colmap::PairIdToImagePair(pair_id);
     const image_t image_id1 = frame_id_to_begin_img[frame_id1];
     const image_t image_id2 = frame_id_to_begin_img[frame_id2];
-    visibility_graph.image_pairs.insert(
-        std::make_pair(pair_id, ImagePair(image_id1, image_id2)));
-    visibility_graph.image_pairs[pair_id].weight = image_pair.weight;
+    ImagePair image_pair;
+    image_pair.weight = frame_image_pair.weight;
+    visibility_graph.AddImagePair(image_id1, image_id2, std::move(image_pair));
   }
 
   int max_weight = std::max_element(pair_count.begin(), pair_count.end()) -
@@ -91,13 +92,11 @@ void PruneWeaklyConnectedImages(colmap::Reconstruction& reconstruction,
       image_t image_id = data_id.id;
       if (image_id == begin_image_id || !reconstruction.ExistsImage(image_id))
         continue;
-      image_pair_t pair_id =
-          colmap::ImagePairToPairId(begin_image_id, image_id);
-      visibility_graph.image_pairs.insert(
-          std::make_pair(pair_id, ImagePair(begin_image_id, image_id)));
-
       // Never break the inner edge
-      visibility_graph.image_pairs[pair_id].weight = max_weight;
+      ImagePair image_pair;
+      image_pair.weight = max_weight;
+      visibility_graph.AddImagePair(
+          begin_image_id, image_id, std::move(image_pair));
     }
   }
 

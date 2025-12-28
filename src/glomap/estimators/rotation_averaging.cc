@@ -57,8 +57,9 @@ image_t ComputeMaximumSpanningTree(
     if (!image_pair.is_valid) {
       continue;
     }
-    const auto it1 = image_id_to_idx.find(image_pair.image_id1);
-    const auto it2 = image_id_to_idx.find(image_pair.image_id2);
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const auto it1 = image_id_to_idx.find(image_id1);
+    const auto it2 = image_id_to_idx.find(image_id2);
     if (it1 == image_id_to_idx.end() || it2 == image_id_to_idx.end()) {
       continue;
     }
@@ -120,19 +121,20 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
   size_t num_total_pairs = 0;
   for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (!image_pair.is_valid) continue;
-    if (!reconstruction.ExistsImage(image_pair.image_id1) ||
-        !reconstruction.ExistsImage(image_pair.image_id2)) {
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    if (!reconstruction.ExistsImage(image_id1) ||
+        !reconstruction.ExistsImage(image_id2)) {
       continue;
     }
-    if (!reconstruction.Image(image_pair.image_id1).HasPose() ||
-        !reconstruction.Image(image_pair.image_id2).HasPose()) {
+    if (!reconstruction.Image(image_id1).HasPose() ||
+        !reconstruction.Image(image_id2).HasPose()) {
       continue;
     }
 
     num_total_pairs++;
 
-    const auto it1 = image_to_pose_prior.find(image_pair.image_id1);
-    const auto it2 = image_to_pose_prior.find(image_pair.image_id2);
+    const auto it1 = image_to_pose_prior.find(image_id1);
+    const auto it2 = image_to_pose_prior.find(image_id2);
     const bool image1_has_gravity =
         it1 != image_to_pose_prior.end() && it1->second->HasGravity();
     const bool image2_has_gravity =
@@ -140,10 +142,7 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
 
     if (image1_has_gravity && image2_has_gravity) {
       gravity_view_graph.image_pairs.emplace(
-          pair_id,
-          ImagePair(image_pair.image_id1,
-                    image_pair.image_id2,
-                    image_pair.cam2_from_cam1));
+          pair_id, ImagePair(image_pair.cam2_from_cam1));
     }
   }
 
@@ -226,16 +225,10 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
     if (curr == root) continue;
 
     // Directly use the relative pose for estimation rotation.
-    const ImagePair& image_pair = view_graph.image_pairs.at(
-        colmap::ImagePairToPairId(curr, parents[curr]));
-    if (image_pair.image_id1 == curr) {
-      cams_from_world[curr].rotation =
-          (Inverse(image_pair.cam2_from_cam1) * cams_from_world[parents[curr]])
-              .rotation;
-    } else {
-      cams_from_world[curr].rotation =
-          (image_pair.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation;
-    }
+    // GetImagePair(parent, curr) returns curr_from_parent
+    const ImagePair image_pair = view_graph.GetImagePair(parents[curr], curr);
+    cams_from_world[curr].rotation =
+        (image_pair.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation;
   }
 
   InitializeRigRotationsFromImages(cams_from_world, reconstruction);

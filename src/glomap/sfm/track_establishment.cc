@@ -21,9 +21,18 @@ size_t TrackEngine::EstablishFullTracks(
 void TrackEngine::BlindConcatenation() {
   // Initialize the union find data structure by connecting all the
   // correspondences
-  for (const auto& pair : view_graph_.image_pairs) {
-    const ImagePair& image_pair = pair.second;
+  image_pair_t counter = 0;
+  for (const auto& [pair_id, image_pair] : view_graph_.image_pairs) {
+    if ((counter + 1) % 1000 == 0 ||
+        counter == view_graph_.image_pairs.size() - 1) {
+      std::cout << "\r Initializing pairs " << counter + 1 << " / "
+                << view_graph_.image_pairs.size() << std::flush;
+    }
+    counter++;
+
     if (!image_pair.is_valid) continue;
+
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 
     // Get the matches
     const Eigen::MatrixXi& matches = image_pair.matches;
@@ -38,12 +47,12 @@ void TrackEngine::BlindConcatenation() {
       const uint32_t& point1_idx = matches(idx, 0);
       const uint32_t& point2_idx = matches(idx, 1);
 
-      image_pair_t point_global_id1 =
-          static_cast<image_pair_t>(image_pair.image_id1) << 32 |
-          static_cast<image_pair_t>(point1_idx);
-      image_pair_t point_global_id2 =
-          static_cast<image_pair_t>(image_pair.image_id2) << 32 |
-          static_cast<image_pair_t>(point2_idx);
+      image_pair_t point_global_id1 = static_cast<image_pair_t>(image_id1)
+                                          << 32 |
+                                      static_cast<image_pair_t>(point1_idx);
+      image_pair_t point_global_id2 = static_cast<image_pair_t>(image_id2)
+                                          << 32 |
+                                      static_cast<image_pair_t>(point2_idx);
 
       // Link the first point to the second point. Take the smallest one as the
       // root
@@ -63,9 +72,18 @@ void TrackEngine::TrackCollection(
   std::unordered_map<uint64_t, int> track_counter;
 
   // Create tracks from the connected components of the point correspondences
-  for (const auto& pair : view_graph_.image_pairs) {
-    const ImagePair& image_pair = pair.second;
+  size_t counter = 0;
+  for (const auto& [pair_id, image_pair] : view_graph_.image_pairs) {
+    if ((counter + 1) % 1000 == 0 ||
+        counter == view_graph_.image_pairs.size() - 1) {
+      std::cout << "\r Establishing pairs " << counter + 1 << " / "
+                << view_graph_.image_pairs.size() << std::flush;
+    }
+    counter++;
+
     if (!image_pair.is_valid) continue;
+
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 
     // Get the matches
     const Eigen::MatrixXi& matches = image_pair.matches;
@@ -80,12 +98,12 @@ void TrackEngine::TrackCollection(
       const uint32_t& point1_idx = matches(idx, 0);
       const uint32_t& point2_idx = matches(idx, 1);
 
-      image_pair_t point_global_id1 =
-          static_cast<image_pair_t>(image_pair.image_id1) << 32 |
-          static_cast<image_pair_t>(point1_idx);
-      image_pair_t point_global_id2 =
-          static_cast<image_pair_t>(image_pair.image_id2) << 32 |
-          static_cast<image_pair_t>(point2_idx);
+      image_pair_t point_global_id1 = static_cast<image_pair_t>(image_id1)
+                                          << 32 |
+                                      static_cast<image_pair_t>(point1_idx);
+      image_pair_t point_global_id2 = static_cast<image_pair_t>(image_id2)
+                                          << 32 |
+                                      static_cast<image_pair_t>(point2_idx);
 
       image_pair_t track_id = uf_.Find(point_global_id1);
 
