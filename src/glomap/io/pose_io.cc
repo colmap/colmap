@@ -94,7 +94,9 @@ void ReadRelPose(const std::string& file_path,
     }
 
     if (!view_graph.HasImagePair(index1, index2)) {
-      view_graph.AddImagePair(index1, index2, ImagePair(pose_rel));
+      ImagePair image_pair(pose_rel);
+      image_pair.config = colmap::TwoViewGeometry::CALIBRATED;
+      view_graph.AddImagePair(index1, index2, std::move(image_pair));
     } else {
       auto [image_pair, swapped] = view_graph.Pair(index1, index2);
       image_pair.cam2_from_cam1 = swapped ? Inverse(pose_rel) : pose_rel;
