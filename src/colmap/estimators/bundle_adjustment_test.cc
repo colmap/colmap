@@ -463,7 +463,8 @@ TEST(DefaultBundleAdjuster, ConstantRigFromWorldRotation) {
   for (const image_t image_id : reconstruction.RegImageIds()) {
     const auto& image = reconstruction.Image(image_id);
     const auto& orig_image = orig_reconstruction.Image(image_id);
-    if ((image.CamFromWorld().translation - orig_image.CamFromWorld().translation)
+    if ((image.CamFromWorld().translation -
+         orig_image.CamFromWorld().translation)
             .norm() > kConstantPoseVarEps) {
       has_variable_translation = true;
       break;
