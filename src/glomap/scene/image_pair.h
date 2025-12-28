@@ -8,10 +8,7 @@
 
 namespace glomap {
 
-// ImagePair extends TwoViewGeometry with glomap-specific fields.
-// Inherited from TwoViewGeometry: config, E, F, H, cam2_from_cam1,
-//                                  inlier_matches, tri_angle
-// Note: image IDs are stored in ViewGraph's map key, not here.
+// ImagePair extends TwoViewGeometry.
 struct ImagePair : public colmap::TwoViewGeometry {
   ImagePair() = default;
 
