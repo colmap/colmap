@@ -56,7 +56,8 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     colmap::Timer run_timer;
     run_timer.Start();
     // Relative pose relies on the undistorted images
-    EstimateRelativePoses(view_graph, reconstruction, options.relative_pose_estimation);
+    EstimateRelativePoses(
+        view_graph, reconstruction, options.relative_pose_estimation);
 
     InlierThresholdOptions inlier_thresholds = options.inlier_thresholds;
     // Undistort the images and filter edges by inlier number
@@ -92,8 +93,10 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     }
 
     // The second run is for final estimation
-    if (!SolveRotationAveraging(
-            options.rotation_averaging, view_graph, reconstruction, pose_priors)) {
+    if (!SolveRotationAveraging(options.rotation_averaging,
+                                view_graph,
+                                reconstruction,
+                                pose_priors)) {
       return false;
     }
     view_graph.FilterByRelativeRotation(
@@ -217,8 +220,9 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
     for (int ite = 0; ite < options.num_iterations_ba; ite++) {
       // 6.1. First stage: optimize positions only (rotation constant)
-      if (!RunBundleAdjustment(
-              options.bundle_adjustment, /*constant_rotation=*/true, reconstruction)) {
+      if (!RunBundleAdjustment(options.bundle_adjustment,
+                               /*constant_rotation=*/true,
+                               reconstruction)) {
         return false;
       }
       LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
@@ -228,8 +232,9 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
       // 6.2. Second stage: optimize rotations if desired
       if (options.bundle_adjustment.optimize_rotations &&
-          !RunBundleAdjustment(
-              options.bundle_adjustment, /*constant_rotation=*/false, reconstruction)) {
+          !RunBundleAdjustment(options.bundle_adjustment,
+                               /*constant_rotation=*/false,
+                               reconstruction)) {
         return false;
       }
       LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
@@ -293,8 +298,9 @@ bool GlobalMapper::Solve(const colmap::Database* database,
       run_timer.PrintSeconds();
 
       LOG(INFO) << "Running bundle adjustment...";
-      if (!RunBundleAdjustment(
-              options.bundle_adjustment, /*constant_rotation=*/false, reconstruction)) {
+      if (!RunBundleAdjustment(options.bundle_adjustment,
+                               /*constant_rotation=*/false,
+                               reconstruction)) {
         return false;
       }
 
@@ -307,8 +313,9 @@ bool GlobalMapper::Solve(const colmap::Database* database,
               colmap::ReprojectionErrorType::NORMALIZED);
 
       // Run BA again after filtering outliers
-      if (!RunBundleAdjustment(
-              options.bundle_adjustment, /*constant_rotation=*/false, reconstruction)) {
+      if (!RunBundleAdjustment(options.bundle_adjustment,
+                               /*constant_rotation=*/false,
+                               reconstruction)) {
         return false;
       }
       run_timer.PrintSeconds();

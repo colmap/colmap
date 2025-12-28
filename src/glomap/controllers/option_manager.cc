@@ -46,12 +46,15 @@ void OptionManager::AddGlobalMapperOptions() {
   AddAndRegisterDefaultOption("Mapper.skip_pruning", &mapper->skip_pruning);
 
   // View graph calibration options
-  AddAndRegisterDefaultOption("ViewGraphCalib.thres_lower_ratio",
-                              &mapper->view_graph_calibration.thres_lower_ratio);
-  AddAndRegisterDefaultOption("ViewGraphCalib.thres_higher_ratio",
-                              &mapper->view_graph_calibration.thres_higher_ratio);
-  AddAndRegisterDefaultOption("ViewGraphCalib.thres_two_view_error",
-                              &mapper->view_graph_calibration.thres_two_view_error);
+  AddAndRegisterDefaultOption(
+      "ViewGraphCalib.thres_lower_ratio",
+      &mapper->view_graph_calibration.thres_lower_ratio);
+  AddAndRegisterDefaultOption(
+      "ViewGraphCalib.thres_higher_ratio",
+      &mapper->view_graph_calibration.thres_higher_ratio);
+  AddAndRegisterDefaultOption(
+      "ViewGraphCalib.thres_two_view_error",
+      &mapper->view_graph_calibration.thres_two_view_error);
 
   // Relative pose estimation options
   AddAndRegisterDefaultOption(
@@ -59,12 +62,15 @@ void OptionManager::AddGlobalMapperOptions() {
       &mapper->relative_pose_estimation.ransac_options.max_epipolar_error);
 
   // Track establishment options
-  AddAndRegisterDefaultOption("TrackEstablishment.min_num_tracks_per_view",
-                              &mapper->track_establishment.min_num_tracks_per_view);
-  AddAndRegisterDefaultOption("TrackEstablishment.min_num_view_per_track",
-                              &mapper->track_establishment.min_num_view_per_track);
-  AddAndRegisterDefaultOption("TrackEstablishment.max_num_view_per_track",
-                              &mapper->track_establishment.max_num_view_per_track);
+  AddAndRegisterDefaultOption(
+      "TrackEstablishment.min_num_tracks_per_view",
+      &mapper->track_establishment.min_num_tracks_per_view);
+  AddAndRegisterDefaultOption(
+      "TrackEstablishment.min_num_view_per_track",
+      &mapper->track_establishment.min_num_view_per_track);
+  AddAndRegisterDefaultOption(
+      "TrackEstablishment.max_num_view_per_track",
+      &mapper->track_establishment.max_num_view_per_track);
   AddAndRegisterDefaultOption("TrackEstablishment.max_num_tracks",
                               &mapper->track_establishment.max_num_tracks);
 
@@ -98,8 +104,9 @@ void OptionManager::AddGlobalMapperOptions() {
                               &mapper->bundle_adjustment.optimize_translation);
   AddAndRegisterDefaultOption("BundleAdjustment.optimize_intrinsics",
                               &mapper->bundle_adjustment.optimize_intrinsics);
-  AddAndRegisterDefaultOption("BundleAdjustment.optimize_principal_point",
-                              &mapper->bundle_adjustment.optimize_principal_point);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.optimize_principal_point",
+      &mapper->bundle_adjustment.optimize_principal_point);
   AddAndRegisterDefaultOption("BundleAdjustment.optimize_points",
                               &mapper->bundle_adjustment.optimize_points);
   AddAndRegisterDefaultOption("BundleAdjustment.loss_function_scale",
