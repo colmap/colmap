@@ -1,5 +1,6 @@
 #include "glomap/processors/reconstruction_pruning.h"
 
+#include "colmap/math/connected_components.h"
 #include "colmap/math/math.h"
 #include "colmap/math/union_find.h"
 
@@ -15,39 +16,6 @@ constexpr double kMinEdgeWeightThreshold = 20.0;
 constexpr double kWeakEdgeMultiplier = 0.75;
 constexpr int kMinWeakEdgesToMerge = 2;
 constexpr int kMaxClusteringIterations = 10;
-
-// Finds connected components and returns the largest one.
-std::unordered_set<frame_t> FindLargestConnectedComponent(
-    const std::unordered_set<frame_t>& nodes,
-    const std::unordered_map<frame_pair_t, int>& edge_weights) {
-  colmap::UnionFind<frame_t> uf;
-  uf.Reserve(nodes.size());
-
-  // Connect all nodes that share an edge.
-  for (const auto& [pair_id, weight] : edge_weights) {
-    const auto [frame_id1, frame_id2] = colmap::PairIdToImagePair(pair_id);
-    uf.Union(frame_id1, frame_id2);
-  }
-
-  // Count sizes of each component.
-  std::unordered_map<frame_t, std::vector<frame_t>> components;
-  for (const frame_t node : nodes) {
-    components[uf.Find(node)].push_back(node);
-  }
-
-  // Find the largest component.
-  frame_t largest_root = 0;
-  size_t largest_size = 0;
-  for (const auto& [root, members] : components) {
-    if (members.size() > largest_size) {
-      largest_size = members.size();
-      largest_root = root;
-    }
-  }
-
-  return std::unordered_set<frame_t>(components[largest_root].begin(),
-                                     components[largest_root].end());
-}
 
 // Clusters nodes using union-find based on edge weights.
 //
@@ -193,8 +161,14 @@ std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
   }
 
   // Step 3: Keep only the largest connected component and de-register the rest.
+  std::vector<std::pair<frame_t, frame_t>> edges;
+  edges.reserve(edge_weights.size());
+  for (const auto& [pair_id, weight] : edge_weights) {
+    const auto [frame_id1, frame_id2] = colmap::PairIdToImagePair(pair_id);
+    edges.emplace_back(frame_id1, frame_id2);
+  }
   const std::unordered_set<frame_t> largest_cc =
-      FindLargestConnectedComponent(nodes, edge_weights);
+      colmap::FindLargestConnectedComponent(nodes, edges);
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     if (largest_cc.count(frame_id) == 0 && frame.HasPose()) {
       reconstruction.DeRegisterFrame(frame_id);

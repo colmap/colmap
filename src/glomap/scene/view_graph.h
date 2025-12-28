@@ -61,11 +61,6 @@ class ViewGraph {
   std::unordered_map<image_t, std::unordered_set<image_t>>
   CreateImageAdjacencyList() const;
 
-  // Create the adjacency list for the frames in the view graph.
-  std::unordered_map<frame_t, std::unordered_set<frame_t>>
-  CreateFrameAdjacencyList(
-      const std::unordered_map<image_t, colmap::Image>& images) const;
-
   // Mark the images which are not connected to any other images as not
   // registered. Returns the number of images in the largest connected
   // component.
