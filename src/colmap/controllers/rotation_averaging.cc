@@ -54,7 +54,7 @@ void RotationAveragingController::Run() {
   // Read pose priors from database.
   std::vector<PosePrior> pose_priors = database_->ReadAllPosePriors();
 
-  if (view_graph.image_pairs.empty()) {
+  if (view_graph.Empty()) {
     LOG(ERROR) << "Cannot continue without image pairs";
     return;
   }

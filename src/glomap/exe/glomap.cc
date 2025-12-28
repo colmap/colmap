@@ -99,7 +99,7 @@ int RunGlobalMapper(int argc, char** argv) {
 
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
-  if (view_graph.image_pairs.empty()) {
+  if (view_graph.Empty()) {
     LOG(ERROR) << "Can't continue without image pairs";
     return EXIT_FAILURE;
   }
@@ -245,7 +245,7 @@ int RunRotationAverager(int argc, char** argv) {
   colmap::Timer run_timer;
   run_timer.Start();
   if (!SolveRotationAveraging(
-          view_graph, reconstruction, pose_priors, rotation_averager_options)) {
+          rotation_averager_options, view_graph, reconstruction, pose_priors)) {
     LOG(ERROR) << "Failed to solve global rotation averaging";
     return EXIT_FAILURE;
   }
