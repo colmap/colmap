@@ -91,7 +91,7 @@ int ViewGraph::KeepLargestConnectedComponents(
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     if (!reconstruction.Image(image_id1).HasPose() ||
         !reconstruction.Image(image_id2).HasPose()) {
-      SetToInvalid(pair_id);
+      SetInvalidImagePair(pair_id);
     }
   }
 
@@ -174,7 +174,7 @@ void ViewGraph::FilterByRelativeRotation(
         image1.CamFromWorld().rotation.inverse();
     if (cam2_from_cam1.angularDistance(image_pair.cam2_from_cam1.rotation) >
         max_angle_rad) {
-      SetToInvalid(pair_id);
+      SetInvalidImagePair(pair_id);
       num_invalid++;
     }
   }
@@ -188,7 +188,7 @@ void ViewGraph::FilterByNumInliers(int min_num_inliers) {
   int num_invalid = 0;
   for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
     if (image_pair.inliers.size() < min_num_inliers) {
-      SetToInvalid(pair_id);
+      SetInvalidImagePair(pair_id);
       num_invalid++;
     }
   }
@@ -204,7 +204,7 @@ void ViewGraph::FilterByInlierRatio(double min_inlier_ratio) {
     const double inlier_ratio = image_pair.inliers.size() /
                                 static_cast<double>(image_pair.matches.rows());
     if (inlier_ratio < min_inlier_ratio) {
-      SetToInvalid(pair_id);
+      SetInvalidImagePair(pair_id);
       num_invalid++;
     }
   }

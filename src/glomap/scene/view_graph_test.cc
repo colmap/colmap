@@ -79,7 +79,7 @@ TEST(ViewGraph, Nominal) {
   EXPECT_EQ(view_graph.NumValidImagePairs(), 3);
 
   // Invalidate one pair.
-  view_graph.SetToInvalid(colmap::ImagePairToPairId(1, 2));
+  view_graph.SetInvalidImagePair(colmap::ImagePairToPairId(1, 2));
   EXPECT_EQ(view_graph.NumImagePairs(), 3);
   EXPECT_EQ(view_graph.NumValidImagePairs(), 2);
 
@@ -149,7 +149,7 @@ TEST(ViewGraph, Pair) {
   EXPECT_EQ(ref2.cam2_from_cam1.translation.x(), 1);  // Same reference
 
   // Modify validity through ViewGraph.
-  view_graph.SetToInvalid(colmap::ImagePairToPairId(1, 2));
+  view_graph.SetInvalidImagePair(colmap::ImagePairToPairId(1, 2));
   EXPECT_FALSE(view_graph.IsValid(colmap::ImagePairToPairId(1, 2)));
 
   // Non-existent pair should throw.
@@ -246,12 +246,12 @@ TEST(ViewGraph, ValidImagePairs) {
               testing::UnorderedElementsAre(pair_id1, pair_id2, pair_id3));
 
   // Invalidate one pair.
-  view_graph.SetToInvalid(pair_id2);
+  view_graph.SetInvalidImagePair(pair_id2);
   EXPECT_THAT(GetValidPairIds(),
               testing::UnorderedElementsAre(pair_id1, pair_id3));
 
   // Re-validate the pair.
-  view_graph.SetToValid(pair_id2);
+  view_graph.SetValidImagePair(pair_id2);
   EXPECT_THAT(GetValidPairIds(),
               testing::UnorderedElementsAre(pair_id1, pair_id2, pair_id3));
 }
@@ -267,7 +267,7 @@ TEST(ViewGraph, FilterByNumInliers) {
   view_graph.AddImagePair(1, 3, SynthesizeImagePair(20));
   view_graph.AddImagePair(2, 3, SynthesizeImagePair(30));
   view_graph.AddImagePair(2, 4, SynthesizeImagePair(50));
-  view_graph.SetToInvalid(pair_id4);  // Already invalid
+  view_graph.SetInvalidImagePair(pair_id4);  // Already invalid
 
   view_graph.FilterByNumInliers(30);
 
@@ -288,7 +288,7 @@ TEST(ViewGraph, FilterByInlierRatio) {
   view_graph.AddImagePair(1, 3, SynthesizeImagePair(10));  // 10% ratio
   view_graph.AddImagePair(2, 3, SynthesizeImagePair(25));  // 25% ratio
   view_graph.AddImagePair(2, 4, SynthesizeImagePair(50));
-  view_graph.SetToInvalid(pair_id4);  // Already invalid
+  view_graph.SetInvalidImagePair(pair_id4);  // Already invalid
 
   view_graph.FilterByInlierRatio(0.25);
 
@@ -335,7 +335,7 @@ TEST(ViewGraph, FilterByRelativeRotation) {
   view_graph.AddImagePair(id1, id3, std::move(pair2));
   view_graph.AddImagePair(id1, id4, std::move(pair3));
   view_graph.AddImagePair(id2, id3, std::move(pair4));
-  view_graph.SetToInvalid(pair_id4);  // Already invalid
+  view_graph.SetInvalidImagePair(pair_id4);  // Already invalid
 
   reconstruction.DeRegisterFrame(reconstruction.Image(id4).FrameId());
 

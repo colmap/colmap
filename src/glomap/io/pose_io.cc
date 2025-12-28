@@ -35,7 +35,7 @@ void ReadRelPose(const std::string& file_path,
 
   // Mark every edge in the view graph as invalid
   for (const auto& [pair_id, image_pair] : view_graph.ImagePairs()) {
-    view_graph.SetToInvalid(pair_id);
+    view_graph.SetInvalidImagePair(pair_id);
   }
 
   std::ifstream file(file_path);
@@ -101,7 +101,7 @@ void ReadRelPose(const std::string& file_path,
       auto [image_pair, swapped] = view_graph.Pair(index1, index2);
       image_pair.cam2_from_cam1 = swapped ? Inverse(pose_rel) : pose_rel;
       image_pair.config = colmap::TwoViewGeometry::CALIBRATED;
-      view_graph.SetToValid(colmap::ImagePairToPairId(index1, index2));
+      view_graph.SetValidImagePair(colmap::ImagePairToPairId(index1, index2));
     }
     counter++;
   }

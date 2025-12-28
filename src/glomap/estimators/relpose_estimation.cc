@@ -122,7 +122,7 @@ void EstimateRelativePoses(ViewGraph& view_graph,
                                           &inliers);
         } catch (const std::exception& e) {
           LOG(ERROR) << "Error in relative pose estimation: " << e.what();
-          view_graph.SetToInvalid(pair_id);
+          view_graph.SetInvalidImagePair(pair_id);
           return;
         }
 

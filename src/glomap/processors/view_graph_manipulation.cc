@@ -97,7 +97,7 @@ image_t ViewGraphManipulator::EstablishStrongClusters(
     frame_t frame_id2 = reconstruction.Image(image_id2).FrameId();
 
     if (uf.Find(image_pair_t(frame_id1)) != uf.Find(image_pair_t(frame_id2))) {
-      view_graph.SetToInvalid(pair_id);
+      view_graph.SetInvalidImagePair(pair_id);
     }
   }
   int num_comp =

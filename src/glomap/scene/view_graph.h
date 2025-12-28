@@ -40,8 +40,8 @@ class ViewGraph {
 
   // Validity operations.
   inline bool IsValid(image_pair_t pair_id) const;
-  inline void SetToValid(image_pair_t pair_id);
-  inline void SetToInvalid(image_pair_t pair_id);
+  inline void SetValidImagePair(image_pair_t pair_id);
+  inline void SetInvalidImagePair(image_pair_t pair_id);
 
   // Returns a filter view over valid image pairs only.
   auto ValidImagePairs() const {
@@ -192,11 +192,11 @@ bool ViewGraph::IsValid(image_pair_t pair_id) const {
   return invalid_pairs_.find(pair_id) == invalid_pairs_.end();
 }
 
-void ViewGraph::SetToValid(image_pair_t pair_id) {
+void ViewGraph::SetValidImagePair(image_pair_t pair_id) {
   invalid_pairs_.erase(pair_id);
 }
 
-void ViewGraph::SetToInvalid(image_pair_t pair_id) {
+void ViewGraph::SetInvalidImagePair(image_pair_t pair_id) {
   invalid_pairs_.insert(pair_id);
 }
 

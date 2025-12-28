@@ -169,7 +169,7 @@ size_t ViewGraphCalibrator::FilterImagePairs(ViewGraph& view_graph) const {
     // Set the two view geometry to be invalid if the error is too high
     if (error.squaredNorm() > thres_two_view_error_sq) {
       invalid_counter++;
-      view_graph.SetToInvalid(image_pair_id);
+      view_graph.SetInvalidImagePair(image_pair_id);
     }
 
     counter += 2;
