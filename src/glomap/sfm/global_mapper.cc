@@ -305,6 +305,12 @@ bool GlobalMapper::Solve(const colmap::Database* database,
               options.inlier_thresholds.max_reprojection_error,
               reconstruction.Point3DIds(),
               colmap::ReprojectionErrorType::NORMALIZED);
+
+      // Run BA again after filtering outliers
+      if (!RunBundleAdjustment(
+              options.opt_ba, /*constant_rotation=*/false, reconstruction)) {
+        return false;
+      }
       run_timer.PrintSeconds();
     }
 
