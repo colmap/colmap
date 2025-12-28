@@ -7,15 +7,12 @@
 namespace glomap {
 namespace {
 
-enum StrongClusterCriteria {
-  INLIER_NUM,
-  WEIGHT,
-};
-
+// Clusters frames based on edge weights (stored in ImagePair::weight).
+// Edges with weight > min_thres form initial clusters.
+// Clusters are iteratively merged if they share enough weaker edges.
 image_t EstablishStrongClusters(ViewGraph& view_graph,
                                 colmap::Reconstruction& reconstruction,
                                 std::unordered_map<frame_t, int>& cluster_ids,
-                                StrongClusterCriteria criteria,
                                 double min_thres,
                                 int min_num_images) {
   view_graph.KeepLargestConnectedComponents(reconstruction);
@@ -23,15 +20,10 @@ image_t EstablishStrongClusters(ViewGraph& view_graph,
   // Construct the initial cluster by keeping the pairs with weight > min_thres
   colmap::UnionFind<image_pair_t> uf;
   uf.Reserve(reconstruction.NumFrames());
-  // Go through the edges, and add the edge with weight > min_thres
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (!image_pair.is_valid) continue;
 
-    bool status = false;
-    status = status ||
-             (criteria == INLIER_NUM && image_pair.inliers.size() > min_thres);
-    status = status || (criteria == WEIGHT && image_pair.weight > min_thres);
-    if (status) {
+    if (image_pair.weight > min_thres) {
       const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
       uf.Union(image_pair_t(reconstruction.Image(image_id1).FrameId()),
                image_pair_t(reconstruction.Image(image_id2).FrameId()));
@@ -39,12 +31,12 @@ image_t EstablishStrongClusters(ViewGraph& view_graph,
   }
 
   // For every two connected components, we check the number of slightly weaker
-  // pairs (> 0.75 min_thres) between them Two clusters are concatenated if the
-  // number of such pairs is larger than a threshold (2)
-  bool status = true;
+  // pairs (> 0.75 min_thres) between them. Two clusters are concatenated if the
+  // number of such pairs is larger than a threshold (2).
+  bool changed = true;
   int iteration = 0;
-  while (status) {
-    status = false;
+  while (changed) {
+    changed = false;
     iteration++;
 
     if (iteration > 10) {
@@ -56,13 +48,8 @@ image_t EstablishStrongClusters(ViewGraph& view_graph,
     for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
       if (!image_pair.is_valid) continue;
 
-      // If the number of inliers < 0.75 of the threshold, skip
-      bool status = false;
-      status = status || (criteria == INLIER_NUM &&
-                          image_pair.inliers.size() < 0.75 * min_thres);
-      status = status ||
-               (criteria == WEIGHT && image_pair.weight < 0.75 * min_thres);
-      if (status) continue;
+      // If the weight < 0.75 of the threshold, skip
+      if (image_pair.weight < 0.75 * min_thres) continue;
 
       const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 
@@ -84,14 +71,14 @@ image_t EstablishStrongClusters(ViewGraph& view_graph,
       num_pairs[root1][root2]++;
       num_pairs[root2][root1]++;
     }
-    // Connect the clusters progressively. If two clusters have more than 3
-    // pairs, then connect them
+    // Connect the clusters progressively. If two clusters have more than 2
+    // pairs, then connect them.
     for (auto& [root1, counter] : num_pairs) {
       for (auto& [root2, count] : counter) {
         if (root1 <= root2) continue;
 
         if (count >= 2) {
-          status = true;
+          changed = true;
           uf.Union(root1, root2);
         }
       }
@@ -236,7 +223,6 @@ void PruneWeaklyConnectedImages(colmap::Reconstruction& reconstruction,
   EstablishStrongClusters(visibility_graph,
                           reconstruction,
                           cluster_ids,
-                          WEIGHT,
                           std::max(median_count - median_count_diff, 20.),
                           min_num_images);
 }
