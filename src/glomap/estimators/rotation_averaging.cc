@@ -58,8 +58,9 @@ image_t ComputeMaximumSpanningTree(
     if (!image_pair.is_valid) {
       continue;
     }
-    const auto it1 = image_id_to_idx.find(image_pair.image_id1);
-    const auto it2 = image_id_to_idx.find(image_pair.image_id2);
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const auto it1 = image_id_to_idx.find(image_id1);
+    const auto it2 = image_id_to_idx.find(image_id2);
     if (it1 == image_id_to_idx.end() || it2 == image_id_to_idx.end()) {
       continue;
     }
