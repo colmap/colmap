@@ -83,8 +83,8 @@ void GlobalPipeline::Run() {
     }
   } else {
     for (int comp = 0; comp <= max_cluster_id; comp++) {
-      std::cout << "\r Exporting reconstruction " << comp + 1 << " / "
-                << max_cluster_id + 1 << std::flush;
+      LOG(INFO) << "Exporting reconstruction " << comp + 1 << " / "
+                << max_cluster_id + 1;
       Reconstruction& output_reconstruction =
           *reconstruction_manager_->Get(reconstruction_manager_->Add());
       output_reconstruction = glomap::SubReconstructionByClusterId(
@@ -93,7 +93,6 @@ void GlobalPipeline::Run() {
         output_reconstruction.ExtractColorsForAllImages(options_.image_path);
       }
     }
-    std::cout << '\n';
   }
 }
 
