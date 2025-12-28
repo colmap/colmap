@@ -9,6 +9,13 @@ namespace {
 // Alias for clarity: we're working with frame pairs, not image pairs.
 using frame_pair_t = image_pair_t;
 
+// Clustering parameters.
+constexpr int kMinCovisibilityCount = 5;
+constexpr double kMinEdgeWeightThreshold = 20.0;
+constexpr double kWeakEdgeMultiplier = 0.75;
+constexpr int kMinWeakEdgesToMerge = 2;
+constexpr int kMaxClusteringIterations = 10;
+
 // Finds connected components and returns the largest one.
 std::unordered_set<frame_t> FindLargestConnectedComponent(
     const std::unordered_set<frame_t>& nodes,
@@ -46,12 +53,12 @@ std::unordered_set<frame_t> FindLargestConnectedComponent(
 //
 // Algorithm:
 //   1. Merge nodes connected by strong edges (weight > threshold).
-//   2. Iteratively merge clusters connected by at least 2 weaker edges
-//      (weight >= 0.75 * threshold).
+//   2. Iteratively merge clusters connected by at least kMinWeakEdgesToMerge
+//      weaker edges (weight >= kWeakEdgeMultiplier * threshold).
 //   3. Assign sequential cluster IDs based on union-find roots.
 //
 // The iterative refinement helps avoid over-segmentation when the connection
-// between two groups of nodes is distributed across at least 2 edges.
+// between two groups of nodes is distributed across multiple weaker edges.
 std::unordered_map<frame_t, int> EstablishStrongClusters(
     const std::unordered_set<frame_t>& nodes,
     const std::unordered_map<frame_pair_t, int>& edge_weights,
@@ -69,23 +76,23 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
   }
 
   // Phase 2: Iteratively merge clusters connected by multiple weaker edges.
-  // Two clusters are merged if they share >= 2 edges with weight >= 0.75 *
-  // threshold. This continues until no more merges occur (or max 10
-  // iterations).
+  // Two clusters are merged if they share >= kMinWeakEdgesToMerge edges with
+  // weight >= kWeakEdgeMultiplier * threshold. This continues until no more
+  // merges occur (or max kMaxClusteringIterations iterations).
   bool changed = true;
   int iteration = 0;
   while (changed) {
     changed = false;
     iteration++;
 
-    if (iteration > 10) {
+    if (iteration > kMaxClusteringIterations) {
       break;
     }
 
     // Count edges between each pair of cluster roots.
     std::unordered_map<frame_t, std::unordered_map<frame_t, int>> num_pairs;
     for (const auto& [pair_id, weight] : edge_weights) {
-      if (weight < 0.75 * edge_weight_threshold) continue;
+      if (weight < kWeakEdgeMultiplier * edge_weight_threshold) continue;
 
       const auto [frame_id1, frame_id2] = colmap::PairIdToImagePair(pair_id);
       frame_t root1 = uf.Find(frame_id1);
@@ -102,7 +109,7 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
       for (const auto& [root2, count] : counter) {
         if (root1 <= root2) continue;  // Process each pair once.
 
-        if (count >= 2) {
+        if (count >= kMinWeakEdgesToMerge) {
           changed = true;
           uf.Union(root1, root2);
         }
@@ -172,10 +179,9 @@ std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
   }
 
   // Step 2: Filter edges to keep only reliable connections.
-  // Require at least 5 shared points (needed for stable relative pose).
   std::unordered_map<frame_pair_t, int> edge_weights;
   for (const auto& [pair_id, count] : frame_covisibility_count) {
-    if (count < 5) continue;
+    if (count < kMinCovisibilityCount) continue;
     edge_weights[pair_id] = count;
   }
   LOG(INFO) << "Established visibility graph with " << edge_weights.size()
@@ -215,7 +221,7 @@ std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
   }
   const auto [median, mad] =
       colmap::MedianAbsoluteDeviation(std::move(weight_values));
-  const double threshold = std::max(median - mad, 20.0);
+  const double threshold = std::max(median - mad, kMinEdgeWeightThreshold);
   LOG(INFO) << "Threshold for Strong Clustering: " << threshold;
 
   // Step 5: Cluster frames based on covisibility weights.
