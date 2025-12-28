@@ -14,7 +14,6 @@ if(COVERAGE_ENABLED)
 endif()
 
 add_subdirectory(scene)
-add_subdirectory(math)
 add_subdirectory(io)
 add_subdirectory(estimators)
 add_subdirectory(processors)
