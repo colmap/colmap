@@ -28,9 +28,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
   // 0. Preprocessing
   if (!options.skip_preprocessing) {
-    LOG(INFO) << "========================";
-    LOG(INFO) << "Running preprocessing...";
-    LOG(INFO) << "========================";
+    LOG(INFO) << "----- Running preprocessing -----";
 
     colmap::Timer run_timer;
     run_timer.Start();
@@ -43,9 +41,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
   // 1. Run view graph calibration
   if (!options.skip_view_graph_calibration) {
-    LOG(INFO) << "==================================";
-    LOG(INFO) << "Running view graph calibration...";
-    LOG(INFO) << "==================================";
+    LOG(INFO) << "----- Running view graph calibration -----";
     ViewGraphCalibrator vgcalib_engine(options.opt_vgcalib);
     if (!vgcalib_engine.Solve(view_graph, reconstruction)) {
       return false;
@@ -55,9 +51,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
   // 2. Run relative pose estimation
   //   TODO: Use generalized relative pose estimation for rigs.
   if (!options.skip_relative_pose_estimation) {
-    LOG(INFO) << "====================================";
-    LOG(INFO) << "Running relative pose estimation...";
-    LOG(INFO) << "====================================";
+    LOG(INFO) << "----- Running relative pose estimation -----";
 
     colmap::Timer run_timer;
     run_timer.Start();
@@ -81,9 +75,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
   // 3. Run rotation averaging for three times
   if (!options.skip_rotation_averaging) {
-    LOG(INFO) << "=============================";
-    LOG(INFO) << "Running rotation averaging...";
-    LOG(INFO) << "=============================";
+    LOG(INFO) << "----- Running rotation averaging -----";
 
     colmap::Timer run_timer;
     run_timer.Start();
@@ -123,9 +115,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
   // 4. Track establishment and selection
   if (!options.skip_track_establishment) {
-    LOG(INFO) << "==============================";
-    LOG(INFO) << "Running track establishment...";
-    LOG(INFO) << "==============================";
+    LOG(INFO) << "----- Running track establishment -----";
     colmap::Timer run_timer;
     run_timer.Start();
 
@@ -153,9 +143,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
   // 5. Global positioning
   if (!options.skip_global_positioning) {
-    LOG(INFO) << "=============================";
-    LOG(INFO) << "Running global positioning...";
-    LOG(INFO) << "=============================";
+    LOG(INFO) << "----- Running global positioning -----";
 
     if (options.opt_gp.constraint_type !=
         GlobalPositionerOptions::ConstraintType::ONLY_POINTS) {
@@ -226,9 +214,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
   // 6. Bundle adjustment
   if (!options.skip_bundle_adjustment) {
-    LOG(INFO) << "============================";
-    LOG(INFO) << "Running bundle adjustment...";
-    LOG(INFO) << "============================";
+    LOG(INFO) << "----- Running bundle adjustment -----";
 
     colmap::Timer run_timer;
     run_timer.Start();
@@ -311,9 +297,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
   // 7. Retriangulation
   if (!options.skip_retriangulation) {
     THROW_CHECK_NOTNULL(database);
-    LOG(INFO) << "==========================";
-    LOG(INFO) << "Running retriangulation...";
-    LOG(INFO) << "==========================";
+    LOG(INFO) << "----- Running retriangulation -----";
     for (int ite = 0; ite < options.num_iteration_retriangulation; ite++) {
       colmap::Timer run_timer;
       run_timer.Start();
@@ -358,9 +342,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
   // 8. Reconstruction pruning
   if (!options.skip_pruning) {
-    LOG(INFO) << "=========================";
-    LOG(INFO) << "Running postprocessing...";
-    LOG(INFO) << "=========================";
+    LOG(INFO) << "----- Running postprocessing -----";
 
     colmap::Timer run_timer;
     run_timer.Start();
