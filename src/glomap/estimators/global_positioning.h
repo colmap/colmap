@@ -42,8 +42,10 @@ struct GlobalPositionerOptions : public OptimizationBaseOptions {
   // Constrain the minimum number of views per track
   int min_num_view_per_track = 3;
 
-  // Random seed
-  unsigned seed = 1;
+  // PRNG seed for random initialization.
+  // If -1 (default), uses non-deterministic random_device seeding.
+  // If >= 0, uses deterministic seeding with the given value.
+  int random_seed = -1;
 
   // the type of global positioning
   ConstraintType constraint_type = ONLY_POINTS;
@@ -103,7 +105,6 @@ class GlobalPositioner {
 
   GlobalPositionerOptions options_;
 
-  std::mt19937 random_generator_;
   std::unique_ptr<ceres::Problem> problem_;
 
   // Loss functions for reweighted terms.
