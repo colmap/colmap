@@ -861,7 +861,7 @@ class SqliteDatabase : public Database {
     FeatureMatchesBlob blob = ReadDynamicMatrixBlob<FeatureMatchesBlob>(
         sql_stmt_read_matches_, rc, 0);
 
-    if (SwapImagePair(image_id1, image_id2)) {
+    if (ShouldSwapImagePair(image_id1, image_id2)) {
       SwapFeatureMatchesBlob(&blob);
     }
     return blob;
@@ -964,7 +964,7 @@ class SqliteDatabase : public Database {
     two_view_geometry.E.transposeInPlace();
     two_view_geometry.H.transposeInPlace();
 
-    if (SwapImagePair(image_id1, image_id2)) {
+    if (ShouldSwapImagePair(image_id1, image_id2)) {
       two_view_geometry.Invert();
     }
 
@@ -1236,7 +1236,7 @@ class SqliteDatabase : public Database {
 
     // Important: the swapped data must live until the query is executed.
     FeatureMatchesBlob swapped_blob;
-    if (SwapImagePair(image_id1, image_id2)) {
+    if (ShouldSwapImagePair(image_id1, image_id2)) {
       swapped_blob = blob;
       SwapFeatureMatchesBlob(&swapped_blob);
       WriteDynamicMatrixBlob(sql_stmt_write_matches_, swapped_blob, 2);
@@ -1263,7 +1263,7 @@ class SqliteDatabase : public Database {
 
     // Invert the two-view geometry if the image pair has to be swapped.
     std::unique_ptr<TwoViewGeometry> swapped_two_view_geometry;
-    if (SwapImagePair(image_id1, image_id2)) {
+    if (ShouldSwapImagePair(image_id1, image_id2)) {
       swapped_two_view_geometry = std::make_unique<TwoViewGeometry>();
       *swapped_two_view_geometry = two_view_geometry;
       swapped_two_view_geometry->Invert();
