@@ -19,7 +19,7 @@ image_t ViewGraphManipulator::EstablishStrongClusters(
   colmap::UnionFind<image_pair_t> uf;
   uf.Reserve(reconstruction.NumFrames());
   // Go through the edges, and add the edge with weight > min_thres
-  for (const auto& [pair_id, image_pair] : view_graph.ValidPairs()) {
+  for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
     bool status = false;
     status = status ||
              (criteria == INLIER_NUM && image_pair.inliers.size() > min_thres);
@@ -46,7 +46,7 @@ image_t ViewGraphManipulator::EstablishStrongClusters(
 
     std::unordered_map<image_pair_t, std::unordered_map<image_pair_t, int>>
         num_pairs;
-    for (const auto& [pair_id, image_pair] : view_graph.ValidPairs()) {
+    for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
       // If the number of inliers < 0.75 of the threshold, skip
       bool status = false;
       status = status || (criteria == INLIER_NUM &&
@@ -116,7 +116,7 @@ void ViewGraphManipulator::UpdateImagePairsConfig(
   // pair with configuration 2 First: the total occurence; second: the number of
   // pairs with configuration 2
   std::unordered_map<camera_t, std::pair<int, int>> camera_counter;
-  for (const auto& [pair_id, image_pair] : view_graph.ValidPairs()) {
+  for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const camera_t camera_id1 = reconstruction.Image(image_id1).CameraId();
     const camera_t camera_id2 = reconstruction.Image(image_id2).CameraId();
@@ -173,7 +173,7 @@ void ViewGraphManipulator::UpdateImagePairsConfig(
 void ViewGraphManipulator::DecomposeRelPose(
     ViewGraph& view_graph, colmap::Reconstruction& reconstruction) {
   std::vector<image_pair_t> image_pair_ids;
-  for (const auto& [pair_id, image_pair] : view_graph.ValidPairs()) {
+  for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const camera_t camera_id1 = reconstruction.Image(image_id1).CameraId();
     const camera_t camera_id2 = reconstruction.Image(image_id2).CameraId();

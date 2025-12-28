@@ -36,7 +36,7 @@ struct ViewGraph {
   void SetToInvalid(image_pair_t pair_id);
 
   // Returns a filter view over valid image pairs only.
-  auto ValidPairs() const {
+  auto ValidImagePairs() const {
     return colmap::filter_view(
         [this](const std::pair<const image_pair_t, ImagePair>& kv) {
           return IsValid(kv.first);

@@ -118,7 +118,7 @@ void GlobalPositioner::InitializeRandomPositions(
     const ViewGraph& view_graph, colmap::Reconstruction& reconstruction) {
   std::unordered_set<frame_t> constrained_positions;
   constrained_positions.reserve(reconstruction.NumFrames());
-  for (const auto& [pair_id, image_pair] : view_graph.ValidPairs()) {
+  for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     constrained_positions.insert(reconstruction.Image(image_id1).FrameId());
     constrained_positions.insert(reconstruction.Image(image_id2).FrameId());
@@ -161,7 +161,7 @@ void GlobalPositioner::AddCameraToCameraConstraints(
     }
   }
 
-  for (const auto& [pair_id, image_pair] : view_graph.ValidPairs()) {
+  for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     if (!reconstruction.ExistsImage(image_id1) ||
         !reconstruction.ExistsImage(image_id2)) {

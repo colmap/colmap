@@ -200,7 +200,7 @@ TEST(ViewGraph, UpdateImagePair) {
                std::runtime_error);
 }
 
-TEST(ViewGraph, ValidPairs) {
+TEST(ViewGraph, ValidImagePairs) {
   ViewGraph view_graph;
 
   const image_pair_t pair_id1 = colmap::ImagePairToPairId(1, 2);
@@ -212,7 +212,7 @@ TEST(ViewGraph, ValidPairs) {
 
   auto GetValidPairIds = [&]() {
     std::vector<image_pair_t> ids;
-    for (const auto& [pair_id, image_pair] : view_graph.ValidPairs()) {
+    for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
       ids.push_back(pair_id);
     }
     return ids;

@@ -63,7 +63,7 @@ void ViewGraphCalibrator::Reset(const colmap::Reconstruction& reconstruction) {
 
 void ViewGraphCalibrator::AddImagePairsToProblem(
     const ViewGraph& view_graph, const colmap::Reconstruction& reconstruction) {
-  for (const auto& [pair_id, image_pair] : view_graph.ValidPairs()) {
+  for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
     if (image_pair.config != colmap::TwoViewGeometry::CALIBRATED &&
         image_pair.config != colmap::TwoViewGeometry::UNCALIBRATED)
       continue;

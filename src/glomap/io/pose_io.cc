@@ -231,7 +231,7 @@ void WriteRelPose(const std::string& file_path,
 
   // Sort the image pairs by image name
   std::map<std::string, image_pair_t> name_pair;
-  for (const auto& [pair_id, image_pair] : view_graph.ValidPairs()) {
+  for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const auto& image1 = images.at(image_id1);
     const auto& image2 = images.at(image_id2);

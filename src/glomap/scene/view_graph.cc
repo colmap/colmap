@@ -134,7 +134,7 @@ int ViewGraph::MarkConnectedComponents(
 std::unordered_map<image_t, std::unordered_set<image_t>>
 ViewGraph::CreateImageAdjacencyList() const {
   std::unordered_map<image_t, std::unordered_set<image_t>> adjacency_list;
-  for (const auto& [pair_id, image_pair] : ValidPairs()) {
+  for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     adjacency_list[image_id1].insert(image_id2);
     adjacency_list[image_id2].insert(image_id1);
@@ -146,7 +146,7 @@ std::unordered_map<frame_t, std::unordered_set<frame_t>>
 ViewGraph::CreateFrameAdjacencyList(
     const std::unordered_map<image_t, colmap::Image>& images) const {
   std::unordered_map<frame_t, std::unordered_set<frame_t>> adjacency_list;
-  for (const auto& [pair_id, image_pair] : ValidPairs()) {
+  for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const frame_t frame_id1 = images.at(image_id1).FrameId();
     const frame_t frame_id2 = images.at(image_id2).FrameId();
@@ -160,7 +160,7 @@ void ViewGraph::FilterByRelativeRotation(
     const colmap::Reconstruction& reconstruction, double max_angle_deg) {
   const double max_angle_rad = colmap::DegToRad(max_angle_deg);
   int num_invalid = 0;
-  for (const auto& [pair_id, image_pair] : ValidPairs()) {
+  for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const Image& image1 = reconstruction.Image(image_id1);
     const Image& image2 = reconstruction.Image(image_id2);
@@ -186,7 +186,7 @@ void ViewGraph::FilterByRelativeRotation(
 
 void ViewGraph::FilterByNumInliers(int min_num_inliers) {
   int num_invalid = 0;
-  for (const auto& [pair_id, image_pair] : ValidPairs()) {
+  for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
     if (image_pair.inliers.size() < min_num_inliers) {
       SetToInvalid(pair_id);
       num_invalid++;
@@ -200,7 +200,7 @@ void ViewGraph::FilterByNumInliers(int min_num_inliers) {
 
 void ViewGraph::FilterByInlierRatio(double min_inlier_ratio) {
   int num_invalid = 0;
-  for (const auto& [pair_id, image_pair] : ValidPairs()) {
+  for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
     const double inlier_ratio = image_pair.inliers.size() /
                                 static_cast<double>(image_pair.matches.rows());
     if (inlier_ratio < min_inlier_ratio) {

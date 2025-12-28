@@ -176,7 +176,7 @@ void GravityRefiner::IdentifyErrorProneGravity(
     frame_counter[frame_id] = std::make_pair(0, 0);
   }
 
-  for (const auto& [pair_id, image_pair] : view_graph.ValidPairs()) {
+  for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     Eigen::Vector3d* image_gravity1 =
         GetImageGravityOrNull(image_to_pose_prior, image_id1);
