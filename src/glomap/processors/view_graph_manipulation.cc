@@ -6,66 +6,7 @@
 
 namespace glomap {
 
-image_pair_t ViewGraphManipulater::SparsifyGraph(
-    ViewGraph& view_graph,
-    colmap::Reconstruction& reconstruction,
-    int expected_degree) {
-  image_t num_img = view_graph.KeepLargestConnectedComponents(reconstruction);
-
-  // Keep track of chosen edges
-  std::unordered_set<image_pair_t> chosen_edges;
-  const std::unordered_map<image_t, std::unordered_set<image_t>>&
-      adjacency_list = view_graph.CreateImageAdjacencyList();
-
-  // Here, the average is the mean of the degrees
-  double average_degree = 0;
-  for (const auto& [image_id, neighbors] : adjacency_list) {
-    if (!reconstruction.Image(image_id).HasPose()) continue;
-    average_degree += neighbors.size();
-  }
-  average_degree = average_degree / num_img;
-
-  // Go through the adjacency list and keep edge with probability
-  // ((expected_degree * average_degree) / (degree1 * degree2))
-  std::mt19937 rng(std::random_device{}());
-  std::uniform_real_distribution<double> dist(0.0, 1.0);
-
-  for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
-    if (!image_pair.is_valid) continue;
-
-    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-
-    if (!reconstruction.Image(image_id1).HasPose() ||
-        !reconstruction.Image(image_id2).HasPose())
-      continue;
-
-    int degree1 = adjacency_list.at(image_id1).size();
-    int degree2 = adjacency_list.at(image_id2).size();
-
-    if (degree1 <= expected_degree || degree2 <= expected_degree) {
-      chosen_edges.insert(pair_id);
-      continue;
-    }
-
-    if (dist(rng) < (expected_degree * average_degree) / (degree1 * degree2)) {
-      chosen_edges.insert(pair_id);
-    }
-  }
-
-  // Set all pairs not in the chosen edges to invalid
-  for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
-    if (chosen_edges.find(pair_id) == chosen_edges.end()) {
-      image_pair.is_valid = false;
-    }
-  }
-
-  // Keep the largest connected component
-  view_graph.KeepLargestConnectedComponents(reconstruction);
-
-  return chosen_edges.size();
-}
-
-image_t ViewGraphManipulater::EstablishStrongClusters(
+image_t ViewGraphManipulator::EstablishStrongClusters(
     ViewGraph& view_graph,
     colmap::Reconstruction& reconstruction,
     std::unordered_map<frame_t, int>& cluster_ids,
@@ -173,7 +114,7 @@ image_t ViewGraphManipulater::EstablishStrongClusters(
   return num_comp;
 }
 
-void ViewGraphManipulater::UpdateImagePairsConfig(
+void ViewGraphManipulator::UpdateImagePairsConfig(
     ViewGraph& view_graph, const colmap::Reconstruction& reconstruction) {
   // For each camera, check the number of times that the camera is involved in a
   // pair with configuration 2 First: the total occurence; second: the number of
@@ -235,7 +176,7 @@ void ViewGraphManipulater::UpdateImagePairsConfig(
 }
 
 // Decompose the relative camera postion from the camera config
-void ViewGraphManipulater::DecomposeRelPose(
+void ViewGraphManipulator::DecomposeRelPose(
     ViewGraph& view_graph, colmap::Reconstruction& reconstruction) {
   std::vector<image_pair_t> image_pair_ids;
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {

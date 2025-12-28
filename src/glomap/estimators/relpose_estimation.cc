@@ -103,12 +103,20 @@ void EstimateRelativePoses(ViewGraph& view_graph,
         }
         inliers.clear();
         poselib::CameraPose pose_rel_calc;
+        // Copy RANSAC options to set per-pair seed for determinism.
+        poselib::RansacOptions ransac_opts = options.ransac_options;
+        if (options.random_seed >= 0) {
+          // Use pair_idx as offset to ensure different but deterministic
+          // seeds for each pair while maintaining reproducibility.
+          ransac_opts.seed =
+              static_cast<unsigned long>(options.random_seed) + pair_idx;
+        }
         try {
           poselib::estimate_relative_pose(points2D_1,
                                           points2D_2,
                                           camera_poselib1,
                                           camera_poselib2,
-                                          options.ransac_options,
+                                          ransac_opts,
                                           options.bundle_options,
                                           &pose_rel_calc,
                                           &inliers);

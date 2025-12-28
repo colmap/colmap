@@ -1,10 +1,10 @@
 #include "glomap/estimators/rotation_averaging_impl.h"
 
 #include "colmap/geometry/pose.h"
+#include "colmap/math/random.h"
 #include "colmap/optim/least_absolute_deviations.h"
 
 #include <limits>
-#include <random>
 
 #include <Eigen/CholmodSupport>
 
@@ -14,8 +14,7 @@ namespace {
 // Computes the 1-DOF residual for gravity-aligned rotation constraints.
 // Returns (angle_2 - angle_1) - angle_12, wrapped to [-π, π] with jitter
 // near boundaries to avoid local minima.
-double ComputeGravityAligned1DOFResidual(std::mt19937& rng,
-                                         double angle_12,
+double ComputeGravityAligned1DOFResidual(double angle_12,
                                          double angle_1,
                                          double angle_2) {
   double residual =
@@ -25,8 +24,7 @@ double ComputeGravityAligned1DOFResidual(std::mt19937& rng,
   // possible balance at the local minima.
   constexpr double kEps = 0.01;
   if (std::abs(residual) > EIGEN_PI - kEps) {
-    std::uniform_real_distribution<double> dist(0.0, kEps);
-    const double jitter = dist(rng);
+    const double jitter = colmap::RandomUniformReal(0.0, kEps);
     if (residual < 0) {
       residual += jitter;
     } else {
@@ -465,7 +463,10 @@ void RotationAveragingProblem::BuildConstraintMatrix(
 }
 
 void RotationAveragingProblem::ComputeResiduals() {
-  std::mt19937 rng(std::random_device{}());
+  // Set PRNG seed for deterministic jitter injection.
+  if (options_.random_seed >= 0) {
+    colmap::SetPRNGSeed(static_cast<unsigned>(options_.random_seed));
+  }
 
   for (const auto& [pair_id, constraint] : pair_constraints_) {
     const frame_t frame_id1 = image_id_to_frame_id_.at(constraint.image_id1);
@@ -477,7 +478,6 @@ void RotationAveragingProblem::ComputeResiduals() {
             std::get_if<GravityAligned1DOF>(&constraint.constraint)) {
       // 1-DOF case: compute Y-axis angle residual.
       residuals_[constraint.row_index] = ComputeGravityAligned1DOFResidual(
-          rng,
           constraint_1dof->angle_cam2_from_cam1,
           estimated_rotations_[frame_param_idx1],
           estimated_rotations_[frame_param_idx2]);
