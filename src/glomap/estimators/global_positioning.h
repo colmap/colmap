@@ -5,12 +5,15 @@
 #include "colmap/scene/rig.h"
 #include "colmap/sensor/models.h"
 
-#include "glomap/estimators/optimization_base.h"
 #include "glomap/scene/view_graph.h"
+
+#include <string>
+
+#include <ceres/ceres.h>
 
 namespace glomap {
 
-struct GlobalPositionerOptions : public OptimizationBaseOptions {
+struct GlobalPositionerOptions {
   // ONLY_POINTS is recommended
   enum ConstraintType {
     // only include camera to point constraints
@@ -52,12 +55,20 @@ struct GlobalPositionerOptions : public OptimizationBaseOptions {
   double constraint_reweight_scale =
       1.0;  // only relevant for POINTS_AND_CAMERAS_BALANCED
 
-  GlobalPositionerOptions() : OptimizationBaseOptions() {
-    thres_loss_function = 1e-1;
+  // Scaling factor for the loss function
+  double loss_function_scale = 0.1;
+
+  // The options for the solver
+  ceres::Solver::Options solver_options;
+
+  GlobalPositionerOptions() {
+    solver_options.num_threads = -1;
+    solver_options.max_num_iterations = 100;
+    solver_options.function_tolerance = 1e-5;
   }
 
   std::shared_ptr<ceres::LossFunction> CreateLossFunction() {
-    return std::make_shared<ceres::HuberLoss>(thres_loss_function);
+    return std::make_shared<ceres::HuberLoss>(loss_function_scale);
   }
 };
 

@@ -3,6 +3,7 @@
 #include "colmap/estimators/manifold.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/threading.h"
 
 #include "glomap/estimators/cost_functions.h"
 
@@ -135,8 +136,11 @@ void GravityRefiner::RefineGravity(
     // Then, run refinment
     gravity = colmap::AverageDirections(gravities);
     colmap::SetSphereManifold<3>(&problem, gravity.data());
+    ceres::Solver::Options solver_options = options_.solver_options;
+    solver_options.num_threads =
+        colmap::GetEffectiveNumThreads(solver_options.num_threads);
     ceres::Solver::Summary summary_solver;
-    ceres::Solve(options_.solver_options, &problem, &summary_solver);
+    ceres::Solve(solver_options, &problem, &summary_solver);
 
     // Check the error with respect to the neighbors
     int counter_outlier = 0;

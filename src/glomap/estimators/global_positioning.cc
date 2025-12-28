@@ -3,6 +3,7 @@
 #include "colmap/math/random.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/threading.h"
 
 #include "glomap/estimators/cost_functions.h"
 
@@ -74,6 +75,8 @@ bool GlobalPositioner::Solve(const ViewGraph& view_graph,
   LOG(INFO) << "Solving the global positioner problem";
 
   ceres::Solver::Summary summary;
+  options_.solver_options.num_threads =
+      colmap::GetEffectiveNumThreads(options_.solver_options.num_threads);
   options_.solver_options.minimizer_progress_to_stdout = VLOG_IS_ON(2);
   ceres::Solve(options_.solver_options, problem_.get(), &summary);
 

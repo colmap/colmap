@@ -4,7 +4,6 @@
 #include "colmap/scene/reconstruction.h"
 
 #include <string>
-#include <thread>
 
 #include <ceres/ceres.h>
 
@@ -33,9 +32,8 @@ struct BundleAdjusterOptions {
   ceres::Solver::Options solver_options;
 
   BundleAdjusterOptions() {
-    solver_options.num_threads = std::thread::hardware_concurrency();
+    solver_options.num_threads = -1;
     solver_options.max_num_iterations = 200;
-    solver_options.minimizer_progress_to_stdout = false;
     solver_options.function_tolerance = 1e-5;
     // Use SPARSE_SCHUR with CLUSTER_TRIDIAGONAL for global SfM
     solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
