@@ -7,11 +7,17 @@ of the exposed ceres problem from conventional bundle adjustment.
 import collections
 import copy
 
+import pyceres
+
 import pycolmap
 from pycolmap import logging
 
 
-def solve_bundle_adjustment(reconstruction, ba_options, ba_config):
+def solve_bundle_adjustment(
+    reconstruction: pycolmap.Reconstruction,
+    ba_options: pycolmap.BundleAdjustmentOptions,
+    ba_config: pycolmap.BundleAdjustmentConfig,
+) -> pyceres.SolverSummary:
     bundle_adjuster = pycolmap.create_default_bundle_adjuster(
         ba_options, ba_config, reconstruction
     )
@@ -26,7 +32,11 @@ def solve_bundle_adjustment(reconstruction, ba_options, ba_config):
     return summary
 
 
-def adjust_global_bundle(mapper, mapper_options, ba_options):
+def adjust_global_bundle(
+    mapper: pycolmap.IncrementalMapper,
+    mapper_options: pycolmap.IncrementalMapperOptions,
+    ba_options: pycolmap.BundleAdjustmentOptions,
+) -> None:
     """Equivalent to mapper.adjust_global_bundle(...)"""
     reconstruction = mapper.reconstruction
     assert reconstruction is not None
@@ -78,14 +88,14 @@ def adjust_global_bundle(mapper, mapper_options, ba_options):
 
 
 def iterative_global_refinement(
-    mapper,
-    max_num_refinements,
-    max_refinement_change,
-    mapper_options,
-    ba_options,
-    tri_options,
-    normalize_reconstruction=True,
-):
+    mapper: pycolmap.IncrementalMapper,
+    max_num_refinements: int,
+    max_refinement_change: float,
+    mapper_options: pycolmap.IncrementalMapperOptions,
+    ba_options: pycolmap.BundleAdjustmentOptions,
+    tri_options: pycolmap.IncrementalTriangulatorOptions,
+    normalize_reconstruction: bool = True,
+) -> None:
     """Equivalent to mapper.iterative_global_refinement(...)"""
     reconstruction = mapper.reconstruction
     mapper.complete_and_merge_tracks(tri_options)
@@ -112,8 +122,13 @@ def iterative_global_refinement(
 
 
 def adjust_local_bundle(
-    mapper, mapper_options, ba_options, tri_options, image_id, point3D_ids
-):
+    mapper: pycolmap.IncrementalMapper,
+    mapper_options: pycolmap.IncrementalMapperOptions,
+    ba_options: pycolmap.BundleAdjustmentOptions,
+    tri_options: pycolmap.IncrementalTriangulatorOptions,
+    image_id: int,
+    point3D_ids: set[int],
+) -> pycolmap.LocalBundleAdjustmentReport:
     """Equivalent to mapper.adjust_local_bundle(...)"""
     reconstruction = mapper.reconstruction
     assert reconstruction is not None
@@ -232,14 +247,14 @@ def adjust_local_bundle(
 
 
 def iterative_local_refinement(
-    mapper,
-    max_num_refinements,
-    max_refinement_change,
-    mapper_options,
-    ba_options,
-    tri_options,
-    image_id,
-):
+    mapper: pycolmap.IncrementalMapper,
+    max_num_refinements: int,
+    max_refinement_change: float,
+    mapper_options: pycolmap.IncrementalMapperOptions,
+    ba_options: pycolmap.BundleAdjustmentOptions,
+    tri_options: pycolmap.IncrementalTriangulatorOptions,
+    image_id: int,
+) -> None:
     """Equivalent to mapper.iterative_local_refinement(...)"""
     ba_options_tmp = copy.deepcopy(ba_options)
     for _ in range(max_num_refinements):
