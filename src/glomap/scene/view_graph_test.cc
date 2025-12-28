@@ -62,6 +62,143 @@ colmap::Rigid3d AddRotationError(const colmap::Rigid3d& pose,
   return colmap::Rigid3d(error_rotation * pose.rotation, pose.translation);
 }
 
+TEST(ViewGraph, AddImagePair) {
+  ViewGraph view_graph;
+
+  // Normal add.
+  ImagePair pair = SynthesizeImagePair();
+  pair.cam2_from_cam1 = colmap::Rigid3d(
+      Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0));
+  view_graph.AddImagePair(1, 2, pair);
+
+  EXPECT_EQ(view_graph.image_pairs.size(), 1);
+  const auto& stored = view_graph.image_pairs.at(colmap::ImagePairToPairId(1, 2));
+  EXPECT_EQ(stored.cam2_from_cam1.translation.x(), 1);
+
+  // Add with swapped IDs should invert the pair.
+  ImagePair pair2 = SynthesizeImagePair();
+  pair2.cam2_from_cam1 = colmap::Rigid3d(
+      Eigen::Quaterniond::Identity(), Eigen::Vector3d(2, 0, 0));
+  view_graph.AddImagePair(4, 3, pair2);  // 4 > 3, should swap and invert
+
+  EXPECT_EQ(view_graph.image_pairs.size(), 2);
+  const auto& stored2 = view_graph.image_pairs.at(colmap::ImagePairToPairId(3, 4));
+  EXPECT_EQ(stored2.cam2_from_cam1.translation.x(), -2);
+
+  // Duplicate should throw.
+  EXPECT_THROW(view_graph.AddImagePair(1, 2, SynthesizeImagePair()),
+               std::runtime_error);
+  EXPECT_THROW(view_graph.AddImagePair(2, 1, SynthesizeImagePair()),
+               std::runtime_error);
+}
+
+TEST(ViewGraph, HasImagePair) {
+  ViewGraph view_graph;
+  view_graph.AddImagePair(1, 2, SynthesizeImagePair());
+
+  EXPECT_TRUE(view_graph.HasImagePair(1, 2));
+  EXPECT_TRUE(view_graph.HasImagePair(2, 1));  // Order doesn't matter
+  EXPECT_FALSE(view_graph.HasImagePair(1, 3));
+}
+
+TEST(ViewGraph, Pair) {
+  ViewGraph view_graph;
+  ImagePair pair = SynthesizeImagePair();
+  pair.cam2_from_cam1 = colmap::Rigid3d(
+      Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0));
+  view_graph.AddImagePair(1, 2, pair);
+
+  // Normal order: swapped = false.
+  auto [ref1, swapped1] = view_graph.Pair(1, 2);
+  EXPECT_FALSE(swapped1);
+  EXPECT_EQ(ref1.cam2_from_cam1.translation.x(), 1);
+
+  // Reversed order: swapped = true.
+  auto [ref2, swapped2] = view_graph.Pair(2, 1);
+  EXPECT_TRUE(swapped2);
+  EXPECT_EQ(ref2.cam2_from_cam1.translation.x(), 1);  // Same reference
+
+  // Modify through reference.
+  ref1.is_valid = false;
+  EXPECT_FALSE(view_graph.image_pairs.at(colmap::ImagePairToPairId(1, 2)).is_valid);
+
+  // Non-existent pair should throw.
+  EXPECT_THROW(view_graph.Pair(1, 3), std::out_of_range);
+}
+
+TEST(ViewGraph, GetImagePair) {
+  ViewGraph view_graph;
+  ImagePair pair = SynthesizeImagePair();
+  pair.cam2_from_cam1 = colmap::Rigid3d(
+      Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0));
+  view_graph.AddImagePair(1, 2, pair);
+
+  // Normal order: returns as-is.
+  ImagePair copy1 = view_graph.GetImagePair(1, 2);
+  EXPECT_EQ(copy1.cam2_from_cam1.translation.x(), 1);
+
+  // Reversed order: returns inverted copy.
+  ImagePair copy2 = view_graph.GetImagePair(2, 1);
+  EXPECT_EQ(copy2.cam2_from_cam1.translation.x(), -1);
+
+  // Original unchanged.
+  EXPECT_EQ(
+      view_graph.image_pairs.at(colmap::ImagePairToPairId(1, 2))
+          .cam2_from_cam1.translation.x(), 1);
+
+  // Non-existent pair should throw.
+  EXPECT_THROW(view_graph.GetImagePair(1, 3), std::out_of_range);
+}
+
+TEST(ViewGraph, DeleteImagePair) {
+  ViewGraph view_graph;
+  view_graph.AddImagePair(1, 2, SynthesizeImagePair());
+  view_graph.AddImagePair(1, 3, SynthesizeImagePair());
+
+  EXPECT_TRUE(view_graph.DeleteImagePair(1, 2));
+  EXPECT_FALSE(view_graph.HasImagePair(1, 2));
+  EXPECT_EQ(view_graph.image_pairs.size(), 1);
+
+  // Delete with reversed order.
+  EXPECT_TRUE(view_graph.DeleteImagePair(3, 1));
+  EXPECT_EQ(view_graph.image_pairs.size(), 0);
+
+  // Delete non-existent returns false.
+  EXPECT_FALSE(view_graph.DeleteImagePair(1, 2));
+}
+
+TEST(ViewGraph, UpdateImagePair) {
+  ViewGraph view_graph;
+  ImagePair pair = SynthesizeImagePair();
+  pair.cam2_from_cam1 = colmap::Rigid3d(
+      Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0));
+  view_graph.AddImagePair(1, 2, pair);
+
+  // Update with normal order.
+  ImagePair updated = SynthesizeImagePair();
+  updated.cam2_from_cam1 = colmap::Rigid3d(
+      Eigen::Quaterniond::Identity(), Eigen::Vector3d(5, 0, 0));
+  view_graph.UpdateImagePair(1, 2, updated);
+
+  EXPECT_EQ(
+      view_graph.image_pairs.at(colmap::ImagePairToPairId(1, 2))
+          .cam2_from_cam1.translation.x(), 5);
+
+  // Update with reversed order should invert.
+  ImagePair updated2 = SynthesizeImagePair();
+  updated2.cam2_from_cam1 = colmap::Rigid3d(
+      Eigen::Quaterniond::Identity(), Eigen::Vector3d(3, 0, 0));
+  view_graph.UpdateImagePair(2, 1, updated2);
+
+  EXPECT_EQ(
+      view_graph.image_pairs.at(colmap::ImagePairToPairId(1, 2))
+          .cam2_from_cam1.translation.x(), -3);
+
+  // Update non-existent should throw.
+  EXPECT_THROW(view_graph.UpdateImagePair(1, 3, SynthesizeImagePair()),
+               std::runtime_error);
+}
+
 TEST(ViewGraph, FilterByNumInliers) {
   ViewGraph view_graph;
 
