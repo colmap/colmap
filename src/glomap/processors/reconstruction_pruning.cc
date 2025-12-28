@@ -1,5 +1,6 @@
 #include "glomap/processors/reconstruction_pruning.h"
 
+#include "colmap/math/math.h"
 #include "colmap/math/union_find.h"
 
 namespace glomap {
@@ -7,17 +8,6 @@ namespace {
 
 // Alias for clarity: we're working with frame pairs, not image pairs.
 using frame_pair_t = image_pair_t;
-
-// Computes the Median Absolute Deviation of a sorted vector.
-double ComputeMedianAbsoluteDeviation(const std::vector<int>& sorted_values) {
-  const double median = sorted_values[sorted_values.size() / 2];
-  std::vector<int> abs_deviations(sorted_values.size());
-  for (size_t i = 0; i < sorted_values.size(); i++) {
-    abs_deviations[i] = std::abs(sorted_values[i] - static_cast<int>(median));
-  }
-  std::sort(abs_deviations.begin(), abs_deviations.end());
-  return abs_deviations[abs_deviations.size() / 2];
-}
 
 // Finds connected components and returns the largest one.
 std::unordered_set<frame_t> FindLargestConnectedComponent(
@@ -184,17 +174,14 @@ std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
   // Step 2: Filter edges to keep only reliable connections.
   // Require at least 5 shared points (needed for stable relative pose).
   std::unordered_map<frame_pair_t, int> edge_weights;
-  std::vector<int> weight_values;
   for (const auto& [pair_id, count] : frame_covisibility_count) {
     if (count < 5) continue;
-
     edge_weights[pair_id] = count;
-    weight_values.push_back(count);
   }
   LOG(INFO) << "Established visibility graph with " << edge_weights.size()
             << " pairs";
 
-  if (weight_values.empty()) {
+  if (edge_weights.empty()) {
     LOG(WARNING) << "No valid frame pairs found for clustering";
     return {};
   }
@@ -220,11 +207,15 @@ std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
   }
 
   // Step 4: Compute adaptive threshold using median minus median absolute
-  // deviation (MAD).
-  std::sort(weight_values.begin(), weight_values.end());
-  const double median = weight_values[weight_values.size() / 2];
-  const double threshold =
-      std::max(median - ComputeMedianAbsoluteDeviation(weight_values), 20.0);
+  // deviation (MAD). Extract weight values after filtering to largest CC.
+  std::vector<int> weight_values;
+  weight_values.reserve(edge_weights.size());
+  for (const auto& [pair_id, weight] : edge_weights) {
+    weight_values.push_back(weight);
+  }
+  const auto [median, mad] =
+      colmap::MedianAbsoluteDeviation(std::move(weight_values));
+  const double threshold = std::max(median - mad, 20.0);
   LOG(INFO) << "Threshold for Strong Clustering: " << threshold;
 
   // Step 5: Cluster frames based on covisibility weights.
