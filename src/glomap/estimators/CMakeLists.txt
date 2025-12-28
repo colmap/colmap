@@ -42,7 +42,6 @@ COLMAP_ADD_LIBRARY(
         relpose_estimation.h relpose_estimation.cc
         view_graph_calibration.h view_graph_calibration.cc
     PUBLIC_LINK_LIBS
-        colmap_glomap_math
         colmap_glomap_scene
         colmap_estimators
         colmap_geometry
