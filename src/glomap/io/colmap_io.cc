@@ -34,7 +34,7 @@ void InitializeGlomapFromDatabase(const colmap::Database& database,
                                   colmap::Reconstruction& reconstruction,
                                   ViewGraph& view_graph) {
   reconstruction = colmap::Reconstruction();
-  view_graph.image_pairs.clear();
+  view_graph.Clear();
 
   // Add all cameras
   for (auto& camera : database.ReadAllCameras()) {
@@ -159,9 +159,10 @@ void InitializeGlomapFromDatabase(const colmap::Database& database,
         two_view.config == colmap::TwoViewGeometry::DEGENERATE ||
         two_view.config == colmap::TwoViewGeometry::WATERMARK ||
         two_view.config == colmap::TwoViewGeometry::MULTIPLE) {
-      image_pair.is_valid = false;
       invalid_count++;
       view_graph.AddImagePair(image_id1, image_id2, std::move(image_pair));
+      view_graph.SetInvalidImagePair(
+          colmap::ImagePairToPairId(image_id1, image_id2));
       continue;
     }
 
