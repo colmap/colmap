@@ -1,4 +1,4 @@
-#include "glomap/sfm/rotation_averager.h"
+#include "glomap/estimators/rotation_averaging.h"
 
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/random.h"

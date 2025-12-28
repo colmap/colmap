@@ -5,10 +5,10 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/timer.h"
 
+#include "glomap/estimators/rotation_averaging.h"
 #include "glomap/processors/image_pair_inliers.h"
 #include "glomap/processors/reconstruction_pruning.h"
 #include "glomap/processors/view_graph_manipulation.h"
-#include "glomap/sfm/rotation_averager.h"
 
 namespace glomap {
 
