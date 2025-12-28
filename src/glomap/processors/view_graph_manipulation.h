@@ -8,15 +8,11 @@
 
 namespace glomap {
 
-struct ViewGraphManipulater {
+struct ViewGraphManipulator {
   enum StrongClusterCriteria {
     INLIER_NUM,
     WEIGHT,
   };
-
-  static image_pair_t SparsifyGraph(ViewGraph& view_graph,
-                                    colmap::Reconstruction& reconstruction,
-                                    int expected_degree = 50);
 
   static image_t EstablishStrongClusters(
       ViewGraph& view_graph,

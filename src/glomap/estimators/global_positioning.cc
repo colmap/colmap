@@ -1,5 +1,6 @@
 #include "glomap/estimators/global_positioning.h"
 
+#include "colmap/math/random.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
 
@@ -8,20 +9,19 @@
 namespace glomap {
 namespace {
 
-Eigen::Vector3d RandVector3d(std::mt19937& random_generator,
-                             double low,
-                             double high) {
-  std::uniform_real_distribution<double> distribution(low, high);
-  return Eigen::Vector3d(distribution(random_generator),
-                         distribution(random_generator),
-                         distribution(random_generator));
+Eigen::Vector3d RandVector3d(double low, double high) {
+  return Eigen::Vector3d(colmap::RandomUniformReal(low, high),
+                         colmap::RandomUniformReal(low, high),
+                         colmap::RandomUniformReal(low, high));
 }
 
 }  // namespace
 
 GlobalPositioner::GlobalPositioner(const GlobalPositionerOptions& options)
     : options_(options) {
-  random_generator_.seed(options_.seed);
+  if (options_.random_seed >= 0) {
+    colmap::SetPRNGSeed(static_cast<unsigned>(options_.random_seed));
+  }
 }
 
 bool GlobalPositioner::Solve(const ViewGraph& view_graph,
@@ -143,7 +143,7 @@ void GlobalPositioner::InitializeRandomPositions(
       continue;
     }
     if (options_.generate_random_positions && options_.optimize_positions) {
-      frame_centers_[frame_id] = 100.0 * RandVector3d(random_generator_, -1, 1);
+      frame_centers_[frame_id] = 100.0 * RandVector3d(-1, 1);
     } else {
       frame_centers_[frame_id] = frame.RigFromWorld().TgtOriginInSrc();
     }
@@ -256,7 +256,7 @@ void GlobalPositioner::AddTrackToProblem(
 
   // Only set the points to be random if they are needed to be optimized
   if (random_initialization) {
-    track.xyz = 100.0 * RandVector3d(random_generator_, -1, 1);
+    track.xyz = 100.0 * RandVector3d(-1, 1);
   }
 
   // For each view in the track add the point to camera correspondences.
@@ -415,7 +415,7 @@ void GlobalPositioner::ParameterizeVariables(
   if (options_.optimize_positions) {
     for (auto& [sensor_id, center] : cams_in_rig_) {
       if (problem_->HasParameterBlock(center.data())) {
-        center = RandVector3d(random_generator_, -1, 1);
+        center = RandVector3d(-1, 1);
       }
     }
   }
