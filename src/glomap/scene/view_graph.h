@@ -11,10 +11,27 @@
 
 namespace glomap {
 
-struct ViewGraph {
-  // Image pairs indexed by normalized pair_id (smaller image ID first).
-  // All methods below normalize IDs and invert geometry as needed.
-  std::unordered_map<image_pair_t, ImagePair> image_pairs;
+class ViewGraph {
+ public:
+  ViewGraph() = default;
+  ~ViewGraph() = default;
+
+  // Image pair accessors.
+  std::unordered_map<image_pair_t, ImagePair>& ImagePairs() {
+    return image_pairs_;
+  }
+  const std::unordered_map<image_pair_t, ImagePair>& ImagePairs() const {
+    return image_pairs_;
+  }
+  size_t NumImagePairs() const { return image_pairs_.size(); }
+  size_t NumValidImagePairs() const {
+    return image_pairs_.size() - invalid_pairs_.size();
+  }
+  bool Empty() const { return image_pairs_.empty(); }
+  void Clear() {
+    image_pairs_.clear();
+    invalid_pairs_.clear();
+  }
 
   // Image pair operations.
   ImagePair& AddImagePair(image_t image_id1,
@@ -41,8 +58,8 @@ struct ViewGraph {
         [this](const std::pair<const image_pair_t, ImagePair>& kv) {
           return IsValid(kv.first);
         },
-        image_pairs.begin(),
-        image_pairs.end());
+        image_pairs_.begin(),
+        image_pairs_.end());
   }
 
   // Create the adjacency list for the images in the view graph.
@@ -81,6 +98,9 @@ struct ViewGraph {
   void FilterByInlierRatio(double min_inlier_ratio = 0.25);
 
  private:
+  // Map from pair ID to image pair data. The pair ID is computed from the
+  // two image IDs using ImagePairToPairId, with the smaller ID first.
+  std::unordered_map<image_pair_t, ImagePair> image_pairs_;
   // Set of invalid pair IDs. Pairs not in this set are considered valid.
   std::unordered_set<image_pair_t> invalid_pairs_;
 };

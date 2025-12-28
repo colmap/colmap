@@ -330,7 +330,7 @@ void RotationAveragingProblem::BuildConstraintMatrix(
 
   std::vector<double> weights;
   if (options_.use_weight) {
-    weights.reserve(3 * view_graph.image_pairs.size());
+    weights.reserve(3 * view_graph.NumImagePairs());
   }
 
   size_t curr_row = 0;

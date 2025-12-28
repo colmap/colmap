@@ -48,8 +48,8 @@ void EstimateRelativePoses(ViewGraph& view_graph,
         thread_local std::vector<char> inliers;
 
         const image_pair_t pair_id = valid_pair_ids[pair_idx];
-        ImagePair& image_pair = view_graph.image_pairs[pair_id];
         const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+        ImagePair& image_pair = view_graph.Pair(image_id1, image_id2).first;
         const Image& image1 = reconstruction.Image(image_id1);
         const Image& image2 = reconstruction.Image(image_id2);
         const Eigen::MatrixXi& matches = image_pair.matches;

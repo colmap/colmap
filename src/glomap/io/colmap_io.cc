@@ -34,7 +34,7 @@ void InitializeGlomapFromDatabase(const colmap::Database& database,
                                   colmap::Reconstruction& reconstruction,
                                   ViewGraph& view_graph) {
   reconstruction = colmap::Reconstruction();
-  view_graph.image_pairs.clear();
+  view_graph.Clear();
 
   // Add all cameras
   for (auto& camera : database.ReadAllCameras()) {

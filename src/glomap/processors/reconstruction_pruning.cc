@@ -72,7 +72,8 @@ void PruneWeaklyConnectedImages(colmap::Reconstruction& reconstruction,
   }
 
   ViewGraph visibility_graph;
-  for (auto& [pair_id, frame_image_pair] : visibility_graph_frame.image_pairs) {
+  for (auto& [pair_id, frame_image_pair] :
+       visibility_graph_frame.ImagePairs()) {
     const auto [frame_id1, frame_id2] = colmap::PairIdToImagePair(pair_id);
     const image_t image_id1 = frame_id_to_begin_img[frame_id1];
     const image_t image_id2 = frame_id_to_begin_img[frame_id2];

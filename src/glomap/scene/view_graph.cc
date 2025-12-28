@@ -87,7 +87,7 @@ int ViewGraph::KeepLargestConnectedComponents(
     }
   }
 
-  for (const auto& [pair_id, image_pair] : image_pairs) {
+  for (const auto& [pair_id, image_pair] : image_pairs_) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     if (!reconstruction.Image(image_id1).HasPose() ||
         !reconstruction.Image(image_id2).HasPose()) {
@@ -233,7 +233,7 @@ ImagePair& ViewGraph::AddImagePair(image_t image_id1,
     image_pair.Invert();
   }
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  auto [it, inserted] = image_pairs.emplace(pair_id, std::move(image_pair));
+  auto [it, inserted] = image_pairs_.emplace(pair_id, std::move(image_pair));
   if (!inserted) {
     throw std::runtime_error(
         "Image pair already exists: " + std::to_string(image_id1) + ", " +
@@ -244,27 +244,27 @@ ImagePair& ViewGraph::AddImagePair(image_t image_id1,
 
 bool ViewGraph::HasImagePair(image_t image_id1, image_t image_id2) const {
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  return image_pairs.find(pair_id) != image_pairs.end();
+  return image_pairs_.find(pair_id) != image_pairs_.end();
 }
 
 std::pair<ImagePair&, bool> ViewGraph::Pair(image_t image_id1,
                                             image_t image_id2) {
   const bool swapped = colmap::SwapImagePair(image_id1, image_id2);
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  return {image_pairs.at(pair_id), swapped};
+  return {image_pairs_.at(pair_id), swapped};
 }
 
 std::pair<const ImagePair&, bool> ViewGraph::Pair(image_t image_id1,
                                                   image_t image_id2) const {
   const bool swapped = colmap::SwapImagePair(image_id1, image_id2);
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  return {image_pairs.at(pair_id), swapped};
+  return {image_pairs_.at(pair_id), swapped};
 }
 
 ImagePair ViewGraph::GetImagePair(image_t image_id1, image_t image_id2) const {
   const bool swapped = colmap::SwapImagePair(image_id1, image_id2);
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  ImagePair result = image_pairs.at(pair_id);
+  ImagePair result = image_pairs_.at(pair_id);
   if (swapped) {
     result.Invert();
   }
@@ -273,7 +273,7 @@ ImagePair ViewGraph::GetImagePair(image_t image_id1, image_t image_id2) const {
 
 bool ViewGraph::DeleteImagePair(image_t image_id1, image_t image_id2) {
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  return image_pairs.erase(pair_id) > 0;
+  return image_pairs_.erase(pair_id) > 0;
 }
 
 void ViewGraph::UpdateImagePair(image_t image_id1,
@@ -283,8 +283,8 @@ void ViewGraph::UpdateImagePair(image_t image_id1,
     image_pair.Invert();
   }
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  auto it = image_pairs.find(pair_id);
-  if (it == image_pairs.end()) {
+  auto it = image_pairs_.find(pair_id);
+  if (it == image_pairs_.end()) {
     throw std::runtime_error(
         "Image pair does not exist: " + std::to_string(image_id1) + ", " +
         std::to_string(image_id2));

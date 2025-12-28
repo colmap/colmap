@@ -33,9 +33,9 @@ bool GlobalPositioner::Solve(const ViewGraph& view_graph,
     LOG(ERROR) << "Number of images = " << reconstruction.NumImages();
     return false;
   }
-  if (view_graph.image_pairs.empty() &&
+  if (view_graph.Empty() &&
       options_.constraint_type != GlobalPositionerOptions::ONLY_POINTS) {
-    LOG(ERROR) << "Number of image_pairs = " << view_graph.image_pairs.size();
+    LOG(ERROR) << "Number of image_pairs = " << view_graph.NumImagePairs();
     return false;
   }
   if (reconstruction.NumPoints3D() == 0 &&
@@ -106,7 +106,7 @@ void GlobalPositioner::SetupProblem(
   for (const auto& [track_id, track] : reconstruction.Points3D()) {
     total_observations += track.track.Length();
   }
-  scales_.reserve(view_graph.image_pairs.size() + total_observations);
+  scales_.reserve(view_graph.NumImagePairs() + total_observations);
 
   // Initialize the rig scales to be 1.0.
   for (const auto& [rig_id, rig] : reconstruction.Rigs()) {

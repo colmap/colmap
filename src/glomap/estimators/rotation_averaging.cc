@@ -50,8 +50,8 @@ image_t ComputeMaximumSpanningTree(
   // Build edges and weights from view graph.
   std::vector<std::pair<int, int>> edges;
   std::vector<float> weights;
-  edges.reserve(view_graph.image_pairs.size());
-  weights.reserve(view_graph.image_pairs.size());
+  edges.reserve(view_graph.NumImagePairs());
+  weights.reserve(view_graph.NumImagePairs());
 
   for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
@@ -137,12 +137,12 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
         it2 != image_to_pose_prior.end() && it2->second->HasGravity();
 
     if (image1_has_gravity && image2_has_gravity) {
-      gravity_view_graph.image_pairs.emplace(
+      gravity_view_graph.ImagePairs().emplace(
           pair_id, ImagePair(image_pair.cam2_from_cam1));
     }
   }
 
-  const size_t num_gravity_pairs = gravity_view_graph.image_pairs.size();
+  const size_t num_gravity_pairs = gravity_view_graph.NumImagePairs();
   LOG(INFO) << "Total image pairs: " << num_total_pairs
             << ", gravity image pairs: " << num_gravity_pairs;
 

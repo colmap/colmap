@@ -34,7 +34,7 @@ void ReadRelPose(const std::string& file_path,
   }
 
   // Mark every edge in the view graph as invalid
-  for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
+  for (const auto& [pair_id, image_pair] : view_graph.ImagePairs()) {
     view_graph.SetToInvalid(pair_id);
   }
 
@@ -142,11 +142,10 @@ void ReadRelWeight(const std::string& file_path,
 
     image_pair_t pair_id = colmap::ImagePairToPairId(index1, index2);
 
-    if (view_graph.image_pairs.find(pair_id) == view_graph.image_pairs.end())
-      continue;
+    if (!view_graph.HasImagePair(index1, index2)) continue;
 
     std::getline(line_stream, item, ' ');
-    view_graph.image_pairs[pair_id].weight = std::stod(item);
+    view_graph.Pair(index1, index2).first.weight = std::stod(item);
     counter++;
   }
   LOG(INFO) << counter << " weights are used are loaded";
@@ -240,8 +239,8 @@ void WriteRelPose(const std::string& file_path,
 
   // Write the image pairs
   for (const auto& [name, pair_id] : name_pair) {
-    const auto& image_pair = view_graph.image_pairs.at(pair_id);
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const ImagePair& image_pair = view_graph.Pair(image_id1, image_id2).first;
     file << images.at(image_id1).Name() << " " << images.at(image_id2).Name();
     for (int i = 0; i < 4; i++) {
       file << " " << image_pair.cam2_from_cam1.rotation.coeffs()[(i + 3) % 4];

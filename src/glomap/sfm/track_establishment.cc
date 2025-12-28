@@ -22,11 +22,11 @@ void TrackEngine::BlindConcatenation() {
   // Initialize the union find data structure by connecting all the
   // correspondences
   image_pair_t counter = 0;
-  for (const auto& [pair_id, image_pair] : view_graph_.image_pairs) {
+  for (const auto& [pair_id, image_pair] : view_graph_.ImagePairs()) {
     if ((counter + 1) % 1000 == 0 ||
-        counter == view_graph_.image_pairs.size() - 1) {
+        counter == view_graph_.NumImagePairs() - 1) {
       std::cout << "\r Initializing pairs " << counter + 1 << " / "
-                << view_graph_.image_pairs.size() << std::flush;
+                << view_graph_.NumImagePairs() << std::flush;
     }
     counter++;
 
@@ -62,7 +62,7 @@ void TrackEngine::BlindConcatenation() {
         uf_.Union(point_global_id2, point_global_id1);
     }
   }
-  LOG(INFO) << "Initialized " << view_graph_.image_pairs.size() << " pairs";
+  LOG(INFO) << "Initialized " << view_graph_.NumImagePairs() << " pairs";
 }
 
 void TrackEngine::TrackCollection(
@@ -73,11 +73,11 @@ void TrackEngine::TrackCollection(
 
   // Create tracks from the connected components of the point correspondences
   size_t counter = 0;
-  for (const auto& [pair_id, image_pair] : view_graph_.image_pairs) {
+  for (const auto& [pair_id, image_pair] : view_graph_.ImagePairs()) {
     if ((counter + 1) % 1000 == 0 ||
-        counter == view_graph_.image_pairs.size() - 1) {
+        counter == view_graph_.NumImagePairs() - 1) {
       std::cout << "\r Establishing pairs " << counter + 1 << " / "
-                << view_graph_.image_pairs.size() << std::flush;
+                << view_graph_.NumImagePairs() << std::flush;
     }
     counter++;
 
@@ -112,7 +112,7 @@ void TrackEngine::TrackCollection(
       track_counter[track_id]++;
     }
   }
-  LOG(INFO) << "Established " << view_graph_.image_pairs.size() << " pairs";
+  LOG(INFO) << "Established " << view_graph_.NumImagePairs() << " pairs";
 
   size_t discarded_counter = 0;
   for (const auto& [track_id, correspondence_set] : track_map) {

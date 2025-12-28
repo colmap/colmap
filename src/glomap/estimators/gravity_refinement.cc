@@ -85,8 +85,8 @@ void GravityRefiner::RefineGravity(
     int counter = 0;
     Eigen::Vector3d gravity = frame_to_pose_prior.at(frame_id)->gravity;
     for (const auto& pair_id : neighbors) {
-      const auto& pair = view_graph.image_pairs.at(pair_id);
       const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+      const ImagePair& pair = view_graph.Pair(image_id1, image_id2).first;
 
       Eigen::Vector3d* image_gravity1 =
           GetImageGravityOrNull(image_to_pose_prior, image_id1);
