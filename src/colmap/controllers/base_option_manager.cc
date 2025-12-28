@@ -46,7 +46,7 @@ BaseOptionManager::BaseOptionManager(bool add_project_options) {
   database_path = std::make_shared<std::string>();
   image_path = std::make_shared<std::string>();
 
-  Reset();
+  ResetImpl();
 
   desc_->add_options()("help,h", "");
   if (add_project_options) {
@@ -94,11 +94,17 @@ void BaseOptionManager::AddImageOptions() {
   AddAndRegisterRequiredOption("image_path", image_path.get());
 }
 
-void BaseOptionManager::Reset() {
+void BaseOptionManager::Reset() { ResetImpl(); }
+
+void BaseOptionManager::ResetOptions(const bool reset_paths) {
+  ResetOptionsImpl(reset_paths);
+}
+
+void BaseOptionManager::ResetImpl() {
   FLAGS_logtostderr = true;
 
   const bool kResetPaths = true;
-  ResetOptions(kResetPaths);
+  ResetOptionsImpl(kResetPaths);
 
   desc_ = std::make_shared<boost::program_options::options_description>();
 
@@ -113,7 +119,7 @@ void BaseOptionManager::Reset() {
   added_image_options_ = false;
 }
 
-void BaseOptionManager::ResetOptions(const bool reset_paths) {
+void BaseOptionManager::ResetOptionsImpl(const bool reset_paths) {
   if (reset_paths) {
     *project_path = "";
     *database_path = "";

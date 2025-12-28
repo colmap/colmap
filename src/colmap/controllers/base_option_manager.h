@@ -110,11 +110,13 @@ class BaseOptionManager {
   bool added_log_options_ = false;
   bool added_database_options_ = false;
   bool added_image_options_ = false;
-};
 
-////////////////////////////////////////////////////////////////////////////////
-// Implementation
-////////////////////////////////////////////////////////////////////////////////
+ private:
+  // Non-virtual implementations called from constructor and virtual methods.
+  // These avoid the clang-tidy warning about virtual calls during construction.
+  void ResetImpl();
+  void ResetOptionsImpl(bool reset_paths);
+};
 
 template <typename T>
 void BaseOptionManager::AddRequiredOption(const std::string& name,
