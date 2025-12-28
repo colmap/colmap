@@ -61,6 +61,35 @@ colmap::Rigid3d AddRotationError(const colmap::Rigid3d& pose,
   return colmap::Rigid3d(error_rotation * pose.rotation, pose.translation);
 }
 
+TEST(ViewGraph, Nominal) {
+  ViewGraph view_graph;
+
+  // Empty view graph.
+  EXPECT_TRUE(view_graph.Empty());
+  EXPECT_EQ(view_graph.NumImagePairs(), 0);
+  EXPECT_EQ(view_graph.NumValidImagePairs(), 0);
+
+  // Add some pairs.
+  view_graph.AddImagePair(1, 2, SynthesizeImagePair());
+  view_graph.AddImagePair(1, 3, SynthesizeImagePair());
+  view_graph.AddImagePair(2, 3, SynthesizeImagePair());
+
+  EXPECT_FALSE(view_graph.Empty());
+  EXPECT_EQ(view_graph.NumImagePairs(), 3);
+  EXPECT_EQ(view_graph.NumValidImagePairs(), 3);
+
+  // Invalidate one pair.
+  view_graph.SetToInvalid(colmap::ImagePairToPairId(1, 2));
+  EXPECT_EQ(view_graph.NumImagePairs(), 3);
+  EXPECT_EQ(view_graph.NumValidImagePairs(), 2);
+
+  // Clear the view graph.
+  view_graph.Clear();
+  EXPECT_TRUE(view_graph.Empty());
+  EXPECT_EQ(view_graph.NumImagePairs(), 0);
+  EXPECT_EQ(view_graph.NumValidImagePairs(), 0);
+}
+
 TEST(ViewGraph, AddImagePair) {
   ViewGraph view_graph;
 
