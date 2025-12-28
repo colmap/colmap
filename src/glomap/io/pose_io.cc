@@ -140,8 +140,6 @@ void ReadRelWeight(const std::string& file_path,
     image_t index1 = image_name_to_id.at(file1);
     image_t index2 = image_name_to_id.at(file2);
 
-    image_pair_t pair_id = colmap::ImagePairToPairId(index1, index2);
-
     if (!view_graph.HasImagePair(index1, index2)) continue;
 
     std::getline(line_stream, item, ' ');
