@@ -51,7 +51,7 @@ void GlobalPipeline::Run() {
   glomap::InitializeGlomapFromDatabase(*database_, reconstruction, view_graph);
   std::vector<PosePrior> pose_priors = database_->ReadAllPosePriors();
 
-  if (view_graph.image_pairs.empty()) {
+  if (view_graph.Empty()) {
     LOG(ERROR) << "Cannot continue without image pairs";
     return;
   }

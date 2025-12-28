@@ -16,9 +16,6 @@ struct ImagePair : public colmap::TwoViewGeometry {
     this->cam2_from_cam1 = std::move(cam2_from_cam1);
   }
 
-  // indicator whether the image pair is valid
-  bool is_valid = true;
-
   // weight is the initial inlier rate
   double weight = -1;
 
