@@ -210,10 +210,14 @@ std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
   LOG(INFO) << "Kept " << largest_cc.size() << " frames in largest component";
 
   // Filter to keep only edges within the largest component.
-  std::erase_if(edge_weights, [&largest_cc](const auto& pair) {
-    const auto [frame_id1, frame_id2] = colmap::PairIdToImagePair(pair.first);
-    return largest_cc.count(frame_id1) == 0 || largest_cc.count(frame_id2) == 0;
-  });
+  for (auto it = edge_weights.begin(); it != edge_weights.end();) {
+    const auto [frame_id1, frame_id2] = colmap::PairIdToImagePair(it->first);
+    if (largest_cc.count(frame_id1) == 0 || largest_cc.count(frame_id2) == 0) {
+      it = edge_weights.erase(it);
+    } else {
+      ++it;
+    }
+  }
 
   // Step 4: Compute adaptive threshold using median - MAD.
   std::sort(weight_values.begin(), weight_values.end());
