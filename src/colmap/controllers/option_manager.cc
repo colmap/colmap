@@ -35,7 +35,6 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/pairing.h"
 #include "colmap/feature/sift.h"
-#include "colmap/math/random.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match_options.h"
@@ -43,17 +42,12 @@
 #include "colmap/util/file.h"
 #include "colmap/util/version.h"
 
-#include <boost/property_tree/ini_parser.hpp>
-
 namespace config = boost::program_options;
 
 namespace colmap {
 
-OptionManager::OptionManager(bool add_project_options) {
-  project_path = std::make_shared<std::string>();
-  database_path = std::make_shared<std::string>();
-  image_path = std::make_shared<std::string>();
-
+OptionManager::OptionManager(bool add_project_options)
+    : BaseOptionManager(add_project_options) {
   image_reader = std::make_shared<ImageReaderOptions>();
   feature_extraction = std::make_shared<FeatureExtractionOptions>();
   feature_extraction_type_ =
@@ -74,17 +68,6 @@ OptionManager::OptionManager(bool add_project_options) {
   poisson_meshing = std::make_shared<mvs::PoissonMeshingOptions>();
   delaunay_meshing = std::make_shared<mvs::DelaunayMeshingOptions>();
   render = std::make_shared<RenderOptions>();
-
-  Reset();
-
-  desc_->add_options()("help,h", "");
-
-  AddRandomOptions();
-  AddLogOptions();
-
-  if (add_project_options) {
-    desc_->add_options()("project_path", config::value<std::string>());
-  }
 }
 
 void OptionManager::ModifyForIndividualData() {
@@ -175,10 +158,7 @@ void OptionManager::ModifyForExtremeQuality() {
 }
 
 void OptionManager::AddAllOptions() {
-  AddLogOptions();
-  AddRandomOptions();
-  AddDatabaseOptions();
-  AddImageOptions();
+  BaseOptionManager::AddAllOptions();
   AddFeatureExtractionOptions();
   AddFeatureMatchingOptions();
   AddTwoViewGeometryOptions();
@@ -195,43 +175,6 @@ void OptionManager::AddAllOptions() {
   AddPoissonMeshingOptions();
   AddDelaunayMeshingOptions();
   AddRenderOptions();
-}
-
-void OptionManager::AddLogOptions() {
-  if (added_log_options_) {
-    return;
-  }
-  added_log_options_ = true;
-
-  AddAndRegisterDefaultOption("log_to_stderr", &FLAGS_logtostderr);
-  AddAndRegisterDefaultOption("log_level", &FLAGS_v);
-}
-
-void OptionManager::AddRandomOptions() {
-  if (added_random_options_) {
-    return;
-  }
-  added_random_options_ = true;
-
-  AddAndRegisterDefaultOption("default_random_seed", &kDefaultPRNGSeed);
-}
-
-void OptionManager::AddDatabaseOptions() {
-  if (added_database_options_) {
-    return;
-  }
-  added_database_options_ = true;
-
-  AddAndRegisterRequiredOption("database_path", database_path.get());
-}
-
-void OptionManager::AddImageOptions() {
-  if (added_image_options_) {
-    return;
-  }
-  added_image_options_ = true;
-
-  AddAndRegisterRequiredOption("image_path", image_path.get());
 }
 
 void OptionManager::AddFeatureExtractionOptions() {
@@ -839,22 +782,8 @@ void OptionManager::AddRenderOptions() {
 }
 
 void OptionManager::Reset() {
-  FLAGS_logtostderr = true;
+  BaseOptionManager::Reset();
 
-  const bool kResetPaths = true;
-  ResetOptions(kResetPaths);
-
-  desc_ = std::make_shared<boost::program_options::options_description>();
-
-  options_bool_.clear();
-  options_int_.clear();
-  options_double_.clear();
-  options_string_.clear();
-
-  added_log_options_ = false;
-  added_random_options_ = false;
-  added_database_options_ = false;
-  added_image_options_ = false;
   added_feature_extraction_options_ = false;
   added_feature_matching_options_ = false;
   added_two_view_geometry_options_ = false;
@@ -874,11 +803,8 @@ void OptionManager::Reset() {
 }
 
 void OptionManager::ResetOptions(const bool reset_paths) {
-  if (reset_paths) {
-    *project_path = "";
-    *database_path = "";
-    *image_path = "";
-  }
+  BaseOptionManager::ResetOptions(reset_paths);
+
   *image_reader = ImageReaderOptions();
   *feature_extraction = FeatureExtractionOptions();
   *feature_matching = FeatureMatchingOptions();
@@ -898,17 +824,11 @@ void OptionManager::ResetOptions(const bool reset_paths) {
 }
 
 bool OptionManager::Check() {
-  bool success = true;
-
-  if (added_database_options_) {
-    const auto database_parent_path = GetParentDir(*database_path);
-    success = success && CHECK_OPTION_IMPL(!ExistsDir(*database_path)) &&
-              CHECK_OPTION_IMPL(database_parent_path == "" ||
-                                ExistsDir(database_parent_path));
+  if (!BaseOptionManager::Check()) {
+    return false;
   }
 
-  if (added_image_options_)
-    success = success && CHECK_OPTION_IMPL(ExistsDir(*image_path));
+  bool success = true;
 
   if (image_reader) success = success && image_reader->Check();
   if (feature_extraction) success = success && feature_extraction->Check();
@@ -937,80 +857,11 @@ bool OptionManager::Check() {
   return success;
 }
 
-bool OptionManager::Parse(const int argc, char** argv) {
-  config::variables_map vmap;
-
-  try {
-    config::store(config::parse_command_line(argc, argv, *desc_), vmap);
-
-    if (vmap.count("help")) {
-      LOG(INFO) << StringPrintf(
-          "%s (%s)", GetVersionInfo().c_str(), GetBuildInfo().c_str());
-      LOG(INFO)
-          << "Options can either be specified via command-line or by defining "
-             "them in a .ini project file passed to `--project_path`.\n"
-          << *desc_;
-      // NOLINTNEXTLINE(concurrency-mt-unsafe)
-      exit(EXIT_SUCCESS);
-    }
-
-    if (vmap.count("project_path")) {
-      *project_path = vmap["project_path"].as<std::string>();
-      if (!Read(*project_path)) {
-        return false;
-      }
-    } else {
-      vmap.notify();
-    }
-
-    feature_extraction->type =
-        FeatureExtractorTypeFromString(feature_extraction_type_);
-    feature_matching->type =
-        FeatureMatcherTypeFromString(feature_matching_type_);
-    if (!mapper_image_list_path_.empty()) {
-      mapper->image_names = ReadTextFileLines(mapper_image_list_path_);
-    }
-    if (!mapper_constant_rig_list_path_.empty()) {
-      for (const std::string& line :
-           ReadTextFileLines(mapper_constant_rig_list_path_)) {
-        mapper->constant_rigs.insert(std::stoi(line));
-      }
-    }
-    if (!mapper_constant_camera_list_path_.empty()) {
-      for (const std::string& line :
-           ReadTextFileLines(mapper_constant_camera_list_path_)) {
-        mapper->constant_cameras.insert(std::stoi(line));
-      }
-    }
-  } catch (std::exception& exc) {
-    LOG(ERROR) << "Failed to parse options - " << exc.what() << ".";
-    return false;
-  } catch (...) {
-    LOG(ERROR) << "Failed to parse options for unknown reason.";
-    return false;
-  }
-
-  if (!Check()) {
-    LOG(ERROR) << "Invalid options provided.";
-    return false;
-  }
-
-  return true;
-}
-
 bool OptionManager::Read(const std::string& path) {
-  config::variables_map vmap;
-
-  if (!ExistsFile(path)) {
-    LOG(ERROR) << "Configuration file does not exist.";
+  if (!BaseOptionManager::Read(path)) {
     return false;
   }
-
   try {
-    std::ifstream file(path);
-    THROW_CHECK_FILE_OPEN(file, path);
-    config::store(config::parse_config_file(file, *desc_), vmap);
-    vmap.notify();
     feature_extraction->type =
         FeatureExtractorTypeFromString(feature_extraction_type_);
     feature_matching->type =
@@ -1022,78 +873,37 @@ bool OptionManager::Read(const std::string& path) {
     LOG(ERROR) << "Failed to parse options for unknown reason.";
     return false;
   }
-
   return Check();
 }
 
-bool OptionManager::ReRead(const std::string& path) {
-  Reset();
-  AddAllOptions();
-  return Read(path);
+void OptionManager::PostParse() {
+  feature_extraction->type =
+      FeatureExtractorTypeFromString(feature_extraction_type_);
+  feature_matching->type = FeatureMatcherTypeFromString(feature_matching_type_);
+  if (!mapper_image_list_path_.empty()) {
+    mapper->image_names = ReadTextFileLines(mapper_image_list_path_);
+  }
+  if (!mapper_constant_rig_list_path_.empty()) {
+    for (const std::string& line :
+         ReadTextFileLines(mapper_constant_rig_list_path_)) {
+      mapper->constant_rigs.insert(std::stoi(line));
+    }
+  }
+  if (!mapper_constant_camera_list_path_.empty()) {
+    for (const std::string& line :
+         ReadTextFileLines(mapper_constant_camera_list_path_)) {
+      mapper->constant_cameras.insert(std::stoi(line));
+    }
+  }
 }
 
-void OptionManager::Write(const std::string& path) const {
-  boost::property_tree::ptree pt;
-
-  // First, put all options without a section and then those with a section.
-  // This is necessary as otherwise older Boost versions will write the
-  // options without a section in between other sections and therefore
-  // the errors will be assigned to the wrong section if read later.
-
-  for (const auto& option : options_bool_) {
-    if (!StringContains(option.first, ".")) {
-      pt.put(option.first, *option.second);
-    }
-  }
-
-  for (const auto& option : options_int_) {
-    if (!StringContains(option.first, ".")) {
-      pt.put(option.first, *option.second);
-    }
-  }
-
-  for (const auto& option : options_double_) {
-    if (!StringContains(option.first, ".")) {
-      pt.put(option.first, *option.second);
-    }
-  }
-
-  for (const auto& option : options_string_) {
-    if (!StringContains(option.first, ".")) {
-      pt.put(option.first, *option.second);
-    }
-  }
-
-  for (const auto& option : options_bool_) {
-    if (StringContains(option.first, ".")) {
-      pt.put(option.first, *option.second);
-    }
-  }
-
-  for (const auto& option : options_int_) {
-    if (StringContains(option.first, ".")) {
-      pt.put(option.first, *option.second);
-    }
-  }
-
-  for (const auto& option : options_double_) {
-    if (StringContains(option.first, ".")) {
-      pt.put(option.first, *option.second);
-    }
-  }
-
-  for (const auto& option : options_string_) {
-    if (StringContains(option.first, ".")) {
-      pt.put(option.first, *option.second);
-    }
-  }
-
-  std::ofstream file(path);
-  THROW_CHECK_FILE_OPEN(file, path);
-  // Ensure that we don't lose any precision by storing in text.
-  file.precision(17);
-  boost::property_tree::write_ini(file, pt);
-  file.close();
+void OptionManager::PrintHelp() const {
+  LOG(INFO) << StringPrintf(
+      "%s (%s)", GetVersionInfo().c_str(), GetBuildInfo().c_str());
+  LOG(INFO) << "Options can either be specified via command-line or by "
+               "defining them in a .ini project file passed to "
+               "`--project_path`.\n"
+            << *desc_;
 }
 
 }  // namespace colmap

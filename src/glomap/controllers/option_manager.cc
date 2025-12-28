@@ -3,135 +3,62 @@
 #include "glomap/estimators/gravity_refinement.h"
 #include "glomap/sfm/global_mapper.h"
 
-#include <boost/property_tree/ini_parser.hpp>
-
-namespace config = boost::program_options;
-
 namespace glomap {
 
-OptionManager::OptionManager(bool add_project_options) {
-  database_path = std::make_shared<std::string>();
-  image_path = std::make_shared<std::string>();
-
+OptionManager::OptionManager(bool add_project_options)
+    : colmap::BaseOptionManager(add_project_options) {
   mapper = std::make_shared<GlobalMapperOptions>();
   gravity_refiner = std::make_shared<GravityRefinerOptions>();
-  Reset();
-
-  desc_->add_options()("help,h", "");
-
-  AddAndRegisterDefaultOption("log_to_stderr", &FLAGS_logtostderr);
-  AddAndRegisterDefaultOption("log_level", &FLAGS_v);
 }
 
 void OptionManager::AddAllOptions() {
-  AddDatabaseOptions();
-  AddImageOptions();
+  colmap::BaseOptionManager::AddAllOptions();
   AddGlobalMapperOptions();
-  AddInlierThresholdOptions();
-  AddViewGraphCalibrationOptions();
-  AddRelativePoseEstimationOptions();
-  AddRotationEstimatorOptions();
-  AddTrackEstablishmentOptions();
-  AddGlobalPositionerOptions();
-  AddBundleAdjusterOptions();
-  AddTriangulatorOptions();
-}
-
-void OptionManager::AddDatabaseOptions() {
-  if (added_database_options_) {
-    return;
-  }
-  added_database_options_ = true;
-
-  AddAndRegisterRequiredOption("database_path", database_path.get());
-}
-
-void OptionManager::AddImageOptions() {
-  if (added_image_options_) {
-    return;
-  }
-  added_image_options_ = true;
-
-  AddAndRegisterRequiredOption("image_path", image_path.get());
+  AddGravityRefinerOptions();
 }
 
 void OptionManager::AddGlobalMapperOptions() {
-  if (added_mapper_options_) {
+  if (added_global_mapper_options_) {
     return;
   }
-  added_mapper_options_ = true;
+  added_global_mapper_options_ = true;
 
-  AddAndRegisterDefaultOption("random_seed", &mapper->random_seed);
-  AddAndRegisterDefaultOption("ba_iteration_num",
-                              &mapper->num_iteration_bundle_adjustment);
-  AddAndRegisterDefaultOption("retriangulation_iteration_num",
-                              &mapper->num_iteration_retriangulation);
-  AddAndRegisterDefaultOption("skip_preprocessing",
+  // Global mapper options
+  AddAndRegisterDefaultOption("Mapper.random_seed", &mapper->random_seed);
+  AddAndRegisterDefaultOption("Mapper.num_iterations_ba",
+                              &mapper->num_iterations_ba);
+  AddAndRegisterDefaultOption("Mapper.num_iterations_retriangulation",
+                              &mapper->num_iterations_retriangulation);
+  AddAndRegisterDefaultOption("Mapper.skip_preprocessing",
                               &mapper->skip_preprocessing);
-  AddAndRegisterDefaultOption("skip_view_graph_calibration",
+  AddAndRegisterDefaultOption("Mapper.skip_view_graph_calibration",
                               &mapper->skip_view_graph_calibration);
-  AddAndRegisterDefaultOption("skip_relative_pose_estimation",
+  AddAndRegisterDefaultOption("Mapper.skip_relative_pose_estimation",
                               &mapper->skip_relative_pose_estimation);
-  AddAndRegisterDefaultOption("skip_rotation_averaging",
+  AddAndRegisterDefaultOption("Mapper.skip_rotation_averaging",
                               &mapper->skip_rotation_averaging);
-  AddAndRegisterDefaultOption("skip_global_positioning",
+  AddAndRegisterDefaultOption("Mapper.skip_global_positioning",
                               &mapper->skip_global_positioning);
-  AddAndRegisterDefaultOption("skip_bundle_adjustment",
+  AddAndRegisterDefaultOption("Mapper.skip_bundle_adjustment",
                               &mapper->skip_bundle_adjustment);
-  AddAndRegisterDefaultOption("skip_retriangulation",
+  AddAndRegisterDefaultOption("Mapper.skip_retriangulation",
                               &mapper->skip_retriangulation);
-  AddAndRegisterDefaultOption("skip_pruning", &mapper->skip_pruning);
-}
+  AddAndRegisterDefaultOption("Mapper.skip_pruning", &mapper->skip_pruning);
 
-void OptionManager::AddGlobalMapperFullOptions() {
-  AddGlobalMapperOptions();
-
-  AddViewGraphCalibrationOptions();
-  AddRelativePoseEstimationOptions();
-  AddRotationEstimatorOptions();
-  AddTrackEstablishmentOptions();
-  AddGlobalPositionerOptions();
-  AddBundleAdjusterOptions();
-  AddTriangulatorOptions();
-  AddInlierThresholdOptions();
-}
-
-void OptionManager::AddViewGraphCalibrationOptions() {
-  if (added_view_graph_calibration_options_) {
-    return;
-  }
-  added_view_graph_calibration_options_ = true;
+  // View graph calibration options
   AddAndRegisterDefaultOption("ViewGraphCalib.thres_lower_ratio",
                               &mapper->opt_vgcalib.thres_lower_ratio);
   AddAndRegisterDefaultOption("ViewGraphCalib.thres_higher_ratio",
                               &mapper->opt_vgcalib.thres_higher_ratio);
   AddAndRegisterDefaultOption("ViewGraphCalib.thres_two_view_error",
                               &mapper->opt_vgcalib.thres_two_view_error);
-}
 
-void OptionManager::AddRelativePoseEstimationOptions() {
-  if (added_relative_pose_options_) {
-    return;
-  }
-  added_relative_pose_options_ = true;
+  // Relative pose estimation options
   AddAndRegisterDefaultOption(
       "RelPoseEstimation.max_epipolar_error",
       &mapper->opt_relpose.ransac_options.max_epipolar_error);
-}
 
-void OptionManager::AddRotationEstimatorOptions() {
-  if (added_rotation_averaging_options_) {
-    return;
-  }
-  added_rotation_averaging_options_ = true;
-  // TODO: maybe add options for rotation averaging
-}
-
-void OptionManager::AddTrackEstablishmentOptions() {
-  if (added_track_establishment_options_) {
-    return;
-  }
-  added_track_establishment_options_ = true;
+  // Track establishment options
   AddAndRegisterDefaultOption("TrackEstablishment.min_num_tracks_per_view",
                               &mapper->opt_track.min_num_tracks_per_view);
   AddAndRegisterDefaultOption("TrackEstablishment.min_num_view_per_track",
@@ -140,13 +67,8 @@ void OptionManager::AddTrackEstablishmentOptions() {
                               &mapper->opt_track.max_num_view_per_track);
   AddAndRegisterDefaultOption("TrackEstablishment.max_num_tracks",
                               &mapper->opt_track.max_num_tracks);
-}
 
-void OptionManager::AddGlobalPositionerOptions() {
-  if (added_global_positioning_options_) {
-    return;
-  }
-  added_global_positioning_options_ = true;
+  // Global positioning options
   AddAndRegisterDefaultOption("GlobalPositioning.use_gpu",
                               &mapper->opt_gp.use_gpu);
   AddAndRegisterDefaultOption("GlobalPositioning.gpu_index",
@@ -163,13 +85,7 @@ void OptionManager::AddGlobalPositionerOptions() {
       "GlobalPositioning.max_num_iterations",
       &mapper->opt_gp.solver_options.max_num_iterations);
 
-  // TODO: move the constrain type selection here
-}
-void OptionManager::AddBundleAdjusterOptions() {
-  if (added_bundle_adjustment_options_) {
-    return;
-  }
-  added_bundle_adjustment_options_ = true;
+  // Bundle adjustment options
   AddAndRegisterDefaultOption("BundleAdjustment.use_gpu",
                               &mapper->opt_ba.use_gpu);
   AddAndRegisterDefaultOption("BundleAdjustment.gpu_index",
@@ -191,12 +107,8 @@ void OptionManager::AddBundleAdjusterOptions() {
   AddAndRegisterDefaultOption(
       "BundleAdjustment.max_num_iterations",
       &mapper->opt_ba.solver_options.max_num_iterations);
-}
-void OptionManager::AddTriangulatorOptions() {
-  if (added_triangulation_options_) {
-    return;
-  }
-  added_triangulation_options_ = true;
+
+  // Triangulation options
   AddAndRegisterDefaultOption(
       "Triangulation.complete_max_reproj_error",
       &mapper->opt_triangulator.tri_complete_max_reproj_error);
@@ -207,12 +119,8 @@ void OptionManager::AddTriangulatorOptions() {
                               &mapper->opt_triangulator.tri_min_angle);
   AddAndRegisterDefaultOption("Triangulation.min_num_matches",
                               &mapper->opt_triangulator.min_num_matches);
-}
-void OptionManager::AddInlierThresholdOptions() {
-  if (added_inliers_options_) {
-    return;
-  }
-  added_inliers_options_ = true;
+
+  // Inlier threshold options
   AddAndRegisterDefaultOption("Thresholds.max_angle_error",
                               &mapper->inlier_thresholds.max_angle_error);
   AddAndRegisterDefaultOption(
@@ -240,6 +148,7 @@ void OptionManager::AddGravityRefinerOptions() {
     return;
   }
   added_gravity_refiner_options_ = true;
+
   AddAndRegisterDefaultOption("GravityRefiner.max_outlier_ratio",
                               &gravity_refiner->max_outlier_ratio);
   AddAndRegisterDefaultOption("GravityRefiner.max_gravity_error",
@@ -247,63 +156,20 @@ void OptionManager::AddGravityRefinerOptions() {
   AddAndRegisterDefaultOption("GravityRefiner.min_num_neighbors",
                               &gravity_refiner->min_num_neighbors);
 }
+
 void OptionManager::Reset() {
-  FLAGS_logtostderr = true;
+  colmap::BaseOptionManager::Reset();
 
-  const bool kResetPaths = true;
-  ResetOptions(kResetPaths);
-
-  desc_ = std::make_shared<boost::program_options::options_description>();
-
-  options_bool_.clear();
-  options_int_.clear();
-  options_double_.clear();
-  options_string_.clear();
-
-  added_mapper_options_ = false;
-  added_view_graph_calibration_options_ = false;
-  added_relative_pose_options_ = false;
-  added_rotation_averaging_options_ = false;
-  added_track_establishment_options_ = false;
-  added_global_positioning_options_ = false;
-  added_bundle_adjustment_options_ = false;
-  added_triangulation_options_ = false;
-  added_inliers_options_ = false;
+  added_global_mapper_options_ = false;
+  added_gravity_refiner_options_ = false;
 }
+
+bool OptionManager::Check() { return colmap::BaseOptionManager::Check(); }
 
 void OptionManager::ResetOptions(const bool reset_paths) {
-  if (reset_paths) {
-    *database_path = "";
-    *image_path = "";
-  }
+  colmap::BaseOptionManager::ResetOptions(reset_paths);
   *mapper = GlobalMapperOptions();
   *gravity_refiner = GravityRefinerOptions();
-}
-
-void OptionManager::Parse(const int argc, char** argv) {
-  config::variables_map vmap;
-
-  try {
-    config::store(config::parse_command_line(argc, argv, *desc_), vmap);
-
-    if (vmap.count("help")) {
-      LOG(INFO) << "The following options can be specified via command-line:\n"
-                << *desc_;
-      // NOLINTNEXTLINE(concurrency-mt-unsafe)
-      exit(EXIT_SUCCESS);
-    }
-
-    vmap.notify();
-
-  } catch (std::exception& exc) {
-    LOG(ERROR) << "Failed to parse options - " << exc.what() << ".";
-    // NOLINTNEXTLINE(concurrency-mt-unsafe)
-    exit(EXIT_FAILURE);
-  } catch (...) {
-    LOG(ERROR) << "Failed to parse options for unknown reason.";
-    // NOLINTNEXTLINE(concurrency-mt-unsafe)
-    exit(EXIT_FAILURE);
-  }
 }
 
 }  // namespace glomap

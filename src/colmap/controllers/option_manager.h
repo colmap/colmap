@@ -29,11 +29,9 @@
 
 #pragma once
 
-#include "colmap/util/logging.h"
+#include "colmap/controllers/base_option_manager.h"
 
 #include <memory>
-
-#include <boost/program_options.hpp>
 
 namespace colmap {
 
@@ -60,13 +58,11 @@ struct PoissonMeshingOptions;
 struct DelaunayMeshingOptions;
 }  // namespace mvs
 
-class OptionManager {
+class OptionManager : public BaseOptionManager {
  public:
   explicit OptionManager(bool add_project_options = true);
 
   // Create "optimal" set of options for different reconstruction scenarios.
-  // Note that the existing options are modified, so if your parameters are
-  // already low quality, they will be further modified.
   void ModifyForIndividualData();
   void ModifyForVideoData();
   void ModifyForInternetData();
@@ -79,11 +75,7 @@ class OptionManager {
   void ModifyForHighQuality();
   void ModifyForExtremeQuality();
 
-  void AddAllOptions();
-  void AddLogOptions();
-  void AddRandomOptions();
-  void AddDatabaseOptions();
-  void AddImageOptions();
+  void AddAllOptions() override;
   void AddFeatureExtractionOptions();
   void AddFeatureMatchingOptions();
   void AddTwoViewGeometryOptions();
@@ -101,28 +93,10 @@ class OptionManager {
   void AddDelaunayMeshingOptions();
   void AddRenderOptions();
 
-  template <typename T>
-  void AddRequiredOption(const std::string& name,
-                         T* option,
-                         const std::string& help_text = "");
-  template <typename T>
-  void AddDefaultOption(const std::string& name,
-                        T* option,
-                        const std::string& help_text = "");
-
-  void Reset();
-  void ResetOptions(bool reset_paths);
-
-  bool Check();
-
-  bool Parse(int argc, char** argv);
-  bool Read(const std::string& path);
-  bool ReRead(const std::string& path);
-  void Write(const std::string& path) const;
-
-  std::shared_ptr<std::string> project_path;
-  std::shared_ptr<std::string> database_path;
-  std::shared_ptr<std::string> image_path;
+  void Reset() override;
+  void ResetOptions(bool reset_paths) override;
+  bool Check() override;
+  bool Read(const std::string& path) override;
 
   std::shared_ptr<ImageReaderOptions> image_reader;
   std::shared_ptr<FeatureExtractionOptions> feature_extraction;
@@ -145,30 +119,14 @@ class OptionManager {
 
   std::shared_ptr<RenderOptions> render;
 
- private:
-  template <typename T>
-  void AddAndRegisterRequiredOption(const std::string& name,
-                                    T* option,
-                                    const std::string& help_text = "");
-  template <typename T>
-  void AddAndRegisterDefaultOption(const std::string& name,
-                                   T* option,
-                                   const std::string& help_text = "");
+ protected:
+  void PostParse() override;
+  void PrintHelp() const override;
 
   template <typename T>
   void AddAndRegisterDefaultEnumOption(const std::string& name,
                                        T* option,
                                        const std::string& help_text = "");
-
-  template <typename T>
-  void RegisterOption(const std::string& name, const T* option);
-
-  std::shared_ptr<boost::program_options::options_description> desc_;
-
-  std::vector<std::pair<std::string, const bool*>> options_bool_;
-  std::vector<std::pair<std::string, const int*>> options_int_;
-  std::vector<std::pair<std::string, const double*>> options_double_;
-  std::vector<std::pair<std::string, const std::string*>> options_string_;
 
   std::string feature_extraction_type_;
   std::string feature_matching_type_;
@@ -177,89 +135,22 @@ class OptionManager {
   std::string mapper_constant_rig_list_path_;
   std::string mapper_constant_camera_list_path_;
 
-  bool added_log_options_;
-  bool added_random_options_;
-  bool added_database_options_;
-  bool added_image_options_;
-  bool added_feature_extraction_options_;
-  bool added_feature_matching_options_;
-  bool added_two_view_geometry_options_;
-  bool added_exhaustive_pairing_options_;
-  bool added_sequential_pairing_options_;
-  bool added_vocab_tree_pairing_options_;
-  bool added_spatial_pairing_options_;
-  bool added_transitive_pairing_options_;
-  bool added_image_pairs_pairing_options_;
-  bool added_ba_options_;
-  bool added_mapper_options_;
-  bool added_patch_match_stereo_options_;
-  bool added_stereo_fusion_options_;
-  bool added_poisson_meshing_options_;
-  bool added_delaunay_meshing_options_;
-  bool added_render_options_;
+  bool added_feature_extraction_options_ = false;
+  bool added_feature_matching_options_ = false;
+  bool added_two_view_geometry_options_ = false;
+  bool added_exhaustive_pairing_options_ = false;
+  bool added_sequential_pairing_options_ = false;
+  bool added_vocab_tree_pairing_options_ = false;
+  bool added_spatial_pairing_options_ = false;
+  bool added_transitive_pairing_options_ = false;
+  bool added_image_pairs_pairing_options_ = false;
+  bool added_ba_options_ = false;
+  bool added_mapper_options_ = false;
+  bool added_patch_match_stereo_options_ = false;
+  bool added_stereo_fusion_options_ = false;
+  bool added_poisson_meshing_options_ = false;
+  bool added_delaunay_meshing_options_ = false;
+  bool added_render_options_ = false;
 };
-
-////////////////////////////////////////////////////////////////////////////////
-// Implementation
-////////////////////////////////////////////////////////////////////////////////
-
-template <typename T>
-void OptionManager::AddRequiredOption(const std::string& name,
-                                      T* option,
-                                      const std::string& help_text) {
-  desc_->add_options()(name.c_str(),
-                       boost::program_options::value<T>(option)->required(),
-                       help_text.c_str());
-}
-
-template <typename T>
-void OptionManager::AddDefaultOption(const std::string& name,
-                                     T* option,
-                                     const std::string& help_text) {
-  if constexpr (std::is_floating_point<T>::value) {
-    desc_->add_options()(
-        name.c_str(),
-        boost::program_options::value<T>(option)->default_value(
-            *option, StringPrintf("%.3g", *option)),
-        help_text.c_str());
-  } else {
-    desc_->add_options()(
-        name.c_str(),
-        boost::program_options::value<T>(option)->default_value(*option),
-        help_text.c_str());
-  }
-}
-
-template <typename T>
-void OptionManager::AddAndRegisterRequiredOption(const std::string& name,
-                                                 T* option,
-                                                 const std::string& help_text) {
-  AddRequiredOption(name, option, help_text);
-  RegisterOption(name, option);
-}
-
-template <typename T>
-void OptionManager::AddAndRegisterDefaultOption(const std::string& name,
-                                                T* option,
-                                                const std::string& help_text) {
-  AddDefaultOption(name, option, help_text);
-  RegisterOption(name, option);
-}
-
-template <typename T>
-void OptionManager::RegisterOption(const std::string& name, const T* option) {
-  if (std::is_same<T, bool>::value) {
-    options_bool_.emplace_back(name, reinterpret_cast<const bool*>(option));
-  } else if (std::is_same<T, int>::value) {
-    options_int_.emplace_back(name, reinterpret_cast<const int*>(option));
-  } else if (std::is_same<T, double>::value) {
-    options_double_.emplace_back(name, reinterpret_cast<const double*>(option));
-  } else if (std::is_same<T, std::string>::value) {
-    options_string_.emplace_back(name,
-                                 reinterpret_cast<const std::string*>(option));
-  } else {
-    LOG(FATAL_THROW) << "Unsupported option type";
-  }
-}
 
 }  // namespace colmap

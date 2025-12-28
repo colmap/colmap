@@ -40,7 +40,6 @@ COLMAP_ADD_LIBRARY(
         gravity_refinement.h gravity_refinement.cc
         optimization_base.h
         relpose_estimation.h relpose_estimation.cc
-        rotation_initializer.h rotation_initializer.cc
         view_graph_calibration.h view_graph_calibration.cc
     PUBLIC_LINK_LIBS
         colmap_glomap_scene

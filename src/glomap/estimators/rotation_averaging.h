@@ -5,6 +5,7 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/rig.h"
 
+#include "glomap/scene/types.h"
 #include "glomap/scene/view_graph.h"
 
 #include <vector>
@@ -58,6 +59,11 @@ struct RotationEstimatorOptions {
 
   // Flag to use gravity priors for rotation averaging.
   bool use_gravity = false;
+
+  // Flag to use stratified solving for mixed gravity systems.
+  // If true and use_gravity is true, first solves the 1-DOF system with
+  // gravity-only pairs, then solves the full 3-DOF system.
+  bool use_stratified = true;
 };
 
 // High-level interface for rotation averaging.
@@ -74,11 +80,30 @@ class RotationEstimator {
                          colmap::Reconstruction& reconstruction);
 
  private:
+  // Maybe solves 1-DOF rotation averaging on the gravity-aligned subset.
+  // This is the first phase of stratified solving for mixed gravity systems.
+  bool MaybeSolveGravityAlignedSubset(
+      const ViewGraph& view_graph,
+      const std::vector<colmap::PosePrior>& pose_priors,
+      colmap::Reconstruction& reconstruction);
+
+  // Core rotation averaging solver.
+  bool SolveRotationAveraging(const ViewGraph& view_graph,
+                              const std::vector<colmap::PosePrior>& pose_priors,
+                              colmap::Reconstruction& reconstruction);
+
   // Initializes rotations from maximum spanning tree.
   void InitializeFromMaximumSpanningTree(
       const ViewGraph& view_graph, colmap::Reconstruction& reconstruction);
 
   const RotationEstimatorOptions options_;
 };
+
+// Initialize rig rotations by averaging per-image rotations.
+// Estimates cam_from_rig for cameras with unknown calibration,
+// then computes rig_from_world for each frame.
+bool InitializeRigRotationsFromImages(
+    const std::unordered_map<image_t, Rigid3d>& cams_from_world,
+    colmap::Reconstruction& reconstruction);
 
 }  // namespace glomap
