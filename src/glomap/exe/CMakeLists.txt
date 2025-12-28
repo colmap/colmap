@@ -32,8 +32,7 @@ set(FOLDER_NAME "glomap_exe")
 COLMAP_ADD_LIBRARY(
     NAME colmap_glomap_exe
     SRCS
-        global_mapper.h global_mapper.cc
-        rotation_averager.h rotation_averager.cc
+        glomap.h glomap.cc
     PUBLIC_LINK_LIBS
         colmap_glomap_controllers
         colmap_glomap_sfm

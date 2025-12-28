@@ -38,8 +38,7 @@
 #include "colmap/util/oiio_utils.h"
 #include "colmap/util/version.h"
 
-#include "glomap/exe/global_mapper.h"
-#include "glomap/exe/rotation_averager.h"
+#include "glomap/exe/glomap.h"
 
 namespace {
 

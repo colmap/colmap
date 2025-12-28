@@ -5,10 +5,10 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/timer.h"
 
+#include "glomap/estimators/rotation_averaging.h"
 #include "glomap/processors/image_pair_inliers.h"
 #include "glomap/processors/reconstruction_pruning.h"
 #include "glomap/processors/view_graph_manipulation.h"
-#include "glomap/sfm/rotation_averager.h"
 
 namespace glomap {
 
@@ -82,7 +82,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
     // The first run is for filtering
     SolveRotationAveraging(
-        view_graph, reconstruction, pose_priors, options.opt_ra);
+        options.opt_ra, view_graph, reconstruction, pose_priors);
 
     view_graph.FilterByRelativeRotation(
         reconstruction, options.inlier_thresholds.max_rotation_error);
@@ -93,7 +93,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
     // The second run is for final estimation
     if (!SolveRotationAveraging(
-            view_graph, reconstruction, pose_priors, options.opt_ra)) {
+            options.opt_ra, view_graph, reconstruction, pose_priors)) {
       return false;
     }
     view_graph.FilterByRelativeRotation(
