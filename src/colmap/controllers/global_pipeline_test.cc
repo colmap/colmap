@@ -29,6 +29,7 @@
 
 #include "colmap/controllers/global_pipeline.h"
 
+#include "colmap/math/random.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
@@ -65,6 +66,49 @@ TEST(GlobalPipeline, Nominal) {
               ReconstructionNear(*reconstruction_manager->Get(0),
                                  /*max_rotation_error_deg=*/1e-2,
                                  /*max_proj_center_error=*/1e-4));
+}
+
+TEST(GlobalPipeline, SfMWithRandomSeedStability) {
+  SetPRNGSeed(1);
+
+  const std::string database_path = CreateTestDir() + "/database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 4;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.5;
+  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
+
+  auto run_mapper = [&](int random_seed) {
+    glomap::GlobalMapperOptions options;
+    options.random_seed = random_seed;
+    auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+    GlobalPipeline mapper(options, database, reconstruction_manager);
+    mapper.Run();
+    EXPECT_EQ(reconstruction_manager->Size(), 1);
+    return reconstruction_manager;
+  };
+
+  constexpr int kRandomSeed = 42;
+
+  // Running with the same seed should produce similar results.
+  // Due to multi-threading, we allow small floating-point variations.
+  auto reconstruction_manager0 = run_mapper(kRandomSeed);
+  auto reconstruction_manager1 = run_mapper(kRandomSeed);
+  EXPECT_THAT(*reconstruction_manager0->Get(0),
+              ReconstructionNear(*reconstruction_manager1->Get(0),
+                                 /*max_rotation_error_deg=*/1e-10,
+                                 /*max_proj_center_error=*/1e-10,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.01,
+                                 /*align=*/false));
 }
 
 }  // namespace

@@ -61,6 +61,7 @@ void OptionManager::AddGlobalMapperOptions() {
   }
   added_mapper_options_ = true;
 
+  AddAndRegisterDefaultOption("random_seed", &mapper->random_seed);
   AddAndRegisterDefaultOption("ba_iteration_num",
                               &mapper->num_iteration_bundle_adjustment);
   AddAndRegisterDefaultOption("retriangulation_iteration_num",
@@ -286,7 +287,7 @@ void OptionManager::Parse(const int argc, char** argv) {
     config::store(config::parse_command_line(argc, argv, *desc_), vmap);
 
     if (vmap.count("help")) {
-      std::cout << "The following options can be specified via command-line:\n"
+      LOG(INFO) << "The following options can be specified via command-line:\n"
                 << *desc_;
       // NOLINTNEXTLINE(concurrency-mt-unsafe)
       exit(EXIT_SUCCESS);
