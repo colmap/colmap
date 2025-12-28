@@ -38,6 +38,7 @@ COLMAP_ADD_LIBRARY(
         matrix.h
         polynomial.h polynomial.cc
         random.h random.cc
+        spanning_tree.h spanning_tree.cc
         union_find.h
     PUBLIC_LINK_LIBS
         colmap_util
@@ -76,5 +77,10 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME union_find_test
     SRCS union_find_test.cc
+    LINK_LIBS colmap_math
+)
+COLMAP_ADD_TEST(
+    NAME spanning_tree_test
+    SRCS spanning_tree_test.cc
     LINK_LIBS colmap_math
 )
