@@ -15,14 +15,11 @@ image_t MaximumSpanningTree(const ViewGraph& view_graph,
   idx_to_image_id.reserve(images.size());
 
   for (const auto& [image_id, image] : images) {
-    if (!image.HasPose()) {
-      continue;
+    if (image.HasPose()) {
+      image_id_to_idx[image_id] = static_cast<int>(idx_to_image_id.size());
+      idx_to_image_id.push_back(image_id);
     }
-    image_id_to_idx[image_id] = static_cast<int>(idx_to_image_id.size());
-    idx_to_image_id.push_back(image_id);
   }
-
-  const int num_nodes = static_cast<int>(idx_to_image_id.size());
 
   // Build edges and weights from view graph.
   std::vector<std::pair<int, int>> edges;
@@ -34,31 +31,24 @@ image_t MaximumSpanningTree(const ViewGraph& view_graph,
     if (!image_pair.is_valid) {
       continue;
     }
-
-    auto it1 = image_id_to_idx.find(image_pair.image_id1);
-    auto it2 = image_id_to_idx.find(image_pair.image_id2);
+    const auto it1 = image_id_to_idx.find(image_pair.image_id1);
+    const auto it2 = image_id_to_idx.find(image_pair.image_id2);
     if (it1 == image_id_to_idx.end() || it2 == image_id_to_idx.end()) {
       continue;
     }
-
     edges.emplace_back(it1->second, it2->second);
-    switch (type) {
-      case WeightType::INLIER_NUM:
-        weights.push_back(static_cast<double>(image_pair.inliers.size()));
-        break;
-      case WeightType::INLIER_RATIO:
-        weights.push_back(image_pair.weight);
-        break;
-    }
+    weights.push_back(type == WeightType::INLIER_NUM
+                          ? static_cast<double>(image_pair.inliers.size())
+                          : image_pair.weight);
   }
 
   // Compute spanning tree using generic algorithm.
-  colmap::SpanningTree tree =
-      colmap::ComputeMaximumSpanningTree(num_nodes, edges, weights);
+  const colmap::SpanningTree tree =
+      colmap::ComputeMaximumSpanningTree(idx_to_image_id.size(), edges, weights);
 
   // Convert back to image_id based parent map.
   parents.clear();
-  for (int i = 0; i < num_nodes; ++i) {
+  for (size_t i = 0; i < idx_to_image_id.size(); ++i) {
     if (tree.parents[i] >= 0) {
       parents[idx_to_image_id[i]] = idx_to_image_id[tree.parents[i]];
     }
