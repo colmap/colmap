@@ -19,9 +19,11 @@ namespace glomap {
 //   2. Find the largest connected component and de-register all frames outside
 //      it. This removes isolated or poorly connected parts of the
 //      reconstruction.
-//   3. Compute an adaptive edge weight threshold using median - MAD.
+//   3. Compute an adaptive edge weight threshold using median minus maximum
+//   absolute deviation (MAD).
 //   4. Cluster frames using union-find: first merge strongly connected frames,
-//      then iteratively merge clusters connected by multiple weaker edges.
+//      then iteratively merge clusters connected by two weaker (0.75 *
+//      threshold) edges.
 //
 // Args:
 //   reconstruction: The reconstruction containing frames and 3D points.

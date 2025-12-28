@@ -219,7 +219,8 @@ std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
     }
   }
 
-  // Step 4: Compute adaptive threshold using median - MAD.
+  // Step 4: Compute adaptive threshold using median minus median absolute
+  // deviation (MAD).
   std::sort(weight_values.begin(), weight_values.end());
   const double median = weight_values[weight_values.size() / 2];
   const double threshold =
