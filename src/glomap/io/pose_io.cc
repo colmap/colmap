@@ -81,8 +81,6 @@ void ReadRelPose(const std::string& file_path,
     const image_t index1 = image_name_to_id[file1];
     const image_t index2 = image_name_to_id[file2];
 
-    const image_pair_t pair_id = colmap::ImagePairToPairId(index1, index2);
-
     // rotation
     Rigid3d pose_rel;
     for (int i = 0; i < 4; i++) {
