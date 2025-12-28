@@ -4,7 +4,6 @@
 #include "colmap/math/spanning_tree.h"
 
 #include "glomap/estimators/rotation_averaging_impl.h"
-#include "glomap/estimators/rotation_initializer.h"
 
 #include <queue>
 
@@ -58,8 +57,9 @@ image_t ComputeMaximumSpanningTree(
     if (!image_pair.is_valid) {
       continue;
     }
-    const auto it1 = image_id_to_idx.find(image_pair.image_id1);
-    const auto it2 = image_id_to_idx.find(image_pair.image_id2);
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const auto it1 = image_id_to_idx.find(image_id1);
+    const auto it2 = image_id_to_idx.find(image_id2);
     if (it1 == image_id_to_idx.end() || it2 == image_id_to_idx.end()) {
       continue;
     }
@@ -92,6 +92,85 @@ bool RotationEstimator::EstimateRotations(
     return false;
   }
 
+  // Handle stratified solving for mixed gravity systems.
+  if (options_.use_gravity && options_.use_stratified) {
+    if (!MaybeSolveGravityAlignedSubset(
+            view_graph, pose_priors, reconstruction)) {
+      return false;
+    }
+  }
+
+  // Solve the full system.
+  return SolveRotationAveraging(view_graph, pose_priors, reconstruction);
+}
+
+bool RotationEstimator::MaybeSolveGravityAlignedSubset(
+    const ViewGraph& view_graph,
+    const std::vector<colmap::PosePrior>& pose_priors,
+    colmap::Reconstruction& reconstruction) {
+  // Build map from image to pose prior.
+  std::unordered_map<image_t, const colmap::PosePrior*> image_to_pose_prior;
+  for (const auto& pose_prior : pose_priors) {
+    if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
+      image_to_pose_prior[pose_prior.corr_data_id.id] = &pose_prior;
+    }
+  }
+
+  // Separate pairs into gravity-aligned subset.
+  ViewGraph gravity_view_graph;
+  size_t num_total_pairs = 0;
+  for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
+    if (!image_pair.is_valid) continue;
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    if (!reconstruction.ExistsImage(image_id1) ||
+        !reconstruction.ExistsImage(image_id2)) {
+      continue;
+    }
+    if (!reconstruction.Image(image_id1).HasPose() ||
+        !reconstruction.Image(image_id2).HasPose()) {
+      continue;
+    }
+
+    num_total_pairs++;
+
+    const auto it1 = image_to_pose_prior.find(image_id1);
+    const auto it2 = image_to_pose_prior.find(image_id2);
+    const bool image1_has_gravity =
+        it1 != image_to_pose_prior.end() && it1->second->HasGravity();
+    const bool image2_has_gravity =
+        it2 != image_to_pose_prior.end() && it2->second->HasGravity();
+
+    if (image1_has_gravity && image2_has_gravity) {
+      gravity_view_graph.image_pairs.emplace(
+          pair_id, ImagePair(image_pair.cam2_from_cam1));
+    }
+  }
+
+  const size_t num_gravity_pairs = gravity_view_graph.image_pairs.size();
+  LOG(INFO) << "Total image pairs: " << num_total_pairs
+            << ", gravity image pairs: " << num_gravity_pairs;
+
+  // Only solve if we have a meaningful subset.
+  // Skip if no gravity pairs, or if most pairs (>95%) have gravity since
+  // solving the subset separately provides little benefit over the full system.
+  const bool should_solve =
+      num_gravity_pairs > 0 && num_gravity_pairs <= num_total_pairs * 0.95;
+
+  if (should_solve) {
+    LOG(INFO) << "Solving subset 1-DOF rotation averaging problem";
+    if (!SolveRotationAveraging(
+            gravity_view_graph, pose_priors, reconstruction)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool RotationEstimator::SolveRotationAveraging(
+    const ViewGraph& view_graph,
+    const std::vector<colmap::PosePrior>& pose_priors,
+    colmap::Reconstruction& reconstruction) {
   // Initialize rotations from maximum spanning tree.
   if (!options_.skip_initialization && !options_.use_gravity) {
     InitializeFromMaximumSpanningTree(view_graph, reconstruction);
@@ -146,19 +225,119 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
     if (curr == root) continue;
 
     // Directly use the relative pose for estimation rotation.
-    const ImagePair& image_pair = view_graph.image_pairs.at(
-        colmap::ImagePairToPairId(curr, parents[curr]));
-    if (image_pair.image_id1 == curr) {
-      cams_from_world[curr].rotation =
-          (Inverse(image_pair.cam2_from_cam1) * cams_from_world[parents[curr]])
-              .rotation;
-    } else {
-      cams_from_world[curr].rotation =
-          (image_pair.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation;
-    }
+    // GetImagePair(parent, curr) returns curr_from_parent
+    const ImagePair image_pair = view_graph.GetImagePair(parents[curr], curr);
+    cams_from_world[curr].rotation =
+        (image_pair.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation;
   }
 
   InitializeRigRotationsFromImages(cams_from_world, reconstruction);
+}
+
+bool InitializeRigRotationsFromImages(
+    const std::unordered_map<image_t, Rigid3d>& cams_from_world,
+    colmap::Reconstruction& reconstruction) {
+  // Step 1: Estimate cam_from_rig for cameras with unknown calibration.
+  // Collect samples across frames, then average.
+  std::unordered_map<camera_t,
+                     std::pair<rig_t, std::vector<Eigen::Quaterniond>>>
+      cam_from_rig_samples;
+
+  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
+    // Find the rotation of the reference image.
+    const Eigen::Quaterniond* ref_rotation = nullptr;
+    for (const auto& data_id : frame.ImageIds()) {
+      const auto& image = reconstruction.Image(data_id.id);
+      if (image.HasPose() && image.IsRefInFrame()) {
+        const auto it = cams_from_world.find(data_id.id);
+        if (it != cams_from_world.end()) {
+          ref_rotation = &it->second.rotation;
+        }
+        break;
+      }
+    }
+    if (ref_rotation == nullptr) {
+      continue;
+    }
+
+    // Collect cam_from_rig samples for non-reference cameras.
+    for (const auto& data_id : frame.ImageIds()) {
+      const auto& image = reconstruction.Image(data_id.id);
+      if (!image.HasPose() || image.IsRefInFrame()) {
+        continue;
+      }
+
+      const auto it = cams_from_world.find(data_id.id);
+      if (it == cams_from_world.end()) {
+        continue;
+      }
+
+      auto& [rig_id, rotations] = cam_from_rig_samples[image.CameraId()];
+      rig_id = frame.RigId();
+      rotations.push_back(it->second.rotation * ref_rotation->inverse());
+    }
+  }
+
+  const Eigen::Vector3d kNaNTranslation =
+      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+
+  std::vector<double> weights;
+  for (auto& [camera_id, rig_id_and_samples] : cam_from_rig_samples) {
+    auto& [rig_id, samples] = rig_id_and_samples;
+    weights.resize(samples.size(), 1.0);
+    const Eigen::Quaterniond cam_from_rig =
+        colmap::AverageQuaternions(samples, weights);
+    reconstruction.Rig(rig_id).SetSensorFromRig(
+        sensor_t(SensorType::CAMERA, camera_id),
+        Rigid3d(cam_from_rig, kNaNTranslation));
+  }
+
+  // Step 2: Compute rig_from_world for each frame by averaging across images.
+  std::vector<Eigen::Quaterniond> rig_from_world_samples;
+  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
+    rig_from_world_samples.clear();
+
+    for (const auto& data_id : frame.ImageIds()) {
+      if (!reconstruction.ExistsImage(data_id.id)) {
+        continue;
+      }
+
+      const auto& image = reconstruction.Image(data_id.id);
+      if (!image.HasPose()) {
+        continue;
+      }
+
+      const auto it = cams_from_world.find(data_id.id);
+      if (it == cams_from_world.end()) {
+        continue;
+      }
+
+      if (image.IsRefInFrame()) {
+        rig_from_world_samples.push_back(it->second.rotation);
+      } else {
+        const auto& maybe_cam_from_rig =
+            reconstruction.Rig(frame.RigId())
+                .MaybeSensorFromRig(
+                    sensor_t(SensorType::CAMERA, image.CameraId()));
+        if (!maybe_cam_from_rig.has_value()) {
+          continue;
+        }
+        rig_from_world_samples.push_back(
+            maybe_cam_from_rig.value().rotation.inverse() *
+            it->second.rotation);
+      }
+    }
+
+    if (!rig_from_world_samples.empty()) {
+      weights.resize(rig_from_world_samples.size(), 1.0);
+      const Eigen::Quaterniond rig_from_world =
+          colmap::AverageQuaternions(rig_from_world_samples, weights);
+      reconstruction.Frame(frame_id).SetRigFromWorld(
+          Rigid3d(rig_from_world, kNaNTranslation));
+    }
+  }
+
+  return true;
 }
 
 }  // namespace glomap

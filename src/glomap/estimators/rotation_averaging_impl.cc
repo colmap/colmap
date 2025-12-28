@@ -222,8 +222,9 @@ void RotationAveragingProblem::BuildPairConstraints(
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (!image_pair.is_valid) continue;
 
-    const auto& image1 = reconstruction.Image(image_pair.image_id1);
-    const auto& image2 = reconstruction.Image(image_pair.image_id2);
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const auto& image1 = reconstruction.Image(image_id1);
+    const auto& image2 = reconstruction.Image(image_id2);
     const auto& frame1 = *image1.FramePtr();
     const auto& frame2 = *image2.FramePtr();
 
@@ -284,8 +285,8 @@ void RotationAveragingProblem::BuildPairConstraints(
 
     // Create constraint based on gravity availability.
     PairConstraint& constraint = pair_constraints_[pair_id];
-    constraint.image_id1 = image_pair.image_id1;
-    constraint.image_id2 = image_pair.image_id2;
+    constraint.image_id1 = image_id1;
+    constraint.image_id2 = image_id2;
     if (options_.use_gravity && frame_gravity1 != nullptr &&
         frame_gravity2 != nullptr) {
       // Both frames have gravity: use 1-DOF constraint.
@@ -340,8 +341,9 @@ void RotationAveragingProblem::BuildConstraintMatrix(
     if (!image_pair.is_valid) continue;
     if (pair_constraints_.find(pair_id) == pair_constraints_.end()) continue;
 
-    const auto& image1 = reconstruction.Image(image_pair.image_id1);
-    const auto& image2 = reconstruction.Image(image_pair.image_id2);
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const auto& image1 = reconstruction.Image(image_id1);
+    const auto& image2 = reconstruction.Image(image_id2);
     const auto& frame1 = *image1.FramePtr();
     const auto& frame2 = *image2.FramePtr();
 

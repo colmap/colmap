@@ -27,9 +27,9 @@ image_t ViewGraphManipulator::EstablishStrongClusters(
              (criteria == INLIER_NUM && image_pair.inliers.size() > min_thres);
     status = status || (criteria == WEIGHT && image_pair.weight > min_thres);
     if (status) {
-      uf.Union(
-          image_pair_t(reconstruction.Image(image_pair.image_id1).FrameId()),
-          image_pair_t(reconstruction.Image(image_pair.image_id2).FrameId()));
+      const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+      uf.Union(image_pair_t(reconstruction.Image(image_id1).FrameId()),
+               image_pair_t(reconstruction.Image(image_id2).FrameId()));
     }
   }
 
@@ -59,8 +59,7 @@ image_t ViewGraphManipulator::EstablishStrongClusters(
                (criteria == WEIGHT && image_pair.weight < 0.75 * min_thres);
       if (status) continue;
 
-      image_t image_id1 = image_pair.image_id1;
-      image_t image_id2 = image_pair.image_id2;
+      const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 
       image_pair_t root1 =
           uf.Find(image_pair_t(reconstruction.Image(image_id1).FrameId()));
@@ -94,11 +93,12 @@ image_t ViewGraphManipulator::EstablishStrongClusters(
     }
   }
 
-  for (auto& [image_pair_id, image_pair] : view_graph.image_pairs) {
+  for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (!image_pair.is_valid) continue;
 
-    frame_t frame_id1 = reconstruction.Image(image_pair.image_id1).FrameId();
-    frame_t frame_id2 = reconstruction.Image(image_pair.image_id2).FrameId();
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    frame_t frame_id1 = reconstruction.Image(image_id1).FrameId();
+    frame_t frame_id2 = reconstruction.Image(image_id2).FrameId();
 
     if (uf.Find(image_pair_t(frame_id1)) != uf.Find(image_pair_t(frame_id2))) {
       image_pair.is_valid = false;
@@ -123,10 +123,9 @@ void ViewGraphManipulator::UpdateImagePairsConfig(
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (!image_pair.is_valid) continue;
 
-    const camera_t camera_id1 =
-        reconstruction.Image(image_pair.image_id1).CameraId();
-    const camera_t camera_id2 =
-        reconstruction.Image(image_pair.image_id2).CameraId();
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const camera_t camera_id1 = reconstruction.Image(image_id1).CameraId();
+    const camera_t camera_id2 = reconstruction.Image(image_id2).CameraId();
 
     const colmap::Camera& camera1 = reconstruction.Camera(camera_id1);
     const colmap::Camera& camera2 = reconstruction.Camera(camera_id2);
@@ -159,10 +158,9 @@ void ViewGraphManipulator::UpdateImagePairsConfig(
     if (!image_pair.is_valid) continue;
     if (image_pair.config != colmap::TwoViewGeometry::UNCALIBRATED) continue;
 
-    const camera_t camera_id1 =
-        reconstruction.Image(image_pair.image_id1).CameraId();
-    const camera_t camera_id2 =
-        reconstruction.Image(image_pair.image_id2).CameraId();
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const camera_t camera_id1 = reconstruction.Image(image_id1).CameraId();
+    const camera_t camera_id2 = reconstruction.Image(image_id2).CameraId();
 
     const colmap::Camera& camera1 = reconstruction.Camera(camera_id1);
     const colmap::Camera& camera2 = reconstruction.Camera(camera_id2);
@@ -183,10 +181,9 @@ void ViewGraphManipulator::DecomposeRelPose(
   std::vector<image_pair_t> image_pair_ids;
   for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (!image_pair.is_valid) continue;
-    const camera_t camera_id1 =
-        reconstruction.Image(image_pair.image_id1).CameraId();
-    const camera_t camera_id2 =
-        reconstruction.Image(image_pair.image_id2).CameraId();
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const camera_t camera_id1 = reconstruction.Image(image_id1).CameraId();
+    const camera_t camera_id2 = reconstruction.Image(image_id2).CameraId();
     if (!reconstruction.Camera(camera_id1).has_prior_focal_length ||
         !reconstruction.Camera(camera_id2).has_prior_focal_length)
       continue;
@@ -199,9 +196,11 @@ void ViewGraphManipulator::DecomposeRelPose(
   colmap::ThreadPool thread_pool(colmap::ThreadPool::kMaxNumThreads);
   for (int64_t idx = 0; idx < num_image_pairs; idx++) {
     thread_pool.AddTask([&, idx]() {
-      ImagePair& image_pair = view_graph.image_pairs.at(image_pair_ids[idx]);
-      const Image& image1 = reconstruction.Image(image_pair.image_id1);
-      const Image& image2 = reconstruction.Image(image_pair.image_id2);
+      const image_pair_t pair_id = image_pair_ids[idx];
+      ImagePair& image_pair = view_graph.image_pairs.at(pair_id);
+      const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+      const Image& image1 = reconstruction.Image(image_id1);
+      const Image& image2 = reconstruction.Image(image_id2);
 
       const camera_t camera_id1 = image1.CameraId();
       const camera_t camera_id2 = image2.CameraId();

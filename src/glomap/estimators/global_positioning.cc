@@ -120,10 +120,9 @@ void GlobalPositioner::InitializeRandomPositions(
   constrained_positions.reserve(reconstruction.NumFrames());
   for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (!image_pair.is_valid) continue;
-    constrained_positions.insert(
-        reconstruction.Image(image_pair.image_id1).FrameId());
-    constrained_positions.insert(
-        reconstruction.Image(image_pair.image_id2).FrameId());
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    constrained_positions.insert(reconstruction.Image(image_id1).FrameId());
+    constrained_positions.insert(reconstruction.Image(image_id2).FrameId());
   }
 
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
@@ -168,13 +167,14 @@ void GlobalPositioner::AddCameraToCameraConstraints(
       continue;
     }
 
-    if (!reconstruction.ExistsImage(image_pair.image_id1) ||
-        !reconstruction.ExistsImage(image_pair.image_id2)) {
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    if (!reconstruction.ExistsImage(image_id1) ||
+        !reconstruction.ExistsImage(image_id2)) {
       continue;
     }
 
-    Image& image1 = reconstruction.Image(image_pair.image_id1);
-    Image& image2 = reconstruction.Image(image_pair.image_id2);
+    Image& image1 = reconstruction.Image(image_id1);
+    Image& image2 = reconstruction.Image(image_id2);
 
     CHECK_GE(scales_.capacity(), scales_.size())
         << "Not enough capacity was reserved for the scales.";

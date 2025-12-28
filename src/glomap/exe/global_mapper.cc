@@ -26,9 +26,11 @@ int RunGlobalMapper(int argc, char** argv) {
                            "{ONLY_POINTS, ONLY_CAMERAS, "
                            "POINTS_AND_CAMERAS_BALANCED, POINTS_AND_CAMERAS}");
   options.AddDefaultOption("output_format", &output_format, "{bin, txt}");
-  options.AddGlobalMapperFullOptions();
+  options.AddGlobalMapperOptions();
 
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   if (constraint_type == "ONLY_POINTS") {
     options.mapper->opt_gp.constraint_type =
