@@ -136,8 +136,6 @@ void InitializeGlomapFromDatabase(const colmap::Database& database,
       all_matches = database.ReadAllMatches();
 
   size_t invalid_count = 0;
-  std::unordered_map<image_pair_t, ImagePair>& image_pairs =
-      view_graph.image_pairs;
 
   for (size_t match_idx = 0; match_idx < all_matches.size(); match_idx++) {
     if ((match_idx + 1) % 1000 == 0 || match_idx == all_matches.size() - 1) {
@@ -149,16 +147,16 @@ void InitializeGlomapFromDatabase(const colmap::Database& database,
     colmap::image_pair_t pair_id = all_matches[match_idx].first;
     auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 
+    THROW_CHECK(!view_graph.HasImagePair(image_id1, image_id2))
+        << "Duplicate image pair in database: " << image_id1 << ", "
+        << image_id2;
+
     colmap::FeatureMatches& feature_matches = all_matches[match_idx].second;
-
-    // Initialize the image pair
-    auto [it, inserted] = image_pairs.insert(
-        std::make_pair(colmap::ImagePairToPairId(image_id1, image_id2),
-                       ImagePair(image_id1, image_id2)));
-    ImagePair& image_pair = it->second;
-
     colmap::TwoViewGeometry two_view =
         database.ReadTwoViewGeometry(image_id1, image_id2);
+
+    // Build the image pair
+    ImagePair image_pair;
 
     // If the image is marked as invalid or watermark, then skip
     if (two_view.config == colmap::TwoViewGeometry::UNDEFINED ||
@@ -167,6 +165,7 @@ void InitializeGlomapFromDatabase(const colmap::Database& database,
         two_view.config == colmap::TwoViewGeometry::MULTIPLE) {
       image_pair.is_valid = false;
       invalid_count++;
+      view_graph.AddImagePair(image_id1, image_id2, std::move(image_pair));
       continue;
     }
 
@@ -208,6 +207,8 @@ void InitializeGlomapFromDatabase(const colmap::Database& database,
       }
     }
     image_pair.matches.conservativeResize(count, 2);
+
+    view_graph.AddImagePair(image_id1, image_id2, std::move(image_pair));
   }
   std::cout << '\n';
   LOG(INFO) << "Pairs read done. " << invalid_count << " / "

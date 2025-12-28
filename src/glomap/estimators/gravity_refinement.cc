@@ -92,8 +92,7 @@ void GravityRefiner::RefineGravity(
     Eigen::Vector3d gravity = frame_to_pose_prior.at(frame_id)->gravity;
     for (const auto& pair_id : neighbors) {
       const auto& pair = view_graph.image_pairs.at(pair_id);
-      const image_t image_id1 = pair.image_id1;
-      const image_t image_id2 = pair.image_id2;
+      const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 
       Eigen::Vector3d* image_gravity1 =
           GetImageGravityOrNull(image_to_pose_prior, image_id1);
@@ -186,16 +185,17 @@ void GravityRefiner::IdentifyErrorProneGravity(
   for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (!image_pair.is_valid) continue;
 
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     Eigen::Vector3d* image_gravity1 =
-        GetImageGravityOrNull(image_to_pose_prior, image_pair.image_id1);
+        GetImageGravityOrNull(image_to_pose_prior, image_id1);
     Eigen::Vector3d* image_gravity2 =
-        GetImageGravityOrNull(image_to_pose_prior, image_pair.image_id2);
+        GetImageGravityOrNull(image_to_pose_prior, image_id2);
     if (image_gravity1 == nullptr || image_gravity2 == nullptr) {
       continue;
     }
 
-    const auto& image1 = reconstruction.Image(image_pair.image_id1);
-    const auto& image2 = reconstruction.Image(image_pair.image_id2);
+    const auto& image1 = reconstruction.Image(image_id1);
+    const auto& image2 = reconstruction.Image(image_id2);
     // Calculate the gravity aligned relative rotation
     const Eigen::Matrix3d R_rel =
         colmap::GravityAlignedRotation(*image_gravity2).transpose() *

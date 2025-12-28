@@ -47,7 +47,9 @@ class ViewGraphCalibrator {
                               const colmap::Reconstruction& reconstruction);
 
   // Add a single image pair to the problem
-  void AddImagePair(const ImagePair& image_pair,
+  void AddImagePair(image_t image_id1,
+                    image_t image_id2,
+                    const ImagePair& image_pair,
                     const colmap::Reconstruction& reconstruction);
 
   // Set the cameras to be constant if they have prior intrinsics

@@ -95,14 +95,13 @@ void ReadRelPose(const std::string& file_path,
       pose_rel.translation[i] = std::stod(item);
     }
 
-    if (view_graph.image_pairs.find(pair_id) == view_graph.image_pairs.end()) {
-      view_graph.image_pairs.insert(
-          std::make_pair(pair_id, ImagePair(index1, index2, pose_rel)));
+    if (!view_graph.HasImagePair(index1, index2)) {
+      view_graph.AddImagePair(index1, index2, ImagePair(pose_rel));
     } else {
-      view_graph.image_pairs[pair_id].cam2_from_cam1 = pose_rel;
-      view_graph.image_pairs[pair_id].is_valid = true;
-      view_graph.image_pairs[pair_id].config =
-          colmap::TwoViewGeometry::CALIBRATED;
+      auto [image_pair, swapped] = view_graph.Pair(index1, index2);
+      image_pair.cam2_from_cam1 = swapped ? Inverse(pose_rel) : pose_rel;
+      image_pair.is_valid = true;
+      image_pair.config = colmap::TwoViewGeometry::CALIBRATED;
     }
     counter++;
   }
@@ -234,18 +233,19 @@ void WriteRelPose(const std::string& file_path,
   std::map<std::string, image_pair_t> name_pair;
   for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (image_pair.is_valid) {
-      const auto& image1 = images.at(image_pair.image_id1);
-      const auto& image2 = images.at(image_pair.image_id2);
+      const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+      const auto& image1 = images.at(image_id1);
+      const auto& image2 = images.at(image_id2);
       name_pair[image1.Name() + " " + image2.Name()] = pair_id;
     }
   }
 
   // Write the image pairs
   for (const auto& [name, pair_id] : name_pair) {
-    const auto image_pair = view_graph.image_pairs.at(pair_id);
+    const auto& image_pair = view_graph.image_pairs.at(pair_id);
     if (!image_pair.is_valid) continue;
-    file << images.at(image_pair.image_id1).Name() << " "
-         << images.at(image_pair.image_id2).Name();
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    file << images.at(image_id1).Name() << " " << images.at(image_id2).Name();
     for (int i = 0; i < 4; i++) {
       file << " " << image_pair.cam2_from_cam1.rotation.coeffs()[(i + 3) % 4];
     }

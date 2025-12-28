@@ -99,15 +99,16 @@ image_t MaximumSpanningTree(const ViewGraph& view_graph,
       continue;
     }
 
-    const Image& image1 = images.at(image_pair.image_id1);
-    const Image& image2 = images.at(image_pair.image_id2);
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const Image& image1 = images.at(image_id1);
+    const Image& image2 = images.at(image_id2);
 
     if (!image1.HasPose() || !image2.HasPose()) {
       continue;
     }
 
-    int idx1 = image_id_to_idx[image_pair.image_id1];
-    int idx2 = image_id_to_idx[image_pair.image_id2];
+    int idx1 = image_id_to_idx[image_id1];
+    int idx2 = image_id_to_idx[image_id2];
 
     // Set the weight to be negative, then the result would be a maximum
     // spanning tree

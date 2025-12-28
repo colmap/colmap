@@ -8,43 +8,22 @@
 
 namespace glomap {
 
-// TODO: add covariance to the relative pose
-struct ImagePair {
-  ImagePair()
-      : image_id1(colmap::kInvalidImageId),
-        image_id2(colmap::kInvalidImageId),
-        pair_id(colmap::kInvalidImagePairId) {}
-  ImagePair(image_t image_id1,
-            image_t image_id2,
-            Rigid3d cam2_from_cam1 = Rigid3d())
-      : image_id1(image_id1),
-        image_id2(image_id2),
-        pair_id(colmap::ImagePairToPairId(image_id1, image_id2)),
-        cam2_from_cam1(std::move(cam2_from_cam1)) {}
+// ImagePair extends TwoViewGeometry with glomap-specific fields.
+// Inherited from TwoViewGeometry: config, E, F, H, cam2_from_cam1,
+//                                  inlier_matches, tri_angle
+// Note: image IDs are stored in ViewGraph's map key, not here.
+struct ImagePair : public colmap::TwoViewGeometry {
+  ImagePair() = default;
 
-  // Ids are kept constant
-  const image_t image_id1;
-  const image_t image_id2;
-  const image_pair_t pair_id;
+  explicit ImagePair(Rigid3d cam2_from_cam1) {
+    this->cam2_from_cam1 = std::move(cam2_from_cam1);
+  }
 
   // indicator whether the image pair is valid
   bool is_valid = true;
 
   // weight is the initial inlier rate
   double weight = -1;
-
-  // one of `ConfigurationType`.
-  int config = colmap::TwoViewGeometry::UNDEFINED;
-
-  // Essential matrix.
-  Eigen::Matrix3d E = Eigen::Matrix3d::Zero();
-  // Fundamental matrix.
-  Eigen::Matrix3d F = Eigen::Matrix3d::Zero();
-  // Homography matrix.
-  Eigen::Matrix3d H = Eigen::Matrix3d::Zero();
-
-  // Relative pose.
-  Rigid3d cam2_from_cam1 = Rigid3d();
 
   // Matches between the two images.
   // First column is the index of the feature in the first image.
@@ -53,6 +32,15 @@ struct ImagePair {
 
   // Row index of inliers in the matches matrix.
   std::vector<int> inliers;
+
+  // Invert the geometry to swap image order. Extends TwoViewGeometry::Invert()
+  // to also swap columns of matches matrix.
+  void Invert() {
+    TwoViewGeometry::Invert();
+    if (matches.rows() > 0) {
+      matches.col(0).swap(matches.col(1));
+    }
+  }
 };
 
 }  // namespace glomap

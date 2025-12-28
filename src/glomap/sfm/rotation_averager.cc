@@ -34,28 +34,24 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
         continue;
       }
 
-      if (!reconstruction.Image(image_pair.image_id1).HasPose() ||
-          !reconstruction.Image(image_pair.image_id2).HasPose()) {
+      const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+      if (!reconstruction.Image(image_id1).HasPose() ||
+          !reconstruction.Image(image_id2).HasPose()) {
         continue;
       }
 
       total_pairs++;
 
-      const auto pose_prior1_it =
-          image_to_pose_prior.find(image_pair.image_id1);
-      const auto pose_prior2_it =
-          image_to_pose_prior.find(image_pair.image_id2);
+      const auto pose_prior1_it = image_to_pose_prior.find(image_id1);
+      const auto pose_prior2_it = image_to_pose_prior.find(image_id2);
       const bool has_gravity1 = pose_prior1_it != image_to_pose_prior.end() &&
                                 pose_prior1_it->second->HasGravity();
       const bool has_gravity2 = pose_prior2_it != image_to_pose_prior.end() &&
                                 pose_prior2_it->second->HasGravity();
 
       if (has_gravity1 && has_gravity2) {
-        view_graph_grav.image_pairs.emplace(
-            pair_id,
-            ImagePair(image_pair.image_id1,
-                      image_pair.image_id2,
-                      image_pair.cam2_from_cam1));
+        view_graph_grav.image_pairs.emplace(pair_id,
+                                            ImagePair(image_pair.cam2_from_cam1));
       }
     }
   }

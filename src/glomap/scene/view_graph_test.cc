@@ -36,12 +36,10 @@
 namespace glomap {
 namespace {
 
-ImagePair SynthesizeImagePair(image_t id1,
-                              image_t id2,
-                              int num_inliers = 50,
+ImagePair SynthesizeImagePair(int num_inliers = 50,
                               int num_matches = 100,
                               bool is_valid = true) {
-  ImagePair pair(id1, id2);
+  ImagePair pair;
   // Match feature i in image 1 to feature i in image 2.
   pair.matches.resize(num_matches, 2);
   for (int i = 0; i < num_matches; ++i) {
@@ -67,18 +65,14 @@ colmap::Rigid3d AddRotationError(const colmap::Rigid3d& pose,
 TEST(ViewGraph, FilterByNumInliers) {
   ViewGraph view_graph;
 
-  ImagePair pair1 = SynthesizeImagePair(1, 2, 50);
-  ImagePair pair2 = SynthesizeImagePair(1, 3, 20);
-  ImagePair pair3 = SynthesizeImagePair(2, 3, 30);
-  ImagePair pair4 = SynthesizeImagePair(2, 4, 50, 100, false);
-  const image_pair_t pair_id1 = pair1.pair_id;
-  const image_pair_t pair_id2 = pair2.pair_id;
-  const image_pair_t pair_id3 = pair3.pair_id;
-  const image_pair_t pair_id4 = pair4.pair_id;
-  view_graph.image_pairs.emplace(pair_id1, std::move(pair1));
-  view_graph.image_pairs.emplace(pair_id2, std::move(pair2));
-  view_graph.image_pairs.emplace(pair_id3, std::move(pair3));
-  view_graph.image_pairs.emplace(pair_id4, std::move(pair4));
+  const image_pair_t pair_id1 = colmap::ImagePairToPairId(1, 2);
+  const image_pair_t pair_id2 = colmap::ImagePairToPairId(1, 3);
+  const image_pair_t pair_id3 = colmap::ImagePairToPairId(2, 3);
+  const image_pair_t pair_id4 = colmap::ImagePairToPairId(2, 4);
+  view_graph.AddImagePair(1, 2, SynthesizeImagePair(50));
+  view_graph.AddImagePair(1, 3, SynthesizeImagePair(20));
+  view_graph.AddImagePair(2, 3, SynthesizeImagePair(30));
+  view_graph.AddImagePair(2, 4, SynthesizeImagePair(50, 100, false));
 
   view_graph.FilterByNumInliers(30);
 
@@ -91,18 +85,14 @@ TEST(ViewGraph, FilterByNumInliers) {
 TEST(ViewGraph, FilterByInlierRatio) {
   ViewGraph view_graph;
 
-  ImagePair pair1 = SynthesizeImagePair(1, 2, 50);
-  ImagePair pair2 = SynthesizeImagePair(1, 3, 10);
-  ImagePair pair3 = SynthesizeImagePair(2, 3, 25);
-  ImagePair pair4 = SynthesizeImagePair(2, 4, 50, 100, false);
-  const image_pair_t pair_id1 = pair1.pair_id;
-  const image_pair_t pair_id2 = pair2.pair_id;
-  const image_pair_t pair_id3 = pair3.pair_id;
-  const image_pair_t pair_id4 = pair4.pair_id;
-  view_graph.image_pairs.emplace(pair_id1, std::move(pair1));
-  view_graph.image_pairs.emplace(pair_id2, std::move(pair2));
-  view_graph.image_pairs.emplace(pair_id3, std::move(pair3));
-  view_graph.image_pairs.emplace(pair_id4, std::move(pair4));
+  const image_pair_t pair_id1 = colmap::ImagePairToPairId(1, 2);
+  const image_pair_t pair_id2 = colmap::ImagePairToPairId(1, 3);
+  const image_pair_t pair_id3 = colmap::ImagePairToPairId(2, 3);
+  const image_pair_t pair_id4 = colmap::ImagePairToPairId(2, 4);
+  view_graph.AddImagePair(1, 2, SynthesizeImagePair(50));       // 50% ratio
+  view_graph.AddImagePair(1, 3, SynthesizeImagePair(10));       // 10% ratio
+  view_graph.AddImagePair(2, 3, SynthesizeImagePair(25));       // 25% ratio
+  view_graph.AddImagePair(2, 4, SynthesizeImagePair(50, 100, false));  // invalid
 
   view_graph.FilterByInlierRatio(0.25);
 
@@ -132,22 +122,23 @@ TEST(ViewGraph, FilterByRelativeRotation) {
   };
 
   ViewGraph view_graph;
-  ImagePair pair1 = SynthesizeImagePair(id1, id2);
+  ImagePair pair1 = SynthesizeImagePair();
   pair1.cam2_from_cam1 = AddRotationError(GetRelativePose(id1, id2), 3.0);
-  ImagePair pair2 = SynthesizeImagePair(id1, id3);
+  ImagePair pair2 = SynthesizeImagePair();
   pair2.cam2_from_cam1 = AddRotationError(GetRelativePose(id1, id3), 10.0);
-  ImagePair pair3 = SynthesizeImagePair(id1, id4);
+  ImagePair pair3 = SynthesizeImagePair();
   pair3.cam2_from_cam1 = AddRotationError(GetRelativePose(id1, id4), 90.0);
-  ImagePair pair4 = SynthesizeImagePair(id2, id3, 50, 100, false);
+  ImagePair pair4 = SynthesizeImagePair(50, 100, false);
   pair4.cam2_from_cam1 = GetRelativePose(id2, id3);
-  const image_pair_t pair_id1 = pair1.pair_id;
-  const image_pair_t pair_id2 = pair2.pair_id;
-  const image_pair_t pair_id3 = pair3.pair_id;
-  const image_pair_t pair_id4 = pair4.pair_id;
-  view_graph.image_pairs.emplace(pair_id1, std::move(pair1));
-  view_graph.image_pairs.emplace(pair_id2, std::move(pair2));
-  view_graph.image_pairs.emplace(pair_id3, std::move(pair3));
-  view_graph.image_pairs.emplace(pair_id4, std::move(pair4));
+
+  const image_pair_t pair_id1 = colmap::ImagePairToPairId(id1, id2);
+  const image_pair_t pair_id2 = colmap::ImagePairToPairId(id1, id3);
+  const image_pair_t pair_id3 = colmap::ImagePairToPairId(id1, id4);
+  const image_pair_t pair_id4 = colmap::ImagePairToPairId(id2, id3);
+  view_graph.AddImagePair(id1, id2, std::move(pair1));
+  view_graph.AddImagePair(id1, id3, std::move(pair2));
+  view_graph.AddImagePair(id1, id4, std::move(pair3));
+  view_graph.AddImagePair(id2, id3, std::move(pair4));
 
   reconstruction.DeRegisterFrame(reconstruction.Image(id4).FrameId());
 

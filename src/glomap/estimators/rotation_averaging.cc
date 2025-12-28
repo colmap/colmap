@@ -93,16 +93,11 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
     if (curr == root) continue;
 
     // Directly use the relative pose for estimation rotation.
-    const ImagePair& image_pair = view_graph.image_pairs.at(
-        colmap::ImagePairToPairId(curr, parents[curr]));
-    if (image_pair.image_id1 == curr) {
-      cams_from_world[curr].rotation =
-          (Inverse(image_pair.cam2_from_cam1) * cams_from_world[parents[curr]])
-              .rotation;
-    } else {
-      cams_from_world[curr].rotation =
-          (image_pair.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation;
-    }
+    // GetImagePair(parent, curr) returns curr_from_parent
+    const ImagePair image_pair =
+        view_graph.GetImagePair(parents[curr], curr);
+    cams_from_world[curr].rotation =
+        (image_pair.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation;
   }
 
   InitializeRigRotationsFromImages(cams_from_world, reconstruction);

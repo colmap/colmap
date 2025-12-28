@@ -63,22 +63,24 @@ void ViewGraphCalibrator::Reset(const colmap::Reconstruction& reconstruction) {
 
 void ViewGraphCalibrator::AddImagePairsToProblem(
     const ViewGraph& view_graph, const colmap::Reconstruction& reconstruction) {
-  for (auto& [image_pair_id, image_pair] : view_graph.image_pairs) {
+  for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
     if (image_pair.config != colmap::TwoViewGeometry::CALIBRATED &&
         image_pair.config != colmap::TwoViewGeometry::UNCALIBRATED)
       continue;
     if (!image_pair.is_valid) continue;
 
-    AddImagePair(image_pair, reconstruction);
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    AddImagePair(image_id1, image_id2, image_pair, reconstruction);
   }
 }
 
 void ViewGraphCalibrator::AddImagePair(
-    const ImagePair& image_pair, const colmap::Reconstruction& reconstruction) {
-  const camera_t camera_id1 =
-      reconstruction.Image(image_pair.image_id1).CameraId();
-  const camera_t camera_id2 =
-      reconstruction.Image(image_pair.image_id2).CameraId();
+    image_t image_id1,
+    image_t image_id2,
+    const ImagePair& image_pair,
+    const colmap::Reconstruction& reconstruction) {
+  const camera_t camera_id1 = reconstruction.Image(image_id1).CameraId();
+  const camera_t camera_id2 = reconstruction.Image(image_id2).CameraId();
 
   if (camera_id1 == camera_id2) {
     problem_->AddResidualBlock(
