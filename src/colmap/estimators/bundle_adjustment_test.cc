@@ -410,6 +410,72 @@ TEST(DefaultBundleAdjuster, ManyViewRigConstantRigFromWorld) {
   EXPECT_EQ(num_variable_points, 97);
 }
 
+TEST(DefaultBundleAdjuster, ConstantRigFromWorldRotation) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 3;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.AddImage(3);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+  options.constant_rig_from_world_rotation = true;
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDefaultBundleAdjuster(options, config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+
+  EXPECT_EQ(config.NumResiduals(reconstruction),
+            bundle_adjuster->Problem()->NumResiduals());
+
+  // 100 points, 3 images, 2 residuals per point per image
+  EXPECT_EQ(summary.num_residuals_reduced, 600);
+  // 100 x 3 point parameters
+  // + 2 translation parameters (second image, one coord fixed for gauge)
+  // + 3 translation parameters (third image)
+  // + 3 x 2 camera parameters
+  EXPECT_EQ(summary.num_effective_parameters_reduced, 311);
+
+  // Check rotations are constant for all images
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    const auto& image = reconstruction.Image(image_id);
+    const auto& orig_image = orig_reconstruction.Image(image_id);
+    // Rotation should be nearly unchanged (use angular distance)
+    EXPECT_LE(image.CamFromWorld().rotation.angularDistance(
+                  orig_image.CamFromWorld().rotation),
+              kConstantPoseVarEps);
+  }
+
+  // Check translations are variable (except for gauge-fixed parts)
+  // At least one image should have changed translation
+  bool has_variable_translation = false;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    const auto& image = reconstruction.Image(image_id);
+    const auto& orig_image = orig_reconstruction.Image(image_id);
+    if ((image.CamFromWorld().translation - orig_image.CamFromWorld().translation)
+            .norm() > kConstantPoseVarEps) {
+      has_variable_translation = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(has_variable_translation);
+
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    CheckVariablePoint(point3D, orig_reconstruction.Point3D(point3D_id));
+  }
+}
+
 TEST(DefaultBundleAdjuster, TwoViewConstantCamera) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
