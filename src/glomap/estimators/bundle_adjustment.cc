@@ -41,19 +41,15 @@ bool RunBundleAdjustment(const BundleAdjusterOptions& options,
   ba_options.constant_rig_from_world_rotation = constant_rotation;
   ba_options.print_summary = false;
 
-  // Add all images with valid poses and fix the first frame to define the
-  // gauge (consistent with original glomap).
+  // Add all images with valid poses.
   colmap::BundleAdjustmentConfig ba_config;
-  bool first_frame = true;
   for (const auto& [image_id, image] : reconstruction.Images()) {
     if (image.HasPose()) {
       ba_config.AddImage(image_id);
-      if (first_frame) {
-        ba_config.SetConstantRigFromWorldPose(image.FrameId());
-        first_frame = false;
-      }
     }
   }
+  // Use TWO_CAMS_FROM_WORLD for deterministic gauge fixing.
+  ba_config.FixGauge(colmap::BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   // Filter short tracks
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
