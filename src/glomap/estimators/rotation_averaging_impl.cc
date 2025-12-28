@@ -219,9 +219,7 @@ void RotationAveragingProblem::BuildPairConstraints(
     const ViewGraph& view_graph, const colmap::Reconstruction& reconstruction) {
   int gravity_aligned_count = 0;
 
-  for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
-    if (!image_pair.is_valid) continue;
-
+  for (const auto& [pair_id, image_pair] : view_graph.ValidPairs()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const auto& image1 = reconstruction.Image(image_id1);
     const auto& image2 = reconstruction.Image(image_id2);
@@ -337,8 +335,7 @@ void RotationAveragingProblem::BuildConstraintMatrix(
 
   size_t curr_row = 0;
 
-  for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
-    if (!image_pair.is_valid) continue;
+  for (const auto& [pair_id, image_pair] : view_graph.ValidPairs()) {
     if (pair_constraints_.find(pair_id) == pair_constraints_.end()) continue;
 
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);

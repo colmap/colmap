@@ -50,7 +50,6 @@ void PruneWeaklyConnectedImages(colmap::Reconstruction& reconstruction,
         continue;
 
       ImagePair image_pair;
-      image_pair.is_valid = true;
       image_pair.weight = count;
       visibility_graph_frame.AddImagePair(
           image_id1, image_id2, std::move(image_pair));

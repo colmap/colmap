@@ -1,6 +1,7 @@
 #pragma once
 
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/types.h"
 
 #include "glomap/scene/image_pair.h"
 #include "glomap/scene/types.h"
@@ -28,6 +29,21 @@ struct ViewGraph {
   void UpdateImagePair(image_t image_id1,
                        image_t image_id2,
                        ImagePair image_pair);
+
+  // Validity operations.
+  bool IsValid(image_pair_t pair_id) const;
+  void SetToValid(image_pair_t pair_id);
+  void SetToInvalid(image_pair_t pair_id);
+
+  // Returns a filter view over valid image pairs only.
+  auto ValidPairs() const {
+    return colmap::filter_view(
+        [this](const std::pair<const image_pair_t, ImagePair>& kv) {
+          return IsValid(kv.first);
+        },
+        image_pairs.begin(),
+        image_pairs.end());
+  }
 
   // Create the adjacency list for the images in the view graph.
   std::unordered_map<image_t, std::unordered_set<image_t>>
@@ -63,6 +79,10 @@ struct ViewGraph {
   // min_inlier_ratio.
   // Keeps existing invalid edges as invalid.
   void FilterByInlierRatio(double min_inlier_ratio = 0.25);
+
+ private:
+  // Set of invalid pair IDs. Pairs not in this set are considered valid.
+  std::unordered_set<image_pair_t> invalid_pairs_;
 };
 
 }  // namespace glomap

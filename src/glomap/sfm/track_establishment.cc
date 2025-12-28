@@ -30,7 +30,7 @@ void TrackEngine::BlindConcatenation() {
     }
     counter++;
 
-    if (!image_pair.is_valid) continue;
+    if (!view_graph_.IsValid(pair_id)) continue;
 
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 
@@ -81,7 +81,7 @@ void TrackEngine::TrackCollection(
     }
     counter++;
 
-    if (!image_pair.is_valid) continue;
+    if (!view_graph_.IsValid(pair_id)) continue;
 
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 

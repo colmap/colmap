@@ -63,11 +63,10 @@ void ViewGraphCalibrator::Reset(const colmap::Reconstruction& reconstruction) {
 
 void ViewGraphCalibrator::AddImagePairsToProblem(
     const ViewGraph& view_graph, const colmap::Reconstruction& reconstruction) {
-  for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
+  for (const auto& [pair_id, image_pair] : view_graph.ValidPairs()) {
     if (image_pair.config != colmap::TwoViewGeometry::CALIBRATED &&
         image_pair.config != colmap::TwoViewGeometry::UNCALIBRATED)
       continue;
-    if (!image_pair.is_valid) continue;
 
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     AddImagePair(image_id1, image_id2, image_pair, reconstruction);
@@ -159,18 +158,18 @@ size_t ViewGraphCalibrator::FilterImagePairs(ViewGraph& view_graph) const {
   const double thres_two_view_error_sq =
       options_.thres_two_view_error * options_.thres_two_view_error;
 
-  for (auto& [image_pair_id, image_pair] : view_graph.image_pairs) {
+  for (const auto& [image_pair_id, image_pair] : view_graph.image_pairs) {
     if (image_pair.config != colmap::TwoViewGeometry::CALIBRATED &&
         image_pair.config != colmap::TwoViewGeometry::UNCALIBRATED)
       continue;
-    if (!image_pair.is_valid) continue;
+    if (!view_graph.IsValid(image_pair_id)) continue;
 
     const Eigen::Vector2d error(residuals[counter], residuals[counter + 1]);
 
     // Set the two view geometry to be invalid if the error is too high
     if (error.squaredNorm() > thres_two_view_error_sq) {
       invalid_counter++;
-      image_pair.is_valid = false;
+      view_graph.SetToInvalid(image_pair_id);
     }
 
     counter += 2;

@@ -53,10 +53,7 @@ image_t ComputeMaximumSpanningTree(
   edges.reserve(view_graph.image_pairs.size());
   weights.reserve(view_graph.image_pairs.size());
 
-  for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
-    if (!image_pair.is_valid) {
-      continue;
-    }
+  for (const auto& [pair_id, image_pair] : view_graph.ValidPairs()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const auto it1 = image_id_to_idx.find(image_id1);
     const auto it2 = image_id_to_idx.find(image_id2);
@@ -119,8 +116,7 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
   // Separate pairs into gravity-aligned subset.
   ViewGraph gravity_view_graph;
   size_t num_total_pairs = 0;
-  for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
-    if (!image_pair.is_valid) continue;
+  for (const auto& [pair_id, image_pair] : view_graph.ValidPairs()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     if (!reconstruction.ExistsImage(image_id1) ||
         !reconstruction.ExistsImage(image_id2)) {

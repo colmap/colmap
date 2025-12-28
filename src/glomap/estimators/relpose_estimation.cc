@@ -21,8 +21,7 @@ void EstimateRelativePoses(ViewGraph& view_graph,
                            colmap::Reconstruction& reconstruction,
                            const RelativePoseEstimationOptions& options) {
   std::vector<image_pair_t> valid_pair_ids;
-  for (auto& [image_pair_id, image_pair] : view_graph.image_pairs) {
-    if (!image_pair.is_valid) continue;
+  for (const auto& [image_pair_id, image_pair] : view_graph.ValidPairs()) {
     valid_pair_ids.push_back(image_pair_id);
   }
 
@@ -123,7 +122,7 @@ void EstimateRelativePoses(ViewGraph& view_graph,
                                           &inliers);
         } catch (const std::exception& e) {
           LOG(ERROR) << "Error in relative pose estimation: " << e.what();
-          image_pair.is_valid = false;
+          view_graph.SetToInvalid(pair_id);
           return;
         }
 

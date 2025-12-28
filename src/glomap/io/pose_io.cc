@@ -33,9 +33,9 @@ void ReadRelPose(const std::string& file_path,
     max_camera_id = std::max(max_camera_id, image.CameraId());
   }
 
-  // Mark every edge in te view graph as invalid
-  for (auto& [pair_id, image_pair] : view_graph.image_pairs) {
-    image_pair.is_valid = false;
+  // Mark every edge in the view graph as invalid
+  for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
+    view_graph.SetToInvalid(pair_id);
   }
 
   std::ifstream file(file_path);
@@ -100,8 +100,8 @@ void ReadRelPose(const std::string& file_path,
     } else {
       auto [image_pair, swapped] = view_graph.Pair(index1, index2);
       image_pair.cam2_from_cam1 = swapped ? Inverse(pose_rel) : pose_rel;
-      image_pair.is_valid = true;
       image_pair.config = colmap::TwoViewGeometry::CALIBRATED;
+      view_graph.SetToValid(colmap::ImagePairToPairId(index1, index2));
     }
     counter++;
   }
@@ -231,19 +231,16 @@ void WriteRelPose(const std::string& file_path,
 
   // Sort the image pairs by image name
   std::map<std::string, image_pair_t> name_pair;
-  for (const auto& [pair_id, image_pair] : view_graph.image_pairs) {
-    if (image_pair.is_valid) {
-      const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-      const auto& image1 = images.at(image_id1);
-      const auto& image2 = images.at(image_id2);
-      name_pair[image1.Name() + " " + image2.Name()] = pair_id;
-    }
+  for (const auto& [pair_id, image_pair] : view_graph.ValidPairs()) {
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const auto& image1 = images.at(image_id1);
+    const auto& image2 = images.at(image_id2);
+    name_pair[image1.Name() + " " + image2.Name()] = pair_id;
   }
 
   // Write the image pairs
   for (const auto& [name, pair_id] : name_pair) {
     const auto& image_pair = view_graph.image_pairs.at(pair_id);
-    if (!image_pair.is_valid) continue;
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     file << images.at(image_id1).Name() << " " << images.at(image_id2).Name();
     for (int i = 0; i < 4; i++) {
