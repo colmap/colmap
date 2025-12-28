@@ -64,8 +64,8 @@ void RotationAveragingController::Run() {
 
   // Step 0: Preprocessing
   LOG(INFO) << "----- Running preprocessing -----";
-  glomap::ViewGraphManipulator::UpdateImagePairsConfig(
-      view_graph, *reconstruction_);
+  glomap::ViewGraphManipulator::UpdateImagePairsConfig(view_graph,
+                                                       *reconstruction_);
   glomap::ViewGraphManipulator::DecomposeRelPose(view_graph, *reconstruction_);
 
   // Step 1: View graph calibration
@@ -94,8 +94,10 @@ void RotationAveragingController::Run() {
 
   // Step 3: Rotation averaging
   LOG(INFO) << "----- Running rotation averaging -----";
-  if (!glomap::SolveRotationAveraging(
-          view_graph, *reconstruction_, pose_priors, options_.rotation_estimation)) {
+  if (!glomap::SolveRotationAveraging(view_graph,
+                                      *reconstruction_,
+                                      pose_priors,
+                                      options_.rotation_estimation)) {
     LOG(ERROR) << "Failed to solve rotation averaging";
     return;
   }

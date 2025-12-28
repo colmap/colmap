@@ -102,8 +102,7 @@ TEST(RotationAveragingController, WithNoiseAndOutliers) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(
-      synthetic_noise_options, &gt_reconstruction, database.get());
+  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
   auto reconstruction = std::make_shared<Reconstruction>();
 

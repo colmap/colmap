@@ -57,10 +57,9 @@ struct RotationAveragingControllerOptions {
 
 class RotationAveragingController : public BaseController {
  public:
-  RotationAveragingController(
-      const RotationAveragingControllerOptions& options,
-      std::shared_ptr<Database> database,
-      std::shared_ptr<Reconstruction> reconstruction);
+  RotationAveragingController(const RotationAveragingControllerOptions& options,
+                              std::shared_ptr<Database> database,
+                              std::shared_ptr<Reconstruction> reconstruction);
 
   void Run() override;
 
