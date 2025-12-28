@@ -52,7 +52,8 @@ void PruneWeaklyConnectedImages(colmap::Reconstruction& reconstruction,
       ImagePair image_pair;
       image_pair.is_valid = true;
       image_pair.weight = count;
-      visibility_graph_frame.AddImagePair(image_id1, image_id2, std::move(image_pair));
+      visibility_graph_frame.AddImagePair(
+          image_id1, image_id2, std::move(image_pair));
 
       pair_count.push_back(count);
     }
@@ -94,7 +95,8 @@ void PruneWeaklyConnectedImages(colmap::Reconstruction& reconstruction,
       // Never break the inner edge
       ImagePair image_pair;
       image_pair.weight = max_weight;
-      visibility_graph.AddImagePair(begin_image_id, image_id, std::move(image_pair));
+      visibility_graph.AddImagePair(
+          begin_image_id, image_id, std::move(image_pair));
     }
   }
 

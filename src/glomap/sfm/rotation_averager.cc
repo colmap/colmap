@@ -50,8 +50,8 @@ bool SolveRotationAveraging(ViewGraph& view_graph,
                                 pose_prior2_it->second->HasGravity();
 
       if (has_gravity1 && has_gravity2) {
-        view_graph_grav.image_pairs.emplace(pair_id,
-                                            ImagePair(image_pair.cam2_from_cam1));
+        view_graph_grav.image_pairs.emplace(
+            pair_id, ImagePair(image_pair.cam2_from_cam1));
       }
     }
   }

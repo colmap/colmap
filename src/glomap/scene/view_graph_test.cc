@@ -89,10 +89,11 @@ TEST(ViewGraph, FilterByInlierRatio) {
   const image_pair_t pair_id2 = colmap::ImagePairToPairId(1, 3);
   const image_pair_t pair_id3 = colmap::ImagePairToPairId(2, 3);
   const image_pair_t pair_id4 = colmap::ImagePairToPairId(2, 4);
-  view_graph.AddImagePair(1, 2, SynthesizeImagePair(50));       // 50% ratio
-  view_graph.AddImagePair(1, 3, SynthesizeImagePair(10));       // 10% ratio
-  view_graph.AddImagePair(2, 3, SynthesizeImagePair(25));       // 25% ratio
-  view_graph.AddImagePair(2, 4, SynthesizeImagePair(50, 100, false));  // invalid
+  view_graph.AddImagePair(1, 2, SynthesizeImagePair(50));  // 50% ratio
+  view_graph.AddImagePair(1, 3, SynthesizeImagePair(10));  // 10% ratio
+  view_graph.AddImagePair(2, 3, SynthesizeImagePair(25));  // 25% ratio
+  view_graph.AddImagePair(
+      2, 4, SynthesizeImagePair(50, 100, false));  // invalid
 
   view_graph.FilterByInlierRatio(0.25);
 

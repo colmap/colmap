@@ -94,8 +94,7 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
 
     // Directly use the relative pose for estimation rotation.
     // GetImagePair(parent, curr) returns curr_from_parent
-    const ImagePair image_pair =
-        view_graph.GetImagePair(parents[curr], curr);
+    const ImagePair image_pair = view_graph.GetImagePair(parents[curr], curr);
     cams_from_world[curr].rotation =
         (image_pair.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation;
   }

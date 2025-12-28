@@ -45,12 +45,12 @@ void TrackEngine::BlindConcatenation() {
       const uint32_t& point1_idx = matches(idx, 0);
       const uint32_t& point2_idx = matches(idx, 1);
 
-      image_pair_t point_global_id1 =
-          static_cast<image_pair_t>(image_id1) << 32 |
-          static_cast<image_pair_t>(point1_idx);
-      image_pair_t point_global_id2 =
-          static_cast<image_pair_t>(image_id2) << 32 |
-          static_cast<image_pair_t>(point2_idx);
+      image_pair_t point_global_id1 = static_cast<image_pair_t>(image_id1)
+                                          << 32 |
+                                      static_cast<image_pair_t>(point1_idx);
+      image_pair_t point_global_id2 = static_cast<image_pair_t>(image_id2)
+                                          << 32 |
+                                      static_cast<image_pair_t>(point2_idx);
 
       // Link the first point to the second point. Take the smallest one as the
       // root
@@ -96,12 +96,12 @@ void TrackEngine::TrackCollection(
       const uint32_t& point1_idx = matches(idx, 0);
       const uint32_t& point2_idx = matches(idx, 1);
 
-      image_pair_t point_global_id1 =
-          static_cast<image_pair_t>(image_id1) << 32 |
-          static_cast<image_pair_t>(point1_idx);
-      image_pair_t point_global_id2 =
-          static_cast<image_pair_t>(image_id2) << 32 |
-          static_cast<image_pair_t>(point2_idx);
+      image_pair_t point_global_id1 = static_cast<image_pair_t>(image_id1)
+                                          << 32 |
+                                      static_cast<image_pair_t>(point1_idx);
+      image_pair_t point_global_id2 = static_cast<image_pair_t>(image_id2)
+                                          << 32 |
+                                      static_cast<image_pair_t>(point2_idx);
 
       image_pair_t track_id = uf_.Find(point_global_id1);
 

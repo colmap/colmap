@@ -233,9 +233,9 @@ ImagePair& ViewGraph::AddImagePair(image_t image_id1,
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
   auto [it, inserted] = image_pairs.emplace(pair_id, std::move(image_pair));
   if (!inserted) {
-    throw std::runtime_error("Image pair already exists: " +
-                             std::to_string(image_id1) + ", " +
-                             std::to_string(image_id2));
+    throw std::runtime_error(
+        "Image pair already exists: " + std::to_string(image_id1) + ", " +
+        std::to_string(image_id2));
   }
   return it->second;
 }
@@ -283,9 +283,9 @@ void ViewGraph::UpdateImagePair(image_t image_id1,
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
   auto it = image_pairs.find(pair_id);
   if (it == image_pairs.end()) {
-    throw std::runtime_error("Image pair does not exist: " +
-                             std::to_string(image_id1) + ", " +
-                             std::to_string(image_id2));
+    throw std::runtime_error(
+        "Image pair does not exist: " + std::to_string(image_id1) + ", " +
+        std::to_string(image_id2));
   }
   it->second = std::move(image_pair);
 }

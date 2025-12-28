@@ -25,7 +25,9 @@ struct ViewGraph {
                                          image_t image_id2) const;
   ImagePair GetImagePair(image_t image_id1, image_t image_id2) const;
   bool DeleteImagePair(image_t image_id1, image_t image_id2);
-  void UpdateImagePair(image_t image_id1, image_t image_id2, ImagePair image_pair);
+  void UpdateImagePair(image_t image_id1,
+                       image_t image_id2,
+                       ImagePair image_pair);
 
   // Create the adjacency list for the images in the view graph.
   std::unordered_map<image_t, std::unordered_set<image_t>>

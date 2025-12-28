@@ -87,9 +87,8 @@ image_t ViewGraphManipulater::EstablishStrongClusters(
     status = status || (criteria == WEIGHT && image_pair.weight > min_thres);
     if (status) {
       const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-      uf.Union(
-          image_pair_t(reconstruction.Image(image_id1).FrameId()),
-          image_pair_t(reconstruction.Image(image_id2).FrameId()));
+      uf.Union(image_pair_t(reconstruction.Image(image_id1).FrameId()),
+               image_pair_t(reconstruction.Image(image_id2).FrameId()));
     }
   }
 
