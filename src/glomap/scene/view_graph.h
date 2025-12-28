@@ -17,40 +17,31 @@ class ViewGraph {
   ~ViewGraph() = default;
 
   // Image pair accessors.
-  std::unordered_map<image_pair_t, ImagePair>& ImagePairs() {
-    return image_pairs_;
-  }
-  const std::unordered_map<image_pair_t, ImagePair>& ImagePairs() const {
-    return image_pairs_;
-  }
-  size_t NumImagePairs() const { return image_pairs_.size(); }
-  size_t NumValidImagePairs() const {
-    return image_pairs_.size() - invalid_pairs_.size();
-  }
-  bool Empty() const { return image_pairs_.empty(); }
-  void Clear() {
-    image_pairs_.clear();
-    invalid_pairs_.clear();
-  }
+  inline std::unordered_map<image_pair_t, ImagePair>& ImagePairs();
+  inline const std::unordered_map<image_pair_t, ImagePair>& ImagePairs() const;
+  inline size_t NumImagePairs() const;
+  inline size_t NumValidImagePairs() const;
+  inline bool Empty() const;
+  inline void Clear();
 
   // Image pair operations.
-  ImagePair& AddImagePair(image_t image_id1,
-                          image_t image_id2,
-                          ImagePair image_pair);
-  bool HasImagePair(image_t image_id1, image_t image_id2) const;
-  std::pair<ImagePair&, bool> Pair(image_t image_id1, image_t image_id2);
-  std::pair<const ImagePair&, bool> Pair(image_t image_id1,
-                                         image_t image_id2) const;
-  ImagePair GetImagePair(image_t image_id1, image_t image_id2) const;
-  bool DeleteImagePair(image_t image_id1, image_t image_id2);
-  void UpdateImagePair(image_t image_id1,
-                       image_t image_id2,
-                       ImagePair image_pair);
+  inline ImagePair& AddImagePair(image_t image_id1,
+                                 image_t image_id2,
+                                 ImagePair image_pair);
+  inline bool HasImagePair(image_t image_id1, image_t image_id2) const;
+  inline std::pair<ImagePair&, bool> Pair(image_t image_id1, image_t image_id2);
+  inline std::pair<const ImagePair&, bool> Pair(image_t image_id1,
+                                                image_t image_id2) const;
+  inline ImagePair GetImagePair(image_t image_id1, image_t image_id2) const;
+  inline bool DeleteImagePair(image_t image_id1, image_t image_id2);
+  inline void UpdateImagePair(image_t image_id1,
+                              image_t image_id2,
+                              ImagePair image_pair);
 
   // Validity operations.
-  bool IsValid(image_pair_t pair_id) const;
-  void SetToValid(image_pair_t pair_id);
-  void SetToInvalid(image_pair_t pair_id);
+  inline bool IsValid(image_pair_t pair_id) const;
+  inline void SetToValid(image_pair_t pair_id);
+  inline void SetToInvalid(image_pair_t pair_id);
 
   // Returns a filter view over valid image pairs only.
   auto ValidImagePairs() const {
@@ -104,5 +95,109 @@ class ViewGraph {
   // Set of invalid pair IDs. Pairs not in this set are considered valid.
   std::unordered_set<image_pair_t> invalid_pairs_;
 };
+
+////////////////////////////////////////////////////////////////////////////////
+// Implementation
+////////////////////////////////////////////////////////////////////////////////
+
+std::unordered_map<image_pair_t, ImagePair>& ViewGraph::ImagePairs() {
+  return image_pairs_;
+}
+
+const std::unordered_map<image_pair_t, ImagePair>& ViewGraph::ImagePairs()
+    const {
+  return image_pairs_;
+}
+
+size_t ViewGraph::NumImagePairs() const { return image_pairs_.size(); }
+
+size_t ViewGraph::NumValidImagePairs() const {
+  return image_pairs_.size() - invalid_pairs_.size();
+}
+
+bool ViewGraph::Empty() const { return image_pairs_.empty(); }
+
+void ViewGraph::Clear() {
+  image_pairs_.clear();
+  invalid_pairs_.clear();
+}
+
+ImagePair& ViewGraph::AddImagePair(image_t image_id1,
+                                   image_t image_id2,
+                                   ImagePair image_pair) {
+  if (colmap::SwapImagePair(image_id1, image_id2)) {
+    image_pair.Invert();
+  }
+  const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
+  auto [it, inserted] = image_pairs_.emplace(pair_id, std::move(image_pair));
+  if (!inserted) {
+    throw std::runtime_error(
+        "Image pair already exists: " + std::to_string(image_id1) + ", " +
+        std::to_string(image_id2));
+  }
+  return it->second;
+}
+
+bool ViewGraph::HasImagePair(image_t image_id1, image_t image_id2) const {
+  const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
+  return image_pairs_.find(pair_id) != image_pairs_.end();
+}
+
+std::pair<ImagePair&, bool> ViewGraph::Pair(image_t image_id1,
+                                            image_t image_id2) {
+  const bool swapped = colmap::SwapImagePair(image_id1, image_id2);
+  const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
+  return {image_pairs_.at(pair_id), swapped};
+}
+
+std::pair<const ImagePair&, bool> ViewGraph::Pair(image_t image_id1,
+                                                  image_t image_id2) const {
+  const bool swapped = colmap::SwapImagePair(image_id1, image_id2);
+  const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
+  return {image_pairs_.at(pair_id), swapped};
+}
+
+bool ViewGraph::DeleteImagePair(image_t image_id1, image_t image_id2) {
+  const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
+  return image_pairs_.erase(pair_id) > 0;
+}
+
+ImagePair ViewGraph::GetImagePair(image_t image_id1, image_t image_id2) const {
+  const bool swapped = colmap::SwapImagePair(image_id1, image_id2);
+  const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
+  ImagePair result = image_pairs_.at(pair_id);
+  if (swapped) {
+    result.Invert();
+  }
+  return result;
+}
+
+void ViewGraph::UpdateImagePair(image_t image_id1,
+                                image_t image_id2,
+                                ImagePair image_pair) {
+  if (colmap::SwapImagePair(image_id1, image_id2)) {
+    image_pair.Invert();
+  }
+  const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
+  auto it = image_pairs_.find(pair_id);
+  if (it == image_pairs_.end()) {
+    throw std::runtime_error(
+        "Image pair does not exist: " + std::to_string(image_id1) + ", " +
+        std::to_string(image_id2));
+  }
+  it->second = std::move(image_pair);
+}
+
+bool ViewGraph::IsValid(image_pair_t pair_id) const {
+  return invalid_pairs_.find(pair_id) == invalid_pairs_.end();
+}
+
+void ViewGraph::SetToValid(image_pair_t pair_id) {
+  invalid_pairs_.erase(pair_id);
+}
+
+void ViewGraph::SetToInvalid(image_pair_t pair_id) {
+  invalid_pairs_.insert(pair_id);
+}
 
 }  // namespace glomap
