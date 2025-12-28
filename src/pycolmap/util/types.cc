@@ -37,5 +37,8 @@ void BindUtilTypes(py::module& m) {
         "image_id1"_a,
         "image_id2"_a);
   m.def("pair_id_to_image_pair", &PairIdToImagePair, "pair_id"_a);
-  m.def("swap_image_pair", &SwapImagePair, "image_id1"_a, "image_id2"_a);
+  m.def("should_swap_image_pair",
+        &ShouldSwapImagePair,
+        "image_id1"_a,
+        "image_id2"_a);
 }

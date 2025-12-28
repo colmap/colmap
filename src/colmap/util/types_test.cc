@@ -37,11 +37,11 @@
 namespace colmap {
 namespace {
 
-TEST(SwapImagePair, Nominal) {
-  EXPECT_FALSE(SwapImagePair(0, 0));
-  EXPECT_FALSE(SwapImagePair(0, 1));
-  EXPECT_TRUE(SwapImagePair(1, 0));
-  EXPECT_FALSE(SwapImagePair(1, 1));
+TEST(ShouldSwapImagePair, Nominal) {
+  EXPECT_FALSE(ShouldSwapImagePair(0, 0));
+  EXPECT_FALSE(ShouldSwapImagePair(0, 1));
+  EXPECT_TRUE(ShouldSwapImagePair(1, 0));
+  EXPECT_FALSE(ShouldSwapImagePair(1, 1));
 }
 
 TEST(ImagePairToPairId, Nominal) {
