@@ -33,7 +33,6 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_glomap_sfm
     SRCS
         global_mapper.h global_mapper.cc
-        rotation_averager.h rotation_averager.cc
         track_establishment.h track_establishment.cc
         track_retriangulation.h track_retriangulation.cc
     PUBLIC_LINK_LIBS
@@ -57,8 +56,9 @@ COLMAP_ADD_TEST(
     SRCS global_mapper_test.cc
     LINK_LIBS colmap_glomap_sfm
 )
+# This test uses GlobalMapper for preprocessing, so it needs to stay in sfm for now.
 COLMAP_ADD_TEST(
-    NAME glomap_rotation_averager_test
-    SRCS rotation_averager_test.cc
+    NAME glomap_rotation_averaging_test
+    SRCS rotation_averaging_test.cc
     LINK_LIBS colmap_glomap_sfm
 )

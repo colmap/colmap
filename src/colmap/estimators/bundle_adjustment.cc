@@ -54,6 +54,9 @@ std::unique_ptr<ceres::LossFunction> CreateLossFunction(
     case BundleAdjustmentOptions::LossFunctionType::CAUCHY:
       return std::make_unique<ceres::CauchyLoss>(loss_function_scale);
       break;
+    case BundleAdjustmentOptions::LossFunctionType::HUBER:
+      return std::make_unique<ceres::HuberLoss>(loss_function_scale);
+      break;
   }
   return nullptr;
 }
@@ -362,13 +365,17 @@ ceres::Solver::Options BundleAdjustmentOptions::CreateSolverOptions(
   }
 #endif  // COLMAP_CUDA_ENABLED
 
-  if (num_images <= max_num_images_direct_dense_solver) {
-    custom_solver_options.linear_solver_type = ceres::DENSE_SCHUR;
-  } else if (has_sparse && num_images <= max_num_images_direct_sparse_solver) {
-    custom_solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
-  } else {  // Indirect sparse (preconditioned CG) solver.
-    custom_solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
-    custom_solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
+  // Auto-select solver type based on problem size, unless disabled.
+  if (auto_select_solver_type) {
+    if (num_images <= max_num_images_direct_dense_solver) {
+      custom_solver_options.linear_solver_type = ceres::DENSE_SCHUR;
+    } else if (has_sparse &&
+               num_images <= max_num_images_direct_sparse_solver) {
+      custom_solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
+    } else {  // Indirect sparse (preconditioned CG) solver.
+      custom_solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
+      custom_solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
+    }
   }
 
   if (problem.NumResiduals() < min_num_residuals_for_cpu_multi_threading) {
@@ -659,6 +666,9 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
           problem.SetParameterBlockConstant(
               rig_from_world.rotation.coeffs().data());
           problem.SetParameterBlockConstant(rig_from_world.translation.data());
+        } else if (options.constant_rig_from_world_rotation) {
+          problem.SetParameterBlockConstant(
+              rig_from_world.rotation.coeffs().data());
         }
       }
     }
@@ -713,6 +723,9 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     ceres::Problem::Options problem_options;
     problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
     problem_ = std::make_shared<ceres::Problem>(problem_options);
+
+    // Verify that reconstruction is internally consistent.
+    THROW_CHECK(reconstruction.IsValid());
 
     // Set up problem
     // Warning: AddPointsToProblem assumes that AddImageToProblem is called

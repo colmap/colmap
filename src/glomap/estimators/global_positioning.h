@@ -88,9 +88,9 @@ class GlobalPositioner {
   // Add tracks to the problem
   void AddPointToCameraConstraints(colmap::Reconstruction& reconstruction);
 
-  // Add a single track to the problem
-  void AddTrackToProblem(point3D_t track_id,
-                         colmap::Reconstruction& reconstruction);
+  // Add a single point3D to the problem
+  void AddPoint3DToProblem(point3D_t point3D_id,
+                           colmap::Reconstruction& reconstruction);
 
   // Set the parameter groups
   void AddCamerasAndPointsToParameterGroups(

@@ -106,4 +106,13 @@ bool InitializeRigRotationsFromImages(
     const std::unordered_map<image_t, Rigid3d>& cams_from_world,
     colmap::Reconstruction& reconstruction);
 
+// High-level rotation averaging solver that handles rig expansion.
+// For cameras with unknown cam_from_rig, first estimates their orientations
+// independently using an expanded reconstruction, then initializes the
+// cam_from_rig and runs rotation averaging on the original reconstruction.
+bool SolveRotationAveraging(const RotationEstimatorOptions& options,
+                            ViewGraph& view_graph,
+                            colmap::Reconstruction& reconstruction,
+                            std::vector<colmap::PosePrior>& pose_priors);
+
 }  // namespace glomap

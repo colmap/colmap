@@ -5,10 +5,10 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/timer.h"
 
+#include "glomap/estimators/rotation_averaging.h"
 #include "glomap/processors/image_pair_inliers.h"
 #include "glomap/processors/reconstruction_pruning.h"
 #include "glomap/processors/view_graph_manipulation.h"
-#include "glomap/sfm/rotation_averager.h"
 
 namespace glomap {
 
@@ -82,7 +82,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
     // The first run is for filtering
     SolveRotationAveraging(
-        view_graph, reconstruction, pose_priors, options.opt_ra);
+        options.opt_ra, view_graph, reconstruction, pose_priors);
 
     view_graph.FilterByRelativeRotation(
         reconstruction, options.inlier_thresholds.max_rotation_error);
@@ -93,7 +93,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
     // The second run is for final estimation
     if (!SolveRotationAveraging(
-            view_graph, reconstruction, pose_priors, options.opt_ra)) {
+            options.opt_ra, view_graph, reconstruction, pose_priors)) {
       return false;
     }
     view_graph.FilterByRelativeRotation(
@@ -115,25 +115,25 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     colmap::Timer run_timer;
     run_timer.Start();
 
-    // TrackEngine reads images, writes unfiltered tracks to a temporary map,
+    // TrackEngine reads images, writes unfiltered points3D to a temporary map,
     // then filters into the main reconstruction
-    std::unordered_map<point3D_t, Point3D> unfiltered_tracks;
+    std::unordered_map<point3D_t, Point3D> unfiltered_points3D;
     TrackEngine track_engine(
         view_graph, reconstruction.Images(), options.opt_track);
-    track_engine.EstablishFullTracks(unfiltered_tracks);
+    track_engine.EstablishFullTracks(unfiltered_points3D);
 
-    // Filter the tracks into a selected subset
-    std::unordered_map<point3D_t, Point3D> selected_tracks;
-    point3D_t num_tracks =
-        track_engine.FindTracksForProblem(unfiltered_tracks, selected_tracks);
+    // Filter the points3D into a selected subset
+    std::unordered_map<point3D_t, Point3D> selected_points3D;
+    point3D_t num_points3D = track_engine.FindTracksForProblem(
+        unfiltered_points3D, selected_points3D);
 
-    // Add selected tracks to reconstruction
-    for (auto& [track_id, track] : selected_tracks) {
-      reconstruction.AddPoint3D(track_id, std::move(track));
+    // Add selected points3D to reconstruction
+    THROW_CHECK_EQ(reconstruction.NumPoints3D(), 0);
+    for (auto& [point3D_id, point3D] : selected_points3D) {
+      reconstruction.AddPoint3D(point3D_id, std::move(point3D));
     }
-    LOG(INFO) << "Before filtering: " << unfiltered_tracks.size()
-              << ", after filtering: " << num_tracks;
-
+    LOG(INFO) << "Before filtering: " << unfiltered_points3D.size()
+              << ", after filtering: " << num_points3D;
     run_timer.PrintSeconds();
   }
 
@@ -216,14 +216,9 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     run_timer.Start();
 
     for (int ite = 0; ite < options.num_iterations_ba; ite++) {
-      BundleAdjuster ba_engine(options.opt_ba);
-
-      BundleAdjusterOptions& ba_engine_options_inner = ba_engine.GetOptions();
-
-      // Staged bundle adjustment
-      // 6.1. First stage: optimize positions only
-      ba_engine_options_inner.optimize_rotations = false;
-      if (!ba_engine.Solve(reconstruction)) {
+      // 6.1. First stage: optimize positions only (rotation constant)
+      if (!RunBundleAdjustment(
+              options.opt_ba, /*constant_rotation=*/true, reconstruction)) {
         return false;
       }
       LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
@@ -232,10 +227,9 @@ bool GlobalMapper::Solve(const colmap::Database* database,
       run_timer.PrintSeconds();
 
       // 6.2. Second stage: optimize rotations if desired
-      ba_engine_options_inner.optimize_rotations =
-          options.opt_ba.optimize_rotations;
-      if (ba_engine_options_inner.optimize_rotations &&
-          !ba_engine.Solve(reconstruction)) {
+      if (options.opt_ba.optimize_rotations &&
+          !RunBundleAdjustment(
+              options.opt_ba, /*constant_rotation=*/false, reconstruction)) {
         return false;
       }
       LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
@@ -299,8 +293,8 @@ bool GlobalMapper::Solve(const colmap::Database* database,
       run_timer.PrintSeconds();
 
       LOG(INFO) << "Running bundle adjustment...";
-      BundleAdjuster ba_engine(options.opt_ba);
-      if (!ba_engine.Solve(reconstruction)) {
+      if (!RunBundleAdjustment(
+              options.opt_ba, /*constant_rotation=*/false, reconstruction)) {
         return false;
       }
 
@@ -311,7 +305,10 @@ bool GlobalMapper::Solve(const colmap::Database* database,
               options.inlier_thresholds.max_reprojection_error,
               reconstruction.Point3DIds(),
               colmap::ReprojectionErrorType::NORMALIZED);
-      if (!ba_engine.Solve(reconstruction)) {
+
+      // Run BA again after filtering outliers
+      if (!RunBundleAdjustment(
+              options.opt_ba, /*constant_rotation=*/false, reconstruction)) {
         return false;
       }
       run_timer.PrintSeconds();

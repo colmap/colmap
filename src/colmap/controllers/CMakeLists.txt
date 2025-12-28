@@ -44,6 +44,7 @@ COLMAP_ADD_LIBRARY(
         image_reader.h image_reader.cc
         incremental_pipeline.h incremental_pipeline.cc
         option_manager.h option_manager.cc
+        rotation_averaging.h rotation_averaging.cc
     PUBLIC_LINK_LIBS
         colmap_estimators
         colmap_feature
@@ -117,5 +118,10 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME option_manager_test
     SRCS option_manager_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME rotation_averaging_test
+    SRCS rotation_averaging_test.cc
     LINK_LIBS colmap_controllers
 )
