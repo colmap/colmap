@@ -25,8 +25,8 @@ void TrackEngine::BlindConcatenation() {
   for (const auto& [pair_id, image_pair] : view_graph_.ImagePairs()) {
     if ((counter + 1) % 1000 == 0 ||
         counter == view_graph_.NumImagePairs() - 1) {
-      std::cout << "\r Initializing pairs " << counter + 1 << " / "
-                << view_graph_.NumImagePairs() << std::flush;
+      VLOG(1) << "Initializing pairs " << counter + 1 << " / "
+              << view_graph_.NumImagePairs();
     }
     counter++;
 
@@ -76,8 +76,8 @@ void TrackEngine::TrackCollection(
   for (const auto& [pair_id, image_pair] : view_graph_.ImagePairs()) {
     if ((counter + 1) % 1000 == 0 ||
         counter == view_graph_.NumImagePairs() - 1) {
-      std::cout << "\r Establishing pairs " << counter + 1 << " / "
-                << view_graph_.NumImagePairs() << std::flush;
+      VLOG(1) << "Establishing pairs " << counter + 1 << " / "
+                << view_graph_.NumImagePairs();
     }
     counter++;
 
