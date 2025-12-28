@@ -77,7 +77,7 @@ void TrackEngine::TrackCollection(
     if ((counter + 1) % 1000 == 0 ||
         counter == view_graph_.NumImagePairs() - 1) {
       VLOG(1) << "Establishing pairs " << counter + 1 << " / "
-                << view_graph_.NumImagePairs();
+              << view_graph_.NumImagePairs();
     }
     counter++;
 
