@@ -137,8 +137,8 @@ TEST(FindLargestConnectedComponent, ManySmallOnelarger) {
 
 TEST(FindLargestConnectedComponent, StringType) {
   std::unordered_set<std::string> nodes = {"a", "b", "c", "x", "y"};
-  std::vector<std::pair<std::string, std::string>> edges = {
-      {"a", "b"}, {"b", "c"}};
+  std::vector<std::pair<std::string, std::string>> edges = {{"a", "b"},
+                                                            {"b", "c"}};
   auto largest = FindLargestConnectedComponent(nodes, edges);
   ASSERT_EQ(largest.size(), 3);
   EXPECT_TRUE(largest.count("a"));
