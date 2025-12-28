@@ -2,6 +2,7 @@
 
 #include "colmap/estimators/manifold.h"
 #include "colmap/geometry/pose.h"
+#include "colmap/util/logging.h"
 
 #include "glomap/estimators/cost_functions.h"
 
@@ -71,15 +72,8 @@ void GravityRefiner::RefineGravity(
 
   loss_function_ = options_.CreateLossFunction();
 
-  int counter_progress = 0;
   // Iterate through the error prone images
   for (const frame_t frame_id : error_prone_frames) {
-    if ((counter_progress + 1) % 10 == 0 ||
-        counter_progress == error_prone_frames.size() - 1) {
-      std::cout << "\r Refining frame " << counter_progress + 1 << " / "
-                << error_prone_frames.size() << std::flush;
-    }
-    counter_progress++;
     const std::unordered_set<image_pair_t>& neighbors =
         adjacency_list_frames_to_pair_id.at(frame_id);
     std::vector<Eigen::Vector3d> gravities;

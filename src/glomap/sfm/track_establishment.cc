@@ -1,5 +1,7 @@
 #include "glomap/sfm/track_establishment.h"
 
+#include "colmap/util/logging.h"
+
 namespace glomap {
 
 size_t TrackEngine::EstablishFullTracks(
@@ -60,7 +62,7 @@ void TrackEngine::BlindConcatenation() {
         uf_.Union(point_global_id2, point_global_id1);
     }
   }
-  std::cout << '\n';
+  LOG(INFO) << "Initialized " << view_graph_.image_pairs.size() << " pairs";
 }
 
 void TrackEngine::TrackCollection(
@@ -110,17 +112,10 @@ void TrackEngine::TrackCollection(
       track_counter[track_id]++;
     }
   }
-  std::cout << '\n';
+  LOG(INFO) << "Established " << view_graph_.image_pairs.size() << " pairs";
 
-  counter = 0;
   size_t discarded_counter = 0;
   for (const auto& [track_id, correspondence_set] : track_map) {
-    if ((counter + 1) % 1000 == 0 || counter == track_map.size() - 1) {
-      std::cout << "\r Establishing tracks " << counter + 1 << " / "
-                << track_map.size() << std::flush;
-    }
-    counter++;
-
     std::unordered_map<image_t, std::vector<Eigen::Vector2d>> image_id_set;
     for (const uint64_t point_global_id : correspondence_set) {
       // image_id is the higher 32 bits and feature_id is the lower 32 bits
@@ -149,9 +144,8 @@ void TrackEngine::TrackCollection(
     }
   }
 
-  std::cout << '\n';
-  LOG(INFO) << "Discarded " << discarded_counter
-            << " tracks due to inconsistency";
+  LOG(INFO) << "Established " << track_map.size() << " tracks, discarded "
+            << discarded_counter << " due to inconsistency";
 }
 
 size_t TrackEngine::FindTracksForProblem(

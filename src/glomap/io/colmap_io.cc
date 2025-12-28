@@ -2,6 +2,7 @@
 
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/util/file.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
 namespace {
@@ -138,11 +139,6 @@ void InitializeGlomapFromDatabase(const colmap::Database& database,
   size_t invalid_count = 0;
 
   for (size_t match_idx = 0; match_idx < all_matches.size(); match_idx++) {
-    if ((match_idx + 1) % 1000 == 0 || match_idx == all_matches.size() - 1) {
-      std::cout << "\r Loading Image Pair " << match_idx + 1 << " / "
-                << all_matches.size() << std::flush;
-    }
-
     // Read the image pair from COLMAP database
     colmap::image_pair_t pair_id = all_matches[match_idx].first;
     auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
@@ -210,9 +206,8 @@ void InitializeGlomapFromDatabase(const colmap::Database& database,
 
     view_graph.AddImagePair(image_id1, image_id2, std::move(image_pair));
   }
-  std::cout << '\n';
-  LOG(INFO) << "Pairs read done. " << invalid_count << " / "
-            << view_graph.image_pairs.size() << " are invalid";
+  LOG(INFO) << "Loaded " << all_matches.size() << " image pairs, "
+            << invalid_count << " invalid";
 }
 
 colmap::Reconstruction SubReconstructionByClusterId(
@@ -274,9 +269,6 @@ void WriteReconstructionsByClusters(
   } else {
     // Export each cluster separately
     for (int comp = 0; comp <= max_cluster_id; comp++) {
-      std::cout << "\r Exporting reconstruction " << comp + 1 << " / "
-                << max_cluster_id + 1 << std::flush;
-
       colmap::Reconstruction cluster_recon =
           SubReconstructionByClusterId(reconstruction, cluster_ids, comp);
       WriteReconstruction(cluster_recon,
@@ -284,7 +276,7 @@ void WriteReconstructionsByClusters(
                           output_format,
                           image_path);
     }
-    std::cout << '\n';
+    LOG(INFO) << "Exported " << max_cluster_id + 1 << " reconstructions";
   }
 }
 
