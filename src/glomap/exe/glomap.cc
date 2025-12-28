@@ -69,16 +69,16 @@ int RunGlobalMapper(int argc, char** argv) {
   }
 
   if (constraint_type == "ONLY_POINTS") {
-    options.mapper->opt_gp.constraint_type =
+    options.mapper->global_positioning.constraint_type =
         GlobalPositionerOptions::ONLY_POINTS;
   } else if (constraint_type == "ONLY_CAMERAS") {
-    options.mapper->opt_gp.constraint_type =
+    options.mapper->global_positioning.constraint_type =
         GlobalPositionerOptions::ONLY_CAMERAS;
   } else if (constraint_type == "POINTS_AND_CAMERAS_BALANCED") {
-    options.mapper->opt_gp.constraint_type =
+    options.mapper->global_positioning.constraint_type =
         GlobalPositionerOptions::POINTS_AND_CAMERAS_BALANCED;
   } else if (constraint_type == "POINTS_AND_CAMERAS") {
-    options.mapper->opt_gp.constraint_type =
+    options.mapper->global_positioning.constraint_type =
         GlobalPositionerOptions::POINTS_AND_CAMERAS;
   } else {
     LOG(ERROR) << "Invalid constriant type";
