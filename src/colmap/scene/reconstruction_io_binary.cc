@@ -80,6 +80,7 @@ void ReadRigsBinary(Reconstruction& reconstruction, std::istream& stream) {
               ReadBinaryLittleEndian<double>(&stream);
           sensor_from_rig->rotation.z() =
               ReadBinaryLittleEndian<double>(&stream);
+          sensor_from_rig->rotation.normalize();
           sensor_from_rig->translation.x() =
               ReadBinaryLittleEndian<double>(&stream);
           sensor_from_rig->translation.y() =
@@ -142,6 +143,7 @@ void ReadFramesBinary(Reconstruction& reconstruction, std::istream& stream) {
     rig_from_world.rotation.x() = ReadBinaryLittleEndian<double>(&stream);
     rig_from_world.rotation.y() = ReadBinaryLittleEndian<double>(&stream);
     rig_from_world.rotation.z() = ReadBinaryLittleEndian<double>(&stream);
+    rig_from_world.rotation.normalize();
     rig_from_world.translation.x() = ReadBinaryLittleEndian<double>(&stream);
     rig_from_world.translation.y() = ReadBinaryLittleEndian<double>(&stream);
     rig_from_world.translation.z() = ReadBinaryLittleEndian<double>(&stream);
@@ -194,6 +196,7 @@ void ReadImagesBinary(Reconstruction& reconstruction, std::istream& stream) {
     cam_from_world.rotation.x() = ReadBinaryLittleEndian<double>(&stream);
     cam_from_world.rotation.y() = ReadBinaryLittleEndian<double>(&stream);
     cam_from_world.rotation.z() = ReadBinaryLittleEndian<double>(&stream);
+    cam_from_world.rotation.normalize();
     cam_from_world.translation.x() = ReadBinaryLittleEndian<double>(&stream);
     cam_from_world.translation.y() = ReadBinaryLittleEndian<double>(&stream);
     cam_from_world.translation.z() = ReadBinaryLittleEndian<double>(&stream);
