@@ -94,10 +94,10 @@ void RotationAveragingController::Run() {
 
   // Step 3: Rotation averaging
   LOG(INFO) << "----- Running rotation averaging -----";
-  if (!glomap::SolveRotationAveraging(view_graph,
+  if (!glomap::SolveRotationAveraging(options_.rotation_estimation,
+                                      view_graph,
                                       *reconstruction_,
-                                      pose_priors,
-                                      options_.rotation_estimation)) {
+                                      pose_priors)) {
     LOG(ERROR) << "Failed to solve rotation averaging";
     return;
   }
