@@ -136,7 +136,7 @@ int RunRotationAverager(int argc, char** argv) {
 
   // Write out the estimated rotation
   WriteGlobalRotation(output_path, reconstruction.Images());
-  LOG(INFO) << "Global rotation averaging done" << '\n';
+  LOG(INFO) << "Global rotation averaging done";
 
   return EXIT_SUCCESS;
 }
