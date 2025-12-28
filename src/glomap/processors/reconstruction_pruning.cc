@@ -155,7 +155,7 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
 
 }  // namespace
 
-std::unordered_map<frame_t, int> PruneWeaklyConnectedImages(
+std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
     colmap::Reconstruction& reconstruction) {
   // Step 1: Compute covisibility counts between all frame pairs.
   // For each 3D point, increment the count for every pair of frames that sees

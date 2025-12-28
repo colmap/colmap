@@ -22,7 +22,7 @@ namespace glomap {
 //
 // Returns:
 //   Map from frame_id to cluster_id.
-std::unordered_map<frame_t, int> PruneWeaklyConnectedImages(
+std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
     colmap::Reconstruction& reconstruction);
 
 }  // namespace glomap
