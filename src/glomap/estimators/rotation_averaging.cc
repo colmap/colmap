@@ -50,7 +50,7 @@ image_t ComputeMaximumSpanningTree(
 
   // Build edges and weights from view graph.
   std::vector<std::pair<int, int>> edges;
-  std::vector<double> weights;
+  std::vector<float> weights;
   edges.reserve(view_graph.image_pairs.size());
   weights.reserve(view_graph.image_pairs.size());
 
@@ -64,7 +64,7 @@ image_t ComputeMaximumSpanningTree(
       continue;
     }
     edges.emplace_back(it1->second, it2->second);
-    weights.push_back(static_cast<double>(image_pair.inliers.size()));
+    weights.push_back(static_cast<float>(image_pair.inliers.size()));
   }
 
   // Compute spanning tree using generic algorithm.

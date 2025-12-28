@@ -35,10 +35,10 @@ namespace colmap {
 namespace {
 
 // Helper to compute total weight of edges in the spanning tree.
-double ComputeTreeWeight(const SpanningTree& tree,
-                         const std::vector<std::pair<int, int>>& edges,
-                         const std::vector<double>& weights) {
-  double total = 0;
+float ComputeTreeWeight(const SpanningTree& tree,
+                        const std::vector<std::pair<int, int>>& edges,
+                        const std::vector<float>& weights) {
+  float total = 0;
   for (size_t i = 0; i < edges.size(); ++i) {
     int u = edges[i].first;
     int v = edges[i].second;
@@ -54,20 +54,20 @@ TEST(SpanningTree, Nominal) {
   // Triangle: edges with weights 1, 2, 3.
   // Max spanning tree uses edges 2+3=5, min uses 1+2=3.
   const std::vector<std::pair<int, int>> edges = {{0, 1}, {1, 2}, {0, 2}};
-  const std::vector<double> weights = {1.0, 2.0, 3.0};
+  const std::vector<float> weights = {1.0f, 2.0f, 3.0f};
 
   const SpanningTree max_tree = ComputeMaximumSpanningTree(3, edges, weights);
   const SpanningTree min_tree = ComputeMinimumSpanningTree(3, edges, weights);
 
-  EXPECT_EQ(ComputeTreeWeight(max_tree, edges, weights), 5.0);
-  EXPECT_EQ(ComputeTreeWeight(min_tree, edges, weights), 3.0);
+  EXPECT_EQ(ComputeTreeWeight(max_tree, edges, weights), 5.0f);
+  EXPECT_EQ(ComputeTreeWeight(min_tree, edges, weights), 3.0f);
 }
 
 TEST(SpanningTree, DisconnectedGraph) {
   // Two components: {0,1} and {2,3}. Only component containing root is
   // included.
   const std::vector<std::pair<int, int>> edges = {{0, 1}, {2, 3}};
-  const std::vector<double> weights = {1.0, 2.0};
+  const std::vector<float> weights = {1.0f, 2.0f};
 
   // Root at 0: includes {0,1}, excludes {2,3}.
   const SpanningTree tree0 = ComputeMaximumSpanningTree(4, edges, weights, 0);

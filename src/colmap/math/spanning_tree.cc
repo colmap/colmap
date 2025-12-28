@@ -42,7 +42,7 @@ using BoostGraph =
                           boost::vecS,
                           boost::undirectedS,
                           boost::no_property,
-                          boost::property<boost::edge_weight_t, double>>;
+                          boost::property<boost::edge_weight_t, float>>;
 using EdgeDescriptor = boost::graph_traits<BoostGraph>::edge_descriptor;
 
 // Build parent pointers from adjacency list using BFS from root.
@@ -54,7 +54,7 @@ void BuildParentsFromAdjacencyList(
   parents.assign(num_nodes, -1);
   parents[root] = root;
 
-  std::vector<bool> visited(num_nodes, false);
+  std::vector<char> visited(num_nodes, false);
   visited[root] = true;
 
   std::queue<int> queue;
@@ -77,7 +77,7 @@ void BuildParentsFromAdjacencyList(
 SpanningTree ComputeSpanningTreeInternal(
     int num_nodes,
     const std::vector<std::pair<int, int>>& edges,
-    const std::vector<double>& weights,
+    const std::vector<float>& weights,
     int root,
     bool maximize) {
   SpanningTree tree;
@@ -86,9 +86,9 @@ SpanningTree ComputeSpanningTreeInternal(
   }
 
   // For maximum spanning tree, we negate weights and find minimum.
-  double max_weight = 0;
+  float max_weight = 0;
   if (maximize) {
-    for (const double w : weights) {
+    for (const float w : weights) {
       max_weight = std::max(max_weight, w);
     }
   }
@@ -99,7 +99,7 @@ SpanningTree ComputeSpanningTreeInternal(
 
   for (size_t i = 0; i < edges.size(); ++i) {
     const auto& edge = edges[i];
-    const double weight = maximize ? (max_weight - weights[i]) : weights[i];
+    const float weight = maximize ? (max_weight - weights[i]) : weights[i];
     auto [e, inserted] = boost::add_edge(edge.first, edge.second, graph);
     if (inserted) {
       weight_map[e] = weight;
@@ -131,7 +131,7 @@ SpanningTree ComputeSpanningTreeInternal(
 SpanningTree ComputeMaximumSpanningTree(
     int num_nodes,
     const std::vector<std::pair<int, int>>& edges,
-    const std::vector<double>& weights,
+    const std::vector<float>& weights,
     int root) {
   return ComputeSpanningTreeInternal(num_nodes, edges, weights, root, true);
 }
@@ -139,7 +139,7 @@ SpanningTree ComputeMaximumSpanningTree(
 SpanningTree ComputeMinimumSpanningTree(
     int num_nodes,
     const std::vector<std::pair<int, int>>& edges,
-    const std::vector<double>& weights,
+    const std::vector<float>& weights,
     int root) {
   return ComputeSpanningTreeInternal(num_nodes, edges, weights, root, false);
 }

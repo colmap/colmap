@@ -65,7 +65,7 @@ struct SpanningTree {
 SpanningTree ComputeMaximumSpanningTree(
     int num_nodes,
     const std::vector<std::pair<int, int>>& edges,
-    const std::vector<double>& weights,
+    const std::vector<float>& weights,
     int root = 0);
 
 // Compute the minimum spanning tree of an undirected weighted graph.
@@ -74,7 +74,7 @@ SpanningTree ComputeMaximumSpanningTree(
 SpanningTree ComputeMinimumSpanningTree(
     int num_nodes,
     const std::vector<std::pair<int, int>>& edges,
-    const std::vector<double>& weights,
+    const std::vector<float>& weights,
     int root = 0);
 
 }  // namespace colmap
