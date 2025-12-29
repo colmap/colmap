@@ -27,13 +27,13 @@ struct GlobalMapperOptions {
   std::string image_path;
 
   // Options for each component
-  ViewGraphCalibratorOptions opt_vgcalib;
-  RelativePoseEstimationOptions opt_relpose;
-  RotationEstimatorOptions opt_ra;
-  TrackEstablishmentOptions opt_track;
-  GlobalPositionerOptions opt_gp;
-  BundleAdjusterOptions opt_ba;
-  TriangulatorOptions opt_triangulator;
+  ViewGraphCalibratorOptions view_graph_calibration;
+  RelativePoseEstimationOptions relative_pose_estimation;
+  RotationEstimatorOptions rotation_averaging;
+  TrackEstablishmentOptions track_establishment;
+  GlobalPositionerOptions global_positioning;
+  BundleAdjusterOptions bundle_adjustment;
+  TriangulatorOptions retriangulation;
 
   // Inlier thresholds for each component
   InlierThresholdOptions inlier_thresholds;

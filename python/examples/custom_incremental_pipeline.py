@@ -5,6 +5,7 @@ Python reimplementation of the C++ incremental mapper with equivalent logic.
 import argparse
 import time
 from pathlib import Path
+from typing import Optional
 
 import custom_bundle_adjustment
 import enlighten
@@ -13,7 +14,9 @@ import pycolmap
 from pycolmap import logging
 
 
-def write_snapshot(reconstruction, snapshot_path):
+def write_snapshot(
+    reconstruction: pycolmap.Reconstruction, snapshot_path: Path
+) -> None:
     logging.info("Creating snapshot")
     timestamp = time.time() * 1000
     path = snapshot_path / f"{timestamp:010d}"
@@ -22,7 +25,11 @@ def write_snapshot(reconstruction, snapshot_path):
     reconstruction.write(path)
 
 
-def iterative_global_refinement(options, mapper_options, mapper):
+def iterative_global_refinement(
+    options: pycolmap.IncrementalPipelineOptions,
+    mapper_options: pycolmap.IncrementalMapperOptions,
+    mapper: pycolmap.IncrementalMapper,
+) -> None:
     logging.info("Retriangulation and Global bundle adjustment")
     # The following is equivalent to mapper.iterative_global_refinement(...)
     custom_bundle_adjustment.iterative_global_refinement(
@@ -37,8 +44,11 @@ def iterative_global_refinement(options, mapper_options, mapper):
 
 
 def initialize_reconstruction(
-    controller, mapper, mapper_options, reconstruction
-):
+    controller: pycolmap.IncrementalPipeline,
+    mapper: pycolmap.IncrementalMapper,
+    mapper_options: pycolmap.IncrementalMapperOptions,
+    reconstruction: pycolmap.Reconstruction,
+) -> pycolmap.IncrementalMapperStatus:
     """Equivalent to IncrementalPipeline.initialize_reconstruction(...)"""
     options = controller.options
     init_pair = (options.init_image_id1, options.init_image_id2)
@@ -95,7 +105,12 @@ def initialize_reconstruction(
     return pycolmap.IncrementalMapperStatus.SUCCESS
 
 
-def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
+def reconstruct_sub_model(
+    controller: pycolmap.IncrementalPipeline,
+    mapper: pycolmap.IncrementalMapper,
+    mapper_options: pycolmap.IncrementalMapperOptions,
+    reconstruction: pycolmap.Reconstruction,
+) -> pycolmap.IncrementalMapperStatus:
     """Equivalent to IncrementalPipeline.reconstruct_sub_model(...)"""
     # register initial pair
     mapper.begin_reconstruction(reconstruction)
@@ -238,7 +253,12 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
     return pycolmap.IncrementalMapperStatus.SUCCESS
 
 
-def reconstruct(controller, mapper, mapper_options, continue_reconstruction):
+def reconstruct(
+    controller: pycolmap.IncrementalPipeline,
+    mapper: pycolmap.IncrementalMapper,
+    mapper_options: pycolmap.IncrementalMapperOptions,
+    continue_reconstruction: bool,
+) -> None:
     """Equivalent to IncrementalPipeline.reconstruct(...)"""
     options = controller.options
 
@@ -307,7 +327,7 @@ def reconstruct(controller, mapper, mapper_options, continue_reconstruction):
             logging.fatal(f"Unknown reconstruction status: {status}")
 
 
-def main_incremental_mapper(controller):
+def main_incremental_mapper(controller: pycolmap.IncrementalPipeline) -> None:
     """Equivalent to IncrementalPipeline.run()"""
     timer = pycolmap.Timer()
     timer.start()
@@ -354,12 +374,12 @@ def main_incremental_mapper(controller):
 
 
 def main(
-    database_path,
-    image_path,
-    output_path,
-    options=None,
-    input_path=None,
-):
+    database_path: Path,
+    image_path: Path,
+    output_path: Path,
+    options: Optional[pycolmap.IncrementalPipelineOptions] = None,
+    input_path: Optional[Path] = None,
+) -> dict[int, pycolmap.Reconstruction]:
     if options is None:
         options = pycolmap.IncrementalPipelineOptions()
     options.image_path = str(image_path)
@@ -400,7 +420,7 @@ def main(
     return reconstructions
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--database_path", required=True)
     parser.add_argument("--image_path", required=True)

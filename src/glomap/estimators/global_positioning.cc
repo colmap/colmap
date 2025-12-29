@@ -27,9 +27,6 @@ GlobalPositioner::GlobalPositioner(const GlobalPositionerOptions& options)
 
 bool GlobalPositioner::Solve(const ViewGraph& view_graph,
                              colmap::Reconstruction& reconstruction) {
-  if (reconstruction.NumRigs() > 1) {
-    LOG(ERROR) << "Number of camera rigs = " << reconstruction.NumRigs();
-  }
   if (reconstruction.NumImages() == 0) {
     LOG(ERROR) << "Number of images = " << reconstruction.NumImages();
     return false;
