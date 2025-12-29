@@ -71,7 +71,8 @@ class Database {
   // Factory function to create a database implementation for a given path.
   // The factory should be robust to handle non-supported files and return a
   // runtime_error in that case.
-  using Factory = std::function<std::shared_ptr<Database>(const std::string&)>;
+  using Factory =
+      std::function<std::shared_ptr<Database>(const std::filesystem::path&)>;
 
   // Register a factory to open a database implementation. Database factories
   // are tried in reverse order of registration. In other words, later
