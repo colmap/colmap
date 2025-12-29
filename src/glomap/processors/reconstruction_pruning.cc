@@ -120,6 +120,8 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
 
 }  // namespace
 
+// TODO: Maybe decompose the steps into individual sub-functions. Then it also
+// becomes easier to find a good name.
 std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
     colmap::Reconstruction& reconstruction) {
   // Step 1: Compute covisibility counts between all frame pairs.
@@ -135,6 +137,9 @@ std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
       const frame_t frame_id1 = reconstruction.Image(image_id1).FrameId();
 
       nodes.insert(frame_id1);
+      // TODO: This may over-count frame pairs when multiple images from the
+      // same frame appear in a track (e.g., rig cameras). Figure out if
+      // intended.
       for (size_t j = i + 1; j < point3D.track.Length(); j++) {
         const image_t image_id2 = point3D.track.Element(j).image_id;
         const frame_t frame_id2 = reconstruction.Image(image_id2).FrameId();
