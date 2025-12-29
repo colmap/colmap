@@ -316,14 +316,13 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 }
 
 bool GlobalMapper::RetriangulateAndRefine(
-    const colmap::Database& database,
-    colmap::Reconstruction& reconstruction) {
+    const colmap::Database& database, colmap::Reconstruction& reconstruction) {
   // Create database cache for retriangulation.
-  auto database_cache = colmap::DatabaseCache::Create(
-      database,
-      options_.retriangulation_min_num_matches,
-      /*ignore_watermarks=*/false,
-      /*camera_rig_config=*/{});
+  auto database_cache =
+      colmap::DatabaseCache::Create(database,
+                                    options_.retriangulation_min_num_matches,
+                                    /*ignore_watermarks=*/false,
+                                    /*camera_rig_config=*/{});
 
   // Wrap reconstruction in shared_ptr for IncrementalMapper.
   auto reconstruction_ptr =
@@ -331,8 +330,7 @@ bool GlobalMapper::RetriangulateAndRefine(
 
   // Delete all existing 3D points and re-establish 2D-3D correspondences.
   reconstruction.DeleteAllPoints2DAndPoints3D();
-  reconstruction.TranscribeImageIdsToDatabase(database,
-                                              /*update_cameras=*/false);
+  reconstruction.TranscribeImageIdsToDatabase(database);
 
   // Initialize mapper.
   colmap::IncrementalMapper mapper(database_cache);
@@ -352,7 +350,7 @@ bool GlobalMapper::RetriangulateAndRefine(
   // Iterative global refinement.
   colmap::IncrementalMapper::Options mapper_options;
   mapper.IterativeGlobalRefinement(/*max_num_refinements=*/5,
-                                   /*max_refinement_change=*/0.001,
+                                   /*max_refinement_change=*/0.0005,
                                    mapper_options,
                                    ba_options,
                                    options_.retriangulation,

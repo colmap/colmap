@@ -114,8 +114,9 @@ void OptionManager::AddGlobalMapperOptions() {
       &mapper->bundle_adjustment.solver_options.max_num_iterations);
 
   // Retriangulation options
-  AddAndRegisterDefaultOption("Retriangulation.complete_max_reproj_error",
-                              &mapper->retriangulation.complete_max_reproj_error);
+  AddAndRegisterDefaultOption(
+      "Retriangulation.complete_max_reproj_error",
+      &mapper->retriangulation.complete_max_reproj_error);
   AddAndRegisterDefaultOption("Retriangulation.merge_max_reproj_error",
                               &mapper->retriangulation.merge_max_reproj_error);
   AddAndRegisterDefaultOption("Retriangulation.min_angle",
