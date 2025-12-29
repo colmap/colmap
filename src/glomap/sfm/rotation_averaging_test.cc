@@ -6,7 +6,6 @@
 #include "colmap/util/testing.h"
 
 #include "glomap/estimators/gravity_refinement.h"
-#include "glomap/io/colmap_io.h"
 #include "glomap/sfm/global_mapper.h"
 
 #include <gtest/gtest.h>

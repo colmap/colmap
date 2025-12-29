@@ -82,8 +82,9 @@ void RotationAveragingController::Run() {
 
   // Step 3: Rotation averaging
   LOG(INFO) << "----- Running rotation averaging -----";
-  if (!mapper.RotationAveraging(options_.rotation_estimation,
-                                options_.inlier_thresholds.max_rotation_error)) {
+  if (!mapper.RotationAveraging(
+          options_.rotation_estimation,
+          options_.inlier_thresholds.max_rotation_error)) {
     LOG(ERROR) << "Failed to solve rotation averaging";
     return;
   }
