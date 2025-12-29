@@ -137,20 +137,16 @@ int RunRotationAverager(int argc, char** argv) {
   std::string relpose_path;
   std::string output_path;
   std::string gravity_path = "";
-  std::string weight_path = "";
 
   bool use_stratified = true;
   bool refine_gravity = false;
-  bool use_weight = false;
 
   OptionManager options;
   options.AddRequiredOption("relpose_path", &relpose_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("gravity_path", &gravity_path);
-  options.AddDefaultOption("weight_path", &weight_path);
   options.AddDefaultOption("use_stratified", &use_stratified);
   options.AddDefaultOption("refine_gravity", &refine_gravity);
-  options.AddDefaultOption("use_weight", &use_weight);
   options.AddGravityRefinerOptions();
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
@@ -166,21 +162,10 @@ int RunRotationAverager(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  if (weight_path != "" && !colmap::ExistsFile(weight_path)) {
-    LOG(ERROR) << "`weight_path` is not a file";
-    return EXIT_FAILURE;
-  }
-
-  if (use_weight && weight_path == "") {
-    LOG(ERROR) << "Weight path is required when use_weight is set to true";
-    return EXIT_FAILURE;
-  }
-
   RotationEstimatorOptions rotation_averager_options;
   rotation_averager_options.skip_initialization = true;
   rotation_averager_options.use_gravity = true;
   rotation_averager_options.use_stratified = use_stratified;
-  rotation_averager_options.use_weight = use_weight;
 
   // Load the database
   ViewGraph view_graph;
@@ -227,10 +212,6 @@ int RunRotationAverager(int argc, char** argv) {
       rig_from_world.rotation = Eigen::Quaterniond(
           colmap::GravityAlignedRotation(pose_prior.gravity));
     }
-  }
-
-  if (use_weight) {
-    ReadRelWeight(weight_path, reconstruction.Images(), view_graph);
   }
 
   int num_img = view_graph.KeepLargestConnectedComponents(reconstruction);

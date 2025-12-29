@@ -1,5 +1,6 @@
 #include "glomap/io/colmap_io.h"
 
+#include "colmap/feature/utils.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/util/file.h"
 #include "colmap/util/logging.h"
@@ -47,17 +48,12 @@ void InitializeGlomapFromDatabase(const colmap::Database& database,
 
   for (auto& rig : database.ReadAllRigs()) {
     max_rig_id = std::max(max_rig_id, rig.RigId());
-    reconstruction.AddRig(rig);
-
-    sensor_t sensor_id = rig.RefSensorId();
-    if (sensor_id.type == SensorType::CAMERA) {
-      camera_to_rig[sensor_id.id] = rig.RigId();
-    }
-    for (const auto& [non_ref_sensor_id, sensor_pose] : rig.NonRefSensors()) {
-      if (non_ref_sensor_id.type == SensorType::CAMERA) {
-        camera_to_rig[non_ref_sensor_id.id] = rig.RigId();
+    for (sensor_t sensor_id : rig.SensorIds()) {
+      if (sensor_id.type == SensorType::CAMERA) {
+        camera_to_rig[sensor_id.id] = rig.RigId();
       }
     }
+    reconstruction.AddRig(std::move(rig));
   }
 
   // Create trivial rigs for cameras not in any rig
@@ -75,34 +71,17 @@ void InitializeGlomapFromDatabase(const colmap::Database& database,
   // Read all images from database (but don't add to reconstruction yet)
   std::vector<Image> images = database.ReadAllImages();
   for (auto& image : images) {
-    const colmap::FeatureKeypoints keypoints =
-        database.ReadKeypoints(image.ImageId());
-    const colmap::point2D_t num_points2D = keypoints.size();
-    image.Points2D().resize(num_points2D);
-    for (colmap::point2D_t point2D_idx = 0; point2D_idx < num_points2D;
-         point2D_idx++) {
-      image.Point2D(point2D_idx).xy =
-          Eigen::Vector2d(keypoints[point2D_idx].x, keypoints[point2D_idx].y);
-    }
+    image.SetPoints2D(colmap::FeatureKeypointsToPointsVector(
+        database.ReadKeypoints(image.ImageId())));
   }
 
   // Add all frames from database first (before adding images)
   frame_t max_frame_id = 0;
   for (auto& frame : database.ReadAllFrames()) {
-    frame_t frame_id = frame.FrameId();
-    if (frame_id == colmap::kInvalidFrameId) continue;
-    max_frame_id = std::max(max_frame_id, frame_id);
-
-    Frame glomap_frame;
-    glomap_frame.SetFrameId(frame_id);
-    glomap_frame.SetRigId(frame.RigId());
-    glomap_frame.SetRigFromWorld(Rigid3d());
-
-    for (auto data_id : frame.ImageIds()) {
-      glomap_frame.AddDataId(data_id);
-    }
-
-    reconstruction.AddFrame(glomap_frame);
+    if (frame.FrameId() == colmap::kInvalidFrameId) continue;
+    max_frame_id = std::max(max_frame_id, frame.FrameId());
+    frame.SetRigFromWorld(Rigid3d());
+    reconstruction.AddFrame(std::move(frame));
   }
 
   // Create trivial frames for images that don't have a frame in the database
@@ -133,32 +112,28 @@ void InitializeGlomapFromDatabase(const colmap::Database& database,
   LOG(INFO) << "Read " << reconstruction.NumImages() << " images";
 
   // Build view graph from matches
-  std::vector<std::pair<colmap::image_pair_t, colmap::FeatureMatches>>
-      all_matches = database.ReadAllMatches();
-
+  auto all_matches = database.ReadAllMatches();
   size_t invalid_count = 0;
 
-  for (size_t match_idx = 0; match_idx < all_matches.size(); match_idx++) {
-    // Read the image pair from COLMAP database
-    colmap::image_pair_t pair_id = all_matches[match_idx].first;
+  for (auto& [pair_id, feature_matches] : all_matches) {
     auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 
     THROW_CHECK(!view_graph.HasImagePair(image_id1, image_id2))
         << "Duplicate image pair in database: " << image_id1 << ", "
         << image_id2;
 
-    colmap::FeatureMatches& feature_matches = all_matches[match_idx].second;
     colmap::TwoViewGeometry two_view =
         database.ReadTwoViewGeometry(image_id1, image_id2);
 
-    // Build the image pair
+    // Build the image pair from TwoViewGeometry
     ImagePair image_pair;
+    static_cast<colmap::TwoViewGeometry&>(image_pair) = std::move(two_view);
 
     // If the image is marked as invalid or watermark, then skip
-    if (two_view.config == colmap::TwoViewGeometry::UNDEFINED ||
-        two_view.config == colmap::TwoViewGeometry::DEGENERATE ||
-        two_view.config == colmap::TwoViewGeometry::WATERMARK ||
-        two_view.config == colmap::TwoViewGeometry::MULTIPLE) {
+    if (image_pair.config == colmap::TwoViewGeometry::UNDEFINED ||
+        image_pair.config == colmap::TwoViewGeometry::DEGENERATE ||
+        image_pair.config == colmap::TwoViewGeometry::WATERMARK ||
+        image_pair.config == colmap::TwoViewGeometry::MULTIPLE) {
       invalid_count++;
       view_graph.AddImagePair(image_id1, image_id2, std::move(image_pair));
       view_graph.SetInvalidImagePair(
@@ -169,22 +144,13 @@ void InitializeGlomapFromDatabase(const colmap::Database& database,
     const Image& image1 = reconstruction.Image(image_id1);
     const Image& image2 = reconstruction.Image(image_id2);
 
-    // Collect the fundamental matrices
-    if (two_view.config == colmap::TwoViewGeometry::UNCALIBRATED) {
-      image_pair.F = two_view.F;
-    } else if (two_view.config == colmap::TwoViewGeometry::CALIBRATED) {
+    // For calibrated pairs, recompute F from the relative pose
+    if (image_pair.config == colmap::TwoViewGeometry::CALIBRATED) {
       image_pair.F = colmap::FundamentalFromEssentialMatrix(
           reconstruction.Camera(image2.CameraId()).CalibrationMatrix(),
           colmap::EssentialMatrixFromPose(image_pair.cam2_from_cam1),
           reconstruction.Camera(image1.CameraId()).CalibrationMatrix());
-    } else if (two_view.config == colmap::TwoViewGeometry::PLANAR ||
-               two_view.config == colmap::TwoViewGeometry::PANORAMIC ||
-               two_view.config ==
-                   colmap::TwoViewGeometry::PLANAR_OR_PANORAMIC) {
-      image_pair.H = two_view.H;
-      image_pair.F = two_view.F;
     }
-    image_pair.config = two_view.config;
 
     // Collect the matches
     image_pair.matches = Eigen::MatrixXi(feature_matches.size(), 2);
