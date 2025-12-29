@@ -216,20 +216,16 @@ Reconstruction RunStereoFuserImpl(const std::string& output_path,
   LOG(INFO) << "Writing output: " << output_path;
 
   // write output
-  switch (output_type) {
-    case "bin":
-      reconstruction.WriteBinary(output_path);
-      break;
-    case "txt":
-      reconstruction.WriteText(output_path);
-      break;
-    case "ply":
-      WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
-      mvs::WritePointsVisibility(output_path + ".vis",
-                                 fuser.GetFusedPointsVisibility());
-      break;
-    default:
-      LOG(FATAL_THROW) << "Unknown output_type " << output_type;
+  if (output_type == "bin") {
+    reconstruction.WriteBinary(output_path);
+  } else if (output_type == "txt") {
+    reconstruction.WriteText(output_path);
+  } else if (output_type == "ply") {
+    WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
+    mvs::WritePointsVisibility(output_path + ".vis",
+                               fuser.GetFusedPointsVisibility());
+  } else {
+    LOG(FATAL_THROW) << "Invalid output_type: " << output_type;
   }
 
   return reconstruction;

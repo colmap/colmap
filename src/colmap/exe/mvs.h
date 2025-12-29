@@ -27,10 +27,13 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-namespace colmap {
+#pragma once
 
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/patch_match_options.h"
+#include "colmap/scene/reconstruction.h"
+
+namespace colmap {
 
 void RunPatchMatchStereoImpl(const std::string& workspace_path,
                              std::string workspace_format,
