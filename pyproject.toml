@@ -42,7 +42,7 @@ wheel.packages = ["python/pycolmap"]
 build = "cp3{9,10,11,12,13,14}-{macosx,manylinux,win}*"
 archs = ["auto64"]
 test-requires = "pytest pytest-mypy mypy==1.19.1 enlighten==1.13.0"
-test-command = "python -c \"import pycolmap; print(pycolmap.__version__)\" && cd {project} && mypy --package pycolmap && mypy && pytest"
+test-command = "python -c \"import pycolmap; print(pycolmap.__version__)\" && cd {project} && mypy --package pycolmap && pytest --mypy"
 
 [tool.cibuildwheel.linux]
 before-all = "{project}/python/ci/install-colmap-almalinux.sh"
