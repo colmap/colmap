@@ -213,9 +213,11 @@ class PanoProcessor:
                 self._camera.width, self._camera.height, 2
             ).astype(np.float32)
             xy_in_pano -= 0.5  # COLMAP to OpenCV pixel origin.
+            x_coords, y_coords = np.moveaxis(xy_in_pano, [0, 1, 2], [2, 1, 0])
             image = cv2.remap(
                 pano_image,
-                *np.moveaxis(xy_in_pano, [0, 1, 2], [2, 1, 0]),
+                x_coords,
+                y_coords,
                 cv2.INTER_LINEAR,
                 borderMode=cv2.BORDER_WRAP,
             )
