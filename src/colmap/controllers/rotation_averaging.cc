@@ -32,8 +32,8 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/timer.h"
 
-#include "glomap/io/colmap_io.h"
 #include "glomap/processors/view_graph_manipulation.h"
+#include "glomap/sfm/global_mapper.h"
 
 namespace colmap {
 
@@ -46,64 +46,50 @@ RotationAveragingController::RotationAveragingController(
       reconstruction_(std::move(THROW_CHECK_NOTNULL(reconstruction))) {}
 
 void RotationAveragingController::Run() {
-  // Initialize view graph from database.
-  glomap::ViewGraph view_graph;
-  glomap::InitializeGlomapFromDatabase(
-      *database_, *reconstruction_, view_graph);
+  Timer run_timer;
+  run_timer.Start();
 
-  // Read pose priors from database.
-  std::vector<PosePrior> pose_priors = database_->ReadAllPosePriors();
+  glomap::GlobalMapper mapper(database_);
+  mapper.BeginReconstruction(reconstruction_);
 
-  if (view_graph.Empty()) {
+  if (mapper.ViewGraph()->Empty()) {
     LOG(ERROR) << "Cannot continue without image pairs";
     return;
   }
 
-  Timer run_timer;
-  run_timer.Start();
-
   // Step 0: Preprocessing
   LOG(INFO) << "----- Running preprocessing -----";
-  glomap::ViewGraphManipulator::UpdateImagePairsConfig(view_graph,
+  glomap::ViewGraphManipulator::UpdateImagePairsConfig(*mapper.ViewGraph(),
                                                        *reconstruction_);
-  glomap::ViewGraphManipulator::DecomposeRelPose(view_graph, *reconstruction_);
+  glomap::ViewGraphManipulator::DecomposeRelPose(*mapper.ViewGraph(),
+                                                 *reconstruction_);
 
   // Step 1: View graph calibration
   LOG(INFO) << "----- Running view graph calibration -----";
   glomap::ViewGraphCalibrator calibrator(options_.view_graph_calibration);
-  if (!calibrator.Solve(view_graph, *reconstruction_)) {
+  if (!calibrator.Solve(*mapper.ViewGraph(), *reconstruction_)) {
     LOG(ERROR) << "Failed to solve view graph calibration";
     return;
   }
 
-  // Step 2: Relative pose estimation
-  LOG(INFO) << "----- Running relative pose estimation -----";
-  glomap::EstimateRelativePoses(
-      view_graph, *reconstruction_, options_.relative_pose_estimation);
-
-  glomap::ImagePairsInlierCount(
-      view_graph, *reconstruction_, options_.inlier_thresholds, true);
-
-  view_graph.FilterByNumInliers(options_.inlier_thresholds.min_inlier_num);
-  view_graph.FilterByInlierRatio(options_.inlier_thresholds.min_inlier_ratio);
-
-  if (view_graph.KeepLargestConnectedComponents(*reconstruction_) == 0) {
-    LOG(ERROR) << "No connected components found";
+  // Step 2: Relative pose re-estimation
+  LOG(INFO) << "----- Running relative pose re-estimation -----";
+  if (!mapper.ReestimateRelativePoses(options_.relative_pose_estimation,
+                                      options_.inlier_thresholds)) {
+    LOG(ERROR) << "Failed relative pose re-estimation";
     return;
   }
 
   // Step 3: Rotation averaging
   LOG(INFO) << "----- Running rotation averaging -----";
-  if (!glomap::SolveRotationAveraging(options_.rotation_estimation,
-                                      view_graph,
-                                      *reconstruction_,
-                                      pose_priors)) {
+  if (!mapper.RotationAveraging(options_.rotation_estimation,
+                                options_.inlier_thresholds.max_rotation_error)) {
     LOG(ERROR) << "Failed to solve rotation averaging";
     return;
   }
 
   LOG(INFO) << "Rotation averaging done in " << run_timer.ElapsedSeconds()
-            << " seconds";
+            << "s";
 }
 
 }  // namespace colmap
