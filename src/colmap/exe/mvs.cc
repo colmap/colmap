@@ -78,11 +78,6 @@ int RunDelaunayMesher(int argc, char** argv) {
 }
 
 int RunPatchMatchStereo(int argc, char** argv) {
-#if !defined(COLMAP_CUDA_ENABLED)
-  LOG(ERROR) << "Dense stereo reconstruction requires CUDA, which is not "
-                "available on your system.";
-  return EXIT_FAILURE;
-#else   // COLMAP_CUDA_ENABLED
   std::string workspace_path;
   std::string workspace_format = "COLMAP";
   std::string pmvs_option_name = "option-all";
@@ -101,13 +96,24 @@ int RunPatchMatchStereo(int argc, char** argv) {
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
+  RunPatchMatchStereoImpl(
+      workspace_path, workspace_format, pmvs_option_name, options, config_path);
+  return EXIT_SUCCESS;
+}
 
+void RunPatchMatchStereoImpl(const std::string& workspace_path,
+                             std::string workspace_format,
+                             const std::string& pmvs_option_name,
+                             const mvs::PatchMatchOptions& options,
+                             const std::string& config_path) {
+#if !defined(COLMAP_CUDA_ENABLED)
+  LOG(FATAL_THROW) << "Dense stereo reconstruction requires CUDA, which is not "
+                      "available on your system.";
+#else   // COLMAP_CUDA_ENABLED
   StringToLower(&workspace_format);
-  if (workspace_format != "colmap" && workspace_format != "pmvs") {
-    LOG(ERROR) << "Invalid `workspace_format` - supported values are "
-                  "'COLMAP' or 'PMVS'.";
-    return EXIT_FAILURE;
-  }
+  THROW_CHECK(workspace_format == "colmap" || workspace_format == "pmvs")
+      << "Invalid `workspace_format` - supported values are 'COLMAP' or "
+         "'PMVS'.";
 
   mvs::PatchMatchController controller(*options.patch_match_stereo,
                                        workspace_path,
@@ -116,8 +122,6 @@ int RunPatchMatchStereo(int argc, char** argv) {
                                        config_path);
 
   controller.Run();
-
-  return EXIT_SUCCESS;
 #endif  // COLMAP_CUDA_ENABLED
 }
 
@@ -146,7 +150,6 @@ int RunStereoFuser(int argc, char** argv) {
   std::string pmvs_option_name = "option-all";
   std::string output_type = "PLY";
   std::string output_path;
-  std::string bbox_path;
 
   OptionManager options;
   options.AddRequiredOption("workspace_path", &workspace_path);
@@ -157,38 +160,42 @@ int RunStereoFuser(int argc, char** argv) {
       "input_type", &input_type, "{photometric, geometric}");
   options.AddDefaultOption("output_type", &output_type, "{BIN, TXT, PLY}");
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("bbox_path", &bbox_path);
   options.AddStereoFusionOptions();
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
 
+  RunStereoFuserImpl(output_path,
+                     workspace_path,
+                     workspace_format,
+                     pmvs_option_name,
+                     input_type,
+                     options,
+                     output_type);
+
+  return EXIT_SUCCESS;
+}
+
+Reconstruction RunStereoFuserImpl(const std::string& output_path,
+                                  const std::string& workspace_path,
+                                  std::string workspace_format,
+                                  const std::string& pmvs_option_name,
+                                  std::string input_type,
+                                  const mvs::StereoFusionOptions& options,
+                                  std::string output_type) {
   StringToLower(&workspace_format);
-  if (workspace_format != "colmap" && workspace_format != "pmvs") {
-    LOG(ERROR) << "Invalid `workspace_format` - supported values are "
-                  "'COLMAP' or 'PMVS'.";
-    return EXIT_FAILURE;
-  }
+  THROW_CHECK(workspace_format == "colmap" || workspace_format == "pmvs")
+      << "Invalid `workspace_format` - supported values are 'COLMAP' or "
+         "'PMVS'.";
 
   StringToLower(&input_type);
-  if (input_type != "photometric" && input_type != "geometric") {
-    LOG(ERROR) << "Invalid input type - supported values are "
-                  "'photometric' and 'geometric'.";
-    return EXIT_FAILURE;
-  }
+  THROW_CHECK(input_type == "photometric" || input_type == "geometric")
+      << "Invalid input type - supported values are 'photometric' and "
+         "'geometric'.";
 
-  if (!bbox_path.empty()) {
-    std::ifstream file(bbox_path);
-    if (file.is_open()) {
-      auto& min_bound = options.stereo_fusion->bounding_box.first;
-      auto& max_bound = options.stereo_fusion->bounding_box.second;
-      file >> min_bound(0) >> min_bound(1) >> min_bound(2);
-      file >> max_bound(0) >> max_bound(1) >> max_bound(2);
-    } else {
-      LOG(WARNING) << "Invalid bounds path: \"" << bbox_path
-                   << "\" - continuing without bounds check";
-    }
-  }
+  StringToLower(&output_type);
+  THROW_CHECK(input_type == "bin" || input_type == "ply" || input_type == "txt")
+      << "Invalid output type - supported values are 'bin', 'ply' and 'txt'.";
 
   mvs::StereoFusion fuser(*options.stereo_fusion,
                           workspace_path,
@@ -211,21 +218,23 @@ int RunStereoFuser(int argc, char** argv) {
   LOG(INFO) << "Writing output: " << output_path;
 
   // write output
-  StringToLower(&output_type);
-  if (output_type == "bin") {
-    reconstruction.WriteBinary(output_path);
-  } else if (output_type == "txt") {
-    reconstruction.WriteText(output_path);
-  } else if (output_type == "ply") {
-    WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
-    mvs::WritePointsVisibility(output_path + ".vis",
-                               fuser.GetFusedPointsVisibility());
-  } else {
-    LOG(ERROR) << "Invalid `output_type`";
-    return EXIT_FAILURE;
+  switch (output_type) {
+    case "bin":
+      reconstruction.WriteBinary(output_path);
+      break;
+    case "txt":
+      reconstruction.WriteText(output_path);
+      break;
+    case "ply":
+      WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
+      mvs::WritePointsVisibility(output_path + ".vis",
+                                 fuser.GetFusedPointsVisibility());
+      break;
+    default:
+      LOG(FATAL_THROW) << "Unknown output_type " << output_type;
   }
 
-  return EXIT_SUCCESS;
+  return reconstruction;
 }
 
 }  // namespace colmap

@@ -29,6 +29,20 @@
 
 namespace colmap {
 
+void RunPatchMatchStereoImpl(const std::string& workspace_path,
+                             std::string workspace_format,
+                             const std::string& pmvs_option_name,
+                             const mvs::PatchMatchOptions& options,
+                             const std::string& config_path);
+
+Reconstruction RunStereoFuserImpl(const std::string& output_path,
+                                  const std::string& workspace_path,
+                                  std::string workspace_format,
+                                  const std::string& pmvs_option_name,
+                                  std::string input_type,
+                                  const mvs::StereoFusionOptions& options,
+                                  std::string output_type);
+
 int RunDelaunayMesher(int argc, char** argv);
 int RunPatchMatchStereo(int argc, char** argv);
 int RunPoissonMesher(int argc, char** argv);
