@@ -323,7 +323,7 @@ bool GlobalMapper::RetriangulateAndRefine(
       colmap::DatabaseCache::Create(database,
                                     kMinNumMatches,
                                     /*ignore_watermarks=*/false,
-                                    /*camera_rig_config=*/{});
+                                    /*image_names=*/{});
 
   // Wrap reconstruction in shared_ptr for IncrementalMapper.
   auto reconstruction_ptr =
