@@ -12,22 +12,41 @@
 
 namespace glomap {
 
+GlobalMapper::GlobalMapper(std::shared_ptr<const colmap::Database> database)
+    : database_(std::move(THROW_CHECK_NOTNULL(database))) {}
+
+void GlobalMapper::BeginReconstruction(
+    const std::shared_ptr<colmap::Reconstruction>& reconstruction,
+    const std::shared_ptr<ViewGraph>& view_graph) {
+  THROW_CHECK_NOTNULL(reconstruction);
+  THROW_CHECK_NOTNULL(view_graph);
+
+  reconstruction_ = reconstruction;
+  view_graph_ = view_graph;
+
+  // Initialize the reconstruction and view graph from the database.
+  InitializeGlomapFromDatabase(*database_, *reconstruction_, *view_graph_);
+}
+
 // TODO: Rig normalizaiton has not be done
-bool GlobalMapper::Solve(const colmap::Database* database,
-                         ViewGraph& view_graph,
-                         colmap::Reconstruction& reconstruction,
-                         std::vector<colmap::PosePrior>& pose_priors,
+bool GlobalMapper::Solve(const GlobalMapperOptions& options,
                          std::unordered_map<frame_t, int>& cluster_ids) {
+  THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(view_graph_);
+
+  colmap::Reconstruction& reconstruction = *reconstruction_;
+  ViewGraph& view_graph = *view_graph_;
+
   // Propagate random seed to component options for deterministic behavior.
-  GlobalMapperOptions options = options_;
-  if (options.random_seed >= 0) {
-    options.relative_pose_estimation.random_seed = options.random_seed;
-    options.rotation_averaging.random_seed = options.random_seed;
-    options.global_positioning.random_seed = options.random_seed;
+  GlobalMapperOptions opts = options;
+  if (opts.random_seed >= 0) {
+    opts.relative_pose_estimation.random_seed = opts.random_seed;
+    opts.rotation_averaging.random_seed = opts.random_seed;
+    opts.global_positioning.random_seed = opts.random_seed;
   }
 
   // 0. Preprocessing
-  if (!options.skip_preprocessing) {
+  if (!opts.skip_preprocessing) {
     LOG(INFO) << "----- Running preprocessing -----";
 
     colmap::Timer run_timer;
@@ -40,9 +59,9 @@ bool GlobalMapper::Solve(const colmap::Database* database,
   }
 
   // 1. Run view graph calibration
-  if (!options.skip_view_graph_calibration) {
+  if (!opts.skip_view_graph_calibration) {
     LOG(INFO) << "----- Running view graph calibration -----";
-    ViewGraphCalibrator vgcalib_engine(options.view_graph_calibration);
+    ViewGraphCalibrator vgcalib_engine(opts.view_graph_calibration);
     if (!vgcalib_engine.Solve(view_graph, reconstruction)) {
       return false;
     }
@@ -50,21 +69,21 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
   // 2. Run relative pose estimation
   //   TODO: Use generalized relative pose estimation for rigs.
-  if (!options.skip_relative_pose_estimation) {
+  if (!opts.skip_relative_pose_estimation) {
     LOG(INFO) << "----- Running relative pose estimation -----";
 
     colmap::Timer run_timer;
     run_timer.Start();
     // Relative pose relies on the undistorted images
     EstimateRelativePoses(
-        view_graph, reconstruction, options.relative_pose_estimation);
+        view_graph, reconstruction, opts.relative_pose_estimation);
 
-    InlierThresholdOptions inlier_thresholds = options.inlier_thresholds;
+    InlierThresholdOptions inlier_thresholds = opts.inlier_thresholds;
     // Undistort the images and filter edges by inlier number
     ImagePairsInlierCount(view_graph, reconstruction, inlier_thresholds, true);
 
-    view_graph.FilterByNumInliers(options.inlier_thresholds.min_inlier_num);
-    view_graph.FilterByInlierRatio(options.inlier_thresholds.min_inlier_ratio);
+    view_graph.FilterByNumInliers(opts.inlier_thresholds.min_inlier_num);
+    view_graph.FilterByInlierRatio(opts.inlier_thresholds.min_inlier_ratio);
 
     if (view_graph.KeepLargestConnectedComponents(reconstruction) == 0) {
       LOG(ERROR) << "no connected components are found";
@@ -75,32 +94,33 @@ bool GlobalMapper::Solve(const colmap::Database* database,
   }
 
   // 3. Run rotation averaging for three times
-  if (!options.skip_rotation_averaging) {
+  if (!opts.skip_rotation_averaging) {
     LOG(INFO) << "----- Running rotation averaging -----";
 
     colmap::Timer run_timer;
     run_timer.Start();
 
+    // Read pose priors from the database.
+    std::vector<colmap::PosePrior> pose_priors = database_->ReadAllPosePriors();
+
     // The first run is for filtering
     SolveRotationAveraging(
-        options.rotation_averaging, view_graph, reconstruction, pose_priors);
+        opts.rotation_averaging, view_graph, reconstruction, pose_priors);
 
     view_graph.FilterByRelativeRotation(
-        reconstruction, options.inlier_thresholds.max_rotation_error);
+        reconstruction, opts.inlier_thresholds.max_rotation_error);
     if (view_graph.KeepLargestConnectedComponents(reconstruction) == 0) {
       LOG(ERROR) << "no connected components are found";
       return false;
     }
 
     // The second run is for final estimation
-    if (!SolveRotationAveraging(options.rotation_averaging,
-                                view_graph,
-                                reconstruction,
-                                pose_priors)) {
+    if (!SolveRotationAveraging(
+            opts.rotation_averaging, view_graph, reconstruction, pose_priors)) {
       return false;
     }
     view_graph.FilterByRelativeRotation(
-        reconstruction, options.inlier_thresholds.max_rotation_error);
+        reconstruction, opts.inlier_thresholds.max_rotation_error);
     image_t num_img = view_graph.KeepLargestConnectedComponents(reconstruction);
     if (num_img == 0) {
       LOG(ERROR) << "no connected components are found";
@@ -113,7 +133,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
   }
 
   // 4. Track establishment and selection
-  if (!options.skip_track_establishment) {
+  if (!opts.skip_track_establishment) {
     LOG(INFO) << "----- Running track establishment -----";
     colmap::Timer run_timer;
     run_timer.Start();
@@ -122,7 +142,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     // then filters into the main reconstruction
     std::unordered_map<point3D_t, Point3D> unfiltered_points3D;
     TrackEngine track_engine(
-        view_graph, reconstruction.Images(), options.track_establishment);
+        view_graph, reconstruction.Images(), opts.track_establishment);
     track_engine.EstablishFullTracks(unfiltered_points3D);
 
     // Filter the points3D into a selected subset
@@ -141,10 +161,10 @@ bool GlobalMapper::Solve(const colmap::Database* database,
   }
 
   // 5. Global positioning
-  if (!options.skip_global_positioning) {
+  if (!opts.skip_global_positioning) {
     LOG(INFO) << "----- Running global positioning -----";
 
-    if (options.global_positioning.constraint_type !=
+    if (opts.global_positioning.constraint_type !=
         GlobalPositionerOptions::ConstraintType::ONLY_POINTS) {
       LOG(ERROR) << "Only points are used for solving camera positions";
       return false;
@@ -153,7 +173,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     colmap::Timer run_timer;
     run_timer.Start();
 
-    GlobalPositioner gp_engine(options.global_positioning);
+    GlobalPositioner gp_engine(opts.global_positioning);
 
     // TODO: consider to support other modes as well
     if (!gp_engine.Solve(view_graph, reconstruction)) {
@@ -163,12 +183,12 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     colmap::ObservationManager obs_manager(reconstruction);
     // First pass: use relaxed threshold (2x) for cameras without prior focal.
     obs_manager.FilterPoints3DWithLargeReprojectionError(
-        2.0 * options.inlier_thresholds.max_angle_error,
+        2.0 * opts.inlier_thresholds.max_angle_error,
         reconstruction.Point3DIds(),
         colmap::ReprojectionErrorType::ANGULAR);
     // Second pass: apply strict threshold for cameras with prior focal length.
     const double max_angle_error_rad =
-        colmap::DegToRad(options.inlier_thresholds.max_angle_error);
+        colmap::DegToRad(opts.inlier_thresholds.max_angle_error);
     std::vector<std::pair<colmap::image_t, colmap::point2D_t>> obs_to_delete;
     for (const auto point3D_id : reconstruction.Point3DIds()) {
       if (!reconstruction.ExistsPoint3D(point3D_id)) {
@@ -197,11 +217,11 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
     // Filter tracks based on triangulation angle and reprojection error
     obs_manager.FilterPoints3DWithSmallTriangulationAngle(
-        options.inlier_thresholds.min_triangulation_angle,
+        opts.inlier_thresholds.min_triangulation_angle,
         reconstruction.Point3DIds());
     // Set the threshold to be larger to avoid removing too many tracks
     obs_manager.FilterPoints3DWithLargeReprojectionError(
-        10 * options.inlier_thresholds.max_reprojection_error,
+        10 * opts.inlier_thresholds.max_reprojection_error,
         reconstruction.Point3DIds(),
         colmap::ReprojectionErrorType::NORMALIZED);
     // Normalize the structure
@@ -212,34 +232,34 @@ bool GlobalMapper::Solve(const colmap::Database* database,
   }
 
   // 6. Bundle adjustment
-  if (!options.skip_bundle_adjustment) {
+  if (!opts.skip_bundle_adjustment) {
     LOG(INFO) << "----- Running bundle adjustment -----";
 
     colmap::Timer run_timer;
     run_timer.Start();
 
-    for (int ite = 0; ite < options.num_iterations_ba; ite++) {
+    for (int ite = 0; ite < opts.num_iterations_ba; ite++) {
       // 6.1. First stage: optimize positions only (rotation constant)
-      if (!RunBundleAdjustment(options.bundle_adjustment,
+      if (!RunBundleAdjustment(opts.bundle_adjustment,
                                /*constant_rotation=*/true,
                                reconstruction)) {
         return false;
       }
       LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
-                << options.num_iterations_ba
+                << opts.num_iterations_ba
                 << ", stage 1 finished (position only)";
       run_timer.PrintSeconds();
 
       // 6.2. Second stage: optimize rotations if desired
-      if (options.bundle_adjustment.optimize_rotations &&
-          !RunBundleAdjustment(options.bundle_adjustment,
+      if (opts.bundle_adjustment.optimize_rotations &&
+          !RunBundleAdjustment(opts.bundle_adjustment,
                                /*constant_rotation=*/false,
                                reconstruction)) {
         return false;
       }
       LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
-                << options.num_iterations_ba << ", stage 2 finished";
-      if (ite != options.num_iterations_ba - 1) run_timer.PrintSeconds();
+                << opts.num_iterations_ba << ", stage 2 finished";
+      if (ite != opts.num_iterations_ba - 1) run_timer.PrintSeconds();
 
       // Normalize the structure
       reconstruction.Normalize();
@@ -253,10 +273,10 @@ bool GlobalMapper::Solve(const colmap::Database* database,
       colmap::ObservationManager obs_manager(reconstruction);
       bool status = true;
       size_t filtered_num = 0;
-      while (status && ite < options.num_iterations_ba) {
+      while (status && ite < opts.num_iterations_ba) {
         double scaling = std::max(3 - ite, 1);
         filtered_num += obs_manager.FilterPoints3DWithLargeReprojectionError(
-            scaling * options.inlier_thresholds.max_reprojection_error,
+            scaling * opts.inlier_thresholds.max_reprojection_error,
             reconstruction.Point3DIds(),
             colmap::ReprojectionErrorType::NORMALIZED);
 
@@ -276,11 +296,11 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     {
       colmap::ObservationManager obs_manager(reconstruction);
       obs_manager.FilterPoints3DWithLargeReprojectionError(
-          options.inlier_thresholds.max_reprojection_error,
+          opts.inlier_thresholds.max_reprojection_error,
           reconstruction.Point3DIds(),
           colmap::ReprojectionErrorType::NORMALIZED);
       obs_manager.FilterPoints3DWithSmallTriangulationAngle(
-          options.inlier_thresholds.min_triangulation_angle,
+          opts.inlier_thresholds.min_triangulation_angle,
           reconstruction.Point3DIds());
     }
 
@@ -288,17 +308,16 @@ bool GlobalMapper::Solve(const colmap::Database* database,
   }
 
   // 7. Retriangulation
-  if (!options.skip_retriangulation) {
-    THROW_CHECK_NOTNULL(database);
+  if (!opts.skip_retriangulation) {
     LOG(INFO) << "----- Running retriangulation -----";
-    for (int ite = 0; ite < options.num_iterations_retriangulation; ite++) {
+    for (int ite = 0; ite < opts.num_iterations_retriangulation; ite++) {
       colmap::Timer run_timer;
       run_timer.Start();
-      RetriangulateTracks(options.retriangulation, *database, reconstruction);
+      RetriangulateTracks(opts.retriangulation, *database_, reconstruction);
       run_timer.PrintSeconds();
 
       LOG(INFO) << "Running bundle adjustment...";
-      if (!RunBundleAdjustment(options.bundle_adjustment,
+      if (!RunBundleAdjustment(opts.bundle_adjustment,
                                /*constant_rotation=*/false,
                                reconstruction)) {
         return false;
@@ -308,12 +327,12 @@ bool GlobalMapper::Solve(const colmap::Database* database,
       LOG(INFO) << "Filtering tracks by reprojection ...";
       colmap::ObservationManager(reconstruction)
           .FilterPoints3DWithLargeReprojectionError(
-              options.inlier_thresholds.max_reprojection_error,
+              opts.inlier_thresholds.max_reprojection_error,
               reconstruction.Point3DIds(),
               colmap::ReprojectionErrorType::NORMALIZED);
 
       // Run BA again after filtering outliers
-      if (!RunBundleAdjustment(options.bundle_adjustment,
+      if (!RunBundleAdjustment(opts.bundle_adjustment,
                                /*constant_rotation=*/false,
                                reconstruction)) {
         return false;
@@ -329,17 +348,17 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     {
       colmap::ObservationManager obs_manager(reconstruction);
       obs_manager.FilterPoints3DWithLargeReprojectionError(
-          options.inlier_thresholds.max_reprojection_error,
+          opts.inlier_thresholds.max_reprojection_error,
           reconstruction.Point3DIds(),
           colmap::ReprojectionErrorType::NORMALIZED);
       obs_manager.FilterPoints3DWithSmallTriangulationAngle(
-          options.inlier_thresholds.min_triangulation_angle,
+          opts.inlier_thresholds.min_triangulation_angle,
           reconstruction.Point3DIds());
     }
   }
 
   // 8. Reconstruction pruning
-  if (!options.skip_pruning) {
+  if (!opts.skip_pruning) {
     LOG(INFO) << "----- Running postprocessing -----";
 
     colmap::Timer run_timer;

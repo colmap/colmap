@@ -93,35 +93,32 @@ int RunGlobalMapper(int argc, char** argv) {
 
   auto database = colmap::Database::Open(*options.database_path);
 
-  colmap::Reconstruction reconstruction;
-  ViewGraph view_graph;
-  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
+  auto reconstruction = std::make_shared<colmap::Reconstruction>();
+  auto view_graph = std::make_shared<ViewGraph>();
 
-  std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
+  GlobalMapper global_mapper(database);
+  global_mapper.BeginReconstruction(reconstruction, view_graph);
 
-  if (view_graph.Empty()) {
+  if (view_graph->Empty()) {
     LOG(ERROR) << "Can't continue without image pairs";
     return EXIT_FAILURE;
   }
 
   options.mapper->image_path = *options.image_path;
 
-  GlobalMapper global_mapper(*options.mapper);
-
   // Main solver
   LOG(INFO) << "Loaded database";
   colmap::Timer run_timer;
   run_timer.Start();
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(
-      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
+  global_mapper.Solve(*options.mapper, cluster_ids);
   run_timer.Pause();
 
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 
   WriteReconstructionsByClusters(output_path,
-                                 reconstruction,
+                                 *reconstruction,
                                  cluster_ids,
                                  output_format,
                                  *options.image_path);

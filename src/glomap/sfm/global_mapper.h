@@ -8,6 +8,7 @@
 #include "glomap/estimators/relpose_estimation.h"
 #include "glomap/estimators/rotation_averaging.h"
 #include "glomap/estimators/view_graph_calibration.h"
+#include "glomap/io/colmap_io.h"
 #include "glomap/processors/image_pair_inliers.h"
 #include "glomap/scene/view_graph.h"
 #include "glomap/sfm/track_establishment.h"
@@ -54,21 +55,29 @@ struct GlobalMapperOptions {
   bool skip_pruning = true;
 };
 
-// TODO: Refactor the code to reuse the pipeline code more
 class GlobalMapper {
  public:
-  explicit GlobalMapper(const GlobalMapperOptions& options)
-      : options_(options) {}
+  explicit GlobalMapper(std::shared_ptr<const colmap::Database> database);
 
-  // database can be nullptr if skip_retriangulation is true
-  bool Solve(const colmap::Database* database,
-             ViewGraph& view_graph,
-             colmap::Reconstruction& reconstruction,
-             std::vector<colmap::PosePrior>& pose_priors,
+  // Prepare the mapper for a new reconstruction. This will initialize the
+  // reconstruction and view graph from the database, and read pose priors.
+  void BeginReconstruction(
+      const std::shared_ptr<colmap::Reconstruction>& reconstruction,
+      const std::shared_ptr<ViewGraph>& view_graph);
+
+  // Run the global SfM pipeline.
+  bool Solve(const GlobalMapperOptions& options,
              std::unordered_map<frame_t, int>& cluster_ids);
 
  private:
-  const GlobalMapperOptions options_;
+  // Class that provides access to the database.
+  const std::shared_ptr<const colmap::Database> database_;
+
+  // Class that holds data of the reconstruction.
+  std::shared_ptr<colmap::Reconstruction> reconstruction_;
+
+  // Class that holds the view graph.
+  std::shared_ptr<ViewGraph> view_graph_;
 };
 
 }  // namespace glomap
