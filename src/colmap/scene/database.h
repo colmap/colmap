@@ -38,6 +38,7 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
+#include <filesystem>
 #include <mutex>
 #include <vector>
 
@@ -78,7 +79,7 @@ class Database {
   static void Register(Factory factory);
 
   // Open database and throw a runtime_error if none of the factories succeeds.
-  static std::shared_ptr<Database> Open(const std::string& path);
+  static std::shared_ptr<Database> Open(const std::filesystem::path& path);
 
   // Explicitly close the database before destruction.
   virtual void Close() = 0;
