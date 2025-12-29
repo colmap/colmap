@@ -41,9 +41,6 @@ struct GlobalMapperOptions {
     return opts;
   }();
 
-  // Minimum number of matches for database cache in retriangulation.
-  int retriangulation_min_num_matches = 15;
-
   // Inlier thresholds for each component
   InlierThresholdOptions inlier_thresholds;
 

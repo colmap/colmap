@@ -318,9 +318,10 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 bool GlobalMapper::RetriangulateAndRefine(
     const colmap::Database& database, colmap::Reconstruction& reconstruction) {
   // Create database cache for retriangulation.
+  constexpr int kMinNumMatches = 15;
   auto database_cache =
       colmap::DatabaseCache::Create(database,
-                                    options_.retriangulation_min_num_matches,
+                                    kMinNumMatches,
                                     /*ignore_watermarks=*/false,
                                     /*camera_rig_config=*/{});
 
@@ -358,24 +359,21 @@ bool GlobalMapper::RetriangulateAndRefine(
 
   mapper.EndReconstruction(/*discard=*/false);
 
-  // Filter by reprojection error.
+  // Final filtering and bundle adjustment.
   colmap::ObservationManager obs_manager(reconstruction);
   obs_manager.FilterPoints3DWithLargeReprojectionError(
       options_.inlier_thresholds.max_reprojection_error,
       reconstruction.Point3DIds(),
       colmap::ReprojectionErrorType::NORMALIZED);
 
-  // Run final bundle adjustment.
   if (!RunBundleAdjustment(options_.bundle_adjustment,
                            /*constant_rotation=*/false,
                            reconstruction)) {
     return false;
   }
 
-  // Normalize the structure.
   reconstruction.Normalize();
 
-  // Final filtering.
   obs_manager.FilterPoints3DWithLargeReprojectionError(
       options_.inlier_thresholds.max_reprojection_error,
       reconstruction.Point3DIds(),

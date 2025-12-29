@@ -121,8 +121,6 @@ void OptionManager::AddGlobalMapperOptions() {
                               &mapper->retriangulation.merge_max_reproj_error);
   AddAndRegisterDefaultOption("Retriangulation.min_angle",
                               &mapper->retriangulation.min_angle);
-  AddAndRegisterDefaultOption("Retriangulation.min_num_matches",
-                              &mapper->retriangulation_min_num_matches);
 
   // Inlier threshold options
   AddAndRegisterDefaultOption("Thresholds.max_angle_error",
