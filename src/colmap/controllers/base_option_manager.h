@@ -105,8 +105,8 @@ class BaseOptionManager {
   void AddAndRegisterDefaultEnumOption(
       const std::string& name,
       EnumT* option,
-      std::function<std::string_view(EnumT)> to_string_fn,
-      std::function<EnumT(std::string_view)> from_string_fn,
+      std::string_view (*to_string_fn)(EnumT),
+      EnumT (*from_string_fn)(std::string_view),
       const std::string& help_text = "");
 
   template <typename T>
@@ -216,8 +216,8 @@ template <typename EnumT>
 void BaseOptionManager::AddAndRegisterDefaultEnumOption(
     const std::string& name,
     EnumT* option,
-    std::function<std::string_view(EnumT)> to_string_fn,
-    std::function<EnumT(std::string_view)> from_string_fn,
+    std::string_view (*to_string_fn)(EnumT),
+    EnumT (*from_string_fn)(std::string_view),
     const std::string& help_text) {
   // Create storage for this enum option (unique_ptr for pointer stability)
   auto info = std::make_unique<EnumOptionInfo>();
