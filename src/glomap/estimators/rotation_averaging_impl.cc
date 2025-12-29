@@ -306,6 +306,10 @@ void RotationAveragingProblem::BuildConstraintMatrix(
     size_t num_params,
     const ViewGraph& view_graph,
     const colmap::Reconstruction& reconstruction) {
+  if (num_params == 0) {
+    return;
+  }
+
   // Count coefficients for accurate reservation.
   size_t num_coeffs = num_gauge_fixing_residuals_;
   for (const auto& [pair_id, constraint] : pair_constraints_) {
