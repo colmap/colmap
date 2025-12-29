@@ -73,7 +73,9 @@ def get_virtual_camera_rays(camera: pycolmap.Camera) -> np.ndarray:
     return rays
 
 
-def spherical_img_from_cam(image_size, rays_in_cam: np.ndarray) -> np.ndarray:
+def spherical_img_from_cam(
+    image_size: tuple[int, int], rays_in_cam: np.ndarray
+) -> np.ndarray:
     """Project rays into a 360 panorama (spherical) image."""
     if image_size[0] != image_size[1] * 2:
         raise ValueError("Only 360° panoramas are supported.")
@@ -162,7 +164,7 @@ class PanoProcessor:
         self._pano_size = None
         self._rays_in_cam = None
 
-    def process(self, pano_name: str):
+    def process(self, pano_name: str) -> None:
         pano_path = self.pano_image_dir / pano_name
         try:
             pano_image = PIL.Image.open(pano_path)
@@ -266,7 +268,7 @@ def render_perspective_images(
     return processor.rig_config
 
 
-def run(args):
+def run(args: argparse.Namespace) -> None:
     pycolmap.set_random_seed(0)
 
     # Define the paths.
