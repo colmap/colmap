@@ -5,6 +5,7 @@ Python reimplementation of the C++ incremental mapper with equivalent logic.
 import argparse
 import time
 from pathlib import Path
+from typing import Optional
 
 import custom_bundle_adjustment
 import enlighten
@@ -376,8 +377,8 @@ def main(
     database_path: Path,
     image_path: Path,
     output_path: Path,
-    options: pycolmap.IncrementalPipelineOptions | None = None,
-    input_path: Path | None = None,
+    options: Optional[pycolmap.IncrementalPipelineOptions] = None,
+    input_path: Optional[Path] = None,
 ) -> dict[int, pycolmap.Reconstruction]:
     if options is None:
         options = pycolmap.IncrementalPipelineOptions()
