@@ -68,6 +68,36 @@ class GlobalMapper {
   bool Solve(const GlobalMapperOptions& options,
              std::unordered_map<frame_t, int>& cluster_ids);
 
+  // Re-estimate relative poses between image pairs and filter by inliers.
+  bool ReestimateRelativePoses(const RelativePoseEstimationOptions& options,
+                               const InlierThresholdOptions& inlier_thresholds);
+
+  // Run rotation averaging to estimate global rotations.
+  bool RotationAveraging(const RotationEstimatorOptions& options,
+                         double max_rotation_error);
+
+  // Establish tracks from feature matches.
+  void EstablishTracks(const TrackEstablishmentOptions& options);
+
+  // Estimate global camera positions.
+  bool GlobalPositioning(const GlobalPositionerOptions& options,
+                         double max_angle_error,
+                         double max_reprojection_error,
+                         double min_triangulation_angle);
+
+  // Run iterative bundle adjustment to refine poses and structure.
+  bool IterativeBundleAdjustment(const BundleAdjusterOptions& options,
+                                 double max_reprojection_error,
+                                 double min_triangulation_angle,
+                                 int num_iterations);
+
+  // Iteratively retriangulate tracks and refine to improve structure.
+  bool IterativeRetriangulateAndRefine(const TriangulatorOptions& options,
+                                       const BundleAdjusterOptions& ba_options,
+                                       double max_reprojection_error,
+                                       double min_triangulation_angle,
+                                       int num_iterations);
+
   // Getter functions.
   std::shared_ptr<colmap::Reconstruction> Reconstruction() const;
   std::shared_ptr<class ViewGraph> ViewGraph() const;
