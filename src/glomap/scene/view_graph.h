@@ -47,14 +47,6 @@ class ViewGraph {
   inline void SetValidImagePair(image_pair_t pair_id);
   inline void SetInvalidImagePair(image_pair_t pair_id);
 
-  // Image pair weight operations.
-  // Weights are stored separately and only allocated when used.
-  inline void SetImagePairWeight(image_pair_t pair_id, double weight);
-  inline double GetImagePairWeight(image_pair_t pair_id) const;
-  inline bool HasImagePairWeights() const;
-  inline void DeleteImagePairWeight(image_pair_t pair_id);
-  inline void ClearImagePairWeights();
-
   // Returns a filter view over valid image pairs only.
   auto ValidImagePairs() const {
     return colmap::filter_view(
@@ -101,9 +93,6 @@ class ViewGraph {
   std::unordered_map<image_pair_t, struct ImagePair> image_pairs_;
   // Set of invalid pair IDs. Pairs not in this set are considered valid.
   std::unordered_set<image_pair_t> invalid_pairs_;
-  // Optional weights for image pairs. Only populated when weights are loaded.
-  // Returns 1.0 for pairs without explicit weights.
-  std::unordered_map<image_pair_t, double> image_pair_weights_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -130,7 +119,6 @@ bool ViewGraph::Empty() const { return image_pairs_.empty(); }
 void ViewGraph::Clear() {
   image_pairs_.clear();
   invalid_pairs_.clear();
-  image_pair_weights_.clear();
 }
 
 struct ImagePair& ViewGraph::AddImagePair(image_t image_id1,
@@ -211,24 +199,5 @@ void ViewGraph::SetValidImagePair(image_pair_t pair_id) {
 void ViewGraph::SetInvalidImagePair(image_pair_t pair_id) {
   invalid_pairs_.insert(pair_id);
 }
-
-void ViewGraph::SetImagePairWeight(image_pair_t pair_id, double weight) {
-  image_pair_weights_[pair_id] = weight;
-}
-
-double ViewGraph::GetImagePairWeight(image_pair_t pair_id) const {
-  auto it = image_pair_weights_.find(pair_id);
-  return it != image_pair_weights_.end() ? it->second : 1.0;
-}
-
-bool ViewGraph::HasImagePairWeights() const {
-  return !image_pair_weights_.empty();
-}
-
-void ViewGraph::DeleteImagePairWeight(image_pair_t pair_id) {
-  image_pair_weights_.erase(pair_id);
-}
-
-void ViewGraph::ClearImagePairWeights() { image_pair_weights_.clear(); }
 
 }  // namespace glomap

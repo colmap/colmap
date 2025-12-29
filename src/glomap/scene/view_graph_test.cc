@@ -299,40 +299,6 @@ TEST(ViewGraph, FilterByInlierRatio) {
   EXPECT_FALSE(view_graph.IsValid(pair_id4));
 }
 
-TEST(ViewGraph, ImagePairWeights) {
-  ViewGraph view_graph;
-
-  const image_pair_t pair_id1 = colmap::ImagePairToPairId(1, 2);
-  const image_pair_t pair_id2 = colmap::ImagePairToPairId(1, 3);
-  view_graph.AddImagePair(1, 2, SynthesizeImagePair());
-  view_graph.AddImagePair(1, 3, SynthesizeImagePair());
-
-  EXPECT_FALSE(view_graph.HasImagePairWeights());
-  EXPECT_EQ(view_graph.GetImagePairWeight(pair_id1), 1.0);
-  EXPECT_EQ(view_graph.GetImagePairWeight(pair_id2), 1.0);
-
-  view_graph.SetImagePairWeight(pair_id1, 0.5);
-  EXPECT_TRUE(view_graph.HasImagePairWeights());
-  EXPECT_EQ(view_graph.GetImagePairWeight(pair_id1), 0.5);
-  EXPECT_EQ(view_graph.GetImagePairWeight(pair_id2), 1.0);
-
-  view_graph.SetImagePairWeight(pair_id2, 0.8);
-  EXPECT_EQ(view_graph.GetImagePairWeight(pair_id2), 0.8);
-
-  view_graph.DeleteImagePairWeight(pair_id1);
-  EXPECT_EQ(view_graph.GetImagePairWeight(pair_id1), 1.0);
-  EXPECT_TRUE(view_graph.HasImagePairWeights());
-
-  view_graph.ClearImagePairWeights();
-  EXPECT_FALSE(view_graph.HasImagePairWeights());
-  EXPECT_EQ(view_graph.GetImagePairWeight(pair_id2), 1.0);
-
-  view_graph.SetImagePairWeight(pair_id1, 0.3);
-  EXPECT_TRUE(view_graph.HasImagePairWeights());
-  view_graph.Clear();
-  EXPECT_FALSE(view_graph.HasImagePairWeights());
-}
-
 TEST(ViewGraph, FilterByRelativeRotation) {
   colmap::Reconstruction reconstruction;
   colmap::SyntheticDatasetOptions options;
