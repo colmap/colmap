@@ -65,7 +65,8 @@ void RotationAveragingController::Run() {
     options.relative_pose_estimation.random_seed = options.random_seed;
     options.rotation_estimation.random_seed = options.random_seed;
   }
-  options.view_graph_calibration.solver_options.num_threads = options.num_threads;
+  options.view_graph_calibration.solver_options.num_threads =
+      options.num_threads;
 
   Timer run_timer;
   run_timer.Start();
