@@ -80,9 +80,12 @@ TEST(PoseIO, ImagePairWeightsRoundtrip) {
       {0, "image0.jpg"}, {1, "image1.jpg"}, {2, "image2.jpg"}};
 
   std::unordered_map<image_pair_t, double> weights;
-  weights[colmap::ImagePairToPairId(0, 1)] = colmap::RandomUniformReal(0.0, 1.0);
-  weights[colmap::ImagePairToPairId(0, 2)] = colmap::RandomUniformReal(0.0, 1.0);
-  weights[colmap::ImagePairToPairId(1, 2)] = colmap::RandomUniformReal(0.0, 1.0);
+  weights[colmap::ImagePairToPairId(0, 1)] =
+      colmap::RandomUniformReal(0.0, 1.0);
+  weights[colmap::ImagePairToPairId(0, 2)] =
+      colmap::RandomUniformReal(0.0, 1.0);
+  weights[colmap::ImagePairToPairId(1, 2)] =
+      colmap::RandomUniformReal(0.0, 1.0);
 
   std::string file_path =
       (std::filesystem::path(test_dir) / "weights.txt").string();
