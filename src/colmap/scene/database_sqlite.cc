@@ -477,7 +477,7 @@ void MaybeThrowDeprecatedPosePriorError(bool is_deprecated_image_prior) {
 class SqliteDatabase : public Database {
  public:
   SqliteDatabase() = delete;
-  explicit SqliteDatabase(const std::string& path)
+  explicit SqliteDatabase(const std::filesystem::path& path)
       : path_(path), database_(nullptr) {}
 
   // Open and close database. The same database should not be opened
@@ -486,7 +486,7 @@ class SqliteDatabase : public Database {
   // On Windows, the input path is converted from the local code page to UTF-8
   // for compatibility with SQLite. On POSIX platforms, the path is assumed to
   // be UTF-8.
-  static std::shared_ptr<Database> Open(const std::string& path) {
+  static std::shared_ptr<Database> Open(const std::filesystem::path& path) {
     auto database = std::make_shared<SqliteDatabase>(path);
 
     // SQLITE_OPEN_NOMUTEX specifies that the connection should not have a
@@ -495,7 +495,7 @@ class SqliteDatabase : public Database {
     // connections can read concurrently.
     try {
       SQLITE3_CALL(sqlite3_open_v2(
-          PlatformToUTF8(path).c_str(),
+          PlatformToUTF8(path.string()).c_str(),
           &database->database_,
           SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX,
           nullptr));
@@ -2168,7 +2168,7 @@ class SqliteDatabase : public Database {
     return max;
   }
 
-  const std::string path_;
+  const std::filesystem::path path_;
 
   sqlite3* database_ = nullptr;
 
@@ -2268,7 +2268,8 @@ std::mutex SqliteDatabase::update_schema_mutex_;
 
 }  // namespace
 
-std::shared_ptr<Database> OpenSqliteDatabase(const std::string& path) {
+std::shared_ptr<Database> OpenSqliteDatabase(
+    const std::filesystem::path& path) {
   return SqliteDatabase::Open(path);
 }
 
