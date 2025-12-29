@@ -66,7 +66,9 @@ void ViewGraphManipulator::UpdateImagePairsConfig(
 
 // Decompose the relative camera postion from the camera config
 void ViewGraphManipulator::DecomposeRelPose(
-    ViewGraph& view_graph, colmap::Reconstruction& reconstruction) {
+    ViewGraph& view_graph,
+    colmap::Reconstruction& reconstruction,
+    int num_threads) {
   std::vector<image_pair_t> image_pair_ids;
   for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
@@ -81,7 +83,7 @@ void ViewGraphManipulator::DecomposeRelPose(
   const int64_t num_image_pairs = image_pair_ids.size();
   LOG(INFO) << "Decompose relative pose for " << num_image_pairs << " pairs";
 
-  colmap::ThreadPool thread_pool(colmap::ThreadPool::kMaxNumThreads);
+  colmap::ThreadPool thread_pool(colmap::GetEffectiveNumThreads(num_threads));
   for (int64_t idx = 0; idx < num_image_pairs; idx++) {
     thread_pool.AddTask([&, idx]() {
       const image_pair_t pair_id = image_pair_ids[idx];

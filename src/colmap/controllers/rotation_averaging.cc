@@ -67,6 +67,7 @@ void RotationAveragingController::Run() {
   }
   options.view_graph_calibration.solver_options.num_threads =
       options.num_threads;
+  options.relative_pose_estimation.num_threads = options.num_threads;
 
   Timer run_timer;
   run_timer.Start();
@@ -75,7 +76,8 @@ void RotationAveragingController::Run() {
   LOG(INFO) << "----- Running preprocessing -----";
   glomap::ViewGraphManipulator::UpdateImagePairsConfig(view_graph,
                                                        *reconstruction_);
-  glomap::ViewGraphManipulator::DecomposeRelPose(view_graph, *reconstruction_);
+  glomap::ViewGraphManipulator::DecomposeRelPose(
+      view_graph, *reconstruction_, options.num_threads);
 
   // Step 1: View graph calibration
   LOG(INFO) << "----- Running view graph calibration -----";

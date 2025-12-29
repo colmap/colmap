@@ -27,6 +27,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
   }
   options.view_graph_calibration.solver_options.num_threads =
       options.num_threads;
+  options.relative_pose_estimation.num_threads = options.num_threads;
   options.global_positioning.solver_options.num_threads = options.num_threads;
   options.bundle_adjustment.solver_options.num_threads = options.num_threads;
   options.retriangulation.num_threads = options.num_threads;
@@ -40,7 +41,8 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     // If camera intrinsics seem to be good, force the pair to use essential
     // matrix
     ViewGraphManipulator::UpdateImagePairsConfig(view_graph, reconstruction);
-    ViewGraphManipulator::DecomposeRelPose(view_graph, reconstruction);
+    ViewGraphManipulator::DecomposeRelPose(
+        view_graph, reconstruction, options.num_threads);
     run_timer.PrintSeconds();
   }
 

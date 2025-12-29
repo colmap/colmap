@@ -21,7 +21,8 @@ void EstimateRelativePoses(ViewGraph& view_graph,
   const int64_t interval =
       std::ceil(static_cast<double>(num_image_pairs) / kNumChunks);
 
-  colmap::ThreadPool thread_pool(colmap::ThreadPool::kMaxNumThreads);
+  colmap::ThreadPool thread_pool(
+      colmap::GetEffectiveNumThreads(options.num_threads));
 
   LOG(INFO) << "Estimating relative pose for " << num_image_pairs << " pairs";
   for (int64_t chunk_id = 0; chunk_id < kNumChunks; chunk_id++) {
