@@ -16,9 +16,6 @@ struct ImagePair : public colmap::TwoViewGeometry {
     this->cam2_from_cam1 = std::move(cam2_from_cam1);
   }
 
-  // weight is the initial inlier rate
-  double weight = -1;
-
   // Matches between the two images.
   // First column is the index of the feature in the first image.
   // Second column is the index of the feature in the second image.

@@ -143,7 +143,8 @@ void ReadRelWeight(const std::string& file_path,
     if (!view_graph.HasImagePair(index1, index2)) continue;
 
     std::getline(line_stream, item, ' ');
-    view_graph.ImagePair(index1, index2).first.weight = std::stod(item);
+    const image_pair_t pair_id = colmap::ImagePairToPairId(index1, index2);
+    view_graph.SetImagePairWeight(pair_id, std::stod(item));
     counter++;
   }
   LOG(INFO) << counter << " weights are used are loaded";

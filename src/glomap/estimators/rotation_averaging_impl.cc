@@ -366,7 +366,7 @@ void RotationAveragingProblem::BuildConstraintMatrix(
     constraint.cam1_from_rig_param_idx = cam1_param_idx;
     constraint.cam2_from_rig_param_idx = cam2_param_idx;
 
-    const double pair_weight = image_pair.weight >= 0 ? image_pair.weight : 1.0;
+    const double pair_weight = view_graph.GetImagePairWeight(pair_id);
 
     if (std::holds_alternative<GravityAligned1DOF>(constraint.constraint)) {
       // 1-DOF constraint: single row.
