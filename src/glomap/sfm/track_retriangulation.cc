@@ -10,7 +10,7 @@
 namespace glomap {
 namespace {
 
-colmap::BundleAdjustmentOptions GetBundleAdjustmentOptions() {
+colmap::BundleAdjustmentOptions GetBundleAdjustmentOptions(int num_threads) {
   colmap::BundleAdjustmentOptions options;
   options.solver_options.function_tolerance = 0.0;
   options.solver_options.gradient_tolerance = 1.0;
@@ -23,9 +23,9 @@ colmap::BundleAdjustmentOptions GetBundleAdjustmentOptions() {
     options.solver_options.logging_type =
         ceres::LoggingType::PER_MINIMIZER_ITERATION;
   }
-  options.solver_options.num_threads = -1;
+  options.solver_options.num_threads = num_threads;
 #if CERES_VERSION_MAJOR < 2
-  options.solver_options.num_linear_solver_threads = -1;
+  options.solver_options.num_linear_solver_threads = num_threads;
 #endif  // CERES_VERSION_MAJOR
   options.print_summary = false;
   return options;
@@ -80,7 +80,7 @@ bool RetriangulateTracks(const TriangulatorOptions& options,
 
   // Merge and complete tracks.
   mapper.CompleteAndMergeTracks(tri_options);
-  const auto ba_options = GetBundleAdjustmentOptions();
+  const auto ba_options = GetBundleAdjustmentOptions(options.num_threads);
 
   // Configure bundle adjustment.
   colmap::BundleAdjustmentConfig ba_config;

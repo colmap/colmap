@@ -29,6 +29,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
       options.num_threads;
   options.global_positioning.solver_options.num_threads = options.num_threads;
   options.bundle_adjustment.solver_options.num_threads = options.num_threads;
+  options.retriangulation.num_threads = options.num_threads;
 
   // 0. Preprocessing
   if (!options.skip_preprocessing) {

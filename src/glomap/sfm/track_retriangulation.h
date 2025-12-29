@@ -6,6 +6,9 @@
 namespace glomap {
 
 struct TriangulatorOptions {
+  // Number of threads for bundle adjustment.
+  int num_threads = -1;
+
   double tri_complete_max_reproj_error = 15.0;
   double tri_merge_max_reproj_error = 15.0;
   double tri_min_angle = 1.0;
