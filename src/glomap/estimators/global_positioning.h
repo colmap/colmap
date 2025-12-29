@@ -4,6 +4,7 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/rig.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/enum_utils.h"
 
 #include "glomap/scene/view_graph.h"
 
@@ -13,18 +14,21 @@
 
 namespace glomap {
 
+// Constraint type for global positioning. ONLY_POINTS is recommended.
+// - ONLY_POINTS: only include camera to point constraints
+// - ONLY_CAMERAS: only include camera to camera constraints
+// - POINTS_AND_CAMERAS_BALANCED: points and cameras reweighted to have similar
+//   total contribution
+// - POINTS_AND_CAMERAS: treat each contribution from camera to point and
+//   camera to camera equally
+MAKE_ENUM_CLASS(GlobalPositioningConstraintType,
+                0,
+                ONLY_POINTS,
+                ONLY_CAMERAS,
+                POINTS_AND_CAMERAS_BALANCED,
+                POINTS_AND_CAMERAS);
+
 struct GlobalPositionerOptions {
-  // ONLY_POINTS is recommended
-  enum ConstraintType {
-    // only include camera to point constraints
-    ONLY_POINTS,
-    // only include camera to camera constraints
-    ONLY_CAMERAS,
-    // the points and cameras are reweighted to have similar total contribution
-    POINTS_AND_CAMERAS_BALANCED,
-    // treat each contribution from camera to point and camera to camera equally
-    POINTS_AND_CAMERAS,
-  };
 
   // Whether to initialize the camera and track positions randomly.
   bool generate_random_positions = true;
@@ -51,7 +55,8 @@ struct GlobalPositionerOptions {
   int random_seed = -1;
 
   // the type of global positioning
-  ConstraintType constraint_type = ONLY_POINTS;
+  GlobalPositioningConstraintType constraint_type =
+      GlobalPositioningConstraintType::ONLY_POINTS;
   double constraint_reweight_scale =
       1.0;  // only relevant for POINTS_AND_CAMERAS_BALANCED
 

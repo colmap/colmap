@@ -145,7 +145,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     LOG(INFO) << "----- Running global positioning -----";
 
     if (options.global_positioning.constraint_type !=
-        GlobalPositionerOptions::ConstraintType::ONLY_POINTS) {
+        GlobalPositioningConstraintType::ONLY_POINTS) {
       LOG(ERROR) << "Only points are used for solving camera positions";
       return false;
     }

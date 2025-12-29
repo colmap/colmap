@@ -1,5 +1,6 @@
 #include "glomap/controllers/option_manager.h"
 
+#include "glomap/estimators/global_positioning.h"
 #include "glomap/estimators/gravity_refinement.h"
 #include "glomap/sfm/global_mapper.h"
 
@@ -90,6 +91,13 @@ void OptionManager::AddGlobalMapperOptions() {
   AddAndRegisterDefaultOption(
       "GlobalPositioning.max_num_iterations",
       &mapper->global_positioning.solver_options.max_num_iterations);
+  AddAndRegisterDefaultEnumOption(
+      "GlobalPositioning.constraint_type",
+      &mapper->global_positioning.constraint_type,
+      GlobalPositioningConstraintTypeToString,
+      GlobalPositioningConstraintTypeFromString,
+      "{ONLY_POINTS, ONLY_CAMERAS, POINTS_AND_CAMERAS_BALANCED, "
+      "POINTS_AND_CAMERAS}");
 
   // Bundle adjustment options
   AddAndRegisterDefaultOption("BundleAdjustment.use_gpu",
@@ -170,8 +178,6 @@ void OptionManager::Reset() {
   added_global_mapper_options_ = false;
   added_gravity_refiner_options_ = false;
 }
-
-bool OptionManager::Check() { return colmap::BaseOptionManager::Check(); }
 
 void OptionManager::ResetOptions(const bool reset_paths) {
   colmap::BaseOptionManager::ResetOptions(reset_paths);

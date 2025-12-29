@@ -99,8 +99,8 @@ static void InitUiResources() { Q_INIT_RESOURCE(resources); }
 
 namespace colmap {
 
-MainWindow::MainWindow(const OptionManager& options)
-    : options_(options),
+MainWindow::MainWindow(OptionManager options)
+    : options_(std::move(options)),
       reconstruction_manager_(std::make_shared<ReconstructionManager>()),
       thread_control_widget_(new ThreadControlWidget(this)),
       window_closed_(false) {

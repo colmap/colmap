@@ -29,6 +29,7 @@
 
 #include "colmap/controllers/base_option_manager.h"
 
+#include "colmap/util/enum_utils.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
@@ -36,6 +37,9 @@
 
 namespace colmap {
 namespace {
+
+// Test enum for AddAndRegisterDefaultEnumOption tests
+MAKE_ENUM_CLASS(TestEnumType, 0, VALUE_A, VALUE_B, VALUE_C);
 
 TEST(BaseOptionManager, Reset) {
   BaseOptionManager options;
@@ -295,6 +299,122 @@ TEST(BaseOptionManager, ParseUnknownArgumentsFails) {
 
   // Should return false when encountering unknown option
   EXPECT_FALSE(options.Parse(argv.size(), argv.data()));
+}
+
+// Helper class to test enum options through BaseOptionManager
+class TestEnumOptionManager : public BaseOptionManager {
+ public:
+  TestEnumOptionManager() : BaseOptionManager(/*add_project_options=*/false) {
+    AddAndRegisterDefaultEnumOption("test_enum",
+                                    &test_enum_value,
+                                    TestEnumTypeToString,
+                                    TestEnumTypeFromString);
+  }
+
+  TestEnumType test_enum_value = TestEnumType::VALUE_A;
+};
+
+TEST(BaseOptionManager, EnumOptionDefaultValue) {
+  TestEnumOptionManager options;
+
+  // Default value should be VALUE_A
+  EXPECT_EQ(options.test_enum_value, TestEnumType::VALUE_A);
+
+  // Parse with no enum option specified
+  const std::vector<std::string> args = {"test"};
+  std::vector<char*> argv;
+  argv.reserve(args.size());
+  for (auto& arg : args) {
+    argv.push_back(const_cast<char*>(arg.c_str()));
+  }
+
+  EXPECT_TRUE(options.Parse(argv.size(), argv.data()));
+
+  // Should still be default value
+  EXPECT_EQ(options.test_enum_value, TestEnumType::VALUE_A);
+}
+
+TEST(BaseOptionManager, EnumOptionParseFromCommandLine) {
+  TestEnumOptionManager options;
+
+  // Parse with enum option set to VALUE_B
+  const std::vector<std::string> args = {"test", "--test_enum", "VALUE_B"};
+  std::vector<char*> argv;
+  argv.reserve(args.size());
+  for (auto& arg : args) {
+    argv.push_back(const_cast<char*>(arg.c_str()));
+  }
+
+  EXPECT_TRUE(options.Parse(argv.size(), argv.data()));
+
+  // Should be VALUE_B after parsing
+  EXPECT_EQ(options.test_enum_value, TestEnumType::VALUE_B);
+}
+
+TEST(BaseOptionManager, EnumOptionParseFromCommandLineValueC) {
+  TestEnumOptionManager options;
+
+  // Parse with enum option set to VALUE_C
+  const std::vector<std::string> args = {"test", "--test_enum", "VALUE_C"};
+  std::vector<char*> argv;
+  argv.reserve(args.size());
+  for (auto& arg : args) {
+    argv.push_back(const_cast<char*>(arg.c_str()));
+  }
+
+  EXPECT_TRUE(options.Parse(argv.size(), argv.data()));
+
+  // Should be VALUE_C after parsing
+  EXPECT_EQ(options.test_enum_value, TestEnumType::VALUE_C);
+}
+
+TEST(BaseOptionManager, EnumOptionInvalidValue) {
+  TestEnumOptionManager options;
+
+  // Parse with invalid enum value
+  const std::vector<std::string> args = {"test", "--test_enum", "INVALID_VALUE"};
+  std::vector<char*> argv;
+  argv.reserve(args.size());
+  for (auto& arg : args) {
+    argv.push_back(const_cast<char*>(arg.c_str()));
+  }
+
+  // Should fail due to invalid enum value
+  EXPECT_FALSE(options.Parse(argv.size(), argv.data()));
+}
+
+// Helper class to test enum options with non-default initial value
+class TestEnumOptionManagerWithValueB : public BaseOptionManager {
+ public:
+  TestEnumOptionManagerWithValueB()
+      : BaseOptionManager(/*add_project_options=*/false) {
+    AddAndRegisterDefaultEnumOption("test_enum",
+                                    &test_enum_value,
+                                    TestEnumTypeToString,
+                                    TestEnumTypeFromString);
+  }
+
+  TestEnumType test_enum_value = TestEnumType::VALUE_B;
+};
+
+TEST(BaseOptionManager, EnumOptionNonDefaultInitialValue) {
+  TestEnumOptionManagerWithValueB options;
+
+  // Default value should be VALUE_B (non-default)
+  EXPECT_EQ(options.test_enum_value, TestEnumType::VALUE_B);
+
+  // Parse with no enum option specified
+  const std::vector<std::string> args = {"test"};
+  std::vector<char*> argv;
+  argv.reserve(args.size());
+  for (auto& arg : args) {
+    argv.push_back(const_cast<char*>(arg.c_str()));
+  }
+
+  EXPECT_TRUE(options.Parse(argv.size(), argv.data()));
+
+  // Should still be VALUE_B (the initial value)
+  EXPECT_EQ(options.test_enum_value, TestEnumType::VALUE_B);
 }
 
 }  // namespace
