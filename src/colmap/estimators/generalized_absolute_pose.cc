@@ -29,6 +29,7 @@
 
 #include "colmap/estimators/generalized_absolute_pose.h"
 
+#include "colmap/estimators/poselib_utils.h"
 #include "colmap/util/logging.h"
 
 #include <PoseLib/solvers/gp3p.h>
@@ -69,8 +70,7 @@ void GP3PEstimator::Estimate(const std::vector<X_t>& points2D,
 
   rigs_from_world->reserve(poses.size());
   for (const poselib::CameraPose& pose : poses) {
-    rigs_from_world->emplace_back(
-        Eigen::Quaterniond(pose.q(0), pose.q(1), pose.q(2), pose.q(3)), pose.t);
+    rigs_from_world->emplace_back(ConvertPoseLibPoseToRigid3d(pose));
   }
 }
 
