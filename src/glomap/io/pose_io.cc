@@ -108,47 +108,6 @@ void ReadRelPose(const std::string& file_path,
   LOG(INFO) << counter << " relative poses are loaded";
 }
 
-void ReadRelWeight(const std::string& file_path,
-                   const std::unordered_map<image_t, Image>& images,
-                   ViewGraph& view_graph) {
-  const std::unordered_map<std::string, image_t> image_name_to_id =
-      ExtractImageNameToId(images);
-
-  std::ifstream file(file_path);
-
-  // Read in data
-  std::string line;
-  std::string item;
-
-  size_t counter = 0;
-
-  // Required data structures
-  // IMAGE_NAME_1 IMAGE_NAME_2 QW QX QY QZ TX TY TZ
-  while (std::getline(file, line)) {
-    std::stringstream line_stream(line);
-
-    std::string file1, file2;
-    std::getline(line_stream, item, ' ');
-    file1 = item;
-    std::getline(line_stream, item, ' ');
-    file2 = item;
-
-    if (image_name_to_id.find(file1) == image_name_to_id.end() ||
-        image_name_to_id.find(file2) == image_name_to_id.end())
-      continue;
-
-    image_t index1 = image_name_to_id.at(file1);
-    image_t index2 = image_name_to_id.at(file2);
-
-    if (!view_graph.HasImagePair(index1, index2)) continue;
-
-    std::getline(line_stream, item, ' ');
-    view_graph.ImagePair(index1, index2).first.weight = std::stod(item);
-    counter++;
-  }
-  LOG(INFO) << counter << " weights are used are loaded";
-}
-
 // TODO: now, we only store 1 single gravity per rig.
 // for ease of implementation, we only store from the image with trivial frame
 std::vector<colmap::PosePrior> ReadGravity(
