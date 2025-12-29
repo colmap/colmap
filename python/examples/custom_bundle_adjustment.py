@@ -8,24 +8,25 @@ import collections
 import copy
 
 import pycolmap
-from pycolmap import logging
+from pycolmap import logging, pyceres
 
 
 def solve_bundle_adjustment(
     reconstruction: pycolmap.Reconstruction,
     ba_options: pycolmap.BundleAdjustmentOptions,
     ba_config: pycolmap.BundleAdjustmentConfig,
-) -> pycolmap.pyceres.SolverSummary:
+) -> pyceres.SolverSummary:
     bundle_adjuster = pycolmap.create_default_bundle_adjuster(
         ba_options, ba_config, reconstruction
     )
     summary = bundle_adjuster.solve()
     # Alternatively, you can customize the existing problem or options as:
+    # import pyceres  # The minimal bindings in pycolmap aren't sufficient.
     # solver_options = ba_options.create_solver_options(
     #     ba_config, bundle_adjuster.problem
     # )
-    # summary = pycolmap.pyceres.SolverSummary()
-    # pycolmap.pyceres.solve(solver_options, bundle_adjuster.problem, summary)
+    # summary = pyceres.SolverSummary()
+    # pyceres.solve(solver_options, bundle_adjuster.problem, summary)
     return summary
 
 
