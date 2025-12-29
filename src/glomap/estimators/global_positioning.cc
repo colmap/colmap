@@ -31,13 +31,14 @@ bool GlobalPositioner::Solve(const ViewGraph& view_graph,
     LOG(ERROR) << "Number of images = " << reconstruction.NumImages();
     return false;
   }
-  if (view_graph.Empty() &&
-      options_.constraint_type != GlobalPositioningConstraintType::ONLY_POINTS) {
+  if (view_graph.Empty() && options_.constraint_type !=
+                                GlobalPositioningConstraintType::ONLY_POINTS) {
     LOG(ERROR) << "Number of image_pairs = " << view_graph.NumImagePairs();
     return false;
   }
   if (reconstruction.NumPoints3D() == 0 &&
-      options_.constraint_type != GlobalPositioningConstraintType::ONLY_CAMERAS) {
+      options_.constraint_type !=
+          GlobalPositioningConstraintType::ONLY_CAMERAS) {
     LOG(ERROR) << "Number of tracks = " << reconstruction.NumPoints3D();
     return false;
   }
@@ -54,12 +55,14 @@ bool GlobalPositioner::Solve(const ViewGraph& view_graph,
   // Add the camera to camera constraints to the problem.
   // TODO: support the relative constraints with trivial frames to a non trivial
   // frame
-  if (options_.constraint_type != GlobalPositioningConstraintType::ONLY_POINTS) {
+  if (options_.constraint_type !=
+      GlobalPositioningConstraintType::ONLY_POINTS) {
     AddCameraToCameraConstraints(view_graph, reconstruction);
   }
 
   // Add the point to camera constraints to the problem.
-  if (options_.constraint_type != GlobalPositioningConstraintType::ONLY_CAMERAS) {
+  if (options_.constraint_type !=
+      GlobalPositioningConstraintType::ONLY_CAMERAS) {
     AddPointToCameraConstraints(reconstruction);
   }
 

@@ -372,7 +372,8 @@ TEST(BaseOptionManager, EnumOptionInvalidValue) {
   TestEnumOptionManager options;
 
   // Parse with invalid enum value
-  const std::vector<std::string> args = {"test", "--test_enum", "INVALID_VALUE"};
+  const std::vector<std::string> args = {
+      "test", "--test_enum", "INVALID_VALUE"};
   std::vector<char*> argv;
   argv.reserve(args.size());
   for (auto& arg : args) {

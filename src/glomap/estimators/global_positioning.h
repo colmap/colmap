@@ -29,7 +29,6 @@ MAKE_ENUM_CLASS(GlobalPositioningConstraintType,
                 POINTS_AND_CAMERAS);
 
 struct GlobalPositionerOptions {
-
   // Whether to initialize the camera and track positions randomly.
   bool generate_random_positions = true;
   bool generate_random_points = true;
