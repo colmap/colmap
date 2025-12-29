@@ -39,10 +39,9 @@ TEST(GlobalMapper, WithoutNoise) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
-  auto view_graph = std::make_shared<ViewGraph>();
 
   GlobalMapper global_mapper(database);
-  global_mapper.BeginReconstruction(reconstruction, view_graph);
+  global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(CreateTestOptions(), cluster_ids);
@@ -70,10 +69,9 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
-  auto view_graph = std::make_shared<ViewGraph>();
 
   GlobalMapper global_mapper(database);
-  global_mapper.BeginReconstruction(reconstruction, view_graph);
+  global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(CreateTestOptions(), cluster_ids);
@@ -102,10 +100,9 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
-  auto view_graph = std::make_shared<ViewGraph>();
 
   GlobalMapper global_mapper(database);
-  global_mapper.BeginReconstruction(reconstruction, view_graph);
+  global_mapper.BeginReconstruction(reconstruction);
 
   // Set the rig sensors to be unknown
   for (const auto& [rig_id, rig] : reconstruction->Rigs()) {
@@ -144,10 +141,9 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
       synthetic_noise_options, &gt_reconstruction, database.get());
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
-  auto view_graph = std::make_shared<ViewGraph>();
 
   GlobalMapper global_mapper(database);
-  global_mapper.BeginReconstruction(reconstruction, view_graph);
+  global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(CreateTestOptions(), cluster_ids);

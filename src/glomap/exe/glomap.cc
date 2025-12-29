@@ -94,12 +94,11 @@ int RunGlobalMapper(int argc, char** argv) {
   auto database = colmap::Database::Open(*options.database_path);
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
-  auto view_graph = std::make_shared<ViewGraph>();
 
   GlobalMapper global_mapper(database);
-  global_mapper.BeginReconstruction(reconstruction, view_graph);
+  global_mapper.BeginReconstruction(reconstruction);
 
-  if (view_graph->Empty()) {
+  if (global_mapper.ViewGraph()->Empty()) {
     LOG(ERROR) << "Can't continue without image pairs";
     return EXIT_FAILURE;
   }

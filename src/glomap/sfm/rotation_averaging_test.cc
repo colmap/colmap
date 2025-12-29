@@ -110,11 +110,10 @@ TEST(RotationEstimator, WithoutNoise) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
-  auto view_graph = std::make_shared<ViewGraph>();
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
   GlobalMapper global_mapper(database);
-  global_mapper.BeginReconstruction(reconstruction, view_graph);
+  global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(CreateMapperTestOptions(), cluster_ids);
@@ -125,7 +124,7 @@ TEST(RotationEstimator, WithoutNoise) {
     // Make a copy for this iteration
     colmap::Reconstruction reconstruction_copy = *reconstruction;
     SolveRotationAveraging(CreateRATestOptions(use_gravity),
-                           *view_graph,
+                           *global_mapper.ViewGraph(),
                            reconstruction_copy,
                            pose_priors);
 
@@ -153,11 +152,10 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialKnownRig) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
-  auto view_graph = std::make_shared<ViewGraph>();
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
   GlobalMapper global_mapper(database);
-  global_mapper.BeginReconstruction(reconstruction, view_graph);
+  global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(CreateMapperTestOptions(), cluster_ids);
@@ -166,7 +164,7 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialKnownRig) {
     // Make a copy for this iteration
     colmap::Reconstruction reconstruction_copy = *reconstruction;
     SolveRotationAveraging(CreateRATestOptions(use_gravity),
-                           *view_graph,
+                           *global_mapper.ViewGraph(),
                            reconstruction_copy,
                            pose_priors);
 
@@ -194,11 +192,10 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialUnknownRig) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
-  auto view_graph = std::make_shared<ViewGraph>();
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
   GlobalMapper global_mapper(database);
-  global_mapper.BeginReconstruction(reconstruction, view_graph);
+  global_mapper.BeginReconstruction(reconstruction);
 
   for (const auto& [rig_id, rig] : reconstruction->Rigs()) {
     for (const auto& [sensor_id, sensor] : rig.NonRefSensors()) {
@@ -216,7 +213,7 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialUnknownRig) {
     // Make a copy for this iteration
     colmap::Reconstruction reconstruction_copy = *reconstruction;
     SolveRotationAveraging(CreateRATestOptions(use_gravity),
-                           *view_graph,
+                           *global_mapper.ViewGraph(),
                            reconstruction_copy,
                            pose_priors);
 
@@ -249,12 +246,11 @@ TEST(RotationEstimator, WithNoiseAndOutliers) {
       synthetic_noise_options, &gt_reconstruction, database.get());
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
-  auto view_graph = std::make_shared<ViewGraph>();
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
   SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
   GlobalMapper global_mapper(database);
-  global_mapper.BeginReconstruction(reconstruction, view_graph);
+  global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(CreateMapperTestOptions(), cluster_ids);
@@ -265,7 +261,7 @@ TEST(RotationEstimator, WithNoiseAndOutliers) {
     // Make a copy for this iteration
     colmap::Reconstruction reconstruction_copy = *reconstruction;
     SolveRotationAveraging(CreateRATestOptions(use_gravity),
-                           *view_graph,
+                           *global_mapper.ViewGraph(),
                            reconstruction_copy,
                            pose_priors);
 
@@ -297,12 +293,11 @@ TEST(RotationEstimator, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
       synthetic_noise_options, &gt_reconstruction, database.get());
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
-  auto view_graph = std::make_shared<ViewGraph>();
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
   SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
   GlobalMapper global_mapper(database);
-  global_mapper.BeginReconstruction(reconstruction, view_graph);
+  global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(CreateMapperTestOptions(), cluster_ids);
@@ -313,7 +308,7 @@ TEST(RotationEstimator, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
     // Make a copy for this iteration
     colmap::Reconstruction reconstruction_copy = *reconstruction;
     SolveRotationAveraging(CreateRATestOptions(use_gravity),
-                           *view_graph,
+                           *global_mapper.ViewGraph(),
                            reconstruction_copy,
                            pose_priors);
 
@@ -339,19 +334,19 @@ TEST(RotationEstimator, RefineGravity) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
-  auto view_graph = std::make_shared<ViewGraph>();
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
   SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
   GlobalMapper global_mapper(database);
-  global_mapper.BeginReconstruction(reconstruction, view_graph);
+  global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(CreateMapperTestOptions(), cluster_ids);
 
   GravityRefinerOptions opt_grav_refine;
   GravityRefiner grav_refiner(opt_grav_refine);
-  grav_refiner.RefineGravity(*view_graph, *reconstruction, pose_priors);
+  grav_refiner.RefineGravity(
+      *global_mapper.ViewGraph(), *reconstruction, pose_priors);
 
   ExpectEqualGravity(synthetic_dataset_options.prior_gravity_in_world,
                      gt_reconstruction,
@@ -376,19 +371,19 @@ TEST(RotationEstimator, RefineGravityWithNonTrivialRigs) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
-  auto view_graph = std::make_shared<ViewGraph>();
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
   SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
   GlobalMapper global_mapper(database);
-  global_mapper.BeginReconstruction(reconstruction, view_graph);
+  global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(CreateMapperTestOptions(), cluster_ids);
 
   GravityRefinerOptions opt_grav_refine;
   GravityRefiner grav_refiner(opt_grav_refine);
-  grav_refiner.RefineGravity(*view_graph, *reconstruction, pose_priors);
+  grav_refiner.RefineGravity(
+      *global_mapper.ViewGraph(), *reconstruction, pose_priors);
 
   ExpectEqualGravity(synthetic_dataset_options.prior_gravity_in_world,
                      gt_reconstruction,

@@ -47,12 +47,11 @@ GlobalPipeline::GlobalPipeline(
 
 void GlobalPipeline::Run() {
   auto reconstruction = std::make_shared<Reconstruction>();
-  auto view_graph = std::make_shared<glomap::ViewGraph>();
 
   glomap::GlobalMapper global_mapper(database_);
-  global_mapper.BeginReconstruction(reconstruction, view_graph);
+  global_mapper.BeginReconstruction(reconstruction);
 
-  if (view_graph->Empty()) {
+  if (global_mapper.ViewGraph()->Empty()) {
     LOG(ERROR) << "Cannot continue without image pairs";
     return;
   }

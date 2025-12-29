@@ -60,14 +60,17 @@ class GlobalMapper {
   explicit GlobalMapper(std::shared_ptr<const colmap::Database> database);
 
   // Prepare the mapper for a new reconstruction. This will initialize the
-  // reconstruction and view graph from the database, and read pose priors.
+  // reconstruction and view graph from the database.
   void BeginReconstruction(
-      const std::shared_ptr<colmap::Reconstruction>& reconstruction,
-      const std::shared_ptr<ViewGraph>& view_graph);
+      const std::shared_ptr<colmap::Reconstruction>& reconstruction);
 
   // Run the global SfM pipeline.
   bool Solve(const GlobalMapperOptions& options,
              std::unordered_map<frame_t, int>& cluster_ids);
+
+  // Getter functions.
+  std::shared_ptr<colmap::Reconstruction> Reconstruction() const;
+  std::shared_ptr<class ViewGraph> ViewGraph() const;
 
  private:
   // Class that provides access to the database.
@@ -77,7 +80,7 @@ class GlobalMapper {
   std::shared_ptr<colmap::Reconstruction> reconstruction_;
 
   // Class that holds the view graph.
-  std::shared_ptr<ViewGraph> view_graph_;
+  std::shared_ptr<class ViewGraph> view_graph_;
 };
 
 }  // namespace glomap

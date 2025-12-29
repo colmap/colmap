@@ -16,16 +16,22 @@ GlobalMapper::GlobalMapper(std::shared_ptr<const colmap::Database> database)
     : database_(std::move(THROW_CHECK_NOTNULL(database))) {}
 
 void GlobalMapper::BeginReconstruction(
-    const std::shared_ptr<colmap::Reconstruction>& reconstruction,
-    const std::shared_ptr<ViewGraph>& view_graph) {
+    const std::shared_ptr<colmap::Reconstruction>& reconstruction) {
   THROW_CHECK_NOTNULL(reconstruction);
-  THROW_CHECK_NOTNULL(view_graph);
 
   reconstruction_ = reconstruction;
-  view_graph_ = view_graph;
+  view_graph_ = std::make_shared<class ViewGraph>();
 
   // Initialize the reconstruction and view graph from the database.
   InitializeGlomapFromDatabase(*database_, *reconstruction_, *view_graph_);
+}
+
+std::shared_ptr<colmap::Reconstruction> GlobalMapper::Reconstruction() const {
+  return reconstruction_;
+}
+
+std::shared_ptr<class ViewGraph> GlobalMapper::ViewGraph() const {
+  return view_graph_;
 }
 
 // TODO: Rig normalizaiton has not be done
@@ -33,9 +39,6 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
                          std::unordered_map<frame_t, int>& cluster_ids) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(view_graph_);
-
-  colmap::Reconstruction& reconstruction = *reconstruction_;
-  ViewGraph& view_graph = *view_graph_;
 
   // Propagate random seed to component options for deterministic behavior.
   GlobalMapperOptions opts = options;
@@ -53,8 +56,9 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     run_timer.Start();
     // If camera intrinsics seem to be good, force the pair to use essential
     // matrix
-    ViewGraphManipulator::UpdateImagePairsConfig(view_graph, reconstruction);
-    ViewGraphManipulator::DecomposeRelPose(view_graph, reconstruction);
+    ViewGraphManipulator::UpdateImagePairsConfig(*view_graph_,
+                                                 *reconstruction_);
+    ViewGraphManipulator::DecomposeRelPose(*view_graph_, *reconstruction_);
     run_timer.PrintSeconds();
   }
 
@@ -62,7 +66,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   if (!opts.skip_view_graph_calibration) {
     LOG(INFO) << "----- Running view graph calibration -----";
     ViewGraphCalibrator vgcalib_engine(opts.view_graph_calibration);
-    if (!vgcalib_engine.Solve(view_graph, reconstruction)) {
+    if (!vgcalib_engine.Solve(*view_graph_, *reconstruction_)) {
       return false;
     }
   }
@@ -76,16 +80,17 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     run_timer.Start();
     // Relative pose relies on the undistorted images
     EstimateRelativePoses(
-        view_graph, reconstruction, opts.relative_pose_estimation);
+        *view_graph_, *reconstruction_, opts.relative_pose_estimation);
 
     InlierThresholdOptions inlier_thresholds = opts.inlier_thresholds;
     // Undistort the images and filter edges by inlier number
-    ImagePairsInlierCount(view_graph, reconstruction, inlier_thresholds, true);
+    ImagePairsInlierCount(
+        *view_graph_, *reconstruction_, inlier_thresholds, true);
 
-    view_graph.FilterByNumInliers(opts.inlier_thresholds.min_inlier_num);
-    view_graph.FilterByInlierRatio(opts.inlier_thresholds.min_inlier_ratio);
+    view_graph_->FilterByNumInliers(opts.inlier_thresholds.min_inlier_num);
+    view_graph_->FilterByInlierRatio(opts.inlier_thresholds.min_inlier_ratio);
 
-    if (view_graph.KeepLargestConnectedComponents(reconstruction) == 0) {
+    if (view_graph_->KeepLargestConnectedComponents(*reconstruction_) == 0) {
       LOG(ERROR) << "no connected components are found";
       return false;
     }
@@ -105,28 +110,31 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
 
     // The first run is for filtering
     SolveRotationAveraging(
-        opts.rotation_averaging, view_graph, reconstruction, pose_priors);
+        opts.rotation_averaging, *view_graph_, *reconstruction_, pose_priors);
 
-    view_graph.FilterByRelativeRotation(
-        reconstruction, opts.inlier_thresholds.max_rotation_error);
-    if (view_graph.KeepLargestConnectedComponents(reconstruction) == 0) {
+    view_graph_->FilterByRelativeRotation(
+        *reconstruction_, opts.inlier_thresholds.max_rotation_error);
+    if (view_graph_->KeepLargestConnectedComponents(*reconstruction_) == 0) {
       LOG(ERROR) << "no connected components are found";
       return false;
     }
 
     // The second run is for final estimation
-    if (!SolveRotationAveraging(
-            opts.rotation_averaging, view_graph, reconstruction, pose_priors)) {
+    if (!SolveRotationAveraging(opts.rotation_averaging,
+                                *view_graph_,
+                                *reconstruction_,
+                                pose_priors)) {
       return false;
     }
-    view_graph.FilterByRelativeRotation(
-        reconstruction, opts.inlier_thresholds.max_rotation_error);
-    image_t num_img = view_graph.KeepLargestConnectedComponents(reconstruction);
+    view_graph_->FilterByRelativeRotation(
+        *reconstruction_, opts.inlier_thresholds.max_rotation_error);
+    image_t num_img =
+        view_graph_->KeepLargestConnectedComponents(*reconstruction_);
     if (num_img == 0) {
       LOG(ERROR) << "no connected components are found";
       return false;
     }
-    LOG(INFO) << num_img << " / " << reconstruction.NumImages()
+    LOG(INFO) << num_img << " / " << reconstruction_->NumImages()
               << " images are within the connected component.";
 
     run_timer.PrintSeconds();
@@ -142,7 +150,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     // then filters into the main reconstruction
     std::unordered_map<point3D_t, Point3D> unfiltered_points3D;
     TrackEngine track_engine(
-        view_graph, reconstruction.Images(), opts.track_establishment);
+        *view_graph_, reconstruction_->Images(), opts.track_establishment);
     track_engine.EstablishFullTracks(unfiltered_points3D);
 
     // Filter the points3D into a selected subset
@@ -151,9 +159,9 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
         unfiltered_points3D, selected_points3D);
 
     // Add selected points3D to reconstruction
-    THROW_CHECK_EQ(reconstruction.NumPoints3D(), 0);
+    THROW_CHECK_EQ(reconstruction_->NumPoints3D(), 0);
     for (auto& [point3D_id, point3D] : selected_points3D) {
-      reconstruction.AddPoint3D(point3D_id, std::move(point3D));
+      reconstruction_->AddPoint3D(point3D_id, std::move(point3D));
     }
     LOG(INFO) << "Before filtering: " << unfiltered_points3D.size()
               << ", after filtering: " << num_points3D;
@@ -176,27 +184,27 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     GlobalPositioner gp_engine(opts.global_positioning);
 
     // TODO: consider to support other modes as well
-    if (!gp_engine.Solve(view_graph, reconstruction)) {
+    if (!gp_engine.Solve(*view_graph_, *reconstruction_)) {
       return false;
     }
     // Filter tracks based on the estimation
-    colmap::ObservationManager obs_manager(reconstruction);
+    colmap::ObservationManager obs_manager(*reconstruction_);
     // First pass: use relaxed threshold (2x) for cameras without prior focal.
     obs_manager.FilterPoints3DWithLargeReprojectionError(
         2.0 * opts.inlier_thresholds.max_angle_error,
-        reconstruction.Point3DIds(),
+        reconstruction_->Point3DIds(),
         colmap::ReprojectionErrorType::ANGULAR);
     // Second pass: apply strict threshold for cameras with prior focal length.
     const double max_angle_error_rad =
         colmap::DegToRad(opts.inlier_thresholds.max_angle_error);
     std::vector<std::pair<colmap::image_t, colmap::point2D_t>> obs_to_delete;
-    for (const auto point3D_id : reconstruction.Point3DIds()) {
-      if (!reconstruction.ExistsPoint3D(point3D_id)) {
+    for (const auto point3D_id : reconstruction_->Point3DIds()) {
+      if (!reconstruction_->ExistsPoint3D(point3D_id)) {
         continue;
       }
-      const auto& point3D = reconstruction.Point3D(point3D_id);
+      const auto& point3D = reconstruction_->Point3D(point3D_id);
       for (const auto& track_el : point3D.track.Elements()) {
-        const auto& image = reconstruction.Image(track_el.image_id);
+        const auto& image = reconstruction_->Image(track_el.image_id);
         const auto& camera = *image.CameraPtr();
         if (!camera.has_prior_focal_length) {
           continue;
@@ -210,7 +218,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
       }
     }
     for (const auto& [image_id, point2D_idx] : obs_to_delete) {
-      if (reconstruction.Image(image_id).Point2D(point2D_idx).HasPoint3D()) {
+      if (reconstruction_->Image(image_id).Point2D(point2D_idx).HasPoint3D()) {
         obs_manager.DeleteObservation(image_id, point2D_idx);
       }
     }
@@ -218,15 +226,15 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     // Filter tracks based on triangulation angle and reprojection error
     obs_manager.FilterPoints3DWithSmallTriangulationAngle(
         opts.inlier_thresholds.min_triangulation_angle,
-        reconstruction.Point3DIds());
+        reconstruction_->Point3DIds());
     // Set the threshold to be larger to avoid removing too many tracks
     obs_manager.FilterPoints3DWithLargeReprojectionError(
         10 * opts.inlier_thresholds.max_reprojection_error,
-        reconstruction.Point3DIds(),
+        reconstruction_->Point3DIds(),
         colmap::ReprojectionErrorType::NORMALIZED);
     // Normalize the structure
     // If the camera rig is used, the structure do not need to be normalized
-    reconstruction.Normalize();
+    reconstruction_->Normalize();
 
     run_timer.PrintSeconds();
   }
@@ -242,7 +250,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
       // 6.1. First stage: optimize positions only (rotation constant)
       if (!RunBundleAdjustment(opts.bundle_adjustment,
                                /*constant_rotation=*/true,
-                               reconstruction)) {
+                               *reconstruction_)) {
         return false;
       }
       LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
@@ -254,7 +262,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
       if (opts.bundle_adjustment.optimize_rotations &&
           !RunBundleAdjustment(opts.bundle_adjustment,
                                /*constant_rotation=*/false,
-                               reconstruction)) {
+                               *reconstruction_)) {
         return false;
       }
       LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
@@ -262,7 +270,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
       if (ite != opts.num_iterations_ba - 1) run_timer.PrintSeconds();
 
       // Normalize the structure
-      reconstruction.Normalize();
+      reconstruction_->Normalize();
 
       // 6.3. Filter tracks based on the estimation
       // For the filtering, in each round, the criteria for outlier is
@@ -270,17 +278,17 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
       // adjustment right away. Instead, use a more strict criteria to filter
       LOG(INFO) << "Filtering tracks by reprojection ...";
 
-      colmap::ObservationManager obs_manager(reconstruction);
+      colmap::ObservationManager obs_manager(*reconstruction_);
       bool status = true;
       size_t filtered_num = 0;
       while (status && ite < opts.num_iterations_ba) {
         double scaling = std::max(3 - ite, 1);
         filtered_num += obs_manager.FilterPoints3DWithLargeReprojectionError(
             scaling * opts.inlier_thresholds.max_reprojection_error,
-            reconstruction.Point3DIds(),
+            reconstruction_->Point3DIds(),
             colmap::ReprojectionErrorType::NORMALIZED);
 
-        if (filtered_num > 1e-3 * reconstruction.NumPoints3D()) {
+        if (filtered_num > 1e-3 * reconstruction_->NumPoints3D()) {
           status = false;
         } else
           ite++;
@@ -294,14 +302,14 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     // Filter tracks based on the estimation
     LOG(INFO) << "Filtering tracks by reprojection ...";
     {
-      colmap::ObservationManager obs_manager(reconstruction);
+      colmap::ObservationManager obs_manager(*reconstruction_);
       obs_manager.FilterPoints3DWithLargeReprojectionError(
           opts.inlier_thresholds.max_reprojection_error,
-          reconstruction.Point3DIds(),
+          reconstruction_->Point3DIds(),
           colmap::ReprojectionErrorType::NORMALIZED);
       obs_manager.FilterPoints3DWithSmallTriangulationAngle(
           opts.inlier_thresholds.min_triangulation_angle,
-          reconstruction.Point3DIds());
+          reconstruction_->Point3DIds());
     }
 
     run_timer.PrintSeconds();
@@ -313,47 +321,47 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     for (int ite = 0; ite < opts.num_iterations_retriangulation; ite++) {
       colmap::Timer run_timer;
       run_timer.Start();
-      RetriangulateTracks(opts.retriangulation, *database_, reconstruction);
+      RetriangulateTracks(opts.retriangulation, *database_, *reconstruction_);
       run_timer.PrintSeconds();
 
       LOG(INFO) << "Running bundle adjustment...";
       if (!RunBundleAdjustment(opts.bundle_adjustment,
                                /*constant_rotation=*/false,
-                               reconstruction)) {
+                               *reconstruction_)) {
         return false;
       }
 
       // Filter tracks based on the estimation
       LOG(INFO) << "Filtering tracks by reprojection ...";
-      colmap::ObservationManager(reconstruction)
+      colmap::ObservationManager(*reconstruction_)
           .FilterPoints3DWithLargeReprojectionError(
               opts.inlier_thresholds.max_reprojection_error,
-              reconstruction.Point3DIds(),
+              reconstruction_->Point3DIds(),
               colmap::ReprojectionErrorType::NORMALIZED);
 
       // Run BA again after filtering outliers
       if (!RunBundleAdjustment(opts.bundle_adjustment,
                                /*constant_rotation=*/false,
-                               reconstruction)) {
+                               *reconstruction_)) {
         return false;
       }
       run_timer.PrintSeconds();
     }
 
     // Normalize the structure
-    reconstruction.Normalize();
+    reconstruction_->Normalize();
 
     // Filter tracks based on the estimation
     LOG(INFO) << "Filtering tracks by reprojection ...";
     {
-      colmap::ObservationManager obs_manager(reconstruction);
+      colmap::ObservationManager obs_manager(*reconstruction_);
       obs_manager.FilterPoints3DWithLargeReprojectionError(
           opts.inlier_thresholds.max_reprojection_error,
-          reconstruction.Point3DIds(),
+          reconstruction_->Point3DIds(),
           colmap::ReprojectionErrorType::NORMALIZED);
       obs_manager.FilterPoints3DWithSmallTriangulationAngle(
           opts.inlier_thresholds.min_triangulation_angle,
-          reconstruction.Point3DIds());
+          reconstruction_->Point3DIds());
     }
   }
 
@@ -363,7 +371,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
 
     colmap::Timer run_timer;
     run_timer.Start();
-    cluster_ids = PruneWeaklyConnectedFrames(reconstruction);
+    cluster_ids = PruneWeaklyConnectedFrames(*reconstruction_);
     run_timer.PrintSeconds();
   }
 
