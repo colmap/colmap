@@ -59,7 +59,6 @@ class RotationAveragingProblem {
     return constraint_matrix_;
   }
   const Eigen::VectorXd& Residuals() const { return residuals_; }
-  const Eigen::VectorXd& EdgeWeights() const { return edge_weights_; }
   int NumParameters() const { return constraint_matrix_.cols(); }
   int NumResiduals() const { return constraint_matrix_.rows(); }
   int NumGaugeFixingResiduals() const { return num_gauge_fixing_residuals_; }
@@ -92,7 +91,6 @@ class RotationAveragingProblem {
   // Linear system components.
   Eigen::SparseMatrix<double> constraint_matrix_;  // Matrix A.
   Eigen::VectorXd residuals_;                      // Vector b.
-  Eigen::VectorXd edge_weights_;
 
   // Current rotation estimates in tangent space (angle-axis).
   Eigen::VectorXd estimated_rotations_;
