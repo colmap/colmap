@@ -142,9 +142,8 @@ def adjust_local_bundle(
         ba_config.fix_gauge(pycolmap.BundleAdjustmentGauge.THREE_POINTS)
 
         # Insert the images of all local frames.
-        frame_ids = set()
         image = reconstruction.image(image_id)
-        frame_ids.add(image.frame_id)
+        frame_ids = {image.frame_id}
         assert image.frame is not None
         for data_id in image.frame.image_ids:
             ba_config.add_image(data_id.id)
