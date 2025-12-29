@@ -31,6 +31,7 @@
 
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3_matchers.h"
+#include "colmap/math/random.h"
 #include "colmap/util/eigen_matchers.h"
 #include "colmap/util/testing.h"
 #include "colmap/util/types.h"
@@ -51,16 +52,14 @@ TEST(PoseIO, RelativePosesRoundtrip) {
       {0, "image0.jpg"}, {1, "image1.jpg"}, {2, "image2.jpg"}};
 
   std::unordered_map<image_pair_t, Rigid3d> poses;
-  image_pair_t pair_01 = colmap::ImagePairToPairId(0, 1);
-  image_pair_t pair_02 = colmap::ImagePairToPairId(0, 2);
-  image_pair_t pair_12 = colmap::ImagePairToPairId(1, 2);
-
-  poses[pair_01] =
+  poses[colmap::ImagePairToPairId(0, 1)] =
       Rigid3d(Eigen::Quaterniond(1, 0, 0, 0), Eigen::Vector3d(1.0, 2.0, 3.0));
-  poses[pair_02] = Rigid3d(Eigen::Quaterniond(0.5, 0.5, 0.5, 0.5).normalized(),
-                           Eigen::Vector3d(-1.0, 0.0, 1.0));
-  poses[pair_12] = Rigid3d(Eigen::Quaterniond(0.7, 0.1, 0.2, 0.3).normalized(),
-                           Eigen::Vector3d(0.5, 0.5, 0.5));
+  poses[colmap::ImagePairToPairId(0, 2)] =
+      Rigid3d(Eigen::Quaterniond(0.5, 0.5, 0.5, 0.5).normalized(),
+              Eigen::Vector3d(-1.0, 0.0, 1.0));
+  poses[colmap::ImagePairToPairId(1, 2)] =
+      Rigid3d(Eigen::Quaterniond(0.7, 0.1, 0.2, 0.3).normalized(),
+              Eigen::Vector3d(0.5, 0.5, 0.5));
 
   std::string file_path =
       (std::filesystem::path(test_dir) / "relative_poses.txt").string();
@@ -81,9 +80,9 @@ TEST(PoseIO, ImagePairWeightsRoundtrip) {
       {0, "image0.jpg"}, {1, "image1.jpg"}, {2, "image2.jpg"}};
 
   std::unordered_map<image_pair_t, double> weights;
-  weights[colmap::ImagePairToPairId(0, 1)] = 0.5;
-  weights[colmap::ImagePairToPairId(0, 2)] = 0.75;
-  weights[colmap::ImagePairToPairId(1, 2)] = 0.9;
+  weights[colmap::ImagePairToPairId(0, 1)] = colmap::RandomUniformReal(0.0, 1.0);
+  weights[colmap::ImagePairToPairId(0, 2)] = colmap::RandomUniformReal(0.0, 1.0);
+  weights[colmap::ImagePairToPairId(1, 2)] = colmap::RandomUniformReal(0.0, 1.0);
 
   std::string file_path =
       (std::filesystem::path(test_dir) / "weights.txt").string();
@@ -150,9 +149,9 @@ TEST(PoseIO, RotationsRoundtrip) {
       {0, "image0.jpg"}, {1, "image1.jpg"}, {2, "image2.jpg"}};
 
   std::unordered_map<image_t, Eigen::Quaterniond> rotations;
-  rotations[0] = Eigen::Quaterniond(1, 0, 0, 0);
-  rotations[1] = Eigen::Quaterniond(0.5, 0.5, 0.5, 0.5).normalized();
-  rotations[2] = Eigen::Quaterniond(0.7, 0.1, 0.2, 0.3).normalized();
+  for (image_t id = 0; id < 3; ++id) {
+    rotations[id] = Eigen::Quaterniond::UnitRandom();
+  }
 
   std::string file_path =
       (std::filesystem::path(test_dir) / "rotations.txt").string();
