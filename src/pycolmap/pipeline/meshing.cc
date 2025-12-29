@@ -10,7 +10,6 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <pybind11/stl/filesystem.h>
 
 using namespace colmap;
 using namespace pybind11::literals;
