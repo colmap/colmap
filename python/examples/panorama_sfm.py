@@ -315,7 +315,7 @@ def run(args: argparse.Namespace) -> None:
     pycolmap.extract_features(
         database_path,
         image_dir,
-        reader_options=pycolmap.ImageReaderOptions({"mask_path": mask_dir}),
+        reader_options=pycolmap.ImageReaderOptions(mask_path=mask_dir),
         camera_mode=pycolmap.CameraMode.PER_FOLDER,
     )
 

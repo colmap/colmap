@@ -38,7 +38,7 @@ import shutil
 import subprocess
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, TypeAlias
 
 import numpy as np
 import numpy.typing as npt
@@ -83,7 +83,7 @@ class SceneResult:
 
 
 @dataclasses.dataclass(kw_only=True)
-class SceneMetrics:
+class Metrics:
     # Area under the curve (AUC) scores at specified error thresholds.
     aucs: npt.NDArray[np.floating]
     error_thresholds: npt.NDArray[np.floating]
@@ -96,6 +96,11 @@ class SceneMetrics:
     num_components: int
     # Number of images in the largest component.
     largest_component: int
+
+
+MetricsByScene: TypeAlias = dict[str, Metrics]
+MetricsByCatByScene: TypeAlias = dict[str, MetricsByScene]
+MetricsByDatasetByCatByScene: TypeAlias = dict[str, MetricsByCatByScene]
 
 
 class Dataset(ABC):
@@ -506,7 +511,7 @@ def process_scenes(
     scene_infos: list[SceneInfo],
     prepare_scene: Callable[[SceneInfo], None],
     position_accuracy_gt: float,
-) -> dict[str, dict[str, SceneMetrics]]:
+) -> MetricsByCatByScene:
     error_thresholds = get_error_thresholds(args)
 
     num_threads = min(
@@ -524,7 +529,7 @@ def process_scenes(
             scene_infos,
         )
 
-    metrics: dict[str, dict[str, SceneMetrics]] = collections.defaultdict(dict)
+    metrics: MetricsByCatByScene = collections.defaultdict(dict)
     errors_by_category: dict[str, list] = collections.defaultdict(list)
     total_num_images = 0
     total_num_reg_images = 0
@@ -537,24 +542,22 @@ def process_scenes(
         total_num_reg_images += result.num_reg_images
         total_num_components += result.num_components
         total_largest_components += result.largest_component
-        metrics[result.scene_info.category][result.scene_info.scene] = (
-            SceneMetrics(
-                aucs=compute_auc(
-                    result.errors,
-                    error_thresholds,
-                    min_error=position_accuracy_gt,
-                ),
-                error_thresholds=error_thresholds,
-                error_type=args.error_type,
-                num_images=result.num_images,
-                num_reg_images=result.num_reg_images,
-                num_components=result.num_components,
-                largest_component=result.largest_component,
-            )
+        metrics[result.scene_info.category][result.scene_info.scene] = Metrics(
+            aucs=compute_auc(
+                result.errors,
+                error_thresholds,
+                min_error=position_accuracy_gt,
+            ),
+            error_thresholds=error_thresholds,
+            error_type=args.error_type,
+            num_images=result.num_images,
+            num_reg_images=result.num_reg_images,
+            num_components=result.num_components,
+            largest_component=result.largest_component,
         )
 
     for category, errors in errors_by_category.items():
-        metrics[category]["__all__"] = SceneMetrics(
+        metrics[category]["__all__"] = Metrics(
             aucs=compute_auc(
                 np.array(errors),
                 error_thresholds,
@@ -567,7 +570,7 @@ def process_scenes(
             num_components=total_num_components,
             largest_component=total_largest_components,
         )
-        metrics[category]["__avg__"] = SceneMetrics(
+        metrics[category]["__avg__"] = Metrics(
             aucs=compute_avg_auc(metrics[category]),
             error_thresholds=error_thresholds,
             error_type=args.error_type,
@@ -760,7 +763,7 @@ def compute_auc(
 
 
 def compute_avg_auc(
-    scene_metrics: dict[str, SceneMetrics],
+    scene_metrics: MetricsByScene,
 ) -> npt.NDArray[np.floating]:
     auc_sum = None
     num_scenes = 0
@@ -777,8 +780,8 @@ def compute_avg_auc(
 
 
 def diff_metrics(
-    metrics_a: dict[str, dict[str, dict[str, SceneMetrics]]],
-    metrics_b: dict[str, dict[str, dict[str, SceneMetrics]]],
+    metrics_a: MetricsByDatasetByCatByScene,
+    metrics_b: MetricsByDatasetByCatByScene,
 ):
     """Computes difference between two sets of metrics.
 
@@ -805,7 +808,7 @@ def diff_metrics(
                     )
                 ):
                     raise ValueError("Inconsistent error thresholds or types")
-                metrics_diff[dataset][category][scene] = SceneMetrics(
+                metrics_diff[dataset][category][scene] = Metrics(
                     aucs=metrics_a_item.aucs - metrics_b_item.aucs,
                     error_thresholds=metrics_a_item.error_thresholds,
                     error_type=metrics_a_item.error_type,
@@ -822,7 +825,7 @@ def diff_metrics(
 
 
 def create_result_table(
-    dataset_metrics: dict[str, dict[str, dict[str, SceneMetrics]]],
+    dataset_metrics: MetricsByDatasetByCatByScene,
 ) -> str:
     first_metrics = next(
         iter(next(iter(next(iter(dataset_metrics.values())).values())).values())
