@@ -29,6 +29,8 @@
 
 #include "colmap/estimators/poselib_utils.h"
 
+#include "colmap/geometry/rigid3_matchers.h"
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -47,10 +49,7 @@ TEST(PoseLibUtils, CameraRoundTrip) {
   EXPECT_EQ(camera.model_id, camera_back.model_id);
   EXPECT_EQ(camera.width, camera_back.width);
   EXPECT_EQ(camera.height, camera_back.height);
-  ASSERT_EQ(camera.params.size(), camera_back.params.size());
-  for (size_t i = 0; i < camera.params.size(); ++i) {
-    EXPECT_DOUBLE_EQ(camera.params[i], camera_back.params[i]);
-  }
+  EXPECT_EQ(camera.params, camera_back.params);
 }
 
 TEST(PoseLibUtils, Rigid3dRoundTrip) {
@@ -62,8 +61,7 @@ TEST(PoseLibUtils, Rigid3dRoundTrip) {
   const poselib::CameraPose poselib_pose = ConvertRigid3dToPoseLibPose(rigid);
   const Rigid3d rigid_back = ConvertPoseLibPoseToRigid3d(poselib_pose);
 
-  EXPECT_TRUE(rigid.rotation.isApprox(rigid_back.rotation, 1e-10));
-  EXPECT_TRUE(rigid.translation.isApprox(rigid_back.translation, 1e-10));
+  EXPECT_THAT(rigid_back, Rigid3dNear(rigid, 1e-10, 1e-10));
 }
 
 }  // namespace
