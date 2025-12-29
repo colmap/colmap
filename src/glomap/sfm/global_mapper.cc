@@ -1,13 +1,12 @@
 #include "glomap/sfm/global_mapper.h"
 
-#include "colmap/feature/utils.h"
-#include "colmap/geometry/essential_matrix.h"
 #include "colmap/scene/projection.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/timer.h"
 
 #include "glomap/estimators/rotation_averaging.h"
+#include "glomap/io/colmap_io.h"
 #include "glomap/processors/image_pair_inliers.h"
 #include "glomap/processors/reconstruction_pruning.h"
 #include "glomap/processors/view_graph_manipulation.h"
@@ -24,148 +23,7 @@ void GlobalMapper::BeginReconstruction(
   reconstruction_ = reconstruction;
   view_graph_ = std::make_shared<class ViewGraph>();
 
-  // Initialize the reconstruction and view graph from the database.
-  *reconstruction_ = colmap::Reconstruction();
-  view_graph_->Clear();
-
-  // Add all cameras
-  for (auto& camera : database_->ReadAllCameras()) {
-    reconstruction_->AddCamera(std::move(camera));
-  }
-
-  // Add all rigs from database
-  rig_t max_rig_id = 0;
-  std::unordered_map<camera_t, rig_t> camera_to_rig;
-
-  for (auto& rig : database_->ReadAllRigs()) {
-    max_rig_id = std::max(max_rig_id, rig.RigId());
-    for (sensor_t sensor_id : rig.SensorIds()) {
-      if (sensor_id.type == SensorType::CAMERA) {
-        camera_to_rig[sensor_id.id] = rig.RigId();
-      }
-    }
-    reconstruction_->AddRig(std::move(rig));
-  }
-
-  // Create trivial rigs for cameras not in any rig
-  for (const auto& [camera_id, camera] : reconstruction_->Cameras()) {
-    if (camera_to_rig.find(camera_id) != camera_to_rig.end()) {
-      continue;  // Camera already has a rig
-    }
-    Rig rig;
-    rig.SetRigId(++max_rig_id);
-    rig.AddRefSensor(camera.SensorId());
-    reconstruction_->AddRig(rig);
-    camera_to_rig[camera_id] = rig.RigId();
-  }
-
-  // Read all images from database (but don't add to reconstruction yet)
-  std::vector<Image> images = database_->ReadAllImages();
-  for (auto& image : images) {
-    image.SetPoints2D(colmap::FeatureKeypointsToPointsVector(
-        database_->ReadKeypoints(image.ImageId())));
-  }
-
-  // Add all frames from database first (before adding images)
-  frame_t max_frame_id = 0;
-  for (auto& frame : database_->ReadAllFrames()) {
-    if (frame.FrameId() == colmap::kInvalidFrameId) continue;
-    max_frame_id = std::max(max_frame_id, frame.FrameId());
-    frame.SetRigFromWorld(Rigid3d());
-    reconstruction_->AddFrame(std::move(frame));
-  }
-
-  // Create trivial frames for images that don't have a frame in the database
-  for (auto& image : images) {
-    if (image.HasFrameId() && reconstruction_->ExistsFrame(image.FrameId())) {
-      continue;  // Image already has a valid frame
-    }
-
-    frame_t frame_id = ++max_frame_id;
-    rig_t rig_id = camera_to_rig.at(image.CameraId());
-
-    Frame frame;
-    frame.SetFrameId(frame_id);
-    frame.SetRigId(rig_id);
-    frame.AddDataId(image.DataId());
-    frame.SetRigFromWorld(Rigid3d());
-    reconstruction_->AddFrame(frame);
-
-    image.SetFrameId(frame_id);
-  }
-
-  // Now add all images to reconstruction (frames already exist)
-  // Note: AddImage also sets the frame pointer automatically
-  for (auto& image : images) {
-    reconstruction_->AddImage(std::move(image));
-  }
-
-  LOG(INFO) << "Read " << reconstruction_->NumImages() << " images";
-
-  // Build view graph from matches
-  auto all_matches = database_->ReadAllMatches();
-  size_t invalid_count = 0;
-
-  for (auto& [pair_id, feature_matches] : all_matches) {
-    auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-
-    THROW_CHECK(!view_graph_->HasImagePair(image_id1, image_id2))
-        << "Duplicate image pair in database: " << image_id1 << ", "
-        << image_id2;
-
-    colmap::TwoViewGeometry two_view =
-        database_->ReadTwoViewGeometry(image_id1, image_id2);
-
-    // Build the image pair from TwoViewGeometry
-    ImagePair image_pair;
-    static_cast<colmap::TwoViewGeometry&>(image_pair) = std::move(two_view);
-
-    // If the image is marked as invalid or watermark, then skip
-    if (image_pair.config == colmap::TwoViewGeometry::UNDEFINED ||
-        image_pair.config == colmap::TwoViewGeometry::DEGENERATE ||
-        image_pair.config == colmap::TwoViewGeometry::WATERMARK ||
-        image_pair.config == colmap::TwoViewGeometry::MULTIPLE) {
-      invalid_count++;
-      view_graph_->AddImagePair(image_id1, image_id2, std::move(image_pair));
-      view_graph_->SetInvalidImagePair(
-          colmap::ImagePairToPairId(image_id1, image_id2));
-      continue;
-    }
-
-    const Image& image1 = reconstruction_->Image(image_id1);
-    const Image& image2 = reconstruction_->Image(image_id2);
-
-    // For calibrated pairs, recompute F from the relative pose
-    if (image_pair.config == colmap::TwoViewGeometry::CALIBRATED) {
-      image_pair.F = colmap::FundamentalFromEssentialMatrix(
-          reconstruction_->Camera(image2.CameraId()).CalibrationMatrix(),
-          colmap::EssentialMatrixFromPose(image_pair.cam2_from_cam1),
-          reconstruction_->Camera(image1.CameraId()).CalibrationMatrix());
-    }
-
-    // Collect the matches
-    image_pair.matches = Eigen::MatrixXi(feature_matches.size(), 2);
-
-    size_t count = 0;
-    for (int i = 0; i < feature_matches.size(); i++) {
-      colmap::point2D_t point2D_idx1 = feature_matches[i].point2D_idx1;
-      colmap::point2D_t point2D_idx2 = feature_matches[i].point2D_idx2;
-      if (point2D_idx1 != colmap::kInvalidPoint2DIdx &&
-          point2D_idx2 != colmap::kInvalidPoint2DIdx) {
-        if (point2D_idx1 >= image1.NumPoints2D() ||
-            point2D_idx2 >= image2.NumPoints2D()) {
-          continue;
-        }
-        image_pair.matches.row(count) << point2D_idx1, point2D_idx2;
-        count++;
-      }
-    }
-    image_pair.matches.conservativeResize(count, 2);
-
-    view_graph_->AddImagePair(image_id1, image_id2, std::move(image_pair));
-  }
-  LOG(INFO) << "Loaded " << all_matches.size() << " image pairs, "
-            << invalid_count << " invalid";
+  InitializeGlomapFromDatabase(*database_, *reconstruction_, *view_graph_);
 }
 
 std::shared_ptr<colmap::Reconstruction> GlobalMapper::Reconstruction() const {

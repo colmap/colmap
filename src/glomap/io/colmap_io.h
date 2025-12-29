@@ -1,10 +1,17 @@
 #pragma once
 
+#include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 
-#include "glomap/types.h"
+#include "glomap/scene/types.h"
+#include "glomap/scene/view_graph.h"
 
 namespace glomap {
+
+// Initialize the reconstruction and view graph from the database.
+void InitializeGlomapFromDatabase(const colmap::Database& database,
+                                  colmap::Reconstruction& reconstruction,
+                                  ViewGraph& view_graph);
 
 // Extract a subset of the reconstruction for a specific cluster.
 // Returns a new Reconstruction containing only frames/images/points from the
