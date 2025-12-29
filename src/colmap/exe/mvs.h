@@ -29,6 +29,9 @@
 
 namespace colmap {
 
+#include "colmap/mvs/fusion.h"
+#include "colmap/mvs/patch_match_options.h"
+
 void RunPatchMatchStereoImpl(const std::string& workspace_path,
                              std::string workspace_format,
                              const std::string& pmvs_option_name,

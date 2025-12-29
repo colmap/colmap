@@ -58,6 +58,7 @@ COLMAP_ADD_LIBRARY(
         colmap_controllers
         colmap_estimators
         colmap_geometry
+        colmap_mvs
         colmap_optim
         colmap_scene
         colmap_sfm

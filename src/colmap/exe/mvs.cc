@@ -33,6 +33,7 @@
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
+#include "colmap/mvs/patch_match_options.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/file.h"
 
@@ -96,8 +97,11 @@ int RunPatchMatchStereo(int argc, char** argv) {
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
-  RunPatchMatchStereoImpl(
-      workspace_path, workspace_format, pmvs_option_name, options, config_path);
+  RunPatchMatchStereoImpl(workspace_path,
+                          workspace_format,
+                          pmvs_option_name,
+                          *options.patch_match_stereo,
+                          config_path);
   return EXIT_SUCCESS;
 }
 
@@ -115,11 +119,8 @@ void RunPatchMatchStereoImpl(const std::string& workspace_path,
       << "Invalid `workspace_format` - supported values are 'COLMAP' or "
          "'PMVS'.";
 
-  mvs::PatchMatchController controller(*options.patch_match_stereo,
-                                       workspace_path,
-                                       workspace_format,
-                                       pmvs_option_name,
-                                       config_path);
+  mvs::PatchMatchController controller(
+      options, workspace_path, workspace_format, pmvs_option_name, config_path);
 
   controller.Run();
 #endif  // COLMAP_CUDA_ENABLED
@@ -170,7 +171,7 @@ int RunStereoFuser(int argc, char** argv) {
                      workspace_format,
                      pmvs_option_name,
                      input_type,
-                     options,
+                     *options.stereo_fusion,
                      output_type);
 
   return EXIT_SUCCESS;
@@ -197,11 +198,8 @@ Reconstruction RunStereoFuserImpl(const std::string& output_path,
   THROW_CHECK(input_type == "bin" || input_type == "ply" || input_type == "txt")
       << "Invalid output type - supported values are 'bin', 'ply' and 'txt'.";
 
-  mvs::StereoFusion fuser(*options.stereo_fusion,
-                          workspace_path,
-                          workspace_format,
-                          pmvs_option_name,
-                          input_type);
+  mvs::StereoFusion fuser(
+      options, workspace_path, workspace_format, pmvs_option_name, input_type);
 
   fuser.Run();
 
