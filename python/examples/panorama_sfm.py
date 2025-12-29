@@ -57,7 +57,11 @@ def create_virtual_camera(
     image_height = int(pano_height * vfov_deg / 180)
     focal = image_width / (2 * np.tan(np.deg2rad(hfov_deg) / 2))
     return pycolmap.Camera.create(
-        0, "SIMPLE_PINHOLE", focal, image_width, image_height
+        0,
+        pycolmap.CameraModelId.SIMPLE_PINHOLE,
+        focal,
+        image_width,
+        image_height,
     )
 
 
@@ -119,7 +123,8 @@ def create_pano_rig_config(
                 cam_from_pano_rotation @ cams_from_pano_rotation[ref_idx].T
             )
             cam_from_rig = pycolmap.Rigid3d(
-                pycolmap.Rotation3d(cam_from_ref_rotation), np.zeros(3)
+                pycolmap.Rotation3d(cam_from_ref_rotation),
+                np.zeros((3,), dtype=np.float64),
             )
         rig_cameras.append(
             pycolmap.RigConfigCamera(
@@ -160,20 +165,20 @@ class PanoProcessor:
 
         # These are initialized on the first pano image
         # to avoid recomputing the rays for each pano image.
-        self._camera = None
-        self._pano_size = None
-        self._rays_in_cam = None
+        self._camera: pycolmap.Camera
+        self._pano_size: tuple[int, int]
+        self._rays_in_cam: np.ndarray
 
     def process(self, pano_name: str) -> None:
         pano_path = self.pano_image_dir / pano_name
         try:
-            pano_image = PIL.Image.open(pano_path)
+            pano_pil_image = PIL.Image.open(pano_path)
         except PIL.Image.UnidentifiedImageError:
             logging.info(f"Skipping file {pano_path} as it cannot be read.")
             return
 
-        pano_exif = pano_image.getexif()
-        pano_image = np.asarray(pano_image)
+        pano_exif = pano_pil_image.getexif()
+        pano_image = np.asarray(pano_pil_image)
         gpsonly_exif = PIL.Image.Exif()
         gpsonly_exif[PIL.ExifTags.IFD.GPSInfo] = pano_exif.get_ifd(
             PIL.ExifTags.IFD.GPSInfo
@@ -237,7 +242,7 @@ class PanoProcessor:
 
             mask_path = self.mask_dir / mask_name
             mask_path.parent.mkdir(exist_ok=True, parents=True)
-            if not pycolmap.Bitmap.from_array(mask).write(mask_path):
+            if not pycolmap.Bitmap.from_array(mask).write(str(mask_path)):
                 raise RuntimeError(f"Cannot write {mask_path}")
 
 
@@ -304,7 +309,7 @@ def run(args: argparse.Namespace) -> None:
     pycolmap.extract_features(
         database_path,
         image_dir,
-        reader_options={"mask_path": mask_dir},
+        reader_options=pycolmap.ImageReaderOptions({"mask_path": mask_dir}),
         camera_mode=pycolmap.CameraMode.PER_FOLDER,
     )
 
