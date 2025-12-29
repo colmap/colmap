@@ -41,7 +41,8 @@ bool GlobalMapper::ReestimateRelativePoses(
   EstimateRelativePoses(*view_graph_, *reconstruction_, options);
 
   // Undistort the images and filter edges by inlier number
-  ImagePairsInlierCount(*view_graph_, *reconstruction_, inlier_thresholds, true);
+  ImagePairsInlierCount(
+      *view_graph_, *reconstruction_, inlier_thresholds, true);
 
   view_graph_->FilterByNumInliers(inlier_thresholds.min_inlier_num);
   view_graph_->FilterByInlierRatio(inlier_thresholds.min_inlier_ratio);
@@ -315,7 +316,6 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   // 0. Preprocessing
   if (!opts.skip_preprocessing) {
     LOG(INFO) << "----- Running preprocessing -----";
-
     colmap::Timer run_timer;
     run_timer.Start();
     // If camera intrinsics seem to be good, force the pair to use essential
@@ -323,28 +323,33 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     ViewGraphManipulator::UpdateImagePairsConfig(*view_graph_,
                                                  *reconstruction_);
     ViewGraphManipulator::DecomposeRelPose(*view_graph_, *reconstruction_);
-    run_timer.PrintSeconds();
+    LOG(INFO) << "Preprocessing done in " << run_timer.ElapsedSeconds() << "s";
   }
 
   // 1. Run view graph calibration
   if (!opts.skip_view_graph_calibration) {
     LOG(INFO) << "----- Running view graph calibration -----";
+    colmap::Timer run_timer;
+    run_timer.Start();
     ViewGraphCalibrator vgcalib_engine(opts.view_graph_calibration);
     if (!vgcalib_engine.Solve(*view_graph_, *reconstruction_)) {
       return false;
     }
+    LOG(INFO) << "View graph calibration done in " << run_timer.ElapsedSeconds()
+              << "s";
   }
 
-  // 2. Run relative pose estimation
+  // 2. Run relative pose re-estimation
   if (!opts.skip_relative_pose_estimation) {
-    LOG(INFO) << "----- Running relative pose estimation -----";
+    LOG(INFO) << "----- Running relative pose re-estimation -----";
     colmap::Timer run_timer;
     run_timer.Start();
     if (!ReestimateRelativePoses(opts.relative_pose_estimation,
                                  opts.inlier_thresholds)) {
       return false;
     }
-    run_timer.PrintSeconds();
+    LOG(INFO) << "Relative pose re-estimation done in "
+              << run_timer.ElapsedSeconds() << "s";
   }
 
   // 3. Run rotation averaging
@@ -356,7 +361,8 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
                            opts.inlier_thresholds.max_rotation_error)) {
       return false;
     }
-    run_timer.PrintSeconds();
+    LOG(INFO) << "Rotation averaging done in " << run_timer.ElapsedSeconds()
+              << "s";
   }
 
   // 4. Track establishment and selection
@@ -365,7 +371,8 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     colmap::Timer run_timer;
     run_timer.Start();
     EstablishTracks(opts.track_establishment);
-    run_timer.PrintSeconds();
+    LOG(INFO) << "Track establishment done in " << run_timer.ElapsedSeconds()
+              << "s";
   }
 
   // 5. Global positioning
@@ -379,26 +386,29 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
                            opts.inlier_thresholds.min_triangulation_angle)) {
       return false;
     }
-    run_timer.PrintSeconds();
+    LOG(INFO) << "Global positioning done in " << run_timer.ElapsedSeconds()
+              << "s";
   }
 
   // 6. Bundle adjustment
   if (!opts.skip_bundle_adjustment) {
-    LOG(INFO) << "----- Running bundle adjustment -----";
+    LOG(INFO) << "----- Running iterative bundle adjustment -----";
     colmap::Timer run_timer;
     run_timer.Start();
-    if (!IterativeBundleAdjustment(opts.bundle_adjustment,
-                                   opts.inlier_thresholds.max_reprojection_error,
-                                   opts.inlier_thresholds.min_triangulation_angle,
-                                   opts.num_iterations_ba)) {
+    if (!IterativeBundleAdjustment(
+            opts.bundle_adjustment,
+            opts.inlier_thresholds.max_reprojection_error,
+            opts.inlier_thresholds.min_triangulation_angle,
+            opts.num_iterations_ba)) {
       return false;
     }
-    run_timer.PrintSeconds();
+    LOG(INFO) << "Iterative bundle adjustment done in "
+              << run_timer.ElapsedSeconds() << "s";
   }
 
   // 7. Retriangulation
   if (!opts.skip_retriangulation) {
-    LOG(INFO) << "----- Running retriangulation -----";
+    LOG(INFO) << "----- Running iterative retriangulation and refinement -----";
     colmap::Timer run_timer;
     run_timer.Start();
     if (!IterativeRetriangulateAndRefine(
@@ -409,17 +419,17 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
             opts.num_iterations_retriangulation)) {
       return false;
     }
-    run_timer.PrintSeconds();
+    LOG(INFO) << "Iterative retriangulation and refinement done in "
+              << run_timer.ElapsedSeconds() << "s";
   }
 
   // 8. Reconstruction pruning
   if (!opts.skip_pruning) {
     LOG(INFO) << "----- Running postprocessing -----";
-
     colmap::Timer run_timer;
     run_timer.Start();
     cluster_ids = PruneWeaklyConnectedFrames(*reconstruction_);
-    run_timer.PrintSeconds();
+    LOG(INFO) << "Postprocessing done in " << run_timer.ElapsedSeconds() << "s";
   }
 
   return true;
