@@ -69,7 +69,7 @@ TEST(PoseIO, RelativePosesRoundtrip) {
   ASSERT_EQ(read_poses.size(), poses.size());
   for (const auto& [pair_id, pose] : poses) {
     ASSERT_TRUE(read_poses.count(pair_id));
-    EXPECT_THAT(read_poses.at(pair_id), colmap::Rigid3dNear(pose, 1e-6));
+    EXPECT_THAT(read_poses.at(pair_id), colmap::Rigid3dNear(pose, 1e-6, 1e-6));
   }
 }
 
@@ -149,9 +149,9 @@ TEST(PoseIO, RotationsRoundtrip) {
       {0, "image0.jpg"}, {1, "image1.jpg"}, {2, "image2.jpg"}};
 
   std::unordered_map<image_t, Eigen::Quaterniond> rotations;
-  for (image_t id = 0; id < 3; ++id) {
-    rotations[id] = Eigen::Quaterniond::UnitRandom();
-  }
+  rotations[0] = Eigen::Quaterniond(1, 0, 0, 0);
+  rotations[1] = Eigen::Quaterniond(0.5, 0.5, 0.5, 0.5).normalized();
+  rotations[2] = Eigen::Quaterniond(0.7, 0.1, 0.2, 0.3).normalized();
 
   std::string file_path =
       (std::filesystem::path(test_dir) / "rotations.txt").string();
