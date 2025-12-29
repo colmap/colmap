@@ -46,79 +46,86 @@ void OptionManager::AddGlobalMapperOptions() {
   AddAndRegisterDefaultOption("Mapper.skip_pruning", &mapper->skip_pruning);
 
   // View graph calibration options
-  AddAndRegisterDefaultOption("ViewGraphCalib.thres_lower_ratio",
-                              &mapper->opt_vgcalib.thres_lower_ratio);
-  AddAndRegisterDefaultOption("ViewGraphCalib.thres_higher_ratio",
-                              &mapper->opt_vgcalib.thres_higher_ratio);
-  AddAndRegisterDefaultOption("ViewGraphCalib.thres_two_view_error",
-                              &mapper->opt_vgcalib.thres_two_view_error);
+  AddAndRegisterDefaultOption(
+      "ViewGraphCalib.thres_lower_ratio",
+      &mapper->view_graph_calibration.thres_lower_ratio);
+  AddAndRegisterDefaultOption(
+      "ViewGraphCalib.thres_higher_ratio",
+      &mapper->view_graph_calibration.thres_higher_ratio);
+  AddAndRegisterDefaultOption(
+      "ViewGraphCalib.thres_two_view_error",
+      &mapper->view_graph_calibration.thres_two_view_error);
 
   // Relative pose estimation options
   AddAndRegisterDefaultOption(
       "RelPoseEstimation.max_epipolar_error",
-      &mapper->opt_relpose.ransac_options.max_epipolar_error);
+      &mapper->relative_pose_estimation.ransac_options.max_epipolar_error);
 
   // Track establishment options
-  AddAndRegisterDefaultOption("TrackEstablishment.min_num_tracks_per_view",
-                              &mapper->opt_track.min_num_tracks_per_view);
-  AddAndRegisterDefaultOption("TrackEstablishment.min_num_view_per_track",
-                              &mapper->opt_track.min_num_view_per_track);
-  AddAndRegisterDefaultOption("TrackEstablishment.max_num_view_per_track",
-                              &mapper->opt_track.max_num_view_per_track);
+  AddAndRegisterDefaultOption(
+      "TrackEstablishment.min_num_tracks_per_view",
+      &mapper->track_establishment.min_num_tracks_per_view);
+  AddAndRegisterDefaultOption(
+      "TrackEstablishment.min_num_view_per_track",
+      &mapper->track_establishment.min_num_view_per_track);
+  AddAndRegisterDefaultOption(
+      "TrackEstablishment.max_num_view_per_track",
+      &mapper->track_establishment.max_num_view_per_track);
   AddAndRegisterDefaultOption("TrackEstablishment.max_num_tracks",
-                              &mapper->opt_track.max_num_tracks);
+                              &mapper->track_establishment.max_num_tracks);
 
   // Global positioning options
   AddAndRegisterDefaultOption("GlobalPositioning.use_gpu",
-                              &mapper->opt_gp.use_gpu);
+                              &mapper->global_positioning.use_gpu);
   AddAndRegisterDefaultOption("GlobalPositioning.gpu_index",
-                              &mapper->opt_gp.gpu_index);
+                              &mapper->global_positioning.gpu_index);
   AddAndRegisterDefaultOption("GlobalPositioning.optimize_positions",
-                              &mapper->opt_gp.optimize_positions);
+                              &mapper->global_positioning.optimize_positions);
   AddAndRegisterDefaultOption("GlobalPositioning.optimize_points",
-                              &mapper->opt_gp.optimize_points);
+                              &mapper->global_positioning.optimize_points);
   AddAndRegisterDefaultOption("GlobalPositioning.optimize_scales",
-                              &mapper->opt_gp.optimize_scales);
+                              &mapper->global_positioning.optimize_scales);
   AddAndRegisterDefaultOption("GlobalPositioning.thres_loss_function",
-                              &mapper->opt_gp.thres_loss_function);
+                              &mapper->global_positioning.thres_loss_function);
   AddAndRegisterDefaultOption(
       "GlobalPositioning.max_num_iterations",
-      &mapper->opt_gp.solver_options.max_num_iterations);
+      &mapper->global_positioning.solver_options.max_num_iterations);
 
   // Bundle adjustment options
   AddAndRegisterDefaultOption("BundleAdjustment.use_gpu",
-                              &mapper->opt_ba.use_gpu);
+                              &mapper->bundle_adjustment.use_gpu);
   AddAndRegisterDefaultOption("BundleAdjustment.gpu_index",
-                              &mapper->opt_ba.gpu_index);
+                              &mapper->bundle_adjustment.gpu_index);
   AddAndRegisterDefaultOption("BundleAdjustment.optimize_rig_poses",
-                              &mapper->opt_ba.optimize_rig_poses);
+                              &mapper->bundle_adjustment.optimize_rig_poses);
   AddAndRegisterDefaultOption("BundleAdjustment.optimize_rotations",
-                              &mapper->opt_ba.optimize_rotations);
+                              &mapper->bundle_adjustment.optimize_rotations);
   AddAndRegisterDefaultOption("BundleAdjustment.optimize_translation",
-                              &mapper->opt_ba.optimize_translation);
+                              &mapper->bundle_adjustment.optimize_translation);
   AddAndRegisterDefaultOption("BundleAdjustment.optimize_intrinsics",
-                              &mapper->opt_ba.optimize_intrinsics);
-  AddAndRegisterDefaultOption("BundleAdjustment.optimize_principal_point",
-                              &mapper->opt_ba.optimize_principal_point);
+                              &mapper->bundle_adjustment.optimize_intrinsics);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.optimize_principal_point",
+      &mapper->bundle_adjustment.optimize_principal_point);
   AddAndRegisterDefaultOption("BundleAdjustment.optimize_points",
-                              &mapper->opt_ba.optimize_points);
-  AddAndRegisterDefaultOption("BundleAdjustment.thres_loss_function",
-                              &mapper->opt_ba.thres_loss_function);
+                              &mapper->bundle_adjustment.optimize_points);
+  AddAndRegisterDefaultOption("BundleAdjustment.loss_function_scale",
+                              &mapper->bundle_adjustment.loss_function_scale);
   AddAndRegisterDefaultOption(
       "BundleAdjustment.max_num_iterations",
-      &mapper->opt_ba.solver_options.max_num_iterations);
+      &mapper->bundle_adjustment.solver_options.max_num_iterations);
 
   // Triangulation options
   AddAndRegisterDefaultOption(
       "Triangulation.complete_max_reproj_error",
-      &mapper->opt_triangulator.tri_complete_max_reproj_error);
+      &mapper->retriangulation.tri_complete_max_reproj_error);
   AddAndRegisterDefaultOption(
       "Triangulation.merge_max_reproj_error",
-      &mapper->opt_triangulator.tri_merge_max_reproj_error);
+      &mapper->retriangulation.tri_merge_max_reproj_error);
   AddAndRegisterDefaultOption("Triangulation.min_angle",
-                              &mapper->opt_triangulator.tri_min_angle);
+                              &mapper->retriangulation.tri_min_angle);
   AddAndRegisterDefaultOption("Triangulation.min_num_matches",
-                              &mapper->opt_triangulator.min_num_matches);
+                              &mapper->retriangulation.min_num_matches);
 
   // Inlier threshold options
   AddAndRegisterDefaultOption("Thresholds.max_angle_error",

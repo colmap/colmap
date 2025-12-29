@@ -123,8 +123,8 @@ class BundleAdjustmentConfig {
 };
 
 struct BundleAdjustmentOptions {
-  // Loss function types: Trivial (non-robust) and Cauchy (robust) loss.
-  enum class LossFunctionType { TRIVIAL, SOFT_L1, CAUCHY };
+  // Loss function types: Trivial (non-robust) and robust loss functions.
+  enum class LossFunctionType { TRIVIAL, SOFT_L1, CAUCHY, HUBER };
   LossFunctionType loss_function_type = LossFunctionType::TRIVIAL;
 
   // Scaling factor determines residual at which robustification takes place.
@@ -142,6 +142,11 @@ struct BundleAdjustmentOptions {
   // Whether to refine the extrinsic parameter group.
   bool refine_sensor_from_rig = true;
   bool refine_rig_from_world = true;
+
+  // Whether to keep the rotation component of rig_from_world constant.
+  // Only takes effect when refine_rig_from_world is true.
+  // When true, only translation is refined.
+  bool constant_rig_from_world_rotation = false;
 
   // Whether to print a final summary.
   bool print_summary = true;
@@ -167,6 +172,11 @@ struct BundleAdjustmentOptions {
   int max_num_images_direct_sparse_cpu_solver = 1000;
   int max_num_images_direct_dense_gpu_solver = 200;
   int max_num_images_direct_sparse_gpu_solver = 4000;
+
+  // Whether to automatically select solver type based on problem size.
+  // When false, uses the linear_solver_type and preconditioner_type
+  // from solver_options directly.
+  bool auto_select_solver_type = true;
 
   // Ceres-Solver options.
   ceres::Solver::Options solver_options;

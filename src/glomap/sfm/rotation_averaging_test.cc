@@ -1,4 +1,4 @@
-#include "glomap/sfm/rotation_averager.h"
+#include "glomap/estimators/rotation_averaging.h"
 
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/random.h"
@@ -125,10 +125,10 @@ TEST(RotationEstimator, WithoutNoise) {
   for (const bool use_gravity : {false}) {
     // Make a copy for this iteration
     colmap::Reconstruction reconstruction_copy = reconstruction;
-    SolveRotationAveraging(view_graph,
+    SolveRotationAveraging(CreateRATestOptions(use_gravity),
+                           view_graph,
                            reconstruction_copy,
-                           pose_priors,
-                           CreateRATestOptions(use_gravity));
+                           pose_priors);
 
     ExpectEqualRotations(gt_reconstruction,
                          reconstruction_copy,
@@ -167,10 +167,10 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialKnownRig) {
   for (const bool use_gravity : {true, false}) {
     // Make a copy for this iteration
     colmap::Reconstruction reconstruction_copy = reconstruction;
-    SolveRotationAveraging(view_graph,
+    SolveRotationAveraging(CreateRATestOptions(use_gravity),
+                           view_graph,
                            reconstruction_copy,
-                           pose_priors,
-                           CreateRATestOptions(use_gravity));
+                           pose_priors);
 
     ExpectEqualRotations(gt_reconstruction,
                          reconstruction_copy,
@@ -218,10 +218,10 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialUnknownRig) {
   for (const bool use_gravity : {false}) {
     // Make a copy for this iteration
     colmap::Reconstruction reconstruction_copy = reconstruction;
-    SolveRotationAveraging(view_graph,
+    SolveRotationAveraging(CreateRATestOptions(use_gravity),
+                           view_graph,
                            reconstruction_copy,
-                           pose_priors,
-                           CreateRATestOptions(use_gravity));
+                           pose_priors);
 
     ExpectEqualRotations(gt_reconstruction,
                          reconstruction_copy,
@@ -268,10 +268,10 @@ TEST(RotationEstimator, WithNoiseAndOutliers) {
   for (const bool use_gravity : {false}) {
     // Make a copy for this iteration
     colmap::Reconstruction reconstruction_copy = reconstruction;
-    SolveRotationAveraging(view_graph,
+    SolveRotationAveraging(CreateRATestOptions(use_gravity),
+                           view_graph,
                            reconstruction_copy,
-                           pose_priors,
-                           CreateRATestOptions(use_gravity));
+                           pose_priors);
 
     ExpectEqualRotations(
         gt_reconstruction, reconstruction_copy, /*max_rotation_error_deg=*/3);
@@ -317,10 +317,10 @@ TEST(RotationEstimator, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
   for (const bool use_gravity : {false}) {
     // Make a copy for this iteration
     colmap::Reconstruction reconstruction_copy = reconstruction;
-    SolveRotationAveraging(view_graph,
+    SolveRotationAveraging(CreateRATestOptions(use_gravity),
+                           view_graph,
                            reconstruction_copy,
-                           pose_priors,
-                           CreateRATestOptions(use_gravity));
+                           pose_priors);
 
     ExpectEqualRotations(
         gt_reconstruction, reconstruction_copy, /*max_rotation_error_deg=*/2.);

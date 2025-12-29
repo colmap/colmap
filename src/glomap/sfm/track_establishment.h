@@ -32,21 +32,21 @@ class TrackEngine {
       : options_(options), view_graph_(view_graph), images_(images) {}
 
   // Establish tracks from the view graph. Exclude the tracks that are not
-  // consistent. Return the number of tracks.
-  size_t EstablishFullTracks(std::unordered_map<point3D_t, Point3D>& tracks);
+  // consistent. Return the number of points3D.
+  size_t EstablishFullTracks(std::unordered_map<point3D_t, Point3D>& points3D);
 
   // Subsample the tracks, and exclude too short / long tracks.
-  // Return the number of tracks.
+  // Return the number of points3D.
   size_t FindTracksForProblem(
-      const std::unordered_map<point3D_t, Point3D>& tracks_full,
-      std::unordered_map<point3D_t, Point3D>& tracks_selected);
+      const std::unordered_map<point3D_t, Point3D>& points3D_full,
+      std::unordered_map<point3D_t, Point3D>& points3D_selected);
 
  private:
   // Blindly concatenate tracks if any matches occur
   void BlindConcatenation();
 
   // Iterate through the collected tracks and record the items for each track
-  void TrackCollection(std::unordered_map<point3D_t, Point3D>& tracks);
+  void TrackCollection(std::unordered_map<point3D_t, Point3D>& points3D);
 
   const TrackEstablishmentOptions& options_;
 

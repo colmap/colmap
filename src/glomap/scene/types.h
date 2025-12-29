@@ -41,6 +41,9 @@ using colmap::rig_t;
 using colmap::image_pair_t;
 using colmap::kInvalidImagePairId;
 
+// Unique identifier for 2D points.
+using colmap::point2D_t;
+
 // Unique identifier for 3D points.
 using colmap::Point3D;
 using colmap::point3D_t;
