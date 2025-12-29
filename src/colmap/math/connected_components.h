@@ -71,9 +71,9 @@ std::vector<std::vector<T>> FindConnectedComponents(
 //
 // @param nodes   Set of all nodes in the graph.
 // @param edges   List of edges as (node1, node2) pairs.
-// @return        Set of nodes in the largest connected component.
+// @return        Vector of nodes in the largest connected component.
 template <typename T>
-std::unordered_set<T> FindLargestConnectedComponent(
+std::vector<T> FindLargestConnectedComponent(
     const std::unordered_set<T>& nodes,
     const std::vector<std::pair<T, T>>& edges) {
   UnionFind<T> uf;
@@ -97,8 +97,7 @@ std::unordered_set<T> FindLargestConnectedComponent(
     }
   }
 
-  const auto& largest = components[largest_root];
-  return std::unordered_set<T>(largest.begin(), largest.end());
+  return std::move(components[largest_root]);
 }
 
 }  // namespace colmap

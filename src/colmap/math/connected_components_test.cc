@@ -29,10 +29,13 @@
 
 #include "colmap/math/connected_components.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
+
+using ::testing::UnorderedElementsAre;
 
 TEST(FindConnectedComponents, Empty) {
   std::unordered_set<int> nodes;
@@ -96,18 +99,14 @@ TEST(FindLargestConnectedComponent, SingleNode) {
   std::unordered_set<int> nodes = {42};
   std::vector<std::pair<int, int>> edges;
   auto largest = FindLargestConnectedComponent(nodes, edges);
-  ASSERT_EQ(largest.size(), 1);
-  EXPECT_TRUE(largest.count(42));
+  EXPECT_THAT(largest, UnorderedElementsAre(42));
 }
 
 TEST(FindLargestConnectedComponent, AllConnected) {
   std::unordered_set<int> nodes = {1, 2, 3, 4};
   std::vector<std::pair<int, int>> edges = {{1, 2}, {2, 3}, {3, 4}};
   auto largest = FindLargestConnectedComponent(nodes, edges);
-  EXPECT_EQ(largest.size(), 4);
-  for (int i = 1; i <= 4; ++i) {
-    EXPECT_TRUE(largest.count(i));
-  }
+  EXPECT_THAT(largest, UnorderedElementsAre(1, 2, 3, 4));
 }
 
 TEST(FindLargestConnectedComponent, TwoComponentsDifferentSizes) {
@@ -116,12 +115,7 @@ TEST(FindLargestConnectedComponent, TwoComponentsDifferentSizes) {
   std::unordered_set<int> nodes = {1, 2, 3, 10, 20};
   std::vector<std::pair<int, int>> edges = {{1, 2}, {2, 3}, {10, 20}};
   auto largest = FindLargestConnectedComponent(nodes, edges);
-  ASSERT_EQ(largest.size(), 3);
-  EXPECT_TRUE(largest.count(1));
-  EXPECT_TRUE(largest.count(2));
-  EXPECT_TRUE(largest.count(3));
-  EXPECT_FALSE(largest.count(10));
-  EXPECT_FALSE(largest.count(20));
+  EXPECT_THAT(largest, UnorderedElementsAre(1, 2, 3));
 }
 
 TEST(FindLargestConnectedComponent, ManySmallOnelarger) {
@@ -129,10 +123,7 @@ TEST(FindLargestConnectedComponent, ManySmallOnelarger) {
   std::unordered_set<int> nodes = {1, 2, 3, 4, 5, 100, 200, 300};
   std::vector<std::pair<int, int>> edges = {{100, 200}, {200, 300}};
   auto largest = FindLargestConnectedComponent(nodes, edges);
-  ASSERT_EQ(largest.size(), 3);
-  EXPECT_TRUE(largest.count(100));
-  EXPECT_TRUE(largest.count(200));
-  EXPECT_TRUE(largest.count(300));
+  EXPECT_THAT(largest, UnorderedElementsAre(100, 200, 300));
 }
 
 TEST(FindLargestConnectedComponent, StringType) {
@@ -140,10 +131,7 @@ TEST(FindLargestConnectedComponent, StringType) {
   std::vector<std::pair<std::string, std::string>> edges = {{"a", "b"},
                                                             {"b", "c"}};
   auto largest = FindLargestConnectedComponent(nodes, edges);
-  ASSERT_EQ(largest.size(), 3);
-  EXPECT_TRUE(largest.count("a"));
-  EXPECT_TRUE(largest.count("b"));
-  EXPECT_TRUE(largest.count("c"));
+  EXPECT_THAT(largest, UnorderedElementsAre("a", "b", "c"));
 }
 
 }  // namespace

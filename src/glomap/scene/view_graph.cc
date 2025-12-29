@@ -21,8 +21,10 @@ int ViewGraph::KeepLargestConnectedComponents(
     return 0;
   }
 
-  const std::unordered_set<frame_t> largest_component =
+  const std::vector<frame_t> largest_component_vec =
       colmap::FindLargestConnectedComponent(nodes, edges);
+  const std::unordered_set<frame_t> largest_component(
+      largest_component_vec.begin(), largest_component_vec.end());
 
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     if (largest_component.count(frame_id) == 0 && frame.HasPose()) {

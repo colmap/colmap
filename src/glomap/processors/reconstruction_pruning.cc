@@ -167,8 +167,10 @@ std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
     const auto [frame_id1, frame_id2] = colmap::PairIdToImagePair(pair_id);
     edges.emplace_back(frame_id1, frame_id2);
   }
-  const std::unordered_set<frame_t> largest_cc =
+  const std::vector<frame_t> largest_cc_vec =
       colmap::FindLargestConnectedComponent(nodes, edges);
+  const std::unordered_set<frame_t> largest_cc(largest_cc_vec.begin(),
+                                               largest_cc_vec.end());
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     if (largest_cc.count(frame_id) == 0 && frame.HasPose()) {
       reconstruction.DeRegisterFrame(frame_id);
