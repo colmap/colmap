@@ -4,8 +4,6 @@
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
-#include "glomap/io/colmap_io.h"
-
 #include <gtest/gtest.h>
 
 namespace glomap {
