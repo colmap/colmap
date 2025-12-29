@@ -34,12 +34,15 @@
 #include "colmap/scene/reconstruction_io_utils.h"
 #include "colmap/util/file.h"
 #include "colmap/util/timer.h"
+#include "colmap/util/types.h"
 
 #include "glomap/controllers/option_manager.h"
 #include "glomap/estimators/gravity_refinement.h"
 #include "glomap/estimators/rotation_averaging.h"
 #include "glomap/io/colmap_io.h"
 #include "glomap/io/pose_io.h"
+#include "glomap/scene/image_pair.h"
+#include "glomap/scene/view_graph.h"
 #include "glomap/sfm/global_mapper.h"
 
 namespace glomap {
@@ -182,30 +185,35 @@ int RunRotationAverager(int argc, char** argv) {
   rotation_averager_options.use_stratified = use_stratified;
   rotation_averager_options.use_weight = use_weight;
 
-  // Load the database
   ViewGraph view_graph;
   colmap::Reconstruction reconstruction;
 
-  // Read relative poses and build view graph
-  // First read into a temporary images map
-  std::unordered_map<image_t, Image> temp_images;
-  ReadRelPose(relpose_path, temp_images, view_graph);
+  // Read image names and relative poses
+  auto image_names = ReadImageNames(relpose_path);
+  LOG(INFO) << image_names.size() << " images found";
+  auto relative_poses = ReadRelativePoses(relpose_path, image_names);
+  LOG(INFO) << relative_poses.size() << " relative poses loaded";
 
-  // Add cameras and images to reconstruction
-  for (auto& [image_id, image] : temp_images) {
-    image.SetCameraId(image.ImageId());
-
-    // Add camera if it doesn't exist
-    if (!reconstruction.ExistsCamera(image.CameraId())) {
-      colmap::Camera camera;
-      camera.camera_id = image.CameraId();
-      reconstruction.AddCamera(std::move(camera));
-    }
-
-    reconstruction.AddImage(std::move(image));
+  // Populate view_graph from relative poses
+  for (const auto& [pair_id, pose] : relative_poses) {
+    const auto [id1, id2] = colmap::PairIdToImagePair(pair_id);
+    ImagePair image_pair(pose);
+    image_pair.config = colmap::TwoViewGeometry::CALIBRATED;
+    view_graph.AddImagePair(id1, id2, std::move(image_pair));
   }
 
-  // Create one rig per camera and frames for images
+  // Setup reconstruction from image_names
+  for (const auto& [image_id, name] : image_names) {
+    colmap::Camera camera;
+    camera.camera_id = image_id;
+    reconstruction.AddCamera(std::move(camera));
+
+    Image image;
+    image.SetImageId(image_id);
+    image.SetCameraId(image_id);
+    image.SetName(name);
+    reconstruction.AddImage(std::move(image));
+  }
   colmap::CreateOneRigPerCamera(reconstruction);
   for (const auto& [image_id, image] : reconstruction.Images()) {
     colmap::CreateFrameForImage(image, Rigid3d(), reconstruction);
@@ -213,10 +221,8 @@ int RunRotationAverager(int argc, char** argv) {
 
   std::vector<colmap::PosePrior> pose_priors;
   if (gravity_path != "") {
-    pose_priors = ReadGravity(gravity_path, reconstruction.Images());
-    // Initialize frame rotations from gravity.
-    // Currently rotation averaging only supports gravity prior on reference
-    // sensors.
+    pose_priors = ReadGravityPriors(gravity_path, image_names);
+    LOG(INFO) << pose_priors.size() << " gravity priors loaded";
     for (const auto& pose_prior : pose_priors) {
       const auto& image = reconstruction.Image(pose_prior.pose_prior_id);
       if (!image.IsRefInFrame()) {
@@ -230,7 +236,14 @@ int RunRotationAverager(int argc, char** argv) {
   }
 
   if (use_weight) {
-    ReadRelWeight(weight_path, reconstruction.Images(), view_graph);
+    auto weights = ReadImagePairWeights(weight_path, image_names);
+    LOG(INFO) << weights.size() << " weights loaded";
+    for (const auto& [pair_id, weight] : weights) {
+      const auto [id1, id2] = colmap::PairIdToImagePair(pair_id);
+      if (view_graph.HasImagePair(id1, id2)) {
+        view_graph.ImagePair(id1, id2).first.weight = weight;
+      }
+    }
   }
 
   int num_img = view_graph.KeepLargestConnectedComponents(reconstruction);
@@ -253,8 +266,14 @@ int RunRotationAverager(int argc, char** argv) {
   LOG(INFO) << "Global rotation averaging done in "
             << run_timer.ElapsedSeconds() << " seconds";
 
-  // Write out the estimated rotation
-  WriteGlobalRotation(output_path, reconstruction.Images());
+  // Extract rotations and write output
+  std::unordered_map<image_t, Eigen::Quaterniond> rotations;
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    if (image.HasPose()) {
+      rotations[image_id] = image.CamFromWorld().rotation;
+    }
+  }
+  WriteRotations(output_path, image_names, rotations);
   LOG(INFO) << "Global rotation averaging done";
 
   return EXIT_SUCCESS;

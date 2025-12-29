@@ -2,40 +2,53 @@
 
 #include "colmap/geometry/pose_prior.h"
 
-#include "glomap/scene/view_graph.h"
+#include "glomap/scene/types.h"
 
 #include <unordered_map>
 
+#include <Eigen/Geometry>
+
 namespace glomap {
-// Required data structures
-// IMAGE_NAME_1 IMAGE_NAME_2 QW QX QY QZ TX TY TZ
-void ReadRelPose(const std::string& file_path,
-                 std::unordered_map<image_t, Image>& images,
-                 ViewGraph& view_graph);
 
-// Required data structures
-// IMAGE_NAME_1 IMAGE_NAME_2 weight
-void ReadRelWeight(const std::string& file_path,
-                   const std::unordered_map<image_t, Image>& images,
-                   ViewGraph& view_graph);
+// I/O functions for the rotation averaging CLI.
 
-// Require the gravity in the format:
-// IMAGE_NAME GX GY GZ
-// Gravity should be the direction of [0,1,0] in the image frame
-// image.cam_from_world * [0,1,0]^T = g
-std::vector<colmap::PosePrior> ReadGravity(
-    const std::string& gravity_path,
-    const std::unordered_map<image_t, Image>& images);
+// Format: IMAGE_NAME_1 IMAGE_NAME_2 QW QX QY QZ TX TY TZ
+std::unordered_map<image_t, std::string> ReadImageNames(
+    const std::string& file_path);
+std::unordered_map<image_pair_t, Rigid3d> ReadRelativePoses(
+    const std::string& file_path,
+    const std::unordered_map<image_t, std::string>& image_names);
+void WriteRelativePoses(
+    const std::string& file_path,
+    const std::unordered_map<image_t, std::string>& image_names,
+    const std::unordered_map<image_pair_t, Rigid3d>& relative_poses);
 
-// Output would be of the format:
-// IMAGE_NAME QW QX QY QZ
-void WriteGlobalRotation(const std::string& file_path,
-                         const std::unordered_map<image_t, Image>& images);
+// Format: IMAGE_NAME_1 IMAGE_NAME_2 WEIGHT
+std::unordered_map<image_pair_t, double> ReadImagePairWeights(
+    const std::string& file_path,
+    const std::unordered_map<image_t, std::string>& image_names);
+void WriteImagePairWeights(
+    const std::string& file_path,
+    const std::unordered_map<image_t, std::string>& image_names,
+    const std::unordered_map<image_pair_t, double>& weights);
 
-// Output would be of the format:
-// IMAGE_NAME_1 IMAGE_NAME_2 QW QX QY QZ TX TY TZ
-void WriteRelPose(const std::string& file_path,
-                  const std::unordered_map<image_t, Image>& images,
-                  const ViewGraph& view_graph);
+// Format: IMAGE_NAME GX GY GZ
+// Gravity is the direction of [0,1,0] in the image frame.
+std::vector<colmap::PosePrior> ReadGravityPriors(
+    const std::string& file_path,
+    const std::unordered_map<image_t, std::string>& image_names);
+void WriteGravityPriors(
+    const std::string& file_path,
+    const std::unordered_map<image_t, std::string>& image_names,
+    const std::vector<colmap::PosePrior>& pose_priors);
+
+// Format: IMAGE_NAME QW QX QY QZ
+std::unordered_map<image_t, Eigen::Quaterniond> ReadRotations(
+    const std::string& file_path,
+    const std::unordered_map<image_t, std::string>& image_names);
+void WriteRotations(
+    const std::string& file_path,
+    const std::unordered_map<image_t, std::string>& image_names,
+    const std::unordered_map<image_t, Eigen::Quaterniond>& rotations);
 
 }  // namespace glomap
