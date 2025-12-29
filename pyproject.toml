@@ -41,7 +41,7 @@ wheel.packages = ["python/pycolmap"]
 [tool.cibuildwheel]
 build = "cp3{9,10,11,12,13,14}-{macosx,manylinux,win}*"
 archs = ["auto64"]
-test-requires = "pytest>=9.0 pytest-mypy mypy==1.19.1 enlighten==1.13.0"
+test-requires = "pytest>=8.0 pytest-mypy mypy==1.19.1 enlighten==1.13.0"
 test-command = "python -c \"import pycolmap; print(pycolmap.__version__)\" && cd {project} && mypy --package pycolmap && pytest --mypy"
 
 [tool.cibuildwheel.linux]
@@ -55,8 +55,8 @@ before-all = "pwsh -File {project}/python/ci/install-colmap-windows.ps1"
 before-build = "pip install delvewheel"
 test-command = "pwsh -File {project}/python/ci/test-colmap-windows.ps1"
 
-[tool.pytest]
-minversion = "9.0"
+[tool.pytest.ini_options]
+minversion = "8.0"
 addopts = ["-ra", "-q"]
 testpaths = [
     "python",
