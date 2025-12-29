@@ -8,10 +8,16 @@
 
 namespace glomap {
 
-// Initialize the reconstruction and view graph from the database.
-void InitializeGlomapFromDatabase(const colmap::Database& database,
-                                  colmap::Reconstruction& reconstruction,
-                                  ViewGraph& view_graph);
+// Initialize an empty reconstruction from the database.
+// This adds cameras, rigs, frames, and images (without 3D points).
+void InitializeEmptyReconstructionFromDatabase(
+    const colmap::Database& database, colmap::Reconstruction& reconstruction);
+
+// Initialize the view graph from the database.
+// The reconstruction must already be initialized with images.
+void InitializeViewGraphFromDatabase(const colmap::Database& database,
+                                     const colmap::Reconstruction& reconstruction,
+                                     ViewGraph& view_graph);
 
 // Extract a subset of the reconstruction for a specific cluster.
 // Returns a new Reconstruction containing only frames/images/points from the

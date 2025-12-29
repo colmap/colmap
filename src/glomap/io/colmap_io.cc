@@ -31,11 +31,9 @@ void WriteReconstruction(const colmap::Reconstruction& reconstruction,
 
 namespace glomap {
 
-void InitializeGlomapFromDatabase(const colmap::Database& database,
-                                  colmap::Reconstruction& reconstruction,
-                                  ViewGraph& view_graph) {
+void InitializeEmptyReconstructionFromDatabase(
+    const colmap::Database& database, colmap::Reconstruction& reconstruction) {
   reconstruction = colmap::Reconstruction();
-  view_graph.Clear();
 
   // Add all cameras
   for (auto& camera : database.ReadAllCameras()) {
@@ -110,6 +108,13 @@ void InitializeGlomapFromDatabase(const colmap::Database& database,
   }
 
   LOG(INFO) << "Read " << reconstruction.NumImages() << " images";
+}
+
+void InitializeViewGraphFromDatabase(
+    const colmap::Database& database,
+    const colmap::Reconstruction& reconstruction,
+    ViewGraph& view_graph) {
+  view_graph.Clear();
 
   // Build view graph from matches
   auto all_matches = database.ReadAllMatches();
