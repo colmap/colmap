@@ -1,6 +1,8 @@
 #include "glomap/sfm/global_mapper.h"
 
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/projection.h"
+#include "colmap/sfm/incremental_mapper.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/timer.h"
@@ -287,55 +289,17 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     run_timer.PrintSeconds();
   }
 
-  // 7. Retriangulation
+  // 7. Retriangulation and refinement
   if (!options.skip_retriangulation) {
+    LOG(INFO) << "----- Running retriangulation and refinement -----";
     THROW_CHECK_NOTNULL(database);
-    LOG(INFO) << "----- Running retriangulation -----";
-    for (int ite = 0; ite < options.num_iterations_retriangulation; ite++) {
-      colmap::Timer run_timer;
-      run_timer.Start();
-      RetriangulateTracks(options.retriangulation, *database, reconstruction);
-      run_timer.PrintSeconds();
 
-      LOG(INFO) << "Running bundle adjustment...";
-      if (!RunBundleAdjustment(options.bundle_adjustment,
-                               /*constant_rotation=*/false,
-                               reconstruction)) {
-        return false;
-      }
-
-      // Filter tracks based on the estimation
-      LOG(INFO) << "Filtering tracks by reprojection ...";
-      colmap::ObservationManager(reconstruction)
-          .FilterPoints3DWithLargeReprojectionError(
-              options.inlier_thresholds.max_reprojection_error,
-              reconstruction.Point3DIds(),
-              colmap::ReprojectionErrorType::NORMALIZED);
-
-      // Run BA again after filtering outliers
-      if (!RunBundleAdjustment(options.bundle_adjustment,
-                               /*constant_rotation=*/false,
-                               reconstruction)) {
-        return false;
-      }
-      run_timer.PrintSeconds();
+    colmap::Timer run_timer;
+    run_timer.Start();
+    if (!RetriangulateAndRefine(*database, reconstruction)) {
+      return false;
     }
-
-    // Normalize the structure
-    reconstruction.Normalize();
-
-    // Filter tracks based on the estimation
-    LOG(INFO) << "Filtering tracks by reprojection ...";
-    {
-      colmap::ObservationManager obs_manager(reconstruction);
-      obs_manager.FilterPoints3DWithLargeReprojectionError(
-          options.inlier_thresholds.max_reprojection_error,
-          reconstruction.Point3DIds(),
-          colmap::ReprojectionErrorType::NORMALIZED);
-      obs_manager.FilterPoints3DWithSmallTriangulationAngle(
-          options.inlier_thresholds.min_triangulation_angle,
-          reconstruction.Point3DIds());
-    }
+    run_timer.PrintSeconds();
   }
 
   // 8. Reconstruction pruning
@@ -347,6 +311,80 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     cluster_ids = PruneWeaklyConnectedFrames(reconstruction);
     run_timer.PrintSeconds();
   }
+
+  return true;
+}
+
+bool GlobalMapper::RetriangulateAndRefine(
+    const colmap::Database& database,
+    colmap::Reconstruction& reconstruction) {
+  // Create database cache for retriangulation.
+  auto database_cache = colmap::DatabaseCache::Create(
+      database,
+      options_.retriangulation_min_num_matches,
+      /*ignore_watermarks=*/false,
+      /*camera_rig_config=*/{});
+
+  // Wrap reconstruction in shared_ptr for IncrementalMapper.
+  auto reconstruction_ptr =
+      std::shared_ptr<colmap::Reconstruction>(&reconstruction, [](auto) {});
+
+  // Delete all existing 3D points and re-establish 2D-3D correspondences.
+  reconstruction.DeleteAllPoints2DAndPoints3D();
+  reconstruction.TranscribeImageIdsToDatabase(database,
+                                              /*update_cameras=*/false);
+
+  // Initialize mapper.
+  colmap::IncrementalMapper mapper(database_cache);
+  mapper.BeginReconstruction(reconstruction_ptr);
+
+  // Triangulate all registered images.
+  for (const auto image_id : reconstruction.RegImageIds()) {
+    mapper.TriangulateImage(options_.retriangulation, image_id);
+  }
+
+  // Set up bundle adjustment options.
+  colmap::BundleAdjustmentOptions ba_options;
+  ba_options.solver_options.max_num_iterations = 50;
+  ba_options.solver_options.max_linear_solver_iterations = 100;
+  ba_options.print_summary = false;
+
+  // Iterative global refinement.
+  colmap::IncrementalMapper::Options mapper_options;
+  mapper.IterativeGlobalRefinement(/*max_num_refinements=*/5,
+                                   /*max_refinement_change=*/0.001,
+                                   mapper_options,
+                                   ba_options,
+                                   options_.retriangulation,
+                                   /*normalize_reconstruction=*/true);
+
+  mapper.EndReconstruction(/*discard=*/false);
+
+  // Filter by reprojection error.
+  colmap::ObservationManager obs_manager(reconstruction);
+  obs_manager.FilterPoints3DWithLargeReprojectionError(
+      options_.inlier_thresholds.max_reprojection_error,
+      reconstruction.Point3DIds(),
+      colmap::ReprojectionErrorType::NORMALIZED);
+
+  // Run final bundle adjustment.
+  if (!RunBundleAdjustment(options_.bundle_adjustment,
+                           /*constant_rotation=*/false,
+                           reconstruction)) {
+    return false;
+  }
+
+  // Normalize the structure.
+  reconstruction.Normalize();
+
+  // Final filtering.
+  obs_manager.FilterPoints3DWithLargeReprojectionError(
+      options_.inlier_thresholds.max_reprojection_error,
+      reconstruction.Point3DIds(),
+      colmap::ReprojectionErrorType::NORMALIZED);
+  obs_manager.FilterPoints3DWithSmallTriangulationAngle(
+      options_.inlier_thresholds.min_triangulation_angle,
+      reconstruction.Point3DIds());
 
   return true;
 }

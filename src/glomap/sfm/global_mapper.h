@@ -2,6 +2,7 @@
 
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/sfm/incremental_triangulator.h"
 
 #include "glomap/estimators/bundle_adjustment.h"
 #include "glomap/estimators/global_positioning.h"
@@ -11,7 +12,6 @@
 #include "glomap/processors/image_pair_inliers.h"
 #include "glomap/scene/view_graph.h"
 #include "glomap/sfm/track_establishment.h"
-#include "glomap/sfm/track_retriangulation.h"
 
 namespace glomap {
 
@@ -33,14 +33,22 @@ struct GlobalMapperOptions {
   TrackEstablishmentOptions track_establishment;
   GlobalPositionerOptions global_positioning;
   BundleAdjusterOptions bundle_adjustment;
-  TriangulatorOptions retriangulation;
+  colmap::IncrementalTriangulator::Options retriangulation = [] {
+    colmap::IncrementalTriangulator::Options opts;
+    opts.complete_max_reproj_error = 15.0;
+    opts.merge_max_reproj_error = 15.0;
+    opts.min_angle = 1.0;
+    return opts;
+  }();
+
+  // Minimum number of matches for database cache in retriangulation.
+  int retriangulation_min_num_matches = 15;
 
   // Inlier thresholds for each component
   InlierThresholdOptions inlier_thresholds;
 
-  // Control the number of iterations for each component
+  // Control the number of iterations for bundle adjustment.
   int num_iterations_ba = 3;
-  int num_iterations_retriangulation = 1;
 
   // Control the flow of the global sfm
   bool skip_preprocessing = false;
@@ -68,6 +76,10 @@ class GlobalMapper {
              std::unordered_map<frame_t, int>& cluster_ids);
 
  private:
+  // Retriangulate all 3D points from scratch and refine with bundle adjustment.
+  bool RetriangulateAndRefine(const colmap::Database& database,
+                              colmap::Reconstruction& reconstruction);
+
   const GlobalMapperOptions options_;
 };
 
