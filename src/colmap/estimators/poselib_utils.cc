@@ -57,8 +57,8 @@ poselib::CameraPose ConvertRigid3dToPoseLibPose(const Rigid3d& rigid) {
 Rigid3d ConvertPoseLibPoseToRigid3d(const poselib::CameraPose& pose) {
   // PoseLib quaternion is (w, x, y, z), Eigen::Quaterniond constructor is also
   // (w, x, y, z)
-  return Rigid3d(
-      Eigen::Quaterniond(pose.q(0), pose.q(1), pose.q(2), pose.q(3)), pose.t);
+  return Rigid3d(Eigen::Quaterniond(pose.q(0), pose.q(1), pose.q(2), pose.q(3)),
+                 pose.t);
 }
 
 }  // namespace colmap
