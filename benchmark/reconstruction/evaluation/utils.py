@@ -38,8 +38,10 @@ import shutil
 import subprocess
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Callable
 
 import numpy as np
+import numpy.typing as npt
 
 import pycolmap
 
@@ -69,7 +71,7 @@ class SceneResult:
     # Scene information for which the result was computed.
     scene_info: SceneInfo
     # Flat list of errors.
-    errors: np.ndarray
+    errors: npt.NDArray[np.floating]
     # Number of images in the scene.
     num_images: int
     # Number of registered images in the scene (over all components).
@@ -83,8 +85,8 @@ class SceneResult:
 @dataclasses.dataclass(kw_only=True)
 class SceneMetrics:
     # Area under the curve (AUC) scores at specified error thresholds.
-    aucs: np.ndarray
-    error_thresholds: np.ndarray
+    aucs: npt.NDArray[np.floating]
+    error_thresholds: npt.NDArray[np.floating]
     error_type: str
     # Number of images in the scene.
     num_images: int
@@ -97,6 +99,20 @@ class SceneMetrics:
 
 
 class Dataset(ABC):
+    def __init__(
+        self,
+        data_path: Path,
+        categories: list[str],
+        scenes: list[Path],
+        run_path: Path,
+        run_name: str,
+    ):
+        self.data_path = data_path
+        self.categories = categories
+        self.scenes = scenes
+        self.run_path = run_path
+        self.run_name = run_name
+
     @property
     @abstractmethod
     def position_accuracy_gt(self) -> float:
@@ -388,7 +404,7 @@ def colmap_alignment(
 def process_scene(
     args: argparse.Namespace,
     scene_info: SceneInfo,
-    prepare_scene: callable,
+    prepare_scene: Callable[[SceneInfo], None],
     position_accuracy_gt: float,
     num_threads: int,
 ) -> SceneResult:
@@ -400,7 +416,7 @@ def process_scene(
 
     prepare_scene(scene_info)
 
-    sparse_gt = pycolmap.Reconstruction(scene_info.sparse_gt_path)
+    sparse_gt = pycolmap.Reconstruction(str(scene_info.sparse_gt_path))
 
     colmap_reconstruction(
         args=args,
@@ -428,7 +444,7 @@ def process_scene(
         num_components += 1
         sparse = None
         if args.error_type == "relative":
-            sparse = pycolmap.Reconstruction(sparse_path)
+            sparse = pycolmap.Reconstruction(str(sparse_path))
         elif args.error_type == "absolute":
             sparse_aligned_path = scene_info.workspace_path / "sparse_aligned"
             colmap_alignment(
@@ -439,7 +455,7 @@ def process_scene(
                 max_ref_model_error=position_accuracy_gt,
             )
             if (sparse_aligned_path / "images.bin").exists():
-                sparse = pycolmap.Reconstruction(sparse_aligned_path)
+                sparse = pycolmap.Reconstruction(str(sparse_aligned_path))
         else:
             raise ValueError(f"Invalid error type: {args.error_type}")
 
@@ -488,7 +504,7 @@ def process_scene(
 def process_scenes(
     args: argparse.Namespace,
     scene_infos: list[SceneInfo],
-    prepare_scene: callable,
+    prepare_scene: Callable[[SceneInfo], None],
     position_accuracy_gt: float,
 ) -> dict[str, dict[str, SceneMetrics]]:
     error_thresholds = get_error_thresholds(args)
@@ -508,8 +524,8 @@ def process_scenes(
             scene_infos,
         )
 
-    metrics = collections.defaultdict(dict)
-    errors_by_category = collections.defaultdict(list)
+    metrics: dict[str, dict[str, SceneMetrics]] = collections.defaultdict(dict)
+    errors_by_category: dict[str, list] = collections.defaultdict(list)
     total_num_images = 0
     total_num_reg_images = 0
     total_num_components = 0
@@ -540,7 +556,7 @@ def process_scenes(
     for category, errors in errors_by_category.items():
         metrics[category]["__all__"] = SceneMetrics(
             aucs=compute_auc(
-                errors,
+                np.array(errors),
                 error_thresholds,
                 min_error=position_accuracy_gt,
             ),
@@ -564,16 +580,20 @@ def process_scenes(
     return metrics
 
 
-def normalize_vec(vec: np.ndarray, eps: float = 1e-10) -> np.ndarray:
-    return vec / max(eps, np.linalg.norm(vec))
+def normalize_vec(
+    vec: npt.NDArray[np.floating], eps: float = 1e-10
+) -> npt.NDArray[np.floating]:
+    return vec / max(eps, float(np.linalg.norm(vec)))
 
 
-def vec_angular_dist_deg(vec1: np.ndarray, vec2: np.ndarray) -> float:
+def vec_angular_dist_deg(
+    vec1: npt.NDArray[np.floating], vec2: npt.NDArray[np.floating]
+) -> float:
     cos_dist = np.clip(np.dot(normalize_vec(vec1), normalize_vec(vec2)), -1, 1)
     return np.rad2deg(np.acos(cos_dist))
 
 
-def get_error_thresholds(args: argparse.Namespace) -> list[float]:
+def get_error_thresholds(args: argparse.Namespace) -> npt.NDArray[np.floating]:
     if args.error_type == "relative":
         return np.array(args.rel_error_thresholds)
     elif args.error_type == "absolute":
@@ -586,7 +606,7 @@ def compute_rel_errors(
     sparse_gt: pycolmap.Reconstruction,
     sparse: pycolmap.Reconstruction,
     min_proj_center_dist: float,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]]:
     """Computes angular relative pose errors across all image pairs.
 
     Notice that this approach leads to a super-linear decrease in the AUC scores
@@ -651,7 +671,7 @@ def compute_rel_errors(
                 # distance is unstable, because a small position change can
                 # cause a large rotational error. In this case, we only measure
                 # rotational relative pose error.
-                dt = 0
+                dt = 0.0
             else:
                 dt = vec_angular_dist_deg(
                     other_from_this.translation, other_from_this_gt.translation
@@ -667,7 +687,7 @@ def compute_rel_errors(
 
 def compute_abs_errors(
     sparse_gt: pycolmap.Reconstruction, sparse: pycolmap.Reconstruction
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]]:
     """Computes rotational and translational absolute pose errors.
 
     Assumes that the input reconstructions are aligned in the same coordinate
@@ -711,8 +731,10 @@ def compute_recall(errors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 def compute_auc(
-    errors: np.ndarray, thresholds: list[float], min_error: float = 0
-) -> list[float]:
+    errors: npt.NDArray[np.floating],
+    thresholds: npt.NDArray[np.floating],
+    min_error: float = 0,
+) -> npt.NDArray[np.floating]:
     if len(errors) == 0:
         raise ValueError("No errors to evaluate")
 
@@ -737,7 +759,9 @@ def compute_auc(
     return aucs / 1.1
 
 
-def compute_avg_auc(scene_metrics: dict[str, SceneMetrics]) -> list[float]:
+def compute_avg_auc(
+    scene_metrics: dict[str, SceneMetrics],
+) -> npt.NDArray[np.floating]:
     auc_sum = None
     num_scenes = 0
     for scene, metrics in scene_metrics.items():
@@ -753,8 +777,8 @@ def compute_avg_auc(scene_metrics: dict[str, SceneMetrics]) -> list[float]:
 
 
 def diff_metrics(
-    metrics_a: dict[str, dict[str, SceneMetrics]],
-    metrics_b: dict[str, dict[str, SceneMetrics]],
+    metrics_a: dict[str, dict[str, dict[str, SceneMetrics]]],
+    metrics_b: dict[str, dict[str, dict[str, SceneMetrics]]],
 ):
     """Computes difference between two sets of metrics.
 
@@ -769,31 +793,36 @@ def diff_metrics(
             if category not in category_metrics_b:
                 raise ValueError(f"Category {category} not found in metrics_b")
             scene_metrics_b = category_metrics_b[category]
-            for scene, metrics_a in scene_metrics_a.items():
+            for scene, metrics_a_item in scene_metrics_a.items():
                 if scene not in scene_metrics_b:
                     raise ValueError(f"Scene {scene} not found in metrics_b")
-                metrics_b = scene_metrics_b[scene]
-                if metrics_a.error_type != metrics_b.error_type or not np.all(
-                    metrics_a.error_thresholds == metrics_b.error_thresholds
+                metrics_b_item = scene_metrics_b[scene]
+                if (
+                    metrics_a_item.error_type != metrics_b_item.error_type
+                    or not np.all(
+                        metrics_a_item.error_thresholds
+                        == metrics_b_item.error_thresholds
+                    )
                 ):
                     raise ValueError("Inconsistent error thresholds or types")
                 metrics_diff[dataset][category][scene] = SceneMetrics(
-                    aucs=metrics_a.aucs - metrics_b.aucs,
-                    error_thresholds=metrics_a.error_thresholds,
-                    error_type=metrics_a.error_type,
-                    num_images=metrics_a.num_images - metrics_b.num_images,
-                    num_reg_images=metrics_a.num_reg_images
-                    - metrics_b.num_reg_images,
-                    num_components=metrics_a.num_components
-                    - metrics_b.num_components,
-                    largest_component=metrics_a.largest_component
-                    - metrics_b.largest_component,
+                    aucs=metrics_a_item.aucs - metrics_b_item.aucs,
+                    error_thresholds=metrics_a_item.error_thresholds,
+                    error_type=metrics_a_item.error_type,
+                    num_images=metrics_a_item.num_images
+                    - metrics_b_item.num_images,
+                    num_reg_images=metrics_a_item.num_reg_images
+                    - metrics_b_item.num_reg_images,
+                    num_components=metrics_a_item.num_components
+                    - metrics_b_item.num_components,
+                    largest_component=metrics_a_item.largest_component
+                    - metrics_b_item.largest_component,
                 )
     return metrics_diff
 
 
 def create_result_table(
-    dataset_metrics: dict[str, dict[str, SceneMetrics]],
+    dataset_metrics: dict[str, dict[str, dict[str, SceneMetrics]]],
 ) -> str:
     first_metrics = next(
         iter(next(iter(next(iter(dataset_metrics.values())).values())).values())

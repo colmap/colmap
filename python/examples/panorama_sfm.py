@@ -12,6 +12,7 @@ from threading import Lock
 
 import cv2
 import numpy as np
+import numpy.typing as npt
 import PIL.ExifTags
 import PIL.Image
 from scipy.spatial.transform import Rotation
@@ -65,7 +66,9 @@ def create_virtual_camera(
     )
 
 
-def get_virtual_camera_rays(camera: pycolmap.Camera) -> np.ndarray:
+def get_virtual_camera_rays(
+    camera: pycolmap.Camera,
+) -> npt.NDArray[np.floating]:
     size = (camera.width, camera.height)
     x, y = np.indices(size).astype(np.float32)
     xy = np.column_stack([x.ravel(), y.ravel()])
@@ -78,8 +81,8 @@ def get_virtual_camera_rays(camera: pycolmap.Camera) -> np.ndarray:
 
 
 def spherical_img_from_cam(
-    image_size: tuple[int, int], rays_in_cam: np.ndarray
-) -> np.ndarray:
+    image_size: tuple[int, int], rays_in_cam: npt.NDArray[np.floating]
+) -> npt.NDArray[np.floating]:
     """Project rays into a 360 panorama (spherical) image."""
     if image_size[0] != image_size[1] * 2:
         raise ValueError("Only 360° panoramas are supported.")
@@ -95,7 +98,7 @@ def spherical_img_from_cam(
 
 def get_virtual_rotations(
     num_steps_yaw: int, pitches_deg: Sequence[float]
-) -> Sequence[np.ndarray]:
+) -> Sequence[npt.NDArray[np.floating]]:
     """Get the relative rotations of the virtual cameras w.r.t. the panorama."""
     # Assuming that the panos are approximately upright.
     cams_from_pano_r = []
@@ -111,7 +114,8 @@ def get_virtual_rotations(
 
 
 def create_pano_rig_config(
-    cams_from_pano_rotation: Sequence[np.ndarray], ref_idx: int = 0
+    cams_from_pano_rotation: Sequence[npt.NDArray[np.floating]],
+    ref_idx: int = 0,
 ) -> pycolmap.RigConfig:
     """Create a RigConfig for the given virtual rotations."""
     rig_cameras = []
@@ -167,7 +171,7 @@ class PanoProcessor:
         # to avoid recomputing the rays for each pano image.
         self._camera: pycolmap.Camera
         self._pano_size: tuple[int, int]
-        self._rays_in_cam: np.ndarray
+        self._rays_in_cam: npt.NDArray[np.floating]
 
     def process(self, pano_name: str) -> None:
         pano_path = self.pano_image_dir / pano_name
