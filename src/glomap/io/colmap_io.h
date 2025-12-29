@@ -15,9 +15,10 @@ void InitializeEmptyReconstructionFromDatabase(
 
 // Initialize the view graph from the database.
 // The reconstruction must already be initialized with images.
-void InitializeViewGraphFromDatabase(const colmap::Database& database,
-                                     const colmap::Reconstruction& reconstruction,
-                                     ViewGraph& view_graph);
+void InitializeViewGraphFromDatabase(
+    const colmap::Database& database,
+    const colmap::Reconstruction& reconstruction,
+    ViewGraph& view_graph);
 
 // Extract a subset of the reconstruction for a specific cluster.
 // Returns a new Reconstruction containing only frames/images/points from the
