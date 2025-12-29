@@ -106,7 +106,7 @@ int RunPatchMatchStereo(int argc, char** argv) {
 }
 
 void RunPatchMatchStereoImpl(const std::string& workspace_path,
-                             std::string workspace_format,
+                             const std::string& workspace_format,
                              const std::string& pmvs_option_name,
                              const mvs::PatchMatchOptions& options,
                              const std::string& config_path) {
@@ -114,13 +114,18 @@ void RunPatchMatchStereoImpl(const std::string& workspace_path,
   LOG(FATAL_THROW) << "Dense stereo reconstruction requires CUDA, which is not "
                       "available on your system.";
 #else   // COLMAP_CUDA_ENABLED
-  StringToLower(&workspace_format);
-  THROW_CHECK(workspace_format == "colmap" || workspace_format == "pmvs")
-      << "Invalid `workspace_format` - supported values are 'COLMAP' or "
-         "'PMVS'.";
+  std::string workspace_format_lower = workspace_format;
+  StringToLower(&workspace_format_lower);
+  THROW_CHECK(workspace_format_lower == "colmap" ||
+              workspace_format_lower == "pmvs")
+      << "Invalid `workspace_format` " << workspace_format_lower
+      << " - supported values are 'COLMAP' or 'PMVS'.";
 
-  mvs::PatchMatchController controller(
-      options, workspace_path, workspace_format, pmvs_option_name, config_path);
+  mvs::PatchMatchController controller(options,
+                                       workspace_path,
+                                       workspace_format_lower,
+                                       pmvs_option_name,
+                                       config_path);
 
   controller.Run();
 #endif  // COLMAP_CUDA_ENABLED
@@ -186,17 +191,19 @@ Reconstruction RunStereoFuserImpl(const std::string& output_path,
                                   std::string output_type) {
   StringToLower(&workspace_format);
   THROW_CHECK(workspace_format == "colmap" || workspace_format == "pmvs")
-      << "Invalid `workspace_format` - supported values are 'COLMAP' or "
-         "'PMVS'.";
+      << "Invalid `workspace_format` " << workspace_format
+      << " - supported values are 'COLMAP' or 'PMVS'.";
 
   StringToLower(&input_type);
   THROW_CHECK(input_type == "photometric" || input_type == "geometric")
-      << "Invalid input type - supported values are 'photometric' and "
-         "'geometric'.";
+      << "Invalid `input_type` " << input_type
+      << " - supported values are 'photometric' and 'geometric'.";
 
   StringToLower(&output_type);
-  THROW_CHECK(input_type == "bin" || input_type == "ply" || input_type == "txt")
-      << "Invalid output type - supported values are 'bin', 'ply' and 'txt'.";
+  THROW_CHECK(output_type == "bin" || output_type == "ply" ||
+              output_type == "txt")
+      << "Invalid `output_type` " << output_type
+      << " - supported values are 'bin', 'ply' and 'txt'.";
 
   mvs::StereoFusion fuser(
       options, workspace_path, workspace_format, pmvs_option_name, input_type);

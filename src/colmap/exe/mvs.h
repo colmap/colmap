@@ -36,7 +36,7 @@
 namespace colmap {
 
 void RunPatchMatchStereoImpl(const std::string& workspace_path,
-                             std::string workspace_format,
+                             const std::string& workspace_format,
                              const std::string& pmvs_option_name,
                              const mvs::PatchMatchOptions& options,
                              const std::string& config_path);
