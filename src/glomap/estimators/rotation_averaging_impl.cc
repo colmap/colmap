@@ -428,6 +428,9 @@ void RotationAveragingProblem::BuildConstraintMatrix(
   }
 
   // Build sparse matrix.
+  if (curr_row == 0) {
+    return;
+  }
   constraint_matrix_.resize(curr_row, num_params);
   constraint_matrix_.setFromTriplets(coeffs.begin(), coeffs.end());
 
