@@ -3,14 +3,13 @@
 #include "colmap/geometry/pose_prior.h"
 #include "colmap/scene/reconstruction.h"
 
-#include "glomap/estimators/optimization_base.h"
 #include "glomap/scene/view_graph.h"
 
 #include <ceres/ceres.h>
 
 namespace glomap {
 
-struct GravityRefinerOptions : public OptimizationBaseOptions {
+struct GravityRefinerOptions {
   // The minimal ratio that the gravity vector should be consistent with
   double max_outlier_ratio = 0.5;
   // The maximum allowed angle error in degree
@@ -18,7 +17,14 @@ struct GravityRefinerOptions : public OptimizationBaseOptions {
   // Only refine the gravity of the images with more than min_neighbors
   int min_num_neighbors = 7;
 
-  GravityRefinerOptions() : OptimizationBaseOptions() {}
+  // The options for the solver
+  ceres::Solver::Options solver_options;
+
+  GravityRefinerOptions() {
+    solver_options.num_threads = -1;
+    solver_options.max_num_iterations = 100;
+    solver_options.function_tolerance = 1e-5;
+  }
 
   std::shared_ptr<ceres::LossFunction> CreateLossFunction() {
     return std::make_shared<ceres::ArctanLoss>(

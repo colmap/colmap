@@ -1,10 +1,9 @@
 #include "glomap/estimators/view_graph_calibration.h"
 
 #include "colmap/scene/two_view_geometry.h"
+#include "colmap/util/threading.h"
 
 #include "glomap/estimators/cost_functions.h"
-
-#include <thread>
 
 namespace glomap {
 
@@ -34,6 +33,8 @@ bool ViewGraphCalibrator::Solve(ViewGraph& view_graph,
 
   // Solve the problem
   ceres::Solver::Summary summary;
+  options_.solver_options.num_threads =
+      colmap::GetEffectiveNumThreads(options_.solver_options.num_threads);
   options_.solver_options.minimizer_progress_to_stdout = VLOG_IS_ON(2);
   ceres::Solve(options_.solver_options, problem_.get(), &summary);
 

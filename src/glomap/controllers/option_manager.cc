@@ -85,8 +85,8 @@ void OptionManager::AddGlobalMapperOptions() {
                               &mapper->global_positioning.optimize_points);
   AddAndRegisterDefaultOption("GlobalPositioning.optimize_scales",
                               &mapper->global_positioning.optimize_scales);
-  AddAndRegisterDefaultOption("GlobalPositioning.thres_loss_function",
-                              &mapper->global_positioning.thres_loss_function);
+  AddAndRegisterDefaultOption("GlobalPositioning.loss_function_scale",
+                              &mapper->global_positioning.loss_function_scale);
   AddAndRegisterDefaultOption(
       "GlobalPositioning.max_num_iterations",
       &mapper->global_positioning.solver_options.max_num_iterations);
