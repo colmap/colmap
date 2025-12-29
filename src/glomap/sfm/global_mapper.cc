@@ -344,10 +344,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
 
     colmap::Timer run_timer;
     run_timer.Start();
-
-    // Prune weakly connected images
-    PruneWeaklyConnectedImages(reconstruction, cluster_ids);
-
+    cluster_ids = PruneWeaklyConnectedFrames(reconstruction);
     run_timer.PrintSeconds();
   }
 
