@@ -289,9 +289,9 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     run_timer.PrintSeconds();
   }
 
-  // 7. Retriangulation and refinement
+  // 7. Iterative retriangulation and refinement
   if (!options.skip_retriangulation) {
-    LOG(INFO) << "----- Running retriangulation and refinement -----";
+    LOG(INFO) << "----- Running iterative retriangulation and refinement -----";
     THROW_CHECK_NOTNULL(database);
 
     colmap::Timer run_timer;
