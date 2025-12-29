@@ -18,13 +18,16 @@ bool GlobalMapper::Solve(const colmap::Database* database,
                          colmap::Reconstruction& reconstruction,
                          std::vector<colmap::PosePrior>& pose_priors,
                          std::unordered_map<frame_t, int>& cluster_ids) {
-  // Propagate random seed to component options for deterministic behavior.
+  // Propagate options to component options.
   GlobalMapperOptions options = options_;
   if (options.random_seed >= 0) {
     options.relative_pose_estimation.random_seed = options.random_seed;
     options.rotation_averaging.random_seed = options.random_seed;
     options.global_positioning.random_seed = options.random_seed;
   }
+  options.view_graph_calibration.solver_options.num_threads = options.num_threads;
+  options.global_positioning.solver_options.num_threads = options.num_threads;
+  options.bundle_adjustment.solver_options.num_threads = options.num_threads;
 
   // 0. Preprocessing
   if (!options.skip_preprocessing) {

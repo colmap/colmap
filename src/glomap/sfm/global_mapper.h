@@ -16,6 +16,9 @@
 namespace glomap {
 
 struct GlobalMapperOptions {
+  // Number of threads.
+  int num_threads = -1;
+
   // PRNG seed for all stochastic methods during reconstruction.
   // If -1 (default), the seed is derived from the current time
   // (non-deterministic). If >= 0, the pipeline is deterministic with the given
