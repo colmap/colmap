@@ -12,10 +12,12 @@
 #include "pycolmap/pybind11_extension.h"
 #include "pycolmap/utils.h"
 
+#include <filesystem>
 #include <memory>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/stl/filesystem.h>
 
 using namespace colmap;
 using namespace pybind11::literals;
@@ -26,7 +28,7 @@ template <typename PairingOptions,
                                                  const FeatureMatchingOptions&,
                                                  const TwoViewGeometryOptions&,
                                                  const std::string&)>
-void MatchFeatures(const std::string& database_path,
+void MatchFeatures(const std::filesystem::path& database_path,
                    FeatureMatchingOptions matching_options,
                    const PairingOptions& pairing_options,
                    const TwoViewGeometryOptions& verification_options,
@@ -50,8 +52,8 @@ void MatchFeatures(const std::string& database_path,
   PyWait(matcher.get());
 }
 
-void VerifyMatches(const std::string& database_path,
-                   const std::string& pairs_path,
+void VerifyMatches(const std::filesystem::path& database_path,
+                   const std::filesystem::path& pairs_path,
                    const TwoViewGeometryOptions& verification_options) {
   THROW_CHECK_FILE_EXISTS(database_path);
   THROW_CHECK_FILE_EXISTS(pairs_path);
@@ -69,7 +71,7 @@ void VerifyMatches(const std::string& database_path,
   PyWait(matcher.get());
 }
 
-void GeometricVerification(const std::string& database_path,
+void GeometricVerification(const std::filesystem::path& database_path,
                            const GeometricVerifierOptions& verifier_options,
                            const ExistingMatchedPairingOptions& pairing_options,
                            const TwoViewGeometryOptions& geometry_options) {
@@ -84,7 +86,7 @@ void GeometricVerification(const std::string& database_path,
 
 void GuidedGeometricVerification(
     const Reconstruction& reconstruction,
-    const std::string& database_path,
+    const std::filesystem::path& database_path,
     const ExistingMatchedPairingOptions& pairing_options,
     const TwoViewGeometryOptions& geometry_options,
     int num_threads = -1) {

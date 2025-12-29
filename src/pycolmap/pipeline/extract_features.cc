@@ -11,17 +11,19 @@
 #include "pycolmap/pybind11_extension.h"
 #include "pycolmap/utils.h"
 
+#include <filesystem>
 #include <memory>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/stl/filesystem.h>
 
 using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-void ExtractFeatures(const std::string& database_path,
-                     const std::string& image_path,
+void ExtractFeatures(const std::filesystem::path& database_path,
+                     const std::filesystem::path& image_path,
                      const std::vector<std::string>& image_names,
                      const CameraMode camera_mode,
                      ImageReaderOptions reader_options,

@@ -13,18 +13,20 @@
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 
+#include <filesystem>
 #include <memory>
 
 #include <glog/logging.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/stl/filesystem.h>
 
 using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-void ImportImages(const std::string& database_path,
-                  const std::string& image_path,
+void ImportImages(const std::filesystem::path& database_path,
+                  const std::filesystem::path& image_path,
                   const CameraMode camera_mode,
                   const std::vector<std::string>& image_names,
                   const ImageReaderOptions& options_) {
@@ -74,7 +76,7 @@ void ImportImages(const std::string& database_path,
   }
 }
 
-Camera InferCameraFromImage(const std::string& image_path,
+Camera InferCameraFromImage(const std::filesystem::path& image_path,
                             const ImageReaderOptions& options) {
   Bitmap bitmap;
   THROW_CHECK_FILE_EXISTS(image_path);
@@ -99,9 +101,9 @@ Camera InferCameraFromImage(const std::string& image_path,
   return camera;
 }
 
-void UndistortImages(const std::string& output_path,
-                     const std::string& input_path,
-                     const std::string& image_path,
+void UndistortImages(const std::filesystem::path& output_path,
+                     const std::filesystem::path& input_path,
+                     const std::filesystem::path& image_path,
                      const std::vector<std::string>& image_names,
                      const std::string& output_type,
                      const CopyType copy_type,
