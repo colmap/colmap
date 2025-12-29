@@ -7,8 +7,6 @@ of the exposed ceres problem from conventional bundle adjustment.
 import collections
 import copy
 
-import pyceres
-
 import pycolmap
 from pycolmap import logging
 
@@ -17,18 +15,17 @@ def solve_bundle_adjustment(
     reconstruction: pycolmap.Reconstruction,
     ba_options: pycolmap.BundleAdjustmentOptions,
     ba_config: pycolmap.BundleAdjustmentConfig,
-) -> pyceres.SolverSummary:
+) -> pycolmap.pyceres.SolverSummary:
     bundle_adjuster = pycolmap.create_default_bundle_adjuster(
         ba_options, ba_config, reconstruction
     )
     summary = bundle_adjuster.solve()
     # Alternatively, you can customize the existing problem or options as:
-    # import pyceres
     # solver_options = ba_options.create_solver_options(
     #     ba_config, bundle_adjuster.problem
     # )
-    # summary = pyceres.SolverSummary()
-    # pyceres.solve(solver_options, bundle_adjuster.problem, summary)
+    # summary = pycolmap.pyceres.SolverSummary()
+    # pycolmap.pyceres.solve(solver_options, bundle_adjuster.problem, summary)
     return summary
 
 
