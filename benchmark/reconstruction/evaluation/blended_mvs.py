@@ -28,7 +28,6 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-
 import numpy as np
 from PIL import Image
 

@@ -64,6 +64,5 @@ testpaths = [
 ]
 
 [tool.mypy]
-implicit_optional = true
 ignore_missing_imports = true
 follow_untyped_imports = true
