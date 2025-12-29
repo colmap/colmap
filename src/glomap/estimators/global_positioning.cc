@@ -458,7 +458,7 @@ void GlobalPositioner::ParameterizeVariables(
     }
   }
 
-#ifdef GLOMAP_CUDA_ENABLED
+#ifdef COLMAP_CUDA_ENABLED
   const size_t num_images = reconstruction.NumFrames();
   bool cuda_solver_enabled = false;
 
@@ -510,7 +510,7 @@ void GlobalPositioner::ParameterizeVariables(
            "compiled without CUDA support. Falling back to CPU-based "
            "solvers.";
   }
-#endif  // GLOMAP_CUDA_ENABLED
+#endif  // COLMAP_CUDA_ENABLED
 
   // Set up the options for the solver
   // Do not use iterative solvers, for its suboptimal performance.
