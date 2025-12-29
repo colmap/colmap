@@ -1,21 +1,12 @@
 #include "glomap/estimators/relpose_estimation.h"
 
+#include "colmap/estimators/poselib_utils.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 
 #include <PoseLib/robust.h>
 
 namespace glomap {
-namespace {
-
-inline poselib::Camera ColmapCameraToPoseLibCamera(
-    const colmap::Camera& camera) {
-  poselib::Camera pose_lib_camera(
-      camera.ModelName(), camera.params, camera.width, camera.height);
-  return pose_lib_camera;
-}
-
-}  // namespace
 
 void EstimateRelativePoses(ViewGraph& view_graph,
                            colmap::Reconstruction& reconstruction,
@@ -59,8 +50,10 @@ void EstimateRelativePoses(ViewGraph& view_graph,
             reconstruction.Camera(image1.CameraId());
         const colmap::Camera& camera2 =
             reconstruction.Camera(image2.CameraId());
-        poselib::Camera camera_poselib1 = ColmapCameraToPoseLibCamera(camera1);
-        poselib::Camera camera_poselib2 = ColmapCameraToPoseLibCamera(camera2);
+        poselib::Camera camera_poselib1 =
+            colmap::ConvertCameraToPoseLibCamera(camera1);
+        poselib::Camera camera_poselib2 =
+            colmap::ConvertCameraToPoseLibCamera(camera2);
         bool valid_camera_model =
             (camera_poselib1.model_id >= 0 && camera_poselib2.model_id >= 0);
 
@@ -128,11 +121,8 @@ void EstimateRelativePoses(ViewGraph& view_graph,
         }
 
         // Convert the relative pose to the glomap format
-        for (int i = 0; i < 4; i++) {
-          image_pair.cam2_from_cam1.rotation.coeffs()[i] =
-              pose_rel_calc.q[(i + 1) % 4];
-        }
-        image_pair.cam2_from_cam1.translation = pose_rel_calc.t;
+        image_pair.cam2_from_cam1 =
+            colmap::ConvertPoseLibPoseToRigid3d(pose_rel_calc);
       });
     }
 

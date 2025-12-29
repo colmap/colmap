@@ -29,6 +29,7 @@
 
 #include "colmap/estimators/generalized_relative_pose.h"
 
+#include "colmap/estimators/poselib_utils.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/math/random.h"
 #include "colmap/util/eigen_alignment.h"
@@ -67,8 +68,7 @@ void GR6PEstimator::Estimate(const std::vector<X_t>& points1,
 
   rigs2_from_rigs1->reserve(poses.size());
   for (const poselib::CameraPose& pose : poses) {
-    rigs2_from_rigs1->emplace_back(
-        Eigen::Quaterniond(pose.q(0), pose.q(1), pose.q(2), pose.q(3)), pose.t);
+    rigs2_from_rigs1->emplace_back(ConvertPoseLibPoseToRigid3d(pose));
   }
 }
 
