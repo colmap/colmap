@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
-from typing import Annotated, Literal
+from typing import Literal, TypeVar, cast
 
 import cv2
 import numpy as np
@@ -18,13 +18,13 @@ import PIL.ExifTags
 import PIL.Image
 from scipy.spatial.transform import Rotation
 from tqdm import tqdm
-from typing_extensions import Never
 
 import pycolmap
 from pycolmap import logging
 
-NDArrayNx2 = Annotated[npt.NDArray[np.float64], Literal[Never, 2]]
-NDArray3x1 = Annotated[npt.NDArray[np.float64], Literal[3, 1]]
+N = TypeVar("N", bound=int)
+NDArrayNx2 = np.ndarray[tuple[N, Literal[2]], np.dtype[np.float64]]
+NDArray3x1 = np.ndarray[tuple[Literal[3], Literal[1]], np.dtype[np.float64]]
 
 
 @dataclass
@@ -124,7 +124,7 @@ def create_pano_rig_config(
 ) -> pycolmap.RigConfig:
     """Create a RigConfig for the given virtual rotations."""
     rig_cameras = []
-    zero_translation: NDArray3x1 = np.zeros((3, 1), dtype=np.float64)
+    zero_translation = cast(NDArray3x1, np.zeros((3, 1), dtype=np.float64))
     for idx, cam_from_pano_rotation in enumerate(cams_from_pano_rotation):
         if idx == ref_idx:
             cam_from_rig = None
