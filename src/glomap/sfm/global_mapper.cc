@@ -27,6 +27,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     options.rotation_averaging.random_seed = options.random_seed;
     options.global_positioning.random_seed = options.random_seed;
     options.global_positioning.use_parameter_block_ordering = false;
+    options.retriangulation.random_seed = options.random_seed;
   }
   options.view_graph_calibration.solver_options.num_threads =
       options.num_threads;
@@ -344,9 +345,13 @@ bool GlobalMapper::RetriangulateAndRefine(
   colmap::IncrementalMapper mapper(database_cache);
   mapper.BeginReconstruction(reconstruction_ptr);
 
+  // Set up triangulation options with random seed.
+  colmap::IncrementalTriangulator::Options tri_options = options_.retriangulation;
+  tri_options.random_seed = options_.random_seed;
+
   // Triangulate all registered images.
   for (const auto image_id : reconstruction.RegImageIds()) {
-    mapper.TriangulateImage(options_.retriangulation, image_id);
+    mapper.TriangulateImage(tri_options, image_id);
   }
 
   // Set up bundle adjustment options.
@@ -358,11 +363,12 @@ bool GlobalMapper::RetriangulateAndRefine(
 
   // Iterative global refinement.
   colmap::IncrementalMapper::Options mapper_options;
+  mapper_options.random_seed = tri_options.random_seed;
   mapper.IterativeGlobalRefinement(/*max_num_refinements=*/5,
                                    /*max_refinement_change=*/0.0005,
                                    mapper_options,
                                    ba_options,
-                                   options_.retriangulation,
+                                   tri_options,
                                    /*normalize_reconstruction=*/true);
 
   mapper.EndReconstruction(/*discard=*/false);
