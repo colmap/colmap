@@ -4,9 +4,6 @@
 
 namespace glomap {
 
-// Type alias for a 2D observation: (image_id, point2D_idx).
-using Observation = std::pair<image_t, colmap::point2D_t>;
-
 size_t TrackEngine::EstablishFullTracks(
     std::unordered_map<point3D_t, Point3D>& points3D) {
   points3D.clear();

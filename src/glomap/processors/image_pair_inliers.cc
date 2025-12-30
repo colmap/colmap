@@ -72,7 +72,7 @@ double ImagePairInliers::ScoreErrorEssential() {
   if (epipole12[2] < 0) epipole12 = -epipole12;
   if (epipole21[2] < 0) epipole21 = -epipole21;
 
-  image_pair.inlier_matches.clear();
+  image_pair.inlier_matches = {};
 
   const colmap::Image& image1 = reconstruction.Image(image_id1);
   const colmap::Image& image2 = reconstruction.Image(image_id2);
@@ -140,7 +140,7 @@ double ImagePairInliers::ScoreErrorEssential() {
 }
 
 double ImagePairInliers::ScoreErrorFundamental() {
-  image_pair.inlier_matches.clear();
+  image_pair.inlier_matches = {};
 
   Eigen::Vector3d epipole = image_pair.F.row(0).cross(image_pair.F.row(2));
 
@@ -212,7 +212,7 @@ double ImagePairInliers::ScoreErrorFundamental() {
 }
 
 double ImagePairInliers::ScoreErrorHomography() {
-  image_pair.inlier_matches.clear();
+  image_pair.inlier_matches = {};
 
   const Image& image1 = reconstruction.Image(image_id1);
   const Image& image2 = reconstruction.Image(image_id2);
@@ -251,7 +251,7 @@ void ImagePairsInlierCount(ViewGraph& view_graph,
                            bool clean_inliers) {
   for (auto& [pair_id, image_pair] : view_graph.ImagePairs()) {
     if (!clean_inliers && !image_pair.inlier_matches.empty()) continue;
-    image_pair.inlier_matches.clear();
+    image_pair.inlier_matches = {};
 
     if (!view_graph.IsValid(pair_id)) continue;
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);

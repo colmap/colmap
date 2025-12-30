@@ -42,6 +42,9 @@ class TrackEngine {
       std::unordered_map<point3D_t, Point3D>& points3D_selected);
 
  private:
+  // Type alias for a 2D observation: (image_id, point2D_idx).
+  using Observation = std::pair<image_t, colmap::point2D_t>;
+
   // Blindly concatenate tracks if any matches occur
   void BlindConcatenation();
 
@@ -54,8 +57,7 @@ class TrackEngine {
   const std::unordered_map<image_t, colmap::Image>& images_;
 
   // Internal structure used for concatenating tracks.
-  // Key is (image_id, point2D_idx) pair identifying a 2D observation.
-  colmap::UnionFind<std::pair<image_t, colmap::point2D_t>> uf_;
+  colmap::UnionFind<Observation> uf_;
 };
 
 }  // namespace glomap
