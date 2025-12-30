@@ -69,8 +69,6 @@ void RotationAveragingController::Run() {
 
   // Step 0: Preprocessing
   LOG(INFO) << "----- Running preprocessing -----";
-  glomap::ViewGraphManipulator::UpdateImagePairsConfig(*mapper.ViewGraph(),
-                                                       *reconstruction_);
   glomap::ViewGraphManipulator::DecomposeRelPose(
       *mapper.ViewGraph(), *reconstruction_, options.num_threads);
 

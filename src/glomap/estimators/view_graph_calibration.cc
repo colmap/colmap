@@ -1,5 +1,6 @@
 #include "glomap/estimators/view_graph_calibration.h"
 
+#include "colmap/geometry/essential_matrix.h"
 #include "colmap/scene/two_view_geometry.h"
 #include "colmap/util/threading.h"
 
@@ -9,8 +10,6 @@ namespace glomap {
 
 bool ViewGraphCalibrator::Solve(ViewGraph& view_graph,
                                 colmap::Reconstruction& reconstruction) {
-  LOG(INFO) << "Start ViewGraphCalibrator";
-
   // Initialize focal lengths and set up the problem.
   InitializeFocalsFromReconstruction(reconstruction);
   loss_function_ = options_.CreateLossFunction();
@@ -173,9 +172,75 @@ size_t ViewGraphCalibrator::EvaluateAndFilterImagePairs(
   return invalid_counter;
 }
 
+namespace {
+
+// Cross-validate prior focal lengths by checking the ratio of calibrated vs
+// uncalibrated pairs per camera. UNCALIBRATED pairs are converted to
+// CALIBRATED if both cameras have reliable priors (majority of pairs are
+// calibrated).
+void CrossValidatePriorFocalLengths(
+    const colmap::Reconstruction& reconstruction, ViewGraph& view_graph) {
+  // For each camera, count the number of calibrated vs uncalibrated pairs.
+  // first: total count, second: calibrated count
+  std::unordered_map<camera_t, std::pair<int, int>> camera_counter;
+  for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const camera_t camera_id1 = reconstruction.Image(image_id1).CameraId();
+    const camera_t camera_id2 = reconstruction.Image(image_id2).CameraId();
+
+    const colmap::Camera& camera1 = reconstruction.Camera(camera_id1);
+    const colmap::Camera& camera2 = reconstruction.Camera(camera_id2);
+    if (!camera1.has_prior_focal_length || !camera2.has_prior_focal_length)
+      continue;
+
+    if (image_pair.config == colmap::TwoViewGeometry::CALIBRATED) {
+      camera_counter[camera_id1].first++;
+      camera_counter[camera_id2].first++;
+      camera_counter[camera_id1].second++;
+      camera_counter[camera_id2].second++;
+    } else if (image_pair.config == colmap::TwoViewGeometry::UNCALIBRATED) {
+      camera_counter[camera_id1].first++;
+      camera_counter[camera_id2].first++;
+    }
+  }
+
+  // Camera is valid if majority (>50%) of its pairs are calibrated.
+  std::unordered_map<camera_t, bool> camera_validity;
+  for (auto& [camera_id, counter] : camera_counter) {
+    camera_validity[camera_id] = counter.second * 1. / counter.first > 0.5;
+  }
+
+  // Convert UNCALIBRATED pairs to CALIBRATED if both cameras are valid.
+  for (auto& [pair_id, image_pair] : view_graph.ImagePairs()) {
+    if (!view_graph.IsValid(pair_id)) continue;
+    if (image_pair.config != colmap::TwoViewGeometry::UNCALIBRATED) continue;
+
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const camera_t camera_id1 = reconstruction.Image(image_id1).CameraId();
+    const camera_t camera_id2 = reconstruction.Image(image_id2).CameraId();
+
+    if (camera_validity[camera_id1] && camera_validity[camera_id2]) {
+      const colmap::Camera& camera1 = reconstruction.Camera(camera_id1);
+      const colmap::Camera& camera2 = reconstruction.Camera(camera_id2);
+      image_pair.config = colmap::TwoViewGeometry::CALIBRATED;
+      image_pair.F = colmap::FundamentalFromEssentialMatrix(
+          camera2.CalibrationMatrix(),
+          colmap::EssentialMatrixFromPose(image_pair.cam2_from_cam1),
+          camera1.CalibrationMatrix());
+    }
+  }
+}
+
+}  // namespace
+
 bool CalibrateViewGraph(const ViewGraphCalibratorOptions& options,
                         ViewGraph& view_graph,
                         colmap::Reconstruction& reconstruction) {
+  // Cross-validate prior focal lengths if enabled.
+  if (options.cross_validate_prior_focal_lengths) {
+    CrossValidatePriorFocalLengths(reconstruction, view_graph);
+  }
+
   ViewGraphCalibrator calibrator(options);
   return calibrator.Solve(view_graph, reconstruction);
 }

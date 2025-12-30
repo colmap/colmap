@@ -12,6 +12,11 @@
 namespace glomap {
 
 struct ViewGraphCalibratorOptions {
+  // Whether to cross-validate prior focal lengths by checking the ratio of
+  // calibrated vs uncalibrated pairs per camera. When enabled, UNCALIBRATED
+  // pairs are converted to CALIBRATED if both cameras have reliable priors.
+  bool cross_validate_prior_focal_lengths = true;
+
   // The minimum ratio of the estimated focal length to the prior focal length.
   double min_focal_length_ratio = 0.1;
   // The maximum ratio of the estimated focal length to the prior focal length.

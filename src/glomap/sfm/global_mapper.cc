@@ -348,10 +348,6 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     LOG(INFO) << "----- Running preprocessing -----";
     colmap::Timer run_timer;
     run_timer.Start();
-    // If camera intrinsics seem to be good, force the pair to use essential
-    // matrix
-    ViewGraphManipulator::UpdateImagePairsConfig(*view_graph_,
-                                                 *reconstruction_);
     ViewGraphManipulator::DecomposeRelPose(
         *view_graph_, *reconstruction_, opts.num_threads);
     LOG(INFO) << "Preprocessing done in " << run_timer.ElapsedSeconds()
