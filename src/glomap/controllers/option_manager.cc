@@ -47,14 +47,14 @@ void OptionManager::AddGlobalMapperOptions() {
 
   // View graph calibration options
   AddAndRegisterDefaultOption(
-      "ViewGraphCalib.thres_lower_ratio",
-      &mapper->view_graph_calibration.thres_lower_ratio);
+      "ViewGraphCalib.min_focal_length_ratio",
+      &mapper->view_graph_calibration.min_focal_length_ratio);
   AddAndRegisterDefaultOption(
-      "ViewGraphCalib.thres_higher_ratio",
-      &mapper->view_graph_calibration.thres_higher_ratio);
+      "ViewGraphCalib.max_focal_length_ratio",
+      &mapper->view_graph_calibration.max_focal_length_ratio);
   AddAndRegisterDefaultOption(
-      "ViewGraphCalib.thres_two_view_error",
-      &mapper->view_graph_calibration.thres_two_view_error);
+      "ViewGraphCalib.max_calibration_error",
+      &mapper->view_graph_calibration.max_calibration_error);
 
   // Relative pose estimation options
   AddAndRegisterDefaultOption(

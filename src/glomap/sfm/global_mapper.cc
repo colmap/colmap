@@ -347,10 +347,6 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     LOG(INFO) << "----- Running preprocessing -----";
     colmap::Timer run_timer;
     run_timer.Start();
-    // If camera intrinsics seem to be good, force the pair to use essential
-    // matrix
-    ViewGraphManipulator::UpdateImagePairsConfig(*view_graph_,
-                                                 *reconstruction_);
     ViewGraphManipulator::DecomposeRelPose(
         *view_graph_, *reconstruction_, opts.num_threads);
     LOG(INFO) << "Preprocessing done in " << run_timer.ElapsedSeconds()
@@ -362,8 +358,8 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     LOG(INFO) << "----- Running view graph calibration -----";
     colmap::Timer run_timer;
     run_timer.Start();
-    ViewGraphCalibrator vgcalib_engine(opts.view_graph_calibration);
-    if (!vgcalib_engine.Solve(*view_graph_, *reconstruction_)) {
+    if (!CalibrateViewGraph(
+            opts.view_graph_calibration, *view_graph_, *reconstruction_)) {
       return false;
     }
     LOG(INFO) << "View graph calibration done in " << run_timer.ElapsedSeconds()

@@ -130,19 +130,29 @@ struct RigUnknownBATAPairwiseDirectionCostFunctor {
   const Eigen::Quaterniond world_from_rig_rot_;
 };
 
-inline Eigen::Vector4d FetzerFocalLengthCostHelper(const Eigen::Vector3d& ai,
-                                                   const Eigen::Vector3d& bi,
-                                                   const Eigen::Vector3d& aj,
-                                                   const Eigen::Vector3d& bj,
-                                                   const int u,
-                                                   const int v) {
+// Compute polynomial coefficients from cross-products of SVD-derived vectors
+// for the Fetzer focal length estimation method. The coefficients encode the
+// relationship between the two focal lengths derived from the fundamental
+// matrix constraint.
+// Reference: Sweeney et al., "Optimizing the Viewing Graph for Structure-from-
+// Motion", ICCV 2015.
+inline Eigen::Vector4d ComputeFetzerPolynomialCoefficients(
+    const Eigen::Vector3d& ai,
+    const Eigen::Vector3d& bi,
+    const Eigen::Vector3d& aj,
+    const Eigen::Vector3d& bj,
+    const int u,
+    const int v) {
   return {ai(u) * aj(v) - ai(v) * aj(u),
           ai(u) * bj(v) - ai(v) * bj(u),
           bi(u) * aj(v) - bi(v) * aj(u),
           bi(u) * bj(v) - bi(v) * bj(u)};
 }
 
-inline std::array<Eigen::Vector4d, 3> FetzerFocalLengthCostHelper(
+// Decompose the fundamental matrix (adjusted by principal points) via SVD and
+// compute the polynomial coefficients for the Fetzer focal length method.
+// Returns three coefficient vectors used to estimate the two focal lengths.
+inline std::array<Eigen::Vector4d, 3> DecomposeFundamentalMatrixForFetzer(
     const Eigen::Matrix3d& i1_G_i0) {
   const Eigen::JacobiSVD<Eigen::Matrix3d> svd(
       i1_G_i0, Eigen::ComputeFullU | Eigen::ComputeFullV);
@@ -170,14 +180,19 @@ inline std::array<Eigen::Vector4d, 3> FetzerFocalLengthCostHelper(
       u_1(2) * u_1(2), -(u_0(2) * u_1(2)), u_0(2) * u_0(2));
 
   const Eigen::Vector4d d_01 =
-      FetzerFocalLengthCostHelper(ai, bi, aj, bj, 1, 0);
+      ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 1, 0);
   const Eigen::Vector4d d_02 =
-      FetzerFocalLengthCostHelper(ai, bi, aj, bj, 0, 2);
+      ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 0, 2);
   const Eigen::Vector4d d_12 =
-      FetzerFocalLengthCostHelper(ai, bi, aj, bj, 2, 1);
+      ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 2, 1);
   return {d_01, d_02, d_12};
 }
 
+// Cost functor for estimating focal lengths from the fundamental matrix using
+// the Fetzer method. Used when two images have different cameras (different
+// focal lengths). The residual measures the relative error between the
+// estimated and expected focal lengths based on the fundamental matrix
+// constraint.
 class FetzerFocalLengthCostFunctor {
  public:
   FetzerFocalLengthCostFunctor(const Eigen::Matrix3d& i1_F_i0,
@@ -193,38 +208,38 @@ class FetzerFocalLengthCostFunctor {
 
     const Eigen::Matrix3d i1_G_i0 = K1.transpose() * i1_F_i0 * K0;
 
-    const std::array<Eigen::Vector4d, 3> ds =
-        FetzerFocalLengthCostHelper(i1_G_i0);
+    const std::array<Eigen::Vector4d, 3> coeffs =
+        DecomposeFundamentalMatrixForFetzer(i1_G_i0);
 
-    d_01 = ds[0];
-    d_02 = ds[1];
-    d_12 = ds[2];
+    d_01_ = coeffs[0];
+    d_02_ = coeffs[1];
+    d_12_ = coeffs[2];
   }
 
   static ceres::CostFunction* Create(const Eigen::Matrix3d& i1_F_i0,
                                      const Eigen::Vector2d& principal_point0,
                                      const Eigen::Vector2d& principal_point1) {
-    return (
-        new ceres::AutoDiffCostFunction<FetzerFocalLengthCostFunctor, 2, 1, 1>(
+    return new ceres::
+        AutoDiffCostFunction<FetzerFocalLengthCostFunctor, 2, 1, 1>(
             new FetzerFocalLengthCostFunctor(
-                i1_F_i0, principal_point0, principal_point1)));
+                i1_F_i0, principal_point0, principal_point1));
   }
 
   template <typename T>
   bool operator()(const T* const fi_, const T* const fj_, T* residuals) const {
-    const Eigen::Vector<T, 4> d_01_ = d_01.cast<T>();
-    const Eigen::Vector<T, 4> d_12_ = d_12.cast<T>();
+    const Eigen::Vector<T, 4> coeffs_01 = d_01_.cast<T>();
+    const Eigen::Vector<T, 4> coeffs_12 = d_12_.cast<T>();
 
     const T fi = fi_[0];
     const T fj = fj_[0];
 
-    T di = (fj * fj * d_01_(0) + d_01_(1));
-    T dj = (fi * fi * d_12_(0) + d_12_(2));
+    T di = (fj * fj * coeffs_01(0) + coeffs_01(1));
+    T dj = (fi * fi * coeffs_12(0) + coeffs_12(2));
     di = di == T(0) ? T(1e-6) : di;
     dj = dj == T(0) ? T(1e-6) : dj;
 
-    const T K0_01 = -(fj * fj * d_01_(2) + d_01_(3)) / di;
-    const T K1_12 = -(fi * fi * d_12_(1) + d_12_(3)) / dj;
+    const T K0_01 = -(fj * fj * coeffs_01(2) + coeffs_01(3)) / di;
+    const T K1_12 = -(fi * fi * coeffs_12(1) + coeffs_12(3)) / dj;
 
     residuals[0] = (fi * fi - K0_01) / (fi * fi);
     residuals[1] = (fj * fj - K1_12) / (fj * fj);
@@ -233,12 +248,15 @@ class FetzerFocalLengthCostFunctor {
   }
 
  private:
-  Eigen::Vector4d d_01;
-  Eigen::Vector4d d_02;
-  Eigen::Vector4d d_12;
+  Eigen::Vector4d d_01_;
+  Eigen::Vector4d d_02_;
+  Eigen::Vector4d d_12_;
 };
 
-// Calibration error for the image pairs sharing the camera
+// Cost functor for estimating focal length from the fundamental matrix using
+// the Fetzer method. Used when two images share the same camera (same focal
+// length). The residual measures the relative error between the estimated and
+// expected focal length based on the fundamental matrix constraint.
 class FetzerFocalLengthSameCameraCostFunctor {
  public:
   FetzerFocalLengthSameCameraCostFunctor(
@@ -253,38 +271,37 @@ class FetzerFocalLengthSameCameraCostFunctor {
 
     const Eigen::Matrix3d i1_G_i0 = K1.transpose() * i1_F_i0 * K0;
 
-    const std::array<Eigen::Vector4d, 3> ds =
-        FetzerFocalLengthCostHelper(i1_G_i0);
+    const std::array<Eigen::Vector4d, 3> coeffs =
+        DecomposeFundamentalMatrixForFetzer(i1_G_i0);
 
-    d_01 = ds[0];
-    d_02 = ds[1];
-    d_12 = ds[2];
+    d_01_ = coeffs[0];
+    d_02_ = coeffs[1];
+    d_12_ = coeffs[2];
   }
 
   static ceres::CostFunction* Create(const Eigen::Matrix3d& i1_F_i0,
                                      const Eigen::Vector2d& principal_point) {
-    return (
-        new ceres::
-            AutoDiffCostFunction<FetzerFocalLengthSameCameraCostFunctor, 2, 1>(
-                new FetzerFocalLengthSameCameraCostFunctor(i1_F_i0,
-                                                           principal_point)));
+    return new ceres::
+        AutoDiffCostFunction<FetzerFocalLengthSameCameraCostFunctor, 2, 1>(
+            new FetzerFocalLengthSameCameraCostFunctor(i1_F_i0,
+                                                       principal_point));
   }
 
   template <typename T>
   bool operator()(const T* const fi_, T* residuals) const {
-    const Eigen::Vector<T, 4> d_01_ = d_01.cast<T>();
-    const Eigen::Vector<T, 4> d_12_ = d_12.cast<T>();
+    const Eigen::Vector<T, 4> coeffs_01 = d_01_.cast<T>();
+    const Eigen::Vector<T, 4> coeffs_12 = d_12_.cast<T>();
 
     const T fi = fi_[0];
     const T fj = fi_[0];
 
-    T di = (fj * fj * d_01_(0) + d_01_(1));
-    T dj = (fi * fi * d_12_(0) + d_12_(2));
+    T di = (fj * fj * coeffs_01(0) + coeffs_01(1));
+    T dj = (fi * fi * coeffs_12(0) + coeffs_12(2));
     di = di == T(0) ? T(1e-6) : di;
     dj = dj == T(0) ? T(1e-6) : dj;
 
-    const T K0_01 = -(fj * fj * d_01_(2) + d_01_(3)) / di;
-    const T K1_12 = -(fi * fi * d_12_(1) + d_12_(3)) / dj;
+    const T K0_01 = -(fj * fj * coeffs_01(2) + coeffs_01(3)) / di;
+    const T K1_12 = -(fi * fi * coeffs_12(1) + coeffs_12(3)) / dj;
 
     residuals[0] = (fi * fi - K0_01) / (fi * fi);
     residuals[1] = (fj * fj - K1_12) / (fj * fj);
@@ -293,9 +310,9 @@ class FetzerFocalLengthSameCameraCostFunctor {
   }
 
  private:
-  Eigen::Vector4d d_01;
-  Eigen::Vector4d d_02;
-  Eigen::Vector4d d_12;
+  Eigen::Vector4d d_01_;
+  Eigen::Vector4d d_02_;
+  Eigen::Vector4d d_12_;
 };
 
 // Computes residual between estimated gravity and measured gravity prior.

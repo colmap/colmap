@@ -69,15 +69,14 @@ void RotationAveragingController::Run() {
 
   // Step 0: Preprocessing
   LOG(INFO) << "----- Running preprocessing -----";
-  glomap::ViewGraphManipulator::UpdateImagePairsConfig(*mapper.ViewGraph(),
-                                                       *reconstruction_);
   glomap::ViewGraphManipulator::DecomposeRelPose(
       *mapper.ViewGraph(), *reconstruction_, options.num_threads);
 
   // Step 1: View graph calibration
   LOG(INFO) << "----- Running view graph calibration -----";
-  glomap::ViewGraphCalibrator calibrator(options.view_graph_calibration);
-  if (!calibrator.Solve(*mapper.ViewGraph(), *reconstruction_)) {
+  if (!glomap::CalibrateViewGraph(options.view_graph_calibration,
+                                  *mapper.ViewGraph(),
+                                  *reconstruction_)) {
     LOG(ERROR) << "Failed to solve view graph calibration";
     return;
   }

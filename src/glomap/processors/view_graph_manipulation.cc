@@ -1,68 +1,8 @@
 #include "view_graph_manipulation.h"
 
-#include "colmap/geometry/essential_matrix.h"
 #include "colmap/util/threading.h"
 
 namespace glomap {
-
-void ViewGraphManipulator::UpdateImagePairsConfig(
-    ViewGraph& view_graph, const colmap::Reconstruction& reconstruction) {
-  // For each camera, check the number of times that the camera is involved in a
-  // pair with configuration 2 First: the total occurence; second: the number of
-  // pairs with configuration 2
-  std::unordered_map<camera_t, std::pair<int, int>> camera_counter;
-  for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
-    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-    const camera_t camera_id1 = reconstruction.Image(image_id1).CameraId();
-    const camera_t camera_id2 = reconstruction.Image(image_id2).CameraId();
-
-    const colmap::Camera& camera1 = reconstruction.Camera(camera_id1);
-    const colmap::Camera& camera2 = reconstruction.Camera(camera_id2);
-    if (!camera1.has_prior_focal_length || !camera2.has_prior_focal_length)
-      continue;
-
-    if (image_pair.config == colmap::TwoViewGeometry::CALIBRATED) {
-      camera_counter[camera_id1].first++;
-      camera_counter[camera_id2].first++;
-      camera_counter[camera_id1].second++;
-      camera_counter[camera_id2].second++;
-    } else if (image_pair.config == colmap::TwoViewGeometry::UNCALIBRATED) {
-      camera_counter[camera_id1].first++;
-      camera_counter[camera_id2].first++;
-    }
-  }
-
-  // Check the ratio of valid and invalid relative pair, if the majority of the
-  // pairs are valid, then set the camera to valid
-  std::unordered_map<camera_t, bool> camera_validity;
-  for (auto& [camera_id, counter] : camera_counter) {
-    if (counter.second * 1. / counter.first > 0.5) {
-      camera_validity[camera_id] = true;
-    } else {
-      camera_validity[camera_id] = false;
-    }
-  }
-
-  for (auto& [pair_id, image_pair] : view_graph.ImagePairs()) {
-    if (!view_graph.IsValid(pair_id)) continue;
-    if (image_pair.config != colmap::TwoViewGeometry::UNCALIBRATED) continue;
-
-    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-    const camera_t camera_id1 = reconstruction.Image(image_id1).CameraId();
-    const camera_t camera_id2 = reconstruction.Image(image_id2).CameraId();
-
-    const colmap::Camera& camera1 = reconstruction.Camera(camera_id1);
-    const colmap::Camera& camera2 = reconstruction.Camera(camera_id2);
-
-    if (camera_validity[camera_id1] && camera_validity[camera_id2]) {
-      image_pair.config = colmap::TwoViewGeometry::CALIBRATED;
-      image_pair.F = colmap::FundamentalFromEssentialMatrix(
-          camera2.CalibrationMatrix(),
-          colmap::EssentialMatrixFromPose(image_pair.cam2_from_cam1),
-          camera1.CalibrationMatrix());
-    }
-  }
-}
 
 // Decompose the relative camera postion from the camera config
 void ViewGraphManipulator::DecomposeRelPose(
