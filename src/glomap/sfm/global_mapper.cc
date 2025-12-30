@@ -346,7 +346,8 @@ bool GlobalMapper::RetriangulateAndRefine(
   mapper.BeginReconstruction(reconstruction_ptr);
 
   // Set up triangulation options with random seed.
-  colmap::IncrementalTriangulator::Options tri_options = options_.retriangulation;
+  colmap::IncrementalTriangulator::Options tri_options =
+      options_.retriangulation;
   tri_options.random_seed = options_.random_seed;
 
   // Triangulate all registered images.
