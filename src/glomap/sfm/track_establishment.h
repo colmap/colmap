@@ -53,8 +53,9 @@ class TrackEngine {
   const ViewGraph& view_graph_;
   const std::unordered_map<image_t, colmap::Image>& images_;
 
-  // Internal structure used for concatenating tracks
-  colmap::UnionFind<image_pair_t> uf_;
+  // Internal structure used for concatenating tracks.
+  // Key is (image_id, point2D_idx) pair identifying a 2D observation.
+  colmap::UnionFind<std::pair<image_t, colmap::point2D_t>> uf_;
 };
 
 }  // namespace glomap
