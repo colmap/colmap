@@ -113,9 +113,9 @@ void ViewGraphCalibrator::ConvertBackResults(
     if (!problem_->HasParameterBlock(&(focals_[camera_id]))) continue;
 
     // if the estimated parameter is too crazy, reject it
-    const double focal_length_ratio = focals_[camera_id] / camera.MeanFocalLength();
-    if (focal_length_ratio >
-            options_.max_focal_length_ratio ||
+    const double focal_length_ratio =
+        focals_[camera_id] / camera.MeanFocalLength();
+    if (focal_length_ratio > options_.max_focal_length_ratio ||
         focals_[camera_id] / camera.MeanFocalLength() <
             options_.min_focal_length_ratio) {
       VLOG(2) << "Ignoring degenerate camera camera " << camera_id
