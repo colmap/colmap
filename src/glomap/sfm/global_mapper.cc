@@ -24,6 +24,7 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     options.relative_pose_estimation.random_seed = options.random_seed;
     options.rotation_averaging.random_seed = options.random_seed;
     options.global_positioning.random_seed = options.random_seed;
+    options.global_positioning.use_parameter_block_ordering = false;
   }
   options.view_graph_calibration.solver_options.num_threads =
       options.num_threads;
