@@ -43,7 +43,8 @@ TEST(BundleAdjustmentController, EmptyReconstruction) {
 
   auto reconstruction = std::make_shared<Reconstruction>();
 
-  BundleAdjustmentController controller(OptionManager(), reconstruction);
+  OptionManager options;
+  BundleAdjustmentController controller(options, reconstruction);
   EXPECT_NO_THROW(controller.Run());
 
   EXPECT_EQ(reconstruction->NumRegImages(), 0);
@@ -70,7 +71,8 @@ TEST(BundleAdjustmentController, Reconstruction) {
 
   const double initial_error = reconstruction->ComputeMeanReprojectionError();
 
-  BundleAdjustmentController controller(OptionManager(), reconstruction);
+  OptionManager options;
+  BundleAdjustmentController controller(options, reconstruction);
   controller.Run();
 
   const double final_error = reconstruction->ComputeMeanReprojectionError();

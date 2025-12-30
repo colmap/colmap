@@ -148,6 +148,12 @@ void BaseOptionManager::PostParse() {
   // Default implementation does nothing. Subclasses can override.
 }
 
+void BaseOptionManager::ApplyEnumConversions() {
+  for (const auto& info : enum_options_) {
+    info->apply();
+  }
+}
+
 void BaseOptionManager::PrintHelp() const {
   LOG(INFO) << "Options can either be specified via command-line or by "
                "defining them in a .ini project file.\n"
@@ -182,6 +188,7 @@ bool BaseOptionManager::Parse(const int argc, char** argv) {
       vmap.notify();
     }
 
+    ApplyEnumConversions();
     PostParse();
 
   } catch (std::exception& exc) {
@@ -213,6 +220,7 @@ bool BaseOptionManager::Read(const std::string& path) {
     THROW_CHECK_FILE_OPEN(file, path);
     config::store(config::parse_config_file(file, *desc_), vmap);
     vmap.notify();
+    ApplyEnumConversions();
   } catch (std::exception& e) {
     LOG(ERROR) << "Failed to parse options " << e.what() << ".";
     return false;
