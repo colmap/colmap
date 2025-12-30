@@ -253,6 +253,20 @@ std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
     std::vector<PosePrior> pose_priors,
     Reconstruction& reconstruction);
 
+// Adds a depth prior to the bundle adjustment problem.
+void DepthPriorBundleAdjuster(ceres::Problem* problem,
+                              image_t image_id,
+                              const std::vector<point3D_t>& point3D_ids,
+                              const std::vector<double>& depths,
+                              const std::vector<double>& loss_magnitudes,
+                              const std::vector<double>& loss_params,
+                              BundleAdjustmentOptions::LossFunctionType loss_type,
+                              double* shift_scale_ptr, 
+                              Reconstruction& reconstruction,
+                              bool logloss = false,
+                              bool fix_shift = false,
+                              bool fix_scale = false);
+
 void PrintSolverSummary(const ceres::Solver::Summary& summary,
                         const std::string& header);
 

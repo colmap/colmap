@@ -186,4 +186,16 @@ void BindCostFunctions(py::module& m_parent) {
         "use_log_scale"_a = true,
         "Error between 3D points transformed by a 3D similarity transform. "
         "with prior covariance");
+
+  m.def("ScaledDepthErrorCost", 
+        &ScaledDepthErrorCostFunction::Create, 
+        "depth"_a,
+        "Scaled depth error cost function.");
+  m.def("ScaledDepthErrorCost",
+        &ScaledDepthErrorConstantPoseCostFunction::Create,
+        "cam_from_world"_a,
+        "depth"_a,
+        "Scaled depth error cost function with constant camera pose.");
+  m.def(
+      "LogScaledDepthErrorCost", &LogScaledDepthErrorCostFunction::Create, "depth"_a);
 }

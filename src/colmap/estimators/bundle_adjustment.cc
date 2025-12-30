@@ -1253,4 +1253,55 @@ void PrintSolverSummary(const ceres::Solver::Summary& summary,
   LOG(INFO) << log.str();
 }
 
+void DepthPriorBundleAdjuster(ceres::Problem* problem,
+    image_t image_id,
+    const std::vector<point3D_t>& point3D_ids,
+    const std::vector<double>& depths,
+    const std::vector<double>& loss_weights,
+    const std::vector<double>& loss_params,
+    BundleAdjustmentOptions::LossFunctionType loss_type,
+    double* shift_scale_ptr,  
+    Reconstruction& reconstruction,
+    bool logloss,
+    bool fix_shift,
+    bool fix_scale) {
+  if (point3D_ids.size() != depths.size() ||
+      point3D_ids.size() != loss_weights.size() ||
+      point3D_ids.size() != loss_params.size()) {
+    throw std::runtime_error("Input vectors must have the same size");
+  }
+
+  Image& image = reconstruction.Image(image_id);
+
+  double* cam_rot = image.CamFromWorld().rotation.coeffs().data();
+  double* cam_trans = image.CamFromWorld().translation.data();
+
+  for (size_t i = 0; i < point3D_ids.size(); ++i) {
+    point3D_t pt_id = point3D_ids[i];
+    double depth = depths[i];
+    double loss_weight = loss_weights[i];
+    double loss_param = loss_params[i];
+
+    Point3D& point3D = reconstruction.Point3D(pt_id);
+
+    ceres::CostFunction* cost_function = logloss
+      ? LogScaledDepthErrorCostFunction::Create(depth)
+      : ScaledDepthErrorCostFunction::Create(depth);
+
+    BundleAdjustmentOptions loss_opts;
+    loss_opts.loss_function_type = loss_type;
+    loss_opts.loss_function_scale = loss_param;
+    loss_opts.loss_function_weight = loss_weight;
+
+    ceres::LossFunction* loss_function = loss_opts.CreateLossFunction();
+
+    problem->AddResidualBlock(cost_function,
+        loss_function,
+        cam_rot,
+        cam_trans,
+        point3D.xyz.data(),
+        shift_scale_ptr);
+  }
+}
+
 }  // namespace colmap
