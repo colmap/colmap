@@ -58,6 +58,10 @@ struct GlobalPositionerOptions {
   // Scaling factor for the loss function
   double loss_function_scale = 0.1;
 
+  // Whether to use custom parameter block ordering for Schur-based solvers.
+  // Disable for deterministic behavior when using a fixed random seed.
+  bool use_parameter_block_ordering = true;
+
   // The options for the solver
   ceres::Solver::Options solver_options;
 
