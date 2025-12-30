@@ -82,6 +82,8 @@ class SceneResult:
 
 @dataclasses.dataclass(kw_only=True)
 class SceneMetrics:
+    # Recall at specified error thresholds.
+    recalls: np.ndarray
     # Area under the curve (AUC) scores at specified error thresholds.
     aucs: np.ndarray
     error_thresholds: np.ndarray
@@ -174,8 +176,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--error_type",
-        default="relative",
-        choices=["relative", "absolute"],
+        default="relative_auc",
+        choices=[
+            "relative_auc",
+            "absolute_auc",
+            "relative_recall",
+            "absolute_recall",
+        ],
         help="Whether to evaluate relative pairwise pose errors in angular "
         "distance or absolute pose errors through GT alignment.",
     )
@@ -427,9 +434,9 @@ def process_scene(
             continue
         num_components += 1
         sparse = None
-        if args.error_type == "relative":
+        if args.error_type.startswith("relative"):
             sparse = pycolmap.Reconstruction(sparse_path)
-        elif args.error_type == "absolute":
+        elif args.error_type.startswith("absolute"):
             sparse_aligned_path = scene_info.workspace_path / "sparse_aligned"
             colmap_alignment(
                 args=args,
@@ -459,14 +466,14 @@ def process_scene(
                 image.reset_frame_ptr()
                 sparse_merged.add_image(image)
 
-    if args.error_type == "relative":
+    if args.error_type.startswith("relative"):
         dts, dRs = compute_rel_errors(
             sparse_gt=sparse_gt,
             sparse=sparse_merged,
             min_proj_center_dist=position_accuracy_gt,
         )
         errors = np.maximum(dts, dRs)
-    elif args.error_type == "absolute":
+    elif args.error_type.startswith("absolute"):
         dts, dRs = compute_abs_errors(
             sparse_gt=sparse_gt,
             sparse=sparse_merged,
@@ -528,6 +535,7 @@ def process_scenes(
                     error_thresholds,
                     min_error=position_accuracy_gt,
                 ),
+                recalls=compute_recall(result.errors, error_thresholds),
                 error_thresholds=error_thresholds,
                 error_type=args.error_type,
                 num_images=result.num_images,
@@ -544,6 +552,7 @@ def process_scenes(
                 error_thresholds,
                 min_error=position_accuracy_gt,
             ),
+            recalls=compute_recall(errors, error_thresholds),
             error_thresholds=error_thresholds,
             error_type=args.error_type,
             num_images=total_num_images,
@@ -551,8 +560,10 @@ def process_scenes(
             num_components=total_num_components,
             largest_component=total_largest_components,
         )
+        aucs, recalls = compute_avg_metrics(metrics[category])
         metrics[category]["__avg__"] = SceneMetrics(
-            aucs=compute_avg_auc(metrics[category]),
+            aucs=aucs,
+            recalls=recalls,
             error_thresholds=error_thresholds,
             error_type=args.error_type,
             num_images=int(round(total_num_images / num_scenes)),
@@ -574,9 +585,9 @@ def vec_angular_dist_deg(vec1: np.ndarray, vec2: np.ndarray) -> float:
 
 
 def get_error_thresholds(args: argparse.Namespace) -> list[float]:
-    if args.error_type == "relative":
+    if args.error_type.startswith("relative"):
         return np.array(args.rel_error_thresholds)
-    elif args.error_type == "absolute":
+    elif args.error_type.startswith("absolute"):
         return np.array(args.abs_error_thresholds)
     else:
         raise ValueError(f"Invalid error type: {args.error_type}")
@@ -703,42 +714,53 @@ def compute_abs_errors(
     return dts, dRs
 
 
-def compute_recall(errors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    num_elements = len(errors)
-    errors = np.sort(errors)
-    recall = (np.arange(num_elements) + 1) / num_elements
-    return errors, recall
-
-
 def compute_auc(
     errors: np.ndarray, thresholds: list[float], min_error: float = 0
 ) -> list[float]:
-    if len(errors) == 0:
+    num_elems = len(errors)
+    if num_elems == 0:
         raise ValueError("No errors to evaluate")
 
-    errors, recall = compute_recall(errors)
+    errors = np.sort(errors)
+    recalls = (np.arange(num_elems) + 1) / num_elems
 
     if min_error > 0:
         min_index = np.searchsorted(errors, min_error, side="right")
-        min_score = min_index / len(errors)
-        recall = np.r_[min_score, min_score, recall[min_index:]]
+        min_score = min_index / num_elems
+        recalls = np.r_[min_score, min_score, recalls[min_index:]]
         errors = np.r_[0, min_error, errors[min_index:]]
     else:
-        recall = np.r_[0, recall]
+        recalls = np.r_[0, recalls]
         errors = np.r_[0, errors]
 
     aucs = np.zeros(len(thresholds), dtype=np.float64)
     for i, t in enumerate(thresholds):
         last_index = np.searchsorted(errors, t, side="right")
-        r = np.r_[recall[:last_index], recall[last_index - 1]]
+        r = np.r_[recalls[:last_index], recalls[last_index - 1]]
         e = np.r_[errors[:last_index], t]
         auc = np.trapezoid(r, x=e) / t
         aucs[i] = auc * 100
-    return aucs / 1.1
+
+    return aucs
 
 
-def compute_avg_auc(scene_metrics: dict[str, SceneMetrics]) -> list[float]:
+def compute_recall(
+    errors: np.ndarray, thresholds: list[float], min_error: float = 0
+) -> list[float]:
+    num_elems = len(errors)
+    if num_elems == 0:
+        raise ValueError("No errors to evaluate")
+
+    recalls = np.zeros(len(thresholds), dtype=np.float64)
+    for i, t in enumerate(thresholds):
+        recalls[i] = 100 * np.sum(errors <= t) / num_elems
+
+    return recalls
+
+
+def compute_avg_metrics(scene_metrics: dict[str, SceneMetrics]) -> list[float]:
     auc_sum = None
+    recall_sum = None
     num_scenes = 0
     for scene, metrics in scene_metrics.items():
         if scene.startswith("__") and scene.endswith("__"):
@@ -746,10 +768,14 @@ def compute_avg_auc(scene_metrics: dict[str, SceneMetrics]) -> list[float]:
         num_scenes += 1
         if auc_sum is None:
             auc_sum = copy.copy(metrics.aucs)
+        if recall_sum is None:
+            recall_sum = copy.copy(metrics.recalls)
         else:
             for i in range(len(auc_sum)):
                 auc_sum[i] += metrics.aucs[i]
-    return np.array(auc_sum) / num_scenes
+            for i in range(len(recall_sum)):
+                recall_sum[i] += metrics.recalls[i]
+    return np.array(auc_sum) / num_scenes, np.array(recall_sum) / num_scenes
 
 
 def diff_metrics(
@@ -779,6 +805,7 @@ def diff_metrics(
                     raise ValueError("Inconsistent error thresholds or types")
                 metrics_diff[dataset][category][scene] = SceneMetrics(
                     aucs=metrics_a.aucs - metrics_b.aucs,
+                    recalls=metrics_a.recalls - metrics_b.recalls,
                     error_thresholds=metrics_a.error_thresholds,
                     error_type=metrics_a.error_type,
                     num_images=metrics_a.num_images - metrics_b.num_images,
@@ -798,14 +825,18 @@ def create_result_table(
     first_metrics = next(
         iter(next(iter(next(iter(dataset_metrics.values())).values())).values())
     )
-    if first_metrics.error_type == "relative":
-        label = "AUC @ X deg (%)"
+
+    is_auc = first_metrics.error_type.endswith("auc")
+    is_relative = first_metrics.error_type.startswith("relative")
+
+    score_type = "AUC" if is_auc else "Recall"
+    score_unit = "deg" if is_relative else "cm"
+    label = f"{score_type} @ X {score_unit} (%)"
+    if is_relative:
         thresholds = first_metrics.error_thresholds
-    elif first_metrics.error_type == "absolute":
-        label = "AUC @ X cm (%)"
-        thresholds = 100 * first_metrics.error_thresholds
     else:
-        raise ValueError(f"Invalid error type: {first_metrics.error_type}")
+        thresholds = 100 * first_metrics.error_thresholds  # cm
+    get_scores = lambda metrics: metrics.aucs if is_auc else metrics.recalls
 
     column = "scenes"
     size_scenes = max(
@@ -833,7 +864,8 @@ def create_result_table(
         for category, scene_metrics in category_metrics.items():
             text.append(f"\n{dataset + '=' + category:=^{size_sep}}")
             for scene, metrics in scene_metrics.items():
-                assert len(metrics.aucs) == len(thresholds)
+                scores = get_scores(metrics)
+                assert len(scores) == len(thresholds)
                 row = ""
                 if scene == "__avg__":
                     scene = "average"
@@ -842,7 +874,7 @@ def create_result_table(
                     scene = "overall"
                     row += "-" * size_sep + "\n"
                 row += f"{scene:<{size_scenes}} "
-                row += " ".join(f"{auc:>6.2f}" for auc in metrics.aucs)
+                row += " ".join(f"{score:>6.2f}" for score in scores)
                 row += f" {metrics.num_reg_images:6d}"
                 row += f"{metrics.num_images:6d}"
                 row += f" {metrics.num_components:4d}"

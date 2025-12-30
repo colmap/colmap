@@ -15,8 +15,8 @@ build*/
 install-debug/
 install-release/
 data/
-benchmark/reconstruction/data/
-benchmark/reconstruction/runs/
+benchmark/reconstruction/evaluation/data/
+benchmark/reconstruction/evaluation/runs/
 doc/_build
 vcpkg_installed/
 
