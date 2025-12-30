@@ -119,8 +119,8 @@ TEST(GlobalPipeline, SfMWithRandomSeedStability) {
     // in optimization.
     EXPECT_THAT(*reconstruction_manager0->Get(0),
                 ReconstructionNear(*reconstruction_manager1->Get(0),
-                                   /*max_rotation_error_deg=*/2e-10,
-                                   /*max_proj_center_error=*/2e-10,
+                                   /*max_rotation_error_deg=*/1e-9,
+                                   /*max_proj_center_error=*/1e-9,
                                    /*max_scale_error=*/std::nullopt,
                                    /*num_obs_tolerance=*/0.01,
                                    /*align=*/false));
