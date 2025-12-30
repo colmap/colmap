@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
 from typing import Annotated, Literal
-from typing_extensions import Never
 
 import cv2
 import numpy as np
@@ -19,6 +18,7 @@ import PIL.ExifTags
 import PIL.Image
 from scipy.spatial.transform import Rotation
 from tqdm import tqdm
+from typing_extensions import Never
 
 import pycolmap
 from pycolmap import logging
