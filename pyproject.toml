@@ -39,7 +39,7 @@ cmake.source-dir = "python/"
 wheel.packages = ["python/pycolmap"]
 
 [tool.cibuildwheel]
-build = "cp3{10,11,12,13,14,15}-{macosx,manylinux,win}*"
+build = "cp3{10,11,12,13,14}-{macosx,manylinux,win}*"
 archs = ["auto64"]
 test-requires = "pytest mypy==1.17.0 enlighten==1.13.0"
 test-command = "python -c \"import pycolmap; print(pycolmap.__version__)\" &&  python -m mypy --package pycolmap --implicit-optional && pytest {project}/python/examples/custom_incremental_pipeline_test.py"
