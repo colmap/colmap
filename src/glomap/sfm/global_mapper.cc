@@ -324,7 +324,8 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     ViewGraphManipulator::UpdateImagePairsConfig(*view_graph_,
                                                  *reconstruction_);
     ViewGraphManipulator::DecomposeRelPose(*view_graph_, *reconstruction_);
-    LOG(INFO) << "Preprocessing done in " << run_timer.ElapsedSeconds() << "s";
+    LOG(INFO) << "Preprocessing done in " << run_timer.ElapsedSeconds()
+              << " seconds";
   }
 
   // 1. Run view graph calibration
@@ -337,7 +338,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
       return false;
     }
     LOG(INFO) << "View graph calibration done in " << run_timer.ElapsedSeconds()
-              << "s";
+              << " seconds";
   }
 
   // 2. Run relative pose re-estimation
@@ -350,7 +351,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
       return false;
     }
     LOG(INFO) << "Relative pose re-estimation done in "
-              << run_timer.ElapsedSeconds() << "s";
+              << run_timer.ElapsedSeconds() << " seconds";
   }
 
   // 3. Run rotation averaging
@@ -363,7 +364,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
       return false;
     }
     LOG(INFO) << "Rotation averaging done in " << run_timer.ElapsedSeconds()
-              << "s";
+              << " seconds";
   }
 
   // 4. Track establishment and selection
@@ -373,7 +374,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     run_timer.Start();
     EstablishTracks(opts.track_establishment);
     LOG(INFO) << "Track establishment done in " << run_timer.ElapsedSeconds()
-              << "s";
+              << " seconds";
   }
 
   // 5. Global positioning
@@ -388,7 +389,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
       return false;
     }
     LOG(INFO) << "Global positioning done in " << run_timer.ElapsedSeconds()
-              << "s";
+              << " seconds";
   }
 
   // 6. Bundle adjustment
@@ -404,7 +405,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
       return false;
     }
     LOG(INFO) << "Iterative bundle adjustment done in "
-              << run_timer.ElapsedSeconds() << "s";
+              << run_timer.ElapsedSeconds() << " seconds";
   }
 
   // 7. Retriangulation
@@ -421,7 +422,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
       return false;
     }
     LOG(INFO) << "Iterative retriangulation and refinement done in "
-              << run_timer.ElapsedSeconds() << "s";
+              << run_timer.ElapsedSeconds() << " seconds";
   }
 
   // 8. Reconstruction pruning
@@ -430,7 +431,8 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     colmap::Timer run_timer;
     run_timer.Start();
     cluster_ids = PruneWeaklyConnectedFrames(*reconstruction_);
-    LOG(INFO) << "Postprocessing done in " << run_timer.ElapsedSeconds() << "s";
+    LOG(INFO) << "Postprocessing done in " << run_timer.ElapsedSeconds()
+              << " seconds";
   }
 
   return true;
