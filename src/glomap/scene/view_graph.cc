@@ -143,9 +143,8 @@ void ViewGraph::FilterByNumInliers(int min_num_inliers) {
 void ViewGraph::FilterByInlierRatio(double min_inlier_ratio) {
   int num_invalid = 0;
   for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
-    const double inlier_ratio =
-        image_pair.inlier_matches.size() /
-        static_cast<double>(image_pair.matches.rows());
+    const double inlier_ratio = image_pair.inlier_matches.size() /
+                                static_cast<double>(image_pair.matches.rows());
     if (inlier_ratio < min_inlier_ratio) {
       SetInvalidImagePair(pair_id);
       num_invalid++;
