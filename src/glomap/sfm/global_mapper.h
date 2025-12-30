@@ -100,8 +100,7 @@ class GlobalMapper {
       const colmap::IncrementalTriangulator::Options& options,
       const BundleAdjusterOptions& ba_options,
       double max_reprojection_error,
-      double min_triangulation_angle,
-      int num_iterations);
+      double min_triangulation_angle);
 
   // Retriangulate all 3D points from scratch and refine with bundle adjustment.
   bool RetriangulateAndRefine(
