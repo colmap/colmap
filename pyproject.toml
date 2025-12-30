@@ -45,7 +45,7 @@ test-requires = "pytest>=8.0 mypy==1.19.1 enlighten==1.13.0"
 test-command = """\
     python -c "import pycolmap; print(pycolmap.__version__)" && \
     cd {project} && \
-    mypy --package pycolmap \
+    mypy --package pycolmap && \
     mypy --install-types python benchmark && \
     pytest\
 """
