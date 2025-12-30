@@ -46,7 +46,7 @@ test-command = """\
     python -c "import pycolmap; print(pycolmap.__version__)" && \
     cd {project} && \
     mypy --package pycolmap && \
-    mypy --install-types python benchmark && \
+    mypy --install-types --non-interactive python benchmark && \
     pytest\
 """
 
