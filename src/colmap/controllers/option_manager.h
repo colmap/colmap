@@ -123,14 +123,6 @@ class OptionManager : public BaseOptionManager {
   void PostParse() override;
   void PrintHelp() const override;
 
-  template <typename T>
-  void AddAndRegisterDefaultEnumOption(const std::string& name,
-                                       T* option,
-                                       const std::string& help_text = "");
-
-  std::string feature_extraction_type_;
-  std::string feature_matching_type_;
-
   std::string mapper_image_list_path_;
   std::string mapper_constant_rig_list_path_;
   std::string mapper_constant_camera_list_path_;
