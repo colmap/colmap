@@ -116,8 +116,7 @@ void ViewGraphCalibrator::ConvertBackResults(
     const double focal_length_ratio =
         focals_[camera_id] / camera.MeanFocalLength();
     if (focal_length_ratio > options_.max_focal_length_ratio ||
-        focal_length_ratio <
-            options_.min_focal_length_ratio) {
+        focal_length_ratio < options_.min_focal_length_ratio) {
       VLOG(2) << "Ignoring degenerate camera camera " << camera_id
               << " focal: " << focals_[camera_id]
               << " original focal: " << camera.MeanFocalLength();
