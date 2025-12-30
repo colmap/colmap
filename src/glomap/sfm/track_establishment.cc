@@ -87,36 +87,36 @@ void TrackEngine::TrackCollection(
   point3D_t next_point3D_id = 0;
   for (const auto& [track_id, correspondence_set] : track_map) {
     std::unordered_map<image_t, std::vector<Eigen::Vector2d>> image_id_set;
-    const point3D_t point3D_id = next_point3D_id++;
-    bool discarded = false;
+    Point3D point3D;
+    bool is_consistent = true;
 
     for (const auto& [image_id, feature_id] : correspondence_set) {
-      if (image_id_set.find(image_id) != image_id_set.end()) {
-        for (const auto& feature : image_id_set.at(image_id)) {
-          if ((feature - images.at(image_id).Point2D(feature_id).xy).norm() >
-              options_.thres_inconsistency) {
-            points3D[point3D_id].track.SetElements({});
+      const Eigen::Vector2d& xy = images.at(image_id).Point2D(feature_id).xy;
+
+      // Check consistency: if this image already has observations,
+      // verify the new one is close enough to existing ones.
+      auto it = image_id_set.find(image_id);
+      if (it != image_id_set.end()) {
+        for (const auto& existing_xy : it->second) {
+          if ((existing_xy - xy).norm() > options_.thres_inconsistency) {
+            is_consistent = false;
             break;
           }
         }
-        if (points3D[point3D_id].track.Length() == 0) {
+        if (!is_consistent) {
           discarded_counter++;
-          discarded = true;
           break;
         }
+        it->second.push_back(xy);
       } else {
-        image_id_set.insert(
-            std::make_pair(image_id, std::vector<Eigen::Vector2d>()));
+        image_id_set[image_id].push_back(xy);
       }
 
-      image_id_set[image_id].push_back(
-          images.at(image_id).Point2D(feature_id).xy);
-
-      points3D[point3D_id].track.AddElement(image_id, feature_id);
+      point3D.track.AddElement(image_id, feature_id);
     }
 
-    if (discarded) {
-      points3D.erase(point3D_id);
+    if (is_consistent) {
+      points3D.emplace(next_point3D_id++, std::move(point3D));
     }
   }
 
