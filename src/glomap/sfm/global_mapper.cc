@@ -33,7 +33,6 @@ bool GlobalMapper::Solve(const colmap::Database* database,
   options.relative_pose_estimation.num_threads = options.num_threads;
   options.global_positioning.solver_options.num_threads = options.num_threads;
   options.bundle_adjustment.solver_options.num_threads = options.num_threads;
-  options.retriangulation.num_threads = options.num_threads;
 
   // 0. Preprocessing
   if (!options.skip_preprocessing) {
@@ -352,6 +351,7 @@ bool GlobalMapper::RetriangulateAndRefine(
 
   // Set up bundle adjustment options.
   colmap::BundleAdjustmentOptions ba_options;
+  ba_options.solver_options.num_threads = options_.num_threads;
   ba_options.solver_options.max_num_iterations = 50;
   ba_options.solver_options.max_linear_solver_iterations = 100;
   ba_options.print_summary = false;
