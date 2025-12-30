@@ -21,7 +21,7 @@ size_t TrackEngine::EstablishFullTracks(
 void TrackEngine::BlindConcatenation() {
   // Initialize the union find data structure by connecting all the
   // correspondences
-  image_pair_t counter = 0;
+  size_t counter = 0;
   for (const auto& [pair_id, image_pair] : view_graph_.ImagePairs()) {
     if ((counter + 1) % 1000 == 0 ||
         counter == view_graph_.NumImagePairs() - 1) {
@@ -34,32 +34,16 @@ void TrackEngine::BlindConcatenation() {
 
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 
-    // Get the matches
-    const Eigen::MatrixXi& matches = image_pair.matches;
+    for (const auto& match : image_pair.inlier_matches) {
+      const Observation obs1(image_id1, match.point2D_idx1);
+      const Observation obs2(image_id2, match.point2D_idx2);
 
-    // Get the inlier mask
-    const std::vector<int>& inliers = image_pair.inliers;
-
-    for (size_t i = 0; i < inliers.size(); i++) {
-      size_t idx = inliers[i];
-
-      // Get point indices
-      const uint32_t& point1_idx = matches(idx, 0);
-      const uint32_t& point2_idx = matches(idx, 1);
-
-      image_pair_t point_global_id1 = static_cast<image_pair_t>(image_id1)
-                                          << 32 |
-                                      static_cast<image_pair_t>(point1_idx);
-      image_pair_t point_global_id2 = static_cast<image_pair_t>(image_id2)
-                                          << 32 |
-                                      static_cast<image_pair_t>(point2_idx);
-
-      // Link the first point to the second point. Take the smallest one as the
-      // root
-      if (point_global_id2 < point_global_id1) {
-        uf_.Union(point_global_id1, point_global_id2);
-      } else
-        uf_.Union(point_global_id2, point_global_id1);
+      // Link the two observations. Use consistent ordering for root selection.
+      if (obs2 < obs1) {
+        uf_.Union(obs1, obs2);
+      } else {
+        uf_.Union(obs2, obs1);
+      }
     }
   }
   LOG(INFO) << "Initialized " << view_graph_.NumImagePairs() << " pairs";
@@ -68,8 +52,7 @@ void TrackEngine::BlindConcatenation() {
 void TrackEngine::TrackCollection(
     std::unordered_map<point3D_t, Point3D>& points3D) {
   const auto& images = images_;
-  std::unordered_map<uint64_t, std::unordered_set<uint64_t>> track_map;
-  std::unordered_map<uint64_t, int> track_counter;
+  std::unordered_map<Observation, std::unordered_set<Observation>> track_map;
 
   // Create tracks from the connected components of the point correspondences
   size_t counter = 0;
@@ -85,62 +68,52 @@ void TrackEngine::TrackCollection(
 
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 
-    // Get the matches
-    const Eigen::MatrixXi& matches = image_pair.matches;
+    for (const auto& match : image_pair.inlier_matches) {
+      const Observation obs1(image_id1, match.point2D_idx1);
+      const Observation obs2(image_id2, match.point2D_idx2);
 
-    // Get the inlier mask
-    const std::vector<int>& inliers = image_pair.inliers;
+      const Observation track_id = uf_.Find(obs1);
 
-    for (size_t i = 0; i < inliers.size(); i++) {
-      size_t idx = inliers[i];
-
-      // Get point indices
-      const uint32_t& point1_idx = matches(idx, 0);
-      const uint32_t& point2_idx = matches(idx, 1);
-
-      image_pair_t point_global_id1 = static_cast<image_pair_t>(image_id1)
-                                          << 32 |
-                                      static_cast<image_pair_t>(point1_idx);
-      image_pair_t point_global_id2 = static_cast<image_pair_t>(image_id2)
-                                          << 32 |
-                                      static_cast<image_pair_t>(point2_idx);
-
-      image_pair_t track_id = uf_.Find(point_global_id1);
-
-      track_map[track_id].insert(point_global_id1);
-      track_map[track_id].insert(point_global_id2);
-      track_counter[track_id]++;
+      track_map[track_id].insert(obs1);
+      track_map[track_id].insert(obs2);
     }
   }
   LOG(INFO) << "Established " << view_graph_.NumImagePairs() << " pairs";
 
   size_t discarded_counter = 0;
+  point3D_t next_point3D_id = 0;
   for (const auto& [track_id, correspondence_set] : track_map) {
     std::unordered_map<image_t, std::vector<Eigen::Vector2d>> image_id_set;
-    for (const uint64_t point_global_id : correspondence_set) {
-      // image_id is the higher 32 bits and feature_id is the lower 32 bits
-      const image_t image_id = point_global_id >> 32;
-      const uint64_t feature_id = point_global_id & 0xFFFFFFFF;
-      if (image_id_set.find(image_id) != image_id_set.end()) {
-        for (const auto& feature : image_id_set.at(image_id)) {
-          if ((feature - images.at(image_id).Point2D(feature_id).xy).norm() >
-              options_.thres_inconsistency) {
-            points3D[track_id].track.SetElements({});
+    Point3D point3D;
+    bool is_consistent = true;
+
+    for (const auto& [image_id, feature_id] : correspondence_set) {
+      const Eigen::Vector2d& xy = images.at(image_id).Point2D(feature_id).xy;
+
+      // Check consistency: if this image already has observations,
+      // verify the new one is close enough to existing ones.
+      auto it = image_id_set.find(image_id);
+      if (it != image_id_set.end()) {
+        for (const auto& existing_xy : it->second) {
+          if ((existing_xy - xy).norm() > options_.thres_inconsistency) {
+            is_consistent = false;
             break;
           }
         }
-        if (points3D[track_id].track.Length() == 0) {
+        if (!is_consistent) {
           discarded_counter++;
           break;
         }
-      } else
-        image_id_set.insert(
-            std::make_pair(image_id, std::vector<Eigen::Vector2d>()));
+        it->second.push_back(xy);
+      } else {
+        image_id_set[image_id].push_back(xy);
+      }
 
-      image_id_set[image_id].push_back(
-          images.at(image_id).Point2D(feature_id).xy);
+      point3D.track.AddElement(image_id, feature_id);
+    }
 
-      points3D[track_id].track.AddElement(image_id, feature_id);
+    if (is_consistent) {
+      points3D.emplace(next_point3D_id++, std::move(point3D));
     }
   }
 

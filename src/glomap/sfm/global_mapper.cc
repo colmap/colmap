@@ -280,12 +280,15 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
 
   // Set up bundle adjustment options for colmap's incremental mapper.
   colmap::BundleAdjustmentOptions colmap_ba_options;
+  colmap_ba_options.solver_options.num_threads =
+      ba_options.solver_options.num_threads;
   colmap_ba_options.solver_options.max_num_iterations = 50;
   colmap_ba_options.solver_options.max_linear_solver_iterations = 100;
   colmap_ba_options.print_summary = false;
 
   // Iterative global refinement.
   colmap::IncrementalMapper::Options mapper_options;
+  mapper_options.random_seed = options.random_seed;
   mapper.IterativeGlobalRefinement(/*max_num_refinements=*/5,
                                    /*max_refinement_change=*/0.0005,
                                    mapper_options,
@@ -326,13 +329,19 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(view_graph_);
 
-  // Propagate random seed to component options for deterministic behavior.
+  // Propagate random seed and num_threads to component options.
   GlobalMapperOptions opts = options;
   if (opts.random_seed >= 0) {
     opts.relative_pose_estimation.random_seed = opts.random_seed;
     opts.rotation_averaging.random_seed = opts.random_seed;
     opts.global_positioning.random_seed = opts.random_seed;
+    opts.global_positioning.use_parameter_block_ordering = false;
+    opts.retriangulation.random_seed = opts.random_seed;
   }
+  opts.view_graph_calibration.solver_options.num_threads = opts.num_threads;
+  opts.relative_pose_estimation.num_threads = opts.num_threads;
+  opts.global_positioning.solver_options.num_threads = opts.num_threads;
+  opts.bundle_adjustment.solver_options.num_threads = opts.num_threads;
 
   // 0. Preprocessing
   if (!opts.skip_preprocessing) {
@@ -343,7 +352,8 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     // matrix
     ViewGraphManipulator::UpdateImagePairsConfig(*view_graph_,
                                                  *reconstruction_);
-    ViewGraphManipulator::DecomposeRelPose(*view_graph_, *reconstruction_);
+    ViewGraphManipulator::DecomposeRelPose(
+        *view_graph_, *reconstruction_, opts.num_threads);
     LOG(INFO) << "Preprocessing done in " << run_timer.ElapsedSeconds()
               << " seconds";
   }

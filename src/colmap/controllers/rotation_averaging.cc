@@ -46,6 +46,16 @@ RotationAveragingController::RotationAveragingController(
       reconstruction_(std::move(THROW_CHECK_NOTNULL(reconstruction))) {}
 
 void RotationAveragingController::Run() {
+  // Propagate options to component options.
+  RotationAveragingControllerOptions options = options_;
+  if (options.random_seed >= 0) {
+    options.relative_pose_estimation.random_seed = options.random_seed;
+    options.rotation_estimation.random_seed = options.random_seed;
+  }
+  options.view_graph_calibration.solver_options.num_threads =
+      options.num_threads;
+  options.relative_pose_estimation.num_threads = options.num_threads;
+
   Timer run_timer;
   run_timer.Start();
 
@@ -61,12 +71,12 @@ void RotationAveragingController::Run() {
   LOG(INFO) << "----- Running preprocessing -----";
   glomap::ViewGraphManipulator::UpdateImagePairsConfig(*mapper.ViewGraph(),
                                                        *reconstruction_);
-  glomap::ViewGraphManipulator::DecomposeRelPose(*mapper.ViewGraph(),
-                                                 *reconstruction_);
+  glomap::ViewGraphManipulator::DecomposeRelPose(
+      *mapper.ViewGraph(), *reconstruction_, options.num_threads);
 
   // Step 1: View graph calibration
   LOG(INFO) << "----- Running view graph calibration -----";
-  glomap::ViewGraphCalibrator calibrator(options_.view_graph_calibration);
+  glomap::ViewGraphCalibrator calibrator(options.view_graph_calibration);
   if (!calibrator.Solve(*mapper.ViewGraph(), *reconstruction_)) {
     LOG(ERROR) << "Failed to solve view graph calibration";
     return;
@@ -74,17 +84,16 @@ void RotationAveragingController::Run() {
 
   // Step 2: Relative pose re-estimation
   LOG(INFO) << "----- Running relative pose re-estimation -----";
-  if (!mapper.ReestimateRelativePoses(options_.relative_pose_estimation,
-                                      options_.inlier_thresholds)) {
+  if (!mapper.ReestimateRelativePoses(options.relative_pose_estimation,
+                                      options.inlier_thresholds)) {
     LOG(ERROR) << "Failed relative pose re-estimation";
     return;
   }
 
   // Step 3: Rotation averaging
   LOG(INFO) << "----- Running rotation averaging -----";
-  if (!mapper.RotationAveraging(
-          options_.rotation_estimation,
-          options_.inlier_thresholds.max_rotation_error)) {
+  if (!mapper.RotationAveraging(options.rotation_estimation,
+                                options.inlier_thresholds.max_rotation_error)) {
     LOG(ERROR) << "Failed to solve rotation averaging";
     return;
   }
