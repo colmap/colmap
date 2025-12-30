@@ -1,6 +1,8 @@
 #include "glomap/sfm/global_mapper.h"
 
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/projection.h"
+#include "colmap/sfm/incremental_mapper.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/timer.h"
@@ -251,51 +253,70 @@ bool GlobalMapper::IterativeBundleAdjustment(
 }
 
 bool GlobalMapper::IterativeRetriangulateAndRefine(
-    const TriangulatorOptions& options,
+    const colmap::IncrementalTriangulator::Options& options,
     const BundleAdjusterOptions& ba_options,
     double max_reprojection_error,
     double min_triangulation_angle,
     int num_iterations) {
-  for (int ite = 0; ite < num_iterations; ite++) {
-    RetriangulateTracks(options, *database_, *reconstruction_);
+  // Create database cache for retriangulation.
+  constexpr int kMinNumMatches = 15;
+  auto database_cache =
+      colmap::DatabaseCache::Create(*database_,
+                                    kMinNumMatches,
+                                    /*ignore_watermarks=*/false,
+                                    /*image_names=*/{});
 
-    LOG(INFO) << "Running bundle adjustment...";
-    if (!RunBundleAdjustment(ba_options,
-                             /*constant_rotation=*/false,
-                             *reconstruction_)) {
-      return false;
-    }
+  // Delete all existing 3D points and re-establish 2D-3D correspondences.
+  reconstruction_->DeleteAllPoints2DAndPoints3D();
+  reconstruction_->TranscribeImageIdsToDatabase(*database_);
 
-    // Filter tracks based on the estimation
-    LOG(INFO) << "Filtering tracks by reprojection ...";
-    colmap::ObservationManager(*reconstruction_)
-        .FilterPoints3DWithLargeReprojectionError(
-            max_reprojection_error,
-            reconstruction_->Point3DIds(),
-            colmap::ReprojectionErrorType::NORMALIZED);
+  // Initialize mapper.
+  colmap::IncrementalMapper mapper(database_cache);
+  mapper.BeginReconstruction(reconstruction_);
 
-    // Run BA again after filtering outliers
-    if (!RunBundleAdjustment(ba_options,
-                             /*constant_rotation=*/false,
-                             *reconstruction_)) {
-      return false;
-    }
+  // Triangulate all registered images.
+  for (const auto image_id : reconstruction_->RegImageIds()) {
+    mapper.TriangulateImage(options, image_id);
   }
 
-  // Normalize the structure
+  // Set up bundle adjustment options for colmap's incremental mapper.
+  colmap::BundleAdjustmentOptions colmap_ba_options;
+  colmap_ba_options.solver_options.max_num_iterations = 50;
+  colmap_ba_options.solver_options.max_linear_solver_iterations = 100;
+  colmap_ba_options.print_summary = false;
+
+  // Iterative global refinement.
+  colmap::IncrementalMapper::Options mapper_options;
+  mapper.IterativeGlobalRefinement(/*max_num_refinements=*/num_iterations,
+                                   /*max_refinement_change=*/0.0005,
+                                   mapper_options,
+                                   colmap_ba_options,
+                                   options,
+                                   /*normalize_reconstruction=*/true);
+
+  mapper.EndReconstruction(/*discard=*/false);
+
+  // Final filtering and bundle adjustment.
+  colmap::ObservationManager obs_manager(*reconstruction_);
+  obs_manager.FilterPoints3DWithLargeReprojectionError(
+      max_reprojection_error,
+      reconstruction_->Point3DIds(),
+      colmap::ReprojectionErrorType::NORMALIZED);
+
+  if (!RunBundleAdjustment(ba_options,
+                           /*constant_rotation=*/false,
+                           *reconstruction_)) {
+    return false;
+  }
+
   reconstruction_->Normalize();
 
-  // Filter tracks based on the estimation
-  LOG(INFO) << "Filtering tracks by reprojection ...";
-  {
-    colmap::ObservationManager obs_manager(*reconstruction_);
-    obs_manager.FilterPoints3DWithLargeReprojectionError(
-        max_reprojection_error,
-        reconstruction_->Point3DIds(),
-        colmap::ReprojectionErrorType::NORMALIZED);
-    obs_manager.FilterPoints3DWithSmallTriangulationAngle(
-        min_triangulation_angle, reconstruction_->Point3DIds());
-  }
+  obs_manager.FilterPoints3DWithLargeReprojectionError(
+      max_reprojection_error,
+      reconstruction_->Point3DIds(),
+      colmap::ReprojectionErrorType::NORMALIZED);
+  obs_manager.FilterPoints3DWithSmallTriangulationAngle(
+      min_triangulation_angle, reconstruction_->Point3DIds());
 
   return true;
 }
