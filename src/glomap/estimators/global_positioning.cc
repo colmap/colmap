@@ -63,7 +63,7 @@ bool GlobalPositioner::Solve(const ViewGraph& view_graph,
     AddPointToCameraConstraints(reconstruction);
   }
 
-  AddCamerasAndPointsToParameterGroups(reconstruction);
+  // AddCamerasAndPointsToParameterGroups(reconstruction);
 
   // Parameterize the variables, set image poses / tracks / scales to be
   // constant if desired
