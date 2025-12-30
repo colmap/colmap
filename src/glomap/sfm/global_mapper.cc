@@ -20,13 +20,20 @@ bool GlobalMapper::Solve(const colmap::Database* database,
                          colmap::Reconstruction& reconstruction,
                          std::vector<colmap::PosePrior>& pose_priors,
                          std::unordered_map<frame_t, int>& cluster_ids) {
-  // Propagate random seed to component options for deterministic behavior.
+  // Propagate options to component options.
   GlobalMapperOptions options = options_;
   if (options.random_seed >= 0) {
     options.relative_pose_estimation.random_seed = options.random_seed;
     options.rotation_averaging.random_seed = options.random_seed;
     options.global_positioning.random_seed = options.random_seed;
+    options.global_positioning.use_parameter_block_ordering = false;
+    options.retriangulation.random_seed = options.random_seed;
   }
+  options.view_graph_calibration.solver_options.num_threads =
+      options.num_threads;
+  options.relative_pose_estimation.num_threads = options.num_threads;
+  options.global_positioning.solver_options.num_threads = options.num_threads;
+  options.bundle_adjustment.solver_options.num_threads = options.num_threads;
 
   // 0. Preprocessing
   if (!options.skip_preprocessing) {
@@ -37,7 +44,8 @@ bool GlobalMapper::Solve(const colmap::Database* database,
     // If camera intrinsics seem to be good, force the pair to use essential
     // matrix
     ViewGraphManipulator::UpdateImagePairsConfig(view_graph, reconstruction);
-    ViewGraphManipulator::DecomposeRelPose(view_graph, reconstruction);
+    ViewGraphManipulator::DecomposeRelPose(
+        view_graph, reconstruction, options.num_threads);
     run_timer.PrintSeconds();
   }
 
@@ -337,24 +345,31 @@ bool GlobalMapper::RetriangulateAndRefine(
   colmap::IncrementalMapper mapper(database_cache);
   mapper.BeginReconstruction(reconstruction_ptr);
 
+  // Set up triangulation options with random seed.
+  colmap::IncrementalTriangulator::Options tri_options =
+      options_.retriangulation;
+  tri_options.random_seed = options_.random_seed;
+
   // Triangulate all registered images.
   for (const auto image_id : reconstruction.RegImageIds()) {
-    mapper.TriangulateImage(options_.retriangulation, image_id);
+    mapper.TriangulateImage(tri_options, image_id);
   }
 
   // Set up bundle adjustment options.
   colmap::BundleAdjustmentOptions ba_options;
+  ba_options.solver_options.num_threads = options_.num_threads;
   ba_options.solver_options.max_num_iterations = 50;
   ba_options.solver_options.max_linear_solver_iterations = 100;
   ba_options.print_summary = false;
 
   // Iterative global refinement.
   colmap::IncrementalMapper::Options mapper_options;
+  mapper_options.random_seed = tri_options.random_seed;
   mapper.IterativeGlobalRefinement(/*max_num_refinements=*/5,
                                    /*max_refinement_change=*/0.0005,
                                    mapper_options,
                                    ba_options,
-                                   options_.retriangulation,
+                                   tri_options,
                                    /*normalize_reconstruction=*/true);
 
   mapper.EndReconstruction(/*discard=*/false);

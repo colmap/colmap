@@ -59,6 +59,16 @@ void RotationAveragingController::Run() {
     return;
   }
 
+  // Propagate options to component options.
+  RotationAveragingControllerOptions options = options_;
+  if (options.random_seed >= 0) {
+    options.relative_pose_estimation.random_seed = options.random_seed;
+    options.rotation_estimation.random_seed = options.random_seed;
+  }
+  options.view_graph_calibration.solver_options.num_threads =
+      options.num_threads;
+  options.relative_pose_estimation.num_threads = options.num_threads;
+
   Timer run_timer;
   run_timer.Start();
 
@@ -66,11 +76,12 @@ void RotationAveragingController::Run() {
   LOG(INFO) << "----- Running preprocessing -----";
   glomap::ViewGraphManipulator::UpdateImagePairsConfig(view_graph,
                                                        *reconstruction_);
-  glomap::ViewGraphManipulator::DecomposeRelPose(view_graph, *reconstruction_);
+  glomap::ViewGraphManipulator::DecomposeRelPose(
+      view_graph, *reconstruction_, options.num_threads);
 
   // Step 1: View graph calibration
   LOG(INFO) << "----- Running view graph calibration -----";
-  glomap::ViewGraphCalibrator calibrator(options_.view_graph_calibration);
+  glomap::ViewGraphCalibrator calibrator(options.view_graph_calibration);
   if (!calibrator.Solve(view_graph, *reconstruction_)) {
     LOG(ERROR) << "Failed to solve view graph calibration";
     return;
@@ -79,13 +90,13 @@ void RotationAveragingController::Run() {
   // Step 2: Relative pose estimation
   LOG(INFO) << "----- Running relative pose estimation -----";
   glomap::EstimateRelativePoses(
-      view_graph, *reconstruction_, options_.relative_pose_estimation);
+      view_graph, *reconstruction_, options.relative_pose_estimation);
 
   glomap::ImagePairsInlierCount(
-      view_graph, *reconstruction_, options_.inlier_thresholds, true);
+      view_graph, *reconstruction_, options.inlier_thresholds, true);
 
-  view_graph.FilterByNumInliers(options_.inlier_thresholds.min_inlier_num);
-  view_graph.FilterByInlierRatio(options_.inlier_thresholds.min_inlier_ratio);
+  view_graph.FilterByNumInliers(options.inlier_thresholds.min_inlier_num);
+  view_graph.FilterByInlierRatio(options.inlier_thresholds.min_inlier_ratio);
 
   if (view_graph.KeepLargestConnectedComponents(*reconstruction_) == 0) {
     LOG(ERROR) << "No connected components found";
@@ -94,7 +105,7 @@ void RotationAveragingController::Run() {
 
   // Step 3: Rotation averaging
   LOG(INFO) << "----- Running rotation averaging -----";
-  if (!glomap::SolveRotationAveraging(options_.rotation_estimation,
+  if (!glomap::SolveRotationAveraging(options.rotation_estimation,
                                       view_graph,
                                       *reconstruction_,
                                       pose_priors)) {
