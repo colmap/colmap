@@ -38,7 +38,7 @@ import shutil
 import subprocess
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Callable, Optional, TypeAlias
+from typing import Callable, Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -98,9 +98,9 @@ class Metrics:
     largest_component: int
 
 
-MetricsByScene: TypeAlias = dict[str, Metrics]
-MetricsByCatByScene: TypeAlias = dict[str, MetricsByScene]
-MetricsByDatasetByCatByScene: TypeAlias = dict[str, MetricsByCatByScene]
+MetricsByScene = dict[str, Metrics]
+MetricsByCatByScene = dict[str, MetricsByScene]
+MetricsByDatasetByCatByScene = dict[str, MetricsByCatByScene]
 
 
 class Dataset(ABC):

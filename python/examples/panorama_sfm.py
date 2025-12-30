@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
-from typing import Annotated, Literal, Never, TypeAlias
+from typing import Annotated, Literal, Never
 
 import cv2
 import numpy as np
@@ -22,7 +22,7 @@ from tqdm import tqdm
 import pycolmap
 from pycolmap import logging
 
-NDArrayNx2: TypeAlias = Annotated[npt.NDArray[np.float64], Literal[Never, 2]]
+NDArrayNx2 = Annotated[npt.NDArray[np.float64], Literal[Never, 2]]
 
 
 @dataclass
