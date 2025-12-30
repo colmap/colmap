@@ -113,7 +113,8 @@ void ViewGraphCalibrator::ConvertBackResults(
     if (!problem_->HasParameterBlock(&(focals_[camera_id]))) continue;
 
     // if the estimated parameter is too crazy, reject it
-    if (focals_[camera_id] / camera.MeanFocalLength() >
+    const double focal_length_ratio = focals_[camera_id] / camera.MeanFocalLength();
+    if (focal_length_ratio >
             options_.max_focal_length_ratio ||
         focals_[camera_id] / camera.MeanFocalLength() <
             options_.min_focal_length_ratio) {
