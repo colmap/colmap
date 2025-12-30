@@ -21,9 +21,6 @@ struct ImagePair : public colmap::TwoViewGeometry {
   // Second column is the index of the feature in the second image.
   Eigen::MatrixXi matches;
 
-  // Row index of inliers in the matches matrix.
-  std::vector<int> inliers;
-
   // Invert the geometry to swap image order. Extends TwoViewGeometry::Invert()
   // to also swap columns of matches matrix.
   void Invert() {
