@@ -46,7 +46,7 @@ import numpy.typing as npt
 import pycolmap
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass
 class SceneInfo:
     # Dataset name.
     dataset: str
@@ -66,7 +66,7 @@ class SceneInfo:
     colmap_extra_args: list[str]
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass
 class SceneResult:
     # Scene information for which the result was computed.
     scene_info: SceneInfo
@@ -82,7 +82,7 @@ class SceneResult:
     largest_component: int
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass
 class Metrics:
     # Area under the curve (AUC) scores at specified error thresholds.
     aucs: npt.NDArray[np.floating]
