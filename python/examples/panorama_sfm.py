@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
+from typing import Annotated, Literal, Never, TypeAlias
 
 import cv2
 import numpy as np
@@ -20,6 +21,8 @@ from tqdm import tqdm
 
 import pycolmap
 from pycolmap import logging
+
+NDArrayNx2: TypeAlias = Annotated[npt.NDArray[np.float64], Literal[Never, 2]]
 
 
 @dataclass
@@ -71,10 +74,10 @@ def get_virtual_camera_rays(
 ) -> npt.NDArray[np.floating]:
     size = (camera.width, camera.height)
     x, y = np.indices(size).astype(np.float32)
-    xy = np.column_stack([x.ravel(), y.ravel()])
+    xy: NDArrayNx2 = np.column_stack([x.ravel(), y.ravel()])
     # The center of the upper left most pixel has coordinate (0.5, 0.5)
     xy += 0.5
-    xy_norm = camera.cam_from_img(xy)
+    xy_norm: NDArrayNx2 = camera.cam_from_img(image_points=xy)
     rays = np.concatenate([xy_norm, np.ones_like(xy_norm[:, :1])], -1)
     rays /= np.linalg.norm(rays, axis=-1, keepdims=True)
     return rays
