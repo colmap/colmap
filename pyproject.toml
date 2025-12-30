@@ -26,7 +26,7 @@ authors = [
 ]
 license = {text = "BSD-3-Clause"}
 urls = {Repository = "https://github.com/colmap/colmap"}
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ["numpy"]
 classifiers = [
   "License :: OSI Approved :: BSD License",
@@ -39,7 +39,7 @@ cmake.source-dir = "python/"
 wheel.packages = ["python/pycolmap"]
 
 [tool.cibuildwheel]
-build = "cp3{9,10,11,12,13,14}-{macosx,manylinux,win}*"
+build = "cp3{10,11,12,13,14}-{macosx,manylinux,win}*"
 archs = ["auto64"]
 test-requires = "pytest>=8.0 mypy==1.19.1 enlighten==1.13.0"
 test-command = """\

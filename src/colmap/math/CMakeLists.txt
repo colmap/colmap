@@ -33,6 +33,7 @@ set(FOLDER_NAME "math")
 COLMAP_ADD_LIBRARY(
     NAME colmap_math
     SRCS
+        connected_components.h
         graph_cut.h graph_cut.cc
         math.h math.cc
         matrix.h
@@ -49,6 +50,11 @@ COLMAP_ADD_LIBRARY(
         metis
 )
 
+COLMAP_ADD_TEST(
+    NAME connected_components_test
+    SRCS connected_components_test.cc
+    LINK_LIBS colmap_math
+)
 COLMAP_ADD_TEST(
     NAME graph_cut_test
     SRCS graph_cut_test.cc

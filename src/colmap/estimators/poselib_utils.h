@@ -29,29 +29,23 @@
 
 #pragma once
 
-#include "colmap/mvs/fusion.h"
-#include "colmap/mvs/patch_match_options.h"
-#include "colmap/scene/reconstruction.h"
+#include "colmap/geometry/rigid3.h"
+#include "colmap/scene/camera.h"
+
+#include <PoseLib/camera_pose.h>
 
 namespace colmap {
 
-void RunPatchMatchStereoImpl(const std::string& workspace_path,
-                             const std::string& workspace_format,
-                             const std::string& pmvs_option_name,
-                             const mvs::PatchMatchOptions& options,
-                             const std::string& config_path);
+// Convert COLMAP Camera to PoseLib Camera.
+poselib::Camera ConvertCameraToPoseLibCamera(const Camera& camera);
 
-Reconstruction RunStereoFuserImpl(const std::string& output_path,
-                                  const std::string& workspace_path,
-                                  std::string workspace_format,
-                                  const std::string& pmvs_option_name,
-                                  std::string input_type,
-                                  const mvs::StereoFusionOptions& options,
-                                  std::string output_type);
+// Convert PoseLib Camera to COLMAP Camera.
+Camera ConvertPoseLibCameraToCamera(const poselib::Camera& camera);
 
-int RunDelaunayMesher(int argc, char** argv);
-int RunPatchMatchStereo(int argc, char** argv);
-int RunPoissonMesher(int argc, char** argv);
-int RunStereoFuser(int argc, char** argv);
+// Convert COLMAP Rigid3d to PoseLib CameraPose.
+poselib::CameraPose ConvertRigid3dToPoseLibPose(const Rigid3d& rigid);
+
+// Convert PoseLib CameraPose to COLMAP Rigid3d.
+Rigid3d ConvertPoseLibPoseToRigid3d(const poselib::CameraPose& pose);
 
 }  // namespace colmap

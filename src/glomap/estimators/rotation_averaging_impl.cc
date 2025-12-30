@@ -306,6 +306,10 @@ void RotationAveragingProblem::BuildConstraintMatrix(
     size_t num_params,
     const ViewGraph& view_graph,
     const colmap::Reconstruction& reconstruction) {
+  if (num_params == 0) {
+    return;
+  }
+
   // Count coefficients for accurate reservation.
   size_t num_coeffs = num_gauge_fixing_residuals_;
   for (const auto& [pair_id, constraint] : pair_constraints_) {
@@ -327,11 +331,6 @@ void RotationAveragingProblem::BuildConstraintMatrix(
 
   std::vector<Eigen::Triplet<double>> coeffs;
   coeffs.reserve(num_coeffs);
-
-  std::vector<double> weights;
-  if (options_.use_weight) {
-    weights.reserve(3 * view_graph.NumImagePairs());
-  }
 
   size_t curr_row = 0;
 
@@ -366,15 +365,10 @@ void RotationAveragingProblem::BuildConstraintMatrix(
     constraint.cam1_from_rig_param_idx = cam1_param_idx;
     constraint.cam2_from_rig_param_idx = cam2_param_idx;
 
-    const double pair_weight = image_pair.weight >= 0 ? image_pair.weight : 1.0;
-
     if (std::holds_alternative<GravityAligned1DOF>(constraint.constraint)) {
       // 1-DOF constraint: single row.
       coeffs.emplace_back(curr_row, frame_param_idx1, -1);
       coeffs.emplace_back(curr_row, frame_param_idx2, 1);
-      if (options_.use_weight) {
-        weights.push_back(pair_weight);
-      }
       curr_row++;
     } else {
       // 3-DOF constraint: three rows.
@@ -415,11 +409,6 @@ void RotationAveragingProblem::BuildConstraintMatrix(
         }
       }
 
-      if (options_.use_weight) {
-        for (int i = 0; i < 3; i++) {
-          weights.push_back(pair_weight);
-        }
-      }
       curr_row += 3;
     }
   }
@@ -429,31 +418,21 @@ void RotationAveragingProblem::BuildConstraintMatrix(
   if (num_gauge_fixing_residuals_ == 1) {
     // 1-DOF gauge fix.
     coeffs.emplace_back(curr_row, fixed_frame_param_idx, 1);
-    if (options_.use_weight) {
-      weights.push_back(1);
-    }
     curr_row++;
   } else {
     // 3-DOF gauge fix.
     for (int i = 0; i < 3; i++) {
       coeffs.emplace_back(curr_row + i, fixed_frame_param_idx + i, 1);
-      if (options_.use_weight) {
-        weights.push_back(1);
-      }
     }
     curr_row += 3;
   }
 
   // Build sparse matrix.
+  if (curr_row == 0) {
+    return;
+  }
   constraint_matrix_.resize(curr_row, num_params);
   constraint_matrix_.setFromTriplets(coeffs.begin(), coeffs.end());
-
-  // Set up weight vector.
-  if (!options_.use_weight) {
-    edge_weights_ = Eigen::VectorXd::Ones(curr_row);
-  } else {
-    edge_weights_ = Eigen::Map<Eigen::VectorXd>(weights.data(), weights.size());
-  }
 
   // Initialize residual vector.
   residuals_.resize(curr_row);
@@ -674,10 +653,8 @@ bool RotationAveragingSolver::SolveL1Regression(
   l1_solver_options.solver_type = colmap::LeastAbsoluteDeviationSolver::
       Options::SolverType::SupernodalCholmodLLT;
 
-  const Eigen::SparseMatrix<double> A =
-      problem.EdgeWeights().asDiagonal() * problem.ConstraintMatrix();
-
-  colmap::LeastAbsoluteDeviationSolver l1_solver(l1_solver_options, A);
+  colmap::LeastAbsoluteDeviationSolver l1_solver(l1_solver_options,
+                                                 problem.ConstraintMatrix());
   double prev_norm = 0;
   double curr_norm = 0;
 
@@ -692,8 +669,7 @@ bool RotationAveragingSolver::SolveL1Regression(
     prev_norm = curr_norm;
 
     step.setZero();
-    l1_solver.Solve(problem.EdgeWeights().asDiagonal() * problem.Residuals(),
-                    &step);
+    l1_solver.Solve(problem.Residuals(), &step);
     if (step.array().isNaN().any()) {
       LOG(ERROR) << "nan error";
       return false;
@@ -805,8 +781,8 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
     }
 
     // Update the factorization for the weighted values.
-    at_weight = problem.ConstraintMatrix().transpose() *
-                weights_irls->asDiagonal() * problem.EdgeWeights().asDiagonal();
+    at_weight =
+        problem.ConstraintMatrix().transpose() * weights_irls->asDiagonal();
 
     llt.factorize(at_weight * problem.ConstraintMatrix());
 

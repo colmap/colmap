@@ -1,86 +1,31 @@
 #include "glomap/scene/view_graph.h"
 
-#include <queue>
+#include "colmap/math/connected_components.h"
 
 namespace glomap {
-namespace {
-
-void BreadthFirstSearch(
-    const std::unordered_map<frame_t, std::unordered_set<frame_t>>&
-        adjacency_list,
-    image_t root,
-    std::unordered_map<image_t, bool>& visited,
-    std::unordered_set<image_t>& component) {
-  std::queue<image_t> queue;
-  queue.push(root);
-  visited[root] = true;
-  component.insert(root);
-
-  while (!queue.empty()) {
-    const image_t curr = queue.front();
-    queue.pop();
-
-    for (const image_t neighbor : adjacency_list.at(curr)) {
-      if (!visited[neighbor]) {
-        queue.push(neighbor);
-        visited[neighbor] = true;
-        component.insert(neighbor);
-      }
-    }
-  }
-}
-
-std::vector<std::unordered_set<frame_t>> FindConnectedComponents(
-    const std::unordered_map<frame_t, std::unordered_set<frame_t>>&
-        adjacency_list) {
-  std::vector<std::unordered_set<frame_t>> connected_components;
-  std::unordered_map<frame_t, bool> visited;
-  visited.reserve(adjacency_list.size());
-  for (const auto& [frame_id, neighbors] : adjacency_list) {
-    visited[frame_id] = false;
-  }
-
-  for (auto& [frame_id, _] : adjacency_list) {
-    if (!visited[frame_id]) {
-      std::unordered_set<frame_t> component;
-      BreadthFirstSearch(adjacency_list, frame_id, visited, component);
-      connected_components.push_back(std::move(component));
-    }
-  }
-
-  return connected_components;
-}
-
-}  // namespace
 
 int ViewGraph::KeepLargestConnectedComponents(
     colmap::Reconstruction& reconstruction) {
-  const std::vector<std::unordered_set<frame_t>> connected_components =
-      FindConnectedComponents(
-          CreateFrameAdjacencyList(reconstruction.Images()));
-
-  int max_comp = -1;
-  int max_num_reg_images = 0;
-  for (int comp = 0; comp < connected_components.size(); ++comp) {
-    if (connected_components[comp].size() > max_num_reg_images) {
-      int num_reg_images = 0;
-      for (const auto& [image_id, image] : reconstruction.Images()) {
-        if (image.HasPose()) {
-          ++num_reg_images;
-        }
-      }
-      if (num_reg_images > max_num_reg_images)
-        max_num_reg_images = connected_components[comp].size();
-      max_comp = comp;
-    }
+  std::unordered_set<frame_t> nodes;
+  std::vector<std::pair<frame_t, frame_t>> edges;
+  for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const frame_t frame_id1 = reconstruction.Image(image_id1).FrameId();
+    const frame_t frame_id2 = reconstruction.Image(image_id2).FrameId();
+    nodes.insert(frame_id1);
+    nodes.insert(frame_id2);
+    edges.emplace_back(frame_id1, frame_id2);
   }
 
-  if (max_comp == -1) {
+  if (nodes.empty()) {
     return 0;
   }
 
-  const std::unordered_set<frame_t>& largest_component =
-      connected_components[max_comp];
+  const std::vector<frame_t> largest_component_vec =
+      colmap::FindLargestConnectedComponent(nodes, edges);
+  const std::unordered_set<frame_t> largest_component(
+      largest_component_vec.begin(), largest_component_vec.end());
+
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     if (largest_component.count(frame_id) == 0 && frame.HasPose()) {
       reconstruction.DeRegisterFrame(frame_id);
@@ -95,17 +40,27 @@ int ViewGraph::KeepLargestConnectedComponents(
     }
   }
 
-  return max_num_reg_images;
+  return static_cast<int>(largest_component.size());
 }
 
 int ViewGraph::MarkConnectedComponents(
     const colmap::Reconstruction& reconstruction,
     std::unordered_map<frame_t, int>& cluster_ids,
     int min_num_images) {
-  const std::vector<std::unordered_set<frame_t>> connected_components =
-      FindConnectedComponents(
-          CreateFrameAdjacencyList(reconstruction.Images()));
-  const int num_comp = connected_components.size();
+  std::unordered_set<frame_t> nodes;
+  std::vector<std::pair<frame_t, frame_t>> edges;
+  for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const frame_t frame_id1 = reconstruction.Image(image_id1).FrameId();
+    const frame_t frame_id2 = reconstruction.Image(image_id2).FrameId();
+    nodes.insert(frame_id1);
+    nodes.insert(frame_id2);
+    edges.emplace_back(frame_id1, frame_id2);
+  }
+
+  const std::vector<std::vector<frame_t>> connected_components =
+      colmap::FindConnectedComponents(nodes, edges);
+  const int num_comp = static_cast<int>(connected_components.size());
 
   std::vector<std::pair<int, int>> comp_num_images(num_comp);
   for (int comp = 0; comp < num_comp; comp++) {
@@ -138,20 +93,6 @@ ViewGraph::CreateImageAdjacencyList() const {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     adjacency_list[image_id1].insert(image_id2);
     adjacency_list[image_id2].insert(image_id1);
-  }
-  return adjacency_list;
-}
-
-std::unordered_map<frame_t, std::unordered_set<frame_t>>
-ViewGraph::CreateFrameAdjacencyList(
-    const std::unordered_map<image_t, colmap::Image>& images) const {
-  std::unordered_map<frame_t, std::unordered_set<frame_t>> adjacency_list;
-  for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
-    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-    const frame_t frame_id1 = images.at(image_id1).FrameId();
-    const frame_t frame_id2 = images.at(image_id2).FrameId();
-    adjacency_list[frame_id1].insert(frame_id2);
-    adjacency_list[frame_id2].insert(frame_id1);
   }
   return adjacency_list;
 }

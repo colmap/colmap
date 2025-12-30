@@ -37,6 +37,7 @@
 #include <limits>
 #include <list>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 #ifndef M_PI
@@ -72,12 +73,19 @@ double Percentile(std::vector<T>& elems, double p);
 template <typename T>
 double Percentile(std::vector<T>&& elems, double p);
 
-// Determine median value. Reorderes elements in-place.
+// Determine median value. Reorders elements in-place.
 // Performs linear interpolation between mid values.
 template <typename T>
 double Median(std::vector<T>& elems);
 template <typename T>
 double Median(std::vector<T>&& elems);
+
+// Determine median absolute deviation (MAD). Reorders elements in-place.
+// Returns {median, MAD}.
+template <typename T>
+std::pair<double, double> MedianAbsoluteDeviation(std::vector<T>& elems);
+template <typename T>
+std::pair<double, double> MedianAbsoluteDeviation(std::vector<T>&& elems);
 
 // Determine mean value in a vector.
 template <typename T>
@@ -231,6 +239,21 @@ double Median(std::vector<T>& elems) {
 template <typename T>
 double Median(std::vector<T>&& elems) {
   return Median(elems);
+}
+
+template <typename T>
+std::pair<double, double> MedianAbsoluteDeviation(std::vector<T>& elems) {
+  const double median = Median(elems);
+  std::vector<double> abs_deviations(elems.size());
+  for (size_t i = 0; i < elems.size(); i++) {
+    abs_deviations[i] = std::abs(static_cast<double>(elems[i]) - median);
+  }
+  return {median, Median(abs_deviations)};
+}
+
+template <typename T>
+std::pair<double, double> MedianAbsoluteDeviation(std::vector<T>&& elems) {
+  return MedianAbsoluteDeviation(elems);
 }
 
 template <typename T>

@@ -27,31 +27,38 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
-
-#include "colmap/mvs/fusion.h"
-#include "colmap/mvs/patch_match_options.h"
-#include "colmap/scene/reconstruction.h"
+#include "colmap/estimators/poselib_utils.h"
 
 namespace colmap {
 
-void RunPatchMatchStereoImpl(const std::string& workspace_path,
-                             const std::string& workspace_format,
-                             const std::string& pmvs_option_name,
-                             const mvs::PatchMatchOptions& options,
-                             const std::string& config_path);
+poselib::Camera ConvertCameraToPoseLibCamera(const Camera& camera) {
+  return poselib::Camera(
+      camera.ModelName(), camera.params, camera.width, camera.height);
+}
 
-Reconstruction RunStereoFuserImpl(const std::string& output_path,
-                                  const std::string& workspace_path,
-                                  std::string workspace_format,
-                                  const std::string& pmvs_option_name,
-                                  std::string input_type,
-                                  const mvs::StereoFusionOptions& options,
-                                  std::string output_type);
+Camera ConvertPoseLibCameraToCamera(const poselib::Camera& camera) {
+  Camera colmap_camera;
+  colmap_camera.model_id = CameraModelNameToId(camera.model_name());
+  colmap_camera.width = camera.width;
+  colmap_camera.height = camera.height;
+  colmap_camera.params = camera.params;
+  return colmap_camera;
+}
 
-int RunDelaunayMesher(int argc, char** argv);
-int RunPatchMatchStereo(int argc, char** argv);
-int RunPoissonMesher(int argc, char** argv);
-int RunStereoFuser(int argc, char** argv);
+poselib::CameraPose ConvertRigid3dToPoseLibPose(const Rigid3d& rigid) {
+  poselib::CameraPose pose;
+  // PoseLib uses (w, x, y, z) ordering for quaternion
+  pose.q << rigid.rotation.w(), rigid.rotation.x(), rigid.rotation.y(),
+      rigid.rotation.z();
+  pose.t = rigid.translation;
+  return pose;
+}
+
+Rigid3d ConvertPoseLibPoseToRigid3d(const poselib::CameraPose& pose) {
+  // PoseLib quaternion is (w, x, y, z), Eigen::Quaterniond constructor is also
+  // (w, x, y, z)
+  return Rigid3d(Eigen::Quaterniond(pose.q(0), pose.q(1), pose.q(2), pose.q(3)),
+                 pose.t);
+}
 
 }  // namespace colmap

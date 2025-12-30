@@ -27,8 +27,6 @@ void OptionManager::AddGlobalMapperOptions() {
   AddAndRegisterDefaultOption("Mapper.random_seed", &mapper->random_seed);
   AddAndRegisterDefaultOption("Mapper.num_iterations_ba",
                               &mapper->num_iterations_ba);
-  AddAndRegisterDefaultOption("Mapper.num_iterations_retriangulation",
-                              &mapper->num_iterations_retriangulation);
   AddAndRegisterDefaultOption("Mapper.skip_preprocessing",
                               &mapper->skip_preprocessing);
   AddAndRegisterDefaultOption("Mapper.skip_view_graph_calibration",
@@ -85,8 +83,8 @@ void OptionManager::AddGlobalMapperOptions() {
                               &mapper->global_positioning.optimize_points);
   AddAndRegisterDefaultOption("GlobalPositioning.optimize_scales",
                               &mapper->global_positioning.optimize_scales);
-  AddAndRegisterDefaultOption("GlobalPositioning.thres_loss_function",
-                              &mapper->global_positioning.thres_loss_function);
+  AddAndRegisterDefaultOption("GlobalPositioning.loss_function_scale",
+                              &mapper->global_positioning.loss_function_scale);
   AddAndRegisterDefaultOption(
       "GlobalPositioning.max_num_iterations",
       &mapper->global_positioning.solver_options.max_num_iterations);
@@ -115,17 +113,14 @@ void OptionManager::AddGlobalMapperOptions() {
       "BundleAdjustment.max_num_iterations",
       &mapper->bundle_adjustment.solver_options.max_num_iterations);
 
-  // Triangulation options
+  // Retriangulation options
   AddAndRegisterDefaultOption(
-      "Triangulation.complete_max_reproj_error",
-      &mapper->retriangulation.tri_complete_max_reproj_error);
-  AddAndRegisterDefaultOption(
-      "Triangulation.merge_max_reproj_error",
-      &mapper->retriangulation.tri_merge_max_reproj_error);
-  AddAndRegisterDefaultOption("Triangulation.min_angle",
-                              &mapper->retriangulation.tri_min_angle);
-  AddAndRegisterDefaultOption("Triangulation.min_num_matches",
-                              &mapper->retriangulation.min_num_matches);
+      "Retriangulation.complete_max_reproj_error",
+      &mapper->retriangulation.complete_max_reproj_error);
+  AddAndRegisterDefaultOption("Retriangulation.merge_max_reproj_error",
+                              &mapper->retriangulation.merge_max_reproj_error);
+  AddAndRegisterDefaultOption("Retriangulation.min_angle",
+                              &mapper->retriangulation.min_angle);
 
   // Inlier threshold options
   AddAndRegisterDefaultOption("Thresholds.max_angle_error",

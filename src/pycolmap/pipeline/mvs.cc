@@ -1,3 +1,5 @@
+#include "colmap/exe/mvs.h"
+
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/patch_match_options.h"
 #include "colmap/scene/reconstruction.h"
@@ -19,70 +21,6 @@
 using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
-
-void PatchMatchStereo(const std::string& workspace_path,
-                      std::string workspace_format,
-                      const std::string& pmvs_option_name,
-                      const mvs::PatchMatchOptions& options,
-                      const std::string& config_path) {
-#ifdef COLMAP_CUDA_ENABLED
-  THROW_CHECK_DIR_EXISTS(workspace_path);
-  StringToLower(&workspace_format);
-  THROW_CHECK(workspace_format == "colmap" || workspace_format == "pmvs")
-      << "Invalid `workspace_format` - supported values are 'COLMAP' or "
-         "'PMVS'.";
-
-  py::gil_scoped_release release;
-  mvs::PatchMatchController controller(
-      options, workspace_path, workspace_format, pmvs_option_name, config_path);
-  controller.Run();
-#else
-  LOG_FATAL_THROW(std::runtime_error)
-      << "PatchMatch requires CUDA but COLMAP was not compiled with it.";
-#endif  // COLMAP_CUDA_ENABLED
-}
-
-Reconstruction StereoFusion(const std::string& output_path,
-                            const std::string& workspace_path,
-                            std::string workspace_format,
-                            const std::string& pmvs_option_name,
-                            std::string input_type,
-                            const mvs::StereoFusionOptions& options) {
-  THROW_CHECK_DIR_EXISTS(workspace_path);
-  StringToLower(&workspace_format);
-  THROW_CHECK(workspace_format == "colmap" || workspace_format == "pmvs")
-      << "Invalid `workspace_format` - supported values are 'COLMAP' or "
-         "'PMVS'.";
-
-  StringToLower(&input_type);
-  THROW_CHECK(input_type == "photometric" || input_type == "geometric")
-      << "Invalid input type - supported values are 'photometric' and "
-         "'geometric'.";
-
-  py::gil_scoped_release release;
-  mvs::StereoFusion fuser(
-      options, workspace_path, workspace_format, pmvs_option_name, input_type);
-  fuser.Run();
-
-  Reconstruction reconstruction;
-  // read data from sparse reconstruction
-  if (workspace_format == "colmap") {
-    reconstruction.Read(JoinPaths(workspace_path, "sparse"));
-  }
-
-  // overwrite sparse point cloud with dense point cloud from fuser
-  reconstruction.ImportPLY(fuser.GetFusedPoints());
-
-  if (ExistsDir(output_path)) {
-    reconstruction.WriteBinary(output_path);
-  } else {
-    WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
-    mvs::WritePointsVisibility(output_path + ".vis",
-                               fuser.GetFusedPointsVisibility());
-  }
-
-  return reconstruction;
-}
 
 void BindMVS(py::module& m) {
   using PMOpts = mvs::PatchMatchOptions;
@@ -175,13 +113,14 @@ void BindMVS(py::module& m) {
   MakeDataclass(PyPatchMatchOptions);
 
   m.def("patch_match_stereo",
-        &PatchMatchStereo,
+        &RunPatchMatchStereoImpl,
         "workspace_path"_a,
         "workspace_format"_a = "COLMAP",
         "pmvs_option_name"_a = "option-all",
         py::arg_v("options", mvs::PatchMatchOptions(), "PatchMatchOptions()"),
         "config_path"_a = "",
-        "Runs Patch-Match-Stereo (requires CUDA)");
+        "Runs Patch-Match-Stereo (requires CUDA)",
+        py::call_guard<py::gil_scoped_release>());
 
   using SFOpts = mvs::StereoFusionOptions;
   auto PyStereoFusionOptions =
@@ -238,12 +177,14 @@ void BindMVS(py::module& m) {
 
   m.def(
       "stereo_fusion",
-      &StereoFusion,
+      &RunStereoFuserImpl,
       "output_path"_a,
       "workspace_path"_a,
       "workspace_format"_a = "COLMAP",
       "pmvs_option_name"_a = "option-all",
       "input_type"_a = "geometric",
       py::arg_v("options", mvs::StereoFusionOptions(), "StereoFusionOptions()"),
-      "Stereo Fusion");
+      "output_type"_a = "bin",
+      "Stereo Fusion",
+      py::call_guard<py::gil_scoped_release>());
 }

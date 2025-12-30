@@ -27,31 +27,42 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#include "colmap/estimators/poselib_utils.h"
 
-#include "colmap/mvs/fusion.h"
-#include "colmap/mvs/patch_match_options.h"
-#include "colmap/scene/reconstruction.h"
+#include "colmap/geometry/rigid3_matchers.h"
+
+#include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
-void RunPatchMatchStereoImpl(const std::string& workspace_path,
-                             const std::string& workspace_format,
-                             const std::string& pmvs_option_name,
-                             const mvs::PatchMatchOptions& options,
-                             const std::string& config_path);
+TEST(PoseLibUtils, CameraRoundTrip) {
+  Camera camera;
+  camera.model_id = CameraModelId::kSimpleRadial;
+  camera.width = 1920;
+  camera.height = 1080;
+  camera.params = {1000.0, 960.0, 540.0, 0.1};
 
-Reconstruction RunStereoFuserImpl(const std::string& output_path,
-                                  const std::string& workspace_path,
-                                  std::string workspace_format,
-                                  const std::string& pmvs_option_name,
-                                  std::string input_type,
-                                  const mvs::StereoFusionOptions& options,
-                                  std::string output_type);
+  const poselib::Camera poselib_camera = ConvertCameraToPoseLibCamera(camera);
+  const Camera camera_back = ConvertPoseLibCameraToCamera(poselib_camera);
 
-int RunDelaunayMesher(int argc, char** argv);
-int RunPatchMatchStereo(int argc, char** argv);
-int RunPoissonMesher(int argc, char** argv);
-int RunStereoFuser(int argc, char** argv);
+  EXPECT_EQ(camera.model_id, camera_back.model_id);
+  EXPECT_EQ(camera.width, camera_back.width);
+  EXPECT_EQ(camera.height, camera_back.height);
+  EXPECT_EQ(camera.params, camera_back.params);
+}
 
+TEST(PoseLibUtils, Rigid3dRoundTrip) {
+  const Eigen::Quaterniond rotation =
+      Eigen::Quaterniond(0.5, 0.5, 0.5, 0.5).normalized();
+  const Eigen::Vector3d translation(1.0, 2.0, 3.0);
+  const Rigid3d rigid(rotation, translation);
+
+  const poselib::CameraPose poselib_pose = ConvertRigid3dToPoseLibPose(rigid);
+  const Rigid3d rigid_back = ConvertPoseLibPoseToRigid3d(poselib_pose);
+
+  EXPECT_THAT(rigid_back, Rigid3dNear(rigid, 1e-10, 1e-10));
+}
+
+}  // namespace
 }  // namespace colmap

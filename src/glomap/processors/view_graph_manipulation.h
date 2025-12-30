@@ -9,19 +9,6 @@
 namespace glomap {
 
 struct ViewGraphManipulator {
-  enum StrongClusterCriteria {
-    INLIER_NUM,
-    WEIGHT,
-  };
-
-  static image_t EstablishStrongClusters(
-      ViewGraph& view_graph,
-      colmap::Reconstruction& reconstruction,
-      std::unordered_map<frame_t, int>& cluster_ids,
-      StrongClusterCriteria criteria = INLIER_NUM,
-      double min_thres = 100,  // require strong edges
-      int min_num_images = 2);
-
   static void UpdateImagePairsConfig(
       ViewGraph& view_graph, const colmap::Reconstruction& reconstruction);
 
