@@ -83,7 +83,7 @@ void ViewGraphManipulator::DecomposeRelPose(
   const int64_t num_image_pairs = image_pair_ids.size();
   LOG(INFO) << "Decompose relative pose for " << num_image_pairs << " pairs";
 
-  colmap::ThreadPool thread_pool(colmap::GetEffectiveNumThreads(num_threads));
+  colmap::ThreadPool thread_pool(num_threads);
   for (int64_t idx = 0; idx < num_image_pairs; idx++) {
     thread_pool.AddTask([&, idx]() {
       const image_pair_t pair_id = image_pair_ids[idx];

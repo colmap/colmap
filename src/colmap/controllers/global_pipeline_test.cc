@@ -68,18 +68,6 @@ TEST(GlobalPipeline, Nominal) {
                                  /*max_proj_center_error=*/1e-4));
 }
 
-void ExpectExactEqualReconstructions(const Reconstruction& reconstruction1,
-                                     const Reconstruction& reconstruction2) {
-  const std::vector<image_t> reg_image_ids = reconstruction1.RegImageIds();
-  ASSERT_EQ(reg_image_ids.size(), reconstruction2.RegImageIds().size());
-  for (const image_t image_id : reg_image_ids) {
-    EXPECT_EQ(reconstruction1.Image(image_id).CamFromWorld().rotation.coeffs(),
-              reconstruction2.Image(image_id).CamFromWorld().rotation.coeffs());
-    EXPECT_EQ(reconstruction1.Image(image_id).CamFromWorld().translation,
-              reconstruction2.Image(image_id).CamFromWorld().translation);
-  }
-}
-
 TEST(GlobalPipeline, SfMWithRandomSeedStability) {
   SetPRNGSeed(1);
 
@@ -117,8 +105,8 @@ TEST(GlobalPipeline, SfMWithRandomSeedStability) {
         run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
     auto reconstruction_manager1 =
         run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
-    ExpectExactEqualReconstructions(*reconstruction_manager0->Get(0),
-                                    *reconstruction_manager1->Get(0));
+    EXPECT_THAT(*reconstruction_manager0->Get(0),
+                ReconstructionEq(*reconstruction_manager1->Get(0)));
   }
 
   // Multi-threaded execution.
