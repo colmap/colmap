@@ -12,15 +12,13 @@
 namespace glomap {
 
 struct ViewGraphCalibratorOptions {
-  // The minimal ratio of the estimated focal length against the prior focal
-  // length
-  double thres_lower_ratio = 0.1;
-  // The maximal ratio of the estimated focal length against the prior focal
-  // length
-  double thres_higher_ratio = 10;
+  // The minimum ratio of the estimated focal length to the prior focal length.
+  double min_focal_length_ratio = 0.1;
+  // The maximum ratio of the estimated focal length to the prior focal length.
+  double max_focal_length_ratio = 10;
 
-  // The threshold for the corresponding error in the problem for an image pair
-  double thres_two_view_error = 2.;
+  // The maximum calibration error for an image pair.
+  double max_calibration_error = 2.;
 
   // Scaling factor for the loss function
   double loss_function_scale = 0.01;
@@ -34,8 +32,9 @@ struct ViewGraphCalibratorOptions {
     solver_options.function_tolerance = 1e-5;
   }
 
-  std::shared_ptr<ceres::LossFunction> CreateLossFunction() {
-    return std::make_shared<ceres::CauchyLoss>(loss_function_scale);
+  // Create loss function for given options.
+  std::unique_ptr<ceres::LossFunction> CreateLossFunction() const {
+    return std::make_unique<ceres::CauchyLoss>(loss_function_scale);
   }
 };
 
@@ -48,32 +47,33 @@ class ViewGraphCalibrator {
   bool Solve(ViewGraph& view_graph, colmap::Reconstruction& reconstruction);
 
  private:
-  // Reset the problem
-  void Reset(const colmap::Reconstruction& reconstruction);
+  // Initialize focal lengths from reconstruction
+  void InitializeFocalsFromReconstruction(
+      const colmap::Reconstruction& reconstruction);
 
   // Add the image pairs to the problem
   void AddImagePairsToProblem(const ViewGraph& view_graph,
                               const colmap::Reconstruction& reconstruction);
 
-  // Add a single image pair to the problem
-  void AddImagePair(image_t image_id1,
-                    image_t image_id2,
-                    const ImagePair& image_pair,
-                    const colmap::Reconstruction& reconstruction);
-
   // Set the cameras to be constant if they have prior intrinsics
   size_t ParameterizeCameras(const colmap::Reconstruction& reconstruction);
 
   // Convert the results back to the camera
-  void CopyBackResults(colmap::Reconstruction& reconstruction);
+  void ConvertBackResults(colmap::Reconstruction& reconstruction);
 
-  // Filter the image pairs based on the calibration results
-  size_t FilterImagePairs(ViewGraph& view_graph) const;
+  // Evaluate and filter the image pairs based on the calibration results
+  size_t EvaluateAndFilterImagePairs(ViewGraph& view_graph) const;
 
   ViewGraphCalibratorOptions options_;
   std::unique_ptr<ceres::Problem> problem_;
+  std::unique_ptr<ceres::LossFunction> loss_function_;
   std::unordered_map<camera_t, double> focals_;
-  std::shared_ptr<ceres::LossFunction> loss_function_;
 };
+
+// Calibrate the view graph by estimating focal lengths from fundamental
+// matrices. Filters image pairs with high calibration errors.
+bool CalibrateViewGraph(const ViewGraphCalibratorOptions& options,
+                        ViewGraph& view_graph,
+                        colmap::Reconstruction& reconstruction);
 
 }  // namespace glomap

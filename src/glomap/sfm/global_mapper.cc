@@ -363,8 +363,8 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     LOG(INFO) << "----- Running view graph calibration -----";
     colmap::Timer run_timer;
     run_timer.Start();
-    ViewGraphCalibrator vgcalib_engine(opts.view_graph_calibration);
-    if (!vgcalib_engine.Solve(*view_graph_, *reconstruction_)) {
+    if (!CalibrateViewGraph(
+            opts.view_graph_calibration, *view_graph_, *reconstruction_)) {
       return false;
     }
     LOG(INFO) << "View graph calibration done in " << run_timer.ElapsedSeconds()
