@@ -50,10 +50,7 @@ OptionManager::OptionManager(bool add_project_options)
     : BaseOptionManager(add_project_options) {
   image_reader = std::make_shared<ImageReaderOptions>();
   feature_extraction = std::make_shared<FeatureExtractionOptions>();
-  feature_extraction_type_ =
-      FeatureExtractorTypeToString(feature_extraction->type);
   feature_matching = std::make_shared<FeatureMatchingOptions>();
-  feature_matching_type_ = FeatureMatcherTypeToString(feature_matching->type);
   two_view_geometry = std::make_shared<TwoViewGeometryOptions>();
   exhaustive_pairing = std::make_shared<ExhaustivePairingOptions>();
   sequential_pairing = std::make_shared<SequentialPairingOptions>();
@@ -202,8 +199,10 @@ void OptionManager::AddFeatureExtractionOptions() {
   AddAndRegisterDefaultOption("ImageReader.camera_mask_path",
                               &image_reader->camera_mask_path);
 
-  AddAndRegisterDefaultOption("FeatureExtraction.type",
-                              &feature_extraction_type_);
+  AddAndRegisterDefaultEnumOption("FeatureExtraction.type",
+                                  &feature_extraction->type,
+                                  FeatureExtractorTypeToString,
+                                  FeatureExtractorTypeFromString);
   AddAndRegisterDefaultOption("FeatureExtraction.num_threads",
                               &feature_extraction->num_threads);
   AddAndRegisterDefaultOption("FeatureExtraction.use_gpu",
@@ -247,7 +246,10 @@ void OptionManager::AddFeatureMatchingOptions() {
   }
   added_feature_matching_options_ = true;
 
-  AddAndRegisterDefaultOption("FeatureMatching.type", &feature_matching_type_);
+  AddAndRegisterDefaultEnumOption("FeatureMatching.type",
+                                  &feature_matching->type,
+                                  FeatureMatcherTypeToString,
+                                  FeatureMatcherTypeFromString);
   AddAndRegisterDefaultOption("FeatureMatching.num_threads",
                               &feature_matching->num_threads);
   AddAndRegisterDefaultOption("FeatureMatching.use_gpu",
@@ -861,25 +863,10 @@ bool OptionManager::Read(const std::string& path) {
   if (!BaseOptionManager::Read(path)) {
     return false;
   }
-  try {
-    feature_extraction->type =
-        FeatureExtractorTypeFromString(feature_extraction_type_);
-    feature_matching->type =
-        FeatureMatcherTypeFromString(feature_matching_type_);
-  } catch (std::exception& e) {
-    LOG(ERROR) << "Failed to parse options " << e.what() << ".";
-    return false;
-  } catch (...) {
-    LOG(ERROR) << "Failed to parse options for unknown reason.";
-    return false;
-  }
   return Check();
 }
 
 void OptionManager::PostParse() {
-  feature_extraction->type =
-      FeatureExtractorTypeFromString(feature_extraction_type_);
-  feature_matching->type = FeatureMatcherTypeFromString(feature_matching_type_);
   if (!mapper_image_list_path_.empty()) {
     mapper->image_names = ReadTextFileLines(mapper_image_list_path_);
   }

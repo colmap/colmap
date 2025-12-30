@@ -19,7 +19,6 @@ class OptionManager : public colmap::BaseOptionManager {
 
   void Reset() override;
   void ResetOptions(bool reset_paths) override;
-  bool Check() override;
 
   std::shared_ptr<GlobalMapperOptions> mapper;
   std::shared_ptr<GravityRefinerOptions> gravity_refiner;
