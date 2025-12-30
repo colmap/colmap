@@ -256,8 +256,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
     const colmap::IncrementalTriangulator::Options& options,
     const BundleAdjusterOptions& ba_options,
     double max_reprojection_error,
-    double min_triangulation_angle,
-    int num_iterations) {
+    double min_triangulation_angle) {
   // Create database cache for retriangulation.
   constexpr int kMinNumMatches = 15;
   auto database_cache =
@@ -287,7 +286,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
 
   // Iterative global refinement.
   colmap::IncrementalMapper::Options mapper_options;
-  mapper.IterativeGlobalRefinement(/*max_num_refinements=*/num_iterations,
+  mapper.IterativeGlobalRefinement(/*max_num_refinements=*/5,
                                    /*max_refinement_change=*/0.0005,
                                    mapper_options,
                                    colmap_ba_options,
@@ -438,8 +437,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
             opts.retriangulation,
             opts.bundle_adjustment,
             opts.inlier_thresholds.max_reprojection_error,
-            opts.inlier_thresholds.min_triangulation_angle,
-            opts.num_iterations_retriangulation)) {
+            opts.inlier_thresholds.min_triangulation_angle)) {
       return false;
     }
     LOG(INFO) << "Iterative retriangulation and refinement done in "
