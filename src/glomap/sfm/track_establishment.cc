@@ -34,32 +34,21 @@ void TrackEngine::BlindConcatenation() {
 
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 
-    // Get the matches
-    const Eigen::MatrixXi& matches = image_pair.matches;
-
-    // Get the inlier mask
-    const std::vector<int>& inliers = image_pair.inliers;
-
-    for (size_t i = 0; i < inliers.size(); i++) {
-      size_t idx = inliers[i];
-
-      // Get point indices
-      const uint32_t& point1_idx = matches(idx, 0);
-      const uint32_t& point2_idx = matches(idx, 1);
-
-      image_pair_t point_global_id1 = static_cast<image_pair_t>(image_id1)
-                                          << 32 |
-                                      static_cast<image_pair_t>(point1_idx);
-      image_pair_t point_global_id2 = static_cast<image_pair_t>(image_id2)
-                                          << 32 |
-                                      static_cast<image_pair_t>(point2_idx);
+    for (const auto& match : image_pair.inlier_matches) {
+      const image_pair_t point_global_id1 =
+          static_cast<image_pair_t>(image_id1) << 32 |
+          static_cast<image_pair_t>(match.point2D_idx1);
+      const image_pair_t point_global_id2 =
+          static_cast<image_pair_t>(image_id2) << 32 |
+          static_cast<image_pair_t>(match.point2D_idx2);
 
       // Link the first point to the second point. Take the smallest one as the
       // root
       if (point_global_id2 < point_global_id1) {
         uf_.Union(point_global_id1, point_global_id2);
-      } else
+      } else {
         uf_.Union(point_global_id2, point_global_id1);
+      }
     }
   }
   LOG(INFO) << "Initialized " << view_graph_.NumImagePairs() << " pairs";
@@ -85,25 +74,13 @@ void TrackEngine::TrackCollection(
 
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 
-    // Get the matches
-    const Eigen::MatrixXi& matches = image_pair.matches;
-
-    // Get the inlier mask
-    const std::vector<int>& inliers = image_pair.inliers;
-
-    for (size_t i = 0; i < inliers.size(); i++) {
-      size_t idx = inliers[i];
-
-      // Get point indices
-      const uint32_t& point1_idx = matches(idx, 0);
-      const uint32_t& point2_idx = matches(idx, 1);
-
-      image_pair_t point_global_id1 = static_cast<image_pair_t>(image_id1)
-                                          << 32 |
-                                      static_cast<image_pair_t>(point1_idx);
-      image_pair_t point_global_id2 = static_cast<image_pair_t>(image_id2)
-                                          << 32 |
-                                      static_cast<image_pair_t>(point2_idx);
+    for (const auto& match : image_pair.inlier_matches) {
+      const image_pair_t point_global_id1 =
+          static_cast<image_pair_t>(image_id1) << 32 |
+          static_cast<image_pair_t>(match.point2D_idx1);
+      const image_pair_t point_global_id2 =
+          static_cast<image_pair_t>(image_id2) << 32 |
+          static_cast<image_pair_t>(match.point2D_idx2);
 
       image_pair_t track_id = uf_.Find(point_global_id1);
 

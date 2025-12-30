@@ -72,9 +72,7 @@ double ImagePairInliers::ScoreErrorEssential() {
   if (epipole12[2] < 0) epipole12 = -epipole12;
   if (epipole21[2] < 0) epipole21 = -epipole21;
 
-  if (image_pair.inliers.size() > 0) {
-    image_pair.inliers.clear();
-  }
+  image_pair.inlier_matches.clear();
 
   const colmap::Image& image1 = reconstruction.Image(image_id1);
   const colmap::Image& image2 = reconstruction.Image(image_id2);
@@ -93,12 +91,12 @@ double ImagePairInliers::ScoreErrorEssential() {
   thres_angle += 1e-6;
   thres_epipole += 1e-6;
   for (size_t k = 0; k < image_pair.matches.rows(); ++k) {
+    const colmap::point2D_t point2D_idx1 = image_pair.matches(k, 0);
+    const colmap::point2D_t point2D_idx2 = image_pair.matches(k, 1);
     const std::optional<Eigen::Vector2d> cam_point1 =
-        image1.CameraPtr()->CamFromImg(
-            image1.Point2D(image_pair.matches(k, 0)).xy);
+        image1.CameraPtr()->CamFromImg(image1.Point2D(point2D_idx1).xy);
     const std::optional<Eigen::Vector2d> cam_point2 =
-        image2.CameraPtr()->CamFromImg(
-            image2.Point2D(image_pair.matches(k, 1)).xy);
+        image2.CameraPtr()->CamFromImg(image2.Point2D(point2D_idx2).xy);
     if (!cam_point1.has_value() || !cam_point2.has_value()) {
       score += sq_threshold;
       continue;
@@ -130,7 +128,7 @@ double ImagePairInliers::ScoreErrorEssential() {
 
       if (cheirality && not_denegerate) {
         score += r2;
-        image_pair.inliers.push_back(k);
+        image_pair.inlier_matches.emplace_back(point2D_idx1, point2D_idx2);
       } else {
         score += sq_threshold;
       }
@@ -142,9 +140,7 @@ double ImagePairInliers::ScoreErrorEssential() {
 }
 
 double ImagePairInliers::ScoreErrorFundamental() {
-  if (image_pair.inliers.size() > 0) {
-    image_pair.inliers.clear();
-  }
+  image_pair.inlier_matches.clear();
 
   Eigen::Vector3d epipole = image_pair.F.row(0).cross(image_pair.F.row(2));
 
@@ -172,11 +168,13 @@ double ImagePairInliers::ScoreErrorFundamental() {
 
   double score = 0.;
 
-  std::vector<int> inliers_pre;
+  std::vector<colmap::FeatureMatch> inliers_pre;
   std::vector<double> errors;
   for (size_t k = 0; k < image_pair.matches.rows(); ++k) {
-    const Eigen::Vector2d& pt1 = image1.Point2D(image_pair.matches(k, 0)).xy;
-    const Eigen::Vector2d& pt2 = image2.Point2D(image_pair.matches(k, 1)).xy;
+    const colmap::point2D_t point2D_idx1 = image_pair.matches(k, 0);
+    const colmap::point2D_t point2D_idx2 = image_pair.matches(k, 1);
+    const Eigen::Vector2d& pt1 = image1.Point2D(point2D_idx1).xy;
+    const Eigen::Vector2d& pt2 = image2.Point2D(point2D_idx2).xy;
     const double r2 = colmap::ComputeSquaredSampsonError(
         pt1.homogeneous(), pt2.homogeneous(), image_pair.F);
 
@@ -188,7 +186,7 @@ double ImagePairInliers::ScoreErrorFundamental() {
         negative_count++;
       }
 
-      inliers_pre.push_back(k);
+      inliers_pre.emplace_back(point2D_idx1, point2D_idx2);
       errors.push_back(r2);
     } else {
       score += sq_threshold;
@@ -201,12 +199,12 @@ double ImagePairInliers::ScoreErrorFundamental() {
 
   // Then, if the signum is not consistent with the cheirality, discard the
   // point
-  for (int k = 0; k < inliers_pre.size(); k++) {
+  for (size_t k = 0; k < inliers_pre.size(); k++) {
     bool cheirality = (signums[k] > 0) == is_positive;
     if (!cheirality) {
       score += sq_threshold;
     } else {
-      image_pair.inliers.push_back(inliers_pre[k]);
+      image_pair.inlier_matches.push_back(inliers_pre[k]);
       score += errors[k];
     }
   }
@@ -214,9 +212,7 @@ double ImagePairInliers::ScoreErrorFundamental() {
 }
 
 double ImagePairInliers::ScoreErrorHomography() {
-  if (image_pair.inliers.size() > 0) {
-    image_pair.inliers.clear();
-  }
+  image_pair.inlier_matches.clear();
 
   const Image& image1 = reconstruction.Image(image_id1);
   const Image& image2 = reconstruction.Image(image_id2);
@@ -225,8 +221,10 @@ double ImagePairInliers::ScoreErrorHomography() {
   double sq_threshold = thres * thres;
   double score = 0.;
   for (size_t k = 0; k < image_pair.matches.rows(); ++k) {
-    const Eigen::Vector2d& pt1 = image1.Point2D(image_pair.matches(k, 0)).xy;
-    const Eigen::Vector2d& pt2 = image2.Point2D(image_pair.matches(k, 1)).xy;
+    const colmap::point2D_t point2D_idx1 = image_pair.matches(k, 0);
+    const colmap::point2D_t point2D_idx2 = image_pair.matches(k, 1);
+    const Eigen::Vector2d& pt1 = image1.Point2D(point2D_idx1).xy;
+    const Eigen::Vector2d& pt2 = image2.Point2D(point2D_idx2).xy;
     const double r2 =
         colmap::ComputeSquaredHomographyError(pt1, pt2, image_pair.H);
 
@@ -236,7 +234,7 @@ double ImagePairInliers::ScoreErrorHomography() {
 
       if (cheirality) {
         score += r2;
-        image_pair.inliers.push_back(k);
+        image_pair.inlier_matches.emplace_back(point2D_idx1, point2D_idx2);
       } else {
         score += sq_threshold;
       }
@@ -252,8 +250,8 @@ void ImagePairsInlierCount(ViewGraph& view_graph,
                            const InlierThresholdOptions& options,
                            bool clean_inliers) {
   for (auto& [pair_id, image_pair] : view_graph.ImagePairs()) {
-    if (!clean_inliers && image_pair.inliers.size() > 0) continue;
-    image_pair.inliers.clear();
+    if (!clean_inliers && !image_pair.inlier_matches.empty()) continue;
+    image_pair.inlier_matches.clear();
 
     if (!view_graph.IsValid(pair_id)) continue;
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
