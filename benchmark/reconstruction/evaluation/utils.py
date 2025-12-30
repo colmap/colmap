@@ -593,6 +593,15 @@ def get_error_thresholds(args: argparse.Namespace) -> list[float]:
         raise ValueError(f"Invalid error type: {args.error_type}")
 
 
+def get_scores(error_type: str, metrics: SceneMetrics) -> np.ndarray:
+    if error_type.endswith("auc"):
+        return metrics.aucs
+    elif error_type.endswith("recall"):
+        return metrics.recalls
+    else:
+        raise ValueError(f"Invalid error type: {error_type}")
+
+
 def compute_rel_errors(
     sparse_gt: pycolmap.Reconstruction,
     sparse: pycolmap.Reconstruction,
@@ -828,7 +837,6 @@ def create_result_table(
 
     is_auc = first_metrics.error_type.endswith("auc")
     is_relative = first_metrics.error_type.startswith("relative")
-
     score_type = "AUC" if is_auc else "Recall"
     score_unit = "deg" if is_relative else "cm"
     label = f"{score_type} @ X {score_unit} (%)"
@@ -836,7 +844,6 @@ def create_result_table(
         thresholds = first_metrics.error_thresholds
     else:
         thresholds = 100 * first_metrics.error_thresholds  # cm
-    get_scores = lambda metrics: metrics.aucs if is_auc else metrics.recalls
 
     column = "scenes"
     size_scenes = max(
@@ -864,7 +871,7 @@ def create_result_table(
         for category, scene_metrics in category_metrics.items():
             text.append(f"\n{dataset + '=' + category:=^{size_sep}}")
             for scene, metrics in scene_metrics.items():
-                scores = get_scores(metrics)
+                scores = get_scores(first_metrics.error_type, metrics)
                 assert len(scores) == len(thresholds)
                 row = ""
                 if scene == "__avg__":
