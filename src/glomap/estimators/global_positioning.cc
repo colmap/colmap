@@ -7,6 +7,8 @@
 
 #include "glomap/estimators/cost_functions.h"
 
+#include <algorithm>
+
 namespace glomap {
 namespace {
 
@@ -96,7 +98,13 @@ void GlobalPositioner::SetupProblem(
 
   // Clear temporary storage from previous runs.
   frame_centers_.clear();
+  frame_id_to_idx_.clear();
   cams_in_rig_.clear();
+  sensor_id_to_idx_.clear();
+  rig_scales_.clear();
+  rig_id_to_idx_.clear();
+  point_positions_.clear();
+  point3D_id_to_idx_.clear();
 
   // Allocate enough memory for the scales. One for each residual.
   // Due to possibly invalid image pairs or tracks, the actual number of
@@ -109,8 +117,16 @@ void GlobalPositioner::SetupProblem(
   scales_.reserve(view_graph.NumImagePairs() + total_observations);
 
   // Initialize the rig scales to be 1.0.
+  // Sort rig_ids for deterministic vector ordering.
+  std::vector<rig_t> rig_ids;
+  rig_ids.reserve(reconstruction.NumRigs());
   for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
-    rig_scales_.emplace(rig_id, 1.0);
+    rig_ids.push_back(rig_id);
+  }
+  std::sort(rig_ids.begin(), rig_ids.end());
+  for (const rig_t rig_id : rig_ids) {
+    rig_id_to_idx_[rig_id] = rig_scales_.size();
+    rig_scales_.push_back(1.0);
   }
 }
 
@@ -136,14 +152,22 @@ void GlobalPositioner::InitializeRandomPositions(
 
   // Initialize frame centers in temporary storage.
   // The reconstruction poses remain in cam_from_world convention.
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    if (constrained_positions.find(frame_id) == constrained_positions.end()) {
-      continue;
+  // Sort frame_ids for deterministic vector ordering.
+  std::vector<frame_t> frame_ids;
+  frame_ids.reserve(constrained_positions.size());
+  for (const frame_t frame_id : constrained_positions) {
+    if (reconstruction.ExistsFrame(frame_id)) {
+      frame_ids.push_back(frame_id);
     }
+  }
+  std::sort(frame_ids.begin(), frame_ids.end());
+  for (const frame_t frame_id : frame_ids) {
+    const auto& frame = reconstruction.Frame(frame_id);
+    frame_id_to_idx_[frame_id] = frame_centers_.size();
     if (options_.generate_random_positions && options_.optimize_positions) {
-      frame_centers_[frame_id] = 100.0 * RandVector3d(-1, 1);
+      frame_centers_.push_back(100.0 * RandVector3d(-1, 1));
     } else {
-      frame_centers_[frame_id] = frame.RigFromWorld().TgtOriginInSrc();
+      frame_centers_.push_back(frame.RigFromWorld().TgtOriginInSrc());
     }
   }
 
@@ -171,6 +195,12 @@ void GlobalPositioner::AddCameraToCameraConstraints(
     Image& image1 = reconstruction.Image(image_id1);
     Image& image2 = reconstruction.Image(image_id2);
 
+    auto it1 = frame_id_to_idx_.find(image1.FrameId());
+    auto it2 = frame_id_to_idx_.find(image2.FrameId());
+    if (it1 == frame_id_to_idx_.end() || it2 == frame_id_to_idx_.end()) {
+      continue;
+    }
+
     CHECK_GE(scales_.capacity(), scales_.size())
         << "Not enough capacity was reserved for the scales.";
     double& scale = scales_.emplace_back(1);
@@ -182,8 +212,8 @@ void GlobalPositioner::AddCameraToCameraConstraints(
         BATAPairwiseDirectionCostFunctor::Create(translation);
     problem_->AddResidualBlock(cost_function,
                                loss_function_.get(),
-                               frame_centers_[image1.FrameId()].data(),
-                               frame_centers_[image2.FrameId()].data(),
+                               frame_centers_[it1->second].data(),
+                               frame_centers_[it2->second].data(),
                                &scale);
 
     problem_->SetParameterLowerBound(&scale, 0, 1e-5);
@@ -235,24 +265,43 @@ void GlobalPositioner::AddPointToCameraConstraints(
     loss_function_ptcam_calibrated_ = loss_function_;
   }
 
+  // Sort point3D_ids for deterministic iteration order and memory layout.
+  // This ensures cams_in_rig_ is populated in deterministic order and
+  // point_positions_ has deterministic pointer addresses.
+  std::vector<point3D_t> point3D_ids;
+  point3D_ids.reserve(reconstruction.NumPoints3D());
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     if (point3D.track.Length() < options_.min_num_view_per_track) continue;
+    point3D_ids.push_back(point3D_id);
+  }
+  std::sort(point3D_ids.begin(), point3D_ids.end());
 
+  // Pre-populate point_positions_ in sorted order for deterministic memory
+  // layout.
+  const bool random_initialization =
+      options_.optimize_points && options_.generate_random_points;
+  point_positions_.reserve(point3D_ids.size());
+  for (const point3D_t point3D_id : point3D_ids) {
+    point3D_id_to_idx_[point3D_id] = point_positions_.size();
+    if (random_initialization) {
+      point_positions_.push_back(100.0 * RandVector3d(-1, 1));
+    } else {
+      point_positions_.push_back(reconstruction.Point3D(point3D_id).xyz);
+    }
+  }
+
+  for (const point3D_t point3D_id : point3D_ids) {
     AddPoint3DToProblem(point3D_id, reconstruction);
   }
 }
 
 void GlobalPositioner::AddPoint3DToProblem(
     point3D_t point3D_id, colmap::Reconstruction& reconstruction) {
-  const bool random_initialization =
-      options_.optimize_points && options_.generate_random_points;
+  const Point3D& point3D = reconstruction.Point3D(point3D_id);
 
-  Point3D& point3D = reconstruction.Point3D(point3D_id);
-
-  // Only set the points to be random if they are needed to be optimized
-  if (random_initialization) {
-    point3D.xyz = 100.0 * RandVector3d(-1, 1);
-  }
+  // Get the point position from our vector-based storage.
+  const size_t point_idx = point3D_id_to_idx_.at(point3D_id);
+  Eigen::Vector3d& point_position = point_positions_[point_idx];
 
   // For each view in the track add the point to camera correspondences.
   for (const auto& observation : point3D.track.Elements()) {
@@ -260,6 +309,9 @@ void GlobalPositioner::AddPoint3DToProblem(
 
     Image& image = reconstruction.Image(observation.image_id);
     if (!image.HasPose()) continue;
+
+    auto frame_it = frame_id_to_idx_.find(image.FrameId());
+    if (frame_it == frame_id_to_idx_.end()) continue;
 
     const std::optional<Eigen::Vector2d> cam_point =
         image.CameraPtr()->CamFromImg(
@@ -280,9 +332,11 @@ void GlobalPositioner::AddPoint3DToProblem(
         << "Not enough capacity was reserved for the scales.";
     double& scale = scales_.emplace_back(1);
 
+    const bool random_initialization =
+        options_.optimize_points && options_.generate_random_points;
     if (!options_.generate_scales && random_initialization) {
       const Eigen::Vector3d cam_from_point3D_translation =
-          point3D.xyz - frame_centers_[image.FrameId()];
+          point_position - frame_centers_[frame_it->second];
       scale = std::max(1e-5,
                        cam_from_point3D_dir.dot(cam_from_point3D_translation) /
                            cam_from_point3D_translation.squaredNorm());
@@ -304,8 +358,8 @@ void GlobalPositioner::AddPoint3DToProblem(
 
       problem_->AddResidualBlock(cost_function,
                                  loss_function,
-                                 frame_centers_[image.FrameId()].data(),
-                                 point3D.xyz.data(),
+                                 frame_centers_[frame_it->second].data(),
+                                 point_position.data(),
                                  &scale);
     } else {
       // If the image is part of a camera rig, use the RigBATA error.
@@ -324,17 +378,20 @@ void GlobalPositioner::AddPoint3DToProblem(
 
         problem_->AddResidualBlock(cost_function,
                                    loss_function,
-                                   point3D.xyz.data(),
-                                   frame_centers_[image.FrameId()].data(),
+                                   point_position.data(),
+                                   frame_centers_[frame_it->second].data(),
                                    &scale,
-                                   &rig_scales_[rig_id]);
+                                   &rig_scales_[rig_id_to_idx_.at(rig_id)]);
       } else {
         // If the cam_from_rig contains nan values, it needs to be re-estimated.
         // Initialize cams_in_rig_ if not already done.
         const sensor_t sensor_id = image.CameraPtr()->SensorId();
-        if (cams_in_rig_.find(sensor_id) == cams_in_rig_.end()) {
+        auto sensor_it = sensor_id_to_idx_.find(sensor_id);
+        if (sensor_it == sensor_id_to_idx_.end()) {
           // Will be initialized to random values in ParameterizeVariables().
-          cams_in_rig_[sensor_id] = Eigen::Vector3d::Zero();
+          sensor_id_to_idx_[sensor_id] = cams_in_rig_.size();
+          cams_in_rig_.push_back(Eigen::Vector3d::Zero());
+          sensor_it = sensor_id_to_idx_.find(sensor_id);
         }
 
         ceres::CostFunction* cost_function =
@@ -344,9 +401,9 @@ void GlobalPositioner::AddPoint3DToProblem(
 
         problem_->AddResidualBlock(cost_function,
                                    loss_function,
-                                   point3D.xyz.data(),
-                                   frame_centers_[image.FrameId()].data(),
-                                   cams_in_rig_[sensor_id].data(),
+                                   point_position.data(),
+                                   frame_centers_[frame_it->second].data(),
+                                   cams_in_rig_[sensor_it->second].data(),
                                    &scale);
       }
     }
@@ -363,30 +420,34 @@ void GlobalPositioner::AddCamerasAndPointsToParameterGroups(
   ceres::ParameterBlockOrdering* parameter_ordering =
       options_.solver_options.linear_solver_ordering.get();
 
-  // Add scale parameters to group 0 (large and independent)
+  // Add scale parameters to group 0 (large and independent).
+  // scales_ is a vector with deterministic order from residual block addition.
   for (double& scale : scales_) {
     parameter_ordering->AddElementToGroup(&scale, 0);
   }
 
   // Add point parameters to group 1.
+  // point_positions_ is stored in a vector with deterministic memory layout.
   int group_id = 1;
-  if (reconstruction.NumPoints3D() > 0) {
-    for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
-      if (problem_->HasParameterBlock(point3D.xyz.data()))
-        parameter_ordering->AddElementToGroup(
-            reconstruction.Point3D(point3D_id).xyz.data(), group_id);
+  if (!point_positions_.empty()) {
+    for (Eigen::Vector3d& position : point_positions_) {
+      if (problem_->HasParameterBlock(position.data())) {
+        parameter_ordering->AddElementToGroup(position.data(), group_id);
+      }
     }
     group_id++;
   }
 
-  for (auto& [frame_id, center] : frame_centers_) {
+  // frame_centers_ is stored in a vector with deterministic memory layout.
+  // Iterate directly - the order in the vector is the order we add to groups.
+  for (Eigen::Vector3d& center : frame_centers_) {
     if (problem_->HasParameterBlock(center.data())) {
       parameter_ordering->AddElementToGroup(center.data(), group_id);
     }
   }
 
-  // Add the cam_in_rig to be estimated into the parameter group
-  for (auto& [sensor_id, center] : cams_in_rig_) {
+  // cams_in_rig_ is stored in a vector with deterministic memory layout.
+  for (Eigen::Vector3d& center : cams_in_rig_) {
     if (problem_->HasParameterBlock(center.data())) {
       parameter_ordering->AddElementToGroup(center.data(), group_id);
     }
@@ -394,10 +455,11 @@ void GlobalPositioner::AddCamerasAndPointsToParameterGroups(
 
   group_id++;
 
-  // Also add the scales to the group
-  for (auto& [rig_id, scale] : rig_scales_) {
-    if (problem_->HasParameterBlock(&scale))
+  // rig_scales_ is stored in a vector with deterministic memory layout.
+  for (double& scale : rig_scales_) {
+    if (problem_->HasParameterBlock(&scale)) {
       parameter_ordering->AddElementToGroup(&scale, group_id);
+    }
   }
 }
 
@@ -408,7 +470,7 @@ void GlobalPositioner::ParameterizeVariables(
 
   // Initialize cams_in_rig_ with random values if optimizing positions.
   if (options_.optimize_positions) {
-    for (auto& [sensor_id, center] : cams_in_rig_) {
+    for (Eigen::Vector3d& center : cams_in_rig_) {
       if (problem_->HasParameterBlock(center.data())) {
         center = RandVector3d(-1, 1);
       }
@@ -417,19 +479,18 @@ void GlobalPositioner::ParameterizeVariables(
 
   // If not optimizing positions, set frame centers to be constant.
   if (!options_.optimize_positions) {
-    for (auto& [frame_id, center] : frame_centers_) {
+    for (Eigen::Vector3d& center : frame_centers_) {
       if (problem_->HasParameterBlock(center.data())) {
         problem_->SetParameterBlockConstant(center.data());
       }
     }
   }
 
-  // If do not optimize the rotations, set the camera rotations to be constant
+  // If not optimizing points, set point positions to be constant.
   if (!options_.optimize_points) {
-    for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
-      if (problem_->HasParameterBlock(point3D.xyz.data())) {
-        problem_->SetParameterBlockConstant(
-            reconstruction.Point3D(point3D_id).xyz.data());
+    for (Eigen::Vector3d& position : point_positions_) {
+      if (problem_->HasParameterBlock(position.data())) {
+        problem_->SetParameterBlockConstant(position.data());
       }
     }
   }
@@ -452,7 +513,7 @@ void GlobalPositioner::ParameterizeVariables(
   // Set the rig scales to be constant
   // TODO: add a flag to allow the scales to be optimized (if they are not in
   // metric scale)
-  for (auto& [rig_id, scale] : rig_scales_) {
+  for (double& scale : rig_scales_) {
     if (problem_->HasParameterBlock(&scale)) {
       problem_->SetParameterBlockConstant(&scale);
     }
@@ -527,15 +588,17 @@ void GlobalPositioner::ConvertBackResults(
     colmap::Reconstruction& reconstruction) {
   // Convert optimized frame centers back to rig_from_world translations
   // and apply the rig scales.
-  for (const auto& [frame_id, center] : frame_centers_) {
+  for (const auto& [frame_id, idx] : frame_id_to_idx_) {
+    const Eigen::Vector3d& center = frame_centers_[idx];
     Rigid3d& rig_from_world = reconstruction.Frame(frame_id).RigFromWorld();
     rig_from_world.translation = rig_from_world.rotation * -center;
-    rig_from_world.translation *=
-        rig_scales_[reconstruction.Frame(frame_id).RigId()];
+    const rig_t rig_id = reconstruction.Frame(frame_id).RigId();
+    rig_from_world.translation *= rig_scales_[rig_id_to_idx_.at(rig_id)];
   }
 
   // Convert optimized cam_in_rig back to sensor_from_rig translations.
-  for (const auto& [sensor_id, center] : cams_in_rig_) {
+  for (const auto& [sensor_id, idx] : sensor_id_to_idx_) {
+    const Eigen::Vector3d& center = cams_in_rig_[idx];
     // Find the rig containing this sensor.
     for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
       if (!rig.HasSensor(sensor_id)) {
@@ -552,11 +615,16 @@ void GlobalPositioner::ConvertBackResults(
   for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
     for (const auto& [sensor_id, cam_from_rig] : rig.NonRefSensors()) {
       if (cam_from_rig.has_value() &&
-          cams_in_rig_.find(sensor_id) == cams_in_rig_.end()) {
+          sensor_id_to_idx_.find(sensor_id) == sensor_id_to_idx_.end()) {
         reconstruction.Rig(rig_id).SensorFromRig(sensor_id).translation *=
-            rig_scales_[rig_id];
+            rig_scales_[rig_id_to_idx_.at(rig_id)];
       }
     }
+  }
+
+  // Copy optimized point positions back to reconstruction.
+  for (const auto& [point3D_id, idx] : point3D_id_to_idx_) {
+    reconstruction.Point3D(point3D_id).xyz = point_positions_[idx];
   }
 }
 

@@ -126,16 +126,28 @@ class GlobalPositioner {
   // Auxiliary scale variables.
   std::vector<double> scales_;
 
-  std::unordered_map<rig_t, double> rig_scales_;
+  // Use vectors for deterministic memory layout (required for Ceres
+  // ParameterBlockOrdering determinism). The unordered_maps provide O(1)
+  // lookup from ID to vector index.
+  std::vector<double> rig_scales_;
+  std::unordered_map<rig_t, size_t> rig_id_to_idx_;
 
   // Temporary storage for frame centers (world coordinates) during
   // optimization. This allows keeping RigFromWorld().translation in
   // cam_from_world convention.
-  std::unordered_map<frame_t, Eigen::Vector3d> frame_centers_;
+  std::vector<Eigen::Vector3d> frame_centers_;
+  std::unordered_map<frame_t, size_t> frame_id_to_idx_;
 
   // Temporary storage for camera-in-rig positions when cam_from_rig is unknown
   // and needs to be estimated.
-  std::unordered_map<sensor_t, Eigen::Vector3d> cams_in_rig_;
+  std::vector<Eigen::Vector3d> cams_in_rig_;
+  std::unordered_map<sensor_t, size_t> sensor_id_to_idx_;
+
+  // Temporary storage for point3D positions during optimization.
+  // Required for deterministic memory layout since reconstruction.Points3D()
+  // is an unordered_map with non-deterministic pointer addresses.
+  std::vector<Eigen::Vector3d> point_positions_;
+  std::unordered_map<point3D_t, size_t> point3D_id_to_idx_;
 };
 
 }  // namespace glomap
