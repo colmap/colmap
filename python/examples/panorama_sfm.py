@@ -9,7 +9,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
-from typing import Annotated, Literal, Never
+from typing import Annotated, Literal
+from typing_extensions import Never
 
 import cv2
 import numpy as np
@@ -23,6 +24,7 @@ import pycolmap
 from pycolmap import logging
 
 NDArrayNx2 = Annotated[npt.NDArray[np.float64], Literal[Never, 2]]
+NDArray3x1 = Annotated[npt.NDArray[np.float64], Literal[3, 1]]
 
 
 @dataclass
@@ -122,6 +124,7 @@ def create_pano_rig_config(
 ) -> pycolmap.RigConfig:
     """Create a RigConfig for the given virtual rotations."""
     rig_cameras = []
+    zero_translation: NDArray3x1 = np.zeros((3, 1), dtype=np.float64)
     for idx, cam_from_pano_rotation in enumerate(cams_from_pano_rotation):
         if idx == ref_idx:
             cam_from_rig = None
@@ -131,7 +134,7 @@ def create_pano_rig_config(
             )
             cam_from_rig = pycolmap.Rigid3d(
                 pycolmap.Rotation3d(cam_from_ref_rotation),
-                np.zeros((3,), dtype=np.float64),
+                zero_translation,
             )
         rig_cameras.append(
             pycolmap.RigConfigCamera(
