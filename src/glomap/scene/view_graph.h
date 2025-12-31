@@ -27,7 +27,8 @@ class ViewGraph {
   inline void Clear();
 
   // Read image pairs from the database.
-  void ReadDatabase(const colmap::Database& database);
+  void ReadDatabase(const colmap::Database& database,
+                    bool allow_duplicate = false);
 
   // Image pair operations.
   inline struct ImagePair& AddImagePair(image_t image_id1,

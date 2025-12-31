@@ -5,18 +5,22 @@
 
 namespace glomap {
 
-void ViewGraph::ReadDatabase(const colmap::Database& database) {
-  Clear();
-
+void ViewGraph::ReadDatabase(const colmap::Database& database,
+                             bool allow_duplicate) {
   auto all_matches = database.ReadAllMatches();
   size_t invalid_count = 0;
 
   for (auto& [pair_id, feature_matches] : all_matches) {
     auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 
-    THROW_CHECK(!HasImagePair(image_id1, image_id2))
-        << "Duplicate image pair in database: " << image_id1 << ", "
-        << image_id2;
+    const bool duplicate = HasImagePair(image_id1, image_id2);
+    if (duplicate) {
+      THROW_CHECK(allow_duplicate)
+          << "Duplicate image pair in database: " << image_id1 << ", "
+          << image_id2;
+      LOG(WARNING) << "Duplicate image pair in database: " << image_id1 << ", "
+                   << image_id2;
+    }
 
     colmap::TwoViewGeometry two_view =
         database.ReadTwoViewGeometry(image_id1, image_id2);
@@ -31,7 +35,11 @@ void ViewGraph::ReadDatabase(const colmap::Database& database) {
         image_pair.config == colmap::TwoViewGeometry::WATERMARK ||
         image_pair.config == colmap::TwoViewGeometry::MULTIPLE) {
       invalid_count++;
-      AddImagePair(image_id1, image_id2, std::move(image_pair));
+      if (duplicate) {
+        UpdateImagePair(image_id1, image_id2, std::move(image_pair));
+      } else {
+        AddImagePair(image_id1, image_id2, std::move(image_pair));
+      }
       SetInvalidImagePair(colmap::ImagePairToPairId(image_id1, image_id2));
       continue;
     }
@@ -51,7 +59,11 @@ void ViewGraph::ReadDatabase(const colmap::Database& database) {
     }
     image_pair.matches.conservativeResize(count, 2);
 
-    AddImagePair(image_id1, image_id2, std::move(image_pair));
+    if (duplicate) {
+      UpdateImagePair(image_id1, image_id2, std::move(image_pair));
+    } else {
+      AddImagePair(image_id1, image_id2, std::move(image_pair));
+    }
   }
   LOG(INFO) << "Loaded " << all_matches.size() << " image pairs, "
             << invalid_count << " invalid";
