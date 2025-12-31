@@ -25,6 +25,7 @@ void GlobalMapper::BeginReconstruction(
   reconstruction_ = reconstruction;
   view_graph_ = std::make_shared<class ViewGraph>();
 
+  // TODO: Make min_num_matches an option in the global pipeline.
   constexpr int kMinNumMatches = 15;
   database_cache_ = colmap::DatabaseCache::Create(
       *database_,
