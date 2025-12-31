@@ -29,40 +29,39 @@ void ViewGraph::ReadDatabase(const colmap::Database& database,
     ImagePair image_pair;
     static_cast<colmap::TwoViewGeometry&>(image_pair) = std::move(two_view);
 
-    // If the image is marked as invalid or watermark, then skip
-    if (image_pair.config == colmap::TwoViewGeometry::UNDEFINED ||
+    const bool is_invalid =
+        image_pair.config == colmap::TwoViewGeometry::UNDEFINED ||
         image_pair.config == colmap::TwoViewGeometry::DEGENERATE ||
         image_pair.config == colmap::TwoViewGeometry::WATERMARK ||
-        image_pair.config == colmap::TwoViewGeometry::MULTIPLE) {
+        image_pair.config == colmap::TwoViewGeometry::MULTIPLE;
+
+    if (is_invalid) {
       invalid_count++;
-      if (duplicate) {
-        UpdateImagePair(image_id1, image_id2, std::move(image_pair));
-      } else {
-        AddImagePair(image_id1, image_id2, std::move(image_pair));
-      }
-      SetInvalidImagePair(colmap::ImagePairToPairId(image_id1, image_id2));
-      continue;
-    }
+    } else {
+      // Collect the matches
+      image_pair.matches = Eigen::MatrixXi(feature_matches.size(), 2);
 
-    // Collect the matches
-    image_pair.matches = Eigen::MatrixXi(feature_matches.size(), 2);
-
-    size_t count = 0;
-    for (int i = 0; i < feature_matches.size(); i++) {
-      colmap::point2D_t point2D_idx1 = feature_matches[i].point2D_idx1;
-      colmap::point2D_t point2D_idx2 = feature_matches[i].point2D_idx2;
-      if (point2D_idx1 != colmap::kInvalidPoint2DIdx &&
-          point2D_idx2 != colmap::kInvalidPoint2DIdx) {
-        image_pair.matches.row(count) << point2D_idx1, point2D_idx2;
-        count++;
+      size_t count = 0;
+      for (int i = 0; i < feature_matches.size(); i++) {
+        colmap::point2D_t point2D_idx1 = feature_matches[i].point2D_idx1;
+        colmap::point2D_t point2D_idx2 = feature_matches[i].point2D_idx2;
+        if (point2D_idx1 != colmap::kInvalidPoint2DIdx &&
+            point2D_idx2 != colmap::kInvalidPoint2DIdx) {
+          image_pair.matches.row(count) << point2D_idx1, point2D_idx2;
+          count++;
+        }
       }
+      image_pair.matches.conservativeResize(count, 2);
     }
-    image_pair.matches.conservativeResize(count, 2);
 
     if (duplicate) {
       UpdateImagePair(image_id1, image_id2, std::move(image_pair));
     } else {
       AddImagePair(image_id1, image_id2, std::move(image_pair));
+    }
+
+    if (is_invalid) {
+      SetInvalidImagePair(colmap::ImagePairToPairId(image_id1, image_id2));
     }
   }
   LOG(INFO) << "Loaded " << all_matches.size() << " image pairs, "
