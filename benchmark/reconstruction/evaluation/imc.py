@@ -35,23 +35,6 @@ from .utils import Dataset, SceneInfo
 
 
 class _DatasetIMC(Dataset):
-    def __init__(
-        self,
-        data_path: Path,
-        categories: list[str],
-        scenes: list[Path],
-        run_path: Path,
-        run_name: str,
-        year: int,
-    ):
-        super().__init__()
-        self.data_path = data_path
-        self.categories = categories
-        self.scenes = scenes
-        self.run_path = run_path
-        self.run_name = run_name
-        self.year = year
-
     @property
     def position_accuracy_gt(self):
         return 0.02
@@ -170,8 +153,8 @@ class DatasetIMC2023(_DatasetIMC):
             scenes=scenes,
             run_path=run_path,
             run_name=run_name,
-            year=2023,
         )
+        self.year = 2023
 
 
 class DatasetIMC2024(_DatasetIMC):
@@ -189,5 +172,5 @@ class DatasetIMC2024(_DatasetIMC):
             scenes=scenes,
             run_path=run_path,
             run_name=run_name,
-            year=2024,
         )
+        self.year = 2024

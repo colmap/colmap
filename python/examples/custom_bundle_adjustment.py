@@ -8,24 +8,25 @@ import collections
 import copy
 
 import pycolmap
-from pycolmap import logging
+from pycolmap import logging, pyceres
 
 
 def solve_bundle_adjustment(
     reconstruction: pycolmap.Reconstruction,
     ba_options: pycolmap.BundleAdjustmentOptions,
     ba_config: pycolmap.BundleAdjustmentConfig,
-) -> pycolmap.pyceres.SolverSummary:
+) -> pyceres.SolverSummary:
     bundle_adjuster = pycolmap.create_default_bundle_adjuster(
         ba_options, ba_config, reconstruction
     )
     summary = bundle_adjuster.solve()
     # Alternatively, you can customize the existing problem or options as:
+    # import pyceres  # The minimal bindings in pycolmap aren't sufficient.
     # solver_options = ba_options.create_solver_options(
     #     ba_config, bundle_adjuster.problem
     # )
-    # summary = pycolmap.pyceres.SolverSummary()
-    # pycolmap.pyceres.solve(solver_options, bundle_adjuster.problem, summary)
+    # summary = pyceres.SolverSummary()
+    # pyceres.solve(solver_options, bundle_adjuster.problem, summary)
     return summary
 
 
@@ -141,18 +142,16 @@ def adjust_local_bundle(
         ba_config.fix_gauge(pycolmap.BundleAdjustmentGauge.THREE_POINTS)
 
         # Insert the images of all local frames.
-        frame_ids = set()
-        frame_ids.add(reconstruction.image(image_id).frame_id)
-        for data_id in reconstruction.image(image_id).frame.data_ids:
-            if data_id.sensor_id.type != pycolmap.SensorType.CAMERA:
-                continue
+        image = reconstruction.image(image_id)
+        frame_ids = {image.frame_id}
+        assert image.frame is not None
+        for data_id in image.frame.image_ids:
             ba_config.add_image(data_id.id)
         for local_image_id in local_bundle:
             local_image = reconstruction.image(local_image_id)
             frame_ids.add(local_image.frame_id)
-            for data_id in local_image.frame.data_ids:
-                if data_id.sensor_id.type != pycolmap.SensorType.CAMERA:
-                    continue
+            assert local_image.frame is not None
+            for data_id in local_image.frame.image_ids:
                 ba_config.add_image(data_id.id)
 
         # Fix the existing images, if options specified
@@ -162,7 +161,7 @@ def adjust_local_bundle(
                     ba_config.set_constant_rig_from_world_pose(frame_id)
 
         # Fix rig poses, if not all frames within the local bundle.
-        num_frames_per_rig = collections.defaultdict(int)
+        num_frames_per_rig: dict[int, int] = collections.defaultdict(int)
         for frame_id in frame_ids:
             frame = reconstruction.frame(frame_id)
             num_frames_per_rig[frame.rig_id] += 1
@@ -175,7 +174,7 @@ def adjust_local_bundle(
                     ba_config.set_constant_sensor_from_rig_pose(sensor_id)
 
         # Fix camera intrinsics, if not all images within local bundle.
-        num_images_per_camera = collections.defaultdict(int)
+        num_images_per_camera: dict[int, int] = collections.defaultdict(int)
         for image_id in ba_config.images:
             image = reconstruction.images[image_id]
             num_images_per_camera[image.camera_id] += 1
@@ -279,7 +278,7 @@ def iterative_local_refinement(
         logging.verbose(
             1, f"=> Filtered observations: {report.num_filtered_observations}"
         )
-        changed = 0
+        changed = 0.0
         if report.num_adjusted_observations > 0:
             changed = (
                 report.num_merged_observations
