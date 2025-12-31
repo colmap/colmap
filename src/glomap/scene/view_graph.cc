@@ -5,8 +5,8 @@
 
 namespace glomap {
 
-void ViewGraph::ReadDatabase(const colmap::Database& database,
-                             bool allow_duplicate) {
+void ViewGraph::LoadFromDatabase(const colmap::Database& database,
+                                 bool allow_duplicate) {
   auto all_matches = database.ReadAllMatches();
   size_t invalid_count = 0;
 

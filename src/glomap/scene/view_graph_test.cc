@@ -349,7 +349,7 @@ TEST(ViewGraph, FilterByRelativeRotation) {
   EXPECT_FALSE(view_graph.IsValid(pair_id4));
 }
 
-TEST(ViewGraph, ReadDatabase) {
+TEST(ViewGraph, LoadFromDatabase) {
   const std::string test_dir = colmap::CreateTestDir();
 
   // Create two databases with overlapping image pairs.
@@ -394,16 +394,16 @@ TEST(ViewGraph, ReadDatabase) {
   ViewGraph view_graph;
 
   // First read from database1 should succeed.
-  view_graph.ReadDatabase(*database1);
+  view_graph.LoadFromDatabase(*database1);
   EXPECT_EQ(view_graph.NumImagePairs(), 2);
 
   // Second read from database2 with allow_duplicate=false should throw
   // because pair (2,3) already exists.
   EXPECT_ANY_THROW(
-      view_graph.ReadDatabase(*database2, /*allow_duplicate=*/false));
+      view_graph.LoadFromDatabase(*database2, /*allow_duplicate=*/false));
 
   // Second read from database2 with allow_duplicate=true should succeed.
-  view_graph.ReadDatabase(*database2, /*allow_duplicate=*/true);
+  view_graph.LoadFromDatabase(*database2, /*allow_duplicate=*/true);
   // Should now have 3 pairs: (1,2), (2,3), (3,4)
   EXPECT_EQ(view_graph.NumImagePairs(), 3);
 }

@@ -29,8 +29,8 @@ class ViewGraph {
   // Read image pairs from the database.
   // If allow_duplicate is false, throws on duplicate pairs. If true, logs a
   // warning and updates the existing pair.
-  void ReadDatabase(const colmap::Database& database,
-                    bool allow_duplicate = false);
+  void LoadFromDatabase(const colmap::Database& database,
+                        bool allow_duplicate = false);
 
   // Image pair operations.
   inline struct ImagePair& AddImagePair(image_t image_id1,
