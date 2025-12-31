@@ -31,14 +31,7 @@ bool GlobalPositioner::Solve(const ViewGraph& view_graph,
     LOG(ERROR) << "Number of images = " << reconstruction.NumImages();
     return false;
   }
-  if (view_graph.Empty() && options_.constraint_type !=
-                                GlobalPositioningConstraintType::ONLY_POINTS) {
-    LOG(ERROR) << "Number of image_pairs = " << view_graph.NumImagePairs();
-    return false;
-  }
-  if (reconstruction.NumPoints3D() == 0 &&
-      options_.constraint_type !=
-          GlobalPositioningConstraintType::ONLY_CAMERAS) {
+  if (reconstruction.NumPoints3D() == 0) {
     LOG(ERROR) << "Number of tracks = " << reconstruction.NumPoints3D();
     return false;
   }
@@ -52,19 +45,8 @@ bool GlobalPositioner::Solve(const ViewGraph& view_graph,
   // Also, convert the camera pose translation to be the camera center.
   InitializeRandomPositions(view_graph, reconstruction);
 
-  // Add the camera to camera constraints to the problem.
-  // TODO: support the relative constraints with trivial frames to a non trivial
-  // frame
-  if (options_.constraint_type !=
-      GlobalPositioningConstraintType::ONLY_POINTS) {
-    AddCameraToCameraConstraints(view_graph, reconstruction);
-  }
-
   // Add the point to camera constraints to the problem.
-  if (options_.constraint_type !=
-      GlobalPositioningConstraintType::ONLY_CAMERAS) {
-    AddPointToCameraConstraints(reconstruction);
-  }
+  AddPointToCameraConstraints(reconstruction);
 
   if (options_.use_parameter_block_ordering) {
     AddCamerasAndPointsToParameterGroups(reconstruction);
@@ -104,14 +86,14 @@ void GlobalPositioner::SetupProblem(
   cams_in_rig_.clear();
 
   // Allocate enough memory for the scales. One for each residual.
-  // Due to possibly invalid image pairs or tracks, the actual number of
-  // residuals may be smaller.
+  // Due to possibly invalid tracks, the actual number of residuals may be
+  // smaller.
   scales_.clear();
   size_t total_observations = 0;
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     total_observations += point3D.track.Length();
   }
-  scales_.reserve(view_graph.NumImagePairs() + total_observations);
+  scales_.reserve(total_observations);
 
   // Initialize the rig scales to be 1.0.
   for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
@@ -155,90 +137,16 @@ void GlobalPositioner::InitializeRandomPositions(
   VLOG(2) << "Constrained positions: " << constrained_positions.size();
 }
 
-void GlobalPositioner::AddCameraToCameraConstraints(
-    const ViewGraph& view_graph, colmap::Reconstruction& reconstruction) {
-  // For cam to cam constraint, only support the trivial frames now
-  for (const auto& [image_id, image] : reconstruction.Images()) {
-    if (!image.HasPose()) continue;
-    if (!image.IsRefInFrame()) {
-      LOG(ERROR) << "Now, only trivial frames are supported for the camera to "
-                    "camera constraints";
-    }
-  }
-
-  for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
-    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-    if (!reconstruction.ExistsImage(image_id1) ||
-        !reconstruction.ExistsImage(image_id2)) {
-      continue;
-    }
-
-    Image& image1 = reconstruction.Image(image_id1);
-    Image& image2 = reconstruction.Image(image_id2);
-
-    CHECK_GE(scales_.capacity(), scales_.size())
-        << "Not enough capacity was reserved for the scales.";
-    double& scale = scales_.emplace_back(1);
-
-    const Eigen::Vector3d translation =
-        image2.CamFromWorld().rotation.inverse() *
-        -image_pair.cam2_from_cam1.translation;
-    ceres::CostFunction* cost_function =
-        BATAPairwiseDirectionCostFunctor::Create(translation);
-    problem_->AddResidualBlock(cost_function,
-                               loss_function_.get(),
-                               frame_centers_[image1.FrameId()].data(),
-                               frame_centers_[image2.FrameId()].data(),
-                               &scale);
-
-    problem_->SetParameterLowerBound(&scale, 0, 1e-5);
-  }
-
-  VLOG(2) << problem_->NumResidualBlocks()
-          << " camera to camera constraints were added to the position "
-             "estimation problem.";
-}
-
 void GlobalPositioner::AddPointToCameraConstraints(
     colmap::Reconstruction& reconstruction) {
-  // The number of camera-to-camera constraints coming from the relative poses
-
-  const size_t num_cam_to_cam = problem_->NumResidualBlocks();
-  // Find the tracks that are relevant to the current set of cameras
-  const size_t num_pt_to_cam = reconstruction.NumPoints3D();
-
-  VLOG(2) << num_pt_to_cam
-          << " point to camera constriants were added to the position "
+  VLOG(2) << reconstruction.NumPoints3D()
+          << " point to camera constraints were added to the position "
              "estimation problem.";
 
-  if (num_pt_to_cam == 0) return;
-
-  double weight_scale_pt = 1.0;
-  // Set the relative weight of the point to camera constraints based on
-  // the number of camera to camera constraints.
-  if (num_cam_to_cam > 0 &&
-      options_.constraint_type ==
-          GlobalPositioningConstraintType::POINTS_AND_CAMERAS_BALANCED) {
-    weight_scale_pt = options_.constraint_reweight_scale *
-                      static_cast<double>(num_cam_to_cam) /
-                      static_cast<double>(num_pt_to_cam);
-  }
-  VLOG(2) << "Point to camera weight scaled: " << weight_scale_pt;
-
-  if (loss_function_ptcam_uncalibrated_ == nullptr) {
-    loss_function_ptcam_uncalibrated_ =
-        std::make_shared<ceres::ScaledLoss>(loss_function_.get(),
-                                            0.5 * weight_scale_pt,
-                                            ceres::DO_NOT_TAKE_OWNERSHIP);
-  }
-
-  if (options_.constraint_type ==
-      GlobalPositioningConstraintType::POINTS_AND_CAMERAS_BALANCED) {
-    loss_function_ptcam_calibrated_ = std::make_shared<ceres::ScaledLoss>(
-        loss_function_.get(), weight_scale_pt, ceres::DO_NOT_TAKE_OWNERSHIP);
-  } else {
-    loss_function_ptcam_calibrated_ = loss_function_;
-  }
+  // Down-weight uncalibrated cameras.
+  loss_function_ptcam_uncalibrated_ = std::make_shared<ceres::ScaledLoss>(
+      loss_function_.get(), 0.5, ceres::DO_NOT_TAKE_OWNERSHIP);
+  loss_function_ptcam_calibrated_ = loss_function_;
 
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     if (point3D.track.Length() < options_.min_num_view_per_track) continue;
