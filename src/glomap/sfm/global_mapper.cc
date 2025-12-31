@@ -25,7 +25,14 @@ void GlobalMapper::BeginReconstruction(
   reconstruction_ = reconstruction;
   view_graph_ = std::make_shared<class ViewGraph>();
 
-  InitializeEmptyReconstructionFromDatabase(*database_, *reconstruction_);
+  constexpr int kMinNumMatches = 15;
+  database_cache_ = colmap::DatabaseCache::Create(
+      *database_,
+      kMinNumMatches,
+      /*ignore_watermarks=*/false,
+      /*image_names=*/{});
+  reconstruction_->Load(*database_cache_);
+
   InitializeViewGraphFromDatabase(*database_, *reconstruction_, *view_graph_);
 }
 
@@ -269,20 +276,12 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
     const BundleAdjusterOptions& ba_options,
     double max_reprojection_error,
     double min_triangulation_angle) {
-  // Create database cache for retriangulation.
-  constexpr int kMinNumMatches = 15;
-  auto database_cache =
-      colmap::DatabaseCache::Create(*database_,
-                                    kMinNumMatches,
-                                    /*ignore_watermarks=*/false,
-                                    /*image_names=*/{});
-
   // Delete all existing 3D points and re-establish 2D-3D correspondences.
   reconstruction_->DeleteAllPoints2DAndPoints3D();
   reconstruction_->TranscribeImageIdsToDatabase(*database_);
 
   // Initialize mapper.
-  colmap::IncrementalMapper mapper(database_cache);
+  colmap::IncrementalMapper mapper(database_cache_);
   mapper.BeginReconstruction(reconstruction_);
 
   // Triangulate all registered images.

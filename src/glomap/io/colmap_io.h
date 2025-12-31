@@ -8,11 +8,6 @@
 
 namespace glomap {
 
-// Initialize an empty reconstruction from the database.
-// This adds cameras, rigs, frames, and images (without 3D points).
-void InitializeEmptyReconstructionFromDatabase(
-    const colmap::Database& database, colmap::Reconstruction& reconstruction);
-
 // Initialize the view graph from the database.
 // The reconstruction must already be initialized with images.
 void InitializeViewGraphFromDatabase(
