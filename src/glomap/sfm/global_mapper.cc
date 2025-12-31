@@ -43,22 +43,6 @@ std::shared_ptr<class ViewGraph> GlobalMapper::ViewGraph() const {
   return view_graph_;
 }
 
-bool GlobalMapper::ReestimateRelativePoses(
-    const RelativePoseEstimationOptions& options,
-    const InlierThresholdOptions& inlier_thresholds) {
-  // Relative pose relies on the undistorted images
-  EstimateRelativePoses(*view_graph_, *reconstruction_, options);
-
-  // Undistort the images and filter edges by inlier number
-  ImagePairsInlierCount(
-      *view_graph_, *reconstruction_, inlier_thresholds, true);
-
-  view_graph_->FilterByNumInliers(inlier_thresholds.min_inlier_num);
-  view_graph_->FilterByInlierRatio(inlier_thresholds.min_inlier_ratio);
-
-  return true;
-}
-
 bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options,
                                      double max_rotation_error) {
   // TODO: This is a misuse of frame registration. Frames should only be
@@ -364,33 +348,23 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
               << " seconds";
   }
 
-  // 1. Run view graph calibration
+  // Run view graph calibration
   if (!opts.skip_view_graph_calibration) {
     LOG(INFO) << "----- Running view graph calibration -----";
     colmap::Timer run_timer;
     run_timer.Start();
-    if (!CalibrateViewGraph(
-            opts.view_graph_calibration, *view_graph_, *reconstruction_)) {
+    if (!CalibrateViewGraph(opts.view_graph_calibration,
+                            opts.relative_pose_estimation,
+                            opts.inlier_thresholds,
+                            *view_graph_,
+                            *reconstruction_)) {
       return false;
     }
     LOG(INFO) << "View graph calibration done in " << run_timer.ElapsedSeconds()
               << " seconds";
   }
 
-  // 2. Run relative pose re-estimation
-  if (!opts.skip_relative_pose_estimation) {
-    LOG(INFO) << "----- Running relative pose re-estimation -----";
-    colmap::Timer run_timer;
-    run_timer.Start();
-    if (!ReestimateRelativePoses(opts.relative_pose_estimation,
-                                 opts.inlier_thresholds)) {
-      return false;
-    }
-    LOG(INFO) << "Relative pose re-estimation done in "
-              << run_timer.ElapsedSeconds() << " seconds";
-  }
-
-  // 3. Run rotation averaging
+  // Run rotation averaging
   if (!opts.skip_rotation_averaging) {
     LOG(INFO) << "----- Running rotation averaging -----";
     colmap::Timer run_timer;
@@ -403,7 +377,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
               << " seconds";
   }
 
-  // 4. Track establishment and selection
+  // Track establishment and selection
   if (!opts.skip_track_establishment) {
     LOG(INFO) << "----- Running track establishment -----";
     colmap::Timer run_timer;
@@ -413,7 +387,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
               << " seconds";
   }
 
-  // 5. Global positioning
+  // Global positioning
   if (!opts.skip_global_positioning) {
     LOG(INFO) << "----- Running global positioning -----";
     colmap::Timer run_timer;
@@ -428,7 +402,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
               << " seconds";
   }
 
-  // 6. Bundle adjustment
+  // Bundle adjustment
   if (!opts.skip_bundle_adjustment) {
     LOG(INFO) << "----- Running iterative bundle adjustment -----";
     colmap::Timer run_timer;
@@ -444,7 +418,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
               << run_timer.ElapsedSeconds() << " seconds";
   }
 
-  // 7. Retriangulation
+  // Retriangulation
   if (!opts.skip_retriangulation) {
     LOG(INFO) << "----- Running iterative retriangulation and refinement -----";
     colmap::Timer run_timer;

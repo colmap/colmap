@@ -3,6 +3,8 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
 
+#include "glomap/estimators/relpose_estimation.h"
+#include "glomap/processors/image_pair_inliers.h"
 #include "glomap/scene/view_graph.h"
 
 #include <memory>
@@ -77,7 +79,10 @@ class ViewGraphCalibrator {
 
 // Calibrate the view graph by estimating focal lengths from fundamental
 // matrices. Filters image pairs with high calibration errors.
+// Then re-estimates relative poses using the calibrated cameras.
 bool CalibrateViewGraph(const ViewGraphCalibratorOptions& options,
+                        const RelativePoseEstimationOptions& relpose_options,
+                        const InlierThresholdOptions& inlier_thresholds,
                         ViewGraph& view_graph,
                         colmap::Reconstruction& reconstruction);
 

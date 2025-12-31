@@ -33,8 +33,6 @@ void OptionManager::AddGlobalMapperOptions() {
                               &mapper->skip_preprocessing);
   AddAndRegisterDefaultOption("Mapper.skip_view_graph_calibration",
                               &mapper->skip_view_graph_calibration);
-  AddAndRegisterDefaultOption("Mapper.skip_relative_pose_estimation",
-                              &mapper->skip_relative_pose_estimation);
   AddAndRegisterDefaultOption("Mapper.skip_rotation_averaging",
                               &mapper->skip_rotation_averaging);
   AddAndRegisterDefaultOption("Mapper.skip_global_positioning",

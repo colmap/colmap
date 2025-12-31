@@ -72,24 +72,18 @@ void RotationAveragingController::Run() {
   glomap::ViewGraphManipulator::DecomposeRelPose(
       *mapper.ViewGraph(), *reconstruction_, options.num_threads);
 
-  // Step 1: View graph calibration
+  // View graph calibration
   LOG(INFO) << "----- Running view graph calibration -----";
   if (!glomap::CalibrateViewGraph(options.view_graph_calibration,
+                                  options.relative_pose_estimation,
+                                  options.inlier_thresholds,
                                   *mapper.ViewGraph(),
                                   *reconstruction_)) {
     LOG(ERROR) << "Failed to solve view graph calibration";
     return;
   }
 
-  // Step 2: Relative pose re-estimation
-  LOG(INFO) << "----- Running relative pose re-estimation -----";
-  if (!mapper.ReestimateRelativePoses(options.relative_pose_estimation,
-                                      options.inlier_thresholds)) {
-    LOG(ERROR) << "Failed relative pose re-estimation";
-    return;
-  }
-
-  // Step 3: Rotation averaging
+  // Rotation averaging
   LOG(INFO) << "----- Running rotation averaging -----";
   if (!mapper.RotationAveraging(options.rotation_estimation,
                                 options.inlier_thresholds.max_rotation_error)) {

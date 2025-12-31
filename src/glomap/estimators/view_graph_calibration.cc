@@ -5,6 +5,8 @@
 #include "colmap/util/threading.h"
 
 #include "glomap/estimators/cost_functions.h"
+#include "glomap/estimators/relpose_estimation.h"
+#include "glomap/processors/image_pair_inliers.h"
 
 namespace glomap {
 
@@ -225,9 +227,25 @@ void CrossValidatePriorFocalLengths(
   }
 }
 
+void ReestimateRelativePoses(const RelativePoseEstimationOptions& options,
+                             const InlierThresholdOptions& inlier_thresholds,
+                             ViewGraph& view_graph,
+                             colmap::Reconstruction& reconstruction) {
+  // Re-estimate relative poses using the calibrated cameras.
+  EstimateRelativePoses(view_graph, reconstruction, options);
+
+  // Undistort the images and filter edges by inlier number.
+  ImagePairsInlierCount(view_graph, reconstruction, inlier_thresholds, true);
+
+  view_graph.FilterByNumInliers(inlier_thresholds.min_inlier_num);
+  view_graph.FilterByInlierRatio(inlier_thresholds.min_inlier_ratio);
+}
+
 }  // namespace
 
 bool CalibrateViewGraph(const ViewGraphCalibratorOptions& options,
+                        const RelativePoseEstimationOptions& relpose_options,
+                        const InlierThresholdOptions& inlier_thresholds,
                         ViewGraph& view_graph,
                         colmap::Reconstruction& reconstruction) {
   // Cross-validate prior focal lengths if enabled.
@@ -250,7 +268,15 @@ bool CalibrateViewGraph(const ViewGraphCalibratorOptions& options,
   }
 
   ViewGraphCalibrator calibrator(options);
-  return calibrator.Solve(view_graph, reconstruction);
+  if (!calibrator.Solve(view_graph, reconstruction)) {
+    return false;
+  }
+
+  // Re-estimate relative poses and filter by inliers.
+  ReestimateRelativePoses(
+      relpose_options, inlier_thresholds, view_graph, reconstruction);
+
+  return true;
 }
 
 }  // namespace glomap

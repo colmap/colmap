@@ -54,7 +54,6 @@ struct GlobalMapperOptions {
   // Control the flow of the global sfm
   bool skip_preprocessing = false;
   bool skip_view_graph_calibration = false;
-  bool skip_relative_pose_estimation = false;
   bool skip_rotation_averaging = false;
   bool skip_track_establishment = false;
   bool skip_global_positioning = false;
@@ -75,10 +74,6 @@ class GlobalMapper {
   // Run the global SfM pipeline.
   bool Solve(const GlobalMapperOptions& options,
              std::unordered_map<frame_t, int>& cluster_ids);
-
-  // Re-estimate relative poses between image pairs and filter by inliers.
-  bool ReestimateRelativePoses(const RelativePoseEstimationOptions& options,
-                               const InlierThresholdOptions& inlier_thresholds);
 
   // Run rotation averaging to estimate global rotations.
   bool RotationAveraging(const RotationEstimatorOptions& options,
