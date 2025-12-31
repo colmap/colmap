@@ -220,13 +220,7 @@ void CrossValidatePriorFocalLengths(
     const camera_t camera_id2 = reconstruction.Image(image_id2).CameraId();
 
     if (camera_validity[camera_id1] && camera_validity[camera_id2]) {
-      const colmap::Camera& camera1 = reconstruction.Camera(camera_id1);
-      const colmap::Camera& camera2 = reconstruction.Camera(camera_id2);
       image_pair.config = colmap::TwoViewGeometry::CALIBRATED;
-      image_pair.F = colmap::FundamentalFromEssentialMatrix(
-          camera2.CalibrationMatrix(),
-          colmap::EssentialMatrixFromPose(image_pair.cam2_from_cam1),
-          camera1.CalibrationMatrix());
     }
   }
 }
@@ -239,6 +233,20 @@ bool CalibrateViewGraph(const ViewGraphCalibratorOptions& options,
   // Cross-validate prior focal lengths if enabled.
   if (options.cross_validate_prior_focal_lengths) {
     CrossValidatePriorFocalLengths(reconstruction, view_graph);
+  }
+
+  // Recompute F from E for all CALIBRATED pairs.
+  for (auto& [pair_id, image_pair] : view_graph.ImagePairs()) {
+    if (image_pair.config != colmap::TwoViewGeometry::CALIBRATED) continue;
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const colmap::Camera& camera1 =
+        reconstruction.Camera(reconstruction.Image(image_id1).CameraId());
+    const colmap::Camera& camera2 =
+        reconstruction.Camera(reconstruction.Image(image_id2).CameraId());
+    image_pair.F = colmap::FundamentalFromEssentialMatrix(
+        camera2.CalibrationMatrix(),
+        colmap::EssentialMatrixFromPose(image_pair.cam2_from_cam1),
+        camera1.CalibrationMatrix());
   }
 
   ViewGraphCalibrator calibrator(options);

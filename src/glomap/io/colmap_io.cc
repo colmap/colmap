@@ -149,17 +149,6 @@ void InitializeViewGraphFromDatabase(
     const Image& image1 = reconstruction.Image(image_id1);
     const Image& image2 = reconstruction.Image(image_id2);
 
-    // For calibrated pairs, recompute F from the relative pose.
-    // TODO: Once this update is moved to the colmap side, we can safely drop
-    // the reconstruction argument in this function and move it to ViewGraph
-    // implementation.
-    if (image_pair.config == colmap::TwoViewGeometry::CALIBRATED) {
-      image_pair.F = colmap::FundamentalFromEssentialMatrix(
-          reconstruction.Camera(image2.CameraId()).CalibrationMatrix(),
-          colmap::EssentialMatrixFromPose(image_pair.cam2_from_cam1),
-          reconstruction.Camera(image1.CameraId()).CalibrationMatrix());
-    }
-
     // Collect the matches
     image_pair.matches = Eigen::MatrixXi(feature_matches.size(), 2);
 
