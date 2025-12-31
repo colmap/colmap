@@ -473,4 +473,11 @@ void GlobalPositioner::ConvertBackResults(
   }
 }
 
+bool RunGlobalPositioning(const GlobalPositionerOptions& options,
+                          const ViewGraph& view_graph,
+                          colmap::Reconstruction& reconstruction) {
+  GlobalPositioner positioner(options);
+  return positioner.Solve(view_graph, reconstruction);
+}
+
 }  // namespace glomap

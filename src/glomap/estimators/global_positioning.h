@@ -121,4 +121,9 @@ class GlobalPositioner {
   std::unordered_map<sensor_t, Eigen::Vector3d> cams_in_rig_;
 };
 
+// Solve global positioning using point-to-camera constraints.
+bool RunGlobalPositioning(const GlobalPositionerOptions& options,
+                          const ViewGraph& view_graph,
+                          colmap::Reconstruction& reconstruction);
+
 }  // namespace glomap

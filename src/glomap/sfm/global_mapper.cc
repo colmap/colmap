@@ -115,9 +115,7 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
                                      double max_angle_error,
                                      double max_reprojection_error,
                                      double min_triangulation_angle) {
-  GlobalPositioner gp_engine(options);
-
-  if (!gp_engine.Solve(*view_graph_, *reconstruction_)) {
+  if (!RunGlobalPositioning(options, *view_graph_, *reconstruction_)) {
     return false;
   }
 
