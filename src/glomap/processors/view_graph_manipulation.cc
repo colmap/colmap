@@ -51,8 +51,11 @@ void ViewGraphManipulator::DecomposeRelativePoses(
       }
 
       // ImagePair inherits from TwoViewGeometry, so pass it directly.
-      colmap::EstimateTwoViewGeometryPose(
-          *image1.CameraPtr(), points1, *image2.CameraPtr(), points2, &image_pair);
+      colmap::EstimateTwoViewGeometryPose(*image1.CameraPtr(),
+                                          points1,
+                                          *image2.CameraPtr(),
+                                          points2,
+                                          &image_pair);
 
       if (image_pair.cam2_from_cam1.translation.norm() > 1e-12) {
         image_pair.cam2_from_cam1.translation =

@@ -52,11 +52,6 @@ void OptionManager::AddGlobalMapperOptions() {
       "ViewGraphCalib.max_calibration_error",
       &mapper->view_graph_calibration.max_calibration_error);
 
-  // Relative pose estimation options
-  AddAndRegisterDefaultOption(
-      "RelPoseEstimation.max_epipolar_error",
-      &mapper->relative_pose_estimation.ransac_options.max_epipolar_error);
-
   // Track establishment options
   AddAndRegisterDefaultOption(
       "TrackEstablishment.min_num_tracks_per_view",

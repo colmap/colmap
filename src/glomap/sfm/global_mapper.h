@@ -7,7 +7,6 @@
 
 #include "glomap/estimators/bundle_adjustment.h"
 #include "glomap/estimators/global_positioning.h"
-#include "glomap/estimators/relpose_estimation.h"
 #include "glomap/estimators/rotation_averaging.h"
 #include "glomap/estimators/view_graph_calibration.h"
 #include "glomap/processors/image_pair_inliers.h"
@@ -32,7 +31,6 @@ struct GlobalMapperOptions {
 
   // Options for each component
   ViewGraphCalibratorOptions view_graph_calibration;
-  RelativePoseEstimationOptions relative_pose_estimation;
   RotationEstimatorOptions rotation_averaging;
   TrackEstablishmentOptions track_establishment;
   GlobalPositionerOptions global_positioning;

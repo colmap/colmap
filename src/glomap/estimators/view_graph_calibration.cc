@@ -1,12 +1,11 @@
 #include "glomap/estimators/view_graph_calibration.h"
 
+#include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/scene/two_view_geometry.h"
 #include "colmap/util/threading.h"
 
 #include "glomap/estimators/cost_functions.h"
-#include "glomap/estimators/relpose_estimation.h"
-#include "glomap/processors/image_pair_inliers.h"
 
 namespace glomap {
 
@@ -176,6 +175,13 @@ size_t ViewGraphCalibrator::EvaluateAndFilterImagePairs(
 
 namespace {
 
+struct RelativePoseReestimationOptions {
+  int random_seed = -1;
+  double max_error = 1.0;
+  int min_num_inliers = 30;
+  double min_inlier_ratio = 0.25;
+};
+
 // Cross-validate prior focal lengths by checking the ratio of calibrated vs
 // uncalibrated pairs per camera. UNCALIBRATED pairs are converted to
 // CALIBRATED if both cameras have reliable priors (majority of pairs are
@@ -227,25 +233,63 @@ void CrossValidatePriorFocalLengths(
   }
 }
 
-void ReestimateRelativePoses(const RelativePoseEstimationOptions& options,
-                             const InlierThresholdOptions& inlier_thresholds,
+void ReestimateRelativePoses(const RelativePoseReestimationOptions& options,
                              ViewGraph& view_graph,
                              colmap::Reconstruction& reconstruction) {
-  // Re-estimate relative poses using the calibrated cameras.
-  EstimateRelativePoses(view_graph, reconstruction, options);
+  // Estimate calibrated two-view geometry with current camera calibration.
+  // This repopulates inlier_matches and estimates cam2_from_cam1.
+  colmap::TwoViewGeometryOptions two_view_options;
+  two_view_options.compute_relative_pose = true;
+  two_view_options.ransac_options.max_error = options.max_error;
+  two_view_options.min_num_inliers = options.min_num_inliers;
+  two_view_options.min_inlier_ratio = options.min_inlier_ratio;
+  if (options.random_seed >= 0) {
+    two_view_options.ransac_options.random_seed = options.random_seed;
+  }
 
-  // Undistort the images and filter edges by inlier number.
-  ImagePairsInlierCount(view_graph, reconstruction, inlier_thresholds, true);
+  for (auto& [pair_id, image_pair] : view_graph.ImagePairs()) {
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const Image& image1 = reconstruction.Image(image_id1);
+    const Image& image2 = reconstruction.Image(image_id2);
 
-  view_graph.FilterByNumInliers(inlier_thresholds.min_inlier_num);
-  view_graph.FilterByInlierRatio(inlier_thresholds.min_inlier_ratio);
+    // Collect all 2D points from images.
+    std::vector<Eigen::Vector2d> points1(image1.NumPoints2D());
+    std::vector<Eigen::Vector2d> points2(image2.NumPoints2D());
+    for (colmap::point2D_t i = 0; i < image1.NumPoints2D(); ++i) {
+      points1[i] = image1.Point2D(i).xy;
+    }
+    for (colmap::point2D_t i = 0; i < image2.NumPoints2D(); ++i) {
+      points2[i] = image2.Point2D(i).xy;
+    }
+
+    // Convert matches from Eigen matrix to FeatureMatches.
+    colmap::FeatureMatches matches(image_pair.matches.rows());
+    for (Eigen::Index i = 0; i < image_pair.matches.rows(); ++i) {
+      matches[i] = colmap::FeatureMatch(image_pair.matches(i, 0),
+                                        image_pair.matches(i, 1));
+    }
+
+    // Estimate and assign to base class.
+    static_cast<colmap::TwoViewGeometry&>(image_pair) =
+        colmap::EstimateCalibratedTwoViewGeometry(*image1.CameraPtr(),
+                                                  points1,
+                                                  *image2.CameraPtr(),
+                                                  points2,
+                                                  matches,
+                                                  two_view_options);
+
+    if (image_pair.config == colmap::TwoViewGeometry::DEGENERATE ||
+        image_pair.config == colmap::TwoViewGeometry::UNDEFINED) {
+      view_graph.SetInvalidImagePair(pair_id);
+    } else {
+      view_graph.SetValidImagePair(pair_id);
+    }
+  }
 }
 
 }  // namespace
 
 bool CalibrateViewGraph(const ViewGraphCalibratorOptions& options,
-                        const RelativePoseEstimationOptions& relpose_options,
-                        const InlierThresholdOptions& inlier_thresholds,
                         ViewGraph& view_graph,
                         colmap::Reconstruction& reconstruction) {
   // Cross-validate prior focal lengths if enabled.
@@ -273,8 +317,14 @@ bool CalibrateViewGraph(const ViewGraphCalibratorOptions& options,
   }
 
   // Re-estimate relative poses and filter by inliers.
-  ReestimateRelativePoses(
-      relpose_options, inlier_thresholds, view_graph, reconstruction);
+  if (options.reestimate_relative_pose) {
+    RelativePoseReestimationOptions relpose_options;
+    relpose_options.random_seed = options.random_seed;
+    relpose_options.max_error = options.relpose_max_error;
+    relpose_options.min_num_inliers = options.relpose_min_num_inliers;
+    relpose_options.min_inlier_ratio = options.relpose_min_inlier_ratio;
+    ReestimateRelativePoses(relpose_options, view_graph, reconstruction);
+  }
 
   return true;
 }

@@ -32,7 +32,6 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/base_controller.h"
 
-#include "glomap/estimators/relpose_estimation.h"
 #include "glomap/estimators/rotation_averaging.h"
 #include "glomap/estimators/view_graph_calibration.h"
 #include "glomap/processors/image_pair_inliers.h"
@@ -53,9 +52,6 @@ struct RotationAveragingControllerOptions {
 
   // Options for view graph calibration.
   glomap::ViewGraphCalibratorOptions view_graph_calibration;
-
-  // Options for relative pose estimation.
-  glomap::RelativePoseEstimationOptions relative_pose_estimation;
 
   // Options for rotation averaging.
   glomap::RotationEstimatorOptions rotation_estimation;

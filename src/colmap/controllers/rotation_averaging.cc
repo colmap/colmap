@@ -48,12 +48,11 @@ void RotationAveragingController::Run() {
   // Propagate options to component options.
   RotationAveragingControllerOptions options = options_;
   if (options.random_seed >= 0) {
-    options.relative_pose_estimation.random_seed = options.random_seed;
     options.rotation_estimation.random_seed = options.random_seed;
+    options.view_graph_calibration.random_seed = options.random_seed;
   }
   options.view_graph_calibration.solver_options.num_threads =
       options.num_threads;
-  options.relative_pose_estimation.num_threads = options.num_threads;
 
   Timer run_timer;
   run_timer.Start();
@@ -69,8 +68,6 @@ void RotationAveragingController::Run() {
   // View graph calibration
   LOG(INFO) << "----- Running view graph calibration -----";
   if (!glomap::CalibrateViewGraph(options.view_graph_calibration,
-                                  options.relative_pose_estimation,
-                                  options.inlier_thresholds,
                                   *mapper.ViewGraph(),
                                   *reconstruction_)) {
     LOG(ERROR) << "Failed to solve view graph calibration";

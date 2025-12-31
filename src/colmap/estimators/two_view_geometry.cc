@@ -728,6 +728,14 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     geometry.inlier_matches =
         ExtractInlierMatches(matches, num_inliers, *best_inlier_mask);
 
+    // Check inlier ratio threshold.
+    const double inlier_ratio =
+        static_cast<double>(num_inliers) / matches.size();
+    if (inlier_ratio < options.min_inlier_ratio) {
+      geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+      return geometry;
+    }
+
     if (options.detect_watermark && DetectWatermarkMatches(camera1,
                                                            matched_img_points1,
                                                            camera2,

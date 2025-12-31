@@ -326,14 +326,13 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   // Propagate random seed and num_threads to component options.
   GlobalMapperOptions opts = options;
   if (opts.random_seed >= 0) {
-    opts.relative_pose_estimation.random_seed = opts.random_seed;
     opts.rotation_averaging.random_seed = opts.random_seed;
     opts.global_positioning.random_seed = opts.random_seed;
     opts.global_positioning.use_parameter_block_ordering = false;
     opts.retriangulation.random_seed = opts.random_seed;
+    opts.view_graph_calibration.random_seed = opts.random_seed;
   }
   opts.view_graph_calibration.solver_options.num_threads = opts.num_threads;
-  opts.relative_pose_estimation.num_threads = opts.num_threads;
   opts.global_positioning.solver_options.num_threads = opts.num_threads;
   opts.bundle_adjustment.solver_options.num_threads = opts.num_threads;
 
@@ -342,17 +341,13 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     LOG(INFO) << "----- Running view graph calibration -----";
     colmap::Timer run_timer;
     run_timer.Start();
-    if (!CalibrateViewGraph(opts.view_graph_calibration,
-                            opts.relative_pose_estimation,
-                            opts.inlier_thresholds,
-                            *view_graph_,
-                            *reconstruction_)) {
+    if (!CalibrateViewGraph(
+            opts.view_graph_calibration, *view_graph_, *reconstruction_)) {
       return false;
     }
     LOG(INFO) << "View graph calibration done in " << run_timer.ElapsedSeconds()
               << " seconds";
-  }
-  else {
+  } else {
     // Decompose relative poses when skipping view graph calibration.
     ViewGraphManipulator::DecomposeRelativePoses(
         *view_graph_, *reconstruction_, opts.num_threads);
