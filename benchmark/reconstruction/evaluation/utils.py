@@ -565,13 +565,14 @@ def process_scenes(
         )
 
     for category, errors in errors_by_category.items():
+        errors_array = np.array(errors)
         metrics[category]["__all__"] = Metrics(
             aucs=compute_auc(
-                np.array(errors),
+                errors_array,
                 error_thresholds,
                 min_error=position_accuracy_gt,
             ),
-            recalls=compute_recall(errors, error_thresholds),
+            recalls=compute_recall(errors_array, error_thresholds),
             error_thresholds=error_thresholds,
             error_type=args.error_type,
             num_images=total_num_images,
@@ -846,17 +847,18 @@ def diff_metrics(
                 ):
                     raise ValueError("Inconsistent error thresholds or types")
                 metrics_diff[dataset][category][scene] = Metrics(
-                    aucs=metrics_a.aucs - metrics_b.aucs,
-                    recalls=metrics_a.recalls - metrics_b.recalls,
-                    error_thresholds=metrics_a.error_thresholds,
-                    error_type=metrics_a.error_type,
-                    num_images=metrics_a.num_images - metrics_b.num_images,
-                    num_reg_images=metrics_a.num_reg_images
-                    - metrics_b.num_reg_images,
-                    num_components=metrics_a.num_components
-                    - metrics_b.num_components,
-                    largest_component=metrics_a.largest_component
-                    - metrics_b.largest_component,
+                    aucs=metrics_a_item.aucs - metrics_b_item.aucs,
+                    recalls=metrics_a_item.recalls - metrics_b_item.recalls,
+                    error_thresholds=metrics_a_item.error_thresholds,
+                    error_type=metrics_a_item.error_type,
+                    num_images=metrics_a_item.num_images
+                    - metrics_b_item.num_images,
+                    num_reg_images=metrics_a_item.num_reg_images
+                    - metrics_b_item.num_reg_images,
+                    num_components=metrics_a_item.num_components
+                    - metrics_b_item.num_components,
+                    largest_component=metrics_a_item.largest_component
+                    - metrics_b_item.largest_component,
                 )
     return metrics_diff
 
