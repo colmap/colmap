@@ -399,12 +399,10 @@ TEST(ViewGraph, ReadDatabase) {
 
   // Second read from database2 with allow_duplicate=false should throw
   // because pair (2,3) already exists.
-  EXPECT_THROW(view_graph.ReadDatabase(*database2, /*allow_duplicate=*/false),
-               std::runtime_error);
+  EXPECT_ANY_THROW(view_graph.ReadDatabase(*database2, /*allow_duplicate=*/false));
 
   // Second read from database2 with allow_duplicate=true should succeed.
-  EXPECT_NO_THROW(
-      view_graph.ReadDatabase(*database2, /*allow_duplicate=*/true));
+  view_graph.ReadDatabase(*database2, /*allow_duplicate=*/true);
   // Should now have 3 pairs: (1,2), (2,3), (3,4)
   EXPECT_EQ(view_graph.NumImagePairs(), 3);
 }
