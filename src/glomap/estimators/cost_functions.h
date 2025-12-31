@@ -13,6 +13,8 @@ namespace glomap {
 // from two positions such that: t_ij - scale * (p_j - p_i) is minimized.
 // The positions can either be two camera centers or one camera center and one
 // 3D point.
+// Reference: Zhuang et al., "Baseline Desensitizing In Translation Averaging",
+// CVPR 2018.
 struct BATAPairwiseDirectionCostFunctor {
   explicit BATAPairwiseDirectionCostFunctor(
       const Eigen::Vector3d& pos2_from_pos1_dir)
@@ -32,20 +34,22 @@ struct BATAPairwiseDirectionCostFunctor {
 
   static ceres::CostFunction* Create(
       const Eigen::Vector3d& pos2_from_pos1_dir) {
-    return (
-        new ceres::
-            AutoDiffCostFunction<BATAPairwiseDirectionCostFunctor, 3, 3, 3, 1>(
-                new BATAPairwiseDirectionCostFunctor(pos2_from_pos1_dir)));
+    return (new ceres::AutoDiffCostFunction<BATAPairwiseDirectionCostFunctor,
+                                            3,
+                                            3,
+                                            3,
+                                            1>(
+        new BATAPairwiseDirectionCostFunctor(pos2_from_pos1_dir)));
   }
 
   const Eigen::Vector3d pos2_from_pos1_dir_;
 };
 
 // Computes the error between a translation direction and the direction formed
-// from a camera (c) and 3D point (p), such that:
+// from a camera (c) and 3D point (p) with constant rig extrinsics, such that:
 // t_ij - scale * (p - c + rig_scale * t_rig) is minimized.
-struct RigBATAPairwiseDirectionCostFunctor {
-  RigBATAPairwiseDirectionCostFunctor(
+struct RigBATAPairwiseDirectionConstantRigCostFunctor {
+  RigBATAPairwiseDirectionConstantRigCostFunctor(
       const Eigen::Vector3d& cam_from_point3D_dir,
       const Eigen::Vector3d& cam_from_rig_translation)
       : cam_from_point3D_dir_(cam_from_point3D_dir),
@@ -69,14 +73,14 @@ struct RigBATAPairwiseDirectionCostFunctor {
   static ceres::CostFunction* Create(
       const Eigen::Vector3d& cam_from_point3D_dir,
       const Eigen::Vector3d& cam_from_rig_translation) {
-    return (new ceres::AutoDiffCostFunction<RigBATAPairwiseDirectionCostFunctor,
-                                            3,
-                                            3,
-                                            3,
-                                            1,
-                                            1>(
-        new RigBATAPairwiseDirectionCostFunctor(cam_from_point3D_dir,
-                                                cam_from_rig_translation)));
+    return (new ceres::AutoDiffCostFunction<
+            RigBATAPairwiseDirectionConstantRigCostFunctor,
+            3,
+            3,
+            3,
+            1,
+            1>(new RigBATAPairwiseDirectionConstantRigCostFunctor(
+        cam_from_point3D_dir, cam_from_rig_translation)));
   }
 
   const Eigen::Vector3d cam_from_point3D_dir_;
@@ -84,16 +88,15 @@ struct RigBATAPairwiseDirectionCostFunctor {
 };
 
 // Computes the error between a translation direction and the direction formed
-// from a camera (c) and 3D point (p) with unknown rig translation, such that:
+// from a camera (c) and 3D point (p) with variable rig extrinsics, such that:
 // t_ij - scale * (p - c + t_rig) is minimized.
-struct RigUnknownBATAPairwiseDirectionCostFunctor {
-  RigUnknownBATAPairwiseDirectionCostFunctor(
+struct RigBATAPairwiseDirectionCostFunctor {
+  RigBATAPairwiseDirectionCostFunctor(
       const Eigen::Vector3d& cam_from_point3D_dir,
       const Eigen::Quaterniond& rig_from_world_rot)
       : cam_from_point3D_dir_(cam_from_point3D_dir),
         world_from_rig_rot_(rig_from_world_rot.inverse()) {}
 
-  // The error is given by the position error described above.
   template <typename T>
   bool operator()(const T* point3D,
                   const T* rig_in_world,
@@ -116,14 +119,14 @@ struct RigUnknownBATAPairwiseDirectionCostFunctor {
   static ceres::CostFunction* Create(
       const Eigen::Vector3d& cam_from_point3D_dir,
       const Eigen::Quaterniond& rig_from_world_rot) {
-    return (new ceres::AutoDiffCostFunction<
-            RigUnknownBATAPairwiseDirectionCostFunctor,
-            3,
-            3,
-            3,
-            3,
-            1>(new RigUnknownBATAPairwiseDirectionCostFunctor(
-        cam_from_point3D_dir, rig_from_world_rot)));
+    return (new ceres::AutoDiffCostFunction<RigBATAPairwiseDirectionCostFunctor,
+                                            3,
+                                            3,
+                                            3,
+                                            3,
+                                            1>(
+        new RigBATAPairwiseDirectionCostFunctor(cam_from_point3D_dir,
+                                                rig_from_world_rot)));
   }
 
   const Eigen::Vector3d cam_from_point3D_dir_;

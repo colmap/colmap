@@ -232,8 +232,8 @@ void GlobalPositioner::AddPoint3DToProblem(
             image.CamFromWorld().rotation.inverse() * cam_from_rig.translation;
 
         ceres::CostFunction* cost_function =
-            RigBATAPairwiseDirectionCostFunctor::Create(cam_from_point3D_dir,
-                                                        cam_from_rig_dir);
+            RigBATAPairwiseDirectionConstantRigCostFunctor::Create(
+                cam_from_point3D_dir, cam_from_rig_dir);
 
         problem_->AddResidualBlock(cost_function,
                                    loss_function,
@@ -251,7 +251,7 @@ void GlobalPositioner::AddPoint3DToProblem(
         }
 
         ceres::CostFunction* cost_function =
-            RigUnknownBATAPairwiseDirectionCostFunctor::Create(
+            RigBATAPairwiseDirectionCostFunctor::Create(
                 cam_from_point3D_dir,
                 image.FramePtr()->RigFromWorld().rotation);
 
