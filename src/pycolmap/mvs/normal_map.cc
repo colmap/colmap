@@ -76,12 +76,6 @@ void BindNormalMap(pybind11::module& m) {
           "width", &NormalMap::GetWidth, "Width of the normal map.")
       .def_property_readonly(
           "height", &NormalMap::GetHeight, "Height of the normal map.")
-      .def("get",
-           py::overload_cast<size_t, size_t, size_t>(&NormalMap::Get, py::const_),
-           "row"_a,
-           "col"_a,
-           "slice"_a,
-           "Get normal component at specific row, column, and slice.")
       .def("read",
            &NormalMap::Read,
            "path"_a,

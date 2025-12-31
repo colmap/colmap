@@ -82,11 +82,6 @@ void BindDepthMap(pybind11::module& m) {
           "depth_min", &DepthMap::GetDepthMin, "Minimum depth value.")
       .def_property_readonly(
           "depth_max", &DepthMap::GetDepthMax, "Maximum depth value.")
-      .def("get",
-           &DepthMap::Get,
-           "row"_a,
-           "col"_a,
-           "Get depth value at specific row and column.")
       .def("read",
            &DepthMap::Read,
            "path"_a,
