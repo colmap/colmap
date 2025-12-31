@@ -24,15 +24,14 @@ GlobalMapper::GlobalMapper(std::shared_ptr<const colmap::Database> database)
                                                   kMinNumMatches,
                                                   /*ignore_watermarks=*/false,
                                                   /*image_names=*/{});
-  reconstruction_->Load(*database_cache_);
 }
 
 void GlobalMapper::BeginReconstruction(
     const std::shared_ptr<colmap::Reconstruction>& reconstruction) {
   THROW_CHECK_NOTNULL(reconstruction);
   reconstruction_ = reconstruction;
+  reconstruction_->Load(*database_cache_);
   view_graph_ = std::make_shared<class ViewGraph>();
-
   InitializeViewGraphFromDatabase(*database_, *reconstruction_, *view_graph_);
 }
 
