@@ -22,7 +22,7 @@ def write_snapshot(
     path = snapshot_path / f"{timestamp:010d}"
     path.mkdir(exist_ok=True, parents=True)
     logging.verbose(1, f"=> Writing to {path}")
-    reconstruction.write(path)
+    reconstruction.write(str(path))
 
 
 def iterative_global_refinement(
@@ -65,13 +65,13 @@ def initialize_reconstruction(
         if not all(reconstruction.exists_image(i) for i in init_pair):
             logging.info(f"=> Initial image pair {init_pair} does not exist.")
             return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
-        init_cam2_from_cam1 = mapper.estimate_initial_two_view_geometry(
+        maybe_init_cam2_from_cam1 = mapper.estimate_initial_two_view_geometry(
             mapper_options, *init_pair
         )
-        if init_cam2_from_cam1 is None:
+        if maybe_init_cam2_from_cam1 is None:
             logging.info("Provided pair is insuitable for initialization")
             return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
-
+        init_cam2_from_cam1 = maybe_init_cam2_from_cam1
     logging.info(
         f"Registering initial image pair #{init_pair[0]} and #{init_pair[1]}"
     )
@@ -79,11 +79,10 @@ def initialize_reconstruction(
         mapper_options, *init_pair, init_cam2_from_cam1
     )
     for image_id in init_pair:
-        for data_id in reconstruction.images[image_id].frame.data_ids:
-            if data_id.sensor_id.type == pycolmap.SensorType.CAMERA:
-                mapper.triangulate_image(
-                    options.get_triangulation(), data_id.id
-                )
+        image = reconstruction.images[image_id]
+        assert image.frame is not None
+        for data_id in image.frame.image_ids:
+            mapper.triangulate_image(options.get_triangulation(), data_id.id)
 
     logging.info("Global bundle adjustment")
     # The following is equivalent to: mapper.adjust_global_bundle(...)
@@ -199,11 +198,12 @@ def reconstruct_sub_model(
             if reg_next_success:
                 break
         if reg_next_success:
-            for data_id in reconstruction.images[next_image_id].frame.data_ids:
-                if data_id.sensor_id.type == pycolmap.SensorType.CAMERA:
-                    mapper.triangulate_image(
-                        options.get_triangulation(), data_id.id
-                    )
+            image = reconstruction.images[next_image_id]
+            assert image.frame is not None
+            for data_id in image.frame.image_ids:
+                mapper.triangulate_image(
+                    options.get_triangulation(), data_id.id
+                )
             # This is equivalent to mapper.iterative_local_refinement(...)
             custom_bundle_adjustment.iterative_local_refinement(
                 mapper,
@@ -389,10 +389,10 @@ def main(
         logging.fatal(f"Image path does not exist: {image_path}")
     output_path.mkdir(exist_ok=True, parents=True)
     reconstruction_manager = pycolmap.ReconstructionManager()
-    if input_path is not None and input_path != "":
-        reconstruction_manager.read(input_path)
+    if input_path:
+        reconstruction_manager.read(str(input_path))
 
-    with pycolmap.Database.open(database_path) as database:
+    with pycolmap.Database.open(str(database_path)) as database:
         mapper = pycolmap.IncrementalPipeline(
             options, database, reconstruction_manager
         )
@@ -413,7 +413,7 @@ def main(
                 main_incremental_mapper(mapper)
 
     # write and output
-    reconstruction_manager.write(output_path)
+    reconstruction_manager.write(str(output_path))
     reconstructions = {}
     for i in range(reconstruction_manager.size()):
         reconstructions[i] = reconstruction_manager.get(i)

@@ -28,8 +28,6 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-from pathlib import Path
-
 import numpy as np
 from PIL import Image
 
@@ -39,21 +37,6 @@ from .utils import Dataset, SceneInfo
 
 
 class DatasetBlendedMVS(Dataset):
-    def __init__(
-        self,
-        data_path: Path,
-        categories: list[str],
-        scenes: list[Path],
-        run_path: Path,
-        run_name: str,
-    ):
-        super().__init__()
-        self.data_path = data_path
-        self.categories = categories
-        self.scenes = scenes
-        self.run_path = run_path
-        self.run_name = run_name
-
     @property
     def position_accuracy_gt(self):
         return 0.001
