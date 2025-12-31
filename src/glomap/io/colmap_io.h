@@ -3,6 +3,8 @@
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 
+#include "glomap/scene/types.h"
+
 namespace glomap {
 
 // Initialize an empty reconstruction from the database.
