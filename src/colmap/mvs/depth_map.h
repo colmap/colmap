@@ -55,8 +55,8 @@ class DepthMap : public Mat<float> {
   Bitmap ToBitmap(float min_percentile, float max_percentile) const;
 
  private:
-  float depth_min_ = -1.0f;
-  float depth_max_ = -1.0f;
+  const float depth_min_ = -1.0f;
+  const float depth_max_ = -1.0f;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
