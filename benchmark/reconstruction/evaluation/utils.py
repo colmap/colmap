@@ -121,7 +121,7 @@ def parse_args() -> argparse.Namespace:
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--data_path", default=Path(__file__).parent / "data", type=Path
+        "--data_path", default=Path(__file__).parent.parent / "data", type=Path
     )
     parser.add_argument(
         "--datasets",
@@ -141,7 +141,7 @@ def parse_args() -> argparse.Namespace:
         help="Scenes to evaluate, if empty all scenes are evaluated.",
     )
     parser.add_argument(
-        "--run_path", default=Path(__file__).parent / "runs", type=Path
+        "--run_path", default=Path(__file__).parent.parent / "runs", type=Path
     )
     parser.add_argument("--run_name", default=datetime_str)
     parser.add_argument("--report_name", default=f"report-{datetime_str}")
