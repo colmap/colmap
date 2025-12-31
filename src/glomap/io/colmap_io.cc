@@ -110,10 +110,8 @@ void InitializeEmptyReconstructionFromDatabase(
   LOG(INFO) << "Read " << reconstruction.NumImages() << " images";
 }
 
-void InitializeViewGraphFromDatabase(
-    const colmap::Database& database,
-    const colmap::Reconstruction& reconstruction,
-    ViewGraph& view_graph) {
+void InitializeViewGraphFromDatabase(const colmap::Database& database,
+                                     ViewGraph& view_graph) {
   view_graph.Clear();
 
   // Build view graph from matches
@@ -146,9 +144,6 @@ void InitializeViewGraphFromDatabase(
       continue;
     }
 
-    const Image& image1 = reconstruction.Image(image_id1);
-    const Image& image2 = reconstruction.Image(image_id2);
-
     // Collect the matches
     image_pair.matches = Eigen::MatrixXi(feature_matches.size(), 2);
 
@@ -158,10 +153,6 @@ void InitializeViewGraphFromDatabase(
       colmap::point2D_t point2D_idx2 = feature_matches[i].point2D_idx2;
       if (point2D_idx1 != colmap::kInvalidPoint2DIdx &&
           point2D_idx2 != colmap::kInvalidPoint2DIdx) {
-        if (point2D_idx1 >= image1.NumPoints2D() ||
-            point2D_idx2 >= image2.NumPoints2D()) {
-          continue;
-        }
         image_pair.matches.row(count) << point2D_idx1, point2D_idx2;
         count++;
       }
