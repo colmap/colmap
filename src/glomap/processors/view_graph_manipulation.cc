@@ -13,10 +13,8 @@ void ViewGraphManipulator::DecomposeRelativePoses(
   std::vector<image_pair_t> image_pair_ids;
   for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-    const camera_t camera_id1 = reconstruction.Image(image_id1).CameraId();
-    const camera_t camera_id2 = reconstruction.Image(image_id2).CameraId();
-    if (!reconstruction.Camera(camera_id1).has_prior_focal_length ||
-        !reconstruction.Camera(camera_id2).has_prior_focal_length)
+    if (!reconstruction.Image(image_id1).CameraPtr()->has_prior_focal_length ||
+        !reconstruction.Image(image_id2).CameraPtr()->has_prior_focal_length)
       continue;
     image_pair_ids.push_back(pair_id);
   }
@@ -32,11 +30,6 @@ void ViewGraphManipulator::DecomposeRelativePoses(
       ImagePair& image_pair = view_graph.ImagePair(image_id1, image_id2).first;
       const Image& image1 = reconstruction.Image(image_id1);
       const Image& image2 = reconstruction.Image(image_id2);
-
-      const colmap::Camera& camera1 =
-          reconstruction.Camera(image1.CameraId());
-      const colmap::Camera& camera2 =
-          reconstruction.Camera(image2.CameraId());
 
       // If planar, convert to calibrated and skip pose estimation.
       if (image_pair.config == colmap::TwoViewGeometry::PLANAR) {
@@ -59,7 +52,7 @@ void ViewGraphManipulator::DecomposeRelativePoses(
 
       // ImagePair inherits from TwoViewGeometry, so pass it directly.
       colmap::EstimateTwoViewGeometryPose(
-          camera1, points1, camera2, points2, &image_pair);
+          *image1.CameraPtr(), points1, *image2.CameraPtr(), points2, &image_pair);
 
       if (image_pair.cam2_from_cam1.translation.norm() > 1e-12) {
         image_pair.cam2_from_cam1.translation =
