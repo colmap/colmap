@@ -26,7 +26,7 @@ void GlobalMapper::BeginReconstruction(
   view_graph_ = std::make_shared<class ViewGraph>();
 
   InitializeEmptyReconstructionFromDatabase(*database_, *reconstruction_);
-  InitializeViewGraphFromDatabase(*database_, *reconstruction_, *view_graph_);
+  view_graph_->LoadFromDatabase(*database_);
 }
 
 std::shared_ptr<colmap::Reconstruction> GlobalMapper::Reconstruction() const {
