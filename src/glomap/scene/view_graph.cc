@@ -26,7 +26,7 @@ void ViewGraph::ReadDatabase(const colmap::Database& database,
         database.ReadTwoViewGeometry(image_id1, image_id2);
 
     // Build the image pair from TwoViewGeometry
-    ImagePair image_pair;
+    struct ImagePair image_pair;
     static_cast<colmap::TwoViewGeometry&>(image_pair) = std::move(two_view);
 
     const bool is_invalid =
