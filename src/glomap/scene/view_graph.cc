@@ -16,16 +16,17 @@ void ViewGraph::LoadFromDatabase(const colmap::Database& database,
     const bool duplicate = HasImagePair(image_id1, image_id2);
     if (duplicate) {
       if (!allow_duplicate) {
-        LOG(FATAL_THROW) << "Duplicate image pair in database: " << image_id1 << ", "
-          << image_id2;
-        }
+        LOG(FATAL_THROW) << "Duplicate image pair in database: " << image_id1
+                         << ", " << image_id2;
+      }
       LOG(WARNING) << "Duplicate image pair in database: " << image_id1 << ", "
                    << image_id2;
     }
 
     // Build the image pair from TwoViewGeometry
     struct ImagePair image_pair;
-    static_cast<colmap::TwoViewGeometry&>(image_pair) = database.ReadTwoViewGeometry(image_id1, image_id2);
+    static_cast<colmap::TwoViewGeometry&>(image_pair) =
+        database.ReadTwoViewGeometry(image_id1, image_id2);
 
     const bool is_invalid =
         image_pair.config == colmap::TwoViewGeometry::UNDEFINED ||

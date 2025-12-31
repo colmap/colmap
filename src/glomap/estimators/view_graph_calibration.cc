@@ -240,9 +240,9 @@ bool CalibrateViewGraph(const ViewGraphCalibratorOptions& options,
     if (image_pair.config != colmap::TwoViewGeometry::CALIBRATED) continue;
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const colmap::Camera& camera1 =
-        reconstruction.Camera(reconstruction.Image(image_id1).CameraId());
+        *reconstruction.Image(image_id1).CameraPtr();
     const colmap::Camera& camera2 =
-        reconstruction.Camera(reconstruction.Image(image_id2).CameraId());
+        *reconstruction.Image(image_id2).CameraPtr();
     image_pair.F = colmap::FundamentalFromEssentialMatrix(
         camera2.CalibrationMatrix(),
         colmap::EssentialMatrixFromPose(image_pair.cam2_from_cam1),
