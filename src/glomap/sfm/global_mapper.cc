@@ -25,13 +25,13 @@ void GlobalMapper::BeginReconstruction(
   reconstruction_ = reconstruction;
   view_graph_ = std::make_shared<class ViewGraph>();
 
-  // TODO: Make min_num_matches an option in the global pipeline.
+  // TODO: Think about how to directy use DatabaseCache in the signature and
+  // Make min_num_matches an option in the global pipeline.
   constexpr int kMinNumMatches = 15;
-  database_cache_ = colmap::DatabaseCache::Create(
-      *database_,
-      kMinNumMatches,
-      /*ignore_watermarks=*/false,
-      /*image_names=*/{});
+  database_cache_ = colmap::DatabaseCache::Create(*database_,
+                                                  kMinNumMatches,
+                                                  /*ignore_watermarks=*/false,
+                                                  /*image_names=*/{});
   reconstruction_->Load(*database_cache_);
 
   InitializeViewGraphFromDatabase(*database_, *reconstruction_, *view_graph_);
