@@ -15,9 +15,10 @@ void ViewGraph::LoadFromDatabase(const colmap::Database& database,
 
     const bool duplicate = HasImagePair(image_id1, image_id2);
     if (duplicate) {
-      THROW_CHECK(allow_duplicate)
-          << "Duplicate image pair in database: " << image_id1 << ", "
+      if (!allow_duplicate) {
+        LOG(FATAL_THROW) << "Duplicate image pair in database: " << image_id1 << ", "
           << image_id2;
+        }
       LOG(WARNING) << "Duplicate image pair in database: " << image_id1 << ", "
                    << image_id2;
     }
