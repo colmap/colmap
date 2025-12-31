@@ -4,7 +4,6 @@
 #include "colmap/scene/reconstruction.h"
 
 #include "glomap/scene/types.h"
-#include "glomap/scene/view_graph.h"
 
 namespace glomap {
 
@@ -12,10 +11,6 @@ namespace glomap {
 // This adds cameras, rigs, frames, and images (without 3D points).
 void InitializeEmptyReconstructionFromDatabase(
     const colmap::Database& database, colmap::Reconstruction& reconstruction);
-
-// Initialize the view graph from the database.
-void InitializeViewGraphFromDatabase(const colmap::Database& database,
-                                     ViewGraph& view_graph);
 
 // Extract a subset of the reconstruction for a specific cluster.
 // Returns a new Reconstruction containing only frames/images/points from the

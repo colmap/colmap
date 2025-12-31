@@ -1,5 +1,6 @@
 #pragma once
 
+#include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/types.h"
 
@@ -24,6 +25,9 @@ class ViewGraph {
   inline size_t NumValidImagePairs() const;
   inline bool Empty() const;
   inline void Clear();
+
+  // Read image pairs from the database.
+  void ReadDatabase(const colmap::Database& database);
 
   // Image pair operations.
   inline struct ImagePair& AddImagePair(image_t image_id1,

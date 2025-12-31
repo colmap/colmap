@@ -1,7 +1,6 @@
 #include "glomap/io/colmap_io.h"
 
 #include "colmap/feature/utils.h"
-#include "colmap/geometry/essential_matrix.h"
 #include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
@@ -108,61 +107,6 @@ void InitializeEmptyReconstructionFromDatabase(
   }
 
   LOG(INFO) << "Read " << reconstruction.NumImages() << " images";
-}
-
-void InitializeViewGraphFromDatabase(const colmap::Database& database,
-                                     ViewGraph& view_graph) {
-  view_graph.Clear();
-
-  // Build view graph from matches
-  auto all_matches = database.ReadAllMatches();
-  size_t invalid_count = 0;
-
-  for (auto& [pair_id, feature_matches] : all_matches) {
-    auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-
-    THROW_CHECK(!view_graph.HasImagePair(image_id1, image_id2))
-        << "Duplicate image pair in database: " << image_id1 << ", "
-        << image_id2;
-
-    colmap::TwoViewGeometry two_view =
-        database.ReadTwoViewGeometry(image_id1, image_id2);
-
-    // Build the image pair from TwoViewGeometry
-    ImagePair image_pair;
-    static_cast<colmap::TwoViewGeometry&>(image_pair) = std::move(two_view);
-
-    // If the image is marked as invalid or watermark, then skip
-    if (image_pair.config == colmap::TwoViewGeometry::UNDEFINED ||
-        image_pair.config == colmap::TwoViewGeometry::DEGENERATE ||
-        image_pair.config == colmap::TwoViewGeometry::WATERMARK ||
-        image_pair.config == colmap::TwoViewGeometry::MULTIPLE) {
-      invalid_count++;
-      view_graph.AddImagePair(image_id1, image_id2, std::move(image_pair));
-      view_graph.SetInvalidImagePair(
-          colmap::ImagePairToPairId(image_id1, image_id2));
-      continue;
-    }
-
-    // Collect the matches
-    image_pair.matches = Eigen::MatrixXi(feature_matches.size(), 2);
-
-    size_t count = 0;
-    for (int i = 0; i < feature_matches.size(); i++) {
-      colmap::point2D_t point2D_idx1 = feature_matches[i].point2D_idx1;
-      colmap::point2D_t point2D_idx2 = feature_matches[i].point2D_idx2;
-      if (point2D_idx1 != colmap::kInvalidPoint2DIdx &&
-          point2D_idx2 != colmap::kInvalidPoint2DIdx) {
-        image_pair.matches.row(count) << point2D_idx1, point2D_idx2;
-        count++;
-      }
-    }
-    image_pair.matches.conservativeResize(count, 2);
-
-    view_graph.AddImagePair(image_id1, image_id2, std::move(image_pair));
-  }
-  LOG(INFO) << "Loaded " << all_matches.size() << " image pairs, "
-            << invalid_count << " invalid";
 }
 
 colmap::Reconstruction SubReconstructionByClusterId(
