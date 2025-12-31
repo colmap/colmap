@@ -34,12 +34,10 @@ struct BATAPairwiseDirectionCostFunctor {
 
   static ceres::CostFunction* Create(
       const Eigen::Vector3d& pos2_from_pos1_dir) {
-    return (new ceres::AutoDiffCostFunction<BATAPairwiseDirectionCostFunctor,
-                                            3,
-                                            3,
-                                            3,
-                                            1>(
-        new BATAPairwiseDirectionCostFunctor(pos2_from_pos1_dir)));
+    return (
+        new ceres::
+            AutoDiffCostFunction<BATAPairwiseDirectionCostFunctor, 3, 3, 3, 1>(
+                new BATAPairwiseDirectionCostFunctor(pos2_from_pos1_dir)));
   }
 
   const Eigen::Vector3d pos2_from_pos1_dir_;
