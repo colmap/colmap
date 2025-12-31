@@ -18,7 +18,7 @@ typedef ptrdiff_t ssize_t;
 
 py::array_t<float> ArrayFromDepthMap(const DepthMap& self) {
   const std::vector<ssize_t> shape = {static_cast<ssize_t>(self.GetHeight()),
-                                static_cast<ssize_t>(self.GetWidth())};
+                                      static_cast<ssize_t>(self.GetWidth())};
   py::array_t<float> output(shape);
   py::buffer_info output_info = output.request();
   float* output_ptr = reinterpret_cast<float*>(output_info.ptr);
@@ -27,8 +27,8 @@ py::array_t<float> ArrayFromDepthMap(const DepthMap& self) {
 }
 
 DepthMap DepthMapFromArray(py::array_t<float, py::array::c_style> array,
-                            float depth_min,
-                            float depth_max) {
+                           float depth_min,
+                           float depth_max) {
   if (array.ndim() != 2) {
     throw std::runtime_error("Input array must have 2 dimensions!");
   }

@@ -18,8 +18,8 @@ typedef ptrdiff_t ssize_t;
 
 py::array_t<float> ArrayFromNormalMap(const NormalMap& self) {
   const std::vector<ssize_t> shape = {static_cast<ssize_t>(self.GetHeight()),
-                                static_cast<ssize_t>(self.GetWidth()),
-                                static_cast<ssize_t>(self.GetDepth())};
+                                      static_cast<ssize_t>(self.GetWidth()),
+                                      static_cast<ssize_t>(self.GetDepth())};
   py::array_t<float> output(shape);
   py::buffer_info output_info = output.request();
   float* output_ptr = reinterpret_cast<float*>(output_info.ptr);
