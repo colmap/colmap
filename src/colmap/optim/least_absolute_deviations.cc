@@ -114,7 +114,7 @@ LeastAbsoluteDeviationSolver::LeastAbsoluteDeviationSolver(
   THROW_CHECK_GE(options_.absolute_tolerance, 0);
   THROW_CHECK_GE(options_.relative_tolerance, 0);
   if (A.rows() < A.cols()) {
-    throw std::runtime_error("Undertermined systems not supported.");
+    throw std::runtime_error("Underdetermined systems not supported.");
   }
 
   linear_solver_->Compute(A_);

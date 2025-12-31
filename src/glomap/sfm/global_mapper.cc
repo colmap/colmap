@@ -50,16 +50,29 @@ bool GlobalMapper::ReestimateRelativePoses(
   view_graph_->FilterByNumInliers(inlier_thresholds.min_inlier_num);
   view_graph_->FilterByInlierRatio(inlier_thresholds.min_inlier_ratio);
 
-  if (view_graph_->KeepLargestConnectedComponents(*reconstruction_) == 0) {
-    LOG(ERROR) << "no connected components are found";
-    return false;
-  }
-
   return true;
 }
 
 bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options,
                                      double max_rotation_error) {
+  // TODO: This is a misuse of frame registration. Frames should only be
+  // registered when their poses are actually computed, not with arbitrary
+  // identity poses. The rotation averaging code should be updated to work
+  // with unregistered frames.
+  // Register all frames with an initial identity pose so rotation averaging
+  // can work. The actual rotations will be computed by rotation averaging.
+  for (const auto& [frame_id, frame] : reconstruction_->Frames()) {
+    if (!frame.HasPose()) {
+      reconstruction_->Frame(frame_id).SetRigFromWorld(Rigid3d());
+      reconstruction_->RegisterFrame(frame_id);
+    }
+  }
+
+  if (view_graph_->KeepLargestConnectedComponents(*reconstruction_) == 0) {
+    LOG(ERROR) << "no connected components are found";
+    return false;
+  }
+
   // Read pose priors from the database.
   std::vector<colmap::PosePrior> pose_priors = database_->ReadAllPosePriors();
 

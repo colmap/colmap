@@ -73,16 +73,15 @@ void InitializeEmptyReconstructionFromDatabase(
         database.ReadKeypoints(image.ImageId())));
   }
 
-  // Add all frames from database first (before adding images)
+  // Add all frames from database first (before adding images).
   frame_t max_frame_id = 0;
   for (auto& frame : database.ReadAllFrames()) {
     if (frame.FrameId() == colmap::kInvalidFrameId) continue;
     max_frame_id = std::max(max_frame_id, frame.FrameId());
-    frame.SetRigFromWorld(Rigid3d());
     reconstruction.AddFrame(std::move(frame));
   }
 
-  // Create trivial frames for images that don't have a frame in the database
+  // Create trivial frames for images that don't have a frame in the database.
   for (auto& image : images) {
     if (image.HasFrameId() && reconstruction.ExistsFrame(image.FrameId())) {
       continue;  // Image already has a valid frame
@@ -95,7 +94,6 @@ void InitializeEmptyReconstructionFromDatabase(
     frame.SetFrameId(frame_id);
     frame.SetRigId(rig_id);
     frame.AddDataId(image.DataId());
-    frame.SetRigFromWorld(Rigid3d());
     reconstruction.AddFrame(frame);
 
     image.SetFrameId(frame_id);
