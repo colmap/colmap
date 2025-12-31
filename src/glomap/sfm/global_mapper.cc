@@ -14,15 +14,19 @@
 
 namespace glomap {
 
-GlobalMapper::GlobalMapper(std::shared_ptr<const colmap::Database> database)
-    : database_(std::move(THROW_CHECK_NOTNULL(database))) {
+GlobalMapper::GlobalMapper(std::shared_ptr<const colmap::Database> database) {
+  THROW_CHECK_NOTNULL(database);
   // TODO: Directy use DatabaseCache in the signature and make min_num_matches
   // an option in the global pipeline.
   constexpr int kMinNumMatches = 15;
-  database_cache_ = colmap::DatabaseCache::Create(*database_,
+  database_cache_ = colmap::DatabaseCache::Create(*database,
                                                   kMinNumMatches,
                                                   /*ignore_watermarks=*/false,
                                                   /*image_names=*/{});
+  // TODO: Move to BeginReconstruction after migrating to PoseGraph and accept
+  // DatabaseCache.
+  view_graph_ = std::make_shared<class ViewGraph>();
+  view_graph_->LoadFromDatabase(*database);
 }
 
 void GlobalMapper::BeginReconstruction(
@@ -30,8 +34,6 @@ void GlobalMapper::BeginReconstruction(
   THROW_CHECK_NOTNULL(reconstruction);
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
-  view_graph_ = std::make_shared<class ViewGraph>();
-  view_graph_->LoadFromDatabase(*database_);
 }
 
 std::shared_ptr<colmap::Reconstruction> GlobalMapper::Reconstruction() const {
@@ -62,8 +64,9 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options,
     return false;
   }
 
-  // Read pose priors from the database.
-  std::vector<colmap::PosePrior> pose_priors = database_->ReadAllPosePriors();
+  // Read pose priors from the database cache.
+  const std::vector<colmap::PosePrior>& pose_priors =
+      database_cache_->PosePriors();
 
   // The first run is for filtering
   SolveRotationAveraging(options, *view_graph_, *reconstruction_, pose_priors);
@@ -261,7 +264,6 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
     double min_triangulation_angle) {
   // Delete all existing 3D points and re-establish 2D-3D correspondences.
   reconstruction_->DeleteAllPoints2DAndPoints3D();
-  reconstruction_->TranscribeImageIdsToDatabase(*database_);
 
   // Initialize mapper.
   colmap::IncrementalMapper mapper(database_cache_);

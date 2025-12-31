@@ -106,9 +106,6 @@ class GlobalMapper {
   std::shared_ptr<class ViewGraph> ViewGraph() const;
 
  private:
-  // Class that provides access to the database.
-  const std::shared_ptr<const colmap::Database> database_;
-
   // Class that caches data loaded from the database.
   std::shared_ptr<const colmap::DatabaseCache> database_cache_;
 
