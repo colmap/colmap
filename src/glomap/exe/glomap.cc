@@ -38,7 +38,6 @@
 #include "glomap/controllers/option_manager.h"
 #include "glomap/estimators/gravity_refinement.h"
 #include "glomap/estimators/rotation_averaging.h"
-#include "glomap/io/colmap_io.h"
 #include "glomap/io/pose_io.h"
 #include "glomap/sfm/global_mapper.h"
 
@@ -92,8 +91,17 @@ int RunGlobalMapper(int argc, char** argv) {
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 
-  WriteReconstruction(
-      output_path, *reconstruction, output_format, *options.image_path);
+  if (!options.image_path->empty()) {
+    LOG(INFO) << "Extracting colors ...";
+    reconstruction->ExtractColorsForAllImages(*options.image_path);
+  }
+  const std::string reconstruction_output_path = output_path + "/0";
+  colmap::CreateDirIfNotExists(reconstruction_output_path, true);
+  if (output_format == "txt") {
+    reconstruction->WriteText(reconstruction_output_path);
+  } else {
+    reconstruction->WriteBinary(reconstruction_output_path);
+  }
   LOG(INFO) << "Export to COLMAP reconstruction done";
 
   return EXIT_SUCCESS;

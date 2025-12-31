@@ -1,9 +1,7 @@
 #include "glomap/io/colmap_io.h"
 
 #include "colmap/feature/utils.h"
-#include "colmap/util/file.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 
 namespace glomap {
 
@@ -84,26 +82,6 @@ void InitializeEmptyReconstructionFromDatabase(
   }
 
   LOG(INFO) << "Read " << reconstruction.NumImages() << " images";
-}
-
-void WriteReconstruction(const std::string& reconstruction_path,
-                         const colmap::Reconstruction& reconstruction,
-                         const std::string& output_format,
-                         const std::string& image_path) {
-  colmap::Reconstruction recon_copy = reconstruction;
-  if (!image_path.empty()) {
-    LOG(INFO) << "Extracting colors ...";
-    recon_copy.ExtractColorsForAllImages(image_path);
-  }
-  const std::string output_path = reconstruction_path + "/0";
-  colmap::CreateDirIfNotExists(output_path, true);
-  if (output_format == "txt") {
-    recon_copy.WriteText(output_path);
-  } else if (output_format == "bin") {
-    recon_copy.WriteBinary(output_path);
-  } else {
-    LOG(ERROR) << "Unsupported output type";
-  }
 }
 
 }  // namespace glomap
