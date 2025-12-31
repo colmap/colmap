@@ -627,7 +627,11 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
 
   // Estimate epipolar models.
 
-  auto E_ransac_options = options.ransac_options;
+  auto ransac_options = options.ransac_options;
+  ransac_options.min_inlier_ratio =
+      std::max(ransac_options.min_inlier_ratio, options.min_inlier_ratio);
+
+  auto E_ransac_options = ransac_options;
   E_ransac_options.max_error =
       (camera1.CamFromImgThreshold(options.ransac_options.max_error) +
        camera2.CamFromImgThreshold(options.ransac_options.max_error)) /
@@ -640,7 +644,7 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
 
   LORANSAC<FundamentalMatrixSevenPointEstimator,
            FundamentalMatrixEightPointEstimator>
-      F_ransac(options.ransac_options);
+      F_ransac(ransac_options);
   const auto F_report =
       F_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.F = F_report.model;
@@ -648,7 +652,7 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   // Estimate planar or panoramic model.
 
   LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      options.ransac_options);
+      ransac_options);
   const auto H_report =
       H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
