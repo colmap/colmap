@@ -59,7 +59,6 @@ struct GlobalMapperOptions {
   bool skip_global_positioning = false;
   bool skip_bundle_adjustment = false;
   bool skip_retriangulation = false;
-  bool skip_pruning = true;
 };
 
 class GlobalMapper {
@@ -72,8 +71,7 @@ class GlobalMapper {
       const std::shared_ptr<colmap::Reconstruction>& reconstruction);
 
   // Run the global SfM pipeline.
-  bool Solve(const GlobalMapperOptions& options,
-             std::unordered_map<frame_t, int>& cluster_ids);
+  bool Solve(const GlobalMapperOptions& options);
 
   // Re-estimate relative poses between image pairs and filter by inliers.
   bool ReestimateRelativePoses(const RelativePoseEstimationOptions& options,

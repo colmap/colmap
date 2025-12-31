@@ -86,18 +86,14 @@ int RunGlobalMapper(int argc, char** argv) {
   LOG(INFO) << "Loaded database";
   colmap::Timer run_timer;
   run_timer.Start();
-  std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(*options.mapper, cluster_ids);
+  global_mapper.Solve(*options.mapper);
   run_timer.Pause();
 
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 
-  WriteReconstructionsByClusters(output_path,
-                                 *reconstruction,
-                                 cluster_ids,
-                                 output_format,
-                                 *options.image_path);
+  WriteReconstruction(
+      output_path, *reconstruction, output_format, *options.image_path);
   LOG(INFO) << "Export to COLMAP reconstruction done";
 
   return EXIT_SUCCESS;

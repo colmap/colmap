@@ -43,7 +43,6 @@ void OptionManager::AddGlobalMapperOptions() {
                               &mapper->skip_bundle_adjustment);
   AddAndRegisterDefaultOption("Mapper.skip_retriangulation",
                               &mapper->skip_retriangulation);
-  AddAndRegisterDefaultOption("Mapper.skip_pruning", &mapper->skip_pruning);
 
   // View graph calibration options
   AddAndRegisterDefaultOption(

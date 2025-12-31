@@ -10,7 +10,6 @@
 #include "glomap/estimators/rotation_averaging.h"
 #include "glomap/io/colmap_io.h"
 #include "glomap/processors/image_pair_inliers.h"
-#include "glomap/processors/reconstruction_pruning.h"
 #include "glomap/processors/view_graph_manipulation.h"
 
 namespace glomap {
@@ -323,8 +322,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
 }
 
 // TODO: Rig normalizaiton has not be done
-bool GlobalMapper::Solve(const GlobalMapperOptions& options,
-                         std::unordered_map<frame_t, int>& cluster_ids) {
+bool GlobalMapper::Solve(const GlobalMapperOptions& options) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(view_graph_);
 
@@ -447,16 +445,6 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     }
     LOG(INFO) << "Iterative retriangulation and refinement done in "
               << run_timer.ElapsedSeconds() << " seconds";
-  }
-
-  // 8. Reconstruction pruning
-  if (!opts.skip_pruning) {
-    LOG(INFO) << "----- Running postprocessing -----";
-    colmap::Timer run_timer;
-    run_timer.Start();
-    cluster_ids = PruneWeaklyConnectedFrames(*reconstruction_);
-    LOG(INFO) << "Postprocessing done in " << run_timer.ElapsedSeconds()
-              << " seconds";
   }
 
   return true;
