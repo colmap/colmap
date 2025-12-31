@@ -176,6 +176,7 @@ size_t ViewGraphCalibrator::EvaluateAndFilterImagePairs(
 namespace {
 
 struct RelativePoseReestimationOptions {
+  int num_threads = -1;
   int random_seed = -1;
   double max_error = 1.0;
   int min_num_inliers = 30;
@@ -236,6 +237,16 @@ void CrossValidatePriorFocalLengths(
 void ReestimateRelativePoses(const RelativePoseReestimationOptions& options,
                              ViewGraph& view_graph,
                              colmap::Reconstruction& reconstruction) {
+  // Collect pair IDs for parallel processing.
+  std::vector<image_pair_t> pair_ids;
+  pair_ids.reserve(view_graph.NumImagePairs());
+  for (const auto& [pair_id, _] : view_graph.ImagePairs()) {
+    pair_ids.push_back(pair_id);
+  }
+
+  LOG(INFO) << "Re-estimating relative poses for " << pair_ids.size()
+            << " pairs";
+
   // Estimate calibrated two-view geometry with current camera calibration.
   // This repopulates inlier_matches and estimates cam2_from_cam1.
   colmap::TwoViewGeometryOptions two_view_options;
@@ -247,37 +258,48 @@ void ReestimateRelativePoses(const RelativePoseReestimationOptions& options,
     two_view_options.ransac_options.random_seed = options.random_seed;
   }
 
-  for (auto& [pair_id, image_pair] : view_graph.ImagePairs()) {
+  colmap::ThreadPool thread_pool(options.num_threads);
+  for (const image_pair_t pair_id : pair_ids) {
+    thread_pool.AddTask([&, pair_id]() {
+      const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+      ImagePair& image_pair = view_graph.ImagePair(image_id1, image_id2).first;
+      const Image& image1 = reconstruction.Image(image_id1);
+      const Image& image2 = reconstruction.Image(image_id2);
+
+      // Collect all 2D points from images.
+      std::vector<Eigen::Vector2d> points1(image1.NumPoints2D());
+      std::vector<Eigen::Vector2d> points2(image2.NumPoints2D());
+      for (colmap::point2D_t i = 0; i < image1.NumPoints2D(); ++i) {
+        points1[i] = image1.Point2D(i).xy;
+      }
+      for (colmap::point2D_t i = 0; i < image2.NumPoints2D(); ++i) {
+        points2[i] = image2.Point2D(i).xy;
+      }
+
+      // Convert matches from Eigen matrix to FeatureMatches.
+      colmap::FeatureMatches matches(image_pair.matches.rows());
+      for (Eigen::Index i = 0; i < image_pair.matches.rows(); ++i) {
+        matches[i] = colmap::FeatureMatch(image_pair.matches(i, 0),
+                                          image_pair.matches(i, 1));
+      }
+
+      // Estimate and assign to base class.
+      static_cast<colmap::TwoViewGeometry&>(image_pair) =
+          colmap::EstimateCalibratedTwoViewGeometry(*image1.CameraPtr(),
+                                                    points1,
+                                                    *image2.CameraPtr(),
+                                                    points2,
+                                                    matches,
+                                                    two_view_options);
+    });
+  }
+  thread_pool.Wait();
+
+  // Update validity after all tasks complete (not thread-safe).
+  for (const image_pair_t pair_id : pair_ids) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-    const Image& image1 = reconstruction.Image(image_id1);
-    const Image& image2 = reconstruction.Image(image_id2);
-
-    // Collect all 2D points from images.
-    std::vector<Eigen::Vector2d> points1(image1.NumPoints2D());
-    std::vector<Eigen::Vector2d> points2(image2.NumPoints2D());
-    for (colmap::point2D_t i = 0; i < image1.NumPoints2D(); ++i) {
-      points1[i] = image1.Point2D(i).xy;
-    }
-    for (colmap::point2D_t i = 0; i < image2.NumPoints2D(); ++i) {
-      points2[i] = image2.Point2D(i).xy;
-    }
-
-    // Convert matches from Eigen matrix to FeatureMatches.
-    colmap::FeatureMatches matches(image_pair.matches.rows());
-    for (Eigen::Index i = 0; i < image_pair.matches.rows(); ++i) {
-      matches[i] = colmap::FeatureMatch(image_pair.matches(i, 0),
-                                        image_pair.matches(i, 1));
-    }
-
-    // Estimate and assign to base class.
-    static_cast<colmap::TwoViewGeometry&>(image_pair) =
-        colmap::EstimateCalibratedTwoViewGeometry(*image1.CameraPtr(),
-                                                  points1,
-                                                  *image2.CameraPtr(),
-                                                  points2,
-                                                  matches,
-                                                  two_view_options);
-
+    const ImagePair& image_pair =
+        view_graph.ImagePair(image_id1, image_id2).first;
     if (image_pair.config == colmap::TwoViewGeometry::DEGENERATE ||
         image_pair.config == colmap::TwoViewGeometry::UNDEFINED) {
       view_graph.SetInvalidImagePair(pair_id);
@@ -319,6 +341,7 @@ bool CalibrateViewGraph(const ViewGraphCalibratorOptions& options,
   // Re-estimate relative poses and filter by inliers.
   if (options.reestimate_relative_pose) {
     RelativePoseReestimationOptions relpose_options;
+    relpose_options.num_threads = options.solver_options.num_threads;
     relpose_options.random_seed = options.random_seed;
     relpose_options.max_error = options.relpose_max_error;
     relpose_options.min_num_inliers = options.relpose_min_num_inliers;
