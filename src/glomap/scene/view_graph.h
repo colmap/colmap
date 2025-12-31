@@ -27,6 +27,8 @@ class ViewGraph {
   inline void Clear();
 
   // Read image pairs from the database.
+  // If allow_duplicate is false, throws on duplicate pairs. If true, logs a
+  // warning and updates the existing pair.
   void ReadDatabase(const colmap::Database& database,
                     bool allow_duplicate = false);
 
