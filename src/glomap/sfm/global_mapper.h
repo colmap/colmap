@@ -43,10 +43,11 @@ struct GlobalMapperOptions {
   }();
 
   // Thresholds for each component.
-  double max_rotation_error = 10.;              // in degree, for rotation averaging
-  double max_angular_reprojection_error = 1.;   // in degree, for global positioning
-  double max_reprojection_error = 1e-2;         // for bundle adjustment
-  double min_triangulation_angle = 1.;          // in degree, for triangulation
+  double max_rotation_error = 10.;  // in degree, for rotation averaging
+  double max_angular_reprojection_error =
+      1.;                                // in degree, for global positioning
+  double max_reprojection_error = 1e-2;  // for bundle adjustment
+  double min_triangulation_angle = 1.;   // in degree, for triangulation
 
   // Control the number of iterations for bundle adjustment.
   int num_iterations_ba = 3;

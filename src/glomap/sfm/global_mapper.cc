@@ -358,8 +358,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     LOG(INFO) << "----- Running rotation averaging -----";
     colmap::Timer run_timer;
     run_timer.Start();
-    if (!RotationAveraging(opts.rotation_averaging,
-                           opts.max_rotation_error)) {
+    if (!RotationAveraging(opts.rotation_averaging, opts.max_rotation_error)) {
       return false;
     }
     LOG(INFO) << "Rotation averaging done in " << run_timer.ElapsedSeconds()
@@ -396,11 +395,10 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     LOG(INFO) << "----- Running iterative bundle adjustment -----";
     colmap::Timer run_timer;
     run_timer.Start();
-    if (!IterativeBundleAdjustment(
-            opts.bundle_adjustment,
-            opts.max_reprojection_error,
-            opts.min_triangulation_angle,
-            opts.num_iterations_ba)) {
+    if (!IterativeBundleAdjustment(opts.bundle_adjustment,
+                                   opts.max_reprojection_error,
+                                   opts.min_triangulation_angle,
+                                   opts.num_iterations_ba)) {
       return false;
     }
     LOG(INFO) << "Iterative bundle adjustment done in "
@@ -412,11 +410,10 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     LOG(INFO) << "----- Running iterative retriangulation and refinement -----";
     colmap::Timer run_timer;
     run_timer.Start();
-    if (!IterativeRetriangulateAndRefine(
-            opts.retriangulation,
-            opts.bundle_adjustment,
-            opts.max_reprojection_error,
-            opts.min_triangulation_angle)) {
+    if (!IterativeRetriangulateAndRefine(opts.retriangulation,
+                                         opts.bundle_adjustment,
+                                         opts.max_reprojection_error,
+                                         opts.min_triangulation_angle)) {
       return false;
     }
     LOG(INFO) << "Iterative retriangulation and refinement done in "
