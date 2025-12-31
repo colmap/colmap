@@ -399,7 +399,8 @@ TEST(ViewGraph, ReadDatabase) {
 
   // Second read from database2 with allow_duplicate=false should throw
   // because pair (2,3) already exists.
-  EXPECT_ANY_THROW(view_graph.ReadDatabase(*database2, /*allow_duplicate=*/false));
+  EXPECT_ANY_THROW(
+      view_graph.ReadDatabase(*database2, /*allow_duplicate=*/false));
 
   // Second read from database2 with allow_duplicate=true should succeed.
   view_graph.ReadDatabase(*database2, /*allow_duplicate=*/true);
