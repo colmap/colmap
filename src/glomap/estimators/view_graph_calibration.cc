@@ -1,5 +1,6 @@
 #include "glomap/estimators/view_graph_calibration.h"
 
+#include "colmap/geometry/essential_matrix.h"
 #include "colmap/scene/two_view_geometry.h"
 #include "colmap/util/threading.h"
 
@@ -9,10 +10,12 @@ namespace glomap {
 
 bool ViewGraphCalibrator::Solve(ViewGraph& view_graph,
                                 colmap::Reconstruction& reconstruction) {
-  // Reset the problem
-  LOG(INFO) << "Start ViewGraphCalibrator";
-
-  Reset(reconstruction);
+  // Initialize focal lengths and set up the problem.
+  InitializeFocalsFromReconstruction(reconstruction);
+  loss_function_ = options_.CreateLossFunction();
+  ceres::Problem::Options problem_options;
+  problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
+  problem_ = std::make_unique<ceres::Problem>(problem_options);
 
   // Set the solver options.
   if (reconstruction.NumCameras() < 50)
@@ -41,25 +44,19 @@ bool ViewGraphCalibrator::Solve(ViewGraph& view_graph,
   VLOG(2) << summary.FullReport();
 
   // Convert the results back to the camera
-  CopyBackResults(reconstruction);
-  FilterImagePairs(view_graph);
+  ConvertBackResults(reconstruction);
+  EvaluateAndFilterImagePairs(view_graph);
 
   return summary.IsSolutionUsable();
 }
 
-void ViewGraphCalibrator::Reset(const colmap::Reconstruction& reconstruction) {
-  // Initialize the problem
+void ViewGraphCalibrator::InitializeFocalsFromReconstruction(
+    const colmap::Reconstruction& reconstruction) {
   focals_.clear();
   focals_.reserve(reconstruction.NumCameras());
   for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
     focals_[camera_id] = camera.MeanFocalLength();
   }
-
-  // Set up the problem
-  ceres::Problem::Options problem_options;
-  problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
-  problem_ = std::make_unique<ceres::Problem>(problem_options);
-  loss_function_ = options_.CreateLossFunction();
 }
 
 void ViewGraphCalibrator::AddImagePairsToProblem(
@@ -70,33 +67,25 @@ void ViewGraphCalibrator::AddImagePairsToProblem(
       continue;
 
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-    AddImagePair(image_id1, image_id2, image_pair, reconstruction);
-  }
-}
+    const camera_t camera_id1 = reconstruction.Image(image_id1).CameraId();
+    const camera_t camera_id2 = reconstruction.Image(image_id2).CameraId();
 
-void ViewGraphCalibrator::AddImagePair(
-    image_t image_id1,
-    image_t image_id2,
-    const ImagePair& image_pair,
-    const colmap::Reconstruction& reconstruction) {
-  const camera_t camera_id1 = reconstruction.Image(image_id1).CameraId();
-  const camera_t camera_id2 = reconstruction.Image(image_id2).CameraId();
-
-  if (camera_id1 == camera_id2) {
-    problem_->AddResidualBlock(
-        FetzerFocalLengthSameCameraCostFunctor::Create(
-            image_pair.F, reconstruction.Camera(camera_id1).PrincipalPoint()),
-        loss_function_.get(),
-        &(focals_[camera_id1]));
-  } else {
-    problem_->AddResidualBlock(
-        FetzerFocalLengthCostFunctor::Create(
-            image_pair.F,
-            reconstruction.Camera(camera_id1).PrincipalPoint(),
-            reconstruction.Camera(camera_id2).PrincipalPoint()),
-        loss_function_.get(),
-        &(focals_[camera_id1]),
-        &(focals_[camera_id2]));
+    if (camera_id1 == camera_id2) {
+      problem_->AddResidualBlock(
+          FetzerFocalLengthSameCameraCostFunctor::Create(
+              image_pair.F, reconstruction.Camera(camera_id1).PrincipalPoint()),
+          loss_function_.get(),
+          &(focals_[camera_id1]));
+    } else {
+      problem_->AddResidualBlock(
+          FetzerFocalLengthCostFunctor::Create(
+              image_pair.F,
+              reconstruction.Camera(camera_id1).PrincipalPoint(),
+              reconstruction.Camera(camera_id2).PrincipalPoint()),
+          loss_function_.get(),
+          &(focals_[camera_id1]),
+          &(focals_[camera_id2]));
+    }
   }
 }
 
@@ -117,17 +106,17 @@ size_t ViewGraphCalibrator::ParameterizeCameras(
   return num_cameras;
 }
 
-void ViewGraphCalibrator::CopyBackResults(
+void ViewGraphCalibrator::ConvertBackResults(
     colmap::Reconstruction& reconstruction) {
   size_t counter = 0;
   for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
     if (!problem_->HasParameterBlock(&(focals_[camera_id]))) continue;
 
     // if the estimated parameter is too crazy, reject it
-    if (focals_[camera_id] / camera.MeanFocalLength() >
-            options_.thres_higher_ratio ||
-        focals_[camera_id] / camera.MeanFocalLength() <
-            options_.thres_lower_ratio) {
+    const double focal_length_ratio =
+        focals_[camera_id] / camera.MeanFocalLength();
+    if (focal_length_ratio > options_.max_focal_length_ratio ||
+        focal_length_ratio < options_.min_focal_length_ratio) {
       VLOG(2) << "Ignoring degenerate camera camera " << camera_id
               << " focal: " << focals_[camera_id]
               << " original focal: " << camera.MeanFocalLength();
@@ -145,7 +134,8 @@ void ViewGraphCalibrator::CopyBackResults(
   LOG(INFO) << counter << " cameras are rejected in view graph calibration";
 }
 
-size_t ViewGraphCalibrator::FilterImagePairs(ViewGraph& view_graph) const {
+size_t ViewGraphCalibrator::EvaluateAndFilterImagePairs(
+    ViewGraph& view_graph) const {
   ceres::Problem::EvaluateOptions eval_options;
   eval_options.num_threads = options_.solver_options.num_threads;
   eval_options.apply_loss_function = false;
@@ -156,8 +146,8 @@ size_t ViewGraphCalibrator::FilterImagePairs(ViewGraph& view_graph) const {
   size_t counter = 0;
   size_t invalid_counter = 0;
 
-  const double thres_two_view_error_sq =
-      options_.thres_two_view_error * options_.thres_two_view_error;
+  const double max_calibration_error_sq =
+      options_.max_calibration_error * options_.max_calibration_error;
 
   for (const auto& [image_pair_id, image_pair] : view_graph.ImagePairs()) {
     if (image_pair.config != colmap::TwoViewGeometry::CALIBRATED &&
@@ -168,7 +158,7 @@ size_t ViewGraphCalibrator::FilterImagePairs(ViewGraph& view_graph) const {
     const Eigen::Vector2d error(residuals[counter], residuals[counter + 1]);
 
     // Set the two view geometry to be invalid if the error is too high
-    if (error.squaredNorm() > thres_two_view_error_sq) {
+    if (error.squaredNorm() > max_calibration_error_sq) {
       invalid_counter++;
       view_graph.SetInvalidImagePair(image_pair_id);
     }
@@ -180,6 +170,79 @@ size_t ViewGraphCalibrator::FilterImagePairs(ViewGraph& view_graph) const {
             << invalid_counter << " / " << (counter / 2);
 
   return invalid_counter;
+}
+
+namespace {
+
+// Cross-validate prior focal lengths by checking the ratio of calibrated vs
+// uncalibrated pairs per camera. UNCALIBRATED pairs are converted to
+// CALIBRATED if both cameras have reliable priors (majority of pairs are
+// calibrated).
+void CrossValidatePriorFocalLengths(
+    const colmap::Reconstruction& reconstruction, ViewGraph& view_graph) {
+  // For each camera, count the number of calibrated vs uncalibrated pairs.
+  // first: total count, second: calibrated count
+  std::unordered_map<camera_t, std::pair<int, int>> camera_counter;
+  for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const camera_t camera_id1 = reconstruction.Image(image_id1).CameraId();
+    const camera_t camera_id2 = reconstruction.Image(image_id2).CameraId();
+
+    const colmap::Camera& camera1 = reconstruction.Camera(camera_id1);
+    const colmap::Camera& camera2 = reconstruction.Camera(camera_id2);
+    if (!camera1.has_prior_focal_length || !camera2.has_prior_focal_length)
+      continue;
+
+    if (image_pair.config == colmap::TwoViewGeometry::CALIBRATED) {
+      camera_counter[camera_id1].first++;
+      camera_counter[camera_id2].first++;
+      camera_counter[camera_id1].second++;
+      camera_counter[camera_id2].second++;
+    } else if (image_pair.config == colmap::TwoViewGeometry::UNCALIBRATED) {
+      camera_counter[camera_id1].first++;
+      camera_counter[camera_id2].first++;
+    }
+  }
+
+  // Camera is valid if majority (>50%) of its pairs are calibrated.
+  std::unordered_map<camera_t, bool> camera_validity;
+  for (auto& [camera_id, counter] : camera_counter) {
+    camera_validity[camera_id] = counter.second * 1. / counter.first > 0.5;
+  }
+
+  // Convert UNCALIBRATED pairs to CALIBRATED if both cameras are valid.
+  for (auto& [pair_id, image_pair] : view_graph.ImagePairs()) {
+    if (!view_graph.IsValid(pair_id)) continue;
+    if (image_pair.config != colmap::TwoViewGeometry::UNCALIBRATED) continue;
+
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const camera_t camera_id1 = reconstruction.Image(image_id1).CameraId();
+    const camera_t camera_id2 = reconstruction.Image(image_id2).CameraId();
+
+    if (camera_validity[camera_id1] && camera_validity[camera_id2]) {
+      const colmap::Camera& camera1 = reconstruction.Camera(camera_id1);
+      const colmap::Camera& camera2 = reconstruction.Camera(camera_id2);
+      image_pair.config = colmap::TwoViewGeometry::CALIBRATED;
+      image_pair.F = colmap::FundamentalFromEssentialMatrix(
+          camera2.CalibrationMatrix(),
+          colmap::EssentialMatrixFromPose(image_pair.cam2_from_cam1),
+          camera1.CalibrationMatrix());
+    }
+  }
+}
+
+}  // namespace
+
+bool CalibrateViewGraph(const ViewGraphCalibratorOptions& options,
+                        ViewGraph& view_graph,
+                        colmap::Reconstruction& reconstruction) {
+  // Cross-validate prior focal lengths if enabled.
+  if (options.cross_validate_prior_focal_lengths) {
+    CrossValidatePriorFocalLengths(reconstruction, view_graph);
+  }
+
+  ViewGraphCalibrator calibrator(options);
+  return calibrator.Solve(view_graph, reconstruction);
 }
 
 }  // namespace glomap

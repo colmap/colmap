@@ -1,5 +1,6 @@
 #include "glomap/controllers/option_manager.h"
 
+#include "glomap/estimators/global_positioning.h"
 #include "glomap/estimators/gravity_refinement.h"
 #include "glomap/sfm/global_mapper.h"
 
@@ -24,6 +25,7 @@ void OptionManager::AddGlobalMapperOptions() {
   added_global_mapper_options_ = true;
 
   // Global mapper options
+  AddAndRegisterDefaultOption("Mapper.num_threads", &mapper->num_threads);
   AddAndRegisterDefaultOption("Mapper.random_seed", &mapper->random_seed);
   AddAndRegisterDefaultOption("Mapper.num_iterations_ba",
                               &mapper->num_iterations_ba);
@@ -45,14 +47,14 @@ void OptionManager::AddGlobalMapperOptions() {
 
   // View graph calibration options
   AddAndRegisterDefaultOption(
-      "ViewGraphCalib.thres_lower_ratio",
-      &mapper->view_graph_calibration.thres_lower_ratio);
+      "ViewGraphCalib.min_focal_length_ratio",
+      &mapper->view_graph_calibration.min_focal_length_ratio);
   AddAndRegisterDefaultOption(
-      "ViewGraphCalib.thres_higher_ratio",
-      &mapper->view_graph_calibration.thres_higher_ratio);
+      "ViewGraphCalib.max_focal_length_ratio",
+      &mapper->view_graph_calibration.max_focal_length_ratio);
   AddAndRegisterDefaultOption(
-      "ViewGraphCalib.thres_two_view_error",
-      &mapper->view_graph_calibration.thres_two_view_error);
+      "ViewGraphCalib.max_calibration_error",
+      &mapper->view_graph_calibration.max_calibration_error);
 
   // Relative pose estimation options
   AddAndRegisterDefaultOption(
@@ -88,6 +90,13 @@ void OptionManager::AddGlobalMapperOptions() {
   AddAndRegisterDefaultOption(
       "GlobalPositioning.max_num_iterations",
       &mapper->global_positioning.solver_options.max_num_iterations);
+  AddAndRegisterDefaultEnumOption(
+      "GlobalPositioning.constraint_type",
+      &mapper->global_positioning.constraint_type,
+      GlobalPositioningConstraintTypeToString,
+      GlobalPositioningConstraintTypeFromString,
+      "{ONLY_POINTS, ONLY_CAMERAS, POINTS_AND_CAMERAS_BALANCED, "
+      "POINTS_AND_CAMERAS}");
 
   // Bundle adjustment options
   AddAndRegisterDefaultOption("BundleAdjustment.use_gpu",
@@ -165,8 +174,6 @@ void OptionManager::Reset() {
   added_global_mapper_options_ = false;
   added_gravity_refiner_options_ = false;
 }
-
-bool OptionManager::Check() { return colmap::BaseOptionManager::Check(); }
 
 void OptionManager::ResetOptions(const bool reset_paths) {
   colmap::BaseOptionManager::ResetOptions(reset_paths);

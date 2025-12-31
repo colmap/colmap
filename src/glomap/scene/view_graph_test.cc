@@ -47,9 +47,9 @@ ImagePair SynthesizeImagePair(int num_inliers = 50, int num_matches = 100) {
     pair.matches(i, 1) = i;
   }
   // First num_inliers matches are inliers.
-  pair.inliers.resize(num_inliers);
+  pair.inlier_matches.reserve(num_inliers);
   for (int i = 0; i < num_inliers; ++i) {
-    pair.inliers[i] = i;
+    pair.inlier_matches.emplace_back(i, i);
   }
   return pair;
 }

@@ -49,39 +49,16 @@ namespace glomap {
 // -------------------------------------
 int RunGlobalMapper(int argc, char** argv) {
   std::string output_path;
-
-  std::string constraint_type = "ONLY_POINTS";
   std::string output_format = "bin";
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("constraint_type",
-                           &constraint_type,
-                           "{ONLY_POINTS, ONLY_CAMERAS, "
-                           "POINTS_AND_CAMERAS_BALANCED, POINTS_AND_CAMERAS}");
   options.AddDefaultOption("output_format", &output_format, "{bin, txt}");
   options.AddGlobalMapperOptions();
 
   if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (constraint_type == "ONLY_POINTS") {
-    options.mapper->global_positioning.constraint_type =
-        GlobalPositionerOptions::ONLY_POINTS;
-  } else if (constraint_type == "ONLY_CAMERAS") {
-    options.mapper->global_positioning.constraint_type =
-        GlobalPositionerOptions::ONLY_CAMERAS;
-  } else if (constraint_type == "POINTS_AND_CAMERAS_BALANCED") {
-    options.mapper->global_positioning.constraint_type =
-        GlobalPositionerOptions::POINTS_AND_CAMERAS_BALANCED;
-  } else if (constraint_type == "POINTS_AND_CAMERAS") {
-    options.mapper->global_positioning.constraint_type =
-        GlobalPositionerOptions::POINTS_AND_CAMERAS;
-  } else {
-    LOG(ERROR) << "Invalid constriant type";
     return EXIT_FAILURE;
   }
 
@@ -93,35 +70,31 @@ int RunGlobalMapper(int argc, char** argv) {
 
   auto database = colmap::Database::Open(*options.database_path);
 
-  colmap::Reconstruction reconstruction;
-  ViewGraph view_graph;
-  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
+  auto reconstruction = std::make_shared<colmap::Reconstruction>();
 
-  std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
+  GlobalMapper global_mapper(database);
+  global_mapper.BeginReconstruction(reconstruction);
 
-  if (view_graph.Empty()) {
+  if (global_mapper.ViewGraph()->Empty()) {
     LOG(ERROR) << "Can't continue without image pairs";
     return EXIT_FAILURE;
   }
 
   options.mapper->image_path = *options.image_path;
 
-  GlobalMapper global_mapper(*options.mapper);
-
   // Main solver
   LOG(INFO) << "Loaded database";
   colmap::Timer run_timer;
   run_timer.Start();
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(
-      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
+  global_mapper.Solve(*options.mapper, cluster_ids);
   run_timer.Pause();
 
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 
   WriteReconstructionsByClusters(output_path,
-                                 reconstruction,
+                                 *reconstruction,
                                  cluster_ids,
                                  output_format,
                                  *options.image_path);

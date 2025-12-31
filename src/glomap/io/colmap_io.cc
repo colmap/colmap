@@ -31,11 +31,9 @@ void WriteReconstruction(const colmap::Reconstruction& reconstruction,
 
 namespace glomap {
 
-void InitializeGlomapFromDatabase(const colmap::Database& database,
-                                  colmap::Reconstruction& reconstruction,
-                                  ViewGraph& view_graph) {
+void InitializeEmptyReconstructionFromDatabase(
+    const colmap::Database& database, colmap::Reconstruction& reconstruction) {
   reconstruction = colmap::Reconstruction();
-  view_graph.Clear();
 
   // Add all cameras
   for (auto& camera : database.ReadAllCameras()) {
@@ -110,6 +108,13 @@ void InitializeGlomapFromDatabase(const colmap::Database& database,
   }
 
   LOG(INFO) << "Read " << reconstruction.NumImages() << " images";
+}
+
+void InitializeViewGraphFromDatabase(
+    const colmap::Database& database,
+    const colmap::Reconstruction& reconstruction,
+    ViewGraph& view_graph) {
+  view_graph.Clear();
 
   // Build view graph from matches
   auto all_matches = database.ReadAllMatches();
@@ -144,7 +149,10 @@ void InitializeGlomapFromDatabase(const colmap::Database& database,
     const Image& image1 = reconstruction.Image(image_id1);
     const Image& image2 = reconstruction.Image(image_id2);
 
-    // For calibrated pairs, recompute F from the relative pose
+    // For calibrated pairs, recompute F from the relative pose.
+    // TODO: Once this update is moved to the colmap side, we can safely drop
+    // the reconstruction argument in this function and move it to ViewGraph
+    // implementation.
     if (image_pair.config == colmap::TwoViewGeometry::CALIBRATED) {
       image_pair.F = colmap::FundamentalFromEssentialMatrix(
           reconstruction.Camera(image2.CameraId()).CalibrationMatrix(),
