@@ -337,19 +337,8 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   opts.global_positioning.solver_options.num_threads = opts.num_threads;
   opts.bundle_adjustment.solver_options.num_threads = opts.num_threads;
 
-  // 0. Preprocessing
-  if (!opts.skip_preprocessing) {
-    LOG(INFO) << "----- Running preprocessing -----";
-    colmap::Timer run_timer;
-    run_timer.Start();
-    ViewGraphManipulator::DecomposeRelPose(
-        *view_graph_, *reconstruction_, opts.num_threads);
-    LOG(INFO) << "Preprocessing done in " << run_timer.ElapsedSeconds()
-              << " seconds";
-  }
-
-  // Run view graph calibration
   if (!opts.skip_view_graph_calibration) {
+    // Run view graph calibration
     LOG(INFO) << "----- Running view graph calibration -----";
     colmap::Timer run_timer;
     run_timer.Start();
@@ -362,6 +351,11 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     }
     LOG(INFO) << "View graph calibration done in " << run_timer.ElapsedSeconds()
               << " seconds";
+  }
+  else {
+    // Decompose relative poses when skipping view graph calibration.
+    ViewGraphManipulator::DecomposeRelativePoses(
+        *view_graph_, *reconstruction_, opts.num_threads);
   }
 
   // Run rotation averaging

@@ -29,8 +29,6 @@ void OptionManager::AddGlobalMapperOptions() {
   AddAndRegisterDefaultOption("Mapper.random_seed", &mapper->random_seed);
   AddAndRegisterDefaultOption("Mapper.num_iterations_ba",
                               &mapper->num_iterations_ba);
-  AddAndRegisterDefaultOption("Mapper.skip_preprocessing",
-                              &mapper->skip_preprocessing);
   AddAndRegisterDefaultOption("Mapper.skip_view_graph_calibration",
                               &mapper->skip_view_graph_calibration);
   AddAndRegisterDefaultOption("Mapper.skip_rotation_averaging",

@@ -1,11 +1,12 @@
 #include "view_graph_manipulation.h"
 
+#include "colmap/estimators/two_view_geometry.h"
 #include "colmap/util/threading.h"
 
 namespace glomap {
 
-// Decompose the relative camera postion from the camera config
-void ViewGraphManipulator::DecomposeRelPose(
+// Decompose relative poses from the two-view geometry matrices.
+void ViewGraphManipulator::DecomposeRelativePoses(
     ViewGraph& view_graph,
     colmap::Reconstruction& reconstruction,
     int num_threads) {
@@ -32,17 +33,16 @@ void ViewGraphManipulator::DecomposeRelPose(
       const Image& image1 = reconstruction.Image(image_id1);
       const Image& image2 = reconstruction.Image(image_id2);
 
-      const camera_t camera_id1 = image1.CameraId();
-      const camera_t camera_id2 = image2.CameraId();
-      const colmap::Camera& camera1 = reconstruction.Camera(camera_id1);
-      const colmap::Camera& camera2 = reconstruction.Camera(camera_id2);
+      const colmap::Camera& camera1 =
+          reconstruction.Camera(image1.CameraId());
+      const colmap::Camera& camera2 =
+          reconstruction.Camera(image2.CameraId());
 
-      // Use the two-view geometry to re-estimate the relative pose
-      colmap::TwoViewGeometry two_view_geometry;
-      two_view_geometry.E = image_pair.E;
-      two_view_geometry.F = image_pair.F;
-      two_view_geometry.H = image_pair.H;
-      two_view_geometry.config = image_pair.config;
+      // If planar, convert to calibrated and skip pose estimation.
+      if (image_pair.config == colmap::TwoViewGeometry::PLANAR) {
+        image_pair.config = colmap::TwoViewGeometry::CALIBRATED;
+        return;
+      }
 
       std::vector<Eigen::Vector2d> points1(image1.NumPoints2D());
       for (colmap::point2D_t point2D_idx = 0;
@@ -57,20 +57,9 @@ void ViewGraphManipulator::DecomposeRelPose(
         points2[point2D_idx] = image2.Point2D(point2D_idx).xy;
       }
 
+      // ImagePair inherits from TwoViewGeometry, so pass it directly.
       colmap::EstimateTwoViewGeometryPose(
-          camera1, points1, camera2, points2, &two_view_geometry);
-
-      // if it planar, then use the estimated relative pose
-      if (image_pair.config == colmap::TwoViewGeometry::PLANAR &&
-          camera1.has_prior_focal_length && camera2.has_prior_focal_length) {
-        image_pair.config = colmap::TwoViewGeometry::CALIBRATED;
-        return;
-      } else if (!(camera1.has_prior_focal_length &&
-                   camera2.has_prior_focal_length))
-        return;
-
-      image_pair.config = two_view_geometry.config;
-      image_pair.cam2_from_cam1 = two_view_geometry.cam2_from_cam1;
+          camera1, points1, camera2, points2, &image_pair);
 
       if (image_pair.cam2_from_cam1.translation.norm() > 1e-12) {
         image_pair.cam2_from_cam1.translation =

@@ -52,7 +52,6 @@ struct GlobalMapperOptions {
   int num_iterations_ba = 3;
 
   // Control the flow of the global sfm
-  bool skip_preprocessing = false;
   bool skip_view_graph_calibration = false;
   bool skip_rotation_averaging = false;
   bool skip_track_establishment = false;

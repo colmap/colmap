@@ -32,7 +32,6 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/timer.h"
 
-#include "glomap/processors/view_graph_manipulation.h"
 #include "glomap/sfm/global_mapper.h"
 
 namespace colmap {
@@ -66,11 +65,6 @@ void RotationAveragingController::Run() {
     LOG(ERROR) << "Cannot continue without image pairs";
     return;
   }
-
-  // Step 0: Preprocessing
-  LOG(INFO) << "----- Running preprocessing -----";
-  glomap::ViewGraphManipulator::DecomposeRelPose(
-      *mapper.ViewGraph(), *reconstruction_, options.num_threads);
 
   // View graph calibration
   LOG(INFO) << "----- Running view graph calibration -----";
