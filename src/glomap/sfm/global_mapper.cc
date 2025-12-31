@@ -9,7 +9,6 @@
 
 #include "glomap/estimators/rotation_averaging.h"
 #include "glomap/io/colmap_io.h"
-#include "glomap/processors/image_pair_inliers.h"
 #include "glomap/processors/reconstruction_pruning.h"
 #include "glomap/processors/view_graph_manipulation.h"
 
@@ -115,7 +114,7 @@ void GlobalMapper::EstablishTracks(const TrackEstablishmentOptions& options) {
 }
 
 bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
-                                     double max_angle_error,
+                                     double max_angular_reprojection_error,
                                      double max_reprojection_error,
                                      double min_triangulation_angle) {
   if (options.constraint_type != GlobalPositioningConstraintType::ONLY_POINTS) {
@@ -135,12 +134,13 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
 
   // First pass: use relaxed threshold (2x) for cameras without prior focal.
   obs_manager.FilterPoints3DWithLargeReprojectionError(
-      2.0 * max_angle_error,
+      2.0 * max_angular_reprojection_error,
       reconstruction_->Point3DIds(),
       colmap::ReprojectionErrorType::ANGULAR);
 
   // Second pass: apply strict threshold for cameras with prior focal length.
-  const double max_angle_error_rad = colmap::DegToRad(max_angle_error);
+  const double max_angular_error_rad =
+      colmap::DegToRad(max_angular_reprojection_error);
   std::vector<std::pair<colmap::image_t, colmap::point2D_t>> obs_to_delete;
   for (const auto point3D_id : reconstruction_->Point3DIds()) {
     if (!reconstruction_->ExistsPoint3D(point3D_id)) {
@@ -156,7 +156,7 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
       const auto& point2D = image.Point2D(track_el.point2D_idx);
       const double error = colmap::CalculateAngularReprojectionError(
           point2D.xy, point3D.xyz, image.CamFromWorld(), camera);
-      if (error > max_angle_error_rad) {
+      if (error > max_angular_error_rad) {
         obs_to_delete.emplace_back(track_el.image_id, track_el.point2D_idx);
       }
     }
@@ -359,7 +359,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     colmap::Timer run_timer;
     run_timer.Start();
     if (!RotationAveraging(opts.rotation_averaging,
-                           opts.inlier_thresholds.max_rotation_error)) {
+                           opts.max_rotation_error)) {
       return false;
     }
     LOG(INFO) << "Rotation averaging done in " << run_timer.ElapsedSeconds()
@@ -382,9 +382,9 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     colmap::Timer run_timer;
     run_timer.Start();
     if (!GlobalPositioning(opts.global_positioning,
-                           opts.inlier_thresholds.max_angle_error,
-                           opts.inlier_thresholds.max_reprojection_error,
-                           opts.inlier_thresholds.min_triangulation_angle)) {
+                           opts.max_angular_reprojection_error,
+                           opts.max_reprojection_error,
+                           opts.min_triangulation_angle)) {
       return false;
     }
     LOG(INFO) << "Global positioning done in " << run_timer.ElapsedSeconds()
@@ -398,8 +398,8 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     run_timer.Start();
     if (!IterativeBundleAdjustment(
             opts.bundle_adjustment,
-            opts.inlier_thresholds.max_reprojection_error,
-            opts.inlier_thresholds.min_triangulation_angle,
+            opts.max_reprojection_error,
+            opts.min_triangulation_angle,
             opts.num_iterations_ba)) {
       return false;
     }
@@ -415,8 +415,8 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     if (!IterativeRetriangulateAndRefine(
             opts.retriangulation,
             opts.bundle_adjustment,
-            opts.inlier_thresholds.max_reprojection_error,
-            opts.inlier_thresholds.min_triangulation_angle)) {
+            opts.max_reprojection_error,
+            opts.min_triangulation_angle)) {
       return false;
     }
     LOG(INFO) << "Iterative retriangulation and refinement done in "

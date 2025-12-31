@@ -122,27 +122,15 @@ void OptionManager::AddGlobalMapperOptions() {
   AddAndRegisterDefaultOption("Retriangulation.min_angle",
                               &mapper->retriangulation.min_angle);
 
-  // Inlier threshold options
-  AddAndRegisterDefaultOption("Thresholds.max_angle_error",
-                              &mapper->inlier_thresholds.max_angle_error);
-  AddAndRegisterDefaultOption(
-      "Thresholds.max_reprojection_error",
-      &mapper->inlier_thresholds.max_reprojection_error);
-  AddAndRegisterDefaultOption(
-      "Thresholds.min_triangulation_angle",
-      &mapper->inlier_thresholds.min_triangulation_angle);
-  AddAndRegisterDefaultOption("Thresholds.max_epipolar_error_E",
-                              &mapper->inlier_thresholds.max_epipolar_error_E);
-  AddAndRegisterDefaultOption("Thresholds.max_epipolar_error_F",
-                              &mapper->inlier_thresholds.max_epipolar_error_F);
-  AddAndRegisterDefaultOption("Thresholds.max_epipolar_error_H",
-                              &mapper->inlier_thresholds.max_epipolar_error_H);
-  AddAndRegisterDefaultOption("Thresholds.min_inlier_num",
-                              &mapper->inlier_thresholds.min_inlier_num);
-  AddAndRegisterDefaultOption("Thresholds.min_inlier_ratio",
-                              &mapper->inlier_thresholds.min_inlier_ratio);
-  AddAndRegisterDefaultOption("Thresholds.max_rotation_error",
-                              &mapper->inlier_thresholds.max_rotation_error);
+  // Threshold options
+  AddAndRegisterDefaultOption("Mapper.max_rotation_error",
+                              &mapper->max_rotation_error);
+  AddAndRegisterDefaultOption("Mapper.max_angular_reprojection_error",
+                              &mapper->max_angular_reprojection_error);
+  AddAndRegisterDefaultOption("Mapper.max_reprojection_error",
+                              &mapper->max_reprojection_error);
+  AddAndRegisterDefaultOption("Mapper.min_triangulation_angle",
+                              &mapper->min_triangulation_angle);
 }
 
 void OptionManager::AddGravityRefinerOptions() {

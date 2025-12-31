@@ -34,7 +34,6 @@
 
 #include "glomap/estimators/rotation_averaging.h"
 #include "glomap/estimators/view_graph_calibration.h"
-#include "glomap/processors/image_pair_inliers.h"
 
 #include <memory>
 
@@ -56,8 +55,8 @@ struct RotationAveragingControllerOptions {
   // Options for rotation averaging.
   glomap::RotationEstimatorOptions rotation_estimation;
 
-  // Inlier thresholds for filtering.
-  glomap::InlierThresholdOptions inlier_thresholds;
+  // Maximum rotation error in degrees for filtering.
+  double max_rotation_error = 10.;
 };
 
 class RotationAveragingController : public BaseController {

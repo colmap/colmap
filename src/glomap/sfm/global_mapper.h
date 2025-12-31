@@ -9,7 +9,6 @@
 #include "glomap/estimators/global_positioning.h"
 #include "glomap/estimators/rotation_averaging.h"
 #include "glomap/estimators/view_graph_calibration.h"
-#include "glomap/processors/image_pair_inliers.h"
 #include "glomap/scene/view_graph.h"
 #include "glomap/sfm/track_establishment.h"
 
@@ -43,8 +42,11 @@ struct GlobalMapperOptions {
     return opts;
   }();
 
-  // Inlier thresholds for each component
-  InlierThresholdOptions inlier_thresholds;
+  // Thresholds for each component.
+  double max_rotation_error = 10.;              // in degree, for rotation averaging
+  double max_angular_reprojection_error = 1.;   // in degree, for global positioning
+  double max_reprojection_error = 1e-2;         // for bundle adjustment
+  double min_triangulation_angle = 1.;          // in degree, for triangulation
 
   // Control the number of iterations for bundle adjustment.
   int num_iterations_ba = 3;
@@ -81,7 +83,7 @@ class GlobalMapper {
 
   // Estimate global camera positions.
   bool GlobalPositioning(const GlobalPositionerOptions& options,
-                         double max_angle_error,
+                         double max_angular_reprojection_error,
                          double max_reprojection_error,
                          double min_triangulation_angle);
 
