@@ -16,15 +16,7 @@
 namespace glomap {
 
 GlobalMapper::GlobalMapper(std::shared_ptr<const colmap::Database> database)
-    : database_(std::move(THROW_CHECK_NOTNULL(database))) {}
-
-void GlobalMapper::BeginReconstruction(
-    const std::shared_ptr<colmap::Reconstruction>& reconstruction) {
-  THROW_CHECK_NOTNULL(reconstruction);
-
-  reconstruction_ = reconstruction;
-  view_graph_ = std::make_shared<class ViewGraph>();
-
+    : database_(std::move(THROW_CHECK_NOTNULL(database))) {
   // TODO: Think about how to directy use DatabaseCache in the signature and
   // Make min_num_matches an option in the global pipeline.
   constexpr int kMinNumMatches = 15;
@@ -33,6 +25,13 @@ void GlobalMapper::BeginReconstruction(
                                                   /*ignore_watermarks=*/false,
                                                   /*image_names=*/{});
   reconstruction_->Load(*database_cache_);
+}
+
+void GlobalMapper::BeginReconstruction(
+    const std::shared_ptr<colmap::Reconstruction>& reconstruction) {
+  THROW_CHECK_NOTNULL(reconstruction);
+  reconstruction_ = reconstruction;
+  view_graph_ = std::make_shared<class ViewGraph>();
 
   InitializeViewGraphFromDatabase(*database_, *reconstruction_, *view_graph_);
 }
