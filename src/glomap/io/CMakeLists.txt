@@ -39,3 +39,9 @@ COLMAP_ADD_LIBRARY(
         colmap_scene
         colmap_util
 )
+
+COLMAP_ADD_TEST(
+    NAME glomap_pose_io_test
+    SRCS pose_io_test.cc
+    LINK_LIBS colmap_glomap_io
+)
