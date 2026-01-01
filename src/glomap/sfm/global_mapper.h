@@ -1,6 +1,7 @@
 #pragma once
 
 #include "colmap/scene/database.h"
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_triangulator.h"
 
@@ -110,8 +111,8 @@ class GlobalMapper {
   std::shared_ptr<class ViewGraph> ViewGraph() const;
 
  private:
-  // Class that provides access to the database.
-  const std::shared_ptr<const colmap::Database> database_;
+  // Class that caches data loaded from the database.
+  std::shared_ptr<const colmap::DatabaseCache> database_cache_;
 
   // Class that holds data of the reconstruction.
   std::shared_ptr<colmap::Reconstruction> reconstruction_;
