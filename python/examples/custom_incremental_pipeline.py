@@ -331,7 +331,10 @@ def main_incremental_mapper(controller: pycolmap.IncrementalPipeline) -> None:
     """Equivalent to IncrementalPipeline.run()"""
     timer = pycolmap.Timer()
     timer.start()
-    if not controller.load_database():
+
+    database_cache = controller.database_cache
+    if database_cache.num_images() == 0:
+        logging.warning("No images with matches found in the database")
         return
 
     reconstruction_manager = controller.reconstruction_manager
@@ -343,7 +346,6 @@ def main_incremental_mapper(controller: pycolmap.IncrementalPipeline) -> None:
             "but multiple are given"
         )
 
-    database_cache = controller.database_cache
     mapper = pycolmap.IncrementalMapper(database_cache)
     mapper_options = controller.options.get_mapper()
     reconstruct(controller, mapper, mapper_options, continue_reconstruction)

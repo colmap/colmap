@@ -253,7 +253,6 @@ void BindIncrementalPipeline(py::module& m) {
                              &IncrementalPipeline::DatabaseCache)
       .def("add_callback", &IncrementalPipeline::AddCallback, "id"_a, "func"_a)
       .def("callback", &IncrementalPipeline::Callback, "id"_a)
-      .def("load_database", &IncrementalPipeline::LoadDatabase)
       .def("check_run_global_refinement",
            &IncrementalPipeline::CheckRunGlobalRefinement,
            "reconstruction"_a,
