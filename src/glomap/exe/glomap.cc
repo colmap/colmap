@@ -151,22 +151,28 @@ int RunRotationAverager(int argc, char** argv) {
 
   // Add cameras and images to reconstruction
   for (auto& [image_id, image] : temp_images) {
-    image.SetCameraId(image.ImageId());
+    // Add dummy camera
+    reconstruction.AddCamera(colmap::Camera::CreateFromModelId(
+        image_id, colmap::CameraModelId::kSimplePinhole, 0.0, 0, 0));
 
-    // Add camera if it doesn't exist
-    if (!reconstruction.ExistsCamera(image.CameraId())) {
-      colmap::Camera camera;
-      camera.camera_id = image.CameraId();
-      reconstruction.AddCamera(std::move(camera));
-    }
+    // Add rig with camera as reference sensor
+    Rig rig;
+    rig.SetRigId(image_id);
+    rig.AddRefSensor(sensor_t(SensorType::CAMERA, image_id));
+    reconstruction.AddRig(std::move(rig));
 
+    // Add frame with identity pose
+    Frame frame;
+    frame.SetFrameId(image_id);
+    frame.SetRigId(image_id);
+    frame.AddDataId(data_t(sensor_t(SensorType::CAMERA, image_id), image_id));
+    frame.SetRigFromWorld(Rigid3d());
+    reconstruction.AddFrame(std::move(frame));
+
+    // Add image
+    image.SetCameraId(image_id);
+    image.SetFrameId(image_id);
     reconstruction.AddImage(std::move(image));
-  }
-
-  // Create one rig per camera and frames for images
-  colmap::CreateOneRigPerCamera(reconstruction);
-  for (const auto& [image_id, image] : reconstruction.Images()) {
-    colmap::CreateFrameForImage(image, Rigid3d(), reconstruction);
   }
 
   std::vector<colmap::PosePrior> pose_priors;
