@@ -17,7 +17,7 @@ namespace glomap {
 
 GlobalMapper::GlobalMapper(std::shared_ptr<const colmap::Database> database) {
   THROW_CHECK_NOTNULL(database);
-  // TODO: Directy use DatabaseCache in the signature and make min_num_matches
+  // TODO: Directly use DatabaseCache in the signature and make min_num_matches
   // an option in the global pipeline.
   constexpr int kMinNumMatches = 15;
   database_cache_ = colmap::DatabaseCache::Create(*database,
