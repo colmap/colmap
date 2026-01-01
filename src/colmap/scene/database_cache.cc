@@ -279,6 +279,108 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   return cache;
 }
 
+std::shared_ptr<DatabaseCache> DatabaseCache::Create(
+    const DatabaseCache& database_cache,
+    const size_t min_num_matches,
+    const std::unordered_set<std::string>& image_names) {
+  auto cache = std::make_shared<DatabaseCache>();
+
+  // Collect candidate image IDs matching the name filter.
+  // Empty image_names means use all images.
+  std::unordered_set<image_t> candidate_image_ids;
+  for (const auto& [image_id, image] : database_cache.Images()) {
+    if (image_names.empty() || image_names.count(image.Name()) > 0) {
+      candidate_image_ids.insert(image_id);
+    }
+  }
+
+  // Filter to only include images that are connected in the correspondence
+  // graph with at least min_num_matches.
+  const auto& source_graph = database_cache.CorrespondenceGraph();
+  const auto num_corrs_between_images =
+      source_graph->NumCorrespondencesBetweenImages();
+
+  std::unordered_set<image_t> connected_image_ids;
+  for (const auto& [pair_id, num_correspondences] : num_corrs_between_images) {
+    if (num_correspondences >= min_num_matches) {
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+      if (candidate_image_ids.count(image_id1) > 0 &&
+          candidate_image_ids.count(image_id2) > 0) {
+        connected_image_ids.insert(image_id1);
+        connected_image_ids.insert(image_id2);
+      }
+    }
+  }
+
+  // Collect frame, camera, and rig IDs for connected images.
+  std::unordered_set<frame_t> filtered_frame_ids;
+  std::unordered_set<camera_t> filtered_camera_ids;
+  std::unordered_set<rig_t> filtered_rig_ids;
+
+  for (const image_t image_id : connected_image_ids) {
+    const auto& image = database_cache.Image(image_id);
+    filtered_frame_ids.insert(image.FrameId());
+    filtered_camera_ids.insert(image.CameraId());
+  }
+
+  // Copy filtered images.
+  for (const image_t image_id : connected_image_ids) {
+    cache->images_.emplace(image_id, database_cache.Image(image_id));
+  }
+
+  // Copy filtered frames and collect rig IDs.
+  for (const auto& [frame_id, frame] : database_cache.Frames()) {
+    if (filtered_frame_ids.count(frame_id) > 0) {
+      cache->frames_.emplace(frame_id, frame);
+      filtered_rig_ids.insert(frame.RigId());
+    }
+  }
+
+  // Copy filtered cameras.
+  for (const auto& [camera_id, camera] : database_cache.Cameras()) {
+    if (filtered_camera_ids.count(camera_id) > 0) {
+      cache->cameras_.emplace(camera_id, camera);
+    }
+  }
+
+  // Copy filtered rigs.
+  for (const auto& [rig_id, rig] : database_cache.Rigs()) {
+    if (filtered_rig_ids.count(rig_id) > 0) {
+      cache->rigs_.emplace(rig_id, rig);
+    }
+  }
+
+  // Copy pose priors.
+  cache->pose_priors_ = database_cache.PosePriors();
+
+  // Build filtered correspondence graph.
+  cache->correspondence_graph_ = std::make_shared<class CorrespondenceGraph>();
+
+  for (const image_t image_id : connected_image_ids) {
+    const auto& image = database_cache.Image(image_id);
+    cache->correspondence_graph_->AddImage(image_id, image.NumPoints2D());
+  }
+
+  // Copy correspondences between filtered image pairs.
+  for (const auto& [pair_id, num_correspondences] : num_corrs_between_images) {
+    if (num_correspondences >= min_num_matches) {
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+      if (connected_image_ids.count(image_id1) > 0 &&
+          connected_image_ids.count(image_id2) > 0) {
+        const FeatureMatches matches =
+            source_graph->FindCorrespondencesBetweenImages(image_id1,
+                                                           image_id2);
+        cache->correspondence_graph_->AddCorrespondences(
+            image_id1, image_id2, matches);
+      }
+    }
+  }
+
+  cache->correspondence_graph_->Finalize();
+
+  return cache;
+}
+
 void DatabaseCache::AddRig(class Rig rig) {
   const rig_t rig_id = rig.RigId();
   THROW_CHECK(!ExistsRig(rig_id));

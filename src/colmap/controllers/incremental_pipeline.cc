@@ -238,6 +238,49 @@ IncrementalPipeline::IncrementalPipeline(
   RegisterCallback(LAST_IMAGE_REG_CALLBACK);
 }
 
+// NOTE: This constructor does not respect the ignore_watermarks option since
+// watermark filtering requires access to the original TwoViewGeometry data
+// from the database. The caller should ensure the passed database_cache was
+// created with appropriate watermark filtering if needed.
+IncrementalPipeline::IncrementalPipeline(
+    std::shared_ptr<const IncrementalPipelineOptions> options,
+    std::shared_ptr<class DatabaseCache> database_cache,
+    std::shared_ptr<class ReconstructionManager> reconstruction_manager)
+    : options_(std::move(THROW_CHECK_NOTNULL(options))),
+      reconstruction_manager_(
+          THROW_CHECK_NOTNULL(std::move(reconstruction_manager))),
+      total_run_timer_(std::make_shared<Timer>()) {
+  THROW_CHECK(options_->Check());
+  THROW_CHECK_NOTNULL(database_cache);
+
+  // Make sure images of the given reconstruction are also included when
+  // manually specifying images for the reconstruction procedure.
+  std::unordered_set<std::string> image_names = {options_->image_names.begin(),
+                                                 options_->image_names.end()};
+  if (reconstruction_manager_->Size() == 1 && !options_->image_names.empty()) {
+    const auto& reconstruction = reconstruction_manager_->Get(0);
+    for (const image_t image_id : reconstruction->RegImageIds()) {
+      const auto& image = reconstruction->Image(image_id);
+      image_names.insert(image.Name());
+    }
+  }
+
+  database_cache_ =
+      DatabaseCache::Create(*database_cache,
+                            static_cast<size_t>(options_->min_num_matches),
+                            image_names);
+
+  // If prior positions are to be used and setup from the database, convert
+  // geographic coords. to cartesian ones
+  if (options_->use_prior_position) {
+    THROW_CHECK(database_cache_->SetupPosePriors());
+  }
+
+  RegisterCallback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
+  RegisterCallback(NEXT_IMAGE_REG_CALLBACK);
+  RegisterCallback(LAST_IMAGE_REG_CALLBACK);
+}
+
 void IncrementalPipeline::Run() {
   total_run_timer_->Start();
 

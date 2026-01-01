@@ -208,6 +208,11 @@ class IncrementalPipeline : public BaseController {
       std::shared_ptr<class Database> database,
       std::shared_ptr<class ReconstructionManager> reconstruction_manager);
 
+  IncrementalPipeline(
+      std::shared_ptr<const IncrementalPipelineOptions> options,
+      std::shared_ptr<class DatabaseCache> database_cache,
+      std::shared_ptr<class ReconstructionManager> reconstruction_manager);
+
   void Run() override;
 
   // getter functions for python pipelines
