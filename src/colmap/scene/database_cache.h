@@ -63,15 +63,15 @@ class DatabaseCache {
   //                              same frame will also be included. All images
   //                              are used if empty.
   void Load(const Database& database,
-            size_t min_num_matches,
-            bool ignore_watermarks,
-            const std::unordered_set<std::string>& image_names);
+            size_t min_num_matches = 0,
+            bool ignore_watermarks = false,
+            const std::unordered_set<std::string>& image_names = {});
 
   static std::shared_ptr<DatabaseCache> Create(
       const Database& database,
-      size_t min_num_matches,
-      bool ignore_watermarks,
-      const std::unordered_set<std::string>& image_names);
+      size_t min_num_matches = 0,
+      bool ignore_watermarks = false,
+      const std::unordered_set<std::string>& image_names = {});
 
   // Get number of objects.
   inline size_t NumRigs() const;
