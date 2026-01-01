@@ -7,11 +7,6 @@
 
 namespace glomap {
 
-// Initialize an empty reconstruction from the database.
-// This adds cameras, rigs, frames, and images (without 3D points).
-void InitializeEmptyReconstructionFromDatabase(
-    const colmap::Database& database, colmap::Reconstruction& reconstruction);
-
 // Extract a subset of the reconstruction for a specific cluster.
 // Returns a new Reconstruction containing only frames/images/points from the
 // specified cluster. If cluster_id is -1, returns a copy of the full
