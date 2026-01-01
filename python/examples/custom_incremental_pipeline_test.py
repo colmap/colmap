@@ -28,6 +28,7 @@ def expect_equal_reconstructions(
         alignment_error="proj_center",
         max_proj_center_error=max_proj_center_error,
     )
+    assert result is not None
     for error in result["errors"]:
         assert error.rotation_error_deg < max_rotation_error_deg
         assert error.proj_center_error < max_proj_center_error
@@ -49,7 +50,7 @@ def test_without_noise(tmp_path: Path) -> None:
     output_path = tmp_path / "sparse"
     output_path.mkdir()
 
-    with pycolmap.Database.open(database_path) as database:
+    with pycolmap.Database.open(str(database_path)) as database:
         synthetic_dataset_options = pycolmap.SyntheticDatasetOptions()
         synthetic_dataset_options.num_cameras_per_rig = 2
         synthetic_dataset_options.num_frames_per_rig = 7
@@ -67,7 +68,7 @@ def test_without_noise(tmp_path: Path) -> None:
 
     expect_equal_reconstructions(
         gt_reconstruction,
-        pycolmap.Reconstruction(output_path / "0"),
+        pycolmap.Reconstruction(str(output_path / "0")),
         max_rotation_error_deg=1e-2,
         max_proj_center_error=1e-4,
         num_obs_tolerance=0,
@@ -83,7 +84,7 @@ def test_with_noise(tmp_path: Path) -> None:
     output_path = tmp_path / "sparse"
     output_path.mkdir()
 
-    with pycolmap.Database.open(database_path) as database:
+    with pycolmap.Database.open(str(database_path)) as database:
         synthetic_dataset_options = pycolmap.SyntheticDatasetOptions()
         synthetic_dataset_options.num_cameras_per_rig = 2
         synthetic_dataset_options.num_frames_per_rig = 7
@@ -104,7 +105,7 @@ def test_with_noise(tmp_path: Path) -> None:
 
     expect_equal_reconstructions(
         gt_reconstruction,
-        pycolmap.Reconstruction(output_path / "0"),
+        pycolmap.Reconstruction(str(output_path / "0")),
         max_rotation_error_deg=1e-1,
         max_proj_center_error=1e-1,
         num_obs_tolerance=0.02,
@@ -120,7 +121,7 @@ def test_multi_reconstruction(tmp_path: Path) -> None:
     output_path = tmp_path / "sparse"
     output_path.mkdir()
 
-    with pycolmap.Database.open(database_path) as database:
+    with pycolmap.Database.open(str(database_path)) as database:
         synthetic_dataset_options = pycolmap.SyntheticDatasetOptions()
         synthetic_dataset_options.num_cameras_per_rig = 1
         synthetic_dataset_options.num_frames_per_rig = 5
@@ -143,8 +144,8 @@ def test_multi_reconstruction(tmp_path: Path) -> None:
     )
 
     assert len(list(output_path.iterdir())) == 2
-    reconstruction1 = pycolmap.Reconstruction(output_path / "0")
-    reconstruction2 = pycolmap.Reconstruction(output_path / "1")
+    reconstruction1 = pycolmap.Reconstruction(str(output_path / "0"))
+    reconstruction2 = pycolmap.Reconstruction(str(output_path / "1"))
     if reconstruction1 == gt_reconstruction2.num_reg_images():
         reconstruction1, reconstruction2 = reconstruction2, reconstruction1
 
@@ -173,7 +174,7 @@ def test_chained_matches(tmp_path: Path) -> None:
     output_path = tmp_path / "sparse"
     output_path.mkdir()
 
-    with pycolmap.Database.open(database_path) as database:
+    with pycolmap.Database.open(str(database_path)) as database:
         synthetic_dataset_options = pycolmap.SyntheticDatasetOptions()
         synthetic_dataset_options.num_cameras_per_rig = 1
         synthetic_dataset_options.num_frames_per_rig = 4
@@ -194,7 +195,7 @@ def test_chained_matches(tmp_path: Path) -> None:
 
     expect_equal_reconstructions(
         gt_reconstruction,
-        pycolmap.Reconstruction(output_path / "0"),
+        pycolmap.Reconstruction(str(output_path / "0")),
         max_rotation_error_deg=1e-2,
         max_proj_center_error=1e-4,
         num_obs_tolerance=0,

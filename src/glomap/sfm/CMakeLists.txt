@@ -34,7 +34,6 @@ COLMAP_ADD_LIBRARY(
     SRCS
         global_mapper.h global_mapper.cc
         track_establishment.h track_establishment.cc
-        track_retriangulation.h track_retriangulation.cc
     PUBLIC_LINK_LIBS
         colmap_glomap_estimators
         colmap_glomap_io

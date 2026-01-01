@@ -1,52 +1,52 @@
-# Python bindings for COLMAP
+# Python Bindings for COLMAP
 
-PyCOLMAP exposes to Python most capabilities of the
-[COLMAP](https://colmap.github.io/) Structure-from-Motion (SfM) and Multi-View
-Stereo (MVS) pipeline.
+PyCOLMAP exposes to Python most capabilities of the [COLMAP](https://colmap.github.io/) Structure-from-Motion (SfM) and Multi-View Stereo (MVS) pipeline.
 
 ## Installation
 
 Pre-built wheels for Linux, macOS, and Windows can be installed using pip:
+
 ```bash
 pip install pycolmap
 ```
 
-The wheels are automatically built and pushed to
-[PyPI](https://pypi.org/project/pycolmap/) at each release. 
-To benefit from GPU acceleration, wheels built for CUDA 12 (only for Linux - for now) are available under the [package `pycolmap-cuda12`](https://pypi.org/project/pycolmap-cuda12/).
+The wheels are automatically built and pushed to [PyPI](https://pypi.org/project/pycolmap/) at each release. To benefit from GPU acceleration, wheels built for CUDA 12 (only for Linux - for now) are available under the [package `pycolmap-cuda12`](https://pypi.org/project/pycolmap-cuda12/).
 
 <details>
 <summary>[Building PyCOLMAP from source - click to expand]</summary>
 
 1. Install COLMAP from source following [the official guide](https://colmap.github.io/install.html).
 
-3. Build PyCOLMAP:
-  - On Linux and macOS:
-```bash
-python -m pip install .
-```
-  - On Windows, after installing COLMAP [via VCPKG](https://colmap.github.io/install.html#id3), run in powershell:
-```powershell
-python -m pip install . `
-    --cmake.define.CMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
-    --cmake.define.VCPKG_TARGET_TRIPLET="x64-windows"
-```
+2. Build PyCOLMAP:
+   - On Linux and macOS:
+     ```bash
+     python -m pip install .
+     ```
+   - On Windows, after installing COLMAP [via VCPKG](https://colmap.github.io/install.html#id3), run in powershell:
+     ```powershell
+     python -m pip install . `
+         --cmake.define.CMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
+         --cmake.define.VCPKG_TARGET_TRIPLET="x64-windows"
+     ```
 
 </details>
 
-## Reconstruction pipeline
+## Reconstruction Pipeline
 
 PyCOLMAP provides bindings for multiple steps of the standard reconstruction pipeline:
 
-- extracting and matching SIFT features
-- importing an image folder into a COLMAP database
-- inferring the camera parameters from the EXIF metadata of an image file
-- running two-view geometric verification of matches on a COLMAP database
-- triangulating points into an existing COLMAP model
-- running incremental reconstruction from a COLMAP database
-- dense reconstruction with multi-view stereo
+- Extracting and matching SIFT features
+- Importing an image folder into a COLMAP database
+- Inferring the camera parameters from the EXIF metadata of an image file
+- Running two-view geometric verification of matches on a COLMAP database
+- Triangulating points into an existing COLMAP model
+- Running incremental reconstruction from a COLMAP database
+- Dense reconstruction with multi-view stereo
+
+### Sparse & Dense Reconstruction
 
 Sparse & Dense reconstruction from a folder of images can be performed with:
+
 ```python
 output_path: pathlib.Path
 image_dir: pathlib.Path
@@ -59,22 +59,26 @@ pycolmap.extract_features(database_path, image_dir)
 pycolmap.match_exhaustive(database_path)
 maps = pycolmap.incremental_mapping(database_path, image_dir, output_path)
 maps[0].write(output_path)
-# dense reconstruction
+
+# Dense reconstruction
 pycolmap.undistort_images(mvs_path, output_path, image_dir)
 pycolmap.patch_match_stereo(mvs_path)  # requires compilation with CUDA
 pycolmap.stereo_fusion(mvs_path / "dense.ply", mvs_path)
 ```
 
-PyCOLMAP can leverage the GPU for feature extraction, matching, and multi-view
-stereo if COLMAP was compiled with CUDA support. Similarly, PyCOLMAP can run
-Delaunay Triangulation if COLMAP was compiled with CGAL support. This requires
-to build the package from source and is not available with the PyPI wheels.
+PyCOLMAP can leverage the GPU for feature extraction, matching, and multi-view stereo if COLMAP was compiled with CUDA support. Similarly, PyCOLMAP can run Delaunay Triangulation if COLMAP was compiled with CGAL support. This requires to build the package from source and is not available with the PyPI wheels.
 
-All of the above steps are easily configurable with python dicts which are
-recursively merged into their respective defaults, for example:
+### Configuration Options
+
+All of the above steps are easily configurable with python dicts which are recursively merged into their respective defaults, for example:
+
 ```python
-pycolmap.extract_features(database_path, image_dir, extraction_options={"sift": {"max_num_features": 512}})
-# equivalent to
+pycolmap.extract_features(
+    database_path, image_dir,
+    extraction_options={"sift": {"max_num_features": 512}}
+)
+
+# Equivalent to:
 ops = pycolmap.FeatureExtractionOptions()
 ops.sift.max_num_features = 512
 pycolmap.extract_features(database_path, image_dir, extraction_options=ops)
@@ -86,15 +90,15 @@ To list available options and their default parameters:
 help(pycolmap.SiftExtractionOptions)
 ```
 
-For another example of usage, see [`example.py`](./examples/example.py) or
-[`hloc/reconstruction.py`](https://github.com/cvg/Hierarchical-Localization/blob/master/hloc/reconstruction.py).
+For another example of usage, see [`example.py`](./examples/example.py) or [`hloc/reconstruction.py`](https://github.com/cvg/Hierarchical-Localization/blob/master/hloc/reconstruction.py).
 
-## Reconstruction object
+## Reconstruction Object
 
 We can load and manipulate an existing COLMAP 3D reconstruction:
 
 ```python
 import pycolmap
+
 reconstruction = pycolmap.Reconstruction("path/to/reconstruction/dir")
 print(reconstruction.summary())
 
@@ -110,21 +114,28 @@ for camera_id, camera in reconstruction.cameras.items():
 reconstruction.write("path/to/reconstruction/dir/")
 ```
 
-The object API mirrors the COLMAP C++ library. The bindings support many other operations, for example:
+### Common Operations
 
-- projecting a 3D point into an image with arbitrary camera model:
+The object API mirrors the COLMAP C++ library. The bindings support many operations, for example:
+
+**Projecting a 3D point into an image** with arbitrary camera model:
+
 ```python
 uv = camera.img_from_cam(image.cam_from_world * point3D.xyz)
 ```
 
-- aligning two 3D reconstructions by their camera poses:
+**Aligning two 3D reconstructions** by their camera poses:
+
 ```python
-rec2_from_rec1 = pycolmap.align_reconstructions_via_reprojections(reconstruction1, reconstrution2)
+rec2_from_rec1 = pycolmap.align_reconstructions_via_reprojections(
+    reconstruction1, reconstruction2
+)
 reconstruction1.transform(rec2_from_rec1)
 print(rec2_from_rec1.scale, rec2_from_rec1.rotation, rec2_from_rec1.translation)
 ```
 
-- exporting reconstructions to text, PLY, or other formats:
+**Exporting reconstructions** to text, PLY, or other formats:
+
 ```python
 reconstruction.write_text("path/to/new/reconstruction/dir/")  # text format
 reconstruction.export_PLY("rec.ply")  # PLY format
@@ -132,18 +143,19 @@ reconstruction.export_PLY("rec.ply")  # PLY format
 
 ## Estimators
 
-We provide robust RANSAC-based estimators for absolute camera pose
-(single-camera and multi-camera-rig), essential matrix, fundamental matrix,
-homography, and two-view relative pose for calibrated cameras.
+We provide robust RANSAC-based estimators for:
 
-All RANSAC and estimation parameters are exposed as objects that behave
-similarly as Python dataclasses. The RANSAC options are described in
-[`colmap/optim/ransac.h`](https://github.com/colmap/colmap/blob/main/src/colmap/optim/ransac.h#L43-L72)
-and their default values are:
+- Absolute camera pose (single-camera and multi-camera-rig)
+- Essential matrix
+- Fundamental matrix
+- Homography
+- Two-view relative pose for calibrated cameras
+
+All RANSAC and estimation parameters are exposed as objects that behave similarly as Python dataclasses. The RANSAC options are described in [`colmap/optim/ransac.h`](https://github.com/colmap/colmap/blob/main/src/colmap/optim/ransac.h#L43-L72) and their default values are:
 
 ```python
 ransac_options = pycolmap.RANSACOptions(
-    max_error=4.0,  # for example the reprojection error in pixels
+    max_error=4.0,  # For example the reprojection error in pixels
     min_inlier_ratio=0.01,
     confidence=0.9999,
     min_num_trials=1000,
@@ -151,9 +163,10 @@ ransac_options = pycolmap.RANSACOptions(
 )
 ```
 
-### Absolute pose estimation
+### Absolute Pose Estimation
 
-For instance, to estimate the absolute pose of a query camera given 2D-3D correspondences:
+To estimate the absolute pose of a query camera given 2D-3D correspondences:
+
 ```python
 # Parameters:
 # - points2D: Nx2 array; pixel coordinates
@@ -166,9 +179,7 @@ answer = pycolmap.estimate_and_refine_absolute_pose(points2D, points3D, camera)
 # Returns: dictionary of estimation outputs or None if failure
 ```
 
-2D and 3D points are passed as Numpy arrays or lists. The options are defined in
-[`estimators/absolute_pose.cc`](./pycolmap/estimators/absolute_pose.h#L100-L122)
-and can be passed as regular (nested) Python dictionaries:
+2D and 3D points are passed as Numpy arrays or lists. The options are defined in [`estimators/absolute_pose.cc`](./pycolmap/estimators/absolute_pose.h#L100-L122) and can be passed as regular (nested) Python dictionaries:
 
 ```python
 pycolmap.estimate_and_refine_absolute_pose(
@@ -185,15 +196,17 @@ pycolmap.estimate_and_refine_absolute_pose(
 # - cam_from_world: pycolmap.Rigid3d, initial pose
 # - points2D: Nx2 array; pixel coordinates
 # - points3D: Nx3 array; world coordinates
-# - inlier_mask: array of N bool; inlier_mask[i] is true if correpondence i is an inlier
+# - inlier_mask: array of N bool; inlier_mask[i] is true if correspondence i is an inlier
 # - camera: pycolmap.Camera
 # Optional parameters:
 # - refinement_options: dict or pycolmap.AbsolutePoseRefinementOptions
-answer = pycolmap.refine_absolute_pose(cam_from_world, points2D, points3D, inlier_mask, camera)
+answer = pycolmap.refine_absolute_pose(
+    cam_from_world, points2D, points3D, inlier_mask, camera
+)
 # Returns: dictionary of refinement outputs or None if failure
 ```
 
-### Essential matrix estimation
+### Essential Matrix Estimation
 
 ```python
 # Parameters:
@@ -207,30 +220,29 @@ answer = pycolmap.estimate_essential_matrix(points1, points2, camera1, camera2)
 # Returns: dictionary of estimation outputs or None if failure
 ```
 
-### Fundamental matrix estimation
+### Fundamental Matrix Estimation
 
 ```python
 answer = pycolmap.estimate_fundamental_matrix(
     points1,
     points2,
-    [options],       # optional dict or pycolmap.RANSACOptions
+    [options],  # optional dict or pycolmap.RANSACOptions
 )
 ```
 
-### Homography estimation
+### Homography Estimation
 
 ```python
 answer = pycolmap.estimate_homography_matrix(
     points1,
     points2,
-    [options],       # optional dict or pycolmap.RANSACOptions
+    [options],  # optional dict or pycolmap.RANSACOptions
 )
 ```
 
-### Two-view geometry estimation
+### Two-View Geometry Estimation
 
-COLMAP can also estimate a relative pose between two calibrated cameras by
-estimating both E and H and accounting for the degeneracies of each model.
+COLMAP can also estimate a relative pose between two calibrated cameras by estimating both E and H and accounting for the degeneracies of each model.
 
 ```python
 # Parameters:
@@ -241,16 +253,15 @@ estimating both E and H and accounting for the degeneracies of each model.
 # Optional parameters:
 # - matches: Nx2 integer array; correspondences across images
 # - options: dict or pycolmap.TwoViewGeometryOptions
-answer = pycolmap.estimate_calibrated_two_view_geometry(camera1, points1, camera2, points2)
+answer = pycolmap.estimate_calibrated_two_view_geometry(
+    camera1, points1, camera2, points2
+)
 # Returns: pycolmap.TwoViewGeometry
 ```
 
-The `TwoViewGeometryOptions` control how each model is selected. The output
-structure contains the geometric model, inlier matches, the relative pose (if
-`options.compute_relative_pose=True`), and the type of camera configuration,
-which is an instance of the enum `pycolmap.TwoViewGeometryConfiguration`.
+The `TwoViewGeometryOptions` control how each model is selected. The output structure contains the geometric model, inlier matches, the relative pose (if `options.compute_relative_pose=True`), and the type of camera configuration, which is an instance of the enum `pycolmap.TwoViewGeometryConfiguration`.
 
-### Camera argument
+### Camera Argument
 
 Some estimators expect a COLMAP camera object, which can be created as follows:
 
@@ -263,9 +274,7 @@ camera = pycolmap.Camera(
 )
 ```
 
-The different camera models and their extra parameters are defined in
-[`colmap/src/colmap/sensor/models.h`](https://github.com/colmap/colmap/blob/main/src/colmap/sensor/models.h).
-For example for a pinhole camera:
+The different camera models and their extra parameters are defined in [`colmap/src/colmap/sensor/models.h`](https://github.com/colmap/colmap/blob/main/src/colmap/sensor/models.h). For example for a pinhole camera:
 
 ```python
 camera = pycolmap.Camera(
@@ -288,7 +297,7 @@ camera_dict = {
 ```
 
 
-## SIFT feature extraction
+## SIFT Feature Extraction
 
 ```python
 import numpy as np
@@ -311,4 +320,30 @@ keypoints, descriptors = sift.extract(img)
 # Returns:
 # - keypoints: Nx4 array; format: x (j), y (i), scale, orientation
 # - descriptors: Nx128 array; L2-normalized descriptors
+```
+
+## Bitmap
+
+PyCOLMAP provides bindings for the `Bitmap` class to work with images and convert them to/from NumPy arrays:
+
+```python
+import numpy as np
+import pycolmap
+
+# Read a bitmap from file
+bitmap = pycolmap.Bitmap.read("image.jpg", as_rgb=True)
+print(f"Size: {bitmap.width}x{bitmap.height}, Channels: {bitmap.channels}")
+
+# Convert to NumPy array
+array = bitmap.to_array()  # Shape: (H, W, 3) for RGB or (H, W) for grayscale
+
+# Create bitmap from NumPy array
+array = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+bitmap = pycolmap.Bitmap.from_array(array)
+
+# Write bitmap to file
+bitmap.write("output.jpg")
+
+# Rescale bitmap
+bitmap.rescale(new_width=320, new_height=240)
 ```

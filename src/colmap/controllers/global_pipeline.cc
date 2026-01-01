@@ -46,22 +46,20 @@ GlobalPipeline::GlobalPipeline(
           std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {}
 
 void GlobalPipeline::Run() {
-  glomap::ViewGraph view_graph;
-  Reconstruction reconstruction;
-  glomap::InitializeGlomapFromDatabase(*database_, reconstruction, view_graph);
-  std::vector<PosePrior> pose_priors = database_->ReadAllPosePriors();
+  auto reconstruction = std::make_shared<Reconstruction>();
 
-  if (view_graph.Empty()) {
+  glomap::GlobalMapper global_mapper(database_);
+  global_mapper.BeginReconstruction(reconstruction);
+
+  if (global_mapper.ViewGraph()->Empty()) {
     LOG(ERROR) << "Cannot continue without image pairs";
     return;
   }
 
   Timer run_timer;
   run_timer.Start();
-  glomap::GlobalMapper global_mapper(options_);
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(
-      database_.get(), view_graph, reconstruction, pose_priors, cluster_ids);
+  global_mapper.Solve(options_, cluster_ids);
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 
@@ -76,7 +74,7 @@ void GlobalPipeline::Run() {
   if (max_cluster_id == -1) {
     Reconstruction& output_reconstruction =
         *reconstruction_manager_->Get(reconstruction_manager_->Add());
-    output_reconstruction = reconstruction;
+    output_reconstruction = *reconstruction;
     if (!options_.image_path.empty()) {
       LOG(INFO) << "Extracting colors ...";
       output_reconstruction.ExtractColorsForAllImages(options_.image_path);
@@ -86,7 +84,7 @@ void GlobalPipeline::Run() {
       Reconstruction& output_reconstruction =
           *reconstruction_manager_->Get(reconstruction_manager_->Add());
       output_reconstruction = glomap::SubReconstructionByClusterId(
-          reconstruction, cluster_ids, comp);
+          *reconstruction, cluster_ids, comp);
       if (!options_.image_path.empty()) {
         output_reconstruction.ExtractColorsForAllImages(options_.image_path);
       }

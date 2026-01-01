@@ -27,7 +27,27 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+#pragma once
+
+#include "colmap/mvs/fusion.h"
+#include "colmap/mvs/patch_match_options.h"
+#include "colmap/scene/reconstruction.h"
+
 namespace colmap {
+
+void RunPatchMatchStereoImpl(const std::string& workspace_path,
+                             const std::string& workspace_format,
+                             const std::string& pmvs_option_name,
+                             const mvs::PatchMatchOptions& options,
+                             const std::string& config_path);
+
+Reconstruction RunStereoFuserImpl(const std::string& output_path,
+                                  const std::string& workspace_path,
+                                  std::string workspace_format,
+                                  const std::string& pmvs_option_name,
+                                  std::string input_type,
+                                  const mvs::StereoFusionOptions& options,
+                                  std::string output_type);
 
 int RunDelaunayMesher(int argc, char** argv);
 int RunPatchMatchStereo(int argc, char** argv);

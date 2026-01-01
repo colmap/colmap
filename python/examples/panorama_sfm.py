@@ -9,9 +9,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
+from typing import Literal, TypeVar, cast
 
 import cv2
 import numpy as np
+import numpy.typing as npt
 import PIL.ExifTags
 import PIL.Image
 from scipy.spatial.transform import Rotation
@@ -19,6 +21,10 @@ from tqdm import tqdm
 
 import pycolmap
 from pycolmap import logging
+
+N = TypeVar("N", bound=int)
+NDArrayNx2 = np.ndarray[tuple[N, Literal[2]], np.dtype[np.float64]]
+NDArray3x1 = np.ndarray[tuple[Literal[3], Literal[1]], np.dtype[np.float64]]
 
 
 @dataclass
@@ -57,25 +63,31 @@ def create_virtual_camera(
     image_height = int(pano_height * vfov_deg / 180)
     focal = image_width / (2 * np.tan(np.deg2rad(hfov_deg) / 2))
     return pycolmap.Camera.create(
-        0, "SIMPLE_PINHOLE", focal, image_width, image_height
+        0,
+        pycolmap.CameraModelId.SIMPLE_PINHOLE,
+        focal,
+        image_width,
+        image_height,
     )
 
 
-def get_virtual_camera_rays(camera: pycolmap.Camera) -> np.ndarray:
+def get_virtual_camera_rays(
+    camera: pycolmap.Camera,
+) -> npt.NDArray[np.floating]:
     size = (camera.width, camera.height)
     x, y = np.indices(size).astype(np.float32)
-    xy = np.column_stack([x.ravel(), y.ravel()])
+    xy: NDArrayNx2 = np.column_stack([x.ravel(), y.ravel()])
     # The center of the upper left most pixel has coordinate (0.5, 0.5)
     xy += 0.5
-    xy_norm = camera.cam_from_img(xy)
+    xy_norm: NDArrayNx2 = camera.cam_from_img(image_points=xy)
     rays = np.concatenate([xy_norm, np.ones_like(xy_norm[:, :1])], -1)
     rays /= np.linalg.norm(rays, axis=-1, keepdims=True)
     return rays
 
 
 def spherical_img_from_cam(
-    image_size: tuple[int, int], rays_in_cam: np.ndarray
-) -> np.ndarray:
+    image_size: tuple[int, int], rays_in_cam: npt.NDArray[np.floating]
+) -> npt.NDArray[np.floating]:
     """Project rays into a 360 panorama (spherical) image."""
     if image_size[0] != image_size[1] * 2:
         raise ValueError("Only 360° panoramas are supported.")
@@ -91,7 +103,7 @@ def spherical_img_from_cam(
 
 def get_virtual_rotations(
     num_steps_yaw: int, pitches_deg: Sequence[float]
-) -> Sequence[np.ndarray]:
+) -> Sequence[npt.NDArray[np.floating]]:
     """Get the relative rotations of the virtual cameras w.r.t. the panorama."""
     # Assuming that the panos are approximately upright.
     cams_from_pano_r = []
@@ -107,10 +119,12 @@ def get_virtual_rotations(
 
 
 def create_pano_rig_config(
-    cams_from_pano_rotation: Sequence[np.ndarray], ref_idx: int = 0
+    cams_from_pano_rotation: Sequence[npt.NDArray[np.floating]],
+    ref_idx: int = 0,
 ) -> pycolmap.RigConfig:
     """Create a RigConfig for the given virtual rotations."""
     rig_cameras = []
+    zero_translation = cast(NDArray3x1, np.zeros((3, 1), dtype=np.float64))
     for idx, cam_from_pano_rotation in enumerate(cams_from_pano_rotation):
         if idx == ref_idx:
             cam_from_rig = None
@@ -119,7 +133,8 @@ def create_pano_rig_config(
                 cam_from_pano_rotation @ cams_from_pano_rotation[ref_idx].T
             )
             cam_from_rig = pycolmap.Rigid3d(
-                pycolmap.Rotation3d(cam_from_ref_rotation), np.zeros(3)
+                pycolmap.Rotation3d(cam_from_ref_rotation),
+                zero_translation,
             )
         rig_cameras.append(
             pycolmap.RigConfigCamera(
@@ -160,20 +175,20 @@ class PanoProcessor:
 
         # These are initialized on the first pano image
         # to avoid recomputing the rays for each pano image.
-        self._camera = None
-        self._pano_size = None
-        self._rays_in_cam = None
+        self._camera: pycolmap.Camera
+        self._pano_size: tuple[int, int]
+        self._rays_in_cam: npt.NDArray[np.floating]
 
     def process(self, pano_name: str) -> None:
         pano_path = self.pano_image_dir / pano_name
         try:
-            pano_image = PIL.Image.open(pano_path)
+            pano_pil_image = PIL.Image.open(pano_path)
         except PIL.Image.UnidentifiedImageError:
             logging.info(f"Skipping file {pano_path} as it cannot be read.")
             return
 
-        pano_exif = pano_image.getexif()
-        pano_image = np.asarray(pano_image)
+        pano_exif = pano_pil_image.getexif()
+        pano_image = np.asarray(pano_pil_image)
         gpsonly_exif = PIL.Image.Exif()
         gpsonly_exif[PIL.ExifTags.IFD.GPSInfo] = pano_exif.get_ifd(
             PIL.ExifTags.IFD.GPSInfo
@@ -208,9 +223,11 @@ class PanoProcessor:
                 self._camera.width, self._camera.height, 2
             ).astype(np.float32)
             xy_in_pano -= 0.5  # COLMAP to OpenCV pixel origin.
+            x_coords, y_coords = np.moveaxis(xy_in_pano, [0, 1, 2], [2, 1, 0])
             image = cv2.remap(
                 pano_image,
-                *np.moveaxis(xy_in_pano, [0, 1, 2], [2, 1, 0]),
+                x_coords,
+                y_coords,
                 cv2.INTER_LINEAR,
                 borderMode=cv2.BORDER_WRAP,
             )
@@ -237,7 +254,7 @@ class PanoProcessor:
 
             mask_path = self.mask_dir / mask_name
             mask_path.parent.mkdir(exist_ok=True, parents=True)
-            if not pycolmap.Bitmap.from_array(mask).write(mask_path):
+            if not pycolmap.Bitmap.from_array(mask).write(str(mask_path)):
                 raise RuntimeError(f"Cannot write {mask_path}")
 
 
@@ -304,7 +321,7 @@ def run(args: argparse.Namespace) -> None:
     pycolmap.extract_features(
         database_path,
         image_dir,
-        reader_options={"mask_path": mask_dir},
+        reader_options=pycolmap.ImageReaderOptions(mask_path=mask_dir),
         camera_mode=pycolmap.CameraMode.PER_FOLDER,
     )
 

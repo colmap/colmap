@@ -16,16 +16,10 @@ struct ImagePair : public colmap::TwoViewGeometry {
     this->cam2_from_cam1 = std::move(cam2_from_cam1);
   }
 
-  // weight is the initial inlier rate
-  double weight = -1;
-
   // Matches between the two images.
   // First column is the index of the feature in the first image.
   // Second column is the index of the feature in the second image.
   Eigen::MatrixXi matches;
-
-  // Row index of inliers in the matches matrix.
-  std::vector<int> inliers;
 
   // Invert the geometry to swap image order. Extends TwoViewGeometry::Invert()
   // to also swap columns of matches matrix.

@@ -1,5 +1,6 @@
 #include "glomap/controllers/option_manager.h"
 
+#include "glomap/estimators/global_positioning.h"
 #include "glomap/estimators/gravity_refinement.h"
 #include "glomap/sfm/global_mapper.h"
 
@@ -24,11 +25,10 @@ void OptionManager::AddGlobalMapperOptions() {
   added_global_mapper_options_ = true;
 
   // Global mapper options
+  AddAndRegisterDefaultOption("Mapper.num_threads", &mapper->num_threads);
   AddAndRegisterDefaultOption("Mapper.random_seed", &mapper->random_seed);
   AddAndRegisterDefaultOption("Mapper.num_iterations_ba",
                               &mapper->num_iterations_ba);
-  AddAndRegisterDefaultOption("Mapper.num_iterations_retriangulation",
-                              &mapper->num_iterations_retriangulation);
   AddAndRegisterDefaultOption("Mapper.skip_preprocessing",
                               &mapper->skip_preprocessing);
   AddAndRegisterDefaultOption("Mapper.skip_view_graph_calibration",
@@ -47,14 +47,14 @@ void OptionManager::AddGlobalMapperOptions() {
 
   // View graph calibration options
   AddAndRegisterDefaultOption(
-      "ViewGraphCalib.thres_lower_ratio",
-      &mapper->view_graph_calibration.thres_lower_ratio);
+      "ViewGraphCalib.min_focal_length_ratio",
+      &mapper->view_graph_calibration.min_focal_length_ratio);
   AddAndRegisterDefaultOption(
-      "ViewGraphCalib.thres_higher_ratio",
-      &mapper->view_graph_calibration.thres_higher_ratio);
+      "ViewGraphCalib.max_focal_length_ratio",
+      &mapper->view_graph_calibration.max_focal_length_ratio);
   AddAndRegisterDefaultOption(
-      "ViewGraphCalib.thres_two_view_error",
-      &mapper->view_graph_calibration.thres_two_view_error);
+      "ViewGraphCalib.max_calibration_error",
+      &mapper->view_graph_calibration.max_calibration_error);
 
   // Relative pose estimation options
   AddAndRegisterDefaultOption(
@@ -90,6 +90,13 @@ void OptionManager::AddGlobalMapperOptions() {
   AddAndRegisterDefaultOption(
       "GlobalPositioning.max_num_iterations",
       &mapper->global_positioning.solver_options.max_num_iterations);
+  AddAndRegisterDefaultEnumOption(
+      "GlobalPositioning.constraint_type",
+      &mapper->global_positioning.constraint_type,
+      GlobalPositioningConstraintTypeToString,
+      GlobalPositioningConstraintTypeFromString,
+      "{ONLY_POINTS, ONLY_CAMERAS, POINTS_AND_CAMERAS_BALANCED, "
+      "POINTS_AND_CAMERAS}");
 
   // Bundle adjustment options
   AddAndRegisterDefaultOption("BundleAdjustment.use_gpu",
@@ -115,17 +122,14 @@ void OptionManager::AddGlobalMapperOptions() {
       "BundleAdjustment.max_num_iterations",
       &mapper->bundle_adjustment.solver_options.max_num_iterations);
 
-  // Triangulation options
+  // Retriangulation options
   AddAndRegisterDefaultOption(
-      "Triangulation.complete_max_reproj_error",
-      &mapper->retriangulation.tri_complete_max_reproj_error);
-  AddAndRegisterDefaultOption(
-      "Triangulation.merge_max_reproj_error",
-      &mapper->retriangulation.tri_merge_max_reproj_error);
-  AddAndRegisterDefaultOption("Triangulation.min_angle",
-                              &mapper->retriangulation.tri_min_angle);
-  AddAndRegisterDefaultOption("Triangulation.min_num_matches",
-                              &mapper->retriangulation.min_num_matches);
+      "Retriangulation.complete_max_reproj_error",
+      &mapper->retriangulation.complete_max_reproj_error);
+  AddAndRegisterDefaultOption("Retriangulation.merge_max_reproj_error",
+                              &mapper->retriangulation.merge_max_reproj_error);
+  AddAndRegisterDefaultOption("Retriangulation.min_angle",
+                              &mapper->retriangulation.min_angle);
 
   // Inlier threshold options
   AddAndRegisterDefaultOption("Thresholds.max_angle_error",
@@ -170,8 +174,6 @@ void OptionManager::Reset() {
   added_global_mapper_options_ = false;
   added_gravity_refiner_options_ = false;
 }
-
-bool OptionManager::Check() { return colmap::BaseOptionManager::Check(); }
 
 void OptionManager::ResetOptions(const bool reset_paths) {
   colmap::BaseOptionManager::ResetOptions(reset_paths);

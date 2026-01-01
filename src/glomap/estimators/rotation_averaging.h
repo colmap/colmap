@@ -54,9 +54,6 @@ struct RotationEstimatorOptions {
   // Flag to skip maximum spanning tree initialization.
   bool skip_initialization = false;
 
-  // Flag to use edge weights for rotation averaging.
-  bool use_weight = false;
-
   // Flag to use gravity priors for rotation averaging.
   bool use_gravity = false;
 

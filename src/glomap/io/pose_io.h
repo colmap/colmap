@@ -23,15 +23,6 @@ void WriteRelativePoses(
     const std::unordered_map<image_t, std::string>& image_names,
     const std::unordered_map<image_pair_t, Rigid3d>& relative_poses);
 
-// Format: IMAGE_NAME_1 IMAGE_NAME_2 WEIGHT
-std::unordered_map<image_pair_t, double> ReadImagePairWeights(
-    const std::string& file_path,
-    const std::unordered_map<image_t, std::string>& image_names);
-void WriteImagePairWeights(
-    const std::string& file_path,
-    const std::unordered_map<image_t, std::string>& image_names,
-    const std::unordered_map<image_pair_t, double>& weights);
-
 // Format: IMAGE_NAME GX GY GZ
 // Gravity is the direction of [0,1,0] in the image frame.
 std::vector<colmap::PosePrior> ReadGravityPriors(

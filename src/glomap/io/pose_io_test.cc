@@ -73,32 +73,6 @@ TEST(PoseIO, RelativePosesRoundtrip) {
   }
 }
 
-TEST(PoseIO, ImagePairWeightsRoundtrip) {
-  const std::string test_dir = colmap::CreateTestDir();
-
-  std::unordered_map<image_t, std::string> image_names = {
-      {0, "image0.jpg"}, {1, "image1.jpg"}, {2, "image2.jpg"}};
-
-  std::unordered_map<image_pair_t, double> weights;
-  weights[colmap::ImagePairToPairId(0, 1)] =
-      colmap::RandomUniformReal(0.0, 1.0);
-  weights[colmap::ImagePairToPairId(0, 2)] =
-      colmap::RandomUniformReal(0.0, 1.0);
-  weights[colmap::ImagePairToPairId(1, 2)] =
-      colmap::RandomUniformReal(0.0, 1.0);
-
-  std::string file_path =
-      (std::filesystem::path(test_dir) / "weights.txt").string();
-  WriteImagePairWeights(file_path, image_names, weights);
-  auto read_weights = ReadImagePairWeights(file_path, image_names);
-
-  ASSERT_EQ(read_weights.size(), weights.size());
-  for (const auto& [pair_id, weight] : weights) {
-    ASSERT_TRUE(read_weights.count(pair_id));
-    EXPECT_NEAR(weight, read_weights.at(pair_id), 1e-6);
-  }
-}
-
 TEST(PoseIO, GravityPriorsRoundtrip) {
   const std::string test_dir = colmap::CreateTestDir();
 

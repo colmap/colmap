@@ -31,13 +31,14 @@ bool GlobalPositioner::Solve(const ViewGraph& view_graph,
     LOG(ERROR) << "Number of images = " << reconstruction.NumImages();
     return false;
   }
-  if (view_graph.Empty() &&
-      options_.constraint_type != GlobalPositionerOptions::ONLY_POINTS) {
+  if (view_graph.Empty() && options_.constraint_type !=
+                                GlobalPositioningConstraintType::ONLY_POINTS) {
     LOG(ERROR) << "Number of image_pairs = " << view_graph.NumImagePairs();
     return false;
   }
   if (reconstruction.NumPoints3D() == 0 &&
-      options_.constraint_type != GlobalPositionerOptions::ONLY_CAMERAS) {
+      options_.constraint_type !=
+          GlobalPositioningConstraintType::ONLY_CAMERAS) {
     LOG(ERROR) << "Number of tracks = " << reconstruction.NumPoints3D();
     return false;
   }
@@ -54,16 +55,20 @@ bool GlobalPositioner::Solve(const ViewGraph& view_graph,
   // Add the camera to camera constraints to the problem.
   // TODO: support the relative constraints with trivial frames to a non trivial
   // frame
-  if (options_.constraint_type != GlobalPositionerOptions::ONLY_POINTS) {
+  if (options_.constraint_type !=
+      GlobalPositioningConstraintType::ONLY_POINTS) {
     AddCameraToCameraConstraints(view_graph, reconstruction);
   }
 
   // Add the point to camera constraints to the problem.
-  if (options_.constraint_type != GlobalPositionerOptions::ONLY_CAMERAS) {
+  if (options_.constraint_type !=
+      GlobalPositioningConstraintType::ONLY_CAMERAS) {
     AddPointToCameraConstraints(reconstruction);
   }
 
-  AddCamerasAndPointsToParameterGroups(reconstruction);
+  if (options_.use_parameter_block_ordering) {
+    AddCamerasAndPointsToParameterGroups(reconstruction);
+  }
 
   // Parameterize the variables, set image poses / tracks / scales to be
   // constant if desired
@@ -213,7 +218,7 @@ void GlobalPositioner::AddPointToCameraConstraints(
   // the number of camera to camera constraints.
   if (num_cam_to_cam > 0 &&
       options_.constraint_type ==
-          GlobalPositionerOptions::POINTS_AND_CAMERAS_BALANCED) {
+          GlobalPositioningConstraintType::POINTS_AND_CAMERAS_BALANCED) {
     weight_scale_pt = options_.constraint_reweight_scale *
                       static_cast<double>(num_cam_to_cam) /
                       static_cast<double>(num_pt_to_cam);
@@ -228,7 +233,7 @@ void GlobalPositioner::AddPointToCameraConstraints(
   }
 
   if (options_.constraint_type ==
-      GlobalPositionerOptions::POINTS_AND_CAMERAS_BALANCED) {
+      GlobalPositioningConstraintType::POINTS_AND_CAMERAS_BALANCED) {
     loss_function_ptcam_calibrated_ = std::make_shared<ceres::ScaledLoss>(
         loss_function_.get(), weight_scale_pt, ceres::DO_NOT_TAKE_OWNERSHIP);
   } else {

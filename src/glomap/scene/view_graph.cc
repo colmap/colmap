@@ -1,8 +1,71 @@
 #include "glomap/scene/view_graph.h"
 
 #include "colmap/math/connected_components.h"
+#include "colmap/scene/two_view_geometry.h"
 
 namespace glomap {
+
+void ViewGraph::LoadFromDatabase(const colmap::Database& database,
+                                 bool allow_duplicate) {
+  auto all_matches = database.ReadAllMatches();
+  size_t invalid_count = 0;
+
+  for (auto& [pair_id, feature_matches] : all_matches) {
+    auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+
+    const bool duplicate = HasImagePair(image_id1, image_id2);
+    if (duplicate) {
+      if (!allow_duplicate) {
+        LOG(FATAL_THROW) << "Duplicate image pair in database: " << image_id1
+                         << ", " << image_id2;
+      }
+      LOG(WARNING) << "Duplicate image pair in database: " << image_id1 << ", "
+                   << image_id2;
+    }
+
+    // Build the image pair from TwoViewGeometry
+    struct ImagePair image_pair;
+    static_cast<colmap::TwoViewGeometry&>(image_pair) =
+        database.ReadTwoViewGeometry(image_id1, image_id2);
+
+    const bool is_invalid =
+        image_pair.config == colmap::TwoViewGeometry::UNDEFINED ||
+        image_pair.config == colmap::TwoViewGeometry::DEGENERATE ||
+        image_pair.config == colmap::TwoViewGeometry::WATERMARK ||
+        image_pair.config == colmap::TwoViewGeometry::MULTIPLE;
+
+    if (is_invalid) {
+      invalid_count++;
+    } else {
+      // Collect the matches
+      image_pair.matches = Eigen::MatrixXi(feature_matches.size(), 2);
+
+      size_t count = 0;
+      for (int i = 0; i < feature_matches.size(); i++) {
+        colmap::point2D_t point2D_idx1 = feature_matches[i].point2D_idx1;
+        colmap::point2D_t point2D_idx2 = feature_matches[i].point2D_idx2;
+        if (point2D_idx1 != colmap::kInvalidPoint2DIdx &&
+            point2D_idx2 != colmap::kInvalidPoint2DIdx) {
+          image_pair.matches.row(count) << point2D_idx1, point2D_idx2;
+          count++;
+        }
+      }
+      image_pair.matches.conservativeResize(count, 2);
+    }
+
+    if (duplicate) {
+      UpdateImagePair(image_id1, image_id2, std::move(image_pair));
+    } else {
+      AddImagePair(image_id1, image_id2, std::move(image_pair));
+    }
+
+    if (is_invalid) {
+      SetInvalidImagePair(colmap::ImagePairToPairId(image_id1, image_id2));
+    }
+  }
+  LOG(INFO) << "Loaded " << all_matches.size() << " image pairs, "
+            << invalid_count << " invalid";
+}
 
 int ViewGraph::KeepLargestConnectedComponents(
     colmap::Reconstruction& reconstruction) {
@@ -128,7 +191,8 @@ void ViewGraph::FilterByRelativeRotation(
 void ViewGraph::FilterByNumInliers(int min_num_inliers) {
   int num_invalid = 0;
   for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
-    if (image_pair.inliers.size() < min_num_inliers) {
+    if (image_pair.inlier_matches.size() <
+        static_cast<size_t>(min_num_inliers)) {
       SetInvalidImagePair(pair_id);
       num_invalid++;
     }
@@ -142,7 +206,7 @@ void ViewGraph::FilterByNumInliers(int min_num_inliers) {
 void ViewGraph::FilterByInlierRatio(double min_inlier_ratio) {
   int num_invalid = 0;
   for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
-    const double inlier_ratio = image_pair.inliers.size() /
+    const double inlier_ratio = image_pair.inlier_matches.size() /
                                 static_cast<double>(image_pair.matches.rows());
     if (inlier_ratio < min_inlier_ratio) {
       SetInvalidImagePair(pair_id);

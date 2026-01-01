@@ -111,57 +111,6 @@ void WriteRelativePoses(
   }
 }
 
-std::unordered_map<image_pair_t, double> ReadImagePairWeights(
-    const std::string& file_path,
-    const std::unordered_map<image_t, std::string>& image_names) {
-  const auto name_to_id = InvertImageNames(image_names);
-
-  std::unordered_map<image_pair_t, double> result;
-  std::ifstream file(file_path);
-  std::string line;
-
-  while (std::getline(file, line)) {
-    std::istringstream line_stream(line);
-
-    std::string name1, name2;
-    double weight;
-    line_stream >> name1 >> name2 >> weight;
-
-    auto it1 = name_to_id.find(name1);
-    auto it2 = name_to_id.find(name2);
-    if (it1 == name_to_id.end() || it2 == name_to_id.end()) continue;
-
-    const image_t id1 = it1->second;
-    const image_t id2 = it2->second;
-
-    const image_pair_t pair_id = colmap::ImagePairToPairId(id1, id2);
-    result[pair_id] = weight;
-  }
-  return result;
-}
-
-void WriteImagePairWeights(
-    const std::string& file_path,
-    const std::unordered_map<image_t, std::string>& image_names,
-    const std::unordered_map<image_pair_t, double>& weights) {
-  std::ofstream file(file_path);
-
-  std::map<std::string, image_pair_t> sorted_pairs;
-  for (const auto& [pair_id, weight] : weights) {
-    const auto [id1, id2] = colmap::PairIdToImagePair(pair_id);
-    auto it1 = image_names.find(id1);
-    auto it2 = image_names.find(id2);
-    if (it1 == image_names.end() || it2 == image_names.end()) continue;
-    sorted_pairs[it1->second + " " + it2->second] = pair_id;
-  }
-
-  for (const auto& [name_pair, pair_id] : sorted_pairs) {
-    const auto [id1, id2] = colmap::PairIdToImagePair(pair_id);
-    file << image_names.at(id1) << " " << image_names.at(id2) << " "
-         << weights.at(pair_id) << "\n";
-  }
-}
-
 std::vector<colmap::PosePrior> ReadGravityPriors(
     const std::string& file_path,
     const std::unordered_map<image_t, std::string>& image_names) {

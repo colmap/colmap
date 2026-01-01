@@ -42,6 +42,15 @@
 namespace colmap {
 
 struct RotationAveragingControllerOptions {
+  // Number of threads.
+  int num_threads = -1;
+
+  // PRNG seed for all stochastic methods during reconstruction.
+  // If -1 (default), the seed is derived from the current time
+  // (non-deterministic). If >= 0, the pipeline is deterministic with the given
+  // seed.
+  int random_seed = -1;
+
   // Options for view graph calibration.
   glomap::ViewGraphCalibratorOptions view_graph_calibration;
 

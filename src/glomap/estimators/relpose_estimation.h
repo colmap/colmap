@@ -10,6 +10,9 @@
 namespace glomap {
 
 struct RelativePoseEstimationOptions {
+  // Number of threads.
+  int num_threads = -1;
+
   // Options for poselib solver
   poselib::RansacOptions ransac_options;
   poselib::BundleOptions bundle_options;
