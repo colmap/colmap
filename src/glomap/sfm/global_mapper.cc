@@ -15,18 +15,26 @@
 
 namespace glomap {
 
-GlobalMapper::GlobalMapper(std::shared_ptr<const colmap::Database> database)
-    : database_(std::move(THROW_CHECK_NOTNULL(database))) {}
+GlobalMapper::GlobalMapper(std::shared_ptr<const colmap::Database> database) {
+  THROW_CHECK_NOTNULL(database);
+  // TODO: Directly use DatabaseCache in the signature and make min_num_matches
+  // an option in the global pipeline.
+  constexpr int kMinNumMatches = 15;
+  database_cache_ = colmap::DatabaseCache::Create(*database,
+                                                  kMinNumMatches,
+                                                  /*ignore_watermarks=*/false,
+                                                  /*image_names=*/{});
+  // TODO: Move to BeginReconstruction after migrating to PoseGraph and accept
+  // DatabaseCache.
+  view_graph_ = std::make_shared<class ViewGraph>();
+  view_graph_->LoadFromDatabase(*database);
+}
 
 void GlobalMapper::BeginReconstruction(
     const std::shared_ptr<colmap::Reconstruction>& reconstruction) {
   THROW_CHECK_NOTNULL(reconstruction);
-
   reconstruction_ = reconstruction;
-  view_graph_ = std::make_shared<class ViewGraph>();
-
-  InitializeEmptyReconstructionFromDatabase(*database_, *reconstruction_);
-  view_graph_->LoadFromDatabase(*database_);
+  reconstruction_->Load(*database_cache_);
 }
 
 std::shared_ptr<colmap::Reconstruction> GlobalMapper::Reconstruction() const {
@@ -50,18 +58,32 @@ bool GlobalMapper::ReestimateRelativePoses(
   view_graph_->FilterByNumInliers(inlier_thresholds.min_inlier_num);
   view_graph_->FilterByInlierRatio(inlier_thresholds.min_inlier_ratio);
 
-  if (view_graph_->KeepLargestConnectedComponents(*reconstruction_) == 0) {
-    LOG(ERROR) << "no connected components are found";
-    return false;
-  }
-
   return true;
 }
 
 bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options,
                                      double max_rotation_error) {
-  // Read pose priors from the database.
-  std::vector<colmap::PosePrior> pose_priors = database_->ReadAllPosePriors();
+  // TODO: This is a misuse of frame registration. Frames should only be
+  // registered when their poses are actually computed, not with arbitrary
+  // identity poses. The rotation averaging code should be updated to work
+  // with unregistered frames.
+  // Register all frames with an initial identity pose so rotation averaging
+  // can work. The actual rotations will be computed by rotation averaging.
+  for (const auto& [frame_id, frame] : reconstruction_->Frames()) {
+    if (!frame.HasPose()) {
+      reconstruction_->Frame(frame_id).SetRigFromWorld(Rigid3d());
+      reconstruction_->RegisterFrame(frame_id);
+    }
+  }
+
+  if (view_graph_->KeepLargestConnectedComponents(*reconstruction_) == 0) {
+    LOG(ERROR) << "no connected components are found";
+    return false;
+  }
+
+  // Read pose priors from the database cache.
+  const std::vector<colmap::PosePrior>& pose_priors =
+      database_cache_->PosePriors();
 
   // The first run is for filtering
   SolveRotationAveraging(options, *view_graph_, *reconstruction_, pose_priors);
@@ -256,20 +278,11 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
     const BundleAdjusterOptions& ba_options,
     double max_reprojection_error,
     double min_triangulation_angle) {
-  // Create database cache for retriangulation.
-  constexpr int kMinNumMatches = 15;
-  auto database_cache =
-      colmap::DatabaseCache::Create(*database_,
-                                    kMinNumMatches,
-                                    /*ignore_watermarks=*/false,
-                                    /*image_names=*/{});
-
   // Delete all existing 3D points and re-establish 2D-3D correspondences.
   reconstruction_->DeleteAllPoints2DAndPoints3D();
-  reconstruction_->TranscribeImageIdsToDatabase(*database_);
 
   // Initialize mapper.
-  colmap::IncrementalMapper mapper(database_cache);
+  colmap::IncrementalMapper mapper(database_cache_);
   mapper.BeginReconstruction(reconstruction_);
 
   // Triangulate all registered images.
