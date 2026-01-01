@@ -246,6 +246,12 @@ void BindIncrementalPipeline(py::module& m) {
            "options"_a,
            "database"_a,
            "reconstruction_manager"_a)
+      .def(py::init<std::shared_ptr<const IncrementalPipelineOptions>,
+                    std::shared_ptr<DatabaseCache>,
+                    std::shared_ptr<ReconstructionManager>>(),
+           "options"_a,
+           "database_cache"_a,
+           "reconstruction_manager"_a)
       .def_property_readonly("options", &IncrementalPipeline::Options)
       .def_property_readonly("reconstruction_manager",
                              &IncrementalPipeline::ReconstructionManager)
