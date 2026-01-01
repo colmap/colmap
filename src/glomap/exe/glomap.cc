@@ -137,7 +137,7 @@ int RunRotationAverager(int argc, char** argv) {
 
   RotationEstimatorOptions rotation_averager_options;
   rotation_averager_options.skip_initialization = true;
-  rotation_averager_options.use_gravity = true;
+  rotation_averager_options.use_gravity = (gravity_path != "");
   rotation_averager_options.use_stratified = use_stratified;
 
   // Load the database
