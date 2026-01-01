@@ -117,6 +117,11 @@ TEST(RotationEstimator, WithoutNoise) {
   std::unordered_map<frame_t, int> cluster_ids;
   global_mapper.Solve(CreateMapperTestOptions(), cluster_ids);
 
+  // TODO: This is a misuse of frame registration. Frames should only be
+  // registered when their poses are actually computed, not with arbitrary
+  // identity poses. The rotation averaging code should be updated to work
+  // with unregistered frames.
+  // Same applies to all tests below.
   for (const auto& [frame_id, frame] : reconstruction->Frames()) {
     if (!frame.HasPose()) {
       reconstruction->Frame(frame_id).SetRigFromWorld(Rigid3d());
