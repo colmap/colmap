@@ -47,7 +47,7 @@ struct TwoViewGeometryOptions {
   int min_num_inliers = 15;
 
   // Minimum ratio of inliers to total matches for non-degenerate geometry.
-  double min_inlier_ratio = 0.0;
+  double min_inlier_ratio = 0.25;
 
   // In case both cameras are calibrated, the calibration is verified by
   // estimating an essential and fundamental matrix and comparing their
@@ -119,7 +119,6 @@ struct TwoViewGeometryOptions {
     ransac_options.confidence = 0.999;
     ransac_options.min_num_trials = 100;
     ransac_options.max_num_trials = 10000;
-    ransac_options.min_inlier_ratio = 0.25;
   }
 
   bool Check() const;
