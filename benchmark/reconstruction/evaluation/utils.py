@@ -761,8 +761,8 @@ def compute_auc(
 
     if min_error > 0:
         min_index = np.searchsorted(errors, min_error, side="right")
-        min_score = min_index / num_elems
-        recalls = np.r_[min_score, min_score, recalls[min_index:]]
+        min_recall = min_index / num_elems
+        recalls = np.r_[min_recall, min_recall, recalls[min_index:]]
         errors = np.r_[0, min_error, errors[min_index:]]
     else:
         recalls = np.r_[0, recalls]
