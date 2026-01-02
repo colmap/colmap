@@ -59,9 +59,9 @@ void ViewGraphManipulator::DecomposeRelativePoses(
         return;
       }
 
-      if (image_pair.cam2_from_cam1->translation.norm() > 1e-12) {
-        image_pair.cam2_from_cam1->translation =
-            image_pair.cam2_from_cam1->translation.normalized();
+      const double norm = image_pair.cam2_from_cam1->translation.norm();
+      if (norm > 1e-12) {
+        image_pair.cam2_from_cam1->translation /= norm;
       }
     });
   }
