@@ -628,7 +628,9 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   // Estimate epipolar models.
 
   auto ransac_options = options.ransac_options;
-  ransac_options.min_inlier_ratio = options.min_inlier_ratio;
+  if (options.min_inlier_ratio > 0) {
+    ransac_options.min_inlier_ratio = options.min_inlier_ratio;
+  }
 
   auto E_ransac_options = ransac_options;
   E_ransac_options.max_error =
