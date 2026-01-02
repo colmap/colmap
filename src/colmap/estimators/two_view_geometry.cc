@@ -529,11 +529,8 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
              TwoViewGeometry::ConfigurationType::UNCALIBRATED) {
     const Eigen::Matrix3d E = EssentialFromFundamentalMatrix(
         camera2.CalibrationMatrix(), geometry->F, camera1.CalibrationMatrix());
-    PoseFromEssentialMatrix(E,
-                            inlier_cam_rays1,
-                            inlier_cam_rays2,
-                            &cam2_from_cam1,
-                            &points3D);
+    PoseFromEssentialMatrix(
+        E, inlier_cam_rays1, inlier_cam_rays2, &cam2_from_cam1, &points3D);
     if (points3D.empty()) {
       return false;
     }

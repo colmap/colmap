@@ -1310,9 +1310,8 @@ class SqliteDatabase : public Database {
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Et, 7);
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ht, 8);
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, quat_wxyz, 9);
-    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_,
-                          cam2_from_cam1.translation,
-                          10);
+    WriteStaticMatrixBlob(
+        sql_stmt_write_two_view_geometry_, cam2_from_cam1.translation, 10);
     SQLITE3_CALL(sqlite3_step(sql_stmt_write_two_view_geometry_));
   }
 

@@ -182,7 +182,8 @@ TEST(ViewGraph, GetImagePair) {
 
   // Original unchanged.
   EXPECT_TRUE(view_graph.ImagePair(1, 2).first.cam2_from_cam1.has_value());
-  EXPECT_EQ(view_graph.ImagePair(1, 2).first.cam2_from_cam1->translation.x(), 1);
+  EXPECT_EQ(view_graph.ImagePair(1, 2).first.cam2_from_cam1->translation.x(),
+            1);
 
   // Non-existent pair should throw.
   EXPECT_THROW(view_graph.GetImagePair(1, 3), std::out_of_range);
@@ -219,7 +220,8 @@ TEST(ViewGraph, UpdateImagePair) {
   view_graph.UpdateImagePair(1, 2, updated);
 
   EXPECT_TRUE(view_graph.ImagePair(1, 2).first.cam2_from_cam1.has_value());
-  EXPECT_EQ(view_graph.ImagePair(1, 2).first.cam2_from_cam1->translation.x(), 5);
+  EXPECT_EQ(view_graph.ImagePair(1, 2).first.cam2_from_cam1->translation.x(),
+            5);
 
   // Update with reversed order should invert.
   ImagePair updated2 = SynthesizeImagePair();

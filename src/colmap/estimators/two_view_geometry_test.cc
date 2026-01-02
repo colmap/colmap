@@ -132,22 +132,22 @@ TwoViewGeometryPoseTestData CreateTwoViewGeometryPoseTestData(
         image1.CamFromWorld().rotation *
         -(image1.ViewingDirection() + image2.ViewingDirection()).normalized();
     constexpr double kHomographyPlaneDistance = 1;
-    data.geometry.H =
-        HomographyMatrixFromPose(data.camera1.CalibrationMatrix(),
-                                 data.camera2.CalibrationMatrix(),
-                                 data.geometry.cam2_from_cam1->rotation.matrix(),
-                                 data.geometry.cam2_from_cam1->translation,
-                                 homography_plane_normal,
-                                 kHomographyPlaneDistance);
+    data.geometry.H = HomographyMatrixFromPose(
+        data.camera1.CalibrationMatrix(),
+        data.camera2.CalibrationMatrix(),
+        data.geometry.cam2_from_cam1->rotation.matrix(),
+        data.geometry.cam2_from_cam1->translation,
+        homography_plane_normal,
+        kHomographyPlaneDistance);
   } else if (config == TwoViewGeometry::ConfigurationType::PANORAMIC) {
     data.geometry.cam2_from_cam1->translation = Eigen::Vector3d::Zero();
-    data.geometry.H =
-        HomographyMatrixFromPose(data.camera1.CalibrationMatrix(),
-                                 data.camera2.CalibrationMatrix(),
-                                 data.geometry.cam2_from_cam1->rotation.matrix(),
-                                 data.geometry.cam2_from_cam1->translation,
-                                 Eigen::Vector3d::UnitZ(),
-                                 1);
+    data.geometry.H = HomographyMatrixFromPose(
+        data.camera1.CalibrationMatrix(),
+        data.camera2.CalibrationMatrix(),
+        data.geometry.cam2_from_cam1->rotation.matrix(),
+        data.geometry.cam2_from_cam1->translation,
+        Eigen::Vector3d::UnitZ(),
+        1);
   } else {
     LOG(FATAL) << "Invalid configuration.";
   }
