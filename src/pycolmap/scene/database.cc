@@ -436,6 +436,7 @@ void BindDatabase(py::module& m) {
   PyDatabase.def(py::init<>())
       .def_static("open", &Database::Open, "path"_a)
       .def("close", &Database::Close)
+      .def("clone", &Database::Clone)
       .def("__enter__", [](Database& self) { return &self; })
       .def("__exit__", [](Database& self, const py::args&) { self.Close(); })
       .def("exists_rig", &Database::ExistsRig, "rig_id"_a)

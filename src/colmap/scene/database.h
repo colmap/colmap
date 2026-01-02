@@ -83,8 +83,8 @@ class Database {
   // Explicitly close the database before destruction.
   virtual void Close() = 0;
 
-  // Return a clone of the database.
-  virtual std::shared_ptr<Database> Clone() const = 0;
+  // Return a clone of the database object (pointing to the same underlying data).
+  virtual std::shared_ptr<Database> Clone() = 0;
 
   // Check if entry already exists in database. For image pairs, the order of
   // `image_id1` and `image_id2` does not matter.
