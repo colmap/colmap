@@ -110,6 +110,6 @@ bool InitializeRigRotationsFromImages(
 bool SolveRotationAveraging(const RotationEstimatorOptions& options,
                             ViewGraph& view_graph,
                             colmap::Reconstruction& reconstruction,
-                            std::vector<colmap::PosePrior>& pose_priors);
+                            const std::vector<colmap::PosePrior>& pose_priors);
 
 }  // namespace glomap
