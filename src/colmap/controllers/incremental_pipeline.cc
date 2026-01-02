@@ -204,8 +204,6 @@ IncrementalPipeline::IncrementalPipeline(
   THROW_CHECK(options_->Check());
   THROW_CHECK_NOTNULL(database);
 
-  LOG(INFO) << "Loading database";
-
   // Make sure images of the given reconstruction are also included when
   // manually specifying images for the reconstruction procedure.
   std::unordered_set<std::string> image_names = {options_->image_names.begin(),
@@ -218,6 +216,7 @@ IncrementalPipeline::IncrementalPipeline(
     }
   }
 
+  LOG(INFO) << "Loading database";
   Timer timer;
   timer.Start();
   database_cache_ = DatabaseCache::Create(
@@ -265,10 +264,10 @@ IncrementalPipeline::IncrementalPipeline(
     }
   }
 
-  database_cache_ =
-      DatabaseCache::Create(*database_cache,
-                            static_cast<size_t>(options_->min_num_matches),
-                            image_names);
+  database_cache_ = DatabaseCache::CreateFromCache(
+      *database_cache,
+      static_cast<size_t>(options_->min_num_matches),
+      image_names);
 
   // If prior positions are to be used and setup from the database, convert
   // geographic coords. to cartesian ones

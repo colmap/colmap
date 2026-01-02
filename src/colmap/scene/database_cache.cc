@@ -279,7 +279,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   return cache;
 }
 
-std::shared_ptr<DatabaseCache> DatabaseCache::Create(
+std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
     const DatabaseCache& database_cache,
     const size_t min_num_matches,
     const std::unordered_set<std::string>& image_names) {

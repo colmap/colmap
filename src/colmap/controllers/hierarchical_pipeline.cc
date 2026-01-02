@@ -214,7 +214,7 @@ void HierarchicalPipeline::Run() {
         }
 
         // Create a filtered database cache for this cluster.
-        auto cluster_database_cache = DatabaseCache::Create(
+        auto cluster_database_cache = DatabaseCache::CreateFromCache(
             *database_cache_,
             static_cast<size_t>(options_.incremental_options.min_num_matches),
             cluster_image_names);

@@ -75,7 +75,7 @@ class DatabaseCache {
 
   // Create a filtered database cache from an existing cache containing only
   // the specified images and their associated data.
-  static std::shared_ptr<DatabaseCache> Create(
+  static std::shared_ptr<DatabaseCache> CreateFromCache(
       const DatabaseCache& database_cache,
       size_t min_num_matches,
       const std::unordered_set<std::string>& image_names);

@@ -13,20 +13,13 @@ void BindDatabaseCache(py::module& m) {
   py::classh<DatabaseCache> PyDatabaseCache(m, "DatabaseCache");
   PyDatabaseCache.def(py::init<>())
       .def_static("create",
-                  py::overload_cast<const Database&,
-                                    size_t,
-                                    bool,
-                                    const std::unordered_set<std::string>&>(
-                      &DatabaseCache::Create),
+                  &DatabaseCache::Create,
                   "database"_a,
                   "min_num_matches"_a = 0,
                   "ignore_watermarks"_a = false,
                   "image_names"_a = std::unordered_set<std::string>{})
       .def_static("create_from_cache",
-                  py::overload_cast<const DatabaseCache&,
-                                    size_t,
-                                    const std::unordered_set<std::string>&>(
-                      &DatabaseCache::Create),
+                  &DatabaseCache::CreateFromCache,
                   "database_cache"_a,
                   "min_num_matches"_a,
                   "image_names"_a)
