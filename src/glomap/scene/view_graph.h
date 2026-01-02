@@ -55,10 +55,11 @@ class ViewGraph {
   inline void SetInvalidImagePair(image_pair_t pair_id);
 
   // Returns a filter view over valid image pairs only.
+  // Pairs are valid if they are not in the invalid set and have a pose.
   auto ValidImagePairs() const {
     return colmap::filter_view(
         [this](const std::pair<const image_pair_t, struct ImagePair>& kv) {
-          return IsValid(kv.first);
+          return IsValid(kv.first) && kv.second.cam2_from_cam1.has_value();
         },
         image_pairs_.begin(),
         image_pairs_.end());
@@ -131,6 +132,7 @@ void ViewGraph::Clear() {
 struct ImagePair& ViewGraph::AddImagePair(image_t image_id1,
                                           image_t image_id2,
                                           struct ImagePair image_pair) {
+  THROW_CHECK(image_pair.cam2_from_cam1.has_value());
   if (colmap::ShouldSwapImagePair(image_id1, image_id2)) {
     image_pair.Invert();
   }
@@ -182,6 +184,7 @@ struct ImagePair ViewGraph::GetImagePair(image_t image_id1,
 void ViewGraph::UpdateImagePair(image_t image_id1,
                                 image_t image_id2,
                                 struct ImagePair image_pair) {
+  THROW_CHECK(image_pair.cam2_from_cam1.has_value());
   if (colmap::ShouldSwapImagePair(image_id1, image_id2)) {
     image_pair.Invert();
   }

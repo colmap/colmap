@@ -456,7 +456,7 @@ EstimateRigTwoViewGeometries(
     // TODO(jsch): For panoramic rigs, we could further distinguish between
     // panoramic/planar configurations by estimating a homography matrix.
     two_view_geometry.E =
-        EssentialMatrixFromPose(two_view_geometry.cam2_from_cam1);
+        EssentialMatrixFromPose(*two_view_geometry.cam2_from_cam1);
 
     two_view_geometries.emplace_back(image_pair, std::move(two_view_geometry));
   }
@@ -515,11 +515,12 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
 
   std::vector<Eigen::Vector3d> points3D;
 
+  Rigid3d cam2_from_cam1;
   if (geometry->config == TwoViewGeometry::ConfigurationType::CALIBRATED) {
     PoseFromEssentialMatrix(geometry->E,
                             inlier_cam_rays1,
                             inlier_cam_rays2,
-                            &geometry->cam2_from_cam1,
+                            &cam2_from_cam1,
                             &points3D);
     if (points3D.empty()) {
       return false;
@@ -531,7 +532,7 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
     PoseFromEssentialMatrix(E,
                             inlier_cam_rays1,
                             inlier_cam_rays2,
-                            &geometry->cam2_from_cam1,
+                            &cam2_from_cam1,
                             &points3D);
     if (points3D.empty()) {
       return false;
@@ -547,12 +548,12 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
                              camera2.CalibrationMatrix(),
                              inlier_cam_rays1,
                              inlier_cam_rays2,
-                             &geometry->cam2_from_cam1,
+                             &cam2_from_cam1,
                              &normal,
                              &points3D);
     if (geometry->config ==
         TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC) {
-      if (geometry->cam2_from_cam1.translation.squaredNorm() < 1e-12) {
+      if (cam2_from_cam1.translation.squaredNorm() < 1e-12) {
         geometry->config = TwoViewGeometry::ConfigurationType::PANORAMIC;
       } else {
         geometry->config = TwoViewGeometry::ConfigurationType::PLANAR;
@@ -571,10 +572,11 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
     return false;
   }
 
+  geometry->cam2_from_cam1 = cam2_from_cam1;
+
   if (!points3D.empty()) {
     const Eigen::Vector3d proj_center1 = Eigen::Vector3d::Zero();
-    const Eigen::Vector3d proj_center2 =
-        geometry->cam2_from_cam1.TgtOriginInSrc();
+    const Eigen::Vector3d proj_center2 = cam2_from_cam1.TgtOriginInSrc();
     geometry->tri_angle = Median(
         CalculateTriangulationAngles(proj_center1, proj_center2, points3D));
   }

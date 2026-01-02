@@ -199,12 +199,13 @@ void WriteRelPose(const std::string& file_path,
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const ImagePair& image_pair =
         view_graph.ImagePair(image_id1, image_id2).first;
+    THROW_CHECK(image_pair.cam2_from_cam1.has_value());
     file << images.at(image_id1).Name() << " " << images.at(image_id2).Name();
     for (int i = 0; i < 4; i++) {
-      file << " " << image_pair.cam2_from_cam1.rotation.coeffs()[(i + 3) % 4];
+      file << " " << image_pair.cam2_from_cam1->rotation.coeffs()[(i + 3) % 4];
     }
     for (int i = 0; i < 3; i++) {
-      file << " " << image_pair.cam2_from_cam1.translation[i];
+      file << " " << image_pair.cam2_from_cam1->translation[i];
     }
     file << "\n";
   }

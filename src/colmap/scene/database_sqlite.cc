@@ -951,13 +951,20 @@ class SqliteDatabase : public Database {
         sql_stmt_read_two_view_geometry_, rc, 5);
     two_view_geometry.H = ReadStaticMatrixBlob<Eigen::Matrix3d>(
         sql_stmt_read_two_view_geometry_, rc, 6);
-    const Eigen::Vector4d quat_wxyz = ReadStaticMatrixBlob<Eigen::Vector4d>(
-        sql_stmt_read_two_view_geometry_, rc, 7);
-    two_view_geometry.cam2_from_cam1.rotation = Eigen::Quaterniond(
-        quat_wxyz(0), quat_wxyz(1), quat_wxyz(2), quat_wxyz(3));
-    two_view_geometry.cam2_from_cam1.translation =
-        ReadStaticMatrixBlob<Eigen::Vector3d>(
-            sql_stmt_read_two_view_geometry_, rc, 8);
+    // Only populate cam2_from_cam1 for configs where pose was estimated.
+    if (two_view_geometry.config != TwoViewGeometry::UNDEFINED &&
+        two_view_geometry.config != TwoViewGeometry::DEGENERATE &&
+        two_view_geometry.config != TwoViewGeometry::WATERMARK &&
+        two_view_geometry.config != TwoViewGeometry::MULTIPLE) {
+      const Eigen::Vector4d quat_wxyz = ReadStaticMatrixBlob<Eigen::Vector4d>(
+          sql_stmt_read_two_view_geometry_, rc, 7);
+      Rigid3d cam2_from_cam1;
+      cam2_from_cam1.rotation = Eigen::Quaterniond(
+          quat_wxyz(0), quat_wxyz(1), quat_wxyz(2), quat_wxyz(3));
+      cam2_from_cam1.translation = ReadStaticMatrixBlob<Eigen::Vector3d>(
+          sql_stmt_read_two_view_geometry_, rc, 8);
+      two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
+    }
 
     two_view_geometry.inlier_matches = FeatureMatchesFromBlob(blob);
     two_view_geometry.F.transposeInPlace();
@@ -999,13 +1006,20 @@ class SqliteDatabase : public Database {
           sql_stmt_read_two_view_geometries_, rc, 6);
       two_view_geometry.H = ReadStaticMatrixBlob<Eigen::Matrix3d>(
           sql_stmt_read_two_view_geometries_, rc, 7);
-      const Eigen::Vector4d quat_wxyz = ReadStaticMatrixBlob<Eigen::Vector4d>(
-          sql_stmt_read_two_view_geometries_, rc, 8);
-      two_view_geometry.cam2_from_cam1.rotation = Eigen::Quaterniond(
-          quat_wxyz(0), quat_wxyz(1), quat_wxyz(2), quat_wxyz(3));
-      two_view_geometry.cam2_from_cam1.translation =
-          ReadStaticMatrixBlob<Eigen::Vector3d>(
-              sql_stmt_read_two_view_geometries_, rc, 9);
+      // Only populate cam2_from_cam1 for configs where pose was estimated.
+      if (two_view_geometry.config != TwoViewGeometry::UNDEFINED &&
+          two_view_geometry.config != TwoViewGeometry::DEGENERATE &&
+          two_view_geometry.config != TwoViewGeometry::WATERMARK &&
+          two_view_geometry.config != TwoViewGeometry::MULTIPLE) {
+        const Eigen::Vector4d quat_wxyz = ReadStaticMatrixBlob<Eigen::Vector4d>(
+            sql_stmt_read_two_view_geometries_, rc, 8);
+        Rigid3d cam2_from_cam1;
+        cam2_from_cam1.rotation = Eigen::Quaterniond(
+            quat_wxyz(0), quat_wxyz(1), quat_wxyz(2), quat_wxyz(3));
+        cam2_from_cam1.translation = ReadStaticMatrixBlob<Eigen::Vector3d>(
+            sql_stmt_read_two_view_geometries_, rc, 9);
+        two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
+      }
 
       two_view_geometry.F.transposeInPlace();
       two_view_geometry.E.transposeInPlace();
@@ -1284,18 +1298,20 @@ class SqliteDatabase : public Database {
     const Eigen::Matrix3d Ft = two_view_geometry_ptr->F.transpose();
     const Eigen::Matrix3d Et = two_view_geometry_ptr->E.transpose();
     const Eigen::Matrix3d Ht = two_view_geometry_ptr->H.transpose();
-    const Eigen::Vector4d quat_wxyz(
-        two_view_geometry_ptr->cam2_from_cam1.rotation.w(),
-        two_view_geometry_ptr->cam2_from_cam1.rotation.x(),
-        two_view_geometry_ptr->cam2_from_cam1.rotation.y(),
-        two_view_geometry_ptr->cam2_from_cam1.rotation.z());
+    // Write identity if cam2_from_cam1 is not set (for backwards compat).
+    const Rigid3d cam2_from_cam1 =
+        two_view_geometry_ptr->cam2_from_cam1.value_or(Rigid3d());
+    const Eigen::Vector4d quat_wxyz(cam2_from_cam1.rotation.w(),
+                                    cam2_from_cam1.rotation.x(),
+                                    cam2_from_cam1.rotation.y(),
+                                    cam2_from_cam1.rotation.z());
 
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ft, 6);
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Et, 7);
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ht, 8);
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, quat_wxyz, 9);
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_,
-                          two_view_geometry_ptr->cam2_from_cam1.translation,
+                          cam2_from_cam1.translation,
                           10);
     SQLITE3_CALL(sqlite3_step(sql_stmt_write_two_view_geometry_));
   }

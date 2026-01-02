@@ -216,20 +216,13 @@ class VerifierWorker : public Thread {
             FeatureKeypointsToPointsVector(*keypoints2);
 
         if (use_existing_relative_pose_ &&
-            data.two_view_geometry.config !=
-                TwoViewGeometry::ConfigurationType::DEGENERATE &&
-            data.two_view_geometry.config !=
-                TwoViewGeometry::ConfigurationType::MULTIPLE &&
-            data.two_view_geometry.config !=
-                TwoViewGeometry::ConfigurationType::WATERMARK &&
-            data.two_view_geometry.config !=
-                TwoViewGeometry::ConfigurationType::UNDEFINED) {
+            data.two_view_geometry.cam2_from_cam1.has_value()) {
           data.two_view_geometry = TwoViewGeometryFromKnownRelativePose(
               camera1,
               points1,
               camera2,
               points2,
-              data.two_view_geometry.cam2_from_cam1,
+              *data.two_view_geometry.cam2_from_cam1,
               data.matches,
               options_.min_num_inliers,
               options_.ransac_options.max_error);

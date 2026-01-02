@@ -62,12 +62,13 @@ double ImagePairInliers::ScoreError() {
 }
 
 double ImagePairInliers::ScoreErrorEssential() {
+  THROW_CHECK(image_pair.cam2_from_cam1.has_value());
   const Eigen::Matrix3d E =
-      colmap::EssentialMatrixFromPose(image_pair.cam2_from_cam1);
+      colmap::EssentialMatrixFromPose(*image_pair.cam2_from_cam1);
 
   // eij = camera i on image j
-  Eigen::Vector3d epipole12 = image_pair.cam2_from_cam1.translation;
-  Eigen::Vector3d epipole21 = Inverse(image_pair.cam2_from_cam1).translation;
+  Eigen::Vector3d epipole12 = image_pair.cam2_from_cam1->translation;
+  Eigen::Vector3d epipole21 = Inverse(*image_pair.cam2_from_cam1).translation;
 
   if (epipole12[2] < 0) epipole12 = -epipole12;
   if (epipole21[2] < 0) epipole21 = -epipole21;
@@ -109,7 +110,7 @@ double ImagePairInliers::ScoreErrorEssential() {
 
     if (r2 < sq_threshold) {
       bool cheirality =
-          CheckCheirality(image_pair.cam2_from_cam1, pt1, pt2, 1e-2, 100.);
+          CheckCheirality(*image_pair.cam2_from_cam1, pt1, pt2, 1e-2, 100.);
 
       // Check whether two image rays have small triangulation angle or are too
       // close to the epipoles
@@ -117,7 +118,7 @@ double ImagePairInliers::ScoreErrorEssential() {
 
       // Check whether two image rays are too close
       double diff_angle =
-          pt1.dot(image_pair.cam2_from_cam1.rotation.inverse() * pt2);
+          pt1.dot(image_pair.cam2_from_cam1->rotation.inverse() * pt2);
       not_denegerate = (diff_angle < thres_angle);
 
       // Check whether two points are too close to the epipoles

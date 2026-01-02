@@ -172,11 +172,12 @@ void ViewGraph::FilterByRelativeRotation(
     if (!image1.HasPose() || !image2.HasPose()) {
       continue;
     }
+    THROW_CHECK(image_pair.cam2_from_cam1.has_value());
 
     const Eigen::Quaterniond cam2_from_cam1 =
         image2.CamFromWorld().rotation *
         image1.CamFromWorld().rotation.inverse();
-    if (cam2_from_cam1.angularDistance(image_pair.cam2_from_cam1.rotation) >
+    if (cam2_from_cam1.angularDistance(image_pair.cam2_from_cam1->rotation) >
         max_angle_rad) {
       SetInvalidImagePair(pair_id);
       num_invalid++;
