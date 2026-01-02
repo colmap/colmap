@@ -37,8 +37,8 @@ import multiprocessing
 import shutil
 import subprocess
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -273,8 +273,8 @@ def colmap_reconstruction(
     args: argparse.Namespace,
     workspace_path: Path,
     image_path: Path,
-    camera_priors_sparse_gt: Optional[pycolmap.Reconstruction] = None,
-    colmap_extra_args: Optional[list] = None,
+    camera_priors_sparse_gt: pycolmap.Reconstruction | None = None,
+    colmap_extra_args: list | None = None,
     num_threads: int = 1,
 ) -> None:
     workspace_path.mkdir(parents=True, exist_ok=True)
