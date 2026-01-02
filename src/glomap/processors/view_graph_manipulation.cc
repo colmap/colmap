@@ -13,7 +13,11 @@ void ViewGraphManipulator::DecomposeRelativePoses(
     colmap::Reconstruction& reconstruction,
     int num_threads) {
   std::vector<image_pair_t> image_pair_ids;
-  for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
+  for (const auto& [pair_id, image_pair] : view_graph.ImagePairs()) {
+    // Only decompose pairs that are valid but don't have a pose yet.
+    if (!view_graph.IsValid(pair_id) || image_pair.cam2_from_cam1.has_value()) {
+      continue;
+    }
     image_pair_ids.push_back(pair_id);
   }
 
