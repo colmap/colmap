@@ -109,7 +109,7 @@ int RunGlobalMapper(int argc, char** argv) {
 int RunRotationAverager(int argc, char** argv) {
   std::string relpose_path;
   std::string output_path;
-  std::string gravity_path = "";
+  std::string gravity_path;
 
   bool use_stratified = true;
   bool refine_gravity = false;
@@ -130,14 +130,14 @@ int RunRotationAverager(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  if (gravity_path != "" && !colmap::ExistsFile(gravity_path)) {
+  if (!gravity_path.empty() && !colmap::ExistsFile(gravity_path)) {
     LOG(ERROR) << "`gravity_path` is not a file";
     return EXIT_FAILURE;
   }
 
   RotationEstimatorOptions rotation_averager_options;
   rotation_averager_options.skip_initialization = true;
-  rotation_averager_options.use_gravity = (gravity_path != "");
+  rotation_averager_options.use_gravity = !gravity_path.empty();
   rotation_averager_options.use_stratified = use_stratified;
 
   // Load the database
@@ -152,31 +152,16 @@ int RunRotationAverager(int argc, char** argv) {
   // Add cameras and images to reconstruction
   for (auto& [image_id, image] : temp_images) {
     // Add dummy camera
-    reconstruction.AddCamera(colmap::Camera::CreateFromModelId(
+    reconstruction.AddCameraWithTrivialRig(colmap::Camera::CreateFromModelId(
         image_id, colmap::CameraModelId::kSimplePinhole, 0.0, 0, 0));
-
-    // Add rig with camera as reference sensor
-    Rig rig;
-    rig.SetRigId(image_id);
-    rig.AddRefSensor(sensor_t(SensorType::CAMERA, image_id));
-    reconstruction.AddRig(std::move(rig));
-
-    // Add frame with identity pose
-    Frame frame;
-    frame.SetFrameId(image_id);
-    frame.SetRigId(image_id);
-    frame.AddDataId(data_t(sensor_t(SensorType::CAMERA, image_id), image_id));
-    frame.SetRigFromWorld(Rigid3d());
-    reconstruction.AddFrame(std::move(frame));
 
     // Add image
     image.SetCameraId(image_id);
-    image.SetFrameId(image_id);
-    reconstruction.AddImage(std::move(image));
+    reconstruction.AddImageWithTrivialFrame(std::move(image));
   }
 
   std::vector<colmap::PosePrior> pose_priors;
-  if (gravity_path != "") {
+  if (!gravity_path.empty()) {
     pose_priors = ReadGravity(gravity_path, reconstruction.Images());
     // Initialize frame rotations from gravity.
     // Currently rotation averaging only supports gravity prior on reference
@@ -190,6 +175,19 @@ int RunRotationAverager(int argc, char** argv) {
           reconstruction.Frame(image.FrameId()).RigFromWorld();
       rig_from_world.rotation = Eigen::Quaterniond(
           colmap::GravityAlignedRotation(pose_prior.gravity));
+    }
+  }
+
+  // TODO: This is a misuse of frame registration. Frames should only be
+  // registered when their poses are actually computed, not with arbitrary
+  // identity poses. The rotation averaging code should be updated to work
+  // with unregistered frames.
+  // Register all frames with an initial identity pose so rotation averaging
+  // can work. The actual rotations will be computed by rotation averaging.
+  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
+    if (!frame.HasPose()) {
+      reconstruction.Frame(frame_id).SetRigFromWorld(Rigid3d());
+      reconstruction.RegisterFrame(frame_id);
     }
   }
 
