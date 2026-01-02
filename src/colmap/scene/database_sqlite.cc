@@ -543,7 +543,7 @@ class SqliteDatabase : public Database {
 
   void Close() override { CloseImpl(); }
 
-  std::shared_ptr<Database> Clone() const override {
+  std::shared_ptr<Database> Clone() override {
     LOG(ERROR) << "Cloning " << path_;
     return Open(path_);
   }
