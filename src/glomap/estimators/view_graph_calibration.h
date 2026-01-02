@@ -54,38 +54,6 @@ struct ViewGraphCalibratorOptions {
   }
 };
 
-class ViewGraphCalibrator {
- public:
-  explicit ViewGraphCalibrator(const ViewGraphCalibratorOptions& options)
-      : options_(options) {}
-
-  // Entry point for the calibration
-  bool Solve(ViewGraph& view_graph, colmap::Reconstruction& reconstruction);
-
- private:
-  // Initialize focal lengths from reconstruction
-  void InitializeFocalsFromReconstruction(
-      const colmap::Reconstruction& reconstruction);
-
-  // Add the image pairs to the problem
-  void AddImagePairsToProblem(const ViewGraph& view_graph,
-                              const colmap::Reconstruction& reconstruction);
-
-  // Set the cameras to be constant if they have prior intrinsics
-  size_t ParameterizeCameras(const colmap::Reconstruction& reconstruction);
-
-  // Convert the results back to the camera
-  void ConvertBackResults(colmap::Reconstruction& reconstruction);
-
-  // Evaluate and filter the image pairs based on the calibration results
-  size_t EvaluateAndFilterImagePairs(ViewGraph& view_graph) const;
-
-  ViewGraphCalibratorOptions options_;
-  std::unique_ptr<ceres::Problem> problem_;
-  std::unique_ptr<ceres::LossFunction> loss_function_;
-  std::unordered_map<camera_t, double> focals_;
-};
-
 // Calibrate the view graph by estimating focal lengths from fundamental
 // matrices. Filters image pairs with high calibration errors.
 // Then re-estimates relative poses using the calibrated cameras.

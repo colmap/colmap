@@ -123,14 +123,14 @@ void OptionManager::AddGlobalMapperOptions() {
                               &mapper->retriangulation.min_angle);
 
   // Threshold options
-  AddAndRegisterDefaultOption("Mapper.max_rotation_error",
-                              &mapper->max_rotation_error);
-  AddAndRegisterDefaultOption("Mapper.max_angular_reprojection_error",
-                              &mapper->max_angular_reprojection_error);
-  AddAndRegisterDefaultOption("Mapper.max_reprojection_error",
-                              &mapper->max_reprojection_error);
-  AddAndRegisterDefaultOption("Mapper.min_triangulation_angle",
-                              &mapper->min_triangulation_angle);
+  AddAndRegisterDefaultOption("Mapper.max_rotation_error_deg",
+                              &mapper->max_rotation_error_deg);
+  AddAndRegisterDefaultOption("Mapper.max_angular_reproj_error_deg",
+                              &mapper->max_angular_reproj_error_deg);
+  AddAndRegisterDefaultOption("Mapper.max_normalized_reproj_error",
+                              &mapper->max_normalized_reproj_error);
+  AddAndRegisterDefaultOption("Mapper.min_tri_angle_deg",
+                              &mapper->min_tri_angle_deg);
 }
 
 void OptionManager::AddGravityRefinerOptions() {

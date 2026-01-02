@@ -45,7 +45,7 @@ std::shared_ptr<class ViewGraph> GlobalMapper::ViewGraph() const {
 }
 
 bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options,
-                                     double max_rotation_error) {
+                                     double max_rotation_error_deg) {
   // TODO: This is a misuse of frame registration. Frames should only be
   // registered when their poses are actually computed, not with arbitrary
   // identity poses. The rotation averaging code should be updated to work
@@ -71,7 +71,8 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options,
   // The first run is for filtering
   SolveRotationAveraging(options, *view_graph_, *reconstruction_, pose_priors);
 
-  view_graph_->FilterByRelativeRotation(*reconstruction_, max_rotation_error);
+  view_graph_->FilterByRelativeRotation(*reconstruction_,
+                                        max_rotation_error_deg);
   if (view_graph_->KeepLargestConnectedComponents(*reconstruction_) == 0) {
     LOG(ERROR) << "no connected components are found";
     return false;
@@ -82,7 +83,8 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options,
           options, *view_graph_, *reconstruction_, pose_priors)) {
     return false;
   }
-  view_graph_->FilterByRelativeRotation(*reconstruction_, max_rotation_error);
+  view_graph_->FilterByRelativeRotation(*reconstruction_,
+                                        max_rotation_error_deg);
   image_t num_img =
       view_graph_->KeepLargestConnectedComponents(*reconstruction_);
   if (num_img == 0) {
@@ -117,9 +119,9 @@ void GlobalMapper::EstablishTracks(const TrackEstablishmentOptions& options) {
 }
 
 bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
-                                     double max_angular_reprojection_error,
-                                     double max_reprojection_error,
-                                     double min_triangulation_angle) {
+                                     double max_angular_reproj_error_deg,
+                                     double max_normalized_reproj_error,
+                                     double min_tri_angle_deg) {
   if (options.constraint_type != GlobalPositioningConstraintType::ONLY_POINTS) {
     LOG(ERROR) << "Only points are used for solving camera positions";
     return false;
@@ -137,13 +139,13 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
 
   // First pass: use relaxed threshold (2x) for cameras without prior focal.
   obs_manager.FilterPoints3DWithLargeReprojectionError(
-      2.0 * max_angular_reprojection_error,
+      2.0 * max_angular_reproj_error_deg,
       reconstruction_->Point3DIds(),
       colmap::ReprojectionErrorType::ANGULAR);
 
   // Second pass: apply strict threshold for cameras with prior focal length.
   const double max_angular_error_rad =
-      colmap::DegToRad(max_angular_reprojection_error);
+      colmap::DegToRad(max_angular_reproj_error_deg);
   std::vector<std::pair<colmap::image_t, colmap::point2D_t>> obs_to_delete;
   for (const auto point3D_id : reconstruction_->Point3DIds()) {
     if (!reconstruction_->ExistsPoint3D(point3D_id)) {
@@ -172,10 +174,10 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
 
   // Filter tracks based on triangulation angle and reprojection error
   obs_manager.FilterPoints3DWithSmallTriangulationAngle(
-      min_triangulation_angle, reconstruction_->Point3DIds());
+      min_tri_angle_deg, reconstruction_->Point3DIds());
   // Set the threshold to be larger to avoid removing too many tracks
   obs_manager.FilterPoints3DWithLargeReprojectionError(
-      10 * max_reprojection_error,
+      10 * max_normalized_reproj_error,
       reconstruction_->Point3DIds(),
       colmap::ReprojectionErrorType::NORMALIZED);
 
@@ -188,8 +190,8 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
 
 bool GlobalMapper::IterativeBundleAdjustment(
     const BundleAdjusterOptions& options,
-    double max_reprojection_error,
-    double min_triangulation_angle,
+    double max_normalized_reproj_error,
+    double min_tri_angle_deg,
     int num_iterations) {
   for (int ite = 0; ite < num_iterations; ite++) {
     // First stage: optimize positions only (rotation constant)
@@ -226,7 +228,7 @@ bool GlobalMapper::IterativeBundleAdjustment(
     while (status && ite < num_iterations) {
       double scaling = std::max(3 - ite, 1);
       filtered_num += obs_manager.FilterPoints3DWithLargeReprojectionError(
-          scaling * max_reprojection_error,
+          scaling * max_normalized_reproj_error,
           reconstruction_->Point3DIds(),
           colmap::ReprojectionErrorType::NORMALIZED);
 
@@ -247,11 +249,11 @@ bool GlobalMapper::IterativeBundleAdjustment(
   {
     colmap::ObservationManager obs_manager(*reconstruction_);
     obs_manager.FilterPoints3DWithLargeReprojectionError(
-        max_reprojection_error,
+        max_normalized_reproj_error,
         reconstruction_->Point3DIds(),
         colmap::ReprojectionErrorType::NORMALIZED);
     obs_manager.FilterPoints3DWithSmallTriangulationAngle(
-        min_triangulation_angle, reconstruction_->Point3DIds());
+        min_tri_angle_deg, reconstruction_->Point3DIds());
   }
 
   return true;
@@ -260,8 +262,8 @@ bool GlobalMapper::IterativeBundleAdjustment(
 bool GlobalMapper::IterativeRetriangulateAndRefine(
     const colmap::IncrementalTriangulator::Options& options,
     const BundleAdjusterOptions& ba_options,
-    double max_reprojection_error,
-    double min_triangulation_angle) {
+    double max_normalized_reproj_error,
+    double min_tri_angle_deg) {
   // Delete all existing 3D points and re-establish 2D-3D correspondences.
   reconstruction_->DeleteAllPoints2DAndPoints3D();
 
@@ -297,7 +299,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
   // Final filtering and bundle adjustment.
   colmap::ObservationManager obs_manager(*reconstruction_);
   obs_manager.FilterPoints3DWithLargeReprojectionError(
-      max_reprojection_error,
+      max_normalized_reproj_error,
       reconstruction_->Point3DIds(),
       colmap::ReprojectionErrorType::NORMALIZED);
 
@@ -310,16 +312,16 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
   reconstruction_->Normalize();
 
   obs_manager.FilterPoints3DWithLargeReprojectionError(
-      max_reprojection_error,
+      max_normalized_reproj_error,
       reconstruction_->Point3DIds(),
       colmap::ReprojectionErrorType::NORMALIZED);
   obs_manager.FilterPoints3DWithSmallTriangulationAngle(
-      min_triangulation_angle, reconstruction_->Point3DIds());
+      min_tri_angle_deg, reconstruction_->Point3DIds());
 
   return true;
 }
 
-// TODO: Rig normalizaiton has not be done
+// TODO: Rig normalizaiton has not been done
 bool GlobalMapper::Solve(const GlobalMapperOptions& options,
                          std::unordered_map<frame_t, int>& cluster_ids) {
   THROW_CHECK_NOTNULL(reconstruction_);
@@ -360,7 +362,8 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     LOG(INFO) << "----- Running rotation averaging -----";
     colmap::Timer run_timer;
     run_timer.Start();
-    if (!RotationAveraging(opts.rotation_averaging, opts.max_rotation_error)) {
+    if (!RotationAveraging(opts.rotation_averaging,
+                           opts.max_rotation_error_deg)) {
       return false;
     }
     LOG(INFO) << "Rotation averaging done in " << run_timer.ElapsedSeconds()
@@ -383,9 +386,9 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     colmap::Timer run_timer;
     run_timer.Start();
     if (!GlobalPositioning(opts.global_positioning,
-                           opts.max_angular_reprojection_error,
-                           opts.max_reprojection_error,
-                           opts.min_triangulation_angle)) {
+                           opts.max_angular_reproj_error_deg,
+                           opts.max_normalized_reproj_error,
+                           opts.min_tri_angle_deg)) {
       return false;
     }
     LOG(INFO) << "Global positioning done in " << run_timer.ElapsedSeconds()
@@ -398,8 +401,8 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     colmap::Timer run_timer;
     run_timer.Start();
     if (!IterativeBundleAdjustment(opts.bundle_adjustment,
-                                   opts.max_reprojection_error,
-                                   opts.min_triangulation_angle,
+                                   opts.max_normalized_reproj_error,
+                                   opts.min_tri_angle_deg,
                                    opts.num_iterations_ba)) {
       return false;
     }
@@ -414,15 +417,15 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     run_timer.Start();
     if (!IterativeRetriangulateAndRefine(opts.retriangulation,
                                          opts.bundle_adjustment,
-                                         opts.max_reprojection_error,
-                                         opts.min_triangulation_angle)) {
+                                         opts.max_normalized_reproj_error,
+                                         opts.min_tri_angle_deg)) {
       return false;
     }
     LOG(INFO) << "Iterative retriangulation and refinement done in "
               << run_timer.ElapsedSeconds() << " seconds";
   }
 
-  // 8. Reconstruction pruning
+  // Reconstruction pruning
   if (!opts.skip_pruning) {
     LOG(INFO) << "----- Running postprocessing -----";
     colmap::Timer run_timer;

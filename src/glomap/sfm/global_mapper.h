@@ -43,11 +43,10 @@ struct GlobalMapperOptions {
   }();
 
   // Thresholds for each component.
-  double max_rotation_error = 10.;  // in degree, for rotation averaging
-  double max_angular_reprojection_error =
-      1.;                                // in degree, for global positioning
-  double max_reprojection_error = 1e-2;  // for bundle adjustment
-  double min_triangulation_angle = 1.;   // in degree, for triangulation
+  double max_rotation_error_deg = 10.;        // for rotation averaging
+  double max_angular_reproj_error_deg = 1.;   // for global positioning
+  double max_normalized_reproj_error = 1e-2;  // for bundle adjustment
+  double min_tri_angle_deg = 1.;              // for triangulation
 
   // Control the number of iterations for bundle adjustment.
   int num_iterations_ba = 3;
@@ -77,29 +76,29 @@ class GlobalMapper {
 
   // Run rotation averaging to estimate global rotations.
   bool RotationAveraging(const RotationEstimatorOptions& options,
-                         double max_rotation_error);
+                         double max_rotation_error_deg);
 
   // Establish tracks from feature matches.
   void EstablishTracks(const TrackEstablishmentOptions& options);
 
   // Estimate global camera positions.
   bool GlobalPositioning(const GlobalPositionerOptions& options,
-                         double max_angular_reprojection_error,
-                         double max_reprojection_error,
-                         double min_triangulation_angle);
+                         double max_angular_reproj_error_deg,
+                         double max_normalized_reproj_error,
+                         double min_tri_angle_deg);
 
   // Run iterative bundle adjustment to refine poses and structure.
   bool IterativeBundleAdjustment(const BundleAdjusterOptions& options,
-                                 double max_reprojection_error,
-                                 double min_triangulation_angle,
+                                 double max_normalized_reproj_error,
+                                 double min_tri_angle_deg,
                                  int num_iterations);
 
   // Iteratively retriangulate tracks and refine to improve structure.
   bool IterativeRetriangulateAndRefine(
       const colmap::IncrementalTriangulator::Options& options,
       const BundleAdjusterOptions& ba_options,
-      double max_reprojection_error,
-      double min_triangulation_angle);
+      double max_normalized_reproj_error,
+      double min_tri_angle_deg);
 
   // Getter functions.
   std::shared_ptr<colmap::Reconstruction> Reconstruction() const;

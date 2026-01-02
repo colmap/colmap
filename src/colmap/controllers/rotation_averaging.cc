@@ -57,6 +57,7 @@ void RotationAveragingController::Run() {
   Timer run_timer;
   run_timer.Start();
 
+  // Create a global mapper instance
   glomap::GlobalMapper mapper(database_);
   mapper.BeginReconstruction(reconstruction_);
 
@@ -65,7 +66,6 @@ void RotationAveragingController::Run() {
     return;
   }
 
-  // View graph calibration
   LOG(INFO) << "----- Running view graph calibration -----";
   if (!glomap::CalibrateViewGraph(options.view_graph_calibration,
                                   *mapper.ViewGraph(),
@@ -74,10 +74,9 @@ void RotationAveragingController::Run() {
     return;
   }
 
-  // Rotation averaging
   LOG(INFO) << "----- Running rotation averaging -----";
   if (!mapper.RotationAveraging(options.rotation_estimation,
-                                options.max_rotation_error)) {
+                                options.max_rotation_error_deg)) {
     LOG(ERROR) << "Failed to solve rotation averaging";
     return;
   }
