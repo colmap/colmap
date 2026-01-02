@@ -23,6 +23,8 @@ void BindTwoViewGeometryEstimator(py::module& m) {
   PyTwoViewGeometryOptions.def(py::init<>())
       .def_readwrite("min_num_inliers",
                      &TwoViewGeometryOptions::min_num_inliers)
+      .def_readwrite("min_inlier_ratio",
+                     &TwoViewGeometryOptions::min_inlier_ratio)
       .def_readwrite("min_E_F_inlier_ratio",
                      &TwoViewGeometryOptions::min_E_F_inlier_ratio)
       .def_readwrite("max_H_inlier_ratio",

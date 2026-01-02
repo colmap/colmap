@@ -258,48 +258,6 @@ TEST(ViewGraph, ValidImagePairs) {
               testing::UnorderedElementsAre(pair_id1, pair_id2, pair_id3));
 }
 
-TEST(ViewGraph, FilterByNumInliers) {
-  ViewGraph view_graph;
-
-  const image_pair_t pair_id1 = colmap::ImagePairToPairId(1, 2);
-  const image_pair_t pair_id2 = colmap::ImagePairToPairId(1, 3);
-  const image_pair_t pair_id3 = colmap::ImagePairToPairId(2, 3);
-  const image_pair_t pair_id4 = colmap::ImagePairToPairId(2, 4);
-  view_graph.AddImagePair(1, 2, SynthesizeImagePair(50));
-  view_graph.AddImagePair(1, 3, SynthesizeImagePair(20));
-  view_graph.AddImagePair(2, 3, SynthesizeImagePair(30));
-  view_graph.AddImagePair(2, 4, SynthesizeImagePair(50));
-  view_graph.SetInvalidImagePair(pair_id4);  // Already invalid
-
-  view_graph.FilterByNumInliers(30);
-
-  EXPECT_TRUE(view_graph.IsValid(pair_id1));
-  EXPECT_FALSE(view_graph.IsValid(pair_id2));
-  EXPECT_TRUE(view_graph.IsValid(pair_id3));
-  EXPECT_FALSE(view_graph.IsValid(pair_id4));
-}
-
-TEST(ViewGraph, FilterByInlierRatio) {
-  ViewGraph view_graph;
-
-  const image_pair_t pair_id1 = colmap::ImagePairToPairId(1, 2);
-  const image_pair_t pair_id2 = colmap::ImagePairToPairId(1, 3);
-  const image_pair_t pair_id3 = colmap::ImagePairToPairId(2, 3);
-  const image_pair_t pair_id4 = colmap::ImagePairToPairId(2, 4);
-  view_graph.AddImagePair(1, 2, SynthesizeImagePair(50));  // 50% ratio
-  view_graph.AddImagePair(1, 3, SynthesizeImagePair(10));  // 10% ratio
-  view_graph.AddImagePair(2, 3, SynthesizeImagePair(25));  // 25% ratio
-  view_graph.AddImagePair(2, 4, SynthesizeImagePair(50));
-  view_graph.SetInvalidImagePair(pair_id4);  // Already invalid
-
-  view_graph.FilterByInlierRatio(0.25);
-
-  EXPECT_TRUE(view_graph.IsValid(pair_id1));
-  EXPECT_FALSE(view_graph.IsValid(pair_id2));
-  EXPECT_TRUE(view_graph.IsValid(pair_id3));
-  EXPECT_FALSE(view_graph.IsValid(pair_id4));
-}
-
 TEST(ViewGraph, FilterByRelativeRotation) {
   colmap::Reconstruction reconstruction;
   colmap::SyntheticDatasetOptions options;

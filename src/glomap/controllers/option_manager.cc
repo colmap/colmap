@@ -29,12 +29,8 @@ void OptionManager::AddGlobalMapperOptions() {
   AddAndRegisterDefaultOption("Mapper.random_seed", &mapper->random_seed);
   AddAndRegisterDefaultOption("Mapper.num_iterations_ba",
                               &mapper->num_iterations_ba);
-  AddAndRegisterDefaultOption("Mapper.skip_preprocessing",
-                              &mapper->skip_preprocessing);
   AddAndRegisterDefaultOption("Mapper.skip_view_graph_calibration",
                               &mapper->skip_view_graph_calibration);
-  AddAndRegisterDefaultOption("Mapper.skip_relative_pose_estimation",
-                              &mapper->skip_relative_pose_estimation);
   AddAndRegisterDefaultOption("Mapper.skip_rotation_averaging",
                               &mapper->skip_rotation_averaging);
   AddAndRegisterDefaultOption("Mapper.skip_global_positioning",
@@ -55,11 +51,6 @@ void OptionManager::AddGlobalMapperOptions() {
   AddAndRegisterDefaultOption(
       "ViewGraphCalib.max_calibration_error",
       &mapper->view_graph_calibration.max_calibration_error);
-
-  // Relative pose estimation options
-  AddAndRegisterDefaultOption(
-      "RelPoseEstimation.max_epipolar_error",
-      &mapper->relative_pose_estimation.ransac_options.max_epipolar_error);
 
   // Track establishment options
   AddAndRegisterDefaultOption(
@@ -131,27 +122,15 @@ void OptionManager::AddGlobalMapperOptions() {
   AddAndRegisterDefaultOption("Retriangulation.min_angle",
                               &mapper->retriangulation.min_angle);
 
-  // Inlier threshold options
-  AddAndRegisterDefaultOption("Thresholds.max_angle_error",
-                              &mapper->inlier_thresholds.max_angle_error);
-  AddAndRegisterDefaultOption(
-      "Thresholds.max_reprojection_error",
-      &mapper->inlier_thresholds.max_reprojection_error);
-  AddAndRegisterDefaultOption(
-      "Thresholds.min_triangulation_angle",
-      &mapper->inlier_thresholds.min_triangulation_angle);
-  AddAndRegisterDefaultOption("Thresholds.max_epipolar_error_E",
-                              &mapper->inlier_thresholds.max_epipolar_error_E);
-  AddAndRegisterDefaultOption("Thresholds.max_epipolar_error_F",
-                              &mapper->inlier_thresholds.max_epipolar_error_F);
-  AddAndRegisterDefaultOption("Thresholds.max_epipolar_error_H",
-                              &mapper->inlier_thresholds.max_epipolar_error_H);
-  AddAndRegisterDefaultOption("Thresholds.min_inlier_num",
-                              &mapper->inlier_thresholds.min_inlier_num);
-  AddAndRegisterDefaultOption("Thresholds.min_inlier_ratio",
-                              &mapper->inlier_thresholds.min_inlier_ratio);
-  AddAndRegisterDefaultOption("Thresholds.max_rotation_error",
-                              &mapper->inlier_thresholds.max_rotation_error);
+  // Threshold options
+  AddAndRegisterDefaultOption("Mapper.max_rotation_error_deg",
+                              &mapper->max_rotation_error_deg);
+  AddAndRegisterDefaultOption("Mapper.max_angular_reproj_error_deg",
+                              &mapper->max_angular_reproj_error_deg);
+  AddAndRegisterDefaultOption("Mapper.max_normalized_reproj_error",
+                              &mapper->max_normalized_reproj_error);
+  AddAndRegisterDefaultOption("Mapper.min_tri_angle_deg",
+                              &mapper->min_tri_angle_deg);
 }
 
 void OptionManager::AddGravityRefinerOptions() {
