@@ -310,18 +310,18 @@ std::vector<const SceneClustering::Cluster*> SceneClustering::GetLeafClusters()
 }
 
 SceneClustering SceneClustering::Create(const Options& options,
-                                        const Database& database) {
+                                        const DatabaseCache& database_cache) {
   LOG(INFO) << "Reading scene graph...";
-  const std::vector<std::pair<image_pair_t, int>> pair_ids_and_num_inliers =
-      database.ReadTwoViewGeometryNumInliers();
+  const std::unordered_map<image_pair_t, point2D_t> num_corrs_between_images =
+      database_cache.CorrespondenceGraph()->NumCorrespondencesBetweenImages();
 
   std::vector<std::pair<image_t, image_t>> all_image_pairs;
-  all_image_pairs.reserve(pair_ids_and_num_inliers.size());
+  all_image_pairs.reserve(num_corrs_between_images.size());
   std::vector<int> all_num_inliers;
-  all_num_inliers.reserve(pair_ids_and_num_inliers.size());
-  for (const auto& [pair_id, num_inliers] : pair_ids_and_num_inliers) {
+  all_num_inliers.reserve(num_corrs_between_images.size());
+  for (const auto& [pair_id, num_correspondences] : num_corrs_between_images) {
     all_image_pairs.push_back(PairIdToImagePair(pair_id));
-    all_num_inliers.push_back(num_inliers);
+    all_num_inliers.push_back(static_cast<int>(num_correspondences));
   }
 
   LOG(INFO) << "Partitioning scene graph...";
