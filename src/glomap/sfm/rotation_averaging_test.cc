@@ -26,7 +26,6 @@ void SynthesizeGravityOutliers(std::vector<colmap::PosePrior>& pose_priors,
 GlobalMapperOptions CreateMapperTestOptions() {
   GlobalMapperOptions options;
   options.skip_view_graph_calibration = false;
-  options.skip_relative_pose_estimation = false;
   options.skip_rotation_averaging = true;
   options.skip_track_establishment = true;
   options.skip_global_positioning = true;

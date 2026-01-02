@@ -1,5 +1,6 @@
 #include "glomap/estimators/view_graph_calibration.h"
 
+#include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/scene/two_view_geometry.h"
 #include "colmap/util/threading.h"
@@ -7,6 +8,39 @@
 #include "glomap/estimators/cost_functions.h"
 
 namespace glomap {
+namespace {
+
+class ViewGraphCalibrator {
+ public:
+  explicit ViewGraphCalibrator(const ViewGraphCalibratorOptions& options)
+      : options_(options) {}
+
+  // Entry point for the calibration
+  bool Solve(ViewGraph& view_graph, colmap::Reconstruction& reconstruction);
+
+ private:
+  // Initialize focal lengths from reconstruction
+  void InitializeFocalsFromReconstruction(
+      const colmap::Reconstruction& reconstruction);
+
+  // Add the image pairs to the problem
+  void AddImagePairsToProblem(const ViewGraph& view_graph,
+                              const colmap::Reconstruction& reconstruction);
+
+  // Set the cameras to be constant if they have prior intrinsics
+  size_t ParameterizeCameras(const colmap::Reconstruction& reconstruction);
+
+  // Convert the results back to the camera
+  void ConvertBackResults(colmap::Reconstruction& reconstruction);
+
+  // Evaluate and filter the image pairs based on the calibration results
+  size_t EvaluateAndFilterImagePairs(ViewGraph& view_graph) const;
+
+  ViewGraphCalibratorOptions options_;
+  std::unique_ptr<ceres::Problem> problem_;
+  std::unique_ptr<ceres::LossFunction> loss_function_;
+  std::unordered_map<camera_t, double> focals_;
+};
 
 bool ViewGraphCalibrator::Solve(ViewGraph& view_graph,
                                 colmap::Reconstruction& reconstruction) {
@@ -172,7 +206,13 @@ size_t ViewGraphCalibrator::EvaluateAndFilterImagePairs(
   return invalid_counter;
 }
 
-namespace {
+struct RelativePoseReestimationOptions {
+  int num_threads = -1;
+  int random_seed = -1;
+  double max_error = 1.0;
+  int min_num_inliers = 30;
+  double min_inlier_ratio = 0.25;
+};
 
 // Cross-validate prior focal lengths by checking the ratio of calibrated vs
 // uncalibrated pairs per camera. UNCALIBRATED pairs are converted to
@@ -225,6 +265,81 @@ void CrossValidatePriorFocalLengths(
   }
 }
 
+void ReestimateRelativePoses(const RelativePoseReestimationOptions& options,
+                             ViewGraph& view_graph,
+                             colmap::Reconstruction& reconstruction) {
+  // Collect pair IDs for parallel processing.
+  std::vector<image_pair_t> pair_ids;
+  pair_ids.reserve(view_graph.NumImagePairs());
+  for (const auto& [pair_id, _] : view_graph.ImagePairs()) {
+    pair_ids.push_back(pair_id);
+  }
+
+  LOG(INFO) << "Re-estimating relative poses for " << pair_ids.size()
+            << " pairs";
+
+  // Estimate calibrated two-view geometry with current camera calibration.
+  // This repopulates inlier_matches and estimates cam2_from_cam1.
+  colmap::TwoViewGeometryOptions two_view_options;
+  two_view_options.compute_relative_pose = true;
+  two_view_options.ransac_options.max_error = options.max_error;
+  two_view_options.min_num_inliers = options.min_num_inliers;
+  two_view_options.min_inlier_ratio = options.min_inlier_ratio;
+  if (options.random_seed >= 0) {
+    two_view_options.ransac_options.random_seed = options.random_seed;
+  }
+
+  colmap::ThreadPool thread_pool(options.num_threads);
+  for (const image_pair_t pair_id : pair_ids) {
+    thread_pool.AddTask([&, pair_id]() {
+      const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+      ImagePair& image_pair = view_graph.ImagePair(image_id1, image_id2).first;
+      const Image& image1 = reconstruction.Image(image_id1);
+      const Image& image2 = reconstruction.Image(image_id2);
+
+      // Collect all 2D points from images.
+      std::vector<Eigen::Vector2d> points1(image1.NumPoints2D());
+      std::vector<Eigen::Vector2d> points2(image2.NumPoints2D());
+      for (colmap::point2D_t i = 0; i < image1.NumPoints2D(); ++i) {
+        points1[i] = image1.Point2D(i).xy;
+      }
+      for (colmap::point2D_t i = 0; i < image2.NumPoints2D(); ++i) {
+        points2[i] = image2.Point2D(i).xy;
+      }
+
+      // Convert matches from Eigen matrix to FeatureMatches.
+      colmap::FeatureMatches matches(image_pair.matches.rows());
+      for (Eigen::Index i = 0; i < image_pair.matches.rows(); ++i) {
+        matches[i] = colmap::FeatureMatch(image_pair.matches(i, 0),
+                                          image_pair.matches(i, 1));
+      }
+
+      // Estimate and assign to base class.
+      static_cast<colmap::TwoViewGeometry&>(image_pair) =
+          colmap::EstimateCalibratedTwoViewGeometry(*image1.CameraPtr(),
+                                                    points1,
+                                                    *image2.CameraPtr(),
+                                                    points2,
+                                                    matches,
+                                                    two_view_options);
+    });
+  }
+  thread_pool.Wait();
+
+  // Update validity after all tasks complete (not thread-safe).
+  for (const image_pair_t pair_id : pair_ids) {
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const ImagePair& image_pair =
+        view_graph.ImagePair(image_id1, image_id2).first;
+    if (image_pair.config == colmap::TwoViewGeometry::DEGENERATE ||
+        image_pair.config == colmap::TwoViewGeometry::UNDEFINED) {
+      view_graph.SetInvalidImagePair(pair_id);
+    } else {
+      view_graph.SetValidImagePair(pair_id);
+    }
+  }
+}
+
 }  // namespace
 
 bool CalibrateViewGraph(const ViewGraphCalibratorOptions& options,
@@ -250,7 +365,22 @@ bool CalibrateViewGraph(const ViewGraphCalibratorOptions& options,
   }
 
   ViewGraphCalibrator calibrator(options);
-  return calibrator.Solve(view_graph, reconstruction);
+  if (!calibrator.Solve(view_graph, reconstruction)) {
+    return false;
+  }
+
+  // Re-estimate relative poses and filter by inliers.
+  if (options.reestimate_relative_pose) {
+    RelativePoseReestimationOptions relpose_options;
+    relpose_options.num_threads = options.solver_options.num_threads;
+    relpose_options.random_seed = options.random_seed;
+    relpose_options.max_error = options.relpose_max_error;
+    relpose_options.min_num_inliers = options.relpose_min_num_inliers;
+    relpose_options.min_inlier_ratio = options.relpose_min_inlier_ratio;
+    ReestimateRelativePoses(relpose_options, view_graph, reconstruction);
+  }
+
+  return true;
 }
 
 }  // namespace glomap
