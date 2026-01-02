@@ -26,7 +26,6 @@ void SynthesizeGravityOutliers(std::vector<colmap::PosePrior>& pose_priors,
 GlobalMapperOptions CreateMapperTestOptions() {
   GlobalMapperOptions options;
   options.skip_view_graph_calibration = false;
-  options.skip_relative_pose_estimation = false;
   options.skip_rotation_averaging = true;
   options.skip_track_establishment = true;
   options.skip_global_positioning = true;
@@ -116,6 +115,18 @@ TEST(RotationEstimator, WithoutNoise) {
 
   global_mapper.Solve(CreateMapperTestOptions());
 
+  // TODO: This is a misuse of frame registration. Frames should only be
+  // registered when their poses are actually computed, not with arbitrary
+  // identity poses. The rotation averaging code should be updated to work
+  // with unregistered frames.
+  // Same applies to all tests below.
+  for (const auto& [frame_id, frame] : reconstruction->Frames()) {
+    if (!frame.HasPose()) {
+      reconstruction->Frame(frame_id).SetRigFromWorld(Rigid3d());
+      reconstruction->RegisterFrame(frame_id);
+    }
+  }
+
   // TODO: The current 1-dof rotation averaging sometimes fails to pick the
   // right solution (e.g., 180 deg flipped).
   for (const bool use_gravity : {false}) {
@@ -156,6 +167,13 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialKnownRig) {
   global_mapper.BeginReconstruction(reconstruction);
 
   global_mapper.Solve(CreateMapperTestOptions());
+
+  for (const auto& [frame_id, frame] : reconstruction->Frames()) {
+    if (!frame.HasPose()) {
+      reconstruction->Frame(frame_id).SetRigFromWorld(Rigid3d());
+      reconstruction->RegisterFrame(frame_id);
+    }
+  }
 
   for (const bool use_gravity : {true, false}) {
     // Make a copy for this iteration
@@ -204,6 +222,13 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialUnknownRig) {
 
   global_mapper.Solve(CreateMapperTestOptions());
 
+  for (const auto& [frame_id, frame] : reconstruction->Frames()) {
+    if (!frame.HasPose()) {
+      reconstruction->Frame(frame_id).SetRigFromWorld(Rigid3d());
+      reconstruction->RegisterFrame(frame_id);
+    }
+  }
+
   // For unknown rigs, it is not supported to use gravity.
   for (const bool use_gravity : {false}) {
     // Make a copy for this iteration
@@ -249,6 +274,13 @@ TEST(RotationEstimator, WithNoiseAndOutliers) {
   global_mapper.BeginReconstruction(reconstruction);
 
   global_mapper.Solve(CreateMapperTestOptions());
+
+  for (const auto& [frame_id, frame] : reconstruction->Frames()) {
+    if (!frame.HasPose()) {
+      reconstruction->Frame(frame_id).SetRigFromWorld(Rigid3d());
+      reconstruction->RegisterFrame(frame_id);
+    }
+  }
 
   // TODO: The current 1-dof rotation averaging sometimes fails to pick the
   // right solution (e.g., 180 deg flipped).
@@ -296,6 +328,13 @@ TEST(RotationEstimator, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
 
   global_mapper.Solve(CreateMapperTestOptions());
 
+  for (const auto& [frame_id, frame] : reconstruction->Frames()) {
+    if (!frame.HasPose()) {
+      reconstruction->Frame(frame_id).SetRigFromWorld(Rigid3d());
+      reconstruction->RegisterFrame(frame_id);
+    }
+  }
+
   // TODO: The current 1-dof rotation averaging sometimes fails to pick the
   // right solution (e.g., 180 deg flipped).
   for (const bool use_gravity : {false}) {
@@ -336,6 +375,13 @@ TEST(RotationEstimator, RefineGravity) {
 
   global_mapper.Solve(CreateMapperTestOptions());
 
+  for (const auto& [frame_id, frame] : reconstruction->Frames()) {
+    if (!frame.HasPose()) {
+      reconstruction->Frame(frame_id).SetRigFromWorld(Rigid3d());
+      reconstruction->RegisterFrame(frame_id);
+    }
+  }
+
   GravityRefinerOptions opt_grav_refine;
   GravityRefiner grav_refiner(opt_grav_refine);
   grav_refiner.RefineGravity(
@@ -371,6 +417,13 @@ TEST(RotationEstimator, RefineGravityWithNonTrivialRigs) {
   global_mapper.BeginReconstruction(reconstruction);
 
   global_mapper.Solve(CreateMapperTestOptions());
+
+  for (const auto& [frame_id, frame] : reconstruction->Frames()) {
+    if (!frame.HasPose()) {
+      reconstruction->Frame(frame_id).SetRigFromWorld(Rigid3d());
+      reconstruction->RegisterFrame(frame_id);
+    }
+  }
 
   GravityRefinerOptions opt_grav_refine;
   GravityRefiner grav_refiner(opt_grav_refine);

@@ -198,11 +198,83 @@ IncrementalPipeline::IncrementalPipeline(
     std::shared_ptr<class Database> database,
     std::shared_ptr<class ReconstructionManager> reconstruction_manager)
     : options_(std::move(THROW_CHECK_NOTNULL(options))),
-      database_(std::move(THROW_CHECK_NOTNULL(database))),
       reconstruction_manager_(
           THROW_CHECK_NOTNULL(std::move(reconstruction_manager))),
       total_run_timer_(std::make_shared<Timer>()) {
   THROW_CHECK(options_->Check());
+  THROW_CHECK_NOTNULL(database);
+
+  // Make sure images of the given reconstruction are also included when
+  // manually specifying images for the reconstruction procedure.
+  std::unordered_set<std::string> image_names = {options_->image_names.begin(),
+                                                 options_->image_names.end()};
+  if (reconstruction_manager_->Size() == 1 && !options_->image_names.empty()) {
+    const auto& reconstruction = reconstruction_manager_->Get(0);
+    for (const image_t image_id : reconstruction->RegImageIds()) {
+      const auto& image = reconstruction->Image(image_id);
+      image_names.insert(image.Name());
+    }
+  }
+
+  LOG(INFO) << "Loading database";
+  Timer timer;
+  timer.Start();
+  database_cache_ = DatabaseCache::Create(
+      *database,
+      /*min_num_matches=*/static_cast<size_t>(options_->min_num_matches),
+      /*ignore_watermarks=*/options_->ignore_watermarks,
+      /*image_names=*/image_names);
+  timer.PrintMinutes();
+
+  // If prior positions are to be used and setup from the database, convert
+  // geographic coords. to cartesian ones
+  if (options_->use_prior_position) {
+    THROW_CHECK(database_cache_->SetupPosePriors());
+  }
+
+  RegisterCallback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
+  RegisterCallback(NEXT_IMAGE_REG_CALLBACK);
+  RegisterCallback(LAST_IMAGE_REG_CALLBACK);
+}
+
+// NOTE: This constructor does not respect the ignore_watermarks option since
+// watermark filtering requires access to the original TwoViewGeometry data
+// from the database. The caller should ensure the passed database_cache was
+// created with appropriate watermark filtering if needed.
+IncrementalPipeline::IncrementalPipeline(
+    std::shared_ptr<const IncrementalPipelineOptions> options,
+    std::shared_ptr<class DatabaseCache> database_cache,
+    std::shared_ptr<class ReconstructionManager> reconstruction_manager)
+    : options_(std::move(THROW_CHECK_NOTNULL(options))),
+      reconstruction_manager_(
+          THROW_CHECK_NOTNULL(std::move(reconstruction_manager))),
+      total_run_timer_(std::make_shared<Timer>()) {
+  THROW_CHECK(options_->Check());
+  THROW_CHECK_NOTNULL(database_cache);
+
+  // Make sure images of the given reconstruction are also included when
+  // manually specifying images for the reconstruction procedure.
+  std::unordered_set<std::string> image_names = {options_->image_names.begin(),
+                                                 options_->image_names.end()};
+  if (reconstruction_manager_->Size() == 1 && !options_->image_names.empty()) {
+    const auto& reconstruction = reconstruction_manager_->Get(0);
+    for (const image_t image_id : reconstruction->RegImageIds()) {
+      const auto& image = reconstruction->Image(image_id);
+      image_names.insert(image.Name());
+    }
+  }
+
+  database_cache_ = DatabaseCache::CreateFromCache(
+      *database_cache,
+      static_cast<size_t>(options_->min_num_matches),
+      image_names);
+
+  // If prior positions are to be used and setup from the database, convert
+  // geographic coords. to cartesian ones
+  if (options_->use_prior_position) {
+    THROW_CHECK(database_cache_->SetupPosePriors());
+  }
+
   RegisterCallback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
   RegisterCallback(NEXT_IMAGE_REG_CALLBACK);
   RegisterCallback(LAST_IMAGE_REG_CALLBACK);
@@ -211,7 +283,8 @@ IncrementalPipeline::IncrementalPipeline(
 void IncrementalPipeline::Run() {
   total_run_timer_->Start();
 
-  if (!LoadDatabase()) {
+  if (database_cache_->NumImages() == 0) {
+    LOG(WARNING) << "No images with matches found in the database";
     return;
   }
 
@@ -257,44 +330,6 @@ void IncrementalPipeline::Run() {
   }
 
   total_run_timer_->PrintMinutes();
-}
-
-bool IncrementalPipeline::LoadDatabase() {
-  LOG(INFO) << "Loading database";
-
-  // Make sure images of the given reconstruction are also included when
-  // manually specifying images for the reconstruction procedure.
-  std::unordered_set<std::string> image_names = {options_->image_names.begin(),
-                                                 options_->image_names.end()};
-  if (reconstruction_manager_->Size() == 1 && !options_->image_names.empty()) {
-    const auto& reconstruction = reconstruction_manager_->Get(0);
-    for (const image_t image_id : reconstruction->RegImageIds()) {
-      const auto& image = reconstruction->Image(image_id);
-      image_names.insert(image.Name());
-    }
-  }
-
-  Timer timer;
-  timer.Start();
-  database_cache_ = DatabaseCache::Create(
-      *database_,
-      /*min_num_matches=*/static_cast<size_t>(options_->min_num_matches),
-      /*ignore_watermarks=*/options_->ignore_watermarks,
-      /*image_names=*/image_names);
-  timer.PrintMinutes();
-
-  if (database_cache_->NumImages() == 0) {
-    LOG(WARNING) << "No images with matches found in the database";
-    return false;
-  }
-
-  // If prior positions are to be used and setup from the database, convert
-  // geographic coords. to cartesian ones
-  if (options_->use_prior_position) {
-    return database_cache_->SetupPosePriors();
-  }
-
-  return true;
 }
 
 IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
@@ -647,7 +682,8 @@ void IncrementalPipeline::Reconstruct(
 
 void IncrementalPipeline::TriangulateReconstruction(
     const std::shared_ptr<Reconstruction>& reconstruction) {
-  THROW_CHECK(LoadDatabase());
+  THROW_CHECK_GT(database_cache_->NumImages(), 0)
+      << "No images with matches found in the database";
   IncrementalMapper mapper(database_cache_);
   mapper.BeginReconstruction(reconstruction);
 

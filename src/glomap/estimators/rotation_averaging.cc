@@ -155,9 +155,28 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
 
   if (should_solve) {
     LOG(INFO) << "Solving subset 1-DOF rotation averaging problem";
+    colmap::Reconstruction gravity_reconstruction(reconstruction);
+    gravity_view_graph.KeepLargestConnectedComponents(gravity_reconstruction);
     if (!SolveRotationAveraging(
-            gravity_view_graph, pose_priors, reconstruction)) {
+            gravity_view_graph, pose_priors, gravity_reconstruction)) {
       return false;
+    }
+
+    for (const auto& [gravity_frame_id, gravity_frame] :
+         gravity_reconstruction.Frames()) {
+      if (!gravity_frame.HasPose()) continue;
+      reconstruction.Frame(gravity_frame_id)
+          .SetRigFromWorld(gravity_frame.RigFromWorld());
+    }
+
+    for (const auto& [gravity_rig_id, gravity_rig] :
+         gravity_reconstruction.Rigs()) {
+      for (const auto& [sensor_id, sensor_from_rig] :
+           gravity_rig.NonRefSensors()) {
+        if (!gravity_rig.HasSensorFromRig(sensor_id)) continue;
+        reconstruction.Rig(gravity_rig_id)
+            .SetSensorFromRig(sensor_id, sensor_from_rig);
+      }
     }
   }
 
@@ -473,7 +492,7 @@ colmap::Reconstruction CreateExpandedReconstruction(
 bool SolveRotationAveraging(const RotationEstimatorOptions& options,
                             ViewGraph& view_graph,
                             colmap::Reconstruction& reconstruction,
-                            std::vector<colmap::PosePrior>& pose_priors) {
+                            const std::vector<colmap::PosePrior>& pose_priors) {
   view_graph.KeepLargestConnectedComponents(reconstruction);
 
   // If there are cameras with unknown cam_from_rig, run expanded rotation

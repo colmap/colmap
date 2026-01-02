@@ -5,7 +5,6 @@ Python reimplementation of the C++ incremental mapper with equivalent logic.
 import argparse
 import time
 from pathlib import Path
-from typing import Optional
 
 import custom_bundle_adjustment
 import enlighten
@@ -331,7 +330,10 @@ def main_incremental_mapper(controller: pycolmap.IncrementalPipeline) -> None:
     """Equivalent to IncrementalPipeline.run()"""
     timer = pycolmap.Timer()
     timer.start()
-    if not controller.load_database():
+
+    database_cache = controller.database_cache
+    if database_cache.num_images() == 0:
+        logging.warning("No images with matches found in the database")
         return
 
     reconstruction_manager = controller.reconstruction_manager
@@ -343,7 +345,6 @@ def main_incremental_mapper(controller: pycolmap.IncrementalPipeline) -> None:
             "but multiple are given"
         )
 
-    database_cache = controller.database_cache
     mapper = pycolmap.IncrementalMapper(database_cache)
     mapper_options = controller.options.get_mapper()
     reconstruct(controller, mapper, mapper_options, continue_reconstruction)
@@ -377,8 +378,8 @@ def main(
     database_path: Path,
     image_path: Path,
     output_path: Path,
-    options: Optional[pycolmap.IncrementalPipelineOptions] = None,
-    input_path: Optional[Path] = None,
+    options: pycolmap.IncrementalPipelineOptions | None = None,
+    input_path: Path | None = None,
 ) -> dict[int, pycolmap.Reconstruction]:
     if options is None:
         options = pycolmap.IncrementalPipelineOptions()

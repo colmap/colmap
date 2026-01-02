@@ -145,35 +145,4 @@ void ViewGraph::FilterByRelativeRotation(
             << max_angle_deg << " degrees";
 }
 
-void ViewGraph::FilterByNumInliers(int min_num_inliers) {
-  int num_invalid = 0;
-  for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
-    if (image_pair.inlier_matches.size() <
-        static_cast<size_t>(min_num_inliers)) {
-      SetInvalidImagePair(pair_id);
-      num_invalid++;
-    }
-  }
-
-  LOG(INFO) << "Marked " << num_invalid
-            << " image pairs as invalid with inlier count < "
-            << min_num_inliers;
-}
-
-void ViewGraph::FilterByInlierRatio(double min_inlier_ratio) {
-  int num_invalid = 0;
-  for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
-    const double inlier_ratio = image_pair.inlier_matches.size() /
-                                static_cast<double>(image_pair.matches.rows());
-    if (inlier_ratio < min_inlier_ratio) {
-      SetInvalidImagePair(pair_id);
-      num_invalid++;
-    }
-  }
-
-  LOG(INFO) << "Marked " << num_invalid
-            << " image pairs as invalid with inlier ratio < "
-            << min_inlier_ratio;
-}
-
 }  // namespace glomap

@@ -1,15 +1,14 @@
 #pragma once
 
 #include "colmap/scene/database.h"
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_triangulator.h"
 
 #include "glomap/estimators/bundle_adjustment.h"
 #include "glomap/estimators/global_positioning.h"
-#include "glomap/estimators/relpose_estimation.h"
 #include "glomap/estimators/rotation_averaging.h"
 #include "glomap/estimators/view_graph_calibration.h"
-#include "glomap/processors/image_pair_inliers.h"
 #include "glomap/scene/view_graph.h"
 #include "glomap/sfm/track_establishment.h"
 
@@ -31,7 +30,6 @@ struct GlobalMapperOptions {
 
   // Options for each component
   ViewGraphCalibratorOptions view_graph_calibration;
-  RelativePoseEstimationOptions relative_pose_estimation;
   RotationEstimatorOptions rotation_averaging;
   TrackEstablishmentOptions track_establishment;
   GlobalPositionerOptions global_positioning;
@@ -44,16 +42,17 @@ struct GlobalMapperOptions {
     return opts;
   }();
 
-  // Inlier thresholds for each component
-  InlierThresholdOptions inlier_thresholds;
+  // Thresholds for each component.
+  double max_rotation_error_deg = 10.;        // for rotation averaging
+  double max_angular_reproj_error_deg = 1.;   // for global positioning
+  double max_normalized_reproj_error = 1e-2;  // for bundle adjustment
+  double min_tri_angle_deg = 1.;              // for triangulation
 
   // Control the number of iterations for bundle adjustment.
   int num_iterations_ba = 3;
 
   // Control the flow of the global sfm
-  bool skip_preprocessing = false;
   bool skip_view_graph_calibration = false;
-  bool skip_relative_pose_estimation = false;
   bool skip_rotation_averaging = false;
   bool skip_track_establishment = false;
   bool skip_global_positioning = false;
@@ -73,43 +72,39 @@ class GlobalMapper {
   // Run the global SfM pipeline.
   bool Solve(const GlobalMapperOptions& options);
 
-  // Re-estimate relative poses between image pairs and filter by inliers.
-  bool ReestimateRelativePoses(const RelativePoseEstimationOptions& options,
-                               const InlierThresholdOptions& inlier_thresholds);
-
   // Run rotation averaging to estimate global rotations.
   bool RotationAveraging(const RotationEstimatorOptions& options,
-                         double max_rotation_error);
+                         double max_rotation_error_deg);
 
   // Establish tracks from feature matches.
   void EstablishTracks(const TrackEstablishmentOptions& options);
 
   // Estimate global camera positions.
   bool GlobalPositioning(const GlobalPositionerOptions& options,
-                         double max_angle_error,
-                         double max_reprojection_error,
-                         double min_triangulation_angle);
+                         double max_angular_reproj_error_deg,
+                         double max_normalized_reproj_error,
+                         double min_tri_angle_deg);
 
   // Run iterative bundle adjustment to refine poses and structure.
   bool IterativeBundleAdjustment(const BundleAdjusterOptions& options,
-                                 double max_reprojection_error,
-                                 double min_triangulation_angle,
+                                 double max_normalized_reproj_error,
+                                 double min_tri_angle_deg,
                                  int num_iterations);
 
   // Iteratively retriangulate tracks and refine to improve structure.
   bool IterativeRetriangulateAndRefine(
       const colmap::IncrementalTriangulator::Options& options,
       const BundleAdjusterOptions& ba_options,
-      double max_reprojection_error,
-      double min_triangulation_angle);
+      double max_normalized_reproj_error,
+      double min_tri_angle_deg);
 
   // Getter functions.
   std::shared_ptr<colmap::Reconstruction> Reconstruction() const;
   std::shared_ptr<class ViewGraph> ViewGraph() const;
 
  private:
-  // Class that provides access to the database.
-  const std::shared_ptr<const colmap::Database> database_;
+  // Class that caches data loaded from the database.
+  std::shared_ptr<const colmap::DatabaseCache> database_cache_;
 
   // Class that holds data of the reconstruction.
   std::shared_ptr<colmap::Reconstruction> reconstruction_;

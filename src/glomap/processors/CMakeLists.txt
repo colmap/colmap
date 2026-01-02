@@ -32,7 +32,6 @@ set(FOLDER_NAME "glomap_processors")
 COLMAP_ADD_LIBRARY(
     NAME colmap_glomap_processors
     SRCS
-        image_pair_inliers.h image_pair_inliers.cc
         view_graph_manipulation.h view_graph_manipulation.cc
     PUBLIC_LINK_LIBS
         colmap_glomap_estimators
