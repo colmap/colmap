@@ -3,6 +3,8 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/util/threading.h"
 
+#include <mutex>
+
 namespace glomap {
 
 // Decompose relative poses from the two-view geometry matrices.
@@ -12,15 +14,14 @@ void ViewGraphManipulator::DecomposeRelativePoses(
     int num_threads) {
   std::vector<image_pair_t> image_pair_ids;
   for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
-    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-    if (!reconstruction.Image(image_id1).CameraPtr()->has_prior_focal_length ||
-        !reconstruction.Image(image_id2).CameraPtr()->has_prior_focal_length)
-      continue;
     image_pair_ids.push_back(pair_id);
   }
 
   const int64_t num_image_pairs = image_pair_ids.size();
   LOG(INFO) << "Decompose relative pose for " << num_image_pairs << " pairs";
+
+  std::mutex invalid_pairs_mutex;
+  std::vector<image_pair_t> invalid_pair_ids;
 
   colmap::ThreadPool thread_pool(num_threads);
   for (int64_t idx = 0; idx < num_image_pairs; idx++) {
@@ -45,12 +46,18 @@ void ViewGraphManipulator::DecomposeRelativePoses(
       }
 
       // ImagePair inherits from TwoViewGeometry, so pass it directly.
-      colmap::EstimateTwoViewGeometryPose(*image1.CameraPtr(),
-                                          points1,
-                                          *image2.CameraPtr(),
-                                          points2,
-                                          &image_pair);
-      THROW_CHECK(image_pair.cam2_from_cam1.has_value());
+      const bool success =
+          colmap::EstimateTwoViewGeometryPose(*image1.CameraPtr(),
+                                              points1,
+                                              *image2.CameraPtr(),
+                                              points2,
+                                              &image_pair);
+
+      if (!success || !image_pair.cam2_from_cam1.has_value()) {
+        std::lock_guard<std::mutex> lock(invalid_pairs_mutex);
+        invalid_pair_ids.push_back(pair_id);
+        return;
+      }
 
       if (image_pair.cam2_from_cam1->translation.norm() > 1e-12) {
         image_pair.cam2_from_cam1->translation =
@@ -60,7 +67,12 @@ void ViewGraphManipulator::DecomposeRelativePoses(
   }
   thread_pool.Wait();
 
-  LOG(INFO) << "Decompose relative pose done. ";
+  for (const image_pair_t pair_id : invalid_pair_ids) {
+    view_graph.SetInvalidImagePair(pair_id);
+  }
+
+  LOG(INFO) << "Decompose relative pose done. " << invalid_pair_ids.size()
+            << " pairs failed.";
 }
 
 }  // namespace glomap
