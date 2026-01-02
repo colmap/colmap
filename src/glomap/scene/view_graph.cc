@@ -1,5 +1,6 @@
 #include "glomap/scene/view_graph.h"
 
+#include "colmap/estimators/two_view_geometry.h"
 #include "colmap/math/connected_components.h"
 #include "colmap/scene/two_view_geometry.h"
 
@@ -7,8 +8,25 @@ namespace glomap {
 
 void ViewGraph::LoadFromDatabase(const colmap::Database& database,
                                  bool allow_duplicate) {
+  // TODO: Move relative pose decomposition logic to the top level.
   auto all_matches = database.ReadAllMatches();
+
+  // Read cameras and images upfront for pose decomposition.
+  const std::vector<colmap::Camera> cameras = database.ReadAllCameras();
+  std::unordered_map<colmap::camera_t, colmap::Camera> camera_map;
+  for (const auto& camera : cameras) {
+    camera_map.emplace(camera.camera_id, camera);
+  }
+
+  const std::vector<colmap::Image> images = database.ReadAllImages();
+  std::unordered_map<image_t, colmap::Image> image_map;
+  for (const auto& image : images) {
+    image_map.emplace(image.ImageId(), image);
+  }
+
   size_t invalid_count = 0;
+  size_t decompose_count = 0;
+  size_t decompose_failed_count = 0;
 
   for (auto& [pair_id, feature_matches] : all_matches) {
     auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
@@ -51,6 +69,47 @@ void ViewGraph::LoadFromDatabase(const colmap::Database& database,
         }
       }
       image_pair.matches.conservativeResize(count, 2);
+
+      // Decompose relative pose if not already present.
+      if (!image_pair.cam2_from_cam1.has_value()) {
+        const colmap::Image& image1 = image_map.at(image_id1);
+        const colmap::Image& image2 = image_map.at(image_id2);
+        const colmap::Camera& camera1 = camera_map.at(image1.CameraId());
+        const colmap::Camera& camera2 = camera_map.at(image2.CameraId());
+
+        const colmap::FeatureKeypoints keypoints1 =
+            database.ReadKeypoints(image_id1);
+        std::vector<Eigen::Vector2d> points1(keypoints1.size());
+        for (size_t i = 0; i < keypoints1.size(); i++) {
+          points1[i] = Eigen::Vector2d(keypoints1[i].x, keypoints1[i].y);
+        }
+
+        const colmap::FeatureKeypoints keypoints2 =
+            database.ReadKeypoints(image_id2);
+        std::vector<Eigen::Vector2d> points2(keypoints2.size());
+        for (size_t i = 0; i < keypoints2.size(); i++) {
+          points2[i] = Eigen::Vector2d(keypoints2[i].x, keypoints2[i].y);
+        }
+
+        decompose_count++;
+        const bool success = colmap::EstimateTwoViewGeometryPose(
+            camera1, points1, camera2, points2, &image_pair);
+
+        if (success && image_pair.cam2_from_cam1.has_value()) {
+          const double norm = image_pair.cam2_from_cam1->translation.norm();
+          if (norm > 1e-12) {
+            image_pair.cam2_from_cam1->translation /= norm;
+          }
+        } else {
+          decompose_failed_count++;
+        }
+      }
+    }
+
+    // Skip pairs that don't have a valid pose.
+    if (!image_pair.cam2_from_cam1.has_value()) {
+      invalid_count++;
+      continue;
     }
 
     if (duplicate) {
@@ -58,13 +117,14 @@ void ViewGraph::LoadFromDatabase(const colmap::Database& database,
     } else {
       AddImagePair(image_id1, image_id2, std::move(image_pair));
     }
-
-    if (is_invalid) {
-      SetInvalidImagePair(colmap::ImagePairToPairId(image_id1, image_id2));
-    }
   }
+
   LOG(INFO) << "Loaded " << all_matches.size() << " image pairs, "
             << invalid_count << " invalid";
+  if (decompose_count > 0) {
+    LOG(INFO) << "Decomposed relative pose for " << decompose_count
+              << " pairs, " << decompose_failed_count << " failed";
+  }
 }
 
 int ViewGraph::KeepLargestConnectedComponents(
