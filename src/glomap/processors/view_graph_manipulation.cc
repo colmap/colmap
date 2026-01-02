@@ -31,12 +31,6 @@ void ViewGraphManipulator::DecomposeRelativePoses(
       const Image& image1 = reconstruction.Image(image_id1);
       const Image& image2 = reconstruction.Image(image_id2);
 
-      // If planar, convert to calibrated and skip pose estimation.
-      if (image_pair.config == colmap::TwoViewGeometry::PLANAR) {
-        image_pair.config = colmap::TwoViewGeometry::CALIBRATED;
-        return;
-      }
-
       std::vector<Eigen::Vector2d> points1(image1.NumPoints2D());
       for (colmap::point2D_t point2D_idx = 0;
            point2D_idx < image1.NumPoints2D();
@@ -63,21 +57,9 @@ void ViewGraphManipulator::DecomposeRelativePoses(
       }
     });
   }
-
   thread_pool.Wait();
 
-  size_t counter = 0;
-  for (size_t idx = 0; idx < image_pair_ids.size(); idx++) {
-    const auto [image_id1, image_id2] =
-        colmap::PairIdToImagePair(image_pair_ids[idx]);
-    const ImagePair& image_pair =
-        view_graph.ImagePair(image_id1, image_id2).first;
-    if (image_pair.config != colmap::TwoViewGeometry::CALIBRATED &&
-        image_pair.config != colmap::TwoViewGeometry::PLANAR_OR_PANORAMIC)
-      counter++;
-  }
-  LOG(INFO) << "Decompose relative pose done. " << counter
-            << " pairs are pure rotation";
+  LOG(INFO) << "Decompose relative pose done. ";
 }
 
 }  // namespace glomap
