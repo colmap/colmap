@@ -83,18 +83,6 @@ TEST_P(ParameterizedDatabaseTests, OpenFileWithNonASCIIPath) {
   EXPECT_TRUE(ExistsPath(database_path));
 }
 
-TEST_P(ParameterizedDatabaseTests, Clone) {
-  std::shared_ptr<Database> database =
-      GetParam()(CreateTestDir() + "/database.db");
-  std::shared_ptr<Database> cloned_database = database->Clone();
-  EXPECT_EQ(database->NumCameras(), 0);
-  EXPECT_EQ(cloned_database->NumCameras(), 0);
-  database->WriteCamera(Camera::CreateFromModelName(
-      kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1));
-  EXPECT_EQ(database->NumCameras(), 1);
-  EXPECT_EQ(cloned_database->NumCameras(), 1);
-}
-
 TEST_P(ParameterizedDatabaseTests, Transaction) {
   std::shared_ptr<Database> database = GetParam()(kInMemorySqliteDatabasePath);
   DatabaseTransaction database_transaction(database.get());

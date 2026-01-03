@@ -1,8 +1,6 @@
 #include "glomap/io/colmap_io.h"
 
 #include "colmap/util/file.h"
-#include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 
 namespace {
 
