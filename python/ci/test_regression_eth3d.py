@@ -1,35 +1,46 @@
+"""
+Runs the COLMAP automatic reconstruction pipeline on the ETH3D dataset
+and asserts that the reconstructed model is close to the ground truth.
+
+This script is intended to be run as a CI test. It is not intended to be
+run manually. Instead use benchmark/reconstruction/evaluate.py.
+
+"""
+
 import argparse
+import logging
 import os
 import subprocess
 import sys
 import urllib.request
 
 
-def download_file(url, file_path, max_retries=3):
+def download_file(url: str, file_path: str, max_retries: int = 3) -> None:
     if os.path.exists(file_path):
         return
-    print(f"Downloading {url} to {file_path}")
+    logging.info(f"Downloading {url} to {file_path}")
     for retry in range(max_retries):
         try:
             urllib.request.urlretrieve(url, file_path)
             return
         except Exception as exc:
-            print(
-                f"Failed to download {url} (trial={retry + 1}) to {file_path} due to {exc}"
+            logging.error(
+                f"Failed to download {url} (trial={retry + 1}) "
+                f"to {file_path} due to {exc}"
             )
 
 
 def check_small_errors_or_exit(
-    dataset_name,
-    max_rotation_error,
-    max_proj_center_error,
-    expected_num_images,
-    errors_csv_path,
-):
-    print(f"Evaluating errors for {dataset_name}")
+    dataset_name: str,
+    max_rotation_error: float,
+    max_proj_center_error: float,
+    expected_num_images: float,
+    errors_csv_path: str,
+) -> None:
+    logging.info(f"Evaluating errors for {dataset_name}")
 
     error = False
-    with open(errors_csv_path, "r") as fid:
+    with open(errors_csv_path) as fid:
         num_images = 0
         for line in fid:
             line = line.strip()
@@ -38,25 +49,27 @@ def check_small_errors_or_exit(
             rotation_error, proj_center_error = map(float, line.split(","))
             num_images += 1
             if rotation_error > max_rotation_error:
-                print("Exceeded rotation error threshold:", rotation_error)
+                logging.info(
+                    "Exceeded rotation error threshold:", rotation_error
+                )
                 error = True
             if proj_center_error > max_proj_center_error:
-                print(
+                logging.info(
                     "Exceeded projection center error threshold:",
                     proj_center_error,
                 )
                 error = True
 
     if num_images != expected_num_images:
-        print("Unexpected number of images:", num_images)
+        logging.error("Unexpected number of images:", num_images)
         error = True
 
     if error:
         sys.exit(1)
 
 
-def process_dataset(args, dataset_name):
-    print("Processing dataset:", dataset_name)
+def process_dataset(args: argparse.Namespace, dataset_name: str) -> None:
+    logging.info("Processing dataset:", dataset_name)
 
     workspace_path = os.path.join(
         os.path.realpath(args.workspace_path), dataset_name
@@ -73,13 +86,15 @@ def process_dataset(args, dataset_name):
         ["7zz", "x", "-y", f"{dataset_name}.7z"], cwd=workspace_path
     )
 
-    # Find undistorted parameters of first camera and initialize all images with it.
+    # Find undistorted parameters of first camera and
+    # initialize all images with it. This is an approximation
+    # because not all datasets have only a single camera.
+    # However, it is a good enough initialization.
     with open(
         os.path.join(
             workspace_path,
             f"{dataset_name}/dslr_calibration_undistorted/cameras.txt",
         ),
-        "r",
     ) as fid:
         for line in fid:
             if not line.startswith("#"):
@@ -97,7 +112,6 @@ def process_dataset(args, dataset_name):
             workspace_path,
             f"{dataset_name}/dslr_calibration_undistorted/images.txt",
         ),
-        "r",
     ) as fid:
         for line in fid:
             if not line.startswith("#") and line.strip():
@@ -158,9 +172,9 @@ def process_dataset(args, dataset_name):
     )
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_names", required=True)
+    parser.add_argument("--dataset_names", nargs="+", required=True)
     parser.add_argument("--workspace_path", required=True)
     parser.add_argument("--colmap_path", required=True)
     parser.add_argument("--use_gpu", default=True, action="store_true")
@@ -172,11 +186,11 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
     args = parse_args()
 
-    for dataset_name in args.dataset_names.split(","):
-        process_dataset(args, dataset_name.strip())
+    for dataset_name in args.dataset_names:
+        process_dataset(args, dataset_name)
 
 
 if __name__ == "__main__":
