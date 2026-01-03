@@ -36,23 +36,24 @@ import time
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ElementTree
+from typing import Final
 
 import urllib2
 import urlparse
 
-PER_PAGE: int = 500
-SORT: str = "date-posted-desc"
-URL: str = (
+PER_PAGE: Final[int] = 500
+SORT: Final[str] = "date-posted-desc"
+URL: Final[str] = (
     "https://api.flickr.com/services/rest/?method=flickr.photos.search&"
     "api_key=%s&text=%s&sort=%s&per_page=%d&page=%d&min_upload_date=%s&"
     "max_upload_date=%s&format=rest&extras=url_o,url_l,url_c,url_z,url_n"
 )
-MAX_PAGE_REQUESTS: int = 5
-MAX_PAGE_TIMEOUT: int = 20
-MAX_IMAGE_REQUESTS: int = 3
-TIME_SKIP: int = 24 * 60 * 60
-MAX_DATE: float = time.time()
-MIN_DATE: float = MAX_DATE - TIME_SKIP
+MAX_PAGE_REQUESTS: Final[int] = 5
+MAX_PAGE_TIMEOUT: Final[int] = 20
+MAX_IMAGE_REQUESTS: Final[int] = 3
+TIME_SKIP: Final[int] = 24 * 60 * 60
+MAX_DATE: Final[float] = time.time()
+MIN_DATE: Final[float] = MAX_DATE - TIME_SKIP
 
 
 def parse_args() -> argparse.Namespace:
@@ -109,13 +110,12 @@ def parse_page(
     if root.attrib["stat"] != "ok":
         raise OSError
 
-    photos: list[dict[str, str]] = []
-    for photo in root.iter("photo"):
-        photos.append(photo.attrib)
-
     metadata = root.find("photos")
     assert metadata is not None
-    return metadata.attrib, tuple(photos)
+
+    photos = tuple(photo.attrib for photo in root.iter("photo"))
+
+    return metadata.attrib, photos
 
 
 class PhotoDownloader:
