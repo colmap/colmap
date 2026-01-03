@@ -1297,15 +1297,19 @@ class SqliteDatabase : public Database {
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ht, 8);
 
     // Write NULL for qvec/tvec if cam2_from_cam1 is not set.
+    // Important: quat_wxyz and tvec must be declared outside the if-statement
+    // because sqlite3_step reads the bound data after the bind calls.
+    Eigen::Vector4d quat_wxyz;
+    Eigen::Vector3d tvec;
     if (two_view_geometry_ptr->cam2_from_cam1.has_value()) {
       const Rigid3d& cam2_from_cam1 = *two_view_geometry_ptr->cam2_from_cam1;
-      const Eigen::Vector4d quat_wxyz(cam2_from_cam1.rotation.w(),
-                                      cam2_from_cam1.rotation.x(),
-                                      cam2_from_cam1.rotation.y(),
-                                      cam2_from_cam1.rotation.z());
+      quat_wxyz = Eigen::Vector4d(cam2_from_cam1.rotation.w(),
+                                  cam2_from_cam1.rotation.x(),
+                                  cam2_from_cam1.rotation.y(),
+                                  cam2_from_cam1.rotation.z());
+      tvec = cam2_from_cam1.translation;
       WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, quat_wxyz, 9);
-      WriteStaticMatrixBlob(
-          sql_stmt_write_two_view_geometry_, cam2_from_cam1.translation, 10);
+      WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, tvec, 10);
     } else {
       SQLITE3_CALL(sqlite3_bind_null(sql_stmt_write_two_view_geometry_, 9));
       SQLITE3_CALL(sqlite3_bind_null(sql_stmt_write_two_view_geometry_, 10));
