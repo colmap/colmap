@@ -2,11 +2,6 @@
 
 #include "colmap/util/types.h"
 
-#include <cstdint>
-#include <limits>
-#include <unordered_map>
-#include <unordered_set>
-
 namespace colmap {
 
 class Frame;

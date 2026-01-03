@@ -2,7 +2,6 @@
 
 #include "colmap/geometry/pose.h"
 #include "colmap/math/spanning_tree.h"
-#include "colmap/scene/reconstruction_io_utils.h"
 
 #include "glomap/estimators/rotation_averaging_impl.h"
 
