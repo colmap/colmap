@@ -82,6 +82,38 @@ void SwapFeatureMatchesBlob(FeatureMatchesBlob* matches) {
   }
 }
 
+// Determine whether cam2_from_cam1 should be set based on the explicit flag
+// (new schema) or config and identity check (old schema backwards compat).
+// TODO: Drop the backwards compatibility code path in a future major version
+// release and require the has_cam2_from_cam1 column.
+std::optional<Rigid3d> MaybeReadCam2FromCam1(const Rigid3d& cam2_from_cam1,
+                                             int config,
+                                             bool has_cam2_from_cam1_is_null,
+                                             int64_t has_cam2_from_cam1_value) {
+  bool should_set_pose;
+  if (has_cam2_from_cam1_is_null) {
+    // Old schema: check config and identity.
+    const bool config_has_pose = config != TwoViewGeometry::UNDEFINED &&
+                                 config != TwoViewGeometry::DEGENERATE &&
+                                 config != TwoViewGeometry::WATERMARK &&
+                                 config != TwoViewGeometry::MULTIPLE;
+    // Use exact comparison since identity is written as exact Rigid3d()
+    // and stored as binary BLOB without precision loss.
+    const bool is_identity =
+        cam2_from_cam1.rotation.coeffs() ==
+            Eigen::Quaterniond::Identity().coeffs() &&
+        cam2_from_cam1.translation == Eigen::Vector3d::Zero();
+    should_set_pose = config_has_pose && !is_identity;
+  } else {
+    // New schema: use explicit flag.
+    should_set_pose = has_cam2_from_cam1_value != 0;
+  }
+  if (should_set_pose) {
+    return cam2_from_cam1;
+  }
+  return std::nullopt;
+}
+
 FeatureKeypointsBlob FeatureKeypointsToBlob(const FeatureKeypoints& keypoints) {
   const FeatureKeypointsBlob::Index kNumCols = 6;
   FeatureKeypointsBlob blob(keypoints.size(), kNumCols);
@@ -946,20 +978,22 @@ class SqliteDatabase : public Database {
         sql_stmt_read_two_view_geometry_, rc, 5);
     two_view_geometry.H = ReadStaticMatrixBlob<Eigen::Matrix3d>(
         sql_stmt_read_two_view_geometry_, rc, 6);
-    // Only populate cam2_from_cam1 for configs where pose was estimated.
-    if (two_view_geometry.config != TwoViewGeometry::UNDEFINED &&
-        two_view_geometry.config != TwoViewGeometry::DEGENERATE &&
-        two_view_geometry.config != TwoViewGeometry::WATERMARK &&
-        two_view_geometry.config != TwoViewGeometry::MULTIPLE) {
-      const Eigen::Vector4d quat_wxyz = ReadStaticMatrixBlob<Eigen::Vector4d>(
-          sql_stmt_read_two_view_geometry_, rc, 7);
-      Rigid3d cam2_from_cam1;
-      cam2_from_cam1.rotation = Eigen::Quaterniond(
-          quat_wxyz(0), quat_wxyz(1), quat_wxyz(2), quat_wxyz(3));
-      cam2_from_cam1.translation = ReadStaticMatrixBlob<Eigen::Vector3d>(
-          sql_stmt_read_two_view_geometry_, rc, 8);
-      two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
-    }
+
+    // Read the pose data.
+    const Eigen::Vector4d quat_wxyz = ReadStaticMatrixBlob<Eigen::Vector4d>(
+        sql_stmt_read_two_view_geometry_, rc, 7);
+    Rigid3d cam2_from_cam1;
+    cam2_from_cam1.rotation = Eigen::Quaterniond(
+        quat_wxyz(0), quat_wxyz(1), quat_wxyz(2), quat_wxyz(3));
+    cam2_from_cam1.translation = ReadStaticMatrixBlob<Eigen::Vector3d>(
+        sql_stmt_read_two_view_geometry_, rc, 8);
+    const bool has_cam2_from_cam1_is_null =
+        sqlite3_column_type(sql_stmt_read_two_view_geometry_, 9) == SQLITE_NULL;
+    two_view_geometry.cam2_from_cam1 = MaybeReadCam2FromCam1(
+        cam2_from_cam1,
+        two_view_geometry.config,
+        has_cam2_from_cam1_is_null,
+        sqlite3_column_int64(sql_stmt_read_two_view_geometry_, 9));
 
     two_view_geometry.inlier_matches = FeatureMatchesFromBlob(blob);
     two_view_geometry.F.transposeInPlace();
@@ -1001,20 +1035,23 @@ class SqliteDatabase : public Database {
           sql_stmt_read_two_view_geometries_, rc, 6);
       two_view_geometry.H = ReadStaticMatrixBlob<Eigen::Matrix3d>(
           sql_stmt_read_two_view_geometries_, rc, 7);
-      // Only populate cam2_from_cam1 for configs where pose was estimated.
-      if (two_view_geometry.config != TwoViewGeometry::UNDEFINED &&
-          two_view_geometry.config != TwoViewGeometry::DEGENERATE &&
-          two_view_geometry.config != TwoViewGeometry::WATERMARK &&
-          two_view_geometry.config != TwoViewGeometry::MULTIPLE) {
-        const Eigen::Vector4d quat_wxyz = ReadStaticMatrixBlob<Eigen::Vector4d>(
-            sql_stmt_read_two_view_geometries_, rc, 8);
-        Rigid3d cam2_from_cam1;
-        cam2_from_cam1.rotation = Eigen::Quaterniond(
-            quat_wxyz(0), quat_wxyz(1), quat_wxyz(2), quat_wxyz(3));
-        cam2_from_cam1.translation = ReadStaticMatrixBlob<Eigen::Vector3d>(
-            sql_stmt_read_two_view_geometries_, rc, 9);
-        two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
-      }
+
+      // Read the pose data.
+      const Eigen::Vector4d quat_wxyz = ReadStaticMatrixBlob<Eigen::Vector4d>(
+          sql_stmt_read_two_view_geometries_, rc, 8);
+      Rigid3d cam2_from_cam1;
+      cam2_from_cam1.rotation = Eigen::Quaterniond(
+          quat_wxyz(0), quat_wxyz(1), quat_wxyz(2), quat_wxyz(3));
+      cam2_from_cam1.translation = ReadStaticMatrixBlob<Eigen::Vector3d>(
+          sql_stmt_read_two_view_geometries_, rc, 9);
+      const bool has_cam2_from_cam1_is_null =
+          sqlite3_column_type(sql_stmt_read_two_view_geometries_, 10) ==
+          SQLITE_NULL;
+      two_view_geometry.cam2_from_cam1 = MaybeReadCam2FromCam1(
+          cam2_from_cam1,
+          two_view_geometry.config,
+          has_cam2_from_cam1_is_null,
+          sqlite3_column_int64(sql_stmt_read_two_view_geometries_, 10));
 
       two_view_geometry.F.transposeInPlace();
       two_view_geometry.E.transposeInPlace();
@@ -1307,6 +1344,10 @@ class SqliteDatabase : public Database {
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, quat_wxyz, 9);
     WriteStaticMatrixBlob(
         sql_stmt_write_two_view_geometry_, cam2_from_cam1.translation, 10);
+    SQLITE3_CALL(sqlite3_bind_int64(
+        sql_stmt_write_two_view_geometry_,
+        11,
+        two_view_geometry_ptr->cam2_from_cam1.has_value() ? 1 : 0));
     SQLITE3_CALL(sqlite3_step(sql_stmt_write_two_view_geometry_));
   }
 
@@ -1722,8 +1763,8 @@ class SqliteDatabase : public Database {
     prepare_sql_stmt("SELECT pair_id, rows FROM matches WHERE rows > 0;",
                      &sql_stmt_read_num_matches_);
     prepare_sql_stmt(
-        "SELECT rows, cols, data, config, F, E, H, qvec, tvec FROM "
-        "two_view_geometries WHERE pair_id = ?;",
+        "SELECT rows, cols, data, config, F, E, H, qvec, tvec, "
+        "has_cam2_from_cam1 FROM two_view_geometries WHERE pair_id = ?;",
         &sql_stmt_read_two_view_geometry_);
     prepare_sql_stmt("SELECT * FROM two_view_geometries WHERE rows > 0;",
                      &sql_stmt_read_two_view_geometries_);
@@ -1773,7 +1814,8 @@ class SqliteDatabase : public Database {
         &sql_stmt_write_matches_);
     prepare_sql_stmt(
         "INSERT INTO two_view_geometries(pair_id, rows, cols, data, config, F, "
-        "E, H, qvec, tvec) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+        "E, H, qvec, tvec, has_cam2_from_cam1) VALUES(?, ?, ?, ?, ?, ?, ?, ?, "
+        "?, ?, ?);",
         &sql_stmt_write_two_view_geometry_);
 
     //////////////////////////////////////////////////////////////////////////////
@@ -1977,7 +2019,8 @@ class SqliteDatabase : public Database {
           "    E        BLOB,"
           "    H        BLOB,"
           "    qvec     BLOB,"
-          "    tvec     BLOB);";
+          "    tvec     BLOB,"
+          "    has_cam2_from_cam1  INTEGER);";
       SQLITE3_EXEC(database_, sql.c_str(), nullptr);
     }
   }
@@ -2011,6 +2054,13 @@ class SqliteDatabase : public Database {
     maybe_add_two_view_geometries_blob_column("H");
     maybe_add_two_view_geometries_blob_column("qvec");
     maybe_add_two_view_geometries_blob_column("tvec");
+
+    if (!ExistsColumn("two_view_geometries", "has_cam2_from_cam1")) {
+      SQLITE3_EXEC(database_,
+                   "ALTER TABLE two_view_geometries ADD COLUMN "
+                   "has_cam2_from_cam1 INTEGER;",
+                   nullptr);
+    }
 
     if (ExistsTable("pose_priors_old")) {
       LOG(INFO) << "Migrating pose_priors table";
