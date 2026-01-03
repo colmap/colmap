@@ -28,6 +28,8 @@ class PyDatabaseTransaction {
 
 class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
  public:
+  ~PyDatabaseImpl() override { Close(); }
+
   void Close() override { PYBIND11_OVERRIDE_PURE(void, Database, Close); }
 
   bool ExistsRig(rig_t rig_id) const override {

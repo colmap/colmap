@@ -62,7 +62,7 @@ class Database {
   Database() = default;
 
   // Closes the database, if not closed before.
-  virtual ~Database();
+  virtual ~Database() = 0;
 
   NON_COPYABLE(Database);
 
