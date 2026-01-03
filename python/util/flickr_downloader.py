@@ -32,30 +32,30 @@ import argparse
 import datetime
 import multiprocessing
 import os
-import socket
 import time
-import urllib
+import urllib.error
+import urllib.request
 import xml.etree.ElementTree as ElementTree
 
 import urllib2
 import urlparse
 
-PER_PAGE = 500
-SORT = "date-posted-desc"
-URL = (
+PER_PAGE: int = 500
+SORT: str = "date-posted-desc"
+URL: str = (
     "https://api.flickr.com/services/rest/?method=flickr.photos.search&"
     "api_key=%s&text=%s&sort=%s&per_page=%d&page=%d&min_upload_date=%s&"
     "max_upload_date=%s&format=rest&extras=url_o,url_l,url_c,url_z,url_n"
 )
-MAX_PAGE_REQUESTS = 5
-MAX_PAGE_TIMEOUT = 20
-MAX_IMAGE_REQUESTS = 3
-TIME_SKIP = 24 * 60 * 60
-MAX_DATE = time.time()
-MIN_DATE = MAX_DATE - TIME_SKIP
+MAX_PAGE_REQUESTS: int = 5
+MAX_PAGE_TIMEOUT: int = 20
+MAX_IMAGE_REQUESTS: int = 3
+TIME_SKIP: int = 24 * 60 * 60
+MAX_DATE: float = time.time()
+MIN_DATE: float = MAX_DATE - TIME_SKIP
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--search_text", required=True)
     parser.add_argument("--api_key", required=True)
@@ -66,7 +66,9 @@ def parse_args():
     return args
 
 
-def compose_url(page, api_key, text, min_date, max_date):
+def compose_url(
+    page: int, api_key: str, text: str, min_date: float, max_date: float
+) -> str:
     return URL % (
         api_key,
         text,
@@ -78,15 +80,17 @@ def compose_url(page, api_key, text, min_date, max_date):
     )
 
 
-def parse_page(page, api_key, text, min_date, max_date):
-    f = None
+def parse_page(
+    page: int, api_key: str, text: str, min_date: float, max_date: float
+) -> tuple[dict[str, str], tuple[dict[str, str], ...]]:
+    f: urllib2.urlopen | None = None
     for _ in range(MAX_PAGE_REQUESTS):
         try:
             f = urllib2.urlopen(
                 compose_url(page, api_key, text, min_date, max_date),
                 timeout=MAX_PAGE_TIMEOUT,
             )
-        except socket.timeout:
+        except TimeoutError:
             continue
         else:
             break
@@ -103,26 +107,28 @@ def parse_page(page, api_key, text, min_date, max_date):
     root = ElementTree.fromstring(response)
 
     if root.attrib["stat"] != "ok":
-        raise IOError
+        raise OSError
 
-    photos = []
+    photos: list[dict[str, str]] = []
     for photo in root.iter("photo"):
         photos.append(photo.attrib)
 
-    return root.find("photos").attrib, photos
+    metadata = root.find("photos")
+    assert metadata is not None
+    return metadata.attrib, tuple(photos)
 
 
-class PhotoDownloader(object):
-    def __init__(self, image_path):
-        self.image_path = image_path
+class PhotoDownloader:
+    def __init__(self, image_path: str) -> None:
+        self.image_path: str = image_path
 
-    def __call__(self, photo):
+    def __call__(self, photo: dict[str, str]) -> None:
         # Find the URL corresponding to the highest image resolution. We will
         # need this URL here to determine the image extension (typically .jpg,
         # but could be .png, .gif, etc).
-        url = None
+        url: str | None = None
         for url_suffix in ("o", "l", "k", "h", "b", "c", "z"):
-            url_attr = "url_%s" % url_suffix
+            url_attr = f"url_{url_suffix}"
             if photo.get(url_attr) is not None:
                 url = photo.get(url_attr)
                 break
@@ -133,20 +139,20 @@ class PhotoDownloader(object):
             url_filename = urlparse.urlparse(url).path
             image_ext = os.path.splitext(url_filename)[1]
 
-            image_name = "%s_%s%s" % (photo["id"], photo["secret"], image_ext)
+            image_name = f"{photo['id']}_{photo['secret']}{image_ext}"
             path = os.path.join(self.image_path, image_name)
             if not os.path.exists(path):
                 print(url)
                 for _ in range(MAX_IMAGE_REQUESTS):
                     try:
-                        urllib.urlretrieve(url, path)
-                    except urllib.ContentTooShortError:
+                        urllib.request.urlretrieve(url, path)
+                    except urllib.error.ContentTooShortError:
                         continue
                     else:
                         break
 
 
-def main():
+def main() -> None:
     args = parse_args()
 
     downloader = PhotoDownloader(args.image_path)
@@ -181,7 +187,8 @@ def main():
         try:
             pool.map_async(downloader, photos).get(1e10)
         except KeyboardInterrupt:
-            pool.wait()
+            pool.close()
+            pool.join()
             break
 
         if page >= num_pages:
