@@ -410,9 +410,9 @@ bool Bitmap::ExifLongitude(double* longitude) const {
   double sign = 1.0;
   if (GetMetaData("GPS:LongitudeRef", &longitude_ref)) {
     if (longitude_ref == "W" || longitude_ref == "w") {
-      sign = 1.0;
-    } else if (longitude_ref == "E" || longitude_ref == "e") {
       sign = -1.0;
+    } else if (longitude_ref == "E" || longitude_ref == "e") {
+      sign = 1.0;
     }
   }
   float deg_min_sec[3] = {0.0};
