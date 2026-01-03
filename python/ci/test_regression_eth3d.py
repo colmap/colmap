@@ -118,7 +118,7 @@ def process_dataset(args: argparse.Namespace, dataset_name: str) -> None:
                 expected_num_images += 1
     # Each image uses two consecutive lines.
     assert expected_num_images % 2 == 0
-    expected_num_images /= 2
+    expected_num_images //= 2
 
     # Run automatic reconstruction pipeline.
     subprocess.check_call(
