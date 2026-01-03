@@ -106,49 +106,6 @@ int ViewGraph::KeepLargestConnectedComponents(
   return static_cast<int>(largest_component.size());
 }
 
-int ViewGraph::MarkConnectedComponents(
-    const colmap::Reconstruction& reconstruction,
-    std::unordered_map<frame_t, int>& cluster_ids,
-    int min_num_images) {
-  std::unordered_set<frame_t> nodes;
-  std::vector<std::pair<frame_t, frame_t>> edges;
-  for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
-    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-    const frame_t frame_id1 = reconstruction.Image(image_id1).FrameId();
-    const frame_t frame_id2 = reconstruction.Image(image_id2).FrameId();
-    nodes.insert(frame_id1);
-    nodes.insert(frame_id2);
-    edges.emplace_back(frame_id1, frame_id2);
-  }
-
-  const std::vector<std::vector<frame_t>> connected_components =
-      colmap::FindConnectedComponents(nodes, edges);
-  const int num_comp = static_cast<int>(connected_components.size());
-
-  std::vector<std::pair<int, int>> comp_num_images(num_comp);
-  for (int comp = 0; comp < num_comp; comp++) {
-    comp_num_images[comp] =
-        std::make_pair(connected_components[comp].size(), comp);
-  }
-  std::sort(comp_num_images.begin(), comp_num_images.end(), std::greater<>());
-
-  // Clear and populate cluster_ids output parameter
-  cluster_ids.clear();
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    cluster_ids[frame_id] = -1;
-  }
-
-  int comp = 0;
-  for (; comp < num_comp; comp++) {
-    if (comp_num_images[comp].first < min_num_images) break;
-    for (auto frame_id : connected_components[comp_num_images[comp].second]) {
-      cluster_ids[frame_id] = comp;
-    }
-  }
-
-  return comp;
-}
-
 std::unordered_map<image_t, std::unordered_set<image_t>>
 ViewGraph::CreateImageAdjacencyList() const {
   std::unordered_map<image_t, std::unordered_set<image_t>> adjacency_list;

@@ -113,8 +113,7 @@ TEST(RotationEstimator, WithoutNoise) {
   GlobalMapper global_mapper(database);
   global_mapper.BeginReconstruction(reconstruction);
 
-  std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(CreateMapperTestOptions(), cluster_ids);
+  global_mapper.Solve(CreateMapperTestOptions());
 
   // TODO: This is a misuse of frame registration. Frames should only be
   // registered when their poses are actually computed, not with arbitrary
@@ -167,8 +166,7 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialKnownRig) {
   GlobalMapper global_mapper(database);
   global_mapper.BeginReconstruction(reconstruction);
 
-  std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(CreateMapperTestOptions(), cluster_ids);
+  global_mapper.Solve(CreateMapperTestOptions());
 
   for (const auto& [frame_id, frame] : reconstruction->Frames()) {
     if (!frame.HasPose()) {
@@ -222,8 +220,7 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialUnknownRig) {
     }
   }
 
-  std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(CreateMapperTestOptions(), cluster_ids);
+  global_mapper.Solve(CreateMapperTestOptions());
 
   for (const auto& [frame_id, frame] : reconstruction->Frames()) {
     if (!frame.HasPose()) {
@@ -276,8 +273,7 @@ TEST(RotationEstimator, WithNoiseAndOutliers) {
   GlobalMapper global_mapper(database);
   global_mapper.BeginReconstruction(reconstruction);
 
-  std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(CreateMapperTestOptions(), cluster_ids);
+  global_mapper.Solve(CreateMapperTestOptions());
 
   for (const auto& [frame_id, frame] : reconstruction->Frames()) {
     if (!frame.HasPose()) {
@@ -330,8 +326,7 @@ TEST(RotationEstimator, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
   GlobalMapper global_mapper(database);
   global_mapper.BeginReconstruction(reconstruction);
 
-  std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(CreateMapperTestOptions(), cluster_ids);
+  global_mapper.Solve(CreateMapperTestOptions());
 
   for (const auto& [frame_id, frame] : reconstruction->Frames()) {
     if (!frame.HasPose()) {
@@ -378,8 +373,7 @@ TEST(RotationEstimator, RefineGravity) {
   GlobalMapper global_mapper(database);
   global_mapper.BeginReconstruction(reconstruction);
 
-  std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(CreateMapperTestOptions(), cluster_ids);
+  global_mapper.Solve(CreateMapperTestOptions());
 
   for (const auto& [frame_id, frame] : reconstruction->Frames()) {
     if (!frame.HasPose()) {
@@ -422,8 +416,7 @@ TEST(RotationEstimator, RefineGravityWithNonTrivialRigs) {
   GlobalMapper global_mapper(database);
   global_mapper.BeginReconstruction(reconstruction);
 
-  std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(CreateMapperTestOptions(), cluster_ids);
+  global_mapper.Solve(CreateMapperTestOptions());
 
   for (const auto& [frame_id, frame] : reconstruction->Frames()) {
     if (!frame.HasPose()) {

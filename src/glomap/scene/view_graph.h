@@ -73,12 +73,6 @@ class ViewGraph {
   // component.
   int KeepLargestConnectedComponents(colmap::Reconstruction& reconstruction);
 
-  // Mark connected clusters of images, where the cluster_id is sorted by the
-  // the number of images. Populates `cluster_ids` output parameter.
-  int MarkConnectedComponents(const colmap::Reconstruction& reconstruction,
-                              std::unordered_map<frame_t, int>& cluster_ids,
-                              int min_num_images = -1);
-
   // Mark image pairs as invalid if their relative rotation differs from the
   // reconstructed rotation by more than max_angle_deg.
   // Keeps existing invalid edges as invalid.
