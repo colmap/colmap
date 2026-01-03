@@ -48,7 +48,7 @@ std::string CreateTestDir() {
 
   const std::filesystem::path test_dir =
       std::filesystem::temp_directory_path() / "colmap_test_data" / test_name;
-  LOG(INFO) << "Creating test directory: " << test_dir.string();
+  LOG(INFO) << "Creating test directory: " << test_dir;
 
   // Create directory once. Cleanup artifacts from previous test runs.
   static std::mutex mutex;

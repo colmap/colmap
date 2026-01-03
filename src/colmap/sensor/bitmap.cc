@@ -505,7 +505,7 @@ bool Bitmap::Write(const std::filesystem::path& path,
                    const bool delinearize_colorspace) const {
   const auto output = OIIO::ImageOutput::create(path.string());
   if (!output) {
-    std::cerr << "Could not create an ImageOutput for " << path.string()
+    std::cerr << "Could not create an ImageOutput for " << path
               << ", error = " << OIIO::geterror() << "\n";
     return false;
   }
@@ -538,20 +538,20 @@ bool Bitmap::Write(const std::filesystem::path& path,
   }
 
   if (!output->open(path.string(), meta_data->image_spec)) {
-    VLOG(3) << "Could not open " << path.string()
-            << ", error = " << output->geterror() << "\n";
+    VLOG(3) << "Could not open " << path << ", error = " << output->geterror()
+            << "\n";
     return false;
   }
 
   if (!output->write_image(OIIO::TypeDesc::UINT8, output_data_ptr)) {
-    VLOG(3) << "Could not write pixels to " << path.string()
+    VLOG(3) << "Could not write pixels to " << path
             << ", error = " << output->geterror() << "\n";
     return false;
   }
 
   if (!output->close()) {
-    VLOG(3) << "Error closing " << path.string()
-            << ", error = " << output->geterror() << "\n";
+    VLOG(3) << "Error closing " << path << ", error = " << output->geterror()
+            << "\n";
     return false;
   }
 

@@ -48,9 +48,9 @@ void Mat<float>::Read(const std::filesystem::path& path) {
   char unused_char;
   file >> width_ >> unused_char >> height_ >> unused_char >> depth_ >>
       unused_char;
-  THROW_CHECK_GT(width_, 0) << path.string();
-  THROW_CHECK_GT(height_, 0) << path.string();
-  THROW_CHECK_GT(depth_, 0) << path.string();
+  THROW_CHECK_GT(width_, 0) << path;
+  THROW_CHECK_GT(height_, 0) << path;
+  THROW_CHECK_GT(depth_, 0) << path;
   data_.resize(width_ * height_ * depth_);
 
   ReadBinaryLittleEndian<float>(&file, &data_);

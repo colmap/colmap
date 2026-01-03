@@ -980,7 +980,7 @@ void Reconstruction::Read(const std::filesystem::path& path) {
   } else {
     LOG(FATAL_THROW)
         << "rigs, cameras, frames, images, points3D files do not exist at "
-        << path.string();
+        << path;
   }
 }
 
