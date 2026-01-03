@@ -29,6 +29,7 @@ class ViewGraph {
   // Read image pairs from the database.
   // If allow_duplicate is false, throws on duplicate pairs. If true, logs a
   // warning and updates the existing pair.
+  // Decomposes relative poses for valid pairs that don't have poses yet.
   void LoadFromDatabase(const colmap::Database& database,
                         bool allow_duplicate = false);
 
@@ -55,6 +56,7 @@ class ViewGraph {
   inline void SetInvalidImagePair(image_pair_t pair_id);
 
   // Returns a filter view over valid image pairs only.
+  // Pairs are valid if they exist and are not in the invalid set.
   auto ValidImagePairs() const {
     return colmap::filter_view(
         [this](const std::pair<const image_pair_t, struct ImagePair>& kv) {
@@ -122,6 +124,7 @@ void ViewGraph::Clear() {
 struct ImagePair& ViewGraph::AddImagePair(image_t image_id1,
                                           image_t image_id2,
                                           struct ImagePair image_pair) {
+  THROW_CHECK(image_pair.cam2_from_cam1.has_value());
   if (colmap::ShouldSwapImagePair(image_id1, image_id2)) {
     image_pair.Invert();
   }
@@ -173,6 +176,7 @@ struct ImagePair ViewGraph::GetImagePair(image_t image_id1,
 void ViewGraph::UpdateImagePair(image_t image_id1,
                                 image_t image_id2,
                                 struct ImagePair image_pair) {
+  THROW_CHECK(image_pair.cam2_from_cam1.has_value());
   if (colmap::ShouldSwapImagePair(image_id1, image_id2)) {
     image_pair.Invert();
   }
@@ -187,14 +191,17 @@ void ViewGraph::UpdateImagePair(image_t image_id1,
 }
 
 bool ViewGraph::IsValid(image_pair_t pair_id) const {
-  return invalid_pairs_.find(pair_id) == invalid_pairs_.end();
+  return image_pairs_.count(pair_id) > 0 &&
+         invalid_pairs_.find(pair_id) == invalid_pairs_.end();
 }
 
 void ViewGraph::SetValidImagePair(image_pair_t pair_id) {
+  THROW_CHECK(image_pairs_.count(pair_id) > 0) << "Image pair does not exist";
   invalid_pairs_.erase(pair_id);
 }
 
 void ViewGraph::SetInvalidImagePair(image_pair_t pair_id) {
+  THROW_CHECK(image_pairs_.count(pair_id) > 0) << "Image pair does not exist";
   invalid_pairs_.insert(pair_id);
 }
 

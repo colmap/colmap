@@ -221,6 +221,7 @@ void RotationAveragingProblem::BuildPairConstraints(
 
   for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    THROW_CHECK(image_pair.cam2_from_cam1.has_value());
     const auto& image1 = reconstruction.Image(image_id1);
     const auto& image2 = reconstruction.Image(image_id2);
     const auto& frame1 = *image1.FramePtr();
@@ -259,7 +260,7 @@ void RotationAveragingProblem::BuildPairConstraints(
     // Compute relative rotation between rigs.
     Eigen::Matrix3d R_cam2_from_cam1 =
         (cam2_from_rig2.value_or(Rigid3d()).rotation.inverse() *
-         image_pair.cam2_from_cam1.rotation *
+         image_pair.cam2_from_cam1->rotation *
          cam1_from_rig1.value_or(Rigid3d()).rotation)
             .toRotationMatrix();
 

@@ -33,7 +33,6 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_glomap_processors
     SRCS
         reconstruction_pruning.h reconstruction_pruning.cc
-        view_graph_manipulation.h view_graph_manipulation.cc
     PUBLIC_LINK_LIBS
         colmap_glomap_estimators
         colmap_glomap_io

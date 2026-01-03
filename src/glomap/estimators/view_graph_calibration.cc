@@ -360,7 +360,7 @@ bool CalibrateViewGraph(const ViewGraphCalibratorOptions& options,
         *reconstruction.Image(image_id2).CameraPtr();
     image_pair.F = colmap::FundamentalFromEssentialMatrix(
         camera2.CalibrationMatrix(),
-        colmap::EssentialMatrixFromPose(image_pair.cam2_from_cam1),
+        colmap::EssentialMatrixFromPose(*image_pair.cam2_from_cam1),
         camera1.CalibrationMatrix());
   }
 

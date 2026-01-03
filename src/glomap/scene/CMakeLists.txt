@@ -36,6 +36,7 @@ COLMAP_ADD_LIBRARY(
         image_pair.h
         types.h
     PUBLIC_LINK_LIBS
+        colmap_estimators
         colmap_scene
         colmap_util
 )
