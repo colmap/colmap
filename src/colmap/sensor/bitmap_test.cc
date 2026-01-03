@@ -506,12 +506,12 @@ TEST(Bitmap, ExifLongitude) {
   bitmap.SetMetaData("GPS:Longitude", "point", kDegMinSec);
 
   EXPECT_TRUE(bitmap.ExifLongitude(&longitude));
-  EXPECT_EQ(longitude, 92.75);
+  EXPECT_EQ(longitude, -92.75);
 
   bitmap.SetMetaData("GPS:LongitudeRef", "E");
 
   EXPECT_TRUE(bitmap.ExifLongitude(&longitude));
-  EXPECT_EQ(longitude, -92.75);
+  EXPECT_EQ(longitude, 92.75);
 }
 
 TEST(Bitmap, ExifAltitude) {
