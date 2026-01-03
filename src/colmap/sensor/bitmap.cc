@@ -34,6 +34,8 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/oiio_utils.h"
 
+#include <filesystem>
+
 #include <OpenImageIO/color.h>
 #include <OpenImageIO/imagebufalgo.h>
 #include <OpenImageIO/imageio.h>
@@ -448,10 +450,10 @@ bool Bitmap::ExifAltitude(double* altitude) const {
   return false;
 }
 
-bool Bitmap::Read(const std::string& path,
+bool Bitmap::Read(const std::filesystem::path& path,
                   const bool as_rgb,
                   const bool linearize_colorspace) {
-  if (!ExistsFile(path)) {
+  if (!ExistsFile(path.string())) {
     VLOG(3) << "Failed to read bitmap, because file does not exist";
     return false;
   }
@@ -459,7 +461,7 @@ bool Bitmap::Read(const std::string& path,
   OIIO::ImageSpec config;
   config["oiio:reorient"] = 0;
 
-  const auto input = OIIO::ImageInput::open(path, &config);
+  const auto input = OIIO::ImageInput::open(path.string(), &config);
   if (!input) {
     VLOG(3) << "Failed to read bitmap specs";
     return false;
@@ -499,11 +501,11 @@ bool Bitmap::Read(const std::string& path,
   return true;
 }
 
-bool Bitmap::Write(const std::string& path,
+bool Bitmap::Write(const std::filesystem::path& path,
                    const bool delinearize_colorspace) const {
-  const auto output = OIIO::ImageOutput::create(path);
+  const auto output = OIIO::ImageOutput::create(path.string());
   if (!output) {
-    std::cerr << "Could not create an ImageOutput for " << path
+    std::cerr << "Could not create an ImageOutput for " << path.string()
               << ", error = " << OIIO::geterror() << "\n";
     return false;
   }
@@ -526,7 +528,8 @@ bool Bitmap::Write(const std::string& path,
     output_data_ptr = maybe_linearized_output_data.data();
   }
 
-  if (HasFileExtension(path, ".jpg") || HasFileExtension(path, ".jpeg")) {
+  if (HasFileExtension(path.string(), ".jpg") ||
+      HasFileExtension(path.string(), ".jpeg")) {
     std::string_view compression;
     if (!GetMetaData("Compression", &compression)) {
       // Save JPEG in superb quality by default to reduce compression artifacts.
@@ -534,21 +537,21 @@ bool Bitmap::Write(const std::string& path,
     }
   }
 
-  if (!output->open(path, meta_data->image_spec)) {
-    VLOG(3) << "Could not open " << path << ", error = " << output->geterror()
-            << "\n";
+  if (!output->open(path.string(), meta_data->image_spec)) {
+    VLOG(3) << "Could not open " << path.string()
+            << ", error = " << output->geterror() << "\n";
     return false;
   }
 
   if (!output->write_image(OIIO::TypeDesc::UINT8, output_data_ptr)) {
-    VLOG(3) << "Could not write pixels to " << path
+    VLOG(3) << "Could not write pixels to " << path.string()
             << ", error = " << output->geterror() << "\n";
     return false;
   }
 
   if (!output->close()) {
-    VLOG(3) << "Error closing " << path << ", error = " << output->geterror()
-            << "\n";
+    VLOG(3) << "Error closing " << path.string()
+            << ", error = " << output->geterror() << "\n";
     return false;
   }
 

@@ -39,6 +39,8 @@
 #include "colmap/util/file.h"
 #include "colmap/util/ply.h"
 
+#include <filesystem>
+
 namespace colmap {
 
 Reconstruction::Reconstruction() : max_point3D_id_(0) {}
@@ -966,78 +968,80 @@ void Reconstruction::UpdatePoint3DErrors() {
   }
 }
 
-void Reconstruction::Read(const std::string& path) {
-  if (ExistsFile(JoinPaths(path, "cameras.bin")) &&
-      ExistsFile(JoinPaths(path, "images.bin")) &&
-      ExistsFile(JoinPaths(path, "points3D.bin"))) {
+void Reconstruction::Read(const std::filesystem::path& path) {
+  if (ExistsFile(JoinPaths(path.string(), "cameras.bin")) &&
+      ExistsFile(JoinPaths(path.string(), "images.bin")) &&
+      ExistsFile(JoinPaths(path.string(), "points3D.bin"))) {
     ReadBinary(path);
-  } else if (ExistsFile(JoinPaths(path, "cameras.txt")) &&
-             ExistsFile(JoinPaths(path, "images.txt")) &&
-             ExistsFile(JoinPaths(path, "points3D.txt"))) {
+  } else if (ExistsFile(JoinPaths(path.string(), "cameras.txt")) &&
+             ExistsFile(JoinPaths(path.string(), "images.txt")) &&
+             ExistsFile(JoinPaths(path.string(), "points3D.txt"))) {
     ReadText(path);
   } else {
     LOG(FATAL_THROW)
         << "rigs, cameras, frames, images, points3D files do not exist at "
-        << path;
+        << path.string();
   }
 }
 
-void Reconstruction::Write(const std::string& path) const { WriteBinary(path); }
+void Reconstruction::Write(const std::filesystem::path& path) const {
+  WriteBinary(path);
+}
 
-void Reconstruction::ReadText(const std::string& path) {
+void Reconstruction::ReadText(const std::filesystem::path& path) {
   cameras_.clear();
   rigs_.clear();
   frames_.clear();
   images_.clear();
   points3D_.clear();
-  ReadCamerasText(*this, JoinPaths(path, "cameras.txt"));
-  const std::string rigs_path = JoinPaths(path, "rigs.txt");
+  ReadCamerasText(*this, JoinPaths(path.string(), "cameras.txt"));
+  const std::string rigs_path = JoinPaths(path.string(), "rigs.txt");
   if (ExistsFile(rigs_path)) {
     ReadRigsText(*this, rigs_path);
   }
-  const std::string frames_path = JoinPaths(path, "frames.txt");
+  const std::string frames_path = JoinPaths(path.string(), "frames.txt");
   if (ExistsFile(frames_path)) {
     ReadFramesText(*this, frames_path);
   }
-  ReadImagesText(*this, JoinPaths(path, "images.txt"));
-  ReadPoints3DText(*this, JoinPaths(path, "points3D.txt"));
+  ReadImagesText(*this, JoinPaths(path.string(), "images.txt"));
+  ReadPoints3DText(*this, JoinPaths(path.string(), "points3D.txt"));
 }
 
-void Reconstruction::ReadBinary(const std::string& path) {
+void Reconstruction::ReadBinary(const std::filesystem::path& path) {
   cameras_.clear();
   rigs_.clear();
   frames_.clear();
   images_.clear();
   points3D_.clear();
-  ReadCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
-  const std::string rigs_path = JoinPaths(path, "rigs.bin");
+  ReadCamerasBinary(*this, JoinPaths(path.string(), "cameras.bin"));
+  const std::string rigs_path = JoinPaths(path.string(), "rigs.bin");
   if (ExistsFile(rigs_path)) {
     ReadRigsBinary(*this, rigs_path);
   }
-  const std::string frames_path = JoinPaths(path, "frames.bin");
+  const std::string frames_path = JoinPaths(path.string(), "frames.bin");
   if (ExistsFile(frames_path)) {
     ReadFramesBinary(*this, frames_path);
   }
-  ReadImagesBinary(*this, JoinPaths(path, "images.bin"));
-  ReadPoints3DBinary(*this, JoinPaths(path, "points3D.bin"));
+  ReadImagesBinary(*this, JoinPaths(path.string(), "images.bin"));
+  ReadPoints3DBinary(*this, JoinPaths(path.string(), "points3D.bin"));
 }
 
-void Reconstruction::WriteText(const std::string& path) const {
-  THROW_CHECK_DIR_EXISTS(path);
-  WriteRigsText(*this, JoinPaths(path, "rigs.txt"));
-  WriteCamerasText(*this, JoinPaths(path, "cameras.txt"));
-  WriteFramesText(*this, JoinPaths(path, "frames.txt"));
-  WriteImagesText(*this, JoinPaths(path, "images.txt"));
-  WritePoints3DText(*this, JoinPaths(path, "points3D.txt"));
+void Reconstruction::WriteText(const std::filesystem::path& path) const {
+  THROW_CHECK_DIR_EXISTS(path.string());
+  WriteRigsText(*this, JoinPaths(path.string(), "rigs.txt"));
+  WriteCamerasText(*this, JoinPaths(path.string(), "cameras.txt"));
+  WriteFramesText(*this, JoinPaths(path.string(), "frames.txt"));
+  WriteImagesText(*this, JoinPaths(path.string(), "images.txt"));
+  WritePoints3DText(*this, JoinPaths(path.string(), "points3D.txt"));
 }
 
-void Reconstruction::WriteBinary(const std::string& path) const {
-  THROW_CHECK_DIR_EXISTS(path);
-  WriteRigsBinary(*this, JoinPaths(path, "rigs.bin"));
-  WriteCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
-  WriteFramesBinary(*this, JoinPaths(path, "frames.bin"));
-  WriteImagesBinary(*this, JoinPaths(path, "images.bin"));
-  WritePoints3DBinary(*this, JoinPaths(path, "points3D.bin"));
+void Reconstruction::WriteBinary(const std::filesystem::path& path) const {
+  THROW_CHECK_DIR_EXISTS(path.string());
+  WriteRigsBinary(*this, JoinPaths(path.string(), "rigs.bin"));
+  WriteCamerasBinary(*this, JoinPaths(path.string(), "cameras.bin"));
+  WriteFramesBinary(*this, JoinPaths(path.string(), "frames.bin"));
+  WriteImagesBinary(*this, JoinPaths(path.string(), "images.bin"));
+  WritePoints3DBinary(*this, JoinPaths(path.string(), "points3D.bin"));
 }
 
 std::vector<PlyPoint> Reconstruction::ConvertToPLY() const {
@@ -1058,10 +1062,10 @@ std::vector<PlyPoint> Reconstruction::ConvertToPLY() const {
   return ply_points;
 }
 
-void Reconstruction::ImportPLY(const std::string& path) {
+void Reconstruction::ImportPLY(const std::filesystem::path& path) {
   points3D_.clear();
 
-  const auto ply_points = ReadPly(path);
+  const auto ply_points = ReadPly(path.string());
 
   points3D_.reserve(ply_points.size());
 
@@ -1083,11 +1087,11 @@ void Reconstruction::ImportPLY(const std::vector<PlyPoint>& ply_points) {
 }
 
 bool Reconstruction::ExtractColorsForImage(const image_t image_id,
-                                           const std::string& path) {
+                                           const std::filesystem::path& path) {
   const class Image& image = Image(image_id);
 
   Bitmap bitmap;
-  if (!bitmap.Read(JoinPaths(path, image.Name()),
+  if (!bitmap.Read(JoinPaths(path.string(), image.Name()),
                    /*as_rgb=*/true)) {
     return false;
   }
@@ -1111,13 +1115,14 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
   return true;
 }
 
-void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
+void Reconstruction::ExtractColorsForAllImages(
+    const std::filesystem::path& path) {
   std::unordered_map<point3D_t, Eigen::Vector3d> color_sums;
   std::unordered_map<point3D_t, size_t> color_counts;
 
   for (const auto& image_id : RegImageIds()) {
     const class Image& image = Image(image_id);
-    const std::string image_path = JoinPaths(path, image.Name());
+    const std::string image_path = JoinPaths(path.string(), image.Name());
 
     Bitmap bitmap;
     if (!bitmap.Read(image_path,
@@ -1164,13 +1169,13 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
   }
 }
 
-void Reconstruction::CreateImageDirs(const std::string& path) const {
+void Reconstruction::CreateImageDirs(const std::filesystem::path& path) const {
   std::unordered_set<std::string> image_dirs;
   for (const auto& image : images_) {
     const std::vector<std::string> name_split =
         StringSplit(image.second.Name(), "/");
     if (name_split.size() > 1) {
-      std::string dir = path;
+      std::string dir = path.string();
       for (size_t i = 0; i < name_split.size() - 1; ++i) {
         dir = JoinPaths(dir, name_split[i]);
         image_dirs.insert(dir);

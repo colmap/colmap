@@ -36,10 +36,12 @@
 #include "colmap/sensor/models.h"
 #include "colmap/util/file.h"
 
+#include <filesystem>
+
 namespace colmap {
 namespace mvs {
 
-void Model::Read(const std::string& path, const std::string& format) {
+void Model::Read(const std::filesystem::path& path, const std::string& format) {
   auto format_lower_case = format;
   StringToLower(&format_lower_case);
   if (format_lower_case == "colmap") {
@@ -51,11 +53,11 @@ void Model::Read(const std::string& path, const std::string& format) {
   }
 }
 
-void Model::ReadFromCOLMAP(const std::string& path,
-                           const std::string& sparse_path,
-                           const std::string& images_path) {
+void Model::ReadFromCOLMAP(const std::filesystem::path& path,
+                           const std::filesystem::path& sparse_path,
+                           const std::filesystem::path& images_path) {
   Reconstruction reconstruction;
-  reconstruction.Read(JoinPaths(path, sparse_path));
+  reconstruction.Read(JoinPaths(path.string(), sparse_path.string()));
 
   images.reserve(reconstruction.NumRegImages());
   std::unordered_map<image_t, size_t> image_id_to_idx;
@@ -64,7 +66,8 @@ void Model::ReadFromCOLMAP(const std::string& path,
     const auto& image = reconstruction.Image(image_id);
     const auto& camera = *image.CameraPtr();
 
-    const std::string image_path = JoinPaths(path, images_path, image.Name());
+    const std::string image_path =
+        JoinPaths(path.string(), images_path.string(), image.Name());
     const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> K =
         camera.CalibrationMatrix().cast<float>();
     const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> R =
@@ -93,7 +96,7 @@ void Model::ReadFromCOLMAP(const std::string& path,
   }
 }
 
-void Model::ReadFromPMVS(const std::string& path) {
+void Model::ReadFromPMVS(const std::filesystem::path& path) {
   if (ReadFromBundlerPMVS(path) || ReadFromRawPMVS(path)) {
     return;
   } else {
@@ -272,8 +275,9 @@ std::vector<std::map<int, float>> Model::ComputeTriangulationAngles(
   return triangulation_angles;
 }
 
-bool Model::ReadFromBundlerPMVS(const std::string& path) {
-  const std::string bundle_file_path = JoinPaths(path, "bundle.rd.out");
+bool Model::ReadFromBundlerPMVS(const std::filesystem::path& path) {
+  const std::string bundle_file_path =
+      JoinPaths(path.string(), "bundle.rd.out");
 
   if (!ExistsFile(bundle_file_path)) {
     return false;
@@ -292,7 +296,8 @@ bool Model::ReadFromBundlerPMVS(const std::string& path) {
   images.reserve(num_images);
   for (int image_idx = 0; image_idx < num_images; ++image_idx) {
     const std::string image_name = StringPrintf("%08d.jpg", image_idx);
-    const std::string image_path = JoinPaths(path, "visualize", image_name);
+    const std::string image_path =
+        JoinPaths(path.string(), "visualize", image_name);
 
     float K[9] = {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
     file >> K[0];
@@ -350,15 +355,16 @@ bool Model::ReadFromBundlerPMVS(const std::string& path) {
   return true;
 }
 
-bool Model::ReadFromRawPMVS(const std::string& path) {
-  const std::string vis_dat_path = JoinPaths(path, "vis.dat");
+bool Model::ReadFromRawPMVS(const std::filesystem::path& path) {
+  const std::string vis_dat_path = JoinPaths(path.string(), "vis.dat");
   if (!ExistsFile(vis_dat_path)) {
     return false;
   }
 
   for (int image_idx = 0;; ++image_idx) {
     const std::string image_name = StringPrintf("%08d.jpg", image_idx);
-    const std::string image_path = JoinPaths(path, "visualize", image_name);
+    const std::string image_path =
+        JoinPaths(path.string(), "visualize", image_name);
 
     if (!ExistsFile(image_path)) {
       break;
@@ -368,7 +374,7 @@ bool Model::ReadFromRawPMVS(const std::string& path) {
     THROW_CHECK(bitmap.Read(image_path));
 
     const std::string proj_matrix_path =
-        JoinPaths(path, "txt", StringPrintf("%08d.txt", image_idx));
+        JoinPaths(path.string(), "txt", StringPrintf("%08d.txt", image_idx));
 
     std::ifstream proj_matrix_file(proj_matrix_path);
     THROW_CHECK_FILE_OPEN(proj_matrix_file, proj_matrix_path);

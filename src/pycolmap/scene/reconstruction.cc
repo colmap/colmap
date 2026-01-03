@@ -238,7 +238,8 @@ void BindReconstruction(py::module& m) {
       .def("compute_mean_reprojection_error",
            &Reconstruction::ComputeMeanReprojectionError)
       .def("import_PLY",
-           py::overload_cast<const std::string&>(&Reconstruction::ImportPLY),
+           py::overload_cast<const std::filesystem::path&>(
+               &Reconstruction::ImportPLY),
            "path"_a,
            "Import from PLY format. Note that these import functions are"
            "only intended for visualization of data and usable for "

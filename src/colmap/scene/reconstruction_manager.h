@@ -31,6 +31,7 @@
 
 #include "colmap/scene/reconstruction.h"
 
+#include <filesystem>
 #include <memory>
 
 namespace colmap {
@@ -54,10 +55,10 @@ class ReconstructionManager {
   void Clear();
 
   // Read and add a new reconstruction and return its index.
-  size_t Read(const std::string& path);
+  size_t Read(const std::filesystem::path& path);
 
   // Write all managed reconstructions into sub-folders "0", "1", "2", ...
-  void Write(const std::string& path) const;
+  void Write(const std::filesystem::path& path) const;
 
  private:
   std::vector<std::shared_ptr<Reconstruction>> reconstructions_;

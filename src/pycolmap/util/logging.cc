@@ -42,7 +42,8 @@ void BindLogging(py::module& m) {
       .def_readwrite_static("verbose_level", &FLAGS_v)
       .def_static(
           "set_log_destination",
-          [](const Logging::LogSeverity severity, const std::filesystem::path& path) {
+          [](const Logging::LogSeverity severity,
+             const std::filesystem::path& path) {
             google::SetLogDestination(
                 static_cast<google::LogSeverity>(severity), path.c_str());
           },

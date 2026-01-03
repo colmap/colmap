@@ -33,6 +33,7 @@
 #include "colmap/util/ply.h"
 #include "colmap/util/types.h"
 
+#include <filesystem>
 #include <fstream>
 
 namespace colmap {
@@ -404,12 +405,13 @@ bool ExportBundler(const Reconstruction& reconstruction,
   return true;
 }
 
-void ExportPLY(const Reconstruction& reconstruction, const std::string& path) {
+void ExportPLY(const Reconstruction& reconstruction,
+               const std::filesystem::path& path) {
   const auto ply_points = reconstruction.ConvertToPLY();
 
   const bool kWriteNormal = false;
   const bool kWriteRGB = true;
-  WriteBinaryPlyPoints(path, ply_points, kWriteNormal, kWriteRGB);
+  WriteBinaryPlyPoints(path.string(), ply_points, kWriteNormal, kWriteRGB);
 }
 
 void ExportVRML(const Reconstruction& reconstruction,

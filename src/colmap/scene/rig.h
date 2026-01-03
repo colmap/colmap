@@ -33,6 +33,7 @@
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 
+#include <filesystem>
 #include <optional>
 #include <vector>
 
@@ -117,7 +118,7 @@ struct RigConfig {
   };
   std::vector<RigCamera> cameras;
 };
-std::vector<RigConfig> ReadRigConfig(const std::string& path);
+std::vector<RigConfig> ReadRigConfig(const std::filesystem::path& path);
 
 // Applies the given rig configuration to the database and optionally derives
 // camera rig extrinsics and intrinsics from the reconstruction, if not defined
