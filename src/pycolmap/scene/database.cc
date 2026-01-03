@@ -31,10 +31,6 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
  public:
   void Close() override { PYBIND11_OVERRIDE_PURE(void, Database, Close); }
 
-  std::shared_ptr<Database> Clone() override {
-    PYBIND11_OVERRIDE_PURE(std::shared_ptr<Database>, Database, Clone);
-  }
-
   bool ExistsRig(rig_t rig_id) const override {
     PYBIND11_OVERRIDE_PURE(bool, Database, ExistsRig, rig_id);
   }
@@ -436,7 +432,6 @@ void BindDatabase(py::module& m) {
   PyDatabase.def(py::init<>())
       .def_static("open", &Database::Open, "path"_a)
       .def("close", &Database::Close)
-      .def("clone", &Database::Clone)
       .def("__enter__", [](Database& self) { return &self; })
       .def("__exit__", [](Database& self, const py::args&) { self.Close(); })
       .def("exists_rig", &Database::ExistsRig, "rig_id"_a)

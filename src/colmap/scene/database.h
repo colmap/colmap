@@ -64,7 +64,7 @@ class Database {
   // Closes the database, if not closed before.
   virtual ~Database();
 
-  NON_COPYABLE(Database);  // Use Clone() instead.
+  NON_COPYABLE(Database);
   NON_MOVABLE(Database);
 
   // Factory function to create a database implementation for a given path.
@@ -82,10 +82,6 @@ class Database {
 
   // Explicitly close the database before destruction.
   virtual void Close() = 0;
-
-  // Return a clone of the database object (pointing to the same underlying
-  // data).
-  virtual std::shared_ptr<Database> Clone() = 0;
 
   // Check if entry already exists in database. For image pairs, the order of
   // `image_id1` and `image_id2` does not matter.
