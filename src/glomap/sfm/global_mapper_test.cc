@@ -14,7 +14,6 @@ namespace {
 GlobalMapperOptions CreateTestOptions() {
   GlobalMapperOptions options;
   options.skip_view_graph_calibration = false;
-  options.skip_relative_pose_estimation = false;
   options.skip_rotation_averaging = false;
   options.skip_track_establishment = false;
   options.skip_global_positioning = false;

@@ -74,7 +74,7 @@ class HierarchicalPipeline : public BaseController {
 
  private:
   const Options options_;
-  const std::shared_ptr<Database> database_;
+  std::shared_ptr<DatabaseCache> database_cache_;
   std::shared_ptr<ReconstructionManager> reconstruction_manager_;
 };
 

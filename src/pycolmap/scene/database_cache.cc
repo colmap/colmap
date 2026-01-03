@@ -18,6 +18,11 @@ void BindDatabaseCache(py::module& m) {
                   "min_num_matches"_a = 0,
                   "ignore_watermarks"_a = false,
                   "image_names"_a = std::unordered_set<std::string>{})
+      .def_static("create_from_cache",
+                  &DatabaseCache::CreateFromCache,
+                  "database_cache"_a,
+                  "min_num_matches"_a,
+                  "image_names"_a)
       .def("load",
            &DatabaseCache::Load,
            "database"_a,
