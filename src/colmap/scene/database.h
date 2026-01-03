@@ -65,7 +65,6 @@ class Database {
   virtual ~Database();
 
   NON_COPYABLE(Database);
-  NON_MOVABLE(Database);
 
   // Factory function to create a database implementation for a given path.
   // The factory should be robust to handle non-supported files and return a
