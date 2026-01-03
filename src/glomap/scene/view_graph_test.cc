@@ -38,6 +38,11 @@
 namespace glomap {
 namespace {
 
+colmap::Rigid3d TestCam2FromCam1() {
+  return colmap::Rigid3d(Eigen::Quaterniond::UnitRandom(),
+                         Eigen::Vector3d::Random().normalized());
+}
+
 ImagePair SynthesizeImagePair(int num_inliers = 50, int num_matches = 100) {
   THROW_CHECK_LE(num_inliers, num_matches);
   ImagePair pair;
@@ -349,6 +354,7 @@ TEST(ViewGraph, LoadFromDatabase) {
   colmap::TwoViewGeometry two_view;
   two_view.config = colmap::TwoViewGeometry::CALIBRATED;
   two_view.inlier_matches = {{0, 0}, {1, 1}};
+  two_view.cam2_from_cam1 = TestCam2FromCam1();
 
   // Database1: pairs (1,2) and (2,3)
   database1->WriteMatches(1, 2, colmap::FeatureMatches(10));
