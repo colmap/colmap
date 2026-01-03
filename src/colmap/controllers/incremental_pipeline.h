@@ -208,9 +208,12 @@ class IncrementalPipeline : public BaseController {
       std::shared_ptr<class Database> database,
       std::shared_ptr<class ReconstructionManager> reconstruction_manager);
 
-  void Run() override;
+  IncrementalPipeline(
+      std::shared_ptr<const IncrementalPipelineOptions> options,
+      std::shared_ptr<class DatabaseCache> database_cache,
+      std::shared_ptr<class ReconstructionManager> reconstruction_manager);
 
-  bool LoadDatabase();
+  void Run() override;
 
   // getter functions for python pipelines
   const std::shared_ptr<const IncrementalPipelineOptions>& Options() const {
@@ -249,7 +252,6 @@ class IncrementalPipeline : public BaseController {
   bool ReachedMaxRuntime() const;
 
   const std::shared_ptr<const IncrementalPipelineOptions> options_;
-  const std::shared_ptr<class Database> database_;
   std::shared_ptr<class ReconstructionManager> reconstruction_manager_;
   std::shared_ptr<class DatabaseCache> database_cache_;
   std::shared_ptr<Timer> total_run_timer_;

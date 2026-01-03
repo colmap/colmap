@@ -32,7 +32,6 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/timer.h"
 
-#include "glomap/processors/view_graph_manipulation.h"
 #include "glomap/sfm/global_mapper.h"
 
 namespace colmap {
@@ -49,16 +48,16 @@ void RotationAveragingController::Run() {
   // Propagate options to component options.
   RotationAveragingControllerOptions options = options_;
   if (options.random_seed >= 0) {
-    options.relative_pose_estimation.random_seed = options.random_seed;
     options.rotation_estimation.random_seed = options.random_seed;
+    options.view_graph_calibration.random_seed = options.random_seed;
   }
   options.view_graph_calibration.solver_options.num_threads =
       options.num_threads;
-  options.relative_pose_estimation.num_threads = options.num_threads;
 
   Timer run_timer;
   run_timer.Start();
 
+  // Create a global mapper instance
   glomap::GlobalMapper mapper(database_);
   mapper.BeginReconstruction(reconstruction_);
 
@@ -67,12 +66,6 @@ void RotationAveragingController::Run() {
     return;
   }
 
-  // Step 0: Preprocessing
-  LOG(INFO) << "----- Running preprocessing -----";
-  glomap::ViewGraphManipulator::DecomposeRelPose(
-      *mapper.ViewGraph(), *reconstruction_, options.num_threads);
-
-  // Step 1: View graph calibration
   LOG(INFO) << "----- Running view graph calibration -----";
   if (!glomap::CalibrateViewGraph(options.view_graph_calibration,
                                   *mapper.ViewGraph(),
@@ -81,18 +74,9 @@ void RotationAveragingController::Run() {
     return;
   }
 
-  // Step 2: Relative pose re-estimation
-  LOG(INFO) << "----- Running relative pose re-estimation -----";
-  if (!mapper.ReestimateRelativePoses(options.relative_pose_estimation,
-                                      options.inlier_thresholds)) {
-    LOG(ERROR) << "Failed relative pose re-estimation";
-    return;
-  }
-
-  // Step 3: Rotation averaging
   LOG(INFO) << "----- Running rotation averaging -----";
   if (!mapper.RotationAveraging(options.rotation_estimation,
-                                options.inlier_thresholds.max_rotation_error)) {
+                                options.max_rotation_error_deg)) {
     LOG(ERROR) << "Failed to solve rotation averaging";
     return;
   }
