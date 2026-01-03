@@ -46,6 +46,10 @@ struct TwoViewGeometryOptions {
   // Minimum number of inliers for non-degenerate two-view geometry.
   int min_num_inliers = 15;
 
+  // Minimum ratio of inliers to total matches for non-degenerate geometry.
+  // Disabled by default, only effective when > 0.
+  double min_inlier_ratio = 0.0;
+
   // In case both cameras are calibrated, the calibration is verified by
   // estimating an essential and fundamental matrix and comparing their
   // fractions of number of inliers. If the essential matrix produces

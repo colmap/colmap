@@ -1,9 +1,7 @@
 #pragma once
 
 #include "colmap/geometry/pose_prior.h"
-#include "colmap/scene/frame.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/scene/rig.h"
 
 #include "glomap/scene/types.h"
 #include "glomap/scene/view_graph.h"
@@ -110,6 +108,6 @@ bool InitializeRigRotationsFromImages(
 bool SolveRotationAveraging(const RotationEstimatorOptions& options,
                             ViewGraph& view_graph,
                             colmap::Reconstruction& reconstruction,
-                            std::vector<colmap::PosePrior>& pose_priors);
+                            const std::vector<colmap::PosePrior>& pose_priors);
 
 }  // namespace glomap

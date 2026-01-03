@@ -11,10 +11,9 @@ namespace py = pybind11;
 
 namespace {
 
-class DatabaseTransactionWrapper {
+class PyDatabaseTransaction {
  public:
-  explicit DatabaseTransactionWrapper(Database* database)
-      : database_(database) {}
+  explicit PyDatabaseTransaction(Database* database) : database_(database) {}
 
   void Enter() {
     transaction_ = std::make_unique<DatabaseTransaction>(database_);
@@ -29,11 +28,9 @@ class DatabaseTransactionWrapper {
 
 class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
  public:
-  void Close() override { PYBIND11_OVERRIDE_PURE(void, Database, Close); }
+  ~PyDatabaseImpl() override { Close(); }
 
-  std::shared_ptr<Database> Clone() const override {
-    PYBIND11_OVERRIDE_PURE(std::shared_ptr<Database>, Database, Clone);
-  }
+  void Close() override { PYBIND11_OVERRIDE_PURE(void, Database, Close); }
 
   bool ExistsRig(rig_t rig_id) const override {
     PYBIND11_OVERRIDE_PURE(bool, Database, ExistsRig, rig_id);
@@ -644,8 +641,8 @@ void BindDatabase(py::module& m) {
                   "database2"_a,
                   "merged_database"_a);
 
-  py::classh<DatabaseTransactionWrapper>(m, "DatabaseTransaction")
+  py::classh<PyDatabaseTransaction>(m, "DatabaseTransaction")
       .def(py::init<Database*>(), "database"_a)
-      .def("__enter__", &DatabaseTransactionWrapper::Enter)
-      .def("__exit__", &DatabaseTransactionWrapper::Exit);
+      .def("__enter__", &PyDatabaseTransaction::Enter)
+      .def("__exit__", &PyDatabaseTransaction::Exit);
 }

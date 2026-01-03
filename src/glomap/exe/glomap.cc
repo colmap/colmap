@@ -29,9 +29,7 @@
 
 #include "glomap/exe/glomap.h"
 
-#include "colmap/controllers/global_pipeline.h"
 #include "colmap/geometry/pose.h"
-#include "colmap/scene/reconstruction_io_utils.h"
 #include "colmap/util/file.h"
 #include "colmap/util/timer.h"
 
@@ -49,39 +47,16 @@ namespace glomap {
 // -------------------------------------
 int RunGlobalMapper(int argc, char** argv) {
   std::string output_path;
-
-  std::string constraint_type = "ONLY_POINTS";
   std::string output_format = "bin";
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("constraint_type",
-                           &constraint_type,
-                           "{ONLY_POINTS, ONLY_CAMERAS, "
-                           "POINTS_AND_CAMERAS_BALANCED, POINTS_AND_CAMERAS}");
   options.AddDefaultOption("output_format", &output_format, "{bin, txt}");
   options.AddGlobalMapperOptions();
 
   if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (constraint_type == "ONLY_POINTS") {
-    options.mapper->global_positioning.constraint_type =
-        GlobalPositionerOptions::ONLY_POINTS;
-  } else if (constraint_type == "ONLY_CAMERAS") {
-    options.mapper->global_positioning.constraint_type =
-        GlobalPositionerOptions::ONLY_CAMERAS;
-  } else if (constraint_type == "POINTS_AND_CAMERAS_BALANCED") {
-    options.mapper->global_positioning.constraint_type =
-        GlobalPositionerOptions::POINTS_AND_CAMERAS_BALANCED;
-  } else if (constraint_type == "POINTS_AND_CAMERAS") {
-    options.mapper->global_positioning.constraint_type =
-        GlobalPositionerOptions::POINTS_AND_CAMERAS;
-  } else {
-    LOG(ERROR) << "Invalid constriant type";
     return EXIT_FAILURE;
   }
 
@@ -93,35 +68,31 @@ int RunGlobalMapper(int argc, char** argv) {
 
   auto database = colmap::Database::Open(*options.database_path);
 
-  colmap::Reconstruction reconstruction;
-  ViewGraph view_graph;
-  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
+  auto reconstruction = std::make_shared<colmap::Reconstruction>();
 
-  std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
+  GlobalMapper global_mapper(database);
+  global_mapper.BeginReconstruction(reconstruction);
 
-  if (view_graph.Empty()) {
+  if (global_mapper.ViewGraph()->Empty()) {
     LOG(ERROR) << "Can't continue without image pairs";
     return EXIT_FAILURE;
   }
 
   options.mapper->image_path = *options.image_path;
 
-  GlobalMapper global_mapper(*options.mapper);
-
   // Main solver
   LOG(INFO) << "Loaded database";
   colmap::Timer run_timer;
   run_timer.Start();
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(
-      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
+  global_mapper.Solve(*options.mapper, cluster_ids);
   run_timer.Pause();
 
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 
   WriteReconstructionsByClusters(output_path,
-                                 reconstruction,
+                                 *reconstruction,
                                  cluster_ids,
                                  output_format,
                                  *options.image_path);
@@ -136,7 +107,7 @@ int RunGlobalMapper(int argc, char** argv) {
 int RunRotationAverager(int argc, char** argv) {
   std::string relpose_path;
   std::string output_path;
-  std::string gravity_path = "";
+  std::string gravity_path;
 
   bool use_stratified = true;
   bool refine_gravity = false;
@@ -157,14 +128,14 @@ int RunRotationAverager(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  if (gravity_path != "" && !colmap::ExistsFile(gravity_path)) {
+  if (!gravity_path.empty() && !colmap::ExistsFile(gravity_path)) {
     LOG(ERROR) << "`gravity_path` is not a file";
     return EXIT_FAILURE;
   }
 
   RotationEstimatorOptions rotation_averager_options;
   rotation_averager_options.skip_initialization = true;
-  rotation_averager_options.use_gravity = true;
+  rotation_averager_options.use_gravity = !gravity_path.empty();
   rotation_averager_options.use_stratified = use_stratified;
 
   // Load the database
@@ -178,26 +149,17 @@ int RunRotationAverager(int argc, char** argv) {
 
   // Add cameras and images to reconstruction
   for (auto& [image_id, image] : temp_images) {
-    image.SetCameraId(image.ImageId());
+    // Add dummy camera
+    reconstruction.AddCameraWithTrivialRig(colmap::Camera::CreateFromModelId(
+        image_id, colmap::CameraModelId::kSimplePinhole, 0.0, 0, 0));
 
-    // Add camera if it doesn't exist
-    if (!reconstruction.ExistsCamera(image.CameraId())) {
-      colmap::Camera camera;
-      camera.camera_id = image.CameraId();
-      reconstruction.AddCamera(std::move(camera));
-    }
-
-    reconstruction.AddImage(std::move(image));
-  }
-
-  // Create one rig per camera and frames for images
-  colmap::CreateOneRigPerCamera(reconstruction);
-  for (const auto& [image_id, image] : reconstruction.Images()) {
-    colmap::CreateFrameForImage(image, Rigid3d(), reconstruction);
+    // Add image
+    image.SetCameraId(image_id);
+    reconstruction.AddImageWithTrivialFrame(std::move(image));
   }
 
   std::vector<colmap::PosePrior> pose_priors;
-  if (gravity_path != "") {
+  if (!gravity_path.empty()) {
     pose_priors = ReadGravity(gravity_path, reconstruction.Images());
     // Initialize frame rotations from gravity.
     // Currently rotation averaging only supports gravity prior on reference
@@ -211,6 +173,19 @@ int RunRotationAverager(int argc, char** argv) {
           reconstruction.Frame(image.FrameId()).RigFromWorld();
       rig_from_world.rotation = Eigen::Quaterniond(
           colmap::GravityAlignedRotation(pose_prior.gravity));
+    }
+  }
+
+  // TODO: This is a misuse of frame registration. Frames should only be
+  // registered when their poses are actually computed, not with arbitrary
+  // identity poses. The rotation averaging code should be updated to work
+  // with unregistered frames.
+  // Register all frames with an initial identity pose so rotation averaging
+  // can work. The actual rotations will be computed by rotation averaging.
+  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
+    if (!frame.HasPose()) {
+      reconstruction.Frame(frame_id).SetRigFromWorld(Rigid3d());
+      reconstruction.RegisterFrame(frame_id);
     }
   }
 

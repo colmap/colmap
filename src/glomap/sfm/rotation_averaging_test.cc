@@ -6,7 +6,6 @@
 #include "colmap/util/testing.h"
 
 #include "glomap/estimators/gravity_refinement.h"
-#include "glomap/io/colmap_io.h"
 #include "glomap/sfm/global_mapper.h"
 
 #include <gtest/gtest.h>
@@ -27,7 +26,6 @@ void SynthesizeGravityOutliers(std::vector<colmap::PosePrior>& pose_priors,
 GlobalMapperOptions CreateMapperTestOptions() {
   GlobalMapperOptions options;
   options.skip_view_graph_calibration = false;
-  options.skip_relative_pose_estimation = false;
   options.skip_rotation_averaging = true;
   options.skip_track_establishment = true;
   options.skip_global_positioning = true;
@@ -109,24 +107,34 @@ TEST(RotationEstimator, WithoutNoise) {
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
-  ViewGraph view_graph;
-  colmap::Reconstruction reconstruction;
+  auto reconstruction = std::make_shared<colmap::Reconstruction>();
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
-  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
+  GlobalMapper global_mapper(database);
+  global_mapper.BeginReconstruction(reconstruction);
 
-  GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(
-      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
+  global_mapper.Solve(CreateMapperTestOptions(), cluster_ids);
+
+  // TODO: This is a misuse of frame registration. Frames should only be
+  // registered when their poses are actually computed, not with arbitrary
+  // identity poses. The rotation averaging code should be updated to work
+  // with unregistered frames.
+  // Same applies to all tests below.
+  for (const auto& [frame_id, frame] : reconstruction->Frames()) {
+    if (!frame.HasPose()) {
+      reconstruction->Frame(frame_id).SetRigFromWorld(Rigid3d());
+      reconstruction->RegisterFrame(frame_id);
+    }
+  }
 
   // TODO: The current 1-dof rotation averaging sometimes fails to pick the
   // right solution (e.g., 180 deg flipped).
   for (const bool use_gravity : {false}) {
     // Make a copy for this iteration
-    colmap::Reconstruction reconstruction_copy = reconstruction;
+    colmap::Reconstruction reconstruction_copy = *reconstruction;
     SolveRotationAveraging(CreateRATestOptions(use_gravity),
-                           view_graph,
+                           *global_mapper.ViewGraph(),
                            reconstruction_copy,
                            pose_priors);
 
@@ -153,22 +161,27 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialKnownRig) {
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
-  ViewGraph view_graph;
-  colmap::Reconstruction reconstruction;
+  auto reconstruction = std::make_shared<colmap::Reconstruction>();
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
-  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
+  GlobalMapper global_mapper(database);
+  global_mapper.BeginReconstruction(reconstruction);
 
-  GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(
-      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
+  global_mapper.Solve(CreateMapperTestOptions(), cluster_ids);
+
+  for (const auto& [frame_id, frame] : reconstruction->Frames()) {
+    if (!frame.HasPose()) {
+      reconstruction->Frame(frame_id).SetRigFromWorld(Rigid3d());
+      reconstruction->RegisterFrame(frame_id);
+    }
+  }
 
   for (const bool use_gravity : {true, false}) {
     // Make a copy for this iteration
-    colmap::Reconstruction reconstruction_copy = reconstruction;
+    colmap::Reconstruction reconstruction_copy = *reconstruction;
     SolveRotationAveraging(CreateRATestOptions(use_gravity),
-                           view_graph,
+                           *global_mapper.ViewGraph(),
                            reconstruction_copy,
                            pose_priors);
 
@@ -195,31 +208,36 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialUnknownRig) {
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
-  ViewGraph view_graph;
-  colmap::Reconstruction reconstruction;
+  auto reconstruction = std::make_shared<colmap::Reconstruction>();
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
-  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
+  GlobalMapper global_mapper(database);
+  global_mapper.BeginReconstruction(reconstruction);
 
-  for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
+  for (const auto& [rig_id, rig] : reconstruction->Rigs()) {
     for (const auto& [sensor_id, sensor] : rig.NonRefSensors()) {
       if (sensor.has_value()) {
-        reconstruction.Rig(rig_id).ResetSensorFromRig(sensor_id);
+        reconstruction->Rig(rig_id).ResetSensorFromRig(sensor_id);
       }
     }
   }
 
-  GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(
-      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
+  global_mapper.Solve(CreateMapperTestOptions(), cluster_ids);
+
+  for (const auto& [frame_id, frame] : reconstruction->Frames()) {
+    if (!frame.HasPose()) {
+      reconstruction->Frame(frame_id).SetRigFromWorld(Rigid3d());
+      reconstruction->RegisterFrame(frame_id);
+    }
+  }
 
   // For unknown rigs, it is not supported to use gravity.
   for (const bool use_gravity : {false}) {
     // Make a copy for this iteration
-    colmap::Reconstruction reconstruction_copy = reconstruction;
+    colmap::Reconstruction reconstruction_copy = *reconstruction;
     SolveRotationAveraging(CreateRATestOptions(use_gravity),
-                           view_graph,
+                           *global_mapper.ViewGraph(),
                            reconstruction_copy,
                            pose_priors);
 
@@ -251,25 +269,30 @@ TEST(RotationEstimator, WithNoiseAndOutliers) {
   colmap::SynthesizeNoise(
       synthetic_noise_options, &gt_reconstruction, database.get());
 
-  ViewGraph view_graph;
-  colmap::Reconstruction reconstruction;
+  auto reconstruction = std::make_shared<colmap::Reconstruction>();
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
   SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
-  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
+  GlobalMapper global_mapper(database);
+  global_mapper.BeginReconstruction(reconstruction);
 
-  GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(
-      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
+  global_mapper.Solve(CreateMapperTestOptions(), cluster_ids);
+
+  for (const auto& [frame_id, frame] : reconstruction->Frames()) {
+    if (!frame.HasPose()) {
+      reconstruction->Frame(frame_id).SetRigFromWorld(Rigid3d());
+      reconstruction->RegisterFrame(frame_id);
+    }
+  }
 
   // TODO: The current 1-dof rotation averaging sometimes fails to pick the
   // right solution (e.g., 180 deg flipped).
   for (const bool use_gravity : {false}) {
     // Make a copy for this iteration
-    colmap::Reconstruction reconstruction_copy = reconstruction;
+    colmap::Reconstruction reconstruction_copy = *reconstruction;
     SolveRotationAveraging(CreateRATestOptions(use_gravity),
-                           view_graph,
+                           *global_mapper.ViewGraph(),
                            reconstruction_copy,
                            pose_priors);
 
@@ -300,25 +323,30 @@ TEST(RotationEstimator, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
   colmap::SynthesizeNoise(
       synthetic_noise_options, &gt_reconstruction, database.get());
 
-  ViewGraph view_graph;
-  colmap::Reconstruction reconstruction;
+  auto reconstruction = std::make_shared<colmap::Reconstruction>();
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
   SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
-  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
+  GlobalMapper global_mapper(database);
+  global_mapper.BeginReconstruction(reconstruction);
 
-  GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(
-      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
+  global_mapper.Solve(CreateMapperTestOptions(), cluster_ids);
+
+  for (const auto& [frame_id, frame] : reconstruction->Frames()) {
+    if (!frame.HasPose()) {
+      reconstruction->Frame(frame_id).SetRigFromWorld(Rigid3d());
+      reconstruction->RegisterFrame(frame_id);
+    }
+  }
 
   // TODO: The current 1-dof rotation averaging sometimes fails to pick the
   // right solution (e.g., 180 deg flipped).
   for (const bool use_gravity : {false}) {
     // Make a copy for this iteration
-    colmap::Reconstruction reconstruction_copy = reconstruction;
+    colmap::Reconstruction reconstruction_copy = *reconstruction;
     SolveRotationAveraging(CreateRATestOptions(use_gravity),
-                           view_graph,
+                           *global_mapper.ViewGraph(),
                            reconstruction_copy,
                            pose_priors);
 
@@ -343,21 +371,27 @@ TEST(RotationEstimator, RefineGravity) {
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
-  ViewGraph view_graph;
-  colmap::Reconstruction reconstruction;
+  auto reconstruction = std::make_shared<colmap::Reconstruction>();
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
   SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
-  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
+  GlobalMapper global_mapper(database);
+  global_mapper.BeginReconstruction(reconstruction);
 
-  GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(
-      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
+  global_mapper.Solve(CreateMapperTestOptions(), cluster_ids);
+
+  for (const auto& [frame_id, frame] : reconstruction->Frames()) {
+    if (!frame.HasPose()) {
+      reconstruction->Frame(frame_id).SetRigFromWorld(Rigid3d());
+      reconstruction->RegisterFrame(frame_id);
+    }
+  }
 
   GravityRefinerOptions opt_grav_refine;
   GravityRefiner grav_refiner(opt_grav_refine);
-  grav_refiner.RefineGravity(view_graph, reconstruction, pose_priors);
+  grav_refiner.RefineGravity(
+      *global_mapper.ViewGraph(), *reconstruction, pose_priors);
 
   ExpectEqualGravity(synthetic_dataset_options.prior_gravity_in_world,
                      gt_reconstruction,
@@ -381,21 +415,27 @@ TEST(RotationEstimator, RefineGravityWithNonTrivialRigs) {
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
-  ViewGraph view_graph;
-  colmap::Reconstruction reconstruction;
+  auto reconstruction = std::make_shared<colmap::Reconstruction>();
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
   SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
-  InitializeGlomapFromDatabase(*database, reconstruction, view_graph);
+  GlobalMapper global_mapper(database);
+  global_mapper.BeginReconstruction(reconstruction);
 
-  GlobalMapper global_mapper(CreateMapperTestOptions());
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(
-      database.get(), view_graph, reconstruction, pose_priors, cluster_ids);
+  global_mapper.Solve(CreateMapperTestOptions(), cluster_ids);
+
+  for (const auto& [frame_id, frame] : reconstruction->Frames()) {
+    if (!frame.HasPose()) {
+      reconstruction->Frame(frame_id).SetRigFromWorld(Rigid3d());
+      reconstruction->RegisterFrame(frame_id);
+    }
+  }
 
   GravityRefinerOptions opt_grav_refine;
   GravityRefiner grav_refiner(opt_grav_refine);
-  grav_refiner.RefineGravity(view_graph, reconstruction, pose_priors);
+  grav_refiner.RefineGravity(
+      *global_mapper.ViewGraph(), *reconstruction, pose_priors);
 
   ExpectEqualGravity(synthetic_dataset_options.prior_gravity_in_world,
                      gt_reconstruction,

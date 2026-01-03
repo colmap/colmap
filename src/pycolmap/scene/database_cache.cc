@@ -15,9 +15,20 @@ void BindDatabaseCache(py::module& m) {
       .def_static("create",
                   &DatabaseCache::Create,
                   "database"_a,
+                  "min_num_matches"_a = 0,
+                  "ignore_watermarks"_a = false,
+                  "image_names"_a = std::unordered_set<std::string>{})
+      .def_static("create_from_cache",
+                  &DatabaseCache::CreateFromCache,
+                  "database_cache"_a,
                   "min_num_matches"_a,
-                  "ignore_watermarks"_a,
                   "image_names"_a)
+      .def("load",
+           &DatabaseCache::Load,
+           "database"_a,
+           "min_num_matches"_a = 0,
+           "ignore_watermarks"_a = false,
+           "image_names"_a = std::unordered_set<std::string>{})
       .def("add_rig", &DatabaseCache::AddRig)
       .def("add_camera", &DatabaseCache::AddCamera)
       .def("add_frame", &DatabaseCache::AddFrame)

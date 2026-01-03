@@ -64,7 +64,7 @@ int RunGraphicalUserInterface(int argc, char** argv) {
 #endif
   app.setAttribute(Qt::AA_DontShowIconsInMenus, false);
 
-  colmap::MainWindow main_window(options);
+  colmap::MainWindow main_window(std::move(options));
   main_window.show();
 
   if (!import_path.empty()) {

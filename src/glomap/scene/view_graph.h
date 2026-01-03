@@ -1,5 +1,6 @@
 #pragma once
 
+#include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/types.h"
 
@@ -24,6 +25,12 @@ class ViewGraph {
   inline size_t NumValidImagePairs() const;
   inline bool Empty() const;
   inline void Clear();
+
+  // Read image pairs from the database.
+  // If allow_duplicate is false, throws on duplicate pairs. If true, logs a
+  // warning and updates the existing pair.
+  void LoadFromDatabase(const colmap::Database& database,
+                        bool allow_duplicate = false);
 
   // Image pair operations.
   inline struct ImagePair& AddImagePair(image_t image_id1,
@@ -77,15 +84,6 @@ class ViewGraph {
   // Keeps existing invalid edges as invalid.
   void FilterByRelativeRotation(const colmap::Reconstruction& reconstruction,
                                 double max_angle_deg = 5.0);
-
-  // Mark image pairs as invalid if they have fewer than min_num_inliers.
-  // Keeps existing invalid edges as invalid.
-  void FilterByNumInliers(int min_num_inliers = 30);
-
-  // Mark image pairs as invalid if their inlier ratio is below
-  // min_inlier_ratio.
-  // Keeps existing invalid edges as invalid.
-  void FilterByInlierRatio(double min_inlier_ratio = 0.25);
 
  private:
   // Map from pair ID to image pair data. The pair ID is computed from the

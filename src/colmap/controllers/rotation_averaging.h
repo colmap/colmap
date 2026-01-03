@@ -32,27 +32,31 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/base_controller.h"
 
-#include "glomap/estimators/relpose_estimation.h"
 #include "glomap/estimators/rotation_averaging.h"
 #include "glomap/estimators/view_graph_calibration.h"
-#include "glomap/processors/image_pair_inliers.h"
 
 #include <memory>
 
 namespace colmap {
 
 struct RotationAveragingControllerOptions {
+  // Number of threads.
+  int num_threads = -1;
+
+  // PRNG seed for all stochastic methods during reconstruction.
+  // If -1 (default), the seed is derived from the current time
+  // (non-deterministic). If >= 0, the pipeline is deterministic with the given
+  // seed.
+  int random_seed = -1;
+
   // Options for view graph calibration.
   glomap::ViewGraphCalibratorOptions view_graph_calibration;
-
-  // Options for relative pose estimation.
-  glomap::RelativePoseEstimationOptions relative_pose_estimation;
 
   // Options for rotation averaging.
   glomap::RotationEstimatorOptions rotation_estimation;
 
-  // Inlier thresholds for filtering.
-  glomap::InlierThresholdOptions inlier_thresholds;
+  // Maximum rotation error for filtering.
+  double max_rotation_error_deg = 10.;
 };
 
 class RotationAveragingController : public BaseController {
