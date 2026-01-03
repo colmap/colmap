@@ -745,7 +745,7 @@ TEST(EstimateRigTwoViewGeometries, Nominal) {
   for (const auto& [image_pair, geometry] : geometries) {
     EXPECT_EQ(geometry.config,
               TwoViewGeometry::ConfigurationType::CALIBRATED_RIG);
-    EXPECT_TRUE(geometry.cam2_from_cam1.has_value());
+    ASSERT_TRUE(geometry.cam2_from_cam1.has_value());
     EXPECT_THAT(
         *geometry.cam2_from_cam1,
         Rigid3dNear(

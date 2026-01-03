@@ -12,16 +12,14 @@ void ViewGraph::LoadFromDatabase(const colmap::Database& database,
   auto all_matches = database.ReadAllMatches();
 
   // Read cameras and images upfront for pose decomposition.
-  const std::vector<colmap::Camera> cameras = database.ReadAllCameras();
-  std::unordered_map<colmap::camera_t, colmap::Camera> camera_map;
-  for (const auto& camera : cameras) {
-    camera_map.emplace(camera.camera_id, camera);
+  std::unordered_map<colmap::camera_t, colmap::Camera> cameras;
+  for (const auto& camera : database.ReadAllCameras()) {
+    cameras.emplace(camera.camera_id, camera);
   }
 
-  const std::vector<colmap::Image> images = database.ReadAllImages();
-  std::unordered_map<image_t, colmap::Image> image_map;
-  for (const auto& image : images) {
-    image_map.emplace(image.ImageId(), image);
+  std::unordered_map<image_t, colmap::Image> images;
+  for (const auto& image : database.ReadAllImages()) {
+    images.emplace(image.ImageId(), image);
   }
 
   size_t invalid_count = 0;
@@ -72,10 +70,10 @@ void ViewGraph::LoadFromDatabase(const colmap::Database& database,
 
       // Decompose relative pose if not already present.
       if (!image_pair.cam2_from_cam1.has_value()) {
-        const colmap::Image& image1 = image_map.at(image_id1);
-        const colmap::Image& image2 = image_map.at(image_id2);
-        const colmap::Camera& camera1 = camera_map.at(image1.CameraId());
-        const colmap::Camera& camera2 = camera_map.at(image2.CameraId());
+        const colmap::Image& image1 = images.at(image_id1);
+        const colmap::Image& image2 = images.at(image_id2);
+        const colmap::Camera& camera1 = cameras.at(image1.CameraId());
+        const colmap::Camera& camera2 = cameras.at(image2.CameraId());
 
         const colmap::FeatureKeypoints keypoints1 =
             database.ReadKeypoints(image_id1);
