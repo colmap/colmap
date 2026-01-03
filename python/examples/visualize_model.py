@@ -30,25 +30,28 @@
 import argparse
 
 import numpy as np
+import numpy.typing as npt
 import open3d
 
 import pycolmap
 
 
 class Model:
-    def __init__(self):
-        self.recon = None
-        self.__vis = None
+    def __init__(self) -> None:
+        self.reconstruction: pycolmap.Reconstruction
+        self.visualizer: open3d.visualization.Visualizer
 
-    def read_model(self, path):
-        self.recon = pycolmap.Reconstruction(path)
+    def read_model(self, path: str) -> None:
+        self.reconstruction = pycolmap.Reconstruction(path)
 
-    def add_points(self, min_track_len=3, remove_statistical_outlier=True):
+    def add_points(
+        self, min_track_len: int = 3, remove_statistical_outlier: bool = True
+    ) -> None:
         pcd = open3d.geometry.PointCloud()
 
         xyz = []
         rgb = []
-        for point in self.recon.points3D.values():
+        for point in self.reconstruction.points3D.values():
             if point.track.length() < min_track_len:
                 continue
             xyz.append(point.xyz)
@@ -64,13 +67,13 @@ class Model:
             )
 
         # open3d.visualization.draw_geometries([pcd])
-        self.__vis.add_geometry(pcd)
-        self.__vis.poll_events()
-        self.__vis.update_renderer()
+        self.visualizer.add_geometry(pcd)
+        self.visualizer.poll_events()
+        self.visualizer.update_renderer()
 
-    def add_cameras(self, scale=1):
+    def add_cameras(self, scale: float = 1) -> None:
         frustums = []
-        for img in self.recon.images.values():
+        for img in self.reconstruction.images.values():
             # extrinsics
             world_from_cam = img.cam_from_world().inverse()
             R = world_from_cam.rotation.matrix()
@@ -112,20 +115,28 @@ class Model:
 
         # add geometries to visualizer
         for i in frustums:
-            self.__vis.add_geometry(i)
+            self.visualizer.add_geometry(i)
 
-    def create_window(self):
-        self.__vis = open3d.visualization.Visualizer()
-        self.__vis.create_window()
+    def create_window(self) -> None:
+        self.visualizer = open3d.visualization.Visualizer()
+        self.visualizer.create_window()
 
-    def show(self):
-        self.__vis.poll_events()
-        self.__vis.update_renderer()
-        self.__vis.run()
-        self.__vis.destroy_window()
+    def show(self) -> None:
+        self.visualizer.poll_events()
+        self.visualizer.update_renderer()
+        self.visualizer.run()
+        self.visualizer.destroy_window()
 
 
-def draw_camera(K, R, t, w, h, scale=1, color=[0.8, 0.2, 0.8]):
+def draw_camera(
+    K: npt.NDArray[np.float64],
+    R: npt.NDArray[np.float64],
+    t: npt.NDArray[np.float64],
+    w: int,
+    h: int,
+    scale: float = 1,
+    color: list[float] = None,
+) -> list[open3d.geometry.Geometry]:
     """Create axis, plane and pyramed geometries in Open3D format.
     :param K: calibration matrix (camera intrinsics)
     :param R: rotation matrix
@@ -136,6 +147,9 @@ def draw_camera(K, R, t, w, h, scale=1, color=[0.8, 0.2, 0.8]):
     :param color: color of the image plane and pyramid lines
     :return: camera model geometries (axis, plane and pyramid)
     """
+
+    if color is None:
+        color = [0.8, 0.2, 0.8]
 
     # intrinsics
     K = K.copy() / scale
@@ -190,7 +204,7 @@ def draw_camera(K, R, t, w, h, scale=1, color=[0.8, 0.2, 0.8]):
     return [axis, plane, line_set]
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Visualize COLMAP binary and text models"
     )
@@ -201,16 +215,16 @@ def parse_args():
     return args
 
 
-def main():
+def main() -> None:
     args = parse_args()
 
     # read COLMAP model
     model = Model()
     model.read_model(args.input_model)
 
-    print("num_cameras:", model.recon.num_cameras())
-    print("num_images:", model.recon.num_images())
-    print("num_points3D:", model.recon.num_points3D())
+    print("num_cameras:", model.reconstruction.num_cameras())
+    print("num_images:", model.reconstruction.num_images())
+    print("num_points3D:", model.reconstruction.num_points3D())
 
     # display using Open3D visualization tools
     model.create_window()

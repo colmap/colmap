@@ -260,13 +260,13 @@ def update_camera_priors_from_sparse_gt(
                 )
                 continue
             image_gt = images_gt_by_name[image.name]
-            if image_gt.camera_id in updated_camera_ids:
+            if image.camera_id in updated_camera_ids:
                 continue
             camera_gt = camera_priors_sparse_gt.cameras[image_gt.camera_id]
             camera_gt.camera_id = image.camera_id
             camera_gt.has_prior_focal_length = True
             database.update_camera(camera_gt)
-            updated_camera_ids.add(image_gt.camera_id)
+            updated_camera_ids.add(image.camera_id)
 
 
 def colmap_reconstruction(

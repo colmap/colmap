@@ -543,11 +543,6 @@ class SqliteDatabase : public Database {
 
   void Close() override { CloseImpl(); }
 
-  std::shared_ptr<Database> Clone() const override {
-    LOG(ERROR) << "Cloning " << path_;
-    return Open(path_);
-  }
-
   bool ExistsRig(const rig_t rig_id) const override {
     return ExistsRowId(sql_stmt_exists_rig_, rig_id);
   }

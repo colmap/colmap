@@ -29,9 +29,7 @@
 
 #include "glomap/exe/glomap.h"
 
-#include "colmap/controllers/global_pipeline.h"
 #include "colmap/geometry/pose.h"
-#include "colmap/scene/reconstruction_io_utils.h"
 #include "colmap/util/file.h"
 #include "colmap/util/timer.h"
 
