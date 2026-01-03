@@ -13,8 +13,7 @@ namespace {
 
 class PyDatabaseTransaction {
  public:
-  explicit PyDatabaseTransaction(Database* database)
-      : database_(database) {}
+  explicit PyDatabaseTransaction(Database* database) : database_(database) {}
 
   void Enter() {
     transaction_ = std::make_unique<DatabaseTransaction>(database_);
