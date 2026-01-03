@@ -1,8 +1,6 @@
 #pragma once
 
-#include "colmap/scene/frame.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/sensor/models.h"
 
 #include "glomap/scene/view_graph.h"
 

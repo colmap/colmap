@@ -1,6 +1,5 @@
 #pragma once
 
-#include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 
 #include "glomap/scene/types.h"

@@ -1,7 +1,5 @@
 #include "glomap/io/pose_io.h"
 
-#include "colmap/geometry/pose.h"
-
 #include <fstream>
 #include <map>
 #include <set>
