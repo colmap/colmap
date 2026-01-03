@@ -8,7 +8,6 @@
 #include "colmap/util/timer.h"
 
 #include "glomap/estimators/rotation_averaging.h"
-#include "glomap/io/colmap_io.h"
 #include "glomap/processors/reconstruction_pruning.h"
 #include "glomap/processors/view_graph_manipulation.h"
 
