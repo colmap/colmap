@@ -82,38 +82,6 @@ void SwapFeatureMatchesBlob(FeatureMatchesBlob* matches) {
   }
 }
 
-// Determine whether cam2_from_cam1 should be set based on the explicit flag
-// (new schema) or config and identity check (old schema backwards compat).
-// TODO: Drop the backwards compatibility code path in a future major version
-// release and require the has_cam2_from_cam1 column.
-std::optional<Rigid3d> MaybeReadCam2FromCam1(const Rigid3d& cam2_from_cam1,
-                                             int config,
-                                             bool has_cam2_from_cam1_is_null,
-                                             int64_t has_cam2_from_cam1_value) {
-  bool should_set_pose;
-  if (has_cam2_from_cam1_is_null) {
-    // Old schema: check config and identity.
-    const bool config_has_pose = config != TwoViewGeometry::UNDEFINED &&
-                                 config != TwoViewGeometry::DEGENERATE &&
-                                 config != TwoViewGeometry::WATERMARK &&
-                                 config != TwoViewGeometry::MULTIPLE;
-    // Use exact comparison since identity is written as exact Rigid3d()
-    // and stored as binary BLOB without precision loss.
-    const bool is_identity =
-        cam2_from_cam1.rotation.coeffs() ==
-            Eigen::Quaterniond::Identity().coeffs() &&
-        cam2_from_cam1.translation == Eigen::Vector3d::Zero();
-    should_set_pose = config_has_pose && !is_identity;
-  } else {
-    // New schema: use explicit flag.
-    should_set_pose = has_cam2_from_cam1_value != 0;
-  }
-  if (should_set_pose) {
-    return cam2_from_cam1;
-  }
-  return std::nullopt;
-}
-
 FeatureKeypointsBlob FeatureKeypointsToBlob(const FeatureKeypoints& keypoints) {
   const FeatureKeypointsBlob::Index kNumCols = 6;
   FeatureKeypointsBlob blob(keypoints.size(), kNumCols);
@@ -979,21 +947,18 @@ class SqliteDatabase : public Database {
     two_view_geometry.H = ReadStaticMatrixBlob<Eigen::Matrix3d>(
         sql_stmt_read_two_view_geometry_, rc, 6);
 
-    // Read the pose data.
-    const Eigen::Vector4d quat_wxyz = ReadStaticMatrixBlob<Eigen::Vector4d>(
-        sql_stmt_read_two_view_geometry_, rc, 7);
-    Rigid3d cam2_from_cam1;
-    cam2_from_cam1.rotation = Eigen::Quaterniond(
-        quat_wxyz(0), quat_wxyz(1), quat_wxyz(2), quat_wxyz(3));
-    cam2_from_cam1.translation = ReadStaticMatrixBlob<Eigen::Vector3d>(
-        sql_stmt_read_two_view_geometry_, rc, 8);
-    const bool has_cam2_from_cam1_is_null =
-        sqlite3_column_type(sql_stmt_read_two_view_geometry_, 9) == SQLITE_NULL;
-    two_view_geometry.cam2_from_cam1 = MaybeReadCam2FromCam1(
-        cam2_from_cam1,
-        two_view_geometry.config,
-        has_cam2_from_cam1_is_null,
-        sqlite3_column_int64(sql_stmt_read_two_view_geometry_, 9));
+    // Read the pose data if present (NULL means not set).
+    if (sqlite3_column_type(sql_stmt_read_two_view_geometry_, 7) !=
+        SQLITE_NULL) {
+      const Eigen::Vector4d quat_wxyz = ReadStaticMatrixBlob<Eigen::Vector4d>(
+          sql_stmt_read_two_view_geometry_, rc, 7);
+      Rigid3d cam2_from_cam1;
+      cam2_from_cam1.rotation = Eigen::Quaterniond(
+          quat_wxyz(0), quat_wxyz(1), quat_wxyz(2), quat_wxyz(3));
+      cam2_from_cam1.translation = ReadStaticMatrixBlob<Eigen::Vector3d>(
+          sql_stmt_read_two_view_geometry_, rc, 8);
+      two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
+    }
 
     two_view_geometry.inlier_matches = FeatureMatchesFromBlob(blob);
     two_view_geometry.F.transposeInPlace();
@@ -1036,22 +1001,18 @@ class SqliteDatabase : public Database {
       two_view_geometry.H = ReadStaticMatrixBlob<Eigen::Matrix3d>(
           sql_stmt_read_two_view_geometries_, rc, 7);
 
-      // Read the pose data.
-      const Eigen::Vector4d quat_wxyz = ReadStaticMatrixBlob<Eigen::Vector4d>(
-          sql_stmt_read_two_view_geometries_, rc, 8);
-      Rigid3d cam2_from_cam1;
-      cam2_from_cam1.rotation = Eigen::Quaterniond(
-          quat_wxyz(0), quat_wxyz(1), quat_wxyz(2), quat_wxyz(3));
-      cam2_from_cam1.translation = ReadStaticMatrixBlob<Eigen::Vector3d>(
-          sql_stmt_read_two_view_geometries_, rc, 9);
-      const bool has_cam2_from_cam1_is_null =
-          sqlite3_column_type(sql_stmt_read_two_view_geometries_, 10) ==
-          SQLITE_NULL;
-      two_view_geometry.cam2_from_cam1 = MaybeReadCam2FromCam1(
-          cam2_from_cam1,
-          two_view_geometry.config,
-          has_cam2_from_cam1_is_null,
-          sqlite3_column_int64(sql_stmt_read_two_view_geometries_, 10));
+      // Read the pose data if present (NULL means not set).
+      if (sqlite3_column_type(sql_stmt_read_two_view_geometries_, 8) !=
+          SQLITE_NULL) {
+        const Eigen::Vector4d quat_wxyz = ReadStaticMatrixBlob<Eigen::Vector4d>(
+            sql_stmt_read_two_view_geometries_, rc, 8);
+        Rigid3d cam2_from_cam1;
+        cam2_from_cam1.rotation = Eigen::Quaterniond(
+            quat_wxyz(0), quat_wxyz(1), quat_wxyz(2), quat_wxyz(3));
+        cam2_from_cam1.translation = ReadStaticMatrixBlob<Eigen::Vector3d>(
+            sql_stmt_read_two_view_geometries_, rc, 9);
+        two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
+      }
 
       two_view_geometry.F.transposeInPlace();
       two_view_geometry.E.transposeInPlace();
@@ -1330,24 +1291,25 @@ class SqliteDatabase : public Database {
     const Eigen::Matrix3d Ft = two_view_geometry_ptr->F.transpose();
     const Eigen::Matrix3d Et = two_view_geometry_ptr->E.transpose();
     const Eigen::Matrix3d Ht = two_view_geometry_ptr->H.transpose();
-    // Write identity if cam2_from_cam1 is not set (for backwards compat).
-    const Rigid3d cam2_from_cam1 =
-        two_view_geometry_ptr->cam2_from_cam1.value_or(Rigid3d());
-    const Eigen::Vector4d quat_wxyz(cam2_from_cam1.rotation.w(),
-                                    cam2_from_cam1.rotation.x(),
-                                    cam2_from_cam1.rotation.y(),
-                                    cam2_from_cam1.rotation.z());
 
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ft, 6);
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Et, 7);
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ht, 8);
-    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, quat_wxyz, 9);
-    WriteStaticMatrixBlob(
-        sql_stmt_write_two_view_geometry_, cam2_from_cam1.translation, 10);
-    SQLITE3_CALL(sqlite3_bind_int64(
-        sql_stmt_write_two_view_geometry_,
-        11,
-        two_view_geometry_ptr->cam2_from_cam1.has_value() ? 1 : 0));
+
+    // Write NULL for qvec/tvec if cam2_from_cam1 is not set.
+    if (two_view_geometry_ptr->cam2_from_cam1.has_value()) {
+      const Rigid3d& cam2_from_cam1 = *two_view_geometry_ptr->cam2_from_cam1;
+      const Eigen::Vector4d quat_wxyz(cam2_from_cam1.rotation.w(),
+                                      cam2_from_cam1.rotation.x(),
+                                      cam2_from_cam1.rotation.y(),
+                                      cam2_from_cam1.rotation.z());
+      WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, quat_wxyz, 9);
+      WriteStaticMatrixBlob(
+          sql_stmt_write_two_view_geometry_, cam2_from_cam1.translation, 10);
+    } else {
+      SQLITE3_CALL(sqlite3_bind_null(sql_stmt_write_two_view_geometry_, 9));
+      SQLITE3_CALL(sqlite3_bind_null(sql_stmt_write_two_view_geometry_, 10));
+    }
     SQLITE3_CALL(sqlite3_step(sql_stmt_write_two_view_geometry_));
   }
 
@@ -1763,8 +1725,8 @@ class SqliteDatabase : public Database {
     prepare_sql_stmt("SELECT pair_id, rows FROM matches WHERE rows > 0;",
                      &sql_stmt_read_num_matches_);
     prepare_sql_stmt(
-        "SELECT rows, cols, data, config, F, E, H, qvec, tvec, "
-        "has_cam2_from_cam1 FROM two_view_geometries WHERE pair_id = ?;",
+        "SELECT rows, cols, data, config, F, E, H, qvec, tvec FROM "
+        "two_view_geometries WHERE pair_id = ?;",
         &sql_stmt_read_two_view_geometry_);
     prepare_sql_stmt("SELECT * FROM two_view_geometries WHERE rows > 0;",
                      &sql_stmt_read_two_view_geometries_);
@@ -1814,8 +1776,7 @@ class SqliteDatabase : public Database {
         &sql_stmt_write_matches_);
     prepare_sql_stmt(
         "INSERT INTO two_view_geometries(pair_id, rows, cols, data, config, F, "
-        "E, H, qvec, tvec, has_cam2_from_cam1) VALUES(?, ?, ?, ?, ?, ?, ?, ?, "
-        "?, ?, ?);",
+        "E, H, qvec, tvec) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
         &sql_stmt_write_two_view_geometry_);
 
     //////////////////////////////////////////////////////////////////////////////
@@ -2019,8 +1980,7 @@ class SqliteDatabase : public Database {
           "    E        BLOB,"
           "    H        BLOB,"
           "    qvec     BLOB,"
-          "    tvec     BLOB,"
-          "    has_cam2_from_cam1  INTEGER);";
+          "    tvec     BLOB);";
       SQLITE3_EXEC(database_, sql.c_str(), nullptr);
     }
   }
@@ -2055,11 +2015,60 @@ class SqliteDatabase : public Database {
     maybe_add_two_view_geometries_blob_column("qvec");
     maybe_add_two_view_geometries_blob_column("tvec");
 
-    if (!ExistsColumn("two_view_geometries", "has_cam2_from_cam1")) {
-      SQLITE3_EXEC(database_,
-                   "ALTER TABLE two_view_geometries ADD COLUMN "
-                   "has_cam2_from_cam1 INTEGER;",
-                   nullptr);
+    // Read current user_version for migration gating.
+    int user_version = 0;
+    {
+      sqlite3_stmt* version_stmt;
+      SQLITE3_CALL(sqlite3_prepare_v2(
+          database_, "PRAGMA user_version;", -1, &version_stmt, nullptr));
+      if (SQLITE3_CALL(sqlite3_step(version_stmt)) == SQLITE_ROW) {
+        user_version = sqlite3_column_int(version_stmt, 0);
+      }
+      SQLITE3_CALL(sqlite3_finalize(version_stmt));
+    }
+
+    // Migrate identity poses to NULL for old databases. Before version 3901,
+    // identity was used as sentinel for "not set". New databases correctly
+    // write NULL for unset and can store actual identity poses.
+    if (user_version < 3901) {
+      sqlite3_stmt* read_stmt;
+      SQLITE3_CALL(sqlite3_prepare_v2(
+          database_,
+          "SELECT pair_id, qvec, tvec FROM two_view_geometries "
+          "WHERE qvec IS NOT NULL AND tvec IS NOT NULL;",
+          -1,
+          &read_stmt,
+          nullptr));
+
+      sqlite3_stmt* update_stmt;
+      SQLITE3_CALL(sqlite3_prepare_v2(
+          database_,
+          "UPDATE two_view_geometries SET qvec = NULL, tvec = NULL "
+          "WHERE pair_id = ?;",
+          -1,
+          &update_stmt,
+          nullptr));
+
+      while (SQLITE3_CALL(sqlite3_step(read_stmt)) == SQLITE_ROW) {
+        const Eigen::Vector4d qvec =
+            ReadStaticMatrixBlob<Eigen::Vector4d>(read_stmt, SQLITE_ROW, 1);
+        const Eigen::Vector3d tvec =
+            ReadStaticMatrixBlob<Eigen::Vector3d>(read_stmt, SQLITE_ROW, 2);
+        const Eigen::Quaterniond rotation(qvec(0), qvec(1), qvec(2), qvec(3));
+        const bool is_identity =
+            rotation.coeffs() == Eigen::Quaterniond::Identity().coeffs() &&
+            tvec == Eigen::Vector3d::Zero();
+
+        if (is_identity) {
+          const int64_t pair_id = sqlite3_column_int64(read_stmt, 0);
+          SQLITE3_CALL(sqlite3_bind_int64(update_stmt, 1, pair_id));
+          SQLITE3_CALL(sqlite3_step(update_stmt));
+          SQLITE3_CALL(sqlite3_reset(update_stmt));
+        }
+      }
+
+      SQLITE3_CALL(sqlite3_finalize(read_stmt));
+      SQLITE3_CALL(sqlite3_finalize(update_stmt));
     }
 
     if (ExistsTable("pose_priors_old")) {
@@ -2094,7 +2103,7 @@ class SqliteDatabase : public Database {
     // Update user version number.
     std::unique_lock<std::mutex> lock(update_schema_mutex_);
     const std::string update_user_version_sql =
-        StringPrintf("PRAGMA user_version = 3900;");
+        StringPrintf("PRAGMA user_version = 3901;");
     SQLITE3_EXEC(database_, update_user_version_sql.c_str(), nullptr);
   }
 
