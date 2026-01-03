@@ -57,6 +57,8 @@ struct ViewGraphCalibratorOptions {
 // Calibrate the view graph by estimating focal lengths from fundamental
 // matrices. Filters image pairs with high calibration errors.
 // Then re-estimates relative poses using the calibrated cameras.
+// See: "Stable Intrinsic Auto-Calibration from Fundamental Matrices of Devices
+// with Uncorrelated Camera Parameters", Fetzer et al., WACV 2020.
 bool CalibrateViewGraph(const ViewGraphCalibratorOptions& options,
                         ViewGraph& view_graph,
                         colmap::Reconstruction& reconstruction);
