@@ -3,6 +3,8 @@
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 
+#include <filesystem>
+
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 
@@ -104,7 +106,7 @@ void BindBitmap(pybind11::module& m) {
            "sRGB colorspace for file storage.")
       .def_static(
           "read",
-          [](const std::string& path,
+          [](const std::filesystem::path& path,
              bool as_rgb,
              bool linearize_colorspace) -> py::typing::Optional<Bitmap> {
             Bitmap bitmap;
