@@ -94,29 +94,22 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   // Apply mapper-appropriate two-view geometry defaults.
   // Global uses stricter thresholds; Incremental/Hierarchical use standard.
-  TwoViewGeometryOptions& tvg_options = *option_manager_.two_view_geometry;
-  tvg_options.ransac_options.random_seed = options_.random_seed;
+  TwoViewGeometryOptions& two_view_geometry_options =
+      *option_manager_.two_view_geometry;
+  two_view_geometry_options.ransac_options.random_seed = options_.random_seed;
   if (options_.mapper == Mapper::GLOBAL) {
-    tvg_options.ransac_options.max_error = 1.0;
-    tvg_options.min_num_inliers = 30;
-    tvg_options.min_inlier_ratio = 0.25;
-    // Disable guided matching for GLOBAL mapper because guided matching adds
-    // unverified matches that can contaminate global positioning.
+    two_view_geometry_options.ransac_options.max_error = 1.0;
+    two_view_geometry_options.min_num_inliers = 30;
+    two_view_geometry_options.min_inlier_ratio = 0.25;
+    // Disable guided matching for global mapper to avoid regression issues.
+    // TODO: Write to database matches instead of inlier matches in guided
+    // matching and figure out a good min_num_inliers and min_inlier_ratio
+    // threshold for it.
     option_manager_.feature_matching->guided_matching = false;
   } else {
-    tvg_options.ransac_options.max_error = 4.0;
-    tvg_options.min_num_inliers = 15;
-    tvg_options.min_inlier_ratio = 0.0;
-  }
-  // Override with user-specified values if provided.
-  if (options_.two_view_geometry_max_error >= 0) {
-    tvg_options.ransac_options.max_error = options_.two_view_geometry_max_error;
-  }
-  if (options_.two_view_geometry_min_num_inliers >= 0) {
-    tvg_options.min_num_inliers = options_.two_view_geometry_min_num_inliers;
-  }
-  if (options_.two_view_geometry_min_inlier_ratio >= 0) {
-    tvg_options.min_inlier_ratio = options_.two_view_geometry_min_inlier_ratio;
+    two_view_geometry_options.ransac_options.max_error = 4.0;
+    two_view_geometry_options.min_num_inliers = 15;
+    two_view_geometry_options.min_inlier_ratio = 0.0;
   }
 
   option_manager_.mapper->random_seed = options_.random_seed;
