@@ -30,6 +30,7 @@
 
 #include "colmap/util/version.h"
 
+#include "colmap/util/logging.h"
 #include "colmap/util/string.h"
 
 namespace colmap {
@@ -47,6 +48,13 @@ constexpr int kVersionPatch = ${COLMAP_VERSION_PATCH};
 constexpr int kDatabaseSchemaRevision = 0;
 
 }  // namespace
+
+int MakeDatabaseVersionNumber(int major, int minor, int patch, int revision) {
+  THROW_CHECK_LT(minor, 100);
+  THROW_CHECK_LT(patch, 100);
+  THROW_CHECK_LT(revision, 100);
+  return major * 1000000 + minor * 10000 + patch * 100 + revision;
+}
 
 int GetDatabaseVersionNumber() {
   return MakeDatabaseVersionNumber(

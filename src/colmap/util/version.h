@@ -29,8 +29,6 @@
 
 #pragma once
 
-#include "colmap/util/logging.h"
-
 #include <string>
 
 namespace colmap {
@@ -42,15 +40,7 @@ std::string GetBuildInfo();
 // Computes database version number from version components.
 // Format: major * 1000000 + minor * 10000 + patch * 100 + revision
 // This gives 100 migration slots between consecutive releases.
-inline int MakeDatabaseVersionNumber(int major,
-                                     int minor,
-                                     int patch,
-                                     int revision) {
-  THROW_CHECK_LT(minor, 100);
-  THROW_CHECK_LT(patch, 100);
-  THROW_CHECK_LT(revision, 100);
-  return major * 1000000 + minor * 10000 + patch * 100 + revision;
-}
+int MakeDatabaseVersionNumber(int major, int minor, int patch, int revision);
 
 // Returns the database version number for the current COLMAP version.
 int GetDatabaseVersionNumber();
