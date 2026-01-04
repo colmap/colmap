@@ -33,6 +33,7 @@
 #include "colmap/scene/reconstruction_io_binary.h"
 #include "colmap/scene/reconstruction_io_text.h"
 
+#include <filesystem>
 #include <iostream>
 
 #include <Eigen/Core>
@@ -111,7 +112,8 @@ bool ExportBundler(const Reconstruction& reconstruction,
                    bool skip_distortion = false);
 
 // Exports 3D points only in PLY format.
-void ExportPLY(const Reconstruction& reconstruction, const std::string& path);
+void ExportPLY(const Reconstruction& reconstruction,
+               const std::filesystem::path& path);
 
 // Exports in VRML format https://en.wikipedia.org/wiki/VRML.
 void ExportVRML(const Reconstruction& reconstruction,

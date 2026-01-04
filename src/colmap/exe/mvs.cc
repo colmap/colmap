@@ -105,11 +105,11 @@ int RunPatchMatchStereo(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
-void RunPatchMatchStereoImpl(const std::string& workspace_path,
+void RunPatchMatchStereoImpl(const std::filesystem::path& workspace_path,
                              const std::string& workspace_format,
                              const std::string& pmvs_option_name,
                              const mvs::PatchMatchOptions& options,
-                             const std::string& config_path) {
+                             const std::filesystem::path& config_path) {
 #if !defined(COLMAP_CUDA_ENABLED)
   LOG(FATAL_THROW) << "Dense stereo reconstruction requires CUDA, which is not "
                       "available on your system.";
@@ -182,8 +182,8 @@ int RunStereoFuser(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
-Reconstruction RunStereoFuserImpl(const std::string& output_path,
-                                  const std::string& workspace_path,
+Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
+                                  const std::filesystem::path& workspace_path,
                                   std::string workspace_format,
                                   const std::string& pmvs_option_name,
                                   std::string input_type,
@@ -229,8 +229,9 @@ Reconstruction RunStereoFuserImpl(const std::string& output_path,
     reconstruction.WriteText(output_path);
   } else if (output_type == "ply") {
     WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
-    mvs::WritePointsVisibility(output_path + ".vis",
-                               fuser.GetFusedPointsVisibility());
+    std::filesystem::path vis_path = output_path;
+    vis_path += ".vis";
+    mvs::WritePointsVisibility(vis_path, fuser.GetFusedPointsVisibility());
   } else {
     LOG(FATAL_THROW) << "Invalid output_type: " << output_type;
   }

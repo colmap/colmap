@@ -33,6 +33,7 @@
 #include "colmap/retrieval/utils.h"
 #include "colmap/util/eigen_alignment.h"
 
+#include <filesystem>
 #include <memory>
 
 #include <Eigen/Core>
@@ -146,11 +147,13 @@ class VisualIndex {
 
   // Read and write the visual index. This can be done for an index with and
   // without indexed images.
-  static std::unique_ptr<VisualIndex> Read(const std::string& vocab_tree_path);
-  virtual void Write(const std::string& path) const = 0;
+  static std::unique_ptr<VisualIndex> Read(
+      const std::filesystem::path& vocab_tree_path);
+  virtual void Write(const std::filesystem::path& path) const = 0;
 
  protected:
-  virtual void ReadFromFaiss(const std::string& path, long offset) = 0;
+  virtual void ReadFromFaiss(const std::filesystem::path& path,
+                             long offset) = 0;
 };
 
 }  // namespace retrieval

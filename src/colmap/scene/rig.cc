@@ -31,6 +31,8 @@
 
 #include "colmap/geometry/pose.h"
 
+#include <filesystem>
+
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
@@ -254,9 +256,10 @@ void UpdateRigsAndFramesFromDatabase(const Database& database,
 
 }  // namespace
 
-std::vector<RigConfig> ReadRigConfig(const std::string& rig_config_path) {
+std::vector<RigConfig> ReadRigConfig(
+    const std::filesystem::path& rig_config_path) {
   boost::property_tree::ptree pt;
-  boost::property_tree::read_json(rig_config_path.c_str(), pt);
+  boost::property_tree::read_json(rig_config_path.string().c_str(), pt);
 
   std::vector<RigConfig> configs;
   for (const auto& rig_node : pt) {

@@ -33,16 +33,18 @@
 #include "colmap/mvs/patch_match_options.h"
 #include "colmap/scene/reconstruction.h"
 
+#include <filesystem>
+
 namespace colmap {
 
-void RunPatchMatchStereoImpl(const std::string& workspace_path,
+void RunPatchMatchStereoImpl(const std::filesystem::path& workspace_path,
                              const std::string& workspace_format,
                              const std::string& pmvs_option_name,
                              const mvs::PatchMatchOptions& options,
-                             const std::string& config_path);
+                             const std::filesystem::path& config_path);
 
-Reconstruction RunStereoFuserImpl(const std::string& output_path,
-                                  const std::string& workspace_path,
+Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
+                                  const std::filesystem::path& workspace_path,
                                   std::string workspace_format,
                                   const std::string& pmvs_option_name,
                                   std::string input_type,

@@ -6,6 +6,8 @@
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 
+#include <filesystem>
+
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -120,8 +122,8 @@ void BindMeshing(py::module& m) {
 
   m.def(
       "poisson_meshing",
-      [](const std::string& input_path,
-         const std::string& output_path,
+      [](const std::filesystem::path& input_path,
+         const std::filesystem::path& output_path,
          const PoissonMOpts& options) -> void {
         mvs::PoissonMeshing(options, input_path, output_path);
       },
@@ -134,8 +136,8 @@ void BindMeshing(py::module& m) {
 #ifdef COLMAP_CGAL_ENABLED
   m.def(
       "sparse_delaunay_meshing",
-      [](const std::string& input_path,
-         const std::string& output_path,
+      [](const std::filesystem::path& input_path,
+         const std::filesystem::path& output_path,
          const DMOpts& options) -> void {
         mvs::SparseDelaunayMeshing(options, input_path, output_path);
       },
@@ -147,8 +149,8 @@ void BindMeshing(py::module& m) {
 
   m.def(
       "dense_delaunay_meshing",
-      [](const std::string& input_path,
-         const std::string& output_path,
+      [](const std::filesystem::path& input_path,
+         const std::filesystem::path& output_path,
          const DMOpts& options) -> void {
         mvs::DenseDelaunayMeshing(options, input_path, output_path);
       },

@@ -14,6 +14,7 @@
 #include "pycolmap/pybind11_extension.h"
 #include "pycolmap/scene/types.h"
 
+#include <filesystem>
 #include <memory>
 #include <sstream>
 
@@ -30,7 +31,7 @@ void BindReconstruction(py::module& m) {
   py::classh<Reconstruction>(m, "Reconstruction")
       .def(py::init<>())
       .def(py::init<const Reconstruction&>(), "reconstruction"_a)
-      .def(py::init([](const std::string& path) {
+      .def(py::init([](const std::filesystem::path& path) {
              auto reconstruction = std::make_shared<Reconstruction>();
              reconstruction->Read(path);
              return reconstruction;
@@ -237,7 +238,8 @@ void BindReconstruction(py::module& m) {
       .def("compute_mean_reprojection_error",
            &Reconstruction::ComputeMeanReprojectionError)
       .def("import_PLY",
-           py::overload_cast<const std::string&>(&Reconstruction::ImportPLY),
+           py::overload_cast<const std::filesystem::path&>(
+               &Reconstruction::ImportPLY),
            "path"_a,
            "Import from PLY format. Note that these import functions are"
            "only intended for visualization of data and usable for "

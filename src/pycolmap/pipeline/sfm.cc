@@ -10,6 +10,7 @@
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 
+#include <filesystem>
 #include <memory>
 
 #include <pybind11/functional.h>
@@ -22,9 +23,9 @@ namespace py = pybind11;
 
 std::shared_ptr<Reconstruction> TriangulatePoints(
     const std::shared_ptr<Reconstruction>& reconstruction,
-    const std::string& database_path,
-    const std::string& image_path,
-    const std::string& output_path,
+    const std::filesystem::path& database_path,
+    const std::filesystem::path& image_path,
+    const std::filesystem::path& output_path,
     const bool clear_points,
     const IncrementalPipelineOptions& options,
     const bool refine_intrinsics) {
@@ -44,11 +45,11 @@ std::shared_ptr<Reconstruction> TriangulatePoints(
 }
 
 std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
-    const std::string& database_path,
-    const std::string& image_path,
-    const std::string& output_path,
+    const std::filesystem::path& database_path,
+    const std::filesystem::path& image_path,
+    const std::filesystem::path& output_path,
     const IncrementalPipelineOptions& options,
-    const std::string& input_path,
+    const std::filesystem::path& input_path,
     std::function<void()> initial_image_pair_callback,
     std::function<void()> next_image_callback) {
   THROW_CHECK_FILE_EXISTS(database_path);

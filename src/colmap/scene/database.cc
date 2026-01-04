@@ -41,7 +41,7 @@ void Database::Register(Factory factory) {
 
 Database::~Database() = default;
 
-std::shared_ptr<Database> Database::Open(const std::string& path) {
+std::shared_ptr<Database> Database::Open(const std::filesystem::path& path) {
   for (auto it = factories_.rbegin(); it != factories_.rend(); ++it) {
     try {
       return (*it)(path);

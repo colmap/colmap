@@ -21,7 +21,7 @@ def write_snapshot(
     path = snapshot_path / f"{timestamp:010d}"
     path.mkdir(exist_ok=True, parents=True)
     logging.verbose(1, f"=> Writing to {path}")
-    reconstruction.write(str(path))
+    reconstruction.write(path)
 
 
 def iterative_global_refinement(
@@ -383,7 +383,7 @@ def main(
 ) -> dict[int, pycolmap.Reconstruction]:
     if options is None:
         options = pycolmap.IncrementalPipelineOptions()
-    options.image_path = str(image_path)
+    options.image_path = image_path
     if not database_path.exists():
         logging.fatal(f"Database path does not exist: {database_path}")
     if not image_path.exists():
@@ -391,9 +391,9 @@ def main(
     output_path.mkdir(exist_ok=True, parents=True)
     reconstruction_manager = pycolmap.ReconstructionManager()
     if input_path:
-        reconstruction_manager.read(str(input_path))
+        reconstruction_manager.read(input_path)
 
-    with pycolmap.Database.open(str(database_path)) as database:
+    with pycolmap.Database.open(database_path) as database:
         mapper = pycolmap.IncrementalPipeline(
             options, database, reconstruction_manager
         )
@@ -414,7 +414,7 @@ def main(
                 main_incremental_mapper(mapper)
 
     # write and output
-    reconstruction_manager.write(str(output_path))
+    reconstruction_manager.write(output_path)
     reconstructions = {}
     for i in range(reconstruction_manager.size()):
         reconstructions[i] = reconstruction_manager.get(i)
