@@ -92,32 +92,28 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.mapper->num_threads = options_.num_threads;
   option_manager_.poisson_meshing->num_threads = options_.num_threads;
 
-  option_manager_.two_view_geometry->ransac_options.random_seed =
-      options_.random_seed;
-
   // Apply mapper-appropriate two-view geometry defaults.
-  // Global uses stricter thresholds; Incremental/Hierarchical use standard ones.
+  // Global uses stricter thresholds; Incremental/Hierarchical use standard.
+  TwoViewGeometryOptions& tvg_options = *option_manager_.two_view_geometry;
+  tvg_options.ransac_options.random_seed = options_.random_seed;
   if (options_.mapper == Mapper::GLOBAL) {
-    option_manager_.two_view_geometry->ransac_options.max_error = 1.0;
-    option_manager_.two_view_geometry->min_num_inliers = 30;
-    option_manager_.two_view_geometry->min_inlier_ratio = 0.25;
+    tvg_options.ransac_options.max_error = 1.0;
+    tvg_options.min_num_inliers = 30;
+    tvg_options.min_inlier_ratio = 0.25;
   } else {
-    option_manager_.two_view_geometry->ransac_options.max_error = 4.0;
-    option_manager_.two_view_geometry->min_num_inliers = 15;
-    option_manager_.two_view_geometry->min_inlier_ratio = 0.0;
+    tvg_options.ransac_options.max_error = 4.0;
+    tvg_options.min_num_inliers = 15;
+    tvg_options.min_inlier_ratio = 0.0;
   }
   // Override with user-specified values if provided.
   if (options_.two_view_geometry_max_error >= 0) {
-    option_manager_.two_view_geometry->ransac_options.max_error =
-        options_.two_view_geometry_max_error;
+    tvg_options.ransac_options.max_error = options_.two_view_geometry_max_error;
   }
   if (options_.two_view_geometry_min_num_inliers >= 0) {
-    option_manager_.two_view_geometry->min_num_inliers =
-        options_.two_view_geometry_min_num_inliers;
+    tvg_options.min_num_inliers = options_.two_view_geometry_min_num_inliers;
   }
   if (options_.two_view_geometry_min_inlier_ratio >= 0) {
-    option_manager_.two_view_geometry->min_inlier_ratio =
-        options_.two_view_geometry_min_inlier_ratio;
+    tvg_options.min_inlier_ratio = options_.two_view_geometry_min_inlier_ratio;
   }
 
   option_manager_.mapper->random_seed = options_.random_seed;

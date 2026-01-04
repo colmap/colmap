@@ -116,9 +116,8 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("random_seed", &reconstruction_options.random_seed);
   options.AddDefaultOption("use_gpu", &reconstruction_options.use_gpu);
   options.AddDefaultOption("gpu_index", &reconstruction_options.gpu_index);
-  options.AddDefaultOption(
-      "two_view_geometry_max_error",
-      &reconstruction_options.two_view_geometry_max_error);
+  options.AddDefaultOption("two_view_geometry_max_error",
+                           &reconstruction_options.two_view_geometry_max_error);
   options.AddDefaultOption(
       "two_view_geometry_min_num_inliers",
       &reconstruction_options.two_view_geometry_min_num_inliers);

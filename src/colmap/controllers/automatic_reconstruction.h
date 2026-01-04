@@ -123,7 +123,7 @@ class AutomaticReconstructionController : public Thread {
 
     // Two-view geometry options for feature matching.
     // Use -1 to indicate "use mapper-appropriate default".
-    // Incremental/Hierarchical: max_error=4.0, min_num_inliers=15, min_inlier_ratio=0.0
+    // Incremental: max_error=4.0, min_num_inliers=15, min_inlier_ratio=0.0
     // Global: max_error=1.0, min_num_inliers=30, min_inlier_ratio=0.25
     double two_view_geometry_max_error = -1.0;
     int two_view_geometry_min_num_inliers = -1;
