@@ -33,7 +33,7 @@
 // Dummy QApplication class when GUI is disabled.
 class QApplication {
  public:
-  QApplication(int argc, char** argv) = default;
+  QApplication(int argc, char** argv) {}
 };
 #endif
 
