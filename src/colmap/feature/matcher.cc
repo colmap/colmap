@@ -88,6 +88,7 @@ std::unique_ptr<FeatureMatcher> FeatureMatcher::Create(
     default:
       ThrowUnknownFeatureMatcherType(options.type);
   }
+  return nullptr;
 }
 
 FeatureMatcherCache::FeatureMatcherCache(
