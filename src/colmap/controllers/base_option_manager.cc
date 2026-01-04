@@ -112,6 +112,7 @@ void BaseOptionManager::ResetImpl() {
   options_int_.clear();
   options_double_.clear();
   options_string_.clear();
+  options_path_.clear();
 
   added_random_options_ = false;
   added_log_options_ = false;
@@ -270,6 +271,12 @@ void BaseOptionManager::Write(const std::string& path) const {
     }
   }
 
+  for (const auto& option : options_path_) {
+    if (!StringContains(option.first, ".")) {
+      pt.put(option.first, option.second->string());
+    }
+  }
+
   for (const auto& option : options_bool_) {
     if (StringContains(option.first, ".")) {
       pt.put(option.first, *option.second);
@@ -291,6 +298,12 @@ void BaseOptionManager::Write(const std::string& path) const {
   for (const auto& option : options_string_) {
     if (StringContains(option.first, ".")) {
       pt.put(option.first, *option.second);
+    }
+  }
+
+  for (const auto& option : options_path_) {
+    if (StringContains(option.first, ".")) {
+      pt.put(option.first, option.second->string());
     }
   }
 

@@ -74,14 +74,14 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
   for (int i = 0; i < kNumImages; ++i) {
     const std::string stem = std::to_string(i);
     const std::string image_name = stem + kExtension;
-    test_bitmap.Write(options.image_path + "/" + image_name);
+    test_bitmap.Write(options.image_path / image_name);
     if (kWithMasks) {
       if (i == 0) {
         // append .png to image_name
-        test_bitmap.Write(options.mask_path + "/" + image_name + ".png");
+        test_bitmap.Write(options.mask_path / (image_name + ".png"));
       } else {
         // replace mask extension by .png
-        test_bitmap.Write(options.mask_path + "/" + stem + ".png");
+        test_bitmap.Write(options.mask_path / (stem + ".png"));
       }
     }
     if (kWithExistingImages) {

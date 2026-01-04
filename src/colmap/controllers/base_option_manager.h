@@ -32,6 +32,7 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <string>
@@ -130,8 +131,11 @@ class BaseOptionManager {
   std::vector<std::pair<std::string, const int*>> options_int_;
   std::vector<std::pair<std::string, const double*>> options_double_;
   std::vector<std::pair<std::string, const std::string*>> options_string_;
+  std::vector<std::pair<std::string, const std::filesystem::path*>>
+      options_path_;
 
   // Storage for enum options: string value and conversion callback.
+
   // Uses unique_ptr for pointer stability when the vector grows.
   struct EnumOptionInfo {
     std::string value;            // String value for parsing
@@ -207,6 +211,9 @@ void BaseOptionManager::RegisterOption(const std::string& name,
   } else if constexpr (std::is_same<T, std::string>::value) {
     options_string_.emplace_back(name,
                                  reinterpret_cast<const std::string*>(option));
+  } else if constexpr (std::is_same<T, std::filesystem::path>::value) {
+    options_path_.emplace_back(
+        name, reinterpret_cast<const std::filesystem::path*>(option));
   } else {
     LOG(FATAL_THROW) << "Unsupported option type";
   }

@@ -34,6 +34,8 @@
 #include "colmap/util/file.h"
 #include "colmap/util/timer.h"
 
+#include <filesystem>
+
 namespace colmap {
 namespace {
 
@@ -49,18 +51,18 @@ void IterativeGlobalRefinement(const IncrementalPipelineOptions& options,
   mapper.FilterFrames(mapper_options);
 }
 
-void ExtractColors(const std::string& image_path,
+void ExtractColors(const std::filesystem::path& image_path,
                    const image_t image_id,
                    Reconstruction& reconstruction) {
   if (!reconstruction.ExtractColorsForImage(image_id, image_path)) {
     LOG(WARNING) << StringPrintf("Could not read image %s at path %s.",
                                  reconstruction.Image(image_id).Name().c_str(),
-                                 image_path.c_str());
+                                 image_path.string().c_str());
   }
 }
 
 void WriteSnapshot(const Reconstruction& reconstruction,
-                   const std::string& snapshot_path) {
+                   const std::filesystem::path& snapshot_path) {
   LOG(INFO) << "Creating snapshot";
   // Get the current timestamp in milliseconds.
   const size_t timestamp =
@@ -69,7 +71,7 @@ void WriteSnapshot(const Reconstruction& reconstruction,
           .count();
   // Write reconstruction to unique path with current timestamp.
   const std::string path =
-      JoinPaths(snapshot_path, StringPrintf("%010zu", timestamp));
+      JoinPaths(snapshot_path.string(), StringPrintf("%010zu", timestamp));
   CreateDirIfNotExists(path);
   VLOG(1) << "=> Writing to " << path;
   reconstruction.Write(path);
