@@ -100,6 +100,9 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     tvg_options.ransac_options.max_error = 1.0;
     tvg_options.min_num_inliers = 30;
     tvg_options.min_inlier_ratio = 0.25;
+    // Disable guided matching for GLOBAL mapper because guided matching adds
+    // unverified matches that can contaminate global positioning.
+    option_manager_.feature_matching->guided_matching = false;
   } else {
     tvg_options.ransac_options.max_error = 4.0;
     tvg_options.min_num_inliers = 15;
