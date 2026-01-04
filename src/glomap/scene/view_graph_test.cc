@@ -38,11 +38,6 @@
 namespace glomap {
 namespace {
 
-colmap::Rigid3d TestCam2FromCam1() {
-  return colmap::Rigid3d(Eigen::Quaterniond::UnitRandom(),
-                         Eigen::Vector3d::Random().normalized());
-}
-
 ImagePair SynthesizeImagePair(int num_inliers = 50, int num_matches = 100) {
   THROW_CHECK_LE(num_inliers, num_matches);
   ImagePair pair;
