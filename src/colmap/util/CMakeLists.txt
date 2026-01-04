@@ -176,6 +176,11 @@ if(TESTS_ENABLED)
     endif()
 endif()
 COLMAP_ADD_TEST(
+    NAME version_test
+    SRCS version_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
     NAME threading_test
     SRCS threading_test.cc
     LINK_LIBS colmap_util
