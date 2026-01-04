@@ -198,17 +198,17 @@ inline std::array<Eigen::Vector4d, 6> DecomposeFundamentalMatrixForFetzer(
   const Eigen::Vector3d bj(ppj_u2 * ppj_u2, ppj_u1 * ppj_u2, ppj_u1 * ppj_u1);
 
   const Eigen::Vector4d d01 =
-      ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 1, 0);
-  const Eigen::Vector4d d10 =
       ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 0, 1);
+  const Eigen::Vector4d d10 =
+      ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 1, 0);
   const Eigen::Vector4d d02 =
-      ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 2, 0);
-  const Eigen::Vector4d d20 =
       ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 0, 2);
+  const Eigen::Vector4d d20 =
+      ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 2, 0);
   const Eigen::Vector4d d12 =
-      ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 2, 1);
-  const Eigen::Vector4d d21 =
       ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 1, 2);
+  const Eigen::Vector4d d21 =
+      ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 2, 1);
   return {d01, d10, d02, d20, d12, d21};
 }
 
