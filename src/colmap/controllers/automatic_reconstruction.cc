@@ -96,18 +96,9 @@ AutomaticReconstructionController::AutomaticReconstructionController(
       options_.random_seed;
   option_manager_.mapper->random_seed = options_.random_seed;
 
-  ImageReaderOptions& reader_options = *option_manager_.image_reader;
-  reader_options.image_path = *option_manager_.image_path;
-  reader_options.as_rgb = option_manager_.feature_extraction->RequiresRGB();
   if (!options_.mask_path.empty()) {
-    reader_options.mask_path = options_.mask_path;
-    option_manager_.image_reader->mask_path = options_.mask_path;
     option_manager_.stereo_fusion->mask_path = options_.mask_path;
   }
-  reader_options.single_camera = options_.single_camera;
-  reader_options.single_camera_per_folder = options_.single_camera_per_folder;
-  reader_options.camera_model = options_.camera_model;
-  reader_options.camera_params = options_.camera_params;
 
   option_manager_.feature_extraction->use_gpu = options_.use_gpu;
   option_manager_.feature_matching->use_gpu = options_.use_gpu;
@@ -119,8 +110,25 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.patch_match_stereo->gpu_index = options_.gpu_index;
   option_manager_.mapper->ba_gpu_index = options_.gpu_index;
   option_manager_.bundle_adjustment->gpu_index = options_.gpu_index;
+}
 
+bool AutomaticReconstructionController::RequiresOpenGL() const {
+  return (options_.extraction &&
+          option_manager_.feature_extraction->RequiresOpenGL()) ||
+         (options_.matching &&
+          option_manager_.feature_matching->RequiresOpenGL());
+}
+
+void AutomaticReconstructionController::Setup() {
   if (options_.extraction) {
+    ImageReaderOptions& reader_options = *option_manager_.image_reader;
+    reader_options.mask_path = options_.mask_path;
+    reader_options.single_camera = options_.single_camera;
+    reader_options.single_camera_per_folder = options_.single_camera_per_folder;
+    reader_options.camera_model = options_.camera_model;
+    reader_options.camera_params = options_.camera_params;
+    reader_options.image_path = *option_manager_.image_path;
+    reader_options.as_rgb = option_manager_.feature_extraction->RequiresRGB();
     feature_extractor_ =
         CreateFeatureExtractorController(*option_manager_.database_path,
                                          reader_options,

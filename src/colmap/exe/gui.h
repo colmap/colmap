@@ -27,25 +27,21 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include <iostream>
-
 #if defined(COLMAP_GUI_ENABLED)
 #include <QApplication>
 #else
-// Dummy QApplication class when GUI is disabled
+// Dummy QApplication class when GUI is disabled.
 class QApplication {
  public:
-  QApplication(int argc, char** argv) {}
+  QApplication(int argc, char** argv) {
+    throw std::runtime_error(
+        "Requesting GUI functionality but COLMAP was built without GUI support "
+        "or Qt dependency was not found.");
+  }
 };
 #endif
 
 namespace colmap {
-
-#if defined(COLMAP_CUDA_ENABLED) || !defined(COLMAP_GUI_ENABLED)
-const bool kUseOpenGL = false;
-#else
-const bool kUseOpenGL = true;
-#endif
 
 int RunGraphicalUserInterface(int argc, char** argv);
 int RunProjectGenerator(int argc, char** argv);

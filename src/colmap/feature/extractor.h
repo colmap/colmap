@@ -69,6 +69,9 @@ struct FeatureExtractionOptions {
   // Whether the selected extractor requires RGB (or grayscale) images.
   bool RequiresRGB() const;
 
+  // Whether the selected extractor requires OpenGL.
+  bool RequiresOpenGL() const;
+
   bool Check() const;
 };
 

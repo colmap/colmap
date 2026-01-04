@@ -33,9 +33,33 @@
 #include "colmap/util/misc.h"
 
 namespace colmap {
+namespace {
+
+void ThrowUnknownFeatureMatcherType(FeatureMatcherType type) {
+  std::ostringstream error;
+  error << "Unknown feature matcher type: " << type;
+  throw std::runtime_error(error.str());
+}
+
+}  // namespace
 
 FeatureMatchingOptions::FeatureMatchingOptions(FeatureMatcherType type)
     : type(type), sift(std::make_shared<SiftMatchingOptions>()) {}
+
+bool FeatureMatchingOptions::RequiresOpenGL() const {
+  switch (type) {
+    case FeatureMatcherType::SIFT: {
+#ifdef COLMAP_CUDA_ENABLED
+      return false;
+#else
+      return use_gpu;
+#endif
+    }
+    default:
+      ThrowUnknownFeatureMatcherType(type);
+  }
+  return false;
+}
 
 bool FeatureMatchingOptions::Check() const {
   if (use_gpu) {
@@ -62,9 +86,7 @@ std::unique_ptr<FeatureMatcher> FeatureMatcher::Create(
     case FeatureMatcherType::SIFT:
       return CreateSiftFeatureMatcher(options);
     default:
-      std::ostringstream error;
-      error << "Unknown feature matcher type: " << options.type;
-      throw std::runtime_error(error.str());
+      ThrowUnknownFeatureMatcherType(options.type);
   }
 }
 
