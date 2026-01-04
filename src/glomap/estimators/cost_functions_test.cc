@@ -229,11 +229,11 @@ TEST(FetzerFocalLengthCostFunctor, Nominal) {
 
   FetzerFocalLengthCostFunctor cost_function(F, pp1, pp2);
 
-  Eigen::Vector6d optimal_residual;
+  Eigen::VectorXd optimal_residual(12);
   EXPECT_TRUE(
       cost_function(&focal_length1, &focal_length2, optimal_residual.data()));
 
-  Eigen::Vector6d modified_residual1;
+  Eigen::VectorXd modified_residual1(12);
   {
     const double modified_focal_length1 = focal_length1 + 20;
     EXPECT_TRUE(cost_function(
@@ -241,7 +241,7 @@ TEST(FetzerFocalLengthCostFunctor, Nominal) {
     EXPECT_LT(optimal_residual.norm(), modified_residual1.norm());
   }
 
-  Eigen::Vector6d modified_residual2;
+  Eigen::VectorXd modified_residual2(12);
   {
     const double modified_focal_length2 = focal_length2 + 20;
     EXPECT_TRUE(cost_function(
@@ -250,7 +250,7 @@ TEST(FetzerFocalLengthCostFunctor, Nominal) {
   }
 
   {
-    Eigen::Vector6d modified_residual12;
+    Eigen::VectorXd modified_residual12(12);
     const double modified_focal_length1 = focal_length1 + 40;
     const double modified_focal_length2 = focal_length2 + 40;
     EXPECT_TRUE(cost_function(

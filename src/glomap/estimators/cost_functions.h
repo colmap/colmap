@@ -152,51 +152,64 @@ inline Eigen::Vector4d ComputeFetzerPolynomialCoefficients(
 // Decompose the fundamental matrix (adjusted by principal points) via SVD and
 // compute the polynomial coefficients for the Fetzer focal length method.
 // Returns three coefficient vectors used to estimate the two focal lengths.
-inline std::array<Eigen::Vector4d, 3> DecomposeFundamentalMatrixForFetzer(
-    const Eigen::Matrix3d& i2_F_i1,
-    const Eigen::Vector2d& principal_point1,
-    const Eigen::Vector2d& principal_point2) {
-  Eigen::Matrix3d K1 = Eigen::Matrix3d::Identity(3, 3);
-  K1(0, 2) = principal_point1(0);
-  K1(1, 2) = principal_point1(1);
-
-  Eigen::Matrix3d K2 = Eigen::Matrix3d::Identity(3, 3);
-  K2(0, 2) = principal_point2(0);
-  K2(1, 2) = principal_point2(1);
-
-  const Eigen::Matrix3d i2_G_i1 = K2.transpose() * i2_F_i1 * K1;
-
+inline std::array<Eigen::Vector4d, 6> DecomposeFundamentalMatrixForFetzer(
+    const Eigen::Matrix3d& j_F_i,
+    const Eigen::Vector2d& principal_point_i,
+    const Eigen::Vector2d& principal_point_j) {
   const Eigen::JacobiSVD<Eigen::Matrix3d> svd(
-      i2_G_i1, Eigen::ComputeFullU | Eigen::ComputeFullV);
+      j_F_i, Eigen::ComputeFullU | Eigen::ComputeFullV);
   const Eigen::Vector3d& s = svd.singularValues();
 
-  const Eigen::Vector3d v0 = svd.matrixV().col(0);
-  const Eigen::Vector3d v1 = svd.matrixV().col(1);
+  const Eigen::Vector3d& v1 = svd.matrixV().col(0);
+  const Eigen::Vector3d& v2 = svd.matrixV().col(1);
 
-  const Eigen::Vector3d u0 = svd.matrixU().col(0);
-  const Eigen::Vector3d u1 = svd.matrixU().col(1);
+  const Eigen::Vector3d& u1 = svd.matrixU().col(0);
+  const Eigen::Vector3d& u2 = svd.matrixU().col(1);
 
-  const Eigen::Vector3d ai(s(0) * s(0) * (v0(0) * v0(0) + v0(1) * v0(1)),
-                           s(0) * s(1) * (v0(0) * v1(0) + v0(1) * v1(1)),
-                           s(1) * s(1) * (v1(0) * v1(0) + v1(1) * v1(1)));
+  const double s1 = s(0);
+  const double s2 = s(1);
 
-  const Eigen::Vector3d aj(u1(0) * u1(0) + u1(1) * u1(1),
-                           -(u0(0) * u1(0) + u0(1) * u1(1)),
-                           u0(0) * u0(0) + u0(1) * u0(1));
+  const double v11 = v1(0);
+  const double v12 = v1(1);
+  const double v21 = v2(0);
+  const double v22 = v2(1);
 
-  const Eigen::Vector3d bi(s(0) * s(0) * v0(2) * v0(2),
-                           s(0) * s(1) * v0(2) * v1(2),
-                           s(1) * s(1) * v1(2) * v1(2));
+  const double u11 = u1(0);
+  const double u12 = u1(1);
+  const double u21 = u2(0);
+  const double u22 = u2(1);
 
-  const Eigen::Vector3d bj(u1(2) * u1(2), -(u0(2) * u1(2)), u0(2) * u0(2));
+  const double ppi_v1 = principal_point_i.homogeneous().dot(v1);
+  const double ppi_v2 = principal_point_i.homogeneous().dot(v2);
+  const double ppj_u1 = principal_point_j.homogeneous().dot(v1);
+  const double ppj_u2 = principal_point_j.homogeneous().dot(v2);
+
+  const Eigen::Vector3d ai(s1 * s1 * (v11 * v11 + v12 * v12),
+                           s1 * s2 * (v11 * v21 + v12 * v22),
+                           s2 * s2 * (v21 * v21 + v22 * v22));
+
+  const Eigen::Vector3d aj(
+      u21 * u21 + u22 * u22, u11 * u21 + u12 * u22, u11 * u11 + u12 * u12);
+
+  const Eigen::Vector3d bi(s1 * s1 * ppi_v1 * ppi_v1,
+                           s1 * s2 * ppi_v1 * ppi_v2,
+                           s2 * s2 * ppi_v2 * ppi_v2);
+
+  const Eigen::Vector3d bj(ppj_u2 * ppj_u2, ppj_u1 * ppj_u2, ppj_u1 * ppj_u1);
 
   const Eigen::Vector4d d01 =
       ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 1, 0);
+  const Eigen::Vector4d d10 =
+      ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 0, 1);
   const Eigen::Vector4d d02 =
+      ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 2, 0);
+  const Eigen::Vector4d d20 =
       ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 0, 2);
   const Eigen::Vector4d d12 =
       ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 2, 1);
-  return {d01, d02, d12};
+  const Eigen::Vector4d d21 =
+      ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 1, 2);
+  return {d01, d10, d02, d20, d12, d21};
 }
 
 template <typename T>
@@ -226,51 +239,48 @@ inline T ComputeFetzerResidual2(const Eigen::Vector<T, 4>& d,
 // constraint.
 class FetzerFocalLengthCostFunctor {
  public:
-  FetzerFocalLengthCostFunctor(const Eigen::Matrix3d& i2_F_i1,
-                               const Eigen::Vector2d& principal_point1,
-                               const Eigen::Vector2d& principal_point2)
+  FetzerFocalLengthCostFunctor(const Eigen::Matrix3d& j_F_i,
+                               const Eigen::Vector2d& principal_point_i,
+                               const Eigen::Vector2d& principal_point_j)
       : coeffs_(DecomposeFundamentalMatrixForFetzer(
-            i2_F_i1, principal_point1, principal_point2)) {}
+            j_F_i, principal_point_i, principal_point_j)) {}
 
-  static ceres::CostFunction* Create(const Eigen::Matrix3d& i2_F_i1,
-                                     const Eigen::Vector2d& principal_point1,
-                                     const Eigen::Vector2d& principal_point2) {
+  static ceres::CostFunction* Create(const Eigen::Matrix3d& j_F_i,
+                                     const Eigen::Vector2d& principal_point_i,
+                                     const Eigen::Vector2d& principal_point_j) {
     return new ceres::
-        AutoDiffCostFunction<FetzerFocalLengthCostFunctor, 6, 1, 1>(
+        AutoDiffCostFunction<FetzerFocalLengthCostFunctor, 12, 1, 1>(
             new FetzerFocalLengthCostFunctor(
-                i2_F_i1, principal_point1, principal_point2));
+                j_F_i, principal_point_i, principal_point_j));
   }
 
   template <typename T>
-  bool operator()(const T* const fi, const T* const fj, T* residuals) const {
-    const Eigen::Vector<T, 4> d01 = coeffs_[0].cast<T>();
-    const Eigen::Vector<T, 4> d02 = coeffs_[1].cast<T>();
-    const Eigen::Vector<T, 4> d12 = coeffs_[2].cast<T>();
-
-    const T fi_sq = fi[0] * fi[0];
-    const T fj_sq = fj[0] * fj[0];
-
-    // Original residual:
-    residuals[0] = ComputeFetzerResidual1(d01, fi_sq, fj_sq);
-    residuals[1] = T(0.0);
-    residuals[2] = T(0.0);
-    residuals[3] = T(0.0);
-    residuals[4] = T(0.0);
-    residuals[5] = ComputeFetzerResidual2(d12, fi_sq, fj_sq);
+  bool operator()(const T* const focal_length_i,
+                  const T* const focal_length_j,
+                  T* residuals) const {
+    const T fi_sq = focal_length_i[0] * focal_length_i[0];
+    const T fj_sq = focal_length_j[0] * focal_length_j[0];
 
     // Full residual:
-    // residuals[0] = ComputeFetzerResidual1(d01, fi_sq, fj_sq);
-    // residuals[1] = ComputeFetzerResidual2(d01, fi_sq, fj_sq);
-    // residuals[2] = ComputeFetzerResidual1(d02, fi_sq, fj_sq);
-    // residuals[3] = ComputeFetzerResidual2(d02, fi_sq, fj_sq);
-    // residuals[4] = ComputeFetzerResidual1(d12, fi_sq, fj_sq);
-    // residuals[5] = ComputeFetzerResidual2(d12, fi_sq, fj_sq);
+    for (int i = 0; i < 6; ++i) {
+      const Eigen::Vector<T, 4> di = coeffs_[i].cast<T>();
+      residuals[i] = ComputeFetzerResidual1(di, fi_sq, fj_sq);
+      residuals[2 * i] = ComputeFetzerResidual2(di, fi_sq, fj_sq);
+    }
+
+    // Original residual:
+    // residuals[0] = ComputeFetzerResidual1(coeffs_[0].cast<T>(), fi_sq,
+    // fj_sq); residuals[1] = ComputeFetzerResidual1(coeffs_[4].cast<T>(),
+    // fi_sq, fj_sq); for (int i = 2; i < 12; ++i) {
+    //   residuals[i] = ComputeFetzerResidual1(coeffs_[i].cast<T>(), fi_sq,
+    //   fj_sq);
+    // }
 
     return true;
   }
 
  private:
-  const std::array<Eigen::Vector4d, 3> coeffs_;
+  const std::array<Eigen::Vector4d, 6> coeffs_;
 };
 
 // Cost functor for estimating focal length from the fundamental matrix using
@@ -279,17 +289,16 @@ class FetzerFocalLengthCostFunctor {
 // expected focal length based on the fundamental matrix constraint.
 class FetzerFocalLengthSameCameraCostFunctor {
  public:
-  FetzerFocalLengthSameCameraCostFunctor(const Eigen::Matrix3d& i2_F_i1,
+  FetzerFocalLengthSameCameraCostFunctor(const Eigen::Matrix3d& j_F_i,
                                          const Eigen::Vector2d& principal_point)
       : coeffs_(DecomposeFundamentalMatrixForFetzer(
-            i2_F_i1, principal_point, principal_point)) {}
+            j_F_i, principal_point, principal_point)) {}
 
-  static ceres::CostFunction* Create(const Eigen::Matrix3d& i2_F_i1,
+  static ceres::CostFunction* Create(const Eigen::Matrix3d& j_F_i,
                                      const Eigen::Vector2d& principal_point) {
     return new ceres::
         AutoDiffCostFunction<FetzerFocalLengthSameCameraCostFunctor, 2, 1>(
-            new FetzerFocalLengthSameCameraCostFunctor(i2_F_i1,
-                                                       principal_point));
+            new FetzerFocalLengthSameCameraCostFunctor(j_F_i, principal_point));
   }
 
   template <typename T>
@@ -315,7 +324,7 @@ class FetzerFocalLengthSameCameraCostFunctor {
   }
 
  private:
-  const std::array<Eigen::Vector4d, 3> coeffs_;
+  const std::array<Eigen::Vector4d, 6> coeffs_;
 };
 
 // Computes residual between estimated gravity and measured gravity prior.
