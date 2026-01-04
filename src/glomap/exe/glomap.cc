@@ -164,36 +164,35 @@ int RunRotationAverager(int argc, char** argv) {
     // Initialize frame rotations from gravity.
     // Currently rotation averaging only supports gravity prior on reference
     // sensors.
+    const Eigen::Vector3d kNaNTranslation =
+        Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
     for (const auto& pose_prior : pose_priors) {
       const auto& image = reconstruction.Image(pose_prior.pose_prior_id);
       if (!image.IsRefInFrame()) {
         continue;
       }
-      Rigid3d& rig_from_world =
-          reconstruction.Frame(image.FrameId()).RigFromWorld();
+      Rigid3d rig_from_world;
       rig_from_world.rotation = Eigen::Quaterniond(
           colmap::GravityAlignedRotation(pose_prior.gravity));
+      rig_from_world.translation = kNaNTranslation;
+      reconstruction.Frame(image.FrameId()).SetRigFromWorld(rig_from_world);
     }
   }
-
-  // TODO: This is a misuse of frame registration. Frames should only be
-  // registered when their poses are actually computed, not with arbitrary
-  // identity poses. The rotation averaging code should be updated to work
-  // with unregistered frames.
-  // Register all frames with an initial identity pose so rotation averaging
-  // can work. The actual rotations will be computed by rotation averaging.
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    if (!frame.HasPose()) {
-      reconstruction.Frame(frame_id).SetRigFromWorld(Rigid3d());
-      reconstruction.RegisterFrame(frame_id);
-    }
-  }
-
-  int num_img = view_graph.KeepLargestConnectedComponents(reconstruction);
-  LOG(INFO) << num_img << " / " << reconstruction.NumImages()
-            << " are within the largest connected component";
 
   if (refine_gravity && gravity_path != "") {
+    // Compute largest connected component and invalidate pairs before gravity
+    // refinement.
+    const std::unordered_set<frame_t> active_frame_ids =
+        view_graph.ComputeLargestConnectedFrameComponent(reconstruction,
+                                                         /*filter_unregistered=*/false);
+    std::unordered_set<image_t> active_image_ids;
+    for (const auto& [image_id, image] : reconstruction.Images()) {
+      if (active_frame_ids.count(image.FrameId())) {
+        active_image_ids.insert(image_id);
+      }
+    }
+    view_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
+
     GravityRefiner grav_refiner(*options.gravity_refiner);
     grav_refiner.RefineGravity(view_graph, reconstruction, pose_priors);
   }

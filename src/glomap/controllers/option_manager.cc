@@ -41,6 +41,10 @@ void OptionManager::AddGlobalMapperOptions() {
                               &mapper->skip_retriangulation);
   AddAndRegisterDefaultOption("Mapper.skip_pruning", &mapper->skip_pruning);
 
+  // Rotation averaging options
+  AddAndRegisterDefaultOption("RotationAveraging.max_rotation_error_deg",
+                              &mapper->rotation_averaging.max_rotation_error_deg);
+
   // View graph calibration options
   AddAndRegisterDefaultOption(
       "ViewGraphCalib.min_focal_length_ratio",
@@ -123,8 +127,6 @@ void OptionManager::AddGlobalMapperOptions() {
                               &mapper->retriangulation.min_angle);
 
   // Threshold options
-  AddAndRegisterDefaultOption("Mapper.max_rotation_error_deg",
-                              &mapper->max_rotation_error_deg);
   AddAndRegisterDefaultOption("Mapper.max_angular_reproj_error_deg",
                               &mapper->max_angular_reproj_error_deg);
   AddAndRegisterDefaultOption("Mapper.max_normalized_reproj_error",

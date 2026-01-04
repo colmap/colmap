@@ -128,49 +128,55 @@ void ViewGraph::LoadFromDatabase(const colmap::Database& database,
   }
 }
 
-int ViewGraph::KeepLargestConnectedComponents(
-    colmap::Reconstruction& reconstruction) {
+std::unordered_set<frame_t> ViewGraph::ComputeLargestConnectedFrameComponent(
+    const colmap::Reconstruction& reconstruction,
+    bool filter_unregistered) const {
   std::unordered_set<frame_t> nodes;
   std::vector<std::pair<frame_t, frame_t>> edges;
+
   for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const frame_t frame_id1 = reconstruction.Image(image_id1).FrameId();
     const frame_t frame_id2 = reconstruction.Image(image_id2).FrameId();
+
+    // If filter_unregistered, skip pairs where either frame has no pose.
+    if (filter_unregistered) {
+      if (!reconstruction.Frame(frame_id1).HasPose() ||
+          !reconstruction.Frame(frame_id2).HasPose()) {
+        continue;
+      }
+    }
+
     nodes.insert(frame_id1);
     nodes.insert(frame_id2);
     edges.emplace_back(frame_id1, frame_id2);
   }
 
   if (nodes.empty()) {
-    return 0;
+    return {};
   }
 
   const std::vector<frame_t> largest_component_vec =
       colmap::FindLargestConnectedComponent(nodes, edges);
-  const std::unordered_set<frame_t> largest_component(
-      largest_component_vec.begin(), largest_component_vec.end());
+  return std::unordered_set<frame_t>(largest_component_vec.begin(),
+                                     largest_component_vec.end());
+}
 
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    if (largest_component.count(frame_id) == 0 && frame.HasPose()) {
-      reconstruction.DeRegisterFrame(frame_id);
-    }
-  }
-
+void ViewGraph::InvalidatePairsOutsideActiveImageIds(
+    const std::unordered_set<image_t>& active_image_ids) {
   for (const auto& [pair_id, image_pair] : image_pairs_) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-    if (!reconstruction.Image(image_id1).HasPose() ||
-        !reconstruction.Image(image_id2).HasPose()) {
+    if (!active_image_ids.count(image_id1) ||
+        !active_image_ids.count(image_id2)) {
       SetInvalidImagePair(pair_id);
     }
   }
-
-  return static_cast<int>(largest_component.size());
 }
 
 int ViewGraph::MarkConnectedComponents(
     const colmap::Reconstruction& reconstruction,
     std::unordered_map<frame_t, int>& cluster_ids,
-    int min_num_images) {
+    int min_num_images) const {
   std::unordered_set<frame_t> nodes;
   std::vector<std::pair<frame_t, frame_t>> edges;
   for (const auto& [pair_id, image_pair] : ValidImagePairs()) {

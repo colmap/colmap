@@ -54,9 +54,6 @@ struct RotationAveragingControllerOptions {
 
   // Options for rotation averaging.
   glomap::RotationEstimatorOptions rotation_estimation;
-
-  // Maximum rotation error for filtering.
-  double max_rotation_error_deg = 10.;
 };
 
 class RotationAveragingController : public BaseController {

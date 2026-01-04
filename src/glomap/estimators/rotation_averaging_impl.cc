@@ -79,8 +79,14 @@ RotationAveragingProblem::RotationAveragingProblem(
     const ViewGraph& view_graph,
     colmap::Reconstruction& reconstruction,
     const std::vector<colmap::PosePrior>& pose_priors,
-    const RotationEstimatorOptions& options)
-    : options_(options) {
+    const RotationEstimatorOptions& options,
+    const std::unordered_set<image_t>& active_image_ids)
+    : options_(options), active_image_ids_(active_image_ids) {
+  // Derive active_frame_ids from active_image_ids.
+  for (const image_t image_id : active_image_ids) {
+    active_frame_ids_.insert(reconstruction.Image(image_id).FrameId());
+  }
+
   frame_to_pose_prior_ =
       ExtractFrameToPosePrior(reconstruction.Images(), pose_priors);
 
@@ -106,8 +112,8 @@ size_t RotationAveragingProblem::AllocateParameters(
     for (const auto& data_id : frame.ImageIds()) {
       image_t image_id = data_id.id;
       if (!reconstruction.ExistsImage(image_id)) continue;
+      if (!active_image_ids_.count(image_id)) continue;
       const auto& image = reconstruction.Image(image_id);
-      if (!image.HasPose()) continue;
       camera_id_to_rig_id[image.CameraId()] = frame.RigId();
       // Cache image_id to frame_id mapping.
       image_id_to_frame_id_[image_id] = frame_id;
@@ -140,7 +146,7 @@ size_t RotationAveragingProblem::AllocateParameters(
   // Allocate frame parameters and cache frame info.
   size_t num_params = 0;
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    if (!frame.HasPose()) continue;
+    if (!active_frame_ids_.count(frame_id)) continue;
     frame_id_to_param_idx_[frame_id] = num_params;
 
     const Eigen::Vector3d* frame_gravity =
@@ -160,9 +166,15 @@ size_t RotationAveragingProblem::AllocateParameters(
 
     if (has_gravity) {
       // Gravity-aligned frame: 1-DOF (Y-axis rotation only).
+      Eigen::Matrix3d rig_from_world_rotation;
+      if (frame.MaybeRigFromWorld().has_value()) {
+        rig_from_world_rotation = frame.RigFromWorld().rotation.toRotationMatrix();
+      } else {
+        rig_from_world_rotation = Eigen::Matrix3d::Identity();
+      }
       estimated_rotations_[num_params] = colmap::YAxisAngleFromRotation(
           colmap::GravityAlignedRotation(*frame_gravity).transpose() *
-          frame.RigFromWorld().rotation.toRotationMatrix());
+          rig_from_world_rotation);
       num_params++;
 
       // Use first gravity-aligned frame as fixed frame.
@@ -199,13 +211,18 @@ size_t RotationAveragingProblem::AllocateParameters(
     num_params += 3;
   }
 
-  // If no gravity-aligned frame found, use first registered frame as fixed.
+  // If no gravity-aligned frame found, use first active frame as fixed.
   if (fixed_frame_id_ == colmap::kInvalidFrameId) {
     for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-      if (!frame.HasPose()) continue;
+      if (!active_frame_ids_.count(frame_id)) continue;
       fixed_frame_id_ = frame_id;
-      const Eigen::AngleAxisd rig_from_world(frame.RigFromWorld().rotation);
-      fixed_frame_rotation_ = rig_from_world.angle() * rig_from_world.axis();
+      // Use identity rotation if frame doesn't have a pose yet.
+      if (frame.HasPose()) {
+        const Eigen::AngleAxisd rig_from_world(frame.RigFromWorld().rotation);
+        fixed_frame_rotation_ = rig_from_world.angle() * rig_from_world.axis();
+      } else {
+        fixed_frame_rotation_ = Eigen::Vector3d::Zero();
+      }
       num_gauge_fixing_residuals_ = 3;
       break;
     }
@@ -344,7 +361,10 @@ void RotationAveragingProblem::BuildConstraintMatrix(
     const auto& frame1 = *image1.FramePtr();
     const auto& frame2 = *image2.FramePtr();
 
-    if (!frame1.HasPose() || !frame2.HasPose()) continue;
+    if (!active_frame_ids_.count(frame1.FrameId()) ||
+        !active_frame_ids_.count(frame2.FrameId())) {
+      continue;
+    }
 
     const int frame_param_idx1 = frame_id_to_param_idx_[frame1.FrameId()];
     const int frame_param_idx2 = frame_id_to_param_idx_[frame2.FrameId()];

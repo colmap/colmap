@@ -43,7 +43,6 @@ struct GlobalMapperOptions {
   }();
 
   // Thresholds for each component.
-  double max_rotation_error_deg = 10.;        // for rotation averaging
   double max_angular_reproj_error_deg = 1.;   // for global positioning
   double max_normalized_reproj_error = 1e-2;  // for bundle adjustment
   double min_tri_angle_deg = 1.;              // for triangulation
@@ -75,8 +74,7 @@ class GlobalMapper {
              std::unordered_map<frame_t, int>& cluster_ids);
 
   // Run rotation averaging to estimate global rotations.
-  bool RotationAveraging(const RotationEstimatorOptions& options,
-                         double max_rotation_error_deg);
+  bool RotationAveraging(const RotationEstimatorOptions& options);
 
   // Establish tracks from feature matches.
   void EstablishTracks(const TrackEstablishmentOptions& options);

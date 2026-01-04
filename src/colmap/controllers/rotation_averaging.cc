@@ -75,8 +75,7 @@ void RotationAveragingController::Run() {
   }
 
   LOG(INFO) << "----- Running rotation averaging -----";
-  if (!mapper.RotationAveraging(options.rotation_estimation,
-                                options.max_rotation_error_deg)) {
+  if (!mapper.RotationAveraging(options.rotation_estimation)) {
     LOG(ERROR) << "Failed to solve rotation averaging";
     return;
   }
