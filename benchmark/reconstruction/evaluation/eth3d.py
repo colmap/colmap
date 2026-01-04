@@ -75,7 +75,7 @@ class DatasetETH3D(Dataset):
                     workspace_path=workspace_path,
                     image_path=image_path,
                     sparse_gt_path=sparse_gt_path,
-                    camera_priors_from_sparse_gt=True,
+                    has_camera_priors=True,
                     colmap_extra_args=colmap_extra_args,
                 )
 
