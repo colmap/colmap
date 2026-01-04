@@ -647,7 +647,8 @@ std::unique_ptr<VisualIndex> VisualIndex::Create(int desc_dim,
 
 std::unique_ptr<VisualIndex> VisualIndex::Read(
     const std::filesystem::path& vocab_tree_path) {
-  const std::string resolved_path = MaybeDownloadAndCacheFile(vocab_tree_path.string());
+  const std::string resolved_path =
+      MaybeDownloadAndCacheFile(vocab_tree_path.string());
 
   std::ifstream file(resolved_path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, resolved_path);
