@@ -92,8 +92,24 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.mapper->num_threads = options_.num_threads;
   option_manager_.poisson_meshing->num_threads = options_.num_threads;
 
-  option_manager_.two_view_geometry->ransac_options.random_seed =
-      options_.random_seed;
+  // Apply mapper-appropriate two-view geometry defaults.
+  // Global uses stricter thresholds; Incremental/Hierarchical use standard.
+  TwoViewGeometryOptions& two_view_geometry_options =
+      *option_manager_.two_view_geometry;
+  two_view_geometry_options.ransac_options.random_seed = options_.random_seed;
+  if (options_.mapper == Mapper::GLOBAL) {
+    two_view_geometry_options.ransac_options.max_error = 1.0;
+    two_view_geometry_options.min_num_inliers = 30;
+    two_view_geometry_options.min_inlier_ratio = 0.25;
+    // Disable guided matching for global mapper to avoid regression issues.
+    // Currently the guided matching leads to significantly worse results of the
+    // global pipeline.
+    // TODO: Write to database matches instead of inlier matches in guided
+    // matching and figure out a good min_num_inliers and min_inlier_ratio
+    // threshold for it.
+    option_manager_.feature_matching->guided_matching = false;
+  }
+
   option_manager_.mapper->random_seed = options_.random_seed;
 
   ImageReaderOptions& reader_options = *option_manager_.image_reader;
