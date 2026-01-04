@@ -60,8 +60,8 @@ class SceneInfo:
     image_path: Path
     # Path to the ground-truth sparse reconstruction.
     sparse_gt_path: Path
-    # Whether to update camera priors from the ground-truth reconstruction.
-    camera_priors_from_sparse_gt: bool
+    # Whether the dataset has camera priors.
+    has_camera_priors: bool
     # Additional arguments for the COLMAP reconstruction command.
     colmap_extra_args: list[str]
 
@@ -196,6 +196,14 @@ def parse_args() -> argparse.Namespace:
         "--quality", default="high", choices=["low", "medium", "high"]
     )
     parser.add_argument(
+        "--uncalibrated",
+        default=False,
+        action="store_true",
+        help="Whether to evaluate the setting of uncalibrated input cameras, "
+        "even if normal setting for the dataset contains calibrated inputs. "
+        "This is useful for evaluating the performance of self-calibration.",
+    )
+    parser.add_argument(
         "--error_type",
         default="relative_auc",
         choices=[
@@ -241,7 +249,7 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def update_camera_priors_from_sparse_gt(
+def set_camera_priors(
     database_path: Path, camera_priors_sparse_gt: pycolmap.Reconstruction
 ) -> None:
     pycolmap.logging.info("Setting prior cameras from GT")
@@ -341,9 +349,7 @@ def colmap_reconstruction(
     )
 
     if camera_priors_sparse_gt is not None:
-        update_camera_priors_from_sparse_gt(
-            database_path, camera_priors_sparse_gt
-        )
+        set_camera_priors(database_path, camera_priors_sparse_gt)
 
     subprocess.check_call(
         colmap_args
@@ -435,7 +441,9 @@ def process_scene(
         workspace_path=scene_info.workspace_path,
         image_path=scene_info.image_path,
         camera_priors_sparse_gt=(
-            sparse_gt if scene_info.camera_priors_from_sparse_gt else None
+            sparse_gt
+            if not args.uncalibrated and scene_info.has_camera_priors
+            else None
         ),
         num_threads=num_threads,
         colmap_extra_args=scene_info.colmap_extra_args,
