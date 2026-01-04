@@ -36,6 +36,7 @@
 #include "colmap/util/ply.h"
 
 #include <cfloat>
+#include <filesystem>
 #include <vector>
 
 #include <Eigen/Core>
@@ -45,7 +46,7 @@ namespace mvs {
 
 struct StereoFusionOptions {
   // Path for PNG masks. Same format expected as ImageReaderOptions.
-  std::string mask_path = "";
+  std::filesystem::path mask_path = "";
 
   // The number of threads to use during fusion.
   int num_threads = -1;
@@ -98,7 +99,7 @@ struct StereoFusionOptions {
 class StereoFusion : public BaseController {
  public:
   StereoFusion(const StereoFusionOptions& options,
-               const std::string& workspace_path,
+               const std::filesystem::path& workspace_path,
                const std::string& workspace_format,
                const std::string& pmvs_option_name,
                const std::string& input_type);
@@ -169,7 +170,7 @@ class StereoFusion : public BaseController {
 // correspond to the image_id of a Reconstruction, but the index of the image in
 // the mvs::Model, which is the location of the image in the images.bin/.txt.
 void WritePointsVisibility(
-    const std::string& path,
+    const std::filesystem::path& path,
     const std::vector<std::vector<int>>& points_visibility);
 
 }  // namespace mvs

@@ -37,6 +37,7 @@
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
 
+#include <filesystem>
 #include <unordered_set>
 
 #include <Eigen/Geometry>
@@ -107,12 +108,12 @@ bool StereoFusionOptions::Check() const {
 }
 
 StereoFusion::StereoFusion(const StereoFusionOptions& options,
-                           const std::string& workspace_path,
+                           const std::filesystem::path& workspace_path,
                            const std::string& workspace_format,
                            const std::string& pmvs_option_name,
                            const std::string& input_type)
     : options_(options),
-      workspace_path_(workspace_path),
+      workspace_path_(workspace_path.string()),
       workspace_format_(workspace_format),
       pmvs_option_name_(pmvs_option_name),
       input_type_(input_type),
@@ -345,9 +346,9 @@ void StereoFusion::InitFusedPixelMask(int image_idx,
   const std::string mask_image_name =
       workspace_->GetModel().GetImageName(image_idx);
   std::string mask_path =
-      JoinPaths(options_.mask_path, mask_image_name + ".png");
+      JoinPaths(options_.mask_path.string(), mask_image_name + ".png");
   if (!ExistsFile(mask_path) && HasFileExtension(mask_image_name, ".png")) {
-    mask_path = JoinPaths(options_.mask_path, mask_image_name);
+    mask_path = JoinPaths(options_.mask_path.string(), mask_image_name);
   }
   fused_pixel_mask = Mat<char>(width, height, 1);
   if (!options_.mask_path.empty() && ExistsFile(mask_path) &&
@@ -558,10 +559,10 @@ void StereoFusion::Fuse(const int thread_id,
 }
 
 void WritePointsVisibility(
-    const std::string& path,
+    const std::filesystem::path& path,
     const std::vector<std::vector<int>>& points_visibility) {
-  std::fstream file(path, std::ios::out | std::ios::binary);
-  THROW_CHECK_FILE_OPEN(file, path);
+  std::fstream file(path.string(), std::ios::out | std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path.string());
 
   WriteBinaryLittleEndian<uint64_t>(&file, points_visibility.size());
 
