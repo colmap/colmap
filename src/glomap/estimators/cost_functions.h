@@ -272,8 +272,7 @@ class FetzerFocalLengthCostFunctor {
     // residuals[0] = ComputeFetzerResidual1(coeffs_[0].cast<T>(), fi_sq,
     // fj_sq); residuals[1] = ComputeFetzerResidual1(coeffs_[4].cast<T>(),
     // fi_sq, fj_sq); for (int i = 2; i < 12; ++i) {
-    //   residuals[i] = ComputeFetzerResidual1(coeffs_[i].cast<T>(), fi_sq,
-    //   fj_sq);
+    //   residuals[i] = T(0);
     // }
 
     return true;
