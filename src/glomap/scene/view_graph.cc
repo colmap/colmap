@@ -5,6 +5,18 @@
 #include "colmap/scene/two_view_geometry.h"
 
 namespace glomap {
+namespace {
+
+std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
+    const colmap::FeatureKeypoints& keypoints) {
+  std::vector<Eigen::Vector2d> points(keypoints.size());
+  for (size_t i = 0; i < keypoints.size(); i++) {
+    points[i] = Eigen::Vector2d(keypoints[i].x, keypoints[i].y);
+  }
+  return points;
+}
+
+}  // namespace
 
 void ViewGraph::LoadFromDatabase(const colmap::Database& database,
                                  bool allow_duplicate) {
@@ -13,13 +25,13 @@ void ViewGraph::LoadFromDatabase(const colmap::Database& database,
 
   // Read cameras and images upfront for pose decomposition.
   std::unordered_map<colmap::camera_t, colmap::Camera> cameras;
-  for (const auto& camera : database.ReadAllCameras()) {
-    cameras.emplace(camera.camera_id, camera);
+  for (auto& camera : database.ReadAllCameras()) {
+    cameras.emplace(camera.camera_id, std::move(camera));
   }
 
   std::unordered_map<image_t, colmap::Image> images;
-  for (const auto& image : database.ReadAllImages()) {
-    images.emplace(image.ImageId(), image);
+  for (auto& image : database.ReadAllImages()) {
+    images.emplace(image.ImageId(), std::move(image));
   }
 
   size_t invalid_count = 0;
@@ -75,19 +87,10 @@ void ViewGraph::LoadFromDatabase(const colmap::Database& database,
         const colmap::Camera& camera1 = cameras.at(image1.CameraId());
         const colmap::Camera& camera2 = cameras.at(image2.CameraId());
 
-        const colmap::FeatureKeypoints keypoints1 =
-            database.ReadKeypoints(image_id1);
-        std::vector<Eigen::Vector2d> points1(keypoints1.size());
-        for (size_t i = 0; i < keypoints1.size(); i++) {
-          points1[i] = Eigen::Vector2d(keypoints1[i].x, keypoints1[i].y);
-        }
-
-        const colmap::FeatureKeypoints keypoints2 =
-            database.ReadKeypoints(image_id2);
-        std::vector<Eigen::Vector2d> points2(keypoints2.size());
-        for (size_t i = 0; i < keypoints2.size(); i++) {
-          points2[i] = Eigen::Vector2d(keypoints2[i].x, keypoints2[i].y);
-        }
+        const std::vector<Eigen::Vector2d> points1 =
+            FeatureKeypointsToPointsVector(database.ReadKeypoints(image_id1));
+        const std::vector<Eigen::Vector2d> points2 =
+            FeatureKeypointsToPointsVector(database.ReadKeypoints(image_id2));
 
         decompose_count++;
         const bool success = colmap::EstimateTwoViewGeometryPose(

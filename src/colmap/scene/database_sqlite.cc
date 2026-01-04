@@ -948,8 +948,13 @@ class SqliteDatabase : public Database {
         sql_stmt_read_two_view_geometry_, rc, 6);
 
     // Read the pose data if present (NULL means not set).
-    if (sqlite3_column_type(sql_stmt_read_two_view_geometry_, 7) !=
-        SQLITE_NULL) {
+    const bool has_qvec =
+        sqlite3_column_type(sql_stmt_read_two_view_geometry_, 7) != SQLITE_NULL;
+    const bool has_tvec =
+        sqlite3_column_type(sql_stmt_read_two_view_geometry_, 8) != SQLITE_NULL;
+    THROW_CHECK_EQ(has_qvec, has_tvec)
+        << "qvec and tvec must both be NULL or both be non-NULL";
+    if (has_qvec) {
       const Eigen::Vector4d quat_wxyz = ReadStaticMatrixBlob<Eigen::Vector4d>(
           sql_stmt_read_two_view_geometry_, rc, 7);
       Rigid3d cam2_from_cam1;
@@ -1002,8 +1007,15 @@ class SqliteDatabase : public Database {
           sql_stmt_read_two_view_geometries_, rc, 7);
 
       // Read the pose data if present (NULL means not set).
-      if (sqlite3_column_type(sql_stmt_read_two_view_geometries_, 8) !=
-          SQLITE_NULL) {
+      const bool has_qvec =
+          sqlite3_column_type(sql_stmt_read_two_view_geometries_, 8) !=
+          SQLITE_NULL;
+      const bool has_tvec =
+          sqlite3_column_type(sql_stmt_read_two_view_geometries_, 9) !=
+          SQLITE_NULL;
+      THROW_CHECK_EQ(has_qvec, has_tvec)
+          << "qvec and tvec must both be NULL or both be non-NULL";
+      if (has_qvec) {
         const Eigen::Vector4d quat_wxyz = ReadStaticMatrixBlob<Eigen::Vector4d>(
             sql_stmt_read_two_view_geometries_, rc, 8);
         Rigid3d cam2_from_cam1;

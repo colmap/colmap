@@ -354,7 +354,8 @@ TEST(ViewGraph, LoadFromDatabase) {
   colmap::TwoViewGeometry two_view;
   two_view.config = colmap::TwoViewGeometry::CALIBRATED;
   two_view.inlier_matches = {{0, 0}, {1, 1}};
-  two_view.cam2_from_cam1 = TestCam2FromCam1();
+  two_view.cam2_from_cam1 = colmap::Rigid3d(
+      Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random().normalized());
 
   // Database1: pairs (1,2) and (2,3)
   database1->WriteMatches(1, 2, colmap::FeatureMatches(10));
