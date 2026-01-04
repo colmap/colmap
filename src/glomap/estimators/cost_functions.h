@@ -205,8 +205,8 @@ inline T ComputeFetzerResidual1(const Eigen::Vector<T, 4>& d,
                                 const T& fj_sq) {
   T denom = (fj_sq * d(0) + d(1));
   denom = denom == T(0) ? T(1e-6) : denom;
-  const T K2 = -(fj_sq * d(2) + d(3)) / denom;
-  return (fi_sq - K2) / fi_sq;
+  const T K1 = -(fj_sq * d(2) + d(3)) / denom;
+  return (fi_sq - K1) / fi_sq;
 }
 
 template <typename T>
