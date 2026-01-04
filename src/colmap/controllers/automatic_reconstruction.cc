@@ -102,14 +102,12 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     two_view_geometry_options.min_num_inliers = 30;
     two_view_geometry_options.min_inlier_ratio = 0.25;
     // Disable guided matching for global mapper to avoid regression issues.
+    // Currently the guided matching leads to significantly worse results of the
+    // global pipeline.
     // TODO: Write to database matches instead of inlier matches in guided
     // matching and figure out a good min_num_inliers and min_inlier_ratio
     // threshold for it.
     option_manager_.feature_matching->guided_matching = false;
-  } else {
-    two_view_geometry_options.ransac_options.max_error = 4.0;
-    two_view_geometry_options.min_num_inliers = 15;
-    two_view_geometry_options.min_inlier_ratio = 0.0;
   }
 
   option_manager_.mapper->random_seed = options_.random_seed;
