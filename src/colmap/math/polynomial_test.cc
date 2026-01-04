@@ -81,10 +81,10 @@ TEST(FindLinearPolynomialRoots, Nominal) {
   EXPECT_FALSE(FindLinearPolynomialRoots(Eigen::Vector2d(0, 1), &real, &imag));
 }
 
-TEST(FindQuadraticPolynomialRootsReal, Nominal) {
+TEST(FindQuadraticPolynomialRoots, Real) {
   Eigen::VectorXd real;
   Eigen::VectorXd imag;
-  Eigen::Vector3d coeffs(3, -2, -4);
+  Eigen::Vector3d coeffs(3, -2, -4);  // negative b
   EXPECT_TRUE(FindQuadraticPolynomialRoots(coeffs, &real, &imag));
   EXPECT_THAT(
       real, EigenMatrixNear(Eigen::Vector2d(-0.868517092, 1.535183758), 1e-6));
@@ -97,9 +97,24 @@ TEST(FindQuadraticPolynomialRootsReal, Nominal) {
       EvaluatePolynomial(coeffs, std::complex<double>(real(1), imag(1))).imag(),
       0.0,
       1e-6);
+  coeffs = Eigen::Vector3d(1, 5, 2);  // positive b
+  EXPECT_TRUE(FindQuadraticPolynomialRoots(coeffs, &real, &imag));
+  EXPECT_THAT(
+      real,
+      EigenMatrixNear(Eigen::Vector2d(-4.561552812808831, -0.4384471871911697),
+                      1e-6));
+  EXPECT_EQ(imag, Eigen::Vector2d(0, 0));
+  EXPECT_NEAR(
+      EvaluatePolynomial(coeffs, std::complex<double>(real(0), imag(0))).real(),
+      0.0,
+      1e-6);
+  EXPECT_NEAR(
+      EvaluatePolynomial(coeffs, std::complex<double>(real(1), imag(1))).real(),
+      0.0,
+      1e-6);
 }
 
-TEST(FindQuadraticPolynomialRootsComplex, Nominal) {
+TEST(FindQuadraticPolynomialRoots, Complex) {
   Eigen::VectorXd real;
   Eigen::VectorXd imag;
   const Eigen::Vector3d coeffs(
@@ -121,6 +136,50 @@ TEST(FindQuadraticPolynomialRootsComplex, Nominal) {
       EvaluatePolynomial(coeffs, std::complex<double>(real(1), imag(1))).imag(),
       0.0,
       1e-6);
+}
+
+TEST(FindQuadraticPolynomialRoots, ZeroLeadingCoefficient) {
+  Eigen::VectorXd real;
+  Eigen::VectorXd imag;
+  Eigen::Vector3d coeffs(0, 2, -4);
+  EXPECT_TRUE(FindQuadraticPolynomialRoots(coeffs, &real, &imag));
+  ASSERT_EQ(real.size(), 1);
+  ASSERT_EQ(imag.size(), 1);
+  EXPECT_EQ(real(0), 2.0);
+  EXPECT_EQ(imag(0), 0);
+}
+
+TEST(FindQuadraticPolynomialRoots, OnlyZeroSolution) {
+  Eigen::VectorXd real;
+  Eigen::VectorXd imag;
+  Eigen::Vector3d coeffs(0, 2, 0);
+  EXPECT_TRUE(FindQuadraticPolynomialRoots(coeffs, &real, &imag));
+  ASSERT_EQ(real.size(), 1);
+  ASSERT_EQ(imag.size(), 1);
+  EXPECT_EQ(real(0), 0);
+  EXPECT_EQ(imag(0), 0);
+}
+
+TEST(FindQuadraticPolynomialRoots, OnlyLeadingCoefficientNonZero) {
+  Eigen::VectorXd real;
+  Eigen::VectorXd imag;
+  Eigen::Vector3d coeffs(5, 0, 0);
+
+  EXPECT_TRUE(FindQuadraticPolynomialRoots(coeffs, &real, &imag));
+  EXPECT_EQ(real.size(), 1);
+  EXPECT_EQ(imag.size(), 1);
+  EXPECT_EQ(real(0), 0);
+  EXPECT_EQ(imag(0), 0);
+
+  EXPECT_TRUE(FindQuadraticPolynomialRoots(coeffs, &real, nullptr));
+  EXPECT_EQ(real.size(), 1);
+  EXPECT_EQ(real(0), 0);
+
+  EXPECT_TRUE(FindQuadraticPolynomialRoots(coeffs, nullptr, &imag));
+  EXPECT_EQ(imag.size(), 1);
+  EXPECT_EQ(imag(0), 0);
+
+  EXPECT_TRUE(FindQuadraticPolynomialRoots(coeffs, nullptr, nullptr));
 }
 
 TEST(FindCubicPolynomialRoots, SingleRoot) {
@@ -175,7 +234,7 @@ TEST(FindPolynomialRootsDurandKerner, Nominal) {
   EXPECT_THAT(imag, EigenMatrixNear(ref_imag, 1e-6));
 }
 
-TEST(FindPolynomialRootsDurandKernerLinearQuadratic, Nominal) {
+TEST(FindPolynomialRootsDurandKerner, LinearQuadratic) {
   CHECK_EQUAL_RESULT(FindPolynomialRootsDurandKerner,
                      Eigen::Vector2d(1, 2),
                      FindLinearPolynomialRoots,
@@ -209,7 +268,7 @@ TEST(FindPolynomialRootsCompanionMatrix, Nominal) {
   EXPECT_THAT(imag, EigenMatrixNear(ref_imag, 1e-6));
 }
 
-TEST(FindPolynomialRootsCompanionMatrixLinearQuadratic, Nominal) {
+TEST(FindPolynomialRootsCompanionMatrix, LinearQuadratic) {
   CHECK_EQUAL_RESULT(FindPolynomialRootsCompanionMatrix,
                      Eigen::Vector2d(1, 2),
                      FindLinearPolynomialRoots,
@@ -228,7 +287,7 @@ TEST(FindPolynomialRootsCompanionMatrixLinearQuadratic, Nominal) {
                      Eigen::Vector3d(1, 2, 3));
 }
 
-TEST(FindPolynomialRootsCompanionMatrixZeroSolution, Nominal) {
+TEST(FindPolynomialRootsCompanionMatrix, ZeroSolution) {
   Eigen::VectorXd real;
   Eigen::VectorXd imag;
   Eigen::VectorXd coeffs(5);
@@ -241,6 +300,29 @@ TEST(FindPolynomialRootsCompanionMatrixZeroSolution, Nominal) {
   Eigen::VectorXd ref_imag(4);
   ref_imag << 0, 0.651148, -0.651148, 0;
   EXPECT_THAT(imag, EigenMatrixNear(ref_imag, 1e-6));
+}
+
+TEST(FindPolynomialRootsCompanionMatrix, OnlyZeroSolution) {
+  Eigen::VectorXd real;
+  Eigen::VectorXd imag;
+  Eigen::VectorXd coeffs(6);
+  coeffs << 0, 0, 5, 0, 0, 0;
+
+  EXPECT_TRUE(FindPolynomialRootsCompanionMatrix(coeffs, &real, &imag));
+  ASSERT_EQ(real.size(), 1);
+  ASSERT_EQ(imag.size(), 1);
+  EXPECT_EQ(real(0), 0);
+  EXPECT_EQ(imag(0), 0);
+
+  EXPECT_TRUE(FindPolynomialRootsCompanionMatrix(coeffs, nullptr, &imag));
+  ASSERT_EQ(imag.size(), 1);
+  EXPECT_EQ(imag(0), 0);
+
+  EXPECT_TRUE(FindPolynomialRootsCompanionMatrix(coeffs, &real, nullptr));
+  ASSERT_EQ(real.size(), 1);
+  EXPECT_EQ(real(0), 0);
+
+  EXPECT_TRUE(FindPolynomialRootsCompanionMatrix(coeffs, nullptr, nullptr));
 }
 
 }  // namespace
