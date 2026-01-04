@@ -39,7 +39,19 @@ const char* COLMAP_VERSION = "${COLMAP_VERSION}";
 const char* COLMAP_COMMIT_ID = "${GIT_COMMIT_ID}";
 const char* COLMAP_COMMIT_DATE = "${GIT_COMMIT_DATE}";
 
+constexpr int kVersionMajor = ${COLMAP_VERSION_MAJOR};
+constexpr int kVersionMinor = ${COLMAP_VERSION_MINOR};
+constexpr int kVersionPatch = ${COLMAP_VERSION_PATCH};
+
+// Increment for database schema changes within a release.
+constexpr int kDatabaseSchemaRevision = 0;
+
 }  // namespace
+
+int GetDatabaseVersionNumber() {
+  return MakeDatabaseVersionNumber(
+      kVersionMajor, kVersionMinor, kVersionPatch, kDatabaseSchemaRevision);
+}
 
 std::string GetVersionInfo() {
   return StringPrintf("COLMAP %s", COLMAP_VERSION);

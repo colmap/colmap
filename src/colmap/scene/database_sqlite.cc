@@ -30,6 +30,7 @@
 #include "colmap/scene/database.h"
 #include "colmap/util/endian.h"
 #include "colmap/util/string.h"
+#include "colmap/util/version.h"
 
 #include <sqlite3.h>
 
@@ -2043,10 +2044,10 @@ class SqliteDatabase : public Database {
       SQLITE3_CALL(sqlite3_finalize(version_stmt));
     }
 
-    // Migrate identity poses to NULL for old databases. Before version 3901,
+    // Migrate identity poses to NULL for old databases. Before version 3.14.0,
     // identity was used as sentinel for "not set". New databases correctly
     // write NULL for unset and can store actual identity poses.
-    if (user_version < 3901) {
+    if (user_version < MakeDatabaseVersionNumber(3, 14, 0, 0)) {
       sqlite3_stmt* read_stmt;
       SQLITE3_CALL(sqlite3_prepare_v2(
           database_,
@@ -2119,7 +2120,7 @@ class SqliteDatabase : public Database {
     // Update user version number.
     std::unique_lock<std::mutex> lock(update_schema_mutex_);
     const std::string update_user_version_sql =
-        StringPrintf("PRAGMA user_version = 3901;");
+        StringPrintf("PRAGMA user_version = %d;", GetDatabaseVersionNumber());
     SQLITE3_EXEC(database_, update_user_version_sql.c_str(), nullptr);
   }
 

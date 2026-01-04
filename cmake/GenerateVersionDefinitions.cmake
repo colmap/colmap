@@ -55,5 +55,11 @@ else()
     set(GIT_COMMIT_DATE "Unknown")
 endif()
 
+# Parse COLMAP_VERSION to extract MAJOR, MINOR, PATCH components.
+string(REGEX MATCH "^([0-9]+)\\.([0-9]+)\\.([0-9]+)" _version_match "${COLMAP_VERSION}")
+set(COLMAP_VERSION_MAJOR "${CMAKE_MATCH_1}")
+set(COLMAP_VERSION_MINOR "${CMAKE_MATCH_2}")
+set(COLMAP_VERSION_PATCH "${CMAKE_MATCH_3}")
+
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/colmap/util/version.cc.in"
                "${CMAKE_CURRENT_SOURCE_DIR}/src/colmap/util/version.cc")
