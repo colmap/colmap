@@ -450,7 +450,7 @@ class FaissVisualIndex : public VisualIndex {
   void ReadFromFaiss(const std::filesystem::path& path, long offset) override {
     FILE* fin = nullptr;
 #ifdef _MSC_VER
-    THROW_CHECK_EQ(fopen_s(&fin, path.c_str(), "rb"), 0);
+    THROW_CHECK_EQ(fopen_s(&fin, path.string().c_str(), "rb"), 0);
 #else
     fin = fopen(path.c_str(), "rb");
 #endif
@@ -491,7 +491,7 @@ class FaissVisualIndex : public VisualIndex {
     {
       FILE* fout = nullptr;
 #ifdef _MSC_VER
-      THROW_CHECK_EQ(fopen_s(&fout, path.c_str(), "ab"), 0);
+      THROW_CHECK_EQ(fopen_s(&fout, path.string().c_str(), "ab"), 0);
 #else
       fout = fopen(path.c_str(), "ab");
 #endif
@@ -647,7 +647,7 @@ std::unique_ptr<VisualIndex> VisualIndex::Create(int desc_dim,
 
 std::unique_ptr<VisualIndex> VisualIndex::Read(
     const std::filesystem::path& vocab_tree_path) {
-  const std::string resolved_path = MaybeDownloadAndCacheFile(vocab_tree_path);
+  const std::string resolved_path = MaybeDownloadAndCacheFile(vocab_tree_path.string());
 
   std::ifstream file(resolved_path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, resolved_path);
