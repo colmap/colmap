@@ -9,7 +9,6 @@
 
 #include "glomap/estimators/rotation_averaging.h"
 #include "glomap/processors/reconstruction_pruning.h"
-#include "glomap/processors/view_graph_manipulation.h"
 
 namespace glomap {
 
@@ -350,10 +349,6 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     }
     LOG(INFO) << "View graph calibration done in " << run_timer.ElapsedSeconds()
               << " seconds";
-  } else {
-    // Decompose relative poses when skipping view graph calibration.
-    ViewGraphManipulator::DecomposeRelativePoses(
-        *view_graph_, *reconstruction_, opts.num_threads);
   }
 
   // Run rotation averaging

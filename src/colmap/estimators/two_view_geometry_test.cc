@@ -121,33 +121,33 @@ TwoViewGeometryPoseTestData CreateTwoViewGeometryPoseTestData(
       image2.CamFromWorld() * Inverse(image1.CamFromWorld());
 
   if (config == TwoViewGeometry::ConfigurationType::CALIBRATED) {
-    data.geometry.E = EssentialMatrixFromPose(data.geometry.cam2_from_cam1);
+    data.geometry.E = EssentialMatrixFromPose(*data.geometry.cam2_from_cam1);
   } else if (config == TwoViewGeometry::ConfigurationType::UNCALIBRATED) {
     data.geometry.F = FundamentalFromEssentialMatrix(
         data.camera2.CalibrationMatrix(),
-        EssentialMatrixFromPose(data.geometry.cam2_from_cam1),
+        EssentialMatrixFromPose(*data.geometry.cam2_from_cam1),
         data.camera1.CalibrationMatrix());
   } else if (config == TwoViewGeometry::ConfigurationType::PLANAR) {
     const Eigen::Vector3d homography_plane_normal =
         image1.CamFromWorld().rotation *
         -(image1.ViewingDirection() + image2.ViewingDirection()).normalized();
     constexpr double kHomographyPlaneDistance = 1;
-    data.geometry.H =
-        HomographyMatrixFromPose(data.camera1.CalibrationMatrix(),
-                                 data.camera2.CalibrationMatrix(),
-                                 data.geometry.cam2_from_cam1.rotation.matrix(),
-                                 data.geometry.cam2_from_cam1.translation,
-                                 homography_plane_normal,
-                                 kHomographyPlaneDistance);
+    data.geometry.H = HomographyMatrixFromPose(
+        data.camera1.CalibrationMatrix(),
+        data.camera2.CalibrationMatrix(),
+        data.geometry.cam2_from_cam1->rotation.matrix(),
+        data.geometry.cam2_from_cam1->translation,
+        homography_plane_normal,
+        kHomographyPlaneDistance);
   } else if (config == TwoViewGeometry::ConfigurationType::PANORAMIC) {
-    data.geometry.cam2_from_cam1.translation = Eigen::Vector3d::Zero();
-    data.geometry.H =
-        HomographyMatrixFromPose(data.camera1.CalibrationMatrix(),
-                                 data.camera2.CalibrationMatrix(),
-                                 data.geometry.cam2_from_cam1.rotation.matrix(),
-                                 data.geometry.cam2_from_cam1.translation,
-                                 Eigen::Vector3d::UnitZ(),
-                                 1);
+    data.geometry.cam2_from_cam1->translation = Eigen::Vector3d::Zero();
+    data.geometry.H = HomographyMatrixFromPose(
+        data.camera1.CalibrationMatrix(),
+        data.camera2.CalibrationMatrix(),
+        data.geometry.cam2_from_cam1->rotation.matrix(),
+        data.geometry.cam2_from_cam1->translation,
+        Eigen::Vector3d::UnitZ(),
+        1);
   } else {
     LOG(FATAL) << "Invalid configuration.";
   }
@@ -177,16 +177,18 @@ bool CheckEqualTwoViewGeometry(const TwoViewGeometry& geometry,
                                double rotation_tol,
                                double translation_tol,
                                bool normalized_translation) {
+  THROW_CHECK(geometry.cam2_from_cam1.has_value());
+  THROW_CHECK(expected_geometry.cam2_from_cam1.has_value());
   const double tri_angle_error =
       std::abs(geometry.tri_angle - expected_geometry.tri_angle);
   const double rotation_error =
-      geometry.cam2_from_cam1.rotation.angularDistance(
-          expected_geometry.cam2_from_cam1.rotation);
+      geometry.cam2_from_cam1->rotation.angularDistance(
+          expected_geometry.cam2_from_cam1->rotation);
   const double translation_error =
-      (geometry.cam2_from_cam1.translation -
+      (geometry.cam2_from_cam1->translation -
        (normalized_translation
-            ? expected_geometry.cam2_from_cam1.translation.normalized()
-            : expected_geometry.cam2_from_cam1.translation))
+            ? expected_geometry.cam2_from_cam1->translation.normalized()
+            : expected_geometry.cam2_from_cam1->translation))
           .norm();
   if (tri_angle_error > tri_angle_tol || rotation_error > rotation_tol ||
       translation_error > translation_tol) {
@@ -669,7 +671,7 @@ TEST(TwoViewGeometryFromKnownRelativePose, Nominal) {
                                              test_data.points1,
                                              test_data.camera2,
                                              test_data.points2,
-                                             test_data.geometry.cam2_from_cam1,
+                                             *test_data.geometry.cam2_from_cam1,
                                              test_data.geometry.inlier_matches,
                                              /*min_num_inliers=*/15,
                                              /*max_error=*/4.0);
@@ -743,8 +745,9 @@ TEST(EstimateRigTwoViewGeometries, Nominal) {
   for (const auto& [image_pair, geometry] : geometries) {
     EXPECT_EQ(geometry.config,
               TwoViewGeometry::ConfigurationType::CALIBRATED_RIG);
+    ASSERT_TRUE(geometry.cam2_from_cam1.has_value());
     EXPECT_THAT(
-        geometry.cam2_from_cam1,
+        *geometry.cam2_from_cam1,
         Rigid3dNear(
             test_data.reconstruction.Image(image_pair.second).CamFromWorld() *
                 Inverse(test_data.reconstruction.Image(image_pair.first)
