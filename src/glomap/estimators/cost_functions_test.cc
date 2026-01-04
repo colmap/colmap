@@ -29,6 +29,7 @@
 
 #include "glomap/estimators/cost_functions.h"
 
+#include "colmap/geometry/essential_matrix.h"
 #include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
@@ -210,14 +211,63 @@ TEST(RigUnknownBATAPairwiseDirectionCostFunctor, CreateCostFunction) {
 
 // TODO(jsch): Add meaningful tests for FetzerFocalLengthCostFunctor.
 
+TEST(FetzerFocalLengthCostFunctor, Nominal) {
+  const double focal_length1 = 128;
+  const double focal_length2 = 192;
+  const Eigen::Vector2d pp1(320, 240);
+  const Eigen::Vector2d pp2(480, 320);
+  const colmap::Rigid3d cam2_from_cam1(Eigen::Quaterniond(0, 1, 0, 0),
+                                       Eigen::Vector3d(1, 2, 3).normalized());
+
+  Eigen::Matrix3d K1;
+  K1 << focal_length1, 0, pp1(0), 0, focal_length1, pp1(1), 0, 0, 1;
+  Eigen::Matrix3d K2;
+  K2 << focal_length2, 0, pp2(0), 0, focal_length2, pp2(1), 0, 0, 1;
+
+  const Eigen::Matrix3d F = colmap::FundamentalFromEssentialMatrix(
+      K2, colmap::EssentialMatrixFromPose(cam2_from_cam1), K1);
+
+  FetzerFocalLengthCostFunctor cost_function(F, pp1, pp2);
+
+  Eigen::Vector6d optimal_residual;
+  EXPECT_TRUE(
+      cost_function(&focal_length1, &focal_length2, optimal_residual.data()));
+
+  Eigen::Vector6d modified_residual1;
+  {
+    const double modified_focal_length1 = focal_length1 + 20;
+    EXPECT_TRUE(cost_function(
+        &modified_focal_length1, &focal_length2, modified_residual1.data()));
+    EXPECT_LT(optimal_residual.norm(), modified_residual1.norm());
+  }
+
+  Eigen::Vector6d modified_residual2;
+  {
+    const double modified_focal_length2 = focal_length2 + 20;
+    EXPECT_TRUE(cost_function(
+        &focal_length1, &modified_focal_length2, modified_residual2.data()));
+    EXPECT_LT(optimal_residual.norm(), modified_residual2.norm());
+  }
+
+  {
+    Eigen::Vector6d modified_residual12;
+    const double modified_focal_length1 = focal_length1 + 40;
+    const double modified_focal_length2 = focal_length2 + 40;
+    EXPECT_TRUE(cost_function(
+        &focal_length1, &modified_focal_length2, modified_residual12.data()));
+    EXPECT_LT(modified_residual1.norm(), modified_residual12.norm());
+    EXPECT_LT(modified_residual2.norm(), modified_residual12.norm());
+  }
+}
+
 TEST(FetzerFocalLengthCostFunctor, CreateCostFunction) {
   Eigen::Matrix3d F;
   F << 0, 0, 0.1, 0, 0, 0.2, -0.1, -0.2, 0;
-  const Eigen::Vector2d pp0(320, 240);
   const Eigen::Vector2d pp1(320, 240);
+  const Eigen::Vector2d pp2(320, 240);
 
   std::unique_ptr<ceres::CostFunction> cost_function(
-      FetzerFocalLengthCostFunctor::Create(F, pp0, pp1));
+      FetzerFocalLengthCostFunctor::Create(F, pp1, pp2));
   ASSERT_NE(cost_function, nullptr);
 }
 
