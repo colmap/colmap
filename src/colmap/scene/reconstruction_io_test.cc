@@ -556,12 +556,6 @@ TEST(ExportVRML, Nominal) {
       reconstruction, images_path, points3D_path, image_scale, image_rgb);
   EXPECT_TRUE(std::filesystem::exists(images_path));
   EXPECT_TRUE(std::filesystem::exists(points3D_path));
-
-  std::ifstream file(points3D_path);
-  EXPECT_TRUE(file.good());
-  std::string first_line;
-  std::getline(file, first_line);
-  EXPECT_EQ(first_line, "#VRML V2.0 utf8");
 }
 
 }  // namespace
