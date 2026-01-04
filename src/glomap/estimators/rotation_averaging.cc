@@ -279,7 +279,8 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
         !reconstruction.ExistsImage(image_id2)) {
       continue;
     }
-    if (!active_image_ids.count(image_id1) || !active_image_ids.count(image_id2)) {
+    if (!active_image_ids.count(image_id1) ||
+        !active_image_ids.count(image_id2)) {
       continue;
     }
 
@@ -354,15 +355,13 @@ bool RotationEstimator::SolveRotationAveraging(
     const std::unordered_set<image_t>& active_image_ids) {
   // Initialize rotations from maximum spanning tree.
   if (!options_.skip_initialization && !options_.use_gravity) {
-    InitializeFromMaximumSpanningTree(view_graph, active_image_ids, reconstruction);
+    InitializeFromMaximumSpanningTree(
+        view_graph, active_image_ids, reconstruction);
   }
 
   // Build the optimization problem.
-  RotationAveragingProblem problem(view_graph,
-                                   reconstruction,
-                                   pose_priors,
-                                   options_,
-                                   active_image_ids);
+  RotationAveragingProblem problem(
+      view_graph, reconstruction, pose_priors, options_, active_image_ids);
 
   // Solve and apply results.
   RotationAveragingSolver solver(options_);
@@ -541,10 +540,8 @@ bool SolveRotationAveraging(const RotationEstimatorOptions& options,
     view_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
 
     RotationEstimator rotation_estimator(options);
-    if (!rotation_estimator.EstimateRotations(view_graph,
-                                              pose_priors,
-                                              reconstruction,
-                                              active_image_ids)) {
+    if (!rotation_estimator.EstimateRotations(
+            view_graph, pose_priors, reconstruction, active_image_ids)) {
       return false;
     }
   } else {
@@ -570,10 +567,11 @@ bool SolveRotationAveraging(const RotationEstimatorOptions& options,
     view_graph.InvalidatePairsOutsideActiveImageIds(expanded_active_image_ids);
 
     RotationEstimator rotation_estimator_expanded(options);
-    if (!rotation_estimator_expanded.EstimateRotations(view_graph,
-                                                       pose_priors,
-                                                       recon_expanded,
-                                                       expanded_active_image_ids)) {
+    if (!rotation_estimator_expanded.EstimateRotations(
+            view_graph,
+            pose_priors,
+            recon_expanded,
+            expanded_active_image_ids)) {
       return false;
     }
 
@@ -603,10 +601,8 @@ bool SolveRotationAveraging(const RotationEstimatorOptions& options,
     options_ra.skip_initialization = true;
     options_ra.use_stratified = false;
     RotationEstimator rotation_estimator(options_ra);
-    if (!rotation_estimator.EstimateRotations(view_graph,
-                                              pose_priors,
-                                              reconstruction,
-                                              active_image_ids)) {
+    if (!rotation_estimator.EstimateRotations(
+            view_graph, pose_priors, reconstruction, active_image_ids)) {
       return false;
     }
   }

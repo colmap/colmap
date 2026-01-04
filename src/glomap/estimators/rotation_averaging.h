@@ -96,10 +96,11 @@ class RotationEstimator {
       const std::unordered_set<image_t>& active_image_ids);
 
   // Core rotation averaging solver.
-  bool SolveRotationAveraging(const ViewGraph& view_graph,
-                              const std::vector<colmap::PosePrior>& pose_priors,
-                              colmap::Reconstruction& reconstruction,
-                              const std::unordered_set<image_t>& active_image_ids);
+  bool SolveRotationAveraging(
+      const ViewGraph& view_graph,
+      const std::vector<colmap::PosePrior>& pose_priors,
+      colmap::Reconstruction& reconstruction,
+      const std::unordered_set<image_t>& active_image_ids);
 
   // Initializes rotations from maximum spanning tree.
   void InitializeFromMaximumSpanningTree(

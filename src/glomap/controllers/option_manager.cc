@@ -42,8 +42,9 @@ void OptionManager::AddGlobalMapperOptions() {
   AddAndRegisterDefaultOption("Mapper.skip_pruning", &mapper->skip_pruning);
 
   // Rotation averaging options
-  AddAndRegisterDefaultOption("RotationAveraging.max_rotation_error_deg",
-                              &mapper->rotation_averaging.max_rotation_error_deg);
+  AddAndRegisterDefaultOption(
+      "RotationAveraging.max_rotation_error_deg",
+      &mapper->rotation_averaging.max_rotation_error_deg);
 
   // View graph calibration options
   AddAndRegisterDefaultOption(

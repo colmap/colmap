@@ -183,8 +183,9 @@ int RunRotationAverager(int argc, char** argv) {
     // Compute largest connected component and invalidate pairs before gravity
     // refinement.
     const std::unordered_set<frame_t> active_frame_ids =
-        view_graph.ComputeLargestConnectedFrameComponent(reconstruction,
-                                                         /*filter_unregistered=*/false);
+        view_graph.ComputeLargestConnectedFrameComponent(
+            reconstruction,
+            /*filter_unregistered=*/false);
     std::unordered_set<image_t> active_image_ids;
     for (const auto& [image_id, image] : reconstruction.Images()) {
       if (active_frame_ids.count(image.FrameId())) {

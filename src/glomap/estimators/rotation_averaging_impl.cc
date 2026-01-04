@@ -168,7 +168,8 @@ size_t RotationAveragingProblem::AllocateParameters(
       // Gravity-aligned frame: 1-DOF (Y-axis rotation only).
       Eigen::Matrix3d rig_from_world_rotation;
       if (frame.MaybeRigFromWorld().has_value()) {
-        rig_from_world_rotation = frame.RigFromWorld().rotation.toRotationMatrix();
+        rig_from_world_rotation =
+            frame.RigFromWorld().rotation.toRotationMatrix();
       } else {
         rig_from_world_rotation = Eigen::Matrix3d::Identity();
       }

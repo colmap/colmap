@@ -52,14 +52,16 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
   // connected component.
   RotationEstimatorOptions opts = options;
   opts.filter_unregistered = false;
-  if (!SolveRotationAveraging(opts, *view_graph_, *reconstruction_, pose_priors)) {
+  if (!SolveRotationAveraging(
+          opts, *view_graph_, *reconstruction_, pose_priors)) {
     return false;
   }
 
   // Second pass: re-solve on registered frames only to refine rotations
   // after outlier removal.
   opts.filter_unregistered = true;
-  if (!SolveRotationAveraging(opts, *view_graph_, *reconstruction_, pose_priors)) {
+  if (!SolveRotationAveraging(
+          opts, *view_graph_, *reconstruction_, pose_priors)) {
     return false;
   }
 
