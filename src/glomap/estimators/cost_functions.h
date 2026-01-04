@@ -250,6 +250,7 @@ class FetzerFocalLengthCostFunctor {
     const T fi_sq = fi[0] * fi[0];
     const T fj_sq = fj[0] * fj[0];
 
+    // Original residual:
     residuals[0] = ComputeFetzerResidual1(d01, fi_sq, fj_sq);
     residuals[1] = T(0.0);
     residuals[2] = T(0.0);
