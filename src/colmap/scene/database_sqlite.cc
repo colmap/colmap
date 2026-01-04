@@ -2044,10 +2044,10 @@ class SqliteDatabase : public Database {
       SQLITE3_CALL(sqlite3_finalize(version_stmt));
     }
 
-    // Migrate identity poses to NULL for old databases. Before version 3.14.0,
-    // identity was used as sentinel for "not set". New databases correctly
-    // write NULL for unset and can store actual identity poses.
-    if (user_version < MakeDatabaseVersionNumber(3, 14, 0, 0)) {
+    // Migrate identity poses to NULL for old databases. In version 3.13.0 and
+    // earlier, identity was used as sentinel for "not set". New databases
+    // correctly write NULL for unset and can store actual identity poses.
+    if (user_version <= MakeDatabaseVersionNumber(3, 13, 0, 0)) {
       sqlite3_stmt* read_stmt;
       SQLITE3_CALL(sqlite3_prepare_v2(
           database_,
