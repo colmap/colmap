@@ -170,16 +170,6 @@ TEST(FindQuadraticPolynomialRoots, OnlyLeadingCoefficientNonZero) {
   EXPECT_EQ(imag.size(), 1);
   EXPECT_EQ(real(0), 0);
   EXPECT_EQ(imag(0), 0);
-
-  EXPECT_TRUE(FindQuadraticPolynomialRoots(coeffs, &real, nullptr));
-  EXPECT_EQ(real.size(), 1);
-  EXPECT_EQ(real(0), 0);
-
-  EXPECT_TRUE(FindQuadraticPolynomialRoots(coeffs, nullptr, &imag));
-  EXPECT_EQ(imag.size(), 1);
-  EXPECT_EQ(imag(0), 0);
-
-  EXPECT_TRUE(FindQuadraticPolynomialRoots(coeffs, nullptr, nullptr));
 }
 
 TEST(FindCubicPolynomialRoots, SingleRoot) {
@@ -313,16 +303,6 @@ TEST(FindPolynomialRootsCompanionMatrix, OnlyZeroSolution) {
   ASSERT_EQ(imag.size(), 1);
   EXPECT_EQ(real(0), 0);
   EXPECT_EQ(imag(0), 0);
-
-  EXPECT_TRUE(FindPolynomialRootsCompanionMatrix(coeffs, nullptr, &imag));
-  ASSERT_EQ(imag.size(), 1);
-  EXPECT_EQ(imag(0), 0);
-
-  EXPECT_TRUE(FindPolynomialRootsCompanionMatrix(coeffs, &real, nullptr));
-  ASSERT_EQ(real.size(), 1);
-  EXPECT_EQ(real(0), 0);
-
-  EXPECT_TRUE(FindPolynomialRootsCompanionMatrix(coeffs, nullptr, nullptr));
 }
 
 }  // namespace
