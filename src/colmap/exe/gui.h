@@ -27,19 +27,13 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include <stdexcept>
-
 #if defined(COLMAP_GUI_ENABLED)
 #include <QApplication>
 #else
 // Dummy QApplication class when GUI is disabled.
 class QApplication {
  public:
-  QApplication(int argc, char** argv) {
-    throw std::runtime_error(
-        "Requesting GUI functionality but COLMAP was built without GUI support "
-        "or Qt dependency was not found.");
-  }
+  QApplication(int argc, char** argv) = default;
 };
 #endif
 
