@@ -32,6 +32,7 @@
 #include "colmap/math/random.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/sensor/models.h"
 
 #include <gtest/gtest.h>
 
@@ -48,6 +49,8 @@ TEST(CalibrateViewGraph, Nominal) {
   options.num_cameras_per_rig = 1;
   options.num_frames_per_rig = 1;
   options.num_points3D = 200;
+  options.camera_model_id = SimplePinholeCameraModel::model_id;
+  options.camera_params = {1280, 512, 384};
   options.camera_has_prior_focal_length = false;
 
   Reconstruction reconstruction;
@@ -105,6 +108,8 @@ TEST(CalibrateViewGraph, PriorFocalLength) {
   options.num_cameras_per_rig = 1;
   options.num_frames_per_rig = 1;
   options.num_points3D = 200;
+  options.camera_model_id = SimplePinholeCameraModel::model_id;
+  options.camera_params = {1280, 512, 384};
   options.camera_has_prior_focal_length = true;
 
   Reconstruction reconstruction;
@@ -139,6 +144,8 @@ TEST(CalibrateViewGraph, ConfigTagging) {
   options.num_cameras_per_rig = 1;
   options.num_frames_per_rig = 1;
   options.num_points3D = 200;
+  options.camera_model_id = SimplePinholeCameraModel::model_id;
+  options.camera_params = {1280, 512, 384};
   options.camera_has_prior_focal_length = false;
 
   Reconstruction reconstruction;
@@ -175,6 +182,8 @@ TEST(CalibrateViewGraph, RelativePoseReestimation) {
   options.num_cameras_per_rig = 1;
   options.num_frames_per_rig = 1;
   options.num_points3D = 200;
+  options.camera_model_id = SimplePinholeCameraModel::model_id;
+  options.camera_params = {1280, 512, 384};
   options.camera_has_prior_focal_length = false;
 
   Reconstruction reconstruction;
