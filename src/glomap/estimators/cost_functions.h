@@ -270,7 +270,7 @@ class FetzerFocalLengthCostFunctor {
     const T fi_sq = focal_length_i[0] * focal_length_i[0];
     const T fj_sq = focal_length_j[0] * focal_length_j[0];
 
-    // The total of 12 residuals only contribute 2 independent constraints.
+    // The total of 6 residuals only contribute 2 independent constraints.
     // We still compute all of them to obtain a "quasi-symmetric" and smooth
     // energy landscape according to the paper.
     for (int i = 0; i < 3; ++i) {
@@ -316,7 +316,7 @@ class FetzerFocalLengthSameCameraCostFunctor {
   bool operator()(const T* const focal_length, T* residuals) const {
     const T f_sq = focal_length[0] * focal_length[0];
 
-    // The total of 12 residuals only contribute 2 independent constraints.
+    // The total of 6 residuals only contribute 2 independent constraints.
     // We still compute all of them to obtain a "quasi-symmetric" and smooth
     // energy landscape according to the paper.
     for (int i = 0; i < 3; ++i) {
