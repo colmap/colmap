@@ -246,16 +246,16 @@ TwoViewGeometry EstimateMultipleTwoViewGeometries(
       break;
     }
 
-    if (options.multiple_ignore_watermark) {
-      if (geometry.config != TwoViewGeometry::ConfigurationType::WATERMARK) {
-        geometries.push_back(geometry);
-      }
-    } else {
-      geometries.push_back(geometry);
-    }
-
     remaining_matches =
         ExtractOutlierMatches(remaining_matches, geometry.inlier_matches);
+
+    if (options.multiple_ignore_watermark) {
+      if (geometry.config != TwoViewGeometry::ConfigurationType::WATERMARK) {
+        geometries.push_back(std::move(geometry));
+      }
+    } else {
+      geometries.push_back(std::move(geometry));
+    }
   }
 
   if (geometries.empty()) {

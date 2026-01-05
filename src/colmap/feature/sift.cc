@@ -117,6 +117,7 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
     THROW_CHECK(options_.Check());
     THROW_CHECK(!options_.sift->estimate_affine_shape);
     THROW_CHECK(!options_.sift->domain_size_pooling);
+    THROW_CHECK(!options_.sift->force_covariant_extractor);
     if (options_.sift->darkness_adaptivity) {
       WarnDarknessAdaptivityNotAvailable();
     }
@@ -524,6 +525,7 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
     THROW_CHECK(options_.Check());
     THROW_CHECK(!options_.sift->estimate_affine_shape);
     THROW_CHECK(!options_.sift->domain_size_pooling);
+    THROW_CHECK(!options_.sift->force_covariant_extractor);
   }
 
   static std::unique_ptr<FeatureExtractor> Create(

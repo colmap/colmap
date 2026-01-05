@@ -36,10 +36,7 @@
 #include "colmap/controllers/option_manager.h"
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/exe/gui.h"
-#include "colmap/geometry/pose.h"
-#include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/scene/rig.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
@@ -149,15 +146,14 @@ int RunAutomaticReconstructor(int argc, char** argv) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
 
-  if (reconstruction_options.use_gpu && kUseOpenGL &&
-      (reconstruction_options.extraction || reconstruction_options.matching)) {
+  AutomaticReconstructionController controller(reconstruction_options,
+                                               reconstruction_manager);
+  if (controller.RequiresOpenGL()) {
     QApplication app(argc, argv);
-    AutomaticReconstructionController controller(reconstruction_options,
-                                                 reconstruction_manager);
+    controller.Setup();
     RunThreadWithOpenGLContext(&controller);
   } else {
-    AutomaticReconstructionController controller(reconstruction_options,
-                                                 reconstruction_manager);
+    controller.Setup();
     controller.Start();
     controller.Wait();
   }
