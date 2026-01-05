@@ -37,7 +37,7 @@
 namespace colmap {
 
 GlobalPipeline::GlobalPipeline(
-    const glomap::GlobalMapperOptions& options,
+    const GlobalPipelineOptions& options,
     std::shared_ptr<Database> database,
     std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager)
     : options_(options),
@@ -56,10 +56,16 @@ void GlobalPipeline::Run() {
     return;
   }
 
+  // Prepare mapper options with top-level options.
+  glomap::GlobalMapperOptions mapper_options = options_.mapper;
+  mapper_options.image_path = options_.image_path;
+  mapper_options.num_threads = options_.num_threads;
+  mapper_options.random_seed = options_.random_seed;
+
   Timer run_timer;
   run_timer.Start();
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(options_, cluster_ids);
+  global_mapper.Solve(mapper_options, cluster_ids);
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 
