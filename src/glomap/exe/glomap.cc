@@ -164,22 +164,21 @@ int RunRotationAverager(int argc, char** argv) {
     // Initialize frame rotations from gravity.
     // Currently rotation averaging only supports gravity prior on reference
     // sensors.
-    const Eigen::Vector3d kNaNTranslation =
+    const Eigen::Vector3d kUnknownTranslation =
         Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
     for (const auto& pose_prior : pose_priors) {
       const auto& image = reconstruction.Image(pose_prior.pose_prior_id);
       if (!image.IsRefInFrame()) {
         continue;
       }
-      Rigid3d rig_from_world;
-      rig_from_world.rotation = Eigen::Quaterniond(
-          colmap::GravityAlignedRotation(pose_prior.gravity));
-      rig_from_world.translation = kNaNTranslation;
-      reconstruction.Frame(image.FrameId()).SetRigFromWorld(rig_from_world);
+      reconstruction.Frame(image.FrameId()).SetRigFromWorld(Rigid3d(
+          Eigen::Quaterniond(
+              colmap::GravityAlignedRotation(pose_prior.gravity)),
+          kUnknownTranslation));
     }
   }
 
-  if (refine_gravity && gravity_path != "") {
+  if (refine_gravity && !gravity_path.empty()) {
     // Compute largest connected component and invalidate pairs before gravity
     // refinement.
     const std::unordered_set<frame_t> active_frame_ids =

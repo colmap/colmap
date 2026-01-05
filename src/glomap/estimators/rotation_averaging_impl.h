@@ -39,10 +39,10 @@ class RotationAveragingProblem {
   };
 
   RotationAveragingProblem(const ViewGraph& view_graph,
-                           colmap::Reconstruction& reconstruction,
                            const std::vector<colmap::PosePrior>& pose_priors,
                            const RotationEstimatorOptions& options,
-                           const std::unordered_set<image_t>& active_image_ids);
+                           const std::unordered_set<image_t>& active_image_ids,
+                           colmap::Reconstruction& reconstruction);
 
   // Computes residual vector b from current rotation estimates.
   void ComputeResiduals();
@@ -110,12 +110,10 @@ class RotationAveragingProblem {
 
   // Cached lookups for ComputeResiduals and UpdateState.
   std::unordered_map<image_t, frame_t> image_id_to_frame_id_;
+  std::unordered_map<camera_t, rig_t> camera_id_to_rig_id_;
   std::unordered_map<camera_t, std::vector<frame_t>> camera_to_frame_ids_;
 
-  // Active image ids for the current solve.
-  const std::unordered_set<image_t>& active_image_ids_;
-
-  // Derived from active_image_ids_.
+  // Active frames for the current solve.
   std::unordered_set<frame_t> active_frame_ids_;
 };
 

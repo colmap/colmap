@@ -147,19 +147,17 @@ colmap::Reconstruction CreateExpandedReconstruction(
         Rig rig_singleton;
         rig_singleton.SetRigId(singleton_rig_id);
         rig_singleton.AddRefSensor(sensor_id);
-        recon_expanded.AddRig(rig_singleton);
+        recon_expanded.AddRig(std::move(rig_singleton));
         singleton_rig_ids[sensor_id.id] = singleton_rig_id;
       }
     }
-    recon_expanded.AddRig(rig_expanded);
+    recon_expanded.AddRig(std::move(rig_expanded));
   }
 
-  frame_t max_frame_id = 0;
+  frame_t next_frame_id = 0;
   for (const auto& [frame_id, _] : reconstruction.Frames()) {
-    THROW_CHECK_NE(frame_id, colmap::kInvalidFrameId);
-    max_frame_id = std::max(max_frame_id, frame_id);
+    next_frame_id = std::max(next_frame_id, frame_id + 1);
   }
-  max_frame_id++;
 
   const Eigen::Quaterniond kUnknownRotation = Eigen::Quaterniond(
       Eigen::Vector4d::Constant(std::numeric_limits<double>::quiet_NaN()));
@@ -176,7 +174,7 @@ colmap::Reconstruction CreateExpandedReconstruction(
     } else {
       frame_expanded.SetRigFromWorld(kUnknownPose);
     }
-    recon_expanded.AddFrame(frame_expanded);
+    recon_expanded.AddFrame(std::move(frame_expanded));
   }
 
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
@@ -193,10 +191,10 @@ colmap::Reconstruction CreateExpandedReconstruction(
 
       // Check if camera belongs to this frame's rig (ref sensor or known
       // cam_from_rig).
-      const sensor_t sensor_id(SensorType::CAMERA, image.CameraId());
       const bool belongs_to_frame_rig =
-          original_rig.RefSensorId() == sensor_id ||
-          original_rig.MaybeSensorFromRig(sensor_id).has_value();
+          original_rig.RefSensorId() == image.CameraPtr()->SensorId() ||
+          original_rig.MaybeSensorFromRig(image.CameraPtr()->SensorId())
+              .has_value();
 
       if (belongs_to_frame_rig) {
         // Camera belongs to this frame's rig.
@@ -205,13 +203,13 @@ colmap::Reconstruction CreateExpandedReconstruction(
         recon_expanded.AddImage(std::move(image_expanded));
       } else {
         // Camera has its own singleton rig, create a new frame for it.
-        const frame_t new_frame_id = ++max_frame_id;
+        const frame_t new_frame_id = next_frame_id++;
         Frame new_frame;
         new_frame.SetFrameId(new_frame_id);
         new_frame.SetRigId(singleton_rig_ids.at(image.CameraId()));
         new_frame.AddDataId(image_expanded.DataId());
         new_frame.SetRigFromWorld(kUnknownPose);
-        recon_expanded.AddFrame(new_frame);
+        recon_expanded.AddFrame(std::move(new_frame));
 
         image_expanded.SetFrameId(new_frame_id);
         recon_expanded.AddImage(std::move(image_expanded));
@@ -227,8 +225,8 @@ colmap::Reconstruction CreateExpandedReconstruction(
 bool RotationEstimator::EstimateRotations(
     const ViewGraph& view_graph,
     const std::vector<colmap::PosePrior>& pose_priors,
-    colmap::Reconstruction& reconstruction,
-    const std::unordered_set<image_t>& active_image_ids) {
+    const std::unordered_set<image_t>& active_image_ids,
+    colmap::Reconstruction& reconstruction) {
   if (options_.use_gravity && !AllSensorsFromRigKnown(reconstruction.Rigs())) {
     return false;
   }
@@ -236,14 +234,14 @@ bool RotationEstimator::EstimateRotations(
   // Handle stratified solving for mixed gravity systems.
   if (options_.use_gravity && options_.use_stratified) {
     if (!MaybeSolveGravityAlignedSubset(
-            view_graph, pose_priors, reconstruction, active_image_ids)) {
+            view_graph, pose_priors, active_image_ids, reconstruction)) {
       return false;
     }
   }
 
   // Solve the full system.
   if (!SolveRotationAveraging(
-          view_graph, pose_priors, reconstruction, active_image_ids)) {
+          view_graph, pose_priors, active_image_ids, reconstruction)) {
     return false;
   }
 
@@ -260,8 +258,8 @@ bool RotationEstimator::EstimateRotations(
 bool RotationEstimator::MaybeSolveGravityAlignedSubset(
     const ViewGraph& view_graph,
     const std::vector<colmap::PosePrior>& pose_priors,
-    colmap::Reconstruction& reconstruction,
-    const std::unordered_set<image_t>& active_image_ids) {
+    const std::unordered_set<image_t>& active_image_ids,
+    colmap::Reconstruction& reconstruction) {
   // Build map from image to pose prior.
   std::unordered_map<image_t, const colmap::PosePrior*> image_to_pose_prior;
   for (const auto& pose_prior : pose_priors) {
@@ -322,8 +320,8 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
 
     if (!SolveRotationAveraging(gravity_view_graph,
                                 pose_priors,
-                                gravity_reconstruction,
-                                gravity_image_ids)) {
+                                gravity_image_ids,
+                                gravity_reconstruction)) {
       return false;
     }
 
@@ -351,8 +349,8 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
 bool RotationEstimator::SolveRotationAveraging(
     const ViewGraph& view_graph,
     const std::vector<colmap::PosePrior>& pose_priors,
-    colmap::Reconstruction& reconstruction,
-    const std::unordered_set<image_t>& active_image_ids) {
+    const std::unordered_set<image_t>& active_image_ids,
+    colmap::Reconstruction& reconstruction) {
   // Initialize rotations from maximum spanning tree.
   if (!options_.skip_initialization && !options_.use_gravity) {
     InitializeFromMaximumSpanningTree(
@@ -361,7 +359,7 @@ bool RotationEstimator::SolveRotationAveraging(
 
   // Build the optimization problem.
   RotationAveragingProblem problem(
-      view_graph, reconstruction, pose_priors, options_, active_image_ids);
+      view_graph, pose_priors, options_, active_image_ids, reconstruction);
 
   // Solve and apply results.
   RotationAveragingSolver solver(options_);
@@ -462,7 +460,7 @@ bool InitializeRigRotationsFromImages(
     }
   }
 
-  const Eigen::Vector3d kNaNTranslation =
+  const Eigen::Vector3d kUnknownTranslation =
       Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
 
   std::vector<double> weights;
@@ -473,7 +471,7 @@ bool InitializeRigRotationsFromImages(
         colmap::AverageQuaternions(samples, weights);
     reconstruction.Rig(rig_id).SetSensorFromRig(
         sensor_t(SensorType::CAMERA, camera_id),
-        Rigid3d(cam_from_rig, kNaNTranslation));
+        Rigid3d(cam_from_rig, kUnknownTranslation));
   }
 
   // Step 2: Compute rig_from_world for each frame by averaging across images.
@@ -497,8 +495,7 @@ bool InitializeRigRotationsFromImages(
       } else {
         const auto& maybe_cam_from_rig =
             reconstruction.Rig(frame.RigId())
-                .MaybeSensorFromRig(
-                    sensor_t(SensorType::CAMERA, image.CameraId()));
+                .MaybeSensorFromRig(image.CameraPtr()->SensorId());
         if (!maybe_cam_from_rig.has_value()) {
           continue;
         }
@@ -513,7 +510,7 @@ bool InitializeRigRotationsFromImages(
       const Eigen::Quaterniond rig_from_world =
           colmap::AverageQuaternions(rig_from_world_samples, weights);
       reconstruction.Frame(frame_id).SetRigFromWorld(
-          Rigid3d(rig_from_world, kNaNTranslation));
+          Rigid3d(rig_from_world, kUnknownTranslation));
     }
   }
 
@@ -541,7 +538,7 @@ bool SolveRotationAveraging(const RotationEstimatorOptions& options,
 
     RotationEstimator rotation_estimator(options);
     if (!rotation_estimator.EstimateRotations(
-            view_graph, pose_priors, reconstruction, active_image_ids)) {
+            view_graph, pose_priors, active_image_ids, reconstruction)) {
       return false;
     }
   } else {
@@ -570,8 +567,8 @@ bool SolveRotationAveraging(const RotationEstimatorOptions& options,
     if (!rotation_estimator_expanded.EstimateRotations(
             view_graph,
             pose_priors,
-            recon_expanded,
-            expanded_active_image_ids)) {
+            expanded_active_image_ids,
+            recon_expanded)) {
       return false;
     }
 
@@ -602,7 +599,7 @@ bool SolveRotationAveraging(const RotationEstimatorOptions& options,
     options_ra.use_stratified = false;
     RotationEstimator rotation_estimator(options_ra);
     if (!rotation_estimator.EstimateRotations(
-            view_graph, pose_priors, reconstruction, active_image_ids)) {
+            view_graph, pose_priors, active_image_ids, reconstruction)) {
       return false;
     }
   }

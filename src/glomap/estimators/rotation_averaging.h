@@ -83,8 +83,8 @@ class RotationEstimator {
   // Returns true on successful estimation.
   bool EstimateRotations(const ViewGraph& view_graph,
                          const std::vector<colmap::PosePrior>& pose_priors,
-                         colmap::Reconstruction& reconstruction,
-                         const std::unordered_set<image_t>& active_image_ids);
+                         const std::unordered_set<image_t>& active_image_ids,
+                         colmap::Reconstruction& reconstruction);
 
  private:
   // Maybe solves 1-DOF rotation averaging on the gravity-aligned subset.
@@ -92,15 +92,15 @@ class RotationEstimator {
   bool MaybeSolveGravityAlignedSubset(
       const ViewGraph& view_graph,
       const std::vector<colmap::PosePrior>& pose_priors,
-      colmap::Reconstruction& reconstruction,
-      const std::unordered_set<image_t>& active_image_ids);
+      const std::unordered_set<image_t>& active_image_ids,
+      colmap::Reconstruction& reconstruction);
 
   // Core rotation averaging solver.
   bool SolveRotationAveraging(
       const ViewGraph& view_graph,
       const std::vector<colmap::PosePrior>& pose_priors,
-      colmap::Reconstruction& reconstruction,
-      const std::unordered_set<image_t>& active_image_ids);
+      const std::unordered_set<image_t>& active_image_ids,
+      colmap::Reconstruction& reconstruction);
 
   // Initializes rotations from maximum spanning tree.
   void InitializeFromMaximumSpanningTree(

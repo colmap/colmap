@@ -50,24 +50,24 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
   // First pass: solve rotation averaging on all frames, then filter outlier
   // pairs by rotation error and de-register frames outside the largest
   // connected component.
-  RotationEstimatorOptions opts = options;
-  opts.filter_unregistered = false;
+  RotationEstimatorOptions custom_options = options;
+  custom_options.filter_unregistered = false;
   if (!SolveRotationAveraging(
-          opts, *view_graph_, *reconstruction_, pose_priors)) {
+          custom_options, *view_graph_, *reconstruction_, pose_priors)) {
     return false;
   }
 
   // Second pass: re-solve on registered frames only to refine rotations
   // after outlier removal.
-  opts.filter_unregistered = true;
+  custom_options.filter_unregistered = true;
   if (!SolveRotationAveraging(
-          opts, *view_graph_, *reconstruction_, pose_priors)) {
+          custom_options, *view_graph_, *reconstruction_, pose_priors)) {
     return false;
   }
 
-  LOG(INFO) << reconstruction_->NumRegImages() << " / "
-            << reconstruction_->NumImages()
-            << " images are within the connected component.";
+  VLOG(1) << reconstruction_->NumRegImages() << " / "
+          << reconstruction_->NumImages()
+          << " images are within the connected component.";
 
   return true;
 }
