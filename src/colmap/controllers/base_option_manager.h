@@ -162,9 +162,19 @@ template <typename T>
 void BaseOptionManager::AddRequiredOption(const std::string& name,
                                           T* option,
                                           const std::string& help_text) {
-  desc_->add_options()(name.c_str(),
-                       boost::program_options::value<T>(option)->required(),
-                       help_text.c_str());
+  if constexpr (std::is_same<T, std::filesystem::path>::value) {
+    // Boost program options does not support std::filesystem::path by default.
+    // We treat it as a string and manualy convert it using a notifier.
+    desc_->add_options()(
+        name.c_str(),
+        boost::program_options::value<std::string>()->required()->notifier(
+            [option](const std::string& val) { *option = val; }),
+        help_text.c_str());
+  } else {
+    desc_->add_options()(name.c_str(),
+                         boost::program_options::value<T>(option)->required(),
+                         help_text.c_str());
+  }
 }
 
 template <typename T>
@@ -176,6 +186,15 @@ void BaseOptionManager::AddDefaultOption(const std::string& name,
         name.c_str(),
         boost::program_options::value<T>(option)->default_value(
             *option, StringPrintf("%.3g", *option)),
+        help_text.c_str());
+  } else if constexpr (std::is_same<T, std::filesystem::path>::value) {
+    // Boost program options does not support std::filesystem::path by default.
+    // We treat it as a string and manualy convert it using a notifier.
+    desc_->add_options()(
+        name.c_str(),
+        boost::program_options::value<std::string>()
+            ->default_value(option->string())
+            ->notifier([option](const std::string& val) { *option = val; }),
         help_text.c_str());
   } else {
     desc_->add_options()(

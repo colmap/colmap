@@ -33,6 +33,7 @@
 #include "colmap/util/file.h"
 #include "colmap/util/string.h"
 
+#include <filesystem>
 #include <fstream>
 
 #include <boost/property_tree/ini_parser.hpp>
