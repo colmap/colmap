@@ -131,7 +131,7 @@ void UndistortImages(const std::filesystem::path& output_path,
   if (output_type == "COLMAP") {
     undistorter.reset(new COLMAPUndistorter(undistort_camera_options,
                                             reconstruction,
-                                            image_path,
+                                            image_path.string(),
                                             output_path.string(),
                                             num_patch_match_src_images,
                                             copy_type,
@@ -139,12 +139,12 @@ void UndistortImages(const std::filesystem::path& output_path,
   } else if (output_type == "PMVS") {
     undistorter.reset(new PMVSUndistorter(undistort_camera_options,
                                           reconstruction,
-                                          image_path,
+                                          image_path.string(),
                                           output_path.string()));
   } else if (output_type == "CMP-MVS") {
     undistorter.reset(new CMPMVSUndistorter(undistort_camera_options,
                                             reconstruction,
-                                            image_path,
+                                            image_path.string(),
                                             output_path.string()));
   } else {
     LOG(FATAL_THROW)
