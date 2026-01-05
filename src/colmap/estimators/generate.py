@@ -174,16 +174,45 @@ def simple_radial_fixed_pose_and_point(
     return reprojection_error
 
 @caslib.add_factor
-def simple_radial_scale_constraint(
+def simple_radial_fixed_translation_norm(
+    rotation: T.Annotated[sf.Rot3, mem.Tunable],
+    translation_direction: T.Annotated[sf.Unit3, mem.Tunable],
+    translation_norm: T.Annotated[sf.V1, mem.Constant],
+    cam_calib: T.Annotated[SimpleRadialCalib, mem.Tunable],
+    point: T.Annotated[Point, mem.Tunable],
+    pixel: T.Annotated[Pixel, mem.Constant],
+) -> sf.V2:
+    """Reprojection with pose that has fixed translation magnitude"""
+    # Convert Unit3 to 3D vector and scale by fixed norm
+    translation = translation_direction.to_unit_vector() * translation_norm[0]
+    cam_T_world = sf.Pose3(R=rotation, t=translation)
+    
+    # Standard simple radial reprojection
+    focal_length, cx, cy, k = cam_calib
+    principal_point = sf.V2([cx, cy])
+    point_cam = cam_T_world * point
+    depth = point_cam[2]
+    p = sf.V2(point_cam[:2]) / (depth + sf.epsilon() * sf.sign_no_zero(depth))
+    r_radial = 1 + k * p.squared_norm()
+    pixel_projected = focal_length * r_radial * p + principal_point
+    return pixel_projected - pixel
+
+@caslib.add_factor
+def simple_radial_with_separate_calib(
     cam_T_world: T.Annotated[sf.Pose3, mem.Tunable],
-    point: T.Annotated[Point, mem.Constant],
-    distance_constraint: T.Annotated[sf.V1, mem.Constant] = 1.0,
-    weight: T.Annotated[sf.V1, mem.Constant] = 1e6,
-)->sf.V1:
-    cam_position = sf.V3(cam_T_world.t)
-    actual_distance = (point - cam_position).norm()
-    distance_error = distance_constraint - actual_distance
-    return distance_error * weight
+    cam_calib: T.Annotated[SimpleRadialCalib, mem.Tunable],
+    point: T.Annotated[Point, mem.Tunable],
+    pixel: T.Annotated[Pixel, mem.Constant],
+)->sf.V2:
+    focal_length, cx, cy, k = cam_calib
+    principal_point = sf.V2([cx, cy])
+    point_cam = cam_T_world * point
+    depth = point_cam[2]
+    p = sf.V2(point_cam[:2]) / (depth + sf.epsilon() * sf.sign(depth))
+    r = 1 + k * p.squared_norm()
+    pixel_projected = focal_length * r * p + principal_point
+    reprojection_error = pixel_projected - pixel
+    return reprojection_error
 
 # New factors can easily be added
 # @caslib.add_factor 

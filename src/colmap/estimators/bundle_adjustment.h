@@ -37,7 +37,6 @@
 #include <memory>
 #include <unordered_set>
 
-#include "generated/solver.h"
 #include <Eigen/Core>
 #include <ceres/ceres.h>
 
@@ -253,12 +252,6 @@ std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
     BundleAdjustmentConfig config,
     std::vector<PosePrior> pose_priors,
     Reconstruction& reconstruction);
-
-std::unique_ptr<BundleAdjuster> CreateCasparBundleAdjuster(
-    BundleAdjustmentOptions options,
-    BundleAdjustmentConfig config,
-    Reconstruction& reconstruction,
-    caspar::SolverParams params);
 
 void PrintSolverSummary(const ceres::Solver::Summary& summary,
                         const std::string& header);

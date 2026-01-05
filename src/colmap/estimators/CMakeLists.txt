@@ -28,32 +28,43 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 set(FOLDER_NAME "estimators")
+
+set(ESTIMATORS_SRCS
+    absolute_pose.h absolute_pose.cc
+    affine_transform.h affine_transform.cc
+    alignment.h alignment.cc
+    bundle_adjustment.h bundle_adjustment.cc
+    coordinate_frame.h coordinate_frame.cc
+    cost_function_utils.h
+    cost_functions.h
+    manifold.h
+    covariance.h covariance.cc
+    essential_matrix.h essential_matrix.cc
+    euclidean_transform.h
+    fundamental_matrix.h fundamental_matrix.cc
+    generalized_absolute_pose.h generalized_absolute_pose.cc
+    generalized_relative_pose.h generalized_relative_pose.cc
+    homography_matrix.h homography_matrix.cc
+    pose.h pose.cc
+    poselib_utils.h poselib_utils.cc
+    generalized_pose.h generalized_pose.cc
+    similarity_transform.h similarity_transform.cc
+    translation_transform.h
+    triangulation.h triangulation.cc
+    two_view_geometry.h two_view_geometry.cc
+    utils.h utils.cc
+)
+
+if(CASPAR_ENABLED)
+    list(APPEND ESTIMATORS_SRCS
+        caspar_bundle_adjustment.h
+        caspar_bundle_adjustment.cc
+    )
+endif()
+
 COLMAP_ADD_LIBRARY(
     NAME colmap_estimators
-    SRCS
-        absolute_pose.h absolute_pose.cc
-        affine_transform.h affine_transform.cc
-        alignment.h alignment.cc
-        bundle_adjustment.h bundle_adjustment.cc
-        coordinate_frame.h coordinate_frame.cc
-        cost_function_utils.h
-        cost_functions.h
-        manifold.h
-        covariance.h covariance.cc
-        essential_matrix.h essential_matrix.cc
-        euclidean_transform.h
-        fundamental_matrix.h fundamental_matrix.cc
-        generalized_absolute_pose.h generalized_absolute_pose.cc
-        generalized_relative_pose.h generalized_relative_pose.cc
-        homography_matrix.h homography_matrix.cc
-        pose.h pose.cc
-        poselib_utils.h poselib_utils.cc
-        generalized_pose.h generalized_pose.cc
-        similarity_transform.h similarity_transform.cc
-        translation_transform.h
-        triangulation.h triangulation.cc
-        two_view_geometry.h two_view_geometry.cc
-        utils.h utils.cc
+    SRCS ${ESTIMATORS_SRCS}
     PUBLIC_LINK_LIBS
         colmap_util
         colmap_math

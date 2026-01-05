@@ -44,6 +44,10 @@
 
 #include <array>
 
+#ifdef CASPAR_ENABLED
+#include "colmap/estimators/caspar_bundle_adjustment.h"
+#endif
+
 namespace colmap {
 
 bool IncrementalMapper::Options::Check() const {
@@ -1124,12 +1128,20 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
     ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
-    // Testing
-    caspar::SolverParams params;
-    bundle_adjuster = CreateCasparBundleAdjuster(
-        ba_options, std::move(ba_config), *reconstruction_, params);
+#ifdef CASPAR_ENABLED
+    if (ba_config.NumImages() > 10) {
+      caspar::SolverParams params;
+      bundle_adjuster = CreateCasparBundleAdjuster(
+          ba_options, std::move(ba_config), *reconstruction_, params);
 
-    const ceres::Solver::Summary summary = bundle_adjuster->Solve();
+    } else
+      bundle_adjuster = CreateDefaultBundleAdjuster(
+          ba_options, std::move(ba_config), *reconstruction_);
+
+#else
+    bundle_adjuster = CreateDefaultBundleAdjuster(
+        ba_options, std::move(ba_config), *reconstruction_);
+#endif
   } else {
     PosePriorBundleAdjustmentOptions prior_options;
     if (options.use_robust_loss_on_prior_position) {

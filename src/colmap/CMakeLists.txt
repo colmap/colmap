@@ -60,7 +60,7 @@ endif()
 
 if(CASPAR_ENABLED)
     message(STATUS "Enabling CASPAR support")
-
+    add_compile_definitions(CASPAR_ENABLED)
     set(CASPAR_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/estimators/generated")
     set(CASPAR_BUILD_DIR "${CASPAR_LIB_DIR}/build")
 
