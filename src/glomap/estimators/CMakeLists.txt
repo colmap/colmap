@@ -55,3 +55,15 @@ COLMAP_ADD_TEST(
     SRCS cost_functions_test.cc
     LINK_LIBS colmap_glomap_estimators
 )
+
+COLMAP_ADD_TEST(
+    NAME glomap_rotation_averaging_test
+    SRCS rotation_averaging_test.cc
+    LINK_LIBS colmap_glomap_estimators
+)
+
+COLMAP_ADD_TEST(
+    NAME glomap_gravity_refinement_test
+    SRCS gravity_refinement_test.cc
+    LINK_LIBS colmap_glomap_estimators
+)
