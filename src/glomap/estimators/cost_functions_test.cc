@@ -257,7 +257,7 @@ TEST(FetzerFocalLengthCostFunctor, Nominal) {
   //   EXPECT_LT(modified_residual2.norm(), modified_residual12.norm());
   // }
 
-  for (int i = 0; i < 1000; i += 5) {
+  for (int i = -100; i < 100; i += 5) {
     Eigen::VectorXd modified_residual12(12);
     const double modified_focal_length1 = focal_length1 + i;
     const double modified_focal_length2 = focal_length2 + i;

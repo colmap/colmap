@@ -182,8 +182,8 @@ inline std::array<Eigen::Vector4d, 6> DecomposeFundamentalMatrixForFetzer(
 
   const double cpi_v1 = principal_point_i.homogeneous().dot(v1);
   const double cpi_v2 = principal_point_i.homogeneous().dot(v2);
-  const double cpj_u1 = principal_point_j.homogeneous().dot(v1);
-  const double cpj_u2 = principal_point_j.homogeneous().dot(v2);
+  const double cpj_u1 = principal_point_j.homogeneous().dot(u1);
+  const double cpj_u2 = principal_point_j.homogeneous().dot(u2);
 
   // Equation 11.
   const Eigen::Vector3d ai(s1 * s1 * (v11 * v11 + v12 * v12),
@@ -191,13 +191,14 @@ inline std::array<Eigen::Vector4d, 6> DecomposeFundamentalMatrixForFetzer(
                            s2 * s2 * (v21 * v21 + v22 * v22));
 
   const Eigen::Vector3d aj(
-      u21 * u21 + u22 * u22, u11 * u21 + u12 * u22, u11 * u11 + u12 * u12);
+      u21 * u21 + u22 * u22, -(u11 * u21 + u12 * u22), u11 * u11 + u12 * u12);
 
   const Eigen::Vector3d bi(s1 * s1 * cpi_v1 * cpi_v1,
                            s1 * s2 * cpi_v1 * cpi_v2,
                            s2 * s2 * cpi_v2 * cpi_v2);
 
-  const Eigen::Vector3d bj(cpj_u2 * cpj_u2, cpj_u1 * cpj_u2, cpj_u1 * cpj_u1);
+  const Eigen::Vector3d bj(
+      cpj_u2 * cpj_u2, -(cpj_u1 * cpj_u2), cpj_u1 * cpj_u1);
 
   // Equation 12.
   const Eigen::Vector4d d01 =
@@ -220,7 +221,7 @@ inline T ComputeFetzerResidual1(const Eigen::Vector<T, 4>& d,
                                 const T& fi_sq,
                                 const T& fj_sq) {
   // Equation 13.
-  T denom = (fj_sq * d(0) + d(1));
+  T denom = fj_sq * d(0) + d(1);
   denom = denom == T(0) ? T(1e-6) : denom;
   const T K1 = -(fj_sq * d(2) + d(3)) / denom;
   return (fi_sq - K1) / fi_sq;
@@ -231,7 +232,7 @@ inline T ComputeFetzerResidual2(const Eigen::Vector<T, 4>& d,
                                 const T& fi_sq,
                                 const T& fj_sq) {
   // Equation 14.
-  T denom = (fi_sq * d(0) + d(2));
+  T denom = fi_sq * d(0) + d(2);
   denom = denom == T(0) ? T(1e-6) : denom;
   const T K2 = -(fi_sq * d(1) + d(3)) / denom;
   return (fj_sq - K2) / fj_sq;
