@@ -22,19 +22,19 @@ void TrackEngine::BlindConcatenation() {
   // Initialize the union find data structure by connecting all the
   // correspondences
   size_t counter = 0;
-  for (const auto& [pair_id, image_pair] : view_graph_.ImagePairs()) {
+  for (const auto& [pair_id, rel_pose_data] : pose_graph_.ImagePairs()) {
     if ((counter + 1) % 1000 == 0 ||
-        counter == view_graph_.NumImagePairs() - 1) {
+        counter == pose_graph_.NumImagePairs() - 1) {
       VLOG(1) << "Initializing pairs " << counter + 1 << " / "
-              << view_graph_.NumImagePairs();
+              << pose_graph_.NumImagePairs();
     }
     counter++;
 
-    if (!view_graph_.IsValid(pair_id)) continue;
+    if (!pose_graph_.IsValid(pair_id)) continue;
 
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 
-    for (const auto& match : image_pair.inlier_matches) {
+    for (const auto& match : rel_pose_data.inlier_matches) {
       const Observation obs1(image_id1, match.point2D_idx1);
       const Observation obs2(image_id2, match.point2D_idx2);
 
@@ -46,7 +46,7 @@ void TrackEngine::BlindConcatenation() {
       }
     }
   }
-  LOG(INFO) << "Initialized " << view_graph_.NumImagePairs() << " pairs";
+  LOG(INFO) << "Initialized " << pose_graph_.NumImagePairs() << " pairs";
 }
 
 void TrackEngine::TrackCollection(
@@ -56,19 +56,19 @@ void TrackEngine::TrackCollection(
 
   // Create tracks from the connected components of the point correspondences
   size_t counter = 0;
-  for (const auto& [pair_id, image_pair] : view_graph_.ImagePairs()) {
+  for (const auto& [pair_id, rel_pose_data] : pose_graph_.ImagePairs()) {
     if ((counter + 1) % 1000 == 0 ||
-        counter == view_graph_.NumImagePairs() - 1) {
+        counter == pose_graph_.NumImagePairs() - 1) {
       VLOG(1) << "Establishing pairs " << counter + 1 << " / "
-              << view_graph_.NumImagePairs();
+              << pose_graph_.NumImagePairs();
     }
     counter++;
 
-    if (!view_graph_.IsValid(pair_id)) continue;
+    if (!pose_graph_.IsValid(pair_id)) continue;
 
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 
-    for (const auto& match : image_pair.inlier_matches) {
+    for (const auto& match : rel_pose_data.inlier_matches) {
       const Observation obs1(image_id1, match.point2D_idx1);
       const Observation obs2(image_id2, match.point2D_idx2);
 
@@ -78,7 +78,7 @@ void TrackEngine::TrackCollection(
       track_map[track_id].insert(obs2);
     }
   }
-  LOG(INFO) << "Established " << view_graph_.NumImagePairs() << " pairs";
+  LOG(INFO) << "Established " << pose_graph_.NumImagePairs() << " pairs";
 
   size_t discarded_counter = 0;
   point3D_t next_point3D_id = 0;

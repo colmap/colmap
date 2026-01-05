@@ -35,20 +35,20 @@
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
-#include "glomap/scene/view_graph.h"
+#include "glomap/scene/pose_graph.h"
 
 #include <gtest/gtest.h>
 
 namespace glomap {
 namespace {
 
-void LoadReconstructionAndViewGraph(const colmap::Database& database,
+void LoadReconstructionAndPoseGraph(const colmap::Database& database,
                                     colmap::Reconstruction* reconstruction,
-                                    ViewGraph* view_graph) {
+                                    PoseGraph* pose_graph) {
   colmap::DatabaseCache database_cache;
   database_cache.Load(database, /*min_num_matches=*/0);
   reconstruction->Load(database_cache);
-  view_graph->LoadFromDatabase(database);
+  pose_graph->LoadFromDatabase(database);
 }
 
 void SynthesizeGravityOutliers(std::vector<colmap::PosePrior>& pose_priors,
@@ -104,15 +104,15 @@ TEST(GravityRefinement, RefineGravity) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   colmap::Reconstruction reconstruction;
-  ViewGraph view_graph;
-  LoadReconstructionAndViewGraph(*database, &reconstruction, &view_graph);
+  PoseGraph pose_graph;
+  LoadReconstructionAndPoseGraph(*database, &reconstruction, &pose_graph);
 
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
   SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
   GravityRefinerOptions opt_grav_refine;
   GravityRefiner grav_refiner(opt_grav_refine);
-  grav_refiner.RefineGravity(view_graph, reconstruction, pose_priors);
+  grav_refiner.RefineGravity(pose_graph, reconstruction, pose_priors);
 
   ExpectEqualGravity(synthetic_dataset_options.prior_gravity_in_world,
                      gt_reconstruction,
@@ -137,15 +137,15 @@ TEST(GravityRefinement, RefineGravityWithNonTrivialRigs) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   colmap::Reconstruction reconstruction;
-  ViewGraph view_graph;
-  LoadReconstructionAndViewGraph(*database, &reconstruction, &view_graph);
+  PoseGraph pose_graph;
+  LoadReconstructionAndPoseGraph(*database, &reconstruction, &pose_graph);
 
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
   SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
   GravityRefinerOptions opt_grav_refine;
   GravityRefiner grav_refiner(opt_grav_refine);
-  grav_refiner.RefineGravity(view_graph, reconstruction, pose_priors);
+  grav_refiner.RefineGravity(pose_graph, reconstruction, pose_priors);
 
   ExpectEqualGravity(synthetic_dataset_options.prior_gravity_in_world,
                      gt_reconstruction,

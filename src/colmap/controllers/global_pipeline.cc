@@ -71,7 +71,7 @@ void GlobalPipeline::Run() {
   glomap::GlobalMapper global_mapper(database_);
   global_mapper.BeginReconstruction(reconstruction);
 
-  if (global_mapper.ViewGraph()->Empty()) {
+  if (global_mapper.PoseGraph()->Empty()) {
     LOG(ERROR) << "Cannot continue without image pairs";
     return;
   }

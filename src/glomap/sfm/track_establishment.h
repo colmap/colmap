@@ -3,7 +3,7 @@
 #include "colmap/math/union_find.h"
 #include "colmap/scene/image.h"
 
-#include "glomap/scene/view_graph.h"
+#include "glomap/scene/pose_graph.h"
 
 namespace glomap {
 
@@ -26,10 +26,10 @@ struct TrackEstablishmentOptions {
 
 class TrackEngine {
  public:
-  TrackEngine(const ViewGraph& view_graph,
+  TrackEngine(const PoseGraph& pose_graph,
               const std::unordered_map<image_t, colmap::Image>& images,
               const TrackEstablishmentOptions& options)
-      : options_(options), view_graph_(view_graph), images_(images) {}
+      : options_(options), pose_graph_(pose_graph), images_(images) {}
 
   // Establish tracks from the view graph. Exclude the tracks that are not
   // consistent. Return the number of points3D.
@@ -53,7 +53,7 @@ class TrackEngine {
 
   const TrackEstablishmentOptions& options_;
 
-  const ViewGraph& view_graph_;
+  const PoseGraph& pose_graph_;
   const std::unordered_map<image_t, colmap::Image>& images_;
 
   // Internal structure used for concatenating tracks.

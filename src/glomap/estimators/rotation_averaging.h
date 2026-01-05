@@ -3,8 +3,8 @@
 #include "colmap/geometry/pose_prior.h"
 #include "colmap/scene/reconstruction.h"
 
+#include "glomap/scene/pose_graph.h"
 #include "glomap/scene/types.h"
-#include "glomap/scene/view_graph.h"
 
 #include <vector>
 
@@ -70,7 +70,7 @@ class RotationEstimator {
 
   // Estimates the global orientations of all views.
   // Returns true on successful estimation.
-  bool EstimateRotations(const ViewGraph& view_graph,
+  bool EstimateRotations(const PoseGraph& pose_graph,
                          const std::vector<colmap::PosePrior>& pose_priors,
                          colmap::Reconstruction& reconstruction);
 
@@ -78,18 +78,18 @@ class RotationEstimator {
   // Maybe solves 1-DOF rotation averaging on the gravity-aligned subset.
   // This is the first phase of stratified solving for mixed gravity systems.
   bool MaybeSolveGravityAlignedSubset(
-      const ViewGraph& view_graph,
+      const PoseGraph& pose_graph,
       const std::vector<colmap::PosePrior>& pose_priors,
       colmap::Reconstruction& reconstruction);
 
   // Core rotation averaging solver.
-  bool SolveRotationAveraging(const ViewGraph& view_graph,
+  bool SolveRotationAveraging(const PoseGraph& pose_graph,
                               const std::vector<colmap::PosePrior>& pose_priors,
                               colmap::Reconstruction& reconstruction);
 
   // Initializes rotations from maximum spanning tree.
   void InitializeFromMaximumSpanningTree(
-      const ViewGraph& view_graph, colmap::Reconstruction& reconstruction);
+      const PoseGraph& pose_graph, colmap::Reconstruction& reconstruction);
 
   const RotationEstimatorOptions options_;
 };
@@ -106,7 +106,7 @@ bool InitializeRigRotationsFromImages(
 // independently using an expanded reconstruction, then initializes the
 // cam_from_rig and runs rotation averaging on the original reconstruction.
 bool SolveRotationAveraging(const RotationEstimatorOptions& options,
-                            ViewGraph& view_graph,
+                            PoseGraph& pose_graph,
                             colmap::Reconstruction& reconstruction,
                             const std::vector<colmap::PosePrior>& pose_priors);
 

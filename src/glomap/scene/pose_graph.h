@@ -1,25 +1,51 @@
 #pragma once
 
+#include "colmap/feature/types.h"
+#include "colmap/geometry/rigid3.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/types.h"
 
-#include "glomap/scene/image_pair.h"
 #include "glomap/scene/types.h"
 
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 
 namespace glomap {
 
-class ViewGraph {
+// Minimal relative pose data for pose graph.
+struct RelativePoseData {
+  RelativePoseData() = default;
+
+  explicit RelativePoseData(Rigid3d cam2_from_cam1)
+      : cam2_from_cam1(std::move(cam2_from_cam1)) {}
+
+  // Relative pose from image 1 to image 2.
+  std::optional<Rigid3d> cam2_from_cam1;
+
+  // Inlier feature matches between the two images.
+  colmap::FeatureMatches inlier_matches;
+
+  // Invert the geometry to match swapped image order.
+  void Invert() {
+    if (cam2_from_cam1.has_value()) {
+      cam2_from_cam1 = colmap::Inverse(*cam2_from_cam1);
+    }
+    for (auto& match : inlier_matches) {
+      std::swap(match.point2D_idx1, match.point2D_idx2);
+    }
+  }
+};
+
+class PoseGraph {
  public:
-  ViewGraph() = default;
-  ~ViewGraph() = default;
+  PoseGraph() = default;
+  ~PoseGraph() = default;
 
   // Image pair accessors.
-  inline std::unordered_map<image_pair_t, struct ImagePair>& ImagePairs();
-  inline const std::unordered_map<image_pair_t, struct ImagePair>& ImagePairs()
+  inline std::unordered_map<image_pair_t, RelativePoseData>& ImagePairs();
+  inline const std::unordered_map<image_pair_t, RelativePoseData>& ImagePairs()
       const;
   inline size_t NumImagePairs() const;
   inline size_t NumValidImagePairs() const;
@@ -34,21 +60,21 @@ class ViewGraph {
                         bool allow_duplicate = false);
 
   // Image pair operations.
-  inline struct ImagePair& AddImagePair(image_t image_id1,
+  inline RelativePoseData& AddImagePair(image_t image_id1,
                                         image_t image_id2,
-                                        struct ImagePair image_pair);
+                                        RelativePoseData rel_pose_data);
   inline bool HasImagePair(image_t image_id1, image_t image_id2) const;
   // Returns a reference to the image pair and whether the IDs were swapped.
-  inline std::pair<struct ImagePair&, bool> ImagePair(image_t image_id1,
+  inline std::pair<RelativePoseData&, bool> ImagePair(image_t image_id1,
                                                       image_t image_id2);
-  inline std::pair<const struct ImagePair&, bool> ImagePair(
+  inline std::pair<const RelativePoseData&, bool> ImagePair(
       image_t image_id1, image_t image_id2) const;
-  inline struct ImagePair GetImagePair(image_t image_id1,
+  inline RelativePoseData GetImagePair(image_t image_id1,
                                        image_t image_id2) const;
   inline bool DeleteImagePair(image_t image_id1, image_t image_id2);
   inline void UpdateImagePair(image_t image_id1,
                               image_t image_id2,
-                              struct ImagePair image_pair);
+                              RelativePoseData rel_pose_data);
 
   // Validity operations.
   inline bool IsValid(image_pair_t pair_id) const;
@@ -59,11 +85,11 @@ class ViewGraph {
   // Pairs are valid if they exist and are not in the invalid set.
   auto ValidImagePairs() const {
     return colmap::filter_view(
-        [this](const std::pair<const image_pair_t, struct ImagePair>& kv) {
+        [this](const std::pair<const image_pair_t, RelativePoseData>& kv) {
           return IsValid(kv.first);
         },
-        image_pairs_.begin(),
-        image_pairs_.end());
+        rel_pose_datas_.begin(),
+        rel_pose_datas_.end());
   }
 
   // Create the adjacency list for the images in the view graph.
@@ -90,7 +116,7 @@ class ViewGraph {
  private:
   // Map from pair ID to image pair data. The pair ID is computed from the
   // two image IDs using ImagePairToPairId, with the smaller ID first.
-  std::unordered_map<image_pair_t, struct ImagePair> image_pairs_;
+  std::unordered_map<image_pair_t, RelativePoseData> rel_pose_datas_;
   // Set of invalid pair IDs. Pairs not in this set are considered valid.
   std::unordered_set<image_pair_t> invalid_pairs_;
 };
@@ -99,37 +125,37 @@ class ViewGraph {
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-std::unordered_map<image_pair_t, struct ImagePair>& ViewGraph::ImagePairs() {
-  return image_pairs_;
+std::unordered_map<image_pair_t, RelativePoseData>& PoseGraph::ImagePairs() {
+  return rel_pose_datas_;
 }
 
-const std::unordered_map<image_pair_t, struct ImagePair>&
-ViewGraph::ImagePairs() const {
-  return image_pairs_;
+const std::unordered_map<image_pair_t, RelativePoseData>&
+PoseGraph::ImagePairs() const {
+  return rel_pose_datas_;
 }
 
-size_t ViewGraph::NumImagePairs() const { return image_pairs_.size(); }
+size_t PoseGraph::NumImagePairs() const { return rel_pose_datas_.size(); }
 
-size_t ViewGraph::NumValidImagePairs() const {
-  return image_pairs_.size() - invalid_pairs_.size();
+size_t PoseGraph::NumValidImagePairs() const {
+  return rel_pose_datas_.size() - invalid_pairs_.size();
 }
 
-bool ViewGraph::Empty() const { return image_pairs_.empty(); }
+bool PoseGraph::Empty() const { return rel_pose_datas_.empty(); }
 
-void ViewGraph::Clear() {
-  image_pairs_.clear();
+void PoseGraph::Clear() {
+  rel_pose_datas_.clear();
   invalid_pairs_.clear();
 }
 
-struct ImagePair& ViewGraph::AddImagePair(image_t image_id1,
+RelativePoseData& PoseGraph::AddImagePair(image_t image_id1,
                                           image_t image_id2,
-                                          struct ImagePair image_pair) {
-  THROW_CHECK(image_pair.cam2_from_cam1.has_value());
+                                          RelativePoseData rel_pose_data) {
+  THROW_CHECK(rel_pose_data.cam2_from_cam1.has_value());
   if (colmap::ShouldSwapImagePair(image_id1, image_id2)) {
-    image_pair.Invert();
+    rel_pose_data.Invert();
   }
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  auto [it, inserted] = image_pairs_.emplace(pair_id, std::move(image_pair));
+  auto [it, inserted] = rel_pose_datas_.emplace(pair_id, std::move(rel_pose_data));
   if (!inserted) {
     throw std::runtime_error(
         "Image pair already exists: " + std::to_string(image_id1) + ", " +
@@ -138,70 +164,70 @@ struct ImagePair& ViewGraph::AddImagePair(image_t image_id1,
   return it->second;
 }
 
-bool ViewGraph::HasImagePair(image_t image_id1, image_t image_id2) const {
+bool PoseGraph::HasImagePair(image_t image_id1, image_t image_id2) const {
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  return image_pairs_.find(pair_id) != image_pairs_.end();
+  return rel_pose_datas_.find(pair_id) != rel_pose_datas_.end();
 }
 
-std::pair<struct ImagePair&, bool> ViewGraph::ImagePair(image_t image_id1,
+std::pair<RelativePoseData&, bool> PoseGraph::ImagePair(image_t image_id1,
                                                         image_t image_id2) {
   const bool swapped = colmap::ShouldSwapImagePair(image_id1, image_id2);
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  return {image_pairs_.at(pair_id), swapped};
+  return {rel_pose_datas_.at(pair_id), swapped};
 }
 
-std::pair<const struct ImagePair&, bool> ViewGraph::ImagePair(
+std::pair<const RelativePoseData&, bool> PoseGraph::ImagePair(
     image_t image_id1, image_t image_id2) const {
   const bool swapped = colmap::ShouldSwapImagePair(image_id1, image_id2);
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  return {image_pairs_.at(pair_id), swapped};
+  return {rel_pose_datas_.at(pair_id), swapped};
 }
 
-bool ViewGraph::DeleteImagePair(image_t image_id1, image_t image_id2) {
+bool PoseGraph::DeleteImagePair(image_t image_id1, image_t image_id2) {
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  return image_pairs_.erase(pair_id) > 0;
+  return rel_pose_datas_.erase(pair_id) > 0;
 }
 
-struct ImagePair ViewGraph::GetImagePair(image_t image_id1,
+RelativePoseData PoseGraph::GetImagePair(image_t image_id1,
                                          image_t image_id2) const {
   const bool swapped = colmap::ShouldSwapImagePair(image_id1, image_id2);
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  struct ImagePair result = image_pairs_.at(pair_id);
+  RelativePoseData result = rel_pose_datas_.at(pair_id);
   if (swapped) {
     result.Invert();
   }
   return result;
 }
 
-void ViewGraph::UpdateImagePair(image_t image_id1,
+void PoseGraph::UpdateImagePair(image_t image_id1,
                                 image_t image_id2,
-                                struct ImagePair image_pair) {
-  THROW_CHECK(image_pair.cam2_from_cam1.has_value());
+                                RelativePoseData rel_pose_data) {
+  THROW_CHECK(rel_pose_data.cam2_from_cam1.has_value());
   if (colmap::ShouldSwapImagePair(image_id1, image_id2)) {
-    image_pair.Invert();
+    rel_pose_data.Invert();
   }
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  auto it = image_pairs_.find(pair_id);
-  if (it == image_pairs_.end()) {
+  auto it = rel_pose_datas_.find(pair_id);
+  if (it == rel_pose_datas_.end()) {
     throw std::runtime_error(
         "Image pair does not exist: " + std::to_string(image_id1) + ", " +
         std::to_string(image_id2));
   }
-  it->second = std::move(image_pair);
+  it->second = std::move(rel_pose_data);
 }
 
-bool ViewGraph::IsValid(image_pair_t pair_id) const {
-  return image_pairs_.count(pair_id) > 0 &&
+bool PoseGraph::IsValid(image_pair_t pair_id) const {
+  return rel_pose_datas_.count(pair_id) > 0 &&
          invalid_pairs_.find(pair_id) == invalid_pairs_.end();
 }
 
-void ViewGraph::SetValidImagePair(image_pair_t pair_id) {
-  THROW_CHECK(image_pairs_.count(pair_id) > 0) << "Image pair does not exist";
+void PoseGraph::SetValidImagePair(image_pair_t pair_id) {
+  THROW_CHECK(rel_pose_datas_.count(pair_id) > 0) << "Image pair does not exist";
   invalid_pairs_.erase(pair_id);
 }
 
-void ViewGraph::SetInvalidImagePair(image_pair_t pair_id) {
-  THROW_CHECK(image_pairs_.count(pair_id) > 0) << "Image pair does not exist";
+void PoseGraph::SetInvalidImagePair(image_pair_t pair_id) {
+  THROW_CHECK(rel_pose_datas_.count(pair_id) > 0) << "Image pair does not exist";
   invalid_pairs_.insert(pair_id);
 }
 
