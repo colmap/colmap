@@ -171,10 +171,11 @@ int RunRotationAverager(int argc, char** argv) {
       if (!image.IsRefInFrame()) {
         continue;
       }
-      reconstruction.Frame(image.FrameId()).SetRigFromWorld(Rigid3d(
-          Eigen::Quaterniond(
-              colmap::GravityAlignedRotation(pose_prior.gravity)),
-          kUnknownTranslation));
+      reconstruction.Frame(image.FrameId())
+          .SetRigFromWorld(
+              Rigid3d(Eigen::Quaterniond(
+                          colmap::GravityAlignedRotation(pose_prior.gravity)),
+                      kUnknownTranslation));
     }
   }
 
