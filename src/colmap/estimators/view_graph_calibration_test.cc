@@ -98,7 +98,7 @@ TEST(CalibrateViewGraph, PriorFocalLength) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   SyntheticDatasetOptions options;
-  options.num_rigs = 3;
+  options.num_rigs = 10;
   options.num_cameras_per_rig = 1;
   options.num_frames_per_rig = 1;
   options.num_points3D = 200;
@@ -132,7 +132,7 @@ TEST(CalibrateViewGraph, ConfigTagging) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   SyntheticDatasetOptions options;
-  options.num_rigs = 3;
+  options.num_rigs = 10;
   options.num_cameras_per_rig = 1;
   options.num_frames_per_rig = 1;
   options.num_points3D = 200;
@@ -168,7 +168,7 @@ TEST(CalibrateViewGraph, RelativePoseReestimation) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   SyntheticDatasetOptions options;
-  options.num_rigs = 3;
+  options.num_rigs = 10;
   options.num_cameras_per_rig = 1;
   options.num_frames_per_rig = 1;
   options.num_points3D = 200;
