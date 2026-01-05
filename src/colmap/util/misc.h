@@ -118,7 +118,7 @@ std::vector<T> CSVToVector(const std::string& csv) {
                         std::is_same<T, double>::value,     //
                     "Unsupported type");
       if constexpr (std::is_same<T, std::string>::value) {
-        values.push_back(elem);
+        values.push_back(std::move(elem));
       } else if constexpr (std::is_same<T, int>::value) {
         values.push_back(std::stoi(elem));
       } else if constexpr (std::is_same<T, float>::value) {
