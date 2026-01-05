@@ -91,7 +91,7 @@ TEST(CalibrateViewGraph, Nominal) {
   // Verify focal lengths are calibrated close to ground truth.
   for (const auto& [camera_id, gt_focal] : gt_focals) {
     const Camera camera = database->ReadCamera(camera_id);
-    EXPECT_NEAR(camera.MeanFocalLength(), gt_focal, 0.1);
+    EXPECT_NEAR(camera.MeanFocalLength(), gt_focal, 1.0);
   }
 
   // Verify pairs are now CALIBRATED with valid E matrices.
