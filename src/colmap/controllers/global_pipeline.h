@@ -38,17 +38,31 @@
 
 namespace colmap {
 
+struct GlobalPipelineOptions {
+  // The image path at which to find the images to extract point colors.
+  std::string image_path;
+
+  // Number of threads for parallel processing.
+  int num_threads = -1;
+
+  // Random seed for reproducibility.
+  int random_seed = -1;
+
+  // Options for the global mapper.
+  glomap::GlobalMapperOptions mapper;
+};
+
 class GlobalPipeline : public BaseController {
  public:
   GlobalPipeline(
-      const glomap::GlobalMapperOptions& options,
+      const GlobalPipelineOptions& options,
       std::shared_ptr<Database> database,
       std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager);
 
   void Run() override;
 
  private:
-  const glomap::GlobalMapperOptions options_;
+  const GlobalPipelineOptions options_;
   const std::shared_ptr<Database> database_;
   std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager_;
 };

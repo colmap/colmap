@@ -56,10 +56,12 @@ int RunAutomaticReconstructor(int argc, char** argv);
 int RunBundleAdjuster(int argc, char** argv);
 int RunColorExtractor(int argc, char** argv);
 int RunMapper(int argc, char** argv);
+int RunGlobalMapper(int argc, char** argv);
 int RunHierarchicalMapper(int argc, char** argv);
 int RunPosePriorMapper(int argc, char** argv);
 int RunPointFiltering(int argc, char** argv);
 int RunPointTriangulator(int argc, char** argv);
+int RunRotationAverager(int argc, char** argv);
 int RunViewGraphCalibrator(int argc, char** argv);
 
 }  // namespace colmap
