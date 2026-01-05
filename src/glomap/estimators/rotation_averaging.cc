@@ -138,7 +138,7 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
 
     if (image1_has_gravity && image2_has_gravity) {
       gravity_view_graph.ImagePairs().emplace(
-          pair_id, ImagePair(image_pair.cam2_from_cam1));
+          pair_id, ImagePair(*image_pair.cam2_from_cam1));
     }
   }
 
@@ -243,7 +243,7 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
     // GetImagePair(parent, curr) returns curr_from_parent
     const ImagePair image_pair = view_graph.GetImagePair(parents[curr], curr);
     cams_from_world[curr].rotation =
-        (image_pair.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation;
+        (*image_pair.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation;
   }
 
   InitializeRigRotationsFromImages(cams_from_world, reconstruction);

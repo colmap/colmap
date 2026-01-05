@@ -76,7 +76,7 @@ void SynthesizeExhaustiveMatches(double inlier_match_ratio,
       two_view_geometry.cam2_from_cam1 =
           image2.CamFromWorld() * Inverse(image1.CamFromWorld());
       two_view_geometry.E =
-          EssentialMatrixFromPose(two_view_geometry.cam2_from_cam1);
+          EssentialMatrixFromPose(*two_view_geometry.cam2_from_cam1);
       two_view_geometry.F =
           FundamentalFromEssentialMatrix(K2, two_view_geometry.E, K1);
       for (point2D_t point2D_idx1 = 0; point2D_idx1 < num_points2D1;
@@ -149,7 +149,7 @@ void SynthesizeChainedMatches(double inlier_match_ratio,
     two_view_geometry.cam2_from_cam1 =
         image2.CamFromWorld() * Inverse(image1.CamFromWorld());
     two_view_geometry.E =
-        EssentialMatrixFromPose(two_view_geometry.cam2_from_cam1);
+        EssentialMatrixFromPose(*two_view_geometry.cam2_from_cam1);
     two_view_geometry.F =
         FundamentalFromEssentialMatrix(camera2.CalibrationMatrix(),
                                        two_view_geometry.E,

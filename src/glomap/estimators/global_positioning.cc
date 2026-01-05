@@ -172,6 +172,7 @@ void GlobalPositioner::AddCameraToCameraConstraints(
         !reconstruction.ExistsImage(image_id2)) {
       continue;
     }
+    THROW_CHECK(image_pair.cam2_from_cam1.has_value());
 
     Image& image1 = reconstruction.Image(image_id1);
     Image& image2 = reconstruction.Image(image_id2);
@@ -182,7 +183,7 @@ void GlobalPositioner::AddCameraToCameraConstraints(
 
     const Eigen::Vector3d translation =
         image2.CamFromWorld().rotation.inverse() *
-        -image_pair.cam2_from_cam1.translation;
+        -image_pair.cam2_from_cam1->translation;
     ceres::CostFunction* cost_function =
         BATAPairwiseDirectionCostFunctor::Create(translation);
     problem_->AddResidualBlock(cost_function,

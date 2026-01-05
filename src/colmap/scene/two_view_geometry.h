@@ -32,6 +32,8 @@
 #include "colmap/feature/types.h"
 #include "colmap/geometry/rigid3.h"
 
+#include <optional>
+
 namespace colmap {
 
 // Two-view geometry.
@@ -71,7 +73,7 @@ struct TwoViewGeometry {
   Eigen::Matrix3d H = Eigen::Matrix3d::Zero();
 
   // Relative pose.
-  Rigid3d cam2_from_cam1;
+  std::optional<Rigid3d> cam2_from_cam1;
 
   // Inlier matches of the configuration.
   FeatureMatches inlier_matches;
