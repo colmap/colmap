@@ -55,6 +55,7 @@ COLMAP_ADD_LIBRARY(
         triangulation.h triangulation.cc
         two_view_geometry.h two_view_geometry.cc
         utils.h utils.cc
+        view_graph_calibration.h view_graph_calibration.cc
     PUBLIC_LINK_LIBS
         colmap_util
         colmap_math
