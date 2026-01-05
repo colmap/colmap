@@ -143,6 +143,7 @@ inline Eigen::Vector4d ComputeFetzerPolynomialCoefficients(
     const Eigen::Vector3d& bj,
     const int u,
     const int v) {
+  // Equation 12.
   return {ai(u) * aj(v) - ai(v) * aj(u),
           ai(u) * bj(v) - ai(v) * bj(u),
           bi(u) * aj(v) - bi(v) * aj(u),
@@ -179,11 +180,12 @@ inline std::array<Eigen::Vector4d, 6> DecomposeFundamentalMatrixForFetzer(
   const double u21 = u2(0);
   const double u22 = u2(1);
 
-  const double ppi_v1 = principal_point_i.homogeneous().dot(v1);
-  const double ppi_v2 = principal_point_i.homogeneous().dot(v2);
-  const double ppj_u1 = principal_point_j.homogeneous().dot(v1);
-  const double ppj_u2 = principal_point_j.homogeneous().dot(v2);
+  const double cpi_v1 = principal_point_i.homogeneous().dot(v1);
+  const double cpi_v2 = principal_point_i.homogeneous().dot(v2);
+  const double cpj_u1 = principal_point_j.homogeneous().dot(v1);
+  const double cpj_u2 = principal_point_j.homogeneous().dot(v2);
 
+  // Equation 11.
   const Eigen::Vector3d ai(s1 * s1 * (v11 * v11 + v12 * v12),
                            s1 * s2 * (v11 * v21 + v12 * v22),
                            s2 * s2 * (v21 * v21 + v22 * v22));
@@ -191,12 +193,13 @@ inline std::array<Eigen::Vector4d, 6> DecomposeFundamentalMatrixForFetzer(
   const Eigen::Vector3d aj(
       u21 * u21 + u22 * u22, u11 * u21 + u12 * u22, u11 * u11 + u12 * u12);
 
-  const Eigen::Vector3d bi(s1 * s1 * ppi_v1 * ppi_v1,
-                           s1 * s2 * ppi_v1 * ppi_v2,
-                           s2 * s2 * ppi_v2 * ppi_v2);
+  const Eigen::Vector3d bi(s1 * s1 * cpi_v1 * cpi_v1,
+                           s1 * s2 * cpi_v1 * cpi_v2,
+                           s2 * s2 * cpi_v2 * cpi_v2);
 
-  const Eigen::Vector3d bj(ppj_u2 * ppj_u2, ppj_u1 * ppj_u2, ppj_u1 * ppj_u1);
+  const Eigen::Vector3d bj(cpj_u2 * cpj_u2, cpj_u1 * cpj_u2, cpj_u1 * cpj_u1);
 
+  // Equation 12.
   const Eigen::Vector4d d01 =
       ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 0, 1);
   const Eigen::Vector4d d10 =
@@ -216,6 +219,7 @@ template <typename T>
 inline T ComputeFetzerResidual1(const Eigen::Vector<T, 4>& d,
                                 const T& fi_sq,
                                 const T& fj_sq) {
+  // Equation 13.
   T denom = (fj_sq * d(0) + d(1));
   denom = denom == T(0) ? T(1e-6) : denom;
   const T K1 = -(fj_sq * d(2) + d(3)) / denom;
@@ -226,6 +230,7 @@ template <typename T>
 inline T ComputeFetzerResidual2(const Eigen::Vector<T, 4>& d,
                                 const T& fi_sq,
                                 const T& fj_sq) {
+  // Equation 14.
   T denom = (fi_sq * d(0) + d(2));
   denom = denom == T(0) ? T(1e-6) : denom;
   const T K2 = -(fi_sq * d(1) + d(3)) / denom;
@@ -261,19 +266,14 @@ class FetzerFocalLengthCostFunctor {
     const T fi_sq = focal_length_i[0] * focal_length_i[0];
     const T fj_sq = focal_length_j[0] * focal_length_j[0];
 
-    // Full residual:
+    // The total of 12 reisudals only contribute 2 independent constraints.
+    // We still compute all of them to obtain a "quasi-symmetric" and smooth
+    // energy landscape according to the paper.
     for (int i = 0; i < 6; ++i) {
       const Eigen::Vector<T, 4> di = coeffs_[i].cast<T>();
       residuals[i] = ComputeFetzerResidual1(di, fi_sq, fj_sq);
       residuals[2 * i] = ComputeFetzerResidual2(di, fi_sq, fj_sq);
     }
-
-    // Original residual:
-    // residuals[0] = ComputeFetzerResidual1(coeffs_[0].cast<T>(), fi_sq,
-    // fj_sq); residuals[1] = ComputeFetzerResidual1(coeffs_[4].cast<T>(),
-    // fi_sq, fj_sq); for (int i = 2; i < 12; ++i) {
-    //   residuals[i] = T(0);
-    // }
 
     return true;
   }
@@ -301,23 +301,17 @@ class FetzerFocalLengthSameCameraCostFunctor {
   }
 
   template <typename T>
-  bool operator()(const T* const fi_, T* residuals) const {
-    const Eigen::Vector<T, 4> d01_ = coeffs_[0].cast<T>();
-    const Eigen::Vector<T, 4> d12_ = coeffs_[2].cast<T>();
+  bool operator()(const T* const focal_length, T* residuals) const {
+    const T f_sq = focal_length[0] * focal_length[0];
 
-    const T fi = fi_[0];
-    const T fj = fi_[0];
-
-    T di = (fj * fj * d01_(0) + d01_(1));
-    T dj = (fi * fi * d12_(0) + d12_(2));
-    di = di == T(0) ? T(1e-6) : di;
-    dj = dj == T(0) ? T(1e-6) : dj;
-
-    const T K0_01 = -(fj * fj * d01_(2) + d01_(3)) / di;
-    const T K1_12 = -(fi * fi * d12_(1) + d12_(3)) / dj;
-
-    residuals[0] = (fi * fi - K0_01) / (fi * fi);
-    residuals[1] = (fj * fj - K1_12) / (fj * fj);
+    // The total of 12 reisudals only contribute 2 independent constraints.
+    // We still compute all of them to obtain a "quasi-symmetric" and smooth
+    // energy landscape according to the paper.
+    for (int i = 0; i < 6; ++i) {
+      const Eigen::Vector<T, 4> di = coeffs_[i].cast<T>();
+      residuals[i] = ComputeFetzerResidual1(di, f_sq, f_sq);
+      residuals[2 * i] = ComputeFetzerResidual2(di, f_sq, f_sq);
+    }
 
     return true;
   }
