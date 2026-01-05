@@ -576,7 +576,7 @@ void OptionManager::AddMapperOptions() {
   AddAndRegisterDefaultOption("Mapper.fix_existing_frames",
                               &mapper->fix_existing_frames);
 
-  // IncrementalTriangulator.
+  // IncrementalMapper.
   AddAndRegisterDefaultOption("Mapper.init_min_num_inliers",
                               &mapper->mapper.init_min_num_inliers);
   AddAndRegisterDefaultOption("Mapper.init_max_error",
@@ -617,7 +617,7 @@ void OptionManager::AddMapperOptions() {
                    &mapper_constant_camera_list_path_);
   AddDefaultOption("Mapper.max_runtime_seconds", &mapper->max_runtime_seconds);
 
-  // IncrementalMapper.
+  // IncrementalTriangulator.
   AddAndRegisterDefaultOption("Mapper.tri_max_transitivity",
                               &mapper->triangulation.max_transitivity);
   AddAndRegisterDefaultOption("Mapper.tri_create_max_angle_error",
