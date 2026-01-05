@@ -72,6 +72,8 @@ struct RotationEstimatorOptions {
 
 // High-level interface for rotation averaging.
 // Combines problem setup and solving into a single call.
+// TODO: Refactor this class into free functions (e.g., EstimateGlobalRotations)
+// since it holds no state other than options.
 class RotationEstimator {
  public:
   explicit RotationEstimator(const RotationEstimatorOptions& options)
