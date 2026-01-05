@@ -42,6 +42,8 @@
 #include "colmap/scene/database.h"
 #include "colmap/util/logging.h"
 
+#include <filesystem>
+
 namespace colmap {
 
 AutomaticReconstructionController::AutomaticReconstructionController(
@@ -50,18 +52,18 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     : options_(options),
       reconstruction_manager_(std::move(reconstruction_manager)),
       active_thread_(nullptr) {
-  THROW_CHECK_DIR_EXISTS(options_.workspace_path);
-  THROW_CHECK_DIR_EXISTS(options_.image_path);
+  THROW_CHECK_DIR_EXISTS(options_.workspace_path.string());
+  THROW_CHECK_DIR_EXISTS(options_.image_path.string());
   THROW_CHECK_NOTNULL(reconstruction_manager_);
 
   option_manager_.AddAllOptions();
 
-  *option_manager_.image_path = options_.image_path;
+  *option_manager_.image_path = options_.image_path.string();
   option_manager_.image_reader->image_names = options_.image_names;
   option_manager_.mapper->image_names = {options_.image_names.begin(),
                                          options_.image_names.end()};
   *option_manager_.database_path =
-      JoinPaths(options_.workspace_path, "database.db");
+      JoinPaths(options_.workspace_path.string(), "database.db");
 
   if (options_.data_type == DataType::VIDEO) {
     option_manager_.ModifyForVideoData();
@@ -234,7 +236,8 @@ void AutomaticReconstructionController::RunFeatureMatching() {
 }
 
 void AutomaticReconstructionController::RunSparseMapper() {
-  const auto sparse_path = JoinPaths(options_.workspace_path, "sparse");
+  const auto sparse_path =
+      JoinPaths(options_.workspace_path.string(), "sparse");
   if (ExistsDir(sparse_path)) {
     auto dir_list = GetDirList(sparse_path);
     std::sort(dir_list.begin(), dir_list.end());
@@ -285,7 +288,7 @@ void AutomaticReconstructionController::RunSparseMapper() {
 }
 
 void AutomaticReconstructionController::RunDenseMapper() {
-  CreateDirIfNotExists(JoinPaths(options_.workspace_path, "dense"));
+  CreateDirIfNotExists(JoinPaths(options_.workspace_path.string(), "dense"));
 
   for (size_t i = 0; i < reconstruction_manager_->Size(); ++i) {
     if (IsStopped()) {
@@ -293,7 +296,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
     }
 
     const std::string dense_path =
-        JoinPaths(options_.workspace_path, "dense", std::to_string(i));
+        JoinPaths(options_.workspace_path.string(), "dense", std::to_string(i));
     const std::string fused_path = JoinPaths(dense_path, "fused.ply");
 
     std::string meshing_path;

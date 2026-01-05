@@ -37,6 +37,8 @@
 #include "colmap/ui/thread_control_widget.h"
 #include "colmap/util/file.h"
 
+#include <filesystem>
+
 namespace colmap {
 
 class ExtractionWidget : public OptionsWidget {
@@ -64,7 +66,7 @@ class ImportFeaturesWidget : public ExtractionWidget {
   void Run() override;
 
  private:
-  std::string import_path_;
+  std::filesystem::path import_path_;
 };
 
 ExtractionWidget::ExtractionWidget(QWidget* parent, OptionManager* options)
@@ -132,7 +134,7 @@ ImportFeaturesWidget::ImportFeaturesWidget(QWidget* parent,
 void ImportFeaturesWidget::Run() {
   WriteOptions();
 
-  if (!ExistsDir(import_path_)) {
+  if (!ExistsDir(import_path_.string())) {
     QMessageBox::critical(this, "", tr("Path is not a directory"));
     return;
   }
@@ -141,7 +143,7 @@ void ImportFeaturesWidget::Run() {
   reader_options.image_path = *options_->image_path;
 
   auto importer = CreateFeatureImporterController(
-      *options_->database_path, reader_options, import_path_);
+      *options_->database_path, reader_options, import_path_.string());
   thread_control_widget_->StartThread(
       "Importing...", true, std::move(importer));
 }

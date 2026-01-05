@@ -29,6 +29,8 @@
 
 #include "colmap/ui/options_widget.h"
 
+#include <filesystem>
+
 namespace colmap {
 
 OptionsWidget::OptionsWidget(QWidget* parent) : QWidget(parent) {
@@ -166,10 +168,10 @@ QLineEdit* OptionsWidget::AddOptionText(std::string* option,
   return line_edit;
 }
 
-QLineEdit* OptionsWidget::AddOptionFilePath(std::string* option,
+QLineEdit* OptionsWidget::AddOptionFilePath(std::filesystem::path* option,
                                             const std::string& label_text) {
   QLineEdit* line_edit = new QLineEdit(this);
-  line_edit->setText(QString::fromStdString(*option));
+  line_edit->setText(QString::fromStdString(option->string()));
 
   AddOptionRow(label_text, line_edit, option);
 
@@ -187,10 +189,10 @@ QLineEdit* OptionsWidget::AddOptionFilePath(std::string* option,
   return line_edit;
 }
 
-QLineEdit* OptionsWidget::AddOptionDirPath(std::string* option,
+QLineEdit* OptionsWidget::AddOptionDirPath(std::filesystem::path* option,
                                            const std::string& label_text) {
   QLineEdit* line_edit = new QLineEdit(this);
-  line_edit->setText(QString::fromStdString(*option));
+  line_edit->setText(QString::fromStdString(option->string()));
 
   AddOptionRow(label_text, line_edit, option);
 
@@ -245,7 +247,7 @@ void OptionsWidget::ReadOptions() {
   }
 
   for (auto& option : options_path_) {
-    option.first->setText(QString::fromStdString(*option.second));
+    option.first->setText(QString::fromStdString(option.second->string()));
   }
 }
 

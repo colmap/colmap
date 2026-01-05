@@ -35,6 +35,8 @@
 #include "colmap/ui/thread_control_widget.h"
 #include "colmap/util/file.h"
 
+#include <filesystem>
+
 namespace colmap {
 
 class FeatureMatchingTab : public QWidget {
@@ -95,7 +97,7 @@ class CustomMatchingTab : public FeatureMatchingTab {
   void Run() override;
 
  private:
-  std::string custom_match_list_path_;
+  std::filesystem::path custom_match_list_path_;
   QComboBox* custom_match_type_cb_;
 };
 
@@ -268,8 +270,8 @@ void SequentialMatchingTab::Run() {
   WriteOptions();
 
   if (options_->sequential_pairing->loop_detection &&
-      !ExistsFile(options_->sequential_pairing->vocab_tree_path) &&
-      !IsURI(options_->sequential_pairing->vocab_tree_path)) {
+      !ExistsFile(options_->sequential_pairing->vocab_tree_path.string()) &&
+      !IsURI(options_->sequential_pairing->vocab_tree_path.string())) {
     QMessageBox::critical(this, "", tr("Invalid vocabulary tree path."));
     return;
   }
@@ -306,8 +308,8 @@ VocabTreeMatchingTab::VocabTreeMatchingTab(QWidget* parent,
 void VocabTreeMatchingTab::Run() {
   WriteOptions();
 
-  if (!ExistsFile(options_->vocab_tree_pairing->vocab_tree_path) &&
-      !IsURI(options_->vocab_tree_pairing->vocab_tree_path)) {
+  if (!ExistsFile(options_->vocab_tree_pairing->vocab_tree_path.string()) &&
+      !IsURI(options_->vocab_tree_pairing->vocab_tree_path.string())) {
     QMessageBox::critical(this, "", tr("Invalid vocabulary tree path."));
     return;
   }
@@ -383,7 +385,7 @@ CustomMatchingTab::CustomMatchingTab(QWidget* parent, OptionManager* options)
 void CustomMatchingTab::Run() {
   WriteOptions();
 
-  if (!ExistsFile(custom_match_list_path_)) {
+  if (!ExistsFile(custom_match_list_path_.string())) {
     QMessageBox::critical(this, "", tr("Path does not exist!"));
     return;
   }
