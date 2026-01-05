@@ -155,7 +155,8 @@ RelativePoseData& PoseGraph::AddImagePair(image_t image_id1,
     rel_pose_data.Invert();
   }
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  auto [it, inserted] = rel_pose_datas_.emplace(pair_id, std::move(rel_pose_data));
+  auto [it, inserted] =
+      rel_pose_datas_.emplace(pair_id, std::move(rel_pose_data));
   if (!inserted) {
     throw std::runtime_error(
         "Image pair already exists: " + std::to_string(image_id1) + ", " +
@@ -222,12 +223,14 @@ bool PoseGraph::IsValid(image_pair_t pair_id) const {
 }
 
 void PoseGraph::SetValidImagePair(image_pair_t pair_id) {
-  THROW_CHECK(rel_pose_datas_.count(pair_id) > 0) << "Image pair does not exist";
+  THROW_CHECK(rel_pose_datas_.count(pair_id) > 0)
+      << "Image pair does not exist";
   invalid_pairs_.erase(pair_id);
 }
 
 void PoseGraph::SetInvalidImagePair(image_pair_t pair_id) {
-  THROW_CHECK(rel_pose_datas_.count(pair_id) > 0) << "Image pair does not exist";
+  THROW_CHECK(rel_pose_datas_.count(pair_id) > 0)
+      << "Image pair does not exist";
   invalid_pairs_.insert(pair_id);
 }
 
