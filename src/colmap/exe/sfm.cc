@@ -390,10 +390,9 @@ int RunGlobalMapper(int argc, char** argv) {
   GlobalPipelineOptions global_options = *options.global_mapper;
   global_options.image_path = *options.image_path;
 
-  GlobalPipeline global_mapper(
-      global_options,
-      Database::Open(*options.database_path),
-      reconstruction_manager);
+  GlobalPipeline global_mapper(global_options,
+                               Database::Open(*options.database_path),
+                               reconstruction_manager);
   global_mapper.Run();
 
   if (reconstruction_manager->Size() == 0) {
@@ -761,8 +760,8 @@ int RunRotationAverager(int argc, char** argv) {
     return EXIT_FAILURE;
   }
   run_timer.Pause();
-  LOG(INFO) << "Global rotation averaging done in " << run_timer.ElapsedSeconds()
-            << " seconds";
+  LOG(INFO) << "Global rotation averaging done in "
+            << run_timer.ElapsedSeconds() << " seconds";
 
   // Write out the estimated rotation.
   glomap::WriteGlobalRotation(output_path, reconstruction.Images());
