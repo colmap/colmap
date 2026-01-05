@@ -92,22 +92,29 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.mapper->num_threads = options_.num_threads;
   option_manager_.poisson_meshing->num_threads = options_.num_threads;
 
-  option_manager_.two_view_geometry->ransac_options.random_seed =
-      options_.random_seed;
+  // Apply mapper-appropriate two-view geometry defaults.
+  // Global uses stricter thresholds; Incremental/Hierarchical use standard.
+  TwoViewGeometryOptions& two_view_geometry_options =
+      *option_manager_.two_view_geometry;
+  two_view_geometry_options.ransac_options.random_seed = options_.random_seed;
+  if (options_.mapper == Mapper::GLOBAL) {
+    two_view_geometry_options.ransac_options.max_error = 1.0;
+    two_view_geometry_options.min_num_inliers = 30;
+    two_view_geometry_options.min_inlier_ratio = 0.25;
+    // Disable guided matching for global mapper to avoid regression issues.
+    // Currently the guided matching leads to significantly worse results of the
+    // global pipeline.
+    // TODO: Write to database matches instead of inlier matches in guided
+    // matching and figure out a good min_num_inliers and min_inlier_ratio
+    // threshold for it.
+    option_manager_.feature_matching->guided_matching = false;
+  }
+
   option_manager_.mapper->random_seed = options_.random_seed;
 
-  ImageReaderOptions& reader_options = *option_manager_.image_reader;
-  reader_options.image_path = *option_manager_.image_path;
-  reader_options.as_rgb = option_manager_.feature_extraction->RequiresRGB();
   if (!options_.mask_path.empty()) {
-    reader_options.mask_path = options_.mask_path;
-    option_manager_.image_reader->mask_path = options_.mask_path;
     option_manager_.stereo_fusion->mask_path = options_.mask_path;
   }
-  reader_options.single_camera = options_.single_camera;
-  reader_options.single_camera_per_folder = options_.single_camera_per_folder;
-  reader_options.camera_model = options_.camera_model;
-  reader_options.camera_params = options_.camera_params;
 
   option_manager_.feature_extraction->use_gpu = options_.use_gpu;
   option_manager_.feature_matching->use_gpu = options_.use_gpu;
@@ -119,8 +126,25 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.patch_match_stereo->gpu_index = options_.gpu_index;
   option_manager_.mapper->ba_gpu_index = options_.gpu_index;
   option_manager_.bundle_adjustment->gpu_index = options_.gpu_index;
+}
 
+bool AutomaticReconstructionController::RequiresOpenGL() const {
+  return (options_.extraction &&
+          option_manager_.feature_extraction->RequiresOpenGL()) ||
+         (options_.matching &&
+          option_manager_.feature_matching->RequiresOpenGL());
+}
+
+void AutomaticReconstructionController::Setup() {
   if (options_.extraction) {
+    ImageReaderOptions& reader_options = *option_manager_.image_reader;
+    reader_options.mask_path = options_.mask_path;
+    reader_options.single_camera = options_.single_camera;
+    reader_options.single_camera_per_folder = options_.single_camera_per_folder;
+    reader_options.camera_model = options_.camera_model;
+    reader_options.camera_params = options_.camera_params;
+    reader_options.image_path = *option_manager_.image_path;
+    reader_options.as_rgb = option_manager_.feature_extraction->RequiresRGB();
     feature_extractor_ =
         CreateFeatureExtractorController(*option_manager_.database_path,
                                          reader_options,
