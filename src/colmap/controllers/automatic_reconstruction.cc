@@ -267,9 +267,12 @@ void AutomaticReconstructionController::RunSparseMapper() {
       break;
     }
     case Mapper::GLOBAL: {
-      mapper = std::make_unique<GlobalPipeline>(glomap::GlobalMapperOptions(),
-                                                std::move(database),
-                                                reconstruction_manager_);
+      GlobalPipelineOptions global_options;
+      global_options.image_path = *option_manager_.image_path;
+      global_options.num_threads = options_.num_threads;
+      global_options.random_seed = options_.random_seed;
+      mapper = std::make_unique<GlobalPipeline>(
+          global_options, std::move(database), reconstruction_manager_);
       break;
     }
     default:
