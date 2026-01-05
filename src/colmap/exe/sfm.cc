@@ -360,20 +360,13 @@ int RunMapper(int argc, char** argv) {
 
 int RunGlobalMapper(int argc, char** argv) {
   std::string output_path;
-  std::string output_format = "bin";
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("output_format", &output_format, "{bin, txt}");
   options.AddGlobalMapperOptions();
   if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (output_format != "bin" && output_format != "txt") {
-    LOG(ERROR) << "Invalid output format: " << output_format;
     return EXIT_FAILURE;
   }
 
@@ -397,18 +390,7 @@ int RunGlobalMapper(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  // Write reconstructions with specified format.
-  for (size_t i = 0; i < reconstruction_manager->Size(); ++i) {
-    const std::string reconstruction_path =
-        JoinPaths(output_path, std::to_string(i));
-    CreateDirIfNotExists(reconstruction_path);
-    if (output_format == "txt") {
-      reconstruction_manager->Get(i)->WriteText(reconstruction_path);
-    } else {
-      reconstruction_manager->Get(i)->WriteBinary(reconstruction_path);
-    }
-  }
-
+  reconstruction_manager->Write(output_path);
   options.Write(JoinPaths(output_path, "project.ini"));
 
   return EXIT_SUCCESS;

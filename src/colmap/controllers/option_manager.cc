@@ -728,6 +728,7 @@ void OptionManager::AddGlobalMapperOptions() {
       "POINTS_AND_CAMERAS}");
 
   // Bundle adjustment options.
+  // TODO: Consolidate these with existing BA options (e.g., Mapper.ba_*).
   AddAndRegisterDefaultOption("GlobalMapper.BundleAdjustment.use_gpu",
                               &global_mapper->mapper.bundle_adjustment.use_gpu);
   AddAndRegisterDefaultOption(
