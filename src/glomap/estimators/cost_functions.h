@@ -196,7 +196,8 @@ inline std::array<Eigen::Vector4d, 3> DecomposeFundamentalMatrixForFetzer(
   const double u22 = u2(1);
   const double u23 = u2(2);
 
-  // Equation 11.
+  // Equation 11. Notice there is a sign error in the paper.
+  // Equation 8 shows the sign in aj(1) and bj(1) correctly.
   const Eigen::Vector3d ai(s1 * s1 * (v11 * v11 + v12 * v12),
                            s1 * s2 * (v11 * v21 + v12 * v22),
                            s2 * s2 * (v21 * v21 + v22 * v22));
