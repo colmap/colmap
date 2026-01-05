@@ -174,3 +174,8 @@ COLMAP_ADD_TEST(
     SRCS two_view_geometry_test.cc
     LINK_LIBS colmap_estimators
 )
+COLMAP_ADD_TEST(
+    NAME view_graph_calibration_test
+    SRCS view_graph_calibration_test.cc
+    LINK_LIBS colmap_estimators
+)

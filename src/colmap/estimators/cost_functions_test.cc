@@ -512,5 +512,30 @@ TEST(CovarianceWeightedCostFunctor, AbsolutePosePositionPriorCostFunctor) {
       residuals[2], -0.5 * std::sqrt(2) * world_from_cam.translation[2], 1e-6);
 }
 
+// TODO(jsch): Add meaningful tests for FetzerFocalLengthCostFunctor.
+
+TEST(FetzerFocalLengthCostFunctor, CreateCostFunction) {
+  Eigen::Matrix3d F;
+  F << 0, 0, 0.1, 0, 0, 0.2, -0.1, -0.2, 0;
+  const Eigen::Vector2d pp0(320, 240);
+  const Eigen::Vector2d pp1(320, 240);
+
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      FetzerFocalLengthCostFunctor::Create(F, pp0, pp1));
+  ASSERT_NE(cost_function, nullptr);
+}
+
+// TODO(jsch): Add meaningful tests for FetzerFocalLengthSameCameraCostFunctor.
+
+TEST(FetzerFocalLengthSameCameraCostFunctor, CreateCostFunction) {
+  Eigen::Matrix3d F;
+  F << 0, 0, 0.1, 0, 0, 0.2, -0.1, -0.2, 0;
+  const Eigen::Vector2d pp(320, 240);
+
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      FetzerFocalLengthSameCameraCostFunctor::Create(F, pp));
+  ASSERT_NE(cost_function, nullptr);
+}
+
 }  // namespace
 }  // namespace colmap

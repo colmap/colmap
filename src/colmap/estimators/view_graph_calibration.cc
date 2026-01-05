@@ -29,13 +29,14 @@
 
 #include "colmap/estimators/view_graph_calibration.h"
 
+#include "colmap/estimators/cost_functions.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/scene/two_view_geometry.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 
-#include "glomap/estimators/cost_functions.h"
+#include <unordered_set>
 
 namespace colmap {
 namespace {
@@ -129,8 +130,33 @@ void ReestimateRelativePoses(
     two_view_options.ransac_options.random_seed = options.random_seed;
   }
 
+  // Pre-read all keypoints and matches from database (SQLite is not thread-safe).
+  std::unordered_map<image_t, std::vector<Eigen::Vector2d>> image_points;
+  std::vector<FeatureMatches> pair_matches(pairs.size());
+
+  std::unordered_set<image_t> image_ids;
+  for (const auto& [pair_id, tvg] : pairs) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    image_ids.insert(image_id1);
+    image_ids.insert(image_id2);
+  }
+
+  for (const image_t image_id : image_ids) {
+    const FeatureKeypoints keypoints = database->ReadKeypoints(image_id);
+    std::vector<Eigen::Vector2d> points(keypoints.size());
+    for (size_t j = 0; j < keypoints.size(); ++j) {
+      points[j] = Eigen::Vector2d(keypoints[j].x, keypoints[j].y);
+    }
+    image_points[image_id] = std::move(points);
+  }
+
+  for (size_t i = 0; i < pairs.size(); ++i) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pairs[i].first);
+    pair_matches[i] = database->ReadMatches(image_id1, image_id2);
+  }
+
+  // Parallel estimation.
   ThreadPool thread_pool(options.solver_options.num_threads);
-  std::mutex pairs_mutex;
 
   for (size_t i = 0; i < pairs.size(); ++i) {
     thread_pool.AddTask([&, i]() {
@@ -142,29 +168,12 @@ void ReestimateRelativePoses(
       const Camera& camera1 = cameras.at(camera_id1);
       const Camera& camera2 = cameras.at(camera_id2);
 
-      // Read keypoints from database.
-      const FeatureKeypoints keypoints1 = database->ReadKeypoints(image_id1);
-      const FeatureKeypoints keypoints2 = database->ReadKeypoints(image_id2);
+      const std::vector<Eigen::Vector2d>& points1 = image_points.at(image_id1);
+      const std::vector<Eigen::Vector2d>& points2 = image_points.at(image_id2);
 
-      // Collect 2D points.
-      std::vector<Eigen::Vector2d> points1(keypoints1.size());
-      std::vector<Eigen::Vector2d> points2(keypoints2.size());
-      for (size_t j = 0; j < keypoints1.size(); ++j) {
-        points1[j] = Eigen::Vector2d(keypoints1[j].x, keypoints1[j].y);
-      }
-      for (size_t j = 0; j < keypoints2.size(); ++j) {
-        points2[j] = Eigen::Vector2d(keypoints2[j].x, keypoints2[j].y);
-      }
-
-      // Read matches from database.
-      FeatureMatches matches = database->ReadMatches(image_id1, image_id2);
-
-      // Estimate calibrated two-view geometry.
       TwoViewGeometry new_tvg = EstimateCalibratedTwoViewGeometry(
-          camera1, points1, camera2, points2, matches, two_view_options);
+          camera1, points1, camera2, points2, pair_matches[i], two_view_options);
 
-      // Update the pair's two-view geometry.
-      std::lock_guard<std::mutex> lock(pairs_mutex);
       tvg = std::move(new_tvg);
     });
   }
@@ -203,13 +212,13 @@ FocalLengthCalibrationResult CalibrateFocalLengths(
   for (const auto& input : inputs) {
     if (input.camera_id1 == input.camera_id2) {
       problem.AddResidualBlock(
-          glomap::FetzerFocalLengthSameCameraCostFunctor::Create(
+          FetzerFocalLengthSameCameraCostFunctor::Create(
               input.F, cameras.at(input.camera_id1).PrincipalPoint()),
           loss_function.get(),
           &(focals[input.camera_id1]));
     } else {
       problem.AddResidualBlock(
-          glomap::FetzerFocalLengthCostFunctor::Create(
+          FetzerFocalLengthCostFunctor::Create(
               input.F,
               cameras.at(input.camera_id1).PrincipalPoint(),
               cameras.at(input.camera_id2).PrincipalPoint()),

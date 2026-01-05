@@ -1,11 +1,10 @@
 #include "glomap/estimators/view_graph_calibration.h"
 
+#include "colmap/estimators/cost_functions.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/scene/two_view_geometry.h"
 #include "colmap/util/threading.h"
-
-#include "glomap/estimators/cost_functions.h"
 
 namespace glomap {
 namespace {
@@ -106,13 +105,13 @@ void ViewGraphCalibrator::AddImagePairsToProblem(
 
     if (camera_id1 == camera_id2) {
       problem_->AddResidualBlock(
-          FetzerFocalLengthSameCameraCostFunctor::Create(
+          colmap::FetzerFocalLengthSameCameraCostFunctor::Create(
               image_pair.F, reconstruction.Camera(camera_id1).PrincipalPoint()),
           loss_function_.get(),
           &(focals_[camera_id1]));
     } else {
       problem_->AddResidualBlock(
-          FetzerFocalLengthCostFunctor::Create(
+          colmap::FetzerFocalLengthCostFunctor::Create(
               image_pair.F,
               reconstruction.Camera(camera_id1).PrincipalPoint(),
               reconstruction.Camera(camera_id2).PrincipalPoint()),
