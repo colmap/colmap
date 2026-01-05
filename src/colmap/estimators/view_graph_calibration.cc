@@ -130,7 +130,8 @@ void ReestimateRelativePoses(
     two_view_options.ransac_options.random_seed = options.random_seed;
   }
 
-  // Pre-read all keypoints and matches from database (SQLite is not thread-safe).
+  // Pre-read all keypoints and matches from database (SQLite is not
+  // thread-safe).
   std::unordered_map<image_t, std::vector<Eigen::Vector2d>> image_points;
   std::vector<FeatureMatches> pair_matches(pairs.size());
 
@@ -171,8 +172,13 @@ void ReestimateRelativePoses(
       const std::vector<Eigen::Vector2d>& points1 = image_points.at(image_id1);
       const std::vector<Eigen::Vector2d>& points2 = image_points.at(image_id2);
 
-      TwoViewGeometry new_tvg = EstimateCalibratedTwoViewGeometry(
-          camera1, points1, camera2, points2, pair_matches[i], two_view_options);
+      TwoViewGeometry new_tvg =
+          EstimateCalibratedTwoViewGeometry(camera1,
+                                            points1,
+                                            camera2,
+                                            points2,
+                                            pair_matches[i],
+                                            two_view_options);
 
       tvg = std::move(new_tvg);
     });
@@ -255,7 +261,8 @@ FocalLengthCalibrationResult CalibrateFocalLengths(
   } else {
     solver_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
   }
-  solver_options.num_threads = GetEffectiveNumThreads(solver_options.num_threads);
+  solver_options.num_threads =
+      GetEffectiveNumThreads(solver_options.num_threads);
   solver_options.minimizer_progress_to_stdout = VLOG_IS_ON(2);
 
   // Solve.
@@ -411,14 +418,14 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
     } else {
       const Camera& c1 = cameras.at(image_to_camera.at(image_id1));
       const Camera& c2 = cameras.at(image_to_camera.at(image_id2));
-      tvg.E = c2.CalibrationMatrix().transpose() * tvg.F *
-              c1.CalibrationMatrix();
+      tvg.E =
+          c2.CalibrationMatrix().transpose() * tvg.F * c1.CalibrationMatrix();
       tvg.config = TwoViewGeometry::CALIBRATED;
       valid_pair_indices.push_back(i);
     }
   }
-  LOG(INFO) << "Invalid / total number of two-view geometry: " << invalid_counter
-            << " / " << pairs.size();
+  LOG(INFO) << "Invalid / total number of two-view geometry: "
+            << invalid_counter << " / " << pairs.size();
 
   // Re-estimate relative poses for valid pairs.
   if (options.reestimate_relative_pose && !valid_pair_indices.empty()) {
