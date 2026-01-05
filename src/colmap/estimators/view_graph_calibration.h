@@ -81,16 +81,12 @@ struct ViewGraphCalibrationOptions {
 };
 
 // Calibrate the view graph by estimating focal lengths from fundamental
-// matrices. Filters image pairs with high calibration errors.
-// Then re-estimates relative poses using the calibrated cameras.
-//
-// This function operates directly on the database:
-// - Reads UNCALIBRATED two-view geometries and cameras
-// - Optimizes focal lengths using the Fetzer et al. method
-// - Updates cameras with calibrated focal lengths
-// - For successful pairs: computes E, re-estimates relative pose, upgrades to
-//   CALIBRATED
-// - For failed pairs: tags as DEGENERATE_VGC
+// matrices. This function operates directly on the database, reading both
+// UNCALIBRATED and CALIBRATED two-view geometries along with their associated
+// cameras. It optimizes focal lengths and updates the camera intrinsics in the
+// database. Image pairs with low calibration error have their essential
+// matrices computed and relative poses re-estimated, then are upgraded to
+// CALIBRATED. Pairs with high calibration error are tagged as DEGENERATE_VGC.
 bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
                         Database* database);
 
