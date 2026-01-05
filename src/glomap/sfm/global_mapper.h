@@ -8,7 +8,6 @@
 #include "glomap/estimators/bundle_adjustment.h"
 #include "glomap/estimators/global_positioning.h"
 #include "glomap/estimators/rotation_averaging.h"
-#include "glomap/estimators/view_graph_calibration.h"
 #include "glomap/scene/view_graph.h"
 #include "glomap/sfm/track_establishment.h"
 
@@ -29,7 +28,6 @@ struct GlobalMapperOptions {
   std::string image_path;
 
   // Options for each component
-  ViewGraphCalibratorOptions view_graph_calibration;
   RotationEstimatorOptions rotation_averaging;
   TrackEstablishmentOptions track_establishment;
   GlobalPositionerOptions global_positioning;
@@ -52,7 +50,6 @@ struct GlobalMapperOptions {
   int num_iterations_ba = 3;
 
   // Control the flow of the global sfm
-  bool skip_view_graph_calibration = false;
   bool skip_rotation_averaging = false;
   bool skip_track_establishment = false;
   bool skip_global_positioning = false;

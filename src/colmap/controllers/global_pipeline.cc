@@ -46,6 +46,26 @@ GlobalPipeline::GlobalPipeline(
           std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {}
 
 void GlobalPipeline::Run() {
+  // Run view graph calibration on the database before loading into mapper.
+  if (!options_.skip_view_graph_calibration) {
+    LOG(INFO) << "----- Running view graph calibration -----";
+    Timer run_timer;
+    run_timer.Start();
+    ViewGraphCalibrationOptions vgc_options = options_.view_graph_calibration;
+    if (options_.random_seed >= 0) {
+      vgc_options.random_seed = options_.random_seed;
+    }
+    if (options_.num_threads > 0) {
+      vgc_options.solver_options.num_threads = options_.num_threads;
+    }
+    if (!CalibrateViewGraph(vgc_options, database_.get())) {
+      LOG(ERROR) << "View graph calibration failed";
+      return;
+    }
+    LOG(INFO) << "View graph calibration done in " << run_timer.ElapsedSeconds()
+              << " seconds";
+  }
+
   auto reconstruction = std::make_shared<Reconstruction>();
 
   glomap::GlobalMapper global_mapper(database_);

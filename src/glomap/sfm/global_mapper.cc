@@ -332,24 +332,9 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     opts.global_positioning.random_seed = opts.random_seed;
     opts.global_positioning.use_parameter_block_ordering = false;
     opts.retriangulation.random_seed = opts.random_seed;
-    opts.view_graph_calibration.random_seed = opts.random_seed;
   }
-  opts.view_graph_calibration.solver_options.num_threads = opts.num_threads;
   opts.global_positioning.solver_options.num_threads = opts.num_threads;
   opts.bundle_adjustment.solver_options.num_threads = opts.num_threads;
-
-  if (!opts.skip_view_graph_calibration) {
-    // Run view graph calibration
-    LOG(INFO) << "----- Running view graph calibration -----";
-    colmap::Timer run_timer;
-    run_timer.Start();
-    if (!CalibrateViewGraph(
-            opts.view_graph_calibration, *view_graph_, *reconstruction_)) {
-      return false;
-    }
-    LOG(INFO) << "View graph calibration done in " << run_timer.ElapsedSeconds()
-              << " seconds";
-  }
 
   // Run rotation averaging
   if (!opts.skip_rotation_averaging) {

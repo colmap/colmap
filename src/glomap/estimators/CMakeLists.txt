@@ -38,7 +38,6 @@ COLMAP_ADD_LIBRARY(
         rotation_averaging.h rotation_averaging.cc
         rotation_averaging_impl.h rotation_averaging_impl.cc
         gravity_refinement.h gravity_refinement.cc
-        view_graph_calibration.h view_graph_calibration.cc
     PUBLIC_LINK_LIBS
         colmap_glomap_scene
         colmap_estimators

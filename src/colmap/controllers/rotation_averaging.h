@@ -33,7 +33,6 @@
 #include "colmap/util/base_controller.h"
 
 #include "glomap/estimators/rotation_averaging.h"
-#include "glomap/estimators/view_graph_calibration.h"
 
 #include <memory>
 
@@ -48,9 +47,6 @@ struct RotationAveragingControllerOptions {
   // (non-deterministic). If >= 0, the pipeline is deterministic with the given
   // seed.
   int random_seed = -1;
-
-  // Options for view graph calibration.
-  glomap::ViewGraphCalibratorOptions view_graph_calibration;
 
   // Options for rotation averaging.
   glomap::RotationEstimatorOptions rotation_estimation;

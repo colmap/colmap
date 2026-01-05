@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/util/base_controller.h"
 
@@ -47,6 +48,12 @@ struct GlobalPipelineOptions {
 
   // Random seed for reproducibility.
   int random_seed = -1;
+
+  // Whether to skip view graph calibration.
+  bool skip_view_graph_calibration = false;
+
+  // Options for view graph calibration.
+  ViewGraphCalibrationOptions view_graph_calibration;
 
   // Options for the global mapper.
   glomap::GlobalMapperOptions mapper;
