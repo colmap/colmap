@@ -112,6 +112,11 @@ std::vector<T> CSVToVector(const std::string& csv) {
       continue;
     }
     try {
+      static_assert(std::is_same<T, std::string>::value ||  //
+                        std::is_same<T, int>::value ||      //
+                        std::is_same<T, float>::value ||    //
+                        std::is_same<T, double>::value,     //
+                    "Unsupported type");
       if constexpr (std::is_same<T, std::string>::value) {
         values.push_back(elem);
       } else if constexpr (std::is_same<T, int>::value) {
@@ -120,8 +125,6 @@ std::vector<T> CSVToVector(const std::string& csv) {
         values.push_back(std::stod(elem));
       } else if constexpr (std::is_same<T, double>::value) {
         values.push_back(std::stold(elem));
-      } else {
-        static_assert(false, "Unsupported type");
       }
     } catch (const std::invalid_argument&) {
       LOG(ERROR) << "Failed to convert CSV element: " << elem;
