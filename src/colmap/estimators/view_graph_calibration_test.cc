@@ -67,12 +67,15 @@ TEST(CalibrateViewGraph, Nominal) {
     database->UpdateTwoViewGeometry(image_id1, image_id2, uncalib_tvg);
   }
 
-  // Add noise to focal length of first camera (+50 pixels).
-  Camera camera = database->ReadCamera(1);
-  for (const size_t idx : camera.FocalLengthIdxs()) {
-    camera.params[idx] += 50;
+  // Add noise to focal lengths of all cameras (random from -50 to 50 pixels).
+  for (const auto& [camera_id, _] : reconstruction.Cameras()) {
+    Camera camera = database->ReadCamera(camera_id);
+    const double noise = RandomUniformReal(-50.0, 50.0);
+    for (const size_t idx : camera.FocalLengthIdxs()) {
+      camera.params[idx] += noise;
+    }
+    database->UpdateCamera(camera);
   }
-  database->UpdateCamera(camera);
 
   ViewGraphCalibrationOptions calib_options;
   calib_options.random_seed = 42;
