@@ -29,6 +29,9 @@
 
 #pragma once
 
+#include "colmap/util/logging.h"
+#include "colmap/util/string.h"
+
 #include <algorithm>
 #include <sstream>
 #include <string>
@@ -96,6 +99,36 @@ std::string VectorToCSV(const std::vector<T>& values) {
   std::string buf = stream.str();
   buf.resize(buf.size() - 2);
   return buf;
+}
+
+template <typename T>
+std::vector<T> CSVToVector(const std::string& csv) {
+  auto elems = StringSplit(csv, ",;");
+  std::vector<T> values;
+  values.reserve(elems.size());
+  for (auto& elem : elems) {
+    StringTrim(&elem);
+    if (elem.empty()) {
+      continue;
+    }
+    try {
+      if constexpr (std::is_same<T, std::string>::value) {
+        values.push_back(elem);
+      } else if constexpr (std::is_same<T, int>::value) {
+        values.push_back(std::stoi(elem));
+      } else if constexpr (std::is_same<T, float>::value) {
+        values.push_back(std::stof(elem));
+      } else if constexpr (std::is_same<T, double>::value) {
+        values.push_back(std::stod(elem));
+      } else {
+        static_assert(false, "Unsupported type");
+      }
+    } catch (const std::invalid_argument&) {
+      LOG(ERROR) << "Failed to convert CSV element: " << elem;
+      return {};
+    }
+  }
+  return values;
 }
 
 }  // namespace colmap

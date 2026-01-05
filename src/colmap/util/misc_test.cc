@@ -31,6 +31,7 @@
 
 #include <cstring>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -54,7 +55,7 @@ TEST(VectorContainsDuplicateValues, Nominal) {
   EXPECT_TRUE(VectorContainsDuplicateValues<std::string>({"a", "a"}));
 }
 
-TEST(CSVToVector, Nominal) {
+TEST(CSVToVector, Int) {
   const std::vector<int> list1 = CSVToVector<int>("1, 2, 3 , 4,5,6 ");
   EXPECT_EQ(list1.size(), 6);
   EXPECT_EQ(list1[0], 1);
@@ -79,6 +80,109 @@ TEST(CSVToVector, Nominal) {
   EXPECT_EQ(list3[3], 4);
   EXPECT_EQ(list3[4], 5);
   EXPECT_EQ(list3[5], 6);
+}
+
+TEST(CSVToVector, IntEmpty) {
+  EXPECT_THAT(CSVToVector<int>(""), testing::IsEmpty());
+  EXPECT_THAT(CSVToVector<int>(" "), testing::IsEmpty());
+}
+
+TEST(CSVToVector, IntInvalid) {
+  const std::vector<int> list = CSVToVector<int>("1, 2, invalid, 3");
+  EXPECT_EQ(list.size(), 0);
+}
+
+TEST(CSVToVector, Float) {
+  const std::vector<float> list1 =
+      CSVToVector<float>("1.5, 2.7, 3.14 , 4.0,5.9,6.2 ");
+  EXPECT_EQ(list1.size(), 6);
+  EXPECT_FLOAT_EQ(list1[0], 1.5f);
+  EXPECT_FLOAT_EQ(list1[1], 2.7f);
+  EXPECT_FLOAT_EQ(list1[2], 3.14f);
+  EXPECT_FLOAT_EQ(list1[3], 4.0f);
+  EXPECT_FLOAT_EQ(list1[4], 5.9f);
+  EXPECT_FLOAT_EQ(list1[5], 6.2f);
+  const std::vector<float> list2 = CSVToVector<float>("1.5; 2.7; 3.14");
+  EXPECT_EQ(list2.size(), 3);
+  EXPECT_FLOAT_EQ(list2[0], 1.5f);
+  EXPECT_FLOAT_EQ(list2[1], 2.7f);
+  EXPECT_FLOAT_EQ(list2[2], 3.14f);
+}
+
+TEST(CSVToVector, FloatEmpty) {
+  EXPECT_THAT(CSVToVector<float>(""), testing::IsEmpty());
+  EXPECT_THAT(CSVToVector<float>(" "), testing::IsEmpty());
+}
+
+TEST(CSVToVector, FloatInvalid) {
+  const std::vector<float> list = CSVToVector<float>("1.5, 2.7, invalid, 3.14");
+  EXPECT_EQ(list.size(), 0);
+}
+
+TEST(CSVToVector, Double) {
+  const std::vector<double> list1 =
+      CSVToVector<double>("1.5, 2.7, 3.14159 , 4.0,5.9,6.28318 ");
+  EXPECT_EQ(list1.size(), 6);
+  EXPECT_DOUBLE_EQ(list1[0], 1.5);
+  EXPECT_DOUBLE_EQ(list1[1], 2.7);
+  EXPECT_DOUBLE_EQ(list1[2], 3.14159);
+  EXPECT_DOUBLE_EQ(list1[3], 4.0);
+  EXPECT_DOUBLE_EQ(list1[4], 5.9);
+  EXPECT_DOUBLE_EQ(list1[5], 6.28318);
+  const std::vector<double> list2 = CSVToVector<double>("1.5; 2.7; 3.14159");
+  EXPECT_EQ(list2.size(), 3);
+  EXPECT_DOUBLE_EQ(list2[0], 1.5);
+  EXPECT_DOUBLE_EQ(list2[1], 2.7);
+  EXPECT_DOUBLE_EQ(list2[2], 3.14159);
+}
+
+TEST(CSVToVector, DoubleEmpty) {
+  EXPECT_THAT(CSVToVector<double>(""), testing::IsEmpty());
+  EXPECT_THAT(CSVToVector<double>(" "), testing::IsEmpty());
+}
+
+TEST(CSVToVector, DoubleInvalid) {
+  const std::vector<double> list =
+      CSVToVector<double>("1.5, 2.7, invalid, 3.14");
+  EXPECT_EQ(list.size(), 0);
+}
+
+TEST(CSVToVector, String) {
+  const std::vector<std::string> list1 =
+      CSVToVector<std::string>("foo, bar, baz , qux,hello,world ");
+  EXPECT_EQ(list1.size(), 6);
+  EXPECT_EQ(list1[0], "foo");
+  EXPECT_EQ(list1[1], "bar");
+  EXPECT_EQ(list1[2], "baz");
+  EXPECT_EQ(list1[3], "qux");
+  EXPECT_EQ(list1[4], "hello");
+  EXPECT_EQ(list1[5], "world");
+  const std::vector<std::string> list2 =
+      CSVToVector<std::string>("foo; bar; baz");
+  EXPECT_EQ(list2.size(), 3);
+  EXPECT_EQ(list2[0], "foo");
+  EXPECT_EQ(list2[1], "bar");
+  EXPECT_EQ(list2[2], "baz");
+  const std::vector<std::string> list3 =
+      CSVToVector<std::string>("foo;, bar;; baz");
+  EXPECT_EQ(list3.size(), 3);
+  EXPECT_EQ(list3[0], "foo");
+  EXPECT_EQ(list3[1], "bar");
+  EXPECT_EQ(list3[2], "baz");
+}
+
+TEST(CSVToVector, StringEmpty) {
+  EXPECT_THAT(CSVToVector<std::string>(""), testing::IsEmpty());
+  EXPECT_THAT(CSVToVector<std::string>(" "), testing::IsEmpty());
+}
+
+TEST(CSVToVector, StringWithSpaces) {
+  const std::vector<std::string> list =
+      CSVToVector<std::string>(" hello , world , test ");
+  EXPECT_EQ(list.size(), 3);
+  EXPECT_EQ(list[0], "hello");
+  EXPECT_EQ(list[1], "world");
+  EXPECT_EQ(list[2], "test");
 }
 
 TEST(VectorToCSV, Nominal) {
