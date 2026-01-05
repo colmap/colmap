@@ -228,7 +228,7 @@ Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
   } else if (output_type == "txt") {
     reconstruction.WriteText(output_path);
   } else if (output_type == "ply") {
-    WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
+    WriteBinaryPlyPoints(output_path.string(), fuser.GetFusedPoints());
     std::filesystem::path vis_path = output_path;
     vis_path += ".vis";
     mvs::WritePointsVisibility(vis_path, fuser.GetFusedPointsVisibility());
