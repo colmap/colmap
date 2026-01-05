@@ -165,6 +165,8 @@ inline std::array<Eigen::Vector4d, 3> DecomposeFundamentalMatrixForFetzer(
   K1(0, 2) = principal_point_j(0);
   K1(1, 2) = principal_point_j(1);
 
+  // Factoring out the principal points before the SVD appears to be numerically
+  // more stable than the method described in the paper.
   const Eigen::Matrix3d i1_G_i0 = K1.transpose() * j_F_i * K0;
 
   const Eigen::JacobiSVD<Eigen::Matrix3d> svd(
@@ -193,11 +195,6 @@ inline std::array<Eigen::Vector4d, 3> DecomposeFundamentalMatrixForFetzer(
   const double u21 = u2(0);
   const double u22 = u2(1);
   const double u23 = u2(2);
-
-  const double cpi_v1 = Eigen::Vector3d(0, 0, 1).dot(v1);
-  const double cpi_v2 = Eigen::Vector3d(0, 0, 1).dot(v2);
-  const double cpj_u1 = Eigen::Vector3d(0, 0, 1).dot(u1);
-  const double cpj_u2 = Eigen::Vector3d(0, 0, 1).dot(u2);
 
   // Equation 11.
   const Eigen::Vector3d ai(s1 * s1 * (v11 * v11 + v12 * v12),
