@@ -673,7 +673,8 @@ void OptionManager::AddGlobalMapperOptions() {
   // View graph calibration options.
   AddAndRegisterDefaultOption(
       "GlobalMapper.ViewGraphCalib.cross_validate_prior_focal_lengths",
-      &global_mapper->view_graph_calibration.cross_validate_prior_focal_lengths);
+      &global_mapper->view_graph_calibration
+           .cross_validate_prior_focal_lengths);
   AddAndRegisterDefaultOption(
       "GlobalMapper.ViewGraphCalib.reestimate_relative_pose",
       &global_mapper->view_graph_calibration.reestimate_relative_pose);
