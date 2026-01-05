@@ -452,7 +452,7 @@ class FaissVisualIndex : public VisualIndex {
 #ifdef _MSC_VER
     THROW_CHECK_EQ(fopen_s(&fin, path.string().c_str(), "rb"), 0);
 #else
-    fin = fopen(path.c_str(), "rb");
+    fin = fopen(path.string().c_str(), "rb");
 #endif
     THROW_CHECK_NOTNULL(fin);
     fseek(fin, offset, SEEK_SET);
@@ -493,7 +493,7 @@ class FaissVisualIndex : public VisualIndex {
 #ifdef _MSC_VER
       THROW_CHECK_EQ(fopen_s(&fout, path.string().c_str(), "ab"), 0);
 #else
-      fout = fopen(path.c_str(), "ab");
+      fout = fopen(path.string().c_str(), "ab");
 #endif
       THROW_CHECK_NOTNULL(fout);
       faiss::write_index(index_.get(), fout);

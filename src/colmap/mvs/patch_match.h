@@ -40,6 +40,7 @@
 #include "colmap/util/threading.h"
 #endif
 
+#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -131,10 +132,10 @@ class PatchMatch {
 class PatchMatchController : public BaseController {
  public:
   PatchMatchController(const PatchMatchOptions& options,
-                       const std::string& workspace_path,
+                       const std::filesystem::path& workspace_path,
                        const std::string& workspace_format,
                        const std::string& pmvs_option_name,
-                       const std::string& config_path = "");
+                       const std::filesystem::path& config_path = "");
   void Run();
 
  private:
@@ -144,10 +145,10 @@ class PatchMatchController : public BaseController {
   void ProcessProblem(const PatchMatchOptions& options, size_t problem_idx);
 
   const PatchMatchOptions options_;
-  const std::string workspace_path_;
+  const std::filesystem::path workspace_path_;
   const std::string workspace_format_;
   const std::string pmvs_option_name_;
-  const std::string config_path_;
+  const std::filesystem::path config_path_;
 
   std::unique_ptr<ThreadPool> thread_pool_;
   std::mutex workspace_mutex_;

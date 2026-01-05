@@ -812,8 +812,8 @@ ImportedPairGenerator::ImportedPairGenerator(
     const auto& image = cache->GetImage(image_id);
     image_name_to_image_id.emplace(image.Name(), image_id);
   }
-  image_pairs_ =
-      ReadImagePairsText(options_.match_list_path, image_name_to_image_id);
+  image_pairs_ = ReadImagePairsText(options_.match_list_path.string(),
+                                    image_name_to_image_id);
   block_image_pairs_.reserve(options_.block_size);
 }
 

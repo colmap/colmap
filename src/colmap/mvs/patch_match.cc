@@ -36,6 +36,7 @@
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 
+#include <filesystem>
 #include <numeric>
 #include <unordered_set>
 
@@ -151,11 +152,12 @@ ConsistencyGraph PatchMatch::GetConsistencyGraph() const {
                           patch_match_cuda_->GetConsistentImageIdxs());
 }
 
-PatchMatchController::PatchMatchController(const PatchMatchOptions& options,
-                                           const std::string& workspace_path,
-                                           const std::string& workspace_format,
-                                           const std::string& pmvs_option_name,
-                                           const std::string& config_path)
+PatchMatchController::PatchMatchController(
+    const PatchMatchOptions& options,
+    const std::filesystem::path& workspace_path,
+    const std::string& workspace_format,
+    const std::string& pmvs_option_name,
+    const std::filesystem::path& config_path)
     : options_(options),
       workspace_path_(workspace_path),
       workspace_format_(workspace_format),
@@ -216,7 +218,7 @@ void PatchMatchController::ReadWorkspace() {
   workspace_options.max_image_size = options_.max_image_size;
   workspace_options.image_as_rgb = false;
   workspace_options.cache_size = options_.cache_size;
-  workspace_options.workspace_path = workspace_path_;
+  workspace_options.workspace_path = workspace_path_.string();
   workspace_options.workspace_format = workspace_format_;
   workspace_options.input_type = options_.geom_consistency ? "photometric" : "";
 
@@ -239,10 +241,10 @@ void PatchMatchController::ReadProblems() {
   const auto& model = workspace_->GetModel();
 
   const std::string config_path =
-      config_path_.empty() ? JoinPaths(workspace_path_,
+      config_path_.empty() ? JoinPaths(workspace_path_.string(),
                                        workspace_->GetOptions().stereo_folder,
                                        "patch-match.cfg")
-                           : config_path_;
+                           : config_path_.string();
   std::vector<std::string> config = ReadTextFileLines(config_path);
 
   std::vector<std::map<int, int>> shared_num_points;
