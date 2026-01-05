@@ -125,7 +125,7 @@ void BindMeshing(py::module& m) {
       [](const std::filesystem::path& input_path,
          const std::filesystem::path& output_path,
          const PoissonMOpts& options) -> void {
-        mvs::PoissonMeshing(options, input_path, output_path);
+        mvs::PoissonMeshing(options, input_path.string(), output_path.string());
       },
       "input_path"_a,
       "output_path"_a,
@@ -139,7 +139,8 @@ void BindMeshing(py::module& m) {
       [](const std::filesystem::path& input_path,
          const std::filesystem::path& output_path,
          const DMOpts& options) -> void {
-        mvs::SparseDelaunayMeshing(options, input_path, output_path);
+        mvs::SparseDelaunayMeshing(
+            options, input_path.string(), output_path.string());
       },
       "input_path"_a,
       "output_path"_a,
@@ -152,7 +153,8 @@ void BindMeshing(py::module& m) {
       [](const std::filesystem::path& input_path,
          const std::filesystem::path& output_path,
          const DMOpts& options) -> void {
-        mvs::DenseDelaunayMeshing(options, input_path, output_path);
+        mvs::DenseDelaunayMeshing(
+            options, input_path.string(), output_path.string());
       },
       "input_path"_a,
       "output_path"_a,

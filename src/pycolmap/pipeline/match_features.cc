@@ -32,7 +32,7 @@ void MatchFeatures(const std::filesystem::path& database_path,
                    const PairingOptions& pairing_options,
                    const TwoViewGeometryOptions& verification_options,
                    const Device device) {
-  THROW_CHECK_FILE_EXISTS(database_path);
+  THROW_CHECK_FILE_EXISTS(database_path.string());
   try {
     py::cast(pairing_options).attr("check").attr("__call__")();
   } catch (py::error_already_set& ex) {
@@ -45,8 +45,10 @@ void MatchFeatures(const std::filesystem::path& database_path,
   THROW_CHECK(matching_options.Check());
 
   py::gil_scoped_release release;
-  std::unique_ptr<Thread> matcher = MatcherFactory(
-      pairing_options, matching_options, verification_options, database_path);
+  std::unique_ptr<Thread> matcher = MatcherFactory(pairing_options,
+                                                   matching_options,
+                                                   verification_options,
+                                                   database_path.string());
   matcher->Start();
   PyWait(matcher.get());
 }
@@ -54,8 +56,8 @@ void MatchFeatures(const std::filesystem::path& database_path,
 void VerifyMatches(const std::filesystem::path& database_path,
                    const std::filesystem::path& pairs_path,
                    const TwoViewGeometryOptions& verification_options) {
-  THROW_CHECK_FILE_EXISTS(database_path);
-  THROW_CHECK_FILE_EXISTS(pairs_path);
+  THROW_CHECK_FILE_EXISTS(database_path.string());
+  THROW_CHECK_FILE_EXISTS(pairs_path.string());
   py::gil_scoped_release release;  // verification is multi-threaded
 
   FeatureMatchingOptions matching_options;
@@ -64,8 +66,11 @@ void VerifyMatches(const std::filesystem::path& database_path,
   ImportedPairingOptions pairing_options;
   pairing_options.match_list_path = pairs_path;
 
-  std::unique_ptr<Thread> matcher = CreateImagePairsFeatureMatcher(
-      pairing_options, matching_options, verification_options, database_path);
+  std::unique_ptr<Thread> matcher =
+      CreateImagePairsFeatureMatcher(pairing_options,
+                                     matching_options,
+                                     verification_options,
+                                     database_path.string());
   matcher->Start();
   PyWait(matcher.get());
 }
@@ -74,11 +79,14 @@ void GeometricVerification(const std::filesystem::path& database_path,
                            const GeometricVerifierOptions& verifier_options,
                            const ExistingMatchedPairingOptions& pairing_options,
                            const TwoViewGeometryOptions& geometry_options) {
-  THROW_CHECK_FILE_EXISTS(database_path);
+  THROW_CHECK_FILE_EXISTS(database_path.string());
 
   py::gil_scoped_release release;  // verification is multi-threaded
-  std::unique_ptr<Thread> verifier = CreateGeometricVerifier(
-      verifier_options, pairing_options, geometry_options, database_path);
+  std::unique_ptr<Thread> verifier =
+      CreateGeometricVerifier(verifier_options,
+                              pairing_options,
+                              geometry_options,
+                              database_path.string());
   verifier->Start();
   PyWait(verifier.get());
 }
@@ -89,11 +97,11 @@ void GuidedGeometricVerification(
     const ExistingMatchedPairingOptions& pairing_options,
     const TwoViewGeometryOptions& geometry_options,
     int num_threads = -1) {
-  THROW_CHECK_FILE_EXISTS(database_path);
+  THROW_CHECK_FILE_EXISTS(database_path.string());
 
   py::gil_scoped_release release;  // verification is multi-threaded
   RunGuidedGeometricVerifierImpl(reconstruction,
-                                 database_path,
+                                 database_path.string(),
                                  pairing_options,
                                  geometry_options,
                                  num_threads);
