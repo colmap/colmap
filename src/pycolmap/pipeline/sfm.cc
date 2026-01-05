@@ -29,15 +29,15 @@ std::shared_ptr<Reconstruction> TriangulatePoints(
     const bool clear_points,
     const IncrementalPipelineOptions& options,
     const bool refine_intrinsics) {
-  THROW_CHECK_FILE_EXISTS(database_path);
-  THROW_CHECK_DIR_EXISTS(image_path);
-  CreateDirIfNotExists(output_path);
+  THROW_CHECK_FILE_EXISTS(database_path.string());
+  THROW_CHECK_DIR_EXISTS(image_path.string());
+  CreateDirIfNotExists(output_path.string());
 
   py::gil_scoped_release release;
   RunPointTriangulatorImpl(reconstruction,
-                           database_path,
-                           image_path,
-                           output_path,
+                           database_path.string(),
+                           image_path.string(),
+                           output_path.string(),
                            options,
                            clear_points,
                            refine_intrinsics);
@@ -52,13 +52,13 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
     const std::filesystem::path& input_path,
     std::function<void()> initial_image_pair_callback,
     std::function<void()> next_image_callback) {
-  THROW_CHECK_FILE_EXISTS(database_path);
-  THROW_CHECK_DIR_EXISTS(image_path);
-  CreateDirIfNotExists(output_path);
+  THROW_CHECK_FILE_EXISTS(database_path.string());
+  THROW_CHECK_DIR_EXISTS(image_path.string());
+  CreateDirIfNotExists(output_path.string());
 
   py::gil_scoped_release release;
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  if (input_path != "") {
+  if (input_path.string() != "") {
     reconstruction_manager->Read(input_path);
   }
   auto options_ = std::make_shared<IncrementalPipelineOptions>(options);
@@ -74,9 +74,9 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
         }
       };
 
-  if (!RunIncrementalMapperImpl(database_path,
-                                image_path,
-                                output_path,
+  if (!RunIncrementalMapperImpl(database_path.string(),
+                                image_path.string(),
+                                output_path.string(),
                                 options_,
                                 reconstruction_manager,
                                 initial_image_pair_callback,

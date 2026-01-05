@@ -29,8 +29,8 @@ void ImportImages(const std::filesystem::path& database_path,
                   const CameraMode camera_mode,
                   const std::vector<std::string>& image_names,
                   const ImageReaderOptions& options_) {
-  THROW_CHECK_FILE_EXISTS(database_path);
-  THROW_CHECK_DIR_EXISTS(image_path);
+  THROW_CHECK_FILE_EXISTS(database_path.string());
+  THROW_CHECK_DIR_EXISTS(image_path.string());
 
   ImageReaderOptions options(options_);
   options.image_path = image_path;
@@ -78,7 +78,7 @@ void ImportImages(const std::filesystem::path& database_path,
 Camera InferCameraFromImage(const std::filesystem::path& image_path,
                             const ImageReaderOptions& options) {
   Bitmap bitmap;
-  THROW_CHECK_FILE_EXISTS(image_path);
+  THROW_CHECK_FILE_EXISTS(image_path.string());
   THROW_CHECK(bitmap.Read(image_path, false))
       << "Cannot read image file: " << image_path;
 
@@ -108,8 +108,8 @@ void UndistortImages(const std::filesystem::path& output_path,
                      const CopyType copy_type,
                      const int num_patch_match_src_images,
                      const UndistortCameraOptions& undistort_camera_options) {
-  THROW_CHECK_DIR_EXISTS(image_path);
-  CreateDirIfNotExists(output_path);
+  THROW_CHECK_DIR_EXISTS(image_path.string());
+  CreateDirIfNotExists(output_path.string());
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
   LOG(INFO) << StringPrintf(" => Reconstruction with %d images and %d points",
@@ -132,16 +132,20 @@ void UndistortImages(const std::filesystem::path& output_path,
     undistorter.reset(new COLMAPUndistorter(undistort_camera_options,
                                             reconstruction,
                                             image_path,
-                                            output_path,
+                                            output_path.string(),
                                             num_patch_match_src_images,
                                             copy_type,
                                             image_ids));
   } else if (output_type == "PMVS") {
-    undistorter.reset(new PMVSUndistorter(
-        undistort_camera_options, reconstruction, image_path, output_path));
+    undistorter.reset(new PMVSUndistorter(undistort_camera_options,
+                                          reconstruction,
+                                          image_path,
+                                          output_path.string()));
   } else if (output_type == "CMP-MVS") {
-    undistorter.reset(new CMPMVSUndistorter(
-        undistort_camera_options, reconstruction, image_path, output_path));
+    undistorter.reset(new CMPMVSUndistorter(undistort_camera_options,
+                                            reconstruction,
+                                            image_path,
+                                            output_path.string()));
   } else {
     LOG(FATAL_THROW)
         << "Invalid `output_type` - supported values are {'COLMAP', "

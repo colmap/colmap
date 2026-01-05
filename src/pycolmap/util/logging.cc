@@ -45,7 +45,8 @@ void BindLogging(py::module& m) {
           [](const Logging::LogSeverity severity,
              const std::filesystem::path& path) {
             google::SetLogDestination(
-                static_cast<google::LogSeverity>(severity), path.c_str());
+                static_cast<google::LogSeverity>(severity),
+                path.string().c_str());
           },
           py::arg("level"),
           py::arg("path"))
