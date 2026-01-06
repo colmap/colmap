@@ -39,6 +39,12 @@
 namespace colmap {
 
 struct RotationAveragingControllerOptions {
+  // The minimum number of matches for inlier matches to be considered.
+  int min_num_matches = 15;
+
+  // Whether to ignore the inlier matches of watermark image pairs.
+  bool ignore_watermarks = false;
+
   // Number of threads.
   int num_threads = -1;
 

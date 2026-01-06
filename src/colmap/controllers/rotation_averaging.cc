@@ -60,8 +60,8 @@ void RotationAveragingController::Run() {
 
   // Create database cache with relative poses for pose graph.
   auto database_cache = DatabaseCache::Create(*database_,
-                                              /*min_num_matches=*/0,
-                                              /*ignore_watermarks=*/false,
+                                              options_.min_num_matches,
+                                              options_.ignore_watermarks,
                                               /*image_names=*/{},
                                               /*load_relative_pose=*/true);
 
