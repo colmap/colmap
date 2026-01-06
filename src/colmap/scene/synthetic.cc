@@ -70,7 +70,10 @@ void SynthesizeExhaustiveMatches(double inlier_match_ratio,
       const auto num_points2D2 = image2.NumPoints2D();
 
       TwoViewGeometry two_view_geometry;
-      two_view_geometry.config = TwoViewGeometry::CALIBRATED;
+      const bool is_calibrated = image1.CameraPtr()->has_prior_focal_length &&
+                                 image2.CameraPtr()->has_prior_focal_length;
+      two_view_geometry.config = is_calibrated ? TwoViewGeometry::CALIBRATED
+                                               : TwoViewGeometry::UNCALIBRATED;
       two_view_geometry.cam2_from_cam1 =
           image2.CamFromWorld() * Inverse(image1.CamFromWorld());
       two_view_geometry.E =
@@ -143,7 +146,10 @@ void SynthesizeChainedMatches(double inlier_match_ratio,
     const auto& camera1 = *image1.CameraPtr();
     const auto& image2 = reconstruction->Image(image_id2);
     const auto& camera2 = *image2.CameraPtr();
-    two_view_geometry.config = TwoViewGeometry::CALIBRATED;
+    const bool is_calibrated =
+        camera1.has_prior_focal_length && camera2.has_prior_focal_length;
+    two_view_geometry.config = is_calibrated ? TwoViewGeometry::CALIBRATED
+                                             : TwoViewGeometry::UNCALIBRATED;
     two_view_geometry.cam2_from_cam1 =
         image2.CamFromWorld() * Inverse(image1.CamFromWorld());
     two_view_geometry.E =

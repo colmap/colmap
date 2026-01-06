@@ -62,5 +62,6 @@ int RunPosePriorMapper(int argc, char** argv);
 int RunPointFiltering(int argc, char** argv);
 int RunPointTriangulator(int argc, char** argv);
 int RunRotationAverager(int argc, char** argv);
+int RunViewGraphCalibrator(int argc, char** argv);
 
 }  // namespace colmap
