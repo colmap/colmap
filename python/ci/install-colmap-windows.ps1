@@ -1,3 +1,7 @@
+$ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
+$PSNativeCommandUseErrorActionPreference = $true
+
 $CURRDIR = $PWD
 
 $COMPILER_TOOLS_DIR = "${env:COMPILER_CACHE_DIR}/bin"
