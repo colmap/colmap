@@ -38,7 +38,7 @@ class RotationAveragingProblem {
     std::variant<GravityAligned1DOF, Full3DOF> constraint;
   };
 
-  RotationAveragingProblem(const ViewGraph& view_graph,
+  RotationAveragingProblem(const PoseGraph& pose_graph,
                            const std::vector<colmap::PosePrior>& pose_priors,
                            const RotationEstimatorOptions& options,
                            const std::unordered_set<image_t>& active_image_ids,
@@ -76,12 +76,12 @@ class RotationAveragingProblem {
   size_t AllocateParameters(const colmap::Reconstruction& reconstruction);
 
   // Builds PairConstraint for each valid image pair.
-  void BuildPairConstraints(const ViewGraph& view_graph,
+  void BuildPairConstraints(const PoseGraph& pose_graph,
                             const colmap::Reconstruction& reconstruction);
 
   // Builds sparse matrix A and edge weight vector.
   void BuildConstraintMatrix(size_t num_params,
-                             const ViewGraph& view_graph,
+                             const PoseGraph& pose_graph,
                              const colmap::Reconstruction& reconstruction);
 
   const RotationEstimatorOptions options_;

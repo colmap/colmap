@@ -34,20 +34,20 @@
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
-#include "glomap/scene/view_graph.h"
+#include "glomap/scene/pose_graph.h"
 
 #include <gtest/gtest.h>
 
 namespace glomap {
 namespace {
 
-void LoadReconstructionAndViewGraph(const colmap::Database& database,
+void LoadReconstructionAndPoseGraph(const colmap::Database& database,
                                     colmap::Reconstruction* reconstruction,
-                                    ViewGraph* view_graph) {
+                                    PoseGraph* pose_graph) {
   colmap::DatabaseCache database_cache;
   database_cache.Load(database, /*min_num_matches=*/0);
   reconstruction->Load(database_cache);
-  view_graph->LoadFromDatabase(database);
+  pose_graph->LoadFromDatabase(database);
 }
 
 RotationEstimatorOptions CreateRATestOptions(bool use_gravity = false) {
@@ -98,8 +98,8 @@ TEST(RotationAveraging, WithoutNoise) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   colmap::Reconstruction reconstruction;
-  ViewGraph view_graph;
-  LoadReconstructionAndViewGraph(*database, &reconstruction, &view_graph);
+  PoseGraph pose_graph;
+  LoadReconstructionAndPoseGraph(*database, &reconstruction, &pose_graph);
 
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
@@ -108,7 +108,7 @@ TEST(RotationAveraging, WithoutNoise) {
   for (const bool use_gravity : {false}) {
     colmap::Reconstruction reconstruction_copy = reconstruction;
     SolveRotationAveraging(CreateRATestOptions(use_gravity),
-                           view_graph,
+                           pose_graph,
                            reconstruction_copy,
                            pose_priors);
 
@@ -136,15 +136,15 @@ TEST(RotationAveraging, WithoutNoiseWithNonTrivialKnownRig) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   colmap::Reconstruction reconstruction;
-  ViewGraph view_graph;
-  LoadReconstructionAndViewGraph(*database, &reconstruction, &view_graph);
+  PoseGraph pose_graph;
+  LoadReconstructionAndPoseGraph(*database, &reconstruction, &pose_graph);
 
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
   for (const bool use_gravity : {true, false}) {
     colmap::Reconstruction reconstruction_copy = reconstruction;
     SolveRotationAveraging(CreateRATestOptions(use_gravity),
-                           view_graph,
+                           pose_graph,
                            reconstruction_copy,
                            pose_priors);
 
@@ -172,8 +172,8 @@ TEST(RotationAveraging, WithoutNoiseWithNonTrivialUnknownRig) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   colmap::Reconstruction reconstruction;
-  ViewGraph view_graph;
-  LoadReconstructionAndViewGraph(*database, &reconstruction, &view_graph);
+  PoseGraph pose_graph;
+  LoadReconstructionAndPoseGraph(*database, &reconstruction, &pose_graph);
 
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
@@ -190,7 +190,7 @@ TEST(RotationAveraging, WithoutNoiseWithNonTrivialUnknownRig) {
   for (const bool use_gravity : {false}) {
     colmap::Reconstruction reconstruction_copy = reconstruction;
     SolveRotationAveraging(CreateRATestOptions(use_gravity),
-                           view_graph,
+                           pose_graph,
                            reconstruction_copy,
                            pose_priors);
 
@@ -223,8 +223,8 @@ TEST(RotationAveraging, WithNoiseAndOutliers) {
       synthetic_noise_options, &gt_reconstruction, database.get());
 
   colmap::Reconstruction reconstruction;
-  ViewGraph view_graph;
-  LoadReconstructionAndViewGraph(*database, &reconstruction, &view_graph);
+  PoseGraph pose_graph;
+  LoadReconstructionAndPoseGraph(*database, &reconstruction, &pose_graph);
 
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
@@ -233,7 +233,7 @@ TEST(RotationAveraging, WithNoiseAndOutliers) {
   for (const bool use_gravity : {false}) {
     colmap::Reconstruction reconstruction_copy = reconstruction;
     SolveRotationAveraging(CreateRATestOptions(use_gravity),
-                           view_graph,
+                           pose_graph,
                            reconstruction_copy,
                            pose_priors);
 
@@ -265,8 +265,8 @@ TEST(RotationAveraging, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
       synthetic_noise_options, &gt_reconstruction, database.get());
 
   colmap::Reconstruction reconstruction;
-  ViewGraph view_graph;
-  LoadReconstructionAndViewGraph(*database, &reconstruction, &view_graph);
+  PoseGraph pose_graph;
+  LoadReconstructionAndPoseGraph(*database, &reconstruction, &pose_graph);
 
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
@@ -275,7 +275,7 @@ TEST(RotationAveraging, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
   for (const bool use_gravity : {false}) {
     colmap::Reconstruction reconstruction_copy = reconstruction;
     SolveRotationAveraging(CreateRATestOptions(use_gravity),
-                           view_graph,
+                           pose_graph,
                            reconstruction_copy,
                            pose_priors);
 

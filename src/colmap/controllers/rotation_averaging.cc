@@ -56,7 +56,7 @@ void RotationAveragingController::Run() {
   glomap::GlobalMapper mapper(database_);
   mapper.BeginReconstruction(reconstruction_);
 
-  if (mapper.ViewGraph()->Empty()) {
+  if (mapper.PoseGraph()->Empty()) {
     LOG(ERROR) << "Cannot continue without image pairs";
     return;
   }

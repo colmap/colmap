@@ -47,7 +47,7 @@
 #include "glomap/estimators/gravity_refinement.h"
 #include "glomap/estimators/rotation_averaging.h"
 #include "glomap/io/pose_io.h"
-#include "glomap/scene/view_graph.h"
+#include "glomap/scene/pose_graph.h"
 
 #include <limits>
 
@@ -675,13 +675,13 @@ int RunRotationAverager(int argc, char** argv) {
   rotation_averager_options.use_stratified = use_stratified;
 
   // Load the database.
-  glomap::ViewGraph view_graph;
+  glomap::PoseGraph pose_graph;
   Reconstruction reconstruction;
 
   // Read relative poses and build view graph.
   // First read into a temporary images map.
   std::unordered_map<image_t, Image> temp_images;
-  glomap::ReadRelPose(relpose_path, temp_images, view_graph);
+  glomap::ReadRelPose(relpose_path, temp_images, pose_graph);
 
   // Add cameras and images to reconstruction.
   for (auto& [image_id, image] : temp_images) {
@@ -718,7 +718,7 @@ int RunRotationAverager(int argc, char** argv) {
     // Compute largest connected component and invalidate pairs before gravity
     // refinement.
     const std::unordered_set<frame_t> active_frame_ids =
-        view_graph.ComputeLargestConnectedFrameComponent(
+        pose_graph.ComputeLargestConnectedFrameComponent(
             reconstruction,
             /*filter_unregistered=*/false);
     std::unordered_set<image_t> active_image_ids;
@@ -727,16 +727,16 @@ int RunRotationAverager(int argc, char** argv) {
         active_image_ids.insert(image_id);
       }
     }
-    view_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
+    pose_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
 
     glomap::GravityRefiner grav_refiner(*options.gravity_refiner);
-    grav_refiner.RefineGravity(view_graph, reconstruction, pose_priors);
+    grav_refiner.RefineGravity(pose_graph, reconstruction, pose_priors);
   }
 
   Timer run_timer;
   run_timer.Start();
   if (!glomap::SolveRotationAveraging(
-          rotation_averager_options, view_graph, reconstruction, pose_priors)) {
+          rotation_averager_options, pose_graph, reconstruction, pose_priors)) {
     LOG(ERROR) << "Failed to solve global rotation averaging";
     return EXIT_FAILURE;
   }

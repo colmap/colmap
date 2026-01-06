@@ -29,10 +29,10 @@ bool AllSensorsFromRigKnown(
   return all_known;
 }
 
-// Compute maximum spanning tree of the view graph weighted by inlier count.
+// Compute maximum spanning tree of the pose graph weighted by inlier count.
 // Returns the root image_id and populates the parents map.
 image_t ComputeMaximumSpanningTree(
-    const ViewGraph& view_graph,
+    const PoseGraph& pose_graph,
     const std::unordered_set<image_t>& image_ids,
     std::unordered_map<image_t, image_t>& parents) {
   // Build mapping between image_id and contiguous indices.
@@ -49,10 +49,10 @@ image_t ComputeMaximumSpanningTree(
   // Build edges and weights from view graph.
   std::vector<std::pair<int, int>> edges;
   std::vector<float> weights;
-  edges.reserve(view_graph.NumImagePairs());
-  weights.reserve(view_graph.NumImagePairs());
+  edges.reserve(pose_graph.NumEdges());
+  weights.reserve(pose_graph.NumEdges());
 
-  for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const auto it1 = image_id_to_idx.find(image_id1);
     const auto it2 = image_id_to_idx.find(image_id2);
@@ -60,7 +60,7 @@ image_t ComputeMaximumSpanningTree(
       continue;
     }
     edges.emplace_back(it1->second, it2->second);
-    weights.push_back(static_cast<float>(image_pair.inlier_matches.size()));
+    weights.push_back(static_cast<float>(edge.inlier_matches.size()));
   }
 
   // Compute spanning tree using generic algorithm.
@@ -80,11 +80,11 @@ image_t ComputeMaximumSpanningTree(
 
 // Computes the largest connected component and returns image ids.
 std::unordered_set<image_t> ComputeLargestConnectedComponentImageIds(
-    const ViewGraph& view_graph,
+    const PoseGraph& pose_graph,
     const colmap::Reconstruction& reconstruction,
     bool filter_unregistered) {
   const std::unordered_set<frame_t> frame_ids =
-      view_graph.ComputeLargestConnectedFrameComponent(reconstruction,
+      pose_graph.ComputeLargestConnectedFrameComponent(reconstruction,
                                                        filter_unregistered);
 
   std::unordered_set<image_t> image_ids;
@@ -223,7 +223,7 @@ colmap::Reconstruction CreateExpandedReconstruction(
 }  // namespace
 
 bool RotationEstimator::EstimateRotations(
-    const ViewGraph& view_graph,
+    const PoseGraph& pose_graph,
     const std::vector<colmap::PosePrior>& pose_priors,
     const std::unordered_set<image_t>& active_image_ids,
     colmap::Reconstruction& reconstruction) {
@@ -234,14 +234,14 @@ bool RotationEstimator::EstimateRotations(
   // Handle stratified solving for mixed gravity systems.
   if (options_.use_gravity && options_.use_stratified) {
     if (!MaybeSolveGravityAlignedSubset(
-            view_graph, pose_priors, active_image_ids, reconstruction)) {
+            pose_graph, pose_priors, active_image_ids, reconstruction)) {
       return false;
     }
   }
 
   // Solve the full system.
   if (!SolveRotationAveraging(
-          view_graph, pose_priors, active_image_ids, reconstruction)) {
+          pose_graph, pose_priors, active_image_ids, reconstruction)) {
     return false;
   }
 
@@ -256,7 +256,7 @@ bool RotationEstimator::EstimateRotations(
 }
 
 bool RotationEstimator::MaybeSolveGravityAlignedSubset(
-    const ViewGraph& view_graph,
+    const PoseGraph& pose_graph,
     const std::vector<colmap::PosePrior>& pose_priors,
     const std::unordered_set<image_t>& active_image_ids,
     colmap::Reconstruction& reconstruction) {
@@ -269,9 +269,9 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
   }
 
   // Separate pairs into gravity-aligned subset.
-  ViewGraph gravity_view_graph;
+  PoseGraph gravity_pose_graph;
   size_t num_total_pairs = 0;
-  for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     if (!reconstruction.ExistsImage(image_id1) ||
         !reconstruction.ExistsImage(image_id2)) {
@@ -292,12 +292,13 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
         it2 != image_to_pose_prior.end() && it2->second->HasGravity();
 
     if (image1_has_gravity && image2_has_gravity) {
-      gravity_view_graph.ImagePairs().emplace(
-          pair_id, ImagePair(*image_pair.cam2_from_cam1));
+      PoseGraph::Edge gravity_edge;
+      gravity_edge.cam2_from_cam1 = edge.cam2_from_cam1;
+      gravity_pose_graph.Edges().emplace(pair_id, std::move(gravity_edge));
     }
   }
 
-  const size_t num_gravity_pairs = gravity_view_graph.NumImagePairs();
+  const size_t num_gravity_pairs = gravity_pose_graph.NumEdges();
   LOG(INFO) << "Total image pairs: " << num_total_pairs
             << ", gravity image pairs: " << num_gravity_pairs;
 
@@ -313,12 +314,12 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
 
     // Compute largest connected component for gravity subset.
     std::unordered_set<image_t> gravity_image_ids =
-        ComputeLargestConnectedComponentImageIds(gravity_view_graph,
+        ComputeLargestConnectedComponentImageIds(gravity_pose_graph,
                                                  gravity_reconstruction,
                                                  /*filter_unregistered=*/false);
-    gravity_view_graph.InvalidatePairsOutsideActiveImageIds(gravity_image_ids);
+    gravity_pose_graph.InvalidatePairsOutsideActiveImageIds(gravity_image_ids);
 
-    if (!SolveRotationAveraging(gravity_view_graph,
+    if (!SolveRotationAveraging(gravity_pose_graph,
                                 pose_priors,
                                 gravity_image_ids,
                                 gravity_reconstruction)) {
@@ -347,19 +348,19 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
 }
 
 bool RotationEstimator::SolveRotationAveraging(
-    const ViewGraph& view_graph,
+    const PoseGraph& pose_graph,
     const std::vector<colmap::PosePrior>& pose_priors,
     const std::unordered_set<image_t>& active_image_ids,
     colmap::Reconstruction& reconstruction) {
   // Initialize rotations from maximum spanning tree.
   if (!options_.skip_initialization && !options_.use_gravity) {
     InitializeFromMaximumSpanningTree(
-        view_graph, active_image_ids, reconstruction);
+        pose_graph, active_image_ids, reconstruction);
   }
 
   // Build the optimization problem.
   RotationAveragingProblem problem(
-      view_graph, pose_priors, options_, active_image_ids, reconstruction);
+      pose_graph, pose_priors, options_, active_image_ids, reconstruction);
 
   // Solve and apply results.
   RotationAveragingSolver solver(options_);
@@ -372,13 +373,13 @@ bool RotationEstimator::SolveRotationAveraging(
 }
 
 void RotationEstimator::InitializeFromMaximumSpanningTree(
-    const ViewGraph& view_graph,
+    const PoseGraph& pose_graph,
     const std::unordered_set<image_t>& active_image_ids,
     colmap::Reconstruction& reconstruction) {
   // Compute maximum spanning tree over active images.
   std::unordered_map<image_t, image_t> parents;
   const image_t root =
-      ComputeMaximumSpanningTree(view_graph, active_image_ids, parents);
+      ComputeMaximumSpanningTree(pose_graph, active_image_ids, parents);
   THROW_CHECK(active_image_ids.count(root));
 
   // Iterate through the tree to initialize the rotation.
@@ -407,10 +408,10 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
     if (curr == root) continue;
 
     // Directly use the relative pose for estimation rotation.
-    // GetImagePair(parent, curr) returns curr_from_parent
-    const ImagePair image_pair = view_graph.GetImagePair(parents[curr], curr);
+    // GetEdge(parent, curr) returns curr_from_parent
+    const PoseGraph::Edge edge = pose_graph.GetEdge(parents[curr], curr);
     cams_from_world[curr].rotation =
-        (*image_pair.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation;
+        (edge.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation;
   }
 
   InitializeRigRotationsFromImages(cams_from_world, reconstruction);
@@ -518,7 +519,7 @@ bool InitializeRigRotationsFromImages(
 }
 
 bool SolveRotationAveraging(const RotationEstimatorOptions& options,
-                            ViewGraph& view_graph,
+                            PoseGraph& pose_graph,
                             colmap::Reconstruction& reconstruction,
                             const std::vector<colmap::PosePrior>& pose_priors) {
   std::unordered_set<image_t> active_image_ids;
@@ -527,18 +528,18 @@ bool SolveRotationAveraging(const RotationEstimatorOptions& options,
   if (!HasUnknownCamsFromRig(reconstruction)) {
     // All cam_from_rig are known, solve directly.
     active_image_ids = ComputeLargestConnectedComponentImageIds(
-        view_graph, reconstruction, options.filter_unregistered);
+        pose_graph, reconstruction, options.filter_unregistered);
 
     if (active_image_ids.empty()) {
       LOG(ERROR) << "No connected components found";
       return false;
     }
 
-    view_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
+    pose_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
 
     RotationEstimator rotation_estimator(options);
     if (!rotation_estimator.EstimateRotations(
-            view_graph, pose_priors, active_image_ids, reconstruction)) {
+            pose_graph, pose_priors, active_image_ids, reconstruction)) {
       return false;
     }
   } else {
@@ -554,18 +555,18 @@ bool SolveRotationAveraging(const RotationEstimatorOptions& options,
 
     std::unordered_set<image_t> expanded_active_image_ids =
         ComputeLargestConnectedComponentImageIds(
-            view_graph, recon_expanded, options.filter_unregistered);
+            pose_graph, recon_expanded, options.filter_unregistered);
 
     if (expanded_active_image_ids.empty()) {
       LOG(ERROR) << "No connected components found";
       return false;
     }
 
-    view_graph.InvalidatePairsOutsideActiveImageIds(expanded_active_image_ids);
+    pose_graph.InvalidatePairsOutsideActiveImageIds(expanded_active_image_ids);
 
     RotationEstimator rotation_estimator_expanded(options);
     if (!rotation_estimator_expanded.EstimateRotations(
-            view_graph,
+            pose_graph,
             pose_priors,
             expanded_active_image_ids,
             recon_expanded)) {
@@ -585,40 +586,40 @@ bool SolveRotationAveraging(const RotationEstimatorOptions& options,
 
     // Step 1c: Solve on original reconstruction with initialized cam_from_rig.
     active_image_ids = ComputeLargestConnectedComponentImageIds(
-        view_graph, reconstruction, options.filter_unregistered);
+        pose_graph, reconstruction, options.filter_unregistered);
 
     if (active_image_ids.empty()) {
       LOG(ERROR) << "No connected components found";
       return false;
     }
 
-    view_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
+    pose_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
 
     RotationEstimatorOptions options_ra = options;
     options_ra.skip_initialization = true;
     options_ra.use_stratified = false;
     RotationEstimator rotation_estimator(options_ra);
     if (!rotation_estimator.EstimateRotations(
-            view_graph, pose_priors, active_image_ids, reconstruction)) {
+            pose_graph, pose_priors, active_image_ids, reconstruction)) {
       return false;
     }
   }
 
   // Step 2: Filter outlier pairs by rotation error and update the active set.
   if (options.max_rotation_error_deg > 0) {
-    view_graph.FilterByRelativeRotation(reconstruction,
+    pose_graph.FilterByRelativeRotation(reconstruction,
                                         options.max_rotation_error_deg);
 
     // Recompute largest connected component among registered frames.
     active_image_ids = ComputeLargestConnectedComponentImageIds(
-        view_graph, reconstruction, /*filter_unregistered=*/true);
+        pose_graph, reconstruction, /*filter_unregistered=*/true);
 
     if (active_image_ids.empty()) {
       LOG(ERROR) << "No connected components found after filtering";
       return false;
     }
 
-    view_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
+    pose_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
 
     // De-register frames outside the new active set.
     std::unordered_set<frame_t> active_frame_ids;

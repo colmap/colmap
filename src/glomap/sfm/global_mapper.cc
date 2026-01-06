@@ -23,8 +23,8 @@ GlobalMapper::GlobalMapper(std::shared_ptr<const colmap::Database> database) {
                                                   /*image_names=*/{});
   // TODO: Move to BeginReconstruction after migrating to PoseGraph and accept
   // DatabaseCache.
-  view_graph_ = std::make_shared<class ViewGraph>();
-  view_graph_->LoadFromDatabase(*database);
+  pose_graph_ = std::make_shared<class PoseGraph>();
+  pose_graph_->LoadFromDatabase(*database);
 }
 
 void GlobalMapper::BeginReconstruction(
@@ -38,8 +38,8 @@ std::shared_ptr<colmap::Reconstruction> GlobalMapper::Reconstruction() const {
   return reconstruction_;
 }
 
-std::shared_ptr<class ViewGraph> GlobalMapper::ViewGraph() const {
-  return view_graph_;
+std::shared_ptr<class PoseGraph> GlobalMapper::PoseGraph() const {
+  return pose_graph_;
 }
 
 bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
@@ -53,7 +53,7 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
   RotationEstimatorOptions custom_options = options;
   custom_options.filter_unregistered = false;
   if (!SolveRotationAveraging(
-          custom_options, *view_graph_, *reconstruction_, pose_priors)) {
+          custom_options, *pose_graph_, *reconstruction_, pose_priors)) {
     return false;
   }
 
@@ -61,7 +61,7 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
   // after outlier removal.
   custom_options.filter_unregistered = true;
   if (!SolveRotationAveraging(
-          custom_options, *view_graph_, *reconstruction_, pose_priors)) {
+          custom_options, *pose_graph_, *reconstruction_, pose_priors)) {
     return false;
   }
 
@@ -76,7 +76,7 @@ void GlobalMapper::EstablishTracks(const TrackEstablishmentOptions& options) {
   // TrackEngine reads images, writes unfiltered points3D to a temporary map,
   // then filters into the main reconstruction
   std::unordered_map<point3D_t, Point3D> unfiltered_points3D;
-  TrackEngine track_engine(*view_graph_, reconstruction_->Images(), options);
+  TrackEngine track_engine(*pose_graph_, reconstruction_->Images(), options);
   track_engine.EstablishFullTracks(unfiltered_points3D);
 
   // Filter the points3D into a selected subset
@@ -105,7 +105,7 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
   GlobalPositioner gp_engine(options);
 
   // TODO: consider to support other modes as well
-  if (!gp_engine.Solve(*view_graph_, *reconstruction_)) {
+  if (!gp_engine.Solve(*pose_graph_, *reconstruction_)) {
     return false;
   }
 
@@ -300,7 +300,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
 bool GlobalMapper::Solve(const GlobalMapperOptions& options,
                          std::unordered_map<frame_t, int>& cluster_ids) {
   THROW_CHECK_NOTNULL(reconstruction_);
-  THROW_CHECK_NOTNULL(view_graph_);
+  THROW_CHECK_NOTNULL(pose_graph_);
 
   // Propagate random seed and num_threads to component options.
   GlobalMapperOptions opts = options;
