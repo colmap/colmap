@@ -29,6 +29,7 @@
 
 #include "colmap/controllers/option_manager.h"
 
+#include "colmap/controllers/global_pipeline.h"
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/estimators/bundle_adjustment.h"
@@ -41,6 +42,9 @@
 #include "colmap/ui/render_options.h"
 #include "colmap/util/file.h"
 #include "colmap/util/version.h"
+
+#include "glomap/estimators/global_positioning.h"
+#include "glomap/estimators/gravity_refinement.h"
 
 namespace config = boost::program_options;
 
@@ -60,6 +64,8 @@ OptionManager::OptionManager(bool add_project_options)
   imported_pairing = std::make_shared<ImportedPairingOptions>();
   bundle_adjustment = std::make_shared<BundleAdjustmentOptions>();
   mapper = std::make_shared<IncrementalPipelineOptions>();
+  global_mapper = std::make_shared<GlobalPipelineOptions>();
+  gravity_refiner = std::make_shared<glomap::GravityRefinerOptions>();
   patch_match_stereo = std::make_shared<mvs::PatchMatchOptions>();
   stereo_fusion = std::make_shared<mvs::StereoFusionOptions>();
   poisson_meshing = std::make_shared<mvs::PoissonMeshingOptions>();
@@ -636,6 +642,164 @@ void OptionManager::AddMapperOptions() {
                               &mapper->triangulation.ignore_two_view_tracks);
 }
 
+void OptionManager::AddGlobalMapperOptions() {
+  if (added_global_mapper_options_) {
+    return;
+  }
+  added_global_mapper_options_ = true;
+
+  // Global mapper options.
+  AddAndRegisterDefaultOption("GlobalMapper.num_threads",
+                              &global_mapper->num_threads);
+  AddAndRegisterDefaultOption("GlobalMapper.random_seed",
+                              &global_mapper->random_seed);
+  AddAndRegisterDefaultOption("GlobalMapper.num_iterations_ba",
+                              &global_mapper->mapper.num_iterations_ba);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.skip_view_graph_calibration",
+      &global_mapper->mapper.skip_view_graph_calibration);
+  AddAndRegisterDefaultOption("GlobalMapper.skip_rotation_averaging",
+                              &global_mapper->mapper.skip_rotation_averaging);
+  AddAndRegisterDefaultOption("GlobalMapper.skip_track_establishment",
+                              &global_mapper->mapper.skip_track_establishment);
+  AddAndRegisterDefaultOption("GlobalMapper.skip_global_positioning",
+                              &global_mapper->mapper.skip_global_positioning);
+  AddAndRegisterDefaultOption("GlobalMapper.skip_bundle_adjustment",
+                              &global_mapper->mapper.skip_bundle_adjustment);
+  AddAndRegisterDefaultOption("GlobalMapper.skip_retriangulation",
+                              &global_mapper->mapper.skip_retriangulation);
+  AddAndRegisterDefaultOption("GlobalMapper.skip_pruning",
+                              &global_mapper->mapper.skip_pruning);
+
+  // View graph calibration options.
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.ViewGraphCalib.min_focal_length_ratio",
+      &global_mapper->mapper.view_graph_calibration.min_focal_length_ratio);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.ViewGraphCalib.max_focal_length_ratio",
+      &global_mapper->mapper.view_graph_calibration.max_focal_length_ratio);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.ViewGraphCalib.max_calibration_error",
+      &global_mapper->mapper.view_graph_calibration.max_calibration_error);
+
+  // Track establishment options.
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.TrackEstablishment.min_num_tracks_per_view",
+      &global_mapper->mapper.track_establishment.min_num_tracks_per_view);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.TrackEstablishment.min_num_view_per_track",
+      &global_mapper->mapper.track_establishment.min_num_view_per_track);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.TrackEstablishment.max_num_view_per_track",
+      &global_mapper->mapper.track_establishment.max_num_view_per_track);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.TrackEstablishment.max_num_tracks",
+      &global_mapper->mapper.track_establishment.max_num_tracks);
+
+  // Global positioning options.
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.GlobalPositioning.use_gpu",
+      &global_mapper->mapper.global_positioning.use_gpu);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.GlobalPositioning.gpu_index",
+      &global_mapper->mapper.global_positioning.gpu_index);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.GlobalPositioning.optimize_positions",
+      &global_mapper->mapper.global_positioning.optimize_positions);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.GlobalPositioning.optimize_points",
+      &global_mapper->mapper.global_positioning.optimize_points);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.GlobalPositioning.optimize_scales",
+      &global_mapper->mapper.global_positioning.optimize_scales);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.GlobalPositioning.loss_function_scale",
+      &global_mapper->mapper.global_positioning.loss_function_scale);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.GlobalPositioning.max_num_iterations",
+      &global_mapper->mapper.global_positioning.solver_options
+           .max_num_iterations);
+  AddAndRegisterDefaultEnumOption(
+      "GlobalMapper.GlobalPositioning.constraint_type",
+      &global_mapper->mapper.global_positioning.constraint_type,
+      glomap::GlobalPositioningConstraintTypeToString,
+      glomap::GlobalPositioningConstraintTypeFromString,
+      "{ONLY_POINTS, ONLY_CAMERAS, POINTS_AND_CAMERAS_BALANCED, "
+      "POINTS_AND_CAMERAS}");
+
+  // Bundle adjustment options.
+  // TODO: Consolidate these with existing BA options (e.g., Mapper.ba_*).
+  AddAndRegisterDefaultOption("GlobalMapper.BundleAdjustment.use_gpu",
+                              &global_mapper->mapper.bundle_adjustment.use_gpu);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.BundleAdjustment.gpu_index",
+      &global_mapper->mapper.bundle_adjustment.gpu_index);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.BundleAdjustment.optimize_rig_poses",
+      &global_mapper->mapper.bundle_adjustment.optimize_rig_poses);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.BundleAdjustment.optimize_rotations",
+      &global_mapper->mapper.bundle_adjustment.optimize_rotations);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.BundleAdjustment.optimize_translation",
+      &global_mapper->mapper.bundle_adjustment.optimize_translation);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.BundleAdjustment.optimize_intrinsics",
+      &global_mapper->mapper.bundle_adjustment.optimize_intrinsics);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.BundleAdjustment.optimize_principal_point",
+      &global_mapper->mapper.bundle_adjustment.optimize_principal_point);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.BundleAdjustment.optimize_points",
+      &global_mapper->mapper.bundle_adjustment.optimize_points);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.BundleAdjustment.loss_function_scale",
+      &global_mapper->mapper.bundle_adjustment.loss_function_scale);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.BundleAdjustment.max_num_iterations",
+      &global_mapper->mapper.bundle_adjustment.solver_options
+           .max_num_iterations);
+
+  // Retriangulation options.
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.Retriangulation.complete_max_reproj_error",
+      &global_mapper->mapper.retriangulation.complete_max_reproj_error);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.Retriangulation.merge_max_reproj_error",
+      &global_mapper->mapper.retriangulation.merge_max_reproj_error);
+  AddAndRegisterDefaultOption("GlobalMapper.Retriangulation.min_angle",
+                              &global_mapper->mapper.retriangulation.min_angle);
+
+  // Rotation averaging options.
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.RotationAveraging.max_rotation_error_deg",
+      &global_mapper->mapper.rotation_averaging.max_rotation_error_deg);
+
+  // Threshold options.
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.max_angular_reproj_error_deg",
+      &global_mapper->mapper.max_angular_reproj_error_deg);
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.max_normalized_reproj_error",
+      &global_mapper->mapper.max_normalized_reproj_error);
+  AddAndRegisterDefaultOption("GlobalMapper.min_tri_angle_deg",
+                              &global_mapper->mapper.min_tri_angle_deg);
+}
+
+void OptionManager::AddGravityRefinerOptions() {
+  if (added_gravity_refiner_options_) {
+    return;
+  }
+  added_gravity_refiner_options_ = true;
+
+  AddAndRegisterDefaultOption("GravityRefiner.max_outlier_ratio",
+                              &gravity_refiner->max_outlier_ratio);
+  AddAndRegisterDefaultOption("GravityRefiner.max_gravity_error",
+                              &gravity_refiner->max_gravity_error);
+  AddAndRegisterDefaultOption("GravityRefiner.min_num_neighbors",
+                              &gravity_refiner->min_num_neighbors);
+}
+
 void OptionManager::AddPatchMatchStereoOptions() {
   if (added_patch_match_stereo_options_) {
     return;
@@ -797,6 +961,8 @@ void OptionManager::Reset() {
   added_image_pairs_pairing_options_ = false;
   added_ba_options_ = false;
   added_mapper_options_ = false;
+  added_global_mapper_options_ = false;
+  added_gravity_refiner_options_ = false;
   added_patch_match_stereo_options_ = false;
   added_stereo_fusion_options_ = false;
   added_poisson_meshing_options_ = false;
@@ -818,6 +984,8 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *imported_pairing = ImportedPairingOptions();
   *bundle_adjustment = BundleAdjustmentOptions();
   *mapper = IncrementalPipelineOptions();
+  *global_mapper = GlobalPipelineOptions();
+  *gravity_refiner = glomap::GravityRefinerOptions();
   *patch_match_stereo = mvs::PatchMatchOptions();
   *stereo_fusion = mvs::StereoFusionOptions();
   *poisson_meshing = mvs::PoissonMeshingOptions();
