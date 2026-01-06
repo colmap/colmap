@@ -50,10 +50,10 @@ image_t ComputeMaximumSpanningTree(
   // Build edges and weights from view graph.
   std::vector<std::pair<int, int>> edges;
   std::vector<float> weights;
-  edges.reserve(pose_graph.NumImagePairs());
-  weights.reserve(pose_graph.NumImagePairs());
+  edges.reserve(pose_graph.NumEdges());
+  weights.reserve(pose_graph.NumEdges());
 
-  for (const auto& [pair_id, rel_pose_data] : pose_graph.ValidImagePairs()) {
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const auto it1 = image_id_to_idx.find(image_id1);
     const auto it2 = image_id_to_idx.find(image_id2);
@@ -61,7 +61,7 @@ image_t ComputeMaximumSpanningTree(
       continue;
     }
     edges.emplace_back(it1->second, it2->second);
-    weights.push_back(static_cast<float>(rel_pose_data.inlier_matches.size()));
+    weights.push_back(static_cast<float>(edge.inlier_matches.size()));
   }
 
   // Compute spanning tree using generic algorithm.
@@ -116,7 +116,7 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
   // Separate pairs into gravity-aligned subset.
   PoseGraph gravity_pose_graph;
   size_t num_total_pairs = 0;
-  for (const auto& [pair_id, rel_pose_data] : pose_graph.ValidImagePairs()) {
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     if (!reconstruction.ExistsImage(image_id1) ||
         !reconstruction.ExistsImage(image_id2)) {
@@ -137,13 +137,13 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
         it2 != image_to_pose_prior.end() && it2->second->HasGravity();
 
     if (image1_has_gravity && image2_has_gravity) {
-      RelativePoseData gravity_pair;
-      gravity_pair.cam2_from_cam1 = *rel_pose_data.cam2_from_cam1;
-      gravity_pose_graph.ImagePairs().emplace(pair_id, std::move(gravity_pair));
+      struct PoseGraph::Edge gravity_edge;
+      gravity_edge.cam2_from_cam1 = *edge.cam2_from_cam1;
+      gravity_pose_graph.Edges().emplace(pair_id, std::move(gravity_edge));
     }
   }
 
-  const size_t num_gravity_pairs = gravity_pose_graph.NumImagePairs();
+  const size_t num_gravity_pairs = gravity_pose_graph.NumEdges();
   LOG(INFO) << "Total image pairs: " << num_total_pairs
             << ", gravity image pairs: " << num_gravity_pairs;
 
@@ -241,12 +241,10 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
     if (curr == root) continue;
 
     // Directly use the relative pose for estimation rotation.
-    // GetImagePair(parent, curr) returns curr_from_parent
-    const RelativePoseData rel_pose_data =
-        pose_graph.GetImagePair(parents[curr], curr);
+    // GetEdge(parent, curr) returns curr_from_parent
+    const struct PoseGraph::Edge edge = pose_graph.GetEdge(parents[curr], curr);
     cams_from_world[curr].rotation =
-        (*rel_pose_data.cam2_from_cam1 * cams_from_world[parents[curr]])
-            .rotation;
+        (*edge.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation;
   }
 
   InitializeRigRotationsFromImages(cams_from_world, reconstruction);

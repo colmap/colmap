@@ -32,8 +32,8 @@ void ReadRelPose(const std::string& file_path,
   }
 
   // Mark every edge in the view graph as invalid
-  for (const auto& [pair_id, rel_pose_data] : pose_graph.ImagePairs()) {
-    pose_graph.SetInvalidImagePair(pair_id);
+  for (const auto& [pair_id, edge] : pose_graph.Edges()) {
+    pose_graph.SetInvalidEdge(pair_id);
   }
 
   std::ifstream file(file_path);
@@ -91,14 +91,14 @@ void ReadRelPose(const std::string& file_path,
       pose_rel.translation[i] = std::stod(item);
     }
 
-    if (!pose_graph.HasImagePair(index1, index2)) {
-      RelativePoseData rel_pose_data;
-      rel_pose_data.cam2_from_cam1 = pose_rel;
-      pose_graph.AddImagePair(index1, index2, std::move(rel_pose_data));
+    if (!pose_graph.HasEdge(index1, index2)) {
+      struct PoseGraph::Edge new_edge;
+      new_edge.cam2_from_cam1 = pose_rel;
+      pose_graph.AddEdge(index1, index2, std::move(new_edge));
     } else {
-      auto [rel_pose_data, swapped] = pose_graph.ImagePair(index1, index2);
-      rel_pose_data.cam2_from_cam1 = swapped ? Inverse(pose_rel) : pose_rel;
-      pose_graph.SetValidImagePair(colmap::ImagePairToPairId(index1, index2));
+      auto [edge, swapped] = pose_graph.Edge(index1, index2);
+      edge.cam2_from_cam1 = swapped ? Inverse(pose_rel) : pose_rel;
+      pose_graph.SetValidEdge(colmap::ImagePairToPairId(index1, index2));
     }
     counter++;
   }
@@ -184,7 +184,7 @@ void WriteRelPose(const std::string& file_path,
 
   // Sort the image pairs by image name
   std::map<std::string, image_pair_t> name_pair;
-  for (const auto& [pair_id, rel_pose_data] : pose_graph.ValidImagePairs()) {
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const auto& image1 = images.at(image_id1);
     const auto& image2 = images.at(image_id2);
@@ -194,16 +194,15 @@ void WriteRelPose(const std::string& file_path,
   // Write the image pairs
   for (const auto& [name, pair_id] : name_pair) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-    const RelativePoseData& rel_pose_data =
-        pose_graph.ImagePair(image_id1, image_id2).first;
-    THROW_CHECK(rel_pose_data.cam2_from_cam1.has_value());
+    const struct PoseGraph::Edge& edge =
+        pose_graph.Edge(image_id1, image_id2).first;
+    THROW_CHECK(edge.cam2_from_cam1.has_value());
     file << images.at(image_id1).Name() << " " << images.at(image_id2).Name();
     for (int i = 0; i < 4; i++) {
-      file << " "
-           << rel_pose_data.cam2_from_cam1->rotation.coeffs()[(i + 3) % 4];
+      file << " " << edge.cam2_from_cam1->rotation.coeffs()[(i + 3) % 4];
     }
     for (int i = 0; i < 3; i++) {
-      file << " " << rel_pose_data.cam2_from_cam1->translation[i];
+      file << " " << edge.cam2_from_cam1->translation[i];
     }
     file << "\n";
   }

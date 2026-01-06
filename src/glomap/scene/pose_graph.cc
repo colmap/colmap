@@ -41,7 +41,7 @@ void PoseGraph::LoadFromDatabase(const colmap::Database& database,
   for (auto& [pair_id, feature_matches] : all_matches) {
     auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 
-    const bool duplicate = HasImagePair(image_id1, image_id2);
+    const bool duplicate = HasEdge(image_id1, image_id2);
     if (duplicate) {
       if (!allow_duplicate) {
         LOG(FATAL_THROW) << "Duplicate image pair in database: " << image_id1
@@ -91,21 +91,21 @@ void PoseGraph::LoadFromDatabase(const colmap::Database& database,
       }
     }
 
-    // Build RelativePoseData from TwoViewGeometry.
-    RelativePoseData rel_pose_data;
-    rel_pose_data.cam2_from_cam1 = two_view_geom.cam2_from_cam1;
-    rel_pose_data.inlier_matches = std::move(two_view_geom.inlier_matches);
+    // Build Edge from TwoViewGeometry.
+    struct Edge new_edge;
+    new_edge.cam2_from_cam1 = two_view_geom.cam2_from_cam1;
+    new_edge.inlier_matches = std::move(two_view_geom.inlier_matches);
 
     // Skip pairs that don't have a valid pose.
-    if (!rel_pose_data.cam2_from_cam1.has_value()) {
+    if (!new_edge.cam2_from_cam1.has_value()) {
       invalid_count++;
       continue;
     }
 
     if (duplicate) {
-      UpdateImagePair(image_id1, image_id2, std::move(rel_pose_data));
+      UpdateEdge(image_id1, image_id2, std::move(new_edge));
     } else {
-      AddImagePair(image_id1, image_id2, std::move(rel_pose_data));
+      AddEdge(image_id1, image_id2, std::move(new_edge));
     }
   }
 
@@ -120,14 +120,14 @@ void PoseGraph::LoadFromDatabase(const colmap::Database& database,
 int PoseGraph::KeepLargestConnectedComponents(
     colmap::Reconstruction& reconstruction) {
   std::unordered_set<frame_t> nodes;
-  std::vector<std::pair<frame_t, frame_t>> edges;
-  for (const auto& [pair_id, rel_pose_data] : ValidImagePairs()) {
+  std::vector<std::pair<frame_t, frame_t>> graph_edges;
+  for (const auto& [pair_id, edge] : ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const frame_t frame_id1 = reconstruction.Image(image_id1).FrameId();
     const frame_t frame_id2 = reconstruction.Image(image_id2).FrameId();
     nodes.insert(frame_id1);
     nodes.insert(frame_id2);
-    edges.emplace_back(frame_id1, frame_id2);
+    graph_edges.emplace_back(frame_id1, frame_id2);
   }
 
   if (nodes.empty()) {
@@ -135,7 +135,7 @@ int PoseGraph::KeepLargestConnectedComponents(
   }
 
   const std::vector<frame_t> largest_component_vec =
-      colmap::FindLargestConnectedComponent(nodes, edges);
+      colmap::FindLargestConnectedComponent(nodes, graph_edges);
   const std::unordered_set<frame_t> largest_component(
       largest_component_vec.begin(), largest_component_vec.end());
 
@@ -145,11 +145,11 @@ int PoseGraph::KeepLargestConnectedComponents(
     }
   }
 
-  for (const auto& [pair_id, rel_pose_data] : rel_pose_datas_) {
+  for (const auto& [pair_id, edge] : edges_) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     if (!reconstruction.Image(image_id1).HasPose() ||
         !reconstruction.Image(image_id2).HasPose()) {
-      SetInvalidImagePair(pair_id);
+      SetInvalidEdge(pair_id);
     }
   }
 
@@ -161,18 +161,18 @@ int PoseGraph::MarkConnectedComponents(
     std::unordered_map<frame_t, int>& cluster_ids,
     int min_num_images) {
   std::unordered_set<frame_t> nodes;
-  std::vector<std::pair<frame_t, frame_t>> edges;
-  for (const auto& [pair_id, rel_pose_data] : ValidImagePairs()) {
+  std::vector<std::pair<frame_t, frame_t>> graph_edges;
+  for (const auto& [pair_id, edge] : ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const frame_t frame_id1 = reconstruction.Image(image_id1).FrameId();
     const frame_t frame_id2 = reconstruction.Image(image_id2).FrameId();
     nodes.insert(frame_id1);
     nodes.insert(frame_id2);
-    edges.emplace_back(frame_id1, frame_id2);
+    graph_edges.emplace_back(frame_id1, frame_id2);
   }
 
   const std::vector<std::vector<frame_t>> connected_components =
-      colmap::FindConnectedComponents(nodes, edges);
+      colmap::FindConnectedComponents(nodes, graph_edges);
   const int num_comp = static_cast<int>(connected_components.size());
 
   std::vector<std::pair<int, int>> comp_num_images(num_comp);
@@ -202,7 +202,7 @@ int PoseGraph::MarkConnectedComponents(
 std::unordered_map<image_t, std::unordered_set<image_t>>
 PoseGraph::CreateImageAdjacencyList() const {
   std::unordered_map<image_t, std::unordered_set<image_t>> adjacency_list;
-  for (const auto& [pair_id, rel_pose_data] : ValidImagePairs()) {
+  for (const auto& [pair_id, edge] : ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     adjacency_list[image_id1].insert(image_id2);
     adjacency_list[image_id2].insert(image_id1);
@@ -214,7 +214,7 @@ void PoseGraph::FilterByRelativeRotation(
     const colmap::Reconstruction& reconstruction, double max_angle_deg) {
   const double max_angle_rad = colmap::DegToRad(max_angle_deg);
   int num_invalid = 0;
-  for (const auto& [pair_id, rel_pose_data] : ValidImagePairs()) {
+  for (const auto& [pair_id, edge] : ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const Image& image1 = reconstruction.Image(image_id1);
     const Image& image2 = reconstruction.Image(image_id2);
@@ -222,14 +222,14 @@ void PoseGraph::FilterByRelativeRotation(
     if (!image1.HasPose() || !image2.HasPose()) {
       continue;
     }
-    THROW_CHECK(rel_pose_data.cam2_from_cam1.has_value());
+    THROW_CHECK(edge.cam2_from_cam1.has_value());
 
     const Eigen::Quaterniond cam2_from_cam1 =
         image2.CamFromWorld().rotation *
         image1.CamFromWorld().rotation.inverse();
-    if (cam2_from_cam1.angularDistance(rel_pose_data.cam2_from_cam1->rotation) >
+    if (cam2_from_cam1.angularDistance(edge.cam2_from_cam1->rotation) >
         max_angle_rad) {
-      SetInvalidImagePair(pair_id);
+      SetInvalidEdge(pair_id);
       num_invalid++;
     }
   }

@@ -33,7 +33,7 @@ bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
   }
   if (pose_graph.Empty() && options_.constraint_type !=
                                 GlobalPositioningConstraintType::ONLY_POINTS) {
-    LOG(ERROR) << "Number of rel_poses = " << pose_graph.NumImagePairs();
+    LOG(ERROR) << "Number of rel_poses = " << pose_graph.NumEdges();
     return false;
   }
   if (reconstruction.NumPoints3D() == 0 &&
@@ -111,7 +111,7 @@ void GlobalPositioner::SetupProblem(
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     total_observations += point3D.track.Length();
   }
-  scales_.reserve(pose_graph.NumImagePairs() + total_observations);
+  scales_.reserve(pose_graph.NumEdges() + total_observations);
 
   // Initialize the rig scales to be 1.0.
   for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
@@ -123,7 +123,7 @@ void GlobalPositioner::InitializeRandomPositions(
     const PoseGraph& pose_graph, colmap::Reconstruction& reconstruction) {
   std::unordered_set<frame_t> constrained_positions;
   constrained_positions.reserve(reconstruction.NumFrames());
-  for (const auto& [pair_id, rel_pose_data] : pose_graph.ValidImagePairs()) {
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     constrained_positions.insert(reconstruction.Image(image_id1).FrameId());
     constrained_positions.insert(reconstruction.Image(image_id2).FrameId());
@@ -166,13 +166,13 @@ void GlobalPositioner::AddCameraToCameraConstraints(
     }
   }
 
-  for (const auto& [pair_id, rel_pose_data] : pose_graph.ValidImagePairs()) {
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     if (!reconstruction.ExistsImage(image_id1) ||
         !reconstruction.ExistsImage(image_id2)) {
       continue;
     }
-    THROW_CHECK(rel_pose_data.cam2_from_cam1.has_value());
+    THROW_CHECK(edge.cam2_from_cam1.has_value());
 
     Image& image1 = reconstruction.Image(image_id1);
     Image& image2 = reconstruction.Image(image_id2);
@@ -183,7 +183,7 @@ void GlobalPositioner::AddCameraToCameraConstraints(
 
     const Eigen::Vector3d translation =
         image2.CamFromWorld().rotation.inverse() *
-        -rel_pose_data.cam2_from_cam1->translation;
+        -edge.cam2_from_cam1->translation;
     ceres::CostFunction* cost_function =
         BATAPairwiseDirectionCostFunctor::Create(translation);
     problem_->AddResidualBlock(cost_function,

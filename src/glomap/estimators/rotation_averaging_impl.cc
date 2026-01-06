@@ -219,9 +219,9 @@ void RotationAveragingProblem::BuildPairConstraints(
     const PoseGraph& pose_graph, const colmap::Reconstruction& reconstruction) {
   int gravity_aligned_count = 0;
 
-  for (const auto& [pair_id, rel_pose_data] : pose_graph.ValidImagePairs()) {
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-    THROW_CHECK(rel_pose_data.cam2_from_cam1.has_value());
+    THROW_CHECK(edge.cam2_from_cam1.has_value());
     const auto& image1 = reconstruction.Image(image_id1);
     const auto& image2 = reconstruction.Image(image_id2);
     const auto& frame1 = *image1.FramePtr();
@@ -260,7 +260,7 @@ void RotationAveragingProblem::BuildPairConstraints(
     // Compute relative rotation between rigs.
     Eigen::Matrix3d R_cam2_from_cam1 =
         (cam2_from_rig2.value_or(Rigid3d()).rotation.inverse() *
-         rel_pose_data.cam2_from_cam1->rotation *
+         edge.cam2_from_cam1->rotation *
          cam1_from_rig1.value_or(Rigid3d()).rotation)
             .toRotationMatrix();
 
@@ -335,7 +335,7 @@ void RotationAveragingProblem::BuildConstraintMatrix(
 
   size_t curr_row = 0;
 
-  for (const auto& [pair_id, rel_pose_data] : pose_graph.ValidImagePairs()) {
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     if (pair_constraints_.find(pair_id) == pair_constraints_.end()) continue;
 
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
