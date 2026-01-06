@@ -35,6 +35,7 @@
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/estimators/similarity_transform.h"
+#include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/exe/gui.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/scene/reconstruction.h"
@@ -747,6 +748,56 @@ int RunRotationAverager(int argc, char** argv) {
   glomap::WriteGlobalRotation(output_path, reconstruction.Images());
   LOG(INFO) << "Global rotation averaging done";
 
+  return EXIT_SUCCESS;
+}
+
+int RunViewGraphCalibrator(int argc, char** argv) {
+  ViewGraphCalibrationOptions calibration_options;
+
+  OptionManager options;
+  options.AddDatabaseOptions();
+  options.AddDefaultOption(
+      "cross_validate_prior_focal_lengths",
+      &calibration_options.cross_validate_prior_focal_lengths,
+      "Cross-validate prior focal lengths");
+  options.AddDefaultOption(
+      "min_calibrated_pair_ratio",
+      &calibration_options.min_calibrated_pair_ratio,
+      "Minimum ratio of calibrated pairs for cross-validation");
+  options.AddDefaultOption("reestimate_relative_pose",
+                           &calibration_options.reestimate_relative_pose,
+                           "Re-estimate relative poses after calibration");
+  options.AddDefaultOption("min_focal_length_ratio",
+                           &calibration_options.min_focal_length_ratio,
+                           "Minimum ratio of estimated to prior focal length");
+  options.AddDefaultOption("max_focal_length_ratio",
+                           &calibration_options.max_focal_length_ratio,
+                           "Maximum ratio of estimated to prior focal length");
+  options.AddDefaultOption("max_calibration_error",
+                           &calibration_options.max_calibration_error,
+                           "Maximum calibration error for an image pair");
+  options.AddDefaultOption("relpose_max_error",
+                           &calibration_options.relpose_max_error,
+                           "Maximum error for relative pose re-estimation");
+  options.AddDefaultOption("relpose_min_num_inliers",
+                           &calibration_options.relpose_min_num_inliers,
+                           "Minimum inliers for relative pose re-estimation");
+  options.AddDefaultOption(
+      "relpose_min_inlier_ratio",
+      &calibration_options.relpose_min_inlier_ratio,
+      "Minimum inlier ratio for relative pose re-estimation");
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  auto database = Database::Open(*options.database_path);
+
+  if (!CalibrateViewGraph(calibration_options, database.get())) {
+    LOG(ERROR) << "View graph calibration failed";
+    return EXIT_FAILURE;
+  }
+
+  LOG(INFO) << "View graph calibration completed successfully";
   return EXIT_SUCCESS;
 }
 
