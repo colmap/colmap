@@ -63,7 +63,6 @@ TEST(PoseGraph, Nominal) {
   // Empty view graph.
   EXPECT_TRUE(pose_graph.Empty());
   EXPECT_EQ(pose_graph.NumEdges(), 0);
-  EXPECT_EQ(pose_graph.NumValidEdges(), 0);
 
   // Add some pairs.
   pose_graph.AddEdge(1, 2, SynthesizeEdge());
@@ -72,18 +71,16 @@ TEST(PoseGraph, Nominal) {
 
   EXPECT_FALSE(pose_graph.Empty());
   EXPECT_EQ(pose_graph.NumEdges(), 3);
-  EXPECT_EQ(pose_graph.NumValidEdges(), 3);
 
   // Invalidate one pair.
   pose_graph.SetInvalidEdge(colmap::ImagePairToPairId(1, 2));
   EXPECT_EQ(pose_graph.NumEdges(), 3);
-  EXPECT_EQ(pose_graph.NumValidEdges(), 2);
+  EXPECT_FALSE(pose_graph.IsValid(colmap::ImagePairToPairId(1, 2)));
 
   // Clear the view graph.
   pose_graph.Clear();
   EXPECT_TRUE(pose_graph.Empty());
   EXPECT_EQ(pose_graph.NumEdges(), 0);
-  EXPECT_EQ(pose_graph.NumValidEdges(), 0);
 }
 
 TEST(PoseGraph, AddEdge) {

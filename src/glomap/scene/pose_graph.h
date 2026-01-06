@@ -8,7 +8,6 @@
 
 #include "glomap/scene/types.h"
 
-#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -29,6 +28,9 @@ class PoseGraph {
     // Inlier feature matches between the two images.
     colmap::FeatureMatches inlier_matches;
 
+    // Whether this edge is valid for reconstruction.
+    bool valid = true;
+
     // Invert the geometry to match swapped image order.
     void Invert() {
       cam2_from_cam1 = colmap::Inverse(cam2_from_cam1);
@@ -45,7 +47,6 @@ class PoseGraph {
   inline std::unordered_map<image_pair_t, Edge>& Edges();
   inline const std::unordered_map<image_pair_t, Edge>& Edges() const;
   inline size_t NumEdges() const;
-  inline size_t NumValidEdges() const;
   inline bool Empty() const;
   inline void Clear();
 
@@ -73,11 +74,10 @@ class PoseGraph {
   inline void SetInvalidEdge(image_pair_t pair_id);
 
   // Returns a filter view over valid edges only.
-  // Edges are valid if they exist and are not in the invalid set.
   auto ValidEdges() const {
     return colmap::filter_view(
-        [this](const std::pair<const image_pair_t, Edge>& kv) {
-          return IsValid(kv.first);
+        [](const std::pair<const image_pair_t, Edge>& kv) {
+          return kv.second.valid;
         },
         edges_.begin(),
         edges_.end());
@@ -108,8 +108,6 @@ class PoseGraph {
   // Map from pair ID to edge data. The pair ID is computed from the
   // two image IDs using ImagePairToPairId, with the smaller ID first.
   std::unordered_map<image_pair_t, Edge> edges_;
-  // Set of invalid pair IDs. Pairs not in this set are considered valid.
-  std::unordered_set<image_pair_t> invalid_pairs_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -127,16 +125,9 @@ const std::unordered_map<image_pair_t, PoseGraph::Edge>& PoseGraph::Edges()
 
 size_t PoseGraph::NumEdges() const { return edges_.size(); }
 
-size_t PoseGraph::NumValidEdges() const {
-  return edges_.size() - invalid_pairs_.size();
-}
-
 bool PoseGraph::Empty() const { return edges_.empty(); }
 
-void PoseGraph::Clear() {
-  edges_.clear();
-  invalid_pairs_.clear();
-}
+void PoseGraph::Clear() { edges_.clear(); }
 
 PoseGraph::Edge& PoseGraph::AddEdge(image_t image_id1,
                                     image_t image_id2,
@@ -205,18 +196,20 @@ void PoseGraph::UpdateEdge(image_t image_id1,
 }
 
 bool PoseGraph::IsValid(image_pair_t pair_id) const {
-  return edges_.count(pair_id) > 0 &&
-         invalid_pairs_.find(pair_id) == invalid_pairs_.end();
+  auto it = edges_.find(pair_id);
+  return it != edges_.end() && it->second.valid;
 }
 
 void PoseGraph::SetValidEdge(image_pair_t pair_id) {
-  THROW_CHECK(edges_.count(pair_id) > 0) << "Edge does not exist";
-  invalid_pairs_.erase(pair_id);
+  auto it = edges_.find(pair_id);
+  THROW_CHECK(it != edges_.end()) << "Edge does not exist";
+  it->second.valid = true;
 }
 
 void PoseGraph::SetInvalidEdge(image_pair_t pair_id) {
-  THROW_CHECK(edges_.count(pair_id) > 0) << "Edge does not exist";
-  invalid_pairs_.insert(pair_id);
+  auto it = edges_.find(pair_id);
+  THROW_CHECK(it != edges_.end()) << "Edge does not exist";
+  it->second.valid = false;
 }
 
 }  // namespace glomap
