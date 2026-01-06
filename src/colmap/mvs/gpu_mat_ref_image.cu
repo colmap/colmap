@@ -83,11 +83,11 @@ __global__ void FilterKernel(const cudaTextureObject_t image_texture,
 }  // namespace
 
 GpuMatRefImage::GpuMatRefImage(const size_t width, const size_t height)
-    : height_(height), width_(width) {
-  image.reset(new GpuMat<uint8_t>(width, height));
-  sum_image.reset(new GpuMat<float>(width, height));
-  squared_sum_image.reset(new GpuMat<float>(width, height));
-}
+    : height_(height),
+      width_(width),
+      image(std::make_unique<GpuMat<uint8_t>>(width, height)),
+      sum_image(std::make_unique<GpuMat<float>>(width, height)),
+      squared_sum_image(std::make_unique<GpuMat<float>>(width, height)) {}
 
 void GpuMatRefImage::Filter(const uint8_t* image_data,
                             const size_t window_radius,
