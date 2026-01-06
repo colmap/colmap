@@ -676,6 +676,9 @@ void OptionManager::AddGlobalMapperOptions() {
       &global_mapper->view_graph_calibration
            .cross_validate_prior_focal_lengths);
   AddAndRegisterDefaultOption(
+      "GlobalMapper.ViewGraphCalib.min_calibrated_pair_ratio",
+      &global_mapper->view_graph_calibration.min_calibrated_pair_ratio);
+  AddAndRegisterDefaultOption(
       "GlobalMapper.ViewGraphCalib.reestimate_relative_pose",
       &global_mapper->view_graph_calibration.reestimate_relative_pose);
   AddAndRegisterDefaultOption(

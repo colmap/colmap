@@ -52,12 +52,8 @@ void GlobalPipeline::Run() {
     Timer run_timer;
     run_timer.Start();
     ViewGraphCalibrationOptions vgc_options = options_.view_graph_calibration;
-    if (options_.random_seed >= 0) {
-      vgc_options.random_seed = options_.random_seed;
-    }
-    if (options_.num_threads > 0) {
-      vgc_options.solver_options.num_threads = options_.num_threads;
-    }
+    vgc_options.random_seed = options_.random_seed;
+    vgc_options.solver_options.num_threads = options_.num_threads;
     if (!CalibrateViewGraph(vgc_options, database_.get())) {
       LOG(ERROR) << "View graph calibration failed";
       return;

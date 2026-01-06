@@ -47,9 +47,7 @@ RotationAveragingController::RotationAveragingController(
 void RotationAveragingController::Run() {
   // Propagate options to component options.
   RotationAveragingControllerOptions options = options_;
-  if (options.random_seed >= 0) {
-    options.rotation_estimation.random_seed = options.random_seed;
-  }
+  options.rotation_estimation.random_seed = options.random_seed;
 
   Timer run_timer;
   run_timer.Start();

@@ -58,7 +58,6 @@ void PoseGraph::LoadFromDatabase(const colmap::Database& database,
     const bool is_invalid =
         two_view_geom.config == colmap::TwoViewGeometry::UNDEFINED ||
         two_view_geom.config == colmap::TwoViewGeometry::DEGENERATE ||
-        two_view_geom.config == colmap::TwoViewGeometry::DEGENERATE_VGC ||
         two_view_geom.config == colmap::TwoViewGeometry::WATERMARK ||
         two_view_geom.config == colmap::TwoViewGeometry::MULTIPLE;
 

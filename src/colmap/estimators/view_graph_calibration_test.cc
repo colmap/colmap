@@ -29,10 +29,12 @@
 
 #include "colmap/estimators/view_graph_calibration.h"
 
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
 
@@ -62,14 +64,6 @@ TEST(CalibrateViewGraph, Nominal) {
     gt_focals[camera_id] = camera.MeanFocalLength();
   }
 
-  // Change pairs to UNCALIBRATED so F matrices are used directly.
-  for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
-    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    TwoViewGeometry uncalib_tvg = tvg;
-    uncalib_tvg.config = TwoViewGeometry::UNCALIBRATED;
-    database->UpdateTwoViewGeometry(image_id1, image_id2, uncalib_tvg);
-  }
-
   // Add noise to focal lengths of the first two cameras.
   // TODO: investigate view graph calibration cost functor and use more
   // challenging test setup.
@@ -84,7 +78,6 @@ TEST(CalibrateViewGraph, Nominal) {
   }
 
   ViewGraphCalibrationOptions calib_options;
-  calib_options.random_seed = 42;
   calib_options.reestimate_relative_pose = false;
   EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
 
@@ -122,11 +115,9 @@ TEST(CalibrateViewGraph, PriorFocalLength) {
   std::unordered_map<camera_t, double> original_focals;
   for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
     original_focals[camera_id] = camera.MeanFocalLength();
-    EXPECT_TRUE(camera.has_prior_focal_length);
   }
 
   ViewGraphCalibrationOptions calib_options;
-  calib_options.random_seed = 42;
   calib_options.reestimate_relative_pose = false;
   EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
 
@@ -154,25 +145,30 @@ TEST(CalibrateViewGraph, ConfigTagging) {
   Reconstruction reconstruction;
   SynthesizeDataset(options, &reconstruction, database.get());
 
-  // Set very strict calibration error threshold to trigger DEGENERATE_VGC.
+  // Add large noise to F matrices for 3 pairs to ensure they become degenerate.
+  std::unordered_set<image_pair_t> perturbed_pairs;
+  for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
+    if (perturbed_pairs.size() >= 3) break;
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    TwoViewGeometry perturbed_tvg = tvg;
+    perturbed_tvg.F += Eigen::Matrix3d::Constant(1.0);
+    database->UpdateTwoViewGeometry(image_id1, image_id2, perturbed_tvg);
+    perturbed_pairs.insert(pair_id);
+  }
+
   ViewGraphCalibrationOptions calib_options;
-  calib_options.random_seed = 42;
   calib_options.reestimate_relative_pose = false;
-  calib_options.max_calibration_error = 0.001;  // Very strict threshold
+  calib_options.max_calibration_error = 0.01;
   EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
 
-  // With strict threshold, some pairs should be tagged as DEGENERATE_VGC.
-  size_t calibrated_count = 0;
-  size_t degenerate_count = 0;
-  for (const auto& [pid, geom] : database->ReadTwoViewGeometries()) {
-    if (geom.config == TwoViewGeometry::CALIBRATED) {
-      calibrated_count++;
-    } else if (geom.config == TwoViewGeometry::DEGENERATE_VGC) {
-      degenerate_count++;
+  // Verify perturbed pairs became DEGENERATE, others became CALIBRATED.
+  for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
+    if (perturbed_pairs.count(pair_id)) {
+      EXPECT_EQ(tvg.config, TwoViewGeometry::DEGENERATE);
+    } else {
+      EXPECT_EQ(tvg.config, TwoViewGeometry::CALIBRATED);
     }
   }
-  // At least some pairs should be processed.
-  EXPECT_GT(calibrated_count + degenerate_count, 0);
 }
 
 TEST(CalibrateViewGraph, RelativePoseReestimation) {
@@ -192,17 +188,37 @@ TEST(CalibrateViewGraph, RelativePoseReestimation) {
   Reconstruction reconstruction;
   SynthesizeDataset(options, &reconstruction, database.get());
 
-  // Store ground truth relative poses.
+  // Store ground truth relative poses and perturb them in the database.
+  // The perturbation must exceed test thresholds (0.1 rad rotation, 0.1
+  // normalized translation error) to ensure re-estimation actually runs.
   std::unordered_map<image_pair_t, Rigid3d> gt_poses;
   for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     const Image& image1 = reconstruction.Image(image_id1);
     const Image& image2 = reconstruction.Image(image_id2);
     gt_poses[pair_id] = image2.CamFromWorld() * Inverse(image1.CamFromWorld());
+
+    // Perturb the relative pose stored in database.
+    TwoViewGeometry perturbed_tvg = tvg;
+    if (perturbed_tvg.cam2_from_cam1.has_value()) {
+      const Rigid3d perturbation(
+          Eigen::Quaterniond(
+              Eigen::AngleAxisd(RandomUniformReal(0.3, 0.7),
+                                Eigen::Vector3d(RandomUniformReal(-1.0, 1.0),
+                                                RandomUniformReal(-1.0, 1.0),
+                                                RandomUniformReal(-1.0, 1.0))
+                                    .normalized())),
+          Eigen::Vector3d(RandomUniformReal(-1.0, 1.0),
+                          RandomUniformReal(-1.0, 1.0),
+                          RandomUniformReal(-1.0, 1.0)));
+      perturbed_tvg.cam2_from_cam1 =
+          perturbation * *perturbed_tvg.cam2_from_cam1;
+      perturbed_tvg.cam2_from_cam1->translation.normalize();
+    }
+    database->UpdateTwoViewGeometry(image_id1, image_id2, perturbed_tvg);
   }
 
   ViewGraphCalibrationOptions calib_options;
-  calib_options.random_seed = 42;
   calib_options.reestimate_relative_pose = true;
   EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
 
@@ -211,19 +227,14 @@ TEST(CalibrateViewGraph, RelativePoseReestimation) {
     if (tvg.config != TwoViewGeometry::CALIBRATED) continue;
 
     ASSERT_TRUE(tvg.cam2_from_cam1.has_value());
+    EXPECT_NEAR(tvg.cam2_from_cam1->translation.norm(), 1.0, 1e-6);
+
+    // Normalize ground truth translation since estimated pose has unit scale.
     const Rigid3d& gt_pose = gt_poses.at(pair_id);
-
-    const double rotation_error =
-        tvg.cam2_from_cam1->rotation.angularDistance(gt_pose.rotation);
-    EXPECT_LT(rotation_error, 0.1);
-
-    const Eigen::Vector3d gt_translation_normalized =
-        gt_pose.translation.normalized();
-    const Eigen::Vector3d est_translation_normalized =
-        tvg.cam2_from_cam1->translation.normalized();
-    const double translation_error =
-        (gt_translation_normalized - est_translation_normalized).norm();
-    EXPECT_LT(translation_error, 0.1);
+    const Rigid3d gt_pose_normalized(gt_pose.rotation,
+                                     gt_pose.translation.normalized());
+    EXPECT_THAT(*tvg.cam2_from_cam1,
+                Rigid3dNear(gt_pose_normalized, 0.01, 0.01));
   }
 }
 
