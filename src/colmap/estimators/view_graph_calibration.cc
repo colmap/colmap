@@ -310,12 +310,16 @@ FocalLengthCalibrationResult CalibrateFocalLengths(
   std::vector<double> residuals;
   problem.Evaluate(eval_options, nullptr, &residuals, nullptr, nullptr);
 
+  // The Fetzer cost functor outputs 6 residuals. For error thresholding,
+  // use residuals[0] and residuals[5] which correspond to the 2 independent
+  // constraints (same as the original 2-residual implementation).
+  // TODO: Investigate if there is a better way to threshold the error.
   size_t residual_idx = 0;
   for (const auto& input : inputs) {
     const Eigen::Vector2d error(residuals[residual_idx],
-                                residuals[residual_idx + 1]);
+                                residuals[residual_idx + 5]);
     result.calibration_errors_sq[input.pair_id] = error.squaredNorm();
-    residual_idx += 2;
+    residual_idx += 6;
   }
 
   result.success = true;
