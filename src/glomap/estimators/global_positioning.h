@@ -3,7 +3,7 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/enum_utils.h"
 
-#include "glomap/scene/view_graph.h"
+#include "glomap/scene/pose_graph.h"
 
 #include <string>
 
@@ -84,21 +84,21 @@ class GlobalPositioner {
   // Returns true if the optimization was a success, false if there was a
   // failure.
   // Assume tracks here are already filtered
-  bool Solve(const ViewGraph& view_graph,
+  bool Solve(const PoseGraph& pose_graph,
              colmap::Reconstruction& reconstruction);
 
   GlobalPositionerOptions& GetOptions() { return options_; }
 
  protected:
-  void SetupProblem(const ViewGraph& view_graph,
+  void SetupProblem(const PoseGraph& pose_graph,
                     const colmap::Reconstruction& reconstruction);
 
   // Initialize all cameras to be random.
-  void InitializeRandomPositions(const ViewGraph& view_graph,
+  void InitializeRandomPositions(const PoseGraph& pose_graph,
                                  colmap::Reconstruction& reconstruction);
 
   // Creates camera to camera constraints from relative translations. (3D)
-  void AddCameraToCameraConstraints(const ViewGraph& view_graph,
+  void AddCameraToCameraConstraints(const PoseGraph& pose_graph,
                                     colmap::Reconstruction& reconstruction);
 
   // Add tracks to the problem
