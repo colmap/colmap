@@ -421,7 +421,7 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
 
     if (error_it->second > max_calibration_error_sq) {
       invalid_counter++;
-      tvg.config = TwoViewGeometry::DEGENERATE_VGC;
+      tvg.config = TwoViewGeometry::DEGENERATE;
       database->UpdateTwoViewGeometry(image_id1, image_id2, tvg);
     } else {
       const Camera& camera1 = *image_id_to_camera.at(image_id1);
@@ -445,10 +445,6 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
     ReestimateRelativePoses(options, valid_pairs, image_id_to_camera, database);
     for (auto& [pair_id, tvg] : valid_pairs) {
       const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-      if (tvg.config == TwoViewGeometry::DEGENERATE ||
-          tvg.config == TwoViewGeometry::UNDEFINED) {
-        tvg.config = TwoViewGeometry::DEGENERATE_VGC;
-      }
       database->UpdateTwoViewGeometry(image_id1, image_id2, tvg);
     }
   } else {

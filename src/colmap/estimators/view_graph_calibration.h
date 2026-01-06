@@ -87,7 +87,7 @@ struct ViewGraphCalibrationOptions {
 // cameras. It optimizes focal lengths and updates the camera intrinsics in the
 // database. Image pairs with low calibration error have their essential
 // matrices computed and relative poses re-estimated, then are upgraded to
-// CALIBRATED. Pairs with high calibration error are tagged as DEGENERATE_VGC.
+// CALIBRATED. Pairs with high calibration error are tagged as DEGENERATE.
 bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
                         Database* database);
 

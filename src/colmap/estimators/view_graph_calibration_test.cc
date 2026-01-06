@@ -143,24 +143,30 @@ TEST(CalibrateViewGraph, ConfigTagging) {
   Reconstruction reconstruction;
   SynthesizeDataset(options, &reconstruction, database.get());
 
-  // Set very strict calibration error threshold to trigger DEGENERATE_VGC.
+  // Add large noise to F matrices for 3 pairs to ensure they become degenerate.
+  std::unordered_set<image_pair_t> perturbed_pairs;
+  for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
+    if (perturbed_pairs.size() >= 3) break;
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    TwoViewGeometry perturbed_tvg = tvg;
+    perturbed_tvg.F += Eigen::Matrix3d::Constant(1.0);
+    database->UpdateTwoViewGeometry(image_id1, image_id2, perturbed_tvg);
+    perturbed_pairs.insert(pair_id);
+  }
+
   ViewGraphCalibrationOptions calib_options;
   calib_options.reestimate_relative_pose = false;
-  calib_options.max_calibration_error = 0.001;  // Very strict threshold
+  calib_options.max_calibration_error = 0.01;
   EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
 
-  // With strict threshold, some pairs should be tagged as DEGENERATE_VGC.
-  size_t calibrated_count = 0;
-  size_t degenerate_count = 0;
-  for (const auto& [pid, geom] : database->ReadTwoViewGeometries()) {
-    if (geom.config == TwoViewGeometry::CALIBRATED) {
-      calibrated_count++;
-    } else if (geom.config == TwoViewGeometry::DEGENERATE_VGC) {
-      degenerate_count++;
+  // Verify perturbed pairs became DEGENERATE, others became CALIBRATED.
+  for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
+    if (perturbed_pairs.count(pair_id)) {
+      EXPECT_EQ(tvg.config, TwoViewGeometry::DEGENERATE);
+    } else {
+      EXPECT_EQ(tvg.config, TwoViewGeometry::CALIBRATED);
     }
   }
-  // At least some pairs should be processed.
-  EXPECT_GT(calibrated_count + degenerate_count, 0);
 }
 
 TEST(CalibrateViewGraph, RelativePoseReestimation) {

@@ -59,7 +59,6 @@ void ViewGraph::LoadFromDatabase(const colmap::Database& database,
     const bool is_invalid =
         image_pair.config == colmap::TwoViewGeometry::UNDEFINED ||
         image_pair.config == colmap::TwoViewGeometry::DEGENERATE ||
-        image_pair.config == colmap::TwoViewGeometry::DEGENERATE_VGC ||
         image_pair.config == colmap::TwoViewGeometry::WATERMARK ||
         image_pair.config == colmap::TwoViewGeometry::MULTIPLE;
 

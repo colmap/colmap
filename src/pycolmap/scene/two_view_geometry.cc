@@ -27,8 +27,7 @@ void BindTwoViewGeometryScene(py::module& m) {
       .value("PANORAMIC", TwoViewGeometry::PANORAMIC)
       .value("PLANAR_OR_PANORAMIC", TwoViewGeometry::PLANAR_OR_PANORAMIC)
       .value("WATERMARK", TwoViewGeometry::WATERMARK)
-      .value("MULTIPLE", TwoViewGeometry::MULTIPLE)
-      .value("DEGENERATE_VGC", TwoViewGeometry::DEGENERATE_VGC);
+      .value("MULTIPLE", TwoViewGeometry::MULTIPLE);
   AddStringToEnumConstructor(PyTwoViewGeometryConfiguration);
 
   py::classh<TwoViewGeometry> PyTwoViewGeometry(m, "TwoViewGeometry");
