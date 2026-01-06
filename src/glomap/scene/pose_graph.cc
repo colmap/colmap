@@ -92,7 +92,7 @@ void PoseGraph::LoadFromDatabase(const colmap::Database& database,
     }
 
     // Build Edge from TwoViewGeometry.
-    struct Edge new_edge;
+    Edge new_edge;
     new_edge.cam2_from_cam1 = two_view_geom.cam2_from_cam1;
     new_edge.inlier_matches = std::move(two_view_geom.inlier_matches);
 

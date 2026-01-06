@@ -137,7 +137,7 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
         it2 != image_to_pose_prior.end() && it2->second->HasGravity();
 
     if (image1_has_gravity && image2_has_gravity) {
-      struct PoseGraph::Edge gravity_edge;
+      PoseGraph::Edge gravity_edge;
       gravity_edge.cam2_from_cam1 = *edge.cam2_from_cam1;
       gravity_pose_graph.Edges().emplace(pair_id, std::move(gravity_edge));
     }
@@ -242,7 +242,7 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
 
     // Directly use the relative pose for estimation rotation.
     // GetEdge(parent, curr) returns curr_from_parent
-    const struct PoseGraph::Edge edge = pose_graph.GetEdge(parents[curr], curr);
+    const PoseGraph::Edge edge = pose_graph.GetEdge(parents[curr], curr);
     cams_from_world[curr].rotation =
         (*edge.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation;
   }

@@ -92,11 +92,11 @@ void ReadRelPose(const std::string& file_path,
     }
 
     if (!pose_graph.HasEdge(index1, index2)) {
-      struct PoseGraph::Edge new_edge;
+      PoseGraph::Edge new_edge;
       new_edge.cam2_from_cam1 = pose_rel;
       pose_graph.AddEdge(index1, index2, std::move(new_edge));
     } else {
-      auto [edge, swapped] = pose_graph.Edge(index1, index2);
+      auto [edge, swapped] = pose_graph.EdgeRef(index1, index2);
       edge.cam2_from_cam1 = swapped ? Inverse(pose_rel) : pose_rel;
       pose_graph.SetValidEdge(colmap::ImagePairToPairId(index1, index2));
     }
@@ -194,8 +194,8 @@ void WriteRelPose(const std::string& file_path,
   // Write the image pairs
   for (const auto& [name, pair_id] : name_pair) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-    const struct PoseGraph::Edge& edge =
-        pose_graph.Edge(image_id1, image_id2).first;
+    const PoseGraph::Edge& edge =
+        pose_graph.EdgeRef(image_id1, image_id2).first;
     THROW_CHECK(edge.cam2_from_cam1.has_value());
     file << images.at(image_id1).Name() << " " << images.at(image_id2).Name();
     for (int i = 0; i < 4; i++) {

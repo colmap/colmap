@@ -44,8 +44,8 @@ class PoseGraph {
   ~PoseGraph() = default;
 
   // Edge accessors.
-  inline std::unordered_map<image_pair_t, struct Edge>& Edges();
-  inline const std::unordered_map<image_pair_t, struct Edge>& Edges() const;
+  inline std::unordered_map<image_pair_t, Edge>& Edges();
+  inline const std::unordered_map<image_pair_t, Edge>& Edges() const;
   inline size_t NumEdges() const;
   inline size_t NumValidEdges() const;
   inline bool Empty() const;
@@ -59,20 +59,15 @@ class PoseGraph {
                         bool allow_duplicate = false);
 
   // Edge operations.
-  inline struct Edge& AddEdge(image_t image_id1,
-                              image_t image_id2,
-                              struct Edge edge);
+  inline Edge& AddEdge(image_t image_id1, image_t image_id2, Edge edge);
   inline bool HasEdge(image_t image_id1, image_t image_id2) const;
   // Returns a reference to the edge and whether the IDs were swapped.
-  inline std::pair<struct Edge&, bool> Edge(image_t image_id1,
-                                            image_t image_id2);
-  inline std::pair<const struct Edge&, bool> Edge(image_t image_id1,
-                                                  image_t image_id2) const;
-  inline struct Edge GetEdge(image_t image_id1, image_t image_id2) const;
+  inline std::pair<Edge&, bool> EdgeRef(image_t image_id1, image_t image_id2);
+  inline std::pair<const Edge&, bool> EdgeRef(image_t image_id1,
+                                              image_t image_id2) const;
+  inline Edge GetEdge(image_t image_id1, image_t image_id2) const;
   inline bool DeleteEdge(image_t image_id1, image_t image_id2);
-  inline void UpdateEdge(image_t image_id1,
-                         image_t image_id2,
-                         struct Edge edge);
+  inline void UpdateEdge(image_t image_id1, image_t image_id2, Edge edge);
 
   // Validity operations.
   inline bool IsValid(image_pair_t pair_id) const;
@@ -83,7 +78,7 @@ class PoseGraph {
   // Edges are valid if they exist and are not in the invalid set.
   auto ValidEdges() const {
     return colmap::filter_view(
-        [this](const std::pair<const image_pair_t, struct Edge>& kv) {
+        [this](const std::pair<const image_pair_t, Edge>& kv) {
           return IsValid(kv.first);
         },
         edges_.begin(),
@@ -114,7 +109,7 @@ class PoseGraph {
  private:
   // Map from pair ID to edge data. The pair ID is computed from the
   // two image IDs using ImagePairToPairId, with the smaller ID first.
-  std::unordered_map<image_pair_t, struct Edge> edges_;
+  std::unordered_map<image_pair_t, Edge> edges_;
   // Set of invalid pair IDs. Pairs not in this set are considered valid.
   std::unordered_set<image_pair_t> invalid_pairs_;
 };
@@ -123,12 +118,12 @@ class PoseGraph {
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-std::unordered_map<image_pair_t, struct PoseGraph::Edge>& PoseGraph::Edges() {
+std::unordered_map<image_pair_t, PoseGraph::Edge>& PoseGraph::Edges() {
   return edges_;
 }
 
-const std::unordered_map<image_pair_t, struct PoseGraph::Edge>&
-PoseGraph::Edges() const {
+const std::unordered_map<image_pair_t, PoseGraph::Edge>& PoseGraph::Edges()
+    const {
   return edges_;
 }
 
@@ -145,9 +140,9 @@ void PoseGraph::Clear() {
   invalid_pairs_.clear();
 }
 
-struct PoseGraph::Edge& PoseGraph::AddEdge(image_t image_id1,
-                                           image_t image_id2,
-                                           struct PoseGraph::Edge edge) {
+PoseGraph::Edge& PoseGraph::AddEdge(image_t image_id1,
+                                    image_t image_id2,
+                                    PoseGraph::Edge edge) {
   THROW_CHECK(edge.cam2_from_cam1.has_value());
   if (colmap::ShouldSwapImagePair(image_id1, image_id2)) {
     edge.Invert();
@@ -167,14 +162,14 @@ bool PoseGraph::HasEdge(image_t image_id1, image_t image_id2) const {
   return edges_.find(pair_id) != edges_.end();
 }
 
-std::pair<struct PoseGraph::Edge&, bool> PoseGraph::Edge(image_t image_id1,
-                                                         image_t image_id2) {
+std::pair<PoseGraph::Edge&, bool> PoseGraph::EdgeRef(image_t image_id1,
+                                                     image_t image_id2) {
   const bool swapped = colmap::ShouldSwapImagePair(image_id1, image_id2);
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
   return {edges_.at(pair_id), swapped};
 }
 
-std::pair<const struct PoseGraph::Edge&, bool> PoseGraph::Edge(
+std::pair<const PoseGraph::Edge&, bool> PoseGraph::EdgeRef(
     image_t image_id1, image_t image_id2) const {
   const bool swapped = colmap::ShouldSwapImagePair(image_id1, image_id2);
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
@@ -186,11 +181,10 @@ bool PoseGraph::DeleteEdge(image_t image_id1, image_t image_id2) {
   return edges_.erase(pair_id) > 0;
 }
 
-struct PoseGraph::Edge PoseGraph::GetEdge(image_t image_id1,
-                                          image_t image_id2) const {
+PoseGraph::Edge PoseGraph::GetEdge(image_t image_id1, image_t image_id2) const {
   const bool swapped = colmap::ShouldSwapImagePair(image_id1, image_id2);
   const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
-  struct PoseGraph::Edge result = edges_.at(pair_id);
+  PoseGraph::Edge result = edges_.at(pair_id);
   if (swapped) {
     result.Invert();
   }
@@ -199,7 +193,7 @@ struct PoseGraph::Edge PoseGraph::GetEdge(image_t image_id1,
 
 void PoseGraph::UpdateEdge(image_t image_id1,
                            image_t image_id2,
-                           struct PoseGraph::Edge edge) {
+                           PoseGraph::Edge edge) {
   THROW_CHECK(edge.cam2_from_cam1.has_value());
   if (colmap::ShouldSwapImagePair(image_id1, image_id2)) {
     edge.Invert();
