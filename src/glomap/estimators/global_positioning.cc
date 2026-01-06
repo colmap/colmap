@@ -25,7 +25,7 @@ GlobalPositioner::GlobalPositioner(const GlobalPositionerOptions& options)
   }
 }
 
-bool GlobalPositioner::Solve(const ViewGraph& view_graph,
+bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
                              colmap::Reconstruction& reconstruction) {
   if (reconstruction.NumImages() == 0) {
     LOG(ERROR) << "Number of images = " << reconstruction.NumImages();
@@ -39,11 +39,11 @@ bool GlobalPositioner::Solve(const ViewGraph& view_graph,
   LOG(INFO) << "Setting up the global positioner problem";
 
   // Setup the problem.
-  SetupProblem(view_graph, reconstruction);
+  SetupProblem(pose_graph, reconstruction);
 
   // Initialize camera translations to be random.
   // Also, convert the camera pose translation to be the camera center.
-  InitializeRandomPositions(view_graph, reconstruction);
+  InitializeRandomPositions(pose_graph, reconstruction);
 
   // Add the point to camera constraints to the problem.
   AddPointToCameraConstraints(reconstruction);
@@ -75,7 +75,7 @@ bool GlobalPositioner::Solve(const ViewGraph& view_graph,
 }
 
 void GlobalPositioner::SetupProblem(
-    const ViewGraph& view_graph, const colmap::Reconstruction& reconstruction) {
+    const PoseGraph& pose_graph, const colmap::Reconstruction& reconstruction) {
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
   problem_ = std::make_unique<ceres::Problem>(problem_options);
@@ -102,10 +102,10 @@ void GlobalPositioner::SetupProblem(
 }
 
 void GlobalPositioner::InitializeRandomPositions(
-    const ViewGraph& view_graph, colmap::Reconstruction& reconstruction) {
+    const PoseGraph& pose_graph, colmap::Reconstruction& reconstruction) {
   std::unordered_set<frame_t> constrained_positions;
   constrained_positions.reserve(reconstruction.NumFrames());
-  for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     constrained_positions.insert(reconstruction.Image(image_id1).FrameId());
     constrained_positions.insert(reconstruction.Image(image_id2).FrameId());
@@ -474,10 +474,10 @@ void GlobalPositioner::ConvertBackResults(
 }
 
 bool RunGlobalPositioning(const GlobalPositionerOptions& options,
-                          const ViewGraph& view_graph,
+                          const PoseGraph& pose_graph,
                           colmap::Reconstruction& reconstruction) {
   GlobalPositioner positioner(options);
-  return positioner.Solve(view_graph, reconstruction);
+  return positioner.Solve(pose_graph, reconstruction);
 }
 
 }  // namespace glomap
