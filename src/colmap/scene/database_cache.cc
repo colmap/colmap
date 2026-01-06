@@ -29,6 +29,7 @@
 
 #include "colmap/scene/database_cache.h"
 
+#include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
@@ -45,6 +46,15 @@ std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
   return points;
 }
 
+inline std::vector<Eigen::Vector2d> Points2DToPointsVector(
+    const std::vector<struct Point2D>& points2D) {
+  std::vector<Eigen::Vector2d> points(points2D.size());
+  for (size_t i = 0; i < points2D.size(); ++i) {
+    points[i] = points2D[i].xy;
+  }
+  return points;
+}
+
 }  // namespace
 
 DatabaseCache::DatabaseCache()
@@ -53,7 +63,8 @@ DatabaseCache::DatabaseCache()
 void DatabaseCache::Load(const Database& database,
                          const size_t min_num_matches,
                          const bool ignore_watermarks,
-                         const std::unordered_set<std::string>& image_names) {
+                         const std::unordered_set<std::string>& image_names,
+                         const bool load_relative_pose) {
   const bool has_rigs = database.NumRigs() > 0;
   const bool has_frames = database.NumFrames() > 0;
 
@@ -267,15 +278,94 @@ void DatabaseCache::Load(const Database& database,
   LOG(INFO) << StringPrintf(" in %.3fs (ignored %d)",
                             timer.ElapsedSeconds(),
                             num_ignored_image_pairs);
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Load/decompose relative poses
+  //////////////////////////////////////////////////////////////////////////////
+
+  if (load_relative_pose) {
+    timer.Restart();
+    VLOG(1) << "Loading relative poses...";
+
+    size_t decompose_count = 0;
+    size_t decompose_failed_count = 0;
+    size_t invalid_count = 0;
+
+    for (auto& [pair_id, two_view_geometry] : two_view_geometries) {
+      if (!UseInlierMatchesCheck(two_view_geometry)) {
+        continue;
+      }
+
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+      if (images_.count(image_id1) == 0 || images_.count(image_id2) == 0) {
+        continue;
+      }
+
+      const bool is_invalid =
+          two_view_geometry.config == TwoViewGeometry::UNDEFINED ||
+          two_view_geometry.config == TwoViewGeometry::DEGENERATE ||
+          two_view_geometry.config == TwoViewGeometry::WATERMARK ||
+          two_view_geometry.config == TwoViewGeometry::MULTIPLE;
+
+      if (is_invalid) {
+        invalid_count++;
+        continue;
+      }
+
+      // Decompose relative pose if not already present.
+      if (!two_view_geometry.cam2_from_cam1.has_value()) {
+        const class Image& image1 = images_.at(image_id1);
+        const class Image& image2 = images_.at(image_id2);
+        const struct Camera& camera1 = cameras_.at(image1.CameraId());
+        const struct Camera& camera2 = cameras_.at(image2.CameraId());
+
+        const std::vector<Eigen::Vector2d> points1 =
+            Points2DToPointsVector(image1.Points2D());
+        const std::vector<Eigen::Vector2d> points2 =
+            Points2DToPointsVector(image2.Points2D());
+
+        decompose_count++;
+        const bool success = EstimateTwoViewGeometryPose(
+            camera1, points1, camera2, points2, &two_view_geometry);
+
+        if (success && two_view_geometry.cam2_from_cam1.has_value()) {
+          const double norm =
+              two_view_geometry.cam2_from_cam1->translation.norm();
+          if (norm > 1e-12) {
+            two_view_geometry.cam2_from_cam1->translation /= norm;
+          }
+        } else {
+          decompose_failed_count++;
+        }
+      }
+
+      if (two_view_geometry.cam2_from_cam1.has_value()) {
+        relative_poses_.emplace(pair_id, *two_view_geometry.cam2_from_cam1);
+      }
+    }
+
+    VLOG(1) << StringPrintf(
+        " %d in %.3fs", relative_poses_.size(), timer.ElapsedSeconds());
+    VLOG(2) << StringPrintf(
+        "Relative poses: %d invalid, %d decomposed (%d failed)",
+        invalid_count,
+        decompose_count,
+        decompose_failed_count);
+  }
 }
 
 std::shared_ptr<DatabaseCache> DatabaseCache::Create(
     const Database& database,
     const size_t min_num_matches,
     const bool ignore_watermarks,
-    const std::unordered_set<std::string>& image_names) {
+    const std::unordered_set<std::string>& image_names,
+    const bool load_relative_pose) {
   auto cache = std::make_shared<DatabaseCache>();
-  cache->Load(database, min_num_matches, ignore_watermarks, image_names);
+  cache->Load(database,
+              min_num_matches,
+              ignore_watermarks,
+              image_names,
+              load_relative_pose);
   return cache;
 }
 
@@ -381,6 +471,15 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
 
   cache->correspondence_graph_->Finalize();
 
+  // Copy relative poses for image pairs in the cache.
+  for (const auto& [pair_id, pose] : database_cache.RelativePoses()) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    if (cache->images_.count(image_id1) > 0 &&
+        cache->images_.count(image_id2) > 0) {
+      cache->relative_poses_.emplace(pair_id, pose);
+    }
+  }
+
   return cache;
 }
 
@@ -421,6 +520,16 @@ const class Image* DatabaseCache::FindImageWithName(
     }
   }
   return nullptr;
+}
+
+Rigid3d DatabaseCache::RelativePose(const image_t image_id1,
+                                    const image_t image_id2) const {
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
+  const Rigid3d& pose = relative_poses_.at(pair_id);
+  if (ShouldSwapImagePair(image_id1, image_id2)) {
+    return Inverse(pose);
+  }
+  return pose;
 }
 
 bool DatabaseCache::SetupPosePriors() {

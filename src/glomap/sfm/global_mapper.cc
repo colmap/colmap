@@ -20,11 +20,8 @@ GlobalMapper::GlobalMapper(std::shared_ptr<const colmap::Database> database) {
   database_cache_ = colmap::DatabaseCache::Create(*database,
                                                   kMinNumMatches,
                                                   /*ignore_watermarks=*/false,
-                                                  /*image_names=*/{});
-  // TODO: Move to BeginReconstruction after migrating to PoseGraph and accept
-  // DatabaseCache.
-  pose_graph_ = std::make_shared<class PoseGraph>();
-  pose_graph_->LoadFromDatabase(*database);
+                                                  /*image_names=*/{},
+                                                  /*load_relative_pose=*/true);
 }
 
 void GlobalMapper::BeginReconstruction(
@@ -32,6 +29,8 @@ void GlobalMapper::BeginReconstruction(
   THROW_CHECK_NOTNULL(reconstruction);
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
+  pose_graph_ = std::make_shared<class PoseGraph>();
+  pose_graph_->Load(*database_cache_);
 }
 
 std::shared_ptr<colmap::Reconstruction> GlobalMapper::Reconstruction() const {
