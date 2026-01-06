@@ -45,7 +45,13 @@ GlobalPipeline::GlobalPipeline(
     : options_(options),
       database_(std::move(THROW_CHECK_NOTNULL(database))),
       reconstruction_manager_(
-          std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {}
+          std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {
+  if (options_.decompose_relative_pose &&
+      (options_.skip_view_graph_calibration ||
+       !options_.view_graph_calibration.reestimate_relative_pose)) {
+    MaybeDecomposeAndWriteRelativePoses(database_.get());
+  }
+}
 
 void GlobalPipeline::Run() {
   // Run view graph calibration on the database before loading into mapper.
@@ -65,12 +71,6 @@ void GlobalPipeline::Run() {
     }
     LOG(INFO) << "View graph calibration done in " << run_timer.ElapsedSeconds()
               << " seconds";
-  }
-
-  // Decompose relative poses if not already done by view graph calibration.
-  if (options_.skip_view_graph_calibration ||
-      !options_.view_graph_calibration.reestimate_relative_pose) {
-    MaybeDecomposeAndWriteRelativePoses(database_.get());
   }
 
   // Create database cache with relative poses for pose graph.

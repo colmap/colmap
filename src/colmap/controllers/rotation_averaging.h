@@ -48,6 +48,9 @@ struct RotationAveragingControllerOptions {
   // seed.
   int random_seed = -1;
 
+  // Whether to decompose relative poses from two-view geometries.
+  bool decompose_relative_pose = true;
+
   // Options for rotation averaging.
   glomap::RotationEstimatorOptions rotation_estimation;
 

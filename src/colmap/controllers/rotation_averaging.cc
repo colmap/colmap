@@ -44,7 +44,11 @@ RotationAveragingController::RotationAveragingController(
     std::shared_ptr<Reconstruction> reconstruction)
     : options_(options),
       database_(std::move(THROW_CHECK_NOTNULL(database))),
-      reconstruction_(std::move(THROW_CHECK_NOTNULL(reconstruction))) {}
+      reconstruction_(std::move(THROW_CHECK_NOTNULL(reconstruction))) {
+  if (options_.decompose_relative_pose) {
+    MaybeDecomposeAndWriteRelativePoses(database_.get());
+  }
+}
 
 void RotationAveragingController::Run() {
   // Propagate options to component options.
@@ -53,9 +57,6 @@ void RotationAveragingController::Run() {
 
   Timer run_timer;
   run_timer.Start();
-
-  // Decompose relative poses if not already done.
-  MaybeDecomposeAndWriteRelativePoses(database_.get());
 
   // Create database cache with relative poses for pose graph.
   auto database_cache = DatabaseCache::Create(*database_,
