@@ -29,6 +29,8 @@
 
 #include "colmap/controllers/rotation_averaging.h"
 
+#include "colmap/estimators/two_view_geometry.h"
+#include "colmap/scene/database_cache.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/timer.h"
 
@@ -52,8 +54,18 @@ void RotationAveragingController::Run() {
   Timer run_timer;
   run_timer.Start();
 
+  // Decompose relative poses if not already done.
+  MaybeDecomposeAndWriteRelativePoses(database_.get());
+
+  // Create database cache with relative poses for pose graph.
+  auto database_cache = DatabaseCache::Create(*database_,
+                                              /*min_num_matches=*/0,
+                                              /*ignore_watermarks=*/false,
+                                              /*image_names=*/{},
+                                              /*load_relative_pose=*/true);
+
   // Create a global mapper instance
-  glomap::GlobalMapper mapper(database_);
+  glomap::GlobalMapper mapper(database_cache);
   mapper.BeginReconstruction(reconstruction_);
 
   if (mapper.PoseGraph()->Empty()) {

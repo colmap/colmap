@@ -29,6 +29,7 @@
 
 #include "colmap/controllers/global_pipeline.h"
 
+#include "colmap/estimators/two_view_geometry.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/util/timer.h"
 
@@ -66,13 +67,18 @@ void GlobalPipeline::Run() {
               << " seconds";
   }
 
+  // Decompose relative poses if not already done by view graph calibration.
+  if (options_.skip_view_graph_calibration ||
+      !options_.view_graph_calibration.reestimate_relative_pose) {
+    MaybeDecomposeAndWriteRelativePoses(database_.get());
+  }
+
   // Create database cache with relative poses for pose graph.
-  auto database_cache =
-      DatabaseCache::Create(*database_,
-                            options_.min_num_matches,
-                            options_.ignore_watermarks,
-                            /*image_names=*/{},
-                            /*load_relative_pose=*/true);
+  auto database_cache = DatabaseCache::Create(*database_,
+                                              options_.min_num_matches,
+                                              options_.ignore_watermarks,
+                                              /*image_names=*/{},
+                                              /*load_relative_pose=*/true);
 
   auto reconstruction = std::make_shared<Reconstruction>();
 

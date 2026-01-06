@@ -29,7 +29,6 @@
 
 #include "colmap/scene/database_cache.h"
 
-#include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
@@ -42,15 +41,6 @@ std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
   std::vector<Eigen::Vector2d> points(keypoints.size());
   for (size_t i = 0; i < keypoints.size(); ++i) {
     points[i] = Eigen::Vector2d(keypoints[i].x, keypoints[i].y);
-  }
-  return points;
-}
-
-inline std::vector<Eigen::Vector2d> Points2DToPointsVector(
-    const std::vector<struct Point2D>& points2D) {
-  std::vector<Eigen::Vector2d> points(points2D.size());
-  for (size_t i = 0; i < points2D.size(); ++i) {
-    points[i] = points2D[i].xy;
   }
   return points;
 }
@@ -280,18 +270,14 @@ void DatabaseCache::Load(const Database& database,
                             num_ignored_image_pairs);
 
   //////////////////////////////////////////////////////////////////////////////
-  // Load/decompose relative poses
+  // Load relative poses
   //////////////////////////////////////////////////////////////////////////////
 
   if (load_relative_pose) {
     timer.Restart();
-    VLOG(1) << "Loading relative poses...";
+    LOG(INFO) << "Loading relative poses...";
 
-    size_t decompose_count = 0;
-    size_t decompose_failed_count = 0;
-    size_t invalid_count = 0;
-
-    for (auto& [pair_id, two_view_geometry] : two_view_geometries) {
+    for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
       if (!UseInlierMatchesCheck(two_view_geometry)) {
         continue;
       }
@@ -301,56 +287,13 @@ void DatabaseCache::Load(const Database& database,
         continue;
       }
 
-      const bool is_invalid =
-          two_view_geometry.config == TwoViewGeometry::UNDEFINED ||
-          two_view_geometry.config == TwoViewGeometry::DEGENERATE ||
-          two_view_geometry.config == TwoViewGeometry::WATERMARK ||
-          two_view_geometry.config == TwoViewGeometry::MULTIPLE;
-
-      if (is_invalid) {
-        invalid_count++;
-        continue;
-      }
-
-      // Decompose relative pose if not already present.
-      if (!two_view_geometry.cam2_from_cam1.has_value()) {
-        const class Image& image1 = images_.at(image_id1);
-        const class Image& image2 = images_.at(image_id2);
-        const struct Camera& camera1 = cameras_.at(image1.CameraId());
-        const struct Camera& camera2 = cameras_.at(image2.CameraId());
-
-        const std::vector<Eigen::Vector2d> points1 =
-            Points2DToPointsVector(image1.Points2D());
-        const std::vector<Eigen::Vector2d> points2 =
-            Points2DToPointsVector(image2.Points2D());
-
-        decompose_count++;
-        const bool success = EstimateTwoViewGeometryPose(
-            camera1, points1, camera2, points2, &two_view_geometry);
-
-        if (success && two_view_geometry.cam2_from_cam1.has_value()) {
-          const double norm =
-              two_view_geometry.cam2_from_cam1->translation.norm();
-          if (norm > 1e-12) {
-            two_view_geometry.cam2_from_cam1->translation /= norm;
-          }
-        } else {
-          decompose_failed_count++;
-        }
-      }
-
       if (two_view_geometry.cam2_from_cam1.has_value()) {
         relative_poses_.emplace(pair_id, *two_view_geometry.cam2_from_cam1);
       }
     }
 
-    VLOG(1) << StringPrintf(
+    LOG(INFO) << StringPrintf(
         " %d in %.3fs", relative_poses_.size(), timer.ElapsedSeconds());
-    VLOG(2) << StringPrintf(
-        "Relative poses: %d invalid, %d decomposed (%d failed)",
-        invalid_count,
-        decompose_count,
-        decompose_failed_count);
   }
 }
 
