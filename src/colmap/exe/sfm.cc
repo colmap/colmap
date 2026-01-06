@@ -759,6 +759,10 @@ int RunViewGraphCalibrator(int argc, char** argv) {
       "cross_validate_prior_focal_lengths",
       &calibration_options.cross_validate_prior_focal_lengths,
       "Cross-validate prior focal lengths");
+  options.AddDefaultOption(
+      "min_calibrated_pair_ratio",
+      &calibration_options.min_calibrated_pair_ratio,
+      "Minimum ratio of calibrated pairs for cross-validation");
   options.AddDefaultOption("reestimate_relative_pose",
                            &calibration_options.reestimate_relative_pose,
                            "Re-estimate relative poses after calibration");

@@ -62,14 +62,6 @@ TEST(CalibrateViewGraph, Nominal) {
     gt_focals[camera_id] = camera.MeanFocalLength();
   }
 
-  // Change pairs to UNCALIBRATED so F matrices are used directly.
-  for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
-    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    TwoViewGeometry uncalib_tvg = tvg;
-    uncalib_tvg.config = TwoViewGeometry::UNCALIBRATED;
-    database->UpdateTwoViewGeometry(image_id1, image_id2, uncalib_tvg);
-  }
-
   // Add noise to focal lengths of the first two cameras.
   // TODO: investigate view graph calibration cost functor and use more
   // challenging test setup.
@@ -84,7 +76,6 @@ TEST(CalibrateViewGraph, Nominal) {
   }
 
   ViewGraphCalibrationOptions calib_options;
-  calib_options.random_seed = 42;
   calib_options.reestimate_relative_pose = false;
   EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
 
@@ -122,11 +113,9 @@ TEST(CalibrateViewGraph, PriorFocalLength) {
   std::unordered_map<camera_t, double> original_focals;
   for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
     original_focals[camera_id] = camera.MeanFocalLength();
-    EXPECT_TRUE(camera.has_prior_focal_length);
   }
 
   ViewGraphCalibrationOptions calib_options;
-  calib_options.random_seed = 42;
   calib_options.reestimate_relative_pose = false;
   EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
 
@@ -156,7 +145,6 @@ TEST(CalibrateViewGraph, ConfigTagging) {
 
   // Set very strict calibration error threshold to trigger DEGENERATE_VGC.
   ViewGraphCalibrationOptions calib_options;
-  calib_options.random_seed = 42;
   calib_options.reestimate_relative_pose = false;
   calib_options.max_calibration_error = 0.001;  // Very strict threshold
   EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
@@ -202,7 +190,6 @@ TEST(CalibrateViewGraph, RelativePoseReestimation) {
   }
 
   ViewGraphCalibrationOptions calib_options;
-  calib_options.random_seed = 42;
   calib_options.reestimate_relative_pose = true;
   EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
 

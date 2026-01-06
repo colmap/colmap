@@ -45,6 +45,9 @@ struct ViewGraphCalibrationOptions {
   // calibrated vs uncalibrated pairs per camera. When enabled, UNCALIBRATED
   // pairs are converted to CALIBRATED if both cameras have reliable priors.
   bool cross_validate_prior_focal_lengths = true;
+  // Minimum ratio of calibrated pairs for a camera to be considered valid
+  // during cross-validation.
+  double min_calibrated_pair_ratio = 0.5;
 
   // Whether to re-estimate relative poses after focal length calibration.
   bool reestimate_relative_pose = true;
@@ -75,9 +78,7 @@ struct ViewGraphCalibrationOptions {
   }
 
   // Create loss function for given options.
-  std::unique_ptr<ceres::LossFunction> CreateLossFunction() const {
-    return std::make_unique<ceres::CauchyLoss>(loss_function_scale);
-  }
+  std::unique_ptr<ceres::LossFunction> CreateLossFunction() const;
 };
 
 // Calibrate the view graph by estimating focal lengths from fundamental
