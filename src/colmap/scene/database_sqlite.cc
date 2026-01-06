@@ -99,7 +99,9 @@ FeatureKeypointsBlob FeatureKeypointsToBlob(const FeatureKeypoints& keypoints) {
 
 FeatureKeypoints FeatureKeypointsFromBlob(const FeatureKeypointsBlob& blob) {
   FeatureKeypoints keypoints(static_cast<size_t>(blob.rows()));
-  if (blob.cols() == 2) {
+  if (blob.rows() == 0) {
+    return keypoints;
+  } else if (blob.cols() == 2) {
     for (FeatureKeypointsBlob::Index i = 0; i < blob.rows(); ++i) {
       keypoints[i] = FeatureKeypoint(blob(i, 0), blob(i, 1));
     }
