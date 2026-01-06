@@ -1436,9 +1436,10 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
 
       if (last_sweep) {
         if (options_.filter) {
-          consistency_mask_.reset(new GpuMat<uint8_t>(cost_map_->GetWidth(),
-                                                      cost_map_->GetHeight(),
-                                                      cost_map_->GetDepth()));
+          consistency_mask_ =
+              std::make_unique<GpuMat<uint8_t>>(cost_map_->GetWidth(),
+                                                cost_map_->GetHeight(),
+                                                cost_map_->GetDepth());
           consistency_mask_->FillWithScalar(0);
         }
         if (options_.geom_consistency) {
@@ -1538,7 +1539,7 @@ void PatchMatchCuda::InitRefImage() {
   ref_height_ = ref_image.GetHeight();
 
   // Upload to device and filter.
-  ref_image_.reset(new GpuMatRefImage(ref_width_, ref_height_));
+  ref_image_ = std::make_unique<GpuMatRefImage>(ref_width_, ref_height_);
   ref_image_->Filter(ref_image.GetBitmap().RowMajorData().data(),
                      options_.window_radius,
                      options_.window_step,
@@ -1749,9 +1750,9 @@ void PatchMatchCuda::InitTransforms() {
 }
 
 void PatchMatchCuda::InitWorkspaceMemory() {
-  rand_state_map_.reset(new GpuMatPRNG(ref_width_, ref_height_));
+  rand_state_map_ = std::make_unique<GpuMatPRNG>(ref_width_, ref_height_);
 
-  depth_map_.reset(new GpuMat<float>(ref_width_, ref_height_));
+  depth_map_ = std::make_unique<GpuMat<float>>(ref_width_, ref_height_);
   if (options_.geom_consistency) {
     const DepthMap& init_depth_map =
         problem_.depth_maps->at(problem_.ref_image_idx);
@@ -1762,27 +1763,27 @@ void PatchMatchCuda::InitWorkspaceMemory() {
         options_.depth_min, options_.depth_max, *rand_state_map_);
   }
 
-  normal_map_.reset(new GpuMat<float>(ref_width_, ref_height_, 3));
+  normal_map_ = std::make_unique<GpuMat<float>>(ref_width_, ref_height_, 3);
 
   // Note that it is not necessary to keep the selection probability map in
   // memory for all pixels. Theoretically, it is possible to incorporate
   // the temporary selection probabilities in the global_workspace_.
   // However, it is useful to keep the probabilities for the entire image
   // in memory, so that it can be exported.
-  sel_prob_map_.reset(new GpuMat<float>(
-      ref_width_, ref_height_, problem_.src_image_idxs.size()));
-  prev_sel_prob_map_.reset(new GpuMat<float>(
-      ref_width_, ref_height_, problem_.src_image_idxs.size()));
+  sel_prob_map_ = std::make_unique<GpuMat<float>>(
+      ref_width_, ref_height_, problem_.src_image_idxs.size());
+  prev_sel_prob_map_ = std::make_unique<GpuMat<float>>(
+      ref_width_, ref_height_, problem_.src_image_idxs.size());
   prev_sel_prob_map_->FillWithScalar(0.5f);
 
-  cost_map_.reset(new GpuMat<float>(
-      ref_width_, ref_height_, problem_.src_image_idxs.size()));
+  cost_map_ = std::make_unique<GpuMat<float>>(
+      ref_width_, ref_height_, problem_.src_image_idxs.size());
 
   const int ref_max_dim = std::max(ref_width_, ref_height_);
-  global_workspace_.reset(
-      new GpuMat<float>(ref_max_dim, problem_.src_image_idxs.size(), 2));
+  global_workspace_ = std::make_unique<GpuMat<float>>(
+      ref_max_dim, problem_.src_image_idxs.size(), 2);
 
-  consistency_mask_.reset(new GpuMat<uint8_t>(0, 0, 0));
+  consistency_mask_ = std::make_unique<GpuMat<uint8_t>>(0, 0, 0);
 
   ComputeCudaConfig();
 
@@ -1849,11 +1850,11 @@ void PatchMatchCuda::Rotate() {
   }
 
   // Rotate selection probability map.
-  prev_sel_prob_map_.reset(
-      new GpuMat<float>(width, height, problem_.src_image_idxs.size()));
+  prev_sel_prob_map_ = std::make_unique<GpuMat<float>>(
+      width, height, problem_.src_image_idxs.size());
   sel_prob_map_->Rotate(prev_sel_prob_map_.get());
-  sel_prob_map_.reset(
-      new GpuMat<float>(width, height, problem_.src_image_idxs.size()));
+  sel_prob_map_ = std::make_unique<GpuMat<float>>(
+      width, height, problem_.src_image_idxs.size());
 
   // Rotate cost map.
   {
