@@ -40,6 +40,12 @@
 namespace colmap {
 
 struct GlobalPipelineOptions {
+  // The minimum number of matches for inlier matches to be considered.
+  int min_num_matches = 15;
+
+  // Whether to ignore the inlier matches of watermark image pairs.
+  bool ignore_watermarks = false;
+
   // The image path at which to find the images to extract point colors.
   std::string image_path;
 

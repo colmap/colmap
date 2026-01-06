@@ -29,6 +29,7 @@
 
 #include "colmap/controllers/global_pipeline.h"
 
+#include "colmap/scene/database_cache.h"
 #include "colmap/util/timer.h"
 
 #include "glomap/io/colmap_io.h"
@@ -47,6 +48,9 @@ GlobalPipeline::GlobalPipeline(
 
 void GlobalPipeline::Run() {
   // Run view graph calibration on the database before loading into mapper.
+  // TODO: Move view graph calibration to upper level (e.g., feature matching
+  // pipeline) so that GlobalPipeline can accept DatabaseCache directly and
+  // remove the database_ member (similar to IncrementalPipeline).
   if (!options_.skip_view_graph_calibration) {
     LOG(INFO) << "----- Running view graph calibration -----";
     Timer run_timer;
@@ -62,9 +66,17 @@ void GlobalPipeline::Run() {
               << " seconds";
   }
 
+  // Create database cache with relative poses for pose graph.
+  auto database_cache =
+      DatabaseCache::Create(*database_,
+                            options_.min_num_matches,
+                            options_.ignore_watermarks,
+                            /*image_names=*/{},
+                            /*load_relative_pose=*/true);
+
   auto reconstruction = std::make_shared<Reconstruction>();
 
-  glomap::GlobalMapper global_mapper(database_);
+  glomap::GlobalMapper global_mapper(database_cache);
   global_mapper.BeginReconstruction(reconstruction);
 
   if (global_mapper.PoseGraph()->Empty()) {
