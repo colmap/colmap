@@ -55,9 +55,3 @@ COLMAP_ADD_TEST(
     SRCS global_mapper_test.cc
     LINK_LIBS colmap_glomap_sfm
 )
-# This test uses GlobalMapper for preprocessing, so it needs to stay in sfm for now.
-COLMAP_ADD_TEST(
-    NAME glomap_rotation_averaging_test
-    SRCS rotation_averaging_test.cc
-    LINK_LIBS colmap_glomap_sfm
-)

@@ -2,7 +2,7 @@
 
 #include "colmap/geometry/pose_prior.h"
 
-#include "glomap/scene/view_graph.h"
+#include "glomap/scene/pose_graph.h"
 
 #include <unordered_map>
 
@@ -11,7 +11,7 @@ namespace glomap {
 // IMAGE_NAME_1 IMAGE_NAME_2 QW QX QY QZ TX TY TZ
 void ReadRelPose(const std::string& file_path,
                  std::unordered_map<image_t, Image>& images,
-                 ViewGraph& view_graph);
+                 PoseGraph& pose_graph);
 
 // Require the gravity in the format:
 // IMAGE_NAME GX GY GZ
@@ -30,6 +30,6 @@ void WriteGlobalRotation(const std::string& file_path,
 // IMAGE_NAME_1 IMAGE_NAME_2 QW QX QY QZ TX TY TZ
 void WriteRelPose(const std::string& file_path,
                   const std::unordered_map<image_t, Image>& images,
-                  const ViewGraph& view_graph);
+                  const PoseGraph& pose_graph);
 
 }  // namespace glomap

@@ -1,4 +1,4 @@
-#include "glomap/scene/view_graph.h"
+#include "glomap/scene/pose_graph.h"
 
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/math/connected_components.h"
@@ -18,7 +18,7 @@ std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
 
 }  // namespace
 
-void ViewGraph::LoadFromDatabase(const colmap::Database& database,
+void PoseGraph::LoadFromDatabase(const colmap::Database& database,
                                  bool allow_duplicate) {
   // TODO: Move relative pose decomposition logic to the top level.
   auto all_matches = database.ReadAllMatches();
@@ -41,7 +41,7 @@ void ViewGraph::LoadFromDatabase(const colmap::Database& database,
   for (auto& [pair_id, feature_matches] : all_matches) {
     auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 
-    const bool duplicate = HasImagePair(image_id1, image_id2);
+    const bool duplicate = HasEdge(image_id1, image_id2);
     if (duplicate) {
       if (!allow_duplicate) {
         LOG(FATAL_THROW) << "Duplicate image pair in database: " << image_id1
@@ -51,37 +51,21 @@ void ViewGraph::LoadFromDatabase(const colmap::Database& database,
                    << image_id2;
     }
 
-    // Build the image pair from TwoViewGeometry
-    struct ImagePair image_pair;
-    static_cast<colmap::TwoViewGeometry&>(image_pair) =
+    // Read TwoViewGeometry from database and extract needed fields.
+    colmap::TwoViewGeometry two_view_geom =
         database.ReadTwoViewGeometry(image_id1, image_id2);
 
     const bool is_invalid =
-        image_pair.config == colmap::TwoViewGeometry::UNDEFINED ||
-        image_pair.config == colmap::TwoViewGeometry::DEGENERATE ||
-        image_pair.config == colmap::TwoViewGeometry::WATERMARK ||
-        image_pair.config == colmap::TwoViewGeometry::MULTIPLE;
+        two_view_geom.config == colmap::TwoViewGeometry::UNDEFINED ||
+        two_view_geom.config == colmap::TwoViewGeometry::DEGENERATE ||
+        two_view_geom.config == colmap::TwoViewGeometry::WATERMARK ||
+        two_view_geom.config == colmap::TwoViewGeometry::MULTIPLE;
 
     if (is_invalid) {
       invalid_count++;
     } else {
-      // Collect the matches
-      image_pair.matches = Eigen::MatrixXi(feature_matches.size(), 2);
-
-      size_t count = 0;
-      for (int i = 0; i < feature_matches.size(); i++) {
-        colmap::point2D_t point2D_idx1 = feature_matches[i].point2D_idx1;
-        colmap::point2D_t point2D_idx2 = feature_matches[i].point2D_idx2;
-        if (point2D_idx1 != colmap::kInvalidPoint2DIdx &&
-            point2D_idx2 != colmap::kInvalidPoint2DIdx) {
-          image_pair.matches.row(count) << point2D_idx1, point2D_idx2;
-          count++;
-        }
-      }
-      image_pair.matches.conservativeResize(count, 2);
-
       // Decompose relative pose if not already present.
-      if (!image_pair.cam2_from_cam1.has_value()) {
+      if (!two_view_geom.cam2_from_cam1.has_value()) {
         const colmap::Image& image1 = images.at(image_id1);
         const colmap::Image& image2 = images.at(image_id2);
         const colmap::Camera& camera1 = cameras.at(image1.CameraId());
@@ -94,12 +78,12 @@ void ViewGraph::LoadFromDatabase(const colmap::Database& database,
 
         decompose_count++;
         const bool success = colmap::EstimateTwoViewGeometryPose(
-            camera1, points1, camera2, points2, &image_pair);
+            camera1, points1, camera2, points2, &two_view_geom);
 
-        if (success && image_pair.cam2_from_cam1.has_value()) {
-          const double norm = image_pair.cam2_from_cam1->translation.norm();
+        if (success && two_view_geom.cam2_from_cam1.has_value()) {
+          const double norm = two_view_geom.cam2_from_cam1->translation.norm();
           if (norm > 1e-12) {
-            image_pair.cam2_from_cam1->translation /= norm;
+            two_view_geom.cam2_from_cam1->translation /= norm;
           }
         } else {
           decompose_failed_count++;
@@ -108,15 +92,20 @@ void ViewGraph::LoadFromDatabase(const colmap::Database& database,
     }
 
     // Skip pairs that don't have a valid pose.
-    if (!image_pair.cam2_from_cam1.has_value()) {
+    if (!two_view_geom.cam2_from_cam1.has_value()) {
       invalid_count++;
       continue;
     }
 
+    // Build Edge from TwoViewGeometry.
+    Edge new_edge;
+    new_edge.cam2_from_cam1 = *two_view_geom.cam2_from_cam1;
+    new_edge.inlier_matches = std::move(two_view_geom.inlier_matches);
+
     if (duplicate) {
-      UpdateImagePair(image_id1, image_id2, std::move(image_pair));
+      UpdateEdge(image_id1, image_id2, std::move(new_edge));
     } else {
-      AddImagePair(image_id1, image_id2, std::move(image_pair));
+      AddEdge(image_id1, image_id2, std::move(new_edge));
     }
   }
 
@@ -128,17 +117,17 @@ void ViewGraph::LoadFromDatabase(const colmap::Database& database,
   }
 }
 
-int ViewGraph::KeepLargestConnectedComponents(
+int PoseGraph::KeepLargestConnectedComponents(
     colmap::Reconstruction& reconstruction) {
   std::unordered_set<frame_t> nodes;
-  std::vector<std::pair<frame_t, frame_t>> edges;
-  for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
+  std::vector<std::pair<frame_t, frame_t>> graph_edges;
+  for (const auto& [pair_id, edge] : ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const frame_t frame_id1 = reconstruction.Image(image_id1).FrameId();
     const frame_t frame_id2 = reconstruction.Image(image_id2).FrameId();
     nodes.insert(frame_id1);
     nodes.insert(frame_id2);
-    edges.emplace_back(frame_id1, frame_id2);
+    graph_edges.emplace_back(frame_id1, frame_id2);
   }
 
   if (nodes.empty()) {
@@ -146,7 +135,7 @@ int ViewGraph::KeepLargestConnectedComponents(
   }
 
   const std::vector<frame_t> largest_component_vec =
-      colmap::FindLargestConnectedComponent(nodes, edges);
+      colmap::FindLargestConnectedComponent(nodes, graph_edges);
   const std::unordered_set<frame_t> largest_component(
       largest_component_vec.begin(), largest_component_vec.end());
 
@@ -156,34 +145,34 @@ int ViewGraph::KeepLargestConnectedComponents(
     }
   }
 
-  for (const auto& [pair_id, image_pair] : image_pairs_) {
+  for (const auto& [pair_id, edge] : edges_) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     if (!reconstruction.Image(image_id1).HasPose() ||
         !reconstruction.Image(image_id2).HasPose()) {
-      SetInvalidImagePair(pair_id);
+      SetInvalidEdge(pair_id);
     }
   }
 
   return static_cast<int>(largest_component.size());
 }
 
-int ViewGraph::MarkConnectedComponents(
+int PoseGraph::MarkConnectedComponents(
     const colmap::Reconstruction& reconstruction,
     std::unordered_map<frame_t, int>& cluster_ids,
     int min_num_images) {
   std::unordered_set<frame_t> nodes;
-  std::vector<std::pair<frame_t, frame_t>> edges;
-  for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
+  std::vector<std::pair<frame_t, frame_t>> graph_edges;
+  for (const auto& [pair_id, edge] : ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const frame_t frame_id1 = reconstruction.Image(image_id1).FrameId();
     const frame_t frame_id2 = reconstruction.Image(image_id2).FrameId();
     nodes.insert(frame_id1);
     nodes.insert(frame_id2);
-    edges.emplace_back(frame_id1, frame_id2);
+    graph_edges.emplace_back(frame_id1, frame_id2);
   }
 
   const std::vector<std::vector<frame_t>> connected_components =
-      colmap::FindConnectedComponents(nodes, edges);
+      colmap::FindConnectedComponents(nodes, graph_edges);
   const int num_comp = static_cast<int>(connected_components.size());
 
   std::vector<std::pair<int, int>> comp_num_images(num_comp);
@@ -211,9 +200,9 @@ int ViewGraph::MarkConnectedComponents(
 }
 
 std::unordered_map<image_t, std::unordered_set<image_t>>
-ViewGraph::CreateImageAdjacencyList() const {
+PoseGraph::CreateImageAdjacencyList() const {
   std::unordered_map<image_t, std::unordered_set<image_t>> adjacency_list;
-  for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
+  for (const auto& [pair_id, edge] : ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     adjacency_list[image_id1].insert(image_id2);
     adjacency_list[image_id2].insert(image_id1);
@@ -221,11 +210,11 @@ ViewGraph::CreateImageAdjacencyList() const {
   return adjacency_list;
 }
 
-void ViewGraph::FilterByRelativeRotation(
+void PoseGraph::FilterByRelativeRotation(
     const colmap::Reconstruction& reconstruction, double max_angle_deg) {
   const double max_angle_rad = colmap::DegToRad(max_angle_deg);
   int num_invalid = 0;
-  for (const auto& [pair_id, image_pair] : ValidImagePairs()) {
+  for (const auto& [pair_id, edge] : ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const Image& image1 = reconstruction.Image(image_id1);
     const Image& image2 = reconstruction.Image(image_id2);
@@ -233,14 +222,13 @@ void ViewGraph::FilterByRelativeRotation(
     if (!image1.HasPose() || !image2.HasPose()) {
       continue;
     }
-    THROW_CHECK(image_pair.cam2_from_cam1.has_value());
 
     const Eigen::Quaterniond cam2_from_cam1 =
         image2.CamFromWorld().rotation *
         image1.CamFromWorld().rotation.inverse();
-    if (cam2_from_cam1.angularDistance(image_pair.cam2_from_cam1->rotation) >
+    if (cam2_from_cam1.angularDistance(edge.cam2_from_cam1.rotation) >
         max_angle_rad) {
-      SetInvalidImagePair(pair_id);
+      SetInvalidEdge(pair_id);
       num_invalid++;
     }
   }
