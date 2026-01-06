@@ -71,6 +71,7 @@ TEST(AutomaticReconstructionController, Nominal) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   AutomaticReconstructionController controller(options, reconstruction_manager);
+  controller.Setup();
   controller.Start();
   controller.Wait();
 

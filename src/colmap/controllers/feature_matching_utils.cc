@@ -56,16 +56,18 @@ FeatureMatcherWorker::FeatureMatcherWorker(
       output_queue_(output_queue) {
   THROW_CHECK(matching_options_.Check());
 
-  if (matching_options_.use_gpu) {
-#if !defined(COLMAP_CUDA_ENABLED)
+  if (matching_options_.RequiresOpenGL()) {
     opengl_context_ = std::make_unique<OpenGLContextManager>();
-#endif
   }
 }
 
 void FeatureMatcherWorker::Run() {
-  if (matching_options_.use_gpu) {
+  if (opengl_context_ != nullptr) {
+    THROW_CHECK(opengl_context_->MakeCurrent());
+  }
+
 #if defined(COLMAP_CUDA_ENABLED)
+  if (matching_options_.use_gpu) {
     // Initialize CUDA device for this worker thread
     const std::vector<int> gpu_indices =
         CSVToVector<int>(matching_options_.gpu_index);
@@ -77,11 +79,8 @@ void FeatureMatcherWorker::Run() {
       SetBestCudaDevice(gpu_index);
       LOG(INFO) << "Bind FeatureMatcherWorker to GPU device " << gpu_index;
     }
-#else
-    THROW_CHECK_NOTNULL(opengl_context_);
-    THROW_CHECK(opengl_context_->MakeCurrent());
-#endif
   }
+#endif
 
   if (matching_options_.type == FeatureMatcherType::SIFT) {
     // TODO(jsch): This is a bit ugly, but currently cannot think of a better
@@ -216,20 +215,13 @@ class VerifierWorker : public Thread {
             FeatureKeypointsToPointsVector(*keypoints2);
 
         if (use_existing_relative_pose_ &&
-            data.two_view_geometry.config !=
-                TwoViewGeometry::ConfigurationType::DEGENERATE &&
-            data.two_view_geometry.config !=
-                TwoViewGeometry::ConfigurationType::MULTIPLE &&
-            data.two_view_geometry.config !=
-                TwoViewGeometry::ConfigurationType::WATERMARK &&
-            data.two_view_geometry.config !=
-                TwoViewGeometry::ConfigurationType::UNDEFINED) {
+            data.two_view_geometry.cam2_from_cam1.has_value()) {
           data.two_view_geometry = TwoViewGeometryFromKnownRelativePose(
               camera1,
               points1,
               camera2,
               points2,
-              data.two_view_geometry.cam2_from_cam1,
+              *data.two_view_geometry.cam2_from_cam1,
               data.matches,
               options_.min_num_inliers,
               options_.ransac_options.max_error);
