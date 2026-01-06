@@ -649,10 +649,16 @@ void OptionManager::AddGlobalMapperOptions() {
   added_global_mapper_options_ = true;
 
   // Global mapper options.
+  AddAndRegisterDefaultOption("GlobalMapper.min_num_matches",
+                              &global_mapper->min_num_matches);
+  AddAndRegisterDefaultOption("GlobalMapper.ignore_watermarks",
+                              &global_mapper->ignore_watermarks);
   AddAndRegisterDefaultOption("GlobalMapper.num_threads",
                               &global_mapper->num_threads);
   AddAndRegisterDefaultOption("GlobalMapper.random_seed",
                               &global_mapper->random_seed);
+  AddAndRegisterDefaultOption("GlobalMapper.decompose_relative_pose",
+                              &global_mapper->decompose_relative_pose);
   AddAndRegisterDefaultOption("GlobalMapper.num_iterations_ba",
                               &global_mapper->mapper.num_iterations_ba);
   AddAndRegisterDefaultOption("GlobalMapper.skip_view_graph_calibration",
