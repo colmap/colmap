@@ -104,7 +104,7 @@ void UndistortImages(const std::string& output_path,
                      const std::string& image_path,
                      const std::vector<std::string>& image_names,
                      const std::string& output_type,
-                     const CopyType copy_type,
+                     const FileCopyType copy_type,
                      const int num_patch_match_src_images,
                      const UndistortCameraOptions& undistort_camera_options) {
   THROW_CHECK_DIR_EXISTS(image_path);
@@ -202,11 +202,11 @@ void BindImages(py::module& m) {
           .def("check", &IROpts::Check);
   MakeDataclass(PyImageReaderOptions);
 
-  auto PyCopyType = py::enum_<CopyType>(m, "CopyType")
-                        .value("copy", CopyType::COPY)
-                        .value("softlink", CopyType::SOFT_LINK)
-                        .value("hardlink", CopyType::HARD_LINK);
-  AddStringToEnumConstructor(PyCopyType);
+  auto PyFileCopyType = py::enum_<FileCopyType>(m, "FileCopyType")
+                            .value("copy", FileCopyType::COPY)
+                            .value("softlink", FileCopyType::SOFT_LINK)
+                            .value("hardlink", FileCopyType::HARD_LINK);
+  AddStringToEnumConstructor(PyFileCopyType);
 
   m.def("import_images",
         &ImportImages,
@@ -230,7 +230,7 @@ void BindImages(py::module& m) {
         "image_path"_a,
         "image_names"_a = std::vector<std::string>(),
         "output_type"_a = "COLMAP",
-        "copy_policy"_a = CopyType::COPY,
+        "copy_policy"_a = FileCopyType::COPY,
         "num_patch_match_src_images"_a = 20,
         py::arg_v("undistort_options",
                   UndistortCameraOptions(),

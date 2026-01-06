@@ -32,7 +32,9 @@
 #include "colmap/util/testing.h"
 
 #include <cstring>
+#include <fstream>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -165,6 +167,91 @@ TEST(JoinPaths, Nominal) {
   EXPECT_EQ(JoinPaths("/test1", "/test2"), "/test2");
   EXPECT_EQ(JoinPaths("/test1", "/test2/"), "/test2/");
   EXPECT_EQ(JoinPaths("/test1", "/test2/", "test3.ext"), "/test2/test3.ext");
+}
+
+TEST(CopyFile, Nominal) {
+  const std::string dir = CreateTestDir();
+  const std::string src_path = JoinPaths(dir, "source.txt");
+  const std::string dst_path = JoinPaths(dir, "destination.txt");
+
+  {
+    std::ofstream file(src_path);
+    file << "test content";
+  }
+
+  CopyFile(src_path, dst_path, FileCopyType::COPY);
+  EXPECT_TRUE(ExistsFile(dst_path));
+  {
+    std::ifstream file(dst_path);
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    EXPECT_EQ(buffer.str(), "test content");
+  }
+
+  const std::string dst_hard_link_path =
+      JoinPaths(dir, "destination_hard_link.txt");
+  CopyFile(src_path, dst_hard_link_path, FileCopyType::HARD_LINK);
+  EXPECT_TRUE(ExistsFile(dst_hard_link_path));
+
+  const std::string dst_soft_link_path =
+      JoinPaths(dir, "destination_soft_link.txt");
+  CopyFile(src_path, dst_soft_link_path, FileCopyType::SOFT_LINK);
+  EXPECT_TRUE(ExistsFile(dst_soft_link_path));
+}
+
+TEST(GetFileList, Nominal) {
+  const std::string dir = CreateTestDir();
+  const std::string file1 = JoinPaths(dir, "file1.txt");
+  const std::string file2 = JoinPaths(dir, "file2.txt");
+  const std::string subdir = JoinPaths(dir, "subdir");
+
+  {
+    std::ofstream f1(file1);
+    std::ofstream f2(file2);
+  }
+  CreateDirIfNotExists(subdir);
+
+  const auto file_list = GetFileList(dir);
+  EXPECT_THAT(file_list, testing::UnorderedElementsAre(file1, file2));
+}
+
+TEST(GetDirList, Nominal) {
+  const std::string dir = CreateTestDir();
+  const std::string subdir1 = JoinPaths(dir, "subdir1");
+  const std::string subdir2 = JoinPaths(dir, "subdir2");
+  const std::string subdir1_nested = JoinPaths(subdir1, "nested");
+  const std::string file = JoinPaths(dir, "file.txt");
+
+  CreateDirIfNotExists(subdir1);
+  CreateDirIfNotExists(subdir2);
+  CreateDirIfNotExists(subdir1_nested);
+
+  {
+    std::ofstream f(file);
+  }
+
+  const auto dir_list = GetDirList(dir);
+  EXPECT_THAT(dir_list, testing::UnorderedElementsAre(subdir1, subdir2));
+}
+
+TEST(GetRecursiveDirList, Nominal) {
+  const std::string dir = CreateTestDir();
+  const std::string subdir1 = JoinPaths(dir, "subdir1");
+  const std::string subdir2 = JoinPaths(dir, "subdir2");
+  const std::string subdir1_nested = JoinPaths(subdir1, "nested");
+  const std::string file = JoinPaths(dir, "file.txt");
+
+  CreateDirIfNotExists(subdir1);
+  CreateDirIfNotExists(subdir2);
+  CreateDirIfNotExists(subdir1_nested);
+
+  {
+    std::ofstream f(file);
+  }
+
+  const auto dir_list = GetRecursiveDirList(dir);
+  EXPECT_THAT(dir_list,
+              testing::UnorderedElementsAre(subdir1, subdir2, subdir1_nested));
 }
 
 TEST(HomeDir, Nominal) {

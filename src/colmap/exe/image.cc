@@ -337,7 +337,7 @@ int RunImageUndistorter(int argc, char** argv) {
   std::string image_list_path;
   std::string copy_policy = "copy";
   int num_patch_match_src_images = 20;
-  CopyType copy_type;
+  FileCopyType copy_type = FileCopyType::COPY;
 
   UndistortCameraOptions undistort_camera_options;
 
@@ -349,7 +349,7 @@ int RunImageUndistorter(int argc, char** argv) {
       "output_type", &output_type, "{COLMAP, PMVS, CMP-MVS}");
   options.AddDefaultOption("image_list_path", &image_list_path);
   options.AddDefaultOption(
-      "copy_policy", &copy_policy, "{copy, soft-link, hard-link}");
+      "copy_policy", &copy_policy, "{COPY, SOFT_LINK, HARD_LINK}");
   options.AddDefaultOption("num_patch_match_src_images",
                            &num_patch_match_src_images);
   options.AddDefaultOption("blank_pixels",
@@ -387,18 +387,8 @@ int RunImageUndistorter(int argc, char** argv) {
     }
   }
 
-  StringToLower(&copy_policy);
-  if (copy_policy == "copy") {
-    copy_type = CopyType::COPY;
-  } else if (copy_policy == "soft-link") {
-    copy_type = CopyType::SOFT_LINK;
-  } else if (copy_policy == "hard-link") {
-    copy_type = CopyType::HARD_LINK;
-  } else {
-    LOG(ERROR) << "Invalid `copy_policy` - supported values are "
-                  "{'copy', 'soft-link', 'hard-link'}.";
-    return EXIT_FAILURE;
-  }
+  StringToUpper(&copy_policy);
+  copy_type = FileCopyTypeFromString(copy_policy);
 
   std::unique_ptr<BaseController> undistorter;
   if (output_type == "COLMAP") {

@@ -141,7 +141,7 @@ COLMAPUndistorter::COLMAPUndistorter(const UndistortCameraOptions& options,
                                      const std::string& image_path,
                                      const std::string& output_path,
                                      const int num_patch_match_src_images,
-                                     const CopyType copy_type,
+                                     const FileCopyType copy_type,
                                      const std::vector<image_t>& image_ids)
     : options_(options),
       image_path_(image_path),
@@ -238,7 +238,7 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
       ExistsFile(input_image_path)) {
     LOG(INFO) << "Undistorted image found; copying to location: "
               << output_image_path;
-    FileCopy(input_image_path, output_image_path, copy_type_);
+    CopyFile(input_image_path, output_image_path, copy_type_);
     return true;
   }
 

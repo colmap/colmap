@@ -102,17 +102,17 @@ void SplitFileExtension(const std::string& path,
   }
 }
 
-void FileCopy(const std::string& src_path,
+void CopyFile(const std::string& src_path,
               const std::string& dst_path,
-              CopyType type) {
+              FileCopyType type) {
   switch (type) {
-    case CopyType::COPY:
+    case FileCopyType::COPY:
       std::filesystem::copy_file(src_path, dst_path);
       break;
-    case CopyType::HARD_LINK:
+    case FileCopyType::HARD_LINK:
       std::filesystem::create_hard_link(src_path, dst_path);
       break;
-    case CopyType::SOFT_LINK:
+    case FileCopyType::SOFT_LINK:
       std::filesystem::create_symlink(src_path, dst_path);
       break;
   }
