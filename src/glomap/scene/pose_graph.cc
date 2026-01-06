@@ -91,16 +91,16 @@ void PoseGraph::LoadFromDatabase(const colmap::Database& database,
       }
     }
 
-    // Build Edge from TwoViewGeometry.
-    Edge new_edge;
-    new_edge.cam2_from_cam1 = two_view_geom.cam2_from_cam1;
-    new_edge.inlier_matches = std::move(two_view_geom.inlier_matches);
-
     // Skip pairs that don't have a valid pose.
-    if (!new_edge.cam2_from_cam1.has_value()) {
+    if (!two_view_geom.cam2_from_cam1.has_value()) {
       invalid_count++;
       continue;
     }
+
+    // Build Edge from TwoViewGeometry.
+    Edge new_edge;
+    new_edge.cam2_from_cam1 = *two_view_geom.cam2_from_cam1;
+    new_edge.inlier_matches = std::move(two_view_geom.inlier_matches);
 
     if (duplicate) {
       UpdateEdge(image_id1, image_id2, std::move(new_edge));
@@ -222,12 +222,11 @@ void PoseGraph::FilterByRelativeRotation(
     if (!image1.HasPose() || !image2.HasPose()) {
       continue;
     }
-    THROW_CHECK(edge.cam2_from_cam1.has_value());
 
     const Eigen::Quaterniond cam2_from_cam1 =
         image2.CamFromWorld().rotation *
         image1.CamFromWorld().rotation.inverse();
-    if (cam2_from_cam1.angularDistance(edge.cam2_from_cam1->rotation) >
+    if (cam2_from_cam1.angularDistance(edge.cam2_from_cam1.rotation) >
         max_angle_rad) {
       SetInvalidEdge(pair_id);
       num_invalid++;

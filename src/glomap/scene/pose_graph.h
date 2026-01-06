@@ -24,16 +24,14 @@ class PoseGraph {
         : cam2_from_cam1(cam2_from_cam1) {}
 
     // Relative pose from image 1 to image 2.
-    std::optional<Rigid3d> cam2_from_cam1;
+    Rigid3d cam2_from_cam1;
 
     // Inlier feature matches between the two images.
     colmap::FeatureMatches inlier_matches;
 
     // Invert the geometry to match swapped image order.
     void Invert() {
-      if (cam2_from_cam1.has_value()) {
-        cam2_from_cam1 = colmap::Inverse(*cam2_from_cam1);
-      }
+      cam2_from_cam1 = colmap::Inverse(cam2_from_cam1);
       for (auto& match : inlier_matches) {
         std::swap(match.point2D_idx1, match.point2D_idx2);
       }
@@ -143,7 +141,6 @@ void PoseGraph::Clear() {
 PoseGraph::Edge& PoseGraph::AddEdge(image_t image_id1,
                                     image_t image_id2,
                                     PoseGraph::Edge edge) {
-  THROW_CHECK(edge.cam2_from_cam1.has_value());
   if (colmap::ShouldSwapImagePair(image_id1, image_id2)) {
     edge.Invert();
   }
@@ -194,7 +191,6 @@ PoseGraph::Edge PoseGraph::GetEdge(image_t image_id1, image_t image_id2) const {
 void PoseGraph::UpdateEdge(image_t image_id1,
                            image_t image_id2,
                            PoseGraph::Edge edge) {
-  THROW_CHECK(edge.cam2_from_cam1.has_value());
   if (colmap::ShouldSwapImagePair(image_id1, image_id2)) {
     edge.Invert();
   }

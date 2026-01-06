@@ -98,8 +98,7 @@ TEST(PoseGraph, AddEdge) {
   EXPECT_EQ(pose_graph.NumEdges(), 1);
   const auto& [stored, swapped] = pose_graph.EdgeRef(1, 2);
   EXPECT_FALSE(swapped);
-  EXPECT_TRUE(stored.cam2_from_cam1.has_value());
-  EXPECT_EQ(stored.cam2_from_cam1->translation.x(), 1);
+  EXPECT_EQ(stored.cam2_from_cam1.translation.x(), 1);
 
   // Add with swapped IDs should invert the pair.
   PoseGraph::Edge edge2 = SynthesizeEdge();
@@ -110,8 +109,7 @@ TEST(PoseGraph, AddEdge) {
   EXPECT_EQ(pose_graph.NumEdges(), 2);
   const auto& [stored2, swapped2] = pose_graph.EdgeRef(3, 4);
   EXPECT_FALSE(swapped2);
-  EXPECT_TRUE(stored2.cam2_from_cam1.has_value());
-  EXPECT_EQ(stored2.cam2_from_cam1->translation.x(), -2);
+  EXPECT_EQ(stored2.cam2_from_cam1.translation.x(), -2);
 
   // Duplicate should throw.
   EXPECT_THROW(pose_graph.AddEdge(1, 2, SynthesizeEdge()), std::runtime_error);
@@ -137,14 +135,12 @@ TEST(PoseGraph, EdgeRef) {
   // Normal order: swapped = false.
   auto [ref1, swapped1] = pose_graph.EdgeRef(1, 2);
   EXPECT_FALSE(swapped1);
-  EXPECT_TRUE(ref1.cam2_from_cam1.has_value());
-  EXPECT_EQ(ref1.cam2_from_cam1->translation.x(), 1);
+  EXPECT_EQ(ref1.cam2_from_cam1.translation.x(), 1);
 
   // Reversed order: swapped = true.
   auto [ref2, swapped2] = pose_graph.EdgeRef(2, 1);
   EXPECT_TRUE(swapped2);
-  EXPECT_TRUE(ref2.cam2_from_cam1.has_value());
-  EXPECT_EQ(ref2.cam2_from_cam1->translation.x(), 1);  // Same reference
+  EXPECT_EQ(ref2.cam2_from_cam1.translation.x(), 1);  // Same reference
 
   // Modify validity through PoseGraph.
   pose_graph.SetInvalidEdge(colmap::ImagePairToPairId(1, 2));
@@ -163,17 +159,14 @@ TEST(PoseGraph, GetEdge) {
 
   // Normal order: returns as-is.
   PoseGraph::Edge copy1 = pose_graph.GetEdge(1, 2);
-  EXPECT_TRUE(copy1.cam2_from_cam1.has_value());
-  EXPECT_EQ(copy1.cam2_from_cam1->translation.x(), 1);
+  EXPECT_EQ(copy1.cam2_from_cam1.translation.x(), 1);
 
   // Reversed order: returns inverted copy.
   PoseGraph::Edge copy2 = pose_graph.GetEdge(2, 1);
-  EXPECT_TRUE(copy2.cam2_from_cam1.has_value());
-  EXPECT_EQ(copy2.cam2_from_cam1->translation.x(), -1);
+  EXPECT_EQ(copy2.cam2_from_cam1.translation.x(), -1);
 
   // Original unchanged.
-  EXPECT_TRUE(pose_graph.EdgeRef(1, 2).first.cam2_from_cam1.has_value());
-  EXPECT_EQ(pose_graph.EdgeRef(1, 2).first.cam2_from_cam1->translation.x(), 1);
+  EXPECT_EQ(pose_graph.EdgeRef(1, 2).first.cam2_from_cam1.translation.x(), 1);
 
   // Non-existent pair should throw.
   EXPECT_THROW(pose_graph.GetEdge(1, 3), std::out_of_range);
@@ -209,8 +202,7 @@ TEST(PoseGraph, UpdateEdge) {
       colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(5, 0, 0));
   pose_graph.UpdateEdge(1, 2, updated);
 
-  EXPECT_TRUE(pose_graph.EdgeRef(1, 2).first.cam2_from_cam1.has_value());
-  EXPECT_EQ(pose_graph.EdgeRef(1, 2).first.cam2_from_cam1->translation.x(), 5);
+  EXPECT_EQ(pose_graph.EdgeRef(1, 2).first.cam2_from_cam1.translation.x(), 5);
 
   // Update with reversed order should invert.
   PoseGraph::Edge updated2 = SynthesizeEdge();
@@ -218,8 +210,7 @@ TEST(PoseGraph, UpdateEdge) {
       colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(3, 0, 0));
   pose_graph.UpdateEdge(2, 1, updated2);
 
-  EXPECT_TRUE(pose_graph.EdgeRef(1, 2).first.cam2_from_cam1.has_value());
-  EXPECT_EQ(pose_graph.EdgeRef(1, 2).first.cam2_from_cam1->translation.x(), -3);
+  EXPECT_EQ(pose_graph.EdgeRef(1, 2).first.cam2_from_cam1.translation.x(), -3);
 
   // Update non-existent should throw.
   EXPECT_THROW(pose_graph.UpdateEdge(1, 3, SynthesizeEdge()),
