@@ -29,10 +29,12 @@
 
 #include "colmap/estimators/view_graph_calibration.h"
 
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
 
@@ -186,13 +188,34 @@ TEST(CalibrateViewGraph, RelativePoseReestimation) {
   Reconstruction reconstruction;
   SynthesizeDataset(options, &reconstruction, database.get());
 
-  // Store ground truth relative poses.
+  // Store ground truth relative poses and perturb them in the database.
+  // The perturbation must exceed test thresholds (0.1 rad rotation, 0.1
+  // normalized translation error) to ensure re-estimation actually runs.
   std::unordered_map<image_pair_t, Rigid3d> gt_poses;
   for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     const Image& image1 = reconstruction.Image(image_id1);
     const Image& image2 = reconstruction.Image(image_id2);
     gt_poses[pair_id] = image2.CamFromWorld() * Inverse(image1.CamFromWorld());
+
+    // Perturb the relative pose stored in database.
+    TwoViewGeometry perturbed_tvg = tvg;
+    if (perturbed_tvg.cam2_from_cam1.has_value()) {
+      const Rigid3d perturbation(
+          Eigen::Quaterniond(Eigen::AngleAxisd(
+              RandomUniformReal(0.3, 0.7),
+              Eigen::Vector3d(RandomUniformReal(-1.0, 1.0),
+                              RandomUniformReal(-1.0, 1.0),
+                              RandomUniformReal(-1.0, 1.0))
+                  .normalized())),
+          Eigen::Vector3d(RandomUniformReal(-1.0, 1.0),
+                          RandomUniformReal(-1.0, 1.0),
+                          RandomUniformReal(-1.0, 1.0)));
+      perturbed_tvg.cam2_from_cam1 =
+          perturbation * *perturbed_tvg.cam2_from_cam1;
+      perturbed_tvg.cam2_from_cam1->translation.normalize();
+    }
+    database->UpdateTwoViewGeometry(image_id1, image_id2, perturbed_tvg);
   }
 
   ViewGraphCalibrationOptions calib_options;
@@ -204,19 +227,14 @@ TEST(CalibrateViewGraph, RelativePoseReestimation) {
     if (tvg.config != TwoViewGeometry::CALIBRATED) continue;
 
     ASSERT_TRUE(tvg.cam2_from_cam1.has_value());
+    EXPECT_NEAR(tvg.cam2_from_cam1->translation.norm(), 1.0, 1e-6);
+
+    // Normalize ground truth translation since estimated pose has unit scale.
     const Rigid3d& gt_pose = gt_poses.at(pair_id);
-
-    const double rotation_error =
-        tvg.cam2_from_cam1->rotation.angularDistance(gt_pose.rotation);
-    EXPECT_LT(rotation_error, 0.1);
-
-    const Eigen::Vector3d gt_translation_normalized =
-        gt_pose.translation.normalized();
-    const Eigen::Vector3d est_translation_normalized =
-        tvg.cam2_from_cam1->translation.normalized();
-    const double translation_error =
-        (gt_translation_normalized - est_translation_normalized).norm();
-    EXPECT_LT(translation_error, 0.1);
+    const Rigid3d gt_pose_normalized(gt_pose.rotation,
+                                     gt_pose.translation.normalized());
+    EXPECT_THAT(*tvg.cam2_from_cam1,
+                Rigid3dNear(gt_pose_normalized, 0.01, 0.01));
   }
 }
 
