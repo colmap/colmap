@@ -94,6 +94,9 @@ struct FeatureMatchingOptions {
 
   std::shared_ptr<SiftMatchingOptions> sift;
 
+  // Whether the selected matcher requires OpenGL.
+  bool RequiresOpenGL() const;
+
   bool Check() const;
 };
 

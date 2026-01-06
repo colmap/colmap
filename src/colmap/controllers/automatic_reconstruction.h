@@ -126,6 +126,10 @@ class AutomaticReconstructionController : public Thread {
       const Options& options,
       std::shared_ptr<ReconstructionManager> reconstruction_manager);
 
+  // Whether any of the selected reconstruction stages requires OpenGL.
+  bool RequiresOpenGL() const;
+
+  void Setup();
   void Stop() override;
 
  private:

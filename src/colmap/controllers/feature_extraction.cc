@@ -158,20 +158,15 @@ class FeatureExtractorThread : public Thread {
         output_queue_(output_queue) {
     THROW_CHECK(extraction_options_.Check());
 
-#if !defined(COLMAP_CUDA_ENABLED)
-    if (extraction_options_.use_gpu) {
+    if (extraction_options_.RequiresOpenGL()) {
       opengl_context_ = std::make_unique<OpenGLContextManager>();
     }
-#endif
   }
 
  private:
   void Run() override {
-    if (extraction_options_.use_gpu) {
-#if !defined(COLMAP_CUDA_ENABLED)
-      THROW_CHECK_NOTNULL(opengl_context_);
+    if (opengl_context_ != nullptr) {
       THROW_CHECK(opengl_context_->MakeCurrent());
-#endif
     }
 
     std::unique_ptr<FeatureExtractor> extractor =

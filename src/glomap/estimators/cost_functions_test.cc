@@ -29,7 +29,6 @@
 
 #include "glomap/estimators/cost_functions.h"
 
-#include "colmap/geometry/essential_matrix.h"
 #include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
@@ -203,99 +202,6 @@ TEST(RigUnknownBATAPairwiseDirectionCostFunctor, CreateCostFunction) {
   std::unique_ptr<ceres::CostFunction> cost_function(
       RigUnknownBATAPairwiseDirectionCostFunctor::Create(cam_from_point3D_dir,
                                                          rig_from_world_rot));
-  ASSERT_NE(cost_function, nullptr);
-}
-
-// TODO(jsch): Add meaningful tests for FetzerFocalLengthCostFunctor.
-
-TEST(FetzerFocalLengthCostFunctor, Nominal) {
-  const double focal_length1 = 128;
-  const double focal_length2 = 128;
-  const Eigen::Vector2d pp1(320, 240);
-  const Eigen::Vector2d pp2(480, 320);
-  const colmap::Rigid3d cam2_from_cam1(
-      Eigen::Quaterniond(Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d::UnitY())),
-      // Eigen::Quaterniond(0, 0, 1, 0),
-      Eigen::Vector3d(1, 2, 3));
-
-  Eigen::Matrix3d K1;
-  K1 << focal_length1, 0, pp1(0), 0, focal_length1, pp1(1), 0, 0, 1;
-  Eigen::Matrix3d K2;
-  K2 << focal_length2, 0, pp2(0), 0, focal_length2, pp2(1), 0, 0, 1;
-
-  const Eigen::Matrix3d F = colmap::FundamentalFromEssentialMatrix(
-      K2, colmap::EssentialMatrixFromPose(cam2_from_cam1), K1);
-
-  FetzerFocalLengthCostFunctor cost_functor(F, pp1, pp2);
-  old::FetzerFocalLengthCostFunctor old_cost_functor(F, pp1, pp2);
-
-  Eigen::VectorXd optimal_residual(6);
-  // EXPECT_TRUE(
-  //     cost_functor(&focal_length1, &focal_length2, optimal_residual.data()));
-
-  // Eigen::VectorXd modified_residual1(6);
-  // {
-  //   const double modified_focal_length1 = focal_length1 + 20;
-  //   EXPECT_TRUE(cost_functor(
-  //       &modified_focal_length1, &focal_length2, modified_residual1.data()));
-  //   EXPECT_LT(optimal_residual.norm(), modified_residual1.norm());
-  // }
-
-  // Eigen::VectorXd modified_residual2(6);
-  // {
-  //   const double modified_focal_length2 = focal_length2 + 20;
-  //   EXPECT_TRUE(cost_functor(
-  //       &focal_length1, &modified_focal_length2, modified_residual2.data()));
-  //   EXPECT_LT(optimal_residual.norm(), modified_residual2.norm());
-  // }
-
-  // {
-  //   Eigen::VectorXd modified_residual12(6);
-  //   const double modified_focal_length1 = focal_length1 + 40;
-  //   const double modified_focal_length2 = focal_length2 + 40;
-  //   EXPECT_TRUE(cost_functor(
-  //       &focal_length1, &modified_focal_length2,
-  //       modified_residual12.data()));
-  //   EXPECT_LT(modified_residual1.norm(), modified_residual12.norm());
-  //   EXPECT_LT(modified_residual2.norm(), modified_residual12.norm());
-  // }
-
-  for (int i = -1000; i < 1000; i += 10) {
-    Eigen::VectorXd modified_residual12(6);
-    Eigen::Vector2d old_modified_residual12;
-    const double modified_focal_length1 = focal_length1 + i;
-    const double modified_focal_length2 = focal_length2 + i;
-    EXPECT_TRUE(cost_functor(&modified_focal_length1,
-                             &modified_focal_length2,
-                             modified_residual12.data()));
-    EXPECT_TRUE(old_cost_functor(&modified_focal_length1,
-                                 &modified_focal_length2,
-                                 old_modified_residual12.data()));
-    LOG(INFO) << "Error: " << i << ", Residual: " << modified_residual12.norm()
-              << " " << old_modified_residual12.norm();
-  }
-}
-
-TEST(FetzerFocalLengthCostFunctor, CreateCostFunction) {
-  Eigen::Matrix3d F;
-  F << 0, 0, 0.1, 0, 0, 0.2, -0.1, -0.2, 0;
-  const Eigen::Vector2d pp1(320, 240);
-  const Eigen::Vector2d pp2(320, 240);
-
-  std::unique_ptr<ceres::CostFunction> cost_function(
-      FetzerFocalLengthCostFunctor::Create(F, pp1, pp2));
-  ASSERT_NE(cost_function, nullptr);
-}
-
-// TODO(jsch): Add meaningful tests for FetzerFocalLengthSameCameraCostFunctor.
-
-TEST(FetzerFocalLengthSameCameraCostFunctor, CreateCostFunction) {
-  Eigen::Matrix3d F;
-  F << 0, 0, 0.1, 0, 0, 0.2, -0.1, -0.2, 0;
-  const Eigen::Vector2d pp(320, 240);
-
-  std::unique_ptr<ceres::CostFunction> cost_function(
-      FetzerFocalLengthSameCameraCostFunctor::Create(F, pp));
   ASSERT_NE(cost_function, nullptr);
 }
 

@@ -37,7 +37,7 @@
 namespace colmap {
 
 GlobalPipeline::GlobalPipeline(
-    const glomap::GlobalMapperOptions& options,
+    const GlobalPipelineOptions& options,
     std::shared_ptr<Database> database,
     std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager)
     : options_(options),
@@ -46,6 +46,22 @@ GlobalPipeline::GlobalPipeline(
           std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {}
 
 void GlobalPipeline::Run() {
+  // Run view graph calibration on the database before loading into mapper.
+  if (!options_.skip_view_graph_calibration) {
+    LOG(INFO) << "----- Running view graph calibration -----";
+    Timer run_timer;
+    run_timer.Start();
+    ViewGraphCalibrationOptions vgc_options = options_.view_graph_calibration;
+    vgc_options.random_seed = options_.random_seed;
+    vgc_options.solver_options.num_threads = options_.num_threads;
+    if (!CalibrateViewGraph(vgc_options, database_.get())) {
+      LOG(ERROR) << "View graph calibration failed";
+      return;
+    }
+    LOG(INFO) << "View graph calibration done in " << run_timer.ElapsedSeconds()
+              << " seconds";
+  }
+
   auto reconstruction = std::make_shared<Reconstruction>();
 
   glomap::GlobalMapper global_mapper(database_);
@@ -56,10 +72,16 @@ void GlobalPipeline::Run() {
     return;
   }
 
+  // Prepare mapper options with top-level options.
+  glomap::GlobalMapperOptions mapper_options = options_.mapper;
+  mapper_options.image_path = options_.image_path;
+  mapper_options.num_threads = options_.num_threads;
+  mapper_options.random_seed = options_.random_seed;
+
   Timer run_timer;
   run_timer.Start();
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(options_, cluster_ids);
+  global_mapper.Solve(mapper_options, cluster_ids);
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 
