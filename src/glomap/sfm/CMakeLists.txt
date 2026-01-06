@@ -37,7 +37,6 @@ COLMAP_ADD_LIBRARY(
     PUBLIC_LINK_LIBS
         colmap_glomap_estimators
         colmap_glomap_io
-        colmap_glomap_processors
         colmap_glomap_scene
         colmap_estimators
         colmap_sfm

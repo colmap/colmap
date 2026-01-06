@@ -56,6 +56,26 @@ bool FeatureExtractionOptions::RequiresRGB() const {
   return false;
 }
 
+bool FeatureExtractionOptions::RequiresOpenGL() const {
+  switch (type) {
+    case FeatureExtractorType::SIFT: {
+      // Sync with logic in CreateSiftFeatureExtractor().
+      if (sift->estimate_affine_shape || sift->domain_size_pooling ||
+          sift->force_covariant_extractor) {
+        return false;
+      }
+#ifdef COLMAP_CUDA_ENABLED
+      return false;
+#else
+      return use_gpu;
+#endif
+    }
+    default:
+      ThrowUnknownFeatureExtractorType(type);
+  }
+  return false;
+}
+
 bool FeatureExtractionOptions::Check() const {
   CHECK_OPTION_GT(max_image_size, 0);
   if (use_gpu) {

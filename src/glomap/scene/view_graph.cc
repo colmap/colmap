@@ -1,14 +1,42 @@
 #include "glomap/scene/view_graph.h"
 
+#include "colmap/estimators/two_view_geometry.h"
 #include "colmap/math/connected_components.h"
 #include "colmap/scene/two_view_geometry.h"
 
 namespace glomap {
+namespace {
+
+std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
+    const colmap::FeatureKeypoints& keypoints) {
+  std::vector<Eigen::Vector2d> points(keypoints.size());
+  for (size_t i = 0; i < keypoints.size(); i++) {
+    points[i] = Eigen::Vector2d(keypoints[i].x, keypoints[i].y);
+  }
+  return points;
+}
+
+}  // namespace
 
 void ViewGraph::LoadFromDatabase(const colmap::Database& database,
                                  bool allow_duplicate) {
+  // TODO: Move relative pose decomposition logic to the top level.
   auto all_matches = database.ReadAllMatches();
+
+  // Read cameras and images upfront for pose decomposition.
+  std::unordered_map<colmap::camera_t, colmap::Camera> cameras;
+  for (auto& camera : database.ReadAllCameras()) {
+    cameras.emplace(camera.camera_id, std::move(camera));
+  }
+
+  std::unordered_map<image_t, colmap::Image> images;
+  for (auto& image : database.ReadAllImages()) {
+    images.emplace(image.ImageId(), std::move(image));
+  }
+
   size_t invalid_count = 0;
+  size_t decompose_count = 0;
+  size_t decompose_failed_count = 0;
 
   for (auto& [pair_id, feature_matches] : all_matches) {
     auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
@@ -51,6 +79,38 @@ void ViewGraph::LoadFromDatabase(const colmap::Database& database,
         }
       }
       image_pair.matches.conservativeResize(count, 2);
+
+      // Decompose relative pose if not already present.
+      if (!image_pair.cam2_from_cam1.has_value()) {
+        const colmap::Image& image1 = images.at(image_id1);
+        const colmap::Image& image2 = images.at(image_id2);
+        const colmap::Camera& camera1 = cameras.at(image1.CameraId());
+        const colmap::Camera& camera2 = cameras.at(image2.CameraId());
+
+        const std::vector<Eigen::Vector2d> points1 =
+            FeatureKeypointsToPointsVector(database.ReadKeypoints(image_id1));
+        const std::vector<Eigen::Vector2d> points2 =
+            FeatureKeypointsToPointsVector(database.ReadKeypoints(image_id2));
+
+        decompose_count++;
+        const bool success = colmap::EstimateTwoViewGeometryPose(
+            camera1, points1, camera2, points2, &image_pair);
+
+        if (success && image_pair.cam2_from_cam1.has_value()) {
+          const double norm = image_pair.cam2_from_cam1->translation.norm();
+          if (norm > 1e-12) {
+            image_pair.cam2_from_cam1->translation /= norm;
+          }
+        } else {
+          decompose_failed_count++;
+        }
+      }
+    }
+
+    // Skip pairs that don't have a valid pose.
+    if (!image_pair.cam2_from_cam1.has_value()) {
+      invalid_count++;
+      continue;
     }
 
     if (duplicate) {
@@ -58,13 +118,14 @@ void ViewGraph::LoadFromDatabase(const colmap::Database& database,
     } else {
       AddImagePair(image_id1, image_id2, std::move(image_pair));
     }
-
-    if (is_invalid) {
-      SetInvalidImagePair(colmap::ImagePairToPairId(image_id1, image_id2));
-    }
   }
+
   LOG(INFO) << "Loaded " << all_matches.size() << " image pairs, "
             << invalid_count << " invalid";
+  if (decompose_count > 0) {
+    LOG(INFO) << "Decomposed relative pose for " << decompose_count
+              << " pairs, " << decompose_failed_count << " failed";
+  }
 }
 
 int ViewGraph::KeepLargestConnectedComponents(
@@ -129,11 +190,12 @@ void ViewGraph::FilterByRelativeRotation(
     if (!image1.HasPose() || !image2.HasPose()) {
       continue;
     }
+    THROW_CHECK(image_pair.cam2_from_cam1.has_value());
 
     const Eigen::Quaterniond cam2_from_cam1 =
         image2.CamFromWorld().rotation *
         image1.CamFromWorld().rotation.inverse();
-    if (cam2_from_cam1.angularDistance(image_pair.cam2_from_cam1.rotation) >
+    if (cam2_from_cam1.angularDistance(image_pair.cam2_from_cam1->rotation) >
         max_angle_rad) {
       SetInvalidImagePair(pair_id);
       num_invalid++;

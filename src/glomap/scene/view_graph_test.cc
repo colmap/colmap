@@ -41,6 +41,8 @@ namespace {
 ImagePair SynthesizeImagePair(int num_inliers = 50, int num_matches = 100) {
   THROW_CHECK_LE(num_inliers, num_matches);
   ImagePair pair;
+  // Set default identity pose.
+  pair.cam2_from_cam1 = colmap::Rigid3d();
   // Match feature i in image 1 to feature i in image 2.
   pair.matches.resize(num_matches, 2);
   for (int i = 0; i < num_matches; ++i) {
@@ -103,7 +105,8 @@ TEST(ViewGraph, AddImagePair) {
   EXPECT_EQ(view_graph.NumImagePairs(), 1);
   const auto& [stored, swapped] = view_graph.ImagePair(1, 2);
   EXPECT_FALSE(swapped);
-  EXPECT_EQ(stored.cam2_from_cam1.translation.x(), 1);
+  EXPECT_TRUE(stored.cam2_from_cam1.has_value());
+  EXPECT_EQ(stored.cam2_from_cam1->translation.x(), 1);
 
   // Add with swapped IDs should invert the pair.
   ImagePair pair2 = SynthesizeImagePair();
@@ -114,7 +117,8 @@ TEST(ViewGraph, AddImagePair) {
   EXPECT_EQ(view_graph.NumImagePairs(), 2);
   const auto& [stored2, swapped2] = view_graph.ImagePair(3, 4);
   EXPECT_FALSE(swapped2);
-  EXPECT_EQ(stored2.cam2_from_cam1.translation.x(), -2);
+  EXPECT_TRUE(stored2.cam2_from_cam1.has_value());
+  EXPECT_EQ(stored2.cam2_from_cam1->translation.x(), -2);
 
   // Duplicate should throw.
   EXPECT_THROW(view_graph.AddImagePair(1, 2, SynthesizeImagePair()),
@@ -142,12 +146,14 @@ TEST(ViewGraph, Pair) {
   // Normal order: swapped = false.
   auto [ref1, swapped1] = view_graph.ImagePair(1, 2);
   EXPECT_FALSE(swapped1);
-  EXPECT_EQ(ref1.cam2_from_cam1.translation.x(), 1);
+  EXPECT_TRUE(ref1.cam2_from_cam1.has_value());
+  EXPECT_EQ(ref1.cam2_from_cam1->translation.x(), 1);
 
   // Reversed order: swapped = true.
   auto [ref2, swapped2] = view_graph.ImagePair(2, 1);
   EXPECT_TRUE(swapped2);
-  EXPECT_EQ(ref2.cam2_from_cam1.translation.x(), 1);  // Same reference
+  EXPECT_TRUE(ref2.cam2_from_cam1.has_value());
+  EXPECT_EQ(ref2.cam2_from_cam1->translation.x(), 1);  // Same reference
 
   // Modify validity through ViewGraph.
   view_graph.SetInvalidImagePair(colmap::ImagePairToPairId(1, 2));
@@ -166,14 +172,18 @@ TEST(ViewGraph, GetImagePair) {
 
   // Normal order: returns as-is.
   ImagePair copy1 = view_graph.GetImagePair(1, 2);
-  EXPECT_EQ(copy1.cam2_from_cam1.translation.x(), 1);
+  EXPECT_TRUE(copy1.cam2_from_cam1.has_value());
+  EXPECT_EQ(copy1.cam2_from_cam1->translation.x(), 1);
 
   // Reversed order: returns inverted copy.
   ImagePair copy2 = view_graph.GetImagePair(2, 1);
-  EXPECT_EQ(copy2.cam2_from_cam1.translation.x(), -1);
+  EXPECT_TRUE(copy2.cam2_from_cam1.has_value());
+  EXPECT_EQ(copy2.cam2_from_cam1->translation.x(), -1);
 
   // Original unchanged.
-  EXPECT_EQ(view_graph.ImagePair(1, 2).first.cam2_from_cam1.translation.x(), 1);
+  EXPECT_TRUE(view_graph.ImagePair(1, 2).first.cam2_from_cam1.has_value());
+  EXPECT_EQ(view_graph.ImagePair(1, 2).first.cam2_from_cam1->translation.x(),
+            1);
 
   // Non-existent pair should throw.
   EXPECT_THROW(view_graph.GetImagePair(1, 3), std::out_of_range);
@@ -209,7 +219,9 @@ TEST(ViewGraph, UpdateImagePair) {
       colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(5, 0, 0));
   view_graph.UpdateImagePair(1, 2, updated);
 
-  EXPECT_EQ(view_graph.ImagePair(1, 2).first.cam2_from_cam1.translation.x(), 5);
+  EXPECT_TRUE(view_graph.ImagePair(1, 2).first.cam2_from_cam1.has_value());
+  EXPECT_EQ(view_graph.ImagePair(1, 2).first.cam2_from_cam1->translation.x(),
+            5);
 
   // Update with reversed order should invert.
   ImagePair updated2 = SynthesizeImagePair();
@@ -217,7 +229,8 @@ TEST(ViewGraph, UpdateImagePair) {
       colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(3, 0, 0));
   view_graph.UpdateImagePair(2, 1, updated2);
 
-  EXPECT_EQ(view_graph.ImagePair(1, 2).first.cam2_from_cam1.translation.x(),
+  EXPECT_TRUE(view_graph.ImagePair(1, 2).first.cam2_from_cam1.has_value());
+  EXPECT_EQ(view_graph.ImagePair(1, 2).first.cam2_from_cam1->translation.x(),
             -3);
 
   // Update non-existent should throw.
@@ -336,6 +349,8 @@ TEST(ViewGraph, LoadFromDatabase) {
   colmap::TwoViewGeometry two_view;
   two_view.config = colmap::TwoViewGeometry::CALIBRATED;
   two_view.inlier_matches = {{0, 0}, {1, 1}};
+  two_view.cam2_from_cam1 = colmap::Rigid3d(
+      Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random().normalized());
 
   // Database1: pairs (1,2) and (2,3)
   database1->WriteMatches(1, 2, colmap::FeatureMatches(10));

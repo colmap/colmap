@@ -27,12 +27,24 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#include "colmap/util/version.h"
 
-namespace glomap {
+#include <gtest/gtest.h>
 
-int RunGlobalMapper(int argc, char** argv);
+namespace colmap {
+namespace {
 
-int RunRotationAverager(int argc, char** argv);
+TEST(MakeDatabaseVersionNumber, Nominal) {
+  EXPECT_EQ(MakeDatabaseVersionNumber(3, 14, 0, 0), 3140000);
+  EXPECT_EQ(MakeDatabaseVersionNumber(3, 14, 0, 1), 3140001);
+  EXPECT_EQ(MakeDatabaseVersionNumber(3, 14, 1, 0), 3140100);
+  EXPECT_EQ(MakeDatabaseVersionNumber(3, 15, 0, 0), 3150000);
+  EXPECT_EQ(MakeDatabaseVersionNumber(4, 0, 0, 0), 4000000);
+  EXPECT_GT(GetDatabaseVersionNumber(), 0);
+  EXPECT_ANY_THROW(MakeDatabaseVersionNumber(3, 100, 0, 0));
+  EXPECT_ANY_THROW(MakeDatabaseVersionNumber(3, 14, 100, 0));
+  EXPECT_ANY_THROW(MakeDatabaseVersionNumber(3, 14, 0, 100));
+}
 
-}  // namespace glomap
+}  // namespace
+}  // namespace colmap

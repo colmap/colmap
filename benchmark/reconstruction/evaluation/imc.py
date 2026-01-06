@@ -87,7 +87,7 @@ class _DatasetIMC(Dataset):
                     workspace_path=workspace_path,
                     image_path=image_path,
                     sparse_gt_path=sparse_gt_path,
-                    camera_priors_from_sparse_gt=False,
+                    has_camera_priors=False,
                     colmap_extra_args=None,
                 )
 
