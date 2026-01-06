@@ -22,8 +22,8 @@ GlobalMapper::GlobalMapper(std::shared_ptr<const colmap::Database> database) {
                                                   /*image_names=*/{});
   // TODO: Move to BeginReconstruction after migrating to PoseGraph and accept
   // DatabaseCache.
-  view_graph_ = std::make_shared<class ViewGraph>();
-  view_graph_->LoadFromDatabase(*database);
+  pose_graph_ = std::make_shared<class PoseGraph>();
+  pose_graph_->LoadFromDatabase(*database);
 }
 
 void GlobalMapper::BeginReconstruction(
@@ -37,8 +37,8 @@ std::shared_ptr<colmap::Reconstruction> GlobalMapper::Reconstruction() const {
   return reconstruction_;
 }
 
-std::shared_ptr<class ViewGraph> GlobalMapper::ViewGraph() const {
-  return view_graph_;
+std::shared_ptr<class PoseGraph> GlobalMapper::PoseGraph() const {
+  return pose_graph_;
 }
 
 bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options,
@@ -56,7 +56,7 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options,
     }
   }
 
-  if (view_graph_->KeepLargestConnectedComponents(*reconstruction_) == 0) {
+  if (pose_graph_->KeepLargestConnectedComponents(*reconstruction_) == 0) {
     LOG(ERROR) << "no connected components are found";
     return false;
   }
@@ -66,24 +66,24 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options,
       database_cache_->PosePriors();
 
   // The first run is for filtering
-  SolveRotationAveraging(options, *view_graph_, *reconstruction_, pose_priors);
+  SolveRotationAveraging(options, *pose_graph_, *reconstruction_, pose_priors);
 
-  view_graph_->FilterByRelativeRotation(*reconstruction_,
+  pose_graph_->FilterByRelativeRotation(*reconstruction_,
                                         max_rotation_error_deg);
-  if (view_graph_->KeepLargestConnectedComponents(*reconstruction_) == 0) {
+  if (pose_graph_->KeepLargestConnectedComponents(*reconstruction_) == 0) {
     LOG(ERROR) << "no connected components are found";
     return false;
   }
 
   // The second run is for final estimation
   if (!SolveRotationAveraging(
-          options, *view_graph_, *reconstruction_, pose_priors)) {
+          options, *pose_graph_, *reconstruction_, pose_priors)) {
     return false;
   }
-  view_graph_->FilterByRelativeRotation(*reconstruction_,
+  pose_graph_->FilterByRelativeRotation(*reconstruction_,
                                         max_rotation_error_deg);
   image_t num_img =
-      view_graph_->KeepLargestConnectedComponents(*reconstruction_);
+      pose_graph_->KeepLargestConnectedComponents(*reconstruction_);
   if (num_img == 0) {
     LOG(ERROR) << "no connected components are found";
     return false;
@@ -98,7 +98,7 @@ void GlobalMapper::EstablishTracks(const TrackEstablishmentOptions& options) {
   // TrackEngine reads images, writes unfiltered points3D to a temporary map,
   // then filters into the main reconstruction
   std::unordered_map<point3D_t, Point3D> unfiltered_points3D;
-  TrackEngine track_engine(*view_graph_, reconstruction_->Images(), options);
+  TrackEngine track_engine(*pose_graph_, reconstruction_->Images(), options);
   track_engine.EstablishFullTracks(unfiltered_points3D);
 
   // Filter the points3D into a selected subset
@@ -127,7 +127,7 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
   GlobalPositioner gp_engine(options);
 
   // TODO: consider to support other modes as well
-  if (!gp_engine.Solve(*view_graph_, *reconstruction_)) {
+  if (!gp_engine.Solve(*pose_graph_, *reconstruction_)) {
     return false;
   }
 
@@ -321,7 +321,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
 // TODO: Rig normalizaiton has not been done
 bool GlobalMapper::Solve(const GlobalMapperOptions& options) {
   THROW_CHECK_NOTNULL(reconstruction_);
-  THROW_CHECK_NOTNULL(view_graph_);
+  THROW_CHECK_NOTNULL(pose_graph_);
 
   // Propagate random seed and num_threads to component options.
   GlobalMapperOptions opts = options;
@@ -330,24 +330,9 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options) {
     opts.global_positioning.random_seed = opts.random_seed;
     opts.global_positioning.use_parameter_block_ordering = false;
     opts.retriangulation.random_seed = opts.random_seed;
-    opts.view_graph_calibration.random_seed = opts.random_seed;
   }
-  opts.view_graph_calibration.solver_options.num_threads = opts.num_threads;
   opts.global_positioning.solver_options.num_threads = opts.num_threads;
   opts.bundle_adjustment.solver_options.num_threads = opts.num_threads;
-
-  if (!opts.skip_view_graph_calibration) {
-    // Run view graph calibration
-    LOG(INFO) << "----- Running view graph calibration -----";
-    colmap::Timer run_timer;
-    run_timer.Start();
-    if (!CalibrateViewGraph(
-            opts.view_graph_calibration, *view_graph_, *reconstruction_)) {
-      return false;
-    }
-    LOG(INFO) << "View graph calibration done in " << run_timer.ElapsedSeconds()
-              << " seconds";
-  }
 
   // Run rotation averaging
   if (!opts.skip_rotation_averaging) {
