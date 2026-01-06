@@ -895,9 +895,9 @@ bool SimplePinholeCameraModel::ImgFromCam(
 template <typename T>
 bool SimplePinholeCameraModel::CamFromImg(
     const T* params, const T& x, const T& y, T* u, T* v) {
-  const T& f = params[0];
-  const T& c1 = params[1];
-  const T& c2 = params[2];
+  const T f = params[0];
+  const T c1 = params[1];
+  const T c2 = params[2];
 
   *u = (x - c1) / f;
   *v = (y - c2) / f;
@@ -953,10 +953,10 @@ bool PinholeCameraModel::ImgFromCam(
 template <typename T>
 bool PinholeCameraModel::CamFromImg(
     const T* params, const T& x, const T& y, T* u, T* v) {
-  const T& f1 = params[0];
-  const T& f2 = params[1];
-  const T& c1 = params[2];
-  const T& c2 = params[3];
+  const T f1 = params[0];
+  const T f2 = params[1];
+  const T c1 = params[2];
+  const T c2 = params[3];
 
   *u = (x - c1) / f1;
   *v = (y - c2) / f2;
@@ -1018,9 +1018,9 @@ bool SimpleRadialCameraModel::ImgFromCam(
 template <typename T>
 bool SimpleRadialCameraModel::CamFromImg(
     const T* params, const T& x, const T& y, T* u, T* v) {
-  const T& f = params[0];
-  const T& c1 = params[1];
-  const T& c2 = params[2];
+  const T f = params[0];
+  const T c1 = params[1];
+  const T c2 = params[2];
 
   // Lift points to normalized plane
   *u = (x - c1) / f;
@@ -1096,9 +1096,9 @@ bool RadialCameraModel::ImgFromCam(
 template <typename T>
 bool RadialCameraModel::CamFromImg(
     const T* params, const T& x, const T& y, T* u, T* v) {
-  const T& f = params[0];
-  const T& c1 = params[1];
-  const T& c2 = params[2];
+  const T f = params[0];
+  const T c1 = params[1];
+  const T c2 = params[2];
 
   // Lift points to normalized plane
   *u = (x - c1) / f;
@@ -1176,10 +1176,10 @@ bool OpenCVCameraModel::ImgFromCam(
 template <typename T>
 bool OpenCVCameraModel::CamFromImg(
     const T* params, const T& x, const T& y, T* u, T* v) {
-  const T& f1 = params[0];
-  const T& f2 = params[1];
-  const T& c1 = params[2];
-  const T& c2 = params[3];
+  const T f1 = params[0];
+  const T f2 = params[1];
+  const T c1 = params[2];
+  const T c2 = params[3];
 
   // Lift points to normalized plane
   *u = (x - c1) / f1;
@@ -1368,10 +1368,10 @@ bool FullOpenCVCameraModel::ImgFromCam(
 template <typename T>
 bool FullOpenCVCameraModel::CamFromImg(
     const T* params, const T& x, const T& y, T* u, T* v) {
-  const T& f1 = params[0];
-  const T& f2 = params[1];
-  const T& c1 = params[2];
-  const T& c2 = params[3];
+  const T f1 = params[0];
+  const T f2 = params[1];
+  const T c1 = params[2];
+  const T c2 = params[3];
 
   // Lift points to normalized plane
   *u = (x - c1) / f1;
@@ -1454,10 +1454,10 @@ bool FOVCameraModel::ImgFromCam(
 template <typename T>
 bool FOVCameraModel::CamFromImg(
     const T* params, const T& x, const T& y, T* u, T* v) {
-  const T& f1 = params[0];
-  const T& f2 = params[1];
-  const T& c1 = params[2];
-  const T& c2 = params[3];
+  const T f1 = params[0];
+  const T f2 = params[1];
+  const T c1 = params[2];
+  const T c2 = params[3];
 
   // Lift points to normalized plane
   const T uu = (x - c1) / f1;
