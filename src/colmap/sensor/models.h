@@ -118,42 +118,42 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
 );
 
 #ifndef CAMERA_MODEL_DEFINITIONS
-#define CAMERA_MODEL_DEFINITIONS(model_id_val,                                \
-                                 model_name_val,                              \
-                                 num_focal_params_val,                        \
-                                 num_pp_params_val,                           \
-                                 num_extra_params_val)                        \
-  static constexpr size_t num_params =                                        \
-      (num_focal_params_val) + (num_pp_params_val) + (num_extra_params_val);  \
-  static constexpr size_t num_focal_params = num_focal_params_val;            \
-  static constexpr size_t num_pp_params = num_pp_params_val;                  \
-  static constexpr size_t num_extra_params = num_extra_params_val;            \
-  static constexpr CameraModelId model_id = model_id_val;                     \
-  static const std::string model_name;                                        \
-  static const std::string params_info;                                       \
-  static const std::array<size_t, (num_focal_params_val)> focal_length_idxs;  \
-  static const std::array<size_t, (num_pp_params_val)> principal_point_idxs;  \
-  static const std::array<size_t, (num_extra_params_val)> extra_params_idxs;  \
-                                                                              \
-  static inline CameraModelId InitializeModelId() { return model_id_val; };   \
-  static inline std::string InitializeModelName() { return model_name_val; }; \
-  static inline std::string InitializeParamsInfo();                           \
-  static inline std::array<size_t, (num_focal_params_val)>                    \
-  InitializeFocalLengthIdxs();                                                \
-  static inline std::array<size_t, (num_pp_params_val)>                       \
-  InitializePrincipalPointIdxs();                                             \
-  static inline std::array<size_t, (num_extra_params_val)>                    \
-  InitializeExtraParamsIdxs();                                                \
-                                                                              \
-  static inline std::vector<double> InitializeParams(                         \
-      double focal_length, size_t width, size_t height);                      \
-  template <typename T>                                                       \
-  static bool ImgFromCam(                                                     \
-      const T* params, const T& u, const T& v, const T& w, T* x, T* y);       \
-  template <typename T>                                                       \
-  static bool CamFromImg(const T* params, const T& x, const T& y, T* u, T* v);\
-  template <typename T>                                                       \
-  static void Distortion(                                                     \
+#define CAMERA_MODEL_DEFINITIONS(model_id_val,                                 \
+                                 model_name_val,                               \
+                                 num_focal_params_val,                         \
+                                 num_pp_params_val,                            \
+                                 num_extra_params_val)                         \
+  static constexpr size_t num_params =                                         \
+      (num_focal_params_val) + (num_pp_params_val) + (num_extra_params_val);   \
+  static constexpr size_t num_focal_params = num_focal_params_val;             \
+  static constexpr size_t num_pp_params = num_pp_params_val;                   \
+  static constexpr size_t num_extra_params = num_extra_params_val;             \
+  static constexpr CameraModelId model_id = model_id_val;                      \
+  static const std::string model_name;                                         \
+  static const std::string params_info;                                        \
+  static const std::array<size_t, (num_focal_params_val)> focal_length_idxs;   \
+  static const std::array<size_t, (num_pp_params_val)> principal_point_idxs;   \
+  static const std::array<size_t, (num_extra_params_val)> extra_params_idxs;   \
+                                                                               \
+  static inline CameraModelId InitializeModelId() { return model_id_val; };    \
+  static inline std::string InitializeModelName() { return model_name_val; };  \
+  static inline std::string InitializeParamsInfo();                            \
+  static inline std::array<size_t, (num_focal_params_val)>                     \
+  InitializeFocalLengthIdxs();                                                 \
+  static inline std::array<size_t, (num_pp_params_val)>                        \
+  InitializePrincipalPointIdxs();                                              \
+  static inline std::array<size_t, (num_extra_params_val)>                     \
+  InitializeExtraParamsIdxs();                                                 \
+                                                                               \
+  static inline std::vector<double> InitializeParams(                          \
+      double focal_length, size_t width, size_t height);                       \
+  template <typename T>                                                        \
+  static bool ImgFromCam(                                                      \
+      const T* params, const T& u, const T& v, const T& w, T* x, T* y);        \
+  template <typename T>                                                        \
+  static bool CamFromImg(const T* params, const T& x, const T& y, T* u, T* v); \
+  template <typename T>                                                        \
+  static void Distortion(                                                      \
       const T* extra_params, const T& u, const T& v, T* du, T* dv);
 #endif
 
@@ -258,10 +258,12 @@ struct BaseCameraModel {
   // For scalar types, this just calls IterativeUndistortion.
   // For Jet types, this uses implicit function theorem to compute Jacobians:
   //   d(u_undist, v_undist) / d(u_dist, v_dist) = J^(-1)
-  //   d(u_undist, v_undist) / d(extra_params) = -J^(-1) * d(Distortion)/d(extra_params)
+  //   d(u_undist, v_undist) / d(extra_params) = -J^(-1) *
+  //   d(Distortion)/d(extra_params)
   template <typename T>
-  static inline bool IterativeUndistortionWithJacobian(
-      const T* extra_params, T* u, T* v);
+  static inline bool IterativeUndistortionWithJacobian(const T* extra_params,
+                                                       T* u,
+                                                       T* v);
 
  private:
   BaseCameraModel() = default;
@@ -707,10 +709,8 @@ T BaseCameraModel<CameraModel>::CamFromImgThreshold(const T* params,
 }
 
 template <typename CameraModel>
-bool BaseCameraModel<CameraModel>::IterativeUndistortion(const double* params,
-                                                         double* u,
-                                                         double* v,
-                                                         Eigen::Matrix2d* J_out) {
+bool BaseCameraModel<CameraModel>::IterativeUndistortion(
+    const double* params, double* u, double* v, Eigen::Matrix2d* J_out) {
   // Parameters for Newton iteration. 100 iterations should be enough for
   // complex camera models with higher order terms.
   constexpr size_t kNumIterations = 100;
@@ -825,7 +825,8 @@ bool BaseCameraModel<CameraModel>::IterativeUndistortionWithJacobian(
     v->a = v_scalar;
 
     // Propagate derivatives in place using chain rule:
-    // d(u_undist)/d(var) = J_inv * d(u_dist,v_dist)/d(var) + dUV_dparams * d(extra_params)/d(var)
+    // d(u_undist)/d(var) = J_inv * d(u_dist,v_dist)/d(var) + dUV_dparams *
+    // d(extra_params)/d(var)
     constexpr int NumDerivs = std::decay_t<decltype(u->v)>::SizeAtCompileTime;
     for (int j = 0; j < NumDerivs; ++j) {
       // Save input derivatives before overwriting
