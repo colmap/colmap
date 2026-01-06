@@ -140,7 +140,7 @@ class DatabaseCache {
 
   // Get relative pose for an image pair.
   // Returns cam2_from_cam1 for the given image order.
-  // If image_id1 > image_id2, the stored pose is inverted automatically.
+  // If image_id1 > image_id2, the pose is inverted.
   Rigid3d RelativePose(image_t image_id1, image_t image_id2) const;
 
   // Find specific image by name. Note that this uses linear search.

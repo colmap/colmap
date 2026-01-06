@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/base_controller.h"
 
@@ -74,7 +75,7 @@ class RotationAveragingController : public BaseController {
 
  private:
   const RotationAveragingControllerOptions options_;
-  const std::shared_ptr<Database> database_;
+  std::shared_ptr<const DatabaseCache> database_cache_;
   std::shared_ptr<Reconstruction> reconstruction_;
 };
 

@@ -30,7 +30,6 @@
 #include "colmap/controllers/rotation_averaging.h"
 
 #include "colmap/estimators/two_view_geometry.h"
-#include "colmap/scene/database_cache.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/timer.h"
 
@@ -43,11 +42,16 @@ RotationAveragingController::RotationAveragingController(
     std::shared_ptr<Database> database,
     std::shared_ptr<Reconstruction> reconstruction)
     : options_(options),
-      database_(std::move(THROW_CHECK_NOTNULL(database))),
       reconstruction_(std::move(THROW_CHECK_NOTNULL(reconstruction))) {
+  THROW_CHECK_NOTNULL(database);
   if (options_.decompose_relative_pose) {
-    MaybeDecomposeAndWriteRelativePoses(database_.get());
+    MaybeDecomposeAndWriteRelativePoses(database.get());
   }
+  database_cache_ = DatabaseCache::Create(*database,
+                                          options_.min_num_matches,
+                                          options_.ignore_watermarks,
+                                          /*image_names=*/{},
+                                          /*load_relative_pose=*/true);
 }
 
 void RotationAveragingController::Run() {
@@ -58,15 +62,8 @@ void RotationAveragingController::Run() {
   Timer run_timer;
   run_timer.Start();
 
-  // Create database cache with relative poses for pose graph.
-  auto database_cache = DatabaseCache::Create(*database_,
-                                              options_.min_num_matches,
-                                              options_.ignore_watermarks,
-                                              /*image_names=*/{},
-                                              /*load_relative_pose=*/true);
-
   // Create a global mapper instance
-  glomap::GlobalMapper mapper(database_cache);
+  glomap::GlobalMapper mapper(database_cache_);
   mapper.BeginReconstruction(reconstruction_);
 
   if (mapper.PoseGraph()->Empty()) {
