@@ -202,12 +202,12 @@ TEST(CalibrateViewGraph, RelativePoseReestimation) {
     TwoViewGeometry perturbed_tvg = tvg;
     if (perturbed_tvg.cam2_from_cam1.has_value()) {
       const Rigid3d perturbation(
-          Eigen::Quaterniond(Eigen::AngleAxisd(
-              RandomUniformReal(0.3, 0.7),
-              Eigen::Vector3d(RandomUniformReal(-1.0, 1.0),
-                              RandomUniformReal(-1.0, 1.0),
-                              RandomUniformReal(-1.0, 1.0))
-                  .normalized())),
+          Eigen::Quaterniond(
+              Eigen::AngleAxisd(RandomUniformReal(0.3, 0.7),
+                                Eigen::Vector3d(RandomUniformReal(-1.0, 1.0),
+                                                RandomUniformReal(-1.0, 1.0),
+                                                RandomUniformReal(-1.0, 1.0))
+                                    .normalized())),
           Eigen::Vector3d(RandomUniformReal(-1.0, 1.0),
                           RandomUniformReal(-1.0, 1.0),
                           RandomUniformReal(-1.0, 1.0)));
