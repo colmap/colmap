@@ -969,13 +969,12 @@ void Reconstruction::UpdatePoint3DErrors() {
 }
 
 void Reconstruction::Read(const std::filesystem::path& path) {
-  if (ExistsFile(JoinPaths(path.string(), "cameras.bin")) &&
-      ExistsFile(JoinPaths(path.string(), "images.bin")) &&
-      ExistsFile(JoinPaths(path.string(), "points3D.bin"))) {
+  if (ExistsFile(path / "cameras.bin") && ExistsFile(path / "images.bin") &&
+      ExistsFile(path / "points3D.bin")) {
     ReadBinary(path);
-  } else if (ExistsFile(JoinPaths(path.string(), "cameras.txt")) &&
-             ExistsFile(JoinPaths(path.string(), "images.txt")) &&
-             ExistsFile(JoinPaths(path.string(), "points3D.txt"))) {
+  } else if (ExistsFile(path / "cameras.txt") &&
+             ExistsFile(path / "images.txt") &&
+             ExistsFile(path / "points3D.txt")) {
     ReadText(path);
   } else {
     LOG(FATAL_THROW)
@@ -994,17 +993,17 @@ void Reconstruction::ReadText(const std::filesystem::path& path) {
   frames_.clear();
   images_.clear();
   points3D_.clear();
-  ReadCamerasText(*this, JoinPaths(path.string(), "cameras.txt"));
-  const std::string rigs_path = JoinPaths(path.string(), "rigs.txt");
+  ReadCamerasText(*this, path / "cameras.txt");
+  const auto rigs_path = path / "rigs.txt";
   if (ExistsFile(rigs_path)) {
     ReadRigsText(*this, rigs_path);
   }
-  const std::string frames_path = JoinPaths(path.string(), "frames.txt");
+  const auto frames_path = path / "frames.txt";
   if (ExistsFile(frames_path)) {
     ReadFramesText(*this, frames_path);
   }
-  ReadImagesText(*this, JoinPaths(path.string(), "images.txt"));
-  ReadPoints3DText(*this, JoinPaths(path.string(), "points3D.txt"));
+  ReadImagesText(*this, path / "images.txt");
+  ReadPoints3DText(*this, path / "points3D.txt");
 }
 
 void Reconstruction::ReadBinary(const std::filesystem::path& path) {
@@ -1013,35 +1012,35 @@ void Reconstruction::ReadBinary(const std::filesystem::path& path) {
   frames_.clear();
   images_.clear();
   points3D_.clear();
-  ReadCamerasBinary(*this, JoinPaths(path.string(), "cameras.bin"));
-  const std::string rigs_path = JoinPaths(path.string(), "rigs.bin");
+  ReadCamerasBinary(*this, path / "cameras.bin");
+  const auto rigs_path = path / "rigs.bin";
   if (ExistsFile(rigs_path)) {
     ReadRigsBinary(*this, rigs_path);
   }
-  const std::string frames_path = JoinPaths(path.string(), "frames.bin");
+  const auto frames_path = path / "frames.bin";
   if (ExistsFile(frames_path)) {
     ReadFramesBinary(*this, frames_path);
   }
-  ReadImagesBinary(*this, JoinPaths(path.string(), "images.bin"));
-  ReadPoints3DBinary(*this, JoinPaths(path.string(), "points3D.bin"));
+  ReadImagesBinary(*this, path / "images.bin");
+  ReadPoints3DBinary(*this, path / "points3D.bin");
 }
 
 void Reconstruction::WriteText(const std::filesystem::path& path) const {
-  THROW_CHECK_DIR_EXISTS(path.string());
-  WriteRigsText(*this, JoinPaths(path.string(), "rigs.txt"));
-  WriteCamerasText(*this, JoinPaths(path.string(), "cameras.txt"));
-  WriteFramesText(*this, JoinPaths(path.string(), "frames.txt"));
-  WriteImagesText(*this, JoinPaths(path.string(), "images.txt"));
-  WritePoints3DText(*this, JoinPaths(path.string(), "points3D.txt"));
+  THROW_CHECK_DIR_EXISTS(path);
+  WriteRigsText(*this, path / "rigs.txt");
+  WriteCamerasText(*this, path / "cameras.txt");
+  WriteFramesText(*this, path / "frames.txt");
+  WriteImagesText(*this, path / "images.txt");
+  WritePoints3DText(*this, path / "points3D.txt");
 }
 
 void Reconstruction::WriteBinary(const std::filesystem::path& path) const {
-  THROW_CHECK_DIR_EXISTS(path.string());
-  WriteRigsBinary(*this, JoinPaths(path.string(), "rigs.bin"));
-  WriteCamerasBinary(*this, JoinPaths(path.string(), "cameras.bin"));
-  WriteFramesBinary(*this, JoinPaths(path.string(), "frames.bin"));
-  WriteImagesBinary(*this, JoinPaths(path.string(), "images.bin"));
-  WritePoints3DBinary(*this, JoinPaths(path.string(), "points3D.bin"));
+  THROW_CHECK_DIR_EXISTS(path);
+  WriteRigsBinary(*this, path / "rigs.bin");
+  WriteCamerasBinary(*this, path / "cameras.bin");
+  WriteFramesBinary(*this, path / "frames.bin");
+  WriteImagesBinary(*this, path / "images.bin");
+  WritePoints3DBinary(*this, path / "points3D.bin");
 }
 
 std::vector<PlyPoint> Reconstruction::ConvertToPLY() const {
@@ -1091,7 +1090,7 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
   const class Image& image = Image(image_id);
 
   Bitmap bitmap;
-  if (!bitmap.Read(JoinPaths(path.string(), image.Name()),
+  if (!bitmap.Read(path / image.Name(),
                    /*as_rgb=*/true)) {
     return false;
   }
@@ -1122,7 +1121,7 @@ void Reconstruction::ExtractColorsForAllImages(
 
   for (const auto& image_id : RegImageIds()) {
     const class Image& image = Image(image_id);
-    const std::string image_path = JoinPaths(path.string(), image.Name());
+    const auto image_path = path / image.Name();
 
     Bitmap bitmap;
     if (!bitmap.Read(image_path,
@@ -1175,10 +1174,10 @@ void Reconstruction::CreateImageDirs(const std::filesystem::path& path) const {
     const std::vector<std::string> name_split =
         StringSplit(image.second.Name(), "/");
     if (name_split.size() > 1) {
-      std::string dir = path.string();
+      std::filesystem::path dir = path;
       for (size_t i = 0; i < name_split.size() - 1; ++i) {
-        dir = JoinPaths(dir, name_split[i]);
-        image_dirs.insert(dir);
+        dir = dir / name_split[i];
+        image_dirs.insert(dir.string());
       }
     }
   }

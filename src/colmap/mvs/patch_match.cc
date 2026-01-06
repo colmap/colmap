@@ -241,10 +241,11 @@ void PatchMatchController::ReadProblems() {
   const auto& model = workspace_->GetModel();
 
   const std::string config_path =
-      config_path_.empty() ? JoinPaths(workspace_path_.string(),
-                                       workspace_->GetOptions().stereo_folder,
-                                       "patch-match.cfg")
-                           : config_path_.string();
+      config_path_.empty()
+          ? (workspace_path_ / workspace_->GetOptions().stereo_folder /
+             "patch-match.cfg")
+                .string()
+          : config_path_.string();
   std::vector<std::string> config = ReadTextFileLines(config_path);
 
   std::vector<std::map<int, int>> shared_num_points;
@@ -397,12 +398,12 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
   const std::string image_name = model.GetImageName(problem.ref_image_idx);
   const std::string file_name =
       StringPrintf("%s.%s.bin", image_name.c_str(), output_type.c_str());
-  const std::string depth_map_path =
-      JoinPaths(workspace_path_, stereo_folder, "depth_maps", file_name);
-  const std::string normal_map_path =
-      JoinPaths(workspace_path_, stereo_folder, "normal_maps", file_name);
-  const std::string consistency_graph_path = JoinPaths(
-      workspace_path_, stereo_folder, "consistency_graphs", file_name);
+  const auto depth_map_path =
+      workspace_path_ / stereo_folder / "depth_maps" / file_name;
+  const auto normal_map_path =
+      workspace_path_ / stereo_folder / "normal_maps" / file_name;
+  const auto consistency_graph_path =
+      workspace_path_ / stereo_folder / "consistency_graphs" / file_name;
 
   if (ExistsFile(depth_map_path) && ExistsFile(normal_map_path) &&
       (!options.write_consistency_graph ||

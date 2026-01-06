@@ -570,13 +570,12 @@ class FeatureImporterController : public Thread {
         continue;
       }
 
-      const std::string path =
-          JoinPaths(import_path_.string(), image.Name() + ".txt");
+      const auto path = import_path_ / (image.Name() + ".txt");
 
       if (ExistsFile(path)) {
         FeatureKeypoints keypoints;
         FeatureDescriptors descriptors;
-        LoadSiftFeaturesFromTextFile(path, &keypoints, &descriptors);
+        LoadSiftFeaturesFromTextFile(path.string(), &keypoints, &descriptors);
 
         LOG(INFO) << "Features:       " << keypoints.size()
                   << "(Imported SIFT)";

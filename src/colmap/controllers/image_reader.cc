@@ -60,7 +60,7 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
       std::sort(options_.image_names.begin(), options_.image_names.end());
     }
     for (auto& image_name : options_.image_names) {
-      image_name = JoinPaths(options_.image_path.string(), image_name);
+      image_name = (options_.image_path / image_name).string();
     }
   }
 
@@ -110,8 +110,7 @@ ImageReader::Status ImageReader::Next(Rig* rig,
   // Set the image name.
   //////////////////////////////////////////////////////////////////////////////
 
-  image->SetName(
-      GetNormalizedRelativePath(image_path, options_.image_path.string()));
+  image->SetName(GetNormalizedRelativePath(image_path, options_.image_path));
 
   const std::string image_folder = GetParentDir(image->Name());
 
@@ -145,17 +144,16 @@ ImageReader::Status ImageReader::Next(Rig* rig,
   //////////////////////////////////////////////////////////////////////////////
 
   if (mask && !options_.mask_path.empty()) {
-    std::string mask_path =
-        JoinPaths(options_.mask_path.string(), image->Name() + ".png");
+    std::filesystem::path mask_path =
+        options_.mask_path / (image->Name() + ".png");
     if (!ExistsFile(mask_path)) {
       bool exists_mask = false;
       // Try replacing extension with .png
       const std::string& base_name = image->Name();
       const size_t last_dot = base_name.find_last_of('.');
       if (last_dot != std::string::npos) {
-        std::string alt_mask_path =
-            JoinPaths(options_.mask_path.string(),
-                      base_name.substr(0, last_dot) + ".png");
+        std::filesystem::path alt_mask_path =
+            options_.mask_path / (base_name.substr(0, last_dot) + ".png");
         if (ExistsFile(alt_mask_path)) {
           mask_path = std::move(alt_mask_path);
           exists_mask = true;

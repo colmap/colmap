@@ -70,8 +70,7 @@ void WriteSnapshot(const Reconstruction& reconstruction,
           std::chrono::high_resolution_clock::now().time_since_epoch())
           .count();
   // Write reconstruction to unique path with current timestamp.
-  const std::string path =
-      JoinPaths(snapshot_path.string(), StringPrintf("%010zu", timestamp));
+  const auto path = snapshot_path / StringPrintf("%010zu", timestamp);
   CreateDirIfNotExists(path);
   VLOG(1) << "=> Writing to " << path;
   reconstruction.Write(path);

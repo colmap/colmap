@@ -42,8 +42,8 @@ namespace mvs {
 
 template <>
 void Mat<float>::Read(const std::filesystem::path& path) {
-  std::ifstream file(path.string(), std::ios::binary);
-  THROW_CHECK_FILE_OPEN(file, path.string());
+  std::ifstream file(path, std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
 
   char unused_char;
   file >> width_ >> unused_char >> height_ >> unused_char >> depth_ >>
@@ -59,8 +59,8 @@ void Mat<float>::Read(const std::filesystem::path& path) {
 
 template <>
 void Mat<float>::Write(const std::filesystem::path& path) const {
-  std::ofstream file(path.string(), std::ios::binary);
-  THROW_CHECK_FILE_OPEN(file, path.string());
+  std::ofstream file(path, std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
   file << width_ << "&" << height_ << "&" << depth_ << "&";
   WriteBinaryLittleEndian<float>(&file, {data_.data(), data_.size()});
   file.close();

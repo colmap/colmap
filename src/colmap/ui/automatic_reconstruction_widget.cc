@@ -122,12 +122,12 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
 void AutomaticReconstructionWidget::Run() {
   WriteOptions();
 
-  if (!ExistsDir(options_.workspace_path.string())) {
+  if (!ExistsDir(options_.workspace_path)) {
     QMessageBox::critical(this, "", tr("Invalid workspace folder"));
     return;
   }
 
-  if (!ExistsDir(options_.image_path.string())) {
+  if (!ExistsDir(options_.image_path)) {
     QMessageBox::critical(this, "", tr("Invalid image folder"));
     return;
   }

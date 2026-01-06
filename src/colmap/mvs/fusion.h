@@ -114,7 +114,7 @@ class StereoFusion : public BaseController {
   void Fuse(int thread_id, int image_idx, int row, int col);
 
   const StereoFusionOptions options_;
-  const std::string workspace_path_;
+  const std::filesystem::path workspace_path_;
   const std::string workspace_format_;
   const std::string pmvs_option_name_;
   const std::string input_type_;

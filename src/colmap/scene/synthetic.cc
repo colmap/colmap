@@ -638,8 +638,7 @@ void SynthesizeImages(const SyntheticImageOptions& options,
       }
     }
 
-    const std::string output_image_path =
-        JoinPaths(image_path.string(), image.Name());
+    const auto output_image_path = image_path / image.Name();
     if (!bitmap.Write(output_image_path)) {
       LOG(ERROR) << "Failed to write image to " << output_image_path;
     }

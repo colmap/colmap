@@ -57,7 +57,7 @@ void Model::ReadFromCOLMAP(const std::filesystem::path& path,
                            const std::filesystem::path& sparse_path,
                            const std::filesystem::path& images_path) {
   Reconstruction reconstruction;
-  reconstruction.Read(JoinPaths(path.string(), sparse_path.string()));
+  reconstruction.Read(path / sparse_path);
 
   images.reserve(reconstruction.NumRegImages());
   std::unordered_map<image_t, size_t> image_id_to_idx;
@@ -66,16 +66,20 @@ void Model::ReadFromCOLMAP(const std::filesystem::path& path,
     const auto& image = reconstruction.Image(image_id);
     const auto& camera = *image.CameraPtr();
 
-    const std::string image_path =
-        JoinPaths(path.string(), images_path.string(), image.Name());
+    const auto image_path = path / images_path / image.Name();
     const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> K =
+
         camera.CalibrationMatrix().cast<float>();
     const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> R =
         image.CamFromWorld().rotation.toRotationMatrix().cast<float>();
     const Eigen::Vector3f T = image.CamFromWorld().translation.cast<float>();
 
-    images.emplace_back(
-        image_path, camera.width, camera.height, K.data(), R.data(), T.data());
+    images.emplace_back(image_path.string(),
+                        camera.width,
+                        camera.height,
+                        K.data(),
+                        R.data(),
+                        T.data());
     image_id_to_idx.emplace(image_id, image_idx);
     image_names_.push_back(image.Name());
     image_name_to_idx_.emplace(image.Name(), image_idx);
@@ -276,8 +280,7 @@ std::vector<std::map<int, float>> Model::ComputeTriangulationAngles(
 }
 
 bool Model::ReadFromBundlerPMVS(const std::filesystem::path& path) {
-  const std::string bundle_file_path =
-      JoinPaths(path.string(), "bundle.rd.out");
+  const auto bundle_file_path = path / "bundle.rd.out";
 
   if (!ExistsFile(bundle_file_path)) {
     return false;
@@ -296,10 +299,10 @@ bool Model::ReadFromBundlerPMVS(const std::filesystem::path& path) {
   images.reserve(num_images);
   for (int image_idx = 0; image_idx < num_images; ++image_idx) {
     const std::string image_name = StringPrintf("%08d.jpg", image_idx);
-    const std::string image_path =
-        JoinPaths(path.string(), "visualize", image_name);
+    const auto image_path = path / "visualize" / image_name;
 
     float K[9] = {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+
     file >> K[0];
     K[4] = K[0];
 
@@ -326,7 +329,8 @@ bool Model::ReadFromBundlerPMVS(const std::filesystem::path& path) {
     T[1] = -T[1];
     T[2] = -T[2];
 
-    images.emplace_back(image_path, bitmap.Width(), bitmap.Height(), K, R, T);
+    images.emplace_back(
+        image_path.string(), bitmap.Width(), bitmap.Height(), K, R, T);
     image_names_.push_back(image_name);
     image_name_to_idx_.emplace(image_name, image_idx);
   }
@@ -356,15 +360,14 @@ bool Model::ReadFromBundlerPMVS(const std::filesystem::path& path) {
 }
 
 bool Model::ReadFromRawPMVS(const std::filesystem::path& path) {
-  const std::string vis_dat_path = JoinPaths(path.string(), "vis.dat");
+  const auto vis_dat_path = path / "vis.dat";
   if (!ExistsFile(vis_dat_path)) {
     return false;
   }
 
   for (int image_idx = 0;; ++image_idx) {
     const std::string image_name = StringPrintf("%08d.jpg", image_idx);
-    const std::string image_path =
-        JoinPaths(path.string(), "visualize", image_name);
+    const auto image_path = path / "visualize" / image_name;
 
     if (!ExistsFile(image_path)) {
       break;
@@ -373,8 +376,8 @@ bool Model::ReadFromRawPMVS(const std::filesystem::path& path) {
     Bitmap bitmap;
     THROW_CHECK(bitmap.Read(image_path));
 
-    const std::string proj_matrix_path =
-        JoinPaths(path.string(), "txt", StringPrintf("%08d.txt", image_idx));
+    const auto proj_matrix_path =
+        path / "txt" / StringPrintf("%08d.txt", image_idx);
 
     std::ifstream proj_matrix_file(proj_matrix_path);
     THROW_CHECK_FILE_OPEN(proj_matrix_file, proj_matrix_path);
@@ -404,7 +407,7 @@ bool Model::ReadFromRawPMVS(const std::filesystem::path& path) {
     const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> R_float = R.cast<float>();
     const Eigen::Vector3f T_float = T.cast<float>();
 
-    images.emplace_back(image_path,
+    images.emplace_back(image_path.string(),
                         bitmap.Width(),
                         bitmap.Height(),
                         K_float.data(),

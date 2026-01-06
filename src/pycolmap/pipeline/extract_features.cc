@@ -28,7 +28,7 @@ void ExtractFeatures(const std::filesystem::path& database_path,
                      ImageReaderOptions reader_options,
                      FeatureExtractionOptions extraction_options,
                      const Device device) {
-  THROW_CHECK_DIR_EXISTS(image_path.string());
+  THROW_CHECK_DIR_EXISTS(image_path);
   extraction_options.use_gpu = IsGPU(device);
   THROW_CHECK(extraction_options.Check());
 

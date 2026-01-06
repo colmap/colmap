@@ -124,9 +124,9 @@ bool PoissonMeshing(const PoissonMeshingOptions& options,
                     const std::string& input_path,
                     const std::string& output_path) {
   THROW_CHECK(options.Check());
-  THROW_CHECK_HAS_FILE_EXTENSION(input_path, ".ply");
+  THROW_CHECK_HAS_FILE_EXTENSION(std::filesystem::path(input_path), ".ply");
   THROW_CHECK_FILE_EXISTS(input_path);
-  THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
+  THROW_CHECK_HAS_FILE_EXTENSION(std::filesystem::path(output_path), ".ply");
   THROW_CHECK_PATH_OPEN(output_path);
 
   bool success = true;
@@ -288,7 +288,7 @@ class DelaunayMeshingInput {
   void ReadDenseReconstruction(const std::string& path) {
     {
       Reconstruction reconstruction;
-      reconstruction.Read(JoinPaths(path, "sparse"));
+      reconstruction.Read(std::filesystem::path(path) / "sparse");
 
       cameras = reconstruction.Cameras();
 
@@ -304,9 +304,11 @@ class DelaunayMeshingInput {
       }
     }
 
-    const auto& ply_points = ReadPly(JoinPaths(path, "fused.ply"));
+    const auto& ply_points =
+        ReadPly((std::filesystem::path(path) / "fused.ply").string());
 
-    const std::string vis_path = JoinPaths(path, "fused.ply.vis");
+    const std::string vis_path =
+        (std::filesystem::path(path) / "fused.ply.vis").string();
     std::fstream vis_file(vis_path, std::ios::in | std::ios::binary);
     THROW_CHECK_FILE_OPEN(vis_file, vis_path);
 

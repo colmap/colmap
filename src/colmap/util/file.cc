@@ -67,23 +67,24 @@ std::string EnsureTrailingSlash(const std::string& str) {
   return str;
 }
 
-bool HasFileExtension(const std::string& file_name, const std::string& ext) {
+bool HasFileExtension(const std::filesystem::path& file_name,
+                      const std::string& ext) {
   THROW_CHECK(!ext.empty());
   THROW_CHECK_EQ(ext.at(0), '.');
   std::string ext_lower = ext;
   StringToLower(&ext_lower);
-  if (file_name.size() >= ext_lower.size() &&
-      file_name.substr(file_name.size() - ext_lower.size(), ext_lower.size()) ==
-          ext_lower) {
+  if (file_name.string().size() >= ext_lower.size() &&
+      file_name.string().substr(file_name.string().size() - ext_lower.size(),
+                                ext_lower.size()) == ext_lower) {
     return true;
   }
   return false;
 }
 
-void SplitFileExtension(const std::string& path,
+void SplitFileExtension(const std::filesystem::path& path,
                         std::string* root,
                         std::string* ext) {
-  const auto parts = StringSplit(path, ".");
+  const auto parts = StringSplit(path.string(), ".");
   THROW_CHECK_GT(parts.size(), 0);
   if (parts.size() == 1) {
     *root = parts[0];
@@ -102,8 +103,8 @@ void SplitFileExtension(const std::string& path,
   }
 }
 
-void FileCopy(const std::string& src_path,
-              const std::string& dst_path,
+void FileCopy(const std::filesystem::path& src_path,
+              const std::filesystem::path& dst_path,
               CopyType type) {
   switch (type) {
     case CopyType::COPY:
@@ -118,19 +119,19 @@ void FileCopy(const std::string& src_path,
   }
 }
 
-bool ExistsFile(const std::string& path) {
+bool ExistsFile(const std::filesystem::path& path) {
   return std::filesystem::is_regular_file(path);
 }
 
-bool ExistsDir(const std::string& path) {
+bool ExistsDir(const std::filesystem::path& path) {
   return std::filesystem::is_directory(path);
 }
 
-bool ExistsPath(const std::string& path) {
+bool ExistsPath(const std::filesystem::path& path) {
   return std::filesystem::exists(path);
 }
 
-void CreateDirIfNotExists(const std::string& path, bool recursive) {
+void CreateDirIfNotExists(const std::filesystem::path& path, bool recursive) {
   if (ExistsDir(path)) {
     return;
   }
@@ -141,17 +142,17 @@ void CreateDirIfNotExists(const std::string& path, bool recursive) {
   }
 }
 
-std::string GetPathBaseName(const std::string& path) {
-  std::filesystem::path fs_path(NormalizePath(path));
+std::filesystem::path GetPathBaseName(const std::filesystem::path& path) {
+  const std::filesystem::path fs_path(NormalizePath(path));
   if (fs_path.has_filename()) {
-    return fs_path.filename().string();
+    return fs_path.filename();
   } else {  // It is a directory.
-    return fs_path.parent_path().filename().string();
+    return fs_path.parent_path().filename();
   }
 }
 
-std::string GetParentDir(const std::string& path) {
-  return std::filesystem::path(path).parent_path().string();
+std::filesystem::path GetParentDir(const std::filesystem::path& path) {
+  return path.parent_path();
 }
 
 std::string NormalizePath(const std::filesystem::path& path) {
@@ -162,8 +163,8 @@ std::string NormalizePath(const std::filesystem::path& path) {
   return normalized_path;
 }
 
-std::string GetNormalizedRelativePath(const std::string& full_path,
-                                      const std::string& base_path) {
+std::string GetNormalizedRelativePath(const std::filesystem::path& full_path,
+                                      const std::filesystem::path& base_path) {
   return NormalizePath(std::filesystem::relative(full_path, base_path));
 }
 
@@ -448,7 +449,7 @@ std::string DownloadAndCacheFile(const std::string& uri) {
     THROW_CHECK(std::filesystem::create_directories(download_cache_dir));
   }
 
-  const std::filesystem::path path = download_cache_dir / (sha256 + "-" + name);
+  const auto path = download_cache_dir / (sha256 + "-" + name);
 
   if (std::filesystem::exists(path)) {
     VLOG(2) << "File already downloaded. Skipping download.";

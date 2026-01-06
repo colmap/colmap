@@ -52,8 +52,8 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     : options_(options),
       reconstruction_manager_(std::move(reconstruction_manager)),
       active_thread_(nullptr) {
-  THROW_CHECK_DIR_EXISTS(options_.workspace_path.string());
-  THROW_CHECK_DIR_EXISTS(options_.image_path.string());
+  THROW_CHECK_DIR_EXISTS(options_.workspace_path);
+  THROW_CHECK_DIR_EXISTS(options_.image_path);
   THROW_CHECK_NOTNULL(reconstruction_manager_);
 
   option_manager_.AddAllOptions();
@@ -63,7 +63,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.mapper->image_names = {options_.image_names.begin(),
                                          options_.image_names.end()};
   *option_manager_.database_path =
-      JoinPaths(options_.workspace_path.string(), "database.db");
+      (options_.workspace_path / "database.db").string();
 
   if (options_.data_type == DataType::VIDEO) {
     option_manager_.ModifyForVideoData();
@@ -260,11 +260,12 @@ void AutomaticReconstructionController::RunFeatureMatching() {
 }
 
 void AutomaticReconstructionController::RunSparseMapper() {
-  const auto sparse_path =
-      JoinPaths(options_.workspace_path.string(), "sparse");
+  const auto sparse_path = options_.workspace_path / "sparse";
   if (ExistsDir(sparse_path)) {
-    auto dir_list = GetDirList(sparse_path);
+    auto dir_list = GetDirList(sparse_path.string());
+
     std::sort(dir_list.begin(), dir_list.end());
+
     if (dir_list.size() > 0) {
       LOG(WARNING)
           << "Skipping sparse reconstruction because it is already computed";
@@ -308,26 +309,26 @@ void AutomaticReconstructionController::RunSparseMapper() {
 
   CreateDirIfNotExists(sparse_path);
   reconstruction_manager_->Write(sparse_path);
-  option_manager_.Write(JoinPaths(sparse_path, "project.ini"));
+  option_manager_.Write((sparse_path / "project.ini").string());
 }
 
 void AutomaticReconstructionController::RunDenseMapper() {
-  CreateDirIfNotExists(JoinPaths(options_.workspace_path.string(), "dense"));
+  CreateDirIfNotExists(options_.workspace_path / "dense");
 
   for (size_t i = 0; i < reconstruction_manager_->Size(); ++i) {
     if (IsStopped()) {
       return;
     }
 
-    const std::string dense_path =
-        JoinPaths(options_.workspace_path.string(), "dense", std::to_string(i));
-    const std::string fused_path = JoinPaths(dense_path, "fused.ply");
+    const auto dense_path =
+        options_.workspace_path / "dense" / std::to_string(i);
+    const auto fused_path = dense_path / "fused.ply";
 
-    std::string meshing_path;
+    std::filesystem::path meshing_path;
     if (options_.mesher == Mesher::POISSON) {
-      meshing_path = JoinPaths(dense_path, "meshed-poisson.ply");
+      meshing_path = dense_path / "meshed-poisson.ply";
     } else if (options_.mesher == Mesher::DELAUNAY) {
-      meshing_path = JoinPaths(dense_path, "meshed-delaunay.ply");
+      meshing_path = dense_path / "meshed-delaunay.ply";
     }
 
     if (ExistsFile(fused_path) && ExistsFile(meshing_path)) {
@@ -345,7 +346,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
       COLMAPUndistorter undistorter(undistortion_options,
                                     *reconstruction_manager_->Get(i),
                                     *option_manager_.image_path,
-                                    dense_path);
+                                    dense_path.string());
       undistorter.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
       undistorter.Run();
     }
@@ -392,8 +393,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
       fuser.Run();
 
       LOG(INFO) << "Writing output: " << fused_path;
-      WriteBinaryPlyPoints(fused_path, fuser.GetFusedPoints());
-      mvs::WritePointsVisibility(fused_path + ".vis",
+      WriteBinaryPlyPoints(fused_path.string(), fuser.GetFusedPoints());
+      mvs::WritePointsVisibility(fused_path.string() + ".vis",
                                  fuser.GetFusedPointsVisibility());
     }
 
@@ -405,12 +406,14 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
     if (!ExistsFile(meshing_path)) {
       if (options_.mesher == Mesher::POISSON) {
-        mvs::PoissonMeshing(
-            *option_manager_.poisson_meshing, fused_path, meshing_path);
+        mvs::PoissonMeshing(*option_manager_.poisson_meshing,
+                            fused_path.string(),
+                            meshing_path.string());
       } else if (options_.mesher == Mesher::DELAUNAY) {
 #if defined(COLMAP_CGAL_ENABLED)
-        mvs::DenseDelaunayMeshing(
-            *option_manager_.delaunay_meshing, dense_path, meshing_path);
+        mvs::DenseDelaunayMeshing(*option_manager_.delaunay_meshing,
+                                  dense_path.string(),
+                                  meshing_path.string());
 #else  // COLMAP_CGAL_ENABLED
         LOG(WARNING)
             << "Skipping Delaunay meshing because CGAL is not available";

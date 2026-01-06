@@ -78,8 +78,7 @@ void ReconstructionManager::Write(const std::filesystem::path& path) const {
             });
 
   for (size_t i = 0; i < reconstructions_.size(); ++i) {
-    const std::string reconstruction_path =
-        JoinPaths(path.string(), std::to_string(i));
+    const auto reconstruction_path = path / std::to_string(i);
     CreateDirIfNotExists(reconstruction_path);
     reconstructions_[recon_sizes[i].first]->Write(reconstruction_path);
   }
