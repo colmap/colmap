@@ -18,8 +18,8 @@ namespace glomap {
 struct RelativePoseData {
   RelativePoseData() = default;
 
-  explicit RelativePoseData(Rigid3d cam2_from_cam1)
-      : cam2_from_cam1(std::move(cam2_from_cam1)) {}
+  explicit RelativePoseData(const Rigid3d& cam2_from_cam1)
+      : cam2_from_cam1(cam2_from_cam1) {}
 
   // Relative pose from image 1 to image 2.
   std::optional<Rigid3d> cam2_from_cam1;
