@@ -100,12 +100,6 @@ class PoseGraph {
                               std::unordered_map<frame_t, int>& cluster_ids,
                               int min_num_images = -1) const;
 
-  // Mark edges as invalid if their relative rotation differs from the
-  // reconstructed rotation by more than max_angle_deg.
-  // Keeps existing invalid edges as invalid.
-  void FilterByRelativeRotation(const colmap::Reconstruction& reconstruction,
-                                double max_angle_deg = 5.0);
-
  private:
   // Map from pair ID to edge data. The pair ID is computed from the
   // two image IDs using ImagePairToPairId, with the smaller ID first.

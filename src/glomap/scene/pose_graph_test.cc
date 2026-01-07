@@ -50,13 +50,6 @@ PoseGraph::Edge SynthesizeEdge(int num_inliers = 50) {
   return edge;
 }
 
-colmap::Rigid3d AddRotationError(const colmap::Rigid3d& pose,
-                                 double error_deg) {
-  const Eigen::Quaterniond error_rotation(
-      Eigen::AngleAxisd(colmap::DegToRad(error_deg), Eigen::Vector3d::UnitZ()));
-  return colmap::Rigid3d(error_rotation * pose.rotation, pose.translation);
-}
-
 TEST(PoseGraph, Nominal) {
   PoseGraph pose_graph;
 
@@ -245,55 +238,6 @@ TEST(PoseGraph, ValidEdges) {
   pose_graph.SetValidEdge(pair_id2);
   EXPECT_THAT(GetValidPairIds(),
               testing::UnorderedElementsAre(pair_id1, pair_id2, pair_id3));
-}
-
-TEST(PoseGraph, FilterByRelativeRotation) {
-  colmap::Reconstruction reconstruction;
-  colmap::SyntheticDatasetOptions options;
-  options.num_rigs = 1;
-  options.num_cameras_per_rig = 1;
-  options.num_frames_per_rig = 4;
-  colmap::SynthesizeDataset(options, &reconstruction);
-
-  const std::vector<image_t> image_ids = reconstruction.RegImageIds();
-  const image_t id1 = image_ids[0];
-  const image_t id2 = image_ids[1];
-  const image_t id3 = image_ids[2];
-  const image_t id4 = image_ids[3];
-
-  auto GetRelativePose = [&](image_t i, image_t j) {
-    return reconstruction.Image(j).CamFromWorld() *
-           colmap::Inverse(reconstruction.Image(i).CamFromWorld());
-  };
-
-  PoseGraph pose_graph;
-  PoseGraph::Edge edge1 = SynthesizeEdge();
-  edge1.cam2_from_cam1 = AddRotationError(GetRelativePose(id1, id2), 3.0);
-  PoseGraph::Edge edge2 = SynthesizeEdge();
-  edge2.cam2_from_cam1 = AddRotationError(GetRelativePose(id1, id3), 10.0);
-  PoseGraph::Edge edge3 = SynthesizeEdge();
-  edge3.cam2_from_cam1 = AddRotationError(GetRelativePose(id1, id4), 90.0);
-  PoseGraph::Edge edge4 = SynthesizeEdge(50);
-  edge4.cam2_from_cam1 = GetRelativePose(id2, id3);
-
-  const image_pair_t pair_id1 = colmap::ImagePairToPairId(id1, id2);
-  const image_pair_t pair_id2 = colmap::ImagePairToPairId(id1, id3);
-  const image_pair_t pair_id3 = colmap::ImagePairToPairId(id1, id4);
-  const image_pair_t pair_id4 = colmap::ImagePairToPairId(id2, id3);
-  pose_graph.AddEdge(id1, id2, std::move(edge1));
-  pose_graph.AddEdge(id1, id3, std::move(edge2));
-  pose_graph.AddEdge(id1, id4, std::move(edge3));
-  pose_graph.AddEdge(id2, id3, std::move(edge4));
-  pose_graph.SetInvalidEdge(pair_id4);  // Already invalid
-
-  reconstruction.DeRegisterFrame(reconstruction.Image(id4).FrameId());
-
-  pose_graph.FilterByRelativeRotation(reconstruction, 5.0);
-
-  EXPECT_TRUE(pose_graph.IsValid(pair_id1));
-  EXPECT_FALSE(pose_graph.IsValid(pair_id2));
-  EXPECT_TRUE(pose_graph.IsValid(pair_id3));
-  EXPECT_FALSE(pose_graph.IsValid(pair_id4));
 }
 
 TEST(PoseGraph, LoadFromDatabase) {
