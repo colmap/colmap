@@ -236,17 +236,6 @@ struct BaseCameraModel {
   static inline T CamFromImgThreshold(const T* params, T threshold);
 
  protected:
-  // IterativeUndistortion solves for undistorted coordinates given distorted.
-  // On input, (u, v) are distorted normalized coordinates.
-  // On output, (u, v) are undistorted normalized coordinates.
-  // Optionally returns J, the Jacobian of the distortion function:
-  //   J = I + d(Distortion)/d(u,v)
-  // evaluated at the converged undistorted point.
-  static inline bool IterativeUndistortion(const double* params,
-                                           double* u,
-                                           double* v,
-                                           Eigen::Matrix2d* J = nullptr);
-
   // Undistorts coordinates with proper Jacobian propagation for auto-diff.
   // This is the key function that enables CamFromImg to work with Ceres Jets.
   //
@@ -255,17 +244,26 @@ struct BaseCameraModel {
   //            Jacobians if Jets)
   // extra_params: distortion parameters (can be Jets)
   //
-  // For scalar types, this just calls IterativeUndistortion.
+  // For scalar types, this just calls IterativeUndistortionScalar.
   // For Jet types, this uses implicit function theorem to compute Jacobians:
   //   d(u_undist, v_undist) / d(u_dist, v_dist) = J^(-1)
   //   d(u_undist, v_undist) / d(extra_params) = -J^(-1) *
   //   d(Distortion)/d(extra_params)
   template <typename T>
-  static inline bool IterativeUndistortionWithJacobian(const T* extra_params,
-                                                       T* u,
-                                                       T* v);
+  static inline bool IterativeUndistortion(const T* extra_params, T* u, T* v);
 
  private:
+  // IterativeUndistortionScalar solves for undistorted coordinates given
+  // distorted. On input, (u, v) are distorted normalized coordinates. On
+  // output, (u, v) are undistorted normalized coordinates. Optionally returns
+  // J, the Jacobian of the distortion function:
+  //   J = I + d(Distortion)/d(u,v)
+  // evaluated at the converged undistorted point.
+  static inline bool IterativeUndistortionScalar(const double* extra_params,
+                                                 double* u,
+                                                 double* v,
+                                                 Eigen::Matrix2d* J = nullptr);
+
   BaseCameraModel() = default;
   friend CameraModel;
 };
@@ -709,8 +707,8 @@ T BaseCameraModel<CameraModel>::CamFromImgThreshold(const T* params,
 }
 
 template <typename CameraModel>
-bool BaseCameraModel<CameraModel>::IterativeUndistortion(
-    const double* params, double* u, double* v, Eigen::Matrix2d* J_out) {
+bool BaseCameraModel<CameraModel>::IterativeUndistortionScalar(
+    const double* extra_params, double* u, double* v, Eigen::Matrix2d* J_out) {
   // Parameters for Newton iteration. 100 iterations should be enough for
   // complex camera models with higher order terms.
   constexpr size_t kNumIterations = 100;
@@ -724,9 +722,9 @@ bool BaseCameraModel<CameraModel>::IterativeUndistortion(
   Eigen::Vector2d x(*u, *v);
   Eigen::Vector2d dx;
 
-  ceres::Jet<double, 2> params_jet[CameraModel::num_extra_params];
+  ceres::Jet<double, 2> extra_params_jet[CameraModel::num_extra_params];
   for (size_t i = 0; i < CameraModel::num_extra_params; ++i) {
-    params_jet[i] = ceres::Jet<double, 2>(params[i]);
+    extra_params_jet[i] = ceres::Jet<double, 2>(extra_params[i]);
   }
   for (size_t i = 0; i < kNumIterations; ++i) {
     // Get Jacobian
@@ -735,7 +733,7 @@ bool BaseCameraModel<CameraModel>::IterativeUndistortion(
     x_jet[1] = ceres::Jet<double, 2>(x(1), 1);
     ceres::Jet<double, 2> dx_jet[2];
     CameraModel::Distortion(
-        params_jet, x_jet[0], x_jet[1], &dx_jet[0], &dx_jet[1]);
+        extra_params_jet, x_jet[0], x_jet[1], &dx_jet[0], &dx_jet[1]);
     dx[0] = dx_jet[0].a;
     dx[1] = dx_jet[1].a;
     J(0, 0) = dx_jet[0].v[0] + 1;
@@ -770,8 +768,9 @@ bool BaseCameraModel<CameraModel>::IterativeUndistortion(
 
 template <typename CameraModel>
 template <typename T>
-bool BaseCameraModel<CameraModel>::IterativeUndistortionWithJacobian(
-    const T* extra_params, T* u, T* v) {
+bool BaseCameraModel<CameraModel>::IterativeUndistortion(const T* extra_params,
+                                                         T* u,
+                                                         T* v) {
   // Extract scalar values
   constexpr size_t N = CameraModel::num_extra_params;
   double extra_params_scalar[N];
@@ -784,7 +783,8 @@ bool BaseCameraModel<CameraModel>::IterativeUndistortionWithJacobian(
   // Run scalar undistortion with Jacobian output
   // After this, u_scalar and v_scalar contain the undistorted coordinates
   Eigen::Matrix2d J;
-  if (!IterativeUndistortion(extra_params_scalar, &u_scalar, &v_scalar, &J)) {
+  if (!IterativeUndistortionScalar(
+          extra_params_scalar, &u_scalar, &v_scalar, &J)) {
     return false;
   }
 
@@ -1026,7 +1026,7 @@ bool SimpleRadialCameraModel::CamFromImg(
   *u = (x - c1) / f;
   *v = (y - c2) / f;
 
-  return IterativeUndistortionWithJacobian(&params[3], u, v);
+  return IterativeUndistortion(&params[3], u, v);
 }
 
 template <typename T>
@@ -1104,7 +1104,7 @@ bool RadialCameraModel::CamFromImg(
   *u = (x - c1) / f;
   *v = (y - c2) / f;
 
-  return IterativeUndistortionWithJacobian(&params[3], u, v);
+  return IterativeUndistortion(&params[3], u, v);
 }
 
 template <typename T>
@@ -1185,7 +1185,7 @@ bool OpenCVCameraModel::CamFromImg(
   *u = (x - c1) / f1;
   *v = (y - c2) / f2;
 
-  return IterativeUndistortionWithJacobian(&params[4], u, v);
+  return IterativeUndistortion(&params[4], u, v);
 }
 
 template <typename T>
@@ -1278,7 +1278,7 @@ bool OpenCVFisheyeCameraModel::CamFromImg(
     const T* params, const T& x, const T& y, T* u, T* v) {
   T uu, vv;
   FisheyeFromImg(params, x, y, &uu, &vv);
-  if (!IterativeUndistortionWithJacobian(&params[4], &uu, &vv)) {
+  if (!IterativeUndistortion(&params[4], &uu, &vv)) {
     return false;
   }
   NormalFromFisheye(uu, vv, u, v);
@@ -1377,7 +1377,7 @@ bool FullOpenCVCameraModel::CamFromImg(
   *u = (x - c1) / f1;
   *v = (y - c2) / f2;
 
-  return IterativeUndistortionWithJacobian(&params[4], u, v);
+  return IterativeUndistortion(&params[4], u, v);
 }
 
 template <typename T>
@@ -1619,7 +1619,7 @@ bool SimpleRadialFisheyeCameraModel::CamFromImg(
     const T* params, const T& x, const T& y, T* u, T* v) {
   T uu, vv;
   FisheyeFromImg(params, x, y, &uu, &vv);
-  if (!IterativeUndistortionWithJacobian(&params[3], &uu, &vv)) {
+  if (!IterativeUndistortion(&params[3], &uu, &vv)) {
     return false;
   }
   NormalFromFisheye(uu, vv, u, v);
@@ -1708,7 +1708,7 @@ bool RadialFisheyeCameraModel::CamFromImg(
     const T* params, const T& x, const T& y, T* u, T* v) {
   T uu, vv;
   FisheyeFromImg(params, x, y, &uu, &vv);
-  if (!IterativeUndistortionWithJacobian(&params[3], &uu, &vv)) {
+  if (!IterativeUndistortion(&params[3], &uu, &vv)) {
     return false;
   }
   NormalFromFisheye(uu, vv, u, v);
@@ -1813,7 +1813,7 @@ bool ThinPrismFisheyeCameraModel::CamFromImg(
     const T* params, const T& x, const T& y, T* u, T* v) {
   T uu, vv;
   FisheyeFromImg(params, x, y, &uu, &vv);
-  if (!IterativeUndistortionWithJacobian(&params[4], &uu, &vv)) {
+  if (!IterativeUndistortion(&params[4], &uu, &vv)) {
     return false;
   }
   NormalFromFisheye(uu, vv, u, v);
@@ -1926,7 +1926,7 @@ bool RadTanThinPrismFisheyeModel::CamFromImg(
     const T* params, const T& x, const T& y, T* u, T* v) {
   T uu, vv;
   FisheyeFromImg(params, x, y, &uu, &vv);
-  if (!IterativeUndistortionWithJacobian(&params[4], &uu, &vv)) {
+  if (!IterativeUndistortion(&params[4], &uu, &vv)) {
     return false;
   }
   NormalFromFisheye(uu, vv, u, v);
