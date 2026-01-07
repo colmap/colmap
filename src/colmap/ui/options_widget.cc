@@ -29,7 +29,6 @@
 
 #include "colmap/ui/options_widget.h"
 
-
 namespace colmap {
 
 OptionsWidget::OptionsWidget(QWidget* parent) : QWidget(parent) {

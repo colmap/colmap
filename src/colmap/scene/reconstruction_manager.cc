@@ -31,7 +31,6 @@
 
 #include "colmap/util/file.h"
 
-
 namespace colmap {
 
 size_t ReconstructionManager::Size() const { return reconstructions_.size(); }
