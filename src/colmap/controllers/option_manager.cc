@@ -659,15 +659,18 @@ void OptionManager::AddGlobalMapperOptions() {
       &global_mapper->view_graph_calibration.relpose_min_inlier_ratio);
 
   // Track establishment options.
+  AddDefaultOption("GlobalMapper.track_intra_image_consistency_threshold",
+                   &global_mapper->mapper.track_establishment
+                        .intra_image_consistency_threshold);
   AddDefaultOption(
-      "GlobalMapper.track_min_num_tracks_per_view",
-      &global_mapper->mapper.track_establishment.min_num_tracks_per_view);
+      "GlobalMapper.track_required_tracks_per_view",
+      &global_mapper->mapper.track_establishment.required_tracks_per_view);
   AddDefaultOption(
-      "GlobalMapper.track_min_num_view_per_track",
-      &global_mapper->mapper.track_establishment.min_num_view_per_track);
+      "GlobalMapper.track_min_num_views_per_track",
+      &global_mapper->mapper.track_establishment.min_num_views_per_track);
   AddDefaultOption(
-      "GlobalMapper.track_max_num_view_per_track",
-      &global_mapper->mapper.track_establishment.max_num_view_per_track);
+      "GlobalMapper.track_max_num_views_per_track",
+      &global_mapper->mapper.track_establishment.max_num_views_per_track);
   AddDefaultOption("GlobalMapper.track_max_num_tracks",
                    &global_mapper->mapper.track_establishment.max_num_tracks);
 

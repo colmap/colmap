@@ -1,36 +1,24 @@
 #include "glomap/sfm/track_establishment.h"
 
+#include "colmap/math/union_find.h"
 #include "colmap/util/logging.h"
 
+#include <algorithm>
+
 namespace glomap {
+namespace {
 
-size_t TrackEngine::EstablishFullTracks(
+using Observation = std::pair<image_t, colmap::point2D_t>;
+
+size_t EstablishFullTracks(
+    const PoseGraph& pose_graph,
+    const std::unordered_map<image_t, colmap::Image>& images,
+    const TrackEstablishmentOptions& options,
     std::unordered_map<point3D_t, Point3D>& points3D) {
-  points3D.clear();
-  uf_ = {};
+  colmap::UnionFind<Observation> uf;
 
-  // Blindly concatenate tracks if any matches occur
-  BlindConcatenation();
-
-  // Iterate through the collected tracks and record the items for each track
-  TrackCollection(points3D);
-
-  return points3D.size();
-}
-
-void TrackEngine::BlindConcatenation() {
-  // Initialize the union find data structure by connecting all the
-  // correspondences
-  size_t counter = 0;
-  for (const auto& [pair_id, edge] : pose_graph_.Edges()) {
-    if ((counter + 1) % 1000 == 0 || counter == pose_graph_.NumEdges() - 1) {
-      VLOG(1) << "Initializing pairs " << counter + 1 << " / "
-              << pose_graph_.NumEdges();
-    }
-    counter++;
-
-    if (!pose_graph_.IsValid(pair_id)) continue;
-
+  // Single pass: union all matching observations
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 
     for (const auto& match : edge.inlier_matches) {
@@ -39,61 +27,37 @@ void TrackEngine::BlindConcatenation() {
 
       // Link the two observations. Use consistent ordering for root selection.
       if (obs2 < obs1) {
-        uf_.Union(obs1, obs2);
+        uf.Union(obs1, obs2);
       } else {
-        uf_.Union(obs2, obs1);
+        uf.Union(obs2, obs1);
       }
     }
   }
-  LOG(INFO) << "Initialized " << pose_graph_.NumEdges() << " pairs";
-}
 
-void TrackEngine::TrackCollection(
-    std::unordered_map<point3D_t, Point3D>& points3D) {
-  const auto& images = images_;
-  std::unordered_map<Observation, std::unordered_set<Observation>> track_map;
-
-  // Create tracks from the connected components of the point correspondences
-  size_t counter = 0;
-  for (const auto& [pair_id, edge] : pose_graph_.Edges()) {
-    if ((counter + 1) % 1000 == 0 || counter == pose_graph_.NumEdges() - 1) {
-      VLOG(1) << "Establishing pairs " << counter + 1 << " / "
-              << pose_graph_.NumEdges();
-    }
-    counter++;
-
-    if (!pose_graph_.IsValid(pair_id)) continue;
-
-    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-
-    for (const auto& match : edge.inlier_matches) {
-      const Observation obs1(image_id1, match.point2D_idx1);
-      const Observation obs2(image_id2, match.point2D_idx2);
-
-      const Observation track_id = uf_.Find(obs1);
-
-      track_map[track_id].insert(obs1);
-      track_map[track_id].insert(obs2);
-    }
+  // Group observations by their root
+  std::unordered_map<Observation, std::vector<Observation>> track_map;
+  for (const auto& [obs, parent] : uf.Elements()) {
+    track_map[uf.Find(obs)].push_back(obs);
   }
-  LOG(INFO) << "Established " << pose_graph_.NumEdges() << " pairs";
+  LOG(INFO) << "Established " << track_map.size() << " tracks from "
+            << uf.Elements().size() << " observations";
 
+  // Validate tracks and create Point3D objects
   size_t discarded_counter = 0;
   point3D_t next_point3D_id = 0;
-  for (const auto& [track_id, correspondence_set] : track_map) {
+  for (const auto& [track_id, observations] : track_map) {
     std::unordered_map<image_t, std::vector<Eigen::Vector2d>> image_id_set;
     Point3D point3D;
     bool is_consistent = true;
 
-    for (const auto& [image_id, feature_id] : correspondence_set) {
+    for (const auto& [image_id, feature_id] : observations) {
       const Eigen::Vector2d& xy = images.at(image_id).Point2D(feature_id).xy;
 
-      // Check consistency: if this image already has observations,
-      // verify the new one is close enough to existing ones.
       auto it = image_id_set.find(image_id);
       if (it != image_id_set.end()) {
         for (const auto& existing_xy : it->second) {
-          if ((existing_xy - xy).norm() > options_.thres_inconsistency) {
+          if ((existing_xy - xy).norm() >
+              options.intra_image_consistency_threshold) {
             is_consistent = false;
             break;
           }
@@ -115,81 +79,89 @@ void TrackEngine::TrackCollection(
     }
   }
 
-  LOG(INFO) << "Established " << track_map.size() << " tracks, discarded "
+  LOG(INFO) << "Kept " << points3D.size() << " tracks, discarded "
             << discarded_counter << " due to inconsistency";
+  return points3D.size();
 }
 
-size_t TrackEngine::FindTracksForProblem(
+size_t SelectTracksForProblem(
+    const std::unordered_map<image_t, colmap::Image>& images,
+    const TrackEstablishmentOptions& options,
     const std::unordered_map<point3D_t, Point3D>& points3D_full,
     std::unordered_map<point3D_t, Point3D>& points3D_selected) {
-  const auto& images = images_;
-
-  // Sort the tracks by length
+  // Sort tracks by length (descending)
   std::vector<std::pair<size_t, point3D_t>> track_lengths;
   for (const auto& [point3D_id, point3D] : points3D_full) {
-    if (point3D.track.Length() < options_.min_num_view_per_track) continue;
-    // FUTURE: have a more elegant way of filtering tracks
-    if (point3D.track.Length() > options_.max_num_view_per_track) continue;
-    track_lengths.emplace_back(point3D.track.Length(), point3D_id);
+    const size_t length = point3D.track.Length();
+    if (length < options.min_num_views_per_track) continue;
+    if (length > options.max_num_views_per_track) continue;
+    track_lengths.emplace_back(length, point3D_id);
   }
   std::sort(track_lengths.begin(), track_lengths.end(), std::greater<>());
 
-  // Initialize the point3D per camera number to zero
+  // Track how many points each camera has
   std::unordered_map<image_t, point3D_t> points3D_per_camera;
-
-  // If we only want to select a subset of images, then only add the points3D
-  // corresponding to those images
-  std::unordered_map<point3D_t, Point3D> points3D;
   for (const auto& [image_id, image] : images) {
     if (!image.HasPose()) continue;
     points3D_per_camera[image_id] = 0;
   }
 
-  int cameras_left = points3D_per_camera.size();
+  size_t cameras_left = points3D_per_camera.size();
   for (const auto& [track_length, point3D_id] : track_lengths) {
     const auto& point3D = points3D_full.at(point3D_id);
 
-    // Collect the image ids. For each image, only increment the counter by 1
+    // Filter observations to only include images with poses
     std::unordered_set<image_t> image_ids;
-    Point3D point3D_temp;
-    for (const auto& observation : point3D.track.Elements()) {
-      if (points3D_per_camera.count(observation.image_id) == 0) continue;
-
-      point3D_temp.track.AddElement(observation.image_id,
-                                    observation.point2D_idx);
-      image_ids.insert(observation.image_id);
+    Point3D point3D_filtered;
+    for (const auto& obs : point3D.track.Elements()) {
+      if (points3D_per_camera.count(obs.image_id) == 0) continue;
+      point3D_filtered.track.AddElement(obs.image_id, obs.point2D_idx);
+      image_ids.insert(obs.image_id);
     }
 
-    if (image_ids.size() < options_.min_num_view_per_track) continue;
+    if (image_ids.size() < options.min_num_views_per_track) continue;
 
-    // A flag to see if the point3D has already been added or not to avoid
-    // multiple insertion into the set to be efficient
-    bool added = false;
-    // for (auto &image_id : image_ids) {
-    for (const auto& observation : point3D_temp.track.Elements()) {
-      // Getting the current number of points3D
-      auto& num_points3D = points3D_per_camera[observation.image_id];
-      if (num_points3D > options_.min_num_tracks_per_view) continue;
+    // Check if any camera in this track still needs more observations
+    const bool should_add =
+        std::any_of(point3D_filtered.track.Elements().begin(),
+                    point3D_filtered.track.Elements().end(),
+                    [&](const auto& obs) {
+                      return points3D_per_camera[obs.image_id] <=
+                             options.required_tracks_per_view;
+                    });
+    if (!should_add) continue;
 
-      // Otherwise, increase the point3D number per camera
-      ++num_points3D;
-      if (num_points3D > options_.min_num_tracks_per_view) --cameras_left;
-
-      if (!added) {
-        points3D.insert(std::make_pair(point3D_id, point3D_temp));
-        added = true;
-      }
+    // Add track and update camera counts
+    points3D_selected.emplace(point3D_id, std::move(point3D_filtered));
+    for (const auto& obs : points3D_selected.at(point3D_id).track.Elements()) {
+      auto& count = points3D_per_camera[obs.image_id];
+      if (count == options.required_tracks_per_view) --cameras_left;
+      ++count;
     }
-    // Stop iterating if all cameras have enough points3D assigned
+
     if (cameras_left == 0) break;
-    if (points3D.size() > options_.max_num_tracks) break;
+    if (points3D_selected.size() > options.max_num_tracks) break;
   }
 
-  // Move the selected points3D to the output
-  size_t num_points3D = points3D.size();
-  points3D_selected = std::move(points3D);
+  return points3D_selected.size();
+}
 
-  return num_points3D;
+}  // namespace
+
+size_t EstablishTracks(const PoseGraph& pose_graph,
+                       const std::unordered_map<image_t, colmap::Image>& images,
+                       const TrackEstablishmentOptions& options,
+                       std::unordered_map<point3D_t, Point3D>& points3D) {
+  std::unordered_map<point3D_t, Point3D> unfiltered_points3D;
+  EstablishFullTracks(pose_graph, images, options, unfiltered_points3D);
+
+  points3D.clear();
+  size_t num_selected =
+      SelectTracksForProblem(images, options, unfiltered_points3D, points3D);
+
+  LOG(INFO) << "Before filtering: " << unfiltered_points3D.size()
+            << ", after filtering: " << num_selected;
+  return num_selected;
 }
 
 }  // namespace glomap

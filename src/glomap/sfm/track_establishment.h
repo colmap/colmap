@@ -1,63 +1,36 @@
 #pragma once
 
-#include "colmap/math/union_find.h"
 #include "colmap/scene/image.h"
 
 #include "glomap/scene/pose_graph.h"
 
+#include <limits>
+
 namespace glomap {
 
 struct TrackEstablishmentOptions {
-  // the max allowed distance for features in the same track in the same image
-  double thres_inconsistency = 10.;
+  // Max pixel distance between observations of the same track within one image.
+  double intra_image_consistency_threshold = 10.;
 
-  // The minimal number of tracks for each view,
-  int min_num_tracks_per_view = -1;
+  // Required number of tracks per view before early stopping.
+  size_t required_tracks_per_view = std::numeric_limits<size_t>::max();
 
-  // The minimal number of tracks for each view pair
-  int min_num_view_per_track = 3;
+  // Minimal number of views per track.
+  size_t min_num_views_per_track = 3;
 
-  // The maximal number of tracks for each view pair
-  int max_num_view_per_track = 100;
+  // Maximal number of views per track.
+  size_t max_num_views_per_track = 100;
 
-  // The maximal number of tracks
-  int max_num_tracks = 10000000;
+  // Maximal number of tracks.
+  size_t max_num_tracks = std::numeric_limits<size_t>::max();
 };
 
-class TrackEngine {
- public:
-  TrackEngine(const PoseGraph& pose_graph,
-              const std::unordered_map<image_t, colmap::Image>& images,
-              const TrackEstablishmentOptions& options)
-      : options_(options), pose_graph_(pose_graph), images_(images) {}
-
-  // Establish tracks from the view graph. Exclude the tracks that are not
-  // consistent. Return the number of points3D.
-  size_t EstablishFullTracks(std::unordered_map<point3D_t, Point3D>& points3D);
-
-  // Subsample the tracks, and exclude too short / long tracks.
-  // Return the number of points3D.
-  size_t FindTracksForProblem(
-      const std::unordered_map<point3D_t, Point3D>& points3D_full,
-      std::unordered_map<point3D_t, Point3D>& points3D_selected);
-
- private:
-  // Type alias for a 2D observation: (image_id, point2D_idx).
-  using Observation = std::pair<image_t, colmap::point2D_t>;
-
-  // Blindly concatenate tracks if any matches occur
-  void BlindConcatenation();
-
-  // Iterate through the collected tracks and record the items for each track
-  void TrackCollection(std::unordered_map<point3D_t, Point3D>& points3D);
-
-  const TrackEstablishmentOptions& options_;
-
-  const PoseGraph& pose_graph_;
-  const std::unordered_map<image_t, colmap::Image>& images_;
-
-  // Internal structure used for concatenating tracks.
-  colmap::UnionFind<Observation> uf_;
-};
+// Establish tracks from feature matches in the pose graph.
+// Creates tracks using union-find, validates consistency, and filters
+// to select tracks suitable for the optimization problem.
+size_t EstablishTracks(const PoseGraph& pose_graph,
+                       const std::unordered_map<image_t, colmap::Image>& images,
+                       const TrackEstablishmentOptions& options,
+                       std::unordered_map<point3D_t, Point3D>& points3D);
 
 }  // namespace glomap

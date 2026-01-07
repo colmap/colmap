@@ -262,5 +262,38 @@ TEST(UnionFind, FindIfExists) {
   EXPECT_TRUE(uf.FindIfExists(2).has_value());
 }
 
+TEST(UnionFind, Elements) {
+  UnionFind<int> uf;
+  EXPECT_TRUE(uf.Elements().empty());
+
+  uf.Find(1);
+  EXPECT_EQ(uf.Elements().size(), 1);
+  EXPECT_TRUE(uf.Elements().count(1));
+
+  uf.Union(2, 3);
+  EXPECT_EQ(uf.Elements().size(), 3);
+  EXPECT_TRUE(uf.Elements().count(2));
+  EXPECT_TRUE(uf.Elements().count(3));
+
+  uf.Union(1, 2);
+  EXPECT_EQ(uf.Elements().size(), 3);
+}
+
+TEST(UnionFind, ElementsGroupByRoot) {
+  UnionFind<int> uf;
+  uf.Union(1, 2);
+  uf.Union(2, 3);
+  uf.Union(10, 20);
+
+  std::unordered_map<int, std::vector<int>> groups;
+  for (const auto& [elem, parent] : uf.Elements()) {
+    groups[uf.Find(elem)].push_back(elem);
+  }
+
+  EXPECT_EQ(groups.size(), 2);
+  EXPECT_EQ(groups[uf.Find(1)].size(), 3);
+  EXPECT_EQ(groups[uf.Find(10)].size(), 2);
+}
+
 }  // namespace
 }  // namespace colmap
