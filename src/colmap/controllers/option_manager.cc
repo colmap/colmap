@@ -201,10 +201,10 @@ void OptionManager::AddFeatureExtractionOptions() {
   AddDefaultOption("ImageReader.camera_mask_path",
                    &image_reader->camera_mask_path);
 
-  AddAndRegisterDefaultEnumOption("FeatureExtraction.type",
-                                  &feature_extraction->type,
-                                  FeatureExtractorTypeToString,
-                                  FeatureExtractorTypeFromString);
+  AddDefaultEnumOption("FeatureExtraction.type",
+                       &feature_extraction->type,
+                       FeatureExtractorTypeToString,
+                       FeatureExtractorTypeFromString);
   AddDefaultOption("FeatureExtraction.num_threads",
                    &feature_extraction->num_threads);
   AddDefaultOption("FeatureExtraction.use_gpu", &feature_extraction->use_gpu);
@@ -247,10 +247,10 @@ void OptionManager::AddFeatureMatchingOptions() {
   }
   added_feature_matching_options_ = true;
 
-  AddAndRegisterDefaultEnumOption("FeatureMatching.type",
-                                  &feature_matching->type,
-                                  FeatureMatcherTypeToString,
-                                  FeatureMatcherTypeFromString);
+  AddDefaultEnumOption("FeatureMatching.type",
+                       &feature_matching->type,
+                       FeatureMatcherTypeToString,
+                       FeatureMatcherTypeFromString);
   AddDefaultOption("FeatureMatching.num_threads",
                    &feature_matching->num_threads);
   AddDefaultOption("FeatureMatching.use_gpu", &feature_matching->use_gpu);
@@ -689,7 +689,7 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption("GlobalMapper.gp_max_num_iterations",
                    &global_mapper->mapper.global_positioning.solver_options
                         .max_num_iterations);
-  AddAndRegisterDefaultEnumOption(
+  AddDefaultEnumOption(
       "GlobalMapper.gp_constraint_type",
       &global_mapper->mapper.global_positioning.constraint_type,
       glomap::GlobalPositioningConstraintTypeToString,
