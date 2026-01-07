@@ -198,14 +198,12 @@ TEST(CreateFeatureImporterController, Nominal) {
   // Create test images
   const Bitmap test_bitmap = CreateTestBitmap();
   for (int i = 0; i < kNumImages; ++i) {
-    test_bitmap.Write(
-        std::string(image_path).append("/").append(std::to_string(i) + ".png"));
+    test_bitmap.Write(image_path / (std::to_string(i) + ".png"));
   }
 
   // Create feature text files for each image
   for (int i = 0; i < kNumImages; ++i) {
-    const std::string feature_file =
-        import_path / (std::to_string(i) + ".png.txt");
+    const auto feature_file = import_path / (std::to_string(i) + ".png.txt");
     std::ofstream file(feature_file);
     ASSERT_TRUE(file.is_open());
 
