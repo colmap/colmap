@@ -222,9 +222,9 @@ colmap::Reconstruction CreateExpandedReconstruction(
 
 // Mark edges as invalid if their relative rotation differs from the
 // reconstructed rotation by more than max_angle_deg.
-void FilterByRelativeRotation(PoseGraph& pose_graph,
-                              const colmap::Reconstruction& reconstruction,
-                              double max_angle_deg) {
+void FilterEdgesByRelativeRotation(PoseGraph& pose_graph,
+                                   const colmap::Reconstruction& reconstruction,
+                                   double max_angle_deg) {
   const double max_angle_rad = colmap::DegToRad(max_angle_deg);
   int num_invalid = 0;
   for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
@@ -638,7 +638,7 @@ bool SolveRotationAveraging(const RotationEstimatorOptions& options,
 
   // Step 2: Filter outlier pairs by rotation error and update the active set.
   if (options.max_rotation_error_deg > 0) {
-    FilterByRelativeRotation(
+    FilterEdgesByRelativeRotation(
         pose_graph, reconstruction, options.max_rotation_error_deg);
 
     // Recompute largest connected component among registered frames.
