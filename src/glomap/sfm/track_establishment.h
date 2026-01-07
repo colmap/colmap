@@ -2,10 +2,10 @@
 
 #include "glomap/scene/pose_graph.h"
 
-#include <Eigen/Core>
-
 #include <limits>
 #include <vector>
+
+#include <Eigen/Core>
 
 namespace glomap {
 

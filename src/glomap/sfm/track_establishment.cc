@@ -57,7 +57,8 @@ size_t EstablishTracks(
     bool is_consistent = true;
 
     for (const auto& [image_id, feature_id] : observations) {
-      const Eigen::Vector2d& xy = image_id_to_keypoints.at(image_id).at(feature_id);
+      const Eigen::Vector2d& xy =
+          image_id_to_keypoints.at(image_id).at(feature_id);
 
       auto it = image_id_set.find(image_id);
       if (it != image_id_set.end()) {
@@ -81,12 +82,12 @@ size_t EstablishTracks(
 
     if (!is_consistent) continue;
 
-    const size_t length = point3D.track.Length();
-    if (length < options.min_num_views_per_track) continue;
-    if (length > options.max_num_views_per_track) continue;
+    const size_t num_images = image_id_set.size();
+    if (num_images < options.min_num_views_per_track) continue;
+    if (num_images > options.max_num_views_per_track) continue;
 
     const point3D_t point3D_id = next_point3D_id++;
-    track_lengths.emplace_back(length, point3D_id);
+    track_lengths.emplace_back(point3D.track.Length(), point3D_id);
     unfiltered_points3D.emplace(point3D_id, std::move(point3D));
   }
 

@@ -74,7 +74,8 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
 
 void GlobalMapper::EstablishTracks(const TrackEstablishmentOptions& options) {
   // Build keypoints map from registered images.
-  std::unordered_map<image_t, std::vector<Eigen::Vector2d>> image_id_to_keypoints;
+  std::unordered_map<image_t, std::vector<Eigen::Vector2d>>
+      image_id_to_keypoints;
   for (const auto image_id : reconstruction_->RegImageIds()) {
     const auto& image = reconstruction_->Image(image_id);
     std::vector<Eigen::Vector2d> points;
