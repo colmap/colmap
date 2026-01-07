@@ -237,4 +237,12 @@ void GravityRefiner::IdentifyErrorProneGravity(
   LOG(INFO) << "Number of error prone frames: " << error_prone_frames.size();
 }
 
+void RunGravityRefinement(const GravityRefinerOptions& options,
+                          const PoseGraph& pose_graph,
+                          const colmap::Reconstruction& reconstruction,
+                          std::vector<colmap::PosePrior>& pose_priors) {
+  GravityRefiner refiner(options);
+  refiner.RefineGravity(pose_graph, reconstruction, pose_priors);
+}
+
 }  // namespace glomap
