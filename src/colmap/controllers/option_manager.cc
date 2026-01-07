@@ -733,10 +733,9 @@ void OptionManager::AddGlobalMapperOptions() {
   AddAndRegisterDefaultOption(
       "GlobalMapper.gp_loss_function_scale",
       &global_mapper->mapper.global_positioning.loss_function_scale);
-  AddAndRegisterDefaultOption(
-      "GlobalMapper.gp_max_num_iterations",
-      &global_mapper->mapper.global_positioning.solver_options
-           .max_num_iterations);
+  AddAndRegisterDefaultOption("GlobalMapper.gp_max_num_iterations",
+                              &global_mapper->mapper.global_positioning
+                                   .solver_options.max_num_iterations);
   AddAndRegisterDefaultEnumOption(
       "GlobalMapper.gp_constraint_type",
       &global_mapper->mapper.global_positioning.constraint_type,
@@ -773,10 +772,9 @@ void OptionManager::AddGlobalMapperOptions() {
   AddAndRegisterDefaultOption(
       "GlobalMapper.ba_loss_function_scale",
       &global_mapper->mapper.bundle_adjustment.loss_function_scale);
-  AddAndRegisterDefaultOption(
-      "GlobalMapper.ba_max_num_iterations",
-      &global_mapper->mapper.bundle_adjustment.solver_options
-           .max_num_iterations);
+  AddAndRegisterDefaultOption("GlobalMapper.ba_max_num_iterations",
+                              &global_mapper->mapper.bundle_adjustment
+                                   .solver_options.max_num_iterations);
 
   // Retriangulation options.
   AddAndRegisterDefaultOption(
