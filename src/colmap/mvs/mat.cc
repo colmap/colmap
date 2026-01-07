@@ -32,7 +32,6 @@
 #include "colmap/util/endian.h"
 #include "colmap/util/file.h"
 
-#include <filesystem>
 #include <fstream>
 #include <string>
 #include <vector>

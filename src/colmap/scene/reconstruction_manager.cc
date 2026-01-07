@@ -31,7 +31,6 @@
 
 #include "colmap/util/file.h"
 
-#include <filesystem>
 
 namespace colmap {
 

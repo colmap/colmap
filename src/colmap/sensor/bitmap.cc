@@ -34,7 +34,6 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/oiio_utils.h"
 
-#include <filesystem>
 
 #include <OpenImageIO/color.h>
 #include <OpenImageIO/imagebufalgo.h>

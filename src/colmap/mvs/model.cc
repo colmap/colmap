@@ -36,7 +36,6 @@
 #include "colmap/sensor/models.h"
 #include "colmap/util/file.h"
 
-#include <filesystem>
 
 namespace colmap {
 namespace mvs {

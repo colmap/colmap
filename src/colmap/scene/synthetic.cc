@@ -36,7 +36,6 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/file.h"
 
-#include <filesystem>
 
 #include <Eigen/Geometry>
 

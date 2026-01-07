@@ -34,7 +34,6 @@
 #include "colmap/util/file.h"
 #include "colmap/util/timer.h"
 
-#include <filesystem>
 
 namespace colmap {
 namespace {

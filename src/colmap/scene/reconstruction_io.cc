@@ -33,7 +33,6 @@
 #include "colmap/util/ply.h"
 #include "colmap/util/types.h"
 
-#include <filesystem>
 #include <fstream>
 
 namespace colmap {

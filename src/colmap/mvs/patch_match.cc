@@ -36,7 +36,6 @@
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 
-#include <filesystem>
 #include <numeric>
 #include <unordered_set>
 

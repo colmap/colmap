@@ -37,7 +37,6 @@
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
 
-#include <filesystem>
 #include <unordered_set>
 
 #include <Eigen/Geometry>

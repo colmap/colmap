@@ -31,7 +31,6 @@
 
 #include "colmap/util/logging.h"
 
-#include <filesystem>
 #include <mutex>
 #include <set>
 

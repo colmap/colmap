@@ -29,7 +29,6 @@
 
 #include "colmap/ui/options_widget.h"
 
-#include <filesystem>
 
 namespace colmap {
 
