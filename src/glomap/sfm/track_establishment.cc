@@ -9,16 +9,23 @@ namespace glomap {
 
 using Observation = std::pair<image_t, colmap::point2D_t>;
 
-size_t EstablishTracks(const PoseGraph& pose_graph,
-                       const std::unordered_map<image_t, colmap::Image>& images,
-                       const TrackEstablishmentOptions& options,
-                       std::unordered_map<point3D_t, Point3D>& points3D) {
+size_t EstablishTracks(
+    const PoseGraph& pose_graph,
+    const std::unordered_map<image_t, std::vector<Eigen::Vector2d>>&
+        image_id_to_keypoints,
+    const TrackEstablishmentOptions& options,
+    std::unordered_map<point3D_t, Point3D>& points3D) {
   points3D.clear();
   colmap::UnionFind<Observation> uf;
 
   // Union all matching observations
   for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    THROW_CHECK(image_id_to_keypoints.count(image_id1))
+        << "Missing keypoints for image " << image_id1;
+    THROW_CHECK(image_id_to_keypoints.count(image_id2))
+        << "Missing keypoints for image " << image_id2;
+
     for (const auto& match : edge.inlier_matches) {
       const Observation obs1(image_id1, match.point2D_idx1);
       const Observation obs2(image_id2, match.point2D_idx2);
@@ -50,7 +57,7 @@ size_t EstablishTracks(const PoseGraph& pose_graph,
     bool is_consistent = true;
 
     for (const auto& [image_id, feature_id] : observations) {
-      const Eigen::Vector2d& xy = images.at(image_id).Point2D(feature_id).xy;
+      const Eigen::Vector2d& xy = image_id_to_keypoints.at(image_id).at(feature_id);
 
       auto it = image_id_set.find(image_id);
       if (it != image_id_set.end()) {
@@ -89,9 +96,9 @@ size_t EstablishTracks(const PoseGraph& pose_graph,
   // Sort tracks by length (descending) and select for problem
   std::sort(track_lengths.begin(), track_lengths.end(), std::greater<>());
 
+  // Initialize track counts for all images in image_id_to_keypoints
   std::unordered_map<image_t, size_t> tracks_per_image;
-  for (const auto& [image_id, image] : images) {
-    if (!image.HasPose()) continue;
+  for (const auto& [image_id, points] : image_id_to_keypoints) {
     tracks_per_image[image_id] = 0;
   }
 
@@ -99,21 +106,10 @@ size_t EstablishTracks(const PoseGraph& pose_graph,
   for (const auto& [track_length, point3D_id] : track_lengths) {
     const auto& point3D = unfiltered_points3D.at(point3D_id);
 
-    // Filter observations to only include images with poses
-    std::unordered_set<image_t> image_ids;
-    Point3D point3D_filtered;
-    for (const auto& obs : point3D.track.Elements()) {
-      if (tracks_per_image.count(obs.image_id) == 0) continue;
-      point3D_filtered.track.AddElement(obs.image_id, obs.point2D_idx);
-      image_ids.insert(obs.image_id);
-    }
-
-    if (image_ids.size() < options.min_num_views_per_track) continue;
-
     // Check if any image in this track still needs more observations
     const bool should_add =
-        std::any_of(point3D_filtered.track.Elements().begin(),
-                    point3D_filtered.track.Elements().end(),
+        std::any_of(point3D.track.Elements().begin(),
+                    point3D.track.Elements().end(),
                     [&](const auto& obs) {
                       return tracks_per_image[obs.image_id] <=
                              options.required_tracks_per_view;
@@ -121,8 +117,8 @@ size_t EstablishTracks(const PoseGraph& pose_graph,
     if (!should_add) continue;
 
     // Add track and update image counts
-    points3D.emplace(point3D_id, std::move(point3D_filtered));
-    for (const auto& obs : points3D.at(point3D_id).track.Elements()) {
+    points3D.emplace(point3D_id, point3D);
+    for (const auto& obs : point3D.track.Elements()) {
       auto& count = tracks_per_image[obs.image_id];
       if (count == options.required_tracks_per_view) --images_left;
       ++count;

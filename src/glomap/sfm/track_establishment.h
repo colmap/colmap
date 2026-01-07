@@ -1,10 +1,11 @@
 #pragma once
 
-#include "colmap/scene/image.h"
-
 #include "glomap/scene/pose_graph.h"
 
+#include <Eigen/Core>
+
 #include <limits>
+#include <vector>
 
 namespace glomap {
 
@@ -28,9 +29,13 @@ struct TrackEstablishmentOptions {
 // Establish tracks from feature matches in the pose graph.
 // Creates tracks using union-find, validates consistency, and filters
 // to select tracks suitable for the optimization problem.
-size_t EstablishTracks(const PoseGraph& pose_graph,
-                       const std::unordered_map<image_t, colmap::Image>& images,
-                       const TrackEstablishmentOptions& options,
-                       std::unordered_map<point3D_t, Point3D>& points3D);
+// image_id_to_keypoints: map from image_id to vector of 2D points (indexed by
+// point2D_idx).
+size_t EstablishTracks(
+    const PoseGraph& pose_graph,
+    const std::unordered_map<image_t, std::vector<Eigen::Vector2d>>&
+        image_id_to_keypoints,
+    const TrackEstablishmentOptions& options,
+    std::unordered_map<point3D_t, Point3D>& points3D);
 
 }  // namespace glomap
