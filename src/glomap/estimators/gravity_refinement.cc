@@ -37,8 +37,8 @@ void GravityRefiner::RefineGravity(
     const PoseGraph& pose_graph,
     const colmap::Reconstruction& reconstruction,
     std::vector<colmap::PosePrior>& pose_priors) {
-  const std::unordered_map<image_t, std::unordered_set<image_t>> adjacency_list =
-      CreateImageAdjacencyList(pose_graph);
+  const std::unordered_map<image_t, std::unordered_set<image_t>>
+      adjacency_list = CreateImageAdjacencyList(pose_graph);
   if (adjacency_list.empty()) {
     LOG(INFO) << "Adjacency list not established";
     return;
