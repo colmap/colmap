@@ -354,7 +354,7 @@ int RunMapper(int argc, char** argv) {
   if (input_path.empty()) {
     for (size_t i = 0; i < reconstruction_manager->Size(); ++i) {
       const auto reconstruction_path = output_path / std::to_string(i);
-      options.Write(reconstruction_path / "project.ini");
+      options.Write((reconstruction_path / "project.ini").string());
     }
   }
 
@@ -394,7 +394,7 @@ int RunGlobalMapper(int argc, char** argv) {
   }
 
   reconstruction_manager->Write(output_path);
-  options.Write(output_path / "project.ini");
+  options.Write((output_path / "project.ini").string());
 
   return EXIT_SUCCESS;
 }
@@ -437,7 +437,7 @@ int RunHierarchicalMapper(int argc, char** argv) {
   }
 
   reconstruction_manager->Write(output_path);
-  options.Write(output_path / "project.ini");
+  options.Write((output_path / "project.ini").string());
 
   return EXIT_SUCCESS;
 }
@@ -511,7 +511,7 @@ int RunPosePriorMapper(int argc, char** argv) {
   if (input_path.empty()) {
     for (size_t i = 0; i < reconstruction_manager->Size(); ++i) {
       const auto reconstruction_path = output_path / std::to_string(i);
-      options.Write(reconstruction_path / "project.ini");
+      options.Write((reconstruction_path / "project.ini").string());
     }
   }
 
@@ -640,9 +640,9 @@ void RunPointTriangulatorImpl(
 
 // TODO: Switch to database input and RotationAveragingController in the future.
 int RunRotationAverager(int argc, char** argv) {
-  std::filesystem::path relpose_path;
-  std::filesystem::path output_path;
-  std::filesystem::path gravity_path;
+  std::string relpose_path;
+  std::string output_path;
+  std::string gravity_path;
 
   bool use_stratified = true;
   bool refine_gravity = false;
