@@ -788,9 +788,12 @@ void OptionManager::AddGlobalMapperOptions() {
   AddAndRegisterDefaultOption("GlobalMapper.Retriangulation.min_angle",
                               &global_mapper->mapper.retriangulation.min_angle);
 
+  // Rotation averaging options.
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.RotationAveraging.max_rotation_error_deg",
+      &global_mapper->mapper.rotation_averaging.max_rotation_error_deg);
+
   // Threshold options.
-  AddAndRegisterDefaultOption("GlobalMapper.max_rotation_error_deg",
-                              &global_mapper->mapper.max_rotation_error_deg);
   AddAndRegisterDefaultOption(
       "GlobalMapper.max_angular_reproj_error_deg",
       &global_mapper->mapper.max_angular_reproj_error_deg);
