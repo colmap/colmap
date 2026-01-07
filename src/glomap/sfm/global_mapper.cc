@@ -1,6 +1,5 @@
 #include "glomap/sfm/global_mapper.h"
 
-#include "colmap/scene/database_cache.h"
 #include "colmap/scene/projection.h"
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/sfm/observation_manager.h"
@@ -12,26 +11,17 @@
 
 namespace glomap {
 
-GlobalMapper::GlobalMapper(std::shared_ptr<const colmap::Database> database) {
-  THROW_CHECK_NOTNULL(database);
-  // TODO: Directly use DatabaseCache in the signature and make min_num_matches
-  // an option in the global pipeline.
-  constexpr int kMinNumMatches = 15;
-  database_cache_ = colmap::DatabaseCache::Create(*database,
-                                                  kMinNumMatches,
-                                                  /*ignore_watermarks=*/false,
-                                                  /*image_names=*/{});
-  // TODO: Move to BeginReconstruction after migrating to PoseGraph and accept
-  // DatabaseCache.
-  pose_graph_ = std::make_shared<class PoseGraph>();
-  pose_graph_->LoadFromDatabase(*database);
-}
+GlobalMapper::GlobalMapper(
+    std::shared_ptr<const colmap::DatabaseCache> database_cache)
+    : database_cache_(std::move(THROW_CHECK_NOTNULL(database_cache))) {}
 
 void GlobalMapper::BeginReconstruction(
     const std::shared_ptr<colmap::Reconstruction>& reconstruction) {
   THROW_CHECK_NOTNULL(reconstruction);
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
+  pose_graph_ = std::make_shared<class PoseGraph>();
+  pose_graph_->Load(*database_cache_);
 }
 
 std::shared_ptr<colmap::Reconstruction> GlobalMapper::Reconstruction() const {

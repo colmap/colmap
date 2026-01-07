@@ -1,6 +1,5 @@
 #pragma once
 
-#include "colmap/scene/database.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_triangulator.h"
@@ -59,7 +58,8 @@ struct GlobalMapperOptions {
 
 class GlobalMapper {
  public:
-  explicit GlobalMapper(std::shared_ptr<const colmap::Database> database);
+  explicit GlobalMapper(
+      std::shared_ptr<const colmap::DatabaseCache> database_cache);
 
   // Prepare the mapper for a new reconstruction. This will initialize the
   // reconstruction and view graph from the database.

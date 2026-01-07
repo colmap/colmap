@@ -29,6 +29,7 @@
 
 #include "glomap/scene/pose_graph.h"
 
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
@@ -240,12 +241,10 @@ TEST(PoseGraph, ValidEdges) {
               testing::UnorderedElementsAre(pair_id1, pair_id2, pair_id3));
 }
 
-TEST(PoseGraph, LoadFromDatabase) {
+TEST(PoseGraph, Load) {
   const std::string test_dir = colmap::CreateTestDir();
 
-  // Create two databases with overlapping image pairs.
-  auto database1 = colmap::Database::Open(test_dir + "/database1.db");
-  auto database2 = colmap::Database::Open(test_dir + "/database2.db");
+  auto database = colmap::Database::Open(test_dir + "/database.db");
 
   colmap::Camera camera = colmap::Camera::CreateFromModelId(
       colmap::kInvalidCameraId,
@@ -253,17 +252,14 @@ TEST(PoseGraph, LoadFromDatabase) {
       1,
       1,
       1);
-  const colmap::camera_t camera_id1 = database1->WriteCamera(camera);
-  const colmap::camera_t camera_id2 = database2->WriteCamera(camera);
+  const colmap::camera_t camera_id = database->WriteCamera(camera);
 
-  // Create images in both databases.
-  for (int i = 1; i <= 4; ++i) {
+  // Create images.
+  for (int i = 1; i <= 3; ++i) {
     colmap::Image image;
     image.SetName("image" + std::to_string(i));
-    image.SetCameraId(camera_id1);
-    database1->WriteImage(image);
-    image.SetCameraId(camera_id2);
-    database2->WriteImage(image);
+    image.SetCameraId(camera_id);
+    database->WriteImage(image);
   }
 
   colmap::TwoViewGeometry two_view;
@@ -272,33 +268,24 @@ TEST(PoseGraph, LoadFromDatabase) {
   two_view.cam2_from_cam1 = colmap::Rigid3d(
       Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random().normalized());
 
-  // Database1: pairs (1,2) and (2,3)
-  database1->WriteMatches(1, 2, colmap::FeatureMatches(10));
-  database1->WriteMatches(2, 3, colmap::FeatureMatches(10));
-  database1->WriteTwoViewGeometry(1, 2, two_view);
-  database1->WriteTwoViewGeometry(2, 3, two_view);
+  // Create pairs (1,2) and (2,3)
+  database->WriteMatches(1, 2, colmap::FeatureMatches(10));
+  database->WriteMatches(2, 3, colmap::FeatureMatches(10));
+  database->WriteTwoViewGeometry(1, 2, two_view);
+  database->WriteTwoViewGeometry(2, 3, two_view);
 
-  // Database2: pairs (2,3) and (3,4) - pair (2,3) overlaps with database1
-  database2->WriteMatches(2, 3, colmap::FeatureMatches(10));
-  database2->WriteMatches(3, 4, colmap::FeatureMatches(10));
-  database2->WriteTwoViewGeometry(2, 3, two_view);
-  database2->WriteTwoViewGeometry(3, 4, two_view);
+  // Load into DatabaseCache with relative poses.
+  colmap::DatabaseCache cache;
+  colmap::DatabaseCache::Options options;
+  options.load_relative_pose = true;
+  cache.Load(*database, options);
 
   PoseGraph pose_graph;
+  pose_graph.Load(cache);
 
-  // First read from database1 should succeed.
-  pose_graph.LoadFromDatabase(*database1);
   EXPECT_EQ(pose_graph.NumEdges(), 2);
-
-  // Second read from database2 with allow_duplicate=false should throw
-  // because pair (2,3) already exists.
-  EXPECT_ANY_THROW(
-      pose_graph.LoadFromDatabase(*database2, /*allow_duplicate=*/false));
-
-  // Second read from database2 with allow_duplicate=true should succeed.
-  pose_graph.LoadFromDatabase(*database2, /*allow_duplicate=*/true);
-  // Should now have 3 pairs: (1,2), (2,3), (3,4)
-  EXPECT_EQ(pose_graph.NumEdges(), 3);
+  EXPECT_TRUE(pose_graph.HasEdge(1, 2));
+  EXPECT_TRUE(pose_graph.HasEdge(2, 3));
 }
 
 }  // namespace
