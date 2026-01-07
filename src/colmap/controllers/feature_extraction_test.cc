@@ -61,8 +61,7 @@ TEST(CreateFeatureExtractorController, Nominal) {
   const int kNumImages = 2;
   const Bitmap test_bitmap = CreateTestBitmap();
   for (int i = 0; i < kNumImages; ++i) {
-    test_bitmap.Write(
-        std::string(image_path).append("/").append(std::to_string(i) + ".png"));
+    test_bitmap.Write(image_path / (std::to_string(i) + ".png"));
   }
 
   // Set up options

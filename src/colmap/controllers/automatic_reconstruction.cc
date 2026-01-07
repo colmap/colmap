@@ -261,9 +261,7 @@ void AutomaticReconstructionController::RunSparseMapper() {
   const auto sparse_path = options_.workspace_path / "sparse";
   if (ExistsDir(sparse_path)) {
     auto dir_list = GetDirList(sparse_path);
-
     std::sort(dir_list.begin(), dir_list.end());
-
     if (dir_list.size() > 0) {
       LOG(WARNING)
           << "Skipping sparse reconstruction because it is already computed";

@@ -242,9 +242,9 @@ TEST(BaseOptionManager, ParseWithOptions) {
   const std::vector<std::string> args = {
       "colmap",
       "--database_path",
-      database_path,
+      database_path.string(),
       "--image_path",
-      image_path,
+      image_path.string(),
   };
 
   std::vector<char*> argv;
@@ -324,7 +324,7 @@ TEST(BaseOptionManager, ParseUnknownArgumentsFails) {
   const std::vector<std::string> args = {
       "colmap",
       "--database_path",
-      database_path,
+      database_path.string(),
       "--unknown_option",
       "value",
   };
