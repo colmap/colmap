@@ -57,8 +57,8 @@ TEST(GlobalPipeline, Nominal) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  GlobalPipeline mapper(
-      glomap::GlobalMapperOptions(), database, reconstruction_manager);
+  GlobalPipelineOptions options;
+  GlobalPipeline mapper(options, database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -87,7 +87,7 @@ TEST(GlobalPipeline, SfMWithRandomSeedStability) {
   SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
   auto run_mapper = [&](int num_threads, int random_seed) {
-    glomap::GlobalMapperOptions options;
+    GlobalPipelineOptions options;
     options.num_threads = num_threads;
     options.random_seed = random_seed;
     auto reconstruction_manager = std::make_shared<ReconstructionManager>();

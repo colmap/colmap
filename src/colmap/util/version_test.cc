@@ -29,6 +29,7 @@
 
 #include "colmap/util/version.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -44,6 +45,18 @@ TEST(MakeDatabaseVersionNumber, Nominal) {
   EXPECT_ANY_THROW(MakeDatabaseVersionNumber(3, 100, 0, 0));
   EXPECT_ANY_THROW(MakeDatabaseVersionNumber(3, 14, 100, 0));
   EXPECT_ANY_THROW(MakeDatabaseVersionNumber(3, 14, 0, 100));
+}
+
+TEST(GetVersionInfo, Nominal) {
+  const std::string version = GetVersionInfo();
+  EXPECT_FALSE(version.empty());
+  EXPECT_THAT(version, testing::HasSubstr("COLMAP"));
+}
+
+TEST(GetBuildInfo, Nominal) {
+  const std::string build_info = GetBuildInfo();
+  EXPECT_FALSE(build_info.empty());
+  EXPECT_THAT(build_info, testing::HasSubstr("Commit"));
 }
 
 }  // namespace

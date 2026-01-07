@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "glomap/scene/view_graph.h"
+#include "glomap/scene/pose_graph.h"
 
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
@@ -38,23 +38,16 @@
 namespace glomap {
 namespace {
 
-ImagePair SynthesizeImagePair(int num_inliers = 50, int num_matches = 100) {
-  THROW_CHECK_LE(num_inliers, num_matches);
-  ImagePair pair;
+PoseGraph::Edge SynthesizeEdge(int num_inliers = 50) {
+  PoseGraph::Edge edge;
   // Set default identity pose.
-  pair.cam2_from_cam1 = colmap::Rigid3d();
-  // Match feature i in image 1 to feature i in image 2.
-  pair.matches.resize(num_matches, 2);
-  for (int i = 0; i < num_matches; ++i) {
-    pair.matches(i, 0) = i;
-    pair.matches(i, 1) = i;
-  }
+  edge.cam2_from_cam1 = colmap::Rigid3d();
   // First num_inliers matches are inliers.
-  pair.inlier_matches.reserve(num_inliers);
+  edge.inlier_matches.reserve(num_inliers);
   for (int i = 0; i < num_inliers; ++i) {
-    pair.inlier_matches.emplace_back(i, i);
+    edge.inlier_matches.emplace_back(i, i);
   }
-  return pair;
+  return edge;
 }
 
 colmap::Rigid3d AddRotationError(const colmap::Rigid3d& pose,
@@ -64,193 +57,176 @@ colmap::Rigid3d AddRotationError(const colmap::Rigid3d& pose,
   return colmap::Rigid3d(error_rotation * pose.rotation, pose.translation);
 }
 
-TEST(ViewGraph, Nominal) {
-  ViewGraph view_graph;
+TEST(PoseGraph, Nominal) {
+  PoseGraph pose_graph;
 
   // Empty view graph.
-  EXPECT_TRUE(view_graph.Empty());
-  EXPECT_EQ(view_graph.NumImagePairs(), 0);
-  EXPECT_EQ(view_graph.NumValidImagePairs(), 0);
+  EXPECT_TRUE(pose_graph.Empty());
+  EXPECT_EQ(pose_graph.NumEdges(), 0);
 
   // Add some pairs.
-  view_graph.AddImagePair(1, 2, SynthesizeImagePair());
-  view_graph.AddImagePair(1, 3, SynthesizeImagePair());
-  view_graph.AddImagePair(2, 3, SynthesizeImagePair());
+  pose_graph.AddEdge(1, 2, SynthesizeEdge());
+  pose_graph.AddEdge(1, 3, SynthesizeEdge());
+  pose_graph.AddEdge(2, 3, SynthesizeEdge());
 
-  EXPECT_FALSE(view_graph.Empty());
-  EXPECT_EQ(view_graph.NumImagePairs(), 3);
-  EXPECT_EQ(view_graph.NumValidImagePairs(), 3);
+  EXPECT_FALSE(pose_graph.Empty());
+  EXPECT_EQ(pose_graph.NumEdges(), 3);
 
   // Invalidate one pair.
-  view_graph.SetInvalidImagePair(colmap::ImagePairToPairId(1, 2));
-  EXPECT_EQ(view_graph.NumImagePairs(), 3);
-  EXPECT_EQ(view_graph.NumValidImagePairs(), 2);
+  pose_graph.SetInvalidEdge(colmap::ImagePairToPairId(1, 2));
+  EXPECT_EQ(pose_graph.NumEdges(), 3);
+  EXPECT_FALSE(pose_graph.IsValid(colmap::ImagePairToPairId(1, 2)));
 
   // Clear the view graph.
-  view_graph.Clear();
-  EXPECT_TRUE(view_graph.Empty());
-  EXPECT_EQ(view_graph.NumImagePairs(), 0);
-  EXPECT_EQ(view_graph.NumValidImagePairs(), 0);
+  pose_graph.Clear();
+  EXPECT_TRUE(pose_graph.Empty());
+  EXPECT_EQ(pose_graph.NumEdges(), 0);
 }
 
-TEST(ViewGraph, AddImagePair) {
-  ViewGraph view_graph;
+TEST(PoseGraph, AddEdge) {
+  PoseGraph pose_graph;
 
   // Normal add.
-  ImagePair pair = SynthesizeImagePair();
-  pair.cam2_from_cam1 =
+  PoseGraph::Edge edge = SynthesizeEdge();
+  edge.cam2_from_cam1 =
       colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0));
-  view_graph.AddImagePair(1, 2, pair);
+  pose_graph.AddEdge(1, 2, edge);
 
-  EXPECT_EQ(view_graph.NumImagePairs(), 1);
-  const auto& [stored, swapped] = view_graph.ImagePair(1, 2);
+  EXPECT_EQ(pose_graph.NumEdges(), 1);
+  const auto& [stored, swapped] = pose_graph.EdgeRef(1, 2);
   EXPECT_FALSE(swapped);
-  EXPECT_TRUE(stored.cam2_from_cam1.has_value());
-  EXPECT_EQ(stored.cam2_from_cam1->translation.x(), 1);
+  EXPECT_EQ(stored.cam2_from_cam1.translation.x(), 1);
 
   // Add with swapped IDs should invert the pair.
-  ImagePair pair2 = SynthesizeImagePair();
-  pair2.cam2_from_cam1 =
+  PoseGraph::Edge edge2 = SynthesizeEdge();
+  edge2.cam2_from_cam1 =
       colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(2, 0, 0));
-  view_graph.AddImagePair(4, 3, pair2);  // 4 > 3, should swap and invert
+  pose_graph.AddEdge(4, 3, edge2);  // 4 > 3, should swap and invert
 
-  EXPECT_EQ(view_graph.NumImagePairs(), 2);
-  const auto& [stored2, swapped2] = view_graph.ImagePair(3, 4);
+  EXPECT_EQ(pose_graph.NumEdges(), 2);
+  const auto& [stored2, swapped2] = pose_graph.EdgeRef(3, 4);
   EXPECT_FALSE(swapped2);
-  EXPECT_TRUE(stored2.cam2_from_cam1.has_value());
-  EXPECT_EQ(stored2.cam2_from_cam1->translation.x(), -2);
+  EXPECT_EQ(stored2.cam2_from_cam1.translation.x(), -2);
 
   // Duplicate should throw.
-  EXPECT_THROW(view_graph.AddImagePair(1, 2, SynthesizeImagePair()),
-               std::runtime_error);
-  EXPECT_THROW(view_graph.AddImagePair(2, 1, SynthesizeImagePair()),
-               std::runtime_error);
+  EXPECT_THROW(pose_graph.AddEdge(1, 2, SynthesizeEdge()), std::runtime_error);
+  EXPECT_THROW(pose_graph.AddEdge(2, 1, SynthesizeEdge()), std::runtime_error);
 }
 
-TEST(ViewGraph, HasImagePair) {
-  ViewGraph view_graph;
-  view_graph.AddImagePair(1, 2, SynthesizeImagePair());
+TEST(PoseGraph, HasEdge) {
+  PoseGraph pose_graph;
+  pose_graph.AddEdge(1, 2, SynthesizeEdge());
 
-  EXPECT_TRUE(view_graph.HasImagePair(1, 2));
-  EXPECT_TRUE(view_graph.HasImagePair(2, 1));  // Order doesn't matter
-  EXPECT_FALSE(view_graph.HasImagePair(1, 3));
+  EXPECT_TRUE(pose_graph.HasEdge(1, 2));
+  EXPECT_TRUE(pose_graph.HasEdge(2, 1));  // Order doesn't matter
+  EXPECT_FALSE(pose_graph.HasEdge(1, 3));
 }
 
-TEST(ViewGraph, Pair) {
-  ViewGraph view_graph;
-  ImagePair pair = SynthesizeImagePair();
-  pair.cam2_from_cam1 =
+TEST(PoseGraph, EdgeRef) {
+  PoseGraph pose_graph;
+  PoseGraph::Edge edge = SynthesizeEdge();
+  edge.cam2_from_cam1 =
       colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0));
-  view_graph.AddImagePair(1, 2, pair);
+  pose_graph.AddEdge(1, 2, edge);
 
   // Normal order: swapped = false.
-  auto [ref1, swapped1] = view_graph.ImagePair(1, 2);
+  auto [ref1, swapped1] = pose_graph.EdgeRef(1, 2);
   EXPECT_FALSE(swapped1);
-  EXPECT_TRUE(ref1.cam2_from_cam1.has_value());
-  EXPECT_EQ(ref1.cam2_from_cam1->translation.x(), 1);
+  EXPECT_EQ(ref1.cam2_from_cam1.translation.x(), 1);
 
   // Reversed order: swapped = true.
-  auto [ref2, swapped2] = view_graph.ImagePair(2, 1);
+  auto [ref2, swapped2] = pose_graph.EdgeRef(2, 1);
   EXPECT_TRUE(swapped2);
-  EXPECT_TRUE(ref2.cam2_from_cam1.has_value());
-  EXPECT_EQ(ref2.cam2_from_cam1->translation.x(), 1);  // Same reference
+  EXPECT_EQ(ref2.cam2_from_cam1.translation.x(), 1);  // Same reference
 
-  // Modify validity through ViewGraph.
-  view_graph.SetInvalidImagePair(colmap::ImagePairToPairId(1, 2));
-  EXPECT_FALSE(view_graph.IsValid(colmap::ImagePairToPairId(1, 2)));
+  // Modify validity through PoseGraph.
+  pose_graph.SetInvalidEdge(colmap::ImagePairToPairId(1, 2));
+  EXPECT_FALSE(pose_graph.IsValid(colmap::ImagePairToPairId(1, 2)));
 
   // Non-existent pair should throw.
-  EXPECT_THROW(view_graph.ImagePair(1, 3), std::out_of_range);
+  EXPECT_THROW(pose_graph.EdgeRef(1, 3), std::out_of_range);
 }
 
-TEST(ViewGraph, GetImagePair) {
-  ViewGraph view_graph;
-  ImagePair pair = SynthesizeImagePair();
-  pair.cam2_from_cam1 =
+TEST(PoseGraph, GetEdge) {
+  PoseGraph pose_graph;
+  PoseGraph::Edge edge = SynthesizeEdge();
+  edge.cam2_from_cam1 =
       colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0));
-  view_graph.AddImagePair(1, 2, pair);
+  pose_graph.AddEdge(1, 2, edge);
 
   // Normal order: returns as-is.
-  ImagePair copy1 = view_graph.GetImagePair(1, 2);
-  EXPECT_TRUE(copy1.cam2_from_cam1.has_value());
-  EXPECT_EQ(copy1.cam2_from_cam1->translation.x(), 1);
+  PoseGraph::Edge copy1 = pose_graph.GetEdge(1, 2);
+  EXPECT_EQ(copy1.cam2_from_cam1.translation.x(), 1);
 
   // Reversed order: returns inverted copy.
-  ImagePair copy2 = view_graph.GetImagePair(2, 1);
-  EXPECT_TRUE(copy2.cam2_from_cam1.has_value());
-  EXPECT_EQ(copy2.cam2_from_cam1->translation.x(), -1);
+  PoseGraph::Edge copy2 = pose_graph.GetEdge(2, 1);
+  EXPECT_EQ(copy2.cam2_from_cam1.translation.x(), -1);
 
   // Original unchanged.
-  EXPECT_TRUE(view_graph.ImagePair(1, 2).first.cam2_from_cam1.has_value());
-  EXPECT_EQ(view_graph.ImagePair(1, 2).first.cam2_from_cam1->translation.x(),
-            1);
+  EXPECT_EQ(pose_graph.EdgeRef(1, 2).first.cam2_from_cam1.translation.x(), 1);
 
   // Non-existent pair should throw.
-  EXPECT_THROW(view_graph.GetImagePair(1, 3), std::out_of_range);
+  EXPECT_THROW(pose_graph.GetEdge(1, 3), std::out_of_range);
 }
 
-TEST(ViewGraph, DeleteImagePair) {
-  ViewGraph view_graph;
-  view_graph.AddImagePair(1, 2, SynthesizeImagePair());
-  view_graph.AddImagePair(1, 3, SynthesizeImagePair());
+TEST(PoseGraph, DeleteEdge) {
+  PoseGraph pose_graph;
+  pose_graph.AddEdge(1, 2, SynthesizeEdge());
+  pose_graph.AddEdge(1, 3, SynthesizeEdge());
 
-  EXPECT_TRUE(view_graph.DeleteImagePair(1, 2));
-  EXPECT_FALSE(view_graph.HasImagePair(1, 2));
-  EXPECT_EQ(view_graph.NumImagePairs(), 1);
+  EXPECT_TRUE(pose_graph.DeleteEdge(1, 2));
+  EXPECT_FALSE(pose_graph.HasEdge(1, 2));
+  EXPECT_EQ(pose_graph.NumEdges(), 1);
 
   // Delete with reversed order.
-  EXPECT_TRUE(view_graph.DeleteImagePair(3, 1));
-  EXPECT_EQ(view_graph.NumImagePairs(), 0);
+  EXPECT_TRUE(pose_graph.DeleteEdge(3, 1));
+  EXPECT_EQ(pose_graph.NumEdges(), 0);
 
   // Delete non-existent returns false.
-  EXPECT_FALSE(view_graph.DeleteImagePair(1, 2));
+  EXPECT_FALSE(pose_graph.DeleteEdge(1, 2));
 }
 
-TEST(ViewGraph, UpdateImagePair) {
-  ViewGraph view_graph;
-  ImagePair pair = SynthesizeImagePair();
-  pair.cam2_from_cam1 =
+TEST(PoseGraph, UpdateEdge) {
+  PoseGraph pose_graph;
+  PoseGraph::Edge edge = SynthesizeEdge();
+  edge.cam2_from_cam1 =
       colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0));
-  view_graph.AddImagePair(1, 2, pair);
+  pose_graph.AddEdge(1, 2, edge);
 
   // Update with normal order.
-  ImagePair updated = SynthesizeImagePair();
+  PoseGraph::Edge updated = SynthesizeEdge();
   updated.cam2_from_cam1 =
       colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(5, 0, 0));
-  view_graph.UpdateImagePair(1, 2, updated);
+  pose_graph.UpdateEdge(1, 2, updated);
 
-  EXPECT_TRUE(view_graph.ImagePair(1, 2).first.cam2_from_cam1.has_value());
-  EXPECT_EQ(view_graph.ImagePair(1, 2).first.cam2_from_cam1->translation.x(),
-            5);
+  EXPECT_EQ(pose_graph.EdgeRef(1, 2).first.cam2_from_cam1.translation.x(), 5);
 
   // Update with reversed order should invert.
-  ImagePair updated2 = SynthesizeImagePair();
+  PoseGraph::Edge updated2 = SynthesizeEdge();
   updated2.cam2_from_cam1 =
       colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(3, 0, 0));
-  view_graph.UpdateImagePair(2, 1, updated2);
+  pose_graph.UpdateEdge(2, 1, updated2);
 
-  EXPECT_TRUE(view_graph.ImagePair(1, 2).first.cam2_from_cam1.has_value());
-  EXPECT_EQ(view_graph.ImagePair(1, 2).first.cam2_from_cam1->translation.x(),
-            -3);
+  EXPECT_EQ(pose_graph.EdgeRef(1, 2).first.cam2_from_cam1.translation.x(), -3);
 
   // Update non-existent should throw.
-  EXPECT_THROW(view_graph.UpdateImagePair(1, 3, SynthesizeImagePair()),
+  EXPECT_THROW(pose_graph.UpdateEdge(1, 3, SynthesizeEdge()),
                std::runtime_error);
 }
 
-TEST(ViewGraph, ValidImagePairs) {
-  ViewGraph view_graph;
+TEST(PoseGraph, ValidEdges) {
+  PoseGraph pose_graph;
 
   const image_pair_t pair_id1 = colmap::ImagePairToPairId(1, 2);
   const image_pair_t pair_id2 = colmap::ImagePairToPairId(1, 3);
   const image_pair_t pair_id3 = colmap::ImagePairToPairId(2, 3);
-  view_graph.AddImagePair(1, 2, SynthesizeImagePair());
-  view_graph.AddImagePair(1, 3, SynthesizeImagePair());
-  view_graph.AddImagePair(2, 3, SynthesizeImagePair());
+  pose_graph.AddEdge(1, 2, SynthesizeEdge());
+  pose_graph.AddEdge(1, 3, SynthesizeEdge());
+  pose_graph.AddEdge(2, 3, SynthesizeEdge());
 
   auto GetValidPairIds = [&]() {
     std::vector<image_pair_t> ids;
-    for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
+    for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
       ids.push_back(pair_id);
     }
     return ids;
@@ -261,17 +237,17 @@ TEST(ViewGraph, ValidImagePairs) {
               testing::UnorderedElementsAre(pair_id1, pair_id2, pair_id3));
 
   // Invalidate one pair.
-  view_graph.SetInvalidImagePair(pair_id2);
+  pose_graph.SetInvalidEdge(pair_id2);
   EXPECT_THAT(GetValidPairIds(),
               testing::UnorderedElementsAre(pair_id1, pair_id3));
 
   // Re-validate the pair.
-  view_graph.SetValidImagePair(pair_id2);
+  pose_graph.SetValidEdge(pair_id2);
   EXPECT_THAT(GetValidPairIds(),
               testing::UnorderedElementsAre(pair_id1, pair_id2, pair_id3));
 }
 
-TEST(ViewGraph, FilterByRelativeRotation) {
+TEST(PoseGraph, FilterByRelativeRotation) {
   colmap::Reconstruction reconstruction;
   colmap::SyntheticDatasetOptions options;
   options.num_rigs = 1;
@@ -290,37 +266,37 @@ TEST(ViewGraph, FilterByRelativeRotation) {
            colmap::Inverse(reconstruction.Image(i).CamFromWorld());
   };
 
-  ViewGraph view_graph;
-  ImagePair pair1 = SynthesizeImagePair();
-  pair1.cam2_from_cam1 = AddRotationError(GetRelativePose(id1, id2), 3.0);
-  ImagePair pair2 = SynthesizeImagePair();
-  pair2.cam2_from_cam1 = AddRotationError(GetRelativePose(id1, id3), 10.0);
-  ImagePair pair3 = SynthesizeImagePair();
-  pair3.cam2_from_cam1 = AddRotationError(GetRelativePose(id1, id4), 90.0);
-  ImagePair pair4 = SynthesizeImagePair(50);
-  pair4.cam2_from_cam1 = GetRelativePose(id2, id3);
+  PoseGraph pose_graph;
+  PoseGraph::Edge edge1 = SynthesizeEdge();
+  edge1.cam2_from_cam1 = AddRotationError(GetRelativePose(id1, id2), 3.0);
+  PoseGraph::Edge edge2 = SynthesizeEdge();
+  edge2.cam2_from_cam1 = AddRotationError(GetRelativePose(id1, id3), 10.0);
+  PoseGraph::Edge edge3 = SynthesizeEdge();
+  edge3.cam2_from_cam1 = AddRotationError(GetRelativePose(id1, id4), 90.0);
+  PoseGraph::Edge edge4 = SynthesizeEdge(50);
+  edge4.cam2_from_cam1 = GetRelativePose(id2, id3);
 
   const image_pair_t pair_id1 = colmap::ImagePairToPairId(id1, id2);
   const image_pair_t pair_id2 = colmap::ImagePairToPairId(id1, id3);
   const image_pair_t pair_id3 = colmap::ImagePairToPairId(id1, id4);
   const image_pair_t pair_id4 = colmap::ImagePairToPairId(id2, id3);
-  view_graph.AddImagePair(id1, id2, std::move(pair1));
-  view_graph.AddImagePair(id1, id3, std::move(pair2));
-  view_graph.AddImagePair(id1, id4, std::move(pair3));
-  view_graph.AddImagePair(id2, id3, std::move(pair4));
-  view_graph.SetInvalidImagePair(pair_id4);  // Already invalid
+  pose_graph.AddEdge(id1, id2, std::move(edge1));
+  pose_graph.AddEdge(id1, id3, std::move(edge2));
+  pose_graph.AddEdge(id1, id4, std::move(edge3));
+  pose_graph.AddEdge(id2, id3, std::move(edge4));
+  pose_graph.SetInvalidEdge(pair_id4);  // Already invalid
 
   reconstruction.DeRegisterFrame(reconstruction.Image(id4).FrameId());
 
-  view_graph.FilterByRelativeRotation(reconstruction, 5.0);
+  pose_graph.FilterByRelativeRotation(reconstruction, 5.0);
 
-  EXPECT_TRUE(view_graph.IsValid(pair_id1));
-  EXPECT_FALSE(view_graph.IsValid(pair_id2));
-  EXPECT_TRUE(view_graph.IsValid(pair_id3));
-  EXPECT_FALSE(view_graph.IsValid(pair_id4));
+  EXPECT_TRUE(pose_graph.IsValid(pair_id1));
+  EXPECT_FALSE(pose_graph.IsValid(pair_id2));
+  EXPECT_TRUE(pose_graph.IsValid(pair_id3));
+  EXPECT_FALSE(pose_graph.IsValid(pair_id4));
 }
 
-TEST(ViewGraph, LoadFromDatabase) {
+TEST(PoseGraph, LoadFromDatabase) {
   const auto test_dir = colmap::CreateTestDir();
 
   // Create two databases with overlapping image pairs.
@@ -364,21 +340,21 @@ TEST(ViewGraph, LoadFromDatabase) {
   database2->WriteTwoViewGeometry(2, 3, two_view);
   database2->WriteTwoViewGeometry(3, 4, two_view);
 
-  ViewGraph view_graph;
+  PoseGraph pose_graph;
 
   // First read from database1 should succeed.
-  view_graph.LoadFromDatabase(*database1);
-  EXPECT_EQ(view_graph.NumImagePairs(), 2);
+  pose_graph.LoadFromDatabase(*database1);
+  EXPECT_EQ(pose_graph.NumEdges(), 2);
 
   // Second read from database2 with allow_duplicate=false should throw
   // because pair (2,3) already exists.
   EXPECT_ANY_THROW(
-      view_graph.LoadFromDatabase(*database2, /*allow_duplicate=*/false));
+      pose_graph.LoadFromDatabase(*database2, /*allow_duplicate=*/false));
 
   // Second read from database2 with allow_duplicate=true should succeed.
-  view_graph.LoadFromDatabase(*database2, /*allow_duplicate=*/true);
+  pose_graph.LoadFromDatabase(*database2, /*allow_duplicate=*/true);
   // Should now have 3 pairs: (1,2), (2,3), (3,4)
-  EXPECT_EQ(view_graph.NumImagePairs(), 3);
+  EXPECT_EQ(pose_graph.NumEdges(), 3);
 }
 
 }  // namespace
