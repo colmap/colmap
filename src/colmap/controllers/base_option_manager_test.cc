@@ -99,10 +99,21 @@ TEST(BaseOptionManager, WriteAndRead) {
   // Create necessary directories
   CreateDirIfNotExists(test_dir + "/images");
 
+  bool bool_option_write = true;
+  int int_option_write = 42;
+  double double_option_write = 3.14;
+  std::string string_option_write = "foobar";
+  std::string section_option_write = "section";
+
   // Create and configure a BaseOptionManager
   BaseOptionManager options_write;
   options_write.AddDatabaseOptions();
   options_write.AddImageOptions();
+  options_write.AddDefaultOption("bool_option", &bool_option_write);
+  options_write.AddDefaultOption("int_option", &int_option_write);
+  options_write.AddDefaultOption("double_option", &double_option_write);
+  options_write.AddDefaultOption("string_option", &string_option_write);
+  options_write.AddDefaultOption("Section.option", &section_option_write);
 
   *options_write.database_path = test_dir + "/database.db";
   *options_write.image_path = test_dir + "/images";
@@ -111,16 +122,32 @@ TEST(BaseOptionManager, WriteAndRead) {
   options_write.Write(config_path);
   EXPECT_TRUE(ExistsFile(config_path));
 
+  bool bool_option_read = false;
+  int int_option_read = -1;
+  double double_option_read = 0;
+  std::string string_option_read;
+  std::string section_option_read;
+
   // Read from file
   BaseOptionManager options_read;
   options_read.AddDatabaseOptions();
   options_read.AddImageOptions();
+  options_read.AddDefaultOption("bool_option", &bool_option_read);
+  options_read.AddDefaultOption("int_option", &int_option_read);
+  options_read.AddDefaultOption("double_option", &double_option_read);
+  options_read.AddDefaultOption("string_option", &string_option_read);
+  options_read.AddDefaultOption("Section.option", &section_option_read);
 
   EXPECT_TRUE(options_read.Read(config_path));
 
   // Verify that values were read correctly
   EXPECT_EQ(*options_read.database_path, *options_write.database_path);
   EXPECT_EQ(*options_read.image_path, *options_write.image_path);
+  EXPECT_EQ(bool_option_read, bool_option_write);
+  EXPECT_EQ(int_option_read, int_option_write);
+  EXPECT_EQ(double_option_read, double_option_write);
+  EXPECT_EQ(string_option_read, string_option_write);
+  EXPECT_EQ(section_option_read, section_option_write);
 }
 
 TEST(BaseOptionManager, ReRead) {
