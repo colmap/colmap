@@ -105,17 +105,6 @@ TEST(RotationAveraging, WithoutNoise) {
 
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
-  // TODO: This is a misuse of frame registration. Frames should only be
-  // registered when their poses are actually computed, not with arbitrary
-  // identity poses. The rotation averaging code should be updated to work
-  // with unregistered frames.
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    if (!frame.HasPose()) {
-      reconstruction.Frame(frame_id).SetRigFromWorld(Rigid3d());
-      reconstruction.RegisterFrame(frame_id);
-    }
-  }
-
   // TODO: The current 1-dof rotation averaging sometimes fails to pick the
   // right solution (e.g., 180 deg flipped).
   for (const bool use_gravity : {false}) {
@@ -153,13 +142,6 @@ TEST(RotationAveraging, WithoutNoiseWithNonTrivialKnownRig) {
   LoadReconstructionAndPoseGraph(*database, &reconstruction, &pose_graph);
 
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
-
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    if (!frame.HasPose()) {
-      reconstruction.Frame(frame_id).SetRigFromWorld(Rigid3d());
-      reconstruction.RegisterFrame(frame_id);
-    }
-  }
 
   for (const bool use_gravity : {true, false}) {
     colmap::Reconstruction reconstruction_copy = reconstruction;
@@ -206,13 +188,6 @@ TEST(RotationAveraging, WithoutNoiseWithNonTrivialUnknownRig) {
     }
   }
 
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    if (!frame.HasPose()) {
-      reconstruction.Frame(frame_id).SetRigFromWorld(Rigid3d());
-      reconstruction.RegisterFrame(frame_id);
-    }
-  }
-
   // For unknown rigs, it is not supported to use gravity.
   for (const bool use_gravity : {false}) {
     colmap::Reconstruction reconstruction_copy = reconstruction;
@@ -255,13 +230,6 @@ TEST(RotationAveraging, WithNoiseAndOutliers) {
 
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
 
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    if (!frame.HasPose()) {
-      reconstruction.Frame(frame_id).SetRigFromWorld(Rigid3d());
-      reconstruction.RegisterFrame(frame_id);
-    }
-  }
-
   // TODO: The current 1-dof rotation averaging sometimes fails to pick the
   // right solution (e.g., 180 deg flipped).
   for (const bool use_gravity : {false}) {
@@ -303,13 +271,6 @@ TEST(RotationAveraging, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
   LoadReconstructionAndPoseGraph(*database, &reconstruction, &pose_graph);
 
   std::vector<colmap::PosePrior> pose_priors = database->ReadAllPosePriors();
-
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    if (!frame.HasPose()) {
-      reconstruction.Frame(frame_id).SetRigFromWorld(Rigid3d());
-      reconstruction.RegisterFrame(frame_id);
-    }
-  }
 
   // TODO: The current 1-dof rotation averaging sometimes fails to pick the
   // right solution (e.g., 180 deg flipped).
