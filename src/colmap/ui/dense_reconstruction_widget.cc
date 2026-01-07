@@ -468,7 +468,7 @@ void DenseReconstructionWidget::DelaunayMeshing() {
 void DenseReconstructionWidget::SelectWorkspacePath() {
   std::string workspace_path;
   if (workspace_path_text_->text().isEmpty()) {
-    workspace_path = GetParentDir(*options_->project_path);
+    workspace_path = GetParentDir(*options_->project_path).string();
   } else {
     workspace_path = workspace_path_text_->text().toUtf8().constData();
   }
