@@ -112,7 +112,7 @@ ImageReader::Status ImageReader::Next(Rig* rig,
 
   image->SetName(GetNormalizedRelativePath(image_path, options_.image_path));
 
-  const std::string image_folder = GetParentDir(image->Name());
+  const std::string image_folder = GetParentDir(image->Name()).string();
 
   //////////////////////////////////////////////////////////////////////////////
   // Check if image already read.

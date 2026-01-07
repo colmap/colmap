@@ -414,7 +414,7 @@ int RunGeometricVerifier(int argc, char** argv) {
 
 void RunGuidedGeometricVerifierImpl(
     const Reconstruction& reconstruction,
-    const std::filesystem::path& database_path,
+    const std::string& database_path,
     const ExistingMatchedPairingOptions& pairing_options,
     const TwoViewGeometryOptions& geometry_options,
     int num_threads) {

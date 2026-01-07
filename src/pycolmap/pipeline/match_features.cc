@@ -93,7 +93,7 @@ void GuidedGeometricVerification(
 
   py::gil_scoped_release release;  // verification is multi-threaded
   RunGuidedGeometricVerifierImpl(reconstruction,
-                                 database_path,
+                                 database_path.string(),
                                  pairing_options,
                                  geometry_options,
                                  num_threads);
