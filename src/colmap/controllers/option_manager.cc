@@ -611,8 +611,16 @@ void OptionManager::AddGlobalMapperOptions() {
   added_global_mapper_options_ = true;
 
   // Global mapper options.
+  AddDefaultOption("GlobalMapper.image_list_path",
+                   &global_mapper_image_list_path_);
+  AddDefaultOption("GlobalMapper.min_num_matches",
+                   &global_mapper->min_num_matches);
+  AddDefaultOption("GlobalMapper.ignore_watermarks",
+                   &global_mapper->ignore_watermarks);
   AddDefaultOption("GlobalMapper.num_threads", &global_mapper->num_threads);
   AddDefaultOption("GlobalMapper.random_seed", &global_mapper->random_seed);
+  AddDefaultOption("GlobalMapper.decompose_relative_pose",
+                   &global_mapper->decompose_relative_pose);
   AddDefaultOption("GlobalMapper.num_iterations_ba",
                    &global_mapper->mapper.num_iterations_ba);
   AddDefaultOption("GlobalMapper.skip_view_graph_calibration",
@@ -988,6 +996,10 @@ bool OptionManager::Read(const std::string& path) {
 void OptionManager::PostParse() {
   if (!mapper_image_list_path_.empty()) {
     mapper->image_names = ReadTextFileLines(mapper_image_list_path_);
+  }
+  if (!global_mapper_image_list_path_.empty()) {
+    global_mapper->image_names =
+        ReadTextFileLines(global_mapper_image_list_path_);
   }
   if (!mapper_constant_rig_list_path_.empty()) {
     for (const std::string& line :

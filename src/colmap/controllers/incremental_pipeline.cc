@@ -219,11 +219,12 @@ IncrementalPipeline::IncrementalPipeline(
   LOG(INFO) << "Loading database";
   Timer timer;
   timer.Start();
-  database_cache_ = DatabaseCache::Create(
-      *database,
-      /*min_num_matches=*/static_cast<size_t>(options_->min_num_matches),
-      /*ignore_watermarks=*/options_->ignore_watermarks,
-      /*image_names=*/image_names);
+  DatabaseCache::Options database_cache_options;
+  database_cache_options.min_num_matches =
+      static_cast<size_t>(options_->min_num_matches);
+  database_cache_options.ignore_watermarks = options_->ignore_watermarks;
+  database_cache_options.image_names = image_names;
+  database_cache_ = DatabaseCache::Create(*database, database_cache_options);
   timer.PrintMinutes();
 
   // If prior positions are to be used and setup from the database, convert
@@ -264,10 +265,12 @@ IncrementalPipeline::IncrementalPipeline(
     }
   }
 
-  database_cache_ = DatabaseCache::CreateFromCache(
-      *database_cache,
-      static_cast<size_t>(options_->min_num_matches),
-      image_names);
+  DatabaseCache::Options cache_options;
+  cache_options.min_num_matches =
+      static_cast<size_t>(options_->min_num_matches);
+  cache_options.image_names = image_names;
+  database_cache_ =
+      DatabaseCache::CreateFromCache(*database_cache, cache_options);
 
   // If prior positions are to be used and setup from the database, convert
   // geographic coords. to cartesian ones

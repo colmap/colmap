@@ -339,6 +339,19 @@ TEST_P(ParameterizedDatabaseTests, Keypoints) {
   EXPECT_EQ(database->NumKeypointsForImage(image.ImageId()), 0);
 }
 
+TEST_P(ParameterizedDatabaseTests, ReadKeypointsEmpty) {
+  std::shared_ptr<Database> database = GetParam()(kInMemorySqliteDatabasePath);
+  Camera camera;
+  camera.camera_id = database->WriteCamera(camera);
+  Image image;
+  image.SetName("test");
+  image.SetCameraId(camera.camera_id);
+  image.SetImageId(database->WriteImage(image));
+  // Reading keypoints for an image with no keypoints should return empty.
+  const FeatureKeypoints keypoints = database->ReadKeypoints(image.ImageId());
+  EXPECT_TRUE(keypoints.empty());
+}
+
 TEST_P(ParameterizedDatabaseTests, Descriptors) {
   std::shared_ptr<Database> database = GetParam()(kInMemorySqliteDatabasePath);
   Camera camera;

@@ -2,7 +2,7 @@
 
 #include "colmap/feature/types.h"
 #include "colmap/geometry/rigid3.h"
-#include "colmap/scene/database.h"
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/types.h"
 
@@ -50,12 +50,10 @@ class PoseGraph {
   inline bool Empty() const;
   inline void Clear();
 
-  // Read edges from the database.
-  // If allow_duplicate is false, throws on duplicate pairs. If true, logs a
-  // warning and updates the existing pair.
-  // Decomposes relative poses for valid pairs that don't have poses yet.
-  void LoadFromDatabase(const colmap::Database& database,
-                        bool allow_duplicate = false);
+  // Load edges from the database cache.
+  // If the cache was created without load_relative_pose=true, no edges will
+  // be loaded.
+  void Load(const colmap::DatabaseCache& cache);
 
   // Edge operations.
   inline Edge& AddEdge(image_t image_id1, image_t image_id2, Edge edge);

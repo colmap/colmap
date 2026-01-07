@@ -32,6 +32,7 @@
 #include "colmap/feature/types.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
+#include "colmap/scene/database.h"
 #include "colmap/scene/image.h"
 #include "colmap/scene/rig.h"
 #include "colmap/scene/two_view_geometry.h"
@@ -220,5 +221,11 @@ TwoViewGeometry TwoViewGeometryFromKnownRelativePose(
     const FeatureMatches& matches,
     int min_num_inliers = 15,
     double max_error = 4.0);
+
+// Decompose relative poses from two-view geometries in the database and write
+// the results back to the database. Skips pairs that already have a relative
+// pose or have invalid two-view geometries (UNDEFINED, DEGENERATE, WATERMARK,
+// MULTIPLE).
+void MaybeDecomposeAndWriteRelativePoses(Database* database);
 
 }  // namespace colmap
