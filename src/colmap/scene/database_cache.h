@@ -64,10 +64,7 @@ class DatabaseCache {
   //                              same frame will also be included. All images
   //                              are used if empty.
   // @param load_relative_pose    Whether to load/compute relative poses
-  //                              (cam2_from_cam1) for image pairs. If the pose
-  //                              is not stored in the database, it will be
-  //                              decomposed from the essential/fundamental
-  //                              matrix.
+  //                              (cam2_from_cam1) for image pairs.
   void Load(const Database& database,
             size_t min_num_matches = 0,
             bool ignore_watermarks = false,
