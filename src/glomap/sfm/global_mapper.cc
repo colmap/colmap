@@ -87,7 +87,8 @@ void GlobalMapper::EstablishTracks(const TrackEstablishmentOptions& options) {
   }
 
   std::unordered_map<point3D_t, Point3D> points3D;
-  EstablishTracks(*pose_graph_, image_id_to_keypoints, options, points3D);
+  glomap::EstablishTracks(
+      *pose_graph_, image_id_to_keypoints, options, points3D);
 
   THROW_CHECK_EQ(reconstruction_->NumPoints3D(), 0);
   for (auto& [point3D_id, point3D] : points3D) {
