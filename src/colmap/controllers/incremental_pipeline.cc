@@ -55,9 +55,9 @@ void ExtractColors(const std::filesystem::path& image_path,
                    const image_t image_id,
                    Reconstruction& reconstruction) {
   if (!reconstruction.ExtractColorsForImage(image_id, image_path)) {
-    LOG(WARNING) << StringPrintf("Could not read image %s at path %s.",
-                                 reconstruction.Image(image_id).Name().c_str(),
-                                 image_path.string().c_str());
+    LOG(WARNING) << "Could not read image "
+                 << reconstruction.Image(image_id).Name() << " at path "
+                 << image_path << ".";
   }
 }
 

@@ -410,7 +410,7 @@ void ExportPLY(const Reconstruction& reconstruction,
 
   const bool kWriteNormal = false;
   const bool kWriteRGB = true;
-  WriteBinaryPlyPoints(path.string(), ply_points, kWriteNormal, kWriteRGB);
+  WriteBinaryPlyPoints(path, ply_points, kWriteNormal, kWriteRGB);
 }
 
 void ExportVRML(const Reconstruction& reconstruction,

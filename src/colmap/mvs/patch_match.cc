@@ -218,7 +218,7 @@ void PatchMatchController::ReadWorkspace() {
   workspace_options.max_image_size = options_.max_image_size;
   workspace_options.image_as_rgb = false;
   workspace_options.cache_size = options_.cache_size;
-  workspace_options.workspace_path = workspace_path_.string();
+  workspace_options.workspace_path = workspace_path_;
   workspace_options.workspace_format = workspace_format_;
   workspace_options.input_type = options_.geom_consistency ? "photometric" : "";
 
@@ -240,12 +240,11 @@ void PatchMatchController::ReadProblems() {
 
   const auto& model = workspace_->GetModel();
 
-  const std::string config_path =
-      config_path_.empty()
-          ? (workspace_path_ / workspace_->GetOptions().stereo_folder /
-             "patch-match.cfg")
-                .string()
-          : config_path_.string();
+  const auto config_path = config_path_.empty()
+                               ? workspace_path_ /
+                                     workspace_->GetOptions().stereo_folder /
+                                     "patch-match.cfg"
+                               : config_path_;
   std::vector<std::string> config = ReadTextFileLines(config_path);
 
   std::vector<std::map<int, int>> shared_num_points;

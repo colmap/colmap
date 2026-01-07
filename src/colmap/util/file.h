@@ -115,16 +115,17 @@ template <typename... T>
 std::string JoinPaths(T const&... paths);
 
 // Return list of files in directory.
-std::vector<std::string> GetFileList(const std::string& path);
+std::vector<std::string> GetFileList(const std::filesystem::path& path);
 
 // Return list of files, recursively in all sub-directories.
-std::vector<std::string> GetRecursiveFileList(const std::string& path);
+std::vector<std::string> GetRecursiveFileList(
+    const std::filesystem::path& path);
 
 // Return list of directories, recursively in all sub-directories.
-std::vector<std::string> GetDirList(const std::string& path);
+std::vector<std::string> GetDirList(const std::filesystem::path& path);
 
 // Return list of directories, recursively in all sub-directories.
-std::vector<std::string> GetRecursiveDirList(const std::string& path);
+std::vector<std::string> GetRecursiveDirList(const std::filesystem::path& path);
 
 // Get the size in bytes of a file.
 size_t GetFileSize(const std::string& path);
@@ -134,18 +135,19 @@ size_t GetFileSize(const std::string& path);
 std::optional<std::filesystem::path> HomeDir();
 
 // Read contiguous binary blob from file.
-void ReadBinaryBlob(const std::string& path, std::vector<char>* data);
+void ReadBinaryBlob(const std::filesystem::path& path, std::vector<char>* data);
 
 // Write contiguous binary blob to file.
-void WriteBinaryBlob(const std::string& path, const span<const char>& data);
+void WriteBinaryBlob(const std::filesystem::path& path,
+                     const span<const char>& data);
 
 // Read each line of a text file into a separate element. Empty lines are
 // ignored and leading/trailing whitespace is removed.
-std::vector<std::string> ReadTextFileLines(const std::string& path);
+std::vector<std::string> ReadTextFileLines(const std::filesystem::path& path);
 
 // Detect if given string is a URI
 // (i.e., starts with http://, https://, file://).
-bool IsURI(const std::string& uri);
+bool IsURI(const std::filesystem::path& uri);
 
 #ifdef COLMAP_DOWNLOAD_ENABLED
 
@@ -174,7 +176,7 @@ void OverwriteDownloadCacheDir(std::filesystem::path path);
 // If the given URI is a local filesystem path, returns the input path. If the
 // URI matches the "<url>;<name>;<sha256>" format, calls DownloadAndCacheFile().
 // Throws runtime exception if download is not supported.
-std::string MaybeDownloadAndCacheFile(const std::string& uri);
+std::filesystem::path MaybeDownloadAndCacheFile(const std::string& uri);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation

@@ -121,12 +121,12 @@ bool DelaunayMeshingOptions::Check() const {
 }
 
 bool PoissonMeshing(const PoissonMeshingOptions& options,
-                    const std::string& input_path,
-                    const std::string& output_path) {
+                    const std::filesystem::path& input_path,
+                    const std::filesystem::path& output_path) {
   THROW_CHECK(options.Check());
-  THROW_CHECK_HAS_FILE_EXTENSION(std::filesystem::path(input_path), ".ply");
+  THROW_CHECK_HAS_FILE_EXTENSION(input_path, ".ply");
   THROW_CHECK_FILE_EXISTS(input_path);
-  THROW_CHECK_HAS_FILE_EXTENSION(std::filesystem::path(output_path), ".ply");
+  THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
   THROW_CHECK_PATH_OPEN(output_path);
 
   bool success = true;
@@ -145,10 +145,10 @@ bool PoissonMeshing(const PoissonMeshingOptions& options,
     args.push_back("./poisson_recon");
 
     args.push_back("--in");
-    args.push_back(input_path);
+    args.push_back(input_path.string());
 
     args.push_back("--out");
-    args.push_back(output_path);
+    args.push_back(output_path.string());
 
     args.push_back("--pointWeight");
     args.push_back(std::to_string(options.point_weight));
@@ -193,10 +193,10 @@ bool PoissonMeshing(const PoissonMeshingOptions& options,
       args.push_back("./surface_trimmer");
 
       args.push_back("--in");
-      args.push_back(output_path);
+      args.push_back(output_path.string());
 
       args.push_back("--out");
-      args.push_back(output_path);
+      args.push_back(output_path.string());
 
       args.push_back("--trim");
       args.push_back(std::to_string(options.trim));
@@ -245,7 +245,7 @@ class DelaunayMeshingInput {
   std::vector<Image> images;
   std::vector<Point> points;
 
-  void ReadSparseReconstruction(const std::string& path) {
+  void ReadSparseReconstruction(const std::filesystem::path& path) {
     Reconstruction reconstruction;
     reconstruction.Read(path);
     CopyFromSparseReconstruction(reconstruction);
@@ -285,10 +285,10 @@ class DelaunayMeshingInput {
     }
   }
 
-  void ReadDenseReconstruction(const std::string& path) {
+  void ReadDenseReconstruction(const std::filesystem::path& path) {
     {
       Reconstruction reconstruction;
-      reconstruction.Read(std::filesystem::path(path) / "sparse");
+      reconstruction.Read(path / "sparse");
 
       cameras = reconstruction.Cameras();
 
@@ -304,11 +304,9 @@ class DelaunayMeshingInput {
       }
     }
 
-    const auto& ply_points =
-        ReadPly((std::filesystem::path(path) / "fused.ply").string());
+    const auto& ply_points = ReadPly(path / "fused.ply");
 
-    const std::string vis_path =
-        (std::filesystem::path(path) / "fused.ply.vis").string();
+    const auto vis_path = path / "fused.ply.vis";
     std::fstream vis_file(vis_path, std::ios::in | std::ios::binary);
     THROW_CHECK_FILE_OPEN(vis_file, vis_path);
 
@@ -1042,8 +1040,8 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 }
 
 void SparseDelaunayMeshing(const DelaunayMeshingOptions& options,
-                           const std::string& input_path,
-                           const std::string& output_path) {
+                           const std::filesystem::path& input_path,
+                           const std::filesystem::path& output_path) {
   Timer timer;
   timer.Start();
 
@@ -1059,8 +1057,8 @@ void SparseDelaunayMeshing(const DelaunayMeshingOptions& options,
 }
 
 void DenseDelaunayMeshing(const DelaunayMeshingOptions& options,
-                          const std::string& input_path,
-                          const std::string& output_path) {
+                          const std::filesystem::path& input_path,
+                          const std::filesystem::path& output_path) {
   Timer timer;
   timer.Start();
 

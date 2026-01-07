@@ -66,8 +66,8 @@ class COLMAPUndistorter : public BaseController {
   COLMAPUndistorter(
       const UndistortCameraOptions& options,
       const Reconstruction& reconstruction,
-      const std::string& image_path,
-      const std::string& output_path,
+      const std::filesystem::path& image_path,
+      const std::filesystem::path& output_path,
       int num_related_images = 20,
       CopyType copy_type = CopyType::COPY,
       const std::vector<image_t>& image_ids = std::vector<image_t>());
@@ -95,8 +95,8 @@ class PMVSUndistorter : public BaseController {
  public:
   PMVSUndistorter(const UndistortCameraOptions& options,
                   const Reconstruction& reconstruction,
-                  const std::string& image_path,
-                  const std::string& output_path);
+                  const std::filesystem::path& image_path,
+                  const std::filesystem::path& output_path);
 
   void Run();
 
@@ -120,8 +120,8 @@ class CMPMVSUndistorter : public BaseController {
  public:
   CMPMVSUndistorter(const UndistortCameraOptions& options,
                     const Reconstruction& reconstruction,
-                    const std::string& image_path,
-                    const std::string& output_path);
+                    const std::filesystem::path& image_path,
+                    const std::filesystem::path& output_path);
 
   void Run();
 

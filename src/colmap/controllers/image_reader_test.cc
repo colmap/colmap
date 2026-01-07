@@ -65,10 +65,10 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
   ImageReaderOptions options;
   options.image_path = test_dir + "/images";
   options.as_rgb = kAsRGB;
-  CreateDirIfNotExists(options.image_path.string());
+  CreateDirIfNotExists(options.image_path);
   if (kWithMasks) {
     options.mask_path = test_dir + "/masks";
-    CreateDirIfNotExists(options.mask_path.string());
+    CreateDirIfNotExists(options.mask_path);
   }
   const Bitmap test_bitmap = CreateTestBitmap(kAsRGB);
   for (int i = 0; i < kNumImages; ++i) {

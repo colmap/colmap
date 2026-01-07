@@ -80,7 +80,7 @@ Camera InferCameraFromImage(const std::filesystem::path& image_path,
   Bitmap bitmap;
   THROW_CHECK_FILE_EXISTS(image_path);
   THROW_CHECK(bitmap.Read(image_path, false))
-      << "Cannot read image file: " << image_path.string();
+      << "Cannot read image file: " << image_path;
 
   double focal_length = 0.0;
   bool has_prior_focal_length = bitmap.ExifFocalLength(&focal_length);
@@ -131,21 +131,17 @@ void UndistortImages(const std::filesystem::path& output_path,
   if (output_type == "COLMAP") {
     undistorter.reset(new COLMAPUndistorter(undistort_camera_options,
                                             reconstruction,
-                                            image_path.string(),
-                                            output_path.string(),
+                                            image_path,
+                                            output_path,
                                             num_patch_match_src_images,
                                             copy_type,
                                             image_ids));
   } else if (output_type == "PMVS") {
-    undistorter.reset(new PMVSUndistorter(undistort_camera_options,
-                                          reconstruction,
-                                          image_path.string(),
-                                          output_path.string()));
+    undistorter.reset(new PMVSUndistorter(
+        undistort_camera_options, reconstruction, image_path, output_path));
   } else if (output_type == "CMP-MVS") {
-    undistorter.reset(new CMPMVSUndistorter(undistort_camera_options,
-                                            reconstruction,
-                                            image_path.string(),
-                                            output_path.string()));
+    undistorter.reset(new CMPMVSUndistorter(
+        undistort_camera_options, reconstruction, image_path, output_path));
   } else {
     LOG(FATAL_THROW)
         << "Invalid `output_type` - supported values are {'COLMAP', "

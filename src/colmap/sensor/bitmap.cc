@@ -453,7 +453,7 @@ bool Bitmap::ExifAltitude(double* altitude) const {
 bool Bitmap::Read(const std::filesystem::path& path,
                   const bool as_rgb,
                   const bool linearize_colorspace) {
-  if (!ExistsFile(path.string())) {
+  if (!ExistsFile(path)) {
     VLOG(3) << "Failed to read bitmap, because file does not exist";
     return false;
   }
@@ -528,8 +528,7 @@ bool Bitmap::Write(const std::filesystem::path& path,
     output_data_ptr = maybe_linearized_output_data.data();
   }
 
-  if (HasFileExtension(path.string(), ".jpg") ||
-      HasFileExtension(path.string(), ".jpeg")) {
+  if (HasFileExtension(path, ".jpg") || HasFileExtension(path, ".jpeg")) {
     std::string_view compression;
     if (!GetMetaData("Compression", &compression)) {
       // Save JPEG in superb quality by default to reduce compression artifacts.

@@ -54,7 +54,7 @@ void WriteMatrix(const Eigen::MatrixBase<Derived>& matrix,
 }
 
 // Write projection matrix P = K * [R t] to file and prepend given header.
-void WriteProjectionMatrix(const std::string& path,
+void WriteProjectionMatrix(const std::filesystem::path& path,
                            const Camera& camera,
                            const Image& image,
                            const std::string& header) {
@@ -80,7 +80,7 @@ void WriteProjectionMatrix(const std::string& path,
 }
 
 void WriteCOLMAPCommands(const bool geometric,
-                         const std::string& workspace_path,
+                         const std::filesystem::path& workspace_path,
                          const std::string& workspace_format,
                          const std::string& pmvs_option_name,
                          const std::string& output_prefix,
@@ -144,8 +144,8 @@ void WriteCOLMAPCommands(const bool geometric,
 
 COLMAPUndistorter::COLMAPUndistorter(const UndistortCameraOptions& options,
                                      const Reconstruction& reconstruction,
-                                     const std::string& image_path,
-                                     const std::string& output_path,
+                                     const std::filesystem::path& image_path,
+                                     const std::filesystem::path& output_path,
                                      const int num_patch_match_src_images,
                                      const CopyType copy_type,
                                      const std::vector<image_t>& image_ids)
@@ -292,8 +292,8 @@ void COLMAPUndistorter::WriteScript(const bool geometric) const {
 
 PMVSUndistorter::PMVSUndistorter(const UndistortCameraOptions& options,
                                  const Reconstruction& reconstruction,
-                                 const std::string& image_path,
-                                 const std::string& output_path)
+                                 const std::filesystem::path& image_path,
+                                 const std::filesystem::path& output_path)
     : options_(options),
       image_path_(image_path),
       output_path_(output_path),
@@ -336,9 +336,9 @@ void PMVSUndistorter::Run() {
   Reconstruction undistorted_reconstruction = reconstruction_;
   UndistortReconstruction(options_, &undistorted_reconstruction);
   const auto bundle_path = output_path_ / "pmvs" / "bundle.rd.out";
-  ExportBundler(undistorted_reconstruction,
-                bundle_path,
-                (bundle_path.string() + ".list.txt"));
+  std::filesystem::path list_path = bundle_path;
+  list_path += ".list.txt";
+  ExportBundler(undistorted_reconstruction, bundle_path, list_path);
 
   LOG(INFO) << "Writing visibility file...";
   WriteVisibilityData();
@@ -383,8 +383,7 @@ bool PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
                  &undistorted_bitmap,
                  &undistorted_camera);
 
-  WriteProjectionMatrix(
-      proj_matrix_path.string(), undistorted_camera, image, "CONTOUR");
+  WriteProjectionMatrix(proj_matrix_path, undistorted_camera, image, "CONTOUR");
   return undistorted_bitmap.Write(output_image_path);
 }
 
@@ -529,8 +528,8 @@ void PMVSUndistorter::WriteOptionFile() const {
 
 CMPMVSUndistorter::CMPMVSUndistorter(const UndistortCameraOptions& options,
                                      const Reconstruction& reconstruction,
-                                     const std::string& image_path,
-                                     const std::string& output_path)
+                                     const std::filesystem::path& image_path,
+                                     const std::filesystem::path& output_path)
     : options_(options),
       image_path_(image_path),
       output_path_(output_path),
@@ -589,8 +588,7 @@ bool CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
                  &undistorted_bitmap,
                  &undistorted_camera);
 
-  WriteProjectionMatrix(
-      proj_matrix_path.string(), undistorted_camera, image, "CONTOUR");
+  WriteProjectionMatrix(proj_matrix_path, undistorted_camera, image, "CONTOUR");
   return undistorted_bitmap.Write(output_image_path);
 }
 

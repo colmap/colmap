@@ -168,7 +168,7 @@ std::string GetNormalizedRelativePath(const std::filesystem::path& full_path,
   return NormalizePath(std::filesystem::relative(full_path, base_path));
 }
 
-std::vector<std::string> GetFileList(const std::string& path) {
+std::vector<std::string> GetFileList(const std::filesystem::path& path) {
   std::vector<std::string> file_list;
   for (auto it = std::filesystem::directory_iterator(path);
        it != std::filesystem::directory_iterator();
@@ -181,7 +181,8 @@ std::vector<std::string> GetFileList(const std::string& path) {
   return file_list;
 }
 
-std::vector<std::string> GetRecursiveFileList(const std::string& path) {
+std::vector<std::string> GetRecursiveFileList(
+    const std::filesystem::path& path) {
   std::vector<std::string> file_list;
   for (auto it = std::filesystem::recursive_directory_iterator(path);
        it != std::filesystem::recursive_directory_iterator();
@@ -194,7 +195,7 @@ std::vector<std::string> GetRecursiveFileList(const std::string& path) {
   return file_list;
 }
 
-std::vector<std::string> GetDirList(const std::string& path) {
+std::vector<std::string> GetDirList(const std::filesystem::path& path) {
   std::vector<std::string> dir_list;
   for (auto it = std::filesystem::directory_iterator(path);
        it != std::filesystem::directory_iterator();
@@ -207,7 +208,8 @@ std::vector<std::string> GetDirList(const std::string& path) {
   return dir_list;
 }
 
-std::vector<std::string> GetRecursiveDirList(const std::string& path) {
+std::vector<std::string> GetRecursiveDirList(
+    const std::filesystem::path& path) {
   std::vector<std::string> dir_list;
   for (auto it = std::filesystem::recursive_directory_iterator(path);
        it != std::filesystem::recursive_directory_iterator();
@@ -220,7 +222,7 @@ std::vector<std::string> GetRecursiveDirList(const std::string& path) {
   return dir_list;
 }
 
-size_t GetFileSize(const std::string& path) {
+size_t GetFileSize(const std::filesystem::path& path) {
   std::ifstream file(path, std::ifstream::ate | std::ifstream::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   return file.tellg();
@@ -283,7 +285,8 @@ std::optional<std::filesystem::path> HomeDir() {
 #endif
 }
 
-void ReadBinaryBlob(const std::string& path, std::vector<char>* data) {
+void ReadBinaryBlob(const std::filesystem::path& path,
+                    std::vector<char>* data) {
   std::ifstream file(path, std::ios::binary | std::ios::ate);
   THROW_CHECK_FILE_OPEN(file, path);
   file.seekg(0, std::ios::end);
@@ -293,13 +296,14 @@ void ReadBinaryBlob(const std::string& path, std::vector<char>* data) {
   file.read(data->data(), num_bytes);
 }
 
-void WriteBinaryBlob(const std::string& path, const span<const char>& data) {
+void WriteBinaryBlob(const std::filesystem::path& path,
+                     const span<const char>& data) {
   std::ofstream file(path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   file.write(data.begin(), data.size());
 }
 
-std::vector<std::string> ReadTextFileLines(const std::string& path) {
+std::vector<std::string> ReadTextFileLines(const std::filesystem::path& path) {
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
 
@@ -476,7 +480,7 @@ void OverwriteDownloadCacheDir(std::filesystem::path path) {
 
 #endif  // COLMAP_DOWNLOAD_ENABLED
 
-std::string MaybeDownloadAndCacheFile(const std::string& uri) {
+std::filesystem::path MaybeDownloadAndCacheFile(const std::string& uri) {
   if (!IsURI(uri)) {
     return uri;
   }

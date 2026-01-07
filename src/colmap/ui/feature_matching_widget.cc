@@ -270,8 +270,8 @@ void SequentialMatchingTab::Run() {
   WriteOptions();
 
   if (options_->sequential_pairing->loop_detection &&
-      !ExistsFile(options_->sequential_pairing->vocab_tree_path.string()) &&
-      !IsURI(options_->sequential_pairing->vocab_tree_path.string())) {
+      !ExistsFile(options_->sequential_pairing->vocab_tree_path) &&
+      !IsURI(options_->sequential_pairing->vocab_tree_path)) {
     QMessageBox::critical(this, "", tr("Invalid vocabulary tree path."));
     return;
   }
@@ -308,7 +308,7 @@ VocabTreeMatchingTab::VocabTreeMatchingTab(QWidget* parent,
 void VocabTreeMatchingTab::Run() {
   WriteOptions();
 
-  if (!ExistsFile(options_->vocab_tree_pairing->vocab_tree_path.string()) &&
+  if (!ExistsFile(options_->vocab_tree_pairing->vocab_tree_path) &&
       !IsURI(options_->vocab_tree_pairing->vocab_tree_path.string())) {
     QMessageBox::critical(this, "", tr("Invalid vocabulary tree path."));
     return;
@@ -385,7 +385,7 @@ CustomMatchingTab::CustomMatchingTab(QWidget* parent, OptionManager* options)
 void CustomMatchingTab::Run() {
   WriteOptions();
 
-  if (!ExistsFile(custom_match_list_path_.string())) {
+  if (!ExistsFile(custom_match_list_path_)) {
     QMessageBox::critical(this, "", tr("Path does not exist!"));
     return;
   }

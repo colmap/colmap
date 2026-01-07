@@ -52,7 +52,7 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
 
   // Get a list of all files in the image path, sorted by image name.
   if (options_.image_names.empty()) {
-    options_.image_names = GetRecursiveFileList(options_.image_path.string());
+    options_.image_names = GetRecursiveFileList(options_.image_path);
     std::sort(options_.image_names.begin(), options_.image_names.end());
   } else {
     if (!std::is_sorted(options_.image_names.begin(),

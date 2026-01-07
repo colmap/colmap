@@ -134,7 +134,7 @@ ImportFeaturesWidget::ImportFeaturesWidget(QWidget* parent,
 void ImportFeaturesWidget::Run() {
   WriteOptions();
 
-  if (!ExistsDir(import_path_.string())) {
+  if (!ExistsDir(import_path_)) {
     QMessageBox::critical(this, "", tr("Path is not a directory"));
     return;
   }
@@ -143,7 +143,7 @@ void ImportFeaturesWidget::Run() {
   reader_options.image_path = *options_->image_path;
 
   auto importer = CreateFeatureImporterController(
-      *options_->database_path, reader_options, import_path_.string());
+      *options_->database_path, reader_options, import_path_);
   thread_control_widget_->StartThread(
       "Importing...", true, std::move(importer));
 }

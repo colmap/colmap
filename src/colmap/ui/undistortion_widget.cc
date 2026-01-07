@@ -79,9 +79,7 @@ void UndistortionWidget::Show(
   raise();
 }
 
-bool UndistortionWidget::IsValid() const {
-  return ExistsDir(output_path_.string());
-}
+bool UndistortionWidget::IsValid() const { return ExistsDir(output_path_); }
 
 void UndistortionWidget::Undistort() {
   THROW_CHECK_NOTNULL(reconstruction_);
@@ -96,19 +94,19 @@ void UndistortionWidget::Undistort() {
           std::make_shared<COLMAPUndistorter>(undistortion_options_,
                                               *reconstruction_,
                                               *options_->image_path,
-                                              output_path_.string()));
+                                              output_path_));
     } else if (output_format_->currentIndex() == 1) {
       undistorter = std::make_unique<ControllerThread<PMVSUndistorter>>(
           std::make_shared<PMVSUndistorter>(undistortion_options_,
                                             *reconstruction_,
                                             *options_->image_path,
-                                            output_path_.string()));
+                                            output_path_));
     } else if (output_format_->currentIndex() == 2) {
       undistorter = std::make_unique<ControllerThread<CMPMVSUndistorter>>(
           std::make_shared<CMPMVSUndistorter>(undistortion_options_,
                                               *reconstruction_,
                                               *options_->image_path,
-                                              output_path_.string()));
+                                              output_path_));
     } else {
       QMessageBox::critical(this, "", tr("Invalid output format"));
       return;

@@ -262,7 +262,7 @@ void AutomaticReconstructionController::RunFeatureMatching() {
 void AutomaticReconstructionController::RunSparseMapper() {
   const auto sparse_path = options_.workspace_path / "sparse";
   if (ExistsDir(sparse_path)) {
-    auto dir_list = GetDirList(sparse_path.string());
+    auto dir_list = GetDirList(sparse_path);
 
     std::sort(dir_list.begin(), dir_list.end());
 
@@ -346,7 +346,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
       COLMAPUndistorter undistorter(undistortion_options,
                                     *reconstruction_manager_->Get(i),
                                     *option_manager_.image_path,
-                                    dense_path.string());
+                                    dense_path);
       undistorter.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
       undistorter.Run();
     }
@@ -393,9 +393,10 @@ void AutomaticReconstructionController::RunDenseMapper() {
       fuser.Run();
 
       LOG(INFO) << "Writing output: " << fused_path;
-      WriteBinaryPlyPoints(fused_path.string(), fuser.GetFusedPoints());
-      mvs::WritePointsVisibility(fused_path.string() + ".vis",
-                                 fuser.GetFusedPointsVisibility());
+      WriteBinaryPlyPoints(fused_path, fuser.GetFusedPoints());
+      auto vis_path = fused_path;
+      vis_path += ".vis";
+      mvs::WritePointsVisibility(vis_path, fuser.GetFusedPointsVisibility());
     }
 
     if (IsStopped()) {
@@ -406,14 +407,12 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
     if (!ExistsFile(meshing_path)) {
       if (options_.mesher == Mesher::POISSON) {
-        mvs::PoissonMeshing(*option_manager_.poisson_meshing,
-                            fused_path.string(),
-                            meshing_path.string());
+        mvs::PoissonMeshing(
+            *option_manager_.poisson_meshing, fused_path, meshing_path);
       } else if (options_.mesher == Mesher::DELAUNAY) {
 #if defined(COLMAP_CGAL_ENABLED)
-        mvs::DenseDelaunayMeshing(*option_manager_.delaunay_meshing,
-                                  dense_path.string(),
-                                  meshing_path.string());
+        mvs::DenseDelaunayMeshing(
+            *option_manager_.delaunay_meshing, dense_path, meshing_path);
 #else  // COLMAP_CGAL_ENABLED
         LOG(WARNING)
             << "Skipping Delaunay meshing because CGAL is not available";

@@ -49,7 +49,7 @@ namespace colmap {
 namespace {
 
 std::vector<std::pair<image_t, image_t>> ReadImagePairsText(
-    const std::string& path,
+    const std::filesystem::path& path,
     const std::unordered_map<std::string, image_t>& image_name_to_image_id) {
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
@@ -812,8 +812,8 @@ ImportedPairGenerator::ImportedPairGenerator(
     const auto& image = cache->GetImage(image_id);
     image_name_to_image_id.emplace(image.Name(), image_id);
   }
-  image_pairs_ = ReadImagePairsText(options_.match_list_path.string(),
-                                    image_name_to_image_id);
+  image_pairs_ =
+      ReadImagePairsText(options_.match_list_path, image_name_to_image_id);
   block_image_pairs_.reserve(options_.block_size);
 }
 

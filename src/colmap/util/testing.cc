@@ -39,7 +39,7 @@
 
 namespace colmap {
 
-std::string CreateTestDir() {
+std::filesystem::path CreateTestDir() {
   const testing::TestInfo* test_info = THROW_CHECK_NOTNULL(
       testing::UnitTest::GetInstance()->current_test_info());
   std::ostringstream test_name_stream;
@@ -62,7 +62,7 @@ std::string CreateTestDir() {
   }
   existing_test_names.insert(test_name);
 
-  return test_dir.string();
+  return test_dir;
 }
 
 }  // namespace colmap

@@ -340,7 +340,7 @@ class FeatureExtractorController : public Thread {
 
     std::shared_ptr<Bitmap> camera_mask;
     if (!reader_options_.camera_mask_path.empty()) {
-      if (ExistsFile(reader_options_.camera_mask_path.string())) {
+      if (ExistsFile(reader_options_.camera_mask_path)) {
         camera_mask = std::make_shared<Bitmap>();
         if (!camera_mask->Read(reader_options_.camera_mask_path,
                                /*as_rgb*/ false)) {
@@ -541,7 +541,7 @@ class FeatureImporterController : public Thread {
     Timer run_timer;
     run_timer.Start();
 
-    if (!ExistsDir(import_path_.string())) {
+    if (!ExistsDir(import_path_)) {
       LOG(ERROR) << "Import directory does not exist.";
       return;
     }
@@ -575,7 +575,7 @@ class FeatureImporterController : public Thread {
       if (ExistsFile(path)) {
         FeatureKeypoints keypoints;
         FeatureDescriptors descriptors;
-        LoadSiftFeaturesFromTextFile(path.string(), &keypoints, &descriptors);
+        LoadSiftFeaturesFromTextFile(path, &keypoints, &descriptors);
 
         LOG(INFO) << "Features:       " << keypoints.size()
                   << "(Imported SIFT)";

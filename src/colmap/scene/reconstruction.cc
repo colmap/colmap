@@ -39,8 +39,6 @@
 #include "colmap/util/file.h"
 #include "colmap/util/ply.h"
 
-#include <filesystem>
-
 namespace colmap {
 
 Reconstruction::Reconstruction() : max_point3D_id_(0) {}
@@ -1064,7 +1062,7 @@ std::vector<PlyPoint> Reconstruction::ConvertToPLY() const {
 void Reconstruction::ImportPLY(const std::filesystem::path& path) {
   points3D_.clear();
 
-  const auto ply_points = ReadPly(path.string());
+  const auto ply_points = ReadPly(path);
 
   points3D_.reserve(ply_points.size());
 
@@ -1169,7 +1167,7 @@ void Reconstruction::ExtractColorsForAllImages(
 }
 
 void Reconstruction::CreateImageDirs(const std::filesystem::path& path) const {
-  std::unordered_set<std::string> image_dirs;
+  std::unordered_set<std::filesystem::path> image_dirs;
   for (const auto& image : images_) {
     const std::vector<std::string> name_split =
         StringSplit(image.second.Name(), "/");
@@ -1177,7 +1175,7 @@ void Reconstruction::CreateImageDirs(const std::filesystem::path& path) const {
       std::filesystem::path dir = path;
       for (size_t i = 0; i < name_split.size() - 1; ++i) {
         dir = dir / name_split[i];
-        image_dirs.insert(dir.string());
+        image_dirs.insert(dir);
       }
     }
   }

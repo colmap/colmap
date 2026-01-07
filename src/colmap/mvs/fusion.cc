@@ -113,7 +113,7 @@ StereoFusion::StereoFusion(const StereoFusionOptions& options,
                            const std::string& pmvs_option_name,
                            const std::string& input_type)
     : options_(options),
-      workspace_path_(workspace_path.string()),
+      workspace_path_(workspace_path),
       workspace_format_(workspace_format),
       pmvs_option_name_(pmvs_option_name),
       input_type_(input_type),
@@ -161,7 +161,8 @@ void StereoFusion::Run() {
   workspace_options.input_type = input_type_;
   const auto config_path =
       workspace_path_ / workspace_options.stereo_folder / "fusion.cfg";
-  const auto image_names = ReadTextFileLines(config_path.string());
+  const auto image_names = ReadTextFileLines(config_path);
+
   int num_threads = 1;
   if (options_.use_cache) {
     workspace_ = std::make_unique<CachedWorkspace>(workspace_options);

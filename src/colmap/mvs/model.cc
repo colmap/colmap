@@ -74,12 +74,8 @@ void Model::ReadFromCOLMAP(const std::filesystem::path& path,
         image.CamFromWorld().rotation.toRotationMatrix().cast<float>();
     const Eigen::Vector3f T = image.CamFromWorld().translation.cast<float>();
 
-    images.emplace_back(image_path.string(),
-                        camera.width,
-                        camera.height,
-                        K.data(),
-                        R.data(),
-                        T.data());
+    images.emplace_back(
+        image_path, camera.width, camera.height, K.data(), R.data(), T.data());
     image_id_to_idx.emplace(image_id, image_idx);
     image_names_.push_back(image.Name());
     image_name_to_idx_.emplace(image.Name(), image_idx);
@@ -329,8 +325,7 @@ bool Model::ReadFromBundlerPMVS(const std::filesystem::path& path) {
     T[1] = -T[1];
     T[2] = -T[2];
 
-    images.emplace_back(
-        image_path.string(), bitmap.Width(), bitmap.Height(), K, R, T);
+    images.emplace_back(image_path, bitmap.Width(), bitmap.Height(), K, R, T);
     image_names_.push_back(image_name);
     image_name_to_idx_.emplace(image_name, image_idx);
   }
@@ -407,7 +402,7 @@ bool Model::ReadFromRawPMVS(const std::filesystem::path& path) {
     const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> R_float = R.cast<float>();
     const Eigen::Vector3f T_float = T.cast<float>();
 
-    images.emplace_back(image_path.string(),
+    images.emplace_back(image_path,
                         bitmap.Width(),
                         bitmap.Height(),
                         K_float.data(),
