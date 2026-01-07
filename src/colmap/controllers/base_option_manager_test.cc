@@ -93,19 +93,19 @@ TEST(BaseOptionManager, AddOptionsIdempotent) {
 }
 
 TEST(BaseOptionManager, WriteAndRead) {
-  const std::string test_dir = CreateTestDir();
-  const std::string config_path = test_dir + "/config.ini";
+  const auto test_dir = CreateTestDir();
+  const auto config_path = test_dir / "config.ini";
 
   // Create necessary directories
-  CreateDirIfNotExists(test_dir + "/images");
+  CreateDirIfNotExists(test_dir / "images");
 
   // Create and configure a BaseOptionManager
   BaseOptionManager options_write;
   options_write.AddDatabaseOptions();
   options_write.AddImageOptions();
 
-  *options_write.database_path = test_dir + "/database.db";
-  *options_write.image_path = test_dir + "/images";
+  *options_write.database_path = test_dir / "database.db";
+  *options_write.image_path = test_dir / "images";
 
   // Write to file
   options_write.Write(config_path);
@@ -124,18 +124,18 @@ TEST(BaseOptionManager, WriteAndRead) {
 }
 
 TEST(BaseOptionManager, ReRead) {
-  const std::string test_dir = CreateTestDir();
-  const std::string config_path = test_dir + "/config.ini";
+  const auto test_dir = CreateTestDir();
+  const auto config_path = test_dir / "config.ini";
 
   // Create necessary directories
-  CreateDirIfNotExists(test_dir + "/images");
+  CreateDirIfNotExists(test_dir / "images");
 
   // Create and write initial config
   BaseOptionManager options_write;
   options_write.AddDatabaseOptions();
   options_write.AddImageOptions();
-  *options_write.database_path = test_dir + "/database.db";
-  *options_write.image_path = test_dir + "/images";
+  *options_write.database_path = test_dir / "database.db";
+  *options_write.image_path = test_dir / "images";
   options_write.Write(config_path);
 
   // Read with ReRead
@@ -156,49 +156,49 @@ TEST(BaseOptionManager, ReadNonExistentFile) {
 }
 
 TEST(BaseOptionManager, Check) {
-  const std::string test_dir = CreateTestDir();
+  const auto test_dir = CreateTestDir();
 
   BaseOptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
 
   // Should fail with non-existent paths
-  *options.database_path = test_dir + "/database.db";
+  *options.database_path = test_dir / "database.db";
   *options.image_path = "/path/that/does/not/exist";
   EXPECT_FALSE(options.Check());
 
   // Should succeed with valid paths
-  CreateDirIfNotExists(test_dir + "/images");
-  *options.image_path = test_dir + "/images";
+  CreateDirIfNotExists(test_dir / "images");
+  *options.image_path = test_dir / "images";
   EXPECT_TRUE(options.Check());
 }
 
 TEST(BaseOptionManager, CheckDatabaseParentDir) {
-  const std::string test_dir = CreateTestDir();
+  const auto test_dir = CreateTestDir();
 
   BaseOptionManager options;
   options.AddDatabaseOptions();
 
   // Should succeed when database parent dir exists
-  *options.database_path = test_dir + "/database.db";
+  *options.database_path = test_dir / "database.db";
   EXPECT_TRUE(options.Check());
 
   // Should fail when database path is a directory
-  CreateDirIfNotExists(test_dir + "/bad_database");
-  *options.database_path = test_dir + "/bad_database";
+  CreateDirIfNotExists(test_dir / "bad_database");
+  *options.database_path = test_dir / "bad_database";
   EXPECT_FALSE(options.Check());
 }
 
 TEST(BaseOptionManager, ParseWithOptions) {
-  const std::string test_dir = CreateTestDir();
-  CreateDirIfNotExists(test_dir + "/images");
+  const auto test_dir = CreateTestDir();
+  CreateDirIfNotExists(test_dir / "images");
 
   BaseOptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
 
-  const std::string database_path = test_dir + "/database.db";
-  const std::string image_path = test_dir + "/images";
+  const auto database_path = test_dir / "database.db";
+  const auto image_path = test_dir / "images";
 
   // Create argv with additional options
   const std::vector<std::string> args = {
@@ -223,17 +223,17 @@ TEST(BaseOptionManager, ParseWithOptions) {
 }
 
 TEST(BaseOptionManager, ParseWithProjectPath) {
-  const std::string test_dir = CreateTestDir();
-  const std::string config_path = test_dir + "/config.ini";
-  CreateDirIfNotExists(test_dir + "/images");
+  const auto test_dir = CreateTestDir();
+  const auto config_path = test_dir / "config.ini";
+  CreateDirIfNotExists(test_dir / "images");
 
   // Create and write a config file
   BaseOptionManager options_write;
   options_write.AddDatabaseOptions();
   options_write.AddImageOptions();
 
-  *options_write.database_path = test_dir + "/database.db";
-  *options_write.image_path = test_dir + "/images";
+  *options_write.database_path = test_dir / "database.db";
+  *options_write.image_path = test_dir / "images";
   options_write.Write(config_path);
 
   // Parse using project_path
@@ -275,12 +275,12 @@ TEST(BaseOptionManager, ParseEmptyArguments) {
 }
 
 TEST(BaseOptionManager, ParseUnknownArgumentsFails) {
-  const std::string test_dir = CreateTestDir();
+  const auto test_dir = CreateTestDir();
 
   BaseOptionManager options;
   options.AddDatabaseOptions();
 
-  const std::string database_path = test_dir + "/database.db";
+  const auto database_path = test_dir / "database.db";
 
   // Create argv with an unknown option
   const std::vector<std::string> args = {

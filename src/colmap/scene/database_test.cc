@@ -48,8 +48,8 @@ namespace colmap {
 namespace {
 
 class ParameterizedDatabaseTests
-    : public ::testing::TestWithParam<
-          std::function<std::shared_ptr<Database>(const std::string&)>> {};
+    : public ::testing::TestWithParam<std::function<std::shared_ptr<Database>(
+          const std::filesystem::path&)>> {};
 
 TEST_P(ParameterizedDatabaseTests, OpenInMemory) {
   std::shared_ptr<Database> database = GetParam()(kInMemorySqliteDatabasePath);
@@ -65,12 +65,12 @@ TEST_P(ParameterizedDatabaseTests, OpenCloseInMemory) {
 
 TEST_P(ParameterizedDatabaseTests, OpenFile) {
   std::shared_ptr<Database> database =
-      GetParam()(CreateTestDir() + "/database.db");
+      GetParam()(CreateTestDir() / "database.db");
 }
 
 TEST_P(ParameterizedDatabaseTests, OpenCloseFile) {
   std::shared_ptr<Database> database =
-      GetParam()(CreateTestDir() + "/database.db");
+      GetParam()(CreateTestDir() / "database.db");
   database->Close();
   // Any database operation after closing the database should fail.
   EXPECT_ANY_THROW(database->ExistsCamera(42));
@@ -78,7 +78,7 @@ TEST_P(ParameterizedDatabaseTests, OpenCloseFile) {
 }
 
 TEST_P(ParameterizedDatabaseTests, OpenFileWithNonASCIIPath) {
-  const std::string database_path = CreateTestDir() + u8"/äöü時临.db";
+  const auto database_path = CreateTestDir() / u8"äöü時临.db";
   std::shared_ptr<Database> database = GetParam()(database_path);
   EXPECT_TRUE(ExistsPath(database_path));
 }

@@ -321,11 +321,11 @@ TEST(ViewGraph, FilterByRelativeRotation) {
 }
 
 TEST(ViewGraph, LoadFromDatabase) {
-  const std::string test_dir = colmap::CreateTestDir();
+  const auto test_dir = colmap::CreateTestDir();
 
   // Create two databases with overlapping image pairs.
-  auto database1 = colmap::Database::Open(test_dir + "/database1.db");
-  auto database2 = colmap::Database::Open(test_dir + "/database2.db");
+  auto database1 = colmap::Database::Open(test_dir / "database1.db");
+  auto database2 = colmap::Database::Open(test_dir / "database2.db");
 
   colmap::Camera camera = colmap::Camera::CreateFromModelId(
       colmap::kInvalidCameraId,

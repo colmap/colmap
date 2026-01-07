@@ -177,7 +177,7 @@ TEST(HomeDir, Nominal) {
 }
 
 TEST(ReadWriteBinaryBlob, Nominal) {
-  const std::string file_path = CreateTestDir() + "/test.bin";
+  const auto file_path = CreateTestDir() / "test.bin";
   const int kNumBytes = 123;
   std::vector<char> data(kNumBytes);
   for (int i = 0; i < kNumBytes; ++i) {
@@ -208,7 +208,7 @@ TEST(IsURI, Nominal) {
 #ifdef COLMAP_DOWNLOAD_ENABLED
 
 TEST(DownloadFile, Nominal) {
-  const std::string file_path = CreateTestDir() + "/test.bin";
+  const auto file_path = CreateTestDir() / "test.bin";
   const int kNumBytes = 123;
   std::string data(kNumBytes, '0');
   for (int i = 0; i < kNumBytes; ++i) {
@@ -235,14 +235,14 @@ TEST(ComputeSHA256, Nominal) {
 }
 
 TEST(MaybeDownloadAndCacheFile, Nominal) {
-  const std::string test_dir = CreateTestDir();
+  const auto test_dir = CreateTestDir();
   OverwriteDownloadCacheDir(test_dir);
 
   const std::string data = "123asd<>?";
   const std::string name = "cached.bin";
   const std::string sha256 =
       "2915068022d460a622fb078147aee8d590c0a1bb1907d35fd27cb2f7bdb991dd";
-  const std::string server_file_path = test_dir + "/server.bin";
+  const auto server_file_path = test_dir / "server.bin";
   const std::string cached_file_path =
       (std::filesystem::path(test_dir) / (sha256 + "-" + name)).string();
   WriteBinaryBlob(server_file_path, {data.data(), data.size()});

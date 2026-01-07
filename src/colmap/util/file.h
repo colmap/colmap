@@ -147,7 +147,7 @@ std::vector<std::string> ReadTextFileLines(const std::filesystem::path& path);
 
 // Detect if given string is a URI
 // (i.e., starts with http://, https://, file://).
-bool IsURI(const std::filesystem::path& uri);
+bool IsURI(const std::string& uri);
 
 #ifdef COLMAP_DOWNLOAD_ENABLED
 

@@ -52,8 +52,8 @@ TEST(SynthesizeDataset, Nominal) {
   options.num_frames_per_rig = 3;
   SynthesizeDataset(options, &reconstruction, database.get());
 
-  const std::string test_dir = CreateTestDir();
-  const std::string sparse_path = test_dir + "/sparse";
+  const auto test_dir = CreateTestDir();
+  const auto sparse_path = test_dir / "sparse";
   CreateDirIfNotExists(sparse_path);
   reconstruction.Write(sparse_path);
 
@@ -446,8 +446,8 @@ TEST(SynthesizeImages, Nominal) {
   synthetic_dataset_options.camera_height = 240;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
-  const std::string test_dir = CreateTestDir();
-  const std::string image_path = test_dir + "/images";
+  const auto test_dir = CreateTestDir();
+  const auto image_path = test_dir / "images";
   CreateDirIfNotExists(image_path);
   SynthesizeImages(SyntheticImageOptions(), reconstruction, image_path);
 

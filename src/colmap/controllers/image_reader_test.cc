@@ -61,13 +61,13 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
 
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
-  const std::string test_dir = CreateTestDir();
+  const auto test_dir = CreateTestDir();
   ImageReaderOptions options;
-  options.image_path = test_dir + "/images";
+  options.image_path = test_dir / "images";
   options.as_rgb = kAsRGB;
   CreateDirIfNotExists(options.image_path);
   if (kWithMasks) {
-    options.mask_path = test_dir + "/masks";
+    options.mask_path = test_dir / "masks";
     CreateDirIfNotExists(options.mask_path);
   }
   const Bitmap test_bitmap = CreateTestBitmap(kAsRGB);

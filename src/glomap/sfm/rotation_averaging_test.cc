@@ -93,7 +93,7 @@ void ExpectEqualGravity(const Eigen::Vector3d& gravity_in_world,
 TEST(RotationEstimator, WithoutNoise) {
   colmap::SetPRNGSeed(1);
 
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -147,7 +147,7 @@ TEST(RotationEstimator, WithoutNoise) {
 TEST(RotationEstimator, WithoutNoiseWithNonTrivialKnownRig) {
   colmap::SetPRNGSeed(1);
 
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -194,7 +194,7 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialKnownRig) {
 TEST(RotationEstimator, WithoutNoiseWithNonTrivialUnknownRig) {
   colmap::SetPRNGSeed(1);
 
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -250,7 +250,7 @@ TEST(RotationEstimator, WithoutNoiseWithNonTrivialUnknownRig) {
 TEST(RotationEstimator, WithNoiseAndOutliers) {
   colmap::SetPRNGSeed(1);
 
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -304,7 +304,7 @@ TEST(RotationEstimator, WithNoiseAndOutliers) {
 TEST(RotationEstimator, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
   colmap::SetPRNGSeed(1);
 
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -358,7 +358,7 @@ TEST(RotationEstimator, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
 TEST(RotationEstimator, RefineGravity) {
   colmap::SetPRNGSeed(1);
 
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -402,7 +402,7 @@ TEST(RotationEstimator, RefineGravity) {
 TEST(RotationEstimator, RefineGravityWithNonTrivialRigs) {
   colmap::SetPRNGSeed(1);
 
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;

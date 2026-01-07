@@ -271,7 +271,7 @@ void SequentialMatchingTab::Run() {
 
   if (options_->sequential_pairing->loop_detection &&
       !ExistsFile(options_->sequential_pairing->vocab_tree_path) &&
-      !IsURI(options_->sequential_pairing->vocab_tree_path)) {
+      !IsURI(options_->sequential_pairing->vocab_tree_path.string())) {
     QMessageBox::critical(this, "", tr("Invalid vocabulary tree path."));
     return;
   }

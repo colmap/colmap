@@ -1245,7 +1245,7 @@ TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
   synthetic_options.num_frames_per_rig = 7;
   synthetic_options.num_points3D = 50;
   synthetic_options.prior_position = true;
-  std::string database_path = CreateTestDir() + "/database.db";
+  auto database_path = CreateTestDir() / "database.db";
   auto database = Database::Open(database_path);
   SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
 
@@ -1301,7 +1301,7 @@ TEST(PosePriorBundleAdjuster, MissingPositionCov) {
   synthetic_options.num_frames_per_rig = 7;
   synthetic_options.num_points3D = 100;
   synthetic_options.prior_position = true;
-  std::string database_path = CreateTestDir() + "/database.db";
+  auto database_path = CreateTestDir() / "database.db";
   auto database = Database::Open(database_path);
   SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
 
@@ -1349,7 +1349,7 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
   synthetic_options.num_frames_per_rig = 7;
   synthetic_options.num_points3D = 100;
   synthetic_options.prior_position = true;
-  std::string database_path = CreateTestDir() + "/database.db";
+  auto database_path = CreateTestDir() / "database.db";
   auto database = Database::Open(database_path);
   SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
 
