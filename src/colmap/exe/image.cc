@@ -287,14 +287,15 @@ int RunImageRegistrator(int argc, char** argv) {
   {
     Timer timer;
     timer.Start();
+    DatabaseCache::Options database_cache_options;
+    database_cache_options.min_num_matches =
+        static_cast<size_t>(options.mapper->min_num_matches);
+    database_cache_options.ignore_watermarks =
+        options.mapper->ignore_watermarks;
+    database_cache_options.image_names = {options.mapper->image_names.begin(),
+                                          options.mapper->image_names.end()};
     database_cache = DatabaseCache::Create(
-        *Database::Open(*options.database_path),
-        /*min_num_matches=*/
-        static_cast<size_t>(options.mapper->min_num_matches),
-        /*ignore_watermarks=*/options.mapper->ignore_watermarks,
-        /*image_names=*/
-        {options.mapper->image_names.begin(),
-         options.mapper->image_names.end()});
+        *Database::Open(*options.database_path), database_cache_options);
     timer.PrintMinutes();
   }
 

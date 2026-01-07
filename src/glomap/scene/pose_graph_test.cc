@@ -332,11 +332,9 @@ TEST(PoseGraph, Load) {
 
   // Load into DatabaseCache with relative poses.
   colmap::DatabaseCache cache;
-  cache.Load(*database,
-             /*min_num_matches=*/0,
-             /*ignore_watermarks=*/false,
-             /*image_names=*/{},
-             /*load_relative_pose=*/true);
+  colmap::DatabaseCache::Options options;
+  options.load_relative_pose = true;
+  cache.Load(*database, options);
 
   PoseGraph pose_graph;
   pose_graph.Load(cache);

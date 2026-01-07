@@ -36,6 +36,7 @@
 #include "glomap/estimators/rotation_averaging.h"
 
 #include <memory>
+#include <unordered_set>
 
 namespace colmap {
 
@@ -45,6 +46,9 @@ struct RotationAveragingControllerOptions {
 
   // Whether to ignore the inlier matches of watermark image pairs.
   bool ignore_watermarks = false;
+
+  // Names of images to reconstruct. If empty, all images are used.
+  std::unordered_set<std::string> image_names;
 
   // Number of threads.
   int num_threads = -1;

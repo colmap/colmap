@@ -47,11 +47,12 @@ RotationAveragingController::RotationAveragingController(
   if (options_.decompose_relative_pose) {
     MaybeDecomposeAndWriteRelativePoses(database.get());
   }
-  database_cache_ = DatabaseCache::Create(*database,
-                                          options_.min_num_matches,
-                                          options_.ignore_watermarks,
-                                          /*image_names=*/{},
-                                          /*load_relative_pose=*/true);
+  DatabaseCache::Options database_cache_options;
+  database_cache_options.min_num_matches = options_.min_num_matches;
+  database_cache_options.ignore_watermarks = options_.ignore_watermarks;
+  database_cache_options.image_names = options_.image_names;
+  database_cache_options.load_relative_pose = true;
+  database_cache_ = DatabaseCache::Create(*database, database_cache_options);
 }
 
 void RotationAveragingController::Run() {

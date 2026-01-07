@@ -50,11 +50,7 @@ std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
 DatabaseCache::DatabaseCache()
     : correspondence_graph_(std::make_shared<class CorrespondenceGraph>()) {}
 
-void DatabaseCache::Load(const Database& database,
-                         const size_t min_num_matches,
-                         const bool ignore_watermarks,
-                         const std::unordered_set<std::string>& image_names,
-                         const bool load_relative_pose) {
+void DatabaseCache::Load(const Database& database, const Options& options) {
   const bool has_rigs = database.NumRigs() > 0;
   const bool has_frames = database.NumFrames() > 0;
 
@@ -135,13 +131,13 @@ void DatabaseCache::Load(const Database& database,
   LOG(INFO) << StringPrintf(
       " %d in %.3fs", two_view_geometries.size(), timer.ElapsedSeconds());
 
-  auto UseInlierMatchesCheck = [min_num_matches, ignore_watermarks](
-                                   const TwoViewGeometry& two_view_geometry) {
-    return static_cast<size_t>(two_view_geometry.inlier_matches.size()) >=
-               min_num_matches &&
-           (!ignore_watermarks ||
-            two_view_geometry.config != TwoViewGeometry::WATERMARK);
-  };
+  auto UseInlierMatchesCheck =
+      [&options](const TwoViewGeometry& two_view_geometry) {
+        return static_cast<size_t>(two_view_geometry.inlier_matches.size()) >=
+                   options.min_num_matches &&
+               (!options.ignore_watermarks ||
+                two_view_geometry.config != TwoViewGeometry::WATERMARK);
+      };
 
   //////////////////////////////////////////////////////////////////////////////
   // Load images
@@ -175,13 +171,13 @@ void DatabaseCache::Load(const Database& database,
     }
 
     // Determines for which images data should be loaded.
-    if (image_names.empty()) {
+    if (options.image_names.empty()) {
       for (const auto& image : images) {
         frame_ids.insert(image.FrameId());
       }
     } else {
       for (const auto& image : images) {
-        if (image_names.count(image.Name()) > 0) {
+        if (options.image_names.count(image.Name()) > 0) {
           frame_ids.insert(image.FrameId());
         }
       }
@@ -273,7 +269,7 @@ void DatabaseCache::Load(const Database& database,
   // Load relative poses
   //////////////////////////////////////////////////////////////////////////////
 
-  if (load_relative_pose) {
+  if (options.load_relative_pose) {
     timer.Restart();
     LOG(INFO) << "Loading relative poses...";
 
@@ -297,32 +293,23 @@ void DatabaseCache::Load(const Database& database,
   }
 }
 
-std::shared_ptr<DatabaseCache> DatabaseCache::Create(
-    const Database& database,
-    const size_t min_num_matches,
-    const bool ignore_watermarks,
-    const std::unordered_set<std::string>& image_names,
-    const bool load_relative_pose) {
+std::shared_ptr<DatabaseCache> DatabaseCache::Create(const Database& database,
+                                                     const Options& options) {
   auto cache = std::make_shared<DatabaseCache>();
-  cache->Load(database,
-              min_num_matches,
-              ignore_watermarks,
-              image_names,
-              load_relative_pose);
+  cache->Load(database, options);
   return cache;
 }
 
 std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
-    const DatabaseCache& database_cache,
-    const size_t min_num_matches,
-    const std::unordered_set<std::string>& image_names) {
+    const DatabaseCache& database_cache, const Options& options) {
   auto cache = std::make_shared<DatabaseCache>();
 
   // Collect candidate image ids matching the name filter.
   // Empty image_names means use all images.
   std::unordered_set<image_t> candidate_image_ids;
   for (const auto& [image_id, image] : database_cache.Images()) {
-    if (image_names.empty() || image_names.count(image.Name()) > 0) {
+    if (options.image_names.empty() ||
+        options.image_names.count(image.Name()) > 0) {
       candidate_image_ids.insert(image_id);
     }
   }
@@ -335,7 +322,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
 
   std::unordered_set<image_t> connected_image_ids;
   for (const auto& [pair_id, num_correspondences] : num_corrs_between_images) {
-    if (num_correspondences >= min_num_matches) {
+    if (num_correspondences >= options.min_num_matches) {
       const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
       if (candidate_image_ids.count(image_id1) > 0 &&
           candidate_image_ids.count(image_id2) > 0) {
@@ -399,7 +386,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
 
   // Copy correspondences between all image pairs in the cache.
   for (const auto& [pair_id, num_correspondences] : num_corrs_between_images) {
-    if (num_correspondences >= min_num_matches) {
+    if (num_correspondences >= options.min_num_matches) {
       const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
       if (cache->images_.count(image_id1) > 0 &&
           cache->images_.count(image_id2) > 0) {
@@ -415,11 +402,13 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
   cache->correspondence_graph_->Finalize();
 
   // Copy relative poses for image pairs in the cache.
-  for (const auto& [pair_id, pose] : database_cache.RelativePoses()) {
-    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    if (cache->images_.count(image_id1) > 0 &&
-        cache->images_.count(image_id2) > 0) {
-      cache->relative_poses_.emplace(pair_id, pose);
+  if (options.load_relative_pose) {
+    for (const auto& [pair_id, pose] : database_cache.RelativePoses()) {
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+      if (cache->images_.count(image_id1) > 0 &&
+          cache->images_.count(image_id2) > 0) {
+        cache->relative_poses_.emplace(pair_id, pose);
+      }
     }
   }
 

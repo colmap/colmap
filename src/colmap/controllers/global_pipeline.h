@@ -36,6 +36,7 @@
 #include "glomap/sfm/global_mapper.h"
 
 #include <memory>
+#include <unordered_set>
 
 namespace colmap {
 
@@ -45,6 +46,9 @@ struct GlobalPipelineOptions {
 
   // Whether to ignore the inlier matches of watermark image pairs.
   bool ignore_watermarks = false;
+
+  // Names of images to reconstruct. If empty, all images are used.
+  std::unordered_set<std::string> image_names;
 
   // The image path at which to find the images to extract point colors.
   std::string image_path;

@@ -74,11 +74,13 @@ void GlobalPipeline::Run() {
   }
 
   // Create database cache with relative poses for pose graph.
-  auto database_cache = DatabaseCache::Create(*database_,
-                                              options_.min_num_matches,
-                                              options_.ignore_watermarks,
-                                              /*image_names=*/{},
-                                              /*load_relative_pose=*/true);
+  DatabaseCache::Options database_cache_options;
+  database_cache_options.min_num_matches = options_.min_num_matches;
+  database_cache_options.ignore_watermarks = options_.ignore_watermarks;
+  database_cache_options.image_names = options_.image_names;
+  database_cache_options.load_relative_pose = true;
+  auto database_cache =
+      DatabaseCache::Create(*database_, database_cache_options);
 
   auto reconstruction = std::make_shared<Reconstruction>();
 

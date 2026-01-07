@@ -14,11 +14,9 @@ namespace {
 
 std::shared_ptr<colmap::DatabaseCache> CreateDatabaseCache(
     const colmap::Database& database) {
-  return colmap::DatabaseCache::Create(database,
-                                       /*min_num_matches=*/0,
-                                       /*ignore_watermarks=*/false,
-                                       /*image_names=*/{},
-                                       /*load_relative_pose=*/true);
+  colmap::DatabaseCache::Options options;
+  options.load_relative_pose = true;
+  return colmap::DatabaseCache::Create(database, options);
 }
 
 GlobalMapperOptions CreateTestOptions() {

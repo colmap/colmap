@@ -45,11 +45,9 @@ void LoadReconstructionAndPoseGraph(const colmap::Database& database,
                                     colmap::Reconstruction* reconstruction,
                                     PoseGraph* pose_graph) {
   colmap::DatabaseCache database_cache;
-  database_cache.Load(database,
-                      /*min_num_matches=*/0,
-                      /*ignore_watermarks=*/false,
-                      /*image_names=*/{},
-                      /*load_relative_pose=*/true);
+  colmap::DatabaseCache::Options options;
+  options.load_relative_pose = true;
+  database_cache.Load(database, options);
   reconstruction->Load(database_cache);
   pose_graph->Load(database_cache);
 }
