@@ -790,7 +790,7 @@ void OptionManager::AddGlobalMapperOptions() {
 
   // Rotation averaging options.
   AddAndRegisterDefaultOption(
-      "GlobalMapper.RotationAveraging.max_rotation_error_deg",
+      "GlobalMapper.ra_max_rotation_error_deg",
       &global_mapper->mapper.rotation_averaging.max_rotation_error_deg);
 
   // Threshold options.
