@@ -1,5 +1,6 @@
 #include "colmap/scene/database_cache.h"
 
+#include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 
 #include <pybind11/eigen.h>
@@ -11,73 +12,32 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindDatabaseCache(py::module& m) {
-  py::class_<DatabaseCache::Options>(m, "DatabaseCacheOptions")
-      .def(py::init<>())
+  using Opts = DatabaseCache::Options;
+  auto PyOpts = py::classh<Opts>(m, "DatabaseCacheOptions");
+  PyOpts.def(py::init<>())
       .def_readwrite("min_num_matches",
-                     &DatabaseCache::Options::min_num_matches)
+                     &Opts::min_num_matches,
+                     "Only load image pairs with a minimum number of matches.")
       .def_readwrite("ignore_watermarks",
-                     &DatabaseCache::Options::ignore_watermarks)
-      .def_readwrite("image_names", &DatabaseCache::Options::image_names)
+                     &Opts::ignore_watermarks,
+                     "Whether to ignore watermark image pairs.")
+      .def_readwrite("image_names",
+                     &Opts::image_names,
+                     "Only load the data for a subset of the images. "
+                     "All images are used if empty.")
       .def_readwrite("load_relative_pose",
-                     &DatabaseCache::Options::load_relative_pose);
+                     &Opts::load_relative_pose,
+                     "Whether to load relative poses for image pairs.");
+  MakeDataclass(PyOpts);
 
   py::classh<DatabaseCache> PyDatabaseCache(m, "DatabaseCache");
   PyDatabaseCache.def(py::init<>())
-      .def_static(
-          "create",
-          [](const Database& database,
-             size_t min_num_matches,
-             bool ignore_watermarks,
-             const std::unordered_set<std::string>& image_names,
-             bool load_relative_pose) {
-            DatabaseCache::Options options;
-            options.min_num_matches = min_num_matches;
-            options.ignore_watermarks = ignore_watermarks;
-            options.image_names = image_names;
-            options.load_relative_pose = load_relative_pose;
-            return DatabaseCache::Create(database, options);
-          },
-          "database"_a,
-          "min_num_matches"_a = 0,
-          "ignore_watermarks"_a = false,
-          "image_names"_a = std::unordered_set<std::string>{},
-          "load_relative_pose"_a = false)
-      .def_static(
-          "create_from_cache",
-          [](const DatabaseCache& database_cache,
-             size_t min_num_matches,
-             const std::unordered_set<std::string>& image_names,
-             bool load_relative_pose) {
-            DatabaseCache::Options options;
-            options.min_num_matches = min_num_matches;
-            options.image_names = image_names;
-            options.load_relative_pose = load_relative_pose;
-            return DatabaseCache::CreateFromCache(database_cache, options);
-          },
-          "database_cache"_a,
-          "min_num_matches"_a = 0,
-          "image_names"_a = std::unordered_set<std::string>{},
-          "load_relative_pose"_a = false)
-      .def(
-          "load",
-          [](DatabaseCache& self,
-             const Database& database,
-             size_t min_num_matches,
-             bool ignore_watermarks,
-             const std::unordered_set<std::string>& image_names,
-             bool load_relative_pose) {
-            DatabaseCache::Options options;
-            options.min_num_matches = min_num_matches;
-            options.ignore_watermarks = ignore_watermarks;
-            options.image_names = image_names;
-            options.load_relative_pose = load_relative_pose;
-            self.Load(database, options);
-          },
-          "database"_a,
-          "min_num_matches"_a = 0,
-          "ignore_watermarks"_a = false,
-          "image_names"_a = std::unordered_set<std::string>{},
-          "load_relative_pose"_a = false)
+      .def_static("create", &DatabaseCache::Create, "database"_a, "options"_a)
+      .def_static("create_from_cache",
+                  &DatabaseCache::CreateFromCache,
+                  "database_cache"_a,
+                  "options"_a)
+      .def("load", &DatabaseCache::Load, "database"_a, "options"_a)
       .def("add_rig", &DatabaseCache::AddRig)
       .def("add_camera", &DatabaseCache::AddCamera)
       .def("add_frame", &DatabaseCache::AddFrame)
