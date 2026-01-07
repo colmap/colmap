@@ -510,8 +510,7 @@ int RunPosePriorMapper(int argc, char** argv) {
 
   if (input_path.empty()) {
     for (size_t i = 0; i < reconstruction_manager->Size(); ++i) {
-      const auto reconstruction_path =
-          output_path / std::to_string(i);
+      const auto reconstruction_path = output_path / std::to_string(i);
       options.Write(reconstruction_path / "project.ini");
     }
   }

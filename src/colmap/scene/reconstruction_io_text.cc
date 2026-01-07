@@ -123,7 +123,8 @@ void ReadRigsText(Reconstruction& reconstruction, std::istream& stream) {
   }
 }
 
-void ReadRigsText(Reconstruction& reconstruction, const std::filesystem::path& path) {
+void ReadRigsText(Reconstruction& reconstruction,
+                  const std::filesystem::path& path) {
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadRigsText(reconstruction, file);
@@ -174,7 +175,8 @@ void ReadCamerasText(Reconstruction& reconstruction, std::istream& stream) {
   }
 }
 
-void ReadCamerasText(Reconstruction& reconstruction, const std::filesystem::path& path) {
+void ReadCamerasText(Reconstruction& reconstruction,
+                     const std::filesystem::path& path) {
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadCamerasText(reconstruction, file);
@@ -250,7 +252,8 @@ void ReadFramesText(Reconstruction& reconstruction, std::istream& stream) {
   }
 }
 
-void ReadFramesText(Reconstruction& reconstruction, const std::filesystem::path& path) {
+void ReadFramesText(Reconstruction& reconstruction,
+                    const std::filesystem::path& path) {
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadFramesText(reconstruction, file);
@@ -377,7 +380,8 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
   }
 }
 
-void ReadImagesText(Reconstruction& reconstruction, const std::filesystem::path& path) {
+void ReadImagesText(Reconstruction& reconstruction,
+                    const std::filesystem::path& path) {
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadImagesText(reconstruction, file);
@@ -451,7 +455,8 @@ void ReadPoints3DText(Reconstruction& reconstruction, std::istream& stream) {
   }
 }
 
-void ReadPoints3DText(Reconstruction& reconstruction, const std::filesystem::path& path) {
+void ReadPoints3DText(Reconstruction& reconstruction,
+                      const std::filesystem::path& path) {
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadPoints3DText(reconstruction, file);
