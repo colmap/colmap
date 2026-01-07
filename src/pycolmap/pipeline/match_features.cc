@@ -48,7 +48,7 @@ void MatchFeatures(const std::filesystem::path& database_path,
   std::unique_ptr<Thread> matcher = MatcherFactory(pairing_options,
                                                    matching_options,
                                                    verification_options,
-                                                   database_path.string());
+                                                   database_path);
   matcher->Start();
   PyWait(matcher.get());
 }
@@ -70,7 +70,7 @@ void VerifyMatches(const std::filesystem::path& database_path,
       CreateImagePairsFeatureMatcher(pairing_options,
                                      matching_options,
                                      verification_options,
-                                     database_path.string());
+                                     database_path);
   matcher->Start();
   PyWait(matcher.get());
 }
@@ -86,7 +86,7 @@ void GeometricVerification(const std::filesystem::path& database_path,
       CreateGeometricVerifier(verifier_options,
                               pairing_options,
                               geometry_options,
-                              database_path.string());
+                              database_path);
   verifier->Start();
   PyWait(verifier.get());
 }
@@ -101,7 +101,7 @@ void GuidedGeometricVerification(
 
   py::gil_scoped_release release;  // verification is multi-threaded
   RunGuidedGeometricVerifierImpl(reconstruction,
-                                 database_path.string(),
+                                 database_path,
                                  pairing_options,
                                  geometry_options,
                                  num_threads);

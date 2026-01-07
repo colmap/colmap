@@ -35,9 +35,9 @@ std::shared_ptr<Reconstruction> TriangulatePoints(
 
   py::gil_scoped_release release;
   RunPointTriangulatorImpl(reconstruction,
-                           database_path.string(),
-                           image_path.string(),
-                           output_path.string(),
+                           database_path,
+                           image_path,
+                           output_path,
                            options,
                            clear_points,
                            refine_intrinsics);
@@ -58,7 +58,7 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
 
   py::gil_scoped_release release;
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  if (input_path.string() != "") {
+  if (input_path != "") {
     reconstruction_manager->Read(input_path);
   }
   auto options_ = std::make_shared<IncrementalPipelineOptions>(options);
@@ -74,9 +74,9 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
         }
       };
 
-  if (!RunIncrementalMapperImpl(database_path.string(),
-                                image_path.string(),
-                                output_path.string(),
+  if (!RunIncrementalMapperImpl(database_path,
+                                image_path,
+                                output_path,
                                 options_,
                                 reconstruction_manager,
                                 initial_image_pair_callback,
