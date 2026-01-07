@@ -249,8 +249,8 @@ void TestModel(const std::vector<double>& params) {
     }
   }
 
-  int ceres_test_total = 0;
-  int ceres_test_ran = 0;
+  int num_ceres_tests_total = 0;
+  int num_ceres_tests_ran = 0;
   for (int x = 0; x <= 800; x += 50) {
     for (int y = 0; y <= 800; y += 50) {
       if (CameraModelIsFisheye(CameraModel::model_id) &&
@@ -259,15 +259,15 @@ void TestModel(const std::vector<double>& params) {
         continue;
       }
       TestCamFromImgToImg<CameraModel>(params, x, y);
-      ++ceres_test_total;
+      ++num_ceres_tests_total;
       if (TestCamFromImgCeresOptimization<CameraModel>(params, x, y)) {
-        ++ceres_test_ran;
+        ++num_ceres_tests_ran;
       }
     }
   }
   // Ensure at least 80% of tests ran (to catch excessive skipping due to
   // invalid noisy pixels falling outside the valid range)
-  EXPECT_GE(ceres_test_ran, static_cast<int>(ceres_test_total * 0.8));
+  EXPECT_GE(num_ceres_tests_ran, static_cast<int>(num_ceres_tests_total * 0.8));
 
   const auto pp_idxs = CameraModel::principal_point_idxs;
   TestCamFromImgToImg<CameraModel>(
