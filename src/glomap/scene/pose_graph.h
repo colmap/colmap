@@ -87,10 +87,16 @@ class PoseGraph {
   std::unordered_map<image_t, std::unordered_set<image_t>>
   CreateImageAdjacencyList() const;
 
-  // Mark the images which are not connected to any other images as not
-  // registered. Returns the number of images in the largest connected
-  // component.
-  int KeepLargestConnectedComponents(colmap::Reconstruction& reconstruction);
+  // Compute the largest connected component of frames.
+  // If filter_unregistered is true, only considers frames with HasPose().
+  // Returns the set of frame_ids in the largest connected component.
+  std::unordered_set<frame_t> ComputeLargestConnectedFrameComponent(
+      const colmap::Reconstruction& reconstruction,
+      bool filter_unregistered = true) const;
+
+  // Mark image pairs as invalid if either image is not in the active set.
+  void InvalidatePairsOutsideActiveImageIds(
+      const std::unordered_set<image_t>& active_image_ids);
 
   // Mark edges as invalid if their relative rotation differs from the
   // reconstructed rotation by more than max_angle_deg.

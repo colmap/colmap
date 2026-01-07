@@ -6,6 +6,7 @@
 #include "glomap/scene/pose_graph.h"
 #include "glomap/scene/types.h"
 
+#include <unordered_set>
 #include <vector>
 
 #include <Eigen/Core>
@@ -59,19 +60,32 @@ struct RotationEstimatorOptions {
   // If true and use_gravity is true, first solves the 1-DOF system with
   // gravity-only pairs, then solves the full 3-DOF system.
   bool use_stratified = true;
+
+  // If true, only consider frames with existing poses when computing
+  // connected components. Set to true for refinement passes.
+  bool filter_unregistered = false;
+
+  // If > 0, filter image pairs with rotation error exceeding this threshold
+  // after solving, then recompute active set.
+  double max_rotation_error_deg = 10.0;
 };
 
 // High-level interface for rotation averaging.
 // Combines problem setup and solving into a single call.
+// TODO: Refactor this class into free functions (e.g., EstimateGlobalRotations)
+// since it holds no state other than options.
 class RotationEstimator {
  public:
   explicit RotationEstimator(const RotationEstimatorOptions& options)
       : options_(options) {}
 
   // Estimates the global orientations of all views.
+  // Solves rotation averaging and registers frames with computed poses.
+  // active_image_ids defines which images to include.
   // Returns true on successful estimation.
   bool EstimateRotations(const PoseGraph& pose_graph,
                          const std::vector<colmap::PosePrior>& pose_priors,
+                         const std::unordered_set<image_t>& active_image_ids,
                          colmap::Reconstruction& reconstruction);
 
  private:
@@ -80,16 +94,21 @@ class RotationEstimator {
   bool MaybeSolveGravityAlignedSubset(
       const PoseGraph& pose_graph,
       const std::vector<colmap::PosePrior>& pose_priors,
+      const std::unordered_set<image_t>& active_image_ids,
       colmap::Reconstruction& reconstruction);
 
   // Core rotation averaging solver.
-  bool SolveRotationAveraging(const PoseGraph& pose_graph,
-                              const std::vector<colmap::PosePrior>& pose_priors,
-                              colmap::Reconstruction& reconstruction);
+  bool SolveRotationAveraging(
+      const PoseGraph& pose_graph,
+      const std::vector<colmap::PosePrior>& pose_priors,
+      const std::unordered_set<image_t>& active_image_ids,
+      colmap::Reconstruction& reconstruction);
 
   // Initializes rotations from maximum spanning tree.
   void InitializeFromMaximumSpanningTree(
-      const PoseGraph& pose_graph, colmap::Reconstruction& reconstruction);
+      const PoseGraph& pose_graph,
+      const std::unordered_set<image_t>& active_image_ids,
+      colmap::Reconstruction& reconstruction);
 
   const RotationEstimatorOptions options_;
 };

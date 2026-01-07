@@ -41,55 +41,32 @@ std::shared_ptr<class PoseGraph> GlobalMapper::PoseGraph() const {
   return pose_graph_;
 }
 
-bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options,
-                                     double max_rotation_error_deg) {
-  // TODO: This is a misuse of frame registration. Frames should only be
-  // registered when their poses are actually computed, not with arbitrary
-  // identity poses. The rotation averaging code should be updated to work
-  // with unregistered frames.
-  // Register all frames with an initial identity pose so rotation averaging
-  // can work. The actual rotations will be computed by rotation averaging.
-  for (const auto& [frame_id, frame] : reconstruction_->Frames()) {
-    if (!frame.HasPose()) {
-      reconstruction_->Frame(frame_id).SetRigFromWorld(Rigid3d());
-      reconstruction_->RegisterFrame(frame_id);
-    }
-  }
-
-  if (pose_graph_->KeepLargestConnectedComponents(*reconstruction_) == 0) {
-    LOG(ERROR) << "no connected components are found";
-    return false;
-  }
-
+bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
   // Read pose priors from the database cache.
   const std::vector<colmap::PosePrior>& pose_priors =
       database_cache_->PosePriors();
 
-  // The first run is for filtering
-  SolveRotationAveraging(options, *pose_graph_, *reconstruction_, pose_priors);
-
-  pose_graph_->FilterByRelativeRotation(*reconstruction_,
-                                        max_rotation_error_deg);
-  if (pose_graph_->KeepLargestConnectedComponents(*reconstruction_) == 0) {
-    LOG(ERROR) << "no connected components are found";
-    return false;
-  }
-
-  // The second run is for final estimation
+  // First pass: solve rotation averaging on all frames, then filter outlier
+  // pairs by rotation error and de-register frames outside the largest
+  // connected component.
+  RotationEstimatorOptions custom_options = options;
+  custom_options.filter_unregistered = false;
   if (!SolveRotationAveraging(
-          options, *pose_graph_, *reconstruction_, pose_priors)) {
+          custom_options, *pose_graph_, *reconstruction_, pose_priors)) {
     return false;
   }
-  pose_graph_->FilterByRelativeRotation(*reconstruction_,
-                                        max_rotation_error_deg);
-  image_t num_img =
-      pose_graph_->KeepLargestConnectedComponents(*reconstruction_);
-  if (num_img == 0) {
-    LOG(ERROR) << "no connected components are found";
+
+  // Second pass: re-solve on registered frames only to refine rotations
+  // after outlier removal.
+  custom_options.filter_unregistered = true;
+  if (!SolveRotationAveraging(
+          custom_options, *pose_graph_, *reconstruction_, pose_priors)) {
     return false;
   }
-  LOG(INFO) << num_img << " / " << reconstruction_->NumImages()
-            << " images are within the connected component.";
+
+  VLOG(1) << reconstruction_->NumRegImages() << " / "
+          << reconstruction_->NumImages()
+          << " images are within the connected component.";
 
   return true;
 }
@@ -339,8 +316,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options) {
     LOG(INFO) << "----- Running rotation averaging -----";
     colmap::Timer run_timer;
     run_timer.Start();
-    if (!RotationAveraging(opts.rotation_averaging,
-                           opts.max_rotation_error_deg)) {
+    if (!RotationAveraging(opts.rotation_averaging)) {
       return false;
     }
     LOG(INFO) << "Rotation averaging done in " << run_timer.ElapsedSeconds()
