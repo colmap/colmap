@@ -39,6 +39,8 @@
 #include "colmap/util/file.h"
 #include "colmap/util/ply.h"
 
+#include <set>
+
 namespace colmap {
 
 Reconstruction::Reconstruction() : max_point3D_id_(0) {}
@@ -1167,7 +1169,7 @@ void Reconstruction::ExtractColorsForAllImages(
 }
 
 void Reconstruction::CreateImageDirs(const std::filesystem::path& path) const {
-  std::unordered_set<std::filesystem::path> image_dirs;
+  std::set<std::filesystem::path> image_dirs;
   for (const auto& image : images_) {
     const std::vector<std::string> name_split =
         StringSplit(image.second.Name(), "/");
