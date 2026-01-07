@@ -77,10 +77,20 @@ const Eigen::Vector3d* GetFrameGravityOrNull(
 
 RotationAveragingProblem::RotationAveragingProblem(
     const PoseGraph& pose_graph,
-    colmap::Reconstruction& reconstruction,
     const std::vector<colmap::PosePrior>& pose_priors,
-    const RotationEstimatorOptions& options)
+    const RotationEstimatorOptions& options,
+    const std::unordered_set<image_t>& active_image_ids,
+    colmap::Reconstruction& reconstruction)
     : options_(options) {
+  // Derive active_frame_ids from active_image_ids, and cache mappings.
+  for (const image_t image_id : active_image_ids) {
+    const auto& image = reconstruction.Image(image_id);
+    const frame_t frame_id = image.FrameId();
+    active_frame_ids_.insert(frame_id);
+    image_id_to_frame_id_[image_id] = frame_id;
+    camera_id_to_rig_id_[image.CameraId()] = image.FramePtr()->RigId();
+  }
+
   frame_to_pose_prior_ =
       ExtractFrameToPosePrior(reconstruction.Images(), pose_priors);
 
@@ -97,27 +107,13 @@ bool RotationAveragingProblem::HasFrameGravity(frame_t frame_id) const {
 
 size_t RotationAveragingProblem::AllocateParameters(
     const colmap::Reconstruction& reconstruction) {
-  // Build mapping from camera to rig for all registered images.
   camera_id_to_param_idx_.reserve(reconstruction.NumCameras());
   estimated_rotations_.resize(6 * reconstruction.NumImages());
-
-  std::unordered_map<camera_t, rig_t> camera_id_to_rig_id;
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    for (const auto& data_id : frame.ImageIds()) {
-      image_t image_id = data_id.id;
-      if (!reconstruction.ExistsImage(image_id)) continue;
-      const auto& image = reconstruction.Image(image_id);
-      if (!image.HasPose()) continue;
-      camera_id_to_rig_id[image.CameraId()] = frame.RigId();
-      // Cache image_id to frame_id mapping.
-      image_id_to_frame_id_[image_id] = frame_id;
-    }
-  }
 
   // Identify cameras that need cam_from_rig estimation
   // (non-reference cameras without calibrated extrinsics).
   std::unordered_map<camera_t, Eigen::AngleAxisd> cam_from_rig_rotations;
-  for (auto& [camera_id, rig_id] : camera_id_to_rig_id) {
+  for (const auto& [camera_id, rig_id] : camera_id_to_rig_id_) {
     sensor_t sensor_id(SensorType::CAMERA, camera_id);
     if (reconstruction.Rig(rig_id).IsRefSensor(sensor_id)) continue;
 
@@ -137,32 +133,40 @@ size_t RotationAveragingProblem::AllocateParameters(
     }
   }
 
+  // Cache camera_id -> frame_id mapping for UpdateState cam_from_rig averaging.
+  for (const frame_t frame_id : active_frame_ids_) {
+    const auto& frame = reconstruction.Frame(frame_id);
+    for (const auto& data_id : frame.ImageIds()) {
+      const auto it = camera_id_to_param_idx_.find(
+          reconstruction.Image(data_id.id).CameraId());
+      if (it != camera_id_to_param_idx_.end()) {
+        camera_to_frame_ids_[it->first].push_back(frame_id);
+      }
+    }
+  }
+
   // Allocate frame parameters and cache frame info.
   size_t num_params = 0;
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    if (!frame.HasPose()) continue;
+  for (const frame_t frame_id : active_frame_ids_) {
+    const auto& frame = reconstruction.Frame(frame_id);
     frame_id_to_param_idx_[frame_id] = num_params;
 
     const Eigen::Vector3d* frame_gravity =
         GetFrameGravityOrNull(frame_to_pose_prior_, frame_id);
     const bool has_gravity = HasFrameGravity(frame_id);
 
-    // Cache camera_id -> frame_id mapping for UpdateState cam_from_rig
-    // averaging.
-    for (const auto& data_id : frame.ImageIds()) {
-      if (!reconstruction.ExistsImage(data_id.id)) continue;
-      const auto& image = reconstruction.Image(data_id.id);
-      if (camera_id_to_param_idx_.find(image.CameraId()) !=
-          camera_id_to_param_idx_.end()) {
-        camera_to_frame_ids_[image.CameraId()].push_back(frame_id);
-      }
-    }
-
     if (has_gravity) {
       // Gravity-aligned frame: 1-DOF (Y-axis rotation only).
+      Eigen::Matrix3d rig_from_world_rotation;
+      if (frame.MaybeRigFromWorld().has_value()) {
+        rig_from_world_rotation =
+            frame.RigFromWorld().rotation.toRotationMatrix();
+      } else {
+        rig_from_world_rotation = Eigen::Matrix3d::Identity();
+      }
       estimated_rotations_[num_params] = colmap::YAxisAngleFromRotation(
           colmap::GravityAlignedRotation(*frame_gravity).transpose() *
-          frame.RigFromWorld().rotation.toRotationMatrix());
+          rig_from_world_rotation);
       num_params++;
 
       // Use first gravity-aligned frame as fixed frame.
@@ -199,13 +203,18 @@ size_t RotationAveragingProblem::AllocateParameters(
     num_params += 3;
   }
 
-  // If no gravity-aligned frame found, use first registered frame as fixed.
+  // If no gravity-aligned frame found, use first active frame as fixed.
   if (fixed_frame_id_ == colmap::kInvalidFrameId) {
-    for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-      if (!frame.HasPose()) continue;
+    for (const frame_t frame_id : active_frame_ids_) {
+      const auto& frame = reconstruction.Frame(frame_id);
       fixed_frame_id_ = frame_id;
-      const Eigen::AngleAxisd rig_from_world(frame.RigFromWorld().rotation);
-      fixed_frame_rotation_ = rig_from_world.angle() * rig_from_world.axis();
+      // Use identity rotation if frame doesn't have a pose yet.
+      if (frame.HasPose()) {
+        const Eigen::AngleAxisd rig_from_world(frame.RigFromWorld().rotation);
+        fixed_frame_rotation_ = rig_from_world.angle() * rig_from_world.axis();
+      } else {
+        fixed_frame_rotation_ = Eigen::Vector3d::Zero();
+      }
       num_gauge_fixing_residuals_ = 3;
       break;
     }
@@ -236,17 +245,15 @@ void RotationAveragingProblem::BuildPairConstraints(
     if (!image1.IsRefInFrame()) {
       if (camera_id_to_param_idx_.find(image1.CameraId()) ==
           camera_id_to_param_idx_.end()) {
-        cam1_from_rig1 =
-            reconstruction.Rig(frame1.RigId())
-                .SensorFromRig(sensor_t(SensorType::CAMERA, image1.CameraId()));
+        cam1_from_rig1 = reconstruction.Rig(frame1.RigId())
+                             .SensorFromRig(image1.CameraPtr()->SensorId());
       }
     }
     if (!image2.IsRefInFrame()) {
       if (camera_id_to_param_idx_.find(image2.CameraId()) ==
           camera_id_to_param_idx_.end()) {
-        cam2_from_rig2 =
-            reconstruction.Rig(frame2.RigId())
-                .SensorFromRig(sensor_t(SensorType::CAMERA, image2.CameraId()));
+        cam2_from_rig2 = reconstruction.Rig(frame2.RigId())
+                             .SensorFromRig(image2.CameraPtr()->SensorId());
       }
     }
 
@@ -340,11 +347,14 @@ void RotationAveragingProblem::BuildConstraintMatrix(
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const auto& image1 = reconstruction.Image(image_id1);
     const auto& image2 = reconstruction.Image(image_id2);
+
+    if (!active_frame_ids_.count(image1.FrameId()) ||
+        !active_frame_ids_.count(image2.FrameId())) {
+      continue;
+    }
+
     const auto& frame1 = *image1.FramePtr();
     const auto& frame2 = *image2.FramePtr();
-
-    if (!frame1.HasPose() || !frame2.HasPose()) continue;
-
     const int frame_param_idx1 = frame_id_to_param_idx_[frame1.FrameId()];
     const int frame_param_idx2 = frame_id_to_param_idx_[frame2.FrameId()];
 
