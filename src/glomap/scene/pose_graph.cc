@@ -205,17 +205,6 @@ int PoseGraph::MarkConnectedComponents(
   return comp;
 }
 
-std::unordered_map<image_t, std::unordered_set<image_t>>
-PoseGraph::CreateImageAdjacencyList() const {
-  std::unordered_map<image_t, std::unordered_set<image_t>> adjacency_list;
-  for (const auto& [pair_id, edge] : ValidEdges()) {
-    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-    adjacency_list[image_id1].insert(image_id2);
-    adjacency_list[image_id2].insert(image_id1);
-  }
-  return adjacency_list;
-}
-
 void PoseGraph::FilterByRelativeRotation(
     const colmap::Reconstruction& reconstruction, double max_angle_deg) {
   const double max_angle_rad = colmap::DegToRad(max_angle_deg);

@@ -83,10 +83,6 @@ class PoseGraph {
         edges_.end());
   }
 
-  // Create the adjacency list for the images in the pose graph.
-  std::unordered_map<image_t, std::unordered_set<image_t>>
-  CreateImageAdjacencyList() const;
-
   // Compute the largest connected component of frames.
   // If filter_unregistered is true, only considers frames with HasPose().
   // Returns the set of frame_ids in the largest connected component.
