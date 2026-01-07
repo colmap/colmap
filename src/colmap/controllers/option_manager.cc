@@ -672,73 +672,72 @@ void OptionManager::AddGlobalMapperOptions() {
 
   // View graph calibration options.
   AddAndRegisterDefaultOption(
-      "GlobalMapper.ViewGraphCalib.cross_validate_prior_focal_lengths",
+      "GlobalMapper.vgc_cross_validate_prior_focal_lengths",
       &global_mapper->view_graph_calibration
            .cross_validate_prior_focal_lengths);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.ViewGraphCalib.min_calibrated_pair_ratio",
+      "GlobalMapper.vgc_min_calibrated_pair_ratio",
       &global_mapper->view_graph_calibration.min_calibrated_pair_ratio);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.ViewGraphCalib.reestimate_relative_pose",
+      "GlobalMapper.vgc_reestimate_relative_pose",
       &global_mapper->view_graph_calibration.reestimate_relative_pose);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.ViewGraphCalib.min_focal_length_ratio",
+      "GlobalMapper.vgc_min_focal_length_ratio",
       &global_mapper->view_graph_calibration.min_focal_length_ratio);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.ViewGraphCalib.max_focal_length_ratio",
+      "GlobalMapper.vgc_max_focal_length_ratio",
       &global_mapper->view_graph_calibration.max_focal_length_ratio);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.ViewGraphCalib.max_calibration_error",
+      "GlobalMapper.vgc_max_calibration_error",
       &global_mapper->view_graph_calibration.max_calibration_error);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.ViewGraphCalib.relpose_max_error",
+      "GlobalMapper.vgc_relpose_max_error",
       &global_mapper->view_graph_calibration.relpose_max_error);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.ViewGraphCalib.relpose_min_num_inliers",
+      "GlobalMapper.vgc_relpose_min_num_inliers",
       &global_mapper->view_graph_calibration.relpose_min_num_inliers);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.ViewGraphCalib.relpose_min_inlier_ratio",
+      "GlobalMapper.vgc_relpose_min_inlier_ratio",
       &global_mapper->view_graph_calibration.relpose_min_inlier_ratio);
 
   // Track establishment options.
   AddAndRegisterDefaultOption(
-      "GlobalMapper.TrackEstablishment.min_num_tracks_per_view",
+      "GlobalMapper.track_min_num_tracks_per_view",
       &global_mapper->mapper.track_establishment.min_num_tracks_per_view);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.TrackEstablishment.min_num_view_per_track",
+      "GlobalMapper.track_min_num_view_per_track",
       &global_mapper->mapper.track_establishment.min_num_view_per_track);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.TrackEstablishment.max_num_view_per_track",
+      "GlobalMapper.track_max_num_view_per_track",
       &global_mapper->mapper.track_establishment.max_num_view_per_track);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.TrackEstablishment.max_num_tracks",
+      "GlobalMapper.track_max_num_tracks",
       &global_mapper->mapper.track_establishment.max_num_tracks);
 
   // Global positioning options.
   AddAndRegisterDefaultOption(
-      "GlobalMapper.GlobalPositioning.use_gpu",
+      "GlobalMapper.gp_use_gpu",
       &global_mapper->mapper.global_positioning.use_gpu);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.GlobalPositioning.gpu_index",
+      "GlobalMapper.gp_gpu_index",
       &global_mapper->mapper.global_positioning.gpu_index);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.GlobalPositioning.optimize_positions",
+      "GlobalMapper.gp_optimize_positions",
       &global_mapper->mapper.global_positioning.optimize_positions);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.GlobalPositioning.optimize_points",
+      "GlobalMapper.gp_optimize_points",
       &global_mapper->mapper.global_positioning.optimize_points);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.GlobalPositioning.optimize_scales",
+      "GlobalMapper.gp_optimize_scales",
       &global_mapper->mapper.global_positioning.optimize_scales);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.GlobalPositioning.loss_function_scale",
+      "GlobalMapper.gp_loss_function_scale",
       &global_mapper->mapper.global_positioning.loss_function_scale);
-  AddAndRegisterDefaultOption(
-      "GlobalMapper.GlobalPositioning.max_num_iterations",
-      &global_mapper->mapper.global_positioning.solver_options
-           .max_num_iterations);
+  AddAndRegisterDefaultOption("GlobalMapper.gp_max_num_iterations",
+                              &global_mapper->mapper.global_positioning
+                                   .solver_options.max_num_iterations);
   AddAndRegisterDefaultEnumOption(
-      "GlobalMapper.GlobalPositioning.constraint_type",
+      "GlobalMapper.gp_constraint_type",
       &global_mapper->mapper.global_positioning.constraint_type,
       glomap::GlobalPositioningConstraintTypeToString,
       glomap::GlobalPositioningConstraintTypeFromString,
@@ -747,50 +746,52 @@ void OptionManager::AddGlobalMapperOptions() {
 
   // Bundle adjustment options.
   // TODO: Consolidate these with existing BA options (e.g., Mapper.ba_*).
-  AddAndRegisterDefaultOption("GlobalMapper.BundleAdjustment.use_gpu",
+  AddAndRegisterDefaultOption("GlobalMapper.ba_use_gpu",
                               &global_mapper->mapper.bundle_adjustment.use_gpu);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.BundleAdjustment.gpu_index",
+      "GlobalMapper.ba_gpu_index",
       &global_mapper->mapper.bundle_adjustment.gpu_index);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.BundleAdjustment.optimize_rig_poses",
+      "GlobalMapper.ba_optimize_rig_poses",
       &global_mapper->mapper.bundle_adjustment.optimize_rig_poses);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.BundleAdjustment.optimize_rotations",
+      "GlobalMapper.ba_optimize_rotations",
       &global_mapper->mapper.bundle_adjustment.optimize_rotations);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.BundleAdjustment.optimize_translation",
+      "GlobalMapper.ba_optimize_translation",
       &global_mapper->mapper.bundle_adjustment.optimize_translation);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.BundleAdjustment.optimize_intrinsics",
+      "GlobalMapper.ba_optimize_intrinsics",
       &global_mapper->mapper.bundle_adjustment.optimize_intrinsics);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.BundleAdjustment.optimize_principal_point",
+      "GlobalMapper.ba_optimize_principal_point",
       &global_mapper->mapper.bundle_adjustment.optimize_principal_point);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.BundleAdjustment.optimize_points",
+      "GlobalMapper.ba_optimize_points",
       &global_mapper->mapper.bundle_adjustment.optimize_points);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.BundleAdjustment.loss_function_scale",
+      "GlobalMapper.ba_loss_function_scale",
       &global_mapper->mapper.bundle_adjustment.loss_function_scale);
-  AddAndRegisterDefaultOption(
-      "GlobalMapper.BundleAdjustment.max_num_iterations",
-      &global_mapper->mapper.bundle_adjustment.solver_options
-           .max_num_iterations);
+  AddAndRegisterDefaultOption("GlobalMapper.ba_max_num_iterations",
+                              &global_mapper->mapper.bundle_adjustment
+                                   .solver_options.max_num_iterations);
 
   // Retriangulation options.
   AddAndRegisterDefaultOption(
-      "GlobalMapper.Retriangulation.complete_max_reproj_error",
+      "GlobalMapper.tri_complete_max_reproj_error",
       &global_mapper->mapper.retriangulation.complete_max_reproj_error);
   AddAndRegisterDefaultOption(
-      "GlobalMapper.Retriangulation.merge_max_reproj_error",
+      "GlobalMapper.tri_merge_max_reproj_error",
       &global_mapper->mapper.retriangulation.merge_max_reproj_error);
-  AddAndRegisterDefaultOption("GlobalMapper.Retriangulation.min_angle",
+  AddAndRegisterDefaultOption("GlobalMapper.tri_min_angle",
                               &global_mapper->mapper.retriangulation.min_angle);
 
+  // Rotation averaging options.
+  AddAndRegisterDefaultOption(
+      "GlobalMapper.ra_max_rotation_error_deg",
+      &global_mapper->mapper.rotation_averaging.max_rotation_error_deg);
+
   // Threshold options.
-  AddAndRegisterDefaultOption("GlobalMapper.max_rotation_error_deg",
-                              &global_mapper->mapper.max_rotation_error_deg);
   AddAndRegisterDefaultOption(
       "GlobalMapper.max_angular_reproj_error_deg",
       &global_mapper->mapper.max_angular_reproj_error_deg);

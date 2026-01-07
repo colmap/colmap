@@ -127,6 +127,7 @@ TEST(OptionManager, WriteAndRead) {
   options_write.AddImageOptions();
   options_write.AddFeatureExtractionOptions();
   options_write.AddMapperOptions();
+  options_write.AddGlobalMapperOptions();
 
   *options_write.database_path = test_dir / "database.db";
   *options_write.image_path = test_dir / "images";
@@ -144,6 +145,7 @@ TEST(OptionManager, WriteAndRead) {
   options_read.AddImageOptions();
   options_read.AddFeatureExtractionOptions();
   options_read.AddMapperOptions();
+  options_read.AddGlobalMapperOptions();
 
   EXPECT_TRUE(options_read.Read(config_path));
 
