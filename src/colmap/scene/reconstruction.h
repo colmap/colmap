@@ -39,6 +39,7 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
+#include <filesystem>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -241,23 +242,23 @@ class Reconstruction {
   void UpdatePoint3DErrors();
 
   // Read data from text or binary file. Prefer binary data if it exists.
-  void Read(const std::string& path);
-  void Write(const std::string& path) const;
+  void Read(const std::filesystem::path& path);
+  void Write(const std::filesystem::path& path) const;
 
   // Read data from binary/text file.
-  void ReadText(const std::string& path);
-  void ReadBinary(const std::string& path);
+  void ReadText(const std::filesystem::path& path);
+  void ReadBinary(const std::filesystem::path& path);
 
   // Write data from binary/text file.
-  void WriteText(const std::string& path) const;
-  void WriteBinary(const std::string& path) const;
+  void WriteText(const std::filesystem::path& path) const;
+  void WriteBinary(const std::filesystem::path& path) const;
 
   // Convert 3D points in reconstruction to PLY point cloud.
   std::vector<PlyPoint> ConvertToPLY() const;
 
   // Import from other data formats. Note that these import functions are
   // only intended for visualization of data and unusable for reconstruction.
-  void ImportPLY(const std::string& path);
+  void ImportPLY(const std::filesystem::path& path);
   void ImportPLY(const std::vector<PlyPoint>& ply_points);
 
   // Extract colors for 3D points of given image. Colors will be extracted
@@ -269,17 +270,18 @@ class Reconstruction {
   //                      root path and the name of the image.
   //
   // @return              True if image could be read at given path.
-  bool ExtractColorsForImage(image_t image_id, const std::string& path);
+  bool ExtractColorsForImage(image_t image_id,
+                             const std::filesystem::path& path);
 
   // Extract colors for all 3D points by computing the mean color of all images.
   //
   // @param path          Absolute or relative path to root folder of image.
   //                      The image path is determined by concatenating the
   //                      root path and the name of the image.
-  void ExtractColorsForAllImages(const std::string& path);
+  void ExtractColorsForAllImages(const std::filesystem::path& path);
 
   // Create all image sub-directories in the given path.
-  void CreateImageDirs(const std::string& path) const;
+  void CreateImageDirs(const std::filesystem::path& path) const;
 
  private:
   std::pair<Eigen::AlignedBox3d, Eigen::Vector3d> ComputeBBBoxAndCentroid(

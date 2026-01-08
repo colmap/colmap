@@ -92,7 +92,7 @@ void ExpectEqualGravity(const Eigen::Vector3d& gravity_in_world,
 TEST(GravityRefinement, RefineGravity) {
   colmap::SetPRNGSeed(1);
 
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -126,7 +126,7 @@ TEST(GravityRefinement, RefineGravity) {
 TEST(GravityRefinement, RefineGravityWithNonTrivialRigs) {
   colmap::SetPRNGSeed(1);
 
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;

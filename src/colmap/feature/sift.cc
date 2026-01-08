@@ -1455,13 +1455,13 @@ std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
   }
 }
 
-void LoadSiftFeaturesFromTextFile(const std::string& path,
+void LoadSiftFeaturesFromTextFile(const std::filesystem::path& path,
                                   FeatureKeypoints* keypoints,
                                   FeatureDescriptors* descriptors) {
   THROW_CHECK_NOTNULL(keypoints);
   THROW_CHECK_NOTNULL(descriptors);
 
-  std::ifstream file(path.c_str());
+  std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
 
   std::string line;

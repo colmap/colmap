@@ -63,8 +63,8 @@ std::unique_ptr<retrieval::VisualIndex> CreateSyntheticVisualIndex() {
 }
 
 TEST(CreateExhaustiveFeatureMatcher, Nominal) {
-  const std::string test_dir = CreateTestDir();
-  const std::string database_path = test_dir + "/database.db";
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
   auto database = Database::Open(database_path);
   CreateTestDatabase(/*num_images=*/4, *database);
   database->ClearMatches();
@@ -87,9 +87,9 @@ TEST(CreateExhaustiveFeatureMatcher, Nominal) {
 }
 
 TEST(CreateVocabTreeFeatureMatcher, Nominal) {
-  const std::string test_dir = CreateTestDir();
-  const std::string database_path = test_dir + "/database.db";
-  const std::string vocab_tree_path = test_dir + "/vocab_tree.bin";
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
+  const auto vocab_tree_path = test_dir / "vocab_tree.bin";
 
   auto database = Database::Open(database_path);
   CreateTestDatabase(/*num_images=*/4, *database);
@@ -122,8 +122,8 @@ TEST(CreateVocabTreeFeatureMatcher, Nominal) {
 }
 
 TEST(CreateSequentialFeatureMatcher, Nominal) {
-  const std::string test_dir = CreateTestDir();
-  const std::string database_path = test_dir + "/database.db";
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
   auto database = Database::Open(database_path);
   CreateTestDatabase(/*num_images=*/5, *database);
   database->ClearMatches();
@@ -152,8 +152,8 @@ TEST(CreateSequentialFeatureMatcher, Nominal) {
 }
 
 TEST(CreateSpatialFeatureMatcher, Nominal) {
-  const std::string test_dir = CreateTestDir();
-  const std::string database_path = test_dir + "/database.db";
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
   auto database = Database::Open(database_path);
   CreateTestDatabase(/*num_images=*/4, *database);
   database->ClearMatches();
@@ -180,8 +180,8 @@ TEST(CreateSpatialFeatureMatcher, Nominal) {
 }
 
 TEST(CreateTransitiveFeatureMatcher, Nominal) {
-  const std::string test_dir = CreateTestDir();
-  const std::string database_path = test_dir + "/database.db";
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
   auto database = Database::Open(database_path);
   CreateTestDatabase(/*num_images=*/4, *database);
   database->ClearMatches();
@@ -222,9 +222,9 @@ TEST(CreateTransitiveFeatureMatcher, Nominal) {
 }
 
 TEST(CreateImagePairsFeatureMatcher, Nominal) {
-  const std::string test_dir = CreateTestDir();
-  const std::string database_path = test_dir + "/database.db";
-  const std::string match_list_path = test_dir + "/match_list.txt";
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
+  const auto match_list_path = test_dir / "match_list.txt";
 
   auto database = Database::Open(database_path);
   CreateTestDatabase(/*num_images=*/4, *database);
@@ -261,9 +261,9 @@ TEST(CreateImagePairsFeatureMatcher, Nominal) {
 }
 
 TEST(CreateFeaturePairsFeatureMatcher, Nominal) {
-  const std::string test_dir = CreateTestDir();
-  const std::string database_path = test_dir + "/database.db";
-  const std::string match_list_path = test_dir + "/feature_match_list.txt";
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
+  const auto match_list_path = test_dir / "feature_match_list.txt";
 
   auto database = Database::Open(database_path);
   CreateTestDatabase(/*num_images=*/3, *database);
@@ -309,8 +309,8 @@ TEST(CreateFeaturePairsFeatureMatcher, Nominal) {
 }
 
 TEST(CreateGeometricVerifier, Nominal) {
-  const std::string test_dir = CreateTestDir();
-  const std::string database_path = test_dir + "/database.db";
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
   auto database = Database::Open(database_path);
   CreateTestDatabase(/*num_images=*/4, *database);
   database->ClearTwoViewGeometries();
@@ -333,8 +333,8 @@ TEST(CreateGeometricVerifier, Nominal) {
 }
 
 TEST(CreateGeometricVerifier, Guided) {
-  const std::string test_dir = CreateTestDir();
-  const std::string database_path = test_dir + "/database.db";
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
 

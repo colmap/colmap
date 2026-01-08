@@ -49,18 +49,18 @@ void IterativeGlobalRefinement(const IncrementalPipelineOptions& options,
   mapper.FilterFrames(mapper_options);
 }
 
-void ExtractColors(const std::string& image_path,
+void ExtractColors(const std::filesystem::path& image_path,
                    const image_t image_id,
                    Reconstruction& reconstruction) {
   if (!reconstruction.ExtractColorsForImage(image_id, image_path)) {
-    LOG(WARNING) << StringPrintf("Could not read image %s at path %s.",
-                                 reconstruction.Image(image_id).Name().c_str(),
-                                 image_path.c_str());
+    LOG(WARNING) << "Could not read image "
+                 << reconstruction.Image(image_id).Name() << " at path "
+                 << image_path << ".";
   }
 }
 
 void WriteSnapshot(const Reconstruction& reconstruction,
-                   const std::string& snapshot_path) {
+                   const std::filesystem::path& snapshot_path) {
   LOG(INFO) << "Creating snapshot";
   // Get the current timestamp in milliseconds.
   const size_t timestamp =
@@ -68,8 +68,7 @@ void WriteSnapshot(const Reconstruction& reconstruction,
           std::chrono::high_resolution_clock::now().time_since_epoch())
           .count();
   // Write reconstruction to unique path with current timestamp.
-  const std::string path =
-      JoinPaths(snapshot_path, StringPrintf("%010zu", timestamp));
+  const auto path = snapshot_path / StringPrintf("%010zu", timestamp);
   CreateDirIfNotExists(path);
   VLOG(1) << "=> Writing to " << path;
   reconstruction.Write(path);

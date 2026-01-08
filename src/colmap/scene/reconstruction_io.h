@@ -33,6 +33,7 @@
 #include "colmap/scene/reconstruction_io_binary.h"
 #include "colmap/scene/reconstruction_io_text.h"
 
+#include <filesystem>
 #include <iostream>
 
 #include <Eigen/Core>
@@ -45,7 +46,7 @@ namespace colmap {
 // it's using the mean focal length which will be inaccurate for camera models
 // with two focal lengths and distortion.
 bool ExportNVM(const Reconstruction& reconstruction,
-               const std::string& path,
+               const std::filesystem::path& path,
                bool skip_distortion = false);
 
 // Exports in CAM format which is a simple text file that contains pose
@@ -62,7 +63,7 @@ bool ExportNVM(const Reconstruction& reconstruction,
 // models with the caveat that it's using the mean focal length which will be
 // inaccurate for camera models with two focal lengths and distortion.
 bool ExportCam(const Reconstruction& reconstruction,
-               const std::string& path,
+               const std::filesystem::path& path,
                bool skip_distortion = false);
 
 // Exports in Recon3D format which consists of three text files with the
@@ -96,7 +97,7 @@ bool ExportCam(const Reconstruction& reconstruction,
 // caveat that it's using the mean focal length which will be inaccurate
 // for camera models with two focal lengths and distortion.
 bool ExportRecon3D(const Reconstruction& reconstruction,
-                   const std::string& path,
+                   const std::filesystem::path& path,
                    bool skip_distortion = false);
 
 // Exports in Bundler format https://www.cs.cornell.edu/~snavely/bundler/.
@@ -106,17 +107,18 @@ bool ExportRecon3D(const Reconstruction& reconstruction,
 // length which will be inaccurate for camera models with two focal lengths
 // and distortion.
 bool ExportBundler(const Reconstruction& reconstruction,
-                   const std::string& path,
-                   const std::string& list_path,
+                   const std::filesystem::path& path,
+                   const std::filesystem::path& list_path,
                    bool skip_distortion = false);
 
 // Exports 3D points only in PLY format.
-void ExportPLY(const Reconstruction& reconstruction, const std::string& path);
+void ExportPLY(const Reconstruction& reconstruction,
+               const std::filesystem::path& path);
 
 // Exports in VRML format https://en.wikipedia.org/wiki/VRML.
 void ExportVRML(const Reconstruction& reconstruction,
-                const std::string& images_path,
-                const std::string& points3D_path,
+                const std::filesystem::path& images_path,
+                const std::filesystem::path& points3D_path,
                 double image_scale,
                 const Eigen::Vector3d& image_rgb);
 

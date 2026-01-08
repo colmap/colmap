@@ -33,6 +33,8 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
 
+#include <filesystem>
+
 namespace colmap {
 
 struct SyntheticDatasetOptions {
@@ -107,6 +109,6 @@ struct SyntheticImageOptions {
 // feature detections and matches due to overlapping patches, etc.
 void SynthesizeImages(const SyntheticImageOptions& options,
                       const Reconstruction& reconstruction,
-                      const std::string& image_path);
+                      const std::filesystem::path& image_path);
 
 }  // namespace colmap

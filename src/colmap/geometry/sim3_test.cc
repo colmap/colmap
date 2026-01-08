@@ -161,7 +161,7 @@ TEST(Sim3d, Compose) {
 }
 
 TEST(Sim3d, ToFromFile) {
-  const std::string path = CreateTestDir() + "/file.txt";
+  const auto path = CreateTestDir() / "file.txt";
   const Sim3d written = TestSim3d();
   written.ToFile(path);
   const Sim3d read = Sim3d::FromFile(path);

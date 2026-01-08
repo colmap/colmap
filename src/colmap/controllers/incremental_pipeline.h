@@ -33,6 +33,7 @@
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/util/base_controller.h"
 
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <unordered_set>
@@ -150,12 +151,12 @@ struct IncrementalPipelineOptions {
   // Path to a folder with reconstruction snapshots during incremental
   // reconstruction. Snapshots will be saved according to the specified
   // frequency of registered images.
-  std::string snapshot_path;
+  std::filesystem::path snapshot_path;
   int snapshot_frames_freq = 0;
 
   // The image path at which to find the images to extract point colors.
   // If not specified, all point colors will be black.
-  std::string image_path;
+  std::filesystem::path image_path;
 
   // Optional list of image names to reconstruct. If no images are specified,
   // all images will be reconstructed by default.

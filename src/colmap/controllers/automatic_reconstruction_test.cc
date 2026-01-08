@@ -47,9 +47,9 @@ class ParameterizedAutomaticReconstructionTests
 TEST_P(ParameterizedAutomaticReconstructionTests, Nominal) {
   SetPRNGSeed(1);
 
-  const std::string test_dir = CreateTestDir();
-  const std::string workspace_path = test_dir + "/workspace";
-  const std::string image_path = test_dir + "/images";
+  const auto test_dir = CreateTestDir();
+  const auto workspace_path = test_dir / "workspace";
+  const auto image_path = test_dir / "images";
   CreateDirIfNotExists(workspace_path);
   CreateDirIfNotExists(image_path);
 

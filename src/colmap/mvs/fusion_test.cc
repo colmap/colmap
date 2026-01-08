@@ -41,12 +41,12 @@ namespace mvs {
 namespace {
 
 TEST(StereoFusion, Integration) {
-  std::string temp_dir = CreateTestDir();
-  CreateDirIfNotExists(JoinPaths(temp_dir, "sparse"));
-  CreateDirIfNotExists(JoinPaths(temp_dir, "images"));
-  CreateDirIfNotExists(JoinPaths(temp_dir, "stereo"));
-  CreateDirIfNotExists(JoinPaths(temp_dir, "stereo", "depth_maps"));
-  CreateDirIfNotExists(JoinPaths(temp_dir, "stereo", "normal_maps"));
+  const auto temp_dir = CreateTestDir();
+  CreateDirIfNotExists(temp_dir / "sparse");
+  CreateDirIfNotExists(temp_dir / "images");
+  CreateDirIfNotExists(temp_dir / "stereo");
+  CreateDirIfNotExists(temp_dir / "stereo" / "depth_maps");
+  CreateDirIfNotExists(temp_dir / "stereo" / "normal_maps");
 
   // Create synthetic reconstruction with 2 overlapping images.
   SyntheticDatasetOptions synthetic_dataset_options;
@@ -57,7 +57,7 @@ TEST(StereoFusion, Integration) {
   synthetic_dataset_options.camera_height = 20;
   Reconstruction reconstruction;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  reconstruction.Write(JoinPaths(temp_dir, "sparse"));
+  reconstruction.Write(temp_dir / "sparse");
 
   // Create depth maps, normal maps, and consistency graphs for both images.
   std::vector<std::string> image_names;
@@ -69,8 +69,8 @@ TEST(StereoFusion, Integration) {
                          synthetic_dataset_options.camera_height,
                          1);
     depth_map.Fill(5.0f);
-    depth_map.Write(JoinPaths(
-        temp_dir, "stereo", "depth_maps", image.Name() + ".geometric.bin"));
+    depth_map.Write(temp_dir / "stereo" / "depth_maps" /
+                    (image.Name() + ".geometric.bin"));
 
     // Create normal map pointing in z direction.
     Mat<float> normal_map(synthetic_dataset_options.camera_width,
@@ -82,19 +82,19 @@ TEST(StereoFusion, Integration) {
       normal_map.GetPtr()[3 * i + 1] = 0.0f;  // ny
       normal_map.GetPtr()[3 * i + 2] = 1.0f;  // nz
     }
-    normal_map.Write(JoinPaths(
-        temp_dir, "stereo", "normal_maps", image.Name() + ".geometric.bin"));
+    normal_map.Write(temp_dir / "stereo" / "normal_maps" /
+                     (image.Name() + ".geometric.bin"));
 
     // Create bitmap.
     Bitmap bitmap(synthetic_dataset_options.camera_width,
                   synthetic_dataset_options.camera_height,
                   true);
     bitmap.Fill(BitmapColor<uint8_t>(0, 64, 128));
-    bitmap.Write(JoinPaths(temp_dir, "images", image.Name()));
+    bitmap.Write(temp_dir / "images" / image.Name());
   }
 
   // Write fusion config
-  std::ofstream fusion_cfg(JoinPaths(temp_dir, "stereo", "fusion.cfg"));
+  std::ofstream fusion_cfg(temp_dir / "stereo" / "fusion.cfg");
   for (const auto& name : image_names) {
     fusion_cfg << name << "\n";
   }

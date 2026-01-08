@@ -85,7 +85,7 @@ void ExpectEqualRotations(const colmap::Reconstruction& gt,
 TEST(RotationAveraging, WithoutNoise) {
   colmap::SetPRNGSeed(1);
 
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -124,7 +124,7 @@ TEST(RotationAveraging, WithoutNoise) {
 TEST(RotationAveraging, WithoutNoiseWithNonTrivialKnownRig) {
   colmap::SetPRNGSeed(1);
 
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -161,7 +161,7 @@ TEST(RotationAveraging, WithoutNoiseWithNonTrivialKnownRig) {
 TEST(RotationAveraging, WithoutNoiseWithNonTrivialUnknownRig) {
   colmap::SetPRNGSeed(1);
 
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -208,7 +208,7 @@ TEST(RotationAveraging, WithoutNoiseWithNonTrivialUnknownRig) {
 TEST(RotationAveraging, WithNoiseAndOutliers) {
   colmap::SetPRNGSeed(1);
 
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -251,7 +251,7 @@ TEST(RotationAveraging, WithNoiseAndOutliers) {
 TEST(RotationAveraging, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
   colmap::SetPRNGSeed(1);
 
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;

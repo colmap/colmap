@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -127,13 +128,14 @@ class Bitmap {
   // Read bitmap at given path and convert to grey- or colorscale. Defaults to
   // keeping the original colorspace (potentially non-linear) for image
   // processing.
-  bool Read(const std::string& path,
+  bool Read(const std::filesystem::path& path,
             bool as_rgb = true,
             bool linearize_colorspace = false);
 
   // Write bitmap to file at given path. Defaults to converting to sRGB
   // colorspace for file storage.
-  bool Write(const std::string& path, bool delinearize_colorspace = true) const;
+  bool Write(const std::filesystem::path& path,
+             bool delinearize_colorspace = true) const;
 
   // Rescale image to the new dimensions.
   enum class RescaleFilter {

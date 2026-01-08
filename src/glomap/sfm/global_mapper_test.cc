@@ -30,7 +30,7 @@ GlobalMapperOptions CreateTestOptions() {
 }
 
 TEST(GlobalMapper, WithoutNoise) {
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -58,7 +58,7 @@ TEST(GlobalMapper, WithoutNoise) {
 }
 
 TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -89,7 +89,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
 }
 
 TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -130,7 +130,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
 }
 
 TEST(GlobalMapper, WithNoiseAndOutliers) {
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;

@@ -573,7 +573,7 @@ void SynthesizeNoise(const SyntheticNoiseOptions& options,
 
 void SynthesizeImages(const SyntheticImageOptions& options,
                       const Reconstruction& reconstruction,
-                      const std::string& image_path) {
+                      const std::filesystem::path& image_path) {
   THROW_CHECK_GT(options.feature_patch_radius, 0);
   THROW_CHECK_LT(options.feature_peak_radius, options.feature_patch_radius);
   THROW_CHECK_GT(options.feature_patch_max_brightness, 0);
@@ -650,7 +650,7 @@ void SynthesizeImages(const SyntheticImageOptions& options,
       }
     }
 
-    const std::string output_image_path = JoinPaths(image_path, image.Name());
+    const auto output_image_path = image_path / image.Name();
     if (!bitmap.Write(output_image_path)) {
       LOG(ERROR) << "Failed to write image to " << output_image_path;
     }

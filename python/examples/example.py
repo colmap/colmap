@@ -16,7 +16,7 @@ from pycolmap import logging
 def incremental_mapping_with_pbar(
     database_path: Path, image_path: Path, sfm_path: Path
 ) -> dict[int, pycolmap.Reconstruction]:
-    with pycolmap.Database.open(str(database_path)) as database:
+    with pycolmap.Database.open(database_path) as database:
         num_images = database.num_images()
     with enlighten.Manager() as manager:
         with manager.counter(
@@ -24,9 +24,9 @@ def incremental_mapping_with_pbar(
         ) as pbar:
             pbar.update(0, force=True)
             reconstructions = pycolmap.incremental_mapping(
-                str(database_path),
-                str(image_path),
-                str(sfm_path),
+                database_path,
+                image_path,
+                sfm_path,
                 initial_image_pair_callback=lambda: pbar.update(2),
                 next_image_callback=lambda: pbar.update(1),
             )
@@ -41,7 +41,7 @@ def run() -> None:
 
     output_path.mkdir(exist_ok=True)
     # The log filename is postfixed with the execution timestamp.
-    logging.set_log_destination(logging.INFO, str(output_path / "INFO.log."))
+    logging.set_log_destination(logging.INFO, output_path / "INFO.log.")
 
     data_url = "https://cvg-data.inf.ethz.ch/local-feature-evaluation-schoenberger2017/Strecha-Fountain.zip"
     if not image_path.exists():
@@ -55,8 +55,8 @@ def run() -> None:
     if database_path.exists():
         database_path.unlink()
     pycolmap.set_random_seed(0)
-    pycolmap.extract_features(str(database_path), str(image_path))
-    pycolmap.match_exhaustive(str(database_path))
+    pycolmap.extract_features(database_path, image_path)
+    pycolmap.match_exhaustive(database_path)
 
     if sfm_path.exists():
         shutil.rmtree(sfm_path)
