@@ -32,6 +32,7 @@
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/math/random.h"
+#include "colmap/math/union_find.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/file.h"
@@ -54,20 +55,24 @@ void AddOutlierMatches(double inlier_ratio,
   std::shuffle(matches->begin(), matches->end(), *PRNG);
 }
 
-void SynthesizeExhaustiveMatches(double inlier_match_ratio,
-                                 Reconstruction* reconstruction,
-                                 Database* database) {
+std::map<image_pair_t, TwoViewGeometry> BuildExhaustiveTwoViewGeometries(
+    Reconstruction* reconstruction) {
+  std::map<image_pair_t, TwoViewGeometry> two_view_geometries;
+
   for (const image_t image_id1 : reconstruction->RegImageIds()) {
     const auto& image1 = reconstruction->Image(image_id1);
     const Eigen::Matrix3d K1 = image1.CameraPtr()->CalibrationMatrix();
     const auto num_points2D1 = image1.NumPoints2D();
+
     for (const image_t image_id2 : reconstruction->RegImageIds()) {
-      if (image_id1 == image_id2) {
-        break;
+      if (image_id1 >= image_id2) {
+        continue;
       }
       const auto& image2 = reconstruction->Image(image_id2);
       const Eigen::Matrix3d K2 = image2.CameraPtr()->CalibrationMatrix();
       const auto num_points2D2 = image2.NumPoints2D();
+
+      const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
 
       TwoViewGeometry two_view_geometry;
       const bool is_calibrated = image1.CameraPtr()->has_prior_focal_length &&
@@ -80,6 +85,7 @@ void SynthesizeExhaustiveMatches(double inlier_match_ratio,
           EssentialMatrixFromPose(*two_view_geometry.cam2_from_cam1);
       two_view_geometry.F =
           FundamentalFromEssentialMatrix(K2, two_view_geometry.E, K1);
+
       for (point2D_t point2D_idx1 = 0; point2D_idx1 < num_points2D1;
            ++point2D_idx1) {
         const auto& point2D1 = image1.Point2D(point2D_idx1);
@@ -97,18 +103,45 @@ void SynthesizeExhaustiveMatches(double inlier_match_ratio,
         }
       }
 
-      FeatureMatches matches = two_view_geometry.inlier_matches;
-      AddOutlierMatches(
-          inlier_match_ratio, num_points2D1, num_points2D2, &matches);
-
-      if (!database->ExistsMatches(image_id1, image_id2)) {
-        database->WriteMatches(image_id1, image_id2, matches);
-      }
-      if (!database->ExistsTwoViewGeometry(image_id1, image_id2)) {
-        database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
-      }
+      two_view_geometries[pair_id] = std::move(two_view_geometry);
     }
   }
+
+  return two_view_geometries;
+}
+
+void WriteTwoViewGeometriesToDatabase(
+    const std::map<image_pair_t, TwoViewGeometry>& two_view_geometries,
+    double inlier_match_ratio,
+    Reconstruction* reconstruction,
+    Database* database) {
+  for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    const auto& image1 = reconstruction->Image(image_id1);
+    const auto& image2 = reconstruction->Image(image_id2);
+
+    FeatureMatches matches = two_view_geometry.inlier_matches;
+    AddOutlierMatches(inlier_match_ratio,
+                      image1.NumPoints2D(),
+                      image2.NumPoints2D(),
+                      &matches);
+
+    if (!database->ExistsMatches(image_id1, image_id2)) {
+      database->WriteMatches(image_id1, image_id2, matches);
+    }
+    if (!database->ExistsTwoViewGeometry(image_id1, image_id2)) {
+      database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+    }
+  }
+}
+
+void SynthesizeExhaustiveMatches(double inlier_match_ratio,
+                                 Reconstruction* reconstruction,
+                                 Database* database) {
+  std::map<image_pair_t, TwoViewGeometry> two_view_geometries =
+      BuildExhaustiveTwoViewGeometries(reconstruction);
+  WriteTwoViewGeometriesToDatabase(
+      two_view_geometries, inlier_match_ratio, reconstruction, database);
 }
 
 void SynthesizeChainedMatches(double inlier_match_ratio,
@@ -174,6 +207,99 @@ void SynthesizeChainedMatches(double inlier_match_ratio,
   }
 }
 
+bool IsGraphConnected(const std::set<image_t>& nodes,
+                      const std::set<image_pair_t>& edges) {
+  if (nodes.empty()) {
+    return true;
+  }
+  if (nodes.size() == 1) {
+    return true;
+  }
+  if (edges.empty()) {
+    return false;
+  }
+
+  // Use UnionFind to check connectivity.
+  UnionFind<image_t> uf;
+  uf.Reserve(nodes.size());
+
+  for (const image_pair_t pair_id : edges) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    uf.Union(image_id1, image_id2);
+  }
+
+  // Check that all nodes have the same root.
+  const image_t root = uf.Find(*nodes.begin());
+  for (const image_t node : nodes) {
+    if (uf.Find(node) != root) {
+      return false;
+    }
+  }
+  return true;
+}
+
+void SynthesizeSparseMatches(double inlier_match_ratio,
+                             double sparsity,
+                             Reconstruction* reconstruction,
+                             Database* database) {
+  THROW_CHECK_GE(sparsity, 0.0);
+  THROW_CHECK_LE(sparsity, 1.0);
+
+  if (sparsity == 0.0) {
+    SynthesizeExhaustiveMatches(inlier_match_ratio, reconstruction, database);
+    return;
+  }
+
+  if (sparsity == 1.0) {
+    return;
+  }
+
+  std::map<image_pair_t, TwoViewGeometry> all_two_view_geometries =
+      BuildExhaustiveTwoViewGeometries(reconstruction);
+
+  std::set<image_t> all_image_ids;
+  for (const image_t image_id : reconstruction->RegImageIds()) {
+    all_image_ids.insert(image_id);
+  }
+
+  const size_t num_edges_total = all_two_view_geometries.size();
+  const size_t num_edges_to_remove =
+      static_cast<size_t>(sparsity * num_edges_total);
+
+  std::vector<image_pair_t> remaining_edges;
+  remaining_edges.reserve(num_edges_total);
+  for (const auto& [pair_id, _] : all_two_view_geometries) {
+    remaining_edges.push_back(pair_id);
+  }
+
+  // Try to remove edges randomly while maintaining connectivity.
+  std::shuffle(remaining_edges.begin(), remaining_edges.end(), *PRNG);
+  std::set<image_pair_t> remaining_edges_set(remaining_edges.begin(),
+                                             remaining_edges.end());
+  size_t edges_removed = 0;
+  for (const image_pair_t pair_id : remaining_edges) {
+    if (edges_removed >= num_edges_to_remove) {
+      break;
+    }
+    remaining_edges_set.erase(pair_id);
+    if (IsGraphConnected(all_image_ids, remaining_edges_set)) {
+      edges_removed++;
+    } else {
+      remaining_edges_set.insert(pair_id);
+    }
+  }
+
+  std::map<image_pair_t, TwoViewGeometry> remaining_two_view_geometries;
+  for (const image_pair_t pair_id : remaining_edges_set) {
+    remaining_two_view_geometries[pair_id] =
+        std::move(all_two_view_geometries[pair_id]);
+  }
+  WriteTwoViewGeometriesToDatabase(remaining_two_view_geometries,
+                                   inlier_match_ratio,
+                                   reconstruction,
+                                   database);
+}
+
 static const GPSTransform kGPSTransform;
 static constexpr double kLat0 = 47.37851943807808;
 static constexpr double kLon0 = 8.549099927632087;
@@ -205,6 +331,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   THROW_CHECK_GE(options.num_points2D_without_point3D, 0);
   THROW_CHECK_GE(options.sensor_from_rig_translation_stddev, 0.);
   THROW_CHECK_GE(options.sensor_from_rig_rotation_stddev, 0.);
+  THROW_CHECK_GE(options.match_sparsity, 0.);
+  THROW_CHECK_LE(options.match_sparsity, 1.);
 
   if (PRNG == nullptr) {
     SetPRNGSeed();
@@ -456,6 +584,12 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       case SyntheticDatasetOptions::MatchConfig::CHAINED:
         SynthesizeChainedMatches(
             options.inlier_match_ratio, reconstruction, database);
+        break;
+      case SyntheticDatasetOptions::MatchConfig::SPARSE:
+        SynthesizeSparseMatches(options.inlier_match_ratio,
+                                options.match_sparsity,
+                                reconstruction,
+                                database);
         break;
       default:
         LOG(FATAL_THROW) << "Invalid MatchConfig specified";
