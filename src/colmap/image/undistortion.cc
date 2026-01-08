@@ -387,7 +387,6 @@ void PMVSUndistorter::WriteVisibilityData() const {
   THROW_CHECK_FILE_OPEN(file, path);
 
   file << "VISDATA\n";
-
   file << reconstruction_.NumRegImages() << '\n';
 
   size_t image_idx = 0;

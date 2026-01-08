@@ -144,15 +144,14 @@ ImageReader::Status ImageReader::Next(Rig* rig,
   //////////////////////////////////////////////////////////////////////////////
 
   if (mask && !options_.mask_path.empty()) {
-    std::filesystem::path mask_path =
-        options_.mask_path / (image->Name() + ".png");
+    auto mask_path = options_.mask_path / (image->Name() + ".png");
     if (!ExistsFile(mask_path)) {
       bool exists_mask = false;
       // Try replacing extension with .png
       const std::string& base_name = image->Name();
       const size_t last_dot = base_name.find_last_of('.');
       if (last_dot != std::string::npos) {
-        std::filesystem::path alt_mask_path =
+        auto alt_mask_path =
             options_.mask_path / (base_name.substr(0, last_dot) + ".png");
         if (ExistsFile(alt_mask_path)) {
           mask_path = std::move(alt_mask_path);

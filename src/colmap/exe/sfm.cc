@@ -354,7 +354,7 @@ int RunMapper(int argc, char** argv) {
   if (input_path.empty()) {
     for (size_t i = 0; i < reconstruction_manager->Size(); ++i) {
       const auto reconstruction_path = output_path / std::to_string(i);
-      options.Write((reconstruction_path / "project.ini").string());
+      options.Write(reconstruction_path / "project.ini");
     }
   }
 
@@ -394,7 +394,7 @@ int RunGlobalMapper(int argc, char** argv) {
   }
 
   reconstruction_manager->Write(output_path);
-  options.Write((output_path / "project.ini").string());
+  options.Write(output_path / "project.ini");
 
   return EXIT_SUCCESS;
 }
@@ -437,7 +437,7 @@ int RunHierarchicalMapper(int argc, char** argv) {
   }
 
   reconstruction_manager->Write(output_path);
-  options.Write((output_path / "project.ini").string());
+  options.Write(output_path / "project.ini");
 
   return EXIT_SUCCESS;
 }
@@ -511,7 +511,7 @@ int RunPosePriorMapper(int argc, char** argv) {
   if (input_path.empty()) {
     for (size_t i = 0; i < reconstruction_manager->Size(); ++i) {
       const auto reconstruction_path = output_path / std::to_string(i);
-      options.Write((reconstruction_path / "project.ini").string());
+      options.Write(reconstruction_path / "project.ini");
     }
   }
 

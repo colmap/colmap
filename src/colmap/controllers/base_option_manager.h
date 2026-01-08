@@ -125,7 +125,6 @@ class BaseOptionManager {
       options_path_;
 
   // Storage for enum options: string value and conversion callback.
-
   // Uses unique_ptr for pointer stability when the vector grows.
   struct EnumOptionInfo {
     std::string value;            // String value for parsing

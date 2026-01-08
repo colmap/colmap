@@ -235,7 +235,6 @@ void ImportPMVSWorkspace(const Workspace& workspace,
   CreateDirIfNotExists(workspace_path / stereo_folder / "consistency_graphs");
 
   const auto option_lines = ReadTextFileLines(workspace_path / option_name);
-
   for (const auto& line : option_lines) {
     if (!StringStartsWith(line, "timages")) {
       continue;

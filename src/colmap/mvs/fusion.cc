@@ -158,10 +158,9 @@ void StereoFusion::Run() {
   workspace_options.workspace_path = workspace_path_;
   workspace_options.workspace_format = workspace_format_;
   workspace_options.input_type = input_type_;
-  const auto config_path =
-      workspace_path_ / workspace_options.stereo_folder / "fusion.cfg";
-  const auto image_names = ReadTextFileLines(config_path);
 
+  const auto image_names = ReadTextFileLines(
+      workspace_path_ / workspace_options.stereo_folder / "fusion.cfg");
   int num_threads = 1;
   if (options_.use_cache) {
     workspace_ = std::make_unique<CachedWorkspace>(workspace_options);
