@@ -380,10 +380,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
           Point2D point2D;
           const std::optional<Eigen::Vector2d> proj_point2D =
               camera.ImgFromCam(cam_from_world * point3D.xyz);
-          if (!proj_point2D.has_value()) {
-            continue;  // Point is behind the camera.
-          }
-          point2D.xy = proj_point2D.value();
+          THROW_CHECK(proj_point2D.has_value());
+          point2D.xy = *proj_point2D;
           if (point2D.xy(0) >= 0 && point2D.xy(1) >= 0 &&
               point2D.xy(0) <= camera.width && point2D.xy(1) <= camera.height) {
             point2D.point3D_id = point3D_id;
