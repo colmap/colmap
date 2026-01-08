@@ -543,7 +543,7 @@ void DenseReconstructionWidget::RefreshWorkspace() {
         image_button, &QPushButton::released, [this, image_name, image_path]() {
           image_viewer_widget_->setWindowTitle(
               QString("Image for %1").arg(image_name.c_str()));
-          image_viewer_widget_->ReadAndShow(image_path.string());
+          image_viewer_widget_->ReadAndShow(image_path);
         });
     table_widget_->setCellWidget(i, 1, image_button);
 
