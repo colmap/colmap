@@ -456,18 +456,16 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   if (database != nullptr) {
     switch (options.match_config) {
       case SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE:
-        SynthesizeExhaustiveMatches(
-            options.inlier_match_ratio,
-            options.two_view_geometry_has_relative_pose,
-            reconstruction,
-            database);
+        SynthesizeExhaustiveMatches(options.inlier_match_ratio,
+                                    options.two_view_geometry_has_relative_pose,
+                                    reconstruction,
+                                    database);
         break;
       case SyntheticDatasetOptions::MatchConfig::CHAINED:
-        SynthesizeChainedMatches(
-            options.inlier_match_ratio,
-            options.two_view_geometry_has_relative_pose,
-            reconstruction,
-            database);
+        SynthesizeChainedMatches(options.inlier_match_ratio,
+                                 options.two_view_geometry_has_relative_pose,
+                                 reconstruction,
+                                 database);
         break;
       default:
         LOG(FATAL_THROW) << "Invalid MatchConfig specified";

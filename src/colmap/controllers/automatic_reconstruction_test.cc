@@ -41,8 +41,8 @@ namespace colmap {
 namespace {
 
 class ParameterizedAutomaticReconstructionTests
-    : public ::testing::TestWithParam<AutomaticReconstructionController::Mapper> {
-};
+    : public ::testing::TestWithParam<
+          AutomaticReconstructionController::Mapper> {};
 
 TEST_P(ParameterizedAutomaticReconstructionTests, Nominal) {
   SetPRNGSeed(1);

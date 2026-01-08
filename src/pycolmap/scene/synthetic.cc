@@ -43,8 +43,9 @@ void BindSynthetic(py::module& m) {
                          &SyntheticDatasetOptions::camera_model_id)
           .def_readwrite("camera_params",
                          &SyntheticDatasetOptions::camera_params)
-          .def_readwrite("camera_has_prior_focal_length",
-                         &SyntheticDatasetOptions::camera_has_prior_focal_length)
+          .def_readwrite(
+              "camera_has_prior_focal_length",
+              &SyntheticDatasetOptions::camera_has_prior_focal_length)
           .def_readwrite("num_points2D_without_point3D",
                          &SyntheticDatasetOptions::num_points2D_without_point3D)
           .def_readwrite("inlier_match_ratio",
