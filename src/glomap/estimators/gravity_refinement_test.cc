@@ -113,8 +113,8 @@ TEST(GravityRefinement, RefineGravity) {
   SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
   GravityRefinerOptions opt_grav_refine;
-  GravityRefiner grav_refiner(opt_grav_refine);
-  grav_refiner.RefineGravity(pose_graph, reconstruction, pose_priors);
+  RunGravityRefinement(
+      opt_grav_refine, pose_graph, reconstruction, pose_priors);
 
   ExpectEqualGravity(synthetic_dataset_options.prior_gravity_in_world,
                      gt_reconstruction,
@@ -146,8 +146,8 @@ TEST(GravityRefinement, RefineGravityWithNonTrivialRigs) {
   SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
   GravityRefinerOptions opt_grav_refine;
-  GravityRefiner grav_refiner(opt_grav_refine);
-  grav_refiner.RefineGravity(pose_graph, reconstruction, pose_priors);
+  RunGravityRefinement(
+      opt_grav_refine, pose_graph, reconstruction, pose_priors);
 
   ExpectEqualGravity(synthetic_dataset_options.prior_gravity_in_world,
                      gt_reconstruction,

@@ -109,43 +109,4 @@ int PoseGraph::MarkConnectedComponents(
   return comp;
 }
 
-std::unordered_map<image_t, std::unordered_set<image_t>>
-PoseGraph::CreateImageAdjacencyList() const {
-  std::unordered_map<image_t, std::unordered_set<image_t>> adjacency_list;
-  for (const auto& [pair_id, edge] : ValidEdges()) {
-    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-    adjacency_list[image_id1].insert(image_id2);
-    adjacency_list[image_id2].insert(image_id1);
-  }
-  return adjacency_list;
-}
-
-void PoseGraph::FilterByRelativeRotation(
-    const colmap::Reconstruction& reconstruction, double max_angle_deg) {
-  const double max_angle_rad = colmap::DegToRad(max_angle_deg);
-  int num_invalid = 0;
-  for (const auto& [pair_id, edge] : ValidEdges()) {
-    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-    const Image& image1 = reconstruction.Image(image_id1);
-    const Image& image2 = reconstruction.Image(image_id2);
-
-    if (!image1.HasPose() || !image2.HasPose()) {
-      continue;
-    }
-
-    const Eigen::Quaterniond cam2_from_cam1 =
-        image2.CamFromWorld().rotation *
-        image1.CamFromWorld().rotation.inverse();
-    if (cam2_from_cam1.angularDistance(edge.cam2_from_cam1.rotation) >
-        max_angle_rad) {
-      SetInvalidEdge(pair_id);
-      num_invalid++;
-    }
-  }
-
-  LOG(INFO) << "Marked " << num_invalid
-            << " image pairs as invalid with relative rotation error > "
-            << max_angle_deg << " degrees";
-}
-
 }  // namespace glomap

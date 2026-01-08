@@ -81,10 +81,6 @@ class PoseGraph {
         edges_.end());
   }
 
-  // Create the adjacency list for the images in the pose graph.
-  std::unordered_map<image_t, std::unordered_set<image_t>>
-  CreateImageAdjacencyList() const;
-
   // Compute the largest connected component of frames.
   // If filter_unregistered is true, only considers frames with HasPose().
   // Returns the set of frame_ids in the largest connected component.
@@ -101,12 +97,6 @@ class PoseGraph {
   int MarkConnectedComponents(const colmap::Reconstruction& reconstruction,
                               std::unordered_map<frame_t, int>& cluster_ids,
                               int min_num_images = -1) const;
-
-  // Mark edges as invalid if their relative rotation differs from the
-  // reconstructed rotation by more than max_angle_deg.
-  // Keeps existing invalid edges as invalid.
-  void FilterByRelativeRotation(const colmap::Reconstruction& reconstruction,
-                                double max_angle_deg = 5.0);
 
  private:
   // Map from pair ID to edge data. The pair ID is computed from the
