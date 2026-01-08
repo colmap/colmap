@@ -220,6 +220,37 @@ colmap::Reconstruction CreateExpandedReconstruction(
   return recon_expanded;
 }
 
+// Mark edges as invalid if their relative rotation differs from the
+// reconstructed rotation by more than max_angle_deg.
+void FilterEdgesByRelativeRotation(PoseGraph& pose_graph,
+                                   const colmap::Reconstruction& reconstruction,
+                                   double max_angle_deg) {
+  const double max_angle_rad = colmap::DegToRad(max_angle_deg);
+  int num_invalid = 0;
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const Image& image1 = reconstruction.Image(image_id1);
+    const Image& image2 = reconstruction.Image(image_id2);
+
+    if (!image1.HasPose() || !image2.HasPose()) {
+      continue;
+    }
+
+    const Eigen::Quaterniond cam2_from_cam1 =
+        image2.CamFromWorld().rotation *
+        image1.CamFromWorld().rotation.inverse();
+    if (cam2_from_cam1.angularDistance(edge.cam2_from_cam1.rotation) >
+        max_angle_rad) {
+      pose_graph.SetInvalidEdge(pair_id);
+      num_invalid++;
+    }
+  }
+
+  LOG(INFO) << "Marked " << num_invalid
+            << " image pairs as invalid with relative rotation error > "
+            << max_angle_deg << " degrees";
+}
+
 }  // namespace
 
 bool RotationEstimator::EstimateRotations(
@@ -607,8 +638,8 @@ bool SolveRotationAveraging(const RotationEstimatorOptions& options,
 
   // Step 2: Filter outlier pairs by rotation error and update the active set.
   if (options.max_rotation_error_deg > 0) {
-    pose_graph.FilterByRelativeRotation(reconstruction,
-                                        options.max_rotation_error_deg);
+    FilterEdgesByRelativeRotation(
+        pose_graph, reconstruction, options.max_rotation_error_deg);
 
     // Recompute largest connected component among registered frames.
     active_image_ids = ComputeLargestConnectedComponentImageIds(

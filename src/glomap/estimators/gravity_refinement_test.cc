@@ -46,9 +46,11 @@ void LoadReconstructionAndPoseGraph(const colmap::Database& database,
                                     colmap::Reconstruction* reconstruction,
                                     PoseGraph* pose_graph) {
   colmap::DatabaseCache database_cache;
-  database_cache.Load(database, /*min_num_matches=*/0);
+  colmap::DatabaseCache::Options options;
+  options.load_relative_pose = true;
+  database_cache.Load(database, options);
   reconstruction->Load(database_cache);
-  pose_graph->LoadFromDatabase(database);
+  pose_graph->Load(database_cache);
 }
 
 void SynthesizeGravityOutliers(std::vector<colmap::PosePrior>& pose_priors,
@@ -111,8 +113,8 @@ TEST(GravityRefinement, RefineGravity) {
   SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
   GravityRefinerOptions opt_grav_refine;
-  GravityRefiner grav_refiner(opt_grav_refine);
-  grav_refiner.RefineGravity(pose_graph, reconstruction, pose_priors);
+  RunGravityRefinement(
+      opt_grav_refine, pose_graph, reconstruction, pose_priors);
 
   ExpectEqualGravity(synthetic_dataset_options.prior_gravity_in_world,
                      gt_reconstruction,
@@ -144,8 +146,8 @@ TEST(GravityRefinement, RefineGravityWithNonTrivialRigs) {
   SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
 
   GravityRefinerOptions opt_grav_refine;
-  GravityRefiner grav_refiner(opt_grav_refine);
-  grav_refiner.RefineGravity(pose_graph, reconstruction, pose_priors);
+  RunGravityRefinement(
+      opt_grav_refine, pose_graph, reconstruction, pose_priors);
 
   ExpectEqualGravity(synthetic_dataset_options.prior_gravity_in_world,
                      gt_reconstruction,

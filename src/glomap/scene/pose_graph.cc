@@ -1,120 +1,24 @@
 #include "glomap/scene/pose_graph.h"
 
-#include "colmap/estimators/two_view_geometry.h"
 #include "colmap/math/connected_components.h"
-#include "colmap/scene/two_view_geometry.h"
 
 namespace glomap {
-namespace {
 
-std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
-    const colmap::FeatureKeypoints& keypoints) {
-  std::vector<Eigen::Vector2d> points(keypoints.size());
-  for (size_t i = 0; i < keypoints.size(); i++) {
-    points[i] = Eigen::Vector2d(keypoints[i].x, keypoints[i].y);
-  }
-  return points;
-}
+void PoseGraph::Load(const colmap::DatabaseCache& cache) {
+  const auto corr_graph = cache.CorrespondenceGraph();
 
-}  // namespace
+  for (const auto& [pair_id, cam2_from_cam1] : cache.RelativePoses()) {
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 
-void PoseGraph::LoadFromDatabase(const colmap::Database& database,
-                                 bool allow_duplicate) {
-  // TODO: Move relative pose decomposition logic to the top level.
-  auto all_matches = database.ReadAllMatches();
+    Edge edge;
+    edge.cam2_from_cam1 = cam2_from_cam1;
+    edge.inlier_matches =
+        corr_graph->FindCorrespondencesBetweenImages(image_id1, image_id2);
 
-  // Read cameras and images upfront for pose decomposition.
-  std::unordered_map<colmap::camera_t, colmap::Camera> cameras;
-  for (auto& camera : database.ReadAllCameras()) {
-    cameras.emplace(camera.camera_id, std::move(camera));
+    AddEdge(image_id1, image_id2, std::move(edge));
   }
 
-  std::unordered_map<image_t, colmap::Image> images;
-  for (auto& image : database.ReadAllImages()) {
-    images.emplace(image.ImageId(), std::move(image));
-  }
-
-  size_t invalid_count = 0;
-  size_t decompose_count = 0;
-  size_t decompose_failed_count = 0;
-
-  for (auto& [pair_id, feature_matches] : all_matches) {
-    auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-
-    const bool duplicate = HasEdge(image_id1, image_id2);
-    if (duplicate) {
-      if (!allow_duplicate) {
-        LOG(FATAL_THROW) << "Duplicate image pair in database: " << image_id1
-                         << ", " << image_id2;
-      }
-      LOG(WARNING) << "Duplicate image pair in database: " << image_id1 << ", "
-                   << image_id2;
-    }
-
-    // Read TwoViewGeometry from database and extract needed fields.
-    colmap::TwoViewGeometry two_view_geom =
-        database.ReadTwoViewGeometry(image_id1, image_id2);
-
-    const bool is_invalid =
-        two_view_geom.config == colmap::TwoViewGeometry::UNDEFINED ||
-        two_view_geom.config == colmap::TwoViewGeometry::DEGENERATE ||
-        two_view_geom.config == colmap::TwoViewGeometry::WATERMARK ||
-        two_view_geom.config == colmap::TwoViewGeometry::MULTIPLE;
-
-    if (is_invalid) {
-      invalid_count++;
-    } else {
-      // Decompose relative pose if not already present.
-      if (!two_view_geom.cam2_from_cam1.has_value()) {
-        const colmap::Image& image1 = images.at(image_id1);
-        const colmap::Image& image2 = images.at(image_id2);
-        const colmap::Camera& camera1 = cameras.at(image1.CameraId());
-        const colmap::Camera& camera2 = cameras.at(image2.CameraId());
-
-        const std::vector<Eigen::Vector2d> points1 =
-            FeatureKeypointsToPointsVector(database.ReadKeypoints(image_id1));
-        const std::vector<Eigen::Vector2d> points2 =
-            FeatureKeypointsToPointsVector(database.ReadKeypoints(image_id2));
-
-        decompose_count++;
-        const bool success = colmap::EstimateTwoViewGeometryPose(
-            camera1, points1, camera2, points2, &two_view_geom);
-
-        if (success && two_view_geom.cam2_from_cam1.has_value()) {
-          const double norm = two_view_geom.cam2_from_cam1->translation.norm();
-          if (norm > 1e-12) {
-            two_view_geom.cam2_from_cam1->translation /= norm;
-          }
-        } else {
-          decompose_failed_count++;
-        }
-      }
-    }
-
-    // Skip pairs that don't have a valid pose.
-    if (!two_view_geom.cam2_from_cam1.has_value()) {
-      invalid_count++;
-      continue;
-    }
-
-    // Build Edge from TwoViewGeometry.
-    Edge new_edge;
-    new_edge.cam2_from_cam1 = *two_view_geom.cam2_from_cam1;
-    new_edge.inlier_matches = std::move(two_view_geom.inlier_matches);
-
-    if (duplicate) {
-      UpdateEdge(image_id1, image_id2, std::move(new_edge));
-    } else {
-      AddEdge(image_id1, image_id2, std::move(new_edge));
-    }
-  }
-
-  LOG(INFO) << "Loaded " << all_matches.size() << " image pairs, "
-            << invalid_count << " invalid";
-  if (decompose_count > 0) {
-    LOG(INFO) << "Decomposed relative pose for " << decompose_count
-              << " pairs, " << decompose_failed_count << " failed";
-  }
+  LOG(INFO) << "Loaded " << edges_.size() << " edges into pose graph";
 }
 
 std::unordered_set<frame_t> PoseGraph::ComputeLargestConnectedFrameComponent(
@@ -203,45 +107,6 @@ int PoseGraph::MarkConnectedComponents(
   }
 
   return comp;
-}
-
-std::unordered_map<image_t, std::unordered_set<image_t>>
-PoseGraph::CreateImageAdjacencyList() const {
-  std::unordered_map<image_t, std::unordered_set<image_t>> adjacency_list;
-  for (const auto& [pair_id, edge] : ValidEdges()) {
-    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-    adjacency_list[image_id1].insert(image_id2);
-    adjacency_list[image_id2].insert(image_id1);
-  }
-  return adjacency_list;
-}
-
-void PoseGraph::FilterByRelativeRotation(
-    const colmap::Reconstruction& reconstruction, double max_angle_deg) {
-  const double max_angle_rad = colmap::DegToRad(max_angle_deg);
-  int num_invalid = 0;
-  for (const auto& [pair_id, edge] : ValidEdges()) {
-    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-    const Image& image1 = reconstruction.Image(image_id1);
-    const Image& image2 = reconstruction.Image(image_id2);
-
-    if (!image1.HasPose() || !image2.HasPose()) {
-      continue;
-    }
-
-    const Eigen::Quaterniond cam2_from_cam1 =
-        image2.CamFromWorld().rotation *
-        image1.CamFromWorld().rotation.inverse();
-    if (cam2_from_cam1.angularDistance(edge.cam2_from_cam1.rotation) >
-        max_angle_rad) {
-      SetInvalidEdge(pair_id);
-      num_invalid++;
-    }
-  }
-
-  LOG(INFO) << "Marked " << num_invalid
-            << " image pairs as invalid with relative rotation error > "
-            << max_angle_deg << " degrees";
 }
 
 }  // namespace glomap

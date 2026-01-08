@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/util//enum_utils.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
@@ -63,7 +64,7 @@
 
 namespace colmap {
 
-enum class CopyType { COPY, HARD_LINK, SOFT_LINK };
+MAKE_ENUM_CLASS(FileCopyType, 0, COPY, HARD_LINK, SOFT_LINK);
 
 // Append trailing slash to string if it does not yet end with a slash.
 std::string EnsureTrailingSlash(const std::string& str);
@@ -77,10 +78,11 @@ void SplitFileExtension(const std::string& path,
                         std::string* root,
                         std::string* ext);
 
-// Copy or link file from source to destination path
+// Copy or link file from source to destination path.
+// Note: Not naming CopyFile to avoid collision with Windows API CopyFile macro.
 void FileCopy(const std::string& src_path,
               const std::string& dst_path,
-              CopyType type = CopyType::COPY);
+              FileCopyType type = FileCopyType::COPY);
 
 // Check if the path points to an existing file.
 bool ExistsFile(const std::string& path);

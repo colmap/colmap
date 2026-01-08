@@ -29,16 +29,27 @@
 
 #pragma once
 
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/base_controller.h"
 
 #include "glomap/estimators/rotation_averaging.h"
 
 #include <memory>
+#include <vector>
 
 namespace colmap {
 
 struct RotationAveragingControllerOptions {
+  // The minimum number of matches for inlier matches to be considered.
+  int min_num_matches = 15;
+
+  // Whether to ignore the inlier matches of watermark image pairs.
+  bool ignore_watermarks = false;
+
+  // Names of images to reconstruct. If empty, all images are used.
+  std::vector<std::string> image_names;
+
   // Number of threads.
   int num_threads = -1;
 
@@ -47,6 +58,9 @@ struct RotationAveragingControllerOptions {
   // (non-deterministic). If >= 0, the pipeline is deterministic with the given
   // seed.
   int random_seed = -1;
+
+  // Whether to decompose relative poses from two-view geometries.
+  bool decompose_relative_pose = true;
 
   // Options for rotation averaging.
   glomap::RotationEstimatorOptions rotation_estimation;
@@ -62,7 +76,7 @@ class RotationAveragingController : public BaseController {
 
  private:
   const RotationAveragingControllerOptions options_;
-  const std::shared_ptr<Database> database_;
+  std::shared_ptr<const DatabaseCache> database_cache_;
   std::shared_ptr<Reconstruction> reconstruction_;
 };
 
