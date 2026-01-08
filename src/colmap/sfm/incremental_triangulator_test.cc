@@ -180,7 +180,8 @@ TEST(IncrementalTriangulator, TriangulateImage) {
   }
 
   EXPECT_EQ(reconstruction.NumPoints3D(), synthetic_options.num_points3D);
-  EXPECT_GT(total_tris, synthetic_options.num_points3D);
+  EXPECT_EQ(total_tris,
+            synthetic_options.num_points3D * reconstruction.NumRegImages());
 }
 
 TEST(IncrementalTriangulator, CompleteImage) {
