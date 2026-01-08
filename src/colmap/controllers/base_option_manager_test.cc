@@ -52,8 +52,8 @@ TEST(BaseOptionManager, Reset) {
 
   options.Reset();
 
-  EXPECT_EQ(*options.database_path, "");
-  EXPECT_EQ(*options.image_path, "");
+  EXPECT_TRUE(options.database_path->empty());
+  EXPECT_TRUE(options.image_path->empty());
 }
 
 TEST(BaseOptionManager, ResetOptions) {
@@ -62,8 +62,8 @@ TEST(BaseOptionManager, ResetOptions) {
   *options.image_path = "/test/images";
 
   options.ResetOptions(/*reset_paths=*/true);
-  EXPECT_EQ(*options.database_path, "");
-  EXPECT_EQ(*options.image_path, "");
+  EXPECT_TRUE(options.database_path->empty());
+  EXPECT_TRUE(options.image_path->empty());
 
   *options.database_path = "/test/path";
   *options.image_path = "/test/images";
@@ -153,6 +153,7 @@ TEST(BaseOptionManager, WriteAndRead) {
   // Verify that values were read correctly
   EXPECT_EQ(*options_read.database_path, *options_write.database_path);
   EXPECT_EQ(*options_read.image_path, *options_write.image_path);
+
   EXPECT_EQ(bool_option_read, bool_option_write);
   EXPECT_EQ(int_option_read, int_option_write);
   EXPECT_EQ(double_option_read, double_option_write);

@@ -26,7 +26,7 @@ template <typename PairingOptions,
           std::unique_ptr<Thread> MatcherFactory(const PairingOptions&,
                                                  const FeatureMatchingOptions&,
                                                  const TwoViewGeometryOptions&,
-                                                 const std::string&)>
+                                                 const std::filesystem::path&)>
 void MatchFeatures(const std::filesystem::path& database_path,
                    FeatureMatchingOptions matching_options,
                    const PairingOptions& pairing_options,
@@ -93,7 +93,7 @@ void GuidedGeometricVerification(
 
   py::gil_scoped_release release;  // verification is multi-threaded
   RunGuidedGeometricVerifierImpl(reconstruction,
-                                 database_path.string(),
+                                 database_path,
                                  pairing_options,
                                  geometry_options,
                                  num_threads);

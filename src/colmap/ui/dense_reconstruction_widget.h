@@ -63,7 +63,7 @@ class DenseReconstructionWidget : public QWidget {
   void DelaunayMeshing();
 
   void SelectWorkspacePath();
-  std::string GetWorkspacePath();
+  std::filesystem::path GetWorkspacePath();
   void RefreshWorkspace();
 
   void WriteFusedPoints();
@@ -92,9 +92,9 @@ class DenseReconstructionWidget : public QWidget {
   bool photometric_done_;
   bool geometric_done_;
 
-  std::string images_path_;
-  std::string depth_maps_path_;
-  std::string normal_maps_path_;
+  std::filesystem::path images_path_;
+  std::filesystem::path depth_maps_path_;
+  std::filesystem::path normal_maps_path_;
 
   std::vector<PlyPoint> fused_points_;
   std::vector<std::vector<int>> fused_points_visibility_;

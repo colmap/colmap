@@ -72,6 +72,10 @@ std::string EnsureTrailingSlash(const std::string& str);
 bool HasFileExtension(const std::filesystem::path& file_name,
                       const std::string& ext);
 
+// Add a file extension.
+std::filesystem::path AddFileExtension(std::filesystem::path path,
+                                       const std::string& ext);
+
 // Split the path into its root and extension, for example,
 // "dir/file.jpg" into "dir/file" and ".jpg".
 void SplitFileExtension(const std::filesystem::path& path,
@@ -185,7 +189,7 @@ std::filesystem::path MaybeDownloadAndCacheFile(const std::string& uri);
 template <typename... T>
 std::string JoinPaths(T const&... paths) {
   std::filesystem::path result;
-  int unpack[]{0, (result = result / std::filesystem::path(paths), 0)...};
+  int unpack[]{0, (result = result / paths, 0)...};
   static_cast<void>(unpack);
   return result.string();
 }

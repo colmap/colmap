@@ -81,6 +81,12 @@ bool HasFileExtension(const std::filesystem::path& file_name,
   return false;
 }
 
+std::filesystem::path AddFileExtension(std::filesystem::path path,
+                                       const std::string& ext) {
+  path += ext;
+  return ext;
+}
+
 void SplitFileExtension(const std::filesystem::path& path,
                         std::string* root,
                         std::string* ext) {
@@ -275,7 +281,7 @@ std::optional<std::filesystem::path> HomeDir() {
   if (!homedrive.has_value() || !homepath.has_value()) {
     return std::nullopt;
   }
-  return std::filesystem::path(*homedrive) / std::filesystem::path(*homepath);
+  return *homedrive / *homepath;
 #else
   std::optional<std::string> home = GetEnvSafe("HOME");
   if (!home.has_value()) {

@@ -330,9 +330,9 @@ void PMVSUndistorter::Run() {
   Reconstruction undistorted_reconstruction = reconstruction_;
   UndistortReconstruction(options_, &undistorted_reconstruction);
   const auto bundle_path = output_path_ / "pmvs" / "bundle.rd.out";
-  std::filesystem::path list_path = bundle_path;
-  list_path += ".list.txt";
-  ExportBundler(undistorted_reconstruction, bundle_path, list_path);
+  ExportBundler(undistorted_reconstruction,
+                bundle_path,
+                AddFileExtension(bundle_path, ".list.txt"));
 
   LOG(INFO) << "Writing visibility file...";
   WriteVisibilityData();

@@ -393,9 +393,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
       LOG(INFO) << "Writing output: " << fused_path;
       WriteBinaryPlyPoints(fused_path, fuser.GetFusedPoints());
-      auto vis_path = fused_path;
-      vis_path += ".vis";
-      mvs::WritePointsVisibility(vis_path, fuser.GetFusedPointsVisibility());
+      mvs::WritePointsVisibility(AddFileExtension(fused_path, ".vis"),
+                                 fuser.GetFusedPointsVisibility());
     }
 
     if (IsStopped()) {

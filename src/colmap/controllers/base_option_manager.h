@@ -91,13 +91,13 @@ class BaseOptionManager {
   virtual bool Check();
 
   bool Parse(int argc, char** argv);
-  virtual bool Read(const std::string& path);
-  bool ReRead(const std::string& path);
-  void Write(const std::string& path) const;
+  virtual bool Read(const std::filesystem::path& path);
+  bool ReRead(const std::filesystem::path& path);
+  void Write(const std::filesystem::path& path) const;
 
-  std::shared_ptr<std::string> project_path;
-  std::shared_ptr<std::string> database_path;
-  std::shared_ptr<std::string> image_path;
+  std::shared_ptr<std::filesystem::path> project_path;
+  std::shared_ptr<std::filesystem::path> database_path;
+  std::shared_ptr<std::filesystem::path> image_path;
 
  protected:
   template <typename T>

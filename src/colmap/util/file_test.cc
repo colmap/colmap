@@ -243,8 +243,7 @@ TEST(MaybeDownloadAndCacheFile, Nominal) {
   const std::string sha256 =
       "2915068022d460a622fb078147aee8d590c0a1bb1907d35fd27cb2f7bdb991dd";
   const auto server_file_path = test_dir / "server.bin";
-  const std::string cached_file_path =
-      (std::filesystem::path(test_dir) / (sha256 + "-" + name)).string();
+  const auto cached_file_path = test_dir / (sha256 + "-" + name);
   WriteBinaryBlob(server_file_path, {data.data(), data.size()});
 
   const std::string uri = "file://" +
@@ -253,7 +252,8 @@ TEST(MaybeDownloadAndCacheFile, Nominal) {
 
   EXPECT_EQ(MaybeDownloadAndCacheFile(uri), cached_file_path);
   EXPECT_EQ(MaybeDownloadAndCacheFile(uri), cached_file_path);
-  EXPECT_EQ(MaybeDownloadAndCacheFile(cached_file_path), cached_file_path);
+  EXPECT_EQ(MaybeDownloadAndCacheFile(cached_file_path.string()),
+            cached_file_path);
 }
 
 #endif

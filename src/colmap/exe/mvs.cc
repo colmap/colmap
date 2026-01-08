@@ -229,9 +229,8 @@ Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
     reconstruction.WriteText(output_path);
   } else if (output_type == "ply") {
     WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
-    std::filesystem::path vis_path = output_path;
-    vis_path += ".vis";
-    mvs::WritePointsVisibility(vis_path, fuser.GetFusedPointsVisibility());
+    mvs::WritePointsVisibility(AddFileExtension(output_path, ".vis"),
+                               fuser.GetFusedPointsVisibility());
   } else {
     LOG(FATAL_THROW) << "Invalid output_type: " << output_type;
   }

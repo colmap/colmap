@@ -76,10 +76,8 @@ TEST(CreateExhaustiveFeatureMatcher, Nominal) {
   matching_options.num_threads = 1;
   TwoViewGeometryOptions geometry_options;
 
-  auto matcher = CreateExhaustiveFeatureMatcher(pairing_options,
-                                                matching_options,
-                                                geometry_options,
-                                                database_path.string());
+  auto matcher = CreateExhaustiveFeatureMatcher(
+      pairing_options, matching_options, geometry_options, database_path);
   ASSERT_NE(matcher, nullptr);
   matcher->Start();
   matcher->Wait();
@@ -111,10 +109,8 @@ TEST(CreateVocabTreeFeatureMatcher, Nominal) {
 
   TwoViewGeometryOptions geometry_options;
 
-  auto matcher = CreateVocabTreeFeatureMatcher(pairing_options,
-                                               matching_options,
-                                               geometry_options,
-                                               database_path.string());
+  auto matcher = CreateVocabTreeFeatureMatcher(
+      pairing_options, matching_options, geometry_options, database_path);
   ASSERT_NE(matcher, nullptr);
   matcher->Start();
   matcher->Wait();
@@ -143,10 +139,8 @@ TEST(CreateSequentialFeatureMatcher, Nominal) {
 
   TwoViewGeometryOptions geometry_options;
 
-  auto matcher = CreateSequentialFeatureMatcher(pairing_options,
-                                                matching_options,
-                                                geometry_options,
-                                                database_path.string());
+  auto matcher = CreateSequentialFeatureMatcher(
+      pairing_options, matching_options, geometry_options, database_path);
   ASSERT_NE(matcher, nullptr);
   matcher->Start();
   matcher->Wait();
@@ -175,10 +169,8 @@ TEST(CreateSpatialFeatureMatcher, Nominal) {
 
   TwoViewGeometryOptions geometry_options;
 
-  auto matcher = CreateSpatialFeatureMatcher(pairing_options,
-                                             matching_options,
-                                             geometry_options,
-                                             database_path.string());
+  auto matcher = CreateSpatialFeatureMatcher(
+      pairing_options, matching_options, geometry_options, database_path);
   ASSERT_NE(matcher, nullptr);
   matcher->Start();
   matcher->Wait();
@@ -218,10 +210,8 @@ TEST(CreateTransitiveFeatureMatcher, Nominal) {
 
   TwoViewGeometryOptions geometry_options;
 
-  auto matcher = CreateTransitiveFeatureMatcher(pairing_options,
-                                                matching_options,
-                                                geometry_options,
-                                                database_path.string());
+  auto matcher = CreateTransitiveFeatureMatcher(
+      pairing_options, matching_options, geometry_options, database_path);
   ASSERT_NE(matcher, nullptr);
   matcher->Start();
   matcher->Wait();
@@ -260,10 +250,8 @@ TEST(CreateImagePairsFeatureMatcher, Nominal) {
 
   TwoViewGeometryOptions geometry_options;
 
-  auto matcher = CreateImagePairsFeatureMatcher(pairing_options,
-                                                matching_options,
-                                                geometry_options,
-                                                database_path.string());
+  auto matcher = CreateImagePairsFeatureMatcher(
+      pairing_options, matching_options, geometry_options, database_path);
   ASSERT_NE(matcher, nullptr);
   matcher->Start();
   matcher->Wait();
@@ -310,10 +298,8 @@ TEST(CreateFeaturePairsFeatureMatcher, Nominal) {
   TwoViewGeometryOptions geometry_options;
   geometry_options.min_num_inliers = 5;  // Lower threshold for testing
 
-  auto matcher = CreateFeaturePairsFeatureMatcher(pairing_options,
-                                                  matching_options,
-                                                  geometry_options,
-                                                  database_path.string());
+  auto matcher = CreateFeaturePairsFeatureMatcher(
+      pairing_options, matching_options, geometry_options, database_path);
   ASSERT_NE(matcher, nullptr);
   matcher->Start();
   matcher->Wait();
@@ -336,10 +322,8 @@ TEST(CreateGeometricVerifier, Nominal) {
 
   TwoViewGeometryOptions geometry_options;
 
-  auto verifier = CreateGeometricVerifier(verifier_options,
-                                          pairing_options,
-                                          geometry_options,
-                                          database_path.string());
+  auto verifier = CreateGeometricVerifier(
+      verifier_options, pairing_options, geometry_options, database_path);
   ASSERT_NE(verifier, nullptr);
   verifier->Start();
   verifier->Wait();
@@ -379,10 +363,8 @@ TEST(CreateGeometricVerifier, Guided) {
 
   TwoViewGeometryOptions geometry_options;
 
-  auto verifier = CreateGeometricVerifier(verifier_options,
-                                          pairing_options,
-                                          geometry_options,
-                                          database_path.string());
+  auto verifier = CreateGeometricVerifier(
+      verifier_options, pairing_options, geometry_options, database_path);
   ASSERT_NE(verifier, nullptr);
   verifier->Start();
   verifier->Wait();
