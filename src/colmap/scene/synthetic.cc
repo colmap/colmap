@@ -55,93 +55,98 @@ void AddOutlierMatches(double inlier_ratio,
   std::shuffle(matches->begin(), matches->end(), *PRNG);
 }
 
-std::map<image_pair_t, TwoViewGeometry> BuildExhaustiveTwoViewGeometries(
-    Reconstruction* reconstruction) {
-  std::map<image_pair_t, TwoViewGeometry> two_view_geometries;
-
-  for (const image_t image_id1 : reconstruction->RegImageIds()) {
-    const auto& image1 = reconstruction->Image(image_id1);
-    const Eigen::Matrix3d K1 = image1.CameraPtr()->CalibrationMatrix();
-    const auto num_points2D1 = image1.NumPoints2D();
-
-    for (const image_t image_id2 : reconstruction->RegImageIds()) {
+std::vector<image_pair_t> ExtractExhaustiveImagePairs(
+    const Reconstruction& reconstruction) {
+  std::vector<image_pair_t> image_pairs;
+  image_pairs.reserve(reconstruction.NumImages() *
+                      (reconstruction.NumImages() - 1) / 2);
+  for (const image_t image_id1 : reconstruction.RegImageIds()) {
+    for (const image_t image_id2 : reconstruction.RegImageIds()) {
       if (image_id1 >= image_id2) {
         continue;
       }
-      const auto& image2 = reconstruction->Image(image_id2);
-      const Eigen::Matrix3d K2 = image2.CameraPtr()->CalibrationMatrix();
-      const auto num_points2D2 = image2.NumPoints2D();
-
-      const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
-
-      TwoViewGeometry two_view_geometry;
-      const bool is_calibrated = image1.CameraPtr()->has_prior_focal_length &&
-                                 image2.CameraPtr()->has_prior_focal_length;
-      two_view_geometry.config = is_calibrated ? TwoViewGeometry::CALIBRATED
-                                               : TwoViewGeometry::UNCALIBRATED;
-      two_view_geometry.cam2_from_cam1 =
-          image2.CamFromWorld() * Inverse(image1.CamFromWorld());
-      two_view_geometry.E =
-          EssentialMatrixFromPose(*two_view_geometry.cam2_from_cam1);
-      two_view_geometry.F =
-          FundamentalFromEssentialMatrix(K2, two_view_geometry.E, K1);
-
-      for (point2D_t point2D_idx1 = 0; point2D_idx1 < num_points2D1;
-           ++point2D_idx1) {
-        const auto& point2D1 = image1.Point2D(point2D_idx1);
-        if (!point2D1.HasPoint3D()) {
-          continue;
-        }
-        for (point2D_t point2D_idx2 = 0; point2D_idx2 < num_points2D2;
-             ++point2D_idx2) {
-          const auto& point2D2 = image2.Point2D(point2D_idx2);
-          if (point2D1.point3D_id == point2D2.point3D_id) {
-            two_view_geometry.inlier_matches.emplace_back(point2D_idx1,
-                                                          point2D_idx2);
-            break;
-          }
-        }
-      }
-
-      two_view_geometries[pair_id] = std::move(two_view_geometry);
+      image_pairs.push_back(ImagePairToPairId(image_id1, image_id2));
     }
   }
-
-  return two_view_geometries;
+  return image_pairs;
 }
 
-void WriteTwoViewGeometriesToDatabase(
-    const std::map<image_pair_t, TwoViewGeometry>& two_view_geometries,
-    double inlier_match_ratio,
-    Reconstruction* reconstruction,
-    Database* database) {
-  for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
-    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    const auto& image1 = reconstruction->Image(image_id1);
-    const auto& image2 = reconstruction->Image(image_id2);
+TwoViewGeometry BuildTwoViewGeometry(const Reconstruction& reconstruction,
+                                     const image_pair_t pair_id) {
+  const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
 
-    FeatureMatches matches = two_view_geometry.inlier_matches;
-    AddOutlierMatches(inlier_match_ratio,
-                      image1.NumPoints2D(),
-                      image2.NumPoints2D(),
-                      &matches);
+  const auto& image1 = reconstruction.Image(image_id1);
+  const Eigen::Matrix3d K1 = image1.CameraPtr()->CalibrationMatrix();
+  const auto num_points2D1 = image1.NumPoints2D();
+  const auto& image2 = reconstruction.Image(image_id2);
+  const Eigen::Matrix3d K2 = image2.CameraPtr()->CalibrationMatrix();
+  const auto num_points2D2 = image2.NumPoints2D();
 
-    if (!database->ExistsMatches(image_id1, image_id2)) {
-      database->WriteMatches(image_id1, image_id2, matches);
+  TwoViewGeometry two_view_geometry;
+  const bool is_calibrated = image1.CameraPtr()->has_prior_focal_length &&
+                             image2.CameraPtr()->has_prior_focal_length;
+  two_view_geometry.config = is_calibrated ? TwoViewGeometry::CALIBRATED
+                                           : TwoViewGeometry::UNCALIBRATED;
+  two_view_geometry.cam2_from_cam1 =
+      image2.CamFromWorld() * Inverse(image1.CamFromWorld());
+  two_view_geometry.E =
+      EssentialMatrixFromPose(*two_view_geometry.cam2_from_cam1);
+  two_view_geometry.F =
+      FundamentalFromEssentialMatrix(K2, two_view_geometry.E, K1);
+
+  for (point2D_t point2D_idx1 = 0; point2D_idx1 < num_points2D1;
+       ++point2D_idx1) {
+    const auto& point2D1 = image1.Point2D(point2D_idx1);
+    if (!point2D1.HasPoint3D()) {
+      continue;
     }
-    if (!database->ExistsTwoViewGeometry(image_id1, image_id2)) {
-      database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+    for (point2D_t point2D_idx2 = 0; point2D_idx2 < num_points2D2;
+         ++point2D_idx2) {
+      const auto& point2D2 = image2.Point2D(point2D_idx2);
+      if (point2D1.point3D_id == point2D2.point3D_id) {
+        two_view_geometry.inlier_matches.emplace_back(point2D_idx1,
+                                                      point2D_idx2);
+        break;
+      }
     }
+  }
+  return two_view_geometry;
+}
+
+void WriteTwoViewGeometryToDatabase(const image_pair_t pair_id,
+                                    const TwoViewGeometry& two_view_geometry,
+                                    double inlier_match_ratio,
+                                    const Reconstruction& reconstruction,
+                                    Database* database) {
+  const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+  const auto& image1 = reconstruction.Image(image_id1);
+  const auto& image2 = reconstruction.Image(image_id2);
+
+  FeatureMatches matches = two_view_geometry.inlier_matches;
+  AddOutlierMatches(
+      inlier_match_ratio, image1.NumPoints2D(), image2.NumPoints2D(), &matches);
+
+  if (!database->ExistsMatches(image_id1, image_id2)) {
+    database->WriteMatches(image_id1, image_id2, matches);
+  }
+  if (!database->ExistsTwoViewGeometry(image_id1, image_id2)) {
+    database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
   }
 }
 
 void SynthesizeExhaustiveMatches(double inlier_match_ratio,
                                  Reconstruction* reconstruction,
                                  Database* database) {
-  std::map<image_pair_t, TwoViewGeometry> two_view_geometries =
-      BuildExhaustiveTwoViewGeometries(reconstruction);
-  WriteTwoViewGeometriesToDatabase(
-      two_view_geometries, inlier_match_ratio, reconstruction, database);
+  for (const image_pair_t pair_id :
+       ExtractExhaustiveImagePairs(*reconstruction)) {
+    const TwoViewGeometry two_view_geometry =
+        BuildTwoViewGeometry(*reconstruction, pair_id);
+    WriteTwoViewGeometryToDatabase(pair_id,
+                                   two_view_geometry,
+                                   inlier_match_ratio,
+                                   *reconstruction,
+                                   database);
+  }
 }
 
 void SynthesizeChainedMatches(double inlier_match_ratio,
@@ -192,45 +197,38 @@ void SynthesizeChainedMatches(double inlier_match_ratio,
                                        two_view_geometry.E,
                                        camera1.CalibrationMatrix());
 
-    FeatureMatches matches = two_view_geometry.inlier_matches;
-    AddOutlierMatches(inlier_match_ratio,
-                      image1.NumPoints2D(),
-                      image2.NumPoints2D(),
-                      &matches);
-
-    if (!database->ExistsMatches(image_id1, image_id2)) {
-      database->WriteMatches(image_id1, image_id2, matches);
-    }
-    if (!database->ExistsTwoViewGeometry(image_id1, image_id2)) {
-      database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
-    }
+    WriteTwoViewGeometryToDatabase(pair_id,
+                                   two_view_geometry,
+                                   inlier_match_ratio,
+                                   *reconstruction,
+                                   database);
   }
 }
 
-bool IsGraphConnected(const std::set<image_t>& nodes,
-                      const std::set<image_pair_t>& edges) {
-  if (nodes.empty()) {
+bool IsViewGraphConnected(const std::set<image_t>& images,
+                          const std::set<image_pair_t>& image_pairs) {
+  if (images.empty()) {
     return true;
   }
-  if (nodes.size() == 1) {
+  if (images.size() == 1) {
     return true;
   }
-  if (edges.empty()) {
+  if (image_pairs.empty()) {
     return false;
   }
 
   // Use UnionFind to check connectivity.
   UnionFind<image_t> uf;
-  uf.Reserve(nodes.size());
+  uf.Reserve(images.size());
 
-  for (const image_pair_t pair_id : edges) {
+  for (const image_pair_t pair_id : image_pairs) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     uf.Union(image_id1, image_id2);
   }
 
-  // Check that all nodes have the same root.
-  const image_t root = uf.Find(*nodes.begin());
-  for (const image_t node : nodes) {
+  // Check that all images have the same root.
+  const image_t root = uf.Find(*images.begin());
+  for (const image_t node : images) {
     if (uf.Find(node) != root) {
       return false;
     }
@@ -254,50 +252,45 @@ void SynthesizeSparseMatches(double inlier_match_ratio,
     return;
   }
 
-  std::map<image_pair_t, TwoViewGeometry> all_two_view_geometries =
-      BuildExhaustiveTwoViewGeometries(reconstruction);
+  std::vector<image_pair_t> remaining_image_pairs =
+      ExtractExhaustiveImagePairs(*reconstruction);
 
   std::set<image_t> all_image_ids;
   for (const image_t image_id : reconstruction->RegImageIds()) {
     all_image_ids.insert(image_id);
   }
 
-  const size_t num_edges_total = all_two_view_geometries.size();
+  const size_t num_edges_total = remaining_image_pairs.size();
   const size_t num_edges_to_remove =
       static_cast<size_t>(sparsity * num_edges_total);
 
-  std::vector<image_pair_t> remaining_edges;
-  remaining_edges.reserve(num_edges_total);
-  for (const auto& [pair_id, _] : all_two_view_geometries) {
-    remaining_edges.push_back(pair_id);
-  }
-
   // Try to remove edges randomly while maintaining connectivity.
-  std::shuffle(remaining_edges.begin(), remaining_edges.end(), *PRNG);
-  std::set<image_pair_t> remaining_edges_set(remaining_edges.begin(),
-                                             remaining_edges.end());
+  std::shuffle(
+      remaining_image_pairs.begin(), remaining_image_pairs.end(), *PRNG);
+  std::set<image_pair_t> remaining_edges_set(remaining_image_pairs.begin(),
+                                             remaining_image_pairs.end());
   size_t edges_removed = 0;
-  for (const image_pair_t pair_id : remaining_edges) {
+  for (const image_pair_t pair_id : remaining_image_pairs) {
     if (edges_removed >= num_edges_to_remove) {
       break;
     }
     remaining_edges_set.erase(pair_id);
-    if (IsGraphConnected(all_image_ids, remaining_edges_set)) {
+    if (IsViewGraphConnected(all_image_ids, remaining_edges_set)) {
       edges_removed++;
     } else {
       remaining_edges_set.insert(pair_id);
     }
   }
 
-  std::map<image_pair_t, TwoViewGeometry> remaining_two_view_geometries;
   for (const image_pair_t pair_id : remaining_edges_set) {
-    remaining_two_view_geometries[pair_id] =
-        std::move(all_two_view_geometries[pair_id]);
-  }
-  WriteTwoViewGeometriesToDatabase(remaining_two_view_geometries,
+    const TwoViewGeometry two_view_geometry =
+        BuildTwoViewGeometry(*reconstruction, pair_id);
+    WriteTwoViewGeometryToDatabase(pair_id,
+                                   two_view_geometry,
                                    inlier_match_ratio,
-                                   reconstruction,
+                                   *reconstruction,
                                    database);
+  }
 }
 
 static const GPSTransform kGPSTransform;
