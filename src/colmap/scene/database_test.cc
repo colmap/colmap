@@ -34,6 +34,7 @@
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
+#include <filesystem>
 #include <thread>
 
 #include <Eigen/Geometry>
@@ -706,11 +707,12 @@ TEST_P(ParameterizedDatabaseTests, Merge) {
   EXPECT_EQ(merged_database->NumMatches(), 0);
 }
 
-INSTANTIATE_TEST_SUITE_P(DatabaseTests,
-                         ParameterizedDatabaseTests,
-                         ::testing::Values([](const std::string& path) {
-                           return Database::Open(path);
-                         }));
+INSTANTIATE_TEST_SUITE_P(
+    DatabaseTests,
+    ParameterizedDatabaseTests,
+    ::testing::Values([](const std::filesystem::path& path) {
+      return Database::Open(path);
+    }));
 
 }  // namespace
 }  // namespace colmap
