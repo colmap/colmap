@@ -889,5 +889,48 @@ TEST(EstimateMultipleTwoViewGeometries, MultipleGeometries) {
   EXPECT_EQ(geometry.inlier_matches.size(), matches1.size() + matches2.size());
 }
 
+TEST(MaybeDecomposeAndWriteRelativePoses, Nominal) {
+  SetPRNGSeed(42);
+
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = false;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction, database.get());
+
+  const image_t image_id1 = 1;
+  const image_t image_id2 = 2;
+
+  // Verify the two-view geometry exists but has no decomposed pose yet.
+  ASSERT_TRUE(database->ExistsTwoViewGeometry(image_id1, image_id2));
+  TwoViewGeometry geometry_before =
+      database->ReadTwoViewGeometry(image_id1, image_id2);
+  EXPECT_FALSE(geometry_before.cam2_from_cam1.has_value());
+
+  // Decompose poses - should update existing geometry without throwing.
+  MaybeDecomposeAndWriteRelativePoses(database.get());
+
+  // Verify the geometry was updated with a decomposed pose.
+  TwoViewGeometry geometry_after =
+      database->ReadTwoViewGeometry(image_id1, image_id2);
+  EXPECT_TRUE(geometry_after.cam2_from_cam1.has_value());
+
+  // Calling again should skip already decomposed geometries.
+  MaybeDecomposeAndWriteRelativePoses(database.get());
+
+  TwoViewGeometry geometry_second =
+      database->ReadTwoViewGeometry(image_id1, image_id2);
+  EXPECT_EQ(geometry_after.cam2_from_cam1->rotation.coeffs(),
+            geometry_second.cam2_from_cam1->rotation.coeffs());
+  EXPECT_EQ(geometry_after.cam2_from_cam1->translation,
+            geometry_second.cam2_from_cam1->translation);
+}
+
 }  // namespace
 }  // namespace colmap

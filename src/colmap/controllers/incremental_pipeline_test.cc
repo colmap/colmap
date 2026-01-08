@@ -51,6 +51,7 @@ TEST(IncrementalPipeline, WithoutNoise) {
   synthetic_dataset_options.num_frames_per_rig = 7;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.camera_has_prior_focal_length = false;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -80,6 +81,7 @@ TEST(IncrementalPipeline, WithoutNoiseAndWithNonTrivialFrames) {
   synthetic_dataset_options.camera_has_prior_focal_length = false;
   synthetic_dataset_options.sensor_from_rig_translation_stddev = 0.05;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 30;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -113,6 +115,7 @@ TEST(IncrementalPipeline, WithNonTrivialFramesAndConstantRigsAndCameras) {
   synthetic_dataset_options.camera_has_prior_focal_length = false;
   synthetic_dataset_options.sensor_from_rig_translation_stddev = 0.05;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 30;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -159,6 +162,7 @@ TEST(IncrementalPipeline, WithoutNoiseAndWithPanoramicNonTrivialFrames) {
   synthetic_dataset_options.camera_has_prior_focal_length = false;
   synthetic_dataset_options.sensor_from_rig_translation_stddev = 0;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 30;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -188,6 +192,7 @@ TEST(IncrementalPipeline, WithPriorFocalLength) {
   synthetic_dataset_options.num_frames_per_rig = 7;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.camera_has_prior_focal_length = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -214,6 +219,7 @@ TEST(IncrementalPipeline, WithNoise) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 7;
   synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
@@ -245,6 +251,7 @@ TEST(IncrementalPipeline, IgnoreRedundantPoints3D) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 7;
   synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -272,6 +279,7 @@ TEST(IncrementalPipeline, StructureLessRegistrationOnly) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 7;
   synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -299,6 +307,7 @@ TEST(IncrementalPipeline, MultiReconstruction) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction1, database.get());
   synthetic_dataset_options.num_frames_per_rig = 4;
@@ -342,6 +351,7 @@ TEST(IncrementalPipeline, FixExistingFrames) {
   synthetic_dataset_options.num_frames_per_rig = 7;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.camera_has_prior_focal_length = false;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -388,6 +398,7 @@ TEST(IncrementalPipeline, ChainedMatches) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 4;
   synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -415,6 +426,7 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoise) {
   synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.prior_position = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
@@ -456,6 +468,7 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoiseAndWithNonTrivialFrames) {
   synthetic_dataset_options.camera_has_prior_focal_length = false;
 
   synthetic_dataset_options.prior_position = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -489,6 +502,7 @@ TEST(IncrementalPipeline, PriorBasedSfMWithNoise) {
   synthetic_dataset_options.num_frames_per_rig = 7;
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.prior_position = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
@@ -529,6 +543,7 @@ TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
   synthetic_dataset_options.prior_position = true;
   synthetic_dataset_options.prior_position_coordinate_system =
       PosePrior::CoordinateSystem::WGS84;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
@@ -568,6 +583,7 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
   synthetic_dataset_options.num_frames_per_rig = 3;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.prior_position = false;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
@@ -630,6 +646,7 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
   synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.prior_position = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = false;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
