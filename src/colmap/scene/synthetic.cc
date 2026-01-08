@@ -55,6 +55,7 @@ void AddOutlierMatches(double inlier_ratio,
 }
 
 void SynthesizeExhaustiveMatches(double inlier_match_ratio,
+                                 bool has_relative_pose,
                                  Reconstruction* reconstruction,
                                  Database* database) {
   for (const image_t image_id1 : reconstruction->RegImageIds()) {
@@ -74,10 +75,12 @@ void SynthesizeExhaustiveMatches(double inlier_match_ratio,
                                  image2.CameraPtr()->has_prior_focal_length;
       two_view_geometry.config = is_calibrated ? TwoViewGeometry::CALIBRATED
                                                : TwoViewGeometry::UNCALIBRATED;
-      two_view_geometry.cam2_from_cam1 =
+      const Rigid3d cam2_from_cam1 =
           image2.CamFromWorld() * Inverse(image1.CamFromWorld());
-      two_view_geometry.E =
-          EssentialMatrixFromPose(*two_view_geometry.cam2_from_cam1);
+      if (has_relative_pose) {
+        two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
+      }
+      two_view_geometry.E = EssentialMatrixFromPose(cam2_from_cam1);
       two_view_geometry.F =
           FundamentalFromEssentialMatrix(K2, two_view_geometry.E, K1);
       for (point2D_t point2D_idx1 = 0; point2D_idx1 < num_points2D1;
@@ -112,6 +115,7 @@ void SynthesizeExhaustiveMatches(double inlier_match_ratio,
 }
 
 void SynthesizeChainedMatches(double inlier_match_ratio,
+                              bool has_relative_pose,
                               Reconstruction* reconstruction,
                               Database* database) {
   std::unordered_map<image_pair_t, TwoViewGeometry> two_view_geometries;
@@ -150,10 +154,12 @@ void SynthesizeChainedMatches(double inlier_match_ratio,
         camera1.has_prior_focal_length && camera2.has_prior_focal_length;
     two_view_geometry.config = is_calibrated ? TwoViewGeometry::CALIBRATED
                                              : TwoViewGeometry::UNCALIBRATED;
-    two_view_geometry.cam2_from_cam1 =
+    const Rigid3d cam2_from_cam1 =
         image2.CamFromWorld() * Inverse(image1.CamFromWorld());
-    two_view_geometry.E =
-        EssentialMatrixFromPose(*two_view_geometry.cam2_from_cam1);
+    if (has_relative_pose) {
+      two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
+    }
+    two_view_geometry.E = EssentialMatrixFromPose(cam2_from_cam1);
     two_view_geometry.F =
         FundamentalFromEssentialMatrix(camera2.CalibrationMatrix(),
                                        two_view_geometry.E,
@@ -380,10 +386,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
           Point2D point2D;
           const std::optional<Eigen::Vector2d> proj_point2D =
               camera.ImgFromCam(cam_from_world * point3D.xyz);
-          if (!proj_point2D.has_value()) {
-            continue;  // Point is behind the camera.
-          }
-          point2D.xy = proj_point2D.value();
+          THROW_CHECK(proj_point2D.has_value());
+          point2D.xy = *proj_point2D;
           if (point2D.xy(0) >= 0 && point2D.xy(1) >= 0 &&
               point2D.xy(0) <= camera.width && point2D.xy(1) <= camera.height) {
             point2D.point3D_id = point3D_id;
@@ -450,12 +454,16 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   if (database != nullptr) {
     switch (options.match_config) {
       case SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE:
-        SynthesizeExhaustiveMatches(
-            options.inlier_match_ratio, reconstruction, database);
+        SynthesizeExhaustiveMatches(options.inlier_match_ratio,
+                                    options.two_view_geometry_has_relative_pose,
+                                    reconstruction,
+                                    database);
         break;
       case SyntheticDatasetOptions::MatchConfig::CHAINED:
-        SynthesizeChainedMatches(
-            options.inlier_match_ratio, reconstruction, database);
+        SynthesizeChainedMatches(options.inlier_match_ratio,
+                                 options.two_view_geometry_has_relative_pose,
+                                 reconstruction,
+                                 database);
         break;
       default:
         LOG(FATAL_THROW) << "Invalid MatchConfig specified";

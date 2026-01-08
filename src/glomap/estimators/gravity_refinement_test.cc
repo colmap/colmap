@@ -102,6 +102,7 @@ TEST(GravityRefinement, RefineGravity) {
   synthetic_dataset_options.num_frames_per_rig = 25;
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -135,6 +136,7 @@ TEST(GravityRefinement, RefineGravityWithNonTrivialRigs) {
   synthetic_dataset_options.num_frames_per_rig = 25;
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 

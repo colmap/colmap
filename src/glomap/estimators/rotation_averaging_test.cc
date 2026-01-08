@@ -96,6 +96,7 @@ TEST(RotationAveraging, WithoutNoise) {
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
   synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -134,6 +135,7 @@ TEST(RotationAveraging, WithoutNoiseWithNonTrivialKnownRig) {
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
   synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -170,6 +172,7 @@ TEST(RotationAveraging, WithoutNoiseWithNonTrivialUnknownRig) {
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
   synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -216,6 +219,7 @@ TEST(RotationAveraging, WithNoiseAndOutliers) {
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.inlier_match_ratio = 0.6;
   synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   colmap::SyntheticNoiseOptions synthetic_noise_options;
@@ -258,6 +262,7 @@ TEST(RotationAveraging, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.inlier_match_ratio = 0.6;
   synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   colmap::SyntheticNoiseOptions synthetic_noise_options;

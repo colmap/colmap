@@ -344,6 +344,7 @@ TEST(CreateGeometricVerifier, Guided) {
   synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.inlier_match_ratio = 0.6;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 

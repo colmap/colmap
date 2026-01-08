@@ -988,7 +988,7 @@ void MaybeDecomposeAndWriteRelativePoses(Database* database) {
       if (norm > 1e-12) {
         two_view_geom.cam2_from_cam1->translation /= norm;
       }
-      database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geom);
+      database->UpdateTwoViewGeometry(image_id1, image_id2, two_view_geom);
     } else {
       decompose_failed_count++;
     }
