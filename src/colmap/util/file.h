@@ -78,7 +78,7 @@ std::filesystem::path AddFileExtension(std::filesystem::path path,
 
 // Split the path into its root and extension, for example,
 // "dir/file.jpg" into "dir/file" and ".jpg".
-void SplitFileExtension(const std::filesystem::path& path,
+void SplitFileExtension(const std::string& path,
                         std::string* root,
                         std::string* ext);
 

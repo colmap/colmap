@@ -55,6 +55,11 @@ TEST(HasFileExtension, Nominal) {
   EXPECT_TRUE(HasFileExtension("test.", "."));
 }
 
+TEST(AddFileExtension, Nominal) {
+  EXPECT_EQ(AddFileExtension("test", ".txt"), "test.txt");
+  EXPECT_EQ(AddFileExtension("test.jpg", ".txt"), "test.jpg.txt");
+}
+
 TEST(SplitFileExtension, Nominal) {
   std::string root;
   std::string ext;

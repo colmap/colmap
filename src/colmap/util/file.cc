@@ -84,13 +84,13 @@ bool HasFileExtension(const std::filesystem::path& file_name,
 std::filesystem::path AddFileExtension(std::filesystem::path path,
                                        const std::string& ext) {
   path += ext;
-  return ext;
+  return path;
 }
 
-void SplitFileExtension(const std::filesystem::path& path,
+void SplitFileExtension(const std::string& path,
                         std::string* root,
                         std::string* ext) {
-  const auto parts = StringSplit(path.string(), ".");
+  const auto parts = StringSplit(path, ".");
   THROW_CHECK_GT(parts.size(), 0);
   if (parts.size() == 1) {
     *root = parts[0];
