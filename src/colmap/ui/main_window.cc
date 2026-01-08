@@ -873,7 +873,7 @@ void MainWindow::ProjectSave() {
     // Project path was chosen previously, either here or via command-line.
     options_.Write(*options_.project_path);
     SetLastOpen(kLastDirProject,
-                QString::fromStdString(*options_.project_path));
+                QString::fromStdString(options_.project_path->string()));
   }
 
   UpdateWindowTitle();
