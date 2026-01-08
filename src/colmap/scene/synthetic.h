@@ -56,7 +56,7 @@ struct SyntheticDatasetOptions {
   double inlier_match_ratio = 1.0;
 
   // Whether to include decomposed relative poses in two-view geometries.
-  bool two_view_geometry_has_relative_pose = true;
+  bool two_view_geometry_has_relative_pose = false;
 
   enum class MatchConfig {
     // Exhaustive matches between all pairs of observations of a 3D point.

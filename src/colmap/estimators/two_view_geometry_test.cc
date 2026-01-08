@@ -901,7 +901,6 @@ TEST(MaybeDecomposeAndWriteRelativePoses, Nominal) {
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.camera_has_prior_focal_length = true;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = false;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction, database.get());
 
   const image_t image_id1 = 1;
