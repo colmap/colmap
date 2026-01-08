@@ -56,12 +56,11 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   option_manager_.AddAllOptions();
 
-  *option_manager_.image_path = options_.image_path.string();
+  *option_manager_.image_path = options_.image_path;
   option_manager_.image_reader->image_names = options_.image_names;
   option_manager_.mapper->image_names = {options_.image_names.begin(),
                                          options_.image_names.end()};
-  *option_manager_.database_path =
-      (options_.workspace_path / "database.db").string();
+  *option_manager_.database_path = options_.workspace_path / "database.db";
 
   if (options_.data_type == DataType::VIDEO) {
     option_manager_.ModifyForVideoData();
@@ -292,7 +291,7 @@ void AutomaticReconstructionController::RunSparseMapper() {
     }
     case Mapper::GLOBAL: {
       GlobalPipelineOptions global_options;
-      global_options.image_path = *option_manager_.image_path;
+      global_options.image_path = option_manager_.image_path->string();
       global_options.num_threads = options_.num_threads;
       global_options.random_seed = options_.random_seed;
       mapper = std::make_unique<GlobalPipeline>(
@@ -308,7 +307,7 @@ void AutomaticReconstructionController::RunSparseMapper() {
 
   CreateDirIfNotExists(sparse_path);
   reconstruction_manager_->Write(sparse_path);
-  option_manager_.Write((sparse_path / "project.ini").string());
+  option_manager_.Write(sparse_path / "project.ini");
 }
 
 void AutomaticReconstructionController::RunDenseMapper() {
