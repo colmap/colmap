@@ -53,6 +53,24 @@ TEST(StringPrintf, Nominal) {
   EXPECT_EQ(StringPrintf("%.3f%s", 1.234, "test"), "1.234test");
 }
 
+TEST(StringPrintf, LongString) {
+  // Test strings exceeding the 1024-byte fixed buffer in StringAppendV,
+  // which triggers the variable buffer allocation path.
+  const std::string long_str(2000, 'x');
+  EXPECT_EQ(StringPrintf("%s", long_str.c_str()), long_str);
+
+  // Test with format string producing output > 1024 bytes.
+  const std::string prefix(500, 'a');
+  const std::string suffix(600, 'b');
+  const std::string expected = prefix + suffix;
+  EXPECT_EQ(StringPrintf("%s%s", prefix.c_str(), suffix.c_str()), expected);
+
+  // Test with mixed format specifiers producing long output.
+  const std::string mid(1500, 'z');
+  const std::string expected_mixed = "num=42," + mid + ",end";
+  EXPECT_EQ(StringPrintf("num=%d,%s,end", 42, mid.c_str()), expected_mixed);
+}
+
 TEST(StringReplace, Nominal) {
   EXPECT_EQ(StringReplace("test", "-", ""), "test");
   EXPECT_EQ(StringReplace("test", "t", "a"), "aesa");
