@@ -90,10 +90,9 @@ TEST_P(ParameterizedAutomaticReconstructionTests, Nominal) {
                                  /*align=*/true));
 }
 
-// TODO: Add GLOBAL mapper test. Currently excluded because global SfM requires
-// more images for a well-conditioned pose graph. With only 5 images (and strict
-// matching thresholds for global mode), the test is flaky. The global pipeline
-// is tested separately in global_pipeline_test.cc with a proper setup.
+// TODO: Add GLOBAL mapper test. Currently excluded because the test produces
+// fewer observations than expected. The global pipeline is tested separately
+// in global_pipeline_test.cc.
 INSTANTIATE_TEST_SUITE_P(
     AutomaticReconstructionTests,
     ParameterizedAutomaticReconstructionTests,
