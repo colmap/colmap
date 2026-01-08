@@ -102,7 +102,7 @@ void SplitFileExtension(const std::string& path,
   }
 }
 
-void CopyFile(const std::string& src_path,
+void FileCopy(const std::string& src_path,
               const std::string& dst_path,
               FileCopyType type) {
   switch (type) {

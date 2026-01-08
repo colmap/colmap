@@ -78,8 +78,9 @@ void SplitFileExtension(const std::string& path,
                         std::string* root,
                         std::string* ext);
 
-// Copy or link file from source to destination path
-void CopyFile(const std::string& src_path,
+// Copy or link file from source to destination path.
+// Note: Not naming CopyFile to avoid collision with Windows API CopyFile macro.
+void FileCopy(const std::string& src_path,
               const std::string& dst_path,
               FileCopyType type = FileCopyType::COPY);
 

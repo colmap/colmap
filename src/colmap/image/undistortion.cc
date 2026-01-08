@@ -238,7 +238,7 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
       ExistsFile(input_image_path)) {
     LOG(INFO) << "Undistorted image found; copying to location: "
               << output_image_path;
-    CopyFile(input_image_path, output_image_path, copy_type_);
+    FileCopy(input_image_path, output_image_path, copy_type_);
     return true;
   }
 

@@ -169,7 +169,7 @@ TEST(JoinPaths, Nominal) {
   EXPECT_EQ(JoinPaths("/test1", "/test2/", "test3.ext"), "/test2/test3.ext");
 }
 
-TEST(CopyFile, Nominal) {
+TEST(FileCopy, Nominal) {
   const std::string dir = CreateTestDir();
   const std::string src_path = JoinPaths(dir, "source.txt");
   const std::string dst_path = JoinPaths(dir, "destination.txt");
@@ -179,7 +179,7 @@ TEST(CopyFile, Nominal) {
     file << "test content";
   }
 
-  CopyFile(src_path, dst_path, FileCopyType::COPY);
+  FileCopy(src_path, dst_path, FileCopyType::COPY);
   EXPECT_TRUE(ExistsFile(dst_path));
   {
     std::ifstream file(dst_path);
@@ -190,12 +190,12 @@ TEST(CopyFile, Nominal) {
 
   const std::string dst_hard_link_path =
       JoinPaths(dir, "destination_hard_link.txt");
-  CopyFile(src_path, dst_hard_link_path, FileCopyType::HARD_LINK);
+  FileCopy(src_path, dst_hard_link_path, FileCopyType::HARD_LINK);
   EXPECT_TRUE(ExistsFile(dst_hard_link_path));
 
   const std::string dst_soft_link_path =
       JoinPaths(dir, "destination_soft_link.txt");
-  CopyFile(src_path, dst_soft_link_path, FileCopyType::SOFT_LINK);
+  FileCopy(src_path, dst_soft_link_path, FileCopyType::SOFT_LINK);
   EXPECT_TRUE(ExistsFile(dst_soft_link_path));
 }
 
