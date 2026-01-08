@@ -282,7 +282,7 @@ TEST(BaseOptionManager, ParseWithProjectPath) {
   const std::vector<std::string> args = {
       "colmap",
       "--project_path",
-      config_path,
+      config_path.string(),
   };
 
   std::vector<char*> argv;

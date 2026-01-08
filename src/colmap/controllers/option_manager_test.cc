@@ -242,9 +242,9 @@ TEST(OptionManager, ParseWithOptions) {
   const std::vector<std::string> args = {
       "colmap",
       "--database_path",
-      database_path,
+      database_path.string(),
       "--image_path",
-      image_path,
+      image_path.string(),
       "--SiftExtraction.max_image_size",
       "1024",
       "--SiftExtraction.max_num_features",
@@ -291,7 +291,7 @@ TEST(OptionManager, ParseWithProjectPath) {
   const std::vector<std::string> args = {
       "colmap",
       "--project_path",
-      config_path,
+      config_path.string(),
   };
 
   std::vector<char*> argv;
@@ -334,7 +334,7 @@ TEST(OptionManager, ParseUnknownArgumentsFails) {
   const std::vector<std::string> args = {
       "colmap",
       "--database_path",
-      database_path,
+      database_path.string(),
       "--unknown_option",
       "value",
   };

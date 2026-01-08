@@ -381,7 +381,7 @@ int RunGlobalMapper(int argc, char** argv) {
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
 
   GlobalPipelineOptions global_options = *options.global_mapper;
-  global_options.image_path = *options.image_path;
+  global_options.image_path = options.image_path->string();
 
   GlobalPipeline global_mapper(global_options,
                                Database::Open(*options.database_path),
