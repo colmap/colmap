@@ -281,7 +281,7 @@ std::optional<std::filesystem::path> HomeDir() {
   if (!homedrive.has_value() || !homepath.has_value()) {
     return std::nullopt;
   }
-  return *homedrive / *homepath;
+  return std::filesystem::path(*homedrive) / std::filesystem::path(*homepath);
 #else
   std::optional<std::string> home = GetEnvSafe("HOME");
   if (!home.has_value()) {

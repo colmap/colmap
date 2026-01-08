@@ -153,7 +153,6 @@ TEST(BaseOptionManager, WriteAndRead) {
   // Verify that values were read correctly
   EXPECT_EQ(*options_read.database_path, *options_write.database_path);
   EXPECT_EQ(*options_read.image_path, *options_write.image_path);
-
   EXPECT_EQ(bool_option_read, bool_option_write);
   EXPECT_EQ(int_option_read, int_option_write);
   EXPECT_EQ(double_option_read, double_option_write);
