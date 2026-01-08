@@ -175,9 +175,9 @@ TEST(JoinPaths, Nominal) {
 }
 
 TEST(FileCopy, Nominal) {
-  const std::string dir = CreateTestDir();
-  const std::string src_path = JoinPaths(dir, "source.txt");
-  const std::string dst_path = JoinPaths(dir, "destination.txt");
+  const auto dir = CreateTestDir();
+  const auto src_path = dir / "source.txt";
+  const auto dst_path = dir / "destination.txt";
 
   {
     std::ofstream file(src_path);
@@ -193,22 +193,20 @@ TEST(FileCopy, Nominal) {
     EXPECT_EQ(buffer.str(), "test content");
   }
 
-  const std::string dst_hard_link_path =
-      JoinPaths(dir, "destination_hard_link.txt");
+  const auto dst_hard_link_path = dir / "destination_hard_link.txt";
   FileCopy(src_path, dst_hard_link_path, FileCopyType::HARD_LINK);
   EXPECT_TRUE(ExistsFile(dst_hard_link_path));
 
-  const std::string dst_soft_link_path =
-      JoinPaths(dir, "destination_soft_link.txt");
+  const auto dst_soft_link_path = dir / "destination_soft_link.txt";
   FileCopy(src_path, dst_soft_link_path, FileCopyType::SOFT_LINK);
   EXPECT_TRUE(ExistsFile(dst_soft_link_path));
 }
 
 TEST(GetFileList, Nominal) {
-  const std::string dir = CreateTestDir();
-  const std::string file1 = JoinPaths(dir, "file1.txt");
-  const std::string file2 = JoinPaths(dir, "file2.txt");
-  const std::string subdir = JoinPaths(dir, "subdir");
+  const auto dir = CreateTestDir();
+  const auto file1 = dir / "file1.txt";
+  const auto file2 = dir / "file2.txt";
+  const auto subdir = dir / "subdir";
 
   {
     std::ofstream f1(file1);
@@ -217,15 +215,16 @@ TEST(GetFileList, Nominal) {
   CreateDirIfNotExists(subdir);
 
   const auto file_list = GetFileList(dir);
-  EXPECT_THAT(file_list, testing::UnorderedElementsAre(file1, file2));
+  EXPECT_THAT(file_list,
+              testing::UnorderedElementsAre(file1.string(), file2.string()));
 }
 
 TEST(GetDirList, Nominal) {
-  const std::string dir = CreateTestDir();
-  const std::string subdir1 = JoinPaths(dir, "subdir1");
-  const std::string subdir2 = JoinPaths(dir, "subdir2");
-  const std::string subdir1_nested = JoinPaths(subdir1, "nested");
-  const std::string file = JoinPaths(dir, "file.txt");
+  const auto dir = CreateTestDir();
+  const auto subdir1 = dir / "subdir1";
+  const auto subdir2 = dir / "subdir2";
+  const auto subdir1_nested = subdir1 / "nested";
+  const auto file = dir / "file.txt";
 
   CreateDirIfNotExists(subdir1);
   CreateDirIfNotExists(subdir2);
@@ -236,15 +235,17 @@ TEST(GetDirList, Nominal) {
   }
 
   const auto dir_list = GetDirList(dir);
-  EXPECT_THAT(dir_list, testing::UnorderedElementsAre(subdir1, subdir2));
+  EXPECT_THAT(
+      dir_list,
+      testing::UnorderedElementsAre(subdir1.string(), subdir2.string()));
 }
 
 TEST(GetRecursiveDirList, Nominal) {
-  const std::string dir = CreateTestDir();
-  const std::string subdir1 = JoinPaths(dir, "subdir1");
-  const std::string subdir2 = JoinPaths(dir, "subdir2");
-  const std::string subdir1_nested = JoinPaths(subdir1, "nested");
-  const std::string file = JoinPaths(dir, "file.txt");
+  const auto dir = CreateTestDir();
+  const auto subdir1 = dir / "subdir1";
+  const auto subdir2 = dir / "subdir2";
+  const auto subdir1_nested = subdir1 / "nested";
+  const auto file = dir / "file.txt";
 
   CreateDirIfNotExists(subdir1);
   CreateDirIfNotExists(subdir2);
@@ -256,7 +257,8 @@ TEST(GetRecursiveDirList, Nominal) {
 
   const auto dir_list = GetRecursiveDirList(dir);
   EXPECT_THAT(dir_list,
-              testing::UnorderedElementsAre(subdir1, subdir2, subdir1_nested));
+              testing::UnorderedElementsAre(
+                  subdir1.string(), subdir2.string(), subdir1_nested.string()));
 }
 
 TEST(HomeDir, Nominal) {
