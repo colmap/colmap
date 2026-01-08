@@ -32,7 +32,7 @@ class SimpleRadialCameraFixedCalib:
 class SimpleRadialCameraFixedTranslationNorm:
     rotation: sf.Rot3
     translation_direction: sf.Unit3
-    cam_calib: SimpleRadialCalib
+    calibration: SimpleRadialCalib
 
 
 class Point(sf.V3):
@@ -75,7 +75,7 @@ def simple_radial(
     principal_point = sf.V2([cx, cy])
     point_cam = cam_T_world * point
     depth = point_cam[2]
-    p = sf.V2(point_cam[:2]) / (depth + sf.epsilon() * sf.sign(depth))
+    p = sf.V2(point_cam[:2]) / (depth + sf.epsilon() * sf.sign_no_zero(depth))
     r = 1 + k * p.squared_norm()
     pixel_projected = focal_length * r * p + principal_point
     return pixel_projected - pixel
@@ -92,7 +92,7 @@ def simple_radial_fixed_pose(
     principal_point = sf.V2([cx, cy])
     point_cam = cam_T_world * point
     depth = point_cam[2]
-    p = sf.V2(point_cam[:2]) / (depth + sf.epsilon() * sf.sign(depth))
+    p = sf.V2(point_cam[:2]) / (depth + sf.epsilon() * sf.sign_no_zero(depth))
     r = 1 + k * p.squared_norm()
     pixel_projected = focal_length * r * p + principal_point
     return pixel_projected - pixel
@@ -109,7 +109,7 @@ def simple_radial_fixed_point(
     principal_point = sf.V2([cx, cy])
     point_cam = cam_T_world * point
     depth = point_cam[2]
-    p = sf.V2(point_cam[:2]) / (depth + sf.epsilon() * sf.sign(depth))
+    p = sf.V2(point_cam[:2]) / (depth + sf.epsilon() * sf.sign_no_zero(depth))
     r = 1 + k * p.squared_norm()
     pixel_projected = focal_length * r * p + principal_point
     return pixel_projected - pixel
@@ -125,11 +125,11 @@ def simple_radial_fixed_translation_norm(
     translation = cam_fixed_norm.translation_direction.to_unit_vector() * translation_norm[0]
     cam_T_world = sf.Pose3(R=cam_fixed_norm.rotation, t=translation)
     
-    focal_length, cx, cy, k = cam_fixed_norm.cam_calib
+    focal_length, cx, cy, k = cam_fixed_norm.calibration
     principal_point = sf.V2([cx, cy])
     point_cam = cam_T_world * point
     depth = point_cam[2]
-    p = sf.V2(point_cam[:2]) / (depth + sf.epsilon() * sf.sign(depth))
+    p = sf.V2(point_cam[:2]) / (depth + sf.epsilon() * sf.sign_no_zero(depth))
     r_radial = 1 + k * p.squared_norm()
     pixel_projected = focal_length * r_radial * p + principal_point
     return pixel_projected - pixel
@@ -145,11 +145,11 @@ def simple_radial_fixed_translation_norm_and_point(
     translation = cam_fixed_norm.translation_direction.to_unit_vector() * translation_norm[0]
     cam_T_world = sf.Pose3(R=cam_fixed_norm.rotation, t=translation)
     
-    focal_length, cx, cy, k = cam_fixed_norm.cam_calib
+    focal_length, cx, cy, k = cam_fixed_norm.calibration
     principal_point = sf.V2([cx, cy])
     point_cam = cam_T_world * point
     depth = point_cam[2]
-    p = sf.V2(point_cam[:2]) / (depth + sf.epsilon() * sf.sign(depth))
+    p = sf.V2(point_cam[:2]) / (depth + sf.epsilon() * sf.sign_no_zero(depth))
     r_radial = 1 + k * p.squared_norm()
     pixel_projected = focal_length * r_radial * p + principal_point
     return pixel_projected - pixel

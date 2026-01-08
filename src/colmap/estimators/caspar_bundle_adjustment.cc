@@ -601,13 +601,16 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   bool AreIntrinsicsVariable(const camera_t camera_id) {
-    bool any_refinement = options_.refine_focal_length ||
-                          options_.refine_principal_point ||
-                          options_.refine_extra_params;
-    if (!any_refinement) return false;
-    if (config_.HasConstantCamIntrinsics(camera_id)) return false;
-    if (cameras_from_outside_config_.count(camera_id)) return false;
+    // We only support variable intrinsics
     return true;
+
+    // bool any_refinement = options_.refine_focal_length ||
+    //                       options_.refine_principal_point ||
+    //                       options_.refine_extra_params;
+    // if (!any_refinement) return false;
+    // if (config_.HasConstantCamIntrinsics(camera_id)) return false;
+    // if (cameras_from_outside_config_.count(camera_id)) return false;
+    // return true;
   }
 
   bool IsPointVariable(const point3D_t point3D_id) {
@@ -680,11 +683,24 @@ class CasparBundleAdjuster : public BundleAdjuster {
           camera_data_.data(), 0, num_cameras_);
     }
     if (num_cam_fixed_pose_ > 0) {
-      LOG(INFO) << "Setting " << num_cam_fixed_pose_
-                << " CamFixedPose nodes to solver";
-      LOG(INFO) << "  Initial data: " << cam_fixed_pose_data_[0] << ", "
+      LOG(INFO) << "=== CAMFIXEDPOSE NODE SETUP ===";
+      LOG(INFO) << "num_cam_fixed_pose_: " << num_cam_fixed_pose_;
+      LOG(INFO) << "cam_fixed_pose_data_ size: " << cam_fixed_pose_data_.size();
+      LOG(INFO) << "First node data: [" << cam_fixed_pose_data_[0] << ", "
                 << cam_fixed_pose_data_[1] << ", " << cam_fixed_pose_data_[2]
-                << ", " << cam_fixed_pose_data_[3];
+                << ", " << cam_fixed_pose_data_[3] << "]";
+
+      // Check factor connectivity
+      LOG(INFO) << "num_simple_radial_fixed_pose_: "
+                << num_simple_radial_fixed_pose_;
+      if (num_simple_radial_fixed_pose_ > 0) {
+        LOG(INFO) << "First factor references:";
+        LOG(INFO) << "  cam_fixed_pose_idx: "
+                  << simple_radial_fixed_pose_cam_fixed_pose_indices_[0];
+        LOG(INFO) << "  point_idx: "
+                  << simple_radial_fixed_pose_point_indices_[0];
+      }
+
       solver.set_SimpleRadialCameraFixedPose_nodes_from_stacked_host(
           cam_fixed_pose_data_.data(), 0, num_cam_fixed_pose_);
     }
@@ -1064,7 +1080,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
     LOG(INFO) << "=== CALLING CASPAR SOLVER ===";
     LOG(INFO) << "Starting solve...";
-    const float result = solver.solve(true);  // Enable progress printing
+    const float result = solver.solve(false);  // Enable progress printing
     LOG(INFO) << "Solve completed with cost: " << result;
 
     double scale_after = ComputeSceneScale();

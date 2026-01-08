@@ -395,8 +395,8 @@ TEST(CasparBundleAdjuster, TwoCamsGaugeCameraMovement) {
   const Reconstruction orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
-  config.AddImage(1);
   config.AddImage(2);
+  config.AddImage(1);
   config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
@@ -481,8 +481,8 @@ TEST(CasparBundleAdjuster, TwoCamsGaugeFrameOneDoesNotMoveAfterSolve) {
   const Rigid3d frame1_before = reconstruction.Image(1).CamFromWorld();
 
   BundleAdjustmentConfig config;
+  config.AddImage(2);  // Order matters for which frame is selected to be fixed
   config.AddImage(1);
-  config.AddImage(2);
   config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
@@ -490,7 +490,7 @@ TEST(CasparBundleAdjuster, TwoCamsGaugeFrameOneDoesNotMoveAfterSolve) {
 
   auto adjuster =
       CreateCasparBundleAdjuster(options, config, reconstruction, params);
-  adjuster->Solve();  // This is where Frame 1 gets corrupted
+  adjuster->Solve();
 
   const Rigid3d frame1_after = reconstruction.Image(1).CamFromWorld();
 
