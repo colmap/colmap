@@ -69,7 +69,7 @@ class COLMAPUndistorter : public BaseController {
       const std::string& image_path,
       const std::string& output_path,
       int num_related_images = 20,
-      CopyType copy_type = CopyType::COPY,
+      FileCopyType copy_type = FileCopyType::COPY,
       const std::vector<image_t>& image_ids = std::vector<image_t>());
 
   void Run();
@@ -83,7 +83,7 @@ class COLMAPUndistorter : public BaseController {
   UndistortCameraOptions options_;
   const std::string image_path_;
   const std::string output_path_;
-  const CopyType copy_type_;
+  const FileCopyType copy_type_;
   const int num_patch_match_src_images_;
   const Reconstruction& reconstruction_;
   const std::vector<image_t> image_ids_;
