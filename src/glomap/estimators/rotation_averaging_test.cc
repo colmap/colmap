@@ -45,9 +45,11 @@ void LoadReconstructionAndPoseGraph(const colmap::Database& database,
                                     colmap::Reconstruction* reconstruction,
                                     PoseGraph* pose_graph) {
   colmap::DatabaseCache database_cache;
-  database_cache.Load(database, /*min_num_matches=*/0);
+  colmap::DatabaseCache::Options options;
+  options.load_relative_pose = true;
+  database_cache.Load(database, options);
   reconstruction->Load(database_cache);
-  pose_graph->LoadFromDatabase(database);
+  pose_graph->Load(database_cache);
 }
 
 RotationEstimatorOptions CreateRATestOptions(bool use_gravity = false) {

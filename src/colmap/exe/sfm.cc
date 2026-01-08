@@ -728,8 +728,8 @@ int RunRotationAverager(int argc, char** argv) {
     }
     pose_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
 
-    glomap::GravityRefiner grav_refiner(*options.gravity_refiner);
-    grav_refiner.RefineGravity(pose_graph, reconstruction, pose_priors);
+    glomap::RunGravityRefinement(
+        *options.gravity_refiner, pose_graph, reconstruction, pose_priors);
   }
 
   Timer run_timer;

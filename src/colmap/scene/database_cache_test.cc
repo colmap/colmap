@@ -124,10 +124,7 @@ TEST(DatabaseCache, Empty) {
 
 TEST(DatabaseCache, ConstructFromDatabase) {
   auto database = CreateTestDatabase();
-  auto cache = DatabaseCache::Create(*database,
-                                     /*min_num_matches=*/0,
-                                     /*ignore_watermarks=*/false,
-                                     /*image_names=*/{});
+  auto cache = DatabaseCache::Create(*database, {});
 
   EXPECT_EQ(cache->NumRigs(), 1);
   EXPECT_EQ(cache->NumCameras(), 2);
@@ -188,11 +185,9 @@ TEST(DatabaseCache, ConstructFromDatabaseWithCustomImages) {
 
   // Note that the first two images are part of the same frame.
   const std::vector<Image> images = database->ReadAllImages();
-  auto cache = DatabaseCache::Create(
-      *database,
-      /*min_num_matches=*/0,
-      /*ignore_watermarks=*/false,
-      /*image_names=*/{images[0].Name(), images[1].Name()});
+  DatabaseCache::Options options;
+  options.image_names = {images[0].Name(), images[1].Name()};
+  auto cache = DatabaseCache::Create(*database, options);
 
   EXPECT_EQ(cache->NumRigs(), 1);
   EXPECT_EQ(cache->NumCameras(), 2);
@@ -251,10 +246,7 @@ std::shared_ptr<Database> CreateLegacyTestDatabase() {
 
 TEST(DatabaseCache, ConstructFromLegacyDatabaseWithoutRigsAndFrames) {
   auto database = CreateLegacyTestDatabase();
-  auto cache = DatabaseCache::Create(*database,
-                                     /*min_num_matches=*/0,
-                                     /*ignore_watermarks=*/false,
-                                     /*image_names=*/{});
+  auto cache = DatabaseCache::Create(*database, {});
   EXPECT_EQ(cache->NumCameras(), 1);
   EXPECT_EQ(cache->NumImages(), 3);
   EXPECT_EQ(cache->NumPosePriors(), 0);
@@ -281,11 +273,9 @@ TEST(DatabaseCache, ConstructFromLegacyDatabaseWithoutRigsAndFrames) {
 TEST(DatabaseCache, ConstructFromLegacyDatabaseWithCustomImages) {
   auto database = CreateLegacyTestDatabase();
   const std::vector<Image> images = database->ReadAllImages();
-  auto cache = DatabaseCache::Create(
-      *database,
-      /*min_num_matches=*/0,
-      /*ignore_watermarks=*/false,
-      /*image_names=*/{images[0].Name(), images[2].Name()});
+  DatabaseCache::Options options;
+  options.image_names = {images[0].Name(), images[2].Name()};
+  auto cache = DatabaseCache::Create(*database, options);
   EXPECT_EQ(cache->NumCameras(), 1);
   EXPECT_EQ(cache->NumImages(), 2);
   EXPECT_EQ(cache->NumPosePriors(), 0);
@@ -302,6 +292,33 @@ TEST(DatabaseCache, ConstructFromLegacyDatabaseWithCustomImages) {
   EXPECT_TRUE(cache->CorrespondenceGraph()->ExistsImage(3));
   EXPECT_EQ(cache->CorrespondenceGraph()->NumCorrespondencesForImage(3), 1);
   EXPECT_EQ(cache->CorrespondenceGraph()->NumObservationsForImage(3), 1);
+}
+
+TEST(DatabaseCache, RelativePoses) {
+  auto database = CreateTestDatabase();
+
+  auto cache_no_pose = DatabaseCache::Create(*database, {});
+  EXPECT_EQ(cache_no_pose->NumRelativePoses(), 0);
+
+  DatabaseCache::Options options;
+  options.load_relative_pose = true;
+  auto cache = DatabaseCache::Create(*database, options);
+  EXPECT_EQ(cache->NumRelativePoses(), 3);
+
+  const std::vector<Image> images = database->ReadAllImages();
+  const image_t id1 = images[0].ImageId();
+  const image_t id2 = images[1].ImageId();
+
+  EXPECT_TRUE(cache->ExistsRelativePose(id1, id2));
+  EXPECT_TRUE(cache->ExistsRelativePose(id2, id1));
+  EXPECT_FALSE(cache->ExistsRelativePose(id1, id1));
+
+  const Rigid3d pose12 = cache->RelativePose(id1, id2);
+  const Rigid3d pose21 = cache->RelativePose(id2, id1);
+  const Rigid3d composed = pose21 * pose12;
+  EXPECT_LT(composed.rotation.angularDistance(Eigen::Quaterniond::Identity()),
+            1e-9);
+  EXPECT_LT(composed.translation.norm(), 1e-9);
 }
 
 TEST(DatabaseCache, ConstructFromCustom) {

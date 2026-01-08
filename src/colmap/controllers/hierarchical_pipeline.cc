@@ -124,11 +124,12 @@ HierarchicalPipeline::HierarchicalPipeline(
   LOG(INFO) << "Loading database";
   Timer timer;
   timer.Start();
-  database_cache_ = DatabaseCache::Create(
-      *database,
-      /*min_num_matches=*/
-      static_cast<size_t>(options_.incremental_options.min_num_matches),
-      /*ignore_watermarks=*/options_.incremental_options.ignore_watermarks);
+  DatabaseCache::Options database_cache_options;
+  database_cache_options.min_num_matches =
+      static_cast<size_t>(options_.incremental_options.min_num_matches);
+  database_cache_options.ignore_watermarks =
+      options_.incremental_options.ignore_watermarks;
+  database_cache_ = DatabaseCache::Create(*database, database_cache_options);
   timer.PrintMinutes();
 
   if (options_.incremental_options.ba_refine_sensor_from_rig) {
@@ -214,10 +215,12 @@ void HierarchicalPipeline::Run() {
         }
 
         // Create a filtered database cache for this cluster.
+        DatabaseCache::Options cluster_cache_options;
+        cluster_cache_options.min_num_matches =
+            static_cast<size_t>(options_.incremental_options.min_num_matches);
+        cluster_cache_options.image_names = cluster_image_names;
         auto cluster_database_cache = DatabaseCache::CreateFromCache(
-            *database_cache_,
-            static_cast<size_t>(options_.incremental_options.min_num_matches),
-            cluster_image_names);
+            *database_cache_, cluster_cache_options);
 
         IncrementalPipeline mapper(std::move(incremental_options),
                                    std::move(cluster_database_cache),

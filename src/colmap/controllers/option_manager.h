@@ -139,6 +139,7 @@ class OptionManager : public BaseOptionManager {
   std::filesystem::path mapper_image_list_path_;
   std::filesystem::path mapper_constant_rig_list_path_;
   std::filesystem::path mapper_constant_camera_list_path_;
+  std::filesystem::path global_mapper_image_list_path_;
 
   bool added_feature_extraction_options_ = false;
   bool added_feature_matching_options_ = false;

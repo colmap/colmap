@@ -1,5 +1,6 @@
 #include "glomap/sfm/global_mapper.h"
 
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
@@ -10,6 +11,13 @@ namespace glomap {
 namespace {
 
 // TODO(jsch): Add tests for pose priors.
+
+std::shared_ptr<colmap::DatabaseCache> CreateDatabaseCache(
+    const colmap::Database& database) {
+  colmap::DatabaseCache::Options options;
+  options.load_relative_pose = true;
+  return colmap::DatabaseCache::Create(database, options);
+}
 
 GlobalMapperOptions CreateTestOptions() {
   GlobalMapperOptions options;
@@ -36,7 +44,7 @@ TEST(GlobalMapper, WithoutNoise) {
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
 
-  GlobalMapper global_mapper(database);
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
   global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
@@ -66,7 +74,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
 
-  GlobalMapper global_mapper(database);
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
   global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
@@ -97,7 +105,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
 
-  GlobalMapper global_mapper(database);
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
   global_mapper.BeginReconstruction(reconstruction);
 
   // Set the rig sensors to be unknown
@@ -138,7 +146,7 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
 
-  GlobalMapper global_mapper(database);
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
   global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
