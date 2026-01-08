@@ -41,7 +41,7 @@
 namespace colmap {
 namespace {
 
-std::string WriteTestConfig(const std::string& config) {
+std::filesystem::path WriteTestConfig(const std::string& config) {
   const auto file_path = CreateTestDir() / "config.json";
   std::ofstream file(file_path);
   file << config << '\n';
