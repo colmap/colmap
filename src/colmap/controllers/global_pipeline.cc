@@ -46,9 +46,7 @@ GlobalPipeline::GlobalPipeline(
       database_(std::move(THROW_CHECK_NOTNULL(database))),
       reconstruction_manager_(
           std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {
-  if (options_.decompose_relative_pose &&
-      (options_.skip_view_graph_calibration ||
-       !options_.view_graph_calibration.reestimate_relative_pose)) {
+  if (options_.decompose_relative_pose) {
     MaybeDecomposeAndWriteRelativePoses(database_.get());
   }
 }
