@@ -100,13 +100,16 @@ TEST_P(ParameterizedWorkspaceTests, GetData) {
   EXPECT_EQ(model.images.size(), 1);
   workspace->Load({image_name_});
   EXPECT_TRUE(workspace->HasBitmap(0));
-  EXPECT_THAT(workspace->GetBitmapPath(0), testing::HasSubstr(image_name_));
+  EXPECT_THAT(workspace->GetBitmapPath(0).string(),
+              testing::HasSubstr(image_name_));
   EXPECT_FALSE(workspace->GetBitmap(0).IsEmpty());
   EXPECT_TRUE(workspace->HasDepthMap(0));
-  EXPECT_THAT(workspace->GetDepthMapPath(0), testing::HasSubstr(image_name_));
+  EXPECT_THAT(workspace->GetDepthMapPath(0).string(),
+              testing::HasSubstr(image_name_));
   EXPECT_GT(workspace->GetDepthMap(0).GetNumBytes(), 0);
   EXPECT_TRUE(workspace->HasNormalMap(0));
-  EXPECT_THAT(workspace->GetNormalMapPath(0), testing::HasSubstr(image_name_));
+  EXPECT_THAT(workspace->GetNormalMapPath(0).string(),
+              testing::HasSubstr(image_name_));
   EXPECT_GT(workspace->GetNormalMap(0).GetNumBytes(), 0);
 }
 
