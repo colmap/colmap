@@ -10,6 +10,8 @@ $url = "https://github.com/ccache/ccache/releases/download/v$version/$folder.zip
 $expectedSha256 = "98AEA520D66905B8BA7A8E648A4CC0CA941D5E119D441F1E879A4A9045BF18F6"
 
 $ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
+$PSNativeCommandUseErrorActionPreference = $true
 
 try {
     New-Item -Path "$Destination" -ItemType Container -ErrorAction SilentlyContinue

@@ -500,12 +500,11 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
     }
   }
 
-  std::unique_ptr<BaseController> undistorter;
-  undistorter.reset(new PureImageUndistorter(undistort_camera_options,
+  auto undistorter =
+      std::make_unique<PureImageUndistorter>(undistort_camera_options,
                                              *options.image_path,
                                              output_path,
-                                             image_names_and_cameras));
-
+                                             image_names_and_cameras);
   undistorter->Run();
 
   return EXIT_SUCCESS;
