@@ -141,7 +141,7 @@ COLMAPUndistorter::COLMAPUndistorter(const UndistortCameraOptions& options,
                                      const std::filesystem::path& image_path,
                                      const std::filesystem::path& output_path,
                                      const int num_patch_match_src_images,
-                                     const CopyType copy_type,
+                                     const FileCopyType copy_type,
                                      const std::vector<image_t>& image_ids)
     : options_(options),
       image_path_(image_path),
