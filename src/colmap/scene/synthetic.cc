@@ -57,9 +57,10 @@ void AddOutlierMatches(double inlier_ratio,
 
 std::vector<image_pair_t> ExtractExhaustiveImagePairs(
     const Reconstruction& reconstruction) {
+  const size_t num_exhaustive_pairs =
+      reconstruction.NumRegImages() * (reconstruction.NumRegImages() - 1) / 2;
   std::vector<image_pair_t> image_pairs;
-  image_pairs.reserve(reconstruction.NumImages() *
-                      (reconstruction.NumImages() - 1) / 2);
+  image_pairs.reserve(num_exhaustive_pairs);
   for (const image_t image_id1 : reconstruction.RegImageIds()) {
     for (const image_t image_id2 : reconstruction.RegImageIds()) {
       if (image_id1 >= image_id2) {
@@ -68,6 +69,7 @@ std::vector<image_pair_t> ExtractExhaustiveImagePairs(
       image_pairs.push_back(ImagePairToPairId(image_id1, image_id2));
     }
   }
+  THROW_CHECK_EQ(image_pairs.size(), num_exhaustive_pairs);
   return image_pairs;
 }
 
