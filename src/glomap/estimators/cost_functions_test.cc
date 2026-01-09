@@ -84,7 +84,7 @@ TEST(BATAPairwiseDirectionCostFunctor, DifferentScale) {
               colmap::EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
 }
 
-TEST(BATAPairwiseDirectionCostFunctor, CreateCostFunction) {
+TEST(BATAPairwiseDirectionCostFunctor, Create) {
   const Eigen::Vector3d direction(1, 0, 0);
   std::unique_ptr<ceres::CostFunction> cost_function(
       BATAPairwiseDirectionCostFunctor::Create(direction));
@@ -138,7 +138,7 @@ TEST(RigBATAPairwiseDirectionCostFunctor, NonZeroResidual) {
   EXPECT_THAT(residuals, colmap::EigenMatrixNear(expected_residuals, 1e-10));
 }
 
-TEST(RigBATAPairwiseDirectionCostFunctor, CreateCostFunction) {
+TEST(RigBATAPairwiseDirectionCostFunctor, Create) {
   const Eigen::Vector3d cam_from_point3D_dir(1, 0, 0);
   const Eigen::Vector3d cam_from_rig_dir(0, 1, 0);
   std::unique_ptr<ceres::CostFunction> cost_function(
@@ -199,7 +199,7 @@ TEST(RigUnknownBATAPairwiseDirectionCostFunctor, NonZeroResidual) {
   EXPECT_THAT(residuals, colmap::EigenMatrixNear(expected_residuals, 1e-10));
 }
 
-TEST(RigUnknownBATAPairwiseDirectionCostFunctor, CreateCostFunction) {
+TEST(RigUnknownBATAPairwiseDirectionCostFunctor, Create) {
   const Eigen::Vector3d cam_from_point3D_dir(1, 0, 0);
   const Eigen::Quaterniond rig_from_world_rot = Eigen::Quaterniond::Identity();
   std::unique_ptr<ceres::CostFunction> cost_function(
