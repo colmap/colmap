@@ -254,7 +254,7 @@ class PanoProcessor:
 
             mask_path = self.mask_dir / mask_name
             mask_path.parent.mkdir(exist_ok=True, parents=True)
-            if not pycolmap.Bitmap.from_array(mask).write(str(mask_path)):
+            if not pycolmap.Bitmap.from_array(mask).write(mask_path):
                 raise RuntimeError(f"Cannot write {mask_path}")
 
 

@@ -611,8 +611,16 @@ void OptionManager::AddGlobalMapperOptions() {
   added_global_mapper_options_ = true;
 
   // Global mapper options.
+  AddDefaultOption("GlobalMapper.image_list_path",
+                   &global_mapper_image_list_path_);
+  AddDefaultOption("GlobalMapper.min_num_matches",
+                   &global_mapper->min_num_matches);
+  AddDefaultOption("GlobalMapper.ignore_watermarks",
+                   &global_mapper->ignore_watermarks);
   AddDefaultOption("GlobalMapper.num_threads", &global_mapper->num_threads);
   AddDefaultOption("GlobalMapper.random_seed", &global_mapper->random_seed);
+  AddDefaultOption("GlobalMapper.decompose_relative_pose",
+                   &global_mapper->decompose_relative_pose);
   AddDefaultOption("GlobalMapper.num_iterations_ba",
                    &global_mapper->mapper.num_iterations_ba);
   AddDefaultOption("GlobalMapper.skip_view_graph_calibration",
@@ -660,16 +668,12 @@ void OptionManager::AddGlobalMapperOptions() {
 
   // Track establishment options.
   AddDefaultOption(
-      "GlobalMapper.track_min_num_tracks_per_view",
-      &global_mapper->mapper.track_establishment.min_num_tracks_per_view);
-  AddDefaultOption(
-      "GlobalMapper.track_min_num_view_per_track",
-      &global_mapper->mapper.track_establishment.min_num_view_per_track);
-  AddDefaultOption(
-      "GlobalMapper.track_max_num_view_per_track",
-      &global_mapper->mapper.track_establishment.max_num_view_per_track);
-  AddDefaultOption("GlobalMapper.track_max_num_tracks",
-                   &global_mapper->mapper.track_establishment.max_num_tracks);
+      "GlobalMapper.track_intra_image_consistency_threshold",
+      &global_mapper->mapper.track_intra_image_consistency_threshold);
+  AddDefaultOption("GlobalMapper.track_required_tracks_per_view",
+                   &global_mapper->mapper.track_required_tracks_per_view);
+  AddDefaultOption("GlobalMapper.track_min_num_views_per_track",
+                   &global_mapper->mapper.track_min_num_views_per_track);
 
   // Global positioning options.
   AddDefaultOption("GlobalMapper.gp_use_gpu",
@@ -971,7 +975,7 @@ bool OptionManager::Check() {
   return success;
 }
 
-bool OptionManager::Read(const std::string& path) {
+bool OptionManager::Read(const std::filesystem::path& path) {
   if (!BaseOptionManager::Read(path)) {
     return false;
   }
@@ -981,6 +985,10 @@ bool OptionManager::Read(const std::string& path) {
 void OptionManager::PostParse() {
   if (!mapper_image_list_path_.empty()) {
     mapper->image_names = ReadTextFileLines(mapper_image_list_path_);
+  }
+  if (!global_mapper_image_list_path_.empty()) {
+    global_mapper->image_names =
+        ReadTextFileLines(global_mapper_image_list_path_);
   }
   if (!mapper_constant_rig_list_path_.empty()) {
     for (const std::string& line :

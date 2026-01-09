@@ -107,7 +107,7 @@ class OptionManager : public BaseOptionManager {
   void Reset() override;
   void ResetOptions(bool reset_paths) override;
   bool Check() override;
-  bool Read(const std::string& path) override;
+  bool Read(const std::filesystem::path& path) override;
 
   std::shared_ptr<ImageReaderOptions> image_reader;
   std::shared_ptr<FeatureExtractionOptions> feature_extraction;
@@ -136,9 +136,10 @@ class OptionManager : public BaseOptionManager {
   void PostParse() override;
   void PrintHelp() const override;
 
-  std::string mapper_image_list_path_;
-  std::string mapper_constant_rig_list_path_;
-  std::string mapper_constant_camera_list_path_;
+  std::filesystem::path mapper_image_list_path_;
+  std::filesystem::path mapper_constant_rig_list_path_;
+  std::filesystem::path mapper_constant_camera_list_path_;
+  std::filesystem::path global_mapper_image_list_path_;
 
   bool added_feature_extraction_options_ = false;
   bool added_feature_matching_options_ = false;

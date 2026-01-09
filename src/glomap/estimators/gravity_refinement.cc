@@ -1,13 +1,15 @@
 #include "gravity_refinement.h"
 
+#include "colmap/estimators/cost_function_utils.h"
 #include "colmap/estimators/manifold.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 
-#include "glomap/estimators/cost_functions.h"
-
 namespace glomap {
+
+using GravityCostFunctor = colmap::NormalPriorCostFunctor<3>;
+
 namespace {
 
 Eigen::Vector3d* GetImageGravityOrNull(
@@ -20,14 +22,25 @@ Eigen::Vector3d* GetImageGravityOrNull(
   return &it->second->gravity;
 }
 
+std::unordered_map<image_t, std::unordered_set<image_t>>
+CreateImageAdjacencyList(const PoseGraph& pose_graph) {
+  std::unordered_map<image_t, std::unordered_set<image_t>> adjacency_list;
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    adjacency_list[image_id1].insert(image_id2);
+    adjacency_list[image_id2].insert(image_id1);
+  }
+  return adjacency_list;
+}
+
 }  // namespace
 
 void GravityRefiner::RefineGravity(
     const PoseGraph& pose_graph,
     const colmap::Reconstruction& reconstruction,
     std::vector<colmap::PosePrior>& pose_priors) {
-  const std::unordered_map<image_t, std::unordered_set<image_t>>&
-      adjacency_list = pose_graph.CreateImageAdjacencyList();
+  const std::unordered_map<image_t, std::unordered_set<image_t>>
+      adjacency_list = CreateImageAdjacencyList(pose_graph);
   if (adjacency_list.empty()) {
     LOG(INFO) << "Adjacency list not established";
     return;
@@ -224,6 +237,14 @@ void GravityRefiner::IdentifyErrorProneGravity(
     }
   }
   LOG(INFO) << "Number of error prone frames: " << error_prone_frames.size();
+}
+
+void RunGravityRefinement(const GravityRefinerOptions& options,
+                          const PoseGraph& pose_graph,
+                          const colmap::Reconstruction& reconstruction,
+                          std::vector<colmap::PosePrior>& pose_priors) {
+  GravityRefiner refiner(options);
+  refiner.RefineGravity(pose_graph, reconstruction, pose_priors);
 }
 
 }  // namespace glomap

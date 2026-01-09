@@ -78,8 +78,8 @@ TEST(PlyMeshFace, ParameterizedConstructor) {
 }
 
 TEST(Ply, RoundTripTextPlyPointsFullData) {
-  const std::string test_dir = CreateTestDir();
-  const std::string test_file = test_dir + "/test.ply";
+  const auto test_dir = CreateTestDir();
+  const auto test_file = test_dir / "test.ply";
 
   std::vector<PlyPoint> original_points;
 
@@ -118,8 +118,8 @@ TEST(Ply, RoundTripTextPlyPointsFullData) {
 }
 
 TEST(Ply, RoundTripTextPlyPointsXYZOnly) {
-  const std::string test_dir = CreateTestDir();
-  const std::string test_file = test_dir + "/test.ply";
+  const auto test_dir = CreateTestDir();
+  const auto test_file = test_dir / "test.ply";
 
   std::vector<PlyPoint> original_points;
 
@@ -153,8 +153,8 @@ TEST(Ply, RoundTripTextPlyPointsXYZOnly) {
 }
 
 TEST(Ply, RoundTripBinaryPlyPointsFullData) {
-  const std::string test_dir = CreateTestDir();
-  const std::string test_file = test_dir + "/test.ply";
+  const auto test_dir = CreateTestDir();
+  const auto test_file = test_dir / "test.ply";
 
   std::vector<PlyPoint> original_points;
 
@@ -193,8 +193,8 @@ TEST(Ply, RoundTripBinaryPlyPointsFullData) {
 }
 
 TEST(Ply, RoundTripBinaryPlyPointsXYZOnly) {
-  const std::string test_dir = CreateTestDir();
-  const std::string test_file = test_dir + "/test.ply";
+  const auto test_dir = CreateTestDir();
+  const auto test_file = test_dir / "test.ply";
 
   std::vector<PlyPoint> original_points;
 

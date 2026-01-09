@@ -129,8 +129,8 @@ TEST_P(ParameterizedVisualIndexTests, Nominal) {
 
 TEST_P(ParameterizedVisualIndexTests, ReadWrite) {
   const auto [desc_dim, embedding_dim] = GetParam();
-  const std::string test_dir = CreateTestDir();
-  const std::string vocab_tree_path = test_dir + "/vocab_tree.bin";
+  const auto test_dir = CreateTestDir();
+  const auto vocab_tree_path = test_dir / "vocab_tree.bin";
 
   VisualIndex::BuildOptions build_options;
   // Keep test runtimes low.
@@ -278,8 +278,8 @@ INSTANTIATE_TEST_SUITE_P(VisualIndexTests,
 #ifdef COLMAP_DOWNLOAD_ENABLED
 
 TEST(VisualIndex, Download) {
-  const std::string test_dir = CreateTestDir();
-  const std::string vocab_tree_path = test_dir + "/server_vocab_tree.bin";
+  const auto test_dir = CreateTestDir();
+  const auto vocab_tree_path = test_dir / "server_vocab_tree.bin";
   OverwriteDownloadCacheDir(test_dir);
 
   VisualIndex::Descriptors descriptors =

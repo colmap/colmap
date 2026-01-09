@@ -29,6 +29,7 @@
 
 #include "glomap/scene/pose_graph.h"
 
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
@@ -48,13 +49,6 @@ PoseGraph::Edge SynthesizeEdge(int num_inliers = 50) {
     edge.inlier_matches.emplace_back(i, i);
   }
   return edge;
-}
-
-colmap::Rigid3d AddRotationError(const colmap::Rigid3d& pose,
-                                 double error_deg) {
-  const Eigen::Quaterniond error_rotation(
-      Eigen::AngleAxisd(colmap::DegToRad(error_deg), Eigen::Vector3d::UnitZ()));
-  return colmap::Rigid3d(error_rotation * pose.rotation, pose.translation);
 }
 
 TEST(PoseGraph, Nominal) {
@@ -247,61 +241,9 @@ TEST(PoseGraph, ValidEdges) {
               testing::UnorderedElementsAre(pair_id1, pair_id2, pair_id3));
 }
 
-TEST(PoseGraph, FilterByRelativeRotation) {
-  colmap::Reconstruction reconstruction;
-  colmap::SyntheticDatasetOptions options;
-  options.num_rigs = 1;
-  options.num_cameras_per_rig = 1;
-  options.num_frames_per_rig = 4;
-  colmap::SynthesizeDataset(options, &reconstruction);
-
-  const std::vector<image_t> image_ids = reconstruction.RegImageIds();
-  const image_t id1 = image_ids[0];
-  const image_t id2 = image_ids[1];
-  const image_t id3 = image_ids[2];
-  const image_t id4 = image_ids[3];
-
-  auto GetRelativePose = [&](image_t i, image_t j) {
-    return reconstruction.Image(j).CamFromWorld() *
-           colmap::Inverse(reconstruction.Image(i).CamFromWorld());
-  };
-
-  PoseGraph pose_graph;
-  PoseGraph::Edge edge1 = SynthesizeEdge();
-  edge1.cam2_from_cam1 = AddRotationError(GetRelativePose(id1, id2), 3.0);
-  PoseGraph::Edge edge2 = SynthesizeEdge();
-  edge2.cam2_from_cam1 = AddRotationError(GetRelativePose(id1, id3), 10.0);
-  PoseGraph::Edge edge3 = SynthesizeEdge();
-  edge3.cam2_from_cam1 = AddRotationError(GetRelativePose(id1, id4), 90.0);
-  PoseGraph::Edge edge4 = SynthesizeEdge(50);
-  edge4.cam2_from_cam1 = GetRelativePose(id2, id3);
-
-  const image_pair_t pair_id1 = colmap::ImagePairToPairId(id1, id2);
-  const image_pair_t pair_id2 = colmap::ImagePairToPairId(id1, id3);
-  const image_pair_t pair_id3 = colmap::ImagePairToPairId(id1, id4);
-  const image_pair_t pair_id4 = colmap::ImagePairToPairId(id2, id3);
-  pose_graph.AddEdge(id1, id2, std::move(edge1));
-  pose_graph.AddEdge(id1, id3, std::move(edge2));
-  pose_graph.AddEdge(id1, id4, std::move(edge3));
-  pose_graph.AddEdge(id2, id3, std::move(edge4));
-  pose_graph.SetInvalidEdge(pair_id4);  // Already invalid
-
-  reconstruction.DeRegisterFrame(reconstruction.Image(id4).FrameId());
-
-  pose_graph.FilterByRelativeRotation(reconstruction, 5.0);
-
-  EXPECT_TRUE(pose_graph.IsValid(pair_id1));
-  EXPECT_FALSE(pose_graph.IsValid(pair_id2));
-  EXPECT_TRUE(pose_graph.IsValid(pair_id3));
-  EXPECT_FALSE(pose_graph.IsValid(pair_id4));
-}
-
-TEST(PoseGraph, LoadFromDatabase) {
-  const std::string test_dir = colmap::CreateTestDir();
-
-  // Create two databases with overlapping image pairs.
-  auto database1 = colmap::Database::Open(test_dir + "/database1.db");
-  auto database2 = colmap::Database::Open(test_dir + "/database2.db");
+TEST(PoseGraph, Load) {
+  const auto test_dir = colmap::CreateTestDir();
+  auto database = colmap::Database::Open(test_dir / "database.db");
 
   colmap::Camera camera = colmap::Camera::CreateFromModelId(
       colmap::kInvalidCameraId,
@@ -309,17 +251,14 @@ TEST(PoseGraph, LoadFromDatabase) {
       1,
       1,
       1);
-  const colmap::camera_t camera_id1 = database1->WriteCamera(camera);
-  const colmap::camera_t camera_id2 = database2->WriteCamera(camera);
+  const colmap::camera_t camera_id = database->WriteCamera(camera);
 
-  // Create images in both databases.
-  for (int i = 1; i <= 4; ++i) {
+  // Create images.
+  for (int i = 1; i <= 3; ++i) {
     colmap::Image image;
     image.SetName("image" + std::to_string(i));
-    image.SetCameraId(camera_id1);
-    database1->WriteImage(image);
-    image.SetCameraId(camera_id2);
-    database2->WriteImage(image);
+    image.SetCameraId(camera_id);
+    database->WriteImage(image);
   }
 
   colmap::TwoViewGeometry two_view;
@@ -328,33 +267,24 @@ TEST(PoseGraph, LoadFromDatabase) {
   two_view.cam2_from_cam1 = colmap::Rigid3d(
       Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random().normalized());
 
-  // Database1: pairs (1,2) and (2,3)
-  database1->WriteMatches(1, 2, colmap::FeatureMatches(10));
-  database1->WriteMatches(2, 3, colmap::FeatureMatches(10));
-  database1->WriteTwoViewGeometry(1, 2, two_view);
-  database1->WriteTwoViewGeometry(2, 3, two_view);
+  // Create pairs (1,2) and (2,3)
+  database->WriteMatches(1, 2, colmap::FeatureMatches(10));
+  database->WriteMatches(2, 3, colmap::FeatureMatches(10));
+  database->WriteTwoViewGeometry(1, 2, two_view);
+  database->WriteTwoViewGeometry(2, 3, two_view);
 
-  // Database2: pairs (2,3) and (3,4) - pair (2,3) overlaps with database1
-  database2->WriteMatches(2, 3, colmap::FeatureMatches(10));
-  database2->WriteMatches(3, 4, colmap::FeatureMatches(10));
-  database2->WriteTwoViewGeometry(2, 3, two_view);
-  database2->WriteTwoViewGeometry(3, 4, two_view);
+  // Load into DatabaseCache with relative poses.
+  colmap::DatabaseCache cache;
+  colmap::DatabaseCache::Options options;
+  options.load_relative_pose = true;
+  cache.Load(*database, options);
 
   PoseGraph pose_graph;
+  pose_graph.Load(cache);
 
-  // First read from database1 should succeed.
-  pose_graph.LoadFromDatabase(*database1);
   EXPECT_EQ(pose_graph.NumEdges(), 2);
-
-  // Second read from database2 with allow_duplicate=false should throw
-  // because pair (2,3) already exists.
-  EXPECT_ANY_THROW(
-      pose_graph.LoadFromDatabase(*database2, /*allow_duplicate=*/false));
-
-  // Second read from database2 with allow_duplicate=true should succeed.
-  pose_graph.LoadFromDatabase(*database2, /*allow_duplicate=*/true);
-  // Should now have 3 pairs: (1,2), (2,3), (3,4)
-  EXPECT_EQ(pose_graph.NumEdges(), 3);
+  EXPECT_TRUE(pose_graph.HasEdge(1, 2));
+  EXPECT_TRUE(pose_graph.HasEdge(2, 3));
 }
 
 }  // namespace

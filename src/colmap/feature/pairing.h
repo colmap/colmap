@@ -36,6 +36,7 @@
 #include "colmap/util/threading.h"
 #include "colmap/util/types.h"
 
+#include <filesystem>
 #include <unordered_set>
 
 namespace colmap {
@@ -70,10 +71,10 @@ struct VocabTreePairingOptions {
   int max_num_features = -1;
 
   // Path to the vocabulary tree.
-  std::string vocab_tree_path = kDefaultVocabTreeUri;
+  std::filesystem::path vocab_tree_path = kDefaultVocabTreeUri;
 
   // Optional path to file with specific image names to match.
-  std::string match_list_path = "";
+  std::filesystem::path match_list_path = "";
 
   // Number of threads for indexing and retrieval.
   int num_threads = -1;
@@ -151,7 +152,7 @@ struct SequentialPairingOptions {
   int num_threads = -1;
 
   // Path to the vocabulary tree.
-  std::string vocab_tree_path = kDefaultVocabTreeUri;
+  std::filesystem::path vocab_tree_path = kDefaultVocabTreeUri;
 
   bool Check() const;
 
@@ -202,7 +203,7 @@ struct ImportedPairingOptions {
   int block_size = 1225;
 
   // Path to the file with the matches.
-  std::string match_list_path = "";
+  std::filesystem::path match_list_path = "";
 
   bool Check() const;
 
@@ -214,7 +215,7 @@ struct FeaturePairsMatchingOptions {
   bool verify_matches = true;
 
   // Path to the file with the matches.
-  std::string match_list_path = "";
+  std::filesystem::path match_list_path = "";
 
   bool Check() const;
 };

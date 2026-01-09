@@ -1,5 +1,6 @@
 #include "glomap/sfm/global_mapper.h"
 
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
@@ -10,6 +11,13 @@ namespace glomap {
 namespace {
 
 // TODO(jsch): Add tests for pose priors.
+
+std::shared_ptr<colmap::DatabaseCache> CreateDatabaseCache(
+    const colmap::Database& database) {
+  colmap::DatabaseCache::Options options;
+  options.load_relative_pose = true;
+  return colmap::DatabaseCache::Create(database, options);
+}
 
 GlobalMapperOptions CreateTestOptions() {
   GlobalMapperOptions options;
@@ -22,7 +30,7 @@ GlobalMapperOptions CreateTestOptions() {
 }
 
 TEST(GlobalMapper, WithoutNoise) {
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -31,12 +39,13 @@ TEST(GlobalMapper, WithoutNoise) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 7;
   synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
 
-  GlobalMapper global_mapper(database);
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
   global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
@@ -49,7 +58,7 @@ TEST(GlobalMapper, WithoutNoise) {
 }
 
 TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -61,12 +70,13 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
   synthetic_dataset_options.sensor_from_rig_translation_stddev =
       0.1;                                                         // No noise
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 5.;  // No noise
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
 
-  GlobalMapper global_mapper(database);
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
   global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
@@ -79,7 +89,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
 }
 
 TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -92,12 +102,13 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
       0.1;                                                         // No noise
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 5.;  // No noise
 
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
 
-  GlobalMapper global_mapper(database);
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
   global_mapper.BeginReconstruction(reconstruction);
 
   // Set the rig sensors to be unknown
@@ -119,7 +130,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
 }
 
 TEST(GlobalMapper, WithNoiseAndOutliers) {
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -129,6 +140,7 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
   synthetic_dataset_options.num_frames_per_rig = 4;
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.inlier_match_ratio = 0.7;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   colmap::SyntheticNoiseOptions synthetic_noise_options;
@@ -138,7 +150,7 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
 
-  GlobalMapper global_mapper(database);
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
   global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;

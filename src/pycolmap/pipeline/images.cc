@@ -13,6 +13,7 @@
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 
+#include <filesystem>
 #include <memory>
 
 #include <glog/logging.h>
@@ -23,8 +24,8 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-void ImportImages(const std::string& database_path,
-                  const std::string& image_path,
+void ImportImages(const std::filesystem::path& database_path,
+                  const std::filesystem::path& image_path,
                   const CameraMode camera_mode,
                   const std::vector<std::string>& image_names,
                   const ImageReaderOptions& options_) {
@@ -74,7 +75,7 @@ void ImportImages(const std::string& database_path,
   }
 }
 
-Camera InferCameraFromImage(const std::string& image_path,
+Camera InferCameraFromImage(const std::filesystem::path& image_path,
                             const ImageReaderOptions& options) {
   Bitmap bitmap;
   THROW_CHECK_FILE_EXISTS(image_path);
@@ -99,12 +100,12 @@ Camera InferCameraFromImage(const std::string& image_path,
   return camera;
 }
 
-void UndistortImages(const std::string& output_path,
-                     const std::string& input_path,
-                     const std::string& image_path,
+void UndistortImages(const std::filesystem::path& output_path,
+                     const std::filesystem::path& input_path,
+                     const std::filesystem::path& image_path,
                      const std::vector<std::string>& image_names,
                      const std::string& output_type,
-                     const CopyType copy_type,
+                     const FileCopyType copy_type,
                      const int num_patch_match_src_images,
                      const UndistortCameraOptions& undistort_camera_options) {
   THROW_CHECK_DIR_EXISTS(image_path);
@@ -203,11 +204,11 @@ void BindImages(py::module& m) {
           .def("check", &IROpts::Check);
   MakeDataclass(PyImageReaderOptions);
 
-  auto PyCopyType = py::enum_<CopyType>(m, "CopyType")
-                        .value("copy", CopyType::COPY)
-                        .value("softlink", CopyType::SOFT_LINK)
-                        .value("hardlink", CopyType::HARD_LINK);
-  AddStringToEnumConstructor(PyCopyType);
+  auto PyFileCopyType = py::enum_<FileCopyType>(m, "FileCopyType")
+                            .value("copy", FileCopyType::COPY)
+                            .value("softlink", FileCopyType::SOFT_LINK)
+                            .value("hardlink", FileCopyType::HARD_LINK);
+  AddStringToEnumConstructor(PyFileCopyType);
 
   m.def("import_images",
         &ImportImages,
@@ -231,7 +232,7 @@ void BindImages(py::module& m) {
         "image_path"_a,
         "image_names"_a = std::vector<std::string>(),
         "output_type"_a = "COLMAP",
-        "copy_policy"_a = CopyType::COPY,
+        "copy_policy"_a = FileCopyType::COPY,
         "num_patch_match_src_images"_a = 20,
         py::arg_v("undistort_options",
                   UndistortCameraOptions(),
