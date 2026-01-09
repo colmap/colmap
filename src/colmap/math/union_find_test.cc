@@ -164,7 +164,7 @@ TEST(UnionFind, Compress) {
   uf.Compress();
 
   for (const auto& [elem, parent] : uf.Parents()) {
-    EXPECT_EQ(parent, uf.Find(elem));
+    EXPECT_EQ(parent, uf.Find(parent));
   }
 }
 
