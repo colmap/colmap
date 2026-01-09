@@ -88,8 +88,6 @@ size_t EstablishTracks(
     const size_t num_images = image_id_set.size();
     if (num_images < static_cast<size_t>(options.min_num_views_per_track))
       continue;
-    if (num_images > static_cast<size_t>(options.max_num_views_per_track))
-      continue;
 
     const point3D_t point3D_id = next_point3D_id++;
     track_lengths.emplace_back(point3D.track.Length(), point3D_id);
@@ -129,7 +127,6 @@ size_t EstablishTracks(
     points3D[point3D_id] = std::move(point3D);
 
     if (images_left == 0) break;
-    if (points3D.size() > static_cast<size_t>(options.max_num_tracks)) break;
   }
 
   LOG(INFO) << "Before filtering: " << unfiltered_points3D.size()

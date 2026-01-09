@@ -18,12 +18,6 @@ struct TrackEstablishmentOptions {
 
   // Minimum number of views per track.
   int min_num_views_per_track = 3;
-
-  // Maximum number of views per track.
-  int max_num_views_per_track = 100;
-
-  // Maximum number of tracks.
-  int max_num_tracks = std::numeric_limits<int>::max();
 };
 
 // Establish tracks from feature matches in the pose graph.
