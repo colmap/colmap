@@ -297,9 +297,10 @@ TEST(UnionFind, ParentsGroupByRoot) {
   uf.Union(2, 3);
   uf.Union(10, 20);
 
+  uf.Compress();
   std::unordered_map<int, std::vector<int>> groups;
   for (const auto& [elem, parent] : uf.Parents()) {
-    groups[uf.Find(elem)].push_back(elem);
+    groups[parent].push_back(elem);
   }
 
   EXPECT_EQ(groups.size(), 2);
