@@ -66,8 +66,16 @@ struct SyntheticDatasetOptions {
     // Chain of matches between images with consecutive identifiers, i.e.,
     // there are only matches between image pairs (image_id, image_id+1).
     CHAINED = 2,
+    // Sparse matches with controllable sparsity, removing edges randomly while
+    // maintaining view graph connectivity.
+    SPARSE = 3,
   };
   MatchConfig match_config = MatchConfig::EXHAUSTIVE;
+
+  // Sparsity parameter for SPARSE match config, in range [0, 1].
+  // 0 = fully connected view graph, equivalent to EXHAUSTIVE (all edges)
+  // 1 = empty view graph (no edges)
+  double match_sparsity = 0.0;
 
   bool prior_position = false;
   PosePrior::CoordinateSystem prior_position_coordinate_system =
