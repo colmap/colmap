@@ -93,8 +93,7 @@ TwoViewGeometry BuildTwoViewGeometry(bool has_relative_pose,
   if (has_relative_pose) {
     two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
   }
-  two_view_geometry.E =
-      EssentialMatrixFromPose(*two_view_geometry.cam2_from_cam1);
+  two_view_geometry.E = EssentialMatrixFromPose(cam2_from_cam1);
   two_view_geometry.F =
       FundamentalFromEssentialMatrix(K2, two_view_geometry.E, K1);
 
