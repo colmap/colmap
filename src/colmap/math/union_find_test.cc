@@ -156,6 +156,18 @@ TEST(UnionFind, PathCompression) {
   EXPECT_EQ(uf.Find(5), root);
 }
 
+TEST(UnionFind, Compress) {
+  UnionFind<int> uf;
+  uf.Union(1, 2);
+  uf.Union(2, 3);
+
+  uf.Compress();
+
+  for (const auto& [elem, parent] : uf.Parents()) {
+    EXPECT_EQ(parent, uf.Find(elem));
+  }
+}
+
 TEST(UnionFind, LargeNumberOfElements) {
   constexpr int kNumElements = 1000;
   UnionFind<int> uf;

@@ -38,9 +38,10 @@ size_t EstablishTracks(
   }
 
   // Group observations by their root
+  uf.Compress();
   std::unordered_map<Observation, std::vector<Observation>> track_map;
-  for (const auto& [obs, parent] : uf.Parents()) {
-    track_map[uf.Find(obs)].push_back(obs);
+  for (const auto& [obs, root] : uf.Parents()) {
+    track_map[root].push_back(obs);
   }
   LOG(INFO) << "Established " << track_map.size() << " tracks from "
             << uf.Parents().size() << " observations";
