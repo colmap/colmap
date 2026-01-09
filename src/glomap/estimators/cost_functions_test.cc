@@ -208,40 +208,5 @@ TEST(RigUnknownBATAPairwiseDirectionCostFunctor, CreateCostFunction) {
   ASSERT_NE(cost_function, nullptr);
 }
 
-TEST(GravityCostFunctor, ZeroResidual) {
-  const Eigen::Vector3d measured_gravity =
-      Eigen::Vector3d::Random().normalized();
-  const Eigen::Vector3d& gravity = measured_gravity;
-
-  GravityCostFunctor cost_function(measured_gravity);
-
-  Eigen::Vector3d residuals;
-  EXPECT_TRUE(cost_function(gravity.data(), residuals.data()));
-
-  EXPECT_THAT(residuals,
-              colmap::EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
-}
-
-TEST(GravityCostFunctor, NonZeroResidual) {
-  const Eigen::Vector3d measured_gravity =
-      Eigen::Vector3d::Random().normalized();
-  const Eigen::Vector3d gravity = Eigen::Vector3d::Random().normalized();
-
-  GravityCostFunctor cost_function(measured_gravity);
-
-  Eigen::Vector3d residuals;
-  EXPECT_TRUE(cost_function(gravity.data(), residuals.data()));
-
-  const Eigen::Vector3d expected_residuals = gravity - measured_gravity;
-  EXPECT_THAT(residuals, colmap::EigenMatrixNear(expected_residuals, 1e-10));
-}
-
-TEST(GravityCostFunctor, CreateCostFunction) {
-  const Eigen::Vector3d measured_gravity(0, 0, 1);
-  std::unique_ptr<ceres::CostFunction> cost_function(
-      GravityCostFunctor::Create(measured_gravity));
-  ASSERT_NE(cost_function, nullptr);
-}
-
 }  // namespace
 }  // namespace glomap
