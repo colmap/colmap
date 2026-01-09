@@ -14,16 +14,16 @@ struct TrackEstablishmentOptions {
   double intra_image_consistency_threshold = 10.;
 
   // Required number of tracks per view before early stopping.
-  size_t required_tracks_per_view = std::numeric_limits<size_t>::max();
+  int required_tracks_per_view = std::numeric_limits<int>::max();
 
   // Minimal number of views per track.
-  size_t min_num_views_per_track = 3;
+  int min_num_views_per_track = 3;
 
   // Maximal number of views per track.
-  size_t max_num_views_per_track = 100;
+  int max_num_views_per_track = 100;
 
   // Maximal number of tracks.
-  size_t max_num_tracks = std::numeric_limits<size_t>::max();
+  int max_num_tracks = std::numeric_limits<int>::max();
 };
 
 // Establish tracks from feature matches in the pose graph.

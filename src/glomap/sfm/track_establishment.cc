@@ -83,8 +83,10 @@ size_t EstablishTracks(
     if (!is_consistent) continue;
 
     const size_t num_images = image_id_set.size();
-    if (num_images < options.min_num_views_per_track) continue;
-    if (num_images > options.max_num_views_per_track) continue;
+    if (num_images < static_cast<size_t>(options.min_num_views_per_track))
+      continue;
+    if (num_images > static_cast<size_t>(options.max_num_views_per_track))
+      continue;
 
     const point3D_t point3D_id = next_point3D_id++;
     track_lengths.emplace_back(point3D.track.Length(), point3D_id);
@@ -108,25 +110,26 @@ size_t EstablishTracks(
     const auto& point3D = unfiltered_points3D.at(point3D_id);
 
     // Check if any image in this track still needs more observations
-    const bool should_add =
-        std::any_of(point3D.track.Elements().begin(),
-                    point3D.track.Elements().end(),
-                    [&](const auto& obs) {
-                      return tracks_per_image[obs.image_id] <=
-                             options.required_tracks_per_view;
-                    });
+    const bool should_add = std::any_of(
+        point3D.track.Elements().begin(),
+        point3D.track.Elements().end(),
+        [&](const auto& obs) {
+          return tracks_per_image[obs.image_id] <=
+                 static_cast<size_t>(options.required_tracks_per_view);
+        });
     if (!should_add) continue;
 
     // Add track and update image counts
     points3D.emplace(point3D_id, point3D);
     for (const auto& obs : point3D.track.Elements()) {
       auto& count = tracks_per_image[obs.image_id];
-      if (count == options.required_tracks_per_view) --images_left;
+      if (count == static_cast<size_t>(options.required_tracks_per_view))
+        --images_left;
       ++count;
     }
 
     if (images_left == 0) break;
-    if (points3D.size() > options.max_num_tracks) break;
+    if (points3D.size() > static_cast<size_t>(options.max_num_tracks)) break;
   }
 
   LOG(INFO) << "Before filtering: " << unfiltered_points3D.size()
