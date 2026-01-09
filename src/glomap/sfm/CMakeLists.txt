@@ -33,7 +33,6 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_glomap_sfm
     SRCS
         global_mapper.h global_mapper.cc
-        track_establishment.h track_establishment.cc
     PUBLIC_LINK_LIBS
         colmap_glomap_estimators
         colmap_glomap_io

@@ -668,14 +668,11 @@ void OptionManager::AddGlobalMapperOptions() {
 
   // Track establishment options.
   AddDefaultOption("GlobalMapper.track_intra_image_consistency_threshold",
-                   &global_mapper->mapper.track_establishment
-                        .intra_image_consistency_threshold);
-  AddDefaultOption(
-      "GlobalMapper.track_required_tracks_per_view",
-      &global_mapper->mapper.track_establishment.required_tracks_per_view);
-  AddDefaultOption(
-      "GlobalMapper.track_min_num_views_per_track",
-      &global_mapper->mapper.track_establishment.min_num_views_per_track);
+                   &global_mapper->mapper.track_intra_image_consistency_threshold);
+  AddDefaultOption("GlobalMapper.track_required_tracks_per_view",
+                   &global_mapper->mapper.track_required_tracks_per_view);
+  AddDefaultOption("GlobalMapper.track_min_num_views_per_track",
+                   &global_mapper->mapper.track_min_num_views_per_track);
 
   // Global positioning options.
   AddDefaultOption("GlobalMapper.gp_use_gpu",
