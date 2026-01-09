@@ -41,9 +41,9 @@ namespace mvs {
 namespace {
 
 TEST(PoissonMeshing, Integration) {
-  const std::string test_dir = CreateTestDir();
-  const std::string input_path = JoinPaths(test_dir, "points.ply");
-  const std::string output_path = JoinPaths(test_dir, "mesh.ply");
+  const auto test_dir = CreateTestDir();
+  const auto input_path = test_dir / "points.ply";
+  const auto output_path = test_dir / "mesh.ply";
 
   constexpr int kNumPoints = 100;
   std::vector<PlyPoint> ply_points;
@@ -83,9 +83,9 @@ TEST(PoissonMeshing, Integration) {
 #if defined(COLMAP_CGAL_ENABLED)
 
 TEST(SparseDelaunayMeshing, Integration) {
-  const std::string test_dir = CreateTestDir();
-  const std::string sparse_path = JoinPaths(test_dir, "sparse");
-  const std::string output_path = JoinPaths(test_dir, "mesh.ply");
+  const auto test_dir = CreateTestDir();
+  const auto sparse_path = test_dir / "sparse";
+  const auto output_path = test_dir / "mesh.ply";
   CreateDirIfNotExists(sparse_path);
 
   SyntheticDatasetOptions synthetic_dataset_options;

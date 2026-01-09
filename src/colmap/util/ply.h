@@ -30,6 +30,7 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -77,20 +78,20 @@ struct PlyMesh {
 };
 
 // Read PLY point cloud from text or binary file.
-std::vector<PlyPoint> ReadPly(const std::string& path);
+std::vector<PlyPoint> ReadPly(const std::filesystem::path& path);
 
 // Write PLY point cloud to text or binary file.
-void WriteTextPlyPoints(const std::string& path,
+void WriteTextPlyPoints(const std::filesystem::path& path,
                         const std::vector<PlyPoint>& points,
                         bool write_normal = true,
                         bool write_rgb = true);
-void WriteBinaryPlyPoints(const std::string& path,
+void WriteBinaryPlyPoints(const std::filesystem::path& path,
                           const std::vector<PlyPoint>& points,
                           bool write_normal = true,
                           bool write_rgb = true);
 
 // Write PLY mesh to text or binary file.
-void WriteTextPlyMesh(const std::string& path, const PlyMesh& mesh);
-void WriteBinaryPlyMesh(const std::string& path, const PlyMesh& mesh);
+void WriteTextPlyMesh(const std::filesystem::path& path, const PlyMesh& mesh);
+void WriteBinaryPlyMesh(const std::filesystem::path& path, const PlyMesh& mesh);
 
 }  // namespace colmap

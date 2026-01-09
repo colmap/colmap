@@ -51,4 +51,11 @@ class GravityRefiner {
   std::shared_ptr<ceres::LossFunction> loss_function_;
 };
 
+// Refine gravity stored in pose priors using relative rotations from the pose
+// graph.
+void RunGravityRefinement(const GravityRefinerOptions& options,
+                          const PoseGraph& pose_graph,
+                          const colmap::Reconstruction& reconstruction,
+                          std::vector<colmap::PosePrior>& pose_priors);
+
 }  // namespace glomap

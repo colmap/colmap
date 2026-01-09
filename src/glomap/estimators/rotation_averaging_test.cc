@@ -45,9 +45,11 @@ void LoadReconstructionAndPoseGraph(const colmap::Database& database,
                                     colmap::Reconstruction* reconstruction,
                                     PoseGraph* pose_graph) {
   colmap::DatabaseCache database_cache;
-  database_cache.Load(database, /*min_num_matches=*/0);
+  colmap::DatabaseCache::Options options;
+  options.load_relative_pose = true;
+  database_cache.Load(database, options);
   reconstruction->Load(database_cache);
-  pose_graph->LoadFromDatabase(database);
+  pose_graph->Load(database_cache);
 }
 
 RotationEstimatorOptions CreateRATestOptions(bool use_gravity = false) {
@@ -83,7 +85,7 @@ void ExpectEqualRotations(const colmap::Reconstruction& gt,
 TEST(RotationAveraging, WithoutNoise) {
   colmap::SetPRNGSeed(1);
 
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -94,6 +96,7 @@ TEST(RotationAveraging, WithoutNoise) {
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
   synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -121,7 +124,7 @@ TEST(RotationAveraging, WithoutNoise) {
 TEST(RotationAveraging, WithoutNoiseWithNonTrivialKnownRig) {
   colmap::SetPRNGSeed(1);
 
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -132,6 +135,7 @@ TEST(RotationAveraging, WithoutNoiseWithNonTrivialKnownRig) {
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
   synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -157,7 +161,7 @@ TEST(RotationAveraging, WithoutNoiseWithNonTrivialKnownRig) {
 TEST(RotationAveraging, WithoutNoiseWithNonTrivialUnknownRig) {
   colmap::SetPRNGSeed(1);
 
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -168,6 +172,7 @@ TEST(RotationAveraging, WithoutNoiseWithNonTrivialUnknownRig) {
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 20.;
   synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -203,7 +208,7 @@ TEST(RotationAveraging, WithoutNoiseWithNonTrivialUnknownRig) {
 TEST(RotationAveraging, WithNoiseAndOutliers) {
   colmap::SetPRNGSeed(1);
 
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -214,6 +219,7 @@ TEST(RotationAveraging, WithNoiseAndOutliers) {
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.inlier_match_ratio = 0.6;
   synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   colmap::SyntheticNoiseOptions synthetic_noise_options;
@@ -245,7 +251,7 @@ TEST(RotationAveraging, WithNoiseAndOutliers) {
 TEST(RotationAveraging, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
   colmap::SetPRNGSeed(1);
 
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -256,6 +262,7 @@ TEST(RotationAveraging, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.inlier_match_ratio = 0.6;
   synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   colmap::SyntheticNoiseOptions synthetic_noise_options;

@@ -828,7 +828,7 @@ int RunModelOrientationAligner(int argc, char** argv) {
 #ifdef COLMAP_LSD_ENABLED
   if (method == "manhattan-world") {
     const Eigen::Matrix3d frame = EstimateManhattanWorldFrame(
-        frame_estimation_options, reconstruction, *options.image_path);
+        frame_estimation_options, reconstruction, options.image_path->string());
 
     if (frame.col(0).lpNorm<1>() == 0) {
       LOG(INFO) << "Only aligning vertical axis";

@@ -36,10 +36,20 @@
 #include "glomap/sfm/global_mapper.h"
 
 #include <memory>
+#include <vector>
 
 namespace colmap {
 
 struct GlobalPipelineOptions {
+  // The minimum number of matches for inlier matches to be considered.
+  int min_num_matches = 15;
+
+  // Whether to ignore the inlier matches of watermark image pairs.
+  bool ignore_watermarks = false;
+
+  // Names of images to reconstruct. If empty, all images are used.
+  std::vector<std::string> image_names;
+
   // The image path at which to find the images to extract point colors.
   std::string image_path;
 
@@ -48,6 +58,9 @@ struct GlobalPipelineOptions {
 
   // Random seed for reproducibility.
   int random_seed = -1;
+
+  // Whether to decompose relative poses from two-view geometries.
+  bool decompose_relative_pose = true;
 
   // Whether to skip view graph calibration.
   bool skip_view_graph_calibration = false;

@@ -34,6 +34,7 @@
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
+#include <filesystem>
 #include <thread>
 
 #include <Eigen/Geometry>
@@ -48,8 +49,8 @@ namespace colmap {
 namespace {
 
 class ParameterizedDatabaseTests
-    : public ::testing::TestWithParam<
-          std::function<std::shared_ptr<Database>(const std::string&)>> {};
+    : public ::testing::TestWithParam<std::function<std::shared_ptr<Database>(
+          const std::filesystem::path&)>> {};
 
 TEST_P(ParameterizedDatabaseTests, OpenInMemory) {
   std::shared_ptr<Database> database = GetParam()(kInMemorySqliteDatabasePath);
@@ -65,12 +66,12 @@ TEST_P(ParameterizedDatabaseTests, OpenCloseInMemory) {
 
 TEST_P(ParameterizedDatabaseTests, OpenFile) {
   std::shared_ptr<Database> database =
-      GetParam()(CreateTestDir() + "/database.db");
+      GetParam()(CreateTestDir() / "database.db");
 }
 
 TEST_P(ParameterizedDatabaseTests, OpenCloseFile) {
   std::shared_ptr<Database> database =
-      GetParam()(CreateTestDir() + "/database.db");
+      GetParam()(CreateTestDir() / "database.db");
   database->Close();
   // Any database operation after closing the database should fail.
   EXPECT_ANY_THROW(database->ExistsCamera(42));
@@ -78,7 +79,7 @@ TEST_P(ParameterizedDatabaseTests, OpenCloseFile) {
 }
 
 TEST_P(ParameterizedDatabaseTests, OpenFileWithNonASCIIPath) {
-  const std::string database_path = CreateTestDir() + u8"/äöü時临.db";
+  const auto database_path = CreateTestDir() / u8"äöü時临.db";
   std::shared_ptr<Database> database = GetParam()(database_path);
   EXPECT_TRUE(ExistsPath(database_path));
 }
@@ -337,6 +338,19 @@ TEST_P(ParameterizedDatabaseTests, Keypoints) {
   EXPECT_EQ(database->NumKeypoints(), 0);
   EXPECT_EQ(database->MaxNumKeypoints(), 0);
   EXPECT_EQ(database->NumKeypointsForImage(image.ImageId()), 0);
+}
+
+TEST_P(ParameterizedDatabaseTests, ReadKeypointsEmpty) {
+  std::shared_ptr<Database> database = GetParam()(kInMemorySqliteDatabasePath);
+  Camera camera;
+  camera.camera_id = database->WriteCamera(camera);
+  Image image;
+  image.SetName("test");
+  image.SetCameraId(camera.camera_id);
+  image.SetImageId(database->WriteImage(image));
+  // Reading keypoints for an image with no keypoints should return empty.
+  const FeatureKeypoints keypoints = database->ReadKeypoints(image.ImageId());
+  EXPECT_TRUE(keypoints.empty());
 }
 
 TEST_P(ParameterizedDatabaseTests, Descriptors) {
@@ -693,11 +707,12 @@ TEST_P(ParameterizedDatabaseTests, Merge) {
   EXPECT_EQ(merged_database->NumMatches(), 0);
 }
 
-INSTANTIATE_TEST_SUITE_P(DatabaseTests,
-                         ParameterizedDatabaseTests,
-                         ::testing::Values([](const std::string& path) {
-                           return Database::Open(path);
-                         }));
+INSTANTIATE_TEST_SUITE_P(
+    DatabaseTests,
+    ParameterizedDatabaseTests,
+    ::testing::Values([](const std::filesystem::path& path) {
+      return Database::Open(path);
+    }));
 
 }  // namespace
 }  // namespace colmap

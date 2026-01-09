@@ -328,7 +328,7 @@ class FeatureWriterThread : public Thread {
 // Feature extraction class to extract features for all images in a directory.
 class FeatureExtractorController : public Thread {
  public:
-  FeatureExtractorController(const std::string& database_path,
+  FeatureExtractorController(const std::filesystem::path& database_path,
                              const ImageReaderOptions& reader_options,
                              const FeatureExtractionOptions& extraction_options)
       : reader_options_(reader_options),
@@ -528,9 +528,9 @@ class FeatureExtractorController : public Thread {
 // Currently hard-coded to support SIFT features.
 class FeatureImporterController : public Thread {
  public:
-  FeatureImporterController(const std::string& database_path,
+  FeatureImporterController(const std::filesystem::path& database_path,
                             const ImageReaderOptions& reader_options,
-                            const std::string& import_path)
+                            const std::filesystem::path& import_path)
       : database_path_(database_path),
         reader_options_(reader_options),
         import_path_(import_path) {}
@@ -570,7 +570,7 @@ class FeatureImporterController : public Thread {
         continue;
       }
 
-      const std::string path = JoinPaths(import_path_, image.Name() + ".txt");
+      const auto path = import_path_ / (image.Name() + ".txt");
 
       if (ExistsFile(path)) {
         FeatureKeypoints keypoints;
@@ -611,15 +611,15 @@ class FeatureImporterController : public Thread {
     run_timer.PrintMinutes();
   }
 
-  const std::string database_path_;
+  const std::filesystem::path database_path_;
   const ImageReaderOptions reader_options_;
-  const std::string import_path_;
+  const std::filesystem::path import_path_;
 };
 
 }  // namespace
 
 std::unique_ptr<Thread> CreateFeatureExtractorController(
-    const std::string& database_path,
+    const std::filesystem::path& database_path,
     const ImageReaderOptions& reader_options,
     const FeatureExtractionOptions& extraction_options) {
   return std::make_unique<FeatureExtractorController>(
@@ -627,9 +627,9 @@ std::unique_ptr<Thread> CreateFeatureExtractorController(
 }
 
 std::unique_ptr<Thread> CreateFeatureImporterController(
-    const std::string& database_path,
+    const std::filesystem::path& database_path,
     const ImageReaderOptions& reader_options,
-    const std::string& import_path) {
+    const std::filesystem::path& import_path) {
   return std::make_unique<FeatureImporterController>(
       database_path, reader_options, import_path);
 }

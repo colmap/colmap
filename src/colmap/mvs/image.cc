@@ -40,7 +40,7 @@ namespace mvs {
 
 Image::Image() {}
 
-Image::Image(const std::string& path,
+Image::Image(const std::filesystem::path& path,
              const size_t width,
              const size_t height,
              const float* K,

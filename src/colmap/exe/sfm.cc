@@ -69,8 +69,9 @@ ExtractExistingImages(const Reconstruction& reconstruction) {
   return {std::move(fixed_image_ids), std::move(orig_fixed_image_positions)};
 }
 
-void UpdateDatabasePosePriorsCovariance(const std::string& database_path,
-                                        const Eigen::Matrix3d& covariance) {
+void UpdateDatabasePosePriorsCovariance(
+    const std::filesystem::path& database_path,
+    const Eigen::Matrix3d& covariance) {
   auto database = Database::Open(database_path);
   DatabaseTransaction database_transaction(database.get());
 
@@ -166,8 +167,8 @@ int RunAutomaticReconstructor(int argc, char** argv) {
 }
 
 int RunBundleAdjuster(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
@@ -199,8 +200,8 @@ int RunBundleAdjuster(int argc, char** argv) {
 }
 
 int RunColorExtractor(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
 
   OptionManager options;
   options.AddImageOptions();
@@ -219,9 +220,9 @@ int RunColorExtractor(int argc, char** argv) {
 }
 
 bool RunIncrementalMapperImpl(
-    const std::string& database_path,
-    const std::string& image_path,
-    const std::string& output_path,
+    const std::filesystem::path& database_path,
+    const std::filesystem::path& image_path,
+    const std::filesystem::path& output_path,
     const std::shared_ptr<IncrementalPipelineOptions>& mapper_options,
     std::shared_ptr<ReconstructionManager>& reconstruction_manager,
     std::function<void()> initial_image_pair_callback,
@@ -253,8 +254,8 @@ bool RunIncrementalMapperImpl(
       // If the number of reconstructions has not changed, the last model
       // was discarded for some reason.
       if (reconstruction_manager->Size() > prev_num_reconstructions) {
-        const std::string reconstruction_path =
-            JoinPaths(output_path, std::to_string(prev_num_reconstructions));
+        const auto reconstruction_path =
+            output_path / std::to_string(prev_num_reconstructions);
         CreateDirIfNotExists(reconstruction_path);
         reconstruction_manager->Get(prev_num_reconstructions)
             ->Write(reconstruction_path);
@@ -314,8 +315,8 @@ bool RunIncrementalMapperImpl(
 }
 
 int RunMapper(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
 
   OptionManager options;
   options.AddDatabaseOptions();
@@ -352,9 +353,8 @@ int RunMapper(int argc, char** argv) {
 
   if (input_path.empty()) {
     for (size_t i = 0; i < reconstruction_manager->Size(); ++i) {
-      const std::string reconstruction_path =
-          JoinPaths(output_path, std::to_string(i));
-      options.Write(JoinPaths(reconstruction_path, "project.ini"));
+      const auto reconstruction_path = output_path / std::to_string(i);
+      options.Write(reconstruction_path / "project.ini");
     }
   }
 
@@ -362,7 +362,7 @@ int RunMapper(int argc, char** argv) {
 }
 
 int RunGlobalMapper(int argc, char** argv) {
-  std::string output_path;
+  std::filesystem::path output_path;
 
   OptionManager options;
   options.AddDatabaseOptions();
@@ -381,7 +381,7 @@ int RunGlobalMapper(int argc, char** argv) {
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
 
   GlobalPipelineOptions global_options = *options.global_mapper;
-  global_options.image_path = *options.image_path;
+  global_options.image_path = options.image_path->string();
 
   GlobalPipeline global_mapper(global_options,
                                Database::Open(*options.database_path),
@@ -394,14 +394,14 @@ int RunGlobalMapper(int argc, char** argv) {
   }
 
   reconstruction_manager->Write(output_path);
-  options.Write(JoinPaths(output_path, "project.ini"));
+  options.Write(output_path / "project.ini");
 
   return EXIT_SUCCESS;
 }
 
 int RunHierarchicalMapper(int argc, char** argv) {
   HierarchicalPipeline::Options mapper_options;
-  std::string output_path;
+  std::filesystem::path output_path;
 
   OptionManager options;
   options.AddDatabaseOptions();
@@ -437,14 +437,14 @@ int RunHierarchicalMapper(int argc, char** argv) {
   }
 
   reconstruction_manager->Write(output_path);
-  options.Write(JoinPaths(output_path, "project.ini"));
+  options.Write(output_path / "project.ini");
 
   return EXIT_SUCCESS;
 }
 
 int RunPosePriorMapper(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
 
   bool overwrite_priors_covariance = false;
   double prior_position_std_x = 1.;
@@ -510,9 +510,8 @@ int RunPosePriorMapper(int argc, char** argv) {
 
   if (input_path.empty()) {
     for (size_t i = 0; i < reconstruction_manager->Size(); ++i) {
-      const std::string reconstruction_path =
-          JoinPaths(output_path, std::to_string(i));
-      options.Write(JoinPaths(reconstruction_path, "project.ini"));
+      const auto reconstruction_path = output_path / std::to_string(i);
+      options.Write(reconstruction_path / "project.ini");
     }
   }
 
@@ -520,8 +519,8 @@ int RunPosePriorMapper(int argc, char** argv) {
 }
 
 int RunPointFiltering(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
 
   size_t min_track_len = 2;
   double max_reproj_error = 4.0;
@@ -559,8 +558,8 @@ int RunPointFiltering(int argc, char** argv) {
 }
 
 int RunPointTriangulator(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
   bool clear_points = true;
   bool refine_intrinsics = false;
 
@@ -611,9 +610,9 @@ int RunPointTriangulator(int argc, char** argv) {
 
 void RunPointTriangulatorImpl(
     const std::shared_ptr<Reconstruction>& reconstruction,
-    const std::string& database_path,
-    const std::string& image_path,
-    const std::string& output_path,
+    const std::filesystem::path& database_path,
+    const std::filesystem::path& image_path,
+    const std::filesystem::path& output_path,
     const IncrementalPipelineOptions& options,
     const bool clear_points,
     const bool refine_intrinsics) {
@@ -729,8 +728,8 @@ int RunRotationAverager(int argc, char** argv) {
     }
     pose_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
 
-    glomap::GravityRefiner grav_refiner(*options.gravity_refiner);
-    grav_refiner.RefineGravity(pose_graph, reconstruction, pose_priors);
+    glomap::RunGravityRefinement(
+        *options.gravity_refiner, pose_graph, reconstruction, pose_priors);
   }
 
   Timer run_timer;
