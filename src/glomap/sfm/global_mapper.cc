@@ -67,6 +67,7 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
 
 void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
   using Observation = std::pair<image_t, colmap::point2D_t>;
+  THROW_CHECK_EQ(reconstruction_->NumPoints3D(), 0);
 
   // Build keypoints map from registered images.
   std::unordered_map<image_t, std::vector<Eigen::Vector2d>>
