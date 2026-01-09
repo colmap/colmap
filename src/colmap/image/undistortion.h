@@ -66,10 +66,10 @@ class COLMAPUndistorter : public BaseController {
   COLMAPUndistorter(
       const UndistortCameraOptions& options,
       const Reconstruction& reconstruction,
-      const std::string& image_path,
-      const std::string& output_path,
+      const std::filesystem::path& image_path,
+      const std::filesystem::path& output_path,
       int num_related_images = 20,
-      CopyType copy_type = CopyType::COPY,
+      FileCopyType copy_type = FileCopyType::COPY,
       const std::vector<image_t>& image_ids = std::vector<image_t>());
 
   void Run();
@@ -81,9 +81,9 @@ class COLMAPUndistorter : public BaseController {
   void WriteScript(bool geometric) const;
 
   UndistortCameraOptions options_;
-  const std::string image_path_;
-  const std::string output_path_;
-  const CopyType copy_type_;
+  const std::filesystem::path image_path_;
+  const std::filesystem::path output_path_;
+  const FileCopyType copy_type_;
   const int num_patch_match_src_images_;
   const Reconstruction& reconstruction_;
   const std::vector<image_t> image_ids_;
@@ -95,8 +95,8 @@ class PMVSUndistorter : public BaseController {
  public:
   PMVSUndistorter(const UndistortCameraOptions& options,
                   const Reconstruction& reconstruction,
-                  const std::string& image_path,
-                  const std::string& output_path);
+                  const std::filesystem::path& image_path,
+                  const std::filesystem::path& output_path);
 
   void Run();
 
@@ -110,8 +110,8 @@ class PMVSUndistorter : public BaseController {
   void WriteCMVSCOLMAPScript(bool geometric) const;
 
   UndistortCameraOptions options_;
-  std::string image_path_;
-  std::string output_path_;
+  std::filesystem::path image_path_;
+  std::filesystem::path output_path_;
   const Reconstruction& reconstruction_;
 };
 
@@ -120,8 +120,8 @@ class CMPMVSUndistorter : public BaseController {
  public:
   CMPMVSUndistorter(const UndistortCameraOptions& options,
                     const Reconstruction& reconstruction,
-                    const std::string& image_path,
-                    const std::string& output_path);
+                    const std::filesystem::path& image_path,
+                    const std::filesystem::path& output_path);
 
   void Run();
 
@@ -129,8 +129,8 @@ class CMPMVSUndistorter : public BaseController {
   bool Undistort(size_t reg_image_idx) const;
 
   UndistortCameraOptions options_;
-  std::string image_path_;
-  std::string output_path_;
+  std::filesystem::path image_path_;
+  std::filesystem::path output_path_;
   const Reconstruction& reconstruction_;
 };
 
@@ -140,8 +140,8 @@ class CMPMVSUndistorter : public BaseController {
 class PureImageUndistorter : public BaseController {
  public:
   PureImageUndistorter(const UndistortCameraOptions& options,
-                       const std::string& image_path,
-                       const std::string& output_path,
+                       const std::filesystem::path& image_path,
+                       const std::filesystem::path& output_path,
                        const std::vector<std::pair<std::string, Camera>>&
                            image_names_and_cameras);
 
@@ -151,8 +151,8 @@ class PureImageUndistorter : public BaseController {
   bool Undistort(size_t reg_image_idx) const;
 
   UndistortCameraOptions options_;
-  std::string image_path_;
-  std::string output_path_;
+  std::filesystem::path image_path_;
+  std::filesystem::path output_path_;
   const std::vector<std::pair<std::string, Camera>>& image_names_and_cameras_;
 };
 
@@ -162,8 +162,8 @@ class StereoImageRectifier : public BaseController {
   StereoImageRectifier(
       const UndistortCameraOptions& options,
       const Reconstruction& reconstruction,
-      const std::string& image_path,
-      const std::string& output_path,
+      const std::filesystem::path& image_path,
+      const std::filesystem::path& output_path,
       const std::vector<std::pair<image_t, image_t>>& stereo_pairs);
 
   void Run();
@@ -172,8 +172,8 @@ class StereoImageRectifier : public BaseController {
   void Rectify(image_t image_id1, image_t image_id2) const;
 
   UndistortCameraOptions options_;
-  std::string image_path_;
-  std::string output_path_;
+  std::filesystem::path image_path_;
+  std::filesystem::path output_path_;
   const std::vector<std::pair<image_t, image_t>>& stereo_pairs_;
   const Reconstruction& reconstruction_;
 };

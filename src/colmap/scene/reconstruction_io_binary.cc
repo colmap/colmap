@@ -96,7 +96,8 @@ void ReadRigsBinary(Reconstruction& reconstruction, std::istream& stream) {
   }
 }
 
-void ReadRigsBinary(Reconstruction& reconstruction, const std::string& path) {
+void ReadRigsBinary(Reconstruction& reconstruction,
+                    const std::filesystem::path& path) {
   std::ifstream file(path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadRigsBinary(reconstruction, file);
@@ -121,7 +122,7 @@ void ReadCamerasBinary(Reconstruction& reconstruction, std::istream& stream) {
 }
 
 void ReadCamerasBinary(Reconstruction& reconstruction,
-                       const std::string& path) {
+                       const std::filesystem::path& path) {
   std::ifstream file(path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadCamerasBinary(reconstruction, file);
@@ -161,7 +162,8 @@ void ReadFramesBinary(Reconstruction& reconstruction, std::istream& stream) {
   }
 }
 
-void ReadFramesBinary(Reconstruction& reconstruction, const std::string& path) {
+void ReadFramesBinary(Reconstruction& reconstruction,
+                      const std::filesystem::path& path) {
   std::ifstream file(path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadFramesBinary(reconstruction, file);
@@ -244,7 +246,8 @@ void ReadImagesBinary(Reconstruction& reconstruction, std::istream& stream) {
   }
 }
 
-void ReadImagesBinary(Reconstruction& reconstruction, const std::string& path) {
+void ReadImagesBinary(Reconstruction& reconstruction,
+                      const std::filesystem::path& path) {
   std::ifstream file(path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadImagesBinary(reconstruction, file);
@@ -280,7 +283,7 @@ void ReadPoints3DBinary(Reconstruction& reconstruction, std::istream& stream) {
 }
 
 void ReadPoints3DBinary(Reconstruction& reconstruction,
-                        const std::string& path) {
+                        const std::filesystem::path& path) {
   std::ifstream file(path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadPoints3DBinary(reconstruction, file);
@@ -323,7 +326,7 @@ void WriteRigsBinary(const Reconstruction& reconstruction,
 }
 
 void WriteRigsBinary(const Reconstruction& reconstruction,
-                     const std::string& path) {
+                     const std::filesystem::path& path) {
   std::ofstream file(path, std::ios::trunc | std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   WriteRigsBinary(reconstruction, file);
@@ -348,7 +351,7 @@ void WriteCamerasBinary(const Reconstruction& reconstruction,
 }
 
 void WriteCamerasBinary(const Reconstruction& reconstruction,
-                        const std::string& path) {
+                        const std::filesystem::path& path) {
   std::ofstream file(path, std::ios::trunc | std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   WriteCamerasBinary(reconstruction, file);
@@ -391,7 +394,7 @@ void WriteFramesBinary(const Reconstruction& reconstruction,
 }
 
 void WriteFramesBinary(const Reconstruction& reconstruction,
-                       const std::string& path) {
+                       const std::filesystem::path& path) {
   std::ofstream file(path, std::ios::trunc | std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   WriteFramesBinary(reconstruction, file);
@@ -432,7 +435,7 @@ void WriteImagesBinary(const Reconstruction& reconstruction,
 }
 
 void WriteImagesBinary(const Reconstruction& reconstruction,
-                       const std::string& path) {
+                       const std::filesystem::path& path) {
   std::ofstream file(path, std::ios::trunc | std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   WriteImagesBinary(reconstruction, file);
@@ -466,7 +469,7 @@ void WritePoints3DBinary(const Reconstruction& reconstruction,
 }
 
 void WritePoints3DBinary(const Reconstruction& reconstruction,
-                         const std::string& path) {
+                         const std::filesystem::path& path) {
   std::ofstream file(path, std::ios::trunc | std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   WritePoints3DBinary(reconstruction, file);

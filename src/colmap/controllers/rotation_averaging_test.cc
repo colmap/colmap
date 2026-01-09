@@ -62,7 +62,7 @@ void ExpectEqualRotations(const Reconstruction& gt,
 TEST(RotationAveragingController, WithoutNoise) {
   SetPRNGSeed(1);
 
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -88,7 +88,7 @@ TEST(RotationAveragingController, WithoutNoise) {
 TEST(RotationAveragingController, WithNoiseAndOutliers) {
   SetPRNGSeed(1);
 
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -128,7 +128,7 @@ void ExpectExactEqualRotations(const Reconstruction& reconstruction1,
 TEST(RotationAveragingController, WithRandomSeedStability) {
   SetPRNGSeed(1);
 
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;

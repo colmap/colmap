@@ -448,7 +448,7 @@ bool Bitmap::ExifAltitude(double* altitude) const {
   return false;
 }
 
-bool Bitmap::Read(const std::string& path,
+bool Bitmap::Read(const std::filesystem::path& path,
                   const bool as_rgb,
                   const bool linearize_colorspace) {
   if (!ExistsFile(path)) {
@@ -459,7 +459,7 @@ bool Bitmap::Read(const std::string& path,
   OIIO::ImageSpec config;
   config["oiio:reorient"] = 0;
 
-  const auto input = OIIO::ImageInput::open(path, &config);
+  const auto input = OIIO::ImageInput::open(path.string(), &config);
   if (!input) {
     VLOG(3) << "Failed to read bitmap specs";
     return false;
@@ -499,9 +499,9 @@ bool Bitmap::Read(const std::string& path,
   return true;
 }
 
-bool Bitmap::Write(const std::string& path,
+bool Bitmap::Write(const std::filesystem::path& path,
                    const bool delinearize_colorspace) const {
-  const auto output = OIIO::ImageOutput::create(path);
+  const auto output = OIIO::ImageOutput::create(path.string());
   if (!output) {
     std::cerr << "Could not create an ImageOutput for " << path
               << ", error = " << OIIO::geterror() << "\n";
@@ -534,7 +534,7 @@ bool Bitmap::Write(const std::string& path,
     }
   }
 
-  if (!output->open(path, meta_data->image_spec)) {
+  if (!output->open(path.string(), meta_data->image_spec)) {
     VLOG(3) << "Could not open " << path << ", error = " << output->geterror()
             << "\n";
     return false;

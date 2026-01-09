@@ -29,6 +29,8 @@
 
 #include "colmap/controllers/global_pipeline.h"
 
+#include "colmap/estimators/two_view_geometry.h"
+#include "colmap/scene/database_cache.h"
 #include "colmap/util/timer.h"
 
 #include "glomap/sfm/global_mapper.h"
@@ -42,10 +44,17 @@ GlobalPipeline::GlobalPipeline(
     : options_(options),
       database_(std::move(THROW_CHECK_NOTNULL(database))),
       reconstruction_manager_(
-          std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {}
+          std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {
+  if (options_.decompose_relative_pose) {
+    MaybeDecomposeAndWriteRelativePoses(database_.get());
+  }
+}
 
 void GlobalPipeline::Run() {
   // Run view graph calibration on the database before loading into mapper.
+  // TODO: Move view graph calibration to upper level (e.g., feature matching
+  // pipeline) so that GlobalPipeline can accept DatabaseCache directly and
+  // remove the database_ member (similar to IncrementalPipeline).
   if (!options_.skip_view_graph_calibration) {
     LOG(INFO) << "----- Running view graph calibration -----";
     Timer run_timer;
@@ -61,9 +70,19 @@ void GlobalPipeline::Run() {
               << " seconds";
   }
 
+  // Create database cache with relative poses for pose graph.
+  DatabaseCache::Options database_cache_options;
+  database_cache_options.min_num_matches = options_.min_num_matches;
+  database_cache_options.ignore_watermarks = options_.ignore_watermarks;
+  database_cache_options.image_names = {options_.image_names.begin(),
+                                        options_.image_names.end()};
+  database_cache_options.load_relative_pose = true;
+  auto database_cache =
+      DatabaseCache::Create(*database_, database_cache_options);
+
   auto reconstruction = std::make_shared<Reconstruction>();
 
-  glomap::GlobalMapper global_mapper(database_);
+  glomap::GlobalMapper global_mapper(database_cache);
   global_mapper.BeginReconstruction(reconstruction);
 
   if (global_mapper.PoseGraph()->Empty()) {

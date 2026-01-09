@@ -361,8 +361,8 @@ TEST(Bitmap, CloneAsRGB) {
   BitmapColor<uint8_t> color;
   EXPECT_TRUE(cloned_bitmap.GetPixel(0, 0, &color));
   EXPECT_EQ(color, BitmapColor<uint8_t>(10, 10, 10));
-  const std::string test_dir = CreateTestDir();
-  const std::string filename = test_dir + "/bitmap.png";
+  const auto test_dir = CreateTestDir();
+  const auto filename = test_dir / "bitmap.png";
   EXPECT_TRUE(cloned_bitmap.Write(filename));
   Bitmap read_bitmap;
   EXPECT_TRUE(read_bitmap.Read(filename, /*as_rgb=*/true));
@@ -380,8 +380,8 @@ TEST(Bitmap, CloneAsGrey) {
   BitmapColor<uint8_t> color;
   EXPECT_TRUE(cloned_bitmap.GetPixel(0, 0, &color));
   EXPECT_EQ(color, BitmapColor<uint8_t>(19, 19, 19));
-  const std::string test_dir = CreateTestDir();
-  const std::string filename = test_dir + "/bitmap.png";
+  const auto test_dir = CreateTestDir();
+  const auto filename = test_dir / "bitmap.png";
   EXPECT_TRUE(cloned_bitmap.Write(filename));
   Bitmap read_bitmap;
   EXPECT_TRUE(read_bitmap.Read(filename, /*as_rgb=*/false));
@@ -542,8 +542,8 @@ TEST(Bitmap, ReadWriteAsRGB) {
   bitmap.SetPixel(0, 2, BitmapColor<uint8_t>(4, 2, 0));
   bitmap.SetPixel(1, 2, BitmapColor<uint8_t>(5, 2, 1));
 
-  const std::string test_dir = CreateTestDir();
-  const std::string filename = test_dir + "/bitmap.png";
+  const auto test_dir = CreateTestDir();
+  const auto filename = test_dir / "bitmap.png";
 
   EXPECT_TRUE(bitmap.Write(filename));
 
@@ -572,8 +572,8 @@ TEST(Bitmap, ReadWriteAsGrey) {
   bitmap.SetPixel(0, 2, BitmapColor<uint8_t>(4));
   bitmap.SetPixel(1, 2, BitmapColor<uint8_t>(5));
 
-  const std::string test_dir = CreateTestDir();
-  const std::string filename = test_dir + "/bitmap.png";
+  const auto test_dir = CreateTestDir();
+  const auto filename = test_dir / "bitmap.png";
 
   EXPECT_TRUE(bitmap.Write(filename));
 
@@ -602,8 +602,8 @@ TEST(Bitmap, ReadWriteAsGreyNonLinear) {
   bitmap.SetPixel(0, 2, BitmapColor<uint8_t>(4));
   bitmap.SetPixel(1, 2, BitmapColor<uint8_t>(5));
 
-  const std::string test_dir = CreateTestDir();
-  const std::string filename = test_dir + "/bitmap.png";
+  const auto test_dir = CreateTestDir();
+  const auto filename = test_dir / "bitmap.png";
 
   EXPECT_TRUE(bitmap.Write(filename, /*delinearize_colorspace=*/false));
 

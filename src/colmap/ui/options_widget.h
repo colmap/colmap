@@ -31,6 +31,7 @@
 
 #include <QtCore>
 #include <QtWidgets>
+#include <filesystem>
 #include <unordered_map>
 
 namespace colmap {
@@ -63,9 +64,9 @@ class OptionsWidget : public QWidget {
                                      int decimals = 2);
   QCheckBox* AddOptionBool(bool* option, const std::string& label_text);
   QLineEdit* AddOptionText(std::string* option, const std::string& label_text);
-  QLineEdit* AddOptionFilePath(std::string* option,
+  QLineEdit* AddOptionFilePath(std::filesystem::path* option,
                                const std::string& label_text);
-  QLineEdit* AddOptionDirPath(std::string* option,
+  QLineEdit* AddOptionDirPath(std::filesystem::path* option,
                               const std::string& label_text);
 
   void AddSpacer();
@@ -99,7 +100,7 @@ class OptionsWidget : public QWidget {
   std::vector<std::pair<QDoubleSpinBox*, double*>> options_double_log_;
   std::vector<std::pair<QCheckBox*, bool*>> options_bool_;
   std::vector<std::pair<QLineEdit*, std::string*>> options_text_;
-  std::vector<std::pair<QLineEdit*, std::string*>> options_path_;
+  std::vector<std::pair<QLineEdit*, std::filesystem::path*>> options_path_;
 };
 
 }  // namespace colmap

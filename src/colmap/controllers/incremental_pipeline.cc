@@ -49,18 +49,18 @@ void IterativeGlobalRefinement(const IncrementalPipelineOptions& options,
   mapper.FilterFrames(mapper_options);
 }
 
-void ExtractColors(const std::string& image_path,
+void ExtractColors(const std::filesystem::path& image_path,
                    const image_t image_id,
                    Reconstruction& reconstruction) {
   if (!reconstruction.ExtractColorsForImage(image_id, image_path)) {
-    LOG(WARNING) << StringPrintf("Could not read image %s at path %s.",
-                                 reconstruction.Image(image_id).Name().c_str(),
-                                 image_path.c_str());
+    LOG(WARNING) << "Could not read image "
+                 << reconstruction.Image(image_id).Name() << " at path "
+                 << image_path << ".";
   }
 }
 
 void WriteSnapshot(const Reconstruction& reconstruction,
-                   const std::string& snapshot_path) {
+                   const std::filesystem::path& snapshot_path) {
   LOG(INFO) << "Creating snapshot";
   // Get the current timestamp in milliseconds.
   const size_t timestamp =
@@ -68,8 +68,7 @@ void WriteSnapshot(const Reconstruction& reconstruction,
           std::chrono::high_resolution_clock::now().time_since_epoch())
           .count();
   // Write reconstruction to unique path with current timestamp.
-  const std::string path =
-      JoinPaths(snapshot_path, StringPrintf("%010zu", timestamp));
+  const auto path = snapshot_path / StringPrintf("%010zu", timestamp);
   CreateDirIfNotExists(path);
   VLOG(1) << "=> Writing to " << path;
   reconstruction.Write(path);
@@ -219,11 +218,12 @@ IncrementalPipeline::IncrementalPipeline(
   LOG(INFO) << "Loading database";
   Timer timer;
   timer.Start();
-  database_cache_ = DatabaseCache::Create(
-      *database,
-      /*min_num_matches=*/static_cast<size_t>(options_->min_num_matches),
-      /*ignore_watermarks=*/options_->ignore_watermarks,
-      /*image_names=*/image_names);
+  DatabaseCache::Options database_cache_options;
+  database_cache_options.min_num_matches =
+      static_cast<size_t>(options_->min_num_matches);
+  database_cache_options.ignore_watermarks = options_->ignore_watermarks;
+  database_cache_options.image_names = image_names;
+  database_cache_ = DatabaseCache::Create(*database, database_cache_options);
   timer.PrintMinutes();
 
   // If prior positions are to be used and setup from the database, convert
@@ -264,10 +264,12 @@ IncrementalPipeline::IncrementalPipeline(
     }
   }
 
-  database_cache_ = DatabaseCache::CreateFromCache(
-      *database_cache,
-      static_cast<size_t>(options_->min_num_matches),
-      image_names);
+  DatabaseCache::Options cache_options;
+  cache_options.min_num_matches =
+      static_cast<size_t>(options_->min_num_matches);
+  cache_options.image_names = image_names;
+  database_cache_ =
+      DatabaseCache::CreateFromCache(*database_cache, cache_options);
 
   // If prior positions are to be used and setup from the database, convert
   // geographic coords. to cartesian ones

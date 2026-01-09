@@ -2,7 +2,7 @@
 
 #include "colmap/feature/types.h"
 #include "colmap/geometry/rigid3.h"
-#include "colmap/scene/database.h"
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/types.h"
 
@@ -50,12 +50,10 @@ class PoseGraph {
   inline bool Empty() const;
   inline void Clear();
 
-  // Read edges from the database.
-  // If allow_duplicate is false, throws on duplicate pairs. If true, logs a
-  // warning and updates the existing pair.
-  // Decomposes relative poses for valid pairs that don't have poses yet.
-  void LoadFromDatabase(const colmap::Database& database,
-                        bool allow_duplicate = false);
+  // Load edges from the database cache.
+  // If the cache was created without load_relative_pose=true, no edges will
+  // be loaded.
+  void Load(const colmap::DatabaseCache& cache);
 
   // Edge operations.
   inline Edge& AddEdge(image_t image_id1, image_t image_id2, Edge edge);
@@ -83,10 +81,6 @@ class PoseGraph {
         edges_.end());
   }
 
-  // Create the adjacency list for the images in the pose graph.
-  std::unordered_map<image_t, std::unordered_set<image_t>>
-  CreateImageAdjacencyList() const;
-
   // Compute the largest connected component of frames.
   // If filter_unregistered is true, only considers frames with HasPose().
   // Returns the set of frame_ids in the largest connected component.
@@ -97,12 +91,6 @@ class PoseGraph {
   // Mark image pairs as invalid if either image is not in the active set.
   void InvalidatePairsOutsideActiveImageIds(
       const std::unordered_set<image_t>& active_image_ids);
-
-  // Mark edges as invalid if their relative rotation differs from the
-  // reconstructed rotation by more than max_angle_deg.
-  // Keeps existing invalid edges as invalid.
-  void FilterByRelativeRotation(const colmap::Reconstruction& reconstruction,
-                                double max_angle_deg = 5.0);
 
  private:
   // Map from pair ID to edge data. The pair ID is computed from the

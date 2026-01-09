@@ -49,7 +49,7 @@ namespace colmap {
 namespace {
 
 std::vector<std::pair<image_t, image_t>> ReadImagePairsText(
-    const std::string& path,
+    const std::filesystem::path& path,
     const std::unordered_map<std::string, image_t>& image_name_to_image_id) {
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);

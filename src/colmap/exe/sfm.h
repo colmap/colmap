@@ -32,21 +32,23 @@
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/scene/reconstruction.h"
 
+#include <filesystem>
+
 namespace colmap {
 
 void RunPointTriangulatorImpl(
     const std::shared_ptr<Reconstruction>& reconstruction,
-    const std::string& database_path,
-    const std::string& image_path,
-    const std::string& output_path,
+    const std::filesystem::path& database_path,
+    const std::filesystem::path& image_path,
+    const std::filesystem::path& output_path,
     const IncrementalPipelineOptions& options,
     bool clear_points,
     bool refine_intrinsics);
 
 bool RunIncrementalMapperImpl(
-    const std::string& database_path,
-    const std::string& image_path,
-    const std::string& output_path,
+    const std::filesystem::path& database_path,
+    const std::filesystem::path& image_path,
+    const std::filesystem::path& output_path,
     const std::shared_ptr<IncrementalPipelineOptions>& mapper_options,
     std::shared_ptr<ReconstructionManager>& reconstruction_manager,
     std::function<void()> initial_image_pair_callback = {},
