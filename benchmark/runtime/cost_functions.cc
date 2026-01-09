@@ -3,7 +3,6 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
-#include "colmap/util/logging.h"
 
 #include <benchmark/benchmark.h>
 #include <ceres/ceres.h>
