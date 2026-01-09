@@ -31,6 +31,7 @@
 
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/random.h"
+#include "colmap/math/union_find.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/projection.h"
 #include "colmap/sensor/bitmap.h"
@@ -52,8 +53,8 @@ TEST(SynthesizeDataset, Nominal) {
   options.num_frames_per_rig = 3;
   SynthesizeDataset(options, &reconstruction, database.get());
 
-  const std::string test_dir = CreateTestDir();
-  const std::string sparse_path = test_dir + "/sparse";
+  const auto test_dir = CreateTestDir();
+  const auto sparse_path = test_dir / "sparse";
   CreateDirIfNotExists(sparse_path);
   reconstruction.Write(sparse_path);
 
@@ -294,6 +295,60 @@ TEST(SynthesizeDataset, ChainedMatches) {
   }
 }
 
+TEST(SynthesizeDataset, SparseMatchesZeroSparsity) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.match_config = SyntheticDatasetOptions::MatchConfig::SPARSE;
+  options.match_sparsity = 0.0;
+  SynthesizeDataset(options, &reconstruction, database.get());
+  const int num_images = options.num_rigs * options.num_cameras_per_rig *
+                         options.num_frames_per_rig;
+  const int num_image_pairs = num_images * (num_images - 1) / 2;
+  EXPECT_EQ(database->NumMatchedImagePairs(), num_image_pairs);
+  EXPECT_EQ(database->NumVerifiedImagePairs(), num_image_pairs);
+}
+
+TEST(SynthesizeDataset, SparseMatchesFullSparsity) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.match_config = SyntheticDatasetOptions::MatchConfig::SPARSE;
+  options.match_sparsity = 1.0;
+  SynthesizeDataset(options, &reconstruction, database.get());
+  EXPECT_EQ(database->NumMatchedImagePairs(), 0);
+  EXPECT_EQ(database->NumVerifiedImagePairs(), 0);
+}
+
+TEST(SynthesizeDataset, SparseMatchesPartialSparsity) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 8;
+  options.match_config = SyntheticDatasetOptions::MatchConfig::SPARSE;
+  options.match_sparsity = 0.5;
+  SynthesizeDataset(options, &reconstruction, database.get());
+
+  const int num_images = options.num_rigs * options.num_cameras_per_rig *
+                         options.num_frames_per_rig;
+  const int num_exhaustive_pairs = num_images * (num_images - 1) / 2;
+  EXPECT_EQ(database->NumMatchedImagePairs(), num_exhaustive_pairs / 2);
+
+  // Verify graph connectivity using UnionFind.
+  UnionFind<image_t> uf;
+  uf.Reserve(num_images);
+  for (const auto& [pair_id, _] : database->ReadAllMatches()) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    uf.Union(image_id1, image_id2);
+  }
+  const image_t root = uf.Find(*reconstruction.RegImageIds().begin());
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    EXPECT_EQ(uf.Find(image_id), root);
+  }
+}
+
 TEST(SynthesizeDataset, NoDatabase) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
   SyntheticDatasetOptions options;
@@ -446,8 +501,8 @@ TEST(SynthesizeImages, Nominal) {
   synthetic_dataset_options.camera_height = 240;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
-  const std::string test_dir = CreateTestDir();
-  const std::string image_path = test_dir + "/images";
+  const auto test_dir = CreateTestDir();
+  const auto image_path = test_dir / "images";
   CreateDirIfNotExists(image_path);
   SynthesizeImages(SyntheticImageOptions(), reconstruction, image_path);
 

@@ -42,9 +42,9 @@ namespace config = boost::program_options;
 namespace colmap {
 
 BaseOptionManager::BaseOptionManager(bool add_project_options) {
-  project_path = std::make_shared<std::string>();
-  database_path = std::make_shared<std::string>();
-  image_path = std::make_shared<std::string>();
+  project_path = std::make_shared<std::filesystem::path>();
+  database_path = std::make_shared<std::filesystem::path>();
+  image_path = std::make_shared<std::filesystem::path>();
 
   ResetImpl();
 
@@ -112,6 +112,7 @@ void BaseOptionManager::ResetImpl() {
   options_int_.clear();
   options_double_.clear();
   options_string_.clear();
+  options_path_.clear();
 
   added_random_options_ = false;
   added_log_options_ = false;
@@ -133,7 +134,7 @@ bool BaseOptionManager::Check() {
   if (added_database_options_) {
     const auto database_parent_path = GetParentDir(*database_path);
     success = success && CHECK_OPTION_IMPL(!ExistsDir(*database_path)) &&
-              CHECK_OPTION_IMPL(database_parent_path == "" ||
+              CHECK_OPTION_IMPL(database_parent_path.empty() ||
                                 ExistsDir(database_parent_path));
   }
 
@@ -207,7 +208,7 @@ bool BaseOptionManager::Parse(const int argc, char** argv) {
   return true;
 }
 
-bool BaseOptionManager::Read(const std::string& path) {
+bool BaseOptionManager::Read(const std::filesystem::path& path) {
   config::variables_map vmap;
 
   if (!ExistsFile(path)) {
@@ -232,13 +233,13 @@ bool BaseOptionManager::Read(const std::string& path) {
   return true;
 }
 
-bool BaseOptionManager::ReRead(const std::string& path) {
+bool BaseOptionManager::ReRead(const std::filesystem::path& path) {
   Reset();
   AddAllOptions();
   return Read(path);
 }
 
-void BaseOptionManager::Write(const std::string& path) const {
+void BaseOptionManager::Write(const std::filesystem::path& path) const {
   boost::property_tree::ptree pt;
 
   // First, put all options without a section and then those with a section.
@@ -270,6 +271,12 @@ void BaseOptionManager::Write(const std::string& path) const {
     }
   }
 
+  for (const auto& [key, value] : options_path_) {
+    if (!StringContains(key, ".")) {
+      pt.put(key, value->string());
+    }
+  }
+
   for (const auto& [key, value] : options_bool_) {
     if (StringContains(key, ".")) {
       pt.put(key, *value);
@@ -291,6 +298,12 @@ void BaseOptionManager::Write(const std::string& path) const {
   for (const auto& [key, value] : options_string_) {
     if (StringContains(key, ".")) {
       pt.put(key, *value);
+    }
+  }
+
+  for (const auto& [key, value] : options_path_) {
+    if (StringContains(key, ".")) {
+      pt.put(key, value->string());
     }
   }
 

@@ -447,12 +447,12 @@ class FaissVisualIndex : public VisualIndex {
     VLOG(2) << "Computed hamming embeddings";
   }
 
-  void ReadFromFaiss(const std::string& path, long offset) override {
+  void ReadFromFaiss(const std::filesystem::path& path, long offset) override {
     FILE* fin = nullptr;
 #ifdef _MSC_VER
-    THROW_CHECK_EQ(fopen_s(&fin, path.c_str(), "rb"), 0);
+    THROW_CHECK_EQ(fopen_s(&fin, path.string().c_str(), "rb"), 0);
 #else
-    fin = fopen(path.c_str(), "rb");
+    fin = fopen(path.string().c_str(), "rb");
 #endif
     THROW_CHECK_NOTNULL(fin);
     fseek(fin, offset, SEEK_SET);
@@ -470,7 +470,7 @@ class FaissVisualIndex : public VisualIndex {
     inverted_index_.GetImageIds(&image_ids_);
   }
 
-  void Write(const std::string& path) const override {
+  void Write(const std::filesystem::path& path) const override {
     THROW_CHECK_NOTNULL(index_);
 
     // Write index metadata header.
@@ -491,9 +491,9 @@ class FaissVisualIndex : public VisualIndex {
     {
       FILE* fout = nullptr;
 #ifdef _MSC_VER
-      THROW_CHECK_EQ(fopen_s(&fout, path.c_str(), "ab"), 0);
+      THROW_CHECK_EQ(fopen_s(&fout, path.string().c_str(), "ab"), 0);
 #else
-      fout = fopen(path.c_str(), "ab");
+      fout = fopen(path.string().c_str(), "ab");
 #endif
       THROW_CHECK_NOTNULL(fout);
       faiss::write_index(index_.get(), fout);
@@ -646,8 +646,9 @@ std::unique_ptr<VisualIndex> VisualIndex::Create(int desc_dim,
 }
 
 std::unique_ptr<VisualIndex> VisualIndex::Read(
-    const std::string& vocab_tree_path) {
-  const std::string resolved_path = MaybeDownloadAndCacheFile(vocab_tree_path);
+    const std::filesystem::path& vocab_tree_path) {
+  const auto resolved_path =
+      MaybeDownloadAndCacheFile(vocab_tree_path.string());
 
   std::ifstream file(resolved_path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, resolved_path);

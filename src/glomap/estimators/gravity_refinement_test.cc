@@ -92,7 +92,7 @@ void ExpectEqualGravity(const Eigen::Vector3d& gravity_in_world,
 TEST(GravityRefinement, RefineGravity) {
   colmap::SetPRNGSeed(1);
 
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -102,6 +102,7 @@ TEST(GravityRefinement, RefineGravity) {
   synthetic_dataset_options.num_frames_per_rig = 25;
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -125,7 +126,7 @@ TEST(GravityRefinement, RefineGravity) {
 TEST(GravityRefinement, RefineGravityWithNonTrivialRigs) {
   colmap::SetPRNGSeed(1);
 
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -135,6 +136,7 @@ TEST(GravityRefinement, RefineGravityWithNonTrivialRigs) {
   synthetic_dataset_options.num_frames_per_rig = 25;
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.prior_gravity = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 

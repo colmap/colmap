@@ -989,7 +989,7 @@ bool OptionManager::Check() {
   return success;
 }
 
-bool OptionManager::Read(const std::string& path) {
+bool OptionManager::Read(const std::filesystem::path& path) {
   if (!BaseOptionManager::Read(path)) {
     return false;
   }

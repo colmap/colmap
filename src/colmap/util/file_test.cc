@@ -57,6 +57,11 @@ TEST(HasFileExtension, Nominal) {
   EXPECT_TRUE(HasFileExtension("test.", "."));
 }
 
+TEST(AddFileExtension, Nominal) {
+  EXPECT_EQ(AddFileExtension("test", ".txt"), "test.txt");
+  EXPECT_EQ(AddFileExtension("test.jpg", ".txt"), "test.jpg.txt");
+}
+
 TEST(SplitFileExtension, Nominal) {
   std::string root;
   std::string ext;
@@ -170,9 +175,9 @@ TEST(JoinPaths, Nominal) {
 }
 
 TEST(FileCopy, Nominal) {
-  const std::string dir = CreateTestDir();
-  const std::string src_path = JoinPaths(dir, "source.txt");
-  const std::string dst_path = JoinPaths(dir, "destination.txt");
+  const auto dir = CreateTestDir();
+  const auto src_path = dir / "source.txt";
+  const auto dst_path = dir / "destination.txt";
 
   {
     std::ofstream file(src_path);
@@ -188,22 +193,20 @@ TEST(FileCopy, Nominal) {
     EXPECT_EQ(buffer.str(), "test content");
   }
 
-  const std::string dst_hard_link_path =
-      JoinPaths(dir, "destination_hard_link.txt");
+  const auto dst_hard_link_path = dir / "destination_hard_link.txt";
   FileCopy(src_path, dst_hard_link_path, FileCopyType::HARD_LINK);
   EXPECT_TRUE(ExistsFile(dst_hard_link_path));
 
-  const std::string dst_soft_link_path =
-      JoinPaths(dir, "destination_soft_link.txt");
+  const auto dst_soft_link_path = dir / "destination_soft_link.txt";
   FileCopy(src_path, dst_soft_link_path, FileCopyType::SOFT_LINK);
   EXPECT_TRUE(ExistsFile(dst_soft_link_path));
 }
 
 TEST(GetFileList, Nominal) {
-  const std::string dir = CreateTestDir();
-  const std::string file1 = JoinPaths(dir, "file1.txt");
-  const std::string file2 = JoinPaths(dir, "file2.txt");
-  const std::string subdir = JoinPaths(dir, "subdir");
+  const auto dir = CreateTestDir();
+  const auto file1 = dir / "file1.txt";
+  const auto file2 = dir / "file2.txt";
+  const auto subdir = dir / "subdir";
 
   {
     std::ofstream f1(file1);
@@ -212,15 +215,16 @@ TEST(GetFileList, Nominal) {
   CreateDirIfNotExists(subdir);
 
   const auto file_list = GetFileList(dir);
-  EXPECT_THAT(file_list, testing::UnorderedElementsAre(file1, file2));
+  EXPECT_THAT(file_list,
+              testing::UnorderedElementsAre(file1.string(), file2.string()));
 }
 
 TEST(GetDirList, Nominal) {
-  const std::string dir = CreateTestDir();
-  const std::string subdir1 = JoinPaths(dir, "subdir1");
-  const std::string subdir2 = JoinPaths(dir, "subdir2");
-  const std::string subdir1_nested = JoinPaths(subdir1, "nested");
-  const std::string file = JoinPaths(dir, "file.txt");
+  const auto dir = CreateTestDir();
+  const auto subdir1 = dir / "subdir1";
+  const auto subdir2 = dir / "subdir2";
+  const auto subdir1_nested = subdir1 / "nested";
+  const auto file = dir / "file.txt";
 
   CreateDirIfNotExists(subdir1);
   CreateDirIfNotExists(subdir2);
@@ -231,15 +235,17 @@ TEST(GetDirList, Nominal) {
   }
 
   const auto dir_list = GetDirList(dir);
-  EXPECT_THAT(dir_list, testing::UnorderedElementsAre(subdir1, subdir2));
+  EXPECT_THAT(
+      dir_list,
+      testing::UnorderedElementsAre(subdir1.string(), subdir2.string()));
 }
 
 TEST(GetRecursiveDirList, Nominal) {
-  const std::string dir = CreateTestDir();
-  const std::string subdir1 = JoinPaths(dir, "subdir1");
-  const std::string subdir2 = JoinPaths(dir, "subdir2");
-  const std::string subdir1_nested = JoinPaths(subdir1, "nested");
-  const std::string file = JoinPaths(dir, "file.txt");
+  const auto dir = CreateTestDir();
+  const auto subdir1 = dir / "subdir1";
+  const auto subdir2 = dir / "subdir2";
+  const auto subdir1_nested = subdir1 / "nested";
+  const auto file = dir / "file.txt";
 
   CreateDirIfNotExists(subdir1);
   CreateDirIfNotExists(subdir2);
@@ -251,7 +257,8 @@ TEST(GetRecursiveDirList, Nominal) {
 
   const auto dir_list = GetRecursiveDirList(dir);
   EXPECT_THAT(dir_list,
-              testing::UnorderedElementsAre(subdir1, subdir2, subdir1_nested));
+              testing::UnorderedElementsAre(
+                  subdir1.string(), subdir2.string(), subdir1_nested.string()));
 }
 
 TEST(HomeDir, Nominal) {
@@ -264,7 +271,7 @@ TEST(HomeDir, Nominal) {
 }
 
 TEST(ReadWriteBinaryBlob, Nominal) {
-  const std::string file_path = CreateTestDir() + "/test.bin";
+  const auto file_path = CreateTestDir() / "test.bin";
   const int kNumBytes = 123;
   std::vector<char> data(kNumBytes);
   for (int i = 0; i < kNumBytes; ++i) {
@@ -295,7 +302,7 @@ TEST(IsURI, Nominal) {
 #ifdef COLMAP_DOWNLOAD_ENABLED
 
 TEST(DownloadFile, Nominal) {
-  const std::string file_path = CreateTestDir() + "/test.bin";
+  const auto file_path = CreateTestDir() / "test.bin";
   const int kNumBytes = 123;
   std::string data(kNumBytes, '0');
   for (int i = 0; i < kNumBytes; ++i) {
@@ -322,16 +329,15 @@ TEST(ComputeSHA256, Nominal) {
 }
 
 TEST(MaybeDownloadAndCacheFile, Nominal) {
-  const std::string test_dir = CreateTestDir();
+  const auto test_dir = CreateTestDir();
   OverwriteDownloadCacheDir(test_dir);
 
   const std::string data = "123asd<>?";
   const std::string name = "cached.bin";
   const std::string sha256 =
       "2915068022d460a622fb078147aee8d590c0a1bb1907d35fd27cb2f7bdb991dd";
-  const std::string server_file_path = test_dir + "/server.bin";
-  const std::string cached_file_path =
-      (std::filesystem::path(test_dir) / (sha256 + "-" + name)).string();
+  const auto server_file_path = test_dir / "server.bin";
+  const auto cached_file_path = test_dir / (sha256 + "-" + name);
   WriteBinaryBlob(server_file_path, {data.data(), data.size()});
 
   const std::string uri = "file://" +
@@ -340,7 +346,8 @@ TEST(MaybeDownloadAndCacheFile, Nominal) {
 
   EXPECT_EQ(MaybeDownloadAndCacheFile(uri), cached_file_path);
   EXPECT_EQ(MaybeDownloadAndCacheFile(uri), cached_file_path);
-  EXPECT_EQ(MaybeDownloadAndCacheFile(cached_file_path), cached_file_path);
+  EXPECT_EQ(MaybeDownloadAndCacheFile(cached_file_path.string()),
+            cached_file_path);
 }
 
 #endif

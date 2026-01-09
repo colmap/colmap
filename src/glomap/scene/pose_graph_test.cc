@@ -242,9 +242,8 @@ TEST(PoseGraph, ValidEdges) {
 }
 
 TEST(PoseGraph, Load) {
-  const std::string test_dir = colmap::CreateTestDir();
-
-  auto database = colmap::Database::Open(test_dir + "/database.db");
+  const auto test_dir = colmap::CreateTestDir();
+  auto database = colmap::Database::Open(test_dir / "database.db");
 
   colmap::Camera camera = colmap::Camera::CreateFromModelId(
       colmap::kInvalidCameraId,

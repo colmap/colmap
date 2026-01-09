@@ -36,6 +36,7 @@
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/cache.h"
 
+#include <filesystem>
 #include <memory>
 
 namespace colmap {
@@ -57,7 +58,7 @@ class Workspace {
     bool image_as_rgb = true;
 
     // Location and type of workspace.
-    std::string workspace_path;
+    std::filesystem::path workspace_path;
     std::string workspace_format;
     std::string input_type;
     std::string stereo_folder = "stereo";
@@ -78,9 +79,9 @@ class Workspace {
   virtual const NormalMap& GetNormalMap(int image_idx);
 
   // Get paths to bitmap, depth map, normal map and consistency graph.
-  std::string GetBitmapPath(int image_idx) const;
-  std::string GetDepthMapPath(int image_idx) const;
-  std::string GetNormalMapPath(int image_idx) const;
+  std::filesystem::path GetBitmapPath(int image_idx) const;
+  std::filesystem::path GetDepthMapPath(int image_idx) const;
+  std::filesystem::path GetNormalMapPath(int image_idx) const;
 
   // Return whether bitmap, depth map, normal map, and consistency graph exist.
   bool HasBitmap(int image_idx) const;
@@ -94,8 +95,8 @@ class Workspace {
   Model model_;
 
  private:
-  std::string depth_map_path_;
-  std::string normal_map_path_;
+  std::filesystem::path depth_map_path_;
+  std::filesystem::path normal_map_path_;
   std::vector<std::unique_ptr<Bitmap>> bitmaps_;
   std::vector<std::unique_ptr<DepthMap>> depth_maps_;
   std::vector<std::unique_ptr<NormalMap>> normal_maps_;

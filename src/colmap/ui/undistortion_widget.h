@@ -58,7 +58,7 @@ class UndistortionWidget : public OptionsWidget {
 
   QComboBox* output_format_;
   UndistortCameraOptions undistortion_options_;
-  std::string output_path_;
+  std::filesystem::path output_path_;
 };
 
 }  // namespace colmap
