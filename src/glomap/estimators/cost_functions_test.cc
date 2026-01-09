@@ -84,7 +84,7 @@ TEST(BATAPairwiseDirectionCostFunctor, DifferentScale) {
               colmap::EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
 }
 
-TEST(BATAPairwiseDirectionCostFunctor, CreateCostFunction) {
+TEST(BATAPairwiseDirectionCostFunctor, Create) {
   const Eigen::Vector3d direction(1, 0, 0);
   std::unique_ptr<ceres::CostFunction> cost_function(
       BATAPairwiseDirectionCostFunctor::Create(direction));
@@ -138,7 +138,7 @@ TEST(RigBATAPairwiseDirectionConstantRigCostFunctor, NonZeroResidual) {
   EXPECT_THAT(residuals, colmap::EigenMatrixNear(expected_residuals, 1e-10));
 }
 
-TEST(RigBATAPairwiseDirectionConstantRigCostFunctor, CreateCostFunction) {
+TEST(RigBATAPairwiseDirectionConstantRigCostFunctor, Create) {
   const Eigen::Vector3d cam_from_point3D_dir(1, 0, 0);
   const Eigen::Vector3d cam_from_rig_dir(0, 1, 0);
   std::unique_ptr<ceres::CostFunction> cost_function(
@@ -199,47 +199,12 @@ TEST(RigBATAPairwiseDirectionCostFunctor, NonZeroResidual) {
   EXPECT_THAT(residuals, colmap::EigenMatrixNear(expected_residuals, 1e-10));
 }
 
-TEST(RigBATAPairwiseDirectionCostFunctor, CreateCostFunction) {
+TEST(RigBATAPairwiseDirectionCostFunctor, Create) {
   const Eigen::Vector3d cam_from_point3D_dir(1, 0, 0);
   const Eigen::Quaterniond rig_from_world_rot = Eigen::Quaterniond::Identity();
   std::unique_ptr<ceres::CostFunction> cost_function(
       RigBATAPairwiseDirectionCostFunctor::Create(cam_from_point3D_dir,
                                                   rig_from_world_rot));
-  ASSERT_NE(cost_function, nullptr);
-}
-
-TEST(GravityCostFunctor, ZeroResidual) {
-  const Eigen::Vector3d measured_gravity =
-      Eigen::Vector3d::Random().normalized();
-  const Eigen::Vector3d& gravity = measured_gravity;
-
-  GravityCostFunctor cost_function(measured_gravity);
-
-  Eigen::Vector3d residuals;
-  EXPECT_TRUE(cost_function(gravity.data(), residuals.data()));
-
-  EXPECT_THAT(residuals,
-              colmap::EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
-}
-
-TEST(GravityCostFunctor, NonZeroResidual) {
-  const Eigen::Vector3d measured_gravity =
-      Eigen::Vector3d::Random().normalized();
-  const Eigen::Vector3d gravity = Eigen::Vector3d::Random().normalized();
-
-  GravityCostFunctor cost_function(measured_gravity);
-
-  Eigen::Vector3d residuals;
-  EXPECT_TRUE(cost_function(gravity.data(), residuals.data()));
-
-  const Eigen::Vector3d expected_residuals = gravity - measured_gravity;
-  EXPECT_THAT(residuals, colmap::EigenMatrixNear(expected_residuals, 1e-10));
-}
-
-TEST(GravityCostFunctor, CreateCostFunction) {
-  const Eigen::Vector3d measured_gravity(0, 0, 1);
-  std::unique_ptr<ceres::CostFunction> cost_function(
-      GravityCostFunctor::Create(measured_gravity));
   ASSERT_NE(cost_function, nullptr);
 }
 

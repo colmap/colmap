@@ -1,13 +1,15 @@
 #include "gravity_refinement.h"
 
+#include "colmap/estimators/cost_function_utils.h"
 #include "colmap/estimators/manifold.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 
-#include "glomap/estimators/cost_functions.h"
-
 namespace glomap {
+
+using GravityCostFunctor = colmap::NormalPriorCostFunctor<3>;
+
 namespace {
 
 Eigen::Vector3d* GetImageGravityOrNull(

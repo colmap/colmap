@@ -1,8 +1,6 @@
 
 #pragma once
 
-#include "colmap/estimators/cost_function_utils.h"
-
 #include <Eigen/Core>
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
@@ -130,9 +128,5 @@ struct RigBATAPairwiseDirectionCostFunctor {
   const Eigen::Vector3d cam_from_point3D_dir_;
   const Eigen::Quaterniond world_from_rig_rot_;
 };
-
-// Computes residual between estimated gravity and measured gravity prior.
-// This is a type alias to the generic NormalPriorCostFunctor for 3D vectors.
-using GravityCostFunctor = colmap::NormalPriorCostFunctor<3>;
 
 }  // namespace glomap
