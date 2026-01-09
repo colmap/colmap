@@ -63,24 +63,27 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
 }
 
 void GlobalMapper::EstablishTracks(const TrackEstablishmentOptions& options) {
-  // TrackEngine reads images, writes unfiltered points3D to a temporary map,
-  // then filters into the main reconstruction
-  std::unordered_map<point3D_t, Point3D> unfiltered_points3D;
-  TrackEngine track_engine(*pose_graph_, reconstruction_->Images(), options);
-  track_engine.EstablishFullTracks(unfiltered_points3D);
+  // Build keypoints map from registered images.
+  std::unordered_map<image_t, std::vector<Eigen::Vector2d>>
+      image_id_to_keypoints;
+  for (const auto image_id : reconstruction_->RegImageIds()) {
+    const auto& image = reconstruction_->Image(image_id);
+    std::vector<Eigen::Vector2d> points;
+    points.reserve(image.NumPoints2D());
+    for (const auto& point2D : image.Points2D()) {
+      points.push_back(point2D.xy);
+    }
+    image_id_to_keypoints.emplace(image_id, std::move(points));
+  }
 
-  // Filter the points3D into a selected subset
-  std::unordered_map<point3D_t, Point3D> selected_points3D;
-  point3D_t num_points3D =
-      track_engine.FindTracksForProblem(unfiltered_points3D, selected_points3D);
+  std::unordered_map<point3D_t, Point3D> points3D;
+  glomap::EstablishTracks(
+      *pose_graph_, image_id_to_keypoints, options, points3D);
 
-  // Add selected points3D to reconstruction
   THROW_CHECK_EQ(reconstruction_->NumPoints3D(), 0);
-  for (auto& [point3D_id, point3D] : selected_points3D) {
+  for (auto& [point3D_id, point3D] : points3D) {
     reconstruction_->AddPoint3D(point3D_id, std::move(point3D));
   }
-  LOG(INFO) << "Before filtering: " << unfiltered_points3D.size()
-            << ", after filtering: " << num_points3D;
 }
 
 bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
