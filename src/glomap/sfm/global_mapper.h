@@ -8,7 +8,8 @@
 #include "glomap/estimators/global_positioning.h"
 #include "glomap/estimators/rotation_averaging.h"
 #include "glomap/scene/pose_graph.h"
-#include "glomap/sfm/track_establishment.h"
+
+#include <limits>
 
 namespace glomap {
 
@@ -28,7 +29,6 @@ struct GlobalMapperOptions {
 
   // Options for each component
   RotationEstimatorOptions rotation_averaging;
-  TrackEstablishmentOptions track_establishment;
   GlobalPositionerOptions global_positioning;
   BundleAdjusterOptions bundle_adjustment;
   colmap::IncrementalTriangulator::Options retriangulation = [] {
@@ -38,6 +38,14 @@ struct GlobalMapperOptions {
     opts.min_angle = 1.0;
     return opts;
   }();
+
+  // Track establishment options.
+  // Max pixel distance between observations of the same track within one image.
+  double track_intra_image_consistency_threshold = 10.;
+  // Required number of tracks per view before early stopping.
+  int track_required_tracks_per_view = std::numeric_limits<int>::max();
+  // Minimum number of views per track.
+  int track_min_num_views_per_track = 3;
 
   // Thresholds for each component.
   double max_angular_reproj_error_deg = 1.;   // for global positioning
@@ -74,7 +82,7 @@ class GlobalMapper {
   bool RotationAveraging(const RotationEstimatorOptions& options);
 
   // Establish tracks from feature matches.
-  void EstablishTracks(const TrackEstablishmentOptions& options);
+  void EstablishTracks(const GlobalMapperOptions& options);
 
   // Estimate global camera positions.
   bool GlobalPositioning(const GlobalPositionerOptions& options,
