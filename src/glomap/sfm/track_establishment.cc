@@ -39,11 +39,11 @@ size_t EstablishTracks(
 
   // Group observations by their root
   std::unordered_map<Observation, std::vector<Observation>> track_map;
-  for (const auto& [obs, parent] : uf.Elements()) {
+  for (const auto& [obs, parent] : uf.Parents()) {
     track_map[uf.Find(obs)].push_back(obs);
   }
   LOG(INFO) << "Established " << track_map.size() << " tracks from "
-            << uf.Elements().size() << " observations";
+            << uf.Parents().size() << " observations";
 
   // Validate tracks, check consistency, and collect valid ones with lengths
   std::unordered_map<point3D_t, Point3D> unfiltered_points3D;
@@ -63,8 +63,10 @@ size_t EstablishTracks(
       auto it = image_id_set.find(image_id);
       if (it != image_id_set.end()) {
         for (const auto& existing_xy : it->second) {
-          if ((existing_xy - xy).norm() >
-              options.intra_image_consistency_threshold) {
+          const double sq_threshold =
+              options.intra_image_consistency_threshold *
+              options.intra_image_consistency_threshold;
+          if ((existing_xy - xy).squaredNorm() > sq_threshold) {
             is_consistent = false;
             break;
           }
@@ -99,15 +101,10 @@ size_t EstablishTracks(
   // Sort tracks by length (descending) and select for problem
   std::sort(track_lengths.begin(), track_lengths.end(), std::greater<>());
 
-  // Initialize track counts for all images in image_id_to_keypoints
   std::unordered_map<image_t, size_t> tracks_per_image;
-  for (const auto& [image_id, points] : image_id_to_keypoints) {
-    tracks_per_image[image_id] = 0;
-  }
-
-  size_t images_left = tracks_per_image.size();
+  size_t images_left = image_id_to_keypoints.size();
   for (const auto& [track_length, point3D_id] : track_lengths) {
-    const auto& point3D = unfiltered_points3D.at(point3D_id);
+    auto& point3D = unfiltered_points3D.at(point3D_id);
 
     // Check if any image in this track still needs more observations
     const bool should_add = std::any_of(
@@ -119,14 +116,16 @@ size_t EstablishTracks(
         });
     if (!should_add) continue;
 
-    // Add track and update image counts
-    points3D.emplace(point3D_id, point3D);
+    // Update image counts
     for (const auto& obs : point3D.track.Elements()) {
       auto& count = tracks_per_image[obs.image_id];
       if (count == static_cast<size_t>(options.required_tracks_per_view))
         --images_left;
       ++count;
     }
+
+    // Add track after updating counts so we can move
+    points3D[point3D_id] = std::move(point3D);
 
     if (images_left == 0) break;
     if (points3D.size() > static_cast<size_t>(options.max_num_tracks)) break;

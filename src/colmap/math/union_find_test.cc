@@ -262,31 +262,31 @@ TEST(UnionFind, FindIfExists) {
   EXPECT_TRUE(uf.FindIfExists(2).has_value());
 }
 
-TEST(UnionFind, Elements) {
+TEST(UnionFind, Parents) {
   UnionFind<int> uf;
-  EXPECT_TRUE(uf.Elements().empty());
+  EXPECT_TRUE(uf.Parents().empty());
 
   uf.Find(1);
-  EXPECT_EQ(uf.Elements().size(), 1);
-  EXPECT_TRUE(uf.Elements().count(1));
+  EXPECT_EQ(uf.Parents().size(), 1);
+  EXPECT_TRUE(uf.Parents().count(1));
 
   uf.Union(2, 3);
-  EXPECT_EQ(uf.Elements().size(), 3);
-  EXPECT_TRUE(uf.Elements().count(2));
-  EXPECT_TRUE(uf.Elements().count(3));
+  EXPECT_EQ(uf.Parents().size(), 3);
+  EXPECT_TRUE(uf.Parents().count(2));
+  EXPECT_TRUE(uf.Parents().count(3));
 
   uf.Union(1, 2);
-  EXPECT_EQ(uf.Elements().size(), 3);
+  EXPECT_EQ(uf.Parents().size(), 3);
 }
 
-TEST(UnionFind, ElementsGroupByRoot) {
+TEST(UnionFind, ParentsGroupByRoot) {
   UnionFind<int> uf;
   uf.Union(1, 2);
   uf.Union(2, 3);
   uf.Union(10, 20);
 
   std::unordered_map<int, std::vector<int>> groups;
-  for (const auto& [elem, parent] : uf.Elements()) {
+  for (const auto& [elem, parent] : uf.Parents()) {
     groups[uf.Find(elem)].push_back(elem);
   }
 

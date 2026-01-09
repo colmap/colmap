@@ -16,13 +16,13 @@ struct TrackEstablishmentOptions {
   // Required number of tracks per view before early stopping.
   int required_tracks_per_view = std::numeric_limits<int>::max();
 
-  // Minimal number of views per track.
+  // Minimum number of views per track.
   int min_num_views_per_track = 3;
 
-  // Maximal number of views per track.
+  // Maximum number of views per track.
   int max_num_views_per_track = 100;
 
-  // Maximal number of tracks.
+  // Maximum number of tracks.
   int max_num_tracks = std::numeric_limits<int>::max();
 };
 
