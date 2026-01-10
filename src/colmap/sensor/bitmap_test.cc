@@ -641,7 +641,7 @@ TEST(Bitmap, ReadRGBA) {
                                           40, 2, 0, 255, 5,  20, 10, 100};
 
   const auto test_dir = CreateTestDir();
-  const auto filename = test_dir / "rgba_image.png";
+  const auto filename = test_dir / "image.png";
   WriteImageOIIO(width, height, channels, filename, rgba_data.data());
 
   Bitmap rgb_bitmap;
@@ -673,7 +673,7 @@ TEST(Bitmap, ReadGreyAlpha) {
       10, 255, 30, 200, 20, 255, 40, 128, 50, 255, 60, 100};
 
   const auto test_dir = CreateTestDir();
-  const auto filename = test_dir / "grey_alpha_image.png";
+  const auto filename = test_dir / "image.png";
   WriteImageOIIO(width, height, channels, filename, grey_alpha_data.data());
 
   Bitmap grey_bitmap;
