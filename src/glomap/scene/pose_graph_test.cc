@@ -30,7 +30,6 @@
 #include "glomap/scene/pose_graph.h"
 
 #include "colmap/scene/database_cache.h"
-#include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
 #include <gmock/gmock.h>
@@ -41,9 +40,7 @@ namespace {
 
 PoseGraph::Edge SynthesizeEdge(int num_matches = 50) {
   PoseGraph::Edge edge;
-  // Set default identity pose.
   edge.cam2_from_cam1 = colmap::Rigid3d();
-  // First num_matches matches are inliers.
   edge.num_matches = num_matches;
   return edge;
 }
