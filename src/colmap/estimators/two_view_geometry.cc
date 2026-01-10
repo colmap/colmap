@@ -42,7 +42,6 @@
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/timer.h"
 
 #include <unordered_set>
 
@@ -914,90 +913,6 @@ TwoViewGeometry TwoViewGeometryFromKnownRelativePose(
   geometry.E = E;
   geometry.inlier_matches = inlier_matches;
   return geometry;
-}
-
-namespace {
-
-std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
-    const FeatureKeypoints& keypoints) {
-  std::vector<Eigen::Vector2d> points(keypoints.size());
-  for (size_t i = 0; i < keypoints.size(); i++) {
-    points[i] = Eigen::Vector2d(keypoints[i].x, keypoints[i].y);
-  }
-  return points;
-}
-
-}  // namespace
-
-void MaybeDecomposeAndWriteRelativePoses(Database* database) {
-  Timer timer;
-  timer.Start();
-  LOG(INFO) << "Decomposing relative poses...";
-
-  std::unordered_map<camera_t, Camera> cameras;
-  for (auto& camera : database->ReadAllCameras()) {
-    cameras.emplace(camera.camera_id, std::move(camera));
-  }
-
-  std::unordered_map<image_t, Image> images;
-  for (auto& image : database->ReadAllImages()) {
-    images.emplace(image.ImageId(), std::move(image));
-  }
-
-  const auto all_matches = database->ReadAllMatches();
-
-  size_t decompose_count = 0;
-  size_t decompose_failed_count = 0;
-
-  for (const auto& [pair_id, matches] : all_matches) {
-    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-
-    TwoViewGeometry two_view_geom =
-        database->ReadTwoViewGeometry(image_id1, image_id2);
-
-    if (two_view_geom.cam2_from_cam1.has_value()) {
-      continue;
-    }
-
-    const bool is_invalid =
-        two_view_geom.config == TwoViewGeometry::UNDEFINED ||
-        two_view_geom.config == TwoViewGeometry::DEGENERATE ||
-        two_view_geom.config == TwoViewGeometry::WATERMARK ||
-        two_view_geom.config == TwoViewGeometry::MULTIPLE;
-
-    if (is_invalid) {
-      continue;
-    }
-
-    const Image& image1 = images.at(image_id1);
-    const Image& image2 = images.at(image_id2);
-    const Camera& camera1 = cameras.at(image1.CameraId());
-    const Camera& camera2 = cameras.at(image2.CameraId());
-
-    const std::vector<Eigen::Vector2d> points1 =
-        FeatureKeypointsToPointsVector(database->ReadKeypoints(image_id1));
-    const std::vector<Eigen::Vector2d> points2 =
-        FeatureKeypointsToPointsVector(database->ReadKeypoints(image_id2));
-
-    decompose_count++;
-    const bool success = EstimateTwoViewGeometryPose(
-        camera1, points1, camera2, points2, &two_view_geom);
-
-    if (success && two_view_geom.cam2_from_cam1.has_value()) {
-      const double norm = two_view_geom.cam2_from_cam1->translation.norm();
-      if (norm > 1e-12) {
-        two_view_geom.cam2_from_cam1->translation /= norm;
-      }
-      database->UpdateTwoViewGeometry(image_id1, image_id2, two_view_geom);
-    } else {
-      decompose_failed_count++;
-    }
-  }
-
-  LOG(INFO) << StringPrintf("Decomposed %d relative poses (%d failed) in %.3fs",
-                            decompose_count,
-                            decompose_failed_count,
-                            timer.ElapsedSeconds());
 }
 
 }  // namespace colmap

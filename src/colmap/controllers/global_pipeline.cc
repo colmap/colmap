@@ -45,11 +45,7 @@ GlobalPipeline::GlobalPipeline(
     : options_(options),
       database_(std::move(THROW_CHECK_NOTNULL(database))),
       reconstruction_manager_(
-          std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {
-  if (options_.decompose_relative_pose) {
-    MaybeDecomposeAndWriteRelativePoses(database_.get());
-  }
-}
+          std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {}
 
 void GlobalPipeline::Run() {
   // Run view graph calibration on the database before loading into mapper.
@@ -77,6 +73,8 @@ void GlobalPipeline::Run() {
   database_cache_options.ignore_watermarks = options_.ignore_watermarks;
   database_cache_options.image_names = {options_.image_names.begin(),
                                         options_.image_names.end()};
+  database_cache_options.decompose_missing_relative_poses =
+      options_.decompose_missing_relative_poses;
   auto database_cache =
       DatabaseCache::Create(*database_, database_cache_options);
 

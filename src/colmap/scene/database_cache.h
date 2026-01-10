@@ -63,6 +63,9 @@ class DatabaseCache {
 
     // Whether to convert pose priors to ENU coordinate system.
     bool convert_pose_priors_to_enu = false;
+
+    // Whether to decompose missing relative poses in the two-view geometry.
+    bool decompose_missing_relative_poses = false;
   };
 
   DatabaseCache();
@@ -123,6 +126,9 @@ class DatabaseCache {
   const class Image* FindImageWithName(const std::string& name) const;
 
  private:
+  void MaybeDecomposeRelativePose(image_t image_id1,
+                                  image_t image_id2,
+                                  TwoViewGeometry& two_view_geometry) const;
   void ConvertPosePriorsToENU();
 
   std::unordered_map<rig_t, class Rig> rigs_;

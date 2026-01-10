@@ -29,6 +29,7 @@
 
 #include "colmap/scene/database_cache.h"
 
+#include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
@@ -41,6 +42,15 @@ std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
   std::vector<Eigen::Vector2d> points(keypoints.size());
   for (size_t i = 0; i < keypoints.size(); ++i) {
     points[i] = Eigen::Vector2d(keypoints[i].x, keypoints[i].y);
+  }
+  return points;
+}
+
+std::vector<Eigen::Vector2d> ImagePointsToPointsVector(const Image& image) {
+  std::vector<Eigen::Vector2d> points(image.NumPoints2D());
+  for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+       point2D_idx++) {
+    points[point2D_idx] = Eigen::Vector2d(image.Point2D(point2D_idx).xy);
   }
   return points;
 }
@@ -131,7 +141,7 @@ void DatabaseCache::Load(const Database& database, const Options& options) {
   LOG(INFO) << StringPrintf(
       " %d in %.3fs", two_view_geometries.size(), timer.ElapsedSeconds());
 
-  auto UseInlierMatchesCheck =
+  auto ShouldUseTwoViewGeometry =
       [&options](const TwoViewGeometry& two_view_geometry) {
         return static_cast<size_t>(two_view_geometry.inlier_matches.size()) >=
                    options.min_num_matches &&
@@ -187,7 +197,7 @@ void DatabaseCache::Load(const Database& database, const Options& options) {
     std::unordered_set<frame_t> connected_frame_ids;
     connected_frame_ids.reserve(frame_ids.size());
     for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
-      if (UseInlierMatchesCheck(two_view_geometry)) {
+      if (ShouldUseTwoViewGeometry(two_view_geometry)) {
         const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
         const frame_t frame_id1 = image_to_frame_id.at(image_id1);
         const frame_t frame_id2 = image_to_frame_id.at(image_id2);
@@ -259,8 +269,11 @@ void DatabaseCache::Load(const Database& database, const Options& options) {
 
   size_t num_ignored_image_pairs = 0;
   for (auto& [pair_id, two_view_geometry] : two_view_geometries) {
-    if (UseInlierMatchesCheck(two_view_geometry)) {
+    if (ShouldUseTwoViewGeometry(two_view_geometry)) {
       const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+      if (options.decompose_missing_relative_poses) {
+        MaybeDecomposeRelativePose(image_id1, image_id2, two_view_geometry);
+      }
       const frame_t frame_id1 = image_to_frame_id.at(image_id1);
       const frame_t frame_id2 = image_to_frame_id.at(image_id2);
       if (frame_ids.count(frame_id1) > 0 && frame_ids.count(frame_id2) > 0) {
@@ -308,8 +321,8 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
   const std::unordered_map<image_pair_t, point2D_t> num_matches_between_images =
       source_graph->NumMatchesBetweenAllImages();
 
-  auto UseInlierMatchesCheck = [&options](int two_view_geometry_config,
-                                          size_t num_matches) {
+  auto ShouldUseTwoViewGeometry = [&options](int two_view_geometry_config,
+                                             size_t num_matches) {
     return num_matches >= options.min_num_matches &&
            (!options.ignore_watermarks ||
             two_view_geometry_config != TwoViewGeometry::WATERMARK);
@@ -322,7 +335,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
     const TwoViewGeometry two_view_geometry =
         source_graph->ExtractTwoViewGeometry(
             image_id1, image_id2, /*extract_inlier_matches=*/false);
-    if (UseInlierMatchesCheck(two_view_geometry.config, num_matches)) {
+    if (ShouldUseTwoViewGeometry(two_view_geometry.config, num_matches)) {
       if (candidate_image_ids.count(image_id1) > 0 &&
           candidate_image_ids.count(image_id2) > 0) {
         connected_image_ids.insert(image_id1);
@@ -439,6 +452,37 @@ const class Image* DatabaseCache::FindImageWithName(
     }
   }
   return nullptr;
+}
+
+void DatabaseCache::MaybeDecomposeRelativePose(
+    const image_t image_id1,
+    const image_t image_id2,
+    TwoViewGeometry& two_view_geometry) const {
+  if (two_view_geometry.cam2_from_cam1.has_value()) {
+    return;
+  }
+
+  const bool is_invalid =
+      two_view_geometry.config == TwoViewGeometry::UNDEFINED ||
+      two_view_geometry.config == TwoViewGeometry::DEGENERATE ||
+      two_view_geometry.config == TwoViewGeometry::WATERMARK ||
+      two_view_geometry.config == TwoViewGeometry::MULTIPLE;
+  if (is_invalid) {
+    return;
+  }
+
+  const class Image& image1 = Image(image_id1);
+  const class Image& image2 = Image(image_id2);
+  const struct Camera& camera1 = Camera(image1.CameraId());
+  const struct Camera& camera2 = Camera(image2.CameraId());
+
+  const std::vector<Eigen::Vector2d> points1 =
+      ImagePointsToPointsVector(image1);
+  const std::vector<Eigen::Vector2d> points2 =
+      ImagePointsToPointsVector(image2);
+
+  EstimateTwoViewGeometryPose(
+      camera1, points1, camera2, points2, &two_view_geometry);
 }
 
 void DatabaseCache::ConvertPosePriorsToENU() {
