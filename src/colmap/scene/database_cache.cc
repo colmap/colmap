@@ -366,7 +366,8 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
         cache->correspondence_graph_->AddTwoViewGeometry(
             image_id1,
             image_id2,
-            source_graph->TwoViewGeometry(image_id1, image_id2));
+            source_graph->ExtractTwoViewGeometry(
+                image_id1, image_id2, /*extract_inlier_matches=*/true));
       }
     }
   }

@@ -60,7 +60,7 @@ image_t ComputeMaximumSpanningTree(
       continue;
     }
     edges.emplace_back(it1->second, it2->second);
-    weights.push_back(static_cast<float>(edge.inlier_matches.size()));
+    weights.push_back(static_cast<float>(edge.num_matches));
   }
 
   // Compute spanning tree using generic algorithm.

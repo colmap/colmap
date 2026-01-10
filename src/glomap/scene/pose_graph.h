@@ -25,19 +25,14 @@ class PoseGraph {
     // Relative pose from image 1 to image 2.
     Rigid3d cam2_from_cam1;
 
-    // Inlier feature matches between the two images.
-    colmap::FeatureMatches inlier_matches;
+    // Number of two-view matches used to compute the relative pose.
+    int num_matches = 0;
 
     // Whether this edge is valid for reconstruction.
     bool valid = true;
 
     // Invert the geometry to match swapped image order.
-    void Invert() {
-      cam2_from_cam1 = colmap::Inverse(cam2_from_cam1);
-      for (auto& match : inlier_matches) {
-        std::swap(match.point2D_idx1, match.point2D_idx2);
-      }
-    }
+    void Invert() { cam2_from_cam1 = colmap::Inverse(cam2_from_cam1); }
   };
 
   PoseGraph() = default;

@@ -29,7 +29,6 @@
 
 #pragma once
 
-#include "colmap/geometry/rigid3.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/correspondence_graph.h"
 #include "colmap/scene/database.h"

@@ -30,7 +30,6 @@
 #include "glomap/scene/pose_graph.h"
 
 #include "colmap/scene/database_cache.h"
-#include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
 #include <gmock/gmock.h>
@@ -39,15 +38,10 @@
 namespace glomap {
 namespace {
 
-PoseGraph::Edge SynthesizeEdge(int num_inliers = 50) {
+PoseGraph::Edge SynthesizeEdge(int num_matches = 50) {
   PoseGraph::Edge edge;
-  // Set default identity pose.
   edge.cam2_from_cam1 = colmap::Rigid3d();
-  // First num_inliers matches are inliers.
-  edge.inlier_matches.reserve(num_inliers);
-  for (int i = 0; i < num_inliers; ++i) {
-    edge.inlier_matches.emplace_back(i, i);
-  }
+  edge.num_matches = num_matches;
   return edge;
 }
 
