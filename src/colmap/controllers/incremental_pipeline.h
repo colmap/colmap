@@ -250,6 +250,7 @@ class IncrementalPipeline : public BaseController {
                                 size_t ba_prev_num_points);
 
  private:
+  void RegisterCallbacks();
   bool ReachedMaxRuntime() const;
 
   const std::shared_ptr<const IncrementalPipelineOptions> options_;

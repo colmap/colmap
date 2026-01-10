@@ -234,9 +234,7 @@ IncrementalPipeline::IncrementalPipeline(
       CreateDatabaseCacheOptions(*options_, *reconstruction_manager_));
   timer.PrintMinutes();
 
-  RegisterCallback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
-  RegisterCallback(NEXT_IMAGE_REG_CALLBACK);
-  RegisterCallback(LAST_IMAGE_REG_CALLBACK);
+  RegisterCallbacks();
 }
 
 IncrementalPipeline::IncrementalPipeline(
@@ -254,9 +252,7 @@ IncrementalPipeline::IncrementalPipeline(
       *database_cache,
       CreateDatabaseCacheOptions(*options_, *reconstruction_manager_));
 
-  RegisterCallback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
-  RegisterCallback(NEXT_IMAGE_REG_CALLBACK);
-  RegisterCallback(LAST_IMAGE_REG_CALLBACK);
+  RegisterCallbacks();
 }
 
 void IncrementalPipeline::Run() {
@@ -701,6 +697,12 @@ void IncrementalPipeline::TriangulateReconstruction(
 
   LOG(INFO) << "Extracting colors";
   reconstruction->ExtractColorsForAllImages(options_->image_path);
+}
+
+void IncrementalPipeline::RegisterCallbacks() {
+  RegisterCallback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
+  RegisterCallback(NEXT_IMAGE_REG_CALLBACK);
+  RegisterCallback(LAST_IMAGE_REG_CALLBACK);
 }
 
 bool IncrementalPipeline::ReachedMaxRuntime() const {
