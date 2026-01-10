@@ -32,9 +32,7 @@ class PoseGraph {
     bool valid = true;
 
     // Invert the geometry to match swapped image order.
-    void Invert() {
-      cam2_from_cam1 = colmap::Inverse(cam2_from_cam1);
-    }
+    void Invert() { cam2_from_cam1 = colmap::Inverse(cam2_from_cam1); }
   };
 
   PoseGraph() = default;
