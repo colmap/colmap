@@ -47,19 +47,6 @@ CorrespondenceGraph::NumMatchesBetweenAllImages() const {
   return num_matches_between_images;
 }
 
-struct TwoViewGeometry CorrespondenceGraph::TwoViewGeometry(
-    image_t image_id1, image_t image_id2) const {
-  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
-  auto image_pair_it = image_pairs_.find(pair_id);
-  THROW_CHECK(image_pair_it != image_pairs_.end());
-  struct TwoViewGeometry two_view_geometry =
-      image_pair_it->second.two_view_geometry;
-  if (ShouldSwapImagePair(image_id1, image_id2)) {
-    two_view_geometry.Invert();
-  }
-  return two_view_geometry;
-}
-
 void CorrespondenceGraph::Finalize() {
   THROW_CHECK(!finalized_);
   finalized_ = true;
@@ -308,6 +295,24 @@ void CorrespondenceGraph::ExtractMatchesBetweenImages(
       }
     }
   }
+}
+
+struct TwoViewGeometry CorrespondenceGraph::ExtractTwoViewGeometry(
+    image_t image_id1, image_t image_id2, bool extract_inlier_matches) const {
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
+  auto image_pair_it = image_pairs_.find(pair_id);
+  THROW_CHECK(image_pair_it != image_pairs_.end());
+  struct TwoViewGeometry two_view_geometry =
+      image_pair_it->second.two_view_geometry;
+  if (ShouldSwapImagePair(image_id1, image_id2)) {
+    two_view_geometry.Invert();
+  }
+  // Extract after inversion, as they are extracted in the correct order.
+  if (extract_inlier_matches) {
+    ExtractMatchesBetweenImages(
+        image_id1, image_id2, two_view_geometry.inlier_matches);
+  }
+  return two_view_geometry;
 }
 
 bool CorrespondenceGraph::IsTwoViewObservation(

@@ -89,10 +89,6 @@ class CorrespondenceGraph {
   std::unordered_map<image_pair_t, point2D_t> NumMatchesBetweenAllImages()
       const;
 
-  // Two-view geometry without matches. Inverted if necessary.
-  struct TwoViewGeometry TwoViewGeometry(image_t image_id1,
-                                         image_t image_id2) const;
-
   // Finalize the correspondence graph.
   //
   // - Calculates the number of observations per image by counting the number
@@ -139,6 +135,10 @@ class CorrespondenceGraph {
   void ExtractMatchesBetweenImages(image_t image_id1,
                                    image_t image_id2,
                                    FeatureMatches& matches) const;
+
+  // Two-view geometry with optional inlier matches. Inverted if necessary.
+  struct TwoViewGeometry ExtractTwoViewGeometry(
+      image_t image_id1, image_t image_id2, bool extract_inlier_matches) const;
 
   // Check whether the image point has correspondences.
   inline bool HasCorrespondences(image_t image_id, point2D_t point2D_idx) const;
