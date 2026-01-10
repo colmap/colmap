@@ -31,7 +31,6 @@
 
 #include "colmap/feature/index.h"
 #include "colmap/feature/types.h"
-#include "colmap/geometry/gps.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/image.h"
