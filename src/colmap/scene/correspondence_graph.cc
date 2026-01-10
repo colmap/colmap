@@ -90,9 +90,9 @@ void CorrespondenceGraph::AddImage(const image_t image_id,
   images_[image_id].corrs.resize(num_points);
 }
 
-void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
-                                             const image_t image_id2,
-                                             const FeatureMatches& matches) {
+void CorrespondenceGraph::AddMatches(const image_t image_id1,
+                                     const image_t image_id2,
+                                     const FeatureMatches& matches) {
   // Avoid self-matches - should only happen, if user provides custom matches.
   if (image_id1 == image_id2) {
     LOG(WARNING) << "Cannot use self-matches for image_id=" << image_id1;
@@ -257,16 +257,19 @@ void CorrespondenceGraph::ExtractTransitiveCorrespondences(
   corrs->pop_back();
 }
 
-FeatureMatches CorrespondenceGraph::FindCorrespondencesBetweenImages(
-    const image_t image_id1, const image_t image_id2) const {
+void CorrespondenceGraph::ExtractMatchesBetweenImages(
+    const image_t image_id1,
+    const image_t image_id2,
+    FeatureMatches& matches) const {
+  matches.clear();
+
   const point2D_t num_correspondences =
       NumCorrespondencesBetweenImages(image_id1, image_id2);
   if (num_correspondences == 0) {
-    return {};
+    return;
   }
 
-  FeatureMatches corrs;
-  corrs.reserve(num_correspondences);
+  matches.reserve(num_correspondences);
 
   const point2D_t num_points2D1 =
       images_.at(image_id1).flat_corr_begs.size() - 1;
@@ -276,12 +279,10 @@ FeatureMatches CorrespondenceGraph::FindCorrespondencesBetweenImages(
         FindCorrespondences(image_id1, point2D_idx1);
     for (const Correspondence* corr = range.beg; corr < range.end; ++corr) {
       if (corr->image_id == image_id2) {
-        corrs.emplace_back(point2D_idx1, corr->point2D_idx);
+        matches.emplace_back(point2D_idx1, corr->point2D_idx);
       }
     }
   }
-
-  return corrs;
 }
 
 bool CorrespondenceGraph::IsTwoViewObservation(

@@ -62,7 +62,7 @@ TEST(CorrespondenceGraph, Print) {
   CorrespondenceGraph correspondence_graph;
   correspondence_graph.AddImage(0, 10);
   correspondence_graph.AddImage(1, 10);
-  correspondence_graph.AddCorrespondences(0, 1, {});
+  correspondence_graph.AddMatches(0, 1, {});
   std::ostringstream stream;
   stream << correspondence_graph;
   EXPECT_EQ(stream.str(),
@@ -83,7 +83,7 @@ TEST(CorrespondenceGraph, TwoView) {
       {3, 7},
       {4, 8},
   };
-  correspondence_graph.AddCorrespondences(0, 1, matches);
+  correspondence_graph.AddMatches(0, 1, matches);
   correspondence_graph.Finalize();
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(0), 4);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 4);
@@ -161,17 +161,17 @@ TEST(CorrespondenceGraph, TwoView) {
     EXPECT_EQ(corrs.size(),
               CountNumTransitiveCorrespondences(correspondence_graph, 1, i, 2));
   }
-  const auto corrs01 =
-      correspondence_graph.FindCorrespondencesBetweenImages(0, 1);
-  const auto corrs10 =
-      correspondence_graph.FindCorrespondencesBetweenImages(1, 0);
-  EXPECT_EQ(corrs01.size(), matches.size());
-  EXPECT_EQ(corrs10.size(), matches.size());
-  for (size_t i = 0; i < corrs01.size(); ++i) {
-    EXPECT_EQ(corrs01[i].point2D_idx1, corrs10[i].point2D_idx2);
-    EXPECT_EQ(corrs01[i].point2D_idx2, corrs10[i].point2D_idx1);
-    EXPECT_EQ(matches[i].point2D_idx1, corrs01[i].point2D_idx1);
-    EXPECT_EQ(matches[i].point2D_idx2, corrs01[i].point2D_idx2);
+  FeatureMatches matches01;
+  correspondence_graph.ExtractMatchesBetweenImages(0, 1, matches01);
+  FeatureMatches matches10;
+  correspondence_graph.ExtractMatchesBetweenImages(1, 0, matches10);
+  EXPECT_EQ(matches01.size(), matches.size());
+  EXPECT_EQ(matches10.size(), matches.size());
+  for (size_t i = 0; i < matches01.size(); ++i) {
+    EXPECT_EQ(matches01[i].point2D_idx1, matches10[i].point2D_idx2);
+    EXPECT_EQ(matches01[i].point2D_idx2, matches10[i].point2D_idx1);
+    EXPECT_EQ(matches[i].point2D_idx1, matches01[i].point2D_idx1);
+    EXPECT_EQ(matches[i].point2D_idx2, matches01[i].point2D_idx2);
   }
   EXPECT_EQ(correspondence_graph.NumObservationsForImage(0), 4);
   EXPECT_EQ(correspondence_graph.NumObservationsForImage(1), 4);
@@ -185,11 +185,11 @@ TEST(CorrespondenceGraph, ThreeView) {
   correspondence_graph.AddImage(1, 10);
   correspondence_graph.AddImage(2, 10);
   const FeatureMatches matches01 = {{0, 0}};
-  correspondence_graph.AddCorrespondences(0, 1, matches01);
+  correspondence_graph.AddMatches(0, 1, matches01);
   const FeatureMatches matches02 = {{0, 0}};
-  correspondence_graph.AddCorrespondences(0, 2, matches02);
+  correspondence_graph.AddMatches(0, 2, matches02);
   const FeatureMatches matches12 = {{0, 0}, {5, 5}};
-  correspondence_graph.AddCorrespondences(1, 2, matches12);
+  correspondence_graph.AddMatches(1, 2, matches12);
   correspondence_graph.Finalize();
   EXPECT_EQ(correspondence_graph.NumObservationsForImage(0), 1);
   EXPECT_EQ(correspondence_graph.NumObservationsForImage(1), 2);
@@ -265,7 +265,7 @@ TEST(CorrespondenceGraph, OutOfBounds) {
   matches[1].point2D_idx2 = 3;
   matches[2].point2D_idx1 = 9;
   matches[2].point2D_idx2 = 4;
-  correspondence_graph.AddCorrespondences(0, 1, matches);
+  correspondence_graph.AddMatches(0, 1, matches);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(0), 1);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 1);
   const image_pair_t pair_id = ImagePairToPairId(0, 1);
@@ -288,7 +288,7 @@ TEST(CorrespondenceGraph, Duplicate) {
   matches[3].point2D_idx2 = 3;
   matches[4].point2D_idx1 = 3;
   matches[4].point2D_idx2 = 4;
-  correspondence_graph.AddCorrespondences(0, 1, matches);
+  correspondence_graph.AddMatches(0, 1, matches);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(0), 4);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 4);
   const image_pair_t pair_id = ImagePairToPairId(0, 1);

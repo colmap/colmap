@@ -249,7 +249,7 @@ void DatabaseCache::Load(const Database& database, const Options& options) {
       const frame_t frame_id1 = image_to_frame_id.at(image_id1);
       const frame_t frame_id2 = image_to_frame_id.at(image_id2);
       if (frame_ids.count(frame_id1) > 0 && frame_ids.count(frame_id2) > 0) {
-        correspondence_graph_->AddCorrespondences(
+        correspondence_graph_->AddMatches(
             image_id1, image_id2, two_view_geometry.inlier_matches);
       } else {
         num_ignored_image_pairs += 1;
@@ -385,16 +385,15 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
   }
 
   // Copy correspondences between all image pairs in the cache.
+  FeatureMatches matches;
   for (const auto& [pair_id, num_correspondences] : num_corrs_between_images) {
     if (num_correspondences >= options.min_num_matches) {
       const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
       if (cache->images_.count(image_id1) > 0 &&
           cache->images_.count(image_id2) > 0) {
-        const FeatureMatches matches =
-            source_graph->FindCorrespondencesBetweenImages(image_id1,
-                                                           image_id2);
-        cache->correspondence_graph_->AddCorrespondences(
+        source_graph->ExtractMatchesBetweenImages(
             image_id1, image_id2, matches);
+        cache->correspondence_graph_->AddMatches(image_id1, image_id2, matches);
       }
     }
   }

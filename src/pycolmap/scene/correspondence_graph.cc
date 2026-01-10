@@ -26,8 +26,9 @@ void BindCorrespondenceGraph(py::module& m) {
                      &CorrespondenceGraph::Correspondence::point2D_idx);
   MakeDataclass(PyCorrespondence);
 
-  py::classh<CorrespondenceGraph>(m, "CorrespondenceGraph")
-      .def(py::init<>())
+  auto PyCorrespondenceGraph =
+      py::classh<CorrespondenceGraph>(m, "CorrespondenceGraph");
+  PyCorrespondenceGraph.def(py::init<>())
       .def("num_images", &CorrespondenceGraph::NumImages)
       .def("num_image_pairs", &CorrespondenceGraph::NumImagePairs)
       .def("exists_image", &CorrespondenceGraph::ExistsImage, "image_id"_a)
@@ -53,17 +54,17 @@ void BindCorrespondenceGraph(py::module& m) {
            "image_id"_a,
            "num_points2D"_a)
       .def(
-          "add_correspondences",
+          "add_matches",
           [](CorrespondenceGraph& self,
              const image_t image_id1,
              const image_t image_id2,
-             const PyFeatureMatches& corrs) {
-            FeatureMatches matches = FeatureMatchesFromMatrix(corrs);
-            self.AddCorrespondences(image_id1, image_id2, matches);
+             const PyFeatureMatches& matches) {
+            self.AddMatches(
+                image_id1, image_id2, FeatureMatchesFromMatrix(matches));
           },
           "image_id1"_a,
           "image_id2"_a,
-          "correspondences"_a)
+          "matches"_a)
       .def(
           "extract_correspondences",
           [](const CorrespondenceGraph& self,
@@ -95,8 +96,8 @@ void BindCorrespondenceGraph(py::module& m) {
           [](const CorrespondenceGraph& self,
              const image_t image_id1,
              const image_t image_id2) -> PyFeatureMatches {
-            const FeatureMatches matches =
-                self.FindCorrespondencesBetweenImages(image_id1, image_id2);
+            FeatureMatches matches;
+            self.ExtractMatchesBetweenImages(image_id1, image_id2, matches);
             return FeatureMatchesToMatrix(matches);
           },
           "image_id1"_a,
@@ -118,4 +119,5 @@ void BindCorrespondenceGraph(py::module& m) {
              return CorrespondenceGraph(self);
            })
       .def("__repr__", &CreateRepresentation<CorrespondenceGraph>);
+  DefDeprecation(PyCorrespondenceGraph, "add_correspondences", "add_matches");
 }

@@ -384,7 +384,7 @@ TEST(ObservationManager, NumVisiblePoints3D) {
   for (size_t i = 0; i < 10; ++i) {
     matches.emplace_back(i, i);
   }
-  correspondence_graph->AddCorrespondences(kImageId1, kImageId2, matches);
+  correspondence_graph->AddMatches(kImageId1, kImageId2, matches);
   correspondence_graph->Finalize();
   ObservationManager obs_manager(reconstruction, correspondence_graph);
 
@@ -462,19 +462,19 @@ TEST(ObservationManager, NumVisibleCorrespondences) {
   for (size_t i = 0; i < 5; ++i) {
     matches12.emplace_back(i, i);
   }
-  correspondence_graph->AddCorrespondences(kImageId1, kImageId2, matches12);
+  correspondence_graph->AddMatches(kImageId1, kImageId2, matches12);
 
   FeatureMatches matches13;
   for (size_t i = 5; i < 8; ++i) {
     matches13.emplace_back(i, i);
   }
-  correspondence_graph->AddCorrespondences(kImageId1, kImageId3, matches13);
+  correspondence_graph->AddMatches(kImageId1, kImageId3, matches13);
 
   FeatureMatches matches23;
   for (size_t i = 0; i < 2; ++i) {
     matches23.emplace_back(i, i + 5);
   }
-  correspondence_graph->AddCorrespondences(kImageId2, kImageId3, matches23);
+  correspondence_graph->AddMatches(kImageId2, kImageId3, matches23);
 
   correspondence_graph->Finalize();
 
@@ -555,7 +555,7 @@ TEST(ObservationManager, Point3DVisibilityScore) {
   for (size_t i = 0; i < 16; ++i) {
     matches.emplace_back(i, i);
   }
-  correspondence_graph->AddCorrespondences(kImageId1, kImageId2, matches);
+  correspondence_graph->AddMatches(kImageId1, kImageId2, matches);
   correspondence_graph->Finalize();
   ObservationManager obs_manager(reconstruction, correspondence_graph);
 

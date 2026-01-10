@@ -101,9 +101,9 @@ class CorrespondenceGraph {
   // correspondences where the point indices are out of bounds or duplicate
   // correspondences between the same image points. Whenever either of the two
   // cases occur this function prints a warning to the standard output.
-  void AddCorrespondences(image_t image_id1,
-                          image_t image_id2,
-                          const FeatureMatches& matches);
+  void AddMatches(image_t image_id1,
+                  image_t image_id2,
+                  const FeatureMatches& matches);
 
   // Find range of correspondences of an image observation to all other images.
   CorrespondenceRange FindCorrespondences(image_t image_id,
@@ -129,8 +129,9 @@ class CorrespondenceGraph {
       std::vector<Correspondence>* corrs) const;
 
   // Find all correspondences between two images.
-  FeatureMatches FindCorrespondencesBetweenImages(image_t image_id1,
-                                                  image_t image_id2) const;
+  void ExtractMatchesBetweenImages(image_t image_id1,
+                                   image_t image_id2,
+                                   FeatureMatches& matches) const;
 
   // Check whether the image point has correspondences.
   inline bool HasCorrespondences(image_t image_id, point2D_t point2D_idx) const;

@@ -12,8 +12,8 @@ void PoseGraph::Load(const colmap::DatabaseCache& cache) {
 
     Edge edge;
     edge.cam2_from_cam1 = cam2_from_cam1;
-    edge.inlier_matches =
-        corr_graph->FindCorrespondencesBetweenImages(image_id1, image_id2);
+    corr_graph->ExtractMatchesBetweenImages(
+        image_id1, image_id2, edge.inlier_matches);
 
     AddEdge(image_id1, image_id2, std::move(edge));
   }
