@@ -144,28 +144,32 @@ class Image {
   inline bool operator!=(const Image& other) const;
 
  private:
-  // Identifier of the image, if not specified `kInvalidImageId`.
-  image_t image_id_;
-
   // The name of the image, i.e. the relative path.
   std::string name_;
+
+  // Pointer to the associated camera object.
+  struct Camera* camera_ptr_;
+
+  // Pointer to the corresponding frame object.
+  class Frame* frame_ptr_;
+
+  // All image points, including points that are not part of a 3D point track.
+  std::vector<struct Point2D> points2D_;
+
+  // Identifier of the image, if not specified `kInvalidImageId`.
+  image_t image_id_;
 
   // The identifier of the associated camera. Note that multiple images might
   // share the same camera. If not specified `kInvalidCameraId`.
   camera_t camera_id_;
-  struct Camera* camera_ptr_;
 
   // The corresponding frame of the image. Note that multiple images might
   // share the same frame. If not specified `kInvalidFrameId`.
   frame_t frame_id_;
-  class Frame* frame_ptr_;
 
   // The number of 3D points the image observes, i.e. the sum of its `points2D`
   // where `point3D_id != kInvalidPoint3DId`.
   point2D_t num_points3D_;
-
-  // All image points, including points that are not part of a 3D point track.
-  std::vector<struct Point2D> points2D_;
 };
 
 std::ostream& operator<<(std::ostream& stream, const Image& image);
