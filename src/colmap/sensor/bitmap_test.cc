@@ -652,7 +652,7 @@ TEST(Bitmap, ReadRGBA) {
   EXPECT_EQ(rgb_bitmap.BitsPerPixel(), 24);
 
   const std::vector<uint8_t> expected_rgb = {
-      0, 0, 0, 2, 0, 0, 1, 0, 0, 3, 0, 0, 4, 2, 0, 5, 2, 1};
+      0, 0, 0, 2, 0, 0, 10, 0, 0, 30, 0, 0, 40, 2, 0, 5, 20, 10};
   for (int i = 0; i < width * height; ++i) {
     // Older OIIO versions seem to have a off-by-one error due to rounding.
     EXPECT_NEAR(rgb_bitmap.RowMajorData()[i], expected_rgb[i], 1);
