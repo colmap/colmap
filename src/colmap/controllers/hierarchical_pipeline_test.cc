@@ -115,7 +115,7 @@ TEST(HierarchicalPipeline, WithoutNoiseAndNonTrivialFrames) {
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   HierarchicalPipeline::Options mapper_options;
   mapper_options.clustering_options.leaf_max_num_images = 10;
-  mapper_options.clustering_options.image_overlap = 3;
+  mapper_options.clustering_options.image_overlap = 4;
   // Note that the hierarchical mapper does not work well when the
   // sensor_from_rig poses are inconsistently refined in different clusters,
   // because then the merging does not work well.
