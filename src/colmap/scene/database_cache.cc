@@ -221,13 +221,28 @@ void DatabaseCache::Load(const Database& database, const Options& options) {
       images_.emplace(image_id, std::move(image));
     }
 
-    pose_priors_ = database.ReadAllPosePriors();
-
     LOG(INFO) << StringPrintf(" %d in %.3fs (connected %d)",
                               num_images,
                               timer.ElapsedSeconds(),
                               images_.size());
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Load pose priors
+  //////////////////////////////////////////////////////////////////////////////
+
+  timer.Restart();
+
+  LOG(INFO) << "Loading pose priors...";
+
+  pose_priors_ = database.ReadAllPosePriors();
+
+  if (options.convert_pose_priors_to_enu) {
+    ConvertPosePriorsToENU();
+  }
+
+  LOG(INFO) << StringPrintf(
+      " %d in %.3fs", pose_priors_.size(), timer.ElapsedSeconds());
 
   //////////////////////////////////////////////////////////////////////////////
   // Build correspondence graph
@@ -293,14 +308,26 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
   const std::unordered_map<image_pair_t, point2D_t> num_matches_between_images =
       source_graph->NumMatchesBetweenAllImages();
 
+  auto UseInlierMatchesCheck = [&options](int two_view_geometry_config,
+                                          size_t num_matches) {
+    return num_matches >= options.min_num_matches &&
+           (!options.ignore_watermarks ||
+            two_view_geometry_config != TwoViewGeometry::WATERMARK);
+  };
+
   std::unordered_set<image_t> connected_image_ids;
+  std::vector<image_pair_t> valid_pair_indices;
   for (const auto& [pair_id, num_matches] : num_matches_between_images) {
-    if (num_matches >= options.min_num_matches) {
-      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    const TwoViewGeometry two_view_geometry =
+        source_graph->ExtractTwoViewGeometry(
+            image_id1, image_id2, /*extract_inlier_matches=*/false);
+    if (UseInlierMatchesCheck(two_view_geometry.config, num_matches)) {
       if (candidate_image_ids.count(image_id1) > 0 &&
           candidate_image_ids.count(image_id2) > 0) {
         connected_image_ids.insert(image_id1);
         connected_image_ids.insert(image_id2);
+        valid_pair_indices.push_back(pair_id);
       }
     }
   }
@@ -349,6 +376,9 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
 
   // Copy pose priors.
   cache->pose_priors_ = database_cache.PosePriors();
+  if (options.convert_pose_priors_to_enu) {
+    cache->ConvertPosePriorsToENU();
+  }
 
   // Build filtered correspondence graph with all images from connected frames.
   cache->correspondence_graph_ = std::make_shared<class CorrespondenceGraph>();
@@ -358,18 +388,13 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
   }
 
   // Copy correspondences between all image pairs in the cache.
-  for (const auto& [pair_id, num_matches] : num_matches_between_images) {
-    if (num_matches >= options.min_num_matches) {
-      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-      if (cache->images_.count(image_id1) > 0 &&
-          cache->images_.count(image_id2) > 0) {
-        cache->correspondence_graph_->AddTwoViewGeometry(
-            image_id1,
-            image_id2,
-            source_graph->ExtractTwoViewGeometry(
-                image_id1, image_id2, /*extract_inlier_matches=*/true));
-      }
-    }
+  for (const image_pair_t pair_id : valid_pair_indices) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    cache->correspondence_graph_->AddTwoViewGeometry(
+        image_id1,
+        image_id2,
+        source_graph->ExtractTwoViewGeometry(
+            image_id1, image_id2, /*extract_inlier_matches=*/true));
   }
 
   cache->correspondence_graph_->Finalize();
@@ -416,17 +441,7 @@ const class Image* DatabaseCache::FindImageWithName(
   return nullptr;
 }
 
-bool DatabaseCache::SetupPosePriors() {
-  LOG(INFO) << "Setting up prior positions...";
-
-  Timer timer;
-  timer.Start();
-
-  if (NumPosePriors() == 0) {
-    LOG(ERROR) << "No pose priors in database...";
-    return false;
-  }
-
+void DatabaseCache::ConvertPosePriorsToENU() {
   bool prior_is_gps = true;
 
   std::vector<Eigen::Vector3d> gps_prior_positions;
@@ -440,11 +455,10 @@ bool DatabaseCache::SetupPosePriors() {
     }
   }
 
-  if (coordinate_systems.size() > 1) {
-    LOG(ERROR) << "Inconsistent coordinate systems defined as pose priors";
-    return false;
-  }
+  THROW_CHECK_LE(coordinate_systems.size(), 1)
+      << "Inconsistent coordinate systems defined in pose priors";
 
+  // If GPS priors are available, convert them to Cartesian ENU coordinates.
   if (prior_is_gps) {
     // GPS reference to be used for EllipsoidToENU conversion.
     const double ref_lat = gps_prior_positions[0][0];
@@ -461,10 +475,6 @@ bool DatabaseCache::SetupPosePriors() {
       ++xyz_prior_it;
     }
   }
-
-  timer.PrintMinutes();
-
-  return true;
 }
 
 }  // namespace colmap

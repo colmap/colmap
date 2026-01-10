@@ -60,6 +60,9 @@ class DatabaseCache {
     // that if one image of a frame is included, all other images in the same
     // frame will also be included. All images are used if empty.
     std::unordered_set<std::string> image_names;
+
+    // Whether to convert pose priors to ENU coordinate system.
+    bool convert_pose_priors_to_enu = false;
   };
 
   DatabaseCache();
@@ -119,10 +122,9 @@ class DatabaseCache {
   // Find specific image by name. Note that this uses linear search.
   const class Image* FindImageWithName(const std::string& name) const;
 
-  // Setup PosePriors for PosePriorBundleAdjustment
-  bool SetupPosePriors();
-
  private:
+  void ConvertPosePriorsToENU();
+
   std::unordered_map<rig_t, class Rig> rigs_;
   std::unordered_map<camera_t, struct Camera> cameras_;
   std::unordered_map<frame_t, class Frame> frames_;

@@ -223,24 +223,16 @@ IncrementalPipeline::IncrementalPipeline(
       static_cast<size_t>(options_->min_num_matches);
   database_cache_options.ignore_watermarks = options_->ignore_watermarks;
   database_cache_options.image_names = image_names;
+  database_cache_options.convert_pose_priors_to_enu =
+      options_->use_prior_position;
   database_cache_ = DatabaseCache::Create(*database, database_cache_options);
   timer.PrintMinutes();
-
-  // If prior positions are to be used and setup from the database, convert
-  // geographic coords. to cartesian ones
-  if (options_->use_prior_position) {
-    THROW_CHECK(database_cache_->SetupPosePriors());
-  }
 
   RegisterCallback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
   RegisterCallback(NEXT_IMAGE_REG_CALLBACK);
   RegisterCallback(LAST_IMAGE_REG_CALLBACK);
 }
 
-// NOTE: This constructor does not respect the ignore_watermarks option since
-// watermark filtering requires access to the original TwoViewGeometry data
-// from the database. The caller should ensure the passed database_cache was
-// created with appropriate watermark filtering if needed.
 IncrementalPipeline::IncrementalPipeline(
     std::shared_ptr<const IncrementalPipelineOptions> options,
     std::shared_ptr<class DatabaseCache> database_cache,
@@ -264,18 +256,14 @@ IncrementalPipeline::IncrementalPipeline(
     }
   }
 
-  DatabaseCache::Options cache_options;
-  cache_options.min_num_matches =
+  DatabaseCache::Options database_cache_options;
+  database_cache_options.min_num_matches =
       static_cast<size_t>(options_->min_num_matches);
-  cache_options.image_names = image_names;
+  database_cache_options.image_names = image_names;
+  database_cache_options.convert_pose_priors_to_enu =
+      options_->use_prior_position;
   database_cache_ =
-      DatabaseCache::CreateFromCache(*database_cache, cache_options);
-
-  // If prior positions are to be used and setup from the database, convert
-  // geographic coords. to cartesian ones
-  if (options_->use_prior_position) {
-    THROW_CHECK(database_cache_->SetupPosePriors());
-  }
+      DatabaseCache::CreateFromCache(*database_cache, database_cache_options);
 
   RegisterCallback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
   RegisterCallback(NEXT_IMAGE_REG_CALLBACK);
@@ -286,7 +274,12 @@ void IncrementalPipeline::Run() {
   total_run_timer_->Start();
 
   if (database_cache_->NumImages() == 0) {
-    LOG(WARNING) << "No images with matches found in the database";
+    LOG(WARNING) << "No images with matches";
+    return;
+  }
+
+  if (options_->use_prior_position && database_cache_->NumPosePriors() == 0) {
+    LOG(WARNING) << "No pose priors";
     return;
   }
 
