@@ -468,18 +468,29 @@ bool Bitmap::Read(const std::filesystem::path& path,
   const OIIO::ImageSpec& image_spec = input->spec();
   width_ = image_spec.width;
   height_ = image_spec.height;
-  channels_ = image_spec.nchannels;
-  if (channels_ != 1 && channels_ != 3) {
-    VLOG(3) << "Bitmap is not grayscale or RGB";
+  const int file_channels = image_spec.nchannels;
+  // Handle images with alpha channel by dropping alpha:
+  // - 4 channels (RGBA) -> 3 channels (RGB)
+  // - 2 channels (grayscale + alpha) -> 1 channel (grayscale)
+  if (file_channels == 4) {
+    channels_ = 3;
+  } else if (file_channels == 2) {
+    channels_ = 1;
+  } else if (file_channels == 1 || file_channels == 3) {
+    channels_ = file_channels;
+  } else {
+    VLOG(3) << "Unsupported number of channels: " << file_channels;
     return false;
   }
 
   data_.resize(width_ * height_ * channels_);
+  // Note that OIIO supports reading a subset of channels.
   input->read_image(0, 0, 0, channels_, OIIO::TypeDesc::UINT8, data_.data());
   input->close();
 
   auto meta_data = std::make_unique<OIIOMetaData>();
   meta_data->image_spec = image_spec;
+  meta_data->image_spec.nchannels = channels_;
   meta_data_ = std::move(meta_data);
 
   if (linearize_colorspace) {

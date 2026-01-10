@@ -31,11 +31,26 @@
 
 #include "colmap/util/testing.h"
 
+#include <OpenImageIO/imagebufalgo.h>
+#include <OpenImageIO/imageio.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
+
+void WriteImageOIIO(const int width,
+                    const int height,
+                    const int channels,
+                    const std::filesystem::path& path,
+                    const uint8_t* data) {
+  const OIIO::ImageSpec spec(width, height, channels, OIIO::TypeDesc::UINT8);
+  auto output = OIIO::ImageOutput::create(path.string());
+  ASSERT_NE(output, nullptr);
+  ASSERT_TRUE(output->open(path.string(), spec));
+  ASSERT_TRUE(output->write_image(OIIO::TypeDesc::UINT8, data));
+  ASSERT_TRUE(output->close());
+}
 
 TEST(BitmapColor, Empty) {
   BitmapColor<uint8_t> color;
@@ -615,6 +630,70 @@ TEST(Bitmap, ReadWriteAsGreyNonLinear) {
   EXPECT_EQ(read_bitmap.Channels(), 1);
   EXPECT_EQ(read_bitmap.BitsPerPixel(), 8);
   EXPECT_EQ(read_bitmap.RowMajorData(), bitmap.RowMajorData());
+}
+
+TEST(Bitmap, ReadRGBA) {
+  const int width = 2;
+  const int height = 3;
+  const int channels = 4;
+  const std::vector<uint8_t> rgba_data = {0,  0, 0, 255, 2,  0,  0,  255,
+                                          10, 0, 0, 128, 30, 0,  0,  200,
+                                          40, 2, 0, 255, 5,  20, 10, 100};
+
+  const auto test_dir = CreateTestDir();
+  const auto filename = test_dir / "image.png";
+  WriteImageOIIO(width, height, channels, filename, rgba_data.data());
+
+  Bitmap rgb_bitmap;
+  EXPECT_TRUE(rgb_bitmap.Read(filename));
+  EXPECT_EQ(rgb_bitmap.Width(), width);
+  EXPECT_EQ(rgb_bitmap.Height(), height);
+  EXPECT_EQ(rgb_bitmap.Channels(), 3);
+  EXPECT_EQ(rgb_bitmap.BitsPerPixel(), 24);
+
+  const std::vector<uint8_t> expected_rgb = {
+      0, 0, 0, 2, 0, 0, 10, 0, 0, 30, 0, 0, 40, 2, 0, 5, 20, 10};
+  for (int i = 0; i < width * height; ++i) {
+    // Older OIIO versions seem to have a off-by-one error due to rounding.
+    EXPECT_NEAR(rgb_bitmap.RowMajorData()[i], expected_rgb[i], 1);
+  }
+
+  Bitmap grey_bitmap;
+  EXPECT_TRUE(grey_bitmap.Read(filename, /*as_rgb=*/false));
+  EXPECT_EQ(grey_bitmap.Width(), width);
+  EXPECT_EQ(grey_bitmap.Height(), height);
+  EXPECT_EQ(grey_bitmap.Channels(), 1);
+}
+
+TEST(Bitmap, ReadGreyAlpha) {
+  const int width = 2;
+  const int height = 3;
+  const int channels = 2;  // Gray + Alpha
+  const std::vector<uint8_t> grey_alpha_data = {
+      10, 255, 30, 200, 20, 255, 40, 128, 50, 255, 60, 100};
+
+  const auto test_dir = CreateTestDir();
+  const auto filename = test_dir / "image.png";
+  WriteImageOIIO(width, height, channels, filename, grey_alpha_data.data());
+
+  Bitmap grey_bitmap;
+  EXPECT_TRUE(grey_bitmap.Read(filename, /*as_rgb=*/false));
+  EXPECT_EQ(grey_bitmap.Width(), width);
+  EXPECT_EQ(grey_bitmap.Height(), height);
+  EXPECT_EQ(grey_bitmap.Channels(), 1);
+  EXPECT_EQ(grey_bitmap.BitsPerPixel(), 8);
+
+  const std::vector<uint8_t> expected_grey = {10, 30, 20, 40, 50, 60};
+  for (int i = 0; i < width * height; ++i) {
+    // Older OIIO versions seem to have a off-by-one error due to rounding.
+    EXPECT_NEAR(grey_bitmap.RowMajorData()[i], expected_grey[i], 1);
+  }
+
+  Bitmap rgb_bitmap;
+  EXPECT_TRUE(rgb_bitmap.Read(filename, /*as_rgb=*/true));
+  EXPECT_EQ(rgb_bitmap.Width(), width);
+  EXPECT_EQ(rgb_bitmap.Height(), height);
+  EXPECT_EQ(rgb_bitmap.Channels(), 3);
 }
 
 }  // namespace
