@@ -29,7 +29,8 @@
 
 #pragma once
 
-#include "colmap/scene/database.h"
+#include "colmap/feature/types.h"
+#include "colmap/util/string.h"
 #include "colmap/util/types.h"
 
 #include <unordered_map>
@@ -37,8 +38,9 @@
 
 namespace colmap {
 
-// Scene graph represents the graph of image to image and feature to feature
-// correspondences of a dataset. It should be accessed from the DatabaseCache.
+// Correspondence graph represents the graph of image to image and feature to
+// feature correspondences of a dataset. It should be accessed from the
+// DatabaseCache.
 class CorrespondenceGraph {
  public:
   struct Correspondence {
@@ -86,7 +88,7 @@ class CorrespondenceGraph {
   std::unordered_map<image_pair_t, point2D_t> NumCorrespondencesBetweenImages()
       const;
 
-  // Finalize the database manager.
+  // Finalize the correspondence graph.
   //
   // - Calculates the number of observations per image by counting the number
   //   of image points that have at least one correspondence.
