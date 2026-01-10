@@ -81,11 +81,11 @@ class CorrespondenceGraph {
   // Get the number of correspondences per image.
   inline point2D_t NumCorrespondencesForImage(image_t image_id) const;
 
-  // Get the number of correspondences between a pair of images.
+  // Get the number of matches between a pair of images.
   inline point2D_t NumMatchesBetweenImages(image_t image_id1,
                                            image_t image_id2) const;
 
-  // Get the number of correspondences between all images.
+  // Get the number of matches between all images.
   std::unordered_map<image_pair_t, point2D_t> NumMatchesBetweenAllImages()
       const;
 
@@ -135,7 +135,7 @@ class CorrespondenceGraph {
       size_t transitivity,
       std::vector<Correspondence>* corrs) const;
 
-  // Find all correspondences between two images.
+  // Find all matches between two images.
   void ExtractMatchesBetweenImages(image_t image_id1,
                                    image_t image_id2,
                                    FeatureMatches& matches) const;
@@ -170,7 +170,7 @@ class CorrespondenceGraph {
   };
 
   struct ImagePair {
-    // The number of matches between pairs of images.
+    // The number of inlier matches between pairs of images.
     point2D_t num_matches = 0;
     // The two-view geometry of the image pair without matches.
     struct TwoViewGeometry two_view_geometry;
