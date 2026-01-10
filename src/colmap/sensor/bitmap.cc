@@ -472,7 +472,6 @@ bool Bitmap::Read(const std::filesystem::path& path,
   // Handle images with alpha channel by dropping alpha:
   // - 4 channels (RGBA) -> 3 channels (RGB)
   // - 2 channels (grayscale + alpha) -> 1 channel (grayscale)
-  LOG(INFO) << "Image has " << file_channels << " channels";
   if (file_channels == 4) {
     channels_ = 3;
   } else if (file_channels == 2) {
