@@ -556,44 +556,75 @@ TEST_P(ParameterizedDatabaseTests, Merge) {
   std::shared_ptr<Database> database1 = GetParam()(kInMemorySqliteDatabasePath);
   std::shared_ptr<Database> database2 = GetParam()(kInMemorySqliteDatabasePath);
 
+  // This test intentionally uses custom, large, partially overlapping IDs from
+  // rigs/frames/images/cameras which then require remapping of the IDs. This is
+  // to ensure that the database can handle this case.
+
   Camera camera1 = Camera::CreateFromModelName(
       kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
-  camera1.camera_id = database1->WriteCamera(camera1);
+  camera1.camera_id = 50;
+  database1->WriteCamera(camera1, /*use_camera_id=*/true);
   Camera camera2 = Camera::CreateFromModelName(
       kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
-  camera2.camera_id = database2->WriteCamera(camera2);
+  camera2.camera_id = 60;
+  database1->WriteCamera(camera2, /*use_camera_id=*/true);
+  Camera camera3 = Camera::CreateFromModelName(
+      kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  camera3.camera_id = 55;
+  database2->WriteCamera(camera3, /*use_camera_id=*/true);
+  Camera camera4 = Camera::CreateFromModelName(
+      kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  camera4.camera_id = 60;
+  database2->WriteCamera(camera4, /*use_camera_id=*/true);
 
   Rig rig1;
+  rig1.SetRigId(100);
   rig1.AddRefSensor(camera1.SensorId());
-  rig1.SetRigId(database1->WriteRig(rig1));
+  rig1.AddSensor(camera2.SensorId(), Rigid3d());
+  database1->WriteRig(rig1, /*use_rig_id=*/true);
+
   Rig rig2;
-  rig2.AddRefSensor(camera2.SensorId());
-  rig2.SetRigId(database2->WriteRig(rig2));
+  rig2.SetRigId(200);
+  rig2.AddRefSensor(camera3.SensorId());
+  rig2.AddSensor(camera4.SensorId(), Rigid3d());
+  database2->WriteRig(rig2, /*use_rig_id=*/true);
+
+  const image_t image_id1 = 300;
+  const image_t image_id2 = 400;
+  const image_t image_id3 = 350;
+  const image_t image_id4 = 400;
 
   Image image;
+  image.SetImageId(image_id1);
   image.SetCameraId(camera1.camera_id);
-
   image.SetName("test1");
-  const image_t image_id1 = database1->WriteImage(image);
-  image.SetName("test2");
-  const image_t image_id2 = database1->WriteImage(image);
-
+  database1->WriteImage(image, /*use_image_id=*/true);
+  image.SetImageId(image_id2);
   image.SetCameraId(camera2.camera_id);
+  image.SetName("test2");
+  database1->WriteImage(image, /*use_image_id=*/true);
+
+  image.SetImageId(image_id3);
+  image.SetCameraId(camera3.camera_id);
   image.SetName("test3");
-  const image_t image_id3 = database2->WriteImage(image);
+  database2->WriteImage(image, /*use_image_id=*/true);
+  image.SetImageId(image_id4);
+  image.SetCameraId(camera4.camera_id);
   image.SetName("test4");
-  const image_t image_id4 = database2->WriteImage(image);
+  database2->WriteImage(image, /*use_image_id=*/true);
 
   Frame frame1;
   frame1.SetRigId(rig1.RigId());
   frame1.AddDataId(data_t(camera1.SensorId(), image_id1));
   frame1.AddDataId(data_t(camera2.SensorId(), image_id2));
-  frame1.SetFrameId(database1->WriteFrame(frame1));
+  frame1.SetFrameId(1000);
+  database1->WriteFrame(frame1, /*use_frame_id=*/true);
   Frame frame2;
   frame2.SetRigId(rig2.RigId());
-  frame2.AddDataId(data_t(camera1.SensorId(), image_id3));
-  frame2.AddDataId(data_t(camera2.SensorId(), image_id4));
-  frame2.SetFrameId(database2->WriteFrame(frame2));
+  frame2.AddDataId(data_t(camera3.SensorId(), image_id3));
+  frame2.AddDataId(data_t(camera4.SensorId(), image_id4));
+  frame2.SetFrameId(2000);
+  database2->WriteFrame(frame2, /*use_frame_id=*/true);
 
   PosePrior pose_prior1;
   pose_prior1.corr_data_id = data_t(camera1.SensorId(), image_id1);
@@ -601,9 +632,9 @@ TEST_P(ParameterizedDatabaseTests, Merge) {
   pose_prior1.pose_prior_id = database1->WritePosePrior(pose_prior1);
 
   PosePrior pose_prior2;
-  pose_prior2.corr_data_id = data_t(camera2.SensorId(), image_id2);
+  pose_prior2.corr_data_id = data_t(camera3.SensorId(), image_id3);
   pose_prior2.position = Eigen::Vector3d::Random();
-  pose_prior2.pose_prior_id = database1->WritePosePrior(pose_prior2);
+  pose_prior2.pose_prior_id = database2->WritePosePrior(pose_prior2);
 
   auto keypoints1 = FeatureKeypoints(10);
   keypoints1[0].x = 100;
@@ -636,7 +667,7 @@ TEST_P(ParameterizedDatabaseTests, Merge) {
       GetParam()(kInMemorySqliteDatabasePath);
   Database::Merge(*database1, *database2, merged_database.get());
   EXPECT_EQ(merged_database->NumRigs(), 2);
-  EXPECT_EQ(merged_database->NumCameras(), 2);
+  EXPECT_EQ(merged_database->NumCameras(), 4);
   EXPECT_EQ(merged_database->NumFrames(), 2);
   EXPECT_EQ(merged_database->NumImages(), 4);
   EXPECT_EQ(merged_database->NumPosePriors(), 2);
@@ -676,9 +707,9 @@ TEST_P(ParameterizedDatabaseTests, Merge) {
   }
 
   EXPECT_EQ(merged_database->ReadAllImages()[0].CameraId(), 1);
-  EXPECT_EQ(merged_database->ReadAllImages()[1].CameraId(), 1);
-  EXPECT_EQ(merged_database->ReadAllImages()[2].CameraId(), 2);
-  EXPECT_EQ(merged_database->ReadAllImages()[3].CameraId(), 2);
+  EXPECT_EQ(merged_database->ReadAllImages()[1].CameraId(), 2);
+  EXPECT_EQ(merged_database->ReadAllImages()[2].CameraId(), 3);
+  EXPECT_EQ(merged_database->ReadAllImages()[3].CameraId(), 4);
   EXPECT_EQ(merged_database->ReadKeypoints(1).size(), 10);
   EXPECT_EQ(merged_database->ReadKeypoints(2).size(), 20);
   EXPECT_EQ(merged_database->ReadKeypoints(3).size(), 30);
