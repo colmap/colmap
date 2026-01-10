@@ -368,9 +368,32 @@ std::optional<std::string> DownloadFile(const std::string& url) {
   std::ostringstream data_stream;
   curl_easy_setopt(handle.ptr, CURLOPT_WRITEDATA, &data_stream);
 
+  // Respect SSL_CERT_FILE and SSL_CERT_DIR environment variables for
+  // cross-distribution compatibility (e.g., Ubuntu vs RHEL-based systems).
+  // This can be an issue in pycolmap, where we build cross-platform for Linux
+  // using RHEL while users may run pycolmap on Ubuntu, etc.
+  const std::optional<std::string> ssl_cert_file = GetEnvSafe("SSL_CERT_FILE");
+  if (ssl_cert_file.has_value() && !ssl_cert_file->empty()) {
+    VLOG(2) << "Using SSL_CERT_FILE: " << *ssl_cert_file;
+    curl_easy_setopt(handle.ptr, CURLOPT_CAINFO, ssl_cert_file->c_str());
+  }
+  const std::optional<std::string> ssl_cert_dir = GetEnvSafe("SSL_CERT_DIR");
+  if (ssl_cert_dir.has_value() && !ssl_cert_dir->empty()) {
+    VLOG(2) << "Using SSL_CERT_DIR: " << *ssl_cert_dir;
+    curl_easy_setopt(handle.ptr, CURLOPT_CAPATH, ssl_cert_dir->c_str());
+  }
+
   const CURLcode code = curl_easy_perform(handle.ptr);
   if (code != CURLE_OK) {
-    VLOG(2) << "Curl failed to perform request with code: " << code;
+    if (code == CURLE_SSL_CACERT_BADFILE || code == CURLE_SSL_CACERT) {
+      LOG(ERROR) << "Curl SSL certificate error (code " << code
+                 << "). Try setting SSL_CERT_FILE to point to your system's "
+                    "CA certificate bundle (e.g., "
+                    "SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt on "
+                    "Ubuntu/Debian).";
+    } else {
+      VLOG(2) << "Curl failed to perform request with code: " << code;
+    }
     return std::nullopt;
   }
 
