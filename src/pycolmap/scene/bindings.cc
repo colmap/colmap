@@ -28,8 +28,8 @@ void BindScene(py::module& m) {
   BindSceneImage(m);
   BindTrack(m);
   BindPoint3D(m);
-  BindCorrespondenceGraph(m);
   BindTwoViewGeometryScene(m);
+  BindCorrespondenceGraph(m);
   BindDatabase(m);
   BindDatabaseCache(m);
   BindReconstruction(m);

@@ -276,7 +276,6 @@ TEST(PoseGraph, Load) {
   // Load into DatabaseCache with relative poses.
   colmap::DatabaseCache cache;
   colmap::DatabaseCache::Options options;
-  options.load_relative_pose = true;
   cache.Load(*database, options);
 
   PoseGraph pose_graph;
