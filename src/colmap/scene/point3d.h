@@ -40,7 +40,7 @@ namespace colmap {
 // 3D point class that holds information about triangulated 2D points.
 struct Point3D {
   // The 3D position of the point.
-  Eigen::Vector3d xyz = Eigen::Vector3d::Zero();  // 24B
+  Eigen::Vector3d xyz = Eigen::Vector3d::Zero();
 
   // The mean reprojection error in pixels.
   double error = -1.;

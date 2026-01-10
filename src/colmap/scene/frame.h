@@ -108,8 +108,8 @@ class Frame {
   inline bool operator!=(const Frame& other) const;
 
  private:
-  frame_t frame_id_ = kInvalidFrameId;  // 4B
-  rig_t rig_id_ = kInvalidRigId;        // 4B
+  frame_t frame_id_ = kInvalidFrameId;
+  rig_t rig_id_ = kInvalidRigId;
 
   std::set<data_t> data_ids_;
 
