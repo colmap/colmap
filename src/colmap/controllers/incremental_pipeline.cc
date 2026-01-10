@@ -259,6 +259,7 @@ IncrementalPipeline::IncrementalPipeline(
   DatabaseCache::Options database_cache_options;
   database_cache_options.min_num_matches =
       static_cast<size_t>(options_->min_num_matches);
+  database_cache_options.ignore_watermarks = options_->ignore_watermarks;
   database_cache_options.image_names = image_names;
   database_cache_options.convert_pose_priors_to_enu =
       options_->use_prior_position;

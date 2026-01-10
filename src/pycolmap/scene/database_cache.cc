@@ -24,7 +24,12 @@ void BindDatabaseCache(py::module& m) {
       .def_readwrite("image_names",
                      &Opts::image_names,
                      "Only load the data for a subset of the images. "
-                     "All images are used if empty.");
+                     "All images are used if empty.")
+      .def_readwrite(
+          "convert_pose_priors_to_enu",
+          &Opts::convert_pose_priors_to_enu,
+          "Whether to convert pose priors to ENU coordinate system.");
+
   MakeDataclass(PyOpts);
 
   py::classh<DatabaseCache> PyDatabaseCache(m, "DatabaseCache");
