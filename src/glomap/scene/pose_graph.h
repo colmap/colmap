@@ -51,8 +51,6 @@ class PoseGraph {
   inline void Clear();
 
   // Load edges from the database cache.
-  // If the cache was created without load_relative_pose=true, no edges will
-  // be loaded.
   void Load(const colmap::DatabaseCache& cache);
 
   // Edge operations.

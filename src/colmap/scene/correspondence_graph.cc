@@ -38,14 +38,29 @@
 namespace colmap {
 
 std::unordered_map<image_pair_t, point2D_t>
-CorrespondenceGraph::NumCorrespondencesBetweenImages() const {
-  std::unordered_map<image_pair_t, point2D_t> num_corrs_between_images;
-  num_corrs_between_images.reserve(image_pairs_.size());
-  for (const auto& image_pair : image_pairs_) {
-    num_corrs_between_images.emplace(image_pair.first,
-                                     image_pair.second.num_correspondences);
+CorrespondenceGraph::NumMatchesBetweenAllImages() const {
+  std::unordered_map<image_pair_t, point2D_t> num_matches_between_images;
+  num_matches_between_images.reserve(image_pairs_.size());
+  for (const auto& [pair_id, pair] : image_pairs_) {
+    num_matches_between_images.emplace(pair_id, pair.num_matches);
   }
-  return num_corrs_between_images;
+  return num_matches_between_images;
+}
+
+struct TwoViewGeometry CorrespondenceGraph::TwoViewGeometry(
+    image_t image_id1, image_t image_id2) const {
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
+  auto image_pair_it = image_pairs_.find(pair_id);
+  THROW_CHECK(image_pair_it != image_pairs_.end());
+  struct TwoViewGeometry two_view_geometry =
+      image_pair_it->second.two_view_geometry;
+  if (ShouldSwapImagePair(image_id1, image_id2)) {
+    two_view_geometry.Invert();
+  }
+  // Extract after inversion, as they are extracted in the correct order.
+  ExtractMatchesBetweenImages(
+      image_id1, image_id2, two_view_geometry.inlier_matches);
+  return two_view_geometry;
 }
 
 void CorrespondenceGraph::Finalize() {
@@ -91,9 +106,10 @@ void CorrespondenceGraph::AddImage(const image_t image_id,
   images_[image_id].corrs.resize(num_points);
 }
 
-void CorrespondenceGraph::AddMatches(const image_t image_id1,
-                                     const image_t image_id2,
-                                     const FeatureMatches& matches) {
+void CorrespondenceGraph::AddTwoViewGeometry(
+    const image_t image_id1,
+    const image_t image_id2,
+    struct TwoViewGeometry two_view_geometry) {
   // Avoid self-matches - should only happen, if user provides custom matches.
   if (image_id1 == image_id2) {
     LOG(WARNING) << "Cannot use self-matches for image_id=" << image_id1;
@@ -105,21 +121,25 @@ void CorrespondenceGraph::AddMatches(const image_t image_id1,
   struct Image& image2 = images_.at(image_id2);
 
   // Store number of correspondences for each image to find good initial pair.
-  image1.num_correspondences += matches.size();
-  image2.num_correspondences += matches.size();
+  image1.num_correspondences += two_view_geometry.inlier_matches.size();
+  image2.num_correspondences += two_view_geometry.inlier_matches.size();
 
   // Set the number of all correspondences for this image pair. Further below,
   // we will make sure that only unique correspondences are counted.
   const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
-  auto& image_pair = image_pairs_[pair_id];
-  image_pair.num_correspondences += static_cast<point2D_t>(matches.size());
+  auto [image_pair_it, inserted] = image_pairs_.try_emplace(pair_id);
+  THROW_CHECK(inserted)
+      << "Two view geometry for image pair was already added: image_id1="
+      << image_id1 << ", image_id2=" << image_id2;
+  image_pair_it->second.num_matches =
+      static_cast<point2D_t>(two_view_geometry.inlier_matches.size());
 
   // Store all matches in correspondence graph data structure. This data-
   // structure uses more memory than storing the raw match matrices, but is
   // significantly more efficient when updating the correspondences in case an
   // observation is triangulated.
 
-  for (const auto& match : matches) {
+  for (const auto& match : two_view_geometry.inlier_matches) {
     const bool valid_idx1 = match.point2D_idx1 < image1.corrs.size();
     const bool valid_idx2 = match.point2D_idx2 < image2.corrs.size();
 
@@ -140,7 +160,7 @@ void CorrespondenceGraph::AddMatches(const image_t image_id1,
       if (duplicate) {
         image1.num_correspondences -= 1;
         image2.num_correspondences -= 1;
-        image_pair.num_correspondences -= 1;
+        image_pair_it->second.num_matches -= 1;
         LOG(WARNING) << StringPrintf(
             "Duplicate correspondence between "
             "point2D_idx=%d in image_id=%d and point2D_idx=%d in "
@@ -156,7 +176,7 @@ void CorrespondenceGraph::AddMatches(const image_t image_id1,
     } else {
       image1.num_correspondences -= 1;
       image2.num_correspondences -= 1;
-      image_pair.num_correspondences -= 1;
+      image_pair_it->second.num_matches -= 1;
       if (!valid_idx1) {
         LOG(WARNING) << StringPrintf(
             "point2D_idx=%d in image_id=%d does not exist",
@@ -171,6 +191,13 @@ void CorrespondenceGraph::AddMatches(const image_t image_id1,
       }
     }
   }
+
+  FeatureMatches empty_matches;
+  two_view_geometry.inlier_matches.swap(empty_matches);
+  if (ShouldSwapImagePair(image_id1, image_id2)) {
+    two_view_geometry.Invert();
+  }
+  image_pair_it->second.two_view_geometry = std::move(two_view_geometry);
 }
 
 CorrespondenceGraph::CorrespondenceRange
@@ -265,7 +292,7 @@ void CorrespondenceGraph::ExtractMatchesBetweenImages(
   matches.clear();
 
   const point2D_t num_correspondences =
-      NumCorrespondencesBetweenImages(image_id1, image_id2);
+      NumMatchesBetweenImages(image_id1, image_id2);
   if (num_correspondences == 0) {
     return;
   }

@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/feature/types.h"
+#include "colmap/scene/two_view_geometry.h"
 #include "colmap/util/string.h"
 #include "colmap/util/types.h"
 
@@ -81,12 +82,16 @@ class CorrespondenceGraph {
   inline point2D_t NumCorrespondencesForImage(image_t image_id) const;
 
   // Get the number of correspondences between a pair of images.
-  inline point2D_t NumCorrespondencesBetweenImages(image_t image_id1,
-                                                   image_t image_id2) const;
+  inline point2D_t NumMatchesBetweenImages(image_t image_id1,
+                                           image_t image_id2) const;
 
   // Get the number of correspondences between all images.
-  std::unordered_map<image_pair_t, point2D_t> NumCorrespondencesBetweenImages()
+  std::unordered_map<image_pair_t, point2D_t> NumMatchesBetweenAllImages()
       const;
+
+  // Two-view geometry with inlier matches. Inverted if necessary.
+  struct TwoViewGeometry TwoViewGeometry(image_t image_id1,
+                                         image_t image_id2) const;
 
   // Finalize the correspondence graph.
   //
@@ -103,9 +108,9 @@ class CorrespondenceGraph {
   // correspondences where the point indices are out of bounds or duplicate
   // correspondences between the same image points. Whenever either of the two
   // cases occur this function prints a warning to the standard output.
-  void AddMatches(image_t image_id1,
-                  image_t image_id2,
-                  const FeatureMatches& matches);
+  void AddTwoViewGeometry(image_t image_id1,
+                          image_t image_id2,
+                          struct TwoViewGeometry matches);
 
   // Find range of correspondences of an image observation to all other images.
   CorrespondenceRange FindCorrespondences(image_t image_id,
@@ -165,8 +170,10 @@ class CorrespondenceGraph {
   };
 
   struct ImagePair {
-    // The number of correspondences between pairs of images.
-    point2D_t num_correspondences = 0;
+    // The number of matches between pairs of images.
+    point2D_t num_matches = 0;
+    // The two-view geometry of the image pair without matches.
+    struct TwoViewGeometry two_view_geometry;
   };
 
   bool finalized_ = false;
@@ -214,14 +221,14 @@ point2D_t CorrespondenceGraph::NumCorrespondencesForImage(
   }
 }
 
-point2D_t CorrespondenceGraph::NumCorrespondencesBetweenImages(
+point2D_t CorrespondenceGraph::NumMatchesBetweenImages(
     const image_t image_id1, const image_t image_id2) const {
   const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
   const auto it = image_pairs_.find(pair_id);
   if (it == image_pairs_.end()) {
     return 0;
   } else {
-    return it->second.num_correspondences;
+    return it->second.num_matches;
   }
 }
 

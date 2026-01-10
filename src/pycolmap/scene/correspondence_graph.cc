@@ -38,33 +38,28 @@ void BindCorrespondenceGraph(py::module& m) {
       .def("num_correspondences_for_image",
            &CorrespondenceGraph::NumCorrespondencesForImage,
            "image_id"_a)
-      .def("num_correspondences_between_images",
+      .def("num_matches_between_images",
            py::overload_cast<image_t, image_t>(
-               &CorrespondenceGraph::NumCorrespondencesBetweenImages,
-               py::const_),
+               &CorrespondenceGraph::NumMatchesBetweenImages, py::const_),
            "image_id1"_a,
            "image_id2"_a)
-      .def("num_correspondences_between_all_images",
-           py::overload_cast<>(
-               &CorrespondenceGraph::NumCorrespondencesBetweenImages,
-               py::const_))
+      .def("num_matches_between_all_images",
+           py::overload_cast<>(&CorrespondenceGraph::NumMatchesBetweenImages,
+                               py::const_))
+      .def("two_view_geometry",
+           &CorrespondenceGraph::TwoViewGeometry,
+           "image_id1"_a,
+           "image_id2"_a)
       .def("finalize", &CorrespondenceGraph::Finalize)
       .def("add_image",
            &CorrespondenceGraph::AddImage,
            "image_id"_a,
            "num_points2D"_a)
-      .def(
-          "add_matches",
-          [](CorrespondenceGraph& self,
-             const image_t image_id1,
-             const image_t image_id2,
-             const PyFeatureMatches& matches) {
-            self.AddMatches(
-                image_id1, image_id2, FeatureMatchesFromMatrix(matches));
-          },
-          "image_id1"_a,
-          "image_id2"_a,
-          "matches"_a)
+      .def("add_two_view_geometry",
+           &CorrespondenceGraph::AddTwoViewGeometry,
+           "image_id1"_a,
+           "image_id2"_a,
+           "two_view_geometry"_a)
       .def(
           "extract_correspondences",
           [](const CorrespondenceGraph& self,
@@ -119,7 +114,6 @@ void BindCorrespondenceGraph(py::module& m) {
              return CorrespondenceGraph(self);
            })
       .def("__repr__", &CreateRepresentation<CorrespondenceGraph>);
-  DefDeprecation(PyCorrespondenceGraph, "add_correspondences", "add_matches");
   DefDeprecation(PyCorrespondenceGraph,
                  "find_correspondences_between_images",
                  "extract_matches_between_images");

@@ -125,8 +125,8 @@ void DatabaseCache::Load(const Database& database, const Options& options) {
   timer.Restart();
   LOG(INFO) << "Loading matches...";
 
-  const std::vector<std::pair<image_pair_t, TwoViewGeometry>>
-      two_view_geometries = database.ReadTwoViewGeometries();
+  std::vector<std::pair<image_pair_t, TwoViewGeometry>> two_view_geometries =
+      database.ReadTwoViewGeometries();
 
   LOG(INFO) << StringPrintf(
       " %d in %.3fs", two_view_geometries.size(), timer.ElapsedSeconds());
@@ -243,14 +243,14 @@ void DatabaseCache::Load(const Database& database, const Options& options) {
   }
 
   size_t num_ignored_image_pairs = 0;
-  for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
+  for (auto& [pair_id, two_view_geometry] : two_view_geometries) {
     if (UseInlierMatchesCheck(two_view_geometry)) {
       const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
       const frame_t frame_id1 = image_to_frame_id.at(image_id1);
       const frame_t frame_id2 = image_to_frame_id.at(image_id2);
       if (frame_ids.count(frame_id1) > 0 && frame_ids.count(frame_id2) > 0) {
-        correspondence_graph_->AddMatches(
-            image_id1, image_id2, two_view_geometry.inlier_matches);
+        correspondence_graph_->AddTwoViewGeometry(
+            image_id1, image_id2, std::move(two_view_geometry));
       } else {
         num_ignored_image_pairs += 1;
       }
@@ -264,33 +264,6 @@ void DatabaseCache::Load(const Database& database, const Options& options) {
   LOG(INFO) << StringPrintf(" in %.3fs (ignored %d)",
                             timer.ElapsedSeconds(),
                             num_ignored_image_pairs);
-
-  //////////////////////////////////////////////////////////////////////////////
-  // Load relative poses
-  //////////////////////////////////////////////////////////////////////////////
-
-  if (options.load_relative_pose) {
-    timer.Restart();
-    LOG(INFO) << "Loading relative poses...";
-
-    for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
-      if (!UseInlierMatchesCheck(two_view_geometry)) {
-        continue;
-      }
-
-      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-      if (images_.count(image_id1) == 0 || images_.count(image_id2) == 0) {
-        continue;
-      }
-
-      if (two_view_geometry.cam2_from_cam1.has_value()) {
-        relative_poses_.emplace(pair_id, *two_view_geometry.cam2_from_cam1);
-      }
-    }
-
-    LOG(INFO) << StringPrintf(
-        " %d in %.3fs", relative_poses_.size(), timer.ElapsedSeconds());
-  }
 }
 
 std::shared_ptr<DatabaseCache> DatabaseCache::Create(const Database& database,
@@ -317,12 +290,12 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
   // Filter to only include images that are connected in the correspondence
   // graph with at least min_num_matches.
   const auto& source_graph = database_cache.CorrespondenceGraph();
-  const auto num_corrs_between_images =
-      source_graph->NumCorrespondencesBetweenImages();
+  const std::unordered_map<image_pair_t, point2D_t> num_matches_between_images =
+      source_graph->NumMatchesBetweenAllImages();
 
   std::unordered_set<image_t> connected_image_ids;
-  for (const auto& [pair_id, num_correspondences] : num_corrs_between_images) {
-    if (num_correspondences >= options.min_num_matches) {
+  for (const auto& [pair_id, num_matches] : num_matches_between_images) {
+    if (num_matches >= options.min_num_matches) {
       const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
       if (candidate_image_ids.count(image_id1) > 0 &&
           candidate_image_ids.count(image_id2) > 0) {
@@ -385,31 +358,20 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
   }
 
   // Copy correspondences between all image pairs in the cache.
-  FeatureMatches matches;
-  for (const auto& [pair_id, num_correspondences] : num_corrs_between_images) {
-    if (num_correspondences >= options.min_num_matches) {
+  for (const auto& [pair_id, num_matches] : num_matches_between_images) {
+    if (num_matches >= options.min_num_matches) {
       const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
       if (cache->images_.count(image_id1) > 0 &&
           cache->images_.count(image_id2) > 0) {
-        source_graph->ExtractMatchesBetweenImages(
-            image_id1, image_id2, matches);
-        cache->correspondence_graph_->AddMatches(image_id1, image_id2, matches);
+        cache->correspondence_graph_->AddTwoViewGeometry(
+            image_id1,
+            image_id2,
+            source_graph->TwoViewGeometry(image_id1, image_id2));
       }
     }
   }
 
   cache->correspondence_graph_->Finalize();
-
-  // Copy relative poses for image pairs in the cache.
-  if (options.load_relative_pose) {
-    for (const auto& [pair_id, pose] : database_cache.RelativePoses()) {
-      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-      if (cache->images_.count(image_id1) > 0 &&
-          cache->images_.count(image_id2) > 0) {
-        cache->relative_poses_.emplace(pair_id, pose);
-      }
-    }
-  }
 
   return cache;
 }
@@ -451,16 +413,6 @@ const class Image* DatabaseCache::FindImageWithName(
     }
   }
   return nullptr;
-}
-
-Rigid3d DatabaseCache::RelativePose(const image_t image_id1,
-                                    const image_t image_id2) const {
-  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
-  const Rigid3d& pose = relative_poses_.at(pair_id);
-  if (ShouldSwapImagePair(image_id1, image_id2)) {
-    return Inverse(pose);
-  }
-  return pose;
 }
 
 bool DatabaseCache::SetupPosePriors() {
