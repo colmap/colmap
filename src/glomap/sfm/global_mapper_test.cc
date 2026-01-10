@@ -15,7 +15,7 @@ namespace {
 std::shared_ptr<colmap::DatabaseCache> CreateDatabaseCache(
     const colmap::Database& database) {
   colmap::DatabaseCache::Options options;
-  options.load_relative_pose = true;
+  options.store_two_view_geometries = true;
   return colmap::DatabaseCache::Create(database, options);
 }
 

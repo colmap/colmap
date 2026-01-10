@@ -122,9 +122,9 @@ TEST(DatabaseCache, Empty) {
   EXPECT_EQ(cache.NumPosePriors(), 0);
 }
 
-TEST(DatabaseCache, ConstructFromDatabase) {
+TEST(DatabaseCache, CreateFromDatabase) {
   auto database = CreateTestDatabase();
-  auto cache = DatabaseCache::Create(*database, {});
+  auto cache = DatabaseCache::Create(*database, DatabaseCache::Options());
 
   EXPECT_EQ(cache->NumRigs(), 1);
   EXPECT_EQ(cache->NumCameras(), 2);
@@ -178,9 +178,10 @@ TEST(DatabaseCache, ConstructFromDatabase) {
       correspondence_graph->NumCorrespondencesForImage(images[3].ImageId()), 1);
   EXPECT_EQ(correspondence_graph->NumObservationsForImage(images[3].ImageId()),
             1);
+  EXPECT_EQ(cache->NumTwoViewGeometries(), 0);
 }
 
-TEST(DatabaseCache, ConstructFromDatabaseWithCustomImages) {
+TEST(DatabaseCache, CreateFromDatabaseWithCustomImages) {
   auto database = CreateTestDatabase();
 
   // Note that the first two images are part of the same frame.
@@ -206,6 +207,7 @@ TEST(DatabaseCache, ConstructFromDatabaseWithCustomImages) {
       correspondence_graph->NumCorrespondencesForImage(images[1].ImageId()), 1);
   EXPECT_EQ(correspondence_graph->NumObservationsForImage(images[1].ImageId()),
             1);
+  EXPECT_EQ(cache->NumTwoViewGeometries(), 0);
 }
 
 std::shared_ptr<Database> CreateLegacyTestDatabase() {
@@ -244,9 +246,9 @@ std::shared_ptr<Database> CreateLegacyTestDatabase() {
   return database;
 }
 
-TEST(DatabaseCache, ConstructFromLegacyDatabaseWithoutRigsAndFrames) {
+TEST(DatabaseCache, CreateFromLegacyDatabaseWithoutRigsAndFrames) {
   auto database = CreateLegacyTestDatabase();
-  auto cache = DatabaseCache::Create(*database, {});
+  auto cache = DatabaseCache::Create(*database, DatabaseCache::Options());
   EXPECT_EQ(cache->NumCameras(), 1);
   EXPECT_EQ(cache->NumImages(), 3);
   EXPECT_EQ(cache->NumPosePriors(), 0);
@@ -268,9 +270,10 @@ TEST(DatabaseCache, ConstructFromLegacyDatabaseWithoutRigsAndFrames) {
   EXPECT_TRUE(cache->CorrespondenceGraph()->ExistsImage(3));
   EXPECT_EQ(cache->CorrespondenceGraph()->NumCorrespondencesForImage(3), 1);
   EXPECT_EQ(cache->CorrespondenceGraph()->NumObservationsForImage(3), 1);
+  EXPECT_EQ(cache->NumTwoViewGeometries(), 0);
 }
 
-TEST(DatabaseCache, ConstructFromLegacyDatabaseWithCustomImages) {
+TEST(DatabaseCache, CreateFromLegacyDatabaseWithCustomImages) {
   auto database = CreateLegacyTestDatabase();
   const std::vector<Image> images = database->ReadAllImages();
   DatabaseCache::Options options;
@@ -292,36 +295,33 @@ TEST(DatabaseCache, ConstructFromLegacyDatabaseWithCustomImages) {
   EXPECT_TRUE(cache->CorrespondenceGraph()->ExistsImage(3));
   EXPECT_EQ(cache->CorrespondenceGraph()->NumCorrespondencesForImage(3), 1);
   EXPECT_EQ(cache->CorrespondenceGraph()->NumObservationsForImage(3), 1);
+  EXPECT_EQ(cache->NumTwoViewGeometries(), 0);
 }
 
-TEST(DatabaseCache, RelativePoses) {
+TEST(DatabaseCache, TwoViewGeometries) {
   auto database = CreateTestDatabase();
 
-  auto cache_no_pose = DatabaseCache::Create(*database, {});
-  EXPECT_EQ(cache_no_pose->NumRelativePoses(), 0);
-
   DatabaseCache::Options options;
-  options.load_relative_pose = true;
+  options.store_two_view_geometries = false;
+  EXPECT_EQ(DatabaseCache::Create(*database, options)->NumTwoViewGeometries(),
+            0);
+
+  options.store_two_view_geometries = true;
   auto cache = DatabaseCache::Create(*database, options);
-  EXPECT_EQ(cache->NumRelativePoses(), 3);
+  EXPECT_EQ(cache->NumTwoViewGeometries(), 3);
 
   const std::vector<Image> images = database->ReadAllImages();
-  const image_t id1 = images[0].ImageId();
-  const image_t id2 = images[1].ImageId();
-
-  EXPECT_TRUE(cache->ExistsRelativePose(id1, id2));
-  EXPECT_TRUE(cache->ExistsRelativePose(id2, id1));
-  EXPECT_FALSE(cache->ExistsRelativePose(id1, id1));
-
-  const Rigid3d pose12 = cache->RelativePose(id1, id2);
-  const Rigid3d pose21 = cache->RelativePose(id2, id1);
-  const Rigid3d composed = pose21 * pose12;
-  EXPECT_LT(composed.rotation.angularDistance(Eigen::Quaterniond::Identity()),
-            1e-9);
-  EXPECT_LT(composed.translation.norm(), 1e-9);
+  ASSERT_GE(images.size(), 2);
+  const image_t image_id1 = images[0].ImageId();
+  const image_t image_id2 = images[1].ImageId();
+  EXPECT_TRUE(cache->TwoViewGeometries().count(
+      ImagePairToPairId(image_id1, image_id2)));
+  EXPECT_TRUE(cache->TwoViewGeometries()
+                  .at(ImagePairToPairId(image_id1, image_id2))
+                  .inlier_matches.empty());
 }
 
-TEST(DatabaseCache, ConstructFromCustom) {
+TEST(DatabaseCache, CreateFromCustom) {
   DatabaseCache cache;
   EXPECT_EQ(cache.NumRigs(), 0);
   EXPECT_EQ(cache.NumCameras(), 0);

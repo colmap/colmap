@@ -77,7 +77,7 @@ void GlobalPipeline::Run() {
   database_cache_options.ignore_watermarks = options_.ignore_watermarks;
   database_cache_options.image_names = {options_.image_names.begin(),
                                         options_.image_names.end()};
-  database_cache_options.load_relative_pose = true;
+  database_cache_options.store_two_view_geometries = true;
   auto database_cache =
       DatabaseCache::Create(*database_, database_cache_options);
 

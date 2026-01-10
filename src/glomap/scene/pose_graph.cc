@@ -7,11 +7,15 @@ namespace glomap {
 void PoseGraph::Load(const colmap::DatabaseCache& cache) {
   const auto corr_graph = cache.CorrespondenceGraph();
 
-  for (const auto& [pair_id, cam2_from_cam1] : cache.RelativePoses()) {
+  for (const auto& [pair_id, tvg] : cache.TwoViewGeometries()) {
+    if (!tvg.cam2_from_cam1.has_value()) {
+      continue;
+    }
+
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
 
     Edge edge;
-    edge.cam2_from_cam1 = cam2_from_cam1;
+    edge.cam2_from_cam1 = *tvg.cam2_from_cam1;
     edge.inlier_matches =
         corr_graph->FindCorrespondencesBetweenImages(image_id1, image_id2);
 

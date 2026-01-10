@@ -264,12 +264,12 @@ IncrementalPipeline::IncrementalPipeline(
     }
   }
 
-  DatabaseCache::Options cache_options;
-  cache_options.min_num_matches =
+  DatabaseCache::Options database_cache_options;
+  database_cache_options.min_num_matches =
       static_cast<size_t>(options_->min_num_matches);
-  cache_options.image_names = image_names;
+  database_cache_options.image_names = image_names;
   database_cache_ =
-      DatabaseCache::CreateFromCache(*database_cache, cache_options);
+      DatabaseCache::CreateFromCache(*database_cache, database_cache_options);
 
   // If prior positions are to be used and setup from the database, convert
   // geographic coords. to cartesian ones
