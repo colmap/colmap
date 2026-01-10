@@ -90,12 +90,6 @@ class PoseGraph {
   void InvalidatePairsOutsideActiveImageIds(
       const std::unordered_set<image_t>& active_image_ids);
 
-  // Mark connected clusters of images, where the cluster_id is sorted by the
-  // the number of images. Populates `cluster_ids` output parameter.
-  int MarkConnectedComponents(const colmap::Reconstruction& reconstruction,
-                              std::unordered_map<frame_t, int>& cluster_ids,
-                              int min_num_images = -1) const;
-
  private:
   // Map from pair ID to edge data. The pair ID is computed from the
   // two image IDs using ImagePairToPairId, with the smaller ID first.

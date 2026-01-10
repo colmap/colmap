@@ -33,7 +33,6 @@
 #include "colmap/scene/database_cache.h"
 #include "colmap/util/timer.h"
 
-#include "glomap/io/colmap_io.h"
 #include "glomap/sfm/global_mapper.h"
 
 namespace colmap {
@@ -98,38 +97,16 @@ void GlobalPipeline::Run() {
 
   Timer run_timer;
   run_timer.Start();
-  std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(mapper_options, cluster_ids);
+  global_mapper.Solve(mapper_options);
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 
-  int max_cluster_id = -1;
-  for (const auto& [frame_id, cluster_id] : cluster_ids) {
-    if (cluster_id > max_cluster_id) {
-      max_cluster_id = cluster_id;
-    }
-  }
-
-  // If it is not separated into several clusters, then output them as whole.
-  if (max_cluster_id == -1) {
-    Reconstruction& output_reconstruction =
-        *reconstruction_manager_->Get(reconstruction_manager_->Add());
-    output_reconstruction = *reconstruction;
-    if (!options_.image_path.empty()) {
-      LOG(INFO) << "Extracting colors ...";
-      output_reconstruction.ExtractColorsForAllImages(options_.image_path);
-    }
-  } else {
-    for (int comp = 0; comp <= max_cluster_id; comp++) {
-      Reconstruction& output_reconstruction =
-          *reconstruction_manager_->Get(reconstruction_manager_->Add());
-      output_reconstruction = glomap::SubReconstructionByClusterId(
-          *reconstruction, cluster_ids, comp);
-      if (!options_.image_path.empty()) {
-        output_reconstruction.ExtractColorsForAllImages(options_.image_path);
-      }
-    }
-    LOG(INFO) << "Exported " << max_cluster_id + 1 << " reconstructions";
+  Reconstruction& output_reconstruction =
+      *reconstruction_manager_->Get(reconstruction_manager_->Add());
+  output_reconstruction = *reconstruction;
+  if (!options_.image_path.empty()) {
+    LOG(INFO) << "Extracting colors ...";
+    output_reconstruction.ExtractColorsForAllImages(options_.image_path);
   }
 }
 
