@@ -37,6 +37,29 @@
 namespace colmap {
 namespace {
 
+DatabaseCache::Options CreateDatabaseCacheOptions(
+    const IncrementalPipelineOptions& options,
+    const ReconstructionManager& reconstruction_manager) {
+  DatabaseCache::Options database_cache_options;
+  database_cache_options.min_num_matches =
+      static_cast<size_t>(options.min_num_matches);
+  database_cache_options.ignore_watermarks = options.ignore_watermarks;
+  database_cache_options.image_names = {options.image_names.begin(),
+                                        options.image_names.end()};
+  // Make sure images of the given reconstruction are also included when
+  // manually specifying images for the reconstruction procedure.
+  if (reconstruction_manager.Size() == 1 && !options.image_names.empty()) {
+    const auto& reconstruction = reconstruction_manager.Get(0);
+    for (const image_t image_id : reconstruction->RegImageIds()) {
+      const auto& image = reconstruction->Image(image_id);
+      database_cache_options.image_names.insert(image.Name());
+    }
+  }
+  database_cache_options.convert_pose_priors_to_enu =
+      options.use_prior_position;
+  return database_cache_options;
+}
+
 void IterativeGlobalRefinement(const IncrementalPipelineOptions& options,
                                const IncrementalMapper::Options& mapper_options,
                                IncrementalMapper& mapper) {
@@ -203,29 +226,12 @@ IncrementalPipeline::IncrementalPipeline(
   THROW_CHECK(options_->Check());
   THROW_CHECK_NOTNULL(database);
 
-  // Make sure images of the given reconstruction are also included when
-  // manually specifying images for the reconstruction procedure.
-  std::unordered_set<std::string> image_names = {options_->image_names.begin(),
-                                                 options_->image_names.end()};
-  if (reconstruction_manager_->Size() == 1 && !options_->image_names.empty()) {
-    const auto& reconstruction = reconstruction_manager_->Get(0);
-    for (const image_t image_id : reconstruction->RegImageIds()) {
-      const auto& image = reconstruction->Image(image_id);
-      image_names.insert(image.Name());
-    }
-  }
-
   LOG(INFO) << "Loading database";
   Timer timer;
   timer.Start();
-  DatabaseCache::Options database_cache_options;
-  database_cache_options.min_num_matches =
-      static_cast<size_t>(options_->min_num_matches);
-  database_cache_options.ignore_watermarks = options_->ignore_watermarks;
-  database_cache_options.image_names = image_names;
-  database_cache_options.convert_pose_priors_to_enu =
-      options_->use_prior_position;
-  database_cache_ = DatabaseCache::Create(*database, database_cache_options);
+  database_cache_ = DatabaseCache::Create(
+      *database,
+      CreateDatabaseCacheOptions(*options_, *reconstruction_manager_));
   timer.PrintMinutes();
 
   RegisterCallback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
@@ -244,27 +250,9 @@ IncrementalPipeline::IncrementalPipeline(
   THROW_CHECK(options_->Check());
   THROW_CHECK_NOTNULL(database_cache);
 
-  // Make sure images of the given reconstruction are also included when
-  // manually specifying images for the reconstruction procedure.
-  std::unordered_set<std::string> image_names = {options_->image_names.begin(),
-                                                 options_->image_names.end()};
-  if (reconstruction_manager_->Size() == 1 && !options_->image_names.empty()) {
-    const auto& reconstruction = reconstruction_manager_->Get(0);
-    for (const image_t image_id : reconstruction->RegImageIds()) {
-      const auto& image = reconstruction->Image(image_id);
-      image_names.insert(image.Name());
-    }
-  }
-
-  DatabaseCache::Options database_cache_options;
-  database_cache_options.min_num_matches =
-      static_cast<size_t>(options_->min_num_matches);
-  database_cache_options.ignore_watermarks = options_->ignore_watermarks;
-  database_cache_options.image_names = image_names;
-  database_cache_options.convert_pose_priors_to_enu =
-      options_->use_prior_position;
-  database_cache_ =
-      DatabaseCache::CreateFromCache(*database_cache, database_cache_options);
+  database_cache_ = DatabaseCache::CreateFromCache(
+      *database_cache,
+      CreateDatabaseCacheOptions(*options_, *reconstruction_manager_));
 
   RegisterCallback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
   RegisterCallback(NEXT_IMAGE_REG_CALLBACK);
