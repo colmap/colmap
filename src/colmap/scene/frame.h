@@ -109,6 +109,8 @@ class Frame {
 
  private:
   frame_t frame_id_ = kInvalidFrameId;
+  rig_t rig_id_ = kInvalidRigId;
+
   std::set<data_t> data_ids_;
 
   // Store the rig_from_world transformation and an optional rig calibration.
@@ -116,8 +118,6 @@ class Frame {
   // case, where rig modeling is no longer needed.
   std::optional<Rigid3d> rig_from_world_;
 
-  // Rig calibration.
-  rig_t rig_id_ = kInvalidRigId;
   class Rig* rig_ptr_ = nullptr;
 };
 
