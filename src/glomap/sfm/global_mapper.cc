@@ -82,16 +82,19 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
     image_id_to_keypoints.emplace(image_id, std::move(points));
   }
 
+  auto corr_graph = database_cache_->CorrespondenceGraph();
+
   // Union all matching observations.
   colmap::UnionFind<Observation> uf;
+  colmap::FeatureMatches matches;
   for (const auto& [pair_id, edge] : pose_graph_->ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     THROW_CHECK(image_id_to_keypoints.count(image_id1))
         << "Missing keypoints for image " << image_id1;
     THROW_CHECK(image_id_to_keypoints.count(image_id2))
         << "Missing keypoints for image " << image_id2;
-
-    for (const auto& match : edge.inlier_matches) {
+    corr_graph->ExtractMatchesBetweenImages(image_id1, image_id2, matches);
+    for (const auto& match : matches) {
       const Observation obs1(image_id1, match.point2D_idx1);
       const Observation obs2(image_id2, match.point2D_idx2);
       if (obs2 < obs1) {

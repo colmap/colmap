@@ -363,10 +363,12 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
       const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
       if (cache->images_.count(image_id1) > 0 &&
           cache->images_.count(image_id2) > 0) {
+        TwoViewGeometry two_view_geometry =
+            source_graph->TwoViewGeometry(image_id1, image_id2);
+        source_graph->ExtractMatchesBetweenImages(
+            image_id1, image_id2, two_view_geometry.inlier_matches);
         cache->correspondence_graph_->AddTwoViewGeometry(
-            image_id1,
-            image_id2,
-            source_graph->TwoViewGeometry(image_id1, image_id2));
+            image_id1, image_id2, std::move(two_view_geometry));
       }
     }
   }

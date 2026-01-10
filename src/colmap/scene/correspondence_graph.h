@@ -89,7 +89,7 @@ class CorrespondenceGraph {
   std::unordered_map<image_pair_t, point2D_t> NumMatchesBetweenAllImages()
       const;
 
-  // Two-view geometry with inlier matches. Inverted if necessary.
+  // Two-view geometry without matches. Inverted if necessary.
   struct TwoViewGeometry TwoViewGeometry(image_t image_id1,
                                          image_t image_id2) const;
 

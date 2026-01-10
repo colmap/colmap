@@ -97,14 +97,14 @@ TEST(CorrespondenceGraph, TwoView) {
   EXPECT_EQ(correspondence_graph.NumMatchesBetweenAllImages().at(pair_id), 4);
   const TwoViewGeometry two_view_geometry01_stored =
       correspondence_graph.TwoViewGeometry(0, 1);
-  EXPECT_EQ(two_view_geometry01_stored.inlier_matches,
-            two_view_geometry01.inlier_matches);
-  EXPECT_EQ(correspondence_graph.TwoViewGeometry(0, 1).cam2_from_cam1,
-            two_view_geometry01.cam2_from_cam1);
+  EXPECT_THAT(two_view_geometry01_stored.inlier_matches, testing::IsEmpty());
   EXPECT_THAT(two_view_geometry01_stored.cam2_from_cam1.value(),
               Rigid3dNear(two_view_geometry01.cam2_from_cam1.value(),
                           /*rtol=*/1e-6,
                           /*ttol=*/1e-6));
+  FeatureMatches matches01_stored;
+  correspondence_graph.ExtractMatchesBetweenImages(0, 1, matches01_stored);
+  EXPECT_EQ(matches01_stored, two_view_geometry01.inlier_matches);
   TwoViewGeometry two_view_geometry10 = two_view_geometry01;
   two_view_geometry10.Invert();
   const TwoViewGeometry two_view_geometry10_stored =
@@ -113,6 +113,10 @@ TEST(CorrespondenceGraph, TwoView) {
               Rigid3dNear(two_view_geometry10.cam2_from_cam1.value(),
                           /*rtol=*/1e-6,
                           /*ttol=*/1e-6));
+  EXPECT_THAT(two_view_geometry10_stored.inlier_matches, testing::IsEmpty());
+  FeatureMatches matches10_stored;
+  correspondence_graph.ExtractMatchesBetweenImages(1, 0, matches10_stored);
+  EXPECT_EQ(matches10_stored, two_view_geometry10.inlier_matches);
 
   std::vector<CorrespondenceGraph::Correspondence> corrs;
 

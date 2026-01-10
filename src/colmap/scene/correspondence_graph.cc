@@ -57,9 +57,6 @@ struct TwoViewGeometry CorrespondenceGraph::TwoViewGeometry(
   if (ShouldSwapImagePair(image_id1, image_id2)) {
     two_view_geometry.Invert();
   }
-  // Extract after inversion, as they are extracted in the correct order.
-  ExtractMatchesBetweenImages(
-      image_id1, image_id2, two_view_geometry.inlier_matches);
   return two_view_geometry;
 }
 
