@@ -92,7 +92,7 @@ void BindCorrespondenceGraph(py::module& m) {
           "point2D_idx"_a,
           "transitivity"_a)
       .def(
-          "find_correspondences_between_images",
+          "extract_matches_between_images",
           [](const CorrespondenceGraph& self,
              const image_t image_id1,
              const image_t image_id2) -> PyFeatureMatches {
@@ -120,4 +120,7 @@ void BindCorrespondenceGraph(py::module& m) {
            })
       .def("__repr__", &CreateRepresentation<CorrespondenceGraph>);
   DefDeprecation(PyCorrespondenceGraph, "add_correspondences", "add_matches");
+  DefDeprecation(PyCorrespondenceGraph,
+                 "find_correspondences_between_images",
+                 "extract_matches_between_images");
 }
