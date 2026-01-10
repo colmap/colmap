@@ -44,7 +44,7 @@ void BindCorrespondenceGraph(py::module& m) {
            "image_id1"_a,
            "image_id2"_a)
       .def("num_matches_between_all_images",
-           py::overload_cast<>(&CorrespondenceGraph::NumMatchesBetweenImages,
+           py::overload_cast<>(&CorrespondenceGraph::NumMatchesBetweenAllImages,
                                py::const_))
       .def("two_view_geometry",
            &CorrespondenceGraph::TwoViewGeometry,
@@ -114,6 +114,12 @@ void BindCorrespondenceGraph(py::module& m) {
              return CorrespondenceGraph(self);
            })
       .def("__repr__", &CreateRepresentation<CorrespondenceGraph>);
+  DefDeprecation(PyCorrespondenceGraph,
+                 "num_correspondences_between_images",
+                 "num_matches_between_images");
+  DefDeprecation(PyCorrespondenceGraph,
+                 "num_correspondences_between_all_images",
+                 "num_matches_between_all_images");
   DefDeprecation(PyCorrespondenceGraph,
                  "find_correspondences_between_images",
                  "extract_matches_between_images");
