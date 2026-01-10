@@ -44,14 +44,13 @@ RotationAveragingController::RotationAveragingController(
     : options_(options),
       reconstruction_(std::move(THROW_CHECK_NOTNULL(reconstruction))) {
   THROW_CHECK_NOTNULL(database);
-  if (options_.decompose_relative_pose) {
-    MaybeDecomposeAndWriteRelativePoses(database.get());
-  }
   DatabaseCache::Options database_cache_options;
   database_cache_options.min_num_matches = options_.min_num_matches;
   database_cache_options.ignore_watermarks = options_.ignore_watermarks;
   database_cache_options.image_names = {options_.image_names.begin(),
                                         options_.image_names.end()};
+  database_cache_options.decompose_missing_relative_poses =
+      options_.decompose_missing_relative_poses;
   database_cache_ = DatabaseCache::Create(*database, database_cache_options);
 }
 

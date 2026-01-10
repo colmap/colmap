@@ -619,8 +619,8 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->ignore_watermarks);
   AddDefaultOption("GlobalMapper.num_threads", &global_mapper->num_threads);
   AddDefaultOption("GlobalMapper.random_seed", &global_mapper->random_seed);
-  AddDefaultOption("GlobalMapper.decompose_relative_pose",
-                   &global_mapper->decompose_relative_pose);
+  AddDefaultOption("GlobalMapper.decompose_missing_relative_poses",
+                   &global_mapper->decompose_missing_relative_poses);
   AddDefaultOption("GlobalMapper.num_iterations_ba",
                    &global_mapper->mapper.num_iterations_ba);
   AddDefaultOption("GlobalMapper.skip_view_graph_calibration",
