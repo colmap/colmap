@@ -15,7 +15,7 @@
 namespace glomap {
 namespace {
 
-GlobalMapperOptions CustomizeOptions(const GlobalMapperOptions& options) {
+GlobalMapperOptions InitializeOptions(const GlobalMapperOptions& options) {
   // Propagate random seed and num_threads to component options.
   GlobalMapperOptions custom = options;
   if (custom.random_seed >= 0) {
@@ -34,7 +34,7 @@ GlobalMapperOptions CustomizeOptions(const GlobalMapperOptions& options) {
 GlobalMapper::GlobalMapper(
     const GlobalMapperOptions& options,
     std::shared_ptr<const colmap::DatabaseCache> database_cache)
-    : options_(CustomizeOptions(options)),
+    : options_(InitializeOptions(options)),
       database_cache_(std::move(THROW_CHECK_NOTNULL(database_cache))) {}
 
 void GlobalMapper::BeginReconstruction(
