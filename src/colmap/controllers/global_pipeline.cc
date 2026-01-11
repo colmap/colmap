@@ -62,7 +62,6 @@ void GlobalPipeline::Run() {
       DatabaseCache::Create(*database_, database_cache_options);
 
   auto reconstruction = std::make_shared<Reconstruction>();
-  auto corr_graph = database_cache->CorrespondenceGraph();
 
   glomap::GlobalMapper global_mapper(database_cache);
   global_mapper.BeginReconstruction(reconstruction);
@@ -74,7 +73,7 @@ void GlobalPipeline::Run() {
     ViewGraphCalibrationOptions vgc_options = options_.view_graph_calibration;
     vgc_options.random_seed = options_.random_seed;
     vgc_options.solver_options.num_threads = options_.num_threads;
-    vgc_options.min_num_matches = options_.min_num_matches;
+    auto corr_graph = database_cache->CorrespondenceGraph();
     CorrespondenceGraph calibrated_corr_graph;
     if (!CalibrateViewGraph(vgc_options,
                             *database_,
@@ -87,11 +86,6 @@ void GlobalPipeline::Run() {
     *corr_graph = std::move(calibrated_corr_graph);
     LOG(INFO) << "View graph calibration done in " << run_timer.ElapsedSeconds()
               << " seconds";
-  }
-
-  if (global_mapper.PoseGraph()->Empty()) {
-    LOG(ERROR) << "Cannot continue without image pairs";
-    return;
   }
 
   // Prepare mapper options with top-level options.

@@ -452,7 +452,7 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
 
   for (auto& [pair_id, tvg] : valid_pairs) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    if (tvg.inlier_matches.size() >= options.min_num_matches) {
+    if (tvg.inlier_matches.size() >= options.relpose_min_num_inliers) {
       calibrated_graph.AddTwoViewGeometry(image_id1, image_id2, std::move(tvg));
     }
   }

@@ -53,9 +53,6 @@ struct ViewGraphCalibrationOptions {
   // Whether to re-estimate relative poses after focal length calibration.
   bool reestimate_relative_pose = true;
 
-  // Only add pairs with a minimum number of matches to the calibrated graph.
-  size_t min_num_matches = 0;
-
   // The minimum ratio of the estimated focal length to the prior focal length.
   double min_focal_length_ratio = 0.1;
   // The maximum ratio of the estimated focal length to the prior focal length.

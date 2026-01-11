@@ -23,19 +23,14 @@ void GlobalMapper::BeginReconstruction(
   THROW_CHECK_NOTNULL(reconstruction);
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
-  pose_graph_ = std::make_shared<class PoseGraph>();
-  pose_graph_->Load(*database_cache_);
 }
 
 std::shared_ptr<colmap::Reconstruction> GlobalMapper::Reconstruction() const {
   return reconstruction_;
 }
 
-std::shared_ptr<class PoseGraph> GlobalMapper::PoseGraph() const {
-  return pose_graph_;
-}
-
-bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
+bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options,
+                                     PoseGraph& pose_graph) {
   // Read pose priors from the database cache.
   const std::vector<colmap::PosePrior>& pose_priors =
       database_cache_->PosePriors();
@@ -46,7 +41,7 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
   RotationEstimatorOptions custom_options = options;
   custom_options.filter_unregistered = false;
   if (!SolveRotationAveraging(
-          custom_options, *pose_graph_, *reconstruction_, pose_priors)) {
+          custom_options, pose_graph, *reconstruction_, pose_priors)) {
     return false;
   }
 
@@ -54,7 +49,7 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
   // after outlier removal.
   custom_options.filter_unregistered = true;
   if (!SolveRotationAveraging(
-          custom_options, *pose_graph_, *reconstruction_, pose_priors)) {
+          custom_options, pose_graph, *reconstruction_, pose_priors)) {
     return false;
   }
 
@@ -65,7 +60,8 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
   return true;
 }
 
-void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
+void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options,
+                                   const PoseGraph& pose_graph) {
   using Observation = std::pair<image_t, colmap::point2D_t>;
   THROW_CHECK_EQ(reconstruction_->NumPoints3D(), 0);
 
@@ -87,7 +83,7 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
   // Union all matching observations.
   colmap::UnionFind<Observation> uf;
   colmap::FeatureMatches matches;
-  for (const auto& [pair_id, edge] : pose_graph_->ValidEdges()) {
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     THROW_CHECK(image_id_to_keypoints.count(image_id1))
         << "Missing keypoints for image " << image_id1;
@@ -201,19 +197,18 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
             << ", after filtering: " << reconstruction_->NumPoints3D();
 }
 
-bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
-                                     double max_angular_reproj_error_deg,
-                                     double max_normalized_reproj_error,
-                                     double min_tri_angle_deg) {
-  if (options.constraint_type != GlobalPositioningConstraintType::ONLY_POINTS) {
+bool GlobalMapper::GlobalPositioning(const GlobalMapperOptions& options,
+                                     const PoseGraph& pose_graph) {
+  if (options.global_positioning.constraint_type !=
+      GlobalPositioningConstraintType::ONLY_POINTS) {
     LOG(ERROR) << "Only points are used for solving camera positions";
     return false;
   }
 
-  GlobalPositioner gp_engine(options);
+  GlobalPositioner gp_engine(options.global_positioning);
 
   // TODO: consider to support other modes as well
-  if (!gp_engine.Solve(*pose_graph_, *reconstruction_)) {
+  if (!gp_engine.Solve(pose_graph, *reconstruction_)) {
     return false;
   }
 
@@ -222,13 +217,13 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
 
   // First pass: use relaxed threshold (2x) for cameras without prior focal.
   obs_manager.FilterPoints3DWithLargeReprojectionError(
-      2.0 * max_angular_reproj_error_deg,
+      2.0 * options.max_angular_reproj_error_deg,
       reconstruction_->Point3DIds(),
       colmap::ReprojectionErrorType::ANGULAR);
 
   // Second pass: apply strict threshold for cameras with prior focal length.
   const double max_angular_error_rad =
-      colmap::DegToRad(max_angular_reproj_error_deg);
+      colmap::DegToRad(options.max_angular_reproj_error_deg);
   std::vector<std::pair<colmap::image_t, colmap::point2D_t>> obs_to_delete;
   for (const auto point3D_id : reconstruction_->Point3DIds()) {
     if (!reconstruction_->ExistsPoint3D(point3D_id)) {
@@ -257,10 +252,10 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
 
   // Filter tracks based on triangulation angle and reprojection error
   obs_manager.FilterPoints3DWithSmallTriangulationAngle(
-      min_tri_angle_deg, reconstruction_->Point3DIds());
+      options.min_tri_angle_deg, reconstruction_->Point3DIds());
   // Set the threshold to be larger to avoid removing too many tracks
   obs_manager.FilterPoints3DWithLargeReprojectionError(
-      10 * max_normalized_reproj_error,
+      10 * options.max_normalized_reproj_error,
       reconstruction_->Point3DIds(),
       colmap::ReprojectionErrorType::NORMALIZED);
 
@@ -408,7 +403,14 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
 bool GlobalMapper::Solve(const GlobalMapperOptions& options,
                          std::unordered_map<frame_t, int>& cluster_ids) {
   THROW_CHECK_NOTNULL(reconstruction_);
-  THROW_CHECK_NOTNULL(pose_graph_);
+
+  PoseGraph pose_graph;
+  pose_graph.Load(*database_cache_->CorrespondenceGraph());
+
+  if (pose_graph.Empty()) {
+    LOG(ERROR) << "Cannot continue with empty pose graph";
+    return false;
+  }
 
   // Propagate random seed and num_threads to component options.
   GlobalMapperOptions opts = options;
@@ -426,7 +428,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     LOG(INFO) << "----- Running rotation averaging -----";
     colmap::Timer run_timer;
     run_timer.Start();
-    if (!RotationAveraging(opts.rotation_averaging)) {
+    if (!RotationAveraging(opts.rotation_averaging, pose_graph)) {
       return false;
     }
     LOG(INFO) << "Rotation averaging done in " << run_timer.ElapsedSeconds()
@@ -438,7 +440,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     LOG(INFO) << "----- Running track establishment -----";
     colmap::Timer run_timer;
     run_timer.Start();
-    EstablishTracks(opts);
+    EstablishTracks(opts, pose_graph);
     LOG(INFO) << "Track establishment done in " << run_timer.ElapsedSeconds()
               << " seconds";
   }
@@ -448,10 +450,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     LOG(INFO) << "----- Running global positioning -----";
     colmap::Timer run_timer;
     run_timer.Start();
-    if (!GlobalPositioning(opts.global_positioning,
-                           opts.max_angular_reproj_error_deg,
-                           opts.max_normalized_reproj_error,
-                           opts.min_tri_angle_deg)) {
+    if (!GlobalPositioning(opts, pose_graph)) {
       return false;
     }
     LOG(INFO) << "Global positioning done in " << run_timer.ElapsedSeconds()

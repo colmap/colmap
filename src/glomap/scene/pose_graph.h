@@ -46,7 +46,7 @@ class PoseGraph {
   inline void Clear();
 
   // Load edges from the database cache.
-  void Load(const colmap::DatabaseCache& cache);
+  void Load(const colmap::CorrespondenceGraph& corr_graph);
 
   // Edge operations.
   inline Edge& AddEdge(image_t image_id1, image_t image_id2, Edge edge);
