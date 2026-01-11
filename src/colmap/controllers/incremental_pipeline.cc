@@ -632,7 +632,8 @@ bool IncrementalPipeline::Reconstruct(
                "poses. Either explicitly define the poses by configuring the "
                "rigs or first run reconstruction without configured rigs and "
                "then derive the poses from the initial reconstruction for a "
-               "subsequent reconstruction with rig constraints.";
+               "subsequent reconstruction with rig constraints. See "
+               "documentation for detailed instructions.";
         mapper.EndReconstruction(/*discard=*/true);
         reconstruction_manager_->Delete(reconstruction_idx);
         // If the reconstruction was discarded due to an unknown sensor from
