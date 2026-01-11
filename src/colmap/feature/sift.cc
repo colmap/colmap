@@ -1151,12 +1151,12 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
             const Eigen::Vector3f p2(x2, y2, 1.0f);
             const Eigen::Vector3f epipolar_line1 = E_or_F * p1;
             const Eigen::Vector3f epipolar_line2 = E_or_F.transpose() * p2;
-            const float x2tFx1 = p2.transpose() * epipolar_line1;
-            const float denom = epipolar_line1(0) * epipolar_line1(0) +
-                                epipolar_line1(1) * epipolar_line1(1) +
-                                epipolar_line2(0) * epipolar_line2(0) +
-                                epipolar_line2(1) * epipolar_line2(1);
-            return x2tFx1 * x2tFx1 > max_residual * denom;
+            const float nom = p2.transpose() * epipolar_line1;
+            const float denom_sq = epipolar_line1(0) * epipolar_line1(0) +
+                                   epipolar_line1(1) * epipolar_line1(1) +
+                                   epipolar_line2(0) * epipolar_line2(0) +
+                                   epipolar_line2(1) * epipolar_line2(1);
+            return nom * nom > max_residual * denom_sq;
           };
     } else if (two_view_geometry->config == TwoViewGeometry::PLANAR ||
                two_view_geometry->config == TwoViewGeometry::PANORAMIC ||
