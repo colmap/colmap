@@ -111,12 +111,6 @@ class CorrespondenceGraph {
                           image_t image_id2,
                           struct TwoViewGeometry two_view_geometry);
 
-  // Update two-view geometry.
-  void UpdateTwoViewGeometryWithoutMatches(
-      image_t image_id1,
-      image_t image_id2,
-      struct TwoViewGeometry two_view_geometry);
-
   // Find range of correspondences of an image observation to all other images.
   CorrespondenceRange FindCorrespondences(image_t image_id,
                                           point2D_t point2D_idx) const;

@@ -45,7 +45,7 @@ class PoseGraph {
   inline bool Empty() const;
   inline void Clear();
 
-  // Load edges from the database cache.
+  // Load edges from the correspondence graph.
   void Load(const colmap::CorrespondenceGraph& corr_graph);
 
   // Edge operations.

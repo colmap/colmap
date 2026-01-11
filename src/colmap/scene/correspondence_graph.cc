@@ -194,20 +194,6 @@ void CorrespondenceGraph::AddTwoViewGeometry(
   image_pair_it->second.two_view_geometry = std::move(two_view_geometry);
 }
 
-void CorrespondenceGraph::UpdateTwoViewGeometryWithoutMatches(
-    const image_t image_id1,
-    const image_t image_id2,
-    TwoViewGeometry two_view_geometry) {
-  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
-  auto image_pair_it = image_pairs_.find(pair_id);
-  THROW_CHECK(image_pair_it != image_pairs_.end())
-      << "Two view geometry between image " << image_id1 << " and " << image_id2
-      << " does not exist.";
-  // Clear and deallocate matches.
-  FeatureMatches().swap(two_view_geometry.inlier_matches);
-  image_pair_it->second.two_view_geometry = std::move(two_view_geometry);
-}
-
 CorrespondenceGraph::CorrespondenceRange
 CorrespondenceGraph::FindCorrespondences(const image_t image_id,
                                          const point2D_t point2D_idx) const {
