@@ -644,12 +644,12 @@ int RunRotationAverager(int argc, char** argv) {
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("num_threads", &controller_options.num_threads);
   options.AddDefaultOption("random_seed", &controller_options.random_seed);
-  options.AddDefaultOption(
-      "use_gravity", &controller_options.rotation_estimation.use_gravity);
+  options.AddDefaultOption("use_gravity",
+                           &controller_options.rotation_estimation.use_gravity);
   options.AddDefaultOption(
       "use_stratified", &controller_options.rotation_estimation.use_stratified);
-  options.AddDefaultOption(
-      "refine_gravity", &controller_options.refine_gravity);
+  options.AddDefaultOption("refine_gravity",
+                           &controller_options.refine_gravity);
   options.AddGravityRefinerOptions();
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;

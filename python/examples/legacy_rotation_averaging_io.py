@@ -62,7 +62,7 @@ def read_relative_poses(file_path: Path | str) -> list[RelativePose]:
     file_path = Path(file_path)
     relative_poses = []
 
-    with open(file_path, "r") as f:
+    with open(file_path) as f:
         for line in f:
             line = line.strip()
             if not line or line.startswith("#"):
@@ -106,7 +106,7 @@ def read_gravity_priors(file_path: Path | str) -> list[GravityPrior]:
     file_path = Path(file_path)
     gravity_priors = []
 
-    with open(file_path, "r") as f:
+    with open(file_path) as f:
         for line in f:
             line = line.strip()
             if not line or line.startswith("#"):
@@ -215,7 +215,9 @@ def create_database_from_relative_poses(
             id2 = image_name_to_id[rel_pose.image_name2]
 
             two_view_geom = pycolmap.TwoViewGeometry()
-            two_view_geom.config = pycolmap.TwoViewGeometryConfiguration.CALIBRATED
+            two_view_geom.config = (
+                pycolmap.TwoViewGeometryConfiguration.CALIBRATED
+            )
             two_view_geom.cam2_from_cam1 = rel_pose.cam2_from_cam1
             two_view_geom.inlier_matches = np.array([[0, 0]], dtype=np.uint32)
 
@@ -223,7 +225,9 @@ def create_database_from_relative_poses(
 
         # Write gravity priors if provided
         if gravity_priors:
-            gravity_by_name = {gp.image_name: gp.gravity for gp in gravity_priors}
+            gravity_by_name = {
+                gp.image_name: gp.gravity for gp in gravity_priors
+            }
             for image_name, image_id in image_name_to_id.items():
                 if image_name in gravity_by_name:
                     pose_prior = pycolmap.PosePrior()
