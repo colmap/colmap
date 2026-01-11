@@ -29,7 +29,8 @@
 
 #pragma once
 
-#include "colmap/scene/database.h"
+#include "colmap/scene/correspondence_graph.h"
+#include "colmap/scene/reconstruction.h"
 
 #include <memory>
 
@@ -51,6 +52,9 @@ struct ViewGraphCalibrationOptions {
 
   // Whether to re-estimate relative poses after focal length calibration.
   bool reestimate_relative_pose = true;
+
+  // Only add pairs with a minimum number of matches to the calibrated graph.
+  size_t min_num_matches = 0;
 
   // The minimum ratio of the estimated focal length to the prior focal length.
   double min_focal_length_ratio = 0.1;
@@ -81,6 +85,7 @@ struct ViewGraphCalibrationOptions {
   std::unique_ptr<ceres::LossFunction> CreateLossFunction() const;
 };
 
+// TODO(jsch): Update.
 // Calibrate the view graph by estimating focal lengths from fundamental
 // matrices. This function operates directly on the database, reading both
 // UNCALIBRATED and CALIBRATED two-view geometries along with their associated
@@ -89,6 +94,9 @@ struct ViewGraphCalibrationOptions {
 // matrices computed and relative poses re-estimated, then are upgraded to
 // CALIBRATED. Pairs with high calibration error are tagged as DEGENERATE.
 bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
-                        Database* database);
+                        const Database& database,
+                        const CorrespondenceGraph& graph,
+                        CorrespondenceGraph& calibrated_graph,
+                        Reconstruction& reconstruction);
 
 }  // namespace colmap

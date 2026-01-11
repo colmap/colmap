@@ -1,7 +1,6 @@
 #include "colmap/scene/correspondence_graph.h"
 
 #include "colmap/feature/types.h"
-#include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
 #include "pycolmap/helpers.h"
@@ -29,9 +28,9 @@ void BindCorrespondenceGraph(py::module& m) {
   auto PyCorrespondenceGraph =
       py::classh<CorrespondenceGraph>(m, "CorrespondenceGraph");
   PyCorrespondenceGraph.def(py::init<>())
+      .def("finalize", &CorrespondenceGraph::Finalize)
       .def("num_images", &CorrespondenceGraph::NumImages)
       .def("num_image_pairs", &CorrespondenceGraph::NumImagePairs)
-      .def("exists_image", &CorrespondenceGraph::ExistsImage, "image_id"_a)
       .def("num_observations_for_image",
            &CorrespondenceGraph::NumObservationsForImage,
            "image_id"_a)
@@ -46,7 +45,8 @@ void BindCorrespondenceGraph(py::module& m) {
       .def("num_matches_between_all_images",
            py::overload_cast<>(&CorrespondenceGraph::NumMatchesBetweenAllImages,
                                py::const_))
-      .def("finalize", &CorrespondenceGraph::Finalize)
+      .def("exists_image", &CorrespondenceGraph::ExistsImage, "image_id"_a)
+      .def("image_pairs", &CorrespondenceGraph::ImagePairs)
       .def("add_image",
            &CorrespondenceGraph::AddImage,
            "image_id"_a,

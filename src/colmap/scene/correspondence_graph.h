@@ -65,14 +65,19 @@ class CorrespondenceGraph {
 
   CorrespondenceGraph() = default;
 
+  // Finalize the correspondence graph.
+  //
+  // - Calculates the number of observations per image by counting the number
+  //   of image points that have at least one correspondence.
+  // - Deletes images without observations, as they are useless for SfM.
+  // - Shrinks the correspondence vectors to their size to save memory.
+  void Finalize();
+
   // Number of added images.
   inline size_t NumImages() const;
 
   // Number of added images.
   inline size_t NumImagePairs() const;
-
-  // Check whether image exists.
-  inline bool ExistsImage(image_t image_id) const;
 
   // Get the number of observations in an image. An observation is an image
   // point that has at least one correspondence.
@@ -89,24 +94,28 @@ class CorrespondenceGraph {
   std::unordered_map<image_pair_t, point2D_t> NumMatchesBetweenAllImages()
       const;
 
-  // Finalize the correspondence graph.
-  //
-  // - Calculates the number of observations per image by counting the number
-  //   of image points that have at least one correspondence.
-  // - Deletes images without observations, as they are useless for SfM.
-  // - Shrinks the correspondence vectors to their size to save memory.
-  void Finalize();
+  // Check whether image exists.
+  inline bool ExistsImage(image_t image_id) const;
+
+  // All image pairs in the correspondence graph.
+  std::vector<image_pair_t> ImagePairs() const;
 
   // Add new image to the correspondence graph.
   void AddImage(image_t image_id, size_t num_points2D);
 
-  // Add correspondences between images. This function ignores invalid
-  // correspondences where the point indices are out of bounds or duplicate
-  // correspondences between the same image points. Whenever either of the two
+  // Add two-view geometry and inlier matches between images. This function
+  // ignores invalid matches where the point indices are out of bounds or
+  // duplicate matches between the same image points. Whenever either of the two
   // cases occur this function prints a warning to the standard output.
   void AddTwoViewGeometry(image_t image_id1,
                           image_t image_id2,
-                          struct TwoViewGeometry matches);
+                          struct TwoViewGeometry two_view_geometry);
+
+  // Update two-view geometry.
+  void UpdateTwoViewGeometryWithoutMatches(
+      image_t image_id1,
+      image_t image_id2,
+      struct TwoViewGeometry two_view_geometry);
 
   // Find range of correspondences of an image observation to all other images.
   CorrespondenceRange FindCorrespondences(image_t image_id,
@@ -158,9 +167,9 @@ class CorrespondenceGraph {
     point2D_t num_correspondences = 0;
 
     // Correspondences to other images per image point.
-    // Added correspondences before Finalize().
+    // Added correspondences before Finalize(), empty afterwards.
     std::vector<std::vector<Correspondence>> corrs;
-    // Flattened correspondences after Finalize().
+    // Flattened correspondences after Finalize(), empty before.
     std::vector<Correspondence> flat_corrs;
     // For each point, determines the beginning of the correspondences in the
     // flat_corrs vector. The end of point i is determined by the beginning of

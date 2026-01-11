@@ -52,25 +52,6 @@ GlobalPipeline::GlobalPipeline(
 }
 
 void GlobalPipeline::Run() {
-  // Run view graph calibration on the database before loading into mapper.
-  // TODO: Move view graph calibration to upper level (e.g., feature matching
-  // pipeline) so that GlobalPipeline can accept DatabaseCache directly and
-  // remove the database_ member (similar to IncrementalPipeline).
-  if (!options_.skip_view_graph_calibration) {
-    LOG(INFO) << "----- Running view graph calibration -----";
-    Timer run_timer;
-    run_timer.Start();
-    ViewGraphCalibrationOptions vgc_options = options_.view_graph_calibration;
-    vgc_options.random_seed = options_.random_seed;
-    vgc_options.solver_options.num_threads = options_.num_threads;
-    if (!CalibrateViewGraph(vgc_options, database_.get())) {
-      LOG(ERROR) << "View graph calibration failed";
-      return;
-    }
-    LOG(INFO) << "View graph calibration done in " << run_timer.ElapsedSeconds()
-              << " seconds";
-  }
-
   // Create database cache with relative poses for pose graph.
   DatabaseCache::Options database_cache_options;
   database_cache_options.min_num_matches = options_.min_num_matches;
@@ -81,9 +62,32 @@ void GlobalPipeline::Run() {
       DatabaseCache::Create(*database_, database_cache_options);
 
   auto reconstruction = std::make_shared<Reconstruction>();
+  auto corr_graph = database_cache->CorrespondenceGraph();
 
   glomap::GlobalMapper global_mapper(database_cache);
   global_mapper.BeginReconstruction(reconstruction);
+
+  if (!options_.skip_view_graph_calibration) {
+    LOG(INFO) << "----- Running view graph calibration -----";
+    Timer run_timer;
+    run_timer.Start();
+    ViewGraphCalibrationOptions vgc_options = options_.view_graph_calibration;
+    vgc_options.random_seed = options_.random_seed;
+    vgc_options.solver_options.num_threads = options_.num_threads;
+    vgc_options.min_num_matches = options_.min_num_matches;
+    CorrespondenceGraph calibrated_corr_graph;
+    if (!CalibrateViewGraph(vgc_options,
+                            *database_,
+                            *corr_graph,
+                            calibrated_corr_graph,
+                            *reconstruction)) {
+      LOG(ERROR) << "View graph calibration failed";
+      return;
+    }
+    *corr_graph = std::move(calibrated_corr_graph);
+    LOG(INFO) << "View graph calibration done in " << run_timer.ElapsedSeconds()
+              << " seconds";
+  }
 
   if (global_mapper.PoseGraph()->Empty()) {
     LOG(ERROR) << "Cannot continue without image pairs";
