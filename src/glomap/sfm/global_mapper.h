@@ -67,7 +67,6 @@ struct GlobalMapperOptions {
 class GlobalMapper {
  public:
   explicit GlobalMapper(
-      const GlobalMapperOptions& options,
       std::shared_ptr<const colmap::DatabaseCache> database_cache);
 
   // Prepare the mapper for a new reconstruction. This will initialize the
@@ -76,29 +75,38 @@ class GlobalMapper {
       const std::shared_ptr<colmap::Reconstruction>& reconstruction);
 
   // Run the global SfM pipeline.
-  bool Solve(std::unordered_map<frame_t, int>& cluster_ids);
+  bool Solve(const GlobalMapperOptions& options,
+             std::unordered_map<frame_t, int>& cluster_ids);
 
   // Run rotation averaging to estimate global rotations.
   bool RotationAveraging(const RotationEstimatorOptions& options);
+
+  // Establish tracks from feature matches.
+  void EstablishTracks(const GlobalMapperOptions& options);
+
+  // Estimate global camera positions.
+  bool GlobalPositioning(const GlobalPositionerOptions& options,
+                         double max_angular_reproj_error_deg,
+                         double max_normalized_reproj_error,
+                         double min_tri_angle_deg);
+
+  // Run iterative bundle adjustment to refine poses and structure.
+  bool IterativeBundleAdjustment(const BundleAdjusterOptions& options,
+                                 double max_normalized_reproj_error,
+                                 double min_tri_angle_deg,
+                                 int num_iterations);
+
+  // Iteratively retriangulate tracks and refine to improve structure.
+  bool IterativeRetriangulateAndRefine(
+      const colmap::IncrementalTriangulator::Options& options,
+      const BundleAdjusterOptions& ba_options,
+      double max_normalized_reproj_error,
+      double min_tri_angle_deg);
 
   // Getter functions.
   std::shared_ptr<colmap::Reconstruction> Reconstruction() const;
 
  private:
-  // Establish tracks from feature matches.
-  void EstablishTracks();
-
-  // Estimate global camera positions.
-  bool GlobalPositioning();
-
-  // Run iterative bundle adjustment to refine poses and structure.
-  bool IterativeBundleAdjustment();
-
-  // Iteratively retriangulate tracks and refine to improve structure.
-  bool IterativeRetriangulateAndRefine();
-
-  const GlobalMapperOptions options_;
-
   std::shared_ptr<const colmap::DatabaseCache> database_cache_;
   std::shared_ptr<class PoseGraph> pose_graph_;
   std::shared_ptr<colmap::Reconstruction> reconstruction_;

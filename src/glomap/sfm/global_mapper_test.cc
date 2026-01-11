@@ -18,16 +18,6 @@ std::shared_ptr<colmap::DatabaseCache> CreateDatabaseCache(
   return colmap::DatabaseCache::Create(database, options);
 }
 
-GlobalMapperOptions CreateTestOptions() {
-  GlobalMapperOptions options;
-  options.skip_rotation_averaging = false;
-  options.skip_track_establishment = false;
-  options.skip_global_positioning = false;
-  options.skip_bundle_adjustment = false;
-  options.skip_retriangulation = false;
-  return options;
-}
-
 TEST(GlobalMapper, WithoutNoise) {
   const auto database_path = colmap::CreateTestDir() / "database.db";
 
@@ -44,12 +34,11 @@ TEST(GlobalMapper, WithoutNoise) {
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
 
-  GlobalMapper global_mapper(CreateTestOptions(),
-                             CreateDatabaseCache(*database));
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
   global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(cluster_ids);
+  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
 
   EXPECT_THAT(gt_reconstruction,
               colmap::ReconstructionNear(*reconstruction,
@@ -76,12 +65,11 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
 
-  GlobalMapper global_mapper(CreateTestOptions(),
-                             CreateDatabaseCache(*database));
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
   global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(cluster_ids);
+  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
 
   EXPECT_THAT(gt_reconstruction,
               colmap::ReconstructionNear(*reconstruction,
@@ -109,8 +97,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
 
-  GlobalMapper global_mapper(CreateTestOptions(),
-                             CreateDatabaseCache(*database));
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
   global_mapper.BeginReconstruction(reconstruction);
 
   // Set the rig sensors to be unknown
@@ -123,7 +110,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
   }
 
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(cluster_ids);
+  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
 
   EXPECT_THAT(gt_reconstruction,
               colmap::ReconstructionNear(*reconstruction,
@@ -152,12 +139,11 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
 
   auto reconstruction = std::make_shared<colmap::Reconstruction>();
 
-  GlobalMapper global_mapper(CreateTestOptions(),
-                             CreateDatabaseCache(*database));
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
   global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(cluster_ids);
+  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
 
   EXPECT_THAT(gt_reconstruction,
               colmap::ReconstructionNear(*reconstruction,

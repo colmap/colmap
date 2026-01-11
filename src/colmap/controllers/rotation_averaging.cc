@@ -65,7 +65,7 @@ void RotationAveragingController::Run() {
   run_timer.Start();
 
   // Create a global mapper instance
-  glomap::GlobalMapper mapper(glomap::GlobalMapperOptions(), database_cache_);
+  glomap::GlobalMapper mapper(database_cache_);
   mapper.BeginReconstruction(reconstruction_);
 
   LOG(INFO) << "----- Running rotation averaging -----";
