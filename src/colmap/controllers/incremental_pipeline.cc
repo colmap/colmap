@@ -295,9 +295,10 @@ void IncrementalPipeline::Run() {
 
   IncrementalMapper::Options mapper_options = options_->Mapper();
   IncrementalMapper mapper(database_cache_);
-  if (!Reconstruct(mapper,
-                   mapper_options,
-                   /*continue_reconstruction=*/continue_reconstruction)) {
+  if (Reconstruct(mapper,
+                  mapper_options,
+                  /*continue_reconstruction=*/continue_reconstruction) ==
+      Status::STOP) {
     total_run_timer_->PrintMinutes();
     return;
   }
@@ -316,8 +317,9 @@ void IncrementalPipeline::Run() {
     LOG(INFO) << "=> Relaxing the initialization constraints.";
     mapper_options.init_min_num_inliers /= 2;
     mapper.ResetInitializationStats();
-    if (!Reconstruct(
-            mapper, mapper_options, /*continue_reconstruction=*/false)) {
+    if (Reconstruct(mapper,
+                    mapper_options,
+                    /*continue_reconstruction=*/false) == Status::STOP) {
       break;
     }
 
@@ -328,8 +330,9 @@ void IncrementalPipeline::Run() {
     LOG(INFO) << "=> Relaxing the initialization constraints.";
     mapper_options.init_min_tri_angle /= 2;
     mapper.ResetInitializationStats();
-    if (!Reconstruct(
-            mapper, mapper_options, /*continue_reconstruction=*/false)) {
+    if (Reconstruct(mapper,
+                    mapper_options,
+                    /*continue_reconstruction=*/false) == Status::STOP) {
       break;
     }
   }
@@ -596,21 +599,20 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
   return Status::SUCCESS;
 }
 
-bool IncrementalPipeline::Reconstruct(
+IncrementalPipeline::Status IncrementalPipeline::Reconstruct(
     IncrementalMapper& mapper,
     const IncrementalMapper::Options& mapper_options,
     bool continue_reconstruction) {
   for (int num_trials = 0; num_trials < options_->init_num_trials;
        ++num_trials) {
     if (CheckIfStopped() || ReachedMaxRuntime()) {
-      break;
+      return Status::STOP;
     }
-    size_t reconstruction_idx;
-    if (!continue_reconstruction || num_trials > 0) {
-      reconstruction_idx = reconstruction_manager_->Add();
-    } else {
-      reconstruction_idx = 0;
-    }
+
+    const size_t reconstruction_idx =
+        (!continue_reconstruction || num_trials > 0)
+            ? reconstruction_manager_->Add()
+            : 0;
     std::shared_ptr<Reconstruction> reconstruction =
         reconstruction_manager_->Get(reconstruction_idx);
 
@@ -623,7 +625,7 @@ bool IncrementalPipeline::Reconstruct(
         mapper.EndReconstruction(/*discard=*/false);
         AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
                                            reconstruction.get());
-        return false;
+        return Status::STOP;
       }
 
       case Status::UNKNOWN_SENSOR_FROM_RIG: {
@@ -637,27 +639,28 @@ bool IncrementalPipeline::Reconstruct(
         mapper.EndReconstruction(/*discard=*/true);
         reconstruction_manager_->Delete(reconstruction_idx);
         // If the reconstruction was discarded due to an unknown sensor from
-        // rig, we can exit the trial loop, because all trials will fail.
-        return false;
-      }
-
-      case Status::NO_INITIAL_PAIR: {
-        LOG(ERROR) << "Discarding reconstruction due to no initial pair";
-        mapper.EndReconstruction(/*discard=*/true);
-        reconstruction_manager_->Delete(reconstruction_idx);
-        // If no pair could be found, we can exit the trial loop, because
-        // the next trial will not find anything unless the initialization
-        // thresholds are relaxed.
-        return true;
+        // rig, we can stop the outer trial loop, because all trials will fail.
+        return Status::STOP;
       }
 
       case Status::BAD_INITIAL_PAIR: {
-        LOG(ERROR) << "Discarding reconstruction due to bad initial pair";
+        LOG(INFO) << "Discarding reconstruction due to bad initial pair";
         mapper.EndReconstruction(/*discard=*/true);
         reconstruction_manager_->Delete(reconstruction_idx);
         // If an initial pair was found but it was bad, we discard and attempt
         // to initialize from any of the remaining pairs in the next trials.
         break;
+      }
+
+      case Status::NO_INITIAL_PAIR: {
+        LOG(INFO) << "Discarding reconstruction due to no initial pair";
+        mapper.EndReconstruction(/*discard=*/true);
+        reconstruction_manager_->Delete(reconstruction_idx);
+        // If no pair could be found, we can exit the trial loop, because
+        // the next trials in this loop will not find anything unless the
+        // initialization thresholds are relaxed. However, by relaxing the
+        // constraints in the outer loop we can succeed.
+        return Status::CONTINUE;
       }
 
       case Status::SUCCESS: {
@@ -688,13 +691,16 @@ bool IncrementalPipeline::Reconstruct(
 
         Callback(LAST_IMAGE_REG_CALLBACK);
 
+        // Check if we should or can reconstruct another sub-model.
         if (!options_->multiple_models ||
             reconstruction_manager_->Size() >=
                 static_cast<size_t>(options_->max_num_models) ||
             total_num_reg_images >= database_cache_->NumImages() - 1) {
-          return false;
+          return Status::STOP;
         }
 
+        // In case the reconstruction was successful and there are remaining
+        // images, we try to reconstruct another sub-model in the next trial.
         break;
       }
 
@@ -703,7 +709,7 @@ bool IncrementalPipeline::Reconstruct(
     }
   }
 
-  return true;
+  return Status::CONTINUE;
 }
 
 void IncrementalPipeline::TriangulateReconstruction(

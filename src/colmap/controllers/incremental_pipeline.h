@@ -203,11 +203,13 @@ class IncrementalPipeline : public BaseController {
   };
 
   enum class Status {
-    UNKNOWN_SENSOR_FROM_RIG,
+    SUCCESS,
+    INTERRUPTED,
+    CONTINUE,
+    STOP,
     NO_INITIAL_PAIR,
     BAD_INITIAL_PAIR,
-    SUCCESS,
-    INTERRUPTED
+    UNKNOWN_SENSOR_FROM_RIG,
   };
 
   IncrementalPipeline(
@@ -234,11 +236,9 @@ class IncrementalPipeline : public BaseController {
     return database_cache_;
   }
 
-  // Returns true, if the main loop should call Reconstruct() again with relaxed
-  // parameters to reconstruct more sub-models.
-  bool Reconstruct(IncrementalMapper& mapper,
-                   const IncrementalMapper::Options& mapper_options,
-                   bool continue_reconstruction);
+  Status Reconstruct(IncrementalMapper& mapper,
+                     const IncrementalMapper::Options& mapper_options,
+                     bool continue_reconstruction);
 
   Status ReconstructSubModel(
       IncrementalMapper& mapper,
