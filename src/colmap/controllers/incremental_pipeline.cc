@@ -103,8 +103,9 @@ bool HasUnknownSensorFromRig(const Reconstruction& reconstruction) {
     parameterized_rigs.insert(image.FramePtr()->RigPtr());
   }
   for (const Rig* rig : parameterized_rigs) {
-    for (const auto& [_, sensor_from_rig] : rig->NonRefSensors()) {
-      if (!sensor_from_rig.has_value()) {
+    for (const auto& [sensor_id, sensor_from_rig] : rig->NonRefSensors()) {
+      if (sensor_id.type == SensorType::CAMERA &&
+          !sensor_from_rig.has_value()) {
         return true;
       }
     }
