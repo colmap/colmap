@@ -446,6 +446,10 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
     calibrated_graph.AddImage(image_id, image.NumPoints2D());
   }
 
+  // TODO(jsch): This will only add CALIBRATED/UNCALIBRATED pairs to the
+  // calibrated graph and any other types will be missing (PLANAR, etc.),
+  // because we have not loaded them into the "pairs" above.
+
   for (auto& [pair_id, tvg] : valid_pairs) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     if (tvg.inlier_matches.size() >= options.min_num_matches) {
