@@ -58,6 +58,7 @@ TEST(CorrespondenceGraph, Empty) {
   EXPECT_EQ(correspondence_graph.NumImages(), 0);
   EXPECT_EQ(correspondence_graph.NumImagePairs(), 0);
   EXPECT_EQ(correspondence_graph.NumMatchesBetweenAllImages().size(), 0);
+  EXPECT_EQ(correspondence_graph.ImagePairs().size(), 0);
 }
 
 TEST(CorrespondenceGraph, Print) {
@@ -95,6 +96,8 @@ TEST(CorrespondenceGraph, TwoView) {
   const image_pair_t pair_id = ImagePairToPairId(0, 1);
   EXPECT_EQ(correspondence_graph.NumMatchesBetweenAllImages().size(), 1);
   EXPECT_EQ(correspondence_graph.NumMatchesBetweenAllImages().at(pair_id), 4);
+  EXPECT_THAT(correspondence_graph.ImagePairs(),
+              testing::UnorderedElementsAre(pair_id));
   const TwoViewGeometry two_view_geometry01_stored =
       correspondence_graph.ExtractTwoViewGeometry(
           0, 1, /*extract_inlier_matches=*/true);
@@ -236,6 +239,8 @@ TEST(CorrespondenceGraph, ThreeView) {
   EXPECT_EQ(correspondence_graph.NumMatchesBetweenAllImages().at(pair_id01), 1);
   EXPECT_EQ(correspondence_graph.NumMatchesBetweenAllImages().at(pair_id02), 1);
   EXPECT_EQ(correspondence_graph.NumMatchesBetweenAllImages().at(pair_id12), 2);
+  EXPECT_THAT(correspondence_graph.ImagePairs(),
+              testing::UnorderedElementsAre(pair_id01, pair_id02, pair_id12));
 
   std::vector<CorrespondenceGraph::Correspondence> corrs;
   correspondence_graph.ExtractCorrespondences(0, 0, &corrs);

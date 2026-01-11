@@ -79,16 +79,20 @@ class GlobalMapper {
              std::unordered_map<frame_t, int>& cluster_ids);
 
   // Run rotation averaging to estimate global rotations.
-  bool RotationAveraging(const RotationEstimatorOptions& options);
+  bool RotationAveraging(const RotationEstimatorOptions& options,
+                         PoseGraph& pose_graph);
 
+  // Getter functions.
+  std::shared_ptr<colmap::Reconstruction> Reconstruction() const;
+
+ private:
   // Establish tracks from feature matches.
-  void EstablishTracks(const GlobalMapperOptions& options);
+  void EstablishTracks(const GlobalMapperOptions& options,
+                       const PoseGraph& pose_graph);
 
   // Estimate global camera positions.
-  bool GlobalPositioning(const GlobalPositionerOptions& options,
-                         double max_angular_reproj_error_deg,
-                         double max_normalized_reproj_error,
-                         double min_tri_angle_deg);
+  bool GlobalPositioning(const GlobalMapperOptions& options,
+                         const PoseGraph& pose_graph);
 
   // Run iterative bundle adjustment to refine poses and structure.
   bool IterativeBundleAdjustment(const BundleAdjusterOptions& options,
@@ -103,19 +107,11 @@ class GlobalMapper {
       double max_normalized_reproj_error,
       double min_tri_angle_deg);
 
-  // Getter functions.
-  std::shared_ptr<colmap::Reconstruction> Reconstruction() const;
-  std::shared_ptr<class PoseGraph> PoseGraph() const;
-
- private:
   // Class that caches data loaded from the database.
   std::shared_ptr<const colmap::DatabaseCache> database_cache_;
 
   // Class that holds data of the reconstruction.
   std::shared_ptr<colmap::Reconstruction> reconstruction_;
-
-  // Class that holds the view graph.
-  std::shared_ptr<class PoseGraph> pose_graph_;
 };
 
 }  // namespace glomap
