@@ -500,10 +500,12 @@ TEST_P(ParameterizedDatabaseTests, TwoViewGeometry) {
   }
 
   EXPECT_EQ(two_view_geometry_read_inv.config, two_view_geometry_read.config);
-  EXPECT_EQ(two_view_geometry_read_inv.F.transpose(), two_view_geometry_read.F);
-  EXPECT_EQ(two_view_geometry_read_inv.E.transpose(), two_view_geometry_read.E);
-  EXPECT_TRUE(two_view_geometry_read_inv.H.inverse().eval().isApprox(
-      two_view_geometry_read.H));
+  EXPECT_EQ(two_view_geometry_read_inv.F->transpose(),
+            *two_view_geometry_read.F);
+  EXPECT_EQ(two_view_geometry_read_inv.E->transpose(),
+            *two_view_geometry_read.E);
+  EXPECT_TRUE(two_view_geometry_read_inv.H->inverse().eval().isApprox(
+      *two_view_geometry_read.H));
   EXPECT_TRUE(two_view_geometry_read_inv.cam2_from_cam1.has_value());
   EXPECT_TRUE(two_view_geometry_read_inv.cam2_from_cam1->rotation.isApprox(
       Inverse(*two_view_geometry_read.cam2_from_cam1).rotation));
