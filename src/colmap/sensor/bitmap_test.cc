@@ -31,6 +31,7 @@
 
 #include "colmap/util/testing.h"
 
+#include <fstream>
 #include <tuple>
 
 #include <OpenImageIO/imagebufalgo.h>
@@ -827,6 +828,36 @@ TEST_P(ParameterizedBitmapFormatTests, ReadGreyAlpha) {
   EXPECT_EQ(rgb_bitmap.Width(), width);
   EXPECT_EQ(rgb_bitmap.Height(), height);
   EXPECT_EQ(rgb_bitmap.Channels(), 3);
+}
+
+TEST(Bitmap, ReadNonImageFile) {
+  const auto test_dir = CreateTestDir();
+  const auto filename = test_dir / "not_an_image.txt";
+
+  // Create a non-image file
+  std::ofstream file(filename);
+  file << "This is not an image file";
+  file.close();
+
+  Bitmap bitmap;
+  EXPECT_FALSE(bitmap.Read(filename));
+
+  // Verify that OIIO error was cleared.
+  const std::string pending_error = OIIO::geterror();
+  EXPECT_TRUE(pending_error.empty())
+      << "OIIO error was not cleared: " << pending_error;
+}
+
+TEST(Bitmap, ReadNonExistentFile) {
+  const auto test_dir = CreateTestDir();
+
+  Bitmap bitmap;
+  EXPECT_FALSE(bitmap.Read(test_dir / "non_existent_file.png"));
+
+  // Verify that OIIO error was cleared.
+  const std::string pending_error = OIIO::geterror();
+  EXPECT_TRUE(pending_error.empty())
+      << "OIIO error was not cleared: " << pending_error;
 }
 
 INSTANTIATE_TEST_SUITE_P(
