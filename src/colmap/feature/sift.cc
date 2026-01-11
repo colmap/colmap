@@ -987,9 +987,9 @@ FeatureKeypoints NormalizeFeatureKeypoints(const Camera& camera,
   return normalized_keypoints;
 }
 
-double ComputeNormalizedMaxResidual(const Camera& camera1,
-                                    const Camera& camera2,
-                                    const double max_error) {
+double ComputeNormalizedGuidedMatchingMaxResidual(const Camera& camera1,
+                                                  const Camera& camera2,
+                                                  const double max_error) {
   const double normalized_max_error1 = camera1.CamFromImgThreshold(max_error);
   const double normalized_max_error2 = camera2.CamFromImgThreshold(max_error);
   return 0.5 * (normalized_max_error1 * normalized_max_error1 +
@@ -1136,9 +1136,10 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
     const Eigen::Matrix3f H = two_view_geometry->H.cast<float>();
 
     const float max_residual =
-        use_essential_matrix ? static_cast<float>(ComputeNormalizedMaxResidual(
-                                   *image1.camera, *image2.camera, max_error))
-                             : static_cast<float>(max_error * max_error);
+        use_essential_matrix
+            ? static_cast<float>(ComputeNormalizedGuidedMatchingMaxResidual(
+                  *image1.camera, *image2.camera, max_error))
+            : static_cast<float>(max_error * max_error);
 
     std::function<bool(float, float, float, float)> guided_filter;
     if (two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
@@ -1479,9 +1480,10 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
         static_cast<size_t>(options_.max_num_matches));
 
     const float max_residual =
-        use_essential_matrix ? static_cast<float>(ComputeNormalizedMaxResidual(
-                                   *image1.camera, *image2.camera, max_error))
-                             : static_cast<float>(max_error * max_error);
+        use_essential_matrix
+            ? static_cast<float>(ComputeNormalizedGuidedMatchingMaxResidual(
+                  *image1.camera, *image2.camera, max_error))
+            : static_cast<float>(max_error * max_error);
 
     const int num_matches = sift_match_gpu_.GetGuidedSiftMatch(
         options_.max_num_matches,
