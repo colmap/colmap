@@ -92,8 +92,7 @@ struct ViewGraphCalibrationOptions {
 // CALIBRATED. Pairs with high calibration error are tagged as DEGENERATE.
 bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
                         const Database& database,
-                        const CorrespondenceGraph& graph,
-                        CorrespondenceGraph& calibrated_graph,
+                        CorrespondenceGraph& graph,
                         Reconstruction& reconstruction);
 
 }  // namespace colmap

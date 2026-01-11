@@ -344,8 +344,7 @@ ViewGraphCalibrationOptions::CreateLossFunction() const {
 
 bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
                         const Database& database,
-                        const CorrespondenceGraph& graph,
-                        CorrespondenceGraph& calibrated_graph,
+                        CorrespondenceGraph& graph,
                         Reconstruction& reconstruction) {
   std::vector<std::pair<image_pair_t, TwoViewGeometry>> pairs =
       ExtractTwoViewGeometries(graph);
@@ -441,7 +440,7 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
 
   LOG(INFO) << "Building calibrated graph";
 
-  calibrated_graph = CorrespondenceGraph();
+  CorrespondenceGraph calibrated_graph;
   for (const auto& [image_id, image] : reconstruction.Images()) {
     calibrated_graph.AddImage(image_id, image.NumPoints2D());
   }
@@ -458,6 +457,7 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
   }
 
   calibrated_graph.Finalize();
+  graph = std::move(calibrated_graph);
 
   return true;
 }

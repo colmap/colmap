@@ -67,7 +67,7 @@ void GlobalPipeline::Run() {
   global_mapper.BeginReconstruction(reconstruction);
 
   // Need to run view graph calibration before running mapper,
-  // so that the updated relative poses are loaded into the pose graph.
+  // so that the updated correspondence graph is loaded into the pose graph.
   if (!options_.skip_view_graph_calibration) {
     LOG(INFO) << "----- Running view graph calibration -----";
     Timer run_timer;
@@ -75,17 +75,13 @@ void GlobalPipeline::Run() {
     ViewGraphCalibrationOptions vgc_options = options_.view_graph_calibration;
     vgc_options.random_seed = options_.random_seed;
     vgc_options.solver_options.num_threads = options_.num_threads;
-    auto corr_graph = database_cache->CorrespondenceGraph();
-    CorrespondenceGraph calibrated_corr_graph;
     if (!CalibrateViewGraph(vgc_options,
                             *database_,
-                            *corr_graph,
-                            calibrated_corr_graph,
+                            *database_cache->CorrespondenceGraph(),
                             *reconstruction)) {
       LOG(ERROR) << "View graph calibration failed";
       return;
     }
-    *corr_graph = std::move(calibrated_corr_graph);
     LOG(INFO) << "View graph calibration done in " << run_timer.ElapsedSeconds()
               << " seconds";
   }
