@@ -1397,8 +1397,6 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     const bool use_essential_matrix =
         two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
         two_view_geometry->config == TwoViewGeometry::CALIBRATED_RIG;
-    FeatureKeypoints normalized_keypoints1;
-    FeatureKeypoints normalized_keypoints2;
 
     if (prev_image_id1_ == kInvalidImageId || !prev_is_guided_ ||
         prev_image_id1_ != image1.image_id ||
@@ -1408,14 +1406,14 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
       sift_match_gpu_.SetDescriptors(
           kIndex, image1.descriptors->rows(), image1.descriptors->data());
       if (use_essential_matrix) {
-        normalized_keypoints1 =
+        const FeatureKeypoints normalized_keypoints1 =
             NormalizeFeatureKeypoints(*image1.camera, *image1.keypoints);
-        sift_match_gpu_.SetFeautreLocation(
+        sift_match_gpu_.SetFeatureLocation(
             kIndex,
             reinterpret_cast<const float*>(normalized_keypoints1.data()),
             kFeatureShapeNumElems);
       } else {
-        sift_match_gpu_.SetFeautreLocation(
+        sift_match_gpu_.SetFeatureLocation(
             kIndex,
             reinterpret_cast<const float*>(image1.keypoints->data()),
             kFeatureShapeNumElems);
@@ -1431,14 +1429,14 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
       sift_match_gpu_.SetDescriptors(
           kIndex, image2.descriptors->rows(), image2.descriptors->data());
       if (use_essential_matrix) {
-        normalized_keypoints2 =
+        const FeatureKeypoints normalized_keypoints2 =
             NormalizeFeatureKeypoints(*image2.camera, *image2.keypoints);
-        sift_match_gpu_.SetFeautreLocation(
+        sift_match_gpu_.SetFeatureLocation(
             kIndex,
             reinterpret_cast<const float*>(normalized_keypoints2.data()),
             kFeatureShapeNumElems);
       } else {
-        sift_match_gpu_.SetFeautreLocation(
+        sift_match_gpu_.SetFeatureLocation(
             kIndex,
             reinterpret_cast<const float*>(image2.keypoints->data()),
             kFeatureShapeNumElems);
