@@ -66,6 +66,8 @@ void GlobalPipeline::Run() {
   glomap::GlobalMapper global_mapper(database_cache);
   global_mapper.BeginReconstruction(reconstruction);
 
+  // Need to run view graph calibration before running mapper,
+  // so that the updated relative poses are loaded into the pose graph.
   if (!options_.skip_view_graph_calibration) {
     LOG(INFO) << "----- Running view graph calibration -----";
     Timer run_timer;

@@ -31,6 +31,11 @@ std::shared_ptr<colmap::Reconstruction> GlobalMapper::Reconstruction() const {
 
 bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options,
                                      PoseGraph& pose_graph) {
+  if (pose_graph.Empty()) {
+    LOG(ERROR) << "Cannot continue with empty pose graph";
+    return false;
+  }
+
   // Read pose priors from the database cache.
   const std::vector<colmap::PosePrior>& pose_priors =
       database_cache_->PosePriors();
