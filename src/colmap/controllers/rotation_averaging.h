@@ -33,6 +33,7 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/base_controller.h"
 
+#include "glomap/estimators/gravity_refinement.h"
 #include "glomap/estimators/rotation_averaging.h"
 
 #include <memory>
@@ -61,6 +62,12 @@ struct RotationAveragingControllerOptions {
 
   // Whether to decompose relative poses from two-view geometries.
   bool decompose_relative_pose = true;
+
+  // Whether to refine gravity priors before rotation averaging.
+  bool refine_gravity = false;
+
+  // Options for gravity refinement.
+  glomap::GravityRefinerOptions gravity_refiner;
 
   // Options for rotation averaging.
   glomap::RotationEstimatorOptions rotation_estimation;

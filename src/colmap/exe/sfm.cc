@@ -34,6 +34,7 @@
 #include "colmap/controllers/global_pipeline.h"
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/option_manager.h"
+#include "colmap/controllers/rotation_averaging.h"
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/exe/gui.h"
@@ -43,11 +44,6 @@
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
-
-#include "glomap/estimators/gravity_refinement.h"
-#include "glomap/estimators/rotation_averaging.h"
-#include "glomap/io/pose_io.h"
-#include "glomap/scene/pose_graph.h"
 
 #include <limits>
 
@@ -638,114 +634,48 @@ void RunPointTriangulatorImpl(
   reconstruction->Write(output_path);
 }
 
-// TODO: Switch to database input and RotationAveragingController in the future.
 int RunRotationAverager(int argc, char** argv) {
-  std::string relpose_path;
   std::string output_path;
-  std::string gravity_path;
 
-  bool use_stratified = true;
-  bool refine_gravity = false;
+  RotationAveragingControllerOptions controller_options;
 
   OptionManager options;
-  options.AddRequiredOption("relpose_path", &relpose_path);
+  options.AddDatabaseOptions();
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("gravity_path", &gravity_path);
-  options.AddDefaultOption("use_stratified", &use_stratified);
-  options.AddDefaultOption("refine_gravity", &refine_gravity);
+  options.AddDefaultOption("num_threads", &controller_options.num_threads);
+  options.AddDefaultOption("random_seed", &controller_options.random_seed);
+  options.AddDefaultOption(
+      "use_gravity", &controller_options.rotation_estimation.use_gravity);
+  options.AddDefaultOption(
+      "use_stratified", &controller_options.rotation_estimation.use_stratified);
+  options.AddDefaultOption(
+      "refine_gravity", &controller_options.refine_gravity);
   options.AddGravityRefinerOptions();
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
 
-  if (!ExistsFile(relpose_path)) {
-    LOG(ERROR) << "`relpose_path` is not a file";
+  controller_options.gravity_refiner = *options.gravity_refiner;
+
+  if (!ExistsDir(output_path)) {
+    LOG(ERROR) << "`output_path` is not a directory";
     return EXIT_FAILURE;
   }
 
-  if (!gravity_path.empty() && !ExistsFile(gravity_path)) {
-    LOG(ERROR) << "`gravity_path` is not a file";
+  auto database = Database::Open(*options.database_path);
+  auto reconstruction = std::make_shared<Reconstruction>();
+
+  RotationAveragingController controller(
+      controller_options, std::move(database), reconstruction);
+  controller.Run();
+
+  if (reconstruction->NumRegFrames() == 0) {
+    LOG(ERROR) << "No frames registered";
     return EXIT_FAILURE;
   }
 
-  glomap::RotationEstimatorOptions rotation_averager_options;
-  rotation_averager_options.skip_initialization = true;
-  rotation_averager_options.use_gravity = !gravity_path.empty();
-  rotation_averager_options.use_stratified = use_stratified;
-
-  // Load the database.
-  glomap::PoseGraph pose_graph;
-  Reconstruction reconstruction;
-
-  // Read relative poses and build view graph.
-  // First read into a temporary images map.
-  std::unordered_map<image_t, Image> temp_images;
-  glomap::ReadRelPose(relpose_path, temp_images, pose_graph);
-
-  // Add cameras and images to reconstruction.
-  for (auto& [image_id, image] : temp_images) {
-    // Add dummy camera.
-    reconstruction.AddCameraWithTrivialRig(Camera::CreateFromModelId(
-        image_id, CameraModelId::kSimplePinhole, 0.0, 0, 0));
-
-    // Add image.
-    image.SetCameraId(image_id);
-    reconstruction.AddImageWithTrivialFrame(std::move(image));
-  }
-
-  std::vector<PosePrior> pose_priors;
-  if (!gravity_path.empty()) {
-    pose_priors = glomap::ReadGravity(gravity_path, reconstruction.Images());
-    // Initialize frame rotations from gravity.
-    // Currently rotation averaging only supports gravity prior on reference
-    // sensors.
-    const Eigen::Vector3d kUnknownTranslation =
-        Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
-    for (const auto& pose_prior : pose_priors) {
-      const auto& image = reconstruction.Image(pose_prior.pose_prior_id);
-      if (!image.IsRefInFrame()) {
-        continue;
-      }
-      reconstruction.Frame(image.FrameId())
-          .SetRigFromWorld(Rigid3d(
-              Eigen::Quaterniond(GravityAlignedRotation(pose_prior.gravity)),
-              kUnknownTranslation));
-    }
-  }
-
-  if (refine_gravity && !gravity_path.empty()) {
-    // Compute largest connected component and invalidate pairs before gravity
-    // refinement.
-    const std::unordered_set<frame_t> active_frame_ids =
-        pose_graph.ComputeLargestConnectedFrameComponent(
-            reconstruction,
-            /*filter_unregistered=*/false);
-    std::unordered_set<image_t> active_image_ids;
-    for (const auto& [image_id, image] : reconstruction.Images()) {
-      if (active_frame_ids.count(image.FrameId())) {
-        active_image_ids.insert(image_id);
-      }
-    }
-    pose_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
-
-    glomap::RunGravityRefinement(
-        *options.gravity_refiner, pose_graph, reconstruction, pose_priors);
-  }
-
-  Timer run_timer;
-  run_timer.Start();
-  if (!glomap::SolveRotationAveraging(
-          rotation_averager_options, pose_graph, reconstruction, pose_priors)) {
-    LOG(ERROR) << "Failed to solve global rotation averaging";
-    return EXIT_FAILURE;
-  }
-  run_timer.Pause();
-  LOG(INFO) << "Global rotation averaging done in "
-            << run_timer.ElapsedSeconds() << " seconds";
-
-  // Write out the estimated rotation.
-  glomap::WriteGlobalRotation(output_path, reconstruction.Images());
-  LOG(INFO) << "Global rotation averaging done";
+  LOG(INFO) << "Writing reconstruction to " << output_path;
+  reconstruction->Write(output_path);
 
   return EXIT_SUCCESS;
 }
