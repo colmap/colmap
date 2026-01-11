@@ -390,10 +390,10 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
   inputs.reserve(pairs.size());
   for (const auto& [pair_id, tvg] : pairs) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    inputs.emplace_back(pair_id,
-                        image_id_to_camera.at(image_id1)->camera_id,
-                        image_id_to_camera.at(image_id2)->camera_id,
-                        tvg.F);
+    inputs.push_back({pair_id,
+                      image_id_to_camera.at(image_id1)->camera_id,
+                      image_id_to_camera.at(image_id2)->camera_id,
+                      tvg.F});
   }
 
   const FocalLengthCalibResult calib_result =

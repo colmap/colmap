@@ -78,19 +78,19 @@ void GlobalPipeline::Run() {
 
   auto reconstruction = std::make_shared<Reconstruction>();
 
-  glomap::GlobalMapper global_mapper(database_cache);
-  global_mapper.BeginReconstruction(reconstruction);
-
   // Prepare mapper options with top-level options.
   glomap::GlobalMapperOptions mapper_options = options_.mapper;
   mapper_options.image_path = options_.image_path;
   mapper_options.num_threads = options_.num_threads;
   mapper_options.random_seed = options_.random_seed;
 
+  glomap::GlobalMapper global_mapper(mapper_options, database_cache);
+  global_mapper.BeginReconstruction(reconstruction);
+
   Timer run_timer;
   run_timer.Start();
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(mapper_options, cluster_ids);
+  global_mapper.Solve(cluster_ids);
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 

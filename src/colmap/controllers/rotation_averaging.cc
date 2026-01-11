@@ -64,15 +64,12 @@ void RotationAveragingController::Run() {
   Timer run_timer;
   run_timer.Start();
 
-  glomap::PoseGraph pose_graph;
-  pose_graph.Load(*database_cache_->CorrespondenceGraph());
-
   // Create a global mapper instance
-  glomap::GlobalMapper mapper(database_cache_);
+  glomap::GlobalMapper mapper(glomap::GlobalMapperOptions(), database_cache_);
   mapper.BeginReconstruction(reconstruction_);
 
   LOG(INFO) << "----- Running rotation averaging -----";
-  if (!mapper.RotationAveraging(options.rotation_estimation, pose_graph)) {
+  if (!mapper.RotationAveraging(options.rotation_estimation)) {
     LOG(ERROR) << "Failed to solve rotation averaging";
     return;
   }

@@ -67,6 +67,7 @@ struct GlobalMapperOptions {
 class GlobalMapper {
  public:
   explicit GlobalMapper(
+      const GlobalMapperOptions& options,
       std::shared_ptr<const colmap::DatabaseCache> database_cache);
 
   // Prepare the mapper for a new reconstruction. This will initialize the
@@ -75,42 +76,31 @@ class GlobalMapper {
       const std::shared_ptr<colmap::Reconstruction>& reconstruction);
 
   // Run the global SfM pipeline.
-  bool Solve(const GlobalMapperOptions& options,
-             std::unordered_map<frame_t, int>& cluster_ids);
+  bool Solve(std::unordered_map<frame_t, int>& cluster_ids);
 
   // Run rotation averaging to estimate global rotations.
-  bool RotationAveraging(const RotationEstimatorOptions& options,
-                         PoseGraph& pose_graph);
+  bool RotationAveraging(const RotationEstimatorOptions& options);
 
   // Getter functions.
   std::shared_ptr<colmap::Reconstruction> Reconstruction() const;
 
  private:
   // Establish tracks from feature matches.
-  void EstablishTracks(const GlobalMapperOptions& options,
-                       const PoseGraph& pose_graph);
+  void EstablishTracks();
 
   // Estimate global camera positions.
-  bool GlobalPositioning(const GlobalMapperOptions& options,
-                         const PoseGraph& pose_graph);
+  bool GlobalPositioning();
 
   // Run iterative bundle adjustment to refine poses and structure.
-  bool IterativeBundleAdjustment(const BundleAdjusterOptions& options,
-                                 double max_normalized_reproj_error,
-                                 double min_tri_angle_deg,
-                                 int num_iterations);
+  bool IterativeBundleAdjustment();
 
   // Iteratively retriangulate tracks and refine to improve structure.
-  bool IterativeRetriangulateAndRefine(
-      const colmap::IncrementalTriangulator::Options& options,
-      const BundleAdjusterOptions& ba_options,
-      double max_normalized_reproj_error,
-      double min_tri_angle_deg);
+  bool IterativeRetriangulateAndRefine();
 
-  // Class that caches data loaded from the database.
+  const GlobalMapperOptions options_;
+
   std::shared_ptr<const colmap::DatabaseCache> database_cache_;
-
-  // Class that holds data of the reconstruction.
+  std::shared_ptr<class PoseGraph> pose_graph_;
   std::shared_ptr<colmap::Reconstruction> reconstruction_;
 };
 
