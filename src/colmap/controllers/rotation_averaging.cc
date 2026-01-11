@@ -64,7 +64,6 @@ void RotationAveragingController::Run() {
   // Propagate options to component options.
   RotationAveragingControllerOptions options = options_;
   options.rotation_estimation.random_seed = options.random_seed;
-  options.rotation_estimation.skip_initialization = true;
   options.gravity_refiner.solver_options.num_threads = options.num_threads;
 
   Timer run_timer;
@@ -81,6 +80,10 @@ void RotationAveragingController::Run() {
 
   // Get a mutable copy of pose priors.
   std::vector<PosePrior> pose_priors = database_cache_->PosePriors();
+
+  // Skip MST initialization if gravity priors exist (we initialize from gravity
+  // instead). Otherwise, use MST initialization.
+  options.rotation_estimation.skip_initialization = !pose_priors.empty();
 
   // Initialize frame rotations from gravity priors.
   if (!pose_priors.empty()) {
