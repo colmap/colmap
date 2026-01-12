@@ -42,11 +42,10 @@ TEST(BATAPairwiseDirectionCostFunctor, ZeroResidual) {
   const double scale = 1.0;
   const Eigen::Vector3d direction = pos2 - pos1;
 
-  BATAPairwiseDirectionCostFunctor cost_function(direction);
+  BATAPairwiseDirectionCostFunctor cost_functor(direction);
 
   Eigen::Vector3d residuals;
-  EXPECT_TRUE(
-      cost_function(pos1.data(), pos2.data(), &scale, residuals.data()));
+  EXPECT_TRUE(cost_functor(pos1.data(), pos2.data(), &scale, residuals.data()));
 
   EXPECT_THAT(residuals,
               colmap::EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
@@ -58,11 +57,10 @@ TEST(BATAPairwiseDirectionCostFunctor, NonZeroResidual) {
   const double scale = 2.0;
   const Eigen::Vector3d direction(1, 1, 1);
 
-  BATAPairwiseDirectionCostFunctor cost_function(direction);
+  BATAPairwiseDirectionCostFunctor cost_functor(direction);
 
   Eigen::Vector3d residuals;
-  EXPECT_TRUE(
-      cost_function(pos1.data(), pos2.data(), &scale, residuals.data()));
+  EXPECT_TRUE(cost_functor(pos1.data(), pos2.data(), &scale, residuals.data()));
 
   const Eigen::Vector3d expected_residuals = direction - scale * (pos2 - pos1);
   EXPECT_THAT(residuals, colmap::EigenMatrixNear(expected_residuals, 1e-10));
@@ -74,11 +72,10 @@ TEST(BATAPairwiseDirectionCostFunctor, DifferentScale) {
   const double scale = 0.5;
   const Eigen::Vector3d direction = scale * (pos2 - pos1);
 
-  BATAPairwiseDirectionCostFunctor cost_function(direction);
+  BATAPairwiseDirectionCostFunctor cost_functor(direction);
 
   Eigen::Vector3d residuals;
-  EXPECT_TRUE(
-      cost_function(pos1.data(), pos2.data(), &scale, residuals.data()));
+  EXPECT_TRUE(cost_functor(pos1.data(), pos2.data(), &scale, residuals.data()));
 
   EXPECT_THAT(residuals,
               colmap::EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
@@ -99,11 +96,11 @@ TEST(RigBATAPairwiseDirectionConstantRigCostFunctor, ZeroResidual) {
   const Eigen::Vector3d cam_from_point3D_dir =
       scale * (point3D - rig_in_world + cam_from_rig_dir);
 
-  RigBATAPairwiseDirectionConstantRigCostFunctor cost_function(
+  RigBATAPairwiseDirectionConstantRigCostFunctor cost_functor(
       cam_from_point3D_dir, cam_from_rig_dir);
 
   Eigen::Vector3d residuals;
-  EXPECT_TRUE(cost_function(
+  EXPECT_TRUE(cost_functor(
       point3D.data(), rig_in_world.data(), &scale, residuals.data()));
 
   EXPECT_THAT(residuals,
@@ -117,11 +114,11 @@ TEST(RigBATAPairwiseDirectionConstantRigCostFunctor, NonZeroResidual) {
   const Eigen::Vector3d cam_from_rig_dir(0.1, 0.2, 0.3);
   const Eigen::Vector3d cam_from_point3D_dir(1, 1, 1);
 
-  RigBATAPairwiseDirectionConstantRigCostFunctor cost_function(
+  RigBATAPairwiseDirectionConstantRigCostFunctor cost_functor(
       cam_from_point3D_dir, cam_from_rig_dir);
 
   Eigen::Vector3d residuals;
-  EXPECT_TRUE(cost_function(
+  EXPECT_TRUE(cost_functor(
       point3D.data(), rig_in_world.data(), &scale, residuals.data()));
 
   const Eigen::Vector3d expected_residuals =
@@ -150,15 +147,15 @@ TEST(RigBATAPairwiseDirectionCostFunctor, ZeroResidual) {
   const Eigen::Vector3d cam_from_point3D_dir =
       scale * (point3D - rig_in_world - cam_from_rig_dir);
 
-  RigBATAPairwiseDirectionCostFunctor cost_function(cam_from_point3D_dir,
-                                                    rig_from_world_rot);
+  RigBATAPairwiseDirectionCostFunctor cost_functor(cam_from_point3D_dir,
+                                                   rig_from_world_rot);
 
   Eigen::Vector3d residuals;
-  EXPECT_TRUE(cost_function(point3D.data(),
-                            rig_in_world.data(),
-                            cam_in_rig.data(),
-                            &scale,
-                            residuals.data()));
+  EXPECT_TRUE(cost_functor(point3D.data(),
+                           rig_in_world.data(),
+                           cam_in_rig.data(),
+                           &scale,
+                           residuals.data()));
 
   EXPECT_THAT(residuals,
               colmap::EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
@@ -173,15 +170,15 @@ TEST(RigBATAPairwiseDirectionCostFunctor, NonZeroResidual) {
       Eigen::Quaterniond(0.707, 0.707, 0, 0).normalized();
   const Eigen::Vector3d cam_from_point3D_dir(1, 1, 1);
 
-  RigBATAPairwiseDirectionCostFunctor cost_function(cam_from_point3D_dir,
-                                                    rig_from_world_rot);
+  RigBATAPairwiseDirectionCostFunctor cost_functor(cam_from_point3D_dir,
+                                                   rig_from_world_rot);
 
   Eigen::Vector3d residuals;
-  EXPECT_TRUE(cost_function(point3D.data(),
-                            rig_in_world.data(),
-                            cam_in_rig.data(),
-                            &scale,
-                            residuals.data()));
+  EXPECT_TRUE(cost_functor(point3D.data(),
+                           rig_in_world.data(),
+                           cam_in_rig.data(),
+                           &scale,
+                           residuals.data()));
 
   const Eigen::Vector3d cam_from_rig_dir =
       rig_from_world_rot.toRotationMatrix().transpose() * cam_in_rig;
