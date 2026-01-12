@@ -5,6 +5,7 @@
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
 #include "glomap/estimators/rotation_averaging.h"
@@ -441,7 +442,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
 
   // Run rotation averaging
   if (!opts.skip_rotation_averaging) {
-    LOG(INFO) << "----- Running rotation averaging -----";
+    LOG_HEADING1("Running rotation averaging");
     colmap::Timer run_timer;
     run_timer.Start();
     if (!RotationAveraging(opts.rotation_averaging)) {
@@ -453,7 +454,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
 
   // Track establishment and selection
   if (!opts.skip_track_establishment) {
-    LOG(INFO) << "----- Running track establishment -----";
+    LOG_HEADING1("Running track establishment");
     colmap::Timer run_timer;
     run_timer.Start();
     EstablishTracks(opts);
@@ -463,7 +464,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
 
   // Global positioning
   if (!opts.skip_global_positioning) {
-    LOG(INFO) << "----- Running global positioning -----";
+    LOG_HEADING1("Running global positioning");
     colmap::Timer run_timer;
     run_timer.Start();
     if (!GlobalPositioning(opts.global_positioning,
@@ -478,7 +479,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
 
   // Bundle adjustment
   if (!opts.skip_bundle_adjustment) {
-    LOG(INFO) << "----- Running iterative bundle adjustment -----";
+    LOG_HEADING1("Running iterative bundle adjustment");
     colmap::Timer run_timer;
     run_timer.Start();
     if (!IterativeBundleAdjustment(opts.bundle_adjustment,
@@ -493,7 +494,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
 
   // Retriangulation
   if (!opts.skip_retriangulation) {
-    LOG(INFO) << "----- Running iterative retriangulation and refinement -----";
+    LOG_HEADING1("Running iterative retriangulation and refinement");
     colmap::Timer run_timer;
     run_timer.Start();
     if (!IterativeRetriangulateAndRefine(opts.retriangulation,
@@ -508,7 +509,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
 
   // Reconstruction pruning
   if (!opts.skip_pruning) {
-    LOG(INFO) << "----- Running postprocessing -----";
+    LOG_HEADING1("Running postprocessing");
     colmap::Timer run_timer;
     run_timer.Start();
     cluster_ids = PruneWeaklyConnectedFrames(*reconstruction_);

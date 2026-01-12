@@ -175,7 +175,7 @@ class FeatureMatcherThread : public Thread {
 
  private:
   void Run() override {
-    PrintHeading1("Feature matching & geometric verification");
+    LOG_HEADING1("Feature matching & geometric verification");
 
     Timer run_timer;
     run_timer.Start();
@@ -209,7 +209,7 @@ class FeatureMatcherThread : public Thread {
     if (!matching_options_.skip_geometric_verification &&
         matching_options_.rig_verification) {
       run_timer.Restart();
-      PrintHeading1("Rig verification");
+      LOG_HEADING1("Rig verification");
       RigVerification(
           database_, cache_, geometry_options_, matching_options_.num_threads);
       run_timer.PrintMinutes();
@@ -262,7 +262,7 @@ class GeometricVerifierThread : public Thread {
 
  private:
   void Run() override {
-    PrintHeading1("Geometric verification");
+    LOG_HEADING1("Geometric verification");
 
     Timer run_timer;
     run_timer.Start();
@@ -289,7 +289,7 @@ class GeometricVerifierThread : public Thread {
 
     if (verifier_.Options().rig_verification) {
       run_timer.Restart();
-      PrintHeading1("Rig verification");
+      LOG_HEADING1("Rig verification");
       RigVerification(database_,
                       cache_,
                       geometry_options_,
@@ -384,7 +384,7 @@ class FeaturePairsFeatureMatcher : public Thread {
 
  private:
   void Run() override {
-    PrintHeading1("Importing matches");
+    LOG_HEADING1("Importing matches");
     Timer run_timer;
     run_timer.Start();
 

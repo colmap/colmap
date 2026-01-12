@@ -32,9 +32,15 @@
 namespace colmap {
 
 void TwoViewGeometry::Invert() {
-  F.transposeInPlace();
-  E.transposeInPlace();
-  H = H.inverse().eval();
+  if (F) {
+    F->transposeInPlace();
+  }
+  if (E) {
+    E->transposeInPlace();
+  }
+  if (H) {
+    *H = H->inverse().eval();
+  }
   if (cam2_from_cam1) {
     cam2_from_cam1 = Inverse(*cam2_from_cam1);
   }

@@ -437,7 +437,7 @@ class FeatureExtractorController : public Thread {
 
  private:
   void Run() override {
-    PrintHeading1("Feature extraction");
+    LOG_HEADING1("Feature extraction");
     Timer run_timer;
     run_timer.Start();
 
@@ -537,7 +537,7 @@ class FeatureImporterController : public Thread {
 
  private:
   void Run() override {
-    PrintHeading1("Feature import");
+    LOG_HEADING1("Feature import");
     Timer run_timer;
     run_timer.Start();
 

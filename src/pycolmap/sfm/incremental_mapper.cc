@@ -263,11 +263,6 @@ void BindIncrementalPipeline(py::module& m) {
                              &IncrementalPipeline::DatabaseCache)
       .def("add_callback", &IncrementalPipeline::AddCallback, "id"_a, "func"_a)
       .def("callback", &IncrementalPipeline::Callback, "id"_a)
-      .def("check_run_global_refinement",
-           &IncrementalPipeline::CheckRunGlobalRefinement,
-           "reconstruction"_a,
-           "ba_prev_num_reg_images"_a,
-           "ba_prev_num_points"_a)
       .def("reconstruct",
            &IncrementalPipeline::Reconstruct,
            "mapper"_a,
@@ -283,7 +278,14 @@ void BindIncrementalPipeline(py::module& m) {
            "mapper"_a,
            "mapper_options"_a,
            "reconstruction"_a)
-      .def("run", &IncrementalPipeline::Run);
+      .def("run", &IncrementalPipeline::Run)
+      .def("check_run_global_refinement",
+           &IncrementalPipeline::CheckRunGlobalRefinement,
+           "reconstruction"_a,
+           "ba_prev_num_reg_images"_a,
+           "ba_prev_num_points"_a)
+      .def("check_reached_max_runtime",
+           &IncrementalPipeline::CheckReachedMaxRuntime);
 }
 
 void BindIncrementalMapperOptions(py::module& m) {

@@ -305,7 +305,7 @@ void IncrementalPipeline::Run() {
 
   auto ShouldStop = [this, &mapper, &num_images]() {
     return mapper.NumTotalRegImages() == num_images || CheckIfStopped() ||
-           ReachedMaxRuntime();
+           CheckReachedMaxRuntime();
   };
 
   const size_t kNumInitRelaxations = 2;
@@ -475,7 +475,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
   bool reg_next_success = true;
   bool prev_reg_next_success = true;
   do {
-    if (CheckIfStopped() || ReachedMaxRuntime()) {
+    if (CheckIfStopped() || CheckReachedMaxRuntime()) {
       break;
     }
 
@@ -586,7 +586,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
     }
   } while (reg_next_success || prev_reg_next_success);
 
-  if (CheckIfStopped() || ReachedMaxRuntime()) {
+  if (CheckIfStopped() || CheckReachedMaxRuntime()) {
     return Status::INTERRUPTED;
   }
 
@@ -605,7 +605,7 @@ IncrementalPipeline::Status IncrementalPipeline::Reconstruct(
     bool continue_reconstruction) {
   for (int num_trials = 0; num_trials < options_->init_num_trials;
        ++num_trials) {
-    if (CheckIfStopped() || ReachedMaxRuntime()) {
+    if (CheckIfStopped() || CheckReachedMaxRuntime()) {
       return Status::STOP;
     }
 
@@ -757,7 +757,7 @@ void IncrementalPipeline::RegisterCallbacks() {
   RegisterCallback(LAST_IMAGE_REG_CALLBACK);
 }
 
-bool IncrementalPipeline::ReachedMaxRuntime() const {
+bool IncrementalPipeline::CheckReachedMaxRuntime() const {
   if (options_->max_runtime_seconds > 0 &&
       total_run_timer_->ElapsedSeconds() > options_->max_runtime_seconds) {
     LOG(INFO) << "Reached maximum runtime of " << options_->max_runtime_seconds

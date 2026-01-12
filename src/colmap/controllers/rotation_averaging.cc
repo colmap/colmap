@@ -32,6 +32,7 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
 #include "glomap/estimators/gravity_refinement.h"
@@ -116,12 +117,12 @@ void RotationAveragingPipeline::Run() {
     }
     pose_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
 
-    LOG(INFO) << "----- Running gravity refinement -----";
+    LOG_HEADING1("Running gravity refinement");
     glomap::RunGravityRefinement(
         options.gravity_refiner, pose_graph, *reconstruction_, pose_priors);
   }
 
-  LOG(INFO) << "----- Running rotation averaging -----";
+  LOG_HEADING1("Running rotation averaging");
   if (!glomap::RunRotationAveraging(options.rotation_estimation,
                                     pose_graph,
                                     *reconstruction_,

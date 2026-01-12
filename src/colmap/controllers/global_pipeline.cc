@@ -31,6 +31,7 @@
 
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/scene/database_cache.h"
+#include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
 #include "glomap/io/colmap_io.h"
@@ -53,7 +54,7 @@ GlobalPipeline::GlobalPipeline(
 
 void GlobalPipeline::Run() {
   if (!options_.skip_view_graph_calibration) {
-    LOG(INFO) << "----- Running view graph calibration -----";
+    LOG_HEADING1("Running view graph calibration");
     Timer run_timer;
     run_timer.Start();
     ViewGraphCalibrationOptions vgc_options = options_.view_graph_calibration;

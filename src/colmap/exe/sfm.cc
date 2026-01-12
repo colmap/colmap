@@ -588,7 +588,7 @@ int RunPointTriangulator(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  PrintHeading1("Loading model");
+  LOG_HEADING1("Loading model");
 
   auto reconstruction = std::make_shared<Reconstruction>();
   reconstruction->Read(input_path);

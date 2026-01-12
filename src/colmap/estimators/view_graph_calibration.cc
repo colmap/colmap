@@ -114,8 +114,11 @@ void CrossValidatePriorFocalLengths(
 
     if (camera_validity[camera1.camera_id] &&
         camera_validity[camera2.camera_id]) {
-      tvg.E = EssentialFromFundamentalMatrix(
-          camera2.CalibrationMatrix(), tvg.F, camera1.CalibrationMatrix());
+      THROW_CHECK(tvg.F.has_value())
+          << "UNCALIBRATED two-view geometry must have F matrix";
+      tvg.E = EssentialFromFundamentalMatrix(camera2.CalibrationMatrix(),
+                                             tvg.F.value(),
+                                             camera1.CalibrationMatrix());
       tvg.config = TwoViewGeometry::CALIBRATED;
       ++num_upgraded_pairs;
     }
@@ -389,11 +392,13 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
   std::vector<FocalLengthCalibInput> inputs;
   inputs.reserve(pairs.size());
   for (const auto& [pair_id, tvg] : pairs) {
+    THROW_CHECK(tvg.F.has_value())
+        << "Two-view geometry must have F matrix for focal length calibration";
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     inputs.push_back({pair_id,
                       image_id_to_camera.at(image_id1)->camera_id,
                       image_id_to_camera.at(image_id2)->camera_id,
-                      tvg.F});
+                      tvg.F.value()});
   }
 
   const FocalLengthCalibResult calib_result =
@@ -432,10 +437,13 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
       tvg.config = TwoViewGeometry::DEGENERATE;
       database->UpdateTwoViewGeometry(image_id1, image_id2, tvg);
     } else {
+      THROW_CHECK(tvg.F.has_value())
+          << "Two-view geometry must have F matrix for E computation";
       const Camera& camera1 = *image_id_to_camera.at(image_id1);
       const Camera& camera2 = *image_id_to_camera.at(image_id2);
-      tvg.E = EssentialFromFundamentalMatrix(
-          camera2.CalibrationMatrix(), tvg.F, camera1.CalibrationMatrix());
+      tvg.E = EssentialFromFundamentalMatrix(camera2.CalibrationMatrix(),
+                                             tvg.F.value(),
+                                             camera1.CalibrationMatrix());
       tvg.config = TwoViewGeometry::CALIBRATED;
       valid_pair_indices.push_back(i);
     }
