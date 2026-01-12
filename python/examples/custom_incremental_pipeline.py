@@ -191,7 +191,7 @@ def reconstruct_sub_model(
                 kMinNumInitialRegTrials = 30
                 if (
                     reg_trial >= kMinNumInitialRegTrials
-                    and reconstruction.num_reg_frames() < options.min_model_size
+                    and reconstruction.num_reg_images() < options.min_model_size
                 ):
                     break
             if reg_next_success:
@@ -290,16 +290,14 @@ def reconstruct(
             mapper.end_reconstruction(True)
             reconstruction_manager.delete(reconstruction_idx)
         elif status == pycolmap.IncrementalMapperStatus.SUCCESS:
+            num_reg_images = reconstruction.num_reg_images()
             total_num_reg_frames = mapper.num_total_reg_images()
-            min_model_size = min(
-                0.5 * database_cache.num_images(), options.min_model_size
-            )
             if (
                 options.multiple_models
                 and reconstruction_manager.size() > 1
                 and (
-                    reconstruction.num_reg_images() < min_model_size
-                    or reconstruction.num_reg_frames() == 0
+                    num_reg_images < options.min_model_size
+                    or num_reg_images == 0
                 )
             ):
                 logging.info(
