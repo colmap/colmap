@@ -17,7 +17,8 @@ void BindSynthetic(py::module& m) {
       py::enum_<SyntheticDatasetOptions::MatchConfig>(
           m, "SyntheticDatasetMatchConfig")
           .value("EXHAUSTIVE", SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE)
-          .value("CHAINED", SyntheticDatasetOptions::MatchConfig::CHAINED);
+          .value("CHAINED", SyntheticDatasetOptions::MatchConfig::CHAINED)
+          .value("SPARSE", SyntheticDatasetOptions::MatchConfig::SPARSE);
   AddStringToEnumConstructor(PySyntheticMatchConfig);
 
   auto PySyntheticDatasetOptions =
@@ -56,13 +57,19 @@ void BindSynthetic(py::module& m) {
               "Whether to include decomposed relative poses in two-view "
               "geometries.")
           .def_readwrite("match_config", &SyntheticDatasetOptions::match_config)
+          .def_readwrite("match_sparsity",
+                         &SyntheticDatasetOptions::match_sparsity,
+                         "Sparsity parameter for SPARSE match config [0,1].")
           .def_readwrite("prior_position",
                          &SyntheticDatasetOptions::prior_position)
           .def_readwrite("prior_gravity",
                          &SyntheticDatasetOptions::prior_gravity)
           .def_readwrite(
               "prior_position_coordinate_system",
-              &SyntheticDatasetOptions::prior_position_coordinate_system);
+              &SyntheticDatasetOptions::prior_position_coordinate_system)
+          .def_readwrite("prior_gravity_in_world",
+                         &SyntheticDatasetOptions::prior_gravity_in_world,
+                         "Prior gravity direction in world coordinates.");
   MakeDataclass(PySyntheticDatasetOptions);
 
   m.def(
