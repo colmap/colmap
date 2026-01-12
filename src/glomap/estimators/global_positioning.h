@@ -106,8 +106,6 @@ class GlobalPositioner {
   // Auxiliary scale variables.
   std::vector<double> scales_;
 
-  std::unordered_map<rig_t, double> rig_scales_;
-
   // Temporary storage for frame centers (world coordinates) during
   // optimization. This allows keeping RigFromWorld().translation in
   // cam_from_world convention.

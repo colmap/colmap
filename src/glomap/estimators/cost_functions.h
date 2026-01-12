@@ -43,7 +43,7 @@ struct BATAPairwiseDirectionCostFunctor {
 
 // Computes the error between a translation direction and the direction formed
 // from a camera (c) and 3D point (p) with constant rig extrinsics, such that:
-// t_ij - scale * (p - c + rig_scale * t_rig) is minimized.
+// t_ij - scale * (p - c + t_rig) is minimized.
 struct RigBATAPairwiseDirectionConstantRigCostFunctor {
   RigBATAPairwiseDirectionConstantRigCostFunctor(
       const Eigen::Vector3d& cam_from_point3D_dir,
@@ -55,14 +55,13 @@ struct RigBATAPairwiseDirectionConstantRigCostFunctor {
   bool operator()(const T* point3D,
                   const T* rig_in_world,
                   const T* scale,
-                  const T* rig_scale,
                   T* residuals) const {
     Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals_vec(residuals);
     residuals_vec =
         cam_from_point3D_dir_.cast<T>() -
         scale[0] * (Eigen::Map<const Eigen::Matrix<T, 3, 1>>(point3D) -
                     Eigen::Map<const Eigen::Matrix<T, 3, 1>>(rig_in_world) +
-                    rig_scale[0] * cam_from_rig_translation_.cast<T>());
+                    cam_from_rig_translation_.cast<T>());
     return true;
   }
 
@@ -74,7 +73,6 @@ struct RigBATAPairwiseDirectionConstantRigCostFunctor {
             3,
             3,
             3,
-            1,
             1>(new RigBATAPairwiseDirectionConstantRigCostFunctor(
         cam_from_point3D_dir, cam_from_rig_translation)));
   }

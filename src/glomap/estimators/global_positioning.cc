@@ -94,11 +94,6 @@ void GlobalPositioner::SetupProblem(
     total_observations += point3D.track.Length();
   }
   scales_.reserve(total_observations);
-
-  // Initialize the rig scales to be 1.0.
-  for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
-    rig_scales_.emplace(rig_id, 1.0);
-  }
 }
 
 void GlobalPositioner::InitializeRandomPositions(
@@ -239,8 +234,7 @@ void GlobalPositioner::AddPoint3DToProblem(
                                    loss_function,
                                    point3D.xyz.data(),
                                    frame_centers_[image.FrameId()].data(),
-                                   &scale,
-                                   &rig_scales_[rig_id]);
+                                   &scale);
       } else {
         // If the cam_from_rig contains nan values, it needs to be re-estimated.
         // Initialize cams_in_rig_ if not already done.
@@ -304,14 +298,6 @@ void GlobalPositioner::AddCamerasAndPointsToParameterGroups(
       parameter_ordering->AddElementToGroup(center.data(), group_id);
     }
   }
-
-  group_id++;
-
-  // Also add the scales to the group
-  for (auto& [rig_id, scale] : rig_scales_) {
-    if (problem_->HasParameterBlock(&scale))
-      parameter_ordering->AddElementToGroup(&scale, group_id);
-  }
 }
 
 void GlobalPositioner::ParameterizeVariables(
@@ -355,19 +341,11 @@ void GlobalPositioner::ParameterizeVariables(
       }
     }
   }
-  // Set the first rig scale to be constant to remove the gauge ambiguity.
+  // Set the first scale to be constant to remove the gauge ambiguity.
   for (double& scale : scales_) {
     if (problem_->HasParameterBlock(&scale)) {
       problem_->SetParameterBlockConstant(&scale);
       break;
-    }
-  }
-  // Set the rig scales to be constant
-  // TODO: add a flag to allow the scales to be optimized (if they are not in
-  // metric scale)
-  for (auto& [rig_id, scale] : rig_scales_) {
-    if (problem_->HasParameterBlock(&scale)) {
-      problem_->SetParameterBlockConstant(&scale);
     }
   }
 
@@ -438,13 +416,10 @@ void GlobalPositioner::ParameterizeVariables(
 
 void GlobalPositioner::ConvertBackResults(
     colmap::Reconstruction& reconstruction) {
-  // Convert optimized frame centers back to rig_from_world translations
-  // and apply the rig scales.
+  // Convert optimized frame centers back to rig_from_world translations.
   for (const auto& [frame_id, center] : frame_centers_) {
     Rigid3d& rig_from_world = reconstruction.Frame(frame_id).RigFromWorld();
     rig_from_world.translation = rig_from_world.rotation * -center;
-    rig_from_world.translation *=
-        rig_scales_[reconstruction.Frame(frame_id).RigId()];
   }
 
   // Convert optimized cam_in_rig back to sensor_from_rig translations.
@@ -458,17 +433,6 @@ void GlobalPositioner::ConvertBackResults(
           reconstruction.Rig(rig_id).SensorFromRig(sensor_id);
       sensor_from_rig.translation = sensor_from_rig.rotation * -center;
       break;
-    }
-  }
-
-  // Apply rig scales to sensor_from_rig translations that were not optimized.
-  for (const auto& [rig_id, rig] : reconstruction.Rigs()) {
-    for (const auto& [sensor_id, cam_from_rig] : rig.NonRefSensors()) {
-      if (cam_from_rig.has_value() &&
-          cams_in_rig_.find(sensor_id) == cams_in_rig_.end()) {
-        reconstruction.Rig(rig_id).SensorFromRig(sensor_id).translation *=
-            rig_scales_[rig_id];
-      }
     }
   }
 }

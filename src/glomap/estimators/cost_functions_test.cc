@@ -95,20 +95,16 @@ TEST(RigBATAPairwiseDirectionConstantRigCostFunctor, ZeroResidual) {
   const Eigen::Vector3d point3D(1, 2, 3);
   const Eigen::Vector3d rig_in_world(3, 2, 1);
   const double scale = 1.5;
-  const double rig_scale = 2.0;
   const Eigen::Vector3d cam_from_rig_dir(0.25, 0.5, 0.75);
   const Eigen::Vector3d cam_from_point3D_dir =
-      scale * (point3D - rig_in_world + rig_scale * cam_from_rig_dir);
+      scale * (point3D - rig_in_world + cam_from_rig_dir);
 
   RigBATAPairwiseDirectionConstantRigCostFunctor cost_function(
       cam_from_point3D_dir, cam_from_rig_dir);
 
   Eigen::Vector3d residuals;
-  EXPECT_TRUE(cost_function(point3D.data(),
-                            rig_in_world.data(),
-                            &scale,
-                            &rig_scale,
-                            residuals.data()));
+  EXPECT_TRUE(cost_function(
+      point3D.data(), rig_in_world.data(), &scale, residuals.data()));
 
   EXPECT_THAT(residuals,
               colmap::EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
@@ -118,7 +114,6 @@ TEST(RigBATAPairwiseDirectionConstantRigCostFunctor, NonZeroResidual) {
   const Eigen::Vector3d point3D(3, 4, 5);
   const Eigen::Vector3d rig_in_world(1, 2, 3);
   const double scale = 2.0;
-  const double rig_scale = 1.5;
   const Eigen::Vector3d cam_from_rig_dir(0.1, 0.2, 0.3);
   const Eigen::Vector3d cam_from_point3D_dir(1, 1, 1);
 
@@ -126,15 +121,12 @@ TEST(RigBATAPairwiseDirectionConstantRigCostFunctor, NonZeroResidual) {
       cam_from_point3D_dir, cam_from_rig_dir);
 
   Eigen::Vector3d residuals;
-  EXPECT_TRUE(cost_function(point3D.data(),
-                            rig_in_world.data(),
-                            &scale,
-                            &rig_scale,
-                            residuals.data()));
+  EXPECT_TRUE(cost_function(
+      point3D.data(), rig_in_world.data(), &scale, residuals.data()));
 
   const Eigen::Vector3d expected_residuals =
       cam_from_point3D_dir -
-      scale * (point3D - rig_in_world + rig_scale * cam_from_rig_dir);
+      scale * (point3D - rig_in_world + cam_from_rig_dir);
   EXPECT_THAT(residuals, colmap::EigenMatrixNear(expected_residuals, 1e-10));
 }
 
