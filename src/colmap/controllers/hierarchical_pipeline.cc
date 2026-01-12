@@ -143,7 +143,7 @@ HierarchicalPipeline::HierarchicalPipeline(
 }
 
 void HierarchicalPipeline::Run() {
-  PrintHeading1("Partitioning scene");
+  LOG_HEADING1("Partitioning scene");
   Timer run_timer;
   run_timer.Start();
 
@@ -176,7 +176,7 @@ void HierarchicalPipeline::Run() {
   // Reconstruct clusters
   //////////////////////////////////////////////////////////////////////////////
 
-  PrintHeading1("Reconstructing clusters");
+  LOG_HEADING1("Reconstructing clusters");
 
   // Determine the number of workers and threads per worker.
   const int kMaxNumThreads = -1;
@@ -258,7 +258,7 @@ void HierarchicalPipeline::Run() {
   //////////////////////////////////////////////////////////////////////////////
 
   if (leaf_clusters.size() > 1) {
-    PrintHeading1("Merging clusters");
+    LOG_HEADING1("Merging clusters");
 
     MergeClusters(*scene_clustering.GetRootCluster(), &reconstruction_managers);
   }

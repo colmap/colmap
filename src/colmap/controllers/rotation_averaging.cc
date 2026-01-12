@@ -31,6 +31,7 @@
 
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
 #include "glomap/sfm/global_mapper.h"
@@ -68,7 +69,7 @@ void RotationAveragingController::Run() {
   glomap::GlobalMapper mapper(database_cache_);
   mapper.BeginReconstruction(reconstruction_);
 
-  LOG(INFO) << "----- Running rotation averaging -----";
+  LOG_HEADING1("Running rotation averaging");
   if (!mapper.RotationAveraging(options.rotation_estimation)) {
     LOG(ERROR) << "Failed to solve rotation averaging";
     return;

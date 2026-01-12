@@ -152,7 +152,8 @@ COLMAPUndistorter::COLMAPUndistorter(const UndistortCameraOptions& options,
       image_ids_(image_ids) {}
 
 void COLMAPUndistorter::Run() {
-  PrintHeading1("Image undistortion");
+  LOG_HEADING1("Image undistortion");
+
   Timer run_timer;
   run_timer.Start();
 
@@ -294,9 +295,10 @@ PMVSUndistorter::PMVSUndistorter(const UndistortCameraOptions& options,
       reconstruction_(reconstruction) {}
 
 void PMVSUndistorter::Run() {
+  LOG_HEADING1("Image undistortion (CMVS/PMVS)");
+
   Timer run_timer;
   run_timer.Start();
-  PrintHeading1("Image undistortion (CMVS/PMVS)");
 
   CreateDirIfNotExists(JoinPaths(output_path_, "pmvs"));
   CreateDirIfNotExists(JoinPaths(output_path_, "pmvs/txt"));
@@ -529,9 +531,10 @@ CMPMVSUndistorter::CMPMVSUndistorter(const UndistortCameraOptions& options,
       reconstruction_(reconstruction) {}
 
 void CMPMVSUndistorter::Run() {
+  LOG_HEADING1("Image undistortion (CMP-MVS)");
+
   Timer run_timer;
   run_timer.Start();
-  PrintHeading1("Image undistortion (CMP-MVS)");
 
   ThreadPool thread_pool;
   std::vector<std::shared_future<bool>> futures;
@@ -596,9 +599,10 @@ PureImageUndistorter::PureImageUndistorter(
       image_names_and_cameras_(image_names_and_cameras) {}
 
 void PureImageUndistorter::Run() {
+  LOG_HEADING1("Image undistortion");
+
   Timer run_timer;
   run_timer.Start();
-  PrintHeading1("Image undistortion");
 
   CreateDirIfNotExists(output_path_);
 
@@ -662,7 +666,8 @@ StereoImageRectifier::StereoImageRectifier(
       reconstruction_(reconstruction) {}
 
 void StereoImageRectifier::Run() {
-  PrintHeading1("Stereo rectification");
+  LOG_HEADING1("Stereo rectification");
+
   Timer run_timer;
   run_timer.Start();
 
