@@ -25,6 +25,21 @@ void BindCorrespondenceGraph(py::module& m) {
                      &CorrespondenceGraph::Correspondence::point2D_idx);
   MakeDataclass(PyCorrespondence);
 
+  py::class_<CorrespondenceGraph::CorrespondenceRange>(m, "CorrespondenceRange")
+      .def_property_readonly(
+          "empty",
+          [](const CorrespondenceGraph::CorrespondenceRange& self) {
+            return self.beg == self.end;
+          },
+          "Whether the range is empty.")
+      .def(
+          "to_list",
+          [](const CorrespondenceGraph::CorrespondenceRange& self) {
+            return std::vector<CorrespondenceGraph::Correspondence>(self.beg,
+                                                                    self.end);
+          },
+          "Convert range to list of correspondences.");
+
   auto PyCorrespondenceGraph =
       py::classh<CorrespondenceGraph>(m, "CorrespondenceGraph");
   PyCorrespondenceGraph.def(py::init<>())
@@ -102,6 +117,11 @@ void BindCorrespondenceGraph(py::module& m) {
            &CorrespondenceGraph::HasCorrespondences,
            "image_id"_a,
            "point2D_idx"_a)
+      .def("find_correspondences",
+           &CorrespondenceGraph::FindCorrespondences,
+           "image_id"_a,
+           "point2D_idx"_a,
+           "Find range of correspondences of an image observation.")
       .def("is_two_view_observation",
            &CorrespondenceGraph::IsTwoViewObservation,
            "image_id"_a,

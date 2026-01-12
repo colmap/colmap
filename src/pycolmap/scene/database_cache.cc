@@ -54,6 +54,22 @@ void BindDatabaseCache(py::module& m) {
       .def("exists_camera", &DatabaseCache::ExistsCamera, "camera_id"_a)
       .def("exists_frame", &DatabaseCache::ExistsFrame, "frame_id"_a)
       .def("exists_image", &DatabaseCache::ExistsImage, "image_id"_a)
+      .def("rig",
+           py::overload_cast<rig_t>(&DatabaseCache::Rig),
+           py::return_value_policy::reference_internal,
+           "rig_id"_a)
+      .def("camera",
+           py::overload_cast<camera_t>(&DatabaseCache::Camera),
+           py::return_value_policy::reference_internal,
+           "camera_id"_a)
+      .def("frame",
+           py::overload_cast<frame_t>(&DatabaseCache::Frame),
+           py::return_value_policy::reference_internal,
+           "frame_id"_a)
+      .def("image",
+           py::overload_cast<image_t>(&DatabaseCache::Image),
+           py::return_value_policy::reference_internal,
+           "image_id"_a)
       .def_property_readonly("rigs", &DatabaseCache::Rigs)
       .def_property_readonly("cameras", &DatabaseCache::Cameras)
       .def_property_readonly("frames", &DatabaseCache::Frames)
