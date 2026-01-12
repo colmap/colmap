@@ -539,7 +539,8 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
           // abort and try different initial pair.
           const size_t kMinNumInitialRegTrials = 30;
           if (reg_trial >= kMinNumInitialRegTrials &&
-              reconstruction->NumRegImages() < options_->min_model_size) {
+              reconstruction->NumRegImages() <
+                  static_cast<int>(options_->min_model_size)) {
             break;
           }
         }
@@ -685,7 +686,7 @@ IncrementalPipeline::Status IncrementalPipeline::Reconstruct(
 
         // Always keep the first reconstruction, independent of size.
         if ((options_->multiple_models && reconstruction_manager_->Size() > 1 &&
-             num_reg_images < options_->min_model_size) ||
+             num_reg_images < static_cast<int>(options_->min_model_size)) ||
             num_reg_images == 0) {
           LOG(WARNING) << "Discarding reconstruction due to insufficient size";
           mapper.EndReconstruction(/*discard=*/true);
