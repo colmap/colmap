@@ -45,7 +45,7 @@ constexpr int kVersionMinor = ${COLMAP_VERSION_MINOR};
 constexpr int kVersionPatch = ${COLMAP_VERSION_PATCH};
 
 // Increment for database schema changes within a release.
-constexpr int kDatabaseSchemaRevision = 0;
+constexpr int kDatabaseSchemaRevision = 1;
 
 }  // namespace
 
