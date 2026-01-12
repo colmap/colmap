@@ -433,8 +433,7 @@ TEST(Bitmap, CloneMetaData) {
 TEST(Bitmap, ExifCameraModel) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
 
-  std::string camera_model;
-  EXPECT_FALSE(bitmap.ExifCameraModel(&camera_model));
+  EXPECT_FALSE(bitmap.ExifCameraModel().has_value());
 
   bitmap.SetMetaData("Make", "make");
   bitmap.SetMetaData("Model", "model");
@@ -442,44 +441,44 @@ TEST(Bitmap, ExifCameraModel) {
   bitmap.SetMetaData(
       "Exif:FocalLengthIn35mmFilm", "float", &focal_length_in_35mm_film);
 
-  EXPECT_TRUE(bitmap.ExifCameraModel(&camera_model));
-  EXPECT_EQ(camera_model, "make-model-50.000000-100x80");
+  const auto camera_model = bitmap.ExifCameraModel();
+  EXPECT_TRUE(camera_model.has_value());
+  EXPECT_EQ(camera_model.value(), "make-model-50.000000-100x80");
 }
 
 TEST(Bitmap, ExifFocalLengthIn35mm) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
 
-  double focal_length = 0.0;
-  EXPECT_FALSE(bitmap.ExifFocalLength(&focal_length));
+  EXPECT_FALSE(bitmap.ExifFocalLength().has_value());
 
   const float focal_length_in_35mm_film = 70.f;
   bitmap.SetMetaData(
       "Exif:FocalLengthIn35mmFilm", "float", &focal_length_in_35mm_film);
 
-  EXPECT_TRUE(bitmap.ExifFocalLength(&focal_length));
-  EXPECT_NEAR(focal_length, 207.17, 0.1);
+  const auto focal_length = bitmap.ExifFocalLength();
+  EXPECT_TRUE(focal_length.has_value());
+  EXPECT_NEAR(focal_length.value(), 207.17, 0.1);
 }
 
 TEST(Bitmap, ExifFocalLengthWithPlane) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
 
-  double focal_length = 0.0;
-  EXPECT_FALSE(bitmap.ExifFocalLength(&focal_length));
+  EXPECT_FALSE(bitmap.ExifFocalLength().has_value());
 
   const float kFocalLengthVal = 72.f;
   bitmap.SetMetaData("Exif:FocalLength", "float", &kFocalLengthVal);
   bitmap.SetMetaData("Make", "canon");
   bitmap.SetMetaData("Model", "eos1dsmarkiii");
 
-  EXPECT_TRUE(bitmap.ExifFocalLength(&focal_length));
-  EXPECT_EQ(focal_length, 200);
+  const auto focal_length = bitmap.ExifFocalLength();
+  EXPECT_TRUE(focal_length.has_value());
+  EXPECT_EQ(focal_length.value(), 200);
 }
 
 TEST(Bitmap, ExifFocalLengthWithDatabaseLookup) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
 
-  double focal_length = 0.0;
-  EXPECT_FALSE(bitmap.ExifFocalLength(&focal_length));
+  EXPECT_FALSE(bitmap.ExifFocalLength().has_value());
 
   const float kFocalLengthVal = 120.f;
   bitmap.SetMetaData("Exif:FocalLength", "float", &kFocalLengthVal);
@@ -490,65 +489,69 @@ TEST(Bitmap, ExifFocalLengthWithDatabaseLookup) {
   const int kPlanResUnit = 4;
   bitmap.SetMetaData("Exif:FocalPlaneResolutionUnit", "int", &kPlanResUnit);
 
-  EXPECT_TRUE(bitmap.ExifFocalLength(&focal_length));
-  EXPECT_EQ(focal_length, 120);
+  const auto focal_length = bitmap.ExifFocalLength();
+  EXPECT_TRUE(focal_length.has_value());
+  EXPECT_EQ(focal_length.value(), 120);
 }
 
 TEST(Bitmap, ExifLatitude) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
 
-  double latitude = 0.0;
-  EXPECT_FALSE(bitmap.ExifLatitude(&latitude));
+  EXPECT_FALSE(bitmap.ExifLatitude().has_value());
 
   bitmap.SetMetaData("GPS:LatitudeRef", "N");
   const float kDegMinSec[3] = {46, 30, 900};
   bitmap.SetMetaData("GPS:Latitude", "point", kDegMinSec);
 
-  EXPECT_TRUE(bitmap.ExifLatitude(&latitude));
-  EXPECT_EQ(latitude, 46.75);
+  auto latitude = bitmap.ExifLatitude();
+  EXPECT_TRUE(latitude.has_value());
+  EXPECT_EQ(latitude.value(), 46.75);
 
   bitmap.SetMetaData("GPS:LatitudeRef", "S");
 
-  EXPECT_TRUE(bitmap.ExifLatitude(&latitude));
-  EXPECT_EQ(latitude, -46.75);
+  latitude = bitmap.ExifLatitude();
+  EXPECT_TRUE(latitude.has_value());
+  EXPECT_EQ(latitude.value(), -46.75);
 }
 
 TEST(Bitmap, ExifLongitude) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
 
-  double longitude = 0.0;
-  EXPECT_FALSE(bitmap.ExifLongitude(&longitude));
+  EXPECT_FALSE(bitmap.ExifLongitude().has_value());
 
   bitmap.SetMetaData("GPS:LongitudeRef", "W");
   const float kDegMinSec[3] = {92, 30, 900};
   bitmap.SetMetaData("GPS:Longitude", "point", kDegMinSec);
 
-  EXPECT_TRUE(bitmap.ExifLongitude(&longitude));
-  EXPECT_EQ(longitude, -92.75);
+  auto longitude = bitmap.ExifLongitude();
+  EXPECT_TRUE(longitude.has_value());
+  EXPECT_EQ(longitude.value(), -92.75);
 
   bitmap.SetMetaData("GPS:LongitudeRef", "E");
 
-  EXPECT_TRUE(bitmap.ExifLongitude(&longitude));
-  EXPECT_EQ(longitude, 92.75);
+  longitude = bitmap.ExifLongitude();
+  EXPECT_TRUE(longitude.has_value());
+  EXPECT_EQ(longitude.value(), 92.75);
 }
 
 TEST(Bitmap, ExifAltitude) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
 
-  double altitude = 0.0;
-  EXPECT_FALSE(bitmap.ExifAltitude(&altitude));
+  EXPECT_FALSE(bitmap.ExifAltitude().has_value());
 
   bitmap.SetMetaData("GPS:AltitudeRef", "0");
   const float kAltitudeVal = 123.456;
   bitmap.SetMetaData("GPS:Altitude", "float", &kAltitudeVal);
 
-  EXPECT_TRUE(bitmap.ExifAltitude(&altitude));
-  EXPECT_EQ(altitude, kAltitudeVal);
+  auto altitude = bitmap.ExifAltitude();
+  EXPECT_TRUE(altitude.has_value());
+  EXPECT_EQ(altitude.value(), kAltitudeVal);
 
   bitmap.SetMetaData("GPS:AltitudeRef", "1");
 
-  EXPECT_TRUE(bitmap.ExifAltitude(&altitude));
-  EXPECT_EQ(altitude, -kAltitudeVal);
+  altitude = bitmap.ExifAltitude();
+  EXPECT_TRUE(altitude.has_value());
+  EXPECT_EQ(altitude.value(), -kAltitudeVal);
 }
 
 TEST(Bitmap, ReadWriteAsRGB) {

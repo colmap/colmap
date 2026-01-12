@@ -286,36 +286,31 @@ bool Bitmap::InterpolateBilinear(const double x,
   return false;
 }
 
-bool Bitmap::ExifCameraModel(std::string* camera_model) const {
+std::optional<std::string> Bitmap::ExifCameraModel() const {
   // Read camera make and model
   std::string_view make_str;
   std::string_view model_str;
   float focal_length = 0;
-  *camera_model = "";
-  if (GetMetaData("Make", &make_str)) {
-    *camera_model += std::string(make_str) + "-";
-  } else {
-    *camera_model = "";
-    return false;
+  if (!GetMetaData("Make", &make_str)) {
+    return std::nullopt;
   }
-  if (GetMetaData("Model", &model_str)) {
-    *camera_model += std::string(model_str) + "-";
-  } else {
-    *camera_model = "";
-    return false;
+  if (!GetMetaData("Model", &model_str)) {
+    return std::nullopt;
   }
-  if (GetMetaData("Exif:FocalLengthIn35mmFilm", "float", &focal_length) ||
-      GetMetaData("Exif:FocalLength", "float", &focal_length)) {
-    *camera_model += std::to_string(focal_length) + "-";
-  } else {
-    *camera_model = "";
-    return false;
+  if (!GetMetaData("Exif:FocalLengthIn35mmFilm", "float", &focal_length) &&
+      !GetMetaData("Exif:FocalLength", "float", &focal_length)) {
+    return std::nullopt;
   }
-  *camera_model += std::to_string(width_) + "x" + std::to_string(height_);
-  return true;
+  std::string camera_model = StringPrintf("%s-%s-%f-%dx%d",
+                                          std::string(make_str).c_str(),
+                                          std::string(model_str).c_str(),
+                                          static_cast<double>(focal_length),
+                                          width_,
+                                          height_);
+  return camera_model;
 }
 
-bool Bitmap::ExifFocalLength(double* focal_length) const {
+std::optional<double> Bitmap::ExifFocalLength() const {
   const double max_size = std::max(width_, height_);
 
   float focal_length_35mm = 0;
@@ -329,8 +324,7 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
       //    Diagonal distance of image area on the image sensor of the DSC)
       //    * focal length of the lens of the DSC.
       const double diagonal = std::sqrt(width_ * width_ + height_ * height_);
-      *focal_length = focal_length_35mm / 43.27 * diagonal;
-      return true;
+      return focal_length_35mm / 43.27 * diagonal;
     }
   }
 
@@ -360,8 +354,7 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
           default:
             LOG(FATAL) << "Unexpected FocalPlaneXResolution value";
         }
-        *focal_length = focal_length_mm / pixels_per_mm;
-        return true;
+        return focal_length_mm / pixels_per_mm;
       }
     }
 
@@ -374,16 +367,15 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
       if (database.QuerySensorWidth(std::string(make_str),
                                     std::string(model_str),
                                     &sensor_width_mm)) {
-        *focal_length = focal_length_mm / sensor_width_mm * max_size;
-        return true;
+        return focal_length_mm / sensor_width_mm * max_size;
       }
     }
   }
 
-  return false;
+  return std::nullopt;
 }
 
-bool Bitmap::ExifLatitude(double* latitude) const {
+std::optional<double> Bitmap::ExifLatitude() const {
   std::string_view latitude_ref;
   double sign = 1.0;
   if (GetMetaData("GPS:LatitudeRef", &latitude_ref)) {
@@ -395,17 +387,17 @@ bool Bitmap::ExifLatitude(double* latitude) const {
   }
   float deg_min_sec[3] = {0.0};
   if (GetMetaData("GPS:Latitude", "point", &deg_min_sec)) {
-    *latitude =
+    double latitude =
         deg_min_sec[0] + deg_min_sec[1] / 60.0 + deg_min_sec[2] / 3600.0;
-    if (*latitude > 0 && sign < 0) {
-      *latitude *= sign;
+    if (latitude > 0 && sign < 0) {
+      latitude *= sign;
     }
-    return true;
+    return latitude;
   }
-  return false;
+  return std::nullopt;
 }
 
-bool Bitmap::ExifLongitude(double* longitude) const {
+std::optional<double> Bitmap::ExifLongitude() const {
   std::string_view longitude_ref;
   double sign = 1.0;
   if (GetMetaData("GPS:LongitudeRef", &longitude_ref)) {
@@ -417,17 +409,17 @@ bool Bitmap::ExifLongitude(double* longitude) const {
   }
   float deg_min_sec[3] = {0.0};
   if (GetMetaData("GPS:Longitude", "point", &deg_min_sec)) {
-    *longitude =
+    double longitude =
         deg_min_sec[0] + deg_min_sec[1] / 60.0 + deg_min_sec[2] / 3600.0;
-    if (*longitude > 0 && sign < 0) {
-      *longitude *= sign;
+    if (longitude > 0 && sign < 0) {
+      longitude *= sign;
     }
-    return true;
+    return longitude;
   }
-  return false;
+  return std::nullopt;
 }
 
-bool Bitmap::ExifAltitude(double* altitude) const {
+std::optional<double> Bitmap::ExifAltitude() const {
   std::string_view altitude_ref;
   double sign = 1.0;
   if (GetMetaData("GPS:AltitudeRef", &altitude_ref)) {
@@ -439,13 +431,13 @@ bool Bitmap::ExifAltitude(double* altitude) const {
   }
   float altitude_float = 0.f;
   if (GetMetaData("GPS:Altitude", "float", &altitude_float)) {
-    *altitude = altitude_float;
-    if (*altitude > 0 && sign < 0) {
-      *altitude *= sign;
+    double altitude = altitude_float;
+    if (altitude > 0 && sign < 0) {
+      altitude *= sign;
     }
-    return true;
+    return altitude;
   }
-  return false;
+  return std::nullopt;
 }
 
 bool Bitmap::Read(const std::filesystem::path& path,

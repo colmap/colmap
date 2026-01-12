@@ -1,14 +1,11 @@
 #include "colmap/controllers/image_reader.h"
 #include "colmap/exe/feature.h"
-#include "colmap/feature/sift.h"
-#include "colmap/geometry/gps.h"
 #include "colmap/image/undistortion.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/base_controller.h"
 #include "colmap/util/file.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
@@ -82,18 +79,16 @@ Camera InferCameraFromImage(const std::filesystem::path& image_path,
   THROW_CHECK(bitmap.Read(image_path, false))
       << "Cannot read image file: " << image_path;
 
-  double focal_length = 0.0;
-  bool has_prior_focal_length = bitmap.ExifFocalLength(&focal_length);
-  if (!has_prior_focal_length) {
-    focal_length = options.default_focal_length_factor *
-                   std::max(bitmap.Width(), bitmap.Height());
-  }
+  const std::optional<double> maybe_focal_length = bitmap.ExifFocalLength();
+  const double focal_length =
+      maybe_focal_length.value_or(options.default_focal_length_factor *
+                                  std::max(bitmap.Width(), bitmap.Height()));
   Camera camera = Camera::CreateFromModelName(kInvalidCameraId,
                                               options.camera_model,
                                               focal_length,
                                               bitmap.Width(),
                                               bitmap.Height());
-  camera.has_prior_focal_length = has_prior_focal_length;
+  camera.has_prior_focal_length = maybe_focal_length.has_value();
   THROW_CHECK(camera.VerifyParams())
       << "Invalid camera params: " << camera.ParamsToString();
 
