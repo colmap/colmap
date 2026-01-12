@@ -202,7 +202,15 @@ class IncrementalPipeline : public BaseController {
     LAST_IMAGE_REG_CALLBACK,
   };
 
-  enum class Status { NO_INITIAL_PAIR, BAD_INITIAL_PAIR, SUCCESS, INTERRUPTED };
+  enum class Status {
+    SUCCESS,
+    INTERRUPTED,
+    CONTINUE,
+    STOP,
+    NO_INITIAL_PAIR,
+    BAD_INITIAL_PAIR,
+    UNKNOWN_SENSOR_FROM_RIG,
+  };
 
   IncrementalPipeline(
       std::shared_ptr<const IncrementalPipelineOptions> options,
@@ -228,9 +236,9 @@ class IncrementalPipeline : public BaseController {
     return database_cache_;
   }
 
-  void Reconstruct(IncrementalMapper& mapper,
-                   const IncrementalMapper::Options& mapper_options,
-                   bool continue_reconstruction);
+  Status Reconstruct(IncrementalMapper& mapper,
+                     const IncrementalMapper::Options& mapper_options,
+                     bool continue_reconstruction);
 
   Status ReconstructSubModel(
       IncrementalMapper& mapper,

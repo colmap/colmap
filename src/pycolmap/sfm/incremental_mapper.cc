@@ -222,7 +222,7 @@ void BindIncrementalPipeline(py::module& m) {
 
   using CallbackType = IncrementalPipeline::CallbackType;
   auto PyCallbackType =
-      py::enum_<CallbackType>(m, "IncrementalMapperCallback")
+      py::enum_<CallbackType>(m, "IncrementalPipelineCallback")
           .value("INITIAL_IMAGE_PAIR_REG_CALLBACK",
                  CallbackType::INITIAL_IMAGE_PAIR_REG_CALLBACK)
           .value("NEXT_IMAGE_REG_CALLBACK",
@@ -232,11 +232,15 @@ void BindIncrementalPipeline(py::module& m) {
   AddStringToEnumConstructor(PyCallbackType);
 
   using Status = IncrementalPipeline::Status;
-  auto PyStatus = py::enum_<Status>(m, "IncrementalMapperStatus")
-                      .value("NO_INITIAL_PAIR", Status::NO_INITIAL_PAIR)
-                      .value("BAD_INITIAL_PAIR", Status::BAD_INITIAL_PAIR)
-                      .value("SUCCESS", Status::SUCCESS)
-                      .value("INTERRUPTED", Status::INTERRUPTED);
+  auto PyStatus =
+      py::enum_<Status>(m, "IncrementalPipelineStatus")
+          .value("SUCCESS", Status::SUCCESS)
+          .value("INTERRUPTED", Status::INTERRUPTED)
+          .value("CONTINUE", Status::CONTINUE)
+          .value("STOP", Status::STOP)
+          .value("UNKNOWN_SENSOR_FROM_RIG", Status::UNKNOWN_SENSOR_FROM_RIG)
+          .value("NO_INITIAL_PAIR", Status::NO_INITIAL_PAIR)
+          .value("BAD_INITIAL_PAIR", Status::BAD_INITIAL_PAIR);
   AddStringToEnumConstructor(PyStatus);
 
   py::classh<IncrementalPipeline>(m, "IncrementalPipeline")
