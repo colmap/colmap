@@ -258,9 +258,6 @@ void BindReconstruction(py::module& m) {
            "Import from PLY format. Note that these import functions are"
            "only intended for visualization of data and usable for "
            "reconstruction.")
-      .def("convert_to_PLY",
-           &Reconstruction::ConvertToPLY,
-           "Convert 3D points in reconstruction to PLY point cloud.")
       .def("export_PLY",
            &ExportPLY,
            "output_path"_a,
