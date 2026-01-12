@@ -160,7 +160,7 @@ class Bitmap {
   bool GetMetaData(const std::string_view& name,
                    const std::string_view& type,
                    void* value) const;
-  bool GetMetaData(const std::string_view& name, std::string_view* value) const;
+  std::optional<std::string> GetMetaData(const std::string_view& name) const;
 
   // Clone metadata from this bitmap object to another target bitmap object.
   void CloneMetadata(Bitmap* target) const;

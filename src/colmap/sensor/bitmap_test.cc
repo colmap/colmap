@@ -415,6 +415,11 @@ TEST(Bitmap, SetGetMetaData) {
   EXPECT_EQ(value, kValue);
   EXPECT_FALSE(bitmap.GetMetaData("does_not_exist", "float", &value));
   EXPECT_FALSE(bitmap.GetMetaData("foobar", "int8", &value));
+  bitmap.SetMetaData("foobar_str", "string");
+  EXPECT_EQ(bitmap.GetMetaData("foobar_str").value(), "string");
+  EXPECT_FALSE(bitmap.GetMetaData("foobar_str", "int8", &value));
+  EXPECT_FALSE(bitmap.GetMetaData("foobar_str", "float", &value));
+  EXPECT_FALSE(bitmap.GetMetaData("does_not_exist").has_value());
 }
 
 TEST(Bitmap, CloneMetaData) {
