@@ -242,13 +242,13 @@ void BindIncrementalPipeline(py::module& m) {
   AddStringToEnumConstructor(PyStatus);
 
   py::classh<IncrementalPipeline>(m, "IncrementalPipeline")
-      .def(py::init<std::shared_ptr<const IncrementalPipelineOptions>,
+      .def(py::init<std::shared_ptr<IncrementalPipelineOptions>,
                     std::shared_ptr<Database>,
                     std::shared_ptr<ReconstructionManager>>(),
            "options"_a,
            "database"_a,
            "reconstruction_manager"_a)
-      .def(py::init<std::shared_ptr<const IncrementalPipelineOptions>,
+      .def(py::init<std::shared_ptr<IncrementalPipelineOptions>,
                     std::shared_ptr<DatabaseCache>,
                     std::shared_ptr<ReconstructionManager>>(),
            "options"_a,

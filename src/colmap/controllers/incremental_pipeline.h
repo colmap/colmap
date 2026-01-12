@@ -206,19 +206,19 @@ class IncrementalPipeline : public BaseController {
   enum class Status { NO_INITIAL_PAIR, BAD_INITIAL_PAIR, SUCCESS, INTERRUPTED };
 
   IncrementalPipeline(
-      std::shared_ptr<const IncrementalPipelineOptions> options,
+      std::shared_ptr<IncrementalPipelineOptions> options,
       std::shared_ptr<class Database> database,
       std::shared_ptr<class ReconstructionManager> reconstruction_manager);
 
   IncrementalPipeline(
-      std::shared_ptr<const IncrementalPipelineOptions> options,
+      std::shared_ptr<IncrementalPipelineOptions> options,
       std::shared_ptr<class DatabaseCache> database_cache,
       std::shared_ptr<class ReconstructionManager> reconstruction_manager);
 
   void Run() override;
 
-  // getter functions for python pipelines
-  const std::shared_ptr<const IncrementalPipelineOptions>& Options() const {
+  // Getter functions for python pipelines.
+  std::shared_ptr<const IncrementalPipelineOptions> Options() const {
     return options_;
   }
   const std::shared_ptr<class ReconstructionManager>& ReconstructionManager()
@@ -254,7 +254,7 @@ class IncrementalPipeline : public BaseController {
   void RegisterCallbacks();
   bool ReachedMaxRuntime() const;
 
-  const std::shared_ptr<const IncrementalPipelineOptions> options_;
+  const std::shared_ptr<IncrementalPipelineOptions> options_;
   std::shared_ptr<class ReconstructionManager> reconstruction_manager_;
   std::shared_ptr<class DatabaseCache> database_cache_;
   std::shared_ptr<Timer> total_run_timer_;
