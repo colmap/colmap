@@ -168,10 +168,10 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
     const auto& image = reconstruction.Image(image_id);
     const auto& camera = *image.CameraPtr();
 
-    PrintHeading1(StringPrintf("Processing image %s (%d / %d)",
-                               image.Name().c_str(),
-                               ++image_idx,
-                               reconstruction.NumRegImages()));
+    LOG_HEADING1(StringPrintf("Processing image %s (%d / %d)",
+                              image.Name().c_str(),
+                              ++image_idx,
+                              reconstruction.NumRegImages()));
 
     LOG(INFO) << "Reading image...";
 
@@ -273,7 +273,7 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
     }
   }
 
-  PrintHeading1("Computing coordinate frame");
+  LOG_HEADING1("Computing coordinate frame");
 
   Eigen::Matrix3d frame = Eigen::Matrix3d::Zero();
 

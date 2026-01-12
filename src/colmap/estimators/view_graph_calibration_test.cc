@@ -90,7 +90,7 @@ TEST(CalibrateViewGraph, Nominal) {
   // Verify pairs are now CALIBRATED with valid E matrices.
   for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
     EXPECT_EQ(tvg.config, TwoViewGeometry::CALIBRATED);
-    EXPECT_FALSE(tvg.E.isZero());
+    EXPECT_TRUE(tvg.E.has_value());
   }
 }
 
@@ -151,7 +151,7 @@ TEST(CalibrateViewGraph, ConfigTagging) {
     if (perturbed_pairs.size() >= 3) break;
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     TwoViewGeometry perturbed_tvg = tvg;
-    perturbed_tvg.F += Eigen::Matrix3d::Constant(1.0);
+    perturbed_tvg.F.value() += Eigen::Matrix3d::Constant(1.0);
     database->UpdateTwoViewGeometry(image_id1, image_id2, perturbed_tvg);
     perturbed_pairs.insert(pair_id);
   }
