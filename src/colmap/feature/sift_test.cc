@@ -37,6 +37,7 @@
 
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
+#include "colmap/geometry/essential_matrix.h"
 #include "colmap/math/random.h"
 #include "colmap/util/opengl_utils.h"
 
@@ -366,22 +367,21 @@ struct FeatureDescriptorIndexCacheHelper {
 };
 
 TEST(SiftCPUFeatureMatcher, Nominal) {
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
   const FeatureMatcher::Image image0 = {
       /*image_id=*/0,
-      /*width=*/100,
-      /*height=*/200,
+      /*camera=*/&camera,
       /*keypoints=*/nullptr,
       std::make_shared<FeatureDescriptors>(0, 128)};
   const FeatureMatcher::Image image1 = {
       /*image_id=*/1,
-      /*width=*/100,
-      /*height=*/200,
+      /*camera=*/&camera,
       /*keypoints=*/nullptr,
       std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
   const FeatureMatcher::Image image2 = {
       /*image_id=*/2,
-      /*width=*/100,
-      /*height=*/200,
+      /*camera=*/&camera,
       /*keypoints=*/nullptr,
       std::make_shared<FeatureDescriptors>(
           image1.descriptors->colwise().reverse())};
@@ -425,22 +425,21 @@ TEST(SiftCPUFeatureMatcherFaissVsBruteForce, Nominal) {
   auto TestFaissVsBruteForce = [](const FeatureMatchingOptions& options,
                                   const FeatureDescriptors& descriptors1,
                                   const FeatureDescriptors& descriptors2) {
+    const Camera camera = Camera::CreateFromModelId(
+        1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
     const FeatureMatcher::Image image0 = {
         /*image_id=*/0,
-        /*width=*/100,
-        /*height=*/200,
+        /*camera=*/&camera,
         /*keypoints=*/nullptr,
         std::make_shared<FeatureDescriptors>(0, 128)};
     const FeatureMatcher::Image image1 = {
         /*image_id=*/1,
-        /*width=*/100,
-        /*height=*/200,
+        /*camera=*/&camera,
         /*keypoints=*/nullptr,
         std::make_shared<FeatureDescriptors>(descriptors1)};
     const FeatureMatcher::Image image2 = {
         /*image_id=*/2,
-        /*width=*/100,
-        /*height=*/200,
+        /*camera=*/&camera,
         /*keypoints=*/nullptr,
         std::make_shared<FeatureDescriptors>(descriptors2)};
 
@@ -546,31 +545,29 @@ TEST(SiftCPUFeatureMatcherFaissVsBruteForce, Nominal) {
 }
 
 TEST(MatchGuidedSiftFeaturesCPU, Nominal) {
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
   const FeatureMatcher::Image image0 = {
       /*image_id=*/0,
-      /*width=*/100,
-      /*height=*/200,
+      /*camera=*/&camera,
       std::make_shared<FeatureKeypoints>(0),
       std::make_shared<FeatureDescriptors>(0, 128)};
   const FeatureMatcher::Image image1 = {
       /*image_id=*/1,
-      /*width=*/100,
-      /*height=*/200,
+      /*camera=*/&camera,
       std::make_shared<FeatureKeypoints>(
           std::vector<FeatureKeypoint>{{1, 0}, {2, 0}}),
       std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
   const FeatureMatcher::Image image2 = {
       /*image_id=*/2,
-      /*width=*/100,
-      /*height=*/200,
+      /*camera=*/&camera,
       std::make_shared<FeatureKeypoints>(
           std::vector<FeatureKeypoint>{{2, 0}, {1, 0}}),
       std::make_shared<FeatureDescriptors>(
           image1.descriptors->colwise().reverse())};
   const FeatureMatcher::Image image3 = {
       /*image_id=*/3,
-      /*width=*/100,
-      /*height=*/200,
+      /*camera=*/&camera,
       std::make_shared<FeatureKeypoints>(
           std::vector<FeatureKeypoint>{{100, 0}, {2, 0}}),
       std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
@@ -587,7 +584,7 @@ TEST(MatchGuidedSiftFeaturesCPU, Nominal) {
   options.sift->cpu_descriptor_index_cache = &index_cache_helper.index_cache;
   auto matcher = CreateSiftFeatureMatcher(options);
 
-  constexpr double kMaxError = 4.0;
+  constexpr double kMaxError = 1.0;
 
   matcher->MatchGuided(kMaxError, image1, image2, &two_view_geometry);
   EXPECT_EQ(two_view_geometry.inlier_matches.size(), 2);
@@ -609,6 +606,98 @@ TEST(MatchGuidedSiftFeaturesCPU, Nominal) {
   EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
 }
 
+void TestGuidedMatchingWithCameraDistortion(
+    const std::function<std::unique_ptr<FeatureMatcher>(
+        const std::vector<FeatureMatcher::Image>&)>& matcher_factory) {
+  // Test guided matching with essential matrix using calibrated cameras.
+  // This exercises the code path that uses normalized coordinates.
+  // Use kRadial model with strong radial and tangential distortion.
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kOpenCV, 100.0, 100, 200);
+  camera.params[3] = 0.5;   // k1
+  camera.params[4] = -0.5;  // k2
+  camera.params[5] = 0.5;   // p1
+  camera.params[6] = -0.5;  // p2
+
+  // Two points on the epipolar line (v=0 in normalized coordinates).
+  const Eigen::Vector2f img_point11 =
+      camera.ImgFromCam({-0.5, 0.1, 1.0}).value().cast<float>();
+  const Eigen::Vector2f img_point12 =
+      camera.ImgFromCam({0.4, -0.1, 1.0}).value().cast<float>();
+  const Eigen::Vector2f img_point21 =
+      camera.ImgFromCam({0.3, -0.1, 1.0}).value().cast<float>();
+  const Eigen::Vector2f img_point22 =
+      camera.ImgFromCam({-0.4, 0.1, 1.0}).value().cast<float>();
+
+  const FeatureMatcher::Image image0 = {
+      /*image_id=*/0,
+      /*camera=*/&camera,
+      std::make_shared<FeatureKeypoints>(0),
+      std::make_shared<FeatureDescriptors>(0, 128)};
+  const FeatureMatcher::Image image1 = {
+      /*image_id=*/1,
+      /*camera=*/&camera,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{{img_point11.x(), img_point11.y()},
+                                       {img_point12.x(), img_point12.y()}}),
+      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
+  const FeatureMatcher::Image image2 = {
+      /*image_id=*/2,
+      /*camera=*/&camera,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{{img_point21.x(), img_point21.y()},
+                                       {img_point22.x(), img_point22.y()}}),
+      std::make_shared<FeatureDescriptors>(
+          image1.descriptors->colwise().reverse())};
+
+  auto matcher = matcher_factory({image0, image1, image2});
+
+  TwoViewGeometry two_view_geometry;
+  two_view_geometry.E = EssentialMatrixFromPose(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0)));
+  two_view_geometry.F =
+      FundamentalFromEssentialMatrix(camera.CalibrationMatrix(),
+                                     two_view_geometry.E.value(),
+                                     camera.CalibrationMatrix());
+
+  constexpr double kMaxError = 1.0;
+
+  // With uncalibrated cameras, the fundamental matrix is used with pixel
+  // coordinates and no matches are expected to be found due to strong
+  // distortion.
+  two_view_geometry.config = TwoViewGeometry::UNCALIBRATED;
+  matcher->MatchGuided(kMaxError, image1, image2, &two_view_geometry);
+  ASSERT_EQ(two_view_geometry.inlier_matches.size(), 0);
+
+  // With calibrated cameras, the essential matrix is used with normalized
+  // coordinates and matches are expected to be found.
+  two_view_geometry.config = TwoViewGeometry::CALIBRATED;
+  matcher->MatchGuided(kMaxError, image1, image2, &two_view_geometry);
+  ASSERT_EQ(two_view_geometry.inlier_matches.size(), 2);
+  EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
+  EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
+  EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx1, 1);
+  EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
+
+  two_view_geometry.config = TwoViewGeometry::CALIBRATED;
+  matcher->MatchGuided(kMaxError, image0, image2, &two_view_geometry);
+  EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
+}
+
+TEST(MatchGuidedSiftFeaturesCPU, EssentialMatrix) {
+  std::unique_ptr<FeatureDescriptorIndexCacheHelper> index_cache_helper;
+  TestGuidedMatchingWithCameraDistortion(
+      [&index_cache_helper](const std::vector<FeatureMatcher::Image>& images) {
+        index_cache_helper =
+            std::make_unique<FeatureDescriptorIndexCacheHelper>(images);
+        FeatureMatchingOptions options(FeatureMatcherType::SIFT);
+        options.use_gpu = false;
+        options.sift->cpu_descriptor_index_cache =
+            &index_cache_helper->index_cache;
+        return CreateSiftFeatureMatcher(options);
+      });
+}
+
 TEST(MatchSiftFeaturesGPU, Nominal) {
   char app_name[] = "Test";
   int argc = 1;
@@ -624,23 +713,22 @@ TEST(MatchSiftFeaturesGPU, Nominal) {
       options.max_num_matches = 1000;
       auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
 
+      const Camera camera = Camera::CreateFromModelId(
+          1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
       const FeatureMatcher::Image image0 = {
           /*image_id=*/0,
-          /*width=*/100,
-          /*height=*/200,
+          /*camera=*/&camera,
           /*keypoints=*/nullptr,
           std::make_shared<FeatureDescriptors>(0, 128)};
       const FeatureMatcher::Image image1 = {
           /*image_id=*/1,
-          /*width=*/100,
-          /*height=*/200,
+          /*camera=*/&camera,
           /*keypoints=*/nullptr,
           std::make_shared<FeatureDescriptors>(
               CreateRandomFeatureDescriptors(2))};
       const FeatureMatcher::Image image2 = {
           /*image_id=*/2,
-          /*width=*/100,
-          /*height=*/200,
+          /*camera=*/&camera,
           /*keypoints=*/nullptr,
           std::make_shared<FeatureDescriptors>(
               image1.descriptors->colwise().reverse())};
@@ -689,22 +777,21 @@ TEST(MatchSiftFeaturesCPUvsGPU, Nominal) {
       auto TestCPUvsGPU = [](const FeatureMatchingOptions& options,
                              const FeatureDescriptors& descriptors1,
                              const FeatureDescriptors& descriptors2) {
+        const Camera camera = Camera::CreateFromModelId(
+            1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
         const FeatureMatcher::Image image0 = {
             /*image_id=*/0,
-            /*width=*/100,
-            /*height=*/200,
+            /*camera=*/&camera,
             /*keypoints=*/nullptr,
             std::make_shared<FeatureDescriptors>(0, 128)};
         const FeatureMatcher::Image image1 = {
             /*image_id=*/1,
-            /*width=*/100,
-            /*height=*/200,
+            /*camera=*/&camera,
             /*keypoints=*/nullptr,
             std::make_shared<FeatureDescriptors>(descriptors1)};
         const FeatureMatcher::Image image2 = {
             /*image_id=*/2,
-            /*width=*/100,
-            /*height=*/200,
+            /*camera=*/&camera,
             /*keypoints=*/nullptr,
             std::make_shared<FeatureDescriptors>(descriptors2)};
 
@@ -829,32 +916,30 @@ TEST(MatchGuidedSiftFeaturesGPU, Nominal) {
   class TestThread : public Thread {
    private:
     void Run() {
+      Camera camera = Camera::CreateFromModelId(
+          1, CameraModelId::kSimpleRadial, 100.0, 100, 200);
       const FeatureMatcher::Image image0 = {
           /*image_id=*/0,
-          /*width=*/100,
-          /*height=*/200,
+          /*camera=*/&camera,
           std::make_shared<FeatureKeypoints>(0),
           std::make_shared<FeatureDescriptors>(0, 128)};
       const FeatureMatcher::Image image1 = {
           /*image_id=*/1,
-          /*width=*/100,
-          /*height=*/200,
+          /*camera=*/&camera,
           std::make_shared<FeatureKeypoints>(
               std::vector<FeatureKeypoint>{{1, 0}, {2, 0}}),
           std::make_shared<FeatureDescriptors>(
               CreateRandomFeatureDescriptors(2))};
       const FeatureMatcher::Image image2 = {
           /*image_id=*/2,
-          /*width=*/100,
-          /*height=*/200,
+          /*camera=*/&camera,
           std::make_shared<FeatureKeypoints>(
               std::vector<FeatureKeypoint>{{2, 0}, {1, 0}}),
           std::make_shared<FeatureDescriptors>(
               image1.descriptors->colwise().reverse())};
       const FeatureMatcher::Image image3 = {
           /*image_id=*/3,
-          /*width=*/100,
-          /*height=*/200,
+          /*camera=*/&camera,
           std::make_shared<FeatureKeypoints>(
               std::vector<FeatureKeypoint>{{100, 0}, {1, 0}}),
           std::make_shared<FeatureDescriptors>(
@@ -897,6 +982,31 @@ TEST(MatchGuidedSiftFeaturesGPU, Nominal) {
       EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
       matcher->MatchGuided(kMaxError, image0, image0, &two_view_geometry);
       EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
+    }
+    OpenGLContextManager opengl_context_;
+  };
+
+  TestThread thread;
+  RunThreadWithOpenGLContext(&thread);
+}
+
+TEST(MatchGuidedSiftFeaturesGPU, EssentialMatrix) {
+  char app_name[] = "Test";
+  int argc = 1;
+  char* argv[] = {app_name};
+  QApplication app(argc, argv);
+
+  class TestThread : public Thread {
+   private:
+    void Run() {
+      opengl_context_.MakeCurrent();
+      TestGuidedMatchingWithCameraDistortion(
+          [](const std::vector<FeatureMatcher::Image>& images) {
+            FeatureMatchingOptions options(FeatureMatcherType::SIFT);
+            options.use_gpu = true;
+            options.max_num_matches = 1000;
+            return THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
+          });
     }
     OpenGLContextManager opengl_context_;
   };

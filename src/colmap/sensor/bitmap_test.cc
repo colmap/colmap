@@ -31,11 +31,29 @@
 
 #include "colmap/util/testing.h"
 
+#include <fstream>
+#include <tuple>
+
+#include <OpenImageIO/imagebufalgo.h>
+#include <OpenImageIO/imageio.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
+
+void WriteImageOIIO(const int width,
+                    const int height,
+                    const int channels,
+                    const std::filesystem::path& path,
+                    const uint8_t* data) {
+  const OIIO::ImageSpec spec(width, height, channels, OIIO::TypeDesc::UINT8);
+  auto output = OIIO::ImageOutput::create(path.string());
+  ASSERT_NE(output, nullptr);
+  ASSERT_TRUE(output->open(path.string(), spec));
+  ASSERT_TRUE(output->write_image(OIIO::TypeDesc::UINT8, data));
+  ASSERT_TRUE(output->close());
+}
 
 TEST(BitmapColor, Empty) {
   BitmapColor<uint8_t> color;
@@ -616,6 +634,255 @@ TEST(Bitmap, ReadWriteAsGreyNonLinear) {
   EXPECT_EQ(read_bitmap.BitsPerPixel(), 8);
   EXPECT_EQ(read_bitmap.RowMajorData(), bitmap.RowMajorData());
 }
+
+class ParameterizedBitmapFormatTests
+    : public ::testing::TestWithParam<
+          std::tuple</*extension=*/std::string,
+                     /*is_lossless=*/bool,
+                     /*supports_native_grey=*/bool,
+                     /*supports_rgba=*/bool,
+                     /*supports_grey_alpha=*/bool>> {};
+
+TEST_P(ParameterizedBitmapFormatTests, ReadWriteRGB) {
+  const auto [kExtension,
+              kIsLossless,
+              kSupportsNativeGrey,
+              kSupportsRGBA,
+              kSupportsGreyAlpha] = GetParam();
+
+  const int width = 4;
+  const int height = 3;
+  Bitmap write_bitmap(width, height, /*as_rgb=*/true);
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      const uint8_t r = static_cast<uint8_t>((x + y * width) * 20);
+      const uint8_t g = static_cast<uint8_t>((x + y * width) * 15);
+      const uint8_t b = static_cast<uint8_t>((x + y * width) * 10);
+      write_bitmap.SetPixel(x, y, BitmapColor<uint8_t>(r, g, b));
+    }
+  }
+
+  const auto test_dir = CreateTestDir();
+  const auto filename = test_dir / ("image" + kExtension);
+  EXPECT_TRUE(write_bitmap.Write(filename));
+
+  Bitmap rgb_bitmap;
+  EXPECT_TRUE(rgb_bitmap.Read(filename));
+  EXPECT_EQ(rgb_bitmap.Width(), width);
+  EXPECT_EQ(rgb_bitmap.Height(), height);
+  EXPECT_EQ(rgb_bitmap.Channels(), 3);
+  EXPECT_EQ(rgb_bitmap.BitsPerPixel(), 24);
+
+  if (kIsLossless) {
+    EXPECT_EQ(rgb_bitmap.RowMajorData(), write_bitmap.RowMajorData());
+  }
+
+  Bitmap grey_bitmap;
+  EXPECT_TRUE(grey_bitmap.Read(filename, /*as_rgb=*/false));
+  EXPECT_EQ(grey_bitmap.Width(), width);
+  EXPECT_EQ(grey_bitmap.Height(), height);
+  EXPECT_EQ(grey_bitmap.Channels(), 1);
+  EXPECT_EQ(grey_bitmap.BitsPerPixel(), 8);
+}
+
+TEST_P(ParameterizedBitmapFormatTests, ReadWriteGrey) {
+  const auto [kExtension,
+              kIsLossless,
+              kSupportsNativeGrey,
+              kSupportsRGBA,
+              kSupportsGreyAlpha] = GetParam();
+
+  const int width = 4;
+  const int height = 3;
+  const std::vector<uint8_t> grey_values = {
+      0, 64, 128, 192, 32, 96, 160, 224, 50, 100, 150, 200};
+
+  Bitmap write_bitmap;
+  if (kSupportsNativeGrey) {
+    write_bitmap = Bitmap(width, height, /*as_rgb=*/false);
+    for (int y = 0; y < height; ++y) {
+      for (int x = 0; x < width; ++x) {
+        write_bitmap.SetPixel(
+            x, y, BitmapColor<uint8_t>(grey_values[y * width + x]));
+      }
+    }
+  } else {
+    // Write RGB with uniform values for formats that don't support grey.
+    write_bitmap = Bitmap(width, height, /*as_rgb=*/true);
+    for (int y = 0; y < height; ++y) {
+      for (int x = 0; x < width; ++x) {
+        const uint8_t v = grey_values[y * width + x];
+        write_bitmap.SetPixel(x, y, BitmapColor<uint8_t>(v, v, v));
+      }
+    }
+  }
+
+  const auto test_dir = CreateTestDir();
+  const auto filename = test_dir / ("image" + kExtension);
+  EXPECT_TRUE(write_bitmap.Write(filename));
+
+  Bitmap grey_bitmap;
+  EXPECT_TRUE(grey_bitmap.Read(filename, /*as_rgb=*/false));
+  EXPECT_EQ(grey_bitmap.Width(), width);
+  EXPECT_EQ(grey_bitmap.Height(), height);
+  EXPECT_EQ(grey_bitmap.Channels(), 1);
+  EXPECT_EQ(grey_bitmap.BitsPerPixel(), 8);
+
+  if (kIsLossless) {
+    const std::vector<uint8_t> expected_grey = {
+        0, 64, 128, 192, 32, 96, 160, 224, 50, 100, 150, 200};
+    EXPECT_EQ(grey_bitmap.RowMajorData(), expected_grey);
+  }
+
+  Bitmap rgb_bitmap;
+  EXPECT_TRUE(rgb_bitmap.Read(filename, /*as_rgb=*/true));
+  EXPECT_EQ(rgb_bitmap.Width(), width);
+  EXPECT_EQ(rgb_bitmap.Height(), height);
+  EXPECT_EQ(rgb_bitmap.Channels(), 3);
+  EXPECT_EQ(rgb_bitmap.BitsPerPixel(), 24);
+}
+
+TEST_P(ParameterizedBitmapFormatTests, ReadRGBA) {
+  const auto [kExtension,
+              kIsLossless,
+              kSupportsNativeGrey,
+              kSupportsRGBA,
+              kSupportsGreyAlpha] = GetParam();
+
+  if (!kSupportsRGBA) {
+    return;
+  }
+
+  const int width = 2;
+  const int height = 3;
+  const int channels = 4;
+  const std::vector<uint8_t> rgba_data = {0,  0, 0, 255, 2,  0,  0,  255,
+                                          10, 0, 0, 128, 30, 0,  0,  200,
+                                          40, 2, 0, 255, 5,  20, 10, 100};
+
+  const auto test_dir = CreateTestDir();
+  const auto filename = test_dir / ("image" + kExtension);
+  WriteImageOIIO(width, height, channels, filename, rgba_data.data());
+
+  Bitmap rgb_bitmap;
+  EXPECT_TRUE(rgb_bitmap.Read(filename));
+  EXPECT_EQ(rgb_bitmap.Width(), width);
+  EXPECT_EQ(rgb_bitmap.Height(), height);
+  EXPECT_EQ(rgb_bitmap.Channels(), 3);
+  EXPECT_EQ(rgb_bitmap.BitsPerPixel(), 24);
+
+  if (kIsLossless) {
+    const std::vector<uint8_t> expected_rgb = {
+        0, 0, 0, 2, 0, 0, 10, 0, 0, 30, 0, 0, 40, 2, 0, 5, 20, 10};
+    for (size_t i = 0; i < expected_rgb.size(); ++i) {
+      // Older OIIO versions seem to have a off-by-one error due to rounding.
+      EXPECT_NEAR(rgb_bitmap.RowMajorData()[i], expected_rgb[i], 1);
+    }
+  }
+
+  Bitmap grey_bitmap;
+  EXPECT_TRUE(grey_bitmap.Read(filename, /*as_rgb=*/false));
+  EXPECT_EQ(grey_bitmap.Width(), width);
+  EXPECT_EQ(grey_bitmap.Height(), height);
+  EXPECT_EQ(grey_bitmap.Channels(), 1);
+}
+
+TEST_P(ParameterizedBitmapFormatTests, ReadGreyAlpha) {
+  const auto [kExtension,
+              kIsLossless,
+              kSupportsNativeGrey,
+              kSupportsRGBA,
+              kSupportsGreyAlpha] = GetParam();
+
+  if (!kSupportsGreyAlpha) {
+    return;
+  }
+
+  const int width = 2;
+  const int height = 3;
+  const int channels = 2;  // Gray + Alpha
+  const std::vector<uint8_t> grey_alpha_data = {
+      10, 255, 30, 200, 20, 255, 40, 128, 50, 255, 60, 100};
+
+  const auto test_dir = CreateTestDir();
+  const auto filename = test_dir / ("image" + kExtension);
+  WriteImageOIIO(width, height, channels, filename, grey_alpha_data.data());
+
+  Bitmap grey_bitmap;
+  EXPECT_TRUE(grey_bitmap.Read(filename, /*as_rgb=*/false));
+  EXPECT_EQ(grey_bitmap.Width(), width);
+  EXPECT_EQ(grey_bitmap.Height(), height);
+  EXPECT_EQ(grey_bitmap.Channels(), 1);
+  EXPECT_EQ(grey_bitmap.BitsPerPixel(), 8);
+
+  if (kIsLossless) {
+    const std::vector<uint8_t> expected_grey = {10, 30, 20, 40, 50, 60};
+    for (size_t i = 0; i < expected_grey.size(); ++i) {
+      // Older OIIO versions seem to have a off-by-one error due to rounding.
+      EXPECT_NEAR(grey_bitmap.RowMajorData()[i], expected_grey[i], 1);
+    }
+  }
+
+  Bitmap rgb_bitmap;
+  EXPECT_TRUE(rgb_bitmap.Read(filename, /*as_rgb=*/true));
+  EXPECT_EQ(rgb_bitmap.Width(), width);
+  EXPECT_EQ(rgb_bitmap.Height(), height);
+  EXPECT_EQ(rgb_bitmap.Channels(), 3);
+}
+
+TEST(Bitmap, ReadNonImageFile) {
+  const auto test_dir = CreateTestDir();
+  const auto filename = test_dir / "not_an_image.txt";
+
+  // Create a non-image file
+  std::ofstream file(filename);
+  file << "This is not an image file";
+  file.close();
+
+  Bitmap bitmap;
+  EXPECT_FALSE(bitmap.Read(filename));
+
+  // Verify that OIIO error was cleared.
+  const std::string pending_error = OIIO::geterror();
+  EXPECT_TRUE(pending_error.empty())
+      << "OIIO error was not cleared: " << pending_error;
+}
+
+TEST(Bitmap, ReadNonExistentFile) {
+  const auto test_dir = CreateTestDir();
+
+  Bitmap bitmap;
+  EXPECT_FALSE(bitmap.Read(test_dir / "non_existent_file.png"));
+
+  // Verify that OIIO error was cleared.
+  const std::string pending_error = OIIO::geterror();
+  EXPECT_TRUE(pending_error.empty())
+      << "OIIO error was not cleared: " << pending_error;
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    BitmapFormatTests,
+    ParameterizedBitmapFormatTests,
+    ::testing::Values(std::make_tuple(/*extension=*/".jpg",
+                                      /*is_lossless=*/false,
+                                      /*supports_native_grey=*/true,
+                                      /*supports_rgba=*/false,
+                                      /*supports_grey_alpha=*/false),
+                      std::make_tuple(/*extension=*/".png",
+                                      /*is_lossless=*/true,
+                                      /*supports_native_grey=*/true,
+                                      /*supports_rgba=*/true,
+                                      /*supports_grey_alpha=*/true),
+                      std::make_tuple(/*extension=*/".tif",
+                                      /*is_lossless=*/true,
+                                      /*supports_native_grey=*/true,
+                                      /*supports_rgba=*/true,
+                                      /*supports_grey_alpha=*/true),
+                      std::make_tuple(/*extension=*/".bmp",
+                                      /*is_lossless=*/true,
+                                      /*supports_native_grey=*/true,
+                                      /*supports_rgba=*/false,
+                                      /*supports_grey_alpha=*/false)));
 
 }  // namespace
 }  // namespace colmap

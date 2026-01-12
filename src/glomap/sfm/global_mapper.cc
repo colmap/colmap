@@ -5,6 +5,7 @@
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
 #include "glomap/estimators/rotation_averaging.h"
@@ -13,6 +14,23 @@
 #include <algorithm>
 
 namespace glomap {
+namespace {
+
+GlobalMapperOptions InitializeOptions(const GlobalMapperOptions& options) {
+  // Propagate random seed and num_threads to component options.
+  GlobalMapperOptions opts = options;
+  if (opts.random_seed >= 0) {
+    opts.rotation_averaging.random_seed = opts.random_seed;
+    opts.global_positioning.random_seed = opts.random_seed;
+    opts.global_positioning.use_parameter_block_ordering = false;
+    opts.retriangulation.random_seed = opts.random_seed;
+  }
+  opts.global_positioning.solver_options.num_threads = opts.num_threads;
+  opts.bundle_adjustment.solver_options.num_threads = opts.num_threads;
+  return opts;
+}
+
+}  // namespace
 
 GlobalMapper::GlobalMapper(
     std::shared_ptr<const colmap::DatabaseCache> database_cache)
@@ -24,18 +42,22 @@ void GlobalMapper::BeginReconstruction(
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
   pose_graph_ = std::make_shared<class PoseGraph>();
-  pose_graph_->Load(*database_cache_);
+  pose_graph_->Load(*database_cache_->CorrespondenceGraph());
 }
 
 std::shared_ptr<colmap::Reconstruction> GlobalMapper::Reconstruction() const {
   return reconstruction_;
 }
 
-std::shared_ptr<class PoseGraph> GlobalMapper::PoseGraph() const {
-  return pose_graph_;
-}
-
 bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
+  THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(pose_graph_);
+
+  if (pose_graph_->Empty()) {
+    LOG(ERROR) << "Cannot continue with empty pose graph";
+    return false;
+  }
+
   // Read pose priors from the database cache.
   const std::vector<colmap::PosePrior>& pose_priors =
       database_cache_->PosePriors();
@@ -82,16 +104,19 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
     image_id_to_keypoints.emplace(image_id, std::move(points));
   }
 
+  auto corr_graph = database_cache_->CorrespondenceGraph();
+
   // Union all matching observations.
   colmap::UnionFind<Observation> uf;
+  colmap::FeatureMatches matches;
   for (const auto& [pair_id, edge] : pose_graph_->ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     THROW_CHECK(image_id_to_keypoints.count(image_id1))
         << "Missing keypoints for image " << image_id1;
     THROW_CHECK(image_id_to_keypoints.count(image_id2))
         << "Missing keypoints for image " << image_id2;
-
-    for (const auto& match : edge.inlier_matches) {
+    corr_graph->ExtractMatchesBetweenImages(image_id1, image_id2, matches);
+    for (const auto& match : matches) {
       const Observation obs1(image_id1, match.point2D_idx1);
       const Observation obs2(image_id2, match.point2D_idx2);
       if (obs2 < obs1) {
@@ -399,20 +424,17 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(pose_graph_);
 
-  // Propagate random seed and num_threads to component options.
-  GlobalMapperOptions opts = options;
-  if (opts.random_seed >= 0) {
-    opts.rotation_averaging.random_seed = opts.random_seed;
-    opts.global_positioning.random_seed = opts.random_seed;
-    opts.global_positioning.use_parameter_block_ordering = false;
-    opts.retriangulation.random_seed = opts.random_seed;
+  if (pose_graph_->Empty()) {
+    LOG(ERROR) << "Cannot continue with empty pose graph";
+    return false;
   }
-  opts.global_positioning.solver_options.num_threads = opts.num_threads;
-  opts.bundle_adjustment.solver_options.num_threads = opts.num_threads;
+
+  // Propagate random seed and num_threads to component options.
+  GlobalMapperOptions opts = InitializeOptions(options);
 
   // Run rotation averaging
   if (!opts.skip_rotation_averaging) {
-    LOG(INFO) << "----- Running rotation averaging -----";
+    LOG_HEADING1("Running rotation averaging");
     colmap::Timer run_timer;
     run_timer.Start();
     if (!RotationAveraging(opts.rotation_averaging)) {
@@ -424,7 +446,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
 
   // Track establishment and selection
   if (!opts.skip_track_establishment) {
-    LOG(INFO) << "----- Running track establishment -----";
+    LOG_HEADING1("Running track establishment");
     colmap::Timer run_timer;
     run_timer.Start();
     EstablishTracks(opts);
@@ -434,7 +456,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
 
   // Global positioning
   if (!opts.skip_global_positioning) {
-    LOG(INFO) << "----- Running global positioning -----";
+    LOG_HEADING1("Running global positioning");
     colmap::Timer run_timer;
     run_timer.Start();
     if (!GlobalPositioning(opts.global_positioning,
@@ -449,7 +471,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
 
   // Bundle adjustment
   if (!opts.skip_bundle_adjustment) {
-    LOG(INFO) << "----- Running iterative bundle adjustment -----";
+    LOG_HEADING1("Running iterative bundle adjustment");
     colmap::Timer run_timer;
     run_timer.Start();
     if (!IterativeBundleAdjustment(opts.bundle_adjustment,
@@ -464,7 +486,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
 
   // Retriangulation
   if (!opts.skip_retriangulation) {
-    LOG(INFO) << "----- Running iterative retriangulation and refinement -----";
+    LOG_HEADING1("Running iterative retriangulation and refinement");
     colmap::Timer run_timer;
     run_timer.Start();
     if (!IterativeRetriangulateAndRefine(opts.retriangulation,
@@ -479,7 +501,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
 
   // Reconstruction pruning
   if (!opts.skip_pruning) {
-    LOG(INFO) << "----- Running postprocessing -----";
+    LOG_HEADING1("Running postprocessing");
     colmap::Timer run_timer;
     run_timer.Start();
     cluster_ids = PruneWeaklyConnectedFrames(*reconstruction_);

@@ -280,7 +280,7 @@ int RunImageRegistrator(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  PrintHeading1("Loading database");
+  LOG_HEADING1("Loading database");
 
   std::shared_ptr<DatabaseCache> database_cache;
 
@@ -312,8 +312,8 @@ int RunImageRegistrator(int argc, char** argv) {
       continue;
     }
 
-    PrintHeading1("Registering image #" + std::to_string(image.first) + " (" +
-                  std::to_string(reconstruction->NumRegImages() + 1) + ")");
+    LOG_HEADING1("Registering image #" + std::to_string(image.first) + " (" +
+                 std::to_string(reconstruction->NumRegImages() + 1) + ")");
 
     LOG(INFO) << "\n=> Image sees "
               << mapper.ObservationManager().NumVisiblePoints3D(image.first)
@@ -369,7 +369,7 @@ int RunImageUndistorter(int argc, char** argv) {
 
   CreateDirIfNotExists(output_path);
 
-  PrintHeading1("Reading reconstruction");
+  LOG_HEADING1("Reading reconstruction");
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
   LOG(INFO) << StringPrintf("=> Reconstruction with %d images and %d points",

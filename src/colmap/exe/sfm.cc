@@ -277,6 +277,7 @@ bool RunIncrementalMapperImpl(
   mapper.Run();
 
   if (reconstruction_manager->Size() == 0) {
+    LOG(ERROR) << "Failed to create any sparse model";
     return false;
   }
 
@@ -347,7 +348,6 @@ int RunMapper(int argc, char** argv) {
                                 output_path,
                                 options.mapper,
                                 reconstruction_manager)) {
-    LOG(ERROR) << "failed to create sparse model";
     return EXIT_FAILURE;
   }
 
@@ -504,7 +504,6 @@ int RunPosePriorMapper(int argc, char** argv) {
                                 output_path,
                                 options.mapper,
                                 reconstruction_manager)) {
-    LOG(ERROR) << "failed to create sparse model";
     return EXIT_FAILURE;
   }
 
@@ -593,7 +592,7 @@ int RunPointTriangulator(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  PrintHeading1("Loading model");
+  LOG_HEADING1("Loading model");
 
   auto reconstruction = std::make_shared<Reconstruction>();
   reconstruction->Read(input_path);

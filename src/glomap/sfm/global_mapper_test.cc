@@ -15,18 +15,7 @@ namespace {
 std::shared_ptr<colmap::DatabaseCache> CreateDatabaseCache(
     const colmap::Database& database) {
   colmap::DatabaseCache::Options options;
-  options.load_relative_pose = true;
   return colmap::DatabaseCache::Create(database, options);
-}
-
-GlobalMapperOptions CreateTestOptions() {
-  GlobalMapperOptions options;
-  options.skip_rotation_averaging = false;
-  options.skip_track_establishment = false;
-  options.skip_global_positioning = false;
-  options.skip_bundle_adjustment = false;
-  options.skip_retriangulation = false;
-  return options;
 }
 
 TEST(GlobalMapper, WithoutNoise) {
@@ -49,7 +38,7 @@ TEST(GlobalMapper, WithoutNoise) {
   global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(CreateTestOptions(), cluster_ids);
+  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
 
   EXPECT_THAT(gt_reconstruction,
               colmap::ReconstructionNear(*reconstruction,
@@ -80,7 +69,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
   global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(CreateTestOptions(), cluster_ids);
+  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
 
   EXPECT_THAT(gt_reconstruction,
               colmap::ReconstructionNear(*reconstruction,
@@ -121,7 +110,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
   }
 
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(CreateTestOptions(), cluster_ids);
+  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
 
   EXPECT_THAT(gt_reconstruction,
               colmap::ReconstructionNear(*reconstruction,
@@ -154,7 +143,7 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
   global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(CreateTestOptions(), cluster_ids);
+  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
 
   EXPECT_THAT(gt_reconstruction,
               colmap::ReconstructionNear(*reconstruction,
