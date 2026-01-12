@@ -489,12 +489,13 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
         } else {
           LOG(INFO) << "=> Could not register, trying another image.";
 
-          // If initial pair fails to continue for some time,
+          // If initial model fails to continue for some time,
           // abort and try different initial pair.
           const size_t kMinNumInitialRegTrials = 30;
+          const size_t min_model_size = std::min<size_t>(
+              0.5 * database_cache_->NumImages(), options_->min_model_size);
           if (reg_trial >= kMinNumInitialRegTrials &&
-              reconstruction->NumRegFrames() <
-                  static_cast<size_t>(options_->min_model_size)) {
+              reconstruction->NumRegImages() < min_model_size) {
             break;
           }
         }
