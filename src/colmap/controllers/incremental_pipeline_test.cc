@@ -107,7 +107,7 @@ TEST(IncrementalPipeline, UnknownSensorFromRigExitsGracefully) {
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
-  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 3;
   synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.camera_has_prior_focal_length = false;
@@ -116,12 +116,10 @@ TEST(IncrementalPipeline, UnknownSensorFromRigExitsGracefully) {
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
-  for (auto& rig : database->ReadAllRigs()) {
-    for (auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
-      sensor_from_rig.reset();
-    }
-    database->UpdateRig(rig);
-  }
+  // Set one of the sensor from rig to unknown.
+  auto rig = database->ReadAllRigs()[0];
+  rig.NonRefSensors().begin()->second.reset();
+  database->UpdateRig(rig);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   auto options = std::make_shared<IncrementalPipelineOptions>();
