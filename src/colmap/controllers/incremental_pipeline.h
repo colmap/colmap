@@ -258,9 +258,10 @@ class IncrementalPipeline : public BaseController {
                                 size_t ba_prev_num_reg_images,
                                 size_t ba_prev_num_points);
 
+  bool CheckReachedMaxRuntime() const;
+
  private:
   void RegisterCallbacks();
-  bool ReachedMaxRuntime() const;
 
   const std::shared_ptr<IncrementalPipelineOptions> options_;
   std::shared_ptr<class ReconstructionManager> reconstruction_manager_;

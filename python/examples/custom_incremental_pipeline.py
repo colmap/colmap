@@ -88,12 +88,12 @@ def initialize_reconstruction(
     else:
         if not all(reconstruction.exists_image(i) for i in init_pair):
             logging.info(f"=> Initial image pair {init_pair} does not exist.")
-            return IncrementalPipelineStatus.BAD_INITIAL_PAIR
+            return IncrementalPipelineStatus.NO_INITIAL_PAIR
         maybe_init_cam2_from_cam1 = mapper.estimate_initial_two_view_geometry(
             mapper_options, *init_pair
         )
         if maybe_init_cam2_from_cam1 is None:
-            logging.info("Provided pair is insuitable for initialization")
+            logging.info("Provided pair is unsuitable for initialization")
             return IncrementalPipelineStatus.BAD_INITIAL_PAIR
         init_cam2_from_cam1 = maybe_init_cam2_from_cam1
     logging.info(
@@ -102,11 +102,14 @@ def initialize_reconstruction(
     mapper.register_initial_image_pair(
         mapper_options, *init_pair, init_cam2_from_cam1
     )
+
+    tri_options = options.get_triangulation()
+    tri_options.min_angle = mapper_options.init_min_tri_angle
     for image_id in init_pair:
         image = reconstruction.images[image_id]
         assert image.frame is not None
         for data_id in image.frame.image_ids:
-            mapper.triangulate_image(options.get_triangulation(), data_id.id)
+            mapper.triangulate_image(tri_options, data_id.id)
 
     logging.info("Global bundle adjustment")
     # The following is equivalent to: mapper.adjust_global_bundle(...)
@@ -146,9 +149,9 @@ def reconstruct_sub_model(
         )
         if init_status != IncrementalPipelineStatus.SUCCESS:
             return init_status
-        controller.callback(
-            IncrementalPipelineCallback.INITIAL_IMAGE_PAIR_REG_CALLBACK
-        )
+    controller.callback(
+        IncrementalPipelineCallback.INITIAL_IMAGE_PAIR_REG_CALLBACK
+    )
 
     options = controller.options
 
@@ -168,8 +171,11 @@ def reconstruct_sub_model(
     while True:
         if not (reg_next_success or prev_reg_next_success):
             break
+        if controller.check_reached_max_runtime():
+            break
         prev_reg_next_success = reg_next_success
         reg_next_success = False
+        next_image_id = None
         for structure_less in structure_less_flags:
             next_images = mapper.find_next_images(
                 mapper_options, structure_less=structure_less
@@ -177,7 +183,7 @@ def reconstruct_sub_model(
             for reg_trial, next_image_id in enumerate(next_images):
                 logging.info(
                     f"Registering image #{next_image_id} "
-                    f"(num_reg_frames={reconstruction.num_reg_frames() + 1})"
+                    f"(num_reg_frames={reconstruction.num_reg_frames()})"
                 )
                 if structure_less:
                     logging.info(
@@ -224,7 +230,7 @@ def reconstruct_sub_model(
                     break
             if reg_next_success:
                 break
-        if reg_next_success:
+        if reg_next_success and next_image_id is not None:
             image = reconstruction.images[next_image_id]
             assert image.frame is not None
             for data_id in image.frame.image_ids:
@@ -247,16 +253,16 @@ def reconstruct_sub_model(
                 iterative_global_refinement(options, mapper_options, mapper)
                 ba_prev_num_points = reconstruction.num_points3D()
                 ba_prev_num_reg_frames = reconstruction.num_reg_frames()
-            if (
-                options.extract_colors
-                and not reconstruction.extract_colors_for_image(
-                    next_image_id, options.image_path
-                )
-            ):
-                logging.warning(
-                    f"Could not read image {next_image_id} "
-                    f"at path {options.image_path}"
-                )
+            if options.extract_colors:
+                for data_id in image.frame.image_ids:
+                    if not reconstruction.extract_colors_for_image(
+                        data_id.id, options.image_path
+                    ):
+                        logging.warning(
+                            f"Could not read image "
+                            f"{reconstruction.images[data_id.id].name} "
+                            f"at path {options.image_path}"
+                        )
             if (
                 options.snapshot_frames_freq > 0
                 and reconstruction.num_reg_frames()
@@ -271,8 +277,13 @@ def reconstruct_sub_model(
             break
         if (not reg_next_success) and prev_reg_next_success:
             iterative_global_refinement(options, mapper_options, mapper)
+
+    if controller.check_reached_max_runtime():
+        return pycolmap.IncrementalPipelineStatus.INTERRUPTED
+
+    # Only run final global BA, if last incremental BA was not global
     if (
-        reconstruction.num_reg_frames() >= 2
+        reconstruction.num_reg_frames() > 0
         and reconstruction.num_reg_frames() != ba_prev_num_reg_frames
         and reconstruction.num_points3D() != ba_prev_num_points
     ):
@@ -293,6 +304,8 @@ def reconstruct(
     reconstruction_manager = controller.reconstruction_manager
 
     for num_trials in range(options.init_num_trials):
+        if controller.check_reached_max_runtime():
+            break
         if not continue_reconstruction or num_trials > 0:
             reconstruction_idx = reconstruction_manager.add()
         else:
@@ -303,6 +316,7 @@ def reconstruct(
             controller, mapper, mapper_options, reconstruction
         )
         if status == IncrementalPipelineStatus.INTERRUPTED:
+            reconstruction.update_point_3d_errors()
             logging.info("Keeping reconstruction due to interrupt")
             mapper.end_reconstruction(False)
             pycolmap.align_reconstruction_to_orig_rig_scales(
@@ -331,21 +345,19 @@ def reconstruct(
             return IncrementalPipelineStatus.CONTINUE
         elif status == IncrementalPipelineStatus.SUCCESS:
             num_reg_images = reconstruction.num_reg_images()
-            total_num_reg_frames = mapper.num_total_reg_images()
+            total_num_reg_images = mapper.num_total_reg_images()
             if (
                 options.multiple_models
                 and reconstruction_manager.size() > 1
-                and (
-                    num_reg_images < options.min_model_size
-                    or num_reg_images == 0
-                )
-            ):
+                and num_reg_images < options.min_model_size
+            ) or num_reg_images == 0:
                 logging.info(
                     "Discarding reconstruction due to insufficient size"
                 )
                 mapper.end_reconstruction(True)
                 reconstruction_manager.delete(reconstruction_idx)
             else:
+                reconstruction.update_point_3d_errors()
                 logging.info("Keeping successful reconstruction")
                 mapper.end_reconstruction(False)
                 pycolmap.align_reconstruction_to_orig_rig_scales(
@@ -357,7 +369,7 @@ def reconstruct(
             if (
                 not options.multiple_models
                 or reconstruction_manager.size() >= options.max_num_models
-                or total_num_reg_frames >= database_cache.num_images() - 1
+                or total_num_reg_images >= database_cache.num_images() - 1
             ):
                 return IncrementalPipelineStatus.STOP
         else:
@@ -372,8 +384,16 @@ def main_incremental_mapper(controller: IncrementalPipeline) -> None:
     timer.start()
 
     database_cache = controller.database_cache
+
     if database_cache.num_images() == 0:
         logging.warning("No images with matches found in the database")
+        return
+
+    if (
+        controller.options.use_prior_position
+        and database_cache.num_pose_priors() == 0
+    ):
+        logging.warning("No pose priors")
         return
 
     reconstruction_manager = controller.reconstruction_manager
@@ -385,6 +405,7 @@ def main_incremental_mapper(controller: IncrementalPipeline) -> None:
             "but multiple are given"
         )
 
+    num_images = database_cache.num_images()
     mapper = IncrementalMapper(database_cache)
     mapper_options = controller.options.get_mapper()
     if (
@@ -393,8 +414,14 @@ def main_incremental_mapper(controller: IncrementalPipeline) -> None:
     ):
         return
 
+    def should_stop():
+        return (
+            mapper.num_total_reg_images() == num_images
+            or controller.check_reached_max_runtime()
+        )
+
     for _ in range(2):  # number of relaxations
-        if mapper.num_total_reg_images() == database_cache.num_images():
+        if should_stop():
             break
 
         logging.info("=> Relaxing the initialization constraints")
@@ -413,7 +440,7 @@ def main_incremental_mapper(controller: IncrementalPipeline) -> None:
         ):
             return
 
-        if mapper.num_total_reg_images() == database_cache.num_images():
+        if should_stop():
             break
 
         logging.info("=> Relaxing the initialization constraints")
