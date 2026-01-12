@@ -53,7 +53,7 @@ struct GlobalMapperOptions {
   double min_tri_angle_deg = 1.;              // for triangulation
 
   // Control the number of iterations for bundle adjustment.
-  int num_iterations_ba = 3;
+  int ba_num_iterations = 3;
 
   // Control the flow of the global sfm
   bool skip_rotation_averaging = false;

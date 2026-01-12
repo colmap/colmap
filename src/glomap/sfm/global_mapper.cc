@@ -485,7 +485,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     if (!IterativeBundleAdjustment(opts.bundle_adjustment,
                                    opts.max_normalized_reproj_error,
                                    opts.min_tri_angle_deg,
-                                   opts.num_iterations_ba)) {
+                                   opts.ba_num_iterations)) {
       return false;
     }
     LOG(INFO) << "Iterative bundle adjustment done in "
