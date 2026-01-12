@@ -49,7 +49,7 @@ void LoadReconstructionAndPoseGraph(const colmap::Database& database,
   colmap::DatabaseCache::Options options;
   database_cache.Load(database, options);
   reconstruction->Load(database_cache);
-  pose_graph->Load(database_cache);
+  pose_graph->Load(*database_cache.CorrespondenceGraph());
 }
 
 void SynthesizeGravityOutliers(std::vector<colmap::PosePrior>& pose_priors,
