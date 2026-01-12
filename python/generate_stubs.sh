@@ -26,5 +26,11 @@ perl -i -pe's/(__hash__:? .*= None)$/\1  # type: ignore/g' $FILES
 # pybind issue: dictionary keys should not be cast to the more generic types.
 perl -i -pe's/Mapping\[typing.Supports(Int|Float)/Mapping\[\L\1/g' $FILES
 
+# Eigen column vectors (Nx1) should also accept 1D arrays (N,).
+perl -i -pe's/tuple\[Literal\[(\d+)\], Literal\[1\]\]/tuple[Literal[\1]] | tuple[Literal[\1], Literal[1]]/g' $FILES
+
+# Eigen dynamic dimensions use Never but should be int.
+perl -i -pe's/tuple\[Never,/tuple[int,/g' $FILES
+
 COLMAP_DIR=$(dirname $( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd ))
 ruff format --config ${COLMAP_DIR}/ruff.toml ${FILES}
