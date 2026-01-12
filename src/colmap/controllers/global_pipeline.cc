@@ -52,10 +52,6 @@ GlobalPipeline::GlobalPipeline(
 }
 
 void GlobalPipeline::Run() {
-  // Run view graph calibration on the database before loading into mapper.
-  // TODO: Move view graph calibration to upper level (e.g., feature matching
-  // pipeline) so that GlobalPipeline can accept DatabaseCache directly and
-  // remove the database_ member (similar to IncrementalPipeline).
   if (!options_.skip_view_graph_calibration) {
     LOG(INFO) << "----- Running view graph calibration -----";
     Timer run_timer;
@@ -82,19 +78,14 @@ void GlobalPipeline::Run() {
 
   auto reconstruction = std::make_shared<Reconstruction>();
 
-  glomap::GlobalMapper global_mapper(database_cache);
-  global_mapper.BeginReconstruction(reconstruction);
-
-  if (global_mapper.PoseGraph()->Empty()) {
-    LOG(ERROR) << "Cannot continue without image pairs";
-    return;
-  }
-
   // Prepare mapper options with top-level options.
   glomap::GlobalMapperOptions mapper_options = options_.mapper;
   mapper_options.image_path = options_.image_path;
   mapper_options.num_threads = options_.num_threads;
   mapper_options.random_seed = options_.random_seed;
+
+  glomap::GlobalMapper global_mapper(database_cache);
+  global_mapper.BeginReconstruction(reconstruction);
 
   Timer run_timer;
   run_timer.Start();

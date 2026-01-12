@@ -47,6 +47,7 @@ RotationAveragingController::RotationAveragingController(
   if (options_.decompose_relative_pose) {
     MaybeDecomposeAndWriteRelativePoses(database.get());
   }
+  LOG(INFO) << "Loading database";
   DatabaseCache::Options database_cache_options;
   database_cache_options.min_num_matches = options_.min_num_matches;
   database_cache_options.ignore_watermarks = options_.ignore_watermarks;
@@ -66,11 +67,6 @@ void RotationAveragingController::Run() {
   // Create a global mapper instance
   glomap::GlobalMapper mapper(database_cache_);
   mapper.BeginReconstruction(reconstruction_);
-
-  if (mapper.PoseGraph()->Empty()) {
-    LOG(ERROR) << "Cannot continue without image pairs";
-    return;
-  }
 
   LOG(INFO) << "----- Running rotation averaging -----";
   if (!mapper.RotationAveraging(options.rotation_estimation)) {

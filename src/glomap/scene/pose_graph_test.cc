@@ -273,7 +273,7 @@ TEST(PoseGraph, Load) {
   cache.Load(*database, options);
 
   PoseGraph pose_graph;
-  pose_graph.Load(cache);
+  pose_graph.Load(*cache.CorrespondenceGraph());
 
   EXPECT_EQ(pose_graph.NumEdges(), 2);
   EXPECT_TRUE(pose_graph.HasEdge(1, 2));
