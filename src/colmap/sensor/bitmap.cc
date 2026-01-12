@@ -301,7 +301,7 @@ std::optional<std::string> Bitmap::ExifCameraModel() const {
       !GetMetaData("Exif:FocalLength", "float", &focal_length)) {
     return std::nullopt;
   }
-  std::string camera_model = StringPrintf("%s-%s-%f-%dx%d",
+  std::string camera_model = StringPrintf("%s-%s-%.6f-%dx%d",
                                           make_str->c_str(),
                                           model_str->c_str(),
                                           static_cast<double>(focal_length),
