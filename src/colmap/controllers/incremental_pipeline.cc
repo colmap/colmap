@@ -630,7 +630,7 @@ void IncrementalPipeline::Reconstruct(
         const size_t min_model_size = std::min<size_t>(
             0.5 * database_cache_->NumImages(), options_->min_model_size);
         if ((options_->multiple_models && reconstruction_manager_->Size() > 1 &&
-             reconstruction->NumRegFrames() < min_model_size) ||
+             reconstruction->NumRegImages() < min_model_size) ||
             reconstruction->NumRegFrames() == 0) {
           LOG(INFO) << "Discarding reconstruction due to insufficient size";
           mapper.EndReconstruction(/*discard=*/true);
