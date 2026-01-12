@@ -170,7 +170,7 @@ void SiftMatchGL::SetDescriptors(int index, int num, const unsigned char* descri
 
 }
 
-void SiftMatchGL::SetFeautreLocation(int index, const float* locations, int gap)
+void SiftMatchGL::SetFeatureLocation(int index, const float* locations, int gap)
 {
 	if(_num_sift[index] <=0) return;
 	int w = _sift_per_row ;
@@ -668,9 +668,9 @@ void SiftMatchGPU::SetDescriptors(int index, int num, const float* descriptors, 
 	__matcher->SetDescriptors(index, num, descriptors, id);
 }
 
-void SiftMatchGPU::SetFeautreLocation(int index, const float* locations, int gap)
+void SiftMatchGPU::SetFeatureLocation(int index, const float* locations, int gap)
 {
-	__matcher->SetFeautreLocation(index, locations, gap);
+	__matcher->SetFeatureLocation(index, locations, gap);
 
 }
 int  SiftMatchGPU::GetGuidedSiftMatch(int max_match, uint32_t match_buffer[][2], float* H, float* F,

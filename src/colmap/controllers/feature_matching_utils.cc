@@ -129,15 +129,13 @@ void FeatureMatcherWorker::Run() {
         matcher->MatchGuided(geometry_options_.ransac_options.max_error,
                              {
                                  data.image_id1,
-                                 static_cast<int>(camera1.width),
-                                 static_cast<int>(camera1.height),
+                                 &camera1,
                                  cache_->GetKeypoints(data.image_id1),
                                  cache_->GetDescriptors(data.image_id1),
                              },
                              {
                                  data.image_id2,
-                                 static_cast<int>(camera2.width),
-                                 static_cast<int>(camera2.height),
+                                 &camera2,
                                  cache_->GetKeypoints(data.image_id2),
                                  cache_->GetDescriptors(data.image_id2),
                              },
@@ -146,15 +144,13 @@ void FeatureMatcherWorker::Run() {
         matcher->Match(
             {
                 data.image_id1,
-                static_cast<int>(camera1.width),
-                static_cast<int>(camera1.height),
+                &camera1,
                 cache_->GetKeypoints(data.image_id1),
                 cache_->GetDescriptors(data.image_id1),
             },
             {
                 data.image_id2,
-                static_cast<int>(camera2.width),
-                static_cast<int>(camera2.height),
+                &camera2,
                 cache_->GetKeypoints(data.image_id2),
                 cache_->GetDescriptors(data.image_id2),
             },

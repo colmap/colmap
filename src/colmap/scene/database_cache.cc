@@ -382,7 +382,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
   }
 
   // Copy correspondences between all image pairs in the cache.
-  for (const auto& [pair_id, _] : source_graph->NumMatchesBetweenAllImages()) {
+  for (const image_pair_t pair_id : source_graph->ImagePairs()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     if (cache->images_.count(image_id1) > 0 &&
         cache->images_.count(image_id2) > 0) {

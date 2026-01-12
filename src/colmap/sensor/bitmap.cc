@@ -461,7 +461,9 @@ bool Bitmap::Read(const std::filesystem::path& path,
 
   const auto input = OIIO::ImageInput::open(path.string(), &config);
   if (!input) {
-    VLOG(3) << "Failed to read bitmap specs";
+    // Always retrieve the error to clear OIIO's pending error state.
+    const std::string error = OIIO::geterror();
+    VLOG(3) << "Failed to read bitmap: " << error;
     return false;
   }
 
