@@ -65,7 +65,7 @@ test-command = "pwsh -File {project}/python/ci/test-colmap-windows.ps1"
 # annotations that was fixed in version 2.3.0, but numpy stopped shipping
 # wheels for Python 3.10 in 2.3.0. This causes mypy to fail.
 [[tool.cibuildwheel.overrides]]
-select = "cp310-*"
+select = "cp310-{macosx,manylinux}*"
 test-command = """\
     python -c "import pycolmap; print(pycolmap.__version__)" && \
     cd {project} && \
