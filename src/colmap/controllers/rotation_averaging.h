@@ -76,8 +76,8 @@ struct RotationAveragingPipelineOptions {
 class RotationAveragingPipeline : public BaseController {
  public:
   RotationAveragingPipeline(const RotationAveragingPipelineOptions& options,
-                              std::shared_ptr<Database> database,
-                              std::shared_ptr<Reconstruction> reconstruction);
+                            std::shared_ptr<Database> database,
+                            std::shared_ptr<Reconstruction> reconstruction);
 
   void Run() override;
 
