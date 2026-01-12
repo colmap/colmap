@@ -63,8 +63,7 @@ test-command = "pwsh -File {project}/python/ci/test-colmap-windows.ps1"
 
 # Skip mypy on source files for Python 3.10. There's a bug in numpy's type
 # annotations that was fixed in version 2.3.0, but numpy stopped shipping
-# wheels for Python 3.10 in 2.3.0. This causes python/generate_stubs_test
-# to fail.
+# wheels for Python 3.10 in 2.3.0. This causes mypy to fail.
 [[tool.cibuildwheel.overrides]]
 select = "cp310-*"
 test-command = """\
