@@ -624,8 +624,9 @@ void IncrementalPipeline::Reconstruct(
 
         // If the total number of images is small then do not enforce the
         // minimum model size so that we can reconstruct small image
-        // collections. Always keep the first reconstruction, independent of
-        // size.
+        // collections, i.e., if the model is at least half of the total number
+        // of images, we always keep it. Always keep the first reconstruction,
+        // independent of size.
         const size_t min_model_size = std::min<size_t>(
             0.5 * database_cache_->NumImages(), options_->min_model_size);
         if ((options_->multiple_models && reconstruction_manager_->Size() > 1 &&

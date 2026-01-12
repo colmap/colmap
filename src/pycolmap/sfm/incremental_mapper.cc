@@ -42,7 +42,9 @@ void BindIncrementalPipeline(py::module& m) {
                      &Opts::min_model_size,
                      "The minimum number of registered images of a sub-model, "
                      "otherwise the sub-model is discarded. Note that the "
-                     "first sub-model is always kept independent of size.")
+                     "first sub-model is always kept independent of size. If "
+                     "the model contains at least half of the total number of "
+                     "images, we also always keep it.")
       .def_readwrite("init_image_id1",
                      &Opts::init_image_id1,
                      "The image identifier of the first image used to "
