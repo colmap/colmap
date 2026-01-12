@@ -137,5 +137,68 @@ void BindBitmap(pybind11::module& m) {
           "is_rgb", &Bitmap::IsRGB, "Whether the image is colorscale.")
       .def_property_readonly(
           "is_grey", &Bitmap::IsGrey, "Whether the image is greyscale.")
+      .def_property_readonly(
+          "is_empty", &Bitmap::IsEmpty, "Whether the image is empty.")
+      .def_property_readonly(
+          "bits_per_pixel",
+          &Bitmap::BitsPerPixel,
+          "Number of bits per pixel (8 for grey, 24 for RGB).")
+      .def_property_readonly(
+          "pitch", &Bitmap::Pitch, "Scan line size in bytes (stride).")
+      .def("clone", &Bitmap::Clone, "Clone the image to a new bitmap.")
+      .def("clone_as_grey",
+           &Bitmap::CloneAsGrey,
+           "Clone the image as grayscale.")
+      .def("clone_as_rgb", &Bitmap::CloneAsRGB, "Clone the image as RGB.")
+      .def(
+          "exif_camera_model",
+          [](const Bitmap& self) -> py::typing::Optional<std::string> {
+            std::string camera_model;
+            if (self.ExifCameraModel(&camera_model)) {
+              return py::cast(camera_model);
+            }
+            return py::none();
+          },
+          "Extract EXIF camera model. Returns None if not available.")
+      .def(
+          "exif_focal_length",
+          [](const Bitmap& self) -> py::typing::Optional<double> {
+            double focal_length;
+            if (self.ExifFocalLength(&focal_length)) {
+              return py::cast(focal_length);
+            }
+            return py::none();
+          },
+          "Extract EXIF focal length. Returns None if not available.")
+      .def(
+          "exif_latitude",
+          [](const Bitmap& self) -> py::typing::Optional<double> {
+            double latitude;
+            if (self.ExifLatitude(&latitude)) {
+              return py::cast(latitude);
+            }
+            return py::none();
+          },
+          "Extract EXIF latitude. Returns None if not available.")
+      .def(
+          "exif_longitude",
+          [](const Bitmap& self) -> py::typing::Optional<double> {
+            double longitude;
+            if (self.ExifLongitude(&longitude)) {
+              return py::cast(longitude);
+            }
+            return py::none();
+          },
+          "Extract EXIF longitude. Returns None if not available.")
+      .def(
+          "exif_altitude",
+          [](const Bitmap& self) -> py::typing::Optional<double> {
+            double altitude;
+            if (self.ExifAltitude(&altitude)) {
+              return py::cast(altitude);
+            }
+            return py::none();
+          },
+          "Extract EXIF altitude. Returns None if not available.")
       .def("__repr__", &CreateRepresentation<Bitmap>);
 }
