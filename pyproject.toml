@@ -3,7 +3,7 @@ requires = [
     "scikit-build-core>=0.3.3",
     "pybind11==3.0.1",
     "pybind11_stubgen @ git+https://github.com/sarlinpe/pybind11-stubgen@sarlinpe/fix-2025-08-20",
-    "numpy",
+    "numpy>=2.3.0",
     "ruff==0.12.7",
     "clang-format==20.1.5",
 ]
