@@ -100,6 +100,37 @@ TEST(IncrementalPipeline, WithoutNoiseAndWithNonTrivialFrames) {
   }
 }
 
+TEST(IncrementalPipeline, UnknownSensorFromRigExitsGracefully) {
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  synthetic_dataset_options.sensor_from_rig_translation_stddev = 0.05;
+  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 30;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  for (auto& rig : database->ReadAllRigs()) {
+    for (auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
+      sensor_from_rig.reset();
+    }
+    database->UpdateRig(rig);
+  }
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  IncrementalPipeline mapper(options, database, reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 0);
+}
+
 TEST(IncrementalPipeline, WithNonTrivialFramesAndConstantRigsAndCameras) {
   const auto database_path = CreateTestDir() / "database.db";
 
