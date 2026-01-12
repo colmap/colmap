@@ -230,7 +230,7 @@ def reconstruct_sub_model(
                     break
             if reg_next_success:
                 break
-        if reg_next_success:
+        if reg_next_success and next_image_id is not None:
             image = reconstruction.images[next_image_id]
             assert image.frame is not None
             for data_id in image.frame.image_ids:

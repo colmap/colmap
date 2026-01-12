@@ -44,10 +44,12 @@ void BindDatabaseCache(py::module& m) {
       .def("add_camera", &DatabaseCache::AddCamera)
       .def("add_frame", &DatabaseCache::AddFrame)
       .def("add_image", &DatabaseCache::AddImage)
+      .def("add_pose_prior", &DatabaseCache::AddPosePrior)
       .def("num_rigs", &DatabaseCache::NumRigs)
       .def("num_cameras", &DatabaseCache::NumCameras)
       .def("num_frames", &DatabaseCache::NumFrames)
       .def("num_images", &DatabaseCache::NumImages)
+      .def("num_pose_priors", &DatabaseCache::NumPosePriors)
       .def("exists_rig", &DatabaseCache::ExistsRig, "rig_id"_a)
       .def("exists_camera", &DatabaseCache::ExistsCamera, "camera_id"_a)
       .def("exists_frame", &DatabaseCache::ExistsFrame, "frame_id"_a)
@@ -56,6 +58,7 @@ void BindDatabaseCache(py::module& m) {
       .def_property_readonly("cameras", &DatabaseCache::Cameras)
       .def_property_readonly("frames", &DatabaseCache::Frames)
       .def_property_readonly("images", &DatabaseCache::Images)
+      .def_property_readonly("pose_priors", &DatabaseCache::PosePriors)
       .def_property_readonly("correspondence_graph",
                              &DatabaseCache::CorrespondenceGraph)
       .def("find_image_with_name", &DatabaseCache::FindImageWithName, "name"_a);
