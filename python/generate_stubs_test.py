@@ -39,15 +39,3 @@ class TestEigenDynamicDimensionShouldNotBeNever:
         two_view_geom = pycolmap.TwoViewGeometry()
         two_view_geom.inlier_matches = matches
         assert two_view_geom.inlier_matches is not None
-
-
-if __name__ == "__main__":
-    # Run basic sanity checks (runtime, not type checking)
-    test1 = TestEigenColumnVectorShouldAccept1DArray()
-    test1.test_rotation3d_quaternion()
-    test1.test_rigid3d_translation()
-
-    test2 = TestEigenDynamicDimensionShouldNotBeNever()
-    test2.test_two_view_geometry_inlier_matches()
-
-    print("All runtime tests passed!")
