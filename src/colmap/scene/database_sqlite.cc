@@ -1747,8 +1747,9 @@ class SqliteDatabase : public Database {
         "SELECT rows, cols, data, config, F, E, H, qvec, tvec FROM "
         "two_view_geometries WHERE pair_id = ?;",
         &sql_stmt_read_two_view_geometry_);
-    prepare_sql_stmt("SELECT * FROM two_view_geometries WHERE rows > 0;",
-                     &sql_stmt_read_two_view_geometries_);
+    prepare_sql_stmt(
+        "SELECT * FROM two_view_geometries WHERE rows > 0 OR qvec IS NOT NULL;",
+        &sql_stmt_read_two_view_geometries_);
     prepare_sql_stmt(
         "SELECT pair_id, rows FROM two_view_geometries WHERE rows > 0;",
         &sql_stmt_read_two_view_geometry_num_inliers_);
