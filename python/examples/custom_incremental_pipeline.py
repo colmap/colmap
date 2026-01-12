@@ -298,7 +298,7 @@ def reconstruct(
                 options.multiple_models
                 and reconstruction_manager.size() > 1
                 and (
-                    reconstruction.num_reg_frames() < min_model_size
+                    reconstruction.num_reg_images() < min_model_size
                     or reconstruction.num_reg_frames() == 0
                 )
             ):
