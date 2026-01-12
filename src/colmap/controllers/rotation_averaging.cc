@@ -81,24 +81,21 @@ void RotationAveragingPipeline::Run() {
   // Get a mutable copy of pose priors.
   std::vector<PosePrior> pose_priors = database_cache_->PosePriors();
 
-  // Skip MST initialization if gravity priors exist (we initialize from gravity
-  // instead). Otherwise, use MST initialization.
-  options.rotation_estimation.skip_initialization = !pose_priors.empty();
-
   // Initialize frame rotations from gravity priors.
-  if (!pose_priors.empty()) {
-    const Eigen::Vector3d kUnknownTranslation =
-        Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
-    for (const auto& pose_prior : pose_priors) {
-      const auto& image = reconstruction_->Image(pose_prior.pose_prior_id);
-      if (!image.IsRefInFrame()) {
-        continue;
-      }
-      reconstruction_->Frame(image.FrameId())
-          .SetRigFromWorld(Rigid3d(
-              Eigen::Quaterniond(GravityAlignedRotation(pose_prior.gravity)),
-              kUnknownTranslation));
+  const Eigen::Vector3d kUnknownTranslation =
+      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+  for (const auto& pose_prior : pose_priors) {
+    if (!pose_prior.HasGravity()) {
+      continue;
     }
+    const auto& image = reconstruction_->Image(pose_prior.pose_prior_id);
+    if (!image.IsRefInFrame()) {
+      continue;
+    }
+    reconstruction_->Frame(image.FrameId())
+        .SetRigFromWorld(Rigid3d(
+            Eigen::Quaterniond(GravityAlignedRotation(pose_prior.gravity)),
+            kUnknownTranslation));
   }
 
   // Optionally refine gravity priors (only if gravity priors exist).
@@ -125,10 +122,10 @@ void RotationAveragingPipeline::Run() {
   }
 
   LOG(INFO) << "----- Running rotation averaging -----";
-  if (!glomap::SolveRotationAveraging(options.rotation_estimation,
-                                      *mapper.PoseGraph(),
-                                      *reconstruction_,
-                                      pose_priors)) {
+  if (!glomap::RunRotationAveraging(options.rotation_estimation,
+                                    *mapper.PoseGraph(),
+                                    *reconstruction_,
+                                    pose_priors)) {
     LOG(ERROR) << "Failed to solve rotation averaging";
     return;
   }

@@ -225,10 +225,12 @@ def create_database_from_relative_poses(
             gravity_by_name = {
                 gp.image_name: gp.gravity for gp in gravity_priors
             }
-            for image_name, image_id in image_name_to_id.items():
-                if image_name in gravity_by_name:
+            for image in reconstruction.images.values():
+                if image.name in gravity_by_name:
                     pose_prior = pycolmap.PosePrior()
-                    pose_prior.pose_prior_id = image_id
+                    pose_prior.pose_prior_id = image.image_id
+                    pose_prior.corr_data_id = image.data_id
+                    pose_prior.gravity = gravity_by_name[image.name]
                     db.write_pose_prior(pose_prior, use_pose_prior_id=True)
 
     return image_name_to_id
