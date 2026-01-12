@@ -627,7 +627,7 @@ void IncrementalPipeline::Reconstruct(
         // collections. Always keep the first reconstruction, independent of
         // size.
         const size_t min_model_size = std::min<size_t>(
-            0.8 * database_cache_->NumImages(), options_->min_model_size);
+            0.5 * database_cache_->NumImages(), options_->min_model_size);
         if ((options_->multiple_models && reconstruction_manager_->Size() > 1 &&
              reconstruction->NumRegFrames() < min_model_size) ||
             reconstruction->NumRegFrames() == 0) {

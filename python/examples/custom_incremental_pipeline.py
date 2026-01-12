@@ -292,7 +292,7 @@ def reconstruct(
         elif status == pycolmap.IncrementalMapperStatus.SUCCESS:
             total_num_reg_frames = mapper.num_total_reg_images()
             min_model_size = min(
-                0.8 * database_cache.num_images(), options.min_model_size
+                0.5 * database_cache.num_images(), options.min_model_size
             )
             if (
                 options.multiple_models
