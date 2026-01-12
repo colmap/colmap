@@ -378,8 +378,8 @@ TEST(CreateGeometricVerifier, Guided) {
     EXPECT_EQ(two_view_geometries[i].first, gt_two_view_geometries[i].first);
     EXPECT_EQ(two_view_geometries[i].second.cam2_from_cam1,
               gt_two_view_geometries[i].second.cam2_from_cam1);
-    EXPECT_TRUE(gt_two_view_geometries[i].second.E->isApprox(
-        *two_view_geometries[i].second.E));
+    EXPECT_TRUE(gt_two_view_geometries[i].second.E.value().isApprox(
+        two_view_geometries[i].second.E.value()));
     // Should at least have all the original inliers. Some generated outliers
     // can be accidentally inliers as well.
     EXPECT_GE(two_view_geometries[i].second.inlier_matches.size(),

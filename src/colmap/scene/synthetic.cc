@@ -97,7 +97,7 @@ TwoViewGeometry BuildTwoViewGeometry(bool has_relative_pose,
   }
   two_view_geometry.E = EssentialMatrixFromPose(cam2_from_cam1);
   two_view_geometry.F =
-      FundamentalFromEssentialMatrix(K2, *two_view_geometry.E, K1);
+      FundamentalFromEssentialMatrix(K2, two_view_geometry.E.value(), K1);
 
   for (point2D_t point2D_idx1 = 0; point2D_idx1 < num_points2D1;
        ++point2D_idx1) {
@@ -203,7 +203,7 @@ void SynthesizeChainedMatches(double inlier_match_ratio,
     two_view_geometry.E = EssentialMatrixFromPose(cam2_from_cam1);
     two_view_geometry.F =
         FundamentalFromEssentialMatrix(camera2.CalibrationMatrix(),
-                                       *two_view_geometry.E,
+                                       two_view_geometry.E.value(),
                                        camera1.CalibrationMatrix());
 
     WriteTwoViewGeometryToDatabase(pair_id,

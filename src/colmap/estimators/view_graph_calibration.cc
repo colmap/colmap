@@ -112,7 +112,7 @@ void CrossValidatePriorFocalLengths(
         camera_validity[camera2.camera_id]) {
       THROW_CHECK(tvg.F.has_value())
           << "UNCALIBRATED two-view geometry must have F matrix";
-      tvg.E = camera2.CalibrationMatrix().transpose() * *tvg.F *
+      tvg.E = camera2.CalibrationMatrix().transpose() * tvg.F.value() *
               camera1.CalibrationMatrix();
       tvg.config = TwoViewGeometry::CALIBRATED;
     }
@@ -386,7 +386,7 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
         << "Two-view geometry must have F matrix for focal length calibration";
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     inputs.push_back({pair_id,
-                      *tvg.F,
+                      tvg.F.value(),
                       image_id_to_camera.at(image_id1)->camera_id,
                       image_id_to_camera.at(image_id2)->camera_id});
   }
@@ -432,7 +432,7 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
           << "Two-view geometry must have F matrix for E computation";
       const Camera& camera1 = *image_id_to_camera.at(image_id1);
       const Camera& camera2 = *image_id_to_camera.at(image_id2);
-      tvg.E = camera2.CalibrationMatrix().transpose() * *tvg.F *
+      tvg.E = camera2.CalibrationMatrix().transpose() * tvg.F.value() *
               camera1.CalibrationMatrix();
       tvg.config = TwoViewGeometry::CALIBRATED;
       valid_pair_indices.push_back(i);

@@ -500,12 +500,12 @@ TEST_P(ParameterizedDatabaseTests, TwoViewGeometry) {
   }
 
   EXPECT_EQ(two_view_geometry_read_inv.config, two_view_geometry_read.config);
-  EXPECT_EQ(two_view_geometry_read_inv.F->transpose(),
-            *two_view_geometry_read.F);
-  EXPECT_EQ(two_view_geometry_read_inv.E->transpose(),
-            *two_view_geometry_read.E);
-  EXPECT_TRUE(two_view_geometry_read_inv.H->inverse().eval().isApprox(
-      *two_view_geometry_read.H));
+  EXPECT_EQ(two_view_geometry_read_inv.F.value().transpose(),
+            two_view_geometry_read.F.value());
+  EXPECT_EQ(two_view_geometry_read_inv.E.value().transpose(),
+            two_view_geometry_read.E.value());
+  EXPECT_TRUE(two_view_geometry_read_inv.H.value().inverse().eval().isApprox(
+      two_view_geometry_read.H.value()));
   EXPECT_TRUE(two_view_geometry_read_inv.cam2_from_cam1.has_value());
   EXPECT_TRUE(two_view_geometry_read_inv.cam2_from_cam1->rotation.isApprox(
       Inverse(*two_view_geometry_read.cam2_from_cam1).rotation));
@@ -552,6 +552,23 @@ TEST_P(ParameterizedDatabaseTests, TwoViewGeometry) {
   database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
   EXPECT_EQ(two_view_geometry.cam2_from_cam1,
             database->ReadTwoViewGeometry(image_id1, image_id2).cam2_from_cam1);
+
+  // Test with E and F set, but H missing.
+  database->ClearTwoViewGeometries();
+  TwoViewGeometry two_view_geometry_no_h;
+  two_view_geometry_no_h.inlier_matches = FeatureMatches(10);
+  two_view_geometry_no_h.config =
+      TwoViewGeometry::ConfigurationType::CALIBRATED;
+  two_view_geometry_no_h.E = Eigen::Matrix3d::Random();
+  two_view_geometry_no_h.F = Eigen::Matrix3d::Random();
+  database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry_no_h);
+  const TwoViewGeometry two_view_geometry_no_h_read =
+      database->ReadTwoViewGeometry(image_id1, image_id2);
+  EXPECT_TRUE(two_view_geometry_no_h_read.E.has_value());
+  EXPECT_TRUE(two_view_geometry_no_h_read.F.has_value());
+  EXPECT_EQ(two_view_geometry_no_h.E, two_view_geometry_no_h_read.E);
+  EXPECT_EQ(two_view_geometry_no_h.F, two_view_geometry_no_h_read.F);
+  EXPECT_FALSE(two_view_geometry_no_h_read.H.has_value());
 }
 
 TEST_P(ParameterizedDatabaseTests, Merge) {

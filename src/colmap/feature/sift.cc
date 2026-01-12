@@ -1456,17 +1456,17 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
         two_view_geometry->config == TwoViewGeometry::UNCALIBRATED) {
       if (use_essential_matrix) {
         // Use essential matrix with normalized coordinates.
-        E_or_F = two_view_geometry->E->cast<float>();
+        E_or_F = two_view_geometry->E.value().cast<float>();
       } else {
         // Use fundamental matrix with pixel coordinates.
-        E_or_F = two_view_geometry->F->cast<float>();
+        E_or_F = two_view_geometry->F.value().cast<float>();
       }
       E_or_F_ptr = E_or_F.data();
     } else if (two_view_geometry->config == TwoViewGeometry::PLANAR ||
                two_view_geometry->config == TwoViewGeometry::PANORAMIC ||
                two_view_geometry->config ==
                    TwoViewGeometry::PLANAR_OR_PANORAMIC) {
-      H = two_view_geometry->H->cast<float>();
+      H = two_view_geometry->H.value().cast<float>();
       H_ptr = H.data();
     } else {
       return;

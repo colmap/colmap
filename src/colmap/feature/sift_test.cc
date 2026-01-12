@@ -657,7 +657,7 @@ void TestGuidedMatchingWithCameraDistortion(
       Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0)));
   two_view_geometry.F =
       FundamentalFromEssentialMatrix(camera.CalibrationMatrix(),
-                                     *two_view_geometry.E,
+                                     two_view_geometry.E.value(),
                                      camera.CalibrationMatrix());
 
   constexpr double kMaxError = 1.0;
