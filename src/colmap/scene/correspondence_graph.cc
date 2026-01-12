@@ -47,6 +47,15 @@ CorrespondenceGraph::NumMatchesBetweenAllImages() const {
   return num_matches_between_images;
 }
 
+std::vector<image_pair_t> CorrespondenceGraph::ImagePairs() const {
+  std::vector<image_pair_t> image_pairs;
+  image_pairs.reserve(image_pairs_.size());
+  for (const auto& [pair_id, _] : image_pairs_) {
+    image_pairs.push_back(pair_id);
+  }
+  return image_pairs;
+}
+
 void CorrespondenceGraph::Finalize() {
   THROW_CHECK(!finalized_);
   finalized_ = true;
@@ -79,8 +88,7 @@ void CorrespondenceGraph::Finalize() {
     THROW_CHECK_EQ(image.flat_corrs.size(), num_total_corrs);
 
     // Deallocate original data.
-    image.corrs.clear();
-    image.corrs.shrink_to_fit();
+    std::vector<std::vector<Correspondence>>().swap(image.corrs);
   }
 }
 
@@ -176,11 +184,13 @@ void CorrespondenceGraph::AddTwoViewGeometry(
     }
   }
 
-  FeatureMatches empty_matches;
-  two_view_geometry.inlier_matches.swap(empty_matches);
+  // Clear and deallocate matches.
+  FeatureMatches().swap(two_view_geometry.inlier_matches);
+
   if (ShouldSwapImagePair(image_id1, image_id2)) {
     two_view_geometry.Invert();
   }
+
   image_pair_it->second.two_view_geometry = std::move(two_view_geometry);
 }
 

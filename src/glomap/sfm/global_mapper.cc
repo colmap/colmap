@@ -13,6 +13,23 @@
 #include <algorithm>
 
 namespace glomap {
+namespace {
+
+GlobalMapperOptions InitializeOptions(const GlobalMapperOptions& options) {
+  // Propagate random seed and num_threads to component options.
+  GlobalMapperOptions opts = options;
+  if (opts.random_seed >= 0) {
+    opts.rotation_averaging.random_seed = opts.random_seed;
+    opts.global_positioning.random_seed = opts.random_seed;
+    opts.global_positioning.use_parameter_block_ordering = false;
+    opts.retriangulation.random_seed = opts.random_seed;
+  }
+  opts.global_positioning.solver_options.num_threads = opts.num_threads;
+  opts.bundle_adjustment.solver_options.num_threads = opts.num_threads;
+  return opts;
+}
+
+}  // namespace
 
 GlobalMapper::GlobalMapper(
     std::shared_ptr<const colmap::DatabaseCache> database_cache)
@@ -24,18 +41,22 @@ void GlobalMapper::BeginReconstruction(
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
   pose_graph_ = std::make_shared<class PoseGraph>();
-  pose_graph_->Load(*database_cache_);
+  pose_graph_->Load(*database_cache_->CorrespondenceGraph());
 }
 
 std::shared_ptr<colmap::Reconstruction> GlobalMapper::Reconstruction() const {
   return reconstruction_;
 }
 
-std::shared_ptr<class PoseGraph> GlobalMapper::PoseGraph() const {
-  return pose_graph_;
-}
-
 bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
+  THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(pose_graph_);
+
+  if (pose_graph_->Empty()) {
+    LOG(ERROR) << "Cannot continue with empty pose graph";
+    return false;
+  }
+
   // Read pose priors from the database cache.
   const std::vector<colmap::PosePrior>& pose_priors =
       database_cache_->PosePriors();
@@ -410,16 +431,13 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(pose_graph_);
 
-  // Propagate random seed and num_threads to component options.
-  GlobalMapperOptions opts = options;
-  if (opts.random_seed >= 0) {
-    opts.rotation_averaging.random_seed = opts.random_seed;
-    opts.global_positioning.random_seed = opts.random_seed;
-    opts.global_positioning.use_parameter_block_ordering = false;
-    opts.retriangulation.random_seed = opts.random_seed;
+  if (pose_graph_->Empty()) {
+    LOG(ERROR) << "Cannot continue with empty pose graph";
+    return false;
   }
-  opts.global_positioning.solver_options.num_threads = opts.num_threads;
-  opts.bundle_adjustment.solver_options.num_threads = opts.num_threads;
+
+  // Propagate random seed and num_threads to component options.
+  GlobalMapperOptions opts = InitializeOptions(options);
 
   // Run rotation averaging
   if (!opts.skip_rotation_averaging) {

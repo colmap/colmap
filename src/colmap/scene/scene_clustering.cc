@@ -319,10 +319,9 @@ SceneClustering SceneClustering::Create(const Options& options,
   all_image_pairs.reserve(num_matches_between_images.size());
   std::vector<int> all_num_inliers;
   all_num_inliers.reserve(num_matches_between_images.size());
-  for (const auto& [pair_id, num_correspondences] :
-       num_matches_between_images) {
+  for (const auto& [pair_id, num_matches] : num_matches_between_images) {
     all_image_pairs.push_back(PairIdToImagePair(pair_id));
-    all_num_inliers.push_back(static_cast<int>(num_correspondences));
+    all_num_inliers.push_back(static_cast<int>(num_matches));
   }
 
   LOG(INFO) << "Partitioning scene graph...";

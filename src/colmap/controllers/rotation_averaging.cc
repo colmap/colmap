@@ -36,7 +36,7 @@
 
 #include "glomap/estimators/gravity_refinement.h"
 #include "glomap/estimators/rotation_averaging.h"
-#include "glomap/sfm/global_mapper.h"
+#include "glomap/scene/pose_graph.h"
 
 #include <limits>
 
@@ -52,6 +52,7 @@ RotationAveragingPipeline::RotationAveragingPipeline(
   if (options_.decompose_relative_pose) {
     MaybeDecomposeAndWriteRelativePoses(database.get());
   }
+  LOG(INFO) << "Loading database";
   DatabaseCache::Options database_cache_options;
   database_cache_options.min_num_matches = options_.min_num_matches;
   database_cache_options.ignore_watermarks = options_.ignore_watermarks;
@@ -69,11 +70,12 @@ void RotationAveragingPipeline::Run() {
   Timer run_timer;
   run_timer.Start();
 
-  // Create a global mapper instance to setup pose graph and reconstruction.
-  glomap::GlobalMapper mapper(database_cache_);
-  mapper.BeginReconstruction(reconstruction_);
+  // Load reconstruction and pose graph from database cache.
+  reconstruction_->Load(*database_cache_);
+  glomap::PoseGraph pose_graph;
+  pose_graph.Load(*database_cache_->CorrespondenceGraph());
 
-  if (mapper.PoseGraph()->Empty()) {
+  if (pose_graph.Empty()) {
     LOG(ERROR) << "Cannot continue without image pairs";
     return;
   }
@@ -103,7 +105,7 @@ void RotationAveragingPipeline::Run() {
     // Compute largest connected component and invalidate pairs before gravity
     // refinement.
     const std::unordered_set<frame_t> active_frame_ids =
-        mapper.PoseGraph()->ComputeLargestConnectedFrameComponent(
+        pose_graph.ComputeLargestConnectedFrameComponent(
             *reconstruction_,
             /*filter_unregistered=*/false);
     std::unordered_set<image_t> active_image_ids;
@@ -112,18 +114,16 @@ void RotationAveragingPipeline::Run() {
         active_image_ids.insert(image_id);
       }
     }
-    mapper.PoseGraph()->InvalidatePairsOutsideActiveImageIds(active_image_ids);
+    pose_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
 
     LOG(INFO) << "----- Running gravity refinement -----";
-    glomap::RunGravityRefinement(options.gravity_refiner,
-                                 *mapper.PoseGraph(),
-                                 *reconstruction_,
-                                 pose_priors);
+    glomap::RunGravityRefinement(
+        options.gravity_refiner, pose_graph, *reconstruction_, pose_priors);
   }
 
   LOG(INFO) << "----- Running rotation averaging -----";
   if (!glomap::RunRotationAveraging(options.rotation_estimation,
-                                    *mapper.PoseGraph(),
+                                    pose_graph,
                                     *reconstruction_,
                                     pose_priors)) {
     LOG(ERROR) << "Failed to solve rotation averaging";

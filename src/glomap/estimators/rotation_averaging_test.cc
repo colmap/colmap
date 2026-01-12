@@ -48,7 +48,7 @@ void LoadReconstructionAndPoseGraph(const colmap::Database& database,
   colmap::DatabaseCache::Options options;
   database_cache.Load(database, options);
   reconstruction->Load(database_cache);
-  pose_graph->Load(database_cache);
+  pose_graph->Load(*database_cache.CorrespondenceGraph());
 }
 
 RotationEstimatorOptions CreateRATestOptions(bool use_gravity = false) {
@@ -110,9 +110,9 @@ TEST(RotationAveraging, WithoutNoise) {
   for (const bool use_gravity : {false}) {
     colmap::Reconstruction reconstruction_copy = reconstruction;
     RunRotationAveraging(CreateRATestOptions(use_gravity),
-                           pose_graph,
-                           reconstruction_copy,
-                           pose_priors);
+                         pose_graph,
+                         reconstruction_copy,
+                         pose_priors);
 
     ExpectEqualRotations(gt_reconstruction,
                          reconstruction_copy,
@@ -147,9 +147,9 @@ TEST(RotationAveraging, WithoutNoiseWithNonTrivialKnownRig) {
   for (const bool use_gravity : {true, false}) {
     colmap::Reconstruction reconstruction_copy = reconstruction;
     RunRotationAveraging(CreateRATestOptions(use_gravity),
-                           pose_graph,
-                           reconstruction_copy,
-                           pose_priors);
+                         pose_graph,
+                         reconstruction_copy,
+                         pose_priors);
 
     ExpectEqualRotations(gt_reconstruction,
                          reconstruction_copy,
@@ -194,9 +194,9 @@ TEST(RotationAveraging, WithoutNoiseWithNonTrivialUnknownRig) {
   for (const bool use_gravity : {false}) {
     colmap::Reconstruction reconstruction_copy = reconstruction;
     RunRotationAveraging(CreateRATestOptions(use_gravity),
-                           pose_graph,
-                           reconstruction_copy,
-                           pose_priors);
+                         pose_graph,
+                         reconstruction_copy,
+                         pose_priors);
 
     ExpectEqualRotations(gt_reconstruction,
                          reconstruction_copy,
@@ -238,9 +238,9 @@ TEST(RotationAveraging, WithNoiseAndOutliers) {
   for (const bool use_gravity : {false}) {
     colmap::Reconstruction reconstruction_copy = reconstruction;
     RunRotationAveraging(CreateRATestOptions(use_gravity),
-                           pose_graph,
-                           reconstruction_copy,
-                           pose_priors);
+                         pose_graph,
+                         reconstruction_copy,
+                         pose_priors);
 
     ExpectEqualRotations(
         gt_reconstruction, reconstruction_copy, /*max_rotation_error_deg=*/3);
@@ -281,9 +281,9 @@ TEST(RotationAveraging, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
   for (const bool use_gravity : {false}) {
     colmap::Reconstruction reconstruction_copy = reconstruction;
     RunRotationAveraging(CreateRATestOptions(use_gravity),
-                           pose_graph,
-                           reconstruction_copy,
-                           pose_priors);
+                         pose_graph,
+                         reconstruction_copy,
+                         pose_priors);
 
     ExpectEqualRotations(
         gt_reconstruction, reconstruction_copy, /*max_rotation_error_deg=*/2.);

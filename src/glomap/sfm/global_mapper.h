@@ -105,17 +105,11 @@ class GlobalMapper {
 
   // Getter functions.
   std::shared_ptr<colmap::Reconstruction> Reconstruction() const;
-  std::shared_ptr<class PoseGraph> PoseGraph() const;
 
  private:
-  // Class that caches data loaded from the database.
   std::shared_ptr<const colmap::DatabaseCache> database_cache_;
-
-  // Class that holds data of the reconstruction.
-  std::shared_ptr<colmap::Reconstruction> reconstruction_;
-
-  // Class that holds the view graph.
   std::shared_ptr<class PoseGraph> pose_graph_;
+  std::shared_ptr<colmap::Reconstruction> reconstruction_;
 };
 
 }  // namespace glomap

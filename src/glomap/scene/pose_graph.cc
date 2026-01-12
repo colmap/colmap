@@ -4,14 +4,12 @@
 
 namespace glomap {
 
-void PoseGraph::Load(const colmap::DatabaseCache& cache) {
-  const auto corr_graph = cache.CorrespondenceGraph();
-
+void PoseGraph::Load(const colmap::CorrespondenceGraph& corr_graph) {
   for (const auto& [pair_id, num_matches] :
-       corr_graph->NumMatchesBetweenAllImages()) {
+       corr_graph.NumMatchesBetweenAllImages()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
     const colmap::TwoViewGeometry two_view_geometry =
-        corr_graph->ExtractTwoViewGeometry(
+        corr_graph.ExtractTwoViewGeometry(
             image_id1, image_id2, /*extract_inlier_matches=*/false);
     if (two_view_geometry.cam2_from_cam1.has_value()) {
       Edge edge;
