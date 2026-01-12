@@ -41,9 +41,9 @@
 
 namespace colmap {
 
-struct RotationAveragingControllerOptions {
+struct RotationAveragingPipelineOptions {
   // The minimum number of matches for inlier matches to be considered.
-  int min_num_matches = 15;
+  int min_num_matches = 0;
 
   // Whether to ignore the inlier matches of watermark image pairs.
   bool ignore_watermarks = false;
@@ -73,16 +73,16 @@ struct RotationAveragingControllerOptions {
   glomap::RotationEstimatorOptions rotation_estimation;
 };
 
-class RotationAveragingController : public BaseController {
+class RotationAveragingPipeline : public BaseController {
  public:
-  RotationAveragingController(const RotationAveragingControllerOptions& options,
+  RotationAveragingPipeline(const RotationAveragingPipelineOptions& options,
                               std::shared_ptr<Database> database,
                               std::shared_ptr<Reconstruction> reconstruction);
 
   void Run() override;
 
  private:
-  const RotationAveragingControllerOptions options_;
+  const RotationAveragingPipelineOptions options_;
   std::shared_ptr<const DatabaseCache> database_cache_;
   std::shared_ptr<Reconstruction> reconstruction_;
 };

@@ -18,8 +18,6 @@ Usage:
         [--gravity_path gravity_priors.txt]
 """
 
-from __future__ import annotations
-
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
@@ -197,16 +195,16 @@ def create_database_from_relative_poses(
 
     # Write to database
     with pycolmap.Database.open(database_path) as db:
-        for _, camera in reconstruction.cameras.items():
+        for camera in reconstruction.cameras.values():
             db.write_camera(camera, use_camera_id=True)
 
-        for _, rig in reconstruction.rigs.items():
+        for rig in reconstruction.rigs.values():
             db.write_rig(rig, use_rig_id=True)
 
-        for _, frame in reconstruction.frames.items():
+        for frame in reconstruction.frames.values():
             db.write_frame(frame, use_frame_id=True)
 
-        for _, image in reconstruction.images.items():
+        for image in reconstruction.images.values():
             db.write_image(image, use_image_id=True)
 
         # Write two-view geometries with relative poses
@@ -219,7 +217,6 @@ def create_database_from_relative_poses(
                 pycolmap.TwoViewGeometryConfiguration.CALIBRATED
             )
             two_view_geom.cam2_from_cam1 = rel_pose.cam2_from_cam1
-            two_view_geom.inlier_matches = np.array([[0, 0]], dtype=np.uint32)
 
             db.write_two_view_geometry(id1, id2, two_view_geom)
 

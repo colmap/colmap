@@ -42,8 +42,8 @@
 
 namespace colmap {
 
-RotationAveragingController::RotationAveragingController(
-    const RotationAveragingControllerOptions& options,
+RotationAveragingPipeline::RotationAveragingPipeline(
+    const RotationAveragingPipelineOptions& options,
     std::shared_ptr<Database> database,
     std::shared_ptr<Reconstruction> reconstruction)
     : options_(options),
@@ -60,9 +60,9 @@ RotationAveragingController::RotationAveragingController(
   database_cache_ = DatabaseCache::Create(*database, database_cache_options);
 }
 
-void RotationAveragingController::Run() {
+void RotationAveragingPipeline::Run() {
   // Propagate options to component options.
-  RotationAveragingControllerOptions options = options_;
+  RotationAveragingPipelineOptions options = options_;
   options.rotation_estimation.random_seed = options.random_seed;
   options.gravity_refiner.solver_options.num_threads = options.num_threads;
 

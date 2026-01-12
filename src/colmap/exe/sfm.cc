@@ -636,12 +636,18 @@ void RunPointTriangulatorImpl(
 
 int RunRotationAverager(int argc, char** argv) {
   std::string output_path;
+  std::string image_list_path;
 
-  RotationAveragingControllerOptions controller_options;
+  RotationAveragingPipelineOptions controller_options;
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddRequiredOption("output_path", &output_path);
+  options.AddDefaultOption("image_list_path", &image_list_path);
+  options.AddDefaultOption("min_num_matches",
+                           &controller_options.min_num_matches);
+  options.AddDefaultOption("ignore_watermarks",
+                           &controller_options.ignore_watermarks);
   options.AddDefaultOption("num_threads", &controller_options.num_threads);
   options.AddDefaultOption("random_seed", &controller_options.random_seed);
   options.AddDefaultOption("use_gravity",
@@ -657,6 +663,10 @@ int RunRotationAverager(int argc, char** argv) {
 
   controller_options.gravity_refiner = *options.gravity_refiner;
 
+  if (!image_list_path.empty()) {
+    controller_options.image_names = ReadTextFileLines(image_list_path);
+  }
+
   if (!ExistsDir(output_path)) {
     LOG(ERROR) << "`output_path` is not a directory";
     return EXIT_FAILURE;
@@ -665,7 +675,7 @@ int RunRotationAverager(int argc, char** argv) {
   auto database = Database::Open(*options.database_path);
   auto reconstruction = std::make_shared<Reconstruction>();
 
-  RotationAveragingController controller(
+  RotationAveragingPipeline controller(
       controller_options, std::move(database), reconstruction);
   controller.Run();
 
