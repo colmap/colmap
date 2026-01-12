@@ -44,11 +44,13 @@ namespace colmap {
 #define STRINGIFY_(s) #s
 #endif  // STRINGIFY
 
-// Log first-order heading with over- and underscores.
-void PrintHeading1(const std::string& heading);
+#ifndef LOG_HEADING1
+#define LOG_HEADING1(message) LOG(INFO) << "=== " << (message) << " ===";
+#endif  // LOG_HEADING1
 
-// Log second-order heading with underscores.
-void PrintHeading2(const std::string& heading);
+#ifndef LOG_HEADING2
+#define LOG_HEADING2(message) LOG(INFO) << "--- " << (message) << " ---";
+#endif  // LOG_HEADING2
 
 // Check if vector contains elements.
 template <typename T>
