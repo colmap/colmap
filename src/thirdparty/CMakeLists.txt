@@ -67,7 +67,7 @@ if(FETCH_FAISS)
     FetchContent_MakeAvailable(faiss)
     # Fix MSVC linker warning LNK4286: faiss headers use FAISS_API which
     # defaults to dllimport on Windows, but we build faiss as a static library.
-    # Adding FAISS_MAIN_LIB as PUBLIC ensures consumers also get this define.
+    # Adding FAISS_MAIN_LIB as PUBLIC ensures consumers also get this defined.
     if(WIN32 AND TARGET faiss)
         target_compile_definitions(faiss PUBLIC FAISS_MAIN_LIB)
     endif()
