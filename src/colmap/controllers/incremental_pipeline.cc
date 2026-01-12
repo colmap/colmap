@@ -37,6 +37,16 @@
 namespace colmap {
 namespace {
 
+void CustomizeIncrementalPipelineOptions(const DatabaseCache& database_cache,
+                                         IncrementalPipelineOptions& options) {
+  // If the total number of images is small then do not enforce the
+  // minimum model size so that we can reconstruct small image
+  // collections, i.e., if the model is at least half of the total number
+  // of images, we always keep it.
+  options.min_model_size = std::min<size_t>(0.5 * database_cache.NumImages(),
+                                            options.min_model_size);
+}
+
 DatabaseCache::Options CreateDatabaseCacheOptions(
     const IncrementalPipelineOptions& options,
     const ReconstructionManager& reconstruction_manager) {
@@ -232,7 +242,7 @@ bool IncrementalPipelineOptions::Check() const {
 }
 
 IncrementalPipeline::IncrementalPipeline(
-    std::shared_ptr<const IncrementalPipelineOptions> options,
+    std::shared_ptr<IncrementalPipelineOptions> options,
     std::shared_ptr<class Database> database,
     std::shared_ptr<class ReconstructionManager> reconstruction_manager)
     : options_(std::move(THROW_CHECK_NOTNULL(options))),
@@ -250,11 +260,13 @@ IncrementalPipeline::IncrementalPipeline(
       CreateDatabaseCacheOptions(*options_, *reconstruction_manager_));
   timer.PrintMinutes();
 
+  CustomizeIncrementalPipelineOptions(*database_cache_, *options_);
+
   RegisterCallbacks();
 }
 
 IncrementalPipeline::IncrementalPipeline(
-    std::shared_ptr<const IncrementalPipelineOptions> options,
+    std::shared_ptr<IncrementalPipelineOptions> options,
     std::shared_ptr<class DatabaseCache> database_cache,
     std::shared_ptr<class ReconstructionManager> reconstruction_manager)
     : options_(std::move(THROW_CHECK_NOTNULL(options))),
@@ -267,6 +279,8 @@ IncrementalPipeline::IncrementalPipeline(
   database_cache_ = DatabaseCache::CreateFromCache(
       *database_cache,
       CreateDatabaseCacheOptions(*options_, *reconstruction_manager_));
+
+  CustomizeIncrementalPipelineOptions(*database_cache_, *options_);
 
   RegisterCallbacks();
 }
@@ -521,11 +535,11 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
         } else {
           LOG(INFO) << "=> Could not register, trying another image.";
 
-          // If initial pair fails to continue for some time,
+          // If initial model fails to continue for some time,
           // abort and try different initial pair.
           const size_t kMinNumInitialRegTrials = 30;
           if (reg_trial >= kMinNumInitialRegTrials &&
-              reconstruction->NumRegFrames() <
+              reconstruction->NumRegImages() <
                   static_cast<size_t>(options_->min_model_size)) {
             break;
           }
@@ -667,17 +681,13 @@ IncrementalPipeline::Status IncrementalPipeline::Reconstruct(
         // Remember the total number of registered images before potentially
         // discarding it below due to small size, so we can exit out of the main
         // loop, if all images were registered.
+        const size_t num_reg_images = reconstruction->NumRegImages();
         const size_t total_num_reg_images = mapper.NumTotalRegImages();
 
-        // If the total number of images is small then do not enforce the
-        // minimum model size so that we can reconstruct small image
-        // collections. Always keep the first reconstruction, independent of
-        // size.
-        const size_t min_model_size = std::min<size_t>(
-            0.8 * database_cache_->NumImages(), options_->min_model_size);
+        // Always keep the first reconstruction, independent of size.
         if ((options_->multiple_models && reconstruction_manager_->Size() > 1 &&
-             reconstruction->NumRegFrames() < min_model_size) ||
-            reconstruction->NumRegFrames() == 0) {
+             num_reg_images < static_cast<size_t>(options_->min_model_size)) ||
+            num_reg_images == 0) {
           LOG(WARNING) << "Discarding reconstruction due to insufficient size";
           mapper.EndReconstruction(/*discard=*/true);
           reconstruction_manager_->Delete(reconstruction_idx);

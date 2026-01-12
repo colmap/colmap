@@ -64,7 +64,8 @@ struct IncrementalPipelineOptions {
 
   // The minimum number of registered images of a sub-model, otherwise the
   // sub-model is discarded. Note that the first sub-model is always kept
-  // independent of size.
+  // independent of size. If the model contains at least half of the total
+  // number of images, we also always keep it.
   int min_model_size = 10;
 
   // The image identifiers used to initialize the reconstruction. Note that
@@ -213,19 +214,19 @@ class IncrementalPipeline : public BaseController {
   };
 
   IncrementalPipeline(
-      std::shared_ptr<const IncrementalPipelineOptions> options,
+      std::shared_ptr<IncrementalPipelineOptions> options,
       std::shared_ptr<class Database> database,
       std::shared_ptr<class ReconstructionManager> reconstruction_manager);
 
   IncrementalPipeline(
-      std::shared_ptr<const IncrementalPipelineOptions> options,
+      std::shared_ptr<IncrementalPipelineOptions> options,
       std::shared_ptr<class DatabaseCache> database_cache,
       std::shared_ptr<class ReconstructionManager> reconstruction_manager);
 
   void Run() override;
 
-  // getter functions for python pipelines
-  const std::shared_ptr<const IncrementalPipelineOptions>& Options() const {
+  // Getter functions for python pipelines.
+  std::shared_ptr<const IncrementalPipelineOptions> Options() const {
     return options_;
   }
   const std::shared_ptr<class ReconstructionManager>& ReconstructionManager()
@@ -262,7 +263,7 @@ class IncrementalPipeline : public BaseController {
  private:
   void RegisterCallbacks();
 
-  const std::shared_ptr<const IncrementalPipelineOptions> options_;
+  const std::shared_ptr<IncrementalPipelineOptions> options_;
   std::shared_ptr<class ReconstructionManager> reconstruction_manager_;
   std::shared_ptr<class DatabaseCache> database_cache_;
   std::shared_ptr<Timer> total_run_timer_;
