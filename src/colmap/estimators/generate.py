@@ -66,9 +66,9 @@ caslib = CasparLibrary()
 
 @caslib.add_factor
 def simple_radial(
-    cam: T.Annotated[SimpleRadialCamera, mem.Tunable],
-    point: T.Annotated[Point, mem.Tunable],
-    pixel: T.Annotated[ConstPixel, mem.Constant],
+    cam: T.Annotated[SimpleRadialCamera, mem.TunableShared],
+    point: T.Annotated[Point, mem.TunableShared],
+    pixel: T.Annotated[ConstPixel, mem.ConstantSequential],
 ) -> sf.V2:
     cam_T_world = cam.cam_T_world
     focal_length, cx, cy, k = cam.calibration
@@ -83,10 +83,10 @@ def simple_radial(
 
 @caslib.add_factor
 def simple_radial_fixed_pose(
-    cam_fixed_pose: T.Annotated[SimpleRadialCameraFixedPose, mem.Tunable],
-    point: T.Annotated[Point, mem.Tunable],
-    cam_T_world: T.Annotated[ConstPose, mem.Constant],
-    pixel: T.Annotated[ConstPixel, mem.Constant],
+    cam_fixed_pose: T.Annotated[SimpleRadialCameraFixedPose, mem.TunableShared],
+    point: T.Annotated[Point, mem.TunableShared],
+    cam_T_world: T.Annotated[ConstPose, mem.ConstantSequential],
+    pixel: T.Annotated[ConstPixel, mem.ConstantSequential],
 ) -> sf.V2:
     focal_length, cx, cy, k = cam_fixed_pose.calibration
     principal_point = sf.V2([cx, cy])
@@ -100,9 +100,9 @@ def simple_radial_fixed_pose(
 
 @caslib.add_factor
 def simple_radial_fixed_point(
-    cam: T.Annotated[SimpleRadialCamera, mem.Tunable],
-    point: T.Annotated[ConstPoint, mem.Constant],
-    pixel: T.Annotated[ConstPixel, mem.Constant],
+    cam: T.Annotated[SimpleRadialCamera, mem.TunableShared],
+    point: T.Annotated[ConstPoint, mem.ConstantSequential],
+    pixel: T.Annotated[ConstPixel, mem.ConstantSequential],
 ) -> sf.V2:
     cam_T_world = cam.cam_T_world
     focal_length, cx, cy, k = cam.calibration
@@ -117,10 +117,10 @@ def simple_radial_fixed_point(
 
 @caslib.add_factor
 def simple_radial_fixed_translation_norm(
-    cam_fixed_norm: T.Annotated[SimpleRadialCameraFixedTranslationNorm, mem.Tunable],
-    point: T.Annotated[Point, mem.Tunable],
-    translation_norm: T.Annotated[ConstScalar, mem.Constant],
-    pixel: T.Annotated[ConstPixel, mem.Constant],
+    cam_fixed_norm: T.Annotated[SimpleRadialCameraFixedTranslationNorm, mem.TunableShared],
+    point: T.Annotated[Point, mem.TunableShared],
+    translation_norm: T.Annotated[ConstScalar, mem.ConstantSequential],
+    pixel: T.Annotated[ConstPixel, mem.ConstantSequential],
 ) -> sf.V2:
     translation = cam_fixed_norm.translation_direction.to_unit_vector() * translation_norm[0]
     cam_T_world = sf.Pose3(R=cam_fixed_norm.rotation, t=translation)
@@ -136,10 +136,10 @@ def simple_radial_fixed_translation_norm(
 
 @caslib.add_factor
 def simple_radial_fixed_translation_norm_and_point(
-    cam_fixed_norm: T.Annotated[SimpleRadialCameraFixedTranslationNorm, mem.Tunable],
-    translation_norm: T.Annotated[ConstScalar, mem.Constant],
-    point: T.Annotated[ConstPoint, mem.Constant],
-    pixel: T.Annotated[ConstPixel, mem.Constant],
+    cam_fixed_norm: T.Annotated[SimpleRadialCameraFixedTranslationNorm, mem.TunableShared],
+    translation_norm: T.Annotated[ConstScalar, mem.ConstantSequential],
+    point: T.Annotated[ConstPoint, mem.ConstantSequential],
+    pixel: T.Annotated[ConstPixel, mem.ConstantSequential],
 ) -> sf.V2:
     """Fixed translation norm + fixed point, variable intrinsics"""
     translation = cam_fixed_norm.translation_direction.to_unit_vector() * translation_norm[0]
