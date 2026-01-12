@@ -43,7 +43,7 @@
 
 namespace colmap {
 
-Reconstruction::Reconstruction() : max_point3D_id_(0) {}
+Reconstruction::Reconstruction() : num_reg_images_(0), max_point3D_id_(0) {}
 
 Reconstruction::Reconstruction(const Reconstruction& other)
     : rigs_(other.rigs_),
@@ -52,6 +52,7 @@ Reconstruction::Reconstruction(const Reconstruction& other)
       images_(other.images_),
       points3D_(other.points3D_),
       reg_frame_ids_(other.reg_frame_ids_),
+      num_reg_images_(other.num_reg_images_),
       max_point3D_id_(other.max_point3D_id_) {
   for (auto& [_, frame] : frames_) {
     frame.ResetRigPtr();
@@ -73,6 +74,7 @@ Reconstruction& Reconstruction::operator=(const Reconstruction& other) {
     images_ = other.images_;
     points3D_ = other.points3D_;
     reg_frame_ids_ = other.reg_frame_ids_;
+    num_reg_images_ = other.num_reg_images_;
     max_point3D_id_ = other.max_point3D_id_;
     for (auto& [_, frame] : frames_) {
       frame.ResetRigPtr();
@@ -86,24 +88,6 @@ Reconstruction& Reconstruction::operator=(const Reconstruction& other) {
     }
   }
   return *this;
-}
-
-size_t Reconstruction::NumRegImages() const {
-  size_t num_reg_images = 0;
-  for (const frame_t frame_id : reg_frame_ids_) {
-    const class Frame& frame = Frame(frame_id);
-    if (frame.HasPose()) {
-      for (const data_t& data_id : frame.ImageIds()) {
-        THROW_CHECK(ExistsImage(data_id.id))
-            << "The reconstruction object is broken as image " << data_id.id
-            << " in frame " << frame.FrameId()
-            << " does not exist in the reconstruction. The most likely cause "
-               "is missing AddImage(*) calls after adding frames.";
-        ++num_reg_images;
-      }
-    }
-  }
-  return num_reg_images;
 }
 
 std::vector<image_t> Reconstruction::RegImageIds() const {
@@ -666,14 +650,25 @@ void Reconstruction::SetRigsAndFrames(std::vector<class Rig> rigs,
 }
 
 void Reconstruction::RegisterFrame(const frame_t frame_id) {
-  THROW_CHECK(Frame(frame_id).HasPose());
+  const class Frame& frame = Frame(frame_id);
+  THROW_CHECK(frame.HasPose());
   if (std::find(reg_frame_ids_.begin(), reg_frame_ids_.end(), frame_id) ==
       reg_frame_ids_.end()) {
     reg_frame_ids_.push_back(frame_id);
+    num_reg_images_ +=
+        std::distance(frame.ImageIds().begin(), frame.ImageIds().end());
   }
 }
 
 void Reconstruction::DeRegisterFrame(const frame_t frame_id) {
+  const auto erase_begin_it =
+      std::remove(reg_frame_ids_.begin(), reg_frame_ids_.end(), frame_id);
+  if (erase_begin_it == reg_frame_ids_.end()) {
+    LOG(WARNING) << "Ignoring de-registration of frame " << frame_id
+                 << ", which is not registered.";
+    return;
+  }
+
   class Frame& frame = Frame(frame_id);
   for (const data_t& data_id : frame.ImageIds()) {
     const image_t image_id = data_id.id;
@@ -684,12 +679,11 @@ void Reconstruction::DeRegisterFrame(const frame_t frame_id) {
         DeleteObservation(image_id, point2D_idx);
       }
     }
+    --num_reg_images_;
   }
 
   frame.ResetPose();
-  reg_frame_ids_.erase(
-      std::remove(reg_frame_ids_.begin(), reg_frame_ids_.end(), frame_id),
-      reg_frame_ids_.end());
+  reg_frame_ids_.erase(erase_begin_it, reg_frame_ids_.end());
 }
 
 Sim3d Reconstruction::Normalize(const bool fixed_scale,
