@@ -87,6 +87,7 @@ void PartitionFramesIntoClusters(
     if (cluster_observations.size() > 1) {
       // Randomly select a cluster to keep this point.
       std::vector<int> cluster_ids_vec;
+      cluster_ids_vec.reserve(cluster_observations.size());
       for (const auto& [cluster_id, observations] : cluster_observations) {
         cluster_ids_vec.push_back(cluster_id);
       }
