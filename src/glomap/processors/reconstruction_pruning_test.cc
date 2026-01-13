@@ -274,7 +274,6 @@ TEST(PruneWeaklyConnectedFrames, OneMajorConnectedComponent) {
   }
 }
 
-
 TEST(PruneWeaklyConnectedFrames, MultipleDisconnectedClusters) {
   // Create a reconstruction with 12 frames, all initially well-connected.
   int max_cluster_size = 25;
