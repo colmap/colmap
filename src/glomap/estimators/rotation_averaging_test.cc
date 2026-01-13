@@ -109,10 +109,10 @@ TEST(RotationAveraging, WithoutNoise) {
   // right solution (e.g., 180 deg flipped).
   for (const bool use_gravity : {false}) {
     colmap::Reconstruction reconstruction_copy = reconstruction;
-    SolveRotationAveraging(CreateRATestOptions(use_gravity),
-                           pose_graph,
-                           reconstruction_copy,
-                           pose_priors);
+    RunRotationAveraging(CreateRATestOptions(use_gravity),
+                         pose_graph,
+                         reconstruction_copy,
+                         pose_priors);
 
     ExpectEqualRotations(gt_reconstruction,
                          reconstruction_copy,
@@ -146,10 +146,10 @@ TEST(RotationAveraging, WithoutNoiseWithNonTrivialKnownRig) {
 
   for (const bool use_gravity : {true, false}) {
     colmap::Reconstruction reconstruction_copy = reconstruction;
-    SolveRotationAveraging(CreateRATestOptions(use_gravity),
-                           pose_graph,
-                           reconstruction_copy,
-                           pose_priors);
+    RunRotationAveraging(CreateRATestOptions(use_gravity),
+                         pose_graph,
+                         reconstruction_copy,
+                         pose_priors);
 
     ExpectEqualRotations(gt_reconstruction,
                          reconstruction_copy,
@@ -193,10 +193,10 @@ TEST(RotationAveraging, WithoutNoiseWithNonTrivialUnknownRig) {
   // For unknown rigs, it is not supported to use gravity.
   for (const bool use_gravity : {false}) {
     colmap::Reconstruction reconstruction_copy = reconstruction;
-    SolveRotationAveraging(CreateRATestOptions(use_gravity),
-                           pose_graph,
-                           reconstruction_copy,
-                           pose_priors);
+    RunRotationAveraging(CreateRATestOptions(use_gravity),
+                         pose_graph,
+                         reconstruction_copy,
+                         pose_priors);
 
     ExpectEqualRotations(gt_reconstruction,
                          reconstruction_copy,
@@ -237,10 +237,10 @@ TEST(RotationAveraging, WithNoiseAndOutliers) {
   // right solution (e.g., 180 deg flipped).
   for (const bool use_gravity : {false}) {
     colmap::Reconstruction reconstruction_copy = reconstruction;
-    SolveRotationAveraging(CreateRATestOptions(use_gravity),
-                           pose_graph,
-                           reconstruction_copy,
-                           pose_priors);
+    RunRotationAveraging(CreateRATestOptions(use_gravity),
+                         pose_graph,
+                         reconstruction_copy,
+                         pose_priors);
 
     ExpectEqualRotations(
         gt_reconstruction, reconstruction_copy, /*max_rotation_error_deg=*/3);
@@ -280,10 +280,10 @@ TEST(RotationAveraging, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
   // right solution (e.g., 180 deg flipped).
   for (const bool use_gravity : {false}) {
     colmap::Reconstruction reconstruction_copy = reconstruction;
-    SolveRotationAveraging(CreateRATestOptions(use_gravity),
-                           pose_graph,
-                           reconstruction_copy,
-                           pose_priors);
+    RunRotationAveraging(CreateRATestOptions(use_gravity),
+                         pose_graph,
+                         reconstruction_copy,
+                         pose_priors);
 
     ExpectEqualRotations(
         gt_reconstruction, reconstruction_copy, /*max_rotation_error_deg=*/2.);

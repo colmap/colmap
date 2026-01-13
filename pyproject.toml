@@ -61,6 +61,18 @@ before-all = "pwsh -File {project}/python/ci/install-colmap-windows.ps1"
 before-build = "pip install delvewheel"
 test-command = "pwsh -File {project}/python/ci/test-colmap-windows.ps1"
 
+# Skip mypy on source files for Python 3.10. There's a bug in numpy's type
+# annotations that was fixed in version 2.3.0, but numpy stopped shipping
+# wheels for Python 3.10 in 2.3.0. This causes mypy to fail.
+[[tool.cibuildwheel.overrides]]
+select = "cp310-{macosx,manylinux}*"
+test-command = """\
+    python -c "import pycolmap; print(pycolmap.__version__)" && \
+    cd {project} && \
+    mypy --package pycolmap && \
+    pytest\
+"""
+
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = ["-ra", "-q"]

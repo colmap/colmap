@@ -137,5 +137,33 @@ void BindBitmap(pybind11::module& m) {
           "is_rgb", &Bitmap::IsRGB, "Whether the image is colorscale.")
       .def_property_readonly(
           "is_grey", &Bitmap::IsGrey, "Whether the image is greyscale.")
+      .def_property_readonly(
+          "is_empty", &Bitmap::IsEmpty, "Whether the image is empty.")
+      .def_property_readonly(
+          "bits_per_pixel",
+          &Bitmap::BitsPerPixel,
+          "Number of bits per pixel (8 for grey, 24 for RGB).")
+      .def_property_readonly(
+          "pitch", &Bitmap::Pitch, "Scan line size in bytes (stride).")
+      .def("clone", &Bitmap::Clone, "Clone the image to a new bitmap.")
+      .def("clone_as_grey",
+           &Bitmap::CloneAsGrey,
+           "Clone the image as grayscale.")
+      .def("clone_as_rgb", &Bitmap::CloneAsRGB, "Clone the image as RGB.")
+      .def("exif_camera_model",
+           &Bitmap::ExifCameraModel,
+           "Extract EXIF camera model. Returns None if not available.")
+      .def("exif_focal_length",
+           &Bitmap::ExifFocalLength,
+           "Extract EXIF focal length. Returns None if not available.")
+      .def("exif_latitude",
+           &Bitmap::ExifLatitude,
+           "Extract EXIF latitude. Returns None if not available.")
+      .def("exif_longitude",
+           &Bitmap::ExifLongitude,
+           "Extract EXIF longitude. Returns None if not available.")
+      .def("exif_altitude",
+           &Bitmap::ExifAltitude,
+           "Extract EXIF altitude. Returns None if not available.")
       .def("__repr__", &CreateRepresentation<Bitmap>);
 }

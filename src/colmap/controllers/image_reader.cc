@@ -217,11 +217,11 @@ ImageReader::Status ImageReader::Next(Rig* rig,
     // Read camera model and check for consistency if it exists
     //////////////////////////////////////////////////////////////////////////////
 
-    std::string camera_model;
-    const bool valid_camera_model = bitmap->ExifCameraModel(&camera_model);
-    if (camera_model_to_id_.count(camera_model) > 0) {
+    const std::optional<std::string> camera_model = bitmap->ExifCameraModel();
+    if (camera_model.has_value() &&
+        camera_model_to_id_.count(*camera_model) > 0) {
       Camera camera =
-          database_->ReadCamera(camera_model_to_id_.at(camera_model));
+          database_->ReadCamera(camera_model_to_id_.at(*camera_model));
       if (camera.width != static_cast<size_t>(bitmap->Width()) ||
           camera.height != static_cast<size_t>(bitmap->Height())) {
         return Status::CAMERA_EXIST_DIM_ERROR;
@@ -248,26 +248,24 @@ ImageReader::Status ImageReader::Next(Rig* rig,
         (!options_.single_camera && !options_.single_camera_per_folder &&
          static_cast<camera_t>(options_.existing_camera_id) ==
              kInvalidCameraId &&
-         camera_model_to_id_.count(camera_model) == 0) ||
+         (!camera_model.has_value() ||
+          camera_model_to_id_.count(camera_model.value()) == 0)) ||
         (options_.single_camera_per_folder &&
          image_folders_.count(image_folder) == 0)) {
       if (options_.camera_params.empty()) {
         // Extract focal length.
-        double focal_length = 0.0;
-        bool has_focal_length = false;
-        if (bitmap->ExifFocalLength(&focal_length)) {
-          has_focal_length = true;
-        } else {
-          focal_length = options_.default_focal_length_factor *
-                         std::max(bitmap->Width(), bitmap->Height());
-        }
+        const std::optional<double> maybe_focal_length =
+            bitmap->ExifFocalLength();
+        const double focal_length = maybe_focal_length.value_or(
+            options_.default_focal_length_factor *
+            std::max(bitmap->Width(), bitmap->Height()));
 
         prev_camera_ = Camera::CreateFromModelId(prev_camera_.camera_id,
                                                  prev_camera_.model_id,
                                                  focal_length,
                                                  bitmap->Width(),
                                                  bitmap->Height());
-        prev_camera_.has_prior_focal_length = has_focal_length;
+        prev_camera_.has_prior_focal_length = maybe_focal_length.has_value();
       }
 
       prev_camera_.width = static_cast<size_t>(bitmap->Width());
@@ -288,8 +286,8 @@ ImageReader::Status ImageReader::Next(Rig* rig,
         prev_rig_.SetRigId(database_->WriteRig(prev_rig_));
       }
 
-      if (valid_camera_model) {
-        camera_model_to_id_[camera_model] = prev_camera_.camera_id;
+      if (camera_model.has_value()) {
+        camera_model_to_id_[*camera_model] = prev_camera_.camera_id;
       }
     }
 
@@ -299,11 +297,11 @@ ImageReader::Status ImageReader::Next(Rig* rig,
     // Extract GPS data.
     //////////////////////////////////////////////////////////////////////////////
 
-    Eigen::Vector3d position_prior;
-    if (bitmap->ExifLatitude(&position_prior.x()) &&
-        bitmap->ExifLongitude(&position_prior.y()) &&
-        bitmap->ExifAltitude(&position_prior.z())) {
-      pose_prior->position = position_prior;
+    const std::optional<double> latitude = bitmap->ExifLatitude();
+    const std::optional<double> longitude = bitmap->ExifLongitude();
+    const std::optional<double> altitude = bitmap->ExifAltitude();
+    if (latitude.has_value() && longitude.has_value() && altitude.has_value()) {
+      pose_prior->position = Eigen::Vector3d(*latitude, *longitude, *altitude);
       pose_prior->coordinate_system = PosePrior::CoordinateSystem::WGS84;
     }
   }

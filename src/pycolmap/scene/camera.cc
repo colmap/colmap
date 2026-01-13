@@ -36,18 +36,28 @@ void BindCamera(py::module& m) {
 
   py::classh<Camera> PyCamera(m, "Camera");
   PyCamera.def(py::init<>())
-      .def_static("create",
+      .def_static("create_from_model_id",
                   &Camera::CreateFromModelId,
                   "camera_id"_a,
                   "model"_a,
                   "focal_length"_a,
                   "width"_a,
                   "height"_a)
+      .def_static("create_from_model_name",
+                  &Camera::CreateFromModelName,
+                  "camera_id"_a,
+                  "model_name"_a,
+                  "focal_length"_a,
+                  "width"_a,
+                  "height"_a,
+                  "Create camera from model name string.")
       .def_readwrite(
           "camera_id", &Camera::camera_id, "Unique identifier of the camera.")
       .def_property_readonly(
           "sensor_id", &Camera::SensorId, "Unique identifier of the sensor.")
       .def_readwrite("model", &Camera::model_id, "Camera model.")
+      .def_property_readonly(
+          "model_name", &Camera::ModelName, "Camera model name as string.")
       .def_readwrite("width", &Camera::width, "Width of camera sensor.")
       .def_readwrite("height", &Camera::height, "Height of camera sensor.")
       .def("mean_focal_length", &Camera::MeanFocalLength)
@@ -109,6 +119,9 @@ void BindCamera(py::module& m) {
            "max_focal_length_ratio"_a,
            "max_extra_param"_a,
            "Check whether camera has bogus parameters.")
+      .def("is_undistorted",
+           &Camera::IsUndistorted,
+           "Check whether camera is already undistorted.")
       .def("cam_from_img",
            &Camera::CamFromImg,
            "image_point"_a,
@@ -240,6 +253,7 @@ void BindCamera(py::module& m) {
            "scale"_a,
            "Rescale the camera dimensions and accordingly the "
            "focal length and the principal point.");
+  DefDeprecation(PyCamera, "create", "create_from_model_id");
   MakeDataclass(PyCamera,
                 {"camera_id",
                  "model",

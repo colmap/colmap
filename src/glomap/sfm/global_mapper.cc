@@ -67,7 +67,7 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
   // connected component.
   RotationEstimatorOptions custom_options = options;
   custom_options.filter_unregistered = false;
-  if (!SolveRotationAveraging(
+  if (!RunRotationAveraging(
           custom_options, *pose_graph_, *reconstruction_, pose_priors)) {
     return false;
   }
@@ -75,7 +75,7 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
   // Second pass: re-solve on registered frames only to refine rotations
   // after outlier removal.
   custom_options.filter_unregistered = true;
-  if (!SolveRotationAveraging(
+  if (!RunRotationAveraging(
           custom_options, *pose_graph_, *reconstruction_, pose_priors)) {
     return false;
   }
@@ -477,7 +477,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     if (!IterativeBundleAdjustment(opts.bundle_adjustment,
                                    opts.max_normalized_reproj_error,
                                    opts.min_tri_angle_deg,
-                                   opts.num_iterations_ba)) {
+                                   opts.ba_num_iterations)) {
       return false;
     }
     LOG(INFO) << "Iterative bundle adjustment done in "
