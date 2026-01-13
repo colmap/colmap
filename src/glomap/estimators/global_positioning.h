@@ -1,24 +1,31 @@
 #pragma once
 
-#include "glomap/estimators/optimization_base.h"
-#include "glomap/scene/types_sfm.h"
-#include "glomap/types.h"
+#include "colmap/scene/reconstruction.h"
+#include "colmap/util/enum_utils.h"
+
+#include "glomap/scene/pose_graph.h"
+
+#include <string>
+
+#include <ceres/ceres.h>
 
 namespace glomap {
 
-struct GlobalPositionerOptions : public OptimizationBaseOptions {
-  // ONLY_POINTS is recommended
-  enum ConstraintType {
-    // only include camera to point constraints
-    ONLY_POINTS,
-    // only include camera to camera constraints
-    ONLY_CAMERAS,
-    // the points and cameras are reweighted to have similar total contribution
-    POINTS_AND_CAMERAS_BALANCED,
-    // treat each contribution from camera to point and camera to camera equally
-    POINTS_AND_CAMERAS,
-  };
+// Constraint type for global positioning. ONLY_POINTS is recommended.
+// - ONLY_POINTS: only include camera to point constraints
+// - ONLY_CAMERAS: only include camera to camera constraints
+// - POINTS_AND_CAMERAS_BALANCED: points and cameras reweighted to have similar
+//   total contribution
+// - POINTS_AND_CAMERAS: treat each contribution from camera to point and
+//   camera to camera equally
+MAKE_ENUM_CLASS(GlobalPositioningConstraintType,
+                0,
+                ONLY_POINTS,
+                ONLY_CAMERAS,
+                POINTS_AND_CAMERAS_BALANCED,
+                POINTS_AND_CAMERAS);
 
+struct GlobalPositionerOptions {
   // Whether to initialize the camera and track positions randomly.
   bool generate_random_positions = true;
   bool generate_random_points = true;
@@ -38,20 +45,35 @@ struct GlobalPositionerOptions : public OptimizationBaseOptions {
   // Constrain the minimum number of views per track
   int min_num_view_per_track = 3;
 
-  // Random seed
-  unsigned seed = 1;
+  // PRNG seed for random initialization.
+  // If -1 (default), uses non-deterministic random_device seeding.
+  // If >= 0, uses deterministic seeding with the given value.
+  int random_seed = -1;
 
   // the type of global positioning
-  ConstraintType constraint_type = ONLY_POINTS;
+  GlobalPositioningConstraintType constraint_type =
+      GlobalPositioningConstraintType::ONLY_POINTS;
   double constraint_reweight_scale =
       1.0;  // only relevant for POINTS_AND_CAMERAS_BALANCED
 
-  GlobalPositionerOptions() : OptimizationBaseOptions() {
-    thres_loss_function = 1e-1;
+  // Scaling factor for the loss function
+  double loss_function_scale = 0.1;
+
+  // Whether to use custom parameter block ordering for Schur-based solvers.
+  // Disable for deterministic behavior when using a fixed random seed.
+  bool use_parameter_block_ordering = true;
+
+  // The options for the solver
+  ceres::Solver::Options solver_options;
+
+  GlobalPositionerOptions() {
+    solver_options.num_threads = -1;
+    solver_options.max_num_iterations = 100;
+    solver_options.function_tolerance = 1e-5;
   }
 
   std::shared_ptr<ceres::LossFunction> CreateLossFunction() {
-    return std::make_shared<ceres::HuberLoss>(thres_loss_function);
+    return std::make_shared<ceres::HuberLoss>(loss_function_scale);
   }
 };
 
@@ -62,66 +84,43 @@ class GlobalPositioner {
   // Returns true if the optimization was a success, false if there was a
   // failure.
   // Assume tracks here are already filtered
-  bool Solve(const ViewGraph& view_graph,
-             std::unordered_map<rig_t, Rig>& rigs,
-             std::unordered_map<camera_t, colmap::Camera>& cameras,
-             std::unordered_map<frame_t, Frame>& frames,
-             std::unordered_map<image_t, Image>& images,
-             std::unordered_map<point3D_t, Point3D>& tracks);
+  bool Solve(const PoseGraph& pose_graph,
+             colmap::Reconstruction& reconstruction);
 
   GlobalPositionerOptions& GetOptions() { return options_; }
 
  protected:
-  void SetupProblem(const ViewGraph& view_graph,
-                    const std::unordered_map<rig_t, Rig>& rigs,
-                    const std::unordered_map<point3D_t, Point3D>& tracks);
+  void SetupProblem(const PoseGraph& pose_graph,
+                    const colmap::Reconstruction& reconstruction);
 
   // Initialize all cameras to be random.
-  void InitializeRandomPositions(
-      const ViewGraph& view_graph,
-      std::unordered_map<frame_t, Frame>& frames,
-      std::unordered_map<image_t, Image>& images,
-      std::unordered_map<point3D_t, Point3D>& tracks);
+  void InitializeRandomPositions(const PoseGraph& pose_graph,
+                                 colmap::Reconstruction& reconstruction);
 
   // Creates camera to camera constraints from relative translations. (3D)
-  void AddCameraToCameraConstraints(const ViewGraph& view_graph,
-                                    std::unordered_map<image_t, Image>& images);
+  void AddCameraToCameraConstraints(const PoseGraph& pose_graph,
+                                    colmap::Reconstruction& reconstruction);
 
   // Add tracks to the problem
-  void AddPointToCameraConstraints(
-      std::unordered_map<rig_t, Rig>& rigs,
-      std::unordered_map<camera_t, colmap::Camera>& cameras,
-      std::unordered_map<frame_t, Frame>& frames,
-      std::unordered_map<image_t, Image>& images,
-      std::unordered_map<point3D_t, Point3D>& tracks);
+  void AddPointToCameraConstraints(colmap::Reconstruction& reconstruction);
 
-  // Add a single track to the problem
-  void AddTrackToProblem(point3D_t track_id,
-                         std::unordered_map<rig_t, Rig>& rigs,
-                         std::unordered_map<camera_t, colmap::Camera>& cameras,
-                         std::unordered_map<frame_t, Frame>& frames,
-                         std::unordered_map<image_t, Image>& images,
-                         std::unordered_map<point3D_t, Point3D>& tracks);
+  // Add a single point3D to the problem
+  void AddPoint3DToProblem(point3D_t point3D_id,
+                           colmap::Reconstruction& reconstruction);
 
   // Set the parameter groups
   void AddCamerasAndPointsToParameterGroups(
-      std::unordered_map<rig_t, Rig>& rigs,
-      std::unordered_map<frame_t, Frame>& frames,
-      std::unordered_map<point3D_t, Point3D>& tracks);
+      colmap::Reconstruction& reconstruction);
 
   // Parameterize the variables, set some variables to be constant if desired
-  void ParameterizeVariables(std::unordered_map<rig_t, Rig>& rigs,
-                             std::unordered_map<frame_t, Frame>& frames,
-                             std::unordered_map<point3D_t, Point3D>& tracks);
+  void ParameterizeVariables(colmap::Reconstruction& reconstruction);
 
   // During the optimization, the camera translation is set to be the camera
   // center Convert the results back to camera poses
-  void ConvertBackResults(std::unordered_map<rig_t, Rig>& rigs,
-                          std::unordered_map<frame_t, Frame>& frames);
+  void ConvertBackResults(colmap::Reconstruction& reconstruction);
 
   GlobalPositionerOptions options_;
 
-  std::mt19937 random_generator_;
   std::unique_ptr<ceres::Problem> problem_;
 
   // Loss functions for reweighted terms.
@@ -133,6 +132,15 @@ class GlobalPositioner {
   std::vector<double> scales_;
 
   std::unordered_map<rig_t, double> rig_scales_;
+
+  // Temporary storage for frame centers (world coordinates) during
+  // optimization. This allows keeping RigFromWorld().translation in
+  // cam_from_world convention.
+  std::unordered_map<frame_t, Eigen::Vector3d> frame_centers_;
+
+  // Temporary storage for camera-in-rig positions when cam_from_rig is unknown
+  // and needs to be estimated.
+  std::unordered_map<sensor_t, Eigen::Vector3d> cams_in_rig_;
 };
 
 }  // namespace glomap

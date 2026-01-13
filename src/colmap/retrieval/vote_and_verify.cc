@@ -407,28 +407,30 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
     std::vector<Eigen::Matrix2x3d> models;
     AffineTransformEstimator::Estimate(
         best_inlier_points1, best_inlier_points2, &models);
-    THROW_CHECK_EQ(models.size(), 1);
-    const Eigen::Matrix2x3d& A = models[0];
-    Eigen::Matrix3d A_homogeneous = Eigen::Matrix3d::Identity();
-    A_homogeneous.topRows<2>() = A;
-    const Eigen::Matrix2x3d inv_A = A_homogeneous.inverse().topRows<2>();
+    if (!models.empty()) {
+      THROW_CHECK_EQ(models.size(), 1);
+      const Eigen::Matrix2x3d& A12 = models[0];
+      Eigen::Matrix3d A_homogeneous = Eigen::Matrix3d::Identity();
+      A_homogeneous.topRows<2>() = A12;
+      const Eigen::Matrix2x3d A21 = A_homogeneous.inverse().topRows<2>();
 
-    TwoWayTransform local_tform;
-    local_tform.A12 = A.leftCols<2>().cast<float>();
-    local_tform.t12 = A.rightCols<1>().cast<float>();
-    local_tform.A21 = inv_A.leftCols<2>().cast<float>();
-    local_tform.t21 = inv_A.rightCols<1>().cast<float>();
+      TwoWayTransform local_tform;
+      local_tform.A12 = A12.leftCols<2>().cast<float>();
+      local_tform.t12 = A12.rightCols<1>().cast<float>();
+      local_tform.A21 = A21.leftCols<2>().cast<float>();
+      local_tform.t21 = A21.rightCols<1>().cast<float>();
 
-    ComputeInliers(local_tform,
-                   matches,
-                   options.max_transfer_error,
-                   options.max_scale_error,
-                   best_num_inliers,
-                   &inlier_idxs);
+      ComputeInliers(local_tform,
+                     matches,
+                     options.max_transfer_error,
+                     options.max_scale_error,
+                     best_num_inliers,
+                     &inlier_idxs);
 
-    if (inlier_idxs.size() > best_num_inliers) {
-      best_num_inliers = inlier_idxs.size();
-      best_tform = local_tform;
+      if (inlier_idxs.size() > best_num_inliers) {
+        best_num_inliers = inlier_idxs.size();
+        best_tform = local_tform;
+      }
     }
   }
 

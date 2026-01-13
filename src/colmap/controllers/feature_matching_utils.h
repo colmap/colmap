@@ -99,7 +99,6 @@ class FeatureMatcherController {
   std::vector<std::unique_ptr<FeatureMatcherWorker>> matchers_;
   std::vector<std::unique_ptr<FeatureMatcherWorker>> guided_matchers_;
   std::vector<std::unique_ptr<Thread>> verifiers_;
-  std::unique_ptr<ThreadPool> thread_pool_;
 
   JobQueue<FeatureMatcherData> matcher_queue_;
   JobQueue<FeatureMatcherData> verifier_queue_;
@@ -132,7 +131,6 @@ class GeometricVerifierController {
   bool is_setup_;
 
   std::vector<std::unique_ptr<Thread>> verifiers_;
-  std::unique_ptr<ThreadPool> thread_pool_;
 
   JobQueue<FeatureMatcherData> verifier_queue_;
   JobQueue<FeatureMatcherData> output_queue_;

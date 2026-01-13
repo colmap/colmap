@@ -32,6 +32,7 @@
 #include "colmap/feature/types.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
+#include "colmap/scene/database.h"
 #include "colmap/scene/image.h"
 #include "colmap/scene/rig.h"
 #include "colmap/scene/two_view_geometry.h"
@@ -45,6 +46,10 @@ namespace colmap {
 struct TwoViewGeometryOptions {
   // Minimum number of inliers for non-degenerate two-view geometry.
   int min_num_inliers = 15;
+
+  // Minimum ratio of inliers to total matches for non-degenerate geometry.
+  // Disabled by default, only effective when > 0.
+  double min_inlier_ratio = 0.0;
 
   // In case both cameras are calibrated, the calibration is verified by
   // estimating an essential and fundamental matrix and comparing their
@@ -166,7 +171,6 @@ EstimateRigTwoViewGeometries(
 // @param points1         Feature points in first image.
 // @param camera2         Camera of second image.
 // @param points2         Feature points in second image.
-// @param matches         Feature matches between first and second image.
 // @param options         Two-view geometry estimation options.
 bool EstimateTwoViewGeometryPose(const Camera& camera1,
                                  const std::vector<Eigen::Vector2d>& points1,
@@ -217,5 +221,11 @@ TwoViewGeometry TwoViewGeometryFromKnownRelativePose(
     const FeatureMatches& matches,
     int min_num_inliers = 15,
     double max_error = 4.0);
+
+// Decompose relative poses from two-view geometries in the database and write
+// the results back to the database. Skips pairs that already have a relative
+// pose or have invalid two-view geometries (UNDEFINED, DEGENERATE, WATERMARK,
+// MULTIPLE).
+void MaybeDecomposeAndWriteRelativePoses(Database* database);
 
 }  // namespace colmap

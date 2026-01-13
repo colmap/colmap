@@ -32,11 +32,8 @@ set(FOLDER_NAME "glomap_io")
 COLMAP_ADD_LIBRARY(
     NAME colmap_glomap_io
     SRCS
-        colmap_converter.h colmap_converter.cc
         colmap_io.h colmap_io.cc
-        pose_io.h pose_io.cc
     PUBLIC_LINK_LIBS
-        colmap_glomap_math
         colmap_glomap_scene
         colmap_scene
         colmap_util

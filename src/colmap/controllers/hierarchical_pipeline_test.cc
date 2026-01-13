@@ -68,7 +68,7 @@ void ExpectEqualReconstructions(const Reconstruction& gt,
 TEST(HierarchicalPipeline, WithoutNoise) {
   SetPRNGSeed(1);
 
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -82,10 +82,9 @@ TEST(HierarchicalPipeline, WithoutNoise) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   HierarchicalPipeline::Options mapper_options;
-  mapper_options.database_path = database_path;
   mapper_options.clustering_options.leaf_max_num_images = 5;
   mapper_options.clustering_options.image_overlap = 3;
-  HierarchicalPipeline mapper(mapper_options, reconstruction_manager);
+  HierarchicalPipeline mapper(mapper_options, database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -99,7 +98,7 @@ TEST(HierarchicalPipeline, WithoutNoise) {
 TEST(HierarchicalPipeline, WithoutNoiseAndNonTrivialFrames) {
   SetPRNGSeed(1);
 
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -115,14 +114,13 @@ TEST(HierarchicalPipeline, WithoutNoiseAndNonTrivialFrames) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   HierarchicalPipeline::Options mapper_options;
-  mapper_options.database_path = database_path;
   mapper_options.clustering_options.leaf_max_num_images = 10;
   mapper_options.clustering_options.image_overlap = 3;
   // Note that the hierarchical mapper does not work well when the
   // sensor_from_rig poses are inconsistently refined in different clusters,
   // because then the merging does not work well.
   mapper_options.incremental_options.ba_refine_sensor_from_rig = false;
-  HierarchicalPipeline mapper(mapper_options, reconstruction_manager);
+  HierarchicalPipeline mapper(mapper_options, database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -136,7 +134,7 @@ TEST(HierarchicalPipeline, WithoutNoiseAndNonTrivialFrames) {
 TEST(HierarchicalPipeline, WithoutNoiseAndPanoramicNonTrivialFrames) {
   SetPRNGSeed(1);
 
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -152,14 +150,13 @@ TEST(HierarchicalPipeline, WithoutNoiseAndPanoramicNonTrivialFrames) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   HierarchicalPipeline::Options mapper_options;
-  mapper_options.database_path = database_path;
   mapper_options.clustering_options.leaf_max_num_images = 10;
   mapper_options.clustering_options.image_overlap = 3;
   // Note that the hierarchical mapper does not work well when the
   // sensor_from_rig poses are inconsistently refined in different clusters,
   // because then the merging does not work well.
   mapper_options.incremental_options.ba_refine_sensor_from_rig = false;
-  HierarchicalPipeline mapper(mapper_options, reconstruction_manager);
+  HierarchicalPipeline mapper(mapper_options, database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -173,7 +170,7 @@ TEST(HierarchicalPipeline, WithoutNoiseAndPanoramicNonTrivialFrames) {
 TEST(HierarchicalPipeline, MultiReconstruction) {
   SetPRNGSeed(1);
 
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction1;
@@ -191,10 +188,9 @@ TEST(HierarchicalPipeline, MultiReconstruction) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   HierarchicalPipeline::Options mapper_options;
-  mapper_options.database_path = database_path;
   mapper_options.clustering_options.leaf_max_num_images = 5;
   mapper_options.clustering_options.image_overlap = 3;
-  HierarchicalPipeline mapper(mapper_options, reconstruction_manager);
+  HierarchicalPipeline mapper(mapper_options, database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 2);

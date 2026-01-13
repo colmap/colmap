@@ -1,134 +1,212 @@
 #include "glomap/processors/reconstruction_pruning.h"
 
-#include "glomap/processors/view_graph_manipulation.h"
+#include "colmap/math/connected_components.h"
+#include "colmap/math/math.h"
+#include "colmap/math/union_find.h"
 
 namespace glomap {
-image_t PruneWeaklyConnectedImages(
-    std::unordered_map<frame_t, Frame>& frames,
-    std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, Point3D>& tracks,
-    int min_num_images,
-    int min_num_observations) {
-  // Prepare the 2d-3d correspondences
-  std::unordered_map<image_pair_t, int> pair_covisibility_count;
-  std::unordered_map<frame_t, int> frame_observation_count;
-  for (auto& [track_id, track] : tracks) {
-    if (track.track.Length() <= 2) continue;
+namespace {
 
-    for (size_t i = 0; i < track.track.Length(); i++) {
-      image_t image_id1 = track.track.Element(i).image_id;
-      frame_t frame_id1 = images[image_id1].frame_id;
+// Alias for clarity: we're working with frame pairs, not image pairs.
+using frame_pair_t = image_pair_t;
 
-      frame_observation_count[frame_id1]++;
-      for (size_t j = i + 1; j < track.track.Length(); j++) {
-        image_t image_id2 = track.track.Element(j).image_id;
-        frame_t frame_id2 = images[image_id2].frame_id;
-        if (frame_id1 == frame_id2) continue;
-        const image_pair_t pair_id =
-            colmap::ImagePairToPairId(frame_id1, frame_id2);
-        if (pair_covisibility_count.find(pair_id) ==
-            pair_covisibility_count.end()) {
-          pair_covisibility_count[pair_id] = 1;
-        } else {
-          pair_covisibility_count[pair_id]++;
+// Clustering parameters.
+constexpr int kMinCovisibilityCount = 5;
+constexpr double kMinEdgeWeightThreshold = 20.0;
+constexpr double kWeakEdgeMultiplier = 0.75;
+constexpr int kMinWeakEdgesToMerge = 2;
+constexpr int kMaxClusteringIterations = 10;
+
+// Clusters nodes using union-find based on edge weights.
+//
+// Algorithm:
+//   1. Merge nodes connected by strong edges (weight > threshold).
+//   2. Iteratively merge clusters connected by at least kMinWeakEdgesToMerge
+//      weaker edges (weight >= kWeakEdgeMultiplier * threshold).
+//   3. Assign sequential cluster IDs based on union-find roots.
+//
+// The iterative refinement helps avoid over-segmentation when the connection
+// between two groups of nodes is distributed across multiple weaker edges.
+std::unordered_map<frame_t, int> EstablishStrongClusters(
+    const std::unordered_set<frame_t>& nodes,
+    const std::unordered_map<frame_pair_t, int>& edge_weights,
+    double edge_weight_threshold) {
+  std::unordered_map<frame_t, int> cluster_ids;
+  colmap::UnionFind<frame_t> uf;
+  uf.Reserve(nodes.size());
+
+  // Phase 1: Create initial clusters from strong edges (weight > threshold).
+  for (const auto& [pair_id, weight] : edge_weights) {
+    if (weight > edge_weight_threshold) {
+      const auto [frame_id1, frame_id2] = colmap::PairIdToImagePair(pair_id);
+      uf.Union(frame_id1, frame_id2);
+    }
+  }
+
+  // Phase 2: Iteratively merge clusters connected by multiple weaker edges.
+  // Two clusters are merged if they share >= kMinWeakEdgesToMerge edges with
+  // weight >= kWeakEdgeMultiplier * threshold. This continues until no more
+  // merges occur (or max kMaxClusteringIterations iterations).
+  bool changed = true;
+  int iteration = 0;
+  while (changed) {
+    changed = false;
+    iteration++;
+
+    if (iteration > kMaxClusteringIterations) {
+      break;
+    }
+
+    // Count edges between each pair of cluster roots.
+    std::unordered_map<frame_t, std::unordered_map<frame_t, int>> num_pairs;
+    for (const auto& [pair_id, weight] : edge_weights) {
+      if (weight < kWeakEdgeMultiplier * edge_weight_threshold) continue;
+
+      const auto [frame_id1, frame_id2] = colmap::PairIdToImagePair(pair_id);
+      frame_t root1 = uf.Find(frame_id1);
+      frame_t root2 = uf.Find(frame_id2);
+
+      if (root1 == root2) continue;  // Already in same cluster.
+
+      num_pairs[root1][root2]++;
+      num_pairs[root2][root1]++;
+    }
+
+    // Merge clusters that share >= 2 connecting edges.
+    for (const auto& [root1, counter] : num_pairs) {
+      for (const auto& [root2, count] : counter) {
+        if (root1 <= root2) continue;  // Process each pair once.
+
+        if (count >= kMinWeakEdgesToMerge) {
+          changed = true;
+          uf.Union(root1, root2);
         }
       }
     }
   }
 
-  // Establish the visibility graph
-  size_t counter = 0;
-  ViewGraph visibility_graph_frame;
-  std::vector<int> pair_count;
-  for (auto& [pair_id, count] : pair_covisibility_count) {
-    // since the relative pose is only fixed if there are more than 5 points,
-    // then require each pair to have at least 5 points
-    if (count >= 5) {
-      counter++;
-      const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+  // Phase 3: Assign sequential cluster IDs based on union-find roots.
+  std::unordered_map<frame_t, int> root_to_cluster;
+  int next_cluster_id = 0;
 
-      if (frame_observation_count[image_id1] < min_num_observations ||
-          frame_observation_count[image_id2] < min_num_observations)
-        continue;
-
-      visibility_graph_frame.image_pairs.insert(
-          std::make_pair(pair_id, ImagePair(image_id1, image_id2)));
-
-      pair_count.push_back(count);
-      visibility_graph_frame.image_pairs[pair_id].is_valid = true;
-      visibility_graph_frame.image_pairs[pair_id].weight = count;
+  for (const frame_t node : nodes) {
+    frame_t root = uf.Find(node);
+    auto it = root_to_cluster.find(root);
+    if (it == root_to_cluster.end()) {
+      root_to_cluster[root] = next_cluster_id++;
     }
+    cluster_ids[node] = root_to_cluster[root];
   }
-  LOG(INFO) << "Established visibility graph with " << counter << " pairs";
 
-  // Create the visibility graph
-  // Connect the reference image of each frame with other reference image
-  std::unordered_map<frame_t, image_t> frame_id_to_begin_img;
-  for (auto& [frame_id, frame] : frames) {
-    int counter = 0;
-    for (const auto& data_id : frame.ImageIds()) {
-      image_t image_id = data_id.id;
-      if (images.find(image_id) == images.end()) continue;
-      frame_id_to_begin_img[frame_id] = image_id;
-      break;
+  // Count clusters with at least kMinClusterSize frames.
+  constexpr int kMinClusterSize = 2;
+  std::unordered_map<int, int> cluster_sizes;
+  for (const auto& [node, cluster_id] : cluster_ids) {
+    cluster_sizes[cluster_id]++;
+  }
+  int num_valid_clusters = 0;
+  for (const auto& [cluster_id, size] : cluster_sizes) {
+    if (size >= kMinClusterSize) {
+      num_valid_clusters++;
     }
   }
 
-  ViewGraph visibility_graph;
-  for (auto& [pair_id, image_pair] : visibility_graph_frame.image_pairs) {
+  LOG(INFO) << "Clustering took " << iteration << " iterations. "
+            << "Frames are grouped into " << num_valid_clusters
+            << " clusters (size >= " << kMinClusterSize << ")";
+
+  return cluster_ids;
+}
+
+}  // namespace
+
+// TODO: Maybe decompose the steps into individual sub-functions. Then it also
+// becomes easier to find a good name.
+std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
+    colmap::Reconstruction& reconstruction) {
+  // Step 1: Compute covisibility counts between all frame pairs.
+  // For each 3D point, increment the count for every pair of frames that sees
+  // it.
+  std::unordered_map<frame_pair_t, int> frame_covisibility_count;
+  std::unordered_set<frame_t> nodes;
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    if (point3D.track.Length() <= 2) continue;
+
+    for (size_t i = 0; i < point3D.track.Length(); i++) {
+      const image_t image_id1 = point3D.track.Element(i).image_id;
+      const frame_t frame_id1 = reconstruction.Image(image_id1).FrameId();
+
+      nodes.insert(frame_id1);
+      // TODO: This may over-count frame pairs when multiple images from the
+      // same frame appear in a track (e.g., rig cameras). Figure out if
+      // intended.
+      for (size_t j = i + 1; j < point3D.track.Length(); j++) {
+        const image_t image_id2 = point3D.track.Element(j).image_id;
+        const frame_t frame_id2 = reconstruction.Image(image_id2).FrameId();
+        if (frame_id1 == frame_id2) continue;
+        const frame_pair_t pair_id =
+            colmap::ImagePairToPairId(frame_id1, frame_id2);
+        frame_covisibility_count[pair_id]++;
+      }
+    }
+  }
+
+  // Step 2: Filter edges to keep only reliable connections.
+  std::unordered_map<frame_pair_t, int> edge_weights;
+  for (const auto& [pair_id, count] : frame_covisibility_count) {
+    if (count < kMinCovisibilityCount) continue;
+    edge_weights[pair_id] = count;
+  }
+  LOG(INFO) << "Established visibility graph with " << edge_weights.size()
+            << " pairs";
+
+  if (edge_weights.empty()) {
+    LOG(WARNING) << "No valid frame pairs found for clustering";
+    return {};
+  }
+
+  // Step 3: Keep only the largest connected component and de-register the rest.
+  std::vector<std::pair<frame_t, frame_t>> edges;
+  edges.reserve(edge_weights.size());
+  for (const auto& [pair_id, weight] : edge_weights) {
     const auto [frame_id1, frame_id2] = colmap::PairIdToImagePair(pair_id);
-    const image_t image_id1 = frame_id_to_begin_img[frame_id1];
-    const image_t image_id2 = frame_id_to_begin_img[frame_id2];
-    visibility_graph.image_pairs.insert(
-        std::make_pair(pair_id, ImagePair(image_id1, image_id2)));
-    visibility_graph.image_pairs[pair_id].weight = image_pair.weight;
+    edges.emplace_back(frame_id1, frame_id2);
   }
+  const std::vector<frame_t> largest_cc_vec =
+      colmap::FindLargestConnectedComponent(nodes, edges);
+  const std::unordered_set<frame_t> largest_cc(largest_cc_vec.begin(),
+                                               largest_cc_vec.end());
+  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
+    if (largest_cc.count(frame_id) == 0 && frame.HasPose()) {
+      reconstruction.DeRegisterFrame(frame_id);
+    }
+  }
+  LOG(INFO) << "Kept " << largest_cc.size() << " frames in largest component";
 
-  int max_weight = std::max_element(pair_count.begin(), pair_count.end()) -
-                   pair_count.begin();
-
-  // within each frame, connect the reference image with all other images
-  for (auto& [frame_id, frame] : frames) {
-    image_t begin_image_id = frame_id_to_begin_img[frame_id];
-    for (const auto& data_id : frame.ImageIds()) {
-      image_t image_id = data_id.id;
-      if (image_id == begin_image_id || images.find(image_id) == images.end())
-        continue;
-      image_pair_t pair_id =
-          colmap::ImagePairToPairId(begin_image_id, image_id);
-      visibility_graph.image_pairs.insert(
-          std::make_pair(pair_id, ImagePair(begin_image_id, image_id)));
-
-      // Never break th inner edge
-      visibility_graph.image_pairs[pair_id].weight = max_weight;
+  // Filter to keep only edges within the largest component.
+  for (auto it = edge_weights.begin(); it != edge_weights.end();) {
+    const auto [frame_id1, frame_id2] = colmap::PairIdToImagePair(it->first);
+    if (largest_cc.count(frame_id1) == 0 || largest_cc.count(frame_id2) == 0) {
+      it = edge_weights.erase(it);
+    } else {
+      ++it;
     }
   }
 
-  // sort the pair count
-  std::sort(pair_count.begin(), pair_count.end());
-  double median_count = pair_count[pair_count.size() / 2];
-
-  // calculate the MAD (median absolute deviation)
-  std::vector<int> pair_count_diff(pair_count.size());
-  for (size_t i = 0; i < pair_count.size(); i++) {
-    pair_count_diff[i] = std::abs(pair_count[i] - median_count);
+  // Step 4: Compute adaptive threshold using median minus median absolute
+  // deviation (MAD). Extract weight values after filtering to largest CC.
+  std::vector<int> weight_values;
+  weight_values.reserve(edge_weights.size());
+  for (const auto& [pair_id, weight] : edge_weights) {
+    weight_values.push_back(weight);
   }
-  std::sort(pair_count_diff.begin(), pair_count_diff.end());
-  double median_count_diff = pair_count_diff[pair_count_diff.size() / 2];
+  const auto [median, mad] =
+      colmap::MedianAbsoluteDeviation(std::move(weight_values));
+  const double threshold = std::max(median - mad, kMinEdgeWeightThreshold);
+  LOG(INFO) << "Threshold for Strong Clustering: " << threshold;
 
-  // The median
-  LOG(INFO) << "Threshold for Strong Clustering: "
-            << median_count - median_count_diff;
-
-  return ViewGraphManipulater::EstablishStrongClusters(
-      visibility_graph,
-      frames,
-      images,
-      ViewGraphManipulater::WEIGHT,
-      std::max(median_count - median_count_diff, 20.),
-      min_num_images);
-
-  // return visibility_graph.MarkConnectedComponents(images, min_num_images);
+  // Step 5: Cluster frames based on covisibility weights.
+  return EstablishStrongClusters(largest_cc, edge_weights, threshold);
 }
 
 }  // namespace glomap

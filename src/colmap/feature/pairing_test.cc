@@ -94,7 +94,7 @@ TEST(VocabTreePairGenerator, Nominal) {
   CHECK_EQ(images.size(), kNumImages);
 
   VocabTreePairingOptions options;
-  options.vocab_tree_path = CreateTestDir() + "/vocab_tree.txt";
+  options.vocab_tree_path = CreateTestDir() / "vocab_tree.txt";
 
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   CreateSyntheticVisualIndex()->Write(options.vocab_tree_path);
@@ -753,7 +753,7 @@ TEST(ImportedPairGenerator, Nominal) {
   CHECK_EQ(images.size(), kNumImages);
 
   ImportedPairingOptions options;
-  options.match_list_path = CreateTestDir() + "/pairs.txt";
+  options.match_list_path = CreateTestDir() / "pairs.txt";
 
   {
     std::ofstream match_list_file(options.match_list_path);

@@ -32,7 +32,6 @@
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/eigen_matchers.h"
-#include "colmap/util/logging.h"
 
 #include <cmath>
 
@@ -144,7 +143,7 @@ TEST(PoseFromHomographyMatrix, Nominal) {
   std::vector<Eigen::Vector3d> rays2;
   for (const auto& ray1 : rays1) {
     const Eigen::Vector3d ray2 = H * ray1;
-    CHECK_GT(ray2.z(), 0);
+    ASSERT_GT(ray2.z(), 0);
     rays2.push_back(ray2.normalized());
   }
 

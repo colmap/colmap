@@ -53,10 +53,12 @@ COLMAP_ADD_LIBRARY(
         feature.h feature.cc
         sfm.h sfm.cc
         model.h model.cc
+        mvs.h mvs.cc
     PUBLIC_LINK_LIBS
         colmap_controllers
         colmap_estimators
         colmap_geometry
+        colmap_mvs
         colmap_optim
         colmap_scene
         colmap_sfm
@@ -86,7 +88,8 @@ COLMAP_ADD_EXECUTABLE(
         colmap_scene
         colmap_sfm
         colmap_util
-        colmap_glomap_exe
+        colmap_glomap_sfm
+        colmap_glomap_io
         ${OPTIONAL_LIBS}
         Boost::boost
 )

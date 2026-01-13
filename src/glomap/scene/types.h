@@ -2,14 +2,11 @@
 
 #include "colmap/util/types.h"
 
-#include <cstdint>
-#include <limits>
-#include <unordered_map>
-#include <unordered_set>
-
 namespace colmap {
 
+class Frame;
 class Rig;
+class Image;
 struct Point3D;
 struct Rigid3d;
 
@@ -25,9 +22,11 @@ namespace glomap {
 using colmap::camera_t;
 
 // Unique identifier for images.
+using colmap::Image;
 using colmap::image_t;
 
 // Unique identifier for frames.
+using colmap::Frame;
 using colmap::frame_t;
 
 // Unique identifier for camera rigs.
@@ -36,6 +35,9 @@ using colmap::rig_t;
 // Each image pair gets a unique ID, see `Database::ImagePairToPairId`.
 using colmap::image_pair_t;
 using colmap::kInvalidImagePairId;
+
+// Unique identifier for 2D points.
+using colmap::point2D_t;
 
 // Unique identifier for 3D points.
 using colmap::Point3D;

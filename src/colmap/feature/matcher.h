@@ -31,7 +31,6 @@
 
 #include "colmap/feature/index.h"
 #include "colmap/feature/types.h"
-#include "colmap/geometry/gps.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/image.h"
@@ -94,6 +93,9 @@ struct FeatureMatchingOptions {
 
   std::shared_ptr<SiftMatchingOptions> sift;
 
+  // Whether the selected matcher requires OpenGL.
+  bool RequiresOpenGL() const;
+
   bool Check() const;
 };
 
@@ -105,9 +107,7 @@ class FeatureMatcher {
     // Unique identifier for the image. Allows a matcher to cache some
     // computations per image in consecutive calls to matching.
     image_t image_id = kInvalidImageId;
-    // Sensor dimension in pixels of the image's camera.
-    int width = 0;
-    int height = 0;
+    const Camera* camera = nullptr;
     std::shared_ptr<const FeatureKeypoints> keypoints;
     std::shared_ptr<const FeatureDescriptors> descriptors;
   };

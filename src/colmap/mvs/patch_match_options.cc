@@ -43,7 +43,7 @@ const static size_t kMaxPatchMatchWindowRadius = 32;
 #define PrintOption(option) LOG(INFO) << #option ": " << option
 
 void PatchMatchOptions::Print() const {
-  PrintHeading2("PatchMatchOptions");
+  LOG_HEADING2("PatchMatchOptions");
   PrintOption(max_image_size);
   PrintOption(gpu_index);
   PrintOption(depth_min);

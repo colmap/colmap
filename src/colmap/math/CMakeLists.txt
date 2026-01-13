@@ -33,11 +33,13 @@ set(FOLDER_NAME "math")
 COLMAP_ADD_LIBRARY(
     NAME colmap_math
     SRCS
+        connected_components.h
         graph_cut.h graph_cut.cc
         math.h math.cc
         matrix.h
         polynomial.h polynomial.cc
         random.h random.cc
+        spanning_tree.h spanning_tree.cc
         union_find.h
     PUBLIC_LINK_LIBS
         colmap_util
@@ -48,6 +50,11 @@ COLMAP_ADD_LIBRARY(
         metis
 )
 
+COLMAP_ADD_TEST(
+    NAME connected_components_test
+    SRCS connected_components_test.cc
+    LINK_LIBS colmap_math
+)
 COLMAP_ADD_TEST(
     NAME graph_cut_test
     SRCS graph_cut_test.cc
@@ -76,5 +83,10 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME union_find_test
     SRCS union_find_test.cc
+    LINK_LIBS colmap_math
+)
+COLMAP_ADD_TEST(
+    NAME spanning_tree_test
+    SRCS spanning_tree_test.cc
     LINK_LIBS colmap_math
 )

@@ -40,12 +40,16 @@
 namespace colmap {
 namespace {
 
-TEST(AutomaticReconstructionController, Nominal) {
+class ParameterizedAutomaticReconstructionTests
+    : public ::testing::TestWithParam<
+          AutomaticReconstructionController::Mapper> {};
+
+TEST_P(ParameterizedAutomaticReconstructionTests, Nominal) {
   SetPRNGSeed(1);
 
-  const std::string test_dir = CreateTestDir();
-  const std::string workspace_path = test_dir + "/workspace";
-  const std::string image_path = test_dir + "/images";
+  const auto test_dir = CreateTestDir();
+  const auto workspace_path = test_dir / "workspace";
+  const auto image_path = test_dir / "images";
   CreateDirIfNotExists(workspace_path);
   CreateDirIfNotExists(image_path);
 
@@ -68,9 +72,11 @@ TEST(AutomaticReconstructionController, Nominal) {
   options.dense = false;  // Disable dense reconstruction to avoid GPU
   options.use_gpu = false;
   options.random_seed = 1;
+  options.mapper = GetParam();
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   AutomaticReconstructionController controller(options, reconstruction_manager);
+  controller.Setup();
   controller.Start();
   controller.Wait();
 
@@ -83,6 +89,15 @@ TEST(AutomaticReconstructionController, Nominal) {
                                  /*num_obs_tolerance=*/0.9,
                                  /*align=*/true));
 }
+
+// TODO: Add GLOBAL mapper test. Currently excluded because the test produces
+// fewer observations than expected. The global pipeline is tested separately
+// in global_pipeline_test.cc.
+INSTANTIATE_TEST_SUITE_P(
+    AutomaticReconstructionTests,
+    ParameterizedAutomaticReconstructionTests,
+    ::testing::Values(AutomaticReconstructionController::Mapper::INCREMENTAL,
+                      AutomaticReconstructionController::Mapper::HIERARCHICAL));
 
 }  // namespace
 }  // namespace colmap

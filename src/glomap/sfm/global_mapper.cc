@@ -1,364 +1,520 @@
 #include "glomap/sfm/global_mapper.h"
 
+#include "colmap/math/union_find.h"
+#include "colmap/scene/projection.h"
+#include "colmap/sfm/incremental_mapper.h"
+#include "colmap/sfm/observation_manager.h"
+#include "colmap/util/logging.h"
+#include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
-#include "glomap/processors/image_pair_inliers.h"
-#include "glomap/processors/image_undistorter.h"
-#include "glomap/processors/reconstruction_normalizer.h"
+#include "glomap/estimators/rotation_averaging.h"
 #include "glomap/processors/reconstruction_pruning.h"
-#include "glomap/processors/relpose_filter.h"
-#include "glomap/processors/track_filter.h"
-#include "glomap/processors/view_graph_manipulation.h"
-#include "glomap/sfm/rotation_averager.h"
+
+#include <algorithm>
 
 namespace glomap {
+namespace {
 
-// TODO: Rig normalizaiton has not be done
-bool GlobalMapper::Solve(const colmap::Database& database,
-                         ViewGraph& view_graph,
-                         std::unordered_map<rig_t, Rig>& rigs,
-                         std::unordered_map<camera_t, colmap::Camera>& cameras,
-                         std::unordered_map<frame_t, Frame>& frames,
-                         std::unordered_map<image_t, Image>& images,
-                         std::unordered_map<point3D_t, Point3D>& tracks,
-                         std::vector<colmap::PosePrior>& pose_priors) {
-  // 0. Preprocessing
-  if (!options_.skip_preprocessing) {
-    std::cout << "-------------------------------------" << '\n';
-    std::cout << "Running preprocessing ..." << '\n';
-    std::cout << "-------------------------------------" << '\n';
+GlobalMapperOptions InitializeOptions(const GlobalMapperOptions& options) {
+  // Propagate random seed and num_threads to component options.
+  GlobalMapperOptions opts = options;
+  if (opts.random_seed >= 0) {
+    opts.rotation_averaging.random_seed = opts.random_seed;
+    opts.global_positioning.random_seed = opts.random_seed;
+    opts.global_positioning.use_parameter_block_ordering = false;
+    opts.retriangulation.random_seed = opts.random_seed;
+  }
+  opts.global_positioning.solver_options.num_threads = opts.num_threads;
+  opts.bundle_adjustment.solver_options.num_threads = opts.num_threads;
+  return opts;
+}
 
-    colmap::Timer run_timer;
-    run_timer.Start();
-    // If camera intrinsics seem to be good, force the pair to use essential
-    // matrix
-    ViewGraphManipulater::UpdateImagePairsConfig(view_graph, cameras, images);
-    ViewGraphManipulater::DecomposeRelPose(view_graph, cameras, images);
-    run_timer.PrintSeconds();
+}  // namespace
+
+GlobalMapper::GlobalMapper(
+    std::shared_ptr<const colmap::DatabaseCache> database_cache)
+    : database_cache_(std::move(THROW_CHECK_NOTNULL(database_cache))) {}
+
+void GlobalMapper::BeginReconstruction(
+    const std::shared_ptr<colmap::Reconstruction>& reconstruction) {
+  THROW_CHECK_NOTNULL(reconstruction);
+  reconstruction_ = reconstruction;
+  reconstruction_->Load(*database_cache_);
+  pose_graph_ = std::make_shared<class PoseGraph>();
+  pose_graph_->Load(*database_cache_->CorrespondenceGraph());
+}
+
+std::shared_ptr<colmap::Reconstruction> GlobalMapper::Reconstruction() const {
+  return reconstruction_;
+}
+
+bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
+  THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(pose_graph_);
+
+  if (pose_graph_->Empty()) {
+    LOG(ERROR) << "Cannot continue with empty pose graph";
+    return false;
   }
 
-  // 1. Run view graph calibration
-  if (!options_.skip_view_graph_calibration) {
-    std::cout << "-------------------------------------" << '\n';
-    std::cout << "Running view graph calibration ..." << '\n';
-    std::cout << "-------------------------------------" << '\n';
-    ViewGraphCalibrator vgcalib_engine(options_.opt_vgcalib);
-    if (!vgcalib_engine.Solve(view_graph, cameras, images)) {
-      return false;
-    }
+  // Read pose priors from the database cache.
+  const std::vector<colmap::PosePrior>& pose_priors =
+      database_cache_->PosePriors();
+
+  // First pass: solve rotation averaging on all frames, then filter outlier
+  // pairs by rotation error and de-register frames outside the largest
+  // connected component.
+  RotationEstimatorOptions custom_options = options;
+  custom_options.filter_unregistered = false;
+  if (!RunRotationAveraging(
+          custom_options, *pose_graph_, *reconstruction_, pose_priors)) {
+    return false;
   }
 
-  // 2. Run relative pose estimation
-  //   TODO: Use generalized relative pose estimation for rigs.
-  if (!options_.skip_relative_pose_estimation) {
-    std::cout << "-------------------------------------" << '\n';
-    std::cout << "Running relative pose estimation ..." << '\n';
-    std::cout << "-------------------------------------" << '\n';
-
-    colmap::Timer run_timer;
-    run_timer.Start();
-    // Relative pose relies on the undistorted images
-    UndistortImages(cameras, images, true);
-    EstimateRelativePoses(view_graph, cameras, images, options_.opt_relpose);
-
-    InlierThresholdOptions inlier_thresholds = options_.inlier_thresholds;
-    // Undistort the images and filter edges by inlier number
-    ImagePairsInlierCount(view_graph, cameras, images, inlier_thresholds, true);
-
-    RelPoseFilter::FilterInlierNum(view_graph,
-                                   options_.inlier_thresholds.min_inlier_num);
-    RelPoseFilter::FilterInlierRatio(
-        view_graph, options_.inlier_thresholds.min_inlier_ratio);
-
-    if (view_graph.KeepLargestConnectedComponents(frames, images) == 0) {
-      LOG(ERROR) << "no connected components are found";
-      return false;
-    }
-
-    run_timer.PrintSeconds();
+  // Second pass: re-solve on registered frames only to refine rotations
+  // after outlier removal.
+  custom_options.filter_unregistered = true;
+  if (!RunRotationAveraging(
+          custom_options, *pose_graph_, *reconstruction_, pose_priors)) {
+    return false;
   }
 
-  // 3. Run rotation averaging for three times
-  if (!options_.skip_rotation_averaging) {
-    std::cout << "-------------------------------------" << '\n';
-    std::cout << "Running rotation averaging ..." << '\n';
-    std::cout << "-------------------------------------" << '\n';
+  VLOG(1) << reconstruction_->NumRegImages() << " / "
+          << reconstruction_->NumImages()
+          << " images are within the connected component.";
 
-    colmap::Timer run_timer;
-    run_timer.Start();
+  return true;
+}
 
-    // The first run is for filtering
-    SolveRotationAveraging(view_graph,
-                           rigs,
-                           frames,
-                           images,
-                           pose_priors,
-                           RotationAveragerOptions(options_.opt_ra));
+void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
+  using Observation = std::pair<image_t, colmap::point2D_t>;
+  THROW_CHECK_EQ(reconstruction_->NumPoints3D(), 0);
 
-    RelPoseFilter::FilterRotations(
-        view_graph, images, options_.inlier_thresholds.max_rotation_error);
-    if (view_graph.KeepLargestConnectedComponents(frames, images) == 0) {
-      LOG(ERROR) << "no connected components are found";
-      return false;
+  // Build keypoints map from registered images.
+  std::unordered_map<image_t, std::vector<Eigen::Vector2d>>
+      image_id_to_keypoints;
+  for (const auto image_id : reconstruction_->RegImageIds()) {
+    const auto& image = reconstruction_->Image(image_id);
+    std::vector<Eigen::Vector2d> points;
+    points.reserve(image.NumPoints2D());
+    for (const auto& point2D : image.Points2D()) {
+      points.push_back(point2D.xy);
     }
-
-    // The second run is for final estimation
-    if (!SolveRotationAveraging(view_graph,
-                                rigs,
-                                frames,
-                                images,
-                                pose_priors,
-                                RotationAveragerOptions(options_.opt_ra))) {
-      return false;
-    }
-    RelPoseFilter::FilterRotations(
-        view_graph, images, options_.inlier_thresholds.max_rotation_error);
-    image_t num_img = view_graph.KeepLargestConnectedComponents(frames, images);
-    if (num_img == 0) {
-      LOG(ERROR) << "no connected components are found";
-      return false;
-    }
-    LOG(INFO) << num_img << " / " << images.size()
-              << " images are within the connected component." << '\n';
-
-    run_timer.PrintSeconds();
+    image_id_to_keypoints.emplace(image_id, std::move(points));
   }
 
-  // 4. Track establishment and selection
-  if (!options_.skip_track_establishment) {
-    colmap::Timer run_timer;
-    run_timer.Start();
+  auto corr_graph = database_cache_->CorrespondenceGraph();
 
-    std::cout << "-------------------------------------" << '\n';
-    std::cout << "Running track establishment ..." << '\n';
-    std::cout << "-------------------------------------" << '\n';
-    TrackEngine track_engine(view_graph, images, options_.opt_track);
-    std::unordered_map<point3D_t, Point3D> tracks_full;
-    track_engine.EstablishFullTracks(tracks_full);
-
-    // Filter the tracks
-    point3D_t num_tracks =
-        track_engine.FindTracksForProblem(tracks_full, tracks);
-    LOG(INFO) << "Before filtering: " << tracks_full.size()
-              << ", after filtering: " << num_tracks << '\n';
-
-    run_timer.PrintSeconds();
-  }
-
-  // 5. Global positioning
-  if (!options_.skip_global_positioning) {
-    std::cout << "-------------------------------------" << '\n';
-    std::cout << "Running global positioning ..." << '\n';
-    std::cout << "-------------------------------------" << '\n';
-
-    if (options_.opt_gp.constraint_type !=
-        GlobalPositionerOptions::ConstraintType::ONLY_POINTS) {
-      LOG(ERROR) << "Only points are used for solving camera positions";
-      return false;
-    }
-
-    colmap::Timer run_timer;
-    run_timer.Start();
-    // Undistort images in case all previous steps are skipped
-    // Skip images where an undistortion already been done
-    UndistortImages(cameras, images, false);
-
-    GlobalPositioner gp_engine(options_.opt_gp);
-
-    // TODO: consider to support other modes as well
-    if (!gp_engine.Solve(view_graph, rigs, cameras, frames, images, tracks)) {
-      return false;
-    }
-    // Filter tracks based on the estimation
-    TrackFilter::FilterTracksByAngle(
-        view_graph,
-        cameras,
-        images,
-        tracks,
-        options_.inlier_thresholds.max_angle_error);
-
-    // Filter tracks based on triangulation angle and reprojection error
-    TrackFilter::FilterTrackTriangulationAngle(
-        view_graph,
-        images,
-        tracks,
-        options_.inlier_thresholds.min_triangulation_angle);
-    // Set the threshold to be larger to avoid removing too many tracks
-    TrackFilter::FilterTracksByReprojection(
-        view_graph,
-        cameras,
-        images,
-        tracks,
-        10 * options_.inlier_thresholds.max_reprojection_error);
-    // Normalize the structure
-    // If the camera rig is used, the structure do not need to be normalized
-    NormalizeReconstruction(rigs, cameras, frames, images, tracks);
-
-    run_timer.PrintSeconds();
-  }
-
-  // 6. Bundle adjustment
-  if (!options_.skip_bundle_adjustment) {
-    std::cout << "-------------------------------------" << '\n';
-    std::cout << "Running bundle adjustment ..." << '\n';
-    std::cout << "-------------------------------------" << '\n';
-    LOG(INFO) << "Bundle adjustment start" << '\n';
-
-    colmap::Timer run_timer;
-    run_timer.Start();
-
-    for (int ite = 0; ite < options_.num_iteration_bundle_adjustment; ite++) {
-      BundleAdjuster ba_engine(options_.opt_ba);
-
-      BundleAdjusterOptions& ba_engine_options_inner = ba_engine.GetOptions();
-
-      // Staged bundle adjustment
-      // 6.1. First stage: optimize positions only
-      ba_engine_options_inner.optimize_rotations = false;
-      if (!ba_engine.Solve(rigs, cameras, frames, images, tracks)) {
-        return false;
-      }
-      LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
-                << options_.num_iteration_bundle_adjustment
-                << ", stage 1 finished (position only)";
-      run_timer.PrintSeconds();
-
-      // 6.2. Second stage: optimize rotations if desired
-      ba_engine_options_inner.optimize_rotations =
-          options_.opt_ba.optimize_rotations;
-      if (ba_engine_options_inner.optimize_rotations &&
-          !ba_engine.Solve(rigs, cameras, frames, images, tracks)) {
-        return false;
-      }
-      LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
-                << options_.num_iteration_bundle_adjustment
-                << ", stage 2 finished";
-      if (ite != options_.num_iteration_bundle_adjustment - 1)
-        run_timer.PrintSeconds();
-
-      // Normalize the structure
-      NormalizeReconstruction(rigs, cameras, frames, images, tracks);
-
-      // 6.3. Filter tracks based on the estimation
-      // For the filtering, in each round, the criteria for outlier is
-      // tightened. If only few tracks are changed, no need to start bundle
-      // adjustment right away. Instead, use a more strict criteria to filter
-      UndistortImages(cameras, images, true);
-      LOG(INFO) << "Filtering tracks by reprojection ...";
-
-      bool status = true;
-      size_t filtered_num = 0;
-      while (status && ite < options_.num_iteration_bundle_adjustment) {
-        double scaling = std::max(3 - ite, 1);
-        filtered_num += TrackFilter::FilterTracksByReprojection(
-            view_graph,
-            cameras,
-            images,
-            tracks,
-            scaling * options_.inlier_thresholds.max_reprojection_error);
-
-        if (filtered_num > 1e-3 * tracks.size()) {
-          status = false;
-        } else
-          ite++;
-      }
-      if (status) {
-        LOG(INFO) << "fewer than 0.1% tracks are filtered, stop the iteration.";
-        break;
+  // Union all matching observations.
+  colmap::UnionFind<Observation> uf;
+  colmap::FeatureMatches matches;
+  for (const auto& [pair_id, edge] : pose_graph_->ValidEdges()) {
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    THROW_CHECK(image_id_to_keypoints.count(image_id1))
+        << "Missing keypoints for image " << image_id1;
+    THROW_CHECK(image_id_to_keypoints.count(image_id2))
+        << "Missing keypoints for image " << image_id2;
+    corr_graph->ExtractMatchesBetweenImages(image_id1, image_id2, matches);
+    for (const auto& match : matches) {
+      const Observation obs1(image_id1, match.point2D_idx1);
+      const Observation obs2(image_id2, match.point2D_idx2);
+      if (obs2 < obs1) {
+        uf.Union(obs1, obs2);
+      } else {
+        uf.Union(obs2, obs1);
       }
     }
-
-    // Filter tracks based on the estimation
-    UndistortImages(cameras, images, true);
-    LOG(INFO) << "Filtering tracks by reprojection ...";
-    TrackFilter::FilterTracksByReprojection(
-        view_graph,
-        cameras,
-        images,
-        tracks,
-        options_.inlier_thresholds.max_reprojection_error);
-    TrackFilter::FilterTrackTriangulationAngle(
-        view_graph,
-        images,
-        tracks,
-        options_.inlier_thresholds.min_triangulation_angle);
-
-    run_timer.PrintSeconds();
   }
 
-  // 7. Retriangulation
-  if (!options_.skip_retriangulation) {
-    std::cout << "-------------------------------------" << '\n';
-    std::cout << "Running retriangulation ..." << '\n';
-    std::cout << "-------------------------------------" << '\n';
-    for (int ite = 0; ite < options_.num_iteration_retriangulation; ite++) {
-      colmap::Timer run_timer;
-      run_timer.Start();
-      RetriangulateTracks(options_.opt_triangulator,
-                          database,
-                          rigs,
-                          cameras,
-                          frames,
-                          images,
-                          tracks);
-      run_timer.PrintSeconds();
+  // Group observations by their root.
+  uf.Compress();
+  std::unordered_map<Observation, std::vector<Observation>> track_map;
+  for (const auto& [obs, root] : uf.Parents()) {
+    track_map[root].push_back(obs);
+  }
+  LOG(INFO) << "Established " << track_map.size() << " tracks from "
+            << uf.Parents().size() << " observations";
 
-      std::cout << "-------------------------------------" << '\n';
-      std::cout << "Running bundle adjustment ..." << '\n';
-      std::cout << "-------------------------------------" << '\n';
-      LOG(INFO) << "Bundle adjustment start" << '\n';
-      BundleAdjuster ba_engine(options_.opt_ba);
-      if (!ba_engine.Solve(rigs, cameras, frames, images, tracks)) {
-        return false;
-      }
+  // Validate tracks, check consistency, and collect valid ones with lengths.
+  std::unordered_map<point3D_t, Point3D> candidate_points3D;
+  std::vector<std::pair<size_t, point3D_t>> track_lengths;
+  size_t discarded_counter = 0;
+  point3D_t next_point3D_id = 0;
 
-      // Filter tracks based on the estimation
-      UndistortImages(cameras, images, true);
-      LOG(INFO) << "Filtering tracks by reprojection ...";
-      TrackFilter::FilterTracksByReprojection(
-          view_graph,
-          cameras,
-          images,
-          tracks,
-          options_.inlier_thresholds.max_reprojection_error);
-      if (!ba_engine.Solve(rigs, cameras, frames, images, tracks)) {
-        return false;
+  for (const auto& [track_id, observations] : track_map) {
+    std::unordered_map<image_t, std::vector<Eigen::Vector2d>> image_id_set;
+    Point3D point3D;
+    bool is_consistent = true;
+
+    for (const auto& [image_id, feature_id] : observations) {
+      const Eigen::Vector2d& xy =
+          image_id_to_keypoints.at(image_id).at(feature_id);
+
+      auto it = image_id_set.find(image_id);
+      if (it != image_id_set.end()) {
+        for (const auto& existing_xy : it->second) {
+          const double sq_threshold =
+              options.track_intra_image_consistency_threshold *
+              options.track_intra_image_consistency_threshold;
+          if ((existing_xy - xy).squaredNorm() > sq_threshold) {
+            is_consistent = false;
+            break;
+          }
+        }
+        if (!is_consistent) {
+          ++discarded_counter;
+          break;
+        }
+        it->second.push_back(xy);
+      } else {
+        image_id_set[image_id].push_back(xy);
       }
-      run_timer.PrintSeconds();
+      point3D.track.AddElement(image_id, feature_id);
     }
+
+    if (!is_consistent) continue;
+
+    const size_t num_images = image_id_set.size();
+    if (num_images < static_cast<size_t>(options.track_min_num_views_per_track))
+      continue;
+
+    const point3D_t point3D_id = next_point3D_id++;
+    track_lengths.emplace_back(point3D.track.Length(), point3D_id);
+    candidate_points3D.emplace(point3D_id, std::move(point3D));
+  }
+
+  LOG(INFO) << "Kept " << candidate_points3D.size() << " tracks, discarded "
+            << discarded_counter << " due to inconsistency";
+
+  // Sort tracks by length (descending) and select for problem.
+  std::sort(track_lengths.begin(), track_lengths.end(), std::greater<>());
+
+  std::unordered_map<image_t, size_t> tracks_per_image;
+  size_t images_left = image_id_to_keypoints.size();
+  for (const auto& [track_length, point3D_id] : track_lengths) {
+    auto& point3D = candidate_points3D.at(point3D_id);
+
+    // Check if any image in this track still needs more observations.
+    const bool should_add = std::any_of(
+        point3D.track.Elements().begin(),
+        point3D.track.Elements().end(),
+        [&](const auto& obs) {
+          return tracks_per_image[obs.image_id] <=
+                 static_cast<size_t>(options.track_required_tracks_per_view);
+        });
+    if (!should_add) continue;
+
+    // Update image counts.
+    for (const auto& obs : point3D.track.Elements()) {
+      auto& count = tracks_per_image[obs.image_id];
+      if (count == static_cast<size_t>(options.track_required_tracks_per_view))
+        --images_left;
+      ++count;
+    }
+
+    // Add track after updating counts so we can move.
+    reconstruction_->AddPoint3D(point3D_id, std::move(point3D));
+
+    if (images_left == 0) break;
+  }
+
+  LOG(INFO) << "Before filtering: " << candidate_points3D.size()
+            << ", after filtering: " << reconstruction_->NumPoints3D();
+}
+
+bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
+                                     double max_angular_reproj_error_deg,
+                                     double max_normalized_reproj_error,
+                                     double min_tri_angle_deg) {
+  if (options.constraint_type != GlobalPositioningConstraintType::ONLY_POINTS) {
+    LOG(ERROR) << "Only points are used for solving camera positions";
+    return false;
+  }
+
+  GlobalPositioner gp_engine(options);
+
+  // TODO: consider to support other modes as well
+  if (!gp_engine.Solve(*pose_graph_, *reconstruction_)) {
+    return false;
+  }
+
+  // Filter tracks based on the estimation
+  colmap::ObservationManager obs_manager(*reconstruction_);
+
+  // First pass: use relaxed threshold (2x) for cameras without prior focal.
+  obs_manager.FilterPoints3DWithLargeReprojectionError(
+      2.0 * max_angular_reproj_error_deg,
+      reconstruction_->Point3DIds(),
+      colmap::ReprojectionErrorType::ANGULAR);
+
+  // Second pass: apply strict threshold for cameras with prior focal length.
+  const double max_angular_error_rad =
+      colmap::DegToRad(max_angular_reproj_error_deg);
+  std::vector<std::pair<colmap::image_t, colmap::point2D_t>> obs_to_delete;
+  for (const auto point3D_id : reconstruction_->Point3DIds()) {
+    if (!reconstruction_->ExistsPoint3D(point3D_id)) {
+      continue;
+    }
+    const auto& point3D = reconstruction_->Point3D(point3D_id);
+    for (const auto& track_el : point3D.track.Elements()) {
+      const auto& image = reconstruction_->Image(track_el.image_id);
+      const auto& camera = *image.CameraPtr();
+      if (!camera.has_prior_focal_length) {
+        continue;
+      }
+      const auto& point2D = image.Point2D(track_el.point2D_idx);
+      const double error = colmap::CalculateAngularReprojectionError(
+          point2D.xy, point3D.xyz, image.CamFromWorld(), camera);
+      if (error > max_angular_error_rad) {
+        obs_to_delete.emplace_back(track_el.image_id, track_el.point2D_idx);
+      }
+    }
+  }
+  for (const auto& [image_id, point2D_idx] : obs_to_delete) {
+    if (reconstruction_->Image(image_id).Point2D(point2D_idx).HasPoint3D()) {
+      obs_manager.DeleteObservation(image_id, point2D_idx);
+    }
+  }
+
+  // Filter tracks based on triangulation angle and reprojection error
+  obs_manager.FilterPoints3DWithSmallTriangulationAngle(
+      min_tri_angle_deg, reconstruction_->Point3DIds());
+  // Set the threshold to be larger to avoid removing too many tracks
+  obs_manager.FilterPoints3DWithLargeReprojectionError(
+      10 * max_normalized_reproj_error,
+      reconstruction_->Point3DIds(),
+      colmap::ReprojectionErrorType::NORMALIZED);
+
+  // Normalize the structure
+  // If the camera rig is used, the structure do not need to be normalized
+  reconstruction_->Normalize();
+
+  return true;
+}
+
+bool GlobalMapper::IterativeBundleAdjustment(
+    const BundleAdjusterOptions& options,
+    double max_normalized_reproj_error,
+    double min_tri_angle_deg,
+    int num_iterations) {
+  for (int ite = 0; ite < num_iterations; ite++) {
+    // First stage: optimize positions only (rotation constant)
+    if (!RunBundleAdjustment(options,
+                             /*constant_rotation=*/true,
+                             *reconstruction_)) {
+      return false;
+    }
+    LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
+              << num_iterations << ", stage 1 finished (position only)";
+
+    // Second stage: optimize rotations if desired
+    if (options.optimize_rotations &&
+        !RunBundleAdjustment(options,
+                             /*constant_rotation=*/false,
+                             *reconstruction_)) {
+      return false;
+    }
+    LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
+              << num_iterations << ", stage 2 finished";
 
     // Normalize the structure
-    NormalizeReconstruction(rigs, cameras, frames, images, tracks);
+    reconstruction_->Normalize();
 
     // Filter tracks based on the estimation
-    UndistortImages(cameras, images, true);
+    // For the filtering, in each round, the criteria for outlier is
+    // tightened. If only few tracks are changed, no need to start bundle
+    // adjustment right away. Instead, use a more strict criteria to filter
     LOG(INFO) << "Filtering tracks by reprojection ...";
-    TrackFilter::FilterTracksByReprojection(
-        view_graph,
-        cameras,
-        images,
-        tracks,
-        options_.inlier_thresholds.max_reprojection_error);
-    TrackFilter::FilterTrackTriangulationAngle(
-        view_graph,
-        images,
-        tracks,
-        options_.inlier_thresholds.min_triangulation_angle);
+
+    colmap::ObservationManager obs_manager(*reconstruction_);
+    bool status = true;
+    size_t filtered_num = 0;
+    while (status && ite < num_iterations) {
+      double scaling = std::max(3 - ite, 1);
+      filtered_num += obs_manager.FilterPoints3DWithLargeReprojectionError(
+          scaling * max_normalized_reproj_error,
+          reconstruction_->Point3DIds(),
+          colmap::ReprojectionErrorType::NORMALIZED);
+
+      if (filtered_num > 1e-3 * reconstruction_->NumPoints3D()) {
+        status = false;
+      } else {
+        ite++;
+      }
+    }
+    if (status) {
+      LOG(INFO) << "fewer than 0.1% tracks are filtered, stop the iteration.";
+      break;
+    }
   }
 
-  // 8. Reconstruction pruning
-  if (!options_.skip_pruning) {
-    std::cout << "-------------------------------------" << '\n';
-    std::cout << "Running postprocessing ..." << '\n';
-    std::cout << "-------------------------------------" << '\n';
+  // Filter tracks based on the estimation
+  LOG(INFO) << "Filtering tracks by reprojection ...";
+  {
+    colmap::ObservationManager obs_manager(*reconstruction_);
+    obs_manager.FilterPoints3DWithLargeReprojectionError(
+        max_normalized_reproj_error,
+        reconstruction_->Point3DIds(),
+        colmap::ReprojectionErrorType::NORMALIZED);
+    obs_manager.FilterPoints3DWithSmallTriangulationAngle(
+        min_tri_angle_deg, reconstruction_->Point3DIds());
+  }
 
+  return true;
+}
+
+bool GlobalMapper::IterativeRetriangulateAndRefine(
+    const colmap::IncrementalTriangulator::Options& options,
+    const BundleAdjusterOptions& ba_options,
+    double max_normalized_reproj_error,
+    double min_tri_angle_deg) {
+  // Delete all existing 3D points and re-establish 2D-3D correspondences.
+  reconstruction_->DeleteAllPoints2DAndPoints3D();
+
+  // Initialize mapper.
+  colmap::IncrementalMapper mapper(database_cache_);
+  mapper.BeginReconstruction(reconstruction_);
+
+  // Triangulate all registered images.
+  for (const auto image_id : reconstruction_->RegImageIds()) {
+    mapper.TriangulateImage(options, image_id);
+  }
+
+  // Set up bundle adjustment options for colmap's incremental mapper.
+  colmap::BundleAdjustmentOptions colmap_ba_options;
+  colmap_ba_options.solver_options.num_threads =
+      ba_options.solver_options.num_threads;
+  colmap_ba_options.solver_options.max_num_iterations = 50;
+  colmap_ba_options.solver_options.max_linear_solver_iterations = 100;
+  colmap_ba_options.print_summary = false;
+
+  // Iterative global refinement.
+  colmap::IncrementalMapper::Options mapper_options;
+  mapper_options.random_seed = options.random_seed;
+  mapper.IterativeGlobalRefinement(/*max_num_refinements=*/5,
+                                   /*max_refinement_change=*/0.0005,
+                                   mapper_options,
+                                   colmap_ba_options,
+                                   options,
+                                   /*normalize_reconstruction=*/true);
+
+  mapper.EndReconstruction(/*discard=*/false);
+
+  // Final filtering and bundle adjustment.
+  colmap::ObservationManager obs_manager(*reconstruction_);
+  obs_manager.FilterPoints3DWithLargeReprojectionError(
+      max_normalized_reproj_error,
+      reconstruction_->Point3DIds(),
+      colmap::ReprojectionErrorType::NORMALIZED);
+
+  if (!RunBundleAdjustment(ba_options,
+                           /*constant_rotation=*/false,
+                           *reconstruction_)) {
+    return false;
+  }
+
+  reconstruction_->Normalize();
+
+  obs_manager.FilterPoints3DWithLargeReprojectionError(
+      max_normalized_reproj_error,
+      reconstruction_->Point3DIds(),
+      colmap::ReprojectionErrorType::NORMALIZED);
+  obs_manager.FilterPoints3DWithSmallTriangulationAngle(
+      min_tri_angle_deg, reconstruction_->Point3DIds());
+
+  return true;
+}
+
+// TODO: Rig normalizaiton has not been done
+bool GlobalMapper::Solve(const GlobalMapperOptions& options,
+                         std::unordered_map<frame_t, int>& cluster_ids) {
+  THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(pose_graph_);
+
+  if (pose_graph_->Empty()) {
+    LOG(ERROR) << "Cannot continue with empty pose graph";
+    return false;
+  }
+
+  // Propagate random seed and num_threads to component options.
+  GlobalMapperOptions opts = InitializeOptions(options);
+
+  // Run rotation averaging
+  if (!opts.skip_rotation_averaging) {
+    LOG_HEADING1("Running rotation averaging");
     colmap::Timer run_timer;
     run_timer.Start();
+    if (!RotationAveraging(opts.rotation_averaging)) {
+      return false;
+    }
+    LOG(INFO) << "Rotation averaging done in " << run_timer.ElapsedSeconds()
+              << " seconds";
+  }
 
-    // Prune weakly connected images
-    PruneWeaklyConnectedImages(frames, images, tracks);
+  // Track establishment and selection
+  if (!opts.skip_track_establishment) {
+    LOG_HEADING1("Running track establishment");
+    colmap::Timer run_timer;
+    run_timer.Start();
+    EstablishTracks(opts);
+    LOG(INFO) << "Track establishment done in " << run_timer.ElapsedSeconds()
+              << " seconds";
+  }
 
-    run_timer.PrintSeconds();
+  // Global positioning
+  if (!opts.skip_global_positioning) {
+    LOG_HEADING1("Running global positioning");
+    colmap::Timer run_timer;
+    run_timer.Start();
+    if (!GlobalPositioning(opts.global_positioning,
+                           opts.max_angular_reproj_error_deg,
+                           opts.max_normalized_reproj_error,
+                           opts.min_tri_angle_deg)) {
+      return false;
+    }
+    LOG(INFO) << "Global positioning done in " << run_timer.ElapsedSeconds()
+              << " seconds";
+  }
+
+  // Bundle adjustment
+  if (!opts.skip_bundle_adjustment) {
+    LOG_HEADING1("Running iterative bundle adjustment");
+    colmap::Timer run_timer;
+    run_timer.Start();
+    if (!IterativeBundleAdjustment(opts.bundle_adjustment,
+                                   opts.max_normalized_reproj_error,
+                                   opts.min_tri_angle_deg,
+                                   opts.ba_num_iterations)) {
+      return false;
+    }
+    LOG(INFO) << "Iterative bundle adjustment done in "
+              << run_timer.ElapsedSeconds() << " seconds";
+  }
+
+  // Retriangulation
+  if (!opts.skip_retriangulation) {
+    LOG_HEADING1("Running iterative retriangulation and refinement");
+    colmap::Timer run_timer;
+    run_timer.Start();
+    if (!IterativeRetriangulateAndRefine(opts.retriangulation,
+                                         opts.bundle_adjustment,
+                                         opts.max_normalized_reproj_error,
+                                         opts.min_tri_angle_deg)) {
+      return false;
+    }
+    LOG(INFO) << "Iterative retriangulation and refinement done in "
+              << run_timer.ElapsedSeconds() << " seconds";
+  }
+
+  // Reconstruction pruning
+  if (!opts.skip_pruning) {
+    LOG_HEADING1("Running postprocessing");
+    colmap::Timer run_timer;
+    run_timer.Start();
+    cluster_ids = PruneWeaklyConnectedFrames(*reconstruction_);
+    LOG(INFO) << "Postprocessing done in " << run_timer.ElapsedSeconds()
+              << " seconds";
   }
 
   return true;

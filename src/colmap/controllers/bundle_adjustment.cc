@@ -69,7 +69,7 @@ BundleAdjustmentController::BundleAdjustmentController(
 void BundleAdjustmentController::Run() {
   THROW_CHECK_NOTNULL(reconstruction_);
 
-  PrintHeading1("Global bundle adjustment");
+  LOG_HEADING1("Global bundle adjustment");
   Timer run_timer;
   run_timer.Start();
 

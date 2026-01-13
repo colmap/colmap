@@ -31,6 +31,8 @@
 
 namespace colmap {
 
+void Frame::ClearDataIds() { data_ids_.clear(); }
+
 void Frame::SetRigPtr(class Rig* rig) {
   THROW_CHECK_NOTNULL(rig);
   THROW_CHECK_NE(rig->RigId(), kInvalidRigId);

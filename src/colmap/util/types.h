@@ -191,7 +191,7 @@ constexpr data_t kInvalidDataId = data_t(kInvalidSensorId, data_t::kInvalidId);
 // Return true if image pairs should be swapped. Used to enforce a specific
 // image order to generate unique image pair identifiers independent of the
 // order in which the image identifiers are used.
-inline bool SwapImagePair(image_t image_id1, image_t image_id2) {
+inline bool ShouldSwapImagePair(image_t image_id1, image_t image_id2) {
   return image_id1 > image_id2;
 }
 
@@ -206,7 +206,7 @@ inline void ThrowIfGtMaxImages(image_t image_id) {
 inline image_pair_t ImagePairToPairId(image_t image_id1, image_t image_id2) {
   ThrowIfGtMaxImages(image_id1);
   ThrowIfGtMaxImages(image_id2);
-  if (SwapImagePair(image_id1, image_id2)) {
+  if (ShouldSwapImagePair(image_id1, image_id2)) {
     return static_cast<image_pair_t>(kMaxNumImages) * image_id2 + image_id1;
   } else {
     return static_cast<image_pair_t>(kMaxNumImages) * image_id1 + image_id2;

@@ -280,21 +280,22 @@ int RunImageRegistrator(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  PrintHeading1("Loading database");
+  LOG_HEADING1("Loading database");
 
   std::shared_ptr<DatabaseCache> database_cache;
 
   {
     Timer timer;
     timer.Start();
+    DatabaseCache::Options database_cache_options;
+    database_cache_options.min_num_matches =
+        static_cast<size_t>(options.mapper->min_num_matches);
+    database_cache_options.ignore_watermarks =
+        options.mapper->ignore_watermarks;
+    database_cache_options.image_names = {options.mapper->image_names.begin(),
+                                          options.mapper->image_names.end()};
     database_cache = DatabaseCache::Create(
-        *Database::Open(*options.database_path),
-        /*min_num_matches=*/
-        static_cast<size_t>(options.mapper->min_num_matches),
-        /*ignore_watermarks=*/options.mapper->ignore_watermarks,
-        /*image_names=*/
-        {options.mapper->image_names.begin(),
-         options.mapper->image_names.end()});
+        *Database::Open(*options.database_path), database_cache_options);
     timer.PrintMinutes();
   }
 
@@ -311,8 +312,8 @@ int RunImageRegistrator(int argc, char** argv) {
       continue;
     }
 
-    PrintHeading1("Registering image #" + std::to_string(image.first) + " (" +
-                  std::to_string(reconstruction->NumRegImages() + 1) + ")");
+    LOG_HEADING1("Registering image #" + std::to_string(image.first) + " (" +
+                 std::to_string(reconstruction->NumRegImages() + 1) + ")");
 
     LOG(INFO) << "\n=> Image sees "
               << mapper.ObservationManager().NumVisiblePoints3D(image.first)
@@ -337,7 +338,7 @@ int RunImageUndistorter(int argc, char** argv) {
   std::string image_list_path;
   std::string copy_policy = "copy";
   int num_patch_match_src_images = 20;
-  CopyType copy_type;
+  FileCopyType copy_type = FileCopyType::COPY;
 
   UndistortCameraOptions undistort_camera_options;
 
@@ -349,7 +350,7 @@ int RunImageUndistorter(int argc, char** argv) {
       "output_type", &output_type, "{COLMAP, PMVS, CMP-MVS}");
   options.AddDefaultOption("image_list_path", &image_list_path);
   options.AddDefaultOption(
-      "copy_policy", &copy_policy, "{copy, soft-link, hard-link}");
+      "copy_policy", &copy_policy, "{COPY, SOFT_LINK, HARD_LINK}");
   options.AddDefaultOption("num_patch_match_src_images",
                            &num_patch_match_src_images);
   options.AddDefaultOption("blank_pixels",
@@ -368,7 +369,7 @@ int RunImageUndistorter(int argc, char** argv) {
 
   CreateDirIfNotExists(output_path);
 
-  PrintHeading1("Reading reconstruction");
+  LOG_HEADING1("Reading reconstruction");
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
   LOG(INFO) << StringPrintf("=> Reconstruction with %d images and %d points",
@@ -387,18 +388,8 @@ int RunImageUndistorter(int argc, char** argv) {
     }
   }
 
-  StringToLower(&copy_policy);
-  if (copy_policy == "copy") {
-    copy_type = CopyType::COPY;
-  } else if (copy_policy == "soft-link") {
-    copy_type = CopyType::SOFT_LINK;
-  } else if (copy_policy == "hard-link") {
-    copy_type = CopyType::HARD_LINK;
-  } else {
-    LOG(ERROR) << "Invalid `copy_policy` - supported values are "
-                  "{'copy', 'soft-link', 'hard-link'}.";
-    return EXIT_FAILURE;
-  }
+  StringToUpper(&copy_policy);
+  copy_type = FileCopyTypeFromString(copy_policy);
 
   std::unique_ptr<BaseController> undistorter;
   if (output_type == "COLMAP") {
@@ -510,12 +501,11 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
     }
   }
 
-  std::unique_ptr<BaseController> undistorter;
-  undistorter.reset(new PureImageUndistorter(undistort_camera_options,
+  auto undistorter =
+      std::make_unique<PureImageUndistorter>(undistort_camera_options,
                                              *options.image_path,
                                              output_path,
-                                             image_names_and_cameras));
-
+                                             image_names_and_cameras);
   undistorter->Run();
 
   return EXIT_SUCCESS;

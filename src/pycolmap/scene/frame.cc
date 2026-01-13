@@ -28,6 +28,7 @@ void BindFrame(py::module& m) {
                     &Frame::RigId,
                     &Frame::SetRigId,
                     "Unique identifier of the rig.")
+      .def("has_rig_id", &Frame::HasRigId, "Check whether the rig_id is set.")
       .def("add_data_id", &Frame::AddDataId, "Associate data with frame.")
       .def("num_data_ids",
            &Frame::NumDataIds,
@@ -35,6 +36,9 @@ void BindFrame(py::module& m) {
       .def("has_data",
            &Frame::HasDataId,
            "Check whether frame has associated data.")
+      .def("clear_data_ids",
+           &Frame::ClearDataIds,
+           "Clear all the associated data.")
       .def_property_readonly(
           "data_ids",
           [](const Frame& self) { return self.DataIds(); },

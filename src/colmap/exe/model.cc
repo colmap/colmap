@@ -357,10 +357,10 @@ int RunModelAligner(int argc, char** argv) {
   Sim3d tform;
 
   if (alignment_type == "plane") {
-    PrintHeading2("Aligning reconstruction to principal plane");
+    LOG_HEADING2("Aligning reconstruction to principal plane");
     AlignToPrincipalPlane(&reconstruction, &tform);
   } else {
-    PrintHeading2("Aligning reconstruction to " + alignment_type);
+    LOG_HEADING2("Aligning reconstruction to " + alignment_type);
     LOG(INFO) << StringPrintf("=> Using %d reference images",
                               ref_image_names.size());
 
@@ -393,7 +393,7 @@ int RunModelAligner(int argc, char** argv) {
                               Median(errors));
 
     if (alignment_success && StringStartsWith(alignment_type, "enu-plane")) {
-      PrintHeading2("Aligning ECEF aligned reconstruction to ENU plane");
+      LOG_HEADING2("Aligning ECEF aligned reconstruction to ENU plane");
       AlignToENUPlane(
           &reconstruction, &tform, alignment_type == "enu-plane-unscaled");
     }
@@ -469,7 +469,7 @@ int RunModelAnalyzer(int argc, char** argv) {
 
   // verbose information
   if (verbose) {
-    PrintHeading2("Cameras");
+    LOG_HEADING2("Cameras");
     for (const auto& camera : reconstruction.Cameras()) {
       LOG(INFO) << StringPrintf(" - Camera Id: %d, Model Name: %s, Params: %s",
                                 camera.first,
@@ -477,7 +477,7 @@ int RunModelAnalyzer(int argc, char** argv) {
                                 camera.second.ParamsToString().c_str());
     }
 
-    PrintHeading2("Images");
+    LOG_HEADING2("Images");
     for (const auto& image_id : reconstruction.RegImageIds()) {
       LOG(INFO) << StringPrintf(" - Registered Image Id: %d, Name: %s",
                                 image_id,
@@ -552,17 +552,17 @@ bool CompareModels(const Reconstruction& reconstruction1,
                    const double max_proj_center_error,
                    std::vector<ImageAlignmentError>& errors,
                    Sim3d& rec2_from_rec1) {
-  PrintHeading1("Reconstruction 1");
+  LOG_HEADING1("Reconstruction 1");
   LOG(INFO) << StringPrintf("Frames: %d", reconstruction1.NumRegFrames());
   LOG(INFO) << StringPrintf("Images: %d", reconstruction1.NumRegImages());
   LOG(INFO) << StringPrintf("Points: %d", reconstruction1.NumPoints3D());
 
-  PrintHeading1("Reconstruction 2");
+  LOG_HEADING1("Reconstruction 2");
   LOG(INFO) << StringPrintf("Frames: %d", reconstruction2.NumRegFrames());
   LOG(INFO) << StringPrintf("Images: %d", reconstruction2.NumRegImages());
   LOG(INFO) << StringPrintf("Points: %d", reconstruction2.NumPoints3D());
 
-  PrintHeading1("Comparing reconstructed image poses");
+  LOG_HEADING1("Comparing reconstructed image poses");
   const std::vector<std::pair<image_t, image_t>> common_image_ids =
       reconstruction1.FindCommonRegImageIds(reconstruction2);
   LOG(INFO) << StringPrintf("Common images: %d", common_image_ids.size());
@@ -596,7 +596,7 @@ bool CompareModels(const Reconstruction& reconstruction1,
   errors = ComputeImageAlignmentError(
       reconstruction1, reconstruction2, rec2_from_rec1);
 
-  PrintHeading2("Image alignment error summary");
+  LOG_HEADING2("Image alignment error summary");
   PrintComparisonSummary(std::cout, errors);
 
   return true;
@@ -694,12 +694,12 @@ int RunModelCropper(int argc, char** argv) {
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
 
-  PrintHeading2("Calculating boundary coordinates");
+  LOG_HEADING2("Calculating boundary coordinates");
   Eigen::AlignedBox3d bounding_box;
   if (boundary_elements.size() == 6) {
     Sim3d tform;
     if (!gps_transform_path.empty()) {
-      PrintHeading2("Reading model to ECEF transform");
+      LOG_HEADING2("Reading model to ECEF transform");
       is_gps = true;
       tform = Inverse(Sim3d::FromFile(gps_transform_path));
     }
@@ -724,7 +724,7 @@ int RunModelCropper(int argc, char** argv) {
                                                      boundary_elements[1]);
   }
 
-  PrintHeading2("Cropping reconstruction");
+  LOG_HEADING2("Cropping reconstruction");
   reconstruction.Crop(bounding_box).Write(output_path);
   WriteBoundingBox(output_path, bounding_box);
 
@@ -750,21 +750,21 @@ int RunModelMerger(int argc, char** argv) {
 
   Reconstruction reconstruction1;
   reconstruction1.Read(input_path1);
-  PrintHeading2("Reconstruction 1");
+  LOG_HEADING2("Reconstruction 1");
   LOG(INFO) << StringPrintf("Images: %d", reconstruction1.NumRegImages());
   LOG(INFO) << StringPrintf("Points: %d", reconstruction1.NumPoints3D());
 
   Reconstruction reconstruction2;
   reconstruction2.Read(input_path2);
-  PrintHeading2("Reconstruction 2");
+  LOG_HEADING2("Reconstruction 2");
   LOG(INFO) << StringPrintf("Images: %d", reconstruction2.NumRegImages());
   LOG(INFO) << StringPrintf("Points: %d", reconstruction2.NumPoints3D());
 
-  PrintHeading2("Merging reconstructions");
+  LOG_HEADING2("Merging reconstructions");
   if (MergeAndFilterReconstructions(
           max_reproj_error, reconstruction1, reconstruction2)) {
     LOG(INFO) << "=> Merge succeeded";
-    PrintHeading2("Merged reconstruction");
+    LOG_HEADING2("Merged reconstruction");
     LOG(INFO) << StringPrintf("Images: %d", reconstruction2.NumRegImages());
     LOG(INFO) << StringPrintf("Points: %d", reconstruction2.NumPoints3D());
   } else {
@@ -821,14 +821,14 @@ int RunModelOrientationAligner(int argc, char** argv) {
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
 
-  PrintHeading1("Aligning Reconstruction");
+  LOG_HEADING1("Aligning Reconstruction");
 
   Sim3d new_from_old_world;
 
 #ifdef COLMAP_LSD_ENABLED
   if (method == "manhattan-world") {
     const Eigen::Matrix3d frame = EstimateManhattanWorldFrame(
-        frame_estimation_options, reconstruction, *options.image_path);
+        frame_estimation_options, reconstruction, options.image_path->string());
 
     if (frame.col(0).lpNorm<1>() == 0) {
       LOG(INFO) << "Only aligning vertical axis";
@@ -913,7 +913,7 @@ int RunModelSplitter(int argc, char** argv) {
     overlap_ratio = 0.0;
   }
 
-  PrintHeading1("Splitting sparse model");
+  LOG_HEADING1("Splitting sparse model");
   LOG(INFO) << StringPrintf("=> Using \"%s\" split type", split_type.c_str());
 
   Reconstruction reconstruction;
@@ -921,14 +921,14 @@ int RunModelSplitter(int argc, char** argv) {
 
   Sim3d tform;
   if (!gps_transform_path.empty()) {
-    PrintHeading2("Reading model to ECEF transform");
+    LOG_HEADING2("Reading model to ECEF transform");
     is_gps = true;
     tform = Inverse(Sim3d::FromFile(gps_transform_path));
   }
 
   // Create the necessary number of reconstructions based on the split method
   // and get the bounding boxes for each sub-reconstruction
-  PrintHeading2("Computing bounding boxes");
+  LOG_HEADING2("Computing bounding boxes");
   std::vector<std::string> tile_keys;
   std::vector<Eigen::AlignedBox3d> exact_bboxes;
   StringToLower(&split_type);
@@ -991,7 +991,7 @@ int RunModelSplitter(int argc, char** argv) {
     padded_bboxes.emplace_back(bbox.min() - padding, bbox.max() + padding);
   }
 
-  PrintHeading2("Applying split and writing reconstructions");
+  LOG_HEADING2("Applying split and writing reconstructions");
   const size_t num_parts = padded_bboxes.size();
   LOG(INFO) << StringPrintf("=> Splitting to %d parts", num_parts);
 

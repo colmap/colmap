@@ -1,16 +1,15 @@
 #pragma once
 
-// #include "glomap/estimators/bundle_adjustment.h"
-#include "glomap/estimators/optimization_base.h"
-#include "glomap/scene/types_sfm.h"
-#include "glomap/types.h"
+#include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/scene/reconstruction.h"
+
+#include <string>
 
 #include <ceres/ceres.h>
 
 namespace glomap {
 
-struct BundleAdjusterOptions : public OptimizationBaseOptions {
- public:
+struct BundleAdjusterOptions {
   // Flags for which parameters to optimize
   bool optimize_rig_poses = false;  // Whether to optimize the rig poses
   bool optimize_rotations = true;
@@ -26,61 +25,30 @@ struct BundleAdjusterOptions : public OptimizationBaseOptions {
   // Constrain the minimum number of views per track
   int min_num_view_per_track = 3;
 
-  BundleAdjusterOptions() : OptimizationBaseOptions() {
-    thres_loss_function = 1.;
+  // Scaling factor for the loss function
+  double loss_function_scale = 1.0;
+
+  // The options for the solver
+  ceres::Solver::Options solver_options;
+
+  BundleAdjusterOptions() {
+    solver_options.num_threads = -1;
     solver_options.max_num_iterations = 200;
+    solver_options.function_tolerance = 1e-5;
+    // Use SPARSE_SCHUR with CLUSTER_TRIDIAGONAL for global SfM
+    solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
+    solver_options.preconditioner_type = ceres::CLUSTER_TRIDIAGONAL;
   }
 
-  std::shared_ptr<ceres::LossFunction> CreateLossFunction() {
-    return std::make_shared<ceres::HuberLoss>(thres_loss_function);
-  }
+  // Convert to colmap BundleAdjustmentOptions
+  colmap::BundleAdjustmentOptions ToColmapOptions() const;
 };
-class BundleAdjuster {
- public:
-  explicit BundleAdjuster(const BundleAdjusterOptions& options)
-      : options_(options) {}
 
-  // Returns true if the optimization was a success, false if there was a
-  // failure.
-  // Assume tracks here are already filtered
-  bool Solve(std::unordered_map<rig_t, Rig>& rigs,
-             std::unordered_map<camera_t, colmap::Camera>& cameras,
-             std::unordered_map<frame_t, Frame>& frames,
-             std::unordered_map<image_t, Image>& images,
-             std::unordered_map<point3D_t, Point3D>& tracks);
-
-  BundleAdjusterOptions& GetOptions() { return options_; }
-
- private:
-  // Reset the problem
-  void Reset();
-
-  // Add tracks to the problem
-  void AddPointToCameraConstraints(
-      std::unordered_map<rig_t, Rig>& rigs,
-      std::unordered_map<camera_t, colmap::Camera>& cameras,
-      std::unordered_map<frame_t, Frame>& frames,
-      std::unordered_map<image_t, Image>& images,
-      std::unordered_map<point3D_t, Point3D>& tracks);
-
-  // Set the parameter groups
-  void AddCamerasAndPointsToParameterGroups(
-      std::unordered_map<rig_t, Rig>& rigs,
-      std::unordered_map<camera_t, colmap::Camera>& cameras,
-      std::unordered_map<frame_t, Frame>& frames,
-      std::unordered_map<point3D_t, Point3D>& tracks);
-
-  // Parameterize the variables, set some variables to be constant if desired
-  void ParameterizeVariables(
-      std::unordered_map<rig_t, Rig>& rigs,
-      std::unordered_map<camera_t, colmap::Camera>& cameras,
-      std::unordered_map<frame_t, Frame>& frames,
-      std::unordered_map<point3D_t, Point3D>& tracks);
-
-  BundleAdjusterOptions options_;
-
-  std::unique_ptr<ceres::Problem> problem_;
-  std::shared_ptr<ceres::LossFunction> loss_function_;
-};
+// Run bundle adjustment using colmap's implementation.
+// constant_rotation: if true, keep rotation constant (only optimize
+// translation)
+bool RunBundleAdjustment(const BundleAdjusterOptions& options,
+                         bool constant_rotation,
+                         colmap::Reconstruction& reconstruction);
 
 }  // namespace glomap

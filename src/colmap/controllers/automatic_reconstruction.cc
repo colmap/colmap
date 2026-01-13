@@ -60,8 +60,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.image_reader->image_names = options_.image_names;
   option_manager_.mapper->image_names = {options_.image_names.begin(),
                                          options_.image_names.end()};
-  *option_manager_.database_path =
-      JoinPaths(options_.workspace_path, "database.db");
+  *option_manager_.database_path = options_.workspace_path / "database.db";
 
   if (options_.data_type == DataType::VIDEO) {
     option_manager_.ModifyForVideoData();
@@ -92,22 +91,29 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.mapper->num_threads = options_.num_threads;
   option_manager_.poisson_meshing->num_threads = options_.num_threads;
 
-  option_manager_.two_view_geometry->ransac_options.random_seed =
-      options_.random_seed;
+  // Apply mapper-appropriate two-view geometry defaults.
+  // Global uses stricter thresholds; Incremental/Hierarchical use standard.
+  TwoViewGeometryOptions& two_view_geometry_options =
+      *option_manager_.two_view_geometry;
+  two_view_geometry_options.ransac_options.random_seed = options_.random_seed;
+  if (options_.mapper == Mapper::GLOBAL) {
+    two_view_geometry_options.ransac_options.max_error = 1.0;
+    two_view_geometry_options.min_num_inliers = 30;
+    two_view_geometry_options.min_inlier_ratio = 0.25;
+    // Disable guided matching for global mapper to avoid regression issues.
+    // Currently the guided matching leads to significantly worse results of the
+    // global pipeline.
+    // TODO: Write to database matches instead of inlier matches in guided
+    // matching and figure out a good min_num_inliers and min_inlier_ratio
+    // threshold for it.
+    option_manager_.feature_matching->guided_matching = false;
+  }
+
   option_manager_.mapper->random_seed = options_.random_seed;
 
-  ImageReaderOptions& reader_options = *option_manager_.image_reader;
-  reader_options.image_path = *option_manager_.image_path;
-  reader_options.as_rgb = option_manager_.feature_extraction->RequiresRGB();
   if (!options_.mask_path.empty()) {
-    reader_options.mask_path = options_.mask_path;
-    option_manager_.image_reader->mask_path = options_.mask_path;
     option_manager_.stereo_fusion->mask_path = options_.mask_path;
   }
-  reader_options.single_camera = options_.single_camera;
-  reader_options.single_camera_per_folder = options_.single_camera_per_folder;
-  reader_options.camera_model = options_.camera_model;
-  reader_options.camera_params = options_.camera_params;
 
   option_manager_.feature_extraction->use_gpu = options_.use_gpu;
   option_manager_.feature_matching->use_gpu = options_.use_gpu;
@@ -119,8 +125,25 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.patch_match_stereo->gpu_index = options_.gpu_index;
   option_manager_.mapper->ba_gpu_index = options_.gpu_index;
   option_manager_.bundle_adjustment->gpu_index = options_.gpu_index;
+}
 
+bool AutomaticReconstructionController::RequiresOpenGL() const {
+  return (options_.extraction &&
+          option_manager_.feature_extraction->RequiresOpenGL()) ||
+         (options_.matching &&
+          option_manager_.feature_matching->RequiresOpenGL());
+}
+
+void AutomaticReconstructionController::Setup() {
   if (options_.extraction) {
+    ImageReaderOptions& reader_options = *option_manager_.image_reader;
+    reader_options.mask_path = options_.mask_path;
+    reader_options.single_camera = options_.single_camera;
+    reader_options.single_camera_per_folder = options_.single_camera_per_folder;
+    reader_options.camera_model = options_.camera_model;
+    reader_options.camera_params = options_.camera_params;
+    reader_options.image_path = *option_manager_.image_path;
+    reader_options.as_rgb = option_manager_.feature_extraction->RequiresRGB();
     feature_extractor_ =
         CreateFeatureExtractorController(*option_manager_.database_path,
                                          reader_options,
@@ -234,7 +257,7 @@ void AutomaticReconstructionController::RunFeatureMatching() {
 }
 
 void AutomaticReconstructionController::RunSparseMapper() {
-  const auto sparse_path = JoinPaths(options_.workspace_path, "sparse");
+  const auto sparse_path = options_.workspace_path / "sparse";
   if (ExistsDir(sparse_path)) {
     auto dir_list = GetDirList(sparse_path);
     std::sort(dir_list.begin(), dir_list.end());
@@ -249,29 +272,30 @@ void AutomaticReconstructionController::RunSparseMapper() {
   }
 
   std::unique_ptr<BaseController> mapper;
+  auto database = Database::Open(*option_manager_.database_path);
   switch (options_.mapper) {
     case Mapper::INCREMENTAL: {
-      mapper =
-          std::make_unique<IncrementalPipeline>(option_manager_.mapper,
-                                                *option_manager_.image_path,
-                                                *option_manager_.database_path,
-                                                reconstruction_manager_);
+      IncrementalPipelineOptions options = *option_manager_.mapper;
+      options.image_path = *option_manager_.image_path;
+      mapper = std::make_unique<IncrementalPipeline>(
+          option_manager_.mapper, std::move(database), reconstruction_manager_);
       break;
     }
     case Mapper::HIERARCHICAL: {
       HierarchicalPipeline::Options options;
       options.image_path = *option_manager_.image_path;
-      options.database_path = *option_manager_.database_path;
       options.incremental_options = *option_manager_.mapper;
-      mapper = std::make_unique<HierarchicalPipeline>(options,
-                                                      reconstruction_manager_);
+      mapper = std::make_unique<HierarchicalPipeline>(
+          options, std::move(database), reconstruction_manager_);
       break;
     }
     case Mapper::GLOBAL: {
-      mapper = std::make_unique<GlobalPipeline>(glomap::GlobalMapperOptions(),
-                                                *option_manager_.image_path,
-                                                *option_manager_.database_path,
-                                                reconstruction_manager_);
+      GlobalPipelineOptions global_options;
+      global_options.image_path = option_manager_.image_path->string();
+      global_options.num_threads = options_.num_threads;
+      global_options.random_seed = options_.random_seed;
+      mapper = std::make_unique<GlobalPipeline>(
+          global_options, std::move(database), reconstruction_manager_);
       break;
     }
     default:
@@ -283,26 +307,26 @@ void AutomaticReconstructionController::RunSparseMapper() {
 
   CreateDirIfNotExists(sparse_path);
   reconstruction_manager_->Write(sparse_path);
-  option_manager_.Write(JoinPaths(sparse_path, "project.ini"));
+  option_manager_.Write(sparse_path / "project.ini");
 }
 
 void AutomaticReconstructionController::RunDenseMapper() {
-  CreateDirIfNotExists(JoinPaths(options_.workspace_path, "dense"));
+  CreateDirIfNotExists(options_.workspace_path / "dense");
 
   for (size_t i = 0; i < reconstruction_manager_->Size(); ++i) {
     if (IsStopped()) {
       return;
     }
 
-    const std::string dense_path =
-        JoinPaths(options_.workspace_path, "dense", std::to_string(i));
-    const std::string fused_path = JoinPaths(dense_path, "fused.ply");
+    const auto dense_path =
+        options_.workspace_path / "dense" / std::to_string(i);
+    const auto fused_path = dense_path / "fused.ply";
 
-    std::string meshing_path;
+    std::filesystem::path meshing_path;
     if (options_.mesher == Mesher::POISSON) {
-      meshing_path = JoinPaths(dense_path, "meshed-poisson.ply");
+      meshing_path = dense_path / "meshed-poisson.ply";
     } else if (options_.mesher == Mesher::DELAUNAY) {
-      meshing_path = JoinPaths(dense_path, "meshed-delaunay.ply");
+      meshing_path = dense_path / "meshed-delaunay.ply";
     }
 
     if (ExistsFile(fused_path) && ExistsFile(meshing_path)) {
@@ -368,7 +392,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
       LOG(INFO) << "Writing output: " << fused_path;
       WriteBinaryPlyPoints(fused_path, fuser.GetFusedPoints());
-      mvs::WritePointsVisibility(fused_path + ".vis",
+      mvs::WritePointsVisibility(AddFileExtension(fused_path, ".vis"),
                                  fuser.GetFusedPointsVisibility());
     }
 

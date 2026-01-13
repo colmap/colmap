@@ -332,10 +332,10 @@ public:
 	//1. for each image, first call SetDescriptor then call SetFeatureLocation
 	//2. Call GetGuidedSiftMatch
 	//input feature location is a vector of [float x, float y, float skip[gap]]
-	SIFTGPU_EXPORT virtual void SetFeautreLocation(int index, const float* locations, int gap = 0);
+	SIFTGPU_EXPORT virtual void SetFeatureLocation(int index, const float* locations, int gap = 0);
 	inline void SetFeatureLocation(int index, const SiftGPU::SiftKeypoint * keys)
 	{
-		SetFeautreLocation(index, (const float*) keys, 2);
+		SetFeatureLocation(index, (const float*) keys, 2);
 	}
 
 	//use a guiding Homography H and a guiding Fundamental Matrix F to compute feature matches

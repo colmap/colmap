@@ -111,7 +111,8 @@ void BindBundleAdjuster(py::module& m) {
       py::enum_<BAOpts::LossFunctionType>(m, "LossFunctionType")
           .value("TRIVIAL", BAOpts::LossFunctionType::TRIVIAL)
           .value("SOFT_L1", BAOpts::LossFunctionType::SOFT_L1)
-          .value("CAUCHY", BAOpts::LossFunctionType::CAUCHY);
+          .value("CAUCHY", BAOpts::LossFunctionType::CAUCHY)
+          .value("HUBER", BAOpts::LossFunctionType::HUBER);
   AddStringToEnumConstructor(PyBALossFunctionType);
 
   auto PyBundleAdjustmentOptions =
@@ -148,6 +149,11 @@ void BindBundleAdjuster(py::module& m) {
                          &BAOpts::refine_sensor_from_rig,
                          "Whether to refine the sensor from rig extrinsic "
                          "parameter group.")
+          .def_readwrite("constant_rig_from_world_rotation",
+                         &BAOpts::constant_rig_from_world_rotation,
+                         "Whether to keep the rotation component of "
+                         "rig_from_world constant. Only takes effect when "
+                         "refine_rig_from_world is true.")
           .def_readwrite("print_summary",
                          &BAOpts::print_summary,
                          "Whether to print a final summary.")
@@ -183,6 +189,12 @@ void BindBundleAdjuster(py::module& m) {
                          &BAOpts::max_num_images_direct_sparse_gpu_solver,
                          "Threshold to switch between direct, sparse, and "
                          "iterative solvers.")
+          .def_readwrite(
+              "auto_select_solver_type",
+              &BAOpts::auto_select_solver_type,
+              "Whether to automatically select solver type based on "
+              "problem size. When False, uses the linear_solver_type "
+              "and preconditioner_type from solver_options directly.")
           .def_readwrite("solver_options",
                          &BAOpts::solver_options,
                          "Options for the Ceres solver. Using this member "

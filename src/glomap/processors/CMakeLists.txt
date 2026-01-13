@@ -32,17 +32,10 @@ set(FOLDER_NAME "glomap_processors")
 COLMAP_ADD_LIBRARY(
     NAME colmap_glomap_processors
     SRCS
-        image_pair_inliers.h image_pair_inliers.cc
-        image_undistorter.h image_undistorter.cc
-        reconstruction_normalizer.h reconstruction_normalizer.cc
         reconstruction_pruning.h reconstruction_pruning.cc
-        relpose_filter.h relpose_filter.cc
-        track_filter.h track_filter.cc
-        view_graph_manipulation.h view_graph_manipulation.cc
     PUBLIC_LINK_LIBS
         colmap_glomap_estimators
         colmap_glomap_io
-        colmap_glomap_math
         colmap_glomap_scene
         colmap_estimators
         colmap_feature

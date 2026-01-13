@@ -37,6 +37,7 @@ COLMAP_ADD_LIBRARY(
         alignment.h alignment.cc
         bundle_adjustment.h bundle_adjustment.cc
         coordinate_frame.h coordinate_frame.cc
+        cost_function_utils.h
         cost_functions.h
         manifold.h
         covariance.h covariance.cc
@@ -47,12 +48,14 @@ COLMAP_ADD_LIBRARY(
         generalized_relative_pose.h generalized_relative_pose.cc
         homography_matrix.h homography_matrix.cc
         pose.h pose.cc
+        poselib_utils.h poselib_utils.cc
         generalized_pose.h generalized_pose.cc
         similarity_transform.h similarity_transform.cc
         translation_transform.h
         triangulation.h triangulation.cc
         two_view_geometry.h two_view_geometry.cc
         utils.h utils.cc
+        view_graph_calibration.h view_graph_calibration.cc
     PUBLIC_LINK_LIBS
         colmap_util
         colmap_math
@@ -107,6 +110,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
+    NAME cost_function_utils_test
+    SRCS cost_function_utils_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
     NAME essential_matrix_test
     SRCS essential_matrix_test.cc
     LINK_LIBS colmap_estimators
@@ -147,6 +155,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
+    NAME poselib_utils_test
+    SRCS poselib_utils_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
     NAME similarity_transform_test
     SRCS similarity_transform_test.cc
     LINK_LIBS colmap_estimators
@@ -159,5 +172,10 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME two_view_geometry_test
     SRCS two_view_geometry_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME view_graph_calibration_test
+    SRCS view_graph_calibration_test.cc
     LINK_LIBS colmap_estimators
 )

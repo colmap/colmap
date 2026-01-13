@@ -36,6 +36,7 @@
 #include <future>
 #include <list>
 #include <queue>
+#include <string>
 #include <thread>
 #include <type_traits>
 #include <unordered_map>
@@ -178,6 +179,40 @@ class Thread {
   std::unordered_map<int, std::list<std::function<void()>>> callbacks_;
 };
 
+// Exception that aggregates multiple exceptions from parallel tasks.
+// Thrown by ThreadPool::Wait() when one or more tasks threw exceptions.
+class AggregateException : public std::exception {
+ public:
+  explicit AggregateException(std::vector<std::exception_ptr> excs)
+      // NOLINTNEXTLINE(bugprone-throw-keyword-missing)
+      : exceptions_(std::move(excs)) {
+    message_ =
+        std::to_string(exceptions_.size()) + " task(s) threw exception(s):\n";
+    for (size_t i = 0; i < exceptions_.size(); ++i) {
+      try {
+        std::rethrow_exception(exceptions_[i]);
+      } catch (const std::exception& e) {
+        message_ += e.what();
+      } catch (...) {
+        message_ += "Unknown exception";
+      }
+      if (i + 1 < exceptions_.size()) {
+        message_ += "\n";
+      }
+    }
+  }
+
+  const char* what() const noexcept override { return message_.c_str(); }
+
+  const std::vector<std::exception_ptr>& exceptions() const {
+    return exceptions_;
+  }
+
+ private:
+  std::vector<std::exception_ptr> exceptions_;
+  std::string message_;
+};
+
 // A thread pool class to submit generic tasks (functors) to a pool of workers:
 //
 //    ThreadPool thread_pool;
@@ -189,6 +224,9 @@ class Thread {
 //    }
 //    thread_pool.Wait();
 //
+// Exceptions thrown from the tasks are caught and propagated to the caller
+// through both the returned future and the Wait() call. Wait() throws an
+// AggregateException containing all task exceptions at once.
 class ThreadPool {
  public:
   static const int kMaxNumThreads = -1;
@@ -208,7 +246,7 @@ class ThreadPool {
   // Add new task to the thread pool.
   template <class func_t, class... args_t>
   auto AddTask(func_t&& f, args_t&&... args)
-      -> std::future<result_of_t<func_t, args_t...>>;
+      -> std::shared_future<result_of_t<func_t, args_t...>>;
 
   // Stop the execution of all workers.
   void Stop();
@@ -227,8 +265,11 @@ class ThreadPool {
  private:
   void WorkerFunc(int index);
 
+  void CheckFinishedTasks();
+
   std::vector<std::thread> workers_;
-  std::queue<std::function<void()>> tasks_;
+  std::queue<std::function<std::function<void()>()>> tasks_;
+  std::vector<std::function<void()>> finished_task_checkers_;
 
   std::mutex mutex_;
   std::condition_variable task_condition_;
@@ -325,20 +366,23 @@ size_t ThreadPool::NumThreads() const { return workers_.size(); }
 
 template <class func_t, class... args_t>
 auto ThreadPool::AddTask(func_t&& f, args_t&&... args)
-    -> std::future<result_of_t<func_t, args_t...>> {
+    -> std::shared_future<result_of_t<func_t, args_t...>> {
   typedef result_of_t<func_t, args_t...> return_t;
 
   auto task = std::make_shared<std::packaged_task<return_t()>>(
       std::bind(std::forward<func_t>(f), std::forward<args_t>(args)...));
 
-  std::future<return_t> result = task->get_future();
+  std::shared_future<return_t> result = task->get_future().share();
 
   {
     std::unique_lock<std::mutex> lock(mutex_);
     if (stopped_) {
       throw std::runtime_error("Cannot add task to stopped thread pool.");
     }
-    tasks_.emplace([task]() { (*task)(); });
+    tasks_.emplace([task = std::move(task), result]() {
+      (*task)();
+      return [result = std::move(result)]() { result.get(); };
+    });
   }
 
   task_condition_.notify_one();

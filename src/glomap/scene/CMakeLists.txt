@@ -32,13 +32,16 @@ set(FOLDER_NAME "glomap_scene")
 COLMAP_ADD_LIBRARY(
     NAME colmap_glomap_scene
     SRCS
-        view_graph.h view_graph.cc
-        frame.h
-        image_pair.h
-        image.h
-        types_sfm.h
+        pose_graph.h pose_graph.cc
         types.h
     PUBLIC_LINK_LIBS
+        colmap_estimators
         colmap_scene
         colmap_util
+)
+
+COLMAP_ADD_TEST(
+    NAME glomap_pose_graph_test
+    SRCS pose_graph_test.cc
+    LINK_LIBS colmap_glomap_scene
 )

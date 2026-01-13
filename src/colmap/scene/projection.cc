@@ -89,7 +89,8 @@ double CalculateAngularReprojectionError(const Eigen::Vector3d& cam_ray,
                                          const Eigen::Vector3d& point3D,
                                          const Rigid3d& cam_from_world) {
   const Eigen::Vector3d point3D_in_cam = cam_from_world * point3D;
-  return std::acos(cam_ray.transpose() * point3D_in_cam.normalized());
+  const double cos_angle = cam_ray.transpose() * point3D_in_cam.normalized();
+  return std::acos(std::clamp(cos_angle, -1.0, 1.0));
 }
 
 double CalculateAngularReprojectionError(
@@ -97,7 +98,8 @@ double CalculateAngularReprojectionError(
     const Eigen::Vector3d& point3D,
     const Eigen::Matrix3x4d& cam_from_world) {
   const Eigen::Vector3d point3D_in_cam = cam_from_world * point3D.homogeneous();
-  return std::acos(cam_ray.transpose() * point3D_in_cam.normalized());
+  const double cos_angle = cam_ray.transpose() * point3D_in_cam.normalized();
+  return std::acos(std::clamp(cos_angle, -1.0, 1.0));
 }
 
 bool HasPointPositiveDepth(const Eigen::Matrix3x4d& cam_from_world,

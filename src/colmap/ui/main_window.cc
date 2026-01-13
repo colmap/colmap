@@ -99,8 +99,8 @@ static void InitUiResources() { Q_INIT_RESOURCE(resources); }
 
 namespace colmap {
 
-MainWindow::MainWindow(const OptionManager& options)
-    : options_(options),
+MainWindow::MainWindow(OptionManager options)
+    : options_(std::move(options)),
       reconstruction_manager_(std::make_shared<ReconstructionManager>()),
       thread_control_widget_(new ThreadControlWidget(this)),
       window_closed_(false) {
@@ -197,7 +197,7 @@ void MainWindow::closeEvent(QCloseEvent* event) {
     return;
   }
 
-  if (project_widget_->IsValid() && *options_.project_path == "") {
+  if (project_widget_->IsValid() && options_.project_path->empty()) {
     // Project was created, but not yet saved
     QMessageBox::StandardButton reply;
     reply = QMessageBox::question(
@@ -772,11 +772,13 @@ void MainWindow::CreateControllers() {
     mapper_controller_->Wait();
   }
 
+  options_.mapper->image_path = *options_.image_path;
+
   mapper_controller_ = std::make_unique<ControllerThread<IncrementalPipeline>>(
-      std::make_shared<IncrementalPipeline>(options_.mapper,
-                                            *options_.image_path,
-                                            *options_.database_path,
-                                            reconstruction_manager_));
+      std::make_shared<IncrementalPipeline>(
+          options_.mapper,
+          Database::Open(*options_.database_path),
+          reconstruction_manager_));
   mapper_controller_->GetController()->AddCallback(
       IncrementalPipeline::INITIAL_IMAGE_PAIR_REG_CALLBACK, [this]() {
         if (!mapper_controller_->IsStopped()) {
@@ -871,7 +873,7 @@ void MainWindow::ProjectSave() {
     // Project path was chosen previously, either here or via command-line.
     options_.Write(*options_.project_path);
     SetLastOpen(kLastDirProject,
-                QString::fromStdString(*options_.project_path));
+                QString::fromStdString(options_.project_path->string()));
   }
 
   UpdateWindowTitle();
@@ -1555,10 +1557,10 @@ void MainWindow::DisableBlockingActions() {
 }
 
 void MainWindow::UpdateWindowTitle() {
-  if (*options_.project_path == "") {
+  if (options_.project_path->empty()) {
     setWindowTitle(QString::fromStdString("COLMAP"));
   } else {
-    std::string project_title = *options_.project_path;
+    std::string project_title = options_.project_path->string();
     if (project_title.size() > 80) {
       project_title =
           "..." + project_title.substr(project_title.size() - 77, 77);

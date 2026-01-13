@@ -275,7 +275,7 @@ bool IncrementalMapperImpl::FindInitialImagePair(
   };
 
   ThreadPool thread_pool(options.num_threads);
-  std::vector<std::future<InitInfo>> init_infos;
+  std::vector<std::shared_future<InitInfo>> init_infos;
   init_infos.reserve(image_ids1.size());
 
   std::mutex init_image_pairs_mutex;
@@ -629,6 +629,7 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
     return it->second;
   };
 
+  FeatureMatches matches;
   for (const data_t& image_id1 : frame1.ImageIds()) {
     const Image& image1 = database_cache.Image(image_id1.id);
     const Camera& camera1 = database_cache.Camera(image1.CameraId());
@@ -639,9 +640,8 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
       const Camera& camera2 = database_cache.Camera(image2.CameraId());
       const size_t camera_idx2 = maybe_add_camera(rig2, camera2);
 
-      const FeatureMatches matches =
-          database_cache.CorrespondenceGraph()
-              ->FindCorrespondencesBetweenImages(image_id1.id, image_id2.id);
+      database_cache.CorrespondenceGraph()->ExtractMatchesBetweenImages(
+          image_id1.id, image_id2.id, matches);
       for (const auto& match : matches) {
         points2D1.push_back(image1.Point2D(match.point2D_idx1).xy);
         points2D2.push_back(image2.Point2D(match.point2D_idx2).xy);
@@ -720,9 +720,9 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
   const Camera& camera1 = database_cache.Camera(image1.CameraId());
   const Camera& camera2 = database_cache.Camera(image2.CameraId());
 
-  const FeatureMatches matches =
-      database_cache.CorrespondenceGraph()->FindCorrespondencesBetweenImages(
-          image_id1, image_id2);
+  FeatureMatches matches;
+  database_cache.CorrespondenceGraph()->ExtractMatchesBetweenImages(
+      image_id1, image_id2, matches);
 
   std::vector<Eigen::Vector2d> points1;
   points1.reserve(image1.NumPoints2D());
@@ -751,13 +751,13 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
   VLOG(3) << "Initial image pair with config " << two_view_geometry.config
           << ", " << two_view_geometry.inlier_matches.size()
           << " inlier matches, "
-          << two_view_geometry.cam2_from_cam1.translation.z()
+          << two_view_geometry.cam2_from_cam1->translation.z()
           << " z translation, " << RadToDeg(two_view_geometry.tri_angle)
           << " deg triangulation angle";
 
   if (static_cast<int>(two_view_geometry.inlier_matches.size()) <
           options.init_min_num_inliers ||
-      std::abs(two_view_geometry.cam2_from_cam1.translation.z()) >=
+      std::abs(two_view_geometry.cam2_from_cam1->translation.z()) >=
           options.init_max_forward_motion ||
       two_view_geometry.tri_angle <= DegToRad(options.init_min_tri_angle)) {
     return false;
@@ -783,7 +783,7 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
                                                      cam2_from_cam1);
   }
 
-  cam2_from_cam1 = two_view_geometry.cam2_from_cam1;
+  cam2_from_cam1 = *two_view_geometry.cam2_from_cam1;
 
   return true;
 }

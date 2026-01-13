@@ -58,6 +58,9 @@ class Frame {
   // Check whether the data is associated with the frame.
   inline bool HasDataId(data_t data_id) const;
 
+  // Clear all the associated data.
+  void ClearDataIds();
+
   // Access the unique identifier of the rig. Note that multiple frames
   // might share the same rig.
   inline rig_t RigId() const;
@@ -106,6 +109,8 @@ class Frame {
 
  private:
   frame_t frame_id_ = kInvalidFrameId;
+  rig_t rig_id_ = kInvalidRigId;
+
   std::set<data_t> data_ids_;
 
   // Store the rig_from_world transformation and an optional rig calibration.
@@ -113,8 +118,6 @@ class Frame {
   // case, where rig modeling is no longer needed.
   std::optional<Rigid3d> rig_from_world_;
 
-  // Rig calibration.
-  rig_t rig_id_ = kInvalidRigId;
   class Rig* rig_ptr_ = nullptr;
 };
 

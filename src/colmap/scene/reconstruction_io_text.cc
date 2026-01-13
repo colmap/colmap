@@ -123,7 +123,8 @@ void ReadRigsText(Reconstruction& reconstruction, std::istream& stream) {
   }
 }
 
-void ReadRigsText(Reconstruction& reconstruction, const std::string& path) {
+void ReadRigsText(Reconstruction& reconstruction,
+                  const std::filesystem::path& path) {
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadRigsText(reconstruction, file);
@@ -174,7 +175,8 @@ void ReadCamerasText(Reconstruction& reconstruction, std::istream& stream) {
   }
 }
 
-void ReadCamerasText(Reconstruction& reconstruction, const std::string& path) {
+void ReadCamerasText(Reconstruction& reconstruction,
+                     const std::filesystem::path& path) {
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadCamerasText(reconstruction, file);
@@ -250,7 +252,8 @@ void ReadFramesText(Reconstruction& reconstruction, std::istream& stream) {
   }
 }
 
-void ReadFramesText(Reconstruction& reconstruction, const std::string& path) {
+void ReadFramesText(Reconstruction& reconstruction,
+                    const std::filesystem::path& path) {
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadFramesText(reconstruction, file);
@@ -377,7 +380,8 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
   }
 }
 
-void ReadImagesText(Reconstruction& reconstruction, const std::string& path) {
+void ReadImagesText(Reconstruction& reconstruction,
+                    const std::filesystem::path& path) {
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadImagesText(reconstruction, file);
@@ -451,7 +455,8 @@ void ReadPoints3DText(Reconstruction& reconstruction, std::istream& stream) {
   }
 }
 
-void ReadPoints3DText(Reconstruction& reconstruction, const std::string& path) {
+void ReadPoints3DText(Reconstruction& reconstruction,
+                      const std::filesystem::path& path) {
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadPoints3DText(reconstruction, file);
@@ -510,7 +515,7 @@ void WriteRigsText(const Reconstruction& reconstruction, std::ostream& stream) {
 }
 
 void WriteRigsText(const Reconstruction& reconstruction,
-                   const std::string& path) {
+                   const std::filesystem::path& path) {
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
   WriteRigsText(reconstruction, file);
@@ -550,7 +555,7 @@ void WriteCamerasText(const Reconstruction& reconstruction,
 }
 
 void WriteCamerasText(const Reconstruction& reconstruction,
-                      const std::string& path) {
+                      const std::filesystem::path& path) {
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
   WriteCamerasText(reconstruction, file);
@@ -602,7 +607,7 @@ void WriteFramesText(const Reconstruction& reconstruction,
 }
 
 void WriteFramesText(const Reconstruction& reconstruction,
-                     const std::string& path) {
+                     const std::filesystem::path& path) {
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
   WriteFramesText(reconstruction, file);
@@ -669,7 +674,7 @@ void WriteImagesText(const Reconstruction& reconstruction,
 }
 
 void WriteImagesText(const Reconstruction& reconstruction,
-                     const std::string& path) {
+                     const std::filesystem::path& path) {
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
   WriteImagesText(reconstruction, file);
@@ -718,7 +723,7 @@ void WritePoints3DText(const Reconstruction& reconstruction,
 }
 
 void WritePoints3DText(const Reconstruction& reconstruction,
-                       const std::string& path) {
+                       const std::filesystem::path& path) {
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
   WritePoints3DText(reconstruction, file);

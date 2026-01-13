@@ -28,21 +28,39 @@ DAMAGE.
 #ifndef MAT_INCLUDED
 #define MAT_INCLUDED
 #include "Geometry.h"
+#include "Array.h"
 
-template <class Real>
-class MinimalAreaTriangulation
+namespace PoissonRecon
 {
-	Real* bestTriangulation;
-	int* midPoint;
-	Real GetArea(const size_t& i,const size_t& j,const std::vector<Point3D<Real> >& vertices);
-	void GetTriangulation(const size_t& i,const size_t& j,const std::vector<Point3D<Real> >& vertices,std::vector<TriangleIndex>& triangles);
-public:
-	MinimalAreaTriangulation(void);
-	~MinimalAreaTriangulation(void);
-	Real GetArea(const std::vector<Point3D<Real> >& vertices);
-	void GetTriangulation(const std::vector<Point3D<Real> >& vertices,std::vector<TriangleIndex>& triangles);
-};
 
+	template< typename Index , class Real , unsigned int Dim >
+	std::vector< TriangleIndex< Index > > MinimalAreaTriangulation( ConstPointer( Point< Real , Dim > ) vertices , size_t vCount );
+
+	template< typename Index , class Real , unsigned int Dim >
+	class _MinimalAreaTriangulation
+	{
+		Pointer( Real ) _bestTriangulation;
+		Pointer( Index ) _midpoint;
+		size_t _vCount;
+		ConstPointer( Point< Real , Dim > ) _vertices;
+
+		void _set( void );
+		Real _subPolygonArea( Index i , Index j );
+		void _addTriangles( Index i , Index j , std::vector< TriangleIndex< Index > >& triangles ) const;
+		Index _subPolygonIndex( Index i , Index j ) const;
+
+		_MinimalAreaTriangulation( ConstPointer( Point< Real , Dim > ) vertices , size_t vCount );
+		~_MinimalAreaTriangulation( void );
+		std::vector< TriangleIndex< Index > > getTriangulation( void );
+		friend std::vector< TriangleIndex< Index > > MinimalAreaTriangulation< Index , Real , Dim >( ConstPointer( Point< Real , Dim > ) vertices , size_t vCount );
+	};
+	template< typename Index , class Real , unsigned int Dim >
+	std::vector< TriangleIndex< Index > > MinimalAreaTriangulation( ConstPointer( Point< Real , Dim > ) vertices , size_t vCount )
+	{
+		_MinimalAreaTriangulation< Index , Real , Dim > MAT( vertices , vCount );
+		return MAT.getTriangulation();
+	}
 #include "MAT.inl"
+}
 
 #endif // MAT_INCLUDED

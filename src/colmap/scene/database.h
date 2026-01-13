@@ -38,6 +38,7 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
+#include <filesystem>
 #include <mutex>
 #include <vector>
 
@@ -59,21 +60,26 @@ typedef Eigen::Matrix<point2D_t, Eigen::Dynamic, 2, Eigen::RowMajor>
 // and trailing `EndTransaction`.
 class Database {
  public:
+  Database() = default;
+
+  // Closes the database, if not closed before.
+  virtual ~Database() = 0;
+
+  NON_COPYABLE(Database);
+
   // Factory function to create a database implementation for a given path.
   // The factory should be robust to handle non-supported files and return a
   // runtime_error in that case.
-  using Factory = std::function<std::shared_ptr<Database>(const std::string&)>;
+  using Factory =
+      std::function<std::shared_ptr<Database>(const std::filesystem::path&)>;
 
   // Register a factory to open a database implementation. Database factories
   // are tried in reverse order of registration. In other words, later
   // registrations are tried first.
   static void Register(Factory factory);
 
-  // Closes the database, if not closed before.
-  virtual ~Database();
-
   // Open database and throw a runtime_error if none of the factories succeeds.
-  static std::shared_ptr<Database> Open(const std::string& path);
+  static std::shared_ptr<Database> Open(const std::filesystem::path& path);
 
   // Explicitly close the database before destruction.
   virtual void Close() = 0;

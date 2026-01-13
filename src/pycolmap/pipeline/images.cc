@@ -1,18 +1,16 @@
 #include "colmap/controllers/image_reader.h"
 #include "colmap/exe/feature.h"
-#include "colmap/feature/sift.h"
-#include "colmap/geometry/gps.h"
 #include "colmap/image/undistortion.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/base_controller.h"
 #include "colmap/util/file.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 
+#include <filesystem>
 #include <memory>
 
 #include <glog/logging.h>
@@ -23,8 +21,8 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-void ImportImages(const std::string& database_path,
-                  const std::string& image_path,
+void ImportImages(const std::filesystem::path& database_path,
+                  const std::filesystem::path& image_path,
                   const CameraMode camera_mode,
                   const std::vector<std::string>& image_names,
                   const ImageReaderOptions& options_) {
@@ -74,37 +72,35 @@ void ImportImages(const std::string& database_path,
   }
 }
 
-Camera InferCameraFromImage(const std::string& image_path,
+Camera InferCameraFromImage(const std::filesystem::path& image_path,
                             const ImageReaderOptions& options) {
   Bitmap bitmap;
   THROW_CHECK_FILE_EXISTS(image_path);
   THROW_CHECK(bitmap.Read(image_path, false))
       << "Cannot read image file: " << image_path;
 
-  double focal_length = 0.0;
-  bool has_prior_focal_length = bitmap.ExifFocalLength(&focal_length);
-  if (!has_prior_focal_length) {
-    focal_length = options.default_focal_length_factor *
-                   std::max(bitmap.Width(), bitmap.Height());
-  }
+  const std::optional<double> maybe_focal_length = bitmap.ExifFocalLength();
+  const double focal_length =
+      maybe_focal_length.value_or(options.default_focal_length_factor *
+                                  std::max(bitmap.Width(), bitmap.Height()));
   Camera camera = Camera::CreateFromModelName(kInvalidCameraId,
                                               options.camera_model,
                                               focal_length,
                                               bitmap.Width(),
                                               bitmap.Height());
-  camera.has_prior_focal_length = has_prior_focal_length;
+  camera.has_prior_focal_length = maybe_focal_length.has_value();
   THROW_CHECK(camera.VerifyParams())
       << "Invalid camera params: " << camera.ParamsToString();
 
   return camera;
 }
 
-void UndistortImages(const std::string& output_path,
-                     const std::string& input_path,
-                     const std::string& image_path,
+void UndistortImages(const std::filesystem::path& output_path,
+                     const std::filesystem::path& input_path,
+                     const std::filesystem::path& image_path,
                      const std::vector<std::string>& image_names,
                      const std::string& output_type,
-                     const CopyType copy_type,
+                     const FileCopyType copy_type,
                      const int num_patch_match_src_images,
                      const UndistortCameraOptions& undistort_camera_options) {
   THROW_CHECK_DIR_EXISTS(image_path);
@@ -128,19 +124,20 @@ void UndistortImages(const std::string& output_path,
   py::gil_scoped_release release;
   std::unique_ptr<BaseController> undistorter;
   if (output_type == "COLMAP") {
-    undistorter.reset(new COLMAPUndistorter(undistort_camera_options,
+    undistorter =
+        std::make_unique<COLMAPUndistorter>(undistort_camera_options,
                                             reconstruction,
                                             image_path,
                                             output_path,
                                             num_patch_match_src_images,
                                             copy_type,
-                                            image_ids));
+                                            image_ids);
   } else if (output_type == "PMVS") {
-    undistorter.reset(new PMVSUndistorter(
-        undistort_camera_options, reconstruction, image_path, output_path));
+    undistorter = std::make_unique<PMVSUndistorter>(
+        undistort_camera_options, reconstruction, image_path, output_path);
   } else if (output_type == "CMP-MVS") {
-    undistorter.reset(new CMPMVSUndistorter(
-        undistort_camera_options, reconstruction, image_path, output_path));
+    undistorter = std::make_unique<CMPMVSUndistorter>(
+        undistort_camera_options, reconstruction, image_path, output_path);
   } else {
     LOG(FATAL_THROW)
         << "Invalid `output_type` - supported values are {'COLMAP', "
@@ -202,11 +199,11 @@ void BindImages(py::module& m) {
           .def("check", &IROpts::Check);
   MakeDataclass(PyImageReaderOptions);
 
-  auto PyCopyType = py::enum_<CopyType>(m, "CopyType")
-                        .value("copy", CopyType::COPY)
-                        .value("softlink", CopyType::SOFT_LINK)
-                        .value("hardlink", CopyType::HARD_LINK);
-  AddStringToEnumConstructor(PyCopyType);
+  auto PyFileCopyType = py::enum_<FileCopyType>(m, "FileCopyType")
+                            .value("copy", FileCopyType::COPY)
+                            .value("softlink", FileCopyType::SOFT_LINK)
+                            .value("hardlink", FileCopyType::HARD_LINK);
+  AddStringToEnumConstructor(PyFileCopyType);
 
   m.def("import_images",
         &ImportImages,
@@ -230,7 +227,7 @@ void BindImages(py::module& m) {
         "image_path"_a,
         "image_names"_a = std::vector<std::string>(),
         "output_type"_a = "COLMAP",
-        "copy_policy"_a = CopyType::COPY,
+        "copy_policy"_a = FileCopyType::COPY,
         "num_patch_match_src_images"_a = 20,
         py::arg_v("undistort_options",
                   UndistortCameraOptions(),

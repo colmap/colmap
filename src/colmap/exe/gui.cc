@@ -39,8 +39,9 @@ namespace colmap {
 
 int RunGraphicalUserInterface(int argc, char** argv) {
 #if !defined(COLMAP_GUI_ENABLED)
-  LOG(ERROR) << "Cannot start colmap GUI; colmap was built without GUI "
-                "support or QT dependency is missing.";
+  LOG(ERROR)
+      << "Cannot start graphical user interface. COLMAP was built without GUI "
+         "support or Qt dependency was not found.";
   return EXIT_FAILURE;
 #else
   colmap::OptionManager options;
@@ -64,7 +65,7 @@ int RunGraphicalUserInterface(int argc, char** argv) {
 #endif
   app.setAttribute(Qt::AA_DontShowIconsInMenus, false);
 
-  colmap::MainWindow main_window(options);
+  colmap::MainWindow main_window(std::move(options));
   main_window.show();
 
   if (!import_path.empty()) {

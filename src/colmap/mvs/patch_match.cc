@@ -50,7 +50,7 @@ PatchMatch::PatchMatch(const PatchMatchOptions& options, const Problem& problem)
 PatchMatch::~PatchMatch() {}
 
 void PatchMatch::Problem::Print() const {
-  PrintHeading2("PatchMatch::Problem");
+  LOG_HEADING2("PatchMatch::Problem");
   LOG(INFO) << "ref_image_idx: " << ref_image_idx;
   LOG(INFO) << "src_image_idxs: ";
   if (!src_image_idxs.empty()) {
@@ -124,7 +124,7 @@ void PatchMatch::Check() const {
 }
 
 void PatchMatch::Run() {
-  PrintHeading2("PatchMatch::Run");
+  LOG_HEADING2("PatchMatch::Run");
 
   Check();
 
@@ -151,11 +151,12 @@ ConsistencyGraph PatchMatch::GetConsistencyGraph() const {
                           patch_match_cuda_->GetConsistentImageIdxs());
 }
 
-PatchMatchController::PatchMatchController(const PatchMatchOptions& options,
-                                           const std::string& workspace_path,
-                                           const std::string& workspace_format,
-                                           const std::string& pmvs_option_name,
-                                           const std::string& config_path)
+PatchMatchController::PatchMatchController(
+    const PatchMatchOptions& options,
+    const std::filesystem::path& workspace_path,
+    const std::string& workspace_format,
+    const std::string& pmvs_option_name,
+    const std::filesystem::path& config_path)
     : options_(options),
       workspace_path_(workspace_path),
       workspace_format_(workspace_format),
@@ -238,11 +239,11 @@ void PatchMatchController::ReadProblems() {
 
   const auto& model = workspace_->GetModel();
 
-  const std::string config_path =
-      config_path_.empty() ? JoinPaths(workspace_path_,
-                                       workspace_->GetOptions().stereo_folder,
-                                       "patch-match.cfg")
-                           : config_path_;
+  const auto config_path = config_path_.empty()
+                               ? workspace_path_ /
+                                     workspace_->GetOptions().stereo_folder /
+                                     "patch-match.cfg"
+                               : config_path_;
   std::vector<std::string> config = ReadTextFileLines(config_path);
 
   std::vector<std::map<int, int>> shared_num_points;
@@ -395,12 +396,12 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
   const std::string image_name = model.GetImageName(problem.ref_image_idx);
   const std::string file_name =
       StringPrintf("%s.%s.bin", image_name.c_str(), output_type.c_str());
-  const std::string depth_map_path =
-      JoinPaths(workspace_path_, stereo_folder, "depth_maps", file_name);
-  const std::string normal_map_path =
-      JoinPaths(workspace_path_, stereo_folder, "normal_maps", file_name);
-  const std::string consistency_graph_path = JoinPaths(
-      workspace_path_, stereo_folder, "consistency_graphs", file_name);
+  const auto depth_map_path =
+      workspace_path_ / stereo_folder / "depth_maps" / file_name;
+  const auto normal_map_path =
+      workspace_path_ / stereo_folder / "normal_maps" / file_name;
+  const auto consistency_graph_path =
+      workspace_path_ / stereo_folder / "consistency_graphs" / file_name;
 
   if (ExistsFile(depth_map_path) && ExistsFile(normal_map_path) &&
       (!options.write_consistency_graph ||
@@ -408,10 +409,10 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
     return;
   }
 
-  PrintHeading1(StringPrintf("Processing view %d / %d for %s",
-                             problem_idx + 1,
-                             problems_.size(),
-                             image_name.c_str()));
+  LOG_HEADING1(StringPrintf("Processing view %d / %d for %s",
+                            problem_idx + 1,
+                            problems_.size(),
+                            image_name.c_str()));
 
   auto patch_match_options = options;
 
@@ -461,9 +462,9 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
     LOG(INFO) << "Reading inputs...";
     std::vector<int> src_image_idxs;
     for (const auto image_idx : used_image_idxs) {
-      const std::string image_path = workspace_->GetBitmapPath(image_idx);
-      const std::string depth_path = workspace_->GetDepthMapPath(image_idx);
-      const std::string normal_path = workspace_->GetNormalMapPath(image_idx);
+      const auto image_path = workspace_->GetBitmapPath(image_idx);
+      const auto depth_path = workspace_->GetDepthMapPath(image_idx);
+      const auto normal_path = workspace_->GetNormalMapPath(image_idx);
 
       if (!ExistsFile(image_path) ||
           (options.geom_consistency && !ExistsFile(depth_path)) ||

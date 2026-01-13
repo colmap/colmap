@@ -35,7 +35,6 @@
 #include "colmap/controllers/option_manager.h"
 #include "colmap/exe/gui.h"
 #include "colmap/feature/sift.h"
-#include "colmap/feature/utils.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
@@ -136,14 +135,14 @@ int RunFeatureExtractor(int argc, char** argv) {
   }
 
   std::unique_ptr<QApplication> app;
-  if (options.feature_extraction->use_gpu && kUseOpenGL) {
-    app.reset(new QApplication(argc, argv));
+  if (options.feature_extraction->RequiresOpenGL()) {
+    app = std::make_unique<QApplication>(argc, argv);
   }
 
   auto feature_extractor = CreateFeatureExtractorController(
       *options.database_path, reader_options, *options.feature_extraction);
 
-  if (options.feature_extraction->use_gpu && kUseOpenGL) {
+  if (app != nullptr) {
     RunThreadWithOpenGLContext(feature_extractor.get());
   } else {
     feature_extractor->Start();
@@ -154,8 +153,8 @@ int RunFeatureExtractor(int argc, char** argv) {
 }
 
 int RunFeatureImporter(int argc, char** argv) {
-  std::string import_path;
-  std::string image_list_path;
+  std::filesystem::path import_path;
+  std::filesystem::path image_list_path;
   int camera_mode = -1;
 
   OptionManager options;
@@ -206,8 +205,8 @@ int RunExhaustiveMatcher(int argc, char** argv) {
   }
 
   std::unique_ptr<QApplication> app;
-  if (options.feature_matching->use_gpu && kUseOpenGL) {
-    app.reset(new QApplication(argc, argv));
+  if (options.feature_matching->RequiresOpenGL()) {
+    app = std::make_unique<QApplication>(argc, argv);
   }
 
   auto matcher = CreateExhaustiveFeatureMatcher(*options.exhaustive_pairing,
@@ -215,7 +214,7 @@ int RunExhaustiveMatcher(int argc, char** argv) {
                                                 *options.two_view_geometry,
                                                 *options.database_path);
 
-  if (options.feature_matching->use_gpu && kUseOpenGL) {
+  if (app != nullptr) {
     RunThreadWithOpenGLContext(matcher.get());
   } else {
     matcher->Start();
@@ -226,7 +225,7 @@ int RunExhaustiveMatcher(int argc, char** argv) {
 }
 
 int RunMatchesImporter(int argc, char** argv) {
-  std::string match_list_path;
+  std::filesystem::path match_list_path;
   std::string match_type = "pairs";
 
   OptionManager options;
@@ -241,8 +240,8 @@ int RunMatchesImporter(int argc, char** argv) {
   }
 
   std::unique_ptr<QApplication> app;
-  if (options.feature_matching->use_gpu && kUseOpenGL) {
-    app.reset(new QApplication(argc, argv));
+  if (options.feature_matching->RequiresOpenGL()) {
+    app = std::make_unique<QApplication>(argc, argv);
   }
 
   std::unique_ptr<Thread> matcher;
@@ -266,7 +265,7 @@ int RunMatchesImporter(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  if (options.feature_matching->use_gpu && kUseOpenGL) {
+  if (app != nullptr) {
     RunThreadWithOpenGLContext(matcher.get());
   } else {
     matcher->Start();
@@ -285,8 +284,8 @@ int RunSequentialMatcher(int argc, char** argv) {
   }
 
   std::unique_ptr<QApplication> app;
-  if (options.feature_matching->use_gpu && kUseOpenGL) {
-    app.reset(new QApplication(argc, argv));
+  if (options.feature_matching->RequiresOpenGL()) {
+    app = std::make_unique<QApplication>(argc, argv);
   }
 
   auto matcher = CreateSequentialFeatureMatcher(*options.sequential_pairing,
@@ -294,7 +293,7 @@ int RunSequentialMatcher(int argc, char** argv) {
                                                 *options.two_view_geometry,
                                                 *options.database_path);
 
-  if (options.feature_matching->use_gpu && kUseOpenGL) {
+  if (app != nullptr) {
     RunThreadWithOpenGLContext(matcher.get());
   } else {
     matcher->Start();
@@ -313,8 +312,8 @@ int RunSpatialMatcher(int argc, char** argv) {
   }
 
   std::unique_ptr<QApplication> app;
-  if (options.feature_matching->use_gpu && kUseOpenGL) {
-    app.reset(new QApplication(argc, argv));
+  if (options.feature_matching->RequiresOpenGL()) {
+    app = std::make_unique<QApplication>(argc, argv);
   }
 
   auto matcher = CreateSpatialFeatureMatcher(*options.spatial_pairing,
@@ -322,7 +321,7 @@ int RunSpatialMatcher(int argc, char** argv) {
                                              *options.two_view_geometry,
                                              *options.database_path);
 
-  if (options.feature_matching->use_gpu && kUseOpenGL) {
+  if (app != nullptr) {
     RunThreadWithOpenGLContext(matcher.get());
   } else {
     matcher->Start();
@@ -341,8 +340,8 @@ int RunTransitiveMatcher(int argc, char** argv) {
   }
 
   std::unique_ptr<QApplication> app;
-  if (options.feature_matching->use_gpu && kUseOpenGL) {
-    app.reset(new QApplication(argc, argv));
+  if (options.feature_matching->RequiresOpenGL()) {
+    app = std::make_unique<QApplication>(argc, argv);
   }
 
   auto matcher = CreateTransitiveFeatureMatcher(*options.transitive_pairing,
@@ -350,7 +349,7 @@ int RunTransitiveMatcher(int argc, char** argv) {
                                                 *options.two_view_geometry,
                                                 *options.database_path);
 
-  if (options.feature_matching->use_gpu && kUseOpenGL) {
+  if (app != nullptr) {
     RunThreadWithOpenGLContext(matcher.get());
   } else {
     matcher->Start();
@@ -369,8 +368,8 @@ int RunVocabTreeMatcher(int argc, char** argv) {
   }
 
   std::unique_ptr<QApplication> app;
-  if (options.feature_matching->use_gpu && kUseOpenGL) {
-    app.reset(new QApplication(argc, argv));
+  if (options.feature_matching->RequiresOpenGL()) {
+    app = std::make_unique<QApplication>(argc, argv);
   }
 
   auto matcher = CreateVocabTreeFeatureMatcher(*options.vocab_tree_pairing,
@@ -378,7 +377,7 @@ int RunVocabTreeMatcher(int argc, char** argv) {
                                                *options.two_view_geometry,
                                                *options.database_path);
 
-  if (options.feature_matching->use_gpu && kUseOpenGL) {
+  if (app != nullptr) {
     RunThreadWithOpenGLContext(matcher.get());
   } else {
     matcher->Start();
@@ -415,7 +414,7 @@ int RunGeometricVerifier(int argc, char** argv) {
 
 void RunGuidedGeometricVerifierImpl(
     const Reconstruction& reconstruction,
-    const std::string& database_path,
+    const std::filesystem::path& database_path,
     const ExistingMatchedPairingOptions& pairing_options,
     const TwoViewGeometryOptions& geometry_options,
     int num_threads) {
@@ -462,7 +461,7 @@ void RunGuidedGeometricVerifierImpl(
 }
 
 int RunGuidedGeometricVerifier(int argc, char** argv) {
-  std::string input_path;
+  std::filesystem::path input_path;
   ExistingMatchedPairingOptions pairing_options;
   int num_threads = -1;
 

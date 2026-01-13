@@ -54,6 +54,9 @@ std::unique_ptr<ceres::LossFunction> CreateLossFunction(
     case BundleAdjustmentOptions::LossFunctionType::CAUCHY:
       return std::make_unique<ceres::CauchyLoss>(loss_function_scale);
       break;
+    case BundleAdjustmentOptions::LossFunctionType::HUBER:
+      return std::make_unique<ceres::HuberLoss>(loss_function_scale);
+      break;
   }
   return nullptr;
 }
@@ -101,15 +104,12 @@ size_t BundleAdjustmentConfig::NumConstantPoints() const {
 size_t BundleAdjustmentConfig::NumResiduals(
     const Reconstruction& reconstruction) const {
   // Count the number of observations for all added images.
-  int num_observations = 0;
+  size_t num_observations = 0;
   for (const image_t image_id : image_ids_) {
     const auto& image = reconstruction.Image(image_id);
-    num_observations += image.NumPoints3D();
-    if (!ignored_point3D_ids_.empty()) {
-      for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
-        if (IsIgnoredPoint(point3D_id)) {
-          --num_observations;
-        }
+    for (const auto& point2D : image.Points2D()) {
+      if (point2D.HasPoint3D() && !IsIgnoredPoint(point2D.point3D_id)) {
+        ++num_observations;
       }
     }
   }
@@ -119,7 +119,7 @@ size_t BundleAdjustmentConfig::NumResiduals(
 
   auto NumObservationsForPoint = [this,
                                   &reconstruction](const point3D_t point3D_id) {
-    int num_observations_for_point = 0;
+    size_t num_observations_for_point = 0;
     const auto& point3D = reconstruction.Point3D(point3D_id);
     for (const auto& track_el : point3D.track.Elements()) {
       if (image_ids_.count(track_el.image_id) == 0) {
@@ -365,13 +365,17 @@ ceres::Solver::Options BundleAdjustmentOptions::CreateSolverOptions(
   }
 #endif  // COLMAP_CUDA_ENABLED
 
-  if (num_images <= max_num_images_direct_dense_solver) {
-    custom_solver_options.linear_solver_type = ceres::DENSE_SCHUR;
-  } else if (has_sparse && num_images <= max_num_images_direct_sparse_solver) {
-    custom_solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
-  } else {  // Indirect sparse (preconditioned CG) solver.
-    custom_solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
-    custom_solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
+  // Auto-select solver type based on problem size, unless disabled.
+  if (auto_select_solver_type) {
+    if (num_images <= max_num_images_direct_dense_solver) {
+      custom_solver_options.linear_solver_type = ceres::DENSE_SCHUR;
+    } else if (has_sparse &&
+               num_images <= max_num_images_direct_sparse_solver) {
+      custom_solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
+    } else {  // Indirect sparse (preconditioned CG) solver.
+      custom_solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
+      custom_solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
+    }
   }
 
   if (problem.NumResiduals() < min_num_residuals_for_cpu_multi_threading) {
@@ -662,6 +666,9 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
           problem.SetParameterBlockConstant(
               rig_from_world.rotation.coeffs().data());
           problem.SetParameterBlockConstant(rig_from_world.translation.data());
+        } else if (options.constant_rig_from_world_rotation) {
+          problem.SetParameterBlockConstant(
+              rig_from_world.rotation.coeffs().data());
         }
       }
     }
@@ -716,6 +723,9 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     ceres::Problem::Options problem_options;
     problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
     problem_ = std::make_shared<ceres::Problem>(problem_options);
+
+    // Verify that reconstruction is internally consistent.
+    THROW_CHECK(reconstruction.IsValid());
 
     // Set up problem
     // Warning: AddPointsToProblem assumes that AddImageToProblem is called

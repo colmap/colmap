@@ -1,81 +1,99 @@
 #include "glomap/io/colmap_io.h"
 
 #include "colmap/util/file.h"
-#include "colmap/util/misc.h"
 
-namespace glomap {
+namespace {
 
-void WriteGlomapReconstruction(
-    const std::string& reconstruction_path,
-    const std::unordered_map<rig_t, Rig>& rigs,
-    const std::unordered_map<camera_t, colmap::Camera>& cameras,
-    const std::unordered_map<frame_t, Frame>& frames,
-    const std::unordered_map<image_t, Image>& images,
-    const std::unordered_map<point3D_t, Point3D>& tracks,
-    const std::string& output_format,
-    const std::string& image_path) {
-  // Check whether reconstruction pruning is applied.
-  // If so, export seperate reconstruction
-  int largest_component_num = -1;
-  for (const auto& [frame_id, frame] : frames) {
-    if (frame.cluster_id > largest_component_num)
-      largest_component_num = frame.cluster_id;
+void WriteReconstruction(const colmap::Reconstruction& reconstruction,
+                         const std::string& path,
+                         const std::string& output_format,
+                         const std::string& image_path) {
+  colmap::Reconstruction recon_copy = reconstruction;
+  if (!image_path.empty()) {
+    LOG(INFO) << "Extracting colors ...";
+    recon_copy.ExtractColorsForAllImages(image_path);
   }
-  // If it is not seperated into several clusters, then output them as whole
-  if (largest_component_num == -1) {
-    colmap::Reconstruction reconstruction;
-    ConvertGlomapToColmap(
-        rigs, cameras, frames, images, tracks, reconstruction);
-    // Read in colors
-    if (image_path != "") {
-      LOG(INFO) << "Extracting colors ...";
-      reconstruction.ExtractColorsForAllImages(image_path);
-    }
-    colmap::CreateDirIfNotExists(reconstruction_path + "/0", true);
-    if (output_format == "txt") {
-      reconstruction.WriteText(reconstruction_path + "/0");
-    } else if (output_format == "bin") {
-      reconstruction.WriteBinary(reconstruction_path + "/0");
-    } else {
-      LOG(ERROR) << "Unsupported output type";
-    }
+  colmap::CreateDirIfNotExists(path, true);
+  if (output_format == "txt") {
+    recon_copy.WriteText(path);
+  } else if (output_format == "bin") {
+    recon_copy.WriteBinary(path);
   } else {
-    for (int comp = 0; comp <= largest_component_num; comp++) {
-      std::cout << "\r Exporting reconstruction " << comp + 1 << " / "
-                << largest_component_num + 1 << std::flush;
-      colmap::Reconstruction reconstruction;
-      ConvertGlomapToColmap(
-          rigs, cameras, frames, images, tracks, reconstruction, comp);
-      // Read in colors
-      if (image_path != "") {
-        reconstruction.ExtractColorsForAllImages(image_path);
-      }
-      colmap::CreateDirIfNotExists(
-          reconstruction_path + "/" + std::to_string(comp), true);
-      if (output_format == "txt") {
-        reconstruction.WriteText(reconstruction_path + "/" +
-                                 std::to_string(comp));
-      } else if (output_format == "bin") {
-        reconstruction.WriteBinary(reconstruction_path + "/" +
-                                   std::to_string(comp));
-      } else {
-        LOG(ERROR) << "Unsupported output type";
-      }
-    }
-    std::cout << '\n';
+    LOG(ERROR) << "Unsupported output type";
   }
 }
 
-void WriteColmapReconstruction(const std::string& reconstruction_path,
-                               const colmap::Reconstruction& reconstruction,
-                               const std::string& output_format) {
-  colmap::CreateDirIfNotExists(reconstruction_path, true);
-  if (output_format == "txt") {
-    reconstruction.WriteText(reconstruction_path);
-  } else if (output_format == "bin") {
-    reconstruction.WriteBinary(reconstruction_path);
+}  // namespace
+
+namespace glomap {
+
+colmap::Reconstruction SubReconstructionByClusterId(
+    const colmap::Reconstruction& reconstruction,
+    const std::unordered_map<frame_t, int>& cluster_ids,
+    int cluster_id) {
+  // If no filtering needed, return a copy
+  if (cluster_id == -1 || cluster_ids.empty()) {
+    return reconstruction;
+  }
+
+  // Helper to get cluster id for a frame
+  auto get_cluster_id = [&cluster_ids](frame_t frame_id) -> int {
+    auto it = cluster_ids.find(frame_id);
+    return it != cluster_ids.end() ? it->second : -1;
+  };
+
+  // Make a copy of the reconstruction
+  colmap::Reconstruction filtered = reconstruction;
+
+  // Collect frames to deregister (those not in this cluster)
+  std::vector<frame_t> frames_to_deregister;
+  for (const auto& [frame_id, frame] : filtered.Frames()) {
+    if (!frame.HasPose() || get_cluster_id(frame_id) != cluster_id) {
+      frames_to_deregister.push_back(frame_id);
+    }
+  }
+
+  // Deregister frames not in this cluster
+  // This also removes point observations from those frames' images
+  for (frame_t frame_id : frames_to_deregister) {
+    if (filtered.Frame(frame_id).HasPose()) {
+      filtered.DeRegisterFrame(frame_id);
+    }
+  }
+
+  filtered.UpdatePoint3DErrors();
+  return filtered;
+}
+
+void WriteReconstructionsByClusters(
+    const std::string& reconstruction_path,
+    const colmap::Reconstruction& reconstruction,
+    const std::unordered_map<frame_t, int>& cluster_ids,
+    const std::string& output_format,
+    const std::string& image_path) {
+  // Find the maximum cluster id to determine if we have multiple clusters
+  int max_cluster_id = -1;
+  for (const auto& [frame_id, cluster_id] : cluster_ids) {
+    if (cluster_id > max_cluster_id) {
+      max_cluster_id = cluster_id;
+    }
+  }
+
+  // If no clusters, output as single reconstruction
+  if (max_cluster_id == -1) {
+    WriteReconstruction(
+        reconstruction, reconstruction_path + "/0", output_format, image_path);
   } else {
-    LOG(ERROR) << "Unsupported output type";
+    // Export each cluster separately
+    for (int comp = 0; comp <= max_cluster_id; comp++) {
+      colmap::Reconstruction cluster_recon =
+          SubReconstructionByClusterId(reconstruction, cluster_ids, comp);
+      WriteReconstruction(cluster_recon,
+                          reconstruction_path + "/" + std::to_string(comp),
+                          output_format,
+                          image_path);
+    }
+    LOG(INFO) << "Exported " << max_cluster_id + 1 << " reconstructions";
   }
 }
 

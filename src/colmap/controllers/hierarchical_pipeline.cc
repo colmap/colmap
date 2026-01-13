@@ -29,12 +29,12 @@
 
 #include "colmap/controllers/hierarchical_pipeline.h"
 
-#include "colmap/estimators/alignment.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/scene_clustering.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
+#include "colmap/util/timer.h"
 
 namespace colmap {
 namespace {
@@ -113,10 +113,25 @@ bool HierarchicalPipeline::Options::Check() const {
 
 HierarchicalPipeline::HierarchicalPipeline(
     const Options& options,
+    std::shared_ptr<Database> database,
     std::shared_ptr<ReconstructionManager> reconstruction_manager)
     : options_(options),
-      reconstruction_manager_(std::move(reconstruction_manager)) {
+      reconstruction_manager_(
+          std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {
   THROW_CHECK(options_.Check());
+  THROW_CHECK_NOTNULL(database);
+
+  LOG(INFO) << "Loading database";
+  Timer timer;
+  timer.Start();
+  DatabaseCache::Options database_cache_options;
+  database_cache_options.min_num_matches =
+      static_cast<size_t>(options_.incremental_options.min_num_matches);
+  database_cache_options.ignore_watermarks =
+      options_.incremental_options.ignore_watermarks;
+  database_cache_ = DatabaseCache::Create(*database, database_cache_options);
+  timer.PrintMinutes();
+
   if (options_.incremental_options.ba_refine_sensor_from_rig) {
     LOG(WARNING)
         << "The hierarchical reconstruction pipeline currently does not work "
@@ -128,7 +143,7 @@ HierarchicalPipeline::HierarchicalPipeline(
 }
 
 void HierarchicalPipeline::Run() {
-  PrintHeading1("Partitioning scene");
+  LOG_HEADING1("Partitioning scene");
   Timer run_timer;
   run_timer.Start();
 
@@ -136,18 +151,14 @@ void HierarchicalPipeline::Run() {
   // Cluster scene graph
   //////////////////////////////////////////////////////////////////////////////
 
-  auto database = Database::Open(options_.database_path);
-
-  LOG(INFO) << "Reading images...";
-  const auto images = database->ReadAllImages();
   std::unordered_map<image_t, std::string> image_id_to_name;
-  image_id_to_name.reserve(images.size());
-  for (const auto& image : images) {
-    image_id_to_name.emplace(image.ImageId(), image.Name());
+  image_id_to_name.reserve(database_cache_->NumImages());
+  for (const auto& [image_id, image] : database_cache_->Images()) {
+    image_id_to_name.emplace(image_id, image.Name());
   }
 
   SceneClustering scene_clustering =
-      SceneClustering::Create(options_.clustering_options, *database);
+      SceneClustering::Create(options_.clustering_options, *database_cache_);
 
   auto leaf_clusters = scene_clustering.GetLeafClusters();
 
@@ -165,7 +176,7 @@ void HierarchicalPipeline::Run() {
   // Reconstruct clusters
   //////////////////////////////////////////////////////////////////////////////
 
-  PrintHeading1("Reconstructing clusters");
+  LOG_HEADING1("Reconstructing clusters");
 
   // Determine the number of workers and threads per worker.
   const int kMaxNumThreads = -1;
@@ -190,20 +201,29 @@ void HierarchicalPipeline::Run() {
 
         auto incremental_options = std::make_shared<IncrementalPipelineOptions>(
             options_.incremental_options);
+        incremental_options->image_path = options_.image_path;
         incremental_options->max_model_overlap = 3;
         incremental_options->init_num_trials = options_.init_num_trials;
         if (incremental_options->num_threads < 0) {
           incremental_options->num_threads = num_threads_per_worker;
         }
 
-        for (const auto image_id : cluster.image_ids) {
-          incremental_options->image_names.push_back(
-              image_id_to_name.at(image_id));
+        std::unordered_set<std::string> cluster_image_names;
+        cluster_image_names.reserve(cluster.image_ids.size());
+        for (const image_t image_id : cluster.image_ids) {
+          cluster_image_names.insert(image_id_to_name.at(image_id));
         }
 
+        // Create a filtered database cache for this cluster.
+        DatabaseCache::Options cluster_cache_options;
+        cluster_cache_options.min_num_matches =
+            static_cast<size_t>(options_.incremental_options.min_num_matches);
+        cluster_cache_options.image_names = cluster_image_names;
+        auto cluster_database_cache = DatabaseCache::CreateFromCache(
+            *database_cache_, cluster_cache_options);
+
         IncrementalPipeline mapper(std::move(incremental_options),
-                                   options_.image_path,
-                                   options_.database_path,
+                                   std::move(cluster_database_cache),
                                    std::move(reconstruction_manager));
         mapper.Run();
       };
@@ -238,7 +258,7 @@ void HierarchicalPipeline::Run() {
   //////////////////////////////////////////////////////////////////////////////
 
   if (leaf_clusters.size() > 1) {
-    PrintHeading1("Merging clusters");
+    LOG_HEADING1("Merging clusters");
 
     MergeClusters(*scene_clustering.GetRootCluster(), &reconstruction_managers);
   }

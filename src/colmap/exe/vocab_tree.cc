@@ -136,8 +136,8 @@ int RunVocabTreeBuilder(int argc, char** argv) {
   }
 
   LOG(INFO) << "Loading descriptors...";
-  const auto descriptors =
-      LoadRandomDatabaseDescriptors(*options.database_path, max_num_images);
+  const auto descriptors = LoadRandomDatabaseDescriptors(
+      options.database_path->string(), max_num_images);
   LOG(INFO) << "=> Loaded a total of " << descriptors.rows() << " descriptors";
   THROW_CHECK_GT(descriptors.size(), 0);
 

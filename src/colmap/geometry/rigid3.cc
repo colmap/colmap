@@ -29,8 +29,6 @@
 
 #include "colmap/geometry/rigid3.h"
 
-#include "colmap/util/logging.h"
-
 namespace colmap {
 
 Eigen::Matrix3d CrossProductMatrix(const Eigen::Vector3d& vector) {

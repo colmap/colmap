@@ -32,13 +32,8 @@
 #include "colmap/estimators/generalized_pose.h"
 #include "colmap/estimators/pose.h"
 #include "colmap/estimators/triangulation.h"
-#include "colmap/estimators/two_view_geometry.h"
-#include "colmap/geometry/triangulation.h"
-#include "colmap/scene/projection.h"
 #include "colmap/scene/reconstruction_pruning.h"
-#include "colmap/sensor/bitmap.h"
 #include "colmap/sfm/incremental_mapper_impl.h"
-#include "colmap/util/misc.h"
 
 #include <array>
 
@@ -682,8 +677,7 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
   // Check if we pass the minimum number of inliers.
   if (world_points2D.size() < min_num_inliers) {
     VLOG(2) << "Image observes insufficient number of points for registration ("
-            << obs_manager_->NumVisiblePoints3D(image_id) << " < "
-            << min_num_inliers << ")";
+            << world_points2D.size() << " < " << min_num_inliers << ")";
     return false;
   }
 

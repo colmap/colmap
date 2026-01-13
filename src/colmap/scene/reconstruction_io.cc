@@ -38,7 +38,7 @@
 namespace colmap {
 
 bool ExportNVM(const Reconstruction& reconstruction,
-               const std::string& path,
+               const std::filesystem::path& path,
                bool skip_distortion) {
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
@@ -126,7 +126,7 @@ bool ExportNVM(const Reconstruction& reconstruction,
 }
 
 bool ExportCam(const Reconstruction& reconstruction,
-               const std::string& path,
+               const std::filesystem::path& path,
                bool skip_distortion) {
   reconstruction.CreateImageDirs(path);
   for (const auto image_id : reconstruction.RegImageIds()) {
@@ -135,10 +135,10 @@ bool ExportCam(const Reconstruction& reconstruction,
     const struct Camera& camera = reconstruction.Camera(image.CameraId());
 
     SplitFileExtension(image.Name(), &name, &ext);
-    name = JoinPaths(path, name.append(".cam"));
-    std::ofstream file(name, std::ios::trunc);
+    const auto name_path = path / name.append(".cam");
+    std::ofstream file(name_path, std::ios::trunc);
 
-    THROW_CHECK_FILE_OPEN(file, name);
+    THROW_CHECK_FILE_OPEN(file, name_path);
 
     // Ensure that we don't lose any precision by storing in text.
     file.precision(17);
@@ -194,15 +194,14 @@ bool ExportCam(const Reconstruction& reconstruction,
 }
 
 bool ExportRecon3D(const Reconstruction& reconstruction,
-                   const std::string& path,
+                   const std::filesystem::path& path,
                    bool skip_distortion) {
-  std::string base_path = EnsureTrailingSlash(StringReplace(path, "\\", "/"));
+  CreateDirIfNotExists(path);
+  const auto base_path = path / "Recon";
   CreateDirIfNotExists(base_path);
-  base_path = base_path.append("Recon/");
-  CreateDirIfNotExists(base_path);
-  std::string synth_path = base_path + "synth_0.out";
-  std::string image_list_path = base_path + "urd-images.txt";
-  std::string image_map_path = base_path + "imagemap_0.txt";
+  const auto synth_path = base_path / "synth_0.out";
+  const auto image_list_path = base_path / "urd-images.txt";
+  const auto image_map_path = base_path / "imagemap_0.txt";
 
   std::ofstream synth_file(synth_path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(synth_file, synth_path);
@@ -305,8 +304,8 @@ bool ExportRecon3D(const Reconstruction& reconstruction,
 }
 
 bool ExportBundler(const Reconstruction& reconstruction,
-                   const std::string& path,
-                   const std::string& list_path,
+                   const std::filesystem::path& path,
+                   const std::filesystem::path& list_path,
                    bool skip_distortion) {
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
@@ -404,7 +403,8 @@ bool ExportBundler(const Reconstruction& reconstruction,
   return true;
 }
 
-void ExportPLY(const Reconstruction& reconstruction, const std::string& path) {
+void ExportPLY(const Reconstruction& reconstruction,
+               const std::filesystem::path& path) {
   const auto ply_points = reconstruction.ConvertToPLY();
 
   const bool kWriteNormal = false;
@@ -413,8 +413,8 @@ void ExportPLY(const Reconstruction& reconstruction, const std::string& path) {
 }
 
 void ExportVRML(const Reconstruction& reconstruction,
-                const std::string& images_path,
-                const std::string& points3D_path,
+                const std::filesystem::path& images_path,
+                const std::filesystem::path& points3D_path,
                 const double image_scale,
                 const Eigen::Vector3d& image_rgb) {
   std::ofstream images_file(images_path, std::ios::trunc);

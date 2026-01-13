@@ -14,19 +14,7 @@ if(COVERAGE_ENABLED)
 endif()
 
 add_subdirectory(scene)
-add_subdirectory(math)
 add_subdirectory(io)
 add_subdirectory(estimators)
 add_subdirectory(processors)
-add_subdirectory(controllers)
-add_subdirectory(exe)
 add_subdirectory(sfm)
-
-COLMAP_ADD_EXECUTABLE(
-    NAME glomap_main
-    SRCS
-        glomap.cc
-    LINK_LIBS
-        colmap_glomap_exe
-)
-set_target_properties(glomap_main PROPERTIES OUTPUT_NAME glomap)

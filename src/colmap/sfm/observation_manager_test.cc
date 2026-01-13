@@ -131,6 +131,84 @@ TEST(ObservationManager, FilterPoints3D) {
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 }
 
+TEST(ObservationManager, FilterPoints3DWithLargeReprojectionErrorTypes) {
+  Reconstruction reconstruction;
+  const camera_t kCameraId = 1;
+  // PINHOLE camera with f=100, image 100x100, so cx=cy=50
+  // This gives: pixel_error = 100 * normalized_error
+  Camera camera = Camera::CreateFromModelId(
+      kCameraId, CameraModelId::kPinhole, 100, 100, 100);
+  reconstruction.AddCamera(camera);
+
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(camera.SensorId());
+  reconstruction.AddRig(rig);
+
+  Frame frame;
+  frame.SetFrameId(1);
+  frame.SetRigId(rig.RigId());
+  frame.AddDataId(data_t(camera.SensorId(), 1));
+  frame.AddDataId(data_t(camera.SensorId(), 2));
+  frame.SetRigFromWorld(Rigid3d());
+  reconstruction.AddFrame(frame);
+
+  Image image1;
+  image1.SetImageId(1);
+  image1.SetCameraId(kCameraId);
+  image1.SetFrameId(1);
+  image1.SetPoints2D({Eigen::Vector2d(50, 50)});  // Principal point
+  reconstruction.AddImage(image1);
+
+  Image image2;
+  image2.SetImageId(2);
+  image2.SetCameraId(kCameraId);
+  image2.SetFrameId(1);
+  image2.SetPoints2D({Eigen::Vector2d(50, 50)});
+  reconstruction.AddImage(image2);
+
+  ObservationManager obs_manager(reconstruction);
+
+  // Point (0, 0, 2) projects exactly to (50, 50). Point (0.02, 0, 2) projects
+  // to (51, 50), giving 1px pixel error and 0.01 normalized error.
+  const Eigen::Vector3d kPoint3D(0.02, 0, 2);
+
+  // PIXEL: 1px error, passes at 1.0px, filtered at 0.9px
+  const point3D_t id1 = reconstruction.AddPoint3D(kPoint3D, Track());
+  reconstruction.AddObservation(id1, TrackElement(1, 0));
+  reconstruction.AddObservation(id1, TrackElement(2, 0));
+  EXPECT_EQ(obs_manager.FilterPoints3DWithLargeReprojectionError(
+                1.0, {id1}, ReprojectionErrorType::PIXEL),
+            0);
+  EXPECT_EQ(obs_manager.FilterPoints3DWithLargeReprojectionError(
+                0.9, {id1}, ReprojectionErrorType::PIXEL),
+            2);
+
+  // NORMALIZED: 0.01 normalized error, passes at 0.01, filtered at 0.009
+  const point3D_t id2 = reconstruction.AddPoint3D(kPoint3D, Track());
+  reconstruction.AddObservation(id2, TrackElement(1, 0));
+  reconstruction.AddObservation(id2, TrackElement(2, 0));
+  EXPECT_EQ(obs_manager.FilterPoints3DWithLargeReprojectionError(
+                0.01, {id2}, ReprojectionErrorType::NORMALIZED),
+            0);
+  EXPECT_EQ(obs_manager.FilterPoints3DWithLargeReprojectionError(
+                0.009, {id2}, ReprojectionErrorType::NORMALIZED),
+            2);
+
+  // ANGULAR: 0.57 degree error.
+  const point3D_t id3 = reconstruction.AddPoint3D(kPoint3D, Track());
+  reconstruction.AddObservation(id3, TrackElement(1, 0));
+  reconstruction.AddObservation(id3, TrackElement(2, 0));
+  // Threshold 0.6deg does not filter 0.57deg error.
+  EXPECT_EQ(obs_manager.FilterPoints3DWithLargeReprojectionError(
+                0.6, {id3}, ReprojectionErrorType::ANGULAR),
+            0);
+  // Threshold 0.5deg filters the 0.57deg error.
+  EXPECT_EQ(obs_manager.FilterPoints3DWithLargeReprojectionError(
+                0.5, {id3}, ReprojectionErrorType::ANGULAR),
+            2);
+}
+
 TEST(ObservationManager, FilterPoints3DInImages) {
   Reconstruction reconstruction;
   GenerateReconstruction(2, reconstruction);
@@ -302,11 +380,12 @@ TEST(ObservationManager, NumVisiblePoints3D) {
   auto correspondence_graph = std::make_shared<CorrespondenceGraph>();
   correspondence_graph->AddImage(kImageId1, 10);
   correspondence_graph->AddImage(kImageId2, 10);
-  FeatureMatches matches;
+  TwoViewGeometry two_view_geometry;
   for (size_t i = 0; i < 10; ++i) {
-    matches.emplace_back(i, i);
+    two_view_geometry.inlier_matches.emplace_back(i, i);
   }
-  correspondence_graph->AddCorrespondences(kImageId1, kImageId2, matches);
+  correspondence_graph->AddTwoViewGeometry(
+      kImageId1, kImageId2, two_view_geometry);
   correspondence_graph->Finalize();
   ObservationManager obs_manager(reconstruction, correspondence_graph);
 
@@ -380,23 +459,26 @@ TEST(ObservationManager, NumVisibleCorrespondences) {
   correspondence_graph->AddImage(kImageId2, 10);
   correspondence_graph->AddImage(kImageId3, 10);
 
-  FeatureMatches matches12;
+  TwoViewGeometry two_view_geometry12;
   for (size_t i = 0; i < 5; ++i) {
-    matches12.emplace_back(i, i);
+    two_view_geometry12.inlier_matches.emplace_back(i, i);
   }
-  correspondence_graph->AddCorrespondences(kImageId1, kImageId2, matches12);
+  correspondence_graph->AddTwoViewGeometry(
+      kImageId1, kImageId2, two_view_geometry12);
 
-  FeatureMatches matches13;
+  TwoViewGeometry two_view_geometry13;
   for (size_t i = 5; i < 8; ++i) {
-    matches13.emplace_back(i, i);
+    two_view_geometry13.inlier_matches.emplace_back(i, i);
   }
-  correspondence_graph->AddCorrespondences(kImageId1, kImageId3, matches13);
+  correspondence_graph->AddTwoViewGeometry(
+      kImageId1, kImageId3, two_view_geometry13);
 
-  FeatureMatches matches23;
+  TwoViewGeometry two_view_geometry23;
   for (size_t i = 0; i < 2; ++i) {
-    matches23.emplace_back(i, i + 5);
+    two_view_geometry23.inlier_matches.emplace_back(i, i + 5);
   }
-  correspondence_graph->AddCorrespondences(kImageId2, kImageId3, matches23);
+  correspondence_graph->AddTwoViewGeometry(
+      kImageId2, kImageId3, two_view_geometry23);
 
   correspondence_graph->Finalize();
 
@@ -473,11 +555,12 @@ TEST(ObservationManager, Point3DVisibilityScore) {
   auto correspondence_graph = std::make_shared<CorrespondenceGraph>();
   correspondence_graph->AddImage(kImageId1, 16);
   correspondence_graph->AddImage(kImageId2, 16);
-  FeatureMatches matches;
+  TwoViewGeometry two_view_geometry;
   for (size_t i = 0; i < 16; ++i) {
-    matches.emplace_back(i, i);
+    two_view_geometry.inlier_matches.emplace_back(i, i);
   }
-  correspondence_graph->AddCorrespondences(kImageId1, kImageId2, matches);
+  correspondence_graph->AddTwoViewGeometry(
+      kImageId1, kImageId2, two_view_geometry);
   correspondence_graph->Finalize();
   ObservationManager obs_manager(reconstruction, correspondence_graph);
 

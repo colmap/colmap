@@ -29,6 +29,7 @@
 
 #include "colmap/controllers/global_pipeline.h"
 
+#include "colmap/math/random.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
@@ -42,7 +43,7 @@ namespace {
 // TODO(jsch): Create parameterized tests for the different mapper
 // implementations (incremental, hierarchical, global)
 TEST(GlobalPipeline, Nominal) {
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -56,13 +57,139 @@ TEST(GlobalPipeline, Nominal) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  GlobalPipeline mapper(glomap::GlobalMapperOptions(),
-                        /*image_path=*/"",
-                        database_path,
-                        reconstruction_manager);
+  GlobalPipelineOptions options;
+  GlobalPipeline mapper(options, database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(*reconstruction_manager->Get(0),
+                                 /*max_rotation_error_deg=*/1e-2,
+                                 /*max_proj_center_error=*/1e-4));
+}
+
+TEST(GlobalPipeline, SfMWithRandomSeedStability) {
+  SetPRNGSeed(1);
+
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 4;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.5;
+  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
+
+  auto run_mapper = [&](int num_threads, int random_seed) {
+    GlobalPipelineOptions options;
+    options.num_threads = num_threads;
+    options.random_seed = random_seed;
+    auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+    GlobalPipeline mapper(options, database, reconstruction_manager);
+    mapper.Run();
+    EXPECT_EQ(reconstruction_manager->Size(), 1);
+    return reconstruction_manager;
+  };
+
+  constexpr int kRandomSeed = 42;
+
+  // Single-threaded execution.
+  {
+    auto reconstruction_manager0 =
+        run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
+    auto reconstruction_manager1 =
+        run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
+    EXPECT_THAT(*reconstruction_manager0->Get(0),
+                ReconstructionEq(*reconstruction_manager1->Get(0)));
+  }
+
+  // Multi-threaded execution.
+  {
+    auto reconstruction_manager0 =
+        run_mapper(/*num_threads=*/3, /*random_seed=*/kRandomSeed);
+    auto reconstruction_manager1 =
+        run_mapper(/*num_threads=*/3, /*random_seed=*/kRandomSeed);
+    // Same seed should produce similar results, up to floating-point variations
+    // in optimization.
+    EXPECT_THAT(*reconstruction_manager0->Get(0),
+                ReconstructionNear(*reconstruction_manager1->Get(0),
+                                   /*max_rotation_error_deg=*/1e-9,
+                                   /*max_proj_center_error=*/1e-9,
+                                   /*max_scale_error=*/std::nullopt,
+                                   /*num_obs_tolerance=*/0.01,
+                                   /*align=*/false));
+  }
+}
+
+TEST(GlobalPipeline, WithExistingRelativePoses) {
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  GlobalPipelineOptions options;
+  GlobalPipeline mapper(options, database, reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(*reconstruction_manager->Get(0),
+                                 /*max_rotation_error_deg=*/1e-2,
+                                 /*max_proj_center_error=*/1e-4));
+}
+
+// To test relative pose re-estimation from view graph calibration.
+TEST(GlobalPipeline, WithNoisyExistingRelativePoses) {
+  SetPRNGSeed(1);
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  // Replace relative poses with completely random values.
+  for (auto& [pair_id, two_view_geometry] : database->ReadTwoViewGeometries()) {
+    if (!two_view_geometry.cam2_from_cam1.has_value()) {
+      continue;
+    }
+    two_view_geometry.cam2_from_cam1->rotation =
+        Eigen::Quaterniond::UnitRandom();
+    two_view_geometry.cam2_from_cam1->translation =
+        Eigen::Vector3d::Random().normalized();
+
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    database->UpdateTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+  }
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  GlobalPipelineOptions options;
+  GlobalPipeline mapper(options, database, reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  // Expect slightly worse accuracy due to noisy input poses.
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(*reconstruction_manager->Get(0),
                                  /*max_rotation_error_deg=*/1e-2,

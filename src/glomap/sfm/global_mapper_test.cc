@@ -1,11 +1,9 @@
 #include "glomap/sfm/global_mapper.h"
 
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
-
-#include "glomap/io/colmap_io.h"
-#include "glomap/types.h"
 
 #include <gtest/gtest.h>
 
@@ -14,20 +12,14 @@ namespace {
 
 // TODO(jsch): Add tests for pose priors.
 
-GlobalMapperOptions CreateTestOptions() {
-  GlobalMapperOptions options;
-  options.skip_view_graph_calibration = false;
-  options.skip_relative_pose_estimation = false;
-  options.skip_rotation_averaging = false;
-  options.skip_track_establishment = false;
-  options.skip_global_positioning = false;
-  options.skip_bundle_adjustment = false;
-  options.skip_retriangulation = false;
-  return options;
+std::shared_ptr<colmap::DatabaseCache> CreateDatabaseCache(
+    const colmap::Database& database) {
+  colmap::DatabaseCache::Options options;
+  return colmap::DatabaseCache::Create(database, options);
 }
 
 TEST(GlobalMapper, WithoutNoise) {
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -36,40 +28,26 @@ TEST(GlobalMapper, WithoutNoise) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 7;
   synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
-  ViewGraph view_graph;
-  std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<camera_t, colmap::Camera> cameras;
-  std::unordered_map<frame_t, Frame> frames;
-  std::unordered_map<image_t, Image> images;
-  std::unordered_map<point3D_t, Point3D> tracks;
-  std::vector<colmap::PosePrior> pose_priors;
+  auto reconstruction = std::make_shared<colmap::Reconstruction>();
 
-  ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
+  global_mapper.BeginReconstruction(reconstruction);
 
-  GlobalMapper global_mapper(CreateTestOptions());
-  global_mapper.Solve(*database,
-                      view_graph,
-                      rigs,
-                      cameras,
-                      frames,
-                      images,
-                      tracks,
-                      pose_priors);
-
-  colmap::Reconstruction reconstruction;
-  ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);
+  std::unordered_map<frame_t, int> cluster_ids;
+  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
 
   EXPECT_THAT(gt_reconstruction,
-              colmap::ReconstructionNear(reconstruction,
+              colmap::ReconstructionNear(*reconstruction,
                                          /*max_rotation_error_deg=*/1e-2,
                                          /*max_proj_center_error=*/1e-4));
 }
 
 TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -81,40 +59,26 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
   synthetic_dataset_options.sensor_from_rig_translation_stddev =
       0.1;                                                         // No noise
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 5.;  // No noise
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
-  ViewGraph view_graph;
-  std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<camera_t, colmap::Camera> cameras;
-  std::unordered_map<frame_t, Frame> frames;
-  std::unordered_map<image_t, Image> images;
-  std::unordered_map<point3D_t, Point3D> tracks;
-  std::vector<colmap::PosePrior> pose_priors;
+  auto reconstruction = std::make_shared<colmap::Reconstruction>();
 
-  ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
+  global_mapper.BeginReconstruction(reconstruction);
 
-  GlobalMapper global_mapper(CreateTestOptions());
-  global_mapper.Solve(*database,
-                      view_graph,
-                      rigs,
-                      cameras,
-                      frames,
-                      images,
-                      tracks,
-                      pose_priors);
-
-  colmap::Reconstruction reconstruction;
-  ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);
+  std::unordered_map<frame_t, int> cluster_ids;
+  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
 
   EXPECT_THAT(gt_reconstruction,
-              colmap::ReconstructionNear(reconstruction,
+              colmap::ReconstructionNear(*reconstruction,
                                          /*max_rotation_error_deg=*/1e-2,
                                          /*max_proj_center_error=*/1e-4));
 }
 
 TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -127,49 +91,35 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
       0.1;                                                         // No noise
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 5.;  // No noise
 
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
-  ViewGraph view_graph;
-  std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<camera_t, colmap::Camera> cameras;
-  std::unordered_map<frame_t, Frame> frames;
-  std::unordered_map<image_t, Image> images;
-  std::unordered_map<point3D_t, Point3D> tracks;
-  std::vector<colmap::PosePrior> pose_priors;
+  auto reconstruction = std::make_shared<colmap::Reconstruction>();
 
-  ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
+  global_mapper.BeginReconstruction(reconstruction);
 
   // Set the rig sensors to be unknown
-  for (auto& [rig_id, rig] : rigs) {
-    for (auto& [sensor_id, sensor] : rig.NonRefSensors()) {
+  for (const auto& [rig_id, rig] : reconstruction->Rigs()) {
+    for (const auto& [sensor_id, sensor] : rig.NonRefSensors()) {
       if (sensor.has_value()) {
-        rig.ResetSensorFromRig(sensor_id);
+        reconstruction->Rig(rig_id).ResetSensorFromRig(sensor_id);
       }
     }
   }
 
-  GlobalMapper global_mapper(CreateTestOptions());
-  global_mapper.Solve(*database,
-                      view_graph,
-                      rigs,
-                      cameras,
-                      frames,
-                      images,
-                      tracks,
-                      pose_priors);
-
-  colmap::Reconstruction reconstruction;
-  ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);
+  std::unordered_map<frame_t, int> cluster_ids;
+  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
 
   EXPECT_THAT(gt_reconstruction,
-              colmap::ReconstructionNear(reconstruction,
+              colmap::ReconstructionNear(*reconstruction,
                                          /*max_rotation_error_deg=*/1e-2,
                                          /*max_proj_center_error=*/1e-4));
 }
 
 TEST(GlobalMapper, WithNoiseAndOutliers) {
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -178,7 +128,8 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 4;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.inlier_match_ratio = 0.6;
+  synthetic_dataset_options.inlier_match_ratio = 0.7;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   colmap::SyntheticNoiseOptions synthetic_noise_options;
@@ -186,31 +137,16 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
   colmap::SynthesizeNoise(
       synthetic_noise_options, &gt_reconstruction, database.get());
 
-  ViewGraph view_graph;
-  std::unordered_map<camera_t, colmap::Camera> cameras;
-  std::unordered_map<rig_t, Rig> rigs;
-  std::unordered_map<image_t, Image> images;
-  std::unordered_map<frame_t, Frame> frames;
-  std::unordered_map<point3D_t, Point3D> tracks;
-  std::vector<colmap::PosePrior> pose_priors;
+  auto reconstruction = std::make_shared<colmap::Reconstruction>();
 
-  ConvertDatabaseToGlomap(*database, view_graph, rigs, cameras, frames, images);
+  GlobalMapper global_mapper(CreateDatabaseCache(*database));
+  global_mapper.BeginReconstruction(reconstruction);
 
-  GlobalMapper global_mapper(CreateTestOptions());
-  global_mapper.Solve(*database,
-                      view_graph,
-                      rigs,
-                      cameras,
-                      frames,
-                      images,
-                      tracks,
-                      pose_priors);
-
-  colmap::Reconstruction reconstruction;
-  ConvertGlomapToColmap(rigs, cameras, frames, images, tracks, reconstruction);
+  std::unordered_map<frame_t, int> cluster_ids;
+  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
 
   EXPECT_THAT(gt_reconstruction,
-              colmap::ReconstructionNear(reconstruction,
+              colmap::ReconstructionNear(*reconstruction,
                                          /*max_rotation_error_deg=*/1e-1,
                                          /*max_proj_center_error=*/1e-1,
                                          /*max_scale_error=*/std::nullopt,
