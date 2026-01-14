@@ -15,5 +15,4 @@ endif()
 
 add_subdirectory(scene)
 add_subdirectory(estimators)
-add_subdirectory(processors)
 add_subdirectory(sfm)

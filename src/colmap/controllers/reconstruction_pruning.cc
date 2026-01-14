@@ -29,12 +29,11 @@
 
 #include "colmap/controllers/reconstruction_pruning.h"
 
+#include "colmap/scene/reconstruction_clustering.h"
 #include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
-
-#include "glomap/processors/reconstruction_pruning.h"
 
 namespace colmap {
 namespace {
@@ -42,13 +41,13 @@ namespace {
 // Extract a subset of the reconstruction for a specific cluster.
 // Returns a new Reconstruction containing only frames/images/points from the
 // specified cluster.
-Reconstruction ExtractClusterReconstruction(
+Reconstruction SubReconstructionByClusterId(
     const Reconstruction& reconstruction,
-    const std::unordered_map<glomap::frame_t, int>& cluster_ids,
+    const std::unordered_map<frame_t, int>& cluster_ids,
     int cluster_id) {
   // Helper to get cluster id for a frame
   auto get_cluster_id =
-      [&cluster_ids](glomap::frame_t frame_id) -> int {
+      [&cluster_ids](frame_t frame_id) -> int {
     auto it = cluster_ids.find(frame_id);
     return it != cluster_ids.end() ? it->second : -1;
   };
@@ -57,7 +56,7 @@ Reconstruction ExtractClusterReconstruction(
   Reconstruction filtered = reconstruction;
 
   // Collect frames to deregister (those not in this cluster)
-  std::vector<glomap::frame_t> frames_to_deregister;
+  std::vector<frame_t> frames_to_deregister;
   for (const auto& [frame_id, frame] : filtered.Frames()) {
     if (!frame.HasPose() || get_cluster_id(frame_id) != cluster_id) {
       frames_to_deregister.push_back(frame_id);
@@ -66,7 +65,7 @@ Reconstruction ExtractClusterReconstruction(
 
   // Deregister frames not in this cluster
   // This also removes point observations from those frames' images
-  for (glomap::frame_t frame_id : frames_to_deregister) {
+  for (frame_t frame_id : frames_to_deregister) {
     if (filtered.Frame(frame_id).HasPose()) {
       filtered.DeRegisterFrame(frame_id);
     }
@@ -89,8 +88,8 @@ void ReconstructionPruningController::Run() {
   LOG_HEADING1("Pruning weakly connected frames");
   Timer timer;
   timer.Start();
-  std::unordered_map<glomap::frame_t, int> cluster_ids =
-      glomap::PruneWeaklyConnectedFrames(options_.pruning, *reconstruction_);
+  std::unordered_map<frame_t, int> cluster_ids =
+      ClusterReconstructionFrames(options_.clustering, *reconstruction_);
   LOG(INFO) << "Pruning done in " << timer.ElapsedSeconds() << " seconds";
 
   LOG(INFO) << "Number of frames after pruning: "
@@ -113,7 +112,7 @@ void ReconstructionPruningController::Run() {
     // Split by cluster and output multiple reconstructions
     for (int comp = 0; comp <= max_cluster_id; comp++) {
       Reconstruction cluster_reconstruction =
-          ExtractClusterReconstruction(*reconstruction_, cluster_ids, comp);
+          SubReconstructionByClusterId(*reconstruction_, cluster_ids, comp);
       const auto reconstruction_path =
           options_.output_path / std::to_string(comp);
       CreateDirIfNotExists(reconstruction_path);

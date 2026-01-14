@@ -51,6 +51,7 @@ struct BundleAdjustmentOptions;
 struct IncrementalPipelineOptions;
 struct GlobalPipelineOptions;
 struct RenderOptions;
+struct ReconstructionClusteringOptions;
 
 namespace mvs {
 struct PatchMatchOptions;
@@ -63,7 +64,6 @@ struct DelaunayMeshingOptions;
 
 namespace glomap {
 struct GravityRefinerOptions;
-struct ReconstructionPruningOptions;
 }  // namespace glomap
 
 namespace colmap {
@@ -125,8 +125,8 @@ class OptionManager : public BaseOptionManager {
   std::shared_ptr<BundleAdjustmentOptions> bundle_adjustment;
   std::shared_ptr<IncrementalPipelineOptions> mapper;
   std::shared_ptr<GlobalPipelineOptions> global_mapper;
+  std::shared_ptr<ReconstructionClusteringOptions> reconstruction_pruner;
   std::shared_ptr<glomap::GravityRefinerOptions> gravity_refiner;
-  std::shared_ptr<glomap::ReconstructionPruningOptions> reconstruction_pruner;
 
   std::shared_ptr<mvs::PatchMatchOptions> patch_match_stereo;
   std::shared_ptr<mvs::StereoFusionOptions> stereo_fusion;

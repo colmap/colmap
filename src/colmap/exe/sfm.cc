@@ -46,8 +46,6 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
 
-#include "glomap/processors/reconstruction_pruning.h"
-
 #include <limits>
 
 #include <boost/property_tree/json_parser.hpp>
@@ -770,7 +768,7 @@ int RunReconstructionPruner(int argc, char** argv) {
 
   ReconstructionPruningOptions pruning_options;
   pruning_options.output_path = output_path;
-  pruning_options.pruning = *options.reconstruction_pruner;
+  pruning_options.clustering = *options.reconstruction_pruner;
 
   ReconstructionPruningController controller(pruning_options, reconstruction);
   controller.Run();

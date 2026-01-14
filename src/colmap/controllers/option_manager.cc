@@ -39,13 +39,13 @@
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match_options.h"
+#include "colmap/scene/reconstruction_clustering.h"
 #include "colmap/ui/render_options.h"
 #include "colmap/util/file.h"
 #include "colmap/util/version.h"
 
 #include "glomap/estimators/global_positioning.h"
 #include "glomap/estimators/gravity_refinement.h"
-#include "glomap/processors/reconstruction_pruning.h"
 
 namespace config = boost::program_options;
 
@@ -67,7 +67,7 @@ OptionManager::OptionManager(bool add_project_options)
   mapper = std::make_shared<IncrementalPipelineOptions>();
   global_mapper = std::make_shared<GlobalPipelineOptions>();
   gravity_refiner = std::make_shared<glomap::GravityRefinerOptions>();
-  reconstruction_pruner = std::make_shared<glomap::ReconstructionPruningOptions>();
+  reconstruction_pruner = std::make_shared<ReconstructionClusteringOptions>();
   patch_match_stereo = std::make_shared<mvs::PatchMatchOptions>();
   stereo_fusion = std::make_shared<mvs::StereoFusionOptions>();
   poisson_meshing = std::make_shared<mvs::PoissonMeshingOptions>();
@@ -960,7 +960,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *mapper = IncrementalPipelineOptions();
   *global_mapper = GlobalPipelineOptions();
   *gravity_refiner = glomap::GravityRefinerOptions();
-  *reconstruction_pruner = glomap::ReconstructionPruningOptions();
+  *reconstruction_pruner = ReconstructionClusteringOptions();
   *patch_match_stereo = mvs::PatchMatchOptions();
   *stereo_fusion = mvs::StereoFusionOptions();
   *poisson_meshing = mvs::PoissonMeshingOptions();

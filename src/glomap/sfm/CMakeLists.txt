@@ -35,7 +35,6 @@ COLMAP_ADD_LIBRARY(
         global_mapper.h global_mapper.cc
     PUBLIC_LINK_LIBS
         colmap_glomap_estimators
-        colmap_glomap_processors
         colmap_glomap_scene
         colmap_estimators
         colmap_sfm
