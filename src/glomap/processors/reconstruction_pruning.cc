@@ -165,36 +165,8 @@ std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
     return {};
   }
 
-  // Step 3: Keep only the largest connected component and de-register the rest.
-  std::vector<std::pair<frame_t, frame_t>> edges;
-  edges.reserve(edge_weights.size());
-  for (const auto& [pair_id, weight] : edge_weights) {
-    const auto [frame_id1, frame_id2] = colmap::PairIdToImagePair(pair_id);
-    edges.emplace_back(frame_id1, frame_id2);
-  }
-  const std::vector<frame_t> largest_cc_vec =
-      colmap::FindLargestConnectedComponent(nodes, edges);
-  const std::unordered_set<frame_t> largest_cc(largest_cc_vec.begin(),
-                                               largest_cc_vec.end());
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    if (largest_cc.count(frame_id) == 0 && frame.HasPose()) {
-      reconstruction.DeRegisterFrame(frame_id);
-    }
-  }
-  LOG(INFO) << "Kept " << largest_cc.size() << " frames in largest component";
-
-  // Filter to keep only edges within the largest component.
-  for (auto it = edge_weights.begin(); it != edge_weights.end();) {
-    const auto [frame_id1, frame_id2] = colmap::PairIdToImagePair(it->first);
-    if (largest_cc.count(frame_id1) == 0 || largest_cc.count(frame_id2) == 0) {
-      it = edge_weights.erase(it);
-    } else {
-      ++it;
-    }
-  }
-
-  // Step 4: Compute adaptive threshold using median minus median absolute
-  // deviation (MAD). Extract weight values after filtering to largest CC.
+  // Step 3: Compute adaptive threshold using median minus median absolute
+  // deviation (MAD).
   std::vector<int> weight_values;
   weight_values.reserve(edge_weights.size());
   for (const auto& [pair_id, weight] : edge_weights) {
@@ -205,8 +177,8 @@ std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
   const double threshold = std::max(median - mad, kMinEdgeWeightThreshold);
   LOG(INFO) << "Threshold for Strong Clustering: " << threshold;
 
-  // Step 5: Cluster frames based on covisibility weights.
-  return EstablishStrongClusters(largest_cc, edge_weights, threshold);
+  // Step 4: Cluster frames based on covisibility weights.
+  return EstablishStrongClusters(nodes, edge_weights, threshold);
 }
 
 }  // namespace glomap
