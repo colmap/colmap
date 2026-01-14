@@ -783,6 +783,8 @@ void OptionManager::AddReconstructionPrunerOptions() {
                    &reconstruction_pruner->min_weak_edges_to_merge);
   AddDefaultOption("ReconstructionPruner.max_clustering_iterations",
                    &reconstruction_pruner->max_clustering_iterations);
+  AddDefaultOption("ReconstructionPruner.min_num_reg_frames",
+                   &reconstruction_pruner->min_num_reg_frames);
 }
 
 void OptionManager::AddPatchMatchStereoOptions() {

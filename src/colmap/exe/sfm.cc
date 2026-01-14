@@ -766,12 +766,17 @@ int RunReconstructionPruner(int argc, char** argv) {
   auto reconstruction = std::make_shared<Reconstruction>();
   reconstruction->Read(input_path);
 
-  ReconstructionPruningOptions pruning_options;
-  pruning_options.output_path = output_path;
-  pruning_options.clustering = *options.reconstruction_pruner;
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
 
-  ReconstructionPruningController controller(pruning_options, reconstruction);
+  ReconstructionClusteringOptions clustering_options =
+      *options.reconstruction_pruner;
+
+  ReconstructionPruningController controller(
+      clustering_options, reconstruction, reconstruction_manager);
   controller.Run();
+
+  LOG_HEADING1("Writing pruned model(s)");
+  reconstruction_manager->Write(output_path);
 
   return EXIT_SUCCESS;
 }

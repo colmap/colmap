@@ -31,34 +31,30 @@
 
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/reconstruction_clustering.h"
+#include "colmap/scene/reconstruction_manager.h"
 #include "colmap/util/base_controller.h"
 
-#include <filesystem>
-#include <string>
+#include <memory>
 
 namespace colmap {
-
-struct ReconstructionPruningOptions {
-  // Output path for pruned reconstruction(s).
-  std::filesystem::path output_path;
-
-  // Clustering algorithm options.
-  ReconstructionClusteringOptions clustering;
-};
 
 // Controller that prunes weakly connected frames from a reconstruction
 // and optionally splits it into multiple reconstructions based on clustering.
 class ReconstructionPruningController : public BaseController {
  public:
   ReconstructionPruningController(
-      const ReconstructionPruningOptions& options,
-      std::shared_ptr<Reconstruction> reconstruction);
+      const ReconstructionClusteringOptions& options,
+      std::shared_ptr<Reconstruction> reconstruction,
+      std::shared_ptr<ReconstructionManager> reconstruction_manager);
 
-  void Run();
+  // Runs the pruning and clustering algorithm.
+  // Results are stored in the reconstruction manager passed to the constructor.
+  void Run() override;
 
  private:
-  const ReconstructionPruningOptions options_;
+  const ReconstructionClusteringOptions options_;
   std::shared_ptr<Reconstruction> reconstruction_;
+  std::shared_ptr<ReconstructionManager> reconstruction_manager_;
 };
 
 }  // namespace colmap

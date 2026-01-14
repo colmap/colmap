@@ -78,18 +78,22 @@ Reconstruction SubReconstructionByClusterId(
 }  // namespace
 
 ReconstructionPruningController::ReconstructionPruningController(
-    const ReconstructionPruningOptions& options,
-    std::shared_ptr<Reconstruction> reconstruction)
-    : options_(options), reconstruction_(std::move(reconstruction)) {}
+    const ReconstructionClusteringOptions& options,
+    std::shared_ptr<Reconstruction> reconstruction,
+    std::shared_ptr<ReconstructionManager> reconstruction_manager)
+    : options_(options),
+      reconstruction_(std::move(reconstruction)),
+      reconstruction_manager_(std::move(reconstruction_manager)) {}
 
 void ReconstructionPruningController::Run() {
   THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(reconstruction_manager_);
 
   LOG_HEADING1("Pruning weakly connected frames");
   Timer timer;
   timer.Start();
   std::unordered_map<frame_t, int> cluster_ids =
-      ClusterReconstructionFrames(options_.clustering, *reconstruction_);
+      ClusterReconstructionFrames(options_, *reconstruction_);
   LOG(INFO) << "Pruning done in " << timer.ElapsedSeconds() << " seconds";
 
   LOG(INFO) << "Number of frames after pruning: "
@@ -103,22 +107,38 @@ void ReconstructionPruningController::Run() {
     }
   }
 
-  LOG_HEADING1("Writing pruned model(s)");
+  // Clear any existing reconstructions
+  reconstruction_manager_->Clear();
 
-  // If no clusters (or single cluster), output as single reconstruction
+  // If no clusters (or single cluster), add the single reconstruction
   if (max_cluster_id <= 0) {
-    reconstruction_->Write(options_.output_path);
+    if (reconstruction_->NumRegFrames() >=
+        static_cast<size_t>(options_.min_num_reg_frames)) {
+      size_t idx = reconstruction_manager_->Add();
+      *reconstruction_manager_->Get(idx) = *reconstruction_;
+    } else {
+      LOG(WARNING) << "Reconstruction has only "
+                   << reconstruction_->NumRegFrames()
+                   << " registered frames, below minimum threshold of "
+                   << options_.min_num_reg_frames;
+    }
   } else {
-    // Split by cluster and output multiple reconstructions
+    // Split by cluster and add multiple reconstructions
     for (int comp = 0; comp <= max_cluster_id; comp++) {
       Reconstruction cluster_reconstruction =
           SubReconstructionByClusterId(*reconstruction_, cluster_ids, comp);
-      const auto reconstruction_path =
-          options_.output_path / std::to_string(comp);
-      CreateDirIfNotExists(reconstruction_path);
-      cluster_reconstruction.Write(reconstruction_path);
+      if (cluster_reconstruction.NumRegFrames() >=
+          static_cast<size_t>(options_.min_num_reg_frames)) {
+        size_t idx = reconstruction_manager_->Add();
+        *reconstruction_manager_->Get(idx) = std::move(cluster_reconstruction);
+      } else {
+        LOG(INFO) << "Skipping cluster " << comp << " with only "
+                  << cluster_reconstruction.NumRegFrames()
+                  << " registered frames";
+      }
     }
-    LOG(INFO) << "Exported " << max_cluster_id + 1 << " reconstructions";
+    LOG(INFO) << "Created " << reconstruction_manager_->Size()
+              << " cluster reconstructions";
   }
 }
 

@@ -55,6 +55,10 @@ struct ReconstructionClusteringOptions {
 
   // Maximum number of iterations for the iterative cluster merging phase.
   int max_clustering_iterations = 10;
+
+  // Minimum number of registered frames required for a cluster to be kept.
+  // Clusters with fewer frames will be discarded.
+  int min_num_reg_frames = 3;
 };
 
 // Clusters frames based on 3D point covisibility and removes weakly connected
