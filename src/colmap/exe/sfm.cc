@@ -42,11 +42,12 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/observation_manager.h"
-#include "glomap/io/colmap_io.h"
-#include "glomap/processors/reconstruction_pruning.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
+
+#include "glomap/io/colmap_io.h"
+#include "glomap/processors/reconstruction_pruning.h"
 
 #include <limits>
 
@@ -750,10 +751,9 @@ int RunReconstructionPruning(int argc, char** argv) {
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption(
-      "image_path",
-      &image_path,
-      "Path to images for extracting colors (optional)");
+  options.AddDefaultOption("image_path",
+                           &image_path,
+                           "Path to images for extracting colors (optional)");
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
