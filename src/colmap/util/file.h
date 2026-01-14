@@ -126,7 +126,7 @@ std::vector<std::string> GetFileList(const std::filesystem::path& path);
 std::vector<std::string> GetRecursiveFileList(
     const std::filesystem::path& path);
 
-// Return list of directories, recursively in all sub-directories.
+// Return list of directories in the given directory.
 std::vector<std::filesystem::path> GetDirList(
     const std::filesystem::path& path);
 
