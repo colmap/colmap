@@ -635,8 +635,6 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.skip_bundle_adjustment);
   AddDefaultOption("GlobalMapper.skip_retriangulation",
                    &global_mapper->mapper.skip_retriangulation);
-  AddDefaultOption("GlobalMapper.skip_pruning",
-                   &global_mapper->mapper.skip_pruning);
 
   // View graph calibration options.
   AddDefaultOption("GlobalMapper.vgc_cross_validate_prior_focal_lengths",

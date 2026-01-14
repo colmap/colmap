@@ -9,7 +9,6 @@
 #include "colmap/util/timer.h"
 
 #include "glomap/estimators/rotation_averaging.h"
-#include "glomap/processors/reconstruction_pruning.h"
 
 #include <algorithm>
 
@@ -505,16 +504,6 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     }
     LOG(INFO) << "Iterative retriangulation and refinement done in "
               << run_timer.ElapsedSeconds() << " seconds";
-  }
-
-  // Reconstruction pruning
-  if (!opts.skip_pruning) {
-    LOG_HEADING1("Running postprocessing");
-    colmap::Timer run_timer;
-    run_timer.Start();
-    cluster_ids = PruneWeaklyConnectedFrames(*reconstruction_);
-    LOG(INFO) << "Postprocessing done in " << run_timer.ElapsedSeconds()
-              << " seconds";
   }
 
   return true;
