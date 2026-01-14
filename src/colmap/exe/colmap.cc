@@ -127,8 +127,8 @@ int main(int argc, char** argv) {
   commands.emplace_back("pose_prior_mapper", &colmap::RunPosePriorMapper);
   commands.emplace_back("poisson_mesher", &colmap::RunPoissonMesher);
   commands.emplace_back("project_generator", &colmap::RunProjectGenerator);
-  commands.emplace_back("reconstruction_pruner",
-                        &colmap::RunReconstructionPruner);
+  commands.emplace_back("reconstruction_clusterer",
+                        &colmap::RunReconstructionClusterer);
   commands.emplace_back("rig_configurator", &colmap::RunRigConfigurator);
   commands.emplace_back("rotation_averager", &colmap::RunRotationAverager);
   commands.emplace_back("sequential_matcher", &colmap::RunSequentialMatcher);

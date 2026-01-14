@@ -740,14 +740,14 @@ int RunViewGraphCalibrator(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
-int RunReconstructionPruner(int argc, char** argv) {
+int RunReconstructionClusterer(int argc, char** argv) {
   std::filesystem::path input_path;
   std::filesystem::path output_path;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
-  options.AddReconstructionPrunerOptions();
+  options.AddReconstructionClustererOptions();
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
@@ -769,7 +769,7 @@ int RunReconstructionPruner(int argc, char** argv) {
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
 
   ReconstructionClusteringOptions clustering_options =
-      *options.reconstruction_pruner;
+      *options.reconstruction_clusterer;
 
   ReconstructionPruningController controller(
       clustering_options, reconstruction, reconstruction_manager);
