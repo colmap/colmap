@@ -44,24 +44,46 @@ GlobalPipeline::GlobalPipeline(
     std::shared_ptr<Database> database,
     std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager)
     : options_(options),
-      database_(std::move(THROW_CHECK_NOTNULL(database))),
       reconstruction_manager_(
           std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {
-  if (options_.decompose_relative_pose) {
-    MaybeDecomposeAndWriteRelativePoses(database_.get());
-  }
-}
+  THROW_CHECK_NOTNULL(database);
 
-void GlobalPipeline::Run() {
+  if (options_.decompose_relative_pose) {
+    MaybeDecomposeAndWriteRelativePoses(database.get());
+  }
+
   // Create database cache with relative poses for pose graph.
+  LOG(INFO) << "Loading database";
+  Timer timer;
+  timer.Start();
   DatabaseCache::Options database_cache_options;
   database_cache_options.min_num_matches = options_.min_num_matches;
   database_cache_options.ignore_watermarks = options_.ignore_watermarks;
   database_cache_options.image_names = {options_.image_names.begin(),
                                         options_.image_names.end()};
-  auto database_cache =
-      DatabaseCache::Create(*database_, database_cache_options);
+  database_cache_ = DatabaseCache::Create(*database, database_cache_options);
+  timer.PrintMinutes();
+}
 
+GlobalPipeline::GlobalPipeline(
+    const GlobalPipelineOptions& options,
+    std::shared_ptr<DatabaseCache> database_cache,
+    std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager)
+    : options_(options),
+      reconstruction_manager_(
+          std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {
+  THROW_CHECK_NOTNULL(database_cache);
+
+  DatabaseCache::Options database_cache_options;
+  database_cache_options.min_num_matches = options_.min_num_matches;
+  database_cache_options.ignore_watermarks = options_.ignore_watermarks;
+  database_cache_options.image_names = {options_.image_names.begin(),
+                                        options_.image_names.end()};
+  database_cache_ =
+      DatabaseCache::CreateFromCache(*database_cache, database_cache_options);
+}
+
+void GlobalPipeline::Run() {
   auto reconstruction = std::make_shared<Reconstruction>();
 
   // Prepare mapper options with top-level options.
@@ -70,7 +92,7 @@ void GlobalPipeline::Run() {
   mapper_options.num_threads = options_.num_threads;
   mapper_options.random_seed = options_.random_seed;
 
-  glomap::GlobalMapper global_mapper(database_cache);
+  glomap::GlobalMapper global_mapper(database_cache_);
   global_mapper.BeginReconstruction(reconstruction);
 
   Timer run_timer;

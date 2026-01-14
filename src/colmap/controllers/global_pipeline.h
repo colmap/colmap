@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/util/base_controller.h"
 
@@ -73,11 +74,16 @@ class GlobalPipeline : public BaseController {
       std::shared_ptr<Database> database,
       std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager);
 
+  GlobalPipeline(
+      const GlobalPipelineOptions& options,
+      std::shared_ptr<DatabaseCache> database_cache,
+      std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager);
+
   void Run() override;
 
  private:
   const GlobalPipelineOptions options_;
-  const std::shared_ptr<Database> database_;
+  std::shared_ptr<DatabaseCache> database_cache_;
   std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager_;
 };
 
