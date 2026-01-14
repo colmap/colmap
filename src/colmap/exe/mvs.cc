@@ -45,9 +45,9 @@ int RunDelaunayMesher(int argc, char** argv) {
                 "available on your system.";
   return EXIT_FAILURE;
 #else   // COLMAP_CGAL_ENABLED
-  std::string input_path;
+  std::filesystem::path input_path;
   std::string input_type = "dense";
-  std::string output_path;
+  std::filesystem::path output_path;
 
   OptionManager options;
   options.AddRequiredOption(
@@ -79,10 +79,10 @@ int RunDelaunayMesher(int argc, char** argv) {
 }
 
 int RunPatchMatchStereo(int argc, char** argv) {
-  std::string workspace_path;
+  std::filesystem::path workspace_path;
   std::string workspace_format = "COLMAP";
   std::string pmvs_option_name = "option-all";
-  std::string config_path;
+  std::filesystem::path config_path;
 
   OptionManager options;
   options.AddRequiredOption(
@@ -132,8 +132,8 @@ void RunPatchMatchStereoImpl(const std::filesystem::path& workspace_path,
 }
 
 int RunPoissonMesher(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
@@ -150,12 +150,12 @@ int RunPoissonMesher(int argc, char** argv) {
 }
 
 int RunStereoFuser(int argc, char** argv) {
-  std::string workspace_path;
+  std::filesystem::path workspace_path;
   std::string input_type = "geometric";
   std::string workspace_format = "COLMAP";
   std::string pmvs_option_name = "option-all";
   std::string output_type = "PLY";
-  std::string output_path;
+  std::filesystem::path output_path;
 
   OptionManager options;
   options.AddRequiredOption("workspace_path", &workspace_path);
@@ -214,7 +214,7 @@ Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
 
   // read data from sparse reconstruction
   if (workspace_format == "colmap") {
-    reconstruction.Read(JoinPaths(workspace_path, "sparse"));
+    reconstruction.Read(workspace_path / "sparse");
   }
 
   // overwrite sparse point cloud with dense point cloud from fuser

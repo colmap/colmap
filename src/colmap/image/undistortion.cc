@@ -300,10 +300,10 @@ void PMVSUndistorter::Run() {
   Timer run_timer;
   run_timer.Start();
 
-  CreateDirIfNotExists(JoinPaths(output_path_, "pmvs"));
-  CreateDirIfNotExists(JoinPaths(output_path_, "pmvs/txt"));
-  CreateDirIfNotExists(JoinPaths(output_path_, "pmvs/visualize"));
-  CreateDirIfNotExists(JoinPaths(output_path_, "pmvs/models"));
+  CreateDirIfNotExists(output_path_ / "pmvs");
+  CreateDirIfNotExists(output_path_ / "pmvs" / "txt");
+  CreateDirIfNotExists(output_path_ / "pmvs" / "visualize");
+  CreateDirIfNotExists(output_path_ / "pmvs" / "models");
 
   ThreadPool thread_pool;
   std::vector<std::shared_future<bool>> futures;

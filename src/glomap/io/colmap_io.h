@@ -4,6 +4,8 @@
 
 #include "glomap/scene/types.h"
 
+#include <filesystem>
+
 namespace glomap {
 
 // Extract a subset of the reconstruction for a specific cluster.
@@ -19,10 +21,10 @@ colmap::Reconstruction SubReconstructionByClusterId(
 // If cluster_ids is empty, writes the full reconstruction to path/0/.
 // If cluster_ids is provided, writes each cluster to path/{cluster_id}/.
 void WriteReconstructionsByClusters(
-    const std::string& reconstruction_path,
+    const std::filesystem::path& reconstruction_path,
     const colmap::Reconstruction& reconstruction,
     const std::unordered_map<frame_t, int>& cluster_ids = {},
     const std::string& output_format = "bin",
-    const std::string& image_path = "");
+    const std::filesystem::path& image_path = "");
 
 }  // namespace glomap
