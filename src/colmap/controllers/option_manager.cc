@@ -67,7 +67,8 @@ OptionManager::OptionManager(bool add_project_options)
   mapper = std::make_shared<IncrementalPipelineOptions>();
   global_mapper = std::make_shared<GlobalPipelineOptions>();
   gravity_refiner = std::make_shared<glomap::GravityRefinerOptions>();
-  reconstruction_clusterer = std::make_shared<ReconstructionClusteringOptions>();
+  reconstruction_clusterer =
+      std::make_shared<ReconstructionClusteringOptions>();
   patch_match_stereo = std::make_shared<mvs::PatchMatchOptions>();
   stereo_fusion = std::make_shared<mvs::StereoFusionOptions>();
   poisson_meshing = std::make_shared<mvs::PoissonMeshingOptions>();

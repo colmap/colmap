@@ -46,8 +46,7 @@ Reconstruction SubReconstructionByClusterId(
     const std::unordered_map<frame_t, int>& cluster_ids,
     int cluster_id) {
   // Helper to get cluster id for a frame
-  auto get_cluster_id =
-      [&cluster_ids](frame_t frame_id) -> int {
+  auto get_cluster_id = [&cluster_ids](frame_t frame_id) -> int {
     auto it = cluster_ids.find(frame_id);
     return it != cluster_ids.end() ? it->second : -1;
   };
