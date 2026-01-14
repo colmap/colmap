@@ -34,10 +34,49 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
-#include "glomap/io/colmap_io.h"
 #include "glomap/processors/reconstruction_pruning.h"
 
 namespace colmap {
+namespace {
+
+// Extract a subset of the reconstruction for a specific cluster.
+// Returns a new Reconstruction containing only frames/images/points from the
+// specified cluster.
+Reconstruction ExtractClusterReconstruction(
+    const Reconstruction& reconstruction,
+    const std::unordered_map<glomap::frame_t, int>& cluster_ids,
+    int cluster_id) {
+  // Helper to get cluster id for a frame
+  auto get_cluster_id =
+      [&cluster_ids](glomap::frame_t frame_id) -> int {
+    auto it = cluster_ids.find(frame_id);
+    return it != cluster_ids.end() ? it->second : -1;
+  };
+
+  // Make a copy of the reconstruction
+  Reconstruction filtered = reconstruction;
+
+  // Collect frames to deregister (those not in this cluster)
+  std::vector<glomap::frame_t> frames_to_deregister;
+  for (const auto& [frame_id, frame] : filtered.Frames()) {
+    if (!frame.HasPose() || get_cluster_id(frame_id) != cluster_id) {
+      frames_to_deregister.push_back(frame_id);
+    }
+  }
+
+  // Deregister frames not in this cluster
+  // This also removes point observations from those frames' images
+  for (glomap::frame_t frame_id : frames_to_deregister) {
+    if (filtered.Frame(frame_id).HasPose()) {
+      filtered.DeRegisterFrame(frame_id);
+    }
+  }
+
+  filtered.UpdatePoint3DErrors();
+  return filtered;
+}
+
+}  // namespace
 
 ReconstructionPruningController::ReconstructionPruningController(
     const ReconstructionPruningOptions& options,
@@ -69,20 +108,12 @@ void ReconstructionPruningController::Run() {
 
   // If no clusters (or single cluster), output as single reconstruction
   if (max_cluster_id <= 0) {
-    if (!options_.image_path.empty()) {
-      LOG(INFO) << "Extracting colors ...";
-      reconstruction_->ExtractColorsForAllImages(options_.image_path);
-    }
     reconstruction_->Write(options_.output_path);
   } else {
     // Split by cluster and output multiple reconstructions
     for (int comp = 0; comp <= max_cluster_id; comp++) {
       Reconstruction cluster_reconstruction =
-          glomap::SubReconstructionByClusterId(
-              *reconstruction_, cluster_ids, comp);
-      if (!options_.image_path.empty()) {
-        cluster_reconstruction.ExtractColorsForAllImages(options_.image_path);
-      }
+          ExtractClusterReconstruction(*reconstruction_, cluster_ids, comp);
       const auto reconstruction_path =
           options_.output_path / std::to_string(comp);
       CreateDirIfNotExists(reconstruction_path);

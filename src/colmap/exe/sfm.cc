@@ -46,7 +46,6 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
 
-#include "glomap/io/colmap_io.h"
 #include "glomap/processors/reconstruction_pruning.h"
 
 #include <limits>
@@ -746,14 +745,10 @@ int RunViewGraphCalibrator(int argc, char** argv) {
 int RunReconstructionPruning(int argc, char** argv) {
   std::filesystem::path input_path;
   std::filesystem::path output_path;
-  std::filesystem::path image_path;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("image_path",
-                           &image_path,
-                           "Path to images for extracting colors (optional)");
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
@@ -773,7 +768,6 @@ int RunReconstructionPruning(int argc, char** argv) {
   reconstruction->Read(input_path);
 
   ReconstructionPruningOptions pruning_options;
-  pruning_options.image_path = image_path.string();
   pruning_options.output_path = output_path;
 
   ReconstructionPruningController controller(pruning_options, reconstruction);

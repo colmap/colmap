@@ -379,7 +379,6 @@ set(COLMAP_EXPORT_LIBS
     colmap_sfm
     colmap_util
     colmap_glomap_estimators
-    colmap_glomap_io
     colmap_glomap_processors
     colmap_glomap_scene
     colmap_glomap_sfm

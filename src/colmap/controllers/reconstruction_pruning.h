@@ -40,9 +40,6 @@
 namespace colmap {
 
 struct ReconstructionPruningOptions {
-  // Path to images for extracting colors (optional).
-  std::string image_path;
-
   // Output path for pruned reconstruction(s).
   std::filesystem::path output_path;
 
