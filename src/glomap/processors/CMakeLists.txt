@@ -49,3 +49,9 @@ COLMAP_ADD_LIBRARY(
         Boost::boost
         OpenMP::OpenMP_CXX
 )
+
+COLMAP_ADD_TEST(
+    NAME glomap_reconstruction_pruning_test
+    SRCS reconstruction_pruning_test.cc
+    LINK_LIBS colmap_glomap_processors
+)
