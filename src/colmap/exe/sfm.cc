@@ -749,6 +749,7 @@ int RunReconstructionPruner(int argc, char** argv) {
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
+  options.AddReconstructionPrunerOptions();
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
@@ -769,6 +770,7 @@ int RunReconstructionPruner(int argc, char** argv) {
 
   ReconstructionPruningOptions pruning_options;
   pruning_options.output_path = output_path;
+  pruning_options.pruning = *options.reconstruction_pruner;
 
   ReconstructionPruningController controller(pruning_options, reconstruction);
   controller.Run();

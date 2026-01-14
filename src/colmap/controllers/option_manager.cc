@@ -45,6 +45,7 @@
 
 #include "glomap/estimators/global_positioning.h"
 #include "glomap/estimators/gravity_refinement.h"
+#include "glomap/processors/reconstruction_pruning.h"
 
 namespace config = boost::program_options;
 
@@ -66,6 +67,7 @@ OptionManager::OptionManager(bool add_project_options)
   mapper = std::make_shared<IncrementalPipelineOptions>();
   global_mapper = std::make_shared<GlobalPipelineOptions>();
   gravity_refiner = std::make_shared<glomap::GravityRefinerOptions>();
+  reconstruction_pruner = std::make_shared<glomap::ReconstructionPruningOptions>();
   patch_match_stereo = std::make_shared<mvs::PatchMatchOptions>();
   stereo_fusion = std::make_shared<mvs::StereoFusionOptions>();
   poisson_meshing = std::make_shared<mvs::PoissonMeshingOptions>();
@@ -765,6 +767,24 @@ void OptionManager::AddGravityRefinerOptions() {
                    &gravity_refiner->min_num_neighbors);
 }
 
+void OptionManager::AddReconstructionPrunerOptions() {
+  if (added_reconstruction_pruner_options_) {
+    return;
+  }
+  added_reconstruction_pruner_options_ = true;
+
+  AddDefaultOption("ReconstructionPruner.min_covisibility_count",
+                   &reconstruction_pruner->min_covisibility_count);
+  AddDefaultOption("ReconstructionPruner.min_edge_weight_threshold",
+                   &reconstruction_pruner->min_edge_weight_threshold);
+  AddDefaultOption("ReconstructionPruner.weak_edge_multiplier",
+                   &reconstruction_pruner->weak_edge_multiplier);
+  AddDefaultOption("ReconstructionPruner.min_weak_edges_to_merge",
+                   &reconstruction_pruner->min_weak_edges_to_merge);
+  AddDefaultOption("ReconstructionPruner.max_clustering_iterations",
+                   &reconstruction_pruner->max_clustering_iterations);
+}
+
 void OptionManager::AddPatchMatchStereoOptions() {
   if (added_patch_match_stereo_options_) {
     return;
@@ -916,6 +936,7 @@ void OptionManager::Reset() {
   added_mapper_options_ = false;
   added_global_mapper_options_ = false;
   added_gravity_refiner_options_ = false;
+  added_reconstruction_pruner_options_ = false;
   added_patch_match_stereo_options_ = false;
   added_stereo_fusion_options_ = false;
   added_poisson_meshing_options_ = false;
@@ -939,6 +960,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *mapper = IncrementalPipelineOptions();
   *global_mapper = GlobalPipelineOptions();
   *gravity_refiner = glomap::GravityRefinerOptions();
+  *reconstruction_pruner = glomap::ReconstructionPruningOptions();
   *patch_match_stereo = mvs::PatchMatchOptions();
   *stereo_fusion = mvs::StereoFusionOptions();
   *poisson_meshing = mvs::PoissonMeshingOptions();
