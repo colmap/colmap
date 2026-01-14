@@ -742,7 +742,7 @@ int RunViewGraphCalibrator(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
-int RunReconstructionPruning(int argc, char** argv) {
+int RunReconstructionPruner(int argc, char** argv) {
   std::filesystem::path input_path;
   std::filesystem::path output_path;
 

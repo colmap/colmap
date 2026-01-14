@@ -63,7 +63,7 @@ int RunHierarchicalMapper(int argc, char** argv);
 int RunPosePriorMapper(int argc, char** argv);
 int RunPointFiltering(int argc, char** argv);
 int RunPointTriangulator(int argc, char** argv);
-int RunReconstructionPruning(int argc, char** argv);
+int RunReconstructionPruner(int argc, char** argv);
 int RunRotationAverager(int argc, char** argv);
 int RunViewGraphCalibrator(int argc, char** argv);
 
