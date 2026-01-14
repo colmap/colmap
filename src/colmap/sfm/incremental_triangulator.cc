@@ -31,7 +31,6 @@
 
 #include "colmap/estimators/triangulation.h"
 #include "colmap/scene/projection.h"
-#include "colmap/util/misc.h"
 
 namespace colmap {
 namespace {

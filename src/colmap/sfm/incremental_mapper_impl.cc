@@ -30,15 +30,11 @@
 #include "colmap/sfm/incremental_mapper_impl.h"
 
 #include "colmap/estimators/generalized_pose.h"
-#include "colmap/estimators/pose.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/triangulation.h"
-#include "colmap/scene/projection.h"
-#include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
 #include <array>
-#include <fstream>
 
 namespace colmap {
 namespace {
