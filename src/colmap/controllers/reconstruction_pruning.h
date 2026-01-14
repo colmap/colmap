@@ -29,42 +29,35 @@
 
 #pragma once
 
-#include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/base_controller.h"
 
 #include <filesystem>
+#include <string>
 
 namespace colmap {
 
-void RunPointTriangulatorImpl(
-    const std::shared_ptr<Reconstruction>& reconstruction,
-    const std::filesystem::path& database_path,
-    const std::filesystem::path& image_path,
-    const std::filesystem::path& output_path,
-    const IncrementalPipelineOptions& options,
-    bool clear_points,
-    bool refine_intrinsics);
+struct ReconstructionPruningOptions {
+  // Path to images for extracting colors (optional).
+  std::string image_path;
 
-bool RunIncrementalMapperImpl(
-    const std::filesystem::path& database_path,
-    const std::filesystem::path& image_path,
-    const std::filesystem::path& output_path,
-    const std::shared_ptr<IncrementalPipelineOptions>& mapper_options,
-    std::shared_ptr<ReconstructionManager>& reconstruction_manager,
-    std::function<void()> initial_image_pair_callback = {},
-    std::function<void()> next_image_callback = {});
+  // Output path for pruned reconstruction(s).
+  std::filesystem::path output_path;
+};
 
-int RunAutomaticReconstructor(int argc, char** argv);
-int RunBundleAdjuster(int argc, char** argv);
-int RunColorExtractor(int argc, char** argv);
-int RunMapper(int argc, char** argv);
-int RunGlobalMapper(int argc, char** argv);
-int RunHierarchicalMapper(int argc, char** argv);
-int RunPosePriorMapper(int argc, char** argv);
-int RunPointFiltering(int argc, char** argv);
-int RunPointTriangulator(int argc, char** argv);
-int RunReconstructionPruning(int argc, char** argv);
-int RunRotationAverager(int argc, char** argv);
-int RunViewGraphCalibrator(int argc, char** argv);
+// Controller that prunes weakly connected frames from a reconstruction
+// and optionally splits it into multiple reconstructions based on clustering.
+class ReconstructionPruningController : public BaseController {
+ public:
+  ReconstructionPruningController(
+      const ReconstructionPruningOptions& options,
+      std::shared_ptr<Reconstruction> reconstruction);
+
+  void Run();
+
+ private:
+  const ReconstructionPruningOptions options_;
+  std::shared_ptr<Reconstruction> reconstruction_;
+};
 
 }  // namespace colmap
