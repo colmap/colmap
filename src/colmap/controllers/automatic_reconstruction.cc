@@ -107,6 +107,9 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     // matching and figure out a good min_num_inliers and min_inlier_ratio
     // threshold for it.
     option_manager_.feature_matching->guided_matching = false;
+    // Enable view graph calibration for global mapper to calibrate focal
+    // lengths from fundamental matrices after matching.
+    option_manager_.feature_matching->view_graph_calibration = true;
   }
 
   option_manager_.mapper->random_seed = options_.random_seed;

@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/estimators/two_view_geometry.h"
+#include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/feature/matcher.h"
 #include "colmap/feature/pairing.h"
 #include "colmap/util/threading.h"
@@ -166,6 +167,13 @@ struct GeometricVerifierOptions {
   // database. If no TwoViewGeometry is found we will fall back to geometric
   // verification with RANSAC.
   bool use_existing_relative_pose = false;
+
+  // Whether to perform view graph calibration at the end.
+  // This calibrates focal lengths from fundamental matrices.
+  bool view_graph_calibration = false;
+
+  // Options for view graph calibration.
+  ViewGraphCalibrationOptions view_graph_calibration_options;
 };
 
 // Perform geometric verification of existing matched image pairs.

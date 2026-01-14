@@ -53,21 +53,6 @@ GlobalPipeline::GlobalPipeline(
 }
 
 void GlobalPipeline::Run() {
-  if (!options_.skip_view_graph_calibration) {
-    LOG_HEADING1("Running view graph calibration");
-    Timer run_timer;
-    run_timer.Start();
-    ViewGraphCalibrationOptions vgc_options = options_.view_graph_calibration;
-    vgc_options.random_seed = options_.random_seed;
-    vgc_options.solver_options.num_threads = options_.num_threads;
-    if (!CalibrateViewGraph(vgc_options, database_.get())) {
-      LOG(ERROR) << "View graph calibration failed";
-      return;
-    }
-    LOG(INFO) << "View graph calibration done in " << run_timer.ElapsedSeconds()
-              << " seconds";
-  }
-
   // Create database cache with relative poses for pose graph.
   DatabaseCache::Options database_cache_options;
   database_cache_options.min_num_matches = options_.min_num_matches;
