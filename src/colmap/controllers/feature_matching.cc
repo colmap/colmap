@@ -217,7 +217,8 @@ class FeatureMatcherThread : public Thread {
     }
 
     // Run view graph calibration after matching if enabled.
-    // This calibrates focal lengths from fundamental matrices.
+    // This refines focal lengths from fundamental matrices and
+    // re-estimates relative poses from the calibrated essential matrices.
     if (!matching_options_.skip_geometric_verification &&
         matching_options_.view_graph_calibration) {
       run_timer.Restart();
