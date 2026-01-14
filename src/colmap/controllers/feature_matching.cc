@@ -313,20 +313,6 @@ class GeometricVerifierThread : public Thread {
       run_timer.PrintMinutes();
     }
 
-    // Run view graph calibration after verification if enabled.
-    // This calibrates focal lengths from fundamental matrices.
-    if (verifier_.Options().view_graph_calibration) {
-      run_timer.Restart();
-      LOG_HEADING1("View graph calibration");
-      ViewGraphCalibrationOptions vgc_options =
-          verifier_.Options().view_graph_calibration_options;
-      vgc_options.solver_options.num_threads = verifier_.Options().num_threads;
-      if (!CalibrateViewGraph(vgc_options, database_.get())) {
-        LOG(ERROR) << "View graph calibration failed";
-      }
-      run_timer.PrintMinutes();
-    }
-
     run_timer.PrintMinutes();
   }
 
