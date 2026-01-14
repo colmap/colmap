@@ -5,9 +5,9 @@
 namespace {
 
 void WriteReconstruction(const colmap::Reconstruction& reconstruction,
-                         const std::string& path,
+                         const std::filesystem::path& path,
                          const std::string& output_format,
-                         const std::string& image_path) {
+                         const std::filesystem::path& image_path) {
   colmap::Reconstruction recon_copy = reconstruction;
   if (!image_path.empty()) {
     LOG(INFO) << "Extracting colors ...";
@@ -66,11 +66,11 @@ colmap::Reconstruction SubReconstructionByClusterId(
 }
 
 void WriteReconstructionsByClusters(
-    const std::string& reconstruction_path,
+    const std::filesystem::path& reconstruction_path,
     const colmap::Reconstruction& reconstruction,
     const std::unordered_map<frame_t, int>& cluster_ids,
     const std::string& output_format,
-    const std::string& image_path) {
+    const std::filesystem::path& image_path) {
   // Find the maximum cluster id to determine if we have multiple clusters
   int max_cluster_id = -1;
   for (const auto& [frame_id, cluster_id] : cluster_ids) {
@@ -82,14 +82,14 @@ void WriteReconstructionsByClusters(
   // If no clusters, output as single reconstruction
   if (max_cluster_id == -1) {
     WriteReconstruction(
-        reconstruction, reconstruction_path + "/0", output_format, image_path);
+        reconstruction, reconstruction_path / "0", output_format, image_path);
   } else {
     // Export each cluster separately
     for (int comp = 0; comp <= max_cluster_id; comp++) {
       colmap::Reconstruction cluster_recon =
           SubReconstructionByClusterId(reconstruction, cluster_ids, comp);
       WriteReconstruction(cluster_recon,
-                          reconstruction_path + "/" + std::to_string(comp),
+                          reconstruction_path / std::to_string(comp),
                           output_format,
                           image_path);
     }

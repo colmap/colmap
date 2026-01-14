@@ -160,7 +160,7 @@ struct VanishingPointEstimator {
 Eigen::Matrix3d EstimateManhattanWorldFrame(
     const ManhattanWorldFrameEstimationOptions& options,
     const Reconstruction& reconstruction,
-    const std::string& image_path) {
+    const std::filesystem::path& image_path) {
   std::vector<Eigen::Vector3d> rightward_axes;
   std::vector<Eigen::Vector3d> downward_axes;
   size_t image_idx = 0;
@@ -176,7 +176,7 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
     LOG(INFO) << "Reading image...";
 
     colmap::Bitmap bitmap;
-    THROW_CHECK(bitmap.Read(colmap::JoinPaths(image_path, image.Name())));
+    THROW_CHECK(bitmap.Read(image_path / image.Name()));
 
     LOG(INFO) << "Undistorting image...";
 
