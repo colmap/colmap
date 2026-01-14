@@ -115,10 +115,6 @@ std::string NormalizePath(const std::filesystem::path& path);
 std::string GetNormalizedRelativePath(const std::filesystem::path& full_path,
                                       const std::filesystem::path& base_path);
 
-// Join multiple paths into one path.
-template <typename... T>
-std::string JoinPaths(T const&... paths);
-
 // Return list of files, recursively in all sub-directories.
 std::vector<std::filesystem::path> GetRecursiveFileList(
     const std::filesystem::path& path);
