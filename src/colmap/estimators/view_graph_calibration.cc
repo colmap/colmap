@@ -471,6 +471,11 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
     }
   }
 
+  // Decompose E matrices to get relative poses without full re-estimation.
+  if (!options.reestimate_relative_pose) {
+    MaybeDecomposeAndWriteRelativePoses(database);
+  }
+
   return true;
 }
 
