@@ -35,6 +35,7 @@
 
 #include "glomap/sfm/global_mapper.h"
 
+#include <filesystem>
 #include <memory>
 #include <vector>
 
@@ -51,7 +52,7 @@ struct GlobalPipelineOptions {
   std::vector<std::string> image_names;
 
   // The image path at which to find the images to extract point colors.
-  std::string image_path;
+  std::filesystem::path image_path;
 
   // Number of threads for parallel processing.
   int num_threads = -1;

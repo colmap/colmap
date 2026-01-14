@@ -46,7 +46,7 @@ TEST(CoordinateFrame, EstimateGravityVectorFromImageOrientation) {
 #ifdef COLMAP_LSD_ENABLED
 TEST(CoordinateFrame, EstimateManhattanWorldFrame) {
   Reconstruction reconstruction;
-  std::string image_path;
+  std::filesystem::path image_path;
   EXPECT_EQ(
       EstimateManhattanWorldFrame(
           ManhattanWorldFrameEstimationOptions(), reconstruction, image_path),
