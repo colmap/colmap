@@ -124,7 +124,7 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
 // becomes easier to find a good name.
 std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
     colmap::Reconstruction& reconstruction) {
-  // Step 1: Compute covisibility counts between all frame pairs.
+  // Compute covisibility counts between all frame pairs.
   // For each 3D point, increment the count for every pair of frames that sees
   // it.
   std::unordered_map<frame_pair_t, int> frame_covisibility_count;
@@ -151,7 +151,7 @@ std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
     }
   }
 
-  // Step 2: Filter edges to keep only reliable connections.
+  // Filter edges to keep only reliable connections.
   std::unordered_map<frame_pair_t, int> edge_weights;
   for (const auto& [pair_id, count] : frame_covisibility_count) {
     if (count < kMinCovisibilityCount) continue;
@@ -165,7 +165,7 @@ std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
     return {};
   }
 
-  // Step 3: Compute adaptive threshold using median minus median absolute
+  // Compute adaptive threshold using median minus median absolute
   // deviation (MAD).
   std::vector<int> weight_values;
   weight_values.reserve(edge_weights.size());
@@ -177,7 +177,7 @@ std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
   const double threshold = std::max(median - mad, kMinEdgeWeightThreshold);
   LOG(INFO) << "Threshold for Strong Clustering: " << threshold;
 
-  // Step 4: Cluster frames based on covisibility weights.
+  // Cluster frames based on covisibility weights.
   return EstablishStrongClusters(nodes, edge_weights, threshold);
 }
 
