@@ -291,7 +291,7 @@ void AutomaticReconstructionController::RunSparseMapper() {
     }
     case Mapper::GLOBAL: {
       GlobalPipelineOptions global_options;
-      global_options.image_path = option_manager_.image_path->string();
+      global_options.image_path = *option_manager_.image_path;
       global_options.num_threads = options_.num_threads;
       global_options.random_seed = options_.random_seed;
       mapper = std::make_unique<GlobalPipeline>(
