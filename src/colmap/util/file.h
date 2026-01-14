@@ -183,16 +183,4 @@ void OverwriteDownloadCacheDir(std::filesystem::path path);
 // Throws runtime exception if download is not supported.
 std::filesystem::path MaybeDownloadAndCacheFile(const std::string& uri);
 
-////////////////////////////////////////////////////////////////////////////////
-// Implementation
-////////////////////////////////////////////////////////////////////////////////
-
-template <typename... T>
-std::string JoinPaths(T const&... paths) {
-  std::filesystem::path result;
-  int unpack[]{0, (result = result / std::filesystem::path(paths), 0)...};
-  static_cast<void>(unpack);
-  return result.string();
-}
-
 }  // namespace colmap

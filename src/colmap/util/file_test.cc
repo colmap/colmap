@@ -150,30 +150,6 @@ TEST(GetNormalizedRelativePath, Nominal) {
   }
 }
 
-TEST(JoinPaths, Nominal) {
-  EXPECT_EQ(JoinPaths(""), "");
-  EXPECT_EQ(JoinPaths("test"), "test");
-  EXPECT_EQ(JoinPaths("/test"), "/test");
-  EXPECT_EQ(JoinPaths("test/"), "test/");
-  EXPECT_EQ(JoinPaths("/test/"), "/test/");
-  EXPECT_EQ(JoinPaths("test1/test2"), "test1/test2");
-  EXPECT_EQ(JoinPaths("/test1/test2"), "/test1/test2");
-  EXPECT_EQ(JoinPaths("/test1/test2/"), "/test1/test2/");
-  EXPECT_EQ(JoinPaths("/test1/test2/"), "/test1/test2/");
-  EXPECT_EQ(JoinPaths("\\test1/test2/"), "\\test1/test2/");
-  EXPECT_EQ(JoinPaths("\\test1\\test2\\"), "\\test1\\test2\\");
-#ifdef _MSC_VER
-  EXPECT_EQ(JoinPaths("test1", "test2"), "test1\\test2");
-  EXPECT_EQ(JoinPaths("/test1", "test2"), "/test1\\test2");
-#else
-  EXPECT_EQ(JoinPaths("test1", "test2"), "test1/test2");
-  EXPECT_EQ(JoinPaths("/test1", "test2"), "/test1/test2");
-#endif
-  EXPECT_EQ(JoinPaths("/test1", "/test2"), "/test2");
-  EXPECT_EQ(JoinPaths("/test1", "/test2/"), "/test2/");
-  EXPECT_EQ(JoinPaths("/test1", "/test2/", "test3.ext"), "/test2/test3.ext");
-}
-
 TEST(FileCopy, Nominal) {
   const auto dir = CreateTestDir();
   const auto src_path = dir / "source.txt";
