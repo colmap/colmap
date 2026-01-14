@@ -38,11 +38,11 @@
 
 namespace colmap {
 
-// Controller that prunes weakly connected frames from a reconstruction
-// and optionally splits it into multiple reconstructions based on clustering.
-class ReconstructionPruningController : public BaseController {
+// Controller that clusters frames from a reconstruction
+// and splits it into multiple reconstructions based on clustering.
+class ReconstructionClustererController : public BaseController {
  public:
-  ReconstructionPruningController(
+  ReconstructionClustererController(
       const ReconstructionClusteringOptions& options,
       std::shared_ptr<Reconstruction> reconstruction,
       std::shared_ptr<ReconstructionManager> reconstruction_manager);

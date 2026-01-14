@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/controllers/reconstruction_pruning.h"
+#include "colmap/controllers/reconstruction_clusterer.h"
 
 #include "colmap/scene/reconstruction_clustering.h"
 #include "colmap/util/file.h"
@@ -77,7 +77,7 @@ Reconstruction SubReconstructionByClusterId(
 
 }  // namespace
 
-ReconstructionPruningController::ReconstructionPruningController(
+ReconstructionClustererController::ReconstructionClustererController(
     const ReconstructionClusteringOptions& options,
     std::shared_ptr<Reconstruction> reconstruction,
     std::shared_ptr<ReconstructionManager> reconstruction_manager)
@@ -85,7 +85,7 @@ ReconstructionPruningController::ReconstructionPruningController(
       reconstruction_(std::move(reconstruction)),
       reconstruction_manager_(std::move(reconstruction_manager)) {}
 
-void ReconstructionPruningController::Run() {
+void ReconstructionClustererController::Run() {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(reconstruction_manager_);
 

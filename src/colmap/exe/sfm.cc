@@ -34,7 +34,7 @@
 #include "colmap/controllers/global_pipeline.h"
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/option_manager.h"
-#include "colmap/controllers/reconstruction_pruning.h"
+#include "colmap/controllers/reconstruction_clusterer.h"
 #include "colmap/controllers/rotation_averaging.h"
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/estimators/view_graph_calibration.h"
@@ -771,11 +771,11 @@ int RunReconstructionClusterer(int argc, char** argv) {
   ReconstructionClusteringOptions clustering_options =
       *options.reconstruction_clusterer;
 
-  ReconstructionPruningController controller(
+  ReconstructionClustererController controller(
       clustering_options, reconstruction, reconstruction_manager);
   controller.Run();
 
-  LOG_HEADING1("Writing pruned model(s)");
+  LOG_HEADING1("Writing clustered model(s)");
   reconstruction_manager->Write(output_path);
 
   return EXIT_SUCCESS;
