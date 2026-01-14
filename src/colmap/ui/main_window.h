@@ -53,6 +53,7 @@
 #include <QtCore>
 #include <QtGui>
 #include <QtWidgets>
+#include <filesystem>
 #include <memory>
 
 namespace colmap {
@@ -61,7 +62,7 @@ class MainWindow : public QMainWindow {
  public:
   explicit MainWindow(OptionManager options);
 
-  void ImportReconstruction(const std::string& import_path);
+  void ImportReconstruction(const std::filesystem::path& import_path);
 
  protected:
   void closeEvent(QCloseEvent* event) override;

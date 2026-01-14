@@ -86,7 +86,7 @@ void UpdateDatabasePosePriorsCovariance(
 
 int RunAutomaticReconstructor(int argc, char** argv) {
   AutomaticReconstructionController::Options reconstruction_options;
-  std::string image_list_path;
+  std::filesystem::path image_list_path;
   std::string data_type = "individual";
   std::string quality = "high";
   std::string mapper = "incremental";
@@ -378,7 +378,7 @@ int RunGlobalMapper(int argc, char** argv) {
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
 
   GlobalPipelineOptions global_options = *options.global_mapper;
-  global_options.image_path = options.image_path->string();
+  global_options.image_path = *options.image_path;
 
   GlobalPipeline global_mapper(global_options,
                                Database::Open(*options.database_path),
@@ -635,8 +635,8 @@ void RunPointTriangulatorImpl(
 }
 
 int RunRotationAverager(int argc, char** argv) {
-  std::string output_path;
-  std::string image_list_path;
+  std::filesystem::path output_path;
+  std::filesystem::path image_list_path;
 
   RotationAveragingPipelineOptions controller_options;
 

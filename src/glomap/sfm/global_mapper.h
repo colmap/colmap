@@ -9,6 +9,7 @@
 #include "glomap/estimators/rotation_averaging.h"
 #include "glomap/scene/pose_graph.h"
 
+#include <filesystem>
 #include <limits>
 
 namespace glomap {
@@ -25,7 +26,7 @@ struct GlobalMapperOptions {
 
   // The image path at which to find the images to extract point colors.
   // If not specified, all point colors will be black.
-  std::string image_path;
+  std::filesystem::path image_path;
 
   // Options for each component
   RotationEstimatorOptions rotation_averaging;

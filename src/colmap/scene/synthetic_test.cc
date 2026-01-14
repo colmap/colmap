@@ -508,7 +508,7 @@ TEST(SynthesizeImages, Nominal) {
 
   for (const auto& [image_id, image] : reconstruction.Images()) {
     Bitmap bitmap;
-    EXPECT_TRUE(bitmap.Read(JoinPaths(image_path, image.Name())));
+    EXPECT_TRUE(bitmap.Read(image_path / image.Name()));
     EXPECT_EQ(bitmap.Width(), image.CameraPtr()->width);
     EXPECT_EQ(bitmap.Height(), image.CameraPtr()->height);
   }
