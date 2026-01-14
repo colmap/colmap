@@ -216,27 +216,6 @@ TEST(GetDirList, Nominal) {
       testing::UnorderedElementsAre(subdir1.string(), subdir2.string()));
 }
 
-TEST(GetRecursiveDirList, Nominal) {
-  const auto dir = CreateTestDir();
-  const auto subdir1 = dir / "subdir1";
-  const auto subdir2 = dir / "subdir2";
-  const auto subdir1_nested = subdir1 / "nested";
-  const auto file = dir / "file.txt";
-
-  CreateDirIfNotExists(subdir1);
-  CreateDirIfNotExists(subdir2);
-  CreateDirIfNotExists(subdir1_nested);
-
-  {
-    std::ofstream f(file);
-  }
-
-  const auto dir_list = GetRecursiveDirList(dir);
-  EXPECT_THAT(dir_list,
-              testing::UnorderedElementsAre(
-                  subdir1.string(), subdir2.string(), subdir1_nested.string()));
-}
-
 TEST(HomeDir, Nominal) {
   // Just test that it doesn't crash, since there is no guarantee that it
   // resolves successfully on a particular machine.

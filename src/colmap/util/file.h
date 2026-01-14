@@ -127,10 +127,8 @@ std::vector<std::string> GetRecursiveFileList(
     const std::filesystem::path& path);
 
 // Return list of directories, recursively in all sub-directories.
-std::vector<std::string> GetDirList(const std::filesystem::path& path);
-
-// Return list of directories, recursively in all sub-directories.
-std::vector<std::string> GetRecursiveDirList(const std::filesystem::path& path);
+std::vector<std::filesystem::path> GetDirList(
+    const std::filesystem::path& path);
 
 // Get the size in bytes of a file.
 size_t GetFileSize(const std::string& path);

@@ -196,28 +196,15 @@ std::vector<std::string> GetRecursiveFileList(
   return file_list;
 }
 
-std::vector<std::string> GetDirList(const std::filesystem::path& path) {
-  std::vector<std::string> dir_list;
+std::vector<std::filesystem::path> GetDirList(
+    const std::filesystem::path& path) {
+  std::vector<std::filesystem::path> dir_list;
   for (auto it = std::filesystem::directory_iterator(path);
        it != std::filesystem::directory_iterator();
        ++it) {
     if (std::filesystem::is_directory(*it)) {
       const std::filesystem::path dir_path = *it;
-      dir_list.push_back(dir_path.string());
-    }
-  }
-  return dir_list;
-}
-
-std::vector<std::string> GetRecursiveDirList(
-    const std::filesystem::path& path) {
-  std::vector<std::string> dir_list;
-  for (auto it = std::filesystem::recursive_directory_iterator(path);
-       it != std::filesystem::recursive_directory_iterator();
-       ++it) {
-    if (std::filesystem::is_directory(*it)) {
-      const std::filesystem::path dir_path = *it;
-      dir_list.push_back(dir_path.string());
+      dir_list.push_back(dir_path);
     }
   }
   return dir_list;
