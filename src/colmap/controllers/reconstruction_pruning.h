@@ -32,6 +32,8 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/base_controller.h"
 
+#include "glomap/processors/reconstruction_pruning.h"
+
 #include <filesystem>
 #include <string>
 
@@ -43,6 +45,9 @@ struct ReconstructionPruningOptions {
 
   // Output path for pruned reconstruction(s).
   std::filesystem::path output_path;
+
+  // Pruning algorithm options.
+  glomap::ReconstructionPruningOptions pruning;
 };
 
 // Controller that prunes weakly connected frames from a reconstruction

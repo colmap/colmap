@@ -33,6 +33,7 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
+
 #include "glomap/io/colmap_io.h"
 #include "glomap/processors/reconstruction_pruning.h"
 
@@ -50,7 +51,7 @@ void ReconstructionPruningController::Run() {
   Timer timer;
   timer.Start();
   std::unordered_map<glomap::frame_t, int> cluster_ids =
-      glomap::PruneWeaklyConnectedFrames(*reconstruction_);
+      glomap::PruneWeaklyConnectedFrames(options_.pruning, *reconstruction_);
   LOG(INFO) << "Pruning done in " << timer.ElapsedSeconds() << " seconds";
 
   LOG(INFO) << "Number of frames after pruning: "
