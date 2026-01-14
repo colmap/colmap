@@ -169,28 +169,15 @@ std::string GetNormalizedRelativePath(const std::filesystem::path& full_path,
   return NormalizePath(std::filesystem::relative(full_path, base_path));
 }
 
-std::vector<std::string> GetFileList(const std::filesystem::path& path) {
-  std::vector<std::string> file_list;
-  for (auto it = std::filesystem::directory_iterator(path);
-       it != std::filesystem::directory_iterator();
-       ++it) {
-    if (std::filesystem::is_regular_file(*it)) {
-      const std::filesystem::path file_path = *it;
-      file_list.push_back(file_path.string());
-    }
-  }
-  return file_list;
-}
-
-std::vector<std::string> GetRecursiveFileList(
+std::vector<std::filesystem::path> GetRecursiveFileList(
     const std::filesystem::path& path) {
-  std::vector<std::string> file_list;
+  std::vector<std::filesystem::path> file_list;
   for (auto it = std::filesystem::recursive_directory_iterator(path);
        it != std::filesystem::recursive_directory_iterator();
        ++it) {
     if (std::filesystem::is_regular_file(*it)) {
       const std::filesystem::path file_path = *it;
-      file_list.push_back(file_path.string());
+      file_list.push_back(file_path);
     }
   }
   return file_list;

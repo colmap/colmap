@@ -178,21 +178,24 @@ TEST(FileCopy, Nominal) {
   EXPECT_TRUE(ExistsFile(dst_soft_link_path));
 }
 
-TEST(GetFileList, Nominal) {
+TEST(GetRecursiveFileList, Nominal) {
   const auto dir = CreateTestDir();
   const auto file1 = dir / "file1.txt";
   const auto file2 = dir / "file2.txt";
   const auto subdir = dir / "subdir";
+  const auto file3 = dir / "file3.txt";
 
   {
     std::ofstream f1(file1);
     std::ofstream f2(file2);
+    std::ofstream f3(file3);
   }
   CreateDirIfNotExists(subdir);
 
-  const auto file_list = GetFileList(dir);
+  const auto file_list = GetRecursiveFileList(dir);
   EXPECT_THAT(file_list,
-              testing::UnorderedElementsAre(file1.string(), file2.string()));
+              testing::UnorderedElementsAre(
+                  file1.string(), file2.string(), file3.string()));
 }
 
 TEST(GetDirList, Nominal) {

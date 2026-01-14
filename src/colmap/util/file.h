@@ -119,11 +119,8 @@ std::string GetNormalizedRelativePath(const std::filesystem::path& full_path,
 template <typename... T>
 std::string JoinPaths(T const&... paths);
 
-// Return list of files in directory.
-std::vector<std::string> GetFileList(const std::filesystem::path& path);
-
 // Return list of files, recursively in all sub-directories.
-std::vector<std::string> GetRecursiveFileList(
+std::vector<std::filesystem::path> GetRecursiveFileList(
     const std::filesystem::path& path);
 
 // Return list of directories in the given directory.
