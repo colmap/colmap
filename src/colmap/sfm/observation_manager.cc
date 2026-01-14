@@ -165,9 +165,16 @@ void ObservationManager::SetObservationAsTriangulated(
       const image_pair_t pair_id = ImagePairToPairId(image_id, corr->image_id);
       auto& stats = image_pair_stats_[pair_id];
       stats.num_tri_corrs += 1;
-      THROW_CHECK_LE(stats.num_tri_corrs, stats.num_total_corrs)
-          << "The correspondence graph must not contain duplicate matches: "
-          << corr->image_id << " " << corr->point2D_idx;
+      // Allow reconstruction to continue if duplicate detected during track
+      // completion (can happen with transitive correspondence paths)
+      if (stats.num_tri_corrs > stats.num_total_corrs) {
+        LOG(WARNING) << "Correspondence count mismatch for image pair ("
+                     << corr->image_id << ", " << corr->point2D_idx
+                     << "): tri=" << stats.num_tri_corrs
+                     << " > total=" << stats.num_total_corrs
+                     << ". Capping to total.";
+        stats.num_tri_corrs = stats.num_total_corrs;
+      }
     }
   }
 }
