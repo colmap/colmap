@@ -292,5 +292,17 @@ TEST(RadTanThinPrismFisheye, Nominal) {
   TestModel<RadTanThinPrismFisheyeModel>(params);
 }
 
+TEST(SimpleDivision, Nominal) {
+  TestModel<SimpleDivisionCameraModel>({651.123, 386.123, 511.123, 0});
+  TestModel<SimpleDivisionCameraModel>({651.123, 386.123, 511.123, 0.1});
+  TestModel<SimpleDivisionCameraModel>({651.123, 386.123, 511.123, -0.1});
+}
+
+TEST(Division, Nominal) {
+  TestModel<DivisionCameraModel>({651.123, 655.123, 386.123, 511.123, 0});
+  TestModel<DivisionCameraModel>({651.123, 655.123, 386.123, 511.123, 0.1});
+  TestModel<DivisionCameraModel>({651.123, 655.123, 386.123, 511.123, -0.1});
+}
+
 }  // namespace
 }  // namespace colmap

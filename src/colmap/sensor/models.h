@@ -83,19 +83,21 @@ namespace colmap {
 
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                 -1,
-                                kInvalid,                // = -1
-                                kSimplePinhole,          // = 0
-                                kPinhole,                // = 1
-                                kSimpleRadial,           // = 2
-                                kRadial,                 // = 3
-                                kOpenCV,                 // = 4
-                                kOpenCVFisheye,          // = 5
-                                kFullOpenCV,             // = 6
-                                kFOV,                    // = 7
-                                kSimpleRadialFisheye,    // = 8
-                                kRadialFisheye,          // = 9
-                                kThinPrismFisheye,       // = 10
-                                kRadTanThinPrismFisheye  // = 11
+                                kInvalid,                 // = -1
+                                kSimplePinhole,           // = 0
+                                kPinhole,                 // = 1
+                                kSimpleRadial,            // = 2
+                                kRadial,                  // = 3
+                                kOpenCV,                  // = 4
+                                kOpenCVFisheye,           // = 5
+                                kFullOpenCV,              // = 6
+                                kFOV,                     // = 7
+                                kSimpleRadialFisheye,     // = 8
+                                kRadialFisheye,           // = 9
+                                kThinPrismFisheye,        // = 10
+                                kRadTanThinPrismFisheye,  // = 11
+                                kSimpleDivision,          // = 12
+                                kDivision                 // = 13
 );
 
 #ifndef CAMERA_MODEL_DEFINITIONS
@@ -151,7 +153,9 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
   CAMERA_MODEL_CASE(FullOpenCVCameraModel)          \
   CAMERA_MODEL_CASE(FOVCameraModel)                 \
   CAMERA_MODEL_CASE(ThinPrismFisheyeCameraModel)    \
-  CAMERA_MODEL_CASE(RadTanThinPrismFisheyeModel)
+  CAMERA_MODEL_CASE(RadTanThinPrismFisheyeModel)    \
+  CAMERA_MODEL_CASE(SimpleDivisionCameraModel)      \
+  CAMERA_MODEL_CASE(DivisionCameraModel)
 #endif
 
 #ifndef CAMERA_MODEL_SWITCH_CASES
@@ -461,6 +465,40 @@ struct RadTanThinPrismFisheyeModel
                            2,
                            12)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
+};
+
+// Simple Division camera model.
+//
+// One parameter division model from Fitzgibbon with a single focal length.
+// This model has a closed-form projection and unprojection.
+//
+// See: "Simultaneous linear estimation of multiple view geometry and lens
+// distortion" by A. Fitzgibbon 2001.
+//
+// Parameter list is expected in the following order:
+//
+//    f, cx, cy, k
+//
+struct SimpleDivisionCameraModel
+    : public BaseCameraModel<SimpleDivisionCameraModel> {
+  CAMERA_MODEL_DEFINITIONS(
+      CameraModelId::kSimpleDivision, "SIMPLE_DIVISION", 1, 2, 1)
+};
+
+// Division camera model.
+//
+// One parameter division model from Fitzgibbon with separate fx/fy focal
+// lengths. This model has a closed-form projection and unprojection.
+//
+// See: "Simultaneous linear estimation of multiple view geometry and lens
+// distortion" by A. Fitzgibbon 2001.
+//
+// Parameter list is expected in the following order:
+//
+//    fx, fy, cx, cy, k
+//
+struct DivisionCameraModel : public BaseCameraModel<DivisionCameraModel> {
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kDivision, "DIVISION", 2, 2, 1)
 };
 
 // Check whether camera model with given name or identifier exists.
@@ -1841,6 +1879,177 @@ void RadTanThinPrismFisheyeModel::Distortion(
 
   *du = x_distorted - u;
   *dv = y_distorted - v;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// SimpleDivisionCameraModel
+
+std::string SimpleDivisionCameraModel::InitializeParamsInfo() {
+  return "f, cx, cy, k";
+}
+
+std::array<size_t, 1> SimpleDivisionCameraModel::InitializeFocalLengthIdxs() {
+  return {0};
+}
+
+std::array<size_t, 2>
+SimpleDivisionCameraModel::InitializePrincipalPointIdxs() {
+  return {1, 2};
+}
+
+std::array<size_t, 1> SimpleDivisionCameraModel::InitializeExtraParamsIdxs() {
+  return {3};
+}
+
+std::vector<double> SimpleDivisionCameraModel::InitializeParams(
+    const double focal_length, const size_t width, const size_t height) {
+  return {focal_length, width / 2.0, height / 2.0, 0};
+}
+
+template <typename T>
+bool SimpleDivisionCameraModel::ImgFromCam(
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
+  // Division model projection:
+  // (xp, 1+k*|xp|^2) ~= (x(1:2), x3)
+  // Solving the quadratic: rho*k*r2 - x3 * r + rho = 0
+
+  const T f = params[0];
+  const T c1 = params[1];
+  const T c2 = params[2];
+  const T k = params[3];
+
+  const T rho = ceres::sqrt(u * u + v * v);
+  const T disc2 = w * w - T(4) * rho * rho * k;
+
+  if (disc2 < T(0)) {
+    return false;
+  }
+
+  const T sq = ceres::sqrt(disc2);
+  const T r = T(2) / (w + sq);
+
+  *x = f * r * u + c1;
+  *y = f * r * v + c2;
+
+  return true;
+}
+
+bool SimpleDivisionCameraModel::CamFromImg(
+    const double* params, double x, double y, double* u, double* v) {
+  const double f = params[0];
+  const double c1 = params[1];
+  const double c2 = params[2];
+  const double k = params[3];
+
+  // Lift to normalized coordinates
+  const double x0 = (x - c1) / f;
+  const double y0 = (y - c2) / f;
+  const double r2 = x0 * x0 + y0 * y0;
+
+  // Closed-form unprojection for division model
+  const double denom = 1.0 + k * r2;
+  *u = x0 / denom;
+  *v = y0 / denom;
+
+  return true;
+}
+
+template <typename T>
+void SimpleDivisionCameraModel::Distortion(
+    const T* extra_params, const T& u, const T& v, T* du, T* dv) {
+  // The division model doesn't use standard additive distortion,
+  // but we need this for compatibility with the iterative undistortion.
+  const T k = extra_params[0];
+  const T r2 = u * u + v * v;
+  const T factor = k * r2 / (T(1) + k * r2);
+  *du = -u * factor;
+  *dv = -v * factor;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// DivisionCameraModel
+
+std::string DivisionCameraModel::InitializeParamsInfo() {
+  return "fx, fy, cx, cy, k";
+}
+
+std::array<size_t, 2> DivisionCameraModel::InitializeFocalLengthIdxs() {
+  return {0, 1};
+}
+
+std::array<size_t, 2> DivisionCameraModel::InitializePrincipalPointIdxs() {
+  return {2, 3};
+}
+
+std::array<size_t, 1> DivisionCameraModel::InitializeExtraParamsIdxs() {
+  return {4};
+}
+
+std::vector<double> DivisionCameraModel::InitializeParams(
+    const double focal_length, const size_t width, const size_t height) {
+  return {focal_length, focal_length, width / 2.0, height / 2.0, 0};
+}
+
+template <typename T>
+bool DivisionCameraModel::ImgFromCam(
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
+  // Division model projection:
+  // (xp, 1+k*|xp|^2) ~= (x(1:2), x3)
+  // Solving the quadratic: rho*k*r2 - x3 * r + rho = 0
+
+  const T f1 = params[0];
+  const T f2 = params[1];
+  const T c1 = params[2];
+  const T c2 = params[3];
+  const T k = params[4];
+
+  const T rho = ceres::sqrt(u * u + v * v);
+  const T disc2 = w * w - T(4) * rho * rho * k;
+
+  if (disc2 < T(0)) {
+    return false;
+  }
+
+  const T sq = ceres::sqrt(disc2);
+  const T r = T(2) / (w + sq);
+
+  *x = f1 * r * u + c1;
+  *y = f2 * r * v + c2;
+
+  return true;
+}
+
+bool DivisionCameraModel::CamFromImg(
+    const double* params, double x, double y, double* u, double* v) {
+  const double f1 = params[0];
+  const double f2 = params[1];
+  const double c1 = params[2];
+  const double c2 = params[3];
+  const double k = params[4];
+
+  // Lift to normalized coordinates
+  const double x0 = (x - c1) / f1;
+  const double y0 = (y - c2) / f2;
+  const double r2 = x0 * x0 + y0 * y0;
+
+  // Closed-form unprojection for division model
+  const double denom = 1.0 + k * r2;
+  *u = x0 / denom;
+  *v = y0 / denom;
+
+  return true;
+}
+
+template <typename T>
+void DivisionCameraModel::Distortion(
+    const T* extra_params, const T& u, const T& v, T* du, T* dv) {
+  // The division model doesn't use standard additive distortion,
+  // but we need this for compatibility with the iterative undistortion.
+  const T k = extra_params[0];
+  const T r2 = u * u + v * v;
+  const T factor = k * r2 / (T(1) + k * r2);
+  *du = -u * factor;
+  *dv = -v * factor;
 }
 
 std::optional<Eigen::Vector2d> CameraModelImgFromCam(
