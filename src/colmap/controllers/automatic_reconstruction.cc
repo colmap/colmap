@@ -100,13 +100,6 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     two_view_geometry_options.ransac_options.max_error = 1.0;
     two_view_geometry_options.min_num_inliers = 30;
     two_view_geometry_options.min_inlier_ratio = 0.25;
-    // Disable guided matching for global mapper to avoid regression issues.
-    // Currently the guided matching leads to significantly worse results of the
-    // global pipeline.
-    // TODO: Write to database matches instead of inlier matches in guided
-    // matching and figure out a good min_num_inliers and min_inlier_ratio
-    // threshold for it.
-    option_manager_.feature_matching->guided_matching = false;
     // Enable view graph calibration for global mapper to calibrate focal
     // lengths from fundamental matrices after matching.
     option_manager_.feature_matching->view_graph_calibration = true;

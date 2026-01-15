@@ -181,6 +181,10 @@ class FeatureMatcherCache {
 
   size_t MaxNumKeypoints();
 
+  // Reload cameras from database. This is useful after view graph calibration
+  // updates camera intrinsics.
+  void ReloadCameras();
+
  private:
   void MaybeLoadCameras();
   void MaybeLoadFrames();
@@ -203,5 +207,28 @@ class FeatureMatcherCache {
   ThreadSafeLRUCache<image_t, FeatureDescriptorIndex> descriptor_index_cache_;
   std::optional<size_t> max_num_keypoints_;
 };
+
+struct GuidedMatchingOptions {
+  // Number of threads for guided matching.
+  int num_threads = -1;
+
+  // Maximum error for guided matching in pixels.
+  double max_error = 4.0;
+
+  bool Check() const;
+};
+
+// Run guided matching on all CALIBRATED two-view geometries in the database.
+// This function is typically called after view graph calibration to find
+// additional geometrically consistent matches using the calibrated E matrices.
+// For each pair, it performs guided matching, writes the augmented matches
+// back to the database, and re-estimates the two-view geometry.
+//
+// @param options           Options for guided matching.
+// @param matching_options  Options for the feature matcher (SIFT parameters).
+// @param cache             Feature matcher cache with access to the database.
+void RunGuidedMatching(const GuidedMatchingOptions& options,
+                       const FeatureMatchingOptions& matching_options,
+                       FeatureMatcherCache* cache);
 
 }  // namespace colmap

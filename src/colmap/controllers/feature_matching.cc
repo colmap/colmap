@@ -169,9 +169,23 @@ class FeatureMatcherThread : public Thread {
         database_(std::move(database)),
         cache_(std::move(cache)),
         pair_generator_factory_(std::move(pair_generator_factory)),
-        matcher_(matching_options, geometry_options, cache_) {
+        matcher_(MatcherOptions(matching_options), geometry_options, cache_) {
     THROW_CHECK(matching_options.Check());
     THROW_CHECK(geometry_options.Check());
+  }
+
+  // Disable first guided matching when VGC is enabled, since VGC will
+  // re-estimate relative poses and overwrite the guided matching results.
+  // Guided matching will run after VGC instead.
+  static FeatureMatchingOptions MatcherOptions(
+      const FeatureMatchingOptions& options) {
+    if (options.skip_geometric_verification ||
+        !options.view_graph_calibration) {
+      return options;
+    }
+    FeatureMatchingOptions matcher_options = options;
+    matcher_options.guided_matching = false;
+    return matcher_options;
   }
 
  private:
@@ -230,6 +244,18 @@ class FeatureMatcherThread : public Thread {
         LOG(ERROR) << "View graph calibration failed";
       }
       run_timer.PrintMinutes();
+
+      // Run guided matching after VGC if enabled.
+      // This uses the calibrated E matrices to find additional matches.
+      if (matching_options_.guided_matching) {
+        run_timer.Restart();
+        LOG_HEADING1("Guided matching");
+        GuidedMatchingOptions guided_options;
+        guided_options.num_threads = matching_options_.num_threads;
+        guided_options.max_error = geometry_options_.ransac_options.max_error;
+        RunGuidedMatching(guided_options, matching_options_, cache_.get());
+        run_timer.PrintMinutes();
+      }
     }
   }
 
