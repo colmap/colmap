@@ -31,9 +31,8 @@
 
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/triangulation.h"
-#include "colmap/scene/projection.h"
+#include "colmap/math/math.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/sensor/models.h"
 #include "colmap/util/file.h"
 
 namespace colmap {
