@@ -44,7 +44,7 @@ COLMAP_ADD_LIBRARY(
         image_reader.h image_reader.cc
         incremental_pipeline.h incremental_pipeline.cc
         option_manager.h option_manager.cc
-        reconstruction_clusterer.h reconstruction_clusterer.cc
+        reconstruction_clustering.h reconstruction_clustering.cc
         rotation_averaging.h rotation_averaging.cc
     PUBLIC_LINK_LIBS
         colmap_estimators

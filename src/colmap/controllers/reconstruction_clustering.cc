@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/controllers/reconstruction_clusterer.h"
+#include "colmap/controllers/reconstruction_clustering.h"
 
 #include "colmap/scene/reconstruction_clustering.h"
 #include "colmap/util/file.h"
