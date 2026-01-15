@@ -27,27 +27,34 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/controllers/option_manager.h"
+#pragma once
+
 #include "colmap/scene/reconstruction.h"
-#include "colmap/util/logging.h"
+#include "colmap/scene/reconstruction_clustering.h"
+#include "colmap/scene/reconstruction_manager.h"
+#include "colmap/util/base_controller.h"
 
-// Simple example that reads and writes a reconstruction.
-int main(int argc, char** argv) {
-  colmap::InitializeGlog(argv);
+#include <memory>
 
-  std::filesystem::path input_path;
-  std::filesystem::path output_path;
+namespace colmap {
 
-  colmap::OptionManager options;
-  options.AddRequiredOption("input_path", &input_path);
-  options.AddRequiredOption("output_path", &output_path);
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
+// Controller that clusters frames from a reconstruction
+// and splits it into multiple reconstructions based on clustering.
+class ReconstructionClustererController : public BaseController {
+ public:
+  ReconstructionClustererController(
+      const ReconstructionClusteringOptions& options,
+      std::shared_ptr<Reconstruction> reconstruction,
+      std::shared_ptr<ReconstructionManager> reconstruction_manager);
 
-  colmap::Reconstruction reconstruction;
-  reconstruction.Read(input_path);
-  reconstruction.Write(output_path);
+  // Runs the pruning and clustering algorithm.
+  // Results are stored in the reconstruction manager passed to the constructor.
+  void Run() override;
 
-  return EXIT_SUCCESS;
-}
+ private:
+  const ReconstructionClusteringOptions options_;
+  std::shared_ptr<Reconstruction> reconstruction_;
+  std::shared_ptr<ReconstructionManager> reconstruction_manager_;
+};
+
+}  // namespace colmap

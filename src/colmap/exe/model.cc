@@ -85,14 +85,13 @@ Eigen::Vector3d TransformLatLonAltToModelCoords(const Sim3d& tform,
   return xyz;
 }
 
-void WriteBoundingBox(const std::string& reconstruction_path,
+void WriteBoundingBox(const std::filesystem::path& reconstruction_path,
                       const Eigen::AlignedBox3d& bbox,
                       const std::string& suffix = "") {
   const Eigen::Vector3d extent = bbox.diagonal();
   // write axis-aligned bounding box
   {
-    const std::string path =
-        JoinPaths(reconstruction_path, "bbox_aligned" + suffix + ".txt");
+    const auto path = reconstruction_path / ("bbox_aligned" + suffix + ".txt");
     std::ofstream file(path, std::ios::trunc);
     THROW_CHECK_FILE_OPEN(file, path);
 
@@ -103,8 +102,7 @@ void WriteBoundingBox(const std::string& reconstruction_path,
   }
   // write oriented bounding box
   {
-    const std::string path =
-        JoinPaths(reconstruction_path, "bbox_oriented" + suffix + ".txt");
+    const auto path = reconstruction_path / ("bbox_oriented" + suffix + ".txt");
     std::ofstream file(path, std::ios::trunc);
     THROW_CHECK_FILE_OPEN(file, path);
 
@@ -140,7 +138,7 @@ std::vector<Eigen::Vector3d> ConvertCameraLocations(
   }
 }
 
-void ReadFileCameraLocations(const std::string& ref_images_path,
+void ReadFileCameraLocations(const std::filesystem::path& ref_images_path,
                              const bool ref_is_gps,
                              const std::string& alignment_type,
                              std::vector<std::string>* ref_image_names,
@@ -159,7 +157,7 @@ void ReadFileCameraLocations(const std::string& ref_images_path,
       ConvertCameraLocations(ref_is_gps, alignment_type, *ref_locations);
 }
 
-void ReadDatabaseCameraLocations(const std::string& database_path,
+void ReadDatabaseCameraLocations(const std::filesystem::path& database_path,
                                  const bool ref_is_gps,
                                  const std::string& alignment_type,
                                  std::vector<std::string>* ref_image_names,
@@ -181,7 +179,7 @@ void ReadDatabaseCameraLocations(const std::string& database_path,
       ConvertCameraLocations(ref_is_gps, alignment_type, *ref_locations);
 }
 
-void WriteComparisonErrorsCSV(const std::string& path,
+void WriteComparisonErrorsCSV(const std::filesystem::path& path,
                               const std::vector<ImageAlignmentError>& errors) {
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
@@ -266,14 +264,14 @@ void PrintComparisonSummary(std::ostream& out,
 // reconstruction
 // - alignment_max_error: ransac error to use
 int RunModelAligner(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
-  std::string database_path;
-  std::string ref_model_path;
-  std::string ref_images_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
+  std::filesystem::path database_path;
+  std::filesystem::path ref_model_path;
+  std::filesystem::path ref_images_path;
   bool ref_is_gps = true;
   bool merge_origins = false;
-  std::string transform_path;
+  std::filesystem::path transform_path;
   std::string alignment_type = "custom";
   int min_common_images = 3;
   RANSACOptions ransac_options;
@@ -435,7 +433,7 @@ int RunModelAligner(int argc, char** argv) {
 }
 
 int RunModelAnalyzer(int argc, char** argv) {
-  std::string path;
+  std::filesystem::path path;
   bool verbose = false;
 
   OptionManager options;
@@ -489,9 +487,9 @@ int RunModelAnalyzer(int argc, char** argv) {
 }
 
 int RunModelComparer(int argc, char** argv) {
-  std::string input_path1;
-  std::string input_path2;
-  std::string output_path;
+  std::filesystem::path input_path1;
+  std::filesystem::path input_path2;
+  std::filesystem::path output_path;
   std::string alignment_error = "reprojection";
   double min_inlier_observations = 0.3;
   double max_reproj_error = 8.0;
@@ -533,10 +531,9 @@ int RunModelComparer(int argc, char** argv) {
     return EXIT_FAILURE;
   }
   if (!output_path.empty()) {
-    const std::string errors_path = JoinPaths(output_path, "errors.csv");
+    const auto errors_path = output_path / "errors.csv";
     WriteComparisonErrorsCSV(errors_path, errors);
-    const std::string summary_path =
-        JoinPaths(output_path, "errors_summary.txt");
+    const auto summary_path = output_path / "errors_summary.txt";
     std::ofstream file(summary_path, std::ios::trunc);
     THROW_CHECK_FILE_OPEN(file, summary_path);
     PrintComparisonSummary(file, errors);
@@ -603,8 +600,8 @@ bool CompareModels(const Reconstruction& reconstruction1,
 }
 
 int RunModelConverter(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
   std::string output_type;
   bool skip_distortion = false;
 
@@ -631,8 +628,8 @@ int RunModelConverter(int argc, char** argv) {
     ExportNVM(reconstruction, output_path, skip_distortion);
   } else if (output_type == "bundler") {
     ExportBundler(reconstruction,
-                  output_path + ".bundle.out",
-                  output_path + ".list.txt",
+                  AddFileExtension(output_path, ".bundle.out"),
+                  AddFileExtension(output_path, ".list.txt"),
                   skip_distortion);
   } else if (output_type == "r3d") {
     ExportRecon3D(reconstruction, output_path, skip_distortion);
@@ -641,10 +638,10 @@ int RunModelConverter(int argc, char** argv) {
   } else if (output_type == "ply") {
     ExportPLY(reconstruction, output_path);
   } else if (output_type == "vrml") {
-    const auto base_path = output_path.substr(0, output_path.find_last_of('.'));
+    const auto base_path = output_path.parent_path() / output_path.stem();
     ExportVRML(reconstruction,
-               base_path + ".images.wrl",
-               base_path + ".points3D.wrl",
+               AddFileExtension(base_path, ".images.wrl"),
+               AddFileExtension(base_path, ".points3D.wrl"),
                1,
                Eigen::Vector3d(1, 0, 0));
   } else {
@@ -659,10 +656,10 @@ int RunModelCropper(int argc, char** argv) {
   Timer timer;
   timer.Start();
 
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
   std::string boundary;
-  std::string gps_transform_path;
+  std::filesystem::path gps_transform_path;
   bool is_gps = false;
 
   OptionManager options;
@@ -734,9 +731,9 @@ int RunModelCropper(int argc, char** argv) {
 }
 
 int RunModelMerger(int argc, char** argv) {
-  std::string input_path1;
-  std::string input_path2;
-  std::string output_path;
+  std::filesystem::path input_path1;
+  std::filesystem::path input_path2;
+  std::filesystem::path output_path;
   double max_reproj_error = 64.0;
 
   OptionManager options;
@@ -777,8 +774,8 @@ int RunModelMerger(int argc, char** argv) {
 }
 
 int RunModelOrientationAligner(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
 #ifdef COLMAP_LSD_ENABLED
   std::string method = "MANHATTAN-WORLD";
 #else
@@ -870,11 +867,11 @@ int RunModelSplitter(int argc, char** argv) {
   Timer timer;
   timer.Start();
 
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
   std::string split_type;
   std::string split_params;
-  std::string gps_transform_path;
+  std::filesystem::path gps_transform_path;
   int num_threads = -1;
   int min_reg_images = 10;
   int min_num_points = 100;
@@ -1022,7 +1019,7 @@ int RunModelSplitter(int argc, char** argv) {
           tile_recon.NumRegImages(),
           tile_num_points,
           100.0 * area_ratio);
-      const std::string reconstruction_path = JoinPaths(output_path, name);
+      const auto reconstruction_path = output_path / name;
       CreateDirIfNotExists(reconstruction_path);
       tile_recon.Write(reconstruction_path);
       WriteBoundingBox(reconstruction_path, padded_bboxes[idx]);
@@ -1049,9 +1046,9 @@ int RunModelSplitter(int argc, char** argv) {
 }
 
 int RunModelTransformer(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
-  std::string transform_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
+  std::filesystem::path transform_path;
   bool is_inverse = false;
 
   OptionManager options;

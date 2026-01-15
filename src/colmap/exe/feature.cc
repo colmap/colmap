@@ -88,7 +88,7 @@ void UpdateImageReaderOptionsFromCameraMode(ImageReaderOptions& options,
 }
 
 int RunFeatureExtractor(int argc, char** argv) {
-  std::string image_list_path;
+  std::filesystem::path image_list_path;
   int camera_mode = -1;
   std::string descriptor_normalization = "l1_root";
 

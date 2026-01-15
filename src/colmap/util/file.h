@@ -115,22 +115,13 @@ std::string NormalizePath(const std::filesystem::path& path);
 std::string GetNormalizedRelativePath(const std::filesystem::path& full_path,
                                       const std::filesystem::path& base_path);
 
-// Join multiple paths into one path.
-template <typename... T>
-std::string JoinPaths(T const&... paths);
-
-// Return list of files in directory.
-std::vector<std::string> GetFileList(const std::filesystem::path& path);
-
 // Return list of files, recursively in all sub-directories.
-std::vector<std::string> GetRecursiveFileList(
+std::vector<std::filesystem::path> GetRecursiveFileList(
     const std::filesystem::path& path);
 
-// Return list of directories, recursively in all sub-directories.
-std::vector<std::string> GetDirList(const std::filesystem::path& path);
-
-// Return list of directories, recursively in all sub-directories.
-std::vector<std::string> GetRecursiveDirList(const std::filesystem::path& path);
+// Return list of directories in the given directory.
+std::vector<std::filesystem::path> GetDirList(
+    const std::filesystem::path& path);
 
 // Get the size in bytes of a file.
 size_t GetFileSize(const std::string& path);
@@ -182,17 +173,5 @@ void OverwriteDownloadCacheDir(std::filesystem::path path);
 // URI matches the "<url>;<name>;<sha256>" format, calls DownloadAndCacheFile().
 // Throws runtime exception if download is not supported.
 std::filesystem::path MaybeDownloadAndCacheFile(const std::string& uri);
-
-////////////////////////////////////////////////////////////////////////////////
-// Implementation
-////////////////////////////////////////////////////////////////////////////////
-
-template <typename... T>
-std::string JoinPaths(T const&... paths) {
-  std::filesystem::path result;
-  int unpack[]{0, (result = result / std::filesystem::path(paths), 0)...};
-  static_cast<void>(unpack);
-  return result.string();
-}
 
 }  // namespace colmap

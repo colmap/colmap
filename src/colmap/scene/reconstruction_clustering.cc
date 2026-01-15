@@ -1,68 +1,90 @@
-#include "glomap/processors/reconstruction_pruning.h"
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+//     * Redistributions of source code must retain the above copyright
+//       notice, this list of conditions and the following disclaimer.
+//
+//     * Redistributions in binary form must reproduce the above copyright
+//       notice, this list of conditions and the following disclaimer in the
+//       documentation and/or other materials provided with the distribution.
+//
+//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
+//       its contributors may be used to endorse or promote products derived
+//       from this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+
+#include "colmap/scene/reconstruction_clustering.h"
 
 #include "colmap/math/connected_components.h"
 #include "colmap/math/math.h"
 #include "colmap/math/union_find.h"
+#include "colmap/util/logging.h"
 
-namespace glomap {
+namespace colmap {
 namespace {
-
-// Alias for clarity: we're working with frame pairs, not image pairs.
-using frame_pair_t = image_pair_t;
-
-// Clustering parameters.
-constexpr int kMinCovisibilityCount = 5;
-constexpr double kMinEdgeWeightThreshold = 20.0;
-constexpr double kWeakEdgeMultiplier = 0.75;
-constexpr int kMinWeakEdgesToMerge = 2;
-constexpr int kMaxClusteringIterations = 10;
 
 // Clusters nodes using union-find based on edge weights.
 //
 // Algorithm:
 //   1. Merge nodes connected by strong edges (weight > threshold).
-//   2. Iteratively merge clusters connected by at least kMinWeakEdgesToMerge
-//      weaker edges (weight >= kWeakEdgeMultiplier * threshold).
+//   2. Iteratively merge clusters connected by at least min_weak_edges_to_merge
+//      weaker edges (weight >= weak_edge_multiplier * threshold).
 //   3. Assign sequential cluster IDs based on union-find roots.
 //
 // The iterative refinement helps avoid over-segmentation when the connection
 // between two groups of nodes is distributed across multiple weaker edges.
 std::unordered_map<frame_t, int> EstablishStrongClusters(
+    const ReconstructionClusteringOptions& options,
     const std::unordered_set<frame_t>& nodes,
-    const std::unordered_map<frame_pair_t, int>& edge_weights,
+    const std::unordered_map<image_pair_t, int>& edge_weights,
     double edge_weight_threshold) {
   std::unordered_map<frame_t, int> cluster_ids;
-  colmap::UnionFind<frame_t> uf;
+  UnionFind<frame_t> uf;
   uf.Reserve(nodes.size());
 
   // Phase 1: Create initial clusters from strong edges (weight > threshold).
   for (const auto& [pair_id, weight] : edge_weights) {
-    if (weight > edge_weight_threshold) {
-      const auto [frame_id1, frame_id2] = colmap::PairIdToImagePair(pair_id);
+    if (weight >= edge_weight_threshold) {
+      const auto [frame_id1, frame_id2] = PairIdToImagePair(pair_id);
       uf.Union(frame_id1, frame_id2);
     }
   }
 
   // Phase 2: Iteratively merge clusters connected by multiple weaker edges.
-  // Two clusters are merged if they share >= kMinWeakEdgesToMerge edges with
-  // weight >= kWeakEdgeMultiplier * threshold. This continues until no more
-  // merges occur (or max kMaxClusteringIterations iterations).
+  // Two clusters are merged if they share >= min_weak_edges_to_merge edges with
+  // weight >= weak_edge_multiplier * threshold. This continues until no more
+  // merges occur (or max max_clustering_iterations iterations).
   bool changed = true;
   int iteration = 0;
   while (changed) {
     changed = false;
     iteration++;
 
-    if (iteration > kMaxClusteringIterations) {
+    if (iteration > options.max_clustering_iterations) {
       break;
     }
 
     // Count edges between each pair of cluster roots.
     std::unordered_map<frame_t, std::unordered_map<frame_t, int>> num_pairs;
     for (const auto& [pair_id, weight] : edge_weights) {
-      if (weight < kWeakEdgeMultiplier * edge_weight_threshold) continue;
+      if (weight < options.weak_edge_multiplier * edge_weight_threshold)
+        continue;
 
-      const auto [frame_id1, frame_id2] = colmap::PairIdToImagePair(pair_id);
+      const auto [frame_id1, frame_id2] = PairIdToImagePair(pair_id);
       frame_t root1 = uf.Find(frame_id1);
       frame_t root2 = uf.Find(frame_id2);
 
@@ -72,12 +94,12 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
       num_pairs[root2][root1]++;
     }
 
-    // Merge clusters that share >= 2 connecting edges.
+    // Merge clusters that share >= min_weak_edges_to_merge connecting edges.
     for (const auto& [root1, counter] : num_pairs) {
       for (const auto& [root2, count] : counter) {
         if (root1 <= root2) continue;  // Process each pair once.
 
-        if (count >= kMinWeakEdgesToMerge) {
+        if (count >= options.min_weak_edges_to_merge) {
           changed = true;
           uf.Union(root1, root2);
         }
@@ -120,14 +142,13 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
 
 }  // namespace
 
-// TODO: Maybe decompose the steps into individual sub-functions. Then it also
-// becomes easier to find a good name.
-std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
-    colmap::Reconstruction& reconstruction) {
-  // Compute covisibility counts between all frame pairs.
+std::unordered_map<frame_t, int> ClusterReconstructionFrames(
+    const ReconstructionClusteringOptions& options,
+    Reconstruction& reconstruction) {
+  // Step 1: Compute covisibility counts between all frame pairs.
   // For each 3D point, increment the count for every pair of frames that sees
   // it.
-  std::unordered_map<frame_pair_t, int> frame_covisibility_count;
+  std::unordered_map<image_pair_t, int> frame_covisibility_count;
   std::unordered_set<frame_t> nodes;
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     if (point3D.track.Length() <= 2) continue;
@@ -144,8 +165,7 @@ std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
         const image_t image_id2 = point3D.track.Element(j).image_id;
         const frame_t frame_id2 = reconstruction.Image(image_id2).FrameId();
         if (frame_id1 == frame_id2) continue;
-        const frame_pair_t pair_id =
-            colmap::ImagePairToPairId(frame_id1, frame_id2);
+        const image_pair_t pair_id = ImagePairToPairId(frame_id1, frame_id2);
         frame_covisibility_count[pair_id]++;
       }
     }
@@ -154,7 +174,7 @@ std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
   // Filter edges to keep only reliable connections.
   std::unordered_map<frame_pair_t, int> edge_weights;
   for (const auto& [pair_id, count] : frame_covisibility_count) {
-    if (count < kMinCovisibilityCount) continue;
+    if (count < options.min_covisibility_count) continue;
     edge_weights[pair_id] = count;
   }
   LOG(INFO) << "Established visibility graph with " << edge_weights.size()
@@ -172,13 +192,13 @@ std::unordered_map<frame_t, int> PruneWeaklyConnectedFrames(
   for (const auto& [pair_id, weight] : edge_weights) {
     weight_values.push_back(weight);
   }
-  const auto [median, mad] =
-      colmap::MedianAbsoluteDeviation(std::move(weight_values));
-  const double threshold = std::max(median - mad, kMinEdgeWeightThreshold);
+  const auto [median, mad] = MedianAbsoluteDeviation(std::move(weight_values));
+  const double threshold =
+      std::max(median - mad, options.min_edge_weight_threshold);
   LOG(INFO) << "Threshold for Strong Clustering: " << threshold;
 
   // Cluster frames based on covisibility weights.
-  return EstablishStrongClusters(nodes, edge_weights, threshold);
+  return EstablishStrongClusters(options, nodes, edge_weights, threshold);
 }
 
-}  // namespace glomap
+}  // namespace colmap
