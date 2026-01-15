@@ -198,7 +198,8 @@ TEST(ClusterReconstructionFrames, WeaklyConnectedReconstruction) {
   EXPECT_EQ(kNumFrames, 10);
 
   ReconstructionClusteringOptions options;
-  options.min_edge_weight_threshold = synthetic_dataset_options.num_points3D + 1;
+  options.min_edge_weight_threshold =
+      synthetic_dataset_options.num_points3D + 1;
   const auto cluster_ids = ClusterReconstructionFrames(options, reconstruction);
 
   // All frames should be assigned to clusters.
