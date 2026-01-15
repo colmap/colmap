@@ -225,7 +225,6 @@ TEST(ReconstructionClustererController, TwoWeaklyConnectedClusters) {
     EXPECT_EQ(reconstruction_manager->Get(i)->NumRegFrames(),
               expected_frames_per_cluster);
   }
-
 }
 
 }  // namespace
