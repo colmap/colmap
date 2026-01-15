@@ -33,6 +33,7 @@
 #include "colmap/geometry/triangulation.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/projection.h"
+#include "colmap/sensor/models.h"
 #include "colmap/util/logging.h"
 
 #include <cassert>
@@ -331,6 +332,12 @@ size_t ObservationManager::FilterObservationsWithNegativeDepth() {
   for (const frame_t frame_id : reconstruction_.RegFrameIds()) {
     for (const data_t& data_id : reconstruction_.Frame(frame_id).ImageIds()) {
       const Image& image = reconstruction_.Image(data_id.id);
+      const Camera& camera = *image.CameraPtr();
+      // Skip depth check for spherical cameras (e.g., EQUIRECTANGULAR)
+      // which can see in all directions, not just positive Z
+      if (camera.model_id == CameraModelId::kEquirectangular) {
+        continue;
+      }
       const Eigen::Matrix3x4d cam_from_world = image.CamFromWorld().ToMatrix();
       for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
            ++point2D_idx) {
