@@ -130,6 +130,9 @@ void ReconstructionClustererController::Run() {
           static_cast<size_t>(options_.min_num_reg_frames)) {
         size_t idx = reconstruction_manager_->Add();
         *reconstruction_manager_->Get(idx) = cluster_reconstruction;
+        LOG(INFO) << "Added cluster " << comp << " with "
+                  << cluster_reconstruction.NumRegFrames()
+                  << " registered frames";
       } else {
         LOG(INFO) << "Skipping cluster " << comp << " with only "
                   << cluster_reconstruction.NumRegFrames()
