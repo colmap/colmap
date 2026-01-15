@@ -459,17 +459,16 @@ void RunGuidedMatching(const GuidedMatchingOptions& options,
       const size_t matcher_idx = i % num_threads;
       {
         std::lock_guard<std::mutex> lock(*matcher_mutexes[matcher_idx]);
-        matchers[matcher_idx]->MatchGuided(
-            options.max_error,
-            {image_id1,
-             &camera1,
-             cache->GetKeypoints(image_id1),
-             cache->GetDescriptors(image_id1)},
-            {image_id2,
-             &camera2,
-             cache->GetKeypoints(image_id2),
-             cache->GetDescriptors(image_id2)},
-            &guided_tvg);
+        matchers[matcher_idx]->MatchGuided(options.max_error,
+                                           {image_id1,
+                                            &camera1,
+                                            cache->GetKeypoints(image_id1),
+                                            cache->GetDescriptors(image_id1)},
+                                           {image_id2,
+                                            &camera2,
+                                            cache->GetKeypoints(image_id2),
+                                            cache->GetDescriptors(image_id2)},
+                                           &guided_tvg);
       }
 
       // Store result. guided_tvg already has updated inlier_matches and
