@@ -171,7 +171,7 @@ std::unordered_map<frame_t, int> ClusterReconstructionFrames(
     }
   }
 
-  // Step 2: Filter edges to keep only reliable connections.
+  // Filter edges to keep only reliable connections.
   std::unordered_map<image_pair_t, int> edge_weights;
   for (const auto& [pair_id, count] : frame_covisibility_count) {
     if (count < options.min_covisibility_count) continue;
@@ -185,36 +185,8 @@ std::unordered_map<frame_t, int> ClusterReconstructionFrames(
     return {};
   }
 
-  // Step 3: Keep only the largest connected component and de-register the rest.
-  std::vector<std::pair<frame_t, frame_t>> edges;
-  edges.reserve(edge_weights.size());
-  for (const auto& [pair_id, weight] : edge_weights) {
-    const auto [frame_id1, frame_id2] = PairIdToImagePair(pair_id);
-    edges.emplace_back(frame_id1, frame_id2);
-  }
-  const std::vector<frame_t> largest_cc_vec =
-      FindLargestConnectedComponent(nodes, edges);
-  const std::unordered_set<frame_t> largest_cc(largest_cc_vec.begin(),
-                                               largest_cc_vec.end());
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    if (largest_cc.count(frame_id) == 0 && frame.HasPose()) {
-      reconstruction.DeRegisterFrame(frame_id);
-    }
-  }
-  LOG(INFO) << "Kept " << largest_cc.size() << " frames in largest component";
-
-  // Filter to keep only edges within the largest component.
-  for (auto it = edge_weights.begin(); it != edge_weights.end();) {
-    const auto [frame_id1, frame_id2] = PairIdToImagePair(it->first);
-    if (largest_cc.count(frame_id1) == 0 || largest_cc.count(frame_id2) == 0) {
-      it = edge_weights.erase(it);
-    } else {
-      ++it;
-    }
-  }
-
-  // Step 4: Compute adaptive threshold using median minus median absolute
-  // deviation (MAD). Extract weight values after filtering to largest CC.
+  // Compute adaptive threshold using median minus median absolute
+  // deviation (MAD).
   std::vector<int> weight_values;
   weight_values.reserve(edge_weights.size());
   for (const auto& [pair_id, weight] : edge_weights) {
@@ -225,8 +197,8 @@ std::unordered_map<frame_t, int> ClusterReconstructionFrames(
       std::max(median - mad, options.min_edge_weight_threshold);
   LOG(INFO) << "Threshold for Strong Clustering: " << threshold;
 
-  // Step 5: Cluster frames based on covisibility weights.
-  return EstablishStrongClusters(options, largest_cc, edge_weights, threshold);
+  // Cluster frames based on covisibility weights.
+  return EstablishStrongClusters(options, nodes, edge_weights, threshold);
 }
 
 }  // namespace colmap
