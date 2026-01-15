@@ -169,11 +169,11 @@ void ObservationManager::SetObservationAsTriangulated(
       // Allow reconstruction to continue if duplicate detected during track
       // completion (can happen with transitive correspondence paths)
       if (stats.num_tri_corrs > stats.num_total_corrs) {
-        LOG(WARNING) << "Correspondence count mismatch for image pair ("
-                     << corr->image_id << ", " << corr->point2D_idx
-                     << "): tri=" << stats.num_tri_corrs
-                     << " > total=" << stats.num_total_corrs
-                     << ". Capping to total.";
+        LOG(ERROR) << "Correspondence count mismatch for image pair ("
+                   << corr->image_id << ", " << corr->point2D_idx
+                   << "): tri=" << stats.num_tri_corrs
+                   << " > total=" << stats.num_total_corrs
+                   << ". Capping to total.";
         stats.num_tri_corrs = stats.num_total_corrs;
       }
     }

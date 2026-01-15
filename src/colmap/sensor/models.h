@@ -1955,12 +1955,18 @@ bool EquirectangularCameraModel::CamFromImg(
   // We return (u/w, v/w) where w = cos(theta)*cos(phi) (the Z component)
   const double w_comp = cos_theta * cos_phi;
 
-  // Handle the case when looking sideways (theta = +/- pi/2)
+  // Handle the case when looking sideways (theta = +/- pi/2) or near the poles
+  const double abs_cos_phi = std::abs(cos_phi);
   if (std::abs(w_comp) < std::numeric_limits<double>::epsilon()) {
     // At 90 degrees left/right, the normalized coords are infinite
     // Return a large but finite value
     *u = (sin_theta > 0) ? 1e6 : -1e6;
-    *v = sin_phi / std::abs(cos_phi);
+    // Also check for near-pole singularity where cos_phi -> 0
+    if (abs_cos_phi < std::numeric_limits<double>::epsilon()) {
+      *v = (sin_phi >= 0.0) ? 1e6 : -1e6;
+    } else {
+      *v = sin_phi / abs_cos_phi;
+    }
     return true;
   }
 
