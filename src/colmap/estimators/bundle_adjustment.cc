@@ -696,13 +696,14 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
 }
 
 void ParameterizePoints(
+    const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
     const std::unordered_map<point3D_t, size_t>& point3D_num_observations,
     Reconstruction& reconstruction,
     ceres::Problem& problem) {
   for (const auto& [point3D_id, num_observations] : point3D_num_observations) {
     Point3D& point3D = reconstruction.Point3D(point3D_id);
-    if (point3D.track.Length() > num_observations) {
+    if (!options.refine_points3D || point3D.track.Length() > num_observations) {
       problem.SetParameterBlockConstant(point3D.xyz.data());
     }
   }
@@ -747,8 +748,11 @@ class DefaultBundleAdjuster : public BundleAdjuster {
                         *problem_);
     ParameterizeImages(
         options_, config_, parameterized_image_ids_, reconstruction, *problem_);
-    ParameterizePoints(
-        config_, point3D_num_observations_, reconstruction, *problem_);
+    ParameterizePoints(options_,
+                       config_,
+                       point3D_num_observations_,
+                       reconstruction,
+                       *problem_);
 
     switch (config_.FixedGauge()) {
       case BundleAdjustmentGauge::UNSPECIFIED:

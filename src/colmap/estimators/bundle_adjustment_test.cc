@@ -965,6 +965,54 @@ TEST(DefaultBundleAdjuster, ConstantExtraParam) {
   }
 }
 
+TEST(DefaultBundleAdjuster, ConstantPoints3D) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 20;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  const auto orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+
+  BundleAdjustmentOptions options;
+  options.refine_points3D = false;
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDefaultBundleAdjuster(options, config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+
+  EXPECT_EQ(config.NumResiduals(reconstruction),
+            bundle_adjuster->Problem()->NumResiduals());
+
+  // 20 points, 2 images, 2 residuals per point per image
+  EXPECT_EQ(summary.num_residuals_reduced, 80);
+  // 0 point parameters (all constant due to refine_points3D=false)
+  // + 2 x 6 rig_from_world parameters
+  // + 2 x 2 camera parameters
+  EXPECT_EQ(summary.num_effective_parameters_reduced, 16);
+
+  CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
+  CheckVariableCamFromWorld(reconstruction.Image(1),
+                            orig_reconstruction.Image(1));
+
+  CheckVariableCamera(reconstruction.Camera(2), orig_reconstruction.Camera(2));
+  CheckVariableCamFromWorld(reconstruction.Image(2),
+                            orig_reconstruction.Image(2));
+
+  // All 3D points should remain constant.
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    CheckConstantPoint(point3D, orig_reconstruction.Point3D(point3D_id));
+  }
+}
+
 TEST(DefaultBundleAdjuster, FixGaugeWithThreePoints) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
