@@ -427,11 +427,15 @@ void RunGuidedMatching(const GuidedMatchingOptions& options,
   const int num_threads = GetEffectiveNumThreads(options.num_threads);
   ThreadPool thread_pool(num_threads);
 
-  // Create feature matchers (one per thread for CPU matching).
+  // Create feature matchers with per-matcher mutexes.
+  // Each matcher can only be used by one task at a time.
   std::vector<std::unique_ptr<FeatureMatcher>> matchers;
+  std::vector<std::unique_ptr<std::mutex>> matcher_mutexes;
   matchers.reserve(num_threads);
+  matcher_mutexes.reserve(num_threads);
   for (int i = 0; i < num_threads; ++i) {
     matchers.push_back(FeatureMatcher::Create(matching_options));
+    matcher_mutexes.push_back(std::make_unique<std::mutex>());
   }
 
   std::mutex result_mutex;
@@ -439,7 +443,7 @@ void RunGuidedMatching(const GuidedMatchingOptions& options,
   results.reserve(calibrated_pairs.size());
 
   for (size_t i = 0; i < calibrated_pairs.size(); ++i) {
-    thread_pool.AddTask([&, i, thread_id = i % num_threads]() {
+    thread_pool.AddTask([&, i]() {
       auto& [pair_id, tvg] = calibrated_pairs[i];
       const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
 
@@ -449,17 +453,24 @@ void RunGuidedMatching(const GuidedMatchingOptions& options,
           cache->GetCamera(cache->GetImage(image_id2).CameraId());
 
       // Perform guided matching using the calibrated E matrix.
+      // Use modulo to distribute across matchers, with mutex to prevent
+      // concurrent access to the same matcher.
       TwoViewGeometry guided_tvg = tvg;
-      matchers[thread_id]->MatchGuided(options.max_error,
-                                       {image_id1,
-                                        &camera1,
-                                        cache->GetKeypoints(image_id1),
-                                        cache->GetDescriptors(image_id1)},
-                                       {image_id2,
-                                        &camera2,
-                                        cache->GetKeypoints(image_id2),
-                                        cache->GetDescriptors(image_id2)},
-                                       &guided_tvg);
+      const size_t matcher_idx = i % num_threads;
+      {
+        std::lock_guard<std::mutex> lock(*matcher_mutexes[matcher_idx]);
+        matchers[matcher_idx]->MatchGuided(
+            options.max_error,
+            {image_id1,
+             &camera1,
+             cache->GetKeypoints(image_id1),
+             cache->GetDescriptors(image_id1)},
+            {image_id2,
+             &camera2,
+             cache->GetKeypoints(image_id2),
+             cache->GetDescriptors(image_id2)},
+            &guided_tvg);
+      }
 
       // Store result. guided_tvg already has updated inlier_matches and
       // preserves E, F, cam2_from_cam1, etc. from the original tvg.
