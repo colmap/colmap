@@ -33,12 +33,22 @@
 #include "colmap/optim/combination_sampler.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/scene/projection.h"
+#include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
 #include <Eigen/Geometry>
 
 namespace colmap {
+
+namespace {
+// Helper to check if a camera is a spherical model that can see in all
+// directions (no positive-depth constraint).
+inline bool IsSphericalCamera(const Camera* camera) {
+  return camera != nullptr &&
+         camera->model_id == CameraModelId::kEquirectangular;
+}
+}  // namespace
 
 TriangulationEstimator::TriangulationEstimator(double min_tri_angle,
                                                ResidualType residual_type)
@@ -63,8 +73,12 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
                          point_data[0].cam_point,
                          point_data[1].cam_point,
                          &xyz) &&
-        HasPointPositiveDepth(pose_data[0].cam_from_world, xyz) &&
-        HasPointPositiveDepth(pose_data[1].cam_from_world, xyz) &&
+        // Skip positive depth check for spherical cameras (e.g., equirectangular)
+        // which can see in all directions, not just positive Z.
+        (IsSphericalCamera(pose_data[0].camera) ||
+         HasPointPositiveDepth(pose_data[0].cam_from_world, xyz)) &&
+        (IsSphericalCamera(pose_data[1].camera) ||
+         HasPointPositiveDepth(pose_data[1].cam_from_world, xyz)) &&
         CalculateTriangulationAngle(pose_data[0].proj_center,
                                     pose_data[1].proj_center,
                                     xyz) >= min_tri_angle_) {
@@ -92,8 +106,11 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
     }
 
     // Check for cheirality constraint.
+    // Skip for spherical cameras (e.g., equirectangular) which can see in all
+    // directions, not just positive Z.
     for (const auto& pose : pose_data) {
-      if (!HasPointPositiveDepth(pose.cam_from_world, xyz)) {
+      if (!IsSphericalCamera(pose.camera) &&
+          !HasPointPositiveDepth(pose.cam_from_world, xyz)) {
         return;
       }
     }

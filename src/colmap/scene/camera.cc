@@ -70,6 +70,14 @@ Eigen::Matrix3d Camera::CalibrationMatrix() const {
   } else if (idxs.size() == 2) {
     K(0, 0) = params[idxs[0]];
     K(1, 1) = params[idxs[1]];
+  } else if (idxs.size() == 0 &&
+             model_id == CameraModelId::kEquirectangular) {
+    // For equirectangular cameras, use a pseudo focal length based on
+    // the angular coverage. For a 360-degree camera:
+    // focal_length ≈ width / (2 * pi)
+    const double pseudo_focal = PrincipalPointX() / M_PI;
+    K(0, 0) = pseudo_focal;
+    K(1, 1) = pseudo_focal;
   } else {
     LOG(FATAL_THROW)
         << "Camera model must either have 1 or 2 focal length parameters.";
@@ -83,6 +91,13 @@ Eigen::Matrix3d Camera::CalibrationMatrix() const {
 
 double Camera::MeanFocalLength() const {
   const span<const size_t> focal_length_idxs = FocalLengthIdxs();
+  if (focal_length_idxs.size() == 0) {
+    // For spherical cameras like EQUIRECTANGULAR, return pseudo focal length
+    if (model_id == CameraModelId::kEquirectangular) {
+      return PrincipalPointX() / M_PI;
+    }
+    return 0.0;
+  }
   double focal_length = 0;
   for (const auto idx : focal_length_idxs) {
     focal_length += params[idx];
@@ -124,6 +139,10 @@ void Camera::Rescale(const double scale) {
   } else if (FocalLengthIdxs().size() == 2) {
     SetFocalLengthX(scale_x * FocalLengthX());
     SetFocalLengthY(scale_y * FocalLengthY());
+  } else if (FocalLengthIdxs().size() == 0 &&
+             model_id == CameraModelId::kEquirectangular) {
+    // Spherical cameras have no focal length to rescale - principal point
+    // rescale above is sufficient
   } else {
     LOG(FATAL_THROW)
         << "Camera model must either have 1 or 2 focal length parameters.";
@@ -144,6 +163,10 @@ void Camera::Rescale(const size_t new_width, const size_t new_height) {
   } else if (FocalLengthIdxs().size() == 2) {
     SetFocalLengthX(scale_x * FocalLengthX());
     SetFocalLengthY(scale_y * FocalLengthY());
+  } else if (FocalLengthIdxs().size() == 0 &&
+             model_id == CameraModelId::kEquirectangular) {
+    // Spherical cameras have no focal length to rescale - principal point
+    // rescale above is sufficient
   } else {
     LOG(FATAL_THROW)
         << "Camera model must either have 1 or 2 focal length parameters.";

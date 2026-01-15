@@ -105,6 +105,81 @@ bool TriangulateMidPoint(const Rigid3d& cam2_from_cam1,
   return true;
 }
 
+bool TriangulatePointBearing(const Rigid3d& cam_from_world1,
+                             const Rigid3d& cam_from_world2,
+                             const Eigen::Vector3d& bearing1,
+                             const Eigen::Vector3d& bearing2,
+                             Eigen::Vector3d* point3D) {
+  THROW_CHECK_NOTNULL(point3D);
+
+  // Transform bearing vectors to world frame
+  const Rigid3d world_from_cam1 = Inverse(cam_from_world1);
+  const Rigid3d world_from_cam2 = Inverse(cam_from_world2);
+
+  const Eigen::Vector3d ray1_world = world_from_cam1.rotation * bearing1;
+  const Eigen::Vector3d ray2_world = world_from_cam2.rotation * bearing2;
+
+  // Camera centers in world frame
+  const Eigen::Vector3d center1 = world_from_cam1.translation;
+  const Eigen::Vector3d center2 = world_from_cam2.translation;
+
+  // Find closest points on the two rays using the parametric form:
+  // P1 = center1 + t1 * ray1_world
+  // P2 = center2 + t2 * ray2_world
+  //
+  // We solve for t1, t2 that minimize ||P1 - P2||^2
+  // This gives us: (center2 - center1) = t1 * ray1_world - t2 * ray2_world
+  //
+  // Using dot products with ray1 and ray2:
+  // d = center2 - center1
+  // a = ray1 . ray1 = 1 (unit vectors)
+  // b = ray1 . ray2
+  // c = ray2 . ray2 = 1 (unit vectors)
+  // d1 = d . ray1
+  // d2 = d . ray2
+  //
+  // t1 = (d1 - b*d2) / (1 - b^2)
+  // t2 = (b*d1 - d2) / (1 - b^2)
+
+  const Eigen::Vector3d d = center2 - center1;
+  const double b = ray1_world.dot(ray2_world);
+  const double d1 = d.dot(ray1_world);
+  const double d2 = d.dot(ray2_world);
+
+  const double denom = 1.0 - b * b;
+
+  // Check if rays are nearly parallel (degenerate case)
+  constexpr double kEpsilon = 1e-10;
+  if (std::abs(denom) < kEpsilon) {
+    return false;
+  }
+
+  const double t1 = (d1 - b * d2) / denom;
+  const double t2 = (b * d1 - d2) / denom;
+
+  // For spherical cameras, both positive and negative t values are valid
+  // (the bearing vector points toward the scene, not necessarily away from
+  // the camera center). However, we require consistent signs - both rays
+  // should agree on which side of the baseline the point is.
+  // Allow small negative values due to numerical precision.
+  constexpr double kMinLambda = -1e-3;
+  if (t1 < kMinLambda || t2 < kMinLambda) {
+    // Point is behind both cameras - still valid for spherical cameras
+    // if both t values are consistently negative
+    if (t1 > -kMinLambda || t2 > -kMinLambda) {
+      // Inconsistent signs - rays don't truly intersect
+      return false;
+    }
+  }
+
+  // Compute midpoint of the two closest points
+  const Eigen::Vector3d P1 = center1 + t1 * ray1_world;
+  const Eigen::Vector3d P2 = center2 + t2 * ray2_world;
+  *point3D = 0.5 * (P1 + P2);
+
+  return true;
+}
+
 bool TriangulateMultiViewPoint(
     const span<const Eigen::Matrix3x4d>& cams_from_world,
     const span<const Eigen::Vector2d>& cam_points,
