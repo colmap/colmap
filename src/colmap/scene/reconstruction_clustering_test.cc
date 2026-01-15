@@ -181,6 +181,37 @@ TEST(ClusterReconstructionFrames, WellConnectedReconstruction) {
   }
 }
 
+TEST(ClusterReconstructionFrames, WeaklyConnectedReconstruction) {
+  // Create a reconstruction with very few 3D points (10 total).
+  // With so few shared observations, the covisibility between frames is weak
+  // and each frame should be assigned to its own cluster.
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 10;
+  synthetic_dataset_options.num_points3D = 10;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  const size_t kNumFrames = reconstruction.NumRegFrames();
+  EXPECT_EQ(kNumFrames, 10);
+
+  ReconstructionClusteringOptions options;
+  options.min_edge_weight_threshold = synthetic_dataset_options.num_points3D + 1;
+  const auto cluster_ids = ClusterReconstructionFrames(options, reconstruction);
+
+  // All frames should be assigned to clusters.
+  EXPECT_EQ(cluster_ids.size(), kNumFrames);
+
+  // Each frame should be in its own cluster (unique cluster IDs).
+  std::unordered_set<int> unique_cluster_ids;
+  for (const auto& [frame_id, cluster_id] : cluster_ids) {
+    unique_cluster_ids.insert(cluster_id);
+  }
+  EXPECT_EQ(unique_cluster_ids.size(), kNumFrames);
+}
+
 TEST(ClusterReconstructionFrames, OneMajorConnectedComponent) {
   // Create a reconstruction with 10 frames, all initially well-connected.
   Reconstruction reconstruction;
