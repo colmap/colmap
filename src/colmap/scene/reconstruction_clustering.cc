@@ -172,7 +172,7 @@ std::unordered_map<frame_t, int> ClusterReconstructionFrames(
   }
 
   // Filter edges to keep only reliable connections.
-  std::unordered_map<frame_pair_t, int> edge_weights;
+  std::unordered_map<image_pair_t, int> edge_weights;
   for (const auto& [pair_id, count] : frame_covisibility_count) {
     if (count < options.min_covisibility_count) continue;
     edge_weights[pair_id] = count;
