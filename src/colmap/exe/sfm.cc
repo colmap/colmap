@@ -34,6 +34,7 @@
 #include "colmap/controllers/global_pipeline.h"
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/option_manager.h"
+#include "colmap/controllers/reconstruction_clustering.h"
 #include "colmap/controllers/rotation_averaging.h"
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/estimators/view_graph_calibration.h"
@@ -85,7 +86,7 @@ void UpdateDatabasePosePriorsCovariance(
 
 int RunAutomaticReconstructor(int argc, char** argv) {
   AutomaticReconstructionController::Options reconstruction_options;
-  std::string image_list_path;
+  std::filesystem::path image_list_path;
   std::string data_type = "individual";
   std::string quality = "high";
   std::string mapper = "incremental";
@@ -377,7 +378,7 @@ int RunGlobalMapper(int argc, char** argv) {
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
 
   GlobalPipelineOptions global_options = *options.global_mapper;
-  global_options.image_path = options.image_path->string();
+  global_options.image_path = *options.image_path;
 
   GlobalPipeline global_mapper(global_options,
                                Database::Open(*options.database_path),
@@ -634,8 +635,8 @@ void RunPointTriangulatorImpl(
 }
 
 int RunRotationAverager(int argc, char** argv) {
-  std::string output_path;
-  std::string image_list_path;
+  std::filesystem::path output_path;
+  std::filesystem::path image_list_path;
 
   RotationAveragingPipelineOptions controller_options;
 
@@ -736,6 +737,46 @@ int RunViewGraphCalibrator(int argc, char** argv) {
   }
 
   LOG(INFO) << "View graph calibration completed successfully";
+  return EXIT_SUCCESS;
+}
+
+int RunReconstructionClusterer(int argc, char** argv) {
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
+
+  OptionManager options;
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddReconstructionClustererOptions();
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsDir(input_path)) {
+    LOG(ERROR) << "`input_path` is not a directory";
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsDir(output_path)) {
+    LOG(ERROR) << "`output_path` is not a directory";
+    return EXIT_FAILURE;
+  }
+
+  LOG_HEADING1("Loading model");
+  auto reconstruction = std::make_shared<Reconstruction>();
+  reconstruction->Read(input_path);
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+
+  ReconstructionClustererController controller(
+      *options.reconstruction_clusterer,
+      reconstruction,
+      reconstruction_manager);
+  controller.Run();
+
+  LOG_HEADING1("Writing clustered model(s)");
+  reconstruction_manager->Write(output_path);
+
   return EXIT_SUCCESS;
 }
 

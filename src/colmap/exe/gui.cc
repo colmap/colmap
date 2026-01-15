@@ -46,7 +46,7 @@ int RunGraphicalUserInterface(int argc, char** argv) {
 #else
   colmap::OptionManager options;
 
-  std::string import_path;
+  std::filesystem::path import_path;
 
   if (argc > 1) {
     options.AddDefaultOption("import_path", &import_path);
@@ -77,7 +77,7 @@ int RunGraphicalUserInterface(int argc, char** argv) {
 }
 
 int RunProjectGenerator(int argc, char** argv) {
-  std::string output_path;
+  std::filesystem::path output_path;
   std::string quality = "high";
 
   OptionManager options;

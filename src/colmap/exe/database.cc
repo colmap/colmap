@@ -97,9 +97,9 @@ int RunDatabaseCreator(int argc, char** argv) {
 }
 
 int RunDatabaseMerger(int argc, char** argv) {
-  std::string database_path1;
-  std::string database_path2;
-  std::string merged_database_path;
+  std::filesystem::path database_path1;
+  std::filesystem::path database_path2;
+  std::filesystem::path merged_database_path;
 
   OptionManager options;
   options.AddRequiredOption("database_path1", &database_path1);
@@ -123,10 +123,10 @@ int RunDatabaseMerger(int argc, char** argv) {
 }
 
 int RunRigConfigurator(int argc, char** argv) {
-  std::string database_path;
-  std::string rig_config_path;
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path database_path;
+  std::filesystem::path rig_config_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
 
   OptionManager options;
   options.AddRequiredOption("database_path", &database_path);

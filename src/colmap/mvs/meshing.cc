@@ -658,7 +658,7 @@ double ComputeCosFacetCellAngle(const Delaunay& triangulation,
          std::sqrt(facet_normal_length_squared * co_tangent_length_squared);
 }
 
-void WriteDelaunayTriangulationPly(const std::string& path,
+void WriteDelaunayTriangulationPly(const std::filesystem::path& path,
                                    const Delaunay& triangulation) {
   std::fstream file(path, std::ios::out);
   THROW_CHECK_FILE_OPEN(file, path);

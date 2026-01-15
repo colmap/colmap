@@ -39,6 +39,7 @@
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match_options.h"
+#include "colmap/scene/reconstruction_clustering.h"
 #include "colmap/ui/render_options.h"
 #include "colmap/util/file.h"
 #include "colmap/util/version.h"
@@ -66,6 +67,8 @@ OptionManager::OptionManager(bool add_project_options)
   mapper = std::make_shared<IncrementalPipelineOptions>();
   global_mapper = std::make_shared<GlobalPipelineOptions>();
   gravity_refiner = std::make_shared<glomap::GravityRefinerOptions>();
+  reconstruction_clusterer =
+      std::make_shared<ReconstructionClusteringOptions>();
   patch_match_stereo = std::make_shared<mvs::PatchMatchOptions>();
   stereo_fusion = std::make_shared<mvs::StereoFusionOptions>();
   poisson_meshing = std::make_shared<mvs::PoissonMeshingOptions>();
@@ -635,8 +638,6 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.skip_bundle_adjustment);
   AddDefaultOption("GlobalMapper.skip_retriangulation",
                    &global_mapper->mapper.skip_retriangulation);
-  AddDefaultOption("GlobalMapper.skip_pruning",
-                   &global_mapper->mapper.skip_pruning);
 
   // View graph calibration options.
   AddDefaultOption("GlobalMapper.vgc_cross_validate_prior_focal_lengths",
@@ -765,6 +766,26 @@ void OptionManager::AddGravityRefinerOptions() {
                    &gravity_refiner->max_gravity_error);
   AddDefaultOption("GravityRefiner.min_num_neighbors",
                    &gravity_refiner->min_num_neighbors);
+}
+
+void OptionManager::AddReconstructionClustererOptions() {
+  if (added_reconstruction_clusterer_options_) {
+    return;
+  }
+  added_reconstruction_clusterer_options_ = true;
+
+  AddDefaultOption("ReconstructionClusterer.min_covisibility_count",
+                   &reconstruction_clusterer->min_covisibility_count);
+  AddDefaultOption("ReconstructionClusterer.min_edge_weight_threshold",
+                   &reconstruction_clusterer->min_edge_weight_threshold);
+  AddDefaultOption("ReconstructionClusterer.weak_edge_multiplier",
+                   &reconstruction_clusterer->weak_edge_multiplier);
+  AddDefaultOption("ReconstructionClusterer.min_weak_edges_to_merge",
+                   &reconstruction_clusterer->min_weak_edges_to_merge);
+  AddDefaultOption("ReconstructionClusterer.max_clustering_iterations",
+                   &reconstruction_clusterer->max_clustering_iterations);
+  AddDefaultOption("ReconstructionClusterer.min_num_reg_frames",
+                   &reconstruction_clusterer->min_num_reg_frames);
 }
 
 void OptionManager::AddPatchMatchStereoOptions() {
@@ -918,6 +939,7 @@ void OptionManager::Reset() {
   added_mapper_options_ = false;
   added_global_mapper_options_ = false;
   added_gravity_refiner_options_ = false;
+  added_reconstruction_clusterer_options_ = false;
   added_patch_match_stereo_options_ = false;
   added_stereo_fusion_options_ = false;
   added_poisson_meshing_options_ = false;
@@ -941,6 +963,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *mapper = IncrementalPipelineOptions();
   *global_mapper = GlobalPipelineOptions();
   *gravity_refiner = glomap::GravityRefinerOptions();
+  *reconstruction_clusterer = ReconstructionClusteringOptions();
   *patch_match_stereo = mvs::PatchMatchOptions();
   *stereo_fusion = mvs::StereoFusionOptions();
   *poisson_meshing = mvs::PoissonMeshingOptions();

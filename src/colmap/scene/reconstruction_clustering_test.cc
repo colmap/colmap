@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "glomap/processors/reconstruction_pruning.h"
+#include "colmap/scene/reconstruction_clustering.h"
 
 #include "colmap/geometry/rigid3.h"
 #include "colmap/scene/camera.h"
@@ -37,7 +37,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-namespace glomap {
+namespace colmap {
 namespace {
 
 // Helper function to partition frames into clusters based on assigned cluster
@@ -52,28 +52,25 @@ namespace {
 //                     clusters will not share any 3D points after this call.
 //   keep_ratio: the ratio of kept observations across clusters
 void PartitionFramesIntoClusters(
-    colmap::Reconstruction& reconstruction,
-    const std::unordered_map<colmap::frame_t, int>& frame_to_cluster,
+    Reconstruction& reconstruction,
+    const std::unordered_map<frame_t, int>& frame_to_cluster,
     double keep_ratio = 0.1) {
   // Build reverse mapping: cluster_id -> set of frame_ids
-  std::unordered_map<int, std::unordered_set<colmap::frame_t>>
-      cluster_to_frames;
+  std::unordered_map<int, std::unordered_set<frame_t>> cluster_to_frames;
   for (const auto& [frame_id, cluster_id] : frame_to_cluster) {
     cluster_to_frames[cluster_id].insert(frame_id);
   }
 
   // Collect all observations to delete (image_id, point2D_idx pairs).
   // We need to collect them first because deleting while iterating is unsafe.
-  std::vector<std::pair<colmap::image_t, colmap::point2D_t>>
-      observations_to_delete;
+  std::vector<std::pair<image_t, point2D_t>> observations_to_delete;
 
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     // Determine which clusters observe this 3D point.
-    std::unordered_map<int, std::vector<colmap::TrackElement>>
-        cluster_observations;
+    std::unordered_map<int, std::vector<TrackElement>> cluster_observations;
 
     for (const auto& track_el : point3D.track.Elements()) {
-      const colmap::frame_t frame_id =
+      const frame_t frame_id =
           reconstruction.Image(track_el.image_id).FrameId();
       auto it = frame_to_cluster.find(frame_id);
       if (it != frame_to_cluster.end()) {
@@ -126,26 +123,30 @@ void PartitionFramesIntoClusters(
   }
 }
 
-TEST(PruneWeaklyConnectedFrames, Empty) {
-  colmap::Reconstruction reconstruction;
-  const auto cluster_ids = PruneWeaklyConnectedFrames(reconstruction);
+TEST(ClusterReconstructionFrames, Empty) {
+  Reconstruction reconstruction;
+  ReconstructionClusteringOptions options;
+  const auto cluster_ids =
+      ClusterReconstructionFrames(options, reconstruction);
   EXPECT_TRUE(cluster_ids.empty());
 }
 
-TEST(PruneWeaklyConnectedFrames, WellConnectedReconstruction) {
-  colmap::Reconstruction reconstruction;
-  colmap::SyntheticDatasetOptions synthetic_dataset_options;
+TEST(ClusterReconstructionFrames, WellConnectedReconstruction) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.num_points2D_without_point3D = 0;
-  colmap::SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
   const size_t initial_num_reg_frames = reconstruction.NumRegFrames();
   EXPECT_EQ(initial_num_reg_frames, 5);
 
-  const auto cluster_ids = PruneWeaklyConnectedFrames(reconstruction);
+  ReconstructionClusteringOptions options;
+  const auto cluster_ids =
+      ClusterReconstructionFrames(options, reconstruction);
 
   // All frames should remain since they are all well connected.
   EXPECT_EQ(reconstruction.NumRegFrames(), initial_num_reg_frames);
@@ -153,22 +154,22 @@ TEST(PruneWeaklyConnectedFrames, WellConnectedReconstruction) {
   EXPECT_EQ(cluster_ids.size(), initial_num_reg_frames);
 }
 
-TEST(PruneWeaklyConnectedFrames, RemovesDisconnectedFrames) {
+TEST(ClusterReconstructionFrames, RemovesDisconnectedFrames) {
   // Create a reconstruction with 8 frames, all initially well-connected.
-  colmap::Reconstruction reconstruction;
-  colmap::SyntheticDatasetOptions synthetic_dataset_options;
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 8;
   synthetic_dataset_options.num_points3D = 200;
   synthetic_dataset_options.num_points2D_without_point3D = 0;
-  colmap::SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
   const size_t initial_num_reg_frames = reconstruction.NumRegFrames();
   EXPECT_EQ(initial_num_reg_frames, 8);
 
   // Get all frame IDs and sort them.
-  std::vector<colmap::frame_t> all_frame_ids;
+  std::vector<frame_t> all_frame_ids;
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     if (frame.HasPose()) {
       all_frame_ids.push_back(frame_id);
@@ -178,7 +179,7 @@ TEST(PruneWeaklyConnectedFrames, RemovesDisconnectedFrames) {
 
   // Partition into 2 clusters: first 5 frames in cluster 0, last 3 in cluster 1
   const size_t num_to_disconnect = 3;
-  std::unordered_map<colmap::frame_t, int> frame_to_cluster;
+  std::unordered_map<frame_t, int> frame_to_cluster;
   for (size_t i = 0; i < all_frame_ids.size() - num_to_disconnect; ++i) {
     frame_to_cluster[all_frame_ids[i]] = 0;
   }
@@ -194,7 +195,9 @@ TEST(PruneWeaklyConnectedFrames, RemovesDisconnectedFrames) {
   // All frames should still be registered before pruning.
   EXPECT_EQ(reconstruction.NumRegFrames(), initial_num_reg_frames);
 
-  const auto cluster_ids = PruneWeaklyConnectedFrames(reconstruction);
+  ReconstructionClusteringOptions options;
+  const auto cluster_ids =
+      ClusterReconstructionFrames(options, reconstruction);
 
   // After pruning, only the well-connected frames should remain (5 frames).
   // The disconnected frames should be de-registered.
@@ -215,22 +218,22 @@ TEST(PruneWeaklyConnectedFrames, RemovesDisconnectedFrames) {
   }
 }
 
-TEST(PruneWeaklyConnectedFrames, OneMajorConnectedComponent) {
+TEST(ClusterReconstructionFrames, OneMajorConnectedComponent) {
   // Create a reconstruction with 10 frames, all initially well-connected.
-  colmap::Reconstruction reconstruction;
-  colmap::SyntheticDatasetOptions synthetic_dataset_options;
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 250;
   synthetic_dataset_options.num_points2D_without_point3D = 0;
-  colmap::SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
   const size_t initial_num_reg_frames = reconstruction.NumRegFrames();
   EXPECT_EQ(initial_num_reg_frames, 10);
 
   // Get all frame IDs and sort them.
-  std::vector<colmap::frame_t> all_frame_ids;
+  std::vector<frame_t> all_frame_ids;
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     if (frame.HasPose()) {
       all_frame_ids.push_back(frame_id);
@@ -239,7 +242,7 @@ TEST(PruneWeaklyConnectedFrames, OneMajorConnectedComponent) {
   std::sort(all_frame_ids.begin(), all_frame_ids.end());
 
   // Partition into 2 clusters: first 8 frames in cluster 0, last 2 in cluster 1
-  std::unordered_map<colmap::frame_t, int> frame_to_cluster;
+  std::unordered_map<frame_t, int> frame_to_cluster;
   int frame_to_keep = 8;
   for (size_t i = 0; i < frame_to_keep; ++i) {
     frame_to_cluster[all_frame_ids[i]] = 0;
@@ -253,12 +256,14 @@ TEST(PruneWeaklyConnectedFrames, OneMajorConnectedComponent) {
 
   EXPECT_EQ(reconstruction.NumRegFrames(), initial_num_reg_frames);
 
-  const auto cluster_ids = PruneWeaklyConnectedFrames(reconstruction);
+  ReconstructionClusteringOptions options;
+  const auto cluster_ids =
+      ClusterReconstructionFrames(options, reconstruction);
 
   // Since the largest cluster is always assigned cluster ID 0, verify that
   // frames from the largest component have cluster ID 0.
   // For other two frames, each should only have a single image
-  std::vector<std::vector<colmap::frame_t>> clusters;
+  std::vector<std::vector<frame_t>> clusters;
   for (const auto& [frame_id, cluster_id] : cluster_ids) {
     if (clusters.size() <= static_cast<size_t>(cluster_id)) {
       clusters.resize(cluster_id + 1);
@@ -275,25 +280,25 @@ TEST(PruneWeaklyConnectedFrames, OneMajorConnectedComponent) {
   }
 }
 
-TEST(PruneWeaklyConnectedFrames, MultipleDisconnectedClusters) {
+TEST(ClusterReconstructionFrames, MultipleDisconnectedClusters) {
   // Create a reconstruction with 12 frames, all initially well-connected.
   int max_cluster_size = 25;
   int other_cluster_size = 5;
-  colmap::Reconstruction reconstruction;
-  colmap::SyntheticDatasetOptions synthetic_dataset_options;
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig =
       max_cluster_size + other_cluster_size * 2;
   synthetic_dataset_options.num_points3D = 400;
   synthetic_dataset_options.num_points2D_without_point3D = 0;
-  colmap::SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
   const size_t initial_num_reg_frames = reconstruction.NumRegFrames();
   EXPECT_EQ(initial_num_reg_frames, max_cluster_size + other_cluster_size * 2);
 
   // Get all frame IDs and sort them.
-  std::vector<colmap::frame_t> all_frame_ids;
+  std::vector<frame_t> all_frame_ids;
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     if (frame.HasPose()) {
       all_frame_ids.push_back(frame_id);
@@ -305,7 +310,7 @@ TEST(PruneWeaklyConnectedFrames, MultipleDisconnectedClusters) {
   // Cluster 0: first 25 frames (largest)
   // Cluster 1: next 5 frames
   // Cluster 2: last 5 frames (smallest)
-  std::unordered_map<colmap::frame_t, int> frame_to_cluster;
+  std::unordered_map<frame_t, int> frame_to_cluster;
   for (size_t i = 0; i < max_cluster_size; ++i) {
     frame_to_cluster[all_frame_ids[i]] = 0;
   }
@@ -326,12 +331,14 @@ TEST(PruneWeaklyConnectedFrames, MultipleDisconnectedClusters) {
   // All frames should still be registered before pruning.
   EXPECT_EQ(reconstruction.NumRegFrames(), initial_num_reg_frames);
 
-  const auto cluster_ids = PruneWeaklyConnectedFrames(reconstruction);
+  ReconstructionClusteringOptions options;
+  const auto cluster_ids =
+      ClusterReconstructionFrames(options, reconstruction);
 
   // Since the largest cluster is always assigned cluster ID 0, verify that
   // frames from the largest component have cluster ID 0.
   // For other two frames, each should only have a single image
-  std::vector<std::vector<colmap::frame_t>> clusters;
+  std::vector<std::vector<frame_t>> clusters;
   for (const auto& [frame_id, cluster_id] : cluster_ids) {
     if (clusters.size() <= static_cast<size_t>(cluster_id)) {
       clusters.resize(cluster_id + 1);
@@ -352,4 +359,4 @@ TEST(PruneWeaklyConnectedFrames, MultipleDisconnectedClusters) {
 }
 
 }  // namespace
-}  // namespace glomap
+}  // namespace colmap

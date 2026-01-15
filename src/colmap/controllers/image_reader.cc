@@ -52,15 +52,17 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
 
   // Get a list of all files in the image path, sorted by image name.
   if (options_.image_names.empty()) {
-    options_.image_names = GetRecursiveFileList(options_.image_path);
-    std::sort(options_.image_names.begin(), options_.image_names.end());
+    auto image_paths = GetRecursiveFileList(options_.image_path);
+    std::sort(image_paths.begin(), image_paths.end());
+    options_.image_names.reserve(image_paths.size());
+    for (const auto& image_path : image_paths) {
+      options_.image_names.push_back(
+          GetNormalizedRelativePath(image_path, options_.image_path));
+    }
   } else {
     if (!std::is_sorted(options_.image_names.begin(),
                         options_.image_names.end())) {
       std::sort(options_.image_names.begin(), options_.image_names.end());
-    }
-    for (auto& image_name : options_.image_names) {
-      image_name = (options_.image_path / image_name).string();
     }
   }
 
@@ -102,7 +104,8 @@ ImageReader::Status ImageReader::Next(Rig* rig,
   image_index_ += 1;
   THROW_CHECK_LE(image_index_, options_.image_names.size());
 
-  const std::string image_path = options_.image_names.at(image_index_ - 1);
+  const std::string image_name = options_.image_names.at(image_index_ - 1);
+  const std::filesystem::path image_path = options_.image_path / image_name;
 
   DatabaseTransaction database_transaction(database_);
 
@@ -110,8 +113,7 @@ ImageReader::Status ImageReader::Next(Rig* rig,
   // Set the image name.
   //////////////////////////////////////////////////////////////////////////////
 
-  image->SetName(GetNormalizedRelativePath(image_path, options_.image_path));
-
+  image->SetName(image_name);
   const std::string image_folder = GetParentDir(image->Name()).string();
 
   //////////////////////////////////////////////////////////////////////////////

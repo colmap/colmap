@@ -44,6 +44,7 @@ COLMAP_ADD_LIBRARY(
         point3d.h point3d.cc
         projection.h projection.cc
         reconstruction.h reconstruction.cc
+        reconstruction_clustering.h reconstruction_clustering.cc
         reconstruction_io.h reconstruction_io.cc
         reconstruction_io_binary.h reconstruction_io_binary.cc
         reconstruction_io_text.h reconstruction_io_text.cc
@@ -148,6 +149,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME reconstruction_pruning_test
     SRCS reconstruction_pruning_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME reconstruction_clustering_test
+    SRCS reconstruction_clustering_test.cc
     LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(
