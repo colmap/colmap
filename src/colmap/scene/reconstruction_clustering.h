@@ -71,21 +71,17 @@ struct ReconstructionClusteringOptions {
 // Algorithm:
 //   1. Build a covisibility graph where edges connect frames sharing >=
 //      min_covisibility_count points.
-//   2. Find the largest connected component and de-register all frames outside
-//      it. This removes isolated or poorly connected parts of the
-//      reconstruction.
-//   3. Compute an adaptive edge weight threshold using median minus median
+//   2. Compute an adaptive edge weight threshold using median minus median
 //      absolute deviation (MAD).
-//   4. Cluster frames using union-find: first merge strongly connected frames,
+//   3. Cluster frames using union-find: first merge strongly connected frames,
 //      then iteratively merge clusters connected by multiple weaker edges.
 //
 // Args:
 //   options: Configuration options for clustering.
 //   reconstruction: The reconstruction containing frames and 3D points.
-//      Frames outside the largest connected component will be de-registered.
 //
 // Returns:
-//   Map from frame_id to cluster_id for frames in the largest component.
+//   Map from frame_id to cluster_id for all registered frames.
 std::unordered_map<frame_t, int> ClusterReconstructionFrames(
     const ReconstructionClusteringOptions& options,
     Reconstruction& reconstruction);
