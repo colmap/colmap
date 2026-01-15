@@ -129,7 +129,7 @@ void ReconstructionClustererController::Run() {
       if (cluster_reconstruction.NumRegFrames() >=
           static_cast<size_t>(options_.min_num_reg_frames)) {
         size_t idx = reconstruction_manager_->Add();
-        *reconstruction_manager_->Get(idx) = std::move(cluster_reconstruction);
+        *reconstruction_manager_->Get(idx) = cluster_reconstruction;
       } else {
         LOG(INFO) << "Skipping cluster " << comp << " with only "
                   << cluster_reconstruction.NumRegFrames()
