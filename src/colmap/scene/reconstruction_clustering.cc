@@ -58,7 +58,7 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
 
   // Phase 1: Create initial clusters from strong edges (weight > threshold).
   for (const auto& [pair_id, weight] : edge_weights) {
-    if (weight > edge_weight_threshold) {
+    if (weight >= edge_weight_threshold) {
       const auto [frame_id1, frame_id2] = PairIdToImagePair(pair_id);
       uf.Union(frame_id1, frame_id2);
     }
