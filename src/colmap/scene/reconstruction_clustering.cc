@@ -44,6 +44,8 @@ namespace {
 //   2. Iteratively merge clusters connected by at least min_weak_edges_to_merge
 //      weaker edges (weight >= weak_edge_multiplier * threshold).
 //   3. Assign sequential cluster IDs based on union-find roots.
+//   4. Reassign cluster IDs so they are sorted by cluster size in descending
+//      order (i.e., cluster ID 0 is the largest cluster).
 //
 // The iterative refinement helps avoid over-segmentation when the connection
 // between two groups of nodes is distributed across multiple weaker edges.
@@ -120,12 +122,36 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
     cluster_ids[node] = root_to_cluster[root];
   }
 
-  // Count clusters with at least kMinClusterSize frames.
-  constexpr int kMinClusterSize = 2;
+  // Count cluster sizes.
   std::unordered_map<int, int> cluster_sizes;
   for (const auto& [node, cluster_id] : cluster_ids) {
     cluster_sizes[cluster_id]++;
   }
+
+  // Phase 4: Reassign cluster IDs so they are sorted by size (largest first).
+  // Create a vector of (cluster_id, size) pairs and sort by size descending.
+  std::vector<std::pair<int, int>> cluster_size_vec;
+  cluster_size_vec.reserve(cluster_sizes.size());
+  for (const auto& [cluster_id, size] : cluster_sizes) {
+    cluster_size_vec.emplace_back(cluster_id, size);
+  }
+  std::sort(cluster_size_vec.begin(),
+            cluster_size_vec.end(),
+            [](const auto& a, const auto& b) { return a.second > b.second; });
+
+  // Build mapping from old cluster ID to new cluster ID (sorted by size).
+  std::unordered_map<int, int> old_to_new_cluster_id;
+  for (size_t i = 0; i < cluster_size_vec.size(); ++i) {
+    old_to_new_cluster_id[cluster_size_vec[i].first] = static_cast<int>(i);
+  }
+
+  // Apply the new cluster IDs.
+  for (auto& [node, cluster_id] : cluster_ids) {
+    cluster_id = old_to_new_cluster_id[cluster_id];
+  }
+
+  // Count clusters with at least kMinClusterSize frames.
+  constexpr int kMinClusterSize = 2;
   int num_valid_clusters = 0;
   for (const auto& [cluster_id, size] : cluster_sizes) {
     if (size >= kMinClusterSize) {

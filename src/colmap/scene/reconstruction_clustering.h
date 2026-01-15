@@ -75,13 +75,16 @@ struct ReconstructionClusteringOptions {
 //      absolute deviation (MAD).
 //   3. Cluster frames using union-find: first merge strongly connected frames,
 //      then iteratively merge clusters connected by multiple weaker edges.
+//   4. Assign cluster IDs sorted by cluster size in descending order (i.e.,
+//      cluster ID 0 is the largest cluster).
 //
 // Args:
 //   options: Configuration options for clustering.
 //   reconstruction: The reconstruction containing frames and 3D points.
 //
 // Returns:
-//   Map from frame_id to cluster_id for all registered frames.
+//   Map from frame_id to cluster_id for all registered frames. Cluster IDs are
+//   sorted by cluster size (largest cluster has ID 0).
 std::unordered_map<frame_t, int> ClusterReconstructionFrames(
     const ReconstructionClusteringOptions& options,
     Reconstruction& reconstruction);
