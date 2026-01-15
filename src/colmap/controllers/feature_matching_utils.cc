@@ -667,23 +667,33 @@ void RunGuidedMatching(const GuidedMatchingOptions& options,
   // Reload cameras since VGC may have updated focal lengths.
   cache->ReloadCameras();
 
-  // Collect all CALIBRATED two-view geometries.
-  std::vector<std::pair<image_pair_t, TwoViewGeometry>> calibrated_pairs;
+  // Collect all two-view geometries that guided matching supports.
+  // MatchGuided handles: CALIBRATED, CALIBRATED_RIG, UNCALIBRATED,
+  // PLANAR, PANORAMIC, PLANAR_OR_PANORAMIC.
+  std::vector<std::pair<image_pair_t, TwoViewGeometry>> pairs;
   cache->AccessDatabase([&](Database& database) {
     for (auto& [pair_id, tvg] : database.ReadTwoViewGeometries()) {
-      if (tvg.config == TwoViewGeometry::CALIBRATED) {
-        calibrated_pairs.emplace_back(pair_id, std::move(tvg));
+      switch (tvg.config) {
+        case TwoViewGeometry::CALIBRATED:
+        case TwoViewGeometry::CALIBRATED_RIG:
+        case TwoViewGeometry::UNCALIBRATED:
+        case TwoViewGeometry::PLANAR:
+        case TwoViewGeometry::PANORAMIC:
+        case TwoViewGeometry::PLANAR_OR_PANORAMIC:
+          pairs.emplace_back(pair_id, std::move(tvg));
+          break;
+        default:
+          break;
       }
     }
   });
 
-  if (calibrated_pairs.empty()) {
-    LOG(INFO) << "No calibrated pairs for guided matching";
+  if (pairs.empty()) {
+    LOG(INFO) << "No valid pairs for guided matching";
     return;
   }
 
-  LOG(INFO) << "Running guided matching on " << calibrated_pairs.size()
-            << " calibrated pairs";
+  LOG(INFO) << "Running guided matching on " << pairs.size() << " pairs";
 
   // Setup matching options for guided matching.
   FeatureMatchingOptions guided_matching_options = matching_options;
@@ -738,9 +748,9 @@ void RunGuidedMatching(const GuidedMatchingOptions& options,
         << "Failed to setup guided matching worker";
   }
 
-  // Push all calibrated pairs to the input queue.
-  const size_t num_pairs = calibrated_pairs.size();
-  for (auto& [pair_id, tvg] : calibrated_pairs) {
+  // Push all pairs to the input queue.
+  const size_t num_pairs = pairs.size();
+  for (auto& [pair_id, tvg] : pairs) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     FeatureMatcherData data;
     data.image_id1 = image_id1;
