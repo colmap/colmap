@@ -65,9 +65,9 @@ void CreateTwoWeaklyConnectedClusters(Reconstruction* reconstruction,
 
   const size_t half = all_frames.size() / 2;
   std::unordered_set<frame_t> cluster1_frames(all_frames.begin(),
-                                               all_frames.begin() + half);
+                                              all_frames.begin() + half);
   std::unordered_set<frame_t> cluster2_frames(all_frames.begin() + half,
-                                               all_frames.end());
+                                              all_frames.end());
 
   // For each 3D point, randomly assign it to one cluster and remove all
   // observations from the other cluster. Keep a few points as weak links.
@@ -162,7 +162,6 @@ TEST(ReconstructionClustererController, SingleCluster) {
   // Controller should run without crashing
   EXPECT_NO_THROW(controller.Run());
 
-  
   EXPECT_EQ(reconstruction_manager->Size(), 1);
 }
 
@@ -220,15 +219,13 @@ TEST(ReconstructionClustererController, TwoWeaklyConnectedClusters) {
   // The algorithm should produce two separate reconstructions
   EXPECT_EQ(reconstruction_manager->Size(), 2)
       << "Expected two clusters from weakly connected reconstruction";
-
-  // Verify that each cluster has the expected number of frames
-  if (reconstruction_manager->Size() == 2) {
-    size_t total_frames = reconstruction_manager->Get(0)->NumRegFrames() +
-                          reconstruction_manager->Get(1)->NumRegFrames();
-    // The total should be close to 10, but some frames might be pruned
-    EXPECT_GE(total_frames, 6);
-    EXPECT_LE(total_frames, 10);
+  // Check that each cluster has exactly half of the frames
+  const size_t expected_frames_per_cluster = kNumFrames / 2;
+  for (size_t i = 0; i < reconstruction_manager->Size(); i++) {
+    EXPECT_EQ(reconstruction_manager->Get(i)->NumRegFrames(),
+              expected_frames_per_cluster);
   }
+
 }
 
 }  // namespace
