@@ -126,3 +126,8 @@ COLMAP_ADD_TEST(
     SRCS rotation_averaging_test.cc
     LINK_LIBS colmap_controllers
 )
+COLMAP_ADD_TEST(
+    NAME reconstruction_clustering_test
+    SRCS reconstruction_clustering_test.cc
+    LINK_LIBS colmap_controllers
+)

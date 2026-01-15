@@ -768,11 +768,10 @@ int RunReconstructionClusterer(int argc, char** argv) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
 
-  ReconstructionClusteringOptions clustering_options =
-      *options.reconstruction_clusterer;
-
   ReconstructionClustererController controller(
-      clustering_options, reconstruction, reconstruction_manager);
+      *options.reconstruction_clusterer,
+      reconstruction,
+      reconstruction_manager);
   controller.Run();
 
   LOG_HEADING1("Writing clustered model(s)");
