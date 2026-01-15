@@ -206,7 +206,7 @@ std::unordered_map<frame_t, int> ClusterReconstructionFrames(
   const auto [median, mad] = MedianAbsoluteDeviation(std::move(weight_values));
   const double threshold =
       std::max(median - mad, options.min_edge_weight_threshold);
-  LOG(INFO) << "Threshold for Strong Clustering: " << threshold;
+  LOG(INFO) << "Threshold for strong cluster: " << threshold;
 
   // Cluster frames based on covisibility weights.
   return EstablishStrongClusters(options, nodes, edge_weights, threshold);
