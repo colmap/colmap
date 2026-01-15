@@ -43,9 +43,8 @@ namespace {
 //   1. Merge nodes connected by strong edges (weight > threshold).
 //   2. Iteratively merge clusters connected by at least min_weak_edges_to_merge
 //      weaker edges (weight >= weak_edge_multiplier * threshold).
-//   3. Assign sequential cluster IDs based on union-find roots.
-//   4. Reassign cluster IDs so they are sorted by cluster size in descending
-//      order (i.e., cluster ID 0 is the largest cluster).
+//   3. Collect nodes by their union-find roots, sort clusters by number of
+//      frames, and assign sequential cluster IDs (largest cluster gets ID 0).
 //
 // The iterative refinement helps avoid over-segmentation when the connection
 // between two groups of nodes is distributed across multiple weaker edges.
@@ -54,7 +53,6 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
     const std::unordered_set<frame_t>& nodes,
     const std::unordered_map<image_pair_t, int>& edge_weights,
     double edge_weight_threshold) {
-  std::unordered_map<frame_t, int> cluster_ids;
   UnionFind<frame_t> uf;
   uf.Reserve(nodes.size());
 
@@ -109,59 +107,46 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
     }
   }
 
-  // Phase 3: Assign sequential cluster IDs based on union-find roots.
-  std::unordered_map<frame_t, int> root_to_cluster;
-  int next_cluster_id = 0;
-
+  // Phase 3: Collect nodes by their union-find roots, sort by number of
+  // frames, and assign sequential cluster IDs (largest cluster gets ID 0).
+  // First ensure all nodes are in the union-find structure (isolated nodes
+  // may not have been added during Phase 1/2 if they had no edges).
   for (const frame_t node : nodes) {
-    frame_t root = uf.Find(node);
-    auto it = root_to_cluster.find(root);
-    if (it == root_to_cluster.end()) {
-      root_to_cluster[root] = next_cluster_id++;
-    }
-    cluster_ids[node] = root_to_cluster[root];
+    uf.Find(node);
+  }
+  uf.Compress();
+  std::unordered_map<frame_t, std::vector<frame_t>> root_to_nodes;
+  for (const auto& [node, root] : uf.Parents()) {
+    root_to_nodes[root].push_back(node);
   }
 
-  // Count cluster sizes.
-  std::unordered_map<int, int> cluster_sizes;
-  for (const auto& [node, cluster_id] : cluster_ids) {
-    cluster_sizes[cluster_id]++;
+  // Sort clusters by number of frames in descending order.
+  std::vector<std::vector<frame_t>> sorted_clusters;
+  sorted_clusters.reserve(root_to_nodes.size());
+  for (auto& [root, cluster_nodes] : root_to_nodes) {
+    sorted_clusters.push_back(std::move(cluster_nodes));
   }
+  std::sort(sorted_clusters.begin(),
+            sorted_clusters.end(),
+            [](const auto& a, const auto& b) { return a.size() > b.size(); });
 
-  // Phase 4: Reassign cluster IDs so they are sorted by size (largest first).
-  // Create a vector of (cluster_id, size) pairs and sort by size descending.
-  std::vector<std::pair<int, int>> cluster_size_vec;
-  cluster_size_vec.reserve(cluster_sizes.size());
-  for (const auto& [cluster_id, size] : cluster_sizes) {
-    cluster_size_vec.emplace_back(cluster_id, size);
-  }
-  std::sort(cluster_size_vec.begin(),
-            cluster_size_vec.end(),
-            [](const auto& a, const auto& b) { return a.second > b.second; });
-
-  // Build mapping from old cluster ID to new cluster ID (sorted by size).
-  std::unordered_map<int, int> old_to_new_cluster_id;
-  for (size_t i = 0; i < cluster_size_vec.size(); ++i) {
-    old_to_new_cluster_id[cluster_size_vec[i].first] = static_cast<int>(i);
-  }
-
-  // Apply the new cluster IDs.
-  for (auto& [node, cluster_id] : cluster_ids) {
-    cluster_id = old_to_new_cluster_id[cluster_id];
-  }
-
-  // Count clusters with at least kMinClusterSize frames.
-  constexpr int kMinClusterSize = 2;
+  // Assign cluster IDs based on sorted order.
+  std::unordered_map<frame_t, int> cluster_ids;
   int num_valid_clusters = 0;
-  for (const auto& [cluster_id, size] : cluster_sizes) {
-    if (size >= kMinClusterSize) {
+  for (size_t cluster_id = 0; cluster_id < sorted_clusters.size();
+       ++cluster_id) {
+    const auto& cluster_nodes = sorted_clusters[cluster_id];
+    if (cluster_nodes.size() >= size_t(options.min_num_reg_frames)) {
       num_valid_clusters++;
+    }
+    for (const frame_t node : cluster_nodes) {
+      cluster_ids[node] = static_cast<int>(cluster_id);
     }
   }
 
   LOG(INFO) << "Clustering took " << iteration << " iterations. "
             << "Frames are grouped into " << num_valid_clusters
-            << " clusters (size >= " << kMinClusterSize << ")";
+            << " clusters (size >= " << options.min_num_reg_frames << ")";
 
   return cluster_ids;
 }
