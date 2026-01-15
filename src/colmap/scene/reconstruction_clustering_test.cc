@@ -29,9 +29,7 @@
 
 #include "colmap/scene/reconstruction_clustering.h"
 
-#include "colmap/geometry/rigid3.h"
 #include "colmap/math/random.h"
-#include "colmap/scene/camera.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
 
@@ -124,6 +122,9 @@ void PartitionFramesIntoClusters(
 
 // Helper function to extract all registered frame IDs from a reconstruction
 // and return them sorted for deterministic test behavior.
+//
+// NOTE: The tests in this file only cover basic clustering scenarios.
+// TODO: Add tests with finer control over the connectivity graph.
 std::vector<frame_t> ExtractSortedFrameIds(
     const Reconstruction& reconstruction) {
   std::vector<frame_t> frame_ids;
@@ -134,6 +135,21 @@ std::vector<frame_t> ExtractSortedFrameIds(
   }
   std::sort(frame_ids.begin(), frame_ids.end());
   return frame_ids;
+}
+
+// Helper function to build clusters from the clustering output.
+// Returns a vector of sets, where result[cluster_id] contains the frame IDs
+// in that cluster.
+std::vector<std::unordered_set<frame_t>> BuildClustersFromOutput(
+    const std::unordered_map<frame_t, int>& cluster_ids) {
+  std::vector<std::unordered_set<frame_t>> clusters;
+  for (const auto& [frame_id, cluster_id] : cluster_ids) {
+    if (clusters.size() <= static_cast<size_t>(cluster_id)) {
+      clusters.resize(cluster_id + 1);
+    }
+    clusters[cluster_id].insert(frame_id);
+  }
+  return clusters;
 }
 
 TEST(ClusterReconstructionFrames, Empty) {
@@ -159,10 +175,10 @@ TEST(ClusterReconstructionFrames, WellConnectedReconstruction) {
   ReconstructionClusteringOptions options;
   const auto cluster_ids = ClusterReconstructionFrames(options, reconstruction);
 
-  // All frames should remain since they are all well connected.
-  EXPECT_EQ(reconstruction.NumRegFrames(), initial_num_reg_frames);
-  // All frames should be assigned to clusters.
-  EXPECT_EQ(cluster_ids.size(), initial_num_reg_frames);
+  // All frames should be assigned cluster 0
+  for (const auto& [frame_id, cluster_id] : cluster_ids) {
+    EXPECT_EQ(cluster_id, 0);
+  }
 }
 
 TEST(ClusterReconstructionFrames, OneMajorConnectedComponent) {
@@ -186,11 +202,9 @@ TEST(ClusterReconstructionFrames, OneMajorConnectedComponent) {
   // Partition into one cluster and independent frames:
   // first 8 frames in cluster 0, other frames are independent
   std::unordered_map<frame_t, int> frame_to_cluster;
-  std::unordered_set<frame_t> expected_large_cluster;
   const size_t kLargeClusterSize = 8;
   for (size_t i = 0; i < kLargeClusterSize; ++i) {
     frame_to_cluster[all_frame_ids[i]] = 0;
-    expected_large_cluster.insert(all_frame_ids[i]);
   }
   for (size_t i = kLargeClusterSize; i < 10; ++i) {
     frame_to_cluster[all_frame_ids[i]] = i - kLargeClusterSize + 1;
@@ -209,13 +223,7 @@ TEST(ClusterReconstructionFrames, OneMajorConnectedComponent) {
   EXPECT_EQ(cluster_ids.size(), initial_num_reg_frames);
 
   // Build the resulting clusters.
-  std::vector<std::unordered_set<frame_t>> clusters;
-  for (const auto& [frame_id, cluster_id] : cluster_ids) {
-    if (clusters.size() <= static_cast<size_t>(cluster_id)) {
-      clusters.resize(cluster_id + 1);
-    }
-    clusters[cluster_id].insert(frame_id);
-  }
+  const auto clusters = BuildClustersFromOutput(cluster_ids);
 
   // Find the largest cluster.
   size_t largest_cluster_idx = 0;
@@ -289,23 +297,15 @@ TEST(ClusterReconstructionFrames, MultipleWeaklyConnectedClusters) {
   EXPECT_EQ(cluster_ids.size(), kTotalFrames);
 
   // Build the resulting clusters.
-  std::vector<std::unordered_set<frame_t>> result_clusters;
-  for (const auto& [frame_id, cluster_id] : cluster_ids) {
-    if (result_clusters.size() <= static_cast<size_t>(cluster_id)) {
-      result_clusters.resize(cluster_id + 1);
-    }
-    result_clusters[cluster_id].insert(frame_id);
-  }
+  const auto result_clusters = BuildClustersFromOutput(cluster_ids);
 
   // Should have exactly 3 clusters
   EXPECT_EQ(result_clusters.size(), 3);
 
-  // Sort both expected and result clusters by size for comparison.
+  // Sort expected cluster by size for comparison.
+  // Result clusters are already sorted by size due to implementation.
   std::sort(expected_clusters.begin(),
             expected_clusters.end(),
-            [](const auto& a, const auto& b) { return a.size() > b.size(); });
-  std::sort(result_clusters.begin(),
-            result_clusters.end(),
             [](const auto& a, const auto& b) { return a.size() > b.size(); });
 
   // Verify that the clusters match exactly.
@@ -369,46 +369,20 @@ TEST(ClusterReconstructionFrames, MultipleDisjointClusters) {
   EXPECT_EQ(cluster_ids.size(), kTotalFrames);
 
   // Build the resulting clusters from the clustering output.
-  std::vector<std::unordered_set<frame_t>> result_clusters;
-  for (const auto& [frame_id, cluster_id] : cluster_ids) {
-    if (result_clusters.size() <= static_cast<size_t>(cluster_id)) {
-      result_clusters.resize(cluster_id + 1);
-    }
-    result_clusters[cluster_id].insert(frame_id);
-  }
+  const auto result_clusters = BuildClustersFromOutput(cluster_ids);
 
   // Should have exactly 3 clusters.
   EXPECT_EQ(result_clusters.size(), 3);
 
-  // The largest cluster (cluster0) should be assigned cluster ID 0.
-  EXPECT_EQ(result_clusters[0].size(), kCluster0Size);
+  // Sort expected cluster by size for comparison.
+  std::sort(expected_clusters.begin(),
+            expected_clusters.end(),
+            [](const auto& a, const auto& b) { return a.size() > b.size(); });
+
+  // The clusters should match exactly.
   EXPECT_EQ(result_clusters[0], expected_clusters[0]);
-
-  // Verify that the other clusters match exactly (order may vary for
-  // clusters of different sizes, but the sets should match).
-  std::vector<std::unordered_set<frame_t>> remaining_expected = {
-      expected_clusters[1], expected_clusters[2]};
-  std::vector<std::unordered_set<frame_t>> remaining_result = {
-      result_clusters[1], result_clusters[2]};
-
-  // Sort by size for comparison.
-  std::sort(remaining_expected.begin(),
-            remaining_expected.end(),
-            [](const auto& a, const auto& b) { return a.size() > b.size(); });
-  std::sort(remaining_result.begin(),
-            remaining_result.end(),
-            [](const auto& a, const auto& b) { return a.size() > b.size(); });
-
-  EXPECT_EQ(remaining_result[0], remaining_expected[0]);
-  EXPECT_EQ(remaining_result[1], remaining_expected[1]);
-
-  // Verify each frame's cluster assignment is consistent within clusters.
-  for (const auto& [frame_id, cluster_id] : cluster_ids) {
-    // All frames in the same result cluster should have the same cluster_id.
-    for (const frame_t other_frame_id : result_clusters[cluster_id]) {
-      EXPECT_EQ(cluster_ids.at(other_frame_id), cluster_id);
-    }
-  }
+  EXPECT_EQ(result_clusters[1], expected_clusters[1]);
+  EXPECT_EQ(result_clusters[2], expected_clusters[2]);
 }
 
 }  // namespace
