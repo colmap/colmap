@@ -653,4 +653,130 @@ void GeometricVerifierController::Verify(
   THROW_CHECK_EQ(output_queue_.Size(), 0);
 }
 
+bool GuidedMatchingOptions::Check() const {
+  CHECK_OPTION_GT(max_error, 0);
+  return true;
+}
+
+void RunGuidedMatching(const GuidedMatchingOptions& options,
+                       const FeatureMatchingOptions& matching_options,
+                       std::shared_ptr<FeatureMatcherCache> cache) {
+  THROW_CHECK_NOTNULL(cache);
+  THROW_CHECK(options.Check());
+
+  // Reload cameras since VGC may have updated focal lengths.
+  cache->ReloadCameras();
+
+  // Collect all CALIBRATED two-view geometries.
+  std::vector<std::pair<image_pair_t, TwoViewGeometry>> calibrated_pairs;
+  cache->AccessDatabase([&](Database& database) {
+    for (auto& [pair_id, tvg] : database.ReadTwoViewGeometries()) {
+      if (tvg.config == TwoViewGeometry::CALIBRATED) {
+        calibrated_pairs.emplace_back(pair_id, std::move(tvg));
+      }
+    }
+  });
+
+  if (calibrated_pairs.empty()) {
+    LOG(INFO) << "No calibrated pairs for guided matching";
+    return;
+  }
+
+  LOG(INFO) << "Running guided matching on " << calibrated_pairs.size()
+            << " calibrated pairs";
+
+  // Setup matching options for guided matching.
+  FeatureMatchingOptions guided_matching_options = matching_options;
+  guided_matching_options.guided_matching = true;
+
+  // Dummy geometry options (not used for guided matching, but required by API).
+  TwoViewGeometryOptions geometry_options;
+  geometry_options.ransac_options.max_error = options.max_error;
+
+  // Create job queues.
+  JobQueue<FeatureMatcherData> input_queue;
+  JobQueue<FeatureMatcherData> output_queue;
+
+  // Create workers: one per GPU for GPU matching, num_threads for CPU.
+  const int num_threads = GetEffectiveNumThreads(options.num_threads);
+  std::vector<std::unique_ptr<FeatureMatcherWorker>> workers;
+
+  if (matching_options.use_gpu) {
+    const std::vector<int> gpu_indices =
+        CSVToVector<int>(matching_options.gpu_index);
+    workers.reserve(gpu_indices.size());
+    for (const int gpu_index : gpu_indices) {
+      FeatureMatchingOptions worker_options = guided_matching_options;
+      worker_options.gpu_index = std::to_string(gpu_index);
+      workers.emplace_back(
+          std::make_unique<FeatureMatcherWorker>(worker_options,
+                                                 geometry_options,
+                                                 cache,
+                                                 &input_queue,
+                                                 &output_queue));
+    }
+  } else {
+    workers.reserve(num_threads);
+    for (int i = 0; i < num_threads; ++i) {
+      workers.emplace_back(
+          std::make_unique<FeatureMatcherWorker>(guided_matching_options,
+                                                 geometry_options,
+                                                 cache,
+                                                 &input_queue,
+                                                 &output_queue));
+    }
+  }
+
+  // Start all workers.
+  for (auto& worker : workers) {
+    worker->Start();
+  }
+
+  // Wait for workers to be ready.
+  for (auto& worker : workers) {
+    THROW_CHECK(worker->CheckValidSetup())
+        << "Failed to setup guided matching worker";
+  }
+
+  // Push all calibrated pairs to the input queue.
+  const size_t num_pairs = calibrated_pairs.size();
+  for (auto& [pair_id, tvg] : calibrated_pairs) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    FeatureMatcherData data;
+    data.image_id1 = image_id1;
+    data.image_id2 = image_id2;
+    data.two_view_geometry = std::move(tvg);
+    THROW_CHECK(input_queue.Push(std::move(data)));
+  }
+
+  // Pop all outputs and write to database (blocking until all are ready).
+  // Note: Do NOT hold database lock while waiting on Pop(), as workers need
+  // the lock to access cache (GetCamera, GetKeypoints, etc.).
+  LOG(INFO) << "Writing " << num_pairs << " updated pairs to database";
+  for (size_t i = 0; i < num_pairs; ++i) {
+    auto output_job = output_queue.Pop();
+    THROW_CHECK(output_job.IsValid());
+    auto& data = output_job.Data();
+    cache->UpdateTwoViewGeometry(
+        data.image_id1, data.image_id2, data.two_view_geometry);
+  }
+
+  // Cleanup: same pattern as FeatureMatcherController destructor.
+  input_queue.Wait();
+  output_queue.Wait();
+
+  for (auto& worker : workers) {
+    worker->Stop();
+  }
+
+  input_queue.Stop();
+  output_queue.Stop();
+
+  for (auto& worker : workers) {
+    worker->Wait();
+  }
+
+  THROW_CHECK_EQ(output_queue.Size(), 0);
+}
+
 }  // namespace colmap

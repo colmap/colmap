@@ -34,8 +34,6 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
-#include <unordered_set>
-
 namespace colmap {
 namespace {
 
@@ -377,118 +375,6 @@ void FeatureMatcherCache::ReloadCameras() {
     cameras_cache_.reset();
   }
   MaybeLoadCameras();
-}
-
-bool GuidedMatchingOptions::Check() const {
-  CHECK_OPTION_GT(max_error, 0);
-  return true;
-}
-
-void RunGuidedMatching(const GuidedMatchingOptions& options,
-                       const FeatureMatchingOptions& matching_options,
-                       FeatureMatcherCache* cache) {
-  THROW_CHECK_NOTNULL(cache);
-  THROW_CHECK(options.Check());
-
-  // Reload cameras since VGC may have updated focal lengths.
-  cache->ReloadCameras();
-
-  // Collect all CALIBRATED two-view geometries.
-  std::vector<std::pair<image_pair_t, TwoViewGeometry>> calibrated_pairs;
-  cache->AccessDatabase([&](Database& database) {
-    for (auto& [pair_id, tvg] : database.ReadTwoViewGeometries()) {
-      if (tvg.config == TwoViewGeometry::CALIBRATED) {
-        calibrated_pairs.emplace_back(pair_id, std::move(tvg));
-      }
-    }
-  });
-
-  if (calibrated_pairs.empty()) {
-    LOG(INFO) << "No calibrated pairs for guided matching";
-    return;
-  }
-
-  LOG(INFO) << "Running guided matching on " << calibrated_pairs.size()
-            << " calibrated pairs";
-
-  // Collect all image IDs involved.
-  std::unordered_set<image_t> image_ids_set;
-  for (const auto& [pair_id, tvg] : calibrated_pairs) {
-    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    image_ids_set.insert(image_id1);
-    image_ids_set.insert(image_id2);
-  }
-
-  // Pre-cache keypoints for all images (descriptors are cached on demand).
-  for (const image_t image_id : image_ids_set) {
-    cache->GetKeypoints(image_id);
-  }
-
-  const int num_threads = GetEffectiveNumThreads(options.num_threads);
-  ThreadPool thread_pool(num_threads);
-
-  // Create feature matchers with per-matcher mutexes.
-  // Each matcher can only be used by one task at a time.
-  std::vector<std::unique_ptr<FeatureMatcher>> matchers;
-  std::vector<std::unique_ptr<std::mutex>> matcher_mutexes;
-  matchers.reserve(num_threads);
-  matcher_mutexes.reserve(num_threads);
-  for (int i = 0; i < num_threads; ++i) {
-    matchers.push_back(FeatureMatcher::Create(matching_options));
-    matcher_mutexes.push_back(std::make_unique<std::mutex>());
-  }
-
-  std::mutex result_mutex;
-  std::vector<std::tuple<image_t, image_t, TwoViewGeometry>> results;
-  results.reserve(calibrated_pairs.size());
-
-  for (size_t i = 0; i < calibrated_pairs.size(); ++i) {
-    thread_pool.AddTask([&, i]() {
-      auto& [pair_id, tvg] = calibrated_pairs[i];
-      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-
-      const Camera& camera1 =
-          cache->GetCamera(cache->GetImage(image_id1).CameraId());
-      const Camera& camera2 =
-          cache->GetCamera(cache->GetImage(image_id2).CameraId());
-
-      // Perform guided matching using the calibrated E matrix.
-      // Use modulo to distribute across matchers, with mutex to prevent
-      // concurrent access to the same matcher.
-      TwoViewGeometry guided_tvg = tvg;
-      const size_t matcher_idx = i % num_threads;
-      {
-        std::lock_guard<std::mutex> lock(*matcher_mutexes[matcher_idx]);
-        matchers[matcher_idx]->MatchGuided(options.max_error,
-                                           {image_id1,
-                                            &camera1,
-                                            cache->GetKeypoints(image_id1),
-                                            cache->GetDescriptors(image_id1)},
-                                           {image_id2,
-                                            &camera2,
-                                            cache->GetKeypoints(image_id2),
-                                            cache->GetDescriptors(image_id2)},
-                                           &guided_tvg);
-      }
-
-      // Store result. guided_tvg already has updated inlier_matches and
-      // preserves E, F, cam2_from_cam1, etc. from the original tvg.
-      {
-        std::lock_guard<std::mutex> lock(result_mutex);
-        results.emplace_back(image_id1, image_id2, std::move(guided_tvg));
-      }
-    });
-  }
-
-  thread_pool.Wait();
-
-  // Write results to database.
-  LOG(INFO) << "Writing " << results.size() << " updated pairs to database";
-  cache->AccessDatabase([&](Database& database) {
-    for (auto& [image_id1, image_id2, tvg] : results) {
-      database.UpdateTwoViewGeometry(image_id1, image_id2, tvg);
-    }
-  });
 }
 
 }  // namespace colmap

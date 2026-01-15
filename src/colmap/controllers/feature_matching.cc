@@ -253,7 +253,7 @@ class FeatureMatcherThread : public Thread {
         GuidedMatchingOptions guided_options;
         guided_options.num_threads = matching_options_.num_threads;
         guided_options.max_error = geometry_options_.ransac_options.max_error;
-        RunGuidedMatching(guided_options, matching_options_, cache_.get());
+        RunGuidedMatching(guided_options, matching_options_, cache_);
         run_timer.PrintMinutes();
       }
     }

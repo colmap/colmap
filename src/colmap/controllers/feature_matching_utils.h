@@ -136,4 +136,26 @@ class GeometricVerifierController {
   JobQueue<FeatureMatcherData> output_queue_;
 };
 
+struct GuidedMatchingOptions {
+  // Number of threads for guided matching.
+  int num_threads = -1;
+
+  // Maximum error for guided matching in pixels.
+  double max_error = 4.0;
+
+  bool Check() const;
+};
+
+// Run guided matching on all CALIBRATED two-view geometries in the database.
+// This function is typically called after view graph calibration to find
+// additional geometrically consistent matches using the calibrated E matrices.
+// For each pair, it performs guided matching and updates the two-view geometry.
+//
+// @param options           Options for guided matching.
+// @param matching_options  Options for the feature matcher (SIFT parameters).
+// @param cache             Feature matcher cache with access to the database.
+void RunGuidedMatching(const GuidedMatchingOptions& options,
+                       const FeatureMatchingOptions& matching_options,
+                       std::shared_ptr<FeatureMatcherCache> cache);
+
 }  // namespace colmap
