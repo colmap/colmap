@@ -1919,14 +1919,14 @@ bool SimpleDivisionCameraModel::ImgFromCam(
   const T k = params[3];
 
   const T rho = ceres::sqrt(u * u + v * v);
-  const T disc2 = w * w - T(4) * rho * rho * k;
+  const T disc_sq = w * w - T(4) * rho * rho * k;
 
-  if (disc2 < T(0)) {
+  if (disc_sq < T(0)) {
     return false;
   }
 
-  const T sq = ceres::sqrt(disc2);
-  const T r = T(2) / (w + sq);
+  const T disc = ceres::sqrt(disc_sq);
+  const T r = T(2) / (w + disc);
 
   *x = f * r * u + c1;
   *y = f * r * v + c2;
@@ -2004,14 +2004,14 @@ bool DivisionCameraModel::ImgFromCam(
   const T k = params[4];
 
   const T rho = ceres::sqrt(u * u + v * v);
-  const T disc2 = w * w - T(4) * rho * rho * k;
+  const T disc_sq = w * w - T(4) * rho * rho * k;
 
-  if (disc2 < T(0)) {
+  if (disc_sq < T(0)) {
     return false;
   }
 
-  const T sq = ceres::sqrt(disc2);
-  const T r = T(2) / (w + sq);
+  const T disc = ceres::sqrt(disc_sq);
+  const T r = T(2) / (w + disc);
 
   *x = f1 * r * u + c1;
   *y = f2 * r * v + c2;
