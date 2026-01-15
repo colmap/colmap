@@ -78,6 +78,8 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
                 "refine_rig_from_world");
   AddOptionBool(&options->bundle_adjustment->refine_sensor_from_rig,
                 "refine_sensor_from_rig");
+  AddOptionBool(&options->bundle_adjustment->refine_points3D,
+                "refine_points3D");
 
   QPushButton* run_button = new QPushButton(tr("Run"), this);
   grid_layout_->addWidget(run_button, grid_layout_->rowCount(), 1);
