@@ -385,5 +385,216 @@ TEST(ClusterReconstructionFrames, MultipleDisjointClusters) {
   EXPECT_EQ(result_clusters[2], expected_clusters[2]);
 }
 
+// Tests with non-trivial rigs (multiple cameras per frame).
+
+TEST(ClusterReconstructionFrames, RigOneMajorConnectedComponent) {
+  // Create a reconstruction with 10 frames from a rig with 3 cameras each.
+  // Test that clustering correctly handles multi-camera rigs.
+  // Note: With multi-camera rigs, covisibility between frames is stronger
+  // because 3D points are often visible from multiple cameras in the same
+  // frame.
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 3;
+  synthetic_dataset_options.num_frames_per_rig = 10;
+  synthetic_dataset_options.num_points3D = 300;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  const size_t initial_num_reg_frames = reconstruction.NumRegFrames();
+  EXPECT_EQ(initial_num_reg_frames, 10);
+  // Should have 30 images (10 frames * 3 cameras).
+  EXPECT_EQ(reconstruction.NumRegImages(), 30);
+
+  // Get all frame IDs sorted for deterministic behavior.
+  const std::vector<frame_t> all_frame_ids =
+      ExtractSortedFrameIds(reconstruction);
+
+  // Partition into one large cluster and independent frames:
+  // first 7 frames in cluster 0, other 3 frames are independent.
+  std::unordered_map<frame_t, int> frame_to_cluster;
+  std::unordered_set<frame_t> expected_large_cluster;
+  const size_t kLargeClusterSize = 7;
+  for (size_t i = 0; i < kLargeClusterSize; ++i) {
+    frame_to_cluster[all_frame_ids[i]] = 0;
+    expected_large_cluster.insert(all_frame_ids[i]);
+  }
+  for (size_t i = kLargeClusterSize; i < 10; ++i) {
+    frame_to_cluster[all_frame_ids[i]] = i - kLargeClusterSize + 1;
+  }
+
+  // Use keep_ratio=0.0 to completely disconnect clusters.
+  // With multi-camera rigs, weak connections are harder to break.
+  PartitionFramesIntoClusters(reconstruction, frame_to_cluster, 0.0);
+
+  EXPECT_EQ(reconstruction.NumRegFrames(), initial_num_reg_frames);
+
+  ReconstructionClusteringOptions options;
+  const auto cluster_ids = ClusterReconstructionFrames(options, reconstruction);
+
+  // All frames should be assigned to clusters.
+  EXPECT_EQ(cluster_ids.size(), initial_num_reg_frames);
+
+  // Build the resulting clusters.
+  const auto clusters = BuildClustersFromOutput(cluster_ids);
+
+  // Should be 1 large cluster + single frames
+  EXPECT_EQ(clusters.size(), 1 + (initial_num_reg_frames - kLargeClusterSize));
+  // The largest cluster (cluster 0) should have exactly kLargeClusterSize.
+  EXPECT_EQ(clusters[0].size(), kLargeClusterSize);
+  EXPECT_EQ(clusters[0], expected_large_cluster);
+
+  // Other clusters should be single-frame clusters.
+  for (size_t i = 1; i < clusters.size(); ++i) {
+    EXPECT_EQ(clusters[i].size(), 1);
+  }
+}
+
+TEST(ClusterReconstructionFrames, RigMultipleWeaklyConnectedClusters) {
+  // Create a reconstruction with frames from a rig with 2 cameras each.
+  // Partition into 3 clusters. With multi-camera rigs, the covisibility
+  // between frames is higher, so we use very low keep_ratio to ensure
+  // cluster separation while still leaving some weak connections.
+  const size_t kCluster0Size = 30;
+  const size_t kCluster1Size = 4;
+  const size_t kCluster2Size = 3;
+  const size_t kTotalFrames = kCluster0Size + kCluster1Size + kCluster2Size;
+
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = kTotalFrames;
+  synthetic_dataset_options.num_points3D = 500;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  EXPECT_EQ(reconstruction.NumRegFrames(), kTotalFrames);
+  // Should have 60 images (30 frames * 2 cameras).
+  EXPECT_EQ(reconstruction.NumRegImages(), kTotalFrames * 2);
+
+  // Get all frame IDs sorted for deterministic behavior.
+  const std::vector<frame_t> all_frame_ids =
+      ExtractSortedFrameIds(reconstruction);
+
+  // Partition frames into 3 clusters.
+  std::unordered_map<frame_t, int> frame_to_cluster;
+  std::vector<std::unordered_set<frame_t>> expected_clusters(3);
+
+  for (size_t i = 0; i < kCluster0Size; ++i) {
+    frame_to_cluster[all_frame_ids[i]] = 0;
+    expected_clusters[0].insert(all_frame_ids[i]);
+  }
+  for (size_t i = kCluster0Size; i < kCluster0Size + kCluster1Size; ++i) {
+    frame_to_cluster[all_frame_ids[i]] = 1;
+    expected_clusters[1].insert(all_frame_ids[i]);
+  }
+  for (size_t i = kCluster0Size + kCluster1Size; i < kTotalFrames; ++i) {
+    frame_to_cluster[all_frame_ids[i]] = 2;
+    expected_clusters[2].insert(all_frame_ids[i]);
+  }
+
+  // Use keep_ratio=0.05 to create disjoint clusters.
+  PartitionFramesIntoClusters(reconstruction, frame_to_cluster, 0.05);
+
+  // All frames should still be registered.
+  EXPECT_EQ(reconstruction.NumRegFrames(), kTotalFrames);
+
+  ReconstructionClusteringOptions options;
+  const auto cluster_ids = ClusterReconstructionFrames(options, reconstruction);
+
+  // All frames should be assigned to clusters.
+  EXPECT_EQ(cluster_ids.size(), kTotalFrames);
+
+  // Build the resulting clusters.
+  const auto result_clusters = BuildClustersFromOutput(cluster_ids);
+
+  // Should have exactly 3 clusters.
+  EXPECT_EQ(result_clusters.size(), 3);
+
+  // Sort expected clusters by size for comparison.
+  std::sort(expected_clusters.begin(),
+            expected_clusters.end(),
+            [](const auto& a, const auto& b) { return a.size() > b.size(); });
+
+  // Verify that the clusters match exactly.
+  EXPECT_EQ(result_clusters[0], expected_clusters[0]);
+  EXPECT_EQ(result_clusters[1], expected_clusters[1]);
+  EXPECT_EQ(result_clusters[2], expected_clusters[2]);
+}
+
+TEST(ClusterReconstructionFrames, RigMultipleDisjointClusters) {
+  // Create a reconstruction with frames from a rig with 4 cameras each.
+  // Partition into 3 completely disjoint clusters.
+  const size_t kCluster0Size = 8;
+  const size_t kCluster1Size = 6;
+  const size_t kCluster2Size = 4;
+  const size_t kTotalFrames = kCluster0Size + kCluster1Size + kCluster2Size;
+  const int kCamerasPerRig = 4;
+
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = kCamerasPerRig;
+  synthetic_dataset_options.num_frames_per_rig = kTotalFrames;
+  synthetic_dataset_options.num_points3D = 600;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  EXPECT_EQ(reconstruction.NumRegFrames(), kTotalFrames);
+  // Should have 72 images (18 frames * 4 cameras).
+  EXPECT_EQ(reconstruction.NumRegImages(), kTotalFrames * kCamerasPerRig);
+
+  // Get all frame IDs sorted for deterministic behavior.
+  const std::vector<frame_t> all_frame_ids =
+      ExtractSortedFrameIds(reconstruction);
+
+  // Partition frames into 3 completely disjoint clusters.
+  std::unordered_map<frame_t, int> frame_to_cluster;
+  std::vector<std::unordered_set<frame_t>> expected_clusters(3);
+
+  for (size_t i = 0; i < kCluster0Size; ++i) {
+    frame_to_cluster[all_frame_ids[i]] = 0;
+    expected_clusters[0].insert(all_frame_ids[i]);
+  }
+  for (size_t i = kCluster0Size; i < kCluster0Size + kCluster1Size; ++i) {
+    frame_to_cluster[all_frame_ids[i]] = 1;
+    expected_clusters[1].insert(all_frame_ids[i]);
+  }
+  for (size_t i = kCluster0Size + kCluster1Size; i < kTotalFrames; ++i) {
+    frame_to_cluster[all_frame_ids[i]] = 2;
+    expected_clusters[2].insert(all_frame_ids[i]);
+  }
+
+  // Use keep_ratio=0.0 to create completely disjoint clusters.
+  PartitionFramesIntoClusters(reconstruction, frame_to_cluster, 0.0);
+
+  // All frames should still be registered.
+  EXPECT_EQ(reconstruction.NumRegFrames(), kTotalFrames);
+
+  ReconstructionClusteringOptions options;
+  const auto cluster_ids = ClusterReconstructionFrames(options, reconstruction);
+
+  // All frames should be assigned to clusters.
+  EXPECT_EQ(cluster_ids.size(), kTotalFrames);
+
+  // Build the resulting clusters from the clustering output.
+  const auto result_clusters = BuildClustersFromOutput(cluster_ids);
+
+  // Should have exactly 3 clusters.
+  EXPECT_EQ(result_clusters.size(), 3);
+
+  // Sort expected clusters by size for comparison.
+  std::sort(expected_clusters.begin(),
+            expected_clusters.end(),
+            [](const auto& a, const auto& b) { return a.size() > b.size(); });
+
+  // The clusters should match exactly.
+  EXPECT_EQ(result_clusters[0], expected_clusters[0]);
+  EXPECT_EQ(result_clusters[1], expected_clusters[1]);
+  EXPECT_EQ(result_clusters[2], expected_clusters[2]);
+}
+
 }  // namespace
 }  // namespace colmap
