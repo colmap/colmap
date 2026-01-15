@@ -37,6 +37,9 @@
 namespace colmap {
 namespace {
 
+// Alias for clarity: we're working with frame pairs, not image pairs.
+using frame_pair_t = image_pair_t;
+
 // Clusters nodes using union-find based on edge weights.
 //
 // Algorithm:
@@ -51,7 +54,7 @@ namespace {
 std::unordered_map<frame_t, int> EstablishStrongClusters(
     const ReconstructionClusteringOptions& options,
     const std::unordered_set<frame_t>& nodes,
-    const std::unordered_map<image_pair_t, int>& edge_weights,
+    const std::unordered_map<frame_pair_t, int>& edge_weights,
     double edge_weight_threshold) {
   UnionFind<frame_t> uf;
   uf.Reserve(nodes.size());
@@ -109,6 +112,11 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
 
   // Phase 3: Collect nodes by their union-find roots, sort by number of
   // frames, and assign sequential cluster IDs (largest cluster gets ID 0).
+  // First ensure all nodes are in the union-find structure (isolated nodes
+  // may not have been added during Phase 1/2 if they had no edges).
+  for (const frame_t node : nodes) {
+    uf.Find(node);
+  }
   uf.Compress();
   std::unordered_map<frame_t, std::vector<frame_t>> root_to_nodes;
   for (const auto& [node, root] : uf.Parents()) {
@@ -154,7 +162,7 @@ std::unordered_map<frame_t, int> ClusterReconstructionFrames(
   // Step 1: Compute covisibility counts between all frame pairs.
   // For each 3D point, increment the count for every pair of frames that sees
   // it.
-  std::unordered_map<image_pair_t, int> frame_covisibility_count;
+  std::unordered_map<frame_pair_t, int> frame_covisibility_count;
   std::unordered_set<frame_t> nodes;
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     if (point3D.track.Length() <= 2) continue;
@@ -171,14 +179,14 @@ std::unordered_map<frame_t, int> ClusterReconstructionFrames(
         const image_t image_id2 = point3D.track.Element(j).image_id;
         const frame_t frame_id2 = reconstruction.Image(image_id2).FrameId();
         if (frame_id1 == frame_id2) continue;
-        const image_pair_t pair_id = ImagePairToPairId(frame_id1, frame_id2);
+        const frame_pair_t pair_id = ImagePairToPairId(frame_id1, frame_id2);
         frame_covisibility_count[pair_id]++;
       }
     }
   }
 
   // Filter edges to keep only reliable connections.
-  std::unordered_map<image_pair_t, int> edge_weights;
+  std::unordered_map<frame_pair_t, int> edge_weights;
   for (const auto& [pair_id, count] : frame_covisibility_count) {
     if (count < options.min_covisibility_count) continue;
     edge_weights[pair_id] = count;
