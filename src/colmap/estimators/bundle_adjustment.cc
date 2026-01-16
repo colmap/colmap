@@ -781,6 +781,8 @@ class DefaultBundleAdjuster : public BundleAdjuster {
 
     ceres::Solve(solver_options, problem_.get(), &summary);
 
+    LOG(INFO) << summary.FullReport();
+
     if (options_.print_summary || VLOG_IS_ON(1)) {
       PrintSolverSummary(summary, "Bundle adjustment report");
     }

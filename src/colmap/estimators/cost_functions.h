@@ -45,6 +45,164 @@ namespace colmap {
 
 struct EmptyImgFromCamCostPlaceholder {};
 
+// Computes the Jacobian of R(q)*p with respect to Eigen quaternion q =
+// [x,y,z,w]. J_out is a 3x4 matrix in row-major order.
+// Also rotates pt in-place: pt_out = R(q) * pt_in
+inline void QuaternionRotatePointWithJac(const double* q,
+                                         double* pt,
+                                         double* J_out) {
+  // Eigen quaternion: q = [x, y, z, w] where w is the scalar part
+  const double qx = q[0], qy = q[1], qz = q[2], qw = q[3];
+
+  // Save original point for Jacobian computation
+  const double px = pt[0], py = pt[1], pz = pt[2];
+
+  // R(q) * p using the formula: p' = p + 2*w*(v x p) + 2*(v x (v x p))
+  // where v = (qx, qy, qz) is the imaginary part and w = qw is the scalar
+  // First compute v  x  p
+  const double vxp0 = qy * pz - qz * py;
+  const double vxp1 = qz * px - qx * pz;
+  const double vxp2 = qx * py - qy * px;
+
+  // Then compute v  x  (v  x  p)
+  const double vxvxp0 = qy * vxp2 - qz * vxp1;
+  const double vxvxp1 = qz * vxp0 - qx * vxp2;
+  const double vxvxp2 = qx * vxp1 - qy * vxp0;
+
+  // p' = p + 2*w*(v x p) + 2*(v x (v x p))
+  pt[0] = px + 2.0 * (qw * vxp0 + vxvxp0);
+  pt[1] = py + 2.0 * (qw * vxp1 + vxvxp1);
+  pt[2] = pz + 2.0 * (qw * vxp2 + vxvxp2);
+
+  if (J_out) {
+    // Jacobian d(R*p)/dq for Eigen quaternion [x,y,z,w]
+    // Must use the ORIGINAL point (px, py, pz), not the rotated point
+
+    // d(R*p)_0/d[x,y,z,w]
+    J_out[0] = 2.0 * (qy * py + qz * pz);
+    J_out[1] = 2.0 * (-2.0 * qy * px + qx * py + qw * pz);
+    J_out[2] = 2.0 * (-2.0 * qz * px - qw * py + qx * pz);
+    J_out[3] = 2.0 * (-qz * py + qy * pz);
+
+    // d(R*p)_1/d[x,y,z,w]
+    J_out[4] = 2.0 * (qy * px - 2.0 * qx * py - qw * pz);
+    J_out[5] = 2.0 * (qx * px + qz * pz);
+    J_out[6] = 2.0 * (qw * px - 2.0 * qz * py + qy * pz);
+    J_out[7] = 2.0 * (qz * px - qx * pz);
+
+    // d(R*p)_2/d[x,y,z,w]
+    J_out[8] = 2.0 * (qz * px + qw * py - 2.0 * qx * pz);
+    J_out[9] = 2.0 * (-qw * px + qz * py - 2.0 * qy * pz);
+    J_out[10] = 2.0 * (qx * px + qy * py);
+    J_out[11] = 2.0 * (-qy * px + qx * py);
+  }
+}
+
+inline Eigen::Matrix3d QuaternionToScaledRotation(
+    const double* q) {
+
+  // Make convenient names for elements of q.
+  const double qx = q[0];
+  const double qy = q[1];
+  const double qz = q[2];
+  const double qw = q[3];
+  // This is not to eliminate common sub-expression, but to
+  // make the lines shorter so that they fit in 80 columns!
+  const double aa = qw * qw;
+  const double ab = qw * qx;
+  const double ac = qw * qy;
+  const double ad = qw * qz;
+  const double bb = qx * qx;
+  const double bc = qx * qy;
+  const double bd = qx * qz;
+  const double cc = qy * qy;
+  const double cd = qy * qz;
+  const double dd = qz * qz;
+
+  Eigen::Matrix3d R;
+  R(0, 0) = aa + bb - cc - dd; R(0, 1) = 2 * (bc - ad);  R(0, 2) = 2 * (ac + bd);
+  R(1, 0) = 2 * (ad + bc);  R(1, 1) = aa - bb + cc - dd; R(1, 2) = 2 * (cd - ab);
+  R(2, 0) = 2 * (bd - ac);  R(2, 1) = 2 * (ab + cd);  R(2, 2) = aa - bb - cc + dd;
+  return R;
+}
+
+// Full reprojection error cost function with analytical Jacobians for
+// SimpleRadialCameraModel. Computes derivatives for the world-to-camera
+// transformation (quaternion rotation + translation).
+class SimpleRadialReprojErrorCostFunction
+    : public ceres::
+          SizedCostFunction<2, 4, 3, 3, SimpleRadialCameraModel::num_params> {
+ public:
+  explicit SimpleRadialReprojErrorCostFunction(const Eigen::Vector2d& point2D)
+      : point2D_(point2D) {}
+
+  bool Evaluate(double const* const* parameters,
+                double* residuals,
+                double** jacobians) const override {
+    const double* quat = parameters[0];
+    const double* trans = parameters[1];
+    const double* point3D = parameters[2];
+    const double* camera_params = parameters[3];
+
+    double* J_quat = jacobians ? jacobians[0] : nullptr;
+    double* J_trans = jacobians ? jacobians[1] : nullptr;
+    double* J_point = jacobians ? jacobians[2] : nullptr;
+    double* J_params = jacobians ? jacobians[3] : nullptr;
+
+    Eigen::Map<Eigen::Matrix<double, 2, 4, Eigen::RowMajor>> J_quat_mat(J_quat);
+    Eigen::Map<Eigen::Matrix<double, 2, 3, Eigen::RowMajor>> J_trans_mat(
+        J_trans);
+    Eigen::Map<Eigen::Matrix<double, 2, 3, Eigen::RowMajor>> J_point_mat(
+        J_point);
+    Eigen::Map<Eigen::Matrix<double,
+                             2,
+                             SimpleRadialCameraModel::num_params,
+                             Eigen::RowMajor>>
+        J_params_mat(J_params);
+
+    Eigen::Vector3d point3D_in_cam(point3D[0], point3D[1], point3D[2]);
+    Eigen::Matrix<double, 3, 4, Eigen::RowMajor> J_Rp_q_mat;
+    QuaternionRotatePointWithJac(
+        quat, point3D_in_cam.data(), jacobians ? J_Rp_q_mat.data() : nullptr);
+    point3D_in_cam += Eigen::Map<const Eigen::Vector3d>(trans);
+
+    if (!SimpleRadialCameraModel::ImgFromCamWithJac(camera_params,
+                                                    point3D_in_cam[0],
+                                                    point3D_in_cam[1],
+                                                    point3D_in_cam[2],
+                                                    &residuals[0],
+                                                    &residuals[1],
+                                                    J_params,
+                                                    J_trans)) {
+      residuals[0] = 0.0;
+      residuals[1] = 0.0;
+      if (jacobians) {
+        J_quat_mat.setZero();
+        J_trans_mat.setZero();
+        J_point_mat.setZero();
+        J_params_mat.setZero();
+      }
+      return true;
+    }
+
+    Eigen::Map<Eigen::Vector2d> residuals_vec(residuals);
+    residuals_vec -= point2D_;
+
+    if (jacobians) {
+      // J_quat = J_uvw (2x3) * J_Rp_q (3x4) = 2x4
+      J_quat_mat = J_trans_mat * J_Rp_q_mat;
+      // J_point = J_uvw (2x3) * R (3x3) = 2x3
+      // Note: J_trans_mat holds J_uvw since dp_cam/dtrans = I
+      J_point_mat = J_trans_mat * QuaternionToScaledRotation(quat);
+    }
+
+    return true;
+  }
+
+ private:
+  const Eigen::Vector2d point2D_;
+};
+
 class SimpleRadialSizedCostFunction
     : public ceres::
           SizedCostFunction<2, 3, SimpleRadialCameraModel::num_params> {
@@ -95,8 +253,9 @@ class ReprojErrorCostFunctor
         img_from_cam_cost_([&point2D]() {
           if constexpr (std::is_same<CameraModel,
                                      SimpleRadialCameraModel>::value) {
-            return ceres::CostFunctionToFunctor<2, 3, CameraModel::num_params>(
-                new SimpleRadialSizedCostFunction(point2D));
+            return ceres::
+                CostFunctionToFunctor<2, 4, 3, 3, CameraModel::num_params>(
+                    new SimpleRadialReprojErrorCostFunction(point2D));
           } else {
             (void)point2D;
             return EmptyImgFromCamCostPlaceholder{};
@@ -109,13 +268,38 @@ class ReprojErrorCostFunctor
                   const T* const point3D,
                   const T* const camera_params,
                   T* residuals) const {
-    const Eigen::Matrix<T, 3, 1> point3D_in_cam =
-        EigenQuaternionMap<T>(cam_from_world_rotation) *
-            EigenVector3Map<T>(point3D) +
-        EigenVector3Map<T>(cam_from_world_translation);
+    // const Eigen::Matrix<T, 3, 1> point3D_in_cam =
+    //     EigenQuaternionMap<T>(cam_from_world_rotation) *
+    //         EigenVector3Map<T>(point3D) +
+    //     EigenVector3Map<T>(cam_from_world_translation);
+    // if constexpr (std::is_same<CameraModel, SimpleRadialCameraModel>::value)
+    // {
+    //   img_from_cam_cost_(point3D_in_cam.data(), camera_params, residuals);
+    // } else {
+    //   if (CameraModel::ImgFromCam(camera_params,
+    //                               point3D_in_cam[0],
+    //                               point3D_in_cam[1],
+    //                               point3D_in_cam[2],
+    //                               &residuals[0],
+    //                               &residuals[1])) {
+    //     residuals[0] -= T(observed_x_);
+    //     residuals[1] -= T(observed_y_);
+    //   } else {
+    //     residuals[0] = T(0);
+    //     residuals[1] = T(0);
+    //   }
+    // }
     if constexpr (std::is_same<CameraModel, SimpleRadialCameraModel>::value) {
-      img_from_cam_cost_(point3D_in_cam.data(), camera_params, residuals);
+      img_from_cam_cost_(cam_from_world_rotation,
+                         cam_from_world_translation,
+                         point3D,
+                         camera_params,
+                         residuals);
     } else {
+      const Eigen::Matrix<T, 3, 1> point3D_in_cam =
+          EigenQuaternionMap<T>(cam_from_world_rotation) *
+              EigenVector3Map<T>(point3D) +
+          EigenVector3Map<T>(cam_from_world_translation);
       if (CameraModel::ImgFromCam(camera_params,
                                   point3D_in_cam[0],
                                   point3D_in_cam[1],
@@ -137,7 +321,7 @@ class ReprojErrorCostFunctor
   const double observed_y_;
   std::conditional_t<
       std::is_same<CameraModel, SimpleRadialCameraModel>::value,
-      ceres::CostFunctionToFunctor<2, 3, CameraModel::num_params>,
+      ceres::CostFunctionToFunctor<2, 4, 3, 3, CameraModel::num_params>,
       EmptyImgFromCamCostPlaceholder>
       img_from_cam_cost_;
 };
