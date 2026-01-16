@@ -728,12 +728,10 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption(
       "GlobalMapper.ba_refine_rig_from_world",
       &global_mapper->mapper.bundle_adjustment.refine_rig_from_world);
-  AddDefaultOption(
-      "GlobalMapper.ba_refine_points3D",
-      &global_mapper->mapper.bundle_adjustment.refine_points3D);
-  AddDefaultOption(
-      "GlobalMapper.ba_min_track_length",
-      &global_mapper->mapper.bundle_adjustment.min_track_length);
+  AddDefaultOption("GlobalMapper.ba_refine_points3D",
+                   &global_mapper->mapper.bundle_adjustment.refine_points3D);
+  AddDefaultOption("GlobalMapper.ba_min_track_length",
+                   &global_mapper->mapper.bundle_adjustment.min_track_length);
   AddDefaultOption(
       "GlobalMapper.ba_loss_function_scale",
       &global_mapper->mapper.bundle_adjustment.loss_function_scale);

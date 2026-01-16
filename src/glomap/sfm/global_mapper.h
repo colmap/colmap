@@ -9,10 +9,10 @@
 #include "glomap/estimators/rotation_averaging.h"
 #include "glomap/scene/pose_graph.h"
 
-#include <ceres/ceres.h>
-
 #include <filesystem>
 #include <limits>
+
+#include <ceres/ceres.h>
 
 namespace glomap {
 
@@ -107,11 +107,10 @@ class GlobalMapper {
                          double min_tri_angle_deg);
 
   // Run iterative bundle adjustment to refine poses and structure.
-  bool IterativeBundleAdjustment(
-      const colmap::BundleAdjustmentOptions& options,
-      double max_normalized_reproj_error,
-      double min_tri_angle_deg,
-      int num_iterations);
+  bool IterativeBundleAdjustment(const colmap::BundleAdjustmentOptions& options,
+                                 double max_normalized_reproj_error,
+                                 double min_tri_angle_deg,
+                                 int num_iterations);
 
   // Iteratively retriangulate tracks and refine to improve structure.
   bool IterativeRetriangulateAndRefine(

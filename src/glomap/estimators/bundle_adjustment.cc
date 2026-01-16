@@ -25,7 +25,8 @@ bool RunBundleAdjustment(const colmap::BundleAdjustmentOptions& options,
   // Use TWO_CAMS_FROM_WORLD for deterministic gauge fixing.
   ba_config.FixGauge(colmap::BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
-  auto ba = colmap::CreateDefaultBundleAdjuster(options, ba_config, reconstruction);
+  auto ba =
+      colmap::CreateDefaultBundleAdjuster(options, ba_config, reconstruction);
 
   ceres::Solver::Summary summary = ba->Solve();
 

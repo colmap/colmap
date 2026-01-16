@@ -831,7 +831,8 @@ class DefaultBundleAdjuster : public BundleAdjuster {
 
       // Skip points with track length below minimum.
       if (options_.min_track_length > 0 &&
-          static_cast<int>(point3D.track.Length()) < options_.min_track_length) {
+          static_cast<int>(point3D.track.Length()) <
+              options_.min_track_length) {
         continue;
       }
 
@@ -892,7 +893,8 @@ class DefaultBundleAdjuster : public BundleAdjuster {
 
       // Skip points with track length below minimum.
       if (options_.min_track_length > 0 &&
-          static_cast<int>(point3D.track.Length()) < options_.min_track_length) {
+          static_cast<int>(point3D.track.Length()) <
+              options_.min_track_length) {
         continue;
       }
 
