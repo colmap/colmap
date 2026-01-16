@@ -349,9 +349,9 @@ bool GlobalMapper::IterativeBundleAdjustment(
       if (!RunBundleAdjustment(options, *reconstruction_)) {
         return false;
       }
-      LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
-                << num_iterations << ", full optimization finished";
     }
+    LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
+              << num_iterations << " finished";
 
     // Normalize the structure
     reconstruction_->Normalize();
