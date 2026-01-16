@@ -144,7 +144,7 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
         cluster_ids[node] = static_cast<int>(num_valid_clusters);
       }
       num_valid_clusters++;
-    } else{
+    } else {
       // Clusters smaller than min_num_reg_frames are discarded.
       for (const frame_t node : cluster_nodes) {
         cluster_ids[node] = -1;
