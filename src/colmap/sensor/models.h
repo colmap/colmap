@@ -301,6 +301,14 @@ struct SimpleRadialCameraModel
     : public BaseCameraModel<SimpleRadialCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
       CameraModelId::kSimpleRadial, "SIMPLE_RADIAL", 1, 2, 1)
+
+  static bool ImgFromCamWithJac(const double* params,
+                                const double& u,
+                                const double& v,
+                                const double& w,
+                                double* x,
+                                double* y,
+                                double* J);
 };
 
 // Simple camera model with one focal length and two radial distortion
@@ -883,6 +891,50 @@ bool SimpleRadialCameraModel::ImgFromCam(
   // Transform to image coordinates
   *x = f * *x + c1;
   *y = f * *y + c2;
+
+  return true;
+}
+
+bool SimpleRadialCameraModel::ImgFromCamWithJac(const double* params,
+                                                const double& u,
+                                                const double& v,
+                                                const double& w,
+                                                double* x,
+                                                double* y,
+                                                double* J) {
+  if (w < std::numeric_limits<double>::epsilon()) {
+    return false;
+  }
+
+  const double f = params[0];
+  const double c1 = params[1];
+  const double c2 = params[2];
+
+  const double uu = u / w;
+  const double vv = v / w;
+
+  // Distortion
+  double du, dv;
+  Distortion(&params[3], uu, vv, &du, &dv);
+  *x = uu + du;
+  *y = vv + dv;
+
+  // Transform to image coordinates
+  *x = f * *x + c1;
+  *y = f * *y + c2;
+
+  if (J) {
+    const double r2 = u * u + v * v;
+    const double alpha = 1.0 + params[3] * r2;
+    J[0] = alpha * uu;
+    J[1] = 1.0;
+    J[2] = 0.0;
+    J[3] = params[0] * r2 * uu;
+    J[num_params + 0] = alpha * vv;
+    J[num_params + 1] = 0.0;
+    J[num_params + 2] = 1.0;
+    J[num_params + 3] = params[0] * r2 * vv;
+  }
 
   return true;
 }
