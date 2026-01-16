@@ -331,7 +331,7 @@ bool GlobalMapper::IterativeBundleAdjustment(
     double min_tri_angle_deg,
     int num_iterations,
     bool skip_fixed_rotation_stage,
-    bool skip_full_optimization_stage) {
+    bool skip_joint_optimization_stage) {
   for (int ite = 0; ite < num_iterations; ite++) {
     // Optional fixed-rotation stage: optimize positions only
     if (!skip_fixed_rotation_stage) {
@@ -344,8 +344,8 @@ bool GlobalMapper::IterativeBundleAdjustment(
                 << num_iterations << ", fixed-rotation stage finished";
     }
 
-    // Full optimization stage
-    if (!skip_full_optimization_stage) {
+    // Joint optimization stage: default BA
+    if (!skip_joint_optimization_stage) {
       if (!RunBundleAdjustment(options, *reconstruction_)) {
         return false;
       }
@@ -520,7 +520,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
                                    opts.min_tri_angle_deg,
                                    opts.ba_num_iterations,
                                    opts.ba_skip_fixed_rotation_stage,
-                                   opts.ba_skip_full_optimization_stage)) {
+                                   opts.ba_skip_joint_optimization_stage)) {
       return false;
     }
     LOG(INFO) << "Iterative bundle adjustment done in "
