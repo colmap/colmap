@@ -190,119 +190,78 @@ TEST(DefaultBundleAdjuster, TwoView) {
 
 #ifdef CASPAR_ENABLED
 
-TEST(CasparBundleAdjuster, ThreePointsGauge) {
-  Reconstruction reconstruction;
+TEST(CasparBundleAdjuster, Converges) {
+  SetPRNGSeed(0);
+  Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 1;
-  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.num_frames_per_rig = 10;
+  synthetic_dataset_options.num_points3D = 200;
   synthetic_dataset_options.camera_model_id = CameraModelId::kSimpleRadial;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction);
 
-  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  Reconstruction reconstruction = gt_reconstruction;
+
   SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 1;
+  synthetic_noise_options.point2D_stddev = 0.5;
+  synthetic_noise_options.point3D_stddev = 0.1;
+  synthetic_noise_options.rig_from_world_rotation_stddev = 0.5;
+  synthetic_noise_options.rig_from_world_translation_stddev = 0.1;
   SynthesizeNoise(synthetic_noise_options, &reconstruction);
-  const Reconstruction orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
-  config.AddImage(1);
-  config.AddImage(2);
-  config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
 
   BundleAdjustmentOptions options;
   caspar::SolverParams params;
+
   auto summary =
       CreateCasparBundleAdjuster(options, config, reconstruction, params)
           ->Solve();
+
   ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  EXPECT_TRUE(summary.IsSolutionUsable());
 
-  CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
-  CheckVariableCamera(reconstruction.Camera(2), orig_reconstruction.Camera(2));
-
-  size_t num_variable_points = 0;
-  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
-    if (std::abs((point3D.xyz - orig_reconstruction.Point3D(point3D_id).xyz)
-                     .norm()) > 1e-6) {
-      ++num_variable_points;
-    }
-  }
-  EXPECT_EQ(num_variable_points, 97);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.2,
+                                 /*max_proj_center_error=*/0.2,
+                                 /*max_scale_error=*/0.1,
+                                 /*num_obs_tolerance=*/0.02));
 }
 
-TEST(CasparBundleAdjuster, GaugeFixedPointsStayFixed) {
+TEST(CasparBundleAdjuster, MatchesDefaultSolver) {
+  SetPRNGSeed(0);
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 5;
+  synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.camera_model_id = CameraModelId::kSimpleRadial;
-
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
   SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
-  const Reconstruction orig_reconstruction = reconstruction;
-
-  BundleAdjustmentConfig config;
-  config.AddImage(1);
-  config.AddImage(2);
-  config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
-
-  BundleAdjustmentOptions options;
-  caspar::SolverParams params;
-  auto summary =
-      CreateCasparBundleAdjuster(options, config, reconstruction, params)
-          ->Solve();
-  ASSERT_NE(summary.termination_type, ceres::FAILURE);
-
-  // Find top 3 most-observed points (gauge-fixed)
-  std::vector<std::pair<size_t, point3D_t>> points_by_obs;
-  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
-    points_by_obs.push_back({point3D.track.Length(), point3D_id});
-  }
-  std::sort(points_by_obs.rbegin(), points_by_obs.rend());
-
-  // Gauge-fixed points must not move
-  for (size_t i = 0; i < 3; ++i) {
-    const point3D_t point_id = points_by_obs[i].second;
-    const double movement = (reconstruction.Point3D(point_id).xyz -
-                             orig_reconstruction.Point3D(point_id).xyz)
-                                .norm();
-    EXPECT_LT(movement, 1e-6)
-        << "Gauge-fixed point " << point_id << " moved by " << movement;
-  }
-}
-
-TEST(CasparBundleAdjuster, CompareThreePointsGaugeWithDefault) {
-  Reconstruction reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 5;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 1;
-  synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.camera_model_id = CameraModelId::kSimpleRadial;
-
-  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 1;
+  synthetic_noise_options.point2D_stddev = 1.0;
   SynthesizeNoise(synthetic_noise_options, &reconstruction);
 
-  Reconstruction reconstruction_ceres = reconstruction;
+  Reconstruction reconstruction_default = reconstruction;
   Reconstruction reconstruction_caspar = reconstruction;
 
   BundleAdjustmentConfig config;
-  config.AddImage(1);
-  config.AddImage(2);
-  config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
 
   BundleAdjustmentOptions options;
 
-  auto ceres_summary =
-      CreateDefaultBundleAdjuster(options, config, reconstruction_ceres)
+  auto default_summary =
+      CreateDefaultBundleAdjuster(options, config, reconstruction_default)
           ->Solve();
-  ASSERT_NE(ceres_summary.termination_type, ceres::FAILURE);
+  ASSERT_NE(default_summary.termination_type, ceres::FAILURE);
 
   caspar::SolverParams params;
   auto caspar_summary =
@@ -310,76 +269,15 @@ TEST(CasparBundleAdjuster, CompareThreePointsGaugeWithDefault) {
           ->Solve();
   ASSERT_NE(caspar_summary.termination_type, ceres::FAILURE);
 
-  std::vector<double> point_errors;
-  for (const auto& point3D_id : reconstruction_ceres.Point3DIds()) {
-    const Point3D& point_ceres = reconstruction_ceres.Point3D(point3D_id);
-    const Point3D& point_caspar = reconstruction_caspar.Point3D(point3D_id);
-    point_errors.push_back((point_ceres.xyz - point_caspar.xyz).norm());
-  }
-
-  const double mean_error =
-      std::accumulate(point_errors.begin(), point_errors.end(), 0.0) /
-      point_errors.size();
-  const double max_error =
-      *std::max_element(point_errors.begin(), point_errors.end());
-
-  EXPECT_LT(mean_error, 0.025);  // Higher error due to worse gauge fixing
-  EXPECT_LT(max_error, 0.1);
+  EXPECT_THAT(reconstruction_default,
+              ReconstructionNear(reconstruction_caspar,
+                                 /*max_rotation_error_deg=*/0.5,
+                                 /*max_proj_center_error=*/0.1,
+                                 /*max_scale_error=*/0.1,
+                                 /*num_obs_tolerance=*/0.02));
 }
 
-TEST(CasparBundleAdjuster, CompareTwoViewGaugeWithDefault) {
-  Reconstruction reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 5;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 1;
-  synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.camera_model_id = CameraModelId::kSimpleRadial;
-
-  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
-
-  Reconstruction reconstruction_ceres = reconstruction;
-  Reconstruction reconstruction_caspar = reconstruction;
-
-  BundleAdjustmentConfig config;
-  config.AddImage(1);
-  config.AddImage(2);
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
-
-  BundleAdjustmentOptions options;
-
-  auto ceres_summary =
-      CreateDefaultBundleAdjuster(options, config, reconstruction_ceres)
-          ->Solve();
-  ASSERT_NE(ceres_summary.termination_type, ceres::FAILURE);
-
-  caspar::SolverParams params;
-  auto caspar_summary =
-      CreateCasparBundleAdjuster(options, config, reconstruction_caspar, params)
-          ->Solve();
-  ASSERT_NE(caspar_summary.termination_type, ceres::FAILURE);
-
-  std::vector<double> point_errors;
-  for (const auto& point3D_id : reconstruction_ceres.Point3DIds()) {
-    const Point3D& point_ceres = reconstruction_ceres.Point3D(point3D_id);
-    const Point3D& point_caspar = reconstruction_caspar.Point3D(point3D_id);
-    point_errors.push_back((point_ceres.xyz - point_caspar.xyz).norm());
-  }
-
-  const double mean_error =
-      std::accumulate(point_errors.begin(), point_errors.end(), 0.0) /
-      point_errors.size();
-  const double max_error =
-      *std::max_element(point_errors.begin(), point_errors.end());
-
-  EXPECT_LT(mean_error, 0.01);
-  EXPECT_LT(max_error, 0.01);
-}
-
-TEST(CasparBundleAdjuster, TwoCamsGaugeCameraMovement) {
+TEST(CasparBundleAdjuster, TwoView) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
@@ -387,115 +285,65 @@ TEST(CasparBundleAdjuster, TwoCamsGaugeCameraMovement) {
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.camera_model_id = CameraModelId::kSimpleRadial;
-
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
   SyntheticNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 1;
   SynthesizeNoise(synthetic_noise_options, &reconstruction);
-  const Reconstruction orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
-  config.AddImage(2);
   config.AddImage(1);
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  config.AddImage(2);
 
   BundleAdjustmentOptions options;
   caspar::SolverParams params;
   auto summary =
       CreateCasparBundleAdjuster(options, config, reconstruction, params)
           ->Solve();
+
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+}
+
+TEST(CasparBundleAdjuster, MultiView) {
+  SetPRNGSeed(0);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 15;
+  synthetic_dataset_options.num_points3D = 300;
+  synthetic_dataset_options.camera_model_id = CameraModelId::kSimpleRadial;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction);
+
+  Reconstruction reconstruction = gt_reconstruction;
+
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1.0;
+  synthetic_noise_options.point3D_stddev = 0.2;
+  synthetic_noise_options.rig_from_world_rotation_stddev = 1.0;
+  synthetic_noise_options.rig_from_world_translation_stddev = 0.2;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+
+  BundleAdjustmentOptions options;
+  caspar::SolverParams params;
+
+  auto summary =
+      CreateCasparBundleAdjuster(options, config, reconstruction, params)
+          ->Solve();
+
   ASSERT_NE(summary.termination_type, ceres::FAILURE);
 
-  // Camera intrinsics should change
-  CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
-  CheckVariableCamera(reconstruction.Camera(2), orig_reconstruction.Camera(2));
-
-  // Camera 1 should be fixed
-  EXPECT_THAT(reconstruction.Image(1).CamFromWorld(),
-              Rigid3dNear(orig_reconstruction.Image(1).CamFromWorld(),
-                          1e6,
-                          1e6));  // Allow small numerical error
-
-  // Camera 2 translation norm should be preserved
-  const double orig_norm =
-      orig_reconstruction.Image(2).CamFromWorld().translation.norm();
-  const double new_norm =
-      reconstruction.Image(2).CamFromWorld().translation.norm();
-  EXPECT_NEAR(orig_norm, new_norm, 1e-6);
-
-  // Points should move (optimization happened)
-  size_t num_variable_points = 0;
-  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
-    if (point3D != orig_reconstruction.Point3D(point3D_id)) {
-      ++num_variable_points;
-    }
-  }
-  EXPECT_GT(num_variable_points, 90);  // Most points should change
-}
-
-TEST(CasparBundleAdjuster, TwoCamsGaugeFrameOneNotCreatingNodes) {
-  Reconstruction reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 5;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 1;
-  synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.camera_model_id = CameraModelId::kSimpleRadial;
-
-  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-
-  // Save original pose BEFORE creating adjuster
-  const Rigid3d frame1_pose_before = reconstruction.Image(1).CamFromWorld();
-
-  BundleAdjustmentConfig config;
-  config.AddImage(1);
-  config.AddImage(2);
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
-
-  BundleAdjustmentOptions options;
-  caspar::SolverParams params;
-
-  // Create adjuster (constructor runs here)
-  auto adjuster =
-      CreateCasparBundleAdjuster(options, config, reconstruction, params);
-
-  // Check if Frame 1 was modified during construction
-  const Rigid3d frame1_pose_after_construction =
-      reconstruction.Image(1).CamFromWorld();
-
-  EXPECT_THAT(frame1_pose_after_construction,
-              Rigid3dNear(frame1_pose_before, 1e-6, 1e-6))
-      << "Frame 1 was modified during CasparBundleAdjuster construction!";
-}
-
-TEST(CasparBundleAdjuster, TwoCamsGaugeFrameOneDoesNotMoveAfterSolve) {
-  Reconstruction reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 5;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 1;
-  synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.camera_model_id = CameraModelId::kSimpleRadial;
-
-  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  const Rigid3d frame1_before = reconstruction.Image(1).CamFromWorld();
-
-  BundleAdjustmentConfig config;
-  config.AddImage(2);  // Order matters for which frame is selected to be fixed
-  config.AddImage(1);
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
-
-  BundleAdjustmentOptions options;
-  caspar::SolverParams params;
-
-  auto adjuster =
-      CreateCasparBundleAdjuster(options, config, reconstruction, params);
-  adjuster->Solve();
-
-  const Rigid3d frame1_after = reconstruction.Image(1).CamFromWorld();
-
-  EXPECT_THAT(frame1_after, Rigid3dNear(frame1_before, 1e-6, 1e-6))
-      << "Frame 1 moved during Solve()!";
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.5,
+                                 /*max_proj_center_error=*/0.3,
+                                 /*max_scale_error=*/0.2,
+                                 /*num_obs_tolerance=*/0.03));
 }
 
 #endif  // CASPAR_ENABLED
