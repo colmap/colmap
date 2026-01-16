@@ -1,6 +1,7 @@
 #include "glomap/estimators/rotation_averaging.h"
 
 #include "colmap/geometry/pose.h"
+#include "colmap/math/math.h"
 #include "colmap/math/spanning_tree.h"
 
 #include "glomap/estimators/rotation_averaging_impl.h"

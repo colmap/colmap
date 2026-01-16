@@ -31,6 +31,7 @@
 
 #include "colmap/estimators/alignment.h"
 #include "colmap/geometry/triangulation.h"
+#include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/projection.h"
 #include "colmap/util/logging.h"

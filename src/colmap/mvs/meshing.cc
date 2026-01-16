@@ -41,12 +41,12 @@
 #endif  // COLMAP_CGAL_ENABLED
 
 #include "colmap/math/graph_cut.h"
+#include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/endian.h"
 #include "colmap/util/file.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 #include "colmap/util/ply.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"

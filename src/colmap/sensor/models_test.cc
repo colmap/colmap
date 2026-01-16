@@ -43,7 +43,7 @@ bool FisheyeCameraModelIsValidPixel(const CameraModelId model_id,
     double uu, vv;                                                        \
     CameraModel::FisheyeFromImg(params.data(), xy.x(), xy.y(), &uu, &vv); \
     const double theta = std::sqrt(uu * uu + vv * vv);                    \
-    if (theta < M_PI / 2.0) {                                             \
+    if (theta < EIGEN_PI / 2.0) {                                         \
       return true;                                                        \
     } else {                                                              \
       return false;                                                       \
@@ -290,6 +290,18 @@ TEST(RadTanThinPrismFisheye, Nominal) {
                                 -0.00017};
 
   TestModel<RadTanThinPrismFisheyeModel>(params);
+}
+
+TEST(SimpleDivision, Nominal) {
+  TestModel<SimpleDivisionCameraModel>({651.123, 386.123, 511.123, 0});
+  TestModel<SimpleDivisionCameraModel>({651.123, 386.123, 511.123, 0.1});
+  TestModel<SimpleDivisionCameraModel>({651.123, 386.123, 511.123, -0.1});
+}
+
+TEST(Division, Nominal) {
+  TestModel<DivisionCameraModel>({651.123, 655.123, 386.123, 511.123, 0});
+  TestModel<DivisionCameraModel>({651.123, 655.123, 386.123, 511.123, 0.1});
+  TestModel<DivisionCameraModel>({651.123, 655.123, 386.123, 511.123, -0.1});
 }
 
 }  // namespace
