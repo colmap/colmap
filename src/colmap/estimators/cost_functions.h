@@ -62,8 +62,8 @@ class SimpleRadialSizedCostFunction
             parameters[0][2],
             &residuals[0],
             &residuals[1],
-            jacobians ? jacobians[0] : nullptr,
-            jacobians ? jacobians[1] : nullptr)) {
+            jacobians ? jacobians[1] : nullptr,
+            jacobians ? jacobians[0] : nullptr)) {
       residuals[0] -= observed_x_;
       residuals[1] -= observed_y_;
     } else {
