@@ -81,6 +81,12 @@ struct GlobalMapperOptions {
   // stage and runs full optimization directly.
   bool ba_skip_fixed_rotation_stage = false;
 
+  // Whether to skip the full optimization stage in bundle adjustment.
+  // When set to true, only the fixed-rotation stage is run (optimizing
+  // positions only). This is mutually exclusive with
+  // ba_skip_fixed_rotation_stage.
+  bool ba_skip_full_optimization_stage = false;
+
   // Control the flow of the global sfm
   bool skip_rotation_averaging = false;
   bool skip_track_establishment = false;
@@ -120,7 +126,8 @@ class GlobalMapper {
                                  double max_normalized_reproj_error,
                                  double min_tri_angle_deg,
                                  int num_iterations,
-                                 bool skip_fixed_rotation_stage);
+                                 bool skip_fixed_rotation_stage = false,
+                                 bool skip_full_optimization_stage = false);
 
   // Iteratively retriangulate tracks and refine to improve structure.
   bool IterativeRetriangulateAndRefine(

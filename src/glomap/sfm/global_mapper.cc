@@ -330,7 +330,8 @@ bool GlobalMapper::IterativeBundleAdjustment(
     double max_normalized_reproj_error,
     double min_tri_angle_deg,
     int num_iterations,
-    bool skip_fixed_rotation_stage) {
+    bool skip_fixed_rotation_stage,
+    bool skip_full_optimization_stage) {
   for (int ite = 0; ite < num_iterations; ite++) {
     // Optional fixed-rotation stage: optimize positions only
     if (!skip_fixed_rotation_stage) {
@@ -344,11 +345,13 @@ bool GlobalMapper::IterativeBundleAdjustment(
     }
 
     // Full optimization stage
-    if (!RunBundleAdjustment(options, *reconstruction_)) {
-      return false;
+    if (!skip_full_optimization_stage) {
+      if (!RunBundleAdjustment(options, *reconstruction_)) {
+        return false;
+      }
+      LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
+                << num_iterations << ", full optimization finished";
     }
-    LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
-              << num_iterations << ", full optimization finished";
 
     // Normalize the structure
     reconstruction_->Normalize();
@@ -516,7 +519,8 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
                                    opts.max_normalized_reproj_error,
                                    opts.min_tri_angle_deg,
                                    opts.ba_num_iterations,
-                                   opts.ba_skip_fixed_rotation_stage)) {
+                                   opts.ba_skip_fixed_rotation_stage,
+                                   opts.ba_skip_full_optimization_stage)) {
       return false;
     }
     LOG(INFO) << "Iterative bundle adjustment done in "
