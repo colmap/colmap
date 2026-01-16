@@ -18,11 +18,11 @@ namespace {
 bool RunBundleAdjustment(const colmap::BundleAdjustmentOptions& options,
                          colmap::Reconstruction& reconstruction) {
   if (reconstruction.NumImages() == 0) {
-    LOG(ERROR) << "Number of images = " << reconstruction.NumImages();
+    LOG(ERROR) << "Cannot run bundle adjustment: no registered images";
     return false;
   }
   if (reconstruction.NumPoints3D() == 0) {
-    LOG(ERROR) << "Number of tracks = " << reconstruction.NumPoints3D();
+    LOG(ERROR) << "Cannot run bundle adjustment: no 3D points to optimize";
     return false;
   }
 
