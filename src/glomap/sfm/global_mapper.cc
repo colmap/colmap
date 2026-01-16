@@ -26,14 +26,12 @@ bool RunBundleAdjustment(const colmap::BundleAdjustmentOptions& options,
     return false;
   }
 
-  // Set up bundle adjustment config.
   colmap::BundleAdjustmentConfig ba_config;
   for (const auto& [image_id, image] : reconstruction.Images()) {
     if (image.HasPose()) {
       ba_config.AddImage(image_id);
     }
   }
-  // Use TWO_CAMS_FROM_WORLD for deterministic gauge fixing.
   ba_config.FixGauge(colmap::BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   auto ba =
