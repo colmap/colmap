@@ -308,8 +308,8 @@ struct SimpleRadialCameraModel
                                        const double& w,
                                        double* x,
                                        double* y,
-                                       double* J_uvw,
-                                       double* J_params);
+                                       double* J_params,
+                                       double* J_uvw);
 };
 
 // Simple camera model with one focal length and two radial distortion
@@ -902,8 +902,8 @@ bool SimpleRadialCameraModel::ImgFromCamWithJac(const double* params,
                                                 const double& w,
                                                 double* x,
                                                 double* y,
-                                                double* J_uvw,
-                                                double* J_params) {
+                                                double* J_params,
+                                                double* J_uvw) {
   if (w < std::numeric_limits<double>::epsilon()) {
     return false;
   }
