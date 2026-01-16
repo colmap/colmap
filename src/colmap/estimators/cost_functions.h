@@ -43,6 +43,41 @@
 
 namespace colmap {
 
+struct EmptyImgFromCamCostPlaceholder {};
+
+class SimpleRadialSizedCostFunction
+    : public ceres::
+          SizedCostFunction<2, 3, SimpleRadialCameraModel::num_params> {
+ public:
+  explicit SimpleRadialSizedCostFunction(const Eigen::Vector2d& point2D)
+      : observed_x_(point2D(0)), observed_y_(point2D(1)) {}
+
+  bool Evaluate(double const* const* parameters,
+                double* residuals,
+                double** jacobians) const override {
+    if (SimpleRadialCameraModel::ImgFromCamWithJac(
+            parameters[1],
+            parameters[0][0],
+            parameters[0][1],
+            parameters[0][2],
+            &residuals[0],
+            &residuals[1],
+            jacobians ? jacobians[0] : nullptr,
+            jacobians ? jacobians[1] : nullptr)) {
+      residuals[0] -= observed_x_;
+      residuals[1] -= observed_y_;
+    } else {
+      residuals[0] = 0;
+      residuals[1] = 0;
+    }
+    return true;
+  }
+
+ private:
+  const double observed_x_;
+  const double observed_y_;
+};
+
 // Standard bundle adjustment cost function for variable
 // camera pose, calibration, and point parameters.
 template <typename CameraModel>
@@ -55,7 +90,18 @@ class ReprojErrorCostFunctor
                                  CameraModel::num_params> {
  public:
   explicit ReprojErrorCostFunctor(const Eigen::Vector2d& point2D)
-      : observed_x_(point2D(0)), observed_y_(point2D(1)) {}
+      : observed_x_(point2D(0)),
+        observed_y_(point2D(1)),
+        img_from_cam_cost_([&point2D]() {
+          if constexpr (std::is_same<CameraModel,
+                                     SimpleRadialCameraModel>::value) {
+            return ceres::CostFunctionToFunctor<2, 3, CameraModel::num_params>(
+                new SimpleRadialSizedCostFunction(point2D));
+          } else {
+            (void)point2D;
+            return EmptyImgFromCamCostPlaceholder{};
+          }
+        }()) {}
 
   template <typename T>
   bool operator()(const T* const cam_from_world_rotation,
@@ -67,17 +113,21 @@ class ReprojErrorCostFunctor
         EigenQuaternionMap<T>(cam_from_world_rotation) *
             EigenVector3Map<T>(point3D) +
         EigenVector3Map<T>(cam_from_world_translation);
-    if (CameraModel::ImgFromCam(camera_params,
-                                point3D_in_cam[0],
-                                point3D_in_cam[1],
-                                point3D_in_cam[2],
-                                &residuals[0],
-                                &residuals[1])) {
-      residuals[0] -= T(observed_x_);
-      residuals[1] -= T(observed_y_);
+    if constexpr (std::is_same<CameraModel, SimpleRadialCameraModel>::value) {
+      img_from_cam_cost_(point3D_in_cam.data(), camera_params, residuals);
     } else {
-      residuals[0] = T(0);
-      residuals[1] = T(0);
+      if (CameraModel::ImgFromCam(camera_params,
+                                  point3D_in_cam[0],
+                                  point3D_in_cam[1],
+                                  point3D_in_cam[2],
+                                  &residuals[0],
+                                  &residuals[1])) {
+        residuals[0] -= T(observed_x_);
+        residuals[1] -= T(observed_y_);
+      } else {
+        residuals[0] = T(0);
+        residuals[1] = T(0);
+      }
     }
     return true;
   }
@@ -85,6 +135,11 @@ class ReprojErrorCostFunctor
  private:
   const double observed_x_;
   const double observed_y_;
+  std::conditional_t<
+      std::is_same<CameraModel, SimpleRadialCameraModel>::value,
+      ceres::CostFunctionToFunctor<2, 3, CameraModel::num_params>,
+      EmptyImgFromCamCostPlaceholder>
+      img_from_cam_cost_;
 };
 
 // Bundle adjustment cost function for variable
