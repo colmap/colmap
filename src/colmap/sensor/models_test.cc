@@ -43,7 +43,7 @@ bool FisheyeCameraModelIsValidPixel(const CameraModelId model_id,
     double uu, vv;                                                        \
     CameraModel::FisheyeFromImg(params.data(), xy.x(), xy.y(), &uu, &vv); \
     const double theta = std::sqrt(uu * uu + vv * vv);                    \
-    if (theta < M_PI / 2.0) {                                             \
+    if (theta < EIGEN_PI / 2.0) {                                         \
       return true;                                                        \
     } else {                                                              \
       return false;                                                       \
