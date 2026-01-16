@@ -122,22 +122,20 @@ void ReconstructionClustererController::Run() {
                    << options_.min_num_reg_frames;
     }
   } else {
+    // For invalid frames, clusters ids are -1 and are skipped automatically
     // Split by cluster and add multiple reconstructions
     for (int comp = 0; comp <= max_cluster_id; comp++) {
       Reconstruction cluster_reconstruction =
           SubReconstructionByClusterId(*reconstruction_, cluster_ids, comp);
-      if (cluster_reconstruction.NumRegFrames() >=
-          static_cast<size_t>(options_.min_num_reg_frames)) {
-        size_t idx = reconstruction_manager_->Add();
-        *reconstruction_manager_->Get(idx) = cluster_reconstruction;
-        LOG(INFO) << "Added cluster " << comp << " with "
-                  << cluster_reconstruction.NumRegFrames()
-                  << " registered frames";
-      } else {
-        LOG(INFO) << "Skipping cluster " << comp << " with only "
-                  << cluster_reconstruction.NumRegFrames()
-                  << " registered frames";
-      }
+      THROW_CHECK_GE(
+          cluster_reconstruction.NumRegFrames(),
+          static_cast<size_t>(
+              options_.min_num_reg_frames));  // Should always be true
+      size_t idx = reconstruction_manager_->Add();
+      *reconstruction_manager_->Get(idx) = cluster_reconstruction;
+      LOG(INFO) << "Added cluster " << comp << " with "
+                << cluster_reconstruction.NumRegFrames()
+                << " registered frames";
     }
     LOG(INFO) << "Created " << reconstruction_manager_->Size()
               << " cluster reconstructions";

@@ -144,6 +144,7 @@ std::vector<std::unordered_set<frame_t>> BuildClustersFromOutput(
     const std::unordered_map<frame_t, int>& cluster_ids) {
   std::vector<std::unordered_set<frame_t>> clusters;
   for (const auto& [frame_id, cluster_id] : cluster_ids) {
+    if (cluster_id == -1) continue;
     if (clusters.size() <= static_cast<size_t>(cluster_id)) {
       clusters.resize(cluster_id + 1);
     }
@@ -205,12 +206,11 @@ TEST(ClusterReconstructionFrames, WeaklyConnectedReconstruction) {
   // All frames should be assigned to clusters.
   EXPECT_EQ(cluster_ids.size(), kNumFrames);
 
-  // Each frame should be in its own cluster (unique cluster IDs).
+  // Each frame should get id -1
   std::unordered_set<int> unique_cluster_ids;
   for (const auto& [frame_id, cluster_id] : cluster_ids) {
-    unique_cluster_ids.insert(cluster_id);
+    EXPECT_EQ(cluster_id, -1);
   }
-  EXPECT_EQ(unique_cluster_ids.size(), kNumFrames);
 }
 
 TEST(ClusterReconstructionFrames, OneMajorConnectedComponent) {
@@ -264,6 +264,8 @@ TEST(ClusterReconstructionFrames, OneMajorConnectedComponent) {
       largest_cluster_idx = i;
     }
   }
+  // The largest cluster should be cluster 0.
+  EXPECT_EQ(largest_cluster_idx, 0);
 
   // The largest cluster should have exactly kLargeClusterSize frames.
   EXPECT_EQ(clusters[largest_cluster_idx].size(), kLargeClusterSize);
@@ -471,15 +473,15 @@ TEST(ClusterReconstructionFrames, RigOneMajorConnectedComponent) {
   // Build the resulting clusters.
   const auto clusters = BuildClustersFromOutput(cluster_ids);
 
-  // Should be 1 large cluster + single frames
-  EXPECT_EQ(clusters.size(), 1 + (initial_num_reg_frames - kLargeClusterSize));
+  // Should be only 1 large cluster
+  EXPECT_EQ(clusters.size(), 1);
   // The largest cluster (cluster 0) should have exactly kLargeClusterSize.
   EXPECT_EQ(clusters[0].size(), kLargeClusterSize);
   EXPECT_EQ(clusters[0], expected_large_cluster);
 
-  // Other clusters should be single-frame clusters.
-  for (size_t i = 1; i < clusters.size(); ++i) {
-    EXPECT_EQ(clusters[i].size(), 1);
+  for (size_t i = kLargeClusterSize; i < 10; ++i) {
+    // Other frames should not be in any cluster.
+    EXPECT_EQ(cluster_ids.at(all_frame_ids[i]), -1);
   }
 }
 
