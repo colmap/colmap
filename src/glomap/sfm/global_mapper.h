@@ -41,6 +41,9 @@ struct GlobalMapperOptions {
     opts.min_track_length = 3;
     opts.use_gpu = true;
     opts.print_summary = false;
+    // TODO: Investigate whether disabling auto solver selection and using
+    // explicit SPARSE_SCHUR + CLUSTER_TRIDIAGONAL is necessary for global SfM,
+    // or if we can just rely on COLMAP's auto selection.
     opts.auto_select_solver_type = false;
     opts.solver_options.function_tolerance = 1e-5;
     opts.solver_options.max_num_iterations = 200;
