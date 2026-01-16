@@ -738,6 +738,8 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption("GlobalMapper.ba_max_num_iterations",
                    &global_mapper->mapper.bundle_adjustment.solver_options
                         .max_num_iterations);
+  AddDefaultOption("GlobalMapper.ba_skip_fixed_rotation_stage",
+                   &global_mapper->mapper.ba_skip_fixed_rotation_stage);
 
   // Retriangulation options.
   AddDefaultOption(

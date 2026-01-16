@@ -297,24 +297,26 @@ bool GlobalMapper::IterativeBundleAdjustment(
     const colmap::BundleAdjustmentOptions& options,
     double max_normalized_reproj_error,
     double min_tri_angle_deg,
-    int num_iterations) {
+    int num_iterations,
+    bool skip_fixed_rotation_stage) {
   for (int ite = 0; ite < num_iterations; ite++) {
-    // First stage: optimize positions only (rotation constant)
-    colmap::BundleAdjustmentOptions opts_position_only = options;
-    opts_position_only.constant_rig_from_world_rotation = true;
-    if (!RunBundleAdjustment(opts_position_only, *reconstruction_)) {
-      return false;
+    // Optional fixed-rotation stage: optimize positions only
+    if (!skip_fixed_rotation_stage) {
+      colmap::BundleAdjustmentOptions opts_position_only = options;
+      opts_position_only.constant_rig_from_world_rotation = true;
+      if (!RunBundleAdjustment(opts_position_only, *reconstruction_)) {
+        return false;
+      }
+      LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
+                << num_iterations << ", fixed-rotation stage finished";
     }
-    LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
-              << num_iterations << ", stage 1 finished (position only)";
 
-    // Second stage: optimize rotations if desired
-    if (!options.constant_rig_from_world_rotation &&
-        !RunBundleAdjustment(options, *reconstruction_)) {
+    // Full optimization stage
+    if (!RunBundleAdjustment(options, *reconstruction_)) {
       return false;
     }
     LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
-              << num_iterations << ", stage 2 finished";
+              << num_iterations << ", full optimization finished";
 
     // Normalize the structure
     reconstruction_->Normalize();
@@ -481,7 +483,8 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     if (!IterativeBundleAdjustment(opts.bundle_adjustment,
                                    opts.max_normalized_reproj_error,
                                    opts.min_tri_angle_deg,
-                                   opts.ba_num_iterations)) {
+                                   opts.ba_num_iterations,
+                                   opts.ba_skip_fixed_rotation_stage)) {
       return false;
     }
     LOG(INFO) << "Iterative bundle adjustment done in "

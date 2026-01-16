@@ -72,6 +72,12 @@ struct GlobalMapperOptions {
   // Control the number of iterations for bundle adjustment.
   int ba_num_iterations = 3;
 
+  // Whether to skip the fixed-rotation stage in bundle adjustment.
+  // By default, BA runs in two stages: first with fixed rotations (position
+  // only), then with full optimization. Setting this to true skips the first
+  // stage and runs full optimization directly.
+  bool ba_skip_fixed_rotation_stage = false;
+
   // Control the flow of the global sfm
   bool skip_rotation_averaging = false;
   bool skip_track_establishment = false;
@@ -110,7 +116,8 @@ class GlobalMapper {
   bool IterativeBundleAdjustment(const colmap::BundleAdjustmentOptions& options,
                                  double max_normalized_reproj_error,
                                  double min_tri_angle_deg,
-                                 int num_iterations);
+                                 int num_iterations,
+                                 bool skip_fixed_rotation_stage);
 
   // Iteratively retriangulate tracks and refine to improve structure.
   bool IterativeRetriangulateAndRefine(
