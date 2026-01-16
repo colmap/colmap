@@ -12,6 +12,8 @@ colmap::BundleAdjustmentOptions BundleAdjusterOptions::ToColmapOptions() const {
   options.refine_focal_length = optimize_intrinsics;
   options.refine_principal_point = optimize_principal_point;
   options.refine_extra_params = optimize_intrinsics;
+  options.refine_points3D = optimize_points;
+  options.min_track_length = min_num_view_per_track;
   options.refine_sensor_from_rig = optimize_rig_poses;
   options.refine_rig_from_world = optimize_translation;
   options.constant_rig_from_world_rotation = !optimize_rotations;
@@ -50,23 +52,6 @@ bool RunBundleAdjustment(const BundleAdjusterOptions& options,
   }
   // Use TWO_CAMS_FROM_WORLD for deterministic gauge fixing.
   ba_config.FixGauge(colmap::BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
-
-  // Filter short tracks
-  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
-    if (static_cast<int>(point3D.track.Length()) <
-        options.min_num_view_per_track) {
-      ba_config.IgnorePoint(point3D_id);
-    }
-  }
-
-  // Handle optimize_points = false
-  if (!options.optimize_points) {
-    for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
-      if (!ba_config.IsIgnoredPoint(point3D_id)) {
-        ba_config.AddConstantPoint(point3D_id);
-      }
-    }
-  }
 
   auto ba = colmap::CreateDefaultBundleAdjuster(
       ba_options, ba_config, reconstruction);
