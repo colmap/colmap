@@ -1,13 +1,15 @@
 #pragma once
 
+#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_triangulator.h"
 
-#include "glomap/estimators/bundle_adjustment.h"
 #include "glomap/estimators/global_positioning.h"
 #include "glomap/estimators/rotation_averaging.h"
 #include "glomap/scene/pose_graph.h"
+
+#include <ceres/ceres.h>
 
 #include <filesystem>
 #include <limits>
@@ -31,7 +33,21 @@ struct GlobalMapperOptions {
   // Options for each component
   RotationEstimatorOptions rotation_averaging;
   GlobalPositionerOptions global_positioning;
-  BundleAdjusterOptions bundle_adjustment;
+  colmap::BundleAdjustmentOptions bundle_adjustment = [] {
+    colmap::BundleAdjustmentOptions opts;
+    opts.loss_function_type =
+        colmap::BundleAdjustmentOptions::LossFunctionType::HUBER;
+    opts.refine_sensor_from_rig = false;
+    opts.min_track_length = 3;
+    opts.use_gpu = true;
+    opts.print_summary = false;
+    opts.auto_select_solver_type = false;
+    opts.solver_options.function_tolerance = 1e-5;
+    opts.solver_options.max_num_iterations = 200;
+    opts.solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
+    opts.solver_options.preconditioner_type = ceres::CLUSTER_TRIDIAGONAL;
+    return opts;
+  }();
   colmap::IncrementalTriangulator::Options retriangulation = [] {
     colmap::IncrementalTriangulator::Options opts;
     opts.complete_max_reproj_error = 15.0;
@@ -91,15 +107,16 @@ class GlobalMapper {
                          double min_tri_angle_deg);
 
   // Run iterative bundle adjustment to refine poses and structure.
-  bool IterativeBundleAdjustment(const BundleAdjusterOptions& options,
-                                 double max_normalized_reproj_error,
-                                 double min_tri_angle_deg,
-                                 int num_iterations);
+  bool IterativeBundleAdjustment(
+      const colmap::BundleAdjustmentOptions& options,
+      double max_normalized_reproj_error,
+      double min_tri_angle_deg,
+      int num_iterations);
 
   // Iteratively retriangulate tracks and refine to improve structure.
   bool IterativeRetriangulateAndRefine(
       const colmap::IncrementalTriangulator::Options& options,
-      const BundleAdjusterOptions& ba_options,
+      const colmap::BundleAdjustmentOptions& ba_options,
       double max_normalized_reproj_error,
       double min_tri_angle_deg);
 

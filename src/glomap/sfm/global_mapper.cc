@@ -8,6 +8,7 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
+#include "glomap/estimators/bundle_adjustment.h"
 #include "glomap/estimators/rotation_averaging.h"
 
 #include <algorithm>
@@ -293,25 +294,23 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
 }
 
 bool GlobalMapper::IterativeBundleAdjustment(
-    const BundleAdjusterOptions& options,
+    const colmap::BundleAdjustmentOptions& options,
     double max_normalized_reproj_error,
     double min_tri_angle_deg,
     int num_iterations) {
   for (int ite = 0; ite < num_iterations; ite++) {
     // First stage: optimize positions only (rotation constant)
-    if (!RunBundleAdjustment(options,
-                             /*constant_rotation=*/true,
-                             *reconstruction_)) {
+    colmap::BundleAdjustmentOptions opts_position_only = options;
+    opts_position_only.constant_rig_from_world_rotation = true;
+    if (!RunBundleAdjustment(opts_position_only, *reconstruction_)) {
       return false;
     }
     LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
               << num_iterations << ", stage 1 finished (position only)";
 
     // Second stage: optimize rotations if desired
-    if (options.optimize_rotations &&
-        !RunBundleAdjustment(options,
-                             /*constant_rotation=*/false,
-                             *reconstruction_)) {
+    if (!options.constant_rig_from_world_rotation &&
+        !RunBundleAdjustment(options, *reconstruction_)) {
       return false;
     }
     LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
@@ -365,7 +364,7 @@ bool GlobalMapper::IterativeBundleAdjustment(
 
 bool GlobalMapper::IterativeRetriangulateAndRefine(
     const colmap::IncrementalTriangulator::Options& options,
-    const BundleAdjusterOptions& ba_options,
+    const colmap::BundleAdjustmentOptions& ba_options,
     double max_normalized_reproj_error,
     double min_tri_angle_deg) {
   // Delete all existing 3D points and re-establish 2D-3D correspondences.
@@ -381,12 +380,12 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
   }
 
   // Set up bundle adjustment options for colmap's incremental mapper.
-  colmap::BundleAdjustmentOptions colmap_ba_options;
-  colmap_ba_options.solver_options.num_threads =
+  colmap::BundleAdjustmentOptions custom_ba_options;
+  custom_ba_options.solver_options.num_threads =
       ba_options.solver_options.num_threads;
-  colmap_ba_options.solver_options.max_num_iterations = 50;
-  colmap_ba_options.solver_options.max_linear_solver_iterations = 100;
-  colmap_ba_options.print_summary = false;
+  custom_ba_options.solver_options.max_num_iterations = 50;
+  custom_ba_options.solver_options.max_linear_solver_iterations = 100;
+  custom_ba_options.print_summary = false;
 
   // Iterative global refinement.
   colmap::IncrementalMapper::Options mapper_options;
@@ -394,7 +393,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
   mapper.IterativeGlobalRefinement(/*max_num_refinements=*/5,
                                    /*max_refinement_change=*/0.0005,
                                    mapper_options,
-                                   colmap_ba_options,
+                                   custom_ba_options,
                                    options,
                                    /*normalize_reconstruction=*/true);
 
@@ -407,9 +406,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
       reconstruction_->Point3DIds(),
       colmap::ReprojectionErrorType::NORMALIZED);
 
-  if (!RunBundleAdjustment(ba_options,
-                           /*constant_rotation=*/false,
-                           *reconstruction_)) {
+  if (!RunBundleAdjustment(ba_options, *reconstruction_)) {
     return false;
   }
 

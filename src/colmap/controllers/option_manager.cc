@@ -460,6 +460,12 @@ void OptionManager::AddBundleAdjustmentOptions() {
                    &bundle_adjustment->refine_rig_from_world);
   AddDefaultOption("BundleAdjustment.refine_sensor_from_rig",
                    &bundle_adjustment->refine_sensor_from_rig);
+  AddDefaultOption("BundleAdjustment.refine_points3D",
+                   &bundle_adjustment->refine_points3D);
+  AddDefaultOption("BundleAdjustment.constant_rig_from_world_rotation",
+                   &bundle_adjustment->constant_rig_from_world_rotation);
+  AddDefaultOption("BundleAdjustment.min_track_length",
+                   &bundle_adjustment->min_track_length);
   AddDefaultOption("BundleAdjustment.use_gpu", &bundle_adjustment->use_gpu);
   AddDefaultOption("BundleAdjustment.gpu_index", &bundle_adjustment->gpu_index);
   AddDefaultOption("BundleAdjustment.min_num_images_gpu_solver",
@@ -703,26 +709,31 @@ void OptionManager::AddGlobalMapperOptions() {
       "POINTS_AND_CAMERAS}");
 
   // Bundle adjustment options.
-  // TODO: Consolidate these with existing BA options (e.g., Mapper.ba_*).
   AddDefaultOption("GlobalMapper.ba_use_gpu",
                    &global_mapper->mapper.bundle_adjustment.use_gpu);
   AddDefaultOption("GlobalMapper.ba_gpu_index",
                    &global_mapper->mapper.bundle_adjustment.gpu_index);
-  AddDefaultOption("GlobalMapper.ba_optimize_rig_poses",
-                   &global_mapper->mapper.bundle_adjustment.optimize_rig_poses);
-  AddDefaultOption("GlobalMapper.ba_optimize_rotations",
-                   &global_mapper->mapper.bundle_adjustment.optimize_rotations);
   AddDefaultOption(
-      "GlobalMapper.ba_optimize_translation",
-      &global_mapper->mapper.bundle_adjustment.optimize_translation);
+      "GlobalMapper.ba_refine_focal_length",
+      &global_mapper->mapper.bundle_adjustment.refine_focal_length);
   AddDefaultOption(
-      "GlobalMapper.ba_optimize_intrinsics",
-      &global_mapper->mapper.bundle_adjustment.optimize_intrinsics);
+      "GlobalMapper.ba_refine_principal_point",
+      &global_mapper->mapper.bundle_adjustment.refine_principal_point);
   AddDefaultOption(
-      "GlobalMapper.ba_optimize_principal_point",
-      &global_mapper->mapper.bundle_adjustment.optimize_principal_point);
-  AddDefaultOption("GlobalMapper.ba_optimize_points",
-                   &global_mapper->mapper.bundle_adjustment.optimize_points);
+      "GlobalMapper.ba_refine_extra_params",
+      &global_mapper->mapper.bundle_adjustment.refine_extra_params);
+  AddDefaultOption(
+      "GlobalMapper.ba_refine_sensor_from_rig",
+      &global_mapper->mapper.bundle_adjustment.refine_sensor_from_rig);
+  AddDefaultOption(
+      "GlobalMapper.ba_refine_rig_from_world",
+      &global_mapper->mapper.bundle_adjustment.refine_rig_from_world);
+  AddDefaultOption(
+      "GlobalMapper.ba_refine_points3D",
+      &global_mapper->mapper.bundle_adjustment.refine_points3D);
+  AddDefaultOption(
+      "GlobalMapper.ba_min_track_length",
+      &global_mapper->mapper.bundle_adjustment.min_track_length);
   AddDefaultOption(
       "GlobalMapper.ba_loss_function_scale",
       &global_mapper->mapper.bundle_adjustment.loss_function_scale);
