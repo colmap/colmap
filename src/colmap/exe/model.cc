@@ -33,7 +33,7 @@
 #include "colmap/estimators/alignment.h"
 #include "colmap/estimators/coordinate_frame.h"
 #include "colmap/geometry/gps.h"
-#include "colmap/geometry/pose.h"
+#include "colmap/math/math.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_io.h"

@@ -30,6 +30,7 @@
 #include "colmap/scene/synthetic.h"
 
 #include "colmap/geometry/triangulation.h"
+#include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/math/union_find.h"
 #include "colmap/scene/database_sqlite.h"

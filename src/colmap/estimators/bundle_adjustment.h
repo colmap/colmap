@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/math/math.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/eigen_alignment.h"
