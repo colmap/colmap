@@ -26,7 +26,8 @@ model that is complex enough to model the distortion effects:
   Google Project Tango (make sure to not initialize ``omega`` to zero).
 - ``SIMPLE_DIVISION``, ``DIVISION``: Use these camera models, if you know the
   calibration parameters a priori. Similar to ``SIMPLE_RADIAL`` and ``RADIAL``
-  models, they can model simple radial distortion effects.
+  models, they can model simple radial distortion effects. The two models
+  have first-order local equivalence for small distortions.
 
 You can inspect the estimated intrinsic parameters by double-clicking specific
 images in the model viewer or by exporting the model and opening the
