@@ -63,19 +63,19 @@ inline Eigen::Vector3d QuaternionRotatePointWithJac(const double* q,
   // where v = (qx, qy, qz) is the imaginary part and w = qw is the scalar.
 
   // First compute v  x  p.
-  const double vxp0 = qy_pz - qz_py;
-  const double vxp1 = qz_px - qx_pz;
-  const double vxp2 = qx_py - qy_px;
+  const double v_x_p0 = qy_pz - qz_py;
+  const double v_x_p1 = qz_px - qx_pz;
+  const double v_x_p2 = qx_py - qy_px;
 
   // Then compute v  x  (v  x  p).
-  const double vxvxp0 = qy * vxp2 - qz * vxp1;
-  const double vxvxp1 = qz * vxp0 - qx * vxp2;
-  const double vxvxp2 = qx * vxp1 - qy * vxp0;
+  const double v_x_v_x_p0 = qy * v_x_p2 - qz * v_x_p1;
+  const double v_x_v_x_p1 = qz * v_x_p0 - qx * v_x_p2;
+  const double v_x_v_x_p2 = qx * v_x_p1 - qy * v_x_p0;
 
   // p' = p + 2*w*(v x p) + 2*(v x (v x p)).
-  Eigen::Vector3d pt_out(px + 2.0 * (qw * vxp0 + vxvxp0),
-                         py + 2.0 * (qw * vxp1 + vxvxp1),
-                         pz + 2.0 * (qw * vxp2 + vxvxp2));
+  Eigen::Vector3d pt_out(px + 2.0 * (qw * v_x_p0 + v_x_v_x_p0),
+                         py + 2.0 * (qw * v_x_p1 + v_x_v_x_p1),
+                         pz + 2.0 * (qw * v_x_p2 + v_x_v_x_p2));
 
   if (J_out) {
     // Jacobian d(R*p) / dq for Eigen quaternions (x, y, z, w).
