@@ -113,6 +113,7 @@ inline Eigen::Vector3d QuaternionRotatePointWithJac(const double* q,
   return pt_out;
 }
 
+// Eigen quaternion to 3x3 rotation matrix.
 inline Eigen::Matrix3d QuaternionToScaledRotation(const double* q) {
   const double qx = q[0];
   const double qy = q[1];
