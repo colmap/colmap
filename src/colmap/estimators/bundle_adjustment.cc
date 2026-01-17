@@ -41,6 +41,9 @@
 namespace colmap {
 namespace {
 
+// Note that Ceres only supports two elimination groups, so this effectively
+// only leads to two elimination groups with points being eliminated first and
+// then the rest together.
 constexpr int kPointsSolverParameterGroup = 0;
 constexpr int kFramesSolverParameterGroup = 1;
 constexpr int kCamerasSolverParameterGroup = 2;
