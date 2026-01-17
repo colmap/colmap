@@ -119,6 +119,7 @@ inline Eigen::Matrix3d QuaternionToScaledRotation(const double* q) {
   const double qz = q[2];
   const double qw = q[3];
 
+  // Common sub-expressions.
   const double aa = qw * qw;
   const double ab = qw * qx;
   const double ac = qw * qy;
