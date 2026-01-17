@@ -917,19 +917,13 @@ bool SimpleRadialCameraModel::ImgFromCamWithJac(const double* params,
   const double uu = u * inv_w;
   const double vv = v * inv_w;
 
-  // Squared radius in normalized coordinates
   const double uu2 = uu * uu;
   const double vv2 = vv * vv;
   const double r2 = uu2 + vv2;
-
-  // Distortion factor: alpha = 1 + k * r^2
   const double alpha = 1.0 + k * r2;
-
-  // Distorted normalized coordinates
   const double xd = alpha * uu;
   const double yd = alpha * vv;
 
-  // Transform to image coordinates
   *x = f * xd + c1;
   *y = f * yd + c2;
 
