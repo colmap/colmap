@@ -41,6 +41,11 @@
 namespace colmap {
 namespace {
 
+constexpr int kPointsEliminationGroup = 0;
+constexpr int kFramesEliminationGroup = 1;
+constexpr int kCamerasEliminationGroup = 2;
+constexpr int kRigsEliminationGroup = 3;
+
 std::unique_ptr<ceres::LossFunction> CreateLossFunction(
     BundleAdjustmentOptions::LossFunctionType loss_function_type,
     double loss_function_scale) {
@@ -414,48 +419,6 @@ bool PosePriorBundleAdjustmentOptions::Check() const {
 
 namespace {
 
-void ParameterizeCameras(const BundleAdjustmentOptions& options,
-                         const BundleAdjustmentConfig& config,
-                         const std::set<camera_t>& camera_ids,
-                         Reconstruction& reconstruction,
-                         ceres::Problem& problem) {
-  const bool constant_camera = !options.refine_focal_length &&
-                               !options.refine_principal_point &&
-                               !options.refine_extra_params;
-  for (const camera_t camera_id : camera_ids) {
-    Camera& camera = reconstruction.Camera(camera_id);
-
-    if (constant_camera || config.HasConstantCamIntrinsics(camera_id)) {
-      problem.SetParameterBlockConstant(camera.params.data());
-    } else {
-      std::vector<int> const_camera_params;
-
-      if (!options.refine_focal_length) {
-        const span<const size_t> params_idxs = camera.FocalLengthIdxs();
-        const_camera_params.insert(
-            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
-      }
-      if (!options.refine_principal_point) {
-        const span<const size_t> params_idxs = camera.PrincipalPointIdxs();
-        const_camera_params.insert(
-            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
-      }
-      if (!options.refine_extra_params) {
-        const span<const size_t> params_idxs = camera.ExtraParamsIdxs();
-        const_camera_params.insert(
-            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
-      }
-
-      if (const_camera_params.size() > 0) {
-        SetSubsetManifold(static_cast<int>(camera.params.size()),
-                          const_camera_params,
-                          &problem,
-                          camera.params.data());
-      }
-    }
-  }
-}
-
 struct FixedGaugeWithThreePoints {
   // The number of fixed points for the Gauge.
   Eigen::Index num_fixed_points = 0;
@@ -620,11 +583,58 @@ void FixGaugeWithTwoCamsFromWorld(
   }
 }
 
+void ParameterizeCameras(const BundleAdjustmentOptions& options,
+                         const BundleAdjustmentConfig& config,
+                         const std::set<camera_t>& camera_ids,
+                         Reconstruction& reconstruction,
+                         ceres::Problem& problem,
+                         ceres::ParameterBlockOrdering& solver_ordering) {
+  const bool constant_camera = !options.refine_focal_length &&
+                               !options.refine_principal_point &&
+                               !options.refine_extra_params;
+  for (const camera_t camera_id : camera_ids) {
+    Camera& camera = reconstruction.Camera(camera_id);
+
+    solver_ordering.AddElementToGroup(camera.params.data(),
+                                      kCamerasEliminationGroup);
+
+    if (constant_camera || config.HasConstantCamIntrinsics(camera_id)) {
+      problem.SetParameterBlockConstant(camera.params.data());
+    } else {
+      std::vector<int> const_camera_params;
+
+      if (!options.refine_focal_length) {
+        const span<const size_t> params_idxs = camera.FocalLengthIdxs();
+        const_camera_params.insert(
+            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
+      }
+      if (!options.refine_principal_point) {
+        const span<const size_t> params_idxs = camera.PrincipalPointIdxs();
+        const_camera_params.insert(
+            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
+      }
+      if (!options.refine_extra_params) {
+        const span<const size_t> params_idxs = camera.ExtraParamsIdxs();
+        const_camera_params.insert(
+            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
+      }
+
+      if (const_camera_params.size() > 0) {
+        SetSubsetManifold(static_cast<int>(camera.params.size()),
+                          const_camera_params,
+                          &problem,
+                          camera.params.data());
+      }
+    }
+  }
+}
+
 void ParameterizeImages(const BundleAdjustmentOptions& options,
                         const BundleAdjustmentConfig& config,
                         const std::set<image_t>& image_ids,
                         Reconstruction& reconstruction,
-                        ceres::Problem& problem) {
+                        ceres::Problem& problem,
+                        ceres::ParameterBlockOrdering& solver_ordering) {
   std::unordered_set<rig_t> parameterized_rig_ids;
   std::unordered_set<sensor_t> parameterized_sensor_ids;
   std::unordered_set<frame_t> parameterized_frame_ids;
@@ -634,13 +644,20 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
 
     // Parameterize sensor_from_rig.
     const sensor_t sensor_id = image.CameraPtr()->SensorId();
-    const bool not_parameterized_before =
+    const bool sensor_not_parameterized_before =
         parameterized_sensor_ids.insert(sensor_id).second;
-    if (not_parameterized_before && !image.IsRefInFrame()) {
+    if (sensor_not_parameterized_before && !image.IsRefInFrame()) {
       Rigid3d& sensor_from_rig =
           image.FramePtr()->RigPtr()->SensorFromRig(sensor_id);
       // CostFunction assumes unit quaternions.
       sensor_from_rig.rotation.normalize();
+
+      // Solver ordering.
+      solver_ordering.AddElementToGroup(
+          sensor_from_rig.rotation.coeffs().data(), kRigsEliminationGroup);
+      solver_ordering.AddElementToGroup(sensor_from_rig.translation.data(),
+                                        kRigsEliminationGroup);
+
       if (problem.HasParameterBlock(sensor_from_rig.rotation.coeffs().data())) {
         SetQuaternionManifold(&problem,
                               sensor_from_rig.rotation.coeffs().data());
@@ -654,10 +671,19 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
     }
 
     // Parameterize rig_from_world.
-    if (parameterized_frame_ids.insert(image.FrameId()).second) {
+    const bool frame_not_parameterized_before =
+        parameterized_frame_ids.insert(image.FrameId()).second;
+    if (frame_not_parameterized_before) {
       Rigid3d& rig_from_world = image.FramePtr()->RigFromWorld();
       // CostFunction assumes unit quaternions.
       rig_from_world.rotation.normalize();
+
+      // Solver ordering.
+      solver_ordering.AddElementToGroup(rig_from_world.rotation.coeffs().data(),
+                                        kFramesEliminationGroup);
+      solver_ordering.AddElementToGroup(rig_from_world.translation.data(),
+                                        kFramesEliminationGroup);
+
       if (problem.HasParameterBlock(rig_from_world.rotation.coeffs().data())) {
         SetQuaternionManifold(&problem,
                               rig_from_world.rotation.coeffs().data());
@@ -700,12 +726,15 @@ void ParameterizePoints(
     const BundleAdjustmentConfig& config,
     const std::unordered_map<point3D_t, size_t>& point3D_num_observations,
     Reconstruction& reconstruction,
-    ceres::Problem& problem) {
+    ceres::Problem& problem,
+    ceres::ParameterBlockOrdering& solver_ordering) {
   for (const auto& [point3D_id, num_observations] : point3D_num_observations) {
     Point3D& point3D = reconstruction.Point3D(point3D_id);
     if (!options.refine_points3D || point3D.track.Length() > num_observations) {
       problem.SetParameterBlockConstant(point3D.xyz.data());
     }
+    solver_ordering.AddElementToGroup(point3D.xyz.data(),
+                                      kPointsEliminationGroup);
   }
 
   for (const point3D_t point3D_id : config.ConstantPoints()) {
@@ -720,7 +749,8 @@ class DefaultBundleAdjuster : public BundleAdjuster {
                         BundleAdjustmentConfig config,
                         Reconstruction& reconstruction)
       : BundleAdjuster(std::move(options), std::move(config)),
-        loss_function_(options_.CreateLossFunction()) {
+        loss_function_(options_.CreateLossFunction()),
+        solver_ordering_(std::make_shared<ceres::ParameterBlockOrdering>()) {
     ceres::Problem::Options problem_options;
     problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
     problem_ = std::make_shared<ceres::Problem>(problem_options);
@@ -745,14 +775,20 @@ class DefaultBundleAdjuster : public BundleAdjuster {
                         config_,
                         parameterized_camera_ids_,
                         reconstruction,
-                        *problem_);
-    ParameterizeImages(
-        options_, config_, parameterized_image_ids_, reconstruction, *problem_);
+                        *problem_,
+                        *solver_ordering_);
+    ParameterizeImages(options_,
+                       config_,
+                       parameterized_image_ids_,
+                       reconstruction,
+                       *problem_,
+                       *solver_ordering_);
     ParameterizePoints(options_,
                        config_,
                        point3D_num_observations_,
                        reconstruction,
-                       *problem_);
+                       *problem_,
+                       *solver_ordering_);
 
     switch (config_.FixedGauge()) {
       case BundleAdjustmentGauge::UNSPECIFIED:
@@ -780,8 +816,9 @@ class DefaultBundleAdjuster : public BundleAdjuster {
       return summary;
     }
 
-    const ceres::Solver::Options solver_options =
+    ceres::Solver::Options solver_options =
         options_.CreateSolverOptions(config_, *problem_);
+    solver_options.linear_solver_ordering = solver_ordering_;
 
     ceres::Solve(solver_options, problem_.get(), &summary);
 
@@ -984,6 +1021,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
  private:
   std::shared_ptr<ceres::Problem> problem_;
   std::unique_ptr<ceres::LossFunction> loss_function_;
+  std::shared_ptr<ceres::ParameterBlockOrdering> solver_ordering_;
 
   std::set<camera_t> parameterized_camera_ids_;
   std::set<image_t> parameterized_image_ids_;
