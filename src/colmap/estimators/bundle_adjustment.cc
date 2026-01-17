@@ -41,13 +41,10 @@
 namespace colmap {
 namespace {
 
-// Note that Ceres only supports two elimination groups, so this effectively
-// only leads to two elimination groups with points being eliminated first and
-// then the rest together.
-constexpr int kPointsSolverParameterGroup = 0;
-constexpr int kFramesSolverParameterGroup = 1;
-constexpr int kCamerasSolverParameterGroup = 2;
-constexpr int kRigsSolverParameterGroup = 3;
+constexpr int kPointsSolverEliminationGroup = 0;
+constexpr int kFramesSolverEliminationGroup = 1;
+constexpr int kCamerasSolverEliminationGroup = 2;
+constexpr int kRigsSolverEliminationGroup = 3;
 
 std::unique_ptr<ceres::LossFunction> CreateLossFunction(
     BundleAdjustmentOptions::LossFunctionType loss_function_type,
@@ -600,7 +597,7 @@ void ParameterizeCameras(const BundleAdjustmentOptions& options,
 
     if (options.use_parameter_block_ordering) {
       solver_ordering.AddElementToGroup(camera.params.data(),
-                                        kCamerasSolverParameterGroup);
+                                        kCamerasSolverEliminationGroup);
     }
 
     if (constant_camera || config.HasConstantCamIntrinsics(camera_id)) {
@@ -661,9 +658,9 @@ void ParameterizeRisAndFrames(const BundleAdjustmentOptions& options,
         if (options.use_parameter_block_ordering) {
           solver_ordering.AddElementToGroup(
               sensor_from_rig.rotation.coeffs().data(),
-              kRigsSolverParameterGroup);
+              kRigsSolverEliminationGroup);
           solver_ordering.AddElementToGroup(sensor_from_rig.translation.data(),
-                                            kRigsSolverParameterGroup);
+                                            kRigsSolverEliminationGroup);
         }
 
         SetQuaternionManifold(&problem,
@@ -689,9 +686,9 @@ void ParameterizeRisAndFrames(const BundleAdjustmentOptions& options,
         if (options.use_parameter_block_ordering) {
           solver_ordering.AddElementToGroup(
               rig_from_world.rotation.coeffs().data(),
-              kFramesSolverParameterGroup);
+              kFramesSolverEliminationGroup);
           solver_ordering.AddElementToGroup(rig_from_world.translation.data(),
-                                            kFramesSolverParameterGroup);
+                                            kFramesSolverEliminationGroup);
         }
 
         SetQuaternionManifold(&problem,
@@ -743,7 +740,7 @@ void ParameterizePoints(
       problem.SetParameterBlockConstant(point3D.xyz.data());
     }
     solver_ordering.AddElementToGroup(point3D.xyz.data(),
-                                      kPointsSolverParameterGroup);
+                                      kPointsSolverEliminationGroup);
   }
 
   for (const point3D_t point3D_id : config.ConstantPoints()) {
