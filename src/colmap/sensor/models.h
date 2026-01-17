@@ -927,7 +927,7 @@ bool SimpleRadialCameraModel::ImgFromCamWithJac(const double* params,
   *x = f * xd + c1;
   *y = f * yd + c2;
 
-  if (J_uvw != nullptr) {
+  if (J_uvw) {
     // J_uvw is a 2x3 matrix (row-major): d(x, y) / d(u, v, w)
     //
     // x = f * alpha * uu + c1, y = f * alpha * vv + c2
@@ -953,7 +953,7 @@ bool SimpleRadialCameraModel::ImgFromCamWithJac(const double* params,
     J_uvw[5] = -f_inv_w * vv * beta;
   }
 
-  if (J_params != nullptr) {
+  if (J_params) {
     // J_params is a 2x4 matrix (row-major): d(x, y) / d(f, cx, cy, k)
     //
     // x = f * alpha * uu + cx, y = f * alpha * vv + cy
