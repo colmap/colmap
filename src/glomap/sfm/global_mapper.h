@@ -34,22 +34,22 @@ struct GlobalMapperOptions {
   RotationEstimatorOptions rotation_averaging;
   GlobalPositionerOptions global_positioning;
   colmap::BundleAdjustmentOptions bundle_adjustment = [] {
-    colmap::BundleAdjustmentOptions opts;
-    opts.loss_function_type =
+    colmap::BundleAdjustmentOptions options;
+    options.loss_function_type =
         colmap::BundleAdjustmentOptions::LossFunctionType::HUBER;
-    opts.refine_sensor_from_rig = false;
-    opts.min_track_length = 3;
-    opts.use_gpu = true;
-    opts.print_summary = false;
+    options.refine_sensor_from_rig = false;
+    options.min_track_length = 3;
+    options.use_gpu = true;
+    options.print_summary = false;
     // TODO: Investigate whether disabling auto solver selection and using
     // explicit SPARSE_SCHUR + CLUSTER_TRIDIAGONAL is necessary for global SfM,
     // or if we can just rely on COLMAP's auto selection.
-    opts.auto_select_solver_type = false;
-    opts.solver_options.function_tolerance = 1e-5;
-    opts.solver_options.max_num_iterations = 200;
-    opts.solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
-    opts.solver_options.preconditioner_type = ceres::CLUSTER_TRIDIAGONAL;
-    return opts;
+    options.auto_select_solver_type = false;
+    options.solver_options.function_tolerance = 1e-5;
+    options.solver_options.max_num_iterations = 200;
+    options.solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
+    options.solver_options.preconditioner_type = ceres::CLUSTER_TRIDIAGONAL;
+    return options;
   }();
   colmap::IncrementalTriangulator::Options retriangulation = [] {
     colmap::IncrementalTriangulator::Options opts;
