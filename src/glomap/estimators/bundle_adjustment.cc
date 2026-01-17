@@ -20,6 +20,7 @@ colmap::BundleAdjustmentOptions BundleAdjusterOptions::ToColmapOptions() const {
   options.min_num_images_gpu_solver = min_num_images_gpu_solver;
   // Disable auto-selection to use explicit solver settings from glomap
   options.auto_select_solver_type = false;
+  options.use_parameter_block_ordering = use_parameter_block_ordering;
   options.solver_options = solver_options;
   return options;
 }

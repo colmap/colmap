@@ -595,8 +595,10 @@ void ParameterizeCameras(const BundleAdjustmentOptions& options,
   for (const camera_t camera_id : camera_ids) {
     Camera& camera = reconstruction.Camera(camera_id);
 
-    solver_ordering.AddElementToGroup(camera.params.data(),
-                                      kCamerasEliminationGroup);
+    if (options.use_parameter_block_ordering) {
+      solver_ordering.AddElementToGroup(camera.params.data(),
+                                        kCamerasEliminationGroup);
+    }
 
     if (constant_camera || config.HasConstantCamIntrinsics(camera_id)) {
       problem.SetParameterBlockConstant(camera.params.data());
@@ -629,12 +631,12 @@ void ParameterizeCameras(const BundleAdjustmentOptions& options,
   }
 }
 
-void ParameterizeImages(const BundleAdjustmentOptions& options,
-                        const BundleAdjustmentConfig& config,
-                        const std::set<image_t>& image_ids,
-                        Reconstruction& reconstruction,
-                        ceres::Problem& problem,
-                        ceres::ParameterBlockOrdering& solver_ordering) {
+void ParameterizeRisAndFrames(const BundleAdjustmentOptions& options,
+                              const BundleAdjustmentConfig& config,
+                              const std::set<image_t>& image_ids,
+                              Reconstruction& reconstruction,
+                              ceres::Problem& problem,
+                              ceres::ParameterBlockOrdering& solver_ordering) {
   std::unordered_set<rig_t> parameterized_rig_ids;
   std::unordered_set<sensor_t> parameterized_sensor_ids;
   std::unordered_set<frame_t> parameterized_frame_ids;
@@ -652,13 +654,14 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
       // CostFunction assumes unit quaternions.
       sensor_from_rig.rotation.normalize();
 
-      // Solver ordering.
-      solver_ordering.AddElementToGroup(
-          sensor_from_rig.rotation.coeffs().data(), kRigsEliminationGroup);
-      solver_ordering.AddElementToGroup(sensor_from_rig.translation.data(),
-                                        kRigsEliminationGroup);
-
       if (problem.HasParameterBlock(sensor_from_rig.rotation.coeffs().data())) {
+        if (options.use_parameter_block_ordering) {
+          solver_ordering.AddElementToGroup(
+              sensor_from_rig.rotation.coeffs().data(), kRigsEliminationGroup);
+          solver_ordering.AddElementToGroup(sensor_from_rig.translation.data(),
+                                            kRigsEliminationGroup);
+        }
+
         SetQuaternionManifold(&problem,
                               sensor_from_rig.rotation.coeffs().data());
         if (!options.refine_sensor_from_rig ||
@@ -678,13 +681,14 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
       // CostFunction assumes unit quaternions.
       rig_from_world.rotation.normalize();
 
-      // Solver ordering.
-      solver_ordering.AddElementToGroup(rig_from_world.rotation.coeffs().data(),
-                                        kFramesEliminationGroup);
-      solver_ordering.AddElementToGroup(rig_from_world.translation.data(),
-                                        kFramesEliminationGroup);
-
       if (problem.HasParameterBlock(rig_from_world.rotation.coeffs().data())) {
+        if (options.use_parameter_block_ordering) {
+          solver_ordering.AddElementToGroup(
+              rig_from_world.rotation.coeffs().data(), kFramesEliminationGroup);
+          solver_ordering.AddElementToGroup(rig_from_world.translation.data(),
+                                            kFramesEliminationGroup);
+        }
+
         SetQuaternionManifold(&problem,
                               rig_from_world.rotation.coeffs().data());
         if (!options.refine_rig_from_world ||
@@ -777,12 +781,12 @@ class DefaultBundleAdjuster : public BundleAdjuster {
                         reconstruction,
                         *problem_,
                         *solver_ordering_);
-    ParameterizeImages(options_,
-                       config_,
-                       parameterized_image_ids_,
-                       reconstruction,
-                       *problem_,
-                       *solver_ordering_);
+    ParameterizeRisAndFrames(options_,
+                             config_,
+                             parameterized_image_ids_,
+                             reconstruction,
+                             *problem_,
+                             *solver_ordering_);
     ParameterizePoints(options_,
                        config_,
                        point3D_num_observations_,
@@ -818,7 +822,12 @@ class DefaultBundleAdjuster : public BundleAdjuster {
 
     ceres::Solver::Options solver_options =
         options_.CreateSolverOptions(config_, *problem_);
-    solver_options.linear_solver_ordering = solver_ordering_;
+    if (options_.use_parameter_block_ordering &&
+        (solver_options.linear_solver_type == ceres::DENSE_SCHUR ||
+         solver_options.linear_solver_type == ceres::SPARSE_SCHUR ||
+         solver_options.linear_solver_type == ceres::ITERATIVE_SCHUR)) {
+      solver_options.linear_solver_ordering = solver_ordering_;
+    }
 
     ceres::Solve(solver_options, problem_.get(), &summary);
 

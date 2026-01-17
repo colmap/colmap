@@ -23,6 +23,7 @@ GlobalMapperOptions InitializeOptions(const GlobalMapperOptions& options) {
     opts.global_positioning.random_seed = opts.random_seed;
     opts.global_positioning.use_parameter_block_ordering = false;
     opts.retriangulation.random_seed = opts.random_seed;
+    opts.bundle_adjustment.use_parameter_block_ordering = false;
   }
   opts.global_positioning.solver_options.num_threads = opts.num_threads;
   opts.bundle_adjustment.solver_options.num_threads = opts.num_threads;
@@ -381,11 +382,8 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
   }
 
   // Set up bundle adjustment options for colmap's incremental mapper.
-  colmap::BundleAdjustmentOptions colmap_ba_options;
-  colmap_ba_options.solver_options.num_threads =
-      ba_options.solver_options.num_threads;
-  colmap_ba_options.solver_options.max_num_iterations = 50;
-  colmap_ba_options.solver_options.max_linear_solver_iterations = 100;
+  colmap::BundleAdjustmentOptions colmap_ba_options =
+      ba_options.ToColmapOptions();
   colmap_ba_options.print_summary = false;
 
   // Iterative global refinement.

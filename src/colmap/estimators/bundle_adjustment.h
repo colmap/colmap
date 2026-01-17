@@ -185,6 +185,10 @@ struct BundleAdjustmentOptions {
   // from solver_options directly.
   bool auto_select_solver_type = true;
 
+  // Whether to use custom parameter block ordering for Schur-based solvers.
+  // Disable for deterministic behavior when using a fixed random seed.
+  bool use_parameter_block_ordering = true;
+
   // Ceres-Solver options.
   ceres::Solver::Options solver_options;
 

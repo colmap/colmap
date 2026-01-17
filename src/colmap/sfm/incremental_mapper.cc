@@ -693,6 +693,9 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
       options.abs_pose_min_inlier_ratio;
 
   BundleAdjustmentOptions abs_pose_refinement_options;
+  if (options.random_seed >= 0) {
+    abs_pose_refinement_options.use_parameter_block_ordering = false;
+  }
   abs_pose_refinement_options.loss_function_type =
       BundleAdjustmentOptions::LossFunctionType::CAUCHY;
   abs_pose_refinement_options.solver_options.logging_type =
