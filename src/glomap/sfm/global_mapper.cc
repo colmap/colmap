@@ -48,18 +48,21 @@ bool RunBundleAdjustment(const colmap::BundleAdjustmentOptions& options,
   return summary.IsSolutionUsable();
 }
 
-GlobalMapperOptions InitializeOptions(const GlobalMapperOptions& options) {
+GlobalMapperOptions CustomizeOptions(const GlobalMapperOptions& options) {
   // Propagate random seed and num_threads to component options.
-  GlobalMapperOptions opts = options;
-  if (opts.random_seed >= 0) {
-    opts.rotation_averaging.random_seed = opts.random_seed;
-    opts.global_positioning.random_seed = opts.random_seed;
-    opts.global_positioning.use_parameter_block_ordering = false;
-    opts.retriangulation.random_seed = opts.random_seed;
+  GlobalMapperOptions custom_options = options;
+  if (custom_options.random_seed >= 0) {
+    custom_options.rotation_averaging.random_seed = custom_options.random_seed;
+    custom_options.global_positioning.random_seed = custom_options.random_seed;
+    custom_options.global_positioning.use_parameter_block_ordering = false;
+    custom_options.retriangulation.random_seed = custom_options.random_seed;
+    custom_options.bundle_adjustment.use_parameter_block_ordering = false;
   }
-  opts.global_positioning.solver_options.num_threads = opts.num_threads;
-  opts.bundle_adjustment.solver_options.num_threads = opts.num_threads;
-  return opts;
+  custom_options.global_positioning.solver_options.num_threads =
+      custom_options.num_threads;
+  custom_options.bundle_adjustment.solver_options.num_threads =
+      custom_options.num_threads;
+  return custom_options;
 }
 
 }  // namespace
@@ -417,9 +420,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
   }
 
   // Set up bundle adjustment options for colmap's incremental mapper.
-  colmap::BundleAdjustmentOptions custom_ba_options;
-  custom_ba_options.solver_options.num_threads =
-      ba_options.solver_options.num_threads;
+  colmap::BundleAdjustmentOptions custom_ba_options = ba_options;
   custom_ba_options.solver_options.max_num_iterations = 50;
   custom_ba_options.solver_options.max_linear_solver_iterations = 100;
   custom_ba_options.print_summary = false;
@@ -471,14 +472,14 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   }
 
   // Propagate random seed and num_threads to component options.
-  GlobalMapperOptions opts = InitializeOptions(options);
+  GlobalMapperOptions custom_options = CustomizeOptions(options);
 
   // Run rotation averaging
-  if (!opts.skip_rotation_averaging) {
+  if (!custom_options.skip_rotation_averaging) {
     LOG_HEADING1("Running rotation averaging");
     colmap::Timer run_timer;
     run_timer.Start();
-    if (!RotationAveraging(opts.rotation_averaging)) {
+    if (!RotationAveraging(custom_options.rotation_averaging)) {
       return false;
     }
     LOG(INFO) << "Rotation averaging done in " << run_timer.ElapsedSeconds()
@@ -486,24 +487,24 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   }
 
   // Track establishment and selection
-  if (!opts.skip_track_establishment) {
+  if (!custom_options.skip_track_establishment) {
     LOG_HEADING1("Running track establishment");
     colmap::Timer run_timer;
     run_timer.Start();
-    EstablishTracks(opts);
+    EstablishTracks(custom_options);
     LOG(INFO) << "Track establishment done in " << run_timer.ElapsedSeconds()
               << " seconds";
   }
 
   // Global positioning
-  if (!opts.skip_global_positioning) {
+  if (!custom_options.skip_global_positioning) {
     LOG_HEADING1("Running global positioning");
     colmap::Timer run_timer;
     run_timer.Start();
-    if (!GlobalPositioning(opts.global_positioning,
-                           opts.max_angular_reproj_error_deg,
-                           opts.max_normalized_reproj_error,
-                           opts.min_tri_angle_deg)) {
+    if (!GlobalPositioning(custom_options.global_positioning,
+                           custom_options.max_angular_reproj_error_deg,
+                           custom_options.max_normalized_reproj_error,
+                           custom_options.min_tri_angle_deg)) {
       return false;
     }
     LOG(INFO) << "Global positioning done in " << run_timer.ElapsedSeconds()
@@ -511,16 +512,17 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   }
 
   // Bundle adjustment
-  if (!opts.skip_bundle_adjustment) {
+  if (!custom_options.skip_bundle_adjustment) {
     LOG_HEADING1("Running iterative bundle adjustment");
     colmap::Timer run_timer;
     run_timer.Start();
-    if (!IterativeBundleAdjustment(opts.bundle_adjustment,
-                                   opts.max_normalized_reproj_error,
-                                   opts.min_tri_angle_deg,
-                                   opts.ba_num_iterations,
-                                   opts.ba_skip_fixed_rotation_stage,
-                                   opts.ba_skip_joint_optimization_stage)) {
+    if (!IterativeBundleAdjustment(
+            custom_options.bundle_adjustment,
+            custom_options.max_normalized_reproj_error,
+            custom_options.min_tri_angle_deg,
+            custom_options.ba_num_iterations,
+            custom_options.ba_skip_fixed_rotation_stage,
+            custom_options.ba_skip_joint_optimization_stage)) {
       return false;
     }
     LOG(INFO) << "Iterative bundle adjustment done in "
@@ -528,14 +530,15 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   }
 
   // Retriangulation
-  if (!opts.skip_retriangulation) {
+  if (!custom_options.skip_retriangulation) {
     LOG_HEADING1("Running iterative retriangulation and refinement");
     colmap::Timer run_timer;
     run_timer.Start();
-    if (!IterativeRetriangulateAndRefine(opts.retriangulation,
-                                         opts.bundle_adjustment,
-                                         opts.max_normalized_reproj_error,
-                                         opts.min_tri_angle_deg)) {
+    if (!IterativeRetriangulateAndRefine(
+            custom_options.retriangulation,
+            custom_options.bundle_adjustment,
+            custom_options.max_normalized_reproj_error,
+            custom_options.min_tri_angle_deg)) {
       return false;
     }
     LOG(INFO) << "Iterative retriangulation and refinement done in "

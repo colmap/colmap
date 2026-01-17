@@ -178,6 +178,9 @@ BundleAdjustmentOptions IncrementalPipelineOptions::LocalBundleAdjustment()
       BundleAdjustmentOptions::LossFunctionType::SOFT_L1;
   options.use_gpu = ba_use_gpu;
   options.gpu_index = ba_gpu_index;
+  if (random_seed >= 0) {
+    options.use_parameter_block_ordering = false;
+  }
   return options;
 }
 
@@ -210,6 +213,9 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
       BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
   options.use_gpu = ba_use_gpu;
   options.gpu_index = ba_gpu_index;
+  if (random_seed >= 0) {
+    options.use_parameter_block_ordering = false;
+  }
   return options;
 }
 

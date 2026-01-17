@@ -61,6 +61,7 @@ struct GlobalPositionerOptions {
 
   // Whether to use custom parameter block ordering for Schur-based solvers.
   // Disable for deterministic behavior when using a fixed random seed.
+  // See: https://groups.google.com/g/ceres-solver/c/2ITKHCi3-oU/m/OlxDBAq6BYAJ
   bool use_parameter_block_ordering = true;
 
   // The options for the solver
