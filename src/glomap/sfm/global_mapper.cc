@@ -15,19 +15,54 @@
 namespace glomap {
 namespace {
 
-GlobalMapperOptions InitializeOptions(const GlobalMapperOptions& options) {
-  // Propagate random seed and num_threads to component options.
-  GlobalMapperOptions opts = options;
-  if (opts.random_seed >= 0) {
-    opts.rotation_averaging.random_seed = opts.random_seed;
-    opts.global_positioning.random_seed = opts.random_seed;
-    opts.global_positioning.use_parameter_block_ordering = false;
-    opts.retriangulation.random_seed = opts.random_seed;
-    opts.bundle_adjustment.use_parameter_block_ordering = false;
+bool RunBundleAdjustment(const colmap::BundleAdjustmentOptions& options,
+                         colmap::Reconstruction& reconstruction) {
+  if (reconstruction.NumImages() == 0) {
+    LOG(ERROR) << "Cannot run bundle adjustment: no registered images";
+    return false;
   }
-  opts.global_positioning.solver_options.num_threads = opts.num_threads;
-  opts.bundle_adjustment.solver_options.num_threads = opts.num_threads;
-  return opts;
+  if (reconstruction.NumPoints3D() == 0) {
+    LOG(ERROR) << "Cannot run bundle adjustment: no 3D points to optimize";
+    return false;
+  }
+
+  colmap::BundleAdjustmentConfig ba_config;
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    if (image.HasPose()) {
+      ba_config.AddImage(image_id);
+    }
+  }
+  ba_config.FixGauge(colmap::BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  auto ba =
+      colmap::CreateDefaultBundleAdjuster(options, ba_config, reconstruction);
+
+  ceres::Solver::Summary summary = ba->Solve();
+
+  if (VLOG_IS_ON(2)) {
+    LOG(INFO) << summary.FullReport();
+  } else {
+    LOG(INFO) << summary.BriefReport();
+  }
+
+  return summary.IsSolutionUsable();
+}
+
+GlobalMapperOptions CustomizeOptions(const GlobalMapperOptions& options) {
+  // Propagate random seed and num_threads to component options.
+  GlobalMapperOptions custom_options = options;
+  if (custom_options.random_seed >= 0) {
+    custom_options.rotation_averaging.random_seed = custom_options.random_seed;
+    custom_options.global_positioning.random_seed = custom_options.random_seed;
+    custom_options.global_positioning.use_parameter_block_ordering = false;
+    custom_options.retriangulation.random_seed = custom_options.random_seed;
+    custom_options.bundle_adjustment.use_parameter_block_ordering = false;
+  }
+  custom_options.global_positioning.solver_options.num_threads =
+      custom_options.num_threads;
+  custom_options.bundle_adjustment.solver_options.num_threads =
+      custom_options.num_threads;
+  return custom_options;
 }
 
 }  // namespace
@@ -294,29 +329,32 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
 }
 
 bool GlobalMapper::IterativeBundleAdjustment(
-    const BundleAdjusterOptions& options,
+    const colmap::BundleAdjustmentOptions& options,
     double max_normalized_reproj_error,
     double min_tri_angle_deg,
-    int num_iterations) {
+    int num_iterations,
+    bool skip_fixed_rotation_stage,
+    bool skip_joint_optimization_stage) {
   for (int ite = 0; ite < num_iterations; ite++) {
-    // First stage: optimize positions only (rotation constant)
-    if (!RunBundleAdjustment(options,
-                             /*constant_rotation=*/true,
-                             *reconstruction_)) {
-      return false;
+    // Optional fixed-rotation stage: optimize positions only
+    if (!skip_fixed_rotation_stage) {
+      colmap::BundleAdjustmentOptions opts_position_only = options;
+      opts_position_only.constant_rig_from_world_rotation = true;
+      if (!RunBundleAdjustment(opts_position_only, *reconstruction_)) {
+        return false;
+      }
+      LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
+                << num_iterations << ", fixed-rotation stage finished";
     }
-    LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
-              << num_iterations << ", stage 1 finished (position only)";
 
-    // Second stage: optimize rotations if desired
-    if (options.optimize_rotations &&
-        !RunBundleAdjustment(options,
-                             /*constant_rotation=*/false,
-                             *reconstruction_)) {
-      return false;
+    // Joint optimization stage: default BA
+    if (!skip_joint_optimization_stage) {
+      if (!RunBundleAdjustment(options, *reconstruction_)) {
+        return false;
+      }
     }
     LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
-              << num_iterations << ", stage 2 finished";
+              << num_iterations << " finished";
 
     // Normalize the structure
     reconstruction_->Normalize();
@@ -366,7 +404,7 @@ bool GlobalMapper::IterativeBundleAdjustment(
 
 bool GlobalMapper::IterativeRetriangulateAndRefine(
     const colmap::IncrementalTriangulator::Options& options,
-    const BundleAdjusterOptions& ba_options,
+    const colmap::BundleAdjustmentOptions& ba_options,
     double max_normalized_reproj_error,
     double min_tri_angle_deg) {
   // Delete all existing 3D points and re-establish 2D-3D correspondences.
@@ -382,9 +420,10 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
   }
 
   // Set up bundle adjustment options for colmap's incremental mapper.
-  colmap::BundleAdjustmentOptions colmap_ba_options =
-      ba_options.ToColmapOptions();
-  colmap_ba_options.print_summary = false;
+  colmap::BundleAdjustmentOptions custom_ba_options = ba_options;
+  custom_ba_options.solver_options.max_num_iterations = 50;
+  custom_ba_options.solver_options.max_linear_solver_iterations = 100;
+  custom_ba_options.print_summary = false;
 
   // Iterative global refinement.
   colmap::IncrementalMapper::Options mapper_options;
@@ -392,7 +431,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
   mapper.IterativeGlobalRefinement(/*max_num_refinements=*/5,
                                    /*max_refinement_change=*/0.0005,
                                    mapper_options,
-                                   colmap_ba_options,
+                                   custom_ba_options,
                                    options,
                                    /*normalize_reconstruction=*/true);
 
@@ -405,9 +444,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
       reconstruction_->Point3DIds(),
       colmap::ReprojectionErrorType::NORMALIZED);
 
-  if (!RunBundleAdjustment(ba_options,
-                           /*constant_rotation=*/false,
-                           *reconstruction_)) {
+  if (!RunBundleAdjustment(ba_options, *reconstruction_)) {
     return false;
   }
 
@@ -435,14 +472,14 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   }
 
   // Propagate random seed and num_threads to component options.
-  GlobalMapperOptions opts = InitializeOptions(options);
+  GlobalMapperOptions custom_options = CustomizeOptions(options);
 
   // Run rotation averaging
-  if (!opts.skip_rotation_averaging) {
+  if (!custom_options.skip_rotation_averaging) {
     LOG_HEADING1("Running rotation averaging");
     colmap::Timer run_timer;
     run_timer.Start();
-    if (!RotationAveraging(opts.rotation_averaging)) {
+    if (!RotationAveraging(custom_options.rotation_averaging)) {
       return false;
     }
     LOG(INFO) << "Rotation averaging done in " << run_timer.ElapsedSeconds()
@@ -450,24 +487,24 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   }
 
   // Track establishment and selection
-  if (!opts.skip_track_establishment) {
+  if (!custom_options.skip_track_establishment) {
     LOG_HEADING1("Running track establishment");
     colmap::Timer run_timer;
     run_timer.Start();
-    EstablishTracks(opts);
+    EstablishTracks(custom_options);
     LOG(INFO) << "Track establishment done in " << run_timer.ElapsedSeconds()
               << " seconds";
   }
 
   // Global positioning
-  if (!opts.skip_global_positioning) {
+  if (!custom_options.skip_global_positioning) {
     LOG_HEADING1("Running global positioning");
     colmap::Timer run_timer;
     run_timer.Start();
-    if (!GlobalPositioning(opts.global_positioning,
-                           opts.max_angular_reproj_error_deg,
-                           opts.max_normalized_reproj_error,
-                           opts.min_tri_angle_deg)) {
+    if (!GlobalPositioning(custom_options.global_positioning,
+                           custom_options.max_angular_reproj_error_deg,
+                           custom_options.max_normalized_reproj_error,
+                           custom_options.min_tri_angle_deg)) {
       return false;
     }
     LOG(INFO) << "Global positioning done in " << run_timer.ElapsedSeconds()
@@ -475,14 +512,17 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   }
 
   // Bundle adjustment
-  if (!opts.skip_bundle_adjustment) {
+  if (!custom_options.skip_bundle_adjustment) {
     LOG_HEADING1("Running iterative bundle adjustment");
     colmap::Timer run_timer;
     run_timer.Start();
-    if (!IterativeBundleAdjustment(opts.bundle_adjustment,
-                                   opts.max_normalized_reproj_error,
-                                   opts.min_tri_angle_deg,
-                                   opts.ba_num_iterations)) {
+    if (!IterativeBundleAdjustment(
+            custom_options.bundle_adjustment,
+            custom_options.max_normalized_reproj_error,
+            custom_options.min_tri_angle_deg,
+            custom_options.ba_num_iterations,
+            custom_options.ba_skip_fixed_rotation_stage,
+            custom_options.ba_skip_joint_optimization_stage)) {
       return false;
     }
     LOG(INFO) << "Iterative bundle adjustment done in "
@@ -490,14 +530,15 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   }
 
   // Retriangulation
-  if (!opts.skip_retriangulation) {
+  if (!custom_options.skip_retriangulation) {
     LOG_HEADING1("Running iterative retriangulation and refinement");
     colmap::Timer run_timer;
     run_timer.Start();
-    if (!IterativeRetriangulateAndRefine(opts.retriangulation,
-                                         opts.bundle_adjustment,
-                                         opts.max_normalized_reproj_error,
-                                         opts.min_tri_angle_deg)) {
+    if (!IterativeRetriangulateAndRefine(
+            custom_options.retriangulation,
+            custom_options.bundle_adjustment,
+            custom_options.max_normalized_reproj_error,
+            custom_options.min_tri_angle_deg)) {
       return false;
     }
     LOG(INFO) << "Iterative retriangulation and refinement done in "
