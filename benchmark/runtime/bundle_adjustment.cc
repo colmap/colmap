@@ -36,25 +36,21 @@
 
 using namespace colmap;
 
-// Custom arguments generator for the benchmark.
-// Args: [num_cameras_per_rig, num_rigs, num_frames_per_rig, num_points3D,
-// match_config] match_config: 1 = EXHAUSTIVE, 2 = CHAINED
-static void CustomArguments(benchmark::internal::Benchmark* b) {
-  // Varying cameras per rig (1-3)
-  for (int cameras_per_rig = 1; cameras_per_rig <= 3; ++cameras_per_rig) {
-    // Varying rigs (1, 2, 5, 10)
-    for (int rigs : {1, 2, 5, 10}) {
-      // Varying frames per rig (1, 2, 5, 10)
-      for (int frames_per_rig : {1, 2, 5, 10}) {
-        // Varying number of 3D points (100, 500, 1000)
-        for (int num_points3D : {100, 500, 1000}) {
+void GenerateArguments(benchmark::internal::Benchmark* b) {
+  for (const int num_rigs : {1, 5, 10}) {
+    for (const int num_cameras_per_rig : {1, 3}) {
+      for (const int num_frames_per_rig : {5, 10}) {
+        for (const int num_points3D : {100, 1000}) {
           // Varying match config (1=EXHAUSTIVE, 2=CHAINED for sparser graph)
-          for (int match_config : {1, 2}) {
-            b->Args({cameras_per_rig,
-                     rigs,
-                     frames_per_rig,
+          for (const auto match_config :
+               {SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE,
+                SyntheticDatasetOptions::MatchConfig::CHAINED,
+                SyntheticDatasetOptions::MatchConfig::SPARSE}) {
+            b->Args({num_rigs,
+                     num_cameras_per_rig,
+                     num_frames_per_rig,
                      num_points3D,
-                     match_config});
+                     static_cast<int>(match_config)});
           }
         }
       }
@@ -177,73 +173,8 @@ BENCHMARK_DEFINE_F(BM_BundleAdjustment, Solve)(benchmark::State& state) {
 }
 
 BENCHMARK_REGISTER_F(BM_BundleAdjustment, Solve)
-    ->Apply(CustomArguments)
+    ->Apply(GenerateArguments)
     ->Unit(benchmark::kMillisecond)
     ->UseRealTime();
-
-// Additional benchmark for measuring setup/teardown overhead.
-class BM_BundleAdjustmentSetup : public benchmark::Fixture {
- public:
-  void SetUp(::benchmark::State& state) {
-    const int num_cameras_per_rig = state.range(0);
-    const int num_rigs = state.range(1);
-    const int num_frames_per_rig = state.range(2);
-    const int num_points3D = state.range(3);
-
-    SyntheticDatasetOptions options;
-    options.num_cameras_per_rig = num_cameras_per_rig;
-    options.num_rigs = num_rigs;
-    options.num_frames_per_rig = num_frames_per_rig;
-    options.num_points3D = num_points3D;
-    options.num_points2D_without_point3D = 10;
-    options.match_config = SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE;
-
-    reconstruction_ = std::make_unique<Reconstruction>();
-    SynthesizeDataset(options, reconstruction_.get());
-  }
-
-  void TearDown(::benchmark::State& state) { reconstruction_.reset(); }
-
- protected:
-  std::unique_ptr<Reconstruction> reconstruction_;
-};
-
-BENCHMARK_DEFINE_F(BM_BundleAdjustmentSetup, CreateProblem)
-(benchmark::State& state) {
-  for (auto _ : state) {
-    BundleAdjustmentConfig config;
-    for (const image_t image_id : reconstruction_->RegImageIds()) {
-      config.AddImage(image_id);
-    }
-    for (const auto& [point3D_id, _] : reconstruction_->Points3D()) {
-      config.AddVariablePoint(point3D_id);
-    }
-    config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
-
-    BundleAdjustmentOptions options;
-    options.print_summary = false;
-
-    auto bundle_adjuster =
-        CreateDefaultBundleAdjuster(options, config, *reconstruction_);
-    benchmark::DoNotOptimize(bundle_adjuster);
-  }
-}
-
-// Subset of arguments for setup benchmark.
-static void SetupBenchmarkArguments(benchmark::internal::Benchmark* b) {
-  for (int cameras_per_rig : {1, 2}) {
-    for (int rigs : {2, 5, 10}) {
-      for (int frames_per_rig : {5, 10}) {
-        for (int num_points3D : {100, 500, 1000}) {
-          b->Args({cameras_per_rig, rigs, frames_per_rig, num_points3D});
-        }
-      }
-    }
-  }
-}
-
-BENCHMARK_REGISTER_F(BM_BundleAdjustmentSetup, CreateProblem)
-    ->Apply(SetupBenchmarkArguments)
-    ->Unit(benchmark::kMillisecond);
 
 BENCHMARK_MAIN();
