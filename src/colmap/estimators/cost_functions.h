@@ -194,11 +194,17 @@ class ReprojErrorCostFunction
             (J_quat || J_trans || J_point) ? J_uvw_mat.data() : nullptr)) {
       residuals[0] = 0.0;
       residuals[1] = 0.0;
-      if (jacobians) {
-        if (J_quat) J_quat_mat.setZero();
-        if (J_trans) J_trans_mat.setZero();
-        if (J_point) J_point_mat.setZero();
-        if (J_params) J_params_mat.setZero();
+      if (J_quat) {
+        J_quat_mat.setZero();
+      }
+      if (J_trans) {
+        J_trans_mat.setZero();
+      }
+      if (J_point) {
+        J_point_mat.setZero();
+      }
+      if (J_params) {
+        J_params_mat.setZero();
       }
       return true;
     }
@@ -206,12 +212,14 @@ class ReprojErrorCostFunction
     Eigen::Map<Eigen::Vector2d> residuals_vec(residuals);
     residuals_vec -= point2D_;
 
-    if (jacobians) {
-      if (J_quat) J_quat_mat = J_uvw_mat * J_Rp_q_mat;
-      if (J_trans) J_trans_mat = J_uvw_mat;
-      if (J_point)
-        J_point_mat =
-            J_uvw_mat * QuaternionToScaledRotation(cam_from_world_quat);
+    if (J_quat) {
+      J_quat_mat = J_uvw_mat * J_Rp_q_mat;
+    }
+    if (J_trans) {
+      J_trans_mat = J_uvw_mat;
+    }
+    if (J_point) {
+      J_point_mat = J_uvw_mat * QuaternionToScaledRotation(cam_from_world_quat);
     }
 
     return true;
