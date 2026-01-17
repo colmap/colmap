@@ -838,24 +838,14 @@ class DefaultBundleAdjuster : public BundleAdjuster {
             point3D.xyz.data(),
             camera.params.data());
       } else {
-        if (camera.model_id == SimpleRadialCameraModel::model_id) {
-          problem_->AddResidualBlock(
-              new SimpleRadialReprojErrorCostFunction(point2D.xy),
-              loss_function_.get(),
-              cam_from_world.rotation.coeffs().data(),
-              cam_from_world.translation.data(),
-              point3D.xyz.data(),
-              camera.params.data());
-        } else {
-          problem_->AddResidualBlock(
-              CreateCameraCostFunction<ReprojErrorCostFunctor>(camera.model_id,
-                                                               point2D.xy),
-              loss_function_.get(),
-              cam_from_world.rotation.coeffs().data(),
-              cam_from_world.translation.data(),
-              point3D.xyz.data(),
-              camera.params.data());
-        }
+        problem_->AddResidualBlock(
+            CreateCameraCostFunction<ReprojErrorCostFunctor>(camera.model_id,
+                                                             point2D.xy),
+            loss_function_.get(),
+            cam_from_world.rotation.coeffs().data(),
+            cam_from_world.translation.data(),
+            point3D.xyz.data(),
+            camera.params.data());
       }
     }
 
