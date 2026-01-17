@@ -14,6 +14,7 @@
 #include "pycolmap/pybind11_extension.h"
 #include "pycolmap/scene/types.h"
 
+#include <filesystem>
 #include <memory>
 #include <sstream>
 
@@ -30,7 +31,7 @@ void BindReconstruction(py::module& m) {
   py::classh<Reconstruction>(m, "Reconstruction")
       .def(py::init<>())
       .def(py::init<const Reconstruction&>(), "reconstruction"_a)
-      .def(py::init([](const std::string& path) {
+      .def(py::init([](const std::filesystem::path& path) {
              auto reconstruction = std::make_shared<Reconstruction>();
              reconstruction->Read(path);
              return reconstruction;
@@ -153,6 +154,11 @@ void BindReconstruction(py::module& m) {
            "xyz"_a,
            "track"_a,
            "color"_a = Eigen::Vector3ub::Zero())
+      .def("add_point3D_with_id",
+           py::overload_cast<point3D_t, Point3D>(&Reconstruction::AddPoint3D),
+           "point3D_id"_a,
+           "point3D"_a,
+           "Add new 3D point with known ID.")
       .def("add_observation",
            &Reconstruction::AddObservation,
            "point3D_id"_a,
@@ -180,6 +186,11 @@ void BindReconstruction(py::module& m) {
       .def("delete_all_points2D_and_points3D",
            &Reconstruction::DeleteAllPoints2DAndPoints3D,
            "Delete all 2D points of all images and all 3D points.")
+      .def("set_rigs_and_frames",
+           &Reconstruction::SetRigsAndFrames,
+           "rigs"_a,
+           "frames"_a,
+           "Set rigs and frames together.")
       .def("register_frame",
            &Reconstruction::RegisterFrame,
            "frame_id"_a,
@@ -229,6 +240,10 @@ void BindReconstruction(py::module& m) {
            "other"_a,
            "Find images that are both present in this and the given "
            "reconstruction.")
+      .def("transcribe_image_ids_to_database",
+           &Reconstruction::TranscribeImageIdsToDatabase,
+           "database"_a,
+           "Update image identifiers to match the database by name.")
       .def("update_point_3d_errors", &Reconstruction::UpdatePoint3DErrors)
       .def("compute_num_observations", &Reconstruction::ComputeNumObservations)
       .def("compute_mean_track_length", &Reconstruction::ComputeMeanTrackLength)
@@ -237,7 +252,8 @@ void BindReconstruction(py::module& m) {
       .def("compute_mean_reprojection_error",
            &Reconstruction::ComputeMeanReprojectionError)
       .def("import_PLY",
-           py::overload_cast<const std::string&>(&Reconstruction::ImportPLY),
+           py::overload_cast<const std::filesystem::path&>(
+               &Reconstruction::ImportPLY),
            "path"_a,
            "Import from PLY format. Note that these import functions are"
            "only intended for visualization of data and usable for "

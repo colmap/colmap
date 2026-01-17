@@ -32,6 +32,8 @@
 #include "colmap/controllers/feature_matching.h"
 #include "colmap/controllers/image_reader.h"
 
+#include <filesystem>
+
 namespace colmap {
 
 // This enum can be used as optional input for feature_extractor and
@@ -79,7 +81,7 @@ bool VerifyCameraParams(const std::string& camera_model,
 
 void RunGuidedGeometricVerifierImpl(
     const Reconstruction& reconstruction,
-    const std::string& database_path,
+    const std::filesystem::path& database_path,
     const ExistingMatchedPairingOptions& pairing_options,
     const TwoViewGeometryOptions& geometry_options,
     int num_threads);

@@ -52,15 +52,17 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
 
   // Get a list of all files in the image path, sorted by image name.
   if (options_.image_names.empty()) {
-    options_.image_names = GetRecursiveFileList(options_.image_path);
-    std::sort(options_.image_names.begin(), options_.image_names.end());
+    auto image_paths = GetRecursiveFileList(options_.image_path);
+    std::sort(image_paths.begin(), image_paths.end());
+    options_.image_names.reserve(image_paths.size());
+    for (const auto& image_path : image_paths) {
+      options_.image_names.push_back(
+          GetNormalizedRelativePath(image_path, options_.image_path));
+    }
   } else {
     if (!std::is_sorted(options_.image_names.begin(),
                         options_.image_names.end())) {
       std::sort(options_.image_names.begin(), options_.image_names.end());
-    }
-    for (auto& image_name : options_.image_names) {
-      image_name = JoinPaths(options_.image_path, image_name);
     }
   }
 
@@ -102,7 +104,8 @@ ImageReader::Status ImageReader::Next(Rig* rig,
   image_index_ += 1;
   THROW_CHECK_LE(image_index_, options_.image_names.size());
 
-  const std::string image_path = options_.image_names.at(image_index_ - 1);
+  const std::string image_name = options_.image_names.at(image_index_ - 1);
+  const std::filesystem::path image_path = options_.image_path / image_name;
 
   DatabaseTransaction database_transaction(database_);
 
@@ -110,9 +113,8 @@ ImageReader::Status ImageReader::Next(Rig* rig,
   // Set the image name.
   //////////////////////////////////////////////////////////////////////////////
 
-  image->SetName(GetNormalizedRelativePath(image_path, options_.image_path));
-
-  const std::string image_folder = GetParentDir(image->Name());
+  image->SetName(image_name);
+  const std::string image_folder = GetParentDir(image->Name()).string();
 
   //////////////////////////////////////////////////////////////////////////////
   // Check if image already read.
@@ -144,16 +146,15 @@ ImageReader::Status ImageReader::Next(Rig* rig,
   //////////////////////////////////////////////////////////////////////////////
 
   if (mask && !options_.mask_path.empty()) {
-    std::string mask_path =
-        JoinPaths(options_.mask_path, image->Name() + ".png");
+    auto mask_path = options_.mask_path / (image->Name() + ".png");
     if (!ExistsFile(mask_path)) {
       bool exists_mask = false;
       // Try replacing extension with .png
       const std::string& base_name = image->Name();
       const size_t last_dot = base_name.find_last_of('.');
       if (last_dot != std::string::npos) {
-        std::string alt_mask_path = JoinPaths(
-            options_.mask_path, base_name.substr(0, last_dot) + ".png");
+        auto alt_mask_path =
+            options_.mask_path / (base_name.substr(0, last_dot) + ".png");
         if (ExistsFile(alt_mask_path)) {
           mask_path = std::move(alt_mask_path);
           exists_mask = true;
@@ -218,11 +219,11 @@ ImageReader::Status ImageReader::Next(Rig* rig,
     // Read camera model and check for consistency if it exists
     //////////////////////////////////////////////////////////////////////////////
 
-    std::string camera_model;
-    const bool valid_camera_model = bitmap->ExifCameraModel(&camera_model);
-    if (camera_model_to_id_.count(camera_model) > 0) {
+    const std::optional<std::string> camera_model = bitmap->ExifCameraModel();
+    if (camera_model.has_value() &&
+        camera_model_to_id_.count(*camera_model) > 0) {
       Camera camera =
-          database_->ReadCamera(camera_model_to_id_.at(camera_model));
+          database_->ReadCamera(camera_model_to_id_.at(*camera_model));
       if (camera.width != static_cast<size_t>(bitmap->Width()) ||
           camera.height != static_cast<size_t>(bitmap->Height())) {
         return Status::CAMERA_EXIST_DIM_ERROR;
@@ -249,26 +250,24 @@ ImageReader::Status ImageReader::Next(Rig* rig,
         (!options_.single_camera && !options_.single_camera_per_folder &&
          static_cast<camera_t>(options_.existing_camera_id) ==
              kInvalidCameraId &&
-         camera_model_to_id_.count(camera_model) == 0) ||
+         (!camera_model.has_value() ||
+          camera_model_to_id_.count(camera_model.value()) == 0)) ||
         (options_.single_camera_per_folder &&
          image_folders_.count(image_folder) == 0)) {
       if (options_.camera_params.empty()) {
         // Extract focal length.
-        double focal_length = 0.0;
-        bool has_focal_length = false;
-        if (bitmap->ExifFocalLength(&focal_length)) {
-          has_focal_length = true;
-        } else {
-          focal_length = options_.default_focal_length_factor *
-                         std::max(bitmap->Width(), bitmap->Height());
-        }
+        const std::optional<double> maybe_focal_length =
+            bitmap->ExifFocalLength();
+        const double focal_length = maybe_focal_length.value_or(
+            options_.default_focal_length_factor *
+            std::max(bitmap->Width(), bitmap->Height()));
 
         prev_camera_ = Camera::CreateFromModelId(prev_camera_.camera_id,
                                                  prev_camera_.model_id,
                                                  focal_length,
                                                  bitmap->Width(),
                                                  bitmap->Height());
-        prev_camera_.has_prior_focal_length = has_focal_length;
+        prev_camera_.has_prior_focal_length = maybe_focal_length.has_value();
       }
 
       prev_camera_.width = static_cast<size_t>(bitmap->Width());
@@ -289,8 +288,8 @@ ImageReader::Status ImageReader::Next(Rig* rig,
         prev_rig_.SetRigId(database_->WriteRig(prev_rig_));
       }
 
-      if (valid_camera_model) {
-        camera_model_to_id_[camera_model] = prev_camera_.camera_id;
+      if (camera_model.has_value()) {
+        camera_model_to_id_[*camera_model] = prev_camera_.camera_id;
       }
     }
 
@@ -300,11 +299,11 @@ ImageReader::Status ImageReader::Next(Rig* rig,
     // Extract GPS data.
     //////////////////////////////////////////////////////////////////////////////
 
-    Eigen::Vector3d position_prior;
-    if (bitmap->ExifLatitude(&position_prior.x()) &&
-        bitmap->ExifLongitude(&position_prior.y()) &&
-        bitmap->ExifAltitude(&position_prior.z())) {
-      pose_prior->position = position_prior;
+    const std::optional<double> latitude = bitmap->ExifLatitude();
+    const std::optional<double> longitude = bitmap->ExifLongitude();
+    const std::optional<double> altitude = bitmap->ExifAltitude();
+    if (latitude.has_value() && longitude.has_value() && altitude.has_value()) {
+      pose_prior->position = Eigen::Vector3d(*latitude, *longitude, *altitude);
       pose_prior->coordinate_system = PosePrior::CoordinateSystem::WGS84;
     }
   }

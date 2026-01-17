@@ -29,7 +29,6 @@
 
 #pragma once
 
-#include "colmap/scene/database.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_mapper.h"

@@ -42,7 +42,9 @@ void BindIncrementalPipeline(py::module& m) {
                      &Opts::min_model_size,
                      "The minimum number of registered images of a sub-model, "
                      "otherwise the sub-model is discarded. Note that the "
-                     "first sub-model is always kept independent of size.")
+                     "first sub-model is always kept independent of size. If "
+                     "the model contains at least half of the total number of "
+                     "images, we also always keep it.")
       .def_readwrite("init_image_id1",
                      &Opts::init_image_id1,
                      "The image identifier of the first image used to "
@@ -222,7 +224,7 @@ void BindIncrementalPipeline(py::module& m) {
 
   using CallbackType = IncrementalPipeline::CallbackType;
   auto PyCallbackType =
-      py::enum_<CallbackType>(m, "IncrementalMapperCallback")
+      py::enum_<CallbackType>(m, "IncrementalPipelineCallback")
           .value("INITIAL_IMAGE_PAIR_REG_CALLBACK",
                  CallbackType::INITIAL_IMAGE_PAIR_REG_CALLBACK)
           .value("NEXT_IMAGE_REG_CALLBACK",
@@ -232,21 +234,25 @@ void BindIncrementalPipeline(py::module& m) {
   AddStringToEnumConstructor(PyCallbackType);
 
   using Status = IncrementalPipeline::Status;
-  auto PyStatus = py::enum_<Status>(m, "IncrementalMapperStatus")
-                      .value("NO_INITIAL_PAIR", Status::NO_INITIAL_PAIR)
-                      .value("BAD_INITIAL_PAIR", Status::BAD_INITIAL_PAIR)
-                      .value("SUCCESS", Status::SUCCESS)
-                      .value("INTERRUPTED", Status::INTERRUPTED);
+  auto PyStatus =
+      py::enum_<Status>(m, "IncrementalPipelineStatus")
+          .value("SUCCESS", Status::SUCCESS)
+          .value("INTERRUPTED", Status::INTERRUPTED)
+          .value("CONTINUE", Status::CONTINUE)
+          .value("STOP", Status::STOP)
+          .value("UNKNOWN_SENSOR_FROM_RIG", Status::UNKNOWN_SENSOR_FROM_RIG)
+          .value("NO_INITIAL_PAIR", Status::NO_INITIAL_PAIR)
+          .value("BAD_INITIAL_PAIR", Status::BAD_INITIAL_PAIR);
   AddStringToEnumConstructor(PyStatus);
 
   py::classh<IncrementalPipeline>(m, "IncrementalPipeline")
-      .def(py::init<std::shared_ptr<const IncrementalPipelineOptions>,
+      .def(py::init<std::shared_ptr<IncrementalPipelineOptions>,
                     std::shared_ptr<Database>,
                     std::shared_ptr<ReconstructionManager>>(),
            "options"_a,
            "database"_a,
            "reconstruction_manager"_a)
-      .def(py::init<std::shared_ptr<const IncrementalPipelineOptions>,
+      .def(py::init<std::shared_ptr<IncrementalPipelineOptions>,
                     std::shared_ptr<DatabaseCache>,
                     std::shared_ptr<ReconstructionManager>>(),
            "options"_a,
@@ -259,11 +265,6 @@ void BindIncrementalPipeline(py::module& m) {
                              &IncrementalPipeline::DatabaseCache)
       .def("add_callback", &IncrementalPipeline::AddCallback, "id"_a, "func"_a)
       .def("callback", &IncrementalPipeline::Callback, "id"_a)
-      .def("check_run_global_refinement",
-           &IncrementalPipeline::CheckRunGlobalRefinement,
-           "reconstruction"_a,
-           "ba_prev_num_reg_images"_a,
-           "ba_prev_num_points"_a)
       .def("reconstruct",
            &IncrementalPipeline::Reconstruct,
            "mapper"_a,
@@ -279,7 +280,14 @@ void BindIncrementalPipeline(py::module& m) {
            "mapper"_a,
            "mapper_options"_a,
            "reconstruction"_a)
-      .def("run", &IncrementalPipeline::Run);
+      .def("run", &IncrementalPipeline::Run)
+      .def("check_run_global_refinement",
+           &IncrementalPipeline::CheckRunGlobalRefinement,
+           "reconstruction"_a,
+           "ba_prev_num_reg_images"_a,
+           "ba_prev_num_points"_a)
+      .def("check_reached_max_runtime",
+           &IncrementalPipeline::CheckReachedMaxRuntime);
 }
 
 void BindIncrementalMapperOptions(py::module& m) {

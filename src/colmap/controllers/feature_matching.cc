@@ -142,7 +142,7 @@ class FeatureMatcherThread : public Thread {
       const typename PairGeneratorType::PairingOptions& pairing_options,
       const FeatureMatchingOptions& matching_options,
       const TwoViewGeometryOptions& geometry_options,
-      const std::string& database_path) {
+      const std::filesystem::path& database_path) {
     auto database = Database::Open(database_path);
     auto cache = std::make_shared<FeatureMatcherCache>(
         pairing_options.CacheSize(), database);
@@ -175,7 +175,7 @@ class FeatureMatcherThread : public Thread {
 
  private:
   void Run() override {
-    PrintHeading1("Feature matching & geometric verification");
+    LOG_HEADING1("Feature matching & geometric verification");
 
     Timer run_timer;
     run_timer.Start();
@@ -209,7 +209,7 @@ class FeatureMatcherThread : public Thread {
     if (!matching_options_.skip_geometric_verification &&
         matching_options_.rig_verification) {
       run_timer.Restart();
-      PrintHeading1("Rig verification");
+      LOG_HEADING1("Rig verification");
       RigVerification(
           database_, cache_, geometry_options_, matching_options_.num_threads);
       run_timer.PrintMinutes();
@@ -231,7 +231,7 @@ class GeometricVerifierThread : public Thread {
       const GeometricVerifierOptions& verifier_options,
       const typename PairGeneratorType::PairingOptions& pairing_options,
       const TwoViewGeometryOptions& geometry_options,
-      const std::string& database_path) {
+      const std::filesystem::path& database_path) {
     auto database = Database::Open(database_path);
     auto cache = std::make_shared<FeatureMatcherCache>(
         pairing_options.CacheSize(), database);
@@ -262,7 +262,7 @@ class GeometricVerifierThread : public Thread {
 
  private:
   void Run() override {
-    PrintHeading1("Geometric verification");
+    LOG_HEADING1("Geometric verification");
 
     Timer run_timer;
     run_timer.Start();
@@ -289,7 +289,7 @@ class GeometricVerifierThread : public Thread {
 
     if (verifier_.Options().rig_verification) {
       run_timer.Restart();
-      PrintHeading1("Rig verification");
+      LOG_HEADING1("Rig verification");
       RigVerification(database_,
                       cache_,
                       geometry_options_,
@@ -313,7 +313,7 @@ std::unique_ptr<Thread> CreateExhaustiveFeatureMatcher(
     const ExhaustivePairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
-    const std::string& database_path) {
+    const std::filesystem::path& database_path) {
   return FeatureMatcherThread::Create<ExhaustivePairGenerator>(
       pairing_options, matching_options, geometry_options, database_path);
 }
@@ -322,7 +322,7 @@ std::unique_ptr<Thread> CreateVocabTreeFeatureMatcher(
     const VocabTreePairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
-    const std::string& database_path) {
+    const std::filesystem::path& database_path) {
   return FeatureMatcherThread::Create<VocabTreePairGenerator>(
       pairing_options, matching_options, geometry_options, database_path);
 }
@@ -331,7 +331,7 @@ std::unique_ptr<Thread> CreateSequentialFeatureMatcher(
     const SequentialPairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
-    const std::string& database_path) {
+    const std::filesystem::path& database_path) {
   return FeatureMatcherThread::Create<SequentialPairGenerator>(
       pairing_options, matching_options, geometry_options, database_path);
 }
@@ -340,7 +340,7 @@ std::unique_ptr<Thread> CreateSpatialFeatureMatcher(
     const SpatialPairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
-    const std::string& database_path) {
+    const std::filesystem::path& database_path) {
   return FeatureMatcherThread::Create<SpatialPairGenerator>(
       pairing_options, matching_options, geometry_options, database_path);
 }
@@ -349,7 +349,7 @@ std::unique_ptr<Thread> CreateTransitiveFeatureMatcher(
     const TransitivePairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
-    const std::string& database_path) {
+    const std::filesystem::path& database_path) {
   return FeatureMatcherThread::Create<TransitivePairGenerator>(
       pairing_options, matching_options, geometry_options, database_path);
 }
@@ -358,7 +358,7 @@ std::unique_ptr<Thread> CreateImagePairsFeatureMatcher(
     const ImportedPairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
-    const std::string& database_path) {
+    const std::filesystem::path& database_path) {
   return FeatureMatcherThread::Create<ImportedPairGenerator>(
       pairing_options, matching_options, geometry_options, database_path);
 }
@@ -370,7 +370,7 @@ class FeaturePairsFeatureMatcher : public Thread {
   FeaturePairsFeatureMatcher(const FeaturePairsMatchingOptions& pairing_options,
                              const FeatureMatchingOptions& matching_options,
                              const TwoViewGeometryOptions& geometry_options,
-                             const std::string& database_path)
+                             const std::filesystem::path& database_path)
       : options_(pairing_options),
         matching_options_(matching_options),
         geometry_options_(geometry_options),
@@ -384,7 +384,7 @@ class FeaturePairsFeatureMatcher : public Thread {
 
  private:
   void Run() override {
-    PrintHeading1("Importing matches");
+    LOG_HEADING1("Importing matches");
     Timer run_timer;
     run_timer.Start();
 
@@ -518,7 +518,7 @@ std::unique_ptr<Thread> CreateFeaturePairsFeatureMatcher(
     const FeaturePairsMatchingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
-    const std::string& database_path) {
+    const std::filesystem::path& database_path) {
   return std::make_unique<FeaturePairsFeatureMatcher>(
       pairing_options, matching_options, geometry_options, database_path);
 }
@@ -527,7 +527,7 @@ std::unique_ptr<Thread> CreateGeometricVerifier(
     const GeometricVerifierOptions& verifier_options,
     const ExistingMatchedPairingOptions& pairing_options,
     const TwoViewGeometryOptions& geometry_options,
-    const std::string& database_path) {
+    const std::filesystem::path& database_path) {
   return GeometricVerifierThread::Create<ExistingMatchedPairGenerator>(
       verifier_options, pairing_options, geometry_options, database_path);
 }

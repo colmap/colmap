@@ -4,18 +4,19 @@
 
 namespace glomap {
 
-void PoseGraph::Load(const colmap::DatabaseCache& cache) {
-  const auto corr_graph = cache.CorrespondenceGraph();
-
-  for (const auto& [pair_id, cam2_from_cam1] : cache.RelativePoses()) {
+void PoseGraph::Load(const colmap::CorrespondenceGraph& corr_graph) {
+  for (const auto& [pair_id, num_matches] :
+       corr_graph.NumMatchesBetweenAllImages()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-
-    Edge edge;
-    edge.cam2_from_cam1 = cam2_from_cam1;
-    edge.inlier_matches =
-        corr_graph->FindCorrespondencesBetweenImages(image_id1, image_id2);
-
-    AddEdge(image_id1, image_id2, std::move(edge));
+    const colmap::TwoViewGeometry two_view_geometry =
+        corr_graph.ExtractTwoViewGeometry(
+            image_id1, image_id2, /*extract_inlier_matches=*/false);
+    if (two_view_geometry.cam2_from_cam1.has_value()) {
+      Edge edge;
+      edge.cam2_from_cam1 = *two_view_geometry.cam2_from_cam1;
+      edge.num_matches = num_matches;
+      AddEdge(image_id1, image_id2, std::move(edge));
+    }
   }
 
   LOG(INFO) << "Loaded " << edges_.size() << " edges into pose graph";

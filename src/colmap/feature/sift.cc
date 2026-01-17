@@ -971,6 +971,31 @@ Eigen::RowMajorMatrixXf ComputeSiftDistanceMatrix(
   return distances;
 }
 
+FeatureKeypoints NormalizeFeatureKeypoints(const Camera& camera,
+                                           const FeatureKeypoints& keypoints) {
+  FeatureKeypoints normalized_keypoints(keypoints.size());
+  for (size_t i = 0; i < keypoints.size(); ++i) {
+    const FeatureKeypoint& keypoint = keypoints[i];
+    if (const auto cam_point =
+            camera.CamFromImg(Eigen::Vector2d(keypoint.x, keypoint.y))) {
+      normalized_keypoints[i] = FeatureKeypoint(cam_point->x(), cam_point->y());
+    } else {
+      // Set to large values to ensure that associated matches are rejected.
+      normalized_keypoints[i] = FeatureKeypoint(1e6f, 1e6f);
+    }
+  }
+  return normalized_keypoints;
+}
+
+double ComputeNormalizedGuidedMatchingMaxResidual(const Camera& camera1,
+                                                  const Camera& camera2,
+                                                  const double max_error) {
+  const double normalized_max_error1 = camera1.CamFromImgThreshold(max_error);
+  const double normalized_max_error2 = camera2.CamFromImgThreshold(max_error);
+  return 0.5 * (normalized_max_error1 * normalized_max_error1 +
+                normalized_max_error2 * normalized_max_error2);
+}
+
 class SiftCPUFeatureMatcher : public FeatureMatcher {
  public:
   explicit SiftCPUFeatureMatcher(const FeatureMatchingOptions& options)
@@ -1063,6 +1088,8 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
     THROW_CHECK_NOTNULL(two_view_geometry);
     THROW_CHECK_NE(image1.image_id, kInvalidImageId);
     THROW_CHECK_NE(image2.image_id, kInvalidImageId);
+    THROW_CHECK_NOTNULL(image1.camera);
+    THROW_CHECK_NOTNULL(image2.camera);
     THROW_CHECK_NOTNULL(image1.descriptors);
     THROW_CHECK_NOTNULL(image1.keypoints);
     THROW_CHECK_NOTNULL(image2.descriptors);
@@ -1088,10 +1115,31 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
       prev_image_id2_ = image2.image_id;
     }
 
-    const float max_residual = max_error * max_error;
+    // For calibrated cases, use the essential matrix with normalized
+    // coordinates. This properly handles non-pinhole camera models (with
+    // distortion) where the fundamental matrix relationship doesn't hold.
+    const bool use_essential_matrix =
+        two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
+        two_view_geometry->config == TwoViewGeometry::CALIBRATED_RIG;
+    const FeatureKeypoints normalized_keypoints1 =
+        use_essential_matrix
+            ? NormalizeFeatureKeypoints(*image1.camera, *image1.keypoints)
+            : FeatureKeypoints();
+    const FeatureKeypoints normalized_keypoints2 =
+        use_essential_matrix
+            ? NormalizeFeatureKeypoints(*image2.camera, *image2.keypoints)
+            : FeatureKeypoints();
 
-    const Eigen::Matrix3f F = two_view_geometry->F.cast<float>();
-    const Eigen::Matrix3f H = two_view_geometry->H.cast<float>();
+    const Eigen::Matrix3f E_or_F = use_essential_matrix
+                                       ? two_view_geometry->E->cast<float>()
+                                       : two_view_geometry->F->cast<float>();
+    const Eigen::Matrix3f H = two_view_geometry->H->cast<float>();
+
+    const float max_residual =
+        use_essential_matrix
+            ? static_cast<float>(ComputeNormalizedGuidedMatchingMaxResidual(
+                  *image1.camera, *image2.camera, max_error))
+            : static_cast<float>(max_error * max_error);
 
     std::function<bool(float, float, float, float)> guided_filter;
     if (two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
@@ -1101,13 +1149,14 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
           [&](const float x1, const float y1, const float x2, const float y2) {
             const Eigen::Vector3f p1(x1, y1, 1.0f);
             const Eigen::Vector3f p2(x2, y2, 1.0f);
-            const Eigen::Vector3f Fx1 = F * p1;
-            const Eigen::Vector3f Ftx2 = F.transpose() * p2;
-            const float x2tFx1 = p2.transpose() * Fx1;
-            return x2tFx1 * x2tFx1 /
-                       (Fx1(0) * Fx1(0) + Fx1(1) * Fx1(1) + Ftx2(0) * Ftx2(0) +
-                        Ftx2(1) * Ftx2(1)) >
-                   max_residual;
+            const Eigen::Vector3f epipolar_line1 = E_or_F * p1;
+            const Eigen::Vector3f epipolar_line2 = E_or_F.transpose() * p2;
+            const float nom = p2.transpose() * epipolar_line1;
+            const float denom_sq = epipolar_line1(0) * epipolar_line1(0) +
+                                   epipolar_line1(1) * epipolar_line1(1) +
+                                   epipolar_line2(0) * epipolar_line2(0) +
+                                   epipolar_line2(1) * epipolar_line2(1);
+            return nom * nom > max_residual * denom_sq;
           };
     } else if (two_view_geometry->config == TwoViewGeometry::PLANAR ||
                two_view_geometry->config == TwoViewGeometry::PANORAMIC ||
@@ -1125,13 +1174,13 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
 
     THROW_CHECK(guided_filter);
 
-    const Eigen::RowMajorMatrixXf l2_dists_1to2 =
-        ComputeSiftDistanceMatrix(DistanceType::L2,
-                                  image1.keypoints.get(),
-                                  image2.keypoints.get(),
-                                  *image1.descriptors,
-                                  *image2.descriptors,
-                                  guided_filter);
+    const Eigen::RowMajorMatrixXf l2_dists_1to2 = ComputeSiftDistanceMatrix(
+        DistanceType::L2,
+        use_essential_matrix ? &normalized_keypoints1 : image1.keypoints.get(),
+        use_essential_matrix ? &normalized_keypoints2 : image2.keypoints.get(),
+        *image1.descriptors,
+        *image2.descriptors,
+        guided_filter);
     const Eigen::RowMajorMatrixXf l2_dists_2to1 = l2_dists_1to2.transpose();
 
     Eigen::RowMajorMatrixXi indices_1to2(l2_dists_1to2.rows(),
@@ -1320,6 +1369,8 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     THROW_CHECK_NOTNULL(two_view_geometry);
     THROW_CHECK_NE(image1.image_id, kInvalidImageId);
     THROW_CHECK_NE(image2.image_id, kInvalidImageId);
+    THROW_CHECK_NOTNULL(image1.camera);
+    THROW_CHECK_NOTNULL(image2.camera);
     THROW_CHECK_NOTNULL(image1.descriptors);
     THROW_CHECK_NOTNULL(image1.keypoints);
     THROW_CHECK_NOTNULL(image2.descriptors);
@@ -1340,66 +1391,104 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 
     constexpr size_t kFeatureShapeNumElems = 4;
 
+    // For calibrated cases, use the essential matrix with normalized
+    // coordinates. This properly handles non-pinhole camera models (with
+    // distortion) where the fundamental matrix relationship doesn't hold.
+    const bool use_essential_matrix =
+        two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
+        two_view_geometry->config == TwoViewGeometry::CALIBRATED_RIG;
+
     if (prev_image_id1_ == kInvalidImageId || !prev_is_guided_ ||
-        prev_image_id1_ != image1.image_id) {
+        prev_image_id1_ != image1.image_id ||
+        use_essential_matrix != prev_use_essential_matrix_) {
       WarnIfMaxNumMatchesReachedGPU(*image1.descriptors);
-      const size_t kIndex = 0;
+      constexpr size_t kIndex = 0;
       sift_match_gpu_.SetDescriptors(
           kIndex, image1.descriptors->rows(), image1.descriptors->data());
-      sift_match_gpu_.SetFeautreLocation(
-          kIndex,
-          reinterpret_cast<const float*>(image1.keypoints->data()),
-          kFeatureShapeNumElems);
+      if (use_essential_matrix) {
+        const FeatureKeypoints normalized_keypoints1 =
+            NormalizeFeatureKeypoints(*image1.camera, *image1.keypoints);
+        sift_match_gpu_.SetFeatureLocation(
+            kIndex,
+            reinterpret_cast<const float*>(normalized_keypoints1.data()),
+            kFeatureShapeNumElems);
+      } else {
+        sift_match_gpu_.SetFeatureLocation(
+            kIndex,
+            reinterpret_cast<const float*>(image1.keypoints->data()),
+            kFeatureShapeNumElems);
+      }
       prev_image_id1_ = image1.image_id;
     }
 
     if (prev_image_id2_ == kInvalidImageId || !prev_is_guided_ ||
-        prev_image_id2_ != image2.image_id) {
+        prev_image_id2_ != image2.image_id ||
+        use_essential_matrix != prev_use_essential_matrix_) {
       WarnIfMaxNumMatchesReachedGPU(*image2.descriptors);
-      const size_t kIndex = 1;
+      constexpr size_t kIndex = 1;
       sift_match_gpu_.SetDescriptors(
           kIndex, image2.descriptors->rows(), image2.descriptors->data());
-      sift_match_gpu_.SetFeautreLocation(
-          kIndex,
-          reinterpret_cast<const float*>(image2.keypoints->data()),
-          kFeatureShapeNumElems);
+      if (use_essential_matrix) {
+        const FeatureKeypoints normalized_keypoints2 =
+            NormalizeFeatureKeypoints(*image2.camera, *image2.keypoints);
+        sift_match_gpu_.SetFeatureLocation(
+            kIndex,
+            reinterpret_cast<const float*>(normalized_keypoints2.data()),
+            kFeatureShapeNumElems);
+      } else {
+        sift_match_gpu_.SetFeatureLocation(
+            kIndex,
+            reinterpret_cast<const float*>(image2.keypoints->data()),
+            kFeatureShapeNumElems);
+      }
       prev_image_id2_ = image2.image_id;
     }
 
     prev_is_guided_ = true;
+    prev_use_essential_matrix_ = use_essential_matrix;
 
-    Eigen::Matrix<float, 3, 3, Eigen::RowMajor> F;
+    Eigen::Matrix<float, 3, 3, Eigen::RowMajor> E_or_F;
     Eigen::Matrix<float, 3, 3, Eigen::RowMajor> H;
-    float* F_ptr = nullptr;
+    float* E_or_F_ptr = nullptr;
     float* H_ptr = nullptr;
     if (two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
         two_view_geometry->config == TwoViewGeometry::CALIBRATED_RIG ||
         two_view_geometry->config == TwoViewGeometry::UNCALIBRATED) {
-      F = two_view_geometry->F.cast<float>();
-      F_ptr = F.data();
+      if (use_essential_matrix) {
+        // Use essential matrix with normalized coordinates.
+        E_or_F = two_view_geometry->E.value().cast<float>();
+      } else {
+        // Use fundamental matrix with pixel coordinates.
+        E_or_F = two_view_geometry->F.value().cast<float>();
+      }
+      E_or_F_ptr = E_or_F.data();
     } else if (two_view_geometry->config == TwoViewGeometry::PLANAR ||
                two_view_geometry->config == TwoViewGeometry::PANORAMIC ||
                two_view_geometry->config ==
                    TwoViewGeometry::PLANAR_OR_PANORAMIC) {
-      H = two_view_geometry->H.cast<float>();
+      H = two_view_geometry->H.value().cast<float>();
       H_ptr = H.data();
     } else {
       return;
     }
 
-    THROW_CHECK(F_ptr != nullptr || H_ptr != nullptr);
+    THROW_CHECK(E_or_F_ptr != nullptr || H_ptr != nullptr);
 
     two_view_geometry->inlier_matches.resize(
         static_cast<size_t>(options_.max_num_matches));
 
-    const float max_residual = static_cast<float>(max_error * max_error);
+    const float max_residual =
+        use_essential_matrix
+            ? static_cast<float>(ComputeNormalizedGuidedMatchingMaxResidual(
+                  *image1.camera, *image2.camera, max_error))
+            : static_cast<float>(max_error * max_error);
 
     const int num_matches = sift_match_gpu_.GetGuidedSiftMatch(
         options_.max_num_matches,
         reinterpret_cast<uint32_t (*)[2]>(
             two_view_geometry->inlier_matches.data()),
         H_ptr,
-        F_ptr,
+        E_or_F_ptr,
         static_cast<float>(options_.sift->max_distance),
         static_cast<float>(options_.sift->max_ratio),
         max_residual,
@@ -1432,6 +1521,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
   SiftMatchGPU sift_match_gpu_;
   SiftBackend backend_;
   bool prev_is_guided_ = false;
+  bool prev_use_essential_matrix_ = false;
   image_t prev_image_id1_ = kInvalidImageId;
   image_t prev_image_id2_ = kInvalidImageId;
 };
@@ -1455,13 +1545,13 @@ std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
   }
 }
 
-void LoadSiftFeaturesFromTextFile(const std::string& path,
+void LoadSiftFeaturesFromTextFile(const std::filesystem::path& path,
                                   FeatureKeypoints* keypoints,
                                   FeatureDescriptors* descriptors) {
   THROW_CHECK_NOTNULL(keypoints);
   THROW_CHECK_NOTNULL(descriptors);
 
-  std::ifstream file(path.c_str());
+  std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
 
   std::string line;

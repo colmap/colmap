@@ -1,6 +1,7 @@
 #pragma once
 
 #include "colmap/geometry/pose_prior.h"
+#include "colmap/math/math.h"
 #include "colmap/scene/reconstruction.h"
 
 #include "glomap/scene/pose_graph.h"

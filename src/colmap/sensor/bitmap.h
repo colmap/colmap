@@ -32,9 +32,11 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -116,24 +118,25 @@ class Bitmap {
                                   BitmapColor<uint8_t>* color) const;
   bool InterpolateBilinear(double x, double y, BitmapColor<float>* color) const;
 
-  // Extract EXIF information from bitmap. Returns false if no EXIF information
-  // is embedded in the bitmap.
-  bool ExifCameraModel(std::string* camera_model) const;
-  bool ExifFocalLength(double* focal_length) const;
-  bool ExifLatitude(double* latitude) const;
-  bool ExifLongitude(double* longitude) const;
-  bool ExifAltitude(double* altitude) const;
+  // Extract EXIF information from bitmap. Returns std::nullopt if no EXIF
+  // information is embedded in the bitmap.
+  std::optional<std::string> ExifCameraModel() const;
+  std::optional<double> ExifFocalLength() const;
+  std::optional<double> ExifLatitude() const;
+  std::optional<double> ExifLongitude() const;
+  std::optional<double> ExifAltitude() const;
 
   // Read bitmap at given path and convert to grey- or colorscale. Defaults to
   // keeping the original colorspace (potentially non-linear) for image
   // processing.
-  bool Read(const std::string& path,
+  bool Read(const std::filesystem::path& path,
             bool as_rgb = true,
             bool linearize_colorspace = false);
 
   // Write bitmap to file at given path. Defaults to converting to sRGB
   // colorspace for file storage.
-  bool Write(const std::string& path, bool delinearize_colorspace = true) const;
+  bool Write(const std::filesystem::path& path,
+             bool delinearize_colorspace = true) const;
 
   // Rescale image to the new dimensions.
   enum class RescaleFilter {
@@ -157,7 +160,7 @@ class Bitmap {
   bool GetMetaData(const std::string_view& name,
                    const std::string_view& type,
                    void* value) const;
-  bool GetMetaData(const std::string_view& name, std::string_view* value) const;
+  std::optional<std::string> GetMetaData(const std::string_view& name) const;
 
   // Clone metadata from this bitmap object to another target bitmap object.
   void CloneMetadata(Bitmap* target) const;

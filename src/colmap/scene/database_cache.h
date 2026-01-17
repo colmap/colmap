@@ -29,7 +29,6 @@
 
 #pragma once
 
-#include "colmap/geometry/rigid3.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/correspondence_graph.h"
 #include "colmap/scene/database.h"
@@ -62,8 +61,8 @@ class DatabaseCache {
     // frame will also be included. All images are used if empty.
     std::unordered_set<std::string> image_names;
 
-    // Whether to load relative poses (cam2_from_cam1) for image pairs.
-    bool load_relative_pose = false;
+    // Whether to convert pose priors to ENU coordinate system.
+    bool convert_pose_priors_to_enu = false;
   };
 
   DatabaseCache();
@@ -85,7 +84,6 @@ class DatabaseCache {
   inline size_t NumFrames() const;
   inline size_t NumImages() const;
   inline size_t NumPosePriors() const;
-  inline size_t NumRelativePoses() const;
 
   // Add objects.
   void AddRig(class Rig rig);
@@ -121,37 +119,18 @@ class DatabaseCache {
   inline std::shared_ptr<const class CorrespondenceGraph> CorrespondenceGraph()
       const;
 
-  // Get relative poses between image pairs.
-  // The map key is the image pair ID (use ImagePairToPairId/PairIdToImagePair).
-  // The pose is cam2_from_cam1 with normalized translation.
-  inline const std::unordered_map<image_pair_t, Rigid3d>& RelativePoses() const;
-
-  // Check if relative pose exists for an image pair.
-  inline bool ExistsRelativePose(image_t image_id1, image_t image_id2) const;
-
-  // Get relative pose for an image pair.
-  // Returns cam2_from_cam1 for the given image order.
-  // If image_id1 > image_id2, the pose is inverted.
-  Rigid3d RelativePose(image_t image_id1, image_t image_id2) const;
-
   // Find specific image by name. Note that this uses linear search.
   const class Image* FindImageWithName(const std::string& name) const;
 
-  // Setup PosePriors for PosePriorBundleAdjustment
-  bool SetupPosePriors();
-
  private:
-  std::shared_ptr<class CorrespondenceGraph> correspondence_graph_;
+  void ConvertPosePriorsToENU();
 
   std::unordered_map<rig_t, class Rig> rigs_;
   std::unordered_map<camera_t, struct Camera> cameras_;
   std::unordered_map<frame_t, class Frame> frames_;
   std::unordered_map<image_t, class Image> images_;
   std::vector<struct PosePrior> pose_priors_;
-
-  // Relative poses (cam2_from_cam1) for image pairs.
-  // Key is image_pair_t with image_id1 < image_id2.
-  std::unordered_map<image_pair_t, Rigid3d> relative_poses_;
+  std::shared_ptr<class CorrespondenceGraph> correspondence_graph_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -167,10 +146,6 @@ size_t DatabaseCache::NumFrames() const { return frames_.size(); }
 size_t DatabaseCache::NumImages() const { return images_.size(); }
 
 size_t DatabaseCache::NumPosePriors() const { return pose_priors_.size(); }
-
-size_t DatabaseCache::NumRelativePoses() const {
-  return relative_poses_.size();
-}
 
 class Rig& DatabaseCache::Rig(const rig_t rig_id) { return rigs_.at(rig_id); }
 
@@ -242,17 +217,6 @@ bool DatabaseCache::ExistsImage(const image_t image_id) const {
 std::shared_ptr<const class CorrespondenceGraph>
 DatabaseCache::CorrespondenceGraph() const {
   return correspondence_graph_;
-}
-
-const std::unordered_map<image_pair_t, Rigid3d>& DatabaseCache::RelativePoses()
-    const {
-  return relative_poses_;
-}
-
-bool DatabaseCache::ExistsRelativePose(const image_t image_id1,
-                                       const image_t image_id2) const {
-  return relative_poses_.find(ImagePairToPairId(image_id1, image_id2)) !=
-         relative_poses_.end();
 }
 
 }  // namespace colmap

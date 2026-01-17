@@ -31,6 +31,7 @@
 
 #include "colmap/estimators/alignment.h"
 #include "colmap/geometry/triangulation.h"
+#include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/projection.h"
 #include "colmap/util/logging.h"
@@ -59,11 +60,11 @@ ObservationManager::ObservationManager(
   // Add image pairs.
   if (correspondence_graph_) {
     image_pair_stats_.reserve(correspondence_graph_->NumImagePairs());
-    for (const auto& image_pair :
-         correspondence_graph_->NumCorrespondencesBetweenImages()) {
+    for (const auto& [pair_id, num_matches] :
+         correspondence_graph_->NumMatchesBetweenAllImages()) {
       ImagePairStat image_pair_stat;
-      image_pair_stat.num_total_corrs = image_pair.second;
-      image_pair_stats_.emplace(image_pair.first, image_pair_stat);
+      image_pair_stat.num_total_corrs = num_matches;
+      image_pair_stats_.emplace(pair_id, image_pair_stat);
     }
   }
 

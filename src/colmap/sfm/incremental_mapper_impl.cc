@@ -30,15 +30,11 @@
 #include "colmap/sfm/incremental_mapper_impl.h"
 
 #include "colmap/estimators/generalized_pose.h"
-#include "colmap/estimators/pose.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/triangulation.h"
-#include "colmap/scene/projection.h"
-#include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
 #include <array>
-#include <fstream>
 
 namespace colmap {
 namespace {
@@ -629,6 +625,7 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
     return it->second;
   };
 
+  FeatureMatches matches;
   for (const data_t& image_id1 : frame1.ImageIds()) {
     const Image& image1 = database_cache.Image(image_id1.id);
     const Camera& camera1 = database_cache.Camera(image1.CameraId());
@@ -639,9 +636,8 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
       const Camera& camera2 = database_cache.Camera(image2.CameraId());
       const size_t camera_idx2 = maybe_add_camera(rig2, camera2);
 
-      const FeatureMatches matches =
-          database_cache.CorrespondenceGraph()
-              ->FindCorrespondencesBetweenImages(image_id1.id, image_id2.id);
+      database_cache.CorrespondenceGraph()->ExtractMatchesBetweenImages(
+          image_id1.id, image_id2.id, matches);
       for (const auto& match : matches) {
         points2D1.push_back(image1.Point2D(match.point2D_idx1).xy);
         points2D2.push_back(image2.Point2D(match.point2D_idx2).xy);
@@ -720,9 +716,9 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
   const Camera& camera1 = database_cache.Camera(image1.CameraId());
   const Camera& camera2 = database_cache.Camera(image2.CameraId());
 
-  const FeatureMatches matches =
-      database_cache.CorrespondenceGraph()->FindCorrespondencesBetweenImages(
-          image_id1, image_id2);
+  FeatureMatches matches;
+  database_cache.CorrespondenceGraph()->ExtractMatchesBetweenImages(
+      image_id1, image_id2, matches);
 
   std::vector<Eigen::Vector2d> points1;
   points1.reserve(image1.NumPoints2D());

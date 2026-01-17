@@ -15,22 +15,11 @@ namespace {
 std::shared_ptr<colmap::DatabaseCache> CreateDatabaseCache(
     const colmap::Database& database) {
   colmap::DatabaseCache::Options options;
-  options.load_relative_pose = true;
   return colmap::DatabaseCache::Create(database, options);
 }
 
-GlobalMapperOptions CreateTestOptions() {
-  GlobalMapperOptions options;
-  options.skip_rotation_averaging = false;
-  options.skip_track_establishment = false;
-  options.skip_global_positioning = false;
-  options.skip_bundle_adjustment = false;
-  options.skip_retriangulation = false;
-  return options;
-}
-
 TEST(GlobalMapper, WithoutNoise) {
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -39,6 +28,7 @@ TEST(GlobalMapper, WithoutNoise) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 7;
   synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -48,7 +38,7 @@ TEST(GlobalMapper, WithoutNoise) {
   global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(CreateTestOptions(), cluster_ids);
+  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
 
   EXPECT_THAT(gt_reconstruction,
               colmap::ReconstructionNear(*reconstruction,
@@ -57,7 +47,7 @@ TEST(GlobalMapper, WithoutNoise) {
 }
 
 TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -69,6 +59,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
   synthetic_dataset_options.sensor_from_rig_translation_stddev =
       0.1;                                                         // No noise
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 5.;  // No noise
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -78,7 +69,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
   global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(CreateTestOptions(), cluster_ids);
+  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
 
   EXPECT_THAT(gt_reconstruction,
               colmap::ReconstructionNear(*reconstruction,
@@ -87,7 +78,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
 }
 
 TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -100,6 +91,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
       0.1;                                                         // No noise
   synthetic_dataset_options.sensor_from_rig_rotation_stddev = 5.;  // No noise
 
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
@@ -118,7 +110,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
   }
 
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(CreateTestOptions(), cluster_ids);
+  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
 
   EXPECT_THAT(gt_reconstruction,
               colmap::ReconstructionNear(*reconstruction,
@@ -127,7 +119,7 @@ TEST(GlobalMapper, WithoutNoiseWithNonTrivialUnknownRig) {
 }
 
 TEST(GlobalMapper, WithNoiseAndOutliers) {
-  const std::string database_path = colmap::CreateTestDir() + "/database.db";
+  const auto database_path = colmap::CreateTestDir() / "database.db";
 
   auto database = colmap::Database::Open(database_path);
   colmap::Reconstruction gt_reconstruction;
@@ -137,6 +129,7 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
   synthetic_dataset_options.num_frames_per_rig = 4;
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.inlier_match_ratio = 0.7;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
   colmap::SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   colmap::SyntheticNoiseOptions synthetic_noise_options;
@@ -150,7 +143,7 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
   global_mapper.BeginReconstruction(reconstruction);
 
   std::unordered_map<frame_t, int> cluster_ids;
-  global_mapper.Solve(CreateTestOptions(), cluster_ids);
+  global_mapper.Solve(GlobalMapperOptions(), cluster_ids);
 
   EXPECT_THAT(gt_reconstruction,
               colmap::ReconstructionNear(*reconstruction,

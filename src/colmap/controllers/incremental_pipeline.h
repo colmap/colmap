@@ -33,6 +33,7 @@
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/util/base_controller.h"
 
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <unordered_set>
@@ -63,7 +64,8 @@ struct IncrementalPipelineOptions {
 
   // The minimum number of registered images of a sub-model, otherwise the
   // sub-model is discarded. Note that the first sub-model is always kept
-  // independent of size.
+  // independent of size. If the model contains at least half of the total
+  // number of images, we also always keep it.
   int min_model_size = 10;
 
   // The image identifiers used to initialize the reconstruction. Note that
@@ -150,12 +152,12 @@ struct IncrementalPipelineOptions {
   // Path to a folder with reconstruction snapshots during incremental
   // reconstruction. Snapshots will be saved according to the specified
   // frequency of registered images.
-  std::string snapshot_path;
+  std::filesystem::path snapshot_path;
   int snapshot_frames_freq = 0;
 
   // The image path at which to find the images to extract point colors.
   // If not specified, all point colors will be black.
-  std::string image_path;
+  std::filesystem::path image_path;
 
   // Optional list of image names to reconstruct. If no images are specified,
   // all images will be reconstructed by default.
@@ -201,22 +203,30 @@ class IncrementalPipeline : public BaseController {
     LAST_IMAGE_REG_CALLBACK,
   };
 
-  enum class Status { NO_INITIAL_PAIR, BAD_INITIAL_PAIR, SUCCESS, INTERRUPTED };
+  enum class Status {
+    SUCCESS,
+    INTERRUPTED,
+    CONTINUE,
+    STOP,
+    NO_INITIAL_PAIR,
+    BAD_INITIAL_PAIR,
+    UNKNOWN_SENSOR_FROM_RIG,
+  };
 
   IncrementalPipeline(
-      std::shared_ptr<const IncrementalPipelineOptions> options,
+      std::shared_ptr<IncrementalPipelineOptions> options,
       std::shared_ptr<class Database> database,
       std::shared_ptr<class ReconstructionManager> reconstruction_manager);
 
   IncrementalPipeline(
-      std::shared_ptr<const IncrementalPipelineOptions> options,
+      std::shared_ptr<IncrementalPipelineOptions> options,
       std::shared_ptr<class DatabaseCache> database_cache,
       std::shared_ptr<class ReconstructionManager> reconstruction_manager);
 
   void Run() override;
 
-  // getter functions for python pipelines
-  const std::shared_ptr<const IncrementalPipelineOptions>& Options() const {
+  // Getter functions for python pipelines.
+  std::shared_ptr<const IncrementalPipelineOptions> Options() const {
     return options_;
   }
   const std::shared_ptr<class ReconstructionManager>& ReconstructionManager()
@@ -227,9 +237,9 @@ class IncrementalPipeline : public BaseController {
     return database_cache_;
   }
 
-  void Reconstruct(IncrementalMapper& mapper,
-                   const IncrementalMapper::Options& mapper_options,
-                   bool continue_reconstruction);
+  Status Reconstruct(IncrementalMapper& mapper,
+                     const IncrementalMapper::Options& mapper_options,
+                     bool continue_reconstruction);
 
   Status ReconstructSubModel(
       IncrementalMapper& mapper,
@@ -248,10 +258,12 @@ class IncrementalPipeline : public BaseController {
                                 size_t ba_prev_num_reg_images,
                                 size_t ba_prev_num_points);
 
- private:
-  bool ReachedMaxRuntime() const;
+  bool CheckReachedMaxRuntime() const;
 
-  const std::shared_ptr<const IncrementalPipelineOptions> options_;
+ private:
+  void RegisterCallbacks();
+
+  const std::shared_ptr<IncrementalPipelineOptions> options_;
   std::shared_ptr<class ReconstructionManager> reconstruction_manager_;
   std::shared_ptr<class DatabaseCache> database_cache_;
   std::shared_ptr<Timer> total_run_timer_;

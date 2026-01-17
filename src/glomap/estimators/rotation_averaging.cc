@@ -1,6 +1,7 @@
 #include "glomap/estimators/rotation_averaging.h"
 
 #include "colmap/geometry/pose.h"
+#include "colmap/math/math.h"
 #include "colmap/math/spanning_tree.h"
 
 #include "glomap/estimators/rotation_averaging_impl.h"
@@ -10,6 +11,20 @@
 
 namespace glomap {
 namespace {
+
+bool HasGravityPriors(const std::vector<colmap::PosePrior>& pose_priors) {
+  for (const auto& pose_prior : pose_priors) {
+    if (pose_prior.HasGravity()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool UseGravity(const RotationEstimatorOptions& options,
+                const std::vector<colmap::PosePrior>& pose_priors) {
+  return options.use_gravity && HasGravityPriors(pose_priors);
+}
 
 bool AllSensorsFromRigKnown(
     const std::unordered_map<rig_t, colmap::Rig>& rigs) {
@@ -60,7 +75,7 @@ image_t ComputeMaximumSpanningTree(
       continue;
     }
     edges.emplace_back(it1->second, it2->second);
-    weights.push_back(static_cast<float>(edge.inlier_matches.size()));
+    weights.push_back(static_cast<float>(edge.num_matches));
   }
 
   // Compute spanning tree using generic algorithm.
@@ -258,12 +273,13 @@ bool RotationEstimator::EstimateRotations(
     const std::vector<colmap::PosePrior>& pose_priors,
     const std::unordered_set<image_t>& active_image_ids,
     colmap::Reconstruction& reconstruction) {
-  if (options_.use_gravity && !AllSensorsFromRigKnown(reconstruction.Rigs())) {
+  if (UseGravity(options_, pose_priors) &&
+      !AllSensorsFromRigKnown(reconstruction.Rigs())) {
     return false;
   }
 
   // Handle stratified solving for mixed gravity systems.
-  if (options_.use_gravity && options_.use_stratified) {
+  if (UseGravity(options_, pose_priors) && options_.use_stratified) {
     if (!MaybeSolveGravityAlignedSubset(
             pose_graph, pose_priors, active_image_ids, reconstruction)) {
       return false;
@@ -383,8 +399,8 @@ bool RotationEstimator::SolveRotationAveraging(
     const std::vector<colmap::PosePrior>& pose_priors,
     const std::unordered_set<image_t>& active_image_ids,
     colmap::Reconstruction& reconstruction) {
-  // Initialize rotations from maximum spanning tree.
-  if (!options_.skip_initialization && !options_.use_gravity) {
+  // Initialize rotations from maximum spanning tree if no gravity priors.
+  if (!options_.skip_initialization && !UseGravity(options_, pose_priors)) {
     InitializeFromMaximumSpanningTree(
         pose_graph, active_image_ids, reconstruction);
   }
@@ -549,10 +565,10 @@ bool InitializeRigRotationsFromImages(
   return true;
 }
 
-bool SolveRotationAveraging(const RotationEstimatorOptions& options,
-                            PoseGraph& pose_graph,
-                            colmap::Reconstruction& reconstruction,
-                            const std::vector<colmap::PosePrior>& pose_priors) {
+bool RunRotationAveraging(const RotationEstimatorOptions& options,
+                          PoseGraph& pose_graph,
+                          colmap::Reconstruction& reconstruction,
+                          const std::vector<colmap::PosePrior>& pose_priors) {
   std::unordered_set<image_t> active_image_ids;
 
   // Step 1: Solve rotation averaging on the largest connected component.

@@ -35,8 +35,8 @@
 int main(int argc, char** argv) {
   colmap::InitializeGlog(argv);
 
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
 
   colmap::OptionManager options;
   options.AddRequiredOption("input_path", &input_path);

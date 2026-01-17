@@ -34,6 +34,8 @@
 #include "colmap/controllers/global_pipeline.h"
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/option_manager.h"
+#include "colmap/controllers/reconstruction_clustering.h"
+#include "colmap/controllers/rotation_averaging.h"
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/exe/gui.h"
@@ -43,11 +45,6 @@
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
-
-#include "glomap/estimators/gravity_refinement.h"
-#include "glomap/estimators/rotation_averaging.h"
-#include "glomap/io/pose_io.h"
-#include "glomap/scene/pose_graph.h"
 
 #include <limits>
 
@@ -69,8 +66,9 @@ ExtractExistingImages(const Reconstruction& reconstruction) {
   return {std::move(fixed_image_ids), std::move(orig_fixed_image_positions)};
 }
 
-void UpdateDatabasePosePriorsCovariance(const std::string& database_path,
-                                        const Eigen::Matrix3d& covariance) {
+void UpdateDatabasePosePriorsCovariance(
+    const std::filesystem::path& database_path,
+    const Eigen::Matrix3d& covariance) {
   auto database = Database::Open(database_path);
   DatabaseTransaction database_transaction(database.get());
 
@@ -88,7 +86,7 @@ void UpdateDatabasePosePriorsCovariance(const std::string& database_path,
 
 int RunAutomaticReconstructor(int argc, char** argv) {
   AutomaticReconstructionController::Options reconstruction_options;
-  std::string image_list_path;
+  std::filesystem::path image_list_path;
   std::string data_type = "individual";
   std::string quality = "high";
   std::string mapper = "incremental";
@@ -166,8 +164,8 @@ int RunAutomaticReconstructor(int argc, char** argv) {
 }
 
 int RunBundleAdjuster(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
@@ -199,8 +197,8 @@ int RunBundleAdjuster(int argc, char** argv) {
 }
 
 int RunColorExtractor(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
 
   OptionManager options;
   options.AddImageOptions();
@@ -219,9 +217,9 @@ int RunColorExtractor(int argc, char** argv) {
 }
 
 bool RunIncrementalMapperImpl(
-    const std::string& database_path,
-    const std::string& image_path,
-    const std::string& output_path,
+    const std::filesystem::path& database_path,
+    const std::filesystem::path& image_path,
+    const std::filesystem::path& output_path,
     const std::shared_ptr<IncrementalPipelineOptions>& mapper_options,
     std::shared_ptr<ReconstructionManager>& reconstruction_manager,
     std::function<void()> initial_image_pair_callback,
@@ -253,8 +251,8 @@ bool RunIncrementalMapperImpl(
       // If the number of reconstructions has not changed, the last model
       // was discarded for some reason.
       if (reconstruction_manager->Size() > prev_num_reconstructions) {
-        const std::string reconstruction_path =
-            JoinPaths(output_path, std::to_string(prev_num_reconstructions));
+        const auto reconstruction_path =
+            output_path / std::to_string(prev_num_reconstructions);
         CreateDirIfNotExists(reconstruction_path);
         reconstruction_manager->Get(prev_num_reconstructions)
             ->Write(reconstruction_path);
@@ -276,6 +274,7 @@ bool RunIncrementalMapperImpl(
   mapper.Run();
 
   if (reconstruction_manager->Size() == 0) {
+    LOG(ERROR) << "Failed to create any sparse model";
     return false;
   }
 
@@ -314,8 +313,8 @@ bool RunIncrementalMapperImpl(
 }
 
 int RunMapper(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
 
   OptionManager options;
   options.AddDatabaseOptions();
@@ -346,15 +345,13 @@ int RunMapper(int argc, char** argv) {
                                 output_path,
                                 options.mapper,
                                 reconstruction_manager)) {
-    LOG(ERROR) << "failed to create sparse model";
     return EXIT_FAILURE;
   }
 
   if (input_path.empty()) {
     for (size_t i = 0; i < reconstruction_manager->Size(); ++i) {
-      const std::string reconstruction_path =
-          JoinPaths(output_path, std::to_string(i));
-      options.Write(JoinPaths(reconstruction_path, "project.ini"));
+      const auto reconstruction_path = output_path / std::to_string(i);
+      options.Write(reconstruction_path / "project.ini");
     }
   }
 
@@ -362,7 +359,7 @@ int RunMapper(int argc, char** argv) {
 }
 
 int RunGlobalMapper(int argc, char** argv) {
-  std::string output_path;
+  std::filesystem::path output_path;
 
   OptionManager options;
   options.AddDatabaseOptions();
@@ -394,14 +391,14 @@ int RunGlobalMapper(int argc, char** argv) {
   }
 
   reconstruction_manager->Write(output_path);
-  options.Write(JoinPaths(output_path, "project.ini"));
+  options.Write(output_path / "project.ini");
 
   return EXIT_SUCCESS;
 }
 
 int RunHierarchicalMapper(int argc, char** argv) {
   HierarchicalPipeline::Options mapper_options;
-  std::string output_path;
+  std::filesystem::path output_path;
 
   OptionManager options;
   options.AddDatabaseOptions();
@@ -437,14 +434,14 @@ int RunHierarchicalMapper(int argc, char** argv) {
   }
 
   reconstruction_manager->Write(output_path);
-  options.Write(JoinPaths(output_path, "project.ini"));
+  options.Write(output_path / "project.ini");
 
   return EXIT_SUCCESS;
 }
 
 int RunPosePriorMapper(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
 
   bool overwrite_priors_covariance = false;
   double prior_position_std_x = 1.;
@@ -504,15 +501,13 @@ int RunPosePriorMapper(int argc, char** argv) {
                                 output_path,
                                 options.mapper,
                                 reconstruction_manager)) {
-    LOG(ERROR) << "failed to create sparse model";
     return EXIT_FAILURE;
   }
 
   if (input_path.empty()) {
     for (size_t i = 0; i < reconstruction_manager->Size(); ++i) {
-      const std::string reconstruction_path =
-          JoinPaths(output_path, std::to_string(i));
-      options.Write(JoinPaths(reconstruction_path, "project.ini"));
+      const auto reconstruction_path = output_path / std::to_string(i);
+      options.Write(reconstruction_path / "project.ini");
     }
   }
 
@@ -520,8 +515,8 @@ int RunPosePriorMapper(int argc, char** argv) {
 }
 
 int RunPointFiltering(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
 
   size_t min_track_len = 2;
   double max_reproj_error = 4.0;
@@ -559,8 +554,8 @@ int RunPointFiltering(int argc, char** argv) {
 }
 
 int RunPointTriangulator(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
   bool clear_points = true;
   bool refine_intrinsics = false;
 
@@ -594,7 +589,7 @@ int RunPointTriangulator(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  PrintHeading1("Loading model");
+  LOG_HEADING1("Loading model");
 
   auto reconstruction = std::make_shared<Reconstruction>();
   reconstruction->Read(input_path);
@@ -611,9 +606,9 @@ int RunPointTriangulator(int argc, char** argv) {
 
 void RunPointTriangulatorImpl(
     const std::shared_ptr<Reconstruction>& reconstruction,
-    const std::string& database_path,
-    const std::string& image_path,
-    const std::string& output_path,
+    const std::filesystem::path& database_path,
+    const std::filesystem::path& image_path,
+    const std::filesystem::path& output_path,
     const IncrementalPipelineOptions& options,
     const bool clear_points,
     const bool refine_intrinsics) {
@@ -639,114 +634,58 @@ void RunPointTriangulatorImpl(
   reconstruction->Write(output_path);
 }
 
-// TODO: Switch to database input and RotationAveragingController in the future.
 int RunRotationAverager(int argc, char** argv) {
-  std::string relpose_path;
-  std::string output_path;
-  std::string gravity_path;
+  std::filesystem::path output_path;
+  std::filesystem::path image_list_path;
 
-  bool use_stratified = true;
-  bool refine_gravity = false;
+  RotationAveragingPipelineOptions controller_options;
 
   OptionManager options;
-  options.AddRequiredOption("relpose_path", &relpose_path);
+  options.AddDatabaseOptions();
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("gravity_path", &gravity_path);
-  options.AddDefaultOption("use_stratified", &use_stratified);
-  options.AddDefaultOption("refine_gravity", &refine_gravity);
+  options.AddDefaultOption("image_list_path", &image_list_path);
+  options.AddDefaultOption("min_num_matches",
+                           &controller_options.min_num_matches);
+  options.AddDefaultOption("ignore_watermarks",
+                           &controller_options.ignore_watermarks);
+  options.AddDefaultOption("num_threads", &controller_options.num_threads);
+  options.AddDefaultOption("random_seed", &controller_options.random_seed);
+  options.AddDefaultOption("use_gravity",
+                           &controller_options.rotation_estimation.use_gravity);
+  options.AddDefaultOption(
+      "use_stratified", &controller_options.rotation_estimation.use_stratified);
+  options.AddDefaultOption("refine_gravity",
+                           &controller_options.refine_gravity);
   options.AddGravityRefinerOptions();
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
 
-  if (!ExistsFile(relpose_path)) {
-    LOG(ERROR) << "`relpose_path` is not a file";
+  controller_options.gravity_refiner = *options.gravity_refiner;
+
+  if (!image_list_path.empty()) {
+    controller_options.image_names = ReadTextFileLines(image_list_path);
+  }
+
+  if (!ExistsDir(output_path)) {
+    LOG(ERROR) << "`output_path` is not a directory";
     return EXIT_FAILURE;
   }
 
-  if (!gravity_path.empty() && !ExistsFile(gravity_path)) {
-    LOG(ERROR) << "`gravity_path` is not a file";
+  auto database = Database::Open(*options.database_path);
+  auto reconstruction = std::make_shared<Reconstruction>();
+
+  RotationAveragingPipeline controller(
+      controller_options, std::move(database), reconstruction);
+  controller.Run();
+
+  if (reconstruction->NumRegFrames() == 0) {
+    LOG(ERROR) << "No frames registered";
     return EXIT_FAILURE;
   }
 
-  glomap::RotationEstimatorOptions rotation_averager_options;
-  rotation_averager_options.skip_initialization = true;
-  rotation_averager_options.use_gravity = !gravity_path.empty();
-  rotation_averager_options.use_stratified = use_stratified;
-
-  // Load the database.
-  glomap::PoseGraph pose_graph;
-  Reconstruction reconstruction;
-
-  // Read relative poses and build view graph.
-  // First read into a temporary images map.
-  std::unordered_map<image_t, Image> temp_images;
-  glomap::ReadRelPose(relpose_path, temp_images, pose_graph);
-
-  // Add cameras and images to reconstruction.
-  for (auto& [image_id, image] : temp_images) {
-    // Add dummy camera.
-    reconstruction.AddCameraWithTrivialRig(Camera::CreateFromModelId(
-        image_id, CameraModelId::kSimplePinhole, 0.0, 0, 0));
-
-    // Add image.
-    image.SetCameraId(image_id);
-    reconstruction.AddImageWithTrivialFrame(std::move(image));
-  }
-
-  std::vector<PosePrior> pose_priors;
-  if (!gravity_path.empty()) {
-    pose_priors = glomap::ReadGravity(gravity_path, reconstruction.Images());
-    // Initialize frame rotations from gravity.
-    // Currently rotation averaging only supports gravity prior on reference
-    // sensors.
-    const Eigen::Vector3d kUnknownTranslation =
-        Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
-    for (const auto& pose_prior : pose_priors) {
-      const auto& image = reconstruction.Image(pose_prior.pose_prior_id);
-      if (!image.IsRefInFrame()) {
-        continue;
-      }
-      reconstruction.Frame(image.FrameId())
-          .SetRigFromWorld(Rigid3d(
-              Eigen::Quaterniond(GravityAlignedRotation(pose_prior.gravity)),
-              kUnknownTranslation));
-    }
-  }
-
-  if (refine_gravity && !gravity_path.empty()) {
-    // Compute largest connected component and invalidate pairs before gravity
-    // refinement.
-    const std::unordered_set<frame_t> active_frame_ids =
-        pose_graph.ComputeLargestConnectedFrameComponent(
-            reconstruction,
-            /*filter_unregistered=*/false);
-    std::unordered_set<image_t> active_image_ids;
-    for (const auto& [image_id, image] : reconstruction.Images()) {
-      if (active_frame_ids.count(image.FrameId())) {
-        active_image_ids.insert(image_id);
-      }
-    }
-    pose_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
-
-    glomap::RunGravityRefinement(
-        *options.gravity_refiner, pose_graph, reconstruction, pose_priors);
-  }
-
-  Timer run_timer;
-  run_timer.Start();
-  if (!glomap::SolveRotationAveraging(
-          rotation_averager_options, pose_graph, reconstruction, pose_priors)) {
-    LOG(ERROR) << "Failed to solve global rotation averaging";
-    return EXIT_FAILURE;
-  }
-  run_timer.Pause();
-  LOG(INFO) << "Global rotation averaging done in "
-            << run_timer.ElapsedSeconds() << " seconds";
-
-  // Write out the estimated rotation.
-  glomap::WriteGlobalRotation(output_path, reconstruction.Images());
-  LOG(INFO) << "Global rotation averaging done";
+  LOG(INFO) << "Writing reconstruction to " << output_path;
+  reconstruction->Write(output_path);
 
   return EXIT_SUCCESS;
 }
@@ -798,6 +737,46 @@ int RunViewGraphCalibrator(int argc, char** argv) {
   }
 
   LOG(INFO) << "View graph calibration completed successfully";
+  return EXIT_SUCCESS;
+}
+
+int RunReconstructionClusterer(int argc, char** argv) {
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
+
+  OptionManager options;
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddReconstructionClustererOptions();
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsDir(input_path)) {
+    LOG(ERROR) << "`input_path` is not a directory";
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsDir(output_path)) {
+    LOG(ERROR) << "`output_path` is not a directory";
+    return EXIT_FAILURE;
+  }
+
+  LOG_HEADING1("Loading model");
+  auto reconstruction = std::make_shared<Reconstruction>();
+  reconstruction->Read(input_path);
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+
+  ReconstructionClustererController controller(
+      *options.reconstruction_clusterer,
+      reconstruction,
+      reconstruction_manager);
+  controller.Run();
+
+  LOG_HEADING1("Writing clustered model(s)");
+  reconstruction_manager->Write(output_path);
+
   return EXIT_SUCCESS;
 }
 

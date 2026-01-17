@@ -39,6 +39,7 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
+#include <filesystem>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -66,6 +67,7 @@ class Reconstruction {
   inline size_t NumCameras() const;
   inline size_t NumFrames() const;
   inline size_t NumRegFrames() const;
+  inline size_t NumRegImages() const;
   inline size_t NumImages() const;
   inline size_t NumPoints3D() const;
 
@@ -91,8 +93,6 @@ class Reconstruction {
   inline const std::unordered_map<image_t, class Image>& Images() const;
   inline const std::unordered_map<point3D_t, struct Point3D>& Points3D() const;
 
-  // Number of images in all registered frames.
-  size_t NumRegImages() const;
   // Identifiers of all registered images.
   std::vector<image_t> RegImageIds() const;
   // Identifiers of all 3D points.
@@ -241,23 +241,23 @@ class Reconstruction {
   void UpdatePoint3DErrors();
 
   // Read data from text or binary file. Prefer binary data if it exists.
-  void Read(const std::string& path);
-  void Write(const std::string& path) const;
+  void Read(const std::filesystem::path& path);
+  void Write(const std::filesystem::path& path) const;
 
   // Read data from binary/text file.
-  void ReadText(const std::string& path);
-  void ReadBinary(const std::string& path);
+  void ReadText(const std::filesystem::path& path);
+  void ReadBinary(const std::filesystem::path& path);
 
   // Write data from binary/text file.
-  void WriteText(const std::string& path) const;
-  void WriteBinary(const std::string& path) const;
+  void WriteText(const std::filesystem::path& path) const;
+  void WriteBinary(const std::filesystem::path& path) const;
 
   // Convert 3D points in reconstruction to PLY point cloud.
   std::vector<PlyPoint> ConvertToPLY() const;
 
   // Import from other data formats. Note that these import functions are
   // only intended for visualization of data and unusable for reconstruction.
-  void ImportPLY(const std::string& path);
+  void ImportPLY(const std::filesystem::path& path);
   void ImportPLY(const std::vector<PlyPoint>& ply_points);
 
   // Extract colors for 3D points of given image. Colors will be extracted
@@ -269,17 +269,18 @@ class Reconstruction {
   //                      root path and the name of the image.
   //
   // @return              True if image could be read at given path.
-  bool ExtractColorsForImage(image_t image_id, const std::string& path);
+  bool ExtractColorsForImage(image_t image_id,
+                             const std::filesystem::path& path);
 
   // Extract colors for all 3D points by computing the mean color of all images.
   //
   // @param path          Absolute or relative path to root folder of image.
   //                      The image path is determined by concatenating the
   //                      root path and the name of the image.
-  void ExtractColorsForAllImages(const std::string& path);
+  void ExtractColorsForAllImages(const std::filesystem::path& path);
 
   // Create all image sub-directories in the given path.
-  void CreateImageDirs(const std::string& path) const;
+  void CreateImageDirs(const std::filesystem::path& path) const;
 
  private:
   std::pair<Eigen::AlignedBox3d, Eigen::Vector3d> ComputeBBBoxAndCentroid(
@@ -296,6 +297,7 @@ class Reconstruction {
   // to O(n) complexity on calls to RegisterFrame/DeRegisterFrame, because
   // we iterate very often over the set of registered frames.
   std::vector<frame_t> reg_frame_ids_;
+  size_t num_reg_images_;
 
   // Total number of added 3D points, used to generate unique identifiers.
   point3D_t max_point3D_id_;
@@ -315,6 +317,8 @@ size_t Reconstruction::NumCameras() const { return cameras_.size(); }
 size_t Reconstruction::NumFrames() const { return frames_.size(); }
 
 size_t Reconstruction::NumRegFrames() const { return reg_frame_ids_.size(); }
+
+size_t Reconstruction::NumRegImages() const { return num_reg_images_; }
 
 size_t Reconstruction::NumImages() const { return images_.size(); }
 

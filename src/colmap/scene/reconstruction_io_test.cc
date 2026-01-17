@@ -173,7 +173,7 @@ struct ReaderWriterBinaryStringStream : public ReaderWriter {
   std::stringstream points3D_stream_;
 };
 
-std::string ReadFileAsString(const std::string& path) {
+std::string ReadFileAsString(const std::filesystem::path& path) {
   std::fstream file(path);
   THROW_CHECK(file.good());
   std::stringstream buf;
@@ -184,11 +184,11 @@ std::string ReadFileAsString(const std::string& path) {
 struct ReaderWriterFileStream : public ReaderWriter {
   explicit ReaderWriterFileStream(const std::string& ext)
       : test_dir_(CreateTestDir()),
-        rigs_path_((test_dir_ / ("rigs." + ext)).string()),
-        cameras_path_((test_dir_ / ("cameras." + ext)).string()),
-        frames_path_((test_dir_ / ("frames." + ext)).string()),
-        images_path_((test_dir_ / ("images." + ext)).string()),
-        points3D_path_((test_dir_ / ("points3D." + ext)).string()) {}
+        rigs_path_(test_dir_ / ("rigs." + ext)),
+        cameras_path_(test_dir_ / ("cameras." + ext)),
+        frames_path_(test_dir_ / ("frames." + ext)),
+        images_path_(test_dir_ / ("images." + ext)),
+        points3D_path_(test_dir_ / ("points3D." + ext)) {}
 
   virtual std::string RigsStr() const override {
     return ReadFileAsString(rigs_path_);
@@ -208,11 +208,11 @@ struct ReaderWriterFileStream : public ReaderWriter {
 
  protected:
   const std::filesystem::path test_dir_;
-  const std::string rigs_path_;
-  const std::string cameras_path_;
-  const std::string frames_path_;
-  const std::string images_path_;
-  const std::string points3D_path_;
+  const std::filesystem::path rigs_path_;
+  const std::filesystem::path cameras_path_;
+  const std::filesystem::path frames_path_;
+  const std::filesystem::path images_path_;
+  const std::filesystem::path points3D_path_;
 };
 
 struct ReaderWriterTextFileStream : public ReaderWriterFileStream {
@@ -380,8 +380,8 @@ TEST(ExportNVM, Nominal) {
   synthetic_dataset_options.camera_model_id = SimpleRadialCameraModel::model_id;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
-  const std::filesystem::path test_dir = CreateTestDir();
-  const std::string nvm_path = (test_dir / "export.nvm").string();
+  const auto test_dir = CreateTestDir();
+  const auto nvm_path = test_dir / "export.nvm";
 
   EXPECT_TRUE(ExportNVM(reconstruction, nvm_path));
   EXPECT_TRUE(std::filesystem::exists(nvm_path));
@@ -399,8 +399,8 @@ TEST(ExportNVM, UnsupportedCameraModel) {
       1280, 1280, 512, 384, 0.05, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
-  const std::filesystem::path test_dir = CreateTestDir();
-  const std::string nvm_path = (test_dir / "export.nvm").string();
+  const auto test_dir = CreateTestDir();
+  const auto nvm_path = test_dir / "export.nvm";
 
   EXPECT_FALSE(ExportNVM(reconstruction, nvm_path));
 }
@@ -415,9 +415,9 @@ TEST(ExportCam, Nominal) {
   synthetic_dataset_options.camera_model_id = SimpleRadialCameraModel::model_id;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
-  const std::filesystem::path test_dir = CreateTestDir();
+  const auto test_dir = CreateTestDir();
 
-  EXPECT_TRUE(ExportCam(reconstruction, test_dir.string()));
+  EXPECT_TRUE(ExportCam(reconstruction, test_dir));
 
   int num_cam_files = 0;
   for (const auto& entry : std::filesystem::directory_iterator(test_dir)) {
@@ -440,9 +440,9 @@ TEST(ExportCam, UnsupportedCameraModel) {
       1280, 1280, 512, 384, 0.05, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
-  const std::filesystem::path test_dir = CreateTestDir();
+  const auto test_dir = CreateTestDir();
 
-  EXPECT_FALSE(ExportCam(reconstruction, test_dir.string()));
+  EXPECT_FALSE(ExportCam(reconstruction, test_dir));
 }
 
 TEST(ExportRecon3D, Nominal) {
@@ -455,9 +455,9 @@ TEST(ExportRecon3D, Nominal) {
   synthetic_dataset_options.camera_model_id = SimpleRadialCameraModel::model_id;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
-  const std::filesystem::path test_dir = CreateTestDir();
+  const auto test_dir = CreateTestDir();
 
-  EXPECT_TRUE(ExportRecon3D(reconstruction, test_dir.string()));
+  EXPECT_TRUE(ExportRecon3D(reconstruction, test_dir));
 
   const std::filesystem::path recon_dir = test_dir / "Recon";
   EXPECT_TRUE(std::filesystem::exists(recon_dir / "synth_0.out"));
@@ -477,9 +477,9 @@ TEST(ExportRecon3D, UnsupportedCameraModel) {
       1280, 1280, 512, 384, 0.05, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
-  const std::filesystem::path test_dir = CreateTestDir();
+  const auto test_dir = CreateTestDir();
 
-  EXPECT_FALSE(ExportRecon3D(reconstruction, test_dir.string()));
+  EXPECT_FALSE(ExportRecon3D(reconstruction, test_dir));
 }
 
 TEST(ExportBundler, Nominal) {
@@ -492,9 +492,9 @@ TEST(ExportBundler, Nominal) {
   synthetic_dataset_options.camera_model_id = SimpleRadialCameraModel::model_id;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
-  const std::filesystem::path test_dir = CreateTestDir();
-  const std::string bundler_path = (test_dir / "bundle.out").string();
-  const std::string list_path = (test_dir / "list.txt").string();
+  const auto test_dir = CreateTestDir();
+  const auto bundler_path = test_dir / "bundle.out";
+  const auto list_path = test_dir / "list.txt";
 
   EXPECT_TRUE(ExportBundler(reconstruction, bundler_path, list_path));
   EXPECT_TRUE(std::filesystem::exists(bundler_path));
@@ -513,9 +513,9 @@ TEST(ExportBundler, UnsupportedCameraModel) {
       1280, 1280, 512, 384, 0.05, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
-  const std::filesystem::path test_dir = CreateTestDir();
-  const std::string bundler_path = (test_dir / "bundle.out").string();
-  const std::string list_path = (test_dir / "list.txt").string();
+  const auto test_dir = CreateTestDir();
+  const auto bundler_path = test_dir / "bundle.out";
+  const auto list_path = test_dir / "list.txt";
 
   EXPECT_FALSE(ExportBundler(reconstruction, bundler_path, list_path, false));
 }
@@ -529,8 +529,8 @@ TEST(ExportPLY, Nominal) {
   synthetic_dataset_options.num_points3D = 50;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
-  const std::filesystem::path test_dir = CreateTestDir();
-  const std::string ply_path = (test_dir / "points.ply").string();
+  const auto test_dir = CreateTestDir();
+  const auto ply_path = test_dir / "points.ply";
 
   ExportPLY(reconstruction, ply_path);
   EXPECT_TRUE(std::filesystem::exists(ply_path));
@@ -546,9 +546,9 @@ TEST(ExportVRML, Nominal) {
   synthetic_dataset_options.num_points3D = 25;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
-  const std::filesystem::path test_dir = CreateTestDir();
-  const std::string images_path = (test_dir / "images.wrl").string();
-  const std::string points3D_path = (test_dir / "points3D.wrl").string();
+  const auto test_dir = CreateTestDir();
+  const auto images_path = test_dir / "images.wrl";
+  const auto points3D_path = test_dir / "points3D.wrl";
   const double image_scale = 1.0;
   const Eigen::Vector3d image_rgb(1.0, 0.0, 0.0);
 

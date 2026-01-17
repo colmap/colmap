@@ -38,6 +38,7 @@
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/homography_matrix.h"
 #include "colmap/geometry/triangulation.h"
+#include "colmap/math/math.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
@@ -519,7 +520,8 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
 
   Rigid3d cam2_from_cam1;
   if (geometry->config == TwoViewGeometry::ConfigurationType::CALIBRATED) {
-    PoseFromEssentialMatrix(geometry->E,
+    THROW_CHECK(geometry->E.has_value());
+    PoseFromEssentialMatrix(*geometry->E,
                             inlier_cam_rays1,
                             inlier_cam_rays2,
                             &cam2_from_cam1,
@@ -529,8 +531,9 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
     }
   } else if (geometry->config ==
              TwoViewGeometry::ConfigurationType::UNCALIBRATED) {
+    THROW_CHECK(geometry->F.has_value());
     const Eigen::Matrix3d E = EssentialFromFundamentalMatrix(
-        camera2.CalibrationMatrix(), geometry->F, camera1.CalibrationMatrix());
+        camera2.CalibrationMatrix(), *geometry->F, camera1.CalibrationMatrix());
     PoseFromEssentialMatrix(
         E, inlier_cam_rays1, inlier_cam_rays2, &cam2_from_cam1, &points3D);
     if (points3D.empty()) {
@@ -541,8 +544,9 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
                  TwoViewGeometry::ConfigurationType::PANORAMIC ||
              geometry->config ==
                  TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC) {
+    THROW_CHECK(geometry->H.has_value());
     Eigen::Vector3d normal;
-    PoseFromHomographyMatrix(geometry->H,
+    PoseFromHomographyMatrix(*geometry->H,
                              camera1.CalibrationMatrix(),
                              camera2.CalibrationMatrix(),
                              inlier_cam_rays1,
@@ -988,7 +992,7 @@ void MaybeDecomposeAndWriteRelativePoses(Database* database) {
       if (norm > 1e-12) {
         two_view_geom.cam2_from_cam1->translation /= norm;
       }
-      database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geom);
+      database->UpdateTwoViewGeometry(image_id1, image_id2, two_view_geom);
     } else {
       decompose_failed_count++;
     }

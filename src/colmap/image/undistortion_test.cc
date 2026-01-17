@@ -37,13 +37,15 @@
 #include "colmap/util/string.h"
 #include "colmap/util/testing.h"
 
+#include <filesystem>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
 
 Reconstruction CreateSyntheticReconstructionWithBitmaps(
-    const std::string& image_path,
+    const std::filesystem::path& image_path,
     int num_images = 2,
     int image_width = 100,
     int image_height = 100) {
@@ -61,7 +63,7 @@ Reconstruction CreateSyntheticReconstructionWithBitmaps(
   for (const auto& [image_id, image] : reconstruction.Images()) {
     Bitmap bitmap(image_width, image_height, true);
     bitmap.Fill(BitmapColor<uint8_t>(128, 128, 128));
-    bitmap.Write(JoinPaths(image_path, image.Name()));
+    bitmap.Write(image_path / image.Name());
   }
 
   return reconstruction;
@@ -340,9 +342,9 @@ TEST(RectifyAndUndistortStereoImages, Nominal) {
 }
 
 TEST(COLMAPUndistorter, Integration) {
-  std::string temp_dir = CreateTestDir();
-  std::string image_path = JoinPaths(temp_dir, "input_images");
-  std::string output_path = JoinPaths(temp_dir, "output");
+  const auto temp_dir = CreateTestDir();
+  const auto image_path = temp_dir / "input_images";
+  const auto output_path = temp_dir / "output";
   CreateDirIfNotExists(image_path);
   CreateDirIfNotExists(output_path);
 
@@ -357,20 +359,20 @@ TEST(COLMAPUndistorter, Integration) {
   undistorter.Run();
 
   // Verify output directories were created.
-  EXPECT_TRUE(ExistsDir(JoinPaths(output_path, "images")));
-  EXPECT_TRUE(ExistsDir(JoinPaths(output_path, "sparse")));
-  EXPECT_TRUE(ExistsDir(JoinPaths(output_path, "stereo")));
+  EXPECT_TRUE(ExistsDir(output_path / "images"));
+  EXPECT_TRUE(ExistsDir(output_path / "sparse"));
+  EXPECT_TRUE(ExistsDir(output_path / "stereo"));
 
   // Verify undistorted images were written.
   for (const auto& [image_id, image] : reconstruction.Images()) {
-    EXPECT_TRUE(ExistsFile(JoinPaths(output_path, "images", image.Name())));
+    EXPECT_TRUE(ExistsFile(output_path / "images" / image.Name()));
   }
 }
 
 TEST(PMVSUndistorter, Integration) {
-  std::string temp_dir = CreateTestDir();
-  std::string image_path = JoinPaths(temp_dir, "input_images");
-  std::string output_path = JoinPaths(temp_dir, "pmvs_output");
+  const auto temp_dir = CreateTestDir();
+  const auto image_path = temp_dir / "input_images";
+  const auto output_path = temp_dir / "pmvs_output";
   CreateDirIfNotExists(image_path);
   CreateDirIfNotExists(output_path);
 
@@ -384,25 +386,24 @@ TEST(PMVSUndistorter, Integration) {
   undistorter.Run();
 
   // Verify PMVS output structure was created (under pmvs/ subdirectory).
-  EXPECT_TRUE(ExistsDir(JoinPaths(output_path, "pmvs")));
-  EXPECT_TRUE(ExistsDir(JoinPaths(output_path, "pmvs", "models")));
-  EXPECT_TRUE(ExistsDir(JoinPaths(output_path, "pmvs", "txt")));
-  EXPECT_TRUE(ExistsDir(JoinPaths(output_path, "pmvs", "visualize")));
+  EXPECT_TRUE(ExistsDir(output_path / "pmvs"));
+  EXPECT_TRUE(ExistsDir(output_path / "pmvs" / "models"));
+  EXPECT_TRUE(ExistsDir(output_path / "pmvs" / "txt"));
+  EXPECT_TRUE(ExistsDir(output_path / "pmvs" / "visualize"));
 
   // Verify undistorted images were written with numbered names.
   // PMVS writes images as 00000000.jpg, 00000001.jpg, etc.
   const size_t num_images = reconstruction.NumRegImages();
   for (size_t i = 0; i < num_images; ++i) {
     const std::string image_name = StringPrintf("%08zu.jpg", i);
-    EXPECT_TRUE(
-        ExistsFile(JoinPaths(output_path, "pmvs", "visualize", image_name)));
+    EXPECT_TRUE(ExistsFile(output_path / "pmvs" / "visualize" / image_name));
   }
 }
 
 TEST(CMPMVSUndistorter, Integration) {
-  std::string temp_dir = CreateTestDir();
-  std::string image_path = JoinPaths(temp_dir, "input_images");
-  std::string output_path = JoinPaths(temp_dir, "cmpmvs_output");
+  const auto temp_dir = CreateTestDir();
+  const auto image_path = temp_dir / "input_images";
+  const auto output_path = temp_dir / "cmpmvs_output";
   CreateDirIfNotExists(image_path);
   CreateDirIfNotExists(output_path);
 
@@ -424,14 +425,14 @@ TEST(CMPMVSUndistorter, Integration) {
   const size_t num_images = reconstruction.NumRegImages();
   for (size_t i = 1; i <= num_images; ++i) {
     const std::string image_name = StringPrintf("%05zu.jpg", i);
-    EXPECT_TRUE(ExistsFile(JoinPaths(output_path, image_name)));
+    EXPECT_TRUE(ExistsFile(output_path / image_name));
   }
 }
 
 TEST(PureImageUndistorter, Integration) {
-  std::string temp_dir = CreateTestDir();
-  std::string image_path = JoinPaths(temp_dir, "input_images");
-  std::string output_path = JoinPaths(temp_dir, "pure_output");
+  const auto temp_dir = CreateTestDir();
+  const auto image_path = temp_dir / "input_images";
+  const auto output_path = temp_dir / "pure_output";
   CreateDirIfNotExists(image_path);
 
   // Create test images and cameras.
@@ -445,7 +446,7 @@ TEST(PureImageUndistorter, Integration) {
     // Create dummy image.
     Bitmap bitmap(100, 100, true);
     bitmap.Fill(BitmapColor<uint8_t>(128, 128, 128));
-    bitmap.Write(JoinPaths(image_path, image_name));
+    bitmap.Write(image_path / image_name);
   }
 
   // Run pure image undistorter.
@@ -459,14 +460,14 @@ TEST(PureImageUndistorter, Integration) {
 
   // Verify undistorted images were written.
   for (const auto& [image_name, camera] : image_names_and_cameras) {
-    EXPECT_TRUE(ExistsFile(JoinPaths(output_path, image_name)));
+    EXPECT_TRUE(ExistsFile(output_path / image_name));
   }
 }
 
 TEST(StereoImageRectifier, Integration) {
-  std::string temp_dir = CreateTestDir();
-  std::string image_path = JoinPaths(temp_dir, "input_images");
-  std::string output_path = JoinPaths(temp_dir, "stereo_output");
+  const auto temp_dir = CreateTestDir();
+  const auto image_path = temp_dir / "input_images";
+  const auto output_path = temp_dir / "stereo_output";
   CreateDirIfNotExists(image_path);
   CreateDirIfNotExists(output_path);
 
@@ -495,11 +496,9 @@ TEST(StereoImageRectifier, Integration) {
   const auto& image2 = reconstruction.Image(image_ids[1]);
   const std::string stereo_pair_name =
       StringPrintf("%s-%s", image1.Name().c_str(), image2.Name().c_str());
-  EXPECT_TRUE(ExistsDir(JoinPaths(output_path, stereo_pair_name)));
-  EXPECT_TRUE(
-      ExistsFile(JoinPaths(output_path, stereo_pair_name, image1.Name())));
-  EXPECT_TRUE(
-      ExistsFile(JoinPaths(output_path, stereo_pair_name, image2.Name())));
+  EXPECT_TRUE(ExistsDir(output_path / stereo_pair_name));
+  EXPECT_TRUE(ExistsFile(output_path / stereo_pair_name / image1.Name()));
+  EXPECT_TRUE(ExistsFile(output_path / stereo_pair_name / image2.Name()));
 }
 
 }  // namespace

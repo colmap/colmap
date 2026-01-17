@@ -39,6 +39,7 @@
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match_options.h"
+#include "colmap/scene/reconstruction_clustering.h"
 #include "colmap/ui/render_options.h"
 #include "colmap/util/file.h"
 #include "colmap/util/version.h"
@@ -66,6 +67,8 @@ OptionManager::OptionManager(bool add_project_options)
   mapper = std::make_shared<IncrementalPipelineOptions>();
   global_mapper = std::make_shared<GlobalPipelineOptions>();
   gravity_refiner = std::make_shared<glomap::GravityRefinerOptions>();
+  reconstruction_clusterer =
+      std::make_shared<ReconstructionClusteringOptions>();
   patch_match_stereo = std::make_shared<mvs::PatchMatchOptions>();
   stereo_fusion = std::make_shared<mvs::StereoFusionOptions>();
   poisson_meshing = std::make_shared<mvs::PoissonMeshingOptions>();
@@ -457,6 +460,12 @@ void OptionManager::AddBundleAdjustmentOptions() {
                    &bundle_adjustment->refine_rig_from_world);
   AddDefaultOption("BundleAdjustment.refine_sensor_from_rig",
                    &bundle_adjustment->refine_sensor_from_rig);
+  AddDefaultOption("BundleAdjustment.refine_points3D",
+                   &bundle_adjustment->refine_points3D);
+  AddDefaultOption("BundleAdjustment.constant_rig_from_world_rotation",
+                   &bundle_adjustment->constant_rig_from_world_rotation);
+  AddDefaultOption("BundleAdjustment.min_track_length",
+                   &bundle_adjustment->min_track_length);
   AddDefaultOption("BundleAdjustment.use_gpu", &bundle_adjustment->use_gpu);
   AddDefaultOption("BundleAdjustment.gpu_index", &bundle_adjustment->gpu_index);
   AddDefaultOption("BundleAdjustment.min_num_images_gpu_solver",
@@ -621,8 +630,8 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption("GlobalMapper.random_seed", &global_mapper->random_seed);
   AddDefaultOption("GlobalMapper.decompose_relative_pose",
                    &global_mapper->decompose_relative_pose);
-  AddDefaultOption("GlobalMapper.num_iterations_ba",
-                   &global_mapper->mapper.num_iterations_ba);
+  AddDefaultOption("GlobalMapper.ba_num_iterations",
+                   &global_mapper->mapper.ba_num_iterations);
   AddDefaultOption("GlobalMapper.skip_view_graph_calibration",
                    &global_mapper->skip_view_graph_calibration);
   AddDefaultOption("GlobalMapper.skip_rotation_averaging",
@@ -635,8 +644,6 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.skip_bundle_adjustment);
   AddDefaultOption("GlobalMapper.skip_retriangulation",
                    &global_mapper->mapper.skip_retriangulation);
-  AddDefaultOption("GlobalMapper.skip_pruning",
-                   &global_mapper->mapper.skip_pruning);
 
   // View graph calibration options.
   AddDefaultOption("GlobalMapper.vgc_cross_validate_prior_focal_lengths",
@@ -668,16 +675,12 @@ void OptionManager::AddGlobalMapperOptions() {
 
   // Track establishment options.
   AddDefaultOption(
-      "GlobalMapper.track_min_num_tracks_per_view",
-      &global_mapper->mapper.track_establishment.min_num_tracks_per_view);
-  AddDefaultOption(
-      "GlobalMapper.track_min_num_view_per_track",
-      &global_mapper->mapper.track_establishment.min_num_view_per_track);
-  AddDefaultOption(
-      "GlobalMapper.track_max_num_view_per_track",
-      &global_mapper->mapper.track_establishment.max_num_view_per_track);
-  AddDefaultOption("GlobalMapper.track_max_num_tracks",
-                   &global_mapper->mapper.track_establishment.max_num_tracks);
+      "GlobalMapper.track_intra_image_consistency_threshold",
+      &global_mapper->mapper.track_intra_image_consistency_threshold);
+  AddDefaultOption("GlobalMapper.track_required_tracks_per_view",
+                   &global_mapper->mapper.track_required_tracks_per_view);
+  AddDefaultOption("GlobalMapper.track_min_num_views_per_track",
+                   &global_mapper->mapper.track_min_num_views_per_track);
 
   // Global positioning options.
   AddDefaultOption("GlobalMapper.gp_use_gpu",
@@ -706,32 +709,39 @@ void OptionManager::AddGlobalMapperOptions() {
       "POINTS_AND_CAMERAS}");
 
   // Bundle adjustment options.
-  // TODO: Consolidate these with existing BA options (e.g., Mapper.ba_*).
   AddDefaultOption("GlobalMapper.ba_use_gpu",
                    &global_mapper->mapper.bundle_adjustment.use_gpu);
   AddDefaultOption("GlobalMapper.ba_gpu_index",
                    &global_mapper->mapper.bundle_adjustment.gpu_index);
-  AddDefaultOption("GlobalMapper.ba_optimize_rig_poses",
-                   &global_mapper->mapper.bundle_adjustment.optimize_rig_poses);
-  AddDefaultOption("GlobalMapper.ba_optimize_rotations",
-                   &global_mapper->mapper.bundle_adjustment.optimize_rotations);
   AddDefaultOption(
-      "GlobalMapper.ba_optimize_translation",
-      &global_mapper->mapper.bundle_adjustment.optimize_translation);
+      "GlobalMapper.ba_refine_focal_length",
+      &global_mapper->mapper.bundle_adjustment.refine_focal_length);
   AddDefaultOption(
-      "GlobalMapper.ba_optimize_intrinsics",
-      &global_mapper->mapper.bundle_adjustment.optimize_intrinsics);
+      "GlobalMapper.ba_refine_principal_point",
+      &global_mapper->mapper.bundle_adjustment.refine_principal_point);
   AddDefaultOption(
-      "GlobalMapper.ba_optimize_principal_point",
-      &global_mapper->mapper.bundle_adjustment.optimize_principal_point);
-  AddDefaultOption("GlobalMapper.ba_optimize_points",
-                   &global_mapper->mapper.bundle_adjustment.optimize_points);
+      "GlobalMapper.ba_refine_extra_params",
+      &global_mapper->mapper.bundle_adjustment.refine_extra_params);
+  AddDefaultOption(
+      "GlobalMapper.ba_refine_sensor_from_rig",
+      &global_mapper->mapper.bundle_adjustment.refine_sensor_from_rig);
+  AddDefaultOption(
+      "GlobalMapper.ba_refine_rig_from_world",
+      &global_mapper->mapper.bundle_adjustment.refine_rig_from_world);
+  AddDefaultOption("GlobalMapper.ba_refine_points3D",
+                   &global_mapper->mapper.bundle_adjustment.refine_points3D);
+  AddDefaultOption("GlobalMapper.ba_min_track_length",
+                   &global_mapper->mapper.bundle_adjustment.min_track_length);
   AddDefaultOption(
       "GlobalMapper.ba_loss_function_scale",
       &global_mapper->mapper.bundle_adjustment.loss_function_scale);
   AddDefaultOption("GlobalMapper.ba_max_num_iterations",
                    &global_mapper->mapper.bundle_adjustment.solver_options
                         .max_num_iterations);
+  AddDefaultOption("GlobalMapper.ba_skip_fixed_rotation_stage",
+                   &global_mapper->mapper.ba_skip_fixed_rotation_stage);
+  AddDefaultOption("GlobalMapper.ba_skip_joint_optimization_stage",
+                   &global_mapper->mapper.ba_skip_joint_optimization_stage);
 
   // Retriangulation options.
   AddDefaultOption(
@@ -769,6 +779,26 @@ void OptionManager::AddGravityRefinerOptions() {
                    &gravity_refiner->max_gravity_error);
   AddDefaultOption("GravityRefiner.min_num_neighbors",
                    &gravity_refiner->min_num_neighbors);
+}
+
+void OptionManager::AddReconstructionClustererOptions() {
+  if (added_reconstruction_clusterer_options_) {
+    return;
+  }
+  added_reconstruction_clusterer_options_ = true;
+
+  AddDefaultOption("ReconstructionClusterer.min_covisibility_count",
+                   &reconstruction_clusterer->min_covisibility_count);
+  AddDefaultOption("ReconstructionClusterer.min_edge_weight_threshold",
+                   &reconstruction_clusterer->min_edge_weight_threshold);
+  AddDefaultOption("ReconstructionClusterer.weak_edge_multiplier",
+                   &reconstruction_clusterer->weak_edge_multiplier);
+  AddDefaultOption("ReconstructionClusterer.min_weak_edges_to_merge",
+                   &reconstruction_clusterer->min_weak_edges_to_merge);
+  AddDefaultOption("ReconstructionClusterer.max_clustering_iterations",
+                   &reconstruction_clusterer->max_clustering_iterations);
+  AddDefaultOption("ReconstructionClusterer.min_num_reg_frames",
+                   &reconstruction_clusterer->min_num_reg_frames);
 }
 
 void OptionManager::AddPatchMatchStereoOptions() {
@@ -922,6 +952,7 @@ void OptionManager::Reset() {
   added_mapper_options_ = false;
   added_global_mapper_options_ = false;
   added_gravity_refiner_options_ = false;
+  added_reconstruction_clusterer_options_ = false;
   added_patch_match_stereo_options_ = false;
   added_stereo_fusion_options_ = false;
   added_poisson_meshing_options_ = false;
@@ -945,6 +976,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *mapper = IncrementalPipelineOptions();
   *global_mapper = GlobalPipelineOptions();
   *gravity_refiner = glomap::GravityRefinerOptions();
+  *reconstruction_clusterer = ReconstructionClusteringOptions();
   *patch_match_stereo = mvs::PatchMatchOptions();
   *stereo_fusion = mvs::StereoFusionOptions();
   *poisson_meshing = mvs::PoissonMeshingOptions();
@@ -986,7 +1018,7 @@ bool OptionManager::Check() {
   return success;
 }
 
-bool OptionManager::Read(const std::string& path) {
+bool OptionManager::Read(const std::filesystem::path& path) {
   if (!BaseOptionManager::Read(path)) {
     return false;
   }

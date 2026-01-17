@@ -54,7 +54,7 @@ struct RotationEstimatorOptions {
   bool skip_initialization = false;
 
   // Flag to use gravity priors for rotation averaging.
-  bool use_gravity = false;
+  bool use_gravity = true;
 
   // Flag to use stratified solving for mixed gravity systems.
   // If true and use_gravity is true, first solves the 1-DOF system with
@@ -124,9 +124,9 @@ bool InitializeRigRotationsFromImages(
 // For cameras with unknown cam_from_rig, first estimates their orientations
 // independently using an expanded reconstruction, then initializes the
 // cam_from_rig and runs rotation averaging on the original reconstruction.
-bool SolveRotationAveraging(const RotationEstimatorOptions& options,
-                            PoseGraph& pose_graph,
-                            colmap::Reconstruction& reconstruction,
-                            const std::vector<colmap::PosePrior>& pose_priors);
+bool RunRotationAveraging(const RotationEstimatorOptions& options,
+                          PoseGraph& pose_graph,
+                          colmap::Reconstruction& reconstruction,
+                          const std::vector<colmap::PosePrior>& pose_priors);
 
 }  // namespace glomap

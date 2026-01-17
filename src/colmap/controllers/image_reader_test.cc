@@ -61,27 +61,27 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
 
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
-  const std::string test_dir = CreateTestDir();
+  const auto test_dir = CreateTestDir();
   ImageReaderOptions options;
-  options.image_path = test_dir + "/images";
+  options.image_path = test_dir / "images";
   options.as_rgb = kAsRGB;
   CreateDirIfNotExists(options.image_path);
   if (kWithMasks) {
-    options.mask_path = test_dir + "/masks";
+    options.mask_path = test_dir / "masks";
     CreateDirIfNotExists(options.mask_path);
   }
   const Bitmap test_bitmap = CreateTestBitmap(kAsRGB);
   for (int i = 0; i < kNumImages; ++i) {
     const std::string stem = std::to_string(i);
     const std::string image_name = stem + kExtension;
-    test_bitmap.Write(options.image_path + "/" + image_name);
+    test_bitmap.Write(options.image_path / image_name);
     if (kWithMasks) {
       if (i == 0) {
         // append .png to image_name
-        test_bitmap.Write(options.mask_path + "/" + image_name + ".png");
+        test_bitmap.Write(options.mask_path / (image_name + ".png"));
       } else {
         // replace mask extension by .png
-        test_bitmap.Write(options.mask_path + "/" + stem + ".png");
+        test_bitmap.Write(options.mask_path / (stem + ".png"));
       }
     }
     if (kWithExistingImages) {
