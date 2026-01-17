@@ -119,8 +119,6 @@ inline Eigen::Matrix3d QuaternionToScaledRotation(const double* q) {
   const double qz = q[2];
   const double qw = q[3];
 
-  // This is not to eliminate common sub-expression, but to
-  // make the lines shorter so that they fit in 80 columns.
   const double aa = qw * qw;
   const double ab = qw * qx;
   const double ac = qw * qy;
