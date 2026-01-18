@@ -68,7 +68,7 @@ class BM_BundleAdjustment : public benchmark::Fixture {
     options.num_points2D_without_point3D = 0.1 * options.num_points3D;
     options.match_config =
         static_cast<SyntheticDatasetOptions::MatchConfig>(state.range(4));
-    options.match_sparsity = 0.25;
+    options.match_sparsity = 0.5;
 
     reconstruction_ = std::make_unique<Reconstruction>();
     SynthesizeDataset(options, reconstruction_.get());
