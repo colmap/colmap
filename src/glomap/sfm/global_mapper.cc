@@ -259,15 +259,7 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
                                      double max_angular_reproj_error_deg,
                                      double max_normalized_reproj_error,
                                      double min_tri_angle_deg) {
-  if (options.constraint_type != GlobalPositioningConstraintType::ONLY_POINTS) {
-    LOG(ERROR) << "Only points are used for solving camera positions";
-    return false;
-  }
-
-  GlobalPositioner gp_engine(options);
-
-  // TODO: consider to support other modes as well
-  if (!gp_engine.Solve(*pose_graph_, *reconstruction_)) {
+  if (!RunGlobalPositioning(options, *pose_graph_, *reconstruction_)) {
     return false;
   }
 
