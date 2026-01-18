@@ -114,11 +114,12 @@ inline Eigen::Vector3d QuaternionRotatePointWithJac(const double* q,
 }
 
 // Full reprojection error cost function with analytical Jacobians.
+// Requires camera model to implement ImgFromCamWithJac().
 template <typename CameraModel>
-class ReprojErrorCostFunction
+class AnalyticalReprojErrorCostFunction
     : public ceres::SizedCostFunction<2, 4, 3, 3, CameraModel::num_params> {
  public:
-  explicit ReprojErrorCostFunction(const Eigen::Vector2d& point2D)
+  explicit AnalyticalReprojErrorCostFunction(const Eigen::Vector2d& point2D)
       : point2D_(point2D) {}
 
   bool Evaluate(double const* const* parameters,
@@ -143,11 +144,11 @@ class ReprojErrorCostFunction
         Eigen::Matrix<double, 2, CameraModel::num_params, Eigen::RowMajor>>
         J_params_mat(J_params);
 
-    Eigen::Matrix<double, 3, 4, Eigen::RowMajor> J_Rp_q_mat;
+    Eigen::Matrix<double, 3, 4, Eigen::RowMajor> J_Rp_quat_mat;
     const Eigen::Vector3d point3D_in_cam =
         QuaternionRotatePointWithJac(cam_from_world_quat,
                                      point3D_in_world,
-                                     J_quat ? J_Rp_q_mat.data() : nullptr) +
+                                     J_quat ? J_Rp_quat_mat.data() : nullptr) +
         Eigen::Map<const Eigen::Vector3d>(cam_from_world_trans);
 
     Eigen::Matrix<double, 2, 3, Eigen::RowMajor> J_uvw_mat;
@@ -181,7 +182,7 @@ class ReprojErrorCostFunction
     residuals_vec -= point2D_;
 
     if (J_quat) {
-      J_quat_mat = J_uvw_mat * J_Rp_q_mat;
+      J_quat_mat = J_uvw_mat * J_Rp_quat_mat;
     }
     if (J_trans) {
       J_trans_mat = J_uvw_mat;
@@ -646,21 +647,42 @@ struct Point3DAlignmentCostFunctor
   const bool use_log_scale_;
 };
 
+template <typename T>
+struct HasStaticImgFromCamWithJac {
+ private:
+  template <typename U>
+  static auto test(int)
+      -> decltype(U::ImgFromCamWithJac(static_cast<const double*>(nullptr),
+                                       std::declval<const double&>(),
+                                       std::declval<const double&>(),
+                                       std::declval<const double&>(),
+                                       static_cast<double*>(nullptr),
+                                       static_cast<double*>(nullptr),
+                                       static_cast<double*>(nullptr),
+                                       static_cast<double*>(nullptr)),
+                  std::true_type{});
+
+  template <typename>
+  static std::false_type test(...);
+
+ public:
+  static constexpr bool value = decltype(test<T>(0))::value;
+};
+
 template <template <typename> class CostFunctor, typename... Args>
 ceres::CostFunction* CreateCameraCostFunction(
     const CameraModelId camera_model_id, Args&&... args) {
-  if constexpr (std::is_same<
-                    CostFunctor<SimpleRadialCameraModel>,
-                    ReprojErrorCostFunctor<SimpleRadialCameraModel>>::value) {
-    if (camera_model_id == SimpleRadialCameraModel::model_id) {
-      return new ReprojErrorCostFunction<SimpleRadialCameraModel>(
-          std::forward<Args>(args)...);
-    }
-  }
   switch (camera_model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                                    \
-  case CameraModel::model_id:                                             \
-    return CostFunctor<CameraModel>::Create(std::forward<Args>(args)...); \
+#define CAMERA_MODEL_CASE(CameraModel)                                        \
+  case CameraModel::model_id:                                                 \
+    if constexpr (std::is_same<CostFunctor<CameraModel>,                      \
+                               ReprojErrorCostFunctor<CameraModel>>::value && \
+                  HasStaticImgFromCamWithJac<CameraModel>::value) {           \
+      return new AnalyticalReprojErrorCostFunction<CameraModel>(              \
+          std::forward<Args>(args)...);                                       \
+    } else {                                                                  \
+      return CostFunctor<CameraModel>::Create(std::forward<Args>(args)...);   \
+    }                                                                         \
     break;
 
     CAMERA_MODEL_SWITCH_CASES
