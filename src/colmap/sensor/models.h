@@ -304,6 +304,15 @@ struct SimpleRadialCameraModel
     : public BaseCameraModel<SimpleRadialCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
       CameraModelId::kSimpleRadial, "SIMPLE_RADIAL", 1, 2, 1)
+
+  inline static bool ImgFromCamWithJac(const double* params,
+                                       const double& u,
+                                       const double& v,
+                                       const double& w,
+                                       double* x,
+                                       double* y,
+                                       double* J_params,
+                                       double* J_uvw);
 };
 
 // Simple camera model with one focal length and two radial distortion
@@ -920,6 +929,86 @@ bool SimpleRadialCameraModel::ImgFromCam(
   // Transform to image coordinates
   *x = f * *x + c1;
   *y = f * *y + c2;
+
+  return true;
+}
+
+bool SimpleRadialCameraModel::ImgFromCamWithJac(const double* params,
+                                                const double& u,
+                                                const double& v,
+                                                const double& w,
+                                                double* x,
+                                                double* y,
+                                                double* J_params,
+                                                double* J_uvw) {
+  if (w < std::numeric_limits<double>::epsilon()) {
+    return false;
+  }
+
+  const double f = params[0];
+  const double c1 = params[1];
+  const double c2 = params[2];
+  const double k = params[3];
+
+  const double inv_w = 1.0 / w;
+  const double uu = u * inv_w;
+  const double vv = v * inv_w;
+
+  const double uu2 = uu * uu;
+  const double vv2 = vv * vv;
+  const double r2 = uu2 + vv2;
+  const double k_r2 = k * r2;
+  const double alpha = 1.0 + k_r2;
+  const double xd = alpha * uu;
+  const double yd = alpha * vv;
+
+  *x = f * xd + c1;
+  *y = f * yd + c2;
+
+  if (J_uvw) {
+    // J_uvw is a 2x3 matrix (row-major): d(x, y) / d(u, v, w)
+    //
+    // x = f * alpha * uu + c1, y = f * alpha * vv + c2
+    // where alpha = 1 + k * r2, r2 = uu^2 + vv^2, uu = u/w, vv = v/w
+    //
+    // Using chain rule:
+    // dx/du = f/w * (alpha + 2*k*uu^2)
+    // dx/dv = f/w * 2*k*uu*vv
+    // dx/dw = -f*uu/w * (1 + 3*k*r2)
+    // dy/du = f/w * 2*k*uu*vv
+    // dy/dv = f/w * (alpha + 2*k*vv^2)
+    // dy/dw = -f*vv/w * (1 + 3*k*r2)
+
+    const double two_k = 2.0 * k;
+    const double f_inv_w = f * inv_w;
+    const double beta = 1.0 + 3.0 * k_r2;
+    const double two_k_uu_vv = two_k * uu * vv;
+
+    J_uvw[0] = f_inv_w * (alpha + two_k * uu2);
+    J_uvw[1] = f_inv_w * two_k_uu_vv;
+    J_uvw[2] = -f_inv_w * uu * beta;
+    J_uvw[3] = f_inv_w * two_k_uu_vv;
+    J_uvw[4] = f_inv_w * (alpha + two_k * vv2);
+    J_uvw[5] = -f_inv_w * vv * beta;
+  }
+
+  if (J_params) {
+    // J_params is a 2x4 matrix (row-major): d(x, y) / d(f, cx, cy, k)
+    //
+    // x = f * alpha * uu + cx, y = f * alpha * vv + cy
+    //
+    // dx/df = alpha * uu, dx/dcx = 1, dx/dcy = 0, dx/dk = f * uu * r2
+    // dy/df = alpha * vv, dy/dcx = 0, dy/dcy = 1, dy/dk = f * vv * r2
+
+    J_params[0] = xd;
+    J_params[1] = 1.0;
+    J_params[2] = 0.0;
+    J_params[3] = f * uu * r2;
+    J_params[4] = yd;
+    J_params[5] = 0.0;
+    J_params[6] = 1.0;
+    J_params[7] = f * vv * r2;
+  }
 
   return true;
 }
