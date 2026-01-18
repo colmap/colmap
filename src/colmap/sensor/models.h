@@ -957,7 +957,8 @@ bool SimpleRadialCameraModel::ImgFromCamWithJac(const double* params,
   const double uu2 = uu * uu;
   const double vv2 = vv * vv;
   const double r2 = uu2 + vv2;
-  const double alpha = 1.0 + k * r2;
+  const double k_r2 = k * r2;
+  const double alpha = 1.0 + k_r2;
   const double xd = alpha * uu;
   const double yd = alpha * vv;
 
@@ -980,7 +981,7 @@ bool SimpleRadialCameraModel::ImgFromCamWithJac(const double* params,
 
     const double two_k = 2.0 * k;
     const double f_inv_w = f * inv_w;
-    const double beta = 1.0 + 3.0 * k * r2;
+    const double beta = 1.0 + 3.0 * k_r2;
     const double two_k_uu_vv = two_k * uu * vv;
 
     J_uvw[0] = f_inv_w * (alpha + two_k * uu2);
