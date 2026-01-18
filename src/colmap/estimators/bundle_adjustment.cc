@@ -696,13 +696,14 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
 }
 
 void ParameterizePoints(
+    const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
     const std::unordered_map<point3D_t, size_t>& point3D_num_observations,
     Reconstruction& reconstruction,
     ceres::Problem& problem) {
   for (const auto& [point3D_id, num_observations] : point3D_num_observations) {
     Point3D& point3D = reconstruction.Point3D(point3D_id);
-    if (point3D.track.Length() > num_observations) {
+    if (!options.refine_points3D || point3D.track.Length() > num_observations) {
       problem.SetParameterBlockConstant(point3D.xyz.data());
     }
   }
@@ -747,8 +748,11 @@ class DefaultBundleAdjuster : public BundleAdjuster {
                         *problem_);
     ParameterizeImages(
         options_, config_, parameterized_image_ids_, reconstruction, *problem_);
-    ParameterizePoints(
-        config_, point3D_num_observations_, reconstruction, *problem_);
+    ParameterizePoints(options_,
+                       config_,
+                       point3D_num_observations_,
+                       reconstruction,
+                       *problem_);
 
     switch (config_.FixedGauge()) {
       case BundleAdjustmentGauge::UNSPECIFIED:
@@ -780,8 +784,6 @@ class DefaultBundleAdjuster : public BundleAdjuster {
         options_.CreateSolverOptions(config_, *problem_);
 
     ceres::Solve(solver_options, problem_.get(), &summary);
-
-    LOG(INFO) << summary.FullReport();
 
     if (options_.print_summary || VLOG_IS_ON(1)) {
       PrintSolverSummary(summary, "Bundle adjustment report");
@@ -824,11 +826,18 @@ class DefaultBundleAdjuster : public BundleAdjuster {
         continue;
       }
 
-      num_observations += 1;
-      point3D_num_observations_[point2D.point3D_id] += 1;
-
       Point3D& point3D = reconstruction.Point3D(point2D.point3D_id);
       THROW_CHECK_GT(point3D.track.Length(), 1);
+
+      // Skip points with track length below minimum.
+      if (options_.min_track_length > 0 &&
+          static_cast<int>(point3D.track.Length()) <
+              options_.min_track_length) {
+        continue;
+      }
+
+      num_observations += 1;
+      point3D_num_observations_[point2D.point3D_id] += 1;
 
       if (constant_cam_from_world) {
         problem_->AddResidualBlock(
@@ -879,11 +888,18 @@ class DefaultBundleAdjuster : public BundleAdjuster {
         continue;
       }
 
-      num_observations += 1;
-      point3D_num_observations_[point2D.point3D_id] += 1;
-
       Point3D& point3D = reconstruction.Point3D(point2D.point3D_id);
       THROW_CHECK_GT(point3D.track.Length(), 1);
+
+      // Skip points with track length below minimum.
+      if (options_.min_track_length > 0 &&
+          static_cast<int>(point3D.track.Length()) <
+              options_.min_track_length) {
+        continue;
+      }
+
+      num_observations += 1;
+      point3D_num_observations_[point2D.point3D_id] += 1;
 
       // The !constant_sensor_from_rig && constant_rig_from_world is
       // rare enough that we do not have a specialized cost function for it.
@@ -927,6 +943,12 @@ class DefaultBundleAdjuster : public BundleAdjuster {
                          Reconstruction& reconstruction) {
     THROW_CHECK(!config_.IsIgnoredPoint(point3D_id));
     Point3D& point3D = reconstruction.Point3D(point3D_id);
+
+    // Skip points with track length below minimum.
+    if (options_.min_track_length > 0 &&
+        static_cast<int>(point3D.track.Length()) < options_.min_track_length) {
+      return;
+    }
 
     size_t& num_observations = point3D_num_observations_[point3D_id];
 

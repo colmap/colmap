@@ -259,7 +259,7 @@ class ReprojErrorCostFunctor
                                 point3D_in_cam[2],
                                 &residuals[0],
                                 &residuals[1])) {
-      Eigen::Map<Eigen::Vector2d> residuals_vec(residuals);
+      Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
       residuals_vec -= point2D_.cast<T>();
     } else {
       residuals[0] = T(0);
@@ -379,7 +379,7 @@ class RigReprojErrorCostFunctor
                                 point3D_in_cam[2],
                                 &residuals[0],
                                 &residuals[1])) {
-      Eigen::Map<Eigen::Vector2d> residuals_vec(residuals);
+      Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
       residuals_vec -= point2D_.cast<T>();
     } else {
       residuals[0] = T(0);
