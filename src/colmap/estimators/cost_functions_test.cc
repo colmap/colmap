@@ -74,6 +74,39 @@ TEST(ReprojErrorCostFunctor, Nominal) {
   EXPECT_EQ(residuals[1], 2);
 }
 
+TEST(AnalyticalReprojErrorCostFunction, GradientChecker) {
+  for (const double x : {0, 100, 200, 300}) {
+    for (const double y : {0, 100, 200, 300}) {
+      auto cost_function = std::make_unique<
+          AnalyticalReprojErrorCostFunction<SimpleRadialCameraModel>>(
+          Eigen::Vector2d(x, y));
+
+      Rigid3d cam_from_world(
+          Eigen::Quaterniond(Eigen::AngleAxisd(
+              0.1, Eigen::Vector3d(0.1, -0.1, 1).normalized())),
+          Eigen::Vector3d(1, 2, 3));
+      Eigen::Vector3d point3D(2, 1, 4);
+      std::vector<double> simple_radial_params = {200, 100, 120, 0.1};
+
+      ceres::EigenQuaternionManifold quaternion_manifold;
+      std::vector<const ceres::Manifold*> manifolds{
+          &quaternion_manifold, nullptr, nullptr, nullptr};
+      std::vector<double*> parameter_blocks{
+          cam_from_world.rotation.coeffs().data(),
+          cam_from_world.translation.data(),
+          point3D.data(),
+          simple_radial_params.data()};
+
+      ceres::NumericDiffOptions numeric_diff_options;
+      ceres::GradientChecker gradient_checker(
+          cost_function.get(), &manifolds, numeric_diff_options);
+      ceres::GradientChecker::ProbeResults results;
+      EXPECT_TRUE(
+          gradient_checker.Probe(parameter_blocks.data(), 1e-12, &results));
+    }
+  }
+}
+
 TEST(ReprojErrorConstantPoseCostFunctor, Nominal) {
   Rigid3d cam_from_world;
   std::unique_ptr<ceres::CostFunction> cost_function(
