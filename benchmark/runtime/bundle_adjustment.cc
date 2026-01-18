@@ -41,16 +41,10 @@ void GenerateArguments(benchmark::internal::Benchmark* b) {
     for (const int num_cameras_per_rig : {1, 3}) {
       for (const int num_frames_per_rig : {10, 50}) {
         for (const int num_points3D : {1000, 10000}) {
-          for (const auto match_config :
-               {SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE,
-                SyntheticDatasetOptions::MatchConfig::CHAINED,
-                SyntheticDatasetOptions::MatchConfig::SPARSE}) {
-            b->Args({num_rigs,
-                     num_cameras_per_rig,
-                     num_frames_per_rig,
-                     num_points3D,
-                     static_cast<int>(match_config)});
-          }
+          b->Args({num_rigs,
+                   num_cameras_per_rig,
+                   num_frames_per_rig,
+                   num_points3D});
         }
       }
     }
@@ -60,38 +54,17 @@ void GenerateArguments(benchmark::internal::Benchmark* b) {
 class BM_BundleAdjustment : public benchmark::Fixture {
  public:
   void SetUp(::benchmark::State& state) {
-    SyntheticDatasetOptions options;
-    options.num_rigs = state.range(0);
-    options.num_cameras_per_rig = state.range(1);
-    options.num_frames_per_rig = state.range(2);
-    options.num_points3D = state.range(3);
-    options.num_points2D_without_point3D = 0.1 * options.num_points3D;
-    options.match_config =
-        static_cast<SyntheticDatasetOptions::MatchConfig>(state.range(4));
-    options.match_sparsity = 0.5;
+    SetPRNGSeed(42);
+
+    SyntheticDatasetOptions dataset_options;
+    dataset_options.num_rigs = state.range(0);
+    dataset_options.num_cameras_per_rig = state.range(1);
+    dataset_options.num_frames_per_rig = state.range(2);
+    dataset_options.num_points3D = state.range(3);
 
     reconstruction_ = std::make_unique<Reconstruction>();
-    SynthesizeDataset(options, reconstruction_.get());
+    SynthesizeDataset(dataset_options, reconstruction_.get());
 
-    // Remove points that are only observed by a single image (track length 1).
-    std::vector<point3D_t> points_to_remove;
-    for (const auto& [point3D_id, point3D] : reconstruction_->Points3D()) {
-      if (point3D.track.Length() <= 1) {
-        points_to_remove.push_back(point3D_id);
-      }
-    }
-    for (const point3D_t point3D_id : points_to_remove) {
-      reconstruction_->DeletePoint3D(point3D_id);
-    }
-
-    // Skip if not enough points left for meaningful BA.
-    if (reconstruction_->NumPoints3D() < 10) {
-      skip_benchmark_ = true;
-      return;
-    }
-    skip_benchmark_ = false;
-
-    // Add noise to make BA actually do work.
     SyntheticNoiseOptions noise_options;
     noise_options.point2D_stddev = 1.0;
     noise_options.point3D_stddev = 0.05;
@@ -99,22 +72,21 @@ class BM_BundleAdjustment : public benchmark::Fixture {
     noise_options.rig_from_world_rotation_stddev = 1.0;
     SynthesizeNoise(noise_options, reconstruction_.get());
 
-    // Set up BA config: add all images and variable points.
     for (const image_t image_id : reconstruction_->RegImageIds()) {
       config_.AddImage(image_id);
-    }
-    for (const auto& [point3D_id, _] : reconstruction_->Points3D()) {
-      config_.AddVariablePoint(point3D_id);
     }
     config_.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
     // Set up BA options.
     options_.print_summary = false;
     options_.solver_options.max_num_iterations = 50;
+    options_.use_parameter_block_ordering = false;
+    options_.solver_options.num_threads = 4;
   }
 
   void TearDown(::benchmark::State& state) {
     reconstruction_.reset();
+    options_ = BundleAdjustmentOptions();
     config_ = BundleAdjustmentConfig();
   }
 
@@ -122,15 +94,9 @@ class BM_BundleAdjustment : public benchmark::Fixture {
   std::unique_ptr<Reconstruction> reconstruction_;
   BundleAdjustmentConfig config_;
   BundleAdjustmentOptions options_;
-  bool skip_benchmark_ = false;
 };
 
 BENCHMARK_DEFINE_F(BM_BundleAdjustment, Solve)(benchmark::State& state) {
-  if (skip_benchmark_) {
-    state.SkipWithMessage("Not enough 3D points with track length > 1");
-    return;
-  }
-
   int num_iterations = 0;
   for (auto _ : state) {
     state.PauseTiming();
@@ -140,18 +106,18 @@ BENCHMARK_DEFINE_F(BM_BundleAdjustment, Solve)(benchmark::State& state) {
 
     auto bundle_adjuster =
         CreateDefaultBundleAdjuster(options_, config_, reconstruction_copy);
-    ceres::Solver::Summary summary = bundle_adjuster->Solve();
+    const ceres::Solver::Summary summary = bundle_adjuster->Solve();
 
     // Stop timing and check if BA converged.
     state.PauseTiming();
     num_iterations += summary.num_successful_steps;
-    LOG(INFO) << summary.num_successful_steps;
     if (summary.termination_type == ceres::NO_CONVERGENCE) {
       state.SkipWithError("Bundle adjustment did not converge");
     }
     state.ResumeTiming();
   }
 
+  state.PauseTiming();
   // Report custom counters.
   state.counters["imgs"] = reconstruction_->NumRegImages();
   state.counters["rigs"] = reconstruction_->NumRigs();
@@ -159,6 +125,7 @@ BENCHMARK_DEFINE_F(BM_BundleAdjustment, Solve)(benchmark::State& state) {
   state.counters["frms"] = reconstruction_->NumRegFrames();
   state.counters["pnts"] = reconstruction_->NumPoints3D();
   state.counters["itrs"] = num_iterations;
+  state.ResumeTiming();
 }
 
 BENCHMARK_REGISTER_F(BM_BundleAdjustment, Solve)
