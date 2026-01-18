@@ -104,8 +104,7 @@ void TestCamFromImgToImg(const std::vector<double>& params,
   }
 }
 
-// Test that validates ImgFromCamWithJac against ImgFromCam using Ceres Jets
-// auto-differentiation, similar to how IterativeUndistortion uses Jets.
+// Validate ImgFromCamWithJac against ImgFromCam using Ceres Jets.
 template <typename CameraModel>
 void TestImgFromCamWithJac(const std::vector<double>& params,
                            const double u,
