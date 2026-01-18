@@ -113,38 +113,6 @@ inline Eigen::Vector3d QuaternionRotatePointWithJac(const double* q,
   return pt_out;
 }
 
-// Eigen quaternion to 3x3 rotation matrix.
-inline Eigen::Matrix3d QuaternionToScaledRotation(const double* q) {
-  const double qx = q[0];
-  const double qy = q[1];
-  const double qz = q[2];
-  const double qw = q[3];
-
-  // Common sub-expressions.
-  const double aa = qw * qw;
-  const double ab = qw * qx;
-  const double ac = qw * qy;
-  const double ad = qw * qz;
-  const double bb = qx * qx;
-  const double bc = qx * qy;
-  const double bd = qx * qz;
-  const double cc = qy * qy;
-  const double cd = qy * qz;
-  const double dd = qz * qz;
-
-  Eigen::Matrix3d R;
-  R(0, 0) = aa + bb - cc - dd;
-  R(0, 1) = 2 * (bc - ad);
-  R(0, 2) = 2 * (ac + bd);
-  R(1, 0) = 2 * (ad + bc);
-  R(1, 1) = aa - bb + cc - dd;
-  R(1, 2) = 2 * (cd - ab);
-  R(2, 0) = 2 * (bd - ac);
-  R(2, 1) = 2 * (ab + cd);
-  R(2, 2) = aa - bb - cc + dd;
-  return R;
-}
-
 // Full reprojection error cost function with analytical Jacobians.
 template <typename CameraModel>
 class ReprojErrorCostFunction
@@ -219,7 +187,9 @@ class ReprojErrorCostFunction
       J_trans_mat = J_uvw_mat;
     }
     if (J_point) {
-      J_point_mat = J_uvw_mat * QuaternionToScaledRotation(cam_from_world_quat);
+      J_point_mat =
+          J_uvw_mat *
+          EigenQuaternionMap<double>(cam_from_world_quat).toRotationMatrix();
     }
 
     return true;
