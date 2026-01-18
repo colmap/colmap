@@ -63,37 +63,50 @@ struct UndistortCameraOptions {
 // mvs::PatchMatchController class.
 class COLMAPUndistorter : public BaseController {
  public:
-  COLMAPUndistorter(
-      const UndistortCameraOptions& options,
-      const Reconstruction& reconstruction,
-      const std::filesystem::path& image_path,
-      const std::filesystem::path& output_path,
-      int num_related_images = 20,
-      FileCopyType copy_type = FileCopyType::COPY,
-      const std::vector<image_t>& image_ids = std::vector<image_t>());
+  struct Options {
+    // The copy type to use when copying already undistorted images to the
+    // output directory. This can be used to speed up the undistortion process
+    // when a majority of the images are already undistorted and choosing
+    // COPY_HARD_LINK or COPY_SYMLINK to avoid duplicating the images.
+    FileCopyType copy_type = FileCopyType::COPY;
+
+    // How many images to use as patch match source images when generating the
+    // patch match config file.
+    int num_patch_match_src_images = 20;
+
+    // List of images to undistort. If empty, all images are undistorted.
+    std::vector<image_t> image_ids;
+
+    // JPEG quality setting in the range [0, 100]. A value of -1 uses the
+    // default (quality 100). Lower values produce smaller file sizes.
+    int jpeg_quality = -1;
+  };
+
+  COLMAPUndistorter(Options options,
+                    const UndistortCameraOptions& camera_options,
+                    const Reconstruction& reconstruction,
+                    const std::filesystem::path& image_path,
+                    const std::filesystem::path& output_path);
 
   void Run();
 
  private:
   bool Undistort(image_t image_id) const;
-  void WritePatchMatchConfig() const;
-  void WriteFusionConfig() const;
+  void WritePatchMatchConfig(const std::vector<std::string>& image_names) const;
+  void WriteFusionConfig(const std::vector<std::string>& image_names) const;
   void WriteScript(bool geometric) const;
 
-  UndistortCameraOptions options_;
+  const Options options_;
+  const UndistortCameraOptions camera_options_;
+  const Reconstruction& reconstruction_;
   const std::filesystem::path image_path_;
   const std::filesystem::path output_path_;
-  const FileCopyType copy_type_;
-  const int num_patch_match_src_images_;
-  const Reconstruction& reconstruction_;
-  const std::vector<image_t> image_ids_;
-  std::vector<std::string> image_names_;
 };
 
 // Undistort images and prepare data for CMVS/PMVS.
 class PMVSUndistorter : public BaseController {
  public:
-  PMVSUndistorter(const UndistortCameraOptions& options,
+  PMVSUndistorter(const UndistortCameraOptions& camera_options,
                   const Reconstruction& reconstruction,
                   const std::filesystem::path& image_path,
                   const std::filesystem::path& output_path);
@@ -109,10 +122,10 @@ class PMVSUndistorter : public BaseController {
   void WriteCOLMAPScript(bool geometric) const;
   void WriteCMVSCOLMAPScript(bool geometric) const;
 
-  UndistortCameraOptions options_;
-  std::filesystem::path image_path_;
-  std::filesystem::path output_path_;
+  const UndistortCameraOptions camera_options_;
   const Reconstruction& reconstruction_;
+  const std::filesystem::path image_path_;
+  const std::filesystem::path output_path_;
 };
 
 // Undistort images and prepare data for CMP-MVS.
@@ -128,54 +141,70 @@ class CMPMVSUndistorter : public BaseController {
  private:
   bool Undistort(size_t reg_image_idx) const;
 
-  UndistortCameraOptions options_;
-  std::filesystem::path image_path_;
-  std::filesystem::path output_path_;
+  const UndistortCameraOptions options_;
+  const std::filesystem::path image_path_;
+  const std::filesystem::path output_path_;
   const Reconstruction& reconstruction_;
 };
 
 // Undistort images and export undistorted cameras without the need for a
 // reconstruction. Instead, the image names and camera model information are
 // read from a text file.
-class PureImageUndistorter : public BaseController {
+class StandaloneImageUndistorter : public BaseController {
  public:
-  PureImageUndistorter(const UndistortCameraOptions& options,
-                       const std::filesystem::path& image_path,
-                       const std::filesystem::path& output_path,
-                       const std::vector<std::pair<std::string, Camera>>&
-                           image_names_and_cameras);
+  struct Options {
+    // The images and cameras to undistort.
+    std::vector<std::pair<std::string, Camera>> image_names_and_cameras;
+
+    // JPEG quality setting in the range [0, 100]. A value of -1 uses the
+    // default (quality 100). Lower values produce smaller file sizes.
+    int jpeg_quality = -1;
+  };
+
+  StandaloneImageUndistorter(Options options,
+                             const UndistortCameraOptions& camera_options,
+                             const std::filesystem::path& image_path,
+                             const std::filesystem::path& output_path);
 
   void Run();
 
  private:
-  bool Undistort(size_t reg_image_idx) const;
+  bool Undistort(size_t image_idx) const;
 
-  UndistortCameraOptions options_;
-  std::filesystem::path image_path_;
-  std::filesystem::path output_path_;
-  const std::vector<std::pair<std::string, Camera>>& image_names_and_cameras_;
+  const Options options_;
+  const UndistortCameraOptions camera_options_;
+  const std::filesystem::path image_path_;
+  const std::filesystem::path output_path_;
 };
 
 // Rectify stereo image pairs.
 class StereoImageRectifier : public BaseController {
  public:
-  StereoImageRectifier(
-      const UndistortCameraOptions& options,
-      const Reconstruction& reconstruction,
-      const std::filesystem::path& image_path,
-      const std::filesystem::path& output_path,
-      const std::vector<std::pair<image_t, image_t>>& stereo_pairs);
+  struct Options {
+    // The stereo image pairs to rectify.
+    std::vector<std::pair<image_t, image_t>> stereo_pairs;
+
+    // JPEG quality setting in the range [0, 100]. A value of -1 uses the
+    // default (quality 100). Lower values produce smaller file sizes.
+    int jpeg_quality = -1;
+  };
+
+  StereoImageRectifier(Options options,
+                       const UndistortCameraOptions& camera_options,
+                       const Reconstruction& reconstruction,
+                       const std::filesystem::path& image_path,
+                       const std::filesystem::path& output_path);
 
   void Run();
 
  private:
   void Rectify(image_t image_id1, image_t image_id2) const;
 
-  UndistortCameraOptions options_;
-  std::filesystem::path image_path_;
-  std::filesystem::path output_path_;
-  const std::vector<std::pair<image_t, image_t>>& stereo_pairs_;
+  const Options options_;
+  const UndistortCameraOptions camera_options_;
   const Reconstruction& reconstruction_;
+  const std::filesystem::path image_path_;
+  const std::filesystem::path output_path_;
 };
 
 // Undistort camera by resizing the image and shifting the principal point.

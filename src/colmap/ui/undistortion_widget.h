@@ -57,7 +57,8 @@ class UndistortionWidget : public OptionsWidget {
   ThreadControlWidget* thread_control_widget_;
 
   QComboBox* output_format_;
-  UndistortCameraOptions undistortion_options_;
+  COLMAPUndistorter::Options colmap_options_;
+  UndistortCameraOptions camera_options_;
   std::filesystem::path output_path_;
 };
 
