@@ -32,7 +32,6 @@ set(FOLDER_NAME "glomap_estimators")
 COLMAP_ADD_LIBRARY(
     NAME colmap_glomap_estimators
     SRCS
-        bundle_adjustment.h bundle_adjustment.cc
         cost_functions.h
         global_positioning.h global_positioning.cc
         rotation_averaging.h rotation_averaging.cc

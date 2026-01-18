@@ -1,16 +1,18 @@
 #pragma once
 
+#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_triangulator.h"
 
-#include "glomap/estimators/bundle_adjustment.h"
 #include "glomap/estimators/global_positioning.h"
 #include "glomap/estimators/rotation_averaging.h"
 #include "glomap/scene/pose_graph.h"
 
 #include <filesystem>
 #include <limits>
+
+#include <ceres/ceres.h>
 
 namespace glomap {
 
@@ -31,7 +33,24 @@ struct GlobalMapperOptions {
   // Options for each component
   RotationEstimatorOptions rotation_averaging;
   GlobalPositionerOptions global_positioning;
-  BundleAdjusterOptions bundle_adjustment;
+  colmap::BundleAdjustmentOptions bundle_adjustment = [] {
+    colmap::BundleAdjustmentOptions options;
+    options.loss_function_type =
+        colmap::BundleAdjustmentOptions::LossFunctionType::HUBER;
+    options.refine_sensor_from_rig = false;
+    options.min_track_length = 3;
+    options.use_gpu = true;
+    options.print_summary = false;
+    // TODO: Investigate whether disabling auto solver selection and using
+    // explicit SPARSE_SCHUR + CLUSTER_TRIDIAGONAL is necessary for global SfM,
+    // or if we can just rely on COLMAP's auto selection.
+    options.auto_select_solver_type = false;
+    options.solver_options.function_tolerance = 1e-5;
+    options.solver_options.max_num_iterations = 200;
+    options.solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
+    options.solver_options.preconditioner_type = ceres::CLUSTER_TRIDIAGONAL;
+    return options;
+  }();
   colmap::IncrementalTriangulator::Options retriangulation = [] {
     colmap::IncrementalTriangulator::Options opts;
     opts.complete_max_reproj_error = 15.0;
@@ -55,6 +74,18 @@ struct GlobalMapperOptions {
 
   // Control the number of iterations for bundle adjustment.
   int ba_num_iterations = 3;
+
+  // Whether to skip the fixed-rotation stage in bundle adjustment.
+  // By default, BA runs in two stages: first with fixed rotations (position
+  // only), then with full optimization. Setting this to true skips the first
+  // stage and runs full optimization directly.
+  bool ba_skip_fixed_rotation_stage = false;
+
+  // Whether to skip the joint optimization stage in bundle adjustment.
+  // When set to true, only the fixed-rotation stage is run (optimizing
+  // positions only). This is mutually exclusive with
+  // ba_skip_fixed_rotation_stage.
+  bool ba_skip_joint_optimization_stage = false;
 
   // Control the flow of the global sfm
   bool skip_rotation_averaging = false;
@@ -91,15 +122,17 @@ class GlobalMapper {
                          double min_tri_angle_deg);
 
   // Run iterative bundle adjustment to refine poses and structure.
-  bool IterativeBundleAdjustment(const BundleAdjusterOptions& options,
+  bool IterativeBundleAdjustment(const colmap::BundleAdjustmentOptions& options,
                                  double max_normalized_reproj_error,
                                  double min_tri_angle_deg,
-                                 int num_iterations);
+                                 int num_iterations,
+                                 bool skip_fixed_rotation_stage = false,
+                                 bool skip_joint_optimization_stage = false);
 
   // Iteratively retriangulate tracks and refine to improve structure.
   bool IterativeRetriangulateAndRefine(
       const colmap::IncrementalTriangulator::Options& options,
-      const BundleAdjusterOptions& ba_options,
+      const colmap::BundleAdjustmentOptions& ba_options,
       double max_normalized_reproj_error,
       double min_tri_angle_deg);
 

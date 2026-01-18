@@ -32,6 +32,7 @@
 #include "colmap/estimators/generalized_absolute_pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/rigid3_matchers.h"
+#include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
