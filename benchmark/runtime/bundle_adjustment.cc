@@ -94,8 +94,8 @@ class BM_BundleAdjustment : public benchmark::Fixture {
     // Add noise to make BA actually do work.
     SyntheticNoiseOptions noise_options;
     noise_options.point2D_stddev = 1.0;
-    noise_options.point3D_stddev = 0.1;
-    noise_options.rig_from_world_translation_stddev = 0.05;
+    noise_options.point3D_stddev = 0.05;
+    noise_options.rig_from_world_translation_stddev = 0.01;
     noise_options.rig_from_world_rotation_stddev = 1.0;
     SynthesizeNoise(noise_options, reconstruction_.get());
 
@@ -145,7 +145,6 @@ BENCHMARK_DEFINE_F(BM_BundleAdjustment, Solve)(benchmark::State& state) {
     // Stop timing and check if BA converged.
     state.PauseTiming();
     num_iterations += summary.num_successful_steps;
-    LOG(INFO) << summary.num_successful_steps;
     if (summary.termination_type == ceres::NO_CONVERGENCE) {
       state.SkipWithError("Bundle adjustment did not converge");
     }
