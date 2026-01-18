@@ -88,9 +88,16 @@ TEST(AnalyticalReprojErrorCostFunction, GradientChecker) {
       Eigen::Vector3d point3D(2, 1, 4);
       std::vector<double> simple_radial_params = {200, 100, 120, 0.1};
 
+#if CERES_VERSION_MAJOR >= 3 || \
+    (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
       ceres::EigenQuaternionManifold quaternion_manifold;
       std::vector<const ceres::Manifold*> manifolds{
           &quaternion_manifold, nullptr, nullptr, nullptr};
+#else
+      ceres::EigenQuaternionParameterization quaternion_manifold;
+      std::vector<const ceres::Parameterization*> manifolds{
+          &quaternion_manifold, nullptr, nullptr, nullptr};
+#endif
       std::vector<double*> parameter_blocks{
           cam_from_world.rotation.coeffs().data(),
           cam_from_world.translation.data(),
