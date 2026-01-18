@@ -647,28 +647,6 @@ struct Point3DAlignmentCostFunctor
   const bool use_log_scale_;
 };
 
-template <typename T>
-struct HasStaticImgFromCamWithJac {
- private:
-  template <typename U>
-  static auto test(int)
-      -> decltype(U::ImgFromCamWithJac(static_cast<const double*>(nullptr),
-                                       std::declval<const double&>(),
-                                       std::declval<const double&>(),
-                                       std::declval<const double&>(),
-                                       static_cast<double*>(nullptr),
-                                       static_cast<double*>(nullptr),
-                                       static_cast<double*>(nullptr),
-                                       static_cast<double*>(nullptr)),
-                  std::true_type{});
-
-  template <typename>
-  static std::false_type test(...);
-
- public:
-  static constexpr bool value = decltype(test<T>(0))::value;
-};
-
 template <template <typename> class CostFunctor, typename... Args>
 ceres::CostFunction* CreateCameraCostFunction(
     const CameraModelId camera_model_id, Args&&... args) {
@@ -677,7 +655,7 @@ ceres::CostFunction* CreateCameraCostFunction(
   case CameraModel::model_id:                                                 \
     if constexpr (std::is_same<CostFunctor<CameraModel>,                      \
                                ReprojErrorCostFunctor<CameraModel>>::value && \
-                  HasStaticImgFromCamWithJac<CameraModel>::value) {           \
+                  CameraModel::has_img_from_cam_with_jac) {                   \
       return new AnalyticalReprojErrorCostFunction<CameraModel>(              \
           std::forward<Args>(args)...);                                       \
     } else {                                                                  \

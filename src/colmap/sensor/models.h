@@ -104,19 +104,21 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                  model_name_val,                              \
                                  num_focal_params_val,                        \
                                  num_pp_params_val,                           \
-                                 num_extra_params_val)                        \
+                                 num_extra_params_val,                        \
+                                 has_img_from_cam_with_jac_val)               \
   static constexpr size_t num_params =                                        \
       (num_focal_params_val) + (num_pp_params_val) + (num_extra_params_val);  \
   static constexpr size_t num_focal_params = num_focal_params_val;            \
   static constexpr size_t num_pp_params = num_pp_params_val;                  \
   static constexpr size_t num_extra_params = num_extra_params_val;            \
+  static constexpr bool has_img_from_cam_with_jac =                           \
+      has_img_from_cam_with_jac_val;                                          \
   static constexpr CameraModelId model_id = model_id_val;                     \
   static const std::string model_name;                                        \
   static const std::string params_info;                                       \
   static const std::array<size_t, (num_focal_params_val)> focal_length_idxs;  \
   static const std::array<size_t, (num_pp_params_val)> principal_point_idxs;  \
   static const std::array<size_t, (num_extra_params_val)> extra_params_idxs;  \
-                                                                              \
   static inline CameraModelId InitializeModelId() { return model_id_val; };   \
   static inline std::string InitializeModelName() { return model_name_val; }; \
   static inline std::string InitializeParamsInfo();                           \
@@ -126,12 +128,21 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
   InitializePrincipalPointIdxs();                                             \
   static inline std::array<size_t, (num_extra_params_val)>                    \
   InitializeExtraParamsIdxs();                                                \
-                                                                              \
   static inline std::vector<double> InitializeParams(                         \
       double focal_length, size_t width, size_t height);                      \
   template <typename T>                                                       \
   static bool ImgFromCam(                                                     \
       const T* params, const T& u, const T& v, const T& w, T* x, T* y);       \
+  template <bool Enable = has_img_from_cam_with_jac,                          \
+            typename std::enable_if<Enable, int>::type = 0>                   \
+  static inline bool ImgFromCamWithJac(const double* params,                  \
+                                       const double& u,                       \
+                                       const double& v,                       \
+                                       const double& w,                       \
+                                       double* x,                             \
+                                       double* y,                             \
+                                       double* J_params,                      \
+                                       double* J_uvw);                        \
   static inline bool CamFromImg(                                              \
       const double* params, double x, double y, double* u, double* v);        \
   template <typename T>                                                       \
@@ -273,7 +284,7 @@ struct BaseFisheyeCameraModel : public BaseCameraModel<CameraModel> {
 struct SimplePinholeCameraModel
     : public BaseCameraModel<SimplePinholeCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kSimplePinhole, "SIMPLE_PINHOLE", 1, 2, 0)
+      CameraModelId::kSimplePinhole, "SIMPLE_PINHOLE", 1, 2, 0, false)
 };
 
 // Pinhole camera model.
@@ -286,7 +297,7 @@ struct SimplePinholeCameraModel
 //
 // See https://en.wikipedia.org/wiki/Pinhole_camera_model
 struct PinholeCameraModel : public BaseCameraModel<PinholeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kPinhole, "PINHOLE", 2, 2, 0)
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kPinhole, "PINHOLE", 2, 2, 0, false)
 };
 
 // Simple camera model with one focal length and one radial distortion
@@ -303,16 +314,7 @@ struct PinholeCameraModel : public BaseCameraModel<PinholeCameraModel> {
 struct SimpleRadialCameraModel
     : public BaseCameraModel<SimpleRadialCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kSimpleRadial, "SIMPLE_RADIAL", 1, 2, 1)
-
-  inline static bool ImgFromCamWithJac(const double* params,
-                                       const double& u,
-                                       const double& v,
-                                       const double& w,
-                                       double* x,
-                                       double* y,
-                                       double* J_params,
-                                       double* J_uvw);
+      CameraModelId::kSimpleRadial, "SIMPLE_RADIAL", 1, 2, 1, true)
 };
 
 // Simple camera model with one focal length and two radial distortion
@@ -326,7 +328,7 @@ struct SimpleRadialCameraModel
 //    f, cx, cy, k1, k2
 //
 struct RadialCameraModel : public BaseCameraModel<RadialCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kRadial, "RADIAL", 1, 2, 2)
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kRadial, "RADIAL", 1, 2, 2, false)
 };
 
 // OpenCV camera model.
@@ -342,7 +344,7 @@ struct RadialCameraModel : public BaseCameraModel<RadialCameraModel> {
 // See
 // http://docs.opencv.org/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
 struct OpenCVCameraModel : public BaseCameraModel<OpenCVCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kOpenCV, "OPENCV", 2, 2, 4)
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kOpenCV, "OPENCV", 2, 2, 4, false)
 };
 
 // OpenCV fish-eye camera model.
@@ -360,7 +362,7 @@ struct OpenCVCameraModel : public BaseCameraModel<OpenCVCameraModel> {
 struct OpenCVFisheyeCameraModel
     : public BaseFisheyeCameraModel<OpenCVFisheyeCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kOpenCVFisheye, "OPENCV_FISHEYE", 2, 2, 4)
+      CameraModelId::kOpenCVFisheye, "OPENCV_FISHEYE", 2, 2, 4, false)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -376,7 +378,8 @@ struct OpenCVFisheyeCameraModel
 // See
 // http://docs.opencv.org/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
 struct FullOpenCVCameraModel : public BaseCameraModel<FullOpenCVCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kFullOpenCV, "FULL_OPENCV", 2, 2, 8)
+  CAMERA_MODEL_DEFINITIONS(
+      CameraModelId::kFullOpenCV, "FULL_OPENCV", 2, 2, 8, false)
 };
 
 // FOV camera model.
@@ -394,7 +397,7 @@ struct FullOpenCVCameraModel : public BaseCameraModel<FullOpenCVCameraModel> {
 // Automatic calibration and removal of distortion from scenes of structured
 // environments. Machine vision and applications, 2001.
 struct FOVCameraModel : public BaseCameraModel<FOVCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kFOV, "FOV", 2, 2, 1)
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kFOV, "FOV", 2, 2, 1, false)
 
   template <typename T>
   static void Undistortion(const T* extra_params, T u, T v, T* du, T* dv);
@@ -412,8 +415,12 @@ struct FOVCameraModel : public BaseCameraModel<FOVCameraModel> {
 //
 struct SimpleRadialFisheyeCameraModel
     : public BaseFisheyeCameraModel<SimpleRadialFisheyeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kSimpleRadialFisheye, "SIMPLE_RADIAL_FISHEYE", 1, 2, 1)
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kSimpleRadialFisheye,
+                           "SIMPLE_RADIAL_FISHEYE",
+                           1,
+                           2,
+                           1,
+                           false)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -430,7 +437,7 @@ struct SimpleRadialFisheyeCameraModel
 struct RadialFisheyeCameraModel
     : public BaseFisheyeCameraModel<RadialFisheyeCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kRadialFisheye, "RADIAL_FISHEYE", 1, 2, 2)
+      CameraModelId::kRadialFisheye, "RADIAL_FISHEYE", 1, 2, 2, false)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -449,7 +456,7 @@ struct RadialFisheyeCameraModel
 struct ThinPrismFisheyeCameraModel
     : public BaseFisheyeCameraModel<ThinPrismFisheyeCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kThinPrismFisheye, "THIN_PRISM_FISHEYE", 2, 2, 8)
+      CameraModelId::kThinPrismFisheye, "THIN_PRISM_FISHEYE", 2, 2, 8, false)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -471,7 +478,8 @@ struct RadTanThinPrismFisheyeModel
                            "RAD_TAN_THIN_PRISM_FISHEYE",
                            2,
                            2,
-                           12)
+                           12,
+                           false)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -490,7 +498,7 @@ struct RadTanThinPrismFisheyeModel
 struct SimpleDivisionCameraModel
     : public BaseCameraModel<SimpleDivisionCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kSimpleDivision, "SIMPLE_DIVISION", 1, 2, 1)
+      CameraModelId::kSimpleDivision, "SIMPLE_DIVISION", 1, 2, 1, false)
 };
 
 // Division camera model.
@@ -506,7 +514,7 @@ struct SimpleDivisionCameraModel
 //    fx, fy, cx, cy, k
 //
 struct DivisionCameraModel : public BaseCameraModel<DivisionCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kDivision, "DIVISION", 2, 2, 1)
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kDivision, "DIVISION", 2, 2, 1, false)
 };
 
 // Check whether camera model with given name or identifier exists.
@@ -933,6 +941,7 @@ bool SimpleRadialCameraModel::ImgFromCam(
   return true;
 }
 
+template <bool Enable, typename std::enable_if<Enable, int>::type>
 bool SimpleRadialCameraModel::ImgFromCamWithJac(const double* params,
                                                 const double& u,
                                                 const double& v,
