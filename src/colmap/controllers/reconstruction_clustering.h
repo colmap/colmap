@@ -29,42 +29,32 @@
 
 #pragma once
 
-#include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/scene/reconstruction_clustering.h"
+#include "colmap/scene/reconstruction_manager.h"
+#include "colmap/util/base_controller.h"
 
-#include <filesystem>
+#include <memory>
 
 namespace colmap {
 
-void RunPointTriangulatorImpl(
-    const std::shared_ptr<Reconstruction>& reconstruction,
-    const std::filesystem::path& database_path,
-    const std::filesystem::path& image_path,
-    const std::filesystem::path& output_path,
-    const IncrementalPipelineOptions& options,
-    bool clear_points,
-    bool refine_intrinsics);
+// Controller that clusters frames from a reconstruction
+// and splits it into multiple reconstructions based on clustering.
+class ReconstructionClustererController : public BaseController {
+ public:
+  ReconstructionClustererController(
+      const ReconstructionClusteringOptions& options,
+      std::shared_ptr<Reconstruction> reconstruction,
+      std::shared_ptr<ReconstructionManager> reconstruction_manager);
 
-bool RunIncrementalMapperImpl(
-    const std::filesystem::path& database_path,
-    const std::filesystem::path& image_path,
-    const std::filesystem::path& output_path,
-    const std::shared_ptr<IncrementalPipelineOptions>& mapper_options,
-    std::shared_ptr<ReconstructionManager>& reconstruction_manager,
-    std::function<void()> initial_image_pair_callback = {},
-    std::function<void()> next_image_callback = {});
+  // Runs the pruning and clustering algorithm.
+  // Results are stored in the reconstruction manager passed to the constructor.
+  void Run() override;
 
-int RunAutomaticReconstructor(int argc, char** argv);
-int RunBundleAdjuster(int argc, char** argv);
-int RunColorExtractor(int argc, char** argv);
-int RunMapper(int argc, char** argv);
-int RunGlobalMapper(int argc, char** argv);
-int RunHierarchicalMapper(int argc, char** argv);
-int RunPosePriorMapper(int argc, char** argv);
-int RunPointFiltering(int argc, char** argv);
-int RunPointTriangulator(int argc, char** argv);
-int RunReconstructionClusterer(int argc, char** argv);
-int RunRotationAverager(int argc, char** argv);
-int RunViewGraphCalibrator(int argc, char** argv);
+ private:
+  const ReconstructionClusteringOptions options_;
+  std::shared_ptr<Reconstruction> reconstruction_;
+  std::shared_ptr<ReconstructionManager> reconstruction_manager_;
+};
 
 }  // namespace colmap

@@ -29,8 +29,8 @@
 
 #include "colmap/image/undistortion.h"
 
-#include "colmap/geometry/pose.h"
 #include "colmap/image/warp.h"
+#include "colmap/math/math.h"
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/misc.h"

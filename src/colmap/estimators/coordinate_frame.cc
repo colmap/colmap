@@ -33,6 +33,7 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/image/line.h"
 #include "colmap/image/undistortion.h"
+#include "colmap/math/math.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"

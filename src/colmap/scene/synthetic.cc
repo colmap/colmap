@@ -31,11 +31,11 @@
 
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/gps.h"
+#include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/math/union_find.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/eigen_alignment.h"
-#include "colmap/util/file.h"
 
 #include <Eigen/Geometry>
 
