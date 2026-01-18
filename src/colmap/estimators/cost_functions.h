@@ -135,6 +135,8 @@ class AnalyticalReprojErrorCostFunction
     double* J_point = jacobians ? jacobians[2] : nullptr;
     double* J_params = jacobians ? jacobians[3] : nullptr;
 
+    Eigen::Map<Eigen::Vector2d> residuals_vec(residuals);
+
     Eigen::Map<Eigen::Matrix<double, 2, 4, Eigen::RowMajor>> J_quat_mat(J_quat);
     Eigen::Map<Eigen::Matrix<double, 2, 3, Eigen::RowMajor>> J_trans_mat(
         J_trans);
@@ -161,8 +163,7 @@ class AnalyticalReprojErrorCostFunction
             &residuals[1],
             J_params,
             (J_quat || J_trans || J_point) ? J_uvw_mat.data() : nullptr)) {
-      residuals[0] = 0.0;
-      residuals[1] = 0.0;
+      residuals_vec.setZero();
       if (J_quat) {
         J_quat_mat.setZero();
       }
@@ -178,7 +179,6 @@ class AnalyticalReprojErrorCostFunction
       return true;
     }
 
-    Eigen::Map<Eigen::Vector2d> residuals_vec(residuals);
     residuals_vec -= point2D_;
 
     if (J_quat) {
@@ -224,17 +224,16 @@ class ReprojErrorCostFunctor
         EigenQuaternionMap<T>(cam_from_world_rotation) *
             EigenVector3Map<T>(point3D) +
         EigenVector3Map<T>(cam_from_world_translation);
+    Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
     if (CameraModel::ImgFromCam(camera_params,
                                 point3D_in_cam[0],
                                 point3D_in_cam[1],
                                 point3D_in_cam[2],
                                 &residuals[0],
                                 &residuals[1])) {
-      Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
       residuals_vec -= point2D_.cast<T>();
     } else {
-      residuals[0] = T(0);
-      residuals[1] = T(0);
+      residuals_vec.setZero();
     }
     return true;
   }
@@ -344,17 +343,16 @@ class RigReprojErrorCostFunctor
                  EigenVector3Map<T>(point3D) +
              EigenVector3Map<T>(rig_from_world_translation)) +
         EigenVector3Map<T>(cam_from_rig_translation);
+    Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
     if (CameraModel::ImgFromCam(camera_params,
                                 point3D_in_cam[0],
                                 point3D_in_cam[1],
                                 point3D_in_cam[2],
                                 &residuals[0],
                                 &residuals[1])) {
-      Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
       residuals_vec -= point2D_.cast<T>();
     } else {
-      residuals[0] = T(0);
-      residuals[1] = T(0);
+      residuals_vec.setZero();
     }
     return true;
   }
