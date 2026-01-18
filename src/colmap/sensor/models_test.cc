@@ -29,10 +29,86 @@
 
 #include "colmap/sensor/models.h"
 
+#include "colmap/math/random.h"
+
+#include <ceres/ceres.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
+
+// Cost functor for optimizing pixel coordinates to match a target in
+// normalized camera coordinates. Used to test CamFromImg Jacobians.
+template <typename CameraModel>
+struct CamFromImgCostFunctor {
+  CamFromImgCostFunctor(const double* params, double target_u, double target_v)
+      : params_(params), target_u_(target_u), target_v_(target_v) {}
+
+  template <typename T>
+  bool operator()(const T* const xy, T* residuals) const {
+    // Convert params to type T (Jets will have zero derivatives for constants)
+    T params_T[CameraModel::num_params];
+    for (size_t i = 0; i < CameraModel::num_params; ++i) {
+      params_T[i] = T(params_[i]);
+    }
+
+    T u, v;
+    if (!CameraModel::CamFromImg(params_T, xy[0], xy[1], &u, &v)) {
+      return false;
+    }
+    residuals[0] = u - T(target_u_);
+    residuals[1] = v - T(target_v_);
+    return true;
+  }
+
+  const double* params_;
+  double target_u_;
+  double target_v_;
+};
+
+// Test that CamFromImg works with Ceres auto-differentiation by optimizing
+// a noisy pixel to match a target undistorted point.
+// Returns true if the test actually ran, false if skipped.
+template <typename CameraModel>
+bool TestCamFromImgCeresOptimization(const std::vector<double>& params,
+                                     const double x0,
+                                     const double y0) {
+  // Undistort the pixel to get target
+  double target_u, target_v;
+  if (!CameraModel::CamFromImg(params.data(), x0, y0, &target_u, &target_v)) {
+    return false;  // Skip if undistortion fails
+  }
+
+  // Add random noise to pixel in range [-10, 10]
+  double xy[2] = {x0 + RandomUniformReal(-10.0, 10.0),
+                  y0 + RandomUniformReal(-10.0, 10.0)};
+
+  // Skip if noisy pixel is out of valid range
+  double test_u, test_v;
+  if (!CameraModel::CamFromImg(params.data(), xy[0], xy[1], &test_u, &test_v)) {
+    return false;
+  }
+
+  // Optimize to recover original pixel
+  ceres::Problem problem;
+  problem.AddResidualBlock(
+      new ceres::AutoDiffCostFunction<CamFromImgCostFunctor<CameraModel>, 2, 2>(
+          new CamFromImgCostFunctor<CameraModel>(
+              params.data(), target_u, target_v)),
+      nullptr,
+      xy);
+
+  ceres::Solver::Options options;
+  options.linear_solver_type = ceres::DENSE_QR;
+  options.minimizer_progress_to_stdout = false;
+  ceres::Solver::Summary summary;
+  ceres::Solve(options, &problem, &summary);
+
+  EXPECT_EQ(summary.termination_type, ceres::CONVERGENCE);
+  EXPECT_NEAR(xy[0], x0, 1e-4);
+  EXPECT_NEAR(xy[1], y0, 1e-4);
+  return true;
+}
 
 bool FisheyeCameraModelIsValidPixel(const CameraModelId model_id,
                                     const std::vector<double>& params,
@@ -105,6 +181,7 @@ void TestCamFromImgToImg(const std::vector<double>& params,
 
 template <typename CameraModel>
 void TestModel(const std::vector<double>& params) {
+  SetPRNGSeed(42);
   EXPECT_TRUE(CameraModelVerifyParams(CameraModel::model_id, params));
 
   const std::vector<double> default_params =
@@ -172,6 +249,8 @@ void TestModel(const std::vector<double>& params) {
     }
   }
 
+  int num_ceres_tests_total = 0;
+  int num_ceres_tests_ran = 0;
   for (int x = 0; x <= 800; x += 50) {
     for (int y = 0; y <= 800; y += 50) {
       if (CameraModelIsFisheye(CameraModel::model_id) &&
@@ -180,8 +259,15 @@ void TestModel(const std::vector<double>& params) {
         continue;
       }
       TestCamFromImgToImg<CameraModel>(params, x, y);
+      ++num_ceres_tests_total;
+      if (TestCamFromImgCeresOptimization<CameraModel>(params, x, y)) {
+        ++num_ceres_tests_ran;
+      }
     }
   }
+  // Ensure at least 80% of tests ran (to catch excessive skipping due to
+  // invalid noisy pixels falling outside the valid range)
+  EXPECT_GE(num_ceres_tests_ran, static_cast<int>(num_ceres_tests_total * 0.8));
 
   const auto pp_idxs = CameraModel::principal_point_idxs;
   TestCamFromImgToImg<CameraModel>(
