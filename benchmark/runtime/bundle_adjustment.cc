@@ -37,11 +37,10 @@
 using namespace colmap;
 
 void GenerateArguments(benchmark::internal::Benchmark* b) {
-  for (const int num_rigs : {1, 5, 10}) {
+  for (const int num_rigs : {1, 5}) {
     for (const int num_cameras_per_rig : {1, 3}) {
-      for (const int num_frames_per_rig : {5, 10}) {
-        for (const int num_points3D : {100, 1000}) {
-          // Varying match config (1=EXHAUSTIVE, 2=CHAINED for sparser graph)
+      for (const int num_frames_per_rig : {10, 50}) {
+        for (const int num_points3D : {1000, 10000}) {
           for (const auto match_config :
                {SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE,
                 SyntheticDatasetOptions::MatchConfig::CHAINED,
@@ -61,22 +60,15 @@ void GenerateArguments(benchmark::internal::Benchmark* b) {
 class BM_BundleAdjustment : public benchmark::Fixture {
  public:
   void SetUp(::benchmark::State& state) {
-    const int num_cameras_per_rig = state.range(0);
-    const int num_rigs = state.range(1);
-    const int num_frames_per_rig = state.range(2);
-    const int num_points3D = state.range(3);
-    const int match_config_int = state.range(4);
-
     SyntheticDatasetOptions options;
-    options.num_cameras_per_rig = num_cameras_per_rig;
-    options.num_rigs = num_rigs;
-    options.num_frames_per_rig = num_frames_per_rig;
-    options.num_points3D = num_points3D;
-    options.num_points2D_without_point3D = 10;
+    options.num_rigs = state.range(0);
+    options.num_cameras_per_rig = state.range(1);
+    options.num_frames_per_rig = state.range(2);
+    options.num_points3D = state.range(3);
+    options.num_points2D_without_point3D = 0.1 * options.num_points3D;
     options.match_config =
-        (match_config_int == 1)
-            ? SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE
-            : SyntheticDatasetOptions::MatchConfig::CHAINED;
+        static_cast<SyntheticDatasetOptions::MatchConfig>(state.range(4));
+    options.match_sparsity = 0.25;
 
     reconstruction_ = std::make_unique<Reconstruction>();
     SynthesizeDataset(options, reconstruction_.get());
@@ -102,9 +94,9 @@ class BM_BundleAdjustment : public benchmark::Fixture {
     // Add noise to make BA actually do work.
     SyntheticNoiseOptions noise_options;
     noise_options.point2D_stddev = 1.0;
-    noise_options.point3D_stddev = 0.01;
-    noise_options.rig_from_world_translation_stddev = 0.01;
-    noise_options.rig_from_world_rotation_stddev = 0.5;
+    noise_options.point3D_stddev = 0.1;
+    noise_options.rig_from_world_translation_stddev = 0.05;
+    noise_options.rig_from_world_rotation_stddev = 1.0;
     SynthesizeNoise(noise_options, reconstruction_.get());
 
     // Set up BA config: add all images and variable points.
@@ -119,7 +111,6 @@ class BM_BundleAdjustment : public benchmark::Fixture {
     // Set up BA options.
     options_.print_summary = false;
     options_.solver_options.max_num_iterations = 50;
-    options_.solver_options.logging_type = ceres::LoggingType::SILENT;
   }
 
   void TearDown(::benchmark::State& state) {
@@ -140,15 +131,10 @@ BENCHMARK_DEFINE_F(BM_BundleAdjustment, Solve)(benchmark::State& state) {
     return;
   }
 
-  // Capture problem size info for reporting.
-  const size_t num_images = reconstruction_->NumRegImages();
-  const size_t num_points3D = reconstruction_->NumPoints3D();
-  const size_t num_residuals = config_.NumResiduals(*reconstruction_);
-
+  int num_iterations = 0;
   for (auto _ : state) {
     state.PauseTiming();
-    // Make a copy of the reconstruction for each iteration since BA modifies
-    // it.
+    // Copy the reconstruction for each iteration since BA modifies it.
     Reconstruction reconstruction_copy = *reconstruction_;
     state.ResumeTiming();
 
@@ -158,6 +144,8 @@ BENCHMARK_DEFINE_F(BM_BundleAdjustment, Solve)(benchmark::State& state) {
 
     // Stop timing and check if BA converged.
     state.PauseTiming();
+    num_iterations += summary.num_successful_steps;
+    LOG(INFO) << summary.num_successful_steps;
     if (summary.termination_type == ceres::NO_CONVERGENCE) {
       state.SkipWithError("Bundle adjustment did not converge");
     }
@@ -165,11 +153,12 @@ BENCHMARK_DEFINE_F(BM_BundleAdjustment, Solve)(benchmark::State& state) {
   }
 
   // Report custom counters.
-  state.counters["images"] = num_images;
-  state.counters["points3D"] = num_points3D;
-  state.counters["residuals"] = num_residuals;
-  state.counters["residuals/s"] = benchmark::Counter(
-      num_residuals, benchmark::Counter::kIsIterationInvariantRate);
+  state.counters["imgs"] = reconstruction_->NumRegImages();
+  state.counters["rigs"] = reconstruction_->NumRigs();
+  state.counters["cams"] = reconstruction_->NumCameras();
+  state.counters["frms"] = reconstruction_->NumRegFrames();
+  state.counters["pnts"] = reconstruction_->NumPoints3D();
+  state.counters["itrs"] = num_iterations;
 }
 
 BENCHMARK_REGISTER_F(BM_BundleAdjustment, Solve)
