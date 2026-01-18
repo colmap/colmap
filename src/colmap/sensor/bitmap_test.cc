@@ -659,7 +659,9 @@ TEST(Bitmap, WriteJpegWithQuality) {
   const auto filename_100 = test_dir / "bitmap_100.jpg";
   const auto filename_10 = test_dir / "bitmap_10.jpg";
 
+  EXPECT_FALSE(bitmap.GetMetaData("Compression").has_value());
   EXPECT_TRUE(bitmap.Write(filename_default));
+  EXPECT_FALSE(bitmap.GetMetaData("Compression").has_value());
 
   bitmap.SetMetaData("Compression", "jpeg:100");
   EXPECT_TRUE(bitmap.Write(filename_100));
