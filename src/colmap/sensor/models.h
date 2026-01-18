@@ -941,15 +941,16 @@ bool SimpleRadialCameraModel::ImgFromCamWithJac(const double* params,
     // dy/dv = f/w * (alpha + 2*k*vv^2)
     // dy/dw = -f*vv/w * (1 + 3*k*r2)
 
+    const double two_k = 2.0 * k;
     const double f_inv_w = f * inv_w;
     const double beta = 1.0 + 3.0 * k * r2;
-    const double two_k_uu_vv = 2.0 * k * uu * vv;
+    const double two_k_uu_vv = two_k * uu * vv;
 
-    J_uvw[0] = f_inv_w * (alpha + 2.0 * k * uu2);
+    J_uvw[0] = f_inv_w * (alpha + two_k * uu2);
     J_uvw[1] = f_inv_w * two_k_uu_vv;
     J_uvw[2] = -f_inv_w * uu * beta;
     J_uvw[3] = f_inv_w * two_k_uu_vv;
-    J_uvw[4] = f_inv_w * (alpha + 2.0 * k * vv2);
+    J_uvw[4] = f_inv_w * (alpha + two_k * vv2);
     J_uvw[5] = -f_inv_w * vv * beta;
   }
 
@@ -965,10 +966,10 @@ bool SimpleRadialCameraModel::ImgFromCamWithJac(const double* params,
     J_params[1] = 1.0;
     J_params[2] = 0.0;
     J_params[3] = f * uu * r2;
-    J_params[num_params + 0] = yd;
-    J_params[num_params + 1] = 0.0;
-    J_params[num_params + 2] = 1.0;
-    J_params[num_params + 3] = f * vv * r2;
+    J_params[4] = yd;
+    J_params[5] = 0.0;
+    J_params[6] = 1.0;
+    J_params[7] = f * vv * r2;
   }
 
   return true;

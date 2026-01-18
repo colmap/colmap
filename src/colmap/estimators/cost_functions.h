@@ -43,7 +43,7 @@
 
 namespace colmap {
 
-// Rotates the point and omputes the Jacobian of R(q) * p with respect to Eigen
+// Rotates the point and computes the Jacobian of R(q) * p with respect to Eigen
 // quaternions. J_out is a 3x4 matrix in row-major order.
 inline Eigen::Vector3d QuaternionRotatePointWithJac(const double* q,
                                                     const double* pt,
