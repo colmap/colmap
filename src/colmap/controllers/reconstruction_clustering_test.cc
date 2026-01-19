@@ -165,7 +165,6 @@ TEST(ReconstructionClustererController, SingleCluster) {
   EXPECT_EQ(reconstruction_manager->Size(), 1);
 }
 
-
 TEST(ReconstructionClustererController, SingleClusterWithOutlierFrames) {
   SetPRNGSeed(42);
 
