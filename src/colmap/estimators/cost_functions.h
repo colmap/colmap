@@ -160,7 +160,7 @@ class AnalyticalReprojErrorCostFunction
     Eigen::Map<
         Eigen::Matrix<double, 2, CameraModel::num_params, Eigen::RowMajor>>
         J_params_mat(J_params);
-    Eigen::Matrix<double, 3, 3, Eigen::RowMajor> J_Rp_aa_mat;  // wrt angle-axis
+    Eigen::Matrix<double, 3, 3, Eigen::RowMajor> J_Rp_aa_mat;
     Eigen::Matrix<double, 2, 3, Eigen::RowMajor> J_uvw_mat;
 
     const Eigen::Vector3d rotated_point = AngleAxisRotatePointWithJac(
