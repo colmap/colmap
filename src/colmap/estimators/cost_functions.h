@@ -242,6 +242,43 @@ class ReprojErrorCostFunctor
   const Eigen::Vector2d point2D_;
 };
 
+template <typename CameraModel>
+class ReprojErrorCostFunctorNew
+    : public AutoDiffCostFunctor<ReprojErrorCostFunctorNew<CameraModel>,
+                                 2,
+                                 3,
+                                 7,
+                                 CameraModel::num_params> {
+ public:
+  explicit ReprojErrorCostFunctorNew(const Eigen::Vector2d& point2D)
+      : point2D_(point2D) {}
+
+  template <typename T>
+  bool operator()(const T* const point3D,
+                  const T* const cam_from_world,
+                  const T* const camera_params,
+                  T* residuals) const {
+    const Eigen::Matrix<T, 3, 1> point3D_in_cam =
+        EigenQuaternionMap<T>(cam_from_world) * EigenVector3Map<T>(point3D) +
+        EigenVector3Map<T>(cam_from_world + 4);
+    Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
+    if (CameraModel::ImgFromCam(camera_params,
+                                point3D_in_cam[0],
+                                point3D_in_cam[1],
+                                point3D_in_cam[2],
+                                &residuals[0],
+                                &residuals[1])) {
+      residuals_vec -= point2D_.cast<T>();
+    } else {
+      residuals_vec.setZero();
+    }
+    return true;
+  }
+
+ private:
+  const Eigen::Vector2d point2D_;
+};
+
 // Bundle adjustment cost function for variable
 // camera calibration and point parameters, and fixed camera pose.
 template <typename CameraModel>
@@ -276,6 +313,39 @@ class ReprojErrorConstantPoseCostFunctor
   const ReprojErrorCostFunctor<CameraModel> reproj_cost_;
 };
 
+template <typename CameraModel>
+class ReprojErrorConstantPoseCostFunctorNew
+    : public AutoDiffCostFunctor<
+          ReprojErrorConstantPoseCostFunctorNew<CameraModel>,
+          2,
+          3,
+          CameraModel::num_params> {
+ public:
+  ReprojErrorConstantPoseCostFunctorNew(const Eigen::Vector2d& point2D,
+                                        const Rigid3d& cam_from_world)
+      : cam_from_world_(cam_from_world.rotation.x(),
+                        cam_from_world.rotation.y(),
+                        cam_from_world.rotation.z(),
+                        cam_from_world.rotation.w(),
+                        cam_from_world.translation.x(),
+                        cam_from_world.translation.y(),
+                        cam_from_world.translation.z()),
+        reproj_cost_(point2D) {}
+
+  template <typename T>
+  bool operator()(const T* const point3D,
+                  const T* const camera_params,
+                  T* residuals) const {
+    const Eigen::Matrix<T, 7, 1> cam_from_world = cam_from_world_.cast<T>();
+    return reproj_cost_(
+        point3D, cam_from_world.data(), camera_params, residuals);
+  }
+
+ private:
+  const Eigen::Matrix<double, 7, 1> cam_from_world_;
+  const ReprojErrorCostFunctorNew<CameraModel> reproj_cost_;
+};
+
 // Bundle adjustment cost function for variable
 // camera pose and calibration parameters, and fixed point.
 template <typename CameraModel>
@@ -307,6 +377,34 @@ class ReprojErrorConstantPoint3DCostFunctor
  private:
   const Eigen::Vector3d point3D_;
   const ReprojErrorCostFunctor<CameraModel> reproj_cost_;
+};
+
+// Bundle adjustment cost function for variable
+// camera pose and calibration parameters, and fixed point.
+template <typename CameraModel>
+class ReprojErrorConstantPoint3DCostFunctorNew
+    : public AutoDiffCostFunctor<
+          ReprojErrorConstantPoint3DCostFunctorNew<CameraModel>,
+          2,
+          7,
+          CameraModel::num_params> {
+ public:
+  ReprojErrorConstantPoint3DCostFunctorNew(const Eigen::Vector2d& point2D,
+                                           const Eigen::Vector3d& point3D)
+      : point3D_(point3D), reproj_cost_(point2D) {}
+
+  template <typename T>
+  bool operator()(const T* const cam_from_world,
+                  const T* const camera_params,
+                  T* residuals) const {
+    const Eigen::Matrix<T, 3, 1> point3D = point3D_.cast<T>();
+    return reproj_cost_(
+        point3D.data(), cam_from_world, camera_params, residuals);
+  }
+
+ private:
+  const Eigen::Vector3d point3D_;
+  const ReprojErrorCostFunctorNew<CameraModel> reproj_cost_;
 };
 
 // Rig bundle adjustment cost function for variable camera pose and calibration
@@ -343,6 +441,48 @@ class RigReprojErrorCostFunctor
                  EigenVector3Map<T>(point3D) +
              EigenVector3Map<T>(rig_from_world_translation)) +
         EigenVector3Map<T>(cam_from_rig_translation);
+    Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
+    if (CameraModel::ImgFromCam(camera_params,
+                                point3D_in_cam[0],
+                                point3D_in_cam[1],
+                                point3D_in_cam[2],
+                                &residuals[0],
+                                &residuals[1])) {
+      residuals_vec -= point2D_.cast<T>();
+    } else {
+      residuals_vec.setZero();
+    }
+    return true;
+  }
+
+ private:
+  const Eigen::Vector2d point2D_;
+};
+
+template <typename CameraModel>
+class RigReprojErrorCostFunctorNew
+    : public AutoDiffCostFunctor<RigReprojErrorCostFunctorNew<CameraModel>,
+                                 2,
+                                 3,
+                                 7,
+                                 7,
+                                 CameraModel::num_params> {
+ public:
+  explicit RigReprojErrorCostFunctorNew(const Eigen::Vector2d& point2D)
+      : point2D_(point2D) {}
+
+  template <typename T>
+  bool operator()(const T* const point3D,
+                  const T* const cam_from_rig,
+                  const T* const rig_from_world,
+                  const T* const camera_params,
+                  T* residuals) const {
+    const Eigen::Matrix<T, 3, 1> point3D_in_cam =
+        EigenQuaternionMap<T>(cam_from_rig) *
+            (EigenQuaternionMap<T>(rig_from_world) *
+                 EigenVector3Map<T>(point3D) +
+             EigenVector3Map<T>(rig_from_world + 4)) +
+        EigenVector3Map<T>(cam_from_rig + 4);
     Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
     if (CameraModel::ImgFromCam(camera_params,
                                 point3D_in_cam[0],
@@ -399,6 +539,41 @@ class RigReprojErrorConstantRigCostFunctor
  private:
   const Rigid3d cam_from_rig_;
   const RigReprojErrorCostFunctor<CameraModel> reproj_cost_;
+};
+
+template <typename CameraModel>
+class RigReprojErrorConstantRigCostFunctorNew
+    : public AutoDiffCostFunctor<
+          RigReprojErrorConstantRigCostFunctorNew<CameraModel>,
+          2,
+          3,
+          7,
+          CameraModel::num_params> {
+ public:
+  RigReprojErrorConstantRigCostFunctorNew(const Eigen::Vector2d& point2D,
+                                          const Rigid3d& cam_from_rig)
+      : cam_from_rig_(cam_from_rig.rotation.x(),
+                      cam_from_rig.rotation.y(),
+                      cam_from_rig.rotation.z(),
+                      cam_from_rig.rotation.w(),
+                      cam_from_rig.translation.x(),
+                      cam_from_rig.translation.y(),
+                      cam_from_rig.translation.z()),
+        reproj_cost_(point2D) {}
+
+  template <typename T>
+  bool operator()(const T* const point3D,
+                  const T* const rig_from_world,
+                  const T* const camera_params,
+                  T* residuals) const {
+    const Eigen::Matrix<T, 7, 1> cam_from_rig = cam_from_rig_.cast<T>();
+    return reproj_cost_(
+        point3D, cam_from_rig.data(), rig_from_world, camera_params, residuals);
+  }
+
+ private:
+  const Eigen::Matrix<double, 7, 1> cam_from_rig_;
+  const RigReprojErrorCostFunctorNew<CameraModel> reproj_cost_;
 };
 
 // Cost function for refining two-view geometry based on the Sampson-Error.
