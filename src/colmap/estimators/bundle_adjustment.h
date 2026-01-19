@@ -150,6 +150,10 @@ struct BundleAdjustmentOptions {
   // should not be modified.
   bool refine_points3D = true;
 
+  // Minimum track length for a 3D point to be included in bundle adjustment.
+  // Points with fewer observations are ignored.
+  int min_track_length = 0;
+
   // Whether to keep the rotation component of rig_from_world constant.
   // Only takes effect when refine_rig_from_world is true.
   // When true, only translation is refined.

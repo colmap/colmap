@@ -15,6 +15,39 @@
 namespace glomap {
 namespace {
 
+bool RunBundleAdjustment(const colmap::BundleAdjustmentOptions& options,
+                         colmap::Reconstruction& reconstruction) {
+  if (reconstruction.NumImages() == 0) {
+    LOG(ERROR) << "Cannot run bundle adjustment: no registered images";
+    return false;
+  }
+  if (reconstruction.NumPoints3D() == 0) {
+    LOG(ERROR) << "Cannot run bundle adjustment: no 3D points to optimize";
+    return false;
+  }
+
+  colmap::BundleAdjustmentConfig ba_config;
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    if (image.HasPose()) {
+      ba_config.AddImage(image_id);
+    }
+  }
+  ba_config.FixGauge(colmap::BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  auto ba =
+      colmap::CreateDefaultBundleAdjuster(options, ba_config, reconstruction);
+
+  ceres::Solver::Summary summary = ba->Solve();
+
+  if (VLOG_IS_ON(2)) {
+    LOG(INFO) << summary.FullReport();
+  } else {
+    LOG(INFO) << summary.BriefReport();
+  }
+
+  return summary.IsSolutionUsable();
+}
+
 GlobalMapperOptions InitializeOptions(const GlobalMapperOptions& options) {
   // Propagate random seed and num_threads to component options.
   GlobalMapperOptions opts = options;
@@ -226,15 +259,7 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
                                      double max_angular_reproj_error_deg,
                                      double max_normalized_reproj_error,
                                      double min_tri_angle_deg) {
-  if (options.constraint_type != GlobalPositioningConstraintType::ONLY_POINTS) {
-    LOG(ERROR) << "Only points are used for solving camera positions";
-    return false;
-  }
-
-  GlobalPositioner gp_engine(options);
-
-  // TODO: consider to support other modes as well
-  if (!gp_engine.Solve(*pose_graph_, *reconstruction_)) {
+  if (!RunGlobalPositioning(options, *pose_graph_, *reconstruction_)) {
     return false;
   }
 
@@ -293,29 +318,32 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
 }
 
 bool GlobalMapper::IterativeBundleAdjustment(
-    const BundleAdjusterOptions& options,
+    const colmap::BundleAdjustmentOptions& options,
     double max_normalized_reproj_error,
     double min_tri_angle_deg,
-    int num_iterations) {
+    int num_iterations,
+    bool skip_fixed_rotation_stage,
+    bool skip_joint_optimization_stage) {
   for (int ite = 0; ite < num_iterations; ite++) {
-    // First stage: optimize positions only (rotation constant)
-    if (!RunBundleAdjustment(options,
-                             /*constant_rotation=*/true,
-                             *reconstruction_)) {
-      return false;
+    // Optional fixed-rotation stage: optimize positions only
+    if (!skip_fixed_rotation_stage) {
+      colmap::BundleAdjustmentOptions opts_position_only = options;
+      opts_position_only.constant_rig_from_world_rotation = true;
+      if (!RunBundleAdjustment(opts_position_only, *reconstruction_)) {
+        return false;
+      }
+      LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
+                << num_iterations << ", fixed-rotation stage finished";
     }
-    LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
-              << num_iterations << ", stage 1 finished (position only)";
 
-    // Second stage: optimize rotations if desired
-    if (options.optimize_rotations &&
-        !RunBundleAdjustment(options,
-                             /*constant_rotation=*/false,
-                             *reconstruction_)) {
-      return false;
+    // Joint optimization stage: default BA
+    if (!skip_joint_optimization_stage) {
+      if (!RunBundleAdjustment(options, *reconstruction_)) {
+        return false;
+      }
     }
     LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
-              << num_iterations << ", stage 2 finished";
+              << num_iterations << " finished";
 
     // Normalize the structure
     reconstruction_->Normalize();
@@ -365,7 +393,7 @@ bool GlobalMapper::IterativeBundleAdjustment(
 
 bool GlobalMapper::IterativeRetriangulateAndRefine(
     const colmap::IncrementalTriangulator::Options& options,
-    const BundleAdjusterOptions& ba_options,
+    const colmap::BundleAdjustmentOptions& ba_options,
     double max_normalized_reproj_error,
     double min_tri_angle_deg) {
   // Delete all existing 3D points and re-establish 2D-3D correspondences.
@@ -381,12 +409,12 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
   }
 
   // Set up bundle adjustment options for colmap's incremental mapper.
-  colmap::BundleAdjustmentOptions colmap_ba_options;
-  colmap_ba_options.solver_options.num_threads =
+  colmap::BundleAdjustmentOptions custom_ba_options;
+  custom_ba_options.solver_options.num_threads =
       ba_options.solver_options.num_threads;
-  colmap_ba_options.solver_options.max_num_iterations = 50;
-  colmap_ba_options.solver_options.max_linear_solver_iterations = 100;
-  colmap_ba_options.print_summary = false;
+  custom_ba_options.solver_options.max_num_iterations = 50;
+  custom_ba_options.solver_options.max_linear_solver_iterations = 100;
+  custom_ba_options.print_summary = false;
 
   // Iterative global refinement.
   colmap::IncrementalMapper::Options mapper_options;
@@ -394,7 +422,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
   mapper.IterativeGlobalRefinement(/*max_num_refinements=*/5,
                                    /*max_refinement_change=*/0.0005,
                                    mapper_options,
-                                   colmap_ba_options,
+                                   custom_ba_options,
                                    options,
                                    /*normalize_reconstruction=*/true);
 
@@ -407,9 +435,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
       reconstruction_->Point3DIds(),
       colmap::ReprojectionErrorType::NORMALIZED);
 
-  if (!RunBundleAdjustment(ba_options,
-                           /*constant_rotation=*/false,
-                           *reconstruction_)) {
+  if (!RunBundleAdjustment(ba_options, *reconstruction_)) {
     return false;
   }
 
@@ -484,7 +510,9 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     if (!IterativeBundleAdjustment(opts.bundle_adjustment,
                                    opts.max_normalized_reproj_error,
                                    opts.min_tri_angle_deg,
-                                   opts.ba_num_iterations)) {
+                                   opts.ba_num_iterations,
+                                   opts.ba_skip_fixed_rotation_stage,
+                                   opts.ba_skip_joint_optimization_stage)) {
       return false;
     }
     LOG(INFO) << "Iterative bundle adjustment done in "

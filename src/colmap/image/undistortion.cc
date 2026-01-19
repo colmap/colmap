@@ -41,6 +41,15 @@
 namespace colmap {
 namespace {
 
+void MaybeSetJpegQuality(const std::filesystem::path& path,
+                         Bitmap& bitmap,
+                         int jpeg_quality) {
+  if ((HasFileExtension(path, ".jpg") || HasFileExtension(path, ".jpeg")) &&
+      jpeg_quality > 0) {
+    bitmap.SetMetaData("Compression", "jpeg:" + std::to_string(jpeg_quality));
+  }
+}
+
 template <typename Derived>
 void WriteMatrix(const Eigen::MatrixBase<Derived>& matrix,
                  std::ofstream* file) {
@@ -136,20 +145,21 @@ void WriteCOLMAPCommands(const bool geometric,
 
 }  // namespace
 
-COLMAPUndistorter::COLMAPUndistorter(const UndistortCameraOptions& options,
-                                     const Reconstruction& reconstruction,
-                                     const std::filesystem::path& image_path,
-                                     const std::filesystem::path& output_path,
-                                     const int num_patch_match_src_images,
-                                     const FileCopyType copy_type,
-                                     const std::vector<image_t>& image_ids)
-    : options_(options),
-      image_path_(image_path),
-      output_path_(output_path),
-      copy_type_(copy_type),
-      num_patch_match_src_images_(num_patch_match_src_images),
+COLMAPUndistorter::COLMAPUndistorter(
+    Options options,
+    const UndistortCameraOptions& camera_options,
+    const Reconstruction& reconstruction,
+    const std::filesystem::path& image_path,
+    const std::filesystem::path& output_path)
+    : options_(std::move(options)),
+      camera_options_(camera_options),
       reconstruction_(reconstruction),
-      image_ids_(image_ids) {}
+      image_path_(image_path),
+      output_path_(output_path) {
+  THROW_CHECK_GE(options_.num_patch_match_src_images, 1);
+  THROW_CHECK_GE(options_.jpeg_quality, -1);
+  THROW_CHECK_LE(options_.jpeg_quality, 100);
+}
 
 void COLMAPUndistorter::Run() {
   LOG_HEADING1("Image undistortion");
@@ -169,26 +179,23 @@ void COLMAPUndistorter::Run() {
   reconstruction_.CreateImageDirs(output_path_ / "stereo" /
                                   "consistency_graphs");
 
+  const std::vector<image_t> image_ids = options_.image_ids.empty()
+                                             ? reconstruction_.RegImageIds()
+                                             : options_.image_ids;
+  const size_t num_images = image_ids.size();
+
   ThreadPool thread_pool;
   std::vector<std::shared_future<bool>> futures;
-  futures.reserve(reconstruction_.NumRegImages());
-  std::vector<image_t> image_ids;
-  if (image_ids_.empty()) {
-    for (const image_t image_id : reconstruction_.RegImageIds()) {
-      futures.push_back(
-          thread_pool.AddTask(&COLMAPUndistorter::Undistort, this, image_id));
-      image_ids.push_back(image_id);
-    }
-  } else {
-    for (const image_t image_id : image_ids_) {
-      futures.push_back(
-          thread_pool.AddTask(&COLMAPUndistorter::Undistort, this, image_id));
-    }
+  futures.reserve(num_images);
+  for (const image_t image_id : image_ids) {
+    futures.push_back(
+        thread_pool.AddTask(&COLMAPUndistorter::Undistort, this, image_id));
   }
 
   // Only use the image names for the successfully undistorted images
   // when writing the MVS config files
-  image_names_.clear();
+  std::vector<std::string> image_names;
+  image_names.reserve(num_images);
   for (size_t i = 0; i < futures.size(); ++i) {
     if (CheckIfStopped()) {
       break;
@@ -198,78 +205,81 @@ void COLMAPUndistorter::Run() {
         "Undistorting image [%d/%d]", i + 1, futures.size());
 
     if (futures[i].get()) {
-      const image_t image_id =
-          (image_ids_.empty() ? image_ids : image_ids_).at(i);
-      image_names_.push_back(reconstruction_.Image(image_id).Name());
+      image_names.push_back(reconstruction_.Image(image_ids[i]).Name());
     }
   }
 
   LOG(INFO) << "Writing reconstruction...";
   Reconstruction undistorted_reconstruction = reconstruction_;
-  UndistortReconstruction(options_, &undistorted_reconstruction);
+  UndistortReconstruction(camera_options_, &undistorted_reconstruction);
   undistorted_reconstruction.Write(output_path_ / "sparse");
 
   LOG(INFO) << "Writing configuration...";
-  WritePatchMatchConfig();
-  WriteFusionConfig();
+  WritePatchMatchConfig(image_names);
+  WriteFusionConfig(image_names);
 
   LOG(INFO) << "Writing scripts...";
-  WriteScript(false);
-  WriteScript(true);
+  WriteScript(/*geometric=*/false);
+  WriteScript(/*geometric=*/true);
 
   run_timer.PrintMinutes();
 }
 
 bool COLMAPUndistorter::Undistort(const image_t image_id) const {
   const Image& image = reconstruction_.Image(image_id);
-
-  Bitmap distorted_bitmap;
-  Bitmap undistorted_bitmap;
   const Camera& camera = *image.CameraPtr();
-  Camera undistorted_camera;
 
   const auto input_image_path = image_path_ / image.Name();
   const auto output_image_path = output_path_ / "images" / image.Name();
 
   // Check if the image is already undistorted and copy from source if no
   // scaling is needed
-  if (camera.IsUndistorted() && options_.max_image_size < 0 &&
+  if (camera.IsUndistorted() && camera_options_.max_image_size < 0 &&
       ExistsFile(input_image_path)) {
-    LOG(INFO) << "Undistorted image found; copying to location: "
+    LOG(INFO) << "Copying already distorted image to location: "
               << output_image_path;
-    FileCopy(input_image_path, output_image_path, copy_type_);
+    FileCopy(input_image_path, output_image_path, options_.copy_type);
     return true;
   }
 
+  Bitmap distorted_bitmap;
   if (!distorted_bitmap.Read(input_image_path)) {
-    LOG(ERROR) << "Cannot read image at path " << input_image_path;
+    LOG(ERROR) << "Cannot read image at path: " << input_image_path;
     return false;
   }
 
-  UndistortImage(options_,
+  Bitmap undistorted_bitmap;
+  Camera undistorted_camera;
+  UndistortImage(camera_options_,
                  distorted_bitmap,
                  camera,
                  &undistorted_bitmap,
                  &undistorted_camera);
+
+  MaybeSetJpegQuality(
+      output_image_path, undistorted_bitmap, options_.jpeg_quality);
+
   return undistorted_bitmap.Write(output_image_path);
 }
 
-void COLMAPUndistorter::WritePatchMatchConfig() const {
+void COLMAPUndistorter::WritePatchMatchConfig(
+    const std::vector<std::string>& image_names) const {
   const auto path = output_path_ / "stereo" / "patch-match.cfg";
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
-  for (const auto& image_name : image_names_) {
+  for (const auto& image_name : image_names) {
     file << image_name << '\n';
 
-    file << "__auto__, " << num_patch_match_src_images_ << '\n';
+    file << "__auto__, " << options_.num_patch_match_src_images << '\n';
   }
 }
 
-void COLMAPUndistorter::WriteFusionConfig() const {
+void COLMAPUndistorter::WriteFusionConfig(
+    const std::vector<std::string>& image_names) const {
   const auto path = output_path_ / "stereo" / "fusion.cfg";
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
-  for (const auto& image_name : image_names_) {
+  for (const auto& image_name : image_names) {
     file << image_name << '\n';
   }
 }
@@ -285,14 +295,14 @@ void COLMAPUndistorter::WriteScript(const bool geometric) const {
   WriteCOLMAPCommands(geometric, ".", "COLMAP", "option-all", "", "", &file);
 }
 
-PMVSUndistorter::PMVSUndistorter(const UndistortCameraOptions& options,
+PMVSUndistorter::PMVSUndistorter(const UndistortCameraOptions& camera_options,
                                  const Reconstruction& reconstruction,
                                  const std::filesystem::path& image_path,
                                  const std::filesystem::path& output_path)
-    : options_(options),
+    : camera_options_(camera_options),
+      reconstruction_(reconstruction),
       image_path_(image_path),
-      output_path_(output_path),
-      reconstruction_(reconstruction) {}
+      output_path_(output_path) {}
 
 void PMVSUndistorter::Run() {
   LOG_HEADING1("Image undistortion (CMVS/PMVS)");
@@ -330,7 +340,7 @@ void PMVSUndistorter::Run() {
 
   LOG(INFO) << "Writing bundle file...";
   Reconstruction undistorted_reconstruction = reconstruction_;
-  UndistortReconstruction(options_, &undistorted_reconstruction);
+  UndistortReconstruction(camera_options_, &undistorted_reconstruction);
   const auto bundle_path = output_path_ / "pmvs" / "bundle.rd.out";
   ExportBundler(undistorted_reconstruction,
                 bundle_path,
@@ -373,7 +383,7 @@ bool PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
 
   Bitmap undistorted_bitmap;
   Camera undistorted_camera;
-  UndistortImage(options_,
+  UndistortImage(camera_options_,
                  distorted_bitmap,
                  camera,
                  &undistorted_bitmap,
@@ -588,17 +598,20 @@ bool CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
   return undistorted_bitmap.Write(output_image_path);
 }
 
-PureImageUndistorter::PureImageUndistorter(
-    const UndistortCameraOptions& options,
+StandaloneImageUndistorter::StandaloneImageUndistorter(
+    Options options,
+    const UndistortCameraOptions& camera_options,
     const std::filesystem::path& image_path,
-    const std::filesystem::path& output_path,
-    const std::vector<std::pair<std::string, Camera>>& image_names_and_cameras)
-    : options_(options),
+    const std::filesystem::path& output_path)
+    : options_(std::move(options)),
+      camera_options_(camera_options),
       image_path_(image_path),
-      output_path_(output_path),
-      image_names_and_cameras_(image_names_and_cameras) {}
+      output_path_(output_path) {
+  THROW_CHECK_GE(options_.jpeg_quality, -1);
+  THROW_CHECK_LE(options_.jpeg_quality, 100);
+}
 
-void PureImageUndistorter::Run() {
+void StandaloneImageUndistorter::Run() {
   LOG_HEADING1("Image undistortion");
 
   Timer run_timer;
@@ -608,11 +621,11 @@ void PureImageUndistorter::Run() {
 
   ThreadPool thread_pool;
   std::vector<std::shared_future<bool>> futures;
-  size_t num_images = image_names_and_cameras_.size();
+  const size_t num_images = options_.image_names_and_cameras.size();
   futures.reserve(num_images);
   for (size_t i = 0; i < num_images; ++i) {
     futures.push_back(
-        thread_pool.AddTask(&PureImageUndistorter::Undistort, this, i));
+        thread_pool.AddTask(&StandaloneImageUndistorter::Undistort, this, i));
   }
 
   for (size_t i = 0; i < futures.size(); ++i) {
@@ -629,9 +642,9 @@ void PureImageUndistorter::Run() {
   run_timer.PrintMinutes();
 }
 
-bool PureImageUndistorter::Undistort(const size_t image_idx) const {
-  const std::string& image_name = image_names_and_cameras_[image_idx].first;
-  const Camera& camera = image_names_and_cameras_[image_idx].second;
+bool StandaloneImageUndistorter::Undistort(const size_t image_idx) const {
+  const auto& [image_name, camera] =
+      options_.image_names_and_cameras[image_idx];
 
   const auto output_image_path = output_path_ / image_name;
 
@@ -644,26 +657,32 @@ bool PureImageUndistorter::Undistort(const size_t image_idx) const {
 
   Bitmap undistorted_bitmap;
   Camera undistorted_camera;
-  UndistortImage(options_,
+  UndistortImage(camera_options_,
                  distorted_bitmap,
                  camera,
                  &undistorted_bitmap,
                  &undistorted_camera);
 
+  MaybeSetJpegQuality(
+      output_image_path, undistorted_bitmap, options_.jpeg_quality);
+
   return undistorted_bitmap.Write(output_image_path);
 }
 
 StereoImageRectifier::StereoImageRectifier(
-    const UndistortCameraOptions& options,
+    Options options,
+    const UndistortCameraOptions& camera_options,
     const Reconstruction& reconstruction,
     const std::filesystem::path& image_path,
-    const std::filesystem::path& output_path,
-    const std::vector<std::pair<image_t, image_t>>& stereo_pairs)
-    : options_(options),
+    const std::filesystem::path& output_path)
+    : options_(std::move(options)),
+      camera_options_(camera_options),
+      reconstruction_(reconstruction),
       image_path_(image_path),
-      output_path_(output_path),
-      stereo_pairs_(stereo_pairs),
-      reconstruction_(reconstruction) {}
+      output_path_(output_path) {
+  THROW_CHECK_GE(options_.jpeg_quality, -1);
+  THROW_CHECK_LE(options_.jpeg_quality, 100);
+}
 
 void StereoImageRectifier::Run() {
   LOG_HEADING1("Stereo rectification");
@@ -673,8 +692,8 @@ void StereoImageRectifier::Run() {
 
   ThreadPool thread_pool;
   std::vector<std::shared_future<void>> futures;
-  futures.reserve(stereo_pairs_.size());
-  for (const auto& stereo_pair : stereo_pairs_) {
+  futures.reserve(options_.stereo_pairs.size());
+  for (const auto& stereo_pair : options_.stereo_pairs) {
     futures.push_back(thread_pool.AddTask(&StereoImageRectifier::Rectify,
                                           this,
                                           stereo_pair.first,
@@ -710,8 +729,8 @@ void StereoImageRectifier::Rectify(const image_t image_id1,
 
   CreateDirIfNotExists(output_path_ / stereo_pair_name);
 
-  const auto output_image1_path = output_path_ / stereo_pair_name / image_name1;
-  const auto output_image2_path = output_path_ / stereo_pair_name / image_name2;
+  const auto output_image_path1 = output_path_ / stereo_pair_name / image_name1;
+  const auto output_image_path2 = output_path_ / stereo_pair_name / image_name2;
 
   Bitmap distorted_bitmap1;
   const auto input_image1_path = image_path_ / image1.Name();
@@ -734,7 +753,7 @@ void StereoImageRectifier::Rectify(const image_t image_id1,
   Bitmap undistorted_bitmap2;
   Camera undistorted_camera;
   Eigen::Matrix4d Q;
-  RectifyAndUndistortStereoImages(options_,
+  RectifyAndUndistortStereoImages(camera_options_,
                                   distorted_bitmap1,
                                   distorted_bitmap2,
                                   camera1,
@@ -745,8 +764,13 @@ void StereoImageRectifier::Rectify(const image_t image_id1,
                                   &undistorted_camera,
                                   &Q);
 
-  undistorted_bitmap1.Write(output_image1_path);
-  undistorted_bitmap2.Write(output_image2_path);
+  MaybeSetJpegQuality(
+      output_image_path1, undistorted_bitmap1, options_.jpeg_quality);
+  MaybeSetJpegQuality(
+      output_image_path2, undistorted_bitmap2, options_.jpeg_quality);
+
+  undistorted_bitmap1.Write(output_image_path1);
+  undistorted_bitmap2.Write(output_image_path2);
 
   const auto Q_path = output_path_ / stereo_pair_name / "Q.txt";
   std::ofstream Q_file(Q_path, std::ios::trunc);

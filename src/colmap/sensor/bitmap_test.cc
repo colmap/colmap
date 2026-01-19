@@ -643,6 +643,36 @@ TEST(Bitmap, ReadWriteAsGreyNonLinear) {
   EXPECT_EQ(read_bitmap.RowMajorData(), bitmap.RowMajorData());
 }
 
+TEST(Bitmap, WriteJpegWithQuality) {
+  Bitmap bitmap(20, 30, /*as_rgb=*/true);
+  for (int y = 0; y < bitmap.Height(); ++y) {
+    for (int x = 0; x < bitmap.Width(); ++x) {
+      const uint8_t r = static_cast<uint8_t>((x + y * bitmap.Width()) * 20);
+      const uint8_t g = static_cast<uint8_t>((x + y * bitmap.Width()) * 15);
+      const uint8_t b = static_cast<uint8_t>((x + y * bitmap.Width()) * 10);
+      bitmap.SetPixel(x, y, BitmapColor<uint8_t>(r, g, b));
+    }
+  }
+
+  const auto test_dir = CreateTestDir();
+  const auto filename_default = test_dir / "bitmap_default.jpg";
+  const auto filename_100 = test_dir / "bitmap_100.jpg";
+  const auto filename_10 = test_dir / "bitmap_10.jpg";
+
+  EXPECT_TRUE(bitmap.Write(filename_default));
+
+  bitmap.SetJpegQuality(100);
+  EXPECT_TRUE(bitmap.Write(filename_100));
+
+  bitmap.SetJpegQuality(10);
+  EXPECT_TRUE(bitmap.Write(filename_10));
+
+  EXPECT_EQ(std::filesystem::file_size(filename_default),
+            std::filesystem::file_size(filename_100));
+  EXPECT_LT(std::filesystem::file_size(filename_10),
+            std::filesystem::file_size(filename_100));
+}
+
 class ParameterizedBitmapFormatTests
     : public ::testing::TestWithParam<
           std::tuple</*extension=*/std::string,

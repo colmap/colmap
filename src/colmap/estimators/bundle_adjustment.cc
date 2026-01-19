@@ -826,11 +826,18 @@ class DefaultBundleAdjuster : public BundleAdjuster {
         continue;
       }
 
-      num_observations += 1;
-      point3D_num_observations_[point2D.point3D_id] += 1;
-
       Point3D& point3D = reconstruction.Point3D(point2D.point3D_id);
       THROW_CHECK_GT(point3D.track.Length(), 1);
+
+      // Skip points with track length below minimum.
+      if (options_.min_track_length > 0 &&
+          static_cast<int>(point3D.track.Length()) <
+              options_.min_track_length) {
+        continue;
+      }
+
+      num_observations += 1;
+      point3D_num_observations_[point2D.point3D_id] += 1;
 
       if (constant_cam_from_world) {
         problem_->AddResidualBlock(
@@ -881,11 +888,18 @@ class DefaultBundleAdjuster : public BundleAdjuster {
         continue;
       }
 
-      num_observations += 1;
-      point3D_num_observations_[point2D.point3D_id] += 1;
-
       Point3D& point3D = reconstruction.Point3D(point2D.point3D_id);
       THROW_CHECK_GT(point3D.track.Length(), 1);
+
+      // Skip points with track length below minimum.
+      if (options_.min_track_length > 0 &&
+          static_cast<int>(point3D.track.Length()) <
+              options_.min_track_length) {
+        continue;
+      }
+
+      num_observations += 1;
+      point3D_num_observations_[point2D.point3D_id] += 1;
 
       // The !constant_sensor_from_rig && constant_rig_from_world is
       // rare enough that we do not have a specialized cost function for it.
@@ -929,6 +943,12 @@ class DefaultBundleAdjuster : public BundleAdjuster {
                          Reconstruction& reconstruction) {
     THROW_CHECK(!config_.IsIgnoredPoint(point3D_id));
     Point3D& point3D = reconstruction.Point3D(point3D_id);
+
+    // Skip points with track length below minimum.
+    if (options_.min_track_length > 0 &&
+        static_cast<int>(point3D.track.Length()) < options_.min_track_length) {
+      return;
+    }
 
     size_t& num_observations = point3D_num_observations_[point3D_id];
 

@@ -514,7 +514,8 @@ bool Bitmap::Write(const std::filesystem::path& path,
     return false;
   }
 
-  auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
+  // Create a copy of the metadata to avoid modifying the original.
+  OIIOMetaData meta_data = *OIIOMetaData::Upcast(meta_data_.get());
 
   const uint8_t* output_data_ptr = data_.data();
   std::vector<uint8_t> maybe_linearized_output_data;
@@ -523,7 +524,7 @@ bool Bitmap::Write(const std::filesystem::path& path,
     if (!colorspace.has_value()) {
       // Assume sRGB color space if not specified.
       colorspace = "sRGB";
-      SetImageSpecColorSpace(meta_data->image_spec,
+      SetImageSpecColorSpace(meta_data.image_spec,
                              OIIOFromStdStringView(*colorspace));
     }
 
@@ -535,11 +536,11 @@ bool Bitmap::Write(const std::filesystem::path& path,
   if (HasFileExtension(path, ".jpg") || HasFileExtension(path, ".jpeg")) {
     if (!GetMetaData("Compression").has_value()) {
       // Save JPEG in superb quality by default to reduce compression artifacts.
-      meta_data->image_spec["Compression"] = "jpeg:100";
+      meta_data.image_spec["Compression"] = "jpeg:100";
     }
   }
 
-  if (!output->open(path.string(), meta_data->image_spec)) {
+  if (!output->open(path.string(), meta_data.image_spec)) {
     VLOG(3) << "Could not open " << path << ", error = " << output->geterror()
             << "\n";
     return false;
@@ -625,6 +626,12 @@ Bitmap Bitmap::CloneAsRGB() const {
     cloned_meta_data->image_spec.nchannels = 3;
     return cloned;
   }
+}
+
+void Bitmap::SetJpegQuality(int quality) {
+  THROW_CHECK_GT(quality, 0);
+  THROW_CHECK_LE(quality, 100);
+  SetMetaData("Compression", "jpeg:" + std::to_string(quality));
 }
 
 void Bitmap::SetMetaData(const std::string_view& name,

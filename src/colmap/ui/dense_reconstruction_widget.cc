@@ -362,7 +362,8 @@ void DenseReconstructionWidget::Undistort() {
   }
 
   auto undistorter = std::make_unique<ControllerThread<COLMAPUndistorter>>(
-      std::make_shared<COLMAPUndistorter>(UndistortCameraOptions(),
+      std::make_shared<COLMAPUndistorter>(COLMAPUndistorter::Options(),
+                                          UndistortCameraOptions(),
                                           *reconstruction_,
                                           *options_->image_path,
                                           workspace_path));
