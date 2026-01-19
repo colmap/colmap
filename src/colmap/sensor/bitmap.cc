@@ -628,6 +628,12 @@ Bitmap Bitmap::CloneAsRGB() const {
   }
 }
 
+void Bitmap::SetJpegQuality(int quality) {
+  THROW_CHECK_GT(quality, 0);
+  THROW_CHECK_LE(quality, 100);
+  SetMetaData("Compression", "jpeg:" + std::to_string(quality));
+}
+
 void Bitmap::SetMetaData(const std::string_view& name,
                          const std::string_view& type,
                          const void* value) {

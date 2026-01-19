@@ -82,6 +82,9 @@ struct SyntheticDatasetOptions {
       PosePrior::CoordinateSystem::CARTESIAN;
   bool prior_gravity = false;
   Eigen::Vector3d prior_gravity_in_world = Eigen::Vector3d::UnitY();
+
+  // The synthesized image file extension.
+  std::string image_extension = ".png";
 };
 
 void SynthesizeDataset(const SyntheticDatasetOptions& options,
