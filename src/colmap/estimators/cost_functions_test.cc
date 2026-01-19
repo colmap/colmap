@@ -86,36 +86,26 @@ TEST(ReprojErrorCostFunctor, AnalyticalVersusAutoDiff) {
   auto analytical_cost_function = std::make_unique<
       AnalyticalReprojErrorCostFunction<SimpleRadialCameraModel>>(kPoint2D);
   std::unique_ptr<ceres::CostFunction> auto_diff_cost_function(
-      ReprojErrorCostFunctor<SimpleRadialCameraModel>::Create(kPoint2D));
+      ReprojErrorCostFunctorNew<SimpleRadialCameraModel>::Create(kPoint2D));
 
   for (const double x : {-1, 0, 1}) {
     for (const double y : {-1, 0, 1}) {
       for (const double z : {0, 1, 2, 3}) {
-        Rigid3d cam_from_world(Eigen::Quaterniond(Eigen::AngleAxisd(
-                                   RandomUniformReal<double>(0, 2 * EIGEN_PI),
-                                   Eigen::Vector3d(0.1, -0.1, 1).normalized())),
-                               Eigen::Vector3d(1, 2, 3));
+        const Rigid3d cam_from_world(
+            Eigen::Quaterniond(
+                Eigen::AngleAxisd(RandomUniformReal<double>(0, 2 * EIGEN_PI),
+                                  Eigen::Vector3d(0.1, -0.1, 1).normalized())),
+            Eigen::Vector3d(1, 2, 3));
+        Eigen::Vector6d cam_from_world_log = Rigid3dLog(cam_from_world);
         Eigen::Vector3d point3D(x, y, z);
         std::vector<double> simple_radial_params = {200, 100, 120, 0.1};
 
         // Ensure point is in front of camera.
         ASSERT_GT((cam_from_world * point3D).z(), 0);
 
-#if CERES_VERSION_MAJOR >= 3 || \
-    (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
-        ceres::EigenQuaternionManifold quaternion_manifold;
-        const std::vector<const ceres::Manifold*> manifolds = {
-            &quaternion_manifold, nullptr, nullptr, nullptr};
-#else
-        ceres::EigenQuaternionParameterization quaternion_manifold;
-        const std::vector<const ceres::LocalParameterization*> manifolds = {
-            &quaternion_manifold, nullptr, nullptr, nullptr};
-#endif
-        std::vector<double*> parameter_blocks{
-            cam_from_world.rotation.coeffs().data(),
-            cam_from_world.translation.data(),
-            point3D.data(),
-            simple_radial_params.data()};
+        std::vector<double*> parameter_blocks{point3D.data(),
+                                              cam_from_world_log.data(),
+                                              simple_radial_params.data()};
 
         constexpr double kEps = 1e-9;
 
@@ -125,7 +115,7 @@ TEST(ReprojErrorCostFunctor, AnalyticalVersusAutoDiff) {
 
         ceres::NumericDiffOptions numeric_diff_options;
         ceres::GradientChecker gradient_checker(
-            analytical_cost_function.get(), &manifolds, numeric_diff_options);
+            analytical_cost_function.get(), nullptr, numeric_diff_options);
         ceres::GradientChecker::ProbeResults results;
         EXPECT_TRUE(
             gradient_checker.Probe(parameter_blocks.data(), kEps, &results));

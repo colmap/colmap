@@ -43,71 +43,88 @@
 
 namespace colmap {
 
-// Rotates the point and computes the Jacobian of R(q) * p with respect to Eigen
-// quaternions. J_out is a 3x4 matrix in row-major order.
-inline Eigen::Vector3d QuaternionRotatePointWithJac(const double* q,
-                                                    const double* pt,
-                                                    double* J_out) {
-  const double qx = q[0], qy = q[1], qz = q[2], qw = q[3];
+// Rotates the point using angle-axis representation and computes the Jacobian
+// of R(angle_axis) * p with respect to the angle-axis parameters.
+// J_out is a 3x3 matrix in row-major order. Uses Rodrigues' formula:
+//    p' = p + sinc(θ) * (ω x p) + (1-cos(θ))/θ² * (ω x (ω x p))
+inline Eigen::Vector3d AngleAxisRotatePointWithJac(const double* angle_axis,
+                                                   const double* pt,
+                                                   double* J_out) {
+  const double wx = angle_axis[0], wy = angle_axis[1], wz = angle_axis[2];
   const double px = pt[0], py = pt[1], pz = pt[2];
 
-  // Common sub-expressions.
-  const double qx_py = qx * py;
-  const double qx_pz = qx * pz;
-  const double qy_px = qy * px;
-  const double qy_pz = qy * pz;
-  const double qz_px = qz * px;
-  const double qz_py = qz * py;
+  const double theta2 = wx * wx + wy * wy + wz * wz;
 
-  // R(q) * p using the formula: p' = p + 2*w*(v x p) + 2*(v x (v x p)),
-  // where v = (qx, qy, qz) is the imaginary part and w = qw is the scalar.
+  // Cross product: wxp = w x p
+  const double w_x_px = wy * pz - wz * py;
+  const double w_x_py = wz * px - wx * pz;
+  const double w_x_pz = wx * py - wy * px;
 
-  // First compute v  x  p.
-  const double v_x_p0 = qy_pz - qz_py;
-  const double v_x_p1 = qz_px - qx_pz;
-  const double v_x_p2 = qx_py - qy_px;
+  Eigen::Vector3d pt_out;
 
-  // Then compute v  x  (v  x  p).
-  const double v_x_v_x_p0 = qy * v_x_p2 - qz * v_x_p1;
-  const double v_x_v_x_p1 = qz * v_x_p0 - qx * v_x_p2;
-  const double v_x_v_x_p2 = qx * v_x_p1 - qy * v_x_p0;
+  // Use Taylor expansion for small angles to avoid numerical instability.
+  // The threshold is chosen such that higher-order terms are negligible.
+  constexpr double kSmallAngleThreshold = 1e-8;
 
-  // p' = p + 2*w*(v x p) + 2*(v x (v x p)).
-  Eigen::Vector3d pt_out(px + 2.0 * (qw * v_x_p0 + v_x_v_x_p0),
-                         py + 2.0 * (qw * v_x_p1 + v_x_v_x_p1),
-                         pz + 2.0 * (qw * v_x_p2 + v_x_v_x_p2));
+  if (theta2 > kSmallAngleThreshold) {
+    // Cross product: w_x_w_x_p = w x (w x p)
+    const double w_x_w_x_px = wy * w_x_pz - wz * w_x_py;
+    const double w_x_w_x_py = wz * w_x_px - wx * w_x_pz;
+    const double w_x_w_x_pz = wx * w_x_py - wy * w_x_px;
 
-  if (J_out) {
-    // Jacobian d(R*p) / dq for Eigen quaternions (x, y, z, w).
-    // Must use the ORIGINAL point (px, py, pz), not the rotated point.
+    const double theta = std::sqrt(theta2);
+    const double cos_theta = std::cos(theta);
+    const double sin_theta = std::sin(theta);
+    const double sinct = sin_theta / theta;
+    const double inv_theta2 = 1.0 / theta2;
+    const double cosc = (1.0 - cos_theta) * inv_theta2;
 
-    // Common sub-expressions.
-    const double qx_px = qx * px;
-    const double qx_pz = qx * pz;
-    const double qy_px = qy * px;
-    const double qy_py = qy * py;
-    const double qz_pz = qz * pz;
-    const double qw_px = qw * px;
-    const double qw_py = qw * py;
-    const double qw_pz = qw * pz;
+    pt_out[0] = px + sinct * w_x_px + cosc * w_x_w_x_px;
+    pt_out[1] = py + sinct * w_x_py + cosc * w_x_w_x_py;
+    pt_out[2] = pz + sinct * w_x_pz + cosc * w_x_w_x_pz;
 
-    // d(R*p)_x / d(x,y,z,w)
-    J_out[0] = 2.0 * (qy_py + qz_pz);
-    J_out[1] = 2.0 * (-2.0 * qy_px + qx_py + qw_pz);
-    J_out[2] = 2.0 * (-2.0 * qz_px - qw_py + qx_pz);
-    J_out[3] = 2.0 * (-qz_py + qy_pz);
+    if (J_out) {
+      const double c1 = (cos_theta - sinct) * inv_theta2;
+      const double c2 = (sinct - 2.0 * cosc) * inv_theta2;
+      const double w_dot_p = wx * px + wy * py + wz * pz;
+      const double Bx = c1 * w_x_px + c2 * w_x_w_x_px - cosc * px;
+      const double By = c1 * w_x_py + c2 * w_x_w_x_py - cosc * py;
+      const double Bz = c1 * w_x_pz + c2 * w_x_w_x_pz - cosc * pz;
+      const double cosc_w_dot_p = cosc * w_dot_p;
 
-    // d(R*p)_y / d(x,y,z,w)
-    J_out[4] = 2.0 * (qy_px - 2.0 * qx_py - qw_pz);
-    J_out[5] = 2.0 * (qx_px + qz_pz);
-    J_out[6] = 2.0 * (qw_px - 2.0 * qz_py + qy_pz);
-    J_out[7] = 2.0 * (qz_px - qx_pz);
+      // Row 0: dp'_x/dω
+      J_out[0] = cosc_w_dot_p + Bx * wx;
+      J_out[1] = sinct * pz + cosc * w_x_pz + Bx * wy;
+      J_out[2] = -sinct * py - cosc * w_x_py + Bx * wz;
 
-    // d(R*p)_z / d(x,y,z,w)
-    J_out[8] = 2.0 * (qz_px + qw_py - 2.0 * qx_pz);
-    J_out[9] = 2.0 * (-qw_px + qz_py - 2.0 * qy_pz);
-    J_out[10] = 2.0 * (qx_px + qy_py);
-    J_out[11] = 2.0 * (-qy_px + qx_py);
+      // Row 1: dp'_y/dω
+      J_out[3] = -sinct * pz - cosc * w_x_pz + By * wx;
+      J_out[4] = cosc_w_dot_p + By * wy;
+      J_out[5] = sinct * px + cosc * w_x_px + By * wz;
+
+      // Row 2: dp'_z/dω
+      J_out[6] = sinct * py + cosc * w_x_py + Bz * wx;
+      J_out[7] = -sinct * px - cosc * w_x_px + Bz * wy;
+      J_out[8] = cosc_w_dot_p + Bz * wz;
+    }
+  } else {
+    // Small angle approximation: p' ~= p + ω x p
+
+    pt_out[0] = px + w_x_px;
+    pt_out[1] = py + w_x_py;
+    pt_out[2] = pz + w_x_pz;
+
+    if (J_out) {
+      J_out[0] = 0;
+      J_out[1] = pz;
+      J_out[2] = -py;
+      J_out[3] = -pz;
+      J_out[4] = 0;
+      J_out[5] = px;
+      J_out[6] = py;
+      J_out[7] = -px;
+      J_out[8] = 0;
+    }
   }
 
   return pt_out;
@@ -117,7 +134,7 @@ inline Eigen::Vector3d QuaternionRotatePointWithJac(const double* q,
 // Requires camera model to implement ImgFromCamWithJac().
 template <typename CameraModel>
 class AnalyticalReprojErrorCostFunction
-    : public ceres::SizedCostFunction<2, 4, 3, 3, CameraModel::num_params> {
+    : public ceres::SizedCostFunction<2, 3, 6, CameraModel::num_params> {
  public:
   explicit AnalyticalReprojErrorCostFunction(const Eigen::Vector2d& point2D)
       : point2D_(point2D) {}
@@ -125,34 +142,33 @@ class AnalyticalReprojErrorCostFunction
   bool Evaluate(double const* const* parameters,
                 double* residuals,
                 double** jacobians) const override {
-    const double* cam_from_world_quat = parameters[0];
-    const double* cam_from_world_trans = parameters[1];
-    const double* point3D_in_world = parameters[2];
-    const double* camera_params = parameters[3];
+    const double* point3D_in_world = parameters[0];
+    const double* cam_from_world = parameters[1];
+    const double* camera_params = parameters[2];
+    const double* cam_from_world_rotation = cam_from_world;
+    const double* cam_from_world_trans = cam_from_world + 3;
 
-    double* J_quat = jacobians ? jacobians[0] : nullptr;
-    double* J_trans = jacobians ? jacobians[1] : nullptr;
-    double* J_point = jacobians ? jacobians[2] : nullptr;
-    double* J_params = jacobians ? jacobians[3] : nullptr;
+    double* J_point = jacobians ? jacobians[0] : nullptr;
+    double* J_pose = jacobians ? jacobians[1] : nullptr;
+    double* J_params = jacobians ? jacobians[2] : nullptr;
 
     Eigen::Map<Eigen::Vector2d> residuals_vec(residuals);
 
-    Eigen::Map<Eigen::Matrix<double, 2, 4, Eigen::RowMajor>> J_quat_mat(J_quat);
-    Eigen::Map<Eigen::Matrix<double, 2, 3, Eigen::RowMajor>> J_trans_mat(
-        J_trans);
     Eigen::Map<Eigen::Matrix<double, 2, 3, Eigen::RowMajor>> J_point_mat(
         J_point);
+    Eigen::Map<Eigen::Matrix<double, 2, 6, Eigen::RowMajor>> J_pose_mat(J_pose);
     Eigen::Map<
         Eigen::Matrix<double, 2, CameraModel::num_params, Eigen::RowMajor>>
         J_params_mat(J_params);
-    Eigen::Matrix<double, 3, 4, Eigen::RowMajor> J_Rp_quat_mat;
+    Eigen::Matrix<double, 3, 3, Eigen::RowMajor> J_Rp_aa_mat;  // wrt angle-axis
     Eigen::Matrix<double, 2, 3, Eigen::RowMajor> J_uvw_mat;
 
+    const Eigen::Vector3d rotated_point = AngleAxisRotatePointWithJac(
+        cam_from_world_rotation,
+        point3D_in_world,
+        (J_point || J_pose) ? J_Rp_aa_mat.data() : nullptr);
     const Eigen::Vector3d point3D_in_cam =
-        QuaternionRotatePointWithJac(cam_from_world_quat,
-                                     point3D_in_world,
-                                     J_quat ? J_Rp_quat_mat.data() : nullptr) +
-        Eigen::Map<const Eigen::Vector3d>(cam_from_world_trans);
+        rotated_point + Eigen::Map<const Eigen::Vector3d>(cam_from_world_trans);
 
     if (!CameraModel::ImgFromCamWithJac(
             camera_params,
@@ -162,16 +178,13 @@ class AnalyticalReprojErrorCostFunction
             &residuals[0],
             &residuals[1],
             J_params,
-            (J_quat || J_trans || J_point) ? J_uvw_mat.data() : nullptr)) {
+            (J_point || J_pose) ? J_uvw_mat.data() : nullptr)) {
       residuals_vec.setZero();
-      if (J_quat) {
-        J_quat_mat.setZero();
-      }
-      if (J_trans) {
-        J_trans_mat.setZero();
-      }
       if (J_point) {
         J_point_mat.setZero();
+      }
+      if (J_pose) {
+        J_pose_mat.setZero();
       }
       if (J_params) {
         J_params_mat.setZero();
@@ -181,16 +194,19 @@ class AnalyticalReprojErrorCostFunction
 
     residuals_vec -= point2D_;
 
-    if (J_quat) {
-      J_quat_mat = J_uvw_mat * J_Rp_quat_mat;
-    }
-    if (J_trans) {
-      J_trans_mat = J_uvw_mat;
+    if (J_pose) {
+      // Jacobian wrt pose: [angle_axis, translation]
+      // d(residual)/d(angle_axis) = J_uvw * J_Rp_aa
+      // d(residual)/d(translation) = J_uvw * I = J_uvw
+      J_pose_mat.leftCols<3>() = J_uvw_mat * J_Rp_aa_mat;
+      J_pose_mat.rightCols<3>() = J_uvw_mat;
     }
     if (J_point) {
-      J_point_mat =
-          J_uvw_mat *
-          EigenQuaternionMap<double>(cam_from_world_quat).toRotationMatrix();
+      // d(p_cam)/d(p_world) = R (rotation matrix)
+      Eigen::Matrix3d R;
+      ceres::AngleAxisToRotationMatrix(cam_from_world_rotation, R.data());
+      // Note: ceres::AngleAxisToRotationMatrix returns column-major R
+      J_point_mat = J_uvw_mat * R;
     }
 
     return true;
@@ -812,16 +828,17 @@ ceres::CostFunction* CreateCameraCostFunction(
     const CameraModelId camera_model_id, Args&&... args) {
   // NOLINTBEGIN(bugprone-macro-parentheses)
   switch (camera_model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                                        \
-  case CameraModel::model_id:                                                 \
-    if constexpr (std::is_same<CostFunctor<CameraModel>,                      \
-                               ReprojErrorCostFunctor<CameraModel>>::value && \
-                  CameraModel::has_img_from_cam_with_jac) {                   \
-      return new AnalyticalReprojErrorCostFunction<CameraModel>(              \
-          std::forward<Args>(args)...);                                       \
-    } else {                                                                  \
-      return CostFunctor<CameraModel>::Create(std::forward<Args>(args)...);   \
-    }                                                                         \
+#define CAMERA_MODEL_CASE(CameraModel)                                      \
+  case CameraModel::model_id:                                               \
+    if constexpr (std::is_same<                                             \
+                      CostFunctor<CameraModel>,                             \
+                      ReprojErrorCostFunctorNew<CameraModel>>::value &&     \
+                  CameraModel::has_img_from_cam_with_jac) {                 \
+      return new AnalyticalReprojErrorCostFunction<CameraModel>(            \
+          std::forward<Args>(args)...);                                     \
+    } else {                                                                \
+      return CostFunctor<CameraModel>::Create(std::forward<Args>(args)...); \
+    }                                                                       \
     break;
 
     CAMERA_MODEL_SWITCH_CASES
