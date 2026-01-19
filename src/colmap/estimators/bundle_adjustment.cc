@@ -856,15 +856,15 @@ class DefaultBundleAdjuster : public BundleAdjuster {
 
       if (constant_cam_from_world) {
         problem_->AddResidualBlock(
-            CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctorNew>(
+            CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
                 camera.model_id, point2D.xy, rig_from_world),
             loss_function_.get(),
             point3D.xyz.data(),
             camera.params.data());
       } else {
         problem_->AddResidualBlock(
-            CreateCameraCostFunction<ReprojErrorCostFunctorNew>(camera.model_id,
-                                                                point2D.xy),
+            CreateCameraCostFunction<ReprojErrorCostFunctor>(camera.model_id,
+                                                             point2D.xy),
             loss_function_.get(),
             point3D.xyz.data(),
             rig_from_world_param.data(),
@@ -928,14 +928,14 @@ class DefaultBundleAdjuster : public BundleAdjuster {
       // rare enough that we do not have a specialized cost function for it.
       if (constant_sensor_from_rig && constant_rig_from_world) {
         problem_->AddResidualBlock(
-            CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctorNew>(
+            CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
                 camera.model_id, point2D.xy, cam_from_world.value()),
             loss_function_.get(),
             point3D.xyz.data(),
             camera.params.data());
       } else if (!constant_rig_from_world && constant_sensor_from_rig) {
         problem_->AddResidualBlock(
-            CreateCameraCostFunction<RigReprojErrorConstantRigCostFunctorNew>(
+            CreateCameraCostFunction<RigReprojErrorConstantRigCostFunctor>(
                 camera.model_id, point2D.xy, sensor_from_rig),
             loss_function_.get(),
             point3D.xyz.data(),
@@ -943,8 +943,8 @@ class DefaultBundleAdjuster : public BundleAdjuster {
             camera.params.data());
       } else {
         problem_->AddResidualBlock(
-            CreateCameraCostFunction<RigReprojErrorCostFunctorNew>(
-                camera.model_id, point2D.xy),
+            CreateCameraCostFunction<RigReprojErrorCostFunctor>(camera.model_id,
+                                                                point2D.xy),
             loss_function_.get(),
             point3D.xyz.data(),
             sensor_from_rig_param.data(),

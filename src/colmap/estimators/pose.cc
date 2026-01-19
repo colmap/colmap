@@ -38,6 +38,8 @@
 #include "colmap/optim/loransac.h"
 #include "colmap/util/logging.h"
 
+#include <ceres/product_manifold.h>
+
 namespace colmap {
 
 bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
@@ -283,11 +285,7 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
   THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
   THROW_CHECK_EQ(cam_rays1.size(), inlier_mask.size());
 
-  // CostFunction assumes unit quaternions.
-  cam2_from_cam1->rotation.normalize();
-
-  double* cam2_from_cam1_rotation = cam2_from_cam1->rotation.coeffs().data();
-  double* cam2_from_cam1_translation = cam2_from_cam1->translation.data();
+  Eigen::Vector6d cam2_from_cam1_param = cam2_from_cam1->Log();
 
   constexpr double kMaxL2Error = 1.0;
   const auto loss_function = std::make_unique<ceres::CauchyLoss>(kMaxL2Error);
@@ -303,17 +301,18 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
     }
     ceres::CostFunction* cost_function =
         SampsonErrorCostFunctor::Create(cam_rays1[i], cam_rays2[i]);
-    problem.AddResidualBlock(cost_function,
-                             loss_function.get(),
-                             cam2_from_cam1_rotation,
-                             cam2_from_cam1_translation);
+    problem.AddResidualBlock(
+        cost_function, loss_function.get(), cam2_from_cam1_param.data());
   }
 
-  SetQuaternionManifold(&problem, cam2_from_cam1_rotation);
-  SetSphereManifold<3>(&problem, cam2_from_cam1_translation);
+  problem.SetManifold(cam2_from_cam1_param.data(),
+                      new ceres::ProductManifold(ceres::EuclideanManifold<3>(),
+                                                 ceres::SphereManifold<3>()));
 
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
+
+  *cam2_from_cam1 = Rigid3d::Exp(cam2_from_cam1_param);
 
   return summary.IsSolutionUsable();
 }

@@ -45,15 +45,11 @@ TEST(ReprojErrorCostFunctor, Nominal) {
   using CostFunctor = ReprojErrorCostFunctor<SimplePinholeCameraModel>;
   std::unique_ptr<ceres::CostFunction> cost_function(
       CostFunctor::Create(Eigen::Vector2d::Zero()));
-  double cam_from_world_rotation[4] = {0, 0, 0, 1};
-  double cam_from_world_translation[3] = {0, 0, 0};
+  double cam_from_world[6] = {0, 0, 0, 0, 0, 0};
   double point3D[3] = {0, 0, 1};
   double camera_params[3] = {1, 0, 0};
   double residuals[2];
-  const double* parameters[4] = {cam_from_world_rotation,
-                                 cam_from_world_translation,
-                                 point3D,
-                                 camera_params};
+  const double* parameters[3] = {point3D, cam_from_world, camera_params};
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0);
   EXPECT_EQ(residuals[1], 0);
@@ -86,7 +82,7 @@ TEST(ReprojErrorCostFunctor, AnalyticalVersusAutoDiff) {
   auto analytical_cost_function = std::make_unique<
       AnalyticalReprojErrorCostFunction<SimpleRadialCameraModel>>(kPoint2D);
   std::unique_ptr<ceres::CostFunction> auto_diff_cost_function(
-      ReprojErrorCostFunctorNew<SimpleRadialCameraModel>::Create(kPoint2D));
+      ReprojErrorCostFunctor<SimpleRadialCameraModel>::Create(kPoint2D));
 
   for (const double x : {-1, 0, 1}) {
     for (const double y : {-1, 0, 1}) {
@@ -96,7 +92,7 @@ TEST(ReprojErrorCostFunctor, AnalyticalVersusAutoDiff) {
                 Eigen::AngleAxisd(RandomUniformReal<double>(0, 2 * EIGEN_PI),
                                   Eigen::Vector3d(0.1, -0.1, 1).normalized())),
             Eigen::Vector3d(1, 2, 3));
-        Eigen::Vector6d cam_from_world_log = Rigid3dLog(cam_from_world);
+        Eigen::Vector6d cam_from_world_log = cam_from_world.Log();
         Eigen::Vector3d point3D(x, y, z);
         std::vector<double> simple_radial_params = {200, 100, 120, 0.1};
 
@@ -160,12 +156,10 @@ TEST(ReprojErrorConstantPoint3DCostFunctor, Nominal) {
   Eigen::Vector3d point3D;
   point3D << 0, 0, 1;
 
-  double cam_from_world_rotation[4] = {0, 0, 0, 1};
-  double cam_from_world_translation[3] = {0, 0, 0};
+  double cam_from_world[6] = {0, 0, 0, 0, 0, 0};
   double camera_params[3] = {1, 0, 0};
   double residuals[2];
-  const double* parameters[3] = {
-      cam_from_world_rotation, cam_from_world_translation, camera_params};
+  const double* parameters[2] = {cam_from_world, camera_params};
 
   {
     std::unique_ptr<ceres::CostFunction> cost_function(
@@ -211,19 +205,13 @@ TEST(RigReprojErrorCostFunctor, Nominal) {
   std::unique_ptr<ceres::CostFunction> cost_function(
       RigReprojErrorCostFunctor<SimplePinholeCameraModel>::Create(
           Eigen::Vector2d::Zero()));
-  double cam_from_rig_rotation[4] = {0, 0, 0, 1};
-  double cam_from_rig_translation[3] = {0, 0, -1};
-  double rig_from_world_rotation[4] = {0, 0, 0, 1};
-  double rig_from_world_translation[3] = {0, 0, 1};
+  double cam_from_rig[6] = {0, 0, 0, 0, 0, -1};
+  double rig_from_world[6] = {0, 0, 0, 0, 0, 1};
   double point3D[3] = {0, 0, 1};
   double camera_params[3] = {1, 0, 0};
   double residuals[2];
-  const double* parameters[6] = {cam_from_rig_rotation,
-                                 cam_from_rig_translation,
-                                 rig_from_world_rotation,
-                                 rig_from_world_translation,
-                                 point3D,
-                                 camera_params};
+  const double* parameters[4] = {
+      point3D, cam_from_rig, rig_from_world, camera_params};
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0);
   EXPECT_EQ(residuals[1], 0);
@@ -251,15 +239,11 @@ TEST(RigReprojErrorConstantRigCostFunctor, Nominal) {
       RigReprojErrorConstantRigCostFunctor<SimplePinholeCameraModel>::Create(
           Eigen::Vector2d::Zero(), cam_from_rig));
 
-  double rig_from_world_rotation[4] = {0, 0, 0, 1};
-  double rig_from_world_translation[3] = {0, 0, 1};
+  double rig_from_world[6] = {0, 0, 0, 0, 0, 1};
   double point3D[3] = {0, 0, 1};
   double camera_params[3] = {1, 0, 0};
   double residuals[2];
-  const double* parameters[4] = {rig_from_world_rotation,
-                                 rig_from_world_translation,
-                                 point3D,
-                                 camera_params};
+  const double* parameters[3] = {point3D, rig_from_world, camera_params};
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0);
   EXPECT_EQ(residuals[1], 0);
@@ -284,11 +268,9 @@ TEST(SampsonErrorCostFunctor, Nominal) {
   std::unique_ptr<ceres::CostFunction> cost_function(
       SampsonErrorCostFunctor::Create(Eigen::Vector3d(0, 0, 1),
                                       Eigen::Vector3d(0, 0, 1)));
-  double cam_from_world_rotation[4] = {1, 0, 0, 0};
-  double cam_from_world_translation[3] = {0, 1, 0};
+  double cam_from_world[6] = {0, 0, 0, 0, 1, 0};
   double residuals[1];
-  const double* parameters[2] = {cam_from_world_rotation,
-                                 cam_from_world_translation};
+  const double* parameters[1] = {cam_from_world};
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0);
 
