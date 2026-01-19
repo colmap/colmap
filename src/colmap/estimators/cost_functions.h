@@ -339,7 +339,7 @@ class ReprojErrorConstantPoseCostFunctorNew
  public:
   ReprojErrorConstantPoseCostFunctorNew(const Eigen::Vector2d& point2D,
                                         const Rigid3d& cam_from_world)
-      : cam_from_world_(Rigid3dLog(cam_from_world)), reproj_cost_(point2D) {}
+      : cam_from_world_(cam_from_world.Log()), reproj_cost_(point2D) {}
 
   template <typename T>
   bool operator()(const T* const point3D,
@@ -562,7 +562,7 @@ class RigReprojErrorConstantRigCostFunctorNew
  public:
   RigReprojErrorConstantRigCostFunctorNew(const Eigen::Vector2d& point2D,
                                           const Rigid3d& cam_from_rig)
-      : cam_from_rig_(Rigid3dLog(cam_from_rig)), reproj_cost_(point2D) {}
+      : cam_from_rig_(cam_from_rig.Log()), reproj_cost_(point2D) {}
 
   template <typename T>
   bool operator()(const T* const point3D,

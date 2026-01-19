@@ -29,6 +29,7 @@
 
 #include "colmap/geometry/rigid3.h"
 
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
@@ -86,6 +87,17 @@ TEST(Rigid3d, TgtOriginInSrc) {
   const Rigid3d b_from_a = TestRigid3d();
   const Eigen::Vector3d origin_b_in_a = b_from_a.TgtOriginInSrc();
   EXPECT_LT((b_from_a * origin_b_in_a - Eigen::Vector3d::Zero()).norm(), 1e-6);
+}
+
+TEST(Rigid3d, LogExpRoundTrip) {
+  const Rigid3d t = TestRigid3d();
+  EXPECT_THAT(
+      t, Rigid3dNear(Rigid3d::Exp(t.Log()), /*rtol=*/1e-12, /*ttol=*/1e-12));
+  const Rigid3d identity;
+  EXPECT_THAT(
+      identity,
+      Rigid3dNear(
+          Rigid3d::Exp(identity.Log()), /*rtol=*/1e-12, /*ttol=*/1e-12));
 }
 
 TEST(Rigid3d, ToMatrix) {
