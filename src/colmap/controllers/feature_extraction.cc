@@ -343,7 +343,7 @@ class FeatureExtractorController : public Thread {
       if (ExistsFile(reader_options_.camera_mask_path)) {
         camera_mask = std::make_shared<Bitmap>();
         if (!camera_mask->Read(reader_options_.camera_mask_path,
-                               /*as_rgb*/ false)) {
+                               /*as_rgb=*/false)) {
           LOG(ERROR) << "Failed to read invalid mask file at: "
                      << reader_options_.camera_mask_path
                      << ". No mask is going to be used.";
