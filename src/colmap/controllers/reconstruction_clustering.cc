@@ -110,7 +110,9 @@ void ReconstructionClustererController::Run() {
   reconstruction_manager_->Clear();
 
   // If no clusters (or single cluster), add the single reconstruction
-  if (max_cluster_id <= 0) {
+  // Note that cluster_id start from 0, so max_cluster_id of -1 means no
+  // clusters
+  if (max_cluster_id < 0) {
     if (reconstruction_->NumRegFrames() >=
         static_cast<size_t>(options_.min_num_reg_frames)) {
       size_t idx = reconstruction_manager_->Add();
