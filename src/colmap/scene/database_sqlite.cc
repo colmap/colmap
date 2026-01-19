@@ -2093,9 +2093,11 @@ class SqliteDatabase : public Database {
       SQLITE3_CALL(sqlite3_finalize(version_stmt));
     }
 
-    // Migrate identity poses to NULL for old databases. In version 3.13.0 and
-    // earlier, identity was used as sentinel for "not set". New databases
-    // correctly write NULL for unset and can store actual identity poses.
+    // Migrate identity and zero poses to NULL for old databases. In version
+    // 3.13.0 and earlier, identity was used as sentinel for "not set". Between
+    // Feb 2021 and Jul 2023, zero quaternion (0,0,0,0) was also used as
+    // default. New databases correctly write NULL for unset and can store
+    // actual poses.
     if (user_version <= MakeDatabaseVersionNumber(3, 13, 0, 0)) {
       sqlite3_stmt* read_stmt;
       SQLITE3_CALL(sqlite3_prepare_v2(
@@ -2124,8 +2126,9 @@ class SqliteDatabase : public Database {
         const bool is_identity =
             rotation.coeffs() == Eigen::Quaterniond::Identity().coeffs() &&
             tvec == Eigen::Vector3d::Zero();
+        const bool is_zero = qvec == Eigen::Vector4d::Zero();
 
-        if (is_identity) {
+        if (is_identity || is_zero) {
           const int64_t pair_id = sqlite3_column_int64(read_stmt, 0);
           SQLITE3_CALL(sqlite3_bind_int64(update_stmt, 1, pair_id));
           SQLITE3_CALL(sqlite3_step(update_stmt));
