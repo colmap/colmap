@@ -145,15 +145,15 @@ class AnalyticalReprojErrorCostFunction
     Eigen::Map<
         Eigen::Matrix<double, 2, CameraModel::num_params, Eigen::RowMajor>>
         J_params_mat(J_params);
-
     Eigen::Matrix<double, 3, 4, Eigen::RowMajor> J_Rp_quat_mat;
+    Eigen::Matrix<double, 2, 3, Eigen::RowMajor> J_uvw_mat;
+
     const Eigen::Vector3d point3D_in_cam =
         QuaternionRotatePointWithJac(cam_from_world_quat,
                                      point3D_in_world,
                                      J_quat ? J_Rp_quat_mat.data() : nullptr) +
         Eigen::Map<const Eigen::Vector3d>(cam_from_world_trans);
 
-    Eigen::Matrix<double, 2, 3, Eigen::RowMajor> J_uvw_mat;
     if (!CameraModel::ImgFromCamWithJac(
             camera_params,
             point3D_in_cam[0],
