@@ -103,6 +103,26 @@ inline Rigid3d Inverse(const Rigid3d& b_from_a) {
   return a_from_b;
 }
 
+// Compute the log space representation of the transformation.
+inline Eigen::Vector6d Rigid3dLog(const Rigid3d& exp) {
+  const Eigen::AngleAxisd angle_axis(exp.rotation);
+  Eigen::Vector6d log;
+  log.head<3>() = angle_axis.angle() * angle_axis.axis();
+  log.tail<3>() = exp.translation;
+  return log;
+}
+
+// Compute the exponential map representation of the transformation.
+inline Rigid3d Rigid3dExp(const Eigen::Vector6d& log) {
+  const double angle = log.head<3>().norm();
+  if (angle < 1e-10) {
+    return Rigid3d(Eigen::Quaterniond::Identity(), log.tail<3>());
+  }
+  return Rigid3d(
+      Eigen::Quaterniond(Eigen::AngleAxisd(angle, log.head<3>() / angle)),
+      log.tail<3>());
+}
+
 // Update covariance (6 x 6) for rigid3d.inverse()
 //
 // [Reference] Joan Solà, Jeremie Deray, Dinesh Atchuthan, A micro Lie theory

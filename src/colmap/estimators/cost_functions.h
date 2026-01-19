@@ -247,7 +247,7 @@ class ReprojErrorCostFunctorNew
     : public AutoDiffCostFunctor<ReprojErrorCostFunctorNew<CameraModel>,
                                  2,
                                  3,
-                                 7,
+                                 6,
                                  CameraModel::num_params> {
  public:
   explicit ReprojErrorCostFunctorNew(const Eigen::Vector2d& point2D)
@@ -258,9 +258,9 @@ class ReprojErrorCostFunctorNew
                   const T* const cam_from_world,
                   const T* const camera_params,
                   T* residuals) const {
-    const Eigen::Matrix<T, 3, 1> point3D_in_cam =
-        EigenQuaternionMap<T>(cam_from_world) * EigenVector3Map<T>(point3D) +
-        EigenVector3Map<T>(cam_from_world + 4);
+    Eigen::Matrix<T, 3, 1> point3D_in_cam;
+    ceres::AngleAxisRotatePoint(cam_from_world, point3D, point3D_in_cam.data());
+    point3D_in_cam += EigenVector3Map<T>(cam_from_world + 3);
     Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
     if (CameraModel::ImgFromCam(camera_params,
                                 point3D_in_cam[0],
@@ -323,26 +323,19 @@ class ReprojErrorConstantPoseCostFunctorNew
  public:
   ReprojErrorConstantPoseCostFunctorNew(const Eigen::Vector2d& point2D,
                                         const Rigid3d& cam_from_world)
-      : cam_from_world_(cam_from_world.rotation.x(),
-                        cam_from_world.rotation.y(),
-                        cam_from_world.rotation.z(),
-                        cam_from_world.rotation.w(),
-                        cam_from_world.translation.x(),
-                        cam_from_world.translation.y(),
-                        cam_from_world.translation.z()),
-        reproj_cost_(point2D) {}
+      : cam_from_world_(Rigid3dLog(cam_from_world)), reproj_cost_(point2D) {}
 
   template <typename T>
   bool operator()(const T* const point3D,
                   const T* const camera_params,
                   T* residuals) const {
-    const Eigen::Matrix<T, 7, 1> cam_from_world = cam_from_world_.cast<T>();
+    const Eigen::Matrix<T, 6, 1> cam_from_world = cam_from_world_.cast<T>();
     return reproj_cost_(
         point3D, cam_from_world.data(), camera_params, residuals);
   }
 
  private:
-  const Eigen::Matrix<double, 7, 1> cam_from_world_;
+  const Eigen::Vector6d cam_from_world_;
   const ReprojErrorCostFunctorNew<CameraModel> reproj_cost_;
 };
 
@@ -386,7 +379,7 @@ class ReprojErrorConstantPoint3DCostFunctorNew
     : public AutoDiffCostFunctor<
           ReprojErrorConstantPoint3DCostFunctorNew<CameraModel>,
           2,
-          7,
+          6,
           CameraModel::num_params> {
  public:
   ReprojErrorConstantPoint3DCostFunctorNew(const Eigen::Vector2d& point2D,
@@ -464,8 +457,8 @@ class RigReprojErrorCostFunctorNew
     : public AutoDiffCostFunctor<RigReprojErrorCostFunctorNew<CameraModel>,
                                  2,
                                  3,
-                                 7,
-                                 7,
+                                 6,
+                                 6,
                                  CameraModel::num_params> {
  public:
   explicit RigReprojErrorCostFunctorNew(const Eigen::Vector2d& point2D)
@@ -477,12 +470,13 @@ class RigReprojErrorCostFunctorNew
                   const T* const rig_from_world,
                   const T* const camera_params,
                   T* residuals) const {
-    const Eigen::Matrix<T, 3, 1> point3D_in_cam =
-        EigenQuaternionMap<T>(cam_from_rig) *
-            (EigenQuaternionMap<T>(rig_from_world) *
-                 EigenVector3Map<T>(point3D) +
-             EigenVector3Map<T>(rig_from_world + 4)) +
-        EigenVector3Map<T>(cam_from_rig + 4);
+    Eigen::Matrix<T, 3, 1> point3D_in_rig;
+    ceres::AngleAxisRotatePoint(rig_from_world, point3D, point3D_in_rig.data());
+    point3D_in_rig += EigenVector3Map<T>(rig_from_world + 3);
+    Eigen::Matrix<T, 3, 1> point3D_in_cam;
+    ceres::AngleAxisRotatePoint(
+        cam_from_rig, point3D_in_rig.data(), point3D_in_cam.data());
+    point3D_in_cam += EigenVector3Map<T>(cam_from_rig + 3);
     Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
     if (CameraModel::ImgFromCam(camera_params,
                                 point3D_in_cam[0],
@@ -547,32 +541,25 @@ class RigReprojErrorConstantRigCostFunctorNew
           RigReprojErrorConstantRigCostFunctorNew<CameraModel>,
           2,
           3,
-          7,
+          6,
           CameraModel::num_params> {
  public:
   RigReprojErrorConstantRigCostFunctorNew(const Eigen::Vector2d& point2D,
                                           const Rigid3d& cam_from_rig)
-      : cam_from_rig_(cam_from_rig.rotation.x(),
-                      cam_from_rig.rotation.y(),
-                      cam_from_rig.rotation.z(),
-                      cam_from_rig.rotation.w(),
-                      cam_from_rig.translation.x(),
-                      cam_from_rig.translation.y(),
-                      cam_from_rig.translation.z()),
-        reproj_cost_(point2D) {}
+      : cam_from_rig_(Rigid3dLog(cam_from_rig)), reproj_cost_(point2D) {}
 
   template <typename T>
   bool operator()(const T* const point3D,
                   const T* const rig_from_world,
                   const T* const camera_params,
                   T* residuals) const {
-    const Eigen::Matrix<T, 7, 1> cam_from_rig = cam_from_rig_.cast<T>();
+    const Eigen::Matrix<T, 6, 1> cam_from_rig = cam_from_rig_.cast<T>();
     return reproj_cost_(
         point3D, cam_from_rig.data(), rig_from_world, camera_params, residuals);
   }
 
  private:
-  const Eigen::Matrix<double, 7, 1> cam_from_rig_;
+  const Eigen::Vector6d cam_from_rig_;
   const RigReprojErrorCostFunctorNew<CameraModel> reproj_cost_;
 };
 

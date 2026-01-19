@@ -523,8 +523,8 @@ void FixGaugeWithTwoCamsFromWorld(
     const std::unordered_map<point3D_t, size_t>& point3D_num_observations,
     Reconstruction& reconstruction,
     ceres::Problem& problem,
-    std::unordered_map<sensor_t, Eigen::Matrix<double, 7, 1>>& sensor_from_rigs,
-    std::unordered_map<frame_t, Eigen::Matrix<double, 7, 1>>& rig_from_worlds) {
+    std::unordered_map<sensor_t, Eigen::Vector6d>& sensor_from_rigs,
+    std::unordered_map<frame_t, Eigen::Vector6d>& rig_from_worlds) {
   // No need to fix the Gauge if all frames are constant.
   if (!options.refine_rig_from_world) {
     return;
@@ -616,16 +616,13 @@ void FixGaugeWithTwoCamsFromWorld(
   if (!config.HasConstantRigFromWorldPose(image2->FrameId())) {
     auto& frame2_from_world = rig_from_worlds.at(image2->FrameId());
     if (options.constant_rig_from_world_rotation) {
-      problem.SetManifold(
-          frame2_from_world.data(),
-          new ceres::SubsetManifold(
-              7, {0, 1, 2, 3, 4 + frame2_from_world_fixed_dim}));
+      problem.SetManifold(frame2_from_world.data(),
+                          new ceres::SubsetManifold(
+                              6, {0, 1, 2, 3 + frame2_from_world_fixed_dim}));
     } else {
       problem.SetManifold(
           frame2_from_world.data(),
-          new ceres::ProductManifold(
-              ceres::EigenQuaternionManifold(),
-              ceres::SubsetManifold(3, {frame2_from_world_fixed_dim})));
+          new ceres::SubsetManifold(6, {3 + frame2_from_world_fixed_dim}));
     }
   }
 }
@@ -636,8 +633,8 @@ void ParameterizeRigsAndFrames(
     const std::set<image_t>& image_ids,
     Reconstruction& reconstruction,
     ceres::Problem& problem,
-    std::unordered_map<sensor_t, Eigen::Matrix<double, 7, 1>>& sensor_from_rigs,
-    std::unordered_map<frame_t, Eigen::Matrix<double, 7, 1>>& rig_from_worlds) {
+    std::unordered_map<sensor_t, Eigen::Vector6d>& sensor_from_rigs,
+    std::unordered_map<frame_t, Eigen::Vector6d>& rig_from_worlds) {
   std::unordered_set<rig_t> parameterized_rig_ids;
   std::unordered_set<sensor_t> parameterized_sensor_ids;
   std::unordered_set<frame_t> parameterized_frame_ids;
@@ -652,12 +649,12 @@ void ParameterizeRigsAndFrames(
     if (not_parameterized_before && !image.IsRefInFrame()) {
       auto& sensor_from_rig = sensor_from_rigs.at(sensor_id);
       // CostFunction assumes unit quaternions.
-      sensor_from_rig.head<4>().normalize();
+      // sensor_from_rig.head<4>().normalize();
       if (problem.HasParameterBlock(sensor_from_rig.data())) {
-        problem.SetManifold(
-            sensor_from_rig.data(),
-            new ceres::ProductManifold(new ceres::EigenQuaternionManifold(),
-                                       new ceres::EuclideanManifold<3>()));
+        // problem.SetManifold(
+        //     sensor_from_rig.data(),
+        //     new ceres::ProductManifold(new ceres::EigenQuaternionManifold(),
+        //                                new ceres::EuclideanManifold<3>()));
         if (!options.refine_sensor_from_rig ||
             config.HasConstantSensorFromRigPose(sensor_id)) {
           problem.SetParameterBlockConstant(sensor_from_rig.data());
@@ -669,19 +666,19 @@ void ParameterizeRigsAndFrames(
     if (parameterized_frame_ids.insert(image.FrameId()).second) {
       auto& rig_from_world = rig_from_worlds.at(image.FrameId());
       // CostFunction assumes unit quaternions.
-      rig_from_world.head<4>().normalize();
+      // rig_from_world.head<4>().normalize();
       if (problem.HasParameterBlock(rig_from_world.data())) {
         if (!options.refine_rig_from_world ||
             config.HasConstantRigFromWorldPose(image.FrameId())) {
           problem.SetParameterBlockConstant(rig_from_world.data());
         } else if (options.constant_rig_from_world_rotation) {
           problem.SetManifold(rig_from_world.data(),
-                              new ceres::SubsetManifold(7, {0, 1, 2, 3}));
+                              new ceres::SubsetManifold(6, {0, 1, 2}));
         } else {
-          problem.SetManifold(
-              rig_from_world.data(),
-              new ceres::ProductManifold(ceres::EigenQuaternionManifold(),
-                                         ceres::EuclideanManifold<3>()));
+          // problem.SetManifold(
+          // rig_from_world.data(),
+          // new ceres::ProductManifold(ceres::EigenQuaternionManifold(),
+          //                            ceres::EuclideanManifold<3>()));
         }
       }
     }
@@ -808,8 +805,6 @@ class DefaultBundleAdjuster : public BundleAdjuster {
       PrintSolverSummary(summary, "Bundle adjustment report");
     }
 
-    LOG(INFO) << summary.FullReport();
-
     std::unordered_map<sensor_t, rig_t> sensor_to_rig;
     for (const auto& [rig_id, rig] : reconstruction_.Rigs()) {
       for (const auto& [sensor_id, _] : rig.NonRefSensors()) {
@@ -819,16 +814,12 @@ class DefaultBundleAdjuster : public BundleAdjuster {
 
     for (const auto& [sensor_id, sensor_from_rig_params] : sensor_from_rigs_) {
       auto& rig = reconstruction_.Rig(sensor_to_rig.at(sensor_id));
-      rig.SensorFromRig(sensor_id) =
-          Rigid3d(Eigen::Quaterniond(sensor_from_rig_params.head<4>()),
-                  sensor_from_rig_params.tail<3>());
+      rig.SensorFromRig(sensor_id) = Rigid3dExp(sensor_from_rig_params);
     }
 
     for (const auto& [frame_id, rig_from_world_params] : rig_from_worlds_) {
       auto& frame = reconstruction_.Frame(frame_id);
-      frame.RigFromWorld() =
-          Rigid3d(Eigen::Quaterniond(rig_from_world_params.head<4>()),
-                  rig_from_world_params.tail<3>());
+      frame.RigFromWorld() = Rigid3dExp(rig_from_world_params);
     }
 
     return summary;
@@ -863,16 +854,11 @@ class DefaultBundleAdjuster : public BundleAdjuster {
 
     auto rig_from_world_params = rig_from_worlds_.find(image.FrameId());
     if (rig_from_world_params == rig_from_worlds_.end()) {
+      const Eigen::AngleAxisd rig_from_world_rotation(rig_from_world.rotation);
+      const Eigen::Vector3d rig_from_world_aa =
+          rig_from_world_rotation.angle() * rig_from_world_rotation.axis();
       rig_from_world_params = rig_from_worlds_.emplace_hint(
-          rig_from_world_params,
-          image.FrameId(),
-          Eigen::Matrix<double, 7, 1>(rig_from_world.rotation.x(),
-                                      rig_from_world.rotation.y(),
-                                      rig_from_world.rotation.z(),
-                                      rig_from_world.rotation.w(),
-                                      rig_from_world.translation.x(),
-                                      rig_from_world.translation.y(),
-                                      rig_from_world.translation.z()));
+          rig_from_world_params, image.FrameId(), Rigid3dLog(rig_from_world));
     }
 
     // Add residuals to bundle adjustment problem.
@@ -938,30 +924,23 @@ class DefaultBundleAdjuster : public BundleAdjuster {
 
     auto sensor_from_rig_params = sensor_from_rigs_.find(camera.SensorId());
     if (sensor_from_rig_params == sensor_from_rigs_.end()) {
-      sensor_from_rig_params = sensor_from_rigs_.emplace_hint(
-          sensor_from_rig_params,
-          camera.SensorId(),
-          Eigen::Matrix<double, 7, 1>(sensor_from_rig.rotation.x(),
-                                      sensor_from_rig.rotation.y(),
-                                      sensor_from_rig.rotation.z(),
-                                      sensor_from_rig.rotation.w(),
-                                      sensor_from_rig.translation.x(),
-                                      sensor_from_rig.translation.y(),
-                                      sensor_from_rig.translation.z()));
+      const Eigen::AngleAxisd sensor_from_rig_rotation(
+          sensor_from_rig.rotation);
+      const Eigen::Vector3d sensor_from_rig_aa =
+          sensor_from_rig_rotation.angle() * sensor_from_rig_rotation.axis();
+      sensor_from_rig_params =
+          sensor_from_rigs_.emplace_hint(sensor_from_rig_params,
+                                         camera.SensorId(),
+                                         Rigid3dLog(sensor_from_rig));
     }
 
     auto rig_from_world_params = rig_from_worlds_.find(image.FrameId());
     if (rig_from_world_params == rig_from_worlds_.end()) {
+      const Eigen::AngleAxisd rig_from_world_rotation(rig_from_world.rotation);
+      const Eigen::Vector3d rig_from_world_aa =
+          rig_from_world_rotation.angle() * rig_from_world_rotation.axis();
       rig_from_world_params = rig_from_worlds_.emplace_hint(
-          rig_from_world_params,
-          image.FrameId(),
-          Eigen::Matrix<double, 7, 1>(rig_from_world.rotation.x(),
-                                      rig_from_world.rotation.y(),
-                                      rig_from_world.rotation.z(),
-                                      rig_from_world.rotation.w(),
-                                      rig_from_world.translation.x(),
-                                      rig_from_world.translation.y(),
-                                      rig_from_world.translation.z()));
+          rig_from_world_params, image.FrameId(), Rigid3dLog(rig_from_world));
     }
 
     // Add residuals to bundle adjustment problem.
@@ -1090,8 +1069,8 @@ class DefaultBundleAdjuster : public BundleAdjuster {
   std::set<image_t> parameterized_image_ids_;
   std::unordered_map<point3D_t, size_t> point3D_num_observations_;
 
-  std::unordered_map<sensor_t, Eigen::Matrix<double, 7, 1>> sensor_from_rigs_;
-  std::unordered_map<frame_t, Eigen::Matrix<double, 7, 1>> rig_from_worlds_;
+  std::unordered_map<sensor_t, Eigen::Vector6d> sensor_from_rigs_;
+  std::unordered_map<frame_t, Eigen::Vector6d> rig_from_worlds_;
 };
 
 class PosePriorBundleAdjuster : public BundleAdjuster {
