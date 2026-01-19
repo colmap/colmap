@@ -108,7 +108,7 @@ TEST(ReprojErrorCostFunctor, AnalyticalVersusAutoDiff) {
             &quaternion_manifold, nullptr, nullptr, nullptr};
 #else
         ceres::EigenQuaternionParameterization quaternion_manifold;
-        const std::vector<const ceres::Parameterization*> manifolds = {
+        const std::vector<const ceres::LocalParameterization*> manifolds = {
             &quaternion_manifold, nullptr, nullptr, nullptr};
 #endif
         std::vector<double*> parameter_blocks{
