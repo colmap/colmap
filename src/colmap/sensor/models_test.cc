@@ -244,7 +244,9 @@ void TestModel(const std::vector<double>& params) {
       params, params[pp_idxs.at(0)], params[pp_idxs.at(1)]);
 
   if constexpr (CameraModel::has_img_from_cam_with_jac) {
+    // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
     for (double u = -0.5; u <= 0.5; u += 0.1) {
+      // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
       for (double v = -0.5; v <= 0.5; v += 0.1) {
         for (const double w : {0.5, 1.0, 2.0}) {
           TestImgFromCamWithJac<CameraModel>(params, u, v, w);

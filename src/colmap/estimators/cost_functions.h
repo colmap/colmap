@@ -648,6 +648,7 @@ struct Point3DAlignmentCostFunctor
 template <template <typename> class CostFunctor, typename... Args>
 ceres::CostFunction* CreateCameraCostFunction(
     const CameraModelId camera_model_id, Args&&... args) {
+  // NOLINTBEGIN(bugprone-macro-parentheses)
   switch (camera_model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                                        \
   case CameraModel::model_id:                                                 \
@@ -665,6 +666,7 @@ ceres::CostFunction* CreateCameraCostFunction(
 
 #undef CAMERA_MODEL_CASE
   }
+  // NOLINTEND(bugprone-macro-parentheses)
 }
 
 // Compute polynomial coefficients from cross-products of SVD-derived vectors
