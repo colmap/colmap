@@ -172,8 +172,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
       std::make_unique<ceres::CauchyLoss>(options.loss_function_scale);
 
   double* camera_params = camera->params.data();
-  double* cam_from_world_rotation = cam_from_world->rotation.coeffs().data();
-  double* cam_from_world_translation = cam_from_world->translation.data();
+  Eigen::Vector6d cam_from_world_param = cam_from_world->Log();
 
   // CostFunction assumes unit quaternions.
   cam_from_world->rotation.normalize();
@@ -191,14 +190,11 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
         CreateCameraCostFunction<ReprojErrorConstantPoint3DCostFunctor>(
             camera->model_id, points2D[i], points3D[i]),
         loss_function.get(),
-        cam_from_world_rotation,
-        cam_from_world_translation,
+        cam_from_world_param.data(),
         camera_params);
   }
 
   if (problem.NumResiduals() > 0) {
-    SetQuaternionManifold(&problem, cam_from_world_rotation);
-
     // Camera parameterization.
     if (!options.refine_focal_length && !options.refine_extra_params) {
       problem.SetParameterBlockConstant(camera->params.data());
@@ -251,6 +247,8 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   ceres::Solver::Summary summary;
   ceres::Solve(solver_options, &problem, &summary);
 
+  *cam_from_world = Rigid3d::Exp(cam_from_world_param);
+
   if (options.print_summary || VLOG_IS_ON(1)) {
     PrintSolverSummary(summary, "Pose refinement report");
   }
@@ -262,8 +260,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   if (problem.NumResiduals() > 0 && cam_from_world_cov != nullptr) {
     ceres::Covariance::Options options;
     ceres::Covariance covariance(options);
-    std::vector<const double*> parameter_blocks = {cam_from_world_rotation,
-                                                   cam_from_world_translation};
+    std::vector<const double*> parameter_blocks = {cam_from_world_param.data()};
     if (!covariance.Compute(parameter_blocks, &problem)) {
       return false;
     }

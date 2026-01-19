@@ -832,7 +832,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     THROW_CHECK(image.IsRefInFrame());
     Rigid3d& rig_from_world = image.FramePtr()->RigFromWorld();
     Eigen::Vector6d& rig_from_world_param =
-        MaybeAddFrameFromWorldParam(image.FrameId(), rig_from_world);
+        MaybeAddRigFromWorldParam(image.FrameId(), rig_from_world);
 
     // Add residuals to bundle adjustment problem.
     size_t num_observations = 0;
@@ -902,7 +902,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     Eigen::Vector6d& sensor_from_rig_param =
         MaybeAddSensorFromRigParam(camera.SensorId(), sensor_from_rig);
     Eigen::Vector6d& rig_from_world_param =
-        MaybeAddFrameFromWorldParam(image.FrameId(), rig_from_world);
+        MaybeAddRigFromWorldParam(image.FrameId(), rig_from_world);
 
     // Add residuals to bundle adjustment problem.
     size_t num_observations = 0;
@@ -1021,7 +1021,6 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     }
   }
 
- private:
   Eigen::Vector6d& MaybeAddSensorFromRigParam(const sensor_t sensor_id,
                                               Rigid3d& sensor_from_rig) {
     auto sensor_from_rig_param = sensor_from_rig_params_.find(sensor_id);
@@ -1037,8 +1036,8 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     }
     return sensor_from_rig_param->second.first;
   }
-  Eigen::Vector6d& MaybeAddFrameFromWorldParam(const frame_t frame_id,
-                                               Rigid3d& rig_from_world) {
+  Eigen::Vector6d& MaybeAddRigFromWorldParam(const frame_t frame_id,
+                                             Rigid3d& rig_from_world) {
     auto rig_from_world_param = rig_from_world_params_.find(frame_id);
     if (rig_from_world_param == rig_from_world_params_.end()) {
       const Eigen::AngleAxisd rig_from_world_rotation(rig_from_world.rotation);
@@ -1061,6 +1060,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     }
   }
 
+ private:
   std::shared_ptr<ceres::Problem> problem_;
   std::unique_ptr<ceres::LossFunction> loss_function_;
 
@@ -1149,6 +1149,8 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
 
     ceres::Solve(solver_options, problem.get(), &summary);
 
+    default_bundle_adjuster_->CopyBackOptimizedParams();
+
     reconstruction_.Transform(Inverse(normalized_from_metric_));
 
     if (options_.print_summary || VLOG_IS_ON(1)) {
@@ -1195,25 +1197,29 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
         normalized_from_metric_scaled_rotation * position_cov *
         normalized_from_metric_scaled_rotation.transpose();
 
+    Eigen::Vector6d& rig_from_world_param =
+        default_bundle_adjuster_->MaybeAddRigFromWorldParam(
+            frame.FrameId(), frame.RigFromWorld());
+
     if (image.IsRefInFrame()) {
       problem.AddResidualBlock(
           CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
               Create(normalized_position_cov, normalized_position),
           prior_loss_function_.get(),
-          frame.RigFromWorld().rotation.coeffs().data(),
-          frame.RigFromWorld().translation.data());
+          rig_from_world_param.data());
     } else {
       Rigid3d& cam_from_rig =
           frame.RigPtr()->SensorFromRig(image.CameraPtr()->SensorId());
+      Eigen::Vector6d& cam_from_rig_param =
+          default_bundle_adjuster_->MaybeAddSensorFromRigParam(
+              image.CameraPtr()->SensorId(), cam_from_rig);
       problem.AddResidualBlock(
           CovarianceWeightedCostFunctor<
               AbsoluteRigPosePositionPriorCostFunctor>::
               Create(normalized_position_cov, normalized_position),
           prior_loss_function_.get(),
-          cam_from_rig.rotation.coeffs().data(),
-          cam_from_rig.translation.data(),
-          frame.RigFromWorld().rotation.coeffs().data(),
-          frame.RigFromWorld().translation.data());
+          cam_from_rig_param.data(),
+          rig_from_world_param.data());
     }
   }
 

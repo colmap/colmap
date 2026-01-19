@@ -455,54 +455,52 @@ inline void EigenQuaternionToAngleAxis(const T* eigen_quaternion,
 // sensor frame. Its first and last three components correspond to the rotation
 // and translation errors, respectively.
 struct AbsolutePosePriorCostFunctor
-    : public AutoDiffCostFunctor<AbsolutePosePriorCostFunctor, 6, 4, 3> {
+    : public AutoDiffCostFunctor<AbsolutePosePriorCostFunctor, 6, 6> {
  public:
   explicit AbsolutePosePriorCostFunctor(const Rigid3d& sensor_from_world_prior)
-      : world_from_sensor_prior_(Inverse(sensor_from_world_prior)) {}
+      : world_from_sensor_prior_(Inverse(sensor_from_world_prior).Log()) {}
 
   template <typename T>
-  bool operator()(const T* const sensor_from_world_rotation,
-                  const T* const sensor_from_world_translation,
-                  T* residuals_ptr) const {
-    const Eigen::Quaternion<T> param_from_prior_rotation =
-        EigenQuaternionMap<T>(sensor_from_world_rotation) *
-        world_from_sensor_prior_.rotation.cast<T>();
-    EigenQuaternionToAngleAxis(param_from_prior_rotation.coeffs().data(),
-                               residuals_ptr);
+  bool operator()(const T* const sensor_from_world, T* residuals) const {
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> residual_rotation(residuals);
+    residual_rotation = EigenVector3Map<T>(sensor_from_world) +
+                        world_from_sensor_prior_.head<3>().cast<T>();
 
-    Eigen::Map<Eigen::Matrix<T, 3, 1>> param_from_prior_translation(
-        residuals_ptr + 3);
-    param_from_prior_translation =
-        EigenVector3Map<T>(sensor_from_world_translation) +
-        EigenQuaternionMap<T>(sensor_from_world_rotation) *
-            world_from_sensor_prior_.translation.cast<T>();
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> residual_translation(residuals + 3);
+    const Eigen::Matrix<T, 3, 1> world_from_sensor_prior_translation =
+        world_from_sensor_prior_.tail<3>().cast<T>();
+    Eigen::Matrix<T, 3, 1> neg_world_in_sensor_prior;
+    ceres::AngleAxisRotatePoint(sensor_from_world,
+                                world_from_sensor_prior_translation.data(),
+                                neg_world_in_sensor_prior.data());
+    residual_translation =
+        EigenVector3Map<T>(sensor_from_world + 3) + neg_world_in_sensor_prior;
 
     return true;
   }
 
  private:
-  const Rigid3d world_from_sensor_prior_;
+  const Eigen::Vector6d world_from_sensor_prior_;
 };
 
 // 3-DoF error on the sensor position in the world coordinate frame.
 struct AbsolutePosePositionPriorCostFunctor
-    : public AutoDiffCostFunctor<AbsolutePosePositionPriorCostFunctor,
-                                 3,
-                                 4,
-                                 3> {
+    : public AutoDiffCostFunctor<AbsolutePosePositionPriorCostFunctor, 3, 6> {
  public:
   explicit AbsolutePosePositionPriorCostFunctor(
       const Eigen::Vector3d& position_in_world_prior)
       : position_in_world_prior_(position_in_world_prior) {}
 
   template <typename T>
-  bool operator()(const T* const sensor_from_world_rotation,
-                  const T* const sensor_from_world_translation,
-                  T* residuals_ptr) const {
-    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
-    residuals = position_in_world_prior_.cast<T>() +
-                EigenQuaternionMap<T>(sensor_from_world_rotation).inverse() *
-                    EigenVector3Map<T>(sensor_from_world_translation);
+  bool operator()(const T* const sensor_from_world, T* residuals) const {
+    const T world_from_sensor_rotation[3] = {
+        -sensor_from_world[0], -sensor_from_world[1], -sensor_from_world[2]};
+    Eigen::Matrix<T, 3, 1> neg_position_in_world;
+    ceres::AngleAxisRotatePoint(world_from_sensor_rotation,
+                                sensor_from_world + 3,
+                                neg_position_in_world.data());
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals_vec(residuals);
+    residuals_vec = neg_position_in_world + position_in_world_prior_.cast<T>();
     return true;
   }
 
@@ -514,32 +512,31 @@ struct AbsolutePosePositionPriorCostFunctor
 struct AbsoluteRigPosePositionPriorCostFunctor
     : public AutoDiffCostFunctor<AbsoluteRigPosePositionPriorCostFunctor,
                                  3,
-                                 4,
-                                 3,
-                                 4,
-                                 3> {
+                                 6,
+                                 6> {
  public:
   explicit AbsoluteRigPosePositionPriorCostFunctor(
       const Eigen::Vector3d& position_in_world_prior)
       : position_in_world_prior_(position_in_world_prior) {}
 
   template <typename T>
-  bool operator()(const T* const sensor_from_rig_rotation,
-                  const T* const sensor_from_rig_translation,
-                  const T* const rig_from_world_rotation,
-                  const T* const rig_from_world_translation,
-                  T* residuals_ptr) const {
-    const Eigen::Quaternion<T> sensor_from_world_rotation =
-        EigenQuaternionMap<T>(sensor_from_rig_rotation) *
-        EigenQuaternionMap<T>(rig_from_world_rotation);
-    const Eigen::Matrix<T, 3, 1> sensor_from_world_translation =
-        EigenVector3Map<T>(sensor_from_rig_translation) +
-        EigenQuaternionMap<T>(sensor_from_rig_rotation) *
-            EigenVector3Map<T>(rig_from_world_translation);
-    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
-    residuals =
-        position_in_world_prior_.cast<T>() +
-        sensor_from_world_rotation.inverse() * sensor_from_world_translation;
+  bool operator()(const T* const sensor_from_rig,
+                  const T* const rig_from_world,
+                  T* residuals) const {
+    const T rig_from_sensor_rotation[3] = {
+        -sensor_from_rig[0], -sensor_from_rig[1], -sensor_from_rig[2]};
+    Eigen::Matrix<T, 3, 1> sensor_in_rig;
+    ceres::AngleAxisRotatePoint(
+        rig_from_sensor_rotation, sensor_from_rig + 3, sensor_in_rig.data());
+    sensor_in_rig += EigenVector3Map<T>(rig_from_world + 3);
+    const T world_from_rig_rotation[3] = {
+        -rig_from_world[0], -rig_from_world[1], -rig_from_world[2]};
+    Eigen::Matrix<T, 3, 1> sensor_in_world;
+    ceres::AngleAxisRotatePoint(
+        world_from_rig_rotation, sensor_in_rig.data(), sensor_in_world.data());
+    sensor_in_world = -sensor_in_world;
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals_vec(residuals);
+    residuals_vec = sensor_in_world - position_in_world_prior_.cast<T>();
     return true;
   }
 
