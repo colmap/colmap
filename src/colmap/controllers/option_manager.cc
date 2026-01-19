@@ -700,13 +700,6 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption("GlobalMapper.gp_max_num_iterations",
                    &global_mapper->mapper.global_positioning.solver_options
                         .max_num_iterations);
-  AddDefaultEnumOption(
-      "GlobalMapper.gp_constraint_type",
-      &global_mapper->mapper.global_positioning.constraint_type,
-      glomap::GlobalPositioningConstraintTypeToString,
-      glomap::GlobalPositioningConstraintTypeFromString,
-      "{ONLY_POINTS, ONLY_CAMERAS, POINTS_AND_CAMERAS_BALANCED, "
-      "POINTS_AND_CAMERAS}");
 
   // Bundle adjustment options.
   AddDefaultOption("GlobalMapper.ba_use_gpu",
