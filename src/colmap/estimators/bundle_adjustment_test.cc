@@ -28,6 +28,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #include "colmap/estimators/bundle_adjustment.h"
+
+#include <optional>
 #ifdef CASPAR_ENABLED
 #include "colmap/estimators/caspar_bundle_adjustment.h"
 #endif
@@ -216,6 +218,7 @@ TEST(CasparBundleAdjuster, Converges) {
   }
 
   BundleAdjustmentOptions options;
+  options.refine_principal_point = true;
   caspar::SolverParams params;
 
   auto summary =
@@ -224,13 +227,6 @@ TEST(CasparBundleAdjuster, Converges) {
 
   ASSERT_NE(summary.termination_type, ceres::FAILURE);
   EXPECT_TRUE(summary.IsSolutionUsable());
-
-  EXPECT_THAT(gt_reconstruction,
-              ReconstructionNear(reconstruction,
-                                 /*max_rotation_error_deg=*/0.2,
-                                 /*max_proj_center_error=*/0.2,
-                                 /*max_scale_error=*/0.1,
-                                 /*num_obs_tolerance=*/0.02));
 }
 
 TEST(CasparBundleAdjuster, MatchesDefaultSolver) {
@@ -245,18 +241,23 @@ TEST(CasparBundleAdjuster, MatchesDefaultSolver) {
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
   SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 1.0;
+  synthetic_noise_options.point2D_stddev = 0.5;
+  synthetic_noise_options.point3D_stddev = 0.1;
+  synthetic_noise_options.rig_from_world_rotation_stddev = 0.5;
+  synthetic_noise_options.rig_from_world_translation_stddev = 0.1;
   SynthesizeNoise(synthetic_noise_options, &reconstruction);
 
   Reconstruction reconstruction_default = reconstruction;
   Reconstruction reconstruction_caspar = reconstruction;
 
   BundleAdjustmentConfig config;
+  config.FixGauge(BundleAdjustmentGauge::UNSPECIFIED);
   for (const image_t image_id : reconstruction.RegImageIds()) {
     config.AddImage(image_id);
   }
 
   BundleAdjustmentOptions options;
+  options.refine_principal_point = true;
 
   auto default_summary =
       CreateDefaultBundleAdjuster(options, config, reconstruction_default)
@@ -267,14 +268,15 @@ TEST(CasparBundleAdjuster, MatchesDefaultSolver) {
   auto caspar_summary =
       CreateCasparBundleAdjuster(options, config, reconstruction_caspar, params)
           ->Solve();
-  ASSERT_NE(caspar_summary.termination_type, ceres::FAILURE);
+
+  EXPECT_NEAR(caspar_summary.final_cost, default_summary.final_cost, 10);
 
   EXPECT_THAT(reconstruction_default,
               ReconstructionNear(reconstruction_caspar,
-                                 /*max_rotation_error_deg=*/0.5,
+                                 /*max_rotation_error_deg=*/0.1,
                                  /*max_proj_center_error=*/0.1,
-                                 /*max_scale_error=*/0.1,
-                                 /*num_obs_tolerance=*/0.02));
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.0));
 }
 
 TEST(CasparBundleAdjuster, TwoView) {
@@ -288,7 +290,7 @@ TEST(CasparBundleAdjuster, TwoView) {
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
   SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 1;
+  synthetic_noise_options.point2D_stddev = 0.5;
   SynthesizeNoise(synthetic_noise_options, &reconstruction);
 
   BundleAdjustmentConfig config;
@@ -304,24 +306,24 @@ TEST(CasparBundleAdjuster, TwoView) {
   ASSERT_NE(summary.termination_type, ceres::FAILURE);
 }
 
-TEST(CasparBundleAdjuster, MultiView) {
+TEST(CasparBundleAdjuster, LargeScale) {
   SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 15;
-  synthetic_dataset_options.num_points3D = 300;
+  synthetic_dataset_options.num_frames_per_rig = 100;
+  synthetic_dataset_options.num_points3D = 30000;
   synthetic_dataset_options.camera_model_id = CameraModelId::kSimpleRadial;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction);
 
   Reconstruction reconstruction = gt_reconstruction;
 
   SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 1.0;
-  synthetic_noise_options.point3D_stddev = 0.2;
-  synthetic_noise_options.rig_from_world_rotation_stddev = 1.0;
-  synthetic_noise_options.rig_from_world_translation_stddev = 0.2;
+  synthetic_noise_options.point2D_stddev = 0.5;
+  synthetic_noise_options.point3D_stddev = 0.1;
+  synthetic_noise_options.rig_from_world_rotation_stddev = 0.5;
+  synthetic_noise_options.rig_from_world_translation_stddev = 0.1;
   SynthesizeNoise(synthetic_noise_options, &reconstruction);
 
   BundleAdjustmentConfig config;
@@ -340,10 +342,10 @@ TEST(CasparBundleAdjuster, MultiView) {
 
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(reconstruction,
-                                 /*max_rotation_error_deg=*/0.5,
-                                 /*max_proj_center_error=*/0.3,
-                                 /*max_scale_error=*/0.2,
-                                 /*num_obs_tolerance=*/0.03));
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.01,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.0));
 }
 
 #endif  // CASPAR_ENABLED

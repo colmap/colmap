@@ -17,116 +17,117 @@ class CasparBundleAdjuster : public BundleAdjuster {
         reconstruction_(reconstruction) {
     LOG(INFO) << "Using Caspar bundle adjuster";
 
-    // Pass 1: Count observations
+    // PASS 1: Count all observations
+    BuildObservationCounts();
+
+    // PASS 2: Create all factors
+    BuildFactors();
+  }
+
+  void BuildObservationCounts() {
+    // Count observations from images in config
     for (const image_t image_id : config_.Images()) {
-      CountImageObservations(image_id);
+      const Image& image = reconstruction_.Image(image_id);
+      for (const Point2D& point2D : image.Points2D()) {
+        if (!point2D.HasPoint3D() ||
+            config_.IsIgnoredPoint(point2D.point3D_id)) {
+          continue;
+        }
+        point3D_num_observations_[point2D.point3D_id]++;
+      }
     }
 
-    // Pass 2: Create factors and nodes
-    for (const image_t image_id : config_.Images()) {
-      AddImage(image_id);
+    // Count observations from explicit points (images outside config)
+    for (const auto point3D_id : config_.VariablePoints()) {
+      CountExternalObservations(point3D_id);
     }
-
-    for (const auto point3D_id : config.VariablePoints()) {
-      AddPoint(point3D_id);
-    }
-
-    for (const auto point3D_id : config.ConstantPoints()) {
-      AddPoint(point3D_id);
+    for (const auto point3D_id : config_.ConstantPoints()) {
+      CountExternalObservations(point3D_id);
     }
   }
 
-  void CountImageObservations(const image_t image_id) {
-    const Image& image = reconstruction_.Image(image_id);
+  void CountExternalObservations(const point3D_t point3D_id) {
+    const Point3D& point3D = reconstruction_.Point3D(point3D_id);
+    for (const auto& track_el : point3D.track.Elements()) {
+      if (!config_.HasImage(track_el.image_id)) {
+        point3D_num_observations_[point3D_id]++;
+      }
+    }
+  }
 
-    for (const Point2D& point2D : image.Points2D()) {
-      if (!point2D.HasPoint3D() || config_.IsIgnoredPoint(point2D.point3D_id)) {
+  void BuildFactors() {
+    // Create factors for observations from images in config
+    for (const image_t image_id : config_.Images()) {
+      const Image& image = reconstruction_.Image(image_id);
+
+      if (image.CameraPtr()->model_id != CameraModelId::kSimpleRadial) {
+        LOG(ERROR) << "ERROR! TRIED TO ADD NON SIMPLE RADIAL CAMERA!";
         continue;
       }
-      point3D_num_observations_[point2D.point3D_id] += 1;
-    }
-  }
 
-  void AddImage(const image_t image_id) {
-    Image& image = reconstruction_.Image(image_id);
+      Camera& camera = *image.CameraPtr();
 
-    if (image.CameraPtr()->model_id != CameraModelId::kSimpleRadial) {
-      LOG(ERROR) << "ERROR! TRIED TO ADD NON SIMPLE RADIAL CAMERA!";
-      return;
-    }
+      for (const Point2D& point2D : image.Points2D()) {
+        if (!point2D.HasPoint3D() ||
+            config_.IsIgnoredPoint(point2D.point3D_id)) {
+          continue;
+        }
 
-    Camera& camera = *image.CameraPtr();
-    Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
+        const Point3D& point3D = reconstruction_.Point3D(point2D.point3D_id);
+        const bool pose_var = IsPoseVariable(image.FrameId());
+        const bool intrinsics_var = AreIntrinsicsVariable(camera.camera_id);
+        const bool point_var = IsPointVariable(point2D.point3D_id);
 
-    if (IsPoseVariable(image.FrameId())) {
-      cam_from_world.rotation.normalize();
-    }
+        if (!pose_var && !intrinsics_var && !point_var) {
+          continue;  // Nothing to optimize
+        }
 
-    for (const Point2D& point2D : image.Points2D()) {
-      if (!point2D.HasPoint3D() || config_.IsIgnoredPoint(point2D.point3D_id)) {
-        continue;
+        if (pose_var && intrinsics_var && point_var) {
+          AddSimpleRadialFactor(image, camera, point2D, point3D);
+        } else if (pose_var && intrinsics_var && !point_var) {
+          AddSimpleRadialFixedPointFactor(image, camera, point2D, point3D);
+        } else if (!pose_var && intrinsics_var && point_var) {
+          AddSimpleRadialFixedPoseFactor(image, camera, point2D, point3D);
+        } else {
+          LOG(FATAL) << "Unhandled factor combination: pose_var=" << pose_var
+                     << " intrinsics_var=" << intrinsics_var
+                     << " point_var=" << point_var;
+        }
       }
-      AddObservation(image, camera, cam_from_world, point2D);
+    }
+
+    // Create factors for observations from images outside config (fixed
+    // poses)
+    for (const auto point3D_id : config_.VariablePoints()) {
+      AddFactorsForExternalObservations(point3D_id);
+    }
+    for (const auto point3D_id : config_.ConstantPoints()) {
+      AddFactorsForExternalObservations(point3D_id);
     }
   }
 
-  void AddPoint(const point3D_t point3D_id) {
+  void AddFactorsForExternalObservations(const point3D_t point3D_id) {
     THROW_CHECK(!config_.IsIgnoredPoint(point3D_id));
 
-    if (config_.IsIgnoredPoint(point3D_id)) {
-      return;
-    }
-
     Point3D& point3D = reconstruction_.Point3D(point3D_id);
+
+    // Ensure point node exists
     GetOrCreatePoint(point3D_id, point3D);
-
-    size_t& num_observations = point3D_num_observations_[point3D_id];
-
-    if (num_observations == point3D.track.Length()) {
-      return;
-    }
 
     for (const auto& track_el : point3D.track.Elements()) {
       if (config_.HasImage(track_el.image_id)) {
-        continue;
+        continue;  // Already handled above
       }
-
-      num_observations += 1;
 
       Image& image = reconstruction_.Image(track_el.image_id);
       Camera& camera = *image.CameraPtr();
       const Point2D& point2D = image.Point2D(track_el.point2D_idx);
 
+      // These observations have fixed poses
       AddSimpleRadialFixedPoseFactor(image, camera, point2D, point3D);
       cameras_from_outside_config_.insert(camera.camera_id);
     }
   }
-
-  void AddObservation(const Image& image,
-                      const Camera& camera,
-                      const Rigid3d& cam_from_world,
-                      const Point2D& point2D) {
-    const bool pose_var = IsPoseVariable(image.FrameId());
-    const bool intrinsics_var = AreIntrinsicsVariable(camera.camera_id);
-    const bool point_var = IsPointVariable(point2D.point3D_id);
-
-    const Point3D& point3D = reconstruction_.Point3D(point2D.point3D_id);
-
-    if (!pose_var && !intrinsics_var && !point_var) {
-      return;  // Nothing to optimize
-    }
-
-    // Select appropriate factor type based on what's variable
-    if (pose_var && intrinsics_var && point_var) {
-      AddSimpleRadialFactor(image, camera, point2D, point3D);
-    } else if (pose_var && intrinsics_var && !point_var) {
-      AddSimpleRadialFixedPointFactor(image, camera, point2D, point3D);
-    } else if (!pose_var && intrinsics_var && point_var) {
-      AddSimpleRadialFixedPoseFactor(image, camera, point2D, point3D);
-    }
-    // Other combinations: skip factor
-  }
-
   void AddSimpleRadialFactor(const Image& image,
                              const Camera& camera,
                              const Point2D& point2D,
@@ -357,8 +358,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
   void WriteResultsToReconstruction() {
     // Write back points
     for (const auto& [idx, point_id] : index_to_point_id_) {
-      if (!IsPointVariable(point_id)) {
-        continue;
+      if (config_.HasConstantPoint(point_id)) {
+        continue;  // Only skip truly constant points
       }
       Point3D& point = reconstruction_.Point3D(point_id);
       point.xyz.x() = point_data_[idx * 3 + 0];
@@ -394,6 +395,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
         pose.translation.x() = camera_data_[idx * camera_stride + 4];
         pose.translation.y() = camera_data_[idx * camera_stride + 5];
         pose.translation.z() = camera_data_[idx * camera_stride + 6];
+        pose.rotation.normalize();  // Sanity quaternion normalization
       }
 
       if (AreIntrinsicsVariable(camera_id)) {
@@ -435,7 +437,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
     }
 
     params_.solver_iter_max = 200;
-    params_.pcg_iter_max = 200;
+    params_.pcg_iter_max = 50;
     caspar::GraphSolver solver =
         caspar::GraphSolver(params_,
                             num_points_,
