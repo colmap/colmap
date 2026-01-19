@@ -169,6 +169,11 @@ std::unordered_map<frame_t, int> ClusterReconstructionFrames(
   // it.
   std::unordered_map<frame_pair_t, int> frame_covisibility_count;
   std::unordered_set<frame_t> nodes;
+  // Insert all registered frames to the nodes set.
+  for (const frame_t frame_id : reconstruction.RegFrameIds()) {
+    nodes.insert(frame_id);
+  }
+
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     if (point3D.track.Length() <= 2) continue;
 
