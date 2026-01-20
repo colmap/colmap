@@ -267,7 +267,7 @@ class ReprojErrorConstantPoseCostFunctor
  public:
   ReprojErrorConstantPoseCostFunctor(const Eigen::Vector2d& point2D,
                                      const Rigid3d& cam_from_world)
-      : cam_from_world_(cam_from_world.Log()), reproj_cost_(point2D) {}
+      : cam_from_world_(cam_from_world.ToParams()), reproj_cost_(point2D) {}
 
   template <typename T>
   bool operator()(const T* const point3D,
@@ -279,7 +279,7 @@ class ReprojErrorConstantPoseCostFunctor
   }
 
  private:
-  const Eigen::Vector6d cam_from_world_;
+  const Eigen::Vector7d cam_from_world_;
   const ReprojErrorCostFunctor<CameraModel> reproj_cost_;
 };
 
@@ -373,7 +373,7 @@ class RigReprojErrorConstantRigCostFunctor
  public:
   RigReprojErrorConstantRigCostFunctor(const Eigen::Vector2d& point2D,
                                        const Rigid3d& cam_from_rig)
-      : cam_from_rig_(cam_from_rig.Log()), reproj_cost_(point2D) {}
+      : cam_from_rig_(cam_from_rig.ToParams()), reproj_cost_(point2D) {}
 
   template <typename T>
   bool operator()(const T* const point3D,
@@ -386,7 +386,7 @@ class RigReprojErrorConstantRigCostFunctor
   }
 
  private:
-  const Eigen::Vector6d cam_from_rig_;
+  const Eigen::Vector7d cam_from_rig_;
   const RigReprojErrorCostFunctor<CameraModel> reproj_cost_;
 };
 
@@ -458,7 +458,7 @@ struct AbsolutePosePriorCostFunctor
     : public AutoDiffCostFunctor<AbsolutePosePriorCostFunctor, 6, 6> {
  public:
   explicit AbsolutePosePriorCostFunctor(const Rigid3d& sensor_from_world_prior)
-      : world_from_sensor_prior_(Inverse(sensor_from_world_prior).Log()) {}
+      : world_from_sensor_prior_(Inverse(sensor_from_world_prior).ToParams()) {}
 
   template <typename T>
   bool operator()(const T* const sensor_from_world, T* residuals) const {
@@ -480,7 +480,7 @@ struct AbsolutePosePriorCostFunctor
   }
 
  private:
-  const Eigen::Vector6d world_from_sensor_prior_;
+  const Eigen::Vector7d world_from_sensor_prior_;
 };
 
 // 3-DoF error on the sensor position in the world coordinate frame.

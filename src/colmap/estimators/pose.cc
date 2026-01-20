@@ -172,7 +172,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
       std::make_unique<ceres::CauchyLoss>(options.loss_function_scale);
 
   double* camera_params = camera->params.data();
-  Eigen::Vector6d cam_from_world_param = cam_from_world->Log();
+  Eigen::Vector7d cam_from_world_param = cam_from_world->ToParams();
 
   // CostFunction assumes unit quaternions.
   cam_from_world->rotation.normalize();
@@ -247,7 +247,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   ceres::Solver::Summary summary;
   ceres::Solve(solver_options, &problem, &summary);
 
-  *cam_from_world = Rigid3d::Exp(cam_from_world_param);
+  *cam_from_world = Rigid3d::FromParams(cam_from_world_param);
 
   if (options.print_summary || VLOG_IS_ON(1)) {
     PrintSolverSummary(summary, "Pose refinement report");
@@ -282,7 +282,7 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
   THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
   THROW_CHECK_EQ(cam_rays1.size(), inlier_mask.size());
 
-  Eigen::Vector6d cam2_from_cam1_param = cam2_from_cam1->Log();
+  Eigen::Vector7d cam2_from_cam1_param = cam2_from_cam1->ToParams();
 
   constexpr double kMaxL2Error = 1.0;
   const auto loss_function = std::make_unique<ceres::CauchyLoss>(kMaxL2Error);
@@ -309,7 +309,7 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
 
-  *cam2_from_cam1 = Rigid3d::Exp(cam2_from_cam1_param);
+  *cam2_from_cam1 = Rigid3d::FromParams(cam2_from_cam1_param);
 
   return summary.IsSolutionUsable();
 }

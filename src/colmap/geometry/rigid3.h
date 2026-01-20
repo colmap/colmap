@@ -53,6 +53,20 @@ struct Rigid3d {
           const Eigen::Vector3d& translation)
       : rotation(rotation), translation(translation) {}
 
+  inline Eigen::Vector7d ToParams() const {
+    Eigen::Vector7d params;
+    params.head<4>() = rotation.coeffs();
+    params.tail<3>() = translation;
+    return params;
+  }
+
+  inline static Rigid3d FromParams(const Eigen::Vector7d& params) {
+    Rigid3d t;
+    t.rotation = Eigen::Quaterniond(params.head<4>()).normalized();
+    t.translation = params.tail<3>();
+    return t;
+  }
+
   inline Eigen::Matrix3x4d ToMatrix() const {
     Eigen::Matrix3x4d matrix;
     matrix.leftCols<3>() = rotation.toRotationMatrix();
@@ -92,26 +106,6 @@ struct Rigid3d {
   // Return the origin position of the target in the source frame.
   inline Eigen::Vector3d TgtOriginInSrc() const {
     return rotation.inverse() * -translation;
-  }
-
-  // Compute the log (tangent) space representation of the transformation.
-  inline Eigen::Vector6d Log() const {
-    const Eigen::AngleAxisd angle_axis(rotation);
-    Eigen::Vector6d log;
-    log.head<3>() = angle_axis.angle() * angle_axis.axis();
-    log.tail<3>() = translation;
-    return log;
-  }
-
-  // Compute the exponential map representation of the transformation.
-  static inline Rigid3d Exp(const Eigen::Vector6d& log) {
-    const double angle = log.head<3>().norm();
-    if (angle < 1e-10) {
-      return Rigid3d(Eigen::Quaterniond::Identity(), log.tail<3>());
-    }
-    return Rigid3d(
-        Eigen::Quaterniond(Eigen::AngleAxisd(angle, log.head<3>() / angle)),
-        log.tail<3>());
   }
 };
 
