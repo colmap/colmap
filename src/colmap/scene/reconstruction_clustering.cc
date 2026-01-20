@@ -43,8 +43,6 @@ namespace {
 //   1. Merge nodes connected by strong edges (weight > threshold).
 //   2. Assign sequential cluster IDs based on union-find roots.
 //
-// The iterative refinement helps avoid over-segmentation when the connection
-// between two groups of nodes is distributed across multiple weaker edges.
 std::unordered_map<frame_t, int> EstablishStrongClusters(
     const ReconstructionClusteringOptions& options,
     const std::unordered_set<frame_t>& nodes,
