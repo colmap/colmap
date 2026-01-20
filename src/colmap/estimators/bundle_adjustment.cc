@@ -1050,6 +1050,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     }
     return sensor_from_rig_param->second.first;
   }
+
   Eigen::Vector6d& MaybeAddRigFromWorldParam(const frame_t frame_id,
                                              Rigid3d& rig_from_world) {
     auto rig_from_world_param = rig_from_world_params_.find(frame_id);
