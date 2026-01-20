@@ -47,6 +47,8 @@ void GP3PEstimator::Estimate(const std::vector<X_t>& points2D,
   THROW_CHECK_EQ(points3D.size(), 3);
   THROW_CHECK_NOTNULL(rigs_from_world);
 
+  rigs_from_world->clear();
+
   std::vector<Eigen::Vector3d> rays_in_rig(3);
   std::vector<Eigen::Vector3d> origins_in_rig(3);
   for (int i = 0; i < 3; ++i) {
@@ -68,7 +70,6 @@ void GP3PEstimator::Estimate(const std::vector<X_t>& points2D,
     poselib::gp3p(origins_in_rig, rays_in_rig, points3D, &poses);
   }
 
-  rigs_from_world->clear();
   rigs_from_world->reserve(poses.size());
   for (const poselib::CameraPose& pose : poses) {
     rigs_from_world->emplace_back(ConvertPoseLibPoseToRigid3d(pose));
