@@ -399,7 +399,7 @@ namespace internal {
 std::vector<PoseParam> GetPoseParams(const Reconstruction& reconstruction,
                                      const BundleAdjuster& bundle_adjuster) {
   const ceres::Problem& problem = *bundle_adjuster.Problem();
-  const std::unordered_map<frame_t, std::pair<Eigen::Vector6d, Rigid3d*>>&
+  const std::unordered_map<frame_t, std::pair<Eigen::Vector7d, Rigid3d*>>&
       rig_from_world_params = bundle_adjuster.RigFromWorldParams();
   std::vector<PoseParam> params;
   params.reserve(reconstruction.NumImages());

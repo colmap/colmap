@@ -314,10 +314,10 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
     cameras_params_data[i] = cameras->at(i).params.data();
   }
   std::vector<size_t> camera_counts(cameras->size(), 0);
-  Eigen::Vector6d rig_from_world_param = rig_from_world->ToParams();
+  Eigen::Vector7d rig_from_world_param = rig_from_world->ToParams();
 
   std::vector<Eigen::Vector3d> point3D_params = points3D;
-  std::vector<Eigen::Vector6d> cam_from_rig_params(cams_from_rig.size());
+  std::vector<Eigen::Vector7d> cam_from_rig_params(cams_from_rig.size());
   for (size_t i = 0; i < cams_from_rig.size(); ++i) {
     cam_from_rig_params[i] = cams_from_rig[i].ToParams();
   }
