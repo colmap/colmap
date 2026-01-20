@@ -131,7 +131,7 @@ class AnalyticalReprojErrorCostFunction
 
     double* J_point = jacobians ? jacobians[0] : nullptr;
     double* J_pose = jacobians ? jacobians[1] : nullptr;
-    double* J_params = jacobians ? jacobians[3] : nullptr;
+    double* J_params = jacobians ? jacobians[2] : nullptr;
 
     Eigen::Map<Eigen::Vector2d> residuals_vec(residuals);
 

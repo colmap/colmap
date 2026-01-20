@@ -232,6 +232,11 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
     }
   }
 
+  problem.SetManifold(
+      cam_from_world_param.data(),
+      new ceres::ProductManifold(new ceres::EigenQuaternionManifold(),
+                                 new ceres::EuclideanManifold<3>()));
+
   ceres::Solver::Options solver_options;
   solver_options.gradient_tolerance = options.gradient_tolerance;
   solver_options.max_num_iterations = options.max_num_iterations;
@@ -303,7 +308,7 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
   }
 
   problem.SetManifold(cam2_from_cam1_param.data(),
-                      new ceres::ProductManifold(ceres::EuclideanManifold<3>(),
+                      new ceres::ProductManifold(ceres::EigenQuaternionManifold(),
                                                  ceres::SphereManifold<3>()));
 
   ceres::Solver::Summary summary;
