@@ -243,13 +243,26 @@ class BundleAdjuster {
 
   virtual ceres::Solver::Summary Solve() = 0;
   virtual std::shared_ptr<ceres::Problem>& Problem() = 0;
+  virtual const std::shared_ptr<ceres::Problem>& Problem() const = 0;
 
   const BundleAdjustmentOptions& Options() const;
   const BundleAdjustmentConfig& Config() const;
 
+  const std::unordered_map<sensor_t, std::pair<Eigen::Vector6d, Rigid3d*>>&
+  SensorFromRigParams() const;
+  const std::unordered_map<frame_t, std::pair<Eigen::Vector6d, Rigid3d*>>&
+  RigFromWorldParams() const;
+
  protected:
   BundleAdjustmentOptions options_;
   BundleAdjustmentConfig config_;
+
+  // Tangent (log) space parameters for rig and frame poses and corresponding
+  // exponential maps of the original poses.
+  std::unordered_map<sensor_t, std::pair<Eigen::Vector6d, Rigid3d*>>
+      sensor_from_rig_params_;
+  std::unordered_map<frame_t, std::pair<Eigen::Vector6d, Rigid3d*>>
+      rig_from_world_params_;
 };
 
 std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(

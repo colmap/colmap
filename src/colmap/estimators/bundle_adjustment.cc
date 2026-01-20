@@ -286,6 +286,16 @@ const BundleAdjustmentOptions& BundleAdjuster::Options() const {
 
 const BundleAdjustmentConfig& BundleAdjuster::Config() const { return config_; }
 
+const std::unordered_map<sensor_t, std::pair<Eigen::Vector6d, Rigid3d*>>&
+BundleAdjuster::SensorFromRigParams() const {
+  return sensor_from_rig_params_;
+}
+
+const std::unordered_map<frame_t, std::pair<Eigen::Vector6d, Rigid3d*>>&
+BundleAdjuster::RigFromWorldParams() const {
+  return rig_from_world_params_;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // BundleAdjustmentOptions
 ////////////////////////////////////////////////////////////////////////////////
@@ -807,6 +817,10 @@ class DefaultBundleAdjuster : public BundleAdjuster {
 
   std::shared_ptr<ceres::Problem>& Problem() override { return problem_; }
 
+  const std::shared_ptr<ceres::Problem>& Problem() const override {
+    return problem_;
+  }
+
   const std::set<image_t>& ParameterizedImageIds() const {
     return parameterized_image_ids_;
   }
@@ -1067,13 +1081,6 @@ class DefaultBundleAdjuster : public BundleAdjuster {
   std::set<camera_t> parameterized_camera_ids_;
   std::set<image_t> parameterized_image_ids_;
   std::unordered_map<point3D_t, size_t> point3D_num_observations_;
-
-  // Tangent (log) space parameters for rig and frame poses and corresponding
-  // exponential maps of the original poses.
-  std::unordered_map<sensor_t, std::pair<Eigen::Vector6d, Rigid3d*>>
-      sensor_from_rig_params_;
-  std::unordered_map<frame_t, std::pair<Eigen::Vector6d, Rigid3d*>>
-      rig_from_world_params_;
 };
 
 class PosePriorBundleAdjuster : public BundleAdjuster {
@@ -1161,6 +1168,10 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
   }
 
   std::shared_ptr<ceres::Problem>& Problem() override {
+    return default_bundle_adjuster_->Problem();
+  }
+
+  const std::shared_ptr<ceres::Problem>& Problem() const override {
     return default_bundle_adjuster_->Problem();
   }
 
