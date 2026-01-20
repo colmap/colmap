@@ -30,11 +30,10 @@
 #pragma once
 
 #include "colmap/controllers/option_manager.h"
-#include "colmap/image/undistortion.h"
+#include "colmap/controllers/undistorters.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/thread_control_widget.h"
-#include "colmap/util/misc.h"
 
 #include <QtCore>
 #include <QtWidgets>
