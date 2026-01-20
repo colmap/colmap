@@ -52,7 +52,7 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
   uf.Reserve(nodes.size());
 
   // Create initial clusters from strong edges (weight > threshold).
-  // TODO (lpanaf): use different thresholds for different edges based on local
+  // TODO(lpanaf): use different thresholds for different edges based on local
   // statistics.
   for (const auto& [pair_id, weight] : edge_weights) {
     if (weight >= edge_weight_threshold) {
