@@ -35,7 +35,7 @@
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/option_manager.h"
-#include "colmap/image/undistortion.h"
+#include "colmap/controllers/undistorters.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"

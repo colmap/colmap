@@ -1,4 +1,5 @@
 #include "colmap/controllers/image_reader.h"
+#include "colmap/controllers/undistorters.h"
 #include "colmap/exe/feature.h"
 #include "colmap/image/undistortion.h"
 #include "colmap/scene/camera.h"
