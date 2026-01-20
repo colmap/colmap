@@ -307,9 +307,10 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
         cost_function, loss_function.get(), cam2_from_cam1_param.data());
   }
 
-  problem.SetManifold(cam2_from_cam1_param.data(),
-                      new ceres::ProductManifold(ceres::EigenQuaternionManifold(),
-                                                 ceres::SphereManifold<3>()));
+  problem.SetManifold(
+      cam2_from_cam1_param.data(),
+      new ceres::ProductManifold(ceres::EigenQuaternionManifold(),
+                                 ceres::SphereManifold<3>()));
 
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);

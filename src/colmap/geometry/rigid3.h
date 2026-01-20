@@ -53,6 +53,7 @@ struct Rigid3d {
           const Eigen::Vector3d& translation)
       : rotation(rotation), translation(translation) {}
 
+  // Convert to single parameter vector as [qx, qy, qz, qw, tx, ty, tz].
   inline Eigen::Vector7d ToParams() const {
     Eigen::Vector7d params;
     params.head<4>() = rotation.coeffs();
@@ -60,6 +61,7 @@ struct Rigid3d {
     return params;
   }
 
+  // Convert from single parameter vector as [qx, qy, qz, qw, tx, ty, tz].
   inline static Rigid3d FromParams(const Eigen::Vector7d& params) {
     Rigid3d t;
     t.rotation = Eigen::Quaterniond(params.head<4>()).normalized();

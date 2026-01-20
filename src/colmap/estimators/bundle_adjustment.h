@@ -257,8 +257,8 @@ class BundleAdjuster {
   BundleAdjustmentOptions options_;
   BundleAdjustmentConfig config_;
 
-  // Tangent (log) space parameters for rig and frame poses and corresponding
-  // exponential maps of the original poses.
+  // Cost function parameters for rig and frame poses and corresponding
+  // poses in the reconstruction object.
   std::unordered_map<sensor_t, std::pair<Eigen::Vector7d, Rigid3d*>>
       sensor_from_rig_params_;
   std::unordered_map<frame_t, std::pair<Eigen::Vector7d, Rigid3d*>>

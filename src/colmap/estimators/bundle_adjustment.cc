@@ -1055,10 +1055,6 @@ class DefaultBundleAdjuster : public BundleAdjuster {
                                               Rigid3d& sensor_from_rig) {
     auto sensor_from_rig_param = sensor_from_rig_params_.find(sensor_id);
     if (sensor_from_rig_param == sensor_from_rig_params_.end()) {
-      const Eigen::AngleAxisd sensor_from_rig_rotation(
-          sensor_from_rig.rotation);
-      const Eigen::Vector3d sensor_from_rig_aa =
-          sensor_from_rig_rotation.angle() * sensor_from_rig_rotation.axis();
       sensor_from_rig_param = sensor_from_rig_params_.emplace_hint(
           sensor_from_rig_param,
           sensor_id,
@@ -1071,9 +1067,6 @@ class DefaultBundleAdjuster : public BundleAdjuster {
                                              Rigid3d& rig_from_world) {
     auto rig_from_world_param = rig_from_world_params_.find(frame_id);
     if (rig_from_world_param == rig_from_world_params_.end()) {
-      const Eigen::AngleAxisd rig_from_world_rotation(rig_from_world.rotation);
-      const Eigen::Vector3d rig_from_world_aa =
-          rig_from_world_rotation.angle() * rig_from_world_rotation.axis();
       rig_from_world_param = rig_from_world_params_.emplace_hint(
           rig_from_world_param,
           frame_id,
