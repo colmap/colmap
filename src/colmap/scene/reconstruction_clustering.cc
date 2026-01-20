@@ -40,8 +40,7 @@ namespace {
 // Clusters nodes using union-find based on edge weights.
 //
 // Algorithm:
-//   1. Merge nodes connected by strong edges (weight > threshold).
-//   2. Assign sequential cluster IDs based on union-find roots.
+//   Merge nodes connected by strong edges (weight > threshold).
 //
 std::unordered_map<frame_t, int> EstablishStrongClusters(
     const ReconstructionClusteringOptions& options,
@@ -52,8 +51,8 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
   UnionFind<frame_t> uf;
   uf.Reserve(nodes.size());
 
-  // Phase 1: Create initial clusters from strong edges (weight > threshold).
-  // TODO: use different thresholds for different edges based on local
+  // Create initial clusters from strong edges (weight > threshold).
+  // TODO (lpanaf): use different thresholds for different edges based on local
   // statistics.
   for (const auto& [pair_id, weight] : edge_weights) {
     if (weight >= edge_weight_threshold) {
@@ -62,7 +61,7 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
     }
   }
 
-  // Phase 2: Assign sequential cluster IDs based on union-find roots.
+  // Assign sequential cluster IDs based on union-find roots.
   std::unordered_map<frame_t, int> root_to_cluster;
   int next_cluster_id = 0;
 
