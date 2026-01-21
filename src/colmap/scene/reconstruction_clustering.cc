@@ -112,11 +112,6 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
 
   // Phase 3: Collect nodes by their union-find roots, sort by number of
   // frames, and assign sequential cluster IDs (largest cluster gets ID 0).
-  // First ensure all nodes are in the union-find structure (isolated nodes
-  // may not have been added during Phase 1/2 if they had no edges).
-  for (const frame_t node : nodes) {
-    uf.Find(node);
-  }
   uf.Compress();
   std::unordered_map<frame_t, std::vector<frame_t>> root_to_nodes;
   for (const auto& [node, root] : uf.Parents()) {
@@ -150,6 +145,11 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
         cluster_ids[node] = -1;
       }
     }
+  }
+  
+  // Ensure all nodes are assigned a cluster ID.
+  for (const auto node : nodes) {
+    if (cluster_ids.find(node) == cluster_ids.end()) cluster_ids[node] = -1;
   }
 
   LOG(INFO) << "Clustering took " << iteration << " iterations. "
