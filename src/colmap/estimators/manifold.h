@@ -98,29 +98,29 @@ inline void SetManifold(
 
 template <int size>
 inline std::unique_ptr<ceres::LocalParameterization> CreateEuclideanManifold() {
-  return std::make_uniqu<ceres::IdentityParameterization>(size);
+  return std::make_unique<ceres::IdentityParameterization>(size);
 }
 
 inline std::unique_ptr<ceres::LocalParameterization>
 CreateEigenQuaternionManifold() {
-  return std::make_uniqu<ceres::EigenQuaternionParameterization>();
+  return std::make_unique<ceres::EigenQuaternionParameterization>();
 }
 
 inline std::unique_ptr<ceres::LocalParameterization> CreateSubsetManifold(
     int size, const std::vector<int>& constant_params) {
-  return std::make_uniqu<ceres::SubsetParameterization>(size, constant_params);
+  return std::make_unique<ceres::SubsetParameterization>(size, constant_params);
 }
 
 template <int size>
 inline std::unique_ptr<ceres::LocalParameterization> CreateSphereManifold() {
-  return std::make_uniqu<ceres::HomogeneousVectorParameterization>(size);
+  return std::make_unique<ceres::HomogeneousVectorParameterization>(size);
 }
 
 template <typename... Args>
 inline std::unique_ptr<ceres::LocalParameterization> CreateProductManifold(
     Args&&... parameterizations) {
   // Note: Does not support make_unique due to template constructor.
-  return std::unique_ptr<ceres::LocalParameterization>(
+  return std::unique_ptr<ceres::ProductParameterization>(
       new ceres::ProductParameterization(
           std::forward<Args>(parameterizations)...));
 }
