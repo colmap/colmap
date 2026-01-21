@@ -45,7 +45,7 @@ TEST(ReprojErrorCostFunctor, Nominal) {
   using CostFunctor = ReprojErrorCostFunctor<SimplePinholeCameraModel>;
   std::unique_ptr<ceres::CostFunction> cost_function(
       CostFunctor::Create(Eigen::Vector2d::Zero()));
-  double cam_from_world[6] = {0, 0, 0, 0, 0, 0};
+  double cam_from_world[7] = {0, 0, 0, 1, 0, 0, 0};
   double point3D[3] = {0, 0, 1};
   double camera_params[3] = {1, 0, 0};
   double residuals[2];
@@ -156,7 +156,7 @@ TEST(ReprojErrorConstantPoint3DCostFunctor, Nominal) {
   Eigen::Vector3d point3D;
   point3D << 0, 0, 1;
 
-  double cam_from_world[6] = {0, 0, 0, 0, 0, 0};
+  double cam_from_world[7] = {0, 0, 0, 1, 0, 0, 0};
   double camera_params[3] = {1, 0, 0};
   double residuals[2];
   const double* parameters[2] = {cam_from_world, camera_params};
@@ -205,8 +205,8 @@ TEST(RigReprojErrorCostFunctor, Nominal) {
   std::unique_ptr<ceres::CostFunction> cost_function(
       RigReprojErrorCostFunctor<SimplePinholeCameraModel>::Create(
           Eigen::Vector2d::Zero()));
-  double cam_from_rig[6] = {0, 0, 0, 0, 0, -1};
-  double rig_from_world[6] = {0, 0, 0, 0, 0, 1};
+  double cam_from_rig[7] = {0, 0, 0, 1, 0, 0, -1};
+  double rig_from_world[7] = {0, 0, 0, 1, 0, 0, 1};
   double point3D[3] = {0, 0, 1};
   double camera_params[3] = {1, 0, 0};
   double residuals[2];
@@ -496,7 +496,7 @@ TEST(Point3DAlignmentCostFunctor, Nominal) {
 
 TEST(CovarianceWeightedCostFunctor, ReprojErrorCostFunctor) {
   using CostFunctor = ReprojErrorCostFunctor<SimplePinholeCameraModel>;
-  double cam_from_world[6] = {0, 0, 0, 0, 0, 0};
+  double cam_from_world[7] = {0, 0, 0, 1, 0, 0, 0};
   double point3D[3] = {-1, 1, 1};
   double camera_params[3] = {2, 0, 0};
   double residuals[2];
