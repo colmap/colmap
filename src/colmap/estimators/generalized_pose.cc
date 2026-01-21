@@ -358,34 +358,34 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
         problem.SetParameterBlockConstant(camera.params.data());
       } else {
         // Always set the principal point as fixed.
-        std::vector<int> camera_params_const;
+        std::vector<int> const_camera_params;
         const span<const size_t> principal_point_idxs =
             camera.PrincipalPointIdxs();
-        camera_params_const.insert(camera_params_const.end(),
+        const_camera_params.insert(const_camera_params.end(),
                                    principal_point_idxs.begin(),
                                    principal_point_idxs.end());
 
         if (!options.refine_focal_length) {
           const span<const size_t> focal_length_idxs = camera.FocalLengthIdxs();
-          camera_params_const.insert(camera_params_const.end(),
+          const_camera_params.insert(const_camera_params.end(),
                                      focal_length_idxs.begin(),
                                      focal_length_idxs.end());
         }
 
         if (!options.refine_extra_params) {
           const span<const size_t> extra_params_idxs = camera.ExtraParamsIdxs();
-          camera_params_const.insert(camera_params_const.end(),
+          const_camera_params.insert(const_camera_params.end(),
                                      extra_params_idxs.begin(),
                                      extra_params_idxs.end());
         }
 
-        if (camera_params_const.size() == camera.params.size()) {
+        if (const_camera_params.size() == camera.params.size()) {
           problem.SetParameterBlockConstant(camera.params.data());
         } else {
-          SetSubsetManifold(static_cast<int>(camera.params.size()),
-                            camera_params_const,
-                            &problem,
-                            camera.params.data());
+          SetManifold(
+              &problem,
+              camera.params.data(),
+              CreateSubsetManifold(camera.params.size(), const_camera_params));
         }
       }
     }

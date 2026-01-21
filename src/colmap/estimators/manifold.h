@@ -34,51 +34,83 @@
 
 namespace colmap {
 
-#include "ceres/ceres.h"
-
-inline void SetQuaternionManifold(ceres::Problem* problem, double* quat_xyzw) {
 #if CERES_VERSION_MAJOR >= 3 || \
     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
-  problem->SetManifold(quat_xyzw, new ceres::EigenQuaternionManifold);
-#else
-  problem->SetParameterization(quat_xyzw,
-                               new ceres::EigenQuaternionParameterization);
-#endif
-}
 
-inline void SetSubsetManifold(int size,
-                              const std::vector<int>& constant_params,
-                              ceres::Problem* problem,
-                              double* params) {
-#if CERES_VERSION_MAJOR >= 3 || \
-    (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
-  problem->SetManifold(params,
-                       new ceres::SubsetManifold(size, constant_params));
-#else
-  problem->SetParameterization(
-      params, new ceres::SubsetParameterization(size, constant_params));
-#endif
+inline void SetManifold(ceres::Problem* problem,
+                        double* params,
+                        ceres::Manifold* manifold) {
+  problem->SetManifold(params, manifold);
 }
 
 template <int size>
-inline void SetSphereManifold(ceres::Problem* problem, double* params) {
-#if CERES_VERSION_MAJOR >= 3 || \
-    (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
-  problem->SetManifold(params, new ceres::SphereManifold<size>);
-#else
-  problem->SetParameterization(
-      params, new ceres::HomogeneousVectorParameterization(size));
-#endif
+inline ceres::Manifold* CreateEuclideanManifold() {
+  return new ceres::EuclideanManifold<size>();
+}
+
+inline ceres::Manifold* CreateEigenQuaternionManifold() {
+  return new ceres::EigenQuaternionManifold();
+}
+
+inline ceres::Manifold* CreateSubsetManifold(
+    int size, const std::vector<int>& constant_params) {
+  return new ceres::SubsetManifold(size, constant_params);
+}
+
+template <int size>
+inline ceres::Manifold* CreateSphereManifold() {
+  return new ceres::SphereManifold<size>();
+}
+
+template <typename... Args>
+inline ceres::Manifold* CreateProductManifold(Args&&... manifolds) {
+  return new ceres::ProductManifold(std::forward<Args>(manifolds)...);
 }
 
 inline int ParameterBlockTangentSize(const ceres::Problem& problem,
                                      const double* param) {
-#if CERES_VERSION_MAJOR >= 3 || \
-    (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
   return problem.ParameterBlockTangentSize(param);
-#else
-  return problem.ParameterBlockLocalSize(param);
-#endif
 }
+
+#else  // CERES_VERSION_MAJOR < 2.1.0
+
+inline void SetManifold(ceres::Problem* problem,
+                        double* params,
+                        ceres::LocalParameterization* parameterization) {
+  problem->SetParameterization(params, parameterization);
+}
+
+template <int size>
+inline ceres::LocalParameterization* CreateEuclideanManifold() {
+  return new ceres::IdentityParameterization<size>();
+}
+
+inline ceres::LocalParameterization* CreateEigenQuaternionManifold() {
+  return new ceres::EigenQuaternionParameterization();
+}
+
+inline ceres::LocalParameterization* CreateSubsetManifold(
+    int size, const std::vector<int>& constant_params) {
+  return new ceres::SubsetParameterization(size, constant_params);
+}
+
+template <int size>
+inline ceres::LocalParameterization* CreateSphereManifold() {
+  return new ceres::HomogeneousVectorParameterization(size);
+}
+
+template <typename... Args>
+inline ceres::LocalParameterization* CreateProductManifold(
+    Args&&... parameterizations) {
+  return new ceres::ProductParameterization(
+      std::forward<Args>(parameterizations)...);
+}
+
+inline int ParameterBlockTangentSize(const ceres::Problem& problem,
+                                     const double* param) {
+  return problem.ParameterBlockLocalSize(param);
+}
+
+#endif
 
 }  // namespace colmap

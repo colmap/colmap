@@ -147,9 +147,12 @@ void GravityRefiner::RefineGravity(
 
     if (gravities.size() < options_.min_num_neighbors) continue;
 
-    // Then, run refinment
+    // Initialize and set the manifold
     gravity = colmap::AverageDirections(gravities);
-    colmap::SetSphereManifold<3>(&problem, gravity.data());
+    colmap::SetManifold(
+        &problem, gravity.data(), colmap::CreateSphereManifold<3>());
+
+    // Then, run refinment
     ceres::Solver::Options solver_options = options_.solver_options;
     solver_options.num_threads =
         colmap::GetEffectiveNumThreads(solver_options.num_threads);
