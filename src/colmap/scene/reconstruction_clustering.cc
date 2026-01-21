@@ -102,7 +102,7 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
 
   // Ensure all nodes are assigned a cluster ID.
   for (const auto node : nodes) {
-    if (cluster_ids.find(node) == cluster_ids.end()) cluster_ids[node] = -1;
+    if (!uf.FindIfExists(node).has_value()) cluster_ids[node] = -1;
   }
 
   LOG(INFO) << "Frames are grouped into " << num_valid_clusters
