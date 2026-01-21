@@ -29,6 +29,11 @@ class PyBundleAdjuster : public BundleAdjuster,
     PYBIND11_OVERRIDE_PURE(
         std::shared_ptr<ceres::Problem>&, BundleAdjuster, Problem);
   }
+
+  const std::shared_ptr<ceres::Problem>& Problem() const override {
+    PYBIND11_OVERRIDE_PURE(
+        const std::shared_ptr<ceres::Problem>&, BundleAdjuster, Problem);
+  }
 };
 
 }  // namespace
