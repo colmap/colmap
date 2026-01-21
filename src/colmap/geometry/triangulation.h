@@ -71,6 +71,25 @@ bool TriangulateMidPoint(const Rigid3d& cam2_from_cam1,
                          const Eigen::Vector3d& cam_ray2,
                          Eigen::Vector3d* point3D_in_cam1);
 
+// Triangulate 3D point from bearing vectors on spherical cameras.
+//
+// Unlike TriangulateMidPoint, this handles bearing vectors that may point
+// anywhere on the unit sphere (including negative Z / back hemisphere).
+// For equirectangular and other spherical camera models.
+//
+// @param cam_from_world1   Pose of the first camera.
+// @param cam_from_world2   Pose of the second camera.
+// @param bearing1          Unit bearing vector in first camera frame.
+// @param bearing2          Unit bearing vector in second camera frame.
+// @param point3D           Triangulated 3D point in world coordinates.
+//
+// @return                  Whether triangulation was successful.
+bool TriangulatePointBearing(const Rigid3d& cam_from_world1,
+                             const Rigid3d& cam_from_world2,
+                             const Eigen::Vector3d& bearing1,
+                             const Eigen::Vector3d& bearing2,
+                             Eigen::Vector3d* point3D);
+
 // Triangulate point from multiple views minimizing the L2 error.
 //
 // @param cams_from_world   Projection matrices of multi-view observations.

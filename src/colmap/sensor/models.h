@@ -96,7 +96,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                 kThinPrismFisheye,        // = 10
                                 kRadTanThinPrismFisheye,  // = 11
                                 kSimpleDivision,          // = 12
-                                kDivision                 // = 13
+                                kDivision,                // = 13
+                                kEquirectangular          // = 14
 );
 
 #ifndef CAMERA_MODEL_DEFINITIONS
@@ -165,7 +166,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
   CAMERA_MODEL_CASE(ThinPrismFisheyeCameraModel)    \
   CAMERA_MODEL_CASE(RadTanThinPrismFisheyeModel)    \
   CAMERA_MODEL_CASE(SimpleDivisionCameraModel)      \
-  CAMERA_MODEL_CASE(DivisionCameraModel)
+  CAMERA_MODEL_CASE(DivisionCameraModel)            \
+  CAMERA_MODEL_CASE(EquirectangularCameraModel)
 #endif
 
 #ifndef CAMERA_MODEL_SWITCH_CASES
@@ -515,6 +517,35 @@ struct SimpleDivisionCameraModel
 //
 struct DivisionCameraModel : public BaseCameraModel<DivisionCameraModel> {
   CAMERA_MODEL_DEFINITIONS(CameraModelId::kDivision, "DIVISION", 2, 2, 1, false)
+};
+
+// Equirectangular camera model for 360-degree panoramic images.
+//
+// Projects 3D points to spherical coordinates mapped to an equirectangular
+// (latitude-longitude) image plane. No distortion parameters.
+//
+// This is a spherical camera model that covers 360x180 degrees FOV.
+// Unlike perspective cameras, it has no focal length parameter.
+//
+// Parameter list is expected in the following order:
+//
+//    cx, cy
+//
+// Where cx, cy is the principal point (typically at image center).
+// Image coordinates: x = (theta + pi) / (2*pi) * width
+//                    y = (pi/2 - phi) / pi * height
+struct EquirectangularCameraModel
+    : public BaseCameraModel<EquirectangularCameraModel> {
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kEquirectangular,
+                           "EQUIRECTANGULAR",
+                           0,
+                           2,
+                           0,
+                           false)
+
+  // Override CamFromImgThreshold since we have no focal length
+  template <typename T>
+  static inline T CamFromImgThreshold(const T* params, T threshold);
 };
 
 // Check whether camera model with given name or identifier exists.
@@ -2147,6 +2178,127 @@ void DivisionCameraModel::Distortion(
   const T factor = k * r2 / (T(1) + k * r2);
   *du = -u * factor;
   *dv = -v * factor;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// EquirectangularCameraModel
+
+std::string EquirectangularCameraModel::InitializeParamsInfo() {
+  return "cx, cy";
+}
+
+std::array<size_t, 0> EquirectangularCameraModel::InitializeFocalLengthIdxs() {
+  return {};
+}
+
+std::array<size_t, 2>
+EquirectangularCameraModel::InitializePrincipalPointIdxs() {
+  return {0, 1};
+}
+
+std::array<size_t, 0> EquirectangularCameraModel::InitializeExtraParamsIdxs() {
+  return {};
+}
+
+std::vector<double> EquirectangularCameraModel::InitializeParams(
+    const double /*focal_length*/, const size_t width, const size_t height) {
+  // Principal point at image center
+  return {width / 2.0, height / 2.0};
+}
+
+template <typename T>
+bool EquirectangularCameraModel::ImgFromCam(
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
+  // Equirectangular projection: 3D point (u,v,w) to spherical to image coords
+  // Unlike perspective cameras, points behind the camera are valid
+
+  const T cx = params[0];
+  const T cy = params[1];
+
+  // Compute distance in XZ plane
+  const T r_xz = ceres::sqrt(u * u + w * w);
+
+  // Handle the singularity at poles (looking straight up or down)
+  if (r_xz < T(std::numeric_limits<double>::epsilon())) {
+    *x = cx;
+    *y = (v > T(0)) ? T(0) : cy * T(2);  // Top or bottom of image
+    return true;
+  }
+
+  // Azimuth: atan2(X, Z) gives angle in [-pi, pi]
+  const T theta = ceres::atan2(u, w);
+
+  // Elevation: atan2(Y, sqrt(X^2 + Z^2)) gives angle in [-pi/2, pi/2]
+  const T phi = ceres::atan2(v, r_xz);
+
+  // Map to image coordinates
+  // For equirectangular: x = cx + (theta / pi) * cx
+  //                      y = cy - (phi / (pi/2)) * cy
+  const T pi = T(M_PI);
+  *x = cx + (theta / pi) * cx;
+  *y = cy - (phi / (pi / T(2))) * cy;
+
+  return true;
+}
+
+bool EquirectangularCameraModel::CamFromImg(
+    const double* params, double x, double y, double* u, double* v) {
+  const double cx = params[0];
+  const double cy = params[1];
+
+  // Inverse mapping: image coords to spherical angles
+  // theta = (x/cx - 1) * pi  in [-pi, pi]
+  // phi = (1 - y/cy) * (pi/2)  in [-pi/2, pi/2]
+  const double theta = (x / cx - 1.0) * M_PI;
+  const double phi = (1.0 - y / cy) * (M_PI / 2.0);
+
+  // Convert spherical angles to 3D direction
+  const double cos_phi = std::cos(phi);
+  const double sin_theta = std::sin(theta);
+  const double cos_theta = std::cos(theta);
+  const double sin_phi = std::sin(phi);
+
+  // 3D direction: X = sin(theta)*cos(phi), Y = sin(phi), Z = cos(theta)*cos(phi)
+  // We return (u/w, v/w) where w = cos(theta)*cos(phi) (the Z component)
+  const double w_comp = cos_theta * cos_phi;
+
+  // Handle the case when looking sideways (theta = +/- pi/2) or near the poles
+  const double abs_cos_phi = std::abs(cos_phi);
+  if (std::abs(w_comp) < std::numeric_limits<double>::epsilon()) {
+    // At 90 degrees left/right, the normalized coords are infinite
+    // Return a large but finite value
+    *u = (sin_theta > 0) ? 1e6 : -1e6;
+    // Also check for near-pole singularity where cos_phi -> 0
+    if (abs_cos_phi < std::numeric_limits<double>::epsilon()) {
+      *v = (sin_phi >= 0.0) ? 1e6 : -1e6;
+    } else {
+      *v = sin_phi / abs_cos_phi;
+    }
+    return true;
+  }
+
+  *u = (sin_theta * cos_phi) / w_comp;  // X/Z
+  *v = sin_phi / w_comp;                 // Y/Z
+
+  return true;
+}
+
+template <typename T>
+void EquirectangularCameraModel::Distortion(
+    const T* /*extra_params*/, const T& /*u*/, const T& /*v*/, T* du, T* dv) {
+  // No distortion for equirectangular
+  *du = T(0);
+  *dv = T(0);
+}
+
+template <typename T>
+T EquirectangularCameraModel::CamFromImgThreshold(const T* params,
+                                                   const T threshold) {
+  // For equirectangular, convert pixel threshold to angular threshold
+  // The image width spans 2*pi radians, so:
+  // angular_per_pixel = 2*pi / (2*cx) = pi/cx
+  const T cx = params[0];
+  return threshold * T(M_PI) / cx;
 }
 
 std::optional<Eigen::Vector2d> CameraModelImgFromCam(
