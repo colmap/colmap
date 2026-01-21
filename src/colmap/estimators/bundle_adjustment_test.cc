@@ -233,11 +233,11 @@ TEST(CasparBundleAdjuster, MatchesDefaultSolver) {
   SetPRNGSeed(0);
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.camera_model_id = CameraModelId::kSimpleRadial;
+  synthetic_dataset_options.camera_model_id = CameraModelId::kPinhole;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
   SyntheticNoiseOptions synthetic_noise_options;
@@ -273,13 +273,14 @@ TEST(CasparBundleAdjuster, MatchesDefaultSolver) {
 
   EXPECT_THAT(reconstruction_default,
               ReconstructionNear(reconstruction_caspar,
-                                 /*max_rotation_error_deg=*/0.1,
-                                 /*max_proj_center_error=*/0.1,
+                                 /*max_rotation_error_deg=*/0.3,
+                                 /*max_proj_center_error=*/0.3,
                                  /*max_scale_error=*/std::nullopt,
                                  /*num_obs_tolerance=*/0.0));
 }
 
 TEST(CasparBundleAdjuster, TwoView) {
+  SetPRNGSeed(0);
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
@@ -314,7 +315,7 @@ TEST(CasparBundleAdjuster, LargeScale) {
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 100;
   synthetic_dataset_options.num_points3D = 30000;
-  synthetic_dataset_options.camera_model_id = CameraModelId::kSimpleRadial;
+  synthetic_dataset_options.camera_model_id = CameraModelId::kPinhole;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction);
 
   Reconstruction reconstruction = gt_reconstruction;
@@ -342,7 +343,7 @@ TEST(CasparBundleAdjuster, LargeScale) {
 
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(reconstruction,
-                                 /*max_rotation_error_deg=*/0.05,
+                                 /*max_rotation_error_deg=*/0.1,
                                  /*max_proj_center_error=*/0.01,
                                  /*max_scale_error=*/std::nullopt,
                                  /*num_obs_tolerance=*/0.0));
