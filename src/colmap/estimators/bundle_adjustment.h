@@ -134,7 +134,7 @@ struct BundleAdjustmentOptions {
   bool refine_focal_length = true;
 
   // Whether to refine the principal point parameter group.
-  bool refine_principal_point = false;
+  bool refine_principal_point = true;  // DEBUG: Caspar testing only
 
   // Whether to refine the extra parameter group.
   bool refine_extra_params = true;
