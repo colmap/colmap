@@ -38,8 +38,6 @@
 
 #include <iomanip>
 
-#include <ceres/product_manifold.h>
-
 namespace colmap {
 namespace {
 

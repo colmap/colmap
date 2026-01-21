@@ -38,8 +38,6 @@
 #include "colmap/optim/loransac.h"
 #include "colmap/util/logging.h"
 
-#include <ceres/ceres.h>
-
 namespace colmap {
 
 bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
