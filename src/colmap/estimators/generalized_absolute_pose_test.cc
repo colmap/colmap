@@ -81,7 +81,7 @@ TEST_P(ParameterizedGP3PEstimatorTests, Nominal) {
     std::vector<GP3PEstimator::Y_t> points3D_outlier;
     for (int i = 0; i < kNumPoints; ++i) {
       points2D.emplace_back();
-      points2D.back().cam_from_rig = cams_from_rig[i % kNumCams];
+      points2D.back().cam_from_rig = cams_from_rig[i % kNumCams].ToMatrix();
       points2D.back().ray_in_cam =
           Eigen::Vector3d(RandomUniformReal<double>(-0.5, 0.5),
                           RandomUniformReal<double>(-0.5, 0.5),

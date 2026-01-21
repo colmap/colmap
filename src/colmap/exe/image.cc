@@ -31,7 +31,7 @@
 
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/option_manager.h"
-#include "colmap/image/undistortion.h"
+#include "colmap/controllers/undistorters.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/sfm/observation_manager.h"

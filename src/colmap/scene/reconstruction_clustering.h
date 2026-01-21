@@ -46,16 +46,6 @@ struct ReconstructionClusteringOptions {
   // (median - MAD) falls below this, this value is used instead.
   double min_edge_weight_threshold = 20.0;
 
-  // Multiplier for weak edge threshold. Edges with weight >= this fraction of
-  // the strong threshold are considered for cluster merging.
-  double weak_edge_multiplier = 0.75;
-
-  // Minimum number of weak edges required to merge two clusters.
-  int min_weak_edges_to_merge = 2;
-
-  // Maximum number of iterations for the iterative cluster merging phase.
-  int max_clustering_iterations = 10;
-
   // Minimum number of registered frames required for a cluster to be kept.
   // Clusters with fewer frames will be discarded.
   int min_num_reg_frames = 3;
@@ -73,8 +63,7 @@ struct ReconstructionClusteringOptions {
 //      min_covisibility_count points.
 //   2. Compute an adaptive edge weight threshold using median minus median
 //      absolute deviation (MAD).
-//   3. Cluster frames using union-find: first merge strongly connected frames,
-//      then iteratively merge clusters connected by multiple weaker edges.
+//   3. Cluster frames using union-find: merge strongly connected frames.
 //   4. Assign cluster IDs sorted by number of frames in descending order
 //      (i.e., cluster ID 0 is the largest cluster).
 //

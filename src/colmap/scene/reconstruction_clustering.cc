@@ -43,14 +43,8 @@ using frame_pair_t = image_pair_t;
 // Clusters nodes using union-find based on edge weights.
 //
 // Algorithm:
-//   1. Merge nodes connected by strong edges (weight > threshold).
-//   2. Iteratively merge clusters connected by at least min_weak_edges_to_merge
-//      weaker edges (weight >= weak_edge_multiplier * threshold).
-//   3. Collect nodes by their union-find roots, sort clusters by number of
-//      frames, and assign sequential cluster IDs (largest cluster gets ID 0).
+//   Merge nodes connected by strong edges (weight > threshold).
 //
-// The iterative refinement helps avoid over-segmentation when the connection
-// between two groups of nodes is distributed across multiple weaker edges.
 std::unordered_map<frame_t, int> EstablishStrongClusters(
     const ReconstructionClusteringOptions& options,
     const std::unordered_set<frame_t>& nodes,
@@ -59,7 +53,9 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
   UnionFind<frame_t> uf;
   uf.Reserve(nodes.size());
 
-  // Phase 1: Create initial clusters from strong edges (weight > threshold).
+  // Create initial clusters from strong edges (weight > threshold).
+  // TODO(lpanaf): use different thresholds for different edges based on local
+  // statistics.
   for (const auto& [pair_id, weight] : edge_weights) {
     if (weight >= edge_weight_threshold) {
       const auto [frame_id1, frame_id2] = PairIdToImagePair(pair_id);
@@ -67,58 +63,16 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
     }
   }
 
-  // Phase 2: Iteratively merge clusters connected by multiple weaker edges.
-  // Two clusters are merged if they share >= min_weak_edges_to_merge edges with
-  // weight >= weak_edge_multiplier * threshold. This continues until no more
-  // merges occur (or max max_clustering_iterations iterations).
-  bool changed = true;
-  int iteration = 0;
-  while (changed) {
-    changed = false;
-    iteration++;
 
-    if (iteration > options.max_clustering_iterations) {
-      break;
-    }
-
-    // Count edges between each pair of cluster roots.
-    std::unordered_map<frame_t, std::unordered_map<frame_t, int>> num_pairs;
-    for (const auto& [pair_id, weight] : edge_weights) {
-      if (weight < options.weak_edge_multiplier * edge_weight_threshold)
-        continue;
-
-      const auto [frame_id1, frame_id2] = PairIdToImagePair(pair_id);
-      frame_t root1 = uf.Find(frame_id1);
-      frame_t root2 = uf.Find(frame_id2);
-
-      if (root1 == root2) continue;  // Already in same cluster.
-
-      num_pairs[root1][root2]++;
-      num_pairs[root2][root1]++;
-    }
-
-    // Merge clusters that share >= min_weak_edges_to_merge connecting edges.
-    for (const auto& [root1, counter] : num_pairs) {
-      for (const auto& [root2, count] : counter) {
-        if (root1 <= root2) continue;  // Process each pair once.
-
-        if (count >= options.min_weak_edges_to_merge) {
-          changed = true;
-          uf.Union(root1, root2);
-        }
-      }
-    }
-  }
-
-  // Phase 3: Collect nodes by their union-find roots, sort by number of
-  // frames, and assign sequential cluster IDs (largest cluster gets ID 0).
+  // Assign sequential cluster IDs (largest cluster gets ID 0).
   uf.Compress();
   std::unordered_map<frame_t, std::vector<frame_t>> root_to_nodes;
   for (const auto& [node, root] : uf.Parents()) {
     root_to_nodes[root].push_back(node);
   }
 
-  // Sort clusters by number of frames in descending order.
+  // Phase 3: Collect nodes by their union-find roots, sort by number of
+  // frames, and assign sequential cluster IDs (largest cluster gets ID 0).
   std::vector<std::vector<frame_t>> sorted_clusters;
   sorted_clusters.reserve(root_to_nodes.size());
   for (auto& [root, cluster_nodes] : root_to_nodes) {
@@ -152,8 +106,7 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
     if (cluster_ids.find(node) == cluster_ids.end()) cluster_ids[node] = -1;
   }
 
-  LOG(INFO) << "Clustering took " << iteration << " iterations. "
-            << "Frames are grouped into " << num_valid_clusters
+  LOG(INFO) << "Frames are grouped into " << num_valid_clusters
             << " clusters (size >= " << options.min_num_reg_frames << ")";
 
   return cluster_ids;

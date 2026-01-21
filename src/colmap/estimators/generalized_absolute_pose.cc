@@ -47,13 +47,17 @@ void GP3PEstimator::Estimate(const std::vector<X_t>& points2D,
   THROW_CHECK_EQ(points3D.size(), 3);
   THROW_CHECK_NOTNULL(rigs_from_world);
 
+  rigs_from_world->clear();
+
   std::vector<Eigen::Vector3d> rays_in_rig(3);
   std::vector<Eigen::Vector3d> origins_in_rig(3);
   for (int i = 0; i < 3; ++i) {
-    const Rigid3d rig_from_cam = Inverse(points2D[i].cam_from_rig);
+    const Eigen::Matrix3d rig_from_cam_rotation =
+        points2D[i].cam_from_rig.leftCols<3>().transpose();
     rays_in_rig[i] =
-        (rig_from_cam.rotation * points2D[i].ray_in_cam).normalized();
-    origins_in_rig[i] = rig_from_cam.translation;
+        (rig_from_cam_rotation * points2D[i].ray_in_cam).normalized();
+    origins_in_rig[i] =
+        rig_from_cam_rotation * -points2D[i].cam_from_rig.col(3);
   }
 
   std::vector<poselib::CameraPose> poses;
@@ -80,19 +84,27 @@ void GP3PEstimator::Residuals(const std::vector<X_t>& points2D,
                               std::vector<double>* residuals) const {
   THROW_CHECK_EQ(points2D.size(), points3D.size());
   residuals->resize(points2D.size(), 0);
+
+  // Precompute matrix to avoid repeated quaternion-to-matrix conversion.
+  const Eigen::Matrix3x4d rig_from_world_matrix = rig_from_world.ToMatrix();
+
   for (size_t i = 0; i < points2D.size(); ++i) {
     const Eigen::Vector3d point3D_in_cam =
-        points2D[i].cam_from_rig * (rig_from_world * points3D[i]);
+        points2D[i].cam_from_rig *
+        (rig_from_world_matrix * points3D[i].homogeneous()).homogeneous();
+
     // Check if 3D point is in front of camera.
     if (point3D_in_cam.z() > std::numeric_limits<double>::epsilon()) {
+      const Eigen::Vector3d& ray = points2D[i].ray_in_cam;
+
       if (residual_type_ == ResidualType::CosineDistance) {
         const double cosine_dist =
-            1 - point3D_in_cam.normalized().dot(points2D[i].ray_in_cam);
+            1 - point3D_in_cam.normalized().dot(ray.normalized());
         (*residuals)[i] = cosine_dist * cosine_dist;
       } else if (residual_type_ == ResidualType::ReprojectionError) {
-        (*residuals)[i] = (point3D_in_cam.hnormalized() -
-                           points2D[i].ray_in_cam.hnormalized())
-                              .squaredNorm();
+        const Eigen::Vector2d diff =
+            ray.hnormalized() - point3D_in_cam.hnormalized();
+        (*residuals)[i] = diff.squaredNorm();
       } else {
         LOG(FATAL_THROW) << "Invalid residual type";
       }
