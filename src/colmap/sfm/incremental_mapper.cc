@@ -1130,14 +1130,10 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
 #ifdef CASPAR_ENABLED
 
-    if (ba_config.NumImages() > 100) {
-      caspar::SolverParams params;
-      bundle_adjuster = CreateCasparBundleAdjuster(
-          ba_options, std::move(ba_config), *reconstruction_, params);
-    } else {
-      bundle_adjuster = CreateDefaultBundleAdjuster(
-          ba_options, std::move(ba_config), *reconstruction_);
-    }
+    caspar::SolverParams params;
+    bundle_adjuster = CreateCasparBundleAdjuster(
+        ba_options, std::move(ba_config), *reconstruction_, params);
+
 #else
     bundle_adjuster = CreateDefaultBundleAdjuster(
         ba_options, std::move(ba_config), *reconstruction_);
@@ -1180,9 +1176,14 @@ bool IncrementalMapper::AdjustGlobalBundle(
       }
     }
 
+#ifdef CASPAR_ENABLED
     caspar::SolverParams params;
     bundle_adjuster = CreateCasparBundleAdjuster(
         ba_options, std::move(ba_config), *reconstruction_, params);
+#else
+    bundle_adjuster = CreateDefaultBundleAdjuster(
+        ba_options, std::move(ba_config), *reconstruction_);
+#endif
   }
 
   return bundle_adjuster->Solve().termination_type != ceres::FAILURE;
