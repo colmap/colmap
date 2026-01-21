@@ -46,6 +46,11 @@ static void CustomArguments(benchmark::internal::Benchmark* b) {
     for (int rigs : {1, 2, 5, 10}) {
       // Varying frames per rig (1, 2, 5, 10)
       for (int frames_per_rig : {1, 2, 5, 10}) {
+        // Skip configurations with too few images for meaningful BA.
+        const int total_images = cameras_per_rig * rigs * frames_per_rig;
+        if (total_images < 4) {
+          continue;
+        }
         // Varying number of 3D points (100, 500, 1000)
         for (int num_points3D : {100, 500, 1000}) {
           // Varying match config (1=EXHAUSTIVE, 2=CHAINED for sparser graph)
