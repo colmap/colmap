@@ -38,7 +38,7 @@
 #include "colmap/optim/loransac.h"
 #include "colmap/util/logging.h"
 
-#include <ceres/product_manifold.h>
+#include <ceres/ceres.h>
 
 namespace colmap {
 

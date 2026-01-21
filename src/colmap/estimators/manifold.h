@@ -82,7 +82,7 @@ inline void SetManifold(ceres::Problem* problem,
 
 template <int size>
 inline ceres::LocalParameterization* CreateEuclideanManifold() {
-  return new ceres::IdentityParameterization<size>();
+  return new ceres::IdentityParameterization(size);
 }
 
 inline ceres::LocalParameterization* CreateEigenQuaternionManifold() {
