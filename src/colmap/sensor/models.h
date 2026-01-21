@@ -550,8 +550,7 @@ struct SimpleEquiangularModel
 //
 //    fx, fy, cx, cy
 //
-struct EquiangularModel
-    : public BaseFisheyeCameraModel<EquiangularModel> {
+struct EquiangularModel : public BaseFisheyeCameraModel<EquiangularModel> {
   CAMERA_MODEL_DEFINITIONS(
       CameraModelId::kEquiangular, "EQUIANGULAR", 2, 2, 0, false)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
@@ -2307,8 +2306,7 @@ void EquiangularModel::ImgFromFisheye(
 }
 
 template <typename T>
-void EquiangularModel::FisheyeFromImg(
-    const T* params, T x, T y, T* uu, T* vv) {
+void EquiangularModel::FisheyeFromImg(const T* params, T x, T y, T* uu, T* vv) {
   const T f1 = params[0];
   const T f2 = params[1];
   const T c1 = params[2];
