@@ -523,9 +523,9 @@ struct DivisionCameraModel : public BaseCameraModel<DivisionCameraModel> {
   CAMERA_MODEL_DEFINITIONS(CameraModelId::kDivision, "DIVISION", 2, 2, 1, false)
 };
 
-// Simple equiangular/equidistant fish-eye camera model.
+// Simple equiangular fish-eye camera model.
 //
-// Uses the equidistant (theta = r) fisheye projection without distortion
+// Uses the equiangular (theta = r) fisheye projection without distortion
 // parameters. Suitable for fish-eye cameras where distortion can be ignored
 // or has been pre-corrected. This model has a single focal length.
 //
@@ -540,9 +540,9 @@ struct SimpleEquiangularModel
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
-// Equiangular/equidistant fish-eye camera model.
+// Equiangular fish-eye camera model.
 //
-// Uses the equidistant (theta = r) fisheye projection without distortion
+// Uses the equiangular (theta = r) fisheye projection without distortion
 // parameters. Suitable for fish-eye cameras where distortion can be ignored
 // or has been pre-corrected. This model has two focal lengths (fx, fy).
 //
