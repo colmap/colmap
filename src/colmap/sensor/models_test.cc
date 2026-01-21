@@ -372,12 +372,12 @@ TEST(Division, Nominal) {
   TestModel<DivisionCameraModel>({651.123, 655.123, 386.123, 511.123, -0.1});
 }
 
-TEST(SimpleEquiangular, Nominal) {
-  TestModel<SimpleEquiangularModel>({651.123, 386.123, 511.123});
+TEST(SimpleFisheyeCamera, Nominal) {
+  TestModel<SimpleFisheyeCameraModel>({651.123, 386.123, 511.123});
 }
 
-TEST(Equiangular, Nominal) {
-  TestModel<EquiangularModel>({651.123, 655.123, 386.123, 511.123});
+TEST(FisheyeCamera, Nominal) {
+  TestModel<FisheyeCameraModel>({651.123, 655.123, 386.123, 511.123});
 }
 
 }  // namespace
