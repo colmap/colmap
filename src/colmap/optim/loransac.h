@@ -157,6 +157,7 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
     sampler.SampleXY(X, Y, &X_rand, &Y_rand);
 
     // Estimate model for current subset.
+    sample_models.clear();
     estimator.Estimate(X_rand, Y_rand, &sample_models);
 
     // Iterate through all estimated models
@@ -191,6 +192,7 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
               }
             }
 
+            local_models.clear();
             local_estimator.Estimate(X_inlier, Y_inlier, &local_models);
 
             const size_t prev_best_num_inliers = best_support.num_inliers;

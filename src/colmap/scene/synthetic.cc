@@ -31,11 +31,11 @@
 
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/gps.h"
+#include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/math/union_find.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/eigen_alignment.h"
-#include "colmap/util/file.h"
 
 #include <Eigen/Geometry>
 
@@ -337,6 +337,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   THROW_CHECK_GE(options.sensor_from_rig_rotation_stddev, 0.);
   THROW_CHECK_GE(options.match_sparsity, 0.);
   THROW_CHECK_LE(options.match_sparsity, 1.);
+  THROW_CHECK(!options.image_extension.empty());
+  THROW_CHECK(options.image_extension[0] == '.');
 
   if (PRNG == nullptr) {
     SetPRNGSeed();
@@ -433,8 +435,10 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         ++total_num_images;
 
         Image& image = images.emplace_back();
-        image.SetName(
-            StringPrintf("camera%06d_frame%06d.png", sensor_id.id, frame_idx));
+        image.SetName(StringPrintf("camera%06d_frame%06d%s",
+                                   sensor_id.id,
+                                   frame_idx,
+                                   options.image_extension.c_str()));
         image.SetCameraId(sensor_id.id);
         const image_t image_id = (database == nullptr)
                                      ? total_num_images

@@ -29,36 +29,32 @@
 
 #pragma once
 
-#include "colmap/controllers/option_manager.h"
-#include "colmap/controllers/undistorters.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/ui/options_widget.h"
-#include "colmap/ui/thread_control_widget.h"
+#include "colmap/scene/reconstruction_clustering.h"
+#include "colmap/scene/reconstruction_manager.h"
+#include "colmap/util/base_controller.h"
 
-#include <QtCore>
-#include <QtWidgets>
+#include <memory>
 
 namespace colmap {
 
-class UndistortionWidget : public OptionsWidget {
+// Controller that clusters frames from a reconstruction
+// and splits it into multiple reconstructions based on clustering.
+class ReconstructionClustererController : public BaseController {
  public:
-  UndistortionWidget(QWidget* parent, const OptionManager* options);
+  ReconstructionClustererController(
+      const ReconstructionClusteringOptions& options,
+      std::shared_ptr<Reconstruction> reconstruction,
+      std::shared_ptr<ReconstructionManager> reconstruction_manager);
 
-  void Show(std::shared_ptr<const Reconstruction> reconstruction);
-  bool IsValid() const;
+  // Runs the pruning and clustering algorithm.
+  // Results are stored in the reconstruction manager passed to the constructor.
+  void Run() override;
 
  private:
-  void Undistort();
-
-  const OptionManager* options_;
-  std::shared_ptr<const Reconstruction> reconstruction_;
-
-  ThreadControlWidget* thread_control_widget_;
-
-  QComboBox* output_format_;
-  COLMAPUndistorter::Options colmap_options_;
-  UndistortCameraOptions camera_options_;
-  std::filesystem::path output_path_;
+  const ReconstructionClusteringOptions options_;
+  std::shared_ptr<Reconstruction> reconstruction_;
+  std::shared_ptr<ReconstructionManager> reconstruction_manager_;
 };
 
 }  // namespace colmap

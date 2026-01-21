@@ -123,9 +123,6 @@ std::vector<std::filesystem::path> GetRecursiveFileList(
 std::vector<std::filesystem::path> GetDirList(
     const std::filesystem::path& path);
 
-// Get the size in bytes of a file.
-size_t GetFileSize(const std::string& path);
-
 // Gets current user's home directory from environment variables.
 // Returns null if it cannot be resolved.
 std::optional<std::filesystem::path> HomeDir();

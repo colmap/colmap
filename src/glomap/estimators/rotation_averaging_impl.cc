@@ -1,6 +1,7 @@
 #include "glomap/estimators/rotation_averaging_impl.h"
 
 #include "colmap/geometry/pose.h"
+#include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/optim/least_absolute_deviations.h"
 

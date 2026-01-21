@@ -154,6 +154,9 @@ void BindBundleAdjuster(py::module& m) {
                          "Whether to keep the rotation component of "
                          "rig_from_world constant. Only takes effect when "
                          "refine_rig_from_world is true.")
+          .def_readwrite("refine_points3D",
+                         &BAOpts::refine_points3D,
+                         "Whether to refine 3D points.")
           .def_readwrite("print_summary",
                          &BAOpts::print_summary,
                          "Whether to print a final summary.")

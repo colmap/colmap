@@ -47,6 +47,8 @@ void GP3PEstimator::Estimate(const std::vector<X_t>& points2D,
   THROW_CHECK_EQ(points3D.size(), 3);
   THROW_CHECK_NOTNULL(rigs_from_world);
 
+  rigs_from_world->clear();
+
   std::vector<Eigen::Vector3d> rays_in_rig(3);
   std::vector<Eigen::Vector3d> origins_in_rig(3);
   for (int i = 0; i < 3; ++i) {

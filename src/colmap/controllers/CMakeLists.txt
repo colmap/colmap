@@ -44,7 +44,9 @@ COLMAP_ADD_LIBRARY(
         image_reader.h image_reader.cc
         incremental_pipeline.h incremental_pipeline.cc
         option_manager.h option_manager.cc
+        reconstruction_clustering.h reconstruction_clustering.cc
         rotation_averaging.h rotation_averaging.cc
+        undistorters.h undistorters.cc
     PUBLIC_LINK_LIBS
         colmap_estimators
         colmap_feature
@@ -123,5 +125,15 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME rotation_averaging_test
     SRCS rotation_averaging_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME reconstruction_clustering_test
+    SRCS reconstruction_clustering_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME undistorters_test
+    SRCS undistorters_test.cc
     LINK_LIBS colmap_controllers
 )

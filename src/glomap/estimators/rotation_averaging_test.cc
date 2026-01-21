@@ -29,6 +29,7 @@
 
 #include "glomap/estimators/rotation_averaging.h"
 
+#include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/synthetic.h"
