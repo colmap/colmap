@@ -150,6 +150,13 @@ void BindBitmap(pybind11::module& m) {
            &Bitmap::CloneAsGrey,
            "Clone the image as grayscale.")
       .def("clone_as_rgb", &Bitmap::CloneAsRGB, "Clone the image as RGB.")
+      .def(
+          "set_jpeg_quality",
+          &Bitmap::SetJpegQuality,
+          "quality"_a,
+          "Set compression quality when writing to JPEG in the range [1, 100]. "
+          "Lower values reduce quality and file size. By default, bitmaps are "
+          "written in superb (100) quality, if not otherwise specified.")
       .def("exif_camera_model",
            &Bitmap::ExifCameraModel,
            "Extract EXIF camera model. Returns None if not available.")

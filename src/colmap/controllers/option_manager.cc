@@ -700,13 +700,6 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption("GlobalMapper.gp_max_num_iterations",
                    &global_mapper->mapper.global_positioning.solver_options
                         .max_num_iterations);
-  AddDefaultEnumOption(
-      "GlobalMapper.gp_constraint_type",
-      &global_mapper->mapper.global_positioning.constraint_type,
-      glomap::GlobalPositioningConstraintTypeToString,
-      glomap::GlobalPositioningConstraintTypeFromString,
-      "{ONLY_POINTS, ONLY_CAMERAS, POINTS_AND_CAMERAS_BALANCED, "
-      "POINTS_AND_CAMERAS}");
 
   // Bundle adjustment options.
   AddDefaultOption("GlobalMapper.ba_use_gpu",
@@ -791,12 +784,6 @@ void OptionManager::AddReconstructionClustererOptions() {
                    &reconstruction_clusterer->min_covisibility_count);
   AddDefaultOption("ReconstructionClusterer.min_edge_weight_threshold",
                    &reconstruction_clusterer->min_edge_weight_threshold);
-  AddDefaultOption("ReconstructionClusterer.weak_edge_multiplier",
-                   &reconstruction_clusterer->weak_edge_multiplier);
-  AddDefaultOption("ReconstructionClusterer.min_weak_edges_to_merge",
-                   &reconstruction_clusterer->min_weak_edges_to_merge);
-  AddDefaultOption("ReconstructionClusterer.max_clustering_iterations",
-                   &reconstruction_clusterer->max_clustering_iterations);
   AddDefaultOption("ReconstructionClusterer.min_num_reg_frames",
                    &reconstruction_clusterer->min_num_reg_frames);
 }
