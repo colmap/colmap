@@ -342,7 +342,7 @@ TEST(CasparBundleAdjuster, LargeScale) {
 
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(reconstruction,
-                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_rotation_error_deg=*/0.05,
                                  /*max_proj_center_error=*/0.01,
                                  /*max_scale_error=*/std::nullopt,
                                  /*num_obs_tolerance=*/0.0));

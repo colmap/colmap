@@ -96,8 +96,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
       }
     }
 
-    // Create factors for observations from images outside config (fixed
-    // poses)
+    // Create factors for observations from images outside config (fixed poses)
     for (const auto point3D_id : config_.VariablePoints()) {
       AddFactorsForExternalObservations(point3D_id);
     }
@@ -128,14 +127,17 @@ class CasparBundleAdjuster : public BundleAdjuster {
       cameras_from_outside_config_.insert(camera.camera_id);
     }
   }
+
   void AddSimpleRadialFactor(const Image& image,
                              const Camera& camera,
                              const Point2D& point2D,
                              const Point3D& point3D) {
     const size_t point_idx = GetOrCreatePoint(point2D.point3D_id, point3D);
-    const size_t camera_idx =
-        GetOrCreateCamera(camera.camera_id, image.FrameId(), camera);
-    simple_radial_camera_indices_.push_back(camera_idx);
+    const size_t pose_idx = GetOrCreatePose(image.FrameId());
+    const size_t calib_idx = GetOrCreateCalibration(camera.camera_id, camera);
+
+    simple_radial_pose_indices_.push_back(pose_idx);
+    simple_radial_calib_indices_.push_back(calib_idx);
     simple_radial_point_indices_.push_back(point_idx);
     simple_radial_pixels_.push_back(point2D.xy.x());
     simple_radial_pixels_.push_back(point2D.xy.y());
@@ -147,11 +149,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
                                       const Point2D& point2D,
                                       const Point3D& point3D) {
     const size_t point_idx = GetOrCreatePoint(point2D.point3D_id, point3D);
-    const size_t cam_fixed_pose_idx =
-        GetOrCreateCamFixedPose(camera.camera_id, camera);
+    const size_t calib_idx = GetOrCreateCalibration(camera.camera_id, camera);
 
-    simple_radial_fixed_pose_cam_fixed_pose_indices_.push_back(
-        cam_fixed_pose_idx);
+    simple_radial_fixed_pose_calib_indices_.push_back(calib_idx);
     simple_radial_fixed_pose_point_indices_.push_back(point_idx);
 
     const Rigid3d& pose = image.FramePtr()->RigFromWorld();
@@ -172,9 +172,11 @@ class CasparBundleAdjuster : public BundleAdjuster {
                                        const Camera& camera,
                                        const Point2D& point2D,
                                        const Point3D& point3D) {
-    const size_t camera_idx =
-        GetOrCreateCamera(camera.camera_id, image.FrameId(), camera);
-    simple_radial_fixed_point_cam_indices_.push_back(camera_idx);
+    const size_t pose_idx = GetOrCreatePose(image.FrameId());
+    const size_t calib_idx = GetOrCreateCalibration(camera.camera_id, camera);
+
+    simple_radial_fixed_point_pose_indices_.push_back(pose_idx);
+    simple_radial_fixed_point_calib_indices_.push_back(calib_idx);
     simple_radial_fixed_point_points_.push_back(point3D.xyz.x());
     simple_radial_fixed_point_points_.push_back(point3D.xyz.y());
     simple_radial_fixed_point_points_.push_back(point3D.xyz.z());
@@ -196,40 +198,36 @@ class CasparBundleAdjuster : public BundleAdjuster {
     return it->second;
   }
 
-  size_t GetOrCreateCamFixedPose(const camera_t camera_id,
-                                 const Camera& camera) {
-    auto [it, inserted] = camera_id_to_cam_fixed_pose_index_.try_emplace(
-        camera_id, num_cam_fixed_pose_);
+  size_t GetOrCreatePose(const frame_t frame_id) {
+    auto [it, inserted] =
+        frame_to_pose_index_.try_emplace(frame_id, num_poses_);
     if (inserted) {
-      cam_fixed_pose_index_to_camera_id_[num_cam_fixed_pose_] = camera_id;
-      for (const auto& param : camera.params) {
-        cam_fixed_pose_data_.push_back(param);
-      }
-      num_cam_fixed_pose_++;
+      pose_index_to_frame_[num_poses_] = frame_id;
+      const Rigid3d& pose = reconstruction_.Frame(frame_id).RigFromWorld();
+
+      pose_data_.push_back(pose.rotation.x());
+      pose_data_.push_back(pose.rotation.y());
+      pose_data_.push_back(pose.rotation.z());
+      pose_data_.push_back(pose.rotation.w());
+      pose_data_.push_back(pose.translation.x());
+      pose_data_.push_back(pose.translation.y());
+      pose_data_.push_back(pose.translation.z());
+      num_poses_++;
     }
     return it->second;
   }
 
-  size_t GetOrCreateCamera(const camera_t camera_id,
-                           const frame_t frame_id,
-                           const Camera& camera) {
-    auto key = std::make_pair(frame_id, camera_id);
-    auto [it, inserted] = frame_camera_to_index_.try_emplace(key, num_cameras_);
+  size_t GetOrCreateCalibration(const camera_t camera_id,
+                                const Camera& camera) {
+    auto [it, inserted] =
+        camera_to_calib_index_.try_emplace(camera_id, num_calibs_);
     if (inserted) {
-      index_to_frame_camera_[num_cameras_] = key;
-      const Rigid3d& pose = reconstruction_.Frame(frame_id).RigFromWorld();
-      camera_data_.push_back(pose.rotation.x());
-      camera_data_.push_back(pose.rotation.y());
-      camera_data_.push_back(pose.rotation.z());
-      camera_data_.push_back(pose.rotation.w());
-      camera_data_.push_back(pose.translation.x());
-      camera_data_.push_back(pose.translation.y());
-      camera_data_.push_back(pose.translation.z());
+      calib_index_to_camera_[num_calibs_] = camera_id;
 
       for (const auto& param : camera.params) {
-        camera_data_.push_back(param);
+        calib_data_.push_back(param);
       }
-      num_cameras_++;
+      num_calibs_++;
     }
     return it->second;
   }
@@ -261,10 +259,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
   void SetupSolverData(caspar::GraphSolver& solver) {
     LOG(INFO) << "=== CASPAR SOLVER SETUP ===";
     LOG(INFO) << "Node counts:";
-    LOG(INFO) << "  Point: " << num_points_;
-    LOG(INFO) << "  SimpleRadialCamera (Pose3+Calib): " << num_cameras_;
-    LOG(INFO) << "  SimpleRadialCameraFixedPose (Calib only): "
-              << num_cam_fixed_pose_;
+    LOG(INFO) << "  Points: " << num_points_;
+    LOG(INFO) << "  Poses: " << num_poses_;
+    LOG(INFO) << "  Calibrations: " << num_calibs_;
 
     LOG(INFO) << "Factor counts:";
     LOG(INFO) << "  simple_radial: " << num_simple_radial_;
@@ -281,28 +278,30 @@ class CasparBundleAdjuster : public BundleAdjuster {
       solver.set_Point_nodes_from_stacked_host(
           point_data_.data(), 0, num_points_);
     }
-    if (num_cameras_ > 0) {
-      solver.set_SimpleRadialCamera_nodes_from_stacked_host(
-          camera_data_.data(), 0, num_cameras_);
+    if (num_poses_ > 0) {
+      solver.set_Pose_nodes_from_stacked_host(pose_data_.data(), 0, num_poses_);
     }
-    if (num_cam_fixed_pose_ > 0) {
-      solver.set_SimpleRadialCameraFixedPose_nodes_from_stacked_host(
-          cam_fixed_pose_data_.data(), 0, num_cam_fixed_pose_);
+    if (num_calibs_ > 0) {
+      solver.set_SimpleRadialCalib_nodes_from_stacked_host(
+          calib_data_.data(), 0, num_calibs_);
     }
 
-    // Set factor data
+    // Set factor data for simple_radial
     if (num_simple_radial_ > 0) {
-      solver.set_simple_radial_cam_indices_from_host(
-          simple_radial_camera_indices_.data(), num_simple_radial_);
+      solver.set_simple_radial_pose_indices_from_host(
+          simple_radial_pose_indices_.data(), num_simple_radial_);
+      solver.set_simple_radial_calib_indices_from_host(
+          simple_radial_calib_indices_.data(), num_simple_radial_);
       solver.set_simple_radial_point_indices_from_host(
           simple_radial_point_indices_.data(), num_simple_radial_);
       solver.set_simple_radial_pixel_data_from_stacked_host(
           simple_radial_pixels_.data(), 0, num_simple_radial_);
     }
 
+    // Set factor data for simple_radial_fixed_pose
     if (num_simple_radial_fixed_pose_ > 0) {
-      solver.set_simple_radial_fixed_pose_cam_fixed_pose_indices_from_host(
-          simple_radial_fixed_pose_cam_fixed_pose_indices_.data(),
+      solver.set_simple_radial_fixed_pose_calib_indices_from_host(
+          simple_radial_fixed_pose_calib_indices_.data(),
           num_simple_radial_fixed_pose_);
       solver.set_simple_radial_fixed_pose_point_indices_from_host(
           simple_radial_fixed_pose_point_indices_.data(),
@@ -317,9 +316,13 @@ class CasparBundleAdjuster : public BundleAdjuster {
           num_simple_radial_fixed_pose_);
     }
 
+    // Set factor data for simple_radial_fixed_point
     if (num_simple_radial_fixed_point_ > 0) {
-      solver.set_simple_radial_fixed_point_cam_indices_from_host(
-          simple_radial_fixed_point_cam_indices_.data(),
+      solver.set_simple_radial_fixed_point_pose_indices_from_host(
+          simple_radial_fixed_point_pose_indices_.data(),
+          num_simple_radial_fixed_point_);
+      solver.set_simple_radial_fixed_point_calib_indices_from_host(
+          simple_radial_fixed_point_calib_indices_.data(),
           num_simple_radial_fixed_point_);
       solver.set_simple_radial_fixed_point_point_data_from_stacked_host(
           simple_radial_fixed_point_points_.data(),
@@ -345,13 +348,12 @@ class CasparBundleAdjuster : public BundleAdjuster {
       solver.get_Point_nodes_to_stacked_host(
           point_data_.data(), 0, num_points_);
     }
-    if (num_cameras_ > 0) {
-      solver.get_SimpleRadialCamera_nodes_to_stacked_host(
-          camera_data_.data(), 0, num_cameras_);
+    if (num_poses_ > 0) {
+      solver.get_Pose_nodes_to_stacked_host(pose_data_.data(), 0, num_poses_);
     }
-    if (num_cam_fixed_pose_ > 0) {
-      solver.get_SimpleRadialCameraFixedPose_nodes_to_stacked_host(
-          cam_fixed_pose_data_.data(), 0, num_cam_fixed_pose_);
+    if (num_calibs_ > 0) {
+      solver.get_SimpleRadialCalib_nodes_to_stacked_host(
+          calib_data_.data(), 0, num_calibs_);
     }
   }
 
@@ -367,42 +369,30 @@ class CasparBundleAdjuster : public BundleAdjuster {
       point.xyz.z() = point_data_[idx * 3 + 2];
     }
 
-    // Write back CamFixedPose nodes (just calibration)
-    for (const auto& [idx, camera_id] : cam_fixed_pose_index_to_camera_id_) {
+    // Write back poses
+    for (const auto& [idx, frame_id] : pose_index_to_frame_) {
+      if (!IsPoseVariable(frame_id)) continue;
+
+      Rigid3d& pose = reconstruction_.Frame(frame_id).RigFromWorld();
+      pose.rotation.x() = pose_data_[idx * 7 + 0];
+      pose.rotation.y() = pose_data_[idx * 7 + 1];
+      pose.rotation.z() = pose_data_[idx * 7 + 2];
+      pose.rotation.w() = pose_data_[idx * 7 + 3];
+      pose.translation.x() = pose_data_[idx * 7 + 4];
+      pose.translation.y() = pose_data_[idx * 7 + 5];
+      pose.translation.z() = pose_data_[idx * 7 + 6];
+      pose.rotation.normalize();
+    }
+
+    // Write back calibrations (shared across frames with same camera)
+    for (const auto& [idx, camera_id] : calib_index_to_camera_) {
       if (!AreIntrinsicsVariable(camera_id)) continue;
 
       Camera& camera = reconstruction_.Camera(camera_id);
       for (size_t i = 0; i < camera.params.size(); i++) {
-        camera.params[i] = cam_fixed_pose_data_[idx * camera.params.size() + i];
+        camera.params[i] = calib_data_[idx * 4 + i];
       }
-    }
-
-    // Write back Camera nodes (pose + intrinsics)
-    for (const auto& [idx, key] : index_to_frame_camera_) {
-      const frame_t frame_id = key.first;
-      const camera_t camera_id = key.second;
-
-      Camera& camera = reconstruction_.Camera(camera_id);
-      Rigid3d& pose = reconstruction_.Frame(frame_id).RigFromWorld();
-
-      const auto camera_stride = 7 + camera.params.size();
-
-      if (IsPoseVariable(frame_id)) {
-        pose.rotation.x() = camera_data_[idx * camera_stride + 0];
-        pose.rotation.y() = camera_data_[idx * camera_stride + 1];
-        pose.rotation.z() = camera_data_[idx * camera_stride + 2];
-        pose.rotation.w() = camera_data_[idx * camera_stride + 3];
-        pose.translation.x() = camera_data_[idx * camera_stride + 4];
-        pose.translation.y() = camera_data_[idx * camera_stride + 5];
-        pose.translation.z() = camera_data_[idx * camera_stride + 6];
-        pose.rotation.normalize();  // Sanity quaternion normalization
-      }
-
-      if (AreIntrinsicsVariable(camera_id)) {
-        for (size_t i = 0; i < camera.params.size(); i++) {
-          camera.params[i] = camera_data_[idx * camera_stride + i + 7];
-        }
-      }
+      THROW_CHECK(camera.VerifyParams());
     }
   }
 
@@ -414,7 +404,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
   std::shared_ptr<ceres::Problem>& Problem() override { return dummy_problem_; }
 
   bool ValidateData() {
-    if (num_points_ == 0 && num_cam_fixed_pose_ == 0 && num_cameras_ == 0) {
+    if (num_points_ == 0 && num_poses_ == 0 && num_calibs_ == 0) {
       LOG(WARNING) << "No data to optimize";
       return false;
     }
@@ -436,13 +426,14 @@ class CasparBundleAdjuster : public BundleAdjuster {
       return summary;
     }
 
-    params_.solver_iter_max = 200;
-    params_.pcg_iter_max = 50;
+    // Debug
+    // params_.solver_iter_max = 200;
+    // params_.pcg_iter_max = 50;
     caspar::GraphSolver solver =
         caspar::GraphSolver(params_,
                             num_points_,
-                            num_cameras_,
-                            num_cam_fixed_pose_,
+                            num_poses_,
+                            num_calibs_,
                             num_simple_radial_,
                             num_simple_radial_fixed_pose_,
                             num_simple_radial_fixed_point_);
@@ -471,37 +462,40 @@ class CasparBundleAdjuster : public BundleAdjuster {
   std::unordered_set<camera_t> cameras_from_outside_config_;
 
   size_t num_points_ = 0;
-  size_t num_cam_fixed_pose_ = 0;
-  size_t num_cameras_ = 0;
+  size_t num_poses_ = 0;
+  size_t num_calibs_ = 0;
 
   size_t num_simple_radial_ = 0;
   size_t num_simple_radial_fixed_pose_ = 0;
   size_t num_simple_radial_fixed_point_ = 0;
 
   std::vector<float> point_data_;
-  std::vector<float> cam_fixed_pose_data_;
-  std::vector<float> camera_data_;
+  std::vector<float> pose_data_;
+  std::vector<float> calib_data_;
 
   std::unordered_map<point3D_t, size_t> point_id_to_index_;
   std::unordered_map<size_t, point3D_t> index_to_point_id_;
-  std::unordered_map<camera_t, size_t> camera_id_to_cam_fixed_pose_index_;
-  std::unordered_map<size_t, camera_t> cam_fixed_pose_index_to_camera_id_;
-  std::unordered_map<std::pair<frame_t, camera_t>, size_t>
-      frame_camera_to_index_;
-  std::unordered_map<size_t, std::pair<frame_t, camera_t>>
-      index_to_frame_camera_;
+
+  std::unordered_map<frame_t, size_t> frame_to_pose_index_;
+  std::unordered_map<size_t, frame_t> pose_index_to_frame_;
+
+  std::unordered_map<camera_t, size_t> camera_to_calib_index_;
+  std::unordered_map<size_t, camera_t> calib_index_to_camera_;
+
   std::unordered_map<point3D_t, size_t> point3D_num_observations_;
 
-  std::vector<unsigned int> simple_radial_camera_indices_;
+  std::vector<unsigned int> simple_radial_pose_indices_;
+  std::vector<unsigned int> simple_radial_calib_indices_;
   std::vector<unsigned int> simple_radial_point_indices_;
   std::vector<float> simple_radial_pixels_;
 
-  std::vector<unsigned int> simple_radial_fixed_pose_cam_fixed_pose_indices_;
+  std::vector<unsigned int> simple_radial_fixed_pose_calib_indices_;
   std::vector<unsigned int> simple_radial_fixed_pose_point_indices_;
   std::vector<float> simple_radial_fixed_pose_poses_;
   std::vector<float> simple_radial_fixed_pose_pixels_;
 
-  std::vector<unsigned int> simple_radial_fixed_point_cam_indices_;
+  std::vector<unsigned int> simple_radial_fixed_point_pose_indices_;
+  std::vector<unsigned int> simple_radial_fixed_point_calib_indices_;
   std::vector<float> simple_radial_fixed_point_points_;
   std::vector<float> simple_radial_fixed_point_pixels_;
 };
