@@ -121,8 +121,7 @@ inline std::unique_ptr<ceres::LocalParameterization> CreateProductManifold(
     Args&&... parameterizations) {
   // Note: Does not support make_unique due to template constructor.
   return std::unique_ptr<ceres::ProductParameterization>(
-      new ceres::ProductParameterization(
-          std::forward<Args>(parameterizations)...));
+      new ceres::ProductParameterization(parameterizations.release()...));
 }
 
 inline int ParameterBlockTangentSize(const ceres::Problem& problem,
