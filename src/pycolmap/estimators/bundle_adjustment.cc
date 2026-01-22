@@ -238,7 +238,11 @@ void BindBundleAdjuster(py::module& m) {
           "problem", py::overload_cast<>(&BundleAdjuster::Problem, py::const_))
       .def("mutable_problem", py::overload_cast<>(&BundleAdjuster::Problem))
       .def_property_readonly("options", &BundleAdjuster::Options)
-      .def_property_readonly("config", &BundleAdjuster::Config);
+      .def_property_readonly("config", &BundleAdjuster::Config)
+      .def_property_readonly("sensor_from_rig_params",
+                             &BundleAdjuster::SensorFromRigParams)
+      .def_property_readonly("rig_from_world_params",
+                             &BundleAdjuster::RigFromWorldParams);
 
   m.def("create_default_bundle_adjuster",
         CreateDefaultBundleAdjuster,
