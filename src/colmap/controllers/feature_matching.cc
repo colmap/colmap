@@ -31,6 +31,7 @@
 
 #include "colmap/controllers/feature_matching_utils.h"
 #include "colmap/estimators/two_view_geometry.h"
+#include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/feature/matcher.h"
 #include "colmap/feature/utils.h"
 #include "colmap/scene/database.h"
@@ -212,6 +213,22 @@ class FeatureMatcherThread : public Thread {
       LOG_HEADING1("Rig verification");
       RigVerification(
           database_, cache_, geometry_options_, matching_options_.num_threads);
+      run_timer.PrintMinutes();
+    }
+
+    // Run view graph calibration after matching if enabled.
+    // This refines focal lengths from fundamental matrices and
+    // re-estimates relative poses from the calibrated essential matrices.
+    if (!matching_options_.skip_geometric_verification &&
+        matching_options_.view_graph_calibration) {
+      run_timer.Restart();
+      LOG_HEADING1("View graph calibration");
+      ViewGraphCalibrationOptions vgc_options =
+          matching_options_.view_graph_calibration_options;
+      vgc_options.solver_options.num_threads = matching_options_.num_threads;
+      if (!CalibrateViewGraph(vgc_options, database_.get())) {
+        LOG(ERROR) << "View graph calibration failed";
+      }
       run_timer.PrintMinutes();
     }
   }

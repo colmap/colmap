@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/feature/index.h"
 #include "colmap/feature/types.h"
 #include "colmap/scene/camera.h"
@@ -90,6 +91,14 @@ struct FeatureMatchingOptions {
   // Whether to skip matching images within the same frame.
   // This is useful for the case of non-overlapping cameras in a rig.
   bool skip_image_pairs_in_same_frame = false;
+
+  // Whether to perform view graph calibration after matching.
+  // This calibrates focal lengths from fundamental matrices.
+  // Disabled by default; enabled automatically for global SfM.
+  bool view_graph_calibration = false;
+
+  // Options for view graph calibration.
+  ViewGraphCalibrationOptions view_graph_calibration_options;
 
   std::shared_ptr<SiftMatchingOptions> sift;
 
