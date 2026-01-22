@@ -35,8 +35,7 @@ void BindSim3(py::module& m) {
           "scale",
           [](py::object self) {
             Sim3d& sim3 = self.cast<Sim3d&>();
-            return py::array_t<double>(
-                {1}, {sizeof(double)}, sim3.params.data() + 7, self);
+            return py::array_t<double>({}, {}, sim3.params.data() + 7, self);
           },
           [](Sim3d& self, const py::object& value) {
             if (py::isinstance<py::array>(value)) {
