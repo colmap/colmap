@@ -1123,8 +1123,8 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     const Eigen::Vector3d normalized_position =
         normalized_from_metric_ * pose_prior.position;
     const Eigen::Matrix3d normalized_from_metric_scaled_rotation =
-        normalized_from_metric_.scale *
-        normalized_from_metric_.rotation.toRotationMatrix();
+        normalized_from_metric_.scale() *
+        normalized_from_metric_.rotation().toRotationMatrix();
     const Eigen::Matrix3d position_cov =
         pose_prior.HasPositionCov()
             ? pose_prior.position_covariance

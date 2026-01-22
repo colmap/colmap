@@ -25,14 +25,21 @@ void BindSim3(py::module& m) {
       .def(py::init(&Sim3d::FromMatrix),
            "matrix"_a,
            "3x4 transformation matrix.")
+      .def_property("params", &Sim3d::params)
       .def_property(
           "scale",
           [](Sim3d& self) {
-            return py::array({}, {}, &self.scale, py::cast(self));
+            return py::array({}, {}, &self.scale(), py::cast(self));
           },
-          [](Sim3d& self, double scale) { self.scale = scale; })
-      .def_readwrite("rotation", &Sim3d::rotation)
-      .def_readwrite("translation", &Sim3d::translation)
+          [](Sim3d& self, double scale) { self.scale() = scale; })
+      .def_property(
+          "rotation",
+          [](Sim3d& self) { return self.rotation(); },
+          [](Sim3d& self, const Eigen::Quaterniond& q) { self.rotation() = q; })
+      .def_property(
+          "translation",
+          [](Sim3d& self) { return self.translation(); },
+          [](Sim3d& self, const Eigen::Vector3d& t) { self.translation() = t; })
       .def("matrix", &Sim3d::ToMatrix)
       .def(py::self * Sim3d())
       .def(py::self * Eigen::Vector3d())
@@ -40,10 +47,10 @@ void BindSim3(py::module& m) {
            [](const Sim3d& t,
               const py::EigenDRef<const Eigen::MatrixX3d>& points)
                -> Eigen::MatrixX3d {
-             return (t.scale *
-                     (points * t.rotation.toRotationMatrix().transpose()))
+             return (t.scale() *
+                     (points * t.rotation().toRotationMatrix().transpose()))
                         .rowwise() +
-                    t.translation.transpose();
+                    t.translation().transpose();
            })
       .def("transform_camera_world", &TransformCameraWorld, "cam_from_world"_a)
       .def("inverse", static_cast<Sim3d (*)(const Sim3d&)>(&Inverse));

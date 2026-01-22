@@ -495,10 +495,10 @@ TEST(Point3DAlignmentCostFunctor, Nominal) {
   std::unique_ptr<ceres::CostFunction> cost_function_log_scale(
       Point3DAlignmentCostFunctor::Create(point_in_b_prior,
                                           /*use_log_scale=*/true));
-  double log_scale = std::log(tform.scale);
+  double log_scale = std::log(tform.scale());
   const double* parameters_log_scale[4] = {point.data(),
-                                           tform.rotation.coeffs().data(),
-                                           tform.translation.data(),
+                                           tform.rotation().coeffs().data(),
+                                           tform.translation().data(),
                                            &log_scale};
   double residuals_log_scale[3];
   EXPECT_TRUE(cost_function_log_scale->Evaluate(
@@ -508,10 +508,11 @@ TEST(Point3DAlignmentCostFunctor, Nominal) {
   std::unique_ptr<ceres::CostFunction> cost_function_direct_scale(
       Point3DAlignmentCostFunctor::Create(point_in_b_prior,
                                           /*use_log_scale=*/false));
+  double direct_scale = tform.scale();
   const double* parameters_direct_scale[4] = {point.data(),
-                                              tform.rotation.coeffs().data(),
-                                              tform.translation.data(),
-                                              &tform.scale};
+                                              tform.rotation().coeffs().data(),
+                                              tform.translation().data(),
+                                              &direct_scale};
   double residuals_direct_scale[3];
   EXPECT_TRUE(cost_function_direct_scale->Evaluate(
       parameters_direct_scale, residuals_direct_scale, nullptr));
