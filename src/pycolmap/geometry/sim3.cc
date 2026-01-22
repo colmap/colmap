@@ -27,23 +27,25 @@ void BindSim3(py::module& m) {
            "3x4 transformation matrix.")
       .def_property(
           "params",
-          [](const Rigid3d& self) -> Eigen::Vector8d { return self.params; },
-          [](Rigid3d& self, const Eigen::Vector8d& params) {
+          [](Sim3d& self) -> Eigen::Vector8d& { return self.params; },
+          [](Sim3d& self, const Eigen::Vector8d& params) {
             self.params = params;
           })
       .def_property(
           "scale",
-          [](Sim3d& self) {
-            return py::array({}, {}, &self.scale(), py::cast(self));
-          },
+          [](Sim3d& self) { return self.params(7); },
           [](Sim3d& self, double scale) { self.scale() = scale; })
       .def_property(
           "rotation",
-          [](Sim3d& self) { return self.rotation(); },
+          [](const Sim3d& self) -> Eigen::Quaterniond {
+            return self.rotation();
+          },
           [](Sim3d& self, const Eigen::Quaterniond& q) { self.rotation() = q; })
       .def_property(
           "translation",
-          [](Sim3d& self) { return self.translation(); },
+          [](const Sim3d& self) -> Eigen::Vector3d {
+            return self.translation();
+          },
           [](Sim3d& self, const Eigen::Vector3d& t) { self.translation() = t; })
       .def("matrix", &Sim3d::ToMatrix)
       .def(py::self * Sim3d())
