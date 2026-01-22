@@ -25,7 +25,12 @@ void BindSim3(py::module& m) {
       .def(py::init(&Sim3d::FromMatrix),
            "matrix"_a,
            "3x4 transformation matrix.")
-      .def_property("params", &Sim3d::params)
+      .def_property(
+          "params",
+          [](const Rigid3d& self) -> Eigen::Vector8d { return self.params; },
+          [](Rigid3d& self, const Eigen::Vector8d& params) {
+            self.params = params;
+          })
       .def_property(
           "scale",
           [](Sim3d& self) {
