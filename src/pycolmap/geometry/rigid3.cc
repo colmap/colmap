@@ -25,8 +25,10 @@ void BindRigid3(py::module& m) {
            "3x4 transformation matrix.")
       .def_property(
           "params",
-          [](const Rigid3d& self) -> Eigen::Vector7d { return self.params; },
-          [](Rigid3d& self, const Eigen::Vector7d& t) { self.params = t; })
+          [](Rigid3d& self) -> Eigen::Vector7d& { return self.params; },
+          [](Rigid3d& self, const Eigen::Vector7d& params) {
+            self.params = params;
+          })
       .def_property(
           "rotation",
           [](const Rigid3d& self) -> Eigen::Quaterniond {
