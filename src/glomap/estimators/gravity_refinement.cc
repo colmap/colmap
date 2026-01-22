@@ -1,13 +1,15 @@
 #include "gravity_refinement.h"
 
+#include "colmap/estimators/cost_function_utils.h"
 #include "colmap/estimators/manifold.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 
-#include "glomap/estimators/cost_functions.h"
-
 namespace glomap {
+
+using GravityCostFunctor = colmap::NormalPriorCostFunctor<3>;
+
 namespace {
 
 Eigen::Vector3d* GetImageGravityOrNull(
@@ -20,14 +22,25 @@ Eigen::Vector3d* GetImageGravityOrNull(
   return &it->second->gravity;
 }
 
+std::unordered_map<image_t, std::unordered_set<image_t>>
+CreateImageAdjacencyList(const PoseGraph& pose_graph) {
+  std::unordered_map<image_t, std::unordered_set<image_t>> adjacency_list;
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
+    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    adjacency_list[image_id1].insert(image_id2);
+    adjacency_list[image_id2].insert(image_id1);
+  }
+  return adjacency_list;
+}
+
 }  // namespace
 
 void GravityRefiner::RefineGravity(
-    const ViewGraph& view_graph,
+    const PoseGraph& pose_graph,
     const colmap::Reconstruction& reconstruction,
     std::vector<colmap::PosePrior>& pose_priors) {
-  const std::unordered_map<image_t, std::unordered_set<image_t>>&
-      adjacency_list = view_graph.CreateImageAdjacencyList();
+  const std::unordered_map<image_t, std::unordered_set<image_t>>
+      adjacency_list = CreateImageAdjacencyList(pose_graph);
   if (adjacency_list.empty()) {
     LOG(INFO) << "Adjacency list not established";
     return;
@@ -54,7 +67,7 @@ void GravityRefiner::RefineGravity(
   int counter_rect = 0;
   std::unordered_set<frame_t> error_prone_frames;
   IdentifyErrorProneGravity(
-      view_graph, reconstruction, image_to_pose_prior, error_prone_frames);
+      pose_graph, reconstruction, image_to_pose_prior, error_prone_frames);
 
   if (error_prone_frames.empty()) {
     LOG(INFO) << "No error prone frames found";
@@ -87,7 +100,8 @@ void GravityRefiner::RefineGravity(
     Eigen::Vector3d gravity = frame_to_pose_prior.at(frame_id)->gravity;
     for (const auto& pair_id : neighbors) {
       const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-      const ImagePair& pair = view_graph.ImagePair(image_id1, image_id2).first;
+      const PoseGraph::Edge& edge =
+          pose_graph.EdgeRef(image_id1, image_id2).first;
 
       Eigen::Vector3d* image_gravity1 =
           GetImageGravityOrNull(image_to_pose_prior, image_id1);
@@ -115,12 +129,12 @@ void GravityRefiner::RefineGravity(
       // consider a single cost term
       if (image1.FrameId() == frame_id) {
         gravities.emplace_back(
-            colmap::Inverse(*pair.cam2_from_cam1 * cam1_from_rig1)
+            colmap::Inverse(edge.cam2_from_cam1 * cam1_from_rig1)
                 .rotation.toRotationMatrix() *
             *image_gravity2);
       } else if (image2.FrameId() == frame_id) {
         gravities.emplace_back(
-            (colmap::Inverse(cam2_from_rig2) * *pair.cam2_from_cam1)
+            (colmap::Inverse(cam2_from_rig2) * edge.cam2_from_cam1)
                 .rotation.toRotationMatrix() *
             *image_gravity1);
       }
@@ -163,7 +177,7 @@ void GravityRefiner::RefineGravity(
 }
 
 void GravityRefiner::IdentifyErrorProneGravity(
-    const ViewGraph& view_graph,
+    const PoseGraph& pose_graph,
     const colmap::Reconstruction& reconstruction,
     std::unordered_map<image_t, colmap::PosePrior*>& image_to_pose_prior,
     std::unordered_set<frame_t>& error_prone_frames) {
@@ -180,9 +194,8 @@ void GravityRefiner::IdentifyErrorProneGravity(
     frame_counter[frame_id] = std::make_pair(0, 0);
   }
 
-  for (const auto& [pair_id, image_pair] : view_graph.ValidImagePairs()) {
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
-    THROW_CHECK(image_pair.cam2_from_cam1.has_value());
     Eigen::Vector3d* image_gravity1 =
         GetImageGravityOrNull(image_to_pose_prior, image_id1);
     Eigen::Vector3d* image_gravity2 =
@@ -196,7 +209,7 @@ void GravityRefiner::IdentifyErrorProneGravity(
     // Calculate the gravity aligned relative rotation
     const Eigen::Matrix3d R_rel =
         colmap::GravityAlignedRotation(*image_gravity2).transpose() *
-        image_pair.cam2_from_cam1->rotation.toRotationMatrix() *
+        edge.cam2_from_cam1.rotation.toRotationMatrix() *
         colmap::GravityAlignedRotation(*image_gravity1);
     // Convert it to the closest upright rotation
     const Eigen::Matrix3d R_rel_up =
@@ -224,6 +237,14 @@ void GravityRefiner::IdentifyErrorProneGravity(
     }
   }
   LOG(INFO) << "Number of error prone frames: " << error_prone_frames.size();
+}
+
+void RunGravityRefinement(const GravityRefinerOptions& options,
+                          const PoseGraph& pose_graph,
+                          const colmap::Reconstruction& reconstruction,
+                          std::vector<colmap::PosePrior>& pose_priors) {
+  GravityRefiner refiner(options);
+  refiner.RefineGravity(pose_graph, reconstruction, pose_priors);
 }
 
 }  // namespace glomap

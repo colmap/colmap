@@ -53,6 +53,9 @@ COLMAP_ADD_TEST(
     LINK_LIBS
         colmap_sensor
 )
+if(TESTS_ENABLED AND MSVC)
+    target_compile_options(colmap_sensor_bitmap_test PRIVATE /utf-8)
+endif()
 COLMAP_ADD_TEST(
     NAME database_test
     SRCS database_test.cc

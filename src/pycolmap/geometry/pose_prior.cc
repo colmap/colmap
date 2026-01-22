@@ -29,8 +29,10 @@ void BindPosePrior(py::module& m) {
       .def_readwrite("position", &PosePrior::position)
       .def_readwrite("position_covariance", &PosePrior::position_covariance)
       .def_readwrite("coordinate_system", &PosePrior::coordinate_system)
+      .def_readwrite("gravity", &PosePrior::gravity)
       .def("has_position", &PosePrior::HasPosition)
-      .def("has_position_cov", &PosePrior::HasPositionCov);
+      .def("has_position_cov", &PosePrior::HasPositionCov)
+      .def("has_gravity", &PosePrior::HasGravity);
   DefDeprecation(PyPosePrior, "is_valid", "has_position");
   DefDeprecation(PyPosePrior, "is_covariance_valid", "has_position_cov");
   MakeDataclass(PyPosePrior);

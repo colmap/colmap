@@ -17,7 +17,8 @@ void BindSynthetic(py::module& m) {
       py::enum_<SyntheticDatasetOptions::MatchConfig>(
           m, "SyntheticDatasetMatchConfig")
           .value("EXHAUSTIVE", SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE)
-          .value("CHAINED", SyntheticDatasetOptions::MatchConfig::CHAINED);
+          .value("CHAINED", SyntheticDatasetOptions::MatchConfig::CHAINED)
+          .value("SPARSE", SyntheticDatasetOptions::MatchConfig::SPARSE);
   AddStringToEnumConstructor(PySyntheticMatchConfig);
 
   auto PySyntheticDatasetOptions =
@@ -43,16 +44,32 @@ void BindSynthetic(py::module& m) {
                          &SyntheticDatasetOptions::camera_model_id)
           .def_readwrite("camera_params",
                          &SyntheticDatasetOptions::camera_params)
+          .def_readwrite(
+              "camera_has_prior_focal_length",
+              &SyntheticDatasetOptions::camera_has_prior_focal_length)
           .def_readwrite("num_points2D_without_point3D",
                          &SyntheticDatasetOptions::num_points2D_without_point3D)
+          .def_readwrite("inlier_match_ratio",
+                         &SyntheticDatasetOptions::inlier_match_ratio)
+          .def_readwrite(
+              "two_view_geometry_has_relative_pose",
+              &SyntheticDatasetOptions::two_view_geometry_has_relative_pose,
+              "Whether to include decomposed relative poses in two-view "
+              "geometries.")
           .def_readwrite("match_config", &SyntheticDatasetOptions::match_config)
+          .def_readwrite("match_sparsity",
+                         &SyntheticDatasetOptions::match_sparsity,
+                         "Sparsity parameter for SPARSE match config [0,1].")
           .def_readwrite("prior_position",
                          &SyntheticDatasetOptions::prior_position)
           .def_readwrite("prior_gravity",
                          &SyntheticDatasetOptions::prior_gravity)
           .def_readwrite(
               "prior_position_coordinate_system",
-              &SyntheticDatasetOptions::prior_position_coordinate_system);
+              &SyntheticDatasetOptions::prior_position_coordinate_system)
+          .def_readwrite("prior_gravity_in_world",
+                         &SyntheticDatasetOptions::prior_gravity_in_world,
+                         "Prior gravity direction in world coordinates.");
   MakeDataclass(PySyntheticDatasetOptions);
 
   m.def(

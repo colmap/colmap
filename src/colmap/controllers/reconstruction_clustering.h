@@ -29,10 +29,32 @@
 
 #pragma once
 
-namespace glomap {
+#include "colmap/scene/reconstruction.h"
+#include "colmap/scene/reconstruction_clustering.h"
+#include "colmap/scene/reconstruction_manager.h"
+#include "colmap/util/base_controller.h"
 
-int RunGlobalMapper(int argc, char** argv);
+#include <memory>
 
-int RunRotationAverager(int argc, char** argv);
+namespace colmap {
 
-}  // namespace glomap
+// Controller that clusters frames from a reconstruction
+// and splits it into multiple reconstructions based on clustering.
+class ReconstructionClustererController : public BaseController {
+ public:
+  ReconstructionClustererController(
+      const ReconstructionClusteringOptions& options,
+      std::shared_ptr<Reconstruction> reconstruction,
+      std::shared_ptr<ReconstructionManager> reconstruction_manager);
+
+  // Runs the pruning and clustering algorithm.
+  // Results are stored in the reconstruction manager passed to the constructor.
+  void Run() override;
+
+ private:
+  const ReconstructionClusteringOptions options_;
+  std::shared_ptr<Reconstruction> reconstruction_;
+  std::shared_ptr<ReconstructionManager> reconstruction_manager_;
+};
+
+}  // namespace colmap

@@ -1,9 +1,10 @@
 #pragma once
 
 #include "colmap/geometry/pose_prior.h"
+#include "colmap/math/math.h"
 #include "colmap/scene/reconstruction.h"
 
-#include "glomap/scene/view_graph.h"
+#include "glomap/scene/pose_graph.h"
 
 #include <ceres/ceres.h>
 
@@ -37,18 +38,25 @@ class GravityRefiner {
   explicit GravityRefiner(const GravityRefinerOptions& options)
       : options_(options) {}
 
-  void RefineGravity(const ViewGraph& view_graph,
+  void RefineGravity(const PoseGraph& pose_graph,
                      const colmap::Reconstruction& reconstruction,
                      std::vector<colmap::PosePrior>& pose_priors);
 
  private:
   void IdentifyErrorProneGravity(
-      const ViewGraph& view_graph,
+      const PoseGraph& pose_graph,
       const colmap::Reconstruction& reconstruction,
       std::unordered_map<image_t, colmap::PosePrior*>& image_to_pose_prior,
       std::unordered_set<frame_t>& error_prone_frames);
   GravityRefinerOptions options_;
   std::shared_ptr<ceres::LossFunction> loss_function_;
 };
+
+// Refine gravity stored in pose priors using relative rotations from the pose
+// graph.
+void RunGravityRefinement(const GravityRefinerOptions& options,
+                          const PoseGraph& pose_graph,
+                          const colmap::Reconstruction& reconstruction,
+                          std::vector<colmap::PosePrior>& pose_priors);
 
 }  // namespace glomap

@@ -124,10 +124,7 @@ TEST(DatabaseCache, Empty) {
 
 TEST(DatabaseCache, ConstructFromDatabase) {
   auto database = CreateTestDatabase();
-  auto cache = DatabaseCache::Create(*database,
-                                     /*min_num_matches=*/0,
-                                     /*ignore_watermarks=*/false,
-                                     /*image_names=*/{});
+  auto cache = DatabaseCache::Create(*database, {});
 
   EXPECT_EQ(cache->NumRigs(), 1);
   EXPECT_EQ(cache->NumCameras(), 2);
@@ -188,11 +185,9 @@ TEST(DatabaseCache, ConstructFromDatabaseWithCustomImages) {
 
   // Note that the first two images are part of the same frame.
   const std::vector<Image> images = database->ReadAllImages();
-  auto cache = DatabaseCache::Create(
-      *database,
-      /*min_num_matches=*/0,
-      /*ignore_watermarks=*/false,
-      /*image_names=*/{images[0].Name(), images[1].Name()});
+  DatabaseCache::Options options;
+  options.image_names = {images[0].Name(), images[1].Name()};
+  auto cache = DatabaseCache::Create(*database, options);
 
   EXPECT_EQ(cache->NumRigs(), 1);
   EXPECT_EQ(cache->NumCameras(), 2);
@@ -251,10 +246,7 @@ std::shared_ptr<Database> CreateLegacyTestDatabase() {
 
 TEST(DatabaseCache, ConstructFromLegacyDatabaseWithoutRigsAndFrames) {
   auto database = CreateLegacyTestDatabase();
-  auto cache = DatabaseCache::Create(*database,
-                                     /*min_num_matches=*/0,
-                                     /*ignore_watermarks=*/false,
-                                     /*image_names=*/{});
+  auto cache = DatabaseCache::Create(*database, {});
   EXPECT_EQ(cache->NumCameras(), 1);
   EXPECT_EQ(cache->NumImages(), 3);
   EXPECT_EQ(cache->NumPosePriors(), 0);
@@ -281,11 +273,9 @@ TEST(DatabaseCache, ConstructFromLegacyDatabaseWithoutRigsAndFrames) {
 TEST(DatabaseCache, ConstructFromLegacyDatabaseWithCustomImages) {
   auto database = CreateLegacyTestDatabase();
   const std::vector<Image> images = database->ReadAllImages();
-  auto cache = DatabaseCache::Create(
-      *database,
-      /*min_num_matches=*/0,
-      /*ignore_watermarks=*/false,
-      /*image_names=*/{images[0].Name(), images[2].Name()});
+  DatabaseCache::Options options;
+  options.image_names = {images[0].Name(), images[2].Name()};
+  auto cache = DatabaseCache::Create(*database, options);
   EXPECT_EQ(cache->NumCameras(), 1);
   EXPECT_EQ(cache->NumImages(), 2);
   EXPECT_EQ(cache->NumPosePriors(), 0);

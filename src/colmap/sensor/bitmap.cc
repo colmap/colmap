@@ -286,36 +286,31 @@ bool Bitmap::InterpolateBilinear(const double x,
   return false;
 }
 
-bool Bitmap::ExifCameraModel(std::string* camera_model) const {
+std::optional<std::string> Bitmap::ExifCameraModel() const {
   // Read camera make and model
-  std::string_view make_str;
-  std::string_view model_str;
+  const std::optional<std::string> make_str = GetMetaData("Make");
+  if (!make_str.has_value()) {
+    return std::nullopt;
+  }
+  const std::optional<std::string> model_str = GetMetaData("Model");
+  if (!model_str.has_value()) {
+    return std::nullopt;
+  }
   float focal_length = 0;
-  *camera_model = "";
-  if (GetMetaData("Make", &make_str)) {
-    *camera_model += std::string(make_str) + "-";
-  } else {
-    *camera_model = "";
-    return false;
+  if (!GetMetaData("Exif:FocalLengthIn35mmFilm", "float", &focal_length) &&
+      !GetMetaData("Exif:FocalLength", "float", &focal_length)) {
+    return std::nullopt;
   }
-  if (GetMetaData("Model", &model_str)) {
-    *camera_model += std::string(model_str) + "-";
-  } else {
-    *camera_model = "";
-    return false;
-  }
-  if (GetMetaData("Exif:FocalLengthIn35mmFilm", "float", &focal_length) ||
-      GetMetaData("Exif:FocalLength", "float", &focal_length)) {
-    *camera_model += std::to_string(focal_length) + "-";
-  } else {
-    *camera_model = "";
-    return false;
-  }
-  *camera_model += std::to_string(width_) + "x" + std::to_string(height_);
-  return true;
+  std::string camera_model = StringPrintf("%s-%s-%.6f-%dx%d",
+                                          make_str->c_str(),
+                                          model_str->c_str(),
+                                          static_cast<double>(focal_length),
+                                          width_,
+                                          height_);
+  return camera_model;
 }
 
-bool Bitmap::ExifFocalLength(double* focal_length) const {
+std::optional<double> Bitmap::ExifFocalLength() const {
   const double max_size = std::max(width_, height_);
 
   float focal_length_35mm = 0;
@@ -329,8 +324,7 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
       //    Diagonal distance of image area on the image sensor of the DSC)
       //    * focal length of the lens of the DSC.
       const double diagonal = std::sqrt(width_ * width_ + height_ * height_);
-      *focal_length = focal_length_35mm / 43.27 * diagonal;
-      return true;
+      return focal_length_35mm / 43.27 * diagonal;
     }
   }
 
@@ -360,95 +354,94 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
           default:
             LOG(FATAL) << "Unexpected FocalPlaneXResolution value";
         }
-        *focal_length = focal_length_mm / pixels_per_mm;
-        return true;
+        return focal_length_mm / pixels_per_mm;
       }
     }
 
     // Lookup sensor width in database.
-    std::string_view make_str;
-    std::string_view model_str;
-    if (GetMetaData("Make", &make_str) && GetMetaData("Model", &model_str)) {
+    const std::optional<std::string> make_str = GetMetaData("Make");
+    const std::optional<std::string> model_str = GetMetaData("Model");
+    if (make_str.has_value() && model_str.has_value()) {
       CameraDatabase database;
       double sensor_width_mm;
-      if (database.QuerySensorWidth(std::string(make_str),
-                                    std::string(model_str),
-                                    &sensor_width_mm)) {
-        *focal_length = focal_length_mm / sensor_width_mm * max_size;
-        return true;
+      if (database.QuerySensorWidth(*make_str, *model_str, &sensor_width_mm)) {
+        return focal_length_mm / sensor_width_mm * max_size;
       }
     }
   }
 
-  return false;
+  return std::nullopt;
 }
 
-bool Bitmap::ExifLatitude(double* latitude) const {
-  std::string_view latitude_ref;
+std::optional<double> Bitmap::ExifLatitude() const {
+  const std::optional<std::string> latitude_ref =
+      GetMetaData("GPS:LatitudeRef");
   double sign = 1.0;
-  if (GetMetaData("GPS:LatitudeRef", &latitude_ref)) {
-    if (latitude_ref == "N" || latitude_ref == "n") {
+  if (latitude_ref.has_value()) {
+    if (*latitude_ref == "N" || *latitude_ref == "n") {
       sign = 1.0;
-    } else if (latitude_ref == "S" || latitude_ref == "s") {
+    } else if (*latitude_ref == "S" || *latitude_ref == "s") {
       sign = -1.0;
     }
   }
   float deg_min_sec[3] = {0.0};
   if (GetMetaData("GPS:Latitude", "point", &deg_min_sec)) {
-    *latitude =
+    double latitude =
         deg_min_sec[0] + deg_min_sec[1] / 60.0 + deg_min_sec[2] / 3600.0;
-    if (*latitude > 0 && sign < 0) {
-      *latitude *= sign;
+    if (latitude > 0 && sign < 0) {
+      latitude *= sign;
     }
-    return true;
+    return latitude;
   }
-  return false;
+  return std::nullopt;
 }
 
-bool Bitmap::ExifLongitude(double* longitude) const {
-  std::string_view longitude_ref;
+std::optional<double> Bitmap::ExifLongitude() const {
+  const std::optional<std::string> longitude_ref =
+      GetMetaData("GPS:LongitudeRef");
   double sign = 1.0;
-  if (GetMetaData("GPS:LongitudeRef", &longitude_ref)) {
-    if (longitude_ref == "W" || longitude_ref == "w") {
+  if (longitude_ref.has_value()) {
+    if (*longitude_ref == "W" || *longitude_ref == "w") {
       sign = -1.0;
-    } else if (longitude_ref == "E" || longitude_ref == "e") {
+    } else if (*longitude_ref == "E" || *longitude_ref == "e") {
       sign = 1.0;
     }
   }
   float deg_min_sec[3] = {0.0};
   if (GetMetaData("GPS:Longitude", "point", &deg_min_sec)) {
-    *longitude =
+    double longitude =
         deg_min_sec[0] + deg_min_sec[1] / 60.0 + deg_min_sec[2] / 3600.0;
-    if (*longitude > 0 && sign < 0) {
-      *longitude *= sign;
+    if (longitude > 0 && sign < 0) {
+      longitude *= sign;
     }
-    return true;
+    return longitude;
   }
-  return false;
+  return std::nullopt;
 }
 
-bool Bitmap::ExifAltitude(double* altitude) const {
-  std::string_view altitude_ref;
+std::optional<double> Bitmap::ExifAltitude() const {
+  const std::optional<std::string> altitude_ref =
+      GetMetaData("GPS:AltitudeRef");
   double sign = 1.0;
-  if (GetMetaData("GPS:AltitudeRef", &altitude_ref)) {
-    if (altitude_ref == "0") {
+  if (altitude_ref.has_value()) {
+    if (*altitude_ref == "0") {
       sign = 1.0;
-    } else if (altitude_ref == "1") {
+    } else if (*altitude_ref == "1") {
       sign = -1.0;
     }
   }
   float altitude_float = 0.f;
   if (GetMetaData("GPS:Altitude", "float", &altitude_float)) {
-    *altitude = altitude_float;
-    if (*altitude > 0 && sign < 0) {
-      *altitude *= sign;
+    double altitude = altitude_float;
+    if (altitude > 0 && sign < 0) {
+      altitude *= sign;
     }
-    return true;
+    return altitude;
   }
-  return false;
+  return std::nullopt;
 }
 
-bool Bitmap::Read(const std::string& path,
+bool Bitmap::Read(const std::filesystem::path& path,
                   const bool as_rgb,
                   const bool linearize_colorspace) {
   if (!ExistsFile(path)) {
@@ -459,27 +452,40 @@ bool Bitmap::Read(const std::string& path,
   OIIO::ImageSpec config;
   config["oiio:reorient"] = 0;
 
-  const auto input = OIIO::ImageInput::open(path, &config);
+  const auto input = OIIO::ImageInput::open(path.string(), &config);
   if (!input) {
-    VLOG(3) << "Failed to read bitmap specs";
+    // Always retrieve the error to clear OIIO's pending error state.
+    const std::string error = OIIO::geterror();
+    VLOG(3) << "Failed to read bitmap: " << error;
     return false;
   }
 
   const OIIO::ImageSpec& image_spec = input->spec();
   width_ = image_spec.width;
   height_ = image_spec.height;
-  channels_ = image_spec.nchannels;
-  if (channels_ != 1 && channels_ != 3) {
-    VLOG(3) << "Bitmap is not grayscale or RGB";
+  const int file_channels = image_spec.nchannels;
+  // Handle images with alpha channel by dropping alpha:
+  // - 4 channels (RGBA) -> 3 channels (RGB)
+  // - 2 channels (grayscale + alpha) -> 1 channel (grayscale)
+  if (file_channels == 4) {
+    channels_ = 3;
+  } else if (file_channels == 2) {
+    channels_ = 1;
+  } else if (file_channels == 1 || file_channels == 3) {
+    channels_ = file_channels;
+  } else {
+    VLOG(3) << "Unsupported number of channels: " << file_channels;
     return false;
   }
 
   data_.resize(width_ * height_ * channels_);
+  // Note that OIIO supports reading a subset of channels.
   input->read_image(0, 0, 0, channels_, OIIO::TypeDesc::UINT8, data_.data());
   input->close();
 
   auto meta_data = std::make_unique<OIIOMetaData>();
   meta_data->image_spec = image_spec;
+  meta_data->image_spec.nchannels = channels_;
   meta_data_ = std::move(meta_data);
 
   if (linearize_colorspace) {
@@ -499,42 +505,42 @@ bool Bitmap::Read(const std::string& path,
   return true;
 }
 
-bool Bitmap::Write(const std::string& path,
+bool Bitmap::Write(const std::filesystem::path& path,
                    const bool delinearize_colorspace) const {
-  const auto output = OIIO::ImageOutput::create(path);
+  const auto output = OIIO::ImageOutput::create(path.string());
   if (!output) {
     std::cerr << "Could not create an ImageOutput for " << path
               << ", error = " << OIIO::geterror() << "\n";
     return false;
   }
 
-  auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
+  // Create a copy of the metadata to avoid modifying the original.
+  OIIOMetaData meta_data = *OIIOMetaData::Upcast(meta_data_.get());
 
   const uint8_t* output_data_ptr = data_.data();
   std::vector<uint8_t> maybe_linearized_output_data;
   if (delinearize_colorspace && linear_colorspace_) {
-    std::string_view colorspace;
-    if (!GetMetaData("oiio:ColorSpace", &colorspace)) {
+    std::optional<std::string> colorspace = GetMetaData("oiio:ColorSpace");
+    if (!colorspace.has_value()) {
       // Assume sRGB color space if not specified.
       colorspace = "sRGB";
-      SetImageSpecColorSpace(meta_data->image_spec,
-                             OIIOFromStdStringView(colorspace));
+      SetImageSpecColorSpace(meta_data.image_spec,
+                             OIIOFromStdStringView(*colorspace));
     }
 
     maybe_linearized_output_data = ConvertColorSpace(
-        data_.data(), width_, height_, channels_, "linear", colorspace);
+        data_.data(), width_, height_, channels_, "linear", *colorspace);
     output_data_ptr = maybe_linearized_output_data.data();
   }
 
   if (HasFileExtension(path, ".jpg") || HasFileExtension(path, ".jpeg")) {
-    std::string_view compression;
-    if (!GetMetaData("Compression", &compression)) {
+    if (!GetMetaData("Compression").has_value()) {
       // Save JPEG in superb quality by default to reduce compression artifacts.
-      meta_data->image_spec["Compression"] = "jpeg:100";
+      meta_data.image_spec["Compression"] = "jpeg:100";
     }
   }
 
-  if (!output->open(path, meta_data->image_spec)) {
+  if (!output->open(path.string(), meta_data.image_spec)) {
     VLOG(3) << "Could not open " << path << ", error = " << output->geterror()
             << "\n";
     return false;
@@ -622,6 +628,12 @@ Bitmap Bitmap::CloneAsRGB() const {
   }
 }
 
+void Bitmap::SetJpegQuality(int quality) {
+  THROW_CHECK_GT(quality, 0);
+  THROW_CHECK_LE(quality, 100);
+  SetMetaData("Compression", "jpeg:" + std::to_string(quality));
+}
+
 void Bitmap::SetMetaData(const std::string_view& name,
                          const std::string_view& type,
                          const void* value) {
@@ -653,16 +665,15 @@ bool Bitmap::GetMetaData(const std::string_view& name,
       OIIOFromStdStringView(name), type_desc, value);
 }
 
-bool Bitmap::GetMetaData(const std::string_view& name,
-                         std::string_view* value) const {
+std::optional<std::string> Bitmap::GetMetaData(
+    const std::string_view& name) const {
   auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
   OIIO::ustring ustring_value;
   if (meta_data->image_spec.getattribute(
           OIIOFromStdStringView(name), OIIO::TypeString, &ustring_value)) {
-    *value = std::string_view(ustring_value.data(), ustring_value.size());
-    return true;
+    return std::string(ustring_value.data(), ustring_value.size());
   }
-  return false;
+  return std::nullopt;
 }
 
 void Bitmap::CloneMetadata(Bitmap* target) const {

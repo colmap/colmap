@@ -99,7 +99,9 @@ FeatureKeypointsBlob FeatureKeypointsToBlob(const FeatureKeypoints& keypoints) {
 
 FeatureKeypoints FeatureKeypointsFromBlob(const FeatureKeypointsBlob& blob) {
   FeatureKeypoints keypoints(static_cast<size_t>(blob.rows()));
-  if (blob.cols() == 2) {
+  if (blob.rows() == 0) {
+    return keypoints;
+  } else if (blob.cols() == 2) {
     for (FeatureKeypointsBlob::Index i = 0; i < blob.rows(); ++i) {
       keypoints[i] = FeatureKeypoint(blob(i, 0), blob(i, 1));
     }
@@ -478,7 +480,7 @@ void MaybeThrowDeprecatedPosePriorError(bool is_deprecated_image_prior) {
 class SqliteDatabase : public Database {
  public:
   SqliteDatabase() = delete;
-  explicit SqliteDatabase(const std::string& path)
+  explicit SqliteDatabase(const std::filesystem::path& path)
       : path_(path), database_(nullptr) {}
 
   // Open and close database. The same database should not be opened
@@ -487,7 +489,7 @@ class SqliteDatabase : public Database {
   // On Windows, the input path is converted from the local code page to UTF-8
   // for compatibility with SQLite. On POSIX platforms, the path is assumed to
   // be UTF-8.
-  static std::shared_ptr<Database> Open(const std::string& path) {
+  static std::shared_ptr<Database> Open(const std::filesystem::path& path) {
     auto database = std::make_shared<SqliteDatabase>(path);
 
     // SQLITE_OPEN_NOMUTEX specifies that the connection should not have a
@@ -496,7 +498,7 @@ class SqliteDatabase : public Database {
     // connections can read concurrently.
     try {
       SQLITE3_CALL(sqlite3_open_v2(
-          PlatformToUTF8(path).c_str(),
+          PlatformToUTF8(path.string()).c_str(),
           &database->database_,
           SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX,
           nullptr));
@@ -941,12 +943,22 @@ class SqliteDatabase : public Database {
     two_view_geometry.config = static_cast<int>(
         sqlite3_column_int64(sql_stmt_read_two_view_geometry_, 3));
 
-    two_view_geometry.F = ReadStaticMatrixBlob<Eigen::Matrix3d>(
-        sql_stmt_read_two_view_geometry_, rc, 4);
-    two_view_geometry.E = ReadStaticMatrixBlob<Eigen::Matrix3d>(
-        sql_stmt_read_two_view_geometry_, rc, 5);
-    two_view_geometry.H = ReadStaticMatrixBlob<Eigen::Matrix3d>(
-        sql_stmt_read_two_view_geometry_, rc, 6);
+    // Read matrix data if present (NULL means not set).
+    if (sqlite3_column_type(sql_stmt_read_two_view_geometry_, 4) !=
+        SQLITE_NULL) {
+      two_view_geometry.F = ReadStaticMatrixBlob<Eigen::Matrix3d>(
+          sql_stmt_read_two_view_geometry_, rc, 4);
+    }
+    if (sqlite3_column_type(sql_stmt_read_two_view_geometry_, 5) !=
+        SQLITE_NULL) {
+      two_view_geometry.E = ReadStaticMatrixBlob<Eigen::Matrix3d>(
+          sql_stmt_read_two_view_geometry_, rc, 5);
+    }
+    if (sqlite3_column_type(sql_stmt_read_two_view_geometry_, 6) !=
+        SQLITE_NULL) {
+      two_view_geometry.H = ReadStaticMatrixBlob<Eigen::Matrix3d>(
+          sql_stmt_read_two_view_geometry_, rc, 6);
+    }
 
     // Read the pose data if present (NULL means not set).
     const bool has_qvec =
@@ -967,9 +979,15 @@ class SqliteDatabase : public Database {
     }
 
     two_view_geometry.inlier_matches = FeatureMatchesFromBlob(blob);
-    two_view_geometry.F.transposeInPlace();
-    two_view_geometry.E.transposeInPlace();
-    two_view_geometry.H.transposeInPlace();
+    if (two_view_geometry.F) {
+      two_view_geometry.F->transposeInPlace();
+    }
+    if (two_view_geometry.E) {
+      two_view_geometry.E->transposeInPlace();
+    }
+    if (two_view_geometry.H) {
+      two_view_geometry.H->transposeInPlace();
+    }
 
     if (ShouldSwapImagePair(image_id1, image_id2)) {
       two_view_geometry.Invert();
@@ -1000,12 +1018,22 @@ class SqliteDatabase : public Database {
       two_view_geometry.config = static_cast<int>(
           sqlite3_column_int64(sql_stmt_read_two_view_geometries_, 4));
 
-      two_view_geometry.F = ReadStaticMatrixBlob<Eigen::Matrix3d>(
-          sql_stmt_read_two_view_geometries_, rc, 5);
-      two_view_geometry.E = ReadStaticMatrixBlob<Eigen::Matrix3d>(
-          sql_stmt_read_two_view_geometries_, rc, 6);
-      two_view_geometry.H = ReadStaticMatrixBlob<Eigen::Matrix3d>(
-          sql_stmt_read_two_view_geometries_, rc, 7);
+      // Read matrix data if present (NULL means not set).
+      if (sqlite3_column_type(sql_stmt_read_two_view_geometries_, 5) !=
+          SQLITE_NULL) {
+        two_view_geometry.F = ReadStaticMatrixBlob<Eigen::Matrix3d>(
+            sql_stmt_read_two_view_geometries_, rc, 5);
+      }
+      if (sqlite3_column_type(sql_stmt_read_two_view_geometries_, 6) !=
+          SQLITE_NULL) {
+        two_view_geometry.E = ReadStaticMatrixBlob<Eigen::Matrix3d>(
+            sql_stmt_read_two_view_geometries_, rc, 6);
+      }
+      if (sqlite3_column_type(sql_stmt_read_two_view_geometries_, 7) !=
+          SQLITE_NULL) {
+        two_view_geometry.H = ReadStaticMatrixBlob<Eigen::Matrix3d>(
+            sql_stmt_read_two_view_geometries_, rc, 7);
+      }
 
       // Read the pose data if present (NULL means not set).
       const bool has_qvec =
@@ -1027,9 +1055,15 @@ class SqliteDatabase : public Database {
         two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
       }
 
-      two_view_geometry.F.transposeInPlace();
-      two_view_geometry.E.transposeInPlace();
-      two_view_geometry.H.transposeInPlace();
+      if (two_view_geometry.F) {
+        two_view_geometry.F->transposeInPlace();
+      }
+      if (two_view_geometry.E) {
+        two_view_geometry.E->transposeInPlace();
+      }
+      if (two_view_geometry.H) {
+        two_view_geometry.H->transposeInPlace();
+      }
 
       all_two_view_geometries.emplace_back(pair_id,
                                            std::move(two_view_geometry));
@@ -1298,16 +1332,28 @@ class SqliteDatabase : public Database {
     SQLITE3_CALL(sqlite3_bind_int64(
         sql_stmt_write_two_view_geometry_, 5, two_view_geometry_ptr->config));
 
-    // Transpose the matrices to obtain row-major data layout.
-    // Important: Do not move these objects inside the if-statement, because
-    // the objects must live until `sqlite3_step` is called on the statement.
-    const Eigen::Matrix3d Ft = two_view_geometry_ptr->F.transpose();
-    const Eigen::Matrix3d Et = two_view_geometry_ptr->E.transpose();
-    const Eigen::Matrix3d Ht = two_view_geometry_ptr->H.transpose();
-
-    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ft, 6);
-    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Et, 7);
-    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ht, 8);
+    // Write NULL for F/E/H if not set, otherwise transpose and write.
+    // Important: Transposed matrices must be declared outside if-statements
+    // because sqlite3_step reads the bound data after the bind calls.
+    Eigen::Matrix3d Ft, Et, Ht;
+    if (two_view_geometry_ptr->F.has_value()) {
+      Ft = two_view_geometry_ptr->F->transpose();
+      WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ft, 6);
+    } else {
+      SQLITE3_CALL(sqlite3_bind_null(sql_stmt_write_two_view_geometry_, 6));
+    }
+    if (two_view_geometry_ptr->E.has_value()) {
+      Et = two_view_geometry_ptr->E->transpose();
+      WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Et, 7);
+    } else {
+      SQLITE3_CALL(sqlite3_bind_null(sql_stmt_write_two_view_geometry_, 7));
+    }
+    if (two_view_geometry_ptr->H.has_value()) {
+      Ht = two_view_geometry_ptr->H->transpose();
+      WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ht, 8);
+    } else {
+      SQLITE3_CALL(sqlite3_bind_null(sql_stmt_write_two_view_geometry_, 8));
+    }
 
     // Write NULL for qvec/tvec if cam2_from_cam1 is not set.
     // Important: quat_wxyz and tvec must be declared outside the if-statement
@@ -1745,8 +1791,11 @@ class SqliteDatabase : public Database {
         "SELECT rows, cols, data, config, F, E, H, qvec, tvec FROM "
         "two_view_geometries WHERE pair_id = ?;",
         &sql_stmt_read_two_view_geometry_);
-    prepare_sql_stmt("SELECT * FROM two_view_geometries WHERE rows > 0;",
-                     &sql_stmt_read_two_view_geometries_);
+    prepare_sql_stmt(
+        "SELECT * FROM two_view_geometries WHERE rows > 0 OR F IS NOT NULL OR "
+        "E IS NOT NULL OR H IS NOT NULL OR qvec IS NOT NULL OR tvec IS NOT "
+        "NULL;",
+        &sql_stmt_read_two_view_geometries_);
     prepare_sql_stmt(
         "SELECT pair_id, rows FROM two_view_geometries WHERE rows > 0;",
         &sql_stmt_read_two_view_geometry_num_inliers_);
@@ -2044,9 +2093,11 @@ class SqliteDatabase : public Database {
       SQLITE3_CALL(sqlite3_finalize(version_stmt));
     }
 
-    // Migrate identity poses to NULL for old databases. In version 3.13.0 and
-    // earlier, identity was used as sentinel for "not set". New databases
-    // correctly write NULL for unset and can store actual identity poses.
+    // Migrate identity and zero poses to NULL for old databases. In version
+    // 3.13.0 and earlier, identity was used as sentinel for "not set". Between
+    // Feb 2021 and Jul 2023, zero quaternion (0,0,0,0) was also used as
+    // default. New databases correctly write NULL for unset and can store
+    // actual poses.
     if (user_version <= MakeDatabaseVersionNumber(3, 13, 0, 0)) {
       sqlite3_stmt* read_stmt;
       SQLITE3_CALL(sqlite3_prepare_v2(
@@ -2075,8 +2126,9 @@ class SqliteDatabase : public Database {
         const bool is_identity =
             rotation.coeffs() == Eigen::Quaterniond::Identity().coeffs() &&
             tvec == Eigen::Vector3d::Zero();
+        const bool is_zero = qvec == Eigen::Vector4d::Zero();
 
-        if (is_identity) {
+        if (is_identity || is_zero) {
           const int64_t pair_id = sqlite3_column_int64(read_stmt, 0);
           SQLITE3_CALL(sqlite3_bind_int64(update_stmt, 1, pair_id));
           SQLITE3_CALL(sqlite3_step(update_stmt));
@@ -2086,6 +2138,83 @@ class SqliteDatabase : public Database {
 
       SQLITE3_CALL(sqlite3_finalize(read_stmt));
       SQLITE3_CALL(sqlite3_finalize(update_stmt));
+    }
+
+    // Migrate zero E/F/H matrices to NULL for old databases. Previously, zero
+    // matrix was used as sentinel for "not set". New databases correctly write
+    // NULL for unset matrices.
+    if (user_version <= MakeDatabaseVersionNumber(3, 14, 0, 0)) {
+      sqlite3_stmt* read_stmt;
+      SQLITE3_CALL(sqlite3_prepare_v2(
+          database_,
+          "SELECT pair_id, F, E, H FROM two_view_geometries "
+          "WHERE F IS NOT NULL OR E IS NOT NULL OR H IS NOT NULL;",
+          -1,
+          &read_stmt,
+          nullptr));
+
+      sqlite3_stmt* update_F_stmt;
+      sqlite3_stmt* update_E_stmt;
+      sqlite3_stmt* update_H_stmt;
+      SQLITE3_CALL(sqlite3_prepare_v2(
+          database_,
+          "UPDATE two_view_geometries SET F = NULL WHERE pair_id = ?;",
+          -1,
+          &update_F_stmt,
+          nullptr));
+      SQLITE3_CALL(sqlite3_prepare_v2(
+          database_,
+          "UPDATE two_view_geometries SET E = NULL WHERE pair_id = ?;",
+          -1,
+          &update_E_stmt,
+          nullptr));
+      SQLITE3_CALL(sqlite3_prepare_v2(
+          database_,
+          "UPDATE two_view_geometries SET H = NULL WHERE pair_id = ?;",
+          -1,
+          &update_H_stmt,
+          nullptr));
+
+      const Eigen::Matrix3d zero = Eigen::Matrix3d::Zero();
+      int rc;
+      while ((rc = SQLITE3_CALL(sqlite3_step(read_stmt))) == SQLITE_ROW) {
+        const int64_t pair_id = sqlite3_column_int64(read_stmt, 0);
+
+        if (sqlite3_column_type(read_stmt, 1) != SQLITE_NULL) {
+          const Eigen::Matrix3d F =
+              ReadStaticMatrixBlob<Eigen::Matrix3d>(read_stmt, rc, 1);
+          if (F == zero) {
+            SQLITE3_CALL(sqlite3_bind_int64(update_F_stmt, 1, pair_id));
+            SQLITE3_CALL(sqlite3_step(update_F_stmt));
+            SQLITE3_CALL(sqlite3_reset(update_F_stmt));
+          }
+        }
+
+        if (sqlite3_column_type(read_stmt, 2) != SQLITE_NULL) {
+          const Eigen::Matrix3d E =
+              ReadStaticMatrixBlob<Eigen::Matrix3d>(read_stmt, rc, 2);
+          if (E == zero) {
+            SQLITE3_CALL(sqlite3_bind_int64(update_E_stmt, 1, pair_id));
+            SQLITE3_CALL(sqlite3_step(update_E_stmt));
+            SQLITE3_CALL(sqlite3_reset(update_E_stmt));
+          }
+        }
+
+        if (sqlite3_column_type(read_stmt, 3) != SQLITE_NULL) {
+          const Eigen::Matrix3d H =
+              ReadStaticMatrixBlob<Eigen::Matrix3d>(read_stmt, rc, 3);
+          if (H == zero) {
+            SQLITE3_CALL(sqlite3_bind_int64(update_H_stmt, 1, pair_id));
+            SQLITE3_CALL(sqlite3_step(update_H_stmt));
+            SQLITE3_CALL(sqlite3_reset(update_H_stmt));
+          }
+        }
+      }
+
+      SQLITE3_CALL(sqlite3_finalize(read_stmt));
+      SQLITE3_CALL(sqlite3_finalize(update_F_stmt));
+      SQLITE3_CALL(sqlite3_finalize(update_E_stmt));
+      SQLITE3_CALL(sqlite3_finalize(update_H_stmt));
     }
 
     if (ExistsTable("pose_priors_old")) {
@@ -2254,7 +2383,7 @@ class SqliteDatabase : public Database {
     return max;
   }
 
-  const std::string path_;
+  const std::filesystem::path path_;
 
   sqlite3* database_ = nullptr;
 
@@ -2354,7 +2483,8 @@ std::mutex SqliteDatabase::update_schema_mutex_;
 
 }  // namespace
 
-std::shared_ptr<Database> OpenSqliteDatabase(const std::string& path) {
+std::shared_ptr<Database> OpenSqliteDatabase(
+    const std::filesystem::path& path) {
   return SqliteDatabase::Open(path);
 }
 

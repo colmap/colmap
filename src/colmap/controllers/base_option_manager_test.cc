@@ -38,7 +38,7 @@
 namespace colmap {
 namespace {
 
-// Test enum for AddAndRegisterDefaultEnumOption tests
+// Test enum for AddDefaultEnumOption tests
 MAKE_ENUM_CLASS(TestEnumType, 0, VALUE_A, VALUE_B, VALUE_C);
 
 TEST(BaseOptionManager, Reset) {
@@ -52,8 +52,8 @@ TEST(BaseOptionManager, Reset) {
 
   options.Reset();
 
-  EXPECT_EQ(*options.database_path, "");
-  EXPECT_EQ(*options.image_path, "");
+  EXPECT_TRUE(options.database_path->empty());
+  EXPECT_TRUE(options.image_path->empty());
 }
 
 TEST(BaseOptionManager, ResetOptions) {
@@ -62,8 +62,8 @@ TEST(BaseOptionManager, ResetOptions) {
   *options.image_path = "/test/images";
 
   options.ResetOptions(/*reset_paths=*/true);
-  EXPECT_EQ(*options.database_path, "");
-  EXPECT_EQ(*options.image_path, "");
+  EXPECT_TRUE(options.database_path->empty());
+  EXPECT_TRUE(options.image_path->empty());
 
   *options.database_path = "/test/path";
   *options.image_path = "/test/images";
@@ -93,49 +93,87 @@ TEST(BaseOptionManager, AddOptionsIdempotent) {
 }
 
 TEST(BaseOptionManager, WriteAndRead) {
-  const std::string test_dir = CreateTestDir();
-  const std::string config_path = test_dir + "/config.ini";
+  const auto test_dir = CreateTestDir();
+  const auto config_path = test_dir / "config.ini";
 
   // Create necessary directories
-  CreateDirIfNotExists(test_dir + "/images");
+  CreateDirIfNotExists(test_dir / "images");
+
+  bool bool_option_write = true;
+  int int_option_write = 42;
+  double double_option_write = 3.14;
+  std::string string_option_write = "foobar";
+  std::string section_option_write = "section";
+  TestEnumType enum_option_write = TestEnumType::VALUE_B;
 
   // Create and configure a BaseOptionManager
   BaseOptionManager options_write;
   options_write.AddDatabaseOptions();
   options_write.AddImageOptions();
+  options_write.AddDefaultOption("bool_option", &bool_option_write);
+  options_write.AddDefaultOption("int_option", &int_option_write);
+  options_write.AddDefaultOption("double_option", &double_option_write);
+  options_write.AddDefaultOption("string_option", &string_option_write);
+  options_write.AddDefaultOption("Section.option", &section_option_write);
+  options_write.AddDefaultEnumOption("enum_option",
+                                     &enum_option_write,
+                                     TestEnumTypeToString,
+                                     TestEnumTypeFromString);
 
-  *options_write.database_path = test_dir + "/database.db";
-  *options_write.image_path = test_dir + "/images";
+  *options_write.database_path = test_dir / "database.db";
+  *options_write.image_path = test_dir / "images";
 
   // Write to file
   options_write.Write(config_path);
   EXPECT_TRUE(ExistsFile(config_path));
 
+  bool bool_option_read = false;
+  int int_option_read = -1;
+  double double_option_read = 0;
+  std::string string_option_read;
+  std::string section_option_read;
+  TestEnumType enum_option_read = TestEnumType::VALUE_A;
+
   // Read from file
   BaseOptionManager options_read;
   options_read.AddDatabaseOptions();
   options_read.AddImageOptions();
+  options_read.AddDefaultOption("bool_option", &bool_option_read);
+  options_read.AddDefaultOption("int_option", &int_option_read);
+  options_read.AddDefaultOption("double_option", &double_option_read);
+  options_read.AddDefaultOption("string_option", &string_option_read);
+  options_read.AddDefaultOption("Section.option", &section_option_read);
+  options_read.AddDefaultEnumOption("enum_option",
+                                    &enum_option_read,
+                                    TestEnumTypeToString,
+                                    TestEnumTypeFromString);
 
   EXPECT_TRUE(options_read.Read(config_path));
 
   // Verify that values were read correctly
   EXPECT_EQ(*options_read.database_path, *options_write.database_path);
   EXPECT_EQ(*options_read.image_path, *options_write.image_path);
+  EXPECT_EQ(bool_option_read, bool_option_write);
+  EXPECT_EQ(int_option_read, int_option_write);
+  EXPECT_EQ(double_option_read, double_option_write);
+  EXPECT_EQ(string_option_read, string_option_write);
+  EXPECT_EQ(section_option_read, section_option_write);
+  EXPECT_EQ(enum_option_read, enum_option_write);
 }
 
 TEST(BaseOptionManager, ReRead) {
-  const std::string test_dir = CreateTestDir();
-  const std::string config_path = test_dir + "/config.ini";
+  const auto test_dir = CreateTestDir();
+  const auto config_path = test_dir / "config.ini";
 
   // Create necessary directories
-  CreateDirIfNotExists(test_dir + "/images");
+  CreateDirIfNotExists(test_dir / "images");
 
   // Create and write initial config
   BaseOptionManager options_write;
   options_write.AddDatabaseOptions();
   options_write.AddImageOptions();
-  *options_write.database_path = test_dir + "/database.db";
-  *options_write.image_path = test_dir + "/images";
+  *options_write.database_path = test_dir / "database.db";
+  *options_write.image_path = test_dir / "images";
   options_write.Write(config_path);
 
   // Read with ReRead
@@ -156,57 +194,57 @@ TEST(BaseOptionManager, ReadNonExistentFile) {
 }
 
 TEST(BaseOptionManager, Check) {
-  const std::string test_dir = CreateTestDir();
+  const auto test_dir = CreateTestDir();
 
   BaseOptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
 
   // Should fail with non-existent paths
-  *options.database_path = test_dir + "/database.db";
+  *options.database_path = test_dir / "database.db";
   *options.image_path = "/path/that/does/not/exist";
   EXPECT_FALSE(options.Check());
 
   // Should succeed with valid paths
-  CreateDirIfNotExists(test_dir + "/images");
-  *options.image_path = test_dir + "/images";
+  CreateDirIfNotExists(test_dir / "images");
+  *options.image_path = test_dir / "images";
   EXPECT_TRUE(options.Check());
 }
 
 TEST(BaseOptionManager, CheckDatabaseParentDir) {
-  const std::string test_dir = CreateTestDir();
+  const auto test_dir = CreateTestDir();
 
   BaseOptionManager options;
   options.AddDatabaseOptions();
 
   // Should succeed when database parent dir exists
-  *options.database_path = test_dir + "/database.db";
+  *options.database_path = test_dir / "database.db";
   EXPECT_TRUE(options.Check());
 
   // Should fail when database path is a directory
-  CreateDirIfNotExists(test_dir + "/bad_database");
-  *options.database_path = test_dir + "/bad_database";
+  CreateDirIfNotExists(test_dir / "bad_database");
+  *options.database_path = test_dir / "bad_database";
   EXPECT_FALSE(options.Check());
 }
 
 TEST(BaseOptionManager, ParseWithOptions) {
-  const std::string test_dir = CreateTestDir();
-  CreateDirIfNotExists(test_dir + "/images");
+  const auto test_dir = CreateTestDir();
+  CreateDirIfNotExists(test_dir / "images");
 
   BaseOptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
 
-  const std::string database_path = test_dir + "/database.db";
-  const std::string image_path = test_dir + "/images";
+  const auto database_path = test_dir / "database.db";
+  const auto image_path = test_dir / "images";
 
   // Create argv with additional options
   const std::vector<std::string> args = {
       "colmap",
       "--database_path",
-      database_path,
+      database_path.string(),
       "--image_path",
-      image_path,
+      image_path.string(),
   };
 
   std::vector<char*> argv;
@@ -223,17 +261,17 @@ TEST(BaseOptionManager, ParseWithOptions) {
 }
 
 TEST(BaseOptionManager, ParseWithProjectPath) {
-  const std::string test_dir = CreateTestDir();
-  const std::string config_path = test_dir + "/config.ini";
-  CreateDirIfNotExists(test_dir + "/images");
+  const auto test_dir = CreateTestDir();
+  const auto config_path = test_dir / "config.ini";
+  CreateDirIfNotExists(test_dir / "images");
 
   // Create and write a config file
   BaseOptionManager options_write;
   options_write.AddDatabaseOptions();
   options_write.AddImageOptions();
 
-  *options_write.database_path = test_dir + "/database.db";
-  *options_write.image_path = test_dir + "/images";
+  *options_write.database_path = test_dir / "database.db";
+  *options_write.image_path = test_dir / "images";
   options_write.Write(config_path);
 
   // Parse using project_path
@@ -244,7 +282,7 @@ TEST(BaseOptionManager, ParseWithProjectPath) {
   const std::vector<std::string> args = {
       "colmap",
       "--project_path",
-      config_path,
+      config_path.string(),
   };
 
   std::vector<char*> argv;
@@ -275,18 +313,18 @@ TEST(BaseOptionManager, ParseEmptyArguments) {
 }
 
 TEST(BaseOptionManager, ParseUnknownArgumentsFails) {
-  const std::string test_dir = CreateTestDir();
+  const auto test_dir = CreateTestDir();
 
   BaseOptionManager options;
   options.AddDatabaseOptions();
 
-  const std::string database_path = test_dir + "/database.db";
+  const auto database_path = test_dir / "database.db";
 
   // Create argv with an unknown option
   const std::vector<std::string> args = {
       "colmap",
       "--database_path",
-      database_path,
+      database_path.string(),
       "--unknown_option",
       "value",
   };
@@ -305,10 +343,10 @@ TEST(BaseOptionManager, ParseUnknownArgumentsFails) {
 class TestEnumOptionManager : public BaseOptionManager {
  public:
   TestEnumOptionManager() : BaseOptionManager(/*add_project_options=*/false) {
-    AddAndRegisterDefaultEnumOption("test_enum",
-                                    &test_enum_value,
-                                    TestEnumTypeToString,
-                                    TestEnumTypeFromString);
+    AddDefaultEnumOption("test_enum",
+                         &test_enum_value,
+                         TestEnumTypeToString,
+                         TestEnumTypeFromString);
   }
 
   TestEnumType test_enum_value = TestEnumType::VALUE_A;
@@ -389,10 +427,10 @@ class TestEnumOptionManagerWithValueB : public BaseOptionManager {
  public:
   TestEnumOptionManagerWithValueB()
       : BaseOptionManager(/*add_project_options=*/false) {
-    AddAndRegisterDefaultEnumOption("test_enum",
-                                    &test_enum_value,
-                                    TestEnumTypeToString,
-                                    TestEnumTypeFromString);
+    AddDefaultEnumOption("test_enum",
+                         &test_enum_value,
+                         TestEnumTypeToString,
+                         TestEnumTypeFromString);
   }
 
   TestEnumType test_enum_value = TestEnumType::VALUE_B;

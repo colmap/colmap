@@ -156,6 +156,18 @@ TEST(UnionFind, PathCompression) {
   EXPECT_EQ(uf.Find(5), root);
 }
 
+TEST(UnionFind, Compress) {
+  UnionFind<int> uf;
+  uf.Union(1, 2);
+  uf.Union(2, 3);
+
+  uf.Compress();
+
+  for (const auto& [elem, parent] : uf.Parents()) {
+    EXPECT_EQ(parent, uf.Find(parent));
+  }
+}
+
 TEST(UnionFind, LargeNumberOfElements) {
   constexpr int kNumElements = 1000;
   UnionFind<int> uf;
@@ -260,6 +272,40 @@ TEST(UnionFind, FindIfExists) {
   uf.Union(2, 1);
   EXPECT_TRUE(uf.FindIfExists(1).has_value());
   EXPECT_TRUE(uf.FindIfExists(2).has_value());
+}
+
+TEST(UnionFind, Parents) {
+  UnionFind<int> uf;
+  EXPECT_TRUE(uf.Parents().empty());
+
+  uf.Find(1);
+  EXPECT_EQ(uf.Parents().size(), 1);
+  EXPECT_TRUE(uf.Parents().count(1));
+
+  uf.Union(2, 3);
+  EXPECT_EQ(uf.Parents().size(), 3);
+  EXPECT_TRUE(uf.Parents().count(2));
+  EXPECT_TRUE(uf.Parents().count(3));
+
+  uf.Union(1, 2);
+  EXPECT_EQ(uf.Parents().size(), 3);
+}
+
+TEST(UnionFind, ParentsGroupByRoot) {
+  UnionFind<int> uf;
+  uf.Union(1, 2);
+  uf.Union(2, 3);
+  uf.Union(10, 20);
+
+  uf.Compress();
+  std::unordered_map<int, std::vector<int>> groups;
+  for (const auto& [elem, parent] : uf.Parents()) {
+    groups[parent].push_back(elem);
+  }
+
+  EXPECT_EQ(groups.size(), 2);
+  EXPECT_EQ(groups[uf.Find(1)].size(), 3);
+  EXPECT_EQ(groups[uf.Find(10)].size(), 2);
 }
 
 }  // namespace

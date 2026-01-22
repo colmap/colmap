@@ -33,6 +33,7 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/image/line.h"
 #include "colmap/image/undistortion.h"
+#include "colmap/math/math.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
@@ -160,7 +161,7 @@ struct VanishingPointEstimator {
 Eigen::Matrix3d EstimateManhattanWorldFrame(
     const ManhattanWorldFrameEstimationOptions& options,
     const Reconstruction& reconstruction,
-    const std::string& image_path) {
+    const std::filesystem::path& image_path) {
   std::vector<Eigen::Vector3d> rightward_axes;
   std::vector<Eigen::Vector3d> downward_axes;
   size_t image_idx = 0;
@@ -168,15 +169,15 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
     const auto& image = reconstruction.Image(image_id);
     const auto& camera = *image.CameraPtr();
 
-    PrintHeading1(StringPrintf("Processing image %s (%d / %d)",
-                               image.Name().c_str(),
-                               ++image_idx,
-                               reconstruction.NumRegImages()));
+    LOG_HEADING1(StringPrintf("Processing image %s (%d / %d)",
+                              image.Name().c_str(),
+                              ++image_idx,
+                              reconstruction.NumRegImages()));
 
     LOG(INFO) << "Reading image...";
 
     colmap::Bitmap bitmap;
-    THROW_CHECK(bitmap.Read(colmap::JoinPaths(image_path, image.Name())));
+    THROW_CHECK(bitmap.Read(image_path / image.Name()));
 
     LOG(INFO) << "Undistorting image...";
 
@@ -273,7 +274,7 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
     }
   }
 
-  PrintHeading1("Computing coordinate frame");
+  LOG_HEADING1("Computing coordinate frame");
 
   Eigen::Matrix3d frame = Eigen::Matrix3d::Zero();
 

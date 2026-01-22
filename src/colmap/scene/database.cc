@@ -41,7 +41,7 @@ void Database::Register(Factory factory) {
 
 Database::~Database() = default;
 
-std::shared_ptr<Database> Database::Open(const std::string& path) {
+std::shared_ptr<Database> Database::Open(const std::filesystem::path& path) {
   for (auto it = factories_.rbegin(); it != factories_.rend(); ++it) {
     try {
       return (*it)(path);
@@ -148,9 +148,11 @@ void Database::Merge(const Database& database1,
 
   auto update_frame =
       [](const Frame& frame,
+         const std::unordered_map<rig_t, rig_t>& new_rig_ids,
          const std::unordered_map<camera_t, camera_t>& new_camera_ids,
          const std::unordered_map<image_t, image_t>& new_image_ids) {
         Frame updated_frame = frame;
+        updated_frame.SetRigId(new_rig_ids.at(frame.RigId()));
         updated_frame.ClearDataIds();
         for (data_t data_id : frame.DataIds()) {
           switch (data_id.sensor_id.type) {
@@ -170,12 +172,12 @@ void Database::Merge(const Database& database1,
 
   for (Frame& frame : database1.ReadAllFrames()) {
     merged_database->WriteFrame(
-        update_frame(frame, new_camera_ids1, new_image_ids1));
+        update_frame(frame, new_rig_ids1, new_camera_ids1, new_image_ids1));
   }
 
   for (Frame& frame : database2.ReadAllFrames()) {
     merged_database->WriteFrame(
-        update_frame(frame, new_camera_ids2, new_image_ids2));
+        update_frame(frame, new_rig_ids2, new_camera_ids2, new_image_ids2));
   }
 
   // Merge the pose priors.

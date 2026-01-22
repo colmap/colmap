@@ -31,7 +31,7 @@
 
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/option_manager.h"
-#include "colmap/image/undistortion.h"
+#include "colmap/controllers/undistorters.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/sfm/observation_manager.h"
@@ -53,7 +53,7 @@ namespace {
 //      ...
 //
 std::vector<std::pair<image_t, image_t>> ReadStereoImagePairs(
-    const std::string& path, const Reconstruction& reconstruction) {
+    const std::filesystem::path& path, const Reconstruction& reconstruction) {
   const std::vector<std::string> stereo_pair_lines = ReadTextFileLines(path);
 
   std::vector<std::pair<image_t, image_t>> stereo_pairs;
@@ -78,10 +78,10 @@ std::vector<std::pair<image_t, image_t>> ReadStereoImagePairs(
 }  // namespace
 
 int RunImageDeleter(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
-  std::string image_ids_path;
-  std::string image_names_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
+  std::filesystem::path image_ids_path;
+  std::filesystem::path image_names_path;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
@@ -158,8 +158,8 @@ int RunImageDeleter(int argc, char** argv) {
 }
 
 int RunImageFilterer(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
   double min_focal_length_ratio = 0.1;
   double max_focal_length_ratio = 10.0;
   double max_extra_param = 100.0;
@@ -220,10 +220,11 @@ int RunImageFilterer(int argc, char** argv) {
 }
 
 int RunImageRectifier(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
-  std::string stereo_pairs_list;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
+  std::filesystem::path stereo_pairs_list;
 
+  StereoImageRectifier::Options undistorter_options;
   UndistortCameraOptions undistort_camera_options;
 
   OptionManager options;
@@ -244,22 +245,22 @@ int RunImageRectifier(int argc, char** argv) {
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
 
-  const auto stereo_pairs =
+  undistorter_options.stereo_pairs =
       ReadStereoImagePairs(stereo_pairs_list, reconstruction);
 
-  StereoImageRectifier rectifier(undistort_camera_options,
+  StereoImageRectifier rectifier(undistorter_options,
+                                 undistort_camera_options,
                                  reconstruction,
                                  *options.image_path,
-                                 output_path,
-                                 stereo_pairs);
+                                 output_path);
   rectifier.Run();
 
   return EXIT_SUCCESS;
 }
 
 int RunImageRegistrator(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
 
   OptionManager options;
   options.AddDatabaseOptions();
@@ -280,21 +281,22 @@ int RunImageRegistrator(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  PrintHeading1("Loading database");
+  LOG_HEADING1("Loading database");
 
   std::shared_ptr<DatabaseCache> database_cache;
 
   {
     Timer timer;
     timer.Start();
+    DatabaseCache::Options database_cache_options;
+    database_cache_options.min_num_matches =
+        static_cast<size_t>(options.mapper->min_num_matches);
+    database_cache_options.ignore_watermarks =
+        options.mapper->ignore_watermarks;
+    database_cache_options.image_names = {options.mapper->image_names.begin(),
+                                          options.mapper->image_names.end()};
     database_cache = DatabaseCache::Create(
-        *Database::Open(*options.database_path),
-        /*min_num_matches=*/
-        static_cast<size_t>(options.mapper->min_num_matches),
-        /*ignore_watermarks=*/options.mapper->ignore_watermarks,
-        /*image_names=*/
-        {options.mapper->image_names.begin(),
-         options.mapper->image_names.end()});
+        *Database::Open(*options.database_path), database_cache_options);
     timer.PrintMinutes();
   }
 
@@ -311,8 +313,8 @@ int RunImageRegistrator(int argc, char** argv) {
       continue;
     }
 
-    PrintHeading1("Registering image #" + std::to_string(image.first) + " (" +
-                  std::to_string(reconstruction->NumRegImages() + 1) + ")");
+    LOG_HEADING1("Registering image #" + std::to_string(image.first) + " (" +
+                 std::to_string(reconstruction->NumRegImages() + 1) + ")");
 
     LOG(INFO) << "\n=> Image sees "
               << mapper.ObservationManager().NumVisiblePoints3D(image.first)
@@ -331,14 +333,13 @@ int RunImageRegistrator(int argc, char** argv) {
 }
 
 int RunImageUndistorter(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
   std::string output_type = "COLMAP";
-  std::string image_list_path;
+  std::filesystem::path image_list_path;
   std::string copy_policy = "copy";
-  int num_patch_match_src_images = 20;
-  CopyType copy_type;
 
+  COLMAPUndistorter::Options undistorter_options;
   UndistortCameraOptions undistort_camera_options;
 
   OptionManager options;
@@ -349,9 +350,7 @@ int RunImageUndistorter(int argc, char** argv) {
       "output_type", &output_type, "{COLMAP, PMVS, CMP-MVS}");
   options.AddDefaultOption("image_list_path", &image_list_path);
   options.AddDefaultOption(
-      "copy_policy", &copy_policy, "{copy, soft-link, hard-link}");
-  options.AddDefaultOption("num_patch_match_src_images",
-                           &num_patch_match_src_images);
+      "copy_policy", &copy_policy, "{COPY, SOFT_LINK, HARD_LINK}");
   options.AddDefaultOption("blank_pixels",
                            &undistort_camera_options.blank_pixels);
   options.AddDefaultOption("min_scale", &undistort_camera_options.min_scale);
@@ -362,54 +361,43 @@ int RunImageUndistorter(int argc, char** argv) {
   options.AddDefaultOption("roi_min_y", &undistort_camera_options.roi_min_y);
   options.AddDefaultOption("roi_max_x", &undistort_camera_options.roi_max_x);
   options.AddDefaultOption("roi_max_y", &undistort_camera_options.roi_max_y);
+  options.AddDefaultOption("num_patch_match_src_images",
+                           &undistorter_options.num_patch_match_src_images);
+  options.AddDefaultOption("jpeg_quality", &undistorter_options.jpeg_quality);
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
 
   CreateDirIfNotExists(output_path);
 
-  PrintHeading1("Reading reconstruction");
+  LOG_HEADING1("Reading reconstruction");
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
   LOG(INFO) << StringPrintf("=> Reconstruction with %d images and %d points",
                             reconstruction.NumImages(),
                             reconstruction.NumPoints3D());
 
-  std::vector<image_t> image_ids;
   if (!image_list_path.empty()) {
     for (const std::string& image_name : ReadTextFileLines(image_list_path)) {
       const Image* image = reconstruction.FindImageWithName(image_name);
       if (image != nullptr) {
-        image_ids.push_back(image->ImageId());
+        undistorter_options.image_ids.push_back(image->ImageId());
       } else {
         LOG(WARNING) << "Cannot find image " << image_name;
       }
     }
   }
 
-  StringToLower(&copy_policy);
-  if (copy_policy == "copy") {
-    copy_type = CopyType::COPY;
-  } else if (copy_policy == "soft-link") {
-    copy_type = CopyType::SOFT_LINK;
-  } else if (copy_policy == "hard-link") {
-    copy_type = CopyType::HARD_LINK;
-  } else {
-    LOG(ERROR) << "Invalid `copy_policy` - supported values are "
-                  "{'copy', 'soft-link', 'hard-link'}.";
-    return EXIT_FAILURE;
-  }
+  StringToUpper(&copy_policy);
+  undistorter_options.copy_type = FileCopyTypeFromString(copy_policy);
 
   std::unique_ptr<BaseController> undistorter;
   if (output_type == "COLMAP") {
-    undistorter =
-        std::make_unique<COLMAPUndistorter>(undistort_camera_options,
-                                            reconstruction,
-                                            *options.image_path,
-                                            output_path,
-                                            num_patch_match_src_images,
-                                            copy_type,
-                                            image_ids);
+    undistorter = std::make_unique<COLMAPUndistorter>(undistorter_options,
+                                                      undistort_camera_options,
+                                                      reconstruction,
+                                                      *options.image_path,
+                                                      output_path);
   } else if (output_type == "PMVS") {
     undistorter = std::make_unique<PMVSUndistorter>(undistort_camera_options,
                                                     reconstruction,
@@ -432,9 +420,10 @@ int RunImageUndistorter(int argc, char** argv) {
 }
 
 int RunImageUndistorterStandalone(int argc, char** argv) {
-  std::string input_file;
-  std::string output_path;
+  std::filesystem::path input_file;
+  std::filesystem::path output_path;
 
+  StandaloneImageUndistorter::Options undistorter_options;
   UndistortCameraOptions undistort_camera_options;
 
   OptionManager options;
@@ -451,6 +440,7 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
   options.AddDefaultOption("roi_min_y", &undistort_camera_options.roi_min_y);
   options.AddDefaultOption("roi_max_x", &undistort_camera_options.roi_max_x);
   options.AddDefaultOption("roi_max_y", &undistort_camera_options.roi_max_y);
+  options.AddDefaultOption("jpeg_quality", &undistorter_options.jpeg_quality);
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
@@ -460,7 +450,6 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
   // Loads a text file containing the image names and camera information.
   // The format of the text file is
   //   image_name CAMERA_MODEL camera_params
-  std::vector<std::pair<std::string, Camera>> image_names_and_cameras;
 
   {
     std::ifstream file(input_file);
@@ -506,16 +495,16 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
 
       THROW_CHECK(camera.VerifyParams());
 
-      image_names_and_cameras.emplace_back(image_name, camera);
+      undistorter_options.image_names_and_cameras.emplace_back(image_name,
+                                                               camera);
     }
   }
 
-  std::unique_ptr<BaseController> undistorter;
-  undistorter.reset(new PureImageUndistorter(undistort_camera_options,
-                                             *options.image_path,
-                                             output_path,
-                                             image_names_and_cameras));
-
+  auto undistorter =
+      std::make_unique<StandaloneImageUndistorter>(undistorter_options,
+                                                   undistort_camera_options,
+                                                   *options.image_path,
+                                                   output_path);
   undistorter->Run();
 
   return EXIT_SUCCESS;

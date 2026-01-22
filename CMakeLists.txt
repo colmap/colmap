@@ -52,6 +52,7 @@ option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
 option(LSD_ENABLED "Whether to enable the LSD library" ON)
 option(DOWNLOAD_ENABLED "Whether to enable (automatic) download of resources (requires Curl/OpenSSL)" ON)
 option(UNINSTALL_ENABLED "Whether to create a target to 'uninstall' colmap" ON)
+option(BENCHMARK_ENABLED "Whether to enable runtime benchmarking support" OFF)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
 option(FETCH_FAISS "Whether to consume faiss using FetchContent or find_package" ON)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
@@ -261,6 +262,10 @@ add_subdirectory(src/colmap)
 add_subdirectory(src/glomap)
 add_subdirectory(src/thirdparty)
 
+if(BENCHMARK_ENABLED)
+    add_subdirectory(benchmark/runtime)
+endif()
+
 ################################################################################
 # Generate source groups for Visual Studio, XCode, etc.
 ################################################################################
@@ -377,8 +382,6 @@ set(COLMAP_EXPORT_LIBS
     colmap_sfm
     colmap_util
     colmap_glomap_estimators
-    colmap_glomap_io
-    colmap_glomap_processors
     colmap_glomap_scene
     colmap_glomap_sfm
     # Third-party.

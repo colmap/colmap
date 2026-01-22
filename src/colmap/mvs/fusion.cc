@@ -75,7 +75,7 @@ int FindNextImage(const std::vector<std::vector<int>>& overlapping_images,
 
 void StereoFusionOptions::Print() const {
 #define PrintOption(option) LOG(INFO) << #option ": " << (option);
-  PrintHeading2("StereoFusion::Options");
+  LOG_HEADING2("StereoFusion::Options");
   PrintOption(mask_path);
   PrintOption(max_image_size);
   PrintOption(min_num_pixels);
@@ -107,7 +107,7 @@ bool StereoFusionOptions::Check() const {
 }
 
 StereoFusion::StereoFusion(const StereoFusionOptions& options,
-                           const std::string& workspace_path,
+                           const std::filesystem::path& workspace_path,
                            const std::string& workspace_format,
                            const std::string& pmvs_option_name,
                            const std::string& input_type)
@@ -159,8 +159,8 @@ void StereoFusion::Run() {
   workspace_options.workspace_format = workspace_format_;
   workspace_options.input_type = input_type_;
 
-  const auto image_names = ReadTextFileLines(JoinPaths(
-      workspace_path_, workspace_options.stereo_folder, "fusion.cfg"));
+  const auto image_names = ReadTextFileLines(
+      workspace_path_ / workspace_options.stereo_folder / "fusion.cfg");
   int num_threads = 1;
   if (options_.use_cache) {
     workspace_ = std::make_unique<CachedWorkspace>(workspace_options);
@@ -344,10 +344,9 @@ void StereoFusion::InitFusedPixelMask(int image_idx,
   Mat<char>& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
   const std::string mask_image_name =
       workspace_->GetModel().GetImageName(image_idx);
-  std::string mask_path =
-      JoinPaths(options_.mask_path, mask_image_name + ".png");
+  auto mask_path = options_.mask_path / (mask_image_name + ".png");
   if (!ExistsFile(mask_path) && HasFileExtension(mask_image_name, ".png")) {
-    mask_path = JoinPaths(options_.mask_path, mask_image_name);
+    mask_path = options_.mask_path / mask_image_name;
   }
   fused_pixel_mask = Mat<char>(width, height, 1);
   if (!options_.mask_path.empty() && ExistsFile(mask_path) &&
@@ -558,7 +557,7 @@ void StereoFusion::Fuse(const int thread_id,
 }
 
 void WritePointsVisibility(
-    const std::string& path,
+    const std::filesystem::path& path,
     const std::vector<std::vector<int>>& points_visibility) {
   std::fstream file(path, std::ios::out | std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);

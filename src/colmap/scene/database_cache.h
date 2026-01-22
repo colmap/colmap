@@ -49,36 +49,34 @@ namespace colmap {
 // create new reconstruction instances when multiple models are reconstructed.
 class DatabaseCache {
  public:
+  struct Options {
+    // Only load image pairs with a minimum number of matches.
+    size_t min_num_matches = 0;
+
+    // Whether to ignore watermark image pairs.
+    bool ignore_watermarks = false;
+
+    // Whether to use only load the data for a subset of the images. Notice
+    // that if one image of a frame is included, all other images in the same
+    // frame will also be included. All images are used if empty.
+    std::unordered_set<std::string> image_names;
+
+    // Whether to convert pose priors to ENU coordinate system.
+    bool convert_pose_priors_to_enu = false;
+  };
+
   DatabaseCache();
 
   // Load cameras, images, features, and matches from database.
-  //
-  // @param database              Source database from which to load data.
-  // @param min_num_matches       Only load image pairs with a minimum number
-  //                              of matches.
-  // @param ignore_watermarks     Whether to ignore watermark image pairs.
-  // @param image_names           Whether to use only load the data for a subset
-  //                              of the images. Notice that if one image of a
-  //                              frame is included, all other images in the
-  //                              same frame will also be included. All images
-  //                              are used if empty.
-  void Load(const Database& database,
-            size_t min_num_matches = 0,
-            bool ignore_watermarks = false,
-            const std::unordered_set<std::string>& image_names = {});
+  void Load(const Database& database, const Options& options);
 
-  static std::shared_ptr<DatabaseCache> Create(
-      const Database& database,
-      size_t min_num_matches = 0,
-      bool ignore_watermarks = false,
-      const std::unordered_set<std::string>& image_names = {});
+  static std::shared_ptr<DatabaseCache> Create(const Database& database,
+                                               const Options& options);
 
   // Create a filtered database cache from an existing cache containing only
   // the specified images and their associated data.
   static std::shared_ptr<DatabaseCache> CreateFromCache(
-      const DatabaseCache& database_cache,
-      size_t min_num_matches,
-      const std::unordered_set<std::string>& image_names);
+      const DatabaseCache& database_cache, const Options& options);
 
   // Get number of objects.
   inline size_t NumRigs() const;
@@ -124,17 +122,15 @@ class DatabaseCache {
   // Find specific image by name. Note that this uses linear search.
   const class Image* FindImageWithName(const std::string& name) const;
 
-  // Setup PosePriors for PosePriorBundleAdjustment
-  bool SetupPosePriors();
-
  private:
-  std::shared_ptr<class CorrespondenceGraph> correspondence_graph_;
+  void ConvertPosePriorsToENU();
 
   std::unordered_map<rig_t, class Rig> rigs_;
   std::unordered_map<camera_t, struct Camera> cameras_;
   std::unordered_map<frame_t, class Frame> frames_;
   std::unordered_map<image_t, class Image> images_;
   std::vector<struct PosePrior> pose_priors_;
+  std::shared_ptr<class CorrespondenceGraph> correspondence_graph_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

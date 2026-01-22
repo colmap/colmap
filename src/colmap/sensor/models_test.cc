@@ -29,6 +29,7 @@
 
 #include "colmap/sensor/models.h"
 
+#include <ceres/ceres.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -43,7 +44,7 @@ bool FisheyeCameraModelIsValidPixel(const CameraModelId model_id,
     double uu, vv;                                                        \
     CameraModel::FisheyeFromImg(params.data(), xy.x(), xy.y(), &uu, &vv); \
     const double theta = std::sqrt(uu * uu + vv * vv);                    \
-    if (theta < M_PI / 2.0) {                                             \
+    if (theta < EIGEN_PI / 2.0) {                                         \
       return true;                                                        \
     } else {                                                              \
       return false;                                                       \
@@ -100,6 +101,61 @@ void TestCamFromImgToImg(const std::vector<double>& params,
         CameraModel::ImgFromCam(params.data(), w * u, w * v, w, &x, &y));
     EXPECT_NEAR(x, x0, 1e-6);
     EXPECT_NEAR(y, y0, 1e-6);
+  }
+}
+
+// Validate ImgFromCamWithJac against ImgFromCam using Ceres Jets.
+template <typename CameraModel>
+void TestImgFromCamWithJac(const std::vector<double>& params,
+                           const double u,
+                           const double v,
+                           const double w) {
+  constexpr size_t kNumParams = CameraModel::num_params;
+  constexpr size_t kNumUvw = 3;
+  constexpr size_t kNumDerivs = kNumParams + kNumUvw;
+
+  // Compute using ImgFromCamWithJac
+  double x_jac = 0, y_jac = 0;
+  double J_params[2 * kNumParams];
+  double J_uvw[2 * kNumUvw];
+  ASSERT_TRUE(CameraModel::ImgFromCamWithJac(
+      params.data(), u, v, w, &x_jac, &y_jac, J_params, J_uvw));
+
+  // Compute using ImgFromCam with Ceres Jets for auto-differentiation
+  // Jets track derivatives: first kNumParams for params, next 3 for u, v, w.
+  using JetT = ceres::Jet<double, kNumDerivs>;
+
+  JetT params_jet[kNumParams];
+  for (size_t i = 0; i < kNumParams; ++i) {
+    params_jet[i] = JetT(params[i], i);
+  }
+
+  JetT u_jet(u, kNumParams);
+  JetT v_jet(v, kNumParams + 1);
+  JetT w_jet(w, kNumParams + 2);
+
+  JetT x_jet, y_jet;
+  ASSERT_TRUE(
+      CameraModel::ImgFromCam(params_jet, u_jet, v_jet, w_jet, &x_jet, &y_jet));
+
+  // Compare function values
+  EXPECT_NEAR(x_jac, x_jet.a, 1e-10);
+  EXPECT_NEAR(y_jac, y_jet.a, 1e-10);
+
+  // Compare Jacobian w.r.t. params (2 x num_params, row-major)
+  for (size_t i = 0; i < kNumParams; ++i) {
+    EXPECT_NEAR(J_params[i], x_jet.v[i], 1e-10)
+        << "J_params mismatch at dx/dparam[" << i << "]";
+    EXPECT_NEAR(J_params[kNumParams + i], y_jet.v[i], 1e-10)
+        << "J_params mismatch at dy/dparam[" << i << "]";
+  }
+
+  // Compare Jacobian w.r.t. uvw (2 x 3, row-major)
+  for (size_t i = 0; i < kNumUvw; ++i) {
+    EXPECT_NEAR(J_uvw[i], x_jet.v[kNumParams + i], 1e-10)
+        << "J_uvw mismatch at dx/d(uvw)[" << i << "]";
+    EXPECT_NEAR(J_uvw[kNumUvw + i], y_jet.v[kNumParams + i], 1e-10)
+        << "J_uvw mismatch at dy/d(uvw)[" << i << "]";
   }
 }
 
@@ -186,6 +242,18 @@ void TestModel(const std::vector<double>& params) {
   const auto pp_idxs = CameraModel::principal_point_idxs;
   TestCamFromImgToImg<CameraModel>(
       params, params[pp_idxs.at(0)], params[pp_idxs.at(1)]);
+
+  if constexpr (CameraModel::has_img_from_cam_with_jac) {
+    // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
+    for (double u = -0.5; u <= 0.5; u += 0.1) {
+      // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
+      for (double v = -0.5; v <= 0.5; v += 0.1) {
+        for (const double w : {0.5, 1.0, 2.0}) {
+          TestImgFromCamWithJac<CameraModel>(params, u, v, w);
+        }
+      }
+    }
+  }
 }
 
 TEST(SimplePinhole, Nominal) {
@@ -290,6 +358,18 @@ TEST(RadTanThinPrismFisheye, Nominal) {
                                 -0.00017};
 
   TestModel<RadTanThinPrismFisheyeModel>(params);
+}
+
+TEST(SimpleDivision, Nominal) {
+  TestModel<SimpleDivisionCameraModel>({651.123, 386.123, 511.123, 0});
+  TestModel<SimpleDivisionCameraModel>({651.123, 386.123, 511.123, 0.1});
+  TestModel<SimpleDivisionCameraModel>({651.123, 386.123, 511.123, -0.1});
+}
+
+TEST(Division, Nominal) {
+  TestModel<DivisionCameraModel>({651.123, 655.123, 386.123, 511.123, 0});
+  TestModel<DivisionCameraModel>({651.123, 655.123, 386.123, 511.123, 0.1});
+  TestModel<DivisionCameraModel>({651.123, 655.123, 386.123, 511.123, -0.1});
 }
 
 }  // namespace

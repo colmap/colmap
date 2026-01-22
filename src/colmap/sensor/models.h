@@ -29,7 +29,6 @@
 
 #pragma once
 
-#include "colmap/math/math.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/enum_utils.h"
 #include "colmap/util/types.h"
@@ -83,19 +82,21 @@ namespace colmap {
 
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                 -1,
-                                kInvalid,                // = -1
-                                kSimplePinhole,          // = 0
-                                kPinhole,                // = 1
-                                kSimpleRadial,           // = 2
-                                kRadial,                 // = 3
-                                kOpenCV,                 // = 4
-                                kOpenCVFisheye,          // = 5
-                                kFullOpenCV,             // = 6
-                                kFOV,                    // = 7
-                                kSimpleRadialFisheye,    // = 8
-                                kRadialFisheye,          // = 9
-                                kThinPrismFisheye,       // = 10
-                                kRadTanThinPrismFisheye  // = 11
+                                kInvalid,                 // = -1
+                                kSimplePinhole,           // = 0
+                                kPinhole,                 // = 1
+                                kSimpleRadial,            // = 2
+                                kRadial,                  // = 3
+                                kOpenCV,                  // = 4
+                                kOpenCVFisheye,           // = 5
+                                kFullOpenCV,              // = 6
+                                kFOV,                     // = 7
+                                kSimpleRadialFisheye,     // = 8
+                                kRadialFisheye,           // = 9
+                                kThinPrismFisheye,        // = 10
+                                kRadTanThinPrismFisheye,  // = 11
+                                kSimpleDivision,          // = 12
+                                kDivision                 // = 13
 );
 
 #ifndef CAMERA_MODEL_DEFINITIONS
@@ -103,19 +104,21 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                  model_name_val,                              \
                                  num_focal_params_val,                        \
                                  num_pp_params_val,                           \
-                                 num_extra_params_val)                        \
+                                 num_extra_params_val,                        \
+                                 has_img_from_cam_with_jac_val)               \
   static constexpr size_t num_params =                                        \
       (num_focal_params_val) + (num_pp_params_val) + (num_extra_params_val);  \
   static constexpr size_t num_focal_params = num_focal_params_val;            \
   static constexpr size_t num_pp_params = num_pp_params_val;                  \
   static constexpr size_t num_extra_params = num_extra_params_val;            \
+  static constexpr bool has_img_from_cam_with_jac =                           \
+      has_img_from_cam_with_jac_val;                                          \
   static constexpr CameraModelId model_id = model_id_val;                     \
   static const std::string model_name;                                        \
   static const std::string params_info;                                       \
   static const std::array<size_t, (num_focal_params_val)> focal_length_idxs;  \
   static const std::array<size_t, (num_pp_params_val)> principal_point_idxs;  \
   static const std::array<size_t, (num_extra_params_val)> extra_params_idxs;  \
-                                                                              \
   static inline CameraModelId InitializeModelId() { return model_id_val; };   \
   static inline std::string InitializeModelName() { return model_name_val; }; \
   static inline std::string InitializeParamsInfo();                           \
@@ -125,12 +128,21 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
   InitializePrincipalPointIdxs();                                             \
   static inline std::array<size_t, (num_extra_params_val)>                    \
   InitializeExtraParamsIdxs();                                                \
-                                                                              \
   static inline std::vector<double> InitializeParams(                         \
       double focal_length, size_t width, size_t height);                      \
   template <typename T>                                                       \
   static bool ImgFromCam(                                                     \
       const T* params, const T& u, const T& v, const T& w, T* x, T* y);       \
+  template <bool Enable = has_img_from_cam_with_jac,                          \
+            typename std::enable_if<Enable, int>::type = 0>                   \
+  static inline bool ImgFromCamWithJac(const double* params,                  \
+                                       const double& u,                       \
+                                       const double& v,                       \
+                                       const double& w,                       \
+                                       double* x,                             \
+                                       double* y,                             \
+                                       double* J_params,                      \
+                                       double* J_uvw);                        \
   static inline bool CamFromImg(                                              \
       const double* params, double x, double y, double* u, double* v);        \
   template <typename T>                                                       \
@@ -151,7 +163,9 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
   CAMERA_MODEL_CASE(FullOpenCVCameraModel)          \
   CAMERA_MODEL_CASE(FOVCameraModel)                 \
   CAMERA_MODEL_CASE(ThinPrismFisheyeCameraModel)    \
-  CAMERA_MODEL_CASE(RadTanThinPrismFisheyeModel)
+  CAMERA_MODEL_CASE(RadTanThinPrismFisheyeModel)    \
+  CAMERA_MODEL_CASE(SimpleDivisionCameraModel)      \
+  CAMERA_MODEL_CASE(DivisionCameraModel)
 #endif
 
 #ifndef CAMERA_MODEL_SWITCH_CASES
@@ -270,7 +284,7 @@ struct BaseFisheyeCameraModel : public BaseCameraModel<CameraModel> {
 struct SimplePinholeCameraModel
     : public BaseCameraModel<SimplePinholeCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kSimplePinhole, "SIMPLE_PINHOLE", 1, 2, 0)
+      CameraModelId::kSimplePinhole, "SIMPLE_PINHOLE", 1, 2, 0, false)
 };
 
 // Pinhole camera model.
@@ -283,7 +297,7 @@ struct SimplePinholeCameraModel
 //
 // See https://en.wikipedia.org/wiki/Pinhole_camera_model
 struct PinholeCameraModel : public BaseCameraModel<PinholeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kPinhole, "PINHOLE", 2, 2, 0)
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kPinhole, "PINHOLE", 2, 2, 0, false)
 };
 
 // Simple camera model with one focal length and one radial distortion
@@ -300,7 +314,7 @@ struct PinholeCameraModel : public BaseCameraModel<PinholeCameraModel> {
 struct SimpleRadialCameraModel
     : public BaseCameraModel<SimpleRadialCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kSimpleRadial, "SIMPLE_RADIAL", 1, 2, 1)
+      CameraModelId::kSimpleRadial, "SIMPLE_RADIAL", 1, 2, 1, true)
 };
 
 // Simple camera model with one focal length and two radial distortion
@@ -314,7 +328,7 @@ struct SimpleRadialCameraModel
 //    f, cx, cy, k1, k2
 //
 struct RadialCameraModel : public BaseCameraModel<RadialCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kRadial, "RADIAL", 1, 2, 2)
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kRadial, "RADIAL", 1, 2, 2, false)
 };
 
 // OpenCV camera model.
@@ -330,7 +344,7 @@ struct RadialCameraModel : public BaseCameraModel<RadialCameraModel> {
 // See
 // http://docs.opencv.org/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
 struct OpenCVCameraModel : public BaseCameraModel<OpenCVCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kOpenCV, "OPENCV", 2, 2, 4)
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kOpenCV, "OPENCV", 2, 2, 4, false)
 };
 
 // OpenCV fish-eye camera model.
@@ -348,7 +362,7 @@ struct OpenCVCameraModel : public BaseCameraModel<OpenCVCameraModel> {
 struct OpenCVFisheyeCameraModel
     : public BaseFisheyeCameraModel<OpenCVFisheyeCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kOpenCVFisheye, "OPENCV_FISHEYE", 2, 2, 4)
+      CameraModelId::kOpenCVFisheye, "OPENCV_FISHEYE", 2, 2, 4, false)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -364,7 +378,8 @@ struct OpenCVFisheyeCameraModel
 // See
 // http://docs.opencv.org/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
 struct FullOpenCVCameraModel : public BaseCameraModel<FullOpenCVCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kFullOpenCV, "FULL_OPENCV", 2, 2, 8)
+  CAMERA_MODEL_DEFINITIONS(
+      CameraModelId::kFullOpenCV, "FULL_OPENCV", 2, 2, 8, false)
 };
 
 // FOV camera model.
@@ -382,7 +397,7 @@ struct FullOpenCVCameraModel : public BaseCameraModel<FullOpenCVCameraModel> {
 // Automatic calibration and removal of distortion from scenes of structured
 // environments. Machine vision and applications, 2001.
 struct FOVCameraModel : public BaseCameraModel<FOVCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kFOV, "FOV", 2, 2, 1)
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kFOV, "FOV", 2, 2, 1, false)
 
   template <typename T>
   static void Undistortion(const T* extra_params, T u, T v, T* du, T* dv);
@@ -400,8 +415,12 @@ struct FOVCameraModel : public BaseCameraModel<FOVCameraModel> {
 //
 struct SimpleRadialFisheyeCameraModel
     : public BaseFisheyeCameraModel<SimpleRadialFisheyeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kSimpleRadialFisheye, "SIMPLE_RADIAL_FISHEYE", 1, 2, 1)
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kSimpleRadialFisheye,
+                           "SIMPLE_RADIAL_FISHEYE",
+                           1,
+                           2,
+                           1,
+                           false)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -418,7 +437,7 @@ struct SimpleRadialFisheyeCameraModel
 struct RadialFisheyeCameraModel
     : public BaseFisheyeCameraModel<RadialFisheyeCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kRadialFisheye, "RADIAL_FISHEYE", 1, 2, 2)
+      CameraModelId::kRadialFisheye, "RADIAL_FISHEYE", 1, 2, 2, false)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -437,7 +456,7 @@ struct RadialFisheyeCameraModel
 struct ThinPrismFisheyeCameraModel
     : public BaseFisheyeCameraModel<ThinPrismFisheyeCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kThinPrismFisheye, "THIN_PRISM_FISHEYE", 2, 2, 8)
+      CameraModelId::kThinPrismFisheye, "THIN_PRISM_FISHEYE", 2, 2, 8, false)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -459,8 +478,43 @@ struct RadTanThinPrismFisheyeModel
                            "RAD_TAN_THIN_PRISM_FISHEYE",
                            2,
                            2,
-                           12)
+                           12,
+                           false)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
+};
+
+// Simple Division camera model.
+//
+// One parameter division model from Fitzgibbon with a single focal length.
+// This model has a closed-form projection and unprojection.
+//
+// See: "Simultaneous linear estimation of multiple view geometry and lens
+// distortion" by A. Fitzgibbon 2001.
+//
+// Parameter list is expected in the following order:
+//
+//    f, cx, cy, k
+//
+struct SimpleDivisionCameraModel
+    : public BaseCameraModel<SimpleDivisionCameraModel> {
+  CAMERA_MODEL_DEFINITIONS(
+      CameraModelId::kSimpleDivision, "SIMPLE_DIVISION", 1, 2, 1, false)
+};
+
+// Division camera model.
+//
+// One parameter division model from Fitzgibbon with separate fx/fy focal
+// lengths. This model has a closed-form projection and unprojection.
+//
+// See: "Simultaneous linear estimation of multiple view geometry and lens
+// distortion" by A. Fitzgibbon 2001.
+//
+// Parameter list is expected in the following order:
+//
+//    fx, fy, cx, cy, k
+//
+struct DivisionCameraModel : public BaseCameraModel<DivisionCameraModel> {
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kDivision, "DIVISION", 2, 2, 1, false)
 };
 
 // Check whether camera model with given name or identifier exists.
@@ -883,6 +937,87 @@ bool SimpleRadialCameraModel::ImgFromCam(
   // Transform to image coordinates
   *x = f * *x + c1;
   *y = f * *y + c2;
+
+  return true;
+}
+
+template <bool Enable, typename std::enable_if<Enable, int>::type>
+bool SimpleRadialCameraModel::ImgFromCamWithJac(const double* params,
+                                                const double& u,
+                                                const double& v,
+                                                const double& w,
+                                                double* x,
+                                                double* y,
+                                                double* J_params,
+                                                double* J_uvw) {
+  if (w < std::numeric_limits<double>::epsilon()) {
+    return false;
+  }
+
+  const double f = params[0];
+  const double c1 = params[1];
+  const double c2 = params[2];
+  const double k = params[3];
+
+  const double inv_w = 1.0 / w;
+  const double uu = u * inv_w;
+  const double vv = v * inv_w;
+
+  const double uu2 = uu * uu;
+  const double vv2 = vv * vv;
+  const double r2 = uu2 + vv2;
+  const double k_r2 = k * r2;
+  const double alpha = 1.0 + k_r2;
+  const double xd = alpha * uu;
+  const double yd = alpha * vv;
+
+  *x = f * xd + c1;
+  *y = f * yd + c2;
+
+  if (J_uvw) {
+    // J_uvw is a 2x3 matrix (row-major): d(x, y) / d(u, v, w)
+    //
+    // x = f * alpha * uu + c1, y = f * alpha * vv + c2
+    // where alpha = 1 + k * r2, r2 = uu^2 + vv^2, uu = u/w, vv = v/w
+    //
+    // Using chain rule:
+    // dx/du = f/w * (alpha + 2*k*uu^2)
+    // dx/dv = f/w * 2*k*uu*vv
+    // dx/dw = -f*uu/w * (1 + 3*k*r2)
+    // dy/du = f/w * 2*k*uu*vv
+    // dy/dv = f/w * (alpha + 2*k*vv^2)
+    // dy/dw = -f*vv/w * (1 + 3*k*r2)
+
+    const double two_k = 2.0 * k;
+    const double f_inv_w = f * inv_w;
+    const double beta = 1.0 + 3.0 * k_r2;
+    const double two_k_uu_vv = two_k * uu * vv;
+
+    J_uvw[0] = f_inv_w * (alpha + two_k * uu2);
+    J_uvw[1] = f_inv_w * two_k_uu_vv;
+    J_uvw[2] = -f_inv_w * uu * beta;
+    J_uvw[3] = f_inv_w * two_k_uu_vv;
+    J_uvw[4] = f_inv_w * (alpha + two_k * vv2);
+    J_uvw[5] = -f_inv_w * vv * beta;
+  }
+
+  if (J_params) {
+    // J_params is a 2x4 matrix (row-major): d(x, y) / d(f, cx, cy, k)
+    //
+    // x = f * alpha * uu + cx, y = f * alpha * vv + cy
+    //
+    // dx/df = alpha * uu, dx/dcx = 1, dx/dcy = 0, dx/dk = f * uu * r2
+    // dy/df = alpha * vv, dy/dcx = 0, dy/dcy = 1, dy/dk = f * vv * r2
+
+    J_params[0] = xd;
+    J_params[1] = 1.0;
+    J_params[2] = 0.0;
+    J_params[3] = f * uu * r2;
+    J_params[4] = yd;
+    J_params[5] = 0.0;
+    J_params[6] = 1.0;
+    J_params[7] = f * vv * r2;
+  }
 
   return true;
 }
@@ -1841,6 +1976,177 @@ void RadTanThinPrismFisheyeModel::Distortion(
 
   *du = x_distorted - u;
   *dv = y_distorted - v;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// SimpleDivisionCameraModel
+
+std::string SimpleDivisionCameraModel::InitializeParamsInfo() {
+  return "f, cx, cy, k";
+}
+
+std::array<size_t, 1> SimpleDivisionCameraModel::InitializeFocalLengthIdxs() {
+  return {0};
+}
+
+std::array<size_t, 2>
+SimpleDivisionCameraModel::InitializePrincipalPointIdxs() {
+  return {1, 2};
+}
+
+std::array<size_t, 1> SimpleDivisionCameraModel::InitializeExtraParamsIdxs() {
+  return {3};
+}
+
+std::vector<double> SimpleDivisionCameraModel::InitializeParams(
+    const double focal_length, const size_t width, const size_t height) {
+  return {focal_length, width / 2.0, height / 2.0, 0};
+}
+
+template <typename T>
+bool SimpleDivisionCameraModel::ImgFromCam(
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
+  // Division model projection:
+  // (xp, 1+k*|xp|^2) ~= (x(1:2), x3)
+  // Solving the quadratic: rho*k*r2 - x3 * r + rho = 0
+
+  const T f = params[0];
+  const T c1 = params[1];
+  const T c2 = params[2];
+  const T k = params[3];
+
+  const T rho = ceres::sqrt(u * u + v * v);
+  const T disc_sq = w * w - T(4) * rho * rho * k;
+
+  if (disc_sq < T(0)) {
+    return false;
+  }
+
+  const T disc = ceres::sqrt(disc_sq);
+  const T r = T(2) / (w + disc);
+
+  *x = f * r * u + c1;
+  *y = f * r * v + c2;
+
+  return true;
+}
+
+bool SimpleDivisionCameraModel::CamFromImg(
+    const double* params, double x, double y, double* u, double* v) {
+  const double f = params[0];
+  const double c1 = params[1];
+  const double c2 = params[2];
+  const double k = params[3];
+
+  // Lift to normalized coordinates
+  const double x0 = (x - c1) / f;
+  const double y0 = (y - c2) / f;
+  const double r2 = x0 * x0 + y0 * y0;
+
+  // Closed-form unprojection for division model
+  const double denom = 1.0 + k * r2;
+  *u = x0 / denom;
+  *v = y0 / denom;
+
+  return true;
+}
+
+template <typename T>
+void SimpleDivisionCameraModel::Distortion(
+    const T* extra_params, const T& u, const T& v, T* du, T* dv) {
+  // The division model doesn't use standard additive distortion,
+  // but we need this for compatibility with the iterative undistortion.
+  const T k = extra_params[0];
+  const T r2 = u * u + v * v;
+  const T factor = k * r2 / (T(1) + k * r2);
+  *du = -u * factor;
+  *dv = -v * factor;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// DivisionCameraModel
+
+std::string DivisionCameraModel::InitializeParamsInfo() {
+  return "fx, fy, cx, cy, k";
+}
+
+std::array<size_t, 2> DivisionCameraModel::InitializeFocalLengthIdxs() {
+  return {0, 1};
+}
+
+std::array<size_t, 2> DivisionCameraModel::InitializePrincipalPointIdxs() {
+  return {2, 3};
+}
+
+std::array<size_t, 1> DivisionCameraModel::InitializeExtraParamsIdxs() {
+  return {4};
+}
+
+std::vector<double> DivisionCameraModel::InitializeParams(
+    const double focal_length, const size_t width, const size_t height) {
+  return {focal_length, focal_length, width / 2.0, height / 2.0, 0};
+}
+
+template <typename T>
+bool DivisionCameraModel::ImgFromCam(
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
+  // Division model projection:
+  // (xp, 1+k*|xp|^2) ~= (x(1:2), x3)
+  // Solving the quadratic: rho*k*r2 - x3 * r + rho = 0
+
+  const T f1 = params[0];
+  const T f2 = params[1];
+  const T c1 = params[2];
+  const T c2 = params[3];
+  const T k = params[4];
+
+  const T rho = ceres::sqrt(u * u + v * v);
+  const T disc_sq = w * w - T(4) * rho * rho * k;
+
+  if (disc_sq < T(0)) {
+    return false;
+  }
+
+  const T disc = ceres::sqrt(disc_sq);
+  const T r = T(2) / (w + disc);
+
+  *x = f1 * r * u + c1;
+  *y = f2 * r * v + c2;
+
+  return true;
+}
+
+bool DivisionCameraModel::CamFromImg(
+    const double* params, double x, double y, double* u, double* v) {
+  const double f1 = params[0];
+  const double f2 = params[1];
+  const double c1 = params[2];
+  const double c2 = params[3];
+  const double k = params[4];
+
+  // Lift to normalized coordinates
+  const double x0 = (x - c1) / f1;
+  const double y0 = (y - c2) / f2;
+  const double r2 = x0 * x0 + y0 * y0;
+
+  // Closed-form unprojection for division model
+  const double denom = 1.0 + k * r2;
+  *u = x0 / denom;
+  *v = y0 / denom;
+
+  return true;
+}
+
+template <typename T>
+void DivisionCameraModel::Distortion(
+    const T* extra_params, const T& u, const T& v, T* du, T* dv) {
+  // The division model doesn't use standard additive distortion,
+  // but we need this for compatibility with the iterative undistortion.
+  const T k = extra_params[0];
+  const T r2 = u * u + v * v;
+  const T factor = k * r2 / (T(1) + k * r2);
+  *du = -u * factor;
+  *dv = -v * factor;
 }
 
 std::optional<Eigen::Vector2d> CameraModelImgFromCam(

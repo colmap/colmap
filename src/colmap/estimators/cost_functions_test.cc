@@ -72,6 +72,68 @@ TEST(ReprojErrorCostFunctor, Nominal) {
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], -2);
   EXPECT_EQ(residuals[1], 2);
+
+  point3D[2] = -1;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+}
+
+TEST(ReprojErrorCostFunctor, AnalyticalVersusAutoDiff) {
+  SetPRNGSeed(42);
+
+  const Eigen::Vector2d kPoint2D(200, 300);
+  auto analytical_cost_function = std::make_unique<
+      AnalyticalReprojErrorCostFunction<SimpleRadialCameraModel>>(kPoint2D);
+  std::unique_ptr<ceres::CostFunction> auto_diff_cost_function(
+      ReprojErrorCostFunctor<SimpleRadialCameraModel>::Create(kPoint2D));
+
+  for (const double x : {-1, 0, 1}) {
+    for (const double y : {-1, 0, 1}) {
+      for (const double z : {0, 1, 2, 3}) {
+        Rigid3d cam_from_world(Eigen::Quaterniond(Eigen::AngleAxisd(
+                                   RandomUniformReal<double>(0, 2 * EIGEN_PI),
+                                   Eigen::Vector3d(0.1, -0.1, 1).normalized())),
+                               Eigen::Vector3d(1, 2, 3));
+        Eigen::Vector3d point3D(x, y, z);
+        std::vector<double> simple_radial_params = {200, 100, 120, 0.1};
+
+        // Ensure point is in front of camera.
+        ASSERT_GT((cam_from_world * point3D).z(), 0);
+
+#if CERES_VERSION_MAJOR >= 3 || \
+    (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
+        ceres::EigenQuaternionManifold quaternion_manifold;
+        const std::vector<const ceres::Manifold*> manifolds = {
+            &quaternion_manifold, nullptr, nullptr, nullptr};
+#else
+        ceres::EigenQuaternionParameterization quaternion_manifold;
+        const std::vector<const ceres::LocalParameterization*> manifolds = {
+            &quaternion_manifold, nullptr, nullptr, nullptr};
+#endif
+        std::vector<double*> parameter_blocks{
+            cam_from_world.rotation.coeffs().data(),
+            cam_from_world.translation.data(),
+            point3D.data(),
+            simple_radial_params.data()};
+
+        constexpr double kEps = 1e-9;
+
+        Eigen::Vector2d auto_diff_residuals;
+        EXPECT_TRUE(auto_diff_cost_function->Evaluate(
+            parameter_blocks.data(), auto_diff_residuals.data(), nullptr));
+
+        ceres::NumericDiffOptions numeric_diff_options;
+        ceres::GradientChecker gradient_checker(
+            analytical_cost_function.get(), &manifolds, numeric_diff_options);
+        ceres::GradientChecker::ProbeResults results;
+        EXPECT_TRUE(
+            gradient_checker.Probe(parameter_blocks.data(), kEps, &results));
+        EXPECT_NEAR(results.residuals[0], auto_diff_residuals[0], kEps);
+        EXPECT_NEAR(results.residuals[1], auto_diff_residuals[1], kEps);
+      }
+    }
+  }
 }
 
 TEST(ReprojErrorConstantPoseCostFunctor, Nominal) {
@@ -510,6 +572,31 @@ TEST(CovarianceWeightedCostFunctor, AbsolutePosePositionPriorCostFunctor) {
       residuals[1], -0.5 * std::sqrt(2) * world_from_cam.translation[1], 1e-6);
   EXPECT_NEAR(
       residuals[2], -0.5 * std::sqrt(2) * world_from_cam.translation[2], 1e-6);
+}
+
+// TODO(jsch): Add meaningful tests for FetzerFocalLengthCostFunctor.
+
+TEST(FetzerFocalLengthCostFunctor, CreateCostFunction) {
+  Eigen::Matrix3d F;
+  F << 0, 0, 0.1, 0, 0, 0.2, -0.1, -0.2, 0;
+  const Eigen::Vector2d pp0(320, 240);
+  const Eigen::Vector2d pp1(320, 240);
+
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      FetzerFocalLengthCostFunctor::Create(F, pp0, pp1));
+  ASSERT_NE(cost_function, nullptr);
+}
+
+// TODO(jsch): Add meaningful tests for FetzerFocalLengthSameCameraCostFunctor.
+
+TEST(FetzerFocalLengthSameCameraCostFunctor, CreateCostFunction) {
+  Eigen::Matrix3d F;
+  F << 0, 0, 0.1, 0, 0, 0.2, -0.1, -0.2, 0;
+  const Eigen::Vector2d pp(320, 240);
+
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      FetzerFocalLengthSameCameraCostFunctor::Create(F, pp));
+  ASSERT_NE(cost_function, nullptr);
 }
 
 }  // namespace

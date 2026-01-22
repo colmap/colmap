@@ -32,6 +32,8 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
+#include <filesystem>
+
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
@@ -67,8 +69,8 @@ struct Sim3d {
   }
 
   // Read from or write to text file without loss of precision.
-  void ToFile(const std::string& path) const;
-  static Sim3d FromFile(const std::string& path);
+  void ToFile(const std::filesystem::path& path) const;
+  static Sim3d FromFile(const std::filesystem::path& path);
 };
 
 // Return inverse transform.

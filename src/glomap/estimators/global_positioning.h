@@ -1,29 +1,14 @@
 #pragma once
 
 #include "colmap/scene/reconstruction.h"
-#include "colmap/util/enum_utils.h"
 
-#include "glomap/scene/view_graph.h"
+#include "glomap/scene/pose_graph.h"
 
 #include <string>
 
 #include <ceres/ceres.h>
 
 namespace glomap {
-
-// Constraint type for global positioning. ONLY_POINTS is recommended.
-// - ONLY_POINTS: only include camera to point constraints
-// - ONLY_CAMERAS: only include camera to camera constraints
-// - POINTS_AND_CAMERAS_BALANCED: points and cameras reweighted to have similar
-//   total contribution
-// - POINTS_AND_CAMERAS: treat each contribution from camera to point and
-//   camera to camera equally
-MAKE_ENUM_CLASS(GlobalPositioningConstraintType,
-                0,
-                ONLY_POINTS,
-                ONLY_CAMERAS,
-                POINTS_AND_CAMERAS_BALANCED,
-                POINTS_AND_CAMERAS);
 
 struct GlobalPositionerOptions {
   // Whether to initialize the camera and track positions randomly.
@@ -49,12 +34,6 @@ struct GlobalPositionerOptions {
   // If -1 (default), uses non-deterministic random_device seeding.
   // If >= 0, uses deterministic seeding with the given value.
   int random_seed = -1;
-
-  // the type of global positioning
-  GlobalPositioningConstraintType constraint_type =
-      GlobalPositioningConstraintType::ONLY_POINTS;
-  double constraint_reweight_scale =
-      1.0;  // only relevant for POINTS_AND_CAMERAS_BALANCED
 
   // Scaling factor for the loss function
   double loss_function_scale = 0.1;
@@ -84,22 +63,18 @@ class GlobalPositioner {
   // Returns true if the optimization was a success, false if there was a
   // failure.
   // Assume tracks here are already filtered
-  bool Solve(const ViewGraph& view_graph,
+  bool Solve(const PoseGraph& pose_graph,
              colmap::Reconstruction& reconstruction);
 
   GlobalPositionerOptions& GetOptions() { return options_; }
 
  protected:
-  void SetupProblem(const ViewGraph& view_graph,
+  void SetupProblem(const PoseGraph& pose_graph,
                     const colmap::Reconstruction& reconstruction);
 
   // Initialize all cameras to be random.
-  void InitializeRandomPositions(const ViewGraph& view_graph,
+  void InitializeRandomPositions(const PoseGraph& pose_graph,
                                  colmap::Reconstruction& reconstruction);
-
-  // Creates camera to camera constraints from relative translations. (3D)
-  void AddCameraToCameraConstraints(const ViewGraph& view_graph,
-                                    colmap::Reconstruction& reconstruction);
 
   // Add tracks to the problem
   void AddPointToCameraConstraints(colmap::Reconstruction& reconstruction);
@@ -131,8 +106,6 @@ class GlobalPositioner {
   // Auxiliary scale variables.
   std::vector<double> scales_;
 
-  std::unordered_map<rig_t, double> rig_scales_;
-
   // Temporary storage for frame centers (world coordinates) during
   // optimization. This allows keeping RigFromWorld().translation in
   // cam_from_world convention.
@@ -142,5 +115,10 @@ class GlobalPositioner {
   // and needs to be estimated.
   std::unordered_map<sensor_t, Eigen::Vector3d> cams_in_rig_;
 };
+
+// Solve global positioning using point-to-camera constraints.
+bool RunGlobalPositioning(const GlobalPositionerOptions& options,
+                          const PoseGraph& pose_graph,
+                          colmap::Reconstruction& reconstruction);
 
 }  // namespace glomap

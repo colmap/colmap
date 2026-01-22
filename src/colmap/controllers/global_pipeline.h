@@ -29,26 +29,61 @@
 
 #pragma once
 
+#include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/util/base_controller.h"
 
 #include "glomap/sfm/global_mapper.h"
 
+#include <filesystem>
 #include <memory>
+#include <vector>
 
 namespace colmap {
+
+struct GlobalPipelineOptions {
+  // The minimum number of matches for inlier matches to be considered.
+  int min_num_matches = 15;
+
+  // Whether to ignore the inlier matches of watermark image pairs.
+  bool ignore_watermarks = false;
+
+  // Names of images to reconstruct. If empty, all images are used.
+  std::vector<std::string> image_names;
+
+  // The image path at which to find the images to extract point colors.
+  std::filesystem::path image_path;
+
+  // Number of threads for parallel processing.
+  int num_threads = -1;
+
+  // Random seed for reproducibility.
+  int random_seed = -1;
+
+  // Whether to decompose relative poses from two-view geometries.
+  bool decompose_relative_pose = true;
+
+  // Whether to skip view graph calibration.
+  bool skip_view_graph_calibration = false;
+
+  // Options for view graph calibration.
+  ViewGraphCalibrationOptions view_graph_calibration;
+
+  // Options for the global mapper.
+  glomap::GlobalMapperOptions mapper;
+};
 
 class GlobalPipeline : public BaseController {
  public:
   GlobalPipeline(
-      const glomap::GlobalMapperOptions& options,
+      const GlobalPipelineOptions& options,
       std::shared_ptr<Database> database,
       std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager);
 
   void Run() override;
 
  private:
-  const glomap::GlobalMapperOptions options_;
+  const GlobalPipelineOptions options_;
   const std::shared_ptr<Database> database_;
   std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager_;
 };

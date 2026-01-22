@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/util//enum_utils.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
@@ -63,13 +64,18 @@
 
 namespace colmap {
 
-enum class CopyType { COPY, HARD_LINK, SOFT_LINK };
+MAKE_ENUM_CLASS(FileCopyType, 0, COPY, HARD_LINK, SOFT_LINK);
 
 // Append trailing slash to string if it does not yet end with a slash.
 std::string EnsureTrailingSlash(const std::string& str);
 
 // Check whether file name has the file extension (case insensitive).
-bool HasFileExtension(const std::string& file_name, const std::string& ext);
+bool HasFileExtension(const std::filesystem::path& file_name,
+                      const std::string& ext);
+
+// Add a file extension.
+std::filesystem::path AddFileExtension(std::filesystem::path path,
+                                       const std::string& ext);
 
 // Split the path into its root and extension, for example,
 // "dir/file.jpg" into "dir/file" and ".jpg".
@@ -78,68 +84,59 @@ void SplitFileExtension(const std::string& path,
                         std::string* ext);
 
 // Copy or link file from source to destination path
-void FileCopy(const std::string& src_path,
-              const std::string& dst_path,
-              CopyType type = CopyType::COPY);
+void FileCopy(const std::filesystem::path& src_path,
+              const std::filesystem::path& dst_path,
+              FileCopyType type = FileCopyType::COPY);
 
 // Check if the path points to an existing file.
-bool ExistsFile(const std::string& path);
+bool ExistsFile(const std::filesystem::path& path);
 
 // Check if the path points to an existing directory.
-bool ExistsDir(const std::string& path);
+bool ExistsDir(const std::filesystem::path& path);
 
 // Check if the path points to an existing file or directory.
-bool ExistsPath(const std::string& path);
+bool ExistsPath(const std::filesystem::path& path);
 
 // Create the directory if it does not exist.
-void CreateDirIfNotExists(const std::string& path, bool recursive = false);
+void CreateDirIfNotExists(const std::filesystem::path& path,
+                          bool recursive = false);
 
 // Extract the base name of a path, e.g., "image.jpg" for "/dir/image.jpg".
-std::string GetPathBaseName(const std::string& path);
+std::filesystem::path GetPathBaseName(const std::filesystem::path& path);
 
 // Get the path of the parent directory for the given path.
-std::string GetParentDir(const std::string& path);
+std::filesystem::path GetParentDir(const std::filesystem::path& path);
 
 // Normalize the path by removing repeated separators and dots and, on Windows,
 // replacing \\ separators by /.
 std::string NormalizePath(const std::filesystem::path& path);
 
 // Get the normalized relative path of full_path w.r.t. base_path.
-std::string GetNormalizedRelativePath(const std::string& full_path,
-                                      const std::string& base_path);
-
-// Join multiple paths into one path.
-template <typename... T>
-std::string JoinPaths(T const&... paths);
-
-// Return list of files in directory.
-std::vector<std::string> GetFileList(const std::string& path);
+std::string GetNormalizedRelativePath(const std::filesystem::path& full_path,
+                                      const std::filesystem::path& base_path);
 
 // Return list of files, recursively in all sub-directories.
-std::vector<std::string> GetRecursiveFileList(const std::string& path);
+std::vector<std::filesystem::path> GetRecursiveFileList(
+    const std::filesystem::path& path);
 
-// Return list of directories, recursively in all sub-directories.
-std::vector<std::string> GetDirList(const std::string& path);
-
-// Return list of directories, recursively in all sub-directories.
-std::vector<std::string> GetRecursiveDirList(const std::string& path);
-
-// Get the size in bytes of a file.
-size_t GetFileSize(const std::string& path);
+// Return list of directories in the given directory.
+std::vector<std::filesystem::path> GetDirList(
+    const std::filesystem::path& path);
 
 // Gets current user's home directory from environment variables.
 // Returns null if it cannot be resolved.
 std::optional<std::filesystem::path> HomeDir();
 
 // Read contiguous binary blob from file.
-void ReadBinaryBlob(const std::string& path, std::vector<char>* data);
+void ReadBinaryBlob(const std::filesystem::path& path, std::vector<char>* data);
 
 // Write contiguous binary blob to file.
-void WriteBinaryBlob(const std::string& path, const span<const char>& data);
+void WriteBinaryBlob(const std::filesystem::path& path,
+                     const span<const char>& data);
 
 // Read each line of a text file into a separate element. Empty lines are
 // ignored and leading/trailing whitespace is removed.
-std::vector<std::string> ReadTextFileLines(const std::string& path);
+std::vector<std::string> ReadTextFileLines(const std::filesystem::path& path);
 
 // Detect if given string is a URI
 // (i.e., starts with http://, https://, file://).
@@ -172,18 +169,6 @@ void OverwriteDownloadCacheDir(std::filesystem::path path);
 // If the given URI is a local filesystem path, returns the input path. If the
 // URI matches the "<url>;<name>;<sha256>" format, calls DownloadAndCacheFile().
 // Throws runtime exception if download is not supported.
-std::string MaybeDownloadAndCacheFile(const std::string& uri);
-
-////////////////////////////////////////////////////////////////////////////////
-// Implementation
-////////////////////////////////////////////////////////////////////////////////
-
-template <typename... T>
-std::string JoinPaths(T const&... paths) {
-  std::filesystem::path result;
-  int unpack[]{0, (result = result / std::filesystem::path(paths), 0)...};
-  static_cast<void>(unpack);
-  return result.string();
-}
+std::filesystem::path MaybeDownloadAndCacheFile(const std::string& uri);
 
 }  // namespace colmap

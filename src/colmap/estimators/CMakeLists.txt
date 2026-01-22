@@ -53,6 +53,7 @@ set(ESTIMATORS_SRCS
     triangulation.h triangulation.cc
     two_view_geometry.h two_view_geometry.cc
     utils.h utils.cc
+    view_graph_calibration.h view_graph_calibration.cc
 )
 
 if(CASPAR_ENABLED)
@@ -185,5 +186,10 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME two_view_geometry_test
     SRCS two_view_geometry_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME view_graph_calibration_test
+    SRCS view_graph_calibration_test.cc
     LINK_LIBS colmap_estimators
 )

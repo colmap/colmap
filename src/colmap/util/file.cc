@@ -67,17 +67,19 @@ std::string EnsureTrailingSlash(const std::string& str) {
   return str;
 }
 
-bool HasFileExtension(const std::string& file_name, const std::string& ext) {
+bool HasFileExtension(const std::filesystem::path& file_name,
+                      const std::string& ext) {
   THROW_CHECK(!ext.empty());
   THROW_CHECK_EQ(ext.at(0), '.');
   std::string ext_lower = ext;
   StringToLower(&ext_lower);
-  if (file_name.size() >= ext_lower.size() &&
-      file_name.substr(file_name.size() - ext_lower.size(), ext_lower.size()) ==
-          ext_lower) {
-    return true;
-  }
-  return false;
+  return file_name.extension() == ext_lower;
+}
+
+std::filesystem::path AddFileExtension(std::filesystem::path path,
+                                       const std::string& ext) {
+  path += ext;
+  return path;
 }
 
 void SplitFileExtension(const std::string& path,
@@ -102,35 +104,35 @@ void SplitFileExtension(const std::string& path,
   }
 }
 
-void FileCopy(const std::string& src_path,
-              const std::string& dst_path,
-              CopyType type) {
+void FileCopy(const std::filesystem::path& src_path,
+              const std::filesystem::path& dst_path,
+              FileCopyType type) {
   switch (type) {
-    case CopyType::COPY:
+    case FileCopyType::COPY:
       std::filesystem::copy_file(src_path, dst_path);
       break;
-    case CopyType::HARD_LINK:
+    case FileCopyType::HARD_LINK:
       std::filesystem::create_hard_link(src_path, dst_path);
       break;
-    case CopyType::SOFT_LINK:
+    case FileCopyType::SOFT_LINK:
       std::filesystem::create_symlink(src_path, dst_path);
       break;
   }
 }
 
-bool ExistsFile(const std::string& path) {
+bool ExistsFile(const std::filesystem::path& path) {
   return std::filesystem::is_regular_file(path);
 }
 
-bool ExistsDir(const std::string& path) {
+bool ExistsDir(const std::filesystem::path& path) {
   return std::filesystem::is_directory(path);
 }
 
-bool ExistsPath(const std::string& path) {
+bool ExistsPath(const std::filesystem::path& path) {
   return std::filesystem::exists(path);
 }
 
-void CreateDirIfNotExists(const std::string& path, bool recursive) {
+void CreateDirIfNotExists(const std::filesystem::path& path, bool recursive) {
   if (ExistsDir(path)) {
     return;
   }
@@ -141,17 +143,17 @@ void CreateDirIfNotExists(const std::string& path, bool recursive) {
   }
 }
 
-std::string GetPathBaseName(const std::string& path) {
-  std::filesystem::path fs_path(NormalizePath(path));
+std::filesystem::path GetPathBaseName(const std::filesystem::path& path) {
+  const std::filesystem::path fs_path(NormalizePath(path));
   if (fs_path.has_filename()) {
-    return fs_path.filename().string();
+    return fs_path.filename();
   } else {  // It is a directory.
-    return fs_path.parent_path().filename().string();
+    return fs_path.parent_path().filename();
   }
 }
 
-std::string GetParentDir(const std::string& path) {
-  return std::filesystem::path(path).parent_path().string();
+std::filesystem::path GetParentDir(const std::filesystem::path& path) {
+  return path.parent_path();
 }
 
 std::string NormalizePath(const std::filesystem::path& path) {
@@ -162,64 +164,40 @@ std::string NormalizePath(const std::filesystem::path& path) {
   return normalized_path;
 }
 
-std::string GetNormalizedRelativePath(const std::string& full_path,
-                                      const std::string& base_path) {
+std::string GetNormalizedRelativePath(const std::filesystem::path& full_path,
+                                      const std::filesystem::path& base_path) {
   return NormalizePath(std::filesystem::relative(full_path, base_path));
 }
 
-std::vector<std::string> GetFileList(const std::string& path) {
-  std::vector<std::string> file_list;
-  for (auto it = std::filesystem::directory_iterator(path);
-       it != std::filesystem::directory_iterator();
-       ++it) {
-    if (std::filesystem::is_regular_file(*it)) {
-      const std::filesystem::path file_path = *it;
-      file_list.push_back(file_path.string());
-    }
-  }
-  return file_list;
-}
-
-std::vector<std::string> GetRecursiveFileList(const std::string& path) {
-  std::vector<std::string> file_list;
+std::vector<std::filesystem::path> GetRecursiveFileList(
+    const std::filesystem::path& path) {
+  std::vector<std::filesystem::path> file_list;
   for (auto it = std::filesystem::recursive_directory_iterator(path);
        it != std::filesystem::recursive_directory_iterator();
        ++it) {
     if (std::filesystem::is_regular_file(*it)) {
       const std::filesystem::path file_path = *it;
-      file_list.push_back(file_path.string());
+      file_list.push_back(file_path);
     }
   }
   return file_list;
 }
 
-std::vector<std::string> GetDirList(const std::string& path) {
-  std::vector<std::string> dir_list;
+std::vector<std::filesystem::path> GetDirList(
+    const std::filesystem::path& path) {
+  std::vector<std::filesystem::path> dir_list;
   for (auto it = std::filesystem::directory_iterator(path);
        it != std::filesystem::directory_iterator();
        ++it) {
     if (std::filesystem::is_directory(*it)) {
       const std::filesystem::path dir_path = *it;
-      dir_list.push_back(dir_path.string());
+      dir_list.push_back(dir_path);
     }
   }
   return dir_list;
 }
 
-std::vector<std::string> GetRecursiveDirList(const std::string& path) {
-  std::vector<std::string> dir_list;
-  for (auto it = std::filesystem::recursive_directory_iterator(path);
-       it != std::filesystem::recursive_directory_iterator();
-       ++it) {
-    if (std::filesystem::is_directory(*it)) {
-      const std::filesystem::path dir_path = *it;
-      dir_list.push_back(dir_path.string());
-    }
-  }
-  return dir_list;
-}
-
-size_t GetFileSize(const std::string& path) {
+size_t GetFileSize(const std::filesystem::path& path) {
   std::ifstream file(path, std::ifstream::ate | std::ifstream::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   return file.tellg();
@@ -282,7 +260,8 @@ std::optional<std::filesystem::path> HomeDir() {
 #endif
 }
 
-void ReadBinaryBlob(const std::string& path, std::vector<char>* data) {
+void ReadBinaryBlob(const std::filesystem::path& path,
+                    std::vector<char>* data) {
   std::ifstream file(path, std::ios::binary | std::ios::ate);
   THROW_CHECK_FILE_OPEN(file, path);
   file.seekg(0, std::ios::end);
@@ -292,13 +271,14 @@ void ReadBinaryBlob(const std::string& path, std::vector<char>* data) {
   file.read(data->data(), num_bytes);
 }
 
-void WriteBinaryBlob(const std::string& path, const span<const char>& data) {
+void WriteBinaryBlob(const std::filesystem::path& path,
+                     const span<const char>& data) {
   std::ofstream file(path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   file.write(data.begin(), data.size());
 }
 
-std::vector<std::string> ReadTextFileLines(const std::string& path) {
+std::vector<std::string> ReadTextFileLines(const std::filesystem::path& path) {
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
 
@@ -362,9 +342,32 @@ std::optional<std::string> DownloadFile(const std::string& url) {
   std::ostringstream data_stream;
   curl_easy_setopt(handle.ptr, CURLOPT_WRITEDATA, &data_stream);
 
+  // Respect SSL_CERT_FILE and SSL_CERT_DIR environment variables for
+  // cross-distribution compatibility (e.g., Ubuntu vs RHEL-based systems).
+  // This can be an issue in pycolmap, where we build cross-platform for Linux
+  // using RHEL while users may run pycolmap on Ubuntu, etc.
+  const std::optional<std::string> ssl_cert_file = GetEnvSafe("SSL_CERT_FILE");
+  if (ssl_cert_file.has_value() && !ssl_cert_file->empty()) {
+    VLOG(2) << "Using SSL_CERT_FILE: " << *ssl_cert_file;
+    curl_easy_setopt(handle.ptr, CURLOPT_CAINFO, ssl_cert_file->c_str());
+  }
+  const std::optional<std::string> ssl_cert_dir = GetEnvSafe("SSL_CERT_DIR");
+  if (ssl_cert_dir.has_value() && !ssl_cert_dir->empty()) {
+    VLOG(2) << "Using SSL_CERT_DIR: " << *ssl_cert_dir;
+    curl_easy_setopt(handle.ptr, CURLOPT_CAPATH, ssl_cert_dir->c_str());
+  }
+
   const CURLcode code = curl_easy_perform(handle.ptr);
   if (code != CURLE_OK) {
-    VLOG(2) << "Curl failed to perform request with code: " << code;
+    if (code == CURLE_SSL_CACERT_BADFILE || code == CURLE_SSL_CACERT) {
+      LOG(ERROR) << "Curl SSL certificate error (code " << code
+                 << "). Try setting SSL_CERT_FILE to point to your system's "
+                    "CA certificate bundle (e.g., "
+                    "SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt on "
+                    "Ubuntu/Debian).";
+    } else {
+      VLOG(2) << "Curl failed to perform request with code: " << code;
+    }
     return std::nullopt;
   }
 
@@ -448,7 +451,7 @@ std::string DownloadAndCacheFile(const std::string& uri) {
     THROW_CHECK(std::filesystem::create_directories(download_cache_dir));
   }
 
-  const std::filesystem::path path = download_cache_dir / (sha256 + "-" + name);
+  const auto path = download_cache_dir / (sha256 + "-" + name);
 
   if (std::filesystem::exists(path)) {
     VLOG(2) << "File already downloaded. Skipping download.";
@@ -475,7 +478,7 @@ void OverwriteDownloadCacheDir(std::filesystem::path path) {
 
 #endif  // COLMAP_DOWNLOAD_ENABLED
 
-std::string MaybeDownloadAndCacheFile(const std::string& uri) {
+std::filesystem::path MaybeDownloadAndCacheFile(const std::string& uri) {
   if (!IsURI(uri)) {
     return uri;
   }

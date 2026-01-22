@@ -29,6 +29,7 @@
 
 #include "colmap/ui/dense_reconstruction_widget.h"
 
+#include "colmap/controllers/undistorters.h"
 #include "colmap/image/undistortion.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
@@ -163,7 +164,7 @@ class MeshingOptionsTab : public OptionsWidget {
 
 // Read the specified reference image names from a patch match configuration.
 std::vector<std::pair<std::string, std::string>> ReadPatchMatchConfig(
-    const std::string& config_path) {
+    const std::filesystem::path& config_path) {
   std::ifstream file(config_path);
   THROW_CHECK_FILE_OPEN(file, config_path);
 
@@ -350,7 +351,7 @@ void DenseReconstructionWidget::Show(
 }
 
 void DenseReconstructionWidget::Undistort() {
-  const std::string workspace_path = GetWorkspacePath();
+  const auto workspace_path = GetWorkspacePath();
   if (workspace_path.empty()) {
     return;
   }
@@ -362,7 +363,8 @@ void DenseReconstructionWidget::Undistort() {
   }
 
   auto undistorter = std::make_unique<ControllerThread<COLMAPUndistorter>>(
-      std::make_shared<COLMAPUndistorter>(UndistortCameraOptions(),
+      std::make_shared<COLMAPUndistorter>(COLMAPUndistorter::Options(),
+                                          UndistortCameraOptions(),
                                           *reconstruction_,
                                           *options_->image_path,
                                           workspace_path));
@@ -373,7 +375,7 @@ void DenseReconstructionWidget::Undistort() {
 }
 
 void DenseReconstructionWidget::Stereo() {
-  const std::string workspace_path = GetWorkspacePath();
+  const auto workspace_path = GetWorkspacePath();
   if (workspace_path.empty()) {
     return;
   }
@@ -395,7 +397,7 @@ void DenseReconstructionWidget::Stereo() {
 }
 
 void DenseReconstructionWidget::Fusion() {
-  const std::string workspace_path = GetWorkspacePath();
+  const auto workspace_path = GetWorkspacePath();
   if (workspace_path.empty()) {
     return;
   }
@@ -423,18 +425,17 @@ void DenseReconstructionWidget::Fusion() {
 }
 
 void DenseReconstructionWidget::PoissonMeshing() {
-  const std::string workspace_path = GetWorkspacePath();
+  const auto workspace_path = GetWorkspacePath();
   if (workspace_path.empty()) {
     return;
   }
 
-  if (ExistsFile(JoinPaths(workspace_path, kFusedFileName))) {
+  if (ExistsFile(workspace_path / kFusedFileName)) {
     thread_control_widget_->StartFunction(
         "Poisson Meshing...", [this, workspace_path]() {
-          mvs::PoissonMeshing(
-              *options_->poisson_meshing,
-              JoinPaths(workspace_path, kFusedFileName),
-              JoinPaths(workspace_path, kPoissonMeshedFileName));
+          mvs::PoissonMeshing(*options_->poisson_meshing,
+                              workspace_path / kFusedFileName,
+                              workspace_path / kPoissonMeshedFileName);
           show_meshing_info_action_->trigger();
         });
   }
@@ -442,18 +443,17 @@ void DenseReconstructionWidget::PoissonMeshing() {
 
 void DenseReconstructionWidget::DelaunayMeshing() {
 #if defined(COLMAP_CGAL_ENABLED)
-  const std::string workspace_path = GetWorkspacePath();
+  const auto workspace_path = GetWorkspacePath();
   if (workspace_path.empty()) {
     return;
   }
 
-  if (ExistsFile(JoinPaths(workspace_path, kFusedFileName))) {
+  if (ExistsFile(workspace_path / kFusedFileName)) {
     thread_control_widget_->StartFunction(
         "Delaunay Meshing...", [this, workspace_path]() {
-          mvs::DenseDelaunayMeshing(
-              *options_->delaunay_meshing,
-              workspace_path,
-              JoinPaths(workspace_path, kDelaunayMeshedFileName));
+          mvs::DenseDelaunayMeshing(*options_->delaunay_meshing,
+                                    workspace_path,
+                                    workspace_path / kDelaunayMeshedFileName);
           show_meshing_info_action_->trigger();
         });
   }
@@ -468,7 +468,7 @@ void DenseReconstructionWidget::DelaunayMeshing() {
 void DenseReconstructionWidget::SelectWorkspacePath() {
   std::string workspace_path;
   if (workspace_path_text_->text().isEmpty()) {
-    workspace_path = GetParentDir(*options_->project_path);
+    workspace_path = GetParentDir(*options_->project_path).string();
   } else {
     workspace_path = workspace_path_text_->text().toUtf8().constData();
   }
@@ -482,8 +482,8 @@ void DenseReconstructionWidget::SelectWorkspacePath() {
   RefreshWorkspace();
 }
 
-std::string DenseReconstructionWidget::GetWorkspacePath() {
-  std::string workspace_path =
+std::filesystem::path DenseReconstructionWidget::GetWorkspacePath() {
+  std::filesystem::path workspace_path =
       workspace_path_text_->text().toUtf8().constData();
   if (ExistsDir(workspace_path)) {
     return workspace_path;
@@ -497,7 +497,7 @@ void DenseReconstructionWidget::RefreshWorkspace() {
   table_widget_->clearContents();
   table_widget_->setRowCount(0);
 
-  const std::string workspace_path =
+  const std::filesystem::path workspace_path =
       workspace_path_text_->text().toUtf8().constData();
   if (ExistsDir(workspace_path)) {
     undistortion_button_->setEnabled(true);
@@ -510,16 +510,14 @@ void DenseReconstructionWidget::RefreshWorkspace() {
     return;
   }
 
-  images_path_ = JoinPaths(workspace_path, "images");
-  depth_maps_path_ = JoinPaths(workspace_path, "stereo/depth_maps");
-  normal_maps_path_ = JoinPaths(workspace_path, "stereo/normal_maps");
-  const std::string config_path =
-      JoinPaths(workspace_path, "stereo/patch-match.cfg");
+  images_path_ = workspace_path / "images";
+  depth_maps_path_ = workspace_path / "stereo/depth_maps";
+  normal_maps_path_ = workspace_path / "stereo/normal_maps";
+  const auto config_path = workspace_path / "stereo/patch-match.cfg";
 
   if (ExistsDir(images_path_) && ExistsDir(depth_maps_path_) &&
-      ExistsDir(normal_maps_path_) &&
-      ExistsDir(JoinPaths(workspace_path, "sparse")) &&
-      ExistsDir(JoinPaths(workspace_path, "stereo/consistency_graphs")) &&
+      ExistsDir(normal_maps_path_) && ExistsDir(workspace_path / "sparse") &&
+      ExistsDir(workspace_path / "stereo/consistency_graphs") &&
       ExistsFile(config_path)) {
     stereo_button_->setEnabled(true);
   } else {
@@ -536,7 +534,7 @@ void DenseReconstructionWidget::RefreshWorkspace() {
   for (size_t i = 0; i < images.size(); ++i) {
     const std::string image_name = images[i].first;
     const std::string src_images = images[i].second;
-    const std::string image_path = JoinPaths(images_path_, image_name);
+    const auto image_path = images_path_ / image_name;
 
     QTableWidgetItem* image_name_item =
         new QTableWidgetItem(QString::fromStdString(image_name));
@@ -565,9 +563,9 @@ void DenseReconstructionWidget::RefreshWorkspace() {
 
   fusion_button_->setEnabled(photometric_done_ || geometric_done_);
   poisson_meshing_button_->setEnabled(
-      ExistsFile(JoinPaths(workspace_path, kFusedFileName)));
+      ExistsFile(workspace_path / kFusedFileName));
   delaunay_meshing_button_->setEnabled(
-      ExistsFile(JoinPaths(workspace_path, kFusedFileName)));
+      ExistsFile(workspace_path / kFusedFileName));
 }
 
 void DenseReconstructionWidget::WriteFusedPoints() {
@@ -597,7 +595,7 @@ void DenseReconstructionWidget::WriteFusedPoints() {
     main_window_->RenderNow();
   }
 
-  const std::string workspace_path =
+  const std::filesystem::path workspace_path =
       workspace_path_text_->text().toUtf8().constData();
   if (workspace_path.empty()) {
     fused_points_ = {};
@@ -607,10 +605,9 @@ void DenseReconstructionWidget::WriteFusedPoints() {
 
   thread_control_widget_->StartFunction(
       "Exporting...", [this, workspace_path]() {
-        const std::string output_path =
-            JoinPaths(workspace_path, kFusedFileName);
+        const auto output_path = workspace_path / kFusedFileName;
         WriteBinaryPlyPoints(output_path, fused_points_);
-        mvs::WritePointsVisibility(output_path + ".vis",
+        mvs::WritePointsVisibility(AddFileExtension(output_path, ".vis"),
                                    fused_points_visibility_);
         fused_points_ = {};
         fused_points_visibility_ = {};
@@ -638,12 +635,12 @@ QWidget* DenseReconstructionWidget::GenerateTableButtonWidget(
     geometric_done_ = true;
   }
 
-  const std::string depth_map_path =
-      JoinPaths(depth_maps_path_,
-                StringPrintf("%s.%s.bin", image_name.c_str(), type.c_str()));
-  const std::string normal_map_path =
-      JoinPaths(normal_maps_path_,
-                StringPrintf("%s.%s.bin", image_name.c_str(), type.c_str()));
+  const auto depth_map_path =
+      depth_maps_path_ /
+      StringPrintf("%s.%s.bin", image_name.c_str(), type.c_str());
+  const auto normal_map_path =
+      normal_maps_path_ /
+      StringPrintf("%s.%s.bin", image_name.c_str(), type.c_str());
 
   QWidget* button_widget = new QWidget();
   QGridLayout* button_layout = new QGridLayout(button_widget);

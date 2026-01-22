@@ -33,11 +33,8 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_glomap_sfm
     SRCS
         global_mapper.h global_mapper.cc
-        track_establishment.h track_establishment.cc
     PUBLIC_LINK_LIBS
         colmap_glomap_estimators
-        colmap_glomap_io
-        colmap_glomap_processors
         colmap_glomap_scene
         colmap_estimators
         colmap_sfm
@@ -53,11 +50,5 @@ endif()
 COLMAP_ADD_TEST(
     NAME glomap_global_mapper_test
     SRCS global_mapper_test.cc
-    LINK_LIBS colmap_glomap_sfm
-)
-# This test uses GlobalMapper for preprocessing, so it needs to stay in sfm for now.
-COLMAP_ADD_TEST(
-    NAME glomap_rotation_averaging_test
-    SRCS rotation_averaging_test.cc
     LINK_LIBS colmap_glomap_sfm
 )

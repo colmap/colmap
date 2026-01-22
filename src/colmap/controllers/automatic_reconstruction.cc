@@ -35,7 +35,7 @@
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/option_manager.h"
-#include "colmap/image/undistortion.h"
+#include "colmap/controllers/undistorters.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
@@ -60,8 +60,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.image_reader->image_names = options_.image_names;
   option_manager_.mapper->image_names = {options_.image_names.begin(),
                                          options_.image_names.end()};
-  *option_manager_.database_path =
-      JoinPaths(options_.workspace_path, "database.db");
+  *option_manager_.database_path = options_.workspace_path / "database.db";
 
   if (options_.data_type == DataType::VIDEO) {
     option_manager_.ModifyForVideoData();
@@ -258,7 +257,7 @@ void AutomaticReconstructionController::RunFeatureMatching() {
 }
 
 void AutomaticReconstructionController::RunSparseMapper() {
-  const auto sparse_path = JoinPaths(options_.workspace_path, "sparse");
+  const auto sparse_path = options_.workspace_path / "sparse";
   if (ExistsDir(sparse_path)) {
     auto dir_list = GetDirList(sparse_path);
     std::sort(dir_list.begin(), dir_list.end());
@@ -291,9 +290,12 @@ void AutomaticReconstructionController::RunSparseMapper() {
       break;
     }
     case Mapper::GLOBAL: {
-      mapper = std::make_unique<GlobalPipeline>(glomap::GlobalMapperOptions(),
-                                                std::move(database),
-                                                reconstruction_manager_);
+      GlobalPipelineOptions global_options;
+      global_options.image_path = *option_manager_.image_path;
+      global_options.num_threads = options_.num_threads;
+      global_options.random_seed = options_.random_seed;
+      mapper = std::make_unique<GlobalPipeline>(
+          global_options, std::move(database), reconstruction_manager_);
       break;
     }
     default:
@@ -305,26 +307,26 @@ void AutomaticReconstructionController::RunSparseMapper() {
 
   CreateDirIfNotExists(sparse_path);
   reconstruction_manager_->Write(sparse_path);
-  option_manager_.Write(JoinPaths(sparse_path, "project.ini"));
+  option_manager_.Write(sparse_path / "project.ini");
 }
 
 void AutomaticReconstructionController::RunDenseMapper() {
-  CreateDirIfNotExists(JoinPaths(options_.workspace_path, "dense"));
+  CreateDirIfNotExists(options_.workspace_path / "dense");
 
   for (size_t i = 0; i < reconstruction_manager_->Size(); ++i) {
     if (IsStopped()) {
       return;
     }
 
-    const std::string dense_path =
-        JoinPaths(options_.workspace_path, "dense", std::to_string(i));
-    const std::string fused_path = JoinPaths(dense_path, "fused.ply");
+    const auto dense_path =
+        options_.workspace_path / "dense" / std::to_string(i);
+    const auto fused_path = dense_path / "fused.ply";
 
-    std::string meshing_path;
+    std::filesystem::path meshing_path;
     if (options_.mesher == Mesher::POISSON) {
-      meshing_path = JoinPaths(dense_path, "meshed-poisson.ply");
+      meshing_path = dense_path / "meshed-poisson.ply";
     } else if (options_.mesher == Mesher::DELAUNAY) {
-      meshing_path = JoinPaths(dense_path, "meshed-delaunay.ply");
+      meshing_path = dense_path / "meshed-delaunay.ply";
     }
 
     if (ExistsFile(fused_path) && ExistsFile(meshing_path)) {
@@ -339,7 +341,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
       UndistortCameraOptions undistortion_options;
       undistortion_options.max_image_size =
           option_manager_.patch_match_stereo->max_image_size;
-      COLMAPUndistorter undistorter(undistortion_options,
+      COLMAPUndistorter undistorter(COLMAPUndistorter::Options(),
+                                    undistortion_options,
                                     *reconstruction_manager_->Get(i),
                                     *option_manager_.image_path,
                                     dense_path);
@@ -390,7 +393,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
       LOG(INFO) << "Writing output: " << fused_path;
       WriteBinaryPlyPoints(fused_path, fuser.GetFusedPoints());
-      mvs::WritePointsVisibility(fused_path + ".vis",
+      mvs::WritePointsVisibility(AddFileExtension(fused_path, ".vis"),
                                  fuser.GetFusedPointsVisibility());
     }
 

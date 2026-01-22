@@ -34,12 +34,171 @@
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
 
+#include <array>
+
 #include <Eigen/Core>
 #include <ceres/ceres.h>
 #include <ceres/conditioned_cost_function.h>
 #include <ceres/rotation.h>
 
 namespace colmap {
+
+// Rotates the point and computes the Jacobian of R(q) * p with respect to Eigen
+// quaternions. J_out is a 3x4 matrix in row-major order.
+inline Eigen::Vector3d QuaternionRotatePointWithJac(const double* q,
+                                                    const double* pt,
+                                                    double* J_out) {
+  const double qx = q[0], qy = q[1], qz = q[2], qw = q[3];
+  const double px = pt[0], py = pt[1], pz = pt[2];
+
+  // Common sub-expressions.
+  const double qx_py = qx * py;
+  const double qx_pz = qx * pz;
+  const double qy_px = qy * px;
+  const double qy_pz = qy * pz;
+  const double qz_px = qz * px;
+  const double qz_py = qz * py;
+
+  // R(q) * p using the formula: p' = p + 2*w*(v x p) + 2*(v x (v x p)),
+  // where v = (qx, qy, qz) is the imaginary part and w = qw is the scalar.
+
+  // First compute v  x  p.
+  const double v_x_p0 = qy_pz - qz_py;
+  const double v_x_p1 = qz_px - qx_pz;
+  const double v_x_p2 = qx_py - qy_px;
+
+  // Then compute v  x  (v  x  p).
+  const double v_x_v_x_p0 = qy * v_x_p2 - qz * v_x_p1;
+  const double v_x_v_x_p1 = qz * v_x_p0 - qx * v_x_p2;
+  const double v_x_v_x_p2 = qx * v_x_p1 - qy * v_x_p0;
+
+  // p' = p + 2*w*(v x p) + 2*(v x (v x p)).
+  Eigen::Vector3d pt_out(px + 2.0 * (qw * v_x_p0 + v_x_v_x_p0),
+                         py + 2.0 * (qw * v_x_p1 + v_x_v_x_p1),
+                         pz + 2.0 * (qw * v_x_p2 + v_x_v_x_p2));
+
+  if (J_out) {
+    // Jacobian d(R*p) / dq for Eigen quaternions (x, y, z, w).
+    // Must use the ORIGINAL point (px, py, pz), not the rotated point.
+
+    // Common sub-expressions.
+    const double qx_px = qx * px;
+    const double qx_pz = qx * pz;
+    const double qy_px = qy * px;
+    const double qy_py = qy * py;
+    const double qz_pz = qz * pz;
+    const double qw_px = qw * px;
+    const double qw_py = qw * py;
+    const double qw_pz = qw * pz;
+
+    // d(R*p)_x / d(x,y,z,w)
+    J_out[0] = 2.0 * (qy_py + qz_pz);
+    J_out[1] = 2.0 * (-2.0 * qy_px + qx_py + qw_pz);
+    J_out[2] = 2.0 * (-2.0 * qz_px - qw_py + qx_pz);
+    J_out[3] = 2.0 * (-qz_py + qy_pz);
+
+    // d(R*p)_y / d(x,y,z,w)
+    J_out[4] = 2.0 * (qy_px - 2.0 * qx_py - qw_pz);
+    J_out[5] = 2.0 * (qx_px + qz_pz);
+    J_out[6] = 2.0 * (qw_px - 2.0 * qz_py + qy_pz);
+    J_out[7] = 2.0 * (qz_px - qx_pz);
+
+    // d(R*p)_z / d(x,y,z,w)
+    J_out[8] = 2.0 * (qz_px + qw_py - 2.0 * qx_pz);
+    J_out[9] = 2.0 * (-qw_px + qz_py - 2.0 * qy_pz);
+    J_out[10] = 2.0 * (qx_px + qy_py);
+    J_out[11] = 2.0 * (-qy_px + qx_py);
+  }
+
+  return pt_out;
+}
+
+// Full reprojection error cost function with analytical Jacobians.
+// Requires camera model to implement ImgFromCamWithJac().
+template <typename CameraModel>
+class AnalyticalReprojErrorCostFunction
+    : public ceres::SizedCostFunction<2, 4, 3, 3, CameraModel::num_params> {
+ public:
+  explicit AnalyticalReprojErrorCostFunction(const Eigen::Vector2d& point2D)
+      : point2D_(point2D) {}
+
+  bool Evaluate(double const* const* parameters,
+                double* residuals,
+                double** jacobians) const override {
+    const double* cam_from_world_quat = parameters[0];
+    const double* cam_from_world_trans = parameters[1];
+    const double* point3D_in_world = parameters[2];
+    const double* camera_params = parameters[3];
+
+    double* J_quat = jacobians ? jacobians[0] : nullptr;
+    double* J_trans = jacobians ? jacobians[1] : nullptr;
+    double* J_point = jacobians ? jacobians[2] : nullptr;
+    double* J_params = jacobians ? jacobians[3] : nullptr;
+
+    Eigen::Map<Eigen::Vector2d> residuals_vec(residuals);
+
+    Eigen::Map<Eigen::Matrix<double, 2, 4, Eigen::RowMajor>> J_quat_mat(J_quat);
+    Eigen::Map<Eigen::Matrix<double, 2, 3, Eigen::RowMajor>> J_trans_mat(
+        J_trans);
+    Eigen::Map<Eigen::Matrix<double, 2, 3, Eigen::RowMajor>> J_point_mat(
+        J_point);
+    Eigen::Map<
+        Eigen::Matrix<double, 2, CameraModel::num_params, Eigen::RowMajor>>
+        J_params_mat(J_params);
+    Eigen::Matrix<double, 3, 4, Eigen::RowMajor> J_Rp_quat_mat;
+    Eigen::Matrix<double, 2, 3, Eigen::RowMajor> J_uvw_mat;
+
+    const Eigen::Vector3d point3D_in_cam =
+        QuaternionRotatePointWithJac(cam_from_world_quat,
+                                     point3D_in_world,
+                                     J_quat ? J_Rp_quat_mat.data() : nullptr) +
+        Eigen::Map<const Eigen::Vector3d>(cam_from_world_trans);
+
+    if (!CameraModel::ImgFromCamWithJac(
+            camera_params,
+            point3D_in_cam[0],
+            point3D_in_cam[1],
+            point3D_in_cam[2],
+            &residuals[0],
+            &residuals[1],
+            J_params,
+            (J_quat || J_trans || J_point) ? J_uvw_mat.data() : nullptr)) {
+      residuals_vec.setZero();
+      if (J_quat) {
+        J_quat_mat.setZero();
+      }
+      if (J_trans) {
+        J_trans_mat.setZero();
+      }
+      if (J_point) {
+        J_point_mat.setZero();
+      }
+      if (J_params) {
+        J_params_mat.setZero();
+      }
+      return true;
+    }
+
+    residuals_vec -= point2D_;
+
+    if (J_quat) {
+      J_quat_mat = J_uvw_mat * J_Rp_quat_mat;
+    }
+    if (J_trans) {
+      J_trans_mat = J_uvw_mat;
+    }
+    if (J_point) {
+      J_point_mat =
+          J_uvw_mat *
+          EigenQuaternionMap<double>(cam_from_world_quat).toRotationMatrix();
+    }
+
+    return true;
+  }
+
+ private:
+  const Eigen::Vector2d point2D_;
+};
 
 // Standard bundle adjustment cost function for variable
 // camera pose, calibration, and point parameters.
@@ -53,7 +212,7 @@ class ReprojErrorCostFunctor
                                  CameraModel::num_params> {
  public:
   explicit ReprojErrorCostFunctor(const Eigen::Vector2d& point2D)
-      : observed_x_(point2D(0)), observed_y_(point2D(1)) {}
+      : point2D_(point2D) {}
 
   template <typename T>
   bool operator()(const T* const cam_from_world_rotation,
@@ -65,24 +224,22 @@ class ReprojErrorCostFunctor
         EigenQuaternionMap<T>(cam_from_world_rotation) *
             EigenVector3Map<T>(point3D) +
         EigenVector3Map<T>(cam_from_world_translation);
+    Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
     if (CameraModel::ImgFromCam(camera_params,
                                 point3D_in_cam[0],
                                 point3D_in_cam[1],
                                 point3D_in_cam[2],
                                 &residuals[0],
                                 &residuals[1])) {
-      residuals[0] -= T(observed_x_);
-      residuals[1] -= T(observed_y_);
+      residuals_vec -= point2D_.cast<T>();
     } else {
-      residuals[0] = T(0);
-      residuals[1] = T(0);
+      residuals_vec.setZero();
     }
     return true;
   }
 
  private:
-  const double observed_x_;
-  const double observed_y_;
+  const Eigen::Vector2d point2D_;
 };
 
 // Bundle adjustment cost function for variable
@@ -170,7 +327,7 @@ class RigReprojErrorCostFunctor
                                  CameraModel::num_params> {
  public:
   explicit RigReprojErrorCostFunctor(const Eigen::Vector2d& point2D)
-      : observed_x_(point2D(0)), observed_y_(point2D(1)) {}
+      : point2D_(point2D) {}
 
   template <typename T>
   bool operator()(const T* const cam_from_rig_rotation,
@@ -186,24 +343,22 @@ class RigReprojErrorCostFunctor
                  EigenVector3Map<T>(point3D) +
              EigenVector3Map<T>(rig_from_world_translation)) +
         EigenVector3Map<T>(cam_from_rig_translation);
+    Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
     if (CameraModel::ImgFromCam(camera_params,
                                 point3D_in_cam[0],
                                 point3D_in_cam[1],
                                 point3D_in_cam[2],
                                 &residuals[0],
                                 &residuals[1])) {
-      residuals[0] -= T(observed_x_);
-      residuals[1] -= T(observed_y_);
+      residuals_vec -= point2D_.cast<T>();
     } else {
-      residuals[0] = T(0);
-      residuals[1] = T(0);
+      residuals_vec.setZero();
     }
     return true;
   }
 
  private:
-  const double observed_x_;
-  const double observed_y_;
+  const Eigen::Vector2d point2D_;
 };
 
 // Rig bundle adjustment cost function for variable camera pose and camera
@@ -493,16 +648,187 @@ struct Point3DAlignmentCostFunctor
 template <template <typename> class CostFunctor, typename... Args>
 ceres::CostFunction* CreateCameraCostFunction(
     const CameraModelId camera_model_id, Args&&... args) {
+  // NOLINTBEGIN(bugprone-macro-parentheses)
   switch (camera_model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                                    \
-  case CameraModel::model_id:                                             \
-    return CostFunctor<CameraModel>::Create(std::forward<Args>(args)...); \
+#define CAMERA_MODEL_CASE(CameraModel)                                        \
+  case CameraModel::model_id:                                                 \
+    if constexpr (std::is_same<CostFunctor<CameraModel>,                      \
+                               ReprojErrorCostFunctor<CameraModel>>::value && \
+                  CameraModel::has_img_from_cam_with_jac) {                   \
+      return new AnalyticalReprojErrorCostFunction<CameraModel>(              \
+          std::forward<Args>(args)...);                                       \
+    } else {                                                                  \
+      return CostFunctor<CameraModel>::Create(std::forward<Args>(args)...);   \
+    }                                                                         \
     break;
 
     CAMERA_MODEL_SWITCH_CASES
 
 #undef CAMERA_MODEL_CASE
   }
+  // NOLINTEND(bugprone-macro-parentheses)
 }
+
+// Compute polynomial coefficients from cross-products of SVD-derived vectors
+// for the Fetzer focal length estimation method. The coefficients encode the
+// relationship between the two focal lengths derived from the fundamental
+// matrix constraint.
+// See: "Stable Intrinsic Auto-Calibration from Fundamental Matrices of Devices
+// with Uncorrelated Camera Parameters", Fetzer et al., WACV 2020.
+inline Eigen::Vector4d ComputeFetzerPolynomialCoefficients(
+    const Eigen::Vector3d& ai,
+    const Eigen::Vector3d& bi,
+    const Eigen::Vector3d& aj,
+    const Eigen::Vector3d& bj,
+    const int u,
+    const int v) {
+  return {ai(u) * aj(v) - ai(v) * aj(u),
+          ai(u) * bj(v) - ai(v) * bj(u),
+          bi(u) * aj(v) - bi(v) * aj(u),
+          bi(u) * bj(v) - bi(v) * bj(u)};
+}
+
+// Decompose the fundamental matrix (adjusted by principal points) via SVD and
+// compute the polynomial coefficients for the Fetzer focal length method.
+// Returns three coefficient vectors used to estimate the two focal lengths.
+inline std::array<Eigen::Vector4d, 3> DecomposeFundamentalMatrixForFetzer(
+    const Eigen::Matrix3d& i1_F_i0,
+    const Eigen::Vector2d& principal_point0,
+    const Eigen::Vector2d& principal_point1) {
+  Eigen::Matrix3d K0 = Eigen::Matrix3d::Identity(3, 3);
+  K0(0, 2) = principal_point0(0);
+  K0(1, 2) = principal_point0(1);
+
+  Eigen::Matrix3d K1 = Eigen::Matrix3d::Identity(3, 3);
+  K1(0, 2) = principal_point1(0);
+  K1(1, 2) = principal_point1(1);
+
+  const Eigen::Matrix3d i1_G_i0 = K1.transpose() * i1_F_i0 * K0;
+
+  const Eigen::JacobiSVD<Eigen::Matrix3d> svd(
+      i1_G_i0, Eigen::ComputeFullU | Eigen::ComputeFullV);
+  const Eigen::Vector3d& s = svd.singularValues();
+
+  const Eigen::Vector3d v0 = svd.matrixV().col(0);
+  const Eigen::Vector3d v1 = svd.matrixV().col(1);
+
+  const Eigen::Vector3d u0 = svd.matrixU().col(0);
+  const Eigen::Vector3d u1 = svd.matrixU().col(1);
+
+  const Eigen::Vector3d ai(s(0) * s(0) * (v0(0) * v0(0) + v0(1) * v0(1)),
+                           s(0) * s(1) * (v0(0) * v1(0) + v0(1) * v1(1)),
+                           s(1) * s(1) * (v1(0) * v1(0) + v1(1) * v1(1)));
+
+  const Eigen::Vector3d aj(u1(0) * u1(0) + u1(1) * u1(1),
+                           -(u0(0) * u1(0) + u0(1) * u1(1)),
+                           u0(0) * u0(0) + u0(1) * u0(1));
+
+  const Eigen::Vector3d bi(s(0) * s(0) * v0(2) * v0(2),
+                           s(0) * s(1) * v0(2) * v1(2),
+                           s(1) * s(1) * v1(2) * v1(2));
+
+  const Eigen::Vector3d bj(u1(2) * u1(2), -(u0(2) * u1(2)), u0(2) * u0(2));
+
+  const Eigen::Vector4d d01 =
+      ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 1, 0);
+  const Eigen::Vector4d d02 =
+      ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 0, 2);
+  const Eigen::Vector4d d12 =
+      ComputeFetzerPolynomialCoefficients(ai, bi, aj, bj, 2, 1);
+  return {d01, d02, d12};
+}
+
+// Cost functor for estimating focal lengths from the fundamental matrix using
+// the Fetzer method. Used when two images have different cameras (different
+// focal lengths). The residual measures the relative error between the
+// estimated and expected focal lengths based on the fundamental matrix
+// constraint.
+class FetzerFocalLengthCostFunctor {
+ public:
+  FetzerFocalLengthCostFunctor(const Eigen::Matrix3d& i1_F_i0,
+                               const Eigen::Vector2d& principal_point0,
+                               const Eigen::Vector2d& principal_point1)
+      : coeffs_(DecomposeFundamentalMatrixForFetzer(
+            i1_F_i0, principal_point0, principal_point1)) {}
+
+  static ceres::CostFunction* Create(const Eigen::Matrix3d& i1_F_i0,
+                                     const Eigen::Vector2d& principal_point0,
+                                     const Eigen::Vector2d& principal_point1) {
+    return new ceres::
+        AutoDiffCostFunction<FetzerFocalLengthCostFunctor, 2, 1, 1>(
+            new FetzerFocalLengthCostFunctor(
+                i1_F_i0, principal_point0, principal_point1));
+  }
+
+  template <typename T>
+  bool operator()(const T* const fi_, const T* const fj_, T* residuals) const {
+    const Eigen::Vector<T, 4> d01_ = coeffs_[0].cast<T>();
+    const Eigen::Vector<T, 4> d12_ = coeffs_[2].cast<T>();
+
+    const T fi = fi_[0];
+    const T fj = fj_[0];
+
+    T di = (fj * fj * d01_(0) + d01_(1));
+    T dj = (fi * fi * d12_(0) + d12_(2));
+    di = di == T(0) ? T(1e-6) : di;
+    dj = dj == T(0) ? T(1e-6) : dj;
+
+    const T K0_01 = -(fj * fj * d01_(2) + d01_(3)) / di;
+    const T K1_12 = -(fi * fi * d12_(1) + d12_(3)) / dj;
+
+    residuals[0] = (fi * fi - K0_01) / (fi * fi);
+    residuals[1] = (fj * fj - K1_12) / (fj * fj);
+
+    return true;
+  }
+
+ private:
+  const std::array<Eigen::Vector4d, 3> coeffs_;
+};
+
+// Cost functor for estimating focal length from the fundamental matrix using
+// the Fetzer method. Used when two images share the same camera (same focal
+// length). The residual measures the relative error between the estimated and
+// expected focal length based on the fundamental matrix constraint.
+class FetzerFocalLengthSameCameraCostFunctor {
+ public:
+  FetzerFocalLengthSameCameraCostFunctor(const Eigen::Matrix3d& i1_F_i0,
+                                         const Eigen::Vector2d& principal_point)
+      : coeffs_(DecomposeFundamentalMatrixForFetzer(
+            i1_F_i0, principal_point, principal_point)) {}
+
+  static ceres::CostFunction* Create(const Eigen::Matrix3d& i1_F_i0,
+                                     const Eigen::Vector2d& principal_point) {
+    return new ceres::
+        AutoDiffCostFunction<FetzerFocalLengthSameCameraCostFunctor, 2, 1>(
+            new FetzerFocalLengthSameCameraCostFunctor(i1_F_i0,
+                                                       principal_point));
+  }
+
+  template <typename T>
+  bool operator()(const T* const fi_, T* residuals) const {
+    const Eigen::Vector<T, 4> d01_ = coeffs_[0].cast<T>();
+    const Eigen::Vector<T, 4> d12_ = coeffs_[2].cast<T>();
+
+    const T fi = fi_[0];
+    const T fj = fi_[0];
+
+    T di = (fj * fj * d01_(0) + d01_(1));
+    T dj = (fi * fi * d12_(0) + d12_(2));
+    di = di == T(0) ? T(1e-6) : di;
+    dj = dj == T(0) ? T(1e-6) : dj;
+
+    const T K0_01 = -(fj * fj * d01_(2) + d01_(3)) / di;
+    const T K1_12 = -(fi * fi * d12_(1) + d12_(3)) / dj;
+
+    residuals[0] = (fi * fi - K0_01) / (fi * fi);
+    residuals[1] = (fj * fj - K1_12) / (fj * fj);
+
+    return true;
+  }
+
+ private:
+  const std::array<Eigen::Vector4d, 3> coeffs_;
+};
 
 }  // namespace colmap

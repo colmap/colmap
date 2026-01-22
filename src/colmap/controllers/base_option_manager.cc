@@ -42,9 +42,9 @@ namespace config = boost::program_options;
 namespace colmap {
 
 BaseOptionManager::BaseOptionManager(bool add_project_options) {
-  project_path = std::make_shared<std::string>();
-  database_path = std::make_shared<std::string>();
-  image_path = std::make_shared<std::string>();
+  project_path = std::make_shared<std::filesystem::path>();
+  database_path = std::make_shared<std::filesystem::path>();
+  image_path = std::make_shared<std::filesystem::path>();
 
   ResetImpl();
 
@@ -63,7 +63,7 @@ void BaseOptionManager::AddRandomOptions() {
   }
   added_random_options_ = true;
 
-  AddAndRegisterDefaultOption("default_random_seed", &kDefaultPRNGSeed);
+  AddDefaultOption("default_random_seed", &kDefaultPRNGSeed);
 }
 
 void BaseOptionManager::AddLogOptions() {
@@ -72,8 +72,8 @@ void BaseOptionManager::AddLogOptions() {
   }
   added_log_options_ = true;
 
-  AddAndRegisterDefaultOption("log_to_stderr", &FLAGS_logtostderr);
-  AddAndRegisterDefaultOption("log_level", &FLAGS_v);
+  AddDefaultOption("log_to_stderr", &FLAGS_logtostderr);
+  AddDefaultOption("log_level", &FLAGS_v);
 }
 
 void BaseOptionManager::AddDatabaseOptions() {
@@ -82,7 +82,7 @@ void BaseOptionManager::AddDatabaseOptions() {
   }
   added_database_options_ = true;
 
-  AddAndRegisterRequiredOption("database_path", database_path.get());
+  AddRequiredOption("database_path", database_path.get());
 }
 
 void BaseOptionManager::AddImageOptions() {
@@ -91,7 +91,7 @@ void BaseOptionManager::AddImageOptions() {
   }
   added_image_options_ = true;
 
-  AddAndRegisterRequiredOption("image_path", image_path.get());
+  AddRequiredOption("image_path", image_path.get());
 }
 
 void BaseOptionManager::Reset() { ResetImpl(); }
@@ -112,6 +112,7 @@ void BaseOptionManager::ResetImpl() {
   options_int_.clear();
   options_double_.clear();
   options_string_.clear();
+  options_path_.clear();
 
   added_random_options_ = false;
   added_log_options_ = false;
@@ -133,7 +134,7 @@ bool BaseOptionManager::Check() {
   if (added_database_options_) {
     const auto database_parent_path = GetParentDir(*database_path);
     success = success && CHECK_OPTION_IMPL(!ExistsDir(*database_path)) &&
-              CHECK_OPTION_IMPL(database_parent_path == "" ||
+              CHECK_OPTION_IMPL(database_parent_path.empty() ||
                                 ExistsDir(database_parent_path));
   }
 
@@ -207,7 +208,7 @@ bool BaseOptionManager::Parse(const int argc, char** argv) {
   return true;
 }
 
-bool BaseOptionManager::Read(const std::string& path) {
+bool BaseOptionManager::Read(const std::filesystem::path& path) {
   config::variables_map vmap;
 
   if (!ExistsFile(path)) {
@@ -232,13 +233,13 @@ bool BaseOptionManager::Read(const std::string& path) {
   return true;
 }
 
-bool BaseOptionManager::ReRead(const std::string& path) {
+bool BaseOptionManager::ReRead(const std::filesystem::path& path) {
   Reset();
   AddAllOptions();
   return Read(path);
 }
 
-void BaseOptionManager::Write(const std::string& path) const {
+void BaseOptionManager::Write(const std::filesystem::path& path) const {
   boost::property_tree::ptree pt;
 
   // First, put all options without a section and then those with a section.
@@ -246,51 +247,63 @@ void BaseOptionManager::Write(const std::string& path) const {
   // options without a section in between other sections and therefore
   // the errors will be assigned to the wrong section if read later.
 
-  for (const auto& option : options_bool_) {
-    if (!StringContains(option.first, ".")) {
-      pt.put(option.first, *option.second);
+  for (const auto& [key, value] : options_bool_) {
+    if (!StringContains(key, ".")) {
+      pt.put(key, *value);
     }
   }
 
-  for (const auto& option : options_int_) {
-    if (!StringContains(option.first, ".")) {
-      pt.put(option.first, *option.second);
+  for (const auto& [key, value] : options_int_) {
+    if (!StringContains(key, ".")) {
+      pt.put(key, *value);
     }
   }
 
-  for (const auto& option : options_double_) {
-    if (!StringContains(option.first, ".")) {
-      pt.put(option.first, *option.second);
+  for (const auto& [key, value] : options_double_) {
+    if (!StringContains(key, ".")) {
+      pt.put(key, *value);
     }
   }
 
-  for (const auto& option : options_string_) {
-    if (!StringContains(option.first, ".")) {
-      pt.put(option.first, *option.second);
+  for (const auto& [key, value] : options_string_) {
+    if (!StringContains(key, ".")) {
+      pt.put(key, *value);
     }
   }
 
-  for (const auto& option : options_bool_) {
-    if (StringContains(option.first, ".")) {
-      pt.put(option.first, *option.second);
+  for (const auto& [key, value] : options_path_) {
+    if (!StringContains(key, ".")) {
+      pt.put(key, value->string());
     }
   }
 
-  for (const auto& option : options_int_) {
-    if (StringContains(option.first, ".")) {
-      pt.put(option.first, *option.second);
+  for (const auto& [key, value] : options_bool_) {
+    if (StringContains(key, ".")) {
+      pt.put(key, *value);
     }
   }
 
-  for (const auto& option : options_double_) {
-    if (StringContains(option.first, ".")) {
-      pt.put(option.first, *option.second);
+  for (const auto& [key, value] : options_int_) {
+    if (StringContains(key, ".")) {
+      pt.put(key, *value);
     }
   }
 
-  for (const auto& option : options_string_) {
-    if (StringContains(option.first, ".")) {
-      pt.put(option.first, *option.second);
+  for (const auto& [key, value] : options_double_) {
+    if (StringContains(key, ".")) {
+      pt.put(key, *value);
+    }
+  }
+
+  for (const auto& [key, value] : options_string_) {
+    if (StringContains(key, ".")) {
+      pt.put(key, *value);
+    }
+  }
+
+  for (const auto& [key, value] : options_path_) {
+    if (StringContains(key, ".")) {
+      pt.put(key, value->string());
     }
   }
 

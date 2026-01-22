@@ -66,14 +66,14 @@ std::unique_ptr<Thread> CreateExhaustiveFeatureMatcher(
     const ExhaustivePairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
-    const std::string& database_path);
+    const std::filesystem::path& database_path);
 
 // Match each image against its nearest neighbors using a vocabulary tree.
 std::unique_ptr<Thread> CreateVocabTreeFeatureMatcher(
     const VocabTreePairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
-    const std::string& database_path);
+    const std::filesystem::path& database_path);
 
 // Sequentially match images within neighborhood:
 //
@@ -97,7 +97,7 @@ std::unique_ptr<Thread> CreateSequentialFeatureMatcher(
     const SequentialPairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
-    const std::string& database_path);
+    const std::filesystem::path& database_path);
 
 // Match images against spatial nearest neighbors using prior location
 // information, e.g. provided manually or extracted from EXIF.
@@ -105,7 +105,7 @@ std::unique_ptr<Thread> CreateSpatialFeatureMatcher(
     const SpatialPairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
-    const std::string& database_path);
+    const std::filesystem::path& database_path);
 
 // Match transitive image pairs in a database with existing feature matches.
 // This matcher transitively closes loops/triplets. For example, if image pairs
@@ -115,7 +115,7 @@ std::unique_ptr<Thread> CreateTransitiveFeatureMatcher(
     const TransitivePairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
-    const std::string& database_path);
+    const std::filesystem::path& database_path);
 
 // Match images manually specified in a list of image pairs.
 //
@@ -130,7 +130,7 @@ std::unique_ptr<Thread> CreateImagePairsFeatureMatcher(
     const ImportedPairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
-    const std::string& database_path);
+    const std::filesystem::path& database_path);
 
 // Import feature matches from a text file.
 //
@@ -151,7 +151,7 @@ std::unique_ptr<Thread> CreateFeaturePairsFeatureMatcher(
     const FeaturePairsMatchingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
-    const std::string& database_path);
+    const std::filesystem::path& database_path);
 
 // Options for CreateGeometricVerifier
 struct GeometricVerifierOptions {
@@ -173,6 +173,6 @@ std::unique_ptr<Thread> CreateGeometricVerifier(
     const GeometricVerifierOptions& verifier_options,
     const ExistingMatchedPairingOptions& pairing_options,
     const TwoViewGeometryOptions& geometry_options,
-    const std::string& database_path);
+    const std::filesystem::path& database_path);
 
 }  // namespace colmap

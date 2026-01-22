@@ -90,21 +90,21 @@ TEST(CalculateAngularReprojectionError, Nominal) {
                                         Eigen::Vector3d(0, 1, 1),
                                         cam_from_world_mat,
                                         camera);
-  EXPECT_NEAR(error2, M_PI / 4, 1e-6);
+  EXPECT_NEAR(error2, EIGEN_PI / 4, 1e-6);
 
   const double error3 =
       CalculateAngularReprojectionError(Eigen::Vector2d(0, 0),
                                         Eigen::Vector3d(0, 5, 5),
                                         cam_from_world_mat,
                                         camera);
-  EXPECT_NEAR(error3, M_PI / 4, 1e-6);
+  EXPECT_NEAR(error3, EIGEN_PI / 4, 1e-6);
 
   const double error4 =
       CalculateAngularReprojectionError(Eigen::Vector2d(1, 0),
                                         Eigen::Vector3d(0, 0, 1),
                                         cam_from_world_mat,
                                         camera);
-  EXPECT_NEAR(error4, M_PI / 4, 1e-6);
+  EXPECT_NEAR(error4, EIGEN_PI / 4, 1e-6);
 
   const double error5 =
       CalculateAngularReprojectionError(Eigen::Vector2d(2, 0),
@@ -118,42 +118,42 @@ TEST(CalculateAngularReprojectionError, Nominal) {
                                         Eigen::Vector3d(1, 0, 1),
                                         cam_from_world_mat,
                                         camera);
-  EXPECT_NEAR(error6, 1.10714872 - M_PI / 4, 1e-6);
+  EXPECT_NEAR(error6, 1.10714872 - EIGEN_PI / 4, 1e-6);
 
   const double error7 =
       CalculateAngularReprojectionError(Eigen::Vector2d(2, 0),
                                         Eigen::Vector3d(5, 0, 5),
                                         cam_from_world_mat,
                                         camera);
-  EXPECT_NEAR(error7, 1.10714872 - M_PI / 4, 1e-6);
+  EXPECT_NEAR(error7, 1.10714872 - EIGEN_PI / 4, 1e-6);
 
   const double error8 =
       CalculateAngularReprojectionError(Eigen::Vector2d(1, 0),
                                         Eigen::Vector3d(-1, 0, 1),
                                         cam_from_world_mat,
                                         camera);
-  EXPECT_NEAR(error8, M_PI / 2, 1e-6);
+  EXPECT_NEAR(error8, EIGEN_PI / 2, 1e-6);
 
   const double error9 =
       CalculateAngularReprojectionError(Eigen::Vector2d(1, 0),
                                         Eigen::Vector3d(-1, 0, 0),
                                         cam_from_world_mat,
                                         camera);
-  EXPECT_NEAR(error9, M_PI * 3 / 4, 1e-6);
+  EXPECT_NEAR(error9, EIGEN_PI * 3 / 4, 1e-6);
 
   const double error10 =
       CalculateAngularReprojectionError(Eigen::Vector2d(1, 0),
                                         Eigen::Vector3d(-1, 0, -1),
                                         cam_from_world_mat,
                                         camera);
-  EXPECT_NEAR(error10, M_PI, 1e-6);
+  EXPECT_NEAR(error10, EIGEN_PI, 1e-6);
 
   const double error11 =
       CalculateAngularReprojectionError(Eigen::Vector2d(1, 0),
                                         Eigen::Vector3d(0, 0, -1),
                                         cam_from_world_mat,
                                         camera);
-  EXPECT_NEAR(error11, M_PI * 3 / 4, 1e-6);
+  EXPECT_NEAR(error11, EIGEN_PI * 3 / 4, 1e-6);
 }
 
 TEST(HasPointPositiveDepth, Nominal) {

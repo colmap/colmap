@@ -3,6 +3,8 @@
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 
+#include <filesystem>
+
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 
@@ -104,7 +106,7 @@ void BindBitmap(pybind11::module& m) {
            "sRGB colorspace for file storage.")
       .def_static(
           "read",
-          [](const std::string& path,
+          [](const std::filesystem::path& path,
              bool as_rgb,
              bool linearize_colorspace) -> py::typing::Optional<Bitmap> {
             Bitmap bitmap;
@@ -135,5 +137,40 @@ void BindBitmap(pybind11::module& m) {
           "is_rgb", &Bitmap::IsRGB, "Whether the image is colorscale.")
       .def_property_readonly(
           "is_grey", &Bitmap::IsGrey, "Whether the image is greyscale.")
+      .def_property_readonly(
+          "is_empty", &Bitmap::IsEmpty, "Whether the image is empty.")
+      .def_property_readonly(
+          "bits_per_pixel",
+          &Bitmap::BitsPerPixel,
+          "Number of bits per pixel (8 for grey, 24 for RGB).")
+      .def_property_readonly(
+          "pitch", &Bitmap::Pitch, "Scan line size in bytes (stride).")
+      .def("clone", &Bitmap::Clone, "Clone the image to a new bitmap.")
+      .def("clone_as_grey",
+           &Bitmap::CloneAsGrey,
+           "Clone the image as grayscale.")
+      .def("clone_as_rgb", &Bitmap::CloneAsRGB, "Clone the image as RGB.")
+      .def(
+          "set_jpeg_quality",
+          &Bitmap::SetJpegQuality,
+          "quality"_a,
+          "Set compression quality when writing to JPEG in the range [1, 100]. "
+          "Lower values reduce quality and file size. By default, bitmaps are "
+          "written in superb (100) quality, if not otherwise specified.")
+      .def("exif_camera_model",
+           &Bitmap::ExifCameraModel,
+           "Extract EXIF camera model. Returns None if not available.")
+      .def("exif_focal_length",
+           &Bitmap::ExifFocalLength,
+           "Extract EXIF focal length. Returns None if not available.")
+      .def("exif_latitude",
+           &Bitmap::ExifLatitude,
+           "Extract EXIF latitude. Returns None if not available.")
+      .def("exif_longitude",
+           &Bitmap::ExifLongitude,
+           "Extract EXIF longitude. Returns None if not available.")
+      .def("exif_altitude",
+           &Bitmap::ExifAltitude,
+           "Extract EXIF altitude. Returns None if not available.")
       .def("__repr__", &CreateRepresentation<Bitmap>);
 }

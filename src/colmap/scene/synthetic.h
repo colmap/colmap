@@ -33,6 +33,8 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
 
+#include <filesystem>
+
 namespace colmap {
 
 struct SyntheticDatasetOptions {
@@ -55,20 +57,34 @@ struct SyntheticDatasetOptions {
 
   double inlier_match_ratio = 1.0;
 
+  // Whether to include decomposed relative poses in two-view geometries.
+  bool two_view_geometry_has_relative_pose = false;
+
   enum class MatchConfig {
     // Exhaustive matches between all pairs of observations of a 3D point.
     EXHAUSTIVE = 1,
     // Chain of matches between images with consecutive identifiers, i.e.,
     // there are only matches between image pairs (image_id, image_id+1).
     CHAINED = 2,
+    // Sparse matches with controllable sparsity, removing edges randomly while
+    // maintaining view graph connectivity.
+    SPARSE = 3,
   };
   MatchConfig match_config = MatchConfig::EXHAUSTIVE;
+
+  // Sparsity parameter for SPARSE match config, in range [0, 1].
+  // 0 = fully connected view graph, equivalent to EXHAUSTIVE (all edges)
+  // 1 = empty view graph (no edges)
+  double match_sparsity = 0.0;
 
   bool prior_position = false;
   PosePrior::CoordinateSystem prior_position_coordinate_system =
       PosePrior::CoordinateSystem::CARTESIAN;
   bool prior_gravity = false;
   Eigen::Vector3d prior_gravity_in_world = Eigen::Vector3d::UnitY();
+
+  // The synthesized image file extension.
+  std::string image_extension = ".png";
 };
 
 void SynthesizeDataset(const SyntheticDatasetOptions& options,
@@ -104,6 +120,6 @@ struct SyntheticImageOptions {
 // feature detections and matches due to overlapping patches, etc.
 void SynthesizeImages(const SyntheticImageOptions& options,
                       const Reconstruction& reconstruction,
-                      const std::string& image_path);
+                      const std::filesystem::path& image_path);
 
 }  // namespace colmap

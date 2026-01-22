@@ -39,9 +39,9 @@ namespace {
 TEST(TwoViewGeometry, Default) {
   TwoViewGeometry two_view_geometry;
   EXPECT_EQ(two_view_geometry.config, TwoViewGeometry::UNDEFINED);
-  EXPECT_EQ(two_view_geometry.F, Eigen::Matrix3d::Zero());
-  EXPECT_EQ(two_view_geometry.E, Eigen::Matrix3d::Zero());
-  EXPECT_EQ(two_view_geometry.H, Eigen::Matrix3d::Zero());
+  EXPECT_FALSE(two_view_geometry.F.has_value());
+  EXPECT_FALSE(two_view_geometry.E.has_value());
+  EXPECT_FALSE(two_view_geometry.H.has_value());
   EXPECT_FALSE(two_view_geometry.cam2_from_cam1.has_value());
   EXPECT_TRUE(two_view_geometry.inlier_matches.empty());
 }
@@ -49,8 +49,9 @@ TEST(TwoViewGeometry, Default) {
 TEST(TwoViewGeometry, Invert) {
   TwoViewGeometry two_view_geometry;
   two_view_geometry.config = TwoViewGeometry::CALIBRATED;
-  two_view_geometry.F = two_view_geometry.E = two_view_geometry.H =
-      Eigen::Matrix3d::Identity();
+  two_view_geometry.F = Eigen::Matrix3d::Identity();
+  two_view_geometry.E = Eigen::Matrix3d::Identity();
+  two_view_geometry.H = Eigen::Matrix3d::Identity();
   two_view_geometry.cam2_from_cam1 =
       Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(0, 1, 2));
   two_view_geometry.inlier_matches.resize(2);
@@ -59,11 +60,11 @@ TEST(TwoViewGeometry, Invert) {
 
   two_view_geometry.Invert();
   EXPECT_EQ(two_view_geometry.config, TwoViewGeometry::CALIBRATED);
-  EXPECT_THAT(two_view_geometry.F,
+  EXPECT_THAT(two_view_geometry.F.value(),
               EigenMatrixNear<Eigen::Matrix3d>(Eigen::Matrix3d::Identity()));
-  EXPECT_THAT(two_view_geometry.E,
+  EXPECT_THAT(two_view_geometry.E.value(),
               EigenMatrixNear<Eigen::Matrix3d>(Eigen::Matrix3d::Identity()));
-  EXPECT_THAT(two_view_geometry.H,
+  EXPECT_THAT(two_view_geometry.H.value(),
               EigenMatrixNear<Eigen::Matrix3d>(Eigen::Matrix3d::Identity()));
   EXPECT_TRUE(two_view_geometry.cam2_from_cam1.has_value());
   EXPECT_THAT(two_view_geometry.cam2_from_cam1->rotation.coeffs(),
@@ -77,11 +78,11 @@ TEST(TwoViewGeometry, Invert) {
 
   two_view_geometry.Invert();
   EXPECT_EQ(two_view_geometry.config, TwoViewGeometry::CALIBRATED);
-  EXPECT_THAT(two_view_geometry.F,
+  EXPECT_THAT(two_view_geometry.F.value(),
               EigenMatrixNear<Eigen::Matrix3d>(Eigen::Matrix3d::Identity()));
-  EXPECT_THAT(two_view_geometry.E,
+  EXPECT_THAT(two_view_geometry.E.value(),
               EigenMatrixNear<Eigen::Matrix3d>(Eigen::Matrix3d::Identity()));
-  EXPECT_THAT(two_view_geometry.H,
+  EXPECT_THAT(two_view_geometry.H.value(),
               EigenMatrixNear<Eigen::Matrix3d>(Eigen::Matrix3d::Identity()));
   EXPECT_TRUE(two_view_geometry.cam2_from_cam1.has_value());
   EXPECT_THAT(two_view_geometry.cam2_from_cam1->rotation.coeffs(),

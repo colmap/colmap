@@ -39,9 +39,11 @@
 #include "colmap/util/file.h"
 #include "colmap/util/ply.h"
 
+#include <set>
+
 namespace colmap {
 
-Reconstruction::Reconstruction() : max_point3D_id_(0) {}
+Reconstruction::Reconstruction() : num_reg_images_(0), max_point3D_id_(0) {}
 
 Reconstruction::Reconstruction(const Reconstruction& other)
     : rigs_(other.rigs_),
@@ -50,6 +52,7 @@ Reconstruction::Reconstruction(const Reconstruction& other)
       images_(other.images_),
       points3D_(other.points3D_),
       reg_frame_ids_(other.reg_frame_ids_),
+      num_reg_images_(other.num_reg_images_),
       max_point3D_id_(other.max_point3D_id_) {
   for (auto& [_, frame] : frames_) {
     frame.ResetRigPtr();
@@ -71,6 +74,7 @@ Reconstruction& Reconstruction::operator=(const Reconstruction& other) {
     images_ = other.images_;
     points3D_ = other.points3D_;
     reg_frame_ids_ = other.reg_frame_ids_;
+    num_reg_images_ = other.num_reg_images_;
     max_point3D_id_ = other.max_point3D_id_;
     for (auto& [_, frame] : frames_) {
       frame.ResetRigPtr();
@@ -84,24 +88,6 @@ Reconstruction& Reconstruction::operator=(const Reconstruction& other) {
     }
   }
   return *this;
-}
-
-size_t Reconstruction::NumRegImages() const {
-  size_t num_reg_images = 0;
-  for (const frame_t frame_id : reg_frame_ids_) {
-    const class Frame& frame = Frame(frame_id);
-    if (frame.HasPose()) {
-      for (const data_t& data_id : frame.ImageIds()) {
-        THROW_CHECK(ExistsImage(data_id.id))
-            << "The reconstruction object is broken as image " << data_id.id
-            << " in frame " << frame.FrameId()
-            << " does not exist in the reconstruction. The most likely cause "
-               "is missing AddImage(*) calls after adding frames.";
-        ++num_reg_images;
-      }
-    }
-  }
-  return num_reg_images;
 }
 
 std::vector<image_t> Reconstruction::RegImageIds() const {
@@ -664,14 +650,25 @@ void Reconstruction::SetRigsAndFrames(std::vector<class Rig> rigs,
 }
 
 void Reconstruction::RegisterFrame(const frame_t frame_id) {
-  THROW_CHECK(Frame(frame_id).HasPose());
+  const class Frame& frame = Frame(frame_id);
+  THROW_CHECK(frame.HasPose());
   if (std::find(reg_frame_ids_.begin(), reg_frame_ids_.end(), frame_id) ==
       reg_frame_ids_.end()) {
     reg_frame_ids_.push_back(frame_id);
+    num_reg_images_ +=
+        std::distance(frame.ImageIds().begin(), frame.ImageIds().end());
   }
 }
 
 void Reconstruction::DeRegisterFrame(const frame_t frame_id) {
+  const auto erase_begin_it =
+      std::remove(reg_frame_ids_.begin(), reg_frame_ids_.end(), frame_id);
+  if (erase_begin_it == reg_frame_ids_.end()) {
+    LOG(WARNING) << "Ignoring de-registration of frame " << frame_id
+                 << ", which is not registered.";
+    return;
+  }
+
   class Frame& frame = Frame(frame_id);
   for (const data_t& data_id : frame.ImageIds()) {
     const image_t image_id = data_id.id;
@@ -682,12 +679,11 @@ void Reconstruction::DeRegisterFrame(const frame_t frame_id) {
         DeleteObservation(image_id, point2D_idx);
       }
     }
+    --num_reg_images_;
   }
 
   frame.ResetPose();
-  reg_frame_ids_.erase(
-      std::remove(reg_frame_ids_.begin(), reg_frame_ids_.end(), frame_id),
-      reg_frame_ids_.end());
+  reg_frame_ids_.erase(erase_begin_it, reg_frame_ids_.end());
 }
 
 Sim3d Reconstruction::Normalize(const bool fixed_scale,
@@ -966,14 +962,13 @@ void Reconstruction::UpdatePoint3DErrors() {
   }
 }
 
-void Reconstruction::Read(const std::string& path) {
-  if (ExistsFile(JoinPaths(path, "cameras.bin")) &&
-      ExistsFile(JoinPaths(path, "images.bin")) &&
-      ExistsFile(JoinPaths(path, "points3D.bin"))) {
+void Reconstruction::Read(const std::filesystem::path& path) {
+  if (ExistsFile(path / "cameras.bin") && ExistsFile(path / "images.bin") &&
+      ExistsFile(path / "points3D.bin")) {
     ReadBinary(path);
-  } else if (ExistsFile(JoinPaths(path, "cameras.txt")) &&
-             ExistsFile(JoinPaths(path, "images.txt")) &&
-             ExistsFile(JoinPaths(path, "points3D.txt"))) {
+  } else if (ExistsFile(path / "cameras.txt") &&
+             ExistsFile(path / "images.txt") &&
+             ExistsFile(path / "points3D.txt")) {
     ReadText(path);
   } else {
     LOG(FATAL_THROW)
@@ -982,62 +977,64 @@ void Reconstruction::Read(const std::string& path) {
   }
 }
 
-void Reconstruction::Write(const std::string& path) const { WriteBinary(path); }
+void Reconstruction::Write(const std::filesystem::path& path) const {
+  WriteBinary(path);
+}
 
-void Reconstruction::ReadText(const std::string& path) {
+void Reconstruction::ReadText(const std::filesystem::path& path) {
   cameras_.clear();
   rigs_.clear();
   frames_.clear();
   images_.clear();
   points3D_.clear();
-  ReadCamerasText(*this, JoinPaths(path, "cameras.txt"));
-  const std::string rigs_path = JoinPaths(path, "rigs.txt");
+  ReadCamerasText(*this, path / "cameras.txt");
+  const auto rigs_path = path / "rigs.txt";
   if (ExistsFile(rigs_path)) {
     ReadRigsText(*this, rigs_path);
   }
-  const std::string frames_path = JoinPaths(path, "frames.txt");
+  const auto frames_path = path / "frames.txt";
   if (ExistsFile(frames_path)) {
     ReadFramesText(*this, frames_path);
   }
-  ReadImagesText(*this, JoinPaths(path, "images.txt"));
-  ReadPoints3DText(*this, JoinPaths(path, "points3D.txt"));
+  ReadImagesText(*this, path / "images.txt");
+  ReadPoints3DText(*this, path / "points3D.txt");
 }
 
-void Reconstruction::ReadBinary(const std::string& path) {
+void Reconstruction::ReadBinary(const std::filesystem::path& path) {
   cameras_.clear();
   rigs_.clear();
   frames_.clear();
   images_.clear();
   points3D_.clear();
-  ReadCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
-  const std::string rigs_path = JoinPaths(path, "rigs.bin");
+  ReadCamerasBinary(*this, path / "cameras.bin");
+  const auto rigs_path = path / "rigs.bin";
   if (ExistsFile(rigs_path)) {
     ReadRigsBinary(*this, rigs_path);
   }
-  const std::string frames_path = JoinPaths(path, "frames.bin");
+  const auto frames_path = path / "frames.bin";
   if (ExistsFile(frames_path)) {
     ReadFramesBinary(*this, frames_path);
   }
-  ReadImagesBinary(*this, JoinPaths(path, "images.bin"));
-  ReadPoints3DBinary(*this, JoinPaths(path, "points3D.bin"));
+  ReadImagesBinary(*this, path / "images.bin");
+  ReadPoints3DBinary(*this, path / "points3D.bin");
 }
 
-void Reconstruction::WriteText(const std::string& path) const {
+void Reconstruction::WriteText(const std::filesystem::path& path) const {
   THROW_CHECK_DIR_EXISTS(path);
-  WriteRigsText(*this, JoinPaths(path, "rigs.txt"));
-  WriteCamerasText(*this, JoinPaths(path, "cameras.txt"));
-  WriteFramesText(*this, JoinPaths(path, "frames.txt"));
-  WriteImagesText(*this, JoinPaths(path, "images.txt"));
-  WritePoints3DText(*this, JoinPaths(path, "points3D.txt"));
+  WriteRigsText(*this, path / "rigs.txt");
+  WriteCamerasText(*this, path / "cameras.txt");
+  WriteFramesText(*this, path / "frames.txt");
+  WriteImagesText(*this, path / "images.txt");
+  WritePoints3DText(*this, path / "points3D.txt");
 }
 
-void Reconstruction::WriteBinary(const std::string& path) const {
+void Reconstruction::WriteBinary(const std::filesystem::path& path) const {
   THROW_CHECK_DIR_EXISTS(path);
-  WriteRigsBinary(*this, JoinPaths(path, "rigs.bin"));
-  WriteCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
-  WriteFramesBinary(*this, JoinPaths(path, "frames.bin"));
-  WriteImagesBinary(*this, JoinPaths(path, "images.bin"));
-  WritePoints3DBinary(*this, JoinPaths(path, "points3D.bin"));
+  WriteRigsBinary(*this, path / "rigs.bin");
+  WriteCamerasBinary(*this, path / "cameras.bin");
+  WriteFramesBinary(*this, path / "frames.bin");
+  WriteImagesBinary(*this, path / "images.bin");
+  WritePoints3DBinary(*this, path / "points3D.bin");
 }
 
 std::vector<PlyPoint> Reconstruction::ConvertToPLY() const {
@@ -1058,7 +1055,7 @@ std::vector<PlyPoint> Reconstruction::ConvertToPLY() const {
   return ply_points;
 }
 
-void Reconstruction::ImportPLY(const std::string& path) {
+void Reconstruction::ImportPLY(const std::filesystem::path& path) {
   points3D_.clear();
 
   const auto ply_points = ReadPly(path);
@@ -1083,11 +1080,11 @@ void Reconstruction::ImportPLY(const std::vector<PlyPoint>& ply_points) {
 }
 
 bool Reconstruction::ExtractColorsForImage(const image_t image_id,
-                                           const std::string& path) {
+                                           const std::filesystem::path& path) {
   const class Image& image = Image(image_id);
 
   Bitmap bitmap;
-  if (!bitmap.Read(JoinPaths(path, image.Name()),
+  if (!bitmap.Read(path / image.Name(),
                    /*as_rgb=*/true)) {
     return false;
   }
@@ -1111,13 +1108,14 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
   return true;
 }
 
-void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
+void Reconstruction::ExtractColorsForAllImages(
+    const std::filesystem::path& path) {
   std::unordered_map<point3D_t, Eigen::Vector3d> color_sums;
   std::unordered_map<point3D_t, size_t> color_counts;
 
   for (const auto& image_id : RegImageIds()) {
     const class Image& image = Image(image_id);
-    const std::string image_path = JoinPaths(path, image.Name());
+    const auto image_path = path / image.Name();
 
     Bitmap bitmap;
     if (!bitmap.Read(image_path,
@@ -1164,15 +1162,15 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
   }
 }
 
-void Reconstruction::CreateImageDirs(const std::string& path) const {
-  std::unordered_set<std::string> image_dirs;
+void Reconstruction::CreateImageDirs(const std::filesystem::path& path) const {
+  std::set<std::filesystem::path> image_dirs;
   for (const auto& image : images_) {
     const std::vector<std::string> name_split =
         StringSplit(image.second.Name(), "/");
     if (name_split.size() > 1) {
-      std::string dir = path;
+      std::filesystem::path dir = path;
       for (size_t i = 0; i < name_split.size() - 1; ++i) {
-        dir = JoinPaths(dir, name_split[i]);
+        dir = dir / name_split[i];
         image_dirs.insert(dir);
       }
     }

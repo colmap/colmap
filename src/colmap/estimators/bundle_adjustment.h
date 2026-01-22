@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/math/math.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/eigen_alignment.h"
@@ -142,6 +143,16 @@ struct BundleAdjustmentOptions {
   // Whether to refine the extrinsic parameter group.
   bool refine_sensor_from_rig = true;
   bool refine_rig_from_world = true;
+
+  // Whether to refine the 3D point positions. When false, all 3D points are
+  // treated as constant, enabling refinement of only camera intrinsics and
+  // poses. This is useful when 3D points come from a reference model and
+  // should not be modified.
+  bool refine_points3D = true;
+
+  // Minimum track length for a 3D point to be included in bundle adjustment.
+  // Points with fewer observations are ignored.
+  int min_track_length = 0;
 
   // Whether to keep the rotation component of rig_from_world constant.
   // Only takes effect when refine_rig_from_world is true.

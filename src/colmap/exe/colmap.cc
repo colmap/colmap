@@ -38,8 +38,6 @@
 #include "colmap/util/oiio_utils.h"
 #include "colmap/util/version.h"
 
-#include "glomap/exe/glomap.h"
-
 namespace {
 
 typedef std::function<int(int, char**)> command_func_t;
@@ -100,7 +98,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("feature_extractor", &colmap::RunFeatureExtractor);
   commands.emplace_back("feature_importer", &colmap::RunFeatureImporter);
   commands.emplace_back("geometric_verifier", &colmap::RunGeometricVerifier);
-  commands.emplace_back("global_mapper", &glomap::RunGlobalMapper);
+  commands.emplace_back("global_mapper", &colmap::RunGlobalMapper);
   commands.emplace_back("guided_geometric_verifier",
                         &colmap::RunGuidedGeometricVerifier);
   commands.emplace_back("hierarchical_mapper", &colmap::RunHierarchicalMapper);
@@ -129,12 +127,16 @@ int main(int argc, char** argv) {
   commands.emplace_back("pose_prior_mapper", &colmap::RunPosePriorMapper);
   commands.emplace_back("poisson_mesher", &colmap::RunPoissonMesher);
   commands.emplace_back("project_generator", &colmap::RunProjectGenerator);
+  commands.emplace_back("reconstruction_clusterer",
+                        &colmap::RunReconstructionClusterer);
   commands.emplace_back("rig_configurator", &colmap::RunRigConfigurator);
-  commands.emplace_back("rotation_averager", &glomap::RunRotationAverager);
+  commands.emplace_back("rotation_averager", &colmap::RunRotationAverager);
   commands.emplace_back("sequential_matcher", &colmap::RunSequentialMatcher);
   commands.emplace_back("spatial_matcher", &colmap::RunSpatialMatcher);
   commands.emplace_back("stereo_fusion", &colmap::RunStereoFuser);
   commands.emplace_back("transitive_matcher", &colmap::RunTransitiveMatcher);
+  commands.emplace_back("view_graph_calibrator",
+                        &colmap::RunViewGraphCalibrator);
   commands.emplace_back("vocab_tree_builder", &colmap::RunVocabTreeBuilder);
   commands.emplace_back("vocab_tree_matcher", &colmap::RunVocabTreeMatcher);
   commands.emplace_back("vocab_tree_retriever", &colmap::RunVocabTreeRetriever);

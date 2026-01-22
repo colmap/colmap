@@ -59,10 +59,10 @@ void ExpectEqualRotations(const Reconstruction& gt,
   }
 }
 
-TEST(RotationAveragingController, WithoutNoise) {
+TEST(RotationAveragingPipeline, WithoutNoise) {
   SetPRNGSeed(1);
 
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -76,8 +76,8 @@ TEST(RotationAveragingController, WithoutNoise) {
 
   auto reconstruction = std::make_shared<Reconstruction>();
 
-  RotationAveragingControllerOptions options;
-  RotationAveragingController controller(options, database, reconstruction);
+  RotationAveragingPipelineOptions options;
+  RotationAveragingPipeline controller(options, database, reconstruction);
   controller.Run();
 
   ExpectEqualRotations(gt_reconstruction,
@@ -85,10 +85,10 @@ TEST(RotationAveragingController, WithoutNoise) {
                        /*max_rotation_error_deg=*/1e-2);
 }
 
-TEST(RotationAveragingController, WithNoiseAndOutliers) {
+TEST(RotationAveragingPipeline, WithNoiseAndOutliers) {
   SetPRNGSeed(1);
 
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -106,8 +106,8 @@ TEST(RotationAveragingController, WithNoiseAndOutliers) {
 
   auto reconstruction = std::make_shared<Reconstruction>();
 
-  RotationAveragingControllerOptions options;
-  RotationAveragingController controller(options, database, reconstruction);
+  RotationAveragingPipelineOptions options;
+  RotationAveragingPipeline controller(options, database, reconstruction);
   controller.Run();
 
   ExpectEqualRotations(gt_reconstruction,
@@ -125,10 +125,10 @@ void ExpectExactEqualRotations(const Reconstruction& reconstruction1,
   }
 }
 
-TEST(RotationAveragingController, WithRandomSeedStability) {
+TEST(RotationAveragingPipeline, WithRandomSeedStability) {
   SetPRNGSeed(1);
 
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -145,10 +145,10 @@ TEST(RotationAveragingController, WithRandomSeedStability) {
 
   auto run_controller = [&](int num_threads, int random_seed) {
     auto reconstruction = std::make_shared<Reconstruction>();
-    RotationAveragingControllerOptions options;
+    RotationAveragingPipelineOptions options;
     options.num_threads = num_threads;
     options.random_seed = random_seed;
-    RotationAveragingController controller(options, database, reconstruction);
+    RotationAveragingPipeline controller(options, database, reconstruction);
     controller.Run();
     return reconstruction;
   };

@@ -1,16 +1,18 @@
 #pragma once
 
-#include "colmap/scene/database.h"
+#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_triangulator.h"
 
-#include "glomap/estimators/bundle_adjustment.h"
 #include "glomap/estimators/global_positioning.h"
 #include "glomap/estimators/rotation_averaging.h"
-#include "glomap/estimators/view_graph_calibration.h"
-#include "glomap/scene/view_graph.h"
-#include "glomap/sfm/track_establishment.h"
+#include "glomap/scene/pose_graph.h"
+
+#include <filesystem>
+#include <limits>
+
+#include <ceres/ceres.h>
 
 namespace glomap {
 
@@ -26,14 +28,29 @@ struct GlobalMapperOptions {
 
   // The image path at which to find the images to extract point colors.
   // If not specified, all point colors will be black.
-  std::string image_path;
+  std::filesystem::path image_path;
 
   // Options for each component
-  ViewGraphCalibratorOptions view_graph_calibration;
   RotationEstimatorOptions rotation_averaging;
-  TrackEstablishmentOptions track_establishment;
   GlobalPositionerOptions global_positioning;
-  BundleAdjusterOptions bundle_adjustment;
+  colmap::BundleAdjustmentOptions bundle_adjustment = [] {
+    colmap::BundleAdjustmentOptions options;
+    options.loss_function_type =
+        colmap::BundleAdjustmentOptions::LossFunctionType::HUBER;
+    options.refine_sensor_from_rig = false;
+    options.min_track_length = 3;
+    options.use_gpu = true;
+    options.print_summary = false;
+    // TODO: Investigate whether disabling auto solver selection and using
+    // explicit SPARSE_SCHUR + CLUSTER_TRIDIAGONAL is necessary for global SfM,
+    // or if we can just rely on COLMAP's auto selection.
+    options.auto_select_solver_type = false;
+    options.solver_options.function_tolerance = 1e-5;
+    options.solver_options.max_num_iterations = 200;
+    options.solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
+    options.solver_options.preconditioner_type = ceres::CLUSTER_TRIDIAGONAL;
+    return options;
+  }();
   colmap::IncrementalTriangulator::Options retriangulation = [] {
     colmap::IncrementalTriangulator::Options opts;
     opts.complete_max_reproj_error = 15.0;
@@ -42,28 +59,46 @@ struct GlobalMapperOptions {
     return opts;
   }();
 
+  // Track establishment options.
+  // Max pixel distance between observations of the same track within one image.
+  double track_intra_image_consistency_threshold = 10.;
+  // Required number of tracks per view before early stopping.
+  int track_required_tracks_per_view = std::numeric_limits<int>::max();
+  // Minimum number of views per track.
+  int track_min_num_views_per_track = 3;
+
   // Thresholds for each component.
-  double max_rotation_error_deg = 10.;        // for rotation averaging
   double max_angular_reproj_error_deg = 1.;   // for global positioning
   double max_normalized_reproj_error = 1e-2;  // for bundle adjustment
   double min_tri_angle_deg = 1.;              // for triangulation
 
   // Control the number of iterations for bundle adjustment.
-  int num_iterations_ba = 3;
+  int ba_num_iterations = 3;
+
+  // Whether to skip the fixed-rotation stage in bundle adjustment.
+  // By default, BA runs in two stages: first with fixed rotations (position
+  // only), then with full optimization. Setting this to true skips the first
+  // stage and runs full optimization directly.
+  bool ba_skip_fixed_rotation_stage = false;
+
+  // Whether to skip the joint optimization stage in bundle adjustment.
+  // When set to true, only the fixed-rotation stage is run (optimizing
+  // positions only). This is mutually exclusive with
+  // ba_skip_fixed_rotation_stage.
+  bool ba_skip_joint_optimization_stage = false;
 
   // Control the flow of the global sfm
-  bool skip_view_graph_calibration = false;
   bool skip_rotation_averaging = false;
   bool skip_track_establishment = false;
   bool skip_global_positioning = false;
   bool skip_bundle_adjustment = false;
   bool skip_retriangulation = false;
-  bool skip_pruning = true;
 };
 
 class GlobalMapper {
  public:
-  explicit GlobalMapper(std::shared_ptr<const colmap::Database> database);
+  explicit GlobalMapper(
+      std::shared_ptr<const colmap::DatabaseCache> database_cache);
 
   // Prepare the mapper for a new reconstruction. This will initialize the
   // reconstruction and view graph from the database.
@@ -75,11 +110,10 @@ class GlobalMapper {
              std::unordered_map<frame_t, int>& cluster_ids);
 
   // Run rotation averaging to estimate global rotations.
-  bool RotationAveraging(const RotationEstimatorOptions& options,
-                         double max_rotation_error_deg);
+  bool RotationAveraging(const RotationEstimatorOptions& options);
 
   // Establish tracks from feature matches.
-  void EstablishTracks(const TrackEstablishmentOptions& options);
+  void EstablishTracks(const GlobalMapperOptions& options);
 
   // Estimate global camera positions.
   bool GlobalPositioning(const GlobalPositionerOptions& options,
@@ -88,31 +122,27 @@ class GlobalMapper {
                          double min_tri_angle_deg);
 
   // Run iterative bundle adjustment to refine poses and structure.
-  bool IterativeBundleAdjustment(const BundleAdjusterOptions& options,
+  bool IterativeBundleAdjustment(const colmap::BundleAdjustmentOptions& options,
                                  double max_normalized_reproj_error,
                                  double min_tri_angle_deg,
-                                 int num_iterations);
+                                 int num_iterations,
+                                 bool skip_fixed_rotation_stage = false,
+                                 bool skip_joint_optimization_stage = false);
 
   // Iteratively retriangulate tracks and refine to improve structure.
   bool IterativeRetriangulateAndRefine(
       const colmap::IncrementalTriangulator::Options& options,
-      const BundleAdjusterOptions& ba_options,
+      const colmap::BundleAdjustmentOptions& ba_options,
       double max_normalized_reproj_error,
       double min_tri_angle_deg);
 
   // Getter functions.
   std::shared_ptr<colmap::Reconstruction> Reconstruction() const;
-  std::shared_ptr<class ViewGraph> ViewGraph() const;
 
  private:
-  // Class that caches data loaded from the database.
   std::shared_ptr<const colmap::DatabaseCache> database_cache_;
-
-  // Class that holds data of the reconstruction.
+  std::shared_ptr<class PoseGraph> pose_graph_;
   std::shared_ptr<colmap::Reconstruction> reconstruction_;
-
-  // Class that holds the view graph.
-  std::shared_ptr<class ViewGraph> view_graph_;
 };
 
 }  // namespace glomap

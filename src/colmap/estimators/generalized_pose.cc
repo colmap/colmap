@@ -143,6 +143,12 @@ bool EstimateGeneralizedAbsolutePose(
     return false;
   }
 
+  // Precompute cam_from_rig matrices for fast residual computation
+  std::vector<Eigen::Matrix3x4d> cams_from_rig_matrices(cams_from_rig.size());
+  for (size_t i = 0; i < cams_from_rig.size(); i++) {
+    cams_from_rig_matrices[i] = cams_from_rig[i].ToMatrix();
+  }
+
   std::vector<GP3PEstimator::X_t> rig_points2D(points2D.size());
   for (size_t i = 0; i < points2D.size(); i++) {
     const size_t camera_idx = camera_idxs[i];
@@ -153,7 +159,7 @@ bool EstimateGeneralizedAbsolutePose(
     } else {
       rig_points2D[i].ray_in_cam.setZero();
     }
-    rig_points2D[i].cam_from_rig = cams_from_rig[camera_idx];
+    rig_points2D[i].cam_from_rig = cams_from_rig_matrices[camera_idx];
   }
 
   // Associate unique ids to each 3D point.

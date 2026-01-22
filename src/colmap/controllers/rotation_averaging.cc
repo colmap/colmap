@@ -29,54 +29,104 @@
 
 #include "colmap/controllers/rotation_averaging.h"
 
+#include "colmap/estimators/two_view_geometry.h"
+#include "colmap/geometry/pose.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
-#include "glomap/sfm/global_mapper.h"
+#include "glomap/estimators/gravity_refinement.h"
+#include "glomap/estimators/rotation_averaging.h"
+#include "glomap/scene/pose_graph.h"
+
+#include <limits>
 
 namespace colmap {
 
-RotationAveragingController::RotationAveragingController(
-    const RotationAveragingControllerOptions& options,
+RotationAveragingPipeline::RotationAveragingPipeline(
+    const RotationAveragingPipelineOptions& options,
     std::shared_ptr<Database> database,
     std::shared_ptr<Reconstruction> reconstruction)
     : options_(options),
-      database_(std::move(THROW_CHECK_NOTNULL(database))),
-      reconstruction_(std::move(THROW_CHECK_NOTNULL(reconstruction))) {}
-
-void RotationAveragingController::Run() {
-  // Propagate options to component options.
-  RotationAveragingControllerOptions options = options_;
-  if (options.random_seed >= 0) {
-    options.rotation_estimation.random_seed = options.random_seed;
-    options.view_graph_calibration.random_seed = options.random_seed;
+      reconstruction_(std::move(THROW_CHECK_NOTNULL(reconstruction))) {
+  THROW_CHECK_NOTNULL(database);
+  if (options_.decompose_relative_pose) {
+    MaybeDecomposeAndWriteRelativePoses(database.get());
   }
-  options.view_graph_calibration.solver_options.num_threads =
-      options.num_threads;
+  LOG(INFO) << "Loading database";
+  DatabaseCache::Options database_cache_options;
+  database_cache_options.min_num_matches = options_.min_num_matches;
+  database_cache_options.ignore_watermarks = options_.ignore_watermarks;
+  database_cache_options.image_names = {options_.image_names.begin(),
+                                        options_.image_names.end()};
+  database_cache_ = DatabaseCache::Create(*database, database_cache_options);
+}
+
+void RotationAveragingPipeline::Run() {
+  // Propagate options to component options.
+  RotationAveragingPipelineOptions options = options_;
+  options.rotation_estimation.random_seed = options.random_seed;
+  options.gravity_refiner.solver_options.num_threads = options.num_threads;
 
   Timer run_timer;
   run_timer.Start();
 
-  // Create a global mapper instance
-  glomap::GlobalMapper mapper(database_);
-  mapper.BeginReconstruction(reconstruction_);
+  // Load reconstruction and pose graph from database cache.
+  reconstruction_->Load(*database_cache_);
+  glomap::PoseGraph pose_graph;
+  pose_graph.Load(*database_cache_->CorrespondenceGraph());
 
-  if (mapper.ViewGraph()->Empty()) {
+  if (pose_graph.Empty()) {
     LOG(ERROR) << "Cannot continue without image pairs";
     return;
   }
 
-  LOG(INFO) << "----- Running view graph calibration -----";
-  if (!glomap::CalibrateViewGraph(options.view_graph_calibration,
-                                  *mapper.ViewGraph(),
-                                  *reconstruction_)) {
-    LOG(ERROR) << "Failed to solve view graph calibration";
-    return;
+  // Get a mutable copy of pose priors.
+  std::vector<PosePrior> pose_priors = database_cache_->PosePriors();
+
+  // Initialize frame rotations from gravity priors.
+  const Eigen::Vector3d kUnknownTranslation =
+      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+  for (const auto& pose_prior : pose_priors) {
+    if (!pose_prior.HasGravity()) {
+      continue;
+    }
+    const auto& image = reconstruction_->Image(pose_prior.pose_prior_id);
+    if (!image.IsRefInFrame()) {
+      continue;
+    }
+    reconstruction_->Frame(image.FrameId())
+        .SetRigFromWorld(Rigid3d(
+            Eigen::Quaterniond(GravityAlignedRotation(pose_prior.gravity)),
+            kUnknownTranslation));
   }
 
-  LOG(INFO) << "----- Running rotation averaging -----";
-  if (!mapper.RotationAveraging(options.rotation_estimation,
-                                options.max_rotation_error_deg)) {
+  // Optionally refine gravity priors (only if gravity priors exist).
+  if (options.refine_gravity && !pose_priors.empty()) {
+    // Compute largest connected component and invalidate pairs before gravity
+    // refinement.
+    const std::unordered_set<frame_t> active_frame_ids =
+        pose_graph.ComputeLargestConnectedFrameComponent(
+            *reconstruction_,
+            /*filter_unregistered=*/false);
+    std::unordered_set<image_t> active_image_ids;
+    for (const auto& [image_id, image] : reconstruction_->Images()) {
+      if (active_frame_ids.count(image.FrameId())) {
+        active_image_ids.insert(image_id);
+      }
+    }
+    pose_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
+
+    LOG_HEADING1("Running gravity refinement");
+    glomap::RunGravityRefinement(
+        options.gravity_refiner, pose_graph, *reconstruction_, pose_priors);
+  }
+
+  LOG_HEADING1("Running rotation averaging");
+  if (!glomap::RunRotationAveraging(options.rotation_estimation,
+                                    pose_graph,
+                                    *reconstruction_,
+                                    pose_priors)) {
     LOG(ERROR) << "Failed to solve rotation averaging";
     return;
   }

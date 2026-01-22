@@ -37,6 +37,39 @@
 namespace colmap {
 namespace {
 
+void CustomizeIncrementalPipelineOptions(const DatabaseCache& database_cache,
+                                         IncrementalPipelineOptions& options) {
+  // If the total number of images is small then do not enforce the
+  // minimum model size so that we can reconstruct small image
+  // collections, i.e., if the model is at least half of the total number
+  // of images, we always keep it.
+  options.min_model_size = std::min<size_t>(0.5 * database_cache.NumImages(),
+                                            options.min_model_size);
+}
+
+DatabaseCache::Options CreateDatabaseCacheOptions(
+    const IncrementalPipelineOptions& options,
+    const ReconstructionManager& reconstruction_manager) {
+  DatabaseCache::Options database_cache_options;
+  database_cache_options.min_num_matches =
+      static_cast<size_t>(options.min_num_matches);
+  database_cache_options.ignore_watermarks = options.ignore_watermarks;
+  database_cache_options.image_names = {options.image_names.begin(),
+                                        options.image_names.end()};
+  // Make sure images of the given reconstruction are also included when
+  // manually specifying images for the reconstruction procedure.
+  if (reconstruction_manager.Size() == 1 && !options.image_names.empty()) {
+    const auto& reconstruction = reconstruction_manager.Get(0);
+    for (const image_t image_id : reconstruction->RegImageIds()) {
+      const auto& image = reconstruction->Image(image_id);
+      database_cache_options.image_names.insert(image.Name());
+    }
+  }
+  database_cache_options.convert_pose_priors_to_enu =
+      options.use_prior_position;
+  return database_cache_options;
+}
+
 void IterativeGlobalRefinement(const IncrementalPipelineOptions& options,
                                const IncrementalMapper::Options& mapper_options,
                                IncrementalMapper& mapper) {
@@ -49,18 +82,18 @@ void IterativeGlobalRefinement(const IncrementalPipelineOptions& options,
   mapper.FilterFrames(mapper_options);
 }
 
-void ExtractColors(const std::string& image_path,
+void ExtractColors(const std::filesystem::path& image_path,
                    const image_t image_id,
                    Reconstruction& reconstruction) {
   if (!reconstruction.ExtractColorsForImage(image_id, image_path)) {
-    LOG(WARNING) << StringPrintf("Could not read image %s at path %s.",
-                                 reconstruction.Image(image_id).Name().c_str(),
-                                 image_path.c_str());
+    LOG(WARNING) << "Could not read image "
+                 << reconstruction.Image(image_id).Name() << " at path "
+                 << image_path << ".";
   }
 }
 
 void WriteSnapshot(const Reconstruction& reconstruction,
-                   const std::string& snapshot_path) {
+                   const std::filesystem::path& snapshot_path) {
   LOG(INFO) << "Creating snapshot";
   // Get the current timestamp in milliseconds.
   const size_t timestamp =
@@ -68,11 +101,26 @@ void WriteSnapshot(const Reconstruction& reconstruction,
           std::chrono::high_resolution_clock::now().time_since_epoch())
           .count();
   // Write reconstruction to unique path with current timestamp.
-  const std::string path =
-      JoinPaths(snapshot_path, StringPrintf("%010zu", timestamp));
+  const auto path = snapshot_path / StringPrintf("%010zu", timestamp);
   CreateDirIfNotExists(path);
   VLOG(1) << "=> Writing to " << path;
   reconstruction.Write(path);
+}
+
+bool HasUnknownSensorFromRig(const Reconstruction& reconstruction) {
+  std::unordered_set<const Rig*> parameterized_rigs;
+  for (const auto& [_, image] : reconstruction.Images()) {
+    parameterized_rigs.insert(image.FramePtr()->RigPtr());
+  }
+  for (const Rig* rig : parameterized_rigs) {
+    for (const auto& [sensor_id, sensor_from_rig] : rig->NonRefSensors()) {
+      if (sensor_id.type == SensorType::CAMERA &&
+          !sensor_from_rig.has_value()) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 }  // namespace
@@ -194,7 +242,7 @@ bool IncrementalPipelineOptions::Check() const {
 }
 
 IncrementalPipeline::IncrementalPipeline(
-    std::shared_ptr<const IncrementalPipelineOptions> options,
+    std::shared_ptr<IncrementalPipelineOptions> options,
     std::shared_ptr<class Database> database,
     std::shared_ptr<class ReconstructionManager> reconstruction_manager)
     : options_(std::move(THROW_CHECK_NOTNULL(options))),
@@ -204,45 +252,21 @@ IncrementalPipeline::IncrementalPipeline(
   THROW_CHECK(options_->Check());
   THROW_CHECK_NOTNULL(database);
 
-  // Make sure images of the given reconstruction are also included when
-  // manually specifying images for the reconstruction procedure.
-  std::unordered_set<std::string> image_names = {options_->image_names.begin(),
-                                                 options_->image_names.end()};
-  if (reconstruction_manager_->Size() == 1 && !options_->image_names.empty()) {
-    const auto& reconstruction = reconstruction_manager_->Get(0);
-    for (const image_t image_id : reconstruction->RegImageIds()) {
-      const auto& image = reconstruction->Image(image_id);
-      image_names.insert(image.Name());
-    }
-  }
-
   LOG(INFO) << "Loading database";
   Timer timer;
   timer.Start();
   database_cache_ = DatabaseCache::Create(
       *database,
-      /*min_num_matches=*/static_cast<size_t>(options_->min_num_matches),
-      /*ignore_watermarks=*/options_->ignore_watermarks,
-      /*image_names=*/image_names);
+      CreateDatabaseCacheOptions(*options_, *reconstruction_manager_));
   timer.PrintMinutes();
 
-  // If prior positions are to be used and setup from the database, convert
-  // geographic coords. to cartesian ones
-  if (options_->use_prior_position) {
-    THROW_CHECK(database_cache_->SetupPosePriors());
-  }
+  CustomizeIncrementalPipelineOptions(*database_cache_, *options_);
 
-  RegisterCallback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
-  RegisterCallback(NEXT_IMAGE_REG_CALLBACK);
-  RegisterCallback(LAST_IMAGE_REG_CALLBACK);
+  RegisterCallbacks();
 }
 
-// NOTE: This constructor does not respect the ignore_watermarks option since
-// watermark filtering requires access to the original TwoViewGeometry data
-// from the database. The caller should ensure the passed database_cache was
-// created with appropriate watermark filtering if needed.
 IncrementalPipeline::IncrementalPipeline(
-    std::shared_ptr<const IncrementalPipelineOptions> options,
+    std::shared_ptr<IncrementalPipelineOptions> options,
     std::shared_ptr<class DatabaseCache> database_cache,
     std::shared_ptr<class ReconstructionManager> reconstruction_manager)
     : options_(std::move(THROW_CHECK_NOTNULL(options))),
@@ -252,39 +276,25 @@ IncrementalPipeline::IncrementalPipeline(
   THROW_CHECK(options_->Check());
   THROW_CHECK_NOTNULL(database_cache);
 
-  // Make sure images of the given reconstruction are also included when
-  // manually specifying images for the reconstruction procedure.
-  std::unordered_set<std::string> image_names = {options_->image_names.begin(),
-                                                 options_->image_names.end()};
-  if (reconstruction_manager_->Size() == 1 && !options_->image_names.empty()) {
-    const auto& reconstruction = reconstruction_manager_->Get(0);
-    for (const image_t image_id : reconstruction->RegImageIds()) {
-      const auto& image = reconstruction->Image(image_id);
-      image_names.insert(image.Name());
-    }
-  }
-
   database_cache_ = DatabaseCache::CreateFromCache(
       *database_cache,
-      static_cast<size_t>(options_->min_num_matches),
-      image_names);
+      CreateDatabaseCacheOptions(*options_, *reconstruction_manager_));
 
-  // If prior positions are to be used and setup from the database, convert
-  // geographic coords. to cartesian ones
-  if (options_->use_prior_position) {
-    THROW_CHECK(database_cache_->SetupPosePriors());
-  }
+  CustomizeIncrementalPipelineOptions(*database_cache_, *options_);
 
-  RegisterCallback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
-  RegisterCallback(NEXT_IMAGE_REG_CALLBACK);
-  RegisterCallback(LAST_IMAGE_REG_CALLBACK);
+  RegisterCallbacks();
 }
 
 void IncrementalPipeline::Run() {
   total_run_timer_->Start();
 
   if (database_cache_->NumImages() == 0) {
-    LOG(WARNING) << "No images with matches found in the database";
+    LOG(WARNING) << "No images with matches";
+    return;
+  }
+
+  if (options_->use_prior_position && database_cache_->NumPosePriors() == 0) {
+    LOG(WARNING) << "No pose priors";
     return;
   }
 
@@ -299,13 +309,17 @@ void IncrementalPipeline::Run() {
 
   IncrementalMapper::Options mapper_options = options_->Mapper();
   IncrementalMapper mapper(database_cache_);
-  Reconstruct(mapper,
-              mapper_options,
-              /*continue_reconstruction=*/continue_reconstruction);
+  if (Reconstruct(mapper,
+                  mapper_options,
+                  /*continue_reconstruction=*/continue_reconstruction) ==
+      Status::STOP) {
+    total_run_timer_->PrintMinutes();
+    return;
+  }
 
   auto ShouldStop = [this, &mapper, &num_images]() {
     return mapper.NumTotalRegImages() == num_images || CheckIfStopped() ||
-           ReachedMaxRuntime();
+           CheckReachedMaxRuntime();
   };
 
   const size_t kNumInitRelaxations = 2;
@@ -317,7 +331,11 @@ void IncrementalPipeline::Run() {
     LOG(INFO) << "=> Relaxing the initialization constraints.";
     mapper_options.init_min_num_inliers /= 2;
     mapper.ResetInitializationStats();
-    Reconstruct(mapper, mapper_options, /*continue_reconstruction=*/false);
+    if (Reconstruct(mapper,
+                    mapper_options,
+                    /*continue_reconstruction=*/false) == Status::STOP) {
+      break;
+    }
 
     if (ShouldStop()) {
       break;
@@ -326,7 +344,11 @@ void IncrementalPipeline::Run() {
     LOG(INFO) << "=> Relaxing the initialization constraints.";
     mapper_options.init_min_tri_angle /= 2;
     mapper.ResetInitializationStats();
-    Reconstruct(mapper, mapper_options, /*continue_reconstruction=*/false);
+    if (Reconstruct(mapper,
+                    mapper_options,
+                    /*continue_reconstruction=*/false) == Status::STOP) {
+      break;
+    }
   }
 
   total_run_timer_->PrintMinutes();
@@ -428,6 +450,10 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
     const std::shared_ptr<Reconstruction>& reconstruction) {
   mapper.BeginReconstruction(reconstruction);
 
+  if (HasUnknownSensorFromRig(*reconstruction)) {
+    return Status::UNKNOWN_SENSOR_FROM_RIG;
+  }
+
   ////////////////////////////////////////////////////////////////////////////
   // Register initial pair
   ////////////////////////////////////////////////////////////////////////////
@@ -463,7 +489,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
   bool reg_next_success = true;
   bool prev_reg_next_success = true;
   do {
-    if (CheckIfStopped() || ReachedMaxRuntime()) {
+    if (CheckIfStopped() || CheckReachedMaxRuntime()) {
       break;
     }
 
@@ -509,11 +535,11 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
         } else {
           LOG(INFO) << "=> Could not register, trying another image.";
 
-          // If initial pair fails to continue for some time,
+          // If initial model fails to continue for some time,
           // abort and try different initial pair.
           const size_t kMinNumInitialRegTrials = 30;
           if (reg_trial >= kMinNumInitialRegTrials &&
-              reconstruction->NumRegFrames() <
+              reconstruction->NumRegImages() <
                   static_cast<size_t>(options_->min_model_size)) {
             break;
           }
@@ -574,7 +600,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
     }
   } while (reg_next_success || prev_reg_next_success);
 
-  if (CheckIfStopped() || ReachedMaxRuntime()) {
+  if (CheckIfStopped() || CheckReachedMaxRuntime()) {
     return Status::INTERRUPTED;
   }
 
@@ -587,21 +613,20 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
   return Status::SUCCESS;
 }
 
-void IncrementalPipeline::Reconstruct(
+IncrementalPipeline::Status IncrementalPipeline::Reconstruct(
     IncrementalMapper& mapper,
     const IncrementalMapper::Options& mapper_options,
     bool continue_reconstruction) {
   for (int num_trials = 0; num_trials < options_->init_num_trials;
        ++num_trials) {
-    if (CheckIfStopped() || ReachedMaxRuntime()) {
-      break;
+    if (CheckIfStopped() || CheckReachedMaxRuntime()) {
+      return Status::STOP;
     }
-    size_t reconstruction_idx;
-    if (!continue_reconstruction || num_trials > 0) {
-      reconstruction_idx = reconstruction_manager_->Add();
-    } else {
-      reconstruction_idx = 0;
-    }
+
+    const size_t reconstruction_idx =
+        (!continue_reconstruction || num_trials > 0)
+            ? reconstruction_manager_->Add()
+            : 0;
     std::shared_ptr<Reconstruction> reconstruction =
         reconstruction_manager_->Get(reconstruction_idx);
 
@@ -614,17 +639,22 @@ void IncrementalPipeline::Reconstruct(
         mapper.EndReconstruction(/*discard=*/false);
         AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
                                            reconstruction.get());
-        return;
+        return Status::STOP;
       }
 
-      case Status::NO_INITIAL_PAIR: {
-        LOG(INFO) << "Discarding reconstruction due to no initial pair";
+      case Status::UNKNOWN_SENSOR_FROM_RIG: {
+        LOG(ERROR)
+            << "Discarding reconstruction due to unknown sensor_from_rig "
+               "poses. Either explicitly define the poses by configuring the "
+               "rigs or first run reconstruction without configured rigs and "
+               "then derive the poses from the initial reconstruction for a "
+               "subsequent reconstruction with rig constraints. See "
+               "documentation for detailed instructions.";
         mapper.EndReconstruction(/*discard=*/true);
         reconstruction_manager_->Delete(reconstruction_idx);
-        // If no pair could be found, we can exit the trial loop, because
-        // the next trial will not find anything unless the initialization
-        // thresholds are relaxed.
-        return;
+        // If the reconstruction was discarded due to an unknown sensor from
+        // rig, we can stop the outer trial loop, because all trials will fail.
+        return Status::STOP;
       }
 
       case Status::BAD_INITIAL_PAIR: {
@@ -636,22 +666,29 @@ void IncrementalPipeline::Reconstruct(
         break;
       }
 
+      case Status::NO_INITIAL_PAIR: {
+        LOG(INFO) << "Discarding reconstruction due to no initial pair";
+        mapper.EndReconstruction(/*discard=*/true);
+        reconstruction_manager_->Delete(reconstruction_idx);
+        // If no pair could be found, we can exit the trial loop, because
+        // the next trials in this loop will not find anything unless the
+        // initialization thresholds are relaxed. However, by relaxing the
+        // constraints in the outer loop we can succeed.
+        return Status::CONTINUE;
+      }
+
       case Status::SUCCESS: {
         // Remember the total number of registered images before potentially
         // discarding it below due to small size, so we can exit out of the main
         // loop, if all images were registered.
+        const size_t num_reg_images = reconstruction->NumRegImages();
         const size_t total_num_reg_images = mapper.NumTotalRegImages();
 
-        // If the total number of images is small then do not enforce the
-        // minimum model size so that we can reconstruct small image
-        // collections. Always keep the first reconstruction, independent of
-        // size.
-        const size_t min_model_size = std::min<size_t>(
-            0.8 * database_cache_->NumImages(), options_->min_model_size);
+        // Always keep the first reconstruction, independent of size.
         if ((options_->multiple_models && reconstruction_manager_->Size() > 1 &&
-             reconstruction->NumRegFrames() < min_model_size) ||
-            reconstruction->NumRegFrames() == 0) {
-          LOG(INFO) << "Discarding reconstruction due to insufficient size";
+             num_reg_images < static_cast<size_t>(options_->min_model_size)) ||
+            num_reg_images == 0) {
+          LOG(WARNING) << "Discarding reconstruction due to insufficient size";
           mapper.EndReconstruction(/*discard=*/true);
           reconstruction_manager_->Delete(reconstruction_idx);
         } else {
@@ -664,13 +701,16 @@ void IncrementalPipeline::Reconstruct(
 
         Callback(LAST_IMAGE_REG_CALLBACK);
 
+        // Check if we should or can reconstruct another sub-model.
         if (!options_->multiple_models ||
             reconstruction_manager_->Size() >=
                 static_cast<size_t>(options_->max_num_models) ||
             total_num_reg_images >= database_cache_->NumImages() - 1) {
-          return;
+          return Status::STOP;
         }
 
+        // In case the reconstruction was successful and there are remaining
+        // images, we try to reconstruct another sub-model in the next trial.
         break;
       }
 
@@ -678,6 +718,8 @@ void IncrementalPipeline::Reconstruct(
         LOG(FATAL_THROW) << "Unknown reconstruction status.";
     }
   }
+
+  return Status::CONTINUE;
 }
 
 void IncrementalPipeline::TriangulateReconstruction(
@@ -719,7 +761,13 @@ void IncrementalPipeline::TriangulateReconstruction(
   reconstruction->ExtractColorsForAllImages(options_->image_path);
 }
 
-bool IncrementalPipeline::ReachedMaxRuntime() const {
+void IncrementalPipeline::RegisterCallbacks() {
+  RegisterCallback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
+  RegisterCallback(NEXT_IMAGE_REG_CALLBACK);
+  RegisterCallback(LAST_IMAGE_REG_CALLBACK);
+}
+
+bool IncrementalPipeline::CheckReachedMaxRuntime() const {
   if (options_->max_runtime_seconds > 0 &&
       total_run_timer_->ElapsedSeconds() > options_->max_runtime_seconds) {
     LOG(INFO) << "Reached maximum runtime of " << options_->max_runtime_seconds

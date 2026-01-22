@@ -31,7 +31,6 @@
 
 #include "colmap/estimators/triangulation.h"
 #include "colmap/scene/projection.h"
-#include "colmap/util/misc.h"
 
 namespace colmap {
 namespace {
@@ -314,6 +313,7 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
   Options re_options = options;
   re_options.continue_max_angle_error = options.re_max_angle_error;
 
+  FeatureMatches matches;
   for (const auto& image_pair : obs_manager_->ImagePairs()) {
     // Only perform retriangulation for under-reconstructed image pairs.
     const double tri_ratio =
@@ -354,13 +354,12 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
 
     // Find correspondences and perform retriangulation.
 
-    const FeatureMatches& corrs =
-        correspondence_graph_->FindCorrespondencesBetweenImages(image_id1,
-                                                                image_id2);
+    correspondence_graph_->ExtractMatchesBetweenImages(
+        image_id1, image_id2, matches);
 
-    for (const auto& corr : corrs) {
-      const Point2D& point2D1 = image1.Point2D(corr.point2D_idx1);
-      const Point2D& point2D2 = image2.Point2D(corr.point2D_idx2);
+    for (const auto& match : matches) {
+      const Point2D& point2D1 = image1.Point2D(match.point2D_idx1);
+      const Point2D& point2D2 = image2.Point2D(match.point2D_idx2);
 
       // Two cases are possible here: both points belong to the same 3D point
       // or to different 3D points. In the former case, there is nothing
@@ -373,14 +372,14 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
 
       CorrData corr_data1;
       corr_data1.image_id = image_id1;
-      corr_data1.point2D_idx = corr.point2D_idx1;
+      corr_data1.point2D_idx = match.point2D_idx1;
       corr_data1.image = &image1;
       corr_data1.camera = &camera1;
       corr_data1.point2D = &point2D1;
 
       CorrData corr_data2;
       corr_data2.image_id = image_id2;
-      corr_data2.point2D_idx = corr.point2D_idx2;
+      corr_data2.point2D_idx = match.point2D_idx2;
       corr_data2.image = &image2;
       corr_data2.camera = &camera2;
       corr_data2.point2D = &point2D2;

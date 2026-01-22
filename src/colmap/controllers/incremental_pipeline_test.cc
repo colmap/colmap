@@ -41,7 +41,7 @@ namespace colmap {
 namespace {
 
 TEST(IncrementalPipeline, WithoutNoise) {
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -68,7 +68,7 @@ TEST(IncrementalPipeline, WithoutNoise) {
 }
 
 TEST(IncrementalPipeline, WithoutNoiseAndWithNonTrivialFrames) {
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -100,8 +100,37 @@ TEST(IncrementalPipeline, WithoutNoiseAndWithNonTrivialFrames) {
   }
 }
 
+TEST(IncrementalPipeline, UnknownSensorFromRigExitsGracefully) {
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 3;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  synthetic_dataset_options.sensor_from_rig_translation_stddev = 0.05;
+  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 30;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  // Set one of the sensor from rig to unknown.
+  auto rig = database->ReadAllRigs()[0];
+  rig.NonRefSensors().begin()->second.reset();
+  database->UpdateRig(rig);
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  IncrementalPipeline mapper(options, database, reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 0);
+}
+
 TEST(IncrementalPipeline, WithNonTrivialFramesAndConstantRigsAndCameras) {
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -147,7 +176,7 @@ TEST(IncrementalPipeline, WithNonTrivialFramesAndConstantRigsAndCameras) {
 }
 
 TEST(IncrementalPipeline, WithoutNoiseAndWithPanoramicNonTrivialFrames) {
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -178,7 +207,7 @@ TEST(IncrementalPipeline, WithoutNoiseAndWithPanoramicNonTrivialFrames) {
 }
 
 TEST(IncrementalPipeline, WithPriorFocalLength) {
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -205,7 +234,7 @@ TEST(IncrementalPipeline, WithPriorFocalLength) {
 }
 
 TEST(IncrementalPipeline, WithNoise) {
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -236,7 +265,7 @@ TEST(IncrementalPipeline, WithNoise) {
 }
 
 TEST(IncrementalPipeline, IgnoreRedundantPoints3D) {
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -263,7 +292,7 @@ TEST(IncrementalPipeline, IgnoreRedundantPoints3D) {
 }
 
 TEST(IncrementalPipeline, StructureLessRegistrationOnly) {
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -289,7 +318,7 @@ TEST(IncrementalPipeline, StructureLessRegistrationOnly) {
 }
 
 TEST(IncrementalPipeline, MultiReconstruction) {
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction1;
@@ -332,7 +361,7 @@ TEST(IncrementalPipeline, MultiReconstruction) {
 }
 
 TEST(IncrementalPipeline, FixExistingFrames) {
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -377,7 +406,7 @@ TEST(IncrementalPipeline, FixExistingFrames) {
 }
 
 TEST(IncrementalPipeline, ChainedMatches) {
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -405,7 +434,7 @@ TEST(IncrementalPipeline, ChainedMatches) {
 }
 
 TEST(IncrementalPipeline, PriorBasedSfMWithoutNoise) {
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -444,7 +473,7 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoise) {
 }
 
 TEST(IncrementalPipeline, PriorBasedSfMWithoutNoiseAndWithNonTrivialFrames) {
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -479,7 +508,7 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoiseAndWithNonTrivialFrames) {
 }
 
 TEST(IncrementalPipeline, PriorBasedSfMWithNoise) {
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -516,7 +545,7 @@ TEST(IncrementalPipeline, PriorBasedSfMWithNoise) {
 }
 
 TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -558,7 +587,7 @@ TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
 TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
   SetPRNGSeed(1);
 
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -620,7 +649,7 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
 TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
   SetPRNGSeed(1);
 
-  const std::string database_path = CreateTestDir() + "/database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;

@@ -35,6 +35,7 @@
 #include "colmap/util/enum_utils.h"
 #include "colmap/util/threading.h"
 
+#include <filesystem>
 #include <memory>
 #include <string>
 
@@ -49,20 +50,20 @@ class AutomaticReconstructionController : public Thread {
 
   struct Options {
     // The path to the workspace folder in which all results are stored.
-    std::string workspace_path;
+    std::filesystem::path workspace_path;
 
     // The path to the image folder which are used as input.
-    std::string image_path;
+    std::filesystem::path image_path;
 
     // Optional list of image names to reconstruct. The list must contain the
     // relative path of the images with respect to the image_path.
     std::vector<std::string> image_names;
 
     // The path to the mask folder which are used as input.
-    std::string mask_path;
+    std::filesystem::path mask_path;
 
     // The path to the vocabulary tree for feature matching.
-    std::string vocab_tree_path = kDefaultVocabTreeUri;
+    std::filesystem::path vocab_tree_path = kDefaultVocabTreeUri;
 
     // The type of input data used to choose optimal mapper settings.
     DataType data_type = DataType::INDIVIDUAL;

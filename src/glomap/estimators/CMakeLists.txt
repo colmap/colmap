@@ -32,13 +32,11 @@ set(FOLDER_NAME "glomap_estimators")
 COLMAP_ADD_LIBRARY(
     NAME colmap_glomap_estimators
     SRCS
-        bundle_adjustment.h bundle_adjustment.cc
         cost_functions.h
         global_positioning.h global_positioning.cc
         rotation_averaging.h rotation_averaging.cc
         rotation_averaging_impl.h rotation_averaging_impl.cc
         gravity_refinement.h gravity_refinement.cc
-        view_graph_calibration.h view_graph_calibration.cc
     PUBLIC_LINK_LIBS
         colmap_glomap_scene
         colmap_estimators
@@ -54,5 +52,17 @@ COLMAP_ADD_LIBRARY(
 COLMAP_ADD_TEST(
     NAME glomap_cost_functions_test
     SRCS cost_functions_test.cc
+    LINK_LIBS colmap_glomap_estimators
+)
+
+COLMAP_ADD_TEST(
+    NAME glomap_rotation_averaging_test
+    SRCS rotation_averaging_test.cc
+    LINK_LIBS colmap_glomap_estimators
+)
+
+COLMAP_ADD_TEST(
+    NAME glomap_gravity_refinement_test
+    SRCS gravity_refinement_test.cc
     LINK_LIBS colmap_glomap_estimators
 )
