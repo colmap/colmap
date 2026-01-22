@@ -43,7 +43,6 @@ Eigen::Matrix3d CrossProductMatrix(const Eigen::Vector3d& vector);
 
 // 3D rigid transform with 6 degrees of freedom.
 // Transforms point x from a to b as: x_in_b = R * x_in_a + t.
-// Parameters are stored as [qx, qy, qz, qw, tx, ty, tz].
 struct Rigid3d {
  public:
   // Parameters stored as [qx, qy, qz, qw, tx, ty, tz].
