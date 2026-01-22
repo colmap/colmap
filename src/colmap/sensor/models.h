@@ -97,8 +97,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                 kRadTanThinPrismFisheye,  // = 11
                                 kSimpleDivision,          // = 12
                                 kDivision,                // = 13
-                                kSimpleFisheyeCamera,     // = 14
-                                kFisheyeCamera            // = 15
+                                kSimpleFisheye,           // = 14
+                                kFisheye                  // = 15
 );
 
 #ifndef CAMERA_MODEL_DEFINITIONS
@@ -535,8 +535,8 @@ struct DivisionCameraModel : public BaseCameraModel<DivisionCameraModel> {
 //
 struct SimpleFisheyeCameraModel
     : public BaseFisheyeCameraModel<SimpleFisheyeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kSimpleFisheyeCamera,
-                           "SIMPLE_FISHEYE_CAMERA",
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kSimpleFisheye,
+                           "SIMPLE_FISHEYE",
                            1,
                            2,
                            0,
@@ -556,7 +556,7 @@ struct SimpleFisheyeCameraModel
 //
 struct FisheyeCameraModel : public BaseFisheyeCameraModel<FisheyeCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kFisheyeCamera, "FISHEYE_CAMERA", 2, 2, 0, false)
+      CameraModelId::kFisheye, "FISHEYE", 2, 2, 0, false)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
