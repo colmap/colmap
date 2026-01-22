@@ -34,12 +34,14 @@ void BindEigenGeometry(py::module& m) {
            }),
            "axis_angle"_a,
            "Axis-angle 3D vector.")
-      .def(py::init([](py::array_t<double> arr) {
-             THROW_CHECK_EQ(arr.size(), 4);
-             return Rotation3dWrapper(std::move(arr));
-           }),
-           "array"_a,
-           "Numpy array view (zero-copy if contiguous).")
+      .def_static(
+          "from_buffer",
+          [](py::array_t<double> arr) {
+            THROW_CHECK_EQ(arr.size(), 4);
+            return Rotation3dWrapper(std::move(arr));
+          },
+          "array"_a,
+          "Create from numpy array view (zero-copy if contiguous).")
       .def_property(
           "quat",
           [](Rotation3dWrapper& self) { return self.data; },
