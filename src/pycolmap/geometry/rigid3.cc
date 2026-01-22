@@ -15,6 +15,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindRigid3(py::module& m) {
+  using Rotation3dWrapper = pycolmap::Rotation3dWrapper;
   py::classh_ext<Rigid3d> PyRigid3d(m, "Rigid3d");
   PyRigid3d.def(py::init<>())
       .def(py::init<const Eigen::Quaterniond&, const Eigen::Vector3d&>(),
@@ -33,8 +34,9 @@ void BindRigid3(py::module& m) {
           "rotation",
           [](py::object self) {
             Rigid3d& rigid = self.cast<Rigid3d&>();
-            return py::array_t<double>(
+            py::array_t<double> arr(
                 {4}, {sizeof(double)}, rigid.params.data(), self);
+            return Rotation3dWrapper(std::move(arr));
           },
           [](Rigid3d& self, const Eigen::Quaterniond& q) {
             self.rotation() = q;

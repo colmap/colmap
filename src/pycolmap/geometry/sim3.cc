@@ -15,6 +15,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindSim3(py::module& m) {
+  using Rotation3dWrapper = pycolmap::Rotation3dWrapper;
   py::classh_ext<Sim3d> PySim3d(m, "Sim3d");
   PySim3d.def(py::init<>())
       .def(
@@ -50,8 +51,9 @@ void BindSim3(py::module& m) {
           "rotation",
           [](py::object self) {
             Sim3d& sim3 = self.cast<Sim3d&>();
-            return py::array_t<double>(
+            py::array_t<double> arr(
                 {4}, {sizeof(double)}, sim3.params.data(), self);
+            return Rotation3dWrapper(std::move(arr));
           },
           [](Sim3d& self, const Eigen::Quaterniond& q) { self.rotation() = q; })
       .def_property(
