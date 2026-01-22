@@ -6,6 +6,13 @@
 namespace colmap {
 namespace {
 
+template <typename T1, typename T2>
+struct PairHash {
+  std::size_t operator()(const std::pair<T1, T2>& p) const {
+    return std::hash<T1>{}(p.first) ^ (std::hash<T2>{}(p.second) << 1);
+  }
+};
+
 class CasparBundleAdjuster : public BundleAdjuster {
  public:
   CasparBundleAdjuster(BundleAdjustmentOptions options,
@@ -15,22 +22,37 @@ class CasparBundleAdjuster : public BundleAdjuster {
       : BundleAdjuster(std::move(options), std::move(config)),
         params_(params),
         reconstruction_(reconstruction) {
-    LOG(INFO) << "Using Caspar bundle adjuster";
+    VLOG(1) << "Using Caspar bundle adjuster";
 
-    // PASS 1: Count all observations
     BuildObservationCounts();
 
-    // PASS 2: Create all factors
+    BuildCameraFrameIndex();
+
     BuildFactors();
   }
 
-  void BuildObservationCounts() {
-    // Count observations from images in config (only supported camera models)
+ private:
+  // Index (camera_id, frame_id) -> images to avoid O(images) linear search
+  void BuildCameraFrameIndex() {
     for (const image_t image_id : config_.Images()) {
       const Image& image = reconstruction_.Image(image_id);
       const Camera& camera = *image.CameraPtr();
 
-      // Only count observations from supported camera models
+      if (camera.model_id != CameraModelId::kSimpleRadial &&
+          camera.model_id != CameraModelId::kPinhole) {
+        continue;
+      }
+
+      auto key = std::make_pair(image.CameraId(), image.FrameId());
+      camera_frame_to_images_[key].push_back(image_id);
+    }
+  }
+
+  void BuildObservationCounts() {
+    for (const image_t image_id : config_.Images()) {
+      const Image& image = reconstruction_.Image(image_id);
+      const Camera& camera = *image.CameraPtr();
+
       if (camera.model_id != CameraModelId::kSimpleRadial &&
           camera.model_id != CameraModelId::kPinhole) {
         LOG(WARNING) << "Skipping image " << image_id
@@ -48,7 +70,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
       }
     }
 
-    // Count observations from explicit points (images outside config)
     for (const auto point3D_id : config_.VariablePoints()) {
       CountExternalObservations(point3D_id);
     }
@@ -64,7 +85,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
         Image& image = reconstruction_.Image(track_el.image_id);
         Camera& camera = *image.CameraPtr();
 
-        // Only count observations from supported camera models
         if (camera.model_id == CameraModelId::kSimpleRadial ||
             camera.model_id == CameraModelId::kPinhole) {
           point3D_num_observations_[point3D_id]++;
@@ -74,15 +94,10 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   void BuildFactors() {
-    // Step 1: Create all nodes in deterministic order
     CreateCalibrationNodes();
     CreatePoseNodes();
     CreatePointNodes();
-
-    // Step 2: Add factors ordered by (calib_index, pose_index, point_index)
     AddFactorsInOptimalOrder();
-
-    // Step 3: Add external observation factors
     AddExternalFactors();
   }
 
@@ -136,7 +151,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   void AddFactorsInOptimalOrder() {
-    // SimpleRadial: calib_idx->pose_idx->point_idx
     for (size_t calib_idx = 0; calib_idx < num_simple_radial_calibs_;
          ++calib_idx) {
       const camera_t camera_id =
@@ -144,40 +158,31 @@ class CasparBundleAdjuster : public BundleAdjuster {
       AddFactorsForCalibration(camera_id, CameraModelId::kSimpleRadial);
     }
 
-    // Pinhole: calib_idx->pose_idx->point_idx
     for (size_t calib_idx = 0; calib_idx < num_pinhole_calibs_; ++calib_idx) {
       const camera_t camera_id = pinhole_calib_index_to_camera_[calib_idx];
       AddFactorsForCalibration(camera_id, CameraModelId::kPinhole);
     }
   }
+
   void AddFactorsForCalibration(camera_t camera_id, CameraModelId model_id) {
     const Camera& camera = reconstruction_.Camera(camera_id);
 
-    // Iterate through poses in index order
     for (size_t pose_idx = 0; pose_idx < num_poses_; ++pose_idx) {
       const frame_t frame_id = pose_index_to_frame_[pose_idx];
 
-      // Find images that use this camera AND this frame
-      std::vector<image_t> matching_images;
-      for (const image_t image_id : config_.Images()) {
-        const Image& img = reconstruction_.Image(image_id);
-        if (img.CameraId() == camera_id && img.FrameId() == frame_id) {
-          matching_images.push_back(image_id);
-        }
-      }
+      auto key = std::make_pair(camera_id, frame_id);
+      auto it = camera_frame_to_images_.find(key);
+      if (it == camera_frame_to_images_.end()) continue;
 
-      if (matching_images.empty()) continue;
+      const std::vector<image_t>& matching_images = it->second;
 
-      // For each point in index order
       for (size_t point_idx = 0; point_idx < num_points_; ++point_idx) {
         const point3D_t point_id = index_to_point_id_[point_idx];
         const Point3D& point3D = reconstruction_.Point3D(point_id);
 
-        // Check if any matching image observes this point
         for (const image_t image_id : matching_images) {
           const Image& image = reconstruction_.Image(image_id);
 
-          // Find if this image observes this point
           for (const auto& track_el : point3D.track.Elements()) {
             if (track_el.image_id != image_id) continue;
 
@@ -237,20 +242,17 @@ class CasparBundleAdjuster : public BundleAdjuster {
     THROW_CHECK(!config_.IsIgnoredPoint(point3D_id));
 
     Point3D& point3D = reconstruction_.Point3D(point3D_id);
-
-    // Ensure point node exists
     GetOrCreatePoint(point3D_id, point3D);
 
     for (const auto& track_el : point3D.track.Elements()) {
       if (config_.HasImage(track_el.image_id)) {
-        continue;  // Already handled above
+        continue;
       }
 
       Image& image = reconstruction_.Image(track_el.image_id);
       Camera& camera = *image.CameraPtr();
       const Point2D& point2D = image.Point2D(track_el.point2D_idx);
 
-      // These observations have fixed poses
       if (camera.model_id == CameraModelId::kSimpleRadial) {
         AddSimpleRadialFixedPoseFactor(image, camera, point2D, point3D);
         cameras_from_outside_config_.insert(camera.camera_id);
@@ -265,7 +267,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
     }
   }
 
-  // SimpleRadial factor methods
   void AddSimpleRadialFactor(const Image& image,
                              const Camera& camera,
                              const Point2D& point2D,
@@ -327,7 +328,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
     num_simple_radial_fixed_point_++;
   }
 
-  // Pinhole factor methods
   void AddPinholeFactor(const Image& image,
                         const Camera& camera,
                         const Point2D& point2D,
@@ -478,27 +478,25 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   void SetupSolverData(caspar::GraphSolver& solver) {
-    LOG(INFO) << "=== CASPAR SOLVER SETUP ===";
-    LOG(INFO) << "Node counts:";
-    LOG(INFO) << "  Points: " << num_points_;
-    LOG(INFO) << "  Poses: " << num_poses_;
-    LOG(INFO) << "  SimpleRadial Calibrations: " << num_simple_radial_calibs_;
-    LOG(INFO) << "  Pinhole Calibrations: " << num_pinhole_calibs_;
+    VLOG(2) << "=== CASPAR SOLVER SETUP ===";
+    VLOG(2) << "Node counts:";
+    VLOG(2) << "  Points: " << num_points_;
+    VLOG(2) << "  Poses: " << num_poses_;
+    VLOG(2) << "  SimpleRadial Calibrations: " << num_simple_radial_calibs_;
+    VLOG(2) << "  Pinhole Calibrations: " << num_pinhole_calibs_;
 
-    LOG(INFO) << "Factor counts:";
-    LOG(INFO) << "  simple_radial: " << num_simple_radial_;
-    LOG(INFO) << "  simple_radial_fixed_pose: "
-              << num_simple_radial_fixed_pose_;
-    LOG(INFO) << "  simple_radial_fixed_point: "
-              << num_simple_radial_fixed_point_;
-    LOG(INFO) << "  pinhole: " << num_pinhole_;
-    LOG(INFO) << "  pinhole_fixed_pose: " << num_pinhole_fixed_pose_;
-    LOG(INFO) << "  pinhole_fixed_point: " << num_pinhole_fixed_point_;
+    VLOG(2) << "Factor counts:";
+    VLOG(2) << "  simple_radial: " << num_simple_radial_;
+    VLOG(2) << "  simple_radial_fixed_pose: " << num_simple_radial_fixed_pose_;
+    VLOG(2) << "  simple_radial_fixed_point: "
+            << num_simple_radial_fixed_point_;
+    VLOG(2) << "  pinhole: " << num_pinhole_;
+    VLOG(2) << "  pinhole_fixed_pose: " << num_pinhole_fixed_pose_;
+    VLOG(2) << "  pinhole_fixed_point: " << num_pinhole_fixed_point_;
 
     size_t total_residuals = ComputeTotalResiduals();
-    LOG(INFO) << "Total residuals: " << total_residuals;
+    VLOG(2) << "Total residuals: " << total_residuals;
 
-    // Set node data
     if (num_points_ > 0) {
       solver.set_Point_nodes_from_stacked_host(
           point_data_.data(), 0, num_points_);
@@ -515,7 +513,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
           pinhole_calib_data_.data(), 0, num_pinhole_calibs_);
     }
 
-    // Set factor data for simple_radial
     if (num_simple_radial_ > 0) {
       solver.set_simple_radial_pose_indices_from_host(
           simple_radial_pose_indices_.data(), num_simple_radial_);
@@ -527,7 +524,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
           simple_radial_pixels_.data(), 0, num_simple_radial_);
     }
 
-    // Set factor data for simple_radial_fixed_pose
     if (num_simple_radial_fixed_pose_ > 0) {
       solver.set_simple_radial_fixed_pose_calib_indices_from_host(
           simple_radial_fixed_pose_calib_indices_.data(),
@@ -545,7 +541,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
           num_simple_radial_fixed_pose_);
     }
 
-    // Set factor data for simple_radial_fixed_point
     if (num_simple_radial_fixed_point_ > 0) {
       solver.set_simple_radial_fixed_point_pose_indices_from_host(
           simple_radial_fixed_point_pose_indices_.data(),
@@ -563,7 +558,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
           num_simple_radial_fixed_point_);
     }
 
-    // Set factor data for pinhole
     if (num_pinhole_ > 0) {
       solver.set_pinhole_pose_indices_from_host(pinhole_pose_indices_.data(),
                                                 num_pinhole_);
@@ -575,7 +569,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
           pinhole_pixels_.data(), 0, num_pinhole_);
     }
 
-    // Set factor data for pinhole_fixed_pose
     if (num_pinhole_fixed_pose_ > 0) {
       solver.set_pinhole_fixed_pose_calib_indices_from_host(
           pinhole_fixed_pose_calib_indices_.data(), num_pinhole_fixed_pose_);
@@ -587,7 +580,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
           pinhole_fixed_pose_pixels_.data(), 0, num_pinhole_fixed_pose_);
     }
 
-    // Set factor data for pinhole_fixed_point
     if (num_pinhole_fixed_point_ > 0) {
       solver.set_pinhole_fixed_point_pose_indices_from_host(
           pinhole_fixed_point_pose_indices_.data(), num_pinhole_fixed_point_);
@@ -599,7 +591,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
           pinhole_fixed_point_pixels_.data(), 0, num_pinhole_fixed_point_);
     }
 
-    // Set factor counts
     solver.set_simple_radial_num(num_simple_radial_);
     solver.set_simple_radial_fixed_pose_num(num_simple_radial_fixed_pose_);
     solver.set_simple_radial_fixed_point_num(num_simple_radial_fixed_point_);
@@ -608,7 +599,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
     solver.set_pinhole_fixed_point_num(num_pinhole_fixed_point_);
 
     solver.finish_indices();
-    LOG(INFO) << "Solver setup complete";
+    VLOG(2) << "Solver setup complete";
   }
 
   void ReadSolverResults(caspar::GraphSolver& solver) {
@@ -630,10 +621,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   void WriteResultsToReconstruction() {
-    // Write back points
     for (const auto& [idx, point_id] : index_to_point_id_) {
       if (config_.HasConstantPoint(point_id)) {
-        continue;  // Only skip truly constant points
+        continue;
       }
       Point3D& point = reconstruction_.Point3D(point_id);
       point.xyz.x() = point_data_[idx * 3 + 0];
@@ -641,7 +631,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
       point.xyz.z() = point_data_[idx * 3 + 2];
     }
 
-    // Write back poses
     for (const auto& [idx, frame_id] : pose_index_to_frame_) {
       if (!IsPoseVariable(frame_id)) continue;
 
@@ -656,7 +645,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
       pose.rotation.normalize();
     }
 
-    // Write back SimpleRadial calibrations
     for (const auto& [idx, camera_id] : simple_radial_calib_index_to_camera_) {
       if (!AreIntrinsicsVariable(camera_id)) continue;
 
@@ -667,13 +655,10 @@ class CasparBundleAdjuster : public BundleAdjuster {
       THROW_CHECK(camera.VerifyParams());
     }
 
-    // Write back Pinhole calibrations
     for (const auto& [idx, camera_id] : pinhole_calib_index_to_camera_) {
       if (!AreIntrinsicsVariable(camera_id)) continue;
 
       Camera& camera = reconstruction_.Camera(camera_id);
-
-      // Use setter methods to ensure correct parameter assignment
       camera.SetFocalLengthX(pinhole_calib_data_[idx * 4 + 0]);
       camera.SetFocalLengthY(pinhole_calib_data_[idx * 4 + 1]);
       camera.SetPrincipalPointX(pinhole_calib_data_[idx * 4 + 2]);
@@ -730,9 +715,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
     SetupSolverData(solver);
 
-    LOG(INFO) << "Starting Caspar solver...";
+    VLOG(2) << "Starting Caspar solver...";
     const float result = solver.solve(false);
-    LOG(INFO) << "Solve completed with cost: " << result;
+    VLOG(2) << "Solve completed with cost: " << result;
 
     ReadSolverResults(solver);
     WriteResultsToReconstruction();
@@ -750,6 +735,12 @@ class CasparBundleAdjuster : public BundleAdjuster {
   std::shared_ptr<ceres::Problem> dummy_problem_;
 
   std::unordered_set<camera_t> cameras_from_outside_config_;
+
+  // Lightweight index: (camera_id, frame_id) -> images
+  std::unordered_map<std::pair<camera_t, frame_t>,
+                     std::vector<image_t>,
+                     PairHash<camera_t, frame_t>>
+      camera_frame_to_images_;
 
   size_t num_points_ = 0;
   size_t num_poses_ = 0;
@@ -782,7 +773,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   std::unordered_map<point3D_t, size_t> point3D_num_observations_;
 
-  // SimpleRadial factor data
   std::vector<unsigned int> simple_radial_pose_indices_;
   std::vector<unsigned int> simple_radial_calib_indices_;
   std::vector<unsigned int> simple_radial_point_indices_;
@@ -798,7 +788,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
   std::vector<float> simple_radial_fixed_point_points_;
   std::vector<float> simple_radial_fixed_point_pixels_;
 
-  // Pinhole factor data
   std::vector<unsigned int> pinhole_pose_indices_;
   std::vector<unsigned int> pinhole_calib_indices_;
   std::vector<unsigned int> pinhole_point_indices_;
