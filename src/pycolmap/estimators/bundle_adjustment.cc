@@ -198,6 +198,11 @@ void BindBundleAdjuster(py::module& m) {
               "Whether to automatically select solver type based on "
               "problem size. When False, uses the linear_solver_type "
               "and preconditioner_type from solver_options directly.")
+          .def_readwrite("use_parameter_block_ordering",
+                         &BAOpts::use_parameter_block_ordering,
+                         "Whether to use custom parameter block ordering for "
+                         "Schur-based solvers. Disable for deterministic "
+                         "behavior when using a fixed random seed.")
           .def_readwrite("solver_options",
                          &BAOpts::solver_options,
                          "Options for the Ceres solver. Using this member "
