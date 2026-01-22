@@ -535,12 +535,8 @@ struct DivisionCameraModel : public BaseCameraModel<DivisionCameraModel> {
 //
 struct SimpleFisheyeCameraModel
     : public BaseFisheyeCameraModel<SimpleFisheyeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(CameraModelId::kSimpleFisheye,
-                           "SIMPLE_FISHEYE",
-                           1,
-                           2,
-                           0,
-                           false)
+  CAMERA_MODEL_DEFINITIONS(
+      CameraModelId::kSimpleFisheye, "SIMPLE_FISHEYE", 1, 2, 0, false)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
@@ -555,8 +551,7 @@ struct SimpleFisheyeCameraModel
 //    fx, fy, cx, cy
 //
 struct FisheyeCameraModel : public BaseFisheyeCameraModel<FisheyeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kFisheye, "FISHEYE", 2, 2, 0, false)
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kFisheye, "FISHEYE", 2, 2, 0, false)
   FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
