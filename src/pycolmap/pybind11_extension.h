@@ -31,6 +31,22 @@ struct Rotation3dWrapper {
     map() = q;
   }
 
+  // From xyzw coefficients
+  explicit Rotation3dWrapper(const Eigen::Vector4d& xyzw) : data(4) {
+    map().coeffs() = xyzw;
+  }
+
+  // From rotation matrix
+  explicit Rotation3dWrapper(const Eigen::Matrix3d& matrix) : data(4) {
+    map() = Eigen::Quaterniond(matrix);
+  }
+
+  // From axis-angle vector
+  explicit Rotation3dWrapper(const Eigen::Vector3d& axis_angle) : data(4) {
+    map() = Eigen::Quaterniond(
+        Eigen::AngleAxisd(axis_angle.norm(), axis_angle.normalized()));
+  }
+
   // View constructor - borrows existing array (zero-copy)
   explicit Rotation3dWrapper(pybind11::array_t<double> arr)
       : data(std::move(arr)) {}

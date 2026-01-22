@@ -16,22 +16,13 @@ void BindEigenGeometry(py::module& m) {
   using Rotation3dWrapper = pycolmap::Rotation3dWrapper;
   py::classh_ext<Rotation3dWrapper> PyRotation3d(m, "Rotation3d");
   PyRotation3d.def(py::init<>())
-      .def(py::init([](const Eigen::Vector4d& xyzw) {
-             Rotation3dWrapper w;
-             w.map().coeffs() = xyzw;
-             return w;
-           }),
+      .def(py::init<const Eigen::Vector4d&>(),
            "xyzw"_a,
            "Quaternion in [x,y,z,w] format.")
-      .def(py::init([](const Eigen::Matrix3d& matrix) {
-             return Rotation3dWrapper(Eigen::Quaterniond(matrix));
-           }),
+      .def(py::init<const Eigen::Matrix3d&>(),
            "matrix"_a,
            "3x3 rotation matrix.")
-      .def(py::init([](const Eigen::Vector3d& vec) {
-             return Rotation3dWrapper(Eigen::Quaterniond(
-                 Eigen::AngleAxis<double>(vec.norm(), vec.normalized())));
-           }),
+      .def(py::init<const Eigen::Vector3d&>(),
            "axis_angle"_a,
            "Axis-angle 3D vector.")
       .def_static(
@@ -91,14 +82,15 @@ void BindEigenGeometry(py::module& m) {
         return ss.str();
       });
   py::implicitly_convertible<py::array, Rotation3dWrapper>();
-  MakeDataclass(PyRotation3d);
-  // Override deepcopy to ensure proper deep copy of array data
+  // Define deepcopy before MakeDataclass to ensure proper deep copy of array
+  // data
   PyRotation3d.def("__deepcopy__",
                    [](const Rotation3dWrapper& self, const py::dict&) {
                      Rotation3dWrapper copy;
                      copy.map() = self.map();
                      return copy;
                    });
+  MakeDataclass(PyRotation3d);
 
   py::classh_ext<Eigen::AlignedBox3d> PyAlignedBox3d(m, "AlignedBox3d");
   PyAlignedBox3d.def(py::init<>())
