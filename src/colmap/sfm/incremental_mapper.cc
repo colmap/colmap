@@ -29,9 +29,7 @@
 
 #include "colmap/sfm/incremental_mapper.h"
 
-#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/generalized_pose.h"
-#include "colmap/estimators/generated/solver_params.h"
 #include "colmap/estimators/pose.h"
 #include "colmap/estimators/triangulation.h"
 #include "colmap/estimators/two_view_geometry.h"
@@ -1126,15 +1124,14 @@ bool IncrementalMapper::AdjustGlobalBundle(
     // TODO(jsch): Investigate whether it is safe to not fix the gauge at all,
     // as initial experiments show that it is even faster.
 
-    ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
-
 #ifdef CASPAR_ENABLED
 
-    caspar::SolverParams params;
     bundle_adjuster = CreateCasparBundleAdjuster(
-        ba_options, std::move(ba_config), *reconstruction_, params);
+        ba_options, std::move(ba_config), *reconstruction_);
 
 #else
+    ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
     bundle_adjuster = CreateDefaultBundleAdjuster(
         ba_options, std::move(ba_config), *reconstruction_);
 #endif
@@ -1177,9 +1174,8 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
 
 #ifdef CASPAR_ENABLED
-    caspar::SolverParams params;
     bundle_adjuster = CreateCasparBundleAdjuster(
-        ba_options, std::move(ba_config), *reconstruction_, params);
+        ba_options, std::move(ba_config), *reconstruction_);
 #else
     bundle_adjuster = CreateDefaultBundleAdjuster(
         ba_options, std::move(ba_config), *reconstruction_);

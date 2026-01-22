@@ -219,11 +219,9 @@ TEST(CasparBundleAdjuster, Converges) {
 
   BundleAdjustmentOptions options;
   options.refine_principal_point = true;
-  caspar::SolverParams params;
 
   auto summary =
-      CreateCasparBundleAdjuster(options, config, reconstruction, params)
-          ->Solve();
+      CreateCasparBundleAdjuster(options, config, reconstruction)->Solve();
 
   ASSERT_NE(summary.termination_type, ceres::FAILURE);
   EXPECT_TRUE(summary.IsSolutionUsable());
@@ -264,9 +262,8 @@ TEST(CasparBundleAdjuster, MatchesDefaultSolver) {
           ->Solve();
   ASSERT_NE(default_summary.termination_type, ceres::FAILURE);
 
-  caspar::SolverParams params;
   auto caspar_summary =
-      CreateCasparBundleAdjuster(options, config, reconstruction_caspar, params)
+      CreateCasparBundleAdjuster(options, config, reconstruction_caspar)
           ->Solve();
 
   EXPECT_NEAR(caspar_summary.final_cost, default_summary.final_cost, 10);
@@ -299,10 +296,8 @@ TEST(CasparBundleAdjuster, TwoView) {
   config.AddImage(2);
 
   BundleAdjustmentOptions options;
-  caspar::SolverParams params;
   auto summary =
-      CreateCasparBundleAdjuster(options, config, reconstruction, params)
-          ->Solve();
+      CreateCasparBundleAdjuster(options, config, reconstruction)->Solve();
 
   ASSERT_NE(summary.termination_type, ceres::FAILURE);
 }
@@ -333,11 +328,9 @@ TEST(CasparBundleAdjuster, LargeScale) {
   }
 
   BundleAdjustmentOptions options;
-  caspar::SolverParams params;
 
   auto summary =
-      CreateCasparBundleAdjuster(options, config, reconstruction, params)
-          ->Solve();
+      CreateCasparBundleAdjuster(options, config, reconstruction)->Solve();
 
   ASSERT_NE(summary.termination_type, ceres::FAILURE);
 

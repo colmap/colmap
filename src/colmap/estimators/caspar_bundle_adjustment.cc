@@ -17,10 +17,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
  public:
   CasparBundleAdjuster(BundleAdjustmentOptions options,
                        BundleAdjustmentConfig config,
-                       Reconstruction& reconstruction,
-                       caspar::SolverParams params)
+                       Reconstruction& reconstruction)
       : BundleAdjuster(std::move(options), std::move(config)),
-        params_(params),
         reconstruction_(reconstruction) {
     VLOG(1) << "Using Caspar bundle adjuster";
 
@@ -724,7 +722,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
     ceres::Solver::Summary summary;
     summary.final_cost = result;
-    summary.num_residuals_reduced = ComputeTotalResiduals();
+    summary.num_residuals = ComputeTotalResiduals();
+    summary.num_residuals_reduced = summary.num_residuals;
     summary.termination_type = ceres::CONVERGENCE;
     return summary;
   }
@@ -809,10 +808,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
 std::unique_ptr<BundleAdjuster> CreateCasparBundleAdjuster(
     BundleAdjustmentOptions options,
     BundleAdjustmentConfig config,
-    Reconstruction& reconstruction,
-    caspar::SolverParams params = caspar::SolverParams()) {
+    Reconstruction& reconstruction) {
   return std::make_unique<CasparBundleAdjuster>(
-      std::move(options), std::move(config), reconstruction, params);
+      std::move(options), std::move(config), reconstruction);
 }
 
 }  // namespace colmap

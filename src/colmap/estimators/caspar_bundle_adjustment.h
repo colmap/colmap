@@ -38,7 +38,5 @@ namespace colmap {
 std::unique_ptr<BundleAdjuster> CreateCasparBundleAdjuster(
     BundleAdjustmentOptions options,
     BundleAdjustmentConfig config,
-    Reconstruction& reconstruction,
-    caspar::SolverParams params);
-
+    Reconstruction& reconstruction);
 }  // namespace colmap
