@@ -57,22 +57,16 @@ struct Rigid3d {
     params.tail<3>() = translation;
   }
 
-  // Non-const accessor returning map to rotation quaternion.
   inline Eigen::Map<Eigen::Quaterniond> rotation() {
     return Eigen::Map<Eigen::Quaterniond>(params.data());
   }
-
-  // Const accessor returning map to rotation quaternion.
   inline Eigen::Map<const Eigen::Quaterniond> rotation() const {
     return Eigen::Map<const Eigen::Quaterniond>(params.data());
   }
 
-  // Non-const accessor returning map to translation vector.
   inline Eigen::Map<Eigen::Vector3d> translation() {
     return Eigen::Map<Eigen::Vector3d>(params.data() + 4);
   }
-
-  // Const accessor returning map to translation vector.
   inline Eigen::Map<const Eigen::Vector3d> translation() const {
     return Eigen::Map<const Eigen::Vector3d>(params.data() + 4);
   }
