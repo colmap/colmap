@@ -585,7 +585,7 @@ bool AlignReconstructionToOrigRigScales(
     return false;
   }
   Sim3d new_from_old_world;
-  new_from_old_world.scale = scale_count / scale_sum;
+  new_from_old_world.scale() = scale_count / scale_sum;
   reconstruction->Transform(new_from_old_world);
   return true;
 }
