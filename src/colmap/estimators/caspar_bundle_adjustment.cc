@@ -74,15 +74,29 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   void BuildFactors() {
-    // Create factors for observations from images in config
+    // Group images by camera for better Caspar performance
+    std::unordered_map<camera_t, std::vector<image_t>> camera_to_images;
+
     for (const image_t image_id : config_.Images()) {
       const Image& image = reconstruction_.Image(image_id);
-      Camera& camera = *image.CameraPtr();
+      camera_to_images[image.CameraId()].push_back(image_id);
+    }
+
+    // Process factors grouped by camera: f(cam0, p0), f(cam0, p1)..., f(cam1,
+    // p0)...
+    for (const auto& [camera_id, image_ids] : camera_to_images) {
+      const Camera& camera = reconstruction_.Camera(camera_id);
 
       if (camera.model_id == CameraModelId::kSimpleRadial) {
-        AddFactorsForSimpleRadialImage(image, camera);
+        for (const image_t image_id : image_ids) {
+          AddFactorsForSimpleRadialImage(reconstruction_.Image(image_id),
+                                         reconstruction_.Camera(camera_id));
+        }
       } else if (camera.model_id == CameraModelId::kPinhole) {
-        AddFactorsForPinholeImage(image, camera);
+        for (const image_t image_id : image_ids) {
+          AddFactorsForPinholeImage(reconstruction_.Image(image_id),
+                                    reconstruction_.Camera(camera_id));
+        }
       } else {
         LOG(ERROR) << "Unsupported camera model: " << camera.ModelName();
         continue;
