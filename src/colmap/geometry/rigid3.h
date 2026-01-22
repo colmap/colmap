@@ -108,7 +108,7 @@ struct Rigid3d {
 
   // Return the origin position of the target in the source frame.
   inline Eigen::Vector3d TgtOriginInSrc() const {
-    return rotation().inverse() * -Eigen::Vector3d(translation());
+    return rotation().inverse() * -translation();
   }
 };
 
@@ -116,8 +116,7 @@ struct Rigid3d {
 inline Rigid3d Inverse(const Rigid3d& b_from_a) {
   Rigid3d a_from_b;
   a_from_b.rotation() = b_from_a.rotation().inverse();
-  a_from_b.translation() =
-      a_from_b.rotation() * -Eigen::Vector3d(b_from_a.translation());
+  a_from_b.translation() = a_from_b.rotation() * -b_from_a.translation();
   return a_from_b;
 }
 
@@ -173,8 +172,9 @@ inline Eigen::Matrix6d GetCovarianceForRelativeRigid3d(
 // While you may want to instead write and execute it as:
 //      x_in_c = d_from_c * (c_from_b * (b_from_a * x_in_a))
 // which will apply the transformations as a chain on the point.
-inline Eigen::Vector3d operator*(const Rigid3d& t, const Eigen::Vector3d& x) {
-  return t.rotation() * x + Eigen::Vector3d(t.translation());
+inline Eigen::Vector3d operator*(const Rigid3d& t,
+                                 const Eigen::Ref<const Eigen::Vector3d>& x) {
+  return t.rotation() * x + t.translation();
 }
 
 // Concatenate transforms such one can write expressions like:
@@ -184,15 +184,13 @@ inline Rigid3d operator*(const Rigid3d& c_from_b, const Rigid3d& b_from_a) {
   c_from_a.rotation() =
       (c_from_b.rotation() * b_from_a.rotation()).normalized();
   c_from_a.translation() =
-      Eigen::Vector3d(c_from_b.translation()) +
-      (c_from_b.rotation() * Eigen::Vector3d(b_from_a.translation()));
+      c_from_b.translation() + (c_from_b.rotation() * b_from_a.translation());
   return c_from_a;
 }
 
 inline bool operator==(const Rigid3d& left, const Rigid3d& right) {
   return left.rotation().coeffs() == right.rotation().coeffs() &&
-         Eigen::Vector3d(left.translation()) ==
-             Eigen::Vector3d(right.translation());
+         left.translation() == right.translation();
 }
 inline bool operator!=(const Rigid3d& left, const Rigid3d& right) {
   return !(left == right);
