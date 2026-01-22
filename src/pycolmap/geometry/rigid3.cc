@@ -23,8 +23,22 @@ void BindRigid3(py::module& m) {
       .def(py::init(&Rigid3d::FromMatrix),
            "matrix"_a,
            "3x4 transformation matrix.")
-      .def_readwrite("rotation", &Rigid3d::rotation)
-      .def_readwrite("translation", &Rigid3d::translation)
+      .def_property(
+          "rotation",
+          [](const Rigid3d& self) -> Eigen::Quaterniond {
+            return self.rotation();
+          },
+          [](Rigid3d& self, const Eigen::Quaterniond& q) {
+            self.rotation() = q;
+          })
+      .def_property(
+          "translation",
+          [](const Rigid3d& self) -> Eigen::Vector3d {
+            return self.translation();
+          },
+          [](Rigid3d& self, const Eigen::Vector3d& t) {
+            self.translation() = t;
+          })
       .def("matrix", &Rigid3d::ToMatrix)
       .def("tgt_origin_in_src", &Rigid3d::TgtOriginInSrc)
       .def("adjoint", &Rigid3d::Adjoint)
@@ -35,9 +49,9 @@ void BindRigid3(py::module& m) {
            [](const Rigid3d& t,
               const py::EigenDRef<const Eigen::MatrixX3d>& points)
                -> Eigen::MatrixX3d {
-             return (points * t.rotation.toRotationMatrix().transpose())
+             return (points * t.rotation().toRotationMatrix().transpose())
                         .rowwise() +
-                    t.translation.transpose();
+                    t.translation().transpose();
            })
       .def("inverse", static_cast<Rigid3d (*)(const Rigid3d&)>(&Inverse))
       .def_static("interpolate",

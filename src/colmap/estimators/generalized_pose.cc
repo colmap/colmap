@@ -231,7 +231,7 @@ bool EstimateGeneralizedRelativePose(
       if (const std::optional<Eigen::Vector2d> cam_point1 =
               cameras[camera_idx1].CamFromImg(points2D1[i]);
           cam_point1.has_value()) {
-        cam_rays1[i] = cams_from_rig[camera_idx1].rotation.inverse() *
+        cam_rays1[i] = cams_from_rig[camera_idx1].rotation().inverse() *
                        cam_point1->homogeneous().normalized();
       } else {
         cam_rays1[i].setZero();
@@ -241,7 +241,7 @@ bool EstimateGeneralizedRelativePose(
       if (const std::optional<Eigen::Vector2d> cam_point2 =
               cameras[camera_idxs2[i]].CamFromImg(points2D2[i]);
           cam_point2.has_value()) {
-        cam_rays2[i] = cams_from_rig[camera_idx2].rotation.inverse() *
+        cam_rays2[i] = cams_from_rig[camera_idx2].rotation().inverse() *
                        cam_point2->homogeneous().normalized();
       } else {
         cam_rays2[i].setZero();
@@ -320,8 +320,8 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
     cameras_params_data[i] = cameras->at(i).params.data();
   }
   std::vector<size_t> camera_counts(cameras->size(), 0);
-  double* rig_from_world_rotation = rig_from_world->rotation.coeffs().data();
-  double* rig_from_world_translation = rig_from_world->translation.data();
+  double* rig_from_world_rotation = rig_from_world->rotation().coeffs().data();
+  double* rig_from_world_translation = rig_from_world->translation().data();
 
   std::vector<Eigen::Vector3d> points3D_copy = points3D;
   std::vector<Rigid3d> cams_from_rig_copy = cams_from_rig;
@@ -342,8 +342,8 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
         CreateCameraCostFunction<RigReprojErrorCostFunctor>(
             cameras->at(camera_idx).model_id, points2D[i]),
         loss_function.get(),
-        cams_from_rig_copy[camera_idx].rotation.coeffs().data(),
-        cams_from_rig_copy[camera_idx].translation.data(),
+        cams_from_rig_copy[camera_idx].rotation().coeffs().data(),
+        cams_from_rig_copy[camera_idx].translation().data(),
         rig_from_world_rotation,
         rig_from_world_translation,
         points3D_copy[i].data(),
@@ -361,9 +361,9 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
 
       // We don't optimize the rig parameters (it's likely under-constrained)
       problem.SetParameterBlockConstant(
-          cams_from_rig_copy[i].rotation.coeffs().data());
+          cams_from_rig_copy[i].rotation().coeffs().data());
       problem.SetParameterBlockConstant(
-          cams_from_rig_copy[i].translation.data());
+          cams_from_rig_copy[i].translation().data());
 
       if (!options.refine_focal_length && !options.refine_extra_params) {
         problem.SetParameterBlockConstant(camera.params.data());

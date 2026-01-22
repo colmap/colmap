@@ -252,9 +252,9 @@ void FilterEdgesByRelativeRotation(PoseGraph& pose_graph,
     }
 
     const Eigen::Quaterniond cam2_from_cam1 =
-        image2.CamFromWorld().rotation *
-        image1.CamFromWorld().rotation.inverse();
-    if (cam2_from_cam1.angularDistance(edge.cam2_from_cam1.rotation) >
+        image2.CamFromWorld().rotation() *
+        image1.CamFromWorld().rotation().inverse();
+    if (cam2_from_cam1.angularDistance(edge.cam2_from_cam1.rotation()) >
         max_angle_rad) {
       pose_graph.SetInvalidEdge(pair_id);
       num_invalid++;
@@ -457,8 +457,8 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
     // Directly use the relative pose for estimation rotation.
     // GetEdge(parent, curr) returns curr_from_parent
     const PoseGraph::Edge edge = pose_graph.GetEdge(parents[curr], curr);
-    cams_from_world[curr].rotation =
-        (edge.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation;
+    cams_from_world[curr].rotation() =
+        (edge.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation();
   }
 
   InitializeRigRotationsFromImages(cams_from_world, reconstruction);
@@ -475,18 +475,18 @@ bool InitializeRigRotationsFromImages(
 
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     // Find the rotation of the reference image.
-    const Eigen::Quaterniond* ref_rotation = nullptr;
+    std::optional<Eigen::Quaterniond> ref_rotation;
     for (const auto& data_id : frame.ImageIds()) {
       const auto& image = reconstruction.Image(data_id.id);
       if (image.IsRefInFrame()) {
         const auto it = cams_from_world.find(data_id.id);
         if (it != cams_from_world.end()) {
-          ref_rotation = &it->second.rotation;
+          ref_rotation = it->second.rotation();
         }
         break;
       }
     }
-    if (ref_rotation == nullptr) {
+    if (!ref_rotation.has_value()) {
       continue;
     }
 
@@ -504,7 +504,7 @@ bool InitializeRigRotationsFromImages(
 
       auto& [rig_id, rotations] = cam_from_rig_samples[image.CameraId()];
       rig_id = frame.RigId();
-      rotations.push_back(it->second.rotation * ref_rotation->inverse());
+      rotations.push_back(it->second.rotation() * ref_rotation->inverse());
     }
   }
 
@@ -539,7 +539,7 @@ bool InitializeRigRotationsFromImages(
       const auto& image = reconstruction.Image(data_id.id);
 
       if (image.IsRefInFrame()) {
-        rig_from_world_samples.push_back(it->second.rotation);
+        rig_from_world_samples.push_back(it->second.rotation());
       } else {
         const auto& maybe_cam_from_rig =
             reconstruction.Rig(frame.RigId())
@@ -548,8 +548,8 @@ bool InitializeRigRotationsFromImages(
           continue;
         }
         rig_from_world_samples.push_back(
-            maybe_cam_from_rig.value().rotation.inverse() *
-            it->second.rotation);
+            maybe_cam_from_rig.value().rotation().inverse() *
+            it->second.rotation());
       }
     }
 

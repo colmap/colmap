@@ -101,7 +101,7 @@ Eigen::Vector3d EstimateGravityVectorFromImageOrientation(
   for (const auto image_id : reconstruction.RegImageIds()) {
     const auto& image = reconstruction.Image(image_id);
     downward_axes.push_back(
-        image.CamFromWorld().rotation.toRotationMatrix().row(1));
+        image.CamFromWorld().rotation().toRotationMatrix().row(1));
   }
   return FindBestConsensusAxis(downward_axes, max_axis_distance);
 }
@@ -244,7 +244,7 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
     const Eigen::Matrix3d inv_calib_matrix =
         undistorted_camera.CalibrationMatrix().inverse();
     const Eigen::Quaterniond world_from_cam_rotation =
-        image.CamFromWorld().rotation.inverse();
+        image.CamFromWorld().rotation().inverse();
 
     if (horizontal_report.success) {
       Eigen::Vector3d horizontal_axis_in_world =
@@ -342,7 +342,7 @@ void AlignToPrincipalPlane(Reconstruction* reconstruction,
   const Rigid3d cam0_from_aligned_world = TransformCameraWorld(
       *aligned_from_original,
       reconstruction->Image(frame0_image_ids.begin()->id).CamFromWorld());
-  if (Inverse(cam0_from_aligned_world).translation.z() < 0.0) {
+  if (Inverse(cam0_from_aligned_world).translation().z() < 0.0) {
     rot_mat << basis.col(0), -basis.col(1), basis.col(0).cross(-basis.col(1));
     rot_mat.transposeInPlace();
     *aligned_from_original =

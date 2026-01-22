@@ -68,8 +68,8 @@ void Model::ReadFromCOLMAP(const std::filesystem::path& path,
 
         camera.CalibrationMatrix().cast<float>();
     const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> R =
-        image.CamFromWorld().rotation.toRotationMatrix().cast<float>();
-    const Eigen::Vector3f T = image.CamFromWorld().translation.cast<float>();
+        image.CamFromWorld().rotation().toRotationMatrix().cast<float>();
+    const Eigen::Vector3f T = image.CamFromWorld().translation().cast<float>();
 
     images.emplace_back(
         image_path, camera.width, camera.height, K.data(), R.data(), T.data());

@@ -129,23 +129,23 @@ TwoViewGeometryPoseTestData CreateTwoViewGeometryPoseTestData(
         data.camera1.CalibrationMatrix());
   } else if (config == TwoViewGeometry::ConfigurationType::PLANAR) {
     const Eigen::Vector3d homography_plane_normal =
-        image1.CamFromWorld().rotation *
+        image1.CamFromWorld().rotation() *
         -(image1.ViewingDirection() + image2.ViewingDirection()).normalized();
     constexpr double kHomographyPlaneDistance = 1;
     data.geometry.H = HomographyMatrixFromPose(
         data.camera1.CalibrationMatrix(),
         data.camera2.CalibrationMatrix(),
-        data.geometry.cam2_from_cam1->rotation.matrix(),
-        data.geometry.cam2_from_cam1->translation,
+        data.geometry.cam2_from_cam1->rotation().matrix(),
+        data.geometry.cam2_from_cam1->translation(),
         homography_plane_normal,
         kHomographyPlaneDistance);
   } else if (config == TwoViewGeometry::ConfigurationType::PANORAMIC) {
-    data.geometry.cam2_from_cam1->translation = Eigen::Vector3d::Zero();
+    data.geometry.cam2_from_cam1->translation() = Eigen::Vector3d::Zero();
     data.geometry.H = HomographyMatrixFromPose(
         data.camera1.CalibrationMatrix(),
         data.camera2.CalibrationMatrix(),
-        data.geometry.cam2_from_cam1->rotation.matrix(),
-        data.geometry.cam2_from_cam1->translation,
+        data.geometry.cam2_from_cam1->rotation().matrix(),
+        data.geometry.cam2_from_cam1->translation(),
         Eigen::Vector3d::UnitZ(),
         1);
   } else {
@@ -182,13 +182,13 @@ bool CheckEqualTwoViewGeometry(const TwoViewGeometry& geometry,
   const double tri_angle_error =
       std::abs(geometry.tri_angle - expected_geometry.tri_angle);
   const double rotation_error =
-      geometry.cam2_from_cam1->rotation.angularDistance(
-          expected_geometry.cam2_from_cam1->rotation);
+      geometry.cam2_from_cam1->rotation().angularDistance(
+          expected_geometry.cam2_from_cam1->rotation());
   const double translation_error =
-      (geometry.cam2_from_cam1->translation -
+      (geometry.cam2_from_cam1->translation() -
        (normalized_translation
-            ? expected_geometry.cam2_from_cam1->translation.normalized()
-            : expected_geometry.cam2_from_cam1->translation))
+            ? expected_geometry.cam2_from_cam1->translation().normalized()
+            : expected_geometry.cam2_from_cam1->translation()))
           .norm();
   if (tri_angle_error > tri_angle_tol || rotation_error > rotation_tol ||
       translation_error > translation_tol) {
@@ -919,10 +919,10 @@ TEST(MaybeDecomposeAndWriteRelativePoses, Nominal) {
   MaybeDecomposeAndWriteRelativePoses(database.get());
 
   TwoViewGeometry geometry_second = database->ReadTwoViewGeometry(1, 2);
-  EXPECT_EQ(geometry_after.cam2_from_cam1->rotation.coeffs(),
-            geometry_second.cam2_from_cam1->rotation.coeffs());
-  EXPECT_EQ(geometry_after.cam2_from_cam1->translation,
-            geometry_second.cam2_from_cam1->translation);
+  EXPECT_EQ(geometry_after.cam2_from_cam1->rotation().coeffs(),
+            geometry_second.cam2_from_cam1->rotation().coeffs());
+  EXPECT_EQ(geometry_after.cam2_from_cam1->translation(),
+            geometry_second.cam2_from_cam1->translation());
 }
 
 }  // namespace

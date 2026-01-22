@@ -76,9 +76,9 @@ void TestEstimateRigid3dWithNumCoords(const size_t num_coords) {
 
   Rigid3d tgt_from_src;
   EXPECT_TRUE(EstimateRigid3d(src, tgt, tgt_from_src));
-  EXPECT_LT(gt_tgt_from_src.rotation.angularDistance(tgt_from_src.rotation),
+  EXPECT_LT(gt_tgt_from_src.rotation().angularDistance(tgt_from_src.rotation()),
             1e-6);
-  EXPECT_LT((gt_tgt_from_src.translation - tgt_from_src.translation).norm(),
+  EXPECT_LT((gt_tgt_from_src.translation() - tgt_from_src.translation()).norm(),
             1e-6);
 }
 

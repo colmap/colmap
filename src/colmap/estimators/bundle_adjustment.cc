@@ -539,11 +539,12 @@ void FixGaugeWithTwoCamsFromWorld(
     }
     Rigid3d& sensor_from_rig = image.FramePtr()->RigPtr()->SensorFromRig(
         image.CameraPtr()->SensorId());
-    if (problem.HasParameterBlock(sensor_from_rig.rotation.coeffs().data()) &&
+    if (problem.HasParameterBlock(sensor_from_rig.rotation().coeffs().data()) &&
         problem.IsParameterBlockConstant(
-            sensor_from_rig.rotation.coeffs().data()) &&
-        problem.HasParameterBlock(sensor_from_rig.translation.data()) &&
-        problem.IsParameterBlockConstant(sensor_from_rig.translation.data())) {
+            sensor_from_rig.rotation().coeffs().data()) &&
+        problem.HasParameterBlock(sensor_from_rig.translation().data()) &&
+        problem.IsParameterBlockConstant(
+            sensor_from_rig.translation().data())) {
       return true;
     }
     // Cover corner case when ReprojErrorConstantPoseCostFunctor is used
@@ -577,14 +578,14 @@ void FixGaugeWithTwoCamsFromWorld(
     } else if (image1 != nullptr && image1->FrameId() != image.FrameId() &&
                IsParameterizedConstSensor(image) &&
                problem.HasParameterBlock(
-                   image.FramePtr()->RigFromWorld().translation.data())) {
+                   image.FramePtr()->RigFromWorld().translation().data())) {
       // Check if one of the baseline dimensions is large enough and
       // choose it as the fixed coordinate. If there is no such pair of
       // frames, then the scale is not constrained well.
       const Eigen::Vector3d baseline =
           (image1->FramePtr()->RigFromWorld() *
            Inverse(image.FramePtr()->RigFromWorld()))
-              .translation;
+              .translation();
       if (baseline.cwiseAbs().maxCoeff(&frame2_from_world_fixed_dim) > 1e-9) {
         image2 = &image;
         break;
@@ -607,8 +608,8 @@ void FixGaugeWithTwoCamsFromWorld(
   Rigid3d& frame1_from_world = image1->FramePtr()->RigFromWorld();
   if (!config.HasConstantRigFromWorldPose(image1->FrameId())) {
     problem.SetParameterBlockConstant(
-        frame1_from_world.rotation.coeffs().data());
-    problem.SetParameterBlockConstant(frame1_from_world.translation.data());
+        frame1_from_world.rotation().coeffs().data());
+    problem.SetParameterBlockConstant(frame1_from_world.translation().data());
   }
 
   Rigid3d& frame2_from_world = image2->FramePtr()->RigFromWorld();
@@ -616,7 +617,7 @@ void FixGaugeWithTwoCamsFromWorld(
     SetSubsetManifold(3,
                       {static_cast<int>(frame2_from_world_fixed_dim)},
                       &problem,
-                      frame2_from_world.translation.data());
+                      frame2_from_world.translation().data());
   }
 }
 
@@ -640,15 +641,17 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
       Rigid3d& sensor_from_rig =
           image.FramePtr()->RigPtr()->SensorFromRig(sensor_id);
       // CostFunction assumes unit quaternions.
-      sensor_from_rig.rotation.normalize();
-      if (problem.HasParameterBlock(sensor_from_rig.rotation.coeffs().data())) {
+      sensor_from_rig.rotation().normalize();
+      if (problem.HasParameterBlock(
+              sensor_from_rig.rotation().coeffs().data())) {
         SetQuaternionManifold(&problem,
-                              sensor_from_rig.rotation.coeffs().data());
+                              sensor_from_rig.rotation().coeffs().data());
         if (!options.refine_sensor_from_rig ||
             config.HasConstantSensorFromRigPose(sensor_id)) {
           problem.SetParameterBlockConstant(
-              sensor_from_rig.rotation.coeffs().data());
-          problem.SetParameterBlockConstant(sensor_from_rig.translation.data());
+              sensor_from_rig.rotation().coeffs().data());
+          problem.SetParameterBlockConstant(
+              sensor_from_rig.translation().data());
         }
       }
     }
@@ -657,18 +660,20 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
     if (parameterized_frame_ids.insert(image.FrameId()).second) {
       Rigid3d& rig_from_world = image.FramePtr()->RigFromWorld();
       // CostFunction assumes unit quaternions.
-      rig_from_world.rotation.normalize();
-      if (problem.HasParameterBlock(rig_from_world.rotation.coeffs().data())) {
+      rig_from_world.rotation().normalize();
+      if (problem.HasParameterBlock(
+              rig_from_world.rotation().coeffs().data())) {
         SetQuaternionManifold(&problem,
-                              rig_from_world.rotation.coeffs().data());
+                              rig_from_world.rotation().coeffs().data());
         if (!options.refine_rig_from_world ||
             config.HasConstantRigFromWorldPose(image.FrameId())) {
           problem.SetParameterBlockConstant(
-              rig_from_world.rotation.coeffs().data());
-          problem.SetParameterBlockConstant(rig_from_world.translation.data());
+              rig_from_world.rotation().coeffs().data());
+          problem.SetParameterBlockConstant(
+              rig_from_world.translation().data());
         } else if (options.constant_rig_from_world_rotation) {
           problem.SetParameterBlockConstant(
-              rig_from_world.rotation.coeffs().data());
+              rig_from_world.rotation().coeffs().data());
         }
       }
     }
@@ -686,10 +691,11 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
     }
     for (auto& [_, sensor_from_rig] : rig.NonRefSensors()) {
       if (sensor_from_rig.has_value() &&
-          problem.HasParameterBlock(sensor_from_rig->translation.data())) {
+          problem.HasParameterBlock(sensor_from_rig->translation().data())) {
         problem.SetParameterBlockConstant(
-            sensor_from_rig->rotation.coeffs().data());
-        problem.SetParameterBlockConstant(sensor_from_rig->translation.data());
+            sensor_from_rig->rotation().coeffs().data());
+        problem.SetParameterBlockConstant(
+            sensor_from_rig->translation().data());
       }
     }
   }
@@ -851,8 +857,8 @@ class DefaultBundleAdjuster : public BundleAdjuster {
             CreateCameraCostFunction<ReprojErrorCostFunctor>(camera.model_id,
                                                              point2D.xy),
             loss_function_.get(),
-            cam_from_world.rotation.coeffs().data(),
-            cam_from_world.translation.data(),
+            cam_from_world.rotation().coeffs().data(),
+            cam_from_world.translation().data(),
             point3D.xyz.data(),
             camera.params.data());
       }
@@ -915,8 +921,8 @@ class DefaultBundleAdjuster : public BundleAdjuster {
             CreateCameraCostFunction<RigReprojErrorConstantRigCostFunctor>(
                 camera.model_id, point2D.xy, cam_from_rig),
             loss_function_.get(),
-            rig_from_world.rotation.coeffs().data(),
-            rig_from_world.translation.data(),
+            rig_from_world.rotation().coeffs().data(),
+            rig_from_world.translation().data(),
             point3D.xyz.data(),
             camera.params.data());
       } else {
@@ -924,10 +930,10 @@ class DefaultBundleAdjuster : public BundleAdjuster {
             CreateCameraCostFunction<RigReprojErrorCostFunctor>(camera.model_id,
                                                                 point2D.xy),
             loss_function_.get(),
-            cam_from_rig.rotation.coeffs().data(),
-            cam_from_rig.translation.data(),
-            rig_from_world.rotation.coeffs().data(),
-            rig_from_world.translation.data(),
+            cam_from_rig.rotation().coeffs().data(),
+            cam_from_rig.translation().data(),
+            rig_from_world.rotation().coeffs().data(),
+            rig_from_world.translation().data(),
             point3D.xyz.data(),
             camera.params.data());
       }
@@ -1134,8 +1140,8 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
           CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
               Create(normalized_position_cov, normalized_position),
           prior_loss_function_.get(),
-          frame.RigFromWorld().rotation.coeffs().data(),
-          frame.RigFromWorld().translation.data());
+          frame.RigFromWorld().rotation().coeffs().data(),
+          frame.RigFromWorld().translation().data());
     } else {
       Rigid3d& cam_from_rig =
           frame.RigPtr()->SensorFromRig(image.CameraPtr()->SensorId());
@@ -1144,10 +1150,10 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
               AbsoluteRigPosePositionPriorCostFunctor>::
               Create(normalized_position_cov, normalized_position),
           prior_loss_function_.get(),
-          cam_from_rig.rotation.coeffs().data(),
-          cam_from_rig.translation.data(),
-          frame.RigFromWorld().rotation.coeffs().data(),
-          frame.RigFromWorld().translation.data());
+          cam_from_rig.rotation().coeffs().data(),
+          cam_from_rig.translation().data(),
+          frame.RigFromWorld().rotation().coeffs().data(),
+          frame.RigFromWorld().translation().data());
     }
   }
 
