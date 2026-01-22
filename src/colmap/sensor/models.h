@@ -96,7 +96,9 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                 kThinPrismFisheye,        // = 10
                                 kRadTanThinPrismFisheye,  // = 11
                                 kSimpleDivision,          // = 12
-                                kDivision                 // = 13
+                                kDivision,                // = 13
+                                kSimpleFisheye,           // = 14
+                                kFisheye                  // = 15
 );
 
 #ifndef CAMERA_MODEL_DEFINITIONS
@@ -165,7 +167,9 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
   CAMERA_MODEL_CASE(ThinPrismFisheyeCameraModel)    \
   CAMERA_MODEL_CASE(RadTanThinPrismFisheyeModel)    \
   CAMERA_MODEL_CASE(SimpleDivisionCameraModel)      \
-  CAMERA_MODEL_CASE(DivisionCameraModel)
+  CAMERA_MODEL_CASE(DivisionCameraModel)            \
+  CAMERA_MODEL_CASE(SimpleFisheyeCameraModel)       \
+  CAMERA_MODEL_CASE(FisheyeCameraModel)
 #endif
 
 #ifndef CAMERA_MODEL_SWITCH_CASES
@@ -186,7 +190,9 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
   CAMERA_MODEL_CASE(RadialFisheyeCameraModel)       \
   CAMERA_MODEL_CASE(OpenCVFisheyeCameraModel)       \
   CAMERA_MODEL_CASE(ThinPrismFisheyeCameraModel)    \
-  CAMERA_MODEL_CASE(RadTanThinPrismFisheyeModel)
+  CAMERA_MODEL_CASE(RadTanThinPrismFisheyeModel)    \
+  CAMERA_MODEL_CASE(SimpleFisheyeCameraModel)       \
+  CAMERA_MODEL_CASE(FisheyeCameraModel)
 #endif
 
 #ifndef FISHEYE_CAMERA_MODEL_DEFINITIONS
@@ -515,6 +521,38 @@ struct SimpleDivisionCameraModel
 //
 struct DivisionCameraModel : public BaseCameraModel<DivisionCameraModel> {
   CAMERA_MODEL_DEFINITIONS(CameraModelId::kDivision, "DIVISION", 2, 2, 1, false)
+};
+
+// Simple equidistant fisheye camera model.
+//
+// Uses the equidistant (theta = r) fisheye projection without distortion
+// parameters. Suitable for fish-eye cameras where distortion can be ignored
+// or has been pre-corrected. This model has a single focal length.
+//
+// Parameter list is expected in the following order:
+//
+//    f, cx, cy
+//
+struct SimpleFisheyeCameraModel
+    : public BaseFisheyeCameraModel<SimpleFisheyeCameraModel> {
+  CAMERA_MODEL_DEFINITIONS(
+      CameraModelId::kSimpleFisheye, "SIMPLE_FISHEYE", 1, 2, 0, false)
+  FISHEYE_CAMERA_MODEL_DEFINITIONS
+};
+
+// Equidistant fisheye camera model.
+//
+// Uses the equidistant (theta = r) fisheye projection without distortion
+// parameters. Suitable for fish-eye cameras where distortion can be ignored
+// or has been pre-corrected. This model has two focal lengths (fx, fy).
+//
+// Parameter list is expected in the following order:
+//
+//    fx, fy, cx, cy
+//
+struct FisheyeCameraModel : public BaseFisheyeCameraModel<FisheyeCameraModel> {
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kFisheye, "FISHEYE", 2, 2, 0, false)
+  FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
 // Check whether camera model with given name or identifier exists.
@@ -2147,6 +2185,154 @@ void DivisionCameraModel::Distortion(
   const T factor = k * r2 / (T(1) + k * r2);
   *du = -u * factor;
   *dv = -v * factor;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// SimpleFisheyeCameraModel
+
+std::string SimpleFisheyeCameraModel::InitializeParamsInfo() {
+  return "f, cx, cy";
+}
+
+std::array<size_t, 1> SimpleFisheyeCameraModel::InitializeFocalLengthIdxs() {
+  return {0};
+}
+
+std::array<size_t, 2> SimpleFisheyeCameraModel::InitializePrincipalPointIdxs() {
+  return {1, 2};
+}
+
+std::array<size_t, 0> SimpleFisheyeCameraModel::InitializeExtraParamsIdxs() {
+  return {};
+}
+
+std::vector<double> SimpleFisheyeCameraModel::InitializeParams(
+    const double focal_length, const size_t width, const size_t height) {
+  return {focal_length, width / 2.0, height / 2.0};
+}
+
+template <typename T>
+void SimpleFisheyeCameraModel::ImgFromFisheye(
+    const T* params, const T& uu, const T& vv, T* x, T* y) {
+  const T f = params[0];
+  const T c1 = params[1];
+  const T c2 = params[2];
+
+  *x = f * uu + c1;
+  *y = f * vv + c2;
+}
+
+template <typename T>
+void SimpleFisheyeCameraModel::FisheyeFromImg(
+    const T* params, T x, T y, T* uu, T* vv) {
+  const T f = params[0];
+  const T c1 = params[1];
+  const T c2 = params[2];
+
+  *uu = (x - c1) / f;
+  *vv = (y - c2) / f;
+}
+
+template <typename T>
+bool SimpleFisheyeCameraModel::ImgFromCam(
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
+  if (w < std::numeric_limits<T>::epsilon()) {
+    return false;
+  }
+
+  T uu, vv;
+  FisheyeFromNormal(u / w, v / w, &uu, &vv);
+
+  // No distortion
+
+  // Transform to image coordinates
+  ImgFromFisheye(params, uu, vv, x, y);
+
+  return true;
+}
+
+bool SimpleFisheyeCameraModel::CamFromImg(
+    const double* params, double x, double y, double* u, double* v) {
+  double uu, vv;
+  FisheyeFromImg(params, x, y, &uu, &vv);
+  // No undistortion needed
+  NormalFromFisheye(uu, vv, u, v);
+  return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// FisheyeCameraModel
+
+std::string FisheyeCameraModel::InitializeParamsInfo() {
+  return "fx, fy, cx, cy";
+}
+
+std::array<size_t, 2> FisheyeCameraModel::InitializeFocalLengthIdxs() {
+  return {0, 1};
+}
+
+std::array<size_t, 2> FisheyeCameraModel::InitializePrincipalPointIdxs() {
+  return {2, 3};
+}
+
+std::array<size_t, 0> FisheyeCameraModel::InitializeExtraParamsIdxs() {
+  return {};
+}
+
+std::vector<double> FisheyeCameraModel::InitializeParams(
+    const double focal_length, const size_t width, const size_t height) {
+  return {focal_length, focal_length, width / 2.0, height / 2.0};
+}
+
+template <typename T>
+void FisheyeCameraModel::ImgFromFisheye(
+    const T* params, const T& uu, const T& vv, T* x, T* y) {
+  const T f1 = params[0];
+  const T f2 = params[1];
+  const T c1 = params[2];
+  const T c2 = params[3];
+
+  *x = f1 * uu + c1;
+  *y = f2 * vv + c2;
+}
+
+template <typename T>
+void FisheyeCameraModel::FisheyeFromImg(
+    const T* params, T x, T y, T* uu, T* vv) {
+  const T f1 = params[0];
+  const T f2 = params[1];
+  const T c1 = params[2];
+  const T c2 = params[3];
+
+  *uu = (x - c1) / f1;
+  *vv = (y - c2) / f2;
+}
+
+template <typename T>
+bool FisheyeCameraModel::ImgFromCam(
+    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
+  if (w < std::numeric_limits<T>::epsilon()) {
+    return false;
+  }
+
+  T uu, vv;
+  FisheyeFromNormal(u / w, v / w, &uu, &vv);
+
+  // No distortion
+
+  // Transform to image coordinates
+  ImgFromFisheye(params, uu, vv, x, y);
+
+  return true;
+}
+
+bool FisheyeCameraModel::CamFromImg(
+    const double* params, double x, double y, double* u, double* v) {
+  double uu, vv;
+  FisheyeFromImg(params, x, y, &uu, &vv);
+  // No undistortion needed
+  NormalFromFisheye(uu, vv, u, v);
+  return true;
 }
 
 std::optional<Eigen::Vector2d> CameraModelImgFromCam(
