@@ -33,18 +33,34 @@ void BindSim3(py::module& m) {
           })
       .def_property(
           "scale",
-          [](Sim3d& self) { return self.params(7); },
-          [](Sim3d& self, double scale) { self.scale() = scale; })
+          [](py::object self) {
+            Sim3d& sim3 = self.cast<Sim3d&>();
+            return py::array_t<double>(
+                {1}, {sizeof(double)}, sim3.params.data() + 7, self);
+          },
+          [](Sim3d& self, const py::object& value) {
+            if (py::isinstance<py::array>(value)) {
+              auto arr = value.cast<py::array_t<double>>();
+              THROW_CHECK_EQ(arr.size(), 1);
+              self.scale() = arr.at(0);
+            } else {
+              self.scale() = value.cast<double>();
+            }
+          })
       .def_property(
           "rotation",
-          [](const Sim3d& self) -> Eigen::Quaterniond {
-            return self.rotation();
+          [](py::object self) {
+            Sim3d& sim3 = self.cast<Sim3d&>();
+            return py::array_t<double>(
+                {4}, {sizeof(double)}, sim3.params.data(), self);
           },
           [](Sim3d& self, const Eigen::Quaterniond& q) { self.rotation() = q; })
       .def_property(
           "translation",
-          [](const Sim3d& self) -> Eigen::Vector3d {
-            return self.translation();
+          [](py::object self) {
+            Sim3d& sim3 = self.cast<Sim3d&>();
+            return py::array_t<double>(
+                {3}, {sizeof(double)}, sim3.params.data() + 4, self);
           },
           [](Sim3d& self, const Eigen::Vector3d& t) { self.translation() = t; })
       .def("matrix", &Sim3d::ToMatrix)

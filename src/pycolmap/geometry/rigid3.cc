@@ -31,16 +31,20 @@ void BindRigid3(py::module& m) {
           })
       .def_property(
           "rotation",
-          [](const Rigid3d& self) -> Eigen::Quaterniond {
-            return self.rotation();
+          [](py::object self) {
+            Rigid3d& rigid = self.cast<Rigid3d&>();
+            return py::array_t<double>(
+                {4}, {sizeof(double)}, rigid.params.data(), self);
           },
           [](Rigid3d& self, const Eigen::Quaterniond& q) {
             self.rotation() = q;
           })
       .def_property(
           "translation",
-          [](const Rigid3d& self) -> Eigen::Vector3d {
-            return self.translation();
+          [](py::object self) {
+            Rigid3d& rigid = self.cast<Rigid3d&>();
+            return py::array_t<double>(
+                {3}, {sizeof(double)}, rigid.params.data() + 4, self);
           },
           [](Rigid3d& self, const Eigen::Vector3d& t) {
             self.translation() = t;
