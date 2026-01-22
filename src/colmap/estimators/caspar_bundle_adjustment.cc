@@ -74,36 +74,157 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   void BuildFactors() {
-    // Group images by camera for better Caspar performance
-    std::unordered_map<camera_t, std::vector<image_t>> camera_to_images;
+    // Step 1: Create all nodes in deterministic order
+    CreateCalibrationNodes();
+    CreatePoseNodes();
+    CreatePointNodes();
 
+    // Step 2: Add factors ordered by (calib_index, pose_index, point_index)
+    AddFactorsInOptimalOrder();
+
+    // Step 3: Add external observation factors
+    AddExternalFactors();
+  }
+
+  void CreatePoseNodes() {
+    std::vector<frame_t> sorted_frame_ids;
     for (const image_t image_id : config_.Images()) {
-      const Image& image = reconstruction_.Image(image_id);
-      camera_to_images[image.CameraId()].push_back(image_id);
+      sorted_frame_ids.push_back(reconstruction_.Image(image_id).FrameId());
     }
+    std::sort(sorted_frame_ids.begin(), sorted_frame_ids.end());
+    sorted_frame_ids.erase(
+        std::unique(sorted_frame_ids.begin(), sorted_frame_ids.end()),
+        sorted_frame_ids.end());
 
-    // Process factors grouped by camera: f(cam0, p0), f(cam0, p1)..., f(cam1,
-    // p0)...
-    for (const auto& [camera_id, image_ids] : camera_to_images) {
+    for (const frame_t frame_id : sorted_frame_ids) {
+      GetOrCreatePose(frame_id);
+    }
+  }
+
+  void CreateCalibrationNodes() {
+    std::vector<camera_t> sorted_camera_ids;
+    for (const image_t image_id : config_.Images()) {
+      sorted_camera_ids.push_back(reconstruction_.Image(image_id).CameraId());
+    }
+    std::sort(sorted_camera_ids.begin(), sorted_camera_ids.end());
+    sorted_camera_ids.erase(
+        std::unique(sorted_camera_ids.begin(), sorted_camera_ids.end()),
+        sorted_camera_ids.end());
+
+    for (const camera_t camera_id : sorted_camera_ids) {
       const Camera& camera = reconstruction_.Camera(camera_id);
-
       if (camera.model_id == CameraModelId::kSimpleRadial) {
-        for (const image_t image_id : image_ids) {
-          AddFactorsForSimpleRadialImage(reconstruction_.Image(image_id),
-                                         reconstruction_.Camera(camera_id));
-        }
+        GetOrCreateSimpleRadialCalibration(camera_id, camera);
       } else if (camera.model_id == CameraModelId::kPinhole) {
-        for (const image_t image_id : image_ids) {
-          AddFactorsForPinholeImage(reconstruction_.Image(image_id),
-                                    reconstruction_.Camera(camera_id));
-        }
-      } else {
-        LOG(ERROR) << "Unsupported camera model: " << camera.ModelName();
-        continue;
+        GetOrCreatePinholeCalibration(camera_id, camera);
       }
     }
+  }
 
-    // Create factors for observations from images outside config (fixed poses)
+  void CreatePointNodes() {
+    std::vector<point3D_t> sorted_point_ids;
+    for (const auto& [point_id, _] : reconstruction_.Points3D()) {
+      if (!config_.IsIgnoredPoint(point_id)) {
+        sorted_point_ids.push_back(point_id);
+      }
+    }
+    std::sort(sorted_point_ids.begin(), sorted_point_ids.end());
+
+    for (const point3D_t point_id : sorted_point_ids) {
+      GetOrCreatePoint(point_id, reconstruction_.Point3D(point_id));
+    }
+  }
+
+  void AddFactorsInOptimalOrder() {
+    // SimpleRadial: calib_idx->pose_idx->point_idx
+    for (size_t calib_idx = 0; calib_idx < num_simple_radial_calibs_;
+         ++calib_idx) {
+      const camera_t camera_id =
+          simple_radial_calib_index_to_camera_[calib_idx];
+      AddFactorsForCalibration(camera_id, CameraModelId::kSimpleRadial);
+    }
+
+    // Pinhole: calib_idx->pose_idx->point_idx
+    for (size_t calib_idx = 0; calib_idx < num_pinhole_calibs_; ++calib_idx) {
+      const camera_t camera_id = pinhole_calib_index_to_camera_[calib_idx];
+      AddFactorsForCalibration(camera_id, CameraModelId::kPinhole);
+    }
+  }
+  void AddFactorsForCalibration(camera_t camera_id, CameraModelId model_id) {
+    const Camera& camera = reconstruction_.Camera(camera_id);
+
+    // Iterate through poses in index order
+    for (size_t pose_idx = 0; pose_idx < num_poses_; ++pose_idx) {
+      const frame_t frame_id = pose_index_to_frame_[pose_idx];
+
+      // Find images that use this camera AND this frame
+      std::vector<image_t> matching_images;
+      for (const image_t image_id : config_.Images()) {
+        const Image& img = reconstruction_.Image(image_id);
+        if (img.CameraId() == camera_id && img.FrameId() == frame_id) {
+          matching_images.push_back(image_id);
+        }
+      }
+
+      if (matching_images.empty()) continue;
+
+      // For each point in index order
+      for (size_t point_idx = 0; point_idx < num_points_; ++point_idx) {
+        const point3D_t point_id = index_to_point_id_[point_idx];
+        const Point3D& point3D = reconstruction_.Point3D(point_id);
+
+        // Check if any matching image observes this point
+        for (const image_t image_id : matching_images) {
+          const Image& image = reconstruction_.Image(image_id);
+
+          // Find if this image observes this point
+          for (const auto& track_el : point3D.track.Elements()) {
+            if (track_el.image_id != image_id) continue;
+
+            const Point2D& point2D = image.Point2D(track_el.point2D_idx);
+            AddFactorForObservation(image, camera, point2D, point3D, model_id);
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  void AddFactorForObservation(const Image& image,
+                               const Camera& camera,
+                               const Point2D& point2D,
+                               const Point3D& point3D,
+                               CameraModelId model_id) {
+    const bool pose_var = IsPoseVariable(image.FrameId());
+    const bool intrinsics_var = AreIntrinsicsVariable(camera.camera_id);
+    const bool point_var = IsPointVariable(point2D.point3D_id);
+
+    if (!pose_var && !intrinsics_var && !point_var) return;
+
+    if (model_id == CameraModelId::kSimpleRadial) {
+      if (pose_var && intrinsics_var && point_var) {
+        AddSimpleRadialFactor(image, camera, point2D, point3D);
+      } else if (pose_var && intrinsics_var && !point_var) {
+        AddSimpleRadialFixedPointFactor(image, camera, point2D, point3D);
+      } else if (!pose_var && intrinsics_var && point_var) {
+        AddSimpleRadialFixedPoseFactor(image, camera, point2D, point3D);
+      } else {
+        LOG(FATAL) << "Unhandled factor combination";
+      }
+    } else if (model_id == CameraModelId::kPinhole) {
+      if (pose_var && intrinsics_var && point_var) {
+        AddPinholeFactor(image, camera, point2D, point3D);
+      } else if (pose_var && intrinsics_var && !point_var) {
+        AddPinholeFixedPointFactor(image, camera, point2D, point3D);
+      } else if (!pose_var && intrinsics_var && point_var) {
+        AddPinholeFixedPoseFactor(image, camera, point2D, point3D);
+      } else {
+        LOG(FATAL) << "Unhandled factor combination";
+      }
+    }
+  }
+
+  void AddExternalFactors() {
     for (const auto point3D_id : config_.VariablePoints()) {
       AddFactorsForExternalObservations(point3D_id);
     }
@@ -112,63 +233,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
     }
   }
 
-  void AddFactorsForSimpleRadialImage(const Image& image, Camera& camera) {
-    for (const Point2D& point2D : image.Points2D()) {
-      if (!point2D.HasPoint3D() || config_.IsIgnoredPoint(point2D.point3D_id)) {
-        continue;
-      }
-
-      const Point3D& point3D = reconstruction_.Point3D(point2D.point3D_id);
-      const bool pose_var = IsPoseVariable(image.FrameId());
-      const bool intrinsics_var = AreIntrinsicsVariable(camera.camera_id);
-      const bool point_var = IsPointVariable(point2D.point3D_id);
-
-      if (!pose_var && !intrinsics_var && !point_var) {
-        continue;  // Nothing to optimize
-      }
-
-      if (pose_var && intrinsics_var && point_var) {
-        AddSimpleRadialFactor(image, camera, point2D, point3D);
-      } else if (pose_var && intrinsics_var && !point_var) {
-        AddSimpleRadialFixedPointFactor(image, camera, point2D, point3D);
-      } else if (!pose_var && intrinsics_var && point_var) {
-        AddSimpleRadialFixedPoseFactor(image, camera, point2D, point3D);
-      } else {
-        LOG(FATAL) << "Unhandled factor combination: pose_var=" << pose_var
-                   << " intrinsics_var=" << intrinsics_var
-                   << " point_var=" << point_var;
-      }
-    }
-  }
-
-  void AddFactorsForPinholeImage(const Image& image, Camera& camera) {
-    for (const Point2D& point2D : image.Points2D()) {
-      if (!point2D.HasPoint3D() || config_.IsIgnoredPoint(point2D.point3D_id)) {
-        continue;
-      }
-
-      const Point3D& point3D = reconstruction_.Point3D(point2D.point3D_id);
-      const bool pose_var = IsPoseVariable(image.FrameId());
-      const bool intrinsics_var = AreIntrinsicsVariable(camera.camera_id);
-      const bool point_var = IsPointVariable(point2D.point3D_id);
-
-      if (!pose_var && !intrinsics_var && !point_var) {
-        continue;  // Nothing to optimize
-      }
-
-      if (pose_var && intrinsics_var && point_var) {
-        AddPinholeFactor(image, camera, point2D, point3D);
-      } else if (pose_var && intrinsics_var && !point_var) {
-        AddPinholeFixedPointFactor(image, camera, point2D, point3D);
-      } else if (!pose_var && intrinsics_var && point_var) {
-        AddPinholeFixedPoseFactor(image, camera, point2D, point3D);
-      } else {
-        LOG(FATAL) << "Unhandled factor combination: pose_var=" << pose_var
-                   << " intrinsics_var=" << intrinsics_var
-                   << " point_var=" << point_var;
-      }
-    }
-  }
   void AddFactorsForExternalObservations(const point3D_t point3D_id) {
     THROW_CHECK(!config_.IsIgnoredPoint(point3D_id));
 
@@ -195,7 +259,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
         cameras_from_outside_config_.insert(camera.camera_id);
       } else {
         LOG(WARNING)
-            << "Skipping external observation with unsupported camera model: "
+            << "Skipping external observation with unsupported camera model:"
             << camera.ModelName();
       }
     }
