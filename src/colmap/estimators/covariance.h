@@ -126,6 +126,10 @@ std::optional<BACovariance> EstimateBACovariance(
     const BACovarianceOptions& options,
     const Reconstruction& reconstruction,
     BundleAdjuster& bundle_adjuster);
+std::optional<BACovariance> EstimateBACovarianceFromProblem(
+    const BACovarianceOptions& options,
+    const Reconstruction& reconstruction,
+    ceres::Problem& problem);
 
 namespace internal {
 
@@ -135,7 +139,7 @@ struct PoseParam {
 };
 
 std::vector<PoseParam> GetPoseParams(const Reconstruction& reconstruction,
-                                     const BundleAdjuster& bundle_adjuster);
+                                     const ceres::Problem& problem);
 
 struct PointParam {
   point3D_t point3D_id = kInvalidPoint3DId;

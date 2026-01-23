@@ -53,8 +53,6 @@ void BindRigid3(py::module& m) {
           })
       .def("matrix", &Rigid3d::ToMatrix)
       .def("tgt_origin_in_src", &Rigid3d::TgtOriginInSrc)
-      .def("to_params", &Rigid3d::ToParams)
-      .def_static("from_params", &Rigid3d::FromParams)
       .def("adjoint", &Rigid3d::Adjoint)
       .def("adjoint_inverse", &Rigid3d::AdjointInverse)
       .def(py::self * Rigid3d())

@@ -129,7 +129,7 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
   }
 
   const std::vector<internal::PoseParam> poses =
-      internal::GetPoseParams(reconstruction, *bundle_adjuster);
+      internal::GetPoseParams(reconstruction, *problem);
   if (test_options.fixed_cam_poses) {
     ASSERT_TRUE(poses.empty());
   } else {

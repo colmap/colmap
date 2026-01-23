@@ -302,7 +302,13 @@ std::optional<BACovariance> EstimateBACovariance(
     const Reconstruction& reconstruction,
     BundleAdjuster& bundle_adjuster) {
   ceres::Problem& problem = *THROW_CHECK_NOTNULL(bundle_adjuster.Problem());
+  return EstimateBACovarianceFromProblem(options, reconstruction, problem);
+}
 
+std::optional<BACovariance> EstimateBACovarianceFromProblem(
+    const BACovarianceOptions& options,
+    const Reconstruction& reconstruction,
+    ceres::Problem& problem) {
   const bool estimate_point_covs =
       options.params == BACovarianceOptions::Params::POINTS ||
       options.params == BACovarianceOptions::Params::POSES_AND_POINTS ||
@@ -318,7 +324,7 @@ std::optional<BACovariance> EstimateBACovariance(
       internal::GetPointParams(reconstruction, problem);
   const std::vector<internal::PoseParam>& poses =
       options.experimental_custom_poses.empty()
-          ? internal::GetPoseParams(reconstruction, bundle_adjuster)
+          ? internal::GetPoseParams(reconstruction, problem)
           : options.experimental_custom_poses;
   const std::vector<const double*> others =
       GetOtherParams(problem, poses, points);
@@ -397,8 +403,7 @@ std::optional<BACovariance> EstimateBACovariance(
 namespace internal {
 
 std::vector<PoseParam> GetPoseParams(const Reconstruction& reconstruction,
-                                     const BundleAdjuster& bundle_adjuster) {
-  const ceres::Problem& problem = *bundle_adjuster.Problem();
+                                     const ceres::Problem& problem) {
   std::vector<PoseParam> params;
   params.reserve(reconstruction.NumImages());
   for (const auto& [image_id, image] : reconstruction.Images()) {
