@@ -129,9 +129,9 @@ inline Rigid3d Inverse(const Rigid3d& b_from_a) {
 // the inverse is -Ad(X^{-1}). This can be easily derived combining Eqs. (62)
 // and (57) in the paper.
 inline Eigen::Matrix6d GetCovarianceForRigid3dInverse(
-    const Rigid3d& rigid3, const Eigen::Matrix6d& covar) {
+    const Rigid3d& rigid3, const Eigen::Ref<const Eigen::Matrix6d>& cov) {
   const Eigen::Matrix6d adjoint_inv = rigid3.AdjointInverse();
-  return adjoint_inv * covar * adjoint_inv.transpose();
+  return adjoint_inv * cov * adjoint_inv.transpose();
 }
 
 // Given a (12 x 12) covariance on two rigid3d objects (a_from_b, b_from_c),
@@ -139,11 +139,12 @@ inline Eigen::Matrix6d GetCovarianceForRigid3dInverse(
 // transformation a_from_c (a_T_b * b_T_c). b_T_c does not contribute to the
 // covariance propagation and is thus not required.
 inline Eigen::Matrix6d GetCovarianceForComposedRigid3d(
-    const Rigid3d& a_from_b, const Eigen::Matrix<double, 12, 12>& covar) {
+    const Rigid3d& a_from_b,
+    const Eigen::Ref<const Eigen::Matrix<double, 12, 12>>& cov) {
   Eigen::Matrix<double, 6, 12> J;
   J.block<6, 6>(0, 0) = Eigen::Matrix6d::Identity();
   J.block<6, 6>(0, 6) = a_from_b.Adjoint();
-  return J * covar * J.transpose();
+  return J * cov * J.transpose();
 }
 
 // Given a (12 x 12) covariance on two rigid3d objects (a_from_c, b_from_c),
@@ -152,11 +153,11 @@ inline Eigen::Matrix6d GetCovarianceForComposedRigid3d(
 inline Eigen::Matrix6d GetCovarianceForRelativeRigid3d(
     const Rigid3d& a_from_c,
     const Rigid3d& b_from_c,
-    const Eigen::Matrix<double, 12, 12>& covar) {
+    const Eigen::Ref<const Eigen::Matrix<double, 12, 12>>& cov) {
   Eigen::Matrix<double, 6, 12> J;
   J.block<6, 6>(0, 0) = -b_from_c.Adjoint() * a_from_c.AdjointInverse();
   J.block<6, 6>(0, 6) = Eigen::Matrix6d::Identity();
-  return J * covar * J.transpose();
+  return J * cov * J.transpose();
 }
 
 // Apply transform to point such that one can write expressions like:

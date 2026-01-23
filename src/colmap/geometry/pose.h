@@ -52,8 +52,9 @@ namespace colmap {
 // @param weights        Non-negative weights (uniform if empty).
 //
 // @return               The average unit vector.
-Eigen::VectorXd AverageUnitVectors(const Eigen::MatrixXd& vectors,
-                                   const Eigen::VectorXd& weights = {});
+Eigen::VectorXd AverageUnitVectors(
+    const Eigen::Ref<const Eigen::MatrixXd>& vectors,
+    const Eigen::Ref<const Eigen::VectorXd>& weights = Eigen::VectorXd());
 
 // Convenience function to average 3D direction vectors.
 //

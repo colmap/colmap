@@ -49,19 +49,21 @@ namespace colmap {
 // scheme. This function is templated such that the polynomial may be evaluated
 // at real and/or imaginary points.
 template <typename T>
-T EvaluatePolynomial(const Eigen::VectorXd& coeffs, const T& x);
+T EvaluatePolynomial(const Eigen::Ref<const Eigen::VectorXd>& coeffs,
+                     const T& x);
 
 // Find the root of polynomials of the form: a * x + b = 0.
 // The real and/or imaginary variable may be NULL if the output is not needed.
-bool FindLinearPolynomialRoots(const Eigen::VectorXd& coeffs,
+bool FindLinearPolynomialRoots(const Eigen::Ref<const Eigen::VectorXd>& coeffs,
                                Eigen::VectorXd* real,
                                Eigen::VectorXd* imag);
 
 // Find the roots of polynomials of the form: a * x^2 + b * x + c = 0.
 // The real and/or imaginary variable may be NULL if the output is not needed.
-bool FindQuadraticPolynomialRoots(const Eigen::VectorXd& coeffs,
-                                  Eigen::VectorXd* real,
-                                  Eigen::VectorXd* imag);
+bool FindQuadraticPolynomialRoots(
+    const Eigen::Ref<const Eigen::VectorXd>& coeffs,
+    Eigen::VectorXd* real,
+    Eigen::VectorXd* imag);
 
 // Find the real roots of polynomials of the form: x^3 + c2*x^2 + c1*x + c0 = 0.
 // Returns the number of found roots.
@@ -76,9 +78,10 @@ int FindCubicPolynomialRoots(double c2,
 //
 // The Durand-Kerner is comparatively fast but often unstable/inaccurate.
 // The real and/or imaginary variable may be NULL if the output is not needed.
-bool FindPolynomialRootsDurandKerner(const Eigen::VectorXd& coeffs,
-                                     Eigen::VectorXd* real,
-                                     Eigen::VectorXd* imag);
+bool FindPolynomialRootsDurandKerner(
+    const Eigen::Ref<const Eigen::VectorXd>& coeffs,
+    Eigen::VectorXd* real,
+    Eigen::VectorXd* imag);
 
 // Find the roots of a polynomial using the companion matrix method, based on:
 //
@@ -87,16 +90,18 @@ bool FindPolynomialRootsDurandKerner(const Eigen::VectorXd& coeffs,
 //
 // Compared to Durand-Kerner, this method is slower but more stable/accurate.
 // The real and/or imaginary variable may be NULL if the output is not needed.
-bool FindPolynomialRootsCompanionMatrix(const Eigen::VectorXd& coeffs,
-                                        Eigen::VectorXd* real,
-                                        Eigen::VectorXd* imag);
+bool FindPolynomialRootsCompanionMatrix(
+    const Eigen::Ref<const Eigen::VectorXd>& coeffs,
+    Eigen::VectorXd* real,
+    Eigen::VectorXd* imag);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
 template <typename T>
-T EvaluatePolynomial(const Eigen::VectorXd& coeffs, const T& x) {
+T EvaluatePolynomial(const Eigen::Ref<const Eigen::VectorXd>& coeffs,
+                     const T& x) {
   T value = 0.0;
   for (Eigen::VectorXd::Index i = 0; i < coeffs.size(); ++i) {
     value = value * x + coeffs(i);

@@ -36,8 +36,9 @@
 
 namespace colmap {
 
-Eigen::VectorXd AverageUnitVectors(const Eigen::MatrixXd& vectors,
-                                   const Eigen::VectorXd& weights) {
+Eigen::VectorXd AverageUnitVectors(
+    const Eigen::Ref<const Eigen::MatrixXd>& vectors,
+    const Eigen::Ref<const Eigen::VectorXd>& weights) {
   THROW_CHECK_GT(vectors.cols(), 0) << "Cannot average empty set of vectors";
   THROW_CHECK(weights.size() == 0 || weights.size() == vectors.cols())
       << "Weights size must match vectors size";
