@@ -39,6 +39,7 @@ COLMAP_ADD_LIBRARY(
         essential_matrix_poly.h
         euclidean_transform.h
         fundamental_matrix.h fundamental_matrix.cc
+        generalized_absolute_pose.h generalized_absolute_pose.cc
         generalized_relative_pose.h generalized_relative_pose.cc
         homography_matrix.h homography_matrix.cc
         similarity_transform.h similarity_transform.cc
@@ -71,6 +72,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME fundamental_matrix_test
     SRCS fundamental_matrix_test.cc
+    LINK_LIBS colmap_estimators_solvers colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME generalized_absolute_pose_test
+    SRCS generalized_absolute_pose_test.cc
     LINK_LIBS colmap_estimators_solvers colmap_estimators
 )
 COLMAP_ADD_TEST(
