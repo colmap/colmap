@@ -29,11 +29,6 @@ class PyBundleAdjuster : public BundleAdjuster,
     PYBIND11_OVERRIDE_PURE(
         std::shared_ptr<ceres::Problem>&, BundleAdjuster, Problem);
   }
-
-  const std::shared_ptr<ceres::Problem>& Problem() const override {
-    PYBIND11_OVERRIDE_PURE(
-        const std::shared_ptr<ceres::Problem>&, BundleAdjuster, Problem);
-  }
 };
 
 }  // namespace
@@ -237,11 +232,7 @@ void BindBundleAdjuster(py::module& m) {
       .def_property_readonly(
           "problem", py::overload_cast<>(&BundleAdjuster::Problem, py::const_))
       .def_property_readonly("options", &BundleAdjuster::Options)
-      .def_property_readonly("config", &BundleAdjuster::Config)
-      .def_property_readonly("sensor_from_rig_params",
-                             &BundleAdjuster::SensorFromRigParams)
-      .def_property_readonly("rig_from_world_params",
-                             &BundleAdjuster::RigFromWorldParams);
+      .def_property_readonly("config", &BundleAdjuster::Config);
 
   m.def("create_default_bundle_adjuster",
         CreateDefaultBundleAdjuster,
