@@ -32,11 +32,31 @@
 #include "colmap/estimators/alignment.h"
 #include "colmap/estimators/cost_functions.h"
 #include "colmap/estimators/manifold.h"
+#include "colmap/geometry/rigid3.h"
+#include "colmap/scene/camera.h"
+#include "colmap/scene/frame.h"
+#include "colmap/scene/image.h"
+#include "colmap/scene/point2d.h"
+#include "colmap/scene/point3d.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/util/cuda.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
+#include "colmap/util/types.h"
 
+#include <cstddef>
 #include <iomanip>
+#include <memory>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "bundle_adjustment.h"
+#include <ceres/problem.h>
+#include <ceres/solver.h>
+#include <ceres/types.h>
+#include <metis.h>
 
 namespace colmap {
 namespace {

@@ -29,6 +29,10 @@
 
 #include "colmap/estimators/bundle_adjustment.h"
 
+#include <optional>
+#ifdef CASPAR_ENABLED
+#include "colmap/estimators/caspar_bundle_adjustment.h"
+#endif
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
@@ -263,6 +267,160 @@ TEST(DefaultBundleAdjuster, TwoView) {
     CheckVariablePoint(point3D, orig_reconstruction.Point3D(point3D_id));
   }
 }
+
+#ifdef CASPAR_ENABLED
+
+TEST(CasparBundleAdjuster, Converges) {
+  SetPRNGSeed(0);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 10;
+  synthetic_dataset_options.num_points3D = 200;
+  synthetic_dataset_options.camera_model_id = CameraModelId::kSimpleRadial;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction);
+
+  Reconstruction reconstruction = gt_reconstruction;
+
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.5;
+  synthetic_noise_options.point3D_stddev = 0.1;
+  synthetic_noise_options.rig_from_world_rotation_stddev = 0.5;
+  synthetic_noise_options.rig_from_world_translation_stddev = 0.1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+
+  BundleAdjustmentOptions options;
+  options.refine_principal_point = true;
+
+  auto summary =
+      CreateCasparBundleAdjuster(options, config, reconstruction)->Solve();
+
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  EXPECT_TRUE(summary.IsSolutionUsable());
+}
+
+TEST(CasparBundleAdjuster, MatchesDefaultSolver) {
+  SetPRNGSeed(0);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 10;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_model_id = CameraModelId::kPinhole;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.5;
+  synthetic_noise_options.point3D_stddev = 0.1;
+  synthetic_noise_options.rig_from_world_rotation_stddev = 0.5;
+  synthetic_noise_options.rig_from_world_translation_stddev = 0.1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  Reconstruction reconstruction_default = reconstruction;
+  Reconstruction reconstruction_caspar = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.FixGauge(BundleAdjustmentGauge::UNSPECIFIED);
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+
+  BundleAdjustmentOptions options;
+  options.refine_principal_point = true;
+
+  auto default_summary =
+      CreateDefaultBundleAdjuster(options, config, reconstruction_default)
+          ->Solve();
+  ASSERT_NE(default_summary.termination_type, ceres::FAILURE);
+
+  auto caspar_summary =
+      CreateCasparBundleAdjuster(options, config, reconstruction_caspar)
+          ->Solve();
+
+  EXPECT_NEAR(caspar_summary.final_cost, default_summary.final_cost, 10);
+
+  EXPECT_THAT(reconstruction_default,
+              ReconstructionNear(reconstruction_caspar,
+                                 /*max_rotation_error_deg=*/0.3,
+                                 /*max_proj_center_error=*/0.3,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.0));
+}
+
+TEST(CasparBundleAdjuster, TwoView) {
+  SetPRNGSeed(0);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_model_id = CameraModelId::kSimpleRadial;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.5;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+
+  BundleAdjustmentOptions options;
+  auto summary =
+      CreateCasparBundleAdjuster(options, config, reconstruction)->Solve();
+
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+}
+
+TEST(CasparBundleAdjuster, LargeScale) {
+  SetPRNGSeed(0);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 100;
+  synthetic_dataset_options.num_points3D = 30000;
+  synthetic_dataset_options.camera_model_id = CameraModelId::kPinhole;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction);
+
+  Reconstruction reconstruction = gt_reconstruction;
+
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.5;
+  synthetic_noise_options.point3D_stddev = 0.1;
+  synthetic_noise_options.rig_from_world_rotation_stddev = 0.5;
+  synthetic_noise_options.rig_from_world_translation_stddev = 0.1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+
+  BundleAdjustmentOptions options;
+
+  auto summary =
+      CreateCasparBundleAdjuster(options, config, reconstruction)->Solve();
+
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.01,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.0));
+}
+
+#endif  // CASPAR_ENABLED
 
 TEST(DefaultBundleAdjuster, TwoViewRig) {
   Reconstruction reconstruction;

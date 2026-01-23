@@ -37,6 +37,10 @@
 
 #include <array>
 
+#ifdef CASPAR_ENABLED
+#include "colmap/estimators/caspar_bundle_adjustment.h"
+#endif
+
 namespace colmap {
 
 bool IncrementalMapper::Options::Check() const {
@@ -999,9 +1003,13 @@ IncrementalMapper::AdjustLocalBundle(
 
     // Adjust the local bundle.
     image_ids = ba_config.Images();
+    auto ba_options_test = ba_options;
+    ba_options_test.use_gpu = false;
+
     std::unique_ptr<BundleAdjuster> bundle_adjuster =
         CreateDefaultBundleAdjuster(
             ba_options, std::move(ba_config), *reconstruction_);
+
     const ceres::Solver::Summary summary = bundle_adjuster->Solve();
 
     report.num_adjusted_observations = summary.num_residuals / 2;
@@ -1104,14 +1112,24 @@ bool IncrementalMapper::AdjustGlobalBundle(
       options.use_prior_position && ba_config.NumImages() > 2;
 
   std::unique_ptr<BundleAdjuster> bundle_adjuster;
+  LOG(INFO) << "Created bundle adjustment unique pointer";
   if (!use_prior_position) {
     // Fixing the gauge with two cameras leads to a more stable optimization
     // with fewer steps as compared to fixing three points.
     // TODO(jsch): Investigate whether it is safe to not fix the gauge at all,
     // as initial experiments show that it is even faster.
+
+#ifdef CASPAR_ENABLED
+
+    bundle_adjuster = CreateCasparBundleAdjuster(
+        ba_options, std::move(ba_config), *reconstruction_);
+
+#else
     ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
     bundle_adjuster = CreateDefaultBundleAdjuster(
-        custom_ba_options, ba_config, *reconstruction_);
+        ba_options, std::move(ba_config), *reconstruction_);
+#endif
   } else {
     PosePriorBundleAdjustmentOptions prior_options;
     if (options.use_robust_loss_on_prior_position) {
@@ -1150,8 +1168,13 @@ bool IncrementalMapper::AdjustGlobalBundle(
       }
     }
 
+#ifdef CASPAR_ENABLED
+    bundle_adjuster = CreateCasparBundleAdjuster(
+        ba_options, std::move(ba_config), *reconstruction_);
+#else
     bundle_adjuster = CreateDefaultBundleAdjuster(
-        custom_ba_options, ba_config, *reconstruction_);
+        ba_options, std::move(ba_config), *reconstruction_);
+#endif
   }
 
   return bundle_adjuster->Solve().termination_type != ceres::FAILURE;
