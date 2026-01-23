@@ -248,21 +248,9 @@ class BundleAdjuster {
   const BundleAdjustmentOptions& Options() const;
   const BundleAdjustmentConfig& Config() const;
 
-  const std::unordered_map<sensor_t, std::pair<Eigen::Vector7d, Rigid3d*>>&
-  SensorFromRigParams() const;
-  const std::unordered_map<frame_t, std::pair<Eigen::Vector7d, Rigid3d*>>&
-  RigFromWorldParams() const;
-
  protected:
   BundleAdjustmentOptions options_;
   BundleAdjustmentConfig config_;
-
-  // Cost function parameters for rig and frame poses and corresponding
-  // poses in the reconstruction object.
-  std::unordered_map<sensor_t, std::pair<Eigen::Vector7d, Rigid3d*>>
-      sensor_from_rig_params_;
-  std::unordered_map<frame_t, std::pair<Eigen::Vector7d, Rigid3d*>>
-      rig_from_world_params_;
 };
 
 std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(
