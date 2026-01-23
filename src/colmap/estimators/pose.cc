@@ -310,8 +310,6 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
 
-  *cam2_from_cam1 = Rigid3d::FromParams(cam2_from_cam1->params);
-
   return summary.IsSolutionUsable();
 }
 

@@ -89,19 +89,6 @@ TEST(Rigid3d, TgtOriginInSrc) {
   EXPECT_LT((b_from_a * origin_b_in_a - Eigen::Vector3d::Zero()).norm(), 1e-6);
 }
 
-TEST(Rigid3d, ParamsRoundTrip) {
-  const Rigid3d t = TestRigid3d();
-  EXPECT_THAT(
-      t,
-      Rigid3dNear(
-          Rigid3d::FromParams(t.ToParams()), /*rtol=*/1e-12, /*ttol=*/1e-12));
-  const Rigid3d identity;
-  EXPECT_THAT(identity,
-              Rigid3dNear(Rigid3d::FromParams(identity.ToParams()),
-                          /*rtol=*/1e-12,
-                          /*ttol=*/1e-12));
-}
-
 TEST(Rigid3d, ToMatrix) {
   const Rigid3d b_from_a = TestRigid3d();
   const Eigen::Matrix3x4d b_from_a_mat = b_from_a.ToMatrix();
