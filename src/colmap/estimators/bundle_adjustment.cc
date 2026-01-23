@@ -800,10 +800,6 @@ class DefaultBundleAdjuster : public BundleAdjuster {
 
   std::shared_ptr<ceres::Problem>& Problem() override { return problem_; }
 
-  const std::shared_ptr<ceres::Problem>& Problem() const override {
-    return problem_;
-  }
-
   const std::set<image_t>& ParameterizedImageIds() const {
     return parameterized_image_ids_;
   }
@@ -1103,10 +1099,6 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
   }
 
   std::shared_ptr<ceres::Problem>& Problem() override {
-    return default_bundle_adjuster_->Problem();
-  }
-
-  const std::shared_ptr<ceres::Problem>& Problem() const override {
     return default_bundle_adjuster_->Problem();
   }
 

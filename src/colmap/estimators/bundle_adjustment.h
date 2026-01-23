@@ -243,7 +243,6 @@ class BundleAdjuster {
 
   virtual ceres::Solver::Summary Solve() = 0;
   virtual std::shared_ptr<ceres::Problem>& Problem() = 0;
-  virtual const std::shared_ptr<ceres::Problem>& Problem() const = 0;
 
   const BundleAdjustmentOptions& Options() const;
   const BundleAdjustmentConfig& Config() const;
