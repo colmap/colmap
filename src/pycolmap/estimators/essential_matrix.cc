@@ -1,4 +1,4 @@
-#include "colmap/estimators/essential_matrix.h"
+#include "colmap/estimators/solvers/essential_matrix.h"
 
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/rigid3.h"

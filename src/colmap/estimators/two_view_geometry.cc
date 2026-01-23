@@ -29,11 +29,11 @@
 
 #include "colmap/estimators/two_view_geometry.h"
 
-#include "colmap/estimators/essential_matrix.h"
-#include "colmap/estimators/fundamental_matrix.h"
 #include "colmap/estimators/generalized_pose.h"
-#include "colmap/estimators/homography_matrix.h"
-#include "colmap/estimators/translation_transform.h"
+#include "colmap/estimators/solvers/essential_matrix.h"
+#include "colmap/estimators/solvers/fundamental_matrix.h"
+#include "colmap/estimators/solvers/homography_matrix.h"
+#include "colmap/estimators/solvers/translation_transform.h"
 #include "colmap/estimators/utils.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/homography_matrix.h"

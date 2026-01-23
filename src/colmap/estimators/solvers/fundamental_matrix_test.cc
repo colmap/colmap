@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/estimators/fundamental_matrix.h"
+#include "colmap/estimators/solvers/fundamental_matrix.h"
 
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/math/random.h"
