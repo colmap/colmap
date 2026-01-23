@@ -42,12 +42,14 @@ COLMAP_ADD_LIBRARY(
         generalized_absolute_pose.h generalized_absolute_pose.cc
         generalized_relative_pose.h generalized_relative_pose.cc
         homography_matrix.h homography_matrix.cc
+        poselib_utils.h poselib_utils.cc
         similarity_transform.h similarity_transform.cc
         translation_transform.h
     PUBLIC_LINK_LIBS
         colmap_util
         colmap_math
         colmap_geometry
+        colmap_scene
         colmap_optim
         Eigen3::Eigen
         Ceres::ceres
@@ -97,5 +99,10 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME translation_transform_test
     SRCS translation_transform_test.cc
+    LINK_LIBS colmap_estimators_solvers
+)
+COLMAP_ADD_TEST(
+    NAME poselib_utils_test
+    SRCS poselib_utils_test.cc
     LINK_LIBS colmap_estimators_solvers
 )

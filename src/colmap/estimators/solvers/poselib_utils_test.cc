@@ -27,38 +27,42 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/estimators/poselib_utils.h"
+#include "colmap/estimators/solvers/poselib_utils.h"
+
+#include "colmap/geometry/rigid3_matchers.h"
+
+#include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
-poselib::Camera ConvertCameraToPoseLibCamera(const Camera& camera) {
-  return poselib::Camera(
-      camera.ModelName(), camera.params, camera.width, camera.height);
+TEST(PoseLibUtils, CameraRoundTrip) {
+  Camera camera;
+  camera.model_id = CameraModelId::kSimpleRadial;
+  camera.width = 1920;
+  camera.height = 1080;
+  camera.params = {1000.0, 960.0, 540.0, 0.1};
+
+  const poselib::Camera poselib_camera = ConvertCameraToPoseLibCamera(camera);
+  const Camera camera_back = ConvertPoseLibCameraToCamera(poselib_camera);
+
+  EXPECT_EQ(camera.model_id, camera_back.model_id);
+  EXPECT_EQ(camera.width, camera_back.width);
+  EXPECT_EQ(camera.height, camera_back.height);
+  EXPECT_EQ(camera.params, camera_back.params);
 }
 
-Camera ConvertPoseLibCameraToCamera(const poselib::Camera& camera) {
-  Camera colmap_camera;
-  colmap_camera.model_id = CameraModelNameToId(camera.model_name());
-  colmap_camera.width = camera.width;
-  colmap_camera.height = camera.height;
-  colmap_camera.params = camera.params;
-  return colmap_camera;
+TEST(PoseLibUtils, Rigid3dRoundTrip) {
+  const Eigen::Quaterniond rotation =
+      Eigen::Quaterniond(0.5, 0.5, 0.5, 0.5).normalized();
+  const Eigen::Vector3d translation(1.0, 2.0, 3.0);
+  const Rigid3d rigid(rotation, translation);
+
+  const poselib::CameraPose poselib_pose = ConvertRigid3dToPoseLibPose(rigid);
+  const Rigid3d rigid_back = ConvertPoseLibPoseToRigid3d(poselib_pose);
+
+  EXPECT_THAT(rigid_back, Rigid3dNear(rigid, 1e-10, 1e-10));
 }
 
-poselib::CameraPose ConvertRigid3dToPoseLibPose(const Rigid3d& rigid) {
-  poselib::CameraPose pose;
-  // PoseLib uses (w, x, y, z) ordering for quaternion
-  pose.q << rigid.rotation().w(), rigid.rotation().x(), rigid.rotation().y(),
-      rigid.rotation().z();
-  pose.t = rigid.translation();
-  return pose;
-}
-
-Rigid3d ConvertPoseLibPoseToRigid3d(const poselib::CameraPose& pose) {
-  // PoseLib quaternion is (w, x, y, z), Eigen::Quaterniond constructor is also
-  // (w, x, y, z)
-  return Rigid3d(Eigen::Quaterniond(pose.q(0), pose.q(1), pose.q(2), pose.q(3)),
-                 pose.t);
-}
-
+}  // namespace
 }  // namespace colmap
