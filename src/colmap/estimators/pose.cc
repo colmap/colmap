@@ -29,10 +29,10 @@
 
 #include "colmap/estimators/pose.h"
 
-#include "colmap/estimators/solvers/absolute_pose.h"
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/cost_functions.h"
 #include "colmap/estimators/manifold.h"
+#include "colmap/estimators/solvers/absolute_pose.h"
 #include "colmap/estimators/solvers/essential_matrix.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/optim/loransac.h"
