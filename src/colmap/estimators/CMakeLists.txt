@@ -41,9 +41,7 @@ COLMAP_ADD_LIBRARY(
         cost_functions.h
         manifold.h
         covariance.h covariance.cc
-        generalized_absolute_pose.h generalized_absolute_pose.cc
         pose.h pose.cc
-        poselib_utils.h poselib_utils.cc
         generalized_pose.h generalized_pose.cc
         triangulation.h triangulation.cc
         two_view_geometry.h two_view_geometry.cc
@@ -98,11 +96,6 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
-    NAME generalized_absolute_pose_test
-    SRCS generalized_absolute_pose_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
     NAME generalized_pose_test
     SRCS generalized_pose_test.cc
     LINK_LIBS colmap_estimators
@@ -110,11 +103,6 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME pose_test
     SRCS pose_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
-    NAME poselib_utils_test
-    SRCS poselib_utils_test.cc
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(

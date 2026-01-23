@@ -27,9 +27,9 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/estimators/generalized_absolute_pose.h"
+#include "colmap/estimators/solvers/generalized_absolute_pose.h"
 
-#include "colmap/estimators/poselib_utils.h"
+#include "colmap/estimators/solvers/poselib_utils.h"
 #include "colmap/util/logging.h"
 
 #include <PoseLib/solvers/gp3p.h>

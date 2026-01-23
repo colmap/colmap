@@ -29,7 +29,7 @@
 
 #include "colmap/estimators/solvers/generalized_relative_pose.h"
 
-#include "colmap/estimators/poselib_utils.h"
+#include "colmap/estimators/solvers/poselib_utils.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/math/random.h"
 #include "colmap/util/eigen_alignment.h"
