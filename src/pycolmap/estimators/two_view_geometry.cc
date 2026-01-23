@@ -1,6 +1,8 @@
 #include "colmap/estimators/two_view_geometry.h"
 
-#include "colmap/estimators/utils.h"
+#include "colmap/geometry/essential_matrix.h"
+#include "colmap/geometry/homography_matrix.h"
+#include "colmap/geometry/normalization.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/two_view_geometry.h"
 #include "colmap/util/logging.h"

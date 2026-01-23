@@ -29,7 +29,7 @@
 
 #include "colmap/geometry/essential_matrix.h"
 
-#include "colmap/estimators/essential_matrix.h"
+#include "colmap/estimators/solvers/essential_matrix.h"
 #include "colmap/math/random.h"
 #include "colmap/util/eigen_alignment.h"
 

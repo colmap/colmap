@@ -1,4 +1,4 @@
-#include "colmap/estimators/affine_transform.h"
+#include "colmap/estimators/solvers/affine_transform.h"
 
 #include "colmap/math/random.h"
 #include "colmap/optim/loransac.h"

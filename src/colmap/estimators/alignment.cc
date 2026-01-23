@@ -29,7 +29,7 @@
 
 #include "colmap/estimators/alignment.h"
 
-#include "colmap/estimators/similarity_transform.h"
+#include "colmap/estimators/solvers/similarity_transform.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/math/math.h"
 #include "colmap/optim/loransac.h"

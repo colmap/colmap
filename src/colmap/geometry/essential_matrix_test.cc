@@ -175,5 +175,27 @@ TEST(EssentialFromFundamentalMatrix, Nominal) {
               EigenMatrixNear(E, 1e-6));
 }
 
+TEST(ComputeSquaredSampsonError, Nominal) {
+  std::vector<Eigen::Vector2d> points1;
+  points1.emplace_back(0, 0);
+  points1.emplace_back(0, 0);
+  points1.emplace_back(0, 0);
+  std::vector<Eigen::Vector2d> points2;
+  points2.emplace_back(2, 0);
+  points2.emplace_back(2, 1);
+  points2.emplace_back(2, 2);
+
+  const Eigen::Matrix3d E = EssentialMatrixFromPose(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0)));
+
+  std::vector<double> residuals;
+  ComputeSquaredSampsonError(points1, points2, E, &residuals);
+
+  EXPECT_EQ(residuals.size(), 3);
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0.5);
+  EXPECT_EQ(residuals[2], 2);
+}
+
 }  // namespace
 }  // namespace colmap

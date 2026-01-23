@@ -134,4 +134,43 @@ Eigen::Matrix3d EssentialFromFundamentalMatrix(const Eigen::Matrix3d& K2,
                                                const Eigen::Matrix3d& F,
                                                const Eigen::Matrix3d& K1);
 
+// Calculate the squared Sampson error for a single point pair and a given
+// fundamental or essential matrix.
+//
+// @param ray1        First point/ray in homogeneous coordinates.
+// @param ray2        Second point/ray in homogeneous coordinates.
+// @param E           3x3 fundamental or essential matrix.
+// @return            Squared Sampson error.
+double ComputeSquaredSampsonError(const Eigen::Vector3d& ray1,
+                                  const Eigen::Vector3d& ray2,
+                                  const Eigen::Matrix3d& E);
+
+// Calculate the residuals of a set of corresponding points and a given
+// fundamental or essential matrix.
+//
+// Residuals are defined as the squared Sampson error.
+//
+// @param points1     Corresponding points.
+// @param points2     Corresponding points.
+// @param E           3x3 fundamental or essential matrix.
+// @param residuals   Output vector of residuals.
+void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
+                                const std::vector<Eigen::Vector2d>& points2,
+                                const Eigen::Matrix3d& E,
+                                std::vector<double>* residuals);
+
+// Calculate the residuals of a set of corresponding rays and a given
+// fundamental or essential matrix.
+//
+// Residuals are defined as the squared Sampson error.
+//
+// @param rays1       Corresponding rays.
+// @param rays2       Corresponding rays.
+// @param E           3x3 fundamental or essential matrix.
+// @param residuals   Output vector of residuals.
+void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& rays1,
+                                const std::vector<Eigen::Vector3d>& rays2,
+                                const Eigen::Matrix3d& E,
+                                std::vector<double>* residuals);
+
 }  // namespace colmap
