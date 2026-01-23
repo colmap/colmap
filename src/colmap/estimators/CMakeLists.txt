@@ -47,7 +47,6 @@ COLMAP_ADD_LIBRARY(
         generalized_pose.h generalized_pose.cc
         triangulation.h triangulation.cc
         two_view_geometry.h two_view_geometry.cc
-        utils.h utils.cc
         view_graph_calibration.h view_graph_calibration.cc
     PUBLIC_LINK_LIBS
         colmap_util
@@ -96,11 +95,6 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME cost_function_utils_test
     SRCS cost_function_utils_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
-    NAME estimators_utils_test
-    SRCS utils_test.cc
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(

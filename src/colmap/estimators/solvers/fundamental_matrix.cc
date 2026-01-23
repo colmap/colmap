@@ -29,7 +29,8 @@
 
 #include "colmap/estimators/solvers/fundamental_matrix.h"
 
-#include "colmap/estimators/utils.h"
+#include "colmap/geometry/essential_matrix.h"
+#include "colmap/geometry/normalization.h"
 #include "colmap/math/polynomial.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"

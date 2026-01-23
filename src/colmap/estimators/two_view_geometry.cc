@@ -34,7 +34,6 @@
 #include "colmap/estimators/solvers/fundamental_matrix.h"
 #include "colmap/estimators/solvers/homography_matrix.h"
 #include "colmap/estimators/solvers/translation_transform.h"
-#include "colmap/estimators/utils.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/homography_matrix.h"
 #include "colmap/geometry/triangulation.h"
