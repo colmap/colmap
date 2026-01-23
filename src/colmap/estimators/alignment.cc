@@ -368,10 +368,10 @@ std::vector<ImageAlignmentError> ComputeImageAlignmentError(
     ImageAlignmentError error;
     error.image_name = src_image.Name();
     error.rotation_error_deg =
-        RadToDeg(tgt_world_from_src_cam.rotation.angularDistance(
-            tgt_world_from_tgt_cam.rotation));
-    error.proj_center_error = (tgt_world_from_src_cam.translation -
-                               tgt_world_from_tgt_cam.translation)
+        RadToDeg(tgt_world_from_src_cam.rotation().angularDistance(
+            tgt_world_from_tgt_cam.rotation()));
+    error.proj_center_error = (tgt_world_from_src_cam.translation() -
+                               tgt_world_from_tgt_cam.translation())
                                   .norm();
     errors.push_back(error);
   }
@@ -563,14 +563,15 @@ bool AlignReconstructionToOrigRigScales(
 
       // Here we do not include rigs that are panoramic.
       double sensor_from_orig_rig_norm =
-          sensor_from_orig_rig->translation.norm();
+          sensor_from_orig_rig->translation().norm();
       if (sensor_from_orig_rig_norm < 1e-6) {
         continue;
       }
       THROW_CHECK(reconstruction->Rig(rig_id).HasSensorFromRig(sensor_id));
       double scale = reconstruction->Rig(rig_id)
                          .SensorFromRig(sensor_id)
-                         .translation.norm() /
+                         .translation()
+                         .norm() /
                      sensor_from_orig_rig_norm;
       scale_sum_rig += scale;
       ++scale_count_rig;
@@ -584,7 +585,7 @@ bool AlignReconstructionToOrigRigScales(
     return false;
   }
   Sim3d new_from_old_world;
-  new_from_old_world.scale = scale_count / scale_sum;
+  new_from_old_world.scale() = scale_count / scale_sum;
   reconstruction->Transform(new_from_old_world);
   return true;
 }

@@ -420,13 +420,13 @@ std::vector<PoseParam> GetPoseParams(const Reconstruction& reconstruction,
     THROW_CHECK(image.IsRefInFrame());
     const Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
 
-    const double* qvec = cam_from_world.rotation.coeffs().data();
+    const double* qvec = cam_from_world.rotation().coeffs().data();
     if (!problem.HasParameterBlock(qvec) ||
         problem.IsParameterBlockConstant(const_cast<double*>(qvec))) {
       qvec = nullptr;
     }
 
-    const double* tvec = cam_from_world.translation.data();
+    const double* tvec = cam_from_world.translation().data();
     if (!problem.HasParameterBlock(tvec) ||
         problem.IsParameterBlockConstant(const_cast<double*>(tvec))) {
       tvec = nullptr;

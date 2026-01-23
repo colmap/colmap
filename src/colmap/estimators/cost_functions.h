@@ -261,9 +261,9 @@ class ReprojErrorConstantPoseCostFunctor
                   const T* const camera_params,
                   T* residuals) const {
     const Eigen::Quaternion<T> cam_from_world_rotation =
-        cam_from_world_.rotation.cast<T>();
+        cam_from_world_.rotation().template cast<T>();
     const Eigen::Matrix<T, 3, 1> cam_from_world_translation =
-        cam_from_world_.translation.cast<T>();
+        cam_from_world_.translation().template cast<T>();
     return reproj_cost_(cam_from_world_rotation.coeffs().data(),
                         cam_from_world_translation.data(),
                         point3D,
@@ -384,9 +384,9 @@ class RigReprojErrorConstantRigCostFunctor
                   const T* const camera_params,
                   T* residuals) const {
     const Eigen::Quaternion<T> cam_from_rig_rotation =
-        cam_from_rig_.rotation.cast<T>();
+        cam_from_rig_.rotation().template cast<T>();
     const Eigen::Matrix<T, 3, 1> cam_from_rig_translation =
-        cam_from_rig_.translation.cast<T>();
+        cam_from_rig_.translation().template cast<T>();
     return reproj_cost_(cam_from_rig_rotation.coeffs().data(),
                         cam_from_rig_translation.data(),
                         rig_from_world_rotation,
@@ -480,7 +480,7 @@ struct AbsolutePosePriorCostFunctor
                   T* residuals_ptr) const {
     const Eigen::Quaternion<T> param_from_prior_rotation =
         EigenQuaternionMap<T>(sensor_from_world_rotation) *
-        world_from_sensor_prior_.rotation.cast<T>();
+        world_from_sensor_prior_.rotation().template cast<T>();
     EigenQuaternionToAngleAxis(param_from_prior_rotation.coeffs().data(),
                                residuals_ptr);
 
@@ -489,7 +489,7 @@ struct AbsolutePosePriorCostFunctor
     param_from_prior_translation =
         EigenVector3Map<T>(sensor_from_world_translation) +
         EigenQuaternionMap<T>(sensor_from_world_rotation) *
-            world_from_sensor_prior_.translation.cast<T>();
+            world_from_sensor_prior_.translation().template cast<T>();
 
     return true;
   }
@@ -588,12 +588,12 @@ struct RelativePosePriorCostFunctor
         EigenQuaternionMap<T>(i_from_world_rotation) *
         EigenQuaternionMap<T>(j_from_world_rotation).inverse();
     const Eigen::Quaternion<T> param_from_prior_rotation =
-        i_from_j_rotation * j_from_i_prior_.rotation.cast<T>();
+        i_from_j_rotation * j_from_i_prior_.rotation().template cast<T>();
     EigenQuaternionToAngleAxis(param_from_prior_rotation.coeffs().data(),
                                residuals_ptr);
 
     const Eigen::Matrix<T, 3, 1> j_from_i_prior_translation =
-        j_from_i_prior_.translation.cast<T>() -
+        j_from_i_prior_.translation().template cast<T>() -
         EigenVector3Map<T>(j_from_world_translation);
     Eigen::Map<Eigen::Matrix<T, 3, 1>> param_from_prior_translation(
         residuals_ptr + 3);

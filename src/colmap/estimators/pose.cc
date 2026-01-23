@@ -144,8 +144,8 @@ bool EstimateRelativePose(const RANSACOptions& ransac_options,
                           cam2_from_cam1,
                           &points3D);
 
-  if (cam2_from_cam1->rotation.coeffs().array().isNaN().any() ||
-      cam2_from_cam1->translation.array().isNaN().any()) {
+  if (cam2_from_cam1->rotation().coeffs().array().isNaN().any() ||
+      cam2_from_cam1->translation().array().isNaN().any()) {
     return false;
   }
 
@@ -170,11 +170,11 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
       std::make_unique<ceres::CauchyLoss>(options.loss_function_scale);
 
   double* camera_params = camera->params.data();
-  double* cam_from_world_rotation = cam_from_world->rotation.coeffs().data();
-  double* cam_from_world_translation = cam_from_world->translation.data();
+  double* cam_from_world_rotation = cam_from_world->rotation().coeffs().data();
+  double* cam_from_world_translation = cam_from_world->translation().data();
 
   // CostFunction assumes unit quaternions.
-  cam_from_world->rotation.normalize();
+  cam_from_world->rotation().normalize();
 
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
@@ -284,10 +284,10 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
   THROW_CHECK_EQ(cam_rays1.size(), inlier_mask.size());
 
   // CostFunction assumes unit quaternions.
-  cam2_from_cam1->rotation.normalize();
+  cam2_from_cam1->rotation().normalize();
 
-  double* cam2_from_cam1_rotation = cam2_from_cam1->rotation.coeffs().data();
-  double* cam2_from_cam1_translation = cam2_from_cam1->translation.data();
+  double* cam2_from_cam1_rotation = cam2_from_cam1->rotation().coeffs().data();
+  double* cam2_from_cam1_translation = cam2_from_cam1->translation().data();
 
   constexpr double kMaxL2Error = 1.0;
   const auto loss_function = std::make_unique<ceres::CauchyLoss>(kMaxL2Error);

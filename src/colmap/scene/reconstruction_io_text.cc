@@ -94,25 +94,25 @@ void ReadRigsText(Reconstruction& reconstruction, std::istream& stream) {
           sensor_from_rig = Rigid3d();
 
           std::getline(line_stream, item, ' ');
-          sensor_from_rig->rotation.w() = std::stold(item);
+          sensor_from_rig->rotation().w() = std::stold(item);
 
           std::getline(line_stream, item, ' ');
-          sensor_from_rig->rotation.x() = std::stold(item);
+          sensor_from_rig->rotation().x() = std::stold(item);
 
           std::getline(line_stream, item, ' ');
-          sensor_from_rig->rotation.y() = std::stold(item);
+          sensor_from_rig->rotation().y() = std::stold(item);
 
           std::getline(line_stream, item, ' ');
-          sensor_from_rig->rotation.z() = std::stold(item);
+          sensor_from_rig->rotation().z() = std::stold(item);
 
           std::getline(line_stream, item, ' ');
-          sensor_from_rig->translation.x() = std::stold(item);
+          sensor_from_rig->translation().x() = std::stold(item);
 
           std::getline(line_stream, item, ' ');
-          sensor_from_rig->translation.y() = std::stold(item);
+          sensor_from_rig->translation().y() = std::stold(item);
 
           std::getline(line_stream, item, ' ');
-          sensor_from_rig->translation.z() = std::stold(item);
+          sensor_from_rig->translation().z() = std::stold(item);
         }
 
         rig.AddSensor(sensor_id, sensor_from_rig);
@@ -212,25 +212,25 @@ void ReadFramesText(Reconstruction& reconstruction, std::istream& stream) {
     Rigid3d rig_from_world;
 
     std::getline(line_stream, item, ' ');
-    rig_from_world.rotation.w() = std::stold(item);
+    rig_from_world.rotation().w() = std::stold(item);
 
     std::getline(line_stream, item, ' ');
-    rig_from_world.rotation.x() = std::stold(item);
+    rig_from_world.rotation().x() = std::stold(item);
 
     std::getline(line_stream, item, ' ');
-    rig_from_world.rotation.y() = std::stold(item);
+    rig_from_world.rotation().y() = std::stold(item);
 
     std::getline(line_stream, item, ' ');
-    rig_from_world.rotation.z() = std::stold(item);
+    rig_from_world.rotation().z() = std::stold(item);
 
     std::getline(line_stream, item, ' ');
-    rig_from_world.translation.x() = std::stold(item);
+    rig_from_world.translation().x() = std::stold(item);
 
     std::getline(line_stream, item, ' ');
-    rig_from_world.translation.y() = std::stold(item);
+    rig_from_world.translation().y() = std::stold(item);
 
     std::getline(line_stream, item, ' ');
-    rig_from_world.translation.z() = std::stold(item);
+    rig_from_world.translation().z() = std::stold(item);
 
     frame.SetRigFromWorld(rig_from_world);
 
@@ -297,25 +297,25 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
     Rigid3d cam_from_world;
 
     std::getline(line_stream1, item, ' ');
-    cam_from_world.rotation.w() = std::stold(item);
+    cam_from_world.rotation().w() = std::stold(item);
 
     std::getline(line_stream1, item, ' ');
-    cam_from_world.rotation.x() = std::stold(item);
+    cam_from_world.rotation().x() = std::stold(item);
 
     std::getline(line_stream1, item, ' ');
-    cam_from_world.rotation.y() = std::stold(item);
+    cam_from_world.rotation().y() = std::stold(item);
 
     std::getline(line_stream1, item, ' ');
-    cam_from_world.rotation.z() = std::stold(item);
+    cam_from_world.rotation().z() = std::stold(item);
 
     std::getline(line_stream1, item, ' ');
-    cam_from_world.translation.x() = std::stold(item);
+    cam_from_world.translation().x() = std::stold(item);
 
     std::getline(line_stream1, item, ' ');
-    cam_from_world.translation.y() = std::stold(item);
+    cam_from_world.translation().y() = std::stold(item);
 
     std::getline(line_stream1, item, ' ');
-    cam_from_world.translation.z() = std::stold(item);
+    cam_from_world.translation().z() = std::stold(item);
 
     // CAMERA_ID
     std::getline(line_stream1, item, ' ');
@@ -495,13 +495,13 @@ void WriteRigsText(const Reconstruction& reconstruction, std::ostream& stream) {
       line << sensor_id.id << " ";
       if (sensor_from_rig.has_value()) {
         line << "1 ";
-        line << sensor_from_rig->rotation.w() << " ";
-        line << sensor_from_rig->rotation.x() << " ";
-        line << sensor_from_rig->rotation.y() << " ";
-        line << sensor_from_rig->rotation.z() << " ";
-        line << sensor_from_rig->translation.x() << " ";
-        line << sensor_from_rig->translation.y() << " ";
-        line << sensor_from_rig->translation.z() << " ";
+        line << sensor_from_rig->rotation().w() << " ";
+        line << sensor_from_rig->rotation().x() << " ";
+        line << sensor_from_rig->rotation().y() << " ";
+        line << sensor_from_rig->rotation().z() << " ";
+        line << sensor_from_rig->translation().x() << " ";
+        line << sensor_from_rig->translation().y() << " ";
+        line << sensor_from_rig->translation().z() << " ";
       } else {
         line << "0 ";
       }
@@ -587,13 +587,13 @@ void WriteFramesText(const Reconstruction& reconstruction,
     stream << frame.RigId() << " ";
 
     const Rigid3d& rig_from_world = frame.RigFromWorld();
-    stream << rig_from_world.rotation.w() << " ";
-    stream << rig_from_world.rotation.x() << " ";
-    stream << rig_from_world.rotation.y() << " ";
-    stream << rig_from_world.rotation.z() << " ";
-    stream << rig_from_world.translation.x() << " ";
-    stream << rig_from_world.translation.y() << " ";
-    stream << rig_from_world.translation.z() << " ";
+    stream << rig_from_world.rotation().w() << " ";
+    stream << rig_from_world.rotation().x() << " ";
+    stream << rig_from_world.rotation().y() << " ";
+    stream << rig_from_world.rotation().z() << " ";
+    stream << rig_from_world.translation().x() << " ";
+    stream << rig_from_world.translation().y() << " ";
+    stream << rig_from_world.translation().z() << " ";
 
     const std::set<data_t>& data_ids = frame.DataIds();
     stream << data_ids.size();
@@ -640,13 +640,13 @@ void WriteImagesText(const Reconstruction& reconstruction,
     line << image_id << " ";
 
     const Rigid3d& cam_from_world = image.CamFromWorld();
-    line << cam_from_world.rotation.w() << " ";
-    line << cam_from_world.rotation.x() << " ";
-    line << cam_from_world.rotation.y() << " ";
-    line << cam_from_world.rotation.z() << " ";
-    line << cam_from_world.translation.x() << " ";
-    line << cam_from_world.translation.y() << " ";
-    line << cam_from_world.translation.z() << " ";
+    line << cam_from_world.rotation().w() << " ";
+    line << cam_from_world.rotation().x() << " ";
+    line << cam_from_world.rotation().y() << " ";
+    line << cam_from_world.rotation().z() << " ";
+    line << cam_from_world.translation().x() << " ";
+    line << cam_from_world.translation().y() << " ";
+    line << cam_from_world.translation().z() << " ";
 
     line << image.CameraId() << " ";
 

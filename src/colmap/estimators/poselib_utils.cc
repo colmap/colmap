@@ -48,9 +48,9 @@ Camera ConvertPoseLibCameraToCamera(const poselib::Camera& camera) {
 poselib::CameraPose ConvertRigid3dToPoseLibPose(const Rigid3d& rigid) {
   poselib::CameraPose pose;
   // PoseLib uses (w, x, y, z) ordering for quaternion
-  pose.q << rigid.rotation.w(), rigid.rotation.x(), rigid.rotation.y(),
-      rigid.rotation.z();
-  pose.t = rigid.translation;
+  pose.q << rigid.rotation().w(), rigid.rotation().x(), rigid.rotation().y(),
+      rigid.rotation().z();
+  pose.t = rigid.translation();
   return pose;
 }
 
