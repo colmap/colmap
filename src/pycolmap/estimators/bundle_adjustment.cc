@@ -229,8 +229,7 @@ void BindBundleAdjuster(py::module& m) {
            "options"_a,
            "config"_a)
       .def("solve", &BundleAdjuster::Solve)
-      .def_property_readonly(
-          "problem", py::overload_cast<>(&BundleAdjuster::Problem, py::const_))
+      .def_property_readonly("problem", &BundleAdjuster::Problem)
       .def_property_readonly("options", &BundleAdjuster::Options)
       .def_property_readonly("config", &BundleAdjuster::Config);
 
