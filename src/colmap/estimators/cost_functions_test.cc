@@ -87,12 +87,10 @@ TEST(ReprojErrorCostFunctor, AnalyticalVersusAutoDiff) {
   for (const double x : {-1, 0, 1}) {
     for (const double y : {-1, 0, 1}) {
       for (const double z : {0, 1, 2, 3}) {
-        const Rigid3d cam_from_world(
-            Eigen::Quaterniond(
-                Eigen::AngleAxisd(RandomUniformReal<double>(0, 2 * EIGEN_PI),
-                                  Eigen::Vector3d(0.1, -0.1, 1).normalized())),
-            Eigen::Vector3d(1, 2, 3));
-        Eigen::Vector7d cam_from_world_log = cam_from_world.ToParams();
+        Rigid3d cam_from_world(Eigen::Quaterniond(Eigen::AngleAxisd(
+                                   RandomUniformReal<double>(0, 2 * EIGEN_PI),
+                                   Eigen::Vector3d(0.1, -0.1, 1).normalized())),
+                               Eigen::Vector3d(1, 2, 3));
         Eigen::Vector3d point3D(x, y, z);
         std::vector<double> simple_radial_params = {200, 100, 120, 0.1};
 
@@ -100,7 +98,7 @@ TEST(ReprojErrorCostFunctor, AnalyticalVersusAutoDiff) {
         ASSERT_GT((cam_from_world * point3D).z(), 0);
 
         std::vector<double*> parameter_blocks{point3D.data(),
-                                              cam_from_world_log.data(),
+                                              cam_from_world.params.data(),
                                               simple_radial_params.data()};
 
         constexpr double kEps = 1e-9;
@@ -234,7 +232,7 @@ TEST(RigReprojErrorCostFunctor, Nominal) {
 
 TEST(RigReprojErrorConstantRigCostFunctor, Nominal) {
   Rigid3d cam_from_rig;
-  cam_from_rig.translation << 0, 0, -1;
+  cam_from_rig.translation() << 0, 0, -1;
   std::unique_ptr<ceres::CostFunction> cost_function(
       RigReprojErrorConstantRigCostFunctor<SimplePinholeCameraModel>::Create(
           Eigen::Vector2d::Zero(), cam_from_rig));
@@ -291,20 +289,18 @@ TEST(AbsolutePosePositionPriorCostFunctor, Nominal) {
 
   Rigid3d sensor_from_world =
       Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero());
-  Eigen::Vector7d sensor_from_world_param = sensor_from_world.ToParams();
 
   Eigen::Vector3d residuals =
       Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
-  const double* parameters[1] = {sensor_from_world_param.data()};
+  const double* parameters[1] = {sensor_from_world.params.data()};
 
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals.data(), nullptr));
   EXPECT_THAT(residuals, EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-6));
 
   sensor_from_world =
       Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
-  sensor_from_world_param = sensor_from_world.ToParams();
   const Eigen::Vector3d position_in_world =
-      Inverse(sensor_from_world).translation;
+      Inverse(sensor_from_world).translation();
   residuals =
       Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals.data(), nullptr));
@@ -327,13 +323,11 @@ TEST(AbsoluteRigPosePositionPriorCostFunctor, Nominal) {
                           Eigen::Vector3d::Zero());
   Rigid3d rig_from_world(Eigen::Quaterniond::Identity(),
                          Eigen::Vector3d::Zero());
-  Eigen::Vector7d sensor_from_rig_param = sensor_from_rig.ToParams();
-  Eigen::Vector7d rig_from_world_param = rig_from_world.ToParams();
 
   Eigen::Vector3d residuals =
       Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
-  const double* parameters[2] = {sensor_from_rig_param.data(),
-                                 rig_from_world_param.data()};
+  const double* parameters[2] = {sensor_from_rig.params.data(),
+                                 rig_from_world.params.data()};
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals.data(), nullptr));
   EXPECT_THAT(residuals, EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-6));
 
@@ -341,11 +335,9 @@ TEST(AbsoluteRigPosePositionPriorCostFunctor, Nominal) {
       Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
   rig_from_world =
       Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
-  sensor_from_rig_param = sensor_from_rig.ToParams();
-  rig_from_world_param = rig_from_world.ToParams();
   const Rigid3d sensor_from_world = sensor_from_rig * rig_from_world;
   const Eigen::Vector3d position_in_world =
-      Inverse(sensor_from_world).translation;
+      Inverse(sensor_from_world).translation();
   residuals =
       Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals.data(), nullptr));
@@ -463,10 +455,10 @@ TEST(Point3DAlignmentCostFunctor, Nominal) {
   std::unique_ptr<ceres::CostFunction> cost_function_log_scale(
       Point3DAlignmentCostFunctor::Create(point_in_b_prior,
                                           /*use_log_scale=*/true));
-  double log_scale = std::log(tform.scale);
+  double log_scale = std::log(tform.scale());
   const double* parameters_log_scale[4] = {point.data(),
-                                           tform.rotation.coeffs().data(),
-                                           tform.translation.data(),
+                                           tform.rotation().coeffs().data(),
+                                           tform.translation().data(),
                                            &log_scale};
   double residuals_log_scale[3];
   EXPECT_TRUE(cost_function_log_scale->Evaluate(
@@ -476,10 +468,11 @@ TEST(Point3DAlignmentCostFunctor, Nominal) {
   std::unique_ptr<ceres::CostFunction> cost_function_direct_scale(
       Point3DAlignmentCostFunctor::Create(point_in_b_prior,
                                           /*use_log_scale=*/false));
+  double direct_scale = tform.scale();
   const double* parameters_direct_scale[4] = {point.data(),
-                                              tform.rotation.coeffs().data(),
-                                              tform.translation.data(),
-                                              &tform.scale};
+                                              tform.rotation().coeffs().data(),
+                                              tform.translation().data(),
+                                              &direct_scale};
   double residuals_direct_scale[3];
   EXPECT_TRUE(cost_function_direct_scale->Evaluate(
       parameters_direct_scale, residuals_direct_scale, nullptr));
@@ -521,21 +514,23 @@ TEST(CovarianceWeightedCostFunctor, AbsolutePosePositionPriorCostFunctor) {
   const Rigid3d cam_from_world(Eigen::Quaterniond::UnitRandom(),
                                Eigen::Vector3d::Random());
   const Rigid3d world_from_cam = Inverse(cam_from_world);
-  Eigen::Vector7d cam_from_world_param = cam_from_world.ToParams();
 
   double residuals[3];
-  const double* parameters[1] = {cam_from_world_param.data()};
+  const double* parameters[1] = {cam_from_world.params.data()};
 
   std::unique_ptr<ceres::CostFunction> cost_function(
       CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
           Create(2 * Eigen::Matrix3d::Identity(), Eigen::Vector3d::Zero()));
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
-  EXPECT_NEAR(
-      residuals[0], -0.5 * std::sqrt(2) * world_from_cam.translation[0], 1e-6);
-  EXPECT_NEAR(
-      residuals[1], -0.5 * std::sqrt(2) * world_from_cam.translation[1], 1e-6);
-  EXPECT_NEAR(
-      residuals[2], -0.5 * std::sqrt(2) * world_from_cam.translation[2], 1e-6);
+  EXPECT_NEAR(residuals[0],
+              -0.5 * std::sqrt(2) * world_from_cam.translation()[0],
+              1e-6);
+  EXPECT_NEAR(residuals[1],
+              -0.5 * std::sqrt(2) * world_from_cam.translation()[1],
+              1e-6);
+  EXPECT_NEAR(residuals[2],
+              -0.5 * std::sqrt(2) * world_from_cam.translation()[2],
+              1e-6);
 }
 
 // TODO(jsch): Add meaningful tests for FetzerFocalLengthCostFunctor.

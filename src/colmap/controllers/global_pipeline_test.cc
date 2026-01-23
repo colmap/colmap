@@ -174,9 +174,9 @@ TEST(GlobalPipeline, WithNoisyExistingRelativePoses) {
     if (!two_view_geometry.cam2_from_cam1.has_value()) {
       continue;
     }
-    two_view_geometry.cam2_from_cam1->rotation =
+    two_view_geometry.cam2_from_cam1->rotation() =
         Eigen::Quaterniond::UnitRandom();
-    two_view_geometry.cam2_from_cam1->translation =
+    two_view_geometry.cam2_from_cam1->translation() =
         Eigen::Vector3d::Random().normalized();
 
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);

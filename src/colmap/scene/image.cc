@@ -121,7 +121,7 @@ Eigen::Vector3d Image::ProjectionCenter() const {
 }
 
 Eigen::Vector3d Image::ViewingDirection() const {
-  return CamFromWorld().rotation.toRotationMatrix().row(2);
+  return CamFromWorld().rotation().toRotationMatrix().row(2);
 }
 
 std::optional<Eigen::Vector2d> Image::ProjectPoint(

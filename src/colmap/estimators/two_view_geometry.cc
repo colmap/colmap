@@ -556,7 +556,7 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
                              &points3D);
     if (geometry->config ==
         TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC) {
-      if (cam2_from_cam1.translation.squaredNorm() < 1e-12) {
+      if (cam2_from_cam1.translation().squaredNorm() < 1e-12) {
         geometry->config = TwoViewGeometry::ConfigurationType::PANORAMIC;
       } else {
         geometry->config = TwoViewGeometry::ConfigurationType::PLANAR;
@@ -988,9 +988,9 @@ void MaybeDecomposeAndWriteRelativePoses(Database* database) {
         camera1, points1, camera2, points2, &two_view_geom);
 
     if (success && two_view_geom.cam2_from_cam1.has_value()) {
-      const double norm = two_view_geom.cam2_from_cam1->translation.norm();
+      const double norm = two_view_geom.cam2_from_cam1->translation().norm();
       if (norm > 1e-12) {
-        two_view_geom.cam2_from_cam1->translation /= norm;
+        two_view_geom.cam2_from_cam1->translation() /= norm;
       }
       database->UpdateTwoViewGeometry(image_id1, image_id2, two_view_geom);
     } else {

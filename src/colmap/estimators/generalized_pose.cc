@@ -143,6 +143,12 @@ bool EstimateGeneralizedAbsolutePose(
     return false;
   }
 
+  // Precompute cam_from_rig matrices for fast residual computation
+  std::vector<Eigen::Matrix3x4d> cams_from_rig_matrices(cams_from_rig.size());
+  for (size_t i = 0; i < cams_from_rig.size(); i++) {
+    cams_from_rig_matrices[i] = cams_from_rig[i].ToMatrix();
+  }
+
   std::vector<GP3PEstimator::X_t> rig_points2D(points2D.size());
   for (size_t i = 0; i < points2D.size(); i++) {
     const size_t camera_idx = camera_idxs[i];
@@ -153,7 +159,7 @@ bool EstimateGeneralizedAbsolutePose(
     } else {
       rig_points2D[i].ray_in_cam.setZero();
     }
-    rig_points2D[i].cam_from_rig = cams_from_rig[camera_idx];
+    rig_points2D[i].cam_from_rig = cams_from_rig_matrices[camera_idx];
   }
 
   // Associate unique ids to each 3D point.
@@ -225,7 +231,7 @@ bool EstimateGeneralizedRelativePose(
       if (const std::optional<Eigen::Vector2d> cam_point1 =
               cameras[camera_idx1].CamFromImg(points2D1[i]);
           cam_point1.has_value()) {
-        cam_rays1[i] = cams_from_rig[camera_idx1].rotation.inverse() *
+        cam_rays1[i] = cams_from_rig[camera_idx1].rotation().inverse() *
                        cam_point1->homogeneous().normalized();
       } else {
         cam_rays1[i].setZero();
@@ -235,7 +241,7 @@ bool EstimateGeneralizedRelativePose(
       if (const std::optional<Eigen::Vector2d> cam_point2 =
               cameras[camera_idxs2[i]].CamFromImg(points2D2[i]);
           cam_point2.has_value()) {
-        cam_rays2[i] = cams_from_rig[camera_idx2].rotation.inverse() *
+        cam_rays2[i] = cams_from_rig[camera_idx2].rotation().inverse() *
                        cam_point2->homogeneous().normalized();
       } else {
         cam_rays2[i].setZero();
@@ -314,12 +320,14 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
     cameras_params_data[i] = cameras->at(i).params.data();
   }
   std::vector<size_t> camera_counts(cameras->size(), 0);
-  Eigen::Vector7d rig_from_world_param = rig_from_world->ToParams();
+
+  // Cost function assumes unit quaternion.
+  rig_from_world->rotation().normalize();
 
   std::vector<Eigen::Vector3d> point3D_params = points3D;
   std::vector<Eigen::Vector7d> cam_from_rig_params(cams_from_rig.size());
   for (size_t i = 0; i < cams_from_rig.size(); ++i) {
-    cam_from_rig_params[i] = cams_from_rig[i].ToParams();
+    cam_from_rig_params[i] = cams_from_rig[i].params;
   }
 
   ceres::Problem::Options problem_options;
@@ -340,7 +348,7 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
         loss_function.get(),
         point3D_params[i].data(),
         cam_from_rig_params[camera_idx].data(),
-        rig_from_world_param.data(),
+        rig_from_world->params.data(),
         cameras_params_data[camera_idx]);
     problem.SetParameterBlockConstant(point3D_params[i].data());
   }
@@ -406,8 +414,6 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
   ceres::Solver::Summary summary;
   ceres::Solve(solver_options, &problem, &summary);
 
-  *rig_from_world = Rigid3d::FromParams(rig_from_world_param);
-
   if (options.print_summary || VLOG_IS_ON(1)) {
     PrintSolverSummary(summary, "Generalized pose refinement report");
   }
@@ -415,7 +421,8 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
   if (problem.NumResiduals() > 0 && rig_from_world_cov != nullptr) {
     ceres::Covariance::Options options;
     ceres::Covariance covariance(options);
-    std::vector<const double*> parameter_blocks = {rig_from_world_param.data()};
+    std::vector<const double*> parameter_blocks = {
+        rig_from_world->params.data()};
     if (!covariance.Compute(parameter_blocks, &problem)) {
       return false;
     }

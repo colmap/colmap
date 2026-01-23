@@ -107,7 +107,7 @@ class GlobalPositioner {
   std::vector<double> scales_;
 
   // Temporary storage for frame centers (world coordinates) during
-  // optimization. This allows keeping RigFromWorld().translation in
+  // optimization. This allows keeping RigFromWorld().translation() in
   // cam_from_world convention.
   std::unordered_map<frame_t, Eigen::Vector3d> frame_centers_;
 

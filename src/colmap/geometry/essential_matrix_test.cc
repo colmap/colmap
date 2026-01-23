@@ -44,7 +44,7 @@ TEST(DecomposeEssentialMatrix, Nominal) {
   const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
                                Eigen::Vector3d(0.5, 1, 1).normalized());
   const Eigen::Matrix3d cam2_from_cam1_rot_mat =
-      cam2_from_cam1.rotation.toRotationMatrix();
+      cam2_from_cam1.rotation().toRotationMatrix();
   const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
 
   Eigen::Matrix3d R1;
@@ -54,8 +54,8 @@ TEST(DecomposeEssentialMatrix, Nominal) {
 
   EXPECT_TRUE((R1 - cam2_from_cam1_rot_mat).norm() < 1e-10 ||
               (R2 - cam2_from_cam1_rot_mat).norm() < 1e-10);
-  EXPECT_TRUE((t - cam2_from_cam1.translation).norm() < 1e-10 ||
-              (t + cam2_from_cam1.translation).norm() < 1e-10);
+  EXPECT_TRUE((t - cam2_from_cam1.translation()).norm() < 1e-10 ||
+              (t + cam2_from_cam1.translation()).norm() < 1e-10);
 }
 
 TEST(EssentialMatrixFromPose, Nominal) {

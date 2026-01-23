@@ -93,7 +93,7 @@ TEST(CoordinateFrame, AlignToPrincipalPlane) {
   AlignToPrincipalPlane(&reconstruction, &tform);
   // Note that the final X and Y axes may be inverted after alignment, so we
   // need to account for both cases when checking for correctness
-  const bool inverted = tform.rotation.y() < 0;
+  const bool inverted = tform.rotation().y() < 0;
 
   // Verify that points lie on the correct locations of the X-Y plane
   EXPECT_LE((reconstruction.Point3D(p1).xyz -

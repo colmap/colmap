@@ -94,8 +94,8 @@ void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
 }
 
 Eigen::Matrix3d EssentialMatrixFromPose(const Rigid3d& cam2_from_cam1) {
-  return CrossProductMatrix(cam2_from_cam1.translation.normalized()) *
-         cam2_from_cam1.rotation.toRotationMatrix();
+  return CrossProductMatrix(cam2_from_cam1.translation().normalized()) *
+         cam2_from_cam1.rotation().toRotationMatrix();
 }
 
 void FindOptimalImageObservations(const Eigen::Matrix3d& E,

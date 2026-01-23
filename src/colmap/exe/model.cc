@@ -81,7 +81,7 @@ Eigen::Vector3d TransformLatLonAltToModelCoords(const Sim3d& tform,
   Eigen::Vector3d xyz =
       tform * GPSTransform(GPSTransform::Ellipsoid::WGS84)
                   .EllipsoidToECEF({Eigen::Vector3d(lat, lon, 0.0)})[0];
-  xyz(2) = tform.scale * alt;
+  xyz(2) = tform.scale() * alt;
   return xyz;
 }
 
@@ -415,8 +415,8 @@ int RunModelAligner(int argc, char** argv) {
         reconstruction.Transform(origin_align);
 
         // Update the Sim3 transformation in case it is stored next.
-        tform =
-            Sim3d(tform.scale, tform.rotation, tform.translation + trans_align);
+        tform = Sim3d(
+            tform.scale(), tform.rotation(), tform.translation() + trans_align);
 
         break;
       }
@@ -829,14 +829,14 @@ int RunModelOrientationAligner(int argc, char** argv) {
 
     if (frame.col(0).lpNorm<1>() == 0) {
       LOG(INFO) << "Only aligning vertical axis";
-      new_from_old_world.rotation = Eigen::Quaterniond::FromTwoVectors(
+      new_from_old_world.rotation() = Eigen::Quaterniond::FromTwoVectors(
           frame.col(1), Eigen::Vector3d(0, 1, 0));
     } else if (frame.col(1).lpNorm<1>() == 0) {
-      new_from_old_world.rotation = Eigen::Quaterniond::FromTwoVectors(
+      new_from_old_world.rotation() = Eigen::Quaterniond::FromTwoVectors(
           frame.col(0), Eigen::Vector3d(1, 0, 0));
       LOG(INFO) << "Only aligning horizontal axis";
     } else {
-      new_from_old_world.rotation = Eigen::Quaterniond(frame.transpose());
+      new_from_old_world.rotation() = Eigen::Quaterniond(frame.transpose());
       LOG(INFO) << "Aligning horizontal and vertical axes";
     }
   } else if (method == "image-orientation") {
@@ -845,7 +845,7 @@ int RunModelOrientationAligner(int argc, char** argv) {
 #endif
     const Eigen::Vector3d gravity_axis =
         EstimateGravityVectorFromImageOrientation(reconstruction);
-    new_from_old_world.rotation = Eigen::Quaterniond::FromTwoVectors(
+    new_from_old_world.rotation() = Eigen::Quaterniond::FromTwoVectors(
         gravity_axis, Eigen::Vector3d(0, 1, 0));
 
   } else {
@@ -853,7 +853,7 @@ int RunModelOrientationAligner(int argc, char** argv) {
   }
 
   LOG(INFO) << "Using the rotation matrix:";
-  LOG(INFO) << new_from_old_world.rotation.toRotationMatrix();
+  LOG(INFO) << new_from_old_world.rotation().toRotationMatrix();
 
   reconstruction.Transform(new_from_old_world);
 
@@ -956,7 +956,7 @@ int RunModelSplitter(int argc, char** argv) {
                            std::numeric_limits<double>::max(),
                            std::numeric_limits<double>::max());
     for (size_t i = 0; i < parts.size(); ++i) {
-      extent(i) = parts[i] * tform.scale;
+      extent(i) = parts[i] * tform.scale();
     }
 
     const Eigen::AlignedBox3d bbox = reconstruction.ComputeBoundingBox();

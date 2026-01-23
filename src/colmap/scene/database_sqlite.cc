@@ -260,25 +260,25 @@ std::optional<std::stringstream> BlobColumnToStringStream(
 
 Rigid3d ReadRigid3dFromStringStream(std::stringstream* stream) {
   Rigid3d tform;
-  tform.rotation.w() = ReadBinaryLittleEndian<double>(stream);
-  tform.rotation.x() = ReadBinaryLittleEndian<double>(stream);
-  tform.rotation.y() = ReadBinaryLittleEndian<double>(stream);
-  tform.rotation.z() = ReadBinaryLittleEndian<double>(stream);
-  tform.translation.x() = ReadBinaryLittleEndian<double>(stream);
-  tform.translation.y() = ReadBinaryLittleEndian<double>(stream);
-  tform.translation.z() = ReadBinaryLittleEndian<double>(stream);
+  tform.rotation().w() = ReadBinaryLittleEndian<double>(stream);
+  tform.rotation().x() = ReadBinaryLittleEndian<double>(stream);
+  tform.rotation().y() = ReadBinaryLittleEndian<double>(stream);
+  tform.rotation().z() = ReadBinaryLittleEndian<double>(stream);
+  tform.translation().x() = ReadBinaryLittleEndian<double>(stream);
+  tform.translation().y() = ReadBinaryLittleEndian<double>(stream);
+  tform.translation().z() = ReadBinaryLittleEndian<double>(stream);
   return tform;
 }
 
 void WriteRigid3dToStringStream(const Rigid3d& tform,
                                 std::stringstream* stream) {
-  WriteBinaryLittleEndian<double>(stream, tform.rotation.w());
-  WriteBinaryLittleEndian<double>(stream, tform.rotation.x());
-  WriteBinaryLittleEndian<double>(stream, tform.rotation.y());
-  WriteBinaryLittleEndian<double>(stream, tform.rotation.z());
-  WriteBinaryLittleEndian<double>(stream, tform.translation.x());
-  WriteBinaryLittleEndian<double>(stream, tform.translation.y());
-  WriteBinaryLittleEndian<double>(stream, tform.translation.z());
+  WriteBinaryLittleEndian<double>(stream, tform.rotation().w());
+  WriteBinaryLittleEndian<double>(stream, tform.rotation().x());
+  WriteBinaryLittleEndian<double>(stream, tform.rotation().y());
+  WriteBinaryLittleEndian<double>(stream, tform.rotation().z());
+  WriteBinaryLittleEndian<double>(stream, tform.translation().x());
+  WriteBinaryLittleEndian<double>(stream, tform.translation().y());
+  WriteBinaryLittleEndian<double>(stream, tform.translation().z());
 }
 
 void ReadRigRows(sqlite3_stmt* sql_stmt,
@@ -971,9 +971,9 @@ class SqliteDatabase : public Database {
       const Eigen::Vector4d quat_wxyz = ReadStaticMatrixBlob<Eigen::Vector4d>(
           sql_stmt_read_two_view_geometry_, rc, 7);
       Rigid3d cam2_from_cam1;
-      cam2_from_cam1.rotation = Eigen::Quaterniond(
+      cam2_from_cam1.rotation() = Eigen::Quaterniond(
           quat_wxyz(0), quat_wxyz(1), quat_wxyz(2), quat_wxyz(3));
-      cam2_from_cam1.translation = ReadStaticMatrixBlob<Eigen::Vector3d>(
+      cam2_from_cam1.translation() = ReadStaticMatrixBlob<Eigen::Vector3d>(
           sql_stmt_read_two_view_geometry_, rc, 8);
       two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
     }
@@ -1048,9 +1048,9 @@ class SqliteDatabase : public Database {
         const Eigen::Vector4d quat_wxyz = ReadStaticMatrixBlob<Eigen::Vector4d>(
             sql_stmt_read_two_view_geometries_, rc, 8);
         Rigid3d cam2_from_cam1;
-        cam2_from_cam1.rotation = Eigen::Quaterniond(
+        cam2_from_cam1.rotation() = Eigen::Quaterniond(
             quat_wxyz(0), quat_wxyz(1), quat_wxyz(2), quat_wxyz(3));
-        cam2_from_cam1.translation = ReadStaticMatrixBlob<Eigen::Vector3d>(
+        cam2_from_cam1.translation() = ReadStaticMatrixBlob<Eigen::Vector3d>(
             sql_stmt_read_two_view_geometries_, rc, 9);
         two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
       }
@@ -1362,11 +1362,11 @@ class SqliteDatabase : public Database {
     Eigen::Vector3d tvec;
     if (two_view_geometry_ptr->cam2_from_cam1.has_value()) {
       const Rigid3d& cam2_from_cam1 = *two_view_geometry_ptr->cam2_from_cam1;
-      quat_wxyz = Eigen::Vector4d(cam2_from_cam1.rotation.w(),
-                                  cam2_from_cam1.rotation.x(),
-                                  cam2_from_cam1.rotation.y(),
-                                  cam2_from_cam1.rotation.z());
-      tvec = cam2_from_cam1.translation;
+      quat_wxyz = Eigen::Vector4d(cam2_from_cam1.rotation().w(),
+                                  cam2_from_cam1.rotation().x(),
+                                  cam2_from_cam1.rotation().y(),
+                                  cam2_from_cam1.rotation().z());
+      tvec = cam2_from_cam1.translation();
       WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, quat_wxyz, 9);
       WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, tvec, 10);
     } else {
@@ -2093,9 +2093,11 @@ class SqliteDatabase : public Database {
       SQLITE3_CALL(sqlite3_finalize(version_stmt));
     }
 
-    // Migrate identity poses to NULL for old databases. In version 3.13.0 and
-    // earlier, identity was used as sentinel for "not set". New databases
-    // correctly write NULL for unset and can store actual identity poses.
+    // Migrate identity and zero poses to NULL for old databases. In version
+    // 3.13.0 and earlier, identity was used as sentinel for "not set". Between
+    // Feb 2021 and Jul 2023, zero quaternion (0,0,0,0) was also used as
+    // default. New databases correctly write NULL for unset and can store
+    // actual poses.
     if (user_version <= MakeDatabaseVersionNumber(3, 13, 0, 0)) {
       sqlite3_stmt* read_stmt;
       SQLITE3_CALL(sqlite3_prepare_v2(
@@ -2124,8 +2126,9 @@ class SqliteDatabase : public Database {
         const bool is_identity =
             rotation.coeffs() == Eigen::Quaterniond::Identity().coeffs() &&
             tvec == Eigen::Vector3d::Zero();
+        const bool is_zero = qvec == Eigen::Vector4d::Zero();
 
-        if (is_identity) {
+        if (is_identity || is_zero) {
           const int64_t pair_id = sqlite3_column_int64(read_stmt, 0);
           SQLITE3_CALL(sqlite3_bind_int64(update_stmt, 1, pair_id));
           SQLITE3_CALL(sqlite3_step(update_stmt));

@@ -310,8 +310,9 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
       reconstruction_->Point3DIds(),
       colmap::ReprojectionErrorType::NORMALIZED);
 
-  // Normalize the structure
-  // If the camera rig is used, the structure do not need to be normalized
+  // Normalize the structure for numerical stability.
+  // TODO: Skip normalization when position priors are used (similar to
+  // incremental mapper's !use_prior_position condition).
   reconstruction_->Normalize();
 
   return true;
@@ -345,7 +346,9 @@ bool GlobalMapper::IterativeBundleAdjustment(
     LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
               << num_iterations << " finished";
 
-    // Normalize the structure
+    // Normalize the structure for numerical stability.
+    // TODO: Skip normalization when position priors are used (similar to
+    // incremental mapper's !use_prior_position condition).
     reconstruction_->Normalize();
 
     // Filter tracks based on the estimation
@@ -439,6 +442,9 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
     return false;
   }
 
+  // Normalize the structure for numerical stability.
+  // TODO: Skip normalization when position priors are used (similar to
+  // incremental mapper's !use_prior_position condition).
   reconstruction_->Normalize();
 
   obs_manager.FilterPoints3DWithLargeReprojectionError(
@@ -451,7 +457,6 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
   return true;
 }
 
-// TODO: Rig normalizaiton has not been done
 bool GlobalMapper::Solve(const GlobalMapperOptions& options,
                          std::unordered_map<frame_t, int>& cluster_ids) {
   THROW_CHECK_NOTNULL(reconstruction_);

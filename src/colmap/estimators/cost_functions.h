@@ -244,19 +244,20 @@ class ReprojErrorConstantPoseCostFunctor
  public:
   ReprojErrorConstantPoseCostFunctor(const Eigen::Vector2d& point2D,
                                      const Rigid3d& cam_from_world)
-      : cam_from_world_(cam_from_world.ToParams()), reproj_cost_(point2D) {}
+      : cam_from_world_(cam_from_world), reproj_cost_(point2D) {}
 
   template <typename T>
   bool operator()(const T* const point3D_in_world,
                   const T* const camera_params,
                   T* residuals) const {
-    const Eigen::Matrix<T, 7, 1> cam_from_world = cam_from_world_.cast<T>();
+    const Eigen::Matrix<T, 7, 1> cam_from_world =
+        cam_from_world_.params.cast<T>();
     return reproj_cost_(
         point3D_in_world, cam_from_world.data(), camera_params, residuals);
   }
 
  private:
-  const Eigen::Vector7d cam_from_world_;
+  const Rigid3d cam_from_world_;
   const ReprojErrorCostFunctor<CameraModel> reproj_cost_;
 };
 
@@ -349,14 +350,14 @@ class RigReprojErrorConstantRigCostFunctor
  public:
   RigReprojErrorConstantRigCostFunctor(const Eigen::Vector2d& point2D,
                                        const Rigid3d& cam_from_rig)
-      : cam_from_rig_(cam_from_rig.ToParams()), reproj_cost_(point2D) {}
+      : cam_from_rig_(cam_from_rig), reproj_cost_(point2D) {}
 
   template <typename T>
   bool operator()(const T* const point3D_in_world,
                   const T* const rig_from_world,
                   const T* const camera_params,
                   T* residuals) const {
-    const Eigen::Matrix<T, 7, 1> cam_from_rig = cam_from_rig_.cast<T>();
+    const Eigen::Matrix<T, 7, 1> cam_from_rig = cam_from_rig_.params.cast<T>();
     return reproj_cost_(point3D_in_world,
                         cam_from_rig.data(),
                         rig_from_world,
@@ -365,7 +366,7 @@ class RigReprojErrorConstantRigCostFunctor
   }
 
  private:
-  const Eigen::Vector7d cam_from_rig_;
+  const Rigid3d cam_from_rig_;
   const RigReprojErrorCostFunctor<CameraModel> reproj_cost_;
 };
 
@@ -443,7 +444,7 @@ struct AbsolutePosePriorCostFunctor
   bool operator()(const T* const sensor_from_world, T* residuals_ptr) const {
     const Eigen::Quaternion<T> param_from_prior_rotation =
         EigenQuaternionMap<T>(sensor_from_world) *
-        world_from_sensor_prior_.rotation.cast<T>();
+        world_from_sensor_prior_.rotation().cast<T>();
     EigenQuaternionToAngleAxis(param_from_prior_rotation.coeffs().data(),
                                residuals_ptr);
 
@@ -452,7 +453,7 @@ struct AbsolutePosePriorCostFunctor
     param_from_prior_translation =
         EigenVector3Map<T>(sensor_from_world + 4) +
         EigenQuaternionMap<T>(sensor_from_world) *
-            world_from_sensor_prior_.translation.cast<T>();
+            world_from_sensor_prior_.translation().cast<T>();
 
     return true;
   }
@@ -540,12 +541,12 @@ struct RelativePosePriorCostFunctor
         EigenQuaternionMap<T>(i_from_world) *
         EigenQuaternionMap<T>(j_from_world).inverse();
     const Eigen::Quaternion<T> param_from_prior_rotation =
-        i_from_j_rotation * j_from_i_prior_.rotation.cast<T>();
+        i_from_j_rotation * j_from_i_prior_.rotation().template cast<T>();
     EigenQuaternionToAngleAxis(param_from_prior_rotation.coeffs().data(),
                                residuals_ptr);
 
     const Eigen::Matrix<T, 3, 1> j_from_i_prior_translation =
-        j_from_i_prior_.translation.cast<T>() -
+        j_from_i_prior_.translation().cast<T>() -
         EigenVector3Map<T>(j_from_world + 4);
     Eigen::Map<Eigen::Matrix<T, 3, 1>> param_from_prior_translation(
         residuals_ptr + 3);

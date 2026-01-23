@@ -399,19 +399,16 @@ namespace internal {
 std::vector<PoseParam> GetPoseParams(const Reconstruction& reconstruction,
                                      const BundleAdjuster& bundle_adjuster) {
   const ceres::Problem& problem = *bundle_adjuster.Problem();
-  const std::unordered_map<frame_t, std::pair<Eigen::Vector7d, Rigid3d*>>&
-      rig_from_world_params = bundle_adjuster.RigFromWorldParams();
   std::vector<PoseParam> params;
   params.reserve(reconstruction.NumImages());
   for (const auto& [image_id, image] : reconstruction.Images()) {
     // TODO(jsch): Add support for non-trivial frames.
     THROW_CHECK(image.IsRefInFrame());
-    const double* cam_from_world_param =
-        rig_from_world_params.at(image.FrameId()).first.data();
-    if (problem.HasParameterBlock(cam_from_world_param) &&
+    const Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
+    if (problem.HasParameterBlock(cam_from_world.params.data()) &&
         !problem.IsParameterBlockConstant(
-            const_cast<double*>(cam_from_world_param))) {
-      params.push_back({image_id, cam_from_world_param});
+            const_cast<double*>(cam_from_world.params.data()))) {
+      params.push_back({image_id, cam_from_world.params.data()});
     }
   }
   return params;

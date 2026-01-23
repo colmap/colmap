@@ -36,8 +36,8 @@ class BM_ReprojErrorCostFunction : public benchmark::Fixture {
   }
 
   ReprojErrorData data = CreateReprojErrorData();
-  const double* parameters[4] = {data.cam_from_world.rotation.coeffs().data(),
-                                 data.cam_from_world.translation.data(),
+  const double* parameters[4] = {data.cam_from_world.rotation().coeffs().data(),
+                                 data.cam_from_world.translation().data(),
                                  data.point3D.data(),
                                  data.camera_params.data()};
   double residuals[2];
@@ -89,8 +89,8 @@ class BM_ReprojErrorConstantPoint3DCostFunction : public benchmark::Fixture {
   }
 
   ReprojErrorData data = CreateReprojErrorData();
-  const double* parameters[3] = {data.cam_from_world.rotation.coeffs().data(),
-                                 data.cam_from_world.translation.data(),
+  const double* parameters[3] = {data.cam_from_world.rotation().coeffs().data(),
+                                 data.cam_from_world.translation().data(),
                                  data.camera_params.data()};
   double residuals[2];
   double jacobian_q[2 * 4];

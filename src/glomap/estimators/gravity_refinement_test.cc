@@ -79,7 +79,7 @@ void ExpectEqualGravity(const Eigen::Vector3d& gravity_in_world,
       continue;
     }
     const Eigen::Vector3d gravity_gt =
-        gt.Image(image_id).CamFromWorld().rotation * gravity_in_world;
+        gt.Image(image_id).CamFromWorld().rotation() * gravity_in_world;
     const Eigen::Vector3d gravity_computed =
         image_to_pose_prior.at(image_id)->gravity;
     const double gravity_error_rad =

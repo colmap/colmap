@@ -121,14 +121,14 @@ size_t RotationAveragingProblem::AllocateParameters(
     auto cam_from_rig =
         reconstruction.Rig(rig_id).MaybeSensorFromRig(sensor_id);
     if (!cam_from_rig.has_value() ||
-        cam_from_rig.value().translation.hasNaN()) {
+        cam_from_rig.value().translation().hasNaN()) {
       if (camera_id_to_param_idx_.find(camera_id) ==
           camera_id_to_param_idx_.end()) {
         // Mark for later allocation (actual index set below).
         camera_id_to_param_idx_[camera_id] = -1;
         if (cam_from_rig.has_value()) {
           cam_from_rig_rotations[camera_id] =
-              Eigen::AngleAxisd(cam_from_rig->rotation);
+              Eigen::AngleAxisd(cam_from_rig->rotation());
         }
       }
     }
@@ -161,7 +161,7 @@ size_t RotationAveragingProblem::AllocateParameters(
       Eigen::Matrix3d rig_from_world_rotation;
       if (frame.MaybeRigFromWorld().has_value()) {
         rig_from_world_rotation =
-            frame.RigFromWorld().rotation.toRotationMatrix();
+            frame.RigFromWorld().rotation().toRotationMatrix();
       } else {
         rig_from_world_rotation = Eigen::Matrix3d::Identity();
       }
@@ -181,7 +181,7 @@ size_t RotationAveragingProblem::AllocateParameters(
       // General frame: 3-DOF.
       Eigen::AngleAxisd rig_from_world;
       if (frame.MaybeRigFromWorld().has_value()) {
-        rig_from_world = Eigen::AngleAxisd(frame.RigFromWorld().rotation);
+        rig_from_world = Eigen::AngleAxisd(frame.RigFromWorld().rotation());
       } else {
         rig_from_world = Eigen::AngleAxisd::Identity();
       }
@@ -211,7 +211,7 @@ size_t RotationAveragingProblem::AllocateParameters(
       fixed_frame_id_ = frame_id;
       // Use identity rotation if frame doesn't have a pose yet.
       if (frame.HasPose()) {
-        const Eigen::AngleAxisd rig_from_world(frame.RigFromWorld().rotation);
+        const Eigen::AngleAxisd rig_from_world(frame.RigFromWorld().rotation());
         fixed_frame_rotation_ = rig_from_world.angle() * rig_from_world.axis();
       } else {
         fixed_frame_rotation_ = Eigen::Vector3d::Zero();
@@ -266,9 +266,9 @@ void RotationAveragingProblem::BuildPairConstraints(
 
     // Compute relative rotation between rigs.
     Eigen::Matrix3d R_cam2_from_cam1 =
-        (cam2_from_rig2.value_or(Rigid3d()).rotation.inverse() *
-         edge.cam2_from_cam1.rotation *
-         cam1_from_rig1.value_or(Rigid3d()).rotation)
+        (cam2_from_rig2.value_or(Rigid3d()).rotation().inverse() *
+         edge.cam2_from_cam1.rotation() *
+         cam1_from_rig1.value_or(Rigid3d()).rotation())
             .toRotationMatrix();
 
     const Eigen::Vector3d* frame_gravity1 =
@@ -629,10 +629,10 @@ void RotationAveragingProblem::ApplyResultsToReconstruction(
         continue;  // Skip cameras that are not estimated.
       }
       Rigid3d cam_from_rig;
-      cam_from_rig.rotation =
+      cam_from_rig.rotation() =
           colmap::AngleAxisToRotationMatrix(estimated_rotations_.segment(
               camera_id_to_param_idx_.at(sensor_id.id), 3));
-      cam_from_rig.translation.setConstant(
+      cam_from_rig.translation().setConstant(
           std::numeric_limits<double>::quiet_NaN());  // No translation yet.
       reconstruction.Rig(rig_id).SetSensorFromRig(sensor_id, cam_from_rig);
     }

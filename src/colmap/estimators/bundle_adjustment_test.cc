@@ -83,8 +83,8 @@ constexpr double kConstantPoseVarEps = 1e-9;
   {                                                                  \
     size_t num_constant_coords = 0;                                  \
     for (int i = 0; i < 3; ++i) {                                    \
-      if (std::abs((image).CamFromWorld().translation(i) -           \
-                   (orig_image).CamFromWorld().translation(i)) <     \
+      if (std::abs((image).CamFromWorld().translation()(i) -         \
+                   (orig_image).CamFromWorld().translation()(i)) <   \
           kConstantPoseVarEps) {                                     \
         ++num_constant_coords;                                       \
       }                                                              \
@@ -530,8 +530,8 @@ TEST(DefaultBundleAdjuster, ConstantRigFromWorldRotation) {
     const auto& image = reconstruction.Image(image_id);
     const auto& orig_image = orig_reconstruction.Image(image_id);
     // Rotation should be nearly unchanged (use angular distance)
-    EXPECT_LE(image.CamFromWorld().rotation.angularDistance(
-                  orig_image.CamFromWorld().rotation),
+    EXPECT_LE(image.CamFromWorld().rotation().angularDistance(
+                  orig_image.CamFromWorld().rotation()),
               kConstantPoseVarEps);
   }
 
@@ -541,8 +541,8 @@ TEST(DefaultBundleAdjuster, ConstantRigFromWorldRotation) {
   for (const image_t image_id : reconstruction.RegImageIds()) {
     const auto& image = reconstruction.Image(image_id);
     const auto& orig_image = orig_reconstruction.Image(image_id);
-    if ((image.CamFromWorld().translation -
-         orig_image.CamFromWorld().translation)
+    if ((image.CamFromWorld().translation() -
+         orig_image.CamFromWorld().translation())
             .norm() > kConstantPoseVarEps) {
       has_variable_translation = true;
       break;
