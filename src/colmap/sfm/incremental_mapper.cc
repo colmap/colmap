@@ -1040,7 +1040,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
 
-  BundleAdjustmentOptions custom_ba_options = ba_options.Clone();
+  BundleAdjustmentOptions custom_ba_options = ba_options;
   // Use stricter convergence criteria for first registered images.
   constexpr size_t kMinNumRegFramesForFastBA = 10;
   const bool is_small_reconstruction =
@@ -1169,7 +1169,7 @@ void IncrementalMapper::IterativeLocalRefinement(
     const BundleAdjustmentOptions& ba_options,
     const IncrementalTriangulator::Options& tri_options,
     const image_t image_id) {
-  BundleAdjustmentOptions custom_ba_options = ba_options.Clone();
+  BundleAdjustmentOptions custom_ba_options = ba_options;
   for (int i = 0; i < max_num_refinements; ++i) {
     const auto report = AdjustLocalBundle(options,
                                           custom_ba_options,

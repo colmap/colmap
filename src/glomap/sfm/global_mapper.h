@@ -15,13 +15,6 @@
 namespace glomap {
 
 struct GlobalMapperOptions {
-  GlobalMapperOptions() = default;
-  GlobalMapperOptions(GlobalMapperOptions&&) = default;
-  GlobalMapperOptions& operator=(GlobalMapperOptions&&) = default;
-
-  // Create a deep copy of these options.
-  GlobalMapperOptions Clone() const;
-
   // Number of threads.
   int num_threads = -1;
 
@@ -101,10 +94,6 @@ struct GlobalMapperOptions {
   bool skip_global_positioning = false;
   bool skip_bundle_adjustment = false;
   bool skip_retriangulation = false;
-
- private:
-  GlobalMapperOptions(const GlobalMapperOptions&) = delete;
-  GlobalMapperOptions& operator=(const GlobalMapperOptions&) = delete;
 };
 
 class GlobalMapper {

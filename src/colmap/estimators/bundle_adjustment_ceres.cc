@@ -846,7 +846,7 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
                           std::vector<PosePrior> pose_priors,
                           Reconstruction& reconstruction)
       : CeresBundleAdjuster(options, config),
-        prior_options_(prior_options.Clone()),
+        prior_options_(prior_options),
         pose_priors_(std::move(pose_priors)),
         reconstruction_(reconstruction) {
     THROW_CHECK(prior_options_.Check());
@@ -877,7 +877,7 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
 
     // WARNING: Do not move this above the reconstruction normalization.
     default_bundle_adjuster_ = std::make_unique<DefaultBundleAdjuster>(
-        options_.Clone(), config_, reconstruction);
+        options_, config_, reconstruction);
 
     if (use_prior_position) {
       prior_loss_function_ = CreateLossFunction(

@@ -29,6 +29,7 @@
 
 #include "colmap/estimators/bundle_adjustment.h"
 
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
@@ -39,36 +40,40 @@
 namespace colmap {
 namespace {
 
-TEST(BundleAdjustmentOptions, Clone) {
+TEST(BundleAdjustmentOptions, Copy) {
   BundleAdjustmentOptions options;
   options.refine_focal_length = false;
   options.refine_principal_point = true;
   options.min_track_length = 5;
+  options.ceres->solver_options.max_num_iterations = 42;
 
-  BundleAdjustmentOptions cloned = options.Clone();
+  BundleAdjustmentOptions copy = options;
 
   // Verify fields are copied
-  EXPECT_EQ(cloned.refine_focal_length, false);
-  EXPECT_EQ(cloned.refine_principal_point, true);
-  EXPECT_EQ(cloned.min_track_length, 5);
+  EXPECT_EQ(copy.refine_focal_length, false);
+  EXPECT_EQ(copy.refine_principal_point, true);
+  EXPECT_EQ(copy.min_track_length, 5);
+  EXPECT_EQ(copy.ceres->solver_options.max_num_iterations, 42);
 
   // Verify deep copy of shared_ptr (different pointer instances)
-  EXPECT_NE(options.ceres.get(), cloned.ceres.get());
+  EXPECT_NE(options.ceres.get(), copy.ceres.get());
 }
 
-TEST(PosePriorBundleAdjustmentOptions, Clone) {
+TEST(PosePriorBundleAdjustmentOptions, Copy) {
   PosePriorBundleAdjustmentOptions options;
   options.prior_position_fallback_stddev = 2.5;
   options.alignment_ransac_options.max_error = 1.0;
+  options.ceres->prior_position_loss_scale = 0.42;
 
-  PosePriorBundleAdjustmentOptions cloned = options.Clone();
+  PosePriorBundleAdjustmentOptions copy = options;
 
   // Verify fields are copied
-  EXPECT_EQ(cloned.prior_position_fallback_stddev, 2.5);
-  EXPECT_EQ(cloned.alignment_ransac_options.max_error, 1.0);
+  EXPECT_EQ(copy.prior_position_fallback_stddev, 2.5);
+  EXPECT_EQ(copy.alignment_ransac_options.max_error, 1.0);
+  EXPECT_EQ(copy.ceres->prior_position_loss_scale, 0.42);
 
   // Verify deep copy of shared_ptr (different pointer instances)
-  EXPECT_NE(options.ceres.get(), cloned.ceres.get());
+  EXPECT_NE(options.ceres.get(), copy.ceres.get());
 }
 
 TEST(BundleAdjustmentSummary, IsSolutionUsable) {

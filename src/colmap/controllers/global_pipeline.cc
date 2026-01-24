@@ -39,21 +39,6 @@
 
 namespace colmap {
 
-GlobalPipelineOptions GlobalPipelineOptions::Clone() const {
-  GlobalPipelineOptions options;
-  options.min_num_matches = min_num_matches;
-  options.ignore_watermarks = ignore_watermarks;
-  options.image_names = image_names;
-  options.image_path = image_path;
-  options.num_threads = num_threads;
-  options.random_seed = random_seed;
-  options.decompose_relative_pose = decompose_relative_pose;
-  options.skip_view_graph_calibration = skip_view_graph_calibration;
-  options.view_graph_calibration = view_graph_calibration;
-  options.mapper = mapper.Clone();
-  return options;
-}
-
 GlobalPipeline::GlobalPipeline(
     GlobalPipelineOptions options,
     std::shared_ptr<Database> database,
@@ -95,7 +80,7 @@ void GlobalPipeline::Run() {
   auto reconstruction = std::make_shared<Reconstruction>();
 
   // Prepare mapper options with top-level options.
-  glomap::GlobalMapperOptions mapper_options = options_.mapper.Clone();
+  glomap::GlobalMapperOptions mapper_options = options_.mapper;
   mapper_options.image_path = options_.image_path;
   mapper_options.num_threads = options_.num_threads;
   mapper_options.random_seed = options_.random_seed;

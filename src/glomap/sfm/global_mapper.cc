@@ -13,34 +13,6 @@
 #include <algorithm>
 
 namespace glomap {
-
-GlobalMapperOptions GlobalMapperOptions::Clone() const {
-  GlobalMapperOptions options;
-  options.num_threads = num_threads;
-  options.random_seed = random_seed;
-  options.image_path = image_path;
-  options.rotation_averaging = rotation_averaging;
-  options.global_positioning = global_positioning;
-  options.bundle_adjustment = bundle_adjustment.Clone();
-  options.retriangulation = retriangulation;
-  options.track_intra_image_consistency_threshold =
-      track_intra_image_consistency_threshold;
-  options.track_required_tracks_per_view = track_required_tracks_per_view;
-  options.track_min_num_views_per_track = track_min_num_views_per_track;
-  options.max_angular_reproj_error_deg = max_angular_reproj_error_deg;
-  options.max_normalized_reproj_error = max_normalized_reproj_error;
-  options.min_tri_angle_deg = min_tri_angle_deg;
-  options.ba_num_iterations = ba_num_iterations;
-  options.ba_skip_fixed_rotation_stage = ba_skip_fixed_rotation_stage;
-  options.ba_skip_joint_optimization_stage = ba_skip_joint_optimization_stage;
-  options.skip_rotation_averaging = skip_rotation_averaging;
-  options.skip_track_establishment = skip_track_establishment;
-  options.skip_global_positioning = skip_global_positioning;
-  options.skip_bundle_adjustment = skip_bundle_adjustment;
-  options.skip_retriangulation = skip_retriangulation;
-  return options;
-}
-
 namespace {
 
 bool RunBundleAdjustment(const colmap::BundleAdjustmentOptions& options,
@@ -70,7 +42,7 @@ bool RunBundleAdjustment(const colmap::BundleAdjustmentOptions& options,
 
 GlobalMapperOptions InitializeOptions(const GlobalMapperOptions& options) {
   // Propagate random seed and num_threads to component options.
-  GlobalMapperOptions opts = options.Clone();
+  GlobalMapperOptions opts = options;
   if (opts.random_seed >= 0) {
     opts.rotation_averaging.random_seed = opts.random_seed;
     opts.global_positioning.random_seed = opts.random_seed;
@@ -350,7 +322,7 @@ bool GlobalMapper::IterativeBundleAdjustment(
   for (int ite = 0; ite < num_iterations; ite++) {
     // Optional fixed-rotation stage: optimize positions only
     if (!skip_fixed_rotation_stage) {
-      colmap::BundleAdjustmentOptions opts_position_only = options.Clone();
+      colmap::BundleAdjustmentOptions opts_position_only = options;
       opts_position_only.constant_rig_from_world_rotation = true;
       if (!RunBundleAdjustment(opts_position_only, *reconstruction_)) {
         return false;
