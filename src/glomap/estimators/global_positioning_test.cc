@@ -78,7 +78,8 @@ TEST(GlobalPositioning, Nominal) {
   options.random_seed = 42;
   options.solver_options.minimizer_progress_to_stdout = false;
 
-  const bool success = RunGlobalPositioning(options, pose_graph, reconstruction);
+  const bool success =
+      RunGlobalPositioning(options, pose_graph, reconstruction);
   ASSERT_TRUE(success);
 
   EXPECT_THAT(gt_reconstruction,
@@ -125,7 +126,8 @@ TEST(GlobalPositioning, MultiCameraRig) {
   options.random_seed = 42;
   options.solver_options.minimizer_progress_to_stdout = false;
 
-  const bool success = RunGlobalPositioning(options, pose_graph, reconstruction);
+  const bool success =
+      RunGlobalPositioning(options, pose_graph, reconstruction);
   ASSERT_TRUE(success);
 
   EXPECT_THAT(gt_reconstruction,
