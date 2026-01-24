@@ -135,8 +135,7 @@ namespace internal {
 
 struct PoseParam {
   image_t image_id = kInvalidImageId;
-  const double* qvec = nullptr;
-  const double* tvec = nullptr;
+  const double* cam_from_world = nullptr;
 };
 
 std::vector<PoseParam> GetPoseParams(const Reconstruction& reconstruction,
