@@ -236,48 +236,6 @@ bool CeresPosePriorBundleAdjustmentOptions::Check() const {
 
 namespace {
 
-void ParameterizeCameras(const BundleAdjustmentOptions& options,
-                         const BundleAdjustmentConfig& config,
-                         const std::set<camera_t>& camera_ids,
-                         Reconstruction& reconstruction,
-                         ceres::Problem& problem) {
-  const bool constant_camera = !options.refine_focal_length &&
-                               !options.refine_principal_point &&
-                               !options.refine_extra_params;
-  for (const camera_t camera_id : camera_ids) {
-    Camera& camera = reconstruction.Camera(camera_id);
-
-    if (constant_camera || config.HasConstantCamIntrinsics(camera_id)) {
-      problem.SetParameterBlockConstant(camera.params.data());
-    } else {
-      std::vector<int> const_camera_params;
-
-      if (!options.refine_focal_length) {
-        const span<const size_t> params_idxs = camera.FocalLengthIdxs();
-        const_camera_params.insert(
-            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
-      }
-      if (!options.refine_principal_point) {
-        const span<const size_t> params_idxs = camera.PrincipalPointIdxs();
-        const_camera_params.insert(
-            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
-      }
-      if (!options.refine_extra_params) {
-        const span<const size_t> params_idxs = camera.ExtraParamsIdxs();
-        const_camera_params.insert(
-            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
-      }
-
-      if (const_camera_params.size() > 0) {
-        SetSubsetManifold(static_cast<int>(camera.params.size()),
-                          const_camera_params,
-                          &problem,
-                          camera.params.data());
-      }
-    }
-  }
-}
-
 struct FixedGaugeWithThreePoints {
   // The number of fixed points for the Gauge.
   Eigen::Index num_fixed_points = 0;
@@ -353,29 +311,25 @@ void FixGaugeWithTwoCamsFromWorld(
 
   // Check if a sensor is either a reference sensor, or a non-reference sensor
   // with sensor_from_rig fixed.
-  auto IsParameterizedConstSensor = [&problem, &config, &options](
-                                        const Image& image) {
-    if (image.FramePtr()->RigPtr()->IsRefSensor(
-            image.CameraPtr()->SensorId())) {
-      return true;
-    }
-    Rigid3d& sensor_from_rig = image.FramePtr()->RigPtr()->SensorFromRig(
-        image.CameraPtr()->SensorId());
-    if (problem.HasParameterBlock(sensor_from_rig.rotation().coeffs().data()) &&
-        problem.IsParameterBlockConstant(
-            sensor_from_rig.rotation().coeffs().data()) &&
-        problem.HasParameterBlock(sensor_from_rig.translation().data()) &&
-        problem.IsParameterBlockConstant(
-            sensor_from_rig.translation().data())) {
-      return true;
-    }
-    // Cover corner case when ReprojErrorConstantPoseCostFunctor is used
-    if (config.HasConstantSensorFromRigPose(image.CameraPtr()->SensorId()) ||
-        !options.refine_sensor_from_rig) {
-      return true;
-    }
-    return false;
-  };
+  auto IsParameterizedConstSensor =
+      [&problem, &config, &options](const Image& image) {
+        const sensor_t sensor_id = image.CameraPtr()->SensorId();
+        if (image.FramePtr()->RigPtr()->IsRefSensor(sensor_id)) {
+          return true;
+        }
+        const Rigid3d& sensor_from_rig =
+            image.FramePtr()->RigPtr()->SensorFromRig(sensor_id);
+        if (problem.HasParameterBlock(sensor_from_rig.params.data()) &&
+            problem.IsParameterBlockConstant(sensor_from_rig.params.data())) {
+          return true;
+        }
+        // Cover corner case when ReprojErrorConstantPoseCostFunctor is used
+        if (config.HasConstantSensorFromRigPose(sensor_id) ||
+            !options.refine_sensor_from_rig) {
+          return true;
+        }
+        return false;
+      };
 
   // First, search through the already fixed cameras in the problem.
   for (const image_t image_id : image_ids) {
@@ -392,15 +346,15 @@ void FixGaugeWithTwoCamsFromWorld(
   }
 
   // Otherwise, search through the variable cameras in the problem.
-  Eigen::Index frame2_from_world_fixed_dim = 0;
+  int frame2_from_world_fixed_dim = 0;
   for (const image_t image_id : image_ids) {
     Image& image = reconstruction.Image(image_id);
+    const Rigid3d& rig_from_world = image.FramePtr()->RigFromWorld();
     if (image1 == nullptr && IsParameterizedConstSensor(image)) {
       image1 = &image;
     } else if (image1 != nullptr && image1->FrameId() != image.FrameId() &&
                IsParameterizedConstSensor(image) &&
-               problem.HasParameterBlock(
-                   image.FramePtr()->RigFromWorld().translation().data())) {
+               problem.HasParameterBlock(rig_from_world.params.data())) {
       // Check if one of the baseline dimensions is large enough and
       // choose it as the fixed coordinate. If there is no such pair of
       // frames, then the scale is not constrained well.
@@ -408,8 +362,10 @@ void FixGaugeWithTwoCamsFromWorld(
           (image1->FramePtr()->RigFromWorld() *
            Inverse(image.FramePtr()->RigFromWorld()))
               .translation();
-      if (baseline.cwiseAbs().maxCoeff(&frame2_from_world_fixed_dim) > 1e-9) {
+      Eigen::Index max_coeff_idx = 0;
+      if (baseline.cwiseAbs().maxCoeff(&max_coeff_idx) > 1e-9) {
         image2 = &image;
+        frame2_from_world_fixed_dim = max_coeff_idx;
         break;
       }
     }
@@ -427,27 +383,76 @@ void FixGaugeWithTwoCamsFromWorld(
     return;
   }
 
-  Rigid3d& frame1_from_world = image1->FramePtr()->RigFromWorld();
   if (!config.HasConstantRigFromWorldPose(image1->FrameId())) {
-    problem.SetParameterBlockConstant(
-        frame1_from_world.rotation().coeffs().data());
-    problem.SetParameterBlockConstant(frame1_from_world.translation().data());
+    const Rigid3d& frame1_from_world = image1->FramePtr()->RigFromWorld();
+    problem.SetParameterBlockConstant(frame1_from_world.params.data());
   }
 
-  Rigid3d& frame2_from_world = image2->FramePtr()->RigFromWorld();
   if (!config.HasConstantRigFromWorldPose(image2->FrameId())) {
-    SetSubsetManifold(3,
-                      {static_cast<int>(frame2_from_world_fixed_dim)},
-                      &problem,
-                      frame2_from_world.translation().data());
+    Rigid3d& frame2_from_world = image2->FramePtr()->RigFromWorld();
+    if (options.constant_rig_from_world_rotation) {
+      SetManifold(&problem,
+                  frame2_from_world.params.data(),
+                  CreateSubsetManifold(
+                      7, {0, 1, 2, 3, 4 + frame2_from_world_fixed_dim}));
+    } else {
+      SetManifold(&problem,
+                  frame2_from_world.params.data(),
+                  CreateProductManifold(
+                      CreateEigenQuaternionManifold(),
+                      CreateSubsetManifold(3, {frame2_from_world_fixed_dim})));
+    }
   }
 }
 
-void ParameterizeImages(const BundleAdjustmentOptions& options,
-                        const BundleAdjustmentConfig& config,
-                        const std::set<image_t>& image_ids,
-                        Reconstruction& reconstruction,
-                        ceres::Problem& problem) {
+void ParameterizeCameras(const BundleAdjustmentOptions& options,
+                         const BundleAdjustmentConfig& config,
+                         const std::set<camera_t>& camera_ids,
+                         Reconstruction& reconstruction,
+                         ceres::Problem& problem) {
+  const bool constant_camera = !options.refine_focal_length &&
+                               !options.refine_principal_point &&
+                               !options.refine_extra_params;
+  for (const camera_t camera_id : camera_ids) {
+    Camera& camera = reconstruction.Camera(camera_id);
+
+    if (constant_camera || config.HasConstantCamIntrinsics(camera_id)) {
+      problem.SetParameterBlockConstant(camera.params.data());
+    } else {
+      std::vector<int> const_camera_params;
+      const_camera_params.reserve(camera.params.size());
+
+      if (!options.refine_focal_length) {
+        const span<const size_t> params_idxs = camera.FocalLengthIdxs();
+        const_camera_params.insert(
+            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
+      }
+      if (!options.refine_principal_point) {
+        const span<const size_t> params_idxs = camera.PrincipalPointIdxs();
+        const_camera_params.insert(
+            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
+      }
+      if (!options.refine_extra_params) {
+        const span<const size_t> params_idxs = camera.ExtraParamsIdxs();
+        const_camera_params.insert(
+            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
+      }
+
+      if (!const_camera_params.empty()) {
+        SetManifold(
+            &problem,
+            camera.params.data(),
+            CreateSubsetManifold(camera.params.size(), const_camera_params));
+      }
+    }
+  }
+}
+
+void ParameterizeRigsAndFrames(const BundleAdjustmentOptions& options,
+                               const BundleAdjustmentConfig& config,
+                               const std::set<image_t>& image_ids,
+                               Reconstruction& reconstruction,
+                               ceres::Problem& problem) {
   std::unordered_set<rig_t> parameterized_rig_ids;
   std::unordered_set<sensor_t> parameterized_sensor_ids;
   std::unordered_set<frame_t> parameterized_frame_ids;
@@ -464,16 +469,14 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
           image.FramePtr()->RigPtr()->SensorFromRig(sensor_id);
       // CostFunction assumes unit quaternions.
       sensor_from_rig.rotation().normalize();
-      if (problem.HasParameterBlock(
-              sensor_from_rig.rotation().coeffs().data())) {
-        SetQuaternionManifold(&problem,
-                              sensor_from_rig.rotation().coeffs().data());
+      if (problem.HasParameterBlock(sensor_from_rig.params.data())) {
+        SetManifold(&problem,
+                    sensor_from_rig.params.data(),
+                    CreateProductManifold(CreateEigenQuaternionManifold(),
+                                          CreateEuclideanManifold<3>()));
         if (!options.refine_sensor_from_rig ||
             config.HasConstantSensorFromRigPose(sensor_id)) {
-          problem.SetParameterBlockConstant(
-              sensor_from_rig.rotation().coeffs().data());
-          problem.SetParameterBlockConstant(
-              sensor_from_rig.translation().data());
+          problem.SetParameterBlockConstant(sensor_from_rig.params.data());
         }
       }
     }
@@ -483,19 +486,19 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
       Rigid3d& rig_from_world = image.FramePtr()->RigFromWorld();
       // CostFunction assumes unit quaternions.
       rig_from_world.rotation().normalize();
-      if (problem.HasParameterBlock(
-              rig_from_world.rotation().coeffs().data())) {
-        SetQuaternionManifold(&problem,
-                              rig_from_world.rotation().coeffs().data());
+      if (problem.HasParameterBlock(rig_from_world.params.data())) {
         if (!options.refine_rig_from_world ||
             config.HasConstantRigFromWorldPose(image.FrameId())) {
-          problem.SetParameterBlockConstant(
-              rig_from_world.rotation().coeffs().data());
-          problem.SetParameterBlockConstant(
-              rig_from_world.translation().data());
+          problem.SetParameterBlockConstant(rig_from_world.params.data());
         } else if (options.constant_rig_from_world_rotation) {
-          problem.SetParameterBlockConstant(
-              rig_from_world.rotation().coeffs().data());
+          SetManifold(&problem,
+                      rig_from_world.params.data(),
+                      CreateSubsetManifold(7, {0, 1, 2, 3}));
+        } else {
+          SetManifold(&problem,
+                      rig_from_world.params.data(),
+                      CreateProductManifold(CreateEigenQuaternionManifold(),
+                                            CreateEuclideanManifold<3>()));
         }
       }
     }
@@ -511,13 +514,10 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
     if (parameterized_sensor_ids.count(rig.RefSensorId()) != 0) {
       continue;
     }
-    for (auto& [_, sensor_from_rig] : rig.NonRefSensors()) {
-      if (sensor_from_rig.has_value() &&
-          problem.HasParameterBlock(sensor_from_rig->translation().data())) {
-        problem.SetParameterBlockConstant(
-            sensor_from_rig->rotation().coeffs().data());
-        problem.SetParameterBlockConstant(
-            sensor_from_rig->translation().data());
+    for (auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
+      THROW_CHECK(sensor_from_rig.has_value());
+      if (problem.HasParameterBlock(sensor_from_rig->params.data())) {
+        problem.SetParameterBlockConstant(sensor_from_rig->params.data());
       }
     }
   }
@@ -556,7 +556,7 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
     // Verify that reconstruction is internally consistent.
     THROW_CHECK(reconstruction.IsValid());
 
-    // Set up problem
+    // Set up problem.
     // Warning: AddPointsToProblem assumes that AddImageToProblem is called
     // first. Do not change order of instructions!
     for (const image_t image_id : config_.Images()) {
@@ -574,7 +574,7 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
                         parameterized_camera_ids_,
                         reconstruction,
                         *problem_);
-    ParameterizeImages(
+    ParameterizeRigsAndFrames(
         options_, config_, parameterized_image_ids_, reconstruction, *problem_);
     ParameterizePoints(options_,
                        config_,
@@ -640,12 +640,12 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
   void AddImageWithTrivialFrame(Image& image, Reconstruction& reconstruction) {
     Camera& camera = *image.CameraPtr();
 
-    THROW_CHECK(image.IsRefInFrame());
-    Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
-
     const bool constant_cam_from_world =
         !options_.refine_rig_from_world ||
         config_.HasConstantRigFromWorldPose(image.FrameId());
+
+    THROW_CHECK(image.IsRefInFrame());
+    Rigid3d& rig_from_world = image.FramePtr()->RigFromWorld();
 
     // Add residuals to bundle adjustment problem.
     size_t num_observations = 0;
@@ -670,7 +670,7 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
       if (constant_cam_from_world) {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
-                camera.model_id, point2D.xy, cam_from_world),
+                camera.model_id, point2D.xy, rig_from_world),
             loss_function_.get(),
             point3D.xyz.data(),
             camera.params.data());
@@ -679,9 +679,8 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
             CreateCameraCostFunction<ReprojErrorCostFunctor>(camera.model_id,
                                                              point2D.xy),
             loss_function_.get(),
-            cam_from_world.rotation().coeffs().data(),
-            cam_from_world.translation().data(),
             point3D.xyz.data(),
+            rig_from_world.params.data(),
             camera.params.data());
       }
     }
@@ -697,17 +696,21 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
     Camera& camera = *image.CameraPtr();
     const sensor_t sensor_id = camera.SensorId();
 
-    THROW_CHECK(!image.IsRefInFrame());
-    Rigid3d& cam_from_rig =
-        image.FramePtr()->RigPtr()->SensorFromRig(sensor_id);
-    Rigid3d& rig_from_world = image.FramePtr()->RigFromWorld();
-
     const bool constant_sensor_from_rig =
         !options_.refine_sensor_from_rig ||
         config_.HasConstantSensorFromRigPose(sensor_id);
     const bool constant_rig_from_world =
         !options_.refine_rig_from_world ||
         config_.HasConstantRigFromWorldPose(image.FrameId());
+
+    THROW_CHECK(!image.IsRefInFrame());
+    Rigid3d& sensor_from_rig =
+        image.FramePtr()->RigPtr()->SensorFromRig(sensor_id);
+    Rigid3d& rig_from_world = image.FramePtr()->RigFromWorld();
+    const std::optional<Rigid3d> cam_from_world =
+        (constant_sensor_from_rig && constant_rig_from_world)
+            ? std::make_optional<Rigid3d>(sensor_from_rig * rig_from_world)
+            : std::nullopt;
 
     // Add residuals to bundle adjustment problem.
     size_t num_observations = 0;
@@ -734,29 +737,26 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
       if (constant_sensor_from_rig && constant_rig_from_world) {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
-                camera.model_id, point2D.xy, cam_from_rig * rig_from_world),
+                camera.model_id, point2D.xy, cam_from_world.value()),
             loss_function_.get(),
             point3D.xyz.data(),
             camera.params.data());
       } else if (!constant_rig_from_world && constant_sensor_from_rig) {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<RigReprojErrorConstantRigCostFunctor>(
-                camera.model_id, point2D.xy, cam_from_rig),
+                camera.model_id, point2D.xy, sensor_from_rig),
             loss_function_.get(),
-            rig_from_world.rotation().coeffs().data(),
-            rig_from_world.translation().data(),
             point3D.xyz.data(),
+            rig_from_world.params.data(),
             camera.params.data());
       } else {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<RigReprojErrorCostFunctor>(camera.model_id,
                                                                 point2D.xy),
             loss_function_.get(),
-            cam_from_rig.rotation().coeffs().data(),
-            cam_from_rig.translation().data(),
-            rig_from_world.rotation().coeffs().data(),
-            rig_from_world.translation().data(),
             point3D.xyz.data(),
+            sensor_from_rig.params.data(),
+            rig_from_world.params.data(),
             camera.params.data());
       }
     }
@@ -942,6 +942,8 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
     ceres::Problem& problem = *default_bundle_adjuster_->Problem();
     Frame& frame = *image.FramePtr();
 
+    Rigid3d& rig_from_world = frame.RigFromWorld();
+
     const Eigen::Vector3d normalized_position =
         normalized_from_metric_ * pose_prior.position;
     const Eigen::Matrix3d normalized_from_metric_scaled_rotation =
@@ -962,8 +964,7 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
           CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
               Create(normalized_position_cov, normalized_position),
           prior_loss_function_.get(),
-          frame.RigFromWorld().rotation().coeffs().data(),
-          frame.RigFromWorld().translation().data());
+          rig_from_world.params.data());
     } else {
       Rigid3d& cam_from_rig =
           frame.RigPtr()->SensorFromRig(image.CameraPtr()->SensorId());
@@ -972,10 +973,8 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
               AbsoluteRigPosePositionPriorCostFunctor>::
               Create(normalized_position_cov, normalized_position),
           prior_loss_function_.get(),
-          cam_from_rig.rotation().coeffs().data(),
-          cam_from_rig.translation().data(),
-          frame.RigFromWorld().rotation().coeffs().data(),
-          frame.RigFromWorld().translation().data());
+          cam_from_rig.params.data(),
+          rig_from_world.params.data());
     }
   }
 

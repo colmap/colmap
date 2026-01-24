@@ -36,7 +36,7 @@
 
 using namespace colmap;
 
-void GenerateArguments(benchmark::internal::Benchmark* b) {
+void GenerateArguments(benchmark::Benchmark* b) {
   for (const int num_rigs : {1, 5}) {
     for (const int num_cameras_per_rig : {1, 3}) {
       for (const int num_frames_per_rig : {10, 50}) {

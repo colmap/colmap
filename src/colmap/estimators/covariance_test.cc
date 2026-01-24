@@ -153,18 +153,8 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
     std::vector<std::pair<const double*, const double*>> cov_param_pairs;
     for (const auto& pose1 : poses) {
       for (const auto& pose2 : poses) {
-        if (pose1.qvec != nullptr && pose2.qvec != nullptr) {
-          cov_param_pairs.emplace_back(pose1.qvec, pose2.qvec);
-        }
-        if (pose1.tvec != nullptr && pose2.tvec != nullptr) {
-          cov_param_pairs.emplace_back(pose1.tvec, pose2.tvec);
-        }
-        if (pose1.qvec != nullptr && pose2.tvec != nullptr) {
-          cov_param_pairs.emplace_back(pose1.qvec, pose2.tvec);
-        }
-        if (pose1.tvec != nullptr && pose2.qvec != nullptr) {
-          cov_param_pairs.emplace_back(pose1.tvec, pose2.qvec);
-        }
+        cov_param_pairs.emplace_back(pose1.cam_from_world,
+                                     pose2.cam_from_world);
       }
     }
 
@@ -176,26 +166,15 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
       for (const auto& pose2 : poses) {
         std::vector<const double*> param_blocks;
 
-        int tangent_size1 = 0;
-        if (pose1.qvec != nullptr) {
-          tangent_size1 += ParameterBlockTangentSize(*problem, pose1.qvec);
-          param_blocks.push_back(pose1.qvec);
-        }
-        if (pose1.tvec != nullptr) {
-          tangent_size1 += ParameterBlockTangentSize(*problem, pose1.tvec);
-          param_blocks.push_back(pose1.tvec);
-        }
+        const int tangent_size1 =
+            ParameterBlockTangentSize(*problem, pose1.cam_from_world);
+        param_blocks.push_back(pose1.cam_from_world);
 
         int tangent_size2 = 0;
         if (pose1.image_id != pose2.image_id) {
-          if (pose2.qvec != nullptr) {
-            tangent_size2 += ParameterBlockTangentSize(*problem, pose2.qvec);
-            param_blocks.push_back(pose2.qvec);
-          }
-          if (pose2.tvec != nullptr) {
-            tangent_size2 += ParameterBlockTangentSize(*problem, pose2.tvec);
-            param_blocks.push_back(pose2.tvec);
-          }
+          tangent_size2 +=
+              ParameterBlockTangentSize(*problem, pose2.cam_from_world);
+          param_blocks.push_back(pose2.cam_from_world);
         }
 
         Eigen::MatrixXd ceres_cov(tangent_size1 + tangent_size2,
@@ -264,12 +243,8 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
 
     // Set all pose/other parameters as constant.
     for (const auto& pose : poses) {
-      if (pose.qvec != nullptr) {
-        problem->SetParameterBlockConstant(const_cast<double*>(pose.qvec));
-      }
-      if (pose.tvec != nullptr) {
-        problem->SetParameterBlockConstant(const_cast<double*>(pose.tvec));
-      }
+      problem->SetParameterBlockConstant(
+          const_cast<double*>(pose.cam_from_world));
     }
     for (const double* other : others) {
       if (other != nullptr) {
