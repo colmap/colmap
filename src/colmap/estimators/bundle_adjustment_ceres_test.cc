@@ -105,38 +105,20 @@ constexpr double kConstantPoseVarEps = 1e-9;
 namespace colmap {
 namespace {
 
-TEST(BundleAdjustmentConfig, NumResiduals) {
-  Reconstruction reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 4;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 1;
-  synthetic_dataset_options.num_points3D = 100;
-  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+// Helper to get Problem from BundleAdjuster (requires casting to Ceres impl)
+inline ceres::Problem& GetCeresProblem(BundleAdjuster& bundle_adjuster) {
+  auto* ceres_ba = dynamic_cast<CeresBundleAdjuster*>(&bundle_adjuster);
+  CHECK_NOTNULL(ceres_ba);
+  return *ceres_ba->Problem();
+}
 
-  const std::vector<image_t> image_ids = reconstruction.RegImageIds();
-  CHECK_EQ(image_ids.size(), 4);
-
-  BundleAdjustmentConfig config;
-
-  config.AddImage(image_ids[0]);
-  config.AddImage(image_ids[1]);
-  EXPECT_EQ(config.NumResiduals(reconstruction), 400);
-
-  config.AddVariablePoint(1);
-  EXPECT_EQ(config.NumResiduals(reconstruction), 404);
-
-  config.AddConstantPoint(2);
-  EXPECT_EQ(config.NumResiduals(reconstruction), 408);
-
-  config.AddImage(image_ids[2]);
-  EXPECT_EQ(config.NumResiduals(reconstruction), 604);
-
-  config.AddImage(image_ids[3]);
-  EXPECT_EQ(config.NumResiduals(reconstruction), 800);
-
-  config.IgnorePoint(3);
-  EXPECT_EQ(config.NumResiduals(reconstruction), 792);
+// Helper to get ceres::Solver::Summary from base summary
+inline const ceres::Solver::Summary& GetCeresSummary(
+    const BundleAdjustmentSummary* summary) {
+  auto* ceres_summary =
+      dynamic_cast<const CeresBundleAdjustmentSummary*>(summary);
+  CHECK_NOTNULL(ceres_summary);
+  return ceres_summary->ceres_summary;
 }
 
 TEST(DefaultBundleAdjuster, Nominal) {
@@ -166,9 +148,9 @@ TEST(DefaultBundleAdjuster, Nominal) {
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultBundleAdjuster(options, config, reconstruction);
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
 
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(reconstruction,
@@ -205,9 +187,9 @@ TEST(DefaultBundleAdjuster, NominalMultiCameraRig) {
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultBundleAdjuster(options, config, reconstruction);
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
 
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(reconstruction,
@@ -237,19 +219,20 @@ TEST(DefaultBundleAdjuster, TwoView) {
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultBundleAdjuster(options, config, reconstruction);
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
-            bundle_adjuster->Problem()->NumResiduals());
+            GetCeresProblem(*bundle_adjuster).NumResiduals());
 
   // 100 points, 2 images, 2 residuals per point per image
-  EXPECT_EQ(summary.num_residuals_reduced, 400);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_residuals_reduced, 400);
   // 100 x 3 point parameters
   // + 5 rig_from_world parameters (pose of second image)
   // + 2 x 2 camera parameters
-  EXPECT_EQ(summary.num_effective_parameters_reduced, 309);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_effective_parameters_reduced,
+            309);
 
   CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
   CheckConstantCamFromWorld(reconstruction.Image(1),
@@ -285,20 +268,21 @@ TEST(DefaultBundleAdjuster, TwoViewRig) {
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultBundleAdjuster(options, config, reconstruction);
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
-            bundle_adjuster->Problem()->NumResiduals());
+            GetCeresProblem(*bundle_adjuster).NumResiduals());
 
   // 100 points, 4 images, 2 residuals per point per image
-  EXPECT_EQ(summary.num_residuals_reduced, 800);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_residuals_reduced, 800);
   // 97 x 3 point parameters (3 fixed for gauge)
   // + 2 x 6 rig_from_world parameters
   // + 1 x 6 sensor_from_rig parameters
   // + 2 x 2 camera parameters
-  EXPECT_EQ(summary.num_effective_parameters_reduced, 313);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_effective_parameters_reduced,
+            313);
 
   CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
   CheckVariableCamFromWorld(reconstruction.Image(1),
@@ -338,20 +322,21 @@ TEST(DefaultBundleAdjuster, ManyViewRig) {
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultBundleAdjuster(options, config, reconstruction);
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
-            bundle_adjuster->Problem()->NumResiduals());
+            GetCeresProblem(*bundle_adjuster).NumResiduals());
 
   // 100 points, 30 images, 2 residuals per point per image
-  EXPECT_EQ(summary.num_residuals_reduced, 6000);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_residuals_reduced, 6000);
   // 97 x 3 point parameters (3 fixed for gauge)
   // + 10 x 6 rig_from_world parameters
   // + 4 x 6 sensor_from_rig parameters
   // + 6 x 2 camera parameters
-  EXPECT_EQ(summary.num_effective_parameters_reduced, 387);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_effective_parameters_reduced,
+            387);
 
   for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
     CheckVariableCamera(camera, orig_reconstruction.Camera(camera_id));
@@ -393,20 +378,21 @@ TEST(DefaultBundleAdjuster, ManyViewRigConstantSensorFromRig) {
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultBundleAdjuster(options, config, reconstruction);
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
-            bundle_adjuster->Problem()->NumResiduals());
+            GetCeresProblem(*bundle_adjuster).NumResiduals());
 
   // 100 points, 30 images, 2 residuals per point per image
-  EXPECT_EQ(summary.num_residuals_reduced, 6000);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_residuals_reduced, 6000);
   // 97 x 3 point parameters (3 fixed for gauge)
   // + 10 x 6 rig_from_world parameters
   // + 3 x 6 sensor_from_rig parameters
   // + 6 x 2 camera parameters
-  EXPECT_EQ(summary.num_effective_parameters_reduced, 381);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_effective_parameters_reduced,
+            381);
 
   for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
     CheckVariableCamera(camera, orig_reconstruction.Camera(camera_id));
@@ -449,20 +435,21 @@ TEST(DefaultBundleAdjuster, ManyViewRigConstantRigFromWorld) {
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultBundleAdjuster(options, config, reconstruction);
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
-            bundle_adjuster->Problem()->NumResiduals());
+            GetCeresProblem(*bundle_adjuster).NumResiduals());
 
   // 100 points, 30 images, 2 residuals per point per image
-  EXPECT_EQ(summary.num_residuals_reduced, 6000);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_residuals_reduced, 6000);
   // 97 x 3 point parameters (3 fixed for gauge)
   // + 9 x 6 rig_from_world parameters
   // + 4 x 6 sensor_from_rig parameters
   // + 6 x 2 camera parameters
-  EXPECT_EQ(summary.num_effective_parameters_reduced, 381);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_effective_parameters_reduced,
+            381);
 
   for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
     CheckVariableCamera(camera, orig_reconstruction.Camera(camera_id));
@@ -510,20 +497,21 @@ TEST(DefaultBundleAdjuster, ConstantRigFromWorldRotation) {
   BundleAdjustmentOptions options;
   options.constant_rig_from_world_rotation = true;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultBundleAdjuster(options, config, reconstruction);
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
-            bundle_adjuster->Problem()->NumResiduals());
+            GetCeresProblem(*bundle_adjuster).NumResiduals());
 
   // 100 points, 3 images, 2 residuals per point per image
-  EXPECT_EQ(summary.num_residuals_reduced, 600);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_residuals_reduced, 600);
   // 100 x 3 point parameters
   // + 2 translation parameters (second image, one coord fixed for gauge)
   // + 3 translation parameters (third image)
   // + 3 x 2 camera parameters
-  EXPECT_EQ(summary.num_effective_parameters_reduced, 311);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_effective_parameters_reduced,
+            311);
 
   // Check rotations are constant for all images
   for (const image_t image_id : reconstruction.RegImageIds()) {
@@ -577,18 +565,19 @@ TEST(DefaultBundleAdjuster, TwoViewConstantCamera) {
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultBundleAdjuster(options, config, reconstruction);
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
-            bundle_adjuster->Problem()->NumResiduals());
+            GetCeresProblem(*bundle_adjuster).NumResiduals());
 
   // 100 points, 2 images, 2 residuals per point per image
-  EXPECT_EQ(summary.num_residuals_reduced, 400);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_residuals_reduced, 400);
   // 100 x 3 point parameters
   // + 2 camera parameters
-  EXPECT_EQ(summary.num_effective_parameters_reduced, 302);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_effective_parameters_reduced,
+            302);
 
   CheckConstantCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
   CheckConstantCamFromWorld(reconstruction.Image(1),
@@ -628,18 +617,18 @@ TEST(DefaultBundleAdjuster, PartiallyContainedTracks) {
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultBundleAdjuster(options, config, reconstruction);
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
-            bundle_adjuster->Problem()->NumResiduals());
+            GetCeresProblem(*bundle_adjuster).NumResiduals());
 
   // 100 points, 2 images, 2 residuals per point per image
-  EXPECT_EQ(summary.num_residuals_reduced, 400);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_residuals_reduced, 400);
   // 1 x 3 point parameters
   // 2 x 2 camera parameters
-  EXPECT_EQ(summary.num_effective_parameters_reduced, 7);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_effective_parameters_reduced, 7);
 
   CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
   CheckConstantCamFromWorld(reconstruction.Image(1),
@@ -697,21 +686,22 @@ TEST(DefaultBundleAdjuster, PartiallyContainedTracksForceToOptimizePoint) {
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultBundleAdjuster(options, config, reconstruction);
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
-            bundle_adjuster->Problem()->NumResiduals());
+            GetCeresProblem(*bundle_adjuster).NumResiduals());
 
   // 100 points, 2 images, 2 residuals per point per image
   // + 2 residuals in 3rd image for added variable 3D point
   // (added constant point does not add residuals since the image/camera
   // is also constant).
-  EXPECT_EQ(summary.num_residuals_reduced, 402);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_residuals_reduced, 402);
   // 2 x 3 point parameters
   // 2 x 2 camera parameters
-  EXPECT_EQ(summary.num_effective_parameters_reduced, 10);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_effective_parameters_reduced,
+            10);
 
   CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
   CheckConstantCamFromWorld(reconstruction.Image(1),
@@ -761,18 +751,19 @@ TEST(DefaultBundleAdjuster, ConstantPoints) {
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultBundleAdjuster(options, config, reconstruction);
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
-            bundle_adjuster->Problem()->NumResiduals());
+            GetCeresProblem(*bundle_adjuster).NumResiduals());
 
   // 100 points, 2 images, 2 residuals per point per image
-  EXPECT_EQ(summary.num_residuals_reduced, 400);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_residuals_reduced, 400);
   // 98 x 3 point parameters
   // + 2 x 2 camera parameters
-  EXPECT_EQ(summary.num_effective_parameters_reduced, 298);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_effective_parameters_reduced,
+            298);
 
   CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
   CheckConstantCamFromWorld(reconstruction.Image(1),
@@ -813,20 +804,21 @@ TEST(DefaultBundleAdjuster, VariableImage) {
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultBundleAdjuster(options, config, reconstruction);
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
-            bundle_adjuster->Problem()->NumResiduals());
+            GetCeresProblem(*bundle_adjuster).NumResiduals());
 
   // 100 points, 3 images, 2 residuals per point per image
-  EXPECT_EQ(summary.num_residuals_reduced, 600);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_residuals_reduced, 600);
   // 100 x 3 point parameters
   // + 5 rig_from_world parameters (pose of second image)
   // + 6 rig_from_world parameters (pose of third image)
   // + 3 x 2 camera parameters
-  EXPECT_EQ(summary.num_effective_parameters_reduced, 317);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_effective_parameters_reduced,
+            317);
 
   CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
   CheckConstantCamFromWorld(reconstruction.Image(1),
@@ -866,19 +858,20 @@ TEST(DefaultBundleAdjuster, ConstantFocalLength) {
   BundleAdjustmentOptions options;
   options.refine_focal_length = false;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultBundleAdjuster(options, config, reconstruction);
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
-            bundle_adjuster->Problem()->NumResiduals());
+            GetCeresProblem(*bundle_adjuster).NumResiduals());
 
   // 100 points, 3 images, 2 residuals per point per image
-  EXPECT_EQ(summary.num_residuals_reduced, 400);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_residuals_reduced, 400);
   // 100 x 3 point parameters
   // + 5 rig_from_world parameters (pose of second image)
   // + 2 camera parameters
-  EXPECT_EQ(summary.num_effective_parameters_reduced, 307);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_effective_parameters_reduced,
+            307);
 
   CheckConstantCamFromWorld(reconstruction.Image(1),
                             orig_reconstruction.Image(1));
@@ -928,19 +921,20 @@ TEST(DefaultBundleAdjuster, VariablePrincipalPoint) {
   BundleAdjustmentOptions options;
   options.refine_principal_point = true;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultBundleAdjuster(options, config, reconstruction);
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
-            bundle_adjuster->Problem()->NumResiduals());
+            GetCeresProblem(*bundle_adjuster).NumResiduals());
 
   // 100 points, 3 images, 2 residuals per point per image
-  EXPECT_EQ(summary.num_residuals_reduced, 400);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_residuals_reduced, 400);
   // 100 x 3 point parameters
   // + 5 rig_from_world parameters (pose of second image)
   // + 8 camera parameters
-  EXPECT_EQ(summary.num_effective_parameters_reduced, 313);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_effective_parameters_reduced,
+            313);
 
   CheckConstantCamFromWorld(reconstruction.Image(1),
                             orig_reconstruction.Image(1));
@@ -1002,19 +996,20 @@ TEST(DefaultBundleAdjuster, ConstantExtraParam) {
   BundleAdjustmentOptions options;
   options.refine_extra_params = false;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultBundleAdjuster(options, config, reconstruction);
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
-            bundle_adjuster->Problem()->NumResiduals());
+            GetCeresProblem(*bundle_adjuster).NumResiduals());
 
   // 100 points, 3 images, 2 residuals per point per image
-  EXPECT_EQ(summary.num_residuals_reduced, 400);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_residuals_reduced, 400);
   // 100 x 3 point parameters
   // + 5 rig_from_world parameters (pose of second image)
   // + 2 camera parameters
-  EXPECT_EQ(summary.num_effective_parameters_reduced, 307);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_effective_parameters_reduced,
+            307);
 
   CheckConstantCamFromWorld(reconstruction.Image(1),
                             orig_reconstruction.Image(1));
@@ -1063,19 +1058,20 @@ TEST(DefaultBundleAdjuster, ConstantPoints3D) {
   BundleAdjustmentOptions options;
   options.refine_points3D = false;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultBundleAdjuster(options, config, reconstruction);
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
-            bundle_adjuster->Problem()->NumResiduals());
+            GetCeresProblem(*bundle_adjuster).NumResiduals());
 
   // 20 points, 2 images, 2 residuals per point per image
-  EXPECT_EQ(summary.num_residuals_reduced, 80);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_residuals_reduced, 80);
   // 0 point parameters (all constant due to refine_points3D=false)
   // + 2 x 6 rig_from_world parameters
   // + 2 x 2 camera parameters
-  EXPECT_EQ(summary.num_effective_parameters_reduced, 16);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_effective_parameters_reduced,
+            16);
 
   CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
   CheckVariableCamFromWorld(reconstruction.Image(1),
@@ -1107,11 +1103,11 @@ TEST(DefaultBundleAdjuster, FixGaugeWithThreePoints) {
 
   auto ExpectValidSolve = [&config, &reconstruction](
                               const int num_effective_parameters_reduced) {
-    const auto summary1 = CreateDefaultBundleAdjuster(
+    const auto summary1 = CreateDefaultCeresBundleAdjuster(
                               BundleAdjustmentOptions(), config, reconstruction)
                               ->Solve();
-    ASSERT_NE(summary1.termination_type, ceres::FAILURE);
-    EXPECT_EQ(summary1.num_effective_parameters_reduced,
+    ASSERT_NE(summary1->termination_type, BATerminationType::FAILURE);
+    EXPECT_EQ(GetCeresSummary(summary1.get()).num_effective_parameters_reduced,
               num_effective_parameters_reduced);
   };
 
@@ -1152,9 +1148,10 @@ TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorld) {
   auto ExpectValidSolve = [&options, &config, &reconstruction](
                               const int num_effective_parameters_reduced) {
     const auto summary1 =
-        CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
-    ASSERT_NE(summary1.termination_type, ceres::FAILURE);
-    EXPECT_EQ(summary1.num_effective_parameters_reduced,
+        CreateDefaultCeresBundleAdjuster(options, config, reconstruction)
+            ->Solve();
+    ASSERT_NE(summary1->termination_type, BATerminationType::FAILURE);
+    EXPECT_EQ(GetCeresSummary(summary1.get()).num_effective_parameters_reduced,
               num_effective_parameters_reduced);
   };
 
@@ -1199,9 +1196,10 @@ TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorldFixSensorFromRig) {
   auto ExpectValidSolve = [&options, &config, &reconstruction](
                               const int num_effective_parameters_reduced) {
     const auto summary1 =
-        CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
-    ASSERT_NE(summary1.termination_type, ceres::FAILURE);
-    EXPECT_EQ(summary1.num_effective_parameters_reduced,
+        CreateDefaultCeresBundleAdjuster(options, config, reconstruction)
+            ->Solve();
+    ASSERT_NE(summary1->termination_type, BATerminationType::FAILURE);
+    EXPECT_EQ(GetCeresSummary(summary1.get()).num_effective_parameters_reduced,
               num_effective_parameters_reduced);
   };
 
@@ -1259,10 +1257,12 @@ TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorldNoReferenceSensor) {
   auto ExpectValidSolve = [&options, &config, &reconstruction](
                               const int num_effective_parameters_reduced) {
     const auto summary1 =
-        CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
-    THROW_CHECK_NE(summary1.termination_type, ceres::FAILURE);
-    THROW_CHECK_EQ(summary1.num_effective_parameters_reduced,
-                   num_effective_parameters_reduced);
+        CreateDefaultCeresBundleAdjuster(options, config, reconstruction)
+            ->Solve();
+    THROW_CHECK_NE(summary1->termination_type, BATerminationType::FAILURE);
+    THROW_CHECK_EQ(
+        GetCeresSummary(summary1.get()).num_effective_parameters_reduced,
+        num_effective_parameters_reduced);
   };
 
   // refine_sensor_from_rig should have no effect when there are no reference
@@ -1320,10 +1320,12 @@ TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorldFallback) {
   // three points.
   config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
   const auto summary =
-      CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
-  ASSERT_NE(summary.termination_type, ceres::FAILURE);
-  EXPECT_EQ(summary.num_effective_parameters, 316);
-  EXPECT_EQ(summary.num_effective_parameters_reduced, 307);
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction)
+          ->Solve();
+  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_effective_parameters, 316);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_effective_parameters_reduced,
+            307);
 }
 
 TEST(DefaultBundleAdjuster, IgnorePoint) {
@@ -1347,19 +1349,20 @@ TEST(DefaultBundleAdjuster, IgnorePoint) {
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultBundleAdjuster(options, config, reconstruction);
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
-            bundle_adjuster->Problem()->NumResiduals());
+            GetCeresProblem(*bundle_adjuster).NumResiduals());
 
   // 100 points, 2 images, 2 residuals per point per image
-  EXPECT_EQ(summary.num_residuals_reduced, 396);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_residuals_reduced, 396);
   // 99 x 3 point parameters
   // + 5 rig_from_world parameters (pose of second image)
   // + 2 x 2 camera parameters
-  EXPECT_EQ(summary.num_effective_parameters_reduced, 306);
+  EXPECT_EQ(GetCeresSummary(summary.get()).num_effective_parameters_reduced,
+            306);
 }
 
 TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
@@ -1408,7 +1411,7 @@ TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
   auto adjuster = CreatePosePriorBundleAdjuster(
       ba_options, prior_ba_options, ba_config, pose_priors, reconstruction);
   auto summary = adjuster->Solve();
-  ASSERT_TRUE(summary.IsSolutionUsable());
+  ASSERT_TRUE(summary->IsSolutionUsable());
 
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(reconstruction,
@@ -1440,8 +1443,8 @@ TEST(PosePriorBundleAdjuster, MissingPositionCov) {
 
   PosePriorBundleAdjustmentOptions prior_ba_options;
   prior_ba_options.alignment_ransac_options.random_seed = 0;
-  prior_ba_options.prior_position_loss_function_type =
-      BundleAdjustmentOptions::LossFunctionType::CAUCHY;
+  prior_ba_options.ceres->prior_position_loss_function_type =
+      CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
 
   BundleAdjustmentOptions ba_options;
   BundleAdjustmentConfig ba_config;
@@ -1456,7 +1459,7 @@ TEST(PosePriorBundleAdjuster, MissingPositionCov) {
   auto adjuster = CreatePosePriorBundleAdjuster(
       ba_options, prior_ba_options, ba_config, pose_priors, reconstruction);
   auto summary = adjuster->Solve();
-  ASSERT_TRUE(summary.IsSolutionUsable());
+  ASSERT_TRUE(summary->IsSolutionUsable());
 
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(reconstruction,
@@ -1497,8 +1500,8 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
 
   PosePriorBundleAdjustmentOptions prior_ba_options;
   prior_ba_options.alignment_ransac_options.random_seed = 0;
-  prior_ba_options.prior_position_loss_function_type =
-      BundleAdjustmentOptions::LossFunctionType::CAUCHY;
+  prior_ba_options.ceres->prior_position_loss_function_type =
+      CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
 
   BundleAdjustmentOptions ba_options;
   BundleAdjustmentConfig ba_config;
@@ -1513,7 +1516,7 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
   auto adjuster = CreatePosePriorBundleAdjuster(
       ba_options, prior_ba_options, ba_config, pose_priors, reconstruction);
   auto summary = adjuster->Solve();
-  ASSERT_TRUE(summary.IsSolutionUsable());
+  ASSERT_TRUE(summary->IsSolutionUsable());
 
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(reconstruction,

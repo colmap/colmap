@@ -39,22 +39,40 @@
 #include <iomanip>
 
 namespace colmap {
+
 namespace {
 
+BATerminationType CeresTerminationTypeToTerminationType(
+    ceres::TerminationType ceres_type) {
+  switch (ceres_type) {
+    case ceres::CONVERGENCE:
+      return BATerminationType::CONVERGENCE;
+    case ceres::NO_CONVERGENCE:
+      return BATerminationType::NO_CONVERGENCE;
+    case ceres::FAILURE:
+      return BATerminationType::FAILURE;
+    case ceres::USER_SUCCESS:
+      return BATerminationType::USER_SUCCESS;
+    case ceres::USER_FAILURE:
+      return BATerminationType::USER_FAILURE;
+  }
+  LOG(FATAL) << "Unknown Ceres termination type: " << ceres_type;
+}
+
 std::unique_ptr<ceres::LossFunction> CreateLossFunction(
-    BundleAdjustmentOptions::LossFunctionType loss_function_type,
+    CeresBundleAdjustmentOptions::LossFunctionType loss_function_type,
     double loss_function_scale) {
   switch (loss_function_type) {
-    case BundleAdjustmentOptions::LossFunctionType::TRIVIAL:
+    case CeresBundleAdjustmentOptions::LossFunctionType::TRIVIAL:
       return std::make_unique<ceres::TrivialLoss>();
       break;
-    case BundleAdjustmentOptions::LossFunctionType::SOFT_L1:
+    case CeresBundleAdjustmentOptions::LossFunctionType::SOFT_L1:
       return std::make_unique<ceres::SoftLOneLoss>(loss_function_scale);
       break;
-    case BundleAdjustmentOptions::LossFunctionType::CAUCHY:
+    case CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY:
       return std::make_unique<ceres::CauchyLoss>(loss_function_scale);
       break;
-    case BundleAdjustmentOptions::LossFunctionType::HUBER:
+    case CeresBundleAdjustmentOptions::LossFunctionType::HUBER:
       return std::make_unique<ceres::HuberLoss>(loss_function_scale);
       break;
   }
@@ -63,237 +81,42 @@ std::unique_ptr<ceres::LossFunction> CreateLossFunction(
 
 }  // namespace
 
-////////////////////////////////////////////////////////////////////////////////
-// BundleAdjustmentConfig
-////////////////////////////////////////////////////////////////////////////////
-
-void BundleAdjustmentConfig::FixGauge(BundleAdjustmentGauge gauge) {
-  fixed_gauge_ = gauge;
+std::shared_ptr<CeresBundleAdjustmentSummary>
+CeresBundleAdjustmentSummary::Create(
+    const ceres::Solver::Summary& ceres_summary) {
+  auto summary = std::make_shared<CeresBundleAdjustmentSummary>();
+  summary->termination_type =
+      CeresTerminationTypeToTerminationType(ceres_summary.termination_type);
+  summary->num_residuals = ceres_summary.num_residuals_reduced;
+  summary->ceres_summary = ceres_summary;
+  return summary;
 }
-
-BundleAdjustmentGauge BundleAdjustmentConfig::FixedGauge() const {
-  return fixed_gauge_;
-}
-
-size_t BundleAdjustmentConfig::NumImages() const { return image_ids_.size(); }
-
-size_t BundleAdjustmentConfig::NumPoints() const {
-  return variable_point3D_ids_.size() + constant_point3D_ids_.size();
-}
-
-size_t BundleAdjustmentConfig::NumConstantCamIntrinsics() const {
-  return constant_cam_intrinsics_.size();
-}
-
-size_t BundleAdjustmentConfig::NumConstantSensorFromRigPoses() const {
-  return constant_sensor_from_rig_poses_.size();
-}
-
-size_t BundleAdjustmentConfig::NumConstantRigFromWorldPoses() const {
-  return constant_rig_from_world_poses_.size();
-}
-
-size_t BundleAdjustmentConfig::NumVariablePoints() const {
-  return variable_point3D_ids_.size();
-}
-
-size_t BundleAdjustmentConfig::NumConstantPoints() const {
-  return constant_point3D_ids_.size();
-}
-
-size_t BundleAdjustmentConfig::NumResiduals(
-    const Reconstruction& reconstruction) const {
-  // Count the number of observations for all added images.
-  size_t num_observations = 0;
-  for (const image_t image_id : image_ids_) {
-    const auto& image = reconstruction.Image(image_id);
-    for (const auto& point2D : image.Points2D()) {
-      if (point2D.HasPoint3D() && !IsIgnoredPoint(point2D.point3D_id)) {
-        ++num_observations;
-      }
-    }
-  }
-
-  // Count the number of observations for all added 3D points that are not
-  // already added as part of the images above.
-
-  auto NumObservationsForPoint = [this,
-                                  &reconstruction](const point3D_t point3D_id) {
-    size_t num_observations_for_point = 0;
-    const auto& point3D = reconstruction.Point3D(point3D_id);
-    for (const auto& track_el : point3D.track.Elements()) {
-      if (image_ids_.count(track_el.image_id) == 0) {
-        ++num_observations_for_point;
-      }
-    }
-    return num_observations_for_point;
-  };
-
-  for (const auto point3D_id : variable_point3D_ids_) {
-    num_observations += NumObservationsForPoint(point3D_id);
-  }
-  for (const auto point3D_id : constant_point3D_ids_) {
-    num_observations += NumObservationsForPoint(point3D_id);
-  }
-
-  CHECK_GE(num_observations, 0);
-
-  return 2 * num_observations;
-}
-
-void BundleAdjustmentConfig::AddImage(const image_t image_id) {
-  image_ids_.insert(image_id);
-}
-
-bool BundleAdjustmentConfig::HasImage(const image_t image_id) const {
-  return image_ids_.find(image_id) != image_ids_.end();
-}
-
-void BundleAdjustmentConfig::RemoveImage(const image_t image_id) {
-  image_ids_.erase(image_id);
-}
-
-void BundleAdjustmentConfig::SetConstantCamIntrinsics(
-    const camera_t camera_id) {
-  constant_cam_intrinsics_.insert(camera_id);
-}
-
-void BundleAdjustmentConfig::SetVariableCamIntrinsics(
-    const camera_t camera_id) {
-  constant_cam_intrinsics_.erase(camera_id);
-}
-
-bool BundleAdjustmentConfig::HasConstantCamIntrinsics(
-    const camera_t camera_id) const {
-  return constant_cam_intrinsics_.find(camera_id) !=
-         constant_cam_intrinsics_.end();
-}
-
-void BundleAdjustmentConfig::SetConstantSensorFromRigPose(
-    const sensor_t sensor_id) {
-  constant_sensor_from_rig_poses_.insert(sensor_id);
-}
-
-void BundleAdjustmentConfig::SetVariableSensorFromRigPose(
-    const sensor_t sensor_id) {
-  constant_sensor_from_rig_poses_.erase(sensor_id);
-}
-
-bool BundleAdjustmentConfig::HasConstantSensorFromRigPose(
-    const sensor_t sensor_id) const {
-  return constant_sensor_from_rig_poses_.find(sensor_id) !=
-         constant_sensor_from_rig_poses_.end();
-}
-
-void BundleAdjustmentConfig::SetConstantRigFromWorldPose(
-    const frame_t frame_id) {
-  constant_rig_from_world_poses_.insert(frame_id);
-}
-
-void BundleAdjustmentConfig::SetVariableRigFromWorldPose(
-    const frame_t frame_id) {
-  constant_rig_from_world_poses_.erase(frame_id);
-}
-
-bool BundleAdjustmentConfig::HasConstantRigFromWorldPose(
-    const frame_t frame_id) const {
-  return constant_rig_from_world_poses_.find(frame_id) !=
-         constant_rig_from_world_poses_.end();
-}
-
-const std::unordered_set<image_t>& BundleAdjustmentConfig::Images() const {
-  return image_ids_;
-}
-
-const std::unordered_set<point3D_t>& BundleAdjustmentConfig::VariablePoints()
-    const {
-  return variable_point3D_ids_;
-}
-
-const std::unordered_set<point3D_t>& BundleAdjustmentConfig::ConstantPoints()
-    const {
-  return constant_point3D_ids_;
-}
-
-const std::unordered_set<camera_t>
-BundleAdjustmentConfig::ConstantCamIntrinsics() const {
-  return constant_cam_intrinsics_;
-}
-
-const std::unordered_set<sensor_t>&
-BundleAdjustmentConfig::ConstantSensorFromRigPoses() const {
-  return constant_sensor_from_rig_poses_;
-}
-
-const std::unordered_set<frame_t>&
-BundleAdjustmentConfig::ConstantRigFromWorldPoses() const {
-  return constant_rig_from_world_poses_;
-}
-
-void BundleAdjustmentConfig::AddVariablePoint(const point3D_t point3D_id) {
-  THROW_CHECK(!HasConstantPoint(point3D_id));
-  variable_point3D_ids_.insert(point3D_id);
-}
-
-void BundleAdjustmentConfig::AddConstantPoint(const point3D_t point3D_id) {
-  THROW_CHECK(!HasVariablePoint(point3D_id));
-  constant_point3D_ids_.insert(point3D_id);
-}
-
-void BundleAdjustmentConfig::IgnorePoint(const point3D_t point3D_id) {
-  CHECK(!HasVariablePoint(point3D_id));
-  CHECK(!HasConstantPoint(point3D_id));
-  ignored_point3D_ids_.insert(point3D_id);
-}
-
-bool BundleAdjustmentConfig::HasPoint(const point3D_t point3D_id) const {
-  return HasVariablePoint(point3D_id) || HasConstantPoint(point3D_id);
-}
-
-bool BundleAdjustmentConfig::HasVariablePoint(
-    const point3D_t point3D_id) const {
-  return variable_point3D_ids_.count(point3D_id);
-}
-
-bool BundleAdjustmentConfig::HasConstantPoint(
-    const point3D_t point3D_id) const {
-  return constant_point3D_ids_.count(point3D_id);
-}
-
-bool BundleAdjustmentConfig::IsIgnoredPoint(const point3D_t point3D_id) const {
-  return ignored_point3D_ids_.count(point3D_id);
-}
-
-void BundleAdjustmentConfig::RemoveVariablePoint(const point3D_t point3D_id) {
-  variable_point3D_ids_.erase(point3D_id);
-}
-
-void BundleAdjustmentConfig::RemoveConstantPoint(const point3D_t point3D_id) {
-  constant_point3D_ids_.erase(point3D_id);
-}
-
-BundleAdjuster::BundleAdjuster(BundleAdjustmentOptions options,
-                               BundleAdjustmentConfig config)
-    : options_(std::move(options)), config_(std::move(config)) {
-  THROW_CHECK(options_.Check());
-}
-
-const BundleAdjustmentOptions& BundleAdjuster::Options() const {
-  return options_;
-}
-
-const BundleAdjustmentConfig& BundleAdjuster::Config() const { return config_; }
 
 ////////////////////////////////////////////////////////////////////////////////
-// BundleAdjustmentOptions
+// CeresBundleAdjustmentOptions
 ////////////////////////////////////////////////////////////////////////////////
+
+CeresBundleAdjustmentOptions::CeresBundleAdjustmentOptions() {
+  solver_options.function_tolerance = 0.0;
+  solver_options.gradient_tolerance = 1e-4;
+  solver_options.parameter_tolerance = 0.0;
+  solver_options.logging_type = ceres::LoggingType::SILENT;
+  solver_options.max_num_iterations = 100;
+  solver_options.max_linear_solver_iterations = 200;
+  solver_options.max_num_consecutive_invalid_steps = 10;
+  solver_options.max_consecutive_nonmonotonic_steps = 10;
+  solver_options.num_threads = -1;
+#if CERES_VERSION_MAJOR < 2
+  solver_options.num_linear_solver_threads = -1;
+#endif  // CERES_VERSION_MAJOR
+}
 
 std::unique_ptr<ceres::LossFunction>
-BundleAdjustmentOptions::CreateLossFunction() const {
+CeresBundleAdjustmentOptions::CreateLossFunction() const {
   return ::colmap::CreateLossFunction(loss_function_type, loss_function_scale);
 }
 
-ceres::Solver::Options BundleAdjustmentOptions::CreateSolverOptions(
+ceres::Solver::Options CeresBundleAdjustmentOptions::CreateSolverOptions(
     const BundleAdjustmentConfig& config, const ceres::Problem& problem) const {
   ceres::Solver::Options custom_solver_options = solver_options;
   if (VLOG_IS_ON(2)) {
@@ -397,7 +220,7 @@ ceres::Solver::Options BundleAdjustmentOptions::CreateSolverOptions(
   return custom_solver_options;
 }
 
-bool BundleAdjustmentOptions::Check() const {
+bool CeresBundleAdjustmentOptions::Check() const {
   CHECK_OPTION_GE(loss_function_scale, 0);
   CHECK_OPTION_LT(max_num_images_direct_dense_cpu_solver,
                   max_num_images_direct_sparse_cpu_solver);
@@ -406,8 +229,7 @@ bool BundleAdjustmentOptions::Check() const {
   return true;
 }
 
-bool PosePriorBundleAdjustmentOptions::Check() const {
-  CHECK_OPTION_GT(prior_position_fallback_stddev, 0);
+bool CeresPosePriorBundleAdjustmentOptions::Check() const {
   CHECK_OPTION_GT(prior_position_loss_scale, 0);
   return true;
 }
@@ -720,13 +542,13 @@ void ParameterizePoints(
   }
 }
 
-class DefaultBundleAdjuster : public BundleAdjuster {
+class DefaultBundleAdjuster : public CeresBundleAdjuster {
  public:
-  DefaultBundleAdjuster(BundleAdjustmentOptions options,
-                        BundleAdjustmentConfig config,
+  DefaultBundleAdjuster(const BundleAdjustmentOptions& options,
+                        const BundleAdjustmentConfig& config,
                         Reconstruction& reconstruction)
-      : BundleAdjuster(std::move(options), std::move(config)),
-        loss_function_(options_.CreateLossFunction()) {
+      : CeresBundleAdjuster(options, config),
+        loss_function_(options_.ceres->CreateLossFunction()) {
     ceres::Problem::Options problem_options;
     problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
     problem_ = std::make_shared<ceres::Problem>(problem_options);
@@ -780,22 +602,22 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     }
   }
 
-  ceres::Solver::Summary Solve() override {
-    ceres::Solver::Summary summary;
+  std::shared_ptr<BundleAdjustmentSummary> Solve() override {
     if (problem_->NumResiduals() == 0) {
-      return summary;
+      return std::make_shared<BundleAdjustmentSummary>();
     }
 
     const ceres::Solver::Options solver_options =
-        options_.CreateSolverOptions(config_, *problem_);
+        options_.ceres->CreateSolverOptions(config_, *problem_);
 
-    ceres::Solve(solver_options, problem_.get(), &summary);
+    ceres::Solver::Summary ceres_summary;
+    ceres::Solve(solver_options, problem_.get(), &ceres_summary);
 
     if (options_.print_summary || VLOG_IS_ON(1)) {
-      PrintSolverSummary(summary, "Bundle adjustment report");
+      PrintSolverSummary(ceres_summary, "Bundle adjustment report");
     }
 
-    return summary;
+    return CeresBundleAdjustmentSummary::Create(ceres_summary);
   }
 
   std::shared_ptr<ceres::Problem>& Problem() override { return problem_; }
@@ -1016,15 +838,15 @@ class DefaultBundleAdjuster : public BundleAdjuster {
   std::unordered_map<point3D_t, size_t> point3D_num_observations_;
 };
 
-class PosePriorBundleAdjuster : public BundleAdjuster {
+class PosePriorBundleAdjuster : public CeresBundleAdjuster {
  public:
-  PosePriorBundleAdjuster(BundleAdjustmentOptions options,
-                          PosePriorBundleAdjustmentOptions prior_options,
-                          BundleAdjustmentConfig config,
+  PosePriorBundleAdjuster(const BundleAdjustmentOptions& options,
+                          const PosePriorBundleAdjustmentOptions& prior_options,
+                          const BundleAdjustmentConfig& config,
                           std::vector<PosePrior> pose_priors,
                           Reconstruction& reconstruction)
-      : BundleAdjuster(std::move(options), std::move(config)),
-        prior_options_(prior_options),
+      : CeresBundleAdjuster(options, config),
+        prior_options_(prior_options.Clone()),
         pose_priors_(std::move(pose_priors)),
         reconstruction_(reconstruction) {
     THROW_CHECK(prior_options_.Check());
@@ -1055,12 +877,12 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
 
     // WARNING: Do not move this above the reconstruction normalization.
     default_bundle_adjuster_ = std::make_unique<DefaultBundleAdjuster>(
-        options_, config_, reconstruction);
+        options_.Clone(), config_, reconstruction);
 
     if (use_prior_position) {
-      prior_loss_function_ =
-          CreateLossFunction(prior_options_.prior_position_loss_function_type,
-                             prior_options_.prior_position_loss_scale);
+      prior_loss_function_ = CreateLossFunction(
+          prior_options_.ceres->prior_position_loss_function_type,
+          prior_options_.ceres->prior_position_loss_scale);
 
       // Only consider parameterized images for pose priors. Notice that some
       // images may be configured to be included in the BA problem but have no
@@ -1076,26 +898,26 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     }
   }
 
-  ceres::Solver::Summary Solve() override {
-    ceres::Solver::Summary summary;
+  std::shared_ptr<BundleAdjustmentSummary> Solve() override {
     std::shared_ptr<ceres::Problem> problem =
         default_bundle_adjuster_->Problem();
     if (problem->NumResiduals() == 0) {
-      return summary;
+      return std::make_shared<BundleAdjustmentSummary>();
     }
 
     const ceres::Solver::Options solver_options =
-        options_.CreateSolverOptions(config_, *problem);
+        options_.ceres->CreateSolverOptions(config_, *problem);
 
-    ceres::Solve(solver_options, problem.get(), &summary);
+    ceres::Solver::Summary ceres_summary;
+    ceres::Solve(solver_options, problem.get(), &ceres_summary);
 
     reconstruction_.Transform(Inverse(normalized_from_metric_));
 
     if (options_.print_summary || VLOG_IS_ON(1)) {
-      PrintSolverSummary(summary, "Pose Prior Bundle adjustment report");
+      PrintSolverSummary(ceres_summary, "Pose Prior Bundle adjustment report");
     }
 
-    return summary;
+    return CeresBundleAdjustmentSummary::Create(ceres_summary);
   }
 
   std::shared_ptr<ceres::Problem>& Problem() override {
@@ -1212,7 +1034,7 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
   }
 
  private:
-  const PosePriorBundleAdjustmentOptions prior_options_;
+  PosePriorBundleAdjustmentOptions prior_options_;
   std::vector<PosePrior> pose_priors_;
   Reconstruction& reconstruction_;
 
@@ -1224,25 +1046,22 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
 
 }  // namespace
 
-std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(
-    BundleAdjustmentOptions options,
-    BundleAdjustmentConfig config,
+std::unique_ptr<BundleAdjuster> CreateDefaultCeresBundleAdjuster(
+    const BundleAdjustmentOptions& options,
+    const BundleAdjustmentConfig& config,
     Reconstruction& reconstruction) {
   return std::make_unique<DefaultBundleAdjuster>(
-      std::move(options), std::move(config), reconstruction);
+      options, config, reconstruction);
 }
 
-std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
-    BundleAdjustmentOptions options,
-    PosePriorBundleAdjustmentOptions prior_options,
-    BundleAdjustmentConfig config,
+std::unique_ptr<BundleAdjuster> CreatePosePriorCeresBundleAdjuster(
+    const BundleAdjustmentOptions& options,
+    const PosePriorBundleAdjustmentOptions& prior_options,
+    const BundleAdjustmentConfig& config,
     std::vector<PosePrior> pose_priors,
     Reconstruction& reconstruction) {
-  return std::make_unique<PosePriorBundleAdjuster>(std::move(options),
-                                                   prior_options,
-                                                   std::move(config),
-                                                   std::move(pose_priors),
-                                                   reconstruction);
+  return std::make_unique<PosePriorBundleAdjuster>(
+      options, prior_options, config, std::move(pose_priors), reconstruction);
 }
 
 void PrintSolverSummary(const ceres::Solver::Summary& summary,
@@ -1277,7 +1096,6 @@ void PrintSolverSummary(const ceres::Solver::Summary& summary,
       << " [px]\n";
 
   log << std::right << std::setw(16) << "Termination : ";
-
   log << std::right << ceres::TerminationTypeToString(summary.termination_type)
       << "\n\n";
   LOG(INFO) << log.str();
