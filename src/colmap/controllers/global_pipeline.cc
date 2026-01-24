@@ -39,11 +39,26 @@
 
 namespace colmap {
 
+GlobalPipelineOptions GlobalPipelineOptions::Clone() const {
+  GlobalPipelineOptions options;
+  options.min_num_matches = min_num_matches;
+  options.ignore_watermarks = ignore_watermarks;
+  options.image_names = image_names;
+  options.image_path = image_path;
+  options.num_threads = num_threads;
+  options.random_seed = random_seed;
+  options.decompose_relative_pose = decompose_relative_pose;
+  options.skip_view_graph_calibration = skip_view_graph_calibration;
+  options.view_graph_calibration = view_graph_calibration;
+  options.mapper = mapper.Clone();
+  return options;
+}
+
 GlobalPipeline::GlobalPipeline(
-    const GlobalPipelineOptions& options,
+    GlobalPipelineOptions options,
     std::shared_ptr<Database> database,
     std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager)
-    : options_(options),
+    : options_(std::move(options)),
       database_(std::move(THROW_CHECK_NOTNULL(database))),
       reconstruction_manager_(
           std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {
@@ -80,7 +95,7 @@ void GlobalPipeline::Run() {
   auto reconstruction = std::make_shared<Reconstruction>();
 
   // Prepare mapper options with top-level options.
-  glomap::GlobalMapperOptions mapper_options = options_.mapper;
+  glomap::GlobalMapperOptions mapper_options = options_.mapper.Clone();
   mapper_options.image_path = options_.image_path;
   mapper_options.num_threads = options_.num_threads;
   mapper_options.random_seed = options_.random_seed;

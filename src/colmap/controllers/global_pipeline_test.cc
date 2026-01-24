@@ -58,7 +58,7 @@ TEST(GlobalPipeline, Nominal) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   GlobalPipelineOptions options;
-  GlobalPipeline mapper(options, database, reconstruction_manager);
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -91,7 +91,7 @@ TEST(GlobalPipeline, SfMWithRandomSeedStability) {
     options.num_threads = num_threads;
     options.random_seed = random_seed;
     auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-    GlobalPipeline mapper(options, database, reconstruction_manager);
+    GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
     mapper.Run();
     EXPECT_EQ(reconstruction_manager->Size(), 1);
     return reconstruction_manager;
@@ -143,7 +143,7 @@ TEST(GlobalPipeline, WithExistingRelativePoses) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   GlobalPipelineOptions options;
-  GlobalPipeline mapper(options, database, reconstruction_manager);
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -185,7 +185,7 @@ TEST(GlobalPipeline, WithNoisyExistingRelativePoses) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   GlobalPipelineOptions options;
-  GlobalPipeline mapper(options, database, reconstruction_manager);
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);

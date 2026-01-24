@@ -110,14 +110,17 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
   }
 
   std::unique_ptr<BundleAdjuster> bundle_adjuster = CreateDefaultBundleAdjuster(
-      BundleAdjustmentOptions(), std::move(config), reconstruction);
+      BundleAdjustmentOptions(), config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_TRUE(summary.IsSolutionUsable());
+  ASSERT_TRUE(summary->IsSolutionUsable());
 
-  std::shared_ptr<ceres::Problem> problem = bundle_adjuster->Problem();
+  // Cast to CeresBundleAdjuster to access Problem()
+  auto* ceres_ba = dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
+  ASSERT_NE(ceres_ba, nullptr);
+  std::shared_ptr<ceres::Problem> problem = ceres_ba->Problem();
 
   const std::optional<BACovariance> ba_cov =
-      EstimateBACovariance(options, reconstruction, *bundle_adjuster);
+      EstimateBACovariance(options, reconstruction, *ceres_ba);
   ASSERT_TRUE(ba_cov.has_value());
 
   const std::vector<internal::PointParam> points =

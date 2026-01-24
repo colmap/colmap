@@ -51,6 +51,12 @@ void GenerateArguments(benchmark::internal::Benchmark* b) {
   }
 }
 
+inline const ceres::Solver::Summary& GetCeresSummary(
+    const BundleAdjustmentSummary* summary) {
+  return dynamic_cast<const CeresBundleAdjustmentSummary*>(summary)
+      ->ceres_summary;
+}
+
 class BM_BundleAdjustment : public benchmark::Fixture {
  public:
   void SetUp(::benchmark::State& state) {
@@ -79,7 +85,9 @@ class BM_BundleAdjustment : public benchmark::Fixture {
 
     // Set up BA options.
     options_.print_summary = false;
-    options_.solver_options.max_num_iterations = 50;
+    if (options_.ceres) {
+      options_.ceres->solver_options.max_num_iterations = 50;
+    }
   }
 
   void TearDown(::benchmark::State& state) {
@@ -104,12 +112,13 @@ BENCHMARK_DEFINE_F(BM_BundleAdjustment, Solve)(benchmark::State& state) {
 
     auto bundle_adjuster =
         CreateDefaultBundleAdjuster(options_, config_, reconstruction_copy);
-    const ceres::Solver::Summary summary = bundle_adjuster->Solve();
+    const auto summary = bundle_adjuster->Solve();
 
     // Stop timing and check if BA converged.
     state.PauseTiming();
-    num_iterations += summary.num_successful_steps;
-    if (summary.termination_type == ceres::NO_CONVERGENCE) {
+    num_iterations += GetCeresSummary(summary.get()).num_successful_steps;
+    if (summary->termination_type ==
+        BATerminationType::NO_CONVERGENCE) {
       state.SkipWithError("Bundle adjustment did not converge");
     }
     state.ResumeTiming();

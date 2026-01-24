@@ -42,6 +42,13 @@
 namespace colmap {
 
 struct GlobalPipelineOptions {
+  GlobalPipelineOptions() = default;
+  GlobalPipelineOptions(GlobalPipelineOptions&&) = default;
+  GlobalPipelineOptions& operator=(GlobalPipelineOptions&&) = default;
+
+  // Create a deep copy of these options.
+  GlobalPipelineOptions Clone() const;
+
   // The minimum number of matches for inlier matches to be considered.
   int min_num_matches = 15;
 
@@ -71,12 +78,16 @@ struct GlobalPipelineOptions {
 
   // Options for the global mapper.
   glomap::GlobalMapperOptions mapper;
+
+ private:
+  GlobalPipelineOptions(const GlobalPipelineOptions&) = delete;
+  GlobalPipelineOptions& operator=(const GlobalPipelineOptions&) = delete;
 };
 
 class GlobalPipeline : public BaseController {
  public:
   GlobalPipeline(
-      const GlobalPipelineOptions& options,
+      GlobalPipelineOptions options,
       std::shared_ptr<Database> database,
       std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager);
 

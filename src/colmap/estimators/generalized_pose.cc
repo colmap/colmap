@@ -43,7 +43,6 @@
 #include "colmap/util/logging.h"
 
 #include <Eigen/Core>
-#include <ceres/ceres.h>
 
 namespace colmap {
 namespace {

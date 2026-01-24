@@ -5,18 +5,17 @@ of the exposed ceres problem from conventional bundle adjustment.
 """
 
 import collections
-import copy
 
 import pycolmap
-from pycolmap import logging, pyceres
+from pycolmap import logging
 
 
 def solve_bundle_adjustment(
     reconstruction: pycolmap.Reconstruction,
     ba_options: pycolmap.BundleAdjustmentOptions,
     ba_config: pycolmap.BundleAdjustmentConfig,
-) -> pyceres.SolverSummary:
-    bundle_adjuster = pycolmap.create_default_bundle_adjuster(
+) -> pycolmap.CeresBundleAdjustmentSummary:
+    bundle_adjuster = pycolmap.create_default_ceres_bundle_adjuster(
         ba_options, ba_config, reconstruction
     )
     summary = bundle_adjuster.solve()
@@ -27,6 +26,7 @@ def solve_bundle_adjustment(
     # )
     # summary = pyceres.SolverSummary()
     # pyceres.solve(solver_options, bundle_adjuster.problem, summary)
+    assert isinstance(summary, pycolmap.CeresBundleAdjustmentSummary)
     return summary
 
 
@@ -41,15 +41,17 @@ def adjust_global_bundle(
     reg_frame_ids = reconstruction.reg_frame_ids()
     if len(reg_frame_ids) < 2:
         logging.fatal("At least two images must be registered for global BA")
-    ba_options_tmp = copy.deepcopy(ba_options)
+    custom_ba_options = ba_options.clone()
 
     # Use stricter convergence criteria for first registered images
     if len(reg_frame_ids) < 10:  # kMinNumRegImagesForFastBA = 10
-        ba_options_tmp.solver_options.function_tolerance /= 10
-        ba_options_tmp.solver_options.gradient_tolerance /= 10
-        ba_options_tmp.solver_options.parameter_tolerance /= 10
-        ba_options_tmp.solver_options.max_num_iterations *= 2
-        ba_options_tmp.solver_options.max_linear_solver_iterations = 200
+        custom_ba_options.ceres.solver_options.function_tolerance /= 10
+        custom_ba_options.ceres.solver_options.gradient_tolerance /= 10
+        custom_ba_options.ceres.solver_options.parameter_tolerance /= 10
+        custom_ba_options.ceres.solver_options.max_num_iterations *= 2
+        custom_ba_options.ceres.solver_options.max_linear_solver_iterations = (
+            200
+        )
 
     # Avoid degeneracies in bundle adjustment
     mapper.observation_manager.filter_observations_with_negative_depth()
@@ -80,9 +82,11 @@ def adjust_global_bundle(
     ba_config.fix_gauge(pycolmap.BundleAdjustmentGauge.THREE_POINTS)
 
     # Run bundle adjustment
-    summary = solve_bundle_adjustment(reconstruction, ba_options_tmp, ba_config)
+    summary = solve_bundle_adjustment(
+        reconstruction, custom_ba_options, ba_config
+    )
     logging.info("Global Bundle Adjustment")
-    logging.info(summary.BriefReport())
+    logging.info(summary.ceres_summary.BriefReport())
 
 
 def iterative_global_refinement(
@@ -206,7 +210,7 @@ def adjust_local_bundle(
             mapper.reconstruction, ba_options, ba_config
         )
         logging.info("Local Bundle Adjustment")
-        logging.info(summary.BriefReport())
+        logging.info(summary.ceres_summary.BriefReport())
 
         image_ids = ba_config.images
         report.num_adjusted_observations = int(summary.num_residuals / 2)
@@ -252,11 +256,11 @@ def iterative_local_refinement(
     image_id: int,
 ) -> None:
     """Equivalent to mapper.iterative_local_refinement(...)"""
-    ba_options_tmp = copy.deepcopy(ba_options)
+    custom_ba_options = ba_options.clone()
     for _ in range(max_num_refinements):
         # report = mapper.adjust_local_bundle(
         #     mapper_options,
-        #     ba_options_tmp,
+        #     custom_ba_options,
         #     tri_options,
         #     image_id,
         #     mapper.get_modified_points3D(),
@@ -264,7 +268,7 @@ def iterative_local_refinement(
         report = adjust_local_bundle(
             mapper,
             mapper_options,
-            ba_options_tmp,
+            custom_ba_options,
             tri_options,
             image_id,
             mapper.get_modified_points3D(),
@@ -290,5 +294,7 @@ def iterative_local_refinement(
             break
 
         # Only use robust cost function for first iteration
-        ba_options_tmp.loss_function_type = pycolmap.LossFunctionType.TRIVIAL
+        custom_ba_options.ceres.loss_function_type = (
+            pycolmap.LossFunctionType.TRIVIAL
+        )
     mapper.clear_modified_points3D()

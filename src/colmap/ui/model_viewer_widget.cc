@@ -29,6 +29,7 @@
 
 #include "colmap/ui/model_viewer_widget.h"
 
+#include "colmap/math/math.h"
 #include "colmap/ui/main_window.h"
 
 #include <set>

@@ -34,8 +34,6 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
-#include <ceres/ceres.h>
-
 namespace colmap {
 namespace {
 
@@ -81,10 +79,12 @@ void BundleAdjustmentController::Run() {
   // Avoid degeneracies in bundle adjustment.
   ObservationManager(*reconstruction_).FilterObservationsWithNegativeDepth();
 
-  BundleAdjustmentOptions ba_options = *options_.bundle_adjustment;
+  BundleAdjustmentOptions ba_options = options_.bundle_adjustment->Clone();
 
   BundleAdjustmentIterationCallback iteration_callback(this);
-  ba_options.solver_options.callbacks.push_back(&iteration_callback);
+  if (ba_options.ceres) {
+    ba_options.ceres->solver_options.callbacks.push_back(&iteration_callback);
+  }
 
   // Configure bundle adjustment.
   BundleAdjustmentConfig ba_config;
@@ -98,8 +98,8 @@ void BundleAdjustmentController::Run() {
   ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   // Run bundle adjustment.
-  std::unique_ptr<BundleAdjuster> bundle_adjuster = CreateDefaultBundleAdjuster(
-      std::move(ba_options), std::move(ba_config), *reconstruction_);
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
   bundle_adjuster->Solve();
   reconstruction_->UpdatePoint3DErrors();
 

@@ -118,13 +118,17 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.feature_extraction->use_gpu = options_.use_gpu;
   option_manager_.feature_matching->use_gpu = options_.use_gpu;
   option_manager_.mapper->ba_use_gpu = options_.use_gpu;
-  option_manager_.bundle_adjustment->use_gpu = options_.use_gpu;
+  if (option_manager_.bundle_adjustment->ceres) {
+    option_manager_.bundle_adjustment->ceres->use_gpu = options_.use_gpu;
+  }
 
   option_manager_.feature_extraction->gpu_index = options_.gpu_index;
   option_manager_.feature_matching->gpu_index = options_.gpu_index;
   option_manager_.patch_match_stereo->gpu_index = options_.gpu_index;
   option_manager_.mapper->ba_gpu_index = options_.gpu_index;
-  option_manager_.bundle_adjustment->gpu_index = options_.gpu_index;
+  if (option_manager_.bundle_adjustment->ceres) {
+    option_manager_.bundle_adjustment->ceres->gpu_index = options_.gpu_index;
+  }
 }
 
 bool AutomaticReconstructionController::RequiresOpenGL() const {
@@ -294,8 +298,9 @@ void AutomaticReconstructionController::RunSparseMapper() {
       global_options.image_path = *option_manager_.image_path;
       global_options.num_threads = options_.num_threads;
       global_options.random_seed = options_.random_seed;
-      mapper = std::make_unique<GlobalPipeline>(
-          global_options, std::move(database), reconstruction_manager_);
+      mapper = std::make_unique<GlobalPipeline>(std::move(global_options),
+                                                std::move(database),
+                                                reconstruction_manager_);
       break;
     }
     default:

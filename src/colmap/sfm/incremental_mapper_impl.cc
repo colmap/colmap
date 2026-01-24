@@ -32,6 +32,7 @@
 #include "colmap/estimators/generalized_pose.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/triangulation.h"
+#include "colmap/math/math.h"
 #include "colmap/util/threading.h"
 
 #include <array>
