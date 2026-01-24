@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/scene/reconstruction.h"
 

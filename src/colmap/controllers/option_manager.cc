@@ -32,7 +32,7 @@
 #include "colmap/controllers/global_pipeline.h"
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_pipeline.h"
-#include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/pairing.h"
 #include "colmap/feature/sift.h"

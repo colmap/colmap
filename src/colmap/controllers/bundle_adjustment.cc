@@ -29,7 +29,7 @@
 
 #include "colmap/controllers/bundle_adjustment.h"
 
-#include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"

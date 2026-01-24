@@ -29,7 +29,7 @@
 
 #include "colmap/estimators/covariance.h"
 
-#include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/manifold.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/reconstruction.h"

@@ -35,7 +35,7 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_estimators
     SRCS
         alignment.h alignment.cc
-        bundle_adjustment.h bundle_adjustment.cc
+        bundle_adjustment_ceres.h bundle_adjustment_ceres.cc
         coordinate_frame.h coordinate_frame.cc
         cost_function_utils.h
         cost_functions.h
@@ -72,7 +72,7 @@ COLMAP_ADD_TEST(
 )
 COLMAP_ADD_TEST(
     NAME bundle_adjustment_test
-    SRCS bundle_adjustment_test.cc
+    SRCS bundle_adjustment_ceres_test.cc
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(

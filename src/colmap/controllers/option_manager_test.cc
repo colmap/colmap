@@ -31,7 +31,7 @@
 
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_pipeline.h"
-#include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/feature/sift.h"
 #include "colmap/mvs/patch_match_options.h"
 #include "colmap/util/file.h"

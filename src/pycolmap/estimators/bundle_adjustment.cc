@@ -1,4 +1,4 @@
-#include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
