@@ -101,20 +101,43 @@ TEST(ReprojErrorCostFunctor, AnalyticalVersusAutoDiff) {
                                               cam_from_world.params.data(),
                                               simple_radial_params.data()};
 
-        constexpr double kEps = 1e-9;
+        constexpr double kTol = 1e-10;
 
+        // Evaluate both cost functions with Jacobians
+        Eigen::Vector2d analytical_residuals;
         Eigen::Vector2d auto_diff_residuals;
-        EXPECT_TRUE(auto_diff_cost_function->Evaluate(
-            parameter_blocks.data(), auto_diff_residuals.data(), nullptr));
+        Eigen::Matrix<double, 2, 3, Eigen::RowMajor> J_point_analytical;
+        Eigen::Matrix<double, 2, 7, Eigen::RowMajor>
+            J_cam_from_world_analytical;
+        Eigen::Matrix<double, 2, 4, Eigen::RowMajor> J_params_analytical;
+        Eigen::Matrix<double, 2, 3, Eigen::RowMajor> J_point_autodiff;
+        Eigen::Matrix<double, 2, 7, Eigen::RowMajor> J_cam_from_world_autodiff;
+        Eigen::Matrix<double, 2, 4, Eigen::RowMajor> J_params_autodiff;
 
-        ceres::NumericDiffOptions numeric_diff_options;
-        ceres::GradientChecker gradient_checker(
-            analytical_cost_function.get(), nullptr, numeric_diff_options);
-        ceres::GradientChecker::ProbeResults results;
+        double* jacobians_analytical[] = {J_point_analytical.data(),
+                                          J_cam_from_world_analytical.data(),
+                                          J_params_analytical.data()};
+        double* jacobians_autodiff[] = {J_point_autodiff.data(),
+                                        J_cam_from_world_autodiff.data(),
+                                        J_params_autodiff.data()};
+
         EXPECT_TRUE(
-            gradient_checker.Probe(parameter_blocks.data(), kEps, &results));
-        EXPECT_NEAR(results.residuals[0], auto_diff_residuals[0], kEps);
-        EXPECT_NEAR(results.residuals[1], auto_diff_residuals[1], kEps);
+            analytical_cost_function->Evaluate(parameter_blocks.data(),
+                                               analytical_residuals.data(),
+                                               jacobians_analytical));
+        EXPECT_TRUE(
+            auto_diff_cost_function->Evaluate(parameter_blocks.data(),
+                                              auto_diff_residuals.data(),
+                                              jacobians_autodiff));
+
+        EXPECT_THAT(analytical_residuals,
+                    EigenMatrixNear(auto_diff_residuals, kTol));
+        EXPECT_THAT(J_point_analytical,
+                    EigenMatrixNear(J_point_autodiff, kTol));
+        EXPECT_THAT(J_cam_from_world_analytical,
+                    EigenMatrixNear(J_cam_from_world_autodiff, kTol));
+        EXPECT_THAT(J_params_analytical,
+                    EigenMatrixNear(J_params_autodiff, kTol));
       }
     }
   }
@@ -228,6 +251,88 @@ TEST(RigReprojErrorCostFunctor, Nominal) {
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], -2);
   EXPECT_EQ(residuals[1], 2);
+}
+
+TEST(RigReprojErrorCostFunctor, AnalyticalVersusAutoDiff) {
+  SetPRNGSeed(42);
+
+  const Eigen::Vector2d kPoint2D(200, 300);
+  auto analytical_cost_function = std::make_unique<
+      AnalyticalRigReprojErrorCostFunction<SimpleRadialCameraModel>>(kPoint2D);
+  std::unique_ptr<ceres::CostFunction> auto_diff_cost_function(
+      RigReprojErrorCostFunctor<SimpleRadialCameraModel>::Create(kPoint2D));
+
+  for (const double x : {-1, 0, 1}) {
+    for (const double y : {-1, 0, 1}) {
+      for (const double z : {0, 1, 2, 3}) {
+        Rigid3d cam_from_rig(Eigen::Quaterniond(Eigen::AngleAxisd(
+                                 RandomUniformReal<double>(0, 2 * EIGEN_PI),
+                                 Eigen::Vector3d(0.3, -0.2, 1).normalized())),
+                             Eigen::Vector3d(0.1, 0.2, -0.5));
+        Rigid3d rig_from_world(Eigen::Quaterniond(Eigen::AngleAxisd(
+                                   RandomUniformReal<double>(0, 2 * EIGEN_PI),
+                                   Eigen::Vector3d(0.1, -0.1, 1).normalized())),
+                               Eigen::Vector3d(1, 2, 3));
+        Eigen::Vector3d point3D(x, y, z);
+        std::vector<double> simple_radial_params = {200, 100, 120, 0.1};
+
+        // Ensure point is in front of camera.
+        const Eigen::Vector3d point3D_in_cam =
+            cam_from_rig * (rig_from_world * point3D);
+        ASSERT_GT(point3D_in_cam.z(), 0);
+
+        std::vector<double*> parameter_blocks{point3D.data(),
+                                              cam_from_rig.params.data(),
+                                              rig_from_world.params.data(),
+                                              simple_radial_params.data()};
+
+        constexpr double kTol = 1e-10;
+
+        // Evaluate both cost functions with Jacobians
+        Eigen::Vector2d analytical_residuals;
+        Eigen::Vector2d auto_diff_residuals;
+        Eigen::Matrix<double, 2, 3, Eigen::RowMajor> J_point_analytical;
+        Eigen::Matrix<double, 2, 7, Eigen::RowMajor> J_cam_from_rig_analytical;
+        Eigen::Matrix<double, 2, 7, Eigen::RowMajor>
+            J_rig_from_world_analytical;
+        Eigen::Matrix<double, 2, 4, Eigen::RowMajor> J_params_analytical;
+        Eigen::Matrix<double, 2, 3, Eigen::RowMajor> J_point_autodiff;
+        Eigen::Matrix<double, 2, 7, Eigen::RowMajor> J_cam_from_rig_autodiff;
+        Eigen::Matrix<double, 2, 7, Eigen::RowMajor> J_rig_from_world_autodiff;
+        Eigen::Matrix<double, 2, 4, Eigen::RowMajor> J_params_autodiff;
+
+        double* jacobians_analytical[] = {J_point_analytical.data(),
+                                          J_cam_from_rig_analytical.data(),
+                                          J_rig_from_world_analytical.data(),
+                                          J_params_analytical.data()};
+        double* jacobians_autodiff[] = {J_point_autodiff.data(),
+                                        J_cam_from_rig_autodiff.data(),
+                                        J_rig_from_world_autodiff.data(),
+                                        J_params_autodiff.data()};
+
+        EXPECT_TRUE(
+            analytical_cost_function->Evaluate(parameter_blocks.data(),
+                                               analytical_residuals.data(),
+                                               jacobians_analytical));
+        EXPECT_TRUE(
+            auto_diff_cost_function->Evaluate(parameter_blocks.data(),
+                                              auto_diff_residuals.data(),
+                                              jacobians_autodiff));
+
+        // Check residuals and Jacobians match
+        EXPECT_THAT(analytical_residuals,
+                    EigenMatrixNear(auto_diff_residuals, kTol));
+        EXPECT_THAT(J_point_analytical,
+                    EigenMatrixNear(J_point_autodiff, kTol));
+        EXPECT_THAT(J_cam_from_rig_analytical,
+                    EigenMatrixNear(J_cam_from_rig_autodiff, kTol));
+        EXPECT_THAT(J_rig_from_world_analytical,
+                    EigenMatrixNear(J_rig_from_world_autodiff, kTol));
+        EXPECT_THAT(J_params_analytical,
+                    EigenMatrixNear(J_params_autodiff, kTol));
+      }
+    }
+  }
 }
 
 TEST(RigReprojErrorConstantRigCostFunctor, Nominal) {

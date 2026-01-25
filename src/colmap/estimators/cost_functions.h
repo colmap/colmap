@@ -129,26 +129,120 @@ class AnalyticalReprojErrorCostFunction
     const double* cam_from_world = parameters[1];
     const double* camera_params = parameters[2];
 
-    double* J_point = jacobians ? jacobians[0] : nullptr;
-    double* J_pose = jacobians ? jacobians[1] : nullptr;
-    double* J_params = jacobians ? jacobians[2] : nullptr;
+    double* J_point3D_in_world = jacobians ? jacobians[0] : nullptr;
+    double* J_cam_from_world = jacobians ? jacobians[1] : nullptr;
+    double* J_camera_params = jacobians ? jacobians[2] : nullptr;
 
     Eigen::Map<Eigen::Vector2d> residuals_vec(residuals);
 
-    Eigen::Map<Eigen::Matrix<double, 2, 3, Eigen::RowMajor>> J_point_mat(
-        J_point);
-    Eigen::Map<Eigen::Matrix<double, 2, 7, Eigen::RowMajor>> J_pose_mat(J_pose);
+    Eigen::Map<Eigen::Matrix<double, 2, 3, Eigen::RowMajor>>
+        J_point3D_in_world_mat(J_point3D_in_world);
+    Eigen::Map<Eigen::Matrix<double, 2, 7, Eigen::RowMajor>>
+        J_cam_from_world_mat(J_cam_from_world);
     Eigen::Map<
         Eigen::Matrix<double, 2, CameraModel::num_params, Eigen::RowMajor>>
-        J_params_mat(J_params);
+        J_camera_params_mat(J_camera_params);
     Eigen::Matrix<double, 3, 4, Eigen::RowMajor> J_Rp_quat_mat;
     Eigen::Matrix<double, 2, 3, Eigen::RowMajor> J_uvw_mat;
 
     const Eigen::Vector3d point3D_in_cam =
-        QuaternionRotatePointWithJac(cam_from_world,
-                                     point3D_in_world,
-                                     J_pose ? J_Rp_quat_mat.data() : nullptr) +
+        QuaternionRotatePointWithJac(
+            cam_from_world,
+            point3D_in_world,
+            J_cam_from_world ? J_Rp_quat_mat.data() : nullptr) +
         Eigen::Map<const Eigen::Vector3d>(cam_from_world + 4);
+
+    if (!CameraModel::ImgFromCamWithJac(camera_params,
+                                        point3D_in_cam[0],
+                                        point3D_in_cam[1],
+                                        point3D_in_cam[2],
+                                        &residuals[0],
+                                        &residuals[1],
+                                        J_camera_params,
+                                        (J_point3D_in_world || J_cam_from_world)
+                                            ? J_uvw_mat.data()
+                                            : nullptr)) {
+      residuals_vec.setZero();
+      if (J_point3D_in_world) {
+        J_point3D_in_world_mat.setZero();
+      }
+      if (J_cam_from_world) {
+        J_cam_from_world_mat.setZero();
+      }
+      if (J_camera_params) {
+        J_camera_params_mat.setZero();
+      }
+      return true;
+    }
+
+    residuals_vec -= point2D_;
+
+    if (J_point3D_in_world) {
+      J_point3D_in_world_mat =
+          J_uvw_mat *
+          EigenQuaternionMap<double>(cam_from_world).toRotationMatrix();
+    }
+    if (J_cam_from_world) {
+      J_cam_from_world_mat.leftCols<4>() = J_uvw_mat * J_Rp_quat_mat;
+      J_cam_from_world_mat.rightCols<3>() = J_uvw_mat;
+    }
+
+    return true;
+  }
+
+ private:
+  const Eigen::Vector2d point2D_;
+};
+
+// Full rig reprojection error cost function with analytical Jacobians.
+// Requires camera model to implement ImgFromCamWithJac().
+template <typename CameraModel>
+class AnalyticalRigReprojErrorCostFunction
+    : public ceres::SizedCostFunction<2, 3, 7, 7, CameraModel::num_params> {
+ public:
+  explicit AnalyticalRigReprojErrorCostFunction(const Eigen::Vector2d& point2D)
+      : point2D_(point2D) {}
+
+  bool Evaluate(double const* const* parameters,
+                double* residuals,
+                double** jacobians) const override {
+    const double* point3D_in_world = parameters[0];
+    const double* cam_from_rig = parameters[1];
+    const double* rig_from_world = parameters[2];
+    const double* camera_params = parameters[3];
+
+    double* J_point3D_in_world = jacobians ? jacobians[0] : nullptr;
+    double* J_cam_from_rig = jacobians ? jacobians[1] : nullptr;
+    double* J_rig_from_world = jacobians ? jacobians[2] : nullptr;
+    double* J_camera_params = jacobians ? jacobians[3] : nullptr;
+
+    Eigen::Map<Eigen::Vector2d> residuals_vec(residuals);
+
+    Eigen::Map<Eigen::Matrix<double, 2, 3, Eigen::RowMajor>>
+        J_point3D_in_world_mat(J_point3D_in_world);
+    Eigen::Map<Eigen::Matrix<double, 2, 7, Eigen::RowMajor>> J_cam_from_rig_mat(
+        J_cam_from_rig);
+    Eigen::Map<Eigen::Matrix<double, 2, 7, Eigen::RowMajor>>
+        J_rig_from_world_mat(J_rig_from_world);
+    Eigen::Map<
+        Eigen::Matrix<double, 2, CameraModel::num_params, Eigen::RowMajor>>
+        J_camera_params_mat(J_camera_params);
+    Eigen::Matrix<double, 3, 4, Eigen::RowMajor> J_Rp_rig_quat_mat;
+    Eigen::Matrix<double, 3, 4, Eigen::RowMajor> J_Rp_cam_quat_mat;
+    Eigen::Matrix<double, 2, 3, Eigen::RowMajor> J_uvw_mat;
+
+    const Eigen::Vector3d point3D_in_rig =
+        QuaternionRotatePointWithJac(
+            rig_from_world,
+            point3D_in_world,
+            J_rig_from_world ? J_Rp_rig_quat_mat.data() : nullptr) +
+        Eigen::Map<const Eigen::Vector3d>(rig_from_world + 4);
+    const Eigen::Vector3d point3D_in_cam =
+        QuaternionRotatePointWithJac(
+            cam_from_rig,
+            point3D_in_rig.data(),
+            J_cam_from_rig ? J_Rp_cam_quat_mat.data() : nullptr) +
+        Eigen::Map<const Eigen::Vector3d>(cam_from_rig + 4);
 
     if (!CameraModel::ImgFromCamWithJac(
             camera_params,
@@ -157,31 +251,45 @@ class AnalyticalReprojErrorCostFunction
             point3D_in_cam[2],
             &residuals[0],
             &residuals[1],
-            J_params,
-            (J_point || J_pose) ? J_uvw_mat.data() : nullptr)) {
+            J_camera_params,
+            (J_point3D_in_world || J_cam_from_rig || J_rig_from_world)
+                ? J_uvw_mat.data()
+                : nullptr)) {
       residuals_vec.setZero();
-      if (J_pose) {
-        J_pose_mat.setZero();
+      if (J_point3D_in_world) {
+        J_point3D_in_world_mat.setZero();
       }
-      if (J_point) {
-        J_point_mat.setZero();
+      if (J_cam_from_rig) {
+        J_cam_from_rig_mat.setZero();
       }
-      if (J_params) {
-        J_params_mat.setZero();
+      if (J_rig_from_world) {
+        J_rig_from_world_mat.setZero();
+      }
+      if (J_camera_params) {
+        J_camera_params_mat.setZero();
       }
       return true;
     }
 
     residuals_vec -= point2D_;
 
-    if (J_point) {
-      J_point_mat =
-          J_uvw_mat *
-          EigenQuaternionMap<double>(cam_from_world).toRotationMatrix();
+    const Eigen::Matrix3d R_cam_from_rig =
+        EigenQuaternionMap<double>(cam_from_rig).toRotationMatrix();
+    const Eigen::Matrix3d R_rig_from_world =
+        EigenQuaternionMap<double>(rig_from_world).toRotationMatrix();
+
+    if (J_point3D_in_world) {
+      J_point3D_in_world_mat = J_uvw_mat * R_cam_from_rig * R_rig_from_world;
     }
-    if (J_pose) {
-      J_pose_mat.leftCols<4>() = J_uvw_mat * J_Rp_quat_mat;
-      J_pose_mat.rightCols<3>() = J_uvw_mat;
+    if (J_cam_from_rig) {
+      J_cam_from_rig_mat.leftCols<4>() = J_uvw_mat * J_Rp_cam_quat_mat;
+      J_cam_from_rig_mat.rightCols<3>() = J_uvw_mat;
+    }
+    if (J_rig_from_world) {
+      const Eigen::Matrix<double, 2, 3, Eigen::RowMajor> J_uvw_R_cam =
+          J_uvw_mat * R_cam_from_rig;
+      J_rig_from_world_mat.leftCols<4>() = J_uvw_R_cam * J_Rp_rig_quat_mat;
+      J_rig_from_world_mat.rightCols<3>() = J_uvw_R_cam;
     }
 
     return true;
