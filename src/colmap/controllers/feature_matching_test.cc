@@ -372,6 +372,8 @@ TEST(CreateGeometricVerifier, RigVerification) {
   int num_calibrated_rig = 0;
   int num_others = 0;
   for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
+    EXPECT_EQ(two_view_geometry.inlier_matches.size(),
+              synthetic_dataset_options.num_points3D);
     switch (two_view_geometry.config) {
       case TwoViewGeometry::CALIBRATED:
         ++num_calibrated;
