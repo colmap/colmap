@@ -365,13 +365,12 @@ TEST(CreateGeometricVerifier, RigVerification) {
   verifier->Start();
   verifier->Wait();
 
-  const auto two_view_geometries = database->ReadTwoViewGeometries();
-
   // Verify that two-view geometries were created.
   int num_calibrated = 0;
   int num_calibrated_rig = 0;
   int num_others = 0;
-  for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
+  for (const auto& [pair_id, two_view_geometry] :
+       database->ReadTwoViewGeometries()) {
     EXPECT_EQ(two_view_geometry.inlier_matches.size(),
               synthetic_dataset_options.num_points3D);
     switch (two_view_geometry.config) {
