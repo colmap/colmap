@@ -59,9 +59,15 @@ void RigVerification(const std::shared_ptr<Database>& database,
     }
   }
 
-  std::map<std::pair<frame_t, frame_t>, int> frame_pair_to_num_matches;
-  for (const auto& [image_pair_id, num_matches] : database->ReadNumMatches()) {
-    if (num_matches == 0) {
+  struct FramePairStats {
+    int num_image_pairs = 0;
+    int num_matches = 0;
+  };
+
+  std::map<std::pair<frame_t, frame_t>, FramePairStats> frame_pair_stats;
+  for (const auto& [image_pair_id, pair_num_matches] :
+       database->ReadNumMatches()) {
+    if (pair_num_matches == 0) {
       continue;
     }
     const auto [image_id1, image_id2] = PairIdToImagePair(image_pair_id);
@@ -70,13 +76,18 @@ void RigVerification(const std::shared_ptr<Database>& database,
     if (frame_id1 > frame_id2) {
       std::swap(frame_id1, frame_id2);
     }
-    frame_pair_to_num_matches[std::make_pair(frame_id1, frame_id2)] +=
-        num_matches;
+    auto& stats = frame_pair_stats[{frame_id1, frame_id2}];
+    stats.num_image_pairs += 1;
+    stats.num_matches += pair_num_matches;
   }
 
   ThreadPool thread_pool(num_threads);
-  for (const auto& [frame_pair, num_matches] : frame_pair_to_num_matches) {
-    if (num_matches < geometry_options.min_num_inliers) {
+  for (const auto& [frame_pair, stats] : frame_pair_stats) {
+    // If the frame pair has only matches between one pair of images, then
+    // there is no need to run rig verification, as there are no rig
+    // constraints.
+    if (stats.num_image_pairs <= 1 ||
+        stats.num_matches < geometry_options.min_num_inliers) {
       continue;
     }
     thread_pool.AddTask([&cache,
@@ -88,9 +99,6 @@ void RigVerification(const std::shared_ptr<Database>& database,
       const Frame& frame2 = cache->GetFrame(frame_id2);
       const Rig& rig1 = rigs.at(frame1.RigId());
       const Rig& rig2 = rigs.at(frame2.RigId());
-      if (rig1.NumSensors() == 1 && rig2.NumSensors() == 1) {
-        return;
-      }
 
       std::unordered_map<image_t, Image> images;
       images.reserve(frame1.NumDataIds() + frame2.NumDataIds());
@@ -116,12 +124,12 @@ void RigVerification(const std::shared_ptr<Database>& database,
         const image_t image_id1 = data_id1.id;
         for (const data_t& data_id2 : frame2.ImageIds()) {
           const image_t image_id2 = data_id2.id;
-          // If verifying within the same frame (panoramic), then skip
-          // redundant image pairs, whereas different frames are guaranteed to
-          // have different image pairs. Note that verifying within the same
-          // frame can be useful when the images have some overlap but the
-          // matches between image pairs are not enough but accumulating
-          // them over the whole frame can lead to a successful verification.
+          // If verifying within the same frame, then skip redundant image
+          // pairs, whereas different frames are guaranteed to have different
+          // image pairs. Note that verifying within the same frame can be
+          // useful when the images have some overlap but the matches between
+          // image pairs are not enough alone but accumulating them over the
+          // whole frame can lead to a successful verification.
           if ((frame_id1 == frame_id2 && image_id1 <= image_id2) ||
               !cache->ExistsMatches(image_id1, image_id2)) {
             continue;
