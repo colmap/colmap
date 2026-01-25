@@ -67,10 +67,6 @@ void RigVerification(const std::shared_ptr<Database>& database,
     const auto [image_id1, image_id2] = PairIdToImagePair(image_pair_id);
     frame_t frame_id1 = image_to_frame_ids.at(image_id1);
     frame_t frame_id2 = image_to_frame_ids.at(image_id2);
-    if (frame_id1 == frame_id2) {
-      // Rig verification is not applicable to the same frame.
-      continue;
-    }
     if (frame_id1 > frame_id2) {
       std::swap(frame_id1, frame_id2);
     }
@@ -120,7 +116,14 @@ void RigVerification(const std::shared_ptr<Database>& database,
         const image_t image_id1 = data_id1.id;
         for (const data_t& data_id2 : frame2.ImageIds()) {
           const image_t image_id2 = data_id2.id;
-          if (!cache->ExistsMatches(image_id1, image_id2)) {
+          // If verifying within the same frame (panoramic), then skip
+          // redundant image pairs, whereas different frames are guaranteed to
+          // have different image pairs. Note that verifying within the same
+          // frame can be useful when the images have some overlap but the
+          // matches between image pairs are not enough but accumulating
+          // them over the whole frame can lead to a successful verification.
+          if ((frame_id1 == frame_id2 && image_id1 <= image_id2) ||
+              !cache->ExistsMatches(image_id1, image_id2)) {
             continue;
           }
           matches.emplace_back(std::make_pair(image_id1, image_id2),

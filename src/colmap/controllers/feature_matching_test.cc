@@ -337,17 +337,15 @@ TEST(CreateGeometricVerifier, RigVerification) {
   const auto database_path = test_dir / "database.db";
   auto database = Database::Open(database_path);
 
-  Reconstruction unused_reconstruction;
+  Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 2;
   synthetic_dataset_options.num_frames_per_rig = 2;
   synthetic_dataset_options.num_points3D = 25;
-  SynthesizeDataset(
-      synthetic_dataset_options, &unused_reconstruction, database.get());
-
-  const size_t num_two_view_geometries =
-      database->ReadTwoViewGeometries().size();
+  synthetic_dataset_options.match_config =
+      SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction, database.get());
 
   // Clear two-view geometries to force re-verification.
   database->ClearTwoViewGeometries();
@@ -355,7 +353,7 @@ TEST(CreateGeometricVerifier, RigVerification) {
   ExistingMatchedPairingOptions pairing_options;
 
   GeometricVerifierOptions verifier_options;
-  verifier_options.num_threads = 2;
+  verifier_options.num_threads = 3;
   verifier_options.rig_verification = true;
 
   TwoViewGeometryOptions geometry_options;
@@ -368,7 +366,9 @@ TEST(CreateGeometricVerifier, RigVerification) {
   verifier->Wait();
 
   // Verify that two-view geometries were created.
-  EXPECT_EQ(database->ReadTwoViewGeometries().size(), num_two_view_geometries);
+  const size_t num_expected_pairs =
+      reconstruction.NumImages() * (reconstruction.NumImages() - 1) / 2;
+  EXPECT_EQ(database->ReadTwoViewGeometries().size(), num_expected_pairs);
 }
 
 TEST(CreateGeometricVerifier, Guided) {
