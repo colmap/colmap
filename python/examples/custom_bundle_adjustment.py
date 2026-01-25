@@ -5,6 +5,7 @@ of the exposed ceres problem from conventional bundle adjustment.
 """
 
 import collections
+import copy
 
 import pycolmap
 from pycolmap import logging
@@ -43,7 +44,7 @@ def adjust_global_bundle(
     reg_frame_ids = reconstruction.reg_frame_ids()
     if len(reg_frame_ids) < 2:
         logging.fatal("At least two images must be registered for global BA")
-    custom_ba_options = ba_options.clone()
+    custom_ba_options = copy.deepcopy(ba_options)
 
     # Use stricter convergence criteria for first registered images
     if len(reg_frame_ids) < 10:  # kMinNumRegImagesForFastBA = 10
@@ -263,7 +264,7 @@ def iterative_local_refinement(
     image_id: int,
 ) -> None:
     """Equivalent to mapper.iterative_local_refinement(...)"""
-    custom_ba_options = ba_options.clone()
+    custom_ba_options = copy.deepcopy(ba_options)
     for _ in range(max_num_refinements):
         # report = mapper.adjust_local_bundle(
         #     mapper_options,

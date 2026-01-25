@@ -269,15 +269,7 @@ void BindBundleAdjuster(py::module& m) {
           .def_readwrite("ceres",
                          &BAOpts::ceres,
                          "Ceres-specific bundle adjustment options.")
-          .def("check", &BAOpts::Check)
-          .def("clone", &BAOpts::Clone, "Create a deep copy of these options.")
-          .def("__copy__",
-               [](const BAOpts&) -> BAOpts {
-                 throw std::runtime_error("Use clone() instead of copy.copy()");
-               })
-          .def("__deepcopy__", [](const BAOpts&, const py::dict&) -> BAOpts {
-            throw std::runtime_error("Use clone() instead of copy.deepcopy()");
-          });
+          .def("check", &BAOpts::Check);
   MakeDataclass(PyBundleAdjustmentOptions);
 
   // Ceres-specific pose prior bundle adjustment options
@@ -312,19 +304,7 @@ void BindBundleAdjuster(py::module& m) {
           .def_readwrite("ceres",
                          &PosePriorBAOpts::ceres,
                          "Ceres-specific pose prior bundle adjustment options.")
-          .def("check", &PosePriorBAOpts::Check)
-          .def("clone",
-               &PosePriorBAOpts::Clone,
-               "Create a deep copy of these options.")
-          .def("__copy__",
-               [](const PosePriorBAOpts&) -> PosePriorBAOpts {
-                 throw std::runtime_error("Use clone() instead of copy.copy()");
-               })
-          .def("__deepcopy__",
-               [](const PosePriorBAOpts&, const py::dict&) -> PosePriorBAOpts {
-                 throw std::runtime_error(
-                     "Use clone() instead of copy.deepcopy()");
-               });
+          .def("check", &PosePriorBAOpts::Check);
   MakeDataclass(PyPosePriorBundleAdjustmentOptions);
 
   py::classh<BundleAdjuster, PyBundleAdjuster>(m, "BundleAdjuster")
