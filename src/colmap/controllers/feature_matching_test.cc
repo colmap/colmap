@@ -365,10 +365,29 @@ TEST(CreateGeometricVerifier, RigVerification) {
   verifier->Start();
   verifier->Wait();
 
+  const auto two_view_geometries = database->ReadTwoViewGeometries();
+
   // Verify that two-view geometries were created.
-  const size_t num_expected_pairs =
-      reconstruction.NumImages() * (reconstruction.NumImages() - 1) / 2;
-  EXPECT_EQ(database->ReadTwoViewGeometries().size(), num_expected_pairs);
+  int num_calibrated = 0;
+  int num_calibrated_rig = 0;
+  int num_others = 0;
+  for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
+    switch (two_view_geometry.config) {
+      case TwoViewGeometry::CALIBRATED:
+        ++num_calibrated;
+        break;
+      case TwoViewGeometry::CALIBRATED_RIG:
+        ++num_calibrated_rig;
+        break;
+      default:
+        ++num_others;
+    }
+  }
+  // Two calibrated pairs between images in the same frames.
+  EXPECT_EQ(num_calibrated, 2);
+  // Four calibrated pairs between images in different frames.
+  EXPECT_EQ(num_calibrated_rig, 4);
+  EXPECT_EQ(num_others, 0);
 }
 
 TEST(CreateGeometricVerifier, Guided) {
