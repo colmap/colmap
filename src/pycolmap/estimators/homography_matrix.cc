@@ -1,4 +1,4 @@
-#include "colmap/estimators/homography_matrix.h"
+#include "colmap/estimators/solvers/homography_matrix.h"
 
 #include "colmap/math/random.h"
 #include "colmap/optim/loransac.h"

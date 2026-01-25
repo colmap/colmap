@@ -96,11 +96,11 @@ void UpdateRigAndCameraCalibsFromReconstruction(
           database.UpdateCamera(camera);
         }
         if (rig_from_cam_rotations.empty()) {
-          rig_from_cam_translation = rig_from_cam.translation;
+          rig_from_cam_translation = rig_from_cam.translation();
         } else {
-          rig_from_cam_translation += rig_from_cam.translation;
+          rig_from_cam_translation += rig_from_cam.translation();
         }
-        rig_from_cam_rotations.push_back(rig_from_cam.rotation);
+        rig_from_cam_rotations.push_back(rig_from_cam.rotation());
       }
     }
   }
@@ -281,15 +281,15 @@ std::vector<RigConfig> ReadRigConfig(
         for (const auto& node : cam_from_rig_rotation_node.get()) {
           cam_from_rig_wxyz[index++] = node.second.get_value<double>();
         }
-        cam_from_rig.rotation = Eigen::Quaterniond(cam_from_rig_wxyz(0),
-                                                   cam_from_rig_wxyz(1),
-                                                   cam_from_rig_wxyz(2),
-                                                   cam_from_rig_wxyz(3));
+        cam_from_rig.rotation() = Eigen::Quaterniond(cam_from_rig_wxyz(0),
+                                                     cam_from_rig_wxyz(1),
+                                                     cam_from_rig_wxyz(2),
+                                                     cam_from_rig_wxyz(3));
 
         THROW_CHECK(cam_from_rig_translation_node);
         index = 0;
         for (const auto& node : cam_from_rig_translation_node.get()) {
-          cam_from_rig.translation(index++) = node.second.get_value<double>();
+          cam_from_rig.translation()(index++) = node.second.get_value<double>();
         }
         config_camera.cam_from_rig = cam_from_rig;
       }

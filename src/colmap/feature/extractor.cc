@@ -43,8 +43,31 @@ void ThrowUnknownFeatureExtractorType(FeatureExtractorType type) {
 
 }  // namespace
 
+FeatureExtractionTypeOptions::FeatureExtractionTypeOptions()
+    : sift(std::make_shared<SiftExtractionOptions>()) {}
+
+FeatureExtractionTypeOptions::FeatureExtractionTypeOptions(
+    const FeatureExtractionTypeOptions& other) {
+  if (other.sift) {
+    sift = std::make_shared<SiftExtractionOptions>(*other.sift);
+  }
+}
+
+FeatureExtractionTypeOptions& FeatureExtractionTypeOptions::operator=(
+    const FeatureExtractionTypeOptions& other) {
+  if (this == &other) {
+    return *this;
+  }
+  if (other.sift) {
+    sift = std::make_shared<SiftExtractionOptions>(*other.sift);
+  } else {
+    sift.reset();
+  }
+  return *this;
+}
+
 FeatureExtractionOptions::FeatureExtractionOptions(FeatureExtractorType type)
-    : type(type), sift(std::make_shared<SiftExtractionOptions>()) {}
+    : FeatureExtractionTypeOptions(), type(type) {}
 
 bool FeatureExtractionOptions::RequiresRGB() const {
   switch (type) {

@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/estimators/generalized_relative_pose.h"
+#include "colmap/estimators/solvers/generalized_relative_pose.h"
 
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/rigid3_matchers.h"

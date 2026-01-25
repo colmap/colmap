@@ -348,9 +348,13 @@ void MakeDataclass(py::classh<T, options...> cls,
   py::implicitly_convertible<py::dict, T>();
   py::implicitly_convertible<py::kwargs, T>();
 
-  cls.def("__copy__", [](const T& self) { return T(self); });
-  cls.def("__deepcopy__",
-          [](const T& self, const py::dict&) { return T(self); });
+  if (!cls.attr("__dict__").contains("__copy__")) {
+    cls.def("__copy__", [](const T& self) { return T(self); });
+  }
+  if (!cls.attr("__dict__").contains("__deepcopy__")) {
+    cls.def("__deepcopy__",
+            [](const T& self, const py::dict&) { return T(self); });
+  }
 
   cls.def(py::pickle(
       [attributes](const T& self) {

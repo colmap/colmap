@@ -44,7 +44,7 @@ class GP3PEstimator {
   // The generalized image observations, which is composed of the relative pose
   // of a camera in the generalized camera and a ray in the camera frame.
   struct X_t {
-    Rigid3d cam_from_rig;
+    Eigen::Matrix3x4d cam_from_rig;  // Stored as matrix for fast residuals
     Eigen::Vector3d ray_in_cam;
   };
 

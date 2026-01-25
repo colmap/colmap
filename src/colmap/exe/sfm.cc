@@ -36,7 +36,7 @@
 #include "colmap/controllers/option_manager.h"
 #include "colmap/controllers/reconstruction_clustering.h"
 #include "colmap/controllers/rotation_averaging.h"
-#include "colmap/estimators/similarity_transform.h"
+#include "colmap/estimators/solvers/similarity_transform.h"
 #include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/exe/gui.h"
 #include "colmap/geometry/pose.h"

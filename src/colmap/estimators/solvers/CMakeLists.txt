@@ -27,91 +27,82 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-set(FOLDER_NAME "estimators")
-
-add_subdirectory(solvers)
+set(FOLDER_NAME "estimators_solvers")
 
 COLMAP_ADD_LIBRARY(
-    NAME colmap_estimators
+    NAME colmap_estimators_solvers
     SRCS
-        alignment.h alignment.cc
-        bundle_adjustment.h bundle_adjustment.cc
-        coordinate_frame.h coordinate_frame.cc
-        cost_function_utils.h
-        cost_functions.h
-        manifold.h
-        covariance.h covariance.cc
-        pose.h pose.cc
-        generalized_pose.h generalized_pose.cc
-        triangulation.h triangulation.cc
-        two_view_geometry.h two_view_geometry.cc
-        view_graph_calibration.h view_graph_calibration.cc
+        absolute_pose.h absolute_pose.cc
+        affine_transform.h affine_transform.cc
+        essential_matrix.h essential_matrix.cc
+        essential_matrix_coeffs.h
+        essential_matrix_poly.h
+        euclidean_transform.h
+        fundamental_matrix.h fundamental_matrix.cc
+        generalized_absolute_pose.h generalized_absolute_pose.cc
+        generalized_relative_pose.h generalized_relative_pose.cc
+        homography_matrix.h homography_matrix.cc
+        poselib_utils.h poselib_utils.cc
+        similarity_transform.h similarity_transform.cc
+        translation_transform.h
     PUBLIC_LINK_LIBS
         colmap_util
         colmap_math
-        colmap_feature_types
         colmap_geometry
-        colmap_sensor
-        colmap_image
         colmap_scene
         colmap_optim
-        colmap_estimators_solvers
         Eigen3::Eigen
         Ceres::ceres
         PoseLib::PoseLib
 )
 
-if(CUDA_ENABLED)
-    target_link_libraries(colmap_estimators PUBLIC colmap_util_cuda)
-endif()
-
 COLMAP_ADD_TEST(
-    NAME alignment_test
-    SRCS alignment_test.cc
-    LINK_LIBS colmap_estimators
+    NAME absolute_pose_test
+    SRCS absolute_pose_test.cc
+    LINK_LIBS colmap_estimators_solvers colmap_estimators
 )
 COLMAP_ADD_TEST(
-    NAME bundle_adjustment_test
-    SRCS bundle_adjustment_test.cc
-    LINK_LIBS colmap_estimators
+    NAME affine_transform_test
+    SRCS affine_transform_test.cc
+    LINK_LIBS colmap_estimators_solvers
 )
 COLMAP_ADD_TEST(
-    NAME coordinate_frame_test
-    SRCS coordinate_frame_test.cc
-    LINK_LIBS colmap_estimators
+    NAME essential_matrix_test
+    SRCS essential_matrix_test.cc
+    LINK_LIBS colmap_estimators_solvers colmap_estimators
 )
 COLMAP_ADD_TEST(
-    NAME covariance_test
-    SRCS covariance_test.cc
-    LINK_LIBS colmap_estimators
+    NAME fundamental_matrix_test
+    SRCS fundamental_matrix_test.cc
+    LINK_LIBS colmap_estimators_solvers colmap_estimators
 )
 COLMAP_ADD_TEST(
-    NAME cost_functions_test
-    SRCS cost_functions_test.cc
-    LINK_LIBS colmap_estimators
+    NAME generalized_absolute_pose_test
+    SRCS generalized_absolute_pose_test.cc
+    LINK_LIBS colmap_estimators_solvers colmap_estimators
 )
 COLMAP_ADD_TEST(
-    NAME cost_function_utils_test
-    SRCS cost_function_utils_test.cc
-    LINK_LIBS colmap_estimators
+    NAME generalized_relative_pose_test
+    SRCS generalized_relative_pose_test.cc
+    LINK_LIBS colmap_estimators_solvers colmap_estimators
 )
 COLMAP_ADD_TEST(
-    NAME generalized_pose_test
-    SRCS generalized_pose_test.cc
-    LINK_LIBS colmap_estimators
+    NAME homography_matrix_test
+    SRCS homography_matrix_test.cc
+    LINK_LIBS colmap_estimators_solvers
 )
 COLMAP_ADD_TEST(
-    NAME pose_test
-    SRCS pose_test.cc
-    LINK_LIBS colmap_estimators
+    NAME similarity_transform_test
+    SRCS similarity_transform_test.cc
+    LINK_LIBS colmap_estimators_solvers
 )
 COLMAP_ADD_TEST(
-    NAME two_view_geometry_test
-    SRCS two_view_geometry_test.cc
-    LINK_LIBS colmap_estimators
+    NAME translation_transform_test
+    SRCS translation_transform_test.cc
+    LINK_LIBS colmap_estimators_solvers
 )
 COLMAP_ADD_TEST(
-    NAME view_graph_calibration_test
-    SRCS view_graph_calibration_test.cc
-    LINK_LIBS colmap_estimators
+    NAME poselib_utils_test
+    SRCS poselib_utils_test.cc
+    LINK_LIBS colmap_estimators_solvers
 )

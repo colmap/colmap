@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/estimators/absolute_pose.h"
+#include "colmap/estimators/solvers/absolute_pose.h"
 
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
@@ -47,6 +47,8 @@ void P3PEstimator::Estimate(const std::vector<X_t>& points2D,
   THROW_CHECK_EQ(points2D.size(), 3);
   THROW_CHECK_EQ(points3D.size(), 3);
   THROW_CHECK_NOTNULL(cams_from_world);
+
+  cams_from_world->clear();
 
   std::vector<Eigen::Vector3d> rays(3);
   for (int i = 0; i < 3; ++i) {
@@ -76,6 +78,8 @@ void P4PFEstimator::Estimate(const std::vector<X_t>& points2D,
   THROW_CHECK_EQ(points2D.size(), 4);
   THROW_CHECK_EQ(points3D.size(), 4);
   THROW_CHECK_NOTNULL(models);
+
+  models->clear();
 
   std::vector<poselib::CameraPose> poses;
   std::vector<double> focals;

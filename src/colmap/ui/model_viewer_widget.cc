@@ -105,8 +105,8 @@ void BuildCameraModel(const std::optional<Rigid3d>& cam_from_world,
   const float focal_length = 2.0f * image_extent / camera_extent_normalized;
 
   Rigid3d world_from_cam = Inverse(*cam_from_world);
-  world_from_cam.translation += model_origin;
-  world_from_cam.translation *= model_scale;
+  world_from_cam.translation() += model_origin;
+  world_from_cam.translation() *= model_scale;
 
   const Eigen::Matrix<float, 3, 4> world_from_cam_mat =
       world_from_cam.ToMatrix().cast<float>();

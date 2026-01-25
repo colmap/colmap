@@ -121,14 +121,14 @@ size_t RotationAveragingProblem::AllocateParameters(
     auto cam_from_rig =
         reconstruction.Rig(rig_id).MaybeSensorFromRig(sensor_id);
     if (!cam_from_rig.has_value() ||
-        cam_from_rig.value().translation.hasNaN()) {
+        cam_from_rig.value().translation().hasNaN()) {
       if (camera_id_to_param_idx_.find(camera_id) ==
           camera_id_to_param_idx_.end()) {
         // Mark for later allocation (actual index set below).
         camera_id_to_param_idx_[camera_id] = -1;
         if (cam_from_rig.has_value()) {
           cam_from_rig_rotations[camera_id] =
-              Eigen::AngleAxisd(cam_from_rig->rotation);
+              Eigen::AngleAxisd(cam_from_rig->rotation());
         }
       }
     }
@@ -161,7 +161,7 @@ size_t RotationAveragingProblem::AllocateParameters(
       Eigen::Matrix3d rig_from_world_rotation;
       if (frame.MaybeRigFromWorld().has_value()) {
         rig_from_world_rotation =
-            frame.RigFromWorld().rotation.toRotationMatrix();
+            frame.RigFromWorld().rotation().toRotationMatrix();
       } else {
         rig_from_world_rotation = Eigen::Matrix3d::Identity();
       }
@@ -181,11 +181,11 @@ size_t RotationAveragingProblem::AllocateParameters(
       // General frame: 3-DOF.
       Eigen::AngleAxisd rig_from_world;
       if (frame.MaybeRigFromWorld().has_value()) {
-        rig_from_world = Eigen::AngleAxisd(frame.RigFromWorld().rotation);
+        rig_from_world = Eigen::AngleAxisd(frame.RigFromWorld().rotation());
       } else {
         rig_from_world = Eigen::AngleAxisd::Identity();
       }
-      estimated_rotations_.segment(num_params, 3) =
+      estimated_rotations_.segment<3>(num_params) =
           rig_from_world.angle() * rig_from_world.axis();
       num_params += 3;
     }
@@ -196,10 +196,10 @@ size_t RotationAveragingProblem::AllocateParameters(
     camera_id_to_param_idx_[camera_id] = num_params;
     if (const auto it = cam_from_rig_rotations.find(camera_id);
         it != cam_from_rig_rotations.end()) {
-      estimated_rotations_.segment(num_params, 3) =
+      estimated_rotations_.segment<3>(num_params) =
           it->second.angle() * it->second.axis();
     } else {
-      estimated_rotations_.segment(num_params, 3) = Eigen::Vector3d::Zero();
+      estimated_rotations_.segment<3>(num_params) = Eigen::Vector3d::Zero();
     }
     num_params += 3;
   }
@@ -211,7 +211,7 @@ size_t RotationAveragingProblem::AllocateParameters(
       fixed_frame_id_ = frame_id;
       // Use identity rotation if frame doesn't have a pose yet.
       if (frame.HasPose()) {
-        const Eigen::AngleAxisd rig_from_world(frame.RigFromWorld().rotation);
+        const Eigen::AngleAxisd rig_from_world(frame.RigFromWorld().rotation());
         fixed_frame_rotation_ = rig_from_world.angle() * rig_from_world.axis();
       } else {
         fixed_frame_rotation_ = Eigen::Vector3d::Zero();
@@ -266,9 +266,9 @@ void RotationAveragingProblem::BuildPairConstraints(
 
     // Compute relative rotation between rigs.
     Eigen::Matrix3d R_cam2_from_cam1 =
-        (cam2_from_rig2.value_or(Rigid3d()).rotation.inverse() *
-         edge.cam2_from_cam1.rotation *
-         cam1_from_rig1.value_or(Rigid3d()).rotation)
+        (cam2_from_rig2.value_or(Rigid3d()).rotation().inverse() *
+         edge.cam2_from_cam1.rotation() *
+         cam1_from_rig1.value_or(Rigid3d()).rotation())
             .toRotationMatrix();
 
     const Eigen::Vector3d* frame_gravity1 =
@@ -484,7 +484,7 @@ void RotationAveragingProblem::ComputeResiduals() {
             estimated_rotations_[frame_param_idx1]);
       } else {
         estimated_cam1_from_world = colmap::AngleAxisToRotationMatrix(
-            estimated_rotations_.segment(frame_param_idx1, 3));
+            estimated_rotations_.segment<3>(frame_param_idx1));
       }
 
       if (options_.use_gravity && frame_gravity2 != nullptr) {
@@ -492,23 +492,23 @@ void RotationAveragingProblem::ComputeResiduals() {
             estimated_rotations_[frame_param_idx2]);
       } else {
         estimated_cam2_from_world = colmap::AngleAxisToRotationMatrix(
-            estimated_rotations_.segment(frame_param_idx2, 3));
+            estimated_rotations_.segment<3>(frame_param_idx2));
       }
 
       if (constraint.cam1_from_rig_param_idx != -1) {
         estimated_cam1_from_world =
-            colmap::AngleAxisToRotationMatrix(estimated_rotations_.segment(
-                constraint.cam1_from_rig_param_idx, 3)) *
+            colmap::AngleAxisToRotationMatrix(estimated_rotations_.segment<3>(
+                constraint.cam1_from_rig_param_idx)) *
             estimated_cam1_from_world;
       }
       if (constraint.cam2_from_rig_param_idx != -1) {
         estimated_cam2_from_world =
-            colmap::AngleAxisToRotationMatrix(estimated_rotations_.segment(
-                constraint.cam2_from_rig_param_idx, 3)) *
+            colmap::AngleAxisToRotationMatrix(estimated_rotations_.segment<3>(
+                constraint.cam2_from_rig_param_idx)) *
             estimated_cam2_from_world;
       }
 
-      residuals_.segment(constraint.row_index, 3) =
+      residuals_.segment<3>(constraint.row_index) =
           -colmap::RotationMatrixToAngleAxis(
               estimated_cam2_from_world.transpose() * full->R_cam2_from_cam1 *
               estimated_cam1_from_world);
@@ -524,10 +524,10 @@ void RotationAveragingProblem::ComputeResiduals() {
         estimated_rotations_[fixed_frame_param_idx] - fixed_frame_rotation_[1];
   } else {
     residuals_
-        .segment(residuals_.size() - 3, 3) = colmap::RotationMatrixToAngleAxis(
+        .segment<3>(residuals_.size() - 3) = colmap::RotationMatrixToAngleAxis(
         colmap::AngleAxisToRotationMatrix(fixed_frame_rotation_).transpose() *
         colmap::AngleAxisToRotationMatrix(
-            estimated_rotations_.segment(fixed_frame_param_idx, 3)));
+            estimated_rotations_.segment<3>(fixed_frame_param_idx)));
   }
 }
 
@@ -537,12 +537,12 @@ void RotationAveragingProblem::UpdateState(const Eigen::VectorXd& step) {
     if (!HasFrameGravity(frame_id)) {
       const Eigen::Matrix3d estimated_rig_from_world =
           colmap::AngleAxisToRotationMatrix(
-              estimated_rotations_.segment(frame_param_idx, 3));
-      estimated_rotations_.segment(frame_param_idx, 3) =
+              estimated_rotations_.segment<3>(frame_param_idx));
+      estimated_rotations_.segment<3>(frame_param_idx) =
           colmap::RotationMatrixToAngleAxis(
               estimated_rig_from_world *
               colmap::AngleAxisToRotationMatrix(
-                  -step.segment(frame_param_idx, 3)));
+                  -step.segment<3>(frame_param_idx)));
     } else {
       estimated_rotations_[frame_param_idx] -= step[frame_param_idx];
     }
@@ -553,7 +553,7 @@ void RotationAveragingProblem::UpdateState(const Eigen::VectorXd& step) {
   for (const auto& [frame_id, frame_param_idx] : frame_id_to_param_idx_) {
     if (!HasFrameGravity(frame_id)) {
       frame_rotations[frame_id] = colmap::AngleAxisToRotationMatrix(
-          estimated_rotations_.segment(frame_param_idx, 3));
+          estimated_rotations_.segment<3>(frame_param_idx));
     } else {
       frame_rotations[frame_id] =
           colmap::RotationFromYAxisAngle(estimated_rotations_[frame_param_idx]);
@@ -566,9 +566,9 @@ void RotationAveragingProblem::UpdateState(const Eigen::VectorXd& step) {
   for (const auto& [camera_id, camera_param_idx] : camera_id_to_param_idx_) {
     const Eigen::Matrix3d estimated_cam_from_rig =
         colmap::AngleAxisToRotationMatrix(
-            estimated_rotations_.segment(camera_param_idx, 3));
+            estimated_rotations_.segment<3>(camera_param_idx));
     const Eigen::Matrix3d R_update =
-        colmap::AngleAxisToRotationMatrix(-step.segment(camera_param_idx, 3));
+        colmap::AngleAxisToRotationMatrix(-step.segment<3>(camera_param_idx));
 
     std::vector<Eigen::Quaterniond> rig_rotations;
     for (const frame_t frame_id : camera_to_frame_ids_[camera_id]) {
@@ -580,7 +580,7 @@ void RotationAveragingProblem::UpdateState(const Eigen::VectorXd& step) {
     // Average the rotations for the rig.
     const Eigen::Quaterniond R_ave = colmap::AverageQuaternions(
         rig_rotations, std::vector<double>(rig_rotations.size(), 1));
-    estimated_rotations_.segment(camera_param_idx, 3) =
+    estimated_rotations_.segment<3>(camera_param_idx) =
         colmap::RotationMatrixToAngleAxis(R_ave.toRotationMatrix());
   }
 }
@@ -592,7 +592,7 @@ double RotationAveragingProblem::AverageStepSize(
     if (HasFrameGravity(frame_id)) {
       total_update += std::abs(step[frame_param_idx]);
     } else {
-      total_update += step.segment(frame_param_idx, 3).norm();
+      total_update += step.segment<3>(frame_param_idx).norm();
     }
   }
   return total_update / frame_id_to_param_idx_.size();
@@ -616,7 +616,7 @@ void RotationAveragingProblem::ApplyResultsToReconstruction(
     } else {
       reconstruction.Frame(frame_id).SetRigFromWorld(
           Rigid3d(Eigen::Quaterniond(colmap::AngleAxisToRotationMatrix(
-                      estimated_rotations_.segment(frame_param_idx, 3))),
+                      estimated_rotations_.segment<3>(frame_param_idx))),
                   kUnknownTranslation));
     }
   }
@@ -629,10 +629,10 @@ void RotationAveragingProblem::ApplyResultsToReconstruction(
         continue;  // Skip cameras that are not estimated.
       }
       Rigid3d cam_from_rig;
-      cam_from_rig.rotation =
-          colmap::AngleAxisToRotationMatrix(estimated_rotations_.segment(
-              camera_id_to_param_idx_.at(sensor_id.id), 3));
-      cam_from_rig.translation.setConstant(
+      cam_from_rig.rotation() =
+          colmap::AngleAxisToRotationMatrix(estimated_rotations_.segment<3>(
+              camera_id_to_param_idx_.at(sensor_id.id)));
+      cam_from_rig.translation().setConstant(
           std::numeric_limits<double>::quiet_NaN());  // No translation yet.
       reconstruction.Rig(rig_id).SetSensorFromRig(sensor_id, cam_from_rig);
     }
@@ -763,7 +763,7 @@ std::optional<Eigen::VectorXd> RotationAveragingSolver::ComputeIRLSWeights(
   if (gauge_rows == 1) {
     weights[problem.NumResiduals() - 1] = 1;
   } else {
-    weights.segment(problem.NumResiduals() - 3, 3).setConstant(1);
+    weights.segment<3>(problem.NumResiduals() - 3).setConstant(1);
   }
 
   return weights;

@@ -130,12 +130,14 @@ void GravityRefiner::RefineGravity(
       if (image1.FrameId() == frame_id) {
         gravities.emplace_back(
             colmap::Inverse(edge.cam2_from_cam1 * cam1_from_rig1)
-                .rotation.toRotationMatrix() *
+                .rotation()
+                .toRotationMatrix() *
             *image_gravity2);
       } else if (image2.FrameId() == frame_id) {
         gravities.emplace_back(
             (colmap::Inverse(cam2_from_rig2) * edge.cam2_from_cam1)
-                .rotation.toRotationMatrix() *
+                .rotation()
+                .toRotationMatrix() *
             *image_gravity1);
       }
 
@@ -147,9 +149,12 @@ void GravityRefiner::RefineGravity(
 
     if (gravities.size() < options_.min_num_neighbors) continue;
 
-    // Then, run refinment
+    // Initialize and set the manifold
     gravity = colmap::AverageDirections(gravities);
-    colmap::SetSphereManifold<3>(&problem, gravity.data());
+    colmap::SetManifold(
+        &problem, gravity.data(), colmap::CreateSphereManifold<3>());
+
+    // Then, run refinment
     ceres::Solver::Options solver_options = options_.solver_options;
     solver_options.num_threads =
         colmap::GetEffectiveNumThreads(solver_options.num_threads);
@@ -209,7 +214,7 @@ void GravityRefiner::IdentifyErrorProneGravity(
     // Calculate the gravity aligned relative rotation
     const Eigen::Matrix3d R_rel =
         colmap::GravityAlignedRotation(*image_gravity2).transpose() *
-        edge.cam2_from_cam1.rotation.toRotationMatrix() *
+        edge.cam2_from_cam1.rotation().toRotationMatrix() *
         colmap::GravityAlignedRotation(*image_gravity1);
     // Convert it to the closest upright rotation
     const Eigen::Matrix3d R_rel_up =

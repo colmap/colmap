@@ -260,25 +260,25 @@ std::optional<std::stringstream> BlobColumnToStringStream(
 
 Rigid3d ReadRigid3dFromStringStream(std::stringstream* stream) {
   Rigid3d tform;
-  tform.rotation.w() = ReadBinaryLittleEndian<double>(stream);
-  tform.rotation.x() = ReadBinaryLittleEndian<double>(stream);
-  tform.rotation.y() = ReadBinaryLittleEndian<double>(stream);
-  tform.rotation.z() = ReadBinaryLittleEndian<double>(stream);
-  tform.translation.x() = ReadBinaryLittleEndian<double>(stream);
-  tform.translation.y() = ReadBinaryLittleEndian<double>(stream);
-  tform.translation.z() = ReadBinaryLittleEndian<double>(stream);
+  tform.rotation().w() = ReadBinaryLittleEndian<double>(stream);
+  tform.rotation().x() = ReadBinaryLittleEndian<double>(stream);
+  tform.rotation().y() = ReadBinaryLittleEndian<double>(stream);
+  tform.rotation().z() = ReadBinaryLittleEndian<double>(stream);
+  tform.translation().x() = ReadBinaryLittleEndian<double>(stream);
+  tform.translation().y() = ReadBinaryLittleEndian<double>(stream);
+  tform.translation().z() = ReadBinaryLittleEndian<double>(stream);
   return tform;
 }
 
 void WriteRigid3dToStringStream(const Rigid3d& tform,
                                 std::stringstream* stream) {
-  WriteBinaryLittleEndian<double>(stream, tform.rotation.w());
-  WriteBinaryLittleEndian<double>(stream, tform.rotation.x());
-  WriteBinaryLittleEndian<double>(stream, tform.rotation.y());
-  WriteBinaryLittleEndian<double>(stream, tform.rotation.z());
-  WriteBinaryLittleEndian<double>(stream, tform.translation.x());
-  WriteBinaryLittleEndian<double>(stream, tform.translation.y());
-  WriteBinaryLittleEndian<double>(stream, tform.translation.z());
+  WriteBinaryLittleEndian<double>(stream, tform.rotation().w());
+  WriteBinaryLittleEndian<double>(stream, tform.rotation().x());
+  WriteBinaryLittleEndian<double>(stream, tform.rotation().y());
+  WriteBinaryLittleEndian<double>(stream, tform.rotation().z());
+  WriteBinaryLittleEndian<double>(stream, tform.translation().x());
+  WriteBinaryLittleEndian<double>(stream, tform.translation().y());
+  WriteBinaryLittleEndian<double>(stream, tform.translation().z());
 }
 
 void ReadRigRows(sqlite3_stmt* sql_stmt,
@@ -971,9 +971,9 @@ class SqliteDatabase : public Database {
       const Eigen::Vector4d quat_wxyz = ReadStaticMatrixBlob<Eigen::Vector4d>(
           sql_stmt_read_two_view_geometry_, rc, 7);
       Rigid3d cam2_from_cam1;
-      cam2_from_cam1.rotation = Eigen::Quaterniond(
+      cam2_from_cam1.rotation() = Eigen::Quaterniond(
           quat_wxyz(0), quat_wxyz(1), quat_wxyz(2), quat_wxyz(3));
-      cam2_from_cam1.translation = ReadStaticMatrixBlob<Eigen::Vector3d>(
+      cam2_from_cam1.translation() = ReadStaticMatrixBlob<Eigen::Vector3d>(
           sql_stmt_read_two_view_geometry_, rc, 8);
       two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
     }
@@ -1048,9 +1048,9 @@ class SqliteDatabase : public Database {
         const Eigen::Vector4d quat_wxyz = ReadStaticMatrixBlob<Eigen::Vector4d>(
             sql_stmt_read_two_view_geometries_, rc, 8);
         Rigid3d cam2_from_cam1;
-        cam2_from_cam1.rotation = Eigen::Quaterniond(
+        cam2_from_cam1.rotation() = Eigen::Quaterniond(
             quat_wxyz(0), quat_wxyz(1), quat_wxyz(2), quat_wxyz(3));
-        cam2_from_cam1.translation = ReadStaticMatrixBlob<Eigen::Vector3d>(
+        cam2_from_cam1.translation() = ReadStaticMatrixBlob<Eigen::Vector3d>(
             sql_stmt_read_two_view_geometries_, rc, 9);
         two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
       }
@@ -1362,11 +1362,11 @@ class SqliteDatabase : public Database {
     Eigen::Vector3d tvec;
     if (two_view_geometry_ptr->cam2_from_cam1.has_value()) {
       const Rigid3d& cam2_from_cam1 = *two_view_geometry_ptr->cam2_from_cam1;
-      quat_wxyz = Eigen::Vector4d(cam2_from_cam1.rotation.w(),
-                                  cam2_from_cam1.rotation.x(),
-                                  cam2_from_cam1.rotation.y(),
-                                  cam2_from_cam1.rotation.z());
-      tvec = cam2_from_cam1.translation;
+      quat_wxyz = Eigen::Vector4d(cam2_from_cam1.rotation().w(),
+                                  cam2_from_cam1.rotation().x(),
+                                  cam2_from_cam1.rotation().y(),
+                                  cam2_from_cam1.rotation().z());
+      tvec = cam2_from_cam1.translation();
       WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, quat_wxyz, 9);
       WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, tvec, 10);
     } else {

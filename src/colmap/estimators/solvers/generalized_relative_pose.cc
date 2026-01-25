@@ -27,9 +27,9 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/estimators/generalized_relative_pose.h"
+#include "colmap/estimators/solvers/generalized_relative_pose.h"
 
-#include "colmap/estimators/poselib_utils.h"
+#include "colmap/estimators/solvers/poselib_utils.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/math/random.h"
 #include "colmap/util/eigen_alignment.h"
@@ -57,9 +57,9 @@ void GR6PEstimator::Estimate(const std::vector<X_t>& points1,
     origins_in_rig1[i] = points1[i].cam_from_rig.TgtOriginInSrc();
     origins_in_rig2[i] = points2[i].cam_from_rig.TgtOriginInSrc();
     rays_in_rig1[i] =
-        points1[i].cam_from_rig.rotation.inverse() * points1[i].ray_in_cam;
+        points1[i].cam_from_rig.rotation().inverse() * points1[i].ray_in_cam;
     rays_in_rig2[i] =
-        points2[i].cam_from_rig.rotation.inverse() * points2[i].ray_in_cam;
+        points2[i].cam_from_rig.rotation().inverse() * points2[i].ray_in_cam;
   }
 
   std::vector<poselib::CameraPose> poses;
@@ -99,9 +99,9 @@ void ComposePlueckerData(const Rigid3d& rig_from_cam,
                          Eigen::Vector3d* origin_in_rig,
                          Eigen::Vector6d* pluecker) {
   const Eigen::Vector3d ray_in_rig =
-      (rig_from_cam.rotation * ray_in_cam).normalized();
-  *origin_in_rig = rig_from_cam.translation;
-  *pluecker << ray_in_rig, rig_from_cam.translation.cross(ray_in_rig);
+      (rig_from_cam.rotation() * ray_in_cam).normalized();
+  *origin_in_rig = rig_from_cam.translation();
+  *pluecker << ray_in_rig, rig_from_cam.translation().cross(ray_in_rig);
 }
 
 Eigen::Matrix3d CayleyToRotationMatrix(const Eigen::Vector3d& cayley) {
@@ -765,8 +765,7 @@ void GR8PEstimator::Estimate(const std::vector<X_t>& points1,
 
   rigs2_from_rigs1->resize(4);
   for (int i = 0; i < 4; ++i) {
-    (*rigs2_from_rigs1)[i].rotation = Eigen::Quaterniond(R);
-    (*rigs2_from_rigs1)[i].translation = -R * VV.col(i);
+    (*rigs2_from_rigs1)[i] = Rigid3d(Eigen::Quaterniond(R), -R * VV.col(i));
   }
 }
 

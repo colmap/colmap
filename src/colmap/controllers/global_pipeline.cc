@@ -29,6 +29,7 @@
 
 #include "colmap/controllers/global_pipeline.h"
 
+#include "colmap/estimators/alignment.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/util/misc.h"
@@ -93,6 +94,10 @@ void GlobalPipeline::Run() {
   global_mapper.Solve(mapper_options, cluster_ids);
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
+
+  // Align reconstruction to the original metric scales in rig extrinsics.
+  AlignReconstructionToOrigRigScales(database_cache->Rigs(),
+                                     reconstruction.get());
 
   // Output the reconstruction.
   Reconstruction& output_reconstruction =

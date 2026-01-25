@@ -31,8 +31,6 @@
 
 #include "colmap/util/controller_thread.h"
 
-#include <filesystem>
-
 namespace colmap {
 
 UndistortionWidget::UndistortionWidget(QWidget* parent,

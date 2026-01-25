@@ -71,11 +71,11 @@ void ExpectEqualRotations(const colmap::Reconstruction& gt,
     for (size_t j = 0; j < i; j++) {
       const image_t image_id2 = reg_image_ids[j];
       const Eigen::Quaterniond cam2_from_cam1 =
-          computed.Image(image_id2).CamFromWorld().rotation *
-          computed.Image(image_id1).CamFromWorld().rotation.inverse();
+          computed.Image(image_id2).CamFromWorld().rotation() *
+          computed.Image(image_id1).CamFromWorld().rotation().inverse();
       const Eigen::Quaterniond cam2_from_cam1_gt =
-          gt.Image(image_id2).CamFromWorld().rotation *
-          gt.Image(image_id1).CamFromWorld().rotation.inverse();
+          gt.Image(image_id2).CamFromWorld().rotation() *
+          gt.Image(image_id1).CamFromWorld().rotation().inverse();
       EXPECT_LT(cam2_from_cam1.angularDistance(cam2_from_cam1_gt),
                 max_rotation_error_rad);
     }

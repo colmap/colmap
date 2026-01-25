@@ -483,10 +483,10 @@ TEST_P(ParameterizedDatabaseTests, TwoViewGeometry) {
   EXPECT_EQ(two_view_geometry.H, two_view_geometry_read.H);
   EXPECT_TRUE(two_view_geometry.cam2_from_cam1.has_value());
   EXPECT_TRUE(two_view_geometry_read.cam2_from_cam1.has_value());
-  EXPECT_EQ(two_view_geometry.cam2_from_cam1->rotation.coeffs(),
-            two_view_geometry_read.cam2_from_cam1->rotation.coeffs());
-  EXPECT_EQ(two_view_geometry.cam2_from_cam1->translation,
-            two_view_geometry_read.cam2_from_cam1->translation);
+  EXPECT_EQ(two_view_geometry.cam2_from_cam1->rotation().coeffs(),
+            two_view_geometry_read.cam2_from_cam1->rotation().coeffs());
+  EXPECT_EQ(two_view_geometry.cam2_from_cam1->translation(),
+            two_view_geometry_read.cam2_from_cam1->translation());
 
   const TwoViewGeometry two_view_geometry_read_inv =
       database->ReadTwoViewGeometry(image_id2, image_id1);
@@ -507,10 +507,10 @@ TEST_P(ParameterizedDatabaseTests, TwoViewGeometry) {
   EXPECT_TRUE(two_view_geometry_read_inv.H.value().inverse().eval().isApprox(
       two_view_geometry_read.H.value()));
   EXPECT_TRUE(two_view_geometry_read_inv.cam2_from_cam1.has_value());
-  EXPECT_TRUE(two_view_geometry_read_inv.cam2_from_cam1->rotation.isApprox(
-      Inverse(*two_view_geometry_read.cam2_from_cam1).rotation));
-  EXPECT_TRUE(two_view_geometry_read_inv.cam2_from_cam1->translation.isApprox(
-      Inverse(*two_view_geometry_read.cam2_from_cam1).translation));
+  EXPECT_TRUE(two_view_geometry_read_inv.cam2_from_cam1->rotation().isApprox(
+      Inverse(*two_view_geometry_read.cam2_from_cam1).rotation()));
+  EXPECT_TRUE(two_view_geometry_read_inv.cam2_from_cam1->translation().isApprox(
+      Inverse(*two_view_geometry_read.cam2_from_cam1).translation()));
 
   const std::vector<std::pair<image_pair_t, TwoViewGeometry>>
       two_view_geometries = database->ReadTwoViewGeometries();
@@ -522,10 +522,10 @@ TEST_P(ParameterizedDatabaseTests, TwoViewGeometry) {
   EXPECT_EQ(two_view_geometry.E, two_view_geometries[0].second.E);
   EXPECT_EQ(two_view_geometry.H, two_view_geometries[0].second.H);
   EXPECT_TRUE(two_view_geometries[0].second.cam2_from_cam1.has_value());
-  EXPECT_EQ(two_view_geometry.cam2_from_cam1->rotation.coeffs(),
-            two_view_geometries[0].second.cam2_from_cam1->rotation.coeffs());
-  EXPECT_EQ(two_view_geometry.cam2_from_cam1->translation,
-            two_view_geometries[0].second.cam2_from_cam1->translation);
+  EXPECT_EQ(two_view_geometry.cam2_from_cam1->rotation().coeffs(),
+            two_view_geometries[0].second.cam2_from_cam1->rotation().coeffs());
+  EXPECT_EQ(two_view_geometry.cam2_from_cam1->translation(),
+            two_view_geometries[0].second.cam2_from_cam1->translation());
   EXPECT_EQ(two_view_geometry.inlier_matches.size(),
             two_view_geometries[0].second.inlier_matches.size());
   const std::vector<std::pair<image_pair_t, int>> pair_ids_and_num_inliers =

@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/estimators/similarity_transform.h"
+#include "colmap/estimators/solvers/similarity_transform.h"
 
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/rigid3_matchers.h"
@@ -76,9 +76,9 @@ void TestEstimateRigid3dWithNumCoords(const size_t num_coords) {
 
   Rigid3d tgt_from_src;
   EXPECT_TRUE(EstimateRigid3d(src, tgt, tgt_from_src));
-  EXPECT_LT(gt_tgt_from_src.rotation.angularDistance(tgt_from_src.rotation),
+  EXPECT_LT(gt_tgt_from_src.rotation().angularDistance(tgt_from_src.rotation()),
             1e-6);
-  EXPECT_LT((gt_tgt_from_src.translation - tgt_from_src.translation).norm(),
+  EXPECT_LT((gt_tgt_from_src.translation() - tgt_from_src.translation()).norm(),
             1e-6);
 }
 
@@ -147,10 +147,10 @@ void TestEstimateSim3dWithNumCoords(const size_t num_coords) {
 
   Sim3d tgt_from_src;
   EXPECT_TRUE(EstimateSim3d(src, tgt, tgt_from_src));
-  EXPECT_NEAR(gt_tgt_from_src.scale, tgt_from_src.scale, 1e-6);
-  EXPECT_LT(gt_tgt_from_src.rotation.angularDistance(tgt_from_src.rotation),
+  EXPECT_NEAR(gt_tgt_from_src.scale(), tgt_from_src.scale(), 1e-6);
+  EXPECT_LT(gt_tgt_from_src.rotation().angularDistance(tgt_from_src.rotation()),
             1e-6);
-  EXPECT_LT((gt_tgt_from_src.translation - tgt_from_src.translation).norm(),
+  EXPECT_LT((gt_tgt_from_src.translation() - tgt_from_src.translation()).norm(),
             1e-6);
 }
 

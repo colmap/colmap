@@ -33,6 +33,7 @@
 #include "colmap/util/logging.h"
 
 #include <array>
+#include <limits>
 
 namespace colmap {
 
@@ -94,8 +95,8 @@ void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
 }
 
 Eigen::Matrix3d EssentialMatrixFromPose(const Rigid3d& cam2_from_cam1) {
-  return CrossProductMatrix(cam2_from_cam1.translation.normalized()) *
-         cam2_from_cam1.rotation.toRotationMatrix();
+  return CrossProductMatrix(cam2_from_cam1.translation().normalized()) *
+         cam2_from_cam1.rotation().toRotationMatrix();
 }
 
 void FindOptimalImageObservations(const Eigen::Matrix3d& E,
@@ -162,6 +163,47 @@ Eigen::Matrix3d EssentialFromFundamentalMatrix(const Eigen::Matrix3d& K2,
                                                const Eigen::Matrix3d& F,
                                                const Eigen::Matrix3d& K1) {
   return K2.transpose() * F * K1;
+}
+
+double ComputeSquaredSampsonError(const Eigen::Vector3d& ray1,
+                                  const Eigen::Vector3d& ray2,
+                                  const Eigen::Matrix3d& E) {
+  const Eigen::Vector3d epipolar_line1 = E * ray1;
+  const double num = ray2.dot(epipolar_line1);
+  const Eigen::Vector4d denom(ray2.dot(E.col(0)),
+                              ray2.dot(E.col(1)),
+                              epipolar_line1.x(),
+                              epipolar_line1.y());
+  const double denom_sq_norm = denom.squaredNorm();
+  if (denom_sq_norm == 0) {
+    return std::numeric_limits<double>::max();
+  }
+  return num * num / denom_sq_norm;
+}
+
+void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
+                                const std::vector<Eigen::Vector2d>& points2,
+                                const Eigen::Matrix3d& E,
+                                std::vector<double>* residuals) {
+  const size_t num_points1 = points1.size();
+  THROW_CHECK_EQ(num_points1, points2.size());
+  residuals->resize(num_points1);
+  for (size_t i = 0; i < num_points1; ++i) {
+    (*residuals)[i] = ComputeSquaredSampsonError(
+        points1[i].homogeneous(), points2[i].homogeneous(), E);
+  }
+}
+
+void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& ray1,
+                                const std::vector<Eigen::Vector3d>& ray2,
+                                const Eigen::Matrix3d& E,
+                                std::vector<double>* residuals) {
+  const size_t num_ray1 = ray1.size();
+  THROW_CHECK_EQ(num_ray1, ray2.size());
+  residuals->resize(num_ray1);
+  for (size_t i = 0; i < num_ray1; ++i) {
+    (*residuals)[i] = ComputeSquaredSampsonError(ray1[i], ray2[i], E);
+  }
 }
 
 }  // namespace colmap
