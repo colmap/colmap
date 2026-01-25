@@ -148,15 +148,22 @@ class BundleAdjustmentConfig {
   std::unordered_set<frame_t> constant_rig_from_world_poses_;
 };
 
+struct BundleAdjustmentBackendOptions {
+  // Ceres-specific options (only used when backend == CERES).
+  std::shared_ptr<CeresBundleAdjustmentOptions> ceres;
+
+  BundleAdjustmentBackendOptions();
+  BundleAdjustmentBackendOptions(const BundleAdjustmentBackendOptions& other);
+  BundleAdjustmentBackendOptions& operator=(
+      const BundleAdjustmentBackendOptions& other);
+  BundleAdjustmentBackendOptions(BundleAdjustmentBackendOptions&& other) =
+      default;
+  BundleAdjustmentBackendOptions& operator=(
+      BundleAdjustmentBackendOptions&& other) = default;
+};
+
 // Solver-agnostic bundle adjustment options.
-struct BundleAdjustmentOptions {
-  BundleAdjustmentOptions();
-  BundleAdjustmentOptions(BundleAdjustmentOptions&&) = default;
-  BundleAdjustmentOptions& operator=(BundleAdjustmentOptions&&) = default;
-
-  // Create a deep copy of these options.
-  BundleAdjustmentOptions Clone() const;
-
+struct BundleAdjustmentOptions : public BundleAdjustmentBackendOptions {
   // Whether to refine the focal length parameter group.
   bool refine_focal_length = true;
 
@@ -191,14 +198,7 @@ struct BundleAdjustmentOptions {
   // Solver backend to use for bundle adjustment.
   BundleAdjustmentBackend backend = BundleAdjustmentBackend::CERES;
 
-  // Ceres-specific options (only used when backend == CERES).
-  std::shared_ptr<CeresBundleAdjustmentOptions> ceres;
-
   bool Check() const;
-
- private:
-  BundleAdjustmentOptions(const BundleAdjustmentOptions&) = delete;
-  BundleAdjustmentOptions& operator=(const BundleAdjustmentOptions&) = delete;
 };
 
 // Abstract base class for bundle adjustment, independent of solver backend.
@@ -226,33 +226,31 @@ std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(
     const BundleAdjustmentConfig& config,
     Reconstruction& reconstruction);
 
+struct PosePriorBundleAdjustmentBackendOptions {
+  // Ceres-specific options (only used when backend == CERES).
+  std::shared_ptr<CeresPosePriorBundleAdjustmentOptions> ceres;
+
+  PosePriorBundleAdjustmentBackendOptions();
+  PosePriorBundleAdjustmentBackendOptions(
+      const PosePriorBundleAdjustmentBackendOptions& other);
+  PosePriorBundleAdjustmentBackendOptions& operator=(
+      const PosePriorBundleAdjustmentBackendOptions& other);
+  PosePriorBundleAdjustmentBackendOptions(
+      PosePriorBundleAdjustmentBackendOptions&& other) = default;
+  PosePriorBundleAdjustmentBackendOptions& operator=(
+      PosePriorBundleAdjustmentBackendOptions&& other) = default;
+};
+
 // Solver-agnostic pose prior bundle adjustment options.
-struct PosePriorBundleAdjustmentOptions {
-  PosePriorBundleAdjustmentOptions();
-  PosePriorBundleAdjustmentOptions(PosePriorBundleAdjustmentOptions&&) =
-      default;
-  PosePriorBundleAdjustmentOptions& operator=(
-      PosePriorBundleAdjustmentOptions&&) = default;
-
-  // Create a deep copy of these options.
-  PosePriorBundleAdjustmentOptions Clone() const;
-
+struct PosePriorBundleAdjustmentOptions
+    : public PosePriorBundleAdjustmentBackendOptions {
   // Fallback if no prior position covariance is provided.
   double prior_position_fallback_stddev = 1.0;
 
   // Sim3 alignment options.
   RANSACOptions alignment_ransac_options;
 
-  // Ceres-specific options (only used when backend == CERES).
-  std::shared_ptr<CeresPosePriorBundleAdjustmentOptions> ceres;
-
   bool Check() const;
-
- private:
-  PosePriorBundleAdjustmentOptions(const PosePriorBundleAdjustmentOptions&) =
-      delete;
-  PosePriorBundleAdjustmentOptions& operator=(
-      const PosePriorBundleAdjustmentOptions&) = delete;
 };
 
 // Factory function to create pose prior bundle adjusters.

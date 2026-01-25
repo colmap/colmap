@@ -254,7 +254,7 @@ void BundleAdjustmentConfig::RemoveConstantPoint(const point3D_t point3D_id) {
 
 BundleAdjuster::BundleAdjuster(const BundleAdjustmentOptions& options,
                                const BundleAdjustmentConfig& config)
-    : options_(options.Clone()), config_(config) {
+    : options_(options), config_(config) {
   THROW_CHECK(options_.Check());
 }
 
@@ -268,25 +268,27 @@ const BundleAdjustmentConfig& BundleAdjuster::Config() const { return config_; }
 // BundleAdjustmentOptions
 ////////////////////////////////////////////////////////////////////////////////
 
-BundleAdjustmentOptions::BundleAdjustmentOptions()
+BundleAdjustmentBackendOptions::BundleAdjustmentBackendOptions()
     : ceres(std::make_shared<CeresBundleAdjustmentOptions>()) {}
 
-BundleAdjustmentOptions BundleAdjustmentOptions::Clone() const {
-  BundleAdjustmentOptions options;
-  options.refine_focal_length = refine_focal_length;
-  options.refine_principal_point = refine_principal_point;
-  options.refine_extra_params = refine_extra_params;
-  options.refine_sensor_from_rig = refine_sensor_from_rig;
-  options.refine_rig_from_world = refine_rig_from_world;
-  options.refine_points3D = refine_points3D;
-  options.min_track_length = min_track_length;
-  options.constant_rig_from_world_rotation = constant_rig_from_world_rotation;
-  options.print_summary = print_summary;
-  options.backend = backend;
-  if (ceres) {
-    options.ceres = std::make_shared<CeresBundleAdjustmentOptions>(*ceres);
+BundleAdjustmentBackendOptions::BundleAdjustmentBackendOptions(
+    const BundleAdjustmentBackendOptions& other) {
+  if (other.ceres) {
+    ceres = std::make_shared<CeresBundleAdjustmentOptions>(*other.ceres);
   }
-  return options;
+}
+
+BundleAdjustmentBackendOptions& BundleAdjustmentBackendOptions::operator=(
+    const BundleAdjustmentBackendOptions& other) {
+  if (this == &other) {
+    return *this;
+  }
+  if (other.ceres) {
+    ceres = std::make_shared<CeresBundleAdjustmentOptions>(*other.ceres);
+  } else {
+    ceres.reset();
+  }
+  return *this;
 }
 
 bool BundleAdjustmentOptions::Check() const {
@@ -310,19 +312,32 @@ std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(
 // PosePriorBundleAdjustmentOptions
 ////////////////////////////////////////////////////////////////////////////////
 
-PosePriorBundleAdjustmentOptions::PosePriorBundleAdjustmentOptions()
+PosePriorBundleAdjustmentBackendOptions::
+    PosePriorBundleAdjustmentBackendOptions()
     : ceres(std::make_shared<CeresPosePriorBundleAdjustmentOptions>()) {}
 
-PosePriorBundleAdjustmentOptions PosePriorBundleAdjustmentOptions::Clone()
-    const {
-  PosePriorBundleAdjustmentOptions options;
-  options.prior_position_fallback_stddev = prior_position_fallback_stddev;
-  options.alignment_ransac_options = alignment_ransac_options;
-  if (ceres) {
-    options.ceres =
-        std::make_shared<CeresPosePriorBundleAdjustmentOptions>(*ceres);
+PosePriorBundleAdjustmentBackendOptions::
+    PosePriorBundleAdjustmentBackendOptions(
+        const PosePriorBundleAdjustmentBackendOptions& other) {
+  if (other.ceres) {
+    ceres =
+        std::make_shared<CeresPosePriorBundleAdjustmentOptions>(*other.ceres);
   }
-  return options;
+}
+
+PosePriorBundleAdjustmentBackendOptions&
+PosePriorBundleAdjustmentBackendOptions::operator=(
+    const PosePriorBundleAdjustmentBackendOptions& other) {
+  if (this == &other) {
+    return *this;
+  }
+  if (other.ceres) {
+    ceres =
+        std::make_shared<CeresPosePriorBundleAdjustmentOptions>(*other.ceres);
+  } else {
+    ceres.reset();
+  }
+  return *this;
 }
 
 bool PosePriorBundleAdjustmentOptions::Check() const {
