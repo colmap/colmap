@@ -52,14 +52,16 @@ class PyCeresBundleAdjuster : public CeresBundleAdjuster,
 void BindBundleAdjuster(py::module& m) {
   IsPyceresAvailable();  // Try to import pyceres to populate the docstrings.
 
-  auto PyBATerminationType =
-      py::enum_<BATerminationType>(m, "BATerminationType")
-          .value("CONVERGENCE", BATerminationType::CONVERGENCE)
-          .value("NO_CONVERGENCE", BATerminationType::NO_CONVERGENCE)
-          .value("FAILURE", BATerminationType::FAILURE)
-          .value("USER_SUCCESS", BATerminationType::USER_SUCCESS)
-          .value("USER_FAILURE", BATerminationType::USER_FAILURE);
-  AddStringToEnumConstructor(PyBATerminationType);
+  auto PyBundleAdjustmentTerminationType =
+      py::enum_<BundleAdjustmentTerminationType>(
+          m, "BundleAdjustmentTerminationType")
+          .value("CONVERGENCE", BundleAdjustmentTerminationType::CONVERGENCE)
+          .value("NO_CONVERGENCE",
+                 BundleAdjustmentTerminationType::NO_CONVERGENCE)
+          .value("FAILURE", BundleAdjustmentTerminationType::FAILURE)
+          .value("USER_SUCCESS", BundleAdjustmentTerminationType::USER_SUCCESS)
+          .value("USER_FAILURE", BundleAdjustmentTerminationType::USER_FAILURE);
+  AddStringToEnumConstructor(PyBundleAdjustmentTerminationType);
 
   using BASummary = BundleAdjustmentSummary;
   auto PyBundleAdjustmentSummary =

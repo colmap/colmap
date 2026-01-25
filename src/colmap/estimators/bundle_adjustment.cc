@@ -34,15 +34,16 @@
 namespace colmap {
 
 bool BundleAdjustmentSummary::IsSolutionUsable() const {
-  return termination_type == BATerminationType::CONVERGENCE ||
-         termination_type == BATerminationType::NO_CONVERGENCE ||
-         termination_type == BATerminationType::USER_SUCCESS;
+  return termination_type == BundleAdjustmentTerminationType::CONVERGENCE ||
+         termination_type == BundleAdjustmentTerminationType::NO_CONVERGENCE ||
+         termination_type == BundleAdjustmentTerminationType::USER_SUCCESS;
 }
 
 std::string BundleAdjustmentSummary::BriefReport() const {
-  return "termination: " +
-         std::string(BATerminationTypeToString(termination_type)) +
-         ", num_residuals: " + std::to_string(num_residuals);
+  return "Bundle adjustment report: termination=" +
+         std::string(
+             BundleAdjustmentTerminationTypeToString(termination_type)) +
+         ", num_residuals=" + std::to_string(num_residuals);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

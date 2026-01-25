@@ -150,7 +150,8 @@ TEST(DefaultBundleAdjuster, Nominal) {
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
 
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(reconstruction,
@@ -189,7 +190,8 @@ TEST(DefaultBundleAdjuster, NominalMultiCameraRig) {
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
 
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(reconstruction,
@@ -221,7 +223,8 @@ TEST(DefaultBundleAdjuster, TwoView) {
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
             GetCeresProblem(*bundle_adjuster).NumResiduals());
@@ -270,7 +273,8 @@ TEST(DefaultBundleAdjuster, TwoViewRig) {
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
             GetCeresProblem(*bundle_adjuster).NumResiduals());
@@ -324,7 +328,8 @@ TEST(DefaultBundleAdjuster, ManyViewRig) {
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
             GetCeresProblem(*bundle_adjuster).NumResiduals());
@@ -380,7 +385,8 @@ TEST(DefaultBundleAdjuster, ManyViewRigConstantSensorFromRig) {
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
             GetCeresProblem(*bundle_adjuster).NumResiduals());
@@ -437,7 +443,8 @@ TEST(DefaultBundleAdjuster, ManyViewRigConstantRigFromWorld) {
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
             GetCeresProblem(*bundle_adjuster).NumResiduals());
@@ -499,7 +506,8 @@ TEST(DefaultBundleAdjuster, ConstantRigFromWorldRotation) {
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
             GetCeresProblem(*bundle_adjuster).NumResiduals());
@@ -567,7 +575,8 @@ TEST(DefaultBundleAdjuster, TwoViewConstantCamera) {
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
             GetCeresProblem(*bundle_adjuster).NumResiduals());
@@ -619,7 +628,8 @@ TEST(DefaultBundleAdjuster, PartiallyContainedTracks) {
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
             GetCeresProblem(*bundle_adjuster).NumResiduals());
@@ -688,7 +698,8 @@ TEST(DefaultBundleAdjuster, PartiallyContainedTracksForceToOptimizePoint) {
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
             GetCeresProblem(*bundle_adjuster).NumResiduals());
@@ -753,7 +764,8 @@ TEST(DefaultBundleAdjuster, ConstantPoints) {
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
             GetCeresProblem(*bundle_adjuster).NumResiduals());
@@ -806,7 +818,8 @@ TEST(DefaultBundleAdjuster, VariableImage) {
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
             GetCeresProblem(*bundle_adjuster).NumResiduals());
@@ -860,7 +873,8 @@ TEST(DefaultBundleAdjuster, ConstantFocalLength) {
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
             GetCeresProblem(*bundle_adjuster).NumResiduals());
@@ -923,7 +937,8 @@ TEST(DefaultBundleAdjuster, VariablePrincipalPoint) {
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
             GetCeresProblem(*bundle_adjuster).NumResiduals());
@@ -998,7 +1013,8 @@ TEST(DefaultBundleAdjuster, ConstantExtraParam) {
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
             GetCeresProblem(*bundle_adjuster).NumResiduals());
@@ -1060,7 +1076,8 @@ TEST(DefaultBundleAdjuster, ConstantPoints3D) {
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
             GetCeresProblem(*bundle_adjuster).NumResiduals());
@@ -1106,7 +1123,8 @@ TEST(DefaultBundleAdjuster, FixGaugeWithThreePoints) {
     const auto summary1 = CreateDefaultCeresBundleAdjuster(
                               BundleAdjustmentOptions(), config, reconstruction)
                               ->Solve();
-    ASSERT_NE(summary1->termination_type, BATerminationType::FAILURE);
+    ASSERT_NE(summary1->termination_type,
+              BundleAdjustmentTerminationType::FAILURE);
     EXPECT_EQ(GetCeresSummary(summary1.get()).num_effective_parameters_reduced,
               num_effective_parameters_reduced);
   };
@@ -1150,7 +1168,8 @@ TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorld) {
     const auto summary1 =
         CreateDefaultCeresBundleAdjuster(options, config, reconstruction)
             ->Solve();
-    ASSERT_NE(summary1->termination_type, BATerminationType::FAILURE);
+    ASSERT_NE(summary1->termination_type,
+              BundleAdjustmentTerminationType::FAILURE);
     EXPECT_EQ(GetCeresSummary(summary1.get()).num_effective_parameters_reduced,
               num_effective_parameters_reduced);
   };
@@ -1198,7 +1217,8 @@ TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorldFixSensorFromRig) {
     const auto summary1 =
         CreateDefaultCeresBundleAdjuster(options, config, reconstruction)
             ->Solve();
-    ASSERT_NE(summary1->termination_type, BATerminationType::FAILURE);
+    ASSERT_NE(summary1->termination_type,
+              BundleAdjustmentTerminationType::FAILURE);
     EXPECT_EQ(GetCeresSummary(summary1.get()).num_effective_parameters_reduced,
               num_effective_parameters_reduced);
   };
@@ -1259,7 +1279,8 @@ TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorldNoReferenceSensor) {
     const auto summary1 =
         CreateDefaultCeresBundleAdjuster(options, config, reconstruction)
             ->Solve();
-    THROW_CHECK_NE(summary1->termination_type, BATerminationType::FAILURE);
+    THROW_CHECK_NE(summary1->termination_type,
+                   BundleAdjustmentTerminationType::FAILURE);
     THROW_CHECK_EQ(
         GetCeresSummary(summary1.get()).num_effective_parameters_reduced,
         num_effective_parameters_reduced);
@@ -1322,7 +1343,8 @@ TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorldFallback) {
   const auto summary =
       CreateDefaultCeresBundleAdjuster(options, config, reconstruction)
           ->Solve();
-  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
   EXPECT_EQ(GetCeresSummary(summary.get()).num_effective_parameters, 316);
   EXPECT_EQ(GetCeresSummary(summary.get()).num_effective_parameters_reduced,
             307);
@@ -1351,7 +1373,8 @@ TEST(DefaultBundleAdjuster, IgnorePoint) {
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
-  ASSERT_NE(summary->termination_type, BATerminationType::FAILURE);
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
 
   EXPECT_EQ(config.NumResiduals(reconstruction),
             GetCeresProblem(*bundle_adjuster).NumResiduals());

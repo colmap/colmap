@@ -79,19 +79,19 @@ TEST(PosePriorBundleAdjustmentOptions, Copy) {
 TEST(BundleAdjustmentSummary, IsSolutionUsable) {
   BundleAdjustmentSummary summary;
 
-  summary.termination_type = BATerminationType::CONVERGENCE;
+  summary.termination_type = BundleAdjustmentTerminationType::CONVERGENCE;
   EXPECT_TRUE(summary.IsSolutionUsable());
 
-  summary.termination_type = BATerminationType::NO_CONVERGENCE;
+  summary.termination_type = BundleAdjustmentTerminationType::NO_CONVERGENCE;
   EXPECT_TRUE(summary.IsSolutionUsable());
 
-  summary.termination_type = BATerminationType::USER_SUCCESS;
+  summary.termination_type = BundleAdjustmentTerminationType::USER_SUCCESS;
   EXPECT_TRUE(summary.IsSolutionUsable());
 
-  summary.termination_type = BATerminationType::FAILURE;
+  summary.termination_type = BundleAdjustmentTerminationType::FAILURE;
   EXPECT_FALSE(summary.IsSolutionUsable());
 
-  summary.termination_type = BATerminationType::USER_FAILURE;
+  summary.termination_type = BundleAdjustmentTerminationType::USER_FAILURE;
   EXPECT_FALSE(summary.IsSolutionUsable());
 }
 

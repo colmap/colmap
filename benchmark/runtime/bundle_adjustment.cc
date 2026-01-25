@@ -118,7 +118,7 @@ BENCHMARK_DEFINE_F(BM_BundleAdjustment, Solve)(benchmark::State& state) {
     state.PauseTiming();
     num_iterations += GetCeresSummary(summary.get()).num_successful_steps;
     if (summary->termination_type ==
-        BATerminationType::NO_CONVERGENCE) {
+        BundleAdjustmentTerminationType::NO_CONVERGENCE) {
       state.SkipWithError("Bundle adjustment did not converge");
     }
     state.ResumeTiming();

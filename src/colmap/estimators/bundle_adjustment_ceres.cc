@@ -42,22 +42,22 @@ namespace colmap {
 
 namespace {
 
-BATerminationType CeresTerminationTypeToTerminationType(
+BundleAdjustmentTerminationType CeresTerminationTypeToTerminationType(
     ceres::TerminationType ceres_type) {
   switch (ceres_type) {
     case ceres::CONVERGENCE:
-      return BATerminationType::CONVERGENCE;
+      return BundleAdjustmentTerminationType::CONVERGENCE;
     case ceres::NO_CONVERGENCE:
-      return BATerminationType::NO_CONVERGENCE;
+      return BundleAdjustmentTerminationType::NO_CONVERGENCE;
     case ceres::FAILURE:
-      return BATerminationType::FAILURE;
+      return BundleAdjustmentTerminationType::FAILURE;
     case ceres::USER_SUCCESS:
-      return BATerminationType::USER_SUCCESS;
+      return BundleAdjustmentTerminationType::USER_SUCCESS;
     case ceres::USER_FAILURE:
-      return BATerminationType::USER_FAILURE;
+      return BundleAdjustmentTerminationType::USER_FAILURE;
   }
   LOG(FATAL_THROW) << "Unknown Ceres termination type: " << ceres_type;
-  return BATerminationType::FAILURE;
+  return BundleAdjustmentTerminationType::FAILURE;
 }
 
 std::unique_ptr<ceres::LossFunction> CreateLossFunction(

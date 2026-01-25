@@ -48,7 +48,7 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(
     BundleAdjustmentGauge, -1, UNSPECIFIED, TWO_CAMS_FROM_WORLD, THREE_POINTS);
 
 // Termination type for bundle adjustment, independent of solver backend.
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(BATerminationType,
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(BundleAdjustmentTerminationType,
                                 0,
                                 CONVERGENCE,
                                 NO_CONVERGENCE,
@@ -61,7 +61,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(BundleAdjustmentBackend, 0, CERES);
 
 // Summary of bundle adjustment results, independent of solver backend.
 struct BundleAdjustmentSummary {
-  BATerminationType termination_type = BATerminationType::FAILURE;
+  BundleAdjustmentTerminationType termination_type =
+      BundleAdjustmentTerminationType::FAILURE;
   // Number of residuals connected to at least one variable parameter block.
   // Excludes residuals where all connected parameters are constant.
   int num_residuals = 0;
