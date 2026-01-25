@@ -96,7 +96,7 @@ void BundleAdjustment(const std::shared_ptr<Reconstruction>& reconstruction,
   py::gil_scoped_release release;
   OptionManager option_manager;
   option_manager.bundle_adjustment =
-      std::make_shared<BundleAdjustmentOptions>(options.Clone());
+      std::make_shared<BundleAdjustmentOptions>(options);
   BundleAdjustmentController controller(option_manager, reconstruction);
   controller.Run();
 }
