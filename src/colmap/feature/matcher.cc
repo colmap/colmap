@@ -43,8 +43,31 @@ void ThrowUnknownFeatureMatcherType(FeatureMatcherType type) {
 
 }  // namespace
 
+FeatureMatchingTypeOptions::FeatureMatchingTypeOptions()
+    : sift(std::make_shared<SiftMatchingOptions>()) {}
+
+FeatureMatchingTypeOptions::FeatureMatchingTypeOptions(
+    const FeatureMatchingTypeOptions& other) {
+  if (other.sift) {
+    sift = std::make_shared<SiftMatchingOptions>(*other.sift);
+  }
+}
+
+FeatureMatchingTypeOptions& FeatureMatchingTypeOptions::operator=(
+    const FeatureMatchingTypeOptions& other) {
+  if (this == &other) {
+    return *this;
+  }
+  if (other.sift) {
+    sift = std::make_shared<SiftMatchingOptions>(*other.sift);
+  } else {
+    sift.reset();
+  }
+  return *this;
+}
+
 FeatureMatchingOptions::FeatureMatchingOptions(FeatureMatcherType type)
-    : type(type), sift(std::make_shared<SiftMatchingOptions>()) {}
+    : FeatureMatchingTypeOptions(), type(type) {}
 
 bool FeatureMatchingOptions::RequiresOpenGL() const {
   switch (type) {
