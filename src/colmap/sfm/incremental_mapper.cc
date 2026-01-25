@@ -861,7 +861,7 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
                                   abs_pose_refinement_config,
                                   *reconstruction_);
   const auto abs_pose_summary = abs_pose_refinement->Solve();
-  if (abs_pose_summary->termination_type == BATerminationType::FAILURE) {
+  if (!abs_pose_summary->IsSolutionUsable()) {
     VLOG(2) << "Absolute pose refinement failed";
     return false;
   }
@@ -1133,8 +1133,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   // Optimize the redundant 3D points with all other parameters fixed.
   if (!is_small_reconstruction && options.ba_global_ignore_redundant_points3D) {
-    if (bundle_adjuster->Solve()->termination_type ==
-        BATerminationType::FAILURE) {
+    if (!bundle_adjuster->Solve()->IsSolutionUsable()) {
       return false;
     }
 
@@ -1158,8 +1157,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
         custom_ba_options, ba_config, *reconstruction_);
   }
 
-  return bundle_adjuster->Solve()->termination_type !=
-         BATerminationType::FAILURE;
+  return bundle_adjuster->Solve()->IsSolutionUsable();
 }
 
 void IncrementalMapper::IterativeLocalRefinement(

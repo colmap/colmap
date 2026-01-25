@@ -39,6 +39,12 @@ bool BundleAdjustmentSummary::IsSolutionUsable() const {
          termination_type == BATerminationType::USER_SUCCESS;
 }
 
+std::string BundleAdjustmentSummary::BriefReport() const {
+  return "termination: " +
+         std::string(BATerminationTypeToString(termination_type)) +
+         ", num_residuals: " + std::to_string(num_residuals);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // BundleAdjustmentConfig
 ////////////////////////////////////////////////////////////////////////////////
@@ -302,10 +308,10 @@ std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(
   switch (options.backend) {
     case BundleAdjustmentBackend::CERES:
       return CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
-    default:
-      LOG(FATAL) << "Unknown bundle adjustment backend: "
-                 << static_cast<int>(options.backend);
   }
+  LOG(FATAL_THROW) << "Unknown bundle adjustment backend: "
+                   << static_cast<int>(options.backend);
+  return nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -358,10 +364,10 @@ std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
                                                 config,
                                                 std::move(pose_priors),
                                                 reconstruction);
-    default:
-      LOG(FATAL) << "Unknown bundle adjustment backend: "
-                 << static_cast<int>(options.backend);
   }
+  LOG(FATAL_THROW) << "Unknown bundle adjustment backend: "
+                   << static_cast<int>(options.backend);
+  return nullptr;
 }
 
 }  // namespace colmap

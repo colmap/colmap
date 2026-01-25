@@ -67,6 +67,7 @@ struct BundleAdjustmentSummary {
   int num_residuals = 0;
 
   bool IsSolutionUsable() const;
+  virtual std::string BriefReport() const;
 
   virtual ~BundleAdjustmentSummary() = default;
 };

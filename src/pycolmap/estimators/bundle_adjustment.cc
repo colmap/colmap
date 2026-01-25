@@ -67,7 +67,8 @@ void BindBundleAdjuster(py::module& m) {
           .def(py::init<>())
           .def_readwrite("termination_type", &BASummary::termination_type)
           .def_readwrite("num_residuals", &BASummary::num_residuals)
-          .def("is_solution_usable", &BASummary::IsSolutionUsable);
+          .def("is_solution_usable", &BASummary::IsSolutionUsable)
+          .def("brief_report", &BASummary::BriefReport);
   MakeDataclass(PyBundleAdjustmentSummary);
 
   using CeresBASummary = CeresBundleAdjustmentSummary;

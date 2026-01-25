@@ -56,7 +56,7 @@ BATerminationType CeresTerminationTypeToTerminationType(
     case ceres::USER_FAILURE:
       return BATerminationType::USER_FAILURE;
   }
-  LOG(FATAL) << "Unknown Ceres termination type: " << ceres_type;
+  LOG(FATAL_THROW) << "Unknown Ceres termination type: " << ceres_type;
 }
 
 std::unique_ptr<ceres::LossFunction> CreateLossFunction(
@@ -65,16 +65,12 @@ std::unique_ptr<ceres::LossFunction> CreateLossFunction(
   switch (loss_function_type) {
     case CeresBundleAdjustmentOptions::LossFunctionType::TRIVIAL:
       return std::make_unique<ceres::TrivialLoss>();
-      break;
     case CeresBundleAdjustmentOptions::LossFunctionType::SOFT_L1:
       return std::make_unique<ceres::SoftLOneLoss>(loss_function_scale);
-      break;
     case CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY:
       return std::make_unique<ceres::CauchyLoss>(loss_function_scale);
-      break;
     case CeresBundleAdjustmentOptions::LossFunctionType::HUBER:
       return std::make_unique<ceres::HuberLoss>(loss_function_scale);
-      break;
   }
   return nullptr;
 }
@@ -90,6 +86,10 @@ CeresBundleAdjustmentSummary::Create(
   summary->num_residuals = ceres_summary.num_residuals_reduced;
   summary->ceres_summary = ceres_summary;
   return summary;
+}
+
+std::string CeresBundleAdjustmentSummary::BriefReport() const {
+  return ceres_summary.BriefReport();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -598,7 +598,7 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
             point3D_num_observations_, reconstruction, *problem_);
         break;
       default:
-        LOG(FATAL) << "Unknown BundleAdjustmentGauge";
+        LOG(FATAL_THROW) << "Unknown BundleAdjustmentGauge";
     }
   }
 

@@ -14,19 +14,21 @@ def solve_bundle_adjustment(
     reconstruction: pycolmap.Reconstruction,
     ba_options: pycolmap.BundleAdjustmentOptions,
     ba_config: pycolmap.BundleAdjustmentConfig,
-) -> pycolmap.CeresBundleAdjustmentSummary:
-    bundle_adjuster = pycolmap.create_default_ceres_bundle_adjuster(
+) -> pycolmap.BundleAdjustmentSummary:
+    bundle_adjuster = pycolmap.create_default_bundle_adjuster(
         ba_options, ba_config, reconstruction
     )
     summary = bundle_adjuster.solve()
-    # Alternatively, you can customize the existing problem or options as:
+    # Alternatively, you can customize the existing Ceres problem or options as:
     # import pyceres  # The minimal bindings in pycolmap aren't sufficient.
-    # solver_options = ba_options.create_solver_options(
+    # bundle_adjuster = pycolmap.create_default_ceres_bundle_adjuster(
+    #     ba_options, ba_config, reconstruction
+    # )
+    # solver_options = ba_options.ceres.create_solver_options(
     #     ba_config, bundle_adjuster.problem
     # )
     # summary = pyceres.SolverSummary()
     # pyceres.solve(solver_options, bundle_adjuster.problem, summary)
-    assert isinstance(summary, pycolmap.CeresBundleAdjustmentSummary)
     return summary
 
 
@@ -34,7 +36,7 @@ def adjust_global_bundle(
     mapper: pycolmap.IncrementalMapper,
     mapper_options: pycolmap.IncrementalMapperOptions,
     ba_options: pycolmap.BundleAdjustmentOptions,
-) -> None:
+) -> bool:
     """Equivalent to mapper.adjust_global_bundle(...)"""
     reconstruction = mapper.reconstruction
     assert reconstruction is not None
@@ -79,14 +81,17 @@ def adjust_global_bundle(
         ba_config.set_constant_cam_intrinsics(camera_id)
 
     # TODO: Add python support for prior positions
-    ba_config.fix_gauge(pycolmap.BundleAdjustmentGauge.THREE_POINTS)
+    # Fixing the gauge with two cameras leads to a more stable optimization
+    # with fewer steps as compared to fixing three points.
+    ba_config.fix_gauge(pycolmap.BundleAdjustmentGauge.TWO_CAMS_FROM_WORLD)
 
     # Run bundle adjustment
     summary = solve_bundle_adjustment(
         reconstruction, custom_ba_options, ba_config
     )
     logging.info("Global Bundle Adjustment")
-    logging.info(summary.ceres_summary.BriefReport())
+    logging.info(summary.brief_report())
+    return summary.is_solution_usable()
 
 
 def iterative_global_refinement(
@@ -97,7 +102,7 @@ def iterative_global_refinement(
     ba_options: pycolmap.BundleAdjustmentOptions,
     tri_options: pycolmap.IncrementalTriangulatorOptions,
     normalize_reconstruction: bool = True,
-) -> None:
+) -> bool:
     """Equivalent to mapper.iterative_global_refinement(...)"""
     reconstruction = mapper.reconstruction
     mapper.complete_and_merge_tracks(tri_options)
@@ -108,7 +113,8 @@ def iterative_global_refinement(
     for _ in range(max_num_refinements):
         num_observations = reconstruction.compute_num_observations()
         # mapper.adjust_global_bundle(mapper_options, ba_options)
-        adjust_global_bundle(mapper, mapper_options, ba_options)
+        if not adjust_global_bundle(mapper, mapper_options, ba_options):
+            return False
         if normalize_reconstruction:
             reconstruction.normalize()
         num_changed_observations = mapper.complete_and_merge_tracks(tri_options)
@@ -121,6 +127,7 @@ def iterative_global_refinement(
         logging.verbose(1, f"=> Changed observations: {changed:.6f}")
         if changed < max_refinement_change:
             break
+    return True
 
 
 def adjust_local_bundle(
@@ -210,7 +217,7 @@ def adjust_local_bundle(
             mapper.reconstruction, ba_options, ba_config
         )
         logging.info("Local Bundle Adjustment")
-        logging.info(summary.ceres_summary.BriefReport())
+        logging.info(summary.brief_report())
 
         image_ids = ba_config.images
         report.num_adjusted_observations = int(summary.num_residuals / 2)
