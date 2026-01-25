@@ -57,6 +57,7 @@ BATerminationType CeresTerminationTypeToTerminationType(
       return BATerminationType::USER_FAILURE;
   }
   LOG(FATAL_THROW) << "Unknown Ceres termination type: " << ceres_type;
+  return BATerminationType::FAILURE;
 }
 
 std::unique_ptr<ceres::LossFunction> CreateLossFunction(
