@@ -139,7 +139,7 @@ macro(COLMAP_ADD_TEST)
         target_link_libraries(${COLMAP_ADD_TEST_TARGET}
             ${COLMAP_ADD_TEST_LINK_LIBS}
             colmap_gtest_main)
-        add_test("${FOLDER_NAME}/${COLMAP_ADD_TEST_NAME}" ${COLMAP_ADD_TEST_TARGET})
+        add_test(NAME "${FOLDER_NAME}/${COLMAP_ADD_TEST_NAME}" COMMAND $<TARGET_FILE:${COLMAP_ADD_TEST_TARGET}>)
         if(IS_MSVC)
             install(TARGETS ${COLMAP_ADD_TEST_TARGET} DESTINATION ${CMAKE_INSTALL_BINDIR})
         endif()
