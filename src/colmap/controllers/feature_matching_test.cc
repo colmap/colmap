@@ -332,6 +332,45 @@ TEST(CreateGeometricVerifier, Nominal) {
   EXPECT_GE(database->ReadTwoViewGeometries().size(), 3);
 }
 
+TEST(CreateGeometricVerifier, RigVerification) {
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
+  auto database = Database::Open(database_path);
+
+  Reconstruction unused_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 2;
+  synthetic_dataset_options.num_points3D = 25;
+  SynthesizeDataset(
+      synthetic_dataset_options, &unused_reconstruction, database.get());
+
+  const size_t num_two_view_geometries =
+      database->ReadTwoViewGeometries().size();
+
+  // Clear two-view geometries to force re-verification.
+  database->ClearTwoViewGeometries();
+
+  ExistingMatchedPairingOptions pairing_options;
+
+  GeometricVerifierOptions verifier_options;
+  verifier_options.num_threads = 2;
+  verifier_options.rig_verification = true;
+
+  TwoViewGeometryOptions geometry_options;
+  geometry_options.min_num_inliers = 5;
+
+  auto verifier = CreateGeometricVerifier(
+      verifier_options, pairing_options, geometry_options, database_path);
+  ASSERT_NE(verifier, nullptr);
+  verifier->Start();
+  verifier->Wait();
+
+  // Verify that two-view geometries were created.
+  EXPECT_EQ(database->ReadTwoViewGeometries().size(), num_two_view_geometries);
+}
+
 TEST(CreateGeometricVerifier, Guided) {
   const auto test_dir = CreateTestDir();
   const auto database_path = test_dir / "database.db";

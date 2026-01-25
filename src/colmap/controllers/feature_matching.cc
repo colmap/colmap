@@ -67,6 +67,10 @@ void RigVerification(const std::shared_ptr<Database>& database,
     const auto [image_id1, image_id2] = PairIdToImagePair(image_pair_id);
     frame_t frame_id1 = image_to_frame_ids.at(image_id1);
     frame_t frame_id2 = image_to_frame_ids.at(image_id2);
+    if (frame_id1 == frame_id2) {
+      // Rig verification is not applicable to the same frame.
+      continue;
+    }
     if (frame_id1 > frame_id2) {
       std::swap(frame_id1, frame_id2);
     }
@@ -112,13 +116,15 @@ void RigVerification(const std::shared_ptr<Database>& database,
       std::vector<std::pair<std::pair<image_t, image_t>, FeatureMatches>>
           matches;
       matches.reserve(frame1.NumDataIds() * frame2.NumDataIds());
-      for (const data_t& image_id1 : frame1.ImageIds()) {
-        for (const data_t& image_id2 : frame2.ImageIds()) {
-          if (!cache->ExistsMatches(image_id1.id, image_id2.id)) {
+      for (const data_t& data_id1 : frame1.ImageIds()) {
+        const image_t image_id1 = data_id1.id;
+        for (const data_t& data_id2 : frame2.ImageIds()) {
+          const image_t image_id2 = data_id2.id;
+          if (!cache->ExistsMatches(image_id1, image_id2)) {
             continue;
           }
-          matches.emplace_back(std::make_pair(image_id1.id, image_id2.id),
-                               cache->GetMatches(image_id1.id, image_id2.id));
+          matches.emplace_back(std::make_pair(image_id1, image_id2),
+                               cache->GetMatches(image_id1, image_id2));
         }
       }
 
@@ -126,7 +132,7 @@ void RigVerification(const std::shared_ptr<Database>& database,
            EstimateRigTwoViewGeometries(
                rig1, rig2, images, cameras, matches, geometry_options)) {
         const auto& [image_id1, image_id2] = image_pair;
-        cache->DeleteInlierMatches(image_id1, image_id2);
+        cache->DeleteTwoViewGeometry(image_id1, image_id2);
         cache->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
       }
     });
