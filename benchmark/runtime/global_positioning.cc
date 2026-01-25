@@ -44,12 +44,11 @@
 #include <glog/logging.h>
 
 using namespace colmap;
-using namespace glomap;
 
 struct CachedData {
   std::array<int64_t, 5> dataset_args;
   Reconstruction reconstruction;
-  PoseGraph pose_graph;
+  glomap::PoseGraph pose_graph;
   std::filesystem::path temp_dir;
 };
 
@@ -119,10 +118,10 @@ static void BM_GlobalPositioning(benchmark::State& state) {
   }
 
   const Reconstruction& reconstruction = cached->reconstruction;
-  const PoseGraph& pose_graph = cached->pose_graph;
+  const glomap::PoseGraph& pose_graph = cached->pose_graph;
   const int num_neighbors = dataset_args[4];
 
-  GlobalPositionerOptions base_options;
+  glomap::GlobalPositionerOptions base_options;
   base_options.use_gpu = false;
   base_options.random_seed = 42;
   base_options.solver_options.max_num_iterations = 50;
@@ -131,11 +130,11 @@ static void BM_GlobalPositioning(benchmark::State& state) {
   for (auto _ : state) {
     state.PauseTiming();
     Reconstruction reconstruction_copy = reconstruction;
-    GlobalPositionerOptions options = base_options;
+    glomap::GlobalPositionerOptions options = base_options;
     options.use_parameter_block_ordering = use_parameter_block_ordering;
     state.ResumeTiming();
 
-    GlobalPositioner positioner(options);
+    glomap::GlobalPositioner positioner(options);
     positioner.Solve(pose_graph, reconstruction_copy);
   }
   state.counters["ord"] = use_parameter_block_ordering;
