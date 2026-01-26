@@ -40,10 +40,10 @@
 namespace colmap {
 
 GlobalPipeline::GlobalPipeline(
-    const GlobalPipelineOptions& options,
+    GlobalPipelineOptions options,
     std::shared_ptr<Database> database,
     std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager)
-    : options_(options),
+    : options_(std::move(options)),
       database_(std::move(THROW_CHECK_NOTNULL(database))),
       reconstruction_manager_(
           std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {

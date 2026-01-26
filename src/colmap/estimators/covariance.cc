@@ -300,7 +300,7 @@ std::optional<Eigen::MatrixXd> BACovariance::GetOtherParamsCov(
 std::optional<BACovariance> EstimateBACovariance(
     const BACovarianceOptions& options,
     const Reconstruction& reconstruction,
-    BundleAdjuster& bundle_adjuster) {
+    CeresBundleAdjuster& bundle_adjuster) {
   ceres::Problem& problem = *THROW_CHECK_NOTNULL(bundle_adjuster.Problem());
   return EstimateBACovarianceFromProblem(options, reconstruction, problem);
 }

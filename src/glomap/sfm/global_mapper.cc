@@ -37,15 +37,7 @@ bool RunBundleAdjustment(const colmap::BundleAdjustmentOptions& options,
   auto ba =
       colmap::CreateDefaultBundleAdjuster(options, ba_config, reconstruction);
 
-  ceres::Solver::Summary summary = ba->Solve();
-
-  if (VLOG_IS_ON(2)) {
-    LOG(INFO) << summary.FullReport();
-  } else {
-    LOG(INFO) << summary.BriefReport();
-  }
-
-  return summary.IsSolutionUsable();
+  return ba->Solve()->IsSolutionUsable();
 }
 
 GlobalMapperOptions InitializeOptions(const GlobalMapperOptions& options) {
@@ -58,7 +50,9 @@ GlobalMapperOptions InitializeOptions(const GlobalMapperOptions& options) {
     opts.retriangulation.random_seed = opts.random_seed;
   }
   opts.global_positioning.solver_options.num_threads = opts.num_threads;
-  opts.bundle_adjustment.solver_options.num_threads = opts.num_threads;
+  if (opts.bundle_adjustment.ceres) {
+    opts.bundle_adjustment.ceres->solver_options.num_threads = opts.num_threads;
+  }
   return opts;
 }
 
@@ -413,11 +407,13 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
 
   // Set up bundle adjustment options for colmap's incremental mapper.
   colmap::BundleAdjustmentOptions custom_ba_options;
-  custom_ba_options.solver_options.num_threads =
-      ba_options.solver_options.num_threads;
-  custom_ba_options.solver_options.max_num_iterations = 50;
-  custom_ba_options.solver_options.max_linear_solver_iterations = 100;
   custom_ba_options.print_summary = false;
+  if (custom_ba_options.ceres && ba_options.ceres) {
+    custom_ba_options.ceres->solver_options.num_threads =
+        ba_options.ceres->solver_options.num_threads;
+    custom_ba_options.ceres->solver_options.max_num_iterations = 50;
+    custom_ba_options.ceres->solver_options.max_linear_solver_iterations = 100;
+  }
 
   // Iterative global refinement.
   colmap::IncrementalMapper::Options mapper_options;

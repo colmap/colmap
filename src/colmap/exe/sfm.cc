@@ -380,7 +380,7 @@ int RunGlobalMapper(int argc, char** argv) {
   GlobalPipelineOptions global_options = *options.global_mapper;
   global_options.image_path = *options.image_path;
 
-  GlobalPipeline global_mapper(global_options,
+  GlobalPipeline global_mapper(std::move(global_options),
                                Database::Open(*options.database_path),
                                reconstruction_manager);
   global_mapper.Run();

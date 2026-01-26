@@ -1,6 +1,6 @@
 #pragma once
 
-#include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_triangulator.h"
@@ -11,8 +11,6 @@
 
 #include <filesystem>
 #include <limits>
-
-#include <ceres/ceres.h>
 
 namespace glomap {
 
@@ -35,20 +33,23 @@ struct GlobalMapperOptions {
   GlobalPositionerOptions global_positioning;
   colmap::BundleAdjustmentOptions bundle_adjustment = [] {
     colmap::BundleAdjustmentOptions options;
-    options.loss_function_type =
-        colmap::BundleAdjustmentOptions::LossFunctionType::HUBER;
     options.refine_sensor_from_rig = false;
     options.min_track_length = 3;
-    options.use_gpu = true;
     options.print_summary = false;
-    // TODO: Investigate whether disabling auto solver selection and using
-    // explicit SPARSE_SCHUR + CLUSTER_TRIDIAGONAL is necessary for global SfM,
-    // or if we can just rely on COLMAP's auto selection.
-    options.auto_select_solver_type = false;
-    options.solver_options.function_tolerance = 1e-5;
-    options.solver_options.max_num_iterations = 200;
-    options.solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
-    options.solver_options.preconditioner_type = ceres::CLUSTER_TRIDIAGONAL;
+    if (options.ceres) {
+      options.ceres->loss_function_type =
+          colmap::CeresBundleAdjustmentOptions::LossFunctionType::HUBER;
+      options.ceres->use_gpu = true;
+      // TODO: Investigate whether disabling auto solver selection and using
+      // explicit SPARSE_SCHUR + CLUSTER_TRIDIAGONAL is necessary for global
+      // SfM, or if we can just rely on COLMAP's auto selection.
+      options.ceres->auto_select_solver_type = false;
+      options.ceres->solver_options.function_tolerance = 1e-5;
+      options.ceres->solver_options.max_num_iterations = 200;
+      options.ceres->solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
+      options.ceres->solver_options.preconditioner_type =
+          ceres::CLUSTER_TRIDIAGONAL;
+    }
     return options;
   }();
   colmap::IncrementalTriangulator::Options retriangulation = [] {

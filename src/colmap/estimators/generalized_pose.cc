@@ -29,7 +29,7 @@
 
 #include "colmap/estimators/generalized_pose.h"
 
-#include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/cost_functions.h"
 #include "colmap/estimators/manifold.h"
 #include "colmap/estimators/pose.h"
@@ -43,7 +43,6 @@
 #include "colmap/util/logging.h"
 
 #include <Eigen/Core>
-#include <ceres/ceres.h>
 
 namespace colmap {
 namespace {

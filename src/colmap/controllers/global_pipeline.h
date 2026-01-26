@@ -76,7 +76,7 @@ struct GlobalPipelineOptions {
 class GlobalPipeline : public BaseController {
  public:
   GlobalPipeline(
-      const GlobalPipelineOptions& options,
+      GlobalPipelineOptions options,
       std::shared_ptr<Database> database,
       std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager);
 
