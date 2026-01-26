@@ -31,6 +31,7 @@
 
 #include "colmap/math/random.h"
 #include "colmap/scene/database_cache.h"
+#include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
 
@@ -38,7 +39,6 @@
 
 #include <algorithm>
 #include <array>
-#include <atomic>
 
 #include <benchmark/benchmark.h>
 #include <glog/logging.h>
@@ -49,7 +49,6 @@ struct CachedData {
   std::array<int64_t, 5> dataset_args;
   Reconstruction reconstruction;
   glomap::PoseGraph pose_graph;
-  std::filesystem::path temp_dir;
 };
 
 static void BM_GlobalPositioning(benchmark::State& state) {
@@ -84,21 +83,10 @@ static void BM_GlobalPositioning(benchmark::State& state) {
     dataset_options.match_config = SyntheticDatasetOptions::MatchConfig::SPARSE;
     dataset_options.two_view_geometry_has_relative_pose = true;
 
-    // Clean up previous cached temp directory if it exists.
-    if (cached) {
-      std::filesystem::remove_all(cached->temp_dir);
-    }
-
     cached = std::make_unique<CachedData>();
     cached->dataset_args = dataset_args;
 
-    static std::atomic<int> counter{0};
-    cached->temp_dir = std::filesystem::temp_directory_path() /
-                       ("colmap_benchmark_gp_" + std::to_string(counter++));
-    std::filesystem::remove_all(cached->temp_dir);
-    std::filesystem::create_directories(cached->temp_dir);
-
-    auto database = Database::Open(cached->temp_dir / "database.db");
+    auto database = Database::Open(kInMemorySqliteDatabasePath);
     Reconstruction gt_reconstruction;
     SynthesizeDataset(dataset_options, &gt_reconstruction, database.get());
 
