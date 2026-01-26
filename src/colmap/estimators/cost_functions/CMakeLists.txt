@@ -32,6 +32,14 @@ set(FOLDER_NAME "estimators_cost_functions")
 COLMAP_ADD_LIBRARY(
     NAME colmap_estimators_cost_functions
     TYPE INTERFACE
+    SRCS
+        focal_length.h
+        manifold.h
+        point_alignment.h
+        pose_prior.h
+        reprojection_error.h
+        sampson_error.h
+        utils.h
     INTERFACE_LINK_LIBS
         colmap_geometry
         colmap_sensor
