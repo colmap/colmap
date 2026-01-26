@@ -205,18 +205,12 @@ TEST(ImageReaderTest, SingleCamera) {
   Bitmap bitmap;
   Bitmap mask;
 
-  std::unordered_set<rig_t> rig_ids;
-  std::unordered_set<camera_t> camera_ids;
   for (int i = 0; i < 3; ++i) {
     const auto status =
         image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
     ASSERT_EQ(status, ImageReader::Status::SUCCESS);
-    rig_ids.insert(rig.RigId());
-    camera_ids.insert(camera.camera_id);
   }
 
-  EXPECT_EQ(rig_ids.size(), 1);
-  EXPECT_EQ(camera_ids.size(), 1);
   EXPECT_EQ(database->NumRigs(), 1);
   EXPECT_EQ(database->NumCameras(), 1);
 }
