@@ -127,21 +127,22 @@ macro(COLMAP_ADD_TEST)
     cmake_parse_arguments(COLMAP_ADD_TEST "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
     if(TESTS_ENABLED)
         # ${ARGN} will store the list of link libraries.
-        set(COLMAP_ADD_TEST_NAME "colmap_${FOLDER_NAME}_${COLMAP_ADD_TEST_NAME}")
-        add_executable(${COLMAP_ADD_TEST_NAME} ${COLMAP_ADD_TEST_SRCS})
-        set_target_properties(${COLMAP_ADD_TEST_NAME} PROPERTIES FOLDER
-            ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
+        set(COLMAP_ADD_TEST_TARGET "colmap_${FOLDER_NAME}_${COLMAP_ADD_TEST_NAME}")
+        add_executable(${COLMAP_ADD_TEST_TARGET} ${COLMAP_ADD_TEST_SRCS})
+        set_target_properties(${COLMAP_ADD_TEST_TARGET} PROPERTIES
+            FOLDER ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME}
+            OUTPUT_NAME "${COLMAP_ADD_TEST_NAME}")
         if(CLANG_TIDY_EXE)
-            set_target_properties(${COLMAP_ADD_TEST_NAME}
+            set_target_properties(${COLMAP_ADD_TEST_TARGET}
                 PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
         endif()
-        target_link_libraries(${COLMAP_ADD_TEST_NAME}
+        target_link_libraries(${COLMAP_ADD_TEST_TARGET}
             ${COLMAP_ADD_TEST_LINK_LIBS}
             colmap_gtest_main)
-        add_test("${FOLDER_NAME}/${COLMAP_ADD_TEST_NAME}" ${COLMAP_ADD_TEST_NAME})
+        add_test(NAME "${FOLDER_NAME}/${COLMAP_ADD_TEST_NAME}" COMMAND $<TARGET_FILE:${COLMAP_ADD_TEST_TARGET}>)
         if(IS_MSVC)
-            install(TARGETS ${COLMAP_ADD_TEST_NAME} DESTINATION ${CMAKE_INSTALL_BINDIR})
+            install(TARGETS ${COLMAP_ADD_TEST_TARGET} DESTINATION ${CMAKE_INSTALL_BINDIR})
         endif()
-        target_compile_definitions(${COLMAP_ADD_TEST_NAME} PRIVATE ${COLMAP_COMPILE_DEFINITIONS})
+        target_compile_definitions(${COLMAP_ADD_TEST_TARGET} PRIVATE ${COLMAP_COMPILE_DEFINITIONS})
     endif()
 endmacro(COLMAP_ADD_TEST)
