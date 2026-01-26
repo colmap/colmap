@@ -235,7 +235,7 @@ jobs:
         if: ${{ matrix.config.cmakeBuildType != 'ClangTidy' }}
         run: |
           if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
-            ctestExclusions="(feature/colmap_feature_sift_test)|(mvs/colmap_mvs_gpu_mat_test)"
+            ctestExclusions="(feature/sift_test)|(mvs/gpu_mat_test)"
           fi
 
           export DISPLAY=":99.0"
