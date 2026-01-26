@@ -33,9 +33,9 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_estimators_cost_functions
     TYPE INTERFACE
     SRCS
-        focal_length.h
+        alignment.h
+        calibration.h
         manifold.h
-        point_alignment.h
         pose_prior.h
         reprojection_error.h
         sampson_error.h
@@ -47,6 +47,16 @@ COLMAP_ADD_LIBRARY(
         Ceres::ceres
 )
 
+COLMAP_ADD_TEST(
+    NAME alignment_test
+    SRCS alignment_test.cc
+    LINK_LIBS colmap_estimators_cost_functions
+)
+COLMAP_ADD_TEST(
+    NAME calibration_test
+    SRCS calibration_test.cc
+    LINK_LIBS colmap_estimators_cost_functions
+)
 COLMAP_ADD_TEST(
     NAME utils_test
     SRCS utils_test.cc
@@ -65,15 +75,5 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME pose_prior_test
     SRCS pose_prior_test.cc
-    LINK_LIBS colmap_estimators_cost_functions
-)
-COLMAP_ADD_TEST(
-    NAME point_alignment_test
-    SRCS point_alignment_test.cc
-    LINK_LIBS colmap_estimators_cost_functions
-)
-COLMAP_ADD_TEST(
-    NAME focal_length_test
-    SRCS focal_length_test.cc
     LINK_LIBS colmap_estimators_cost_functions
 )

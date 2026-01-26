@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/estimators/cost_functions/point_alignment.h"
+#include "colmap/estimators/cost_functions/alignment.h"
 
 #include "colmap/geometry/sim3.h"
 #include "colmap/math/random.h"

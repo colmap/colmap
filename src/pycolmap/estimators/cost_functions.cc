@@ -1,4 +1,4 @@
-#include "colmap/estimators/cost_functions/point_alignment.h"
+#include "colmap/estimators/cost_functions/alignment.h"
 #include "colmap/estimators/cost_functions/pose_prior.h"
 #include "colmap/estimators/cost_functions/reprojection_error.h"
 #include "colmap/estimators/cost_functions/sampson_error.h"
