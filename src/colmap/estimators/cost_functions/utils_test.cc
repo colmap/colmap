@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/estimators/cost_function_utils.h"
+#include "colmap/estimators/cost_functions/utils.h"
 
 #include "colmap/util/eigen_matchers.h"
 

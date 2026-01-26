@@ -29,6 +29,7 @@
 
 set(FOLDER_NAME "estimators")
 
+add_subdirectory(cost_functions)
 add_subdirectory(solvers)
 
 COLMAP_ADD_LIBRARY(
@@ -38,9 +39,6 @@ COLMAP_ADD_LIBRARY(
         bundle_adjustment.h bundle_adjustment.cc
         bundle_adjustment_ceres.h bundle_adjustment_ceres.cc
         coordinate_frame.h coordinate_frame.cc
-        cost_function_utils.h
-        cost_functions.h
-        manifold.h
         covariance.h covariance.cc
         pose.h pose.cc
         generalized_pose.h generalized_pose.cc
@@ -56,6 +54,7 @@ COLMAP_ADD_LIBRARY(
         colmap_image
         colmap_scene
         colmap_optim
+        colmap_estimators_cost_functions
         colmap_estimators_solvers
         Eigen3::Eigen
         Ceres::ceres
@@ -89,16 +88,6 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME covariance_test
     SRCS covariance_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
-    NAME cost_functions_test
-    SRCS cost_functions_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
-    NAME cost_function_utils_test
-    SRCS cost_function_utils_test.cc
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
