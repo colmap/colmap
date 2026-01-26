@@ -369,8 +369,14 @@ EstimateRigTwoViewGeometries(
         return it->second.second;
       };
 
+  std::unordered_set<image_pair_t> image_pairs;
+  image_pairs.reserve(matches.size());
   for (const auto& [image_pair, pair_matches] : matches) {
     const auto& [image_id1, image_id2] = image_pair;
+
+    THROW_CHECK(
+        image_pairs.insert(ImagePairToPairId(image_id1, image_id2)).second)
+        << "Duplicate image pair";
 
     const Image& image1 = images.at(image_id1);
     const Camera& camera1 = cameras.at(image1.CameraId());
