@@ -27,86 +27,53 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-set(FOLDER_NAME "estimators")
-
-add_subdirectory(cost_functions)
-add_subdirectory(solvers)
+set(FOLDER_NAME "estimators_cost_functions")
 
 COLMAP_ADD_LIBRARY(
-    NAME colmap_estimators
+    NAME colmap_estimators_cost_functions
+    TYPE INTERFACE
     SRCS
-        alignment.h alignment.cc
-        bundle_adjustment.h bundle_adjustment.cc
-        bundle_adjustment_ceres.h bundle_adjustment_ceres.cc
-        coordinate_frame.h coordinate_frame.cc
-        covariance.h covariance.cc
-        pose.h pose.cc
-        generalized_pose.h generalized_pose.cc
-        triangulation.h triangulation.cc
-        two_view_geometry.h two_view_geometry.cc
-        view_graph_calibration.h view_graph_calibration.cc
-    PUBLIC_LINK_LIBS
-        colmap_util
-        colmap_math
-        colmap_feature_types
+        alignment.h
+        calibration.h
+        manifold.h
+        pose_prior.h
+        reprojection_error.h
+        sampson_error.h
+        utils.h
+    INTERFACE_LINK_LIBS
         colmap_geometry
         colmap_sensor
-        colmap_image
-        colmap_scene
-        colmap_optim
-        colmap_estimators_cost_functions
-        colmap_estimators_solvers
         Eigen3::Eigen
         Ceres::ceres
-        PoseLib::PoseLib
 )
-
-if(CUDA_ENABLED)
-    target_link_libraries(colmap_estimators PUBLIC colmap_util_cuda)
-endif()
 
 COLMAP_ADD_TEST(
     NAME alignment_test
     SRCS alignment_test.cc
-    LINK_LIBS colmap_estimators
+    LINK_LIBS colmap_estimators_cost_functions
 )
 COLMAP_ADD_TEST(
-    NAME bundle_adjustment_test
-    SRCS bundle_adjustment_test.cc
-    LINK_LIBS colmap_estimators
+    NAME calibration_test
+    SRCS calibration_test.cc
+    LINK_LIBS colmap_estimators_cost_functions
 )
 COLMAP_ADD_TEST(
-    NAME bundle_adjustment_ceres_test
-    SRCS bundle_adjustment_ceres_test.cc
-    LINK_LIBS colmap_estimators
+    NAME utils_test
+    SRCS utils_test.cc
+    LINK_LIBS colmap_estimators_cost_functions
 )
 COLMAP_ADD_TEST(
-    NAME coordinate_frame_test
-    SRCS coordinate_frame_test.cc
-    LINK_LIBS colmap_estimators
+    NAME reprojection_error_test
+    SRCS reprojection_error_test.cc
+    LINK_LIBS colmap_estimators_cost_functions
 )
 COLMAP_ADD_TEST(
-    NAME covariance_test
-    SRCS covariance_test.cc
-    LINK_LIBS colmap_estimators
+    NAME sampson_error_test
+    SRCS sampson_error_test.cc
+    LINK_LIBS colmap_estimators_cost_functions
 )
 COLMAP_ADD_TEST(
-    NAME generalized_pose_test
-    SRCS generalized_pose_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
-    NAME pose_test
-    SRCS pose_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
-    NAME two_view_geometry_test
-    SRCS two_view_geometry_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
-    NAME view_graph_calibration_test
-    SRCS view_graph_calibration_test.cc
-    LINK_LIBS colmap_estimators
+    NAME pose_prior_test
+    SRCS pose_prior_test.cc
+    LINK_LIBS colmap_estimators_cost_functions
 )

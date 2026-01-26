@@ -365,6 +365,7 @@ set(COLMAP_EXPORT_LIBS
     # Internal.
     colmap_controllers
     colmap_estimators
+    colmap_estimators_cost_functions
     colmap_estimators_solvers
     colmap_exe
     colmap_feature_types

@@ -30,8 +30,10 @@
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 
 #include "colmap/estimators/alignment.h"
-#include "colmap/estimators/cost_functions.h"
-#include "colmap/estimators/manifold.h"
+#include "colmap/estimators/cost_functions/manifold.h"
+#include "colmap/estimators/cost_functions/pose_prior.h"
+#include "colmap/estimators/cost_functions/reprojection_error.h"
+#include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"

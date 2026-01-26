@@ -1,7 +1,7 @@
 #include "gravity_refinement.h"
 
-#include "colmap/estimators/cost_function_utils.h"
-#include "colmap/estimators/manifold.h"
+#include "colmap/estimators/cost_functions/manifold.h"
+#include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"

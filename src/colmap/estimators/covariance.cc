@@ -29,7 +29,7 @@
 
 #include "colmap/estimators/covariance.h"
 
-#include "colmap/estimators/manifold.h"
+#include "colmap/estimators/cost_functions/manifold.h"
 
 #include <unordered_set>
 

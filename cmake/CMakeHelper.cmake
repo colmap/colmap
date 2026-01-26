@@ -77,22 +77,41 @@ endmacro(COLMAP_ADD_SOURCE_DIR)
 # Replacement for the normal add_library() command. The syntax remains the same
 # in that the first argument is the target name, and the following arguments
 # are the source files to use when building the target.
+# Supports TYPE argument: STATIC (default) or INTERFACE (header-only libraries).
+# For INTERFACE libraries, use INTERFACE_LINK_LIBS instead of PRIVATE/PUBLIC_LINK_LIBS.
 macro(COLMAP_ADD_LIBRARY)
     set(options)
-    set(oneValueArgs)
-    set(multiValueArgs NAME SRCS PRIVATE_LINK_LIBS PUBLIC_LINK_LIBS)
+    set(oneValueArgs TYPE)
+    set(multiValueArgs NAME SRCS PRIVATE_LINK_LIBS PUBLIC_LINK_LIBS INTERFACE_LINK_LIBS)
     cmake_parse_arguments(COLMAP_ADD_LIBRARY "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
-    add_library(${COLMAP_ADD_LIBRARY_NAME} STATIC ${COLMAP_ADD_LIBRARY_SRCS})
-    set_target_properties(${COLMAP_ADD_LIBRARY_NAME} PROPERTIES FOLDER
-        ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
-    if(CLANG_TIDY_EXE)
-        set_target_properties(${COLMAP_ADD_LIBRARY_NAME}
-            PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
+    # Default to STATIC if TYPE is not specified
+    if(NOT COLMAP_ADD_LIBRARY_TYPE)
+        set(COLMAP_ADD_LIBRARY_TYPE STATIC)
     endif()
-    target_link_libraries(${COLMAP_ADD_LIBRARY_NAME}
-        PRIVATE ${COLMAP_ADD_LIBRARY_PRIVATE_LINK_LIBS}
-        PUBLIC ${COLMAP_ADD_LIBRARY_PUBLIC_LINK_LIBS})
-    target_compile_definitions(${COLMAP_ADD_LIBRARY_NAME} PUBLIC ${COLMAP_COMPILE_DEFINITIONS})
+    if(COLMAP_ADD_LIBRARY_TYPE STREQUAL "INTERFACE")
+        # Header-only library
+        add_library(${COLMAP_ADD_LIBRARY_NAME} INTERFACE)
+        set_target_properties(${COLMAP_ADD_LIBRARY_NAME} PROPERTIES FOLDER
+            ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
+        target_link_libraries(${COLMAP_ADD_LIBRARY_NAME}
+            INTERFACE ${COLMAP_ADD_LIBRARY_INTERFACE_LINK_LIBS})
+        target_compile_definitions(${COLMAP_ADD_LIBRARY_NAME} INTERFACE ${COLMAP_COMPILE_DEFINITIONS})
+    elseif(COLMAP_ADD_LIBRARY_TYPE STREQUAL "STATIC")
+        # Regular static library
+        add_library(${COLMAP_ADD_LIBRARY_NAME} STATIC ${COLMAP_ADD_LIBRARY_SRCS})
+        set_target_properties(${COLMAP_ADD_LIBRARY_NAME} PROPERTIES FOLDER
+            ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
+        if(CLANG_TIDY_EXE)
+            set_target_properties(${COLMAP_ADD_LIBRARY_NAME}
+                PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
+        endif()
+        target_link_libraries(${COLMAP_ADD_LIBRARY_NAME}
+            PRIVATE ${COLMAP_ADD_LIBRARY_PRIVATE_LINK_LIBS}
+            PUBLIC ${COLMAP_ADD_LIBRARY_PUBLIC_LINK_LIBS})
+        target_compile_definitions(${COLMAP_ADD_LIBRARY_NAME} PUBLIC ${COLMAP_COMPILE_DEFINITIONS})
+    else()
+        message(FATAL_ERROR "Unknown library type: ${COLMAP_ADD_LIBRARY_TYPE}")
+    endif()
 endmacro(COLMAP_ADD_LIBRARY)
 
 # Replacement for the normal add_executable() command. The syntax remains the

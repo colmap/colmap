@@ -30,8 +30,8 @@
 #include "colmap/estimators/generalized_pose.h"
 
 #include "colmap/estimators/bundle_adjustment_ceres.h"
-#include "colmap/estimators/cost_functions.h"
-#include "colmap/estimators/manifold.h"
+#include "colmap/estimators/cost_functions/manifold.h"
+#include "colmap/estimators/cost_functions/reprojection_error.h"
 #include "colmap/estimators/pose.h"
 #include "colmap/estimators/solvers/generalized_absolute_pose.h"
 #include "colmap/estimators/solvers/generalized_relative_pose.h"
