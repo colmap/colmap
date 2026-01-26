@@ -143,7 +143,7 @@ jobs:
         run: |
           ./vcpkg/vcpkg.exe integrate install
           cd build
-          $EXCLUDED_TESTS = "(feature/sift_test)|(util/opengl_utils_test)|(mvs/gpu_mat_test)"
+          $EXCLUDED_TESTS = "(feature/colmap_feature_sift_test)|(util/colmap_util_opengl_utils_test)|(mvs/colmap_mvs_gpu_mat_test)"
           ctest -E ${EXCLUDED_TESTS} --output-on-failure
 
       - name: Export package
