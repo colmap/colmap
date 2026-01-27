@@ -177,7 +177,7 @@ Configure and compile COLMAP::
     cd colmap
     mkdir build
     cd build
-    cmake -GNinja
+    cmake .. -GNinja
     ninja
     sudo ninja install
 
