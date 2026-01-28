@@ -36,6 +36,7 @@ COLMAP_ADD_LIBRARY(
         alignment.h
         calibration.h
         manifold.h
+        motion_averaging.h
         pose_prior.h
         reprojection_error.h
         sampson_error.h
@@ -75,5 +76,10 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME pose_prior_test
     SRCS pose_prior_test.cc
+    LINK_LIBS colmap_estimators_cost_functions
+)
+COLMAP_ADD_TEST(
+    NAME motion_averaging_test
+    SRCS motion_averaging_test.cc
     LINK_LIBS colmap_estimators_cost_functions
 )
