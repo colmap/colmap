@@ -65,7 +65,7 @@ OptionManager::OptionManager(bool add_project_options)
   bundle_adjustment = std::make_shared<BundleAdjustmentOptions>();
   mapper = std::make_shared<IncrementalPipelineOptions>();
   global_mapper = std::make_shared<GlobalPipelineOptions>();
-  gravity_refiner = std::make_shared<colmap::GravityRefinerOptions>();
+  gravity_refiner = std::make_shared<GravityRefinerOptions>();
   reconstruction_clusterer =
       std::make_shared<ReconstructionClusteringOptions>();
   patch_match_stereo = std::make_shared<mvs::PatchMatchOptions>();
@@ -975,7 +975,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *bundle_adjustment = BundleAdjustmentOptions();
   *mapper = IncrementalPipelineOptions();
   *global_mapper = GlobalPipelineOptions();
-  *gravity_refiner = colmap::GravityRefinerOptions();
+  *gravity_refiner = GravityRefinerOptions();
   *reconstruction_clusterer = ReconstructionClusteringOptions();
   *patch_match_stereo = mvs::PatchMatchOptions();
   *stereo_fusion = mvs::StereoFusionOptions();

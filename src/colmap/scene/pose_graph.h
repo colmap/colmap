@@ -1,10 +1,8 @@
 #pragma once
 
-#include "colmap/feature/types.h"
 #include "colmap/geometry/rigid3.h"
-#include "colmap/scene/database_cache.h"
+#include "colmap/scene/correspondence_graph.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/scene/types.h"
 #include "colmap/util/types.h"
 
 #include <unordered_map>
@@ -31,7 +29,7 @@ class PoseGraph {
     bool valid = true;
 
     // Invert the geometry to match swapped image order.
-    void Invert() { cam2_from_cam1 = colmap::Inverse(cam2_from_cam1); }
+    void Invert() { cam2_from_cam1 = Inverse(cam2_from_cam1); }
   };
 
   PoseGraph() = default;
@@ -45,7 +43,7 @@ class PoseGraph {
   inline void Clear();
 
   // Load edges from the correspondence graph.
-  void Load(const colmap::CorrespondenceGraph& corr_graph);
+  void Load(const CorrespondenceGraph& corr_graph);
 
   // Edge operations.
   inline Edge& AddEdge(image_t image_id1, image_t image_id2, Edge edge);
@@ -65,7 +63,7 @@ class PoseGraph {
 
   // Returns a filter view over valid edges only.
   auto ValidEdges() const {
-    return colmap::filter_view(
+    return filter_view(
         [](const std::pair<const image_pair_t, Edge>& kv) {
           return kv.second.valid;
         },
@@ -77,7 +75,7 @@ class PoseGraph {
   // If filter_unregistered is true, only considers frames with HasPose().
   // Returns the set of frame_ids in the largest connected component.
   std::unordered_set<frame_t> ComputeLargestConnectedFrameComponent(
-      const colmap::Reconstruction& reconstruction,
+      const Reconstruction& reconstruction,
       bool filter_unregistered = true) const;
 
   // Mark image pairs as invalid if either image is not in the active set.
@@ -86,7 +84,7 @@ class PoseGraph {
 
   // Mark connected clusters of images, where the cluster_id is sorted by the
   // the number of images. Populates `cluster_ids` output parameter.
-  int MarkConnectedComponents(const colmap::Reconstruction& reconstruction,
+  int MarkConnectedComponents(const Reconstruction& reconstruction,
                               std::unordered_map<frame_t, int>& cluster_ids,
                               int min_num_images = -1) const;
 
@@ -118,10 +116,10 @@ void PoseGraph::Clear() { edges_.clear(); }
 PoseGraph::Edge& PoseGraph::AddEdge(image_t image_id1,
                                     image_t image_id2,
                                     PoseGraph::Edge edge) {
-  if (colmap::ShouldSwapImagePair(image_id1, image_id2)) {
+  if (ShouldSwapImagePair(image_id1, image_id2)) {
     edge.Invert();
   }
-  const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
   auto [it, inserted] = edges_.emplace(pair_id, std::move(edge));
   if (!inserted) {
     throw std::runtime_error(
@@ -132,32 +130,32 @@ PoseGraph::Edge& PoseGraph::AddEdge(image_t image_id1,
 }
 
 bool PoseGraph::HasEdge(image_t image_id1, image_t image_id2) const {
-  const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
   return edges_.find(pair_id) != edges_.end();
 }
 
 std::pair<PoseGraph::Edge&, bool> PoseGraph::EdgeRef(image_t image_id1,
                                                      image_t image_id2) {
-  const bool swapped = colmap::ShouldSwapImagePair(image_id1, image_id2);
-  const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
+  const bool swapped = ShouldSwapImagePair(image_id1, image_id2);
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
   return {edges_.at(pair_id), swapped};
 }
 
 std::pair<const PoseGraph::Edge&, bool> PoseGraph::EdgeRef(
     image_t image_id1, image_t image_id2) const {
-  const bool swapped = colmap::ShouldSwapImagePair(image_id1, image_id2);
-  const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
+  const bool swapped = ShouldSwapImagePair(image_id1, image_id2);
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
   return {edges_.at(pair_id), swapped};
 }
 
 bool PoseGraph::DeleteEdge(image_t image_id1, image_t image_id2) {
-  const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
   return edges_.erase(pair_id) > 0;
 }
 
 PoseGraph::Edge PoseGraph::GetEdge(image_t image_id1, image_t image_id2) const {
-  const bool swapped = colmap::ShouldSwapImagePair(image_id1, image_id2);
-  const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
+  const bool swapped = ShouldSwapImagePair(image_id1, image_id2);
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
   PoseGraph::Edge result = edges_.at(pair_id);
   if (swapped) {
     result.Invert();
@@ -168,10 +166,10 @@ PoseGraph::Edge PoseGraph::GetEdge(image_t image_id1, image_t image_id2) const {
 void PoseGraph::UpdateEdge(image_t image_id1,
                            image_t image_id2,
                            PoseGraph::Edge edge) {
-  if (colmap::ShouldSwapImagePair(image_id1, image_id2)) {
+  if (ShouldSwapImagePair(image_id1, image_id2)) {
     edge.Invert();
   }
-  const image_pair_t pair_id = colmap::ImagePairToPairId(image_id1, image_id2);
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
   auto it = edges_.find(pair_id);
   if (it == edges_.end()) {
     throw std::runtime_error(

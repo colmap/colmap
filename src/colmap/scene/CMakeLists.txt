@@ -42,6 +42,7 @@ COLMAP_ADD_LIBRARY(
         image.h image.cc
         point2d.h point2d.cc
         point3d.h point3d.cc
+        pose_graph.h pose_graph.cc
         projection.h projection.cc
         reconstruction.h reconstruction.cc
         reconstruction_clustering.h reconstruction_clustering.cc
@@ -182,19 +183,8 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_scene
 )
 
-COLMAP_ADD_LIBRARY(
-    NAME colmap_glomap_scene
-    SRCS
-        pose_graph.h pose_graph.cc
-        types.h
-    PUBLIC_LINK_LIBS
-        colmap_estimators
-        colmap_scene
-        colmap_util
-)
-
 COLMAP_ADD_TEST(
     NAME glomap_pose_graph_test
     SRCS pose_graph_test.cc
-    LINK_LIBS colmap_glomap_scene
+    LINK_LIBS colmap_scene
 )

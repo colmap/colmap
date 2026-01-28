@@ -176,7 +176,7 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
 
     LOG(INFO) << "Reading image...";
 
-    colmap::Bitmap bitmap;
+    Bitmap bitmap;
     THROW_CHECK(bitmap.Read(image_path / image.Name()));
 
     LOG(INFO) << "Undistorting image...";

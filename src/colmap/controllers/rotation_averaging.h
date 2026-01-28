@@ -66,10 +66,10 @@ struct RotationAveragingPipelineOptions {
   bool refine_gravity = false;
 
   // Options for gravity refinement.
-  colmap::GravityRefinerOptions gravity_refiner;
+  GravityRefinerOptions gravity_refiner;
 
   // Options for rotation averaging.
-  colmap::RotationEstimatorOptions rotation_estimation;
+  RotationEstimatorOptions rotation_estimation;
 };
 
 class RotationAveragingPipeline : public BaseController {

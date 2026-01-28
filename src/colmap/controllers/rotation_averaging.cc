@@ -72,7 +72,7 @@ void RotationAveragingPipeline::Run() {
 
   // Load reconstruction and pose graph from database cache.
   reconstruction_->Load(*database_cache_);
-  colmap::PoseGraph pose_graph;
+  PoseGraph pose_graph;
   pose_graph.Load(*database_cache_->CorrespondenceGraph());
 
   if (pose_graph.Empty()) {
@@ -117,15 +117,15 @@ void RotationAveragingPipeline::Run() {
     pose_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
 
     LOG_HEADING1("Running gravity refinement");
-    colmap::RunGravityRefinement(
+    RunGravityRefinement(
         options.gravity_refiner, pose_graph, *reconstruction_, pose_priors);
   }
 
   LOG_HEADING1("Running rotation averaging");
-  if (!colmap::RunRotationAveraging(options.rotation_estimation,
-                                    pose_graph,
-                                    *reconstruction_,
-                                    pose_priors)) {
+  if (!RunRotationAveraging(options.rotation_estimation,
+                            pose_graph,
+                            *reconstruction_,
+                            pose_priors)) {
     LOG(ERROR) << "Failed to solve rotation averaging";
     return;
   }
