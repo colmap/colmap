@@ -39,7 +39,6 @@ COLMAP_ADD_LIBRARY(
         bundle_adjustment.h bundle_adjustment.cc
         bundle_adjustment_ceres.h bundle_adjustment_ceres.cc
         coordinate_frame.h coordinate_frame.cc
-        cost_functions.h
         covariance.h covariance.cc
         generalized_pose.h generalized_pose.cc
         global_positioning.h global_positioning.cc
@@ -113,12 +112,6 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME view_graph_calibration_test
     SRCS view_graph_calibration_test.cc
-    LINK_LIBS colmap_estimators
-)
-
-COLMAP_ADD_TEST(
-    NAME glomap_cost_functions_test
-    SRCS cost_functions_test.cc
     LINK_LIBS colmap_estimators
 )
 

@@ -1,6 +1,6 @@
 #include "colmap/estimators/global_positioning.h"
 
-#include "colmap/estimators/cost_functions.h"
+#include "colmap/estimators/cost_functions/motion_averaging.h"
 #include "colmap/math/random.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
