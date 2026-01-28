@@ -110,7 +110,6 @@ void BindGravityRefiner(py::module& m) {
 }
 
 void BindRotationEstimator(py::module& m) {
-  // Bind the WeightType enum
   using WeightType = RotationEstimatorOptions::WeightType;
   auto PyWeightType = py::enum_<WeightType>(m, "RotationWeightType")
                           .value("GEMAN_MCCLURE", WeightType::GEMAN_MCCLURE)
@@ -188,8 +187,8 @@ void BindRotationEstimator(py::module& m) {
       "Returns True if rotation averaging succeeded.");
 }
 
-void BindGlomapEstimators(py::module& m) {
-  BindGlobalPositioner(m);
+void BindMotionAveraging(py::module& m) {
   BindGravityRefiner(m);
   BindRotationEstimator(m);
+  BindGlobalPositioner(m);
 }
