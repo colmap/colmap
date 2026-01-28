@@ -136,7 +136,7 @@ class GlobalMapper {
       double min_tri_angle_deg);
 
   // Getter functions.
-  std::shared_ptr<Reconstruction> Reconstruction() const;
+  std::shared_ptr<class Reconstruction> Reconstruction() const;
 
  private:
   std::shared_ptr<const DatabaseCache> database_cache_;
