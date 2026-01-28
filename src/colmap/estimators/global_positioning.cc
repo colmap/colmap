@@ -355,14 +355,14 @@ void GlobalPositioner::ParameterizeVariables(Reconstruction& reconstruction) {
   }
 
 #ifdef COLMAP_CUDA_ENABLED
-  const size_t num_images = reconstruction.NumFrames();
   bool cuda_solver_enabled = false;
 
 #if (CERES_VERSION_MAJOR >= 3 ||                                \
      (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 2)) && \
     !defined(CERES_NO_CUDA)
   if (options_.use_gpu &&
-      static_cast<int>(num_images) >= options_.min_num_images_gpu_solver) {
+      reconstruction.NumImages() >=
+          static_cast<size_t>(options_.min_num_images_gpu_solver)) {
     cuda_solver_enabled = true;
     options_.solver_options.dense_linear_algebra_library_type = ceres::CUDA;
   }
@@ -379,7 +379,8 @@ void GlobalPositioner::ParameterizeVariables(Reconstruction& reconstruction) {
      (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 3)) && \
     !defined(CERES_NO_CUDSS)
   if (options_.use_gpu &&
-      static_cast<int>(num_images) >= options_.min_num_images_gpu_solver) {
+      reconstruction.NumImages() >=
+          static_cast<size_t>(options_.min_num_images_gpu_solver)) {
     cuda_solver_enabled = true;
     options_.solver_options.sparse_linear_algebra_library_type =
         ceres::CUDA_SPARSE;
