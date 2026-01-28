@@ -106,7 +106,10 @@ void GlobalPositioner::InitializeRandomPositions(
   }
 
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
-    if (point3D.track.Length() < options_.min_num_view_per_track) continue;
+    if (point3D.track.Length() <
+        static_cast<size_t>(options_.min_num_view_per_track)) {
+      continue;
+    }
     for (const auto& observation : point3D.track.Elements()) {
       THROW_CHECK(reconstruction.ExistsImage(observation.image_id));
       const Image& image = reconstruction.Image(observation.image_id);
