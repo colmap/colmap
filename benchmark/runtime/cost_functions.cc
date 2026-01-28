@@ -1,5 +1,4 @@
 #include "colmap/estimators/cost_functions/reprojection_error.h"
-
 #include "colmap/geometry/rigid3.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"

@@ -14,9 +14,10 @@ fi
 
 # Get all C++ files checked into the repo, excluding submodules
 root_folder=$(git rev-parse --show-toplevel)
+extensions_regex="\(\.cc\|\.h\|\.hpp\|\.cpp\|\.cu\)"
 all_files=$( \
     git ls-tree --full-tree -r --name-only HEAD . \
-    | grep "^src/\(colmap\|glomap\|pycolmap\).*\(\.cc\|\.h\|\.hpp\|\.cpp\|\.cu\)$" \
+    | grep "(^src/\(colmap\|glomap\|pycolmap\).*$extensions_regex$)\|\(benchmark/.*$extensions_regex\)" \
     | sed "s~^~$root_folder/~")
 num_files=$(echo $all_files | wc -w)
 echo "Formatting ${num_files} files"

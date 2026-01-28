@@ -32,10 +32,9 @@
 #include "colmap/math/random.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/database_sqlite.h"
+#include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
-
-#include "colmap/scene/pose_graph.h"
 
 #include <algorithm>
 #include <array>
@@ -100,8 +99,8 @@ static void BM_GlobalPositioning(benchmark::State& state) {
     cached->reconstruction = gt_reconstruction;
     for (const auto& [frame_id, _] : cached->reconstruction.Frames()) {
       Frame& frame = cached->reconstruction.Frame(frame_id);
-      frame.SetRigFromWorld(Rigid3d(frame.RigFromWorld().rotation(),
-                                    Eigen::Vector3d::Zero()));
+      frame.SetRigFromWorld(
+          Rigid3d(frame.RigFromWorld().rotation(), Eigen::Vector3d::Zero()));
     }
   }
 

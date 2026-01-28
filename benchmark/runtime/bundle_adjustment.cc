@@ -28,7 +28,6 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #include "colmap/estimators/bundle_adjustment_ceres.h"
-
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
 
