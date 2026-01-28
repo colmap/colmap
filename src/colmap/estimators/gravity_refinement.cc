@@ -144,7 +144,9 @@ void GravityRefiner::RefineGravity(const PoseGraph& pose_graph,
       counter++;
     }
 
-    if (gravities.size() < options_.min_num_neighbors) continue;
+    if (gravities.size() < static_cast<size_t>(options_.min_num_neighbors)) {
+      continue;
+    }
 
     // Initialize and set the manifold
     gravity = AverageDirections(gravities);
@@ -159,10 +161,12 @@ void GravityRefiner::RefineGravity(const PoseGraph& pose_graph,
 
     // Check the error with respect to the neighbors
     int counter_outlier = 0;
-    for (int i = 0; i < gravities.size(); i++) {
+    for (const Eigen::Vector3d& gravity : gravities) {
       const double error = RadToDeg(
-          std::acos(std::max(std::min(gravities[i].dot(gravity), 1.), -1.)));
-      if (error > options_.max_gravity_error * 2) counter_outlier++;
+          std::acos(std::max(std::min(gravity.dot(gravity), 1.), -1.)));
+      if (error > options_.max_gravity_error * 2) {
+        counter_outlier++;
+      }
     }
     // If the refined gravity now consistent with more images, then accept it
     if (static_cast<double>(counter_outlier) /
