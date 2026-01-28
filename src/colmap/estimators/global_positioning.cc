@@ -146,7 +146,10 @@ void GlobalPositioner::AddPointToCameraConstraints(
   loss_function_ptcam_calibrated_ = loss_function_;
 
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
-    if (point3D.track.Length() < options_.min_num_view_per_track) continue;
+    if (point3D.track.Length() <
+        static_cast<size_t>(options_.min_num_view_per_track)) {
+      continue;
+    }
 
     AddPoint3DToProblem(point3D_id, reconstruction);
   }
