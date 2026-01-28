@@ -1,18 +1,17 @@
 #pragma once
 
 #include "colmap/estimators/bundle_adjustment_ceres.h"
+#include "colmap/estimators/global_positioning.h"
+#include "colmap/estimators/rotation_averaging.h"
 #include "colmap/scene/database_cache.h"
+#include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_triangulator.h"
-
-#include "glomap/estimators/global_positioning.h"
-#include "glomap/estimators/rotation_averaging.h"
-#include "glomap/scene/pose_graph.h"
 
 #include <filesystem>
 #include <limits>
 
-namespace glomap {
+namespace colmap {
 
 struct GlobalMapperOptions {
   // Number of threads.
@@ -31,14 +30,14 @@ struct GlobalMapperOptions {
   // Options for each component
   RotationEstimatorOptions rotation_averaging;
   GlobalPositionerOptions global_positioning;
-  colmap::BundleAdjustmentOptions bundle_adjustment = [] {
-    colmap::BundleAdjustmentOptions options;
+  BundleAdjustmentOptions bundle_adjustment = [] {
+    BundleAdjustmentOptions options;
     options.refine_sensor_from_rig = false;
     options.min_track_length = 3;
     options.print_summary = false;
     if (options.ceres) {
       options.ceres->loss_function_type =
-          colmap::CeresBundleAdjustmentOptions::LossFunctionType::HUBER;
+          CeresBundleAdjustmentOptions::LossFunctionType::HUBER;
       options.ceres->use_gpu = true;
       // TODO: Investigate whether disabling auto solver selection and using
       // explicit SPARSE_SCHUR + CLUSTER_TRIDIAGONAL is necessary for global
@@ -52,8 +51,8 @@ struct GlobalMapperOptions {
     }
     return options;
   }();
-  colmap::IncrementalTriangulator::Options retriangulation = [] {
-    colmap::IncrementalTriangulator::Options opts;
+  IncrementalTriangulator::Options retriangulation = [] {
+    IncrementalTriangulator::Options opts;
     opts.complete_max_reproj_error = 15.0;
     opts.merge_max_reproj_error = 15.0;
     opts.min_angle = 1.0;
@@ -98,13 +97,12 @@ struct GlobalMapperOptions {
 
 class GlobalMapper {
  public:
-  explicit GlobalMapper(
-      std::shared_ptr<const colmap::DatabaseCache> database_cache);
+  explicit GlobalMapper(std::shared_ptr<const DatabaseCache> database_cache);
 
   // Prepare the mapper for a new reconstruction. This will initialize the
   // reconstruction and view graph from the database.
   void BeginReconstruction(
-      const std::shared_ptr<colmap::Reconstruction>& reconstruction);
+      const std::shared_ptr<Reconstruction>& reconstruction);
 
   // Run the global SfM pipeline.
   bool Solve(const GlobalMapperOptions& options,
@@ -123,7 +121,7 @@ class GlobalMapper {
                          double min_tri_angle_deg);
 
   // Run iterative bundle adjustment to refine poses and structure.
-  bool IterativeBundleAdjustment(const colmap::BundleAdjustmentOptions& options,
+  bool IterativeBundleAdjustment(const BundleAdjustmentOptions& options,
                                  double max_normalized_reproj_error,
                                  double min_tri_angle_deg,
                                  int num_iterations,
@@ -132,18 +130,18 @@ class GlobalMapper {
 
   // Iteratively retriangulate tracks and refine to improve structure.
   bool IterativeRetriangulateAndRefine(
-      const colmap::IncrementalTriangulator::Options& options,
-      const colmap::BundleAdjustmentOptions& ba_options,
+      const IncrementalTriangulator::Options& options,
+      const BundleAdjustmentOptions& ba_options,
       double max_normalized_reproj_error,
       double min_tri_angle_deg);
 
   // Getter functions.
-  std::shared_ptr<colmap::Reconstruction> Reconstruction() const;
+  std::shared_ptr<class Reconstruction> Reconstruction() const;
 
  private:
-  std::shared_ptr<const colmap::DatabaseCache> database_cache_;
+  std::shared_ptr<const DatabaseCache> database_cache_;
   std::shared_ptr<class PoseGraph> pose_graph_;
-  std::shared_ptr<colmap::Reconstruction> reconstruction_;
+  std::shared_ptr<class Reconstruction> reconstruction_;
 };
 
-}  // namespace glomap
+}  // namespace colmap

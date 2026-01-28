@@ -1,13 +1,13 @@
 #pragma once
 
-#include "glomap/estimators/rotation_averaging.h"
+#include "colmap/estimators/rotation_averaging.h"
 
 #include <optional>
 #include <variant>
 
 #include <Eigen/Sparse>
 
-namespace glomap {
+namespace colmap {
 
 // Rotation averaging problem formulated as linear system A*x = b where:
 //   x = [rig_from_world rotations, unknown cam_from_rig rotations]
@@ -28,8 +28,8 @@ class RotationAveragingProblem {
 
   // Preprocessed constraint for an image pair, built once during setup.
   struct PairConstraint {
-    image_t image_id1 = colmap::kInvalidImageId;
-    image_t image_id2 = colmap::kInvalidImageId;
+    image_t image_id1 = kInvalidImageId;
+    image_t image_id2 = kInvalidImageId;
     // Starting row in matrix A (1 row for 1-DOF, 3 rows for 3-DOF).
     int row_index = -1;
     // Column indices for unknown cam_from_rig rotations (-1 if known).
@@ -39,10 +39,10 @@ class RotationAveragingProblem {
   };
 
   RotationAveragingProblem(const PoseGraph& pose_graph,
-                           const std::vector<colmap::PosePrior>& pose_priors,
+                           const std::vector<PosePrior>& pose_priors,
                            const RotationEstimatorOptions& options,
                            const std::unordered_set<image_t>& active_image_ids,
-                           colmap::Reconstruction& reconstruction);
+                           Reconstruction& reconstruction);
 
   // Computes residual vector b from current rotation estimates.
   void ComputeResiduals();
@@ -54,7 +54,7 @@ class RotationAveragingProblem {
   double AverageStepSize(const Eigen::VectorXd& step) const;
 
   // Writes optimized rotations back to reconstruction.
-  void ApplyResultsToReconstruction(colmap::Reconstruction& reconstruction);
+  void ApplyResultsToReconstruction(Reconstruction& reconstruction);
 
   const Eigen::SparseMatrix<double>& ConstraintMatrix() const {
     return constraint_matrix_;
@@ -73,21 +73,21 @@ class RotationAveragingProblem {
   bool HasFrameGravity(frame_t frame_id) const;
 
   // Allocates parameter indices for frames and cameras, initializes rotations.
-  size_t AllocateParameters(const colmap::Reconstruction& reconstruction);
+  size_t AllocateParameters(const Reconstruction& reconstruction);
 
   // Builds PairConstraint for each valid image pair.
   void BuildPairConstraints(const PoseGraph& pose_graph,
-                            const colmap::Reconstruction& reconstruction);
+                            const Reconstruction& reconstruction);
 
   // Builds sparse matrix A and edge weight vector.
   void BuildConstraintMatrix(size_t num_params,
                              const PoseGraph& pose_graph,
-                             const colmap::Reconstruction& reconstruction);
+                             const Reconstruction& reconstruction);
 
   const RotationEstimatorOptions options_;
 
   // Pose priors indexed by frame ID.
-  std::unordered_map<frame_t, const colmap::PosePrior*> frame_to_pose_prior_;
+  std::unordered_map<frame_t, const PosePrior*> frame_to_pose_prior_;
 
   // Linear system components.
   Eigen::SparseMatrix<double> constraint_matrix_;  // Matrix A.
@@ -104,7 +104,7 @@ class RotationAveragingProblem {
   std::unordered_map<image_pair_t, PairConstraint> pair_constraints_;
 
   // Gauge fixing (removes rotational ambiguity).
-  frame_t fixed_frame_id_ = colmap::kInvalidFrameId;
+  frame_t fixed_frame_id_ = kInvalidFrameId;
   Eigen::Vector3d fixed_frame_rotation_;
   int num_gauge_fixing_residuals_ = 3;  // 1 for gravity-aligned, 3 otherwise.
 
@@ -141,4 +141,4 @@ class RotationAveragingSolver {
   const RotationEstimatorOptions options_;
 };
 
-}  // namespace glomap
+}  // namespace colmap

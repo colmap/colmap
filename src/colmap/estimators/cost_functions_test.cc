@@ -27,13 +27,13 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "glomap/estimators/cost_functions.h"
+#include "colmap/estimators/cost_functions.h"
 
 #include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
 
-namespace glomap {
+namespace colmap {
 namespace {
 
 TEST(BATAPairwiseDirectionCostFunctor, ZeroResidual) {
@@ -47,8 +47,7 @@ TEST(BATAPairwiseDirectionCostFunctor, ZeroResidual) {
   Eigen::Vector3d residuals;
   EXPECT_TRUE(cost_functor(pos1.data(), pos2.data(), &scale, residuals.data()));
 
-  EXPECT_THAT(residuals,
-              colmap::EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
+  EXPECT_THAT(residuals, EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
 }
 
 TEST(BATAPairwiseDirectionCostFunctor, NonZeroResidual) {
@@ -63,7 +62,7 @@ TEST(BATAPairwiseDirectionCostFunctor, NonZeroResidual) {
   EXPECT_TRUE(cost_functor(pos1.data(), pos2.data(), &scale, residuals.data()));
 
   const Eigen::Vector3d expected_residuals = direction - scale * (pos2 - pos1);
-  EXPECT_THAT(residuals, colmap::EigenMatrixNear(expected_residuals, 1e-10));
+  EXPECT_THAT(residuals, EigenMatrixNear(expected_residuals, 1e-10));
 }
 
 TEST(BATAPairwiseDirectionCostFunctor, DifferentScale) {
@@ -77,8 +76,7 @@ TEST(BATAPairwiseDirectionCostFunctor, DifferentScale) {
   Eigen::Vector3d residuals;
   EXPECT_TRUE(cost_functor(pos1.data(), pos2.data(), &scale, residuals.data()));
 
-  EXPECT_THAT(residuals,
-              colmap::EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
+  EXPECT_THAT(residuals, EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
 }
 
 TEST(BATAPairwiseDirectionCostFunctor, Create) {
@@ -103,8 +101,7 @@ TEST(RigBATAPairwiseDirectionConstantRigCostFunctor, ZeroResidual) {
   EXPECT_TRUE(cost_functor(
       point3D.data(), rig_in_world.data(), &scale, residuals.data()));
 
-  EXPECT_THAT(residuals,
-              colmap::EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
+  EXPECT_THAT(residuals, EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
 }
 
 TEST(RigBATAPairwiseDirectionConstantRigCostFunctor, NonZeroResidual) {
@@ -124,7 +121,7 @@ TEST(RigBATAPairwiseDirectionConstantRigCostFunctor, NonZeroResidual) {
   const Eigen::Vector3d expected_residuals =
       cam_from_point3D_dir -
       scale * (point3D - rig_in_world + cam_from_rig_dir);
-  EXPECT_THAT(residuals, colmap::EigenMatrixNear(expected_residuals, 1e-10));
+  EXPECT_THAT(residuals, EigenMatrixNear(expected_residuals, 1e-10));
 }
 
 TEST(RigBATAPairwiseDirectionConstantRigCostFunctor, Create) {
@@ -157,8 +154,7 @@ TEST(RigBATAPairwiseDirectionCostFunctor, ZeroResidual) {
                            &scale,
                            residuals.data()));
 
-  EXPECT_THAT(residuals,
-              colmap::EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
+  EXPECT_THAT(residuals, EigenMatrixNear(Eigen::Vector3d(0, 0, 0), 1e-10));
 }
 
 TEST(RigBATAPairwiseDirectionCostFunctor, NonZeroResidual) {
@@ -185,7 +181,7 @@ TEST(RigBATAPairwiseDirectionCostFunctor, NonZeroResidual) {
   const Eigen::Vector3d expected_residuals =
       cam_from_point3D_dir -
       scale * (point3D - rig_in_world - cam_from_rig_dir);
-  EXPECT_THAT(residuals, colmap::EigenMatrixNear(expected_residuals, 1e-10));
+  EXPECT_THAT(residuals, EigenMatrixNear(expected_residuals, 1e-10));
 }
 
 TEST(RigBATAPairwiseDirectionCostFunctor, Create) {
@@ -198,4 +194,4 @@ TEST(RigBATAPairwiseDirectionCostFunctor, Create) {
 }
 
 }  // namespace
-}  // namespace glomap
+}  // namespace colmap

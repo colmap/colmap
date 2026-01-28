@@ -116,7 +116,7 @@ CeresBundleAdjustmentOptions::CeresBundleAdjustmentOptions() {
 
 std::unique_ptr<ceres::LossFunction>
 CeresBundleAdjustmentOptions::CreateLossFunction() const {
-  return ::colmap::CreateLossFunction(loss_function_type, loss_function_scale);
+  return colmap::CreateLossFunction(loss_function_type, loss_function_scale);
 }
 
 ceres::Solver::Options CeresBundleAdjustmentOptions::CreateSolverOptions(

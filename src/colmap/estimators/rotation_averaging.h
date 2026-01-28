@@ -1,10 +1,8 @@
 #pragma once
 
 #include "colmap/geometry/pose_prior.h"
+#include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
-
-#include "glomap/scene/pose_graph.h"
-#include "glomap/scene/types.h"
 
 #include <unordered_set>
 #include <vector>
@@ -14,7 +12,7 @@
 // Code is adapted from Theia's RobustRotationEstimator
 // (http://www.theia-sfm.org/). For gravity aligned rotation averaging, refer
 // to the paper "Gravity Aligned Rotation Averaging"
-namespace glomap {
+namespace colmap {
 
 struct RotationEstimatorOptions {
   // PRNG seed for stochastic methods during rotation averaging.
@@ -84,31 +82,31 @@ class RotationEstimator {
   // active_image_ids defines which images to include.
   // Returns true on successful estimation.
   bool EstimateRotations(const PoseGraph& pose_graph,
-                         const std::vector<colmap::PosePrior>& pose_priors,
+                         const std::vector<PosePrior>& pose_priors,
                          const std::unordered_set<image_t>& active_image_ids,
-                         colmap::Reconstruction& reconstruction);
+                         Reconstruction& reconstruction);
 
  private:
   // Maybe solves 1-DOF rotation averaging on the gravity-aligned subset.
   // This is the first phase of stratified solving for mixed gravity systems.
   bool MaybeSolveGravityAlignedSubset(
       const PoseGraph& pose_graph,
-      const std::vector<colmap::PosePrior>& pose_priors,
+      const std::vector<PosePrior>& pose_priors,
       const std::unordered_set<image_t>& active_image_ids,
-      colmap::Reconstruction& reconstruction);
+      Reconstruction& reconstruction);
 
   // Core rotation averaging solver.
   bool SolveRotationAveraging(
       const PoseGraph& pose_graph,
-      const std::vector<colmap::PosePrior>& pose_priors,
+      const std::vector<PosePrior>& pose_priors,
       const std::unordered_set<image_t>& active_image_ids,
-      colmap::Reconstruction& reconstruction);
+      Reconstruction& reconstruction);
 
   // Initializes rotations from maximum spanning tree.
   void InitializeFromMaximumSpanningTree(
       const PoseGraph& pose_graph,
       const std::unordered_set<image_t>& active_image_ids,
-      colmap::Reconstruction& reconstruction);
+      Reconstruction& reconstruction);
 
   const RotationEstimatorOptions options_;
 };
@@ -118,7 +116,7 @@ class RotationEstimator {
 // then computes rig_from_world for each frame.
 bool InitializeRigRotationsFromImages(
     const std::unordered_map<image_t, Rigid3d>& cams_from_world,
-    colmap::Reconstruction& reconstruction);
+    Reconstruction& reconstruction);
 
 // High-level rotation averaging solver that handles rig expansion.
 // For cameras with unknown cam_from_rig, first estimates their orientations
@@ -126,7 +124,7 @@ bool InitializeRigRotationsFromImages(
 // cam_from_rig and runs rotation averaging on the original reconstruction.
 bool RunRotationAveraging(const RotationEstimatorOptions& options,
                           PoseGraph& pose_graph,
-                          colmap::Reconstruction& reconstruction,
-                          const std::vector<colmap::PosePrior>& pose_priors);
+                          Reconstruction& reconstruction,
+                          const std::vector<PosePrior>& pose_priors);
 
-}  // namespace glomap
+}  // namespace colmap

@@ -27,50 +27,49 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "glomap/estimators/global_positioning.h"
+#include "colmap/estimators/global_positioning.h"
 
 #include "colmap/math/random.h"
 #include "colmap/scene/database_cache.h"
+#include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
-#include "glomap/scene/pose_graph.h"
-
 #include <gtest/gtest.h>
 
-namespace glomap {
+namespace colmap {
 namespace {
 
 TEST(GlobalPositioning, Nominal) {
-  colmap::SetPRNGSeed(0);
+  SetPRNGSeed(0);
 
-  const auto database_path = colmap::CreateTestDir() / "database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
-  auto database = colmap::Database::Open(database_path);
-  colmap::Reconstruction gt_reconstruction;
-  colmap::SyntheticDatasetOptions synthetic_dataset_options;
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 200;
   synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  colmap::SynthesizeDataset(
+  SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
-  colmap::DatabaseCache database_cache;
-  colmap::DatabaseCache::Options cache_options;
+  DatabaseCache database_cache;
+  DatabaseCache::Options cache_options;
   database_cache.Load(*database, cache_options);
 
   PoseGraph pose_graph;
   pose_graph.Load(*database_cache.CorrespondenceGraph());
 
   // Copy GT reconstruction and keep only rotations (reset translations).
-  colmap::Reconstruction reconstruction = gt_reconstruction;
+  Reconstruction reconstruction = gt_reconstruction;
   for (const auto& [frame_id, _] : reconstruction.Frames()) {
-    colmap::Frame& frame = reconstruction.Frame(frame_id);
-    frame.SetRigFromWorld(colmap::Rigid3d(frame.RigFromWorld().rotation(),
-                                          Eigen::Vector3d::Zero()));
+    Frame& frame = reconstruction.Frame(frame_id);
+    frame.SetRigFromWorld(
+        Rigid3d(frame.RigFromWorld().rotation(), Eigen::Vector3d::Zero()));
   }
 
   GlobalPositionerOptions options;
@@ -83,42 +82,42 @@ TEST(GlobalPositioning, Nominal) {
   ASSERT_TRUE(success);
 
   EXPECT_THAT(gt_reconstruction,
-              colmap::ReconstructionNear(reconstruction,
-                                         /*max_rotation_error_deg=*/0.1,
-                                         /*max_proj_center_error=*/0.5,
-                                         /*max_scale_error=*/std::nullopt,
-                                         /*num_obs_tolerance=*/0.0));
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.5,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.0));
 }
 
 TEST(GlobalPositioning, MultiCameraRig) {
-  colmap::SetPRNGSeed(0);
+  SetPRNGSeed(0);
 
-  const auto database_path = colmap::CreateTestDir() / "database.db";
+  const auto database_path = CreateTestDir() / "database.db";
 
-  auto database = colmap::Database::Open(database_path);
-  colmap::Reconstruction gt_reconstruction;
-  colmap::SyntheticDatasetOptions synthetic_dataset_options;
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 3;
   synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 200;
   synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  colmap::SynthesizeDataset(
+  SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
-  colmap::DatabaseCache database_cache;
-  colmap::DatabaseCache::Options cache_options;
+  DatabaseCache database_cache;
+  DatabaseCache::Options cache_options;
   database_cache.Load(*database, cache_options);
 
   PoseGraph pose_graph;
   pose_graph.Load(*database_cache.CorrespondenceGraph());
 
   // Copy GT reconstruction and keep only rotations (reset translations).
-  colmap::Reconstruction reconstruction = gt_reconstruction;
+  Reconstruction reconstruction = gt_reconstruction;
   for (const auto& [frame_id, _] : reconstruction.Frames()) {
-    colmap::Frame& frame = reconstruction.Frame(frame_id);
-    frame.SetRigFromWorld(colmap::Rigid3d(frame.RigFromWorld().rotation(),
-                                          Eigen::Vector3d::Zero()));
+    Frame& frame = reconstruction.Frame(frame_id);
+    frame.SetRigFromWorld(
+        Rigid3d(frame.RigFromWorld().rotation(), Eigen::Vector3d::Zero()));
   }
 
   GlobalPositionerOptions options;
@@ -131,12 +130,12 @@ TEST(GlobalPositioning, MultiCameraRig) {
   ASSERT_TRUE(success);
 
   EXPECT_THAT(gt_reconstruction,
-              colmap::ReconstructionNear(reconstruction,
-                                         /*max_rotation_error_deg=*/0.1,
-                                         /*max_proj_center_error=*/0.5,
-                                         /*max_scale_error=*/std::nullopt,
-                                         /*num_obs_tolerance=*/0.0));
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.5,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.0));
 }
 
 }  // namespace
-}  // namespace glomap
+}  // namespace colmap

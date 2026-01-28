@@ -6,14 +6,14 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 
-namespace glomap {
+namespace colmap {
 
-using GravityCostFunctor = colmap::NormalPriorCostFunctor<3>;
+using GravityCostFunctor = NormalPriorCostFunctor<3>;
 
 namespace {
 
 Eigen::Vector3d* GetImageGravityOrNull(
-    const std::unordered_map<image_t, colmap::PosePrior*>& image_to_pose_prior,
+    const std::unordered_map<image_t, PosePrior*>& image_to_pose_prior,
     image_t image_id) {
   auto it = image_to_pose_prior.find(image_id);
   if (it == image_to_pose_prior.end() || !it->second->HasGravity()) {
@@ -26,7 +26,7 @@ std::unordered_map<image_t, std::unordered_set<image_t>>
 CreateImageAdjacencyList(const PoseGraph& pose_graph) {
   std::unordered_map<image_t, std::unordered_set<image_t>> adjacency_list;
   for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
-    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     adjacency_list[image_id1].insert(image_id2);
     adjacency_list[image_id2].insert(image_id1);
   }
@@ -35,10 +35,9 @@ CreateImageAdjacencyList(const PoseGraph& pose_graph) {
 
 }  // namespace
 
-void GravityRefiner::RefineGravity(
-    const PoseGraph& pose_graph,
-    const colmap::Reconstruction& reconstruction,
-    std::vector<colmap::PosePrior>& pose_priors) {
+void GravityRefiner::RefineGravity(const PoseGraph& pose_graph,
+                                   const Reconstruction& reconstruction,
+                                   std::vector<PosePrior>& pose_priors) {
   const std::unordered_map<image_t, std::unordered_set<image_t>>
       adjacency_list = CreateImageAdjacencyList(pose_graph);
   if (adjacency_list.empty()) {
@@ -46,8 +45,8 @@ void GravityRefiner::RefineGravity(
     return;
   }
 
-  std::unordered_map<image_t, colmap::PosePrior*> image_to_pose_prior;
-  std::unordered_map<frame_t, colmap::PosePrior*> frame_to_pose_prior;
+  std::unordered_map<image_t, PosePrior*> image_to_pose_prior;
+  std::unordered_map<frame_t, PosePrior*> frame_to_pose_prior;
   for (auto& pose_prior : pose_priors) {
     if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
       const image_t image_id = pose_prior.corr_data_id.id;
@@ -80,7 +79,7 @@ void GravityRefiner::RefineGravity(
   for (const auto& [image_id, neighbors] : adjacency_list) {
     for (const auto& neighbor : neighbors) {
       adjacency_list_frames_to_pair_id[reconstruction.Image(image_id).FrameId()]
-          .insert(colmap::ImagePairToPairId(image_id, neighbor));
+          .insert(ImagePairToPairId(image_id, neighbor));
     }
   }
 
@@ -99,7 +98,7 @@ void GravityRefiner::RefineGravity(
     int counter = 0;
     Eigen::Vector3d gravity = frame_to_pose_prior.at(frame_id)->gravity;
     for (const auto& pair_id : neighbors) {
-      const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
       const PoseGraph::Edge& edge =
           pose_graph.EdgeRef(image_id1, image_id2).first;
 
@@ -128,17 +127,15 @@ void GravityRefiner::RefineGravity(
       // Note: for the case where both cameras are from the same frames, we only
       // consider a single cost term
       if (image1.FrameId() == frame_id) {
-        gravities.emplace_back(
-            colmap::Inverse(edge.cam2_from_cam1 * cam1_from_rig1)
-                .rotation()
-                .toRotationMatrix() *
-            *image_gravity2);
+        gravities.emplace_back(Inverse(edge.cam2_from_cam1 * cam1_from_rig1)
+                                   .rotation()
+                                   .toRotationMatrix() *
+                               *image_gravity2);
       } else if (image2.FrameId() == frame_id) {
-        gravities.emplace_back(
-            (colmap::Inverse(cam2_from_rig2) * edge.cam2_from_cam1)
-                .rotation()
-                .toRotationMatrix() *
-            *image_gravity1);
+        gravities.emplace_back((Inverse(cam2_from_rig2) * edge.cam2_from_cam1)
+                                   .rotation()
+                                   .toRotationMatrix() *
+                               *image_gravity1);
       }
 
       problem.AddResidualBlock(GravityCostFunctor::Create(gravities[counter]),
@@ -147,26 +144,29 @@ void GravityRefiner::RefineGravity(
       counter++;
     }
 
-    if (gravities.size() < options_.min_num_neighbors) continue;
+    if (gravities.size() < static_cast<size_t>(options_.min_num_neighbors)) {
+      continue;
+    }
 
     // Initialize and set the manifold
-    gravity = colmap::AverageDirections(gravities);
-    colmap::SetManifold(
-        &problem, gravity.data(), colmap::CreateSphereManifold<3>());
+    gravity = AverageDirections(gravities);
+    SetManifold(&problem, gravity.data(), CreateSphereManifold<3>());
 
     // Then, run refinment
     ceres::Solver::Options solver_options = options_.solver_options;
     solver_options.num_threads =
-        colmap::GetEffectiveNumThreads(solver_options.num_threads);
+        GetEffectiveNumThreads(solver_options.num_threads);
     ceres::Solver::Summary summary_solver;
     ceres::Solve(solver_options, &problem, &summary_solver);
 
     // Check the error with respect to the neighbors
     int counter_outlier = 0;
-    for (int i = 0; i < gravities.size(); i++) {
-      const double error = colmap::RadToDeg(
-          std::acos(std::max(std::min(gravities[i].dot(gravity), 1.), -1.)));
-      if (error > options_.max_gravity_error * 2) counter_outlier++;
+    for (const Eigen::Vector3d& gravity : gravities) {
+      const double error = RadToDeg(
+          std::acos(std::max(std::min(gravity.dot(gravity), 1.), -1.)));
+      if (error > options_.max_gravity_error * 2) {
+        counter_outlier++;
+      }
     }
     // If the refined gravity now consistent with more images, then accept it
     if (static_cast<double>(counter_outlier) /
@@ -183,13 +183,12 @@ void GravityRefiner::RefineGravity(
 
 void GravityRefiner::IdentifyErrorProneGravity(
     const PoseGraph& pose_graph,
-    const colmap::Reconstruction& reconstruction,
-    std::unordered_map<image_t, colmap::PosePrior*>& image_to_pose_prior,
+    const Reconstruction& reconstruction,
+    std::unordered_map<image_t, PosePrior*>& image_to_pose_prior,
     std::unordered_set<frame_t>& error_prone_frames) {
   error_prone_frames.clear();
 
-  const double max_gravity_error_rad =
-      colmap::DegToRad(options_.max_gravity_error);
+  const double max_gravity_error_rad = DegToRad(options_.max_gravity_error);
 
   // image_id: (mistake, total)
   std::unordered_map<frame_t, std::pair<int, int>> frame_counter;
@@ -200,7 +199,7 @@ void GravityRefiner::IdentifyErrorProneGravity(
   }
 
   for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
-    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     Eigen::Vector3d* image_gravity1 =
         GetImageGravityOrNull(image_to_pose_prior, image_id1);
     Eigen::Vector3d* image_gravity2 =
@@ -213,12 +212,12 @@ void GravityRefiner::IdentifyErrorProneGravity(
     const auto& image2 = reconstruction.Image(image_id2);
     // Calculate the gravity aligned relative rotation
     const Eigen::Matrix3d R_rel =
-        colmap::GravityAlignedRotation(*image_gravity2).transpose() *
+        GravityAlignedRotation(*image_gravity2).transpose() *
         edge.cam2_from_cam1.rotation().toRotationMatrix() *
-        colmap::GravityAlignedRotation(*image_gravity1);
+        GravityAlignedRotation(*image_gravity1);
     // Convert it to the closest upright rotation
     const Eigen::Matrix3d R_rel_up =
-        colmap::RotationFromYAxisAngle(colmap::YAxisAngleFromRotation(R_rel));
+        RotationFromYAxisAngle(YAxisAngleFromRotation(R_rel));
 
     // increment the total count
     frame_counter[image1.FrameId()].second++;
@@ -246,10 +245,10 @@ void GravityRefiner::IdentifyErrorProneGravity(
 
 void RunGravityRefinement(const GravityRefinerOptions& options,
                           const PoseGraph& pose_graph,
-                          const colmap::Reconstruction& reconstruction,
-                          std::vector<colmap::PosePrior>& pose_priors) {
+                          const Reconstruction& reconstruction,
+                          std::vector<PosePrior>& pose_priors) {
   GravityRefiner refiner(options);
   refiner.RefineGravity(pose_graph, reconstruction, pose_priors);
 }
 
-}  // namespace glomap
+}  // namespace colmap

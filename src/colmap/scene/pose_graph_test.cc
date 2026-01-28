@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "glomap/scene/pose_graph.h"
+#include "colmap/scene/pose_graph.h"
 
 #include "colmap/scene/database_cache.h"
 #include "colmap/util/testing.h"
@@ -35,12 +35,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-namespace glomap {
+namespace colmap {
 namespace {
 
 PoseGraph::Edge SynthesizeEdge(int num_matches = 50) {
   PoseGraph::Edge edge;
-  edge.cam2_from_cam1 = colmap::Rigid3d();
+  edge.cam2_from_cam1 = Rigid3d();
   edge.num_matches = num_matches;
   return edge;
 }
@@ -61,9 +61,9 @@ TEST(PoseGraph, Nominal) {
   EXPECT_EQ(pose_graph.NumEdges(), 3);
 
   // Invalidate one pair.
-  pose_graph.SetInvalidEdge(colmap::ImagePairToPairId(1, 2));
+  pose_graph.SetInvalidEdge(ImagePairToPairId(1, 2));
   EXPECT_EQ(pose_graph.NumEdges(), 3);
-  EXPECT_FALSE(pose_graph.IsValid(colmap::ImagePairToPairId(1, 2)));
+  EXPECT_FALSE(pose_graph.IsValid(ImagePairToPairId(1, 2)));
 
   // Clear the view graph.
   pose_graph.Clear();
@@ -77,7 +77,7 @@ TEST(PoseGraph, AddEdge) {
   // Normal add.
   PoseGraph::Edge edge = SynthesizeEdge();
   edge.cam2_from_cam1 =
-      colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0));
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0));
   pose_graph.AddEdge(1, 2, edge);
 
   EXPECT_EQ(pose_graph.NumEdges(), 1);
@@ -88,7 +88,7 @@ TEST(PoseGraph, AddEdge) {
   // Add with swapped IDs should invert the pair.
   PoseGraph::Edge edge2 = SynthesizeEdge();
   edge2.cam2_from_cam1 =
-      colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(2, 0, 0));
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(2, 0, 0));
   pose_graph.AddEdge(4, 3, edge2);  // 4 > 3, should swap and invert
 
   EXPECT_EQ(pose_graph.NumEdges(), 2);
@@ -114,7 +114,7 @@ TEST(PoseGraph, EdgeRef) {
   PoseGraph pose_graph;
   PoseGraph::Edge edge = SynthesizeEdge();
   edge.cam2_from_cam1 =
-      colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0));
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0));
   pose_graph.AddEdge(1, 2, edge);
 
   // Normal order: swapped = false.
@@ -128,8 +128,8 @@ TEST(PoseGraph, EdgeRef) {
   EXPECT_EQ(ref2.cam2_from_cam1.translation().x(), 1);  // Same reference
 
   // Modify validity through PoseGraph.
-  pose_graph.SetInvalidEdge(colmap::ImagePairToPairId(1, 2));
-  EXPECT_FALSE(pose_graph.IsValid(colmap::ImagePairToPairId(1, 2)));
+  pose_graph.SetInvalidEdge(ImagePairToPairId(1, 2));
+  EXPECT_FALSE(pose_graph.IsValid(ImagePairToPairId(1, 2)));
 
   // Non-existent pair should throw.
   EXPECT_THROW(pose_graph.EdgeRef(1, 3), std::out_of_range);
@@ -139,7 +139,7 @@ TEST(PoseGraph, GetEdge) {
   PoseGraph pose_graph;
   PoseGraph::Edge edge = SynthesizeEdge();
   edge.cam2_from_cam1 =
-      colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0));
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0));
   pose_graph.AddEdge(1, 2, edge);
 
   // Normal order: returns as-is.
@@ -178,13 +178,13 @@ TEST(PoseGraph, UpdateEdge) {
   PoseGraph pose_graph;
   PoseGraph::Edge edge = SynthesizeEdge();
   edge.cam2_from_cam1 =
-      colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0));
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0));
   pose_graph.AddEdge(1, 2, edge);
 
   // Update with normal order.
   PoseGraph::Edge updated = SynthesizeEdge();
   updated.cam2_from_cam1 =
-      colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(5, 0, 0));
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(5, 0, 0));
   pose_graph.UpdateEdge(1, 2, updated);
 
   EXPECT_EQ(pose_graph.EdgeRef(1, 2).first.cam2_from_cam1.translation().x(), 5);
@@ -192,7 +192,7 @@ TEST(PoseGraph, UpdateEdge) {
   // Update with reversed order should invert.
   PoseGraph::Edge updated2 = SynthesizeEdge();
   updated2.cam2_from_cam1 =
-      colmap::Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(3, 0, 0));
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(3, 0, 0));
   pose_graph.UpdateEdge(2, 1, updated2);
 
   EXPECT_EQ(pose_graph.EdgeRef(1, 2).first.cam2_from_cam1.translation().x(),
@@ -206,9 +206,9 @@ TEST(PoseGraph, UpdateEdge) {
 TEST(PoseGraph, ValidEdges) {
   PoseGraph pose_graph;
 
-  const image_pair_t pair_id1 = colmap::ImagePairToPairId(1, 2);
-  const image_pair_t pair_id2 = colmap::ImagePairToPairId(1, 3);
-  const image_pair_t pair_id3 = colmap::ImagePairToPairId(2, 3);
+  const image_pair_t pair_id1 = ImagePairToPairId(1, 2);
+  const image_pair_t pair_id2 = ImagePairToPairId(1, 3);
+  const image_pair_t pair_id3 = ImagePairToPairId(2, 3);
   pose_graph.AddEdge(1, 2, SynthesizeEdge());
   pose_graph.AddEdge(1, 3, SynthesizeEdge());
   pose_graph.AddEdge(2, 3, SynthesizeEdge());
@@ -237,40 +237,36 @@ TEST(PoseGraph, ValidEdges) {
 }
 
 TEST(PoseGraph, Load) {
-  const auto test_dir = colmap::CreateTestDir();
-  auto database = colmap::Database::Open(test_dir / "database.db");
+  const auto test_dir = CreateTestDir();
+  auto database = Database::Open(test_dir / "database.db");
 
-  colmap::Camera camera = colmap::Camera::CreateFromModelId(
-      colmap::kInvalidCameraId,
-      colmap::SimplePinholeCameraModel::model_id,
-      1,
-      1,
-      1);
-  const colmap::camera_t camera_id = database->WriteCamera(camera);
+  Camera camera = Camera::CreateFromModelId(
+      kInvalidCameraId, SimplePinholeCameraModel::model_id, 1, 1, 1);
+  const camera_t camera_id = database->WriteCamera(camera);
 
   // Create images.
   for (int i = 1; i <= 3; ++i) {
-    colmap::Image image;
+    Image image;
     image.SetName("image" + std::to_string(i));
     image.SetCameraId(camera_id);
     database->WriteImage(image);
   }
 
-  colmap::TwoViewGeometry two_view;
-  two_view.config = colmap::TwoViewGeometry::CALIBRATED;
+  TwoViewGeometry two_view;
+  two_view.config = TwoViewGeometry::CALIBRATED;
   two_view.inlier_matches = {{0, 0}, {1, 1}};
-  two_view.cam2_from_cam1 = colmap::Rigid3d(
-      Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random().normalized());
+  two_view.cam2_from_cam1 = Rigid3d(Eigen::Quaterniond::UnitRandom(),
+                                    Eigen::Vector3d::Random().normalized());
 
   // Create pairs (1,2) and (2,3)
-  database->WriteMatches(1, 2, colmap::FeatureMatches(10));
-  database->WriteMatches(2, 3, colmap::FeatureMatches(10));
+  database->WriteMatches(1, 2, FeatureMatches(10));
+  database->WriteMatches(2, 3, FeatureMatches(10));
   database->WriteTwoViewGeometry(1, 2, two_view);
   database->WriteTwoViewGeometry(2, 3, two_view);
 
   // Load into DatabaseCache with relative poses.
-  colmap::DatabaseCache cache;
-  colmap::DatabaseCache::Options options;
+  DatabaseCache cache;
+  DatabaseCache::Options options;
   cache.Load(*database, options);
 
   PoseGraph pose_graph;
@@ -282,4 +278,4 @@ TEST(PoseGraph, Load) {
 }
 
 }  // namespace
-}  // namespace glomap
+}  // namespace colmap

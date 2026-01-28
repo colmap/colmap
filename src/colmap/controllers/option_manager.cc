@@ -33,6 +33,8 @@
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/estimators/bundle_adjustment_ceres.h"
+#include "colmap/estimators/global_positioning.h"
+#include "colmap/estimators/gravity_refinement.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/pairing.h"
 #include "colmap/feature/sift.h"
@@ -43,9 +45,6 @@
 #include "colmap/ui/render_options.h"
 #include "colmap/util/file.h"
 #include "colmap/util/version.h"
-
-#include "glomap/estimators/global_positioning.h"
-#include "glomap/estimators/gravity_refinement.h"
 
 namespace config = boost::program_options;
 
@@ -66,7 +65,7 @@ OptionManager::OptionManager(bool add_project_options)
   bundle_adjustment = std::make_shared<BundleAdjustmentOptions>();
   mapper = std::make_shared<IncrementalPipelineOptions>();
   global_mapper = std::make_shared<GlobalPipelineOptions>();
-  gravity_refiner = std::make_shared<glomap::GravityRefinerOptions>();
+  gravity_refiner = std::make_shared<GravityRefinerOptions>();
   reconstruction_clusterer =
       std::make_shared<ReconstructionClusteringOptions>();
   patch_match_stereo = std::make_shared<mvs::PatchMatchOptions>();
@@ -976,7 +975,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *bundle_adjustment = BundleAdjustmentOptions();
   *mapper = IncrementalPipelineOptions();
   *global_mapper = GlobalPipelineOptions();
-  *gravity_refiner = glomap::GravityRefinerOptions();
+  *gravity_refiner = GravityRefinerOptions();
   *reconstruction_clusterer = ReconstructionClusteringOptions();
   *patch_match_stereo = mvs::PatchMatchOptions();
   *stereo_fusion = mvs::StereoFusionOptions();

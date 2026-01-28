@@ -39,9 +39,14 @@ COLMAP_ADD_LIBRARY(
         bundle_adjustment.h bundle_adjustment.cc
         bundle_adjustment_ceres.h bundle_adjustment_ceres.cc
         coordinate_frame.h coordinate_frame.cc
+        cost_functions.h
         covariance.h covariance.cc
-        pose.h pose.cc
         generalized_pose.h generalized_pose.cc
+        global_positioning.h global_positioning.cc
+        gravity_refinement.h gravity_refinement.cc
+        pose.h pose.cc
+        rotation_averaging.h rotation_averaging.cc
+        rotation_averaging_impl.h rotation_averaging_impl.cc
         triangulation.h triangulation.cc
         two_view_geometry.h two_view_geometry.cc
         view_graph_calibration.h view_graph_calibration.cc
@@ -108,5 +113,29 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME view_graph_calibration_test
     SRCS view_graph_calibration_test.cc
+    LINK_LIBS colmap_estimators
+)
+
+COLMAP_ADD_TEST(
+    NAME glomap_cost_functions_test
+    SRCS cost_functions_test.cc
+    LINK_LIBS colmap_estimators
+)
+
+COLMAP_ADD_TEST(
+    NAME glomap_rotation_averaging_test
+    SRCS rotation_averaging_test.cc
+    LINK_LIBS colmap_estimators
+)
+
+COLMAP_ADD_TEST(
+    NAME glomap_gravity_refinement_test
+    SRCS gravity_refinement_test.cc
+    LINK_LIBS colmap_estimators
+)
+
+COLMAP_ADD_TEST(
+    NAME glomap_global_positioning_test
+    SRCS global_positioning_test.cc
     LINK_LIBS colmap_estimators
 )

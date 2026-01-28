@@ -2,13 +2,12 @@
 
 #include "colmap/geometry/pose_prior.h"
 #include "colmap/math/math.h"
+#include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
-
-#include "glomap/scene/pose_graph.h"
 
 #include <ceres/ceres.h>
 
-namespace glomap {
+namespace colmap {
 
 struct GravityRefinerOptions {
   // The minimal ratio that the gravity vector should be consistent with
@@ -29,7 +28,7 @@ struct GravityRefinerOptions {
 
   std::shared_ptr<ceres::LossFunction> CreateLossFunction() {
     return std::make_shared<ceres::ArctanLoss>(
-        1 - std::cos(colmap::DegToRad(max_gravity_error)));
+        1 - std::cos(DegToRad(max_gravity_error)));
   }
 };
 
@@ -39,14 +38,14 @@ class GravityRefiner {
       : options_(options) {}
 
   void RefineGravity(const PoseGraph& pose_graph,
-                     const colmap::Reconstruction& reconstruction,
-                     std::vector<colmap::PosePrior>& pose_priors);
+                     const Reconstruction& reconstruction,
+                     std::vector<PosePrior>& pose_priors);
 
  private:
   void IdentifyErrorProneGravity(
       const PoseGraph& pose_graph,
-      const colmap::Reconstruction& reconstruction,
-      std::unordered_map<image_t, colmap::PosePrior*>& image_to_pose_prior,
+      const Reconstruction& reconstruction,
+      std::unordered_map<image_t, PosePrior*>& image_to_pose_prior,
       std::unordered_set<frame_t>& error_prone_frames);
   GravityRefinerOptions options_;
   std::shared_ptr<ceres::LossFunction> loss_function_;
@@ -56,7 +55,7 @@ class GravityRefiner {
 // graph.
 void RunGravityRefinement(const GravityRefinerOptions& options,
                           const PoseGraph& pose_graph,
-                          const colmap::Reconstruction& reconstruction,
-                          std::vector<colmap::PosePrior>& pose_priors);
+                          const Reconstruction& reconstruction,
+                          std::vector<PosePrior>& pose_priors);
 
-}  // namespace glomap
+}  // namespace colmap

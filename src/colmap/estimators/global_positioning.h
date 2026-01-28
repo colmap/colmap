@@ -1,14 +1,13 @@
 #pragma once
 
+#include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
-
-#include "glomap/scene/pose_graph.h"
 
 #include <string>
 
 #include <ceres/ceres.h>
 
-namespace glomap {
+namespace colmap {
 
 struct GlobalPositionerOptions {
   // Whether to initialize the camera and track positions randomly.
@@ -63,36 +62,34 @@ class GlobalPositioner {
   // Returns true if the optimization was a success, false if there was a
   // failure.
   // Assume tracks here are already filtered
-  bool Solve(const PoseGraph& pose_graph,
-             colmap::Reconstruction& reconstruction);
+  bool Solve(const PoseGraph& pose_graph, Reconstruction& reconstruction);
 
   GlobalPositionerOptions& GetOptions() { return options_; }
 
  protected:
   void SetupProblem(const PoseGraph& pose_graph,
-                    const colmap::Reconstruction& reconstruction);
+                    const Reconstruction& reconstruction);
 
   // Initialize all cameras to be random.
   void InitializeRandomPositions(const PoseGraph& pose_graph,
-                                 colmap::Reconstruction& reconstruction);
+                                 Reconstruction& reconstruction);
 
   // Add tracks to the problem
-  void AddPointToCameraConstraints(colmap::Reconstruction& reconstruction);
+  void AddPointToCameraConstraints(Reconstruction& reconstruction);
 
   // Add a single point3D to the problem
   void AddPoint3DToProblem(point3D_t point3D_id,
-                           colmap::Reconstruction& reconstruction);
+                           Reconstruction& reconstruction);
 
   // Set the parameter groups
-  void AddCamerasAndPointsToParameterGroups(
-      colmap::Reconstruction& reconstruction);
+  void AddCamerasAndPointsToParameterGroups(Reconstruction& reconstruction);
 
   // Parameterize the variables, set some variables to be constant if desired
-  void ParameterizeVariables(colmap::Reconstruction& reconstruction);
+  void ParameterizeVariables(Reconstruction& reconstruction);
 
   // During the optimization, the camera translation is set to be the camera
   // center Convert the results back to camera poses
-  void ConvertBackResults(colmap::Reconstruction& reconstruction);
+  void ConvertBackResults(Reconstruction& reconstruction);
 
   GlobalPositionerOptions options_;
 
@@ -119,6 +116,6 @@ class GlobalPositioner {
 // Solve global positioning using point-to-camera constraints.
 bool RunGlobalPositioning(const GlobalPositionerOptions& options,
                           const PoseGraph& pose_graph,
-                          colmap::Reconstruction& reconstruction);
+                          Reconstruction& reconstruction);
 
-}  // namespace glomap
+}  // namespace colmap

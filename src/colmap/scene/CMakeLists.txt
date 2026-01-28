@@ -42,6 +42,7 @@ COLMAP_ADD_LIBRARY(
         image.h image.cc
         point2d.h point2d.cc
         point3d.h point3d.cc
+        pose_graph.h pose_graph.cc
         projection.h projection.cc
         reconstruction.h reconstruction.cc
         reconstruction_clustering.h reconstruction_clustering.cc
@@ -179,5 +180,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME visibility_pyramid_test
     SRCS visibility_pyramid_test.cc
+    LINK_LIBS colmap_scene
+)
+
+COLMAP_ADD_TEST(
+    NAME glomap_pose_graph_test
+    SRCS pose_graph_test.cc
     LINK_LIBS colmap_scene
 )

@@ -1,19 +1,18 @@
-#include "glomap/estimators/global_positioning.h"
+#include "colmap/estimators/global_positioning.h"
 
+#include "colmap/estimators/cost_functions.h"
 #include "colmap/math/random.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
-#include "glomap/estimators/cost_functions.h"
-
-namespace glomap {
+namespace colmap {
 namespace {
 
 Eigen::Vector3d RandVector3d(double low, double high) {
-  return Eigen::Vector3d(colmap::RandomUniformReal(low, high),
-                         colmap::RandomUniformReal(low, high),
-                         colmap::RandomUniformReal(low, high));
+  return Eigen::Vector3d(RandomUniformReal(low, high),
+                         RandomUniformReal(low, high),
+                         RandomUniformReal(low, high));
 }
 
 }  // namespace
@@ -21,12 +20,12 @@ Eigen::Vector3d RandVector3d(double low, double high) {
 GlobalPositioner::GlobalPositioner(const GlobalPositionerOptions& options)
     : options_(options) {
   if (options_.random_seed >= 0) {
-    colmap::SetPRNGSeed(static_cast<unsigned>(options_.random_seed));
+    SetPRNGSeed(static_cast<unsigned>(options_.random_seed));
   }
 }
 
 bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
-                             colmap::Reconstruction& reconstruction) {
+                             Reconstruction& reconstruction) {
   if (reconstruction.NumImages() == 0) {
     LOG(ERROR) << "Number of images = " << reconstruction.NumImages();
     return false;
@@ -60,7 +59,7 @@ bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
 
   ceres::Solver::Summary summary;
   options_.solver_options.num_threads =
-      colmap::GetEffectiveNumThreads(options_.solver_options.num_threads);
+      GetEffectiveNumThreads(options_.solver_options.num_threads);
   options_.solver_options.minimizer_progress_to_stdout = VLOG_IS_ON(2);
   ceres::Solve(options_.solver_options, problem_.get(), &summary);
 
@@ -74,8 +73,8 @@ bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
   return summary.IsSolutionUsable();
 }
 
-void GlobalPositioner::SetupProblem(
-    const PoseGraph& pose_graph, const colmap::Reconstruction& reconstruction) {
+void GlobalPositioner::SetupProblem(const PoseGraph& pose_graph,
+                                    const Reconstruction& reconstruction) {
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
   problem_ = std::make_unique<ceres::Problem>(problem_options);
@@ -97,17 +96,20 @@ void GlobalPositioner::SetupProblem(
 }
 
 void GlobalPositioner::InitializeRandomPositions(
-    const PoseGraph& pose_graph, colmap::Reconstruction& reconstruction) {
+    const PoseGraph& pose_graph, Reconstruction& reconstruction) {
   std::unordered_set<frame_t> constrained_positions;
   constrained_positions.reserve(reconstruction.NumFrames());
   for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
-    const auto [image_id1, image_id2] = colmap::PairIdToImagePair(pair_id);
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     constrained_positions.insert(reconstruction.Image(image_id1).FrameId());
     constrained_positions.insert(reconstruction.Image(image_id2).FrameId());
   }
 
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
-    if (point3D.track.Length() < options_.min_num_view_per_track) continue;
+    if (point3D.track.Length() <
+        static_cast<size_t>(options_.min_num_view_per_track)) {
+      continue;
+    }
     for (const auto& observation : point3D.track.Elements()) {
       THROW_CHECK(reconstruction.ExistsImage(observation.image_id));
       const Image& image = reconstruction.Image(observation.image_id);
@@ -133,7 +135,7 @@ void GlobalPositioner::InitializeRandomPositions(
 }
 
 void GlobalPositioner::AddPointToCameraConstraints(
-    colmap::Reconstruction& reconstruction) {
+    Reconstruction& reconstruction) {
   VLOG(2) << reconstruction.NumPoints3D()
           << " point to camera constraints were added to the position "
              "estimation problem.";
@@ -144,14 +146,17 @@ void GlobalPositioner::AddPointToCameraConstraints(
   loss_function_ptcam_calibrated_ = loss_function_;
 
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
-    if (point3D.track.Length() < options_.min_num_view_per_track) continue;
+    if (point3D.track.Length() <
+        static_cast<size_t>(options_.min_num_view_per_track)) {
+      continue;
+    }
 
     AddPoint3DToProblem(point3D_id, reconstruction);
   }
 }
 
-void GlobalPositioner::AddPoint3DToProblem(
-    point3D_t point3D_id, colmap::Reconstruction& reconstruction) {
+void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
+                                           Reconstruction& reconstruction) {
   const bool random_initialization =
       options_.optimize_points && options_.generate_random_points;
 
@@ -199,7 +204,7 @@ void GlobalPositioner::AddPoint3DToProblem(
     // For calibrated and uncalibrated cameras, use different loss
     // functions
     // Down weight the uncalibrated cameras
-    colmap::Camera& camera = reconstruction.Camera(image.CameraId());
+    Camera& camera = reconstruction.Camera(image.CameraId());
     ceres::LossFunction* loss_function =
         (camera.has_prior_focal_length)
             ? loss_function_ptcam_calibrated_.get()
@@ -264,7 +269,7 @@ void GlobalPositioner::AddPoint3DToProblem(
 }
 
 void GlobalPositioner::AddCamerasAndPointsToParameterGroups(
-    colmap::Reconstruction& reconstruction) {
+    Reconstruction& reconstruction) {
   // Create a custom ordering for Schur-based problems.
   options_.solver_options.linear_solver_ordering.reset(
       new ceres::ParameterBlockOrdering);
@@ -301,8 +306,7 @@ void GlobalPositioner::AddCamerasAndPointsToParameterGroups(
   }
 }
 
-void GlobalPositioner::ParameterizeVariables(
-    colmap::Reconstruction& reconstruction) {
+void GlobalPositioner::ParameterizeVariables(Reconstruction& reconstruction) {
   // For the global positioning, do not set any camera to be constant for easier
   // convergence
 
@@ -351,14 +355,14 @@ void GlobalPositioner::ParameterizeVariables(
   }
 
 #ifdef COLMAP_CUDA_ENABLED
-  const size_t num_images = reconstruction.NumFrames();
   bool cuda_solver_enabled = false;
 
 #if (CERES_VERSION_MAJOR >= 3 ||                                \
      (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 2)) && \
     !defined(CERES_NO_CUDA)
   if (options_.use_gpu &&
-      static_cast<int>(num_images) >= options_.min_num_images_gpu_solver) {
+      reconstruction.NumImages() >=
+          static_cast<size_t>(options_.min_num_images_gpu_solver)) {
     cuda_solver_enabled = true;
     options_.solver_options.dense_linear_algebra_library_type = ceres::CUDA;
   }
@@ -375,7 +379,8 @@ void GlobalPositioner::ParameterizeVariables(
      (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 3)) && \
     !defined(CERES_NO_CUDSS)
   if (options_.use_gpu &&
-      static_cast<int>(num_images) >= options_.min_num_images_gpu_solver) {
+      reconstruction.NumImages() >=
+          static_cast<size_t>(options_.min_num_images_gpu_solver)) {
     cuda_solver_enabled = true;
     options_.solver_options.sparse_linear_algebra_library_type =
         ceres::CUDA_SPARSE;
@@ -390,10 +395,9 @@ void GlobalPositioner::ParameterizeVariables(
 #endif
 
   if (cuda_solver_enabled) {
-    const std::vector<int> gpu_indices =
-        colmap::CSVToVector<int>(options_.gpu_index);
+    const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
     THROW_CHECK_GT(gpu_indices.size(), 0);
-    colmap::SetBestCudaDevice(gpu_indices[0]);
+    SetBestCudaDevice(gpu_indices[0]);
   }
 #else
   if (options_.use_gpu) {
@@ -415,8 +419,7 @@ void GlobalPositioner::ParameterizeVariables(
   }
 }
 
-void GlobalPositioner::ConvertBackResults(
-    colmap::Reconstruction& reconstruction) {
+void GlobalPositioner::ConvertBackResults(Reconstruction& reconstruction) {
   // Convert optimized frame centers back to rig_from_world translations.
   for (const auto& [frame_id, center] : frame_centers_) {
     Rigid3d& rig_from_world = reconstruction.Frame(frame_id).RigFromWorld();
@@ -440,9 +443,9 @@ void GlobalPositioner::ConvertBackResults(
 
 bool RunGlobalPositioning(const GlobalPositionerOptions& options,
                           const PoseGraph& pose_graph,
-                          colmap::Reconstruction& reconstruction) {
+                          Reconstruction& reconstruction) {
   GlobalPositioner positioner(options);
   return positioner.Solve(pose_graph, reconstruction);
 }
 
-}  // namespace glomap
+}  // namespace colmap
