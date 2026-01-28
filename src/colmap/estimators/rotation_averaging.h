@@ -1,9 +1,8 @@
 #pragma once
 
 #include "colmap/geometry/pose_prior.h"
-#include "colmap/scene/reconstruction.h"
-
 #include "colmap/scene/pose_graph.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/scene/types.h"
 
 #include <unordered_set>

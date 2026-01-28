@@ -1,8 +1,7 @@
 #pragma once
 
-#include "colmap/scene/reconstruction.h"
-
 #include "colmap/scene/pose_graph.h"
+#include "colmap/scene/reconstruction.h"
 
 #include <string>
 

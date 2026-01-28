@@ -16,14 +16,12 @@ void BindGlobalPositioner(py::module& m) {
   auto PyGlobalPositionerOptions =
       py::classh<GlobalPositionerOptions>(m, "GlobalPositionerOptions")
           .def(py::init<>())
-          .def_readwrite(
-              "generate_random_positions",
-              &GlobalPositionerOptions::generate_random_positions,
-              "Whether to initialize camera positions randomly.")
-          .def_readwrite(
-              "generate_random_points",
-              &GlobalPositionerOptions::generate_random_points,
-              "Whether to initialize 3D point positions randomly.")
+          .def_readwrite("generate_random_positions",
+                         &GlobalPositionerOptions::generate_random_positions,
+                         "Whether to initialize camera positions randomly.")
+          .def_readwrite("generate_random_points",
+                         &GlobalPositionerOptions::generate_random_points,
+                         "Whether to initialize 3D point positions randomly.")
           .def_readwrite("generate_scales",
                          &GlobalPositionerOptions::generate_scales,
                          "Whether to initialize scales to constant 1 or derive "
@@ -43,14 +41,12 @@ void BindGlobalPositioner(py::module& m) {
           .def_readwrite("gpu_index",
                          &GlobalPositionerOptions::gpu_index,
                          "GPU device index (-1 for auto).")
-          .def_readwrite(
-              "min_num_images_gpu_solver",
-              &GlobalPositionerOptions::min_num_images_gpu_solver,
-              "Minimum number of images to use GPU solver.")
-          .def_readwrite(
-              "min_num_view_per_track",
-              &GlobalPositionerOptions::min_num_view_per_track,
-              "Minimum number of views per track.")
+          .def_readwrite("min_num_images_gpu_solver",
+                         &GlobalPositionerOptions::min_num_images_gpu_solver,
+                         "Minimum number of images to use GPU solver.")
+          .def_readwrite("min_num_view_per_track",
+                         &GlobalPositionerOptions::min_num_view_per_track,
+                         "Minimum number of views per track.")
           .def_readwrite("random_seed",
                          &GlobalPositionerOptions::random_seed,
                          "PRNG seed for random initialization. -1 for "
@@ -58,10 +54,9 @@ void BindGlobalPositioner(py::module& m) {
           .def_readwrite("loss_function_scale",
                          &GlobalPositionerOptions::loss_function_scale,
                          "Scaling factor for the loss function.")
-          .def_readwrite(
-              "use_parameter_block_ordering",
-              &GlobalPositionerOptions::use_parameter_block_ordering,
-              "Whether to use custom parameter block ordering.");
+          .def_readwrite("use_parameter_block_ordering",
+                         &GlobalPositionerOptions::use_parameter_block_ordering,
+                         "Whether to use custom parameter block ordering.");
   MakeDataclass(PyGlobalPositionerOptions);
 
   m.def(
@@ -104,8 +99,7 @@ void BindGravityRefiner(py::module& m) {
          const Reconstruction& reconstruction,
          std::vector<PosePrior>& pose_priors) {
         py::gil_scoped_release release;
-        RunGravityRefinement(
-            options, pose_graph, reconstruction, pose_priors);
+        RunGravityRefinement(options, pose_graph, reconstruction, pose_priors);
       },
       "options"_a,
       "pose_graph"_a,
@@ -130,22 +124,20 @@ void BindRotationEstimator(py::module& m) {
                          &RotationEstimatorOptions::random_seed,
                          "PRNG seed. -1 for non-deterministic, >=0 for "
                          "deterministic.")
-          .def_readwrite(
-              "max_num_l1_iterations",
-              &RotationEstimatorOptions::max_num_l1_iterations,
-              "Maximum number of L1 minimization iterations.")
+          .def_readwrite("max_num_l1_iterations",
+                         &RotationEstimatorOptions::max_num_l1_iterations,
+                         "Maximum number of L1 minimization iterations.")
           .def_readwrite(
               "l1_step_convergence_threshold",
               &RotationEstimatorOptions::l1_step_convergence_threshold,
               "Average step size threshold to terminate L1 minimization.")
+          .def_readwrite("max_num_irls_iterations",
+                         &RotationEstimatorOptions::max_num_irls_iterations,
+                         "Number of IRLS iterations to perform.")
           .def_readwrite(
-              "max_num_irls_iterations",
-              &RotationEstimatorOptions::max_num_irls_iterations,
-              "Number of IRLS iterations to perform.")
-          .def_readwrite("irls_step_convergence_threshold",
-                         &RotationEstimatorOptions::
-                             irls_step_convergence_threshold,
-                         "Average step size threshold to terminate IRLS.")
+              "irls_step_convergence_threshold",
+              &RotationEstimatorOptions::irls_step_convergence_threshold,
+              "Average step size threshold to terminate IRLS.")
           .def_readwrite("gravity_dir",
                          &RotationEstimatorOptions::gravity_dir,
                          "Gravity direction vector.")

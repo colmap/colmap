@@ -4,9 +4,8 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/util/types.h"
-
 #include "colmap/scene/types.h"
+#include "colmap/util/types.h"
 
 #include <unordered_map>
 #include <unordered_set>

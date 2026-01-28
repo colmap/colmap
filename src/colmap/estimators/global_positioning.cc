@@ -1,11 +1,10 @@
 #include "colmap/estimators/global_positioning.h"
 
+#include "colmap/estimators/cost_functions.h"
 #include "colmap/math/random.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
-
-#include "colmap/estimators/cost_functions.h"
 
 namespace colmap {
 namespace {

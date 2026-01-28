@@ -1,6 +1,6 @@
-#include "colmap/scene/correspondence_graph.h"
-
 #include "colmap/scene/pose_graph.h"
+
+#include "colmap/scene/correspondence_graph.h"
 
 #include "pycolmap/glomap/types.h"
 #include "pycolmap/helpers.h"
@@ -39,17 +39,15 @@ void BindPoseGraph(py::module& m) {
 
   py::classh<PoseGraph>(m, "PoseGraph")
       .def(py::init<>())
-      .def_property_readonly(
-          "edges",
-          py::overload_cast<>(&PoseGraph::Edges),
-          py::return_value_policy::reference_internal,
-          "Access to all edges in the pose graph.")
+      .def_property_readonly("edges",
+                             py::overload_cast<>(&PoseGraph::Edges),
+                             py::return_value_policy::reference_internal,
+                             "Access to all edges in the pose graph.")
       .def_property_readonly("num_edges",
                              &PoseGraph::NumEdges,
                              "Number of edges in the pose graph.")
-      .def_property_readonly("empty",
-                             &PoseGraph::Empty,
-                             "Whether the pose graph has no edges.")
+      .def_property_readonly(
+          "empty", &PoseGraph::Empty, "Whether the pose graph has no edges.")
       .def("clear", &PoseGraph::Clear, "Remove all edges.")
       .def("load",
            &PoseGraph::Load,

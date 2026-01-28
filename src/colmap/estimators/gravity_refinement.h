@@ -2,9 +2,8 @@
 
 #include "colmap/geometry/pose_prior.h"
 #include "colmap/math/math.h"
-#include "colmap/scene/reconstruction.h"
-
 #include "colmap/scene/pose_graph.h"
+#include "colmap/scene/reconstruction.h"
 
 #include <ceres/ceres.h>
 

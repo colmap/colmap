@@ -1,13 +1,12 @@
 #pragma once
 
 #include "colmap/estimators/bundle_adjustment_ceres.h"
-#include "colmap/scene/database_cache.h"
-#include "colmap/scene/reconstruction.h"
-#include "colmap/sfm/incremental_triangulator.h"
-
 #include "colmap/estimators/global_positioning.h"
 #include "colmap/estimators/rotation_averaging.h"
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/pose_graph.h"
+#include "colmap/scene/reconstruction.h"
+#include "colmap/sfm/incremental_triangulator.h"
 
 #include <filesystem>
 #include <limits>

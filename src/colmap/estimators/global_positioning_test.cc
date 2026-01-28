@@ -31,11 +31,10 @@
 
 #include "colmap/math/random.h"
 #include "colmap/scene/database_cache.h"
+#include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
-
-#include "colmap/scene/pose_graph.h"
 
 #include <gtest/gtest.h>
 
