@@ -260,7 +260,7 @@ Install miniconda and run the following commands::
         boost \
         ccache \
         eigen \
-        freeimage \
+        openimageio \
         curl \
         metis \
         glog \
