@@ -5,7 +5,7 @@
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
 
-namespace glomap {
+namespace colmap {
 
 // Computes the error between a translation direction and the direction formed
 // from two positions such that: t_ij - scale * (p_j - p_i) is minimized.
@@ -127,4 +127,4 @@ struct RigBATAPairwiseDirectionCostFunctor {
   const Eigen::Quaterniond world_from_rig_rot_;
 };
 
-}  // namespace glomap
+}  // namespace colmap

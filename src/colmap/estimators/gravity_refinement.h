@@ -4,11 +4,11 @@
 #include "colmap/math/math.h"
 #include "colmap/scene/reconstruction.h"
 
-#include "glomap/scene/pose_graph.h"
+#include "colmap/scene/pose_graph.h"
 
 #include <ceres/ceres.h>
 
-namespace glomap {
+namespace colmap {
 
 struct GravityRefinerOptions {
   // The minimal ratio that the gravity vector should be consistent with
@@ -59,4 +59,4 @@ void RunGravityRefinement(const GravityRefinerOptions& options,
                           const colmap::Reconstruction& reconstruction,
                           std::vector<colmap::PosePrior>& pose_priors);
 
-}  // namespace glomap
+}  // namespace colmap

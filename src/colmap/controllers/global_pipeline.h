@@ -31,9 +31,8 @@
 
 #include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/scene/reconstruction_manager.h"
+#include "colmap/sfm/global_mapper.h"
 #include "colmap/util/base_controller.h"
-
-#include "glomap/sfm/global_mapper.h"
 
 #include <filesystem>
 #include <memory>
@@ -70,7 +69,7 @@ struct GlobalPipelineOptions {
   ViewGraphCalibrationOptions view_graph_calibration;
 
   // Options for the global mapper.
-  glomap::GlobalMapperOptions mapper;
+  colmap::GlobalMapperOptions mapper;
 };
 
 class GlobalPipeline : public BaseController {

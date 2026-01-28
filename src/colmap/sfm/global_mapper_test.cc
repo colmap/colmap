@@ -1,4 +1,4 @@
-#include "glomap/sfm/global_mapper.h"
+#include "colmap/sfm/global_mapper.h"
 
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction_matchers.h"
@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-namespace glomap {
+namespace colmap {
 namespace {
 
 // TODO(jsch): Add tests for pose priors.
@@ -154,4 +154,4 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
 }
 
 }  // namespace
-}  // namespace glomap
+}  // namespace colmap

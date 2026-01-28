@@ -12,7 +12,7 @@ struct Rigid3d;
 
 }  // namespace colmap
 
-namespace glomap {
+namespace colmap {
 
 ////////////////////////////////////////////////////////////////////////////////
 // Index types, determines the maximum number of objects.
@@ -57,4 +57,4 @@ using colmap::data_t;
 // Rig
 using colmap::Rig;
 
-}  // namespace glomap
+}  // namespace colmap

@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "glomap/estimators/rotation_averaging.h"
+#include "colmap/estimators/rotation_averaging.h"
 
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
@@ -35,11 +35,11 @@
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
-#include "glomap/scene/pose_graph.h"
+#include "colmap/scene/pose_graph.h"
 
 #include <gtest/gtest.h>
 
-namespace glomap {
+namespace colmap {
 namespace {
 
 void LoadReconstructionAndPoseGraph(const colmap::Database& database,
@@ -292,4 +292,4 @@ TEST(RotationAveraging, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
 }
 
 }  // namespace
-}  // namespace glomap
+}  // namespace colmap

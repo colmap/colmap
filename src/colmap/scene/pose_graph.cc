@@ -1,8 +1,8 @@
-#include "glomap/scene/pose_graph.h"
+#include "colmap/scene/pose_graph.h"
 
 #include "colmap/math/connected_components.h"
 
-namespace glomap {
+namespace colmap {
 
 void PoseGraph::Load(const colmap::CorrespondenceGraph& corr_graph) {
   for (const auto& [pair_id, num_matches] :
@@ -110,4 +110,4 @@ int PoseGraph::MarkConnectedComponents(
   return comp;
 }
 
-}  // namespace glomap
+}  // namespace colmap

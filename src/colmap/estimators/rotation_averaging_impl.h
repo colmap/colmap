@@ -1,13 +1,13 @@
 #pragma once
 
-#include "glomap/estimators/rotation_averaging.h"
+#include "colmap/estimators/rotation_averaging.h"
 
 #include <optional>
 #include <variant>
 
 #include <Eigen/Sparse>
 
-namespace glomap {
+namespace colmap {
 
 // Rotation averaging problem formulated as linear system A*x = b where:
 //   x = [rig_from_world rotations, unknown cam_from_rig rotations]
@@ -141,4 +141,4 @@ class RotationAveragingSolver {
   const RotationEstimatorOptions options_;
 };
 
-}  // namespace glomap
+}  // namespace colmap

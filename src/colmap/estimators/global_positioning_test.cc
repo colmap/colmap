@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "glomap/estimators/global_positioning.h"
+#include "colmap/estimators/global_positioning.h"
 
 #include "colmap/math/random.h"
 #include "colmap/scene/database_cache.h"
@@ -35,11 +35,11 @@
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
-#include "glomap/scene/pose_graph.h"
+#include "colmap/scene/pose_graph.h"
 
 #include <gtest/gtest.h>
 
-namespace glomap {
+namespace colmap {
 namespace {
 
 TEST(GlobalPositioning, Nominal) {
@@ -139,4 +139,4 @@ TEST(GlobalPositioning, MultiCameraRig) {
 }
 
 }  // namespace
-}  // namespace glomap
+}  // namespace colmap

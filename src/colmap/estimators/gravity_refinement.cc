@@ -6,7 +6,7 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 
-namespace glomap {
+namespace colmap {
 
 using GravityCostFunctor = colmap::NormalPriorCostFunctor<3>;
 
@@ -252,4 +252,4 @@ void RunGravityRefinement(const GravityRefinerOptions& options,
   refiner.RefineGravity(pose_graph, reconstruction, pose_priors);
 }
 
-}  // namespace glomap
+}  // namespace colmap

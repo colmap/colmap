@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "glomap/scene/pose_graph.h"
+#include "colmap/scene/pose_graph.h"
 
 #include "colmap/scene/database_cache.h"
 #include "colmap/util/testing.h"
@@ -35,7 +35,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-namespace glomap {
+namespace colmap {
 namespace {
 
 PoseGraph::Edge SynthesizeEdge(int num_matches = 50) {
@@ -282,4 +282,4 @@ TEST(PoseGraph, Load) {
 }
 
 }  // namespace
-}  // namespace glomap
+}  // namespace colmap

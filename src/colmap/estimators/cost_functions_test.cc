@@ -27,13 +27,13 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "glomap/estimators/cost_functions.h"
+#include "colmap/estimators/cost_functions.h"
 
 #include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
 
-namespace glomap {
+namespace colmap {
 namespace {
 
 TEST(BATAPairwiseDirectionCostFunctor, ZeroResidual) {
@@ -198,4 +198,4 @@ TEST(RigBATAPairwiseDirectionCostFunctor, Create) {
 }
 
 }  // namespace
-}  // namespace glomap
+}  // namespace colmap

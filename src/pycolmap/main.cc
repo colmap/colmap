@@ -17,6 +17,7 @@ namespace py = pybind11;
 void BindEstimators(py::module& m);
 void BindFeature(py::module& m);
 void BindGeometry(py::module& m);
+void BindGlomap(py::module& m);
 void BindImage(py::module& m);
 void BindOptim(py::module& m);
 void BindPipeline(py::module& m);
@@ -56,6 +57,7 @@ PYBIND11_MODULE(_core, m) {
   BindRetrieval(m);
   BindSfm(m);
   BindMvs(m);
+  BindGlomap(m);
   BindPipeline(m);
 
   m.def("set_random_seed",

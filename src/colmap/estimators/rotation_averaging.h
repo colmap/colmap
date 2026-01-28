@@ -3,8 +3,8 @@
 #include "colmap/geometry/pose_prior.h"
 #include "colmap/scene/reconstruction.h"
 
-#include "glomap/scene/pose_graph.h"
-#include "glomap/scene/types.h"
+#include "colmap/scene/pose_graph.h"
+#include "colmap/scene/types.h"
 
 #include <unordered_set>
 #include <vector>
@@ -14,7 +14,7 @@
 // Code is adapted from Theia's RobustRotationEstimator
 // (http://www.theia-sfm.org/). For gravity aligned rotation averaging, refer
 // to the paper "Gravity Aligned Rotation Averaging"
-namespace glomap {
+namespace colmap {
 
 struct RotationEstimatorOptions {
   // PRNG seed for stochastic methods during rotation averaging.
@@ -129,4 +129,4 @@ bool RunRotationAveraging(const RotationEstimatorOptions& options,
                           colmap::Reconstruction& reconstruction,
                           const std::vector<colmap::PosePrior>& pose_priors);
 
-}  // namespace glomap
+}  // namespace colmap

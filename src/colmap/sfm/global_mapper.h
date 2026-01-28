@@ -5,14 +5,14 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_triangulator.h"
 
-#include "glomap/estimators/global_positioning.h"
-#include "glomap/estimators/rotation_averaging.h"
-#include "glomap/scene/pose_graph.h"
+#include "colmap/estimators/global_positioning.h"
+#include "colmap/estimators/rotation_averaging.h"
+#include "colmap/scene/pose_graph.h"
 
 #include <filesystem>
 #include <limits>
 
-namespace glomap {
+namespace colmap {
 
 struct GlobalMapperOptions {
   // Number of threads.
@@ -146,4 +146,4 @@ class GlobalMapper {
   std::shared_ptr<colmap::Reconstruction> reconstruction_;
 };
 
-}  // namespace glomap
+}  // namespace colmap

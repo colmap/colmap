@@ -256,7 +256,6 @@ include_directories(src)
 link_directories(${COLMAP_LINK_DIRS})
 
 add_subdirectory(src/colmap)
-add_subdirectory(src/glomap)
 add_subdirectory(src/thirdparty)
 
 if(BENCHMARK_ENABLED)

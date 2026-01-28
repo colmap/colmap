@@ -1,4 +1,4 @@
-#include "glomap/sfm/global_mapper.h"
+#include "colmap/sfm/global_mapper.h"
 
 #include "colmap/math/union_find.h"
 #include "colmap/scene/projection.h"
@@ -8,11 +8,11 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
-#include "glomap/estimators/rotation_averaging.h"
+#include "colmap/estimators/rotation_averaging.h"
 
 #include <algorithm>
 
-namespace glomap {
+namespace colmap {
 namespace {
 
 bool RunBundleAdjustment(const colmap::BundleAdjustmentOptions& options,
@@ -538,4 +538,4 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   return true;
 }
 
-}  // namespace glomap
+}  // namespace colmap

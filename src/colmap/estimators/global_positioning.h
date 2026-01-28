@@ -2,13 +2,13 @@
 
 #include "colmap/scene/reconstruction.h"
 
-#include "glomap/scene/pose_graph.h"
+#include "colmap/scene/pose_graph.h"
 
 #include <string>
 
 #include <ceres/ceres.h>
 
-namespace glomap {
+namespace colmap {
 
 struct GlobalPositionerOptions {
   // Whether to initialize the camera and track positions randomly.
@@ -121,4 +121,4 @@ bool RunGlobalPositioning(const GlobalPositionerOptions& options,
                           const PoseGraph& pose_graph,
                           colmap::Reconstruction& reconstruction);
 
-}  // namespace glomap
+}  // namespace colmap

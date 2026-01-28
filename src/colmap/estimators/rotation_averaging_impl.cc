@@ -1,4 +1,4 @@
-#include "glomap/estimators/rotation_averaging_impl.h"
+#include "colmap/estimators/rotation_averaging_impl.h"
 
 #include "colmap/geometry/pose.h"
 #include "colmap/math/math.h"
@@ -9,7 +9,7 @@
 
 #include <Eigen/CholmodSupport>
 
-namespace glomap {
+namespace colmap {
 namespace {
 
 // Computes the 1-DOF residual for gravity-aligned rotation constraints.
@@ -816,4 +816,4 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
   return true;
 }
 
-}  // namespace glomap
+}  // namespace colmap

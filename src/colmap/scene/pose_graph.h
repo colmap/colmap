@@ -6,12 +6,12 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/types.h"
 
-#include "glomap/scene/types.h"
+#include "colmap/scene/types.h"
 
 #include <unordered_map>
 #include <unordered_set>
 
-namespace glomap {
+namespace colmap {
 
 class PoseGraph {
  public:
@@ -199,4 +199,4 @@ void PoseGraph::SetInvalidEdge(image_pair_t pair_id) {
   it->second.valid = false;
 }
 
-}  // namespace glomap
+}  // namespace colmap

@@ -56,3 +56,27 @@ COLMAP_ADD_TEST(
     SRCS observation_manager_test.cc
     LINK_LIBS colmap_sfm
 )
+
+COLMAP_ADD_LIBRARY(
+    NAME colmap_glomap_sfm
+    SRCS
+        global_mapper.h global_mapper.cc
+    PUBLIC_LINK_LIBS
+        colmap_glomap_estimators
+        colmap_glomap_scene
+        colmap_estimators
+        colmap_sfm
+        colmap_util
+    PRIVATE_LINK_LIBS
+        Boost::boost
+)
+
+if(MSVC)
+    target_compile_options(colmap_glomap_sfm PRIVATE /bigobj)
+endif()
+
+COLMAP_ADD_TEST(
+    NAME glomap_global_mapper_test
+    SRCS global_mapper_test.cc
+    LINK_LIBS colmap_glomap_sfm
+)

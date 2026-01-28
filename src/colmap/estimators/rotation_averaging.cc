@@ -1,15 +1,15 @@
-#include "glomap/estimators/rotation_averaging.h"
+#include "colmap/estimators/rotation_averaging.h"
 
 #include "colmap/geometry/pose.h"
 #include "colmap/math/math.h"
 #include "colmap/math/spanning_tree.h"
 
-#include "glomap/estimators/rotation_averaging_impl.h"
+#include "colmap/estimators/rotation_averaging_impl.h"
 
 #include <algorithm>
 #include <queue>
 
-namespace glomap {
+namespace colmap {
 namespace {
 
 bool HasGravityPriors(const std::vector<colmap::PosePrior>& pose_priors) {
@@ -685,4 +685,4 @@ bool RunRotationAveraging(const RotationEstimatorOptions& options,
   return true;
 }
 
-}  // namespace glomap
+}  // namespace colmap

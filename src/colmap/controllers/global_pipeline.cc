@@ -32,10 +32,9 @@
 #include "colmap/estimators/alignment.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/scene/database_cache.h"
+#include "colmap/sfm/global_mapper.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
-
-#include "glomap/sfm/global_mapper.h"
 
 namespace colmap {
 
@@ -80,12 +79,12 @@ void GlobalPipeline::Run() {
   auto reconstruction = std::make_shared<Reconstruction>();
 
   // Prepare mapper options with top-level options.
-  glomap::GlobalMapperOptions mapper_options = options_.mapper;
+  colmap::GlobalMapperOptions mapper_options = options_.mapper;
   mapper_options.image_path = options_.image_path;
   mapper_options.num_threads = options_.num_threads;
   mapper_options.random_seed = options_.random_seed;
 
-  glomap::GlobalMapper global_mapper(database_cache);
+  colmap::GlobalMapper global_mapper(database_cache);
   global_mapper.BeginReconstruction(reconstruction);
 
   Timer run_timer;
