@@ -1,10 +1,8 @@
 #include "colmap/scene/pose_graph.h"
 
-#include "colmap/scene/correspondence_graph.h"
-
-#include "pycolmap/glomap/types.h"
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
+#include "pycolmap/scene/types.h"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -15,7 +13,6 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindPoseGraph(py::module& m) {
-  // Bind the Edge struct first
   auto PyPoseGraphEdge =
       py::classh<PoseGraph::Edge>(m, "PoseGraphEdge")
           .def(py::init<>())
