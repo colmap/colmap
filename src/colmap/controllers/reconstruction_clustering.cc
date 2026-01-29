@@ -134,7 +134,7 @@ void ReconstructionClustererController::Run() {
           static_cast<size_t>(
               options_.min_num_reg_frames));  // Should always be true
       size_t idx = reconstruction_manager_->Add();
-      *reconstruction_manager_->Get(idx) = cluster_reconstruction;
+      *reconstruction_manager_->Get(idx) = std::move(cluster_reconstruction);
       LOG(INFO) << "Added cluster " << comp << " with "
                 << cluster_reconstruction.NumRegFrames()
                 << " registered frames";
