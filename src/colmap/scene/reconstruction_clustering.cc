@@ -116,6 +116,9 @@ std::unordered_map<frame_t, int> EstablishStrongClusters(
 std::unordered_map<frame_t, int> ClusterReconstructionFrames(
     const ReconstructionClusteringOptions& options,
     Reconstruction& reconstruction) {
+  // Cluster with fewer than 2 frames is not meaningful.
+  THROW_CHECK_GE(options.min_num_reg_frames, 2);
+
   // Step 1: Compute covisibility counts between all frame pairs.
   // For each 3D point, increment the count for every pair of frames that sees
   // it.
