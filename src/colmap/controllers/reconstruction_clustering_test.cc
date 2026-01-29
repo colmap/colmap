@@ -165,6 +165,74 @@ TEST(ReconstructionClustererController, SingleCluster) {
   EXPECT_EQ(reconstruction_manager->Size(), 1);
 }
 
+TEST(ReconstructionClustererController, SingleClusterWithOutlierFrames) {
+  SetPRNGSeed(42);
+
+  auto reconstruction = std::make_shared<Reconstruction>();
+
+  // Create a well-connected reconstruction with more frames
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 10;
+  synthetic_options.num_points3D = 500;
+  synthetic_options.match_config =
+      SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE;
+  SynthesizeDataset(synthetic_options, reconstruction.get());
+
+  const size_t total_frames = reconstruction->NumRegFrames();
+  EXPECT_EQ(total_frames, 10);
+
+  // Select the last 3 frames as outliers and remove all their 3D point
+  // observations, making them isolated from the main cluster
+  constexpr int kNumOutliers = 3;
+  std::vector<frame_t> all_frame_ids(reconstruction->RegFrameIds().begin(),
+                                     reconstruction->RegFrameIds().end());
+  std::sort(all_frame_ids.begin(), all_frame_ids.end());
+
+  std::unordered_set<frame_t> outlier_frame_ids;
+  for (size_t i = total_frames - kNumOutliers; i < total_frames; i++) {
+    outlier_frame_ids.insert(all_frame_ids[i]);
+  }
+
+  // Remove all 3D point observations from outlier frames
+  for (const frame_t outlier_frame_id : outlier_frame_ids) {
+    const Frame& frame = reconstruction->Frame(outlier_frame_id);
+    for (const data_t& data_id : frame.ImageIds()) {
+      const image_t image_id = data_id.id;
+      Image& image = reconstruction->Image(image_id);
+      const auto num_points2D = image.NumPoints2D();
+      for (point2D_t point2D_idx = 0; point2D_idx < num_points2D;
+           ++point2D_idx) {
+        if (image.Point2D(point2D_idx).HasPoint3D()) {
+          reconstruction->DeleteObservation(image_id, point2D_idx);
+        }
+      }
+    }
+  }
+
+  const size_t main_cluster_frames = total_frames - kNumOutliers;
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+
+  ReconstructionClusteringOptions options;
+  options.min_num_reg_frames = 3;
+
+  ReconstructionClustererController controller(
+      options, reconstruction, reconstruction_manager);
+  controller.Run();
+
+  // Should produce exactly one cluster containing only the main frames
+  // The outlier frames should be filtered out (cluster_id = -1) because
+  // they have no covisibility edges with any other frames
+  EXPECT_EQ(reconstruction_manager->Size(), 1)
+      << "Expected single cluster after filtering outliers";
+
+  // The single cluster should contain only the main cluster frames
+  EXPECT_EQ(reconstruction_manager->Get(0)->NumRegFrames(), main_cluster_frames)
+      << "Outlier frames should not be included in the output reconstruction";
+}
+
 TEST(ReconstructionClustererController, MinNumRegFramesFilter) {
   SetPRNGSeed(1);
 
