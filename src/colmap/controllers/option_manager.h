@@ -60,11 +60,9 @@ struct PoissonMeshingOptions;
 struct DelaunayMeshingOptions;
 }  // namespace mvs
 
-}  // namespace colmap
-
-namespace glomap {
 struct GravityRefinerOptions;
-}  // namespace glomap
+
+}  // namespace colmap
 
 namespace colmap {
 
@@ -126,7 +124,7 @@ class OptionManager : public BaseOptionManager {
   std::shared_ptr<IncrementalPipelineOptions> mapper;
   std::shared_ptr<GlobalPipelineOptions> global_mapper;
   std::shared_ptr<ReconstructionClusteringOptions> reconstruction_clusterer;
-  std::shared_ptr<glomap::GravityRefinerOptions> gravity_refiner;
+  std::shared_ptr<GravityRefinerOptions> gravity_refiner;
 
   std::shared_ptr<mvs::PatchMatchOptions> patch_match_stereo;
   std::shared_ptr<mvs::StereoFusionOptions> stereo_fusion;

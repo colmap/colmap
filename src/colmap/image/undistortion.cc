@@ -298,14 +298,14 @@ void RectifyStereoCameras(const Camera& camera1,
               camera2.model_id == PinholeCameraModel::model_id);
 
   // Compute the average rotation between the first and the second camera.
-  Eigen::AngleAxisd half_cam2_from_cam1(cam2_from_cam1.rotation);
+  Eigen::AngleAxisd half_cam2_from_cam1(cam2_from_cam1.rotation());
   half_cam2_from_cam1.angle() *= -0.5;
 
   Eigen::Matrix3d R2 = half_cam2_from_cam1.toRotationMatrix();
   Eigen::Matrix3d R1 = R2.transpose();
 
   // Determine the translation, such that it coincides with the X-axis.
-  Eigen::Vector3d t = R2 * cam2_from_cam1.translation;
+  Eigen::Vector3d t = R2 * cam2_from_cam1.translation();
 
   Eigen::Vector3d x_unit_vector(1, 0, 0);
   if (t.transpose() * x_unit_vector < 0) {

@@ -389,11 +389,11 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
                              0, options.sensor_from_rig_rotation_stddev),
                          -180.0,
                          180.0);
-          sensor_from_rig.rotation = Eigen::Quaterniond(
+          sensor_from_rig.rotation() = Eigen::Quaterniond(
               Eigen::AngleAxisd(DegToRad(angle), Eigen::Vector3d(0, 0, 1)));
         }
         if (options.sensor_from_rig_translation_stddev > 0) {
-          sensor_from_rig.translation = Eigen::Vector3d(
+          sensor_from_rig.translation() = Eigen::Vector3d(
               RandomGaussian<double>(
                   0, options.sensor_from_rig_translation_stddev),
               RandomGaussian<double>(
@@ -421,9 +421,9 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       const Eigen::Vector3d view_dir = -Eigen::Vector3d::Random().normalized();
       const Eigen::Vector3d proj_center = -5 * view_dir;
       Rigid3d rig_from_world;
-      rig_from_world.rotation = Eigen::Quaterniond::FromTwoVectors(
+      rig_from_world.rotation() = Eigen::Quaterniond::FromTwoVectors(
           view_dir, Eigen::Vector3d(0, 0, 1));
-      rig_from_world.translation = rig_from_world.rotation * -proj_center;
+      rig_from_world.translation() = rig_from_world.rotation() * -proj_center;
 
       frame.SetRigFromWorld(rig_from_world);
 
@@ -477,7 +477,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
           if (options.prior_gravity) {
             pose_prior.gravity =
-                (cam_from_world.rotation * options.prior_gravity_in_world)
+                (cam_from_world.rotation() * options.prior_gravity_in_world)
                     .normalized();
           }
 
@@ -628,12 +628,12 @@ void SynthesizeNoise(const SyntheticNoiseOptions& options,
           RandomGaussian<double>(0, options.rig_from_world_rotation_stddev),
           -180.0,
           180.0);
-      rig_from_world.rotation *= Eigen::Quaterniond(
+      rig_from_world.rotation() *= Eigen::Quaterniond(
           Eigen::AngleAxisd(DegToRad(angle), Eigen::Vector3d::UnitZ()));
     }
 
     if (options.rig_from_world_translation_stddev > 0.0) {
-      rig_from_world.translation += Eigen::Vector3d(
+      rig_from_world.translation() += Eigen::Vector3d(
           RandomGaussian<double>(0, options.rig_from_world_translation_stddev),
           RandomGaussian<double>(0, options.rig_from_world_translation_stddev),
           RandomGaussian<double>(0, options.rig_from_world_translation_stddev));

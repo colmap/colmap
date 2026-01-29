@@ -5,6 +5,7 @@
 #include "colmap/scene/image.h"
 #include "colmap/scene/point2d.h"
 #include "colmap/scene/point3d.h"
+#include "colmap/scene/pose_graph.h"
 #include "colmap/util/types.h"
 
 #include <pybind11/eigen.h>
@@ -29,3 +30,7 @@ PYBIND11_MAKE_OPAQUE(Point2DVector);
 
 using Point3DMap = std::unordered_map<colmap::point3D_t, colmap::Point3D>;
 PYBIND11_MAKE_OPAQUE(Point3DMap);
+
+using PoseGraphEdgeMap =
+    std::unordered_map<colmap::image_pair_t, colmap::PoseGraph::Edge>;
+PYBIND11_MAKE_OPAQUE(PoseGraphEdgeMap);

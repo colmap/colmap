@@ -32,7 +32,9 @@
 #include "colmap/controllers/global_pipeline.h"
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_pipeline.h"
-#include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
+#include "colmap/estimators/global_positioning.h"
+#include "colmap/estimators/gravity_refinement.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/pairing.h"
 #include "colmap/feature/sift.h"
@@ -43,9 +45,6 @@
 #include "colmap/ui/render_options.h"
 #include "colmap/util/file.h"
 #include "colmap/util/version.h"
-
-#include "glomap/estimators/global_positioning.h"
-#include "glomap/estimators/gravity_refinement.h"
 
 namespace config = boost::program_options;
 
@@ -66,7 +65,7 @@ OptionManager::OptionManager(bool add_project_options)
   bundle_adjustment = std::make_shared<BundleAdjustmentOptions>();
   mapper = std::make_shared<IncrementalPipelineOptions>();
   global_mapper = std::make_shared<GlobalPipelineOptions>();
-  gravity_refiner = std::make_shared<glomap::GravityRefinerOptions>();
+  gravity_refiner = std::make_shared<GravityRefinerOptions>();
   reconstruction_clusterer =
       std::make_shared<ReconstructionClusteringOptions>();
   patch_match_stereo = std::make_shared<mvs::PatchMatchOptions>();
@@ -439,17 +438,7 @@ void OptionManager::AddBundleAdjustmentOptions() {
   }
   added_ba_options_ = true;
 
-  AddDefaultOption("BundleAdjustment.max_num_iterations",
-                   &bundle_adjustment->solver_options.max_num_iterations);
-  AddDefaultOption(
-      "BundleAdjustment.max_linear_solver_iterations",
-      &bundle_adjustment->solver_options.max_linear_solver_iterations);
-  AddDefaultOption("BundleAdjustment.function_tolerance",
-                   &bundle_adjustment->solver_options.function_tolerance);
-  AddDefaultOption("BundleAdjustment.gradient_tolerance",
-                   &bundle_adjustment->solver_options.gradient_tolerance);
-  AddDefaultOption("BundleAdjustment.parameter_tolerance",
-                   &bundle_adjustment->solver_options.parameter_tolerance);
+  // Solver-agnostic options
   AddDefaultOption("BundleAdjustment.refine_focal_length",
                    &bundle_adjustment->refine_focal_length);
   AddDefaultOption("BundleAdjustment.refine_principal_point",
@@ -466,21 +455,44 @@ void OptionManager::AddBundleAdjustmentOptions() {
                    &bundle_adjustment->constant_rig_from_world_rotation);
   AddDefaultOption("BundleAdjustment.min_track_length",
                    &bundle_adjustment->min_track_length);
-  AddDefaultOption("BundleAdjustment.use_gpu", &bundle_adjustment->use_gpu);
-  AddDefaultOption("BundleAdjustment.gpu_index", &bundle_adjustment->gpu_index);
-  AddDefaultOption("BundleAdjustment.min_num_images_gpu_solver",
-                   &bundle_adjustment->min_num_images_gpu_solver);
+
+  // Ceres-specific options
   AddDefaultOption(
-      "BundleAdjustment.min_num_residuals_for_cpu_multi_threading",
-      &bundle_adjustment->min_num_residuals_for_cpu_multi_threading);
-  AddDefaultOption("BundleAdjustment.max_num_images_direct_dense_cpu_solver",
-                   &bundle_adjustment->max_num_images_direct_dense_cpu_solver);
-  AddDefaultOption("BundleAdjustment.max_num_images_direct_sparse_cpu_solver",
-                   &bundle_adjustment->max_num_images_direct_sparse_cpu_solver);
-  AddDefaultOption("BundleAdjustment.max_num_images_direct_dense_gpu_solver",
-                   &bundle_adjustment->max_num_images_direct_dense_gpu_solver);
-  AddDefaultOption("BundleAdjustment.max_num_images_direct_sparse_gpu_solver",
-                   &bundle_adjustment->max_num_images_direct_sparse_gpu_solver);
+      "BundleAdjustmentCeres.max_num_iterations",
+      &bundle_adjustment->ceres->solver_options.max_num_iterations);
+  AddDefaultOption(
+      "BundleAdjustmentCeres.max_linear_solver_iterations",
+      &bundle_adjustment->ceres->solver_options.max_linear_solver_iterations);
+  AddDefaultOption(
+      "BundleAdjustmentCeres.function_tolerance",
+      &bundle_adjustment->ceres->solver_options.function_tolerance);
+  AddDefaultOption(
+      "BundleAdjustmentCeres.gradient_tolerance",
+      &bundle_adjustment->ceres->solver_options.gradient_tolerance);
+  AddDefaultOption(
+      "BundleAdjustmentCeres.parameter_tolerance",
+      &bundle_adjustment->ceres->solver_options.parameter_tolerance);
+  AddDefaultOption("BundleAdjustmentCeres.use_gpu",
+                   &bundle_adjustment->ceres->use_gpu);
+  AddDefaultOption("BundleAdjustmentCeres.gpu_index",
+                   &bundle_adjustment->ceres->gpu_index);
+  AddDefaultOption("BundleAdjustmentCeres.min_num_images_gpu_solver",
+                   &bundle_adjustment->ceres->min_num_images_gpu_solver);
+  AddDefaultOption(
+      "BundleAdjustmentCeres.min_num_residuals_for_cpu_multi_threading",
+      &bundle_adjustment->ceres->min_num_residuals_for_cpu_multi_threading);
+  AddDefaultOption(
+      "BundleAdjustmentCeres.max_num_images_direct_dense_cpu_solver",
+      &bundle_adjustment->ceres->max_num_images_direct_dense_cpu_solver);
+  AddDefaultOption(
+      "BundleAdjustmentCeres.max_num_images_direct_sparse_cpu_solver",
+      &bundle_adjustment->ceres->max_num_images_direct_sparse_cpu_solver);
+  AddDefaultOption(
+      "BundleAdjustmentCeres.max_num_images_direct_dense_gpu_solver",
+      &bundle_adjustment->ceres->max_num_images_direct_dense_gpu_solver);
+  AddDefaultOption(
+      "BundleAdjustmentCeres.max_num_images_direct_sparse_gpu_solver",
+      &bundle_adjustment->ceres->max_num_images_direct_sparse_gpu_solver);
 }
 
 void OptionManager::AddMapperOptions() {
@@ -701,11 +713,7 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.global_positioning.solver_options
                         .max_num_iterations);
 
-  // Bundle adjustment options.
-  AddDefaultOption("GlobalMapper.ba_use_gpu",
-                   &global_mapper->mapper.bundle_adjustment.use_gpu);
-  AddDefaultOption("GlobalMapper.ba_gpu_index",
-                   &global_mapper->mapper.bundle_adjustment.gpu_index);
+  // Bundle adjustment options (solver-agnostic).
   AddDefaultOption(
       "GlobalMapper.ba_refine_focal_length",
       &global_mapper->mapper.bundle_adjustment.refine_focal_length);
@@ -725,12 +733,17 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.bundle_adjustment.refine_points3D);
   AddDefaultOption("GlobalMapper.ba_min_track_length",
                    &global_mapper->mapper.bundle_adjustment.min_track_length);
+  // Bundle adjustment options (Ceres-specific).
+  AddDefaultOption("GlobalMapper.ba_ceres_use_gpu",
+                   &global_mapper->mapper.bundle_adjustment.ceres->use_gpu);
+  AddDefaultOption("GlobalMapper.ba_ceres_gpu_index",
+                   &global_mapper->mapper.bundle_adjustment.ceres->gpu_index);
   AddDefaultOption(
-      "GlobalMapper.ba_loss_function_scale",
-      &global_mapper->mapper.bundle_adjustment.loss_function_scale);
-  AddDefaultOption("GlobalMapper.ba_max_num_iterations",
-                   &global_mapper->mapper.bundle_adjustment.solver_options
-                        .max_num_iterations);
+      "GlobalMapper.ba_ceres_loss_function_scale",
+      &global_mapper->mapper.bundle_adjustment.ceres->loss_function_scale);
+  AddDefaultOption("GlobalMapper.ba_ceres_max_num_iterations",
+                   &global_mapper->mapper.bundle_adjustment.ceres
+                        ->solver_options.max_num_iterations);
   AddDefaultOption("GlobalMapper.ba_skip_fixed_rotation_stage",
                    &global_mapper->mapper.ba_skip_fixed_rotation_stage);
   AddDefaultOption("GlobalMapper.ba_skip_joint_optimization_stage",
@@ -962,7 +975,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *bundle_adjustment = BundleAdjustmentOptions();
   *mapper = IncrementalPipelineOptions();
   *global_mapper = GlobalPipelineOptions();
-  *gravity_refiner = glomap::GravityRefinerOptions();
+  *gravity_refiner = GravityRefinerOptions();
   *reconstruction_clusterer = ReconstructionClusteringOptions();
   *patch_match_stereo = mvs::PatchMatchOptions();
   *stereo_fusion = mvs::StereoFusionOptions();

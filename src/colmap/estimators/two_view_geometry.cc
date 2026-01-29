@@ -29,12 +29,11 @@
 
 #include "colmap/estimators/two_view_geometry.h"
 
-#include "colmap/estimators/essential_matrix.h"
-#include "colmap/estimators/fundamental_matrix.h"
 #include "colmap/estimators/generalized_pose.h"
-#include "colmap/estimators/homography_matrix.h"
-#include "colmap/estimators/translation_transform.h"
-#include "colmap/estimators/utils.h"
+#include "colmap/estimators/solvers/essential_matrix.h"
+#include "colmap/estimators/solvers/fundamental_matrix.h"
+#include "colmap/estimators/solvers/homography_matrix.h"
+#include "colmap/estimators/solvers/translation_transform.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/homography_matrix.h"
 #include "colmap/geometry/triangulation.h"
@@ -370,8 +369,14 @@ EstimateRigTwoViewGeometries(
         return it->second.second;
       };
 
+  std::unordered_set<image_pair_t> image_pairs;
+  image_pairs.reserve(matches.size());
   for (const auto& [image_pair, pair_matches] : matches) {
     const auto& [image_id1, image_id2] = image_pair;
+
+    THROW_CHECK(
+        image_pairs.insert(ImagePairToPairId(image_id1, image_id2)).second)
+        << "Duplicate image pair";
 
     const Image& image1 = images.at(image_id1);
     const Camera& camera1 = cameras.at(image1.CameraId());
@@ -556,7 +561,7 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
                              &points3D);
     if (geometry->config ==
         TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC) {
-      if (cam2_from_cam1.translation.squaredNorm() < 1e-12) {
+      if (cam2_from_cam1.translation().squaredNorm() < 1e-12) {
         geometry->config = TwoViewGeometry::ConfigurationType::PANORAMIC;
       } else {
         geometry->config = TwoViewGeometry::ConfigurationType::PLANAR;
@@ -988,9 +993,9 @@ void MaybeDecomposeAndWriteRelativePoses(Database* database) {
         camera1, points1, camera2, points2, &two_view_geom);
 
     if (success && two_view_geom.cam2_from_cam1.has_value()) {
-      const double norm = two_view_geom.cam2_from_cam1->translation.norm();
+      const double norm = two_view_geom.cam2_from_cam1->translation().norm();
       if (norm > 1e-12) {
-        two_view_geom.cam2_from_cam1->translation /= norm;
+        two_view_geom.cam2_from_cam1->translation() /= norm;
       }
       database->UpdateTwoViewGeometry(image_id1, image_id2, two_view_geom);
     } else {

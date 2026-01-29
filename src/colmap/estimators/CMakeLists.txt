@@ -29,32 +29,25 @@
 
 set(FOLDER_NAME "estimators")
 
+add_subdirectory(cost_functions)
+add_subdirectory(solvers)
+
 COLMAP_ADD_LIBRARY(
     NAME colmap_estimators
     SRCS
-        absolute_pose.h absolute_pose.cc
-        affine_transform.h affine_transform.cc
         alignment.h alignment.cc
         bundle_adjustment.h bundle_adjustment.cc
+        bundle_adjustment_ceres.h bundle_adjustment_ceres.cc
         coordinate_frame.h coordinate_frame.cc
-        cost_function_utils.h
-        cost_functions.h
-        manifold.h
         covariance.h covariance.cc
-        essential_matrix.h essential_matrix.cc
-        euclidean_transform.h
-        fundamental_matrix.h fundamental_matrix.cc
-        generalized_absolute_pose.h generalized_absolute_pose.cc
-        generalized_relative_pose.h generalized_relative_pose.cc
-        homography_matrix.h homography_matrix.cc
-        pose.h pose.cc
-        poselib_utils.h poselib_utils.cc
         generalized_pose.h generalized_pose.cc
-        similarity_transform.h similarity_transform.cc
-        translation_transform.h
+        global_positioning.h global_positioning.cc
+        gravity_refinement.h gravity_refinement.cc
+        pose.h pose.cc
+        rotation_averaging.h rotation_averaging.cc
+        rotation_averaging_impl.h rotation_averaging_impl.cc
         triangulation.h triangulation.cc
         two_view_geometry.h two_view_geometry.cc
-        utils.h utils.cc
         view_graph_calibration.h view_graph_calibration.cc
     PUBLIC_LINK_LIBS
         colmap_util
@@ -65,6 +58,8 @@ COLMAP_ADD_LIBRARY(
         colmap_image
         colmap_scene
         colmap_optim
+        colmap_estimators_cost_functions
+        colmap_estimators_solvers
         Eigen3::Eigen
         Ceres::ceres
         PoseLib::PoseLib
@@ -75,16 +70,6 @@ if(CUDA_ENABLED)
 endif()
 
 COLMAP_ADD_TEST(
-    NAME absolute_pose_test
-    SRCS absolute_pose_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
-    NAME affine_transform_test
-    SRCS affine_transform_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
     NAME alignment_test
     SRCS alignment_test.cc
     LINK_LIBS colmap_estimators
@@ -92,6 +77,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME bundle_adjustment_test
     SRCS bundle_adjustment_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME bundle_adjustment_ceres_test
+    SRCS bundle_adjustment_ceres_test.cc
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
@@ -105,68 +95,13 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
-    NAME cost_functions_test
-    SRCS cost_functions_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
-    NAME cost_function_utils_test
-    SRCS cost_function_utils_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
-    NAME essential_matrix_test
-    SRCS essential_matrix_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
-    NAME estimators_utils_test
-    SRCS utils_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
-    NAME fundamental_matrix_test
-    SRCS fundamental_matrix_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
-    NAME generalized_absolute_pose_test
-    SRCS generalized_absolute_pose_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
     NAME generalized_pose_test
     SRCS generalized_pose_test.cc
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
-    NAME generalized_relative_pose_test
-    SRCS generalized_relative_pose_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
-    NAME homography_matrix_test
-    SRCS homography_matrix_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
     NAME pose_test
     SRCS pose_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
-    NAME poselib_utils_test
-    SRCS poselib_utils_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
-    NAME similarity_transform_test
-    SRCS similarity_transform_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
-    NAME translation_transform_test
-    SRCS translation_transform_test.cc
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
@@ -177,5 +112,23 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME view_graph_calibration_test
     SRCS view_graph_calibration_test.cc
+    LINK_LIBS colmap_estimators
+)
+
+COLMAP_ADD_TEST(
+    NAME glomap_rotation_averaging_test
+    SRCS rotation_averaging_test.cc
+    LINK_LIBS colmap_estimators
+)
+
+COLMAP_ADD_TEST(
+    NAME glomap_gravity_refinement_test
+    SRCS gravity_refinement_test.cc
+    LINK_LIBS colmap_estimators
+)
+
+COLMAP_ADD_TEST(
+    NAME glomap_global_positioning_test
+    SRCS global_positioning_test.cc
     LINK_LIBS colmap_estimators
 )

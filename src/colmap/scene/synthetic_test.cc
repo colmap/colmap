@@ -226,8 +226,9 @@ TEST(SynthesizeDataset, WithPriors) {
     const PosePrior& pose_prior = *image_to_prior.at(image_id);
     EXPECT_THAT(image.ProjectionCenter(),
                 EigenMatrixNear(pose_prior.position, 1e-9));
-    EXPECT_THAT(image.CamFromWorld().rotation * options.prior_gravity_in_world,
-                EigenMatrixNear(pose_prior.gravity, 1e-9));
+    EXPECT_THAT(
+        image.CamFromWorld().rotation() * options.prior_gravity_in_world,
+        EigenMatrixNear(pose_prior.gravity, 1e-9));
   }
 }
 

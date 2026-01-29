@@ -29,6 +29,7 @@
 
 #include "colmap/sfm/incremental_mapper.h"
 
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/generalized_pose.h"
 #include "colmap/estimators/pose.h"
 #include "colmap/estimators/triangulation.h"
@@ -693,10 +694,12 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
       options.abs_pose_min_inlier_ratio;
 
   BundleAdjustmentOptions abs_pose_refinement_options;
-  abs_pose_refinement_options.loss_function_type =
-      BundleAdjustmentOptions::LossFunctionType::CAUCHY;
-  abs_pose_refinement_options.solver_options.logging_type =
-      ceres::LoggingType::SILENT;
+  if (abs_pose_refinement_options.ceres) {
+    abs_pose_refinement_options.ceres->loss_function_type =
+        CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
+    abs_pose_refinement_options.ceres->solver_options.logging_type =
+        ceres::LoggingType::SILENT;
+  }
   abs_pose_refinement_options.print_summary = false;
   if (reg_stats_.num_reg_images_per_camera[image.CameraId()] > 0) {
     // Camera already refined from another image with the same camera.
@@ -858,7 +861,7 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
                                   abs_pose_refinement_config,
                                   *reconstruction_);
   const auto abs_pose_summary = abs_pose_refinement->Solve();
-  if (abs_pose_summary.termination_type == ceres::FAILURE) {
+  if (!abs_pose_summary->IsSolutionUsable()) {
     VLOG(2) << "Absolute pose refinement failed";
     return false;
   }
@@ -1000,11 +1003,10 @@ IncrementalMapper::AdjustLocalBundle(
     // Adjust the local bundle.
     image_ids = ba_config.Images();
     std::unique_ptr<BundleAdjuster> bundle_adjuster =
-        CreateDefaultBundleAdjuster(
-            ba_options, std::move(ba_config), *reconstruction_);
-    const ceres::Solver::Summary summary = bundle_adjuster->Solve();
+        CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
+    const auto summary = bundle_adjuster->Solve();
 
-    report.num_adjusted_observations = summary.num_residuals / 2;
+    report.num_adjusted_observations = summary->num_residuals / 2;
 
     // Merge refined tracks with other existing points.
     report.num_merged_observations =
@@ -1043,12 +1045,12 @@ bool IncrementalMapper::AdjustGlobalBundle(
   constexpr size_t kMinNumRegFramesForFastBA = 10;
   const bool is_small_reconstruction =
       reconstruction_->NumRegFrames() < kMinNumRegFramesForFastBA;
-  if (is_small_reconstruction) {
-    custom_ba_options.solver_options.function_tolerance /= 10;
-    custom_ba_options.solver_options.gradient_tolerance /= 10;
-    custom_ba_options.solver_options.parameter_tolerance /= 10;
-    custom_ba_options.solver_options.max_num_iterations *= 2;
-    custom_ba_options.solver_options.max_linear_solver_iterations = 200;
+  if (is_small_reconstruction && custom_ba_options.ceres) {
+    custom_ba_options.ceres->solver_options.function_tolerance /= 10;
+    custom_ba_options.ceres->solver_options.gradient_tolerance /= 10;
+    custom_ba_options.ceres->solver_options.parameter_tolerance /= 10;
+    custom_ba_options.ceres->solver_options.max_num_iterations *= 2;
+    custom_ba_options.ceres->solver_options.max_linear_solver_iterations = 200;
   }
 
   // Avoid degeneracies in bundle adjustment.
@@ -1115,10 +1117,11 @@ bool IncrementalMapper::AdjustGlobalBundle(
   } else {
     PosePriorBundleAdjustmentOptions prior_options;
     if (options.use_robust_loss_on_prior_position) {
-      prior_options.prior_position_loss_function_type =
-          BundleAdjustmentOptions::LossFunctionType::CAUCHY;
+      prior_options.ceres->prior_position_loss_function_type =
+          CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
     }
-    prior_options.prior_position_loss_scale = options.prior_position_loss_scale;
+    prior_options.ceres->prior_position_loss_scale =
+        options.prior_position_loss_scale;
     prior_options.alignment_ransac_options.random_seed = options.random_seed;
     bundle_adjuster =
         CreatePosePriorBundleAdjuster(custom_ba_options,
@@ -1130,7 +1133,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   // Optimize the redundant 3D points with all other parameters fixed.
   if (!is_small_reconstruction && options.ba_global_ignore_redundant_points3D) {
-    if (bundle_adjuster->Solve().termination_type == ceres::FAILURE) {
+    if (!bundle_adjuster->Solve()->IsSolutionUsable()) {
       return false;
     }
 
@@ -1154,7 +1157,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
         custom_ba_options, ba_config, *reconstruction_);
   }
 
-  return bundle_adjuster->Solve().termination_type != ceres::FAILURE;
+  return bundle_adjuster->Solve()->IsSolutionUsable();
 }
 
 void IncrementalMapper::IterativeLocalRefinement(
@@ -1187,8 +1190,10 @@ void IncrementalMapper::IterativeLocalRefinement(
       break;
     }
     // Only use robust cost function for first iteration.
-    custom_ba_options.loss_function_type =
-        BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
+    if (custom_ba_options.ceres) {
+      custom_ba_options.ceres->loss_function_type =
+          CeresBundleAdjustmentOptions::LossFunctionType::TRIVIAL;
+    }
   }
   ClearModifiedPoints3D();
 }

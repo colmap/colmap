@@ -29,7 +29,7 @@
 
 #include "colmap/estimators/view_graph_calibration.h"
 
-#include "colmap/estimators/cost_functions.h"
+#include "colmap/estimators/cost_functions/calibration.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/scene/two_view_geometry.h"

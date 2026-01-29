@@ -77,8 +77,18 @@ if(GPU_ENABLED)
 endif()
 
 COLMAP_ADD_TEST(
+    NAME extractor_test
+    SRCS extractor_test.cc
+    LINK_LIBS colmap_feature
+)
+COLMAP_ADD_TEST(
     NAME index_test
     SRCS index_test.cc
+    LINK_LIBS colmap_feature
+)
+COLMAP_ADD_TEST(
+    NAME matcher_test
+    SRCS matcher_test.cc
     LINK_LIBS colmap_feature
 )
 COLMAP_ADD_TEST(
