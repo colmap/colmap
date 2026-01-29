@@ -153,6 +153,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(
+    NAME reconstruction_clustering_test
+    SRCS reconstruction_clustering_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
     NAME rig_test
     SRCS rig_test.cc
     LINK_LIBS colmap_scene
