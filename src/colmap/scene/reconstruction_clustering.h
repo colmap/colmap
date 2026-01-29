@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
 #include <unordered_map>
@@ -49,6 +50,12 @@ struct ReconstructionClusteringOptions {
   // Minimum number of registered frames required for a cluster to be kept.
   // Clusters with fewer frames will be discarded.
   int min_num_reg_frames = 3;
+
+  void Check() const {
+    THROW_CHECK_GE(min_covisibility_count, 1);
+    THROW_CHECK_GT(min_edge_weight_threshold, 0.0);
+    THROW_CHECK_GE(min_num_reg_frames, 2);
+  }
 };
 
 // Clusters frames based on 3D point covisibility and removes weakly connected
