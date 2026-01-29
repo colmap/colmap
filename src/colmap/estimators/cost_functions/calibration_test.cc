@@ -72,8 +72,8 @@ TEST(FetzerFocalLengthCostFunctor, ConvexCostLandscape) {
       const double cost = residual.norm();
       EXPECT_GT(cost, previous_cost);
       previous_cost = cost;
-      modified_focal_length1 *= 1.1;
-      modified_focal_length2 *= 1.1;
+      modified_focal_length1 *= 1.05;
+      modified_focal_length2 *= 1.05;
     }
 
     previous_cost = -1e-9;
@@ -86,8 +86,8 @@ TEST(FetzerFocalLengthCostFunctor, ConvexCostLandscape) {
       const double cost = residual.norm();
       EXPECT_GT(cost, previous_cost);
       previous_cost = cost;
-      modified_focal_length1 *= 0.9;
-      modified_focal_length2 *= 0.9;
+      modified_focal_length1 *= 0.95;
+      modified_focal_length2 *= 0.95;
     }
   }
 }
@@ -120,7 +120,7 @@ TEST(FetzerFocalLengthSameCameraCostFunctor, ConvexCostLandscape) {
       const double cost = residual.norm();
       EXPECT_GT(cost, previous_cost);
       previous_cost = cost;
-      modified_focal_length *= 1.1;
+      modified_focal_length *= 1.05;
     }
 
     previous_cost = -1e-9;
@@ -131,7 +131,7 @@ TEST(FetzerFocalLengthSameCameraCostFunctor, ConvexCostLandscape) {
       const double cost = residual.norm();
       EXPECT_GT(cost, previous_cost);
       previous_cost = cost;
-      modified_focal_length *= 0.9;
+      modified_focal_length *= 0.95;
     }
   }
 }
