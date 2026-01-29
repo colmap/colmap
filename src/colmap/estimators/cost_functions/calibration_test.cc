@@ -62,16 +62,32 @@ TEST(FetzerFocalLengthCostFunctor, ConvexCostLandscape) {
         cost_functor(&focal_length1, &focal_length2, optimal_residual.data()));
     EXPECT_LT(optimal_residual.norm(), 1e-8);
 
-    double previous_cost = 0;
-    for (int df = 0; df < 1000; ++df) {
+    double previous_cost = -1e-9;
+    double modified_focal_length1 = focal_length1;
+    double modified_focal_length2 = focal_length2;
+    for (int j = 0; j < 10; ++j) {
       Eigen::VectorXd residual(2);
-      const double modified_focal_length1 = focal_length1 + df;
-      const double modified_focal_length2 = focal_length2 + df;
       EXPECT_TRUE(cost_functor(
           &modified_focal_length1, &modified_focal_length2, residual.data()));
       const double cost = residual.norm();
       EXPECT_GT(cost, previous_cost);
       previous_cost = cost;
+      modified_focal_length1 *= 1.1;
+      modified_focal_length2 *= 1.1;
+    }
+
+    previous_cost = -1e-9;
+    modified_focal_length1 = focal_length1;
+    modified_focal_length2 = focal_length2;
+    for (int j = 0; j < 10; ++j) {
+      Eigen::VectorXd residual(2);
+      EXPECT_TRUE(cost_functor(
+          &modified_focal_length1, &modified_focal_length2, residual.data()));
+      const double cost = residual.norm();
+      EXPECT_GT(cost, previous_cost);
+      previous_cost = cost;
+      modified_focal_length1 *= 0.9;
+      modified_focal_length2 *= 0.9;
     }
   }
 }
@@ -96,14 +112,26 @@ TEST(FetzerFocalLengthSameCameraCostFunctor, ConvexCostLandscape) {
     EXPECT_TRUE(cost_functor(&focal_length, optimal_residual.data()));
     EXPECT_LT(optimal_residual.norm(), 1e-8);
 
-    double previous_cost = 0;
-    for (int df = 0; df < 1000; ++df) {
+    double previous_cost = -1e-9;
+    double modified_focal_length = focal_length;
+    for (int j = 0; j < 10; ++j) {
       Eigen::VectorXd residual(2);
-      const double modified_focal_length = focal_length + df;
       EXPECT_TRUE(cost_functor(&modified_focal_length, residual.data()));
       const double cost = residual.norm();
       EXPECT_GT(cost, previous_cost);
       previous_cost = cost;
+      modified_focal_length *= 1.1;
+    }
+
+    previous_cost = -1e-9;
+    modified_focal_length = focal_length;
+    for (int j = 0; j < 10; ++j) {
+      Eigen::VectorXd residual(2);
+      EXPECT_TRUE(cost_functor(&modified_focal_length, residual.data()));
+      const double cost = residual.norm();
+      EXPECT_GT(cost, previous_cost);
+      previous_cost = cost;
+      modified_focal_length *= 0.9;
     }
   }
 }
