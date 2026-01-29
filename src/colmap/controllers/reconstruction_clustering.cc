@@ -41,7 +41,7 @@ namespace {
 // Extract a subset of the reconstruction for a specific cluster.
 // Returns a new Reconstruction containing only frames/images/points from the
 // specified cluster.
-Reconstruction SubReconstructionByClusterId(
+std::shared_ptr<Reconstruction> SubReconstructionByClusterId(
     const Reconstruction& reconstruction,
     const std::unordered_map<frame_t, int>& cluster_ids,
     int cluster_id) {
@@ -52,11 +52,11 @@ Reconstruction SubReconstructionByClusterId(
   };
 
   // Make a copy of the reconstruction
-  Reconstruction filtered = reconstruction;
+  auto filtered = std::make_shared<Reconstruction>(reconstruction);
 
   // Collect frames to deregister (those not in this cluster)
   std::vector<frame_t> frames_to_deregister;
-  for (const auto& [frame_id, frame] : filtered.Frames()) {
+  for (const auto& [frame_id, frame] : filtered->Frames()) {
     if (!frame.HasPose() || get_cluster_id(frame_id) != cluster_id) {
       frames_to_deregister.push_back(frame_id);
     }
@@ -65,12 +65,12 @@ Reconstruction SubReconstructionByClusterId(
   // Deregister frames not in this cluster
   // This also removes point observations from those frames' images
   for (frame_t frame_id : frames_to_deregister) {
-    if (filtered.Frame(frame_id).HasPose()) {
-      filtered.DeRegisterFrame(frame_id);
+    if (filtered->Frame(frame_id).HasPose()) {
+      filtered->DeRegisterFrame(frame_id);
     }
   }
 
-  filtered.UpdatePoint3DErrors();
+  filtered->UpdatePoint3DErrors();
   return filtered;
 }
 
@@ -127,16 +127,16 @@ void ReconstructionClustererController::Run() {
     // For invalid frames, clusters ids are -1 and are skipped automatically
     // Split by cluster and add multiple reconstructions
     for (int comp = 0; comp <= max_cluster_id; comp++) {
-      Reconstruction cluster_reconstruction =
+      std::shared_ptr<Reconstruction> cluster_reconstruction =
           SubReconstructionByClusterId(*reconstruction_, cluster_ids, comp);
       THROW_CHECK_GE(
-          cluster_reconstruction.NumRegFrames(),
+          cluster_reconstruction->NumRegFrames(),
           static_cast<size_t>(
               options_.min_num_reg_frames));  // Should always be true
+      const size_t num_reg_frames = cluster_reconstruction->NumRegFrames();
       size_t idx = reconstruction_manager_->Add();
-      *reconstruction_manager_->Get(idx) = std::move(cluster_reconstruction);
-      LOG(INFO) << "Added cluster " << comp << " with "
-                << cluster_reconstruction.NumRegFrames()
+      reconstruction_manager_->Get(idx) = std::move(cluster_reconstruction);
+      LOG(INFO) << "Added cluster " << comp << " with " << num_reg_frames
                 << " registered frames";
     }
     LOG(INFO) << "Created " << reconstruction_manager_->Size()
