@@ -197,12 +197,6 @@ std::vector<std::filesystem::path> GetDirList(
   return dir_list;
 }
 
-size_t GetFileSize(const std::filesystem::path& path) {
-  std::ifstream file(path, std::ifstream::ate | std::ifstream::binary);
-  THROW_CHECK_FILE_OPEN(file, path);
-  return file.tellg();
-}
-
 namespace {
 
 std::optional<std::string> GetEnvSafe(const char* key) {
