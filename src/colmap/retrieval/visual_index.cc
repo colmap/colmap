@@ -252,13 +252,9 @@ class FaissVisualIndex : public VisualIndex {
       }
 
       // Finally, cross-reference the query and db feature matches.
-      for (const auto& feature_matches : image_matches) {
-        const auto image_id = feature_matches.first;
-
-        for (const auto& feature_match : feature_matches.second) {
-          const auto feature_idx = feature_match.first;
-          const auto dist = feature_match.second.first;
-          const auto db_match = feature_match.second.second;
+      for (const auto& [image_id, feature_match_map] : image_matches) {
+        for (const auto& [feature_idx, match_data] : feature_match_map) {
+          const auto [dist, db_match] = match_data;
 
           const auto entry_pair = std::make_pair(&query_entries[i], db_match);
 
