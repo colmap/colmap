@@ -456,14 +456,16 @@ void DatabaseCache::ConvertPosePriorsToENU() {
       << "Inconsistent coordinate systems defined in pose priors";
 
   // If GPS priors are available, convert them to Cartesian ENU coordinates.
-  if (prior_is_gps) {
+  if (prior_is_gps && !gps_prior_positions.empty()) {
     // GPS reference to be used for EllipsoidToENU conversion.
     const double ref_lat = gps_prior_positions[0][0];
     const double ref_lon = gps_prior_positions[0][1];
+    const double ref_alt = gps_prior_positions[0][2];
 
     const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
     const std::vector<Eigen::Vector3d> v_xyz_prior =
-        gps_transform.EllipsoidToENU(gps_prior_positions, ref_lat, ref_lon);
+        gps_transform.EllipsoidToENU(
+            gps_prior_positions, ref_lat, ref_lon, ref_alt);
 
     auto xyz_prior_it = v_xyz_prior.begin();
     for (auto& pose_prior : pose_priors_) {

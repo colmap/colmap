@@ -317,9 +317,7 @@ void PosePriorPositionCartesianToWGS84(PosePrior& pose_prior) {
 
 void PosePriorPositionWGS84ToCartesian(PosePrior& pose_prior) {
   pose_prior.position = kGPSTransform.EllipsoidToENU(
-      {Eigen::Vector3d(kLat0, kLon0, kAlt0), pose_prior.position},
-      kLat0,
-      kLon0)[1];
+      {pose_prior.position}, kLat0, kLon0, kAlt0)[0];
   pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
 }
 
