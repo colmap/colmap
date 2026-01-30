@@ -422,6 +422,133 @@ void WriteBinaryPlyPoints(const std::filesystem::path& path,
   binary_file.close();
 }
 
+PlyMesh ReadPlyMesh(const std::filesystem::path& path) {
+  std::ifstream file(path, std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
+
+  PlyMesh mesh;
+
+  std::string line;
+
+  bool is_binary = false;
+  bool is_little_endian = false;
+  size_t num_vertices = 0;
+  size_t num_faces = 0;
+
+  while (std::getline(file, line)) {
+    StringTrim(&line);
+
+    if (line.empty()) {
+      continue;
+    }
+
+    if (line == "end_header") {
+      break;
+    }
+
+    if (line.size() >= 6 && line.substr(0, 6) == "format") {
+      if (line == "format ascii 1.0") {
+        is_binary = false;
+      } else if (line == "format binary_little_endian 1.0") {
+        is_binary = true;
+        is_little_endian = true;
+      } else if (line == "format binary_big_endian 1.0") {
+        is_binary = true;
+        is_little_endian = false;
+      }
+    }
+
+    const std::vector<std::string> line_elems = StringSplit(line, " ");
+
+    if (line_elems.size() >= 3 && line_elems[0] == "element") {
+      if (line_elems[1] == "vertex") {
+        num_vertices = std::stoll(line_elems[2]);
+      } else if (line_elems[1] == "face") {
+        num_faces = std::stoll(line_elems[2]);
+      }
+    }
+  }
+
+  mesh.vertices.reserve(num_vertices);
+  mesh.faces.reserve(num_faces);
+
+  if (is_binary) {
+    // Read binary vertex data
+    for (size_t i = 0; i < num_vertices; ++i) {
+      float x, y, z;
+      file.read(reinterpret_cast<char*>(&x), sizeof(float));
+      file.read(reinterpret_cast<char*>(&y), sizeof(float));
+      file.read(reinterpret_cast<char*>(&z), sizeof(float));
+
+      if (is_little_endian) {
+        x = LittleEndianToNative(x);
+        y = LittleEndianToNative(y);
+        z = LittleEndianToNative(z);
+      } else {
+        x = BigEndianToNative(x);
+        y = BigEndianToNative(y);
+        z = BigEndianToNative(z);
+      }
+
+      mesh.vertices.emplace_back(x, y, z);
+    }
+
+    // Read binary face data
+    for (size_t i = 0; i < num_faces; ++i) {
+      uint8_t num_face_vertices;
+      file.read(reinterpret_cast<char*>(&num_face_vertices), sizeof(uint8_t));
+      THROW_CHECK_EQ(num_face_vertices, 3)
+          << "Only triangular faces are supported";
+
+      int idx1, idx2, idx3;
+      file.read(reinterpret_cast<char*>(&idx1), sizeof(int));
+      file.read(reinterpret_cast<char*>(&idx2), sizeof(int));
+      file.read(reinterpret_cast<char*>(&idx3), sizeof(int));
+
+      if (is_little_endian) {
+        idx1 = LittleEndianToNative(idx1);
+        idx2 = LittleEndianToNative(idx2);
+        idx3 = LittleEndianToNative(idx3);
+      } else {
+        idx1 = BigEndianToNative(idx1);
+        idx2 = BigEndianToNative(idx2);
+        idx3 = BigEndianToNative(idx3);
+      }
+
+      mesh.faces.emplace_back(idx1, idx2, idx3);
+    }
+  } else {
+    // Read ASCII vertex data
+    for (size_t i = 0; i < num_vertices; ++i) {
+      std::getline(file, line);
+      StringTrim(&line);
+      std::stringstream line_stream(line);
+
+      float x, y, z;
+      line_stream >> x >> y >> z;
+      mesh.vertices.emplace_back(x, y, z);
+    }
+
+    // Read ASCII face data
+    for (size_t i = 0; i < num_faces; ++i) {
+      std::getline(file, line);
+      StringTrim(&line);
+      std::stringstream line_stream(line);
+
+      int num_face_vertices;
+      line_stream >> num_face_vertices;
+      THROW_CHECK_EQ(num_face_vertices, 3)
+          << "Only triangular faces are supported";
+
+      int idx1, idx2, idx3;
+      line_stream >> idx1 >> idx2 >> idx3;
+      mesh.faces.emplace_back(idx1, idx2, idx3);
+    }
+  }
+
+  return mesh;
+}
+
 void WriteTextPlyMesh(const std::filesystem::path& path, const PlyMesh& mesh) {
   std::fstream file(path, std::ios::out);
   THROW_CHECK_FILE_OPEN(file, path);
