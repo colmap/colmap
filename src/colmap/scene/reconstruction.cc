@@ -110,8 +110,8 @@ std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
   std::unordered_set<point3D_t> point3D_ids;
   point3D_ids.reserve(points3D_.size());
 
-  for (const auto& point3D : points3D_) {
-    point3D_ids.insert(point3D.first);
+  for (const auto& [point3D_id, _] : points3D_) {
+    point3D_ids.insert(point3D_id);
   }
 
   return point3D_ids;
@@ -385,8 +385,8 @@ void Reconstruction::TearDown() {
   }
 
   // Compress tracks.
-  for (auto& point3D : points3D_) {
-    point3D.second.track.Compress();
+  for (auto& [_, point3D] : points3D_) {
+    point3D.track.Compress();
   }
 }
 
@@ -617,8 +617,8 @@ void Reconstruction::DeleteObservation(const image_t image_id,
 
 void Reconstruction::DeleteAllPoints2DAndPoints3D() {
   points3D_.clear();
-  for (auto& image : images_) {
-    image.second.SetPoints2D(std::vector<Eigen::Vector2d>(0));
+  for (auto& [_, image] : images_) {
+    image.SetPoints2D(std::vector<Eigen::Vector2d>(0));
   }
 }
 
@@ -762,10 +762,10 @@ Reconstruction::ComputeBBBoxAndCentroid(const double min_percentile,
       }
     }
   } else {
-    for (const auto& point3D : points3D_) {
-      coords_x.push_back(point3D.second.xyz(0));
-      coords_y.push_back(point3D.second.xyz(1));
-      coords_z.push_back(point3D.second.xyz(2));
+    for (const auto& [_, point3D] : points3D_) {
+      coords_x.push_back(point3D.xyz(0));
+      coords_y.push_back(point3D.xyz(1));
+      coords_z.push_back(point3D.xyz(2));
     }
   }
 
@@ -790,8 +790,8 @@ void Reconstruction::Transform(const Sim3d& new_from_old_world) {
           TransformCameraWorld(new_from_old_world, frame.RigFromWorld()));
     }
   }
-  for (auto& point3D : points3D_) {
-    point3D.second.xyz = new_from_old_world * point3D.second.xyz;
+  for (auto& [_, point3D] : points3D_) {
+    point3D.xyz = new_from_old_world * point3D.xyz;
   }
 }
 
@@ -817,13 +817,13 @@ Reconstruction Reconstruction::Crop(const Eigen::AlignedBox3d& bbox) const {
     cropped_reconstruction.AddImage(image);
   }
   std::unordered_set<image_t> cropped_frame_ids;
-  for (const auto& point3D : points3D_) {
-    if (bbox.contains(point3D.second.xyz)) {
-      for (const auto& track_el : point3D.second.track.Elements()) {
+  for (const auto& [_, point3D] : points3D_) {
+    if (bbox.contains(point3D.xyz)) {
+      for (const auto& track_el : point3D.track.Elements()) {
         cropped_frame_ids.insert(Image(track_el.image_id).FrameId());
       }
       cropped_reconstruction.AddPoint3D(
-          point3D.second.xyz, point3D.second.track, point3D.second.color);
+          point3D.xyz, point3D.track, point3D.color);
     }
   }
   for (const auto& [frame_id, _] : cropped_reconstruction.Frames()) {
@@ -836,9 +836,9 @@ Reconstruction Reconstruction::Crop(const Eigen::AlignedBox3d& bbox) const {
 
 const class Image* Reconstruction::FindImageWithName(
     const std::string& name) const {
-  for (const auto& image : images_) {
-    if (image.second.Name() == name) {
-      return &image.second;
+  for (const auto& [_, image] : images_) {
+    if (image.Name() == name) {
+      return &image;
     }
   }
   return nullptr;
@@ -930,9 +930,9 @@ double Reconstruction::ComputeMeanObservationsPerRegImage() const {
 double Reconstruction::ComputeMeanReprojectionError() const {
   double error_sum = 0.0;
   size_t num_valid_errors = 0;
-  for (const auto& point3D : points3D_) {
-    if (point3D.second.HasError()) {
-      error_sum += point3D.second.error;
+  for (const auto& [_, point3D] : points3D_) {
+    if (point3D.HasError()) {
+      error_sum += point3D.error;
       num_valid_errors += 1;
     }
   }
@@ -945,20 +945,20 @@ double Reconstruction::ComputeMeanReprojectionError() const {
 }
 
 void Reconstruction::UpdatePoint3DErrors() {
-  for (auto& point3D : points3D_) {
-    if (point3D.second.track.Length() == 0) {
-      point3D.second.error = 0;
+  for (auto& [_, point3D] : points3D_) {
+    if (point3D.track.Length() == 0) {
+      point3D.error = 0;
       continue;
     }
-    point3D.second.error = 0;
-    for (const auto& track_el : point3D.second.track.Elements()) {
+    point3D.error = 0;
+    for (const auto& track_el : point3D.track.Elements()) {
       const auto& image = Image(track_el.image_id);
       const auto& point2D = image.Point2D(track_el.point2D_idx);
       const auto& camera = *image.CameraPtr();
-      point3D.second.error += std::sqrt(CalculateSquaredReprojectionError(
-          point2D.xy, point3D.second.xyz, image.CamFromWorld(), camera));
+      point3D.error += std::sqrt(CalculateSquaredReprojectionError(
+          point2D.xy, point3D.xyz, image.CamFromWorld(), camera));
     }
-    point3D.second.error /= point3D.second.track.Length();
+    point3D.error /= point3D.track.Length();
   }
 }
 
@@ -1041,14 +1041,14 @@ std::vector<PlyPoint> Reconstruction::ConvertToPLY() const {
   std::vector<PlyPoint> ply_points;
   ply_points.reserve(points3D_.size());
 
-  for (const auto& point3D : points3D_) {
+  for (const auto& [_, point3D] : points3D_) {
     PlyPoint ply_point;
-    ply_point.x = point3D.second.xyz(0);
-    ply_point.y = point3D.second.xyz(1);
-    ply_point.z = point3D.second.xyz(2);
-    ply_point.r = point3D.second.color(0);
-    ply_point.g = point3D.second.color(1);
-    ply_point.b = point3D.second.color(2);
+    ply_point.x = point3D.xyz(0);
+    ply_point.y = point3D.xyz(1);
+    ply_point.z = point3D.xyz(2);
+    ply_point.r = point3D.color(0);
+    ply_point.g = point3D.color(1);
+    ply_point.b = point3D.color(2);
     ply_points.push_back(ply_point);
   }
 
@@ -1148,25 +1148,23 @@ void Reconstruction::ExtractColorsForAllImages(
   }
 
   const Eigen::Vector3ub kBlackColor = Eigen::Vector3ub::Zero();
-  for (auto& point3D : points3D_) {
-    if (color_sums.count(point3D.first)) {
-      Eigen::Vector3d color =
-          color_sums[point3D.first] / color_counts[point3D.first];
+  for (auto& [point3D_id, point3D] : points3D_) {
+    if (color_sums.count(point3D_id)) {
+      Eigen::Vector3d color = color_sums[point3D_id] / color_counts[point3D_id];
       for (Eigen::Index i = 0; i < color.size(); ++i) {
         color[i] = std::round(color[i]);
       }
-      point3D.second.color = color.cast<uint8_t>();
+      point3D.color = color.cast<uint8_t>();
     } else {
-      point3D.second.color = kBlackColor;
+      point3D.color = kBlackColor;
     }
   }
 }
 
 void Reconstruction::CreateImageDirs(const std::filesystem::path& path) const {
   std::set<std::filesystem::path> image_dirs;
-  for (const auto& image : images_) {
-    const std::vector<std::string> name_split =
-        StringSplit(image.second.Name(), "/");
+  for (const auto& [_, image] : images_) {
+    const std::vector<std::string> name_split = StringSplit(image.Name(), "/");
     if (name_split.size() > 1) {
       std::filesystem::path dir = path;
       for (size_t i = 0; i < name_split.size() - 1; ++i) {
