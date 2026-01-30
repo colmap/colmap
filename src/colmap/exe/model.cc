@@ -127,9 +127,13 @@ std::vector<Eigen::Vector3d> ConvertCameraLocations(
       return gps_transform.EllipsoidToECEF(ref_locations);
     } else {
       LOG(INFO) << "Converting Alignment Coordinates from GPS (lat/lon/alt) "
-                   "to ENU.";
-      return gps_transform.EllipsoidToENU(
-          ref_locations, ref_locations[0](0), ref_locations[0](1));
+                   "to ENU. Using the first GPS coordinate as the ENU origin: "
+                << ref_locations[0].transpose();
+      THROW_CHECK(!ref_locations.empty());
+      return gps_transform.EllipsoidToENU(ref_locations,
+                                          ref_locations[0](0),
+                                          ref_locations[0](1),
+                                          ref_locations[0](2));
     }
   } else {
     LOG(INFO) << "Cartesian Alignment Coordinates extracted (MUST NOT BE "
