@@ -145,6 +145,9 @@ struct Camera {
 
   inline bool operator==(const Camera& other) const;
   inline bool operator!=(const Camera& other) const;
+
+ private:
+  void ScaleFocalLengths(double scale_x, double scale_y);
 };
 
 std::ostream& operator<<(std::ostream& stream, const Camera& camera);
