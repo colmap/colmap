@@ -46,10 +46,10 @@ Workspace::Workspace(const Options& options) : options_(options) {
     }
   }
 
-  depth_map_path_ = EnsureTrailingSlash(
-      JoinPaths(options_.workspace_path, options_.stereo_folder, "depth_maps"));
-  normal_map_path_ = EnsureTrailingSlash(JoinPaths(
-      options_.workspace_path, options_.stereo_folder, "normal_maps"));
+  depth_map_path_ =
+      options_.workspace_path / options_.stereo_folder / "depth_maps";
+  normal_map_path_ =
+      options_.workspace_path / options_.stereo_folder / "normal_maps";
 }
 
 std::string Workspace::GetFileName(const int image_idx) const {
@@ -69,25 +69,29 @@ void Workspace::Load(const std::vector<std::string>& image_names) {
     const size_t height = model_.images.at(image_idx).GetHeight();
 
     // Read and rescale bitmap
-    bitmaps_[image_idx] = std::make_unique<Bitmap>();
-    bitmaps_[image_idx]->Read(GetBitmapPath(image_idx), options_.image_as_rgb);
-    if (options_.max_image_size > 0) {
-      bitmaps_[image_idx]->Rescale((int)width, (int)height);
+    auto bitmap = std::make_unique<Bitmap>();
+    bitmap->Read(GetBitmapPath(image_idx), options_.image_as_rgb);
+    if (bitmap->Width() != static_cast<int>(width) ||
+        bitmap->Height() != static_cast<int>(height)) {
+      bitmap->Rescale(static_cast<int>(width), static_cast<int>(height));
     }
+    bitmaps_[image_idx] = std::move(bitmap);
 
     // Read and rescale depth map
-    depth_maps_[image_idx] = std::make_unique<DepthMap>();
-    depth_maps_[image_idx]->Read(GetDepthMapPath(image_idx));
-    if (options_.max_image_size > 0) {
-      depth_maps_[image_idx]->Downsize(width, height);
+    auto depth_map = std::make_unique<DepthMap>();
+    depth_map->Read(GetDepthMapPath(image_idx));
+    if (depth_map->GetWidth() != width || depth_map->GetHeight() != height) {
+      depth_map->Downsize(width, height);
     }
+    depth_maps_[image_idx] = std::move(depth_map);
 
     // Read and rescale normal map
-    normal_maps_[image_idx] = std::make_unique<NormalMap>();
-    normal_maps_[image_idx]->Read(GetNormalMapPath(image_idx));
-    if (options_.max_image_size > 0) {
-      normal_maps_[image_idx]->Downsize(width, height);
+    auto normal_map = std::make_unique<NormalMap>();
+    normal_map->Read(GetNormalMapPath(image_idx));
+    if (normal_map->GetWidth() != width || normal_map->GetHeight() != height) {
+      normal_map->Downsize(width, height);
     }
+    normal_maps_[image_idx] = std::move(normal_map);
   };
 
   const int num_threads = GetEffectiveNumThreads(options_.num_threads);
@@ -123,16 +127,16 @@ const NormalMap& Workspace::GetNormalMap(const int image_idx) {
   return *normal_maps_[image_idx];
 }
 
-std::string Workspace::GetBitmapPath(const int image_idx) const {
+std::filesystem::path Workspace::GetBitmapPath(const int image_idx) const {
   return model_.images.at(image_idx).GetPath();
 }
 
-std::string Workspace::GetDepthMapPath(const int image_idx) const {
-  return depth_map_path_ + GetFileName(image_idx);
+std::filesystem::path Workspace::GetDepthMapPath(const int image_idx) const {
+  return depth_map_path_ / GetFileName(image_idx);
 }
 
-std::string Workspace::GetNormalMapPath(const int image_idx) const {
-  return normal_map_path_ + GetFileName(image_idx);
+std::filesystem::path Workspace::GetNormalMapPath(const int image_idx) const {
+  return normal_map_path_ / GetFileName(image_idx);
 }
 
 bool Workspace::HasBitmap(const int image_idx) const {
@@ -222,17 +226,15 @@ const NormalMap& CachedWorkspace::GetNormalMap(const int image_idx) {
 
 void ImportPMVSWorkspace(const Workspace& workspace,
                          const std::string& option_name) {
-  const std::string& workspace_path = workspace.GetOptions().workspace_path;
-  const std::string& stereo_folder = workspace.GetOptions().stereo_folder;
+  const auto& workspace_path = workspace.GetOptions().workspace_path;
+  const auto& stereo_folder = workspace.GetOptions().stereo_folder;
 
-  CreateDirIfNotExists(JoinPaths(workspace_path, stereo_folder));
-  CreateDirIfNotExists(JoinPaths(workspace_path, stereo_folder, "depth_maps"));
-  CreateDirIfNotExists(JoinPaths(workspace_path, stereo_folder, "normal_maps"));
-  CreateDirIfNotExists(
-      JoinPaths(workspace_path, stereo_folder, "consistency_graphs"));
+  CreateDirIfNotExists(workspace_path / stereo_folder);
+  CreateDirIfNotExists(workspace_path / stereo_folder / "depth_maps");
+  CreateDirIfNotExists(workspace_path / stereo_folder / "normal_maps");
+  CreateDirIfNotExists(workspace_path / stereo_folder / "consistency_graphs");
 
-  const auto option_lines =
-      ReadTextFileLines(JoinPaths(workspace_path, option_name));
+  const auto option_lines = ReadTextFileLines(workspace_path / option_name);
   for (const auto& line : option_lines) {
     if (!StringStartsWith(line, "timages")) {
       continue;
@@ -271,9 +273,8 @@ void ImportPMVSWorkspace(const Workspace& workspace,
         workspace.GetModel().GetMaxOverlappingImagesFromPMVS();
 
     const auto patch_match_path =
-        JoinPaths(workspace_path, stereo_folder, "patch-match.cfg");
-    const auto fusion_path =
-        JoinPaths(workspace_path, stereo_folder, "fusion.cfg");
+        workspace_path / stereo_folder / "patch-match.cfg";
+    const auto fusion_path = workspace_path / stereo_folder / "fusion.cfg";
     std::ofstream patch_match_file(patch_match_path, std::ios::trunc);
     std::ofstream fusion_file(fusion_path, std::ios::trunc);
     THROW_CHECK_FILE_OPEN(patch_match_file, patch_match_path);

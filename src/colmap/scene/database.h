@@ -38,6 +38,7 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
+#include <filesystem>
 #include <mutex>
 #include <vector>
 
@@ -59,21 +60,26 @@ typedef Eigen::Matrix<point2D_t, Eigen::Dynamic, 2, Eigen::RowMajor>
 // and trailing `EndTransaction`.
 class Database {
  public:
+  Database() = default;
+
+  // Closes the database, if not closed before.
+  virtual ~Database() = 0;
+
+  NON_COPYABLE(Database);
+
   // Factory function to create a database implementation for a given path.
   // The factory should be robust to handle non-supported files and return a
   // runtime_error in that case.
-  using Factory = std::function<std::shared_ptr<Database>(const std::string&)>;
+  using Factory =
+      std::function<std::shared_ptr<Database>(const std::filesystem::path&)>;
 
   // Register a factory to open a database implementation. Database factories
   // are tried in reverse order of registration. In other words, later
   // registrations are tried first.
   static void Register(Factory factory);
 
-  // Closes the database, if not closed before.
-  virtual ~Database();
-
   // Open database and throw a runtime_error if none of the factories succeeds.
-  static std::shared_ptr<Database> Open(const std::string& path);
+  static std::shared_ptr<Database> Open(const std::filesystem::path& path);
 
   // Explicitly close the database before destruction.
   virtual void Close() = 0;
@@ -85,12 +91,13 @@ class Database {
   virtual bool ExistsFrame(frame_t frame_id) const = 0;
   virtual bool ExistsImage(image_t image_id) const = 0;
   virtual bool ExistsImageWithName(const std::string& name) const = 0;
-  virtual bool ExistsPosePrior(image_t image_id) const = 0;
+  virtual bool ExistsPosePrior(pose_prior_t pose_prior_id,
+                               bool is_deprecated_image_prior = true) const = 0;
   virtual bool ExistsKeypoints(image_t image_id) const = 0;
   virtual bool ExistsDescriptors(image_t image_id) const = 0;
   virtual bool ExistsMatches(image_t image_id1, image_t image_id2) const = 0;
-  virtual bool ExistsInlierMatches(image_t image_id1,
-                                   image_t image_id2) const = 0;
+  virtual bool ExistsTwoViewGeometry(image_t image_id1,
+                                     image_t image_id2) const = 0;
 
   // Number of rows in `rigs` table.
   virtual size_t NumRigs() const = 0;
@@ -158,7 +165,10 @@ class Database {
       const std::string& name) const = 0;
   virtual std::vector<Image> ReadAllImages() const = 0;
 
-  virtual PosePrior ReadPosePrior(image_t image_id) const = 0;
+  virtual PosePrior ReadPosePrior(
+      pose_prior_t pose_prior_id,
+      bool is_deprecated_image_prior = true) const = 0;
+  virtual std::vector<PosePrior> ReadAllPosePriors() const = 0;
 
   virtual FeatureKeypointsBlob ReadKeypointsBlob(image_t image_id) const = 0;
   virtual FeatureKeypoints ReadKeypoints(image_t image_id) const = 0;
@@ -201,11 +211,14 @@ class Database {
   // is false a new identifier is automatically generated.
   virtual image_t WriteImage(const Image& image, bool use_image_id = false) = 0;
 
+  // Add new pose prior and return its database identifier. If
+  // `use_pose_prior_id` is false a new identifier is automatically generated.
+  virtual pose_prior_t WritePosePrior(const PosePrior& pose_prior,
+                                      bool use_pose_prior_id = false) = 0;
+
   // Write a new entry in the database. The user is responsible for making sure
   // that the entry does not yet exist. For image pairs, the order of
   // `image_id1` and `image_id2` does not matter.
-  virtual void WritePosePrior(image_t image_id,
-                              const PosePrior& pose_prior) = 0;
   virtual void WriteKeypoints(image_t image_id,
                               const FeatureKeypoints& keypoints) = 0;
   virtual void WriteKeypoints(image_t image_id,
@@ -241,11 +254,26 @@ class Database {
 
   // Update an existing pose_prior in the database. The user is responsible for
   // making sure that the entry already exists.
-  virtual void UpdatePosePrior(image_t image_id,
-                               const PosePrior& pose_prior) = 0;
+  virtual void UpdatePosePrior(const PosePrior& pose_prior) = 0;
+
+  // Update an existing image's keypoints in the database. The user is
+  // responsible for making sure that the entry already exists.
+  virtual void UpdateKeypoints(image_t image_id,
+                               const FeatureKeypoints& keypoints) = 0;
+  virtual void UpdateKeypoints(image_t image_id,
+                               const FeatureKeypointsBlob& blob) = 0;
+
+  // Update an existing two view geometry in the database.
+  virtual void UpdateTwoViewGeometry(
+      image_t image_id1,
+      image_t image_id2,
+      const TwoViewGeometry& two_view_geometry) = 0;
 
   // Delete matches of an image pair.
   virtual void DeleteMatches(image_t image_id1, image_t image_id2) = 0;
+
+  // Delete two view geometry of an image pair.
+  virtual void DeleteTwoViewGeometry(image_t image_id1, image_t image_id2) = 0;
 
   // Delete inlier matches of an image pair.
   virtual void DeleteInlierMatches(image_t image_id1, image_t image_id2) = 0;

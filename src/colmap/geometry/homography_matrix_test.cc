@@ -32,7 +32,6 @@
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/eigen_matchers.h"
-#include "colmap/util/logging.h"
 
 #include <cmath>
 
@@ -72,9 +71,9 @@ TEST(DecomposeHomographyMatrix, Nominal) {
   bool ref_solution_exists = false;
   for (size_t i = 0; i < 4; ++i) {
     const double kEps = 1e-6;
-    if ((cams2_from_cams1[i].rotation.toRotationMatrix() - ref_rotation)
+    if ((cams2_from_cams1[i].rotation().toRotationMatrix() - ref_rotation)
                 .norm() < kEps &&
-        (cams2_from_cams1[i].translation - ref_translation).norm() < kEps &&
+        (cams2_from_cams1[i].translation() - ref_translation).norm() < kEps &&
         (normals[i] - ref_normal).norm() < kEps) {
       ref_solution_exists = true;
       break;
@@ -108,16 +107,16 @@ TEST(DecomposeHomographyMatrix, Random) {
     // Test that each candidate rotation is a rotation
     for (const Rigid3d& cam2_from_cam1 : cams2_from_cams1) {
       const Eigen::Matrix3d orthog_error =
-          cam2_from_cam1.rotation.toRotationMatrix().transpose() *
-              cam2_from_cam1.rotation.toRotationMatrix() -
+          cam2_from_cam1.rotation().toRotationMatrix().transpose() *
+              cam2_from_cam1.rotation().toRotationMatrix() -
           identity;
 
-      // Check that cam2_from_cam1.rotation.toRotationMatrix() is an orthognal
+      // Check that cam2_from_cam1.rotation().toRotationMatrix() is an orthognal
       // matrix
       EXPECT_LT(orthog_error.lpNorm<Eigen::Infinity>(), epsilon);
 
       // Check determinant is 1
-      EXPECT_NEAR(cam2_from_cam1.rotation.toRotationMatrix().determinant(),
+      EXPECT_NEAR(cam2_from_cam1.rotation().toRotationMatrix().determinant(),
                   1.0,
                   epsilon);
     }
@@ -144,7 +143,7 @@ TEST(PoseFromHomographyMatrix, Nominal) {
   std::vector<Eigen::Vector3d> rays2;
   for (const auto& ray1 : rays1) {
     const Eigen::Vector3d ray2 = H * ray1;
-    CHECK_GT(ray2.z(), 0);
+    ASSERT_GT(ray2.z(), 0);
     rays2.push_back(ray2.normalized());
   }
 
@@ -155,7 +154,8 @@ TEST(PoseFromHomographyMatrix, Nominal) {
       H, K1, K2, rays1, rays2, &cam2_from_cam1, &normal, &points3D);
 
   EXPECT_THAT(
-      Rigid3d(cam2_from_cam1.rotation, cam2_from_cam1.translation.normalized()),
+      Rigid3d(cam2_from_cam1.rotation(),
+              cam2_from_cam1.translation().normalized()),
       Rigid3dNear(
           Rigid3d(ref_rotation, ref_translation.normalized()), 1e-6, 1e-6));
 

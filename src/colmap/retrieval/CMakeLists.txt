@@ -65,6 +65,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_retrieval
 )
 COLMAP_ADD_TEST(
+    NAME utils_test
+    SRCS utils_test.cc
+    LINK_LIBS colmap_retrieval
+)
+COLMAP_ADD_TEST(
     NAME visual_index_test
     SRCS visual_index_test.cc
     LINK_LIBS colmap_retrieval

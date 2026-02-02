@@ -239,3 +239,7 @@ robust. We provide an example Python script to reconstruct a 360° collection::
     python python/examples/panorama_sfm.py \
         --input_image_path image_directory \
         --output_path output_directory
+
+Make sure to use the version of the script that corresponds to the version of
+COLMAP that you are using, as the script at HEAD is not guaranteed to be
+compatible.

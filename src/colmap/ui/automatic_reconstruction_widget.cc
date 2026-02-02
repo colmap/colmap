@@ -189,6 +189,7 @@ void AutomaticReconstructionWidget::Run() {
       options_, main_window_->reconstruction_manager_);
   controller->AddCallback(Thread::FINISHED_CALLBACK,
                           [this]() { render_result_->trigger(); });
+  controller->Setup();
   thread_control_widget_->StartThread(
       "Reconstructing...", true, std::move(controller));
 }

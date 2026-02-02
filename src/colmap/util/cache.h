@@ -259,7 +259,7 @@ void LRUCache<key_t, value_t>::Clear() {
 template <typename key_t, typename value_t>
 ThreadSafeLRUCache<key_t, value_t>::ThreadSafeLRUCache(
     const size_t max_num_elems, LoadFn load_fn)
-    : load_fn_(load_fn), cache_(max_num_elems, [](const key_t&) {
+    : load_fn_(std::move(load_fn)), cache_(max_num_elems, [](const key_t&) {
         return std::make_shared<Entry>();
       }) {
   THROW_CHECK_NOTNULL(load_fn_);

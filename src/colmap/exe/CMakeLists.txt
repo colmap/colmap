@@ -53,10 +53,12 @@ COLMAP_ADD_LIBRARY(
         feature.h feature.cc
         sfm.h sfm.cc
         model.h model.cc
+        mvs.h mvs.cc
     PUBLIC_LINK_LIBS
         colmap_controllers
         colmap_estimators
         colmap_geometry
+        colmap_mvs
         colmap_optim
         colmap_scene
         colmap_sfm

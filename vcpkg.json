@@ -3,7 +3,7 @@
     "description": "COLMAP is a general-purpose Structure-from-Motion (SfM) and Multi-View Stereo (MVS) pipeline with a graphical and command-line interface. It offers a wide range of features for reconstruction of ordered and unordered image collections. The software is licensed under the new BSD license.",
     "homepage": "https://colmap.github.io/",
     "license": "BSD-3-Clause",
-    "supports": "(linux | (windows & !static) | osx) & (x86 | x64 | arm64)",
+    "supports": "(linux | windows | osx) & (x86 | x64 | arm64)",
     "dependencies": [
         "boost-algorithm",
         "boost-graph",
@@ -20,7 +20,6 @@
             ]
         },
         "eigen3",
-        "freeimage",
         "gflags",
         "glog",
         {
@@ -28,6 +27,7 @@
             "default-features": false
         },
         "metis",
+        "openimageio",
         "sqlite3",
         {
             "name": "vcpkg-cmake",

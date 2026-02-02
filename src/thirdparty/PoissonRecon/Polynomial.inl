@@ -26,11 +26,6 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF S
 DAMAGE.
 */
 
-#include <float.h>
-#include <math.h>
-#include <algorithm>
-#include "Factor.h"
-
 ////////////////
 // Polynomial //
 ////////////////
@@ -54,23 +49,17 @@ Polynomial<Degree>& Polynomial<Degree>::operator  = (const Polynomial<Degree2> &
 }
 
 template<int Degree>
-Polynomial<Degree-1> Polynomial<Degree>::derivative(void) const{
-	Polynomial<Degree-1> p;
-	for(int i=0;i<Degree;i++){p.coefficients[i]=coefficients[i+1]*(i+1);}
-	return p;
-}
-
-template<int Degree>
 Polynomial<Degree+1> Polynomial<Degree>::integral(void) const{
 	Polynomial<Degree+1> p;
 	p.coefficients[0]=0;
 	for(int i=0;i<=Degree;i++){p.coefficients[i+1]=coefficients[i]/(i+1);}
 	return p;
 }
-template<> double Polynomial< 0 >::operator() ( double t ) const { return coefficients[0]; }
-template<> double Polynomial< 1 >::operator() ( double t ) const { return coefficients[0]+coefficients[1]*t; }
-template<> double Polynomial< 2 >::operator() ( double t ) const { return coefficients[0]+(coefficients[1]+coefficients[2]*t)*t; }
-template<int Degree>
+
+template< > inline double Polynomial< 0 >::operator() ( double t ) const { return coefficients[0]; }
+template< > inline double Polynomial< 1 >::operator() ( double t ) const { return coefficients[0]+coefficients[1]*t; }
+template< > inline double Polynomial< 2 >::operator() ( double t ) const { return coefficients[0]+(coefficients[1]+coefficients[2]*t)*t; }
+template< int Degree >
 double Polynomial<Degree>::operator() ( double t ) const{
 	double v=coefficients[Degree];
 	for( int d=Degree-1 ; d>=0 ; d-- ) v = v*t + coefficients[d];
@@ -261,54 +250,59 @@ void Polynomial<Degree>::printnl(void) const{
 	}
 	printf("\n");
 }
-template<int Degree>
-void Polynomial<Degree>::getSolutions(double c,std::vector<double>& roots,double EPS) const
+
+template< >
+inline int Polynomial< 1 >::getSolutions( double c , double* roots , double EPS ) const
 {
-	double r[4][2];
-	int rCount=0;
-	roots.clear();
-	switch(Degree){
-	case 1:
-		rCount=Factor(coefficients[1],coefficients[0]-c,r,EPS);
-		break;
-	case 2:
-		rCount=Factor(coefficients[2],coefficients[1],coefficients[0]-c,r,EPS);
-		break;
-	case 3:
-		rCount=Factor(coefficients[3],coefficients[2],coefficients[1],coefficients[0]-c,r,EPS);
-		break;
-//	case 4:
-//		rCount=Factor(coefficients[4],coefficients[3],coefficients[2],coefficients[1],coefficients[0]-c,r,EPS);
-//		break;
-	default:
-		printf("Can't solve polynomial of degree: %d\n",Degree);
-	}
-	for(int i=0;i<rCount;i++){
-		if(fabs(r[i][1])<=EPS){
-			roots.push_back(r[i][0]);
-		}
-	}
+	std::complex< double > _roots[4];
+	int _rCount = Factor( coefficients[1] , coefficients[0]-c , _roots , EPS );
+	int rCount = 0;
+	for( int i=0 ; i<_rCount ; i++ ) if( fabs( _roots[i].imag() )<=EPS ) roots[rCount++] = _roots[i].real();
+	return rCount;
 }
+
+template< >
+inline int Polynomial< 2 >::getSolutions( double c , double* roots , double EPS ) const
+{
+	std::complex< double > _roots[4];
+	int _rCount = Factor( coefficients[2] , coefficients[1] , coefficients[0]-c , _roots , EPS );
+	int rCount = 0;
+	for( int i=0 ; i<_rCount ; i++ ) if( fabs( _roots[i].imag() )<=EPS ) roots[rCount++] = _roots[i].real();
+	return rCount;
+}
+
+template< >
+inline int Polynomial< 3 >::getSolutions( double c , double* roots , double EPS ) const
+{
+	std::complex< double > _roots[4];
+	int _rCount = Factor( coefficients[3] , coefficients[2] , coefficients[1] , coefficients[0]-c , _roots , EPS );
+	int rCount = 0;
+	for( int i=0 ; i<_rCount ; i++ ) if( fabs( _roots[i].imag() )<=EPS ) roots[rCount++] = _roots[i].real();
+	return rCount;
+}
+
+#if 0
+template< >
+inline int Polynomial< 4 >::getSolutions( double c , double* roots , double EPS ) const
+{
+	std::complex< double > _roots[4];
+	int _rCount = Factor( coefficients[4] , coefficients[3] , coefficients[2] , coefficients[1] , coefficients[0]-c , _roots , EPS );
+	int rCount = 0;
+	for( int i=0 ; i<_rCount ; i++ ) if( fabs( _roots[i].imag() )<=EPS ) roots[rCount++] = _roots[i].real();
+	return rCount;
+}
+#endif
+
 template< int Degree >
 int Polynomial<Degree>::getSolutions( double c , double* roots , double EPS ) const
 {
-	double _roots[4][2];
-	int _rCount=0;
-	switch( Degree )
-	{
-		case 1: _rCount = Factor(                                                       coefficients[1] , coefficients[0]-c , _roots , EPS ) ; break;
-		case 2:	_rCount = Factor(                                     coefficients[2] , coefficients[1] , coefficients[0]-c , _roots , EPS ) ; break;
-		case 3: _rCount = Factor(                   coefficients[3] , coefficients[2] , coefficients[1] , coefficients[0]-c , _roots , EPS ) ; break;
-//		case 4: _rCount = Factor( coefficients[4] , coefficients[3] , coefficients[2] , coefficients[1] , coefficients[0]-c , _roots , EPS ) ; break;
-		default: printf( "Can't solve polynomial of degree: %d\n" , Degree );
-	}
-	int rCount = 0;
-	for( int i=0 ; i<_rCount ; i++ ) if( fabs(_roots[i][1])<=EPS ) roots[rCount++] = _roots[i][0];
-	return rCount;
+	MK_THROW( "Can't solve polynomial of degree: " , Degree );
+	return 0;
 }
+
 // The 0-th order B-spline
 template< >
-Polynomial< 0 > Polynomial< 0 >::BSplineComponent( int i )
+inline Polynomial< 0 > Polynomial< 0 >::BSplineComponent( int i )
 {
 	Polynomial p;
 	p.coefficients[0] = 1.;
@@ -338,7 +332,7 @@ Polynomial< Degree > Polynomial< Degree >::BSplineComponent( int i )
 
 
 // The 0-th order B-spline values
-template< > void Polynomial< 0 >::BSplineComponentValues( double x , double* values ){ values[0] = 1.; }
+template< > inline void Polynomial< 0 >::BSplineComponentValues( double x , double* values ){ values[0] = 1.; }
 // The Degree-th order B-spline
 template< int Degree > void Polynomial< Degree >::BSplineComponentValues( double x , double* values )
 {
@@ -354,7 +348,8 @@ template< int Degree > void Polynomial< Degree >::BSplineComponentValues( double
 }
 
 // Using the recurrence formulation for Pascal's triangle
-template< > void Polynomial< 0 >::BinomialCoefficients( int bCoefficients[1] ){ bCoefficients[0] = 1; }
+template< > inline void Polynomial< 0 >::BinomialCoefficients( int bCoefficients[1] ){ bCoefficients[0] = 1; }
+
 template< int Degree > void Polynomial< Degree >::BinomialCoefficients( int bCoefficients[Degree+1] )
 {
 	Polynomial< Degree-1 >::BinomialCoefficients( bCoefficients );

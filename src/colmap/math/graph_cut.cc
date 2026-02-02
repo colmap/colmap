@@ -31,8 +31,17 @@
 
 #include <unordered_map>
 
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+
 #include <boost/graph/stoer_wagner_min_cut.hpp>
 #include <boost/property_map/property_map.hpp>
+
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -78,10 +87,10 @@ class MetisGraph {
         continue;
       }
 
-      for (const auto& edge : adjacency_list[i]) {
+      for (const auto& [neighbor_idx, weight] : adjacency_list[i]) {
         edge_idx += 1;
-        adjncy_.push_back(edge.first);
-        adjwgt_.push_back(edge.second);
+        adjncy_.push_back(neighbor_idx);
+        adjwgt_.push_back(weight);
       }
     }
 
@@ -148,11 +157,11 @@ void ComputeMinGraphCutStoerWagner(
       undirected_graph_t;
 
   int max_vertex_index = 0;
-  for (const auto& edge : edges) {
-    THROW_CHECK_GE(edge.first, 0);
-    THROW_CHECK_GE(edge.second, 0);
-    max_vertex_index = std::max(max_vertex_index, edge.first);
-    max_vertex_index = std::max(max_vertex_index, edge.second);
+  for (const auto& [v1, v2] : edges) {
+    THROW_CHECK_GE(v1, 0);
+    THROW_CHECK_GE(v2, 0);
+    max_vertex_index = std::max(max_vertex_index, v1);
+    max_vertex_index = std::max(max_vertex_index, v2);
   }
 
   const undirected_graph_t graph(edges.begin(),

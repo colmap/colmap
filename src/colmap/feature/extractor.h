@@ -42,7 +42,21 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureExtractorType, 0, SIFT, XFEAT);
 struct SiftExtractionOptions;
 struct XFeatExtractionOptions;
 
-struct FeatureExtractionOptions {
+struct FeatureExtractionTypeOptions {
+  explicit FeatureExtractionTypeOptions();
+
+  std::shared_ptr<SiftExtractionOptions> sift;
+  std::shared_ptr<XFeatExtractionOptions> xfeat;
+
+  FeatureExtractionTypeOptions(const FeatureExtractionTypeOptions& other);
+  FeatureExtractionTypeOptions& operator=(
+      const FeatureExtractionTypeOptions& other);
+  FeatureExtractionTypeOptions(FeatureExtractionTypeOptions&& other) = default;
+  FeatureExtractionTypeOptions& operator=(
+      FeatureExtractionTypeOptions&& other) = default;
+};
+
+struct FeatureExtractionOptions : public FeatureExtractionTypeOptions {
   explicit FeatureExtractionOptions(
       FeatureExtractorType type = FeatureExtractorType::SIFT);
 
@@ -65,11 +79,11 @@ struct FeatureExtractionOptions {
   // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
   std::string gpu_index = "-1";
 
-  std::shared_ptr<SiftExtractionOptions> sift;
-  std::shared_ptr<XFeatExtractionOptions> xfeat;
-
   // Whether the selected extractor requires RGB (or grayscale) images.
   bool RequiresRGB() const;
+
+  // Whether the selected extractor requires OpenGL.
+  bool RequiresOpenGL() const;
 
   bool Check() const;
 };

@@ -61,7 +61,7 @@ void WarpImageBetweenCameras(const Camera& source_camera,
   THROW_CHECK_EQ(source_camera.height, source_image.Height());
   THROW_CHECK_NOTNULL(target_image);
 
-  target_image->Allocate(static_cast<int>(source_camera.width),
+  *target_image = Bitmap(static_cast<int>(source_camera.width),
                          static_cast<int>(source_camera.height),
                          source_image.IsRGB());
 
@@ -143,7 +143,7 @@ void WarpImageWithHomographyBetweenCameras(const Eigen::Matrix3d& H,
   THROW_CHECK_EQ(source_camera.height, source_image.Height());
   THROW_CHECK_NOTNULL(target_image);
 
-  target_image->Allocate(static_cast<int>(source_camera.width),
+  *target_image = Bitmap(static_cast<int>(source_camera.width),
                          static_cast<int>(source_camera.height),
                          source_image.IsRGB());
 

@@ -93,6 +93,7 @@ struct Camera {
   // principal point parameters.
   inline double PrincipalPointX() const;
   inline double PrincipalPointY() const;
+  inline Eigen::Vector2d PrincipalPoint() const;
   inline void SetPrincipalPointX(double cx);
   inline void SetPrincipalPointY(double cy);
 
@@ -144,6 +145,9 @@ struct Camera {
 
   inline bool operator==(const Camera& other) const;
   inline bool operator!=(const Camera& other) const;
+
+ private:
+  void ScaleFocalLengths(double scale_x, double scale_y);
 };
 
 std::ostream& operator<<(std::ostream& stream, const Camera& camera);
@@ -205,6 +209,10 @@ double Camera::PrincipalPointY() const {
   const span<const size_t> idxs = PrincipalPointIdxs();
   THROW_CHECK_EQ(idxs.size(), 2);
   return params[idxs[1]];
+}
+
+Eigen::Vector2d Camera::PrincipalPoint() const {
+  return Eigen::Vector2d(PrincipalPointX(), PrincipalPointY());
 }
 
 void Camera::SetPrincipalPointX(const double cx) {

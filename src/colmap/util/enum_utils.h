@@ -29,9 +29,11 @@
 
 #pragma once
 
-#include <boost/preprocessor.hpp>
+#include <stdexcept>
+#include <string>
+#include <string_view>
 
-namespace colmap {
+#include <boost/preprocessor.hpp>
 
 // Custom macro for enum to/from string support. Only enum structs / classes
 // with consecutive indexes are supported.
@@ -93,5 +95,3 @@ namespace colmap {
   inline std::ostream& operator<<(std::ostream& os, name value) { \
     return os << name##ToString(value);                           \
   }
-
-}  // namespace colmap

@@ -5,47 +5,14 @@ endif()
 COLMAP_ADD_LIBRARY(
     NAME colmap_poisson_recon
     SRCS
-        Allocator.h
-        Array.h
-        Array.inl
-        BSplineData.h
-        BSplineData.inl
-        BinaryNode.h
-        CmdLineParser.h CmdLineParser.cpp
-        CmdLineParser.inl
-        Factor.h Factor.cpp
-        FunctionData.h
-        FunctionData.inl
-        Geometry.h Geometry.cpp
-        Geometry.inl
-        Hash.h
-        MAT.h
-        MAT.inl
-        MarchingCubes.h MarchingCubes.cpp
-        MemoryUsage.h
-        MultiGridOctreeData.Evaluation.inl
-        MultiGridOctreeData.IsoSurface.inl
-        MultiGridOctreeData.SortedTreeNodes.inl
-        MultiGridOctreeData.System.inl
-        MultiGridOctreeData.WeightedSamples.inl
-        MultiGridOctreeData.h
-        MultiGridOctreeData.inl
-        MyTime.h
-        Octree.h
-        Octree.inl
-        PPolynomial.h
-        PPolynomial.inl
-        Ply.h
-        PointStream.h PlyFile.cpp
-        PointStream.inl
         PoissonRecon.h PoissonRecon.cpp
-        Polynomial.h
-        Polynomial.inl
-        SparseMatrix.h
-        SparseMatrix.inl
         SurfaceTrimmer.h SurfaceTrimmer.cpp
 )
 target_compile_definitions(colmap_poisson_recon PRIVATE RELEASE)
+target_include_directories(colmap_poisson_recon PRIVATE .)
 if(OPENMP_FOUND)
     target_link_libraries(colmap_poisson_recon PRIVATE OpenMP::OpenMP_CXX)
+endif()
+if(MSVC)
+    target_compile_options(colmap_poisson_recon PRIVATE /bigobj)
 endif()

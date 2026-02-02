@@ -30,7 +30,6 @@
 #pragma once
 
 #include "colmap/geometry/rigid3.h"
-#include "colmap/math/math.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
@@ -115,5 +114,9 @@ std::vector<double> CalculateTriangulationAngles(
     const Eigen::Vector3d& proj_center1,
     const Eigen::Vector3d& proj_center2,
     const std::vector<Eigen::Vector3d>& points3D);
+
+// Calculate angle in radians between the direction vectors.
+double CalculateAngleBetweenVectors(const Eigen::Vector3d& v1,
+                                    const Eigen::Vector3d& v2);
 
 }  // namespace colmap

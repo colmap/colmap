@@ -71,6 +71,8 @@ using Matrix6d = Matrix<double, 6, 6>;
 using Vector3ub = Matrix<uint8_t, 3, 1>;
 using Vector4ub = Matrix<uint8_t, 4, 1>;
 using Vector6d = Matrix<double, 6, 1>;
+using Vector7d = Matrix<double, 7, 1>;
+using Vector8d = Matrix<double, 8, 1>;
 using RowMajorMatrixXf = Matrix<float, Dynamic, Dynamic, RowMajor>;
 using RowMajorMatrixXd = Matrix<double, Dynamic, Dynamic, RowMajor>;
 using RowMajorMatrixXi = Matrix<int, Dynamic, Dynamic, RowMajor>;
@@ -119,6 +121,11 @@ constexpr point2D_t kInvalidPoint2DIdx = std::numeric_limits<point2D_t>::max();
 typedef uint64_t point3D_t;
 constexpr point3D_t kInvalidPoint3DId = std::numeric_limits<point3D_t>::max();
 
+// Unique identifier for pose priors.
+typedef uint32_t pose_prior_t;
+constexpr pose_prior_t kInvalidPosePriorId =
+    std::numeric_limits<pose_prior_t>::max();
+
 // Sensor type.
 #ifdef __CUDACC__
 enum class SensorType {
@@ -131,14 +138,15 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(SensorType, -1, INVALID, CAMERA, IMU);
 #endif
 
 struct sensor_t {
+  constexpr static uint32_t kInvalidId = std::numeric_limits<uint32_t>::max();
+
   // Type of the sensor (INVALID / CAMERA / IMU)
   SensorType type;
   // Unique identifier of the sensor.
   // This can be camera_t / imu_t (not supported yet)
   uint32_t id;
 
-  constexpr sensor_t()
-      : type(SensorType::INVALID), id(std::numeric_limits<uint32_t>::max()) {}
+  constexpr sensor_t() : type(SensorType::INVALID), id(kInvalidId) {}
   constexpr sensor_t(const SensorType& type, uint32_t id)
       : type(type), id(id) {}
 
@@ -154,17 +162,18 @@ struct sensor_t {
 };
 
 constexpr sensor_t kInvalidSensorId =
-    sensor_t(SensorType::INVALID, std::numeric_limits<uint32_t>::max());
+    sensor_t(SensorType::INVALID, sensor_t::kInvalidId);
 
 struct data_t {
+  constexpr static uint32_t kInvalidId = std::numeric_limits<uint32_t>::max();
+
   // Unique identifer of the sensor
   sensor_t sensor_id;
   // Unique identifier of the data (measurement)
   // This can be image_t / imu_sample_t (not supported yet)
   uint64_t id;
 
-  constexpr data_t()
-      : sensor_id(kInvalidSensorId), id(std::numeric_limits<uint32_t>::max()) {}
+  constexpr data_t() : sensor_id(kInvalidSensorId), id(kInvalidId) {}
   constexpr data_t(const sensor_t& sensor_id, uint32_t id)
       : sensor_id(sensor_id), id(id) {}
 
@@ -179,13 +188,12 @@ struct data_t {
   }
 };
 
-constexpr data_t kInvalidDataId =
-    data_t(kInvalidSensorId, std::numeric_limits<uint32_t>::max());
+constexpr data_t kInvalidDataId = data_t(kInvalidSensorId, data_t::kInvalidId);
 
 // Return true if image pairs should be swapped. Used to enforce a specific
 // image order to generate unique image pair identifiers independent of the
 // order in which the image identifiers are used.
-inline bool SwapImagePair(image_t image_id1, image_t image_id2) {
+inline bool ShouldSwapImagePair(image_t image_id1, image_t image_id2) {
   return image_id1 > image_id2;
 }
 
@@ -200,7 +208,7 @@ inline void ThrowIfGtMaxImages(image_t image_id) {
 inline image_pair_t ImagePairToPairId(image_t image_id1, image_t image_id2) {
   ThrowIfGtMaxImages(image_id1);
   ThrowIfGtMaxImages(image_id2);
-  if (SwapImagePair(image_id1, image_id2)) {
+  if (ShouldSwapImagePair(image_id1, image_id2)) {
     return static_cast<image_pair_t>(kMaxNumImages) * image_id2 + image_id1;
   } else {
     return static_cast<image_pair_t>(kMaxNumImages) * image_id1 + image_id2;

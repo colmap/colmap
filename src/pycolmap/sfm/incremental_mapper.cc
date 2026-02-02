@@ -42,7 +42,9 @@ void BindIncrementalPipeline(py::module& m) {
                      &Opts::min_model_size,
                      "The minimum number of registered images of a sub-model, "
                      "otherwise the sub-model is discarded. Note that the "
-                     "first sub-model is always kept independent of size.")
+                     "first sub-model is always kept independent of size. If "
+                     "the model contains at least half of the total number of "
+                     "images, we also always keep it.")
       .def_readwrite("init_image_id1",
                      &Opts::init_image_id1,
                      "The image identifier of the first image used to "
@@ -55,6 +57,15 @@ void BindIncrementalPipeline(py::module& m) {
       .def_readwrite("init_num_trials",
                      &Opts::init_num_trials,
                      "The number of trials to initialize the reconstruction.")
+      .def_readwrite("structure_less_registration_fallback",
+                     &Opts::structure_less_registration_fallback,
+                     "Enable fallback to structure-less image registration "
+                     "using 2D-2D correspondences, if structured-based "
+                     "registration fails using 2D-3D correspondences.")
+      .def_readwrite("structure_less_registration_only",
+                     &Opts::structure_less_registration_only,
+                     "Only use structure-less and skip structure-based image "
+                     "registration.")
       .def_readwrite("extract_colors",
                      &Opts::extract_colors,
                      "Whether to extract colors for reconstructed points.")
@@ -171,6 +182,10 @@ void BindIncrementalPipeline(py::module& m) {
                      "Frequency of registered images according to which "
                      "reconstruction snapshots will be saved.")
       .def_readwrite(
+          "image_path",
+          &Opts::image_path,
+          "The image path at which to find the images to extract point colors.")
+      .def_readwrite(
           "image_names",
           &Opts::image_names,
           "Optional list of image names to reconstruct. If no images are "
@@ -190,6 +205,11 @@ void BindIncrementalPipeline(py::module& m) {
                      "independent of refine_focal_length, "
                      "refine_principal_point, and refine_extra_params.")
       .def_readwrite(
+          "max_runtime_seconds",
+          &Opts::max_runtime_seconds,
+          "Maximum runtime in seconds for the reconstruction process. If set "
+          "to a non-positive value, the process will run until completion.")
+      .def_readwrite(
           "mapper", &Opts::mapper, "Options of the IncrementalMapper.")
       .def_readwrite("triangulation",
                      &Opts::triangulation,
@@ -204,7 +224,7 @@ void BindIncrementalPipeline(py::module& m) {
 
   using CallbackType = IncrementalPipeline::CallbackType;
   auto PyCallbackType =
-      py::enum_<CallbackType>(m, "IncrementalMapperCallback")
+      py::enum_<CallbackType>(m, "IncrementalPipelineCallback")
           .value("INITIAL_IMAGE_PAIR_REG_CALLBACK",
                  CallbackType::INITIAL_IMAGE_PAIR_REG_CALLBACK)
           .value("NEXT_IMAGE_REG_CALLBACK",
@@ -214,38 +234,37 @@ void BindIncrementalPipeline(py::module& m) {
   AddStringToEnumConstructor(PyCallbackType);
 
   using Status = IncrementalPipeline::Status;
-  auto PyStatus = py::enum_<Status>(m, "IncrementalMapperStatus")
-                      .value("NO_INITIAL_PAIR", Status::NO_INITIAL_PAIR)
-                      .value("BAD_INITIAL_PAIR", Status::BAD_INITIAL_PAIR)
-                      .value("SUCCESS", Status::SUCCESS)
-                      .value("INTERRUPTED", Status::INTERRUPTED);
+  auto PyStatus =
+      py::enum_<Status>(m, "IncrementalPipelineStatus")
+          .value("SUCCESS", Status::SUCCESS)
+          .value("INTERRUPTED", Status::INTERRUPTED)
+          .value("CONTINUE", Status::CONTINUE)
+          .value("STOP", Status::STOP)
+          .value("UNKNOWN_SENSOR_FROM_RIG", Status::UNKNOWN_SENSOR_FROM_RIG)
+          .value("NO_INITIAL_PAIR", Status::NO_INITIAL_PAIR)
+          .value("BAD_INITIAL_PAIR", Status::BAD_INITIAL_PAIR);
   AddStringToEnumConstructor(PyStatus);
 
   py::classh<IncrementalPipeline>(m, "IncrementalPipeline")
-      .def(py::init<std::shared_ptr<const IncrementalPipelineOptions>,
-                    const std::string&,
-                    const std::string&,
+      .def(py::init<std::shared_ptr<IncrementalPipelineOptions>,
+                    std::shared_ptr<Database>,
                     std::shared_ptr<ReconstructionManager>>(),
            "options"_a,
-           "image_path"_a,
-           "database_path"_a,
+           "database"_a,
+           "reconstruction_manager"_a)
+      .def(py::init<std::shared_ptr<IncrementalPipelineOptions>,
+                    std::shared_ptr<DatabaseCache>,
+                    std::shared_ptr<ReconstructionManager>>(),
+           "options"_a,
+           "database_cache"_a,
            "reconstruction_manager"_a)
       .def_property_readonly("options", &IncrementalPipeline::Options)
-      .def_property_readonly("image_path", &IncrementalPipeline::ImagePath)
-      .def_property_readonly("database_path",
-                             &IncrementalPipeline::DatabasePath)
       .def_property_readonly("reconstruction_manager",
                              &IncrementalPipeline::ReconstructionManager)
       .def_property_readonly("database_cache",
                              &IncrementalPipeline::DatabaseCache)
       .def("add_callback", &IncrementalPipeline::AddCallback, "id"_a, "func"_a)
       .def("callback", &IncrementalPipeline::Callback, "id"_a)
-      .def("load_database", &IncrementalPipeline::LoadDatabase)
-      .def("check_run_global_refinement",
-           &IncrementalPipeline::CheckRunGlobalRefinement,
-           "reconstruction"_a,
-           "ba_prev_num_reg_images"_a,
-           "ba_prev_num_points"_a)
       .def("reconstruct",
            &IncrementalPipeline::Reconstruct,
            "mapper"_a,
@@ -261,7 +280,14 @@ void BindIncrementalPipeline(py::module& m) {
            "mapper"_a,
            "mapper_options"_a,
            "reconstruction"_a)
-      .def("run", &IncrementalPipeline::Run);
+      .def("run", &IncrementalPipeline::Run)
+      .def("check_run_global_refinement",
+           &IncrementalPipeline::CheckRunGlobalRefinement,
+           "reconstruction"_a,
+           "ba_prev_num_reg_images"_a,
+           "ba_prev_num_points"_a)
+      .def("check_reached_max_runtime",
+           &IncrementalPipeline::CheckReachedMaxRuntime);
 }
 
 void BindIncrementalMapperOptions(py::module& m) {
@@ -319,6 +345,23 @@ void BindIncrementalMapperOptions(py::module& m) {
                      &Opts::ba_local_min_tri_angle,
                      "Minimum triangulation for images to be chosen in local "
                      "bundle adjustment.")
+      .def_readwrite(
+          "ba_global_ignore_redundant_points3D",
+          &Opts::ba_global_ignore_redundant_points3D,
+          "Whether to ignore redundant 3D points in bundle adjustment when "
+          "jointly optimizing all parameters. If this is enabled, then the "
+          "bundle adjustment problem is first solved with a reduced set of 3D "
+          "points and then the remaining 3D points are optimized in a second "
+          "step with all other parameters fixed. Points excplicitly configured "
+          "as constant or variable are not ignored. This is only activated "
+          "when the reconstruction has reached sufficient size with at least "
+          "10 registered frames.")
+      .def_readwrite(
+          "ba_global_prune_points_min_coverage_gain",
+          &Opts::ba_global_ignore_redundant_points3D_min_coverage_gain,
+          "The minimum coverage gain for any 3D point to be "
+          "included in the optimization. A larger value means "
+          "more 3D points are ignored.")
       .def_readwrite("min_focal_length_ratio",
                      &Opts::min_focal_length_ratio,
                      "The threshold used to filter and ignore images with "
@@ -444,9 +487,16 @@ void BindIncrementalMapperImpl(py::module& m) {
            "two_view_geometry"_a,
            "image_id1"_a,
            "image_id2"_a)
-      .def("find_next_images", &IncrementalMapper::FindNextImages, "options"_a)
+      .def("find_next_images",
+           &IncrementalMapper::FindNextImages,
+           "options"_a,
+           "structure_less"_a)
       .def("register_next_image",
            &IncrementalMapper::RegisterNextImage,
+           "options"_a,
+           "image_id"_a)
+      .def("register_next_structure_less_image",
+           &IncrementalMapper::RegisterNextStructureLessImage,
            "options"_a,
            "image_id"_a)
       .def("triangulate_image",

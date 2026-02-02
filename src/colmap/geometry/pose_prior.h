@@ -48,44 +48,33 @@ struct PosePrior {
                   CARTESIAN   // = 1
   );
 
-  Eigen::Vector3d position =
-      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
-  Eigen::Matrix3d position_covariance =
-      Eigen::Matrix3d::Constant(std::numeric_limits<double>::quiet_NaN());
+  constexpr static double kNaN = std::numeric_limits<double>::quiet_NaN();
+
+  // The unique identifier of the pose prior.
+  pose_prior_t pose_prior_id = kInvalidPosePriorId;
+
+  // The identifier of the associated sensor for which this prior defines the
+  // pose. For example, this can refer to a camera or an IMU sensor.
+  data_t corr_data_id = kInvalidDataId;
+
+  // The position of the associated sensor in the world coordinate system.
+  Eigen::Vector3d position = Eigen::Vector3d::Constant(kNaN);
+  // The position covariance in the Cartesian world coordinate system.
+  Eigen::Matrix3d position_covariance = Eigen::Matrix3d::Constant(kNaN);
+  // The coordinate system of the position in the world.
   CoordinateSystem coordinate_system = CoordinateSystem::UNDEFINED;
 
-  PosePrior() = default;
-  explicit PosePrior(const Eigen::Vector3d& position) : position(position) {}
-  PosePrior(const Eigen::Vector3d& position, const CoordinateSystem system)
-      : position(position), coordinate_system(system) {}
-  PosePrior(const Eigen::Vector3d& position, const Eigen::Matrix3d& covariance)
-      : position(position), position_covariance(covariance) {}
-  PosePrior(const Eigen::Vector3d& position,
-            const Eigen::Matrix3d& covariance,
-            const CoordinateSystem system)
-      : position(position),
-        position_covariance(covariance),
-        coordinate_system(system) {}
+  // The gravity (down) in the sensor coordinate system.
+  Eigen::Vector3d gravity = Eigen::Vector3d::Constant(kNaN);
 
-  inline bool IsValid() const { return position.allFinite(); }
-  inline bool IsCovarianceValid() const {
-    return position_covariance.allFinite();
-  }
+  inline bool HasPosition() const { return position.allFinite(); }
+  inline bool HasPositionCov() const { return position_covariance.allFinite(); }
+  inline bool HasGravity() const { return gravity.allFinite(); }
 
-  inline bool operator==(const PosePrior& other) const;
-  inline bool operator!=(const PosePrior& other) const;
+  bool operator==(const PosePrior& other) const;
+  bool operator!=(const PosePrior& other) const;
 };
 
 std::ostream& operator<<(std::ostream& stream, const PosePrior& prior);
-
-bool PosePrior::operator==(const PosePrior& other) const {
-  return coordinate_system == other.coordinate_system &&
-         position == other.position &&
-         position_covariance == other.position_covariance;
-}
-
-bool PosePrior::operator!=(const PosePrior& other) const {
-  return !(*this == other);
-}
 
 }  // namespace colmap

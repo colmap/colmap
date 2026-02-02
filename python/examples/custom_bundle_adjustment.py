@@ -11,14 +11,21 @@ import pycolmap
 from pycolmap import logging
 
 
-def solve_bundle_adjustment(reconstruction, ba_options, ba_config):
+def solve_bundle_adjustment(
+    reconstruction: pycolmap.Reconstruction,
+    ba_options: pycolmap.BundleAdjustmentOptions,
+    ba_config: pycolmap.BundleAdjustmentConfig,
+) -> pycolmap.BundleAdjustmentSummary:
     bundle_adjuster = pycolmap.create_default_bundle_adjuster(
         ba_options, ba_config, reconstruction
     )
     summary = bundle_adjuster.solve()
-    # Alternatively, you can customize the existing problem or options as:
-    # import pyceres
-    # solver_options = ba_options.create_solver_options(
+    # Alternatively, you can customize the existing Ceres problem or options as:
+    # import pyceres  # The minimal bindings in pycolmap aren't sufficient.
+    # bundle_adjuster = pycolmap.create_default_ceres_bundle_adjuster(
+    #     ba_options, ba_config, reconstruction
+    # )
+    # solver_options = ba_options.ceres.create_solver_options(
     #     ba_config, bundle_adjuster.problem
     # )
     # summary = pyceres.SolverSummary()
@@ -26,22 +33,28 @@ def solve_bundle_adjustment(reconstruction, ba_options, ba_config):
     return summary
 
 
-def adjust_global_bundle(mapper, mapper_options, ba_options):
+def adjust_global_bundle(
+    mapper: pycolmap.IncrementalMapper,
+    mapper_options: pycolmap.IncrementalMapperOptions,
+    ba_options: pycolmap.BundleAdjustmentOptions,
+) -> bool:
     """Equivalent to mapper.adjust_global_bundle(...)"""
     reconstruction = mapper.reconstruction
     assert reconstruction is not None
     reg_frame_ids = reconstruction.reg_frame_ids()
     if len(reg_frame_ids) < 2:
         logging.fatal("At least two images must be registered for global BA")
-    ba_options_tmp = copy.deepcopy(ba_options)
+    custom_ba_options = copy.deepcopy(ba_options)
 
     # Use stricter convergence criteria for first registered images
     if len(reg_frame_ids) < 10:  # kMinNumRegImagesForFastBA = 10
-        ba_options_tmp.solver_options.function_tolerance /= 10
-        ba_options_tmp.solver_options.gradient_tolerance /= 10
-        ba_options_tmp.solver_options.parameter_tolerance /= 10
-        ba_options_tmp.solver_options.max_num_iterations *= 2
-        ba_options_tmp.solver_options.max_linear_solver_iterations = 200
+        custom_ba_options.ceres.solver_options.function_tolerance /= 10
+        custom_ba_options.ceres.solver_options.gradient_tolerance /= 10
+        custom_ba_options.ceres.solver_options.parameter_tolerance /= 10
+        custom_ba_options.ceres.solver_options.max_num_iterations *= 2
+        custom_ba_options.ceres.solver_options.max_linear_solver_iterations = (
+            200
+        )
 
     # Avoid degeneracies in bundle adjustment
     mapper.observation_manager.filter_observations_with_negative_depth()
@@ -69,23 +82,28 @@ def adjust_global_bundle(mapper, mapper_options, ba_options):
         ba_config.set_constant_cam_intrinsics(camera_id)
 
     # TODO: Add python support for prior positions
-    ba_config.fix_gauge(pycolmap.BundleAdjustmentGauge.THREE_POINTS)
+    # Fixing the gauge with two cameras leads to a more stable optimization
+    # with fewer steps as compared to fixing three points.
+    ba_config.fix_gauge(pycolmap.BundleAdjustmentGauge.TWO_CAMS_FROM_WORLD)
 
     # Run bundle adjustment
-    summary = solve_bundle_adjustment(reconstruction, ba_options_tmp, ba_config)
+    summary = solve_bundle_adjustment(
+        reconstruction, custom_ba_options, ba_config
+    )
     logging.info("Global Bundle Adjustment")
-    logging.info(summary.BriefReport())
+    logging.info(summary.brief_report())
+    return summary.is_solution_usable()
 
 
 def iterative_global_refinement(
-    mapper,
-    max_num_refinements,
-    max_refinement_change,
-    mapper_options,
-    ba_options,
-    tri_options,
-    normalize_reconstruction=True,
-):
+    mapper: pycolmap.IncrementalMapper,
+    max_num_refinements: int,
+    max_refinement_change: float,
+    mapper_options: pycolmap.IncrementalMapperOptions,
+    ba_options: pycolmap.BundleAdjustmentOptions,
+    tri_options: pycolmap.IncrementalTriangulatorOptions,
+    normalize_reconstruction: bool = True,
+) -> bool:
     """Equivalent to mapper.iterative_global_refinement(...)"""
     reconstruction = mapper.reconstruction
     mapper.complete_and_merge_tracks(tri_options)
@@ -96,7 +114,8 @@ def iterative_global_refinement(
     for _ in range(max_num_refinements):
         num_observations = reconstruction.compute_num_observations()
         # mapper.adjust_global_bundle(mapper_options, ba_options)
-        adjust_global_bundle(mapper, mapper_options, ba_options)
+        if not adjust_global_bundle(mapper, mapper_options, ba_options):
+            return False
         if normalize_reconstruction:
             reconstruction.normalize()
         num_changed_observations = mapper.complete_and_merge_tracks(tri_options)
@@ -109,11 +128,17 @@ def iterative_global_refinement(
         logging.verbose(1, f"=> Changed observations: {changed:.6f}")
         if changed < max_refinement_change:
             break
+    return True
 
 
 def adjust_local_bundle(
-    mapper, mapper_options, ba_options, tri_options, image_id, point3D_ids
-):
+    mapper: pycolmap.IncrementalMapper,
+    mapper_options: pycolmap.IncrementalMapperOptions,
+    ba_options: pycolmap.BundleAdjustmentOptions,
+    tri_options: pycolmap.IncrementalTriangulatorOptions,
+    image_id: int,
+    point3D_ids: set[int],
+) -> pycolmap.LocalBundleAdjustmentReport:
     """Equivalent to mapper.adjust_local_bundle(...)"""
     reconstruction = mapper.reconstruction
     assert reconstruction is not None
@@ -129,18 +154,16 @@ def adjust_local_bundle(
         ba_config.fix_gauge(pycolmap.BundleAdjustmentGauge.THREE_POINTS)
 
         # Insert the images of all local frames.
-        frame_ids = set()
-        frame_ids.add(reconstruction.image(image_id).frame_id)
-        for data_id in reconstruction.image(image_id).frame.data_ids:
-            if data_id.sensor_id.type != pycolmap.SensorType.CAMERA:
-                continue
+        image = reconstruction.image(image_id)
+        frame_ids = {image.frame_id}
+        assert image.frame is not None
+        for data_id in image.frame.image_ids:
             ba_config.add_image(data_id.id)
         for local_image_id in local_bundle:
             local_image = reconstruction.image(local_image_id)
             frame_ids.add(local_image.frame_id)
-            for data_id in local_image.frame.data_ids:
-                if data_id.sensor_id.type != pycolmap.SensorType.CAMERA:
-                    continue
+            assert local_image.frame is not None
+            for data_id in local_image.frame.image_ids:
                 ba_config.add_image(data_id.id)
 
         # Fix the existing images, if options specified
@@ -150,7 +173,7 @@ def adjust_local_bundle(
                     ba_config.set_constant_rig_from_world_pose(frame_id)
 
         # Fix rig poses, if not all frames within the local bundle.
-        num_frames_per_rig = collections.defaultdict(int)
+        num_frames_per_rig: dict[int, int] = collections.defaultdict(int)
         for frame_id in frame_ids:
             frame = reconstruction.frame(frame_id)
             num_frames_per_rig[frame.rig_id] += 1
@@ -163,7 +186,7 @@ def adjust_local_bundle(
                     ba_config.set_constant_sensor_from_rig_pose(sensor_id)
 
         # Fix camera intrinsics, if not all images within local bundle.
-        num_images_per_camera = collections.defaultdict(int)
+        num_images_per_camera: dict[int, int] = collections.defaultdict(int)
         for image_id in ba_config.images:
             image = reconstruction.images[image_id]
             num_images_per_camera[image.camera_id] += 1
@@ -195,7 +218,7 @@ def adjust_local_bundle(
             mapper.reconstruction, ba_options, ba_config
         )
         logging.info("Local Bundle Adjustment")
-        logging.info(summary.BriefReport())
+        logging.info(summary.brief_report())
 
         image_ids = ba_config.images
         report.num_adjusted_observations = int(summary.num_residuals / 2)
@@ -232,20 +255,20 @@ def adjust_local_bundle(
 
 
 def iterative_local_refinement(
-    mapper,
-    max_num_refinements,
-    max_refinement_change,
-    mapper_options,
-    ba_options,
-    tri_options,
-    image_id,
-):
+    mapper: pycolmap.IncrementalMapper,
+    max_num_refinements: int,
+    max_refinement_change: float,
+    mapper_options: pycolmap.IncrementalMapperOptions,
+    ba_options: pycolmap.BundleAdjustmentOptions,
+    tri_options: pycolmap.IncrementalTriangulatorOptions,
+    image_id: int,
+) -> None:
     """Equivalent to mapper.iterative_local_refinement(...)"""
-    ba_options_tmp = copy.deepcopy(ba_options)
+    custom_ba_options = copy.deepcopy(ba_options)
     for _ in range(max_num_refinements):
         # report = mapper.adjust_local_bundle(
         #     mapper_options,
-        #     ba_options_tmp,
+        #     custom_ba_options,
         #     tri_options,
         #     image_id,
         #     mapper.get_modified_points3D(),
@@ -253,7 +276,7 @@ def iterative_local_refinement(
         report = adjust_local_bundle(
             mapper,
             mapper_options,
-            ba_options_tmp,
+            custom_ba_options,
             tri_options,
             image_id,
             mapper.get_modified_points3D(),
@@ -267,7 +290,7 @@ def iterative_local_refinement(
         logging.verbose(
             1, f"=> Filtered observations: {report.num_filtered_observations}"
         )
-        changed = 0
+        changed = 0.0
         if report.num_adjusted_observations > 0:
             changed = (
                 report.num_merged_observations
@@ -279,5 +302,7 @@ def iterative_local_refinement(
             break
 
         # Only use robust cost function for first iteration
-        ba_options_tmp.loss_function_type = pycolmap.LossFunctionType.TRIVIAL
+        custom_ba_options.ceres.loss_function_type = (
+            pycolmap.LossFunctionType.TRIVIAL
+        )
     mapper.clear_modified_points3D()

@@ -84,6 +84,9 @@ TEST(Frame, SetUp) {
   EXPECT_TRUE(frame.HasDataId(data_id2));
   EXPECT_THAT(frame.DataIds(),
               testing::UnorderedElementsAre(data_id1, data_id2));
+  frame.ClearDataIds();
+  EXPECT_EQ(frame.NumDataIds(), 0);
+  EXPECT_THAT(frame.DataIds(), testing::IsEmpty());
   EXPECT_FALSE(frame.HasPose());
 }
 
@@ -134,6 +137,25 @@ TEST(Frame, AddDataId) {
   EXPECT_ANY_THROW(frame.AddDataId(data_t(sensor_id3, 2)));
 }
 
+TEST(Frame, FilteredDataIds) {
+  Frame frame;
+  const data_t data_id1(sensor_t(SensorType::IMU, 0), 2);
+  frame.AddDataId(data_id1);
+  const data_t data_id2(sensor_t(SensorType::CAMERA, 0), 2);
+  frame.AddDataId(data_id2);
+  const data_t data_id3(sensor_t(SensorType::CAMERA, 1), 1);
+  frame.AddDataId(data_id3);
+  EXPECT_THAT(std::vector<data_t>(frame.DataIds(SensorType::IMU).begin(),
+                                  frame.DataIds(SensorType::IMU).end()),
+              testing::UnorderedElementsAre(data_id1));
+  EXPECT_THAT(std::vector<data_t>(frame.DataIds(SensorType::CAMERA).begin(),
+                                  frame.DataIds(SensorType::CAMERA).end()),
+              testing::UnorderedElementsAre(data_id2, data_id3));
+  EXPECT_THAT(std::vector<data_t>(frame.DataIds(SensorType::INVALID).begin(),
+                                  frame.DataIds(SensorType::INVALID).end()),
+              testing::IsEmpty());
+}
+
 TEST(Frame, ImageIds) {
   Frame frame;
   const data_t data_id1(sensor_t(SensorType::IMU, 0), 2);
@@ -181,10 +203,10 @@ TEST(Frame, SetCamFromWorld) {
   const Rigid3d cam2_from_world = TestRigid3d();
   frame.SetCamFromWorld(sensor_id2.id, cam2_from_world);
   const Rigid3d sensor2_from_world = frame.SensorFromWorld(sensor_id2);
-  EXPECT_THAT(cam2_from_world.translation,
-              EigenMatrixNear(sensor2_from_world.translation, 1e-6));
-  EXPECT_THAT(cam2_from_world.rotation.coeffs(),
-              EigenMatrixNear(sensor2_from_world.rotation.coeffs(), 1e-6));
+  EXPECT_THAT(cam2_from_world.translation(),
+              EigenMatrixNear(sensor2_from_world.translation(), 1e-6));
+  EXPECT_THAT(cam2_from_world.rotation().coeffs(),
+              EigenMatrixNear(sensor2_from_world.rotation().coeffs(), 1e-6));
 }
 
 TEST(Image, Equals) {

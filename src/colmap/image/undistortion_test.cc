@@ -30,6 +30,8 @@
 #include "colmap/image/undistortion.h"
 
 #include "colmap/geometry/pose.h"
+#include "colmap/scene/synthetic.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
@@ -110,8 +112,7 @@ TEST(UndistortCamera, BlankPixels) {
       Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 100, 100, 100);
   distorted_camera.params[3] = 0.5;
 
-  Bitmap distorted_image;
-  distorted_image.Allocate(100, 100, false);
+  Bitmap distorted_image(100, 100, false);
   distorted_image.Fill(BitmapColor<uint8_t>(255));
 
   Bitmap undistorted_image;
@@ -154,8 +155,7 @@ TEST(UndistortCamera, NoBlankPixels) {
       Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 100, 100, 100);
   distorted_camera.params[3] = 0.5;
 
-  Bitmap distorted_image;
-  distorted_image.Allocate(100, 100, false);
+  Bitmap distorted_image(100, 100, false);
   distorted_image.Fill(BitmapColor<uint8_t>(255));
 
   Bitmap undistorted_image;
@@ -179,9 +179,9 @@ TEST(UndistortCamera, NoBlankPixels) {
     for (int x = 0; x < undistorted_image.Width(); ++x) {
       BitmapColor<uint8_t> color;
       EXPECT_TRUE(undistorted_image.GetPixel(x, y, &color));
-      EXPECT_NE(color.r, 0);
-      EXPECT_EQ(color.g, 0);
-      EXPECT_EQ(color.b, 0);
+      ASSERT_NE(color.r, 0);
+      ASSERT_NE(color.g, 0);
+      ASSERT_NE(color.b, 0);
     }
   }
 }
@@ -262,6 +262,53 @@ TEST(RectifyStereoCameras, Nominal) {
   Eigen::Matrix4d Q_ref;
   Q_ref << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -2.67261, -0.5, -0.5, 1, 0;
   EXPECT_THAT(Q, EigenMatrixNear(Q_ref, 1e-5));
+}
+
+TEST(RectifyAndUndistortStereoImages, Nominal) {
+  UndistortCameraOptions options;
+
+  // Create two distorted cameras with radial distortion.
+  Camera distorted_camera1 =
+      Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 100, 100, 100);
+  distorted_camera1.params[3] = 0.1;  // Add some radial distortion
+
+  Camera distorted_camera2 =
+      Camera::CreateFromModelName(2, "SIMPLE_RADIAL", 100, 100, 100);
+  distorted_camera2.params[3] = 0.1;  // Add some radial distortion
+
+  // Create dummy distorted images.
+  Bitmap distorted_image1(100, 100, true);
+  distorted_image1.Fill(BitmapColor<uint8_t>(255, 0, 0));  // Red image
+
+  Bitmap distorted_image2(100, 100, true);
+  distorted_image2.Fill(BitmapColor<uint8_t>(0, 255, 0));  // Green image
+
+  // Create relative pose between cameras (typical stereo baseline).
+  const Rigid3d cam2_from_cam1(
+      Eigen::Quaterniond(EulerAnglesToRotationMatrix(0.0, 0.05, 0.0)),
+      Eigen::Vector3d(0.1, 0.0, 0.0));  // 0.1m baseline
+
+  Bitmap undistorted_image1;
+  Bitmap undistorted_image2;
+  Camera undistorted_camera;
+  Eigen::Matrix4d Q;
+
+  // Rectify and undistort stereo images.
+  RectifyAndUndistortStereoImages(options,
+                                  distorted_image1,
+                                  distorted_image2,
+                                  distorted_camera1,
+                                  distorted_camera2,
+                                  cam2_from_cam1,
+                                  &undistorted_image1,
+                                  &undistorted_image2,
+                                  &undistorted_camera,
+                                  &Q);
+  EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
+  EXPECT_EQ(undistorted_camera.width, undistorted_image1.Width());
+  EXPECT_EQ(undistorted_camera.height, undistorted_image1.Height());
+  EXPECT_EQ(undistorted_image1.Width(), undistorted_image2.Width());
+  EXPECT_EQ(undistorted_image1.Height(), undistorted_image2.Height());
 }
 
 }  // namespace

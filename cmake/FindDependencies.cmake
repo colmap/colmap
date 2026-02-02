@@ -23,7 +23,7 @@ find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
 
 find_package(Eigen3 ${COLMAP_FIND_TYPE})
 
-find_package(FreeImage ${COLMAP_FIND_TYPE})
+find_package(OpenImageIO ${COLMAP_FIND_TYPE})
 
 find_package(Metis ${COLMAP_FIND_TYPE})
 
@@ -42,6 +42,8 @@ find_package(OpenGL ${COLMAP_FIND_TYPE})
 find_package(Glew ${COLMAP_FIND_TYPE})
 
 find_package(Git)
+
+find_package(CHOLMOD REQUIRED)
 
 find_package(Ceres ${COLMAP_FIND_TYPE})
 if(NOT TARGET Ceres::ceres)
@@ -91,7 +93,7 @@ endif()
 if(DOWNLOAD_ENABLED)
     # The OpenSSL package in vcpkg seems broken under Windows and leads to
     # missing certificate verification when connecting to SSL servers. We
-    # therefore use curl[schannel] (i.e., native Windows SSL/TLS) under Windows
+    # therefore use curl[sspi] (i.e., native Windows SSL/TLS) under Windows
     # and curl[openssl] otherwise.
     find_package(CURL QUIET)
     set(CRYPTO_FOUND FALSE)
@@ -193,6 +195,44 @@ if(CUDA_ENABLED AND CUDA_FOUND)
     # Explicitly set PIC flags for CUDA targets.
     if(NOT IS_MSVC)
         set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fPIC")
+    endif()
+
+    # Handle MSVC runtime library for CUDA to support static CRT linking.
+    # CMake's default CUDA flags use /MD (dynamic), but if the user is building
+    # with static CRT (/MT), we need to override the CUDA flags to match.
+    if(IS_MSVC)
+        # Detect the runtime library from CMAKE_MSVC_RUNTIME_LIBRARY or CXX flags
+        set(_COLMAP_USE_STATIC_RUNTIME OFF)
+
+        if(DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
+            if(CMAKE_MSVC_RUNTIME_LIBRARY MATCHES "MultiThreaded" AND
+               NOT CMAKE_MSVC_RUNTIME_LIBRARY MATCHES "DLL")
+                set(_COLMAP_USE_STATIC_RUNTIME ON)
+            endif()
+        elseif(CMAKE_CXX_FLAGS_DEBUG MATCHES "/MTd" OR
+               CMAKE_CXX_FLAGS_RELEASE MATCHES "/MT[^d]" OR
+               CMAKE_CXX_FLAGS MATCHES "/MT")
+            set(_COLMAP_USE_STATIC_RUNTIME ON)
+        endif()
+
+        if(_COLMAP_USE_STATIC_RUNTIME)
+            message(STATUS "CUDA: Using static MSVC runtime library (/MT)")
+            # Replace /MD with /MT in CUDA flags for each build type
+            foreach(_BUILD_TYPE DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
+                if(DEFINED CMAKE_CUDA_FLAGS_${_BUILD_TYPE})
+                    string(REPLACE "-MDd" "-MTd" CMAKE_CUDA_FLAGS_${_BUILD_TYPE}
+                           "${CMAKE_CUDA_FLAGS_${_BUILD_TYPE}}")
+                    string(REPLACE "-MD" "-MT" CMAKE_CUDA_FLAGS_${_BUILD_TYPE}
+                           "${CMAKE_CUDA_FLAGS_${_BUILD_TYPE}}")
+                    string(REPLACE "/MDd" "/MTd" CMAKE_CUDA_FLAGS_${_BUILD_TYPE}
+                           "${CMAKE_CUDA_FLAGS_${_BUILD_TYPE}}")
+                    string(REPLACE "/MD" "/MT" CMAKE_CUDA_FLAGS_${_BUILD_TYPE}
+                           "${CMAKE_CUDA_FLAGS_${_BUILD_TYPE}}")
+                endif()
+            endforeach()
+        endif()
+
+        unset(_COLMAP_USE_STATIC_RUNTIME)
     endif()
 
     message(STATUS "Enabling CUDA support (version: ${CUDAToolkit_VERSION}, "

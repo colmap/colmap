@@ -42,14 +42,14 @@ struct Point3D {
   // The 3D position of the point.
   Eigen::Vector3d xyz = Eigen::Vector3d::Zero();
 
-  // The color of the point in the range [0, 255].
-  Eigen::Vector3ub color = Eigen::Vector3ub::Zero();
-
   // The mean reprojection error in pixels.
   double error = -1.;
 
   // The track of the point as a list of image observations.
   Track track;
+
+  // The color of the point in the range [0, 255].
+  Eigen::Vector3ub color = Eigen::Vector3ub::Zero();
 
   inline bool HasError() const;
 

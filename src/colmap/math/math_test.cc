@@ -66,6 +66,13 @@ TEST(RadToDeg, Nominal) {
   EXPECT_LT(std::abs(RadToDeg(M_PI) - 180.0), 1e-6);
 }
 
+TEST(RadToDeg, Roundtrip) {
+  for (int i = 0; i < 360; ++i) {
+    const auto angle = static_cast<double>(i);
+    EXPECT_NEAR(angle, RadToDeg(DegToRad(angle)), 1e-6);
+  }
+}
+
 TEST(Median, Nominal) {
   EXPECT_EQ(Median<int>({1, 2, 3, 4}), 2.5);
   EXPECT_EQ(Median<int>({4, 1, 3, 2}), 2.5);
@@ -78,6 +85,33 @@ TEST(Median, Nominal) {
   EXPECT_EQ(Median<int>({-1, -2, 3, 4}), 1);
   // Test integer overflow scenario.
   EXPECT_EQ(Median<int8_t>({100, 115, 119, 127}), 117);
+}
+
+TEST(MedianAbsoluteDeviation, Nominal) {
+  // {1, 2, 3, 4, 5} -> median=3, deviations={2, 1, 0, 1, 2}, MAD=1
+  auto [median1, mad1] = MedianAbsoluteDeviation<int>({1, 2, 3, 4, 5});
+  EXPECT_EQ(median1, 3);
+  EXPECT_EQ(mad1, 1);
+
+  // {1, 2, 3, 4} -> median=2.5, deviations={1.5, 0.5, 0.5, 1.5}, MAD=1
+  auto [median2, mad2] = MedianAbsoluteDeviation<int>({1, 2, 3, 4});
+  EXPECT_EQ(median2, 2.5);
+  EXPECT_EQ(mad2, 1);
+
+  // Unsorted input: {5, 1, 3, 2, 4} -> same as {1, 2, 3, 4, 5}
+  auto [median3, mad3] = MedianAbsoluteDeviation<int>({5, 1, 3, 2, 4});
+  EXPECT_EQ(median3, 3);
+  EXPECT_EQ(mad3, 1);
+
+  // Single element: {42} -> median=42, MAD=0
+  auto [median4, mad4] = MedianAbsoluteDeviation<int>({42});
+  EXPECT_EQ(median4, 42);
+  EXPECT_EQ(mad4, 0);
+
+  // With outlier: {1, 2, 3, 4, 100} -> median=3, deviations={2, 1, 0, 1, 97}
+  auto [median5, mad5] = MedianAbsoluteDeviation<int>({1, 2, 3, 4, 100});
+  EXPECT_EQ(median5, 3);
+  EXPECT_EQ(mad5, 1);
 }
 
 TEST(Percentile, Nominal) {

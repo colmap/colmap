@@ -37,6 +37,8 @@
 #include "colmap/ui/thread_control_widget.h"
 #include "colmap/util/file.h"
 
+#include <filesystem>
+
 namespace colmap {
 
 class ExtractionWidget : public OptionsWidget {
@@ -64,7 +66,7 @@ class ImportFeaturesWidget : public ExtractionWidget {
   void Run() override;
 
  private:
-  std::string import_path_;
+  std::filesystem::path import_path_;
 };
 
 ExtractionWidget::ExtractionWidget(QWidget* parent, OptionManager* options)
@@ -229,7 +231,7 @@ QGroupBox* FeatureExtractionWidget::CreateCameraModelBox() {
   SelectCameraModel(camera_model_cb_->currentIndex());
 
   connect(camera_model_cb_,
-          (void(QComboBox::*)(int)) & QComboBox::currentIndexChanged,
+          (void (QComboBox::*)(int))&QComboBox::currentIndexChanged,
           this,
           &FeatureExtractionWidget::SelectCameraModel);
   connect(camera_params_exif_rb_,

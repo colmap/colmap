@@ -1,3 +1,7 @@
+$ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
+$PSNativeCommandUseErrorActionPreference = $true
+
 $CURRDIR = $PWD
 
 $COMPILER_TOOLS_DIR = "${env:COMPILER_CACHE_DIR}/bin"
@@ -16,7 +20,7 @@ cd ${env:VCPKG_INSTALLATION_ROOT}
 
 cd ${CURRDIR}
 & "./scripts/shell/enter_vs_dev_shell.ps1"
-& "${env:VCPKG_INSTALLATION_ROOT}/vcpkg.exe" integrate install
+& "${env:VCPKG_ROOT}/vcpkg.exe" integrate install
 
 # Build COLMAP
 mkdir build

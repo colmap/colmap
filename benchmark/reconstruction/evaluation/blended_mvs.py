@@ -28,8 +28,6 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-from pathlib import Path
-
 import numpy as np
 from PIL import Image
 
@@ -39,21 +37,6 @@ from .utils import Dataset, SceneInfo
 
 
 class DatasetBlendedMVS(Dataset):
-    def __init__(
-        self,
-        data_path: Path,
-        categories: list[str],
-        scenes: list[Path],
-        run_path: Path,
-        run_name: str,
-    ):
-        super().__init__()
-        self.data_path = data_path
-        self.categories = categories
-        self.scenes = scenes
-        self.run_path = run_path
-        self.run_name = run_name
-
     @property
     def position_accuracy_gt(self):
         return 0.001
@@ -104,7 +87,7 @@ class DatasetBlendedMVS(Dataset):
                     workspace_path=workspace_path,
                     image_path=image_path,
                     sparse_gt_path=sparse_gt_path,
-                    camera_priors_from_sparse_gt=True,
+                    has_camera_priors=True,
                     colmap_extra_args=colmap_extra_args,
                 )
 
@@ -146,14 +129,20 @@ class DatasetBlendedMVS(Dataset):
                 height=height,
                 params=intrinsic[(0, 1, 0, 1), (0, 1, 2, 2)],
             )
+            rig = pycolmap.Rig(rig_id=i)
+            rig.add_ref_sensor(camera.sensor_id)
             image = pycolmap.Image(
                 image_id=i,
                 camera_id=i,
                 name=image_name,
                 cam_from_world=pycolmap.Rigid3d(extrinsic),
             )
+            frame = pycolmap.Frame(frame_id=i)
+            frame.add_data_id(image.data_id)
             sparse_gt.add_camera(camera)
+            sparse_gt.add_rig(rig)
             sparse_gt.add_image(image)
+            sparse_gt.add_frame(frame)
 
         scene_info.sparse_gt_path.mkdir(exist_ok=True)
         sparse_gt.write(scene_info.sparse_gt_path)

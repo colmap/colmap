@@ -5,6 +5,11 @@ CURRDIR=$(pwd)
 
 export PATH="/usr/bin"
 
+# Install config manager and EPEL release
+yum install -y dnf-plugins-core epel-release
+# Enable the PowerTools repository (required for ninja-build)
+yum config-manager --set-enabled powertools
+
 # Install toolchain under AlmaLinux 8,
 # see https://almalinux.pkgs.org/8/almalinux-appstream-x86_64/
 yum install -y \
@@ -20,9 +25,25 @@ yum install -y \
     curl \
     zip \
     unzip \
-    tar
+    tar \
+    perl \
+    libXmu-devel \
+    libXi-devel \
+    mesa-libGL-devel
 
 source scl_source enable gcc-toolset-12
+
+CUDA_HOME="/usr/local/cuda"
+if [ ! -d "${CUDA_HOME}" ] && [ -d "${CUDA_HOME}-12.9" ]; then
+    ln -s "${CUDA_HOME}-12.9" "${CUDA_HOME}"
+fi
+if [ -d "${CUDA_HOME}" ]; then
+    export PATH="${CUDA_HOME}/bin:${PATH}"
+    if [ ! -f "/usr/local/bin/nvcc" ] && [ -f "${CUDA_HOME}/bin/nvcc" ]; then
+        ln -s "${CUDA_HOME}/bin/nvcc" /usr/local/bin/nvcc
+    fi
+    echo "${CUDA_HOME}/lib64" > /etc/ld.so.conf.d/cuda.conf
+fi
 
 # ccache shipped by CentOS is too old so we download and cache it.
 COMPILER_TOOLS_DIR="${CONTAINER_COMPILER_CACHE_DIR}/bin"
@@ -45,7 +66,8 @@ cd ${VCPKG_INSTALLATION_ROOT}
 cd ${CURRDIR}
 mkdir build && cd build
 cmake3 .. -GNinja \
-    -DCUDA_ENABLED=OFF \
+    -DCUDA_ENABLED="${BUILD_CUDA_ENABLED}" \
+    -DCMAKE_CUDA_ARCHITECTURES="all-major" \
     -DONNX_ENABLED=OFF \
     -DGUI_ENABLED=OFF \
     -DCGAL_ENABLED=OFF \

@@ -33,9 +33,14 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/track.h"
 #include "colmap/scene/visibility_pyramid.h"
+#include "colmap/util/enum_utils.h"
 #include "colmap/util/types.h"
 
 namespace colmap {
+
+// Type of error metric used for filtering 3D point observations.
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(
+    ReprojectionErrorType, 0, PIXEL, NORMALIZED, ANGULAR);
 
 bool MergeAndFilterReconstructions(double max_reproj_error,
                                    const Reconstruction& src_reconstruction,
@@ -43,6 +48,9 @@ bool MergeAndFilterReconstructions(double max_reproj_error,
 
 class ObservationManager {
  public:
+  // The number of levels in the 3D point multi-resolution visibility pyramid.
+  static constexpr int kNumPoint3DVisibilityPyramidLevels = 6;
+
   struct ImagePairStat {
     // The number of triangulated correspondences between two images.
     size_t num_tri_corrs = 0;
@@ -95,6 +103,13 @@ class ObservationManager {
                                 const std::unordered_set<image_t>& image_ids);
   size_t FilterAllPoints3D(double max_reproj_error, double min_tri_angle);
 
+  // Filter points with track length below threshold.
+  //
+  // @param min_track_length   Minimum track length to keep a point.
+  //
+  // @return                   The number of filtered observations.
+  size_t FilterPoints3DWithShortTracks(size_t min_track_length);
+
   // Filter observations that have negative depth.
   //
   // @return    The number of filtered observations.
@@ -102,9 +117,20 @@ class ObservationManager {
 
   size_t FilterPoints3DWithSmallTriangulationAngle(
       double min_tri_angle, const std::unordered_set<point3D_t>& point3D_ids);
+
+  // Filter observations with large reprojection error.
+  //
+  // @param max_error       Maximum error threshold. For PIXEL and NORMALIZED,
+  //                        this is the reprojection error. For ANGULAR, this
+  //                        is the angular error in degrees.
+  // @param point3D_ids     The points to be filtered.
+  // @param error_type      Type of error metric to use.
+  //
+  // @return                The number of filtered observations.
   size_t FilterPoints3DWithLargeReprojectionError(
-      double max_reproj_error,
-      const std::unordered_set<point3D_t>& point3D_ids);
+      double max_error,
+      const std::unordered_set<point3D_t>& point3D_ids,
+      ReprojectionErrorType error_type = ReprojectionErrorType::PIXEL);
 
   // Filter frames without observations or bogus camera parameters.
   //
@@ -113,7 +139,8 @@ class ObservationManager {
                                     double max_focal_length_ratio,
                                     double max_extra_param);
 
-  // De-register an existing frame, and all its references.
+  // Register/De-register an existing frame, and all its references.
+  void RegisterFrame(frame_t frame_id);
   void DeRegisterFrame(frame_t frame_id);
 
   // Get the number of observations, i.e. the number of image points that
@@ -122,6 +149,9 @@ class ObservationManager {
 
   // Get the number of correspondences for all image points.
   inline point2D_t NumCorrespondences(image_t image_id) const;
+
+  // Get the number of visible correspondences for all image points.
+  inline point2D_t NumVisibleCorrespondences(image_t image_id) const;
 
   // Get the number of observations that see a triangulated point, i.e. the
   // number of image points that have at least one correspondence to a
@@ -134,9 +164,6 @@ class ObservationManager {
   // the next best image in incremental reconstruction, because a more
   // uniform distribution of observations results in more robust registration.
   inline size_t Point3DVisibilityScore(image_t image_id) const;
-
-  // The number of levels in the 3D point multi-resolution visibility pyramid.
-  static const int kNumPoint3DVisibilityPyramidLevels;
 
   // Indicate that another image has a point that is triangulated and has
   // a correspondence to this image point.
@@ -168,6 +195,9 @@ class ObservationManager {
 
     // The sum of correspondences per image point.
     point2D_t num_correspondences;
+
+    // The sum of correspondences that have a corresponding registered image.
+    point2D_t num_visible_correspondences;
 
     // The number of 2D points, which have at least one corresponding 2D point
     // in another image that is part of a 3D point track, i.e. the sum of
@@ -210,6 +240,11 @@ point2D_t ObservationManager::NumObservations(const image_t image_id) const {
 
 point2D_t ObservationManager::NumCorrespondences(const image_t image_id) const {
   return image_stats_.at(image_id).num_correspondences;
+}
+
+point2D_t ObservationManager::NumVisibleCorrespondences(
+    const image_t image_id) const {
+  return image_stats_.at(image_id).num_visible_correspondences;
 }
 
 point2D_t ObservationManager::NumVisiblePoints3D(const image_t image_id) const {

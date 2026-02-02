@@ -4,6 +4,7 @@
 #include "pycolmap/pybind11_extension.h"
 #include "pycolmap/utils.h"
 
+#include <filesystem>
 #include <memory>
 
 #include <pybind11/pybind11.h>
@@ -71,12 +72,12 @@ class PyVisualIndexImpl : public VisualIndex, py::trampoline_self_life_support {
     PYBIND11_OVERRIDE_PURE(void, VisualIndex, Build, options, descriptors);
   }
 
-  void Write(const std::string& path) const override {
+  void Write(const std::filesystem::path& path) const override {
     PYBIND11_OVERRIDE_PURE(void, VisualIndex, Read);
   }
 
  protected:
-  void ReadFromFaiss(const std::string& path, long offset) override {
+  void ReadFromFaiss(const std::filesystem::path& path, long offset) override {
     PYBIND11_OVERRIDE_PURE(void, VisualIndex, ReadFromFaiss, path, offset);
   }
 };

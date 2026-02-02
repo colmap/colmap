@@ -39,7 +39,7 @@ namespace colmap {
 //
 // std::shared_ptr<Controller> controller = std::make_shared<Controller>(args);
 // std::unique_ptr<ControllerThread<Controller>> thread =
-// std::make_unique<ControllerThread<Controller>>(controller);
+//    std::make_unique<ControllerThread<Controller>>(controller);
 //
 template <class Controller>
 class ControllerThread : public Thread {

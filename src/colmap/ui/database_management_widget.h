@@ -108,7 +108,7 @@ class OverlappingImagesWidget : public QWidget {
 
 class CameraTab : public QWidget {
  public:
-  CameraTab(QWidget* parent);
+  explicit CameraTab(QWidget* parent);
 
   void Reload(const std::shared_ptr<Database>& database);
   void Clear();
@@ -157,7 +157,7 @@ class ImageTab : public QWidget {
 
 class PosePriorsTab : public QWidget {
  public:
-  PosePriorsTab(QWidget* parent);
+  explicit PosePriorsTab(QWidget* parent);
 
   void Reload(const std::shared_ptr<Database>& database);
   void Clear();

@@ -33,18 +33,20 @@
 #include <unordered_map>
 #include <vector>
 
+#include <omp.h>
+
 #if defined(COLMAP_CGAL_ENABLED)
 #include <CGAL/Delaunay_triangulation_3.h>
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #endif  // COLMAP_CGAL_ENABLED
 
 #include "colmap/math/graph_cut.h"
+#include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/endian.h"
 #include "colmap/util/file.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 #include "colmap/util/ply.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
@@ -97,7 +99,6 @@ namespace mvs {
 bool PoissonMeshingOptions::Check() const {
   CHECK_OPTION_GE(point_weight, 0);
   CHECK_OPTION_GT(depth, 0);
-  CHECK_OPTION_GE(color, 0);
   CHECK_OPTION_GE(trim, 0);
   CHECK_OPTION_GE(num_threads, -1);
   CHECK_OPTION_NE(num_threads, 0);
@@ -120,80 +121,100 @@ bool DelaunayMeshingOptions::Check() const {
 }
 
 bool PoissonMeshing(const PoissonMeshingOptions& options,
-                    const std::string& input_path,
-                    const std::string& output_path) {
+                    const std::filesystem::path& input_path,
+                    const std::filesystem::path& output_path) {
   THROW_CHECK(options.Check());
   THROW_CHECK_HAS_FILE_EXTENSION(input_path, ".ply");
   THROW_CHECK_FILE_EXISTS(input_path);
   THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
   THROW_CHECK_PATH_OPEN(output_path);
 
-  std::vector<std::string> args;
+  bool success = true;
 
-  args.push_back("./binary");
+#pragma omp parallel num_threads(1)
+  {
+    omp_set_num_threads(GetEffectiveNumThreads(options.num_threads));
+#ifdef _MSC_VER
+    omp_set_nested(1);
+#else
+    omp_set_max_active_levels(1);
+#endif
 
-  args.push_back("--in");
-  args.push_back(input_path);
+    std::vector<std::string> args;
 
-  args.push_back("--out");
-  args.push_back(output_path);
+    args.push_back("./poisson_recon");
 
-  args.push_back("--pointWeight");
-  args.push_back(std::to_string(options.point_weight));
+    args.push_back("--in");
+    args.push_back(input_path.string());
 
-  args.push_back("--depth");
-  args.push_back(std::to_string(options.depth));
+    args.push_back("--out");
+    args.push_back(output_path.string());
 
-  if (options.color > 0) {
-    args.push_back("--color");
-    args.push_back(std::to_string(options.color));
+    args.push_back("--pointWeight");
+    args.push_back(std::to_string(options.point_weight));
+
+    args.push_back("--depth");
+    args.push_back(std::to_string(options.depth));
+
+    // Full depth cannot exceed system depth.
+    if (options.depth < 5) {
+      args.push_back("--fullDepth");
+      args.push_back(std::to_string(options.depth));
+    }
+
+    if (options.color) {
+      args.push_back("--colors");
+    }
+
+    if (options.num_threads > 0) {
+      args.push_back("--parallel");
+      args.push_back("0");
+    }
+
+    if (options.trim > 0) {
+      args.push_back("--density");
+    }
+
+    std::vector<const char*> args_cstr;
+    args_cstr.reserve(args.size());
+    for (const auto& arg : args) {
+      args_cstr.push_back(arg.c_str());
+    }
+
+    if (RunPoissonRecon(args_cstr.size(),
+                        const_cast<char**>(args_cstr.data())) != EXIT_SUCCESS) {
+      success = false;
+    }
+
+    if (success && options.trim != 0) {
+      args.clear();
+      args_cstr.clear();
+
+      args.push_back("./surface_trimmer");
+
+      args.push_back("--in");
+      args.push_back(output_path.string());
+
+      args.push_back("--out");
+      args.push_back(output_path.string());
+
+      args.push_back("--trim");
+      args.push_back(std::to_string(options.trim));
+
+      args_cstr.reserve(args.size());
+      for (const auto& arg : args) {
+        args_cstr.push_back(arg.c_str());
+      }
+
+      if (RunSurfaceTrimmer(args_cstr.size(),
+                            const_cast<char**>(args_cstr.data())) !=
+          EXIT_SUCCESS) {
+        success = false;
+      }
+    }
   }
 
-  if (options.num_threads > 0) {
-    args.push_back("--threads");
-    args.push_back(std::to_string(options.num_threads));
-  }
-
-  if (options.trim > 0) {
-    args.push_back("--density");
-  }
-
-  std::vector<const char*> args_cstr;
-  args_cstr.reserve(args.size());
-  for (const auto& arg : args) {
-    args_cstr.push_back(arg.c_str());
-  }
-
-  if (PoissonRecon(args_cstr.size(), const_cast<char**>(args_cstr.data())) !=
-      EXIT_SUCCESS) {
-    return false;
-  }
-
-  if (options.trim == 0) {
-    return true;
-  }
-
-  args.clear();
-  args_cstr.clear();
-
-  args.push_back("./binary");
-
-  args.push_back("--in");
-  args.push_back(output_path);
-
-  args.push_back("--out");
-  args.push_back(output_path);
-
-  args.push_back("--trim");
-  args.push_back(std::to_string(options.trim));
-
-  args_cstr.reserve(args.size());
-  for (const auto& arg : args) {
-    args_cstr.push_back(arg.c_str());
-  }
-
-  return SurfaceTrimmer(args_cstr.size(),
-                        const_cast<char**>(args_cstr.data())) == EXIT_SUCCESS;
+  return success;
 }
 
 #if defined(COLMAP_CGAL_ENABLED)
@@ -210,8 +231,8 @@ class DelaunayMeshingInput {
  public:
   struct Image {
     camera_t camera_id = kInvalidCameraId;
-    Eigen::Matrix3x4f proj_matrix = Eigen::Matrix3x4f::Identity();
-    Eigen::Vector3f proj_center = Eigen::Vector3f::Zero();
+    Eigen::Matrix3x4f cam_from_world = Eigen::Matrix3x4f::Identity();
+    Eigen::Vector3f cam_in_world = Eigen::Vector3f::Zero();
     std::vector<size_t> point_idxs;
   };
 
@@ -224,7 +245,7 @@ class DelaunayMeshingInput {
   std::vector<Image> images;
   std::vector<Point> points;
 
-  void ReadSparseReconstruction(const std::string& path) {
+  void ReadSparseReconstruction(const std::filesystem::path& path) {
     Reconstruction reconstruction;
     reconstruction.Read(path);
     CopyFromSparseReconstruction(reconstruction);
@@ -250,8 +271,9 @@ class DelaunayMeshingInput {
       const auto& image = reconstruction.Image(image_id);
       DelaunayMeshingInput::Image input_image;
       input_image.camera_id = image.CameraId();
-      input_image.proj_matrix = image.CamFromWorld().ToMatrix().cast<float>();
-      input_image.proj_center = image.ProjectionCenter().cast<float>();
+      input_image.cam_from_world =
+          image.CamFromWorld().ToMatrix().cast<float>();
+      input_image.cam_in_world = image.ProjectionCenter().cast<float>();
       input_image.point_idxs.reserve(image.NumPoints3D());
       for (const auto& point2D : image.Points2D()) {
         if (point2D.HasPoint3D()) {
@@ -263,10 +285,10 @@ class DelaunayMeshingInput {
     }
   }
 
-  void ReadDenseReconstruction(const std::string& path) {
+  void ReadDenseReconstruction(const std::filesystem::path& path) {
     {
       Reconstruction reconstruction;
-      reconstruction.Read(JoinPaths(path, "sparse"));
+      reconstruction.Read(path / "sparse");
 
       cameras = reconstruction.Cameras();
 
@@ -275,15 +297,16 @@ class DelaunayMeshingInput {
         const auto& image = reconstruction.Image(image_id);
         DelaunayMeshingInput::Image input_image;
         input_image.camera_id = image.CameraId();
-        input_image.proj_matrix = image.CamFromWorld().ToMatrix().cast<float>();
-        input_image.proj_center = image.ProjectionCenter().cast<float>();
+        input_image.cam_from_world =
+            image.CamFromWorld().ToMatrix().cast<float>();
+        input_image.cam_in_world = image.ProjectionCenter().cast<float>();
         images.push_back(input_image);
       }
     }
 
-    const auto& ply_points = ReadPly(JoinPaths(path, "fused.ply"));
+    const auto& ply_points = ReadPly(path / "fused.ply");
 
-    const std::string vis_path = JoinPaths(path, "fused.ply.vis");
+    const auto vis_path = path / "fused.ply.vis";
     std::fstream vis_file(vis_path, std::ios::in | std::ios::binary);
     THROW_CHECK_FILE_OPEN(vis_file, vis_path);
 
@@ -375,9 +398,9 @@ class DelaunayMeshingInput {
               CGALToEigen(cell->vertex(i)->point());
 
           const Eigen::Vector3f point_local =
-              image.proj_matrix * point.position.homogeneous();
+              image.cam_from_world * point.position.homogeneous();
           const Eigen::Vector3f cell_point_local =
-              image.proj_matrix * cell_point.homogeneous();
+              image.cam_from_world * cell_point.homogeneous();
 
           // Ensure that both points are infront of camera.
           if (point_local.z() <= 0 || cell_point_local.z() <= 0) {
@@ -635,7 +658,7 @@ double ComputeCosFacetCellAngle(const Delaunay& triangulation,
          std::sqrt(facet_normal_length_squared * co_tangent_length_squared);
 }
 
-void WriteDelaunayTriangulationPly(const std::string& path,
+void WriteDelaunayTriangulationPly(const std::filesystem::path& path,
                                    const Delaunay& triangulation) {
   std::fstream file(path, std::ios::out);
   THROW_CHECK_FILE_OPEN(file, path);
@@ -743,7 +766,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
     // Image that is integrated into s-t graph.
     const auto& image = input_data.images[image_idx];
-    const K::Point_3 image_position = EigenToCGAL(image.proj_center);
+    const K::Point_3 image_position = EigenToCGAL(image.cam_in_world);
 
     // Intersections between viewing rays and Delaunay triangulation.
     std::vector<DelaunayTriangulationRayCaster::Intersection> intersections;
@@ -861,12 +884,12 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
     // Accumulate the weights of the image into the global graph.
     const auto& image_cell_graph_data = result.Data();
-    for (const auto& image_cell_data : image_cell_graph_data) {
-      auto& cell_data = cell_graph_data.at(image_cell_data.first);
-      cell_data.sink_weight += image_cell_data.second.sink_weight;
-      cell_data.source_weight += image_cell_data.second.source_weight;
-      for (size_t j = 0; j < cell_data.edge_weights.size(); ++j) {
-        cell_data.edge_weights[j] += image_cell_data.second.edge_weights[j];
+    for (const auto& [cell_handle, cell_data] : image_cell_graph_data) {
+      auto& global_cell_data = cell_graph_data.at(cell_handle);
+      global_cell_data.sink_weight += cell_data.sink_weight;
+      global_cell_data.source_weight += cell_data.source_weight;
+      for (size_t j = 0; j < global_cell_data.edge_weights.size(); ++j) {
+        global_cell_data.edge_weights[j] += cell_data.edge_weights[j];
       }
     }
 
@@ -882,22 +905,20 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
   MinSTGraphCut<size_t, float> graph_cut(cell_graph_data.size());
 
   // Iterate all cells in the triangulation.
-  for (auto& cell_data : cell_graph_data) {
-    graph_cut.AddNode(cell_data.second.index,
-                      cell_data.second.source_weight,
-                      cell_data.second.sink_weight);
+  for (auto& [cell_handle, data] : cell_graph_data) {
+    graph_cut.AddNode(data.index, data.source_weight, data.sink_weight);
 
     // Iterate all facets of the current cell to accumulate edge weight.
     for (int i = 0; i < 4; ++i) {
       // Compose the current facet.
-      const Delaunay::Facet facet = std::make_pair(cell_data.first, i);
+      const Delaunay::Facet facet = std::make_pair(cell_handle, i);
 
       // Extract the mirrored facet of the current cell (opposite orientation).
       const Delaunay::Facet mirror_facet = triangulation.mirror_facet(facet);
       const auto& mirror_cell_data = cell_graph_data.at(mirror_facet.first);
 
       // Avoid duplicate edges in graph.
-      if (cell_data.second.index < mirror_cell_data.index) {
+      if (data.index < mirror_cell_data.index) {
         continue;
       }
 
@@ -911,12 +932,12 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
                     ComputeCosFacetCellAngle(triangulation, mirror_facet)));
 
       const float forward_edge_weight =
-          cell_data.second.edge_weights[facet.second] + edge_shape_weight;
+          data.edge_weights[facet.second] + edge_shape_weight;
       const float backward_edge_weight =
           mirror_cell_data.edge_weights[mirror_facet.second] +
           edge_shape_weight;
 
-      graph_cut.AddEdge(cell_data.second.index,
+      graph_cut.AddEdge(data.index,
                         mirror_cell_data.index,
                         forward_edge_weight,
                         backward_edge_weight);
@@ -1017,8 +1038,8 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 }
 
 void SparseDelaunayMeshing(const DelaunayMeshingOptions& options,
-                           const std::string& input_path,
-                           const std::string& output_path) {
+                           const std::filesystem::path& input_path,
+                           const std::filesystem::path& output_path) {
   Timer timer;
   timer.Start();
 
@@ -1034,8 +1055,8 @@ void SparseDelaunayMeshing(const DelaunayMeshingOptions& options,
 }
 
 void DenseDelaunayMeshing(const DelaunayMeshingOptions& options,
-                          const std::string& input_path,
-                          const std::string& output_path) {
+                          const std::filesystem::path& input_path,
+                          const std::filesystem::path& output_path) {
   Timer timer;
   timer.Start();
 

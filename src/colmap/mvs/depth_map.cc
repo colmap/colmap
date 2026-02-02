@@ -87,8 +87,7 @@ Bitmap DepthMap::ToBitmap(const float min_percentile,
   THROW_CHECK_GT(width_, 0);
   THROW_CHECK_GT(height_, 0);
 
-  Bitmap bitmap;
-  bitmap.Allocate(width_, height_, true);
+  Bitmap bitmap(width_, height_, true);
 
   std::vector<float> valid_depths;
   valid_depths.reserve(data_.size());

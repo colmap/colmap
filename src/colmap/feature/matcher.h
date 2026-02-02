@@ -31,7 +31,6 @@
 
 #include "colmap/feature/index.h"
 #include "colmap/feature/types.h"
-#include "colmap/geometry/gps.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/image.h"
@@ -52,7 +51,21 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(
 struct SiftMatchingOptions;
 struct XFeatMatchingOptions;
 
-struct FeatureMatchingOptions {
+struct FeatureMatchingTypeOptions {
+  explicit FeatureMatchingTypeOptions();
+
+  std::shared_ptr<SiftMatchingOptions> sift;
+  std::shared_ptr<XFeatMatchingOptions> xfeat;
+
+  FeatureMatchingTypeOptions(const FeatureMatchingTypeOptions& other);
+  FeatureMatchingTypeOptions& operator=(
+      const FeatureMatchingTypeOptions& other);
+  FeatureMatchingTypeOptions(FeatureMatchingTypeOptions&& other) = default;
+  FeatureMatchingTypeOptions& operator=(FeatureMatchingTypeOptions&& other) =
+      default;
+};
+
+struct FeatureMatchingOptions : public FeatureMatchingTypeOptions {
   explicit FeatureMatchingOptions(
       FeatureMatcherType type = FeatureMatcherType::SIFT);
 
@@ -78,17 +91,24 @@ struct FeatureMatchingOptions {
   // Whether to perform guided matching.
   bool guided_matching = false;
 
+  // Skips the geometric verification stage and forwards matches unchanged.
+  // This option is ignored when guided matching is enabled, because guided
+  // matching depends on the two-view geometry produced by geometric
+  // verification.
+  bool skip_geometric_verification = false;
+
   // Whether to perform geometric verification using rig constraints
   // between pairs of non-trivial frames. If disabled, performs geometric
   // two-view verification for non-trivial frames without rig constraints.
+  // This option is ignored when skip_geometric_verification is true.
   bool rig_verification = false;
 
   // Whether to skip matching images within the same frame.
   // This is useful for the case of non-overlapping cameras in a rig.
   bool skip_image_pairs_in_same_frame = false;
 
-  std::shared_ptr<SiftMatchingOptions> sift;
-  std::shared_ptr<XFeatMatchingOptions> xfeat;
+  // Whether the selected matcher requires OpenGL.
+  bool RequiresOpenGL() const;
 
   bool Check() const;
 };
@@ -101,9 +121,7 @@ class FeatureMatcher {
     // Unique identifier for the image. Allows a matcher to cache some
     // computations per image in consecutive calls to matching.
     image_t image_id = kInvalidImageId;
-    // Sensor dimension in pixels of the image's camera.
-    int width = 0;
-    int height = 0;
+    const Camera* camera = nullptr;
     std::shared_ptr<const FeatureKeypoints> keypoints;
     std::shared_ptr<const FeatureDescriptors> descriptors;
   };
@@ -134,10 +152,11 @@ class FeatureMatcherCache {
   const Camera& GetCamera(camera_t camera_id);
   const Frame& GetFrame(frame_t frame_id);
   const Image& GetImage(image_t image_id);
-  const PosePrior* GetPosePriorOrNull(image_t image_id);
+  const PosePrior* FindImagePosePriorOrNull(image_t image_id);
   std::shared_ptr<FeatureKeypoints> GetKeypoints(image_t image_id);
   std::shared_ptr<FeatureDescriptors> GetDescriptors(image_t image_id);
   FeatureMatches GetMatches(image_t image_id1, image_t image_id2);
+  TwoViewGeometry GetTwoViewGeometry(image_t image_id1, image_t image_id2);
   std::vector<frame_t> GetFrameIds();
   std::vector<image_t> GetImageIds();
   ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>&
@@ -147,7 +166,12 @@ class FeatureMatcherCache {
   bool ExistsDescriptors(image_t image_id);
 
   bool ExistsMatches(image_t image_id1, image_t image_id2);
+  bool ExistsTwoViewGeometry(image_t image_id1, image_t image_id2);
   bool ExistsInlierMatches(image_t image_id1, image_t image_id2);
+
+  void UpdateTwoViewGeometry(image_t image_id1,
+                             image_t image_id2,
+                             const TwoViewGeometry& two_view_geometry);
 
   void WriteMatches(image_t image_id1,
                     image_t image_id2,
@@ -157,6 +181,7 @@ class FeatureMatcherCache {
                             const TwoViewGeometry& two_view_geometry);
 
   void DeleteMatches(image_t image_id1, image_t image_id2);
+  void DeleteTwoViewGeometry(image_t image_id1, image_t image_id2);
   void DeleteInlierMatches(image_t image_id1, image_t image_id2);
 
   size_t MaxNumKeypoints();

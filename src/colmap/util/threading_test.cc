@@ -489,7 +489,7 @@ TEST(ThreadPool, NoArgNoReturn) {
   };
 
   ThreadPool pool(4);
-  std::vector<std::future<void>> futures;
+  std::vector<std::shared_future<void>> futures;
   futures.reserve(100);
   for (int i = 0; i < 100; ++i) {
     futures.push_back(pool.AddTask(Func));
@@ -508,7 +508,7 @@ TEST(ThreadPool, ArgNoReturn) {
   };
 
   ThreadPool pool(4);
-  std::vector<std::future<void>> futures;
+  std::vector<std::shared_future<void>> futures;
   futures.reserve(100);
   for (int i = 0; i < 100; ++i) {
     futures.push_back(pool.AddTask(Func, i));
@@ -523,7 +523,7 @@ TEST(ThreadPool, NoArgReturn) {
   std::function<int(void)> Func = []() { return 0; };
 
   ThreadPool pool(4);
-  std::vector<std::future<int>> futures;
+  std::vector<std::shared_future<int>> futures;
   futures.reserve(100);
   for (int i = 0; i < 100; ++i) {
     futures.push_back(pool.AddTask(Func));
@@ -543,7 +543,7 @@ TEST(ThreadPool, ArgReturn) {
   };
 
   ThreadPool pool(4);
-  std::vector<std::future<int>> futures;
+  std::vector<std::shared_future<int>> futures;
   futures.reserve(100);
   for (int i = 0; i < 100; ++i) {
     futures.push_back(pool.AddTask(Func, i));
@@ -563,7 +563,7 @@ TEST(ThreadPool, Stop) {
   };
 
   ThreadPool pool(4);
-  std::vector<std::future<int>> futures;
+  std::vector<std::shared_future<int>> futures;
   futures.reserve(100);
   for (int i = 0; i < 100; ++i) {
     futures.push_back(pool.AddTask(Func, i));
@@ -637,6 +637,82 @@ TEST(ThreadPool, GetThreadIndex) {
   for (const auto result : results) {
     EXPECT_GE(result, 0);
     EXPECT_LE(result, 3);
+  }
+}
+
+TEST(ThreadPool, FuturePropagatesException) {
+  ThreadPool pool(1);
+  auto future = pool.AddTask([]() { throw std::runtime_error("Error"); });
+  EXPECT_THROW(future.get(), std::runtime_error);
+  EXPECT_THROW(pool.Wait(), AggregateException);
+}
+
+TEST(ThreadPool, WaitPropagatesException) {
+  ThreadPool pool(1);
+  pool.AddTask([]() { throw std::runtime_error("Error"); });
+  EXPECT_THROW(pool.Wait(), AggregateException);
+  EXPECT_NO_THROW(pool.Wait());
+}
+
+TEST(ThreadPool, WaitPropagatesMultipleExceptions) {
+  ThreadPool pool(1);
+  pool.AddTask([]() { throw std::runtime_error("Error 1"); });
+  pool.AddTask([]() { throw std::runtime_error("Error 2"); });
+
+  try {
+    pool.Wait();
+    FAIL() << "Expected AggregateException";
+  } catch (const AggregateException& e) {
+    EXPECT_EQ(e.exceptions().size(), 2);
+  }
+  EXPECT_NO_THROW(pool.Wait());
+}
+
+TEST(ThreadPool, StopPropagatesException) {
+  ThreadPool pool(1);
+  pool.AddTask([]() { throw std::runtime_error("Error"); });
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  EXPECT_THROW(pool.Stop(), AggregateException);
+  EXPECT_NO_THROW(pool.Stop());
+}
+
+TEST(ThreadPool, FutureAndWaitPropagatesException) {
+  ThreadPool pool(1);
+  auto future = pool.AddTask([]() { throw std::runtime_error("Error"); });
+  EXPECT_THROW(future.get(), std::runtime_error);
+  EXPECT_THROW(pool.Wait(), AggregateException);
+  EXPECT_NO_THROW(pool.Wait());
+}
+
+TEST(ThreadPool, CatchAggregateException) {
+  ThreadPool pool(1);
+  pool.AddTask([]() { throw std::runtime_error("Error 1"); });
+  pool.AddTask([]() { throw std::runtime_error("Error 2"); });
+
+  bool caught = false;
+  try {
+    pool.Wait();
+  } catch (const AggregateException& e) {
+    caught = true;
+    EXPECT_EQ(e.exceptions().size(), 2);
+  }
+  EXPECT_TRUE(caught);
+}
+
+TEST(ThreadPool, AggregateExceptionMessage) {
+  ThreadPool pool(1);
+  pool.AddTask([]() { throw std::runtime_error("First error message"); });
+  pool.AddTask([]() { throw std::runtime_error("Second error message"); });
+
+  try {
+    pool.Wait();
+    FAIL() << "Expected AggregateException";
+  } catch (const AggregateException& e) {
+    std::string what = e.what();
+    // Order of exceptions is non-deterministic, so check components separately.
+    EXPECT_TRUE(what.find("2 task(s) threw exception(s):") == 0);
+    EXPECT_TRUE(what.find("First error message") != std::string::npos);
+    EXPECT_TRUE(what.find("Second error message") != std::string::npos);
   }
 }
 

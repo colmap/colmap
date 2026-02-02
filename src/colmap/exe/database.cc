@@ -47,7 +47,9 @@ int RunDatabaseCleaner(int argc, char** argv) {
   options.AddRequiredOption(
       "type", &type, "{all, images, features, matches, two_view_geometries}");
   options.AddDatabaseOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   StringToLower(&type);
   auto database = Database::Open(*options.database_path);
@@ -85,7 +87,9 @@ int RunDatabaseCleaner(int argc, char** argv) {
 int RunDatabaseCreator(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   auto database = Database::Open(*options.database_path);
 
@@ -93,15 +97,17 @@ int RunDatabaseCreator(int argc, char** argv) {
 }
 
 int RunDatabaseMerger(int argc, char** argv) {
-  std::string database_path1;
-  std::string database_path2;
-  std::string merged_database_path;
+  std::filesystem::path database_path1;
+  std::filesystem::path database_path2;
+  std::filesystem::path merged_database_path;
 
   OptionManager options;
   options.AddRequiredOption("database_path1", &database_path1);
   options.AddRequiredOption("database_path2", &database_path2);
   options.AddRequiredOption("merged_database_path", &merged_database_path);
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   if (ExistsFile(merged_database_path)) {
     LOG(ERROR) << "Merged database file must not exist.";
@@ -117,10 +123,10 @@ int RunDatabaseMerger(int argc, char** argv) {
 }
 
 int RunRigConfigurator(int argc, char** argv) {
-  std::string database_path;
-  std::string rig_config_path;
-  std::string input_path;
-  std::string output_path;
+  std::filesystem::path database_path;
+  std::filesystem::path rig_config_path;
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
 
   OptionManager options;
   options.AddRequiredOption("database_path", &database_path);
@@ -137,7 +143,9 @@ int RunRigConfigurator(int argc, char** argv) {
       "output_path",
       &output_path,
       "Optional output reconstruction with configured rigs/frames.");
-  options.Parse(argc, argv);
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
 
   std::optional<Reconstruction> reconstruction;
   if (!input_path.empty()) {

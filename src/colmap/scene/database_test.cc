@@ -34,6 +34,7 @@
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
+#include <filesystem>
 #include <thread>
 
 #include <Eigen/Geometry>
@@ -48,8 +49,8 @@ namespace colmap {
 namespace {
 
 class ParameterizedDatabaseTests
-    : public ::testing::TestWithParam<
-          std::function<std::shared_ptr<Database>(const std::string&)>> {};
+    : public ::testing::TestWithParam<std::function<std::shared_ptr<Database>(
+          const std::filesystem::path&)>> {};
 
 TEST_P(ParameterizedDatabaseTests, OpenInMemory) {
   std::shared_ptr<Database> database = GetParam()(kInMemorySqliteDatabasePath);
@@ -65,12 +66,12 @@ TEST_P(ParameterizedDatabaseTests, OpenCloseInMemory) {
 
 TEST_P(ParameterizedDatabaseTests, OpenFile) {
   std::shared_ptr<Database> database =
-      GetParam()(CreateTestDir() + "/database.db");
+      GetParam()(CreateTestDir() / "database.db");
 }
 
 TEST_P(ParameterizedDatabaseTests, OpenCloseFile) {
   std::shared_ptr<Database> database =
-      GetParam()(CreateTestDir() + "/database.db");
+      GetParam()(CreateTestDir() / "database.db");
   database->Close();
   // Any database operation after closing the database should fail.
   EXPECT_ANY_THROW(database->ExistsCamera(42));
@@ -78,7 +79,7 @@ TEST_P(ParameterizedDatabaseTests, OpenCloseFile) {
 }
 
 TEST_P(ParameterizedDatabaseTests, OpenFileWithNonASCIIPath) {
-  const std::string database_path = CreateTestDir() + u8"/äöü時临.db";
+  const auto database_path = CreateTestDir() / u8"äöü時临.db";
   std::shared_ptr<Database> database = GetParam()(database_path);
   EXPECT_TRUE(ExistsPath(database_path));
 }
@@ -241,11 +242,19 @@ TEST_P(ParameterizedDatabaseTests, Image) {
   Camera camera = Camera::CreateFromModelName(
       kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
   camera.camera_id = database->WriteCamera(camera);
+  Rig rig;
+  rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera.camera_id));
+  rig.SetRigId(database->WriteRig(rig));
   EXPECT_EQ(database->NumImages(), 0);
   Image image;
   image.SetName("test");
   image.SetCameraId(camera.camera_id);
   image.SetImageId(database->WriteImage(image));
+  Frame frame;
+  frame.SetRigId(rig.RigId());
+  frame.AddDataId(image.DataId());
+  frame.SetFrameId(database->WriteFrame(frame));
+  image.SetFrameId(frame.FrameId());
   EXPECT_EQ(database->NumImages(), 1);
   EXPECT_TRUE(database->ExistsImage(image.ImageId()));
   EXPECT_EQ(database->ReadImage(image.ImageId()), image);
@@ -257,7 +266,10 @@ TEST_P(ParameterizedDatabaseTests, Image) {
   Image image2 = image;
   image2.SetName("test2");
   image2.SetImageId(image.ImageId() + 1);
-  database->WriteImage(image2, true);
+  frame.AddDataId(image2.DataId());
+  database->UpdateFrame(frame);
+  EXPECT_EQ(database->WriteImage(image2, /*use_image_id=*/true),
+            image2.ImageId());
   EXPECT_EQ(database->NumImages(), 2);
   EXPECT_TRUE(database->ExistsImage(image.ImageId()));
   EXPECT_TRUE(database->ExistsImage(image2.ImageId()));
@@ -271,31 +283,26 @@ TEST_P(ParameterizedDatabaseTests, PosePrior) {
   Camera camera;
   camera.camera_id = database->WriteCamera(camera);
   Image image;
-  image.SetName("test");
   image.SetCameraId(camera.camera_id);
-  image.SetImageId(database->WriteImage(image));
   EXPECT_EQ(database->NumPosePriors(), 0);
-  PosePrior pose_prior(Eigen::Vector3d(0.1, 0.2, 0.3),
-                       PosePrior::CoordinateSystem::CARTESIAN);
-  EXPECT_TRUE(pose_prior.IsValid());
-  EXPECT_FALSE(pose_prior.IsCovarianceValid());
-  database->WritePosePrior(image.ImageId(), pose_prior);
+  PosePrior pose_prior;
+  pose_prior.corr_data_id = image.DataId();
+  pose_prior.position = Eigen::Vector3d(0.1, 0.2, 0.3);
+  pose_prior.position_covariance = Eigen::Matrix3d::Random();
+  pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  pose_prior.gravity = Eigen::Vector3d::Random();
+  pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
+  EXPECT_ANY_THROW(database->WritePosePrior(pose_prior));
   EXPECT_EQ(database->NumPosePriors(), 1);
-  auto read_pose_prior = database->ReadPosePrior(image.ImageId());
-  EXPECT_EQ(read_pose_prior.position, pose_prior.position);
-  EXPECT_EQ(read_pose_prior.coordinate_system, pose_prior.coordinate_system);
-  EXPECT_TRUE(read_pose_prior.IsValid());
-  EXPECT_FALSE(read_pose_prior.IsCovarianceValid());
+  EXPECT_EQ(database->ReadPosePrior(pose_prior.pose_prior_id,
+                                    /*is_deprecated_image_prior=*/false),
+            pose_prior);
   pose_prior.position_covariance = Eigen::Matrix3d::Identity();
-  EXPECT_TRUE(pose_prior.IsCovarianceValid());
-  database->UpdatePosePrior(image.ImageId(), pose_prior);
-  read_pose_prior = database->ReadPosePrior(image.ImageId());
-  EXPECT_EQ(read_pose_prior.position, pose_prior.position);
-  EXPECT_EQ(read_pose_prior.position_covariance,
-            pose_prior.position_covariance);
-  EXPECT_EQ(read_pose_prior.coordinate_system, pose_prior.coordinate_system);
-  EXPECT_TRUE(read_pose_prior.IsValid());
-  EXPECT_TRUE(read_pose_prior.IsCovarianceValid());
+  database->UpdatePosePrior(pose_prior);
+  EXPECT_EQ(database->ReadPosePrior(pose_prior.pose_prior_id,
+                                    /*is_deprecated_image_prior=*/false),
+            pose_prior);
+  EXPECT_THAT(database->ReadAllPosePriors(), testing::ElementsAre(pose_prior));
   database->ClearPosePriors();
   EXPECT_EQ(database->NumPosePriors(), 0);
 }
@@ -312,31 +319,38 @@ TEST_P(ParameterizedDatabaseTests, Keypoints) {
   EXPECT_EQ(database->NumKeypointsForImage(image.ImageId()), 0);
   const FeatureKeypoints keypoints = FeatureKeypoints(10);
   database->WriteKeypoints(image.ImageId(), keypoints);
-  const FeatureKeypoints keypoints_read =
-      database->ReadKeypoints(image.ImageId());
-  EXPECT_EQ(keypoints.size(), keypoints_read.size());
-  for (size_t i = 0; i < keypoints.size(); ++i) {
-    EXPECT_EQ(keypoints[i].x, keypoints_read[i].x);
-    EXPECT_EQ(keypoints[i].y, keypoints_read[i].y);
-    EXPECT_EQ(keypoints[i].a11, keypoints_read[i].a11);
-    EXPECT_EQ(keypoints[i].a12, keypoints_read[i].a12);
-    EXPECT_EQ(keypoints[i].a21, keypoints_read[i].a21);
-    EXPECT_EQ(keypoints[i].a22, keypoints_read[i].a22);
-  }
+  EXPECT_EQ(keypoints, database->ReadKeypoints(image.ImageId()));
   EXPECT_EQ(database->NumKeypoints(), 10);
   EXPECT_EQ(database->MaxNumKeypoints(), 10);
   EXPECT_EQ(database->NumKeypointsForImage(image.ImageId()), 10);
-  const FeatureKeypoints keypoints2 = FeatureKeypoints(20);
+  FeatureKeypoints keypoints2 = FeatureKeypoints(20);
   image.SetName("test2");
   image.SetImageId(database->WriteImage(image));
   database->WriteKeypoints(image.ImageId(), keypoints2);
+  EXPECT_EQ(keypoints2, database->ReadKeypoints(image.ImageId()));
   EXPECT_EQ(database->NumKeypoints(), 30);
   EXPECT_EQ(database->MaxNumKeypoints(), 20);
   EXPECT_EQ(database->NumKeypointsForImage(image.ImageId()), 20);
+  keypoints2[0].x += 1;
+  database->UpdateKeypoints(image.ImageId(), keypoints2);
+  EXPECT_EQ(keypoints2, database->ReadKeypoints(image.ImageId()));
   database->ClearKeypoints();
   EXPECT_EQ(database->NumKeypoints(), 0);
   EXPECT_EQ(database->MaxNumKeypoints(), 0);
   EXPECT_EQ(database->NumKeypointsForImage(image.ImageId()), 0);
+}
+
+TEST_P(ParameterizedDatabaseTests, ReadKeypointsEmpty) {
+  std::shared_ptr<Database> database = GetParam()(kInMemorySqliteDatabasePath);
+  Camera camera;
+  camera.camera_id = database->WriteCamera(camera);
+  Image image;
+  image.SetName("test");
+  image.SetCameraId(camera.camera_id);
+  image.SetImageId(database->WriteImage(image));
+  // Reading keypoints for an image with no keypoints should return empty.
+  const FeatureKeypoints keypoints = database->ReadKeypoints(image.ImageId());
+  EXPECT_TRUE(keypoints.empty());
 }
 
 TEST_P(ParameterizedDatabaseTests, Descriptors) {
@@ -467,10 +481,12 @@ TEST_P(ParameterizedDatabaseTests, TwoViewGeometry) {
   EXPECT_EQ(two_view_geometry.F, two_view_geometry_read.F);
   EXPECT_EQ(two_view_geometry.E, two_view_geometry_read.E);
   EXPECT_EQ(two_view_geometry.H, two_view_geometry_read.H);
-  EXPECT_EQ(two_view_geometry.cam2_from_cam1.rotation.coeffs(),
-            two_view_geometry_read.cam2_from_cam1.rotation.coeffs());
-  EXPECT_EQ(two_view_geometry.cam2_from_cam1.translation,
-            two_view_geometry_read.cam2_from_cam1.translation);
+  EXPECT_TRUE(two_view_geometry.cam2_from_cam1.has_value());
+  EXPECT_TRUE(two_view_geometry_read.cam2_from_cam1.has_value());
+  EXPECT_EQ(two_view_geometry.cam2_from_cam1->rotation().coeffs(),
+            two_view_geometry_read.cam2_from_cam1->rotation().coeffs());
+  EXPECT_EQ(two_view_geometry.cam2_from_cam1->translation(),
+            two_view_geometry_read.cam2_from_cam1->translation());
 
   const TwoViewGeometry two_view_geometry_read_inv =
       database->ReadTwoViewGeometry(image_id2, image_id1);
@@ -484,14 +500,17 @@ TEST_P(ParameterizedDatabaseTests, TwoViewGeometry) {
   }
 
   EXPECT_EQ(two_view_geometry_read_inv.config, two_view_geometry_read.config);
-  EXPECT_EQ(two_view_geometry_read_inv.F.transpose(), two_view_geometry_read.F);
-  EXPECT_EQ(two_view_geometry_read_inv.E.transpose(), two_view_geometry_read.E);
-  EXPECT_TRUE(two_view_geometry_read_inv.H.inverse().eval().isApprox(
-      two_view_geometry_read.H));
-  EXPECT_TRUE(two_view_geometry_read_inv.cam2_from_cam1.rotation.isApprox(
-      Inverse(two_view_geometry_read.cam2_from_cam1).rotation));
-  EXPECT_TRUE(two_view_geometry_read_inv.cam2_from_cam1.translation.isApprox(
-      Inverse(two_view_geometry_read.cam2_from_cam1).translation));
+  EXPECT_EQ(two_view_geometry_read_inv.F.value().transpose(),
+            two_view_geometry_read.F.value());
+  EXPECT_EQ(two_view_geometry_read_inv.E.value().transpose(),
+            two_view_geometry_read.E.value());
+  EXPECT_TRUE(two_view_geometry_read_inv.H.value().inverse().eval().isApprox(
+      two_view_geometry_read.H.value()));
+  EXPECT_TRUE(two_view_geometry_read_inv.cam2_from_cam1.has_value());
+  EXPECT_TRUE(two_view_geometry_read_inv.cam2_from_cam1->rotation().isApprox(
+      Inverse(*two_view_geometry_read.cam2_from_cam1).rotation()));
+  EXPECT_TRUE(two_view_geometry_read_inv.cam2_from_cam1->translation().isApprox(
+      Inverse(*two_view_geometry_read.cam2_from_cam1).translation()));
 
   const std::vector<std::pair<image_pair_t, TwoViewGeometry>>
       two_view_geometries = database->ReadTwoViewGeometries();
@@ -502,10 +521,11 @@ TEST_P(ParameterizedDatabaseTests, TwoViewGeometry) {
   EXPECT_EQ(two_view_geometry.F, two_view_geometries[0].second.F);
   EXPECT_EQ(two_view_geometry.E, two_view_geometries[0].second.E);
   EXPECT_EQ(two_view_geometry.H, two_view_geometries[0].second.H);
-  EXPECT_EQ(two_view_geometry.cam2_from_cam1.rotation.coeffs(),
-            two_view_geometries[0].second.cam2_from_cam1.rotation.coeffs());
-  EXPECT_EQ(two_view_geometry.cam2_from_cam1.translation,
-            two_view_geometries[0].second.cam2_from_cam1.translation);
+  EXPECT_TRUE(two_view_geometries[0].second.cam2_from_cam1.has_value());
+  EXPECT_EQ(two_view_geometry.cam2_from_cam1->rotation().coeffs(),
+            two_view_geometries[0].second.cam2_from_cam1->rotation().coeffs());
+  EXPECT_EQ(two_view_geometry.cam2_from_cam1->translation(),
+            two_view_geometries[0].second.cam2_from_cam1->translation());
   EXPECT_EQ(two_view_geometry.inlier_matches.size(),
             two_view_geometries[0].second.inlier_matches.size());
   const std::vector<std::pair<image_pair_t, int>> pair_ids_and_num_inliers =
@@ -517,60 +537,123 @@ TEST_P(ParameterizedDatabaseTests, TwoViewGeometry) {
             two_view_geometry.inlier_matches.size());
   EXPECT_EQ(database->NumInlierMatches(), 1000);
   database->DeleteInlierMatches(image_id1, image_id2);
+  EXPECT_TRUE(database->ExistsTwoViewGeometry(image_id1, image_id2));
+  EXPECT_EQ(database->NumInlierMatches(), 0);
+  database->DeleteTwoViewGeometry(image_id1, image_id2);
+  EXPECT_FALSE(database->ExistsTwoViewGeometry(image_id1, image_id2));
   EXPECT_EQ(database->NumInlierMatches(), 0);
   database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+  EXPECT_ANY_THROW(
+      database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry));
   EXPECT_EQ(database->NumInlierMatches(), 1000);
   database->ClearTwoViewGeometries();
   EXPECT_EQ(database->NumInlierMatches(), 0);
+  two_view_geometry.inlier_matches.clear();
+  database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+  EXPECT_EQ(two_view_geometry.cam2_from_cam1,
+            database->ReadTwoViewGeometry(image_id1, image_id2).cam2_from_cam1);
+
+  // Test with E and F set, but H missing.
+  database->ClearTwoViewGeometries();
+  TwoViewGeometry two_view_geometry_no_h;
+  two_view_geometry_no_h.inlier_matches = FeatureMatches(10);
+  two_view_geometry_no_h.config =
+      TwoViewGeometry::ConfigurationType::CALIBRATED;
+  two_view_geometry_no_h.E = Eigen::Matrix3d::Random();
+  two_view_geometry_no_h.F = Eigen::Matrix3d::Random();
+  database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry_no_h);
+  const TwoViewGeometry two_view_geometry_no_h_read =
+      database->ReadTwoViewGeometry(image_id1, image_id2);
+  EXPECT_TRUE(two_view_geometry_no_h_read.E.has_value());
+  EXPECT_TRUE(two_view_geometry_no_h_read.F.has_value());
+  EXPECT_EQ(two_view_geometry_no_h.E, two_view_geometry_no_h_read.E);
+  EXPECT_EQ(two_view_geometry_no_h.F, two_view_geometry_no_h_read.F);
+  EXPECT_FALSE(two_view_geometry_no_h_read.H.has_value());
 }
 
 TEST_P(ParameterizedDatabaseTests, Merge) {
   std::shared_ptr<Database> database1 = GetParam()(kInMemorySqliteDatabasePath);
   std::shared_ptr<Database> database2 = GetParam()(kInMemorySqliteDatabasePath);
 
+  // This test intentionally uses custom, large, partially overlapping IDs from
+  // rigs/frames/images/cameras which then require remapping of the IDs. This is
+  // to ensure that the database can handle this case.
+
   Camera camera1 = Camera::CreateFromModelName(
       kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
-  camera1.camera_id = database1->WriteCamera(camera1);
+  camera1.camera_id = 50;
+  database1->WriteCamera(camera1, /*use_camera_id=*/true);
   Camera camera2 = Camera::CreateFromModelName(
       kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
-  camera2.camera_id = database2->WriteCamera(camera2);
+  camera2.camera_id = 60;
+  database1->WriteCamera(camera2, /*use_camera_id=*/true);
+  Camera camera3 = Camera::CreateFromModelName(
+      kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  camera3.camera_id = 55;
+  database2->WriteCamera(camera3, /*use_camera_id=*/true);
+  Camera camera4 = Camera::CreateFromModelName(
+      kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  camera4.camera_id = 60;
+  database2->WriteCamera(camera4, /*use_camera_id=*/true);
 
   Rig rig1;
+  rig1.SetRigId(100);
   rig1.AddRefSensor(camera1.SensorId());
-  rig1.SetRigId(database1->WriteRig(rig1));
+  rig1.AddSensor(camera2.SensorId(), Rigid3d());
+  database1->WriteRig(rig1, /*use_rig_id=*/true);
+
   Rig rig2;
-  rig2.AddRefSensor(camera2.SensorId());
-  rig2.SetRigId(database2->WriteRig(rig2));
+  rig2.SetRigId(200);
+  rig2.AddRefSensor(camera3.SensorId());
+  rig2.AddSensor(camera4.SensorId(), Rigid3d());
+  database2->WriteRig(rig2, /*use_rig_id=*/true);
+
+  const image_t image_id1 = 300;
+  const image_t image_id2 = 400;
+  const image_t image_id3 = 350;
+  const image_t image_id4 = 400;
 
   Image image;
+  image.SetImageId(image_id1);
   image.SetCameraId(camera1.camera_id);
-
   image.SetName("test1");
-  const image_t image_id1 = database1->WriteImage(image);
-  image.SetName("test2");
-  const image_t image_id2 = database1->WriteImage(image);
-
+  database1->WriteImage(image, /*use_image_id=*/true);
+  image.SetImageId(image_id2);
   image.SetCameraId(camera2.camera_id);
+  image.SetName("test2");
+  database1->WriteImage(image, /*use_image_id=*/true);
+
+  image.SetImageId(image_id3);
+  image.SetCameraId(camera3.camera_id);
   image.SetName("test3");
-  const image_t image_id3 = database2->WriteImage(image);
+  database2->WriteImage(image, /*use_image_id=*/true);
+  image.SetImageId(image_id4);
+  image.SetCameraId(camera4.camera_id);
   image.SetName("test4");
-  const image_t image_id4 = database2->WriteImage(image);
+  database2->WriteImage(image, /*use_image_id=*/true);
 
   Frame frame1;
   frame1.SetRigId(rig1.RigId());
   frame1.AddDataId(data_t(camera1.SensorId(), image_id1));
   frame1.AddDataId(data_t(camera2.SensorId(), image_id2));
-  frame1.SetFrameId(database1->WriteFrame(frame1));
+  frame1.SetFrameId(1000);
+  database1->WriteFrame(frame1, /*use_frame_id=*/true);
   Frame frame2;
   frame2.SetRigId(rig2.RigId());
-  frame2.AddDataId(data_t(camera1.SensorId(), image_id3));
-  frame2.AddDataId(data_t(camera2.SensorId(), image_id4));
-  frame2.SetFrameId(database2->WriteFrame(frame2));
+  frame2.AddDataId(data_t(camera3.SensorId(), image_id3));
+  frame2.AddDataId(data_t(camera4.SensorId(), image_id4));
+  frame2.SetFrameId(2000);
+  database2->WriteFrame(frame2, /*use_frame_id=*/true);
 
-  database1->WritePosePrior(image_id1,
-                            PosePrior(Eigen::Vector3d::Constant(0.1)));
-  database2->WritePosePrior(image_id3,
-                            PosePrior(Eigen::Vector3d::Constant(0.2)));
+  PosePrior pose_prior1;
+  pose_prior1.corr_data_id = data_t(camera1.SensorId(), image_id1);
+  pose_prior1.position = Eigen::Vector3d::Random();
+  pose_prior1.pose_prior_id = database1->WritePosePrior(pose_prior1);
+
+  PosePrior pose_prior2;
+  pose_prior2.corr_data_id = data_t(camera3.SensorId(), image_id3);
+  pose_prior2.position = Eigen::Vector3d::Random();
+  pose_prior2.pose_prior_id = database2->WritePosePrior(pose_prior2);
 
   auto keypoints1 = FeatureKeypoints(10);
   keypoints1[0].x = 100;
@@ -603,7 +686,7 @@ TEST_P(ParameterizedDatabaseTests, Merge) {
       GetParam()(kInMemorySqliteDatabasePath);
   Database::Merge(*database1, *database2, merged_database.get());
   EXPECT_EQ(merged_database->NumRigs(), 2);
-  EXPECT_EQ(merged_database->NumCameras(), 2);
+  EXPECT_EQ(merged_database->NumCameras(), 4);
   EXPECT_EQ(merged_database->NumFrames(), 2);
   EXPECT_EQ(merged_database->NumImages(), 4);
   EXPECT_EQ(merged_database->NumPosePriors(), 2);
@@ -615,14 +698,37 @@ TEST_P(ParameterizedDatabaseTests, Merge) {
             frame1.NumDataIds());
   EXPECT_EQ(merged_database->ReadAllFrames()[1].NumDataIds(),
             frame2.NumDataIds());
+  for (const auto& frame : merged_database->ReadAllFrames()) {
+    for (const auto& data_id : frame.DataIds()) {
+      switch (data_id.sensor_id.type) {
+        case SensorType::CAMERA:
+          EXPECT_TRUE(merged_database->ExistsCamera(data_id.sensor_id.id));
+          EXPECT_TRUE(merged_database->ExistsImage(data_id.id));
+          break;
+        default:
+          GTEST_FAIL() << "Unexpected sensor type: " << data_id.sensor_id.type;
+          break;
+      }
+    }
+  }
+  for (const auto& pose_prior : merged_database->ReadAllPosePriors()) {
+    switch (pose_prior.corr_data_id.sensor_id.type) {
+      case SensorType::CAMERA:
+        EXPECT_TRUE(merged_database->ExistsCamera(
+            pose_prior.corr_data_id.sensor_id.id));
+        EXPECT_TRUE(merged_database->ExistsImage(pose_prior.corr_data_id.id));
+        break;
+      default:
+        GTEST_FAIL() << "Unexpected sensor type: "
+                     << pose_prior.corr_data_id.sensor_id.type;
+        break;
+    }
+  }
+
   EXPECT_EQ(merged_database->ReadAllImages()[0].CameraId(), 1);
-  EXPECT_EQ(merged_database->ReadAllImages()[1].CameraId(), 1);
-  EXPECT_EQ(merged_database->ReadAllImages()[2].CameraId(), 2);
-  EXPECT_EQ(merged_database->ReadAllImages()[3].CameraId(), 2);
-  EXPECT_EQ(merged_database->ReadPosePrior(1).position.x(), 0.1);
-  EXPECT_FALSE(merged_database->ExistsPosePrior(2));
-  EXPECT_EQ(merged_database->ReadPosePrior(3).position.x(), 0.2);
-  EXPECT_FALSE(merged_database->ExistsPosePrior(4));
+  EXPECT_EQ(merged_database->ReadAllImages()[1].CameraId(), 2);
+  EXPECT_EQ(merged_database->ReadAllImages()[2].CameraId(), 3);
+  EXPECT_EQ(merged_database->ReadAllImages()[3].CameraId(), 4);
   EXPECT_EQ(merged_database->ReadKeypoints(1).size(), 10);
   EXPECT_EQ(merged_database->ReadKeypoints(2).size(), 20);
   EXPECT_EQ(merged_database->ReadKeypoints(3).size(), 30);
@@ -651,11 +757,12 @@ TEST_P(ParameterizedDatabaseTests, Merge) {
   EXPECT_EQ(merged_database->NumMatches(), 0);
 }
 
-INSTANTIATE_TEST_SUITE_P(DatabaseTests,
-                         ParameterizedDatabaseTests,
-                         ::testing::Values([](const std::string& path) {
-                           return Database::Open(path);
-                         }));
+INSTANTIATE_TEST_SUITE_P(
+    DatabaseTests,
+    ParameterizedDatabaseTests,
+    ::testing::Values([](const std::filesystem::path& path) {
+      return Database::Open(path);
+    }));
 
 }  // namespace
 }  // namespace colmap

@@ -10,6 +10,7 @@
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 
+#include <filesystem>
 #include <memory>
 
 #include <pybind11/functional.h>
@@ -22,9 +23,9 @@ namespace py = pybind11;
 
 std::shared_ptr<Reconstruction> TriangulatePoints(
     const std::shared_ptr<Reconstruction>& reconstruction,
-    const std::string& database_path,
-    const std::string& image_path,
-    const std::string& output_path,
+    const std::filesystem::path& database_path,
+    const std::filesystem::path& image_path,
+    const std::filesystem::path& output_path,
     const bool clear_points,
     const IncrementalPipelineOptions& options,
     const bool refine_intrinsics) {
@@ -44,11 +45,11 @@ std::shared_ptr<Reconstruction> TriangulatePoints(
 }
 
 std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
-    const std::string& database_path,
-    const std::string& image_path,
-    const std::string& output_path,
+    const std::filesystem::path& database_path,
+    const std::filesystem::path& image_path,
+    const std::filesystem::path& output_path,
     const IncrementalPipelineOptions& options,
-    const std::string& input_path,
+    const std::filesystem::path& input_path,
     std::function<void()> initial_image_pair_callback,
     std::function<void()> next_image_callback) {
   THROW_CHECK_FILE_EXISTS(database_path);
@@ -61,12 +62,9 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
     reconstruction_manager->Read(input_path);
   }
   auto options_ = std::make_shared<IncrementalPipelineOptions>(options);
-  IncrementalPipeline mapper(
-      options_, image_path, database_path, reconstruction_manager);
 
   PyInterrupt py_interrupt(1.0);  // Check for interrupts every second
-  mapper.AddCallback(
-      IncrementalPipeline::NEXT_IMAGE_REG_CALLBACK,
+  auto next_image_callback_py_interruptible =
       [&py_interrupt, next_image_callback = std::move(next_image_callback)]() {
         if (py_interrupt.Raised()) {
           throw py::error_already_set();
@@ -74,15 +72,18 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
         if (next_image_callback) {
           next_image_callback();
         }
-      });
-  if (initial_image_pair_callback) {
-    mapper.AddCallback(IncrementalPipeline::INITIAL_IMAGE_PAIR_REG_CALLBACK,
-                       std::move(initial_image_pair_callback));
+      };
+
+  if (!RunIncrementalMapperImpl(database_path,
+                                image_path,
+                                output_path,
+                                options_,
+                                reconstruction_manager,
+                                initial_image_pair_callback,
+                                next_image_callback_py_interruptible)) {
+    return {};
   }
 
-  mapper.Run();
-
-  reconstruction_manager->Write(output_path);
   std::map<size_t, std::shared_ptr<Reconstruction>> reconstructions;
   for (size_t i = 0; i < reconstruction_manager->Size(); ++i) {
     reconstructions[i] = reconstruction_manager->Get(i);
@@ -94,7 +95,8 @@ void BundleAdjustment(const std::shared_ptr<Reconstruction>& reconstruction,
                       const BundleAdjustmentOptions& options) {
   py::gil_scoped_release release;
   OptionManager option_manager;
-  *option_manager.bundle_adjustment = options;
+  option_manager.bundle_adjustment =
+      std::make_shared<BundleAdjustmentOptions>(options);
   BundleAdjustmentController controller(option_manager, reconstruction);
   controller.Run();
 }

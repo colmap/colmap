@@ -53,18 +53,21 @@
 #include <QtCore>
 #include <QtGui>
 #include <QtWidgets>
+#include <filesystem>
 #include <memory>
 
 namespace colmap {
 
 class MainWindow : public QMainWindow {
  public:
-  explicit MainWindow(const OptionManager& options);
+  explicit MainWindow(OptionManager options);
 
-  void ImportReconstruction(const std::string& path);
+  void ImportReconstruction(const std::filesystem::path& import_path);
 
  protected:
-  void closeEvent(QCloseEvent* event);
+  void closeEvent(QCloseEvent* event) override;
+  void dragEnterEvent(QDragEnterEvent* event) override;
+  void dropEvent(QDropEvent* event) override;
 
  private:
   friend class AutomaticReconstructionWidget;

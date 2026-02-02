@@ -34,11 +34,65 @@
 #include "colmap/util/misc.h"
 
 namespace colmap {
+namespace {
+
+void ThrowUnknownFeatureMatcherType(FeatureMatcherType type) {
+  std::ostringstream error;
+  error << "Unknown feature matcher type: " << type;
+  throw std::runtime_error(error.str());
+}
+
+}  // namespace
+
+FeatureMatchingTypeOptions::FeatureMatchingTypeOptions()
+    : sift(std::make_shared<SiftMatchingOptions>()),
+      xfeat(std::make_shared<XFeatMatchingOptions>()) {}
+
+FeatureMatchingTypeOptions::FeatureMatchingTypeOptions(
+    const FeatureMatchingTypeOptions& other) {
+  if (other.sift) {
+    sift = std::make_shared<SiftMatchingOptions>(*other.sift);
+  }
+  if (other.xfeat) {
+    xfeat = std::make_shared<XFeatMatchingOptions>(*other.xfeat);
+  }
+}
+
+FeatureMatchingTypeOptions& FeatureMatchingTypeOptions::operator=(
+    const FeatureMatchingTypeOptions& other) {
+  if (this == &other) {
+    return *this;
+  }
+  if (other.sift) {
+    sift = std::make_shared<SiftMatchingOptions>(*other.sift);
+  } else {
+    sift.reset();
+  }
+  if (other.xfeat) {
+    xfeat = std::make_shared<XFeatMatchingOptions>(*other.xfeat);
+  } else {
+    xfeat.reset();
+  }
+  return *this;
+}
 
 FeatureMatchingOptions::FeatureMatchingOptions(FeatureMatcherType type)
-    : type(type),
-      sift(std::make_shared<SiftMatchingOptions>()),
-      xfeat(std::make_shared<XFeatMatchingOptions>()) {}
+    : FeatureMatchingTypeOptions(), type(type) {}
+
+bool FeatureMatchingOptions::RequiresOpenGL() const {
+  switch (type) {
+    case FeatureMatcherType::SIFT: {
+#ifdef COLMAP_CUDA_ENABLED
+      return false;
+#else
+      return use_gpu;
+#endif
+    }
+    default:
+      ThrowUnknownFeatureMatcherType(type);
+  }
+  return false;
+}
 
 bool FeatureMatchingOptions::Check() const {
   if (use_gpu) {
@@ -71,10 +125,9 @@ std::unique_ptr<FeatureMatcher> FeatureMatcher::Create(
     case FeatureMatcherType::XFEAT_LIGHTERGLUE:
       return CreateXFeatFeatureMatcher(options);
     default:
-      std::ostringstream error;
-      error << "Unknown feature matcher type: " << options.type;
-      throw std::runtime_error(error.str());
+      ThrowUnknownFeatureMatcherType(options.type);
   }
+  return nullptr;
 }
 
 FeatureMatcherCache::FeatureMatcherCache(
@@ -139,14 +192,15 @@ const Image& FeatureMatcherCache::GetImage(const image_t image_id) {
   return images_cache_->at(image_id);
 }
 
-const PosePrior* FeatureMatcherCache::GetPosePriorOrNull(
+const PosePrior* FeatureMatcherCache::FindImagePosePriorOrNull(
     const image_t image_id) {
   MaybeLoadPosePriors();
+
   const auto it = pose_priors_cache_->find(image_id);
-  if (it == pose_priors_cache_->end()) {
-    return nullptr;
+  if (it != pose_priors_cache_->end()) {
+    return &it->second;
   }
-  return &it->second;
+  return nullptr;
 }
 
 std::shared_ptr<FeatureKeypoints> FeatureMatcherCache::GetKeypoints(
@@ -163,6 +217,12 @@ FeatureMatches FeatureMatcherCache::GetMatches(const image_t image_id1,
                                                const image_t image_id2) {
   std::lock_guard<std::mutex> lock(database_mutex_);
   return database_->ReadMatches(image_id1, image_id2);
+}
+
+TwoViewGeometry FeatureMatcherCache::GetTwoViewGeometry(
+    const image_t image_id1, const image_t image_id2) {
+  std::lock_guard<std::mutex> lock(database_mutex_);
+  return database_->ReadTwoViewGeometry(image_id1, image_id2);
 }
 
 std::vector<frame_t> FeatureMatcherCache::GetFrameIds() {
@@ -214,10 +274,28 @@ bool FeatureMatcherCache::ExistsMatches(const image_t image_id1,
   return database_->ExistsMatches(image_id1, image_id2);
 }
 
+bool FeatureMatcherCache::ExistsTwoViewGeometry(const image_t image_id1,
+                                                const image_t image_id2) {
+  std::lock_guard<std::mutex> lock(database_mutex_);
+  return database_->ExistsTwoViewGeometry(image_id1, image_id2);
+}
+
 bool FeatureMatcherCache::ExistsInlierMatches(const image_t image_id1,
                                               const image_t image_id2) {
   std::lock_guard<std::mutex> lock(database_mutex_);
-  return database_->ExistsInlierMatches(image_id1, image_id2);
+  if (!database_->ExistsTwoViewGeometry(image_id1, image_id2)) {
+    return false;
+  }
+  auto two_view_geometry = database_->ReadTwoViewGeometry(image_id1, image_id2);
+  return !two_view_geometry.inlier_matches.empty();
+}
+
+void FeatureMatcherCache::UpdateTwoViewGeometry(
+    const image_t image_id1,
+    const image_t image_id2,
+    const TwoViewGeometry& two_view_geometry) {
+  std::lock_guard<std::mutex> lock(database_mutex_);
+  database_->UpdateTwoViewGeometry(image_id1, image_id2, two_view_geometry);
 }
 
 void FeatureMatcherCache::WriteMatches(const image_t image_id1,
@@ -239,6 +317,12 @@ void FeatureMatcherCache::DeleteMatches(const image_t image_id1,
                                         const image_t image_id2) {
   std::lock_guard<std::mutex> lock(database_mutex_);
   database_->DeleteMatches(image_id1, image_id2);
+}
+
+void FeatureMatcherCache::DeleteTwoViewGeometry(const image_t image_id1,
+                                                const image_t image_id2) {
+  std::lock_guard<std::mutex> lock(database_mutex_);
+  database_->DeleteTwoViewGeometry(image_id1, image_id2);
 }
 
 void FeatureMatcherCache::DeleteInlierMatches(const image_t image_id1,
@@ -291,27 +375,10 @@ void FeatureMatcherCache::MaybeLoadImages() {
     return;
   }
 
-  // Handle legacy databases without frames.
-  const bool has_frames = !frames_cache_->empty();
-  std::unordered_map<image_t, frame_t> image_to_frame_id;
-  if (has_frames) {
-    for (const auto& [frame_id, frame] : *frames_cache_) {
-      for (const auto& data_id : frame.ImageIds()) {
-        image_to_frame_id.emplace(data_id.id, frame.FrameId());
-      }
-    }
-  }
-
   std::vector<Image> images = database_->ReadAllImages();
   images_cache_ = std::make_unique<std::unordered_map<image_t, Image>>();
   images_cache_->reserve(images.size());
   for (Image& image : images) {
-    if (has_frames) {
-      if (const auto it = image_to_frame_id.find(image.ImageId());
-          it != image_to_frame_id.end()) {
-        image.SetFrameId(it->second);
-      }
-    }
     images_cache_->emplace(image.ImageId(), std::move(image));
   }
 }
@@ -325,13 +392,16 @@ void FeatureMatcherCache::MaybeLoadPosePriors() {
     return;
   }
 
+  std::vector<PosePrior> pose_priors = database_->ReadAllPosePriors();
   pose_priors_cache_ =
       std::make_unique<std::unordered_map<image_t, PosePrior>>();
-  pose_priors_cache_->reserve(database_->NumPosePriors());
-  for (const auto& image : *images_cache_) {
-    if (database_->ExistsPosePrior(image.first)) {
-      pose_priors_cache_->emplace(image.first,
-                                  database_->ReadPosePrior(image.first));
+  pose_priors_cache_->reserve(pose_priors.size());
+  for (PosePrior& pose_prior : pose_priors) {
+    if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
+      const image_t image_id = pose_prior.corr_data_id.id;
+      THROW_CHECK(
+          pose_priors_cache_->emplace(image_id, std::move(pose_prior)).second)
+          << "Duplicate pose prior for image " << image_id;
     }
   }
 }

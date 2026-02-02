@@ -33,6 +33,7 @@ set(FOLDER_NAME "geometry")
 COLMAP_ADD_LIBRARY(
     NAME colmap_geometry
     SRCS
+        bbox.h bbox.cc
         essential_matrix.h essential_matrix.cc
         gps.h gps.cc
         homography_matrix.h homography_matrix.cc
@@ -57,6 +58,11 @@ if(TESTS_ENABLED)
     )
 endif()
 
+COLMAP_ADD_TEST(
+    NAME bbox_test
+    SRCS bbox_test.cc
+    LINK_LIBS colmap_geometry
+)
 COLMAP_ADD_TEST(
     NAME essential_matrix_test
     SRCS essential_matrix_test.cc

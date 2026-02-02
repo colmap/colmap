@@ -34,14 +34,19 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_controllers
     SRCS
         automatic_reconstruction.h automatic_reconstruction.cc
+        base_option_manager.h base_option_manager.cc
         bundle_adjustment.h bundle_adjustment.cc
         hierarchical_pipeline.h hierarchical_pipeline.cc
         feature_extraction.h feature_extraction.cc
         feature_matching.h feature_matching.cc
         feature_matching_utils.h feature_matching_utils.cc
+        global_pipeline.h global_pipeline.cc
         image_reader.h image_reader.cc
         incremental_pipeline.h incremental_pipeline.cc
         option_manager.h option_manager.cc
+        reconstruction_clustering.h reconstruction_clustering.cc
+        rotation_averaging.h rotation_averaging.cc
+        undistorters.h undistorters.cc
     PUBLIC_LINK_LIBS
         colmap_estimators
         colmap_feature
@@ -58,7 +63,24 @@ COLMAP_ADD_LIBRARY(
         Ceres::ceres
         Boost::boost
 )
+if(CUDA_ENABLED)
+    target_link_libraries(colmap_controllers
+        PRIVATE
+            colmap_util_cuda
+            colmap_mvs_cuda
+    )
+endif()
 
+COLMAP_ADD_TEST(
+    NAME automatic_reconstruction_test
+    SRCS automatic_reconstruction_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME bundle_adjustment_test
+    SRCS bundle_adjustment_test.cc
+    LINK_LIBS colmap_controllers
+)
 COLMAP_ADD_TEST(
     NAME hierarchical_pipeline_test
     SRCS hierarchical_pipeline_test.cc
@@ -72,5 +94,45 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME image_reader_test
     SRCS image_reader_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME feature_extraction_test
+    SRCS feature_extraction_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME feature_matching_test
+    SRCS feature_matching_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME global_pipeline_test
+    SRCS global_pipeline_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME base_option_manager_test
+    SRCS base_option_manager_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME option_manager_test
+    SRCS option_manager_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME rotation_averaging_test
+    SRCS rotation_averaging_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME reconstruction_clustering_test
+    SRCS reconstruction_clustering_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME undistorters_test
+    SRCS undistorters_test.cc
     LINK_LIBS colmap_controllers
 )

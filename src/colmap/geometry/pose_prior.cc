@@ -29,15 +29,54 @@
 
 #include "colmap/geometry/pose_prior.h"
 
+#include "colmap/util/logging.h"
+
 namespace colmap {
+namespace {
+
+// Handle NaNs explicitly and consider them equal, whereas the default C++
+// comparison operator returns false for a NaN == NaN comparison.
+template <typename T>
+bool IsNaNEqual(const T& left, const T& right) {
+  THROW_CHECK_EQ(left.rows(), right.rows());
+  THROW_CHECK_EQ(left.cols(), right.cols());
+  for (int i = 0; i < left.rows(); ++i) {
+    for (int j = 0; j < left.cols(); ++j) {
+      if ((std::isnan(left(i, j)) != std::isnan(right(i, j)) ||
+           (!std::isnan(left(i, j)) && left(i, j) != right(i, j)))) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+}  // namespace
+
+bool PosePrior::operator==(const PosePrior& other) const {
+  return pose_prior_id == other.pose_prior_id &&
+         corr_data_id == other.corr_data_id &&
+         coordinate_system == other.coordinate_system &&
+         IsNaNEqual(position, other.position) &&
+         IsNaNEqual(position_covariance, other.position_covariance) &&
+         IsNaNEqual(gravity, other.gravity);
+}
+
+bool PosePrior::operator!=(const PosePrior& other) const {
+  return !(*this == other);
+}
 
 std::ostream& operator<<(std::ostream& stream, const PosePrior& prior) {
   const static Eigen::IOFormat kVecFmt(
       Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ");
-  stream << "PosePrior(position=[" << prior.position.format(kVecFmt)
+  stream << "PosePrior(pose_prior_id=" << prior.pose_prior_id
+         << ", corr_data_id=(" << prior.corr_data_id.sensor_id.type << ", "
+         << prior.corr_data_id.sensor_id.id << ", " << prior.corr_data_id.id
+         << "), position=[" << prior.position.format(kVecFmt)
          << "], position_covariance=["
          << prior.position_covariance.format(kVecFmt) << "], coordinate_system="
-         << PosePrior::CoordinateSystemToString(prior.coordinate_system) << ")";
+         << PosePrior::CoordinateSystemToString(prior.coordinate_system)
+         << ", gravity=[" << prior.gravity.format(kVecFmt) << "])";
   return stream;
 }
 

@@ -29,7 +29,7 @@
 
 #include "colmap/optim/loransac.h"
 
-#include "colmap/estimators/similarity_transform.h"
+#include "colmap/estimators/solvers/similarity_transform.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>

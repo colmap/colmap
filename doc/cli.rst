@@ -149,7 +149,6 @@ The available commands can be listed using the command::
           poisson_mesher
           project_generator
           rig_configurator
-          rig_bundle_adjuster
           sequential_matcher
           spatial_matcher
           stereo_fusion

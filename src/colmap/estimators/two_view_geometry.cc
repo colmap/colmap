@@ -29,17 +29,20 @@
 
 #include "colmap/estimators/two_view_geometry.h"
 
-#include "colmap/estimators/essential_matrix.h"
-#include "colmap/estimators/fundamental_matrix.h"
 #include "colmap/estimators/generalized_pose.h"
-#include "colmap/estimators/homography_matrix.h"
-#include "colmap/estimators/translation_transform.h"
+#include "colmap/estimators/solvers/essential_matrix.h"
+#include "colmap/estimators/solvers/fundamental_matrix.h"
+#include "colmap/estimators/solvers/homography_matrix.h"
+#include "colmap/estimators/solvers/translation_transform.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/homography_matrix.h"
 #include "colmap/geometry/triangulation.h"
+#include "colmap/math/math.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
+#include "colmap/util/logging.h"
+#include "colmap/util/timer.h"
 
 #include <unordered_set>
 
@@ -245,16 +248,16 @@ TwoViewGeometry EstimateMultipleTwoViewGeometries(
       break;
     }
 
-    if (options.multiple_ignore_watermark) {
-      if (geometry.config != TwoViewGeometry::ConfigurationType::WATERMARK) {
-        geometries.push_back(geometry);
-      }
-    } else {
-      geometries.push_back(geometry);
-    }
-
     remaining_matches =
         ExtractOutlierMatches(remaining_matches, geometry.inlier_matches);
+
+    if (options.multiple_ignore_watermark) {
+      if (geometry.config != TwoViewGeometry::ConfigurationType::WATERMARK) {
+        geometries.push_back(std::move(geometry));
+      }
+    } else {
+      geometries.push_back(std::move(geometry));
+    }
   }
 
   if (geometries.empty()) {
@@ -366,8 +369,14 @@ EstimateRigTwoViewGeometries(
         return it->second.second;
       };
 
+  std::unordered_set<image_pair_t> image_pairs;
+  image_pairs.reserve(matches.size());
   for (const auto& [image_pair, pair_matches] : matches) {
     const auto& [image_id1, image_id2] = image_pair;
+
+    THROW_CHECK(
+        image_pairs.insert(ImagePairToPairId(image_id1, image_id2)).second)
+        << "Duplicate image pair";
 
     const Image& image1 = images.at(image_id1);
     const Camera& camera1 = cameras.at(image1.CameraId());
@@ -455,7 +464,7 @@ EstimateRigTwoViewGeometries(
     // TODO(jsch): For panoramic rigs, we could further distinguish between
     // panoramic/planar configurations by estimating a homography matrix.
     two_view_geometry.E =
-        EssentialMatrixFromPose(two_view_geometry.cam2_from_cam1);
+        EssentialMatrixFromPose(*two_view_geometry.cam2_from_cam1);
 
     two_view_geometries.emplace_back(image_pair, std::move(two_view_geometry));
   }
@@ -514,24 +523,24 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
 
   std::vector<Eigen::Vector3d> points3D;
 
+  Rigid3d cam2_from_cam1;
   if (geometry->config == TwoViewGeometry::ConfigurationType::CALIBRATED) {
-    PoseFromEssentialMatrix(geometry->E,
+    THROW_CHECK(geometry->E.has_value());
+    PoseFromEssentialMatrix(*geometry->E,
                             inlier_cam_rays1,
                             inlier_cam_rays2,
-                            &geometry->cam2_from_cam1,
+                            &cam2_from_cam1,
                             &points3D);
     if (points3D.empty()) {
       return false;
     }
   } else if (geometry->config ==
              TwoViewGeometry::ConfigurationType::UNCALIBRATED) {
+    THROW_CHECK(geometry->F.has_value());
     const Eigen::Matrix3d E = EssentialFromFundamentalMatrix(
-        camera2.CalibrationMatrix(), geometry->F, camera1.CalibrationMatrix());
-    PoseFromEssentialMatrix(E,
-                            inlier_cam_rays1,
-                            inlier_cam_rays2,
-                            &geometry->cam2_from_cam1,
-                            &points3D);
+        camera2.CalibrationMatrix(), *geometry->F, camera1.CalibrationMatrix());
+    PoseFromEssentialMatrix(
+        E, inlier_cam_rays1, inlier_cam_rays2, &cam2_from_cam1, &points3D);
     if (points3D.empty()) {
       return false;
     }
@@ -540,18 +549,19 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
                  TwoViewGeometry::ConfigurationType::PANORAMIC ||
              geometry->config ==
                  TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC) {
+    THROW_CHECK(geometry->H.has_value());
     Eigen::Vector3d normal;
-    PoseFromHomographyMatrix(geometry->H,
+    PoseFromHomographyMatrix(*geometry->H,
                              camera1.CalibrationMatrix(),
                              camera2.CalibrationMatrix(),
                              inlier_cam_rays1,
                              inlier_cam_rays2,
-                             &geometry->cam2_from_cam1,
+                             &cam2_from_cam1,
                              &normal,
                              &points3D);
     if (geometry->config ==
         TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC) {
-      if (geometry->cam2_from_cam1.translation.squaredNorm() < 1e-12) {
+      if (cam2_from_cam1.translation().squaredNorm() < 1e-12) {
         geometry->config = TwoViewGeometry::ConfigurationType::PANORAMIC;
       } else {
         geometry->config = TwoViewGeometry::ConfigurationType::PLANAR;
@@ -570,11 +580,11 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
     return false;
   }
 
+  geometry->cam2_from_cam1 = cam2_from_cam1;
+
   if (!points3D.empty()) {
     const Eigen::Vector3d proj_center1 = Eigen::Vector3d::Zero();
-    const Eigen::Vector3d proj_center2 =
-        geometry->cam2_from_cam1.rotation.inverse() *
-        -geometry->cam2_from_cam1.translation;
+    const Eigen::Vector3d proj_center2 = cam2_from_cam1.TgtOriginInSrc();
     geometry->tri_angle = Median(
         CalculateTriangulationAngles(proj_center1, proj_center2, points3D));
   }
@@ -627,7 +637,12 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
 
   // Estimate epipolar models.
 
-  auto E_ransac_options = options.ransac_options;
+  auto ransac_options = options.ransac_options;
+  if (options.min_inlier_ratio > 0) {
+    ransac_options.min_inlier_ratio = options.min_inlier_ratio;
+  }
+
+  auto E_ransac_options = ransac_options;
   E_ransac_options.max_error =
       (camera1.CamFromImgThreshold(options.ransac_options.max_error) +
        camera2.CamFromImgThreshold(options.ransac_options.max_error)) /
@@ -640,7 +655,7 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
 
   LORANSAC<FundamentalMatrixSevenPointEstimator,
            FundamentalMatrixEightPointEstimator>
-      F_ransac(options.ransac_options);
+      F_ransac(ransac_options);
   const auto F_report =
       F_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.F = F_report.model;
@@ -648,7 +663,7 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   // Estimate planar or panoramic model.
 
   LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      options.ransac_options);
+      ransac_options);
   const auto H_report =
       H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
@@ -727,6 +742,16 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   if (best_inlier_mask != nullptr) {
     geometry.inlier_matches =
         ExtractInlierMatches(matches, num_inliers, *best_inlier_mask);
+
+    // Check inlier ratio threshold.
+    if (options.min_inlier_ratio > 0) {
+      const double inlier_ratio =
+          static_cast<double>(num_inliers) / matches.size();
+      if (inlier_ratio < options.min_inlier_ratio) {
+        geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+        return geometry;
+      }
+    }
 
     if (options.detect_watermark && DetectWatermarkMatches(camera1,
                                                            matched_img_points1,
@@ -828,6 +853,160 @@ void FilterStationaryMatches(double max_error,
                                          max_error_squared;
                                 }),
                  matches->end());
+}
+
+TwoViewGeometry TwoViewGeometryFromKnownRelativePose(
+    const Camera& camera1,
+    const std::vector<Eigen::Vector2d>& points1,
+    const Camera& camera2,
+    const std::vector<Eigen::Vector2d>& points2,
+    const Rigid3d& cam2_from_cam1,
+    const FeatureMatches& matches,
+    int min_num_inliers,
+    double max_error) {
+  THROW_CHECK_GE(min_num_inliers, 0);
+  THROW_CHECK_GT(max_error, 0);
+
+  TwoViewGeometry geometry;
+  const size_t num_matches = matches.size();
+
+  if (num_matches < static_cast<size_t>(min_num_inliers)) {
+    geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+    return geometry;
+  }
+
+  // Extract corresponding points.
+  std::vector<Eigen::Vector3d> matched_cam_rays1(num_matches);
+  std::vector<Eigen::Vector3d> matched_cam_rays2(num_matches);
+  for (size_t i = 0; i < num_matches; ++i) {
+    const point2D_t idx1 = matches[i].point2D_idx1;
+    const point2D_t idx2 = matches[i].point2D_idx2;
+    if (const std::optional<Eigen::Vector2d> cam_point1 =
+            camera1.CamFromImg(points1[idx1]);
+        cam_point1) {
+      matched_cam_rays1[i] = cam_point1->homogeneous().normalized();
+    } else {
+      matched_cam_rays1[i].setZero();
+    }
+    if (const std::optional<Eigen::Vector2d> cam_point2 =
+            camera2.CamFromImg(points2[idx2]);
+        cam_point2) {
+      matched_cam_rays2[i] = cam_point2->homogeneous().normalized();
+    } else {
+      matched_cam_rays2[i].setZero();
+    }
+  }
+
+  // For now, we use the average threshold from cameras following the design of
+  // EstimateCalibratedTwoViewGeometry.
+  const double max_error_in_cam = (camera1.CamFromImgThreshold(max_error) +
+                                   camera2.CamFromImgThreshold(max_error)) /
+                                  2;
+
+  const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
+  std::vector<double> residuals(num_matches);
+  ComputeSquaredSampsonError(
+      matched_cam_rays1, matched_cam_rays2, E, &residuals);
+  FeatureMatches inlier_matches;
+  const double squared_max_error_in_cam = max_error_in_cam * max_error_in_cam;
+  for (size_t i = 0; i < num_matches; ++i) {
+    if (residuals[i] <= squared_max_error_in_cam) {
+      inlier_matches.push_back(matches[i]);
+    }
+  }
+  if (inlier_matches.size() < static_cast<size_t>(min_num_inliers)) {
+    geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+    return geometry;
+  }
+  geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
+  geometry.cam2_from_cam1 = cam2_from_cam1;
+  geometry.E = E;
+  geometry.inlier_matches = inlier_matches;
+  return geometry;
+}
+
+namespace {
+
+std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
+    const FeatureKeypoints& keypoints) {
+  std::vector<Eigen::Vector2d> points(keypoints.size());
+  for (size_t i = 0; i < keypoints.size(); i++) {
+    points[i] = Eigen::Vector2d(keypoints[i].x, keypoints[i].y);
+  }
+  return points;
+}
+
+}  // namespace
+
+void MaybeDecomposeAndWriteRelativePoses(Database* database) {
+  Timer timer;
+  timer.Start();
+  LOG(INFO) << "Decomposing relative poses...";
+
+  std::unordered_map<camera_t, Camera> cameras;
+  for (auto& camera : database->ReadAllCameras()) {
+    cameras.emplace(camera.camera_id, std::move(camera));
+  }
+
+  std::unordered_map<image_t, Image> images;
+  for (auto& image : database->ReadAllImages()) {
+    images.emplace(image.ImageId(), std::move(image));
+  }
+
+  const auto all_matches = database->ReadAllMatches();
+
+  size_t decompose_count = 0;
+  size_t decompose_failed_count = 0;
+
+  for (const auto& [pair_id, matches] : all_matches) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+
+    TwoViewGeometry two_view_geom =
+        database->ReadTwoViewGeometry(image_id1, image_id2);
+
+    if (two_view_geom.cam2_from_cam1.has_value()) {
+      continue;
+    }
+
+    const bool is_invalid =
+        two_view_geom.config == TwoViewGeometry::UNDEFINED ||
+        two_view_geom.config == TwoViewGeometry::DEGENERATE ||
+        two_view_geom.config == TwoViewGeometry::WATERMARK ||
+        two_view_geom.config == TwoViewGeometry::MULTIPLE;
+
+    if (is_invalid) {
+      continue;
+    }
+
+    const Image& image1 = images.at(image_id1);
+    const Image& image2 = images.at(image_id2);
+    const Camera& camera1 = cameras.at(image1.CameraId());
+    const Camera& camera2 = cameras.at(image2.CameraId());
+
+    const std::vector<Eigen::Vector2d> points1 =
+        FeatureKeypointsToPointsVector(database->ReadKeypoints(image_id1));
+    const std::vector<Eigen::Vector2d> points2 =
+        FeatureKeypointsToPointsVector(database->ReadKeypoints(image_id2));
+
+    decompose_count++;
+    const bool success = EstimateTwoViewGeometryPose(
+        camera1, points1, camera2, points2, &two_view_geom);
+
+    if (success && two_view_geom.cam2_from_cam1.has_value()) {
+      const double norm = two_view_geom.cam2_from_cam1->translation().norm();
+      if (norm > 1e-12) {
+        two_view_geom.cam2_from_cam1->translation() /= norm;
+      }
+      database->UpdateTwoViewGeometry(image_id1, image_id2, two_view_geom);
+    } else {
+      decompose_failed_count++;
+    }
+  }
+
+  LOG(INFO) << StringPrintf("Decomposed %d relative poses (%d failed) in %.3fs",
+                            decompose_count,
+                            decompose_failed_count,
+                            timer.ElapsedSeconds());
 }
 
 }  // namespace colmap

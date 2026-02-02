@@ -2,6 +2,7 @@ Checks: >
   performance-*,
   concurrency-*,
   bugprone-*,
+  -clang-analyzer-security.ArrayBound,
   -bugprone-easily-swappable-parameters,
   -bugprone-exception-escape,
   -bugprone-implicit-widening-of-multiplication-result,

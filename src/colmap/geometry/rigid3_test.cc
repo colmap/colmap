@@ -29,8 +29,8 @@
 
 #include "colmap/geometry/rigid3.h"
 
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/util/eigen_matchers.h"
-#include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 
@@ -51,17 +51,17 @@ TEST(CrossProductMatrix, Nominal) {
 
 TEST(Rigid3d, Default) {
   const Rigid3d tform;
-  EXPECT_EQ(tform.rotation.coeffs(), Eigen::Quaterniond::Identity().coeffs());
-  EXPECT_EQ(tform.translation, Eigen::Vector3d::Zero());
+  EXPECT_EQ(tform.rotation().coeffs(), Eigen::Quaterniond::Identity().coeffs());
+  EXPECT_EQ(tform.translation(), Eigen::Vector3d::Zero());
 }
 
 TEST(Rigid3d, Equals) {
   Rigid3d tform;
   Rigid3d other = tform;
   EXPECT_EQ(tform, other);
-  tform.translation.x() = 1;
+  tform.translation().x() = 1;
   EXPECT_NE(tform, other);
-  other.translation.x() = 1;
+  other.translation().x() = 1;
   EXPECT_EQ(tform, other);
 }
 
@@ -79,8 +79,14 @@ TEST(Rigid3d, Inverse) {
   for (int i = 0; i < 100; ++i) {
     const Eigen::Vector3d x_in_a = Eigen::Vector3d::Random();
     const Eigen::Vector3d x_in_b = b_from_a * x_in_a;
-    EXPECT_LT((a_from_b * x_in_b - x_in_a).norm(), 1e-6);
+    EXPECT_THAT(a_from_b * x_in_b, EigenMatrixNear(x_in_a, 1e-6));
   }
+}
+
+TEST(Rigid3d, TgtOriginInSrc) {
+  const Rigid3d b_from_a = TestRigid3d();
+  const Eigen::Vector3d origin_b_in_a = b_from_a.TgtOriginInSrc();
+  EXPECT_LT((b_from_a * origin_b_in_a - Eigen::Vector3d::Zero()).norm(), 1e-6);
 }
 
 TEST(Rigid3d, ToMatrix) {
@@ -98,7 +104,7 @@ TEST(Rigid3d, FromMatrix) {
   const Rigid3d b2_from_a = Rigid3d::FromMatrix(b1_from_a.ToMatrix());
   for (int i = 0; i < 100; ++i) {
     const Eigen::Vector3d x_in_a = Eigen::Vector3d::Random();
-    EXPECT_LT((b1_from_a * x_in_a - b2_from_a * x_in_a).norm(), 1e-6);
+    EXPECT_THAT(b1_from_a * x_in_a, EigenMatrixNear(b2_from_a * x_in_a, 1e-6));
   }
 }
 
@@ -148,14 +154,16 @@ TEST(Rigid3d, Compose) {
   const Eigen::Vector3d x_in_b = b_from_a * x_in_a;
   const Eigen::Vector3d x_in_c = c_from_b * x_in_b;
   const Eigen::Vector3d x_in_d = d_from_c * x_in_c;
-  EXPECT_LT((d_from_a * x_in_a - x_in_d).norm(), 1e-6);
+  EXPECT_THAT(d_from_a * x_in_a, EigenMatrixNear(x_in_d, 1e-6));
 }
 
 TEST(Rigid3d, Adjoint) {
   const Rigid3d b_from_a = TestRigid3d();
   const Eigen::Matrix6d adjoint = b_from_a.Adjoint();
   const Eigen::Matrix6d adjoint_inv = b_from_a.AdjointInverse();
-  EXPECT_LT((adjoint * adjoint_inv - Eigen::Matrix6d::Identity()).norm(), 1e-6);
+  EXPECT_THAT(
+      adjoint * adjoint_inv,
+      EigenMatrixNear(Eigen::Matrix6d(Eigen::Matrix6d::Identity()), 1e-6));
   const Rigid3d a_from_b = Inverse(b_from_a);
   const Eigen::Matrix6d adjoint_a_from_b = a_from_b.Adjoint();
   EXPECT_THAT(adjoint_inv, EigenMatrixNear(adjoint_a_from_b, 1e-6));

@@ -38,12 +38,40 @@
 #include <unordered_set>
 
 #include <Eigen/Core>
-#include <ceres/ceres.h>
 
 namespace colmap {
 
+struct CeresBundleAdjustmentOptions;
+struct CeresPosePriorBundleAdjustmentOptions;
+
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(
     BundleAdjustmentGauge, -1, UNSPECIFIED, TWO_CAMS_FROM_WORLD, THREE_POINTS);
+
+// Termination type for bundle adjustment, independent of solver backend.
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(BundleAdjustmentTerminationType,
+                                0,
+                                CONVERGENCE,
+                                NO_CONVERGENCE,
+                                FAILURE,
+                                USER_SUCCESS,
+                                USER_FAILURE);
+
+// Backend for bundle adjustment solver.
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(BundleAdjustmentBackend, 0, CERES);
+
+// Summary of bundle adjustment results, independent of solver backend.
+struct BundleAdjustmentSummary {
+  BundleAdjustmentTerminationType termination_type =
+      BundleAdjustmentTerminationType::FAILURE;
+  // Number of residuals connected to at least one variable parameter block.
+  // Excludes residuals where all connected parameters are constant.
+  int num_residuals = 0;
+
+  bool IsSolutionUsable() const;
+  virtual std::string BriefReport() const;
+
+  virtual ~BundleAdjustmentSummary() = default;
+};
 
 // Configuration container to setup bundle adjustment problems.
 class BundleAdjustmentConfig {
@@ -95,9 +123,11 @@ class BundleAdjustmentConfig {
   // be variable or constant but not both at the same time.
   void AddVariablePoint(point3D_t point3D_id);
   void AddConstantPoint(point3D_t point3D_id);
+  void IgnorePoint(point3D_t point3D_id);
   bool HasPoint(point3D_t point3D_id) const;
   bool HasVariablePoint(point3D_t point3D_id) const;
   bool HasConstantPoint(point3D_t point3D_id) const;
+  bool IsIgnoredPoint(point3D_t point3D_id) const;
   void RemoveVariablePoint(point3D_t point3D_id);
   void RemoveConstantPoint(point3D_t point3D_id);
 
@@ -115,18 +145,27 @@ class BundleAdjustmentConfig {
   std::unordered_set<image_t> image_ids_;
   std::unordered_set<point3D_t> variable_point3D_ids_;
   std::unordered_set<point3D_t> constant_point3D_ids_;
+  std::unordered_set<point3D_t> ignored_point3D_ids_;
   std::unordered_set<sensor_t> constant_sensor_from_rig_poses_;
   std::unordered_set<frame_t> constant_rig_from_world_poses_;
 };
 
-struct BundleAdjustmentOptions {
-  // Loss function types: Trivial (non-robust) and Cauchy (robust) loss.
-  enum class LossFunctionType { TRIVIAL, SOFT_L1, CAUCHY };
-  LossFunctionType loss_function_type = LossFunctionType::TRIVIAL;
+struct BundleAdjustmentBackendOptions {
+  // Ceres-specific options (only used when backend == CERES).
+  std::shared_ptr<CeresBundleAdjustmentOptions> ceres;
 
-  // Scaling factor determines residual at which robustification takes place.
-  double loss_function_scale = 1.0;
+  BundleAdjustmentBackendOptions();
+  BundleAdjustmentBackendOptions(const BundleAdjustmentBackendOptions& other);
+  BundleAdjustmentBackendOptions& operator=(
+      const BundleAdjustmentBackendOptions& other);
+  BundleAdjustmentBackendOptions(BundleAdjustmentBackendOptions&& other) =
+      default;
+  BundleAdjustmentBackendOptions& operator=(
+      BundleAdjustmentBackendOptions&& other) = default;
+};
 
+// Solver-agnostic bundle adjustment options.
+struct BundleAdjustmentOptions : public BundleAdjustmentBackendOptions {
   // Whether to refine the focal length parameter group.
   bool refine_focal_length = true;
 
@@ -140,81 +179,38 @@ struct BundleAdjustmentOptions {
   bool refine_sensor_from_rig = true;
   bool refine_rig_from_world = true;
 
+  // Whether to refine the 3D point positions. When false, all 3D points are
+  // treated as constant, enabling refinement of only camera intrinsics and
+  // poses. This is useful when 3D points come from a reference model and
+  // should not be modified.
+  bool refine_points3D = true;
+
+  // Minimum track length for a 3D point to be included in bundle adjustment.
+  // Points with fewer observations are ignored.
+  int min_track_length = 0;
+
+  // Whether to keep the rotation component of rig_from_world constant.
+  // Only takes effect when refine_rig_from_world is true.
+  // When true, only translation is refined.
+  bool constant_rig_from_world_rotation = false;
+
   // Whether to print a final summary.
   bool print_summary = true;
 
-  // Whether to use Ceres' CUDA linear algebra library, if available.
-  bool use_gpu = false;
-  std::string gpu_index = "-1";
-
-  // Heuristic threshold to switch from CPU to GPU based solvers.
-  // Typically, the GPU is faster for large problems but the overhead of
-  // transferring memory from the CPU to the GPU leads to better CPU performance
-  // for small problems. This depends on the specific problem and hardware.
-  int min_num_images_gpu_solver = 50;
-
-  // Heuristic threshold on the minimum number of residuals to enable
-  // multi-threading. Note that single-threaded is typically better for small
-  // bundle adjustment problems due to the overhead of threading.
-  int min_num_residuals_for_cpu_multi_threading = 50000;
-
-  // Heuristic thresholds to switch between direct, sparse, and iterative
-  // solvers. These thresholds may not be optimal for all types of problems.
-  int max_num_images_direct_dense_cpu_solver = 50;
-  int max_num_images_direct_sparse_cpu_solver = 1000;
-  int max_num_images_direct_dense_gpu_solver = 200;
-  int max_num_images_direct_sparse_gpu_solver = 4000;
-
-  // Ceres-Solver options.
-  ceres::Solver::Options solver_options;
-
-  BundleAdjustmentOptions() {
-    solver_options.function_tolerance = 0.0;
-    solver_options.gradient_tolerance = 1e-4;
-    solver_options.parameter_tolerance = 0.0;
-    solver_options.logging_type = ceres::LoggingType::SILENT;
-    solver_options.max_num_iterations = 100;
-    solver_options.max_linear_solver_iterations = 200;
-    solver_options.max_num_consecutive_invalid_steps = 10;
-    solver_options.max_consecutive_nonmonotonic_steps = 10;
-    solver_options.num_threads = -1;
-#if CERES_VERSION_MAJOR < 2
-    solver_options.num_linear_solver_threads = -1;
-#endif  // CERES_VERSION_MAJOR
-  }
-
-  // Create a new loss function based on the specified options. The caller
-  // takes ownership of the loss function.
-  ceres::LossFunction* CreateLossFunction() const;
-
-  // Create options tailored for given bundle adjustment config and problem.
-  ceres::Solver::Options CreateSolverOptions(
-      const BundleAdjustmentConfig& config,
-      const ceres::Problem& problem) const;
+  // Solver backend to use for bundle adjustment.
+  BundleAdjustmentBackend backend = BundleAdjustmentBackend::CERES;
 
   bool Check() const;
 };
 
-struct PosePriorBundleAdjustmentOptions {
-  // Whether to use a robust loss on prior locations.
-  bool use_robust_loss_on_prior_position = false;
-
-  // Threshold on the residual for the robust loss
-  // (chi2 for 3DOF at 95% = 7.815).
-  double prior_position_loss_scale = 7.815;
-
-  // Sim3 alignment options.
-  RANSACOptions alignment_ransac_options;
-};
-
+// Abstract base class for bundle adjustment, independent of solver backend.
 class BundleAdjuster {
  public:
-  BundleAdjuster(BundleAdjustmentOptions options,
-                 BundleAdjustmentConfig config);
+  BundleAdjuster(const BundleAdjustmentOptions& options,
+                 const BundleAdjustmentConfig& config);
   virtual ~BundleAdjuster() = default;
 
-  virtual ceres::Solver::Summary Solve() = 0;
-  virtual std::shared_ptr<ceres::Problem>& Problem() = 0;
+  virtual std::shared_ptr<BundleAdjustmentSummary> Solve() = 0;
 
   const BundleAdjustmentOptions& Options() const;
   const BundleAdjustmentConfig& Config() const;
@@ -224,19 +220,47 @@ class BundleAdjuster {
   BundleAdjustmentConfig config_;
 };
 
+// Factory function to create bundle adjusters.
+// Currently uses Ceres as the backend, but can be extended to support
+// other backends (e.g., Caspar) in the future.
 std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(
-    BundleAdjustmentOptions options,
-    BundleAdjustmentConfig config,
+    const BundleAdjustmentOptions& options,
+    const BundleAdjustmentConfig& config,
     Reconstruction& reconstruction);
 
+struct PosePriorBundleAdjustmentBackendOptions {
+  // Ceres-specific options (only used when backend == CERES).
+  std::shared_ptr<CeresPosePriorBundleAdjustmentOptions> ceres;
+
+  PosePriorBundleAdjustmentBackendOptions();
+  PosePriorBundleAdjustmentBackendOptions(
+      const PosePriorBundleAdjustmentBackendOptions& other);
+  PosePriorBundleAdjustmentBackendOptions& operator=(
+      const PosePriorBundleAdjustmentBackendOptions& other);
+  PosePriorBundleAdjustmentBackendOptions(
+      PosePriorBundleAdjustmentBackendOptions&& other) = default;
+  PosePriorBundleAdjustmentBackendOptions& operator=(
+      PosePriorBundleAdjustmentBackendOptions&& other) = default;
+};
+
+// Solver-agnostic pose prior bundle adjustment options.
+struct PosePriorBundleAdjustmentOptions
+    : public PosePriorBundleAdjustmentBackendOptions {
+  // Fallback if no prior position covariance is provided.
+  double prior_position_fallback_stddev = 1.0;
+
+  // Sim3 alignment options.
+  RANSACOptions alignment_ransac_options;
+
+  bool Check() const;
+};
+
+// Factory function to create pose prior bundle adjusters.
 std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
-    BundleAdjustmentOptions options,
-    PosePriorBundleAdjustmentOptions prior_options,
-    BundleAdjustmentConfig config,
-    std::unordered_map<image_t, PosePrior> pose_priors,
+    const BundleAdjustmentOptions& options,
+    const PosePriorBundleAdjustmentOptions& prior_options,
+    const BundleAdjustmentConfig& config,
+    std::vector<PosePrior> pose_priors,
     Reconstruction& reconstruction);
-
-void PrintSolverSummary(const ceres::Solver::Summary& summary,
-                        const std::string& header);
 
 }  // namespace colmap

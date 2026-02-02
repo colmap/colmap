@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include <filesystem>
 #include <string>
 
 namespace colmap {
@@ -48,11 +49,8 @@ struct PoissonMeshingOptions {
   // reconstruction depth is only an upper bound.
   int depth = 13;
 
-  // If specified, the reconstruction code assumes that the input is equipped
-  // with colors and will extrapolate the color values to the vertices of the
-  // reconstructed mesh. The floating point value specifies the relative
-  // importance of finer color estimates over lower ones.
-  double color = 32.0;
+  // Whether to color the vertices.
+  bool color = true;
 
   // This floating point values specifies the value for mesh trimming. The
   // subset of the mesh with signal value less than the trim value is discarded.
@@ -101,8 +99,8 @@ struct DelaunayMeshingOptions {
 
 // Perform Poisson surface reconstruction and return true if successful.
 bool PoissonMeshing(const PoissonMeshingOptions& options,
-                    const std::string& input_path,
-                    const std::string& output_path);
+                    const std::filesystem::path& input_path,
+                    const std::filesystem::path& output_path);
 
 #if defined(COLMAP_CGAL_ENABLED)
 
@@ -117,11 +115,11 @@ bool PoissonMeshing(const PoissonMeshingOptions& options,
 // COLMAP workspace folder, which has been fully processed by the stereo and
 // fusion pipeline.
 void SparseDelaunayMeshing(const DelaunayMeshingOptions& options,
-                           const std::string& input_path,
-                           const std::string& output_path);
+                           const std::filesystem::path& input_path,
+                           const std::filesystem::path& output_path);
 void DenseDelaunayMeshing(const DelaunayMeshingOptions& options,
-                          const std::string& input_path,
-                          const std::string& output_path);
+                          const std::filesystem::path& input_path,
+                          const std::filesystem::path& output_path);
 
 #endif  // COLMAP_CGAL_ENABLED
 

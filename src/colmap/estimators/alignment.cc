@@ -29,8 +29,9 @@
 
 #include "colmap/estimators/alignment.h"
 
-#include "colmap/estimators/similarity_transform.h"
+#include "colmap/estimators/solvers/similarity_transform.h"
 #include "colmap/geometry/pose.h"
+#include "colmap/math/math.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/scene/projection.h"
 #include "colmap/util/logging.h"
@@ -239,7 +240,7 @@ bool AlignReconstructionToLocations(
 
 bool AlignReconstructionToPosePriors(
     const Reconstruction& src_reconstruction,
-    const std::unordered_map<image_t, PosePrior>& tgt_pose_priors,
+    const std::vector<PosePrior>& tgt_pose_priors,
     const RANSACOptions& ransac_options,
     Sim3d* tgt_from_src) {
   std::vector<Eigen::Vector3d> src;
@@ -247,10 +248,20 @@ bool AlignReconstructionToPosePriors(
   src.reserve(tgt_pose_priors.size());
   tgt.reserve(tgt_pose_priors.size());
 
+  std::unordered_map<image_t, PosePrior> tgt_image_to_pose_prior;
+  for (const auto& pose_prior : tgt_pose_priors) {
+    if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA &&
+        pose_prior.HasPosition()) {
+      THROW_CHECK(tgt_image_to_pose_prior
+                      .emplace(pose_prior.corr_data_id.id, pose_prior)
+                      .second)
+          << "Duplicate pose prior for image " << pose_prior.corr_data_id.id;
+    }
+  }
+
   for (const image_t image_id : src_reconstruction.RegImageIds()) {
-    const auto pose_prior_it = tgt_pose_priors.find(image_id);
-    if (pose_prior_it != tgt_pose_priors.end() &&
-        pose_prior_it->second.IsValid()) {
+    const auto pose_prior_it = tgt_image_to_pose_prior.find(image_id);
+    if (pose_prior_it != tgt_image_to_pose_prior.end()) {
       const auto& image = src_reconstruction.Image(image_id);
       src.push_back(image.ProjectionCenter());
       tgt.push_back(pose_prior_it->second.position);
@@ -357,10 +368,10 @@ std::vector<ImageAlignmentError> ComputeImageAlignmentError(
     ImageAlignmentError error;
     error.image_name = src_image.Name();
     error.rotation_error_deg =
-        RadToDeg(tgt_world_from_src_cam.rotation.angularDistance(
-            tgt_world_from_tgt_cam.rotation));
-    error.proj_center_error = (tgt_world_from_src_cam.translation -
-                               tgt_world_from_tgt_cam.translation)
+        RadToDeg(tgt_world_from_src_cam.rotation().angularDistance(
+            tgt_world_from_tgt_cam.rotation()));
+    error.proj_center_error = (tgt_world_from_src_cam.translation() -
+                               tgt_world_from_tgt_cam.translation())
                                   .norm();
     errors.push_back(error);
   }
@@ -552,14 +563,15 @@ bool AlignReconstructionToOrigRigScales(
 
       // Here we do not include rigs that are panoramic.
       double sensor_from_orig_rig_norm =
-          sensor_from_orig_rig->translation.norm();
+          sensor_from_orig_rig->translation().norm();
       if (sensor_from_orig_rig_norm < 1e-6) {
         continue;
       }
       THROW_CHECK(reconstruction->Rig(rig_id).HasSensorFromRig(sensor_id));
       double scale = reconstruction->Rig(rig_id)
                          .SensorFromRig(sensor_id)
-                         .translation.norm() /
+                         .translation()
+                         .norm() /
                      sensor_from_orig_rig_norm;
       scale_sum_rig += scale;
       ++scale_count_rig;
@@ -573,9 +585,45 @@ bool AlignReconstructionToOrigRigScales(
     return false;
   }
   Sim3d new_from_old_world;
-  new_from_old_world.scale = scale_count / scale_sum;
+  new_from_old_world.scale() = scale_count / scale_sum;
   reconstruction->Transform(new_from_old_world);
   return true;
+}
+
+AlignmentErrorSummary AlignmentErrorSummary::Compute(
+    const std::vector<ImageAlignmentError>& errors) {
+  AlignmentErrorSummary summary;
+  if (errors.empty()) {
+    return summary;
+  }
+
+  std::vector<double> rotation_errors_deg;
+  rotation_errors_deg.reserve(errors.size());
+  std::vector<double> proj_center_errors;
+  proj_center_errors.reserve(errors.size());
+
+  for (const auto& error : errors) {
+    rotation_errors_deg.push_back(error.rotation_error_deg);
+    proj_center_errors.push_back(error.proj_center_error);
+  }
+
+  auto ComputeStatistics = [](std::vector<double>& values) {
+    Statistics stats;
+    if (values.empty()) {
+      return stats;
+    }
+    stats.min = Percentile(values, 0);
+    stats.max = Percentile(values, 100);
+    stats.mean = Mean(values);
+    stats.median = Median(values);
+    stats.p90 = Percentile(values, 90);
+    stats.p99 = Percentile(values, 99);
+    return stats;
+  };
+
+  summary.rotation_errors_deg = ComputeStatistics(rotation_errors_deg);
+  summary.proj_center_errors = ComputeStatistics(proj_center_errors);
+  return summary;
 }
 
 }  // namespace colmap

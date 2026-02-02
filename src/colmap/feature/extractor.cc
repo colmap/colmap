@@ -44,10 +44,40 @@ void ThrowUnknownFeatureExtractorType(FeatureExtractorType type) {
 
 }  // namespace
 
-FeatureExtractionOptions::FeatureExtractionOptions(FeatureExtractorType type)
-    : type(type),
-      sift(std::make_shared<SiftExtractionOptions>()),
+FeatureExtractionTypeOptions::FeatureExtractionTypeOptions()
+    : sift(std::make_shared<SiftExtractionOptions>()),
       xfeat(std::make_shared<XFeatExtractionOptions>()) {}
+
+FeatureExtractionTypeOptions::FeatureExtractionTypeOptions(
+    const FeatureExtractionTypeOptions& other) {
+  if (other.sift) {
+    sift = std::make_shared<SiftExtractionOptions>(*other.sift);
+  }
+  if (other.xfeat) {
+    xfeat = std::make_shared<XFeatExtractionOptions>(*other.xfeat);
+  }
+}
+
+FeatureExtractionTypeOptions& FeatureExtractionTypeOptions::operator=(
+    const FeatureExtractionTypeOptions& other) {
+  if (this == &other) {
+    return *this;
+  }
+  if (other.sift) {
+    sift = std::make_shared<SiftExtractionOptions>(*other.sift);
+  } else {
+    sift.reset();
+  }
+  if (other.xfeat) {
+    xfeat = std::make_shared<XFeatExtractionOptions>(*other.xfeat);
+  } else {
+    xfeat.reset();
+  }
+  return *this;
+}
+
+FeatureExtractionOptions::FeatureExtractionOptions(FeatureExtractorType type)
+    : FeatureExtractionTypeOptions(), type(type) {}
 
 bool FeatureExtractionOptions::RequiresRGB() const {
   switch (type) {
@@ -55,6 +85,26 @@ bool FeatureExtractionOptions::RequiresRGB() const {
       return false;
     case FeatureExtractorType::XFEAT:
       return true;
+    default:
+      ThrowUnknownFeatureExtractorType(type);
+  }
+  return false;
+}
+
+bool FeatureExtractionOptions::RequiresOpenGL() const {
+  switch (type) {
+    case FeatureExtractorType::SIFT: {
+      // Sync with logic in CreateSiftFeatureExtractor().
+      if (sift->estimate_affine_shape || sift->domain_size_pooling ||
+          sift->force_covariant_extractor) {
+        return false;
+      }
+#ifdef COLMAP_CUDA_ENABLED
+      return false;
+#else
+      return use_gpu;
+#endif
+    }
     default:
       ThrowUnknownFeatureExtractorType(type);
   }
