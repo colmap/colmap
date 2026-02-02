@@ -269,9 +269,13 @@ TEST(AlignmentErrorSummary, MultipleErrors) {
   EXPECT_NEAR(summary.rotation_errors_deg.max, 5.0, 1e-10);
   EXPECT_NEAR(summary.rotation_errors_deg.mean, 3.0, 1e-10);
   EXPECT_NEAR(summary.rotation_errors_deg.median, 3.0, 1e-10);
+  EXPECT_NEAR(summary.rotation_errors_deg.p90, 4.6, 1e-10);
+  EXPECT_NEAR(summary.rotation_errors_deg.p99, 4.96, 1e-10);
   EXPECT_NEAR(summary.proj_center_errors.min, 0.1, 1e-10);
   EXPECT_NEAR(summary.proj_center_errors.max, 0.5, 1e-10);
   EXPECT_NEAR(summary.proj_center_errors.mean, 0.3, 1e-10);
+  EXPECT_NEAR(summary.proj_center_errors.p90, 0.46, 1e-10);
+  EXPECT_NEAR(summary.proj_center_errors.p99, 0.496, 1e-10);
 }
 
 }  // namespace
