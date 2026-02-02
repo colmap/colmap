@@ -32,6 +32,7 @@
 #include "colmap/controllers/option_manager.h"
 #include "colmap/estimators/alignment.h"
 #include "colmap/estimators/coordinate_frame.h"
+#include "colmap/geometry/bbox.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/math/math.h"
 #include "colmap/optim/ransac.h"
@@ -46,28 +47,6 @@
 
 namespace colmap {
 namespace {
-
-std::vector<Eigen::AlignedBox3d> ComputeEqualPartsBboxes(
-    const Reconstruction& reconstruction, const Eigen::Vector3i& split) {
-  std::vector<Eigen::AlignedBox3d> bboxes;
-  const Eigen::AlignedBox3d bbox = reconstruction.ComputeBoundingBox();
-  const Eigen::Vector3d extent = bbox.diagonal();
-  const Eigen::Vector3d offset(
-      extent(0) / split(0), extent(1) / split(1), extent(2) / split(2));
-
-  for (int k = 0; k < split(2); ++k) {
-    for (int j = 0; j < split(1); ++j) {
-      for (int i = 0; i < split(0); ++i) {
-        Eigen::Vector3d min(bbox.min().x() + i * offset(0),
-                            bbox.min().y() + j * offset(1),
-                            bbox.min().z() + k * offset(2));
-        bboxes.emplace_back(min, min + offset);
-      }
-    }
-  }
-
-  return bboxes;
-}
 
 Eigen::Vector3d TransformLatLonAltToModelCoords(const Sim3d& tform,
                                                 const double lat,
@@ -197,34 +176,27 @@ void WriteComparisonErrorsCSV(const std::filesystem::path& path,
   }
 }
 
-void PrintErrorStats(std::ostream& out, std::vector<double>& vals) {
-  const size_t len = vals.size();
-  if (len == 0) {
-    out << "Cannot extract error statistics from empty input\n";
-    return;
-  }
-  out << "Min:    " << Percentile(vals, 0) << '\n';
-  out << "Max:    " << Percentile(vals, 100) << '\n';
-  out << "Mean:   " << Mean(vals) << '\n';
-  out << "Median: " << Median(vals) << '\n';
-  out << "P90:    " << Percentile(vals, 90) << '\n';
-  out << "P99:    " << Percentile(vals, 99) << '\n';
+void PrintErrorStats(std::ostream& out,
+                     const AlignmentErrorSummary::Statistics& stats) {
+  out << "Min:    " << stats.min << '\n';
+  out << "Max:    " << stats.max << '\n';
+  out << "Mean:   " << stats.mean << '\n';
+  out << "Median: " << stats.median << '\n';
+  out << "P90:    " << stats.p90 << '\n';
+  out << "P99:    " << stats.p99 << '\n';
 }
 
 void PrintComparisonSummary(std::ostream& out,
                             const std::vector<ImageAlignmentError>& errors) {
-  std::vector<double> rotation_errors_deg;
-  rotation_errors_deg.reserve(errors.size());
-  std::vector<double> proj_center_errors;
-  proj_center_errors.reserve(errors.size());
-  for (const auto& error : errors) {
-    rotation_errors_deg.push_back(error.rotation_error_deg);
-    proj_center_errors.push_back(error.proj_center_error);
+  if (errors.empty()) {
+    out << "Cannot extract error statistics from empty input\n";
+    return;
   }
+  AlignmentErrorSummary summary = AlignmentErrorSummary::Compute(errors);
   out << "\nRotation errors (degrees)\n";
-  PrintErrorStats(out, rotation_errors_deg);
+  PrintErrorStats(out, summary.rotation_errors_deg);
   out << "\nProjection center errors\n";
-  PrintErrorStats(out, proj_center_errors);
+  PrintErrorStats(out, summary.proj_center_errors);
 }
 
 }  // namespace
@@ -969,7 +941,7 @@ int RunModelSplitter(int argc, char** argv) {
                                 static_cast<int>(full_bbox(1) / extent(1)) + 1,
                                 static_cast<int>(full_bbox(2) / extent(2)) + 1);
 
-    exact_bboxes = ComputeEqualPartsBboxes(reconstruction, split);
+    exact_bboxes = ComputeEqualPartsBboxes(bbox, split);
   } else if (split_type == "parts") {
     auto parts = CSVToVector<int>(split_params);
     Eigen::Vector3i split(1, 1, 1);
@@ -980,7 +952,8 @@ int RunModelSplitter(int argc, char** argv) {
         return EXIT_FAILURE;
       }
     }
-    exact_bboxes = ComputeEqualPartsBboxes(reconstruction, split);
+    exact_bboxes =
+        ComputeEqualPartsBboxes(reconstruction.ComputeBoundingBox(), split);
   } else {
     LOG(ERROR) << "Invalid split type: " << split_type;
     return EXIT_FAILURE;

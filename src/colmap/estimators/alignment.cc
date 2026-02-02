@@ -590,4 +590,40 @@ bool AlignReconstructionToOrigRigScales(
   return true;
 }
 
+AlignmentErrorSummary AlignmentErrorSummary::Compute(
+    const std::vector<ImageAlignmentError>& errors) {
+  AlignmentErrorSummary summary;
+  if (errors.empty()) {
+    return summary;
+  }
+
+  std::vector<double> rotation_errors_deg;
+  rotation_errors_deg.reserve(errors.size());
+  std::vector<double> proj_center_errors;
+  proj_center_errors.reserve(errors.size());
+
+  for (const auto& error : errors) {
+    rotation_errors_deg.push_back(error.rotation_error_deg);
+    proj_center_errors.push_back(error.proj_center_error);
+  }
+
+  auto ComputeStatistics = [](std::vector<double>& values) {
+    Statistics stats;
+    if (values.empty()) {
+      return stats;
+    }
+    stats.min = Percentile(values, 0);
+    stats.max = Percentile(values, 100);
+    stats.mean = Mean(values);
+    stats.median = Median(values);
+    stats.p90 = Percentile(values, 90);
+    stats.p99 = Percentile(values, 99);
+    return stats;
+  };
+
+  summary.rotation_errors_deg = ComputeStatistics(rotation_errors_deg);
+  summary.proj_center_errors = ComputeStatistics(proj_center_errors);
+  return summary;
+}
+
 }  // namespace colmap
