@@ -535,16 +535,10 @@ int RunPointFiltering(int argc, char** argv) {
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
 
-  size_t num_filtered = ObservationManager(reconstruction)
-                            .FilterAllPoints3D(max_reproj_error, min_tri_angle);
-
-  for (const auto point3D_id : reconstruction.Point3DIds()) {
-    const auto& point3D = reconstruction.Point3D(point3D_id);
-    if (point3D.track.Length() < min_track_len) {
-      num_filtered += point3D.track.Length();
-      reconstruction.DeletePoint3D(point3D_id);
-    }
-  }
+  ObservationManager obs_manager(reconstruction);
+  size_t num_filtered =
+      obs_manager.FilterAllPoints3D(max_reproj_error, min_tri_angle);
+  num_filtered += obs_manager.FilterPoints3DWithShortTracks(min_track_len);
 
   LOG(INFO) << "Filtered observations: " << num_filtered;
 
