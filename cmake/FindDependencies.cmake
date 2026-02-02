@@ -192,6 +192,44 @@ if(CUDA_ENABLED AND CUDA_FOUND)
         set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fPIC")
     endif()
 
+    # Handle MSVC runtime library for CUDA to support static CRT linking.
+    # CMake's default CUDA flags use /MD (dynamic), but if the user is building
+    # with static CRT (/MT), we need to override the CUDA flags to match.
+    if(IS_MSVC)
+        # Detect the runtime library from CMAKE_MSVC_RUNTIME_LIBRARY or CXX flags
+        set(_COLMAP_USE_STATIC_RUNTIME OFF)
+
+        if(DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
+            if(CMAKE_MSVC_RUNTIME_LIBRARY MATCHES "MultiThreaded" AND
+               NOT CMAKE_MSVC_RUNTIME_LIBRARY MATCHES "DLL")
+                set(_COLMAP_USE_STATIC_RUNTIME ON)
+            endif()
+        elseif(CMAKE_CXX_FLAGS_DEBUG MATCHES "/MTd" OR
+               CMAKE_CXX_FLAGS_RELEASE MATCHES "/MT[^d]" OR
+               CMAKE_CXX_FLAGS MATCHES "/MT")
+            set(_COLMAP_USE_STATIC_RUNTIME ON)
+        endif()
+
+        if(_COLMAP_USE_STATIC_RUNTIME)
+            message(STATUS "CUDA: Using static MSVC runtime library (/MT)")
+            # Replace /MD with /MT in CUDA flags for each build type
+            foreach(_BUILD_TYPE DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
+                if(DEFINED CMAKE_CUDA_FLAGS_${_BUILD_TYPE})
+                    string(REPLACE "-MDd" "-MTd" CMAKE_CUDA_FLAGS_${_BUILD_TYPE}
+                           "${CMAKE_CUDA_FLAGS_${_BUILD_TYPE}}")
+                    string(REPLACE "-MD" "-MT" CMAKE_CUDA_FLAGS_${_BUILD_TYPE}
+                           "${CMAKE_CUDA_FLAGS_${_BUILD_TYPE}}")
+                    string(REPLACE "/MDd" "/MTd" CMAKE_CUDA_FLAGS_${_BUILD_TYPE}
+                           "${CMAKE_CUDA_FLAGS_${_BUILD_TYPE}}")
+                    string(REPLACE "/MD" "/MT" CMAKE_CUDA_FLAGS_${_BUILD_TYPE}
+                           "${CMAKE_CUDA_FLAGS_${_BUILD_TYPE}}")
+                endif()
+            endforeach()
+        endif()
+
+        unset(_COLMAP_USE_STATIC_RUNTIME)
+    endif()
+
     message(STATUS "Enabling CUDA support (version: ${CUDAToolkit_VERSION}, "
                     "archs: ${CMAKE_CUDA_ARCHITECTURES})")
 else()
