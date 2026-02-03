@@ -214,38 +214,38 @@ class AlikedFeatureExtractor : public FeatureExtractor {
     // Convert keypoints from normalized [-1, 1] to pixel coordinates,
     // where ALIKED uses the center of the top-left pixel as (0, 0),
     // while COLMAP uses the top-left pixel's corner as (0, 0).
+    // Filter out keypoints in the padded region (outside original image
+    // bounds).
     const float scale_x = 0.5f * static_cast<float>(padder.padded_width - 1);
     const float scale_y = 0.5f * static_cast<float>(padder.padded_height - 1);
-    const float max_x = static_cast<float>(padder.original_width);
-    const float max_y = static_cast<float>(padder.original_height);
 
-    // First pass: count valid keypoints and collect indices.
-    std::vector<int> valid_indices;
-    valid_indices.reserve(num_keypoints);
+    // Collect valid keypoints, their pixel coordinates, and descriptor indices.
+    struct ValidKeypoint {
+      float x, y;
+      int index;
+    };
+    std::vector<ValidKeypoint> valid_keypoints;
+    valid_keypoints.reserve(num_keypoints);
     for (int i = 0; i < num_keypoints; ++i) {
-      // Model outputs [x, y] order in normalized [-1, 1] coordinates.
       const float norm_x = keypoints_data[2 * i + 0];
       const float norm_y = keypoints_data[2 * i + 1];
       const float px = (norm_x + 1.0f) * scale_x + 0.5f;
       const float py = (norm_y + 1.0f) * scale_y + 0.5f;
-      // Keep keypoints within original image bounds (with small tolerance).
-      if (px >= 0.0f && px <= max_x && py >= 0.0f && py <= max_y) {
-        valid_indices.push_back(i);
+      if (px >= 0.0f && px <= width && py >= 0.0f && py <= height) {
+        valid_keypoints.push_back({px, py, i});
       }
     }
 
     // Populate output with valid keypoints and descriptors.
-    const int num_valid = static_cast<int>(valid_indices.size());
+    const int num_valid = static_cast<int>(valid_keypoints.size());
     keypoints->resize(num_valid);
     descriptors->resize(num_valid, descriptor_dim_ * sizeof(float));
     for (int j = 0; j < num_valid; ++j) {
-      const int i = valid_indices[j];
-      const float norm_x = keypoints_data[2 * i + 0];
-      const float norm_y = keypoints_data[2 * i + 1];
-      (*keypoints)[j].x = (norm_x + 1.0f) * scale_x + 0.5f;
-      (*keypoints)[j].y = (norm_y + 1.0f) * scale_y + 0.5f;
+      const auto& kp = valid_keypoints[j];
+      (*keypoints)[j].x = kp.x;
+      (*keypoints)[j].y = kp.y;
       std::memcpy(descriptors->data() + j * descriptor_dim_ * sizeof(float),
-                  descriptors_data + i * descriptor_dim_,
+                  descriptors_data + kp.index * descriptor_dim_,
                   descriptor_dim_ * sizeof(float));
     }
 
