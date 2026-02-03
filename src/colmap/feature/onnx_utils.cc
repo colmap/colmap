@@ -81,7 +81,7 @@ ONNXModel::ONNXModel(std::string model_path,
   {
     static std::mutex download_mutex;
     const std::lock_guard<std::mutex> lock(download_mutex);
-    model_path = MaybeDownloadAndCacheFile(model_path);
+    model_path = MaybeDownloadAndCacheFile(model_path).string();
   }
 
   const int num_eff_threads = GetEffectiveNumThreads(num_threads);
