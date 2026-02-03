@@ -246,6 +246,8 @@ void OptionManager::AddFeatureExtractionOptions() {
 
   AddDefaultOption("AlikedExtraction.max_num_features",
                    &feature_extraction->aliked->max_num_features);
+  AddDefaultOption("AlikedExtraction.min_score",
+                   &feature_extraction->aliked->min_score);
   AddDefaultOption("AlikedExtraction.model_path",
                    &feature_extraction->aliked->model_path);
 }

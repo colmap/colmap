@@ -113,14 +113,17 @@ class AlikedFeatureExtractor : public FeatureExtractor {
                options.gpu_index) {
     THROW_CHECK(options.Check());
 
-    // Validate sparse model inputs: image [1, 3, H, W], max_keypoints (scalar).
-    THROW_CHECK_EQ(model_.input_shapes.size(), 2);
+    // Validate sparse model inputs: image [1, 3, H, W], max_keypoints (scalar),
+    // min_score (scalar).
+    THROW_CHECK_EQ(model_.input_shapes.size(), 3);
     ThrowCheckNode(model_.input_names[0],
                    "image",
                    model_.input_shapes[0],
                    {-1, 3, -1, -1});
     ThrowCheckNode(
         model_.input_names[1], "max_keypoints", model_.input_shapes[1], {});
+    ThrowCheckNode(
+        model_.input_names[2], "min_score", model_.input_shapes[2], {});
 
     // Validate sparse model outputs: keypoints [1, K, 2], descriptors [1, K,
     // D], scores [1, K]. Note: Some dimensions may be dynamic (-1) in ONNX.
@@ -180,6 +183,16 @@ class AlikedFeatureExtractor : public FeatureExtractor {
         1,
         model_.input_shapes[1].data(),
         model_.input_shapes[1].size()));
+
+    // Prepare min_score input tensor (scalar).
+    float min_score = static_cast<float>(options_.aliked->min_score);
+    input_tensors.emplace_back(Ort::Value::CreateTensor<float>(
+        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
+                                   OrtMemType::OrtMemTypeCPU),
+        &min_score,
+        1,
+        model_.input_shapes[2].data(),
+        model_.input_shapes[2].size()));
 
     // Run model inference.
     const std::vector<Ort::Value> output_tensors = model_.Run(input_tensors);
@@ -392,6 +405,8 @@ class AlikedBruteForceFeatureMatcher : public FeatureMatcher {
 
 bool AlikedExtractionOptions::Check() const {
   CHECK_OPTION_GT(max_num_features, 0);
+  CHECK_OPTION_GE(min_score, 0);
+  CHECK_OPTION_LE(min_score, 1);
   return true;
 }
 

@@ -109,5 +109,61 @@ TEST(Aliked, Nominal) {
   }
 }
 
+TEST(Aliked, MaxNumFeatures) {
+  Bitmap image;
+  CreateRandomRgbImage(200, 100, &image);
+
+  // Extract with default max_num_features.
+  FeatureExtractionOptions options_default(FeatureExtractorType::ALIKED);
+  options_default.use_gpu = false;
+  auto extractor_default = CreateAlikedFeatureExtractor(options_default);
+  FeatureKeypoints keypoints_default;
+  FeatureDescriptors descriptors_default;
+  ASSERT_TRUE(extractor_default->Extract(
+      image, &keypoints_default, &descriptors_default));
+
+  // Extract with reduced max_num_features.
+  FeatureExtractionOptions options_limited(FeatureExtractorType::ALIKED);
+  options_limited.use_gpu = false;
+  options_limited.aliked->max_num_features = 100;
+  auto extractor_limited = CreateAlikedFeatureExtractor(options_limited);
+  FeatureKeypoints keypoints_limited;
+  FeatureDescriptors descriptors_limited;
+  ASSERT_TRUE(extractor_limited->Extract(
+      image, &keypoints_limited, &descriptors_limited));
+
+  // Limited extraction should have fewer or equal keypoints.
+  EXPECT_LE(keypoints_limited.size(), 100);
+  EXPECT_LT(keypoints_limited.size(), keypoints_default.size());
+}
+
+TEST(Aliked, MinScore) {
+  Bitmap image;
+  CreateRandomRgbImage(200, 100, &image);
+
+  // Extract with low min_score threshold.
+  FeatureExtractionOptions options_low(FeatureExtractorType::ALIKED);
+  options_low.use_gpu = false;
+  options_low.aliked->min_score = 0.0;
+  auto extractor_low = CreateAlikedFeatureExtractor(options_low);
+  FeatureKeypoints keypoints_low;
+  FeatureDescriptors descriptors_low;
+  ASSERT_TRUE(extractor_low->Extract(image, &keypoints_low, &descriptors_low));
+
+  // Extract with high min_score threshold.
+  FeatureExtractionOptions options_high(FeatureExtractorType::ALIKED);
+  options_high.use_gpu = false;
+  options_high.aliked->min_score = 0.9;
+  auto extractor_high = CreateAlikedFeatureExtractor(options_high);
+  FeatureKeypoints keypoints_high;
+  FeatureDescriptors descriptors_high;
+  ASSERT_TRUE(
+      extractor_high->Extract(image, &keypoints_high, &descriptors_high));
+
+  // Different min_score values should produce different keypoint counts
+  // (verifies the parameter is being passed to the model).
+  EXPECT_NE(keypoints_high.size(), keypoints_low.size());
+}
+
 }  // namespace
 }  // namespace colmap

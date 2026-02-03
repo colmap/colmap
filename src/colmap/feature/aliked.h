@@ -39,9 +39,13 @@ struct AlikedExtractionOptions {
   // Maximum number of features to detect, keeping higher-score features.
   int max_num_features = 2048;
 
+  // Minimum score threshold for keypoint detection.
+  double min_score = 0.2;
+
   // The path to the ONNX model file for the ALIKED extractor.
-  // Must be a sparse model with max_keypoints input.
-  std::string model_path = kDefaultALIKEDN32FeatureExtractorUri;
+  // Must be a sparse model with max_keypoints and min_score inputs.
+  std::string model_path =
+      "/Users/jsch/dev/ALIKED/models/aliked-n16rot_sparse.onnx";
 
   bool Check() const;
 };
