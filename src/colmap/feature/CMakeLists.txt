@@ -49,14 +49,15 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_feature
     SRCS
         aliked.h aliked.cc
-        xfeat.h xfeat.cc
         extractor.h extractor.cc
         index.h index.cc
         matcher.h matcher.cc
+        onnx_utils.h onnx_utils.cc
         pairing.h pairing.cc
         sift.h sift.cc
         types.h types.cc
         utils.h utils.cc
+        xfeat.h xfeat.cc
     PUBLIC_LINK_LIBS
         colmap_feature_types
         colmap_geometry

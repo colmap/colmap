@@ -84,7 +84,8 @@ TEST(Aliked, Nominal) {
   }
 
   // Test brute-force matcher.
-  FeatureMatchingOptions matching_options(FeatureMatcherType::ALIKED_BRUTEFORCE);
+  FeatureMatchingOptions matching_options(
+      FeatureMatcherType::ALIKED_BRUTEFORCE);
   matching_options.use_gpu = false;
   auto matcher = CreateAlikedFeatureMatcher(matching_options);
   FeatureMatches matches;

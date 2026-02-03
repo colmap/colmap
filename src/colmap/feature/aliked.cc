@@ -29,117 +29,16 @@
 
 #include "colmap/feature/aliked.h"
 
-#include "colmap/util/file.h"
-#include "colmap/util/misc.h"
-#include "colmap/util/threading.h"
+#include "colmap/feature/onnx_utils.h"
 
 #include <algorithm>
 #include <cmath>
 #include <memory>
-#include <numeric>
-#ifdef _WIN32
-#include <Windows.h>
-#endif
-
-#ifdef COLMAP_ONNX_ENABLED
-#include <onnxruntime_cxx_api.h>
-#endif
 
 namespace colmap {
 namespace {
 
 #ifdef COLMAP_ONNX_ENABLED
-
-struct ONNXModel {
-  ONNXModel(std::string model_path,
-            int num_threads,
-            bool use_gpu,
-            const std::string& gpu_index) {
-    {
-      static std::mutex download_mutex;
-      const std::lock_guard<std::mutex> lock(download_mutex);
-      model_path = MaybeDownloadAndCacheFile(model_path);
-    }
-
-    const int num_eff_threads = GetEffectiveNumThreads(num_threads);
-    session_options.SetInterOpNumThreads(num_eff_threads);
-    session_options.SetIntraOpNumThreads(num_eff_threads);
-    session_options.SetGraphOptimizationLevel(
-        GraphOptimizationLevel::ORT_ENABLE_ALL);
-
-#ifdef COLMAP_CUDA_ENABLED
-    if (use_gpu) {
-      const std::vector<int> gpu_indices = CSVToVector<int>(gpu_index);
-      THROW_CHECK_EQ(gpu_indices.size(), 1)
-          << "ONNX model can only run on one GPU";
-      OrtCUDAProviderOptions cuda_options{};
-      cuda_options.device_id = gpu_indices[0];
-      session_options.AppendExecutionProvider_CUDA(cuda_options);
-    }
-#endif
-
-    VLOG(2) << "Loading ONNX model from " << model_path;
-#ifdef _WIN32
-    constexpr int kCodePage = 0;  // UTF-8
-    const int wide_len =
-        MultiByteToWideChar(kCodePage, 0, model_path.c_str(), -1, nullptr, 0);
-    std::wstring model_path_wide(wide_len, L'\0');
-    MultiByteToWideChar(
-        kCodePage, 0, model_path.c_str(), -1, &model_path_wide[0], wide_len);
-    const wchar_t* model_path_cstr = model_path_wide.c_str();
-#else
-    const char* model_path_cstr = model_path.c_str();
-#endif
-    session =
-        std::make_unique<Ort::Session>(env, model_path_cstr, session_options);
-
-    VLOG(2) << "Parsing the inputs";
-    const int num_inputs = session->GetInputCount();
-    input_name_strs.reserve(num_inputs);
-    input_names.reserve(num_inputs);
-    input_shapes.reserve(num_inputs);
-    for (int i = 0; i < num_inputs; ++i) {
-      input_name_strs.emplace_back(
-          session->GetInputNameAllocated(i, allocator));
-      input_names.emplace_back(input_name_strs[i].get());
-      input_shapes.emplace_back(
-          session->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
-    }
-
-    VLOG(2) << "Parsing the outputs";
-    const int num_outputs = session->GetOutputCount();
-    output_name_strs.reserve(num_outputs);
-    output_names.reserve(num_outputs);
-    output_shapes.reserve(num_outputs);
-    for (int i = 0; i < num_outputs; ++i) {
-      output_name_strs.emplace_back(
-          session->GetOutputNameAllocated(i, allocator));
-      output_names.emplace_back(output_name_strs[i].get());
-      output_shapes.emplace_back(
-          session->GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
-    }
-  }
-
-  std::vector<Ort::Value> Run(const std::vector<Ort::Value>& input_tensors) {
-    return session->Run(Ort::RunOptions(),
-                        input_names.data(),
-                        input_tensors.data(),
-                        input_tensors.size(),
-                        output_names.data(),
-                        output_names.size());
-  }
-
-  Ort::Env env;
-  Ort::AllocatorWithDefaultOptions allocator;
-  Ort::SessionOptions session_options;
-  std::unique_ptr<Ort::Session> session;
-  std::vector<std::vector<int64_t>> input_shapes;
-  std::vector<Ort::AllocatedStringPtr> input_name_strs;
-  std::vector<char*> input_names;
-  std::vector<std::vector<int64_t>> output_shapes;
-  std::vector<Ort::AllocatedStringPtr> output_name_strs;
-  std::vector<char*> output_names;
-};
 
 // Pads image dimensions to be divisible by a given factor.
 class InputPadder {
