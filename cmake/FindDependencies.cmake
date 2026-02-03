@@ -247,23 +247,23 @@ if(ONNX_ENABLED)
 
         message(STATUS "Configuring onnxruntime...")
 
-        set(ONNX_VERSION "1.23.1")
+        set(ONNX_VERSION "1.23.2")
         if(IS_MACOS)
             FetchContent_Declare(onnxruntime
                 URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-osx-arm64-${ONNX_VERSION}.tgz
-                URL_HASH SHA256=24b9d8ad4b45e481d36cd24f766d4f257834dd0254d168c11c5cb8103b2ab7b6
+                URL_HASH SHA256=b4d513ab2b26f088c66891dbbc1408166708773d7cc4163de7bdca0e9bbb7856
                 ${_fetch_content_declare_args}
             )
         elseif(IS_LINUX)
             FetchContent_Declare(onnxruntime
                 URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-gpu-${ONNX_VERSION}.tgz
-                URL_HASH SHA256=d759646b084888ded846f3be36aaadea24b62a19accba2d64ff9c2e3fb714a62
+                URL_HASH SHA256=2083e361072a79ce16a90dcd5f5cb3ab92574a82a3ce0ac01e5cfa3158176f53
                 ${_fetch_content_declare_args}
             )
         elseif(IS_WINDOWS)
             FetchContent_Declare(onnxruntime
                 URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-win-x64-gpu-${ONNX_VERSION}.zip
-                URL_HASH SHA256=a2dd7aed365213d0187a653b0462bf9824d71ab2f76ea0c6df507e2a8036ca53
+                URL_HASH SHA256=e77afdbbc2b8cb6da4e5a50d89841b48c44f3e47dce4fb87b15a2743786d0bb9
                 ${_fetch_content_declare_args}
             )
         endif()
