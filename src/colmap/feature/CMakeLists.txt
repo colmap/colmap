@@ -48,6 +48,7 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_LIBRARY(
     NAME colmap_feature
     SRCS
+        aliked.h aliked.cc
         xfeat.h xfeat.cc
         extractor.h extractor.cc
         index.h index.cc
@@ -84,6 +85,13 @@ endif()
 COLMAP_ADD_TEST(
     NAME xfeat_test
     SRCS xfeat_test.cc
+    LINK_LIBS
+        colmap_feature
+        onnxruntime::onnxruntime
+)
+COLMAP_ADD_TEST(
+    NAME aliked_test
+    SRCS aliked_test.cc
     LINK_LIBS
         colmap_feature
         onnxruntime::onnxruntime

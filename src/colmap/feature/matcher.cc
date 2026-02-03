@@ -29,6 +29,7 @@
 
 #include "colmap/feature/matcher.h"
 
+#include "colmap/feature/aliked.h"
 #include "colmap/feature/sift.h"
 #include "colmap/feature/xfeat.h"
 #include "colmap/util/misc.h"
@@ -46,7 +47,8 @@ void ThrowUnknownFeatureMatcherType(FeatureMatcherType type) {
 
 FeatureMatchingTypeOptions::FeatureMatchingTypeOptions()
     : sift(std::make_shared<SiftMatchingOptions>()),
-      xfeat(std::make_shared<XFeatMatchingOptions>()) {}
+      xfeat(std::make_shared<XFeatMatchingOptions>()),
+      aliked(std::make_shared<AlikedMatchingOptions>()) {}
 
 FeatureMatchingTypeOptions::FeatureMatchingTypeOptions(
     const FeatureMatchingTypeOptions& other) {
@@ -55,6 +57,9 @@ FeatureMatchingTypeOptions::FeatureMatchingTypeOptions(
   }
   if (other.xfeat) {
     xfeat = std::make_shared<XFeatMatchingOptions>(*other.xfeat);
+  }
+  if (other.aliked) {
+    aliked = std::make_shared<AlikedMatchingOptions>(*other.aliked);
   }
 }
 
@@ -73,6 +78,11 @@ FeatureMatchingTypeOptions& FeatureMatchingTypeOptions::operator=(
   } else {
     xfeat.reset();
   }
+  if (other.aliked) {
+    aliked = std::make_shared<AlikedMatchingOptions>(*other.aliked);
+  } else {
+    aliked.reset();
+  }
   return *this;
 }
 
@@ -88,6 +98,10 @@ bool FeatureMatchingOptions::RequiresOpenGL() const {
       return use_gpu;
 #endif
     }
+    case FeatureMatcherType::XFEAT_BRUTEFORCE:
+    case FeatureMatcherType::XFEAT_LIGHTERGLUE:
+    case FeatureMatcherType::ALIKED_BRUTEFORCE:
+      return false;
     default:
       ThrowUnknownFeatureMatcherType(type);
   }
@@ -109,6 +123,8 @@ bool FeatureMatchingOptions::Check() const {
   } else if (type == FeatureMatcherType::XFEAT_BRUTEFORCE ||
              type == FeatureMatcherType::XFEAT_LIGHTERGLUE) {
     return THROW_CHECK_NOTNULL(xfeat)->Check();
+  } else if (type == FeatureMatcherType::ALIKED_BRUTEFORCE) {
+    return THROW_CHECK_NOTNULL(aliked)->Check();
   } else {
     LOG(ERROR) << "Unknown feature matcher type: " << type;
     return false;
@@ -124,6 +140,8 @@ std::unique_ptr<FeatureMatcher> FeatureMatcher::Create(
     case FeatureMatcherType::XFEAT_BRUTEFORCE:
     case FeatureMatcherType::XFEAT_LIGHTERGLUE:
       return CreateXFeatFeatureMatcher(options);
+    case FeatureMatcherType::ALIKED_BRUTEFORCE:
+      return CreateAlikedFeatureMatcher(options);
     default:
       ThrowUnknownFeatureMatcherType(options.type);
   }

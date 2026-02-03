@@ -214,13 +214,14 @@ class XFeatFeatureExtractor : public FeatureExtractor {
     const int num_pixels = width * height;
 
     std::vector<float> row_major_array(num_pixels * 3);
+    const std::vector<uint8_t>& data = bitmap.RowMajorData();
+    const int pitch = bitmap.Pitch();
     for (int y = 0; y < height; ++y) {
-      const uint8_t* line = bitmap.GetScanline(y);
       for (int x = 0; x < width; ++x) {
         for (int c = 0; c < 3; ++c) {
           constexpr float kImageNormalization = 1.0f / 255.0f;
           row_major_array[c * num_pixels + y * width + x] =
-              kImageNormalization * line[3 * x + c];
+              kImageNormalization * data[y * pitch + 3 * x + c];
         }
       }
     }
@@ -565,9 +566,12 @@ class XFeatLighterGlueFeatureMatcher : public FeatureMatcher {
 
     features.keypoints_shape = {num_keypoints, 2};
     features.keypoints_data.resize(num_keypoints * 2);
-    const float shift_x = 0.5f * image.width;
-    const float shift_y = 0.5f * image.height;
-    const float scale = 2.0f / std::max(image.width, image.height);
+    THROW_CHECK_NOTNULL(image.camera);
+    const int img_width = static_cast<int>(image.camera->width);
+    const int img_height = static_cast<int>(image.camera->height);
+    const float shift_x = 0.5f * img_width;
+    const float shift_y = 0.5f * img_height;
+    const float scale = 2.0f / std::max(img_width, img_height);
     for (int i = 0; i < num_keypoints; ++i) {
       features.keypoints_data[2 * i + 0] =
           scale * ((*image.keypoints)[i].x - shift_x);

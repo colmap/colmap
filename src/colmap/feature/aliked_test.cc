@@ -27,8 +27,9 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/feature/xfeat.h"
+#include "colmap/feature/aliked.h"
 
+#include "colmap/feature/matcher.h"
 #include "colmap/math/random.h"
 #include "colmap/sensor/bitmap.h"
 
@@ -38,7 +39,7 @@
 namespace colmap {
 namespace {
 
-void CreateImageWithSquare(const int width, const int height, Bitmap* bitmap) {
+void CreateRandomRgbImage(const int width, const int height, Bitmap* bitmap) {
   SetPRNGSeed(42);
   *bitmap = Bitmap(width, height, /*as_rgb=*/true);
   for (int r = 0; r < height; ++r) {
@@ -52,49 +53,58 @@ void CreateImageWithSquare(const int width, const int height, Bitmap* bitmap) {
   }
 }
 
-TEST(XFeat, Nominal) {
+TEST(Aliked, Nominal) {
   Bitmap image;
-  CreateImageWithSquare(1024, 768, &image);
+  CreateRandomRgbImage(1024, 768, &image);
 
-  FeatureExtractionOptions extraction_options(FeatureExtractorType::XFEAT);
+  FeatureExtractionOptions extraction_options(FeatureExtractorType::ALIKED);
   extraction_options.use_gpu = false;
-  auto extractor = CreateXFeatFeatureExtractor(extraction_options);
+  auto extractor = CreateAlikedFeatureExtractor(extraction_options);
   auto keypoints = std::make_shared<FeatureKeypoints>();
   auto descriptors = std::make_shared<FeatureDescriptors>();
   ASSERT_TRUE(extractor->Extract(image, keypoints.get(), descriptors.get()));
-  // Different platforms lead to slightly different number of keypoints.
-  EXPECT_NEAR(keypoints->size(), 2048, 20);
+
+  // Check keypoint count is reasonable.
+  EXPECT_GT(keypoints->size(), 0);
+  EXPECT_LE(keypoints->size(), extraction_options.aliked->max_num_features);
   EXPECT_EQ(keypoints->size(), descriptors->rows());
-  EXPECT_EQ(descriptors->cols(), 64 * sizeof(float));
+
+  // Descriptor dimension should be a multiple of sizeof(float).
+  EXPECT_EQ(descriptors->cols() % sizeof(float), 0);
+  const int descriptor_dim = descriptors->cols() / sizeof(float);
+  EXPECT_GT(descriptor_dim, 0);
+
+  // Keypoints should be within image bounds (with small tolerance for
+  // sub-pixel refinement).
   for (const auto& keypoint : *keypoints) {
-    EXPECT_GE(keypoint.x, -5);
-    EXPECT_GE(keypoint.y, -5);
-    EXPECT_LE(keypoint.x, image.Width() + 5);
-    EXPECT_LE(keypoint.y, image.Height() + 5);
+    EXPECT_GE(keypoint.x, -1);
+    EXPECT_GE(keypoint.y, -1);
+    EXPECT_LE(keypoint.x, image.Width() + 1);
+    EXPECT_LE(keypoint.y, image.Height() + 1);
   }
 
-  for (const auto& matcher_type : {FeatureMatcherType::XFEAT_BRUTEFORCE,
-                                   FeatureMatcherType::XFEAT_LIGHTERGLUE}) {
-    FeatureMatchingOptions matching_options(matcher_type);
-    matching_options.use_gpu = false;
-    auto matcher = CreateXFeatFeatureMatcher(matching_options);
-    FeatureMatches matches;
-    matcher->Match({/*image_id=*/1,
-                    /*camera=*/nullptr,
-                    keypoints,
-                    descriptors},
-                   {/*image_id=*/2,
-                    /*camera=*/nullptr,
-                    keypoints,
-                    descriptors},
-                   &matches);
-    EXPECT_NEAR(matches.size(), keypoints->size(), 0.05 * keypoints->size());
-    for (const auto& match : matches) {
-      EXPECT_GE(match.point2D_idx1, 0);
-      EXPECT_GE(match.point2D_idx2, 0);
-      EXPECT_LT(match.point2D_idx1, keypoints->size());
-      EXPECT_LT(match.point2D_idx2, keypoints->size());
-    }
+  // Test brute-force matcher.
+  FeatureMatchingOptions matching_options(FeatureMatcherType::ALIKED_BRUTEFORCE);
+  matching_options.use_gpu = false;
+  auto matcher = CreateAlikedFeatureMatcher(matching_options);
+  FeatureMatches matches;
+  FeatureMatcher::Image img1{/*image_id=*/1,
+                             /*camera=*/nullptr,
+                             keypoints,
+                             descriptors};
+  FeatureMatcher::Image img2{/*image_id=*/2,
+                             /*camera=*/nullptr,
+                             keypoints,
+                             descriptors};
+  matcher->Match(img1, img2, &matches);
+
+  // Self-matching should produce many matches.
+  EXPECT_NEAR(matches.size(), keypoints->size(), 0.1 * keypoints->size());
+  for (const auto& match : matches) {
+    EXPECT_GE(match.point2D_idx1, 0);
+    EXPECT_GE(match.point2D_idx2, 0);
+    EXPECT_LT(match.point2D_idx1, keypoints->size());
+    EXPECT_LT(match.point2D_idx2, keypoints->size());
   }
 }
 

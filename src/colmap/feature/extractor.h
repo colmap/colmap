@@ -37,16 +37,18 @@
 
 namespace colmap {
 
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureExtractorType, 0, SIFT, XFEAT);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureExtractorType, 0, SIFT, XFEAT, ALIKED);
 
 struct SiftExtractionOptions;
 struct XFeatExtractionOptions;
+struct AlikedExtractionOptions;
 
 struct FeatureExtractionTypeOptions {
   explicit FeatureExtractionTypeOptions();
 
   std::shared_ptr<SiftExtractionOptions> sift;
   std::shared_ptr<XFeatExtractionOptions> xfeat;
+  std::shared_ptr<AlikedExtractionOptions> aliked;
 
   FeatureExtractionTypeOptions(const FeatureExtractionTypeOptions& other);
   FeatureExtractionTypeOptions& operator=(

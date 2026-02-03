@@ -29,34 +29,45 @@
 
 #pragma once
 
-#include <string>
+#include "colmap/feature/extractor.h"
+#include "colmap/feature/matcher.h"
+#include "colmap/feature/resources.h"
 
 namespace colmap {
 
-#ifdef COLMAP_DOWNLOAD_ENABLED
-const static std::string kDefaultXFeatExtractorUri =
-    "https://github.com/colmap/colmap/releases/download/3.12.5/"
-    "xfeat_extractor.onnx;"
-    "xfeat_extractor.onnx;"
-    "4a3e421a9ad202cbe99c147fa18157ddba095db7fc97cd3d53d01443705d93c5";
-const static std::string kDefaultXFeatBruteForceMatcherUri =
-    "https://github.com/colmap/colmap/releases/download/3.12.5/"
-    "xfeat_bruteforce_matcher.onnx;"
-    "xfeat_bruteforce_matcher.onnx;"
-    "bc8b01e4bb2099adb634083dfa5e8663b733a22d1b778852cd74f74236126873";
-const static std::string kDefaultXFeatLighterGlueMatcherUri =
-    "https://github.com/colmap/colmap/releases/download/3.12.5/"
-    "xfeat_lighterglue_matcher.onnx;"
-    "xfeat_lighterglue_matcher.onnx;"
-    "43fa66b70930c8e681e79af765cae4119da6605db02f0cd56c9d2e7e41e0c5cc";
-#else
-const static std::string kDefaultXFeatExtractorUri = "";
-const static std::string kDefaultXFeatBruteForceMatcherUri = "";
-const static std::string kDefaultXFeatLighterGlueMatcherUri = "";
-#endif
+struct AlikedExtractionOptions {
+  // Maximum number of features to detect, keeping higher-score features.
+  // When > 0, uses top-k selection. When <= 0, uses threshold mode.
+  int max_num_features = 2048;
 
-// ALIKED uses local model paths only (no download URL).
-const static std::string kDefaultAlikedExtractorUri = "";
-const static std::string kDefaultAlikedBruteForceMatcherUri = "";
+  // The minimum threshold for the score of a feature (used when
+  // max_num_features <= 0).
+  double min_score = 0.2;
+
+  // NMS radius for keypoint detection (kernel size = 2 * radius + 1).
+  int nms_radius = 2;
+
+  // The path to the ONNX model file for the ALIKED extractor.
+  std::string model_path = kDefaultAlikedExtractorUri;
+
+  bool Check() const;
+};
+
+std::unique_ptr<FeatureExtractor> CreateAlikedFeatureExtractor(
+    const FeatureExtractionOptions& options);
+
+struct AlikedMatchingOptions {
+  // The minimum cosine similarity for a match to be considered valid
+  // in brute-force matching.
+  double min_cossim = 0.85;
+
+  // The path to the ONNX model file for the ALIKED brute-force matcher.
+  std::string bruteforce_model_path = kDefaultAlikedBruteForceMatcherUri;
+
+  bool Check() const;
+};
+
+std::unique_ptr<FeatureMatcher> CreateAlikedFeatureMatcher(
+    const FeatureMatchingOptions& options);
 
 }  // namespace colmap
