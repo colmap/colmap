@@ -38,21 +38,21 @@ const static std::string kDefaultALIKEDN16RotFeatureExtractorUri =
     "https://github.com/colmap/colmap/releases/download/3.13.0/"
     "aliked-n16rot.onnx;"
     "aliked-n16rot.onnx;"
-    "dbd26aadb66b1a3d38fbbba2efd52d61040abc3747ed4f2f185cfd30a0ad1d7e";
+    "39c423d0a6f03d39ec89d3d1d61853765c2fb6a8b8381376c703e5758778a547";
 const static std::string kDefaultALIKEDN32FeatureExtractorUri =
     "https://github.com/colmap/colmap/releases/download/3.13.0/"
     "aliked-n32.onnx;"
     "aliked-n32.onnx;"
-    "93d8e85f08e48254da554208f6d50ce2e113c1058df12ad580f86bda5525600f";
+    "a077728a02d2de1a775c66df6de8cfeb7c6b51ca57572c64c680131c988c8b3c";
 const static std::string kDefaultONNXBruteForceMatcherUri =
     "https://github.com/colmap/colmap/releases/download/3.13.0/"
     "bruteforce-matcher.onnx;"
     "bruteforce-matcher.onnx;"
     "bc8b01e4bb2099adb634083dfa5e8663b733a22d1b778852cd74f74236126873";
+#else
+const static std::string kDefaultALIKEDN16RotFeatureExtractorUri = "";
+const static std::string kDefaultALIKEDN32FeatureExtractorUri = "";
+const static std::string kDefaultONNXBruteForceMatcherUri = "";
 #endif
-
-// ALIKED uses local model paths only (no download URL).
-const static std::string kDefaultAlikedExtractorUri = "";
-const static std::string kDefaultAlikedBruteForceMatcherUri = "";
 
 }  // namespace colmap

@@ -44,8 +44,7 @@ struct AlikedExtractionOptions {
 
   // The path to the ONNX model file for the ALIKED extractor.
   // Must be a sparse model with max_keypoints and min_score inputs.
-  std::string model_path =
-      "/Users/jsch/dev/ALIKED/models/aliked-n16rot_sparse.onnx";
+  std::string model_path = kDefaultALIKEDN16RotFeatureExtractorUri;
 
   bool Check() const;
 };
