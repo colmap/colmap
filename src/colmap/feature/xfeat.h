@@ -62,7 +62,7 @@ struct XFeatMatchingOptions {
   double min_conf = 0.1;
 
   // The path to the ONNX model file for the XFeat brute-force matcher.
-  std::string bruteforce_model_path = kDefaultXFeatBruteForceMatcherUri;
+  std::string bruteforce_model_path = kDefaultONNXBruteForceMatcherUri;
   std::string lighterglue_model_path = kDefaultXFeatLighterGlueMatcherUri;
 
   bool Check() const;

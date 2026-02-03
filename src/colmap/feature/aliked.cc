@@ -281,7 +281,7 @@ class AlikedFeatureExtractor : public FeatureExtractor {
     THROW_CHECK_EQ(model_.output_shapes[0].size(), 4);
     THROW_CHECK_EQ(model_.output_shapes[0][0], -1);
     ThrowCheckNode(model_.output_names[0],
-                   "feature_map",
+                   "descriptor_map",
                    model_.output_shapes[0],
                    {-1, -1, -1, -1});
     descriptor_dim_ = static_cast<int>(model_.output_shapes[0][1]);
