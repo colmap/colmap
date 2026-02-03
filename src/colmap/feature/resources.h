@@ -38,21 +38,21 @@ const static std::string kDefaultALIKEDN16RotFeatureExtractorUri =
     "https://github.com/colmap/colmap/releases/download/3.13.0/"
     "aliked-n16rot.onnx;"
     "aliked-n16rot.onnx;"
-    "a1222bc004219c54b4e181393a8e623945f76df442e47ca6ec2296b20b0ef501";
+    "dbd26aadb66b1a3d38fbbba2efd52d61040abc3747ed4f2f185cfd30a0ad1d7e";
 const static std::string kDefaultALIKEDN32FeatureExtractorUri =
     "https://github.com/colmap/colmap/releases/download/3.13.0/"
     "aliked-n32.onnx;"
     "aliked-n32.onnx;"
-    "1fad6e15e81af6aca07d75f02e51ff46d789038647e5db29d4438c50b66c1363";
+    "93d8e85f08e48254da554208f6d50ce2e113c1058df12ad580f86bda5525600f";
 const static std::string kDefaultXFeatExtractorUri =
     "https://github.com/colmap/colmap/releases/download/3.12.5/"
     "xfeat_extractor.onnx;"
     "xfeat_extractor.onnx;"
     "4a3e421a9ad202cbe99c147fa18157ddba095db7fc97cd3d53d01443705d93c5";
 const static std::string kDefaultONNXBruteForceMatcherUri =
-    "https://github.com/colmap/colmap/releases/download/3.12.5/"
-    "xfeat_bruteforce_matcher.onnx;"
-    "xfeat_bruteforce_matcher.onnx;"
+    "https://github.com/colmap/colmap/releases/download/3.13.0/"
+    "bruteforce-matcher.onnx;"
+    "bruteforce-matcher.onnx;"
     "bc8b01e4bb2099adb634083dfa5e8663b733a22d1b778852cd74f74236126873";
 const static std::string kDefaultXFeatLighterGlueMatcherUri =
     "https://github.com/colmap/colmap/releases/download/3.12.5/"

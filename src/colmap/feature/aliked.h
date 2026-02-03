@@ -37,19 +37,10 @@ namespace colmap {
 
 struct AlikedExtractionOptions {
   // Maximum number of features to detect, keeping higher-score features.
-  // When > 0, uses top-k selection. When <= 0, uses threshold mode.
   int max_num_features = 2048;
 
-  // The minimum threshold for the score of a feature (used when
-  // max_num_features <= 0).
-  double min_score = 0.2;
-
-  // NMS radius for keypoint detection (kernel size = 2 * radius + 1).
-  int nms_radius = 2;
-
   // The path to the ONNX model file for the ALIKED extractor.
-  // Defaulting to n16-rot model, but can be changed to n32 as well
-  // using kDefaultALIKEDN32FeatureExtractorUri.
+  // Must be a sparse model with max_keypoints input.
   std::string model_path = kDefaultALIKEDN32FeatureExtractorUri;
 
   bool Check() const;

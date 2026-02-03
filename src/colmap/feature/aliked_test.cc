@@ -55,7 +55,7 @@ void CreateRandomRgbImage(const int width, const int height, Bitmap* bitmap) {
 
 TEST(Aliked, Nominal) {
   Bitmap image;
-  CreateRandomRgbImage(256, 256, &image);
+  CreateRandomRgbImage(200, 100, &image);
 
   FeatureExtractionOptions extraction_options(FeatureExtractorType::ALIKED);
   extraction_options.use_gpu = false;
