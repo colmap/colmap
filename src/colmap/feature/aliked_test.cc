@@ -30,6 +30,7 @@
 #include "colmap/feature/aliked.h"
 
 #include "colmap/feature/matcher.h"
+#include "colmap/feature/resources.h"
 #include "colmap/math/random.h"
 #include "colmap/sensor/bitmap.h"
 
@@ -53,12 +54,15 @@ void CreateRandomRgbImage(const int width, const int height, Bitmap* bitmap) {
   }
 }
 
-TEST(Aliked, Nominal) {
+class ParameterizedAlikedTests : public testing::TestWithParam<std::string> {};
+
+TEST_P(ParameterizedAlikedTests, Nominal) {
   Bitmap image;
   CreateRandomRgbImage(200, 100, &image);
 
   FeatureExtractionOptions extraction_options(FeatureExtractorType::ALIKED);
   extraction_options.use_gpu = false;
+  extraction_options.aliked->model_path = GetParam();
   auto extractor = CreateAlikedFeatureExtractor(extraction_options);
   auto keypoints = std::make_shared<FeatureKeypoints>();
   auto descriptors = std::make_shared<FeatureDescriptors>();
@@ -109,13 +113,14 @@ TEST(Aliked, Nominal) {
   }
 }
 
-TEST(Aliked, MaxNumFeatures) {
+TEST_P(ParameterizedAlikedTests, MaxNumFeatures) {
   Bitmap image;
   CreateRandomRgbImage(200, 100, &image);
 
   // Extract with default max_num_features.
   FeatureExtractionOptions options_default(FeatureExtractorType::ALIKED);
   options_default.use_gpu = false;
+  options_default.aliked->model_path = GetParam();
   auto extractor_default = CreateAlikedFeatureExtractor(options_default);
   FeatureKeypoints keypoints_default;
   FeatureDescriptors descriptors_default;
@@ -125,6 +130,7 @@ TEST(Aliked, MaxNumFeatures) {
   // Extract with reduced max_num_features.
   FeatureExtractionOptions options_limited(FeatureExtractorType::ALIKED);
   options_limited.use_gpu = false;
+  options_limited.aliked->model_path = GetParam();
   options_limited.aliked->max_num_features = 100;
   auto extractor_limited = CreateAlikedFeatureExtractor(options_limited);
   FeatureKeypoints keypoints_limited;
@@ -137,13 +143,14 @@ TEST(Aliked, MaxNumFeatures) {
   EXPECT_LT(keypoints_limited.size(), keypoints_default.size());
 }
 
-TEST(Aliked, MinScore) {
+TEST_P(ParameterizedAlikedTests, MinScore) {
   Bitmap image;
   CreateRandomRgbImage(200, 100, &image);
 
   // Extract with low min_score threshold.
   FeatureExtractionOptions options_low(FeatureExtractorType::ALIKED);
   options_low.use_gpu = false;
+  options_low.aliked->model_path = GetParam();
   options_low.aliked->min_score = 0.0;
   auto extractor_low = CreateAlikedFeatureExtractor(options_low);
   FeatureKeypoints keypoints_low;
@@ -153,6 +160,7 @@ TEST(Aliked, MinScore) {
   // Extract with high min_score threshold.
   FeatureExtractionOptions options_high(FeatureExtractorType::ALIKED);
   options_high.use_gpu = false;
+  options_high.aliked->model_path = GetParam();
   options_high.aliked->min_score = 0.9;
   auto extractor_high = CreateAlikedFeatureExtractor(options_high);
   FeatureKeypoints keypoints_high;
@@ -164,6 +172,20 @@ TEST(Aliked, MinScore) {
   // (verifies the parameter is being passed to the model).
   EXPECT_NE(keypoints_high.size(), keypoints_low.size());
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    AlikedTests,
+    ParameterizedAlikedTests,
+    testing::Values(kDefaultALIKEDN16RotFeatureExtractorUri,
+                    kDefaultALIKEDN32FeatureExtractorUri),
+    [](const testing::TestParamInfo<std::string>& info) {
+      if (info.param == kDefaultALIKEDN16RotFeatureExtractorUri) {
+        return "N16Rot";
+      } else if (info.param == kDefaultALIKEDN32FeatureExtractorUri) {
+        return "N32";
+      }
+      return "Unknown";
+    });
 
 }  // namespace
 }  // namespace colmap
