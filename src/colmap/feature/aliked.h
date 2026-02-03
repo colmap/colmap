@@ -48,7 +48,8 @@ struct AlikedExtractionOptions {
   int nms_radius = 2;
 
   // The path to the ONNX model file for the ALIKED extractor.
-  std::string model_path = kDefaultAlikedExtractorUri;
+  std::string model_path =
+      "/Users/jsch/dev/ALIKED/models/aliked-n32_dynamic.onnx";
 
   bool Check() const;
 };
@@ -62,7 +63,7 @@ struct AlikedMatchingOptions {
   double min_cossim = 0.85;
 
   // The path to the ONNX model file for the ALIKED brute-force matcher.
-  std::string bruteforce_model_path = kDefaultAlikedBruteForceMatcherUri;
+  std::string bruteforce_model_path = kDefaultXFeatBruteForceMatcherUri;
 
   bool Check() const;
 };

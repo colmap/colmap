@@ -214,9 +214,9 @@ void OptionManager::AddFeatureExtractionOptions() {
   AddDefaultOption("FeatureExtraction.use_gpu", &feature_extraction->use_gpu);
   AddDefaultOption("FeatureExtraction.gpu_index",
                    &feature_extraction->gpu_index);
-
-  AddDefaultOption("SiftExtraction.max_image_size",
+  AddDefaultOption("FeatureExtraction.max_image_size",
                    &feature_extraction->max_image_size);
+
   AddDefaultOption("SiftExtraction.max_num_features",
                    &feature_extraction->sift->max_num_features);
   AddDefaultOption("SiftExtraction.first_octave",
@@ -244,12 +244,12 @@ void OptionManager::AddFeatureExtractionOptions() {
   AddDefaultOption("SiftExtraction.dsp_num_scales",
                    &feature_extraction->sift->dsp_num_scales);
 
-  AddAndRegisterDefaultOption("XFeatExtraction.max_num_features",
-                              &feature_extraction->xfeat->max_num_features);
-  AddAndRegisterDefaultOption("XFeatExtraction.min_score",
-                              &feature_extraction->xfeat->min_score);
-  AddAndRegisterDefaultOption("XFeatExtraction.model_path",
-                              &feature_extraction->xfeat->model_path);
+  AddDefaultOption("XFeatExtraction.max_num_features",
+                   &feature_extraction->xfeat->max_num_features);
+  AddDefaultOption("XFeatExtraction.min_score",
+                   &feature_extraction->xfeat->min_score);
+  AddDefaultOption("XFeatExtraction.model_path",
+                   &feature_extraction->xfeat->model_path);
 }
 
 void OptionManager::AddFeatureMatchingOptions() {

@@ -30,6 +30,7 @@
 #include "colmap/feature/aliked.h"
 
 #include "colmap/feature/onnx_utils.h"
+#include "colmap/feature/utils.h"
 
 #include <algorithm>
 #include <cmath>
@@ -40,63 +41,85 @@ namespace {
 
 #ifdef COLMAP_ONNX_ENABLED
 
-// Pads image dimensions to be divisible by a given factor.
-class InputPadder {
- public:
-  InputPadder(int height, int width, int divisor = 32)
-      : original_height_(height), original_width_(width) {
-    padded_height_ = ((height + divisor - 1) / divisor) * divisor;
-    padded_width_ = ((width + divisor - 1) / divisor) * divisor;
+// Convert bitmap to row-major [C, H, W] float tensor, normalized to [0, 1].
+std::vector<float> BitmapToInputTensor(const Bitmap& bitmap) {
+  THROW_CHECK(bitmap.IsRGB());
+
+  const int width = bitmap.Width();
+  const int height = bitmap.Height();
+  const int pitch = bitmap.Pitch();
+  const int num_pixels = width * height;
+
+  std::vector<float> input(num_pixels * 3);
+  const std::vector<uint8_t>& data = bitmap.RowMajorData();
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      for (int c = 0; c < 3; ++c) {
+        constexpr float kImageNormalization = 1.0f / 255.0f;
+        input[c * num_pixels + y * width + x] =
+            kImageNormalization * data[y * pitch + 3 * x + c];
+      }
+    }
   }
 
-  int OriginalHeight() const { return original_height_; }
-  int OriginalWidth() const { return original_width_; }
-  int PaddedHeight() const { return padded_height_; }
-  int PaddedWidth() const { return padded_width_; }
+  return input;
+}
 
-  // Pad a CHW float array by replicating edge pixels.
-  std::vector<float> Pad(const std::vector<float>& input, int channels) const {
-    if (padded_height_ == original_height_ &&
-        padded_width_ == original_width_) {
-      return input;
+// Pads image dimensions to be divisible by a given factor.
+struct InputPadder {
+  InputPadder(int height, int width, int divisor = 32)
+      : original_height(height),
+        original_width(width),
+        padded_height(((height + divisor - 1) / divisor) * divisor),
+        padded_width(((width + divisor - 1) / divisor) * divisor) {}
+
+  const int original_height;
+  const int original_width;
+  const int padded_height;
+  const int padded_width;
+
+  // Pad a [C, H, W] float array by replicating edge pixels on the right and
+  // bottom of the multi-channel image. Either returns a reference to the
+  // input, if no padding is necessary, or a reference to the padded data.
+  std::vector<float>* MaybePad(std::vector<float>& input, int channels) {
+    if (padded_height == original_height && padded_width == original_width) {
+      return &input;
     }
 
-    std::vector<float> output(channels * padded_height_ * padded_width_, 0.0f);
+    padded_.resize(channels * padded_height * padded_width, 0.0f);
     for (int c = 0; c < channels; ++c) {
-      for (int y = 0; y < padded_height_; ++y) {
-        const int src_y = std::min(y, original_height_ - 1);
-        for (int x = 0; x < padded_width_; ++x) {
-          const int src_x = std::min(x, original_width_ - 1);
-          output[c * padded_height_ * padded_width_ + y * padded_width_ + x] =
-              input[c * original_height_ * original_width_ +
-                    src_y * original_width_ + src_x];
+      for (int y = 0; y < padded_height; ++y) {
+        const int src_y = std::min(y, original_height - 1);
+        for (int x = 0; x < padded_width; ++x) {
+          const int src_x = std::min(x, original_width - 1);
+          padded_[c * padded_height * padded_width + y * padded_width + x] =
+              input[c * original_height * original_width +
+                    src_y * original_width + src_x];
         }
       }
     }
-    return output;
+    return &padded_;
   }
 
-  // Unpad a score map from [1, 1, padded_H, padded_W] to [original_H,
-  // original_W].
-  std::vector<float> UnpadScoreMap(const float* data) const {
-    std::vector<float> output(original_height_ * original_width_);
-    for (int y = 0; y < original_height_; ++y) {
-      for (int x = 0; x < original_width_; ++x) {
-        output[y * original_width_ + x] = data[y * padded_width_ + x];
+  std::vector<float> Unpad(const float* padded) {
+    std::vector<float> unpadded(original_height * original_width);
+    for (int y = 0; y < original_height; ++y) {
+      for (int x = 0; x < original_width; ++x) {
+        unpadded[y * original_width + x] = padded[y * padded_width + x];
       }
     }
-    return output;
+    return unpadded;
   }
 
  private:
-  int original_height_;
-  int original_width_;
-  int padded_height_;
-  int padded_width_;
+  std::vector<float> padded_;
 };
 
 // Simple NMS using max filter (morphological dilation).
-void SimpleNms(std::vector<float>& scores, int height, int width, int radius) {
+void ApplyNonMaxSuppression(std::vector<float>& scores,
+                            int height,
+                            int width,
+                            int radius) {
   std::vector<float> max_vals(height * width);
 
   // Apply max filter.
@@ -134,7 +157,7 @@ struct Keypoint {
 std::vector<Keypoint> DetectKeypoints(const std::vector<float>& scores,
                                       int height,
                                       int width,
-                                      double min_score) {
+                                      float min_score) {
   std::vector<Keypoint> keypoints;
   for (int y = 0; y < height; ++y) {
     for (int x = 0; x < width; ++x) {
@@ -150,16 +173,16 @@ std::vector<Keypoint> DetectKeypoints(const std::vector<float>& scores,
 }
 
 // Apply soft-argmax refinement to keypoint positions.
-void RefineKeypoints(std::vector<Keypoint>& keypoints,
-                     const std::vector<float>& scores,
-                     int height,
-                     int width,
-                     int window_size = 5) {
+void SoftMaxRefineKeypoints(std::vector<Keypoint>& keypoints,
+                            const std::vector<float>& scores,
+                            int height,
+                            int width,
+                            int window_size = 5) {
   const int half_window = window_size / 2;
 
-  for (auto& kp : keypoints) {
-    const int cx = static_cast<int>(kp.x);
-    const int cy = static_cast<int>(kp.y);
+  for (auto& keypoint : keypoints) {
+    const int cx = static_cast<int>(keypoint.x);
+    const int cy = static_cast<int>(keypoint.y);
 
     float sum_weight = 0.0f;
     float sum_x = 0.0f;
@@ -180,8 +203,8 @@ void RefineKeypoints(std::vector<Keypoint>& keypoints,
     }
 
     if (sum_weight > 0.0f) {
-      kp.x = sum_x / sum_weight;
-      kp.y = sum_y / sum_weight;
+      keypoint.x = sum_x / sum_weight;
+      keypoint.y = sum_y / sum_weight;
     }
   }
 }
@@ -192,9 +215,9 @@ void SampleDescriptors(const float* descriptor_map,
                        int map_height,
                        int map_width,
                        const std::vector<Keypoint>& keypoints,
-                       std::vector<float>& descriptors) {
+                       FeatureDescriptorsFloat* descriptors) {
   const int num_keypoints = keypoints.size();
-  descriptors.resize(num_keypoints * desc_dim);
+  descriptors->resize(num_keypoints, desc_dim);
 
   for (int i = 0; i < num_keypoints; ++i) {
     // Convert keypoint coordinates to descriptor map coordinates.
@@ -230,25 +253,8 @@ void SampleDescriptors(const float* descriptor_map,
       const float v11 =
           descriptor_map[d * map_height * map_width + y1c * map_width + x1c];
 
-      descriptors[i * desc_dim + d] =
+      (*descriptors)(i, d) =
           wy0 * (wx0 * v00 + wx1 * v01) + wy1 * (wx0 * v10 + wx1 * v11);
-    }
-  }
-}
-
-// L2 normalize descriptors.
-void NormalizeDescriptors(std::vector<float>& descriptors, int desc_dim) {
-  const int num_keypoints = descriptors.size() / desc_dim;
-  for (int i = 0; i < num_keypoints; ++i) {
-    float norm = 0.0f;
-    for (int d = 0; d < desc_dim; ++d) {
-      norm += descriptors[i * desc_dim + d] * descriptors[i * desc_dim + d];
-    }
-    norm = std::sqrt(norm);
-    if (norm > 1e-8f) {
-      for (int d = 0; d < desc_dim; ++d) {
-        descriptors[i * desc_dim + d] /= norm;
-      }
     }
   }
 }
@@ -263,26 +269,29 @@ class AlikedFeatureExtractor : public FeatureExtractor {
                options.gpu_index) {
     THROW_CHECK(options.Check());
 
-    // Verify model inputs: expects single image input.
     THROW_CHECK_EQ(model_.input_shapes.size(), 1);
     THROW_CHECK_EQ(model_.input_shapes[0].size(), 4);
-    THROW_CHECK_EQ(model_.input_shapes[0][0], 1);   // batch
-    THROW_CHECK_EQ(model_.input_shapes[0][1], 3);   // channels
-    THROW_CHECK_EQ(model_.input_shapes[0][2], -1);  // height (dynamic)
-    THROW_CHECK_EQ(model_.input_shapes[0][3], -1);  // width (dynamic)
+    ThrowCheckNode(model_.input_names[0],
+                   "image",
+                   model_.input_shapes[0],
+                   {-1, 3, -1, -1});
 
-    // Verify model outputs: descriptor_map and score_map.
     THROW_CHECK_EQ(model_.output_shapes.size(), 2);
 
-    // descriptor_map: [1, D, H, W] where D is descriptor dimension.
     THROW_CHECK_EQ(model_.output_shapes[0].size(), 4);
+    THROW_CHECK_EQ(model_.output_shapes[0][0], -1);
+    ThrowCheckNode(model_.output_names[0],
+                   "feature_map",
+                   model_.output_shapes[0],
+                   {-1, -1, -1, -1});
     descriptor_dim_ = static_cast<int>(model_.output_shapes[0][1]);
     THROW_CHECK_GT(descriptor_dim_, 0);
     VLOG(2) << "ALIKED descriptor dimension: " << descriptor_dim_;
 
-    // score_map: [1, 1, H, W].
-    THROW_CHECK_EQ(model_.output_shapes[1].size(), 4);
-    THROW_CHECK_EQ(model_.output_shapes[1][1], 1);
+    ThrowCheckNode(model_.output_names[1],
+                   "score_map",
+                   model_.output_shapes[1],
+                   {-1, 1, -1, -1});
   }
 
   bool Extract(const Bitmap& bitmap,
@@ -294,42 +303,24 @@ class AlikedFeatureExtractor : public FeatureExtractor {
 
     const int width = bitmap.Width();
     const int height = bitmap.Height();
-    const int num_pixels = width * height;
+
+    std::vector<float> input = BitmapToInputTensor(bitmap);
 
     // Create padder to make dimensions divisible by 32.
-    InputPadder padder(height, width, 32);
-
-    // Convert bitmap to CHW float array, normalized to [0, 1].
-    std::vector<float> row_major_array(num_pixels * 3);
-    const std::vector<uint8_t>& data = bitmap.RowMajorData();
-    const int pitch = bitmap.Pitch();
-    for (int y = 0; y < height; ++y) {
-      for (int x = 0; x < width; ++x) {
-        for (int c = 0; c < 3; ++c) {
-          constexpr float kImageNormalization = 1.0f / 255.0f;
-          row_major_array[c * num_pixels + y * width + x] =
-              kImageNormalization * data[y * pitch + 3 * x + c];
-        }
-      }
-    }
-
-    // Pad the image if necessary.
-    std::vector<float> padded_array = padder.Pad(row_major_array, 3);
-
-    const int padded_height = padder.PaddedHeight();
-    const int padded_width = padder.PaddedWidth();
+    InputPadder padder(height, width, /*divisor=*/32);
+    std::vector<float>* padded_input = padder.MaybePad(input, 3);
 
     model_.input_shapes[0][0] = 1;
     model_.input_shapes[0][1] = 3;
-    model_.input_shapes[0][2] = padded_height;
-    model_.input_shapes[0][3] = padded_width;
+    model_.input_shapes[0][2] = padder.padded_height;
+    model_.input_shapes[0][3] = padder.padded_width;
 
     std::vector<Ort::Value> input_tensors;
     input_tensors.emplace_back(Ort::Value::CreateTensor<float>(
         Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
                                    OrtMemType::OrtMemTypeCPU),
-        padded_array.data(),
-        padded_array.size(),
+        padded_input->data(),
+        padded_input->size(),
         model_.input_shapes[0].data(),
         model_.input_shapes[0].size()));
 
@@ -360,60 +351,51 @@ class AlikedFeatureExtractor : public FeatureExtractor {
 
     // Unpad score map to original dimensions.
     // The score map from the model is at the padded resolution.
-    std::vector<float> scores(height * width);
-    for (int y = 0; y < height; ++y) {
-      for (int x = 0; x < width; ++x) {
-        scores[y * width + x] = score_map_data[y * map_width + x];
-      }
-    }
+    std::vector<float> scores = padder.Unpad(score_map_data);
 
-    // Apply NMS.
-    SimpleNms(scores, height, width, options_.aliked->nms_radius);
-
-    // Detect keypoints.
+    ApplyNonMaxSuppression(scores, height, width, options_.aliked->nms_radius);
     std::vector<Keypoint> detected_keypoints =
         DetectKeypoints(scores, height, width, options_.aliked->min_score);
-
-    // Apply soft-argmax refinement.
-    RefineKeypoints(detected_keypoints, scores, height, width);
+    SoftMaxRefineKeypoints(detected_keypoints, scores, height, width);
 
     // Sort by score and select top-k if specified.
-    std::sort(
-        detected_keypoints.begin(),
-        detected_keypoints.end(),
-        [](const Keypoint& a, const Keypoint& b) { return a.score > b.score; });
-
     int num_selected = detected_keypoints.size();
     if (options_.aliked->max_num_features > 0 &&
         num_selected > options_.aliked->max_num_features) {
       num_selected = options_.aliked->max_num_features;
+      std::partial_sort(detected_keypoints.begin(),
+                        detected_keypoints.begin() + num_selected,
+                        detected_keypoints.end(),
+                        [](const Keypoint& a, const Keypoint& b) {
+                          return a.score > b.score;
+                        });
+      detected_keypoints.resize(num_selected);
     }
-    detected_keypoints.resize(num_selected);
 
     // Sample descriptors at keypoint locations.
     // The descriptor map is at padded resolution, but keypoints are in original
     // coordinates. We need to sample from the padded descriptor map.
-    std::vector<float> sampled_descriptors;
+    FeatureDescriptorsFloat sampled_descriptors;
     SampleDescriptors(descriptor_map_data,
                       desc_dim,
                       map_height,
                       map_width,
                       detected_keypoints,
-                      sampled_descriptors);
+                      &sampled_descriptors);
 
     // Normalize descriptors.
-    NormalizeDescriptors(sampled_descriptors, desc_dim);
+    L2NormalizeFeatureDescriptors(&sampled_descriptors);
 
-    // Copy to output.
+    // Copy features to output.
     keypoints->resize(num_selected);
     descriptors->resize(num_selected, desc_dim * sizeof(float));
     for (int i = 0; i < num_selected; ++i) {
       (*keypoints)[i].x = detected_keypoints[i].x;
       (*keypoints)[i].y = detected_keypoints[i].y;
-      std::memcpy(descriptors->data() + i * desc_dim * sizeof(float),
-                  sampled_descriptors.data() + i * desc_dim,
-                  desc_dim * sizeof(float));
     }
+    std::memcpy(descriptors->data(),
+                sampled_descriptors.data(),
+                static_cast<size_t>(num_selected) * desc_dim * sizeof(float));
 
     return true;
   }
@@ -434,7 +416,18 @@ class AlikedBruteForceFeatureMatcher : public FeatureMatcher {
                options.gpu_index) {
     THROW_CHECK(options.Check());
     THROW_CHECK_EQ(model_.input_shapes.size(), 3);
+    ThrowCheckNode(
+        model_.input_names[0], "feats0", model_.input_shapes[0], {-1, -1});
+    ThrowCheckNode(
+        model_.input_names[1], "feats1", model_.input_shapes[1], {-1, -1});
+    ThrowCheckNode(
+        model_.input_names[2], "min_cossim", model_.input_shapes[2], {1});
     THROW_CHECK_EQ(model_.output_shapes.size(), 1);
+    ThrowCheckNode(
+        model_.output_names[0], "matches", model_.output_shapes[0], {-1, 2});
+    THROW_CHECK_EQ(model_.output_shapes.size(), 1);
+    ThrowCheckNode(
+        model_.output_names[0], "matches", model_.output_shapes[0], {-1, 2});
   }
 
   void Match(const Image& image1,
