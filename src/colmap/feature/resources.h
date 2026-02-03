@@ -44,25 +44,11 @@ const static std::string kDefaultALIKEDN32FeatureExtractorUri =
     "aliked-n32.onnx;"
     "aliked-n32.onnx;"
     "93d8e85f08e48254da554208f6d50ce2e113c1058df12ad580f86bda5525600f";
-const static std::string kDefaultXFeatExtractorUri =
-    "https://github.com/colmap/colmap/releases/download/3.12.5/"
-    "xfeat_extractor.onnx;"
-    "xfeat_extractor.onnx;"
-    "4a3e421a9ad202cbe99c147fa18157ddba095db7fc97cd3d53d01443705d93c5";
 const static std::string kDefaultONNXBruteForceMatcherUri =
     "https://github.com/colmap/colmap/releases/download/3.13.0/"
     "bruteforce-matcher.onnx;"
     "bruteforce-matcher.onnx;"
     "bc8b01e4bb2099adb634083dfa5e8663b733a22d1b778852cd74f74236126873";
-const static std::string kDefaultXFeatLighterGlueMatcherUri =
-    "https://github.com/colmap/colmap/releases/download/3.12.5/"
-    "xfeat_lighterglue_matcher.onnx;"
-    "xfeat_lighterglue_matcher.onnx;"
-    "43fa66b70930c8e681e79af765cae4119da6605db02f0cd56c9d2e7e41e0c5cc";
-#else
-const static std::string kDefaultXFeatExtractorUri = "";
-const static std::string kDefaultXFeatBruteForceMatcherUri = "";
-const static std::string kDefaultXFeatLighterGlueMatcherUri = "";
 #endif
 
 // ALIKED uses local model paths only (no download URL).

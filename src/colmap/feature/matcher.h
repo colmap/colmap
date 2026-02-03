@@ -45,22 +45,15 @@
 
 namespace colmap {
 
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType,
-                                0,
-                                SIFT,
-                                XFEAT_BRUTEFORCE,
-                                XFEAT_LIGHTERGLUE,
-                                ALIKED_BRUTEFORCE);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType, 0, SIFT, ALIKED_BRUTEFORCE);
 
 struct SiftMatchingOptions;
-struct XFeatMatchingOptions;
 struct AlikedMatchingOptions;
 
 struct FeatureMatchingTypeOptions {
   explicit FeatureMatchingTypeOptions();
 
   std::shared_ptr<SiftMatchingOptions> sift;
-  std::shared_ptr<XFeatMatchingOptions> xfeat;
   std::shared_ptr<AlikedMatchingOptions> aliked;
 
   FeatureMatchingTypeOptions(const FeatureMatchingTypeOptions& other);

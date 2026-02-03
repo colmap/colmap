@@ -36,9 +36,9 @@
 #include "colmap/estimators/global_positioning.h"
 #include "colmap/estimators/gravity_refinement.h"
 #include "colmap/estimators/two_view_geometry.h"
+#include "colmap/feature/aliked.h"
 #include "colmap/feature/pairing.h"
 #include "colmap/feature/sift.h"
-#include "colmap/feature/xfeat.h"
 #include "colmap/math/random.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
@@ -244,12 +244,10 @@ void OptionManager::AddFeatureExtractionOptions() {
   AddDefaultOption("SiftExtraction.dsp_num_scales",
                    &feature_extraction->sift->dsp_num_scales);
 
-  AddDefaultOption("XFeatExtraction.max_num_features",
-                   &feature_extraction->xfeat->max_num_features);
-  AddDefaultOption("XFeatExtraction.min_score",
-                   &feature_extraction->xfeat->min_score);
-  AddDefaultOption("XFeatExtraction.model_path",
-                   &feature_extraction->xfeat->model_path);
+  AddDefaultOption("AlikedExtraction.max_num_features",
+                   &feature_extraction->aliked->max_num_features);
+  AddDefaultOption("AlikedExtraction.model_path",
+                   &feature_extraction->aliked->model_path);
 }
 
 void OptionManager::AddFeatureMatchingOptions() {
@@ -286,14 +284,10 @@ void OptionManager::AddFeatureMatchingOptions() {
   AddDefaultOption("SiftMatching.cpu_brute_force_matcher",
                    &feature_matching->sift->cpu_brute_force_matcher);
 
-  AddDefaultOption("XFeatMatching.min_cossim",
-                   &feature_matching->xfeat->min_cossim);
-  AddDefaultOption("XFeatMatching.min_conf",
-                   &feature_matching->xfeat->min_conf);
-  AddDefaultOption("XFeatMatching.bruteforce_model_path",
-                   &feature_matching->xfeat->bruteforce_model_path);
-  AddDefaultOption("XFeatMatching.lighterglue_model_path",
-                   &feature_matching->xfeat->lighterglue_model_path);
+  AddDefaultOption("AlikedMatching.min_cossim",
+                   &feature_matching->aliked->min_cossim);
+  AddDefaultOption("AlikedMatching.bruteforce_model_path",
+                   &feature_matching->aliked->bruteforce_model_path);
 }
 
 void OptionManager::AddTwoViewGeometryOptions() {

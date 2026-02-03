@@ -57,7 +57,6 @@ COLMAP_ADD_LIBRARY(
         sift.h sift.cc
         types.h types.cc
         utils.h utils.cc
-        xfeat.h xfeat.cc
     PUBLIC_LINK_LIBS
         colmap_feature_types
         colmap_geometry
@@ -83,13 +82,6 @@ if(ONNX_ENABLED)
     target_link_libraries(colmap_feature PRIVATE onnxruntime::onnxruntime)
 endif()
 
-COLMAP_ADD_TEST(
-    NAME xfeat_test
-    SRCS xfeat_test.cc
-    LINK_LIBS
-        colmap_feature
-        onnxruntime::onnxruntime
-)
 COLMAP_ADD_TEST(
     NAME aliked_test
     SRCS aliked_test.cc

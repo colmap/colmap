@@ -31,7 +31,6 @@
 
 #include "colmap/feature/aliked.h"
 #include "colmap/feature/sift.h"
-#include "colmap/feature/xfeat.h"
 #include "colmap/util/misc.h"
 
 namespace colmap {
@@ -47,16 +46,12 @@ void ThrowUnknownFeatureExtractorType(FeatureExtractorType type) {
 
 FeatureExtractionTypeOptions::FeatureExtractionTypeOptions()
     : sift(std::make_shared<SiftExtractionOptions>()),
-      xfeat(std::make_shared<XFeatExtractionOptions>()),
       aliked(std::make_shared<AlikedExtractionOptions>()) {}
 
 FeatureExtractionTypeOptions::FeatureExtractionTypeOptions(
     const FeatureExtractionTypeOptions& other) {
   if (other.sift) {
     sift = std::make_shared<SiftExtractionOptions>(*other.sift);
-  }
-  if (other.xfeat) {
-    xfeat = std::make_shared<XFeatExtractionOptions>(*other.xfeat);
   }
   if (other.aliked) {
     aliked = std::make_shared<AlikedExtractionOptions>(*other.aliked);
@@ -73,11 +68,6 @@ FeatureExtractionTypeOptions& FeatureExtractionTypeOptions::operator=(
   } else {
     sift.reset();
   }
-  if (other.xfeat) {
-    xfeat = std::make_shared<XFeatExtractionOptions>(*other.xfeat);
-  } else {
-    xfeat.reset();
-  }
   if (other.aliked) {
     aliked = std::make_shared<AlikedExtractionOptions>(*other.aliked);
   } else {
@@ -93,7 +83,6 @@ bool FeatureExtractionOptions::RequiresRGB() const {
   switch (type) {
     case FeatureExtractorType::SIFT:
       return false;
-    case FeatureExtractorType::XFEAT:
     case FeatureExtractorType::ALIKED:
       return true;
     default:
@@ -116,7 +105,6 @@ bool FeatureExtractionOptions::RequiresOpenGL() const {
       return use_gpu;
 #endif
     }
-    case FeatureExtractorType::XFEAT:
     case FeatureExtractorType::ALIKED:
       return false;
     default:
@@ -137,8 +125,6 @@ bool FeatureExtractionOptions::Check() const {
   }
   if (type == FeatureExtractorType::SIFT) {
     return THROW_CHECK_NOTNULL(sift)->Check();
-  } else if (type == FeatureExtractorType::XFEAT) {
-    return THROW_CHECK_NOTNULL(xfeat)->Check();
   } else if (type == FeatureExtractorType::ALIKED) {
     return THROW_CHECK_NOTNULL(aliked)->Check();
   } else {
@@ -153,8 +139,6 @@ std::unique_ptr<FeatureExtractor> FeatureExtractor::Create(
   switch (options.type) {
     case FeatureExtractorType::SIFT:
       return CreateSiftFeatureExtractor(options);
-    case FeatureExtractorType::XFEAT:
-      return CreateXFeatFeatureExtractor(options);
     case FeatureExtractorType::ALIKED:
       return CreateAlikedFeatureExtractor(options);
     default:

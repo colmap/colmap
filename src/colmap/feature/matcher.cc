@@ -31,7 +31,6 @@
 
 #include "colmap/feature/aliked.h"
 #include "colmap/feature/sift.h"
-#include "colmap/feature/xfeat.h"
 #include "colmap/util/misc.h"
 
 namespace colmap {
@@ -47,16 +46,12 @@ void ThrowUnknownFeatureMatcherType(FeatureMatcherType type) {
 
 FeatureMatchingTypeOptions::FeatureMatchingTypeOptions()
     : sift(std::make_shared<SiftMatchingOptions>()),
-      xfeat(std::make_shared<XFeatMatchingOptions>()),
       aliked(std::make_shared<AlikedMatchingOptions>()) {}
 
 FeatureMatchingTypeOptions::FeatureMatchingTypeOptions(
     const FeatureMatchingTypeOptions& other) {
   if (other.sift) {
     sift = std::make_shared<SiftMatchingOptions>(*other.sift);
-  }
-  if (other.xfeat) {
-    xfeat = std::make_shared<XFeatMatchingOptions>(*other.xfeat);
   }
   if (other.aliked) {
     aliked = std::make_shared<AlikedMatchingOptions>(*other.aliked);
@@ -72,11 +67,6 @@ FeatureMatchingTypeOptions& FeatureMatchingTypeOptions::operator=(
     sift = std::make_shared<SiftMatchingOptions>(*other.sift);
   } else {
     sift.reset();
-  }
-  if (other.xfeat) {
-    xfeat = std::make_shared<XFeatMatchingOptions>(*other.xfeat);
-  } else {
-    xfeat.reset();
   }
   if (other.aliked) {
     aliked = std::make_shared<AlikedMatchingOptions>(*other.aliked);
@@ -98,8 +88,6 @@ bool FeatureMatchingOptions::RequiresOpenGL() const {
       return use_gpu;
 #endif
     }
-    case FeatureMatcherType::XFEAT_BRUTEFORCE:
-    case FeatureMatcherType::XFEAT_LIGHTERGLUE:
     case FeatureMatcherType::ALIKED_BRUTEFORCE:
       return false;
     default:
@@ -120,9 +108,6 @@ bool FeatureMatchingOptions::Check() const {
   CHECK_OPTION_GE(max_num_matches, 0);
   if (type == FeatureMatcherType::SIFT) {
     return THROW_CHECK_NOTNULL(sift)->Check();
-  } else if (type == FeatureMatcherType::XFEAT_BRUTEFORCE ||
-             type == FeatureMatcherType::XFEAT_LIGHTERGLUE) {
-    return THROW_CHECK_NOTNULL(xfeat)->Check();
   } else if (type == FeatureMatcherType::ALIKED_BRUTEFORCE) {
     return THROW_CHECK_NOTNULL(aliked)->Check();
   } else {
@@ -137,9 +122,6 @@ std::unique_ptr<FeatureMatcher> FeatureMatcher::Create(
   switch (options.type) {
     case FeatureMatcherType::SIFT:
       return CreateSiftFeatureMatcher(options);
-    case FeatureMatcherType::XFEAT_BRUTEFORCE:
-    case FeatureMatcherType::XFEAT_LIGHTERGLUE:
-      return CreateXFeatFeatureMatcher(options);
     case FeatureMatcherType::ALIKED_BRUTEFORCE:
       return CreateAlikedFeatureMatcher(options);
     default:

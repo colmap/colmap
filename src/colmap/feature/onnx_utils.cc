@@ -122,8 +122,7 @@ ONNXModel::ONNXModel(std::string model_path,
   input_names.reserve(num_inputs);
   input_shapes.reserve(num_inputs);
   for (int i = 0; i < num_inputs; ++i) {
-    input_name_strs.emplace_back(
-        session->GetInputNameAllocated(i, allocator));
+    input_name_strs.emplace_back(session->GetInputNameAllocated(i, allocator));
     input_names.emplace_back(input_name_strs[i].get());
     input_shapes.emplace_back(
         session->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());

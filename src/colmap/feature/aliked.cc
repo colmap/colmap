@@ -133,14 +133,9 @@ class AlikedFeatureExtractor : public FeatureExtractor {
                    "descriptors",
                    model_.output_shapes[1],
                    {-1, -1, -1});
-    // Descriptor dimension will be determined at runtime from actual output.
-    // Store expected dim if available, otherwise set to -1 (dynamic).
     descriptor_dim_ = static_cast<int>(model_.output_shapes[1][2]);
-    if (descriptor_dim_ > 0) {
-      VLOG(2) << "ALIKED descriptor dimension: " << descriptor_dim_;
-    } else {
-      VLOG(2) << "ALIKED descriptor dimension: dynamic (determined at runtime)";
-    }
+    THROW_CHECK_GT(descriptor_dim_, 0);
+    VLOG(2) << "ALIKED descriptor dimension: " << descriptor_dim_;
     ThrowCheckNode(
         model_.output_names[2], "scores", model_.output_shapes[2], {-1, -1});
   }
@@ -204,12 +199,7 @@ class AlikedFeatureExtractor : public FeatureExtractor {
     THROW_CHECK_EQ(descriptors_shape.size(), 3);
     THROW_CHECK_EQ(descriptors_shape[0], 1);
     THROW_CHECK_EQ(descriptors_shape[1], num_keypoints);
-    const int desc_dim = static_cast<int>(descriptors_shape[2]);
-    THROW_CHECK_GT(desc_dim, 0);
-    // Verify descriptor dimension matches expected (if not dynamic).
-    if (descriptor_dim_ > 0) {
-      THROW_CHECK_EQ(desc_dim, descriptor_dim_);
-    }
+    THROW_CHECK_EQ(descriptors_shape[2], descriptor_dim_);
 
     // Parse scores shape: [1, K].
     const std::vector<int64_t> scores_shape =
@@ -221,11 +211,9 @@ class AlikedFeatureExtractor : public FeatureExtractor {
     const float* keypoints_data = output_tensors[0].GetTensorData<float>();
     const float* descriptors_data = output_tensors[1].GetTensorData<float>();
 
-    // Convert keypoints from normalized [-1, 1] to pixel coordinates.
-    // The model normalizes as: norm = xy / (wh - 1) * 2 - 1
-    // So to convert back: xy = (norm + 1) / 2 * (wh - 1)
-    // COLMAP uses 0.5 offset for pixel center, so add 0.5.
-    // Filter out keypoints in the padded region (outside original image bounds).
+    // Convert keypoints from normalized [-1, 1] to pixel coordinates,
+    // where ALIKED uses the center of the top-left pixel as (0, 0),
+    // while COLMAP uses the top-left pixel's corner as (0, 0).
     const float scale_x = 0.5f * static_cast<float>(padder.padded_width - 1);
     const float scale_y = 0.5f * static_cast<float>(padder.padded_height - 1);
     const float max_x = static_cast<float>(padder.original_width);
@@ -246,19 +234,19 @@ class AlikedFeatureExtractor : public FeatureExtractor {
       }
     }
 
-    // Second pass: populate output with valid keypoints and descriptors.
+    // Populate output with valid keypoints and descriptors.
     const int num_valid = static_cast<int>(valid_indices.size());
     keypoints->resize(num_valid);
-    descriptors->resize(num_valid, desc_dim * sizeof(float));
+    descriptors->resize(num_valid, descriptor_dim_ * sizeof(float));
     for (int j = 0; j < num_valid; ++j) {
       const int i = valid_indices[j];
       const float norm_x = keypoints_data[2 * i + 0];
       const float norm_y = keypoints_data[2 * i + 1];
       (*keypoints)[j].x = (norm_x + 1.0f) * scale_x + 0.5f;
       (*keypoints)[j].y = (norm_y + 1.0f) * scale_y + 0.5f;
-      std::memcpy(descriptors->data() + j * desc_dim * sizeof(float),
-                  descriptors_data + i * desc_dim,
-                  desc_dim * sizeof(float));
+      std::memcpy(descriptors->data() + j * descriptor_dim_ * sizeof(float),
+                  descriptors_data + i * descriptor_dim_,
+                  descriptor_dim_ * sizeof(float));
     }
 
     return true;
