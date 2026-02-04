@@ -56,5 +56,30 @@ TEST(FeatureExtractionOptions, Copy) {
   EXPECT_NE(options.aliked.get(), copy.aliked.get());
 }
 
+TEST(FeatureExtractionOptions, EffMaxImageSize) {
+  FeatureExtractionOptions options;
+
+  // When max_image_size is explicitly set, use that value.
+  options.max_image_size = 2000;
+  options.type = FeatureExtractorType::SIFT;
+  EXPECT_EQ(options.EffMaxImageSize(), 2000);
+
+  options.type = FeatureExtractorType::ALIKED;
+  EXPECT_EQ(options.EffMaxImageSize(), 2000);
+
+  // When max_image_size is non-positive, use type-specific defaults.
+  options.max_image_size = -1;
+  options.type = FeatureExtractorType::SIFT;
+  EXPECT_EQ(options.EffMaxImageSize(), 3200);
+  options.type = FeatureExtractorType::ALIKED;
+  EXPECT_EQ(options.EffMaxImageSize(), 1280);
+
+  options.max_image_size = 0;
+  options.type = FeatureExtractorType::SIFT;
+  EXPECT_EQ(options.EffMaxImageSize(), 3200);
+  options.type = FeatureExtractorType::ALIKED;
+  EXPECT_EQ(options.EffMaxImageSize(), 1280);
+}
+
 }  // namespace
 }  // namespace colmap
