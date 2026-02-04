@@ -319,19 +319,35 @@ if(ONNX_ENABLED)
                     DESTINATION "${CMAKE_INSTALL_BINDIR}")
             endif()
         else()
-            # On Linux, selectively install .so files. Always install core libraries.
+            # On Linux/macOS, selectively install library files. Always install core libraries.
             # Not supporting TensorRT/ROCM/etc. as a runtime, so not installing them.
-            file(GLOB onnxruntime_CORE_LIBS
-                "${onnxruntime_LIB_DIR}/libonnxruntime.so*"
-                "${onnxruntime_LIB_DIR}/libonnxruntime_providers_shared.so*")
-            install(FILES ${onnxruntime_CORE_LIBS}
-                DESTINATION "${onnxruntime_LIB_DIR_NAME}")
-            # Only install CUDA provider if CUDA is enabled.
-            if(CUDA_ENABLED)
-                file(GLOB onnxruntime_CUDA_LIBS
-                    "${onnxruntime_LIB_DIR}/libonnxruntime_providers_cuda.so*")
-                install(FILES ${onnxruntime_CUDA_LIBS}
+            if(IS_MACOS)
+                file(GLOB onnxruntime_CORE_LIBS
+                    "${onnxruntime_LIB_DIR}/libonnxruntime.dylib"
+                    "${onnxruntime_LIB_DIR}/libonnxruntime.*.dylib"
+                    "${onnxruntime_LIB_DIR}/libonnxruntime_providers_shared.dylib")
+                install(FILES ${onnxruntime_CORE_LIBS}
                     DESTINATION "${onnxruntime_LIB_DIR_NAME}")
+                # Only install CUDA provider if CUDA is enabled.
+                if(CUDA_ENABLED)
+                    file(GLOB onnxruntime_CUDA_LIBS
+                        "${onnxruntime_LIB_DIR}/libonnxruntime_providers_cuda.dylib")
+                    install(FILES ${onnxruntime_CUDA_LIBS}
+                        DESTINATION "${onnxruntime_LIB_DIR_NAME}")
+                endif()
+            else()
+                file(GLOB onnxruntime_CORE_LIBS
+                    "${onnxruntime_LIB_DIR}/libonnxruntime.so*"
+                    "${onnxruntime_LIB_DIR}/libonnxruntime_providers_shared.so*")
+                install(FILES ${onnxruntime_CORE_LIBS}
+                    DESTINATION "${onnxruntime_LIB_DIR_NAME}")
+                # Only install CUDA provider if CUDA is enabled.
+                if(CUDA_ENABLED)
+                    file(GLOB onnxruntime_CUDA_LIBS
+                        "${onnxruntime_LIB_DIR}/libonnxruntime_providers_cuda.so*")
+                    install(FILES ${onnxruntime_CUDA_LIBS}
+                        DESTINATION "${onnxruntime_LIB_DIR_NAME}")
+                endif()
             endif()
         endif()
         install(
