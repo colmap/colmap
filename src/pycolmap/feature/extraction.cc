@@ -1,4 +1,3 @@
-#include "colmap/feature/aliked.h"
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
 #ifdef COLMAP_ONNX_ENABLED
@@ -33,6 +32,35 @@ typedef std::tuple<keypoints_t, descriptors_t> sift_output_t;
 
 static std::map<int, std::unique_ptr<std::mutex>> sift_gpu_mutexes;
 
+// Rescale bitmap if it exceeds max_image_size. Returns the scale factor used.
+double MaybeRescaleBitmap(Bitmap& bitmap, int max_image_size) {
+  const int width = bitmap.Width();
+  const int height = bitmap.Height();
+  if (width <= max_image_size && height <= max_image_size) {
+    return 1.0;
+  }
+  const double scale =
+      static_cast<double>(max_image_size) / std::max(width, height);
+  const int new_width = static_cast<int>(width * scale);
+  const int new_height = static_cast<int>(height * scale);
+  bitmap.Rescale(new_width, new_height);
+  return scale;
+}
+
+// Convert FeatureKeypoints to keypoints_t, scaling coordinates by inv_scale.
+keypoints_t ConvertKeypoints(const FeatureKeypoints& feature_keypoints,
+                             double inv_scale) {
+  const size_t num_features = feature_keypoints.size();
+  keypoints_t keypoints(num_features, kKeypointDim);
+  for (size_t i = 0; i < num_features; ++i) {
+    keypoints(i, 0) = feature_keypoints[i].x * inv_scale;
+    keypoints(i, 1) = feature_keypoints[i].y * inv_scale;
+    keypoints(i, 2) = feature_keypoints[i].ComputeScale() * inv_scale;
+    keypoints(i, 3) = feature_keypoints[i].ComputeOrientation();
+  }
+  return keypoints;
+}
+
 class Sift {
  public:
   Sift(std::optional<FeatureExtractionOptions> options, Device device)
@@ -58,26 +86,19 @@ class Sift {
   }
 
   sift_output_t Extract(const Eigen::Ref<const pyimage_t<uint8_t>>& image) {
-    THROW_CHECK_LE(image.rows(), options_.max_image_size);
-    THROW_CHECK_LE(image.cols(), options_.max_image_size);
-
     Bitmap bitmap(image.cols(), image.rows(), /*as_rgb=*/false);
     std::memcpy(bitmap.RowMajorData().data(), image.data(), bitmap.NumBytes());
 
-    FeatureKeypoints keypoints_;
-    FeatureDescriptors descriptors_;
-    THROW_CHECK(extractor_->Extract(bitmap, &keypoints_, &descriptors_));
-    const size_t num_features = keypoints_.size();
+    const double scale = MaybeRescaleBitmap(bitmap, options_.EffMaxImageSize());
 
-    keypoints_t keypoints(num_features, kKeypointDim);
-    for (size_t i = 0; i < num_features; ++i) {
-      keypoints(i, 0) = keypoints_[i].x;
-      keypoints(i, 1) = keypoints_[i].y;
-      keypoints(i, 2) = keypoints_[i].ComputeScale();
-      keypoints(i, 3) = keypoints_[i].ComputeOrientation();
-    }
+    FeatureKeypoints feature_keypoints;
+    FeatureDescriptors feature_descriptors;
+    THROW_CHECK(
+        extractor_->Extract(bitmap, &feature_keypoints, &feature_descriptors));
 
-    descriptors_t descriptors = descriptors_.cast<float>();
+    keypoints_t keypoints = ConvertKeypoints(feature_keypoints, 1.0 / scale);
+
+    descriptors_t descriptors = feature_descriptors.cast<float>();
     descriptors /= 512.0f;
 
     return std::make_tuple(std::move(keypoints), std::move(descriptors));
@@ -116,33 +137,29 @@ class Aliked {
 
   aliked_output_t Extract(const Eigen::Ref<const pyimage_t<uint8_t>>& image) {
     THROW_CHECK(image.rows() > 0 && image.cols() > 0);
-    const int height = image.rows();
     // For RGB images, cols = width * 3
     THROW_CHECK_EQ(image.cols() % 3, 0);
     const int width = image.cols() / 3;
 
-    Bitmap bitmap(width, height, /*as_rgb=*/true);
+    Bitmap bitmap(width, image.rows(), /*as_rgb=*/true);
     std::memcpy(bitmap.RowMajorData().data(), image.data(), bitmap.NumBytes());
 
-    FeatureKeypoints keypoints_;
-    FeatureDescriptors descriptors_;
-    THROW_CHECK(extractor_->Extract(bitmap, &keypoints_, &descriptors_));
-    const size_t num_features = keypoints_.size();
+    const double scale = MaybeRescaleBitmap(bitmap, options_.EffMaxImageSize());
 
-    keypoints_t keypoints(num_features, kKeypointDim);
-    for (size_t i = 0; i < num_features; ++i) {
-      keypoints(i, 0) = keypoints_[i].x;
-      keypoints(i, 1) = keypoints_[i].y;
-      keypoints(i, 2) = keypoints_[i].ComputeScale();
-      keypoints(i, 3) = keypoints_[i].ComputeOrientation();
-    }
+    FeatureKeypoints feature_keypoints;
+    FeatureDescriptors feature_descriptors;
+    THROW_CHECK(
+        extractor_->Extract(bitmap, &feature_keypoints, &feature_descriptors));
+
+    keypoints_t keypoints = ConvertKeypoints(feature_keypoints, 1.0 / scale);
 
     // ALIKED descriptors are stored as float32, so we need to reinterpret them.
-    const int descriptor_dim = descriptors_.cols() / sizeof(float);
+    const size_t num_features = feature_keypoints.size();
+    const int descriptor_dim = feature_descriptors.cols() / sizeof(float);
     descriptors_t descriptors(num_features, descriptor_dim);
     for (size_t i = 0; i < num_features; ++i) {
       const float* row_ptr =
-          reinterpret_cast<const float*>(descriptors_.row(i).data());
+          reinterpret_cast<const float*>(feature_descriptors.row(i).data());
       for (int j = 0; j < descriptor_dim; ++j) {
         descriptors(i, j) = row_ptr[j];
       }
