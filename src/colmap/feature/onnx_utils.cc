@@ -43,7 +43,7 @@ namespace colmap {
 
 #ifdef COLMAP_ONNX_ENABLED
 
-std::string FormatShape(const std::vector<int64_t>& shape) {
+std::string FormatONNXTensorShape(const std::vector<int64_t>& shape) {
   std::ostringstream oss;
   oss << "[";
   for (size_t i = 0; i < shape.size(); ++i) {
@@ -56,20 +56,21 @@ std::string FormatShape(const std::vector<int64_t>& shape) {
   return oss.str();
 }
 
-void ThrowCheckNode(const std::string_view name,
-                    const std::string_view expected_name,
-                    const std::vector<int64_t>& shape,
-                    const std::vector<int64_t>& expected_shape) {
+void ThrowCheckONNXNode(const std::string_view name,
+                        const std::string_view expected_name,
+                        const std::vector<int64_t>& shape,
+                        const std::vector<int64_t>& expected_shape) {
   THROW_CHECK_EQ(name, expected_name);
   THROW_CHECK_EQ(shape.size(), expected_shape.size())
-      << "Invalid shape for " << name << ": " << FormatShape(shape)
-      << " != " << FormatShape(expected_shape);
+      << "Invalid shape for " << name << ": " << FormatONNXTensorShape(shape)
+      << " != " << FormatONNXTensorShape(expected_shape);
   for (size_t i = 0; i < shape.size(); ++i) {
     // -1 is treated as a wildcard for dynamic dimensions.
     if (expected_shape[i] != -1) {
       THROW_CHECK_EQ(shape[i], expected_shape[i])
-          << "Invalid shape for " << name << ": " << FormatShape(shape)
-          << " != " << FormatShape(expected_shape);
+          << "Invalid shape for " << name << ": "
+          << FormatONNXTensorShape(shape)
+          << " != " << FormatONNXTensorShape(expected_shape);
     }
   }
 }

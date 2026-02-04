@@ -116,30 +116,30 @@ class AlikedFeatureExtractor : public FeatureExtractor {
     // Validate sparse model inputs: image [1, 3, H, W], max_keypoints (scalar),
     // min_score (scalar).
     THROW_CHECK_EQ(model_.input_shapes.size(), 3);
-    ThrowCheckNode(model_.input_names[0],
-                   "image",
-                   model_.input_shapes[0],
-                   {-1, 3, -1, -1});
-    ThrowCheckNode(
+    ThrowCheckONNXNode(model_.input_names[0],
+                       "image",
+                       model_.input_shapes[0],
+                       {-1, 3, -1, -1});
+    ThrowCheckONNXNode(
         model_.input_names[1], "max_keypoints", model_.input_shapes[1], {});
-    ThrowCheckNode(
+    ThrowCheckONNXNode(
         model_.input_names[2], "min_score", model_.input_shapes[2], {});
 
     // Validate sparse model outputs: keypoints [1, K, 2], descriptors [1, K,
     // D], scores [1, K]. Note: Some dimensions may be dynamic (-1) in ONNX.
     THROW_CHECK_EQ(model_.output_shapes.size(), 3);
-    ThrowCheckNode(model_.output_names[0],
-                   "keypoints",
-                   model_.output_shapes[0],
-                   {-1, -1, -1});
-    ThrowCheckNode(model_.output_names[1],
-                   "descriptors",
-                   model_.output_shapes[1],
-                   {-1, -1, -1});
+    ThrowCheckONNXNode(model_.output_names[0],
+                       "keypoints",
+                       model_.output_shapes[0],
+                       {-1, -1, -1});
+    ThrowCheckONNXNode(model_.output_names[1],
+                       "descriptors",
+                       model_.output_shapes[1],
+                       {-1, -1, -1});
     descriptor_dim_ = static_cast<int>(model_.output_shapes[1][2]);
     THROW_CHECK_GT(descriptor_dim_, 0);
     VLOG(2) << "ALIKED descriptor dimension: " << descriptor_dim_;
-    ThrowCheckNode(
+    ThrowCheckONNXNode(
         model_.output_names[2], "scores", model_.output_shapes[2], {-1, -1});
   }
 
@@ -281,17 +281,17 @@ class AlikedBruteForceFeatureMatcher : public FeatureMatcher {
                options.gpu_index) {
     THROW_CHECK(options.Check());
     THROW_CHECK_EQ(model_.input_shapes.size(), 3);
-    ThrowCheckNode(
+    ThrowCheckONNXNode(
         model_.input_names[0], "feats0", model_.input_shapes[0], {-1, -1});
-    ThrowCheckNode(
+    ThrowCheckONNXNode(
         model_.input_names[1], "feats1", model_.input_shapes[1], {-1, -1});
-    ThrowCheckNode(
+    ThrowCheckONNXNode(
         model_.input_names[2], "min_cossim", model_.input_shapes[2], {1});
     THROW_CHECK_EQ(model_.output_shapes.size(), 1);
-    ThrowCheckNode(
+    ThrowCheckONNXNode(
         model_.output_names[0], "matches", model_.output_shapes[0], {-1, 2});
     THROW_CHECK_EQ(model_.output_shapes.size(), 1);
-    ThrowCheckNode(
+    ThrowCheckONNXNode(
         model_.output_names[0], "matches", model_.output_shapes[0], {-1, 2});
   }
 

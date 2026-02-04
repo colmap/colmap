@@ -38,21 +38,18 @@
 
 #ifdef COLMAP_ONNX_ENABLED
 #include <onnxruntime_cxx_api.h>
-#endif
 
 namespace colmap {
 
-#ifdef COLMAP_ONNX_ENABLED
-
 // Format tensor shape as a string for logging/error messages.
-std::string FormatShape(const std::vector<int64_t>& shape);
+std::string FormatONNXTensorShape(const std::vector<int64_t>& shape);
 
 // Check that a model node has the expected name and shape.
 // Shape values of -1 are treated as wildcards (dynamic dimensions).
-void ThrowCheckNode(std::string_view name,
-                    std::string_view expected_name,
-                    const std::vector<int64_t>& shape,
-                    const std::vector<int64_t>& expected_shape);
+void ThrowCheckONNXNode(std::string_view name,
+                        std::string_view expected_name,
+                        const std::vector<int64_t>& shape,
+                        const std::vector<int64_t>& expected_shape);
 
 // Wrapper for ONNX Runtime session management.
 // Handles model loading, input/output shape parsing, and inference.
@@ -77,6 +74,6 @@ class ONNXModel {
   std::vector<char*> output_names;
 };
 
-#endif  // COLMAP_ONNX_ENABLED
-
 }  // namespace colmap
+
+#endif  // COLMAP_ONNX_ENABLED
