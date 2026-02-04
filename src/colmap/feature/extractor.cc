@@ -113,6 +113,22 @@ bool FeatureExtractionOptions::RequiresOpenGL() const {
   return false;
 }
 
+int FeatureExtractionOptions::EffMaxImageSize() const {
+  if (max_image_size > 0) {
+    return max_image_size;
+  } else {
+    switch (type) {
+      case FeatureExtractorType::SIFT:
+        return 3200;
+      case FeatureExtractorType::ALIKED:
+        return 1280;
+      default:
+        ThrowUnknownFeatureExtractorType(type);
+    }
+  }
+  return 0;
+}
+
 bool FeatureExtractionOptions::Check() const {
   CHECK_OPTION_GT(max_image_size, 0);
   if (use_gpu) {

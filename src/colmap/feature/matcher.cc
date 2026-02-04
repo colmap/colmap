@@ -81,7 +81,7 @@ FeatureMatchingOptions::FeatureMatchingOptions(FeatureMatcherType type)
 
 bool FeatureMatchingOptions::RequiresOpenGL() const {
   switch (type) {
-    case FeatureMatcherType::SIFT: {
+    case FeatureMatcherType::SIFT_BRUTEFORCE: {
 #ifdef COLMAP_CUDA_ENABLED
       return false;
 #else
@@ -106,7 +106,7 @@ bool FeatureMatchingOptions::Check() const {
 #endif
   }
   CHECK_OPTION_GE(max_num_matches, 0);
-  if (type == FeatureMatcherType::SIFT) {
+  if (type == FeatureMatcherType::SIFT_BRUTEFORCE) {
     return THROW_CHECK_NOTNULL(sift)->Check();
   } else if (type == FeatureMatcherType::ALIKED_BRUTEFORCE) {
     return THROW_CHECK_NOTNULL(aliked)->Check();
@@ -120,7 +120,7 @@ bool FeatureMatchingOptions::Check() const {
 std::unique_ptr<FeatureMatcher> FeatureMatcher::Create(
     const FeatureMatchingOptions& options) {
   switch (options.type) {
-    case FeatureMatcherType::SIFT:
+    case FeatureMatcherType::SIFT_BRUTEFORCE:
       return CreateSiftFeatureMatcher(options);
     case FeatureMatcherType::ALIKED_BRUTEFORCE:
       return CreateAlikedFeatureMatcher(options);

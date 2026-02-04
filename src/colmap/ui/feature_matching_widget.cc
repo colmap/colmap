@@ -121,7 +121,7 @@ void FeatureMatchingTab::CreateGeneralOptions() {
         QString::fromStdString(std::string(FeatureMatcherTypeToString(type))));
     matcher_types_.push_back(type);
   };
-  add_matcher_type(FeatureMatcherType::SIFT);
+  add_matcher_type(FeatureMatcherType::SIFT_BRUTEFORCE);
 #ifdef COLMAP_ONNX_ENABLED
   add_matcher_type(FeatureMatcherType::ALIKED_BRUTEFORCE);
 #endif

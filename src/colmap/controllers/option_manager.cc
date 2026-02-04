@@ -39,7 +39,6 @@
 #include "colmap/feature/aliked.h"
 #include "colmap/feature/pairing.h"
 #include "colmap/feature/sift.h"
-#include "colmap/math/random.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match_options.h"

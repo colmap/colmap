@@ -90,6 +90,7 @@ ONNXModel::ONNXModel(std::string model_path,
   session_options.SetIntraOpNumThreads(num_eff_threads);
   session_options.SetGraphOptimizationLevel(
       GraphOptimizationLevel::ORT_ENABLE_ALL);
+  session_options.SetLogSeverityLevel(ORT_LOGGING_LEVEL_ERROR);
 
 #ifdef COLMAP_CUDA_ENABLED
   if (use_gpu) {

@@ -29,6 +29,7 @@
 
 #include "colmap/feature/extractor.h"
 
+#include "colmap/feature/aliked.h"
 #include "colmap/feature/sift.h"
 #include "colmap/util/testing.h"
 
@@ -41,15 +42,18 @@ TEST(FeatureExtractionOptions, Copy) {
   FeatureExtractionOptions options;
   options.max_image_size += 100;
   options.sift->max_num_features += 100;
+  options.aliked->max_num_features += 100;
 
   FeatureExtractionOptions copy = options;
 
   // Verify fields are copied
   EXPECT_EQ(copy.max_image_size, options.max_image_size);
   EXPECT_EQ(copy.sift->max_num_features, options.sift->max_num_features);
+  EXPECT_EQ(copy.aliked->max_num_features, options.aliked->max_num_features);
 
   // Verify deep copy of shared_ptr (different pointer instances)
   EXPECT_NE(options.sift.get(), copy.sift.get());
+  EXPECT_NE(options.aliked.get(), copy.aliked.get());
 }
 
 }  // namespace

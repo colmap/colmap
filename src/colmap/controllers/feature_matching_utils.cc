@@ -82,7 +82,7 @@ void FeatureMatcherWorker::Run() {
   }
 #endif
 
-  if (matching_options_.type == FeatureMatcherType::SIFT) {
+  if (matching_options_.type == FeatureMatcherType::SIFT_BRUTEFORCE) {
     // TODO(jsch): This is a bit ugly, but currently cannot think of a better
     // way to inject the shared descriptor index cache.
     THROW_CHECK_NOTNULL(matching_options_.sift)->cpu_descriptor_index_cache =

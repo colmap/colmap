@@ -168,7 +168,9 @@ void BindFeatureExtraction(py::module& m) {
           .def_readwrite(
               "max_image_size",
               &FeatureExtractionOptions::max_image_size,
-              "Maximum image size, otherwise image will be down-scaled.")
+              "Maximum image size, otherwise image will be down-scaled. If "
+              "max_image_size is non-positive, the appropriate size is "
+              "selected automatically based on the extractor type.")
           .def_readwrite("num_threads",
                          &FeatureExtractionOptions::num_threads,
                          "Number of threads for feature matching and "
@@ -180,6 +182,10 @@ void BindFeatureExtraction(py::module& m) {
                          "multi-GPU matching, you should separate multiple "
                          "GPU indices by comma, e.g., '0,1,2,3'.")
           .def_readwrite("sift", &FeatureExtractionOptions::sift)
+          .def_readwrite("aliked", &FeatureExtractionOptions::aliked)
+          .def("requires_rgb", &FeatureExtractionOptions::RequiresRGB)
+          .def("requires_opengl", &FeatureExtractionOptions::RequiresOpenGL)
+          .def("eff_max_image_size", &FeatureExtractionOptions::EffMaxImageSize)
           .def("check", &FeatureExtractionOptions::Check);
   MakeDataclass(PyFeatureExtractionOptions);
 

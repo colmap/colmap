@@ -84,7 +84,9 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     option_manager_.ModifyForExtremeQuality();
   }
 
+  option_manager_.feature_extraction->type = options_.feature_extractor_type;
   option_manager_.feature_extraction->num_threads = options_.num_threads;
+  option_manager_.feature_matching->type = options_.feature_matcher_type;
   option_manager_.feature_matching->num_threads = options_.num_threads;
   option_manager_.sequential_pairing->num_threads = options_.num_threads;
   option_manager_.vocab_tree_pairing->num_threads = options_.num_threads;

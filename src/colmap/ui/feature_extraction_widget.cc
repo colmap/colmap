@@ -34,7 +34,6 @@
 #include "colmap/feature/sift.h"
 #include "colmap/sensor/models.h"
 #include "colmap/ui/options_widget.h"
-#include "colmap/ui/qt_utils.h"
 #include "colmap/ui/thread_control_widget.h"
 #include "colmap/util/file.h"
 

@@ -30,6 +30,8 @@
 #pragma once
 
 #include "colmap/controllers/option_manager.h"
+#include "colmap/feature/extractor.h"
+#include "colmap/feature/matcher.h"
 #include "colmap/retrieval/resources.h"
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/util/enum_utils.h"
@@ -99,6 +101,11 @@ class AutomaticReconstructionController : public Thread {
 #else
     bool dense = false;
 #endif
+
+    // The feature extraction/matchingb algorithm to be used.
+    FeatureExtractorType feature_extractor_type = FeatureExtractorType::SIFT;
+    FeatureMatcherType feature_matcher_type =
+        FeatureMatcherType::SIFT_BRUTEFORCE;
 
     // The mapping algorithm to be used.
     Mapper mapper = Mapper::INCREMENTAL;

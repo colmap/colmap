@@ -104,7 +104,9 @@ class ImageResizerThread : public Thread {
                      JobQueue<ImageData>* output_queue)
       : max_image_size_(max_image_size),
         input_queue_(input_queue),
-        output_queue_(output_queue) {}
+        output_queue_(output_queue) {
+    THROW_CHECK_GT(max_image_size_, 0);
+  }
 
  private:
   void Run() override {
@@ -367,13 +369,10 @@ class FeatureExtractorController : public Thread {
     extractor_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
     writer_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
 
-    if (extraction_options_.max_image_size > 0) {
-      for (int i = 0; i < num_threads; ++i) {
-        resizers_.emplace_back(std::make_unique<ImageResizerThread>(
-            extraction_options_.max_image_size,
-            resizer_queue_.get(),
-            extractor_queue_.get()));
-      }
+    const int max_image_size = extraction_options_.EffMaxImageSize();
+    for (int i = 0; i < num_threads; ++i) {
+      resizers_.emplace_back(std::make_unique<ImageResizerThread>(
+          max_image_size, resizer_queue_.get(), extractor_queue_.get()));
     }
 
     if (!extraction_options_.sift->domain_size_pooling &&
@@ -404,6 +403,7 @@ class FeatureExtractorController : public Thread {
     } else {
       const static FeatureExtractionOptions kDefaultExtractionOptions;
       if (extraction_options_.num_threads == -1 &&
+          extraction_options_.type == FeatureExtractorType::SIFT &&
           extraction_options_.max_image_size ==
               kDefaultExtractionOptions.max_image_size &&
           extraction_options_.sift->first_octave ==
@@ -460,8 +460,6 @@ class FeatureExtractorController : public Thread {
       }
     }
 
-    const bool should_resize = extraction_options_.max_image_size > 0;
-
     while (image_reader_.NextIndex() < image_reader_.NumImages()) {
       if (IsStopped()) {
         resizer_queue_->Stop();
@@ -485,11 +483,7 @@ class FeatureExtractorController : public Thread {
         image_data.mask = Bitmap();
       }
 
-      if (should_resize) {
-        THROW_CHECK(resizer_queue_->Push(std::move(image_data)));
-      } else {
-        THROW_CHECK(extractor_queue_->Push(std::move(image_data)));
-      }
+      THROW_CHECK(resizer_queue_->Push(std::move(image_data)));
     }
 
     resizer_queue_->Wait();

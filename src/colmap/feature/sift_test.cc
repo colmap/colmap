@@ -324,7 +324,7 @@ TEST(CreateSiftGPUMatcherOpenGL, Nominal) {
    private:
     void Run() {
       opengl_context_.MakeCurrent();
-      FeatureMatchingOptions options(FeatureMatcherType::SIFT);
+      FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
       options.use_gpu = true;
       options.max_num_matches = 1000;
       EXPECT_NE(CreateSiftFeatureMatcher(options), nullptr);
@@ -338,7 +338,7 @@ TEST(CreateSiftGPUMatcherOpenGL, Nominal) {
 
 TEST(CreateSiftGPUMatcherCUDA, Nominal) {
 #if defined(COLMAP_CUDA_ENABLED)
-  FeatureMatchingOptions options(FeatureMatcherType::SIFT);
+  FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
   options.use_gpu = true;
   options.gpu_index = "0";
   options.max_num_matches = 1000;
@@ -389,7 +389,7 @@ TEST(SiftCPUFeatureMatcher, Nominal) {
   FeatureDescriptorIndexCacheHelper index_cache_helper(
       {image0, image1, image2});
 
-  FeatureMatchingOptions options(FeatureMatcherType::SIFT);
+  FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
   options.use_gpu = false;
   options.sift->cpu_brute_force_matcher = false;
   options.sift->cpu_descriptor_index_cache = &index_cache_helper.index_cache;
@@ -579,7 +579,7 @@ TEST(MatchGuidedSiftFeaturesCPU, Nominal) {
   two_view_geometry.config = TwoViewGeometry::PLANAR_OR_PANORAMIC;
   two_view_geometry.H = Eigen::Matrix3d::Identity();
 
-  FeatureMatchingOptions options(FeatureMatcherType::SIFT);
+  FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
   options.use_gpu = false;
   options.sift->cpu_descriptor_index_cache = &index_cache_helper.index_cache;
   auto matcher = CreateSiftFeatureMatcher(options);
@@ -690,7 +690,7 @@ TEST(MatchGuidedSiftFeaturesCPU, EssentialMatrix) {
       [&index_cache_helper](const std::vector<FeatureMatcher::Image>& images) {
         index_cache_helper =
             std::make_unique<FeatureDescriptorIndexCacheHelper>(images);
-        FeatureMatchingOptions options(FeatureMatcherType::SIFT);
+        FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
         options.use_gpu = false;
         options.sift->cpu_descriptor_index_cache =
             &index_cache_helper->index_cache;
@@ -708,7 +708,7 @@ TEST(MatchSiftFeaturesGPU, Nominal) {
    private:
     void Run() {
       opengl_context_.MakeCurrent();
-      FeatureMatchingOptions options(FeatureMatcherType::SIFT);
+      FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
       options.use_gpu = true;
       options.max_num_matches = 1000;
       auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
@@ -946,7 +946,7 @@ TEST(MatchGuidedSiftFeaturesGPU, Nominal) {
               CreateRandomFeatureDescriptors(2))};
 
       opengl_context_.MakeCurrent();
-      FeatureMatchingOptions options(FeatureMatcherType::SIFT);
+      FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
       options.use_gpu = true;
       options.max_num_matches = 1000;
       auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
@@ -1002,7 +1002,7 @@ TEST(MatchGuidedSiftFeaturesGPU, EssentialMatrix) {
       opengl_context_.MakeCurrent();
       TestGuidedMatchingWithCameraDistortion(
           [](const std::vector<FeatureMatcher::Image>& images) {
-            FeatureMatchingOptions options(FeatureMatcherType::SIFT);
+            FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
             options.use_gpu = true;
             options.max_num_matches = 1000;
             return THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));

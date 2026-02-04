@@ -45,7 +45,10 @@
 
 namespace colmap {
 
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType, 0, SIFT, ALIKED_BRUTEFORCE);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType,
+                                0,
+                                SIFT_BRUTEFORCE,
+                                ALIKED_BRUTEFORCE);
 
 struct SiftMatchingOptions;
 struct AlikedMatchingOptions;
@@ -66,9 +69,9 @@ struct FeatureMatchingTypeOptions {
 
 struct FeatureMatchingOptions : public FeatureMatchingTypeOptions {
   explicit FeatureMatchingOptions(
-      FeatureMatcherType type = FeatureMatcherType::SIFT);
+      FeatureMatcherType type = FeatureMatcherType::SIFT_BRUTEFORCE);
 
-  FeatureMatcherType type = FeatureMatcherType::SIFT;
+  FeatureMatcherType type = FeatureMatcherType::SIFT_BRUTEFORCE;
 
   // Number of threads for feature matching and geometric verification.
   int num_threads = -1;
