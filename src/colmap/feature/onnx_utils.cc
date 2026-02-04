@@ -97,7 +97,9 @@ ONNXModel::ONNXModel(std::string model_path,
     THROW_CHECK_EQ(gpu_indices.size(), 1)
         << "ONNX model can only run on one GPU";
     OrtCUDAProviderOptions cuda_options{};
-    cuda_options.device_id = gpu_indices[0];
+    if (gpu_indices[0] >= 0) {
+      cuda_options.device_id = gpu_indices[0];
+    }
     session_options.AppendExecutionProvider_CUDA(cuda_options);
   }
 #endif
