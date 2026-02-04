@@ -291,11 +291,15 @@ void BindFeatureExtraction(py::module& m) {
                          "multi-GPU matching, you should separate multiple "
                          "GPU indices by comma, e.g., '0,1,2,3'.")
           .def_readwrite("sift", &FeatureExtractionOptions::sift)
-          .def_readwrite("aliked", &FeatureExtractionOptions::aliked)
+
           .def("requires_rgb", &FeatureExtractionOptions::RequiresRGB)
           .def("requires_opengl", &FeatureExtractionOptions::RequiresOpenGL)
           .def("eff_max_image_size", &FeatureExtractionOptions::EffMaxImageSize)
           .def("check", &FeatureExtractionOptions::Check);
+#ifdef COLMAP_ONNX_ENABLED
+  PyFeatureExtractionOptions.def_readwrite("aliked",
+                                           &FeatureExtractionOptions::aliked);
+#endif
   MakeDataclass(PyFeatureExtractionOptions);
 
   py::classh<Sift>(m, "Sift")
