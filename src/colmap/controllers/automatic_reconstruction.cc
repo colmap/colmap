@@ -84,9 +84,14 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     option_manager_.ModifyForExtremeQuality();
   }
 
-  option_manager_.feature_extraction->type = options_.feature_extractor_type;
+  if (options_.feature == Feature::SIFT) {
+    option_manager_.feature_extraction->type = FeatureExtractorType::SIFT;
+    option_manager_.feature_matching->type = FeatureMatcherType::SIFT_BRUTEFORCE;
+  } else if (options_.feature == Feature::ALIKED) {
+    option_manager_.feature_extraction->type = FeatureExtractorType::ALIKED;
+    option_manager_.feature_matching->type = FeatureMatcherType::ALIKED_BRUTEFORCE;
+  }
   option_manager_.feature_extraction->num_threads = options_.num_threads;
-  option_manager_.feature_matching->type = options_.feature_matcher_type;
   option_manager_.feature_matching->num_threads = options_.num_threads;
   option_manager_.sequential_pairing->num_threads = options_.num_threads;
   option_manager_.vocab_tree_pairing->num_threads = options_.num_threads;

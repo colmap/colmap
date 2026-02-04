@@ -1,3 +1,4 @@
+#include "colmap/feature/aliked.h"
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
 #ifdef COLMAP_ONNX_ENABLED
