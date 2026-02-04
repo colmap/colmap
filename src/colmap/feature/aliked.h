@@ -35,6 +35,11 @@
 
 namespace colmap {
 
+// The ALIKED torch model was exported to ONNX using the following codebase:
+// https://github.com/colmap/ALIKED-ONNX/tree/user/jsch/onnx-export
+// Follow instructions in export/README.md and see standalone C++
+// implementation in cpp_test/README.md.
+
 struct AlikedExtractionOptions {
   // Maximum number of features to detect, keeping higher-score features.
   int max_num_features = 2048;
