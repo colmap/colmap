@@ -169,7 +169,7 @@ jobs:
               cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/cudart64_*.dll" install/bin
               cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/curand64_*.dll" install/bin
           }
-          Remove-Item -Recurse -Force install/include,install/lib,install/share
+          Remove-Item -Recurse -Force -ErrorAction SilentlyContinue install/include,install/lib,install/share
 
       - name: Upload package
         uses: actions/upload-artifact@v4
