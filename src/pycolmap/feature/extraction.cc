@@ -1,5 +1,8 @@
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
+#ifdef COLMAP_ONNX_ENABLED
+#include "colmap/feature/aliked.h"
+#endif
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/utils.h"
@@ -94,6 +97,75 @@ class Sift {
   bool use_gpu_ = false;
 };
 
+#ifdef COLMAP_ONNX_ENABLED
+typedef std::tuple<keypoints_t, descriptors_t> aliked_output_t;
+
+class Aliked {
+ public:
+  Aliked(std::optional<FeatureExtractionOptions> options, Device device)
+      : use_gpu_(IsGPU(device)) {
+    if (options) {
+      options_ = std::move(*options);
+    }
+    options_.type = FeatureExtractorType::ALIKED;
+    options_.use_gpu = use_gpu_;
+    THROW_CHECK(options_.Check());
+    extractor_ = THROW_CHECK_NOTNULL(CreateAlikedFeatureExtractor(options_));
+  }
+
+  aliked_output_t Extract(const Eigen::Ref<const pyimage_t<uint8_t>>& image) {
+    THROW_CHECK(image.rows() > 0 && image.cols() > 0);
+    const int height = image.rows();
+    // For RGB images, cols = width * 3
+    THROW_CHECK_EQ(image.cols() % 3, 0);
+    const int width = image.cols() / 3;
+
+    Bitmap bitmap(width, height, /*as_rgb=*/true);
+    std::memcpy(bitmap.RowMajorData().data(), image.data(), bitmap.NumBytes());
+
+    FeatureKeypoints keypoints_;
+    FeatureDescriptors descriptors_;
+    THROW_CHECK(extractor_->Extract(bitmap, &keypoints_, &descriptors_));
+    const size_t num_features = keypoints_.size();
+
+    keypoints_t keypoints(num_features, kKeypointDim);
+    for (size_t i = 0; i < num_features; ++i) {
+      keypoints(i, 0) = keypoints_[i].x;
+      keypoints(i, 1) = keypoints_[i].y;
+      keypoints(i, 2) = keypoints_[i].ComputeScale();
+      keypoints(i, 3) = keypoints_[i].ComputeOrientation();
+    }
+
+    // ALIKED descriptors are stored as float32, so we need to reinterpret them.
+    const int descriptor_dim = descriptors_.cols() / sizeof(float);
+    descriptors_t descriptors(num_features, descriptor_dim);
+    for (size_t i = 0; i < num_features; ++i) {
+      const float* row_ptr =
+          reinterpret_cast<const float*>(descriptors_.row(i).data());
+      for (int j = 0; j < descriptor_dim; ++j) {
+        descriptors(i, j) = row_ptr[j];
+      }
+    }
+
+    return std::make_tuple(std::move(keypoints), std::move(descriptors));
+  }
+
+  aliked_output_t Extract(const Eigen::Ref<const pyimage_t<float>>& image) {
+    const pyimage_t<uint8_t> image_u8 = (image * 255.0f).cast<uint8_t>();
+    return Extract(image_u8);
+  }
+
+  const FeatureExtractionOptions& Options() const { return options_; };
+
+  Device GetDevice() const { return (use_gpu_) ? Device::CUDA : Device::CPU; };
+
+ private:
+  std::unique_ptr<FeatureExtractor> extractor_;
+  FeatureExtractionOptions options_;
+  bool use_gpu_ = false;
+};
+#endif
+
 void BindFeatureExtraction(py::module& m) {
   auto PyNormalization =
       py::enum_<SiftExtractionOptions::Normalization>(m, "Normalization")
@@ -162,6 +234,25 @@ void BindFeatureExtraction(py::module& m) {
           .def("check", &SiftExtractionOptions::Check);
   MakeDataclass(PySiftExtractionOptions);
 
+#ifdef COLMAP_ONNX_ENABLED
+  auto PyAlikedExtractionOptions =
+      py::classh<AlikedExtractionOptions>(m, "AlikedExtractionOptions")
+          .def(py::init<>())
+          .def_readwrite("max_num_features",
+                         &AlikedExtractionOptions::max_num_features,
+                         "Maximum number of features to detect, keeping "
+                         "higher-score features.")
+          .def_readwrite("min_score",
+                         &AlikedExtractionOptions::min_score,
+                         "Minimum score threshold for keypoint detection.")
+          .def_readwrite("model_path",
+                         &AlikedExtractionOptions::model_path,
+                         "Path to the ONNX model file for the ALIKED "
+                         "extractor.")
+          .def("check", &AlikedExtractionOptions::Check);
+  MakeDataclass(PyAlikedExtractionOptions);
+#endif
+
   auto PyFeatureExtractionOptions =
       py::classh<FeatureExtractionOptions>(m, "FeatureExtractionOptions")
           .def(py::init<>())
@@ -203,4 +294,26 @@ void BindFeatureExtraction(py::module& m) {
            "image"_a.noconvert())
       .def_property_readonly("options", &Sift::Options)
       .def_property_readonly("device", &Sift::GetDevice);
+
+#ifdef COLMAP_ONNX_ENABLED
+  py::classh<Aliked>(m, "Aliked")
+      .def(py::init<std::optional<FeatureExtractionOptions>, Device>(),
+           "options"_a = std::nullopt,
+           "device"_a = Device::AUTO)
+      .def("extract",
+           py::overload_cast<const Eigen::Ref<const pyimage_t<uint8_t>>&>(
+               &Aliked::Extract),
+           "image"_a.noconvert(),
+           "Extract ALIKED features from an RGB image. The image should be "
+           "passed as a 2D array with shape (height, width * 3) where the "
+           "last dimension contains interleaved RGB values.")
+      .def("extract",
+           py::overload_cast<const Eigen::Ref<const pyimage_t<float>>&>(
+               &Aliked::Extract),
+           "image"_a.noconvert(),
+           "Extract ALIKED features from an RGB image with float values in "
+           "[0, 1] range.")
+      .def_property_readonly("options", &Aliked::Options)
+      .def_property_readonly("device", &Aliked::GetDevice);
+#endif
 }
