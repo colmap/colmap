@@ -86,10 +86,12 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   if (options_.feature == Feature::SIFT) {
     option_manager_.feature_extraction->type = FeatureExtractorType::SIFT;
-    option_manager_.feature_matching->type = FeatureMatcherType::SIFT_BRUTEFORCE;
+    option_manager_.feature_matching->type =
+        FeatureMatcherType::SIFT_BRUTEFORCE;
   } else if (options_.feature == Feature::ALIKED) {
     option_manager_.feature_extraction->type = FeatureExtractorType::ALIKED;
-    option_manager_.feature_matching->type = FeatureMatcherType::ALIKED_BRUTEFORCE;
+    option_manager_.feature_matching->type =
+        FeatureMatcherType::ALIKED_BRUTEFORCE;
   }
   option_manager_.feature_extraction->num_threads = options_.num_threads;
   option_manager_.feature_matching->num_threads = options_.num_threads;
