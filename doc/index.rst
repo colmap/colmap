@@ -120,6 +120,7 @@ If you use the image retrieval / vocabulary tree engine, please cite:
    install
    tutorial
    concepts
+   features
    database
    cameras
    rigs
