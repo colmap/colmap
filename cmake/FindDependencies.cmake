@@ -306,18 +306,26 @@ if(ONNX_ENABLED)
             DIRECTORY "${onnxruntime_BINARY_DIR}/include/"
             DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
         if(IS_WINDOWS)
-            install(
-                DIRECTORY "${onnxruntime_LIB_DIR}/"
-                DESTINATION "${CMAKE_INSTALL_BINDIR}"
-                FILES_MATCHING PATTERN "*.dll")
+            # On Windows, selectively install DLLs to bin/. Always install core DLLs.
+            # For not not supporting TensorRT/ROCM/etc. as a runtime, so not installing it intentionally.
+            install(FILES
+                "${onnxruntime_LIB_DIR}/onnxruntime.dll"
+                "${onnxruntime_LIB_DIR}/onnxruntime_providers_shared.dll"
+                DESTINATION "${CMAKE_INSTALL_BINDIR}")
+            # Only install CUDA provider DLL if CUDA is enabled.
+            if(CUDA_ENABLED)
+                install(FILES
+                    "${onnxruntime_LIB_DIR}/onnxruntime_providers_cuda.dll"
+                    DESTINATION "${CMAKE_INSTALL_BINDIR}")
+            endif()
         else()
             install(
                 DIRECTORY "${onnxruntime_LIB_DIR}/"
                 DESTINATION "${onnxruntime_LIB_DIR_NAME}")
-            install(
-                DIRECTORY "${onnxruntime_BINARY_DIR}/share/"
-                DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}")
         endif()
+        install(
+            DIRECTORY "${onnxruntime_BINARY_DIR}/share/"
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}")
 
         message(STATUS "Configuring onnxruntime... done")
     else()
