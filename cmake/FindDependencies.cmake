@@ -305,10 +305,15 @@ if(ONNX_ENABLED)
         install(
             DIRECTORY "${onnxruntime_BINARY_DIR}/include/"
             DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
-        install(
-            DIRECTORY "${onnxruntime_LIB_DIR}/"
-            DESTINATION "${onnxruntime_LIB_DIR_NAME}")
-        if(NOT IS_WINDOWS)
+        if(IS_WINDOWS)
+            install(
+                DIRECTORY "${onnxruntime_LIB_DIR}/"
+                DESTINATION "${CMAKE_INSTALL_BINDIR}"
+                FILES_MATCHING PATTERN "*.dll")
+        else()
+            install(
+                DIRECTORY "${onnxruntime_LIB_DIR}/"
+                DESTINATION "${onnxruntime_LIB_DIR_NAME}")
             install(
                 DIRECTORY "${onnxruntime_BINARY_DIR}/share/"
                 DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}")
