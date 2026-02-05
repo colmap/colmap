@@ -19,11 +19,6 @@ void BindFeatureTypes(py::module& m) {
       .value("UNDEFINED", FeatureExtractorType::UNDEFINED)
       .value("SIFT", FeatureExtractorType::SIFT);
 
-  m.def("feature_descriptor_dim",
-        &FeatureDescriptorDim,
-        "type"_a,
-        "Returns the descriptor dimension for the given feature type.");
-
   auto PyFeatureDescriptors =
       py::classh<FeatureDescriptors>(m, "FeatureDescriptors")
           .def(py::init<>())

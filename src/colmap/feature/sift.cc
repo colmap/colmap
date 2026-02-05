@@ -59,8 +59,7 @@
 
 namespace colmap {
 
-constexpr int kSiftDescriptorDim =
-    FeatureDescriptorDim(FeatureExtractorType::SIFT);
+constexpr int kSiftDescriptorDim = 128;
 
 // SIFT descriptors are normalized to length 512 (w/ quantization errors).
 constexpr int kSqSiftDescriptorNorm = 512 * 512;

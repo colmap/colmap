@@ -356,6 +356,19 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   int total_num_descriptors =
       (database == nullptr) ? 0 : database->NumDescriptors();
 
+  int desc_dim = 0;
+  switch (options.feature_type) {
+    case FeatureExtractorType::SIFT:
+      desc_dim = 128;
+      break;
+    case FeatureExtractorType::UNDEFINED:
+      desc_dim = 0;
+      break;
+    default:
+      LOG(FATAL_THROW) << "Invalid FeatureExtractorType specified: "
+                       << static_cast<int>(options.feature_type);
+  }
+
   for (int rig_idx = 0; rig_idx < options.num_rigs; ++rig_idx) {
     Rig rig;
 
@@ -543,7 +556,6 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
           keypoints.reserve(points2D.size());
           FeatureDescriptors descriptors;
           descriptors.type = options.feature_type;
-          const int desc_dim = FeatureDescriptorDim(options.feature_type);
           descriptors.data.resize(points2D.size(), desc_dim);
           std::uniform_int_distribution<int> feature_distribution(0, 255);
           for (point2D_t point2D_idx = 0; point2D_idx < points2D.size();

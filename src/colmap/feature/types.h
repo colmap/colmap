@@ -118,17 +118,6 @@ struct FeatureDescriptorsFloat {
   FeatureDescriptorsFloatData data;
 };
 
-// Returns the descriptor dimension for the given feature extractor type.
-inline constexpr int FeatureDescriptorDim(FeatureExtractorType type) {
-  switch (type) {
-    case FeatureExtractorType::SIFT:
-      return 128;
-    case FeatureExtractorType::UNDEFINED:
-      return 0;
-  }
-  return 0;
-}
-
 struct FeatureMatch {
   FeatureMatch()
       : point2D_idx1(kInvalidPoint2DIdx), point2D_idx2(kInvalidPoint2DIdx) {}
