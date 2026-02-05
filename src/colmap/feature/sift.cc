@@ -98,13 +98,10 @@ void ThrowCheckFeatureTypesMatch(const FeatureMatcher::Image& image1,
   THROW_CHECK_NE(image2.image_id, kInvalidImageId);
   THROW_CHECK_NOTNULL(image1.descriptors);
   THROW_CHECK_NOTNULL(image2.descriptors);
+  THROW_CHECK_EQ(image1.descriptors->type, FeatureExtractorType::SIFT);
+  THROW_CHECK_EQ(image2.descriptors->type, FeatureExtractorType::SIFT);
   THROW_CHECK_EQ(image1.descriptors->data.cols(), kSiftDescriptorDim);
   THROW_CHECK_EQ(image2.descriptors->data.cols(), kSiftDescriptorDim);
-  THROW_CHECK_EQ(image1.descriptors->type, image2.descriptors->type)
-      << "Feature type mismatch: image " << image1.image_id << " has type "
-      << FeatureExtractorTypeToString(image1.descriptors->type) << " but image "
-      << image2.image_id << " has type "
-      << FeatureExtractorTypeToString(image2.descriptors->type);
   if (check_keypoints) {
     THROW_CHECK_NOTNULL(image1.camera);
     THROW_CHECK_NOTNULL(image2.camera);
