@@ -73,7 +73,7 @@ class Sift {
       keypoints(i, 3) = keypoints_[i].ComputeOrientation();
     }
 
-    descriptors_t descriptors = descriptors_.datacast<float>();
+    descriptors_t descriptors = descriptors_.data.cast<float>();
     descriptors /= 512.0f;
 
     return std::make_tuple(std::move(keypoints), std::move(descriptors));
