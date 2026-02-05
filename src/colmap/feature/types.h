@@ -125,6 +125,7 @@ inline constexpr int FeatureDescriptorDim(FeatureExtractorType type) {
     case FeatureExtractorType::UNDEFINED:
       return 0;
   }
+  return 0;
 }
 
 struct FeatureMatch {
