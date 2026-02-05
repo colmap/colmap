@@ -704,14 +704,14 @@ TEST_P(ParameterizedDatabaseTests, Merge) {
   auto keypoints4 = FeatureKeypoints(40);
   keypoints4[0].x = 400;
 
-  const FeatureDescriptors descriptors1(FeatureExtractorType::UNDEFINED,
-                                        FeatureDescriptorsData::Random(10, 128));
-  const FeatureDescriptors descriptors2(FeatureExtractorType::UNDEFINED,
-                                        FeatureDescriptorsData::Random(20, 128));
-  const FeatureDescriptors descriptors3(FeatureExtractorType::UNDEFINED,
-                                        FeatureDescriptorsData::Random(30, 128));
-  const FeatureDescriptors descriptors4(FeatureExtractorType::UNDEFINED,
-                                        FeatureDescriptorsData::Random(40, 128));
+  const FeatureDescriptors descriptors1(
+      FeatureExtractorType::UNDEFINED, FeatureDescriptorsData::Random(10, 128));
+  const FeatureDescriptors descriptors2(
+      FeatureExtractorType::UNDEFINED, FeatureDescriptorsData::Random(20, 128));
+  const FeatureDescriptors descriptors3(
+      FeatureExtractorType::UNDEFINED, FeatureDescriptorsData::Random(30, 128));
+  const FeatureDescriptors descriptors4(
+      FeatureExtractorType::UNDEFINED, FeatureDescriptorsData::Random(40, 128));
 
   database1->WriteKeypoints(image_id1, keypoints1);
   database1->WriteKeypoints(image_id2, keypoints2);
