@@ -173,18 +173,6 @@ void BindCamera(py::module& m) {
            "Project point from camera frame to image plane.")
       .def(
           "img_from_cam",
-          [](const Camera& self, const Eigen::Vector2d& cam_point) {
-            PyErr_WarnEx(
-                PyExc_DeprecationWarning,
-                "img_from_cam() with normalized 2D points as input is "
-                "deprecated. Instead, pass 3D points in the camera frame.",
-                1);
-            return self.ImgFromCam(cam_point.homogeneous());
-          },
-          "cam_point"_a,
-          "(Deprecated) Project point from camera frame to image plane.")
-      .def(
-          "img_from_cam",
           [](const Camera& self,
              const py::EigenDRef<const Eigen::MatrixX3d>& cam_points) {
             const size_t num_points = cam_points.rows();
@@ -192,45 +180,6 @@ void BindCamera(py::module& m) {
             for (size_t i = 0; i < num_points; ++i) {
               const std::optional<Eigen::Vector2d> image_point =
                   self.ImgFromCam(cam_points.row(i));
-              if (image_point) {
-                image_points[i] = *image_point;
-              } else {
-                image_points[i].setConstant(
-                    std::numeric_limits<double>::quiet_NaN());
-              }
-            }
-            return image_points;
-          },
-          "cam_points"_a,
-          "Project list of points from camera frame to image plane.")
-      .def(
-          "img_from_cam",
-          [](const Camera& self,
-             const py::EigenDRef<const Eigen::MatrixX2d>& cam_points) {
-            PyErr_WarnEx(
-                PyExc_DeprecationWarning,
-                "img_from_cam() with normalized 2D points as input is "
-                "deprecated. Instead, pass 3D points in the camera frame.",
-                1);
-            return py::cast(self).attr("img_from_cam")(
-                cam_points.rowwise().homogeneous());
-          },
-          "cam_points"_a,
-          "(Deprecated) Project list of points from camera frame to image "
-          "plane.")
-      .def(
-          "img_from_cam",
-          [](const Camera& self, const Point2DVector& cam_points) {
-            PyErr_WarnEx(
-                PyExc_DeprecationWarning,
-                "img_from_cam() with normalized 2D points as input is "
-                "deprecated. Instead, pass 3D points in the camera frame.",
-                1);
-            const size_t num_points = cam_points.size();
-            std::vector<Eigen::Vector2d> image_points(num_points);
-            for (size_t i = 0; i < num_points; ++i) {
-              const std::optional<Eigen::Vector2d> image_point =
-                  self.ImgFromCam(cam_points[i].xy.homogeneous());
               if (image_point) {
                 image_points[i] = *image_point;
               } else {

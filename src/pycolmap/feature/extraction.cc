@@ -35,18 +35,6 @@ class Sift {
       : use_gpu_(IsGPU(device)) {
     if (options) {
       options_ = std::move(*options);
-    } else {
-      // For backwards compatibility.
-      PyErr_WarnEx(PyExc_DeprecationWarning,
-                   "No SIFT extraction options specified. Setting them to "
-                   "peak_threshold=0.01, first_octave=0, max_image_size=7000 "
-                   "for backwards compatibility. If you want to keep the "
-                   "settings, explicitly specify them, because the defaults "
-                   "will change in the next major release.",
-                   1);
-      options_.max_image_size = 7000;
-      options_.sift->peak_threshold = 0.01;
-      options_.sift->first_octave = 0;
     }
     options_.use_gpu = use_gpu_;
     THROW_CHECK(options_.Check());

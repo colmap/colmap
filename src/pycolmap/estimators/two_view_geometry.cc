@@ -136,5 +136,4 @@ void BindTwoViewGeometryEstimator(py::module& m) {
       "Calculate the squared Sampson error for a given essential or "
       "fundamental matrix.",
       py::call_guard<py::gil_scoped_release>());
-  DefDeprecation(m, "squared_sampson_error", "compute_squared_sampson_error");
 }
