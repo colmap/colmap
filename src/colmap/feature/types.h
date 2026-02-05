@@ -32,6 +32,7 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/enum_utils.h"
 #include "colmap/util/types.h"
+#include "colmap/util/logging.h"
 
 #include <vector>
 
@@ -125,7 +126,7 @@ inline constexpr int FeatureDescriptorDim(FeatureExtractorType type) {
     case FeatureExtractorType::UNDEFINED:
       return 0;
   }
-  return 0;
+  LOG(FATAL_THROW) << "Unknown feature extractor type: " << type;
 }
 
 struct FeatureMatch {
