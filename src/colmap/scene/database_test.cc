@@ -704,26 +704,14 @@ TEST_P(ParameterizedDatabaseTests, Merge) {
   auto keypoints4 = FeatureKeypoints(40);
   keypoints4[0].x = 400;
 
-  const auto descriptors1 = []() {
-    FeatureDescriptors d;
-    d.data = FeatureDescriptorsData::Random(10, 128);
-    return d;
-  }();
-  const auto descriptors2 = []() {
-    FeatureDescriptors d;
-    d.data = FeatureDescriptorsData::Random(20, 128);
-    return d;
-  }();
-  const auto descriptors3 = []() {
-    FeatureDescriptors d;
-    d.data = FeatureDescriptorsData::Random(30, 128);
-    return d;
-  }();
-  const auto descriptors4 = []() {
-    FeatureDescriptors d;
-    d.data = FeatureDescriptorsData::Random(40, 128);
-    return d;
-  }();
+  const FeatureDescriptors descriptors1(FeatureExtractorType::UNDEFINED,
+                                        FeatureDescriptorsData::Random(10, 128));
+  const FeatureDescriptors descriptors2(FeatureExtractorType::UNDEFINED,
+                                        FeatureDescriptorsData::Random(20, 128));
+  const FeatureDescriptors descriptors3(FeatureExtractorType::UNDEFINED,
+                                        FeatureDescriptorsData::Random(30, 128));
+  const FeatureDescriptors descriptors4(FeatureExtractorType::UNDEFINED,
+                                        FeatureDescriptorsData::Random(40, 128));
 
   database1->WriteKeypoints(image_id1, keypoints1);
   database1->WriteKeypoints(image_id2, keypoints2);
@@ -793,12 +781,16 @@ TEST_P(ParameterizedDatabaseTests, Merge) {
   EXPECT_EQ(merged_database->ReadKeypoints(2)[0].x, 200);
   EXPECT_EQ(merged_database->ReadKeypoints(3)[0].x, 300);
   EXPECT_EQ(merged_database->ReadKeypoints(4)[0].x, 400);
+  EXPECT_EQ(merged_database->ReadDescriptors(1).type, descriptors1.type);
   EXPECT_EQ(merged_database->ReadDescriptors(1).data.size(),
             descriptors1.data.size());
+  EXPECT_EQ(merged_database->ReadDescriptors(2).type, descriptors2.type);
   EXPECT_EQ(merged_database->ReadDescriptors(2).data.size(),
             descriptors2.data.size());
+  EXPECT_EQ(merged_database->ReadDescriptors(3).type, descriptors3.type);
   EXPECT_EQ(merged_database->ReadDescriptors(3).data.size(),
             descriptors3.data.size());
+  EXPECT_EQ(merged_database->ReadDescriptors(4).type, descriptors4.type);
   EXPECT_EQ(merged_database->ReadDescriptors(4).data.size(),
             descriptors4.data.size());
   EXPECT_TRUE(merged_database->ExistsMatches(1, 2));
