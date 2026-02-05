@@ -55,9 +55,9 @@ void ScaleKeypoints(const Bitmap& bitmap,
   }
 }
 
-void MaskKeypoints(const Bitmap& mask,
-                   FeatureKeypoints* keypoints,
-                   FeatureDescriptors* descriptors) {
+void MaskFeatures(const Bitmap& mask,
+                  FeatureKeypoints* keypoints,
+                  FeatureDescriptors* descriptors) {
   size_t out_index = 0;
   BitmapColor<uint8_t> color;
   for (size_t i = 0; i < keypoints->size(); ++i) {
@@ -71,8 +71,8 @@ void MaskKeypoints(const Bitmap& mask,
       // index differs from its current position).
       if (out_index != i) {
         keypoints->at(out_index) = keypoints->at(i);
-        for (int col = 0; col < descriptors->cols(); ++col) {
-          (*descriptors)(out_index, col) = (*descriptors)(i, col);
+        for (int col = 0; col < descriptors->data.cols(); ++col) {
+          descriptors->data(out_index, col) = descriptors->data(i, col);
         }
       }
       out_index += 1;
@@ -80,7 +80,7 @@ void MaskKeypoints(const Bitmap& mask,
   }
 
   keypoints->resize(out_index);
-  descriptors->conservativeResize(out_index, descriptors->cols());
+  descriptors->data.conservativeResize(out_index, descriptors->data.cols());
 }
 
 struct ImageData {
@@ -195,14 +195,14 @@ class FeatureExtractorThread : public Thread {
             ScaleKeypoints(
                 image_data.bitmap, image_data.camera, &image_data.keypoints);
             if (camera_mask_) {
-              MaskKeypoints(*camera_mask_,
-                            &image_data.keypoints,
-                            &image_data.descriptors);
+              MaskFeatures(*camera_mask_,
+                           &image_data.keypoints,
+                           &image_data.descriptors);
             }
             if (!image_data.mask.IsEmpty()) {
-              MaskKeypoints(image_data.mask,
-                            &image_data.keypoints,
-                            &image_data.descriptors);
+              MaskFeatures(image_data.mask,
+                           &image_data.keypoints,
+                           &image_data.descriptors);
             }
           } else {
             image_data.status = ImageReader::Status::FAILURE;

@@ -15,6 +15,35 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindFeatureTypes(py::module& m) {
+  py::enum_<FeatureExtractorType>(m, "FeatureExtractorType")
+      .value("UNDEFINED", FeatureExtractorType::UNDEFINED)
+      .value("SIFT", FeatureExtractorType::SIFT);
+
+  m.def("feature_descriptor_dim",
+        &FeatureDescriptorDim,
+        "type"_a,
+        "Returns the descriptor dimension for the given feature type.");
+
+  auto PyFeatureDescriptors =
+      py::classh<FeatureDescriptors>(m, "FeatureDescriptors")
+          .def(py::init<>())
+          .def(py::init<FeatureExtractorType, FeatureDescriptorsData>(),
+               "type"_a,
+               "data"_a)
+          .def_readwrite("type", &FeatureDescriptors::type)
+          .def_readwrite("data", &FeatureDescriptors::data);
+  MakeDataclass(PyFeatureDescriptors);
+
+  auto PyFeatureDescriptorsFloat =
+      py::classh<FeatureDescriptorsFloat>(m, "FeatureDescriptorsFloat")
+          .def(py::init<>())
+          .def(py::init<FeatureExtractorType, FeatureDescriptorsFloatData>(),
+               "type"_a,
+               "data"_a)
+          .def_readwrite("type", &FeatureDescriptorsFloat::type)
+          .def_readwrite("data", &FeatureDescriptorsFloat::data);
+  MakeDataclass(PyFeatureDescriptorsFloat);
+
   auto PyFeatureKeypoint =
       py::classh<FeatureKeypoint>(m, "FeatureKeypoint")
           .def(py::init<>())

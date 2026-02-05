@@ -59,6 +59,9 @@
 
 namespace colmap {
 
+constexpr int kSiftDescriptorDim =
+    FeatureDescriptorDim(FeatureExtractorType::SIFT);
+
 // SIFT descriptors are normalized to length 512 (w/ quantization errors).
 constexpr int kSqSiftDescriptorNorm = 512 * 512;
 
@@ -88,14 +91,38 @@ void WarnDarknessAdaptivityNotAvailable() {
   LOG(WARNING) << "Darkness adaptivity only available for GLSL SiftGPU.";
 }
 
+void ThrowCheckFeatureTypesMatch(const FeatureMatcher::Image& image1,
+                                 const FeatureMatcher::Image& image2,
+                                 bool check_keypoints = false) {
+  THROW_CHECK_NE(image1.image_id, kInvalidImageId);
+  THROW_CHECK_NE(image2.image_id, kInvalidImageId);
+  THROW_CHECK_NOTNULL(image1.descriptors);
+  THROW_CHECK_NOTNULL(image2.descriptors);
+  THROW_CHECK_EQ(image1.descriptors->data.cols(), kSiftDescriptorDim);
+  THROW_CHECK_EQ(image2.descriptors->data.cols(), kSiftDescriptorDim);
+  THROW_CHECK_EQ(image1.descriptors->type, image2.descriptors->type)
+      << "Feature type mismatch: image " << image1.image_id << " has type "
+      << FeatureExtractorTypeToString(image1.descriptors->type) << " but image "
+      << image2.image_id << " has type "
+      << FeatureExtractorTypeToString(image2.descriptors->type);
+  if (check_keypoints) {
+    THROW_CHECK_NOTNULL(image1.camera);
+    THROW_CHECK_NOTNULL(image2.camera);
+    THROW_CHECK_NOTNULL(image1.keypoints);
+    THROW_CHECK_NOTNULL(image2.keypoints);
+    THROW_CHECK_EQ(image1.descriptors->data.rows(), image1.keypoints->size());
+    THROW_CHECK_EQ(image2.descriptors->data.rows(), image2.keypoints->size());
+  }
+}
+
 // VLFeat uses a different convention to store its descriptors. This transforms
 // the VLFeat format into the original SIFT format that is also used by SiftGPU.
-FeatureDescriptors TransformVLFeatToUBCFeatureDescriptors(
-    const FeatureDescriptors& vlfeat_descriptors) {
-  FeatureDescriptors ubc_descriptors(vlfeat_descriptors.rows(),
-                                     vlfeat_descriptors.cols());
+FeatureDescriptorsData TransformVLFeatToUBCFeatureDescriptors(
+    const FeatureDescriptorsData& vlfeat_descriptors) {
+  FeatureDescriptorsData ubc_descriptors(vlfeat_descriptors.rows(),
+                                         vlfeat_descriptors.cols());
   const std::array<int, 8> q{{0, 7, 6, 5, 4, 3, 2, 1}};
-  for (FeatureDescriptors::Index n = 0; n < vlfeat_descriptors.rows(); ++n) {
+  for (Eigen::Index n = 0; n < vlfeat_descriptors.rows(); ++n) {
     for (int i = 0; i < 4; ++i) {
       for (int j = 0; j < 4; ++j) {
         for (int k = 0; k < 8; ++k) {
@@ -153,7 +180,7 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
     // Iterate through octaves.
     std::vector<size_t> level_num_features;
     std::vector<FeatureKeypoints> level_keypoints;
-    std::vector<FeatureDescriptors> level_descriptors;
+    std::vector<FeatureDescriptorsData> level_descriptors;
     bool first_octave = true;
     while (true) {
       if (first_octave) {
@@ -185,14 +212,15 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
       // Extract features with different orientations per DOG level.
       size_t level_idx = 0;
       int prev_level = -1;
-      FeatureDescriptorsFloat desc(1, 128);
+      FeatureDescriptorsFloatData desc(1, kSiftDescriptorDim);
       for (int i = 0; i < num_keypoints; ++i) {
         if (vl_keypoints[i].is != prev_level) {
           if (i > 0) {
             // Resize containers of previous DOG level.
             level_keypoints.back().resize(level_idx);
             if (descriptors != nullptr) {
-              level_descriptors.back().conservativeResize(level_idx, 128);
+              level_descriptors.back().conservativeResize(level_idx,
+                                                          kSiftDescriptorDim);
             }
           }
 
@@ -203,7 +231,8 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
                                        num_keypoints);
           if (descriptors != nullptr) {
             level_descriptors.emplace_back(
-                options_.sift->max_num_orientations * num_keypoints, 128);
+                options_.sift->max_num_orientations * num_keypoints,
+                kSiftDescriptorDim);
           }
         }
 
@@ -257,7 +286,8 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
       // Resize containers for last DOG level in octave.
       level_keypoints.back().resize(level_idx);
       if (descriptors != nullptr) {
-        level_descriptors.back().conservativeResize(level_idx, 128);
+        level_descriptors.back().conservativeResize(level_idx,
+                                                    kSiftDescriptorDim);
       }
     }
 
@@ -289,14 +319,17 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
     // Compute the descriptors for the detected keypoints.
     if (descriptors != nullptr) {
       size_t k = 0;
-      descriptors->resize(num_features_with_orientations, 128);
+      descriptors->data.resize(num_features_with_orientations,
+                               kSiftDescriptorDim);
       for (size_t i = first_level_to_keep; i < level_keypoints.size(); ++i) {
         for (size_t j = 0; j < level_keypoints[i].size(); ++j) {
-          descriptors->row(k) = level_descriptors[i].row(j);
+          descriptors->data.row(k) = level_descriptors[i].row(j);
           k += 1;
         }
       }
-      *descriptors = TransformVLFeatToUBCFeatureDescriptors(*descriptors);
+      descriptors->data =
+          TransformVLFeatToUBCFeatureDescriptors(descriptors->data);
+      descriptors->type = FeatureExtractorType::SIFT;
     }
 
     return true;
@@ -410,7 +443,7 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
 
     // Compute the descriptors for the detected keypoints.
     if (descriptors != nullptr) {
-      descriptors->resize(keypoints->size(), 128);
+      descriptors->data.resize(keypoints->size(), kSiftDescriptorDim);
 
       const size_t kPatchResolution = 15;
       const size_t kPatchSide = 2 * kPatchResolution + 1;
@@ -434,8 +467,9 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
         dsp_num_scales = options_.sift->dsp_num_scales;
       }
 
-      FeatureDescriptorsFloat descriptor(1, 128);
-      FeatureDescriptorsFloat scaled_descriptors(dsp_num_scales, 128);
+      FeatureDescriptorsFloatData descriptor(1, kSiftDescriptorDim);
+      FeatureDescriptorsFloatData scaled_descriptors(dsp_num_scales,
+                                                     kSiftDescriptorDim);
 
       std::unique_ptr<VlSiftFilt, void (*)(VlSiftFilt*)> sift(
           vl_sift_new(16, 16, 1, 3, 0), &vl_sift_delete);
@@ -488,7 +522,7 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
           descriptor = scaled_descriptors;
         }
 
-        THROW_CHECK_EQ(descriptor.cols(), 128);
+        THROW_CHECK_EQ(descriptor.cols(), kSiftDescriptorDim);
 
         if (options_.sift->normalization ==
             SiftExtractionOptions::Normalization::L2) {
@@ -500,10 +534,12 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
           LOG(FATAL_THROW) << "Normalization type not supported";
         }
 
-        descriptors->row(i) = FeatureDescriptorsToUnsignedByte(descriptor);
+        descriptors->data.row(i) = FeatureDescriptorsToUnsignedByte(descriptor);
       }
 
-      *descriptors = TransformVLFeatToUBCFeatureDescriptors(*descriptors);
+      descriptors->data =
+          TransformVLFeatToUBCFeatureDescriptors(descriptors->data);
+      descriptors->type = FeatureExtractorType::SIFT;
     }
 
     return true;
@@ -670,7 +706,8 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
 
     keypoints_buffer_.resize(num_features);
 
-    FeatureDescriptorsFloat descriptors_float(num_features, 128);
+    FeatureDescriptorsFloatData descriptors_float(num_features,
+                                                  kSiftDescriptorDim);
 
     // Download the extracted keypoints and descriptors.
     sift_gpu_.GetFeatureVector(keypoints_buffer_.data(),
@@ -695,7 +732,8 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
       LOG(FATAL_THROW) << "Normalization type not supported";
     }
 
-    *descriptors = FeatureDescriptorsToUnsignedByte(descriptors_float);
+    descriptors->data = FeatureDescriptorsToUnsignedByte(descriptors_float);
+    descriptors->type = FeatureExtractorType::SIFT;
 
     return true;
   }
@@ -924,8 +962,8 @@ Eigen::RowMajorMatrixXf ComputeSiftDistanceMatrix(
     const DistanceType distance_type,
     const FeatureKeypoints* keypoints1,
     const FeatureKeypoints* keypoints2,
-    const FeatureDescriptors& descriptors1,
-    const FeatureDescriptors& descriptors2,
+    const FeatureDescriptorsData& descriptors1,
+    const FeatureDescriptorsData& descriptors2,
     const std::function<bool(float, float, float, float)>& guided_filter) {
   if (guided_filter != nullptr) {
     THROW_CHECK_NOTNULL(keypoints1);
@@ -934,14 +972,14 @@ Eigen::RowMajorMatrixXf ComputeSiftDistanceMatrix(
     THROW_CHECK_EQ(keypoints2->size(), descriptors2.rows());
   }
 
-  const Eigen::Matrix<int, Eigen::Dynamic, 128> descriptors1_int =
-      descriptors1.cast<int>();
-  const Eigen::Matrix<int, Eigen::Dynamic, 128> descriptors2_int =
-      descriptors2.cast<int>();
+  const Eigen::Matrix<int, Eigen::Dynamic, kSiftDescriptorDim>
+      descriptors1_int = descriptors1.cast<int>();
+  const Eigen::Matrix<int, Eigen::Dynamic, kSiftDescriptorDim>
+      descriptors2_int = descriptors2.cast<int>();
 
   Eigen::RowMajorMatrixXf distances(descriptors1.rows(), descriptors2.rows());
-  for (FeatureDescriptors::Index i1 = 0; i1 < descriptors1.rows(); ++i1) {
-    for (FeatureDescriptors::Index i2 = 0; i2 < descriptors2.rows(); ++i2) {
+  for (Eigen::Index i1 = 0; i1 < descriptors1.rows(); ++i1) {
+    for (Eigen::Index i2 = 0; i2 < descriptors2.rows(); ++i2) {
       if (guided_filter != nullptr && guided_filter((*keypoints1)[i1].x,
                                                     (*keypoints1)[i1].y,
                                                     (*keypoints2)[i2].x,
@@ -1012,12 +1050,7 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
              const Image& image2,
              FeatureMatches* matches) override {
     THROW_CHECK_NOTNULL(matches);
-    THROW_CHECK_NE(image1.image_id, kInvalidImageId);
-    THROW_CHECK_NE(image2.image_id, kInvalidImageId);
-    THROW_CHECK_NOTNULL(image1.descriptors);
-    THROW_CHECK_NOTNULL(image2.descriptors);
-    THROW_CHECK_EQ(image1.descriptors->cols(), 128);
-    THROW_CHECK_EQ(image2.descriptors->cols(), 128);
+    ThrowCheckFeatureTypesMatch(image1, image2);
 
     matches->clear();
 
@@ -1035,7 +1068,8 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
       prev_image_id2_ = image2.image_id;
     }
 
-    if (image1.descriptors->rows() == 0 || image2.descriptors->rows() == 0) {
+    if (image1.descriptors->data.rows() == 0 ||
+        image2.descriptors->data.rows() == 0) {
       return;
     }
 
@@ -1044,8 +1078,8 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
           ComputeSiftDistanceMatrix(DistanceType::DOT_PRODUCT,
                                     nullptr,
                                     nullptr,
-                                    *image1.descriptors,
-                                    *image2.descriptors,
+                                    image1.descriptors->data,
+                                    image2.descriptors->data,
                                     nullptr);
       FindBestMatchesBruteForce(dot_products,
                                 options_.sift->max_ratio,
@@ -1059,16 +1093,17 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
     Eigen::RowMajorMatrixXf l2_dists_1to2;
     Eigen::RowMajorMatrixXi indices_2to1;
     Eigen::RowMajorMatrixXf l2_dists_2to1;
+
+    const FeatureDescriptorsFloat descriptors1_float(
+        image1.descriptors->type, image1.descriptors->data.cast<float>());
+    const FeatureDescriptorsFloat descriptors2_float(
+        image2.descriptors->type, image2.descriptors->data.cast<float>());
+
     index2_->Search(
-        /*num_neighbors=*/2,
-        image1.descriptors->cast<float>(),
-        indices_1to2,
-        l2_dists_1to2);
+        /*num_neighbors=*/2, descriptors1_float, indices_1to2, l2_dists_1to2);
     if (options_.sift->cross_check) {
-      index1_->Search(/*num_neighbors=*/2,
-                      image2.descriptors->cast<float>(),
-                      indices_2to1,
-                      l2_dists_2to1);
+      index1_->Search(
+          /*num_neighbors=*/2, descriptors2_float, indices_2to1, l2_dists_2to1);
     }
 
     FindBestMatchesIndex(indices_1to2,
@@ -1086,18 +1121,7 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
                    const Image& image2,
                    TwoViewGeometry* two_view_geometry) override {
     THROW_CHECK_NOTNULL(two_view_geometry);
-    THROW_CHECK_NE(image1.image_id, kInvalidImageId);
-    THROW_CHECK_NE(image2.image_id, kInvalidImageId);
-    THROW_CHECK_NOTNULL(image1.camera);
-    THROW_CHECK_NOTNULL(image2.camera);
-    THROW_CHECK_NOTNULL(image1.descriptors);
-    THROW_CHECK_NOTNULL(image1.keypoints);
-    THROW_CHECK_NOTNULL(image2.descriptors);
-    THROW_CHECK_NOTNULL(image2.keypoints);
-    THROW_CHECK_EQ(image1.descriptors->rows(), image1.keypoints->size());
-    THROW_CHECK_EQ(image2.descriptors->rows(), image2.keypoints->size());
-    THROW_CHECK_EQ(image1.descriptors->cols(), 128);
-    THROW_CHECK_EQ(image2.descriptors->cols(), 128);
+    ThrowCheckFeatureTypesMatch(image1, image2, /*check_keypoints=*/true);
 
     two_view_geometry->inlier_matches.clear();
 
@@ -1178,8 +1202,8 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
         DistanceType::L2,
         use_essential_matrix ? &normalized_keypoints1 : image1.keypoints.get(),
         use_essential_matrix ? &normalized_keypoints2 : image2.keypoints.get(),
-        *image1.descriptors,
-        *image2.descriptors,
+        image1.descriptors->data,
+        image2.descriptors->data,
         guided_filter);
     const Eigen::RowMajorMatrixXf l2_dists_2to1 = l2_dists_1to2.transpose();
 
@@ -1301,12 +1325,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
              const Image& image2,
              FeatureMatches* matches) override {
     THROW_CHECK_NOTNULL(matches);
-    THROW_CHECK_NE(image1.image_id, kInvalidImageId);
-    THROW_CHECK_NE(image2.image_id, kInvalidImageId);
-    THROW_CHECK_NOTNULL(image1.descriptors);
-    THROW_CHECK_NOTNULL(image2.descriptors);
-    THROW_CHECK_EQ(image1.descriptors->cols(), 128);
-    THROW_CHECK_EQ(image2.descriptors->cols(), 128);
+    ThrowCheckFeatureTypesMatch(image1, image2);
 
     matches->clear();
 
@@ -1319,17 +1338,17 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 
     if (prev_image_id1_ == kInvalidImageId || prev_is_guided_ ||
         prev_image_id1_ != image1.image_id) {
-      WarnIfMaxNumMatchesReachedGPU(*image1.descriptors);
+      WarnIfMaxNumMatchesReachedGPU(image1.descriptors->data);
       sift_match_gpu_.SetDescriptors(
-          0, image1.descriptors->rows(), image1.descriptors->data());
+          0, image1.descriptors->data.rows(), image1.descriptors->data.data());
       prev_image_id1_ = image1.image_id;
     }
 
     if (prev_image_id2_ == kInvalidImageId || prev_is_guided_ ||
         prev_image_id2_ != image2.image_id) {
-      WarnIfMaxNumMatchesReachedGPU(*image2.descriptors);
+      WarnIfMaxNumMatchesReachedGPU(image2.descriptors->data);
       sift_match_gpu_.SetDescriptors(
-          1, image2.descriptors->rows(), image2.descriptors->data());
+          1, image2.descriptors->data.rows(), image2.descriptors->data.data());
       prev_image_id2_ = image2.image_id;
     }
 
@@ -1367,18 +1386,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
                   "Invalid keypoint format");
 
     THROW_CHECK_NOTNULL(two_view_geometry);
-    THROW_CHECK_NE(image1.image_id, kInvalidImageId);
-    THROW_CHECK_NE(image2.image_id, kInvalidImageId);
-    THROW_CHECK_NOTNULL(image1.camera);
-    THROW_CHECK_NOTNULL(image2.camera);
-    THROW_CHECK_NOTNULL(image1.descriptors);
-    THROW_CHECK_NOTNULL(image1.keypoints);
-    THROW_CHECK_NOTNULL(image2.descriptors);
-    THROW_CHECK_NOTNULL(image2.keypoints);
-    THROW_CHECK_EQ(image1.descriptors->rows(), image1.keypoints->size());
-    THROW_CHECK_EQ(image2.descriptors->rows(), image2.keypoints->size());
-    THROW_CHECK_EQ(image1.descriptors->cols(), 128);
-    THROW_CHECK_EQ(image2.descriptors->cols(), 128);
+    ThrowCheckFeatureTypesMatch(image1, image2, /*check_keypoints=*/true);
 
     two_view_geometry->inlier_matches.clear();
 
@@ -1401,10 +1409,11 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     if (prev_image_id1_ == kInvalidImageId || !prev_is_guided_ ||
         prev_image_id1_ != image1.image_id ||
         use_essential_matrix != prev_use_essential_matrix_) {
-      WarnIfMaxNumMatchesReachedGPU(*image1.descriptors);
+      WarnIfMaxNumMatchesReachedGPU(image1.descriptors->data);
       constexpr size_t kIndex = 0;
-      sift_match_gpu_.SetDescriptors(
-          kIndex, image1.descriptors->rows(), image1.descriptors->data());
+      sift_match_gpu_.SetDescriptors(kIndex,
+                                     image1.descriptors->data.rows(),
+                                     image1.descriptors->data.data());
       if (use_essential_matrix) {
         const FeatureKeypoints normalized_keypoints1 =
             NormalizeFeatureKeypoints(*image1.camera, *image1.keypoints);
@@ -1424,10 +1433,11 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     if (prev_image_id2_ == kInvalidImageId || !prev_is_guided_ ||
         prev_image_id2_ != image2.image_id ||
         use_essential_matrix != prev_use_essential_matrix_) {
-      WarnIfMaxNumMatchesReachedGPU(*image2.descriptors);
+      WarnIfMaxNumMatchesReachedGPU(image2.descriptors->data);
       constexpr size_t kIndex = 1;
-      sift_match_gpu_.SetDescriptors(
-          kIndex, image2.descriptors->rows(), image2.descriptors->data());
+      sift_match_gpu_.SetDescriptors(kIndex,
+                                     image2.descriptors->data.rows(),
+                                     image2.descriptors->data.data());
       if (use_essential_matrix) {
         const FeatureKeypoints normalized_keypoints2 =
             NormalizeFeatureKeypoints(*image2.camera, *image2.keypoints);
@@ -1507,7 +1517,8 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
   }
 
  private:
-  void WarnIfMaxNumMatchesReachedGPU(const FeatureDescriptors& descriptors) {
+  void WarnIfMaxNumMatchesReachedGPU(
+      const FeatureDescriptorsData& descriptors) {
     if (sift_match_gpu_.GetMaxSift() < descriptors.rows()) {
       LOG(WARNING) << StringPrintf(
           "Clamping features from %d to %d - consider "
@@ -1566,10 +1577,12 @@ void LoadSiftFeaturesFromTextFile(const std::filesystem::path& path,
   std::getline(header_line_stream >> std::ws, item, ' ');
   const size_t dim = std::stoul(item);
 
-  THROW_CHECK_EQ(dim, 128) << "SIFT features must have 128 dimensions";
+  THROW_CHECK_EQ(dim, kSiftDescriptorDim)
+      << "SIFT features must have kSiftDescriptorDim dimensions";
 
   keypoints->resize(num_features);
-  descriptors->resize(num_features, dim);
+  descriptors->data.resize(num_features, dim);
+  descriptors->type = FeatureExtractorType::SIFT;
 
   for (size_t i = 0; i < num_features; ++i) {
     std::getline(file, line);
@@ -1595,7 +1608,7 @@ void LoadSiftFeaturesFromTextFile(const std::filesystem::path& path,
       const float value = std::stod(item);
       THROW_CHECK_GE(value, 0);
       THROW_CHECK_LE(value, 255);
-      (*descriptors)(i, j) = TruncateCast<float, uint8_t>(value);
+      descriptors->data(i, j) = TruncateCast<float, uint8_t>(value);
     }
   }
 }

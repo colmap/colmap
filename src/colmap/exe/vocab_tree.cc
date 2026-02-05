@@ -48,14 +48,15 @@ namespace {
 // Loads descriptors for training from the database. Loads all descriptors from
 // the database if max_num_images < 0, otherwise the descriptors of a random
 // subset of images are selected.
-retrieval::VisualIndex::Descriptors LoadRandomDatabaseDescriptors(
+FeatureDescriptorsFloat LoadRandomDatabaseDescriptors(
     const std::filesystem::path& database_path, const int max_num_images) {
   auto database = Database::Open(database_path);
   DatabaseTransaction database_transaction(database.get());
 
   const std::vector<Image> images = database->ReadAllImages();
 
-  retrieval::VisualIndex::Descriptors descriptors;
+  FeatureDescriptorsFloat result;
+  result.type = FeatureExtractorType::UNDEFINED;
 
   std::vector<size_t> image_idxs;
   size_t num_descriptors = 0;
@@ -76,21 +77,32 @@ retrieval::VisualIndex::Descriptors LoadRandomDatabaseDescriptors(
     }
   }
 
-  descriptors.resize(num_descriptors, 128);
+  result.data.resize(num_descriptors, 128);
 
   size_t descriptor_row = 0;
   for (const size_t image_idx : image_idxs) {
     const auto& image = images.at(image_idx);
     const FeatureDescriptors image_descriptors =
         database->ReadDescriptors(image.ImageId());
-    descriptors.block(descriptor_row, 0, image_descriptors.rows(), 128) =
-        image_descriptors.cast<float>();
-    descriptor_row += image_descriptors.rows();
+
+    // Check that all images have the same feature type.
+    if (result.type == FeatureExtractorType::UNDEFINED) {
+      THROW_CHECK_NE(image_descriptors.type, FeatureExtractorType::UNDEFINED);
+      result.type = image_descriptors.type;
+    } else {
+      THROW_CHECK_EQ(result.type, image_descriptors.type)
+          << "All images must have the same feature type to build a "
+             "vocabulary tree";
+    }
+
+    result.data.block(descriptor_row, 0, image_descriptors.data.rows(), 128) =
+        image_descriptors.data.cast<float>();
+    descriptor_row += image_descriptors.data.rows();
   }
 
   THROW_CHECK_EQ(descriptor_row, num_descriptors);
 
-  return descriptors;
+  return result;
 }
 
 std::vector<Image> ReadVocabTreeRetrievalImageList(
@@ -138,8 +150,9 @@ int RunVocabTreeBuilder(int argc, char** argv) {
   LOG(INFO) << "Loading descriptors...";
   const auto descriptors =
       LoadRandomDatabaseDescriptors(*options.database_path, max_num_images);
-  LOG(INFO) << "=> Loaded a total of " << descriptors.rows() << " descriptors";
-  THROW_CHECK_GT(descriptors.size(), 0);
+  LOG(INFO) << "=> Loaded a total of " << descriptors.data.rows()
+            << " descriptors";
+  THROW_CHECK_GT(descriptors.data.size(), 0);
 
   auto visual_index = retrieval::VisualIndex::Create();
 
@@ -216,14 +229,15 @@ int RunVocabTreeRetriever(int argc, char** argv) {
         database->ReadKeypoints(database_images[i].ImageId());
     FeatureDescriptors descriptors =
         database->ReadDescriptors(database_images[i].ImageId());
-    if (max_num_features > 0 && descriptors.rows() > max_num_features) {
+    if (max_num_features > 0 && descriptors.data.rows() > max_num_features) {
       ExtractTopScaleFeatures(&keypoints, &descriptors, max_num_features);
     }
 
     visual_index->Add(index_options,
                       database_images[i].ImageId(),
                       keypoints,
-                      descriptors.cast<float>());
+                      FeatureDescriptorsFloat(descriptors.type,
+                                              descriptors.data.cast<float>()));
 
     LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
   }
@@ -263,13 +277,16 @@ int RunVocabTreeRetriever(int argc, char** argv) {
 
     auto keypoints = database->ReadKeypoints(query_images[i].ImageId());
     auto descriptors = database->ReadDescriptors(query_images[i].ImageId());
-    if (max_num_features > 0 && descriptors.rows() > max_num_features) {
+    if (max_num_features > 0 && descriptors.data.rows() > max_num_features) {
       ExtractTopScaleFeatures(&keypoints, &descriptors, max_num_features);
     }
 
     std::vector<retrieval::ImageScore> image_scores;
-    visual_index->Query(
-        query_options, keypoints, descriptors.cast<float>(), &image_scores);
+    visual_index->Query(query_options,
+                        keypoints,
+                        FeatureDescriptorsFloat(descriptors.type,
+                                                descriptors.data.cast<float>()),
+                        &image_scores);
 
     LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
     for (const auto& image_score : image_scores) {

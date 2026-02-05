@@ -330,6 +330,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   THROW_CHECK_GT(options.num_cameras_per_rig, 0);
   THROW_CHECK_GT(options.num_frames_per_rig, 0);
   THROW_CHECK_GE(options.num_points3D, 0);
+  THROW_CHECK_NE(options.feature_type, FeatureExtractorType::UNDEFINED);
   THROW_CHECK_GE(options.num_points2D_without_point3D, 0);
   THROW_CHECK_GE(options.sensor_from_rig_translation_stddev, 0.);
   THROW_CHECK_GE(options.sensor_from_rig_rotation_stddev, 0.);
@@ -540,7 +541,10 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
           // Create keypoints to add to database.
           FeatureKeypoints keypoints;
           keypoints.reserve(points2D.size());
-          FeatureDescriptors descriptors(points2D.size(), 128);
+          FeatureDescriptors descriptors;
+          descriptors.type = options.feature_type;
+          const int desc_dim = FeatureDescriptorDim(options.feature_type);
+          descriptors.data.resize(points2D.size(), desc_dim);
           std::uniform_int_distribution<int> feature_distribution(0, 255);
           for (point2D_t point2D_idx = 0; point2D_idx < points2D.size();
                ++point2D_idx) {
@@ -553,8 +557,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
                                                ? point2D.point3D_id
                                                : options.num_points3D +
                                                      (++total_num_descriptors));
-            for (int d = 0; d < descriptors.cols(); ++d) {
-              descriptors(point2D_idx, d) =
+            for (int d = 0; d < descriptors.data.cols(); ++d) {
+              descriptors.data(point2D_idx, d) =
                   feature_distribution(feature_generator);
             }
           }
