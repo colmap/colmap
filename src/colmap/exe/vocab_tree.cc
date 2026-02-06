@@ -29,16 +29,14 @@
 
 #include "colmap/exe/vocab_tree.h"
 
-#include "colmap/controllers/feature_matching.h"
 #include "colmap/controllers/option_manager.h"
-#include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
 #include "colmap/optim/random_sampler.h"
 #include "colmap/retrieval/resources.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/file.h"
-#include "colmap/util/opengl_utils.h"
+#include "colmap/util/timer.h"
 
 #include <numeric>
 
