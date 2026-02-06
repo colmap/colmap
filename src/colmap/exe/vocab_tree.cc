@@ -58,7 +58,8 @@ FeatureDescriptorsFloat LoadRandomDatabaseDescriptors(
 
   std::vector<size_t> image_idxs;
   size_t num_descriptors = 0;
-  if (max_num_images < 0 || max_num_images >= images.size()) {
+  if (max_num_images < 0 ||
+      static_cast<size_t>(max_num_images) >= images.size()) {
     // All images in the database.
     image_idxs.resize(images.size());
     std::iota(image_idxs.begin(), image_idxs.end(), 0);
