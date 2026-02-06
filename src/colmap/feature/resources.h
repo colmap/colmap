@@ -48,7 +48,7 @@ const static std::string kDefaultONNXBruteForceMatcherUri =
     "https://github.com/colmap/colmap/releases/download/3.13.0/"
     "bruteforce-matcher.onnx;"
     "bruteforce-matcher.onnx;"
-    "bc8b01e4bb2099adb634083dfa5e8663b733a22d1b778852cd74f74236126873";
+    "3c1282f96d83f5ffc861a873298d08bbe5219f59af59223f5ceab5c41a182a47";
 #else
 const static std::string kDefaultAlikedN16RotFeatureExtractorUri = "";
 const static std::string kDefaultAlikedN32FeatureExtractorUri = "";

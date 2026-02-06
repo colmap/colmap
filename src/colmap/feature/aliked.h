@@ -63,6 +63,12 @@ struct AlikedMatchingOptions {
   // in brute-force matching.
   double min_cossim = 0.85;
 
+  // Maximum ratio for Lowe's ratio test (second-best / best distance).
+  double max_ratio = 0.9;
+
+  // Enable cross-checking (mutual nearest neighbor).
+  bool cross_check = true;
+
   // The path to the ONNX model file for the brute-force matcher.
   std::string bruteforce_model_path = kDefaultONNXBruteForceMatcherUri;
 

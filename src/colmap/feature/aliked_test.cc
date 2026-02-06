@@ -30,7 +30,7 @@
 #include "colmap/feature/aliked.h"
 
 #include "colmap/feature/matcher.h"
-#include "colmap/feature/resources.h"
+#include "colmap/feature/utils.h"
 #include "colmap/math/random.h"
 #include "colmap/sensor/bitmap.h"
 
@@ -72,51 +72,41 @@ TEST_P(ParameterizedAlikedTests, Nominal) {
   EXPECT_GT(keypoints->size(), 0);
   EXPECT_LE(keypoints->size(), extraction_options.aliked->max_num_features);
   EXPECT_EQ(keypoints->size(), descriptors->data.rows());
+  EXPECT_EQ(descriptors->type, GetParam());
+  EXPECT_EQ(descriptors->data.cols(), 128 * sizeof(float));
 
-  // Descriptor dimension should be a multiple of sizeof(float).
-  switch (GetParam()) {
-    case FeatureExtractorType::ALIKED_N16ROT:
-      EXPECT_EQ(descriptors->data.cols(), 128 * sizeof(float));
-      break;
-    case FeatureExtractorType::ALIKED_N32:
-      EXPECT_EQ(descriptors->data.cols(), 128 * sizeof(float));
-      break;
-    default:
-      FAIL() << "Unknown feature extractor type: " << GetParam();
-  }
-
-  // Keypoints should be within image bounds (with small tolerance for
-  // sub-pixel refinement).
+  // Keypoints should be within image bounds.
   for (const auto& keypoint : *keypoints) {
-    EXPECT_GE(keypoint.x, -1);
-    EXPECT_GE(keypoint.y, -1);
-    EXPECT_LE(keypoint.x, image.Width() + 1);
-    EXPECT_LE(keypoint.y, image.Height() + 1);
+    EXPECT_GE(keypoint.x, 0);
+    EXPECT_GE(keypoint.y, 0);
+    EXPECT_LE(keypoint.x, image.Width());
+    EXPECT_LE(keypoint.y, image.Height());
   }
 
   // Test brute-force matcher.
   FeatureMatchingOptions matching_options(
       FeatureMatcherType::ALIKED_BRUTEFORCE);
   matching_options.use_gpu = false;
+  // Disable ratio test for self-matching to get all matches.
+  matching_options.aliked->max_ratio = 0;
   auto matcher = CreateAlikedFeatureMatcher(matching_options);
   FeatureMatches matches;
-  FeatureMatcher::Image img1{/*image_id=*/1,
-                             /*camera=*/nullptr,
-                             keypoints,
-                             descriptors};
-  FeatureMatcher::Image img2{/*image_id=*/2,
-                             /*camera=*/nullptr,
-                             keypoints,
-                             descriptors};
-  matcher->Match(img1, img2, &matches);
+  FeatureMatcher::Image image1{/*image_id=*/1,
+                               /*camera=*/nullptr,
+                               keypoints,
+                               descriptors};
+  FeatureMatcher::Image image2{/*image_id=*/2,
+                               /*camera=*/nullptr,
+                               keypoints,
+                               descriptors};
+  matcher->Match(image1, image2, &matches);
 
-  // Self-matching should produce many matches.
-  EXPECT_NEAR(matches.size(), keypoints->size(), 0.1 * keypoints->size());
+  // Self-matching should produce a match for every keypoint.
+  EXPECT_EQ(matches.size(), keypoints->size());
   for (const auto& match : matches) {
+    EXPECT_EQ(match.point2D_idx1, match.point2D_idx2);
     EXPECT_GE(match.point2D_idx1, 0);
-    EXPECT_GE(match.point2D_idx2, 0);
     EXPECT_LT(match.point2D_idx1, keypoints->size());
-    EXPECT_LT(match.point2D_idx2, keypoints->size());
   }
 }
 
@@ -180,6 +170,222 @@ INSTANTIATE_TEST_SUITE_P(AlikedTests,
                          ParameterizedAlikedTests,
                          testing::Values(FeatureExtractorType::ALIKED_N16ROT,
                                          FeatureExtractorType::ALIKED_N32));
+
+// Standalone matcher test with synthesized random descriptors.
+class AlikedMatcherTest : public testing::Test {
+ protected:
+  static constexpr int kDescriptorDim = 128;
+
+  // Create L2-normalized random descriptors.
+  static std::shared_ptr<FeatureDescriptors> CreateRandomDescriptors(
+      int kNumDescriptors) {
+    auto descriptors = std::make_shared<FeatureDescriptors>();
+    descriptors->type = FeatureExtractorType::ALIKED_N16ROT;
+    descriptors->data.resize(kNumDescriptors, kDescriptorDim * sizeof(float));
+
+    if (kNumDescriptors == 0) {
+      return descriptors;
+    }
+
+    // Generate random float descriptors and L2 normalize.
+    FeatureDescriptorsFloatData float_data =
+        FeatureDescriptorsFloatData::Random(kNumDescriptors, kDescriptorDim);
+    L2NormalizeFeatureDescriptors(&float_data);
+
+    // Copy float data into byte storage.
+    std::memcpy(descriptors->data.data(),
+                float_data.data(),
+                kNumDescriptors * kDescriptorDim * sizeof(float));
+    return descriptors;
+  }
+
+  // Create dummy keypoints (matcher doesn't use coordinates).
+  static std::shared_ptr<FeatureKeypoints> CreateDummyKeypoints(int count) {
+    auto keypoints = std::make_shared<FeatureKeypoints>(count);
+    for (int i = 0; i < count; ++i) {
+      (*keypoints)[i].x = static_cast<float>(i);
+      (*keypoints)[i].y = static_cast<float>(i);
+    }
+    return keypoints;
+  }
+};
+
+TEST_F(AlikedMatcherTest, SelfMatching) {
+  SetPRNGSeed(42);
+  constexpr int kNumDescriptors = 20;
+
+  auto keypoints = CreateDummyKeypoints(kNumDescriptors);
+  auto descriptors = CreateRandomDescriptors(kNumDescriptors);
+
+  FeatureMatchingOptions options(FeatureMatcherType::ALIKED_BRUTEFORCE);
+  options.use_gpu = false;
+  options.aliked->max_ratio = 0;  // Disable ratio test.
+  auto matcher = CreateAlikedFeatureMatcher(options);
+
+  FeatureMatcher::Image image1{1, nullptr, keypoints, descriptors};
+  FeatureMatcher::Image image2{2, nullptr, keypoints, descriptors};
+
+  FeatureMatches matches;
+  matcher->Match(image1, image2, &matches);
+
+  // Self-matching should match every descriptor to itself.
+  EXPECT_EQ(matches.size(), kNumDescriptors);
+  for (const auto& match : matches) {
+    EXPECT_EQ(match.point2D_idx1, match.point2D_idx2);
+  }
+}
+
+TEST_F(AlikedMatcherTest, RatioTest) {
+  SetPRNGSeed(42);
+  constexpr int kNumDescriptors = 20;
+
+  auto keypoints1 = CreateDummyKeypoints(kNumDescriptors);
+  auto descriptors1 = CreateRandomDescriptors(kNumDescriptors);
+  auto keypoints2 = CreateDummyKeypoints(kNumDescriptors);
+  auto descriptors2 = CreateRandomDescriptors(kNumDescriptors);
+
+  FeatureMatchingOptions options_no_ratio(
+      FeatureMatcherType::ALIKED_BRUTEFORCE);
+  options_no_ratio.use_gpu = false;
+  options_no_ratio.aliked->max_ratio = 0;  // Disable ratio test.
+  options_no_ratio.aliked->cross_check = false;
+  options_no_ratio.aliked->min_cossim = -1;  // Accept all.
+  auto matcher_no_ratio = CreateAlikedFeatureMatcher(options_no_ratio);
+
+  FeatureMatchingOptions options_ratio(FeatureMatcherType::ALIKED_BRUTEFORCE);
+  options_ratio.use_gpu = false;
+  options_ratio.aliked->max_ratio = 0.8;  // Enable ratio test.
+  options_ratio.aliked->cross_check = false;
+  options_ratio.aliked->min_cossim = -1;  // Accept all.
+  auto matcher_ratio = CreateAlikedFeatureMatcher(options_ratio);
+
+  FeatureMatcher::Image image1{1, nullptr, keypoints1, descriptors1};
+  FeatureMatcher::Image image2{2, nullptr, keypoints2, descriptors2};
+
+  FeatureMatches matches_no_ratio, matches_ratio;
+  matcher_no_ratio->Match(image1, image2, &matches_no_ratio);
+  matcher_ratio->Match(image1, image2, &matches_ratio);
+
+  // Ratio test should filter some matches.
+  EXPECT_GT(matches_no_ratio.size(), 0);
+  EXPECT_LT(matches_ratio.size(), matches_no_ratio.size());
+}
+
+TEST_F(AlikedMatcherTest, CrossCheck) {
+  SetPRNGSeed(42);
+  constexpr int kNumDescriptors = 20;
+
+  auto keypoints1 = CreateDummyKeypoints(kNumDescriptors);
+  auto descriptors1 = CreateRandomDescriptors(kNumDescriptors);
+  auto keypoints2 = CreateDummyKeypoints(kNumDescriptors);
+  auto descriptors2 = CreateRandomDescriptors(kNumDescriptors);
+
+  FeatureMatchingOptions options_no_cross(
+      FeatureMatcherType::ALIKED_BRUTEFORCE);
+  options_no_cross.use_gpu = false;
+  options_no_cross.aliked->max_ratio = 0;
+  options_no_cross.aliked->cross_check = false;
+  options_no_cross.aliked->min_cossim = -1;
+  auto matcher_no_cross = CreateAlikedFeatureMatcher(options_no_cross);
+
+  FeatureMatchingOptions options_cross(FeatureMatcherType::ALIKED_BRUTEFORCE);
+  options_cross.use_gpu = false;
+  options_cross.aliked->max_ratio = 0;
+  options_cross.aliked->cross_check = true;
+  options_cross.aliked->min_cossim = -1;
+  auto matcher_cross = CreateAlikedFeatureMatcher(options_cross);
+
+  FeatureMatcher::Image image1{1, nullptr, keypoints1, descriptors1};
+  FeatureMatcher::Image image2{2, nullptr, keypoints2, descriptors2};
+
+  FeatureMatches matches_no_cross, matches_cross;
+  matcher_no_cross->Match(image1, image2, &matches_no_cross);
+  matcher_cross->Match(image1, image2, &matches_cross);
+
+  // Cross-check should filter some matches.
+  EXPECT_GT(matches_no_cross.size(), 0);
+  EXPECT_LT(matches_cross.size(), matches_no_cross.size());
+}
+
+TEST_F(AlikedMatcherTest, MinCossim) {
+  SetPRNGSeed(42);
+  constexpr int kNumDescriptors = 20;
+
+  auto keypoints1 = CreateDummyKeypoints(kNumDescriptors);
+  auto descriptors1 = CreateRandomDescriptors(kNumDescriptors);
+  auto keypoints2 = CreateDummyKeypoints(kNumDescriptors);
+  auto descriptors2 = CreateRandomDescriptors(kNumDescriptors);
+
+  FeatureMatchingOptions options_low(FeatureMatcherType::ALIKED_BRUTEFORCE);
+  options_low.use_gpu = false;
+  options_low.aliked->max_ratio = 0;
+  options_low.aliked->cross_check = false;
+  options_low.aliked->min_cossim = -1;  // Accept all.
+  auto matcher_low = CreateAlikedFeatureMatcher(options_low);
+
+  FeatureMatchingOptions options_high(FeatureMatcherType::ALIKED_BRUTEFORCE);
+  options_high.use_gpu = false;
+  options_high.aliked->max_ratio = 0;
+  options_high.aliked->cross_check = false;
+  options_high.aliked->min_cossim = 0.9;  // Very strict.
+  auto matcher_high = CreateAlikedFeatureMatcher(options_high);
+
+  FeatureMatcher::Image image1{1, nullptr, keypoints1, descriptors1};
+  FeatureMatcher::Image image2{2, nullptr, keypoints2, descriptors2};
+
+  FeatureMatches matches_low, matches_high;
+  matcher_low->Match(image1, image2, &matches_low);
+  matcher_high->Match(image1, image2, &matches_high);
+
+  // Higher min_cossim should filter more matches.
+  EXPECT_GT(matches_low.size(), 0);
+  EXPECT_LT(matches_high.size(), matches_low.size());
+}
+
+TEST_F(AlikedMatcherTest, TooFewDescriptors) {
+  SetPRNGSeed(42);
+
+  // Model requires at least 2 descriptors for ratio test.
+  auto keypoints1 = CreateDummyKeypoints(1);
+  auto descriptors1 = CreateRandomDescriptors(1);
+  auto keypoints2 = CreateDummyKeypoints(10);
+  auto descriptors2 = CreateRandomDescriptors(10);
+
+  FeatureMatchingOptions options(FeatureMatcherType::ALIKED_BRUTEFORCE);
+  options.use_gpu = false;
+  auto matcher = CreateAlikedFeatureMatcher(options);
+
+  FeatureMatcher::Image image1{1, nullptr, keypoints1, descriptors1};
+  FeatureMatcher::Image image2{2, nullptr, keypoints2, descriptors2};
+
+  FeatureMatches matches12;
+  matcher->Match(image1, image2, &matches12);
+  EXPECT_EQ(matches12.size(), 0);
+
+  FeatureMatches matches21;
+  matcher->Match(image2, image1, &matches21);
+  EXPECT_EQ(matches21.size(), 0);
+}
+
+TEST_F(AlikedMatcherTest, EmptyDescriptors) {
+  auto keypoints1 = CreateDummyKeypoints(0);
+  auto descriptors1 = CreateRandomDescriptors(0);
+  auto keypoints2 = CreateDummyKeypoints(10);
+  auto descriptors2 = CreateRandomDescriptors(10);
+
+  FeatureMatchingOptions options(FeatureMatcherType::ALIKED_BRUTEFORCE);
+  options.use_gpu = false;
+  auto matcher = CreateAlikedFeatureMatcher(options);
+
+  FeatureMatcher::Image image1{1, nullptr, keypoints1, descriptors1};
+  FeatureMatcher::Image image2{2, nullptr, keypoints2, descriptors2};
+
+  FeatureMatches matches;
+  matcher->Match(image1, image2, &matches);
+
+  // Should return empty matches without crashing.
+  EXPECT_EQ(matches.size(), 0);
+}
 
 }  // namespace
 }  // namespace colmap

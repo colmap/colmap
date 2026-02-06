@@ -294,19 +294,24 @@ class AlikedBruteForceFeatureMatcher : public FeatureMatcher {
                options.use_gpu,
                options.gpu_index) {
     THROW_CHECK(options.Check());
-    THROW_CHECK_EQ(model_.input_shapes.size(), 3);
+    THROW_CHECK_EQ(model_.input_shapes.size(), 5);
     ThrowCheckONNXNode(
-        model_.input_names[0], "feats0", model_.input_shapes[0], {-1, -1});
+        model_.input_names[0], "descs1", model_.input_shapes[0], {-1, -1});
     ThrowCheckONNXNode(
-        model_.input_names[1], "feats1", model_.input_shapes[1], {-1, -1});
+        model_.input_names[1], "descs2", model_.input_shapes[1], {-1, -1});
     ThrowCheckONNXNode(
-        model_.input_names[2], "min_cossim", model_.input_shapes[2], {1});
-    THROW_CHECK_EQ(model_.output_shapes.size(), 1);
+        model_.input_names[2], "min_cossim", model_.input_shapes[2], {});
     ThrowCheckONNXNode(
-        model_.output_names[0], "matches", model_.output_shapes[0], {-1, 2});
-    THROW_CHECK_EQ(model_.output_shapes.size(), 1);
+        model_.input_names[3], "max_ratio", model_.input_shapes[3], {});
     ThrowCheckONNXNode(
-        model_.output_names[0], "matches", model_.output_shapes[0], {-1, 2});
+        model_.input_names[4], "cross_check", model_.input_shapes[4], {});
+    THROW_CHECK_EQ(model_.output_shapes.size(), 3);
+    ThrowCheckONNXNode(
+        model_.output_names[0], "idx0", model_.output_shapes[0], {-1});
+    ThrowCheckONNXNode(
+        model_.output_names[1], "idx1", model_.output_shapes[1], {-1});
+    ThrowCheckONNXNode(
+        model_.output_names[2], "scores", model_.output_shapes[2], {-1});
   }
 
   void Match(const Image& image1,
@@ -317,7 +322,8 @@ class AlikedBruteForceFeatureMatcher : public FeatureMatcher {
 
     const int num_keypoints1 = image1.descriptors->data.rows();
     const int num_keypoints2 = image2.descriptors->data.rows();
-    if (num_keypoints1 == 0 || num_keypoints2 == 0) {
+    // Model requires at least 2 descriptors in each set for ratio test.
+    if (num_keypoints1 < 2 || num_keypoints2 < 2) {
       return;
     }
 
@@ -325,40 +331,67 @@ class AlikedBruteForceFeatureMatcher : public FeatureMatcher {
     Features features2 = FeaturesFromImage(image2);
 
     float min_cossim = static_cast<float>(options_.aliked->min_cossim);
-    const std::vector<int64_t> min_cossim_shape = {1};
+    const std::vector<int64_t> scalar_shape = {};
     auto min_cossim_tensor = Ort::Value::CreateTensor<float>(
         Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
                                    OrtMemType::OrtMemTypeCPU),
         &min_cossim,
-        sizeof(float),
-        min_cossim_shape.data(),
-        min_cossim_shape.size());
+        1,
+        scalar_shape.data(),
+        scalar_shape.size());
+
+    float max_ratio = static_cast<float>(options_.aliked->max_ratio);
+    auto max_ratio_tensor = Ort::Value::CreateTensor<float>(
+        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
+                                   OrtMemType::OrtMemTypeCPU),
+        &max_ratio,
+        1,
+        scalar_shape.data(),
+        scalar_shape.size());
+
+    int64_t cross_check = options_.aliked->cross_check ? 1 : 0;
+    auto cross_check_tensor = Ort::Value::CreateTensor<int64_t>(
+        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
+                                   OrtMemType::OrtMemTypeCPU),
+        &cross_check,
+        1,
+        scalar_shape.data(),
+        scalar_shape.size());
 
     std::vector<Ort::Value> input_tensors;
     input_tensors.emplace_back(std::move(features1.descriptors_tensor));
     input_tensors.emplace_back(std::move(features2.descriptors_tensor));
     input_tensors.emplace_back(std::move(min_cossim_tensor));
+    input_tensors.emplace_back(std::move(max_ratio_tensor));
+    input_tensors.emplace_back(std::move(cross_check_tensor));
 
     const std::vector<Ort::Value> output_tensors = model_.Run(input_tensors);
-    THROW_CHECK_EQ(output_tensors.size(), 1);
+    THROW_CHECK_EQ(output_tensors.size(), 3);
 
-    const std::vector<int64_t> matches_shape =
+    // Get num_matches from shape of idx0 output
+    const std::vector<int64_t> idx0_shape =
         output_tensors[0].GetTensorTypeAndShapeInfo().GetShape();
-    THROW_CHECK_EQ(matches_shape.size(), 2);
-    const int num_matches = matches_shape[0];
-    THROW_CHECK_EQ(matches_shape[1], 2);
+    THROW_CHECK_EQ(idx0_shape.size(), 1);
+    const int64_t num_matches = idx0_shape[0];
+
+    // Ensure idx1 has the same 1D shape and length as idx0
+    const std::vector<int64_t> idx1_shape =
+        output_tensors[1].GetTensorTypeAndShapeInfo().GetShape();
+    THROW_CHECK_EQ(idx1_shape.size(), 1);
+    THROW_CHECK_EQ(idx1_shape[0], num_matches);
 
     if (num_matches == 0) {
       return;
     }
 
-    const int64_t* matches_data = reinterpret_cast<const int64_t*>(
-        output_tensors[0].GetTensorData<void>());
+    const int64_t* idx0_data = output_tensors[0].GetTensorData<int64_t>();
+    const int64_t* idx1_data = output_tensors[1].GetTensorData<int64_t>();
+
     matches->resize(num_matches);
-    for (int i = 0; i < num_matches; ++i) {
+    for (int64_t i = 0; i < num_matches; ++i) {
       FeatureMatch& match = (*matches)[i];
-      match.point2D_idx1 = matches_data[2 * i + 0];
-      match.point2D_idx2 = matches_data[2 * i + 1];
+      match.point2D_idx1 = idx0_data[i];
+      match.point2D_idx2 = idx1_data[i];
       THROW_CHECK_GE(match.point2D_idx1, 0);
       THROW_CHECK_LT(match.point2D_idx1, num_keypoints1);
       THROW_CHECK_GE(match.point2D_idx2, 0);
@@ -442,6 +475,8 @@ std::unique_ptr<FeatureExtractor> CreateAlikedFeatureExtractor(
 bool AlikedMatchingOptions::Check() const {
   CHECK_OPTION_GE(min_cossim, -1);
   CHECK_OPTION_LE(min_cossim, 1);
+  CHECK_OPTION_GE(max_ratio, 0);
+  CHECK_OPTION_LE(max_ratio, 1);
   return true;
 }
 
