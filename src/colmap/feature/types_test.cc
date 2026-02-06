@@ -228,36 +228,31 @@ TEST(FeatureDescriptors, Nominal) {
   EXPECT_EQ(descriptors.data(1, 2), descriptors.data.data()[5]);
 }
 
-TEST(FeatureDescriptors, RoundTripFloatToByteToFloat) {
-  const FeatureDescriptorsFloat original_float(
-      FeatureExtractorType::ALIKED_N32,
-      FeatureDescriptorsFloatData::Random(10, 128));
-  const FeatureDescriptors byte_desc = original_float.ToBytes();
-  EXPECT_EQ(byte_desc.type, original_float.type);
-  EXPECT_EQ(byte_desc.data.rows(), original_float.data.rows());
-  EXPECT_EQ(byte_desc.data.cols(), original_float.data.cols() * sizeof(float));
-  const FeatureDescriptorsFloat recovered_float = byte_desc.ToFloat();
+TEST(FeatureDescriptors, SiftConversion) {
+  // SIFT uses value cast (uint8 <-> float)
+  const FeatureDescriptors original(FeatureExtractorType::SIFT,
+                                    FeatureDescriptorsData::Random(10, 128));
+  const FeatureDescriptorsFloat as_float = original.ToFloat();
+  EXPECT_EQ(as_float.type, FeatureExtractorType::SIFT);
+  EXPECT_EQ(as_float.data.cols(), original.data.cols());
+  EXPECT_EQ(as_float.data, original.data.cast<float>());
 
-  EXPECT_EQ(recovered_float.type, original_float.type);
-  EXPECT_EQ(recovered_float.data.rows(), original_float.data.rows());
-  EXPECT_EQ(recovered_float.data.cols(), original_float.data.cols());
-  EXPECT_EQ(recovered_float.data, original_float.data);
+  const FeatureDescriptors recovered = as_float.ToBytes();
+  EXPECT_EQ(recovered.type, FeatureExtractorType::SIFT);
+  EXPECT_EQ(recovered.data, original.data);
 }
 
-TEST(FeatureDescriptors, RoundTripByteToFloatToByte) {
-  const FeatureDescriptors original_byte(
-      FeatureExtractorType::ALIKED_N32,
-      FeatureDescriptorsData::Random(10, 512));
-  const FeatureDescriptorsFloat float_desc = original_byte.ToFloat();
-  EXPECT_EQ(float_desc.type, original_byte.type);
-  EXPECT_EQ(float_desc.data.rows(), original_byte.data.rows());
-  EXPECT_EQ(float_desc.data.cols() * sizeof(float), original_byte.data.cols());
-  const FeatureDescriptors recovered_byte = float_desc.ToBytes();
+TEST(FeatureDescriptors, AlikedConversion) {
+  // ALIKED uses reinterpret cast (float32 bytes <-> float)
+  const FeatureDescriptors original(FeatureExtractorType::ALIKED_N16ROT,
+                                    FeatureDescriptorsData::Random(10, 512));
+  const FeatureDescriptorsFloat as_float = original.ToFloat();
+  EXPECT_EQ(as_float.type, FeatureExtractorType::ALIKED_N16ROT);
+  EXPECT_EQ(as_float.data.cols() * sizeof(float), original.data.cols());
 
-  EXPECT_EQ(recovered_byte.type, original_byte.type);
-  EXPECT_EQ(recovered_byte.data.rows(), original_byte.data.rows());
-  EXPECT_EQ(recovered_byte.data.cols(), original_byte.data.cols());
-  EXPECT_EQ(recovered_byte.data, original_byte.data);
+  const FeatureDescriptors recovered = as_float.ToBytes();
+  EXPECT_EQ(recovered.type, FeatureExtractorType::ALIKED_N16ROT);
+  EXPECT_EQ(recovered.data, original.data);
 }
 
 TEST(FeatureMatches, Nominal) {

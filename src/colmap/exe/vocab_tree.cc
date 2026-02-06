@@ -82,16 +82,19 @@ FeatureDescriptorsFloat LoadRandomDatabaseDescriptors(
     const FeatureDescriptors image_descriptors =
         database->ReadDescriptors(image.ImageId());
 
+    const FeatureDescriptorsFloat image_descriptors_float =
+        image_descriptors.ToFloat();
+
     // Check that all images have the same feature type.
     if (result.type == FeatureExtractorType::UNDEFINED) {
       THROW_CHECK_NE(image_descriptors.type, FeatureExtractorType::UNDEFINED);
       result.type = image_descriptors.type;
-      result.data.resize(num_descriptors, image_descriptors.data.cols());
+      result.data.resize(num_descriptors, image_descriptors_float.data.cols());
     } else {
       THROW_CHECK_EQ(result.type, image_descriptors.type)
           << "All images must have the same feature type to build a "
              "vocabulary tree";
-      THROW_CHECK_EQ(image_descriptors.data.cols(), result.data.cols())
+      THROW_CHECK_EQ(image_descriptors_float.data.cols(), result.data.cols())
           << "All images must have the same descriptor dimensionality to build "
              "a vocabulary tree";
     }
@@ -100,7 +103,7 @@ FeatureDescriptorsFloat LoadRandomDatabaseDescriptors(
                       0,
                       image_descriptors.data.rows(),
                       image_descriptors.data.cols()) =
-        image_descriptors.data.cast<float>();
+        image_descriptors_float.data;
     descriptor_row += image_descriptors.data.rows();
   }
 
@@ -240,8 +243,7 @@ int RunVocabTreeRetriever(int argc, char** argv) {
     visual_index->Add(index_options,
                       database_images[i].ImageId(),
                       keypoints,
-                      FeatureDescriptorsFloat(descriptors.type,
-                                              descriptors.data.cast<float>()));
+                      descriptors.ToFloat());
 
     LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
   }
@@ -286,11 +288,8 @@ int RunVocabTreeRetriever(int argc, char** argv) {
     }
 
     std::vector<retrieval::ImageScore> image_scores;
-    visual_index->Query(query_options,
-                        keypoints,
-                        FeatureDescriptorsFloat(descriptors.type,
-                                                descriptors.data.cast<float>()),
-                        &image_scores);
+    visual_index->Query(
+        query_options, keypoints, descriptors.ToFloat(), &image_scores);
 
     LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
     for (const auto& image_score : image_scores) {

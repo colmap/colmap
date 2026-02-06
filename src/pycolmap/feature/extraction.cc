@@ -85,7 +85,7 @@ class Sift {
         extractor_->Extract(bitmap, &feature_keypoints, &feature_descriptors));
 
     keypoints_t keypoints = ConvertKeypoints(feature_keypoints, 1.0 / scale);
-    descriptors_t descriptors = feature_descriptors.data.cast<float>();
+    descriptors_t descriptors = feature_descriptors.ToFloat().data;
     descriptors /= 512.0f;
 
     return std::make_tuple(std::move(keypoints), std::move(descriptors));
@@ -140,18 +140,7 @@ class Aliked {
         extractor_->Extract(bitmap, &feature_keypoints, &feature_descriptors));
 
     keypoints_t keypoints = ConvertKeypoints(feature_keypoints, 1.0 / scale);
-
-    // ALIKED descriptors are stored as float32, so we need to reinterpret them.
-    const size_t num_features = feature_keypoints.size();
-    const int descriptor_dim = feature_descriptors.data.cols() / sizeof(float);
-    descriptors_t descriptors(num_features, descriptor_dim);
-    for (size_t i = 0; i < num_features; ++i) {
-      const float* row_ptr = reinterpret_cast<const float*>(
-          feature_descriptors.data.row(i).data());
-      for (int j = 0; j < descriptor_dim; ++j) {
-        descriptors(i, j) = row_ptr[j];
-      }
-    }
+    descriptors_t descriptors = feature_descriptors.ToFloat().data;
 
     return std::make_tuple(std::move(keypoints), std::move(descriptors));
   }
