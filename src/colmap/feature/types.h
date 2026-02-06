@@ -40,8 +40,12 @@
 
 namespace colmap {
 
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureExtractorType, -1, UNDEFINED, SIFT);
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType, -1, UNDEFINED, SIFT);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(
+    FeatureExtractorType, -1, UNDEFINED, SIFT, ALIKED);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType,
+                                0,
+                                SIFT_BRUTEFORCE,
+                                ALIKED_BRUTEFORCE);
 
 struct FeatureKeypoint {
   FeatureKeypoint();
