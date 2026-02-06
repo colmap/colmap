@@ -42,9 +42,21 @@ class PyCeresBundleAdjuster : public CeresBundleAdjuster,
   }
 
   std::shared_ptr<ceres::Problem>& Problem() override {
-    PYBIND11_OVERRIDE_PURE(
-        std::shared_ptr<ceres::Problem>&, CeresBundleAdjuster, Problem);
+    // Cannot use PYBIND11_OVERRIDE_PURE for reference returns as it creates
+    // a temporary. Instead, manually call override and store in member.
+    py::gil_scoped_acquire gil;
+    py::function override =
+        py::get_override(static_cast<const CeresBundleAdjuster*>(this),
+                         "problem");
+    if (override) {
+      auto obj = override();
+      problem_ = obj.cast<std::shared_ptr<ceres::Problem>>();
+    }
+    return problem_;
   }
+
+ private:
+  std::shared_ptr<ceres::Problem> problem_;
 };
 
 }  // namespace
