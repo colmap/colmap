@@ -67,7 +67,6 @@ jobs:
             cgal \
             sqlite3 \
             ccache \
-            onnxruntime \
             libomp
           brew link --force libomp
 
