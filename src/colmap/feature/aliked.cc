@@ -327,8 +327,28 @@ class AlikedBruteForceFeatureMatcher : public FeatureMatcher {
       return;
     }
 
-    Features features1 = FeaturesFromImage(image1);
-    Features features2 = FeaturesFromImage(image2);
+    // Cache features if image changed. Swap cached features when possible
+    // to avoid redundant copies (e.g., matching (A, B) then (B, C)).
+    if (prev_features1_.image_id != image1.image_id) {
+      if (prev_features2_.image_id == image1.image_id) {
+        std::swap(prev_features1_, prev_features2_);
+      } else {
+        prev_features1_ = FeaturesFromImage(image1);
+      }
+    }
+    if (prev_features2_.image_id != image2.image_id) {
+      if (prev_features1_.image_id == image2.image_id) {
+        // This shouldn't happen, as it means we are self-matching an image.
+        prev_features2_ = prev_features1_;
+      } else {
+        prev_features2_ = FeaturesFromImage(image2);
+      }
+    }
+
+    // Create tensors from cached data (tensors must be recreated each call
+    // since they reference the underlying data and get consumed by Run()).
+    auto desc1_tensor = CreateDescriptorTensor(prev_features1_);
+    auto desc2_tensor = CreateDescriptorTensor(prev_features2_);
 
     float min_cossim = static_cast<float>(options_.aliked->min_cossim);
     const std::vector<int64_t> scalar_shape = {};
@@ -359,8 +379,8 @@ class AlikedBruteForceFeatureMatcher : public FeatureMatcher {
         scalar_shape.size());
 
     std::vector<Ort::Value> input_tensors;
-    input_tensors.emplace_back(std::move(features1.descriptors_tensor));
-    input_tensors.emplace_back(std::move(features2.descriptors_tensor));
+    input_tensors.emplace_back(std::move(desc1_tensor));
+    input_tensors.emplace_back(std::move(desc2_tensor));
     input_tensors.emplace_back(std::move(min_cossim_tensor));
     input_tensors.emplace_back(std::move(max_ratio_tensor));
     input_tensors.emplace_back(std::move(cross_check_tensor));
@@ -403,15 +423,14 @@ class AlikedBruteForceFeatureMatcher : public FeatureMatcher {
                    const Image& image1,
                    const Image& image2,
                    TwoViewGeometry* two_view_geometry) override {
-    THROW_CHECK_GE(max_error, 0);
-    Match(image1, image2, &two_view_geometry->inlier_matches);
+    LOG(FATAL_THROW) << "Guided matching not supported for ALIKED.";
   }
 
  private:
   struct Features {
+    image_t image_id = kInvalidImageId;
     std::vector<float> descriptors_data;
     std::vector<int64_t> descriptors_shape;
-    Ort::Value descriptors_tensor;
   };
 
   Features FeaturesFromImage(const Image& image) {
@@ -429,6 +448,7 @@ class AlikedBruteForceFeatureMatcher : public FeatureMatcher {
     const int descriptor_dim = image.descriptors->data.cols() / sizeof(float);
 
     Features features;
+    features.image_id = image.image_id;
     features.descriptors_shape = {num_keypoints, descriptor_dim};
     features.descriptors_data.resize(num_keypoints * descriptor_dim);
     THROW_CHECK_EQ(image.descriptors->data.size(),
@@ -437,19 +457,25 @@ class AlikedBruteForceFeatureMatcher : public FeatureMatcher {
                 reinterpret_cast<const void*>(image.descriptors->data.data()),
                 image.descriptors->data.size());
 
-    features.descriptors_tensor = Ort::Value::CreateTensor<float>(
+    return features;
+  }
+
+  Ort::Value CreateDescriptorTensor(Features& features) {
+    return Ort::Value::CreateTensor<float>(
         Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
                                    OrtMemType::OrtMemTypeCPU),
         features.descriptors_data.data(),
         features.descriptors_data.size(),
         features.descriptors_shape.data(),
         features.descriptors_shape.size());
-
-    return features;
   }
 
   const FeatureMatchingOptions options_;
   ONNXModel model_;
+
+  // Cached features for avoiding redundant data copies.
+  Features prev_features1_;
+  Features prev_features2_;
 };
 
 #endif

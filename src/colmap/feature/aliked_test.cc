@@ -387,5 +387,65 @@ TEST_F(AlikedMatcherTest, EmptyDescriptors) {
   EXPECT_EQ(matches.size(), 0);
 }
 
+TEST_F(AlikedMatcherTest, Caching) {
+  SetPRNGSeed(42);
+  constexpr int kNumDescriptors = 10;
+
+  // Create three sets of descriptors for images A, B, C.
+  auto keypointsA = CreateDummyKeypoints(kNumDescriptors);
+  auto descriptorsA = CreateRandomDescriptors(kNumDescriptors);
+  auto keypointsB = CreateDummyKeypoints(kNumDescriptors);
+  auto descriptorsB = CreateRandomDescriptors(kNumDescriptors);
+  auto keypointsC = CreateDummyKeypoints(kNumDescriptors);
+  auto descriptorsC = CreateRandomDescriptors(kNumDescriptors);
+
+  FeatureMatchingOptions options(FeatureMatcherType::ALIKED_BRUTEFORCE);
+  options.use_gpu = false;
+  options.aliked->max_ratio = 0;
+  options.aliked->cross_check = false;
+  options.aliked->min_cossim = -1;
+  auto matcher = CreateAlikedFeatureMatcher(options);
+
+  FeatureMatcher::Image imageA{1, nullptr, keypointsA, descriptorsA};
+  FeatureMatcher::Image imageB{2, nullptr, keypointsB, descriptorsB};
+  FeatureMatcher::Image imageC{3, nullptr, keypointsC, descriptorsC};
+
+  // Match (A, B).
+  FeatureMatches matchesAB1;
+  matcher->Match(imageA, imageB, &matchesAB1);
+  EXPECT_GT(matchesAB1.size(), 0);
+
+  // Match (A, B) again - should use cached features and produce same results.
+  FeatureMatches matchesAB2;
+  matcher->Match(imageA, imageB, &matchesAB2);
+  ASSERT_EQ(matchesAB1.size(), matchesAB2.size());
+  for (size_t i = 0; i < matchesAB1.size(); ++i) {
+    EXPECT_EQ(matchesAB1[i].point2D_idx1, matchesAB2[i].point2D_idx1);
+    EXPECT_EQ(matchesAB1[i].point2D_idx2, matchesAB2[i].point2D_idx2);
+  }
+
+  // Match (B, C) - B should be swapped from slot 2 to slot 1.
+  FeatureMatches matchesBC;
+  matcher->Match(imageB, imageC, &matchesBC);
+  EXPECT_GT(matchesBC.size(), 0);
+
+  // Match (A, B) again - verify correctness after swap.
+  FeatureMatches matchesAB3;
+  matcher->Match(imageA, imageB, &matchesAB3);
+  ASSERT_EQ(matchesAB1.size(), matchesAB3.size());
+  for (size_t i = 0; i < matchesAB1.size(); ++i) {
+    EXPECT_EQ(matchesAB1[i].point2D_idx1, matchesAB3[i].point2D_idx1);
+    EXPECT_EQ(matchesAB1[i].point2D_idx2, matchesAB3[i].point2D_idx2);
+  }
+
+  // Self-match A - verify self-matching still works.
+  FeatureMatches matchesAA;
+  matcher->Match(imageA, imageA, &matchesAA);
+  EXPECT_EQ(matchesAA.size(), kNumDescriptors);
+  for (const auto& match : matchesAA) {
+    EXPECT_EQ(match.point2D_idx1, match.point2D_idx2);
+  }
+}
+
 }  // namespace
 }  // namespace colmap
