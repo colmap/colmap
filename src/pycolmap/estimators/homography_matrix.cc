@@ -43,6 +43,4 @@ void BindHomographyMatrixEstimator(py::module& m) {
         "points2D2"_a,
         py::arg_v("estimation_options", est_options, "RANSACOptions()"),
         "Robustly estimate homography matrix using LO-RANSAC.");
-  DefDeprecation(
-      m, "homography_matrix_estimation", "estimate_homography_matrix");
 }

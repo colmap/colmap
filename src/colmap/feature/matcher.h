@@ -45,11 +45,6 @@
 
 namespace colmap {
 
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType,
-                                0,
-                                SIFT_BRUTEFORCE,
-                                ALIKED_BRUTEFORCE);
-
 struct SiftMatchingOptions;
 struct AlikedMatchingOptions;
 

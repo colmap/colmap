@@ -30,6 +30,8 @@
 #pragma once
 
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/enum_utils.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
 #include <vector>
@@ -37,6 +39,9 @@
 #include <Eigen/Core>
 
 namespace colmap {
+
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureExtractorType, -1, UNDEFINED, SIFT);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType, -1, UNDEFINED, SIFT);
 
 struct FeatureKeypoint {
   FeatureKeypoint();
@@ -86,10 +91,32 @@ struct FeatureKeypoint {
 typedef Eigen::Matrix<uint8_t, 1, Eigen::Dynamic, Eigen::RowMajor>
     FeatureDescriptor;
 typedef std::vector<FeatureKeypoint> FeatureKeypoints;
-typedef Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-    FeatureDescriptors;
-typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-    FeatureDescriptorsFloat;
+
+// Matrix types for descriptor data.
+using FeatureDescriptorsData =
+    Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+using FeatureDescriptorsFloatData =
+    Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+
+// Feature descriptors with associated extractor type metadata.
+struct FeatureDescriptors {
+  FeatureDescriptors() = default;
+  FeatureDescriptors(FeatureExtractorType type, FeatureDescriptorsData data)
+      : type(type), data(std::move(data)) {}
+
+  FeatureExtractorType type = FeatureExtractorType::UNDEFINED;
+  FeatureDescriptorsData data;
+};
+
+struct FeatureDescriptorsFloat {
+  FeatureDescriptorsFloat() = default;
+  FeatureDescriptorsFloat(FeatureExtractorType type,
+                          FeatureDescriptorsFloatData data)
+      : type(type), data(std::move(data)) {}
+
+  FeatureExtractorType type = FeatureExtractorType::UNDEFINED;
+  FeatureDescriptorsFloatData data;
+};
 
 struct FeatureMatch {
   FeatureMatch()

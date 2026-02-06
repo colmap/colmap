@@ -137,7 +137,8 @@ FeatureMatcherCache::FeatureMatcherCache(
       descriptor_index_cache_(cache_size_, [this](const image_t image_id) {
         auto descriptors = GetDescriptors(image_id);
         auto index = FeatureDescriptorIndex::Create();
-        index->Build(descriptors->cast<float>());
+        index->Build(FeatureDescriptorsFloat(descriptors->type,
+                                             descriptors->data.cast<float>()));
         return index;
       }) {
   keypoints_cache_ =

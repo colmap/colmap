@@ -842,8 +842,16 @@ class SqliteDatabase : public Database {
     SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_read_descriptors_, 1, image_id));
 
     const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_descriptors_));
-    FeatureDescriptors descriptors = ReadDynamicMatrixBlob<FeatureDescriptors>(
+    FeatureDescriptors descriptors;
+    descriptors.data = ReadDynamicMatrixBlob<FeatureDescriptorsData>(
         sql_stmt_read_descriptors_, rc, 0);
+
+    // Read feature type from column 3 (0-indexed after rows, cols, data).
+    if (rc == SQLITE_ROW &&
+        sqlite3_column_type(sql_stmt_read_descriptors_, 3) != SQLITE_NULL) {
+      descriptors.type = static_cast<FeatureExtractorType>(
+          sqlite3_column_int(sql_stmt_read_descriptors_, 3));
+    }
 
     return descriptors;
   }
@@ -1269,7 +1277,9 @@ class SqliteDatabase : public Database {
     Sqlite3StmtContext context(sql_stmt_write_descriptors_);
 
     SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_descriptors_, 1, image_id));
-    WriteDynamicMatrixBlob(sql_stmt_write_descriptors_, descriptors, 2);
+    WriteDynamicMatrixBlob(sql_stmt_write_descriptors_, descriptors.data, 2);
+    SQLITE3_CALL(sqlite3_bind_int(
+        sql_stmt_write_descriptors_, 5, static_cast<int>(descriptors.type)));
 
     SQLITE3_CALL(sqlite3_step(sql_stmt_write_descriptors_));
   }
@@ -1779,7 +1789,8 @@ class SqliteDatabase : public Database {
         "SELECT rows, cols, data FROM keypoints WHERE image_id = ?;",
         &sql_stmt_read_keypoints_);
     prepare_sql_stmt(
-        "SELECT rows, cols, data FROM descriptors WHERE image_id = ?;",
+        "SELECT rows, cols, data, type FROM descriptors WHERE "
+        "image_id = ?;",
         &sql_stmt_read_descriptors_);
     prepare_sql_stmt("SELECT rows, cols, data FROM matches WHERE pair_id = ?;",
                      &sql_stmt_read_matches_);
@@ -1833,8 +1844,8 @@ class SqliteDatabase : public Database {
         "INSERT INTO keypoints(image_id, rows, cols, data) VALUES(?, ?, ?, ?);",
         &sql_stmt_write_keypoints_);
     prepare_sql_stmt(
-        "INSERT INTO descriptors(image_id, rows, cols, data) VALUES(?, ?, ?, "
-        "?);",
+        "INSERT INTO descriptors(image_id, rows, cols, data, type) "
+        "VALUES(?, ?, ?, ?, ?);",
         &sql_stmt_write_descriptors_);
     prepare_sql_stmt(
         "INSERT INTO matches(pair_id, rows, cols, data) VALUES(?, ?, "
@@ -2008,10 +2019,11 @@ class SqliteDatabase : public Database {
   void CreateDescriptorsTable() const {
     const std::string sql =
         "CREATE TABLE IF NOT EXISTS descriptors"
-        "   (image_id  INTEGER  PRIMARY KEY  NOT NULL,"
-        "    rows      INTEGER               NOT NULL,"
-        "    cols      INTEGER               NOT NULL,"
-        "    data      BLOB,"
+        "   (image_id      INTEGER  PRIMARY KEY  NOT NULL,"
+        "    type          INTEGER               NOT NULL,"
+        "    rows          INTEGER               NOT NULL,"
+        "    cols          INTEGER               NOT NULL,"
+        "    data          BLOB,"
         "    FOREIGN KEY(image_id) REFERENCES images(image_id) ON DELETE "
         "CASCADE);";
 
@@ -2215,6 +2227,20 @@ class SqliteDatabase : public Database {
       SQLITE3_CALL(sqlite3_finalize(update_F_stmt));
       SQLITE3_CALL(sqlite3_finalize(update_E_stmt));
       SQLITE3_CALL(sqlite3_finalize(update_H_stmt));
+    }
+
+    // Add feature_type column to descriptors table for existing databases.
+    // This column tracks the extractor type (SIFT, ALIKED, etc.) for each
+    // descriptor set to prevent mismatched matching.
+    if (user_version <= MakeDatabaseVersionNumber(3, 14, 0, 1)) {
+      if (!ExistsColumn("descriptors", "type")) {
+        SQLITE3_EXEC(database_,
+                     StringPrintf("ALTER TABLE descriptors ADD COLUMN "
+                                  "type INTEGER NOT NULL DEFAULT %d;",
+                                  static_cast<int>(FeatureExtractorType::SIFT))
+                         .c_str(),
+                     nullptr);
+      }
     }
 
     if (ExistsTable("pose_priors_old")) {

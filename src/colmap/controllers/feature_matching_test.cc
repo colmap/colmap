@@ -29,6 +29,7 @@
 
 #include "colmap/controllers/feature_matching.h"
 
+#include "colmap/feature/types.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
@@ -57,8 +58,10 @@ std::unique_ptr<retrieval::VisualIndex> CreateSyntheticVisualIndex() {
   auto visual_index = retrieval::VisualIndex::Create();
   retrieval::VisualIndex::BuildOptions build_options;
   build_options.num_visual_words = 5;
-  visual_index->Build(build_options,
-                      retrieval::VisualIndex::Descriptors::Random(50, 128));
+  visual_index->Build(
+      build_options,
+      FeatureDescriptorsFloat(FeatureExtractorType::SIFT,
+                              FeatureDescriptorsFloatData::Random(50, 128)));
   return visual_index;
 }
 

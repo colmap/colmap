@@ -67,18 +67,6 @@ class Sift {
       : use_gpu_(IsGPU(device)) {
     if (options) {
       options_ = std::move(*options);
-    } else {
-      // For backwards compatibility.
-      PyErr_WarnEx(PyExc_DeprecationWarning,
-                   "No SIFT extraction options specified. Setting them to "
-                   "peak_threshold=0.01, first_octave=0, max_image_size=7000 "
-                   "for backwards compatibility. If you want to keep the "
-                   "settings, explicitly specify them, because the defaults "
-                   "will change in the next major release.",
-                   1);
-      options_.max_image_size = 7000;
-      options_.sift->peak_threshold = 0.01;
-      options_.sift->first_octave = 0;
     }
     options_.use_gpu = use_gpu_;
     THROW_CHECK(options_.Check());
@@ -97,8 +85,7 @@ class Sift {
         extractor_->Extract(bitmap, &feature_keypoints, &feature_descriptors));
 
     keypoints_t keypoints = ConvertKeypoints(feature_keypoints, 1.0 / scale);
-
-    descriptors_t descriptors = feature_descriptors.cast<float>();
+    descriptors_t descriptors = descriptors_.data.cast<float>();
     descriptors /= 512.0f;
 
     return std::make_tuple(std::move(keypoints), std::move(descriptors));
