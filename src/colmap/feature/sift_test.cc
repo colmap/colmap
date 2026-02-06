@@ -465,7 +465,7 @@ TEST(SiftCPUFeatureMatcher, TypeMismatch) {
   FeatureDescriptorIndexCacheHelper index_cache_helper(
       {image_sift, image_undefined});
 
-  FeatureMatchingOptions options(FeatureMatcherType::SIFT);
+  FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
   options.use_gpu = false;
   options.sift->cpu_brute_force_matcher = true;
   auto matcher = CreateSiftFeatureMatcher(options);
@@ -501,7 +501,7 @@ TEST(MatchGuidedSiftFeaturesCPU, TypeMismatch) {
   FeatureDescriptorIndexCacheHelper index_cache_helper(
       {image_sift, image_undefined});
 
-  FeatureMatchingOptions options(FeatureMatcherType::SIFT);
+  FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
   options.use_gpu = false;
   options.sift->cpu_brute_force_matcher = true;
   auto matcher = CreateSiftFeatureMatcher(options);
@@ -525,7 +525,7 @@ TEST(MatchSiftFeaturesGPU, TypeMismatch) {
    private:
     void Run() {
       opengl_context_.MakeCurrent();
-      FeatureMatchingOptions options(FeatureMatcherType::SIFT);
+      FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
       options.use_gpu = true;
       options.max_num_matches = 1000;
       auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
@@ -569,7 +569,7 @@ TEST(MatchGuidedSiftFeaturesGPU, TypeMismatch) {
    private:
     void Run() {
       opengl_context_.MakeCurrent();
-      FeatureMatchingOptions options(FeatureMatcherType::SIFT);
+      FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
       options.use_gpu = true;
       options.max_num_matches = 1000;
       auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));

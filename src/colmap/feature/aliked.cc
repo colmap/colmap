@@ -39,6 +39,18 @@ namespace {
 
 #ifdef COLMAP_ONNX_ENABLED
 
+const std::string& GetExtractorModelPath(
+    const FeatureExtractionOptions& options) {
+  switch (options.type) {
+    case FeatureExtractorType::ALIKED_N16ROT:
+      return options.aliked->n16rot_model_path;
+    case FeatureExtractorType::ALIKED_N32:
+      return options.aliked->n32_model_path;
+    default:
+      throw std::runtime_error("Unknown ALIKED feature extractor type.");
+  }
+}
+
 // Convert bitmap to row-major [C, H, W] float tensor, normalized to [0, 1].
 std::vector<float> BitmapToInputTensor(const Bitmap& bitmap) {
   THROW_CHECK(bitmap.IsRGB());
@@ -107,7 +119,7 @@ class AlikedFeatureExtractor : public FeatureExtractor {
  public:
   explicit AlikedFeatureExtractor(const FeatureExtractionOptions& options)
       : options_(options),
-        model_(options.aliked->model_path,
+        model_(GetExtractorModelPath(options),
                options.num_threads,
                options.use_gpu,
                options.gpu_index) {
@@ -252,14 +264,16 @@ class AlikedFeatureExtractor : public FeatureExtractor {
     // Populate output with valid keypoints and descriptors.
     const int num_valid = static_cast<int>(valid_keypoints.size());
     keypoints->resize(num_valid);
-    descriptors->resize(num_valid, descriptor_dim_ * sizeof(float));
+    descriptors->type = options_.type;
+    descriptors->data.resize(num_valid, descriptor_dim_ * sizeof(float));
     for (int j = 0; j < num_valid; ++j) {
       const auto& kp = valid_keypoints[j];
       (*keypoints)[j].x = kp.x;
       (*keypoints)[j].y = kp.y;
-      std::memcpy(descriptors->data() + j * descriptor_dim_ * sizeof(float),
-                  descriptors_data + kp.index * descriptor_dim_,
-                  descriptor_dim_ * sizeof(float));
+      std::memcpy(
+          descriptors->data.data() + j * descriptor_dim_ * sizeof(float),
+          descriptors_data + kp.index * descriptor_dim_,
+          descriptor_dim_ * sizeof(float));
     }
 
     return true;
@@ -301,14 +315,14 @@ class AlikedBruteForceFeatureMatcher : public FeatureMatcher {
     THROW_CHECK_NOTNULL(matches);
     matches->clear();
 
-    const int num_keypoints1 = image1.descriptors->rows();
-    const int num_keypoints2 = image2.descriptors->rows();
+    const int num_keypoints1 = image1.descriptors->data.rows();
+    const int num_keypoints2 = image2.descriptors->data.rows();
     if (num_keypoints1 == 0 || num_keypoints2 == 0) {
       return;
     }
 
-    auto features1 = FeaturesFromImage(image1);
-    auto features2 = FeaturesFromImage(image2);
+    Features features1 = FeaturesFromImage(image1);
+    Features features2 = FeaturesFromImage(image2);
 
     float min_cossim = static_cast<float>(options_.aliked->min_cossim);
     const std::vector<int64_t> min_cossim_shape = {1};
@@ -370,19 +384,25 @@ class AlikedBruteForceFeatureMatcher : public FeatureMatcher {
   Features FeaturesFromImage(const Image& image) {
     THROW_CHECK_NE(image.image_id, kInvalidImageId);
     THROW_CHECK_NOTNULL(image.descriptors);
+    THROW_CHECK(image.descriptors->type ==
+                    FeatureExtractorType::ALIKED_N16ROT ||
+                image.descriptors->type == FeatureExtractorType::ALIKED_N32)
+        << "Unsupported feature type: "
+        << FeatureExtractorTypeToString(image.descriptors->type);
+    THROW_CHECK_EQ(image.descriptors->data.cols(), 128 * sizeof(float));
 
-    const int num_keypoints = image.descriptors->rows();
-    THROW_CHECK_EQ(image.descriptors->cols() % sizeof(float), 0);
-    const int descriptor_dim = image.descriptors->cols() / sizeof(float);
+    const int num_keypoints = image.descriptors->data.rows();
+    THROW_CHECK_EQ(image.descriptors->data.cols() % sizeof(float), 0);
+    const int descriptor_dim = image.descriptors->data.cols() / sizeof(float);
 
     Features features;
     features.descriptors_shape = {num_keypoints, descriptor_dim};
     features.descriptors_data.resize(num_keypoints * descriptor_dim);
-    THROW_CHECK_EQ(image.descriptors->size(),
+    THROW_CHECK_EQ(image.descriptors->data.size(),
                    features.descriptors_data.size() * sizeof(float));
     std::memcpy(features.descriptors_data.data(),
-                reinterpret_cast<const void*>(image.descriptors->data()),
-                image.descriptors->size());
+                reinterpret_cast<const void*>(image.descriptors->data.data()),
+                image.descriptors->data.size());
 
     features.descriptors_tensor = Ort::Value::CreateTensor<float>(
         Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,

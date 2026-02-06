@@ -17,7 +17,9 @@ namespace py = pybind11;
 void BindFeatureTypes(py::module& m) {
   py::enum_<FeatureExtractorType>(m, "FeatureExtractorType")
       .value("UNDEFINED", FeatureExtractorType::UNDEFINED)
-      .value("SIFT", FeatureExtractorType::SIFT);
+      .value("SIFT", FeatureExtractorType::SIFT)
+      .value("ALIKED_N16ROT", FeatureExtractorType::ALIKED_N16ROT)
+      .value("ALIKED_N32", FeatureExtractorType::ALIKED_N32);
 
   auto PyFeatureDescriptors =
       py::classh<FeatureDescriptors>(m, "FeatureDescriptors")

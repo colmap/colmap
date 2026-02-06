@@ -83,7 +83,8 @@ bool FeatureExtractionOptions::RequiresRGB() const {
   switch (type) {
     case FeatureExtractorType::SIFT:
       return false;
-    case FeatureExtractorType::ALIKED:
+    case FeatureExtractorType::ALIKED_N16ROT:
+    case FeatureExtractorType::ALIKED_N32:
       return true;
     default:
       ThrowUnknownFeatureExtractorType(type);
@@ -105,7 +106,8 @@ bool FeatureExtractionOptions::RequiresOpenGL() const {
       return use_gpu;
 #endif
     }
-    case FeatureExtractorType::ALIKED:
+    case FeatureExtractorType::ALIKED_N16ROT:
+    case FeatureExtractorType::ALIKED_N32:
       return false;
     default:
       ThrowUnknownFeatureExtractorType(type);
@@ -120,7 +122,8 @@ int FeatureExtractionOptions::EffMaxImageSize() const {
     switch (type) {
       case FeatureExtractorType::SIFT:
         return 3200;
-      case FeatureExtractorType::ALIKED:
+      case FeatureExtractorType::ALIKED_N16ROT:
+      case FeatureExtractorType::ALIKED_N32:
         return 1280;
       default:
         ThrowUnknownFeatureExtractorType(type);
@@ -138,15 +141,16 @@ bool FeatureExtractionOptions::Check() const {
     return false;
 #endif
   }
-  if (type == FeatureExtractorType::SIFT) {
-    return THROW_CHECK_NOTNULL(sift)->Check();
-  } else if (type == FeatureExtractorType::ALIKED) {
-    return THROW_CHECK_NOTNULL(aliked)->Check();
-  } else {
-    LOG(ERROR) << "Unknown feature extractor type: " << type;
-    return false;
+  switch (type) {
+    case FeatureExtractorType::SIFT:
+      return THROW_CHECK_NOTNULL(sift)->Check();
+    case FeatureExtractorType::ALIKED_N16ROT:
+    case FeatureExtractorType::ALIKED_N32:
+      return THROW_CHECK_NOTNULL(aliked)->Check();
+    default:
+      LOG(ERROR) << "Unknown feature extractor type: " << type;
+      return false;
   }
-  return true;
 }
 
 std::unique_ptr<FeatureExtractor> FeatureExtractor::Create(
@@ -154,7 +158,8 @@ std::unique_ptr<FeatureExtractor> FeatureExtractor::Create(
   switch (options.type) {
     case FeatureExtractorType::SIFT:
       return CreateSiftFeatureExtractor(options);
-    case FeatureExtractorType::ALIKED:
+    case FeatureExtractorType::ALIKED_N16ROT:
+    case FeatureExtractorType::ALIKED_N32:
       return CreateAlikedFeatureExtractor(options);
     default:
       ThrowUnknownFeatureExtractorType(options.type);

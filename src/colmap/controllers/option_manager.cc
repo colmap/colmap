@@ -247,8 +247,10 @@ void OptionManager::AddFeatureExtractionOptions() {
                    &feature_extraction->aliked->max_num_features);
   AddDefaultOption("AlikedExtraction.min_score",
                    &feature_extraction->aliked->min_score);
-  AddDefaultOption("AlikedExtraction.model_path",
-                   &feature_extraction->aliked->model_path);
+  AddDefaultOption("AlikedExtraction.n16rot_model_path",
+                   &feature_extraction->aliked->n16rot_model_path);
+  AddDefaultOption("AlikedExtraction.n32_model_path",
+                   &feature_extraction->aliked->n32_model_path);
 }
 
 void OptionManager::AddFeatureMatchingOptions() {

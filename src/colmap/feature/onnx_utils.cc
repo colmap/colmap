@@ -147,7 +147,7 @@ ONNXModel::ONNXModel(std::string model_path,
 }
 
 std::vector<Ort::Value> ONNXModel::Run(
-    const std::vector<Ort::Value>& input_tensors) {
+    const std::vector<Ort::Value>& input_tensors) const {
   return session->Run(Ort::RunOptions(),
                       input_names.data(),
                       input_tensors.data(),

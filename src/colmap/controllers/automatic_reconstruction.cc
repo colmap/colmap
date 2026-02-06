@@ -89,7 +89,8 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     option_manager_.feature_matching->type =
         FeatureMatcherType::SIFT_BRUTEFORCE;
   } else if (options_.feature == Feature::ALIKED) {
-    option_manager_.feature_extraction->type = FeatureExtractorType::ALIKED;
+    option_manager_.feature_extraction->type =
+        FeatureExtractorType::ALIKED_N16ROT;
     option_manager_.feature_matching->type =
         FeatureMatcherType::ALIKED_BRUTEFORCE;
   }

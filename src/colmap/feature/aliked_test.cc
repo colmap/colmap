@@ -54,15 +54,15 @@ void CreateRandomRgbImage(const int width, const int height, Bitmap* bitmap) {
   }
 }
 
-class ParameterizedAlikedTests : public testing::TestWithParam<std::string> {};
+class ParameterizedAlikedTests
+    : public testing::TestWithParam<FeatureExtractorType> {};
 
 TEST_P(ParameterizedAlikedTests, Nominal) {
   Bitmap image;
   CreateRandomRgbImage(200, 100, &image);
 
-  FeatureExtractionOptions extraction_options(FeatureExtractorType::ALIKED);
+  FeatureExtractionOptions extraction_options(GetParam());
   extraction_options.use_gpu = false;
-  extraction_options.aliked->model_path = GetParam();
   auto extractor = CreateAlikedFeatureExtractor(extraction_options);
   auto keypoints = std::make_shared<FeatureKeypoints>();
   auto descriptors = std::make_shared<FeatureDescriptors>();
@@ -71,12 +71,19 @@ TEST_P(ParameterizedAlikedTests, Nominal) {
   // Check keypoint count is reasonable.
   EXPECT_GT(keypoints->size(), 0);
   EXPECT_LE(keypoints->size(), extraction_options.aliked->max_num_features);
-  EXPECT_EQ(keypoints->size(), descriptors->rows());
+  EXPECT_EQ(keypoints->size(), descriptors->data.rows());
 
   // Descriptor dimension should be a multiple of sizeof(float).
-  EXPECT_EQ(descriptors->cols() % sizeof(float), 0);
-  const int descriptor_dim = descriptors->cols() / sizeof(float);
-  EXPECT_GT(descriptor_dim, 0);
+  switch (GetParam()) {
+    case FeatureExtractorType::ALIKED_N16ROT:
+      EXPECT_EQ(descriptors->data.cols(), 128 * sizeof(float));
+      break;
+    case FeatureExtractorType::ALIKED_N32:
+      EXPECT_EQ(descriptors->data.cols(), 128 * sizeof(float));
+      break;
+    default:
+      FAIL() << "Unknown feature extractor type: " << GetParam();
+  }
 
   // Keypoints should be within image bounds (with small tolerance for
   // sub-pixel refinement).
@@ -118,9 +125,8 @@ TEST_P(ParameterizedAlikedTests, MaxNumFeatures) {
   CreateRandomRgbImage(200, 100, &image);
 
   // Extract with default max_num_features.
-  FeatureExtractionOptions options_default(FeatureExtractorType::ALIKED);
+  FeatureExtractionOptions options_default(GetParam());
   options_default.use_gpu = false;
-  options_default.aliked->model_path = GetParam();
   auto extractor_default = CreateAlikedFeatureExtractor(options_default);
   FeatureKeypoints keypoints_default;
   FeatureDescriptors descriptors_default;
@@ -128,9 +134,8 @@ TEST_P(ParameterizedAlikedTests, MaxNumFeatures) {
       image, &keypoints_default, &descriptors_default));
 
   // Extract with reduced max_num_features.
-  FeatureExtractionOptions options_limited(FeatureExtractorType::ALIKED);
+  FeatureExtractionOptions options_limited(GetParam());
   options_limited.use_gpu = false;
-  options_limited.aliked->model_path = GetParam();
   options_limited.aliked->max_num_features = 100;
   auto extractor_limited = CreateAlikedFeatureExtractor(options_limited);
   FeatureKeypoints keypoints_limited;
@@ -148,9 +153,8 @@ TEST_P(ParameterizedAlikedTests, MinScore) {
   CreateRandomRgbImage(200, 100, &image);
 
   // Extract with low min_score threshold.
-  FeatureExtractionOptions options_low(FeatureExtractorType::ALIKED);
+  FeatureExtractionOptions options_low(GetParam());
   options_low.use_gpu = false;
-  options_low.aliked->model_path = GetParam();
   options_low.aliked->min_score = 0.0;
   auto extractor_low = CreateAlikedFeatureExtractor(options_low);
   FeatureKeypoints keypoints_low;
@@ -158,9 +162,8 @@ TEST_P(ParameterizedAlikedTests, MinScore) {
   ASSERT_TRUE(extractor_low->Extract(image, &keypoints_low, &descriptors_low));
 
   // Extract with high min_score threshold.
-  FeatureExtractionOptions options_high(FeatureExtractorType::ALIKED);
+  FeatureExtractionOptions options_high(GetParam());
   options_high.use_gpu = false;
-  options_high.aliked->model_path = GetParam();
   options_high.aliked->min_score = 0.9;
   auto extractor_high = CreateAlikedFeatureExtractor(options_high);
   FeatureKeypoints keypoints_high;
@@ -173,19 +176,10 @@ TEST_P(ParameterizedAlikedTests, MinScore) {
   EXPECT_NE(keypoints_high.size(), keypoints_low.size());
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    AlikedTests,
-    ParameterizedAlikedTests,
-    testing::Values(kDefaultALIKEDN16RotFeatureExtractorUri,
-                    kDefaultALIKEDN32FeatureExtractorUri),
-    [](const testing::TestParamInfo<std::string>& info) {
-      if (info.param == kDefaultALIKEDN16RotFeatureExtractorUri) {
-        return "N16Rot";
-      } else if (info.param == kDefaultALIKEDN32FeatureExtractorUri) {
-        return "N32";
-      }
-      return "Unknown";
-    });
+INSTANTIATE_TEST_SUITE_P(AlikedTests,
+                         ParameterizedAlikedTests,
+                         testing::Values(FeatureExtractorType::ALIKED_N16ROT,
+                                         FeatureExtractorType::ALIKED_N32));
 
 }  // namespace
 }  // namespace colmap

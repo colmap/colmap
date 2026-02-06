@@ -77,8 +77,7 @@ describes the feature appearance of the corresponding entry in the keypoints
 table. The data type and dimensionality depend on the feature extractor:
 
 - **SIFT**: ``uint8`` descriptors with 128 dimensions (128 bytes per feature).
-- **ALIKED**: ``float32`` descriptors with dimensions depending on the model
-  variant (e.g., 64, 128, or 256 floats per feature).
+- **ALIKED**: ``float32`` descriptors with 128 dimensions (512 bytes per feature).
 
 The ``cols`` column in the descriptors table specifies the number of bytes per
 descriptor row. For ``uint8`` descriptors, this equals the descriptor dimension.

@@ -85,7 +85,7 @@ class Sift {
         extractor_->Extract(bitmap, &feature_keypoints, &feature_descriptors));
 
     keypoints_t keypoints = ConvertKeypoints(feature_keypoints, 1.0 / scale);
-    descriptors_t descriptors = descriptors_.data.cast<float>();
+    descriptors_t descriptors = feature_descriptors.data.cast<float>();
     descriptors /= 512.0f;
 
     return std::make_tuple(std::move(keypoints), std::move(descriptors));
@@ -115,8 +115,9 @@ class Aliked {
       : use_gpu_(IsGPU(device)) {
     if (options) {
       options_ = std::move(*options);
+    } else {
+      options_.type = FeatureExtractorType::ALIKED_N16ROT;
     }
-    options_.type = FeatureExtractorType::ALIKED;
     options_.use_gpu = use_gpu_;
     THROW_CHECK(options_.Check());
     extractor_ = THROW_CHECK_NOTNULL(CreateAlikedFeatureExtractor(options_));
@@ -142,11 +143,11 @@ class Aliked {
 
     // ALIKED descriptors are stored as float32, so we need to reinterpret them.
     const size_t num_features = feature_keypoints.size();
-    const int descriptor_dim = feature_descriptors.cols() / sizeof(float);
+    const int descriptor_dim = feature_descriptors.data.cols() / sizeof(float);
     descriptors_t descriptors(num_features, descriptor_dim);
     for (size_t i = 0; i < num_features; ++i) {
-      const float* row_ptr =
-          reinterpret_cast<const float*>(feature_descriptors.row(i).data());
+      const float* row_ptr = reinterpret_cast<const float*>(
+          feature_descriptors.data.row(i).data());
       for (int j = 0; j < descriptor_dim; ++j) {
         descriptors(i, j) = row_ptr[j];
       }
@@ -250,9 +251,13 @@ void BindFeatureExtraction(py::module& m) {
           .def_readwrite("min_score",
                          &AlikedExtractionOptions::min_score,
                          "Minimum score threshold for keypoint detection.")
-          .def_readwrite("model_path",
-                         &AlikedExtractionOptions::model_path,
-                         "Path to the ONNX model file for the ALIKED "
+          .def_readwrite("n16rot_model_path",
+                         &AlikedExtractionOptions::n16rot_model_path,
+                         "Path to the ONNX model file for the n16rot ALIKED "
+                         "extractor.")
+          .def_readwrite("n32_model_path",
+                         &AlikedExtractionOptions::n32_model_path,
+                         "Path to the ONNX model file for the n32 ALIKED "
                          "extractor.")
           .def("check", &AlikedExtractionOptions::Check);
   MakeDataclass(PyAlikedExtractionOptions);

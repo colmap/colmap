@@ -61,23 +61,28 @@ TEST(FeatureExtractionOptions, EffMaxImageSize) {
 
   // When max_image_size is explicitly set, use that value.
   options.max_image_size = 2000;
-  options.type = FeatureExtractorType::SIFT;
-  EXPECT_EQ(options.EffMaxImageSize(), 2000);
-
-  options.type = FeatureExtractorType::ALIKED;
-  EXPECT_EQ(options.EffMaxImageSize(), 2000);
+  for (const auto& type : {FeatureExtractorType::SIFT,
+                           FeatureExtractorType::ALIKED_N16ROT,
+                           FeatureExtractorType::ALIKED_N32}) {
+    options.type = type;
+    EXPECT_EQ(options.EffMaxImageSize(), 2000);
+  }
 
   // When max_image_size is non-positive, use type-specific defaults.
   options.max_image_size = -1;
   options.type = FeatureExtractorType::SIFT;
   EXPECT_EQ(options.EffMaxImageSize(), 3200);
-  options.type = FeatureExtractorType::ALIKED;
+  options.type = FeatureExtractorType::ALIKED_N16ROT;
+  EXPECT_EQ(options.EffMaxImageSize(), 1280);
+  options.type = FeatureExtractorType::ALIKED_N32;
   EXPECT_EQ(options.EffMaxImageSize(), 1280);
 
   options.max_image_size = 0;
   options.type = FeatureExtractorType::SIFT;
   EXPECT_EQ(options.EffMaxImageSize(), 3200);
-  options.type = FeatureExtractorType::ALIKED;
+  options.type = FeatureExtractorType::ALIKED_N16ROT;
+  EXPECT_EQ(options.EffMaxImageSize(), 1280);
+  options.type = FeatureExtractorType::ALIKED_N32;
   EXPECT_EQ(options.EffMaxImageSize(), 1280);
 }
 

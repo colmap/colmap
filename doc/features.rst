@@ -76,13 +76,11 @@ Compatible Extractor and Matcher Types
 The feature extractor and matcher types should be compatible:
 
 - Use ``SIFT`` extraction with ``SIFT_BRUTEFORCE`` matching.
-- Use ``ALIKED`` extraction with ``ALIKED_BRUTEFORCE`` matching.
+- Use ``ALIKED_*`` extraction with ``ALIKED_BRUTEFORCE`` matching.
 
-Mixing incompatible types (e.g., SIFT features with ALIKED matcher) has
-undefined behavior and will not produce meaningful matches.
-
-Do not mix different feature extractor types (e.g., SIFT and ALIKED) in the
-same database. This is not supported and will not produce meaningful matches.
+Mixing incompatible types (e.g., SIFT features with ALIKED matcher) will
+result in a runtime error. Do not mix different feature extractor types
+(e.g., SIFT and ALIKED) in the same database.
 
 
 ALIKED Model Variants
@@ -91,10 +89,9 @@ ALIKED Model Variants
 ALIKED requires an ONNX model file. Several model variants are available with
 different trade-offs between speed and accuracy:
 
-- ``aliked-n16rot``: Fastest, 64-dimensional descriptors.
-- ``aliked-n32``: Balanced, 128-dimensional descriptors.
+- ``aliked-n16rot``: Faster and trained for some viewpoint invariance. 128-dim descriptors.
+- ``aliked-n32``: More expensive but not explicitly trained for viewpoint invariance, 128-dim descriptors.
 
-Specify the model path using ``--AlikedExtraction.model_path``. If the path is
+Specify the model path using ``--AlikedExtraction.*_model_path``. If the path is
 a URL, COLMAP will automatically download and cache the model. You can download
-different ALIKED models from the 3.13.0 release:
-https://github.com/colmap/colmap/releases/tag/3.13.0
+different ALIKED models from the release page at https://github.com/colmap/colmap/releases/

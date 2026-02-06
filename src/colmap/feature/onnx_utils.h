@@ -60,7 +60,8 @@ class ONNXModel {
             bool use_gpu,
             const std::string& gpu_index);
 
-  std::vector<Ort::Value> Run(const std::vector<Ort::Value>& input_tensors);
+  std::vector<Ort::Value> Run(
+      const std::vector<Ort::Value>& input_tensors) const;
 
   Ort::Env env;
   Ort::AllocatorWithDefaultOptions allocator;
