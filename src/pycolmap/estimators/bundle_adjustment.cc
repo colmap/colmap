@@ -45,9 +45,8 @@ class PyCeresBundleAdjuster : public CeresBundleAdjuster,
     // Cannot use PYBIND11_OVERRIDE_PURE for reference returns as it creates
     // a temporary. Instead, manually call override and store in member.
     py::gil_scoped_acquire gil;
-    py::function override =
-        py::get_override(static_cast<const CeresBundleAdjuster*>(this),
-                         "problem");
+    py::function override = py::get_override(
+        static_cast<const CeresBundleAdjuster*>(this), "problem");
     if (override) {
       auto obj = override();
       problem_ = obj.cast<std::shared_ptr<ceres::Problem>>();
