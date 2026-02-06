@@ -1,6 +1,8 @@
 #include "colmap/feature/types.h"
 
+#include "pycolmap/feature/types.h"
 #include "pycolmap/helpers.h"
+#include "pycolmap/pybind11_extension.h"
 
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
