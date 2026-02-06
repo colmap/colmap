@@ -64,7 +64,7 @@ struct AlikedMatchingOptions {
   double min_cossim = 0.85;
 
   // Maximum ratio for Lowe's ratio test (second-best / best distance).
-  double max_ratio = 0.9;
+  double max_ratio = 1.0;
 
   // Enable cross-checking (mutual nearest neighbor).
   bool cross_check = true;
