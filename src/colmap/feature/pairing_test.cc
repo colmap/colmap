@@ -29,6 +29,7 @@
 
 #include "colmap/feature/pairing.h"
 
+#include "colmap/feature/types.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/synthetic.h"
@@ -81,8 +82,10 @@ std::unique_ptr<retrieval::VisualIndex> CreateSyntheticVisualIndex() {
   retrieval::VisualIndex::BuildOptions build_options;
   build_options.num_visual_words = 5;
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
-  visual_index->Build(build_options,
-                      retrieval::VisualIndex::Descriptors::Random(50, 128));
+  visual_index->Build(
+      build_options,
+      FeatureDescriptorsFloat(FeatureExtractorType::SIFT,
+                              FeatureDescriptorsFloatData::Random(50, 128)));
   return visual_index;
 }
 
