@@ -228,6 +228,38 @@ TEST(FeatureDescriptors, Nominal) {
   EXPECT_EQ(descriptors.data(1, 2), descriptors.data.data()[5]);
 }
 
+TEST(FeatureDescriptors, RoundTripFloatToByteToFloat) {
+  const FeatureDescriptorsFloat original_float(
+      FeatureExtractorType::ALIKED_N32,
+      FeatureDescriptorsFloatData::Random(10, 128));
+  const FeatureDescriptors byte_desc = original_float.ToBytes();
+  EXPECT_EQ(byte_desc.type, original_float.type);
+  EXPECT_EQ(byte_desc.data.rows(), original_float.data.rows());
+  EXPECT_EQ(byte_desc.data.cols(), original_float.data.cols() * sizeof(float));
+  const FeatureDescriptorsFloat recovered_float = byte_desc.ToFloat();
+
+  EXPECT_EQ(recovered_float.type, original_float.type);
+  EXPECT_EQ(recovered_float.data.rows(), original_float.data.rows());
+  EXPECT_EQ(recovered_float.data.cols(), original_float.data.cols());
+  EXPECT_EQ(recovered_float.data, original_float.data);
+}
+
+TEST(FeatureDescriptors, RoundTripByteToFloatToByte) {
+  const FeatureDescriptors original_byte(
+      FeatureExtractorType::ALIKED_N32,
+      FeatureDescriptorsData::Random(10, 512));
+  const FeatureDescriptorsFloat float_desc = original_byte.ToFloat();
+  EXPECT_EQ(float_desc.type, original_byte.type);
+  EXPECT_EQ(float_desc.data.rows(), original_byte.data.rows());
+  EXPECT_EQ(float_desc.data.cols() * sizeof(float), original_byte.data.cols());
+  const FeatureDescriptors recovered_byte = float_desc.ToBytes();
+
+  EXPECT_EQ(recovered_byte.type, original_byte.type);
+  EXPECT_EQ(recovered_byte.data.rows(), original_byte.data.rows());
+  EXPECT_EQ(recovered_byte.data.cols(), original_byte.data.cols());
+  EXPECT_EQ(recovered_byte.data, original_byte.data);
+}
+
 TEST(FeatureMatches, Nominal) {
   FeatureMatch match;
   EXPECT_EQ(match.point2D_idx1, kInvalidPoint2DIdx);
