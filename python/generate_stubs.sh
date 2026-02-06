@@ -20,6 +20,9 @@ perl -i -pe's/ -> ceres::([a-zA-Z]|::)+:$/:/g' $FILES
 # pybind issue, will not be fixed: https://github.com/pybind/pybind11/pull/2277
 perl -i -pe's/(?<=\b__(eq|ne)__\(self, )arg0: [a-zA-Z0-9_]+\)/other: object)/g' $FILES
 
+# pybind11_stubgen generates incorrect self types for py::bind_vector classes
+perl -i -pe's/self: (typing|collections\.abc)\.Sequence\[[a-zA-Z0-9_.]+\]/self/g' $FILES
+
 # mypy bug: https://github.com/python/mypy/issues/4266
 perl -i -pe's/(__hash__:? .*= None)$/\1  # type: ignore/g' $FILES
 
