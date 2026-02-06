@@ -25,7 +25,7 @@ To select a feature extractor type via the command-line::
     $ colmap feature_extractor \
         --database_path $DATASET_PATH/database.db \
         --image_path $DATASET_PATH/images \
-        --FeatureExtraction.type ALIKED \
+        --FeatureExtraction.type ALIKED_N16ROT \
         --AlikedExtraction.max_num_features 2048
 
 For SIFT (the default), you can omit the type or explicitly set it::
