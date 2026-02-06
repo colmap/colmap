@@ -60,7 +60,7 @@ FeatureDescriptorsFloat LoadRandomDatabaseDescriptors(
 
   std::vector<size_t> image_idxs;
   size_t num_descriptors = 0;
-  if (max_num_images < 0) {
+  if (max_num_images < 0 || max_num_images >= images.size()) {
     // All images in the database.
     image_idxs.resize(images.size());
     std::iota(image_idxs.begin(), image_idxs.end(), 0);
@@ -77,8 +77,6 @@ FeatureDescriptorsFloat LoadRandomDatabaseDescriptors(
     }
   }
 
-  result.data.resize(num_descriptors, 128);
-
   size_t descriptor_row = 0;
   for (const size_t image_idx : image_idxs) {
     const auto& image = images.at(image_idx);
@@ -89,13 +87,20 @@ FeatureDescriptorsFloat LoadRandomDatabaseDescriptors(
     if (result.type == FeatureExtractorType::UNDEFINED) {
       THROW_CHECK_NE(image_descriptors.type, FeatureExtractorType::UNDEFINED);
       result.type = image_descriptors.type;
+      result.data.resize(num_descriptors, image_descriptors.data.cols());
     } else {
       THROW_CHECK_EQ(result.type, image_descriptors.type)
           << "All images must have the same feature type to build a "
              "vocabulary tree";
+      THROW_CHECK_EQ(image_descriptors.data.cols(), result.data.cols())
+          << "All images must have the same descriptor dimensionality to build "
+             "a vocabulary tree";
     }
 
-    result.data.block(descriptor_row, 0, image_descriptors.data.rows(), 128) =
+    result.data.block(descriptor_row,
+                      0,
+                      image_descriptors.data.rows(),
+                      image_descriptors.data.cols()) =
         image_descriptors.data.cast<float>();
     descriptor_row += image_descriptors.data.rows();
   }
