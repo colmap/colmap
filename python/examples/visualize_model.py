@@ -135,7 +135,7 @@ def draw_camera(
     w: int,
     h: int,
     scale: float = 1,
-    color: list[float] = None,
+    color: list[float] | None = None,
 ) -> list[open3d.geometry.Geometry]:
     """Create axis, plane and pyramed geometries in Open3D format.
     :param K: calibration matrix (camera intrinsics)
