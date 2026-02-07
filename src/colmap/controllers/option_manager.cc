@@ -36,6 +36,7 @@
 #include "colmap/estimators/global_positioning.h"
 #include "colmap/estimators/gravity_refinement.h"
 #include "colmap/estimators/two_view_geometry.h"
+#include "colmap/feature/aliked.h"
 #include "colmap/feature/pairing.h"
 #include "colmap/feature/sift.h"
 #include "colmap/mvs/fusion.h"
@@ -212,9 +213,9 @@ void OptionManager::AddFeatureExtractionOptions() {
   AddDefaultOption("FeatureExtraction.use_gpu", &feature_extraction->use_gpu);
   AddDefaultOption("FeatureExtraction.gpu_index",
                    &feature_extraction->gpu_index);
-
-  AddDefaultOption("SiftExtraction.max_image_size",
+  AddDefaultOption("FeatureExtraction.max_image_size",
                    &feature_extraction->max_image_size);
+
   AddDefaultOption("SiftExtraction.max_num_features",
                    &feature_extraction->sift->max_num_features);
   AddDefaultOption("SiftExtraction.first_octave",
@@ -241,6 +242,15 @@ void OptionManager::AddFeatureExtractionOptions() {
                    &feature_extraction->sift->dsp_max_scale);
   AddDefaultOption("SiftExtraction.dsp_num_scales",
                    &feature_extraction->sift->dsp_num_scales);
+
+  AddDefaultOption("AlikedExtraction.max_num_features",
+                   &feature_extraction->aliked->max_num_features);
+  AddDefaultOption("AlikedExtraction.min_score",
+                   &feature_extraction->aliked->min_score);
+  AddDefaultOption("AlikedExtraction.n16rot_model_path",
+                   &feature_extraction->aliked->n16rot_model_path);
+  AddDefaultOption("AlikedExtraction.n32_model_path",
+                   &feature_extraction->aliked->n32_model_path);
 }
 
 void OptionManager::AddFeatureMatchingOptions() {
@@ -276,6 +286,11 @@ void OptionManager::AddFeatureMatchingOptions() {
                    &feature_matching->sift->cross_check);
   AddDefaultOption("SiftMatching.cpu_brute_force_matcher",
                    &feature_matching->sift->cpu_brute_force_matcher);
+
+  AddDefaultOption("AlikedMatching.min_cossim",
+                   &feature_matching->aliked->min_cossim);
+  AddDefaultOption("AlikedMatching.bruteforce_model_path",
+                   &feature_matching->aliked->bruteforce_model_path);
 }
 
 void OptionManager::AddTwoViewGeometryOptions() {

@@ -72,10 +72,16 @@ third column is the scale and the fourth column the orientation of the feature
 feature geometry is an affinity and the last 4 columns encode its affine shape
 (see ``src/feature/types.h`` for details).
 
-The extracted descriptors are stored as row-major ``uint8`` binary blobs, where
-each row describes the feature appearance of the corresponding entry in the
-keypoints table. Note that COLMAP only supports 128-D descriptors for now, i.e.
-the ``cols`` column must be 128.
+The extracted descriptors are stored as row-major binary blobs, where each row
+describes the feature appearance of the corresponding entry in the keypoints
+table. The data type and dimensionality depend on the feature extractor:
+
+- **SIFT**: ``uint8`` descriptors with 128 dimensions (128 bytes per feature).
+- **ALIKED**: ``float32`` descriptors with 128 dimensions (512 bytes per feature).
+
+The ``cols`` column in the descriptors table specifies the number of bytes per
+descriptor row. For ``uint8`` descriptors, this equals the descriptor dimension.
+For ``float32`` descriptors, this equals ``4 * dimension``.
 
 In both tables, the ``rows`` table specifies the number of detected features per
 image, while ``rows=0`` means that an image has no features. For feature matching

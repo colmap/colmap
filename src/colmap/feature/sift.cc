@@ -606,7 +606,7 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
                                     << -std::min(0, options.sift->first_octave);
     sift_gpu_args.push_back("-maxd");
     sift_gpu_args.push_back(
-        std::to_string(options.max_image_size * compensation_factor));
+        std::to_string(options.EffMaxImageSize() * compensation_factor));
 
     // Keep the highest level features.
     sift_gpu_args.push_back("-tc2");
@@ -680,7 +680,7 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
     // first octave in the pyramid (which is the 'first_octave').
     const int compensation_factor =
         1 << -std::min(0, options_.sift->first_octave);
-    THROW_CHECK_EQ(options_.max_image_size * compensation_factor,
+    THROW_CHECK_EQ(options_.EffMaxImageSize() * compensation_factor,
                    sift_gpu_.GetMaxDimension());
 
     std::lock_guard<std::mutex> lock(*sift_gpu_mutexes_[sift_gpu_.gpu_index]);
@@ -1090,16 +1090,17 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
     Eigen::RowMajorMatrixXi indices_2to1;
     Eigen::RowMajorMatrixXf l2_dists_2to1;
 
-    const FeatureDescriptorsFloat descriptors1_float(
-        image1.descriptors->type, image1.descriptors->data.cast<float>());
-    const FeatureDescriptorsFloat descriptors2_float(
-        image2.descriptors->type, image2.descriptors->data.cast<float>());
-
     index2_->Search(
-        /*num_neighbors=*/2, descriptors1_float, indices_1to2, l2_dists_1to2);
+        /*num_neighbors=*/2,
+        image1.descriptors->ToFloat(),
+        indices_1to2,
+        l2_dists_1to2);
     if (options_.sift->cross_check) {
       index1_->Search(
-          /*num_neighbors=*/2, descriptors2_float, indices_2to1, l2_dists_2to1);
+          /*num_neighbors=*/2,
+          image2.descriptors->ToFloat(),
+          indices_2to1,
+          l2_dists_2to1);
     }
 
     FindBestMatchesIndex(indices_1to2,

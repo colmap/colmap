@@ -376,11 +376,8 @@ void VocabTreePairGenerator::IndexImages(
       ExtractTopScaleFeatures(
           &keypoints, &descriptors, options_.max_num_features);
     }
-    visual_index_->Add(index_options,
-                       image_ids[i],
-                       keypoints,
-                       FeatureDescriptorsFloat(descriptors.type,
-                                               descriptors.data.cast<float>()));
+    visual_index_->Add(
+        index_options, image_ids[i], keypoints, descriptors.ToFloat());
     LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
   }
 
@@ -399,11 +396,10 @@ void VocabTreePairGenerator::Query(const image_t image_id) {
 
   Retrieval retrieval;
   retrieval.image_id = image_id;
-  visual_index_->Query(
-      query_options_,
-      keypoints,
-      FeatureDescriptorsFloat(descriptors.type, descriptors.data.cast<float>()),
-      &retrieval.image_scores);
+  visual_index_->Query(query_options_,
+                       keypoints,
+                       descriptors.ToFloat(),
+                       &retrieval.image_scores);
 
   THROW_CHECK(queue_.Push(std::move(retrieval)));
 }

@@ -1,4 +1,4 @@
-// Copysight (c), ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -27,33 +27,32 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/feature/aliked.h"
-#include "colmap/feature/extractor.h"
-#include "colmap/feature/sift.h"
-#include "colmap/util/testing.h"
+#pragma once
 
-#include <gtest/gtest.h>
+#include <string>
 
 namespace colmap {
-namespace {
 
-TEST(FeatureMatchingOptions, Copy) {
-  FeatureMatchingOptions options;
-  options.max_num_matches += 100;
-  options.sift->max_ratio *= 0.1;
-  options.aliked->min_cossim *= 0.1;
+#ifdef COLMAP_DOWNLOAD_ENABLED
+const static std::string kDefaultAlikedN16RotFeatureExtractorUri =
+    "https://github.com/colmap/colmap/releases/download/3.13.0/"
+    "aliked-n16rot.onnx;"
+    "aliked-n16rot.onnx;"
+    "39c423d0a6f03d39ec89d3d1d61853765c2fb6a8b8381376c703e5758778a547";
+const static std::string kDefaultAlikedN32FeatureExtractorUri =
+    "https://github.com/colmap/colmap/releases/download/3.13.0/"
+    "aliked-n32.onnx;"
+    "aliked-n32.onnx;"
+    "a077728a02d2de1a775c66df6de8cfeb7c6b51ca57572c64c680131c988c8b3c";
+const static std::string kDefaultONNXBruteForceMatcherUri =
+    "https://github.com/colmap/colmap/releases/download/3.13.0/"
+    "bruteforce-matcher.onnx;"
+    "bruteforce-matcher.onnx;"
+    "3c1282f96d83f5ffc861a873298d08bbe5219f59af59223f5ceab5c41a182a47";
+#else
+const static std::string kDefaultAlikedN16RotFeatureExtractorUri = "";
+const static std::string kDefaultAlikedN32FeatureExtractorUri = "";
+const static std::string kDefaultONNXBruteForceMatcherUri = "";
+#endif
 
-  FeatureMatchingOptions copy = options;
-
-  // Verify fields are copied
-  EXPECT_EQ(copy.max_num_matches, options.max_num_matches);
-  EXPECT_EQ(copy.sift->max_ratio, options.sift->max_ratio);
-  EXPECT_EQ(copy.aliked->min_cossim, options.aliked->min_cossim);
-
-  // Verify deep copy of shared_ptr (different pointer instances)
-  EXPECT_NE(options.sift.get(), copy.sift.get());
-  EXPECT_NE(options.aliked.get(), copy.aliked.get());
-}
-
-}  // namespace
 }  // namespace colmap

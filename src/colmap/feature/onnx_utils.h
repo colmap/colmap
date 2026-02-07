@@ -1,4 +1,4 @@
-// Copysight (c), ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -27,33 +27,54 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/feature/aliked.h"
-#include "colmap/feature/extractor.h"
-#include "colmap/feature/sift.h"
-#include "colmap/util/testing.h"
+#pragma once
 
-#include <gtest/gtest.h>
+#include "colmap/util/logging.h"
+
+#include <memory>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#ifdef COLMAP_ONNX_ENABLED
+#include <onnxruntime_cxx_api.h>
 
 namespace colmap {
-namespace {
 
-TEST(FeatureMatchingOptions, Copy) {
-  FeatureMatchingOptions options;
-  options.max_num_matches += 100;
-  options.sift->max_ratio *= 0.1;
-  options.aliked->min_cossim *= 0.1;
+// Format tensor shape as a string for logging/error messages.
+std::string FormatONNXTensorShape(const std::vector<int64_t>& shape);
 
-  FeatureMatchingOptions copy = options;
+// Check that a model node has the expected name and shape.
+// Shape values of -1 are treated as wildcards (dynamic dimensions).
+void ThrowCheckONNXNode(std::string_view name,
+                        std::string_view expected_name,
+                        const std::vector<int64_t>& shape,
+                        const std::vector<int64_t>& expected_shape);
 
-  // Verify fields are copied
-  EXPECT_EQ(copy.max_num_matches, options.max_num_matches);
-  EXPECT_EQ(copy.sift->max_ratio, options.sift->max_ratio);
-  EXPECT_EQ(copy.aliked->min_cossim, options.aliked->min_cossim);
+// Wrapper for ONNX Runtime session management.
+// Handles model loading, input/output shape parsing, and inference.
+class ONNXModel {
+ public:
+  ONNXModel(std::string model_path,
+            int num_threads,
+            bool use_gpu,
+            const std::string& gpu_index);
 
-  // Verify deep copy of shared_ptr (different pointer instances)
-  EXPECT_NE(options.sift.get(), copy.sift.get());
-  EXPECT_NE(options.aliked.get(), copy.aliked.get());
-}
+  std::vector<Ort::Value> Run(
+      const std::vector<Ort::Value>& input_tensors) const;
 
-}  // namespace
+  Ort::Env env;
+  Ort::AllocatorWithDefaultOptions allocator;
+  Ort::SessionOptions session_options;
+  std::unique_ptr<Ort::Session> session;
+  std::vector<std::vector<int64_t>> input_shapes;
+  std::vector<Ort::AllocatedStringPtr> input_name_strs;
+  std::vector<char*> input_names;
+  std::vector<std::vector<int64_t>> output_shapes;
+  std::vector<Ort::AllocatedStringPtr> output_name_strs;
+  std::vector<char*> output_names;
+};
+
 }  // namespace colmap
+
+#endif  // COLMAP_ONNX_ENABLED
