@@ -29,7 +29,7 @@ To build PyCOLMAP from source, follow these steps:
    * On Windows, after installing COLMAP via VCPKG per the installation guide above:
 
      1. Determine the installed COLMAP version:
-        ``<VCPKG_ROOT>\packages\colmap_<TRIPLET>\tools\colmap\colmap.exe help``
+        ``$VCPKG_ROOT\packages\colmap_x64-windows\tools\colmap\colmap.exe help``
      2. Check out the corresponding version tag: ``git checkout tags/3.XX.X``
      3. Run the following in PowerShell, replacing ``$VCPKG_ROOT`` with your vcpkg
         installation root::
