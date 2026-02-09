@@ -51,7 +51,6 @@ def get_git_revision():
 extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.autodoc",
-    "sphinx.ext.autodoc.typehints",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -340,6 +339,8 @@ def process_doc(app, what, name, obj, options, lines):
 
 
 def process_sig(app, what, name, obj, options, signature, return_annotation):
+    if signature is None:
+        return None, return_annotation
     signature = signature.replace("pycolmap._core", "pycolmap")
     if isinstance(return_annotation, str):
         return_annotation = return_annotation.replace(
