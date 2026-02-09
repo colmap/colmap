@@ -15,7 +15,6 @@ COLMAP, please also cite the original authors, as specified in the source code,
 and consider citing relevant third-party dependencies (most notably
 ceres-solver, poselib, sift-gpu, vlfeat).
 
-
 Download
 --------
 
@@ -31,37 +30,29 @@ Download
   CUDA-enabled wheels are available at https://pypi.org/project/pycolmap-cuda12.
 * To **build from source**, please see https://colmap.github.io/install.html.
 
-
 Getting Started
 ---------------
 
 1. Download pre-built binaries or build from source.
-2. Download one of the provided datasets at https://demuc.de/colmap/datasets/
+2. Download one of the provided [sample datasets](https://demuc.de/colmap/datasets/)
    or use your own images.
 3. Use the **automatic reconstruction** to easily build models
    with a single click or command.
 
-
 Documentation
 -------------
 
-The documentation is available at https://colmap.github.io/.
+The documentation is available [here](https://colmap.github.io/).
 
-To build and update the documentation at the documentation website, follow these steps:
-
-1. Build the documentation locally following [these instructions](https://colmap.github.io/install.html#documentation).
-2. Clone the website repository [colmap/colmap.github.io](https://github.com/colmap/colmap.github.io).
-3. Copy the contents of the generated files at `_build/html` to the cloned respository root.
-4. Create a pull request to the [colmap/colmap.github.io](https://github.com/colmap/colmap.github.io) repository with the updated files.
-5. (optional if main release) Copy the previous release as legacy to the "legacy" folder, under a folder with the release number [as seen here](https://github.com/colmap/colmap.github.io/tree/master/legacy)
+To build and update the documentation at the documentation website,
+follow [these steps](https://colmap.github.io/install.html#documentation).
 
 Support
 -------
 
-Please, use GitHub Discussions at https://github.com/colmap/colmap/discussions
-for questions and the GitHub issue tracker at https://github.com/colmap/colmap
+Please, use [GitHub Discussions](https://github.com/colmap/colmap/discussions)
+for questions and the [GitHub issue tracker](https://github.com/colmap/colmap)
 for bug reports, feature requests/additions, etc.
-
 
 Acknowledgments
 ---------------
@@ -82,7 +73,6 @@ The Python bindings in PyCOLMAP were originally added by
 The project has also benefitted from countless community contributions, including
 bug fixes, improvements, new features, third-party tooling, and community
 support (special credits to [Torsten Sattler](https://tsattler.github.io)).
-
 
 Citation
 --------
@@ -121,13 +111,11 @@ If you use the image retrieval / vocabulary tree engine, please cite:
         year={2016},
     }
 
-
 Contribution
 ------------
 
 Contributions (bug reports, bug fixes, improvements, etc.) are very welcome and
 should be submitted in the form of new issues and/or pull requests on GitHub.
-
 
 License
 -------
