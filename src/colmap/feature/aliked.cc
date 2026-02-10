@@ -151,8 +151,10 @@ class AlikedFeatureExtractor : public FeatureExtractor {
     descriptor_dim_ = static_cast<int>(model_.output_shapes()[1][2]);
     THROW_CHECK_GT(descriptor_dim_, 0);
     VLOG(2) << "ALIKED descriptor dimension: " << descriptor_dim_;
-    ThrowCheckONNXNode(
-        model_.output_names()[2], "scores", model_.output_shapes()[2], {-1, -1});
+    ThrowCheckONNXNode(model_.output_names()[2],
+                       "scores",
+                       model_.output_shapes()[2],
+                       {-1, -1});
   }
 
   bool Extract(const Bitmap& bitmap,

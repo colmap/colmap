@@ -150,11 +150,11 @@ ONNXModel::ONNXModel(std::string model_path,
 std::vector<Ort::Value> ONNXModel::Run(
     const std::vector<Ort::Value>& input_tensors) const {
   return session_->Run(Ort::RunOptions(),
-                      input_names_.data(),
-                      input_tensors.data(),
-                      input_tensors.size(),
-                      output_names_.data(),
-                      output_names_.size());
+                       input_names_.data(),
+                       input_tensors.data(),
+                       input_tensors.size(),
+                       output_names_.data(),
+                       output_names_.size());
 }
 
 #endif  // COLMAP_ONNX_ENABLED
