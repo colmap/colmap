@@ -82,6 +82,7 @@ if(ONNX_ENABLED)
     target_link_libraries(colmap_feature PRIVATE onnxruntime::onnxruntime)
 endif()
 
+if(ONNX_ENABLED)
 COLMAP_ADD_TEST(
     NAME aliked_test
     SRCS aliked_test.cc
@@ -89,6 +90,7 @@ COLMAP_ADD_TEST(
         colmap_feature
         onnxruntime::onnxruntime
 )
+endif()
 COLMAP_ADD_TEST(
     NAME extractor_test
     SRCS extractor_test.cc

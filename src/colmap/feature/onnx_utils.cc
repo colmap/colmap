@@ -107,7 +107,7 @@ ONNXModel::ONNXModel(std::string model_path,
 
   VLOG(2) << "Loading ONNX model from " << model_path;
 #ifdef _WIN32
-  constexpr int kCodePage = 0;  // UTF-8
+  constexpr int kCodePage = CP_UTF8;
   const int wide_len =
       MultiByteToWideChar(kCodePage, 0, model_path.c_str(), -1, nullptr, 0);
   std::wstring model_path_wide(wide_len, L'\0');

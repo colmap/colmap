@@ -172,10 +172,11 @@ class AlikedFeatureExtractor : public FeatureExtractor {
     std::vector<float>* padded_input = padder.MaybePad(input, 3);
 
     // Prepare image input tensor.
-    model_.input_shapes[0][0] = 1;
-    model_.input_shapes[0][1] = 3;
-    model_.input_shapes[0][2] = padder.padded_height;
-    model_.input_shapes[0][3] = padder.padded_width;
+    std::vector<int64_t> image_shape = model_.input_shapes[0];
+    image_shape[0] = 1;
+    image_shape[1] = 3;
+    image_shape[2] = padder.padded_height;
+    image_shape[3] = padder.padded_width;
 
     std::vector<Ort::Value> input_tensors;
     input_tensors.emplace_back(Ort::Value::CreateTensor<float>(
@@ -183,8 +184,8 @@ class AlikedFeatureExtractor : public FeatureExtractor {
                                    OrtMemType::OrtMemTypeCPU),
         padded_input->data(),
         padded_input->size(),
-        model_.input_shapes[0].data(),
-        model_.input_shapes[0].size()));
+        image_shape.data(),
+        image_shape.size()));
 
     // Prepare max_keypoints input tensor (scalar).
     int64_t max_keypoints = options_.aliked->max_num_features;

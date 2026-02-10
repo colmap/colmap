@@ -101,10 +101,10 @@ FeatureDescriptorsFloat LoadRandomDatabaseDescriptors(
 
     result.data.block(descriptor_row,
                       0,
-                      image_descriptors.data.rows(),
-                      image_descriptors.data.cols()) =
+                      image_descriptors_float.data.rows(),
+                      image_descriptors_float.data.cols()) =
         image_descriptors_float.data;
-    descriptor_row += image_descriptors.data.rows();
+    descriptor_row += image_descriptors_float.data.rows();
   }
 
   THROW_CHECK_EQ(descriptor_row, num_descriptors);
