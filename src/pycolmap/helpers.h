@@ -4,6 +4,8 @@
 #include "colmap/util/string.h"
 #include "colmap/util/threading.h"
 
+#include "pycolmap/feature/opaque_types.h"
+
 #include <exception>
 #include <optional>
 #include <regex>

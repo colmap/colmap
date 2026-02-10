@@ -2,6 +2,8 @@
 
 #include "colmap/util/types.h"
 
+#include "pycolmap/feature/opaque_types.h"
+
 #include <memory>
 #include <string>
 
