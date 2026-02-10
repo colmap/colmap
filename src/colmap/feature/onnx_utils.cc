@@ -86,11 +86,11 @@ ONNXModel::ONNXModel(std::string model_path,
   }
 
   const int num_eff_threads = GetEffectiveNumThreads(num_threads);
-  session_options.SetInterOpNumThreads(num_eff_threads);
-  session_options.SetIntraOpNumThreads(num_eff_threads);
-  session_options.SetGraphOptimizationLevel(
+  session_options_.SetInterOpNumThreads(num_eff_threads);
+  session_options_.SetIntraOpNumThreads(num_eff_threads);
+  session_options_.SetGraphOptimizationLevel(
       GraphOptimizationLevel::ORT_ENABLE_ALL);
-  session_options.SetLogSeverityLevel(ORT_LOGGING_LEVEL_FATAL);
+  session_options_.SetLogSeverityLevel(ORT_LOGGING_LEVEL_FATAL);
 
 #ifdef COLMAP_CUDA_ENABLED
   if (use_gpu) {
@@ -101,7 +101,7 @@ ONNXModel::ONNXModel(std::string model_path,
     if (gpu_indices[0] >= 0) {
       cuda_options.device_id = gpu_indices[0];
     }
-    session_options.AppendExecutionProvider_CUDA(cuda_options);
+    session_options_.AppendExecutionProvider_CUDA(cuda_options);
   }
 #endif
 
@@ -117,43 +117,44 @@ ONNXModel::ONNXModel(std::string model_path,
 #else
   const char* model_path_cstr = model_path.c_str();
 #endif
-  session =
-      std::make_unique<Ort::Session>(env, model_path_cstr, session_options);
+  session_ =
+      std::make_unique<Ort::Session>(env_, model_path_cstr, session_options_);
 
   VLOG(2) << "Parsing the inputs";
-  const int num_inputs = session->GetInputCount();
-  input_name_strs.reserve(num_inputs);
-  input_names.reserve(num_inputs);
-  input_shapes.reserve(num_inputs);
+  const int num_inputs = session_->GetInputCount();
+  input_name_strs_.reserve(num_inputs);
+  input_names_.reserve(num_inputs);
+  input_shapes_.reserve(num_inputs);
   for (int i = 0; i < num_inputs; ++i) {
-    input_name_strs.emplace_back(session->GetInputNameAllocated(i, allocator));
-    input_names.emplace_back(input_name_strs[i].get());
-    input_shapes.emplace_back(
-        session->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
+    input_name_strs_.emplace_back(
+        session_->GetInputNameAllocated(i, allocator_));
+    input_names_.emplace_back(input_name_strs_[i].get());
+    input_shapes_.emplace_back(
+        session_->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
   }
 
   VLOG(2) << "Parsing the outputs";
-  const int num_outputs = session->GetOutputCount();
-  output_name_strs.reserve(num_outputs);
-  output_names.reserve(num_outputs);
-  output_shapes.reserve(num_outputs);
+  const int num_outputs = session_->GetOutputCount();
+  output_name_strs_.reserve(num_outputs);
+  output_names_.reserve(num_outputs);
+  output_shapes_.reserve(num_outputs);
   for (int i = 0; i < num_outputs; ++i) {
-    output_name_strs.emplace_back(
-        session->GetOutputNameAllocated(i, allocator));
-    output_names.emplace_back(output_name_strs[i].get());
-    output_shapes.emplace_back(
-        session->GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
+    output_name_strs_.emplace_back(
+        session_->GetOutputNameAllocated(i, allocator_));
+    output_names_.emplace_back(output_name_strs_[i].get());
+    output_shapes_.emplace_back(
+        session_->GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
   }
 }
 
 std::vector<Ort::Value> ONNXModel::Run(
     const std::vector<Ort::Value>& input_tensors) const {
-  return session->Run(Ort::RunOptions(),
-                      input_names.data(),
+  return session_->Run(Ort::RunOptions(),
+                      input_names_.data(),
                       input_tensors.data(),
                       input_tensors.size(),
-                      output_names.data(),
-                      output_names.size());
+                      output_names_.data(),
+                      output_names_.size());
 }
 
 #endif  // COLMAP_ONNX_ENABLED

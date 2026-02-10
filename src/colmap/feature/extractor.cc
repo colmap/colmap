@@ -133,6 +133,7 @@ int FeatureExtractionOptions::EffMaxImageSize() const {
 }
 
 bool FeatureExtractionOptions::Check() const {
+  CHECK_OPTION_GT(EffMaxImageSize(), 0);
   if (use_gpu) {
     CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
 #if !defined(COLMAP_GPU_ENABLED) && !defined(COLMAP_CUDA_ENABLED)

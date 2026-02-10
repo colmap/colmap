@@ -249,11 +249,20 @@ if(ONNX_ENABLED)
 
         set(ONNX_VERSION "1.24.1")
         if(IS_MACOS)
-            FetchContent_Declare(onnxruntime
-                URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-osx-arm64-${ONNX_VERSION}.tgz
-                URL_HASH SHA256=c2969315cd9ce0f5fa04f6b53ff72cb92f87f7dcf38e88cacfa40c8f983fbba9
-                ${_fetch_content_declare_args}
-            )
+            if(CMAKE_OSX_ARCHITECTURES)
+                set(_COLMAP_MACOS_ARCH ${CMAKE_OSX_ARCHITECTURES})
+            else()
+                set(_COLMAP_MACOS_ARCH ${CMAKE_SYSTEM_PROCESSOR})
+            endif()
+            if(_COLMAP_MACOS_ARCH STREQUAL "x86_64")
+                message(FATAL_ERRROR "x86_64 is not supported for onnxruntime")
+            else()
+                FetchContent_Declare(onnxruntime
+                    URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-osx-arm64-${ONNX_VERSION}.tgz
+                    URL_HASH SHA256=c2969315cd9ce0f5fa04f6b53ff72cb92f87f7dcf38e88cacfa40c8f983fbba9
+                    ${_fetch_content_declare_args}
+                )
+            endif()
         elseif(IS_LINUX)
             FetchContent_Declare(onnxruntime
                 URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-gpu-${ONNX_VERSION}.tgz
@@ -328,13 +337,6 @@ if(ONNX_ENABLED)
                     "${onnxruntime_LIB_DIR}/libonnxruntime_providers_shared.dylib")
                 install(FILES ${onnxruntime_CORE_LIBS}
                     DESTINATION "${onnxruntime_LIB_DIR_NAME}")
-                # Only install CUDA provider if CUDA is enabled.
-                if(CUDA_ENABLED)
-                    file(GLOB onnxruntime_CUDA_LIBS
-                        "${onnxruntime_LIB_DIR}/libonnxruntime_providers_cuda.dylib")
-                    install(FILES ${onnxruntime_CUDA_LIBS}
-                        DESTINATION "${onnxruntime_LIB_DIR_NAME}")
-                endif()
             else()
                 file(GLOB onnxruntime_CORE_LIBS
                     "${onnxruntime_LIB_DIR}/libonnxruntime.so*"

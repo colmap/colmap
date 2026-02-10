@@ -127,32 +127,32 @@ class AlikedFeatureExtractor : public FeatureExtractor {
 
     // Validate sparse model inputs: image [1, 3, H, W], max_keypoints (scalar),
     // min_score (scalar).
-    THROW_CHECK_EQ(model_.input_shapes.size(), 3);
-    ThrowCheckONNXNode(model_.input_names[0],
+    THROW_CHECK_EQ(model_.input_shapes().size(), 3);
+    ThrowCheckONNXNode(model_.input_names()[0],
                        "image",
-                       model_.input_shapes[0],
+                       model_.input_shapes()[0],
                        {-1, 3, -1, -1});
     ThrowCheckONNXNode(
-        model_.input_names[1], "max_keypoints", model_.input_shapes[1], {});
+        model_.input_names()[1], "max_keypoints", model_.input_shapes()[1], {});
     ThrowCheckONNXNode(
-        model_.input_names[2], "min_score", model_.input_shapes[2], {});
+        model_.input_names()[2], "min_score", model_.input_shapes()[2], {});
 
     // Validate sparse model outputs: keypoints [1, K, 2], descriptors [1, K,
     // D], scores [1, K]. Note: Some dimensions may be dynamic (-1) in ONNX.
-    THROW_CHECK_EQ(model_.output_shapes.size(), 3);
-    ThrowCheckONNXNode(model_.output_names[0],
+    THROW_CHECK_EQ(model_.output_shapes().size(), 3);
+    ThrowCheckONNXNode(model_.output_names()[0],
                        "keypoints",
-                       model_.output_shapes[0],
+                       model_.output_shapes()[0],
                        {-1, -1, -1});
-    ThrowCheckONNXNode(model_.output_names[1],
+    ThrowCheckONNXNode(model_.output_names()[1],
                        "descriptors",
-                       model_.output_shapes[1],
+                       model_.output_shapes()[1],
                        {-1, -1, -1});
-    descriptor_dim_ = static_cast<int>(model_.output_shapes[1][2]);
+    descriptor_dim_ = static_cast<int>(model_.output_shapes()[1][2]);
     THROW_CHECK_GT(descriptor_dim_, 0);
     VLOG(2) << "ALIKED descriptor dimension: " << descriptor_dim_;
     ThrowCheckONNXNode(
-        model_.output_names[2], "scores", model_.output_shapes[2], {-1, -1});
+        model_.output_names()[2], "scores", model_.output_shapes()[2], {-1, -1});
   }
 
   bool Extract(const Bitmap& bitmap,
@@ -172,7 +172,7 @@ class AlikedFeatureExtractor : public FeatureExtractor {
     std::vector<float>* padded_input = padder.MaybePad(input, 3);
 
     // Prepare image input tensor.
-    std::vector<int64_t> image_shape = model_.input_shapes[0];
+    std::vector<int64_t> image_shape = model_.input_shapes()[0];
     image_shape[0] = 1;
     image_shape[1] = 3;
     image_shape[2] = padder.padded_height;
@@ -194,8 +194,8 @@ class AlikedFeatureExtractor : public FeatureExtractor {
                                    OrtMemType::OrtMemTypeCPU),
         &max_keypoints,
         1,
-        model_.input_shapes[1].data(),
-        model_.input_shapes[1].size()));
+        model_.input_shapes()[1].data(),
+        model_.input_shapes()[1].size()));
 
     // Prepare min_score input tensor (scalar).
     float min_score = static_cast<float>(options_.aliked->min_score);
@@ -204,8 +204,8 @@ class AlikedFeatureExtractor : public FeatureExtractor {
                                    OrtMemType::OrtMemTypeCPU),
         &min_score,
         1,
-        model_.input_shapes[2].data(),
-        model_.input_shapes[2].size()));
+        model_.input_shapes()[2].data(),
+        model_.input_shapes()[2].size()));
 
     // Run model inference.
     const std::vector<Ort::Value> output_tensors = model_.Run(input_tensors);
@@ -257,7 +257,7 @@ class AlikedFeatureExtractor : public FeatureExtractor {
       const float norm_y = keypoints_data[2 * i + 1];
       const float px = (norm_x + 1.0f) * scale_x + 0.5f;
       const float py = (norm_y + 1.0f) * scale_y + 0.5f;
-      if (px >= 0.0f && px <= width && py >= 0.0f && py <= height) {
+      if (px >= 0.0f && px < width && py >= 0.0f && py < height) {
         valid_keypoints.push_back({px, py, i});
       }
     }
@@ -295,24 +295,24 @@ class AlikedBruteForceFeatureMatcher : public FeatureMatcher {
                options.use_gpu,
                options.gpu_index) {
     THROW_CHECK(options.Check());
-    THROW_CHECK_EQ(model_.input_shapes.size(), 5);
+    THROW_CHECK_EQ(model_.input_shapes().size(), 5);
     ThrowCheckONNXNode(
-        model_.input_names[0], "descs1", model_.input_shapes[0], {-1, -1});
+        model_.input_names()[0], "descs1", model_.input_shapes()[0], {-1, -1});
     ThrowCheckONNXNode(
-        model_.input_names[1], "descs2", model_.input_shapes[1], {-1, -1});
+        model_.input_names()[1], "descs2", model_.input_shapes()[1], {-1, -1});
     ThrowCheckONNXNode(
-        model_.input_names[2], "min_cossim", model_.input_shapes[2], {});
+        model_.input_names()[2], "min_cossim", model_.input_shapes()[2], {});
     ThrowCheckONNXNode(
-        model_.input_names[3], "max_ratio", model_.input_shapes[3], {});
+        model_.input_names()[3], "max_ratio", model_.input_shapes()[3], {});
     ThrowCheckONNXNode(
-        model_.input_names[4], "cross_check", model_.input_shapes[4], {});
-    THROW_CHECK_EQ(model_.output_shapes.size(), 3);
+        model_.input_names()[4], "cross_check", model_.input_shapes()[4], {});
+    THROW_CHECK_EQ(model_.output_shapes().size(), 3);
     ThrowCheckONNXNode(
-        model_.output_names[0], "idx0", model_.output_shapes[0], {-1});
+        model_.output_names()[0], "idx0", model_.output_shapes()[0], {-1});
     ThrowCheckONNXNode(
-        model_.output_names[1], "idx1", model_.output_shapes[1], {-1});
+        model_.output_names()[1], "idx1", model_.output_shapes()[1], {-1});
     ThrowCheckONNXNode(
-        model_.output_names[2], "scores", model_.output_shapes[2], {-1});
+        model_.output_names()[2], "scores", model_.output_shapes()[2], {-1});
   }
 
   void Match(const Image& image1,
@@ -442,11 +442,11 @@ class AlikedBruteForceFeatureMatcher : public FeatureMatcher {
                 image.descriptors->type == FeatureExtractorType::ALIKED_N32)
         << "Unsupported feature type: "
         << FeatureExtractorTypeToString(image.descriptors->type);
-    THROW_CHECK_EQ(image.descriptors->data.cols(), 128 * sizeof(float));
+    THROW_CHECK_EQ(image.descriptors->data.cols() % sizeof(float), 0);
 
     const int num_keypoints = image.descriptors->data.rows();
-    THROW_CHECK_EQ(image.descriptors->data.cols() % sizeof(float), 0);
     const int descriptor_dim = image.descriptors->data.cols() / sizeof(float);
+    THROW_CHECK_GT(descriptor_dim, 0);
 
     Features features;
     features.image_id = image.image_id;

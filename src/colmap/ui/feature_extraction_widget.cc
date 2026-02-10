@@ -174,8 +174,10 @@ AlikedExtractionWidget::AlikedExtractionWidget(QWidget* parent,
   AddOptionText(&options->feature_extraction->gpu_index, "gpu_index");
 
   model_variant_cb_ = new QComboBox(this);
-  model_variant_cb_->addItem("n16rot");
-  model_variant_cb_->addItem("n32");
+  model_variant_cb_->addItem(
+      "n16rot", static_cast<int>(FeatureExtractorType::ALIKED_N16ROT));
+  model_variant_cb_->addItem(
+      "n32", static_cast<int>(FeatureExtractorType::ALIKED_N32));
   AddWidgetRow("aliked.model_variant", model_variant_cb_);
 
   AlikedExtractionOptions& aliked_options =
@@ -189,11 +191,8 @@ AlikedExtractionWidget::AlikedExtractionWidget(QWidget* parent,
 void AlikedExtractionWidget::Run() {
   WriteOptions();
 
-  if (model_variant_cb_->currentIndex() == 0) {
-    options_->feature_extraction->type = FeatureExtractorType::ALIKED_N16ROT;
-  } else {
-    options_->feature_extraction->type = FeatureExtractorType::ALIKED_N32;
-  }
+  options_->feature_extraction->type = static_cast<FeatureExtractorType>(
+      model_variant_cb_->currentData().toInt());
 
   ImageReaderOptions reader_options = *options_->image_reader;
   reader_options.image_path = *options_->image_path;

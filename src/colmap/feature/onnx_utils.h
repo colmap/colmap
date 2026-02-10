@@ -63,16 +63,26 @@ class ONNXModel {
   std::vector<Ort::Value> Run(
       const std::vector<Ort::Value>& input_tensors) const;
 
-  Ort::Env env;
-  Ort::AllocatorWithDefaultOptions allocator;
-  Ort::SessionOptions session_options;
-  std::unique_ptr<Ort::Session> session;
-  std::vector<std::vector<int64_t>> input_shapes;
-  std::vector<Ort::AllocatedStringPtr> input_name_strs;
-  std::vector<char*> input_names;
-  std::vector<std::vector<int64_t>> output_shapes;
-  std::vector<Ort::AllocatedStringPtr> output_name_strs;
-  std::vector<char*> output_names;
+  const std::vector<std::vector<int64_t>>& input_shapes() const {
+    return input_shapes_;
+  }
+  const std::vector<char*>& input_names() const { return input_names_; }
+  const std::vector<std::vector<int64_t>>& output_shapes() const {
+    return output_shapes_;
+  }
+  const std::vector<char*>& output_names() const { return output_names_; }
+
+ private:
+  Ort::Env env_;
+  Ort::AllocatorWithDefaultOptions allocator_;
+  Ort::SessionOptions session_options_;
+  std::unique_ptr<Ort::Session> session_;
+  std::vector<std::vector<int64_t>> input_shapes_;
+  std::vector<Ort::AllocatedStringPtr> input_name_strs_;
+  std::vector<char*> input_names_;
+  std::vector<std::vector<int64_t>> output_shapes_;
+  std::vector<Ort::AllocatedStringPtr> output_name_strs_;
+  std::vector<char*> output_names_;
 };
 
 }  // namespace colmap

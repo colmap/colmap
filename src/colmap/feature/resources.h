@@ -34,25 +34,25 @@
 namespace colmap {
 
 #ifdef COLMAP_DOWNLOAD_ENABLED
-const static std::string kDefaultAlikedN16RotFeatureExtractorUri =
+inline const std::string kDefaultAlikedN16RotFeatureExtractorUri =
     "https://github.com/colmap/colmap/releases/download/3.13.0/"
     "aliked-n16rot.onnx;"
     "aliked-n16rot.onnx;"
     "39c423d0a6f03d39ec89d3d1d61853765c2fb6a8b8381376c703e5758778a547";
-const static std::string kDefaultAlikedN32FeatureExtractorUri =
+inline const std::string kDefaultAlikedN32FeatureExtractorUri =
     "https://github.com/colmap/colmap/releases/download/3.13.0/"
     "aliked-n32.onnx;"
     "aliked-n32.onnx;"
     "a077728a02d2de1a775c66df6de8cfeb7c6b51ca57572c64c680131c988c8b3c";
-const static std::string kDefaultONNXBruteForceMatcherUri =
+inline const std::string kDefaultONNXBruteForceMatcherUri =
     "https://github.com/colmap/colmap/releases/download/3.13.0/"
     "bruteforce-matcher.onnx;"
     "bruteforce-matcher.onnx;"
     "3c1282f96d83f5ffc861a873298d08bbe5219f59af59223f5ceab5c41a182a47";
 #else
-const static std::string kDefaultAlikedN16RotFeatureExtractorUri = "";
-const static std::string kDefaultAlikedN32FeatureExtractorUri = "";
-const static std::string kDefaultONNXBruteForceMatcherUri = "";
+inline const std::string kDefaultAlikedN16RotFeatureExtractorUri = "";
+inline const std::string kDefaultAlikedN32FeatureExtractorUri = "";
+inline const std::string kDefaultONNXBruteForceMatcherUri = "";
 #endif
 
 }  // namespace colmap
