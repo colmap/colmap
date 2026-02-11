@@ -27,6 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+#include "colmap/feature/aliked.h"
 #include "colmap/feature/extractor.h"
 #include "colmap/feature/sift.h"
 #include "colmap/util/testing.h"
@@ -40,15 +41,18 @@ TEST(FeatureMatchingOptions, Copy) {
   FeatureMatchingOptions options;
   options.max_num_matches += 100;
   options.sift->max_ratio *= 0.1;
+  options.aliked->min_cossim *= 0.1;
 
   FeatureMatchingOptions copy = options;
 
   // Verify fields are copied
   EXPECT_EQ(copy.max_num_matches, options.max_num_matches);
   EXPECT_EQ(copy.sift->max_ratio, options.sift->max_ratio);
+  EXPECT_EQ(copy.aliked->min_cossim, options.aliked->min_cossim);
 
   // Verify deep copy of shared_ptr (different pointer instances)
   EXPECT_NE(options.sift.get(), copy.sift.get());
+  EXPECT_NE(options.aliked.get(), copy.aliked.get());
 }
 
 }  // namespace

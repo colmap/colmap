@@ -69,6 +69,7 @@ mkdir build && cd build
 cmake3 .. -GNinja \
     -DCUDA_ENABLED="${BUILD_CUDA_ENABLED}" \
     -DCMAKE_CUDA_ARCHITECTURES="all-major" \
+    -DONNX_ENABLED=OFF \
     -DGUI_ENABLED=OFF \
     -DCGAL_ENABLED=OFF \
     -DLSD_ENABLED=OFF \

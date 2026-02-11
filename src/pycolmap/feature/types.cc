@@ -1,7 +1,5 @@
 #include "colmap/feature/types.h"
 
-#include "colmap/util/logging.h"
-
 #include "pycolmap/feature/types.h"
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
@@ -17,8 +15,11 @@ namespace py = pybind11;
 void BindFeatureTypes(py::module& m) {
   py::enum_<FeatureExtractorType>(m, "FeatureExtractorType")
       .value("UNDEFINED", FeatureExtractorType::UNDEFINED)
-      .value("SIFT", FeatureExtractorType::SIFT);
+      .value("SIFT", FeatureExtractorType::SIFT)
+      .value("ALIKED_N16ROT", FeatureExtractorType::ALIKED_N16ROT)
+      .value("ALIKED_N32", FeatureExtractorType::ALIKED_N32);
 
+  // Define both classes first without cross-referencing methods.
   auto PyFeatureDescriptors =
       py::classh<FeatureDescriptors>(m, "FeatureDescriptors")
           .def(py::init<>())
@@ -27,8 +28,6 @@ void BindFeatureTypes(py::module& m) {
                "data"_a)
           .def_readwrite("type", &FeatureDescriptors::type)
           .def_readwrite("data", &FeatureDescriptors::data);
-  MakeDataclass(PyFeatureDescriptors);
-
   auto PyFeatureDescriptorsFloat =
       py::classh<FeatureDescriptorsFloat>(m, "FeatureDescriptorsFloat")
           .def(py::init<>())
@@ -37,6 +36,30 @@ void BindFeatureTypes(py::module& m) {
                "data"_a)
           .def_readwrite("type", &FeatureDescriptorsFloat::type)
           .def_readwrite("data", &FeatureDescriptorsFloat::data);
+
+  // Add cross-referencing methods after both classes are defined.
+  PyFeatureDescriptors
+      .def_static("from_float",
+                  &FeatureDescriptors::FromFloat,
+                  "float_desc"_a,
+                  "Create from float descriptors by reinterpreting float32 "
+                  "data as uint8 bytes.")
+      .def("to_float",
+           &FeatureDescriptors::ToFloat,
+           "Convert to float descriptors by reinterpreting uint8 data as "
+           "float32.");
+  PyFeatureDescriptorsFloat
+      .def_static("from_bytes",
+                  &FeatureDescriptorsFloat::FromBytes,
+                  "byte_desc"_a,
+                  "Create from byte descriptors by reinterpreting uint8 "
+                  "data as float32.")
+      .def("to_bytes",
+           &FeatureDescriptorsFloat::ToBytes,
+           "Convert to byte descriptors by reinterpreting float32 data as "
+           "uint8.");
+
+  MakeDataclass(PyFeatureDescriptors);
   MakeDataclass(PyFeatureDescriptorsFloat);
 
   auto PyFeatureKeypoint =

@@ -89,6 +89,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   std::filesystem::path image_list_path;
   std::string data_type = "individual";
   std::string quality = "high";
+  std::string feature = "sift";
   std::string mapper = "incremental";
   std::string mesher = "poisson";
 
@@ -115,6 +116,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("matching", &reconstruction_options.matching);
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
+  options.AddDefaultOption("feature", &feature, "{sift, aliked}");
   options.AddDefaultOption(
       "mapper", &mapper, "{incremental, hierarchical, global}");
   options.AddDefaultOption("mesher", &mesher, "{poisson, delaunay}");
@@ -137,6 +139,10 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   StringToUpper(&quality);
   reconstruction_options.quality =
       AutomaticReconstructionController::QualityFromString(quality);
+
+  StringToUpper(&feature);
+  reconstruction_options.feature =
+      AutomaticReconstructionController::FeatureFromString(feature);
 
   StringToUpper(&mapper);
   reconstruction_options.mapper =

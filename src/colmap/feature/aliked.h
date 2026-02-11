@@ -29,18 +29,53 @@
 
 #pragma once
 
-#include <string>
+#include "colmap/feature/extractor.h"
+#include "colmap/feature/matcher.h"
+#include "colmap/feature/resources.h"
 
 namespace colmap {
 
-#ifdef COLMAP_DOWNLOAD_ENABLED
-inline const std::string kDefaultVocabTreeUri =
-    "https://github.com/colmap/colmap/releases/download/3.11.1/"
-    "vocab_tree_faiss_flickr100K_words256K.bin;"
-    "vocab_tree_faiss_flickr100K_words256K.bin;"
-    "96ca8ec8ea60b1f73465aaf2c401fd3b3ca75cdba2d3c50d6a2f6f760f275ddc";
-#else
-inline const std::string kDefaultVocabTreeUri = "";
-#endif
+// The ALIKED torch model was exported to ONNX using the following codebase:
+// https://github.com/colmap/ALIKED-ONNX/tree/user/jsch/onnx-export
+// Follow instructions in export/README.md and see standalone C++
+// implementation in cpp_test/README.md.
+
+struct AlikedExtractionOptions {
+  // Maximum number of features to detect, keeping higher-score features.
+  int max_num_features = 2048;
+
+  // Minimum score threshold for keypoint detection.
+  double min_score = 0.2;
+
+  // The path to the ONNX model file for the ALIKED extractor.
+  // Must be a sparse model with max_keypoints and min_score inputs.
+  std::string n16rot_model_path = kDefaultAlikedN16RotFeatureExtractorUri;
+  std::string n32_model_path = kDefaultAlikedN32FeatureExtractorUri;
+
+  bool Check() const;
+};
+
+std::unique_ptr<FeatureExtractor> CreateAlikedFeatureExtractor(
+    const FeatureExtractionOptions& options);
+
+struct AlikedMatchingOptions {
+  // The minimum cosine similarity for a match to be considered valid
+  // in brute-force matching.
+  double min_cossim = 0.85;
+
+  // Maximum ratio for Lowe's ratio test (second-best / best distance).
+  double max_ratio = 1.0;
+
+  // Enable cross-checking (mutual nearest neighbor).
+  bool cross_check = true;
+
+  // The path to the ONNX model file for the brute-force matcher.
+  std::string bruteforce_model_path = kDefaultONNXBruteForceMatcherUri;
+
+  bool Check() const;
+};
+
+std::unique_ptr<FeatureMatcher> CreateAlikedFeatureMatcher(
+    const FeatureMatchingOptions& options);
 
 }  // namespace colmap

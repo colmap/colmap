@@ -30,6 +30,8 @@
 #pragma once
 
 #include "colmap/controllers/option_manager.h"
+#include "colmap/feature/extractor.h"
+#include "colmap/feature/matcher.h"
 #include "colmap/retrieval/resources.h"
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/util/enum_utils.h"
@@ -45,6 +47,7 @@ class AutomaticReconstructionController : public Thread {
  public:
   MAKE_ENUM_CLASS(DataType, 0, INDIVIDUAL, VIDEO, INTERNET);
   MAKE_ENUM_CLASS(Quality, 0, LOW, MEDIUM, HIGH, EXTREME);
+  MAKE_ENUM_CLASS(Feature, 0, SIFT, ALIKED);
   MAKE_ENUM_CLASS(Mapper, 0, INCREMENTAL, HIERARCHICAL, GLOBAL);
   MAKE_ENUM_CLASS(Mesher, 0, POISSON, DELAUNAY);
 
@@ -99,6 +102,9 @@ class AutomaticReconstructionController : public Thread {
 #else
     bool dense = false;
 #endif
+
+    // The feature extraction/matching algorithm to be used.
+    Feature feature = Feature::SIFT;
 
     // The mapping algorithm to be used.
     Mapper mapper = Mapper::INCREMENTAL;

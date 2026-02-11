@@ -31,7 +31,6 @@
 
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/enum_utils.h"
-#include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
 #include <vector>
@@ -40,8 +39,10 @@
 
 namespace colmap {
 
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureExtractorType, -1, UNDEFINED, SIFT);
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType, -1, UNDEFINED, SIFT);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(
+    FeatureExtractorType, -1, UNDEFINED, SIFT, ALIKED_N16ROT, ALIKED_N32);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(
+    FeatureMatcherType, -1, UNDEFINED, SIFT_BRUTEFORCE, ALIKED_BRUTEFORCE);
 
 struct FeatureKeypoint {
   FeatureKeypoint();
@@ -98,11 +99,21 @@ using FeatureDescriptorsData =
 using FeatureDescriptorsFloatData =
     Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 
+// Forward declaration for conversion methods.
+struct FeatureDescriptorsFloat;
+
 // Feature descriptors with associated extractor type metadata.
 struct FeatureDescriptors {
   FeatureDescriptors() = default;
   FeatureDescriptors(FeatureExtractorType type, FeatureDescriptorsData data)
       : type(type), data(std::move(data)) {}
+
+  // Create from float descriptors by reinterpreting as uint8 bytes.
+  static FeatureDescriptors FromFloat(
+      const FeatureDescriptorsFloat& float_desc);
+
+  // Convert to float descriptors by reinterpreting uint8 data as float32.
+  FeatureDescriptorsFloat ToFloat() const;
 
   FeatureExtractorType type = FeatureExtractorType::UNDEFINED;
   FeatureDescriptorsData data;
@@ -113,6 +124,12 @@ struct FeatureDescriptorsFloat {
   FeatureDescriptorsFloat(FeatureExtractorType type,
                           FeatureDescriptorsFloatData data)
       : type(type), data(std::move(data)) {}
+
+  // Create from byte descriptors by reinterpreting uint8 data as float32.
+  static FeatureDescriptorsFloat FromBytes(const FeatureDescriptors& byte_desc);
+
+  // Convert to byte descriptors by reinterpreting float32 data as uint8.
+  FeatureDescriptors ToBytes() const;
 
   FeatureExtractorType type = FeatureExtractorType::UNDEFINED;
   FeatureDescriptorsFloatData data;

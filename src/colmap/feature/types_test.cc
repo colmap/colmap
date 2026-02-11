@@ -228,6 +228,33 @@ TEST(FeatureDescriptors, Nominal) {
   EXPECT_EQ(descriptors.data(1, 2), descriptors.data.data()[5]);
 }
 
+TEST(FeatureDescriptors, SiftConversion) {
+  // SIFT uses value cast (uint8 <-> float)
+  const FeatureDescriptors original(FeatureExtractorType::SIFT,
+                                    FeatureDescriptorsData::Random(10, 128));
+  const FeatureDescriptorsFloat as_float = original.ToFloat();
+  EXPECT_EQ(as_float.type, FeatureExtractorType::SIFT);
+  EXPECT_EQ(as_float.data.cols(), original.data.cols());
+  EXPECT_EQ(as_float.data, original.data.cast<float>());
+
+  const FeatureDescriptors recovered = as_float.ToBytes();
+  EXPECT_EQ(recovered.type, FeatureExtractorType::SIFT);
+  EXPECT_EQ(recovered.data, original.data);
+}
+
+TEST(FeatureDescriptors, AlikedConversion) {
+  // ALIKED uses reinterpret cast (float32 bytes <-> float)
+  const FeatureDescriptors original(FeatureExtractorType::ALIKED_N16ROT,
+                                    FeatureDescriptorsData::Random(10, 512));
+  const FeatureDescriptorsFloat as_float = original.ToFloat();
+  EXPECT_EQ(as_float.type, FeatureExtractorType::ALIKED_N16ROT);
+  EXPECT_EQ(as_float.data.cols() * sizeof(float), original.data.cols());
+
+  const FeatureDescriptors recovered = as_float.ToBytes();
+  EXPECT_EQ(recovered.type, FeatureExtractorType::ALIKED_N16ROT);
+  EXPECT_EQ(recovered.data, original.data);
+}
+
 TEST(FeatureMatches, Nominal) {
   FeatureMatch match;
   EXPECT_EQ(match.point2D_idx1, kInvalidPoint2DIdx);
