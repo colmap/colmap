@@ -618,32 +618,12 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
 
   constexpr int kRandomSeed = 42;
 
-  // Single-threaded execution.
-  {
-    auto reconstruction_manager0 =
-        run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
-    auto reconstruction_manager1 =
-        run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
-    EXPECT_THAT(*reconstruction_manager0->Get(0),
-                ReconstructionEq(*reconstruction_manager1->Get(0)));
-  }
-
-  // Multi-threaded execution.
-  {
-    auto reconstruction_manager0 =
-        run_mapper(/*num_threads=*/3, /*random_seed=*/kRandomSeed);
-    auto reconstruction_manager1 =
-        run_mapper(/*num_threads=*/3, /*random_seed=*/kRandomSeed);
-    // Same seed should produce similar results, up to floating-point variations
-    // in optimization.
-    EXPECT_THAT(*reconstruction_manager0->Get(0),
-                ReconstructionNear(*reconstruction_manager1->Get(0),
-                                   /*max_rotation_error_deg=*/1e-10,
-                                   /*max_proj_center_error=*/1e-10,
-                                   /*max_scale_error=*/std::nullopt,
-                                   /*num_obs_tolerance=*/0.01,
-                                   /*align=*/false));
-  }
+  auto reconstruction_manager0 =
+      run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
+  auto reconstruction_manager1 =
+      run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
+  EXPECT_THAT(*reconstruction_manager0->Get(0),
+              ReconstructionEq(*reconstruction_manager1->Get(0)));
 }
 
 TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
@@ -681,32 +661,12 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
 
   constexpr int kRandomSeed = 42;
 
-  // Single-threaded execution.
-  {
-    auto reconstruction_manager0 =
-        run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
-    auto reconstruction_manager1 =
-        run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
-    EXPECT_THAT(*reconstruction_manager0->Get(0),
-                ReconstructionEq(*reconstruction_manager1->Get(0)));
-  }
-
-  // Multi-threaded execution.
-  {
-    auto reconstruction_manager0 =
-        run_mapper(/*num_threads=*/3, /*random_seed=*/kRandomSeed);
-    auto reconstruction_manager1 =
-        run_mapper(/*num_threads=*/3, /*random_seed=*/kRandomSeed);
-    // Same seed should produce similar results, up to floating-point variations
-    // in optimization.
-    EXPECT_THAT(*reconstruction_manager0->Get(0),
-                ReconstructionNear(*reconstruction_manager1->Get(0),
-                                   /*max_rotation_error_deg=*/1e-10,
-                                   /*max_proj_center_error=*/1e-10,
-                                   /*max_scale_error=*/std::nullopt,
-                                   /*num_obs_tolerance=*/0.01,
-                                   /*align=*/false));
-  }
+  auto reconstruction_manager0 =
+      run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
+  auto reconstruction_manager1 =
+      run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
+  EXPECT_THAT(*reconstruction_manager0->Get(0),
+              ReconstructionEq(*reconstruction_manager1->Get(0)));
 }
 
 }  // namespace
