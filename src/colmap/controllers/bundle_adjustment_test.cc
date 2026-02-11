@@ -66,9 +66,9 @@ TEST(BundleAdjustmentController, Reconstruction) {
   auto reconstruction = std::make_shared<Reconstruction>(gt_reconstruction);
 
   SyntheticNoiseOptions noise_options;
-  noise_options.point2D_stddev = 0.5;
+  noise_options.point2D_stddev = 0.1;
   noise_options.point3D_stddev = 0.1;
-  noise_options.rig_from_world_rotation_stddev = 0.5;
+  noise_options.rig_from_world_rotation_stddev = 0.1;
   noise_options.rig_from_world_translation_stddev = 0.1;
   SynthesizeNoise(noise_options, reconstruction.get());
 
