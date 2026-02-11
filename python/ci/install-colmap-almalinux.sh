@@ -29,7 +29,8 @@ yum install -y \
     perl \
     libXmu-devel \
     libXi-devel \
-    mesa-libGL-devel
+    mesa-libGL-devel \
+    mesa-libGLU-devel
 
 source scl_source enable gcc-toolset-12
 
