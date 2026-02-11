@@ -647,7 +647,7 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
 }
 
 TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
-  SetPRNGSeed(1);
+  SetPRNGSeed(42);
 
   const auto database_path = CreateTestDir() / "database.db";
 
