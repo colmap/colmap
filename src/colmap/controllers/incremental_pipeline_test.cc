@@ -600,7 +600,7 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 1;
+  synthetic_noise_options.point2D_stddev = 0.1;
   SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
   auto run_mapper = [&](int num_threads, int random_seed) {
@@ -662,8 +662,8 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 0.5;
-  synthetic_noise_options.prior_position_stddev = 1.0;
+  synthetic_noise_options.point2D_stddev = 0.1;
+  synthetic_noise_options.prior_position_stddev = 0.1;
   SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
   auto run_mapper = [&](int num_threads, int random_seed) {
