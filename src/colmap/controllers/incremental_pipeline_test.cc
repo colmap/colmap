@@ -585,7 +585,7 @@ TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
 }
 
 TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
-  SetPRNGSeed(1);
+  SetPRNGSeed(42);
 
   const auto database_path = CreateTestDir() / "database.db";
 
