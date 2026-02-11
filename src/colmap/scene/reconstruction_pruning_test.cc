@@ -29,6 +29,7 @@
 
 #include "colmap/scene/reconstruction_pruning.h"
 
+#include "colmap/math/random.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/eigen_alignment.h"
 
@@ -46,6 +47,8 @@ TEST(FindRedundantPoints3D, Empty) {
 }
 
 TEST(FindRedundantPoints3D, VaryingCoverageGain) {
+  SetPRNGSeed(1);
+
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
