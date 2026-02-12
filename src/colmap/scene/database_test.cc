@@ -816,5 +816,77 @@ INSTANTIATE_TEST_SUITE_P(
       return Database::Open(path);
     }));
 
+// Helper to create a database file with images and descriptors.
+std::shared_ptr<Database> CreateDatabaseWithRandomDescriptors(
+    const std::vector<int>& num_descriptors_per_image) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+
+  const int num_images = num_descriptors_per_image.size();
+
+  Camera camera;
+  camera.camera_id = database->WriteCamera(camera);
+
+  for (int i = 0; i < num_images; ++i) {
+    Image image;
+    image.SetName("image" + std::to_string(i));
+    image.SetCameraId(camera.camera_id);
+    image.SetImageId(database->WriteImage(image));
+    database->WriteDescriptors(
+        image.ImageId(),
+        FeatureDescriptors(
+            FeatureExtractorType::SIFT,
+            FeatureDescriptorsData::Random(num_descriptors_per_image[i], 128)));
+  }
+
+  return database;
+}
+
+TEST(LoadRandomDatabaseDescriptorsTest, LoadEmpty) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  const auto result = LoadRandomDatabaseDescriptors(*database, -1);
+  EXPECT_EQ(result.data.rows(), 0);
+  EXPECT_EQ(result.data.cols(), 0);
+  EXPECT_EQ(result.type, FeatureExtractorType::UNDEFINED);
+}
+
+TEST(LoadRandomDatabaseDescriptorsTest, LoadAll) {
+  const auto database = CreateDatabaseWithRandomDescriptors({10, 20, 30});
+  const auto result = LoadRandomDatabaseDescriptors(*database, -1);
+  EXPECT_EQ(result.data.rows(), 60);
+  EXPECT_EQ(result.data.cols(), 128);
+  EXPECT_EQ(result.type, FeatureExtractorType::SIFT);
+}
+
+TEST(LoadRandomDatabaseDescriptorsTest, LoadAllWithLargeMax) {
+  const auto database = CreateDatabaseWithRandomDescriptors({15, 15});
+  const auto result = LoadRandomDatabaseDescriptors(*database, 1000);
+  EXPECT_EQ(result.data.rows(), 30);
+  EXPECT_EQ(result.data.cols(), 128);
+}
+
+TEST(LoadRandomDatabaseDescriptorsTest, LoadSubset) {
+  const auto database = CreateDatabaseWithRandomDescriptors({10, 20, 30});
+  const auto result = LoadRandomDatabaseDescriptors(*database, 10);
+  EXPECT_EQ(result.data.rows(), 10);
+  EXPECT_EQ(result.data.cols(), 128);
+  EXPECT_EQ(result.type, FeatureExtractorType::SIFT);
+}
+
+TEST(LoadRandomDatabaseDescriptorsTest, LoadSubsetWithSomeEmpty) {
+  const auto database =
+      CreateDatabaseWithRandomDescriptors({0, 10, 0, 15, 0, 20, 0});
+  const auto result = LoadRandomDatabaseDescriptors(*database, 15);
+  EXPECT_EQ(result.data.rows(), 15);
+  EXPECT_EQ(result.data.cols(), 128);
+  EXPECT_EQ(result.type, FeatureExtractorType::SIFT);
+}
+
+TEST(LoadRandomDatabaseDescriptorsTest, LoadExactTotal) {
+  const auto database = CreateDatabaseWithRandomDescriptors({0, 10, 0, 10, 0});
+  const auto result = LoadRandomDatabaseDescriptors(*database, 20);
+  EXPECT_EQ(result.data.rows(), 20);
+  EXPECT_EQ(result.data.cols(), 128);
+}
+
 }  // namespace
 }  // namespace colmap

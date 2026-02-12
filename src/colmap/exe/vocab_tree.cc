@@ -31,86 +31,14 @@
 
 #include "colmap/controllers/option_manager.h"
 #include "colmap/feature/utils.h"
-#include "colmap/optim/random_sampler.h"
 #include "colmap/retrieval/resources.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/file.h"
 #include "colmap/util/timer.h"
 
-#include <numeric>
-
 namespace colmap {
 namespace {
-
-// Loads descriptors for training from the database. Loads all descriptors from
-// the database if max_num_images < 0, otherwise the descriptors of a random
-// subset of images are selected.
-FeatureDescriptorsFloat LoadRandomDatabaseDescriptors(
-    const std::filesystem::path& database_path, const int max_num_images) {
-  auto database = Database::Open(database_path);
-  DatabaseTransaction database_transaction(database.get());
-
-  const std::vector<Image> images = database->ReadAllImages();
-
-  FeatureDescriptorsFloat result;
-  result.type = FeatureExtractorType::UNDEFINED;
-
-  std::vector<size_t> image_idxs;
-  size_t num_descriptors = 0;
-  if (max_num_images < 0 ||
-      static_cast<size_t>(max_num_images) >= images.size()) {
-    // All images in the database.
-    image_idxs.resize(images.size());
-    std::iota(image_idxs.begin(), image_idxs.end(), 0);
-    num_descriptors = database->NumDescriptors();
-  } else {
-    // Random subset of images in the database.
-    THROW_CHECK_LE(max_num_images, images.size());
-    RandomSampler random_sampler(max_num_images);
-    random_sampler.Initialize(images.size());
-    random_sampler.Sample(&image_idxs);
-    for (const size_t image_idx : image_idxs) {
-      const auto& image = images.at(image_idx);
-      num_descriptors += database->NumDescriptorsForImage(image.ImageId());
-    }
-  }
-
-  size_t descriptor_row = 0;
-  for (const size_t image_idx : image_idxs) {
-    const auto& image = images.at(image_idx);
-    const FeatureDescriptors image_descriptors =
-        database->ReadDescriptors(image.ImageId());
-
-    const FeatureDescriptorsFloat image_descriptors_float =
-        image_descriptors.ToFloat();
-
-    // Check that all images have the same feature type.
-    if (result.type == FeatureExtractorType::UNDEFINED) {
-      THROW_CHECK_NE(image_descriptors.type, FeatureExtractorType::UNDEFINED);
-      result.type = image_descriptors.type;
-      result.data.resize(num_descriptors, image_descriptors_float.data.cols());
-    } else {
-      THROW_CHECK_EQ(result.type, image_descriptors.type)
-          << "All images must have the same feature type to build a "
-             "vocabulary tree";
-      THROW_CHECK_EQ(image_descriptors_float.data.cols(), result.data.cols())
-          << "All images must have the same descriptor dimensionality to build "
-             "a vocabulary tree";
-    }
-
-    result.data.block(descriptor_row,
-                      0,
-                      image_descriptors_float.data.rows(),
-                      image_descriptors_float.data.cols()) =
-        image_descriptors_float.data;
-    descriptor_row += image_descriptors_float.data.rows();
-  }
-
-  THROW_CHECK_EQ(descriptor_row, num_descriptors);
-
-  return result;
-}
 
 std::vector<Image> ReadVocabTreeRetrievalImageList(
     const std::filesystem::path& path, Database* database) {
@@ -139,7 +67,7 @@ std::vector<Image> ReadVocabTreeRetrievalImageList(
 int RunVocabTreeBuilder(int argc, char** argv) {
   std::filesystem::path vocab_tree_path = kDefaultVocabTreeUri;
   retrieval::VisualIndex::BuildOptions build_options;
-  int max_num_images = -1;
+  int max_num_descriptors = -1;
 
   OptionManager options;
   options.AddDatabaseOptions();
@@ -149,14 +77,14 @@ int RunVocabTreeBuilder(int argc, char** argv) {
   options.AddDefaultOption("num_checks", &build_options.num_checks);
   options.AddDefaultOption("num_threads", &build_options.num_threads);
   options.AddDefaultOption("num_rounds", &build_options.num_rounds);
-  options.AddDefaultOption("max_num_images", &max_num_images);
+  options.AddDefaultOption("max_num_descriptors", &max_num_descriptors);
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
 
   LOG(INFO) << "Loading descriptors...";
-  const auto descriptors =
-      LoadRandomDatabaseDescriptors(*options.database_path, max_num_images);
+  const auto descriptors = LoadRandomDatabaseDescriptors(
+      *Database::Open(*options.database_path), max_num_descriptors);
   LOG(INFO) << "=> Loaded a total of " << descriptors.data.rows()
             << " descriptors";
   THROW_CHECK_GT(descriptors.data.size(), 0);

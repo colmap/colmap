@@ -65,6 +65,8 @@ COLMAP_ADD_LIBRARY(
         colmap_util
         Eigen3::Eigen
         SQLite::SQLite3
+    PRIVATE_LINK_LIBS
+        colmap_optim
 )
 
 if(TESTS_ENABLED)
