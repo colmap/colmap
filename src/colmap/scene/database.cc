@@ -32,6 +32,8 @@
 #include "colmap/optim/random_sampler.h"
 #include "colmap/scene/database_sqlite.h"
 
+#include <numeric>
+
 namespace colmap {
 
 std::vector<Database::Factory> Database::factories_ = {&OpenSqliteDatabase};
