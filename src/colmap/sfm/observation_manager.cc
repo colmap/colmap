@@ -196,7 +196,7 @@ void ObservationManager::ResetTriObservations(const image_t image_id,
         (!is_deleted_point3D || image_id < corr->image_id)) {
       const image_pair_t pair_id = ImagePairToPairId(image_id, corr->image_id);
       THROW_CHECK_GT(image_pair_stats_[pair_id].num_tri_corrs, 0)
-          << "The scene graph graph must not contain duplicate matches";
+          << "The scene graph must not contain duplicate matches";
       image_pair_stats_[pair_id].num_tri_corrs -= 1;
     }
   }
