@@ -52,6 +52,7 @@ COLMAP_ADD_LIBRARY(
         extractor.h extractor.cc
         index.h index.cc
         matcher.h matcher.cc
+        onnx_matchers.h onnx_matchers.cc
         onnx_utils.h onnx_utils.cc
         pairing.h pairing.cc
         sift.h sift.cc
@@ -83,13 +84,20 @@ if(ONNX_ENABLED)
 endif()
 
 if(ONNX_ENABLED)
-COLMAP_ADD_TEST(
-    NAME aliked_test
-    SRCS aliked_test.cc
-    LINK_LIBS
-        colmap_feature
-        onnxruntime::onnxruntime
-)
+    COLMAP_ADD_TEST(
+        NAME aliked_test
+        SRCS aliked_test.cc
+        LINK_LIBS
+            colmap_feature
+            onnxruntime::onnxruntime
+    )
+    COLMAP_ADD_TEST(
+        NAME onnx_matchers_test
+        SRCS onnx_matchers_test.cc
+        LINK_LIBS
+            colmap_feature
+            onnxruntime::onnxruntime
+    )
 endif()
 COLMAP_ADD_TEST(
     NAME extractor_test
