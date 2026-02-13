@@ -286,11 +286,23 @@ void OptionManager::AddFeatureMatchingOptions() {
                    &feature_matching->sift->cross_check);
   AddDefaultOption("SiftMatching.cpu_brute_force_matcher",
                    &feature_matching->sift->cpu_brute_force_matcher);
+  AddDefaultOption("SiftMatching.lightglue_min_score",
+                   &feature_matching->sift->lightglue.min_score);
+  AddDefaultOption("SiftMatching.lightglue_model_path",
+                   &feature_matching->sift->lightglue.model_path);
 
-  AddDefaultOption("AlikedMatching.min_cossim",
-                   &feature_matching->aliked->min_cossim);
+  AddDefaultOption("AlikedMatching.brute_force_min_cossim",
+                   &feature_matching->aliked->brute_force.min_cossim);
+  AddDefaultOption("AlikedMatching.brute_force_max_ratio",
+                   &feature_matching->aliked->brute_force.max_ratio);
+  AddDefaultOption("AlikedMatching.brute_force_cross_check",
+                   &feature_matching->aliked->brute_force.cross_check);
   AddDefaultOption("AlikedMatching.bruteforce_model_path",
-                   &feature_matching->aliked->bruteforce_model_path);
+                   &feature_matching->aliked->brute_force.model_path);
+  AddDefaultOption("AlikedMatching.lightglue_min_score",
+                   &feature_matching->aliked->lightglue.min_score);
+  AddDefaultOption("AlikedMatching.lightglue_model_path",
+                   &feature_matching->aliked->lightglue.model_path);
 }
 
 void OptionManager::AddTwoViewGeometryOptions() {

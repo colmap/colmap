@@ -81,6 +81,7 @@ bool SiftExtractionOptions::Check() const {
 bool SiftMatchingOptions::Check() const {
   CHECK_OPTION_GT(max_ratio, 0.0);
   CHECK_OPTION_GT(max_distance, 0.0);
+  if (!lightglue.Check()) return false;
   return true;
 }
 
@@ -1540,17 +1541,25 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
     const FeatureMatchingOptions& options) {
   THROW_CHECK_NOTNULL(options.sift);
-  if (options.use_gpu) {
+  if (options.type == FeatureMatcherType::SIFT_LIGHTGLUE) {
+    return CreateLightGlueONNXFeatureMatcher(options, options.sift->lightglue);
+  } else if (options.type == FeatureMatcherType::SIFT_BRUTEFORCE) {
+    if (options.use_gpu) {
 #ifdef COLMAP_GPU_ENABLED
-    LOG(INFO) << "Creating SIFT GPU feature matcher";
-    return SiftGPUFeatureMatcher::Create(options);
+      LOG(INFO) << "Creating SIFT GPU feature matcher";
+      return SiftGPUFeatureMatcher::Create(options);
 #else
-    return nullptr;
+      return nullptr;
 #endif  // COLMAP_GPU_ENABLED
+    } else {
+      LOG(INFO) << "Creating SIFT CPU feature matcher";
+      return SiftCPUFeatureMatcher::Create(options);
+    }
   } else {
-    LOG(INFO) << "Creating SIFT CPU feature matcher";
-    return SiftCPUFeatureMatcher::Create(options);
+    LOG(FATAL_THROW) << "Unknown SIFT feature matcher type: "
+                     << FeatureMatcherTypeToString(options.type);
   }
+  return nullptr;
 }
 
 void LoadSiftFeaturesFromTextFile(const std::filesystem::path& path,

@@ -44,15 +44,27 @@ inline const std::string kDefaultAlikedN32FeatureExtractorUri =
     "aliked-n32.onnx;"
     "aliked-n32.onnx;"
     "a077728a02d2de1a775c66df6de8cfeb7c6b51ca57572c64c680131c988c8b3c";
-inline const std::string kDefaultONNXBruteForceMatcherUri =
+inline const std::string kDefaultAlikedLightGlueFeatureMatcherUri =
+    "https://github.com/colmap/colmap/releases/download/3.13.0/"
+    "aliked-lightglue.onnx;"
+    "aliked-lightglue.onnx;"
+    "b9a5de7204648b18a8cf5dcac819f9d30de1a5961ef03756803c8b86c2dceb8d";
+inline const std::string kDefaultBruteForceONNXMatcherUri =
     "https://github.com/colmap/colmap/releases/download/3.13.0/"
     "bruteforce-matcher.onnx;"
     "bruteforce-matcher.onnx;"
     "3c1282f96d83f5ffc861a873298d08bbe5219f59af59223f5ceab5c41a182a47";
+inline const std::string kDefaultSiftLightGlueFeatureMatcherUri =
+    "https://github.com/colmap/colmap/releases/download/3.13.0/"
+    "sift-lightglue.onnx;"
+    "sift-lightglue.onnx;"
+    "e0500228472b43f92b3d36881a09b3310d3b058b56187b246cc7b9ab6429096e";
 #else
 inline const std::string kDefaultAlikedN16RotFeatureExtractorUri = "";
 inline const std::string kDefaultAlikedN32FeatureExtractorUri = "";
-inline const std::string kDefaultONNXBruteForceMatcherUri = "";
+inline const std::string kDefaultAlikedLightGlueFeatureMatcherUri = "";
+inline const std::string kDefaultBruteForceONNXMatcherUri = "";
+inline const std::string kDefaultSiftLightGlueFeatureMatcherUri = "";
 #endif
 
 }  // namespace colmap

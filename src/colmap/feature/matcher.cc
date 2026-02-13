@@ -30,6 +30,7 @@
 #include "colmap/feature/matcher.h"
 
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/onnx_matchers.h"
 #include "colmap/feature/sift.h"
 #include "colmap/util/misc.h"
 
@@ -88,7 +89,9 @@ bool FeatureMatchingOptions::RequiresOpenGL() const {
       return use_gpu;
 #endif
     }
+    case FeatureMatcherType::SIFT_LIGHTGLUE:
     case FeatureMatcherType::ALIKED_BRUTEFORCE:
+    case FeatureMatcherType::ALIKED_LIGHTGLUE:
       return false;
     default:
       ThrowUnknownFeatureMatcherType(type);
@@ -106,13 +109,16 @@ bool FeatureMatchingOptions::Check() const {
 #endif
   }
   CHECK_OPTION_GE(max_num_matches, 0);
-  if (type == FeatureMatcherType::SIFT_BRUTEFORCE) {
-    return THROW_CHECK_NOTNULL(sift)->Check();
-  } else if (type == FeatureMatcherType::ALIKED_BRUTEFORCE) {
-    return THROW_CHECK_NOTNULL(aliked)->Check();
-  } else {
-    LOG(ERROR) << "Unknown feature matcher type: " << type;
-    return false;
+  switch (type) {
+    case FeatureMatcherType::SIFT_BRUTEFORCE:
+    case FeatureMatcherType::SIFT_LIGHTGLUE:
+      return THROW_CHECK_NOTNULL(sift)->Check();
+    case FeatureMatcherType::ALIKED_BRUTEFORCE:
+    case FeatureMatcherType::ALIKED_LIGHTGLUE:
+      return THROW_CHECK_NOTNULL(aliked)->Check();
+    default:
+      LOG(ERROR) << "Unknown feature matcher type: " << type;
+      return false;
   }
   return true;
 }
@@ -121,8 +127,10 @@ std::unique_ptr<FeatureMatcher> FeatureMatcher::Create(
     const FeatureMatchingOptions& options) {
   switch (options.type) {
     case FeatureMatcherType::SIFT_BRUTEFORCE:
+    case FeatureMatcherType::SIFT_LIGHTGLUE:
       return CreateSiftFeatureMatcher(options);
     case FeatureMatcherType::ALIKED_BRUTEFORCE:
+    case FeatureMatcherType::ALIKED_LIGHTGLUE:
       return CreateAlikedFeatureMatcher(options);
     default:
       ThrowUnknownFeatureMatcherType(options.type);

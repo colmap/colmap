@@ -29,6 +29,7 @@
 
 #include "colmap/feature/aliked.h"
 
+#include "colmap/feature/onnx_matchers.h"
 #include "colmap/feature/onnx_utils.h"
 
 #include <algorithm>
@@ -288,199 +289,6 @@ class AlikedFeatureExtractor : public FeatureExtractor {
   int descriptor_dim_;
 };
 
-class AlikedBruteForceFeatureMatcher : public FeatureMatcher {
- public:
-  explicit AlikedBruteForceFeatureMatcher(const FeatureMatchingOptions& options)
-      : options_(options),
-        model_(options.aliked->bruteforce_model_path,
-               options.num_threads,
-               options.use_gpu,
-               options.gpu_index) {
-    THROW_CHECK(options.Check());
-    THROW_CHECK_EQ(model_.input_shapes().size(), 5);
-    ThrowCheckONNXNode(
-        model_.input_names()[0], "descs1", model_.input_shapes()[0], {-1, -1});
-    ThrowCheckONNXNode(
-        model_.input_names()[1], "descs2", model_.input_shapes()[1], {-1, -1});
-    ThrowCheckONNXNode(
-        model_.input_names()[2], "min_cossim", model_.input_shapes()[2], {});
-    ThrowCheckONNXNode(
-        model_.input_names()[3], "max_ratio", model_.input_shapes()[3], {});
-    ThrowCheckONNXNode(
-        model_.input_names()[4], "cross_check", model_.input_shapes()[4], {});
-    THROW_CHECK_EQ(model_.output_shapes().size(), 3);
-    ThrowCheckONNXNode(
-        model_.output_names()[0], "idx0", model_.output_shapes()[0], {-1});
-    ThrowCheckONNXNode(
-        model_.output_names()[1], "idx1", model_.output_shapes()[1], {-1});
-    ThrowCheckONNXNode(
-        model_.output_names()[2], "scores", model_.output_shapes()[2], {-1});
-  }
-
-  void Match(const Image& image1,
-             const Image& image2,
-             FeatureMatches* matches) override {
-    THROW_CHECK_NOTNULL(matches);
-    matches->clear();
-
-    const int num_keypoints1 = image1.descriptors->data.rows();
-    const int num_keypoints2 = image2.descriptors->data.rows();
-    // Model requires at least 2 descriptors in each set for ratio test.
-    if (num_keypoints1 < 2 || num_keypoints2 < 2) {
-      return;
-    }
-
-    // Cache features if image changed. Swap cached features when possible
-    // to avoid redundant copies (e.g., matching (A, B) then (B, C)).
-    if (prev_features1_.image_id != image1.image_id) {
-      if (prev_features2_.image_id == image1.image_id) {
-        std::swap(prev_features1_, prev_features2_);
-      } else {
-        prev_features1_ = FeaturesFromImage(image1);
-      }
-    }
-    if (prev_features2_.image_id != image2.image_id) {
-      if (prev_features1_.image_id == image2.image_id) {
-        // This shouldn't happen, as it means we are self-matching an image.
-        prev_features2_ = prev_features1_;
-      } else {
-        prev_features2_ = FeaturesFromImage(image2);
-      }
-    }
-
-    // Create tensors from cached data (tensors must be recreated each call
-    // since they reference the underlying data and get consumed by Run()).
-    auto desc1_tensor = CreateDescriptorTensor(prev_features1_);
-    auto desc2_tensor = CreateDescriptorTensor(prev_features2_);
-
-    float min_cossim = static_cast<float>(options_.aliked->min_cossim);
-    const std::vector<int64_t> scalar_shape = {};
-    auto min_cossim_tensor = Ort::Value::CreateTensor<float>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        &min_cossim,
-        1,
-        scalar_shape.data(),
-        scalar_shape.size());
-
-    float max_ratio = static_cast<float>(options_.aliked->max_ratio);
-    auto max_ratio_tensor = Ort::Value::CreateTensor<float>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        &max_ratio,
-        1,
-        scalar_shape.data(),
-        scalar_shape.size());
-
-    int64_t cross_check = options_.aliked->cross_check ? 1 : 0;
-    auto cross_check_tensor = Ort::Value::CreateTensor<int64_t>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        &cross_check,
-        1,
-        scalar_shape.data(),
-        scalar_shape.size());
-
-    std::vector<Ort::Value> input_tensors;
-    input_tensors.emplace_back(std::move(desc1_tensor));
-    input_tensors.emplace_back(std::move(desc2_tensor));
-    input_tensors.emplace_back(std::move(min_cossim_tensor));
-    input_tensors.emplace_back(std::move(max_ratio_tensor));
-    input_tensors.emplace_back(std::move(cross_check_tensor));
-
-    const std::vector<Ort::Value> output_tensors = model_.Run(input_tensors);
-    THROW_CHECK_EQ(output_tensors.size(), 3);
-
-    // Get num_matches from shape of idx0 output
-    const std::vector<int64_t> idx0_shape =
-        output_tensors[0].GetTensorTypeAndShapeInfo().GetShape();
-    THROW_CHECK_EQ(idx0_shape.size(), 1);
-    const int64_t num_matches = idx0_shape[0];
-
-    // Ensure idx1 has the same 1D shape and length as idx0
-    const std::vector<int64_t> idx1_shape =
-        output_tensors[1].GetTensorTypeAndShapeInfo().GetShape();
-    THROW_CHECK_EQ(idx1_shape.size(), 1);
-    THROW_CHECK_EQ(idx1_shape[0], num_matches);
-
-    if (num_matches == 0) {
-      return;
-    }
-
-    const int64_t* idx0_data = output_tensors[0].GetTensorData<int64_t>();
-    const int64_t* idx1_data = output_tensors[1].GetTensorData<int64_t>();
-
-    matches->resize(num_matches);
-    for (int64_t i = 0; i < num_matches; ++i) {
-      FeatureMatch& match = (*matches)[i];
-      match.point2D_idx1 = idx0_data[i];
-      match.point2D_idx2 = idx1_data[i];
-      THROW_CHECK_GE(match.point2D_idx1, 0);
-      THROW_CHECK_LT(match.point2D_idx1, num_keypoints1);
-      THROW_CHECK_GE(match.point2D_idx2, 0);
-      THROW_CHECK_LT(match.point2D_idx2, num_keypoints2);
-    }
-  }
-
-  void MatchGuided(double max_error,
-                   const Image& image1,
-                   const Image& image2,
-                   TwoViewGeometry* two_view_geometry) override {
-    LOG(FATAL_THROW) << "Guided matching not supported for ALIKED.";
-  }
-
- private:
-  struct Features {
-    image_t image_id = kInvalidImageId;
-    std::vector<float> descriptors_data;
-    std::vector<int64_t> descriptors_shape;
-  };
-
-  Features FeaturesFromImage(const Image& image) {
-    THROW_CHECK_NE(image.image_id, kInvalidImageId);
-    THROW_CHECK_NOTNULL(image.descriptors);
-    THROW_CHECK(image.descriptors->type ==
-                    FeatureExtractorType::ALIKED_N16ROT ||
-                image.descriptors->type == FeatureExtractorType::ALIKED_N32)
-        << "Unsupported feature type: "
-        << FeatureExtractorTypeToString(image.descriptors->type);
-    THROW_CHECK_EQ(image.descriptors->data.cols() % sizeof(float), 0);
-
-    const int num_keypoints = image.descriptors->data.rows();
-    const int descriptor_dim = image.descriptors->data.cols() / sizeof(float);
-    THROW_CHECK_GT(descriptor_dim, 0);
-
-    Features features;
-    features.image_id = image.image_id;
-    features.descriptors_shape = {num_keypoints, descriptor_dim};
-    features.descriptors_data.resize(num_keypoints * descriptor_dim);
-    THROW_CHECK_EQ(image.descriptors->data.size(),
-                   features.descriptors_data.size() * sizeof(float));
-    std::memcpy(features.descriptors_data.data(),
-                reinterpret_cast<const void*>(image.descriptors->data.data()),
-                image.descriptors->data.size());
-
-    return features;
-  }
-
-  Ort::Value CreateDescriptorTensor(Features& features) {
-    return Ort::Value::CreateTensor<float>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        features.descriptors_data.data(),
-        features.descriptors_data.size(),
-        features.descriptors_shape.data(),
-        features.descriptors_shape.size());
-  }
-
-  const FeatureMatchingOptions options_;
-  ONNXModel model_;
-
-  // Cached features for avoiding redundant data copies.
-  Features prev_features1_;
-  Features prev_features2_;
-};
-
 #endif
 
 }  // namespace
@@ -502,10 +310,9 @@ std::unique_ptr<FeatureExtractor> CreateAlikedFeatureExtractor(
 }
 
 bool AlikedMatchingOptions::Check() const {
-  CHECK_OPTION_GE(min_cossim, -1);
-  CHECK_OPTION_LE(min_cossim, 1);
-  CHECK_OPTION_GE(max_ratio, 0);
-  CHECK_OPTION_LE(max_ratio, 1);
+  if (!brute_force.Check() || !lightglue.Check()) {
+    return false;
+  }
   return true;
 }
 
@@ -514,7 +321,11 @@ std::unique_ptr<FeatureMatcher> CreateAlikedFeatureMatcher(
 #ifdef COLMAP_ONNX_ENABLED
   switch (options.type) {
     case FeatureMatcherType::ALIKED_BRUTEFORCE:
-      return std::make_unique<AlikedBruteForceFeatureMatcher>(options);
+      return CreateBruteForceONNXFeatureMatcher(options,
+                                                options.aliked->brute_force);
+    case FeatureMatcherType::ALIKED_LIGHTGLUE:
+      return CreateLightGlueONNXFeatureMatcher(options,
+                                               options.aliked->lightglue);
     default:
       throw std::runtime_error("Unknown ALIKED matcher type.");
   }

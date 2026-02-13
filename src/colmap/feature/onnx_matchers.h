@@ -29,59 +29,44 @@
 
 #pragma once
 
-#include "colmap/feature/extractor.h"
 #include "colmap/feature/matcher.h"
-#include "colmap/feature/onnx_matchers.h"
-#include "colmap/feature/resources.h"
 
 namespace colmap {
 
-// The ALIKED torch model was exported to ONNX using the following codebase:
-// https://github.com/colmap/ALIKED-ONNX/tree/user/jsch/onnx-export
-// Follow instructions in export/README.md and see standalone C++
-// implementation in cpp_test/README.md.
+struct BruteForceONNXMatchingOptions {
+  // The minimum cosine similarity for a match to be considered valid
+  // in brute-force matching.
+  double min_cossim = 0.85;
 
-struct AlikedExtractionOptions {
-  // Maximum number of features to detect, keeping higher-score features.
-  int max_num_features = 2048;
+  // Maximum ratio for Lowe's ratio test (second-best / best distance).
+  double max_ratio = 1.0;
 
-  // Minimum score threshold for keypoint detection.
-  double min_score = 0.2;
+  // Enable cross-checking (mutual nearest neighbor).
+  bool cross_check = true;
 
-  // The path to the ONNX model file for the ALIKED extractor.
-  // Must be a sparse model with max_keypoints and min_score inputs.
-  std::string n16rot_model_path = kDefaultAlikedN16RotFeatureExtractorUri;
-  std::string n32_model_path = kDefaultAlikedN32FeatureExtractorUri;
+  // The path to the ONNX model file for the brute-force matcher.
+  std::string model_path;
 
   bool Check() const;
 };
 
-std::unique_ptr<FeatureExtractor> CreateAlikedFeatureExtractor(
-    const FeatureExtractionOptions& options);
+std::unique_ptr<FeatureMatcher> CreateBruteForceONNXFeatureMatcher(
+    const FeatureMatchingOptions& options,
+    const BruteForceONNXMatchingOptions& brute_force_options);
 
-struct AlikedMatchingOptions {
-  // Brute-force matching options.
-  BruteForceONNXMatchingOptions brute_force = []() {
-    BruteForceONNXMatchingOptions options;
-    options.min_cossim = 0.85;
-    options.max_ratio = 1.0;
-    options.cross_check = true;
-    options.model_path = kDefaultBruteForceONNXMatcherUri;
-    return options;
-  }();
+struct LightGlueONNXMatchingOptions {
+  // Minimum match score threshold. Matches with scores below this
+  // value are discarded (post-model filtering).
+  double min_score = 0.1;
 
-  // LightGlue matching options.
-  LightGlueONNXMatchingOptions lightglue = []() {
-    LightGlueONNXMatchingOptions options;
-    options.min_score = 0.1;
-    options.model_path = kDefaultAlikedLightGlueFeatureMatcherUri;
-    return options;
-  }();
+  // Path to the LightGlue ONNX model file.
+  std::string model_path;
 
   bool Check() const;
 };
 
-std::unique_ptr<FeatureMatcher> CreateAlikedFeatureMatcher(
-    const FeatureMatchingOptions& options);
+std::unique_ptr<FeatureMatcher> CreateLightGlueONNXFeatureMatcher(
+    const FeatureMatchingOptions& options,
+    const LightGlueONNXMatchingOptions& lightglue_options);
 
 }  // namespace colmap
