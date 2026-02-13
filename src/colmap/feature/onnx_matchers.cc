@@ -503,6 +503,13 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
         << "Unsupported feature type: "
         << FeatureExtractorTypeToString(image.descriptors->type);
 
+    if ((options_.type == FeatureMatcherType::SIFT_LIGHTGLUE && !is_sift) ||
+        (options_.type == FeatureMatcherType::ALIKED_LIGHTGLUE && !is_aliked)) {
+      LOG(FATAL_THROW) << FeatureMatcherTypeToString(options_.type)
+                       << " feature matcher got unsupported feature type: "
+                       << FeatureExtractorTypeToString(image.descriptors->type);
+    }
+
     const int num_keypoints = image.descriptors->data.rows();
     THROW_CHECK_EQ(static_cast<int>(image.keypoints->size()), num_keypoints);
 
