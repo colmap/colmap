@@ -54,6 +54,11 @@ std::unique_ptr<FeatureMatcher> CreateBruteForceONNXFeatureMatcher(
     const FeatureMatchingOptions& options,
     const BruteForceONNXMatchingOptions& brute_force_options);
 
+// The LightGlue torch model was exported to ONNX using the following codebase:
+// https://github.com/colmap/LightGlue-ONNX/tree/user/jsch/onnx-export
+// Follow instructions in export/README.md and see standalone C++
+// implementation in cpp_test/README.md.
+
 struct LightGlueONNXMatchingOptions {
   // Minimum match score threshold. Matches with scores below this
   // value are discarded (post-model filtering).
