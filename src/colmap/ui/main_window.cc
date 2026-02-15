@@ -697,11 +697,6 @@ void MainWindow::CreateMenus() {
   help_menu->addAction(action_support_);
   help_menu->addAction(action_license_);
   menuBar()->addAction(help_menu->menuAction());
-
-  // TODO: Make the native menu bar work on OSX. Simply setting this to true
-  // will result in a menubar which is not clickable until the main window is
-  // defocused and refocused.
-  menuBar()->setNativeMenuBar(false);
 }
 
 void MainWindow::CreateToolbar() {
