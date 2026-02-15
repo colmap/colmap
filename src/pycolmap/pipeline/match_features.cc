@@ -318,6 +318,21 @@ void BindMatchFeatures(py::module& m) {
       "device"_a = Device::AUTO,
       "Sequential feature matching");
 
+  m.def("match_image_pairs",
+        &MatchFeatures<ImportedPairingOptions, CreateImagePairsFeatureMatcher>,
+        "database_path"_a,
+        py::arg_v("matching_options",
+                  FeatureMatchingOptions(),
+                  "FeatureMatchingOptions()"),
+        py::arg_v("pairing_options",
+                  ImportedPairingOptions(),
+                  "ImportedPairingOptions()"),
+        py::arg_v("verification_options",
+                  TwoViewGeometryOptions(),
+                  "TwoViewGeometryOptions()"),
+        "device"_a = Device::AUTO,
+        "Match features between image pairs specified in a file");
+
   m.def("verify_matches",
         &VerifyMatches,
         "database_path"_a,
