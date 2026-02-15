@@ -144,12 +144,10 @@ void MainWindow::ImportReconstruction(
   const std::filesystem::path points3D_txt_path = import_path / "points3D.txt";
 
   const bool is_valid_reconstruction_dir =
-      (colmap::ExistsFile(cameras_bin_path) &&
-       colmap::ExistsFile(images_bin_path) &&
-       colmap::ExistsFile(points3D_bin_path)) ||
-      (colmap::ExistsFile(cameras_txt_path) &&
-       colmap::ExistsFile(images_txt_path) &&
-       colmap::ExistsFile(points3D_txt_path));
+      (ExistsFile(cameras_bin_path) && ExistsFile(images_bin_path) &&
+       ExistsFile(points3D_bin_path)) ||
+      (ExistsFile(cameras_txt_path) && ExistsFile(images_txt_path) &&
+       ExistsFile(points3D_txt_path));
   if (!is_valid_reconstruction_dir) {
     QMessageBox::critical(this,
                           "",

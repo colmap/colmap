@@ -346,4 +346,8 @@ class DatabaseTransaction {
   std::unique_lock<std::mutex> database_lock_;
 };
 
+// Loads random descriptors from random images in the database.
+FeatureDescriptorsFloat LoadRandomDatabaseDescriptors(const Database& database,
+                                                      int max_num_descriptors);
+
 }  // namespace colmap

@@ -90,7 +90,8 @@ class FaissVisualIndex : public VisualIndex {
   typedef InvertedIndex<float, kDescDim, kEmbeddingDim> InvertedIndexType;
   typedef typename InvertedIndexType::EntryType EntryType;
 
-  FaissVisualIndex() : prepared_(false) {}
+  FaissVisualIndex()
+      : prepared_(false), feature_type_(FeatureExtractorType::UNDEFINED) {}
 
   size_t NumVisualWords() const override {
     return (index_ == nullptr) ? 0 : index_->ntotal;
@@ -102,12 +103,20 @@ class FaissVisualIndex : public VisualIndex {
 
   virtual int EmbeddingDim() const override { return kEmbeddingDim; }
 
+  virtual FeatureExtractorType FeatureType() const override {
+    return feature_type_;
+  }
+
   void Add(const IndexOptions& options,
            int image_id,
-           const Geometries& geometries,
-           const Descriptors& descriptors) override {
-    THROW_CHECK_EQ(descriptors.cols(), kDescDim);
-    THROW_CHECK_EQ(geometries.size(), descriptors.rows());
+           const FeatureKeypoints& keypoints,
+           const FeatureDescriptorsFloat& descriptors) override {
+    THROW_CHECK_EQ(descriptors.data.cols(), kDescDim);
+    THROW_CHECK_EQ(keypoints.size(), descriptors.data.rows());
+    THROW_CHECK_EQ(descriptors.type, feature_type_)
+        << "Feature type mismatch: index was built with "
+        << FeatureExtractorTypeToString(feature_type_) << " but received "
+        << FeatureExtractorTypeToString(descriptors.type);
 
     // If the image is already indexed, do nothing.
     if (IsImageIndexed(image_id)) {
@@ -118,23 +127,23 @@ class FaissVisualIndex : public VisualIndex {
 
     prepared_ = false;
 
-    if (descriptors.rows() == 0) {
+    if (descriptors.data.rows() == 0) {
       return;
     }
 
-    const WordIds word_ids = FindWordIds(descriptors,
+    const WordIds word_ids = FindWordIds(descriptors.data,
                                          options.num_neighbors,
                                          options.num_checks,
                                          options.num_threads);
 
-    for (typename Descriptors::Index i = 0; i < descriptors.rows(); ++i) {
-      const auto& descriptor = descriptors.row(i);
+    for (Eigen::Index i = 0; i < descriptors.data.rows(); ++i) {
+      const auto& descriptor = descriptors.data.row(i);
 
       typename InvertedIndexType::GeomType geometry;
-      geometry.x = geometries[i].x;
-      geometry.y = geometries[i].y;
-      geometry.scale = geometries[i].ComputeScale();
-      geometry.orientation = geometries[i].ComputeOrientation();
+      geometry.x = keypoints[i].x;
+      geometry.y = keypoints[i].y;
+      geometry.scale = keypoints[i].ComputeScale();
+      geometry.orientation = keypoints[i].ComputeOrientation();
 
       for (int n = 0; n < options.num_neighbors; ++n) {
         const int word_id = word_ids(i, n);
@@ -150,27 +159,34 @@ class FaissVisualIndex : public VisualIndex {
   }
 
   void Query(const QueryOptions& options,
-             const Descriptors& descriptors,
+             const FeatureDescriptorsFloat& descriptors,
              std::vector<ImageScore>* image_scores) const override {
-    THROW_CHECK_EQ(descriptors.cols(), kDescDim);
-    const Geometries geometries;
-    Query(options, geometries, descriptors, image_scores);
+    THROW_CHECK_EQ(descriptors.data.cols(), kDescDim);
+    THROW_CHECK_EQ(descriptors.type, feature_type_)
+        << "Feature type mismatch: index was built with "
+        << FeatureExtractorTypeToString(feature_type_) << " but received "
+        << FeatureExtractorTypeToString(descriptors.type);
+    Query(options, /*keypoints=*/{}, descriptors, image_scores);
   }
 
   void Query(const QueryOptions& options,
-             const Geometries& geometries,
-             const Descriptors& descriptors,
+             const FeatureKeypoints& keypoints,
+             const FeatureDescriptorsFloat& descriptors,
              std::vector<ImageScore>* image_scores) const override {
-    THROW_CHECK_EQ(descriptors.cols(), kDescDim);
+    THROW_CHECK_EQ(descriptors.data.cols(), kDescDim);
+    THROW_CHECK_EQ(descriptors.type, feature_type_)
+        << "Feature type mismatch: index was built with "
+        << FeatureExtractorTypeToString(feature_type_) << " but received "
+        << FeatureExtractorTypeToString(descriptors.type);
 
     WordIds word_ids;
-    QueryAndFindWordIds(options, descriptors, image_scores, &word_ids);
+    QueryAndFindWordIds(options, descriptors.data, image_scores, &word_ids);
 
     if (options.num_images_after_verification <= 0) {
       return;
     }
 
-    THROW_CHECK_EQ(descriptors.rows(), geometries.size());
+    THROW_CHECK_EQ(descriptors.data.rows(), keypoints.size());
 
     // Extract top-ranked images to verify.
     std::unordered_set<int> image_ids;
@@ -193,20 +209,20 @@ class FaissVisualIndex : public VisualIndex {
     std::vector<const EntryType*> word_matches;
 
     std::vector<EntryType> query_entries;  // Convert query features, too.
-    query_entries.reserve(descriptors.rows());
+    query_entries.reserve(descriptors.data.rows());
 
     // NOTE: Currently, we are redundantly computing the feature weighting.
     const HammingDistWeightFunctor<kEmbeddingDim> hamming_dist_weight_functor;
 
-    for (typename Descriptors::Index i = 0; i < descriptors.rows(); ++i) {
-      const auto& descriptor = descriptors.row(i);
+    for (Eigen::Index i = 0; i < descriptors.data.rows(); ++i) {
+      const auto& descriptor = descriptors.data.row(i);
 
       EntryType query_entry;
       query_entry.feature_idx = i;
-      query_entry.geometry.x = geometries[i].x;
-      query_entry.geometry.y = geometries[i].y;
-      query_entry.geometry.scale = geometries[i].ComputeScale();
-      query_entry.geometry.orientation = geometries[i].ComputeOrientation();
+      query_entry.geometry.x = keypoints[i].x;
+      query_entry.geometry.y = keypoints[i].y;
+      query_entry.geometry.scale = keypoints[i].ComputeScale();
+      query_entry.geometry.orientation = keypoints[i].ComputeOrientation();
       query_entries.push_back(query_entry);
 
       // For each db feature, keep track of the lowest distance (if db features
@@ -252,13 +268,9 @@ class FaissVisualIndex : public VisualIndex {
       }
 
       // Finally, cross-reference the query and db feature matches.
-      for (const auto& feature_matches : image_matches) {
-        const auto image_id = feature_matches.first;
-
-        for (const auto& feature_match : feature_matches.second) {
-          const auto feature_idx = feature_match.first;
-          const auto dist = feature_match.second.first;
-          const auto db_match = feature_match.second.second;
+      for (const auto& [image_id, feature_match_map] : image_matches) {
+        for (const auto& [feature_idx, match_data] : feature_match_map) {
+          const auto [dist, db_match] = match_data;
 
           const auto entry_pair = std::make_pair(&query_entries[i], db_match);
 
@@ -422,10 +434,13 @@ class FaissVisualIndex : public VisualIndex {
   }
 
   void Build(const BuildOptions& options,
-             const Descriptors& descriptors) override {
-    THROW_CHECK_EQ(descriptors.cols(), kDescDim);
+             const FeatureDescriptorsFloat& descriptors) override {
+    THROW_CHECK_EQ(descriptors.data.cols(), kDescDim);
 
-    const Eigen::RowMajorMatrixXf visual_words = Quantize(options, descriptors);
+    feature_type_ = descriptors.type;
+
+    const Eigen::RowMajorMatrixXf visual_words =
+        Quantize(options, descriptors.data);
     THROW_CHECK_EQ(visual_words.cols(), kDescDim);
 
     index_ = BuildFaissIndex(options, visual_words);
@@ -441,13 +456,19 @@ class FaissVisualIndex : public VisualIndex {
 
     // Learn the Hamming embedding.
     const int kNumNeighbors = 1;
-    const WordIds word_ids = FindWordIds(
-        descriptors, kNumNeighbors, options.num_checks, options.num_threads);
-    inverted_index_.ComputeHammingEmbedding(descriptors, word_ids);
+    const WordIds word_ids = FindWordIds(descriptors.data,
+                                         kNumNeighbors,
+                                         options.num_checks,
+                                         options.num_threads);
+    inverted_index_.ComputeHammingEmbedding(descriptors.data, word_ids);
     VLOG(2) << "Computed hamming embeddings";
   }
 
-  void ReadFromFaiss(const std::filesystem::path& path, long offset) override {
+  void ReadFromFaiss(const std::filesystem::path& path,
+                     long offset,
+                     FeatureExtractorType feature_type) override {
+    feature_type_ = feature_type;
+
     FILE* fin = nullptr;
 #ifdef _MSC_VER
     THROW_CHECK_EQ(fopen_s(&fin, path.string().c_str(), "rb"), 0);
@@ -478,12 +499,14 @@ class FaissVisualIndex : public VisualIndex {
     {
       std::ofstream file(path, std::ios::binary);
       THROW_CHECK_FILE_OPEN(file, path);
-      const int kFileVersion = 1;
+      const int kFileVersion = 2;
       file.write(reinterpret_cast<const char*>(&kFileVersion), sizeof(int));
       const int desc_dim = kDescDim;
       file.write(reinterpret_cast<const char*>(&desc_dim), sizeof(int));
       const int embedding_dim = kEmbeddingDim;
       file.write(reinterpret_cast<const char*>(&embedding_dim), sizeof(int));
+      const int feature_type = static_cast<int>(feature_type_);
+      file.write(reinterpret_cast<const char*>(&feature_type), sizeof(int));
     }
 
     // Write the visual words search index.
@@ -514,8 +537,9 @@ class FaissVisualIndex : public VisualIndex {
       Eigen::Matrix<int64_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 
   // Quantize the descriptor space into visual words.
-  Eigen::RowMajorMatrixXf Quantize(const BuildOptions& options,
-                                   const Descriptors& descriptors) const {
+  Eigen::RowMajorMatrixXf Quantize(
+      const BuildOptions& options,
+      const FeatureDescriptorsFloatData& descriptors) const {
     THROW_CHECK_EQ(descriptors.cols(), kDescDim);
 
     VLOG(2) << "Clustering " << descriptors.rows()
@@ -540,7 +564,7 @@ class FaissVisualIndex : public VisualIndex {
   // Query for nearest neighbor images and return nearest neighbor visual word
   // identifiers for each descriptor.
   void QueryAndFindWordIds(const QueryOptions& options,
-                           const Descriptors& descriptors,
+                           const FeatureDescriptorsFloatData& descriptors,
                            std::vector<ImageScore>* image_scores,
                            WordIds* word_ids) const {
     THROW_CHECK(prepared_);
@@ -579,7 +603,7 @@ class FaissVisualIndex : public VisualIndex {
   }
 
   // Find the nearest neighbor visual words for the given descriptors.
-  WordIds FindWordIds(const Descriptors& descriptors,
+  WordIds FindWordIds(const FeatureDescriptorsFloatData& descriptors,
                       int num_neighbors,
                       int num_checks,
                       int num_threads) const {
@@ -626,6 +650,9 @@ class FaissVisualIndex : public VisualIndex {
 
   // Whether the index is prepared.
   bool prepared_;
+
+  // Feature extractor type used to build the index.
+  FeatureExtractorType feature_type_;
 };
 
 }  // namespace
@@ -661,7 +688,7 @@ std::unique_ptr<VisualIndex> VisualIndex::Read(
   // We detect legacy indices based on a file version mismatch, which works
   // as long as we do not increment the file version beyond the count of
   // visual words in a legacy file (which we do not expect to happen).
-  THROW_CHECK_EQ(file_version, 1)
+  THROW_CHECK(file_version == 1 || file_version == 2)
       << "Failed to read faiss index. This may be caused by reading a legacy "
          "flann-based index, because COLMAP switched from flann to faiss in "
          "May 2025. If you want to upgrade your existing flann-based index "
@@ -674,10 +701,31 @@ std::unique_ptr<VisualIndex> VisualIndex::Read(
   int embedding_dim = 0;
   file.read(reinterpret_cast<char*>(&embedding_dim), sizeof(int));
 
+  // Version 2 stores feature type, version 1 assumes SIFT for backwards
+  // compatibility.
+  FeatureExtractorType feature_type = FeatureExtractorType::SIFT;
+  if (file_version >= 2) {
+    int feature_type_int = 0;
+    file.read(reinterpret_cast<char*>(&feature_type_int), sizeof(int));
+    feature_type = static_cast<FeatureExtractorType>(feature_type_int);
+  }
+
   auto visual_index = VisualIndex::Create(desc_dim, embedding_dim);
-  visual_index->ReadFromFaiss(resolved_path, file.tellg());
+  visual_index->ReadFromFaiss(resolved_path, file.tellg(), feature_type);
 
   return visual_index;
+}
+
+std::ostream& operator<<(std::ostream& stream,
+                         const VisualIndex& visual_index) {
+  stream << "VisualIndex("
+         << "num_visual_words=" << visual_index.NumVisualWords()
+         << ", num_images=" << visual_index.NumImages()
+         << ", desc_dim=" << visual_index.DescDim()
+         << ", embedding_dim=" << visual_index.EmbeddingDim()
+         << ", feature_type="
+         << FeatureExtractorTypeToString(visual_index.FeatureType()) << ")";
+  return stream;
 }
 
 }  // namespace retrieval

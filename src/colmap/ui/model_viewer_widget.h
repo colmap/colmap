@@ -196,7 +196,13 @@ class ModelViewerWidget : public QOpenGLWidget,
 
   float focus_distance_;
 
-  std::vector<std::pair<size_t, char>> selection_buffer_;
+  // Type of selection buffer entries.
+  enum class SelectionType : char {
+    kImage = 0,
+    kPoint = 1,
+  };
+
+  std::vector<std::pair<size_t, SelectionType>> selection_buffer_;
   image_t selected_image_id_;
   point3D_t selected_point3D_id_;
   size_t selected_movie_grabber_view_;

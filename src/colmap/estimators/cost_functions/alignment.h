@@ -38,7 +38,7 @@ namespace colmap {
 
 // Cost function for aligning one 3D point with a reference 3D point with
 // covariance. The Residual is computed in frame b. Coordinate transformation
-// convention is equivalent to colmap::Sim3d.
+// convention is equivalent to Sim3d.
 struct Point3DAlignmentCostFunctor
     : public AutoDiffCostFunctor<Point3DAlignmentCostFunctor, 3, 3, 8> {
  public:

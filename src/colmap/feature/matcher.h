@@ -45,14 +45,14 @@
 
 namespace colmap {
 
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType, 0, SIFT);
-
 struct SiftMatchingOptions;
+struct AlikedMatchingOptions;
 
 struct FeatureMatchingTypeOptions {
   explicit FeatureMatchingTypeOptions();
 
   std::shared_ptr<SiftMatchingOptions> sift;
+  std::shared_ptr<AlikedMatchingOptions> aliked;
 
   FeatureMatchingTypeOptions(const FeatureMatchingTypeOptions& other);
   FeatureMatchingTypeOptions& operator=(
@@ -64,9 +64,9 @@ struct FeatureMatchingTypeOptions {
 
 struct FeatureMatchingOptions : public FeatureMatchingTypeOptions {
   explicit FeatureMatchingOptions(
-      FeatureMatcherType type = FeatureMatcherType::SIFT);
+      FeatureMatcherType type = FeatureMatcherType::SIFT_BRUTEFORCE);
 
-  FeatureMatcherType type = FeatureMatcherType::SIFT;
+  FeatureMatcherType type = FeatureMatcherType::SIFT_BRUTEFORCE;
 
   // Number of threads for feature matching and geometric verification.
   int num_threads = -1;

@@ -24,6 +24,9 @@ void BindSynthetic(py::module& m) {
   auto PySyntheticDatasetOptions =
       py::classh<SyntheticDatasetOptions>(m, "SyntheticDatasetOptions")
           .def(py::init<>())
+          .def_readwrite("feature_type",
+                         &SyntheticDatasetOptions::feature_type,
+                         "The type of feature descriptors to synthesize.")
           .def_readwrite("num_rigs", &SyntheticDatasetOptions::num_rigs)
           .def_readwrite("num_cameras_per_rig",
                          &SyntheticDatasetOptions::num_cameras_per_rig)

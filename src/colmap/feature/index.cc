@@ -46,7 +46,8 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
       : num_threads_(num_threads) {}
 
   void Build(const FeatureDescriptorsFloat& index_descriptors) override {
-    if (index_descriptors.rows() == 0) {
+    type_ = index_descriptors.type;
+    if (index_descriptors.data.rows() == 0) {
       index_ = nullptr;
       return;
     }
@@ -60,23 +61,26 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
       omp_set_max_active_levels(1);
 #endif
 
-      if (index_descriptors.rows() >= 512) {
-        const int num_centroids = 4 * std::sqrt(index_descriptors.rows());
+      if (index_descriptors.data.rows() >= 512) {
+        const int num_centroids = 4 * std::sqrt(index_descriptors.data.rows());
         coarse_quantizer_ =
-            std::make_unique<faiss::IndexFlatL2>(index_descriptors.cols());
+            std::make_unique<faiss::IndexFlatL2>(index_descriptors.data.cols());
         index_ = std::make_unique<faiss::IndexIVFFlat>(
             /*quantizer=*/coarse_quantizer_.get(),
-            /*d=*/index_descriptors.cols(),
+            /*d=*/index_descriptors.data.cols(),
             /*nlist_=*/num_centroids);
         auto* index_impl = dynamic_cast<faiss::IndexIVFFlat*>(index_.get());
         // Avoid warnings during the training phase.
         index_impl->cp.min_points_per_centroid = 1;
-        index_->train(index_descriptors.rows(), index_descriptors.data());
-        index_->add(index_descriptors.rows(), index_descriptors.data());
+        index_->train(index_descriptors.data.rows(),
+                      index_descriptors.data.data());
+        index_->add(index_descriptors.data.rows(),
+                    index_descriptors.data.data());
       } else {
         index_ = std::make_unique<faiss::IndexFlatL2>(
-            /*d=*/index_descriptors.cols());
-        index_->add(index_descriptors.rows(), index_descriptors.data());
+            /*d=*/index_descriptors.data.cols());
+        index_->add(index_descriptors.data.rows(),
+                    index_descriptors.data.data());
       }
     }
   }
@@ -85,14 +89,16 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
               const FeatureDescriptorsFloat& query_descriptors,
               Eigen::RowMajorMatrixXi& indices,
               Eigen::RowMajorMatrixXf& l2_dists) const override {
+    THROW_CHECK_EQ(query_descriptors.type, type_);
+
     if (num_neighbors <= 0 || index_ == nullptr) {
       indices.resize(0, 0);
       l2_dists.resize(0, 0);
       return;
     }
 
-    THROW_CHECK_EQ(query_descriptors.cols(), index_->d);
-    const int64_t num_query_descriptors = query_descriptors.rows();
+    THROW_CHECK_EQ(query_descriptors.data.cols(), index_->d);
+    const int64_t num_query_descriptors = query_descriptors.data.rows();
     if (num_query_descriptors == 0) {
       return;
     }
@@ -116,7 +122,7 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
       faiss::SearchParametersIVF search_params;
       search_params.nprobe = 8;
       index_->search(num_query_descriptors,
-                     query_descriptors.data(),
+                     query_descriptors.data.data(),
                      num_eff_neighbors,
                      l2_dists.data(),
                      indices_long.data(),
@@ -128,6 +134,7 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
 
  private:
   const int num_threads_;
+  FeatureExtractorType type_ = FeatureExtractorType::UNDEFINED;
   std::unique_ptr<faiss::Index> index_;
   std::unique_ptr<faiss::IndexFlatL2> coarse_quantizer_;
 };

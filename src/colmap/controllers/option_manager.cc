@@ -33,7 +33,10 @@
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/estimators/bundle_adjustment_ceres.h"
+#include "colmap/estimators/global_positioning.h"
+#include "colmap/estimators/gravity_refinement.h"
 #include "colmap/estimators/two_view_geometry.h"
+#include "colmap/feature/aliked.h"
 #include "colmap/feature/pairing.h"
 #include "colmap/feature/sift.h"
 #include "colmap/mvs/fusion.h"
@@ -43,9 +46,6 @@
 #include "colmap/ui/render_options.h"
 #include "colmap/util/file.h"
 #include "colmap/util/version.h"
-
-#include "glomap/estimators/global_positioning.h"
-#include "glomap/estimators/gravity_refinement.h"
 
 namespace config = boost::program_options;
 
@@ -66,7 +66,7 @@ OptionManager::OptionManager(bool add_project_options)
   bundle_adjustment = std::make_shared<BundleAdjustmentOptions>();
   mapper = std::make_shared<IncrementalPipelineOptions>();
   global_mapper = std::make_shared<GlobalPipelineOptions>();
-  gravity_refiner = std::make_shared<glomap::GravityRefinerOptions>();
+  gravity_refiner = std::make_shared<GravityRefinerOptions>();
   reconstruction_clusterer =
       std::make_shared<ReconstructionClusteringOptions>();
   patch_match_stereo = std::make_shared<mvs::PatchMatchOptions>();
@@ -213,9 +213,9 @@ void OptionManager::AddFeatureExtractionOptions() {
   AddDefaultOption("FeatureExtraction.use_gpu", &feature_extraction->use_gpu);
   AddDefaultOption("FeatureExtraction.gpu_index",
                    &feature_extraction->gpu_index);
-
-  AddDefaultOption("SiftExtraction.max_image_size",
+  AddDefaultOption("FeatureExtraction.max_image_size",
                    &feature_extraction->max_image_size);
+
   AddDefaultOption("SiftExtraction.max_num_features",
                    &feature_extraction->sift->max_num_features);
   AddDefaultOption("SiftExtraction.first_octave",
@@ -242,6 +242,15 @@ void OptionManager::AddFeatureExtractionOptions() {
                    &feature_extraction->sift->dsp_max_scale);
   AddDefaultOption("SiftExtraction.dsp_num_scales",
                    &feature_extraction->sift->dsp_num_scales);
+
+  AddDefaultOption("AlikedExtraction.max_num_features",
+                   &feature_extraction->aliked->max_num_features);
+  AddDefaultOption("AlikedExtraction.min_score",
+                   &feature_extraction->aliked->min_score);
+  AddDefaultOption("AlikedExtraction.n16rot_model_path",
+                   &feature_extraction->aliked->n16rot_model_path);
+  AddDefaultOption("AlikedExtraction.n32_model_path",
+                   &feature_extraction->aliked->n32_model_path);
 }
 
 void OptionManager::AddFeatureMatchingOptions() {
@@ -277,6 +286,23 @@ void OptionManager::AddFeatureMatchingOptions() {
                    &feature_matching->sift->cross_check);
   AddDefaultOption("SiftMatching.cpu_brute_force_matcher",
                    &feature_matching->sift->cpu_brute_force_matcher);
+  AddDefaultOption("SiftMatching.lightglue_min_score",
+                   &feature_matching->sift->lightglue.min_score);
+  AddDefaultOption("SiftMatching.lightglue_model_path",
+                   &feature_matching->sift->lightglue.model_path);
+
+  AddDefaultOption("AlikedMatching.brute_force_min_cossim",
+                   &feature_matching->aliked->brute_force.min_cossim);
+  AddDefaultOption("AlikedMatching.brute_force_max_ratio",
+                   &feature_matching->aliked->brute_force.max_ratio);
+  AddDefaultOption("AlikedMatching.brute_force_cross_check",
+                   &feature_matching->aliked->brute_force.cross_check);
+  AddDefaultOption("AlikedMatching.bruteforce_model_path",
+                   &feature_matching->aliked->brute_force.model_path);
+  AddDefaultOption("AlikedMatching.lightglue_min_score",
+                   &feature_matching->aliked->lightglue.min_score);
+  AddDefaultOption("AlikedMatching.lightglue_model_path",
+                   &feature_matching->aliked->lightglue.model_path);
 }
 
 void OptionManager::AddTwoViewGeometryOptions() {
@@ -976,7 +1002,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *bundle_adjustment = BundleAdjustmentOptions();
   *mapper = IncrementalPipelineOptions();
   *global_mapper = GlobalPipelineOptions();
-  *gravity_refiner = glomap::GravityRefinerOptions();
+  *gravity_refiner = GravityRefinerOptions();
   *reconstruction_clusterer = ReconstructionClusteringOptions();
   *patch_match_stereo = mvs::PatchMatchOptions();
   *stereo_fusion = mvs::StereoFusionOptions();

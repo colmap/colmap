@@ -55,9 +55,9 @@ void ScaleKeypoints(const Bitmap& bitmap,
   }
 }
 
-void MaskKeypoints(const Bitmap& mask,
-                   FeatureKeypoints* keypoints,
-                   FeatureDescriptors* descriptors) {
+void MaskFeatures(const Bitmap& mask,
+                  FeatureKeypoints* keypoints,
+                  FeatureDescriptors* descriptors) {
   size_t out_index = 0;
   BitmapColor<uint8_t> color;
   for (size_t i = 0; i < keypoints->size(); ++i) {
@@ -71,8 +71,8 @@ void MaskKeypoints(const Bitmap& mask,
       // index differs from its current position).
       if (out_index != i) {
         keypoints->at(out_index) = keypoints->at(i);
-        for (int col = 0; col < descriptors->cols(); ++col) {
-          (*descriptors)(out_index, col) = (*descriptors)(i, col);
+        for (int col = 0; col < descriptors->data.cols(); ++col) {
+          descriptors->data(out_index, col) = descriptors->data(i, col);
         }
       }
       out_index += 1;
@@ -80,7 +80,7 @@ void MaskKeypoints(const Bitmap& mask,
   }
 
   keypoints->resize(out_index);
-  descriptors->conservativeResize(out_index, descriptors->cols());
+  descriptors->data.conservativeResize(out_index, descriptors->data.cols());
 }
 
 struct ImageData {
@@ -104,7 +104,9 @@ class ImageResizerThread : public Thread {
                      JobQueue<ImageData>* output_queue)
       : max_image_size_(max_image_size),
         input_queue_(input_queue),
-        output_queue_(output_queue) {}
+        output_queue_(output_queue) {
+    THROW_CHECK_GT(max_image_size_, 0);
+  }
 
  private:
   void Run() override {
@@ -195,14 +197,14 @@ class FeatureExtractorThread : public Thread {
             ScaleKeypoints(
                 image_data.bitmap, image_data.camera, &image_data.keypoints);
             if (camera_mask_) {
-              MaskKeypoints(*camera_mask_,
-                            &image_data.keypoints,
-                            &image_data.descriptors);
+              MaskFeatures(*camera_mask_,
+                           &image_data.keypoints,
+                           &image_data.descriptors);
             }
             if (!image_data.mask.IsEmpty()) {
-              MaskKeypoints(image_data.mask,
-                            &image_data.keypoints,
-                            &image_data.descriptors);
+              MaskFeatures(image_data.mask,
+                           &image_data.keypoints,
+                           &image_data.descriptors);
             }
           } else {
             image_data.status = ImageReader::Status::FAILURE;
@@ -367,13 +369,10 @@ class FeatureExtractorController : public Thread {
     extractor_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
     writer_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
 
-    if (extraction_options_.max_image_size > 0) {
-      for (int i = 0; i < num_threads; ++i) {
-        resizers_.emplace_back(std::make_unique<ImageResizerThread>(
-            extraction_options_.max_image_size,
-            resizer_queue_.get(),
-            extractor_queue_.get()));
-      }
+    const int max_image_size = extraction_options_.EffMaxImageSize();
+    for (int i = 0; i < num_threads; ++i) {
+      resizers_.emplace_back(std::make_unique<ImageResizerThread>(
+          max_image_size, resizer_queue_.get(), extractor_queue_.get()));
     }
 
     if (!extraction_options_.sift->domain_size_pooling &&
@@ -404,6 +403,7 @@ class FeatureExtractorController : public Thread {
     } else {
       const static FeatureExtractionOptions kDefaultExtractionOptions;
       if (extraction_options_.num_threads == -1 &&
+          extraction_options_.type == FeatureExtractorType::SIFT &&
           extraction_options_.max_image_size ==
               kDefaultExtractionOptions.max_image_size &&
           extraction_options_.sift->first_octave ==
@@ -418,11 +418,14 @@ class FeatureExtractorController : public Thread {
                "memory for the current settings.";
       }
 
-      auto custom_extraction_options = extraction_options_;
-      custom_extraction_options.use_gpu = false;
+      auto worker_extraction_options = extraction_options_;
+      // Prevent nested threading.
+      worker_extraction_options.num_threads = 1;
+      // Explicitly disable GPU.
+      worker_extraction_options.use_gpu = false;
       for (int i = 0; i < num_threads; ++i) {
         extractors_.emplace_back(
-            std::make_unique<FeatureExtractorThread>(custom_extraction_options,
+            std::make_unique<FeatureExtractorThread>(worker_extraction_options,
                                                      camera_mask,
                                                      extractor_queue_.get(),
                                                      writer_queue_.get()));
@@ -457,8 +460,6 @@ class FeatureExtractorController : public Thread {
       }
     }
 
-    const bool should_resize = extraction_options_.max_image_size > 0;
-
     while (image_reader_.NextIndex() < image_reader_.NumImages()) {
       if (IsStopped()) {
         resizer_queue_->Stop();
@@ -482,11 +483,7 @@ class FeatureExtractorController : public Thread {
         image_data.mask = Bitmap();
       }
 
-      if (should_resize) {
-        THROW_CHECK(resizer_queue_->Push(std::move(image_data)));
-      } else {
-        THROW_CHECK(extractor_queue_->Push(std::move(image_data)));
-      }
+      THROW_CHECK(resizer_queue_->Push(std::move(image_data)));
     }
 
     resizer_queue_->Wait();

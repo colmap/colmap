@@ -60,7 +60,6 @@ COLMAP_ADD_LIBRARY(
         colmap_math
         colmap_mvs
         colmap_sfm
-        colmap_glomap_sfm
         Ceres::ceres
         Boost::boost
 )

@@ -51,9 +51,6 @@ namespace retrieval {
 //    distinctiveness for location recognition. ACCV 2014.
 class VisualIndex {
  public:
-  using Descriptors = Eigen::RowMajorMatrixXf;
-  using Geometries = FeatureKeypoints;
-
   struct IndexOptions {
     // The number of nearest neighbor visual words that each feature descriptor
     // is assigned to.
@@ -117,24 +114,28 @@ class VisualIndex {
   virtual int DescDim() const = 0;
   virtual int EmbeddingDim() const = 0;
 
+  // Feature extractor type used to build the index. Returns UNDEFINED if the
+  // index has not been built yet.
+  virtual FeatureExtractorType FeatureType() const = 0;
+
   // Add image to the visual index.
   virtual void Add(const IndexOptions& options,
                    int image_id,
-                   const Geometries& geometries,
-                   const Descriptors& descriptors) = 0;
+                   const FeatureKeypoints& keypoints,
+                   const FeatureDescriptorsFloat& descriptors) = 0;
 
   // Check if an image has been indexed.
   virtual bool IsImageIndexed(int image_id) const = 0;
 
   // Query for most similar images in the visual index.
   virtual void Query(const QueryOptions& options,
-                     const Descriptors& descriptors,
+                     const FeatureDescriptorsFloat& descriptors,
                      std::vector<ImageScore>* image_scores) const = 0;
 
   // Query for most similar images in the visual index.
   virtual void Query(const QueryOptions& options,
-                     const Geometries& geometries,
-                     const Descriptors& descriptors,
+                     const FeatureKeypoints& keypoints,
+                     const FeatureDescriptorsFloat& descriptors,
                      std::vector<ImageScore>* image_scores) const = 0;
 
   // Prepare the index after adding images and before querying.
@@ -143,7 +144,7 @@ class VisualIndex {
   // Build a visual index from a set of training descriptors by quantizing the
   // descriptor space into visual words and compute their Hamming embedding.
   virtual void Build(const BuildOptions& options,
-                     const Descriptors& descriptors) = 0;
+                     const FeatureDescriptorsFloat& descriptors) = 0;
 
   // Read and write the visual index. This can be done for an index with and
   // without indexed images.
@@ -153,8 +154,11 @@ class VisualIndex {
 
  protected:
   virtual void ReadFromFaiss(const std::filesystem::path& path,
-                             long offset) = 0;
+                             long offset,
+                             FeatureExtractorType feature_type) = 0;
 };
+
+std::ostream& operator<<(std::ostream& stream, const VisualIndex& visual_index);
 
 }  // namespace retrieval
 }  // namespace colmap

@@ -251,5 +251,32 @@ TEST(Alignment, AlignReconstructionToOrigRigScales) {
   }
 }
 
+TEST(AlignmentErrorSummary, Empty) {
+  std::vector<ImageAlignmentError> errors;
+  AlignmentErrorSummary summary = AlignmentErrorSummary::Compute(errors);
+  EXPECT_EQ(summary.rotation_errors_deg.min, 0);
+  EXPECT_EQ(summary.proj_center_errors.min, 0);
+}
+
+TEST(AlignmentErrorSummary, MultipleErrors) {
+  std::vector<ImageAlignmentError> errors(5);
+  for (size_t i = 0; i < errors.size(); ++i) {
+    errors[i].rotation_error_deg = static_cast<double>(i + 1);
+    errors[i].proj_center_error = static_cast<double>(i + 1) * 0.1;
+  }
+  const AlignmentErrorSummary summary = AlignmentErrorSummary::Compute(errors);
+  EXPECT_NEAR(summary.rotation_errors_deg.min, 1.0, 1e-10);
+  EXPECT_NEAR(summary.rotation_errors_deg.max, 5.0, 1e-10);
+  EXPECT_NEAR(summary.rotation_errors_deg.mean, 3.0, 1e-10);
+  EXPECT_NEAR(summary.rotation_errors_deg.median, 3.0, 1e-10);
+  EXPECT_NEAR(summary.rotation_errors_deg.p90, 4.6, 1e-10);
+  EXPECT_NEAR(summary.rotation_errors_deg.p99, 4.96, 1e-10);
+  EXPECT_NEAR(summary.proj_center_errors.min, 0.1, 1e-10);
+  EXPECT_NEAR(summary.proj_center_errors.max, 0.5, 1e-10);
+  EXPECT_NEAR(summary.proj_center_errors.mean, 0.3, 1e-10);
+  EXPECT_NEAR(summary.proj_center_errors.p90, 0.46, 1e-10);
+  EXPECT_NEAR(summary.proj_center_errors.p99, 0.496, 1e-10);
+}
+
 }  // namespace
 }  // namespace colmap

@@ -27,15 +27,14 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "glomap/estimators/global_positioning.h"
+#include "colmap/estimators/global_positioning.h"
 
 #include "colmap/math/random.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/database_sqlite.h"
+#include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
-
-#include "glomap/scene/pose_graph.h"
 
 #include <algorithm>
 #include <array>
@@ -48,7 +47,7 @@ using namespace colmap;
 struct CachedData {
   std::array<int64_t, 5> dataset_args;
   Reconstruction reconstruction;
-  glomap::PoseGraph pose_graph;
+  colmap::PoseGraph pose_graph;
 };
 
 static void BM_GlobalPositioning(benchmark::State& state) {
@@ -100,16 +99,16 @@ static void BM_GlobalPositioning(benchmark::State& state) {
     cached->reconstruction = gt_reconstruction;
     for (const auto& [frame_id, _] : cached->reconstruction.Frames()) {
       Frame& frame = cached->reconstruction.Frame(frame_id);
-      frame.SetRigFromWorld(Rigid3d(frame.RigFromWorld().rotation(),
-                                    Eigen::Vector3d::Zero()));
+      frame.SetRigFromWorld(
+          Rigid3d(frame.RigFromWorld().rotation(), Eigen::Vector3d::Zero()));
     }
   }
 
   const Reconstruction& reconstruction = cached->reconstruction;
-  const glomap::PoseGraph& pose_graph = cached->pose_graph;
+  const colmap::PoseGraph& pose_graph = cached->pose_graph;
   const int num_neighbors = dataset_args[4];
 
-  glomap::GlobalPositionerOptions base_options;
+  colmap::GlobalPositionerOptions base_options;
   base_options.use_gpu = false;
   base_options.random_seed = 42;
   base_options.solver_options.max_num_iterations = 50;
@@ -118,11 +117,11 @@ static void BM_GlobalPositioning(benchmark::State& state) {
   for (auto _ : state) {
     state.PauseTiming();
     Reconstruction reconstruction_copy = reconstruction;
-    glomap::GlobalPositionerOptions options = base_options;
+    colmap::GlobalPositionerOptions options = base_options;
     options.use_parameter_block_ordering = use_parameter_block_ordering;
     state.ResumeTiming();
 
-    glomap::GlobalPositioner positioner(options);
+    colmap::GlobalPositioner positioner(options);
     positioner.Solve(pose_graph, reconstruction_copy);
   }
   state.counters["ord"] = use_parameter_block_ordering;

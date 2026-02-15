@@ -33,6 +33,8 @@
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/reconstruction.h"
 
+#include <vector>
+
 namespace colmap {
 
 // Robustly align reconstruction to given image locations (projection centers).
@@ -94,6 +96,24 @@ std::vector<ImageAlignmentError> ComputeImageAlignmentError(
     const Reconstruction& src_reconstruction,
     const Reconstruction& tgt_reconstruction,
     const Sim3d& tgt_from_src);
+
+// Summary of alignment errors for image poses.
+struct AlignmentErrorSummary {
+  struct Statistics {
+    double min = 0;
+    double max = 0;
+    double mean = 0;
+    double median = 0;
+    double p90 = 0;
+    double p99 = 0;
+  };
+
+  Statistics rotation_errors_deg;
+  Statistics proj_center_errors;
+
+  static AlignmentErrorSummary Compute(
+      const std::vector<ImageAlignmentError>& errors);
+};
 
 // Aligns the source to the target reconstruction and merges cameras, images,
 // points3D into the target using the alignment. Returns false on failure.
