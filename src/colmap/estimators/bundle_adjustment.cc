@@ -198,7 +198,7 @@ const std::unordered_set<point3D_t>& BundleAdjustmentConfig::ConstantPoints()
   return constant_point3D_ids_;
 }
 
-const std::unordered_set<camera_t>
+const std::unordered_set<camera_t>&
 BundleAdjustmentConfig::ConstantCamIntrinsics() const {
   return constant_cam_intrinsics_;
 }

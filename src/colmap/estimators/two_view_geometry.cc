@@ -263,7 +263,7 @@ TwoViewGeometry EstimateMultipleTwoViewGeometries(
   if (geometries.empty()) {
     multi_geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
   } else if (geometries.size() == 1) {
-    multi_geometry = geometries[0];
+    multi_geometry = std::move(geometries[0]);
   } else {
     multi_geometry.config = TwoViewGeometry::ConfigurationType::MULTIPLE;
     for (const auto& geometry : geometries) {
@@ -921,7 +921,7 @@ TwoViewGeometry TwoViewGeometryFromKnownRelativePose(
   geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
   geometry.cam2_from_cam1 = cam2_from_cam1;
   geometry.E = E;
-  geometry.inlier_matches = inlier_matches;
+  geometry.inlier_matches = std::move(inlier_matches);
   return geometry;
 }
 

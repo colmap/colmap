@@ -623,7 +623,7 @@ size_t IncrementalTriangulator::Merge(const Options& options,
       // Count number of inlier track elements of the merged track.
       bool merge_success = true;
       for (const Track* track : {&point3D.track, &corr_point3D.track}) {
-        for (const auto test_track_el : track->Elements()) {
+        for (const auto& test_track_el : track->Elements()) {
           const Image& test_image =
               reconstruction_.Image(test_track_el.image_id);
           const Camera& test_camera = *test_image.CameraPtr();

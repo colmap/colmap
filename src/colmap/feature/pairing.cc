@@ -346,7 +346,7 @@ std::vector<std::pair<image_t, image_t>> VocabTreePairGenerator::Next() {
 
   // Compose the image pairs from the scores.
   image_pairs_.reserve(image_scores.size());
-  for (const auto image_score : image_scores) {
+  for (const auto& image_score : image_scores) {
     image_pairs_.emplace_back(image_id, image_score.image_id);
   }
   ++result_idx_;

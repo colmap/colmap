@@ -135,7 +135,7 @@ class BundleAdjustmentConfig {
   const std::unordered_set<image_t>& Images() const;
   const std::unordered_set<point3D_t>& VariablePoints() const;
   const std::unordered_set<point3D_t>& ConstantPoints() const;
-  const std::unordered_set<camera_t> ConstantCamIntrinsics() const;
+  const std::unordered_set<camera_t>& ConstantCamIntrinsics() const;
   const std::unordered_set<sensor_t>& ConstantSensorFromRigPoses() const;
   const std::unordered_set<frame_t>& ConstantRigFromWorldPoses() const;
 

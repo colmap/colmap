@@ -429,7 +429,7 @@ void Reconstruction::AddCameraWithTrivialRig(struct Camera camera) {
   rig.SetRigId(camera.camera_id);
   rig.AddRefSensor(camera.SensorId());
   AddCamera(std::move(camera));
-  AddRig(rig);
+  AddRig(std::move(rig));
 }
 
 void Reconstruction::AddFrame(class Frame frame) {
@@ -504,7 +504,7 @@ void Reconstruction::AddImageWithTrivialFrame(class Image image) {
   } else {
     image.SetFrameId(frame.FrameId());
   }
-  AddFrame(frame);
+  AddFrame(std::move(frame));
   AddImage(std::move(image));
 }
 
@@ -579,8 +579,8 @@ point3D_t Reconstruction::MergePoints3D(const point3D_t point3D_id1,
   DeletePoint3D(point3D_id1);
   DeletePoint3D(point3D_id2);
 
-  const point3D_t merged_point3D_id =
-      AddPoint3D(merged_xyz, merged_track, merged_rgb.cast<uint8_t>());
+  const point3D_t merged_point3D_id = AddPoint3D(
+      merged_xyz, std::move(merged_track), merged_rgb.cast<uint8_t>());
 
   return merged_point3D_id;
 }
@@ -805,7 +805,7 @@ Reconstruction Reconstruction::Crop(const Eigen::AlignedBox3d& bbox) const {
   }
   for (auto [_, frame] : frames_) {
     frame.ResetRigPtr();
-    cropped_reconstruction.AddFrame(frame);
+    cropped_reconstruction.AddFrame(std::move(frame));
   }
   for (auto [_, image] : images_) {
     image.ResetCameraPtr();
@@ -814,7 +814,7 @@ Reconstruction Reconstruction::Crop(const Eigen::AlignedBox3d& bbox) const {
     for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
       image.ResetPoint3DForPoint2D(point2D_idx);
     }
-    cropped_reconstruction.AddImage(image);
+    cropped_reconstruction.AddImage(std::move(image));
   }
   std::unordered_set<image_t> cropped_frame_ids;
   for (const auto& [_, point3D] : points3D_) {
