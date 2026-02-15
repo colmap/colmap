@@ -318,7 +318,7 @@ void BindMatchFeatures(py::module& m) {
       "device"_a = Device::AUTO,
       "Sequential feature matching");
 
-  m.def("match_from_pairs",
+  m.def("match_image_pairs",
         &MatchFeatures<ImportedPairingOptions, CreateImagePairsFeatureMatcher>,
         "database_path"_a,
         py::arg_v("matching_options",
