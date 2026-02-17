@@ -264,11 +264,19 @@ if(ONNX_ENABLED)
                 )
             endif()
         elseif(IS_LINUX)
-            FetchContent_Declare(onnxruntime
-                URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-gpu-${ONNX_VERSION}.tgz
-                URL_HASH SHA256=1c468821456b7863640555e31ee5b71e56bb959874b9db0dbf79503997993673
-                ${_fetch_content_declare_args}
-            )
+            if(IS_ARM64)
+                FetchContent_Declare(onnxruntime
+                    URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-aarch64-${ONNX_VERSION}.tgz
+                    URL_HASH SHA256=0f56edd68f7602df790b68b874a46b115add037e88385c6c842bb763b39b9f89
+                    ${_fetch_content_declare_args}
+                )
+            else()
+                FetchContent_Declare(onnxruntime
+                    URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-gpu-${ONNX_VERSION}.tgz
+                    URL_HASH SHA256=1c468821456b7863640555e31ee5b71e56bb959874b9db0dbf79503997993673
+                    ${_fetch_content_declare_args}
+                )
+            endif()
         elseif(IS_WINDOWS)
             FetchContent_Declare(onnxruntime
                 URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-win-x64-gpu-${ONNX_VERSION}.zip
@@ -279,7 +287,7 @@ if(ONNX_ENABLED)
 
         FetchContent_MakeAvailable(onnxruntime)
 
-        if(IS_LINUX)
+        if(IS_LINUX AND NOT IS_ARM64)
             set(onnxruntime_LIB_DIR_NAME lib64)
         else()
             set(onnxruntime_LIB_DIR_NAME lib)
