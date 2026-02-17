@@ -230,6 +230,80 @@ TEST(RefineAbsolutePose, RefineExtraParams) {
   EXPECT_NE(cam_from_world_cov, Eigen::Matrix6d::Zero());
 }
 
+TEST(RefineAbsolutePose, PositionPrior) {
+  const AbsolutePoseProblem problem = CreateAbsolutePoseTestData();
+  // Isolate the position-prior-only refinement path without reprojection terms.
+  std::vector<char> inlier_mask(problem.points2D.size(), false);
+
+  AbsolutePoseRefinementOptions options;
+  options.use_position_prior = true;
+  options.position_prior_in_world = Eigen::Vector3d(1.0, 2.0, 3.0);
+  options.position_prior_weight = 1.0;
+  Rigid3d cam_from_world(
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.2, Eigen::Vector3d::UnitY())),
+      Eigen::Vector3d(0.3, -0.5, 0.7));
+  const double initial_error =
+      (Inverse(cam_from_world).translation() - options.position_prior_in_world)
+          .norm();
+  Camera camera = problem.camera;
+  EXPECT_TRUE(RefineAbsolutePose(options,
+                                 inlier_mask,
+                                 problem.points2D,
+                                 problem.points3D,
+                                 &cam_from_world,
+                                 &camera));
+  EXPECT_LT((Inverse(cam_from_world).translation() -
+             options.position_prior_in_world)
+                .norm(),
+            initial_error);
+}
+
+TEST(RefineAbsolutePose, PositionPriorWeight) {
+  const AbsolutePoseProblem problem = CreateAbsolutePoseTestData();
+  std::vector<char> inlier_mask(problem.points2D.size(), true);
+
+  AbsolutePoseRefinementOptions low_weight_options;
+  low_weight_options.use_position_prior = true;
+  low_weight_options.position_prior_in_world =
+      Inverse(problem.image.CamFromWorld()).translation() +
+      Eigen::Vector3d(1.0, -0.7, 0.5);
+  low_weight_options.position_prior_weight = 1.0;
+
+  AbsolutePoseRefinementOptions high_weight_options = low_weight_options;
+  high_weight_options.position_prior_weight = 100.0;
+
+  const Rigid3d initial_cam_from_world(
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.1, Eigen::Vector3d::UnitX())),
+      problem.image.CamFromWorld().translation() + Eigen::Vector3d(0.2, 0.1, -0.1));
+  Camera low_weight_camera = problem.camera;
+  Camera high_weight_camera = problem.camera;
+  Rigid3d low_weight_cam_from_world = initial_cam_from_world;
+  Rigid3d high_weight_cam_from_world = initial_cam_from_world;
+
+  EXPECT_TRUE(RefineAbsolutePose(low_weight_options,
+                                 inlier_mask,
+                                 problem.points2D,
+                                 problem.points3D,
+                                 &low_weight_cam_from_world,
+                                 &low_weight_camera));
+  EXPECT_TRUE(RefineAbsolutePose(high_weight_options,
+                                 inlier_mask,
+                                 problem.points2D,
+                                 problem.points3D,
+                                 &high_weight_cam_from_world,
+                                 &high_weight_camera));
+
+  const double low_weight_error =
+      (Inverse(low_weight_cam_from_world).translation() -
+       low_weight_options.position_prior_in_world)
+          .norm();
+  const double high_weight_error =
+      (Inverse(high_weight_cam_from_world).translation() -
+       high_weight_options.position_prior_in_world)
+          .norm();
+  EXPECT_LT(high_weight_error, low_weight_error);
+}
+
 TEST(RefineEssentialMatrix, Nominal) {
   const Rigid3d cam1_from_world;
   const Rigid3d cam2_from_world(Eigen::Quaterniond::Identity(),

@@ -81,10 +81,21 @@ struct AbsolutePoseRefinementOptions {
   // Whether to print final summary.
   bool print_summary = false;
 
+  // Whether to add a soft position prior on the camera center in world coordinates.
+  bool use_position_prior = false;
+
+  // Prior on camera center in world coordinates. 
+  Eigen::Vector3d position_prior_in_world = Eigen::Vector3d::Zero();
+
+  // Weight of the position prior term. Higher values put more weight on the position prior.
+  // set to 0 to disable the position prior.
+  double position_prior_weight = 1.0;
+
   void Check() const {
     THROW_CHECK_GE(gradient_tolerance, 0.0);
     THROW_CHECK_GE(max_num_iterations, 0);
     THROW_CHECK_GE(loss_function_scale, 0.0);
+    THROW_CHECK_GE(position_prior_weight, 0.0);
   }
 };
 
