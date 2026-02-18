@@ -238,7 +238,7 @@ TEST(RefineAbsolutePose, PositionPrior) {
   AbsolutePoseRefinementOptions options;
   options.use_position_prior = true;
   options.position_prior_in_world = Eigen::Vector3d(1.0, 2.0, 3.0);
-  options.position_prior_weight = 1.0;
+  options.position_prior_covariance = Eigen::Matrix3d::Identity();
   Rigid3d cam_from_world(
       Eigen::Quaterniond(Eigen::AngleAxisd(0.2, Eigen::Vector3d::UnitY())),
       Eigen::Vector3d(0.3, -0.5, 0.7));
@@ -258,50 +258,54 @@ TEST(RefineAbsolutePose, PositionPrior) {
             initial_error);
 }
 
-TEST(RefineAbsolutePose, PositionPriorWeight) {
+TEST(RefineAbsolutePose, PositionPriorCovariance) {
   const AbsolutePoseProblem problem = CreateAbsolutePoseTestData();
   std::vector<char> inlier_mask(problem.points2D.size(), true);
 
-  AbsolutePoseRefinementOptions low_weight_options;
-  low_weight_options.use_position_prior = true;
-  low_weight_options.position_prior_in_world =
+  AbsolutePoseRefinementOptions weak_prior_options;
+  weak_prior_options.use_position_prior = true;
+  weak_prior_options.position_prior_in_world =
       Inverse(problem.image.CamFromWorld()).translation() +
       Eigen::Vector3d(1.0, -0.7, 0.5);
-  low_weight_options.position_prior_weight = 1.0;
+  // Large covariance = weak prior (high uncertainty).
+  weak_prior_options.position_prior_covariance =
+      Eigen::Matrix3d::Identity();
 
-  AbsolutePoseRefinementOptions high_weight_options = low_weight_options;
-  high_weight_options.position_prior_weight = 100.0;
+  AbsolutePoseRefinementOptions strong_prior_options = weak_prior_options;
+  // Small covariance = strong prior (low uncertainty).
+  strong_prior_options.position_prior_covariance =
+      0.01 * Eigen::Matrix3d::Identity();
 
   const Rigid3d initial_cam_from_world(
       Eigen::Quaterniond(Eigen::AngleAxisd(0.1, Eigen::Vector3d::UnitX())),
       problem.image.CamFromWorld().translation() + Eigen::Vector3d(0.2, 0.1, -0.1));
-  Camera low_weight_camera = problem.camera;
-  Camera high_weight_camera = problem.camera;
-  Rigid3d low_weight_cam_from_world = initial_cam_from_world;
-  Rigid3d high_weight_cam_from_world = initial_cam_from_world;
+  Camera weak_prior_camera = problem.camera;
+  Camera strong_prior_camera = problem.camera;
+  Rigid3d weak_prior_cam_from_world = initial_cam_from_world;
+  Rigid3d strong_prior_cam_from_world = initial_cam_from_world;
 
-  EXPECT_TRUE(RefineAbsolutePose(low_weight_options,
+  EXPECT_TRUE(RefineAbsolutePose(weak_prior_options,
                                  inlier_mask,
                                  problem.points2D,
                                  problem.points3D,
-                                 &low_weight_cam_from_world,
-                                 &low_weight_camera));
-  EXPECT_TRUE(RefineAbsolutePose(high_weight_options,
+                                 &weak_prior_cam_from_world,
+                                 &weak_prior_camera));
+  EXPECT_TRUE(RefineAbsolutePose(strong_prior_options,
                                  inlier_mask,
                                  problem.points2D,
                                  problem.points3D,
-                                 &high_weight_cam_from_world,
-                                 &high_weight_camera));
+                                 &strong_prior_cam_from_world,
+                                 &strong_prior_camera));
 
-  const double low_weight_error =
-      (Inverse(low_weight_cam_from_world).translation() -
-       low_weight_options.position_prior_in_world)
+  const double weak_prior_error =
+      (Inverse(weak_prior_cam_from_world).translation() -
+       weak_prior_options.position_prior_in_world)
           .norm();
-  const double high_weight_error =
-      (Inverse(high_weight_cam_from_world).translation() -
-       high_weight_options.position_prior_in_world)
+  const double strong_prior_error =
+      (Inverse(strong_prior_cam_from_world).translation() -
+       strong_prior_options.position_prior_in_world)
           .norm();
-  EXPECT_LT(high_weight_error, low_weight_error);
+  EXPECT_LT(strong_prior_error, weak_prior_error);
 }
 
 TEST(RefineEssentialMatrix, Nominal) {
