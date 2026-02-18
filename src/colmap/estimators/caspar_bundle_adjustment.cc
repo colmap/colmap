@@ -2,6 +2,7 @@
 
 #include "generated/solver.h"
 #include "generated/solver_params.h"
+#include <ceres/types.h>
 
 namespace colmap {
 namespace {
@@ -714,22 +715,34 @@ class CasparBundleAdjuster : public BundleAdjuster {
     SetupSolverData(solver);
 
     VLOG(2) << "Starting Caspar solver...";
-    const float result = solver.solve(false);
-    VLOG(2) << "Solve completed with cost: " << result;
+    caspar::SolveResult result = solver.solve(false);
+    VLOG(2) << "Solve completed with cost: " << result.final_score;
 
     ReadSolverResults(solver);
     WriteResultsToReconstruction();
 
     ceres::Solver::Summary summary;
-    summary.final_cost = result;
+    summary.final_cost = result.final_score;
+    summary.num_linear_solves = result.iteration_count;
+    summary.total_time_in_seconds = result.runtime;
     summary.num_residuals = ComputeTotalResiduals();
     summary.num_residuals_reduced = summary.num_residuals;
-    summary.termination_type = ceres::CONVERGENCE;
+    switch (result.exit_reason) {
+      case(caspar::ExitReason::CONVERGED_DIAG_EXIT):
+      case(caspar::ExitReason::CONVERGED_SCORE_THRESHOLD):
+        summary.termination_type = ceres::CONVERGENCE;
+        break;
+      case(caspar::ExitReason::MAX_ITERATIONS):
+        summary.termination_type = ceres::NO_CONVERGENCE;
+        break;
+      default:
+        summary.termination_type = ceres::FAILURE;
+    }
     return summary;
   }
 
  private:
-  caspar::SolverParams params_;
+  caspar::SolverParams<double> params_;
   Reconstruction& reconstruction_;
   std::shared_ptr<ceres::Problem> dummy_problem_;
 
