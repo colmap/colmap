@@ -93,7 +93,7 @@ jobs:
           .github/workflows/install-ccache.ps1 -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
 
       - name: Install CUDA
-        uses: Jimver/cuda-toolkit@v0.2.29
+        uses: Jimver/cuda-toolkit@v0.2.30
         if: matrix.config.cudaEnabled
         id: cuda-toolkit
         with:
@@ -143,7 +143,7 @@ jobs:
         run: |
           ./vcpkg/vcpkg.exe integrate install
           cd build
-          $EXCLUDED_TESTS = "(feature/colmap_feature_sift_test)|(util/colmap_util_opengl_utils_test)|(mvs/colmap_mvs_gpu_mat_test)"
+          $EXCLUDED_TESTS = "(feature/sift_test)|(util/opengl_utils_test)|(mvs/gpu_mat_test)"
           ctest -E ${EXCLUDED_TESTS} --output-on-failure
 
       - name: Export package
@@ -169,7 +169,7 @@ jobs:
               cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/cudart64_*.dll" install/bin
               cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/curand64_*.dll" install/bin
           }
-          Remove-Item -Recurse -Force install/include,install/lib,install/share
+          Remove-Item -Recurse -Force -ErrorAction SilentlyContinue install/include,install/lib,install/share
 
       - name: Upload package
         uses: actions/upload-artifact@v4

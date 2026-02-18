@@ -1,5 +1,7 @@
 #include "colmap/estimators/bundle_adjustment.h"
 
+#include "colmap/estimators/bundle_adjustment_ceres.h"
+
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 #include "pycolmap/utils.h"
@@ -17,24 +19,79 @@ namespace {
 class PyBundleAdjuster : public BundleAdjuster,
                          py::trampoline_self_life_support {
  public:
-  PyBundleAdjuster(BundleAdjustmentOptions options,
-                   BundleAdjustmentConfig config)
-      : BundleAdjuster(std::move(options), std::move(config)) {}
+  PyBundleAdjuster(const BundleAdjustmentOptions& options,
+                   const BundleAdjustmentConfig& config)
+      : BundleAdjuster(options, config) {}
 
-  ceres::Solver::Summary Solve() override {
-    PYBIND11_OVERRIDE_PURE(ceres::Solver::Summary, BundleAdjuster, Solve);
+  std::shared_ptr<BundleAdjustmentSummary> Solve() override {
+    PYBIND11_OVERRIDE_PURE(
+        std::shared_ptr<BundleAdjustmentSummary>, BundleAdjuster, Solve);
+  }
+};
+
+class PyCeresBundleAdjuster : public CeresBundleAdjuster,
+                              py::trampoline_self_life_support {
+ public:
+  PyCeresBundleAdjuster(const BundleAdjustmentOptions& options,
+                        const BundleAdjustmentConfig& config)
+      : CeresBundleAdjuster(options, config) {}
+
+  std::shared_ptr<BundleAdjustmentSummary> Solve() override {
+    PYBIND11_OVERRIDE_PURE(
+        std::shared_ptr<BundleAdjustmentSummary>, CeresBundleAdjuster, Solve);
   }
 
   std::shared_ptr<ceres::Problem>& Problem() override {
-    PYBIND11_OVERRIDE_PURE(
-        std::shared_ptr<ceres::Problem>&, BundleAdjuster, Problem);
+    // Cannot use PYBIND11_OVERRIDE_PURE for reference returns as it creates
+    // a temporary. Instead, manually call override and store in member.
+    py::gil_scoped_acquire gil;
+    py::function override = py::get_override(
+        static_cast<const CeresBundleAdjuster*>(this), "problem");
+    if (override) {
+      auto obj = override();
+      problem_ = obj.cast<std::shared_ptr<ceres::Problem>>();
+    }
+    return problem_;
   }
+
+ private:
+  std::shared_ptr<ceres::Problem> problem_;
 };
 
 }  // namespace
 
 void BindBundleAdjuster(py::module& m) {
   IsPyceresAvailable();  // Try to import pyceres to populate the docstrings.
+
+  auto PyBundleAdjustmentTerminationType =
+      py::enum_<BundleAdjustmentTerminationType>(
+          m, "BundleAdjustmentTerminationType")
+          .value("CONVERGENCE", BundleAdjustmentTerminationType::CONVERGENCE)
+          .value("NO_CONVERGENCE",
+                 BundleAdjustmentTerminationType::NO_CONVERGENCE)
+          .value("FAILURE", BundleAdjustmentTerminationType::FAILURE)
+          .value("USER_SUCCESS", BundleAdjustmentTerminationType::USER_SUCCESS)
+          .value("USER_FAILURE", BundleAdjustmentTerminationType::USER_FAILURE);
+  AddStringToEnumConstructor(PyBundleAdjustmentTerminationType);
+
+  using BASummary = BundleAdjustmentSummary;
+  auto PyBundleAdjustmentSummary =
+      py::classh<BASummary>(m, "BundleAdjustmentSummary")
+          .def(py::init<>())
+          .def_readwrite("termination_type", &BASummary::termination_type)
+          .def_readwrite("num_residuals", &BASummary::num_residuals)
+          .def("is_solution_usable", &BASummary::IsSolutionUsable)
+          .def("brief_report", &BASummary::BriefReport);
+  MakeDataclass(PyBundleAdjustmentSummary);
+
+  using CeresBASummary = CeresBundleAdjustmentSummary;
+  auto PyCeresBundleAdjustmentSummary =
+      py::classh<CeresBASummary, BASummary>(m, "CeresBundleAdjustmentSummary")
+          .def(py::init<>())
+          .def_readwrite("ceres_summary",
+                         &CeresBASummary::ceres_summary,
+                         "Full Ceres solver summary.");
+  MakeDataclass(PyCeresBundleAdjustmentSummary);
 
   auto PyBundleAdjustmentGauge =
       py::enum_<BundleAdjustmentGauge>(m, "BundleAdjustmentGauge")
@@ -43,6 +100,11 @@ void BindBundleAdjuster(py::module& m) {
                  BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD)
           .value("THREE_POINTS", BundleAdjustmentGauge::THREE_POINTS);
   AddStringToEnumConstructor(PyBundleAdjustmentGauge);
+
+  auto PyBundleAdjustmentBackend =
+      py::enum_<BundleAdjustmentBackend>(m, "BundleAdjustmentBackend")
+          .value("CERES", BundleAdjustmentBackend::CERES);
+  AddStringToEnumConstructor(PyBundleAdjustmentBackend);
 
   using BACfg = BundleAdjustmentConfig;
   py::classh<BACfg> PyBundleAdjustmentConfig(m, "BundleAdjustmentConfig");
@@ -106,31 +168,82 @@ void BindBundleAdjuster(py::module& m) {
                              &BACfg::ConstantRigFromWorldPoses);
   MakeDataclass(PyBundleAdjustmentConfig);
 
-  using BAOpts = BundleAdjustmentOptions;
-  auto PyBALossFunctionType =
-      py::enum_<BAOpts::LossFunctionType>(m, "LossFunctionType")
-          .value("TRIVIAL", BAOpts::LossFunctionType::TRIVIAL)
-          .value("SOFT_L1", BAOpts::LossFunctionType::SOFT_L1)
-          .value("CAUCHY", BAOpts::LossFunctionType::CAUCHY)
-          .value("HUBER", BAOpts::LossFunctionType::HUBER);
-  AddStringToEnumConstructor(PyBALossFunctionType);
+  // Ceres-specific bundle adjustment options
+  using CeresBAOpts = CeresBundleAdjustmentOptions;
+  auto PyCeresLossFunctionType =
+      py::enum_<CeresBAOpts::LossFunctionType>(m, "LossFunctionType")
+          .value("TRIVIAL", CeresBAOpts::LossFunctionType::TRIVIAL)
+          .value("SOFT_L1", CeresBAOpts::LossFunctionType::SOFT_L1)
+          .value("CAUCHY", CeresBAOpts::LossFunctionType::CAUCHY)
+          .value("HUBER", CeresBAOpts::LossFunctionType::HUBER);
+  AddStringToEnumConstructor(PyCeresLossFunctionType);
 
-  auto PyBundleAdjustmentOptions =
-      py::classh<BAOpts>(m, "BundleAdjustmentOptions")
+  auto PyCeresBundleAdjustmentOptions =
+      py::classh<CeresBAOpts>(m, "CeresBundleAdjustmentOptions")
           .def(py::init<>())
-          .def("create_loss_function", &BAOpts::CreateLossFunction)
+          .def("create_loss_function", &CeresBAOpts::CreateLossFunction)
           .def("create_solver_options",
-               &BAOpts::CreateSolverOptions,
+               &CeresBAOpts::CreateSolverOptions,
                "config"_a,
                "problem"_a)
           .def_readwrite("loss_function_type",
-                         &BAOpts::loss_function_type,
+                         &CeresBAOpts::loss_function_type,
                          "Loss function types: Trivial (non-robust) and Cauchy "
                          "(robust) loss.")
           .def_readwrite("loss_function_scale",
-                         &BAOpts::loss_function_scale,
+                         &CeresBAOpts::loss_function_scale,
                          "Scaling factor determines residual at which "
                          "robustification takes place.")
+          .def_readwrite("use_gpu",
+                         &CeresBAOpts::use_gpu,
+                         "Whether to use Ceres' CUDA linear algebra library, "
+                         "if available.")
+          .def_readwrite("gpu_index",
+                         &CeresBAOpts::gpu_index,
+                         "Which GPU to use for solving the problem.")
+          .def_readwrite("solver_options",
+                         &CeresBAOpts::solver_options,
+                         "Options for the Ceres solver. Using this member "
+                         "requires having PyCeres installed.")
+          .def_readwrite("min_num_images_gpu_solver",
+                         &CeresBAOpts::min_num_images_gpu_solver,
+                         "Minimum number of images to use the GPU solver.")
+          .def_readwrite(
+              "min_num_residuals_for_cpu_multi_threading",
+              &CeresBAOpts::min_num_residuals_for_cpu_multi_threading,
+              "Minimum number of residuals to enable multi-threading. Note "
+              "that single-threaded is typically better for small bundle "
+              "adjustment problems due to the overhead of threading.")
+          .def_readwrite("max_num_images_direct_dense_cpu_solver",
+                         &CeresBAOpts::max_num_images_direct_dense_cpu_solver,
+                         "Threshold to switch between direct, sparse, and "
+                         "iterative solvers.")
+          .def_readwrite("max_num_images_direct_sparse_cpu_solver",
+                         &CeresBAOpts::max_num_images_direct_sparse_cpu_solver,
+                         "Threshold to switch between direct, sparse, and "
+                         "iterative solvers.")
+          .def_readwrite("max_num_images_direct_dense_gpu_solver",
+                         &CeresBAOpts::max_num_images_direct_dense_gpu_solver,
+                         "Threshold to switch between direct, sparse, and "
+                         "iterative solvers.")
+          .def_readwrite("max_num_images_direct_sparse_gpu_solver",
+                         &CeresBAOpts::max_num_images_direct_sparse_gpu_solver,
+                         "Threshold to switch between direct, sparse, and "
+                         "iterative solvers.")
+          .def_readwrite(
+              "auto_select_solver_type",
+              &CeresBAOpts::auto_select_solver_type,
+              "Whether to automatically select solver type based on "
+              "problem size. When False, uses the linear_solver_type "
+              "and preconditioner_type from solver_options directly.")
+          .def("check", &CeresBAOpts::Check);
+  MakeDataclass(PyCeresBundleAdjustmentOptions);
+
+  // Solver-agnostic bundle adjustment options
+  using BAOpts = BundleAdjustmentOptions;
+  auto PyBundleAdjustmentOptions =
+      py::classh<BAOpts>(m, "BundleAdjustmentOptions")
+          .def(py::init<>())
           .def_readwrite("refine_focal_length",
                          &BAOpts::refine_focal_length,
                          "Whether to refine the focal length parameter group.")
@@ -157,53 +270,39 @@ void BindBundleAdjuster(py::module& m) {
           .def_readwrite("refine_points3D",
                          &BAOpts::refine_points3D,
                          "Whether to refine 3D points.")
+          .def_readwrite("min_track_length",
+                         &BAOpts::min_track_length,
+                         "Minimum track length for a 3D point.")
           .def_readwrite("print_summary",
                          &BAOpts::print_summary,
                          "Whether to print a final summary.")
-          .def_readwrite("use_gpu",
-                         &BAOpts::use_gpu,
-                         "Whether to use Ceres' CUDA linear algebra library, "
-                         "if available.")
-          .def_readwrite("gpu_index",
-                         &BAOpts::gpu_index,
-                         "Which GPU to use for solving the problem.")
-          .def_readwrite(
-              "min_num_residuals_for_cpu_multi_threading",
-              &BAOpts::min_num_residuals_for_cpu_multi_threading,
-              "Minimum number of residuals to enable multi-threading. Note "
-              "that single-threaded is typically better for small bundle "
-              "adjustment problems due to the overhead of threading.")
-          .def_readwrite("min_num_images_gpu_solver",
-                         &BAOpts::min_num_images_gpu_solver,
-                         "Minimum number of images to use the GPU solver.")
-          .def_readwrite("max_num_images_direct_dense_cpu_solver",
-                         &BAOpts::max_num_images_direct_dense_cpu_solver,
-                         "Threshold to switch between direct, sparse, and "
-                         "iterative solvers.")
-          .def_readwrite("max_num_images_direct_sparse_cpu_solver",
-                         &BAOpts::max_num_images_direct_sparse_cpu_solver,
-                         "Threshold to switch between direct, sparse, and "
-                         "iterative solvers.")
-          .def_readwrite("max_num_images_direct_dense_gpu_solver",
-                         &BAOpts::max_num_images_direct_dense_gpu_solver,
-                         "Threshold to switch between direct, sparse, and "
-                         "iterative solvers.")
-          .def_readwrite("max_num_images_direct_sparse_gpu_solver",
-                         &BAOpts::max_num_images_direct_sparse_gpu_solver,
-                         "Threshold to switch between direct, sparse, and "
-                         "iterative solvers.")
-          .def_readwrite(
-              "auto_select_solver_type",
-              &BAOpts::auto_select_solver_type,
-              "Whether to automatically select solver type based on "
-              "problem size. When False, uses the linear_solver_type "
-              "and preconditioner_type from solver_options directly.")
-          .def_readwrite("solver_options",
-                         &BAOpts::solver_options,
-                         "Options for the Ceres solver. Using this member "
-                         "requires having PyCeres installed.");
+          .def_readwrite("backend",
+                         &BAOpts::backend,
+                         "Solver backend to use for bundle adjustment.")
+          .def_readwrite("ceres",
+                         &BAOpts::ceres,
+                         "Ceres-specific bundle adjustment options.")
+          .def("check", &BAOpts::Check);
   MakeDataclass(PyBundleAdjustmentOptions);
 
+  // Ceres-specific pose prior bundle adjustment options
+  using CeresPosePriorBAOpts = CeresPosePriorBundleAdjustmentOptions;
+  auto PyCeresPosePriorBundleAdjustmentOptions =
+      py::classh<CeresPosePriorBAOpts>(m,
+                                       "CeresPosePriorBundleAdjustmentOptions")
+          .def(py::init<>())
+          .def_readwrite(
+              "prior_position_loss_function_type",
+              &CeresPosePriorBAOpts::prior_position_loss_function_type,
+              "Loss function for prior position loss.")
+          .def_readwrite("prior_position_loss_scale",
+                         &CeresPosePriorBAOpts::prior_position_loss_scale,
+                         "Threshold on the residual for the robust loss (chi2 "
+                         "for 3DOF at 95% = 7.815).")
+          .def("check", &CeresPosePriorBAOpts::Check);
+  MakeDataclass(PyCeresPosePriorBundleAdjustmentOptions);
+
+  // Solver-agnostic pose prior bundle adjustment options
   using PosePriorBAOpts = PosePriorBundleAdjustmentOptions;
   auto PyPosePriorBundleAdjustmentOptions =
       py::classh<PosePriorBAOpts>(m, "PosePriorBundleAdjustmentOptions")
@@ -212,26 +311,35 @@ void BindBundleAdjuster(py::module& m) {
               "prior_position_fallback_stddev",
               &PosePriorBAOpts::prior_position_fallback_stddev,
               "Fallback if no prior position covariance is provided.")
-          .def_readwrite("prior_position_loss_function_type",
-                         &PosePriorBAOpts::prior_position_loss_function_type,
-                         "Loss function for prior position loss.")
-          .def_readwrite("prior_position_loss_scale",
-                         &PosePriorBAOpts::prior_position_loss_scale,
-                         "Threshold on the residual for the robust loss (chi2 "
-                         "for 3DOF at 95% = 7.815).")
           .def_readwrite("alignment_ransac",
                          &PosePriorBAOpts::alignment_ransac_options,
-                         "RANSAC options for Sim3 alignment.");
+                         "RANSAC options for Sim3 alignment.")
+          .def_readwrite("ceres",
+                         &PosePriorBAOpts::ceres,
+                         "Ceres-specific pose prior bundle adjustment options.")
+          .def("check", &PosePriorBAOpts::Check);
   MakeDataclass(PyPosePriorBundleAdjustmentOptions);
 
   py::classh<BundleAdjuster, PyBundleAdjuster>(m, "BundleAdjuster")
-      .def(py::init<BundleAdjustmentOptions, BundleAdjustmentConfig>(),
+      .def(py::init([](const BundleAdjustmentOptions& options,
+                       const BundleAdjustmentConfig& config) {
+             return new PyBundleAdjuster(options, config);
+           }),
            "options"_a,
            "config"_a)
       .def("solve", &BundleAdjuster::Solve)
-      .def_property_readonly("problem", &BundleAdjuster::Problem)
       .def_property_readonly("options", &BundleAdjuster::Options)
       .def_property_readonly("config", &BundleAdjuster::Config);
+
+  py::classh<CeresBundleAdjuster, BundleAdjuster, PyCeresBundleAdjuster>(
+      m, "CeresBundleAdjuster")
+      .def(py::init([](const BundleAdjustmentOptions& options,
+                       const BundleAdjustmentConfig& config) {
+             return new PyCeresBundleAdjuster(options, config);
+           }),
+           "options"_a,
+           "config"_a)
+      .def_property_readonly("problem", &CeresBundleAdjuster::Problem);
 
   m.def("create_default_bundle_adjuster",
         CreateDefaultBundleAdjuster,
@@ -239,8 +347,22 @@ void BindBundleAdjuster(py::module& m) {
         "config"_a,
         "reconstruction"_a);
 
+  m.def("create_default_ceres_bundle_adjuster",
+        CreateDefaultCeresBundleAdjuster,
+        "options"_a,
+        "config"_a,
+        "reconstruction"_a);
+
   m.def("create_pose_prior_bundle_adjuster",
         CreatePosePriorBundleAdjuster,
+        "options"_a,
+        "prior_options"_a,
+        "config"_a,
+        "pose_priors"_a,
+        "reconstruction"_a);
+
+  m.def("create_pose_prior_ceres_bundle_adjuster",
+        CreatePosePriorCeresBundleAdjuster,
         "options"_a,
         "prior_options"_a,
         "config"_a,

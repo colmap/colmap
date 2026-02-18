@@ -6,6 +6,15 @@ if(POLICY CMP0054)
     cmake_policy(SET CMP0054 NEW)
 endif()
 
+# Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+    cmake_policy(SET CMP0135 NEW)
+endif()
+
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.30")
+    cmake_policy(SET CMP0167 NEW)
+endif()
+
 # Determine project compiler.
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     set(IS_MSVC TRUE)
@@ -77,22 +86,41 @@ endmacro(COLMAP_ADD_SOURCE_DIR)
 # Replacement for the normal add_library() command. The syntax remains the same
 # in that the first argument is the target name, and the following arguments
 # are the source files to use when building the target.
+# Supports TYPE argument: STATIC (default) or INTERFACE (header-only libraries).
+# For INTERFACE libraries, use INTERFACE_LINK_LIBS instead of PRIVATE/PUBLIC_LINK_LIBS.
 macro(COLMAP_ADD_LIBRARY)
     set(options)
-    set(oneValueArgs)
-    set(multiValueArgs NAME SRCS PRIVATE_LINK_LIBS PUBLIC_LINK_LIBS)
+    set(oneValueArgs TYPE)
+    set(multiValueArgs NAME SRCS PRIVATE_LINK_LIBS PUBLIC_LINK_LIBS INTERFACE_LINK_LIBS)
     cmake_parse_arguments(COLMAP_ADD_LIBRARY "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
-    add_library(${COLMAP_ADD_LIBRARY_NAME} STATIC ${COLMAP_ADD_LIBRARY_SRCS})
-    set_target_properties(${COLMAP_ADD_LIBRARY_NAME} PROPERTIES FOLDER
-        ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
-    if(CLANG_TIDY_EXE)
-        set_target_properties(${COLMAP_ADD_LIBRARY_NAME}
-            PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
+    # Default to STATIC if TYPE is not specified
+    if(NOT COLMAP_ADD_LIBRARY_TYPE)
+        set(COLMAP_ADD_LIBRARY_TYPE STATIC)
     endif()
-    target_link_libraries(${COLMAP_ADD_LIBRARY_NAME}
-        PRIVATE ${COLMAP_ADD_LIBRARY_PRIVATE_LINK_LIBS}
-        PUBLIC ${COLMAP_ADD_LIBRARY_PUBLIC_LINK_LIBS})
-    target_compile_definitions(${COLMAP_ADD_LIBRARY_NAME} PUBLIC ${COLMAP_COMPILE_DEFINITIONS})
+    if(COLMAP_ADD_LIBRARY_TYPE STREQUAL "INTERFACE")
+        # Header-only library
+        add_library(${COLMAP_ADD_LIBRARY_NAME} INTERFACE)
+        set_target_properties(${COLMAP_ADD_LIBRARY_NAME} PROPERTIES FOLDER
+            ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
+        target_link_libraries(${COLMAP_ADD_LIBRARY_NAME}
+            INTERFACE ${COLMAP_ADD_LIBRARY_INTERFACE_LINK_LIBS})
+        target_compile_definitions(${COLMAP_ADD_LIBRARY_NAME} INTERFACE ${COLMAP_COMPILE_DEFINITIONS})
+    elseif(COLMAP_ADD_LIBRARY_TYPE STREQUAL "STATIC")
+        # Regular static library
+        add_library(${COLMAP_ADD_LIBRARY_NAME} STATIC ${COLMAP_ADD_LIBRARY_SRCS})
+        set_target_properties(${COLMAP_ADD_LIBRARY_NAME} PROPERTIES FOLDER
+            ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
+        if(CLANG_TIDY_EXE)
+            set_target_properties(${COLMAP_ADD_LIBRARY_NAME}
+                PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
+        endif()
+        target_link_libraries(${COLMAP_ADD_LIBRARY_NAME}
+            PRIVATE ${COLMAP_ADD_LIBRARY_PRIVATE_LINK_LIBS}
+            PUBLIC ${COLMAP_ADD_LIBRARY_PUBLIC_LINK_LIBS})
+        target_compile_definitions(${COLMAP_ADD_LIBRARY_NAME} PUBLIC ${COLMAP_COMPILE_DEFINITIONS})
+    else()
+        message(FATAL_ERROR "Unknown library type: ${COLMAP_ADD_LIBRARY_TYPE}")
+    endif()
 endmacro(COLMAP_ADD_LIBRARY)
 
 # Replacement for the normal add_executable() command. The syntax remains the
@@ -127,21 +155,22 @@ macro(COLMAP_ADD_TEST)
     cmake_parse_arguments(COLMAP_ADD_TEST "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
     if(TESTS_ENABLED)
         # ${ARGN} will store the list of link libraries.
-        set(COLMAP_ADD_TEST_NAME "colmap_${FOLDER_NAME}_${COLMAP_ADD_TEST_NAME}")
-        add_executable(${COLMAP_ADD_TEST_NAME} ${COLMAP_ADD_TEST_SRCS})
-        set_target_properties(${COLMAP_ADD_TEST_NAME} PROPERTIES FOLDER
-            ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
+        set(COLMAP_ADD_TEST_TARGET "colmap_${FOLDER_NAME}_${COLMAP_ADD_TEST_NAME}")
+        add_executable(${COLMAP_ADD_TEST_TARGET} ${COLMAP_ADD_TEST_SRCS})
+        set_target_properties(${COLMAP_ADD_TEST_TARGET} PROPERTIES
+            FOLDER ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME}
+            OUTPUT_NAME "${COLMAP_ADD_TEST_NAME}")
         if(CLANG_TIDY_EXE)
-            set_target_properties(${COLMAP_ADD_TEST_NAME}
+            set_target_properties(${COLMAP_ADD_TEST_TARGET}
                 PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
         endif()
-        target_link_libraries(${COLMAP_ADD_TEST_NAME}
+        target_link_libraries(${COLMAP_ADD_TEST_TARGET}
             ${COLMAP_ADD_TEST_LINK_LIBS}
             colmap_gtest_main)
-        add_test("${FOLDER_NAME}/${COLMAP_ADD_TEST_NAME}" ${COLMAP_ADD_TEST_NAME})
+        add_test(NAME "${FOLDER_NAME}/${COLMAP_ADD_TEST_NAME}" COMMAND $<TARGET_FILE:${COLMAP_ADD_TEST_TARGET}>)
         if(IS_MSVC)
-            install(TARGETS ${COLMAP_ADD_TEST_NAME} DESTINATION ${CMAKE_INSTALL_BINDIR})
+            install(TARGETS ${COLMAP_ADD_TEST_TARGET} DESTINATION ${CMAKE_INSTALL_BINDIR})
         endif()
-        target_compile_definitions(${COLMAP_ADD_TEST_NAME} PRIVATE ${COLMAP_COMPILE_DEFINITIONS})
+        target_compile_definitions(${COLMAP_ADD_TEST_TARGET} PRIVATE ${COLMAP_COMPILE_DEFINITIONS})
     endif()
 endmacro(COLMAP_ADD_TEST)

@@ -21,31 +21,7 @@ About
 COLMAP is a general-purpose Structure-from-Motion (SfM) and Multi-View Stereo
 (MVS) pipeline with a graphical and command-line interface. It offers a wide
 range of features for reconstruction of ordered and unordered image collections.
-The software is licensed under the new BSD license. If you use this project for
-your research, please cite::
-
-    @inproceedings{schoenberger2016sfm,
-        author={Sch\"{o}nberger, Johannes Lutz and Frahm, Jan-Michael},
-        title={Structure-from-Motion Revisited},
-        booktitle={Conference on Computer Vision and Pattern Recognition (CVPR)},
-        year={2016},
-    }
-
-    @inproceedings{schoenberger2016mvs,
-        author={Sch\"{o}nberger, Johannes Lutz and Zheng, Enliang and Pollefeys, Marc and Frahm, Jan-Michael},
-        title={Pixelwise View Selection for Unstructured Multi-View Stereo},
-        booktitle={European Conference on Computer Vision (ECCV)},
-        year={2016},
-    }
-
-If you use the image retrieval / vocabulary tree engine, please also cite::
-
-    @inproceedings{schoenberger2016vote,
-        author={Sch\"{o}nberger, Johannes Lutz and Price, True and Sattler, Torsten and Frahm, Jan-Michael and Pollefeys, Marc},
-        title={A Vote-and-Verify Strategy for Fast Spatial Verification in Image Retrieval},
-        booktitle={Asian Conference on Computer Vision (ACCV)},
-        year={2016},
-    }
+The software is licensed under the new BSD license.
 
 The latest source code is available at `GitHub
 <https://github.com/colmap/colmap>`_. COLMAP builds on top of existing works and
@@ -79,6 +55,44 @@ for questions and the `GitHub issue tracker <https://github.com/colmap/colmap>`_
 for bug reports, feature requests/additions, etc.
 
 
+Citation
+--------
+
+If you use this project for your research, please cite::
+
+    @inproceedings{schoenberger2016sfm,
+        author={Sch\"{o}nberger, Johannes Lutz and Frahm, Jan-Michael},
+        title={Structure-from-Motion Revisited},
+        booktitle={Conference on Computer Vision and Pattern Recognition (CVPR)},
+        year={2016},
+    }
+
+    @inproceedings{schoenberger2016mvs,
+        author={Sch\"{o}nberger, Johannes Lutz and Zheng, Enliang and Pollefeys, Marc and Frahm, Jan-Michael},
+        title={Pixelwise View Selection for Unstructured Multi-View Stereo},
+        booktitle={European Conference on Computer Vision (ECCV)},
+        year={2016},
+    }
+
+If you use the global SfM pipeline (GLOMAP), please cite::
+
+    @inproceedings{pan2024glomap,
+        author={Pan, Linfei and Barath, Daniel and Pollefeys, Marc and Sch\"{o}nberger, Johannes Lutz},
+        title={{Global Structure-from-Motion Revisited}},
+        booktitle={European Conference on Computer Vision (ECCV)},
+        year={2024},
+    }
+
+If you use the image retrieval / vocabulary tree engine, please cite::
+
+    @inproceedings{schoenberger2016vote,
+        author={Sch\"{o}nberger, Johannes Lutz and Price, True and Sattler, Torsten and Frahm, Jan-Michael and Pollefeys, Marc},
+        title={A Vote-and-Verify Strategy for Fast Spatial Verification in Image Retrieval},
+        booktitle={Asian Conference on Computer Vision (ACCV)},
+        year={2016},
+    }
+
+
 Acknowledgments
 ---------------
 
@@ -99,6 +113,44 @@ bug fixes, improvements, new features, third-party tooling, and community
 support (special credits to `Torsten Sattler <https://tsattler.github.io>`_).
 
 
+Citation
+--------
+
+If you use this project for your research, please cite:
+
+    @inproceedings{schoenberger2016sfm,
+        author={Sch\"{o}nberger, Johannes Lutz and Frahm, Jan-Michael},
+        title={Structure-from-Motion Revisited},
+        booktitle={Conference on Computer Vision and Pattern Recognition (CVPR)},
+        year={2016},
+    }
+
+    @inproceedings{schoenberger2016mvs,
+        author={Sch\"{o}nberger, Johannes Lutz and Zheng, Enliang and Pollefeys, Marc and Frahm, Jan-Michael},
+        title={Pixelwise View Selection for Unstructured Multi-View Stereo},
+        booktitle={European Conference on Computer Vision (ECCV)},
+        year={2016},
+    }
+
+If you use the global SfM pipeline (GLOMAP), please cite:
+
+    @inproceedings{pan2024glomap,
+        author={Pan, Linfei and Barath, Daniel and Pollefeys, Marc and Sch\"{o}nberger, Johannes Lutz},
+        title={{Global Structure-from-Motion Revisited}},
+        booktitle={European Conference on Computer Vision (ECCV)},
+        year={2024},
+    }
+
+If you use the image retrieval / vocabulary tree engine, please cite:
+
+    @inproceedings{schoenberger2016vote,
+        author={Sch\"{o}nberger, Johannes Lutz and Price, True and Sattler, Torsten and Frahm, Jan-Michael and Pollefeys, Marc},
+        title={A Vote-and-Verify Strategy for Fast Spatial Verification in Image Retrieval},
+        booktitle={Asian Conference on Computer Vision (ACCV)},
+        year={2016},
+    }
+
+
 .. toctree::
    :hidden:
    :maxdepth: 2
@@ -106,6 +158,7 @@ support (special credits to `Torsten Sattler <https://tsattler.github.io>`_).
    install
    tutorial
    concepts
+   features
    database
    cameras
    rigs

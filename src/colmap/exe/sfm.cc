@@ -36,7 +36,7 @@
 #include "colmap/controllers/option_manager.h"
 #include "colmap/controllers/reconstruction_clustering.h"
 #include "colmap/controllers/rotation_averaging.h"
-#include "colmap/estimators/similarity_transform.h"
+#include "colmap/estimators/solvers/similarity_transform.h"
 #include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/exe/gui.h"
 #include "colmap/geometry/pose.h"
@@ -89,6 +89,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   std::filesystem::path image_list_path;
   std::string data_type = "individual";
   std::string quality = "high";
+  std::string feature = "sift";
   std::string mapper = "incremental";
   std::string mesher = "poisson";
 
@@ -115,6 +116,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("matching", &reconstruction_options.matching);
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
+  options.AddDefaultOption("feature", &feature, "{sift, aliked}");
   options.AddDefaultOption(
       "mapper", &mapper, "{incremental, hierarchical, global}");
   options.AddDefaultOption("mesher", &mesher, "{poisson, delaunay}");
@@ -137,6 +139,10 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   StringToUpper(&quality);
   reconstruction_options.quality =
       AutomaticReconstructionController::QualityFromString(quality);
+
+  StringToUpper(&feature);
+  reconstruction_options.feature =
+      AutomaticReconstructionController::FeatureFromString(feature);
 
   StringToUpper(&mapper);
   reconstruction_options.mapper =
@@ -380,7 +386,7 @@ int RunGlobalMapper(int argc, char** argv) {
   GlobalPipelineOptions global_options = *options.global_mapper;
   global_options.image_path = *options.image_path;
 
-  GlobalPipeline global_mapper(global_options,
+  GlobalPipeline global_mapper(std::move(global_options),
                                Database::Open(*options.database_path),
                                reconstruction_manager);
   global_mapper.Run();
@@ -535,16 +541,10 @@ int RunPointFiltering(int argc, char** argv) {
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
 
-  size_t num_filtered = ObservationManager(reconstruction)
-                            .FilterAllPoints3D(max_reproj_error, min_tri_angle);
-
-  for (const auto point3D_id : reconstruction.Point3DIds()) {
-    const auto& point3D = reconstruction.Point3D(point3D_id);
-    if (point3D.track.Length() < min_track_len) {
-      num_filtered += point3D.track.Length();
-      reconstruction.DeletePoint3D(point3D_id);
-    }
-  }
+  ObservationManager obs_manager(reconstruction);
+  size_t num_filtered =
+      obs_manager.FilterAllPoints3D(max_reproj_error, min_tri_angle);
+  num_filtered += obs_manager.FilterPoints3DWithShortTracks(min_track_len);
 
   LOG(INFO) << "Filtered observations: " << num_filtered;
 

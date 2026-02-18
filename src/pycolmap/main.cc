@@ -49,10 +49,10 @@ PYBIND11_MODULE(_core, m) {
   BindGeometry(m);
   BindOptim(m);
   BindSensor(m);
+  BindFeature(m);
   BindScene(m);
   BindImage(m);
   BindEstimators(m);
-  BindFeature(m);
   BindRetrieval(m);
   BindSfm(m);
   BindMvs(m);

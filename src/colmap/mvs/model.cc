@@ -68,8 +68,8 @@ void Model::ReadFromCOLMAP(const std::filesystem::path& path,
 
         camera.CalibrationMatrix().cast<float>();
     const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> R =
-        image.CamFromWorld().rotation.toRotationMatrix().cast<float>();
-    const Eigen::Vector3f T = image.CamFromWorld().translation.cast<float>();
+        image.CamFromWorld().rotation().toRotationMatrix().cast<float>();
+    const Eigen::Vector3f T = image.CamFromWorld().translation().cast<float>();
 
     images.emplace_back(
         image_path, camera.width, camera.height, K.data(), R.data(), T.data());
@@ -80,13 +80,13 @@ void Model::ReadFromCOLMAP(const std::filesystem::path& path,
   }
 
   points.reserve(reconstruction.NumPoints3D());
-  for (const auto& point3D : reconstruction.Points3D()) {
+  for (const auto& [_, point3D] : reconstruction.Points3D()) {
     Point point;
-    point.x = point3D.second.xyz(0);
-    point.y = point3D.second.xyz(1);
-    point.z = point3D.second.xyz(2);
-    point.track.reserve(point3D.second.track.Length());
-    for (const auto& track_el : point3D.second.track.Elements()) {
+    point.x = point3D.xyz(0);
+    point.y = point3D.xyz(1);
+    point.z = point3D.xyz(2);
+    point.track.reserve(point3D.track.Length());
+    for (const auto& track_el : point3D.track.Elements()) {
       point.track.push_back(image_id_to_idx.at(track_el.image_id));
     }
     points.push_back(point);
@@ -132,10 +132,10 @@ std::vector<std::vector<int>> Model::GetMaxOverlappingImages(
 
     std::vector<std::pair<int, int>> ordered_images;
     ordered_images.reserve(shared_images.size());
-    for (const auto& image : shared_images) {
-      if (overlapping_triangulation_angles.at(image.first) >=
+    for (const auto& [image_idx, count] : shared_images) {
+      if (overlapping_triangulation_angles.at(image_idx) >=
           min_triangulation_angle_rad) {
-        ordered_images.emplace_back(image.first, image.second);
+        ordered_images.emplace_back(image_idx, count);
       }
     }
 
@@ -263,9 +263,9 @@ std::vector<std::map<int, float>> Model::ComputeTriangulationAngles(
   for (size_t image_idx = 0; image_idx < all_triangulation_angles.size();
        ++image_idx) {
     auto& overlapping_images = all_triangulation_angles[image_idx];
-    for (auto& image : overlapping_images) {
-      triangulation_angles[image_idx].emplace(
-          image.first, Percentile(image.second, percentile));
+    for (auto& [other_image_idx, angles] : overlapping_images) {
+      triangulation_angles[image_idx].emplace(other_image_idx,
+                                              Percentile(angles, percentile));
     }
   }
 

@@ -29,12 +29,11 @@
 
 #pragma once
 
+#include "colmap/estimators/gravity_refinement.h"
+#include "colmap/estimators/rotation_averaging.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/base_controller.h"
-
-#include "glomap/estimators/gravity_refinement.h"
-#include "glomap/estimators/rotation_averaging.h"
 
 #include <memory>
 #include <vector>
@@ -67,10 +66,10 @@ struct RotationAveragingPipelineOptions {
   bool refine_gravity = false;
 
   // Options for gravity refinement.
-  glomap::GravityRefinerOptions gravity_refiner;
+  GravityRefinerOptions gravity_refiner;
 
   // Options for rotation averaging.
-  glomap::RotationEstimatorOptions rotation_estimation;
+  RotationEstimatorOptions rotation_estimation;
 };
 
 class RotationAveragingPipeline : public BaseController {

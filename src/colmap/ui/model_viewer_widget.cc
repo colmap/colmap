@@ -29,12 +29,7 @@
 
 #include "colmap/ui/model_viewer_widget.h"
 
-#include "colmap/ui/main_window.h"
-
-#include <set>
-
-#define SELECTION_BUFFER_IMAGE_IDX 0
-#define SELECTION_BUFFER_POINT_IDX 1
+#include "colmap/math/math.h"
 
 // Color of a selected 3D point.
 const Eigen::Vector4f kSelectedPointColor(0.0f, 1.0f, 0.0f, 1.0f);
@@ -105,8 +100,8 @@ void BuildCameraModel(const std::optional<Rigid3d>& cam_from_world,
   const float focal_length = 2.0f * image_extent / camera_extent_normalized;
 
   Rigid3d world_from_cam = Inverse(*cam_from_world);
-  world_from_cam.translation += model_origin;
-  world_from_cam.translation *= model_scale;
+  world_from_cam.translation() += model_origin;
+  world_from_cam.translation() *= model_scale;
 
   const Eigen::Matrix<float, 3, 4> world_from_cam_mat =
       world_from_cam.ToMatrix().cast<float>();
@@ -655,12 +650,12 @@ void ModelViewerWidget::SelectObject(const int x, const int y) {
   const size_t index = RGBToIndex(color[0], color[1], color[2]);
 
   if (index < selection_buffer_.size()) {
-    const char buffer_type = selection_buffer_[index].second;
-    if (buffer_type == SELECTION_BUFFER_IMAGE_IDX) {
+    const SelectionType buffer_type = selection_buffer_[index].second;
+    if (buffer_type == SelectionType::kImage) {
       selected_image_id_ = static_cast<image_t>(selection_buffer_[index].first);
       selected_point3D_id_ = kInvalidPoint3DId;
       ShowImageInfo(selected_image_id_);
-    } else if (buffer_type == SELECTION_BUFFER_POINT_IDX) {
+    } else if (buffer_type == SelectionType::kPoint) {
       selected_image_id_ = kInvalidImageId;
       selected_point3D_id_ = selection_buffer_[index].first;
       ShowPointInfo(selection_buffer_[index].first);
@@ -1029,7 +1024,7 @@ void ModelViewerWidget::UploadPointData(const bool selection_mode) {
         if (selection_mode) {
           const size_t index = selection_buffer_.size();
           selection_buffer_.push_back(
-              std::make_pair(point3D_id, SELECTION_BUFFER_POINT_IDX));
+              std::make_pair(point3D_id, SelectionType::kPoint));
           color = IndexToRGB(index);
 
         } else if (point3D_id == selected_point3D_id_) {
@@ -1054,7 +1049,7 @@ void ModelViewerWidget::UploadPointData(const bool selection_mode) {
         if (selection_mode) {
           const size_t index = selection_buffer_.size();
           selection_buffer_.push_back(
-              std::make_pair(point3D_id, SELECTION_BUFFER_POINT_IDX));
+              std::make_pair(point3D_id, SelectionType::kPoint));
           color = IndexToRGB(index);
         } else if (selected_image.HasPoint3D(point3D_id)) {
           color = kSelectedImagePlaneColor;
@@ -1139,7 +1134,7 @@ void ModelViewerWidget::UploadImageData(const bool selection_mode) {
     if (selection_mode) {
       const size_t index = selection_buffer_.size();
       selection_buffer_.push_back(
-          std::make_pair(image_id, SELECTION_BUFFER_IMAGE_IDX));
+          std::make_pair(image_id, SelectionType::kImage));
       plane_color = frame_color = IndexToRGB(index);
     } else {
       if (image_id == selected_image_id_) {

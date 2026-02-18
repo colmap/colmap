@@ -29,6 +29,8 @@
 
 #include "colmap/feature/matcher.h"
 
+#include "colmap/feature/aliked.h"
+#include "colmap/feature/onnx_matchers.h"
 #include "colmap/feature/sift.h"
 #include "colmap/util/misc.h"
 
@@ -43,18 +45,54 @@ void ThrowUnknownFeatureMatcherType(FeatureMatcherType type) {
 
 }  // namespace
 
+FeatureMatchingTypeOptions::FeatureMatchingTypeOptions()
+    : sift(std::make_shared<SiftMatchingOptions>()),
+      aliked(std::make_shared<AlikedMatchingOptions>()) {}
+
+FeatureMatchingTypeOptions::FeatureMatchingTypeOptions(
+    const FeatureMatchingTypeOptions& other) {
+  if (other.sift) {
+    sift = std::make_shared<SiftMatchingOptions>(*other.sift);
+  }
+  if (other.aliked) {
+    aliked = std::make_shared<AlikedMatchingOptions>(*other.aliked);
+  }
+}
+
+FeatureMatchingTypeOptions& FeatureMatchingTypeOptions::operator=(
+    const FeatureMatchingTypeOptions& other) {
+  if (this == &other) {
+    return *this;
+  }
+  if (other.sift) {
+    sift = std::make_shared<SiftMatchingOptions>(*other.sift);
+  } else {
+    sift.reset();
+  }
+  if (other.aliked) {
+    aliked = std::make_shared<AlikedMatchingOptions>(*other.aliked);
+  } else {
+    aliked.reset();
+  }
+  return *this;
+}
+
 FeatureMatchingOptions::FeatureMatchingOptions(FeatureMatcherType type)
-    : type(type), sift(std::make_shared<SiftMatchingOptions>()) {}
+    : FeatureMatchingTypeOptions(), type(type) {}
 
 bool FeatureMatchingOptions::RequiresOpenGL() const {
   switch (type) {
-    case FeatureMatcherType::SIFT: {
+    case FeatureMatcherType::SIFT_BRUTEFORCE: {
 #ifdef COLMAP_CUDA_ENABLED
       return false;
 #else
       return use_gpu;
 #endif
     }
+    case FeatureMatcherType::SIFT_LIGHTGLUE:
+    case FeatureMatcherType::ALIKED_BRUTEFORCE:
+    case FeatureMatcherType::ALIKED_LIGHTGLUE:
+      return false;
     default:
       ThrowUnknownFeatureMatcherType(type);
   }
@@ -71,11 +109,16 @@ bool FeatureMatchingOptions::Check() const {
 #endif
   }
   CHECK_OPTION_GE(max_num_matches, 0);
-  if (type == FeatureMatcherType::SIFT) {
-    return THROW_CHECK_NOTNULL(sift)->Check();
-  } else {
-    LOG(ERROR) << "Unknown feature matcher type: " << type;
-    return false;
+  switch (type) {
+    case FeatureMatcherType::SIFT_BRUTEFORCE:
+    case FeatureMatcherType::SIFT_LIGHTGLUE:
+      return THROW_CHECK_NOTNULL(sift)->Check();
+    case FeatureMatcherType::ALIKED_BRUTEFORCE:
+    case FeatureMatcherType::ALIKED_LIGHTGLUE:
+      return THROW_CHECK_NOTNULL(aliked)->Check();
+    default:
+      LOG(ERROR) << "Unknown feature matcher type: " << type;
+      return false;
   }
   return true;
 }
@@ -83,8 +126,12 @@ bool FeatureMatchingOptions::Check() const {
 std::unique_ptr<FeatureMatcher> FeatureMatcher::Create(
     const FeatureMatchingOptions& options) {
   switch (options.type) {
-    case FeatureMatcherType::SIFT:
+    case FeatureMatcherType::SIFT_BRUTEFORCE:
+    case FeatureMatcherType::SIFT_LIGHTGLUE:
       return CreateSiftFeatureMatcher(options);
+    case FeatureMatcherType::ALIKED_BRUTEFORCE:
+    case FeatureMatcherType::ALIKED_LIGHTGLUE:
+      return CreateAlikedFeatureMatcher(options);
     default:
       ThrowUnknownFeatureMatcherType(options.type);
   }
@@ -98,7 +145,7 @@ FeatureMatcherCache::FeatureMatcherCache(
       descriptor_index_cache_(cache_size_, [this](const image_t image_id) {
         auto descriptors = GetDescriptors(image_id);
         auto index = FeatureDescriptorIndex::Create();
-        index->Build(descriptors->cast<float>());
+        index->Build(descriptors->ToFloat());
         return index;
       }) {
   keypoints_cache_ =

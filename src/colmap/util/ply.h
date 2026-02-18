@@ -31,7 +31,6 @@
 
 #include <cstdint>
 #include <filesystem>
-#include <string>
 #include <vector>
 
 namespace colmap {
@@ -89,6 +88,9 @@ void WriteBinaryPlyPoints(const std::filesystem::path& path,
                           const std::vector<PlyPoint>& points,
                           bool write_normal = true,
                           bool write_rgb = true);
+
+// Read PLY mesh from text or binary file.
+PlyMesh ReadPlyMesh(const std::filesystem::path& path);
 
 // Write PLY mesh to text or binary file.
 void WriteTextPlyMesh(const std::filesystem::path& path, const PlyMesh& mesh);

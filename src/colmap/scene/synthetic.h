@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/feature/types.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
@@ -52,6 +53,9 @@ struct SyntheticDatasetOptions {
   CameraModelId camera_model_id = SimpleRadialCameraModel::model_id;
   std::vector<double> camera_params = {1280, 512, 384, 0.05};
   bool camera_has_prior_focal_length = false;
+
+  // The type of feature descriptors to synthesize.
+  FeatureExtractorType feature_type = FeatureExtractorType::SIFT;
 
   int num_points2D_without_point3D = 10;
 

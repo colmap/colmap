@@ -101,8 +101,9 @@ TEST(SynthesizeDataset, Nominal) {
     EXPECT_THAT(image.Name(), testing::EndsWith(options.image_extension));
     image_names.insert(image.Name());
     EXPECT_EQ(image.NumPoints2D(), database->ReadKeypoints(image_id).size());
-    EXPECT_EQ(image.NumPoints2D(), database->ReadDescriptors(image_id).rows());
-    EXPECT_EQ(database->ReadDescriptors(image_id).cols(), 128);
+    EXPECT_EQ(image.NumPoints2D(),
+              database->ReadDescriptors(image_id).data.rows());
+    EXPECT_EQ(database->ReadDescriptors(image_id).data.cols(), 128);
     EXPECT_EQ(image.NumPoints2D(),
               options.num_points3D + options.num_points2D_without_point3D);
     EXPECT_EQ(image.NumPoints3D(), options.num_points3D);
@@ -133,9 +134,10 @@ TEST(SynthesizeDataset, Nominal) {
     Point3D& point3D = reconstruction.Point3D(point3D_id);
 
     // Make sure all descriptors of the same 3D point have identical features.
-    const FeatureDescriptor descriptors =
-        database->ReadDescriptors(point3D.track.Element(0).image_id)
-            .row(point3D.track.Element(0).point2D_idx);
+    const FeatureDescriptors desc0 =
+        database->ReadDescriptors(point3D.track.Element(0).image_id);
+    const auto descriptors =
+        desc0.data.row(point3D.track.Element(0).point2D_idx);
 
     double max_tri_angle = 0;
     for (size_t i1 = 0; i1 < point3D.track.Length(); ++i1) {
@@ -147,9 +149,10 @@ TEST(SynthesizeDataset, Nominal) {
       const double squared_reproj_error = CalculateSquaredReprojectionError(
           point2D.xy, point3D.xyz, image1.CamFromWorld(), camera1);
       EXPECT_LE(squared_reproj_error, kMaxReprojError * kMaxReprojError);
+      const FeatureDescriptors desc1 =
+          database->ReadDescriptors(point3D.track.Element(i1).image_id);
       EXPECT_EQ(descriptors,
-                database->ReadDescriptors(point3D.track.Element(i1).image_id)
-                    .row(point3D.track.Element(i1).point2D_idx));
+                desc1.data.row(point3D.track.Element(i1).point2D_idx));
 
       Eigen::Vector3d proj_center1;
       if (proj_centers.count(image_id1) == 0) {
@@ -226,8 +229,9 @@ TEST(SynthesizeDataset, WithPriors) {
     const PosePrior& pose_prior = *image_to_prior.at(image_id);
     EXPECT_THAT(image.ProjectionCenter(),
                 EigenMatrixNear(pose_prior.position, 1e-9));
-    EXPECT_THAT(image.CamFromWorld().rotation * options.prior_gravity_in_world,
-                EigenMatrixNear(pose_prior.gravity, 1e-9));
+    EXPECT_THAT(
+        image.CamFromWorld().rotation() * options.prior_gravity_in_world,
+        EigenMatrixNear(pose_prior.gravity, 1e-9));
   }
 }
 

@@ -411,16 +411,16 @@ The following describes practical ways to reduce bundle adjustment runtime.
 
 - **Utilize GPU acceleration**
 
-  Enable GPU-based Ceres solvers for bundle adjustment by setting 
-  ``--Mapper.ba_use_gpu 1`` for the ``mapper`` and ``--BundleAdjustment.use_gpu 1``
+  Enable GPU-based Ceres solvers for bundle adjustment by setting
+  ``--Mapper.ba_use_gpu 1`` for the ``mapper`` and ``--BundleAdjustmentCeres.use_gpu 1``
   for the standalone ``bundle_adjuster``. Several parameters control when and which
   GPU solver is used:
 
-  - The GPU solver is activated only when the number of images exceeds 
-    ``--BundleAdjustmentOptions.min_num_images_gpu_solver``.
+  - The GPU solver is activated only when the number of images exceeds
+    ``--BundleAdjustmentCeres.min_num_images_gpu_solver``.
   - Select between the direct dense, direct sparse, and iterative sparse GPU solvers
-    using ``--BundleAdjustment.max_num_images_direct_dense_gpu_solver`` and
-    ``--BundleAdjustment.max_num_images_direct_sparse_gpu_solver``
+    using ``--BundleAdjustmentCeres.max_num_images_direct_dense_gpu_solver`` and
+    ``--BundleAdjustmentCeres.max_num_images_direct_sparse_gpu_solver``
       
   .. Attention:: COLMAP's official CUDA-enabled binaries are not distributed with 
      ceres[cuda] until Ceres 2.3 is officially released. To use the GPU solvers you

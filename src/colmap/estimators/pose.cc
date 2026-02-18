@@ -29,11 +29,12 @@
 
 #include "colmap/estimators/pose.h"
 
-#include "colmap/estimators/absolute_pose.h"
-#include "colmap/estimators/bundle_adjustment.h"
-#include "colmap/estimators/cost_functions.h"
-#include "colmap/estimators/essential_matrix.h"
-#include "colmap/estimators/manifold.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
+#include "colmap/estimators/cost_functions/manifold.h"
+#include "colmap/estimators/cost_functions/reprojection_error.h"
+#include "colmap/estimators/cost_functions/sampson_error.h"
+#include "colmap/estimators/solvers/absolute_pose.h"
+#include "colmap/estimators/solvers/essential_matrix.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/util/logging.h"
@@ -144,8 +145,8 @@ bool EstimateRelativePose(const RANSACOptions& ransac_options,
                           cam2_from_cam1,
                           &points3D);
 
-  if (cam2_from_cam1->rotation.coeffs().array().isNaN().any() ||
-      cam2_from_cam1->translation.array().isNaN().any()) {
+  if (cam2_from_cam1->rotation().coeffs().array().isNaN().any() ||
+      cam2_from_cam1->translation().array().isNaN().any()) {
     return false;
   }
 
@@ -169,12 +170,8 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   const auto loss_function =
       std::make_unique<ceres::CauchyLoss>(options.loss_function_scale);
 
-  double* camera_params = camera->params.data();
-  double* cam_from_world_rotation = cam_from_world->rotation.coeffs().data();
-  double* cam_from_world_translation = cam_from_world->translation.data();
-
   // CostFunction assumes unit quaternions.
-  cam_from_world->rotation.normalize();
+  cam_from_world->rotation().normalize();
 
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
@@ -189,14 +186,11 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
         CreateCameraCostFunction<ReprojErrorConstantPoint3DCostFunctor>(
             camera->model_id, points2D[i], points3D[i]),
         loss_function.get(),
-        cam_from_world_rotation,
-        cam_from_world_translation,
-        camera_params);
+        cam_from_world->params.data(),
+        camera->params.data());
   }
 
   if (problem.NumResiduals() > 0) {
-    SetQuaternionManifold(&problem, cam_from_world_rotation);
-
     // Camera parameterization.
     if (!options.refine_focal_length && !options.refine_extra_params) {
       problem.SetParameterBlockConstant(camera->params.data());
@@ -226,13 +220,18 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
       if (camera_params_const.size() == camera->params.size()) {
         problem.SetParameterBlockConstant(camera->params.data());
       } else {
-        SetSubsetManifold(static_cast<int>(camera->params.size()),
-                          camera_params_const,
-                          &problem,
-                          camera->params.data());
+        SetManifold(
+            &problem,
+            camera->params.data(),
+            CreateSubsetManifold(camera->params.size(), camera_params_const));
       }
     }
   }
+
+  SetManifold(&problem,
+              cam_from_world->params.data(),
+              CreateProductManifold(CreateEigenQuaternionManifold(),
+                                    CreateEuclideanManifold<3>()));
 
   ceres::Solver::Options solver_options;
   solver_options.gradient_tolerance = options.gradient_tolerance;
@@ -260,8 +259,8 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   if (problem.NumResiduals() > 0 && cam_from_world_cov != nullptr) {
     ceres::Covariance::Options options;
     ceres::Covariance covariance(options);
-    std::vector<const double*> parameter_blocks = {cam_from_world_rotation,
-                                                   cam_from_world_translation};
+    std::vector<const double*> parameter_blocks = {
+        cam_from_world->params.data()};
     if (!covariance.Compute(parameter_blocks, &problem)) {
       return false;
     }
@@ -284,10 +283,7 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
   THROW_CHECK_EQ(cam_rays1.size(), inlier_mask.size());
 
   // CostFunction assumes unit quaternions.
-  cam2_from_cam1->rotation.normalize();
-
-  double* cam2_from_cam1_rotation = cam2_from_cam1->rotation.coeffs().data();
-  double* cam2_from_cam1_translation = cam2_from_cam1->translation.data();
+  cam2_from_cam1->rotation().normalize();
 
   constexpr double kMaxL2Error = 1.0;
   const auto loss_function = std::make_unique<ceres::CauchyLoss>(kMaxL2Error);
@@ -303,14 +299,14 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
     }
     ceres::CostFunction* cost_function =
         SampsonErrorCostFunctor::Create(cam_rays1[i], cam_rays2[i]);
-    problem.AddResidualBlock(cost_function,
-                             loss_function.get(),
-                             cam2_from_cam1_rotation,
-                             cam2_from_cam1_translation);
+    problem.AddResidualBlock(
+        cost_function, loss_function.get(), cam2_from_cam1->params.data());
   }
 
-  SetQuaternionManifold(&problem, cam2_from_cam1_rotation);
-  SetSphereManifold<3>(&problem, cam2_from_cam1_translation);
+  SetManifold(&problem,
+              cam2_from_cam1->params.data(),
+              CreateProductManifold(CreateEigenQuaternionManifold(),
+                                    CreateSphereManifold<3>()));
 
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);

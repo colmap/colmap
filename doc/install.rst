@@ -177,7 +177,7 @@ Configure and compile COLMAP::
     cd colmap
     mkdir build
     cd build
-    cmake -GNinja
+    cmake .. -GNinja
     ninja
     sudo ninja install
 
@@ -367,14 +367,22 @@ meaningful traces for reported issues.
 Documentation
 -------------
 
-In order to build the documentation, a Python installation is required. Then, follow these commands:
+1. Install latest pycolmap for up-to-date pycolmap API documentation.
+2. Build the documentation::
 
-    cd path/to/colmap/doc
-    pip install -r requirements.txt
-    make html
-    open _build/html/index.html # preview results
+        cd path/to/colmap/doc
+        pip install -r requirements.txt
+        make html
+        open _build/html/index.html # preview results
 
-Alternatively, you can build the documentation as PDF, EPUB, etc.::
+   Alternatively, you can build the documentation as PDF, EPUB, etc.::
 
-    make latexpdf
-    open _build/pdf/COLMAP.pdf
+        make latexpdf
+        open _build/pdf/COLMAP.pdf
+
+2. Clone the website repository `colmap/colmap.github.io <https://github.com/colmap/colmap.github.io>`__.
+3. Copy the contents of the generated files at ``_build/html`` to the cloned respository root.
+4. Create a pull request to the `colmap/colmap.github.io <https://github.com/colmap/colmap.github.io>`__
+   repository with the updated files.
+5. (Optional, if main release) Copy the previous release as legacy to the "legacy" folder,
+   under a folder with the release number `see here <https://github.com/colmap/colmap.github.io/tree/master/legacy>`__.

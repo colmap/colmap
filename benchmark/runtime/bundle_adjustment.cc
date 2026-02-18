@@ -27,8 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/estimators/bundle_adjustment.h"
-
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
 
@@ -36,7 +35,7 @@
 
 using namespace colmap;
 
-void GenerateArguments(benchmark::internal::Benchmark* b) {
+void GenerateArguments(benchmark::Benchmark* b) {
   for (const int num_rigs : {1, 5}) {
     for (const int num_cameras_per_rig : {1, 3}) {
       for (const int num_frames_per_rig : {10, 50}) {
@@ -49,6 +48,12 @@ void GenerateArguments(benchmark::internal::Benchmark* b) {
       }
     }
   }
+}
+
+inline const ceres::Solver::Summary& GetCeresSummary(
+    const BundleAdjustmentSummary* summary) {
+  return dynamic_cast<const CeresBundleAdjustmentSummary*>(summary)
+      ->ceres_summary;
 }
 
 class BM_BundleAdjustment : public benchmark::Fixture {
@@ -79,7 +84,9 @@ class BM_BundleAdjustment : public benchmark::Fixture {
 
     // Set up BA options.
     options_.print_summary = false;
-    options_.solver_options.max_num_iterations = 50;
+    if (options_.ceres) {
+      options_.ceres->solver_options.max_num_iterations = 50;
+    }
   }
 
   void TearDown(::benchmark::State& state) {
@@ -104,12 +111,13 @@ BENCHMARK_DEFINE_F(BM_BundleAdjustment, Solve)(benchmark::State& state) {
 
     auto bundle_adjuster =
         CreateDefaultBundleAdjuster(options_, config_, reconstruction_copy);
-    const ceres::Solver::Summary summary = bundle_adjuster->Solve();
+    const auto summary = bundle_adjuster->Solve();
 
     // Stop timing and check if BA converged.
     state.PauseTiming();
-    num_iterations += summary.num_successful_steps;
-    if (summary.termination_type == ceres::NO_CONVERGENCE) {
+    num_iterations += GetCeresSummary(summary.get()).num_successful_steps;
+    if (summary->termination_type ==
+        BundleAdjustmentTerminationType::NO_CONVERGENCE) {
       state.SkipWithError("Bundle adjustment did not converge");
     }
     state.ResumeTiming();

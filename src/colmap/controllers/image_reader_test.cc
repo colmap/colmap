@@ -30,9 +30,11 @@
 #include "colmap/controllers/image_reader.h"
 
 #include "colmap/scene/database_sqlite.h"
+#include "colmap/sensor/models.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
+#include <fstream>
 #include <tuple>
 
 #include <gtest/gtest.h>
@@ -177,6 +179,402 @@ INSTANTIATE_TEST_SUITE_P(
                                       /*with_existing_images=*/true,
                                       /*as_rgb=*/true,
                                       /*extension=*/".png")));
+
+TEST(ImageReaderTest, SingleCamera) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  const auto test_dir = CreateTestDir();
+
+  ImageReaderOptions options;
+  options.image_path = test_dir / "images";
+  options.single_camera = true;
+  CreateDirIfNotExists(options.image_path);
+
+  // Create 3 test images with same dimensions
+  Bitmap test_bitmap(10, 20, true);
+  test_bitmap.Write(options.image_path / "0.png");
+  test_bitmap.Write(options.image_path / "1.png");
+  test_bitmap.Write(options.image_path / "2.png");
+
+  ImageReader image_reader(options, database.get());
+  EXPECT_EQ(image_reader.NumImages(), 3);
+
+  Rig rig;
+  Camera camera;
+  Image image;
+  PosePrior pose_prior;
+  Bitmap bitmap;
+  Bitmap mask;
+
+  for (int i = 0; i < 3; ++i) {
+    const auto status =
+        image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+    ASSERT_EQ(status, ImageReader::Status::SUCCESS);
+  }
+
+  EXPECT_EQ(database->NumRigs(), 1);
+  EXPECT_EQ(database->NumCameras(), 1);
+}
+
+TEST(ImageReaderTest, SingleCameraDimensionError) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  const auto test_dir = CreateTestDir();
+
+  ImageReaderOptions options;
+  options.image_path = test_dir / "images";
+  options.single_camera = true;
+  CreateDirIfNotExists(options.image_path);
+
+  // Create images with different dimensions
+  Bitmap bitmap1(10, 20, true);
+  Bitmap bitmap2(30, 40, true);
+  bitmap1.Write(options.image_path / "0.png");
+  bitmap2.Write(options.image_path / "1.png");
+
+  ImageReader image_reader(options, database.get());
+
+  Rig rig;
+  Camera camera;
+  Image image;
+  PosePrior pose_prior;
+  Bitmap bitmap;
+  Bitmap mask;
+
+  // First image succeeds
+  auto status =
+      image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+  ASSERT_EQ(status, ImageReader::Status::SUCCESS);
+
+  // Second image fails due to dimension mismatch
+  status =
+      image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+  EXPECT_EQ(status, ImageReader::Status::CAMERA_SINGLE_DIM_ERROR);
+}
+
+TEST(ImageReaderTest, SingleCameraPerFolder) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  const auto test_dir = CreateTestDir();
+
+  ImageReaderOptions options;
+  options.image_path = test_dir / "images";
+  options.single_camera_per_folder = true;
+  CreateDirIfNotExists(options.image_path);
+  CreateDirIfNotExists(options.image_path / "folder1");
+  CreateDirIfNotExists(options.image_path / "folder2");
+
+  // Create 2 images in each folder
+  Bitmap test_bitmap(10, 20, true);
+  test_bitmap.Write(options.image_path / "folder1" / "0.png");
+  test_bitmap.Write(options.image_path / "folder1" / "1.png");
+  test_bitmap.Write(options.image_path / "folder2" / "0.png");
+  test_bitmap.Write(options.image_path / "folder2" / "1.png");
+
+  ImageReader image_reader(options, database.get());
+  EXPECT_EQ(image_reader.NumImages(), 4);
+
+  Rig rig;
+  Camera camera;
+  Image image;
+  PosePrior pose_prior;
+  Bitmap bitmap;
+  Bitmap mask;
+
+  std::unordered_map<std::string, camera_t> folder_cameras;
+  for (int i = 0; i < 4; ++i) {
+    const auto status =
+        image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+    ASSERT_EQ(status, ImageReader::Status::SUCCESS);
+    const std::string folder = GetParentDir(image.Name()).string();
+    if (folder_cameras.count(folder) == 0) {
+      folder_cameras[folder] = camera.camera_id;
+    } else {
+      EXPECT_EQ(camera.camera_id, folder_cameras[folder]);
+    }
+  }
+
+  // Should have 2 cameras (one per folder)
+  EXPECT_EQ(database->NumCameras(), 2);
+}
+
+TEST(ImageReaderTest, SingleCameraPerImage) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  const auto test_dir = CreateTestDir();
+
+  ImageReaderOptions options;
+  options.image_path = test_dir / "images";
+  options.single_camera_per_image = true;
+  CreateDirIfNotExists(options.image_path);
+
+  // Create 3 images with same dimensions
+  Bitmap test_bitmap(10, 20, true);
+  test_bitmap.Write(options.image_path / "0.png");
+  test_bitmap.Write(options.image_path / "1.png");
+  test_bitmap.Write(options.image_path / "2.png");
+
+  ImageReader image_reader(options, database.get());
+
+  Rig rig;
+  Camera camera;
+  Image image;
+  PosePrior pose_prior;
+  Bitmap bitmap;
+  Bitmap mask;
+
+  for (int i = 0; i < 3; ++i) {
+    const auto status =
+        image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+    ASSERT_EQ(status, ImageReader::Status::SUCCESS);
+    EXPECT_EQ(camera.camera_id, i + 1);  // Each image gets its own camera
+  }
+
+  // Should have 3 cameras (one per image)
+  EXPECT_EQ(database->NumCameras(), 3);
+}
+
+TEST(ImageReaderTest, ExistingCameraId) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  const auto test_dir = CreateTestDir();
+
+  // Create an existing camera in the database
+  Camera existing_camera;
+  existing_camera.model_id = CameraModelNameToId("SIMPLE_RADIAL");
+  existing_camera.width = 10;
+  existing_camera.height = 20;
+  existing_camera.params = {1.0, 5.0, 10.0, 0.0};
+  existing_camera.camera_id = database->WriteCamera(existing_camera);
+  Rig existing_rig;
+  existing_rig.AddRefSensor(existing_camera.SensorId());
+  database->WriteRig(existing_rig);
+
+  ImageReaderOptions options;
+  options.image_path = test_dir / "images";
+  options.existing_camera_id = existing_camera.camera_id;
+  CreateDirIfNotExists(options.image_path);
+
+  Bitmap test_bitmap(10, 20, true);
+  test_bitmap.Write(options.image_path / "0.png");
+  test_bitmap.Write(options.image_path / "1.png");
+
+  ImageReader image_reader(options, database.get());
+
+  Rig rig;
+  Camera camera;
+  Image image;
+  PosePrior pose_prior;
+  Bitmap bitmap;
+  Bitmap mask;
+
+  for (int i = 0; i < 2; ++i) {
+    const auto status =
+        image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+    ASSERT_EQ(status, ImageReader::Status::SUCCESS);
+    EXPECT_EQ(camera.camera_id, existing_camera.camera_id);
+    EXPECT_EQ(camera.params, existing_camera.params);
+  }
+
+  // No new cameras created
+  EXPECT_EQ(database->NumCameras(), 1);
+}
+
+TEST(ImageReaderTest, ManualCameraParams) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  const auto test_dir = CreateTestDir();
+
+  ImageReaderOptions options;
+  options.image_path = test_dir / "images";
+  options.camera_model = "PINHOLE";
+  options.camera_params = "500.0, 500.0, 320.0, 240.0";
+  CreateDirIfNotExists(options.image_path);
+
+  Bitmap test_bitmap(640, 480, true);
+  test_bitmap.Write(options.image_path / "test.png");
+
+  ImageReader image_reader(options, database.get());
+
+  Rig rig;
+  Camera camera;
+  Image image;
+  PosePrior pose_prior;
+  Bitmap bitmap;
+  Bitmap mask;
+
+  const auto status =
+      image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+  ASSERT_EQ(status, ImageReader::Status::SUCCESS);
+  EXPECT_EQ(camera.model_id, PinholeCameraModel::model_id);
+  EXPECT_EQ(camera.params[0], 500.0);
+  EXPECT_EQ(camera.params[1], 500.0);
+  EXPECT_EQ(camera.params[2], 320.0);
+  EXPECT_EQ(camera.params[3], 240.0);
+  EXPECT_TRUE(camera.has_prior_focal_length);
+}
+
+TEST(ImageReaderTest, ExplicitImageNames) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  const auto test_dir = CreateTestDir();
+
+  ImageReaderOptions options;
+  options.image_path = test_dir / "images";
+  CreateDirIfNotExists(options.image_path);
+
+  // Create 5 images
+  Bitmap test_bitmap(10, 20, true);
+  for (int i = 0; i < 5; ++i) {
+    test_bitmap.Write(options.image_path / (std::to_string(i) + ".png"));
+  }
+
+  // Only select a subset of images
+  options.image_names = {"1.png", "3.png"};
+
+  ImageReader image_reader(options, database.get());
+  EXPECT_EQ(image_reader.NumImages(), 2);
+
+  Rig rig;
+  Camera camera;
+  Image image;
+  PosePrior pose_prior;
+  Bitmap bitmap;
+  Bitmap mask;
+
+  auto status =
+      image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+  ASSERT_EQ(status, ImageReader::Status::SUCCESS);
+  EXPECT_EQ(image.Name(), "1.png");
+
+  status =
+      image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+  ASSERT_EQ(status, ImageReader::Status::SUCCESS);
+  EXPECT_EQ(image.Name(), "3.png");
+}
+
+TEST(ImageReaderTest, BitmapError) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  const auto test_dir = CreateTestDir();
+
+  ImageReaderOptions options;
+  options.image_path = test_dir / "images";
+  CreateDirIfNotExists(options.image_path);
+
+  // Create a file that is not a valid image
+  std::ofstream file(options.image_path / "invalid.png");
+  file << "not an image";
+  file.close();
+
+  ImageReader image_reader(options, database.get());
+
+  Rig rig;
+  Camera camera;
+  Image image;
+  PosePrior pose_prior;
+  Bitmap bitmap;
+  Bitmap mask;
+
+  const auto status =
+      image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+  EXPECT_EQ(status, ImageReader::Status::BITMAP_ERROR);
+}
+
+TEST(ImageReaderTest, MaskErrorMissing) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  const auto test_dir = CreateTestDir();
+
+  ImageReaderOptions options;
+  options.image_path = test_dir / "images";
+  options.mask_path = test_dir / "masks";
+  CreateDirIfNotExists(options.image_path);
+  CreateDirIfNotExists(options.mask_path);
+
+  Bitmap test_bitmap(10, 20, true);
+  test_bitmap.Write(options.image_path / "test.png");
+  // Don't create mask file
+
+  ImageReader image_reader(options, database.get());
+
+  Rig rig;
+  Camera camera;
+  Image image;
+  PosePrior pose_prior;
+  Bitmap bitmap;
+  Bitmap mask;
+
+  const auto status =
+      image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+  EXPECT_EQ(status, ImageReader::Status::MASK_ERROR);
+}
+
+TEST(ImageReaderTest, MaskErrorInvalid) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  const auto test_dir = CreateTestDir();
+
+  ImageReaderOptions options;
+  options.image_path = test_dir / "images";
+  options.mask_path = test_dir / "masks";
+  CreateDirIfNotExists(options.image_path);
+  CreateDirIfNotExists(options.mask_path);
+
+  Bitmap test_bitmap(10, 20, true);
+  test_bitmap.Write(options.image_path / "test.png");
+
+  // Create invalid mask file
+  std::ofstream file(options.mask_path / "test.png.png");
+  file << "not an image";
+  file.close();
+
+  ImageReader image_reader(options, database.get());
+
+  Rig rig;
+  Camera camera;
+  Image image;
+  PosePrior pose_prior;
+  Bitmap bitmap;
+  Bitmap mask;
+
+  const auto status =
+      image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+  EXPECT_EQ(status, ImageReader::Status::MASK_ERROR);
+}
+
+TEST(ImageReaderTest, ImageExistsWithKeypoints) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  const auto test_dir = CreateTestDir();
+
+  ImageReaderOptions options;
+  options.image_path = test_dir / "images";
+  CreateDirIfNotExists(options.image_path);
+
+  Bitmap test_bitmap(10, 20, true);
+  test_bitmap.Write(options.image_path / "test.png");
+
+  // Add existing image with keypoints and descriptors
+  Camera existing_camera;
+  existing_camera.model_id = CameraModelNameToId("SIMPLE_RADIAL");
+  existing_camera.width = 10;
+  existing_camera.height = 20;
+  existing_camera.params = {1.0, 5.0, 10.0, 0.0};
+  existing_camera.camera_id = database->WriteCamera(existing_camera);
+  Rig existing_rig;
+  existing_rig.AddRefSensor(existing_camera.SensorId());
+  database->WriteRig(existing_rig);
+
+  Image existing_image;
+  existing_image.SetName("test.png");
+  existing_image.SetCameraId(existing_camera.camera_id);
+  existing_image.SetImageId(database->WriteImage(existing_image));
+  database->WriteKeypoints(existing_image.ImageId(), FeatureKeypoints());
+  database->WriteDescriptors(existing_image.ImageId(), FeatureDescriptors());
+
+  ImageReader image_reader(options, database.get());
+
+  Rig rig;
+  Camera camera;
+  Image image;
+  PosePrior pose_prior;
+  Bitmap bitmap;
+  Bitmap mask;
+
+  const auto status =
+      image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+  EXPECT_EQ(status, ImageReader::Status::IMAGE_EXISTS);
+}
 
 }  // namespace
 }  // namespace colmap

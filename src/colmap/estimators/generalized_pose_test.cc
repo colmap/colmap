@@ -29,7 +29,7 @@
 
 #include "colmap/estimators/generalized_pose.h"
 
-#include "colmap/estimators/generalized_absolute_pose.h"
+#include "colmap/estimators/solvers/generalized_absolute_pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/math/math.h"
@@ -303,8 +303,8 @@ TEST(EstimateGeneralizedRelativePose, Nominal) {
           EXPECT_THAT(
               *pano2_from_pano1,
               Rigid3dNear(
-                  Rigid3d(problem.gt_rig2_from_rig1.rotation,
-                          problem.gt_rig2_from_rig1.translation.normalized()),
+                  Rigid3d(problem.gt_rig2_from_rig1.rotation(),
+                          problem.gt_rig2_from_rig1.translation().normalized()),
                   /*rtol=*/1e-6,
                   /*ttol=*/1e-6));
         } else {

@@ -34,13 +34,13 @@
 namespace colmap {
 
 #ifdef COLMAP_DOWNLOAD_ENABLED
-const static std::string kDefaultVocabTreeUri =
+inline const std::string kDefaultVocabTreeUri =
     "https://github.com/colmap/colmap/releases/download/3.11.1/"
     "vocab_tree_faiss_flickr100K_words256K.bin;"
     "vocab_tree_faiss_flickr100K_words256K.bin;"
     "96ca8ec8ea60b1f73465aaf2c401fd3b3ca75cdba2d3c50d6a2f6f760f275ddc";
 #else
-const static std::string kDefaultVocabTreeUri = "";
+inline const std::string kDefaultVocabTreeUri = "";
 #endif
 
 }  // namespace colmap

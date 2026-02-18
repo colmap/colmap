@@ -48,9 +48,12 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_LIBRARY(
     NAME colmap_feature
     SRCS
+        aliked.h aliked.cc
         extractor.h extractor.cc
         index.h index.cc
         matcher.h matcher.cc
+        onnx_matchers.h onnx_matchers.cc
+        onnx_utils.h onnx_utils.cc
         pairing.h pairing.cc
         sift.h sift.cc
         types.h types.cc
@@ -76,9 +79,39 @@ if(GPU_ENABLED)
     endif()
 endif()
 
+if(ONNX_ENABLED)
+    target_link_libraries(colmap_feature PRIVATE onnxruntime::onnxruntime)
+endif()
+
+if(ONNX_ENABLED)
+    COLMAP_ADD_TEST(
+        NAME aliked_test
+        SRCS aliked_test.cc
+        LINK_LIBS
+            colmap_feature
+            onnxruntime::onnxruntime
+    )
+    COLMAP_ADD_TEST(
+        NAME onnx_matchers_test
+        SRCS onnx_matchers_test.cc
+        LINK_LIBS
+            colmap_feature
+            onnxruntime::onnxruntime
+    )
+endif()
+COLMAP_ADD_TEST(
+    NAME extractor_test
+    SRCS extractor_test.cc
+    LINK_LIBS colmap_feature
+)
 COLMAP_ADD_TEST(
     NAME index_test
     SRCS index_test.cc
+    LINK_LIBS colmap_feature
+)
+COLMAP_ADD_TEST(
+    NAME matcher_test
+    SRCS matcher_test.cc
     LINK_LIBS colmap_feature
 )
 COLMAP_ADD_TEST(

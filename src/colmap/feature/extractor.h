@@ -37,18 +37,33 @@
 
 namespace colmap {
 
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureExtractorType, 0, SIFT);
-
 struct SiftExtractionOptions;
+struct AlikedExtractionOptions;
 
-struct FeatureExtractionOptions {
+struct FeatureExtractionTypeOptions {
+  explicit FeatureExtractionTypeOptions();
+
+  std::shared_ptr<SiftExtractionOptions> sift;
+  std::shared_ptr<AlikedExtractionOptions> aliked;
+
+  FeatureExtractionTypeOptions(const FeatureExtractionTypeOptions& other);
+  FeatureExtractionTypeOptions& operator=(
+      const FeatureExtractionTypeOptions& other);
+  FeatureExtractionTypeOptions(FeatureExtractionTypeOptions&& other) = default;
+  FeatureExtractionTypeOptions& operator=(
+      FeatureExtractionTypeOptions&& other) = default;
+};
+
+struct FeatureExtractionOptions : public FeatureExtractionTypeOptions {
   explicit FeatureExtractionOptions(
       FeatureExtractorType type = FeatureExtractorType::SIFT);
 
   FeatureExtractorType type = FeatureExtractorType::SIFT;
 
   // Maximum image size, otherwise image will be down-scaled.
-  int max_image_size = 3200;
+  // If max_image_size is non-positive, the appropriate size is selected
+  // automatically based on the extractor type.
+  int max_image_size = -1;
 
   // Number of threads for feature extraction.
   int num_threads = -1;
@@ -64,13 +79,15 @@ struct FeatureExtractionOptions {
   // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
   std::string gpu_index = "-1";
 
-  std::shared_ptr<SiftExtractionOptions> sift;
-
   // Whether the selected extractor requires RGB (or grayscale) images.
   bool RequiresRGB() const;
 
   // Whether the selected extractor requires OpenGL.
   bool RequiresOpenGL() const;
+
+  // Returns the effective maximum image size. If max_image_size is set to -1,
+  // the appropriate size is selected automatically based on the extractor type.
+  int EffMaxImageSize() const;
 
   bool Check() const;
 };

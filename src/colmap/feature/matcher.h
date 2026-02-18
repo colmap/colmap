@@ -45,15 +45,28 @@
 
 namespace colmap {
 
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType, 0, SIFT);
-
 struct SiftMatchingOptions;
+struct AlikedMatchingOptions;
 
-struct FeatureMatchingOptions {
+struct FeatureMatchingTypeOptions {
+  explicit FeatureMatchingTypeOptions();
+
+  std::shared_ptr<SiftMatchingOptions> sift;
+  std::shared_ptr<AlikedMatchingOptions> aliked;
+
+  FeatureMatchingTypeOptions(const FeatureMatchingTypeOptions& other);
+  FeatureMatchingTypeOptions& operator=(
+      const FeatureMatchingTypeOptions& other);
+  FeatureMatchingTypeOptions(FeatureMatchingTypeOptions&& other) = default;
+  FeatureMatchingTypeOptions& operator=(FeatureMatchingTypeOptions&& other) =
+      default;
+};
+
+struct FeatureMatchingOptions : public FeatureMatchingTypeOptions {
   explicit FeatureMatchingOptions(
-      FeatureMatcherType type = FeatureMatcherType::SIFT);
+      FeatureMatcherType type = FeatureMatcherType::SIFT_BRUTEFORCE);
 
-  FeatureMatcherType type = FeatureMatcherType::SIFT;
+  FeatureMatcherType type = FeatureMatcherType::SIFT_BRUTEFORCE;
 
   // Number of threads for feature matching and geometric verification.
   int num_threads = -1;
@@ -90,8 +103,6 @@ struct FeatureMatchingOptions {
   // Whether to skip matching images within the same frame.
   // This is useful for the case of non-overlapping cameras in a rig.
   bool skip_image_pairs_in_same_frame = false;
-
-  std::shared_ptr<SiftMatchingOptions> sift;
 
   // Whether the selected matcher requires OpenGL.
   bool RequiresOpenGL() const;

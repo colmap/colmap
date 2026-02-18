@@ -29,7 +29,7 @@
 
 #include "colmap/estimators/covariance.h"
 
-#include "colmap/estimators/manifold.h"
+#include "colmap/estimators/cost_functions/manifold.h"
 
 #include <unordered_set>
 
@@ -57,12 +57,8 @@ bool ComputeSchurComplement(
                                         others.size());
   if (estimate_pose_covs || estimate_other_covs) {
     for (const auto& pose : poses) {
-      if (pose.qvec != nullptr) {
-        eval_options.parameter_blocks.push_back(const_cast<double*>(pose.qvec));
-      }
-      if (pose.tvec != nullptr) {
-        eval_options.parameter_blocks.push_back(const_cast<double*>(pose.tvec));
-      }
+      eval_options.parameter_blocks.push_back(
+          const_cast<double*>(pose.cam_from_world));
     }
     for (const double* other : others) {
       eval_options.parameter_blocks.push_back(const_cast<double*>(other));
@@ -304,7 +300,7 @@ std::optional<Eigen::MatrixXd> BACovariance::GetOtherParamsCov(
 std::optional<BACovariance> EstimateBACovariance(
     const BACovarianceOptions& options,
     const Reconstruction& reconstruction,
-    BundleAdjuster& bundle_adjuster) {
+    CeresBundleAdjuster& bundle_adjuster) {
   ceres::Problem& problem = *THROW_CHECK_NOTNULL(bundle_adjuster.Problem());
   return EstimateBACovarianceFromProblem(options, reconstruction, problem);
 }
@@ -344,13 +340,8 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
   if (estimate_pose_covs || estimate_other_covs) {
     pose_L_start_size.reserve(poses.size());
     for (const auto& pose : poses) {
-      int num_params = 0;
-      if (pose.qvec != nullptr) {
-        num_params += ParameterBlockTangentSize(problem, pose.qvec);
-      }
-      if (pose.tvec != nullptr) {
-        num_params += ParameterBlockTangentSize(problem, pose.tvec);
-      }
+      const int num_params =
+          ParameterBlockTangentSize(problem, pose.cam_from_world);
       pose_L_start_size.emplace(pose.image_id,
                                 std::make_pair(pose_num_params, num_params));
       pose_num_params += num_params;
@@ -419,21 +410,10 @@ std::vector<PoseParam> GetPoseParams(const Reconstruction& reconstruction,
     // TODO(jsch): Add support for non-trivial frames.
     THROW_CHECK(image.IsRefInFrame());
     const Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
-
-    const double* qvec = cam_from_world.rotation.coeffs().data();
-    if (!problem.HasParameterBlock(qvec) ||
-        problem.IsParameterBlockConstant(const_cast<double*>(qvec))) {
-      qvec = nullptr;
-    }
-
-    const double* tvec = cam_from_world.translation.data();
-    if (!problem.HasParameterBlock(tvec) ||
-        problem.IsParameterBlockConstant(const_cast<double*>(tvec))) {
-      tvec = nullptr;
-    }
-
-    if (qvec != nullptr || tvec != nullptr) {
-      params.push_back({image_id, qvec, tvec});
+    if (problem.HasParameterBlock(cam_from_world.params.data()) &&
+        !problem.IsParameterBlockConstant(
+            const_cast<double*>(cam_from_world.params.data()))) {
+      params.push_back({image_id, cam_from_world.params.data()});
     }
   }
   return params;
@@ -457,13 +437,13 @@ std::vector<const double*> GetOtherParams(
     const ceres::Problem& problem,
     const std::vector<PoseParam>& poses,
     const std::vector<PointParam>& points) {
-  std::unordered_set<const double*> image_and_point_params;
+  std::unordered_set<const double*> pose_and_point_params;
+  pose_and_point_params.reserve(poses.size() + points.size());
   for (const auto& pose : poses) {
-    image_and_point_params.insert(pose.qvec);
-    image_and_point_params.insert(pose.tvec);
+    pose_and_point_params.insert(pose.cam_from_world);
   }
   for (const auto& point : points) {
-    image_and_point_params.insert(point.xyz);
+    pose_and_point_params.insert(point.xyz);
   }
 
   std::vector<const double*> params;
@@ -471,7 +451,7 @@ std::vector<const double*> GetOtherParams(
   problem.GetParameterBlocks(&all_params);
   for (const double* param : all_params) {
     if (!problem.IsParameterBlockConstant(const_cast<double*>(param)) &&
-        image_and_point_params.count(param) == 0) {
+        pose_and_point_params.count(param) == 0) {
       params.push_back(param);
     }
   }

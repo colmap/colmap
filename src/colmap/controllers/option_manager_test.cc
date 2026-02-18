@@ -31,7 +31,6 @@
 
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_pipeline.h"
-#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/feature/sift.h"
 #include "colmap/mvs/patch_match_options.h"
 #include "colmap/util/file.h"
@@ -245,7 +244,7 @@ TEST(OptionManager, ParseWithOptions) {
       database_path.string(),
       "--image_path",
       image_path.string(),
-      "--SiftExtraction.max_image_size",
+      "--FeatureExtraction.max_image_size",
       "1024",
       "--SiftExtraction.max_num_features",
       "2048",

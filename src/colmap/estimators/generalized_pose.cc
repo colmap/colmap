@@ -29,12 +29,12 @@
 
 #include "colmap/estimators/generalized_pose.h"
 
-#include "colmap/estimators/bundle_adjustment.h"
-#include "colmap/estimators/cost_functions.h"
-#include "colmap/estimators/generalized_absolute_pose.h"
-#include "colmap/estimators/generalized_relative_pose.h"
-#include "colmap/estimators/manifold.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
+#include "colmap/estimators/cost_functions/manifold.h"
+#include "colmap/estimators/cost_functions/reprojection_error.h"
 #include "colmap/estimators/pose.h"
+#include "colmap/estimators/solvers/generalized_absolute_pose.h"
+#include "colmap/estimators/solvers/generalized_relative_pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/optim/support_measurement.h"
@@ -43,7 +43,6 @@
 #include "colmap/util/logging.h"
 
 #include <Eigen/Core>
-#include <ceres/ceres.h>
 
 namespace colmap {
 namespace {
@@ -231,7 +230,7 @@ bool EstimateGeneralizedRelativePose(
       if (const std::optional<Eigen::Vector2d> cam_point1 =
               cameras[camera_idx1].CamFromImg(points2D1[i]);
           cam_point1.has_value()) {
-        cam_rays1[i] = cams_from_rig[camera_idx1].rotation.inverse() *
+        cam_rays1[i] = cams_from_rig[camera_idx1].rotation().inverse() *
                        cam_point1->homogeneous().normalized();
       } else {
         cam_rays1[i].setZero();
@@ -241,7 +240,7 @@ bool EstimateGeneralizedRelativePose(
       if (const std::optional<Eigen::Vector2d> cam_point2 =
               cameras[camera_idxs2[i]].CamFromImg(points2D2[i]);
           cam_point2.has_value()) {
-        cam_rays2[i] = cams_from_rig[camera_idx2].rotation.inverse() *
+        cam_rays2[i] = cams_from_rig[camera_idx2].rotation().inverse() *
                        cam_point2->homogeneous().normalized();
       } else {
         cam_rays2[i].setZero();
@@ -320,11 +319,15 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
     cameras_params_data[i] = cameras->at(i).params.data();
   }
   std::vector<size_t> camera_counts(cameras->size(), 0);
-  double* rig_from_world_rotation = rig_from_world->rotation.coeffs().data();
-  double* rig_from_world_translation = rig_from_world->translation.data();
 
-  std::vector<Eigen::Vector3d> points3D_copy = points3D;
-  std::vector<Rigid3d> cams_from_rig_copy = cams_from_rig;
+  // Cost function assumes unit quaternion.
+  rig_from_world->rotation().normalize();
+
+  std::vector<Eigen::Vector3d> point3D_params = points3D;
+  std::vector<Eigen::Vector7d> cam_from_rig_params(cams_from_rig.size());
+  for (size_t i = 0; i < cams_from_rig.size(); ++i) {
+    cam_from_rig_params[i] = cams_from_rig[i].params;
+  }
 
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
@@ -342,61 +345,54 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
         CreateCameraCostFunction<RigReprojErrorCostFunctor>(
             cameras->at(camera_idx).model_id, points2D[i]),
         loss_function.get(),
-        cams_from_rig_copy[camera_idx].rotation.coeffs().data(),
-        cams_from_rig_copy[camera_idx].translation.data(),
-        rig_from_world_rotation,
-        rig_from_world_translation,
-        points3D_copy[i].data(),
+        point3D_params[i].data(),
+        cam_from_rig_params[camera_idx].data(),
+        rig_from_world->params.data(),
         cameras_params_data[camera_idx]);
-    problem.SetParameterBlockConstant(points3D_copy[i].data());
+    problem.SetParameterBlockConstant(point3D_params[i].data());
   }
 
   if (problem.NumResiduals() > 0) {
-    SetQuaternionManifold(&problem, rig_from_world_rotation);
-
     // Camera parameterization.
     for (size_t i = 0; i < cameras->size(); i++) {
       if (camera_counts[i] == 0) continue;
       Camera& camera = cameras->at(i);
 
-      // We don't optimize the rig parameters (it's likely under-constrained)
-      problem.SetParameterBlockConstant(
-          cams_from_rig_copy[i].rotation.coeffs().data());
-      problem.SetParameterBlockConstant(
-          cams_from_rig_copy[i].translation.data());
+      // We don't optimize the rig parameters (it's likely under-constrained).
+      problem.SetParameterBlockConstant(cam_from_rig_params[i].data());
 
       if (!options.refine_focal_length && !options.refine_extra_params) {
         problem.SetParameterBlockConstant(camera.params.data());
       } else {
         // Always set the principal point as fixed.
-        std::vector<int> camera_params_const;
+        std::vector<int> const_camera_params;
         const span<const size_t> principal_point_idxs =
             camera.PrincipalPointIdxs();
-        camera_params_const.insert(camera_params_const.end(),
+        const_camera_params.insert(const_camera_params.end(),
                                    principal_point_idxs.begin(),
                                    principal_point_idxs.end());
 
         if (!options.refine_focal_length) {
           const span<const size_t> focal_length_idxs = camera.FocalLengthIdxs();
-          camera_params_const.insert(camera_params_const.end(),
+          const_camera_params.insert(const_camera_params.end(),
                                      focal_length_idxs.begin(),
                                      focal_length_idxs.end());
         }
 
         if (!options.refine_extra_params) {
           const span<const size_t> extra_params_idxs = camera.ExtraParamsIdxs();
-          camera_params_const.insert(camera_params_const.end(),
+          const_camera_params.insert(const_camera_params.end(),
                                      extra_params_idxs.begin(),
                                      extra_params_idxs.end());
         }
 
-        if (camera_params_const.size() == camera.params.size()) {
+        if (const_camera_params.size() == camera.params.size()) {
           problem.SetParameterBlockConstant(camera.params.data());
         } else {
-          SetSubsetManifold(static_cast<int>(camera.params.size()),
-                            camera_params_const,
-                            &problem,
-                            camera.params.data());
+          SetManifold(
+              &problem,
+              camera.params.data(),
+              CreateSubsetManifold(camera.params.size(), const_camera_params));
         }
       }
     }
@@ -424,8 +420,8 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
   if (problem.NumResiduals() > 0 && rig_from_world_cov != nullptr) {
     ceres::Covariance::Options options;
     ceres::Covariance covariance(options);
-    std::vector<const double*> parameter_blocks = {rig_from_world_rotation,
-                                                   rig_from_world_translation};
+    std::vector<const double*> parameter_blocks = {
+        rig_from_world->params.data()};
     if (!covariance.Compute(parameter_blocks, &problem)) {
       return false;
     }

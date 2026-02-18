@@ -30,6 +30,7 @@
 #include "colmap/ui/bundle_adjustment_widget.h"
 
 #include "colmap/controllers/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/ui/main_window.h"
 #include "colmap/util/controller_thread.h"
 
@@ -46,24 +47,25 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
   setWindowModality(Qt::ApplicationModal);
   setWindowTitle("Bundle adjustment");
 
-  AddOptionInt(&options->bundle_adjustment->solver_options.max_num_iterations,
-               "max_num_iterations");
   AddOptionInt(
-      &options->bundle_adjustment->solver_options.max_linear_solver_iterations,
-      "max_linear_solver_iterations");
+      &options->bundle_adjustment->ceres->solver_options.max_num_iterations,
+      "max_num_iterations");
+  AddOptionInt(&options->bundle_adjustment->ceres->solver_options
+                    .max_linear_solver_iterations,
+               "max_linear_solver_iterations");
 
   AddOptionDoubleLog(
-      &options->bundle_adjustment->solver_options.function_tolerance,
+      &options->bundle_adjustment->ceres->solver_options.function_tolerance,
       "function_tolerance [10eX]",
       -1000,
       1000);
   AddOptionDoubleLog(
-      &options->bundle_adjustment->solver_options.gradient_tolerance,
+      &options->bundle_adjustment->ceres->solver_options.gradient_tolerance,
       "gradient_tolerance [10eX]",
       -1000,
       1000);
   AddOptionDoubleLog(
-      &options->bundle_adjustment->solver_options.parameter_tolerance,
+      &options->bundle_adjustment->ceres->solver_options.parameter_tolerance,
       "parameter_tolerance [10eX]",
       -1000,
       1000);

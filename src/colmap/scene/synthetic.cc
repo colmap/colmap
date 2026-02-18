@@ -317,9 +317,7 @@ void PosePriorPositionCartesianToWGS84(PosePrior& pose_prior) {
 
 void PosePriorPositionWGS84ToCartesian(PosePrior& pose_prior) {
   pose_prior.position = kGPSTransform.EllipsoidToENU(
-      {Eigen::Vector3d(kLat0, kLon0, kAlt0), pose_prior.position},
-      kLat0,
-      kLon0)[1];
+      {pose_prior.position}, kLat0, kLon0, kAlt0)[0];
   pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
 }
 
@@ -332,6 +330,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   THROW_CHECK_GT(options.num_cameras_per_rig, 0);
   THROW_CHECK_GT(options.num_frames_per_rig, 0);
   THROW_CHECK_GE(options.num_points3D, 0);
+  THROW_CHECK_NE(options.feature_type, FeatureExtractorType::UNDEFINED);
   THROW_CHECK_GE(options.num_points2D_without_point3D, 0);
   THROW_CHECK_GE(options.sensor_from_rig_translation_stddev, 0.);
   THROW_CHECK_GE(options.sensor_from_rig_rotation_stddev, 0.);
@@ -356,6 +355,19 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   int total_num_images = (database == nullptr) ? 0 : database->NumImages();
   int total_num_descriptors =
       (database == nullptr) ? 0 : database->NumDescriptors();
+
+  int desc_dim = 0;
+  switch (options.feature_type) {
+    case FeatureExtractorType::SIFT:
+      desc_dim = 128;
+      break;
+    case FeatureExtractorType::UNDEFINED:
+      desc_dim = 0;
+      break;
+    default:
+      LOG(FATAL_THROW) << "Invalid FeatureExtractorType specified: "
+                       << static_cast<int>(options.feature_type);
+  }
 
   for (int rig_idx = 0; rig_idx < options.num_rigs; ++rig_idx) {
     Rig rig;
@@ -389,11 +401,11 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
                              0, options.sensor_from_rig_rotation_stddev),
                          -180.0,
                          180.0);
-          sensor_from_rig.rotation = Eigen::Quaterniond(
+          sensor_from_rig.rotation() = Eigen::Quaterniond(
               Eigen::AngleAxisd(DegToRad(angle), Eigen::Vector3d(0, 0, 1)));
         }
         if (options.sensor_from_rig_translation_stddev > 0) {
-          sensor_from_rig.translation = Eigen::Vector3d(
+          sensor_from_rig.translation() = Eigen::Vector3d(
               RandomGaussian<double>(
                   0, options.sensor_from_rig_translation_stddev),
               RandomGaussian<double>(
@@ -421,9 +433,9 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       const Eigen::Vector3d view_dir = -Eigen::Vector3d::Random().normalized();
       const Eigen::Vector3d proj_center = -5 * view_dir;
       Rigid3d rig_from_world;
-      rig_from_world.rotation = Eigen::Quaterniond::FromTwoVectors(
+      rig_from_world.rotation() = Eigen::Quaterniond::FromTwoVectors(
           view_dir, Eigen::Vector3d(0, 0, 1));
-      rig_from_world.translation = rig_from_world.rotation * -proj_center;
+      rig_from_world.translation() = rig_from_world.rotation() * -proj_center;
 
       frame.SetRigFromWorld(rig_from_world);
 
@@ -477,7 +489,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
           if (options.prior_gravity) {
             pose_prior.gravity =
-                (cam_from_world.rotation * options.prior_gravity_in_world)
+                (cam_from_world.rotation() * options.prior_gravity_in_world)
                     .normalized();
           }
 
@@ -542,7 +554,9 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
           // Create keypoints to add to database.
           FeatureKeypoints keypoints;
           keypoints.reserve(points2D.size());
-          FeatureDescriptors descriptors(points2D.size(), 128);
+          FeatureDescriptors descriptors;
+          descriptors.type = options.feature_type;
+          descriptors.data.resize(points2D.size(), desc_dim);
           std::uniform_int_distribution<int> feature_distribution(0, 255);
           for (point2D_t point2D_idx = 0; point2D_idx < points2D.size();
                ++point2D_idx) {
@@ -555,8 +569,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
                                                ? point2D.point3D_id
                                                : options.num_points3D +
                                                      (++total_num_descriptors));
-            for (int d = 0; d < descriptors.cols(); ++d) {
-              descriptors(point2D_idx, d) =
+            for (int d = 0; d < descriptors.data.cols(); ++d) {
+              descriptors.data(point2D_idx, d) =
                   feature_distribution(feature_generator);
             }
           }
@@ -628,12 +642,12 @@ void SynthesizeNoise(const SyntheticNoiseOptions& options,
           RandomGaussian<double>(0, options.rig_from_world_rotation_stddev),
           -180.0,
           180.0);
-      rig_from_world.rotation *= Eigen::Quaterniond(
+      rig_from_world.rotation() *= Eigen::Quaterniond(
           Eigen::AngleAxisd(DegToRad(angle), Eigen::Vector3d::UnitZ()));
     }
 
     if (options.rig_from_world_translation_stddev > 0.0) {
-      rig_from_world.translation += Eigen::Vector3d(
+      rig_from_world.translation() += Eigen::Vector3d(
           RandomGaussian<double>(0, options.rig_from_world_translation_stddev),
           RandomGaussian<double>(0, options.rig_from_world_translation_stddev),
           RandomGaussian<double>(0, options.rig_from_world_translation_stddev));

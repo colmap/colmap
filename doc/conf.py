@@ -51,7 +51,6 @@ def get_git_revision():
 extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.autodoc",
-    "sphinx.ext.autodoc.typehints",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -301,30 +300,30 @@ autoclass_content = "both"
 autodoc_member_order = "bysource"
 autodoc_typehints = "both"
 python_maximum_signature_line_length = 120
+autodoc_use_legacy_class_based = True
 
 
-class MyClassDocumenter(autodoc.ClassDocumenter):
-    def sort_members(
-        self, documenters: list[tuple[autodoc.Documenter, bool]], order: str
-    ) -> list[tuple[autodoc.Documenter, bool]]:
-        """Order the members by their definition order."""
-        class_names = list(self.object.__dict__)
+def sort_members(
+    self, documenters: list[tuple[autodoc.Documenter, bool]], order: str
+) -> list[tuple[autodoc.Documenter, bool]]:
+    """Order the members by their definition order."""
+    class_names = list(self.object.__dict__)
 
-        def keyfunc(entry: tuple[autodoc.Documenter, bool]) -> int:
-            name = entry[0].name.split("::")[1].split(".")[1]
-            if name in class_names:
-                return class_names.index(name)
-            else:
-                return len(class_names)
+    def keyfunc(entry: tuple[autodoc.Documenter, bool]) -> int:
+        name = entry[0].name.split("::")[1].split(".")[1]
+        if name in class_names:
+            return class_names.index(name)
+        else:
+            return len(class_names)
 
-        documenters.sort(key=keyfunc)
-        return documenters
+    documenters.sort(key=keyfunc)
+    return documenters
 
 
 # autodoc_member_order=bysource does not work for C++-defined classes since they
 # cannot be introspected and do not have an __all__ list. Instead,
 # we extract the definition order from object.__dict__.
-autodoc.ClassDocumenter = MyClassDocumenter
+autodoc.ClassDocumenter.sort_members = sort_members
 
 
 def process_doc(app, what, name, obj, options, lines):
@@ -340,6 +339,8 @@ def process_doc(app, what, name, obj, options, lines):
 
 
 def process_sig(app, what, name, obj, options, signature, return_annotation):
+    if signature is None:
+        return None, return_annotation
     signature = signature.replace("pycolmap._core", "pycolmap")
     if isinstance(return_annotation, str):
         return_annotation = return_annotation.replace(

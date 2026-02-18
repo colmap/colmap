@@ -29,15 +29,26 @@
 
 #include "colmap/retrieval/visual_index.h"
 
+#include "colmap/feature/types.h"
 #include "colmap/math/random.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
+
+#include <sstream>
 
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace retrieval {
 namespace {
+
+// Helper to create random descriptors with a given type.
+FeatureDescriptorsFloat CreateRandomDescriptors(int num_rows,
+                                                int desc_dim,
+                                                FeatureExtractorType type) {
+  return FeatureDescriptorsFloat(
+      type, FeatureDescriptorsFloatData::Random(num_rows, desc_dim));
+}
 
 class ParameterizedVisualIndexTests
     : public ::testing::TestWithParam<
@@ -59,8 +70,8 @@ TEST_P(ParameterizedVisualIndexTests, Nominal) {
   build_options.num_rounds = 1;
 
   {
-    VisualIndex::Descriptors descriptors =
-        VisualIndex::Descriptors::Random(200, desc_dim);
+    auto descriptors =
+        CreateRandomDescriptors(200, desc_dim, FeatureExtractorType::SIFT);
     auto visual_index = VisualIndex::Create(desc_dim, embedding_dim);
     EXPECT_EQ(visual_index->NumVisualWords(), 0);
     EXPECT_EQ(visual_index->NumImages(), 0);
@@ -69,11 +80,12 @@ TEST_P(ParameterizedVisualIndexTests, Nominal) {
     build_options.num_visual_words = 5;
     visual_index->Build(build_options, descriptors);
     EXPECT_EQ(visual_index->NumVisualWords(), 5);
+    EXPECT_EQ(visual_index->FeatureType(), FeatureExtractorType::SIFT);
   }
 
   {
-    VisualIndex::Descriptors descriptors =
-        VisualIndex::Descriptors::Random(4096, desc_dim);
+    auto descriptors =
+        CreateRandomDescriptors(4096, desc_dim, FeatureExtractorType::SIFT);
     auto visual_index = VisualIndex::Create(desc_dim, embedding_dim);
     EXPECT_EQ(visual_index->NumVisualWords(), 0);
     EXPECT_EQ(visual_index->NumImages(), 0);
@@ -83,8 +95,8 @@ TEST_P(ParameterizedVisualIndexTests, Nominal) {
   }
 
   {
-    VisualIndex::Descriptors descriptors =
-        VisualIndex::Descriptors::Random(1000, desc_dim);
+    auto descriptors =
+        CreateRandomDescriptors(1000, desc_dim, FeatureExtractorType::SIFT);
     auto visual_index = VisualIndex::Create(desc_dim, embedding_dim);
     EXPECT_EQ(visual_index->NumVisualWords(), 0);
     EXPECT_EQ(visual_index->NumImages(), 0);
@@ -93,14 +105,14 @@ TEST_P(ParameterizedVisualIndexTests, Nominal) {
     EXPECT_EQ(visual_index->NumVisualWords(), 100);
 
     VisualIndex::IndexOptions index_options;
-    VisualIndex::Geometries keypoints1(50);
-    VisualIndex::Descriptors descriptors1 =
-        VisualIndex::Descriptors::Random(50, desc_dim);
+    FeatureKeypoints keypoints1(50);
+    auto descriptors1 =
+        CreateRandomDescriptors(50, desc_dim, FeatureExtractorType::SIFT);
     visual_index->Add(index_options, 1, keypoints1, descriptors1);
     EXPECT_EQ(visual_index->NumImages(), 1);
-    VisualIndex::Geometries keypoints2(50);
-    VisualIndex::Descriptors descriptors2 =
-        VisualIndex::Descriptors::Random(50, desc_dim);
+    FeatureKeypoints keypoints2(50);
+    auto descriptors2 =
+        CreateRandomDescriptors(50, desc_dim, FeatureExtractorType::SIFT);
     visual_index->Add(index_options, 2, keypoints2, descriptors2);
     EXPECT_EQ(visual_index->NumImages(), 2);
     visual_index->Prepare();
@@ -137,8 +149,8 @@ TEST_P(ParameterizedVisualIndexTests, ReadWrite) {
   build_options.num_iterations = 10;
   build_options.num_rounds = 1;
 
-  VisualIndex::Descriptors descriptors =
-      VisualIndex::Descriptors::Random(200, desc_dim);
+  auto descriptors =
+      CreateRandomDescriptors(200, desc_dim, FeatureExtractorType::SIFT);
   auto visual_index = VisualIndex::Create(desc_dim, embedding_dim);
   EXPECT_EQ(visual_index->NumVisualWords(), 0);
   EXPECT_EQ(visual_index->DescDim(), desc_dim);
@@ -146,15 +158,16 @@ TEST_P(ParameterizedVisualIndexTests, ReadWrite) {
   build_options.num_visual_words = 5;
   visual_index->Build(build_options, descriptors);
   EXPECT_EQ(visual_index->NumVisualWords(), 5);
+  EXPECT_EQ(visual_index->FeatureType(), FeatureExtractorType::SIFT);
 
   VisualIndex::IndexOptions index_options;
-  VisualIndex::Geometries keypoints1(50);
-  VisualIndex::Descriptors descriptors1 =
-      VisualIndex::Descriptors::Random(50, desc_dim);
+  FeatureKeypoints keypoints1(50);
+  auto descriptors1 =
+      CreateRandomDescriptors(50, desc_dim, FeatureExtractorType::SIFT);
   visual_index->Add(index_options, 1, keypoints1, descriptors1);
-  VisualIndex::Geometries keypoints2(50);
-  VisualIndex::Descriptors descriptors2 =
-      VisualIndex::Descriptors::Random(50, desc_dim);
+  FeatureKeypoints keypoints2(50);
+  auto descriptors2 =
+      CreateRandomDescriptors(50, desc_dim, FeatureExtractorType::SIFT);
   visual_index->Add(index_options, 2, keypoints2, descriptors2);
 
   EXPECT_EQ(visual_index->NumImages(), 2);
@@ -166,6 +179,7 @@ TEST_P(ParameterizedVisualIndexTests, ReadWrite) {
   EXPECT_EQ(visual_index->NumImages(), read_visual_index->NumImages());
   EXPECT_EQ(visual_index->DescDim(), read_visual_index->DescDim());
   EXPECT_EQ(visual_index->EmbeddingDim(), read_visual_index->EmbeddingDim());
+  EXPECT_EQ(visual_index->FeatureType(), read_visual_index->FeatureType());
   EXPECT_TRUE(visual_index->IsImageIndexed(1));
   EXPECT_TRUE(visual_index->IsImageIndexed(2));
   EXPECT_FALSE(visual_index->IsImageIndexed(3));
@@ -184,8 +198,8 @@ TEST_P(ParameterizedVisualIndexTests, SpatialVerification) {
   // Use a single thread for deterministic results.
   build_options.num_threads = 1;
 
-  VisualIndex::Descriptors train_descriptors =
-      VisualIndex::Descriptors::Random(1000, desc_dim);
+  auto train_descriptors =
+      CreateRandomDescriptors(1000, desc_dim, FeatureExtractorType::SIFT);
   auto visual_index = VisualIndex::Create(desc_dim, embedding_dim);
   visual_index->Build(build_options, train_descriptors);
   EXPECT_EQ(visual_index->NumVisualWords(), build_options.num_visual_words);
@@ -195,7 +209,7 @@ TEST_P(ParameterizedVisualIndexTests, SpatialVerification) {
   constexpr int kNumImages = 5;
   constexpr int kNumFeatures = 50;
 
-  VisualIndex::Geometries query_keypoints(kNumFeatures);
+  FeatureKeypoints query_keypoints(kNumFeatures);
   for (size_t j = 0; j < query_keypoints.size(); ++j) {
     // Create a grid of keypoints (non-collinear)
     query_keypoints[j].x = static_cast<float>((j % 10) * kNumFeatures);
@@ -203,11 +217,11 @@ TEST_P(ParameterizedVisualIndexTests, SpatialVerification) {
   }
 
   // Use the same descriptors for all images.
-  const VisualIndex::Descriptors descriptors =
-      VisualIndex::Descriptors::Random(kNumFeatures, desc_dim);
+  const auto descriptors = CreateRandomDescriptors(
+      kNumFeatures, desc_dim, FeatureExtractorType::SIFT);
 
   for (int i = 0; i < kNumImages; ++i) {
-    VisualIndex::Geometries keypoints(kNumFeatures);
+    FeatureKeypoints keypoints(kNumFeatures);
     // For every other image, create keypoints with different but consistent
     // translational transformations to the query keypoints. The other outlier
     // images have inconsistent spatial transformations with random keypoints.
@@ -270,6 +284,78 @@ TEST_P(ParameterizedVisualIndexTests, SpatialVerification) {
   EXPECT_LE(image_scores_limited.size(), query_options.max_num_images);
 }
 
+TEST_P(ParameterizedVisualIndexTests, TypeMismatch) {
+  const auto [desc_dim, embedding_dim] = GetParam();
+
+  SetPRNGSeed(1);
+
+  VisualIndex::BuildOptions build_options;
+  build_options.num_iterations = 10;
+  build_options.num_rounds = 1;
+  build_options.num_visual_words = 10;
+
+  // Build index with SIFT descriptors.
+  auto sift_descriptors =
+      CreateRandomDescriptors(100, desc_dim, FeatureExtractorType::SIFT);
+  auto visual_index = VisualIndex::Create(desc_dim, embedding_dim);
+  visual_index->Build(build_options, sift_descriptors);
+  EXPECT_EQ(visual_index->FeatureType(), FeatureExtractorType::SIFT);
+
+  // Adding descriptors with mismatched type should throw.
+  VisualIndex::IndexOptions index_options;
+  FeatureKeypoints keypoints(10);
+  auto undefined_descriptors =
+      CreateRandomDescriptors(10, desc_dim, FeatureExtractorType::UNDEFINED);
+  EXPECT_THROW(
+      visual_index->Add(index_options, 1, keypoints, undefined_descriptors),
+      std::invalid_argument);
+
+  // Adding with correct type should succeed.
+  auto sift_descriptors_small =
+      CreateRandomDescriptors(10, desc_dim, FeatureExtractorType::SIFT);
+  EXPECT_NO_THROW(
+      visual_index->Add(index_options, 1, keypoints, sift_descriptors_small));
+  visual_index->Prepare();
+
+  // Querying with mismatched type should throw.
+  VisualIndex::QueryOptions query_options;
+  std::vector<ImageScore> image_scores;
+  EXPECT_THROW(
+      visual_index->Query(query_options, undefined_descriptors, &image_scores),
+      std::invalid_argument);
+
+  // Querying with correct type should succeed.
+  EXPECT_NO_THROW(visual_index->Query(
+      query_options, sift_descriptors_small, &image_scores));
+}
+
+TEST(VisualIndex, Print) {
+  SetPRNGSeed(1);
+
+  VisualIndex::BuildOptions build_options;
+  build_options.num_iterations = 10;
+  build_options.num_rounds = 1;
+  build_options.num_visual_words = 10;
+
+  auto descriptors =
+      CreateRandomDescriptors(100, 128, FeatureExtractorType::SIFT);
+  auto visual_index = VisualIndex::Create(128, 64);
+  visual_index->Build(build_options, descriptors);
+
+  VisualIndex::IndexOptions index_options;
+  FeatureKeypoints keypoints(10);
+  auto descriptors_small =
+      CreateRandomDescriptors(10, 128, FeatureExtractorType::SIFT);
+  visual_index->Add(index_options, 1, keypoints, descriptors_small);
+  visual_index->Add(index_options, 2, keypoints, descriptors_small);
+
+  std::ostringstream stream;
+  stream << *visual_index;
+  EXPECT_EQ(stream.str(),
+            "VisualIndex(num_visual_words=10, num_images=2, desc_dim=128, "
+            "embedding_dim=64, feature_type=SIFT)");
+}
+
 INSTANTIATE_TEST_SUITE_P(VisualIndexTests,
                          ParameterizedVisualIndexTests,
                          ::testing::Values(std::make_pair(128, 64),
@@ -282,8 +368,8 @@ TEST(VisualIndex, Download) {
   const auto vocab_tree_path = test_dir / "server_vocab_tree.bin";
   OverwriteDownloadCacheDir(test_dir);
 
-  VisualIndex::Descriptors descriptors =
-      VisualIndex::Descriptors::Random(50, 32);
+  auto descriptors =
+      CreateRandomDescriptors(50, 32, FeatureExtractorType::SIFT);
   auto visual_index = VisualIndex::Create(32, 16);
   VisualIndex::BuildOptions build_options;
   build_options.num_visual_words = 5;
@@ -300,6 +386,8 @@ TEST(VisualIndex, Download) {
   auto downloaded_visual_index = VisualIndex::Read(vocab_tree_uri);
   EXPECT_EQ(downloaded_visual_index->NumVisualWords(),
             visual_index->NumVisualWords());
+  EXPECT_EQ(downloaded_visual_index->FeatureType(),
+            visual_index->FeatureType());
 }
 
 #endif
