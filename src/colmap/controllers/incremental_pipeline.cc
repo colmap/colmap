@@ -411,6 +411,10 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
     }
   }
 
+  if (reconstruction.NumPoints3D() == 0) {
+    return Status::BAD_INITIAL_PAIR;
+  }
+
   LOG(INFO) << "Global bundle adjustment";
   mapper.AdjustGlobalBundle(mapper_options, options_->GlobalBundleAdjustment());
   reconstruction.Normalize();
