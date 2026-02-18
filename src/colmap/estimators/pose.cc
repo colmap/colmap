@@ -32,6 +32,7 @@
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/cost_functions/manifold.h"
 #include "colmap/estimators/cost_functions/pose_prior.h"
+#include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/estimators/cost_functions/reprojection_error.h"
 #include "colmap/estimators/cost_functions/sampson_error.h"
 #include "colmap/estimators/solvers/absolute_pose.h"
@@ -177,7 +178,6 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
   ceres::Problem problem(problem_options);
-  std::unique_ptr<ceres::ScaledLoss> position_prior_loss;
 
   for (size_t i = 0; i < points2D.size(); ++i) {
     // Skip outlier observations
@@ -193,13 +193,12 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   }
 
 
-  if (options.use_position_prior && options.position_prior_weight > 0.0) {
-    position_prior_loss = std::make_unique<ceres::ScaledLoss>(
-        nullptr, options.position_prior_weight, ceres::DO_NOT_TAKE_OWNERSHIP);
+  if (options.use_position_prior) {
     problem.AddResidualBlock(
-        AbsolutePosePositionPriorCostFunctor::Create(
-            options.position_prior_in_world),
-        position_prior_loss.get(),
+        CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
+            Create(options.position_prior_covariance,
+                   options.position_prior_in_world),
+        nullptr,
         cam_from_world->params.data());
   }
 

@@ -192,8 +192,8 @@ void BindAbsolutePoseEstimator(py::module& m) {
                      &AbsolutePoseRefinementOptions::use_position_prior)
       .def_readwrite("position_prior_in_world",
                      &AbsolutePoseRefinementOptions::position_prior_in_world)
-      .def_readwrite("position_prior_weight",
-                     &AbsolutePoseRefinementOptions::position_prior_weight);
+      .def_readwrite("position_prior_covariance",
+                     &AbsolutePoseRefinementOptions::position_prior_covariance);
   MakeDataclass(PyRefinementOptions);
 
   m.def("estimate_absolute_pose",

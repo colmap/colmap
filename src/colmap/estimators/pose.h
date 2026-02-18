@@ -87,15 +87,15 @@ struct AbsolutePoseRefinementOptions {
   // Prior on camera center in world coordinates. 
   Eigen::Vector3d position_prior_in_world = Eigen::Vector3d::Zero();
 
-  // Weight of the position prior term. Higher values put more weight on the position prior.
-  // set to 0 to disable the position prior.
-  double position_prior_weight = 1.0;
+  // Covariance of the position prior in world coordinates (3x3, SPD).
+  // Smaller values indicate higher confidence in the prior position.
+  // Defaults to identity (isotropic, sigma = 1m).
+  Eigen::Matrix3d position_prior_covariance = Eigen::Matrix3d::Identity();
 
   void Check() const {
     THROW_CHECK_GE(gradient_tolerance, 0.0);
     THROW_CHECK_GE(max_num_iterations, 0);
     THROW_CHECK_GE(loss_function_scale, 0.0);
-    THROW_CHECK_GE(position_prior_weight, 0.0);
   }
 };
 
