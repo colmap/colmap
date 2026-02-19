@@ -698,9 +698,8 @@ class LikelihoodComputer {
   // Compute the triangulation angle probability.
   __device__ inline float ComputeTriProb(
       const float cos_triangulation_angle) const {
-    const float abs_cos_triangulation_angle = abs(cos_triangulation_angle);
-    if (abs_cos_triangulation_angle > cos_min_triangulation_angle_) {
-      const float scaled = 1.0f - (1.0f - abs_cos_triangulation_angle) /
+    if (cos_triangulation_angle > cos_min_triangulation_angle_) {
+      const float scaled = 1.0f - (1.0f - cos_triangulation_angle) /
                                       (1.0f - cos_min_triangulation_angle_);
       const float likelihood = 1.0f - scaled * scaled;
       return min(1.0f, max(0.0f, likelihood));
