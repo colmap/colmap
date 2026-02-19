@@ -291,10 +291,11 @@ void AutomaticReconstructionController::RunSparseMapper() {
   auto database = Database::Open(*option_manager_.database_path);
   switch (options_.mapper) {
     case Mapper::INCREMENTAL: {
-      IncrementalPipelineOptions options = *option_manager_.mapper;
-      options.image_path = *option_manager_.image_path;
+      auto options =
+          std::make_shared<IncrementalPipelineOptions>(*option_manager_.mapper);
+      options->image_path = *option_manager_.image_path;
       mapper = std::make_unique<IncrementalPipeline>(
-          option_manager_.mapper, std::move(database), reconstruction_manager_);
+          options, std::move(database), reconstruction_manager_);
       break;
     }
     case Mapper::HIERARCHICAL: {
