@@ -168,6 +168,17 @@ if(IS_MACOS)
     add_link_options(LINKER:-no_warn_duplicate_libraries)
 endif()
 
+# Correctly set RPATH to look up dependencies.
+if(NOT IS_MSVC)
+    if (IS_MACOS)
+        set(RPATH_BASE "@executable_path")
+    else ()
+        set(RPATH_BASE "$ORIGIN")
+    endif ()
+    file(RELATIVE_PATH INSTALL_LIB_DIR "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_BINDIR}" "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}")
+    list(APPEND CMAKE_INSTALL_RPATH "${RPATH_BASE}/${INSTALL_LIB_DIR}")
+endif()
+
 if(IS_DEBUG)
     add_compile_definitions(EIGEN_INITIALIZE_MATRICES_BY_NAN)
 endif()
