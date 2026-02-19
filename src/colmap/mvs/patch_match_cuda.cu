@@ -257,7 +257,8 @@ __device__ inline void ComputeViewingAngles(
   const float SX_inv_norm = rsqrt(DotProduct3(SX, SX));
 
   *cos_incident_angle = DotProduct3(SX, normal) * SX_inv_norm;
-  *cos_triangulation_angle = -DotProduct3(SX, point) * RX_inv_norm * SX_inv_norm;
+  *cos_triangulation_angle =
+      -DotProduct3(SX, point) * RX_inv_norm * SX_inv_norm;
 }
 
 __device__ inline void ComposeHomography(
