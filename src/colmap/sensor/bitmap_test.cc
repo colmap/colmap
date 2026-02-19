@@ -499,6 +499,37 @@ TEST(Bitmap, ExifFocalLengthWithDatabaseLookup) {
   EXPECT_EQ(focal_length.value(), 120);
 }
 
+TEST(Bitmap, ExifFocalLengthUnits) {
+  // Initialize a dummy bitmap
+  Bitmap bitmap(100, 80, /*as_rgb=*/true);
+
+  // Set the base focal length and resolution values
+  const float focal_length_mm = 50.0f;
+  const float focal_x_res = 100.0f;
+  bitmap.SetMetaData("Exif:FocalLength", "float", &focal_length_mm);
+  bitmap.SetMetaData("Exif:FocalPlaneXResolution", "float", &focal_x_res);
+
+  // Case 2: Inches (25.4 mm per inch)
+  int unit = 2;
+  bitmap.SetMetaData("Exif:FocalPlaneResolutionUnit", "int", &unit);
+  EXPECT_NEAR(bitmap.ExifFocalLength().value(), 50.0 * (100.0 / 25.4), 1e-4);
+
+  // Case 3: Centimeters (10 mm per cm)
+  unit = 3;
+  bitmap.SetMetaData("Exif:FocalPlaneResolutionUnit", "int", &unit);
+  EXPECT_NEAR(bitmap.ExifFocalLength().value(), 50.0 * (100.0 / 10.0), 1e-4);
+
+  // Case 4: Millimeters (1 mm per mm)
+  unit = 4;
+  bitmap.SetMetaData("Exif:FocalPlaneResolutionUnit", "int", &unit);
+  EXPECT_NEAR(bitmap.ExifFocalLength().value(), 50.0 * (100.0 * 1.0), 1e-4);
+
+  // Case 5: Micrometers (1000 um per mm)
+  unit = 5;
+  bitmap.SetMetaData("Exif:FocalPlaneResolutionUnit", "int", &unit);
+  EXPECT_NEAR(bitmap.ExifFocalLength().value(), 50.0 * (100.0 * 1000.0), 1e-4);
+}
+
 TEST(Bitmap, ExifLatitude) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
 
