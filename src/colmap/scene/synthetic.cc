@@ -330,7 +330,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   THROW_CHECK_GT(options.num_cameras_per_rig, 0);
   THROW_CHECK_GT(options.num_frames_per_rig, 0);
   THROW_CHECK_GE(options.num_points3D, 0);
-  THROW_CHECK(options.track_length == 0 || options.track_length >= 2);
+  THROW_CHECK(options.track_length == -1 || options.track_length >= 2);
   if (options.track_length > 0) {
     const int num_images = options.num_rigs * options.num_cameras_per_rig *
                            options.num_frames_per_rig;
