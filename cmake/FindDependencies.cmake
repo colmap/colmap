@@ -344,25 +344,24 @@ if(ONNX_ENABLED)
                     "${onnxruntime_LIB_DIR}/libonnxruntime.*.dylib"
                     "${onnxruntime_LIB_DIR}/libonnxruntime_providers_shared.dylib")
                 install(FILES ${onnxruntime_CORE_LIBS}
-                    DESTINATION "${onnxruntime_LIB_DIR_NAME}")
+                        DESTINATION "lib")
             else()
                 file(GLOB onnxruntime_CORE_LIBS
                     "${onnxruntime_LIB_DIR}/libonnxruntime.so*"
                     "${onnxruntime_LIB_DIR}/libonnxruntime_providers_shared.so*")
                 install(FILES ${onnxruntime_CORE_LIBS}
-                    DESTINATION "${onnxruntime_LIB_DIR_NAME}")
+                        DESTINATION "lib")
                 # Only install CUDA provider if CUDA is enabled.
                 if(CUDA_ENABLED)
                     file(GLOB onnxruntime_CUDA_LIBS
                         "${onnxruntime_LIB_DIR}/libonnxruntime_providers_cuda.so*")
                     install(FILES ${onnxruntime_CUDA_LIBS}
-                        DESTINATION "${onnxruntime_LIB_DIR_NAME}")
+                            DESTINATION "lib")
                 endif()
             endif()
         endif()
-        install(
-            DIRECTORY "${onnxruntime_BINARY_DIR}/share/"
-            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}")
+        install(DIRECTORY "${onnxruntime_BINARY_DIR}/share/"
+                DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}")
 
         message(STATUS "Configuring onnxruntime... done")
     else()
