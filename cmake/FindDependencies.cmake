@@ -319,9 +319,8 @@ if(ONNX_ENABLED)
         set(onnxruntime_LIBRARY_DIR_HINTS ${onnxruntime_BINARY_DIR}/lib CACHE PATH "ONNX Runtime library directory hints")
         find_package(onnxruntime ${COLMAP_FIND_TYPE})
 
-        install(
-            DIRECTORY "${onnxruntime_BINARY_DIR}/include/"
-            DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+        install(DIRECTORY "${onnxruntime_BINARY_DIR}/include/"
+                DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
         if(IS_WINDOWS)
             # On Windows, selectively install DLLs to bin/. Always install core DLLs.
             # For not not supporting TensorRT/ROCM/etc. as a runtime, so not installing it intentionally.
