@@ -103,6 +103,12 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.mapper->num_threads = options_.num_threads;
   option_manager_.poisson_meshing->num_threads = options_.num_threads;
 
+  option_manager_.vocab_tree_pairing->vocab_tree_path =
+      GetVocabTreeUriForFeatureType(option_manager_.feature_extraction->type);
+  option_manager_.sequential_pairing->vocab_tree_path =
+      GetVocabTreeUriForFeatureType(option_manager_.feature_extraction->type);
+  option_manager_.sequential_pairing->loop_detection = true;
+
   // Apply mapper-appropriate two-view geometry defaults.
   // Global uses stricter thresholds; Incremental/Hierarchical use standard.
   TwoViewGeometryOptions& two_view_geometry_options =
@@ -173,12 +179,6 @@ void AutomaticReconstructionController::Setup() {
                                        *option_manager_.two_view_geometry,
                                        *option_manager_.database_path);
 
-    if (!options_.vocab_tree_path.empty()) {
-      option_manager_.sequential_pairing->loop_detection = true;
-      option_manager_.sequential_pairing->vocab_tree_path =
-          options_.vocab_tree_path;
-    }
-
     sequential_matcher_ =
         CreateSequentialFeatureMatcher(*option_manager_.sequential_pairing,
                                        *option_manager_.feature_matching,
@@ -186,8 +186,6 @@ void AutomaticReconstructionController::Setup() {
                                        *option_manager_.database_path);
 
     if (!options_.vocab_tree_path.empty()) {
-      option_manager_.vocab_tree_pairing->vocab_tree_path =
-          options_.vocab_tree_path;
       vocab_tree_matcher_ =
           CreateVocabTreeFeatureMatcher(*option_manager_.vocab_tree_pairing,
                                         *option_manager_.feature_matching,

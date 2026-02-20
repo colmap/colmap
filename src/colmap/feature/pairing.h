@@ -71,7 +71,7 @@ struct VocabTreePairingOptions {
   int max_num_features = -1;
 
   // Path to the vocabulary tree.
-  std::filesystem::path vocab_tree_path = kDefaultVocabTreeUri;
+  std::filesystem::path vocab_tree_path;
 
   // Optional path to file with specific image names to match.
   std::filesystem::path match_list_path = "";
@@ -152,7 +152,7 @@ struct SequentialPairingOptions {
   int num_threads = -1;
 
   // Path to the vocabulary tree.
-  std::filesystem::path vocab_tree_path = kDefaultVocabTreeUri;
+  std::filesystem::path vocab_tree_path;
 
   bool Check() const;
 
