@@ -150,11 +150,12 @@ BENCHMARK_DEFINE_F(BM_BundleAdjustment, Solve)(benchmark::State& state) {
   state.counters["cams"] = reconstruction_->NumCameras();
   state.counters["frms"] = reconstruction_->NumRegFrames();
   state.counters["pnts"] = reconstruction_->NumPoints3D();
-  state.counters["itrs"] = num_iterations;
+  state.counters["avg_itrs"] =
+      std::round(num_iterations * 10.0 / state.iterations()) / 10.0;
   state.ResumeTiming();
 }
 
-// Time column reports ms per Ceres iteration (not per benchmark iteration).
+// Time column reports time per solver iteration (not per benchmark iteration).
 BENCHMARK_REGISTER_F(BM_BundleAdjustment, Solve)
     ->Apply(GenerateArguments)
     ->Unit(benchmark::kMillisecond)
@@ -163,7 +164,8 @@ BENCHMARK_REGISTER_F(BM_BundleAdjustment, Solve)
 int main(int argc, char** argv) {
   benchmark::Initialize(&argc, argv);
   if (benchmark::ReportUnrecognizedArguments(argc, argv)) return 1;
-  std::cerr << "\033[1mNote: Time column reports ms per Ceres iteration.\033[0m"
+  std::cerr << "\033[1mNote: Time column reports time (ms) per solver "
+               "iteration.\033[0m"
             << std::endl;
   benchmark::RunSpecifiedBenchmarks();
   benchmark::Shutdown();
