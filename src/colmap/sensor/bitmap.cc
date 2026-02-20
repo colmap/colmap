@@ -340,21 +340,21 @@ std::optional<double> Bitmap::ExifFocalLength() const {
         double pixels_per_mm = 0;
         switch (focal_x_res_unit) {
           case 2:  // inches
-            pixels_per_mm = focal_x_res * 25.4;
+            pixels_per_mm = focal_x_res / 25.4;
             break;
           case 3:  // cm
-            pixels_per_mm = focal_x_res * 10.0;
+            pixels_per_mm = focal_x_res / 10.0;
             break;
           case 4:  // mm
             pixels_per_mm = focal_x_res * 1.0;
             break;
           case 5:  // um
-            pixels_per_mm = focal_x_res * 0.1;
+            pixels_per_mm = focal_x_res * 1000.0;
             break;
           default:
             LOG(FATAL) << "Unexpected FocalPlaneXResolution value";
         }
-        return focal_length_mm / pixels_per_mm;
+        return focal_length_mm * pixels_per_mm;
       }
     }
 
