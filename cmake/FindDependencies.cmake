@@ -311,6 +311,16 @@ if(ONNX_ENABLED)
                 file(MAKE_DIRECTORY ${ONNX_DATA_DIR})
                 file(COPY ${onnxruntime_SOURCE_DIR}/lib/cmake/onnxruntime/ DESTINATION ${ONNX_DATA_DIR}/cmake/)
                 file(REMOVE_RECURSE ${onnxruntime_SOURCE_DIR}/lib/cmake)
+                # The downloaded cmake configs may reference lib64/ (e.g. on Linux x64),
+                # but we install libraries to lib/. Patch the configs to match.
+                if(IS_LINUX AND NOT IS_ARM64)
+                    file(GLOB _onnx_cmake_configs "${ONNX_DATA_DIR}/cmake/*.cmake")
+                    foreach(_config_file ${_onnx_cmake_configs})
+                        file(READ "${_config_file}" _config_content)
+                        string(REPLACE "/lib64/" "/lib/" _config_content "${_config_content}")
+                        file(WRITE "${_config_file}" "${_config_content}")
+                    endforeach()
+                endif()
             endif()
         endif()
 
