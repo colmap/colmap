@@ -43,8 +43,8 @@ inline const std::filesystem::path kDefaultSiftVocabTreeUri =
     "96ca8ec8ea60b1f73465aaf2c401fd3b3ca75cdba2d3c50d6a2f6f760f275ddc";
 inline const std::filesystem::path kDefaultAlikedN16RotVocabTreeUri =
     "https://github.com/colmap/colmap/releases/download/3.13.0/"
-    "vocab_tree_faiss_flickr100K_words64K.bin;"
-    "vocab_tree_faiss_flickr100K_words64K.bin;"
+    "vocab_tree_faiss_flickr100K_words64K_aliked_n16rot.bin;"
+    "vocab_tree_faiss_flickr100K_words64K_aliked_n16rot.bin;"
     "8b2f9bdc44ca7204d8543bb3adab4c03ba9336c84ef41220b5007991036f075e";
 #else
 inline const std::filesystem::path kDefaultSiftVocabTreeUri = "";
