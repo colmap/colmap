@@ -126,9 +126,8 @@ BENCHMARK_DEFINE_F(BM_BundleAdjustment, Solve)(benchmark::State& state) {
     // Stop timing and check if BA converged.
     state.PauseTiming();
     const auto& ceres_summary = GetCeresSummary(summary.get());
-    num_iterations +=
-        ceres_summary.num_successful_steps +
-        ceres_summary.num_unsuccessful_steps;
+    num_iterations += ceres_summary.num_successful_steps +
+                      ceres_summary.num_unsuccessful_steps;
     total_solve_time_s += ceres_summary.total_time_in_seconds;
     if (summary->termination_type ==
         BundleAdjustmentTerminationType::NO_CONVERGENCE) {
