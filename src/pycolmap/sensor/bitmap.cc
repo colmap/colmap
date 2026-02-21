@@ -129,6 +129,9 @@ void BindBitmap(pybind11::module& m) {
            "new_height"_a,
            "filter"_a = BitmapRescaleFilter::kBilinear,
            "Rescale image to the new dimensions.")
+      .def("rot90",
+           &Bitmap::Rot90,
+           "Rotate image by k * 90 degrees counter-clockwise.")
       .def_property_readonly("width", &Bitmap::Width, "Width of the image.")
       .def_property_readonly("height", &Bitmap::Height, "Height of the image.")
       .def_property_readonly(
