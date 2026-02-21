@@ -59,6 +59,15 @@ option(FETCH_FAISS "Whether to consume faiss using FetchContent or find_package"
 option(FETCH_ONNX "Whether to consume ONNX using FetchContent or find_package" ON)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
 
+# COLMAP installs executables to bin and shared libraries to
+# lib or lib64. Some dependencies (e.g. ONNXRuntime) fails at runtime
+# unless manually set LD_LIBRARY_PATH.
+if(UNIX AND NOT APPLE)
+    set(CMAKE_INSTALL_RPATH "$ORIGIN/../lib;$ORIGIN/../lib64")
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
+    set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+endif()
+
 # Disables default features, as we specify each required feature manually below.
 list(APPEND VCPKG_MANIFEST_FEATURES "core")
 
