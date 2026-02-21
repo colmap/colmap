@@ -27,31 +27,26 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#include "colmap/retrieval/resources.h"
 
-#include "colmap/feature/types.h"
-
-#include <filesystem>
+#include "colmap/util/logging.h"
 
 namespace colmap {
 
-#ifdef COLMAP_DOWNLOAD_ENABLED
-inline const std::filesystem::path kDefaultSiftVocabTreeUri =
-    "https://github.com/colmap/colmap/releases/download/3.11.1/"
-    "vocab_tree_faiss_flickr100K_words256K.bin;"
-    "vocab_tree_faiss_flickr100K_words256K.bin;"
-    "96ca8ec8ea60b1f73465aaf2c401fd3b3ca75cdba2d3c50d6a2f6f760f275ddc";
-inline const std::filesystem::path kDefaultAlikedN16RotVocabTreeUri =
-    "https://github.com/colmap/colmap/releases/download/3.13.0/"
-    "vocab_tree_faiss_flickr100K_words64K_aliked_n16rot.bin;"
-    "vocab_tree_faiss_flickr100K_words64K_aliked_n16rot.bin;"
-    "8b2f9bdc44ca7204d8543bb3adab4c03ba9336c84ef41220b5007991036f075e";
-#else
-inline const std::filesystem::path kDefaultSiftVocabTreeUri = "";
-inline const std::filesystem::path kDefaultAlikedN16RotVocabTreeUri = "";
-#endif
-
 const std::filesystem::path& GetVocabTreeUriForFeatureType(
-    FeatureExtractorType feature_type);
+    FeatureExtractorType feature_type) {
+  switch (feature_type) {
+    case FeatureExtractorType::SIFT:
+      return kDefaultSiftVocabTreeUri;
+    case FeatureExtractorType::ALIKED_N16ROT:
+      return kDefaultAlikedN16RotVocabTreeUri;
+    default:
+      LOG(FATAL_THROW)
+          << "No default vocabulary tree available for feature type: "
+          << FeatureExtractorTypeToString(feature_type);
+  }
+  const static std::filesystem::path kEmptyString;
+  return kEmptyString;
+}
 
 }  // namespace colmap

@@ -31,13 +31,13 @@
 
 #include "colmap/feature/utils.h"
 #include "colmap/geometry/gps.h"
+#include "colmap/retrieval/resources.h"
 #include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
 #include <fstream>
-#include <numeric>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -245,9 +245,6 @@ VocabTreePairGenerator::VocabTreePairGenerator(
   THROW_CHECK(options.Check());
   LOG(INFO) << "Generating image pairs with vocabulary tree...";
 
-  // Read the pre-trained vocabulary tree from disk.
-  visual_index_ = retrieval::VisualIndex::Read(options_.vocab_tree_path);
-
   const std::vector<image_t> all_image_ids = cache_->GetImageIds();
   if (query_image_ids.size() > 0) {
     query_image_ids_ = query_image_ids;
@@ -371,6 +368,12 @@ void VocabTreePairGenerator::IndexImages(
         "Indexing image [%d/%d]", i + 1, image_ids.size());
     auto keypoints = *cache_->GetKeypoints(image_ids[i]);
     auto descriptors = *cache_->GetDescriptors(image_ids[i]);
+    if (visual_index_ == nullptr) {
+      visual_index_ = retrieval::VisualIndex::Read(
+          options_.vocab_tree_path.empty()
+              ? GetVocabTreeUriForFeatureType(descriptors.type)
+              : options_.vocab_tree_path);
+    }
     if (options_.max_num_features > 0 &&
         descriptors.data.rows() > options_.max_num_features) {
       ExtractTopScaleFeatures(

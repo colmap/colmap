@@ -66,7 +66,7 @@ class AutomaticReconstructionController : public Thread {
     std::filesystem::path mask_path;
 
     // The path to the vocabulary tree for feature matching.
-    std::filesystem::path vocab_tree_path = kDefaultVocabTreeUri;
+    std::filesystem::path vocab_tree_path;
 
     // The type of input data used to choose optimal mapper settings.
     DataType data_type = DataType::INDIVIDUAL;
