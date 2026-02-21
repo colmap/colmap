@@ -35,7 +35,7 @@ void BindSynthetic(py::module& m) {
           .def_readwrite("num_points3D", &SyntheticDatasetOptions::num_points3D)
           .def_readwrite("track_length",
                          &SyntheticDatasetOptions::track_length,
-                         "Target track length per 3D point. 0 = dense "
+                         "Target track length per 3D point. -1 = dense "
                          "visibility (default), >= 2 = pruned observations.")
           .def_readwrite(
               "sensor_from_rig_translation_stddev",
