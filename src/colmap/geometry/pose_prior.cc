@@ -80,4 +80,31 @@ std::ostream& operator<<(std::ostream& stream, const PosePrior& prior) {
   return stream;
 }
 
+Eigen::Vector3d GravityFromExifOrientation(int orientation) {
+  switch (orientation) {
+    case 1:  // Normal
+      return Eigen::Vector3d(0, 1, 0);
+    case 3:  // Rotate 180
+      return Eigen::Vector3d(0, -1, 0);
+    case 6:  // Rotate 90 CW
+      return Eigen::Vector3d(1, 0, 0);
+    case 8:  // Rotate 270 CW
+      return Eigen::Vector3d(-1, 0, 0);
+    default:
+      LOG(FATAL) << "Unknown EXIF orientation: " << orientation;
+  }
+}
+
+int ComputeRot90FromGravity(const Eigen::Vector3d& gravity) {
+  // Calculate the angle of gravity in image space, then find number of 90 deg
+  // CCW rotations needed to make the image upright (where gravity is at pi/2).
+  const double angle = std::atan2(gravity.y(), gravity.x());
+  const double halfpi = M_PI / 2.0;
+  int rot90_ccw = static_cast<int>(std::round((angle - halfpi) / halfpi)) % 4;
+  if (rot90_ccw < 0) {
+    rot90_ccw += 4;
+  }
+  return rot90_ccw;
+}
+
 }  // namespace colmap

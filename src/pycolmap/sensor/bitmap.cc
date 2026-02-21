@@ -157,6 +157,9 @@ void BindBitmap(pybind11::module& m) {
           "Set compression quality when writing to JPEG in the range [1, 100]. "
           "Lower values reduce quality and file size. By default, bitmaps are "
           "written in superb (100) quality, if not otherwise specified.")
+      .def("exif_orientation",
+           &Bitmap::ExifOrientation,
+           "Extract EXIF orientation. Returns None if not available.")
       .def("exif_camera_model",
            &Bitmap::ExifCameraModel,
            "Extract EXIF camera model. Returns None if not available.")

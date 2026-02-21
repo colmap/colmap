@@ -77,4 +77,12 @@ struct PosePrior {
 
 std::ostream& operator<<(std::ostream& stream, const PosePrior& prior);
 
+// Extract gravity vector from EXIF orientation. Returns NaN vector if not an
+// upright orientation.
+Eigen::Vector3d GravityFromExifOrientation(int orientation);
+
+// Returns the number of 90 deg counter-clockwise rotations needed to make the
+// sensor upright.
+int ComputeRot90FromGravity(const Eigen::Vector3d& gravity);
+
 }  // namespace colmap
