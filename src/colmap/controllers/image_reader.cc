@@ -306,6 +306,15 @@ ImageReader::Status ImageReader::Next(Rig* rig,
       pose_prior->position = Eigen::Vector3d(*latitude, *longitude, *altitude);
       pose_prior->coordinate_system = PosePrior::CoordinateSystem::WGS84;
     }
+
+    //////////////////////////////////////////////////////////////////////////////
+    // Extract Gravity from Orientation.
+    //////////////////////////////////////////////////////////////////////////////
+
+    const std::optional<int> orientation = bitmap->ExifOrientation();
+    if (orientation.has_value()) {
+      pose_prior->gravity = GravityFromExifOrientation(orientation.value());
+    }
   }
 
   *camera = prev_camera_;
