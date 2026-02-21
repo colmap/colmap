@@ -328,12 +328,11 @@ if(ONNX_ENABLED)
             install(FILES
                 "${onnxruntime_LIB_DIR}/onnxruntime.dll"
                 "${onnxruntime_LIB_DIR}/onnxruntime_providers_shared.dll"
-                DESTINATION "${CMAKE_INSTALL_BINDIR}")
+                TYPE BIN)
             # Only install CUDA provider DLL if CUDA is enabled.
             if(CUDA_ENABLED)
-                install(FILES
-                    "${onnxruntime_LIB_DIR}/onnxruntime_providers_cuda.dll"
-                    DESTINATION "${CMAKE_INSTALL_BINDIR}")
+                install(FILES "${onnxruntime_LIB_DIR}/onnxruntime_providers_cuda.dll"
+                        TYPE BIN)
             endif()
         else()
             # On Linux/macOS, selectively install library files. Always install core libraries.
@@ -343,26 +342,21 @@ if(ONNX_ENABLED)
                     "${onnxruntime_LIB_DIR}/libonnxruntime.dylib"
                     "${onnxruntime_LIB_DIR}/libonnxruntime.*.dylib"
                     "${onnxruntime_LIB_DIR}/libonnxruntime_providers_shared.dylib")
-                install(FILES ${onnxruntime_CORE_LIBS}
-                    DESTINATION "${onnxruntime_LIB_DIR_NAME}")
+                install(FILES ${onnxruntime_CORE_LIBS} TYPE LIB)
             else()
                 file(GLOB onnxruntime_CORE_LIBS
                     "${onnxruntime_LIB_DIR}/libonnxruntime.so*"
                     "${onnxruntime_LIB_DIR}/libonnxruntime_providers_shared.so*")
-                install(FILES ${onnxruntime_CORE_LIBS}
-                    DESTINATION "${onnxruntime_LIB_DIR_NAME}")
+                install(FILES ${onnxruntime_CORE_LIBS} TYPE LIB)
                 # Only install CUDA provider if CUDA is enabled.
                 if(CUDA_ENABLED)
                     file(GLOB onnxruntime_CUDA_LIBS
                         "${onnxruntime_LIB_DIR}/libonnxruntime_providers_cuda.so*")
-                    install(FILES ${onnxruntime_CUDA_LIBS}
-                        DESTINATION "${onnxruntime_LIB_DIR_NAME}")
+                    install(FILES ${onnxruntime_CUDA_LIBS} TYPE LIB)
                 endif()
             endif()
         endif()
-        install(
-            DIRECTORY "${onnxruntime_BINARY_DIR}/share/"
-            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}")
+        install(DIRECTORY "${onnxruntime_BINARY_DIR}/share/" TYPE DATA)
 
         message(STATUS "Configuring onnxruntime... done")
     else()
