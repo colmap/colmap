@@ -36,14 +36,22 @@
 using namespace colmap;
 
 void GenerateArguments(benchmark::Benchmark* b) {
-  for (const int num_rigs : {1, 5}) {
-    for (const int num_cameras_per_rig : {1, 3}) {
-      for (const int num_frames_per_rig : {10, 50}) {
-        for (const int num_points3D : {1000, 10000}) {
-          b->Args({num_rigs,
-                   num_cameras_per_rig,
-                   num_frames_per_rig,
-                   num_points3D});
+  for (const int track_length : {5, 20, 100}) {
+    for (const int num_rigs : {1, 5}) {
+      for (const int num_cameras_per_rig : {1, 3}) {
+        for (const int num_frames_per_rig : {10, 50}) {
+          const int num_images =
+              num_rigs * num_cameras_per_rig * num_frames_per_rig;
+          if (track_length > num_images) {
+            continue;
+          }
+          for (const int num_points3D : {1000, 10000}) {
+            b->Args({track_length,
+                     num_rigs,
+                     num_cameras_per_rig,
+                     num_frames_per_rig,
+                     num_points3D});
+          }
         }
       }
     }
@@ -62,10 +70,11 @@ class BM_BundleAdjustment : public benchmark::Fixture {
     SetPRNGSeed(42);
 
     SyntheticDatasetOptions dataset_options;
-    dataset_options.num_rigs = state.range(0);
-    dataset_options.num_cameras_per_rig = state.range(1);
-    dataset_options.num_frames_per_rig = state.range(2);
-    dataset_options.num_points3D = state.range(3);
+    dataset_options.track_length = state.range(0);
+    dataset_options.num_rigs = state.range(1);
+    dataset_options.num_cameras_per_rig = state.range(2);
+    dataset_options.num_frames_per_rig = state.range(3);
+    dataset_options.num_points3D = state.range(4);
 
     reconstruction_ = std::make_unique<Reconstruction>();
     SynthesizeDataset(dataset_options, reconstruction_.get());
@@ -103,6 +112,7 @@ class BM_BundleAdjustment : public benchmark::Fixture {
 
 BENCHMARK_DEFINE_F(BM_BundleAdjustment, Solve)(benchmark::State& state) {
   int num_iterations = 0;
+  double total_solve_time_s = 0;
   for (auto _ : state) {
     state.PauseTiming();
     // Copy the reconstruction for each iteration since BA modifies it.
@@ -115,28 +125,49 @@ BENCHMARK_DEFINE_F(BM_BundleAdjustment, Solve)(benchmark::State& state) {
 
     // Stop timing and check if BA converged.
     state.PauseTiming();
-    num_iterations += GetCeresSummary(summary.get()).num_successful_steps;
+    const auto& ceres_summary = GetCeresSummary(summary.get());
+    num_iterations += ceres_summary.num_successful_steps +
+                      ceres_summary.num_unsuccessful_steps;
+    total_solve_time_s += ceres_summary.total_time_in_seconds;
     if (summary->termination_type ==
         BundleAdjustmentTerminationType::NO_CONVERGENCE) {
       state.SkipWithError("Bundle adjustment did not converge");
+    }
+    const int ceres_iterations = ceres_summary.num_successful_steps +
+                                 ceres_summary.num_unsuccessful_steps;
+    if (ceres_iterations > 0) {
+      state.SetIterationTime(ceres_summary.total_time_in_seconds /
+                             ceres_iterations);
     }
     state.ResumeTiming();
   }
 
   state.PauseTiming();
   // Report custom counters.
+  state.counters["track_len"] = reconstruction_->ComputeMeanTrackLength();
   state.counters["imgs"] = reconstruction_->NumRegImages();
   state.counters["rigs"] = reconstruction_->NumRigs();
   state.counters["cams"] = reconstruction_->NumCameras();
   state.counters["frms"] = reconstruction_->NumRegFrames();
   state.counters["pnts"] = reconstruction_->NumPoints3D();
-  state.counters["itrs"] = num_iterations;
+  state.counters["avg_itrs"] =
+      std::round(num_iterations * 10.0 / state.iterations()) / 10.0;
   state.ResumeTiming();
 }
 
+// Time column reports time per solver iteration (not per benchmark iteration).
 BENCHMARK_REGISTER_F(BM_BundleAdjustment, Solve)
     ->Apply(GenerateArguments)
     ->Unit(benchmark::kMillisecond)
-    ->UseRealTime();
+    ->UseManualTime();
 
-BENCHMARK_MAIN();
+int main(int argc, char** argv) {
+  benchmark::Initialize(&argc, argv);
+  if (benchmark::ReportUnrecognizedArguments(argc, argv)) return 1;
+  std::cerr << "\033[1mNote: Time column reports time (ms) per solver "
+               "iteration.\033[0m"
+            << std::endl;
+  benchmark::RunSpecifiedBenchmarks();
+  benchmark::Shutdown();
+  return 0;
+}
