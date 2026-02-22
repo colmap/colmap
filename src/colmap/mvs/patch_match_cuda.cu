@@ -128,64 +128,60 @@ __device__ inline void PerturbNormal(const int row,
                                      const float perturbation,
                                      const float normal[3],
                                      curandState* rand_state,
-                                     float perturbed_normal[3],
-                                     const int num_trials = 0) {
-  // Perturbation rotation angles.
-  const float a1 = (curand_uniform(rand_state) - 0.5f) * perturbation;
-  const float a2 = (curand_uniform(rand_state) - 0.5f) * perturbation;
-  const float a3 = (curand_uniform(rand_state) - 0.5f) * perturbation;
+                                     float perturbed_normal[3]) {
+  const int kMaxNumTrials = 3;
+  float curr_perturbation = perturbation;
 
-  const float sin_a1 = sin(a1);
-  const float sin_a2 = sin(a2);
-  const float sin_a3 = sin(a3);
-  const float cos_a1 = cos(a1);
-  const float cos_a2 = cos(a2);
-  const float cos_a3 = cos(a3);
+  for (int trial = 0; trial <= kMaxNumTrials; ++trial) {
+    // Perturbation rotation angles.
+    const float a1 = (curand_uniform(rand_state) - 0.5f) * curr_perturbation;
+    const float a2 = (curand_uniform(rand_state) - 0.5f) * curr_perturbation;
+    const float a3 = (curand_uniform(rand_state) - 0.5f) * curr_perturbation;
 
-  // R = Rx * Ry * Rz
-  float R[9];
-  R[0] = cos_a2 * cos_a3;
-  R[1] = -cos_a2 * sin_a3;
-  R[2] = sin_a2;
-  R[3] = cos_a1 * sin_a3 + cos_a3 * sin_a1 * sin_a2;
-  R[4] = cos_a1 * cos_a3 - sin_a1 * sin_a2 * sin_a3;
-  R[5] = -cos_a2 * sin_a1;
-  R[6] = sin_a1 * sin_a3 - cos_a1 * cos_a3 * sin_a2;
-  R[7] = cos_a3 * sin_a1 + cos_a1 * sin_a2 * sin_a3;
-  R[8] = cos_a1 * cos_a2;
+    float sin_a1, cos_a1, sin_a2, cos_a2, sin_a3, cos_a3;
+    sincosf(a1, &sin_a1, &cos_a1);
+    sincosf(a2, &sin_a2, &cos_a2);
+    sincosf(a3, &sin_a3, &cos_a3);
 
-  // Perturb the normal vector.
-  Mat33DotVec3(R, normal, perturbed_normal);
+    // R = Rx * Ry * Rz
+    float R[9];
+    R[0] = cos_a2 * cos_a3;
+    R[1] = -cos_a2 * sin_a3;
+    R[2] = sin_a2;
+    R[3] = cos_a1 * sin_a3 + cos_a3 * sin_a1 * sin_a2;
+    R[4] = cos_a1 * cos_a3 - sin_a1 * sin_a2 * sin_a3;
+    R[5] = -cos_a2 * sin_a1;
+    R[6] = sin_a1 * sin_a3 - cos_a1 * cos_a3 * sin_a2;
+    R[7] = cos_a3 * sin_a1 + cos_a1 * sin_a2 * sin_a3;
+    R[8] = cos_a1 * cos_a2;
 
-  // Make sure the perturbed normal is still looking in the same direction as
-  // the viewing direction, otherwise try again but with smaller perturbation.
-  const float view_ray[3] = {ref_inv_K[0] * col + ref_inv_K[1],
-                             ref_inv_K[2] * row + ref_inv_K[3],
-                             1.0f};
-  if (DotProduct3(perturbed_normal, view_ray) >= 0.0f) {
-    const int kMaxNumTrials = 3;
-    if (num_trials < kMaxNumTrials) {
-      PerturbNormal(row,
-                    col,
-                    0.5f * perturbation,
-                    normal,
-                    rand_state,
-                    perturbed_normal,
-                    num_trials + 1);
+    // Perturb the normal vector.
+    Mat33DotVec3(R, normal, perturbed_normal);
+
+    // Make sure the perturbed normal is still looking in the same direction as
+    // the viewing direction, otherwise try again but with smaller perturbation.
+    const float view_ray[3] = {ref_inv_K[0] * col + ref_inv_K[1],
+                               ref_inv_K[2] * row + ref_inv_K[3],
+                               1.0f};
+    if (DotProduct3(perturbed_normal, view_ray) < 0.0f) {
+      // Make sure normal has unit norm.
+      const float inv_norm =
+          rsqrt(DotProduct3(perturbed_normal, perturbed_normal));
+      perturbed_normal[0] *= inv_norm;
+      perturbed_normal[1] *= inv_norm;
+      perturbed_normal[2] *= inv_norm;
       return;
-    } else {
+    }
+
+    if (trial == kMaxNumTrials) {
       perturbed_normal[0] = normal[0];
       perturbed_normal[1] = normal[1];
       perturbed_normal[2] = normal[2];
       return;
     }
-  }
 
-  // Make sure normal has unit norm.
-  const float inv_norm = rsqrt(DotProduct3(perturbed_normal, perturbed_normal));
-  perturbed_normal[0] *= inv_norm;
-  perturbed_normal[1] *= inv_norm;
-  perturbed_normal[2] *= inv_norm;
+    curr_perturbation *= 0.5f;
+  }
 }
 
 __device__ inline void ComputePointAtDepth(const float row,
@@ -447,7 +443,8 @@ struct PhotoConsistencyCostComputer {
 
   __device__ inline void Read(const int row) {
     local_ref_image.Read(row);
-    __syncthreads();
+    // Syncing the warp is enough since THREADS_PER_BLOCK matches the warp size.
+    __syncwarp();
   }
 
   __device__ inline float Compute() const {
