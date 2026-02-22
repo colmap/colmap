@@ -381,7 +381,7 @@ struct LocalRefImage {
         }
       }
     } else {
-      // Overwrite the oldest row (at physical position row_offset) with new data.
+      // Overwrite the oldest row (at physical row_offset) with new data.
       const int target_row = row_offset;
       row_offset = (row_offset + 1) % kNumRows;
 
