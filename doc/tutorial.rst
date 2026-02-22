@@ -229,12 +229,15 @@ modify the camera models at a later point as well (see :ref:`Database Management
 to the default parameters.
 
 You can either detect and extract new features from the images or import
-existing features from text files. COLMAP extracts SIFT [lowe04]_ features
-either on the GPU or the CPU. The GPU version requires an attached display,
-while the CPU version is recommended for use on a server. In general, the GPU
-version is favorable as it has a customized feature detection mode that often
-produces higher quality features in the case of high contrast images. If you
-import existing features, every image must have a text file next to it (e.g.,
+existing features from text files. By default, COLMAP extracts SIFT [lowe04]_
+features either on the GPU or the CPU. The GPU version requires an attached
+display, while the CPU version is recommended for use on a server. In general,
+the GPU version is favorable as it has a customized feature detection mode that
+often produces higher quality features in the case of high contrast images.
+COLMAP also supports ALIKED feature extraction, a learned feature extractor
+using ONNX models, which can be selected via the ``--FeatureExtraction.type``
+option (see :ref:`Feature Extraction and Matching <features>` for details). If
+you import existing features, every image must have a text file next to it (e.g.,
 ``/path/to/image1.jpg`` and ``/path/to/image1.jpg.txt``) in the following format::
 
     NUM_FEATURES 128
@@ -368,10 +371,12 @@ reviewed/managed in the database management tool (see :ref:`Database Management
 <database-management>`) or, for experts, directly modified using SQLite (see
 :ref:`Database Format <database-format>`).
 
-Note that feature matching requires a GPU and that the display performance of
-your computer might degrade significantly during the matching process. If your
-system has multiple CUDA-enabled GPUs, you can select specific GPUs with the
-``gpu_index`` option.
+Note that SIFT feature matching can use a GPU for acceleration, and the display
+performance of your computer might degrade significantly during the matching
+process. If your system has multiple CUDA-enabled GPUs, you can select specific
+GPUs with the ``gpu_index`` option. Feature matching can also be performed on
+the CPU by setting ``--FeatureMatching.use_gpu 0``, although this will be
+significantly slower for large datasets.
 
 
 Sparse Reconstruction
