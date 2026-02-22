@@ -387,7 +387,7 @@ visualized in "real-time" during this reconstruction process. Refer to the
 available controls. COLMAP attempts to reconstruct multiple models if not all
 images are registered into the same model. The different models can be selected
 from the drop-down menu in the toolbar. If the different models have common
-registered images, you can use the ``model_converter`` executable to merge them
+registered images, you can use the ``model_merger`` executable to merge them
 into a single reconstruction (see :ref:`FAQ <faq-merge-models>` for details).
 
 Ideally, the reconstruction works fine and all images are registered. If this is

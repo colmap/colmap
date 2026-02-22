@@ -6,7 +6,7 @@ Adjusting the options for different reconstruction scenarios and output quality
 
 COLMAP provides many options that can be tuned for different reconstruction
 scenarios and to trade off accuracy and completeness versus efficiency. The
-default options are set to for medium to high quality reconstruction of
+default options are set for medium to high quality reconstruction of
 unstructured input data. There are several presets for different scenarios and
 quality levels, which can be set in the GUI as ``Extras > Set options for ...``.
 To use these presets from the command-line, you can save the current set of
@@ -20,14 +20,14 @@ Extending COLMAP
 ----------------
 
 If you need to simply analyze the produced sparse or dense reconstructions from
-COLMAP, you can load the sparse models in Python and Matlab using the provided
-scripts in ``scripts/python`` and ``scripts/matlab``.
+COLMAP, you can load the sparse models using pycolmap in Python or the
+scripts in ``scripts/matlab`` for Matlab.
 
 If you want to write a C/C++ executable that builds on top of COLMAP, there are
 two possible approaches. First, the COLMAP headers and library are installed
 to the ``CMAKE_INSTALL_PREFIX`` by default. Compiling against COLMAP as a
 library is described :ref:`here <installation-library>`. Alternatively, you can
-start from the ``src/tools/example.cc`` code template and implement the desired
+start from the ``src/colmap/tools/example.cc`` code template and implement the desired
 functionality directly as a new binary within COLMAP.
 
 
@@ -136,8 +136,8 @@ images of the known camera poses as follows::
 If your known camera intrinsics have large distortion coefficients, you should
 now manually copy the parameters from your ``cameras.txt`` to the database, such
 that the matcher can leverage the intrinsics. Modifying the database is possible
-in many ways, but an easy option is to use the provided
-``scripts/python/database.py`` script. Otherwise, you can skip this step and
+in many ways, but an easy option is to use pycolmap's database API.
+Otherwise, you can skip this step and
 simply continue as follows::
 
     colmap exhaustive_matcher \ # or alternatively any other matcher
@@ -391,7 +391,7 @@ required GPU memory will be around 400MB, which are only allocated if one of
 your images actually has that many features.
 
 
-Speedup bundle adjustemnt
+Speedup bundle adjustment
 -------------------------
 
 The following describes practical ways to reduce bundle adjustment runtime.
@@ -456,13 +456,13 @@ increase the value of option ``--StereoFusion.min_num_pixels``.
 
 If the reconstructed dense surface mesh model using Poisson reconstruction
 contains no surface or there are too many outlier surfaces, you should reduce
-the value of option ``--PoissonMeshing.trim`` to decrease the surface are and
+the value of option ``--PoissonMeshing.trim`` to decrease the surface area and
 vice versa to increase it. Also consider to try the reduce the outliers or
 increase the completeness in the fusion stage, as described above.
 
 If the reconstructed dense surface mesh model using Delaunay reconstruction
 contains too noisy or incomplete surfaces, you should increase the
-``--DenaunayMeshing.quality_regularization`` parameter to obtain a smoother
+``--DelaunayMeshing.quality_regularization`` parameter to obtain a smoother
 surface. If the resolution of the mesh is too coarse, you should reduce the
 ``--DelaunayMeshing.max_proj_dist`` option to a lower value.
 
