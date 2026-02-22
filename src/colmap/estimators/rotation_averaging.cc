@@ -11,18 +11,24 @@
 namespace colmap {
 namespace {
 
-bool HasGravityPriors(const std::vector<PosePrior>& pose_priors) {
+bool AllImagesHaveGravityPriors(
+    const std::vector<PosePrior>& pose_priors,
+    const std::unordered_set<image_t>& active_image_ids) {
+  std::unordered_set<image_t> images_with_gravity;
   for (const auto& pose_prior : pose_priors) {
-    if (pose_prior.HasGravity()) {
-      return true;
+    if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA &&
+        pose_prior.HasGravity()) {
+      images_with_gravity.insert(pose_prior.corr_data_id.id);
     }
   }
-  return false;
+  return images_with_gravity == active_image_ids;
 }
 
 bool UseGravity(const RotationEstimatorOptions& options,
-                const std::vector<PosePrior>& pose_priors) {
-  return options.use_gravity && HasGravityPriors(pose_priors);
+                const std::vector<PosePrior>& pose_priors,
+                const std::unordered_set<image_t>& active_image_ids) {
+  return options.use_gravity &&
+         AllImagesHaveGravityPriors(pose_priors, active_image_ids);
 }
 
 bool AllSensorsFromRigKnown(const std::unordered_map<rig_t, Rig>& rigs) {
@@ -271,13 +277,13 @@ bool RotationEstimator::EstimateRotations(
     const std::vector<PosePrior>& pose_priors,
     const std::unordered_set<image_t>& active_image_ids,
     Reconstruction& reconstruction) {
-  if (UseGravity(options_, pose_priors) &&
-      !AllSensorsFromRigKnown(reconstruction.Rigs())) {
+  const bool use_gravity = UseGravity(options_, pose_priors, active_image_ids);
+  if (use_gravity && !AllSensorsFromRigKnown(reconstruction.Rigs())) {
     return false;
   }
 
   // Handle stratified solving for mixed gravity systems.
-  if (UseGravity(options_, pose_priors) && options_.use_stratified) {
+  if (use_gravity && options_.use_stratified) {
     if (!MaybeSolveGravityAlignedSubset(
             pose_graph, pose_priors, active_image_ids, reconstruction)) {
       return false;
@@ -398,7 +404,8 @@ bool RotationEstimator::SolveRotationAveraging(
     const std::unordered_set<image_t>& active_image_ids,
     Reconstruction& reconstruction) {
   // Initialize rotations from maximum spanning tree if no gravity priors.
-  if (!options_.skip_initialization && !UseGravity(options_, pose_priors)) {
+  if (!options_.skip_initialization &&
+      !UseGravity(options_, pose_priors, active_image_ids)) {
     InitializeFromMaximumSpanningTree(
         pose_graph, active_image_ids, reconstruction);
   }
