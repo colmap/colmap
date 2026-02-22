@@ -91,6 +91,49 @@ void FeatureKeypoint::Rescale(const float scale_x, const float scale_y) {
   a22 *= scale_y;
 }
 
+void FeatureKeypoint::Rot90(int k, int width, int height) {
+  k = k % 4;
+  if (k < 0) {
+    k += 4;
+  }
+  if (k == 0) {
+    return;
+  }
+  float new_x = x, new_y = y;
+  float new_a11 = a11, new_a12 = a12, new_a21 = a21, new_a22 = a22;
+  const float w = static_cast<float>(width);
+  const float h = static_cast<float>(height);
+
+  if (k == 1) {  // 90 CCW
+    new_x = y;
+    new_y = w - x;
+    new_a11 = a21;
+    new_a12 = a22;
+    new_a21 = -a11;
+    new_a22 = -a12;
+  } else if (k == 2) {  // 180 CCW
+    new_x = w - x;
+    new_y = h - y;
+    new_a11 = -a11;
+    new_a12 = -a12;
+    new_a21 = -a21;
+    new_a22 = -a22;
+  } else if (k == 3) {  // 270 CCW
+    new_x = h - y;
+    new_y = x;
+    new_a11 = -a21;
+    new_a12 = -a22;
+    new_a21 = a11;
+    new_a22 = a12;
+  }
+  x = new_x;
+  y = new_y;
+  a11 = new_a11;
+  a12 = new_a12;
+  a21 = new_a21;
+  a22 = new_a22;
+}
+
 float FeatureKeypoint::ComputeScale() const {
   return (ComputeScaleX() + ComputeScaleY()) / 2.0f;
 }

@@ -120,6 +120,7 @@ class Bitmap {
 
   // Extract EXIF information from bitmap. Returns std::nullopt if no EXIF
   // information is embedded in the bitmap.
+  std::optional<int> ExifOrientation() const;
   std::optional<std::string> ExifCameraModel() const;
   std::optional<double> ExifFocalLength() const;
   std::optional<double> ExifLatitude() const;
@@ -146,6 +147,9 @@ class Bitmap {
   void Rescale(int new_width,
                int new_height,
                RescaleFilter filter = RescaleFilter::kBilinear);
+
+  // Rotate image by k * 90 degrees counter-clockwise.
+  void Rot90(int k);
 
   // Clone the image to a new bitmap object.
   Bitmap Clone() const;
