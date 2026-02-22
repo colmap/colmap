@@ -443,8 +443,9 @@ struct PhotoConsistencyCostComputer {
 
   __device__ inline void Read(const int row) {
     local_ref_image.Read(row);
-    // Syncing the warp is enough since THREADS_PER_BLOCK matches the warp size.
-    __syncwarp();
+    // With the current choice of THREADS_PER_BLOCK, this could also be
+    // __syncwarp(), but there is no measurable performance difference.
+    __syncthreads();
   }
 
   __device__ inline float Compute() const {
