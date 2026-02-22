@@ -150,7 +150,7 @@ of `this issue <https://github.com/facebookresearch/faiss/wiki/Troubleshooting#s
 Mac
 ---
 
-Dependencies from `Homebrew <http://brew.sh/>`__::
+Dependencies from `Homebrew <https://brew.sh/>`__::
 
     brew install \
         cmake \

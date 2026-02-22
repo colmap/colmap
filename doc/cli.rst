@@ -371,9 +371,9 @@ If you want to quickly visualize the outputs of the sparse or dense
 reconstruction pipelines, COLMAP offers you the following possibilities:
 
 - The sparse point cloud obtained with the ``mapper`` can be visualized via the
-  COLMAP GUI by importing the following files: choose ``File > Import Model``
-  and select the folder where the three files, ``cameras.txt``, ``images.txt``,
-  and ``points3D.txt`` are located.
+  COLMAP GUI by importing the model files: choose ``File > Import Model``
+  and select the folder containing the sparse model files (``cameras.txt``,
+  ``images.txt``, ``points3D.txt``, etc.).
 
 - The dense point cloud obtained with the ``stereo_fusion`` can be visualized
   via the COLMAP GUI by importing ``fused.ply``: choose
