@@ -39,6 +39,7 @@
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
+#include "colmap/retrieval/resources.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/logging.h"
 

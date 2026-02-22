@@ -124,6 +124,9 @@ The available commands can be listed using the command::
           exhaustive_matcher
           feature_extractor
           feature_importer
+          geometric_verifier
+          global_mapper
+          guided_geometric_verifier
           hierarchical_mapper
           image_deleter
           image_filterer
@@ -148,11 +151,14 @@ The available commands can be listed using the command::
           pose_prior_mapper
           poisson_mesher
           project_generator
+          reconstruction_clusterer
           rig_configurator
+          rotation_averager
           sequential_matcher
           spatial_matcher
           stereo_fusion
           transitive_matcher
+          view_graph_calibrator
           vocab_tree_builder
           vocab_tree_matcher
           vocab_tree_retriever
@@ -219,7 +225,12 @@ available as ``colmap [command]``:
   :ref:`Graphical User Interface <gui>` for more information.
 
 - ``automatic_reconstructor``: Automatically reconstruct sparse and dense model
-  for a set of input images.
+  for a set of input images. Key options include ``--quality`` (LOW, MEDIUM,
+  HIGH, EXTREME), ``--data_type`` (INDIVIDUAL, VIDEO, INTERNET) to tune settings
+  for different capture scenarios, ``--feature`` (SIFT, ALIKED) to select the
+  feature extraction algorithm, ``--mapper`` (INCREMENTAL, HIERARCHICAL, GLOBAL)
+  to choose the SfM pipeline, and ``--mesher`` (POISSON, DELAUNAY) to select the
+  surface reconstruction method.
 
 - ``project_generator``: Generate project files at different quality settings.
 
@@ -230,10 +241,23 @@ available as ``colmap [command]``:
   ``spatial_matcher``, ``transitive_matcher``, ``matches_importer``:
   Perform feature matching after performing feature extraction.
 
+- ``geometric_verifier``: Run standalone geometric verification on existing
+  feature matches in the database. This estimates two-view geometries
+  (fundamental/essential matrices, homographies) for matched image pairs.
+
+- ``guided_geometric_verifier``: Run geometric verification guided by an
+  existing sparse reconstruction. Uses the known relative camera poses to
+  improve match verification results.
+
 - ``mapper``: Sparse 3D reconstruction / mapping of the dataset using SfM after
   performing feature extraction and matching.
 
-- ``pose_prior_mapper`` Sparse 3D reconstruction / mapping using pose priors.
+- ``global_mapper``: Sparse 3D reconstruction using the global SfM pipeline.
+  Unlike the incremental ``mapper``, the global approach solves for all camera
+  poses simultaneously using rotation averaging and global positioning. This
+  can be faster for large datasets but may be less robust to outliers.
+
+- ``pose_prior_mapper``: Sparse 3D reconstruction / mapping using pose priors.
 
 - ``hierarchical_mapper``: Sparse 3D reconstruction / mapping of the dataset
   using hierarchical SfM after performing feature extraction and matching.
@@ -328,6 +352,17 @@ available as ``colmap [command]``:
 
 - ``vocab_tree_retriever``: Perform vocabulary tree based image retrieval.
 
+- ``reconstruction_clusterer``: Split a reconstruction into smaller
+  sub-model clusters. Useful for managing and processing large-scale
+  reconstructions.
+
+- ``rotation_averager``: Run standalone rotation averaging on the view graph.
+  Estimates global camera rotations from pairwise relative rotations.
+
+- ``view_graph_calibrator``: Calibrate camera intrinsics using the view graph.
+  Estimates focal lengths and other intrinsic parameters from pairwise
+  geometric relations before running the full reconstruction pipeline.
+
 
 Visualization
 -------------
@@ -336,9 +371,9 @@ If you want to quickly visualize the outputs of the sparse or dense
 reconstruction pipelines, COLMAP offers you the following possibilities:
 
 - The sparse point cloud obtained with the ``mapper`` can be visualized via the
-  COLMAP GUI by importing the following files: choose ``File > Import Model``
-  and select the folder where the three files, ``cameras.txt``, ``images.txt``,
-  and ``points3d.txt`` are located.
+  COLMAP GUI by importing the model files: choose ``File > Import Model``
+  and select the folder containing the sparse model files (``cameras.txt``,
+  ``images.txt``, ``points3D.txt``, etc.).
 
 - The dense point cloud obtained with the ``stereo_fusion`` can be visualized
   via the COLMAP GUI by importing ``fused.ply``: choose
