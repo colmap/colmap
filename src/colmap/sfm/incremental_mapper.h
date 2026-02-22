@@ -104,7 +104,7 @@ class IncrementalMapper {
     // jointly optimizing all parameters. If this is enabled, then the bundle
     // adjustment problem is first solved with a reduced set of 3D points and
     // then the remaining 3D points are optimized in a second step with all
-    // other parameters fixed. Points excplicitly configured as constant or
+    // other parameters fixed. Points explicitly configured as constant or
     // variable are not ignored. This is only activated when the reconstruction
     // has reached sufficient size with at least 10 registered frames.
     bool ba_global_ignore_redundant_points3D = false;

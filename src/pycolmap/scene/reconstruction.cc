@@ -206,15 +206,15 @@ void BindReconstruction(py::module& m) {
            "min_percentile"_a = 0.1,
            "max_percentile"_a = 0.9,
            "use_images"_a = true,
-           "Normalize scene by scaling and translation to avoid degenerate"
-           "visualization after bundle adjustment and to improve numerical"
+           "Normalize scene by scaling and translation to avoid degenerate "
+           "visualization after bundle adjustment and to improve numerical "
            "stability of algorithms.\n\n"
-           "Translates scene such that the mean of the camera centers or point"
-           "locations are at the origin of the coordinate system.\n\n Scales "
-           "scene such that the minimum and maximum camera centers (or points) "
-           "are  at the given `extent`, whereas `min_percentile` and  "
-           "`max_percentile` determine the minimum  and maximum percentiles of "
-           "the camera centers (or points) considered.")
+           "Translates scene such that the mean of the camera centers or point "
+           "locations are at the origin of the coordinate system.\n\n"
+           "Scales scene such that the minimum and maximum camera centers "
+           "(or points) are at the given `extent`, whereas `min_percentile` "
+           "and `max_percentile` determine the minimum and maximum percentiles "
+           "of the camera centers (or points) considered.")
       .def("transform",
            &Reconstruction::Transform,
            "new_from_old_world"_a,
@@ -255,8 +255,8 @@ void BindReconstruction(py::module& m) {
            py::overload_cast<const std::filesystem::path&>(
                &Reconstruction::ImportPLY),
            "path"_a,
-           "Import from PLY format. Note that these import functions are"
-           "only intended for visualization of data and usable for "
+           "Import from PLY format. Note that these import functions are "
+           "only intended for visualization of data and not usable for "
            "reconstruction.")
       .def("export_PLY",
            &ExportPLY,

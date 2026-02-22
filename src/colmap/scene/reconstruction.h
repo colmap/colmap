@@ -175,6 +175,7 @@ class Reconstruction {
   // Delete all 2D points of all images and all 3D points.
   void DeleteAllPoints2DAndPoints3D();
 
+  // Replace all rigs and frames with the given vectors, updating image links.
   void SetRigsAndFrames(std::vector<class Rig> rigs,
                         std::vector<class Frame> frames);
 
@@ -242,6 +243,7 @@ class Reconstruction {
 
   // Read data from text or binary file. Prefer binary data if it exists.
   void Read(const std::filesystem::path& path);
+  // Write reconstruction data to disk (binary format).
   void Write(const std::filesystem::path& path) const;
 
   // Read data from binary/text file.
