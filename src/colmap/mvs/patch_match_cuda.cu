@@ -688,7 +688,7 @@ class LikelihoodComputer {
 
   // Compute NCC probability. Note that cost = 1 - NCC.
   __device__ inline float ComputeNCCProb(const float cost) const {
-    return exp(cost * cost * inv_ncc_sigma_square_) * ncc_norm_factor_;
+    return __expf(cost * cost * inv_ncc_sigma_square_) * ncc_norm_factor_;
   }
 
   // Compute the triangulation angle probability.
@@ -707,7 +707,7 @@ class LikelihoodComputer {
   // Compute the incident angle probability.
   __device__ inline float ComputeIncProb(const float cos_incident_angle) const {
     const float x = 1.0f - max(0.0f, cos_incident_angle);
-    return exp(x * x * inv_incident_angle_sigma_square_);
+    return __expf(x * x * inv_incident_angle_sigma_square_);
   }
 
   // Compute the warping/resolution prior probability.
