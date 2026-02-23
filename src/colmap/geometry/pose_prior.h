@@ -33,6 +33,7 @@
 #include "colmap/util/enum_utils.h"
 #include "colmap/util/types.h"
 
+#include <optional>
 #include <ostream>
 
 #include <Eigen/Core>
