@@ -37,6 +37,7 @@
 #include "colmap/util/misc.h"
 
 #include <numeric>
+#include <set>
 #include <unordered_set>
 
 #define PrintOption(option) LOG(INFO) << #option ": " << option << std::endl

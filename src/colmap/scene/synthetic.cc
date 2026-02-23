@@ -330,6 +330,16 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   THROW_CHECK_GT(options.num_cameras_per_rig, 0);
   THROW_CHECK_GT(options.num_frames_per_rig, 0);
   THROW_CHECK_GE(options.num_points3D, 0);
+  THROW_CHECK(options.track_length == -1 || options.track_length >= 2);
+  if (options.track_length > 0) {
+    const int num_images = options.num_rigs * options.num_cameras_per_rig *
+                           options.num_frames_per_rig;
+    if (options.track_length > num_images) {
+      LOG(WARNING) << "track_length (" << options.track_length
+                   << ") exceeds number of images (" << num_images
+                   << "), skipping observation pruning.";
+    }
+  }
   THROW_CHECK_NE(options.feature_type, FeatureExtractorType::UNDEFINED);
   THROW_CHECK_GE(options.num_points2D_without_point3D, 0);
   THROW_CHECK_GE(options.sensor_from_rig_translation_stddev, 0.);
@@ -618,6 +628,28 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         break;
       default:
         LOG(FATAL_THROW) << "Invalid MatchConfig specified";
+    }
+  }
+
+  if (options.track_length > 0) {
+    std::vector<point3D_t> point3D_ids;
+    point3D_ids.reserve(reconstruction->NumPoints3D());
+    for (const auto& [point3D_id, _] : reconstruction->Points3D()) {
+      point3D_ids.push_back(point3D_id);
+    }
+    for (const point3D_t point3D_id : point3D_ids) {
+      const auto& track = reconstruction->Point3D(point3D_id).track;
+      if (static_cast<int>(track.Length()) <= options.track_length) {
+        continue;
+      }
+      auto elements = track.Elements();
+      std::shuffle(elements.begin(), elements.end(), *PRNG);
+      const int num_to_delete =
+          static_cast<int>(elements.size()) - options.track_length;
+      for (int i = 0; i < num_to_delete; ++i) {
+        reconstruction->DeleteObservation(elements[i].image_id,
+                                          elements[i].point2D_idx);
+      }
     }
   }
 

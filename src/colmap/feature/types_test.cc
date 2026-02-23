@@ -214,6 +214,50 @@ TEST(FeatureKeypoints, Nominal) {
   EXPECT_NE(keypoint, FeatureKeypoint(1, 2, 1, 0));
 }
 
+TEST(FeatureKeypoint, Rot90) {
+  FeatureKeypoint kp(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f);
+  int w = 10, h = 20;
+
+  FeatureKeypoint kp1 = kp;
+  kp1.Rot90(1, w, h);  // 90 CCW
+  EXPECT_FLOAT_EQ(kp1.x, 2.0f);
+  EXPECT_FLOAT_EQ(kp1.y, 10.0f - 1.0f);
+  EXPECT_FLOAT_EQ(kp1.a11, 5.0f);
+  EXPECT_FLOAT_EQ(kp1.a12, 6.0f);
+  EXPECT_FLOAT_EQ(kp1.a21, -3.0f);
+  EXPECT_FLOAT_EQ(kp1.a22, -4.0f);
+
+  FeatureKeypoint kp2 = kp;
+  kp2.Rot90(2, w, h);  // 180 CCW
+  EXPECT_FLOAT_EQ(kp2.x, 10.0f - 1.0f);
+  EXPECT_FLOAT_EQ(kp2.y, 20.0f - 2.0f);
+  EXPECT_FLOAT_EQ(kp2.a11, -3.0f);
+  EXPECT_FLOAT_EQ(kp2.a12, -4.0f);
+  EXPECT_FLOAT_EQ(kp2.a21, -5.0f);
+  EXPECT_FLOAT_EQ(kp2.a22, -6.0f);
+
+  FeatureKeypoint kp3 = kp;
+  kp3.Rot90(3, w, h);  // 270 CCW
+  EXPECT_FLOAT_EQ(kp3.x, 20.0f - 2.0f);
+  EXPECT_FLOAT_EQ(kp3.y, 1.0f);
+  EXPECT_FLOAT_EQ(kp3.a11, -5.0f);
+  EXPECT_FLOAT_EQ(kp3.a12, -6.0f);
+  EXPECT_FLOAT_EQ(kp3.a21, 3.0f);
+  EXPECT_FLOAT_EQ(kp3.a22, 4.0f);
+
+  FeatureKeypoint kp_identity = kp;
+  kp_identity.Rot90(0, w, h);
+  EXPECT_EQ(kp_identity, kp);
+
+  FeatureKeypoint kp_identity4 = kp;
+  kp_identity4.Rot90(4, w, h);
+  EXPECT_EQ(kp_identity4, kp);
+
+  FeatureKeypoint kp_neg1 = kp;
+  kp_neg1.Rot90(-1, w, h);  // same as 3
+  EXPECT_EQ(kp_neg1, kp3);
+}
+
 TEST(FeatureDescriptors, Nominal) {
   FeatureDescriptors descriptors(FeatureExtractorType::SIFT,
                                  FeatureDescriptorsData::Random(2, 3));

@@ -42,13 +42,15 @@
 namespace colmap {
 namespace {
 
-void ScaleKeypoints(const Bitmap& bitmap,
-                    const Camera& camera,
+void ScaleKeypoints(int bitmap_width,
+                    int bitmap_height,
+                    size_t camera_width,
+                    size_t camera_height,
                     FeatureKeypoints* keypoints) {
-  if (static_cast<size_t>(bitmap.Width()) != camera.width ||
-      static_cast<size_t>(bitmap.Height()) != camera.height) {
-    const float scale_x = static_cast<float>(camera.width) / bitmap.Width();
-    const float scale_y = static_cast<float>(camera.height) / bitmap.Height();
+  if (static_cast<size_t>(bitmap_width) != camera_width ||
+      static_cast<size_t>(bitmap_height) != camera_height) {
+    const float scale_x = static_cast<float>(camera_width) / bitmap_width;
+    const float scale_y = static_cast<float>(camera_height) / bitmap_height;
     for (auto& keypoint : *keypoints) {
       keypoint.Rescale(scale_x, scale_y);
     }
@@ -191,11 +193,30 @@ class FeatureExtractorThread : public Thread {
         auto& image_data = input_job.Data();
 
         if (image_data.status == ImageReader::Status::SUCCESS) {
+          const int orig_width = image_data.bitmap.Width();
+          const int orig_height = image_data.bitmap.Height();
+          const int rot90 =
+              image_data.pose_prior.HasGravity()
+                  ? ComputeRot90FromGravity(image_data.pose_prior.gravity)
+                  : 0;
+          if (rot90 > 0) {
+            image_data.bitmap.Rot90(rot90);
+          }
           if (extractor->Extract(image_data.bitmap,
                                  &image_data.keypoints,
                                  &image_data.descriptors)) {
-            ScaleKeypoints(
-                image_data.bitmap, image_data.camera, &image_data.keypoints);
+            if (rot90 > 0) {
+              const int w = image_data.bitmap.Width();
+              const int h = image_data.bitmap.Height();
+              for (auto& kp : image_data.keypoints) {
+                kp.Rot90(4 - rot90, w, h);
+              }
+            }
+            ScaleKeypoints(orig_width,
+                           orig_height,
+                           image_data.camera.width,
+                           image_data.camera.height,
+                           &image_data.keypoints);
             if (camera_mask_) {
               MaskFeatures(*camera_mask_,
                            &image_data.keypoints,
@@ -289,12 +310,22 @@ class FeatureWriterThread : public Thread {
         if (image_data.image.ImageId() == kInvalidImageId) {
           image_data.image.SetImageId(database_->WriteImage(image_data.image));
 
-          if (image_data.pose_prior.HasPosition()) {
-            LOG(INFO) << StringPrintf(
-                "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
-                image_data.pose_prior.position.x(),
-                image_data.pose_prior.position.y(),
-                image_data.pose_prior.position.z());
+          if (image_data.pose_prior.HasPosition() ||
+              image_data.pose_prior.HasGravity()) {
+            if (image_data.pose_prior.HasPosition()) {
+              LOG(INFO) << StringPrintf(
+                  "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
+                  image_data.pose_prior.position.x(),
+                  image_data.pose_prior.position.y(),
+                  image_data.pose_prior.position.z());
+            }
+            if (image_data.pose_prior.HasGravity()) {
+              LOG(INFO) << StringPrintf(
+                  "  Gravity:         X=%.3f, Y=%.3f, Z=%.3f",
+                  image_data.pose_prior.gravity.x(),
+                  image_data.pose_prior.gravity.y(),
+                  image_data.pose_prior.gravity.z());
+            }
             image_data.pose_prior.corr_data_id = image_data.image.DataId();
             image_data.pose_prior.pose_prior_id =
                 database_->WritePosePrior(image_data.pose_prior);
@@ -582,7 +613,7 @@ class FeatureImporterController : public Thread {
         if (image.ImageId() == kInvalidImageId) {
           image.SetImageId(database->WriteImage(image));
 
-          if (pose_prior.HasPosition()) {
+          if (pose_prior.HasPosition() || pose_prior.HasGravity()) {
             pose_prior.corr_data_id = image.DataId();
             pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
           }

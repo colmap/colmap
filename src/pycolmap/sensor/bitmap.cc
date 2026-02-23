@@ -129,6 +129,9 @@ void BindBitmap(pybind11::module& m) {
            "new_height"_a,
            "filter"_a = BitmapRescaleFilter::kBilinear,
            "Rescale image to the new dimensions.")
+      .def("rot90",
+           &Bitmap::Rot90,
+           "Rotate image by k * 90 degrees counter-clockwise.")
       .def_property_readonly("width", &Bitmap::Width, "Width of the image.")
       .def_property_readonly("height", &Bitmap::Height, "Height of the image.")
       .def_property_readonly(
@@ -157,6 +160,9 @@ void BindBitmap(pybind11::module& m) {
           "Set compression quality when writing to JPEG in the range [1, 100]. "
           "Lower values reduce quality and file size. By default, bitmaps are "
           "written in superb (100) quality, if not otherwise specified.")
+      .def("exif_orientation",
+           &Bitmap::ExifOrientation,
+           "Extract EXIF orientation. Returns None if not available.")
       .def("exif_camera_model",
            &Bitmap::ExifCameraModel,
            "Extract EXIF camera model. Returns None if not available.")

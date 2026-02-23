@@ -31,17 +31,14 @@
 
 #include "colmap/mvs/depth_map.h"
 #include "colmap/mvs/image.h"
-#include "colmap/mvs/model.h"
 #include "colmap/mvs/normal_map.h"
 #include "colmap/mvs/patch_match_options.h"
 #ifndef __CUDACC__
 #include "colmap/util/base_controller.h"
-#include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 #endif
 
 #include <filesystem>
-#include <iostream>
 #include <memory>
 #include <vector>
 

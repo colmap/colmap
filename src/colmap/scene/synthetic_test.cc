@@ -360,6 +360,27 @@ TEST(SynthesizeDataset, NoDatabase) {
   SynthesizeDataset(options, &reconstruction);
 }
 
+TEST(SynthesizeDataset, TrackLength) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.num_rigs = 2;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 5;
+  options.num_points3D = 50;
+  options.num_points2D_without_point3D = 0;
+  options.track_length = 3;
+  SynthesizeDataset(options, &reconstruction);
+
+  const int num_images = options.num_rigs * options.num_cameras_per_rig *
+                         options.num_frames_per_rig;
+  EXPECT_EQ(reconstruction.NumRegImages(), num_images);
+  EXPECT_EQ(reconstruction.NumPoints3D(), options.num_points3D);
+  EXPECT_NEAR(
+      reconstruction.ComputeMeanTrackLength(), options.track_length, 1e-6);
+  EXPECT_EQ(reconstruction.ComputeNumObservations(),
+            options.num_points3D * options.track_length);
+}
+
 TEST(SynthesizeDataset, Determinism) {
   SyntheticDatasetOptions options;
 

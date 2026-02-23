@@ -52,7 +52,7 @@ struct RotationEstimatorOptions {
   bool skip_initialization = false;
 
   // Flag to use gravity priors for rotation averaging.
-  bool use_gravity = true;
+  bool use_gravity = false;
 
   // Flag to use stratified solving for mixed gravity systems.
   // If true and use_gravity is true, first solves the 1-DOF system with
