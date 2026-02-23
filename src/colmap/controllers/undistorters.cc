@@ -52,7 +52,7 @@ void MaybeSetJpegQuality(const std::filesystem::path& path,
 template <typename Derived>
 void WriteMatrix(const Eigen::MatrixBase<Derived>& matrix,
                  std::ofstream* file) {
-  typedef typename Eigen::MatrixBase<Derived>::Index index_t;
+  using index_t = typename Eigen::MatrixBase<Derived>::Index;
   for (index_t r = 0; r < matrix.rows(); ++r) {
     for (index_t c = 0; c < matrix.cols() - 1; ++c) {
       *file << matrix(r, c) << " ";

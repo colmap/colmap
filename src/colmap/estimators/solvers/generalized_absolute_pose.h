@@ -49,9 +49,9 @@ class GP3PEstimator {
   };
 
   // The observed 3D feature points in the world frame.
-  typedef Eigen::Vector3d Y_t;
+  using Y_t = Eigen::Vector3d;
   // The estimated rig_from_world pose of the generalized camera.
-  typedef Rigid3d M_t;
+  using M_t = Rigid3d;
 
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 3;

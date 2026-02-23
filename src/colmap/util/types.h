@@ -86,15 +86,15 @@ namespace colmap {
 ////////////////////////////////////////////////////////////////////////////////
 
 // Unique identifier for rigs.
-typedef uint32_t rig_t;
+using rig_t = uint32_t;
 constexpr rig_t kInvalidRigId = std::numeric_limits<rig_t>::max();
 
 // Unique identifier for cameras.
-typedef uint32_t camera_t;
+using camera_t = uint32_t;
 constexpr camera_t kInvalidCameraId = std::numeric_limits<camera_t>::max();
 
 // Unique identifier for images.
-typedef uint32_t image_t;
+using image_t = uint32_t;
 constexpr image_t kInvalidImageId = std::numeric_limits<image_t>::max();
 
 // The maximum number of images, that can be stored in the database,
@@ -103,26 +103,26 @@ constexpr size_t kMaxNumImages =
     static_cast<size_t>(std::numeric_limits<int32_t>::max());
 
 // Unique identifier for frames.
-typedef uint32_t frame_t;
+using frame_t = uint32_t;
 constexpr frame_t kInvalidFrameId = std::numeric_limits<frame_t>::max();
 
 // Each image pair gets a unique ID, see `ImagePairToPairId`.
-typedef uint64_t image_pair_t;
+using image_pair_t = uint64_t;
 constexpr image_pair_t kInvalidImagePairId =
     std::numeric_limits<image_pair_t>::max();
 
 // Index per image, i.e. determines maximum number of 2D points per image.
-typedef uint32_t point2D_t;
+using point2D_t = uint32_t;
 constexpr point2D_t kInvalidPoint2DIdx = std::numeric_limits<point2D_t>::max();
 
 // Unique identifier per added 3D point. Since we add many 3D points,
 // delete them, and possibly re-add them again, the maximum number of allowed
 // unique indices should be large.
-typedef uint64_t point3D_t;
+using point3D_t = uint64_t;
 constexpr point3D_t kInvalidPoint3DId = std::numeric_limits<point3D_t>::max();
 
 // Unique identifier for pose priors.
-typedef uint32_t pose_prior_t;
+using pose_prior_t = uint32_t;
 constexpr pose_prior_t kInvalidPosePriorId =
     std::numeric_limits<pose_prior_t>::max();
 
@@ -253,18 +253,18 @@ struct filter_iterator {
   template <class OtherIterator, class OtherPredicate>
   friend struct filter_iterator;
 
-  typedef
-      typename std::iterator_traits<Iterator>::iterator_category base_category;
-  typedef typename std::conditional<
+  using base_category =
+      typename std::iterator_traits<Iterator>::iterator_category;
+  using iterator_category = typename std::conditional<
       std::is_same<base_category, std::random_access_iterator_tag>::value,
       std::bidirectional_iterator_tag,
-      base_category>::type iterator_category;
+      base_category>::type;
 
-  typedef typename std::iterator_traits<Iterator>::value_type value_type;
-  typedef typename std::iterator_traits<Iterator>::reference reference;
-  typedef typename std::iterator_traits<Iterator>::pointer pointer;
-  typedef
-      typename std::iterator_traits<Iterator>::difference_type difference_type;
+  using value_type = typename std::iterator_traits<Iterator>::value_type;
+  using reference = typename std::iterator_traits<Iterator>::reference;
+  using pointer = typename std::iterator_traits<Iterator>::pointer;
+  using difference_type =
+      typename std::iterator_traits<Iterator>::difference_type;
 
   filter_iterator() = default;
   filter_iterator(const Predicate& filter, Iterator it, Iterator end)

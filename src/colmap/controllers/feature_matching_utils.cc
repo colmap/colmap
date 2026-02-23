@@ -166,8 +166,8 @@ namespace {
 
 class VerifierWorker : public Thread {
  public:
-  typedef FeatureMatcherData Input;
-  typedef FeatureMatcherData Output;
+  using Input = FeatureMatcherData;
+  using Output = FeatureMatcherData;
 
   VerifierWorker(const TwoViewGeometryOptions& options,
                  std::shared_ptr<FeatureMatcherCache> cache,
