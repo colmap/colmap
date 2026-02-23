@@ -31,8 +31,10 @@
 
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/cost_functions/manifold.h"
+#include "colmap/estimators/cost_functions/pose_prior.h"
 #include "colmap/estimators/cost_functions/reprojection_error.h"
 #include "colmap/estimators/cost_functions/sampson_error.h"
+#include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/estimators/solvers/absolute_pose.h"
 #include "colmap/estimators/solvers/essential_matrix.h"
 #include "colmap/geometry/essential_matrix.h"
@@ -190,40 +192,53 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
         camera->params.data());
   }
 
+  if (options.use_position_prior) {
+    problem.AddResidualBlock(
+        CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
+            Create(options.position_prior_covariance,
+                   options.position_prior_in_world),
+        nullptr,
+        cam_from_world->params.data());
+  }
+
   if (problem.NumResiduals() > 0) {
-    // Camera parameterization.
-    if (!options.refine_focal_length && !options.refine_extra_params) {
-      problem.SetParameterBlockConstant(camera->params.data());
-    } else {
-      // Always set the principal point as fixed.
-      std::vector<int> camera_params_const;
-      const span<const size_t> principal_point_idxs =
-          camera->PrincipalPointIdxs();
-      camera_params_const.insert(camera_params_const.end(),
-                                 principal_point_idxs.begin(),
-                                 principal_point_idxs.end());
-
-      if (!options.refine_focal_length) {
-        const span<const size_t> focal_length_idxs = camera->FocalLengthIdxs();
-        camera_params_const.insert(camera_params_const.end(),
-                                   focal_length_idxs.begin(),
-                                   focal_length_idxs.end());
-      }
-
-      if (!options.refine_extra_params) {
-        const span<const size_t> extra_params_idxs = camera->ExtraParamsIdxs();
-        camera_params_const.insert(camera_params_const.end(),
-                                   extra_params_idxs.begin(),
-                                   extra_params_idxs.end());
-      }
-
-      if (camera_params_const.size() == camera->params.size()) {
+    if (problem.HasParameterBlock(camera->params.data())) {
+      // Camera parameterization.
+      if (!options.refine_focal_length && !options.refine_extra_params) {
         problem.SetParameterBlockConstant(camera->params.data());
       } else {
-        SetManifold(
-            &problem,
-            camera->params.data(),
-            CreateSubsetManifold(camera->params.size(), camera_params_const));
+        // Always set the principal point as fixed.
+        std::vector<int> camera_params_const;
+        const span<const size_t> principal_point_idxs =
+            camera->PrincipalPointIdxs();
+        camera_params_const.insert(camera_params_const.end(),
+                                   principal_point_idxs.begin(),
+                                   principal_point_idxs.end());
+
+        if (!options.refine_focal_length) {
+          const span<const size_t> focal_length_idxs =
+              camera->FocalLengthIdxs();
+          camera_params_const.insert(camera_params_const.end(),
+                                     focal_length_idxs.begin(),
+                                     focal_length_idxs.end());
+        }
+
+        if (!options.refine_extra_params) {
+          const span<const size_t> extra_params_idxs =
+              camera->ExtraParamsIdxs();
+          camera_params_const.insert(camera_params_const.end(),
+                                     extra_params_idxs.begin(),
+                                     extra_params_idxs.end());
+        }
+
+        if (camera_params_const.size() == camera->params.size()) {
+          problem.SetParameterBlockConstant(camera->params.data());
+        } else {
+          SetManifold(
+              &problem,
+              camera->params.data(),
+              CreateSubsetManifold(camera->params.size(), camera_params_const));
+        }
       }
     }
   }
