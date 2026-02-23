@@ -242,9 +242,12 @@ TEST(RefineAbsolutePose, PositionPrior) {
   Rigid3d cam_from_world(
       Eigen::Quaterniond(Eigen::AngleAxisd(0.2, Eigen::Vector3d::UnitY())),
       Eigen::Vector3d(0.3, -0.5, 0.7));
-  const double initial_error =
-      (Inverse(cam_from_world).translation() - options.position_prior_in_world)
-          .norm();
+  auto compute_position_error = [&](const Rigid3d& cam_from_world_to_check) {
+    return (Inverse(cam_from_world_to_check).translation() -
+            options.position_prior_in_world)
+        .norm();
+  };
+  const double initial_error = compute_position_error(cam_from_world);
   Camera camera = problem.camera;
   EXPECT_TRUE(RefineAbsolutePose(options,
                                  inlier_mask,
@@ -252,10 +255,7 @@ TEST(RefineAbsolutePose, PositionPrior) {
                                  problem.points3D,
                                  &cam_from_world,
                                  &camera));
-  EXPECT_LT(
-      (Inverse(cam_from_world).translation() - options.position_prior_in_world)
-          .norm(),
-      initial_error);
+  EXPECT_LT(compute_position_error(cam_from_world), initial_error);
 }
 
 TEST(RefineAbsolutePose, PositionPriorCovariance) {
@@ -297,14 +297,15 @@ TEST(RefineAbsolutePose, PositionPriorCovariance) {
                                  &strong_prior_cam_from_world,
                                  &strong_prior_camera));
 
+  auto compute_position_error = [&](const Rigid3d& cam_from_world_to_check) {
+    return (Inverse(cam_from_world_to_check).translation() -
+            weak_prior_options.position_prior_in_world)
+        .norm();
+  };
   const double weak_prior_error =
-      (Inverse(weak_prior_cam_from_world).translation() -
-       weak_prior_options.position_prior_in_world)
-          .norm();
+      compute_position_error(weak_prior_cam_from_world);
   const double strong_prior_error =
-      (Inverse(strong_prior_cam_from_world).translation() -
-       strong_prior_options.position_prior_in_world)
-          .norm();
+      compute_position_error(strong_prior_cam_from_world);
   EXPECT_LT(strong_prior_error, weak_prior_error);
 }
 

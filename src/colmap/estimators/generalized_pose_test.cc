@@ -181,9 +181,12 @@ TEST(RefineGeneralizedAbsolutePose, PositionPrior) {
   Rigid3d rig_from_world(
       Eigen::Quaterniond(Eigen::AngleAxisd(0.2, Eigen::Vector3d::UnitY())),
       Eigen::Vector3d(0.3, -0.5, 0.7));
-  const double initial_error =
-      (Inverse(rig_from_world).translation() - options.position_prior_in_world)
-          .norm();
+  auto compute_position_error = [&](const Rigid3d& rig_from_world_to_check) {
+    return (Inverse(rig_from_world_to_check).translation() -
+            options.position_prior_in_world)
+        .norm();
+  };
+  const double initial_error = compute_position_error(rig_from_world);
   EXPECT_TRUE(RefineGeneralizedAbsolutePose(options,
                                             inlier_mask,
                                             problem.points2D,
@@ -192,10 +195,7 @@ TEST(RefineGeneralizedAbsolutePose, PositionPrior) {
                                             problem.cams_from_rig,
                                             &rig_from_world,
                                             &problem.cameras));
-  EXPECT_LT(
-      (Inverse(rig_from_world).translation() - options.position_prior_in_world)
-          .norm(),
-      initial_error);
+  EXPECT_LT(compute_position_error(rig_from_world), initial_error);
 }
 
 TEST(RefineGeneralizedAbsolutePose, PositionPriorCovariance) {
@@ -247,14 +247,15 @@ TEST(RefineGeneralizedAbsolutePose, PositionPriorCovariance) {
                                             &strong_prior_rig_from_world,
                                             &strong_prior_cameras));
 
+  auto compute_position_error = [&](const Rigid3d& rig_from_world_to_check) {
+    return (Inverse(rig_from_world_to_check).translation() -
+            weak_prior_options.position_prior_in_world)
+        .norm();
+  };
   const double weak_prior_error =
-      (Inverse(weak_prior_rig_from_world).translation() -
-       weak_prior_options.position_prior_in_world)
-          .norm();
+      compute_position_error(weak_prior_rig_from_world);
   const double strong_prior_error =
-      (Inverse(strong_prior_rig_from_world).translation() -
-       strong_prior_options.position_prior_in_world)
-          .norm();
+      compute_position_error(strong_prior_rig_from_world);
   EXPECT_LT(strong_prior_error, weak_prior_error);
 }
 
