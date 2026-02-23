@@ -85,7 +85,7 @@ struct AbsolutePoseRefinementOptions {
   // coordinates.
   bool use_position_prior = false;
 
-  // Prior on camera center in world coordinates.
+  // Prior on camera/rig center in world coordinates.
   Eigen::Vector3d position_prior_in_world = Eigen::Vector3d::Zero();
 
   // Covariance of the position prior in world coordinates (3x3, SPD).
