@@ -168,6 +168,97 @@ TEST(RefineGeneralizedAbsolutePose, Nominal) {
       Rigid3dNear(problem.gt_rig_from_world, /*rtol=*/1e-6, /*ttol=*/1e-6));
 }
 
+TEST(RefineGeneralizedAbsolutePose, PositionPrior) {
+  GeneralizedAbsolutePoseProblem problem =
+      BuildGeneralizedAbsolutePoseProblem();
+  // Isolate the position-prior-only refinement path without reprojection terms.
+  const std::vector<char> inlier_mask(problem.points2D.size(), false);
+
+  AbsolutePoseRefinementOptions options;
+  options.use_position_prior = true;
+  options.position_prior_in_world = Eigen::Vector3d(1.0, 2.0, 3.0);
+  options.position_prior_covariance = Eigen::Matrix3d::Identity();
+  Rigid3d rig_from_world(
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.2, Eigen::Vector3d::UnitY())),
+      Eigen::Vector3d(0.3, -0.5, 0.7));
+  auto compute_position_error = [&](const Rigid3d& rig_from_world_to_check) {
+    return (Inverse(rig_from_world_to_check).translation() -
+            options.position_prior_in_world)
+        .norm();
+  };
+  const double initial_error = compute_position_error(rig_from_world);
+  EXPECT_TRUE(RefineGeneralizedAbsolutePose(options,
+                                            inlier_mask,
+                                            problem.points2D,
+                                            problem.points3D,
+                                            problem.camera_idxs,
+                                            problem.cams_from_rig,
+                                            &rig_from_world,
+                                            &problem.cameras));
+  EXPECT_LT(compute_position_error(rig_from_world), initial_error);
+}
+
+TEST(RefineGeneralizedAbsolutePose, PositionPriorCovariance) {
+  GeneralizedAbsolutePoseProblem problem =
+      BuildGeneralizedAbsolutePoseProblem();
+  const std::vector<char> inlier_mask(problem.points2D.size(), true);
+
+  AbsolutePoseRefinementOptions weak_prior_options;
+  weak_prior_options.use_position_prior = true;
+  weak_prior_options.position_prior_in_world =
+      Inverse(problem.gt_rig_from_world).translation() +
+      Eigen::Vector3d(1.0, -0.7, 0.5);
+  // Large covariance = weak prior (high uncertainty).
+  weak_prior_options.position_prior_covariance = Eigen::Matrix3d::Identity();
+
+  AbsolutePoseRefinementOptions strong_prior_options = weak_prior_options;
+  // Small covariance = strong prior (low uncertainty).
+  strong_prior_options.position_prior_covariance =
+      0.01 * Eigen::Matrix3d::Identity();
+
+  const double rotation_noise_degree = 1;
+  const double translation_noise = 0.1;
+  const Rigid3d rig_from_gt_rig(Eigen::Quaterniond(Eigen::AngleAxisd(
+                                    DegToRad(rotation_noise_degree),
+                                    Eigen::Vector3d::Random().normalized())),
+                                Eigen::Vector3d::Random() * translation_noise);
+  const Rigid3d initial_rig_from_world =
+      rig_from_gt_rig * problem.gt_rig_from_world;
+
+  std::vector<Camera> weak_prior_cameras = problem.cameras;
+  std::vector<Camera> strong_prior_cameras = problem.cameras;
+  Rigid3d weak_prior_rig_from_world = initial_rig_from_world;
+  Rigid3d strong_prior_rig_from_world = initial_rig_from_world;
+
+  EXPECT_TRUE(RefineGeneralizedAbsolutePose(weak_prior_options,
+                                            inlier_mask,
+                                            problem.points2D,
+                                            problem.points3D,
+                                            problem.camera_idxs,
+                                            problem.cams_from_rig,
+                                            &weak_prior_rig_from_world,
+                                            &weak_prior_cameras));
+  EXPECT_TRUE(RefineGeneralizedAbsolutePose(strong_prior_options,
+                                            inlier_mask,
+                                            problem.points2D,
+                                            problem.points3D,
+                                            problem.camera_idxs,
+                                            problem.cams_from_rig,
+                                            &strong_prior_rig_from_world,
+                                            &strong_prior_cameras));
+
+  auto compute_position_error = [&](const Rigid3d& rig_from_world_to_check) {
+    return (Inverse(rig_from_world_to_check).translation() -
+            weak_prior_options.position_prior_in_world)
+        .norm();
+  };
+  const double weak_prior_error =
+      compute_position_error(weak_prior_rig_from_world);
+  const double strong_prior_error =
+      compute_position_error(strong_prior_rig_from_world);
+  EXPECT_LT(strong_prior_error, weak_prior_error);
+}
+
 struct GeneralizedRelativePoseProblem {
   Rigid3d gt_rig2_from_rig1;
   std::vector<Eigen::Vector2d> points2D1;
