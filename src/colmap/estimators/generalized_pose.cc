@@ -31,7 +31,9 @@
 
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/cost_functions/manifold.h"
+#include "colmap/estimators/cost_functions/pose_prior.h"
 #include "colmap/estimators/cost_functions/reprojection_error.h"
+#include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/estimators/pose.h"
 #include "colmap/estimators/solvers/generalized_absolute_pose.h"
 #include "colmap/estimators/solvers/generalized_relative_pose.h"
@@ -350,6 +352,15 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
         rig_from_world->params.data(),
         cameras_params_data[camera_idx]);
     problem.SetParameterBlockConstant(point3D_params[i].data());
+  }
+
+  if (options.use_position_prior) {
+    problem.AddResidualBlock(
+        CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
+            Create(options.position_prior_covariance,
+                   options.position_prior_in_world),
+        nullptr,
+        rig_from_world->params.data());
   }
 
   if (problem.NumResiduals() > 0) {
