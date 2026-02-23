@@ -52,11 +52,11 @@ old outputs.
 
 To export the currently selected model in the GUI, choose ``File > Export
 model``. To export all reconstructed models in the current dataset, choose
-``File > Export all``. The selected folder then contains the three files, and
+``File > Export all``. The selected folder then contains the model files, and
 for convenience, the current project configuration for importing the model to
 COLMAP. To import the exported models, e.g., for visualization or to resume the
 reconstruction, choose ``File > Import model`` and select the folder containing
-the ``cameras``, ``images``, and ``points3D`` files.
+the ``rigs``, ``cameras``, ``frames``, ``images``, and ``points3D`` files.
 
 To convert between the binary and text format in the GUI, you can load the model
 using ``File > Import model`` and then export the model in the desired output
@@ -67,15 +67,14 @@ To convert between various formats from the CLI, use the ``model_converter``
 executable.
 
 There are two source files to conveniently read the sparse reconstructions using
-Python (``scripts/python/read_write_model.py`` supporting binary and text) and Matlab
-(``scripts/matlab/read_model.m`` supporting text).
+Python (pycolmap) and Matlab (``scripts/matlab/read_model.m`` supporting text).
 
 
 -----------
 Text Format
 -----------
 
-COLMAP exports the following three text files for every reconstructed model:
+COLMAP exports the following text files for every reconstructed model:
 ``rigs.txt``, ``cameras.txt``, ``frames.txt``, ``images.txt``, and ``points3D.txt``.
 Comments start with a leading "#" character and are ignored. The first comment
 lines briefly describe the format of the text files, as described in more
@@ -110,7 +109,7 @@ dataset using one line per camera, e.g.::
     2 PINHOLE 3072 2304 2560.56 2560.56 1536 1152
     3 SIMPLE_RADIAL 3072 2304 2559.69 1536 1152 -0.0218531
 
-Here, the dataset contains 3 cameras based using different distortion models
+Here, the dataset contains 3 cameras based on different distortion models
 with the same sensor dimensions (width: 3072, height: 2304). The length of
 parameters is variable and depends on the camera model. For the first camera,
 there are 3 parameters with a single focal length of 2559.81 pixels and a
@@ -132,7 +131,7 @@ instance of a rig with all or a subset of sensors exposed at the same time, e.g.
     2 2 0.99816472047267968 0.037605501383281774 0.043101511724657163 -0.019881568259519072 -5.1956060695789192 -0.20794508616745555 0.14967533910764824 1 CAMERA 3 3
 
 Here, the dataset contains two frames, where frame 1 is an instance of rig 1 and
-frame 2 an instance of rig 2. 
+frame 2 an instance of rig 2.
 
 
 images.txt
@@ -225,10 +224,10 @@ COLMAP uses the following workspace folder structure::
 
 Here, the ``images`` folder contains the undistorted images, the ``sparse`` folder
 contains the sparse reconstruction with undistorted cameras, the ``stereo`` folder
-contains the stereo reconstruction results, ``point-cloud.ply`` and ``mesh.ply`` are
-the results of the fusion and meshing procedure, and ``run-colmap-geometric.sh``
-and ``run-colmap-photometric.sh`` contain example command-line usage to perform
-the dense reconstruction.
+contains the stereo reconstruction results, ``fused.ply``, ``meshed-poisson.ply``,
+and ``meshed-delaunay.ply`` are the results of the fusion and meshing procedure,
+and ``run-colmap-geometric.sh`` and ``run-colmap-photometric.sh`` contain example
+command-line usage to perform the dense reconstruction.
 
 
 ---------------------
@@ -236,10 +235,10 @@ Depth and Normal Maps
 ---------------------
 
 The depth maps are stored as mixed text and binary files. The text header
-defines the dimensions of the image in the format ``with&height&channels&``
+defines the dimensions of the image in the format ``width&height&channels&``
 followed by row-major ``float32`` binary data. For depth maps ``channels=1`` and
 for normal maps ``channels=3``. The depth and normal maps can be conveniently
-read with Python using the functions in ``scripts/python/read_dense.py`` and
+read with Python using pycolmap and
 with Matlab using the functions in ``scripts/matlab/read_depth_map.m`` and
 ``scripts/matlab/read_normal_map.m``.
 

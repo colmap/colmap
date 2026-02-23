@@ -40,8 +40,8 @@
 #include <cstdint>
 #include <sstream>
 
-// The number of threads per Cuda thread. Warning: Do not change this value,
-// since the templated window sizes rely on this value.
+// The number of threads per Cuda thread block. Warning: Do not change this
+// value, since the templated window sizes rely on this value.
 #define THREADS_PER_BLOCK 32
 
 // We must not include "util/math.h" to avoid any Eigen includes here,
@@ -790,7 +790,7 @@ class LikelihoodComputer {
   const float ncc_norm_factor_;
 };
 
-// Rotate normals by 90deg around z-axis in counter-clockwise direction.
+// Generate random normals for each pixel in the normal map.
 __global__ void InitNormalMap(GpuMat<float> normal_map,
                               GpuMat<curandState> rand_state_map) {
   const int row = blockDim.y * blockIdx.y + threadIdx.y;
@@ -1305,8 +1305,8 @@ void PatchMatchCuda::Run() {
     }
   }
 
-#undef SWITCH_WINDOW_RADIUS
-#undef CALL_RUN_FUNC
+#undef CASE_WINDOW_RADIUS
+#undef CASE_WINDOW_STEP
 }
 
 DepthMap PatchMatchCuda::GetDepthMap() const {

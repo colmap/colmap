@@ -46,7 +46,7 @@ struct Point2D {
   // track the identifier is `kInvalidPoint3DId` and `HasPoint3D() = false`.
   point3D_t point3D_id = kInvalidPoint3DId;
 
-  // Determin whether the 2D point observes a 3D point.
+  // Determine whether the 2D point observes a 3D point.
   inline bool HasPoint3D() const;
 
   inline bool operator==(const Point2D& other) const;
