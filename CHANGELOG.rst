@@ -13,8 +13,8 @@ New Features
   have been applied to the GLOMAP codebase as part of this migration.
   GLOMAP is maintained through the COLMAP repository going forward.
 * Added ALIKED (N16Rot/N32) feature extraction through ONNX support. Support for brute-force
-  and LightGlue matching as well as scalable matching with pre-trained vocabular trees.
-* Added LightGlue ONNX feature matching for SIFT and ALIKED through ONNX support.
+  and LightGlue matching as well as scalable matching with pre-trained vocabulary trees.
+* Added LightGlue ONNX feature matching for SIFT and ALIKED.
 * Added support for reading image orientation from EXIF and auto-rotating images
   during feature extraction/matching for better robustness against rotational viewpoint changes.
 * Added structure-less image registration fallback using generalized
@@ -79,7 +79,7 @@ Breaking Changes
 * GPS/ENU coordinate conversion functionality cleaned up, breaking the Python interface.
 * Feature descriptors are now associated with a type that is propagated through
   the pipeline and storage. Fails matching if descriptor types are inconsistent.
-* Pose priors associated to generic sensor measurement data.
+* Pose priors associated with generic sensor measurement data.
 * Switched paths from ``std::string`` to ``std::filesystem::path`` throughout
   the C++ codebase. No impact on the Python interface.
 * Dropped database member in SfM controllers for better modularity and safety.
