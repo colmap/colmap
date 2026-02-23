@@ -47,9 +47,9 @@ namespace colmap {
 //    http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.33.4540
 class FundamentalMatrixSevenPointEstimator {
  public:
-  typedef Eigen::Vector2d X_t;
-  typedef Eigen::Vector2d Y_t;
-  typedef Eigen::Matrix3d M_t;
+  using X_t = Eigen::Vector2d;
+  using Y_t = Eigen::Vector2d;
+  using M_t = Eigen::Matrix3d;
 
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 7;
@@ -89,9 +89,9 @@ class FundamentalMatrixSevenPointEstimator {
 //    Hartley and Zisserman, Multiple View Geometry, algorithm 11.1, page 282.
 class FundamentalMatrixEightPointEstimator {
  public:
-  typedef Eigen::Vector2d X_t;
-  typedef Eigen::Vector2d Y_t;
-  typedef Eigen::Matrix3d M_t;
+  using X_t = Eigen::Vector2d;
+  using Y_t = Eigen::Vector2d;
+  using M_t = Eigen::Matrix3d;
 
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 8;

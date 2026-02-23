@@ -46,10 +46,10 @@ struct GRNPObservation {
 // Minimal generalized relative pose estimator based on poselib.
 class GR6PEstimator {
  public:
-  typedef GRNPObservation X_t;
-  typedef GRNPObservation Y_t;
+  using X_t = GRNPObservation;
+  using Y_t = GRNPObservation;
   // The estimated rig2_from_rig1 relative pose between the generalized cameras.
-  typedef Rigid3d M_t;
+  using M_t = Rigid3d;
 
   // The minimum number of samples needed to estimate a model. Note that in
   // theory the minimum required number of samples is 6 but Laurent Kneip showed
@@ -82,10 +82,10 @@ class GR6PEstimator {
 // implementation in OpenGV licensed under the BSD license.
 class GR8PEstimator {
  public:
-  typedef GRNPObservation X_t;
-  typedef GRNPObservation Y_t;
+  using X_t = GRNPObservation;
+  using Y_t = GRNPObservation;
   // The estimated rig2_from_rig1 relative pose between the generalized cameras.
-  typedef Rigid3d M_t;
+  using M_t = Rigid3d;
 
   // The minimum number of samples needed to estimate a model. Note that in
   // theory the minimum required number of samples is 6 but Laurent Kneip showed

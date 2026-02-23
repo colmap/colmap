@@ -83,9 +83,9 @@ class TriangulationEstimator {
     const Camera* camera;
   };
 
-  typedef PointData X_t;
-  typedef PoseData Y_t;
-  typedef Eigen::Vector3d M_t;
+  using X_t = PointData;
+  using Y_t = PoseData;
+  using M_t = Eigen::Vector3d;
 
   TriangulationEstimator(double min_tri_angle, ResidualType residual_type);
 
