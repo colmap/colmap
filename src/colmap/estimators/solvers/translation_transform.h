@@ -43,9 +43,9 @@ namespace colmap {
 template <int kDim>
 class TranslationTransformEstimator {
  public:
-  typedef Eigen::Matrix<double, kDim, 1> X_t;
-  typedef Eigen::Matrix<double, kDim, 1> Y_t;
-  typedef Eigen::Matrix<double, kDim, 1> M_t;
+  using X_t = Eigen::Matrix<double, kDim, 1>;
+  using Y_t = Eigen::Matrix<double, kDim, 1>;
+  using M_t = Eigen::Matrix<double, kDim, 1>;
 
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 1;

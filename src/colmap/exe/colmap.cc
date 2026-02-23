@@ -40,7 +40,7 @@
 
 namespace {
 
-typedef std::function<int(int, char**)> command_func_t;
+using command_func_t = std::function<int(int, char**)>;
 
 int ShowHelp(
     const std::vector<std::pair<std::string, command_func_t>>& commands) {

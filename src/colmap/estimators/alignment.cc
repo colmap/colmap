@@ -44,9 +44,9 @@ namespace {
 struct ReconstructionAlignmentEstimator {
   static const int kMinNumSamples = 3;
 
-  typedef const Image* X_t;
-  typedef const Image* Y_t;
-  typedef Sim3d M_t;
+  using X_t = const Image*;
+  using Y_t = const Image*;
+  using M_t = Sim3d;
 
   ReconstructionAlignmentEstimator(double max_reproj_error,
                                    const Reconstruction* src_reconstruction,

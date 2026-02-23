@@ -99,9 +99,9 @@ struct FeatureKeypoint {
   }
 };
 
-typedef Eigen::Matrix<uint8_t, 1, Eigen::Dynamic, Eigen::RowMajor>
-    FeatureDescriptor;
-typedef std::vector<FeatureKeypoint> FeatureKeypoints;
+using FeatureDescriptor =
+    Eigen::Matrix<uint8_t, 1, Eigen::Dynamic, Eigen::RowMajor>;
+using FeatureKeypoints = std::vector<FeatureKeypoint>;
 
 // Matrix types for descriptor data.
 using FeatureDescriptorsData =
@@ -167,6 +167,6 @@ struct FeatureMatch {
   }
 };
 
-typedef std::vector<FeatureMatch> FeatureMatches;
+using FeatureMatches = std::vector<FeatureMatch>;
 
 }  // namespace colmap
