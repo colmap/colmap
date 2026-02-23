@@ -44,6 +44,7 @@ New Features
 * Improved incremental mapper and triangulator Python bindings.
 * Added drag-and-drop folder support for model import in the GUI.
 * Switched to native menu bar in GUI on macOS.
+* For other minor improvements, see full list of changes below.
 
 Bug Fixes
 ---------
@@ -64,6 +65,7 @@ Bug Fixes
 * Fixed inverted units in ``ExifFocalLength`` metadata extraction.
 * Fixed slow performance of generalized absolute pose estimator verification.
 * Propagate exceptions from ``ThreadPool::Wait``.
+* For other bug fixes, see full list of changes below.
 
 Breaking Changes
 ----------------
