@@ -252,10 +252,10 @@ TEST(RefineAbsolutePose, PositionPrior) {
                                  problem.points3D,
                                  &cam_from_world,
                                  &camera));
-  EXPECT_LT((Inverse(cam_from_world).translation() -
-             options.position_prior_in_world)
-                .norm(),
-            initial_error);
+  EXPECT_LT(
+      (Inverse(cam_from_world).translation() - options.position_prior_in_world)
+          .norm(),
+      initial_error);
 }
 
 TEST(RefineAbsolutePose, PositionPriorCovariance) {
@@ -268,8 +268,7 @@ TEST(RefineAbsolutePose, PositionPriorCovariance) {
       Inverse(problem.image.CamFromWorld()).translation() +
       Eigen::Vector3d(1.0, -0.7, 0.5);
   // Large covariance = weak prior (high uncertainty).
-  weak_prior_options.position_prior_covariance =
-      Eigen::Matrix3d::Identity();
+  weak_prior_options.position_prior_covariance = Eigen::Matrix3d::Identity();
 
   AbsolutePoseRefinementOptions strong_prior_options = weak_prior_options;
   // Small covariance = strong prior (low uncertainty).
@@ -278,7 +277,8 @@ TEST(RefineAbsolutePose, PositionPriorCovariance) {
 
   const Rigid3d initial_cam_from_world(
       Eigen::Quaterniond(Eigen::AngleAxisd(0.1, Eigen::Vector3d::UnitX())),
-      problem.image.CamFromWorld().translation() + Eigen::Vector3d(0.2, 0.1, -0.1));
+      problem.image.CamFromWorld().translation() +
+          Eigen::Vector3d(0.2, 0.1, -0.1));
   Camera weak_prior_camera = problem.camera;
   Camera strong_prior_camera = problem.camera;
   Rigid3d weak_prior_cam_from_world = initial_cam_from_world;
