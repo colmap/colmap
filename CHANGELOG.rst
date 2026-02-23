@@ -34,6 +34,7 @@ New Features
 * Added support for loading bitmaps with alpha channel.
 * Reduced incremental mapper's minimum model size for small reconstructions.
 * Added option to control refinement of 3D points in bundle adjuster.
+* Added optional support for position prior in absolute pose refinement.
 * Added supernodal CHOLMOD L1 solver support.
 * Added support for custom SSL certificate locations through
   SSL_CERT_FILE and SSL_CERT_DIR environment variables.
