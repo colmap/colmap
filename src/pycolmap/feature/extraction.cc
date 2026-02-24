@@ -16,8 +16,6 @@
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 
-inline static constexpr int kKeypointDim = 4;
-
 using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
@@ -28,9 +26,7 @@ using pyimage_t =
 
 typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
     descriptors_t;
-typedef Eigen::Matrix<float, Eigen::Dynamic, kKeypointDim, Eigen::RowMajor>
-    keypoints_t;
-typedef std::tuple<keypoints_t, descriptors_t> sift_output_t;
+typedef std::tuple<FeatureKeypointsMatrix, descriptors_t> sift_output_t;
 
 static std::map<int, std::unique_ptr<std::mutex>> sift_gpu_mutexes;
 
@@ -47,20 +43,6 @@ double MaybeRescaleBitmap(Bitmap& bitmap, int max_image_size) {
   const int new_height = static_cast<int>(height * scale);
   bitmap.Rescale(new_width, new_height);
   return scale;
-}
-
-// Convert FeatureKeypoints to keypoints_t, scaling coordinates by inv_scale.
-keypoints_t ConvertKeypoints(const FeatureKeypoints& feature_keypoints,
-                             double inv_scale) {
-  const size_t num_features = feature_keypoints.size();
-  keypoints_t keypoints(num_features, kKeypointDim);
-  for (size_t i = 0; i < num_features; ++i) {
-    keypoints(i, 0) = feature_keypoints[i].x * inv_scale;
-    keypoints(i, 1) = feature_keypoints[i].y * inv_scale;
-    keypoints(i, 2) = feature_keypoints[i].ComputeScale() * inv_scale;
-    keypoints(i, 3) = feature_keypoints[i].ComputeOrientation();
-  }
-  return keypoints;
 }
 
 namespace {
@@ -120,7 +102,11 @@ class Sift {
     THROW_CHECK(
         extractor_->Extract(bitmap, &feature_keypoints, &feature_descriptors));
 
-    keypoints_t keypoints = ConvertKeypoints(feature_keypoints, 1.0 / scale);
+    FeatureKeypointsMatrix keypoints = KeypointsToMatrix(feature_keypoints);
+    const double inv_scale = 1.0 / scale;
+    keypoints.col(0) *= inv_scale;
+    keypoints.col(1) *= inv_scale;
+    keypoints.col(2) *= inv_scale;
     descriptors_t descriptors = feature_descriptors.ToFloat().data;
     descriptors /= 512.0f;
 
@@ -277,7 +263,7 @@ void BindFeatureExtraction(py::module& m) {
             FeatureKeypoints keypoints;
             FeatureDescriptors descriptors;
             THROW_CHECK(self.Extract(bitmap, &keypoints, &descriptors));
-            return py::make_tuple(ConvertKeypoints(keypoints, /*inv_scale=*/1),
+            return py::make_tuple(KeypointsToMatrix(keypoints),
                                   std::move(descriptors));
           },
           "bitmap"_a,
@@ -291,7 +277,7 @@ void BindFeatureExtraction(py::module& m) {
             FeatureKeypoints keypoints;
             FeatureDescriptors descriptors;
             THROW_CHECK(self.Extract(bitmap, &keypoints, &descriptors));
-            return py::make_tuple(ConvertKeypoints(keypoints, /*inv_scale=*/1),
+            return py::make_tuple(KeypointsToMatrix(keypoints),
                                   std::move(descriptors));
           },
           "image"_a,
@@ -315,7 +301,7 @@ void BindFeatureExtraction(py::module& m) {
             FeatureKeypoints keypoints;
             FeatureDescriptors descriptors;
             THROW_CHECK(self.Extract(bitmap, &keypoints, &descriptors));
-            return py::make_tuple(ConvertKeypoints(keypoints, /*inv_scale=*/1),
+            return py::make_tuple(KeypointsToMatrix(keypoints),
                                   std::move(descriptors));
           },
           "image"_a,

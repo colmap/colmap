@@ -19,19 +19,6 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-typedef Eigen::Matrix<uint32_t, Eigen::Dynamic, 2, Eigen::RowMajor> matches_t;
-
-// Convert FeatureMatches to an Nx2 array of point2D indices.
-matches_t ConvertMatches(const FeatureMatches& feature_matches) {
-  const size_t num_matches = feature_matches.size();
-  matches_t matches(num_matches, 2);
-  for (size_t i = 0; i < num_matches; ++i) {
-    matches(i, 0) = feature_matches[i].point2D_idx1;
-    matches(i, 1) = feature_matches[i].point2D_idx2;
-  }
-  return matches;
-}
-
 namespace {
 
 class PyFeatureMatcher : public FeatureMatcher,
@@ -215,44 +202,53 @@ void BindFeatureMatching(py::module& m) {
       .def(
           "match",
           [](FeatureMatcher& self,
-             std::shared_ptr<const FeatureKeypoints> keypoints1,
+             const FeatureKeypointsMatrix* keypoints1,
              std::shared_ptr<const FeatureDescriptors> descriptors1,
-             std::shared_ptr<const FeatureKeypoints> keypoints2,
+             const FeatureKeypointsMatrix* keypoints2,
              std::shared_ptr<const FeatureDescriptors> descriptors2) {
             FeatureMatcher::Image image1;
-            image1.keypoints = std::move(keypoints1);
+            if (keypoints1) {
+              image1.keypoints = std::make_shared<FeatureKeypoints>(
+                  KeypointsFromMatrix(*keypoints1));
+            }
             image1.descriptors = std::move(descriptors1);
             FeatureMatcher::Image image2;
-            image2.keypoints = std::move(keypoints2);
+            if (keypoints2) {
+              image2.keypoints = std::make_shared<FeatureKeypoints>(
+                  KeypointsFromMatrix(*keypoints2));
+            }
             image2.descriptors = std::move(descriptors2);
             FeatureMatches matches;
             self.Match(image1, image2, &matches);
-            return ConvertMatches(matches);
+            return MatchesToMatrix(matches);
           },
           "keypoints1"_a,
           "descriptors1"_a,
           "keypoints2"_a,
           "descriptors2"_a,
-          "Match features between two images. Returns an Nx2 array of "
-          "point2D indices.")
+          "Match features between two images. Keypoints are optional Nx4 "
+          "matrices [x, y, scale, orientation] as returned by the extractor. "
+          "Returns an Nx2 matrix of point2D indices.")
       .def(
           "match_guided",
           [](FeatureMatcher& self,
              double max_error,
-             std::shared_ptr<const FeatureKeypoints> keypoints1,
+             const FeatureKeypointsMatrix& keypoints1,
              std::shared_ptr<const FeatureDescriptors> descriptors1,
              const Camera& camera1,
-             std::shared_ptr<const FeatureKeypoints> keypoints2,
+             const FeatureKeypointsMatrix& keypoints2,
              std::shared_ptr<const FeatureDescriptors> descriptors2,
              const Camera& camera2,
              TwoViewGeometry& two_view_geometry) {
             FeatureMatcher::Image image1;
             image1.camera = &camera1;
-            image1.keypoints = std::move(keypoints1);
+            image1.keypoints = std::make_shared<FeatureKeypoints>(
+                KeypointsFromMatrix(keypoints1));
             image1.descriptors = std::move(descriptors1);
             FeatureMatcher::Image image2;
             image2.camera = &camera2;
-            image2.keypoints = std::move(keypoints2);
+            image2.keypoints = std::make_shared<FeatureKeypoints>(
+                KeypointsFromMatrix(keypoints2));
             image2.descriptors = std::move(descriptors2);
             self.MatchGuided(max_error, image1, image2, &two_view_geometry);
           },
