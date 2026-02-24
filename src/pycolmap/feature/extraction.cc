@@ -68,6 +68,21 @@ namespace {
 class PyFeatureExtractor : public FeatureExtractor,
                            py::trampoline_self_life_support {
  public:
+  static std::unique_ptr<FeatureExtractor> CreateOnDevice(
+      std::optional<FeatureExtractionOptions> options, Device device) {
+    if (options) {
+      if (options->use_gpu != IsGPU(device)) {
+        LOG(WARNING) << "FeatureExtractionOptions::use_gpu does not match "
+                        "device. FeatureExtractionOptions::use_gpu is ignored.";
+      }
+    } else {
+      options = FeatureExtractionOptions();
+    }
+    options->use_gpu = IsGPU(device);
+    THROW_CHECK(options->Check());
+    return THROW_CHECK_NOTNULL(FeatureExtractor::Create(*options));
+  }
+
   bool Extract(const Bitmap& bitmap,
                FeatureKeypoints* keypoints,
                FeatureDescriptors* descriptors) override {
@@ -252,14 +267,18 @@ void BindFeatureExtraction(py::module& m) {
   MakeDataclass(PyFeatureExtractionOptions);
 
   py::classh<FeatureExtractor, PyFeatureExtractor>(m, "FeatureExtractor")
-      .def_static("create", &FeatureExtractor::Create, "options"_a)
+      .def_static("create",
+                  &PyFeatureExtractor::CreateOnDevice,
+                  "options"_a = std::nullopt,
+                  "device"_a = Device::AUTO)
       .def(
           "extract",
           [](FeatureExtractor& self, const Bitmap& bitmap) {
             FeatureKeypoints keypoints;
             FeatureDescriptors descriptors;
             THROW_CHECK(self.Extract(bitmap, &keypoints, &descriptors));
-            return py::make_tuple(std::move(keypoints), std::move(descriptors));
+            return py::make_tuple(ConvertKeypoints(keypoints, /*inv_scale=*/1),
+                                  std::move(descriptors));
           },
           "bitmap"_a,
           "Extract features from a Bitmap. Returns (FeatureKeypoints, "
@@ -272,7 +291,8 @@ void BindFeatureExtraction(py::module& m) {
             FeatureKeypoints keypoints;
             FeatureDescriptors descriptors;
             THROW_CHECK(self.Extract(bitmap, &keypoints, &descriptors));
-            return py::make_tuple(std::move(keypoints), std::move(descriptors));
+            return py::make_tuple(ConvertKeypoints(keypoints, /*inv_scale=*/1),
+                                  std::move(descriptors));
           },
           "image"_a,
           "Extract features from a uint8 numpy array with shape (H, W) or "
@@ -295,7 +315,8 @@ void BindFeatureExtraction(py::module& m) {
             FeatureKeypoints keypoints;
             FeatureDescriptors descriptors;
             THROW_CHECK(self.Extract(bitmap, &keypoints, &descriptors));
-            return py::make_tuple(std::move(keypoints), std::move(descriptors));
+            return py::make_tuple(ConvertKeypoints(keypoints, /*inv_scale=*/1),
+                                  std::move(descriptors));
           },
           "image"_a,
           "Extract features from a float32 numpy array with values in "
