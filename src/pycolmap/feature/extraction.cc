@@ -302,7 +302,7 @@ void BindFeatureExtraction(py::module& m) {
           [](FeatureExtractor& self,
              py::array_t<float, py::array::c_style> image) {
             auto buf = image.request();
-            std::vector<ssize_t> shape(buf.shape.begin(), buf.shape.end());
+            std::vector<size_t> shape(buf.shape.begin(), buf.shape.end());
             py::array_t<uint8_t> image_u8(shape);
             const float* src = static_cast<const float*>(buf.ptr);
             uint8_t* dst = static_cast<uint8_t*>(image_u8.request().ptr);
