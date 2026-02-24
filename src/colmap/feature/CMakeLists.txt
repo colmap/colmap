@@ -77,6 +77,10 @@ if(GPU_ENABLED)
     endif()
 endif()
 
+if(OPENMP_FOUND)
+    target_link_libraries(colmap_feature PRIVATE OpenMP::OpenMP_CXX)
+endif()
+
 if(ONNX_ENABLED)
     target_link_libraries(colmap_feature PRIVATE onnxruntime::onnxruntime)
 endif()
