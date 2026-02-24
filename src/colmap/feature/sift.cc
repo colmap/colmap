@@ -94,8 +94,6 @@ void WarnDarknessAdaptivityNotAvailable() {
 void ThrowCheckFeatureTypesMatch(const FeatureMatcher::Image& image1,
                                  const FeatureMatcher::Image& image2,
                                  bool check_keypoints = false) {
-  THROW_CHECK_NE(image1.image_id, kInvalidImageId);
-  THROW_CHECK_NE(image2.image_id, kInvalidImageId);
   THROW_CHECK_NOTNULL(image1.descriptors);
   THROW_CHECK_NOTNULL(image2.descriptors);
   THROW_CHECK_EQ(image1.descriptors->type, FeatureExtractorType::SIFT);

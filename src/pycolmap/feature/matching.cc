@@ -19,12 +19,40 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
+typedef Eigen::Matrix<uint32_t, Eigen::Dynamic, 2, Eigen::RowMajor> matches_t;
+
+// Convert FeatureMatches to an Nx2 array of point2D indices.
+matches_t ConvertMatches(const FeatureMatches& feature_matches) {
+  const size_t num_matches = feature_matches.size();
+  matches_t matches(num_matches, 2);
+  for (size_t i = 0; i < num_matches; ++i) {
+    matches(i, 0) = feature_matches[i].point2D_idx1;
+    matches(i, 1) = feature_matches[i].point2D_idx2;
+  }
+  return matches;
+}
+
 namespace {
 
 class PyFeatureMatcher : public FeatureMatcher,
                          py::trampoline_self_life_support {
  public:
   using MatcherImage = FeatureMatcher::Image;
+
+  static std::unique_ptr<FeatureMatcher> CreateOnDevice(
+      std::optional<FeatureMatchingOptions> options, Device device) {
+    if (options) {
+      if (options->use_gpu != IsGPU(device)) {
+        LOG(WARNING) << "FeatureMatchingOptions::use_gpu does not match "
+                        "device. FeatureMatchingOptions::use_gpu is ignored.";
+      }
+    } else {
+      options = FeatureMatchingOptions();
+    }
+    options->use_gpu = IsGPU(device);
+    THROW_CHECK(options->Check());
+    return THROW_CHECK_NOTNULL(FeatureMatcher::Create(*options));
+  }
 
   void Match(const MatcherImage& image1,
              const MatcherImage& image2,
@@ -179,53 +207,62 @@ void BindFeatureMatching(py::module& m) {
   auto PyFeatureMatcherCls =
       py::classh<FeatureMatcher, PyFeatureMatcher>(m, "FeatureMatcher");
 
-  py::classh<FeatureMatcher::Image>(PyFeatureMatcherCls, "Image")
-      .def(py::init<>())
-      .def(py::init([](image_t image_id,
-                       const Camera* camera,
-                       std::shared_ptr<const FeatureKeypoints> keypoints,
-                       std::shared_ptr<const FeatureDescriptors> descriptors) {
-             FeatureMatcher::Image image;
-             image.image_id = image_id;
-             image.camera = camera;
-             image.keypoints = std::move(keypoints);
-             image.descriptors = std::move(descriptors);
-             return image;
-           }),
-           "image_id"_a = kInvalidImageId,
-           "camera"_a = nullptr,
-           "keypoints"_a = nullptr,
-           "descriptors"_a = nullptr)
-      .def_readwrite("image_id", &FeatureMatcher::Image::image_id)
-      .def_readwrite("camera", &FeatureMatcher::Image::camera)
-      .def_readwrite("keypoints", &FeatureMatcher::Image::keypoints)
-      .def_readwrite("descriptors", &FeatureMatcher::Image::descriptors);
-
-  PyFeatureMatcherCls.def_static("create", &FeatureMatcher::Create, "options"_a)
+  PyFeatureMatcherCls
+      .def_static("create",
+                  &PyFeatureMatcher::CreateOnDevice,
+                  "options"_a = std::nullopt,
+                  "device"_a = Device::AUTO)
       .def(
           "match",
           [](FeatureMatcher& self,
-             const FeatureMatcher::Image& image1,
-             const FeatureMatcher::Image& image2) {
+             std::shared_ptr<const FeatureKeypoints> keypoints1,
+             std::shared_ptr<const FeatureDescriptors> descriptors1,
+             std::shared_ptr<const FeatureKeypoints> keypoints2,
+             std::shared_ptr<const FeatureDescriptors> descriptors2) {
+            FeatureMatcher::Image image1;
+            image1.keypoints = std::move(keypoints1);
+            image1.descriptors = std::move(descriptors1);
+            FeatureMatcher::Image image2;
+            image2.keypoints = std::move(keypoints2);
+            image2.descriptors = std::move(descriptors2);
             FeatureMatches matches;
             self.Match(image1, image2, &matches);
-            return matches;
+            return ConvertMatches(matches);
           },
-          "image1"_a,
-          "image2"_a,
-          "Match features between two images. Returns FeatureMatches.")
+          "keypoints1"_a,
+          "descriptors1"_a,
+          "keypoints2"_a,
+          "descriptors2"_a,
+          "Match features between two images. Returns an Nx2 array of "
+          "point2D indices.")
       .def(
           "match_guided",
           [](FeatureMatcher& self,
              double max_error,
-             const FeatureMatcher::Image& image1,
-             const FeatureMatcher::Image& image2,
+             std::shared_ptr<const FeatureKeypoints> keypoints1,
+             std::shared_ptr<const FeatureDescriptors> descriptors1,
+             const Camera& camera1,
+             std::shared_ptr<const FeatureKeypoints> keypoints2,
+             std::shared_ptr<const FeatureDescriptors> descriptors2,
+             const Camera& camera2,
              TwoViewGeometry& two_view_geometry) {
+            FeatureMatcher::Image image1;
+            image1.camera = &camera1;
+            image1.keypoints = std::move(keypoints1);
+            image1.descriptors = std::move(descriptors1);
+            FeatureMatcher::Image image2;
+            image2.camera = &camera2;
+            image2.keypoints = std::move(keypoints2);
+            image2.descriptors = std::move(descriptors2);
             self.MatchGuided(max_error, image1, image2, &two_view_geometry);
           },
           "max_error"_a,
-          "image1"_a,
-          "image2"_a,
+          "keypoints1"_a,
+          "descriptors1"_a,
+          "camera1"_a,
+          "keypoints2"_a,
+          "descriptors2"_a,
+          "camera2"_a,
           "two_view_geometry"_a,
           "Perform guided matching using existing two-view geometry. "
           "Updates the two_view_geometry in-place.");
