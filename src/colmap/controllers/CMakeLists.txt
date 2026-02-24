@@ -141,6 +141,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_controllers
 )
 COLMAP_ADD_TEST(
+    NAME matcher_cache_test
+    SRCS matcher_cache_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
     NAME pairing_test
     SRCS pairing_test.cc
     LINK_LIBS colmap_controllers
