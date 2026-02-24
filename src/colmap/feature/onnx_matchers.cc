@@ -31,6 +31,7 @@
 
 #include "colmap/feature/onnx_utils.h"
 #include "colmap/feature/utils.h"
+#include "colmap/geometry/pose_prior.h"
 
 #include <algorithm>
 #include <memory>
@@ -516,13 +517,31 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
     CachedFeatures features;
     features.image_id = image.image_id;
 
+    const int rot90 =
+        (image.pose_prior != nullptr && image.pose_prior->HasGravity())
+            ? ComputeRot90FromGravity(image.pose_prior->gravity)
+            : 0;
+    const int image_width = image.camera->width;
+    const int image_height = image.camera->height;
+
+    std::vector<FeatureKeypoint> rotated_keypoints;
+    const FeatureKeypoints* keypoints_to_use = image.keypoints.get();
+    if (rot90 != 0) {
+      rotated_keypoints = *image.keypoints;
+      for (auto& kp : rotated_keypoints) {
+        kp.Rot90(rot90, image_width, image_height);
+      }
+      keypoints_to_use = &rotated_keypoints;
+    }
+
     // Convert keypoints: COLMAP (origin at pixel corner, top-left center =
     // (0.5, 0.5)) to LightGlue (top-left center = (0, 0)).
     features.keypoints_shape = {1, num_keypoints, 2};
     features.keypoints_data.resize(num_keypoints * 2);
     for (int i = 0; i < num_keypoints; ++i) {
-      features.keypoints_data[2 * i + 0] = (*image.keypoints)[i].x - 0.5f;
-      features.keypoints_data[2 * i + 1] = (*image.keypoints)[i].y - 0.5f;
+      const FeatureKeypoint& kp = (*keypoints_to_use)[i];
+      features.keypoints_data[2 * i + 0] = kp.x - 0.5f;
+      features.keypoints_data[2 * i + 1] = kp.y - 0.5f;
     }
 
     if (is_aliked) {
@@ -561,16 +580,19 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
       features.orientations_shape = {1, num_keypoints};
       features.orientations_data.resize(num_keypoints);
       for (int i = 0; i < num_keypoints; ++i) {
-        features.scales_data[i] = (*image.keypoints)[i].ComputeScale();
+        const FeatureKeypoint& kp = (*keypoints_to_use)[i];
+        features.scales_data[i] = kp.ComputeScale();
         // LightGlue was trained with radians.
-        features.orientations_data[i] =
-            (*image.keypoints)[i].ComputeOrientation();
+        features.orientations_data[i] = kp.ComputeOrientation();
       }
     }
 
     // Image size as (width, height).
-    features.image_size[0] = static_cast<float>(image.camera->width);
-    features.image_size[1] = static_cast<float>(image.camera->height);
+    const bool swap_dims = rot90 % 2;
+    features.image_size[0] =
+        static_cast<float>(swap_dims ? image_height : image_width);
+    features.image_size[1] =
+        static_cast<float>(swap_dims ? image_width : image_height);
 
     return features;
   }
