@@ -181,12 +181,14 @@ FeatureKeypointsMatrix KeypointsToMatrix(
     const FeatureKeypoints& feature_keypoints);
 
 // Convert an Nx4 matrix [x, y, scale, orientation] to FeatureKeypoints.
-FeatureKeypoints KeypointsFromMatrix(const FeatureKeypointsMatrix& keypoints);
+FeatureKeypoints KeypointsFromMatrix(
+    const Eigen::Ref<const FeatureKeypointsMatrix>& keypoints);
 
 // Convert FeatureMatches to an Nx2 matrix of point2D indices.
 FeatureMatchesMatrix MatchesToMatrix(const FeatureMatches& feature_matches);
 
 // Convert an Nx2 matrix of point2D indices to FeatureMatches.
-FeatureMatches MatchesFromMatrix(const FeatureMatchesMatrix& matches);
+FeatureMatches MatchesFromMatrix(
+    const Eigen::Ref<const FeatureMatchesMatrix>& matches);
 
 }  // namespace colmap

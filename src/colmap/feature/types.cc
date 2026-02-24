@@ -232,7 +232,8 @@ FeatureKeypointsMatrix KeypointsToMatrix(
   return keypoints;
 }
 
-FeatureKeypoints KeypointsFromMatrix(const FeatureKeypointsMatrix& keypoints) {
+FeatureKeypoints KeypointsFromMatrix(
+    const Eigen::Ref<const FeatureKeypointsMatrix>& keypoints) {
   FeatureKeypoints feature_keypoints(keypoints.rows());
   for (Eigen::Index i = 0; i < keypoints.rows(); ++i) {
     feature_keypoints[i] = FeatureKeypoint(
@@ -251,7 +252,8 @@ FeatureMatchesMatrix MatchesToMatrix(const FeatureMatches& feature_matches) {
   return matches;
 }
 
-FeatureMatches MatchesFromMatrix(const FeatureMatchesMatrix& matches) {
+FeatureMatches MatchesFromMatrix(
+    const Eigen::Ref<const FeatureMatchesMatrix>& matches) {
   FeatureMatches feature_matches(matches.rows());
   for (Eigen::Index i = 0; i < matches.rows(); ++i) {
     feature_matches[i] = FeatureMatch(matches(i, 0), matches(i, 1));
