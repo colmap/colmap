@@ -36,8 +36,10 @@ class PyFeatureMatcher : public FeatureMatcher,
     } else {
       options = FeatureMatchingOptions();
     }
+    if (options->sift->cpu_descriptor_index_cache == nullptr) {
+      options->sift->cpu_brute_force_matcher = true;
+    }
     options->use_gpu = IsGPU(device);
-    THROW_CHECK(options->Check());
     return THROW_CHECK_NOTNULL(FeatureMatcher::Create(*options));
   }
 
@@ -202,20 +204,20 @@ void BindFeatureMatching(py::module& m) {
       .def(
           "match",
           [](FeatureMatcher& self,
-             const FeatureKeypointsMatrix* keypoints1,
+             const FeatureKeypoints* keypoints1,
              std::shared_ptr<const FeatureDescriptors> descriptors1,
-             const FeatureKeypointsMatrix* keypoints2,
+             const FeatureKeypoints* keypoints2,
              std::shared_ptr<const FeatureDescriptors> descriptors2) {
             FeatureMatcher::Image image1;
             if (keypoints1) {
-              image1.keypoints = std::make_shared<FeatureKeypoints>(
-                  KeypointsFromMatrix(*keypoints1));
+              image1.keypoints = std::shared_ptr<const FeatureKeypoints>(
+                  std::shared_ptr<void>(), keypoints1);
             }
             image1.descriptors = std::move(descriptors1);
             FeatureMatcher::Image image2;
             if (keypoints2) {
-              image2.keypoints = std::make_shared<FeatureKeypoints>(
-                  KeypointsFromMatrix(*keypoints2));
+              image2.keypoints = std::shared_ptr<const FeatureKeypoints>(
+                  std::shared_ptr<void>(), keypoints2);
             }
             image2.descriptors = std::move(descriptors2);
             FeatureMatches matches;
@@ -226,29 +228,28 @@ void BindFeatureMatching(py::module& m) {
           "descriptors1"_a,
           "keypoints2"_a,
           "descriptors2"_a,
-          "Match features between two images. Keypoints are optional Nx4 "
-          "matrices [x, y, scale, orientation] as returned by the extractor. "
+          "Match features between two images. Keypoints are optional. "
           "Returns an Nx2 matrix of point2D indices.")
       .def(
           "match_guided",
           [](FeatureMatcher& self,
              double max_error,
-             const FeatureKeypointsMatrix& keypoints1,
+             const FeatureKeypoints& keypoints1,
              std::shared_ptr<const FeatureDescriptors> descriptors1,
              const Camera& camera1,
-             const FeatureKeypointsMatrix& keypoints2,
+             const FeatureKeypoints& keypoints2,
              std::shared_ptr<const FeatureDescriptors> descriptors2,
              const Camera& camera2,
              TwoViewGeometry& two_view_geometry) {
             FeatureMatcher::Image image1;
             image1.camera = &camera1;
-            image1.keypoints = std::make_shared<FeatureKeypoints>(
-                KeypointsFromMatrix(keypoints1));
+            image1.keypoints = std::shared_ptr<const FeatureKeypoints>(
+                std::shared_ptr<void>(), &keypoints1);
             image1.descriptors = std::move(descriptors1);
             FeatureMatcher::Image image2;
             image2.camera = &camera2;
-            image2.keypoints = std::make_shared<FeatureKeypoints>(
-                KeypointsFromMatrix(keypoints2));
+            image2.keypoints = std::shared_ptr<const FeatureKeypoints>(
+                std::shared_ptr<void>(), &keypoints2);
             image2.descriptors = std::move(descriptors2);
             self.MatchGuided(max_error, image1, image2, &two_view_geometry);
           },

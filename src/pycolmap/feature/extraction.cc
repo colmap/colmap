@@ -61,7 +61,6 @@ class PyFeatureExtractor : public FeatureExtractor,
       options = FeatureExtractionOptions();
     }
     options->use_gpu = IsGPU(device);
-    THROW_CHECK(options->Check());
     return THROW_CHECK_NOTNULL(FeatureExtractor::Create(*options));
   }
 
@@ -87,7 +86,6 @@ class Sift {
       options_ = std::move(*options);
     }
     options_.use_gpu = use_gpu_;
-    THROW_CHECK(options_.Check());
     extractor_ = THROW_CHECK_NOTNULL(CreateSiftFeatureExtractor(options_));
   }
 
@@ -263,8 +261,7 @@ void BindFeatureExtraction(py::module& m) {
             FeatureKeypoints keypoints;
             FeatureDescriptors descriptors;
             THROW_CHECK(self.Extract(bitmap, &keypoints, &descriptors));
-            return py::make_tuple(KeypointsToMatrix(keypoints),
-                                  std::move(descriptors));
+            return py::make_tuple(std::move(keypoints), std::move(descriptors));
           },
           "bitmap"_a,
           "Extract features from a Bitmap. Returns (FeatureKeypoints, "
@@ -277,8 +274,7 @@ void BindFeatureExtraction(py::module& m) {
             FeatureKeypoints keypoints;
             FeatureDescriptors descriptors;
             THROW_CHECK(self.Extract(bitmap, &keypoints, &descriptors));
-            return py::make_tuple(KeypointsToMatrix(keypoints),
-                                  std::move(descriptors));
+            return py::make_tuple(std::move(keypoints), std::move(descriptors));
           },
           "image"_a,
           "Extract features from a uint8 numpy array with shape (H, W) or "
@@ -301,8 +297,7 @@ void BindFeatureExtraction(py::module& m) {
             FeatureKeypoints keypoints;
             FeatureDescriptors descriptors;
             THROW_CHECK(self.Extract(bitmap, &keypoints, &descriptors));
-            return py::make_tuple(KeypointsToMatrix(keypoints),
-                                  std::move(descriptors));
+            return py::make_tuple(std::move(keypoints), std::move(descriptors));
           },
           "image"_a,
           "Extract features from a float32 numpy array with values in "
