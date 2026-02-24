@@ -392,6 +392,7 @@ set(COLMAP_EXPORT_LIBS
     colmap_optim
     colmap_retrieval
     colmap_scene
+    colmap_scene_types
     colmap_sensor
     colmap_sfm
     colmap_util
