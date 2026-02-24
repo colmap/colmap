@@ -286,8 +286,8 @@ void BindFeatureExtraction(py::module& m) {
             py::array_t<uint8_t> image_u8(shape);
             const float* src = static_cast<const float*>(buf.ptr);
             uint8_t* dst = static_cast<uint8_t*>(image_u8.request().ptr);
-            const ssize_t num_elements = buf.size;
-            for (ssize_t i = 0; i < num_elements; ++i) {
+            const size_t num_elements = buf.size;
+            for (size_t i = 0; i < num_elements; ++i) {
               dst[i] = static_cast<uint8_t>(
                   std::clamp(src[i] * 255.0f, 0.0f, 255.0f));
             }
