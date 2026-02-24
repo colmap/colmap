@@ -30,9 +30,11 @@
 #pragma once
 
 #include "colmap/feature/extractor.h"
+#include "colmap/feature/index.h"
 #include "colmap/feature/matcher.h"
 #include "colmap/feature/onnx_matchers.h"
 #include "colmap/feature/resources.h"
+#include "colmap/util/cache.h"
 
 namespace colmap {
 

@@ -318,6 +318,7 @@ ModelViewerWidget::ModelViewerWidget(QWidget* parent, OptionManager* options)
   format.setMajorVersion(3);
   format.setMinorVersion(2);
   format.setSamples(4);
+  format.setRenderableType(QSurfaceFormat::OpenGL);
   format.setProfile(QSurfaceFormat::CoreProfile);
 #ifdef DEBUG
   format.setOption(QSurfaceFormat::DebugContext);
