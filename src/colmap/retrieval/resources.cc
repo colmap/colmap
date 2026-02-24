@@ -40,6 +40,8 @@ const std::filesystem::path& GetVocabTreeUriForFeatureType(
       return kDefaultSiftVocabTreeUri;
     case FeatureExtractorType::ALIKED_N16ROT:
       return kDefaultAlikedN16RotVocabTreeUri;
+    case FeatureExtractorType::ALIKED_N32:
+      return kDefaultAlikedN32VocabTreeUri;
     default:
       LOG(FATAL_THROW)
           << "No default vocabulary tree available for feature type: "
