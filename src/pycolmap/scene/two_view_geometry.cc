@@ -1,5 +1,6 @@
 #include "colmap/scene/two_view_geometry.h"
 
+#include "colmap/feature/types.h"
 #include "colmap/scene/camera.h"
 
 #include "pycolmap/helpers.h"
@@ -40,10 +41,11 @@ void BindTwoViewGeometryScene(py::module& m) {
       .def_property(
           "inlier_matches",
           [](const TwoViewGeometry& self) {
-            return FeatureMatchesToMatrix(self.inlier_matches);
+            return MatchesToMatrix(self.inlier_matches);
           },
-          [](TwoViewGeometry& self, const PyFeatureMatches& matrix) {
-            self.inlier_matches = FeatureMatchesFromMatrix(matrix);
+          [](TwoViewGeometry& self,
+             const Eigen::Ref<const FeatureMatchesMatrix>& matrix) {
+            self.inlier_matches = MatchesFromMatrix(matrix);
           })
       .def_readwrite("tri_angle", &TwoViewGeometry::tri_angle)
       .def("invert", &TwoViewGeometry::Invert);

@@ -94,8 +94,6 @@ void WarnDarknessAdaptivityNotAvailable() {
 void ThrowCheckFeatureTypesMatch(const FeatureMatcher::Image& image1,
                                  const FeatureMatcher::Image& image2,
                                  bool check_keypoints = false) {
-  THROW_CHECK_NE(image1.image_id, kInvalidImageId);
-  THROW_CHECK_NE(image2.image_id, kInvalidImageId);
   THROW_CHECK_NOTNULL(image1.descriptors);
   THROW_CHECK_NOTNULL(image2.descriptors);
   THROW_CHECK_EQ(image1.descriptors->type, FeatureExtractorType::SIFT);
@@ -1091,13 +1089,13 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
     Eigen::RowMajorMatrixXi indices_2to1;
     Eigen::RowMajorMatrixXf l2_dists_2to1;
 
-    index2_->Search(
+    THROW_CHECK_NOTNULL(index2_)->Search(
         /*num_neighbors=*/2,
         image1.descriptors->ToFloat(),
         indices_1to2,
         l2_dists_1to2);
     if (options_.sift->cross_check) {
-      index1_->Search(
+      THROW_CHECK_NOTNULL(index1_)->Search(
           /*num_neighbors=*/2,
           image2.descriptors->ToFloat(),
           indices_2to1,

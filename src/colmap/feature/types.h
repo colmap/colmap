@@ -169,4 +169,26 @@ struct FeatureMatch {
 
 using FeatureMatches = std::vector<FeatureMatch>;
 
+inline constexpr int kKeypointMatrixCols = 4;
+
+using FeatureKeypointsMatrix =
+    Eigen::Matrix<float, Eigen::Dynamic, kKeypointMatrixCols, Eigen::RowMajor>;
+using FeatureMatchesMatrix =
+    Eigen::Matrix<uint32_t, Eigen::Dynamic, 2, Eigen::RowMajor>;
+
+// Convert FeatureKeypoints to an Nx4 matrix [x, y, scale, orientation].
+FeatureKeypointsMatrix KeypointsToMatrix(
+    const FeatureKeypoints& feature_keypoints);
+
+// Convert an Nx4 matrix [x, y, scale, orientation] to FeatureKeypoints.
+FeatureKeypoints KeypointsFromMatrix(
+    const Eigen::Ref<const FeatureKeypointsMatrix>& keypoints);
+
+// Convert FeatureMatches to an Nx2 matrix of point2D indices.
+FeatureMatchesMatrix MatchesToMatrix(const FeatureMatches& feature_matches);
+
+// Convert an Nx2 matrix of point2D indices to FeatureMatches.
+FeatureMatches MatchesFromMatrix(
+    const Eigen::Ref<const FeatureMatchesMatrix>& matches);
+
 }  // namespace colmap

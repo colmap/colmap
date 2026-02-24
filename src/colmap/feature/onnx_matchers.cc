@@ -88,15 +88,19 @@ class BruteForceONNXFeatureMatcher : public FeatureMatcher {
 
     // Cache features if image changed. Swap cached features when possible
     // to avoid redundant copies (e.g., matching (A, B) then (B, C)).
-    if (prev_features1_.image_id != image1.image_id) {
-      if (prev_features2_.image_id == image1.image_id) {
+    if (prev_features1_.image_id == kInvalidImageId ||
+        prev_features1_.image_id != image1.image_id) {
+      if (image1.image_id != kInvalidImageId &&
+          prev_features2_.image_id == image1.image_id) {
         std::swap(prev_features1_, prev_features2_);
       } else {
         prev_features1_ = FeaturesFromImage(image1);
       }
     }
-    if (prev_features2_.image_id != image2.image_id) {
-      if (prev_features1_.image_id == image2.image_id) {
+    if (prev_features2_.image_id == kInvalidImageId ||
+        prev_features2_.image_id != image2.image_id) {
+      if (image2.image_id != kInvalidImageId &&
+          prev_features1_.image_id == image2.image_id) {
         // This shouldn't happen, as it means we are self-matching an image.
         prev_features2_ = prev_features1_;
       } else {
@@ -193,7 +197,6 @@ class BruteForceONNXFeatureMatcher : public FeatureMatcher {
   };
 
   Features FeaturesFromImage(const Image& image) {
-    THROW_CHECK_NE(image.image_id, kInvalidImageId);
     THROW_CHECK_NOTNULL(image.descriptors);
     THROW_CHECK(image.descriptors->type ==
                     FeatureExtractorType::ALIKED_N16ROT ||
@@ -321,15 +324,19 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
     }
 
     // Cache features with swap optimization (identical to ALIKED pattern).
-    if (prev_features1_.image_id != image1.image_id) {
-      if (prev_features2_.image_id == image1.image_id) {
+    if (prev_features1_.image_id == kInvalidImageId ||
+        prev_features1_.image_id != image1.image_id) {
+      if (image1.image_id != kInvalidImageId &&
+          prev_features2_.image_id == image1.image_id) {
         std::swap(prev_features1_, prev_features2_);
       } else {
         prev_features1_ = FeaturesFromImage(image1);
       }
     }
-    if (prev_features2_.image_id != image2.image_id) {
-      if (prev_features1_.image_id == image2.image_id) {
+    if (prev_features2_.image_id == kInvalidImageId ||
+        prev_features2_.image_id != image2.image_id) {
+      if (image2.image_id != kInvalidImageId &&
+          prev_features1_.image_id == image2.image_id) {
         prev_features2_ = prev_features1_;
       } else {
         prev_features2_ = FeaturesFromImage(image2);
@@ -491,7 +498,6 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
   };
 
   CachedFeatures FeaturesFromImage(const Image& image) {
-    THROW_CHECK_NE(image.image_id, kInvalidImageId);
     THROW_CHECK_NOTNULL(image.keypoints);
     THROW_CHECK_NOTNULL(image.descriptors);
     THROW_CHECK_NOTNULL(image.camera);

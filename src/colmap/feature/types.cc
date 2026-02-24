@@ -219,4 +219,46 @@ FeatureDescriptors FeatureDescriptorsFloat::ToBytes() const {
   return FeatureDescriptors::FromFloat(*this);
 }
 
+FeatureKeypointsMatrix KeypointsToMatrix(
+    const FeatureKeypoints& feature_keypoints) {
+  const size_t num_features = feature_keypoints.size();
+  FeatureKeypointsMatrix keypoints(num_features, kKeypointMatrixCols);
+  for (size_t i = 0; i < num_features; ++i) {
+    keypoints(i, 0) = feature_keypoints[i].x;
+    keypoints(i, 1) = feature_keypoints[i].y;
+    keypoints(i, 2) = feature_keypoints[i].ComputeScale();
+    keypoints(i, 3) = feature_keypoints[i].ComputeOrientation();
+  }
+  return keypoints;
+}
+
+FeatureKeypoints KeypointsFromMatrix(
+    const Eigen::Ref<const FeatureKeypointsMatrix>& keypoints) {
+  FeatureKeypoints feature_keypoints(keypoints.rows());
+  for (Eigen::Index i = 0; i < keypoints.rows(); ++i) {
+    feature_keypoints[i] = FeatureKeypoint(
+        keypoints(i, 0), keypoints(i, 1), keypoints(i, 2), keypoints(i, 3));
+  }
+  return feature_keypoints;
+}
+
+FeatureMatchesMatrix MatchesToMatrix(const FeatureMatches& feature_matches) {
+  const size_t num_matches = feature_matches.size();
+  FeatureMatchesMatrix matches(num_matches, 2);
+  for (size_t i = 0; i < num_matches; ++i) {
+    matches(i, 0) = feature_matches[i].point2D_idx1;
+    matches(i, 1) = feature_matches[i].point2D_idx2;
+  }
+  return matches;
+}
+
+FeatureMatches MatchesFromMatrix(
+    const Eigen::Ref<const FeatureMatchesMatrix>& matches) {
+  FeatureMatches feature_matches(matches.rows());
+  for (Eigen::Index i = 0; i < matches.rows(); ++i) {
+    feature_matches[i] = FeatureMatch(matches(i, 0), matches(i, 1));
+  }
+  return feature_matches;
+}
+
 }  // namespace colmap
