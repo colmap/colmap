@@ -115,6 +115,7 @@ class FeatureMatcher {
     const Camera* camera = nullptr;
     std::shared_ptr<const FeatureKeypoints> keypoints;
     std::shared_ptr<const FeatureDescriptors> descriptors;
+    const PosePrior* pose_prior = nullptr;
   };
 
   static std::unique_ptr<FeatureMatcher> Create(
