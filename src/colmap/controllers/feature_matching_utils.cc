@@ -126,20 +126,23 @@ void FeatureMatcherWorker::Run() {
           cache_->GetCamera(cache_->GetImage(data.image_id2).CameraId());
 
       if (matching_options_.guided_matching) {
-        matcher->MatchGuided(geometry_options_.ransac_options.max_error,
-                             {
-                                 data.image_id1,
-                                 &camera1,
-                                 cache_->GetKeypoints(data.image_id1),
-                                 cache_->GetDescriptors(data.image_id1),
-                             },
-                             {
-                                 data.image_id2,
-                                 &camera2,
-                                 cache_->GetKeypoints(data.image_id2),
-                                 cache_->GetDescriptors(data.image_id2),
-                             },
-                             &data.two_view_geometry);
+        matcher->MatchGuided(
+            geometry_options_.ransac_options.max_error,
+            {
+                data.image_id1,
+                &camera1,
+                cache_->GetKeypoints(data.image_id1),
+                cache_->GetDescriptors(data.image_id1),
+                cache_->FindImagePosePriorOrNull(data.image_id1),
+            },
+            {
+                data.image_id2,
+                &camera2,
+                cache_->GetKeypoints(data.image_id2),
+                cache_->GetDescriptors(data.image_id2),
+                cache_->FindImagePosePriorOrNull(data.image_id2),
+            },
+            &data.two_view_geometry);
       } else {
         matcher->Match(
             {
@@ -147,12 +150,14 @@ void FeatureMatcherWorker::Run() {
                 &camera1,
                 cache_->GetKeypoints(data.image_id1),
                 cache_->GetDescriptors(data.image_id1),
+                cache_->FindImagePosePriorOrNull(data.image_id1),
             },
             {
                 data.image_id2,
                 &camera2,
                 cache_->GetKeypoints(data.image_id2),
                 cache_->GetDescriptors(data.image_id2),
+                cache_->FindImagePosePriorOrNull(data.image_id2),
             },
             &data.matches);
       }
