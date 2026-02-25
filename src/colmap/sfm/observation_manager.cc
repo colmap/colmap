@@ -31,6 +31,7 @@
 
 #include "colmap/estimators/alignment.h"
 #include "colmap/geometry/triangulation.h"
+#include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/projection.h"
 #include "colmap/util/logging.h"
@@ -195,7 +196,7 @@ void ObservationManager::ResetTriObservations(const image_t image_id,
         (!is_deleted_point3D || image_id < corr->image_id)) {
       const image_pair_t pair_id = ImagePairToPairId(image_id, corr->image_id);
       THROW_CHECK_GT(image_pair_stats_[pair_id].num_tri_corrs, 0)
-          << "The scene graph graph must not contain duplicate matches";
+          << "The scene graph must not contain duplicate matches";
       image_pair_stats_[pair_id].num_tri_corrs -= 1;
     }
   }
@@ -309,13 +310,28 @@ size_t ObservationManager::FilterAllPoints3D(const double max_reproj_error,
   // Important: First filter observations and points with large reprojection
   // error, so that observations with large reprojection error do not make
   // a point stable through a large triangulation angle.
-  const std::unordered_set<point3D_t>& point3D_ids =
+  const std::unordered_set<point3D_t> point3D_ids =
       reconstruction_.Point3DIds();
   size_t num_filtered_observations = 0;
   num_filtered_observations +=
       FilterPoints3DWithLargeReprojectionError(max_reproj_error, point3D_ids);
   num_filtered_observations +=
       FilterPoints3DWithSmallTriangulationAngle(min_tri_angle, point3D_ids);
+  return num_filtered_observations;
+}
+
+size_t ObservationManager::FilterPoints3DWithShortTracks(
+    const size_t min_track_length) {
+  size_t num_filtered_observations = 0;
+  const std::unordered_set<point3D_t> point3D_ids =
+      reconstruction_.Point3DIds();
+  for (const point3D_t point3D_id : point3D_ids) {
+    const struct Point3D& point3D = reconstruction_.Point3D(point3D_id);
+    if (point3D.track.Length() < min_track_length) {
+      num_filtered_observations += point3D.track.Length();
+      DeletePoint3D(point3D_id);
+    }
+  }
   return num_filtered_observations;
 }
 

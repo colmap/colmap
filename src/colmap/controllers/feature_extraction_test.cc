@@ -94,7 +94,9 @@ TEST(CreateFeatureExtractorController, Nominal) {
 
     // Check that features were extracted
     EXPECT_GT(keypoints.size(), 0);
-    EXPECT_EQ(keypoints.size(), descriptors.rows());
+    EXPECT_EQ(keypoints.size(), descriptors.data.rows());
+    EXPECT_EQ(descriptors.type, FeatureExtractorType::SIFT);
+    EXPECT_EQ(descriptors.data.cols(), 128);
   }
 }
 
@@ -180,7 +182,9 @@ TEST(CreateFeatureExtractorController, WithCameraMask) {
   }
 
   // Descriptors should match keypoints count
-  EXPECT_EQ(descriptors_masked.rows(), keypoints_masked.size());
+  EXPECT_EQ(descriptors_masked.data.rows(), keypoints_masked.size());
+  EXPECT_EQ(descriptors_masked.type, FeatureExtractorType::SIFT);
+  EXPECT_EQ(descriptors_masked.data.cols(), 128);
 }
 
 TEST(CreateFeatureImporterController, Nominal) {
@@ -252,8 +256,9 @@ TEST(CreateFeatureImporterController, Nominal) {
 
     // Check that features were imported correctly
     EXPECT_EQ(keypoints.size(), kNumFeatures);
-    EXPECT_EQ(descriptors.rows(), kNumFeatures);
-    EXPECT_EQ(descriptors.cols(), 128);
+    EXPECT_EQ(descriptors.type, FeatureExtractorType::SIFT);
+    EXPECT_EQ(descriptors.data.rows(), kNumFeatures);
+    EXPECT_EQ(descriptors.data.cols(), 128);
 
     // Verify some keypoint values
     EXPECT_FLOAT_EQ(keypoints[0].x, 10.0f);

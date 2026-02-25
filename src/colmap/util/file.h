@@ -39,13 +39,11 @@
 #include <string_view>
 #include <vector>
 
-#define THROW_CHECK_FILE_EXISTS(path)   \
-  THROW_CHECK(colmap::ExistsFile(path)) \
-      << "File " << (path) << " does not exist."
+#define THROW_CHECK_FILE_EXISTS(path) \
+  THROW_CHECK(ExistsFile(path)) << "File " << (path) << " does not exist."
 
-#define THROW_CHECK_DIR_EXISTS(path)   \
-  THROW_CHECK(colmap::ExistsDir(path)) \
-      << "Directory " << (path) << " does not exist."
+#define THROW_CHECK_DIR_EXISTS(path) \
+  THROW_CHECK(ExistsDir(path)) << "Directory " << (path) << " does not exist."
 
 #define THROW_CHECK_PATH_OPEN(path)                           \
   THROW_CHECK(std::ofstream(path, std::ios::trunc).is_open()) \
@@ -58,7 +56,7 @@
       << ". Is the path a directory or does the parent dir not exist?"
 
 #define THROW_CHECK_HAS_FILE_EXTENSION(path, ext)                        \
-  THROW_CHECK(colmap::HasFileExtension(path, ext))                       \
+  THROW_CHECK(HasFileExtension(path, ext))                               \
       << "Path " << (path) << " does not match file extension " << (ext) \
       << "."
 
@@ -122,9 +120,6 @@ std::vector<std::filesystem::path> GetRecursiveFileList(
 // Return list of directories in the given directory.
 std::vector<std::filesystem::path> GetDirList(
     const std::filesystem::path& path);
-
-// Get the size in bytes of a file.
-size_t GetFileSize(const std::string& path);
 
 // Gets current user's home directory from environment variables.
 // Returns null if it cannot be resolved.

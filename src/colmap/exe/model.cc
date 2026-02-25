@@ -32,8 +32,9 @@
 #include "colmap/controllers/option_manager.h"
 #include "colmap/estimators/alignment.h"
 #include "colmap/estimators/coordinate_frame.h"
+#include "colmap/geometry/bbox.h"
 #include "colmap/geometry/gps.h"
-#include "colmap/geometry/pose.h"
+#include "colmap/math/math.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_io.h"
@@ -47,28 +48,6 @@
 namespace colmap {
 namespace {
 
-std::vector<Eigen::AlignedBox3d> ComputeEqualPartsBboxes(
-    const Reconstruction& reconstruction, const Eigen::Vector3i& split) {
-  std::vector<Eigen::AlignedBox3d> bboxes;
-  const Eigen::AlignedBox3d bbox = reconstruction.ComputeBoundingBox();
-  const Eigen::Vector3d extent = bbox.diagonal();
-  const Eigen::Vector3d offset(
-      extent(0) / split(0), extent(1) / split(1), extent(2) / split(2));
-
-  for (int k = 0; k < split(2); ++k) {
-    for (int j = 0; j < split(1); ++j) {
-      for (int i = 0; i < split(0); ++i) {
-        Eigen::Vector3d min(bbox.min().x() + i * offset(0),
-                            bbox.min().y() + j * offset(1),
-                            bbox.min().z() + k * offset(2));
-        bboxes.emplace_back(min, min + offset);
-      }
-    }
-  }
-
-  return bboxes;
-}
-
 Eigen::Vector3d TransformLatLonAltToModelCoords(const Sim3d& tform,
                                                 const double lat,
                                                 const double lon,
@@ -81,7 +60,7 @@ Eigen::Vector3d TransformLatLonAltToModelCoords(const Sim3d& tform,
   Eigen::Vector3d xyz =
       tform * GPSTransform(GPSTransform::Ellipsoid::WGS84)
                   .EllipsoidToECEF({Eigen::Vector3d(lat, lon, 0.0)})[0];
-  xyz(2) = tform.scale * alt;
+  xyz(2) = tform.scale() * alt;
   return xyz;
 }
 
@@ -126,10 +105,14 @@ std::vector<Eigen::Vector3d> ConvertCameraLocations(
                    "to ECEF.";
       return gps_transform.EllipsoidToECEF(ref_locations);
     } else {
+      THROW_CHECK(!ref_locations.empty());
       LOG(INFO) << "Converting Alignment Coordinates from GPS (lat/lon/alt) "
-                   "to ENU.";
-      return gps_transform.EllipsoidToENU(
-          ref_locations, ref_locations[0](0), ref_locations[0](1));
+                   "to ENU. Using the first GPS coordinate as the ENU origin: "
+                << ref_locations[0].transpose();
+      return gps_transform.EllipsoidToENU(ref_locations,
+                                          ref_locations[0](0),
+                                          ref_locations[0](1),
+                                          ref_locations[0](2));
     }
   } else {
     LOG(INFO) << "Cartesian Alignment Coordinates extracted (MUST NOT BE "
@@ -193,34 +176,27 @@ void WriteComparisonErrorsCSV(const std::filesystem::path& path,
   }
 }
 
-void PrintErrorStats(std::ostream& out, std::vector<double>& vals) {
-  const size_t len = vals.size();
-  if (len == 0) {
-    out << "Cannot extract error statistics from empty input\n";
-    return;
-  }
-  out << "Min:    " << Percentile(vals, 0) << '\n';
-  out << "Max:    " << Percentile(vals, 100) << '\n';
-  out << "Mean:   " << Mean(vals) << '\n';
-  out << "Median: " << Median(vals) << '\n';
-  out << "P90:    " << Percentile(vals, 90) << '\n';
-  out << "P99:    " << Percentile(vals, 99) << '\n';
+void PrintErrorStats(std::ostream& out,
+                     const AlignmentErrorSummary::Statistics& stats) {
+  out << "Min:    " << stats.min << '\n';
+  out << "Max:    " << stats.max << '\n';
+  out << "Mean:   " << stats.mean << '\n';
+  out << "Median: " << stats.median << '\n';
+  out << "P90:    " << stats.p90 << '\n';
+  out << "P99:    " << stats.p99 << '\n';
 }
 
 void PrintComparisonSummary(std::ostream& out,
                             const std::vector<ImageAlignmentError>& errors) {
-  std::vector<double> rotation_errors_deg;
-  rotation_errors_deg.reserve(errors.size());
-  std::vector<double> proj_center_errors;
-  proj_center_errors.reserve(errors.size());
-  for (const auto& error : errors) {
-    rotation_errors_deg.push_back(error.rotation_error_deg);
-    proj_center_errors.push_back(error.proj_center_error);
+  if (errors.empty()) {
+    out << "Cannot extract error statistics from empty input\n";
+    return;
   }
+  AlignmentErrorSummary summary = AlignmentErrorSummary::Compute(errors);
   out << "\nRotation errors (degrees)\n";
-  PrintErrorStats(out, rotation_errors_deg);
+  PrintErrorStats(out, summary.rotation_errors_deg);
   out << "\nProjection center errors\n";
-  PrintErrorStats(out, proj_center_errors);
+  PrintErrorStats(out, summary.proj_center_errors);
 }
 
 }  // namespace
@@ -415,8 +391,8 @@ int RunModelAligner(int argc, char** argv) {
         reconstruction.Transform(origin_align);
 
         // Update the Sim3 transformation in case it is stored next.
-        tform =
-            Sim3d(tform.scale, tform.rotation, tform.translation + trans_align);
+        tform = Sim3d(
+            tform.scale(), tform.rotation(), tform.translation() + trans_align);
 
         break;
       }
@@ -829,14 +805,14 @@ int RunModelOrientationAligner(int argc, char** argv) {
 
     if (frame.col(0).lpNorm<1>() == 0) {
       LOG(INFO) << "Only aligning vertical axis";
-      new_from_old_world.rotation = Eigen::Quaterniond::FromTwoVectors(
+      new_from_old_world.rotation() = Eigen::Quaterniond::FromTwoVectors(
           frame.col(1), Eigen::Vector3d(0, 1, 0));
     } else if (frame.col(1).lpNorm<1>() == 0) {
-      new_from_old_world.rotation = Eigen::Quaterniond::FromTwoVectors(
+      new_from_old_world.rotation() = Eigen::Quaterniond::FromTwoVectors(
           frame.col(0), Eigen::Vector3d(1, 0, 0));
       LOG(INFO) << "Only aligning horizontal axis";
     } else {
-      new_from_old_world.rotation = Eigen::Quaterniond(frame.transpose());
+      new_from_old_world.rotation() = Eigen::Quaterniond(frame.transpose());
       LOG(INFO) << "Aligning horizontal and vertical axes";
     }
   } else if (method == "image-orientation") {
@@ -845,7 +821,7 @@ int RunModelOrientationAligner(int argc, char** argv) {
 #endif
     const Eigen::Vector3d gravity_axis =
         EstimateGravityVectorFromImageOrientation(reconstruction);
-    new_from_old_world.rotation = Eigen::Quaterniond::FromTwoVectors(
+    new_from_old_world.rotation() = Eigen::Quaterniond::FromTwoVectors(
         gravity_axis, Eigen::Vector3d(0, 1, 0));
 
   } else {
@@ -853,7 +829,7 @@ int RunModelOrientationAligner(int argc, char** argv) {
   }
 
   LOG(INFO) << "Using the rotation matrix:";
-  LOG(INFO) << new_from_old_world.rotation.toRotationMatrix();
+  LOG(INFO) << new_from_old_world.rotation().toRotationMatrix();
 
   reconstruction.Transform(new_from_old_world);
 
@@ -956,7 +932,7 @@ int RunModelSplitter(int argc, char** argv) {
                            std::numeric_limits<double>::max(),
                            std::numeric_limits<double>::max());
     for (size_t i = 0; i < parts.size(); ++i) {
-      extent(i) = parts[i] * tform.scale;
+      extent(i) = parts[i] * tform.scale();
     }
 
     const Eigen::AlignedBox3d bbox = reconstruction.ComputeBoundingBox();
@@ -965,7 +941,7 @@ int RunModelSplitter(int argc, char** argv) {
                                 static_cast<int>(full_bbox(1) / extent(1)) + 1,
                                 static_cast<int>(full_bbox(2) / extent(2)) + 1);
 
-    exact_bboxes = ComputeEqualPartsBboxes(reconstruction, split);
+    exact_bboxes = ComputeEqualPartsBboxes(bbox, split);
   } else if (split_type == "parts") {
     auto parts = CSVToVector<int>(split_params);
     Eigen::Vector3i split(1, 1, 1);
@@ -976,7 +952,8 @@ int RunModelSplitter(int argc, char** argv) {
         return EXIT_FAILURE;
       }
     }
-    exact_bboxes = ComputeEqualPartsBboxes(reconstruction, split);
+    exact_bboxes =
+        ComputeEqualPartsBboxes(reconstruction.ComputeBoundingBox(), split);
   } else {
     LOG(ERROR) << "Invalid split type: " << split_type;
     return EXIT_FAILURE;

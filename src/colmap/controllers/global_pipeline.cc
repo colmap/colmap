@@ -29,21 +29,20 @@
 
 #include "colmap/controllers/global_pipeline.h"
 
+#include "colmap/estimators/alignment.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/scene/database_cache.h"
+#include "colmap/sfm/global_mapper.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
-
-#include "glomap/io/colmap_io.h"
-#include "glomap/sfm/global_mapper.h"
 
 namespace colmap {
 
 GlobalPipeline::GlobalPipeline(
-    const GlobalPipelineOptions& options,
+    GlobalPipelineOptions options,
     std::shared_ptr<Database> database,
-    std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager)
-    : options_(options),
+    std::shared_ptr<ReconstructionManager> reconstruction_manager)
+    : options_(std::move(options)),
       reconstruction_manager_(
           std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {
   THROW_CHECK_NOTNULL(database);
@@ -87,12 +86,12 @@ void GlobalPipeline::Run() {
   auto reconstruction = std::make_shared<Reconstruction>();
 
   // Prepare mapper options with top-level options.
-  glomap::GlobalMapperOptions mapper_options = options_.mapper;
+  GlobalMapperOptions mapper_options = options_.mapper;
   mapper_options.image_path = options_.image_path;
   mapper_options.num_threads = options_.num_threads;
   mapper_options.random_seed = options_.random_seed;
 
-  glomap::GlobalMapper global_mapper(database_cache_);
+  GlobalMapper global_mapper(database_cache_);
   global_mapper.BeginReconstruction(reconstruction);
 
   Timer run_timer;
@@ -102,33 +101,17 @@ void GlobalPipeline::Run() {
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 
-  int max_cluster_id = -1;
-  for (const auto& [frame_id, cluster_id] : cluster_ids) {
-    if (cluster_id > max_cluster_id) {
-      max_cluster_id = cluster_id;
-    }
-  }
+  // Align reconstruction to the original metric scales in rig extrinsics.
+  AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
+                                     reconstruction.get());
 
-  // If it is not separated into several clusters, then output them as whole.
-  if (max_cluster_id == -1) {
-    Reconstruction& output_reconstruction =
-        *reconstruction_manager_->Get(reconstruction_manager_->Add());
-    output_reconstruction = *reconstruction;
-    if (!options_.image_path.empty()) {
-      LOG(INFO) << "Extracting colors ...";
-      output_reconstruction.ExtractColorsForAllImages(options_.image_path);
-    }
-  } else {
-    for (int comp = 0; comp <= max_cluster_id; comp++) {
-      Reconstruction& output_reconstruction =
-          *reconstruction_manager_->Get(reconstruction_manager_->Add());
-      output_reconstruction = glomap::SubReconstructionByClusterId(
-          *reconstruction, cluster_ids, comp);
-      if (!options_.image_path.empty()) {
-        output_reconstruction.ExtractColorsForAllImages(options_.image_path);
-      }
-    }
-    LOG(INFO) << "Exported " << max_cluster_id + 1 << " reconstructions";
+  // Output the reconstruction.
+  Reconstruction& output_reconstruction =
+      *reconstruction_manager_->Get(reconstruction_manager_->Add());
+  output_reconstruction = *reconstruction;
+  if (!options_.image_path.empty()) {
+    LOG(INFO) << "Extracting colors ...";
+    output_reconstruction.ExtractColorsForAllImages(options_.image_path);
   }
 }
 

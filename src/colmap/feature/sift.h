@@ -30,7 +30,11 @@
 #pragma once
 
 #include "colmap/feature/extractor.h"
+#include "colmap/feature/index.h"
 #include "colmap/feature/matcher.h"
+#include "colmap/feature/onnx_matchers.h"
+#include "colmap/feature/resources.h"
+#include "colmap/util/cache.h"
 
 namespace colmap {
 
@@ -121,6 +125,14 @@ struct SiftMatchingOptions {
   // Cache for reusing descriptor index for feature matching.
   ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>*
       cpu_descriptor_index_cache = nullptr;
+
+  // LightGlue matching options.
+  LightGlueONNXMatchingOptions lightglue = []() {
+    LightGlueONNXMatchingOptions options;
+    options.min_score = 0.1;
+    options.model_path = kDefaultSiftLightGlueFeatureMatcherUri;
+    return options;
+  }();
 
   bool Check() const;
 };

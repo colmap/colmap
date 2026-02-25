@@ -227,5 +227,77 @@ TEST(Ply, RoundTripBinaryPlyPointsXYZOnly) {
   EXPECT_EQ(loaded_points[0].b, 0);
 }
 
+TEST(Ply, RoundTripTextPlyMesh) {
+  const auto test_dir = CreateTestDir();
+  const auto test_file = test_dir / "mesh.ply";
+
+  PlyMesh original_mesh;
+  original_mesh.vertices.emplace_back(0.0f, 0.0f, 0.0f);
+  original_mesh.vertices.emplace_back(1.0f, 0.0f, 0.0f);
+  original_mesh.vertices.emplace_back(0.0f, 1.0f, 0.0f);
+  original_mesh.vertices.emplace_back(1.0f, 1.0f, 1.0f);
+
+  original_mesh.faces.emplace_back(0, 1, 2);
+  original_mesh.faces.emplace_back(1, 3, 2);
+
+  WriteTextPlyMesh(test_file, original_mesh);
+
+  PlyMesh loaded_mesh = ReadPlyMesh(test_file);
+
+  ASSERT_EQ(loaded_mesh.vertices.size(), original_mesh.vertices.size());
+  ASSERT_EQ(loaded_mesh.faces.size(), original_mesh.faces.size());
+
+  for (size_t i = 0; i < original_mesh.vertices.size(); ++i) {
+    EXPECT_EQ(loaded_mesh.vertices[i].x, original_mesh.vertices[i].x);
+    EXPECT_EQ(loaded_mesh.vertices[i].y, original_mesh.vertices[i].y);
+    EXPECT_EQ(loaded_mesh.vertices[i].z, original_mesh.vertices[i].z);
+  }
+
+  for (size_t i = 0; i < original_mesh.faces.size(); ++i) {
+    EXPECT_EQ(loaded_mesh.faces[i].vertex_idx1,
+              original_mesh.faces[i].vertex_idx1);
+    EXPECT_EQ(loaded_mesh.faces[i].vertex_idx2,
+              original_mesh.faces[i].vertex_idx2);
+    EXPECT_EQ(loaded_mesh.faces[i].vertex_idx3,
+              original_mesh.faces[i].vertex_idx3);
+  }
+}
+
+TEST(Ply, RoundTripBinaryPlyMesh) {
+  const auto test_dir = CreateTestDir();
+  const auto test_file = test_dir / "mesh.ply";
+
+  PlyMesh original_mesh;
+  original_mesh.vertices.emplace_back(0.0f, 0.0f, 0.0f);
+  original_mesh.vertices.emplace_back(1.0f, 0.0f, 0.0f);
+  original_mesh.vertices.emplace_back(0.0f, 1.0f, 0.0f);
+  original_mesh.vertices.emplace_back(1.0f, 1.0f, 1.0f);
+
+  original_mesh.faces.emplace_back(0, 1, 2);
+  original_mesh.faces.emplace_back(1, 3, 2);
+
+  WriteBinaryPlyMesh(test_file, original_mesh);
+
+  PlyMesh loaded_mesh = ReadPlyMesh(test_file);
+
+  ASSERT_EQ(loaded_mesh.vertices.size(), original_mesh.vertices.size());
+  ASSERT_EQ(loaded_mesh.faces.size(), original_mesh.faces.size());
+
+  for (size_t i = 0; i < original_mesh.vertices.size(); ++i) {
+    EXPECT_EQ(loaded_mesh.vertices[i].x, original_mesh.vertices[i].x);
+    EXPECT_EQ(loaded_mesh.vertices[i].y, original_mesh.vertices[i].y);
+    EXPECT_EQ(loaded_mesh.vertices[i].z, original_mesh.vertices[i].z);
+  }
+
+  for (size_t i = 0; i < original_mesh.faces.size(); ++i) {
+    EXPECT_EQ(loaded_mesh.faces[i].vertex_idx1,
+              original_mesh.faces[i].vertex_idx1);
+    EXPECT_EQ(loaded_mesh.faces[i].vertex_idx2,
+              original_mesh.faces[i].vertex_idx2);
+    EXPECT_EQ(loaded_mesh.faces[i].vertex_idx3,
+              original_mesh.faces[i].vertex_idx3);
+  }
+}
+
 }  // namespace
 }  // namespace colmap

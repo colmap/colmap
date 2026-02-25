@@ -2,19 +2,105 @@
 
 #include "colmap/util/types.h"
 
+#include "pycolmap/feature/opaque_types.h"
+
 #include <memory>
 #include <string>
 
+#include <Eigen/Geometry>
 #include <pybind11/cast.h>
 #include <pybind11/eigen.h>
+#include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl/filesystem.h>
 #include <pybind11/stl_bind.h>
 
+namespace pycolmap {
+
+// Wrapper for Rotation3d that can hold either owned data or a view into
+// existing memory (e.g., Rigid3d.params). This enables zero-copy access
+// to rotation data while providing the full quaternion interface.
+struct Rotation3dWrapper {
+  pybind11::array_t<double> data;
+
+  // Default constructor - creates owned identity quaternion
+  Rotation3dWrapper() : data(4) { map() = Eigen::Quaterniond::Identity(); }
+
+  // Copy from Eigen::Quaterniond - creates owned data
+  explicit Rotation3dWrapper(const Eigen::Quaterniond& q) : data(4) {
+    map() = q;
+  }
+
+  // From xyzw coefficients
+  explicit Rotation3dWrapper(const Eigen::Vector4d& xyzw) : data(4) {
+    map().coeffs() = xyzw;
+  }
+
+  // From rotation matrix
+  explicit Rotation3dWrapper(const Eigen::Matrix3d& matrix) : data(4) {
+    map() = Eigen::Quaterniond(matrix);
+  }
+
+  // From axis-angle vector
+  explicit Rotation3dWrapper(const Eigen::Vector3d& axis_angle) : data(4) {
+    map() = Eigen::Quaterniond(
+        Eigen::AngleAxisd(axis_angle.norm(), axis_angle.normalized()));
+  }
+
+  // View constructor - borrows existing array (zero-copy)
+  explicit Rotation3dWrapper(pybind11::array_t<double> arr)
+      : data(std::move(arr)) {}
+
+  Eigen::Map<Eigen::Quaterniond> map() {
+    return Eigen::Map<Eigen::Quaterniond>(data.mutable_data());
+  }
+
+  Eigen::Map<const Eigen::Quaterniond> map() const {
+    return Eigen::Map<const Eigen::Quaterniond>(data.data());
+  }
+};
+
+}  // namespace pycolmap
+
 namespace PYBIND11_NAMESPACE {
 namespace detail {
+
+// Type caster to allow functions taking Eigen::Quaterniond to accept
+// Rotation3dWrapper, and functions returning Eigen::Quaterniond to return
+// Rotation3dWrapper.
+template <>
+struct type_caster<Eigen::Quaterniond> {
+  PYBIND11_TYPE_CASTER(Eigen::Quaterniond, const_name("Rotation3d"));
+
+  // Python -> C++ (when calling functions that take Eigen::Quaterniond)
+  bool load(handle src, bool) {
+    // Try to load from Rotation3dWrapper
+    if (isinstance<pycolmap::Rotation3dWrapper>(src)) {
+      value = src.cast<pycolmap::Rotation3dWrapper&>().map();
+      return true;
+    }
+    // Also accept raw numpy arrays
+    try {
+      auto arr = src.cast<pybind11::array_t<double>>();
+      if (arr.size() == 4) {
+        value = Eigen::Map<const Eigen::Quaterniond>(arr.data());
+        return true;
+      }
+    } catch (...) {
+    }
+    return false;
+  }
+
+  // C++ -> Python (when returning Eigen::Quaterniond)
+  static handle cast(const Eigen::Quaterniond& src,
+                     return_value_policy,
+                     handle) {
+    pycolmap::Rotation3dWrapper wrapper(src);
+    return pybind11::cast(std::move(wrapper)).release();
+  }
+};
 
 // Bind COLMAP's backport implementation of std::span. This copies the content
 // into a list. We could instead create a view with an Eigen::Map but the cast

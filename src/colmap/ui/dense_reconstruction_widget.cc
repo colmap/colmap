@@ -29,6 +29,7 @@
 
 #include "colmap/ui/dense_reconstruction_widget.h"
 
+#include "colmap/controllers/undistorters.h"
 #include "colmap/image/undistortion.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
@@ -362,7 +363,8 @@ void DenseReconstructionWidget::Undistort() {
   }
 
   auto undistorter = std::make_unique<ControllerThread<COLMAPUndistorter>>(
-      std::make_shared<COLMAPUndistorter>(UndistortCameraOptions(),
+      std::make_shared<COLMAPUndistorter>(COLMAPUndistorter::Options(),
+                                          UndistortCameraOptions(),
                                           *reconstruction_,
                                           *options_->image_path,
                                           workspace_path));
@@ -481,7 +483,7 @@ void DenseReconstructionWidget::SelectWorkspacePath() {
 }
 
 std::filesystem::path DenseReconstructionWidget::GetWorkspacePath() {
-  const std::filesystem::path workspace_path =
+  std::filesystem::path workspace_path =
       workspace_path_text_->text().toUtf8().constData();
   if (ExistsDir(workspace_path)) {
     return workspace_path;

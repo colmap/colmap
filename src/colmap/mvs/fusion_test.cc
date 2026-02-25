@@ -34,6 +34,8 @@
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
+#include <fstream>
+
 #include <gtest/gtest.h>
 
 namespace colmap {

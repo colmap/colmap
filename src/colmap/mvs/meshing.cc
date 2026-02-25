@@ -41,12 +41,12 @@
 #endif  // COLMAP_CGAL_ENABLED
 
 #include "colmap/math/graph_cut.h"
+#include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/endian.h"
 #include "colmap/util/file.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 #include "colmap/util/ply.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
@@ -56,8 +56,8 @@
 
 #if defined(COLMAP_CGAL_ENABLED)
 
-typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
-typedef CGAL::Delaunay_triangulation_3<K, CGAL::Fast_location> Delaunay;
+using K = CGAL::Exact_predicates_inexact_constructions_kernel;
+using Delaunay = CGAL::Delaunay_triangulation_3<K, CGAL::Fast_location>;
 
 namespace std {
 
@@ -743,8 +743,8 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
   LOG(INFO) << "Initializing graph optimization...";
 
-  typedef std::unordered_map<const Delaunay::Cell_handle, DelaunayCellData>
-      CellGraphData;
+  using CellGraphData =
+      std::unordered_map<const Delaunay::Cell_handle, DelaunayCellData>;
 
   CellGraphData cell_graph_data;
   cell_graph_data.reserve(triangulation.number_of_cells());
@@ -884,12 +884,12 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
     // Accumulate the weights of the image into the global graph.
     const auto& image_cell_graph_data = result.Data();
-    for (const auto& image_cell_data : image_cell_graph_data) {
-      auto& cell_data = cell_graph_data.at(image_cell_data.first);
-      cell_data.sink_weight += image_cell_data.second.sink_weight;
-      cell_data.source_weight += image_cell_data.second.source_weight;
-      for (size_t j = 0; j < cell_data.edge_weights.size(); ++j) {
-        cell_data.edge_weights[j] += image_cell_data.second.edge_weights[j];
+    for (const auto& [cell_handle, cell_data] : image_cell_graph_data) {
+      auto& global_cell_data = cell_graph_data.at(cell_handle);
+      global_cell_data.sink_weight += cell_data.sink_weight;
+      global_cell_data.source_weight += cell_data.source_weight;
+      for (size_t j = 0; j < global_cell_data.edge_weights.size(); ++j) {
+        global_cell_data.edge_weights[j] += cell_data.edge_weights[j];
       }
     }
 
@@ -905,22 +905,20 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
   MinSTGraphCut<size_t, float> graph_cut(cell_graph_data.size());
 
   // Iterate all cells in the triangulation.
-  for (auto& cell_data : cell_graph_data) {
-    graph_cut.AddNode(cell_data.second.index,
-                      cell_data.second.source_weight,
-                      cell_data.second.sink_weight);
+  for (auto& [cell_handle, data] : cell_graph_data) {
+    graph_cut.AddNode(data.index, data.source_weight, data.sink_weight);
 
     // Iterate all facets of the current cell to accumulate edge weight.
     for (int i = 0; i < 4; ++i) {
       // Compose the current facet.
-      const Delaunay::Facet facet = std::make_pair(cell_data.first, i);
+      const Delaunay::Facet facet = std::make_pair(cell_handle, i);
 
       // Extract the mirrored facet of the current cell (opposite orientation).
       const Delaunay::Facet mirror_facet = triangulation.mirror_facet(facet);
       const auto& mirror_cell_data = cell_graph_data.at(mirror_facet.first);
 
       // Avoid duplicate edges in graph.
-      if (cell_data.second.index < mirror_cell_data.index) {
+      if (data.index < mirror_cell_data.index) {
         continue;
       }
 
@@ -934,12 +932,12 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
                     ComputeCosFacetCellAngle(triangulation, mirror_facet)));
 
       const float forward_edge_weight =
-          cell_data.second.edge_weights[facet.second] + edge_shape_weight;
+          data.edge_weights[facet.second] + edge_shape_weight;
       const float backward_edge_weight =
           mirror_cell_data.edge_weights[mirror_facet.second] +
           edge_shape_weight;
 
-      graph_cut.AddEdge(cell_data.second.index,
+      graph_cut.AddEdge(data.index,
                         mirror_cell_data.index,
                         forward_edge_weight,
                         backward_edge_weight);

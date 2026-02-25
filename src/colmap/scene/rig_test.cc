@@ -151,9 +151,9 @@ TEST(ReadRigConfig, Nominal) {
   EXPECT_EQ(configs[0].cameras[1].image_prefix, "rig1/camera2/");
   EXPECT_FALSE(configs[0].cameras[1].ref_sensor);
   ASSERT_TRUE(configs[0].cameras[1].cam_from_rig.has_value());
-  EXPECT_EQ(configs[0].cameras[1].cam_from_rig->rotation.coeffs(),
+  EXPECT_EQ(configs[0].cameras[1].cam_from_rig->rotation().coeffs(),
             Eigen::Vector4d(1, 0, 0, 0));
-  EXPECT_EQ(configs[0].cameras[1].cam_from_rig->translation,
+  EXPECT_EQ(configs[0].cameras[1].cam_from_rig->translation(),
             Eigen::Vector3d(1, 2, 3));
   ASSERT_FALSE(configs[0].cameras[1].camera.has_value());
 
@@ -341,10 +341,10 @@ TEST(ApplyRigConfig, WithoutReconstruction) {
   EXPECT_EQ(database->NumFrames(), 5);
   const auto [sensor_id2, sensor2_from_rig] =
       *database->ReadAllRigs().at(0).NonRefSensors().begin();
-  EXPECT_EQ(sensor2_from_rig.value().rotation.coeffs(),
-            camera2.cam_from_rig.value().rotation.coeffs());
-  EXPECT_EQ(sensor2_from_rig.value().translation,
-            camera2.cam_from_rig.value().translation);
+  EXPECT_EQ(sensor2_from_rig.value().rotation().coeffs(),
+            camera2.cam_from_rig.value().rotation().coeffs());
+  EXPECT_EQ(sensor2_from_rig.value().translation(),
+            camera2.cam_from_rig.value().translation());
   EXPECT_EQ(database->ReadCamera(sensor_id2.id), camera2.camera);
 }
 

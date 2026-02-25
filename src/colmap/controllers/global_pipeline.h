@@ -31,9 +31,8 @@
 
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction_manager.h"
+#include "colmap/sfm/global_mapper.h"
 #include "colmap/util/base_controller.h"
-
-#include "glomap/sfm/global_mapper.h"
 
 #include <filesystem>
 #include <memory>
@@ -64,15 +63,14 @@ struct GlobalPipelineOptions {
   bool decompose_relative_pose = true;
 
   // Options for the global mapper.
-  glomap::GlobalMapperOptions mapper;
+  GlobalMapperOptions mapper;
 };
 
 class GlobalPipeline : public BaseController {
  public:
-  GlobalPipeline(
-      const GlobalPipelineOptions& options,
-      std::shared_ptr<Database> database,
-      std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager);
+  GlobalPipeline(GlobalPipelineOptions options,
+                 std::shared_ptr<Database> database,
+                 std::shared_ptr<ReconstructionManager> reconstruction_manager);
 
   GlobalPipeline(
       const GlobalPipelineOptions& options,
@@ -83,8 +81,8 @@ class GlobalPipeline : public BaseController {
 
  private:
   const GlobalPipelineOptions options_;
-  std::shared_ptr<DatabaseCache> database_cache_;
-  std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager_;
+  const std::shared_ptr<Database> database_;
+  std::shared_ptr<ReconstructionManager> reconstruction_manager_;
 };
 
 }  // namespace colmap

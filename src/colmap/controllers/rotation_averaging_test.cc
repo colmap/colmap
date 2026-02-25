@@ -48,11 +48,11 @@ void ExpectEqualRotations(const Reconstruction& gt,
     for (size_t j = 0; j < i; j++) {
       const image_t image_id2 = reg_image_ids[j];
       const Eigen::Quaterniond cam2_from_cam1 =
-          computed.Image(image_id2).CamFromWorld().rotation *
-          computed.Image(image_id1).CamFromWorld().rotation.inverse();
+          computed.Image(image_id2).CamFromWorld().rotation() *
+          computed.Image(image_id1).CamFromWorld().rotation().inverse();
       const Eigen::Quaterniond cam2_from_cam1_gt =
-          gt.Image(image_id2).CamFromWorld().rotation *
-          gt.Image(image_id1).CamFromWorld().rotation.inverse();
+          gt.Image(image_id2).CamFromWorld().rotation() *
+          gt.Image(image_id1).CamFromWorld().rotation().inverse();
       EXPECT_LT(cam2_from_cam1.angularDistance(cam2_from_cam1_gt),
                 max_rotation_error_rad);
     }
@@ -120,8 +120,9 @@ void ExpectExactEqualRotations(const Reconstruction& reconstruction1,
   const std::vector<image_t> reg_image_ids = reconstruction1.RegImageIds();
   ASSERT_EQ(reg_image_ids.size(), reconstruction2.RegImageIds().size());
   for (const image_t image_id : reg_image_ids) {
-    EXPECT_EQ(reconstruction1.Image(image_id).CamFromWorld().rotation.coeffs(),
-              reconstruction2.Image(image_id).CamFromWorld().rotation.coeffs());
+    EXPECT_EQ(
+        reconstruction1.Image(image_id).CamFromWorld().rotation().coeffs(),
+        reconstruction2.Image(image_id).CamFromWorld().rotation().coeffs());
   }
 }
 

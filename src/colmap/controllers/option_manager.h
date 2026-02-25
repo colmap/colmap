@@ -51,6 +51,7 @@ struct BundleAdjustmentOptions;
 struct IncrementalPipelineOptions;
 struct GlobalPipelineOptions;
 struct RenderOptions;
+struct ReconstructionClusteringOptions;
 
 namespace mvs {
 struct PatchMatchOptions;
@@ -59,11 +60,9 @@ struct PoissonMeshingOptions;
 struct DelaunayMeshingOptions;
 }  // namespace mvs
 
-}  // namespace colmap
-
-namespace glomap {
 struct GravityRefinerOptions;
-}  // namespace glomap
+
+}  // namespace colmap
 
 namespace colmap {
 
@@ -98,6 +97,7 @@ class OptionManager : public BaseOptionManager {
   void AddMapperOptions();
   void AddGlobalMapperOptions();
   void AddGravityRefinerOptions();
+  void AddReconstructionClustererOptions();
   void AddPatchMatchStereoOptions();
   void AddStereoFusionOptions();
   void AddPoissonMeshingOptions();
@@ -123,7 +123,8 @@ class OptionManager : public BaseOptionManager {
   std::shared_ptr<BundleAdjustmentOptions> bundle_adjustment;
   std::shared_ptr<IncrementalPipelineOptions> mapper;
   std::shared_ptr<GlobalPipelineOptions> global_mapper;
-  std::shared_ptr<glomap::GravityRefinerOptions> gravity_refiner;
+  std::shared_ptr<ReconstructionClusteringOptions> reconstruction_clusterer;
+  std::shared_ptr<GravityRefinerOptions> gravity_refiner;
 
   std::shared_ptr<mvs::PatchMatchOptions> patch_match_stereo;
   std::shared_ptr<mvs::StereoFusionOptions> stereo_fusion;
@@ -154,6 +155,7 @@ class OptionManager : public BaseOptionManager {
   bool added_mapper_options_ = false;
   bool added_global_mapper_options_ = false;
   bool added_gravity_refiner_options_ = false;
+  bool added_reconstruction_clusterer_options_ = false;
   bool added_patch_match_stereo_options_ = false;
   bool added_stereo_fusion_options_ = false;
   bool added_poisson_meshing_options_ = false;

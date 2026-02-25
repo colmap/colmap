@@ -13,55 +13,83 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindEigenGeometry(py::module& m) {
-  py::classh_ext<Eigen::Quaterniond> PyRotation3d(m, "Rotation3d");
-  PyRotation3d.def(py::init([]() { return Eigen::Quaterniond::Identity(); }))
+  using Rotation3dWrapper = pycolmap::Rotation3dWrapper;
+  py::classh_ext<Rotation3dWrapper> PyRotation3d(m, "Rotation3d");
+  PyRotation3d.def(py::init<>())
       .def(py::init<const Eigen::Vector4d&>(),
            "xyzw"_a,
            "Quaternion in [x,y,z,w] format.")
       .def(py::init<const Eigen::Matrix3d&>(),
            "matrix"_a,
            "3x3 rotation matrix.")
-      .def(py::init([](const Eigen::Vector3d& vec) {
-             return Eigen::Quaterniond(
-                 Eigen::AngleAxis<double>(vec.norm(), vec.normalized()));
-           }),
+      .def(py::init<const Eigen::Vector3d&>(),
            "axis_angle"_a,
            "Axis-angle 3D vector.")
+      .def_static(
+          "from_buffer",
+          [](py::array_t<double> arr) {
+            THROW_CHECK_EQ(arr.size(), 4);
+            return Rotation3dWrapper(std::move(arr));
+          },
+          "array"_a,
+          "Create from numpy array view (zero-copy if contiguous).")
       .def_property(
           "quat",
-          py::overload_cast<>(&Eigen::Quaterniond::coeffs),
-          [](Eigen::Quaterniond& self, const Eigen::Vector4d& quat) {
-            self.coeffs() = quat;
+          [](Rotation3dWrapper& self) { return self.data; },
+          [](Rotation3dWrapper& self, const Eigen::Vector4d& quat) {
+            self.map().coeffs() = quat;
           },
           "Quaternion in [x,y,z,w] format.")
-      .def(py::self * Eigen::Quaterniond())
-      .def(py::self * Eigen::Vector3d())
       .def("__mul__",
-           [](const Eigen::Quaterniond& self,
+           [](const Rotation3dWrapper& self, const Rotation3dWrapper& other) {
+             return Rotation3dWrapper(self.map() * other.map());
+           })
+      .def("__mul__",
+           [](const Rotation3dWrapper& self, const Eigen::Vector3d& v) {
+             return Eigen::Vector3d(self.map() * v);
+           })
+      .def("__mul__",
+           [](const Rotation3dWrapper& self,
               const py::EigenDRef<const Eigen::MatrixX3d>& points)
                -> Eigen::MatrixX3d {
-             return points * self.toRotationMatrix().transpose();
+             return points * self.map().toRotationMatrix().transpose();
            })
-      .def("normalize", &Eigen::Quaterniond::normalize)
-      .def("matrix", &Eigen::Quaterniond::toRotationMatrix)
-      .def("norm", &Eigen::Quaterniond::norm)
+      .def("normalize", [](Rotation3dWrapper& self) { self.map().normalize(); })
+      .def("matrix",
+           [](const Rotation3dWrapper& self) {
+             return self.map().toRotationMatrix();
+           })
+      .def("norm",
+           [](const Rotation3dWrapper& self) { return self.map().norm(); })
       .def("angle",
-           [](const Eigen::Quaterniond& self) {
-             return Eigen::AngleAxis<double>(self).angle();
+           [](const Rotation3dWrapper& self) {
+             return Eigen::AngleAxis<double>(self.map()).angle();
            })
       .def(
           "angle_to",
-          [](const Eigen::Quaterniond& self, const Eigen::Quaterniond& other) {
-            return self.angularDistance(other);
+          [](const Rotation3dWrapper& self, const Rotation3dWrapper& other) {
+            return self.map().angularDistance(other.map());
           },
           "other"_a)
-      .def("inverse", &Eigen::Quaterniond::inverse)
-      .def("__repr__", [](const Eigen::Quaterniond& self) {
+      .def("inverse",
+           [](const Rotation3dWrapper& self) {
+             return Rotation3dWrapper(self.map().inverse());
+           })
+      .def("__repr__", [](const Rotation3dWrapper& self) {
         std::ostringstream ss;
-        ss << "Rotation3d(xyzw=[" << self.coeffs().format(vec_fmt) << "])";
+        ss << "Rotation3d(xyzw=[" << self.map().coeffs().format(vec_fmt)
+           << "])";
         return ss.str();
       });
-  py::implicitly_convertible<py::array, Eigen::Quaterniond>();
+  py::implicitly_convertible<py::array, Rotation3dWrapper>();
+  // Define deepcopy before MakeDataclass to ensure proper deep copy of array
+  // data
+  PyRotation3d.def("__deepcopy__",
+                   [](const Rotation3dWrapper& self, const py::dict&) {
+                     Rotation3dWrapper copy;
+                     copy.map() = self.map();
+                     return copy;
+                   });
   MakeDataclass(PyRotation3d);
 
   py::classh_ext<Eigen::AlignedBox3d> PyAlignedBox3d(m, "AlignedBox3d");

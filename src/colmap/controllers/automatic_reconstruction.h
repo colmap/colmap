@@ -30,7 +30,6 @@
 #pragma once
 
 #include "colmap/controllers/option_manager.h"
-#include "colmap/retrieval/resources.h"
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/util/enum_utils.h"
 #include "colmap/util/threading.h"
@@ -45,6 +44,7 @@ class AutomaticReconstructionController : public Thread {
  public:
   MAKE_ENUM_CLASS(DataType, 0, INDIVIDUAL, VIDEO, INTERNET);
   MAKE_ENUM_CLASS(Quality, 0, LOW, MEDIUM, HIGH, EXTREME);
+  MAKE_ENUM_CLASS(Feature, 0, SIFT, ALIKED);
   MAKE_ENUM_CLASS(Mapper, 0, INCREMENTAL, HIERARCHICAL, GLOBAL);
   MAKE_ENUM_CLASS(Mesher, 0, POISSON, DELAUNAY);
 
@@ -63,7 +63,7 @@ class AutomaticReconstructionController : public Thread {
     std::filesystem::path mask_path;
 
     // The path to the vocabulary tree for feature matching.
-    std::filesystem::path vocab_tree_path = kDefaultVocabTreeUri;
+    std::filesystem::path vocab_tree_path;
 
     // The type of input data used to choose optimal mapper settings.
     DataType data_type = DataType::INDIVIDUAL;
@@ -99,6 +99,9 @@ class AutomaticReconstructionController : public Thread {
 #else
     bool dense = false;
 #endif
+
+    // The feature extraction/matching algorithm to be used.
+    Feature feature = Feature::SIFT;
 
     // The mapping algorithm to be used.
     Mapper mapper = Mapper::INCREMENTAL;

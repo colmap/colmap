@@ -31,19 +31,33 @@
 set(FOLDER_NAME "scene")
 
 COLMAP_ADD_LIBRARY(
-    NAME colmap_scene
+    NAME colmap_scene_types
     SRCS
         camera.h camera.cc
+        frame.h frame.cc
+        image.h image.cc
+        point2d.h point2d.cc
+        two_view_geometry.h two_view_geometry.cc
+    PUBLIC_LINK_LIBS
+        colmap_sensor
+        colmap_feature_types
+        colmap_geometry
+        colmap_util
+        Eigen3::Eigen
+)
+
+COLMAP_ADD_LIBRARY(
+    NAME colmap_scene
+    SRCS
         correspondence_graph.h correspondence_graph.cc
         database.h database.cc
         database_sqlite.h database_sqlite.cc
         database_cache.h database_cache.cc
-        frame.h frame.cc
-        image.h image.cc
-        point2d.h point2d.cc
         point3d.h point3d.cc
+        pose_graph.h pose_graph.cc
         projection.h projection.cc
         reconstruction.h reconstruction.cc
+        reconstruction_clustering.h reconstruction_clustering.cc
         reconstruction_io.h reconstruction_io.cc
         reconstruction_io_binary.h reconstruction_io_binary.cc
         reconstruction_io_text.h reconstruction_io_text.cc
@@ -54,15 +68,14 @@ COLMAP_ADD_LIBRARY(
         scene_clustering.h scene_clustering.cc
         synthetic.h synthetic.cc
         track.h track.cc
-        two_view_geometry.h two_view_geometry.cc
         visibility_pyramid.h visibility_pyramid.cc
     PUBLIC_LINK_LIBS
-        colmap_sensor
-        colmap_feature_types
-        colmap_geometry
+        colmap_scene_types
         colmap_util
         Eigen3::Eigen
         SQLite::SQLite3
+    PRIVATE_LINK_LIBS
+        colmap_optim
 )
 
 if(TESTS_ENABLED)
@@ -151,6 +164,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(
+    NAME reconstruction_clustering_test
+    SRCS reconstruction_clustering_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
     NAME rig_test
     SRCS rig_test.cc
     LINK_LIBS colmap_scene
@@ -178,5 +196,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME visibility_pyramid_test
     SRCS visibility_pyramid_test.cc
+    LINK_LIBS colmap_scene
+)
+
+COLMAP_ADD_TEST(
+    NAME glomap_pose_graph_test
+    SRCS pose_graph_test.cc
     LINK_LIBS colmap_scene
 )

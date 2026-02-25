@@ -58,7 +58,7 @@ TEST(GlobalPipeline, Nominal) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   GlobalPipelineOptions options;
-  GlobalPipeline mapper(options, database, reconstruction_manager);
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -91,7 +91,7 @@ TEST(GlobalPipeline, SfMWithRandomSeedStability) {
     options.num_threads = num_threads;
     options.random_seed = random_seed;
     auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-    GlobalPipeline mapper(options, database, reconstruction_manager);
+    GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
     mapper.Run();
     EXPECT_EQ(reconstruction_manager->Size(), 1);
     return reconstruction_manager;
@@ -143,10 +143,53 @@ TEST(GlobalPipeline, WithExistingRelativePoses) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   GlobalPipelineOptions options;
-  GlobalPipeline mapper(options, database, reconstruction_manager);
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(*reconstruction_manager->Get(0),
+                                 /*max_rotation_error_deg=*/1e-2,
+                                 /*max_proj_center_error=*/1e-4));
+}
+
+// To test relative pose re-estimation from view graph calibration.
+TEST(GlobalPipeline, WithNoisyExistingRelativePoses) {
+  SetPRNGSeed(1);
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  // Replace relative poses with completely random values.
+  for (auto& [pair_id, two_view_geometry] : database->ReadTwoViewGeometries()) {
+    if (!two_view_geometry.cam2_from_cam1.has_value()) {
+      continue;
+    }
+    two_view_geometry.cam2_from_cam1->rotation() =
+        Eigen::Quaterniond::UnitRandom();
+    two_view_geometry.cam2_from_cam1->translation() =
+        Eigen::Vector3d::Random().normalized();
+
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    database->UpdateTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+  }
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  GlobalPipelineOptions options;
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  // Expect slightly worse accuracy due to noisy input poses.
   EXPECT_THAT(gt_reconstruction,
               ReconstructionNear(*reconstruction_manager->Get(0),
                                  /*max_rotation_error_deg=*/1e-2,
