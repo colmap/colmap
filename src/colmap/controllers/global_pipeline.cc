@@ -66,7 +66,7 @@ GlobalPipeline::GlobalPipeline(
 
 GlobalPipeline::GlobalPipeline(
     const GlobalPipelineOptions& options,
-    std::shared_ptr<DatabaseCache> database_cache,
+    std::shared_ptr<const DatabaseCache> database_cache,
     std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager)
     : options_(options),
       reconstruction_manager_(
