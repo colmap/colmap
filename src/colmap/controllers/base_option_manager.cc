@@ -177,7 +177,7 @@ void BaseOptionManager::ApplyLogFlags() {
   } else if (log_target_ == "stderr_and_file") {
     FLAGS_alsologtostderr = true;
   } else {
-    LOG(ERROR) << "Invalid Logging.log_output: " << log_target_
+    LOG(ERROR) << "Invalid Logging.log_target: " << log_target_
                << ". Falling back to stderr_and_file.";
     FLAGS_alsologtostderr = true;
   }

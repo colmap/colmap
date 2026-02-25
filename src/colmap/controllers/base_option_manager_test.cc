@@ -495,9 +495,9 @@ TEST(BaseOptionManager, LogOptions) {
                  /*expect_stdout=*/false,
                  /*expect_and_file=*/true);
   VerifyLogState("invalid",
-                 /*expect_stderr=*/true,
+                 /*expect_stderr=*/false,
                  /*expect_stdout=*/false,
-                 /*expect_and_file=*/false);
+                 /*expect_and_file=*/true);
 }
 }  // namespace
 }  // namespace colmap
