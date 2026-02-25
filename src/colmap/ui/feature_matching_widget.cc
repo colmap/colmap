@@ -228,10 +228,12 @@ ExhaustiveMatchingTab::ExhaustiveMatchingTab(QWidget* parent,
 void ExhaustiveMatchingTab::Run() {
   WriteOptions();
 
-  auto matcher = CreateExhaustiveFeatureMatcher(*options_->exhaustive_pairing,
-                                                *options_->feature_matching,
-                                                *options_->two_view_geometry,
-                                                *options_->database_path);
+  auto matcher =
+      CreateExhaustiveFeatureMatcher(*options_->exhaustive_pairing,
+                                     *options_->feature_matching,
+                                     *options_->two_view_geometry,
+                                     *options_->view_graph_calibration,
+                                     *options_->database_path);
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
 
@@ -282,10 +284,12 @@ void SequentialMatchingTab::Run() {
     return;
   }
 
-  auto matcher = CreateSequentialFeatureMatcher(*options_->sequential_pairing,
-                                                *options_->feature_matching,
-                                                *options_->two_view_geometry,
-                                                *options_->database_path);
+  auto matcher =
+      CreateSequentialFeatureMatcher(*options_->sequential_pairing,
+                                     *options_->feature_matching,
+                                     *options_->two_view_geometry,
+                                     *options_->view_graph_calibration,
+                                     *options_->database_path);
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
 
@@ -320,10 +324,12 @@ void VocabTreeMatchingTab::Run() {
     return;
   }
 
-  auto matcher = CreateVocabTreeFeatureMatcher(*options_->vocab_tree_pairing,
-                                               *options_->feature_matching,
-                                               *options_->two_view_geometry,
-                                               *options_->database_path);
+  auto matcher =
+      CreateVocabTreeFeatureMatcher(*options_->vocab_tree_pairing,
+                                    *options_->feature_matching,
+                                    *options_->two_view_geometry,
+                                    *options_->view_graph_calibration,
+                                    *options_->database_path);
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
 
@@ -347,6 +353,7 @@ void SpatialMatchingTab::Run() {
   auto matcher = CreateSpatialFeatureMatcher(*options_->spatial_pairing,
                                              *options_->feature_matching,
                                              *options_->two_view_geometry,
+                                             *options_->view_graph_calibration,
                                              *options_->database_path);
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
@@ -365,10 +372,12 @@ TransitiveMatchingTab::TransitiveMatchingTab(QWidget* parent,
 void TransitiveMatchingTab::Run() {
   WriteOptions();
 
-  auto matcher = CreateTransitiveFeatureMatcher(*options_->transitive_pairing,
-                                                *options_->feature_matching,
-                                                *options_->two_view_geometry,
-                                                *options_->database_path);
+  auto matcher =
+      CreateTransitiveFeatureMatcher(*options_->transitive_pairing,
+                                     *options_->feature_matching,
+                                     *options_->two_view_geometry,
+                                     *options_->view_graph_calibration,
+                                     *options_->database_path);
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
 
@@ -403,6 +412,7 @@ void CustomMatchingTab::Run() {
     matcher = CreateImagePairsFeatureMatcher(matcher_options,
                                              *options_->feature_matching,
                                              *options_->two_view_geometry,
+                                             *options_->view_graph_calibration,
                                              *options_->database_path);
   } else {
     FeaturePairsMatchingOptions matcher_options;
@@ -413,10 +423,12 @@ void CustomMatchingTab::Run() {
       matcher_options.verify_matches = false;
     }
 
-    matcher = CreateFeaturePairsFeatureMatcher(matcher_options,
-                                               *options_->feature_matching,
-                                               *options_->two_view_geometry,
-                                               *options_->database_path);
+    matcher =
+        CreateFeaturePairsFeatureMatcher(matcher_options,
+                                         *options_->feature_matching,
+                                         *options_->two_view_geometry,
+                                         *options_->view_graph_calibration,
+                                         *options_->database_path);
   }
 
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));

@@ -153,111 +153,6 @@ void RigVerification(const std::shared_ptr<Database>& database,
   thread_pool.Wait();
 }
 
-class FeatureMatcherThread : public Thread {
- public:
-  template <typename PairGeneratorType>
-  static std::unique_ptr<Thread> Create(
-      const typename PairGeneratorType::PairingOptions& pairing_options,
-      const FeatureMatchingOptions& matching_options,
-      const TwoViewGeometryOptions& geometry_options,
-      const std::filesystem::path& database_path) {
-    auto database = Database::Open(database_path);
-    auto cache = std::make_shared<FeatureMatcherCache>(
-        pairing_options.CacheSize(), database);
-    return std::make_unique<FeatureMatcherThread>(
-        matching_options,
-        geometry_options,
-        database,
-        cache,
-        [pairing_options, cache]() {
-          return std::make_unique<PairGeneratorType>(pairing_options, cache);
-        });
-  }
-
-  using PairGeneratorFactory = std::function<std::unique_ptr<PairGenerator>()>;
-
-  FeatureMatcherThread(const FeatureMatchingOptions& matching_options,
-                       const TwoViewGeometryOptions& geometry_options,
-                       std::shared_ptr<Database> database,
-                       std::shared_ptr<FeatureMatcherCache> cache,
-                       PairGeneratorFactory pair_generator_factory)
-      : matching_options_(matching_options),
-        geometry_options_(geometry_options),
-        database_(std::move(database)),
-        cache_(std::move(cache)),
-        pair_generator_factory_(std::move(pair_generator_factory)),
-        matcher_(matching_options, geometry_options, cache_) {
-    THROW_CHECK(matching_options.Check());
-    THROW_CHECK(geometry_options.Check());
-  }
-
- private:
-  void Run() override {
-    LOG_HEADING1("Feature matching & geometric verification");
-
-    Timer run_timer;
-    run_timer.Start();
-
-    if (!matcher_.Setup()) {
-      return;
-    }
-
-    std::unique_ptr<PairGenerator> pair_generator =
-        THROW_CHECK_NOTNULL(pair_generator_factory_());
-
-    while (!pair_generator->HasFinished()) {
-      if (IsStopped()) {
-        run_timer.PrintMinutes();
-        return;
-      }
-      Timer timer;
-      timer.Start();
-      const std::vector<std::pair<image_t, image_t>> image_pairs =
-          pair_generator->Next();
-      matcher_.Match(image_pairs);
-      LOG(INFO) << StringPrintf("in %.3fs", timer.ElapsedSeconds());
-    }
-
-    run_timer.PrintMinutes();
-
-    // Notice that we run rig verification after feature matching, because
-    // feature matching operates on pairs of images instead of pairs of frames.
-    // Rig verification operates on pairs of frames and we require all image
-    // pairs between two frames to be matched before running rig verification.
-    if (!matching_options_.skip_geometric_verification &&
-        matching_options_.rig_verification) {
-      run_timer.Restart();
-      LOG_HEADING1("Rig verification");
-      RigVerification(
-          database_, cache_, geometry_options_, matching_options_.num_threads);
-      run_timer.PrintMinutes();
-    }
-
-    // Run view graph calibration after matching if enabled.
-    // This refines focal lengths from fundamental matrices and
-    // re-estimates relative poses from the calibrated essential matrices.
-    if (!matching_options_.skip_geometric_verification &&
-        matching_options_.view_graph_calibration) {
-      run_timer.Restart();
-      LOG_HEADING1("View graph calibration");
-      ViewGraphCalibrationOptions vgc_options =
-          matching_options_.view_graph_calibration_options;
-      vgc_options.solver_options.num_threads = matching_options_.num_threads;
-      if (!CalibrateViewGraph(vgc_options, database_.get())) {
-        LOG(ERROR) << "View graph calibration failed";
-      }
-      run_timer.PrintMinutes();
-    }
-  }
-
-  const FeatureMatchingOptions matching_options_;
-  const TwoViewGeometryOptions geometry_options_;
-  const std::shared_ptr<Database> database_;
-  const std::shared_ptr<FeatureMatcherCache> cache_;
-  const PairGeneratorFactory pair_generator_factory_;
-  FeatureMatcherController matcher_;
-};
-
 class GeometricVerifierThread : public Thread {
  public:
   template <typename PairGeneratorType>
@@ -265,8 +160,7 @@ class GeometricVerifierThread : public Thread {
       const GeometricVerifierOptions& verifier_options,
       const typename PairGeneratorType::PairingOptions& pairing_options,
       const TwoViewGeometryOptions& geometry_options,
-      const std::filesystem::path& database_path) {
-    auto database = Database::Open(database_path);
+      std::shared_ptr<Database> database) {
     auto cache = std::make_shared<FeatureMatcherCache>(
         pairing_options.CacheSize(), database);
     return std::make_unique<GeometricVerifierThread>(
@@ -341,60 +235,213 @@ class GeometricVerifierThread : public Thread {
   GeometricVerifierController verifier_;
 };
 
+class FeatureMatcherThread : public Thread {
+ public:
+  template <typename PairGeneratorType>
+  static std::unique_ptr<Thread> Create(
+      const typename PairGeneratorType::PairingOptions& pairing_options,
+      const FeatureMatchingOptions& matching_options,
+      const TwoViewGeometryOptions& geometry_options,
+      const ViewGraphCalibrationOptions& vgc_options,
+      std::shared_ptr<Database> database) {
+    auto cache = std::make_shared<FeatureMatcherCache>(
+        pairing_options.CacheSize(), database);
+    return std::make_unique<FeatureMatcherThread>(
+        matching_options,
+        geometry_options,
+        vgc_options,
+        database,
+        cache,
+        [pairing_options, cache]() {
+          return std::make_unique<PairGeneratorType>(pairing_options, cache);
+        });
+  }
+
+  using PairGeneratorFactory = std::function<std::unique_ptr<PairGenerator>()>;
+
+  FeatureMatcherThread(const FeatureMatchingOptions& matching_options,
+                       const TwoViewGeometryOptions& geometry_options,
+                       const ViewGraphCalibrationOptions& vgc_options,
+                       std::shared_ptr<Database> database,
+                       std::shared_ptr<FeatureMatcherCache> cache,
+                       PairGeneratorFactory pair_generator_factory)
+      : matching_options_(matching_options),
+        geometry_options_(geometry_options),
+        vgc_options_(vgc_options),
+        database_(std::move(database)),
+        cache_(std::move(cache)),
+        pair_generator_factory_(std::move(pair_generator_factory)),
+        matcher_(matching_options, geometry_options, cache_) {
+    THROW_CHECK(matching_options.Check());
+    THROW_CHECK(geometry_options.Check());
+  }
+
+ private:
+  void Run() override {
+    LOG_HEADING1("Feature matching & geometric verification");
+
+    Timer run_timer;
+    run_timer.Start();
+
+    if (!matcher_.Setup()) {
+      return;
+    }
+
+    std::unique_ptr<PairGenerator> pair_generator =
+        THROW_CHECK_NOTNULL(pair_generator_factory_());
+
+    while (!pair_generator->HasFinished()) {
+      if (IsStopped()) {
+        run_timer.PrintMinutes();
+        return;
+      }
+      Timer timer;
+      timer.Start();
+      const std::vector<std::pair<image_t, image_t>> image_pairs =
+          pair_generator->Next();
+      matcher_.Match(image_pairs);
+      LOG(INFO) << StringPrintf("in %.3fs", timer.ElapsedSeconds());
+    }
+
+    run_timer.PrintMinutes();
+
+    // Notice that we run rig verification after feature matching, because
+    // feature matching operates on pairs of images instead of pairs of frames.
+    // Rig verification operates on pairs of frames and we require all image
+    // pairs between two frames to be matched before running rig verification.
+    if (!matching_options_.skip_geometric_verification &&
+        matching_options_.rig_verification) {
+      run_timer.Restart();
+      LOG_HEADING1("Rig verification");
+      RigVerification(
+          database_, cache_, geometry_options_, matching_options_.num_threads);
+      run_timer.PrintMinutes();
+    }
+
+    // Run view graph calibration after matching if enabled.
+    // This refines focal lengths from fundamental matrices and
+    // re-estimates relative poses from the calibrated essential matrices.
+    if (!matching_options_.skip_geometric_verification &&
+        matching_options_.view_graph_calibration) {
+      run_timer.Restart();
+      LOG_HEADING1("View graph calibration");
+      if (!CalibrateViewGraph(vgc_options_, database_.get())) {
+        LOG(ERROR) << "View graph calibration failed";
+      }
+      run_timer.PrintMinutes();
+
+      if (matching_options_.guided_matching) {
+        LOG_HEADING1(
+            "Re-running guided matching with view-graph calibrated cameras")
+        GeometricVerifierOptions verifier_options;
+        verifier_options.num_threads = matching_options_.num_threads;
+        verifier_options.rig_verification = matching_options_.rig_verification;
+        verifier_options.use_existing_relative_pose = true;
+        auto verifier =
+            GeometricVerifierThread::Create<ExistingMatchedPairGenerator>(
+                verifier_options,
+                ExistingMatchedPairingOptions(),
+                geometry_options_,
+                database_);
+        verifier->Start();
+        verifier->Wait();
+      }
+    }
+  }
+
+  const FeatureMatchingOptions matching_options_;
+  const TwoViewGeometryOptions geometry_options_;
+  const ViewGraphCalibrationOptions vgc_options_;
+  const std::shared_ptr<Database> database_;
+  const std::shared_ptr<FeatureMatcherCache> cache_;
+  const PairGeneratorFactory pair_generator_factory_;
+  FeatureMatcherController matcher_;
+};
+
 }  // namespace
 
 std::unique_ptr<Thread> CreateExhaustiveFeatureMatcher(
     const ExhaustivePairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
+    const ViewGraphCalibrationOptions& vgc_options,
     const std::filesystem::path& database_path) {
   return FeatureMatcherThread::Create<ExhaustivePairGenerator>(
-      pairing_options, matching_options, geometry_options, database_path);
+      pairing_options,
+      matching_options,
+      geometry_options,
+      vgc_options,
+      Database::Open(database_path));
 }
 
 std::unique_ptr<Thread> CreateVocabTreeFeatureMatcher(
     const VocabTreePairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
+    const ViewGraphCalibrationOptions& vgc_options,
     const std::filesystem::path& database_path) {
   return FeatureMatcherThread::Create<VocabTreePairGenerator>(
-      pairing_options, matching_options, geometry_options, database_path);
+      pairing_options,
+      matching_options,
+      geometry_options,
+      vgc_options,
+      Database::Open(database_path));
 }
 
 std::unique_ptr<Thread> CreateSequentialFeatureMatcher(
     const SequentialPairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
+    const ViewGraphCalibrationOptions& vgc_options,
     const std::filesystem::path& database_path) {
   return FeatureMatcherThread::Create<SequentialPairGenerator>(
-      pairing_options, matching_options, geometry_options, database_path);
+      pairing_options,
+      matching_options,
+      geometry_options,
+      vgc_options,
+      Database::Open(database_path));
 }
 
 std::unique_ptr<Thread> CreateSpatialFeatureMatcher(
     const SpatialPairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
+    const ViewGraphCalibrationOptions& vgc_options,
     const std::filesystem::path& database_path) {
   return FeatureMatcherThread::Create<SpatialPairGenerator>(
-      pairing_options, matching_options, geometry_options, database_path);
+      pairing_options,
+      matching_options,
+      geometry_options,
+      vgc_options,
+      Database::Open(database_path));
 }
 
 std::unique_ptr<Thread> CreateTransitiveFeatureMatcher(
     const TransitivePairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
+    const ViewGraphCalibrationOptions& vgc_options,
     const std::filesystem::path& database_path) {
   return FeatureMatcherThread::Create<TransitivePairGenerator>(
-      pairing_options, matching_options, geometry_options, database_path);
+      pairing_options,
+      matching_options,
+      geometry_options,
+      vgc_options,
+      Database::Open(database_path));
 }
 
 std::unique_ptr<Thread> CreateImagePairsFeatureMatcher(
     const ImportedPairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
+    const ViewGraphCalibrationOptions& vgc_options,
     const std::filesystem::path& database_path) {
   return FeatureMatcherThread::Create<ImportedPairGenerator>(
-      pairing_options, matching_options, geometry_options, database_path);
+      pairing_options,
+      matching_options,
+      geometry_options,
+      vgc_options,
+      Database::Open(database_path));
 }
 
 namespace {
@@ -404,11 +451,11 @@ class FeaturePairsFeatureMatcher : public Thread {
   FeaturePairsFeatureMatcher(const FeaturePairsMatchingOptions& pairing_options,
                              const FeatureMatchingOptions& matching_options,
                              const TwoViewGeometryOptions& geometry_options,
-                             const std::filesystem::path& database_path)
+                             std::shared_ptr<Database> database)
       : options_(pairing_options),
         matching_options_(matching_options),
         geometry_options_(geometry_options),
-        database_(Database::Open(database_path)),
+        database_(std::move(database)),
         cache_(std::make_shared<FeatureMatcherCache>(/*cache_size=*/100,
                                                      database_)) {
     THROW_CHECK(pairing_options.Check());
@@ -552,9 +599,13 @@ std::unique_ptr<Thread> CreateFeaturePairsFeatureMatcher(
     const FeaturePairsMatchingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
+    const ViewGraphCalibrationOptions& /*vgc_options*/,
     const std::filesystem::path& database_path) {
   return std::make_unique<FeaturePairsFeatureMatcher>(
-      pairing_options, matching_options, geometry_options, database_path);
+      pairing_options,
+      matching_options,
+      geometry_options,
+      Database::Open(database_path));
 }
 
 std::unique_ptr<Thread> CreateGeometricVerifier(
@@ -563,7 +614,10 @@ std::unique_ptr<Thread> CreateGeometricVerifier(
     const TwoViewGeometryOptions& geometry_options,
     const std::filesystem::path& database_path) {
   return GeometricVerifierThread::Create<ExistingMatchedPairGenerator>(
-      verifier_options, pairing_options, geometry_options, database_path);
+      verifier_options,
+      pairing_options,
+      geometry_options,
+      Database::Open(database_path));
 }
 
 }  // namespace colmap

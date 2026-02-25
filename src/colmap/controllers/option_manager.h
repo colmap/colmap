@@ -40,6 +40,7 @@ struct FeatureExtractionOptions;
 struct FeatureMatchingOptions;
 struct SiftMatchingOptions;
 struct TwoViewGeometryOptions;
+struct ViewGraphCalibrationOptions;
 struct ExhaustivePairingOptions;
 struct SequentialPairingOptions;
 struct VocabTreePairingOptions;
@@ -86,6 +87,7 @@ class OptionManager : public BaseOptionManager {
   void AddAllOptions() override;
   void AddFeatureExtractionOptions();
   void AddFeatureMatchingOptions();
+  void AddViewGraphCalibrationOptions();
   void AddTwoViewGeometryOptions();
   void AddExhaustivePairingOptions();
   void AddSequentialPairingOptions();
@@ -113,6 +115,7 @@ class OptionManager : public BaseOptionManager {
   std::shared_ptr<FeatureExtractionOptions> feature_extraction;
   std::shared_ptr<FeatureMatchingOptions> feature_matching;
   std::shared_ptr<TwoViewGeometryOptions> two_view_geometry;
+  std::shared_ptr<ViewGraphCalibrationOptions> view_graph_calibration;
   std::shared_ptr<ExhaustivePairingOptions> exhaustive_pairing;
   std::shared_ptr<SequentialPairingOptions> sequential_pairing;
   std::shared_ptr<VocabTreePairingOptions> vocab_tree_pairing;
@@ -144,6 +147,7 @@ class OptionManager : public BaseOptionManager {
 
   bool added_feature_extraction_options_ = false;
   bool added_feature_matching_options_ = false;
+  bool added_view_graph_calibration_options_ = false;
   bool added_two_view_geometry_options_ = false;
   bool added_exhaustive_pairing_options_ = false;
   bool added_sequential_pairing_options_ = false;

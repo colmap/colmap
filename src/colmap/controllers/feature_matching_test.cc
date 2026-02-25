@@ -30,8 +30,10 @@
 #include "colmap/controllers/feature_matching.h"
 
 #include "colmap/feature/types.h"
+#include "colmap/math/random.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/sensor/models.h"
 #include "colmap/util/testing.h"
 
 #include <fstream>
@@ -79,14 +81,82 @@ TEST(CreateExhaustiveFeatureMatcher, Nominal) {
   matching_options.num_threads = 1;
   TwoViewGeometryOptions geometry_options;
 
-  auto matcher = CreateExhaustiveFeatureMatcher(
-      pairing_options, matching_options, geometry_options, database_path);
+  auto matcher = CreateExhaustiveFeatureMatcher(pairing_options,
+                                                matching_options,
+                                                geometry_options,
+                                                ViewGraphCalibrationOptions{},
+                                                database_path);
   ASSERT_NE(matcher, nullptr);
   matcher->Start();
   matcher->Wait();
 
   EXPECT_EQ(database->ReadAllMatches().size(), 6);
   EXPECT_EQ(database->ReadTwoViewGeometries().size(), 6);
+}
+
+TEST(CreateExhaustiveFeatureMatcher, ViewGraphCalibrationAndGuidedMatching) {
+  SetPRNGSeed(42);
+
+  const auto test_dir = CreateTestDir();
+  const auto database_path = test_dir / "database.db";
+  auto database = Database::Open(database_path);
+
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 5;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.camera_model_id =
+      SimplePinholeCameraModel::model_id;
+  synthetic_dataset_options.camera_params = {1280, 512, 384};
+  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  // Store ground truth focal lengths before clearing data.
+  std::unordered_map<camera_t, double> gt_focals;
+  for (const auto& [camera_id, camera] : gt_reconstruction.Cameras()) {
+    gt_focals[camera_id] = camera.MeanFocalLength();
+  }
+
+  // Clear matches and two-view geometries to re-match from scratch.
+  database->ClearMatches();
+  database->ClearTwoViewGeometries();
+
+  ExhaustivePairingOptions pairing_options;
+  FeatureMatchingOptions matching_options;
+  matching_options.use_gpu = false;
+  matching_options.num_threads = 1;
+  matching_options.view_graph_calibration = true;
+  matching_options.guided_matching = true;
+  TwoViewGeometryOptions geometry_options;
+
+  auto matcher = CreateExhaustiveFeatureMatcher(pairing_options,
+                                                matching_options,
+                                                geometry_options,
+                                                ViewGraphCalibrationOptions{},
+                                                database_path);
+  ASSERT_NE(matcher, nullptr);
+  matcher->Start();
+  matcher->Wait();
+
+  // Verify that VGC calibrated the focal lengths close to ground truth.
+  for (const auto& [camera_id, gt_focal] : gt_focals) {
+    const Camera camera = database->ReadCamera(camera_id);
+    EXPECT_NEAR(camera.MeanFocalLength(), gt_focal, 5.0);
+  }
+
+  // Verify two-view geometries are calibrated with valid relative poses.
+  const auto two_view_geometries = database->ReadTwoViewGeometries();
+  EXPECT_GE(two_view_geometries.size(), 6);
+  for (const auto& [pair_id, tvg] : two_view_geometries) {
+    if (tvg.config == TwoViewGeometry::DEGENERATE) continue;
+    EXPECT_EQ(tvg.config, TwoViewGeometry::CALIBRATED);
+    EXPECT_TRUE(tvg.cam2_from_cam1.has_value());
+    EXPECT_TRUE(tvg.E.has_value());
+    EXPECT_FALSE(tvg.inlier_matches.empty());
+  }
 }
 
 TEST(CreateVocabTreeFeatureMatcher, Nominal) {
@@ -112,8 +182,11 @@ TEST(CreateVocabTreeFeatureMatcher, Nominal) {
 
   TwoViewGeometryOptions geometry_options;
 
-  auto matcher = CreateVocabTreeFeatureMatcher(
-      pairing_options, matching_options, geometry_options, database_path);
+  auto matcher = CreateVocabTreeFeatureMatcher(pairing_options,
+                                               matching_options,
+                                               geometry_options,
+                                               ViewGraphCalibrationOptions{},
+                                               database_path);
   ASSERT_NE(matcher, nullptr);
   matcher->Start();
   matcher->Wait();
@@ -142,8 +215,11 @@ TEST(CreateSequentialFeatureMatcher, Nominal) {
 
   TwoViewGeometryOptions geometry_options;
 
-  auto matcher = CreateSequentialFeatureMatcher(
-      pairing_options, matching_options, geometry_options, database_path);
+  auto matcher = CreateSequentialFeatureMatcher(pairing_options,
+                                                matching_options,
+                                                geometry_options,
+                                                ViewGraphCalibrationOptions{},
+                                                database_path);
   ASSERT_NE(matcher, nullptr);
   matcher->Start();
   matcher->Wait();
@@ -172,8 +248,11 @@ TEST(CreateSpatialFeatureMatcher, Nominal) {
 
   TwoViewGeometryOptions geometry_options;
 
-  auto matcher = CreateSpatialFeatureMatcher(
-      pairing_options, matching_options, geometry_options, database_path);
+  auto matcher = CreateSpatialFeatureMatcher(pairing_options,
+                                             matching_options,
+                                             geometry_options,
+                                             ViewGraphCalibrationOptions{},
+                                             database_path);
   ASSERT_NE(matcher, nullptr);
   matcher->Start();
   matcher->Wait();
@@ -213,8 +292,11 @@ TEST(CreateTransitiveFeatureMatcher, Nominal) {
 
   TwoViewGeometryOptions geometry_options;
 
-  auto matcher = CreateTransitiveFeatureMatcher(
-      pairing_options, matching_options, geometry_options, database_path);
+  auto matcher = CreateTransitiveFeatureMatcher(pairing_options,
+                                                matching_options,
+                                                geometry_options,
+                                                ViewGraphCalibrationOptions{},
+                                                database_path);
   ASSERT_NE(matcher, nullptr);
   matcher->Start();
   matcher->Wait();
@@ -253,8 +335,11 @@ TEST(CreateImagePairsFeatureMatcher, Nominal) {
 
   TwoViewGeometryOptions geometry_options;
 
-  auto matcher = CreateImagePairsFeatureMatcher(
-      pairing_options, matching_options, geometry_options, database_path);
+  auto matcher = CreateImagePairsFeatureMatcher(pairing_options,
+                                                matching_options,
+                                                geometry_options,
+                                                ViewGraphCalibrationOptions{},
+                                                database_path);
   ASSERT_NE(matcher, nullptr);
   matcher->Start();
   matcher->Wait();
@@ -301,8 +386,11 @@ TEST(CreateFeaturePairsFeatureMatcher, Nominal) {
   TwoViewGeometryOptions geometry_options;
   geometry_options.min_num_inliers = 5;  // Lower threshold for testing
 
-  auto matcher = CreateFeaturePairsFeatureMatcher(
-      pairing_options, matching_options, geometry_options, database_path);
+  auto matcher = CreateFeaturePairsFeatureMatcher(pairing_options,
+                                                  matching_options,
+                                                  geometry_options,
+                                                  ViewGraphCalibrationOptions{},
+                                                  database_path);
   ASSERT_NE(matcher, nullptr);
   matcher->Start();
   matcher->Wait();

@@ -181,12 +181,14 @@ void AutomaticReconstructionController::Setup() {
         CreateExhaustiveFeatureMatcher(*option_manager_.exhaustive_pairing,
                                        *option_manager_.feature_matching,
                                        *option_manager_.two_view_geometry,
+                                       *option_manager_.view_graph_calibration,
                                        *option_manager_.database_path);
 
     sequential_matcher_ =
         CreateSequentialFeatureMatcher(*option_manager_.sequential_pairing,
                                        *option_manager_.feature_matching,
                                        *option_manager_.two_view_geometry,
+                                       *option_manager_.view_graph_calibration,
                                        *option_manager_.database_path);
 
     if (!options_.vocab_tree_path.empty()) {
@@ -194,6 +196,7 @@ void AutomaticReconstructionController::Setup() {
           CreateVocabTreeFeatureMatcher(*option_manager_.vocab_tree_pairing,
                                         *option_manager_.feature_matching,
                                         *option_manager_.two_view_geometry,
+                                        *option_manager_.view_graph_calibration,
                                         *option_manager_.database_path);
     }
   }

@@ -37,6 +37,7 @@
 #include "colmap/estimators/global_positioning.h"
 #include "colmap/estimators/gravity_refinement.h"
 #include "colmap/estimators/two_view_geometry.h"
+#include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/feature/aliked.h"
 #include "colmap/feature/sift.h"
 #include "colmap/mvs/fusion.h"
@@ -57,6 +58,7 @@ OptionManager::OptionManager(bool add_project_options)
   feature_extraction = std::make_shared<FeatureExtractionOptions>();
   feature_matching = std::make_shared<FeatureMatchingOptions>();
   two_view_geometry = std::make_shared<TwoViewGeometryOptions>();
+  view_graph_calibration = std::make_shared<ViewGraphCalibrationOptions>();
   exhaustive_pairing = std::make_shared<ExhaustivePairingOptions>();
   sequential_pairing = std::make_shared<SequentialPairingOptions>();
   vocab_tree_pairing = std::make_shared<VocabTreePairingOptions>();
@@ -168,6 +170,7 @@ void OptionManager::AddAllOptions() {
   AddFeatureExtractionOptions();
   AddFeatureMatchingOptions();
   AddTwoViewGeometryOptions();
+  AddViewGraphCalibrationOptions();
   AddExhaustivePairingOptions();
   AddSequentialPairingOptions();
   AddVocabTreePairingOptions();
@@ -277,33 +280,6 @@ void OptionManager::AddFeatureMatchingOptions() {
                    &feature_matching->skip_image_pairs_in_same_frame);
   AddDefaultOption("FeatureMatching.view_graph_calibration",
                    &feature_matching->view_graph_calibration);
-  AddDefaultOption("FeatureMatching.vgc_cross_validate_prior_focal_lengths",
-                   &feature_matching->view_graph_calibration_options
-                        .cross_validate_prior_focal_lengths);
-  AddDefaultOption("FeatureMatching.vgc_min_calibrated_pair_ratio",
-                   &feature_matching->view_graph_calibration_options
-                        .min_calibrated_pair_ratio);
-  AddDefaultOption("FeatureMatching.vgc_reestimate_relative_pose",
-                   &feature_matching->view_graph_calibration_options
-                        .reestimate_relative_pose);
-  AddDefaultOption(
-      "FeatureMatching.vgc_min_focal_length_ratio",
-      &feature_matching->view_graph_calibration_options.min_focal_length_ratio);
-  AddDefaultOption(
-      "FeatureMatching.vgc_max_focal_length_ratio",
-      &feature_matching->view_graph_calibration_options.max_focal_length_ratio);
-  AddDefaultOption(
-      "FeatureMatching.vgc_max_calibration_error",
-      &feature_matching->view_graph_calibration_options.max_calibration_error);
-  AddDefaultOption(
-      "FeatureMatching.vgc_relpose_max_error",
-      &feature_matching->view_graph_calibration_options.relpose_max_error);
-  AddDefaultOption("FeatureMatching.vgc_relpose_min_num_inliers",
-                   &feature_matching->view_graph_calibration_options
-                        .relpose_min_num_inliers);
-  AddDefaultOption("FeatureMatching.vgc_relpose_min_inlier_ratio",
-                   &feature_matching->view_graph_calibration_options
-                        .relpose_min_inlier_ratio);
   AddDefaultOption("FeatureMatching.max_num_matches",
                    &feature_matching->max_num_matches);
 
@@ -332,6 +308,32 @@ void OptionManager::AddFeatureMatchingOptions() {
                    &feature_matching->aliked->lightglue.min_score);
   AddDefaultOption("AlikedMatching.lightglue_model_path",
                    &feature_matching->aliked->lightglue.model_path);
+}
+
+void OptionManager::AddViewGraphCalibrationOptions() {
+  if (added_view_graph_calibration_options_) {
+    return;
+  }
+  added_view_graph_calibration_options_ = true;
+
+  AddDefaultOption("ViewGraphCalibration.cross_validate_prior_focal_lengths",
+                   &view_graph_calibration->cross_validate_prior_focal_lengths);
+  AddDefaultOption("ViewGraphCalibration.min_calibrated_pair_ratio",
+                   &view_graph_calibration->min_calibrated_pair_ratio);
+  AddDefaultOption("ViewGraphCalibration.reestimate_relative_pose",
+                   &view_graph_calibration->reestimate_relative_pose);
+  AddDefaultOption("ViewGraphCalibration.min_focal_length_ratio",
+                   &view_graph_calibration->min_focal_length_ratio);
+  AddDefaultOption("ViewGraphCalibration.max_focal_length_ratio",
+                   &view_graph_calibration->max_focal_length_ratio);
+  AddDefaultOption("ViewGraphCalibration.max_calibration_error",
+                   &view_graph_calibration->max_calibration_error);
+  AddDefaultOption("ViewGraphCalibration.relpose_max_error",
+                   &view_graph_calibration->relpose_max_error);
+  AddDefaultOption("ViewGraphCalibration.relpose_min_num_inliers",
+                   &view_graph_calibration->relpose_min_num_inliers);
+  AddDefaultOption("ViewGraphCalibration.relpose_min_inlier_ratio",
+                   &view_graph_calibration->relpose_min_inlier_ratio);
 }
 
 void OptionManager::AddTwoViewGeometryOptions() {
@@ -374,6 +376,7 @@ void OptionManager::AddExhaustivePairingOptions() {
   added_exhaustive_pairing_options_ = true;
 
   AddFeatureMatchingOptions();
+  AddViewGraphCalibrationOptions();
   AddTwoViewGeometryOptions();
 
   AddDefaultOption("ExhaustiveMatching.block_size",
@@ -387,6 +390,7 @@ void OptionManager::AddSequentialPairingOptions() {
   added_sequential_pairing_options_ = true;
 
   AddFeatureMatchingOptions();
+  AddViewGraphCalibrationOptions();
   AddTwoViewGeometryOptions();
 
   AddDefaultOption("SequentialMatching.overlap", &sequential_pairing->overlap);
@@ -422,6 +426,7 @@ void OptionManager::AddVocabTreePairingOptions() {
   added_vocab_tree_pairing_options_ = true;
 
   AddFeatureMatchingOptions();
+  AddViewGraphCalibrationOptions();
   AddTwoViewGeometryOptions();
 
   AddDefaultOption("VocabTreeMatching.num_images",
@@ -449,6 +454,7 @@ void OptionManager::AddSpatialPairingOptions() {
   added_spatial_pairing_options_ = true;
 
   AddFeatureMatchingOptions();
+  AddViewGraphCalibrationOptions();
   AddTwoViewGeometryOptions();
 
   AddDefaultOption("SpatialMatching.ignore_z", &spatial_pairing->ignore_z);
@@ -467,6 +473,7 @@ void OptionManager::AddTransitivePairingOptions() {
   added_transitive_pairing_options_ = true;
 
   AddFeatureMatchingOptions();
+  AddViewGraphCalibrationOptions();
   AddTwoViewGeometryOptions();
 
   AddDefaultOption("TransitiveMatching.batch_size",
@@ -482,6 +489,7 @@ void OptionManager::AddImportedPairingOptions() {
   added_image_pairs_pairing_options_ = true;
 
   AddFeatureMatchingOptions();
+  AddViewGraphCalibrationOptions();
   AddTwoViewGeometryOptions();
 
   AddDefaultOption("ImagePairsMatching.block_size",

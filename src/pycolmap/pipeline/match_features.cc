@@ -1,6 +1,7 @@
 #include "colmap/controllers/feature_matching.h"
 #include "colmap/controllers/pairing.h"
 #include "colmap/estimators/two_view_geometry.h"
+#include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/exe/feature.h"
 #include "colmap/exe/sfm.h"
 #include "colmap/feature/sift.h"
@@ -22,15 +23,18 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-template <typename PairingOptions,
-          std::unique_ptr<Thread> MatcherFactory(const PairingOptions&,
-                                                 const FeatureMatchingOptions&,
-                                                 const TwoViewGeometryOptions&,
-                                                 const std::filesystem::path&)>
+template <
+    typename PairingOptions,
+    std::unique_ptr<Thread> MatcherFactory(const PairingOptions&,
+                                           const FeatureMatchingOptions&,
+                                           const TwoViewGeometryOptions&,
+                                           const ViewGraphCalibrationOptions&,
+                                           const std::filesystem::path&)>
 void MatchFeatures(const std::filesystem::path& database_path,
                    FeatureMatchingOptions matching_options,
                    const PairingOptions& pairing_options,
                    const TwoViewGeometryOptions& verification_options,
+                   const ViewGraphCalibrationOptions& vgc_options,
                    const Device device) {
   THROW_CHECK_FILE_EXISTS(database_path);
   try {
@@ -45,8 +49,11 @@ void MatchFeatures(const std::filesystem::path& database_path,
   THROW_CHECK(matching_options.Check());
 
   py::gil_scoped_release release;
-  std::unique_ptr<Thread> matcher = MatcherFactory(
-      pairing_options, matching_options, verification_options, database_path);
+  std::unique_ptr<Thread> matcher = MatcherFactory(pairing_options,
+                                                   matching_options,
+                                                   verification_options,
+                                                   vgc_options,
+                                                   database_path);
   matcher->Start();
   PyWait(matcher.get());
 }
@@ -64,8 +71,12 @@ void VerifyMatches(const std::filesystem::path& database_path,
   ImportedPairingOptions pairing_options;
   pairing_options.match_list_path = pairs_path;
 
-  std::unique_ptr<Thread> matcher = CreateImagePairsFeatureMatcher(
-      pairing_options, matching_options, verification_options, database_path);
+  std::unique_ptr<Thread> matcher =
+      CreateImagePairsFeatureMatcher(pairing_options,
+                                     matching_options,
+                                     verification_options,
+                                     ViewGraphCalibrationOptions{},
+                                     database_path);
   matcher->Start();
   PyWait(matcher.get());
 }
@@ -256,6 +267,38 @@ void BindMatchFeatures(py::module& m) {
                          &GeometricVerifierOptions::use_existing_relative_pose);
   MakeDataclass(PyGeometricVerifierOptions);
 
+  auto PyViewGraphCalibrationOptions =
+      py::classh<ViewGraphCalibrationOptions>(m, "ViewGraphCalibrationOptions")
+          .def(py::init<>())
+          .def_readwrite("random_seed",
+                         &ViewGraphCalibrationOptions::random_seed)
+          .def_readwrite(
+              "cross_validate_prior_focal_lengths",
+              &ViewGraphCalibrationOptions::cross_validate_prior_focal_lengths)
+          .def_readwrite(
+              "min_calibrated_pair_ratio",
+              &ViewGraphCalibrationOptions::min_calibrated_pair_ratio)
+          .def_readwrite("reestimate_relative_pose",
+                         &ViewGraphCalibrationOptions::reestimate_relative_pose)
+          .def_readwrite("min_focal_length_ratio",
+                         &ViewGraphCalibrationOptions::min_focal_length_ratio)
+          .def_readwrite("max_focal_length_ratio",
+                         &ViewGraphCalibrationOptions::max_focal_length_ratio)
+          .def_readwrite("max_calibration_error",
+                         &ViewGraphCalibrationOptions::max_calibration_error)
+          .def_readwrite("loss_function_scale",
+                         &ViewGraphCalibrationOptions::loss_function_scale)
+          .def_readwrite("solver_options",
+                         &ViewGraphCalibrationOptions::solver_options)
+          .def_readwrite("relpose_max_error",
+                         &ViewGraphCalibrationOptions::relpose_max_error)
+          .def_readwrite("relpose_min_num_inliers",
+                         &ViewGraphCalibrationOptions::relpose_min_num_inliers)
+          .def_readwrite(
+              "relpose_min_inlier_ratio",
+              &ViewGraphCalibrationOptions::relpose_min_inlier_ratio);
+  MakeDataclass(PyViewGraphCalibrationOptions);
+
   m.def(
       "match_exhaustive",
       &MatchFeatures<ExhaustivePairingOptions, CreateExhaustiveFeatureMatcher>,
@@ -269,6 +312,9 @@ void BindMatchFeatures(py::module& m) {
       py::arg_v("verification_options",
                 TwoViewGeometryOptions(),
                 "TwoViewGeometryOptions()"),
+      py::arg_v("vgc_options",
+                ViewGraphCalibrationOptions(),
+                "ViewGraphCalibrationOptions()"),
       "device"_a = Device::AUTO,
       "Exhaustive feature matching");
 
@@ -284,6 +330,9 @@ void BindMatchFeatures(py::module& m) {
         py::arg_v("verification_options",
                   TwoViewGeometryOptions(),
                   "TwoViewGeometryOptions()"),
+        py::arg_v("vgc_options",
+                  ViewGraphCalibrationOptions(),
+                  "ViewGraphCalibrationOptions()"),
         "device"_a = Device::AUTO,
         "Spatial feature matching");
 
@@ -299,6 +348,9 @@ void BindMatchFeatures(py::module& m) {
         py::arg_v("verification_options",
                   TwoViewGeometryOptions(),
                   "TwoViewGeometryOptions()"),
+        py::arg_v("vgc_options",
+                  ViewGraphCalibrationOptions(),
+                  "ViewGraphCalibrationOptions()"),
         "device"_a = Device::AUTO,
         "Vocab tree feature matching");
 
@@ -315,6 +367,9 @@ void BindMatchFeatures(py::module& m) {
       py::arg_v("verification_options",
                 TwoViewGeometryOptions(),
                 "TwoViewGeometryOptions()"),
+      py::arg_v("vgc_options",
+                ViewGraphCalibrationOptions(),
+                "ViewGraphCalibrationOptions()"),
       "device"_a = Device::AUTO,
       "Sequential feature matching");
 
@@ -330,6 +385,9 @@ void BindMatchFeatures(py::module& m) {
         py::arg_v("verification_options",
                   TwoViewGeometryOptions(),
                   "TwoViewGeometryOptions()"),
+        py::arg_v("vgc_options",
+                  ViewGraphCalibrationOptions(),
+                  "ViewGraphCalibrationOptions()"),
         "device"_a = Device::AUTO,
         "Match features between image pairs specified in a file");
 

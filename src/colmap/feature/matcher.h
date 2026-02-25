@@ -29,7 +29,6 @@
 
 #pragma once
 
-#include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/feature/types.h"
 #include "colmap/geometry/pose_prior.h"
 #include "colmap/scene/camera.h"
@@ -104,9 +103,6 @@ struct FeatureMatchingOptions : public FeatureMatchingTypeOptions {
   // This calibrates focal lengths from fundamental matrices.
   // Disabled by default; enabled automatically for global SfM.
   bool view_graph_calibration = false;
-
-  // Options for view graph calibration.
-  ViewGraphCalibrationOptions view_graph_calibration_options;
 
   // Whether the selected matcher requires OpenGL.
   bool RequiresOpenGL() const;

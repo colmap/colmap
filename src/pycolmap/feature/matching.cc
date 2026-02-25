@@ -180,6 +180,11 @@ void BindFeatureMatching(py::module& m) {
                          "disabled, performs geometric two-view verification "
                          "for non-trivial frames without rig constraints. "
                          "Ignored when skip_geometric_verification is enabled.")
+          .def_readwrite("view_graph_calibration",
+                         &FeatureMatchingOptions::view_graph_calibration,
+                         "Whether to calibrate camera focal lengths from "
+                         "fundamental matrices using view graph calibration "
+                         "after feature matching.")
           .def_readwrite(
               "skip_image_pairs_in_same_frame",
               &FeatureMatchingOptions::skip_image_pairs_in_same_frame,

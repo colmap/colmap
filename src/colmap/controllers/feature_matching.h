@@ -31,11 +31,11 @@
 
 #include "colmap/controllers/pairing.h"
 #include "colmap/estimators/two_view_geometry.h"
+#include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/feature/matcher.h"
 #include "colmap/util/threading.h"
 
 #include <memory>
-#include <string>
 
 namespace colmap {
 
@@ -66,6 +66,7 @@ std::unique_ptr<Thread> CreateExhaustiveFeatureMatcher(
     const ExhaustivePairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
+    const ViewGraphCalibrationOptions& vgc_options,
     const std::filesystem::path& database_path);
 
 // Match each image against its nearest neighbors using a vocabulary tree.
@@ -73,6 +74,7 @@ std::unique_ptr<Thread> CreateVocabTreeFeatureMatcher(
     const VocabTreePairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
+    const ViewGraphCalibrationOptions& vgc_options,
     const std::filesystem::path& database_path);
 
 // Sequentially match images within neighborhood:
@@ -97,6 +99,7 @@ std::unique_ptr<Thread> CreateSequentialFeatureMatcher(
     const SequentialPairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
+    const ViewGraphCalibrationOptions& vgc_options,
     const std::filesystem::path& database_path);
 
 // Match images against spatial nearest neighbors using prior location
@@ -105,6 +108,7 @@ std::unique_ptr<Thread> CreateSpatialFeatureMatcher(
     const SpatialPairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
+    const ViewGraphCalibrationOptions& vgc_options,
     const std::filesystem::path& database_path);
 
 // Match transitive image pairs in a database with existing feature matches.
@@ -115,6 +119,7 @@ std::unique_ptr<Thread> CreateTransitiveFeatureMatcher(
     const TransitivePairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
+    const ViewGraphCalibrationOptions& vgc_options,
     const std::filesystem::path& database_path);
 
 // Match images manually specified in a list of image pairs.
@@ -130,6 +135,7 @@ std::unique_ptr<Thread> CreateImagePairsFeatureMatcher(
     const ImportedPairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
+    const ViewGraphCalibrationOptions& vgc_options,
     const std::filesystem::path& database_path);
 
 // Import feature matches from a text file.
@@ -151,6 +157,7 @@ std::unique_ptr<Thread> CreateFeaturePairsFeatureMatcher(
     const FeaturePairsMatchingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
+    const ViewGraphCalibrationOptions& vgc_options,
     const std::filesystem::path& database_path);
 
 // Options for CreateGeometricVerifier

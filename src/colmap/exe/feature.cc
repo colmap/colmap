@@ -212,6 +212,7 @@ int RunExhaustiveMatcher(int argc, char** argv) {
   auto matcher = CreateExhaustiveFeatureMatcher(*options.exhaustive_pairing,
                                                 *options.feature_matching,
                                                 *options.two_view_geometry,
+                                                *options.view_graph_calibration,
                                                 *options.database_path);
 
   if (app != nullptr) {
@@ -234,6 +235,7 @@ int RunMatchesImporter(int argc, char** argv) {
   options.AddDefaultOption(
       "match_type", &match_type, "{'pairs', 'raw', 'inliers'}");
   options.AddFeatureMatchingOptions();
+  options.AddViewGraphCalibrationOptions();
   options.AddTwoViewGeometryOptions();
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
@@ -251,6 +253,7 @@ int RunMatchesImporter(int argc, char** argv) {
     matcher = CreateImagePairsFeatureMatcher(pairing_options,
                                              *options.feature_matching,
                                              *options.two_view_geometry,
+                                             *options.view_graph_calibration,
                                              *options.database_path);
   } else if (match_type == "raw" || match_type == "inliers") {
     FeaturePairsMatchingOptions pairing_options;
@@ -259,6 +262,7 @@ int RunMatchesImporter(int argc, char** argv) {
     matcher = CreateFeaturePairsFeatureMatcher(pairing_options,
                                                *options.feature_matching,
                                                *options.two_view_geometry,
+                                               *options.view_graph_calibration,
                                                *options.database_path);
   } else {
     LOG(ERROR) << "Invalid `match_type`";
@@ -291,6 +295,7 @@ int RunSequentialMatcher(int argc, char** argv) {
   auto matcher = CreateSequentialFeatureMatcher(*options.sequential_pairing,
                                                 *options.feature_matching,
                                                 *options.two_view_geometry,
+                                                *options.view_graph_calibration,
                                                 *options.database_path);
 
   if (app != nullptr) {
@@ -319,6 +324,7 @@ int RunSpatialMatcher(int argc, char** argv) {
   auto matcher = CreateSpatialFeatureMatcher(*options.spatial_pairing,
                                              *options.feature_matching,
                                              *options.two_view_geometry,
+                                             *options.view_graph_calibration,
                                              *options.database_path);
 
   if (app != nullptr) {
@@ -347,6 +353,7 @@ int RunTransitiveMatcher(int argc, char** argv) {
   auto matcher = CreateTransitiveFeatureMatcher(*options.transitive_pairing,
                                                 *options.feature_matching,
                                                 *options.two_view_geometry,
+                                                *options.view_graph_calibration,
                                                 *options.database_path);
 
   if (app != nullptr) {
@@ -375,6 +382,7 @@ int RunVocabTreeMatcher(int argc, char** argv) {
   auto matcher = CreateVocabTreeFeatureMatcher(*options.vocab_tree_pairing,
                                                *options.feature_matching,
                                                *options.two_view_geometry,
+                                               *options.view_graph_calibration,
                                                *options.database_path);
 
   if (app != nullptr) {
