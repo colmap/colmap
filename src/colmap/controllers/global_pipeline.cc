@@ -37,6 +37,19 @@
 #include "colmap/util/timer.h"
 
 namespace colmap {
+namespace {
+
+DatabaseCache::Options CreateDatabaseCacheOptions(
+    const GlobalPipelineOptions& options) {
+  DatabaseCache::Options database_cache_options;
+  database_cache_options.min_num_matches = options.min_num_matches;
+  database_cache_options.ignore_watermarks = options.ignore_watermarks;
+  database_cache_options.image_names = {options.image_names.begin(),
+                                        options.image_names.end()};
+  return database_cache_options;
+}
+
+}  // namespace
 
 GlobalPipeline::GlobalPipeline(
     GlobalPipelineOptions options,
@@ -55,12 +68,8 @@ GlobalPipeline::GlobalPipeline(
   LOG(INFO) << "Loading database";
   Timer timer;
   timer.Start();
-  DatabaseCache::Options database_cache_options;
-  database_cache_options.min_num_matches = options_.min_num_matches;
-  database_cache_options.ignore_watermarks = options_.ignore_watermarks;
-  database_cache_options.image_names = {options_.image_names.begin(),
-                                        options_.image_names.end()};
-  database_cache_ = DatabaseCache::Create(*database, database_cache_options);
+  database_cache_ =
+      DatabaseCache::Create(*database, CreateDatabaseCacheOptions(options_));
   timer.PrintMinutes();
 }
 
@@ -73,13 +82,8 @@ GlobalPipeline::GlobalPipeline(
           std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {
   THROW_CHECK_NOTNULL(database_cache);
 
-  DatabaseCache::Options database_cache_options;
-  database_cache_options.min_num_matches = options_.min_num_matches;
-  database_cache_options.ignore_watermarks = options_.ignore_watermarks;
-  database_cache_options.image_names = {options_.image_names.begin(),
-                                        options_.image_names.end()};
-  database_cache_ =
-      DatabaseCache::CreateFromCache(*database_cache, database_cache_options);
+  database_cache_ = DatabaseCache::CreateFromCache(
+      *database_cache, CreateDatabaseCacheOptions(options_));
 }
 
 void GlobalPipeline::Run() {
