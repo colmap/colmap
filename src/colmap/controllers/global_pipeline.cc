@@ -37,6 +37,33 @@
 #include "colmap/util/timer.h"
 
 namespace colmap {
+namespace {
+
+constexpr double kMinPriorFocalLengthRatio = 0.5;
+
+bool HasInsufficientPriorFocalLengths(const Database& database) {
+  const std::vector<Camera> cameras = database.ReadAllCameras();
+  if (cameras.empty()) {
+    return false;
+  }
+  const size_t num_with_prior =
+      std::count_if(cameras.begin(), cameras.end(), [](const Camera& camera) {
+        return camera.has_prior_focal_length;
+      });
+  return num_with_prior < kMinPriorFocalLengthRatio * cameras.size();
+}
+
+void WarnInsufficientPriorFocalLengths() {
+  LOG(WARNING) << "Less than " << kMinPriorFocalLengthRatio * 100
+               << "% of cameras have prior focal lengths. The "
+                  "global mapper depends on reasonably good focal length "
+                  "priors to perform well. Consider running "
+                  "'colmap view_graph_calibrator' before 'colmap "
+                  "global_mapper' or providing camera calibrations "
+                  "manually.";
+}
+
+}  // namespace
 
 GlobalPipeline::GlobalPipeline(
     GlobalPipelineOptions options,
@@ -52,19 +79,10 @@ GlobalPipeline::GlobalPipeline(
 }
 
 void GlobalPipeline::Run() {
-  if (!options_.skip_view_graph_calibration) {
-    LOG_HEADING1("Running view graph calibration");
-    Timer run_timer;
-    run_timer.Start();
-    ViewGraphCalibrationOptions vgc_options = options_.view_graph_calibration;
-    vgc_options.random_seed = options_.random_seed;
-    vgc_options.solver_options.num_threads = options_.num_threads;
-    if (!CalibrateViewGraph(vgc_options, database_.get())) {
-      LOG(ERROR) << "View graph calibration failed";
-      return;
-    }
-    LOG(INFO) << "View graph calibration done in " << run_timer.ElapsedSeconds()
-              << " seconds";
+  const bool has_insufficient_prior_focal_lengths =
+      HasInsufficientPriorFocalLengths(*database_);
+  if (has_insufficient_prior_focal_lengths) {
+    WarnInsufficientPriorFocalLengths();
   }
 
   // Create database cache with relative poses for pose graph.
@@ -105,6 +123,10 @@ void GlobalPipeline::Run() {
   if (!options_.image_path.empty()) {
     LOG(INFO) << "Extracting colors ...";
     output_reconstruction.ExtractColorsForAllImages(options_.image_path);
+  }
+
+  if (has_insufficient_prior_focal_lengths) {
+    WarnInsufficientPriorFocalLengths();
   }
 }
 

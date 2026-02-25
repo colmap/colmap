@@ -671,8 +671,6 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->decompose_relative_pose);
   AddDefaultOption("GlobalMapper.ba_num_iterations",
                    &global_mapper->mapper.ba_num_iterations);
-  AddDefaultOption("GlobalMapper.skip_view_graph_calibration",
-                   &global_mapper->skip_view_graph_calibration);
   AddDefaultOption("GlobalMapper.skip_rotation_averaging",
                    &global_mapper->mapper.skip_rotation_averaging);
   AddDefaultOption("GlobalMapper.skip_track_establishment",
@@ -683,34 +681,6 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.skip_bundle_adjustment);
   AddDefaultOption("GlobalMapper.skip_retriangulation",
                    &global_mapper->mapper.skip_retriangulation);
-
-  // View graph calibration options.
-  AddDefaultOption("GlobalMapper.vgc_cross_validate_prior_focal_lengths",
-                   &global_mapper->view_graph_calibration
-                        .cross_validate_prior_focal_lengths);
-  AddDefaultOption(
-      "GlobalMapper.vgc_min_calibrated_pair_ratio",
-      &global_mapper->view_graph_calibration.min_calibrated_pair_ratio);
-  AddDefaultOption(
-      "GlobalMapper.vgc_reestimate_relative_pose",
-      &global_mapper->view_graph_calibration.reestimate_relative_pose);
-  AddDefaultOption(
-      "GlobalMapper.vgc_min_focal_length_ratio",
-      &global_mapper->view_graph_calibration.min_focal_length_ratio);
-  AddDefaultOption(
-      "GlobalMapper.vgc_max_focal_length_ratio",
-      &global_mapper->view_graph_calibration.max_focal_length_ratio);
-  AddDefaultOption(
-      "GlobalMapper.vgc_max_calibration_error",
-      &global_mapper->view_graph_calibration.max_calibration_error);
-  AddDefaultOption("GlobalMapper.vgc_relpose_max_error",
-                   &global_mapper->view_graph_calibration.relpose_max_error);
-  AddDefaultOption(
-      "GlobalMapper.vgc_relpose_min_num_inliers",
-      &global_mapper->view_graph_calibration.relpose_min_num_inliers);
-  AddDefaultOption(
-      "GlobalMapper.vgc_relpose_min_inlier_ratio",
-      &global_mapper->view_graph_calibration.relpose_min_inlier_ratio);
 
   // Track establishment options.
   AddDefaultOption(
