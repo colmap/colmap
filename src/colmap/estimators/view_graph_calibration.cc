@@ -36,7 +36,6 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 
-#include <mutex>
 #include <unordered_set>
 
 namespace colmap {
@@ -133,7 +132,7 @@ void ReestimateRelativePoses(
     const ViewGraphCalibrationOptions& options,
     std::vector<std::pair<image_pair_t, TwoViewGeometry>>& pairs,
     const std::unordered_map<image_t, const Camera*>& image_id_to_camera,
-    Database* database) {
+    DatabaseCache* database_cache) {
   LOG(INFO) << "Re-estimating relative poses for " << pairs.size() << " pairs";
 
   TwoViewGeometryOptions two_view_options;
@@ -143,7 +142,7 @@ void ReestimateRelativePoses(
   two_view_options.min_inlier_ratio = options.relpose_min_inlier_ratio;
   two_view_options.ransac_options.random_seed = options.random_seed;
 
-  // Pre-read all keypoints from database.
+  // Pre-read all keypoints from cache.
   std::unordered_set<image_t> image_ids;
   image_ids.reserve(2 * pairs.size());
   for (const auto& [pair_id, tvg] : pairs) {
@@ -155,16 +154,15 @@ void ReestimateRelativePoses(
   std::unordered_map<image_t, std::vector<Eigen::Vector2d>> image_points;
   image_points.reserve(image_ids.size());
   for (const image_t image_id : image_ids) {
-    const FeatureKeypoints keypoints = database->ReadKeypoints(image_id);
-    std::vector<Eigen::Vector2d> points(keypoints.size());
-    for (size_t j = 0; j < keypoints.size(); ++j) {
-      points[j] = Eigen::Vector2d(keypoints[j].x, keypoints[j].y);
+    const auto& points2D = database_cache->Image(image_id).Points2D();
+    std::vector<Eigen::Vector2d> points(points2D.size());
+    for (size_t j = 0; j < points2D.size(); ++j) {
+      points[j] = points2D[j].xy;
     }
     image_points[image_id] = std::move(points);
   }
 
-  // Parallel estimation with mutex-protected database access for matches.
-  std::mutex database_mutex;
+  // Parallel estimation — in-memory reads are thread-safe.
   ThreadPool thread_pool(options.solver_options.num_threads);
 
   for (size_t i = 0; i < pairs.size(); ++i) {
@@ -172,11 +170,8 @@ void ReestimateRelativePoses(
       auto& [pair_id, tvg] = pairs[i];
       const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
 
-      FeatureMatches matches;
-      {
-        std::lock_guard<std::mutex> lock(database_mutex);
-        matches = database->ReadMatches(image_id1, image_id2);
-      }
+      const FeatureMatches& matches =
+          database_cache->RawMatches(image_id1, image_id2);
 
       const Camera& camera1 = *image_id_to_camera.at(image_id1);
       const Camera& camera2 = *image_id_to_camera.at(image_id2);
@@ -339,22 +334,25 @@ ViewGraphCalibrationOptions::CreateLossFunction() const {
 }
 
 bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
-                        Database* database) {
-  THROW_CHECK_NOTNULL(database);
+                        DatabaseCache* database_cache) {
+  THROW_CHECK_NOTNULL(database_cache);
+
+  std::shared_ptr<CorrespondenceGraph> corr_graph =
+      database_cache->CorrespondenceGraph();
 
   // Read cameras and build image_id -> camera mapping.
-  std::unordered_map<camera_t, Camera> cameras;
-  for (Camera& camera : database->ReadAllCameras()) {
-    cameras[camera.camera_id] = std::move(camera);
-  }
+  const auto& cameras = database_cache->Cameras();
   std::unordered_map<image_t, const Camera*> image_id_to_camera;
-  for (const Image& image : database->ReadAllImages()) {
-    image_id_to_camera[image.ImageId()] = &cameras.at(image.CameraId());
+  for (const auto& [image_id, image] : database_cache->Images()) {
+    image_id_to_camera[image_id] = &cameras.at(image.CameraId());
   }
 
   // Read UNCALIBRATED and CALIBRATED two-view geometries.
   std::vector<std::pair<image_pair_t, TwoViewGeometry>> pairs;
-  for (auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
+  for (const image_pair_t pair_id : corr_graph->ImagePairs()) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    TwoViewGeometry tvg = corr_graph->ExtractTwoViewGeometry(
+        image_id1, image_id2, /*extract_inlier_matches=*/false);
     if (tvg.config == TwoViewGeometry::UNCALIBRATED ||
         tvg.config == TwoViewGeometry::CALIBRATED) {
       pairs.emplace_back(pair_id, std::move(tvg));
@@ -409,9 +407,8 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
 
   // Update cameras with estimated focal lengths.
   for (const auto& [camera_id, focal_length] : calib_result.focal_lengths) {
-    Camera& camera = cameras.at(camera_id);
+    Camera& camera = database_cache->Camera(camera_id);
     camera.SetFocalLength(focal_length);
-    database->UpdateCamera(camera);
   }
 
   // Process pairs: tag degenerate or compute E matrix.
@@ -435,7 +432,7 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
     if (error_it->second > max_calibration_error_sq) {
       invalid_counter++;
       tvg.config = TwoViewGeometry::DEGENERATE;
-      database->UpdateTwoViewGeometry(image_id1, image_id2, tvg);
+      corr_graph->UpdateTwoViewGeometry(image_id1, image_id2, tvg);
     } else {
       THROW_CHECK(tvg.F.has_value())
           << "Two-view geometry must have F matrix for E computation";
@@ -458,16 +455,42 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
     for (size_t idx : valid_pair_indices) {
       valid_pairs.push_back(std::move(pairs[idx]));
     }
-    ReestimateRelativePoses(options, valid_pairs, image_id_to_camera, database);
-    for (const auto& [pair_id, tvg] : valid_pairs) {
-      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-      database->UpdateTwoViewGeometry(image_id1, image_id2, tvg);
+    ReestimateRelativePoses(
+        options, valid_pairs, image_id_to_camera, database_cache);
+
+    // Build lookup for re-estimated pairs.
+    std::unordered_map<image_pair_t, TwoViewGeometry> reestimated;
+    reestimated.reserve(valid_pairs.size());
+    for (auto& [pair_id, tvg] : valid_pairs) {
+      reestimated.emplace(pair_id, std::move(tvg));
     }
+
+    // Rebuild correspondence graph with updated inlier matches.
+    auto new_corr_graph = std::make_shared<CorrespondenceGraph>();
+    for (const auto& [image_id, image] : database_cache->Images()) {
+      new_corr_graph->AddImage(image_id, image.NumPoints2D());
+    }
+    for (const image_pair_t pair_id : corr_graph->ImagePairs()) {
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+      auto it = reestimated.find(pair_id);
+      if (it != reestimated.end()) {
+        new_corr_graph->AddTwoViewGeometry(
+            image_id1, image_id2, std::move(it->second));
+      } else {
+        new_corr_graph->AddTwoViewGeometry(
+            image_id1,
+            image_id2,
+            corr_graph->ExtractTwoViewGeometry(
+                image_id1, image_id2, /*extract_inlier_matches=*/true));
+      }
+    }
+    new_corr_graph->Finalize();
+    database_cache->SetCorrespondenceGraph(std::move(new_corr_graph));
   } else {
     for (const size_t idx : valid_pair_indices) {
       const auto& [pair_id, tvg] = pairs[idx];
       const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-      database->UpdateTwoViewGeometry(image_id1, image_id2, tvg);
+      corr_graph->UpdateTwoViewGeometry(image_id1, image_id2, tvg);
     }
   }
 

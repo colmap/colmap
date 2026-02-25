@@ -31,6 +31,7 @@
 
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/math/random.h"
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
@@ -77,18 +78,24 @@ TEST(CalibrateViewGraph, Nominal) {
     database->UpdateCamera(camera);
   }
 
+  auto database_cache = DatabaseCache::Create(*database, {});
+
   ViewGraphCalibrationOptions calib_options;
   calib_options.reestimate_relative_pose = false;
-  EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
+  EXPECT_TRUE(CalibrateViewGraph(calib_options, database_cache.get()));
 
   // Verify focal lengths are calibrated close to ground truth.
   for (const auto& [camera_id, gt_focal] : gt_focals) {
-    const Camera camera = database->ReadCamera(camera_id);
+    const Camera& camera = database_cache->Camera(camera_id);
     EXPECT_NEAR(camera.MeanFocalLength(), gt_focal, 1.0);
   }
 
   // Verify pairs are now CALIBRATED with valid E matrices.
-  for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
+  const auto corr_graph = database_cache->CorrespondenceGraph();
+  for (const image_pair_t pair_id : corr_graph->ImagePairs()) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    const TwoViewGeometry tvg = corr_graph->ExtractTwoViewGeometry(
+        image_id1, image_id2, /*extract_inlier_matches=*/false);
     EXPECT_EQ(tvg.config, TwoViewGeometry::CALIBRATED);
     EXPECT_TRUE(tvg.E.has_value());
   }
@@ -117,13 +124,15 @@ TEST(CalibrateViewGraph, PriorFocalLength) {
     original_focals[camera_id] = camera.MeanFocalLength();
   }
 
+  auto database_cache = DatabaseCache::Create(*database, {});
+
   ViewGraphCalibrationOptions calib_options;
   calib_options.reestimate_relative_pose = false;
-  EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
+  EXPECT_TRUE(CalibrateViewGraph(calib_options, database_cache.get()));
 
   // Verify cameras with priors are unchanged.
   for (const auto& [camera_id, original_focal] : original_focals) {
-    const Camera camera = database->ReadCamera(camera_id);
+    const Camera& camera = database_cache->Camera(camera_id);
     EXPECT_EQ(camera.MeanFocalLength(), original_focal);
   }
 }
@@ -156,13 +165,19 @@ TEST(CalibrateViewGraph, ConfigTagging) {
     perturbed_pairs.insert(pair_id);
   }
 
+  auto database_cache = DatabaseCache::Create(*database, {});
+
   ViewGraphCalibrationOptions calib_options;
   calib_options.reestimate_relative_pose = false;
   calib_options.max_calibration_error = 0.01;
-  EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
+  EXPECT_TRUE(CalibrateViewGraph(calib_options, database_cache.get()));
 
   // Verify perturbed pairs became DEGENERATE, others became CALIBRATED.
-  for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
+  const auto corr_graph = database_cache->CorrespondenceGraph();
+  for (const image_pair_t pair_id : corr_graph->ImagePairs()) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    const TwoViewGeometry tvg = corr_graph->ExtractTwoViewGeometry(
+        image_id1, image_id2, /*extract_inlier_matches=*/false);
     if (perturbed_pairs.count(pair_id)) {
       EXPECT_EQ(tvg.config, TwoViewGeometry::DEGENERATE);
     } else {
@@ -218,12 +233,20 @@ TEST(CalibrateViewGraph, RelativePoseReestimation) {
     database->UpdateTwoViewGeometry(image_id1, image_id2, perturbed_tvg);
   }
 
+  DatabaseCache::Options cache_options;
+  cache_options.load_raw_matches = true;
+  auto database_cache = DatabaseCache::Create(*database, cache_options);
+
   ViewGraphCalibrationOptions calib_options;
   calib_options.reestimate_relative_pose = true;
-  EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
+  EXPECT_TRUE(CalibrateViewGraph(calib_options, database_cache.get()));
 
   // Verify relative poses are estimated correctly.
-  for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
+  const auto corr_graph = database_cache->CorrespondenceGraph();
+  for (const image_pair_t pair_id : corr_graph->ImagePairs()) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    const TwoViewGeometry tvg = corr_graph->ExtractTwoViewGeometry(
+        image_id1, image_id2, /*extract_inlier_matches=*/false);
     if (tvg.config != TwoViewGeometry::CALIBRATED) continue;
 
     ASSERT_TRUE(tvg.cam2_from_cam1.has_value());

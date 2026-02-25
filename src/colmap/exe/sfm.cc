@@ -731,9 +731,25 @@ int RunViewGraphCalibrator(int argc, char** argv) {
 
   auto database = Database::Open(*options.database_path);
 
-  if (!CalibrateViewGraph(calibration_options, database.get())) {
+  DatabaseCache::Options cache_options;
+  cache_options.load_raw_matches = calibration_options.reestimate_relative_pose;
+  auto database_cache = DatabaseCache::Create(*database, cache_options);
+
+  if (!CalibrateViewGraph(calibration_options, database_cache.get())) {
     LOG(ERROR) << "View graph calibration failed";
     return EXIT_FAILURE;
+  }
+
+  // Write updated cameras and two-view geometries back to the database.
+  for (const auto& [camera_id, camera] : database_cache->Cameras()) {
+    database->UpdateCamera(camera);
+  }
+  const auto corr_graph = database_cache->CorrespondenceGraph();
+  for (const image_pair_t pair_id : corr_graph->ImagePairs()) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    const TwoViewGeometry tvg = corr_graph->ExtractTwoViewGeometry(
+        image_id1, image_id2, /*extract_inlier_matches=*/false);
+    database->UpdateTwoViewGeometry(image_id1, image_id2, tvg);
   }
 
   LOG(INFO) << "View graph calibration completed successfully";

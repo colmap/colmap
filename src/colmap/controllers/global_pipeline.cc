@@ -52,6 +52,20 @@ GlobalPipeline::GlobalPipeline(
 }
 
 void GlobalPipeline::Run() {
+  // Create database cache before view graph calibration so calibration
+  // operates in-memory on the cache instead of directly on the database.
+  DatabaseCache::Options database_cache_options;
+  database_cache_options.min_num_matches = options_.min_num_matches;
+  database_cache_options.ignore_watermarks = options_.ignore_watermarks;
+  database_cache_options.image_names = {options_.image_names.begin(),
+                                        options_.image_names.end()};
+  database_cache_options.load_raw_matches =
+      !options_.skip_view_graph_calibration &&
+      options_.view_graph_calibration.reestimate_relative_pose;
+
+  auto database_cache =
+      DatabaseCache::Create(*database_, database_cache_options);
+
   if (!options_.skip_view_graph_calibration) {
     LOG_HEADING1("Running view graph calibration");
     Timer run_timer;
@@ -59,22 +73,14 @@ void GlobalPipeline::Run() {
     ViewGraphCalibrationOptions vgc_options = options_.view_graph_calibration;
     vgc_options.random_seed = options_.random_seed;
     vgc_options.solver_options.num_threads = options_.num_threads;
-    if (!CalibrateViewGraph(vgc_options, database_.get())) {
+    if (!CalibrateViewGraph(vgc_options, database_cache.get())) {
       LOG(ERROR) << "View graph calibration failed";
       return;
     }
     LOG(INFO) << "View graph calibration done in " << run_timer.ElapsedSeconds()
               << " seconds";
+    database_cache->ClearRawMatches();
   }
-
-  // Create database cache with relative poses for pose graph.
-  DatabaseCache::Options database_cache_options;
-  database_cache_options.min_num_matches = options_.min_num_matches;
-  database_cache_options.ignore_watermarks = options_.ignore_watermarks;
-  database_cache_options.image_names = {options_.image_names.begin(),
-                                        options_.image_names.end()};
-  auto database_cache =
-      DatabaseCache::Create(*database_, database_cache_options);
 
   auto reconstruction = std::make_shared<Reconstruction>();
 

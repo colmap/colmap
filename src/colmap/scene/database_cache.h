@@ -63,6 +63,11 @@ class DatabaseCache {
 
     // Whether to convert pose priors to ENU coordinate system.
     bool convert_pose_priors_to_enu = false;
+
+    // Whether to load raw (unverified) matches for image pairs that have
+    // valid two-view geometries. Used by view graph calibration's relative
+    // pose re-estimation.
+    bool load_raw_matches = false;
   };
 
   DatabaseCache();
@@ -118,6 +123,17 @@ class DatabaseCache {
   // Get reference to const correspondence graph.
   inline std::shared_ptr<const class CorrespondenceGraph> CorrespondenceGraph()
       const;
+  inline std::shared_ptr<class CorrespondenceGraph> CorrespondenceGraph();
+
+  // Get raw matches for an image pair in canonical pair order.
+  const FeatureMatches& RawMatches(image_t image_id1, image_t image_id2) const;
+
+  // Release raw matches to free memory.
+  void ClearRawMatches();
+
+  // Replace the correspondence graph.
+  void SetCorrespondenceGraph(
+      std::shared_ptr<class CorrespondenceGraph> correspondence_graph);
 
   // Find specific image by name. Note that this uses linear search.
   const class Image* FindImageWithName(const std::string& name) const;
@@ -131,6 +147,7 @@ class DatabaseCache {
   std::unordered_map<image_t, class Image> images_;
   std::vector<struct PosePrior> pose_priors_;
   std::shared_ptr<class CorrespondenceGraph> correspondence_graph_;
+  std::unordered_map<image_pair_t, FeatureMatches> raw_matches_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -216,6 +233,11 @@ bool DatabaseCache::ExistsImage(const image_t image_id) const {
 
 std::shared_ptr<const class CorrespondenceGraph>
 DatabaseCache::CorrespondenceGraph() const {
+  return correspondence_graph_;
+}
+
+std::shared_ptr<class CorrespondenceGraph>
+DatabaseCache::CorrespondenceGraph() {
   return correspondence_graph_;
 }
 

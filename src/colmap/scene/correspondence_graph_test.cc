@@ -324,5 +324,64 @@ TEST(CorrespondenceGraph, Duplicate) {
   EXPECT_EQ(correspondence_graph.NumMatchesBetweenAllImages().at(pair_id), 4);
 }
 
+TEST(CorrespondenceGraph, UpdateTwoViewGeometry) {
+  CorrespondenceGraph correspondence_graph;
+  correspondence_graph.AddImage(0, 10);
+  correspondence_graph.AddImage(1, 10);
+  TwoViewGeometry two_view_geometry;
+  two_view_geometry.config = TwoViewGeometry::UNCALIBRATED;
+  two_view_geometry.F = Eigen::Matrix3d::Identity();
+  two_view_geometry.inlier_matches = {
+      {0, 0},
+      {1, 2},
+      {3, 7},
+  };
+  correspondence_graph.AddTwoViewGeometry(0, 1, two_view_geometry);
+  correspondence_graph.Finalize();
+
+  // Update the two-view geometry config and E matrix.
+  TwoViewGeometry updated;
+  updated.config = TwoViewGeometry::CALIBRATED;
+  updated.E = Eigen::Matrix3d::Identity() * 2.0;
+  updated.F = Eigen::Matrix3d::Identity() * 3.0;
+  correspondence_graph.UpdateTwoViewGeometry(0, 1, updated);
+
+  // Verify updated values are returned.
+  const TwoViewGeometry extracted = correspondence_graph.ExtractTwoViewGeometry(
+      0, 1, /*extract_inlier_matches=*/false);
+  EXPECT_EQ(extracted.config, TwoViewGeometry::CALIBRATED);
+  ASSERT_TRUE(extracted.E.has_value());
+  EXPECT_EQ(extracted.E.value(), Eigen::Matrix3d::Identity() * 2.0);
+  ASSERT_TRUE(extracted.F.has_value());
+  EXPECT_EQ(extracted.F.value(), Eigen::Matrix3d::Identity() * 3.0);
+
+  // Verify num_matches is unchanged (no inlier_matches provided).
+  EXPECT_EQ(correspondence_graph.NumMatchesBetweenImages(0, 1), 3);
+
+  // Update with inlier_matches to verify num_matches is updated.
+  TwoViewGeometry updated_with_matches;
+  updated_with_matches.config = TwoViewGeometry::CALIBRATED;
+  updated_with_matches.inlier_matches = {{0, 0}, {1, 2}};
+  correspondence_graph.UpdateTwoViewGeometry(0, 1, updated_with_matches);
+  EXPECT_EQ(correspondence_graph.NumMatchesBetweenImages(0, 1), 2);
+
+  // Verify update with swapped order works correctly.
+  TwoViewGeometry updated2;
+  updated2.config = TwoViewGeometry::DEGENERATE;
+  updated2.cam2_from_cam1 =
+      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+  correspondence_graph.UpdateTwoViewGeometry(1, 0, updated2);
+
+  const TwoViewGeometry extracted_10 =
+      correspondence_graph.ExtractTwoViewGeometry(
+          1, 0, /*extract_inlier_matches=*/false);
+  EXPECT_EQ(extracted_10.config, TwoViewGeometry::DEGENERATE);
+  ASSERT_TRUE(extracted_10.cam2_from_cam1.has_value());
+  EXPECT_THAT(extracted_10.cam2_from_cam1.value(),
+              Rigid3dNear(updated2.cam2_from_cam1.value(),
+                          /*rtol=*/1e-6,
+                          /*ttol=*/1e-6));
+}
+
 }  // namespace
 }  // namespace colmap

@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "colmap/scene/database.h"
+#include "colmap/scene/database_cache.h"
 
 #include <memory>
 
@@ -82,13 +82,13 @@ struct ViewGraphCalibrationOptions {
 };
 
 // Calibrate the view graph by estimating focal lengths from fundamental
-// matrices. This function operates directly on the database, reading both
+// matrices. This function operates on the database cache, reading both
 // UNCALIBRATED and CALIBRATED two-view geometries along with their associated
 // cameras. It optimizes focal lengths and updates the camera intrinsics in the
-// database. Image pairs with low calibration error have their essential
+// cache. Image pairs with low calibration error have their essential
 // matrices computed and relative poses re-estimated, then are upgraded to
 // CALIBRATED. Pairs with high calibration error are tagged as DEGENERATE.
 bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
-                        Database* database);
+                        DatabaseCache* database_cache);
 
 }  // namespace colmap

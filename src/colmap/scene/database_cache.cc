@@ -268,6 +268,10 @@ void DatabaseCache::Load(const Database& database, const Options& options) {
       const frame_t frame_id1 = image_to_frame_id.at(image_id1);
       const frame_t frame_id2 = image_to_frame_id.at(image_id2);
       if (frame_ids.count(frame_id1) > 0 && frame_ids.count(frame_id2) > 0) {
+        if (options.load_raw_matches) {
+          raw_matches_.emplace(pair_id,
+                               database.ReadMatches(image_id1, image_id2));
+        }
         correspondence_graph_->AddTwoViewGeometry(
             image_id1, image_id2, std::move(two_view_geometry));
       } else {
@@ -436,6 +440,21 @@ const class Image* DatabaseCache::FindImageWithName(
     }
   }
   return nullptr;
+}
+
+const FeatureMatches& DatabaseCache::RawMatches(const image_t image_id1,
+                                                const image_t image_id2) const {
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
+  return raw_matches_.at(pair_id);
+}
+
+void DatabaseCache::ClearRawMatches() {
+  std::unordered_map<image_pair_t, FeatureMatches>().swap(raw_matches_);
+}
+
+void DatabaseCache::SetCorrespondenceGraph(
+    std::shared_ptr<class CorrespondenceGraph> correspondence_graph) {
+  correspondence_graph_ = std::move(correspondence_graph);
 }
 
 void DatabaseCache::ConvertPosePriorsToENU() {
