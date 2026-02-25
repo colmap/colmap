@@ -230,11 +230,11 @@ void MainWindow::closeEvent(QCloseEvent* event) {
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent* event) {
-  const QMimeData* mime_data = event->mimeData();
-  if (mime_data->hasUrls()) {
-    return event->acceptProposedAction();
-  }
-  event->ignore();
+  HandleDragEvent(event);
+}
+
+void MainWindow::dragMoveEvent(QDragMoveEvent* event) {
+  HandleDragEvent(event);
 }
 
 void MainWindow::dropEvent(QDropEvent* event) {
@@ -801,6 +801,14 @@ void MainWindow::CreateControllers() {
           action_reconstruction_reset_->trigger();
         }
       });
+}
+
+void MainWindow::HandleDragEvent(QDropEvent* event) {
+  if (event->mimeData()->hasUrls()) {
+    event->acceptProposedAction();
+  } else {
+    event->ignore();
+  }
 }
 
 void MainWindow::ProjectNew() {
