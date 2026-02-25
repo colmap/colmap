@@ -41,14 +41,14 @@ namespace {
 
 constexpr double kMinPriorFocalLengthRatio = 0.5;
 
-bool HasInsufficientPriorFocalLengths(const Database& database) {
-  const std::vector<Camera> cameras = database.ReadAllCameras();
+bool HasInsufficientPriorFocalLengths(const DatabaseCache& database_cache) {
+  const auto& cameras = database_cache.Cameras();
   if (cameras.empty()) {
     return false;
   }
   const size_t num_with_prior =
-      std::count_if(cameras.begin(), cameras.end(), [](const Camera& camera) {
-        return camera.has_prior_focal_length;
+      std::count_if(cameras.begin(), cameras.end(), [](const auto& camera) {
+        return camera.second.has_prior_focal_length;
       });
   return num_with_prior < kMinPriorFocalLengthRatio * cameras.size();
 }
@@ -70,19 +70,11 @@ GlobalPipeline::GlobalPipeline(
     std::shared_ptr<Database> database,
     std::shared_ptr<ReconstructionManager> reconstruction_manager)
     : options_(std::move(options)),
-      database_(std::move(THROW_CHECK_NOTNULL(database))),
       reconstruction_manager_(
           std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {
+  THROW_CHECK_NOTNULL(database);
   if (options_.decompose_relative_pose) {
-    MaybeDecomposeAndWriteRelativePoses(database_.get());
-  }
-}
-
-void GlobalPipeline::Run() {
-  const bool has_insufficient_prior_focal_lengths =
-      HasInsufficientPriorFocalLengths(*database_);
-  if (has_insufficient_prior_focal_lengths) {
-    WarnInsufficientPriorFocalLengths();
+    MaybeDecomposeAndWriteRelativePoses(database.get());
   }
 
   // Create database cache with relative poses for pose graph.
@@ -92,7 +84,15 @@ void GlobalPipeline::Run() {
   database_cache_options.image_names = {options_.image_names.begin(),
                                         options_.image_names.end()};
   auto database_cache =
-      DatabaseCache::Create(*database_, database_cache_options);
+      DatabaseCache::Create(*database, database_cache_options);
+}
+
+void GlobalPipeline::Run() {
+  const bool has_insufficient_prior_focal_lengths =
+      HasInsufficientPriorFocalLengths(*database_cache_);
+  if (has_insufficient_prior_focal_lengths) {
+    WarnInsufficientPriorFocalLengths();
+  }
 
   auto reconstruction = std::make_shared<Reconstruction>();
 
@@ -102,7 +102,7 @@ void GlobalPipeline::Run() {
   mapper_options.num_threads = options_.num_threads;
   mapper_options.random_seed = options_.random_seed;
 
-  GlobalMapper global_mapper(database_cache);
+  GlobalMapper global_mapper(database_cache_);
   global_mapper.BeginReconstruction(reconstruction);
 
   Timer run_timer;
@@ -113,7 +113,7 @@ void GlobalPipeline::Run() {
             << " seconds";
 
   // Align reconstruction to the original metric scales in rig extrinsics.
-  AlignReconstructionToOrigRigScales(database_cache->Rigs(),
+  AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
                                      reconstruction.get());
 
   // Output the reconstruction.

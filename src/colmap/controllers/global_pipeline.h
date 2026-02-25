@@ -75,7 +75,7 @@ class GlobalPipeline : public BaseController {
 
  private:
   const GlobalPipelineOptions options_;
-  const std::shared_ptr<Database> database_;
+  std::shared_ptr<const DatabaseCache> database_cache_;
   std::shared_ptr<ReconstructionManager> reconstruction_manager_;
 };
 
