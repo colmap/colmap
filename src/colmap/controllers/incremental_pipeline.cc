@@ -33,6 +33,7 @@
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/file.h"
+#include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
 
 namespace colmap {
@@ -517,44 +518,102 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
       const std::vector<image_t> next_images = mapper.FindNextImages(
           mapper_options, /*structure_less=*/structure_less);
 
-      for (size_t reg_trial = 0; reg_trial < next_images.size(); ++reg_trial) {
-        next_image_id = next_images[reg_trial];
+      if (structure_less) {
+        if (next_images.size() > 1) {
+          // Parallel structureless estimation: run Phase 1 (read-only RANSAC)
+          // for all candidates concurrently, then commit the first success.
+          ThreadPool thread_pool(mapper_options.num_threads);
+          std::vector<std::shared_future<
+              IncrementalMapper::StructureLessEstimationResult>>
+              futures;
+          futures.reserve(next_images.size());
+          std::atomic_bool stop = false;
 
-        LOG(INFO) << StringPrintf("Registering image #%d (num_reg_frames=%d)",
-                                  next_image_id,
-                                  reconstruction->NumRegFrames());
-        LOG(INFO) << StringPrintf(
-            "=> Image sees %d / %d points",
-            mapper.ObservationManager().NumVisiblePoints3D(next_image_id),
-            mapper.ObservationManager().NumObservations(next_image_id));
+          for (const image_t cid : next_images) {
+            futures.push_back(thread_pool.AddTask(
+                [&mapper, &mapper_options, &stop, cid]()
+                    -> IncrementalMapper::StructureLessEstimationResult {
+                  if (stop.load()) {
+                    return {};
+                  }
+                  auto result =
+                      mapper.EstimateStructureLessPose(mapper_options, cid);
+                  if (result.success) {
+                    stop.store(true);
+                  }
+                  return result;
+                }));
+          }
 
-        if (structure_less) {
+          // Iterate in priority order — deterministic, same as sequential.
+          for (size_t i = 0; i < futures.size(); ++i) {
+            auto result = futures[i].get();
+            if (result.success) {
+              next_image_id = result.image_id;
+              LOG(INFO) << StringPrintf(
+                  "Registering image #%d (num_reg_frames=%d)",
+                  next_image_id,
+                  reconstruction->NumRegFrames());
+              LOG(INFO) << StringPrintf(
+                  "Registering image with structure-less fallback");
+              reg_next_success = mapper.CommitStructureLessRegistration(
+                  mapper_options, std::move(result));
+              if (reg_next_success) {
+                thread_pool.Stop();
+                break;
+              }
+            }
+
+            // If initial model fails to continue for some time,
+            // abort and try different initial pair.
+            const size_t kMinNumInitialRegTrials = 30;
+            if (i >= kMinNumInitialRegTrials &&
+                reconstruction->NumRegImages() <
+                    static_cast<size_t>(options_->min_model_size)) {
+              break;
+            }
+          }
+          thread_pool.Stop();
+        } else if (!next_images.empty()) {
+          // Single candidate — no need for thread pool.
+          next_image_id = next_images[0];
+          LOG(INFO) << StringPrintf("Registering image #%d (num_reg_frames=%d)",
+                                    next_image_id,
+                                    reconstruction->NumRegFrames());
           LOG(INFO) << StringPrintf(
               "Registering image with structure-less fallback");
-          LOG(INFO) << StringPrintf(
-              "=> Image sees %d / %d correspondences",
-              mapper.ObservationManager().NumVisibleCorrespondences(
-                  next_image_id),
-              mapper.ObservationManager().NumCorrespondences(next_image_id));
           reg_next_success = mapper.RegisterNextStructureLessImage(
               mapper_options, next_image_id);
-        } else {
+        }
+      } else {
+        for (size_t reg_trial = 0; reg_trial < next_images.size();
+             ++reg_trial) {
+          next_image_id = next_images[reg_trial];
+
+          LOG(INFO) << StringPrintf("Registering image #%d (num_reg_frames=%d)",
+                                    next_image_id,
+                                    reconstruction->NumRegFrames());
+          LOG(INFO) << StringPrintf(
+              "=> Image sees %d / %d points",
+              mapper.ObservationManager().NumVisiblePoints3D(next_image_id),
+              mapper.ObservationManager().NumObservations(next_image_id));
+
           reg_next_success =
               mapper.RegisterNextImage(mapper_options, next_image_id);
-        }
 
-        if (reg_next_success) {
-          break;
-        } else {
-          LOG(INFO) << "=> Could not register, trying another image.";
-
-          // If initial model fails to continue for some time,
-          // abort and try different initial pair.
-          const size_t kMinNumInitialRegTrials = 30;
-          if (reg_trial >= kMinNumInitialRegTrials &&
-              reconstruction->NumRegImages() <
-                  static_cast<size_t>(options_->min_model_size)) {
+          if (reg_next_success) {
             break;
+          } else {
+            LOG(INFO) << "=> Could not register, trying another image.";
+
+            // If initial model fails to continue for some time,
+            // abort and try different initial pair.
+            const size_t kMinNumInitialRegTrials = 30;
+            if (reg_trial >= kMinNumInitialRegTrials &&
+                reconstruction->NumRegImages() <
+                    static_cast<size_t>(options_->min_model_size)) {
+              break;
+            }
           }
         }
       }

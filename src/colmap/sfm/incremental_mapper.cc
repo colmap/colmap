@@ -603,14 +603,28 @@ bool IncrementalMapper::RegisterNextGeneralFrame(const Options& options,
 
 bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
                                                        const image_t image_id) {
+  auto result = EstimateStructureLessPose(options, image_id);
+  if (!result.success) {
+    return false;
+  }
+  return CommitStructureLessRegistration(options, std::move(result));
+}
+
+IncrementalMapper::StructureLessEstimationResult
+IncrementalMapper::EstimateStructureLessPose(const Options& options,
+                                             const image_t image_id) const {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
   THROW_CHECK_GE(reconstruction_->NumRegImages(), 2);
 
   THROW_CHECK(options.Check());
 
-  Image& image = reconstruction_->Image(image_id);
-  Camera& camera = *image.CameraPtr();
+  StructureLessEstimationResult result;
+  result.image_id = image_id;
+
+  const Image& image = reconstruction_->Image(image_id);
+  // Local copy of camera to avoid data races in parallel execution.
+  Camera camera = *image.CameraPtr();
 
   //////////////////////////////////////////////////////////////////////////////
   // Search for structure-less correspondences
@@ -622,14 +636,12 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
 
   // Check if enough 2D-2D correspondences.
   if (obs_manager_->NumVisibleCorrespondences(image_id) < min_num_inliers) {
-    return false;
+    return result;
   }
 
   const std::shared_ptr<const CorrespondenceGraph> correspondence_graph =
       database_cache_->CorrespondenceGraph();
 
-  std::vector<point2D_t> point2D_idxs;
-  std::vector<CorrespondenceGraph::Correspondence> corrs;
   std::vector<Eigen::Vector2d> points2D;
   std::vector<Eigen::Vector2d> world_points2D;
   std::vector<size_t> world_camera_idxs;
@@ -670,8 +682,8 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
 
       world_camera_idxs.push_back(res.first->second);
 
-      point2D_idxs.push_back(point2D_idx);
-      corrs.push_back(*corr);
+      result.point2D_idxs.push_back(point2D_idx);
+      result.corrs.push_back(*corr);
     }
   }
 
@@ -679,7 +691,7 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
   if (world_points2D.size() < min_num_inliers) {
     VLOG(2) << "Image observes insufficient number of points for registration ("
             << world_points2D.size() << " < " << min_num_inliers << ")";
-    return false;
+    return result;
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -701,7 +713,10 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
         ceres::LoggingType::SILENT;
   }
   abs_pose_refinement_options.print_summary = false;
-  if (reg_stats_.num_reg_images_per_camera[image.CameraId()] > 0) {
+  const auto it = reg_stats_.num_reg_images_per_camera.find(image.CameraId());
+  const size_t num_reg_for_camera =
+      (it != reg_stats_.num_reg_images_per_camera.end()) ? it->second : 0;
+  if (num_reg_for_camera > 0) {
     // Camera already refined from another image with the same camera.
     if (camera.HasBogusParams(options.min_focal_length_ratio,
                               options.max_focal_length_ratio,
@@ -746,33 +761,57 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
                                          &num_inliers,
                                          &inlier_mask)) {
     VLOG(2) << "Absolute pose estimation failed";
-    return false;
+    return result;
   }
 
   if (num_inliers < min_num_inliers) {
     VLOG(2) << "Absolute pose estimation failed due to insufficient inliers ("
             << num_inliers << " < " << min_num_inliers << ")";
-    return false;
+    return result;
   }
+
+  result.success = true;
+  result.cam_from_world = cam_from_world;
+  result.num_inliers = num_inliers;
+  result.inlier_mask = std::move(inlier_mask);
+  result.camera = std::move(camera);
+  result.abs_pose_refinement_options = std::move(abs_pose_refinement_options);
+  return result;
+}
+
+bool IncrementalMapper::CommitStructureLessRegistration(
+    const Options& options, StructureLessEstimationResult result) {
+  THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(obs_manager_);
+  THROW_CHECK(result.success);
+
+  const image_t image_id = result.image_id;
+  Image& image = reconstruction_->Image(image_id);
+
+  // Write the (potentially modified) camera back to the reconstruction.
+  *image.CameraPtr() = std::move(result.camera);
+  Camera& camera = *image.CameraPtr();
+
+  const point2D_t num_points2D = image.NumPoints2D();
 
   //////////////////////////////////////////////////////////////////////////////
   // Continue or triangulate tracks
   //////////////////////////////////////////////////////////////////////////////
 
-  VLOG(2) << "Continuing or triangulating tracks for " << num_inliers
+  VLOG(2) << "Continuing or triangulating tracks for " << result.num_inliers
           << " inlier 2D-2D correspondences";
 
-  image.FramePtr()->SetCamFromWorld(image.CameraId(), cam_from_world);
+  image.FramePtr()->SetCamFromWorld(image.CameraId(), result.cam_from_world);
 
   RegisterFrameEvent(image.FrameId());
 
-  THROW_CHECK_EQ(point2D_idxs.size(), corrs.size());
-  THROW_CHECK_EQ(point2D_idxs.size(), inlier_mask.size());
+  THROW_CHECK_EQ(result.point2D_idxs.size(), result.corrs.size());
+  THROW_CHECK_EQ(result.point2D_idxs.size(), result.inlier_mask.size());
   std::vector<std::vector<CorrespondenceGraph::Correspondence>> inlier_corrs(
       num_points2D);
-  for (size_t i = 0; i < inlier_mask.size(); ++i) {
-    if (inlier_mask[i]) {
-      inlier_corrs[point2D_idxs[i]].push_back(corrs[i]);
+  for (size_t i = 0; i < result.inlier_mask.size(); ++i) {
+    if (result.inlier_mask[i]) {
+      inlier_corrs[result.point2D_idxs[i]].push_back(result.corrs[i]);
     }
   }
 
@@ -857,7 +896,7 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
 
   // Refine pose using triangulated 3D point structure.
   auto abs_pose_refinement =
-      CreateDefaultBundleAdjuster(abs_pose_refinement_options,
+      CreateDefaultBundleAdjuster(result.abs_pose_refinement_options,
                                   abs_pose_refinement_config,
                                   *reconstruction_);
   const auto abs_pose_summary = abs_pose_refinement->Solve();
