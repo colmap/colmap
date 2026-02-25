@@ -72,8 +72,17 @@ void BaseOptionManager::AddLogOptions() {
   }
   added_log_options_ = true;
 
-  AddDefaultOption("log_to_stderr", &FLAGS_logtostderr);
-  AddDefaultOption("log_level", &FLAGS_v);
+  AddDefaultOption("Logging.log_target",
+                   &log_target_,
+                   "{stderr, stdout, file, stderr_and_file}");
+  // Directory for log files. If empty, glog uses $GOOGLE_LOG_DIR, /tmp, or
+  // %TEMP%.
+  AddDefaultOption("Logging.log_path", &FLAGS_log_dir);
+  AddDefaultOption("Logging.log_level", &FLAGS_v);
+  AddDefaultOption("Logging.log_severity",
+                   &FLAGS_minloglevel,
+                   "0:INFO, 1:WARNING, 2:ERROR, 3:FATAL");
+  AddDefaultOption("Logging.log_color", &FLAGS_colorlogtostderr);
 }
 
 void BaseOptionManager::AddDatabaseOptions() {
@@ -155,6 +164,32 @@ void BaseOptionManager::ApplyEnumConversions() {
   }
 }
 
+void BaseOptionManager::ApplyLogFlags() {
+  FLAGS_logtostderr = false;
+  FLAGS_logtostdout = false;
+  FLAGS_alsologtostderr = false;
+
+  if (log_target_ == "stderr") {
+    FLAGS_logtostderr = true;
+  } else if (log_target_ == "stdout") {
+    FLAGS_logtostdout = true;
+  } else if (log_target_ == "file") {
+  } else if (log_target_ == "stderr_and_file") {
+    FLAGS_alsologtostderr = true;
+  } else {
+    LOG(ERROR) << "Invalid Logging.log_output: " << log_target_
+               << ". Falling back to stderr_and_file.";
+    FLAGS_alsologtostderr = true;
+  }
+
+  FLAGS_colorlogtostdout = FLAGS_colorlogtostderr;
+
+  if (!FLAGS_log_dir.empty() &&
+      (log_target_ == "file" || log_target_ == "stderr_and_file")) {
+    CreateDirIfNotExists(FLAGS_log_dir);
+  }
+}
+
 void BaseOptionManager::PrintHelp() const {
   LOG(INFO) << "Options can either be specified via command-line or by "
                "defining them in a .ini project file.\n"
@@ -190,6 +225,7 @@ bool BaseOptionManager::Parse(const int argc, char** argv) {
     }
 
     ApplyEnumConversions();
+    ApplyLogFlags();
     PostParse();
 
   } catch (std::exception& exc) {

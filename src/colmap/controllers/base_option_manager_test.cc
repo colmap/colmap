@@ -456,5 +456,48 @@ TEST(BaseOptionManager, EnumOptionNonDefaultInitialValue) {
   EXPECT_EQ(options.test_enum_value, TestEnumType::VALUE_B);
 }
 
+TEST(BaseOptionManager, LogOptions) {
+  BaseOptionManager options;
+  options.AddLogOptions();
+
+  auto VerifyLogState = [&](const std::string& output,
+                            bool expect_stderr,
+                            bool expect_stdout,
+                            bool expect_stderr_and_file) {
+    const std::vector<std::string> args = {
+        "colmap", "--Logging.log_target", output};
+    std::vector<char*> argv;
+    argv.reserve(args.size());
+    for (const auto& arg : args) {
+      argv.push_back(const_cast<char*>(arg.c_str()));
+    }
+
+    EXPECT_TRUE(options.Parse(argv.size(), argv.data()));
+    EXPECT_EQ(FLAGS_logtostderr, expect_stderr);
+    EXPECT_EQ(FLAGS_logtostdout, expect_stdout);
+    EXPECT_EQ(FLAGS_alsologtostderr, expect_stderr_and_file);
+  };
+
+  VerifyLogState("stderr",
+                 /*expect_stderr=*/true,
+                 /*expect_stdout=*/false,
+                 /*expect_and_file=*/false);
+  VerifyLogState("stdout",
+                 /*expect_stderr=*/false,
+                 /*expect_stdout=*/true,
+                 /*expect_and_file=*/false);
+  VerifyLogState("file",
+                 /*expect_stderr=*/false,
+                 /*expect_stdout=*/false,
+                 /*expect_and_file=*/false);
+  VerifyLogState("stderr_and_file",
+                 /*expect_stderr=*/false,
+                 /*expect_stdout=*/false,
+                 /*expect_and_file=*/true);
+  VerifyLogState("invalid",
+                 /*expect_stderr=*/true,
+                 /*expect_stdout=*/false,
+                 /*expect_and_file=*/false);
+}
 }  // namespace
 }  // namespace colmap

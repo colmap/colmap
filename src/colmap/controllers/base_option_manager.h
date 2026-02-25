@@ -117,6 +117,9 @@ class BaseOptionManager {
 
   std::shared_ptr<boost::program_options::options_description> desc_;
 
+  // Log destination choice: {stderr, stdout, file, stderr_and_file}.
+  std::string log_target_ = "stderr_and_file";
+
   std::vector<std::pair<std::string, const bool*>> options_bool_;
   std::vector<std::pair<std::string, const int*>> options_int_;
   std::vector<std::pair<std::string, const double*>> options_double_;
@@ -145,6 +148,9 @@ class BaseOptionManager {
 
   // Apply string->enum conversions for all registered enum options.
   void ApplyEnumConversions();
+
+  // Map simplified log output options to glog flags.
+  void ApplyLogFlags();
 };
 
 template <typename T>
