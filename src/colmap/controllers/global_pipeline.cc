@@ -126,6 +126,8 @@ void GlobalPipeline::Run() {
   }
 
   if (has_insufficient_prior_focal_lengths) {
+    // Intentionally logging this warning before and after the reconstruction
+    // to make sure it is not missed.
     WarnInsufficientPriorFocalLengths();
   }
 }
