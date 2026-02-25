@@ -67,6 +67,7 @@ class MainWindow : public QMainWindow {
  protected:
   void closeEvent(QCloseEvent* event) override;
   void dragEnterEvent(QDragEnterEvent* event) override;
+  void dragMoveEvent(QDragMoveEvent* event) override;
   void dropEvent(QDropEvent* event) override;
 
  private:
@@ -80,6 +81,8 @@ class MainWindow : public QMainWindow {
   void CreateToolbar();
   void CreateStatusbar();
   void CreateControllers();
+
+  void HandleDragEvent(QDropEvent* event);
 
   void ProjectNew();
   bool ProjectOpen();
