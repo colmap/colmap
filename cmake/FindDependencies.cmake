@@ -322,9 +322,9 @@ if(ONNX_ENABLED)
                     endforeach()
                 endif()
             endif()
+            set(onnxruntime_CONFIG_DIR_HINTS ${ONNX_DATA_DIR}/cmake CACHE PATH "ONNX Runtime config directory hints")
         endif()
 
-        set(onnxruntime_CONFIG_DIR_HINTS ${ONNX_DATA_DIR}/cmake CACHE PATH "ONNX Runtime config directory hints")
         set(onnxruntime_INCLUDE_DIR_HINTS ${onnxruntime_BINARY_DIR}/include CACHE PATH "ONNX Runtime include directory hints")
         set(onnxruntime_LIBRARY_DIR_HINTS ${onnxruntime_BINARY_DIR}/lib CACHE PATH "ONNX Runtime library directory hints")
         find_package(onnxruntime ${COLMAP_FIND_TYPE})
@@ -342,6 +342,18 @@ if(ONNX_ENABLED)
                 install(FILES
                     "${onnxruntime_LIB_DIR}/onnxruntime_providers_cuda.dll"
                     TYPE BIN)
+            endif()
+
+            # On Windows, selectively install Libs to lib/. Always install core libs.
+            # For not not supporting TensorRT/ROCM/etc. as a runtime, so not installing it intentionally.
+            install(FILES
+                "${onnxruntime_LIB_DIR}/onnxruntime.lib"
+                "${onnxruntime_LIB_DIR}/onnxruntime_providers_shared.lib"
+                TYPE LIB)
+            if(CUDA_ENABLED)
+                install(FILES
+                    "${onnxruntime_LIB_DIR}/onnxruntime_providers_cuda.lib"
+                    TYPE LIB)
             endif()
         else()
             # On Linux/macOS, selectively install library files. Always install core libraries.
@@ -365,7 +377,9 @@ if(ONNX_ENABLED)
                 endif()
             endif()
         endif()
-        install(DIRECTORY "${onnxruntime_BINARY_DIR}/share/" TYPE DATA)
+        if(EXISTS "${onnxruntime_BINARY_DIR}/share")
+            install(DIRECTORY "${onnxruntime_BINARY_DIR}/share/" TYPE DATA)
+        endif()
 
         message(STATUS "Configuring onnxruntime... done")
     else()
