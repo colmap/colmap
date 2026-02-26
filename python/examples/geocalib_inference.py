@@ -26,9 +26,8 @@ def rot90_vec(vec: np.ndarray, k: int) -> np.ndarray:
         return np.array([y, -x, z])
     elif k == 2:  # 180 deg CCW
         return np.array([-x, -y, z])
-    elif k == 3:  # 270 deg CCW
+    else:  # 270 deg CCW
         return np.array([-y, x, z])
-    return vec
 
 
 def write_focal(camera: pycolmap.Camera, focal: float) -> None:
