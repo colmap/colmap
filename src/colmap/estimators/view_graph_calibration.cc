@@ -411,6 +411,7 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
   for (const auto& [camera_id, focal_length] : calib_result.focal_lengths) {
     Camera& camera = cameras.at(camera_id);
     camera.SetFocalLength(focal_length);
+    camera.has_prior_focal_length = true;
     database->UpdateCamera(camera);
   }
 

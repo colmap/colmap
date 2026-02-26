@@ -29,7 +29,6 @@
 
 #pragma once
 
-#include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/sfm/global_mapper.h"
 #include "colmap/util/base_controller.h"
@@ -62,12 +61,6 @@ struct GlobalPipelineOptions {
   // Whether to decompose relative poses from two-view geometries.
   bool decompose_relative_pose = true;
 
-  // Whether to skip view graph calibration.
-  bool skip_view_graph_calibration = false;
-
-  // Options for view graph calibration.
-  ViewGraphCalibrationOptions view_graph_calibration;
-
   // Options for the global mapper.
   GlobalMapperOptions mapper;
 };
@@ -82,7 +75,7 @@ class GlobalPipeline : public BaseController {
 
  private:
   const GlobalPipelineOptions options_;
-  const std::shared_ptr<Database> database_;
+  std::shared_ptr<const DatabaseCache> database_cache_;
   std::shared_ptr<ReconstructionManager> reconstruction_manager_;
 };
 

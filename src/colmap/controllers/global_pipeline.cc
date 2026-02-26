@@ -37,34 +37,44 @@
 #include "colmap/util/timer.h"
 
 namespace colmap {
+namespace {
+
+constexpr double kMinPriorFocalLengthRatio = 0.5;
+
+bool HasInsufficientPriorFocalLengths(const DatabaseCache& database_cache) {
+  const auto& cameras = database_cache.Cameras();
+  if (cameras.empty()) {
+    return false;
+  }
+  const size_t num_with_prior =
+      std::count_if(cameras.begin(), cameras.end(), [](const auto& camera) {
+        return camera.second.has_prior_focal_length;
+      });
+  return num_with_prior < kMinPriorFocalLengthRatio * cameras.size();
+}
+
+void WarnInsufficientPriorFocalLengths() {
+  LOG(WARNING) << "Less than " << kMinPriorFocalLengthRatio * 100
+               << "% of cameras have prior focal lengths. The "
+                  "global mapper depends on reasonably good focal length "
+                  "priors to perform well. Consider running "
+                  "'colmap view_graph_calibrator' before 'colmap "
+                  "global_mapper' or providing camera calibrations "
+                  "manually.";
+}
+
+}  // namespace
 
 GlobalPipeline::GlobalPipeline(
     GlobalPipelineOptions options,
     std::shared_ptr<Database> database,
     std::shared_ptr<ReconstructionManager> reconstruction_manager)
     : options_(std::move(options)),
-      database_(std::move(THROW_CHECK_NOTNULL(database))),
       reconstruction_manager_(
           std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {
+  THROW_CHECK_NOTNULL(database);
   if (options_.decompose_relative_pose) {
-    MaybeDecomposeAndWriteRelativePoses(database_.get());
-  }
-}
-
-void GlobalPipeline::Run() {
-  if (!options_.skip_view_graph_calibration) {
-    LOG_HEADING1("Running view graph calibration");
-    Timer run_timer;
-    run_timer.Start();
-    ViewGraphCalibrationOptions vgc_options = options_.view_graph_calibration;
-    vgc_options.random_seed = options_.random_seed;
-    vgc_options.solver_options.num_threads = options_.num_threads;
-    if (!CalibrateViewGraph(vgc_options, database_.get())) {
-      LOG(ERROR) << "View graph calibration failed";
-      return;
-    }
-    LOG(INFO) << "View graph calibration done in " << run_timer.ElapsedSeconds()
-              << " seconds";
+    MaybeDecomposeAndWriteRelativePoses(database.get());
   }
 
   // Create database cache with relative poses for pose graph.
@@ -73,8 +83,15 @@ void GlobalPipeline::Run() {
   database_cache_options.ignore_watermarks = options_.ignore_watermarks;
   database_cache_options.image_names = {options_.image_names.begin(),
                                         options_.image_names.end()};
-  auto database_cache =
-      DatabaseCache::Create(*database_, database_cache_options);
+  database_cache_ = DatabaseCache::Create(*database, database_cache_options);
+}
+
+void GlobalPipeline::Run() {
+  const bool has_insufficient_prior_focal_lengths =
+      HasInsufficientPriorFocalLengths(*database_cache_);
+  if (has_insufficient_prior_focal_lengths) {
+    WarnInsufficientPriorFocalLengths();
+  }
 
   auto reconstruction = std::make_shared<Reconstruction>();
 
@@ -84,7 +101,7 @@ void GlobalPipeline::Run() {
   mapper_options.num_threads = options_.num_threads;
   mapper_options.random_seed = options_.random_seed;
 
-  GlobalMapper global_mapper(database_cache);
+  GlobalMapper global_mapper(database_cache_);
   global_mapper.BeginReconstruction(reconstruction);
 
   Timer run_timer;
@@ -95,7 +112,7 @@ void GlobalPipeline::Run() {
             << " seconds";
 
   // Align reconstruction to the original metric scales in rig extrinsics.
-  AlignReconstructionToOrigRigScales(database_cache->Rigs(),
+  AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
                                      reconstruction.get());
 
   // Output the reconstruction.
@@ -105,6 +122,12 @@ void GlobalPipeline::Run() {
   if (!options_.image_path.empty()) {
     LOG(INFO) << "Extracting colors ...";
     output_reconstruction.ExtractColorsForAllImages(options_.image_path);
+  }
+
+  if (has_insufficient_prior_focal_lengths) {
+    // Intentionally logging this warning before and after the reconstruction
+    // to make sure it is not missed.
+    WarnInsufficientPriorFocalLengths();
   }
 }
 

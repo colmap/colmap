@@ -74,6 +74,7 @@ TEST(CalibrateViewGraph, Nominal) {
     for (const size_t idx : camera.FocalLengthIdxs()) {
       camera.params[idx] += noise;
     }
+    camera.has_prior_focal_length = false;
     database->UpdateCamera(camera);
   }
 
@@ -84,6 +85,7 @@ TEST(CalibrateViewGraph, Nominal) {
   // Verify focal lengths are calibrated close to ground truth.
   for (const auto& [camera_id, gt_focal] : gt_focals) {
     const Camera camera = database->ReadCamera(camera_id);
+    EXPECT_TRUE(camera.has_prior_focal_length);
     EXPECT_NEAR(camera.MeanFocalLength(), gt_focal, 1.0);
   }
 

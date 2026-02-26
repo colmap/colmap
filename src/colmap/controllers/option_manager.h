@@ -107,7 +107,8 @@ class OptionManager : public BaseOptionManager {
   void Reset(bool reset_logging = true) override;
   void ResetOptions(bool reset_paths) override;
   bool Check() override;
-  bool Read(const std::filesystem::path& path) override;
+  bool Read(const std::filesystem::path& path,
+            bool allow_unregistered = true) override;
 
   std::shared_ptr<ImageReaderOptions> image_reader;
   std::shared_ptr<FeatureExtractionOptions> feature_extraction;

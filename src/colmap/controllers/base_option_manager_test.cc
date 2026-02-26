@@ -33,6 +33,8 @@
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
+#include <fstream>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -159,6 +161,29 @@ TEST(BaseOptionManager, WriteAndRead) {
   EXPECT_EQ(string_option_read, string_option_write);
   EXPECT_EQ(section_option_read, section_option_write);
   EXPECT_EQ(enum_option_read, enum_option_write);
+}
+
+TEST(BaseOptionManager, ReadWithUnregisteredOptions) {
+  const auto test_dir = CreateTestDir();
+  const auto config_path = test_dir / "config.ini";
+
+  CreateDirIfNotExists(test_dir / "images");
+
+  std::ofstream file(config_path);
+  file << "database_path=" << (test_dir / "database.db").string() << "\n";
+  file << "image_path=" << (test_dir / "images").string() << "\n";
+  file << "unknown_option=foobar\n";
+  file.close();
+
+  BaseOptionManager options;
+  options.AddDatabaseOptions();
+  options.AddImageOptions();
+
+  EXPECT_TRUE(options.Read(config_path, /*allow_unregistered=*/true));
+  EXPECT_FALSE(options.Read(config_path, /*allow_unregistered=*/false));
+
+  EXPECT_EQ(*options.database_path, test_dir / "database.db");
+  EXPECT_EQ(*options.image_path, test_dir / "images");
 }
 
 TEST(BaseOptionManager, ReRead) {
