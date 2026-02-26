@@ -178,7 +178,7 @@ the available options, e.g.::
             --log_path arg
             --log_level arg (=0)
             --log_severity arg (=0)    0:INFO, 1:WARNING, 2:ERROR, 3:FATAL
-            --log_color arg (=0)
+            --log_color arg (=1)
             --project_path arg
             --database_path arg
             --image_path arg

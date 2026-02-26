@@ -473,7 +473,10 @@ TEST(BaseOptionManager, LogOptions) {
 
     EXPECT_TRUE(options.Parse(argv.size(), argv.data()));
     EXPECT_EQ(FLAGS_logtostderr, expect_stderr);
+#if defined(GLOG_VERSION_MAJOR) && \
+    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
     EXPECT_EQ(FLAGS_logtostdout, expect_stdout);
+#endif
     EXPECT_EQ(FLAGS_alsologtostderr, expect_stderr_and_file);
   };
 
@@ -481,10 +484,19 @@ TEST(BaseOptionManager, LogOptions) {
                  /*expect_stderr=*/true,
                  /*expect_stdout=*/false,
                  /*expect_and_file=*/false);
+#if defined(GLOG_VERSION_MAJOR) && \
+    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
   VerifyLogState("stdout",
                  /*expect_stderr=*/false,
                  /*expect_stdout=*/true,
                  /*expect_and_file=*/false);
+#else
+  // glog < 0.6 does not support FLAGS_logtostdout, falls back to stderr.
+  VerifyLogState("stdout",
+                 /*expect_stderr=*/true,
+                 /*expect_stdout=*/false,
+                 /*expect_and_file=*/false);
+#endif
   VerifyLogState("file",
                  /*expect_stderr=*/false,
                  /*expect_stdout=*/false,
