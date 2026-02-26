@@ -380,13 +380,13 @@ TEST(CorrespondenceGraph, UpdateTwoViewGeometrySwapped) {
   correspondence_graph.UpdateTwoViewGeometry(1, 0, updated);
 
   // Extract in the same swapped order and verify it matches.
-  TwoViewGeometry extracted_10 =
+  const TwoViewGeometry extracted_10 =
       correspondence_graph.ExtractTwoViewGeometry(1, 0, false);
   EXPECT_THAT(extracted_10.cam2_from_cam1.value(),
               Rigid3dNear(cam1_from_cam0, 1e-6, 1e-6));
 
   // Extract in canonical order and verify it's the inverse.
-  TwoViewGeometry extracted_01 =
+  const TwoViewGeometry extracted_01 =
       correspondence_graph.ExtractTwoViewGeometry(0, 1, false);
   EXPECT_THAT(extracted_01.cam2_from_cam1.value(),
               Rigid3dNear(Inverse(cam1_from_cam0), 1e-6, 1e-6));
