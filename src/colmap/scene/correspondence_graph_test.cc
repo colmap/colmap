@@ -324,5 +324,73 @@ TEST(CorrespondenceGraph, Duplicate) {
   EXPECT_EQ(correspondence_graph.NumMatchesBetweenAllImages().at(pair_id), 4);
 }
 
+TEST(CorrespondenceGraph, UpdateTwoViewGeometry) {
+  CorrespondenceGraph correspondence_graph;
+  correspondence_graph.AddImage(0, 10);
+  correspondence_graph.AddImage(1, 10);
+  TwoViewGeometry two_view_geometry;
+  two_view_geometry.config = TwoViewGeometry::CALIBRATED;
+  two_view_geometry.inlier_matches = {{0, 0}, {1, 2}, {3, 7}};
+  correspondence_graph.AddTwoViewGeometry(0, 1, two_view_geometry);
+  correspondence_graph.Finalize();
+
+  // Verify initial state has no relative pose.
+  TwoViewGeometry extracted =
+      correspondence_graph.ExtractTwoViewGeometry(0, 1, false);
+  EXPECT_FALSE(extracted.cam2_from_cam1.has_value());
+  EXPECT_EQ(extracted.config, TwoViewGeometry::CALIBRATED);
+
+  // Update with a decomposed relative pose.
+  TwoViewGeometry updated = extracted;
+  updated.cam2_from_cam1 =
+      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+  correspondence_graph.UpdateTwoViewGeometry(0, 1, updated);
+
+  // Verify the updated geometry is returned.
+  TwoViewGeometry after_update =
+      correspondence_graph.ExtractTwoViewGeometry(0, 1, false);
+  EXPECT_TRUE(after_update.cam2_from_cam1.has_value());
+  EXPECT_THAT(after_update.cam2_from_cam1.value(),
+              Rigid3dNear(updated.cam2_from_cam1.value(), 1e-6, 1e-6));
+  EXPECT_EQ(after_update.config, TwoViewGeometry::CALIBRATED);
+
+  // Verify matches are preserved (stored separately from geometry).
+  FeatureMatches matches;
+  correspondence_graph.ExtractMatchesBetweenImages(0, 1, matches);
+  EXPECT_EQ(matches, two_view_geometry.inlier_matches);
+}
+
+TEST(CorrespondenceGraph, UpdateTwoViewGeometrySwapped) {
+  CorrespondenceGraph correspondence_graph;
+  // Use image IDs where ShouldSwapImagePair(1, 0) is true, i.e. id1 > id2.
+  correspondence_graph.AddImage(0, 10);
+  correspondence_graph.AddImage(1, 10);
+  TwoViewGeometry two_view_geometry;
+  two_view_geometry.config = TwoViewGeometry::CALIBRATED;
+  two_view_geometry.inlier_matches = {{0, 0}, {1, 2}};
+  correspondence_graph.AddTwoViewGeometry(0, 1, two_view_geometry);
+  correspondence_graph.Finalize();
+
+  // Update using the swapped order (1, 0).
+  const Rigid3d cam1_from_cam0(Eigen::Quaterniond::UnitRandom(),
+                               Eigen::Vector3d::Random());
+  TwoViewGeometry updated;
+  updated.config = TwoViewGeometry::CALIBRATED;
+  updated.cam2_from_cam1 = cam1_from_cam0;
+  correspondence_graph.UpdateTwoViewGeometry(1, 0, updated);
+
+  // Extract in the same swapped order and verify it matches.
+  TwoViewGeometry extracted_10 =
+      correspondence_graph.ExtractTwoViewGeometry(1, 0, false);
+  EXPECT_THAT(extracted_10.cam2_from_cam1.value(),
+              Rigid3dNear(cam1_from_cam0, 1e-6, 1e-6));
+
+  // Extract in canonical order and verify it's the inverse.
+  TwoViewGeometry extracted_01 =
+      correspondence_graph.ExtractTwoViewGeometry(0, 1, false);
+  EXPECT_THAT(extracted_01.cam2_from_cam1.value(),
+              Rigid3dNear(Inverse(cam1_from_cam0), 1e-6, 1e-6));
+}
+
 }  // namespace
 }  // namespace colmap

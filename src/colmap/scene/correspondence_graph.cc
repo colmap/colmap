@@ -325,6 +325,20 @@ struct TwoViewGeometry CorrespondenceGraph::ExtractTwoViewGeometry(
   return two_view_geometry;
 }
 
+void CorrespondenceGraph::UpdateTwoViewGeometry(
+    const image_t image_id1,
+    const image_t image_id2,
+    struct TwoViewGeometry two_view_geometry) {
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
+  auto image_pair_it = image_pairs_.find(pair_id);
+  THROW_CHECK(image_pair_it != image_pairs_.end());
+  FeatureMatches().swap(two_view_geometry.inlier_matches);
+  if (ShouldSwapImagePair(image_id1, image_id2)) {
+    two_view_geometry.Invert();
+  }
+  image_pair_it->second.two_view_geometry = std::move(two_view_geometry);
+}
+
 bool CorrespondenceGraph::IsTwoViewObservation(
     const image_t image_id, const point2D_t point2D_idx) const {
   const CorrespondenceRange range = FindCorrespondences(image_id, point2D_idx);
