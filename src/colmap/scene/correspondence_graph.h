@@ -143,6 +143,12 @@ class CorrespondenceGraph {
   struct TwoViewGeometry ExtractTwoViewGeometry(
       image_t image_id1, image_t image_id2, bool extract_inlier_matches) const;
 
+  // Update the two-view geometry for an existing image pair. The inlier_matches
+  // field of the provided geometry is ignored (matches are stored separately).
+  void UpdateTwoViewGeometry(image_t image_id1,
+                             image_t image_id2,
+                             struct TwoViewGeometry two_view_geometry);
+
   // Check whether the image point has correspondences.
   inline bool HasCorrespondences(image_t image_id, point2D_t point2D_idx) const;
 

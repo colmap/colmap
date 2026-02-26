@@ -75,7 +75,9 @@ void BindDatabaseCache(py::module& m) {
       .def_property_readonly("frames", &DatabaseCache::Frames)
       .def_property_readonly("images", &DatabaseCache::Images)
       .def_property_readonly("pose_priors", &DatabaseCache::PosePriors)
-      .def_property_readonly("correspondence_graph",
-                             &DatabaseCache::CorrespondenceGraph)
+      .def_property_readonly(
+          "correspondence_graph",
+          static_cast<std::shared_ptr<const class CorrespondenceGraph> (
+              DatabaseCache::*)() const>(&DatabaseCache::CorrespondenceGraph))
       .def("find_image_with_name", &DatabaseCache::FindImageWithName, "name"_a);
 }

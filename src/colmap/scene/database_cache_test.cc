@@ -29,6 +29,7 @@
 
 #include "colmap/scene/database_cache.h"
 
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/scene/database_sqlite.h"
 
 #include <gmock/gmock.h>
@@ -337,6 +338,37 @@ TEST(DatabaseCache, ConstructFromCustom) {
   EXPECT_TRUE(cache.ExistsFrame(kFrameId));
   EXPECT_TRUE(cache.ExistsImage(kImageId));
   EXPECT_THAT(cache.PosePriors(), testing::ElementsAre(pose_prior));
+}
+
+TEST(DatabaseCache, NonConstCorrespondenceGraph) {
+  auto database = CreateTestDatabase();
+  auto cache = DatabaseCache::Create(*database, {});
+
+  // Non-const overload returns a mutable shared_ptr.
+  std::shared_ptr<CorrespondenceGraph> mutable_graph =
+      cache->CorrespondenceGraph();
+  EXPECT_NE(mutable_graph, nullptr);
+
+  // Verify it can be used to update a two-view geometry.
+  const auto image_pairs = mutable_graph->ImagePairs();
+  ASSERT_FALSE(image_pairs.empty());
+  const auto [image_id1, image_id2] = PairIdToImagePair(image_pairs[0]);
+
+  TwoViewGeometry geom = mutable_graph->ExtractTwoViewGeometry(
+      image_id1, image_id2, /*extract_inlier_matches=*/false);
+  const Rigid3d new_pose(Eigen::Quaterniond::UnitRandom(),
+                         Eigen::Vector3d::Random());
+  geom.cam2_from_cam1 = new_pose;
+  mutable_graph->UpdateTwoViewGeometry(image_id1, image_id2, geom);
+
+  // Read back through the const accessor and verify the update is visible.
+  const DatabaseCache& const_cache = *cache;
+  TwoViewGeometry updated =
+      const_cache.CorrespondenceGraph()->ExtractTwoViewGeometry(
+          image_id1, image_id2, false);
+  ASSERT_TRUE(updated.cam2_from_cam1.has_value());
+  EXPECT_THAT(updated.cam2_from_cam1.value(),
+              Rigid3dNear(new_pose, 1e-6, 1e-6));
 }
 
 }  // namespace

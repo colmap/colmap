@@ -35,6 +35,7 @@
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
@@ -889,7 +890,7 @@ TEST(EstimateMultipleTwoViewGeometries, MultipleGeometries) {
   EXPECT_EQ(geometry.inlier_matches.size(), matches1.size() + matches2.size());
 }
 
-TEST(MaybeDecomposeAndWriteRelativePoses, Nominal) {
+TEST(MaybeDecomposeRelativePoses, Nominal) {
   SetPRNGSeed(42);
 
   auto database = Database::Open(kInMemorySqliteDatabasePath);
@@ -903,22 +904,29 @@ TEST(MaybeDecomposeAndWriteRelativePoses, Nominal) {
   synthetic_dataset_options.camera_has_prior_focal_length = true;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction, database.get());
 
+  // Load the database into a cache.
+  DatabaseCache::Options cache_options;
+  auto cache = DatabaseCache::Create(*database, cache_options);
+
   // Verify the two-view geometry exists but has no decomposed pose yet.
-  ASSERT_TRUE(database->ExistsTwoViewGeometry(1, 2));
-  TwoViewGeometry geometry_before = database->ReadTwoViewGeometry(1, 2);
+  const auto corr_graph = cache->CorrespondenceGraph();
+  TwoViewGeometry geometry_before = corr_graph->ExtractTwoViewGeometry(
+      1, 2, /*extract_inlier_matches=*/false);
   EXPECT_FALSE(geometry_before.cam2_from_cam1.has_value());
 
-  // Decompose poses - should update existing geometry without throwing.
-  MaybeDecomposeAndWriteRelativePoses(database.get());
+  // Decompose poses - should update cache without throwing.
+  MaybeDecomposeRelativePoses(cache.get());
 
   // Verify the geometry was updated with a decomposed pose.
-  TwoViewGeometry geometry_after = database->ReadTwoViewGeometry(1, 2);
+  TwoViewGeometry geometry_after = corr_graph->ExtractTwoViewGeometry(
+      1, 2, /*extract_inlier_matches=*/false);
   EXPECT_TRUE(geometry_after.cam2_from_cam1.has_value());
 
   // Calling again should skip already decomposed geometries.
-  MaybeDecomposeAndWriteRelativePoses(database.get());
+  MaybeDecomposeRelativePoses(cache.get());
 
-  TwoViewGeometry geometry_second = database->ReadTwoViewGeometry(1, 2);
+  TwoViewGeometry geometry_second = corr_graph->ExtractTwoViewGeometry(
+      1, 2, /*extract_inlier_matches=*/false);
   EXPECT_EQ(geometry_after.cam2_from_cam1->rotation().coeffs(),
             geometry_second.cam2_from_cam1->rotation().coeffs());
   EXPECT_EQ(geometry_after.cam2_from_cam1->translation(),
