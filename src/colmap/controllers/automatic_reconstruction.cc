@@ -36,6 +36,7 @@
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/controllers/undistorters.h"
+#include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
@@ -306,6 +307,10 @@ void AutomaticReconstructionController::RunSparseMapper() {
       break;
     }
     case Mapper::GLOBAL: {
+      ViewGraphCalibrationOptions vgc_options;
+      vgc_options.random_seed = options_.random_seed;
+      vgc_options.solver_options.num_threads = options_.num_threads;
+      CalibrateViewGraph(vgc_options, database.get());
       GlobalPipelineOptions global_options;
       global_options.image_path = *option_manager_.image_path;
       global_options.num_threads = options_.num_threads;
