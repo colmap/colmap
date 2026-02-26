@@ -1,0 +1,67 @@
+name: Enforce Breaking-Change Answers
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+permissions:
+  contents: read   # read-only; no writes
+
+jobs:
+  enforce:
+    name: "Breaking-change answers"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check COLMAP question (exactly one answer)
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          # Extract PR body and normalize CRLF (\r\n -> \n)
+          BODY="$(jq -r '.pull_request.body // ""' "$GITHUB_EVENT_PATH" | tr -d '\r')"
+
+          if [ -z "$BODY" ]; then
+            echo "::error title=Empty PR description::Please keep the breaking changes checklist and tick exactly one option."
+            exit 1
+          fi
+
+          HEADER="### Does this PR introduce breaking changes to **colmap/pycolmap public APIs**?"
+
+          # Ensure the header exists
+          if ! grep -Fq "$HEADER" <<< "$BODY"; then
+            echo "::error title=Missing question::Missing line: $HEADER"
+            exit 1
+          fi
+
+          # Extract the lines under the header until the next ### header
+          BLOCK="$(
+            awk -v header="$HEADER" '
+              BEGIN{p=0}
+              index($0, header){p=1; next}
+              /^### / && p==1{exit}
+              p==1{print}
+            ' <<< "$BODY"
+          )"
+
+          if [ -z "$BLOCK" ]; then
+            echo "::error title=Missing options::Could not find the Yes/No checkboxes under the question."
+            exit 1
+          fi
+
+          # Count checked Yes/No boxes (allow optional leading '>')
+          YES=$(grep -iE '^[[:space:]]*>?[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*Yes\b' <<< "$BLOCK" | wc -l | tr -d ' ')
+          NO=$( grep -iE '^[[:space:]]*>?[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*No\b'  <<< "$BLOCK" | wc -l | tr -d ' ')
+          TOTAL=$((YES + NO))
+
+          echo "Found: YES=$YES NO=$NO"
+          if [ "$TOTAL" -ne 1 ]; then
+            echo "::error title=Exactly one required::Tick exactly one (Yes or No) under the breaking changes question."
+            echo "::notice::Tip: leave one line as '[ ]' and mark the other as '[x]'."
+            exit 1
+          fi
+
+          echo "✅ Breaking changes checklist passed."
+
+      - name: Summary
+        if: ${{ success() }}
+        run: |
+          echo "Both breaking-change questions answered correctly."
