@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/scene/correspondence_graph.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_triangulator.h"
@@ -218,6 +219,26 @@ class IncrementalMapper {
   // Attempts to register image using structure-less resectioning as proposed in
   // "Structure from Motion Using Structure-less Resection" by Zheng and Wu.
   bool RegisterNextStructureLessImage(const Options& options, image_t image_id);
+
+  struct StructureLessEstimationResult {
+    bool success = false;
+    image_t image_id = kInvalidImageId;
+    Rigid3d cam_from_world;
+    size_t num_inliers = 0;
+    std::vector<char> inlier_mask;
+    std::vector<point2D_t> point2D_idxs;
+    std::vector<CorrespondenceGraph::Correspondence> corrs;
+    Camera camera;
+    BundleAdjustmentOptions abs_pose_refinement_options;
+  };
+
+  // Phase 1: Read-only estimation for structure-less registration. Thread-safe.
+  StructureLessEstimationResult EstimateStructureLessPose(
+      const Options& options, image_t image_id) const;
+
+  // Phase 2: Commit successful estimation to reconstruction. NOT thread-safe.
+  bool CommitStructureLessRegistration(const Options& options,
+                                       StructureLessEstimationResult result);
 
   // Triangulate observations of image.
   size_t TriangulateImage(const IncrementalTriangulator::Options& tri_options,
