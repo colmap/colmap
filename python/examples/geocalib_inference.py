@@ -5,15 +5,18 @@ An example for using GeoCalib to extract gravity and camera intrinsics.
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import enlighten
 import geocalib
 import numpy as np
-import numpy.typing as npt
 import torch
 
 import pycolmap
 from pycolmap import logging
+
+NDArray3x1 = np.ndarray[tuple[Literal[3], Literal[1]], np.dtype[np.float64]]
+NDArray2x2 = np.ndarray[tuple[Literal[2], Literal[2]], np.dtype[np.float64]]
 
 
 def rot90_vec(vec: np.ndarray, k: int) -> np.ndarray:
@@ -41,8 +44,8 @@ def write_focal(camera: pycolmap.Camera, focal: float) -> None:
 
 @dataclass
 class CalibrationResult:
-    gravity_direction: npt.NDArray[np.floating]
-    gravity_covariance: npt.NDArray[np.floating]
+    gravity_direction: NDArray3x1
+    gravity_covariance: NDArray2x2
     focal_length: float
 
 
@@ -134,12 +137,7 @@ def process_image(
 
     prior_focal_length = None
     if camera.has_prior_focal_length:
-        if len(camera.focal_length_idxs()) == 1:
-            prior_focal_length = camera.focal_length
-        else:
-            prior_focal_length = np.mean(
-                [camera.focal_length_x, camera.focal_length_y]
-            )
+        prior_focal_length = camera.mean_focal_length()
         logging.verbose(
             1, f"Image has prior focal length: {prior_focal_length} px."
         )
@@ -185,7 +183,9 @@ def run(input_path: Path, output_path: Path) -> None:
     pycolmap.Database.open(database_path).close()
     logging.info(f"Importing images from {input_path} into {database_path}")
     pycolmap.import_images(
-        database_path, input_path, options={"camera_model": "SIMPLE_PINHOLE"}
+        database_path,
+        input_path,
+        options=pycolmap.ImageReaderOptions(camera_model="SIMPLE_PINHOLE"),
     )
 
     processor = GeoCalibProcessor()
