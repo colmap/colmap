@@ -208,7 +208,8 @@ bool BaseOptionManager::Parse(const int argc, char** argv) {
   return true;
 }
 
-bool BaseOptionManager::Read(const std::filesystem::path& path) {
+bool BaseOptionManager::Read(const std::filesystem::path& path,
+                             bool allow_unregistered) {
   config::variables_map vmap;
 
   if (!ExistsFile(path)) {
@@ -219,7 +220,19 @@ bool BaseOptionManager::Read(const std::filesystem::path& path) {
   try {
     std::ifstream file(path);
     THROW_CHECK_FILE_OPEN(file, path);
-    config::store(config::parse_config_file(file, *desc_), vmap);
+
+    const config::parsed_options parsed_options =
+        config::parse_config_file(file, *desc_, allow_unregistered);
+    config::store(parsed_options, vmap);
+
+    if (allow_unregistered) {
+      for (const auto& option : parsed_options.options) {
+        if (option.unregistered) {
+          LOG(WARNING) << "Unrecognized option key: " << option.string_key;
+        }
+      }
+    }
+
     vmap.notify();
     ApplyEnumConversions();
   } catch (std::exception& e) {
@@ -233,10 +246,11 @@ bool BaseOptionManager::Read(const std::filesystem::path& path) {
   return true;
 }
 
-bool BaseOptionManager::ReRead(const std::filesystem::path& path) {
+bool BaseOptionManager::ReRead(const std::filesystem::path& path,
+                               bool allow_unregistered) {
   Reset();
   AddAllOptions();
-  return Read(path);
+  return Read(path, allow_unregistered);
 }
 
 void BaseOptionManager::Write(const std::filesystem::path& path) const {

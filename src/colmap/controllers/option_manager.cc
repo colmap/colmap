@@ -1015,8 +1015,9 @@ bool OptionManager::Check() {
   return success;
 }
 
-bool OptionManager::Read(const std::filesystem::path& path) {
-  if (!BaseOptionManager::Read(path)) {
+bool OptionManager::Read(const std::filesystem::path& path,
+                         bool allow_unregistered) {
+  if (!BaseOptionManager::Read(path, allow_unregistered)) {
     return false;
   }
   return Check();
