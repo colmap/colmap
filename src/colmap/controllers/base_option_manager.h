@@ -91,8 +91,10 @@ class BaseOptionManager {
   virtual bool Check();
 
   bool Parse(int argc, char** argv);
-  virtual bool Read(const std::filesystem::path& path);
-  bool ReRead(const std::filesystem::path& path);
+  virtual bool Read(const std::filesystem::path& path,
+                    bool allow_unregistered = true);
+  bool ReRead(const std::filesystem::path& path,
+              bool allow_unregistered = true);
   void Write(const std::filesystem::path& path) const;
 
   std::shared_ptr<std::filesystem::path> project_path;
