@@ -72,17 +72,16 @@ void BaseOptionManager::AddLogOptions() {
   }
   added_log_options_ = true;
 
-  AddDefaultOption("Logging.log_target",
-                   &log_target_,
-                   "{stderr, stdout, file, stderr_and_file}");
+  AddDefaultOption(
+      "log_target", &log_target_, "{stderr, stdout, file, stderr_and_file}");
   // Directory for log files. If empty, glog uses $GOOGLE_LOG_DIR, /tmp, or
   // %TEMP%.
-  AddDefaultOption("Logging.log_path", &FLAGS_log_dir);
-  AddDefaultOption("Logging.log_level", &FLAGS_v);
-  AddDefaultOption("Logging.log_severity",
+  AddDefaultOption("log_path", &FLAGS_log_dir);
+  AddDefaultOption("log_level", &FLAGS_v);
+  AddDefaultOption("log_severity",
                    &FLAGS_minloglevel,
                    "0:INFO, 1:WARNING, 2:ERROR, 3:FATAL");
-  AddDefaultOption("Logging.log_color", &FLAGS_colorlogtostderr);
+  AddDefaultOption("log_color", &FLAGS_colorlogtostderr);
 }
 
 void BaseOptionManager::AddDatabaseOptions() {
@@ -115,7 +114,7 @@ void BaseOptionManager::ResetImpl(bool reset_logging) {
     FLAGS_log_dir = "";
     FLAGS_v = 0;
     FLAGS_minloglevel = 0;
-    FLAGS_colorlogtostderr = 0;
+    FLAGS_colorlogtostderr = true;
     ApplyLogFlags();
   }
 
@@ -184,7 +183,7 @@ void BaseOptionManager::ApplyLogFlags() {
   } else if (log_target_ == "stderr_and_file") {
     FLAGS_alsologtostderr = true;
   } else {
-    LOG(ERROR) << "Invalid Logging.log_target: " << log_target_
+    LOG(ERROR) << "Invalid log_target: " << log_target_
                << ". Falling back to stderr_and_file.";
     FLAGS_alsologtostderr = true;
   }

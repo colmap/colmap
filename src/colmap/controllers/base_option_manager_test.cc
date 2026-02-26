@@ -464,8 +464,7 @@ TEST(BaseOptionManager, LogOptions) {
                             bool expect_stderr,
                             bool expect_stdout,
                             bool expect_stderr_and_file) {
-    const std::vector<std::string> args = {
-        "colmap", "--Logging.log_target", output};
+    const std::vector<std::string> args = {"colmap", "--log_target", output};
     std::vector<char*> argv;
     argv.reserve(args.size());
     for (const auto& arg : args) {

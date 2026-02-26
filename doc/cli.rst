@@ -173,12 +173,12 @@ the available options, e.g.::
 
             -h [ --help ]
             --default_random_seed arg (=0)
-            --Logging.log_target arg (=stderr_and_file)
-                                        {stderr, stdout, file, stderr_and_file}
-            --Logging.log_path arg
-            --Logging.log_level arg (=0)
-            --Logging.log_severity arg (=0)       0:INFO, 1:WARNING, 2:ERROR, 3:FATAL
-            --Logging.log_color arg (=0)
+            --log_target arg (=stderr_and_file)
+                                  {stderr, stdout, file, stderr_and_file}
+            --log_path arg
+            --log_level arg (=0)
+            --log_severity arg (=0)    0:INFO, 1:WARNING, 2:ERROR, 3:FATAL
+            --log_color arg (=0)
             --project_path arg
             --database_path arg
             --image_path arg
