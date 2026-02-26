@@ -85,14 +85,19 @@ class BaseOptionManager {
                             EnumT (*from_string_fn)(std::string_view),
                             const std::string& help_text = "");
 
-  virtual void Reset();
+  // Reset all internal state. If reset_logging is true, restore glog defaults.
+  // Higher-level applications may override the logging configuration.
+  virtual void Reset(bool reset_logging = true);
   virtual void ResetOptions(bool reset_paths);
 
   virtual bool Check();
 
   bool Parse(int argc, char** argv);
-  virtual bool Read(const std::filesystem::path& path);
-  bool ReRead(const std::filesystem::path& path);
+  virtual bool Read(const std::filesystem::path& path,
+                    bool allow_unregistered = true);
+  bool ReRead(const std::filesystem::path& path,
+              bool reset_logging = true,
+              bool allow_unregistered = true);
   void Write(const std::filesystem::path& path) const;
 
   std::shared_ptr<std::filesystem::path> project_path;
@@ -117,6 +122,9 @@ class BaseOptionManager {
 
   std::shared_ptr<boost::program_options::options_description> desc_;
 
+  // Log destination choice: {stderr, stdout, file, stderr_and_file}.
+  std::string log_target_ = "stderr_and_file";
+
   std::vector<std::pair<std::string, const bool*>> options_bool_;
   std::vector<std::pair<std::string, const int*>> options_int_;
   std::vector<std::pair<std::string, const double*>> options_double_;
@@ -140,11 +148,14 @@ class BaseOptionManager {
  private:
   // Non-virtual implementations called from constructor and virtual methods.
   // These avoid the clang-tidy warning about virtual calls during construction.
-  void ResetImpl();
+  void ResetImpl(bool reset_logging);
   void ResetOptionsImpl(bool reset_paths);
 
   // Apply string->enum conversions for all registered enum options.
   void ApplyEnumConversions();
+
+  // Map simplified log output options to glog flags.
+  void ApplyLogFlags();
 };
 
 template <typename T>

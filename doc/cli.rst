@@ -173,8 +173,12 @@ the available options, e.g.::
 
             -h [ --help ]
             --default_random_seed arg (=0)
-            --log_to_stderr arg (=1)
+            --log_target arg (=stderr_and_file)
+                                  {stderr, stdout, file, stderr_and_file}
+            --log_path arg
             --log_level arg (=0)
+            --log_severity arg (=0)    0:INFO, 1:WARNING, 2:ERROR, 3:FATAL
+            --log_color arg (=1)
             --project_path arg
             --database_path arg
             --image_path arg
@@ -256,6 +260,10 @@ available as ``colmap [command]``:
   Unlike the incremental ``mapper``, the global approach solves for all camera
   poses simultaneously using rotation averaging and global positioning. This
   can be faster for large datasets but may be less robust to outliers.
+  The global mapper depends on reasonably good focal length priors to perform
+  well. Run ``view_graph_calibrator`` before ``global_mapper`` to calibrate
+  camera intrinsics and estimate relative poses from the view graph, or provide
+  camera calibrations manually.
 
 - ``pose_prior_mapper``: Sparse 3D reconstruction / mapping using pose priors.
 
@@ -361,7 +369,9 @@ available as ``colmap [command]``:
 
 - ``view_graph_calibrator``: Calibrate camera intrinsics using the view graph.
   Estimates focal lengths and other intrinsic parameters from pairwise
-  geometric relations before running the full reconstruction pipeline.
+  geometric relations. Should be run before ``global_mapper``, if no good
+  prior camera intrinsics are known, since the global mapper
+  depends on reasonably good focal length priors to perform well.
 
 
 Visualization

@@ -46,7 +46,7 @@ BaseOptionManager::BaseOptionManager(bool add_project_options) {
   database_path = std::make_shared<std::filesystem::path>();
   image_path = std::make_shared<std::filesystem::path>();
 
-  ResetImpl();
+  ResetImpl(/*reset_logging=*/true);
 
   desc_->add_options()("help,h", "");
   if (add_project_options) {
@@ -72,8 +72,16 @@ void BaseOptionManager::AddLogOptions() {
   }
   added_log_options_ = true;
 
-  AddDefaultOption("log_to_stderr", &FLAGS_logtostderr);
+  AddDefaultOption(
+      "log_target", &log_target_, "{stderr, stdout, file, stderr_and_file}");
+  // Directory for log files. If empty, glog uses $GOOGLE_LOG_DIR, /tmp, or
+  // %TEMP%.
+  AddDefaultOption("log_path", &FLAGS_log_dir);
   AddDefaultOption("log_level", &FLAGS_v);
+  AddDefaultOption("log_severity",
+                   &FLAGS_minloglevel,
+                   "0:INFO, 1:WARNING, 2:ERROR, 3:FATAL");
+  AddDefaultOption("log_color", &FLAGS_colorlogtostderr);
 }
 
 void BaseOptionManager::AddDatabaseOptions() {
@@ -94,14 +102,21 @@ void BaseOptionManager::AddImageOptions() {
   AddRequiredOption("image_path", image_path.get());
 }
 
-void BaseOptionManager::Reset() { ResetImpl(); }
+void BaseOptionManager::Reset(bool reset_logging) { ResetImpl(reset_logging); }
 
 void BaseOptionManager::ResetOptions(const bool reset_paths) {
   ResetOptionsImpl(reset_paths);
 }
 
-void BaseOptionManager::ResetImpl() {
-  FLAGS_logtostderr = true;
+void BaseOptionManager::ResetImpl(bool reset_logging) {
+  if (reset_logging) {
+    log_target_ = "stderr_and_file";
+    FLAGS_log_dir = "";
+    FLAGS_v = 0;
+    FLAGS_minloglevel = 0;
+    FLAGS_colorlogtostderr = true;
+    ApplyLogFlags();
+  }
 
   const bool kResetPaths = true;
   ResetOptionsImpl(kResetPaths);
@@ -155,6 +170,45 @@ void BaseOptionManager::ApplyEnumConversions() {
   }
 }
 
+void BaseOptionManager::ApplyLogFlags() {
+  FLAGS_logtostderr = false;
+#if defined(GLOG_VERSION_MAJOR) && \
+    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+  FLAGS_logtostdout = false;
+#endif
+  FLAGS_alsologtostderr = false;
+
+  if (log_target_ == "stderr") {
+    FLAGS_logtostderr = true;
+  } else if (log_target_ == "stdout") {
+#if defined(GLOG_VERSION_MAJOR) && \
+    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+    FLAGS_logtostdout = true;
+#else
+    LOG(WARNING) << "log_target=stdout requires glog >= 0.6. "
+                    "Falling back to stderr.";
+    FLAGS_logtostderr = true;
+#endif
+  } else if (log_target_ == "file") {
+  } else if (log_target_ == "stderr_and_file") {
+    FLAGS_alsologtostderr = true;
+  } else {
+    LOG(ERROR) << "Invalid log_target: " << log_target_
+               << ". Falling back to stderr_and_file.";
+    FLAGS_alsologtostderr = true;
+  }
+
+#if defined(GLOG_VERSION_MAJOR) && \
+    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+  FLAGS_colorlogtostdout = FLAGS_colorlogtostderr;
+#endif
+
+  if (!FLAGS_log_dir.empty() &&
+      (log_target_ == "file" || log_target_ == "stderr_and_file")) {
+    CreateDirIfNotExists(FLAGS_log_dir);
+  }
+}
+
 void BaseOptionManager::PrintHelp() const {
   LOG(INFO) << "Options can either be specified via command-line or by "
                "defining them in a .ini project file.\n"
@@ -190,6 +244,7 @@ bool BaseOptionManager::Parse(const int argc, char** argv) {
     }
 
     ApplyEnumConversions();
+    ApplyLogFlags();
     PostParse();
 
   } catch (std::exception& exc) {
@@ -208,7 +263,8 @@ bool BaseOptionManager::Parse(const int argc, char** argv) {
   return true;
 }
 
-bool BaseOptionManager::Read(const std::filesystem::path& path) {
+bool BaseOptionManager::Read(const std::filesystem::path& path,
+                             bool allow_unregistered) {
   config::variables_map vmap;
 
   if (!ExistsFile(path)) {
@@ -219,7 +275,19 @@ bool BaseOptionManager::Read(const std::filesystem::path& path) {
   try {
     std::ifstream file(path);
     THROW_CHECK_FILE_OPEN(file, path);
-    config::store(config::parse_config_file(file, *desc_), vmap);
+
+    const config::parsed_options parsed_options =
+        config::parse_config_file(file, *desc_, allow_unregistered);
+    config::store(parsed_options, vmap);
+
+    if (allow_unregistered) {
+      for (const auto& option : parsed_options.options) {
+        if (option.unregistered) {
+          LOG(WARNING) << "Unrecognized option key: " << option.string_key;
+        }
+      }
+    }
+
     vmap.notify();
     ApplyEnumConversions();
   } catch (std::exception& e) {
@@ -233,10 +301,12 @@ bool BaseOptionManager::Read(const std::filesystem::path& path) {
   return true;
 }
 
-bool BaseOptionManager::ReRead(const std::filesystem::path& path) {
-  Reset();
+bool BaseOptionManager::ReRead(const std::filesystem::path& path,
+                               bool reset_logging,
+                               bool allow_unregistered) {
+  Reset(reset_logging);
   AddAllOptions();
-  return Read(path);
+  return Read(path, allow_unregistered);
 }
 
 void BaseOptionManager::Write(const std::filesystem::path& path) const {
