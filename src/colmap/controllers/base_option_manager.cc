@@ -221,7 +221,7 @@ bool BaseOptionManager::Read(const std::filesystem::path& path,
     std::ifstream file(path);
     THROW_CHECK_FILE_OPEN(file, path);
 
-    config::parsed_options parsed_options =
+    const config::parsed_options parsed_options =
         config::parse_config_file(file, *desc_, allow_unregistered);
     config::store(parsed_options, vmap);
 
