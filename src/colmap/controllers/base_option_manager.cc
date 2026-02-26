@@ -46,7 +46,7 @@ BaseOptionManager::BaseOptionManager(bool add_project_options) {
   database_path = std::make_shared<std::filesystem::path>();
   image_path = std::make_shared<std::filesystem::path>();
 
-  ResetImpl();
+  ResetImpl(/*reset_logging=*/true);
 
   desc_->add_options()("help,h", "");
   if (add_project_options) {
@@ -103,14 +103,21 @@ void BaseOptionManager::AddImageOptions() {
   AddRequiredOption("image_path", image_path.get());
 }
 
-void BaseOptionManager::Reset() { ResetImpl(); }
+void BaseOptionManager::Reset(bool reset_logging) { ResetImpl(reset_logging); }
 
 void BaseOptionManager::ResetOptions(const bool reset_paths) {
   ResetOptionsImpl(reset_paths);
 }
 
-void BaseOptionManager::ResetImpl() {
-  FLAGS_logtostderr = true;
+void BaseOptionManager::ResetImpl(bool reset_logging) {
+  if (reset_logging) {
+    log_target_ = "stderr_and_file";
+    FLAGS_log_dir = "";
+    FLAGS_v = 0;
+    FLAGS_minloglevel = 0;
+    FLAGS_colorlogtostderr = 0;
+    ApplyLogFlags();
+  }
 
   const bool kResetPaths = true;
   ResetOptionsImpl(kResetPaths);
@@ -269,8 +276,9 @@ bool BaseOptionManager::Read(const std::filesystem::path& path) {
   return true;
 }
 
-bool BaseOptionManager::ReRead(const std::filesystem::path& path) {
-  Reset();
+bool BaseOptionManager::ReRead(const std::filesystem::path& path,
+                               bool reset_logging) {
+  Reset(reset_logging);
   AddAllOptions();
   return Read(path);
 }
