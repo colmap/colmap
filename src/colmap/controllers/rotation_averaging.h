@@ -59,8 +59,8 @@ struct RotationAveragingPipelineOptions {
   // seed.
   int random_seed = -1;
 
-  // Whether to decompose relative poses from two-view geometries.
-  bool decompose_relative_pose = true;
+  // Whether to decompose missing relative poses from two-view geometries.
+  bool decompose_missing_relative_poses = true;
 
   // Whether to refine gravity priors before rotation averaging.
   bool refine_gravity = false;

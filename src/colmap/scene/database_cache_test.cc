@@ -29,7 +29,9 @@
 
 #include "colmap/scene/database_cache.h"
 
+#include "colmap/math/random.h"
 #include "colmap/scene/database_sqlite.h"
+#include "colmap/scene/synthetic.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -337,6 +339,48 @@ TEST(DatabaseCache, ConstructFromCustom) {
   EXPECT_TRUE(cache.ExistsFrame(kFrameId));
   EXPECT_TRUE(cache.ExistsImage(kImageId));
   EXPECT_THAT(cache.PosePriors(), testing::ElementsAre(pose_prior));
+}
+
+TEST(DatabaseCache, DecomposeMissingRelativePoses) {
+  SetPRNGSeed(42);
+
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = false;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction, database.get());
+
+  // Verify the two-view geometry exists but has no decomposed pose yet.
+  ASSERT_TRUE(database->ExistsTwoViewGeometry(1, 2));
+  TwoViewGeometry geometry_before = database->ReadTwoViewGeometry(1, 2);
+  EXPECT_FALSE(geometry_before.cam2_from_cam1.has_value());
+
+  // Load cache without decomposing - geometry should not have relative pose.
+  DatabaseCache::Options options_without_decompose;
+  options_without_decompose.decompose_missing_relative_poses = false;
+  auto cache_without =
+      DatabaseCache::Create(*database, options_without_decompose);
+
+  const auto& graph_without = cache_without->CorrespondenceGraph();
+  TwoViewGeometry geometry_without = graph_without->ExtractTwoViewGeometry(
+      1, 2, /*extract_inlier_matches=*/false);
+  EXPECT_FALSE(geometry_without.cam2_from_cam1.has_value());
+
+  // Load cache with decomposing - geometry should now have relative pose.
+  DatabaseCache::Options options_with_decompose;
+  options_with_decompose.decompose_missing_relative_poses = true;
+  auto cache_with = DatabaseCache::Create(*database, options_with_decompose);
+
+  const auto& graph_with = cache_with->CorrespondenceGraph();
+  TwoViewGeometry geometry_with = graph_with->ExtractTwoViewGeometry(
+      1, 2, /*extract_inlier_matches=*/false);
+  EXPECT_TRUE(geometry_with.cam2_from_cam1.has_value());
 }
 
 }  // namespace

@@ -58,8 +58,8 @@ struct GlobalPipelineOptions {
   // Random seed for reproducibility.
   int random_seed = -1;
 
-  // Whether to decompose relative poses from two-view geometries.
-  bool decompose_relative_pose = true;
+  // Whether to decompose missing relative poses from two-view geometries.
+  bool decompose_missing_relative_poses = true;
 
   // Options for the global mapper.
   GlobalMapperOptions mapper;

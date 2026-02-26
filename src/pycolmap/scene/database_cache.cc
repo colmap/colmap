@@ -25,6 +25,9 @@ void BindDatabaseCache(py::module& m) {
                      &Opts::image_names,
                      "Only load the data for a subset of the images. "
                      "All images are used if empty.")
+      .def_readwrite("decompose_missing_relative_poses",
+                     &Opts::decompose_missing_relative_poses,
+                     "Whether to decompose missing relative poses.")
       .def_readwrite(
           "convert_pose_priors_to_enu",
           &Opts::convert_pose_priors_to_enu,
