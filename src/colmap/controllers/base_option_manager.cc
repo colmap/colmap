@@ -228,7 +228,7 @@ bool BaseOptionManager::Read(const std::filesystem::path& path,
     if (allow_unregistered) {
       for (const auto& option : parsed_options.options) {
         if (option.unregistered) {
-          LOG(WARNING) << "Unrecognized config option: " << option.string_key;
+          LOG(WARNING) << "Unrecognized option key: " << option.string_key;
         }
       }
     }
