@@ -99,7 +99,7 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME database_cache_test
     SRCS database_cache_test.cc
-    LINK_LIBS colmap_scene colmap_estimators
+    LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(
     NAME database_test
