@@ -1,6 +1,9 @@
 #include "colmap/estimators/two_view_geometry.h"
 
-#include "colmap/estimators/utils.h"
+#include "colmap/feature/types.h"
+#include "colmap/geometry/essential_matrix.h"
+#include "colmap/geometry/homography_matrix.h"
+#include "colmap/geometry/normalization.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/two_view_geometry.h"
 #include "colmap/util/logging.h"
@@ -57,12 +60,12 @@ void BindTwoViewGeometryEstimator(py::module& m) {
          const std::vector<Eigen::Vector2d>& points1,
          const Camera& camera2,
          const std::vector<Eigen::Vector2d>& points2,
-         const PyFeatureMatches* matches_ptr,
+         const FeatureMatchesMatrix* matches_ptr,
          const TwoViewGeometryOptions& options) {
         py::gil_scoped_release release;
         FeatureMatches matches;
         if (matches_ptr != nullptr) {
-          matches = FeatureMatchesFromMatrix(*matches_ptr);
+          matches = MatchesFromMatrix(*matches_ptr);
         } else {
           THROW_CHECK_EQ(points1.size(), points2.size());
           matches.reserve(points1.size());
@@ -87,12 +90,12 @@ void BindTwoViewGeometryEstimator(py::module& m) {
          const std::vector<Eigen::Vector2d>& points1,
          const Camera& camera2,
          const std::vector<Eigen::Vector2d>& points2,
-         const PyFeatureMatches* matches_ptr,
+         const FeatureMatchesMatrix* matches_ptr,
          const TwoViewGeometryOptions& options) {
         py::gil_scoped_release release;
         FeatureMatches matches;
         if (matches_ptr != nullptr) {
-          matches = FeatureMatchesFromMatrix(*matches_ptr);
+          matches = MatchesFromMatrix(*matches_ptr);
         } else {
           THROW_CHECK_EQ(points1.size(), points2.size());
           matches.reserve(points1.size());
@@ -134,5 +137,4 @@ void BindTwoViewGeometryEstimator(py::module& m) {
       "Calculate the squared Sampson error for a given essential or "
       "fundamental matrix.",
       py::call_guard<py::gil_scoped_release>());
-  DefDeprecation(m, "squared_sampson_error", "compute_squared_sampson_error");
 }

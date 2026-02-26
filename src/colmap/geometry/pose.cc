@@ -201,9 +201,10 @@ Rigid3d InterpolateCameraPoses(const Rigid3d& cam1_from_world,
                                const Rigid3d& cam2_from_world,
                                double t) {
   const Eigen::Vector3d translation12 =
-      cam2_from_world.translation - cam1_from_world.translation;
-  return Rigid3d(cam1_from_world.rotation.slerp(t, cam2_from_world.rotation),
-                 cam1_from_world.translation + translation12 * t);
+      cam2_from_world.translation() - cam1_from_world.translation();
+  return Rigid3d(
+      cam1_from_world.rotation().slerp(t, cam2_from_world.rotation()),
+      cam1_from_world.translation() + translation12 * t);
 }
 
 bool CheckCheirality(const Rigid3d& cam2_from_cam1,
@@ -226,10 +227,10 @@ bool CheckCheirality(const Rigid3d& cam2_from_cam1,
 Rigid3d TransformCameraWorld(const Sim3d& new_from_old_world,
                              const Rigid3d& cam_from_world) {
   const Sim3d cam_from_new_world =
-      Sim3d(1, cam_from_world.rotation, cam_from_world.translation) *
+      Sim3d(1, cam_from_world.rotation(), cam_from_world.translation()) *
       Inverse(new_from_old_world);
-  return Rigid3d(cam_from_new_world.rotation,
-                 cam_from_new_world.translation * new_from_old_world.scale);
+  return Rigid3d(cam_from_new_world.rotation(),
+                 cam_from_new_world.translation() * new_from_old_world.scale());
 }
 
 Eigen::Matrix3d GravityAlignedRotation(const Eigen::Vector3d& gravity) {

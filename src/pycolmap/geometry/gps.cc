@@ -30,12 +30,12 @@ void BindGPS(py::module& m) {
            &GPSTransform::EllipsoidToENU,
            "lat_lon_alt"_a,
            "ref_lat"_a,
-           "ref_lon"_a)
+           "ref_lon"_a,
+           "ref_alt"_a)
       .def("ecef_to_enu",
            &GPSTransform::ECEFToENU,
            "xyz_in_ecef"_a,
-           "ref_lat"_a,
-           "ref_lon"_a)
+           "ref_ecef"_a)
       .def("enu_to_ellipsoid",
            &GPSTransform::ENUToEllipsoid,
            "xyz_in_enu"_a,

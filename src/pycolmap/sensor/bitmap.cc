@@ -1,4 +1,4 @@
-#include "colmap/sensor/bitmap.h"
+#include "pycolmap/sensor/bitmap.h"
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
@@ -58,8 +58,6 @@ Bitmap BitmapFromArray(py::array_t<uint8_t, py::array::c_style> array,
   }
 
   const bool as_rgb = channels != 1;
-  const size_t pitch = width * channels;
-
   Bitmap output(width,
                 height,
                 /*as_rgb=*/as_rgb,
@@ -129,6 +127,9 @@ void BindBitmap(pybind11::module& m) {
            "new_height"_a,
            "filter"_a = BitmapRescaleFilter::kBilinear,
            "Rescale image to the new dimensions.")
+      .def("rot90",
+           &Bitmap::Rot90,
+           "Rotate image by k * 90 degrees counter-clockwise.")
       .def_property_readonly("width", &Bitmap::Width, "Width of the image.")
       .def_property_readonly("height", &Bitmap::Height, "Height of the image.")
       .def_property_readonly(
@@ -137,5 +138,43 @@ void BindBitmap(pybind11::module& m) {
           "is_rgb", &Bitmap::IsRGB, "Whether the image is colorscale.")
       .def_property_readonly(
           "is_grey", &Bitmap::IsGrey, "Whether the image is greyscale.")
+      .def_property_readonly(
+          "is_empty", &Bitmap::IsEmpty, "Whether the image is empty.")
+      .def_property_readonly(
+          "bits_per_pixel",
+          &Bitmap::BitsPerPixel,
+          "Number of bits per pixel (8 for grey, 24 for RGB).")
+      .def_property_readonly(
+          "pitch", &Bitmap::Pitch, "Scan line size in bytes (stride).")
+      .def("clone", &Bitmap::Clone, "Clone the image to a new bitmap.")
+      .def("clone_as_grey",
+           &Bitmap::CloneAsGrey,
+           "Clone the image as grayscale.")
+      .def("clone_as_rgb", &Bitmap::CloneAsRGB, "Clone the image as RGB.")
+      .def(
+          "set_jpeg_quality",
+          &Bitmap::SetJpegQuality,
+          "quality"_a,
+          "Set compression quality when writing to JPEG in the range [1, 100]. "
+          "Lower values reduce quality and file size. By default, bitmaps are "
+          "written in superb (100) quality, if not otherwise specified.")
+      .def("exif_orientation",
+           &Bitmap::ExifOrientation,
+           "Extract EXIF orientation. Returns None if not available.")
+      .def("exif_camera_model",
+           &Bitmap::ExifCameraModel,
+           "Extract EXIF camera model. Returns None if not available.")
+      .def("exif_focal_length",
+           &Bitmap::ExifFocalLength,
+           "Extract EXIF focal length. Returns None if not available.")
+      .def("exif_latitude",
+           &Bitmap::ExifLatitude,
+           "Extract EXIF latitude. Returns None if not available.")
+      .def("exif_longitude",
+           &Bitmap::ExifLongitude,
+           "Extract EXIF longitude. Returns None if not available.")
+      .def("exif_altitude",
+           &Bitmap::ExifAltitude,
+           "Extract EXIF altitude. Returns None if not available.")
       .def("__repr__", &CreateRepresentation<Bitmap>);
 }

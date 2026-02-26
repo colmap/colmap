@@ -249,6 +249,7 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
     sampler.SampleXY(X, Y, &X_rand, &Y_rand);
 
     // Estimate model for current subset.
+    sample_models.clear();
     estimator.Estimate(X_rand, Y_rand, &sample_models);
 
     // Iterate through all estimated models.

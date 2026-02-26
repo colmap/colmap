@@ -29,9 +29,7 @@
 
 #include "colmap/estimators/triangulation.h"
 
-#include "colmap/estimators/essential_matrix.h"
 #include "colmap/geometry/triangulation.h"
-#include "colmap/math/math.h"
 #include "colmap/optim/combination_sampler.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/scene/projection.h"
@@ -77,13 +75,11 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
   } else {
     // Multi-view triangulation.
 
-    std::vector<Eigen::Matrix3x4d> cams_from_world;
-    cams_from_world.reserve(point_data.size());
-    std::vector<Eigen::Vector2d> cam_points;
-    cam_points.reserve(point_data.size());
+    std::vector<Eigen::Matrix3x4d> cams_from_world(point_data.size());
+    std::vector<Eigen::Vector2d> cam_points(point_data.size());
     for (size_t i = 0; i < point_data.size(); ++i) {
-      cams_from_world.push_back(pose_data[i].cam_from_world);
-      cam_points.push_back(point_data[i].cam_point);
+      cams_from_world[i] = pose_data[i].cam_from_world;
+      cam_points[i] = point_data[i].cam_point;
     }
 
     M_t xyz;

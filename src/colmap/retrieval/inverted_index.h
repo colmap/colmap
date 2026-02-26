@@ -53,12 +53,12 @@ template <typename kDescType, int kDescDim, int kEmbeddingDim>
 class InvertedIndex {
  public:
   const static int64_t kInvalidWordId;
-  typedef Eigen::Matrix<kDescType, Eigen::Dynamic, kDescDim, Eigen::RowMajor>
-      DescType;
-  typedef typename InvertedFile<kEmbeddingDim>::EntryType EntryType;
-  typedef typename InvertedFile<kEmbeddingDim>::GeomType GeomType;
-  typedef Eigen::Matrix<float, Eigen::Dynamic, kDescDim> ProjMatrixType;
-  typedef Eigen::VectorXf ProjDescType;
+  using DescType =
+      Eigen::Matrix<kDescType, Eigen::Dynamic, kDescDim, Eigen::RowMajor>;
+  using EntryType = typename InvertedFile<kEmbeddingDim>::EntryType;
+  using GeomType = typename InvertedFile<kEmbeddingDim>::GeomType;
+  using ProjMatrixType = Eigen::Matrix<float, Eigen::Dynamic, kDescDim>;
+  using ProjDescType = Eigen::VectorXf;
   using WordIds =
       Eigen::Matrix<int64_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 

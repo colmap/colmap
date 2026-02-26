@@ -38,6 +38,7 @@ option(SIMD_ENABLED "Whether to enable SIMD optimizations" ON)
 option(OPENMP_ENABLED "Whether to enable OpenMP parallelization" ON)
 option(IPO_ENABLED "Whether to enable interprocedural optimization" ON)
 option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
+option(ONNX_ENABLED "Whether to enable ONNX, if available" ON)
 option(GUI_ENABLED "Whether to enable the graphical UI" ON)
 option(OPENGL_ENABLED "Whether to enable OpenGL, if available" ON)
 option(TESTS_ENABLED "Whether to build test binaries" OFF)
@@ -55,6 +56,7 @@ option(UNINSTALL_ENABLED "Whether to create a target to 'uninstall' colmap" ON)
 option(BENCHMARK_ENABLED "Whether to enable runtime benchmarking support" OFF)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
 option(FETCH_FAISS "Whether to consume faiss using FetchContent or find_package" ON)
+option(FETCH_ONNX "Whether to consume ONNX using FetchContent or find_package" ON)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
 
 # Disables default features, as we specify each required feature manually below.
@@ -66,6 +68,9 @@ if(TESTS_ENABLED)
 endif()
 if(CUDA_ENABLED)
     list(APPEND VCPKG_MANIFEST_FEATURES "cuda")
+endif()
+if(ONNX_ENABLED AND NOT FETCH_ONNX)
+    list(APPEND VCPKG_MANIFEST_FEATURES "onnx")
 endif()
 if(GUI_ENABLED)
     list(APPEND VCPKG_MANIFEST_FEATURES "gui")
@@ -163,6 +168,17 @@ if(IS_MACOS)
     add_link_options(LINKER:-no_warn_duplicate_libraries)
 endif()
 
+# Correctly set RPATH to look up dependencies.
+if(NOT IS_MSVC)
+    if(IS_MACOS)
+        set(RPATH_BASE "@executable_path")
+    else()
+        set(RPATH_BASE "$ORIGIN")
+    endif()
+    file(RELATIVE_PATH INSTALL_LIB_DIR "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_BINDIR}" "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}")
+    list(APPEND CMAKE_INSTALL_RPATH "${RPATH_BASE}/${INSTALL_LIB_DIR}")
+endif()
+
 if(IS_DEBUG)
     add_compile_definitions(EIGEN_INITIALIZE_MATRICES_BY_NAN)
 endif()
@@ -255,9 +271,8 @@ include(GenerateVersionDefinitions)
 include_directories(src)
 link_directories(${COLMAP_LINK_DIRS})
 
-add_subdirectory(src/colmap)
-add_subdirectory(src/glomap)
 add_subdirectory(src/thirdparty)
+add_subdirectory(src/colmap)
 
 if(BENCHMARK_ENABLED)
     add_subdirectory(benchmark/runtime)
@@ -365,6 +380,8 @@ set(COLMAP_EXPORT_LIBS
     # Internal.
     colmap_controllers
     colmap_estimators
+    colmap_estimators_cost_functions
+    colmap_estimators_solvers
     colmap_exe
     colmap_feature_types
     colmap_feature
@@ -375,14 +392,10 @@ set(COLMAP_EXPORT_LIBS
     colmap_optim
     colmap_retrieval
     colmap_scene
+    colmap_scene_types
     colmap_sensor
     colmap_sfm
     colmap_util
-    colmap_glomap_estimators
-    colmap_glomap_io
-    colmap_glomap_processors
-    colmap_glomap_scene
-    colmap_glomap_sfm
     # Third-party.
     colmap_poisson_recon
     colmap_vlfeat

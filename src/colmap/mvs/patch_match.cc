@@ -37,6 +37,7 @@
 #include "colmap/util/misc.h"
 
 #include <numeric>
+#include <set>
 #include <unordered_set>
 
 #define PrintOption(option) LOG(INFO) << #option ": " << option << std::endl
@@ -50,7 +51,7 @@ PatchMatch::PatchMatch(const PatchMatchOptions& options, const Problem& problem)
 PatchMatch::~PatchMatch() {}
 
 void PatchMatch::Problem::Print() const {
-  PrintHeading2("PatchMatch::Problem");
+  LOG_HEADING2("PatchMatch::Problem");
   LOG(INFO) << "ref_image_idx: " << ref_image_idx;
   LOG(INFO) << "src_image_idxs: ";
   if (!src_image_idxs.empty()) {
@@ -124,7 +125,7 @@ void PatchMatch::Check() const {
 }
 
 void PatchMatch::Run() {
-  PrintHeading2("PatchMatch::Run");
+  LOG_HEADING2("PatchMatch::Run");
 
   Check();
 
@@ -409,10 +410,10 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
     return;
   }
 
-  PrintHeading1(StringPrintf("Processing view %d / %d for %s",
-                             problem_idx + 1,
-                             problems_.size(),
-                             image_name.c_str()));
+  LOG_HEADING1(StringPrintf("Processing view %d / %d for %s",
+                            problem_idx + 1,
+                            problems_.size(),
+                            image_name.c_str()));
 
   auto patch_match_options = options;
 

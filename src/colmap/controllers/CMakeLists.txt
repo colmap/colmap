@@ -40,14 +40,19 @@ COLMAP_ADD_LIBRARY(
         feature_extraction.h feature_extraction.cc
         feature_matching.h feature_matching.cc
         feature_matching_utils.h feature_matching_utils.cc
+        matcher_cache.h matcher_cache.cc
+        pairing.h pairing.cc
         global_pipeline.h global_pipeline.cc
         image_reader.h image_reader.cc
         incremental_pipeline.h incremental_pipeline.cc
         option_manager.h option_manager.cc
+        reconstruction_clustering.h reconstruction_clustering.cc
         rotation_averaging.h rotation_averaging.cc
+        undistorters.h undistorters.cc
     PUBLIC_LINK_LIBS
         colmap_estimators
         colmap_feature
+        colmap_retrieval
         colmap_geometry
         colmap_scene
         colmap_util
@@ -58,9 +63,9 @@ COLMAP_ADD_LIBRARY(
         colmap_math
         colmap_mvs
         colmap_sfm
-        colmap_glomap_sfm
         Ceres::ceres
         Boost::boost
+        faiss
 )
 if(CUDA_ENABLED)
     target_link_libraries(colmap_controllers
@@ -123,5 +128,20 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME rotation_averaging_test
     SRCS rotation_averaging_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME reconstruction_clustering_test
+    SRCS reconstruction_clustering_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME undistorters_test
+    SRCS undistorters_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME pairing_test
+    SRCS pairing_test.cc
     LINK_LIBS colmap_controllers
 )

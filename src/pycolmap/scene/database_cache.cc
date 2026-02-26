@@ -24,7 +24,12 @@ void BindDatabaseCache(py::module& m) {
       .def_readwrite("image_names",
                      &Opts::image_names,
                      "Only load the data for a subset of the images. "
-                     "All images are used if empty.");
+                     "All images are used if empty.")
+      .def_readwrite(
+          "convert_pose_priors_to_enu",
+          &Opts::convert_pose_priors_to_enu,
+          "Whether to convert pose priors to ENU coordinate system.");
+
   MakeDataclass(PyOpts);
 
   py::classh<DatabaseCache> PyDatabaseCache(m, "DatabaseCache");
@@ -39,18 +44,37 @@ void BindDatabaseCache(py::module& m) {
       .def("add_camera", &DatabaseCache::AddCamera)
       .def("add_frame", &DatabaseCache::AddFrame)
       .def("add_image", &DatabaseCache::AddImage)
+      .def("add_pose_prior", &DatabaseCache::AddPosePrior)
       .def("num_rigs", &DatabaseCache::NumRigs)
       .def("num_cameras", &DatabaseCache::NumCameras)
       .def("num_frames", &DatabaseCache::NumFrames)
       .def("num_images", &DatabaseCache::NumImages)
+      .def("num_pose_priors", &DatabaseCache::NumPosePriors)
       .def("exists_rig", &DatabaseCache::ExistsRig, "rig_id"_a)
       .def("exists_camera", &DatabaseCache::ExistsCamera, "camera_id"_a)
       .def("exists_frame", &DatabaseCache::ExistsFrame, "frame_id"_a)
       .def("exists_image", &DatabaseCache::ExistsImage, "image_id"_a)
+      .def("rig",
+           py::overload_cast<rig_t>(&DatabaseCache::Rig),
+           py::return_value_policy::reference_internal,
+           "rig_id"_a)
+      .def("camera",
+           py::overload_cast<camera_t>(&DatabaseCache::Camera),
+           py::return_value_policy::reference_internal,
+           "camera_id"_a)
+      .def("frame",
+           py::overload_cast<frame_t>(&DatabaseCache::Frame),
+           py::return_value_policy::reference_internal,
+           "frame_id"_a)
+      .def("image",
+           py::overload_cast<image_t>(&DatabaseCache::Image),
+           py::return_value_policy::reference_internal,
+           "image_id"_a)
       .def_property_readonly("rigs", &DatabaseCache::Rigs)
       .def_property_readonly("cameras", &DatabaseCache::Cameras)
       .def_property_readonly("frames", &DatabaseCache::Frames)
       .def_property_readonly("images", &DatabaseCache::Images)
+      .def_property_readonly("pose_priors", &DatabaseCache::PosePriors)
       .def_property_readonly("correspondence_graph",
                              &DatabaseCache::CorrespondenceGraph)
       .def("find_image_with_name", &DatabaseCache::FindImageWithName, "name"_a);

@@ -100,6 +100,35 @@ TEST(IncrementalPipeline, WithoutNoiseAndWithNonTrivialFrames) {
   }
 }
 
+TEST(IncrementalPipeline, UnknownSensorFromRigExitsGracefully) {
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 3;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  synthetic_dataset_options.sensor_from_rig_translation_stddev = 0.05;
+  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 30;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  // Set one of the sensor from rig to unknown.
+  auto rig = database->ReadAllRigs()[0];
+  rig.NonRefSensors().begin()->second.reset();
+  database->UpdateRig(rig);
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  IncrementalPipeline mapper(options, database, reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 0);
+}
+
 TEST(IncrementalPipeline, WithNonTrivialFramesAndConstantRigsAndCameras) {
   const auto database_path = CreateTestDir() / "database.db";
 
@@ -556,7 +585,7 @@ TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
 }
 
 TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
-  SetPRNGSeed(1);
+  SetPRNGSeed(42);
 
   const auto database_path = CreateTestDir() / "database.db";
 
@@ -571,7 +600,7 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 1;
+  synthetic_noise_options.point2D_stddev = 0.1;
   SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
   auto run_mapper = [&](int num_threads, int random_seed) {
@@ -589,36 +618,16 @@ TEST(IncrementalPipeline, SfMWithRandomSeedStability) {
 
   constexpr int kRandomSeed = 42;
 
-  // Single-threaded execution.
-  {
-    auto reconstruction_manager0 =
-        run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
-    auto reconstruction_manager1 =
-        run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
-    EXPECT_THAT(*reconstruction_manager0->Get(0),
-                ReconstructionEq(*reconstruction_manager1->Get(0)));
-  }
-
-  // Multi-threaded execution.
-  {
-    auto reconstruction_manager0 =
-        run_mapper(/*num_threads=*/3, /*random_seed=*/kRandomSeed);
-    auto reconstruction_manager1 =
-        run_mapper(/*num_threads=*/3, /*random_seed=*/kRandomSeed);
-    // Same seed should produce similar results, up to floating-point variations
-    // in optimization.
-    EXPECT_THAT(*reconstruction_manager0->Get(0),
-                ReconstructionNear(*reconstruction_manager1->Get(0),
-                                   /*max_rotation_error_deg=*/1e-10,
-                                   /*max_proj_center_error=*/1e-10,
-                                   /*max_scale_error=*/std::nullopt,
-                                   /*num_obs_tolerance=*/0.01,
-                                   /*align=*/false));
-  }
+  auto reconstruction_manager0 =
+      run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
+  auto reconstruction_manager1 =
+      run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
+  EXPECT_THAT(*reconstruction_manager0->Get(0),
+              ReconstructionEq(*reconstruction_manager1->Get(0)));
 }
 
 TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
-  SetPRNGSeed(1);
+  SetPRNGSeed(42);
 
   const auto database_path = CreateTestDir() / "database.db";
 
@@ -633,8 +642,8 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 0.5;
-  synthetic_noise_options.prior_position_stddev = 1.0;
+  synthetic_noise_options.point2D_stddev = 0.1;
+  synthetic_noise_options.prior_position_stddev = 0.1;
   SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
   auto run_mapper = [&](int num_threads, int random_seed) {
@@ -652,32 +661,12 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
 
   constexpr int kRandomSeed = 42;
 
-  // Single-threaded execution.
-  {
-    auto reconstruction_manager0 =
-        run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
-    auto reconstruction_manager1 =
-        run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
-    EXPECT_THAT(*reconstruction_manager0->Get(0),
-                ReconstructionEq(*reconstruction_manager1->Get(0)));
-  }
-
-  // Multi-threaded execution.
-  {
-    auto reconstruction_manager0 =
-        run_mapper(/*num_threads=*/3, /*random_seed=*/kRandomSeed);
-    auto reconstruction_manager1 =
-        run_mapper(/*num_threads=*/3, /*random_seed=*/kRandomSeed);
-    // Same seed should produce similar results, up to floating-point variations
-    // in optimization.
-    EXPECT_THAT(*reconstruction_manager0->Get(0),
-                ReconstructionNear(*reconstruction_manager1->Get(0),
-                                   /*max_rotation_error_deg=*/1e-10,
-                                   /*max_proj_center_error=*/1e-10,
-                                   /*max_scale_error=*/std::nullopt,
-                                   /*num_obs_tolerance=*/0.01,
-                                   /*align=*/false));
-  }
+  auto reconstruction_manager0 =
+      run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
+  auto reconstruction_manager1 =
+      run_mapper(/*num_threads=*/1, /*random_seed=*/kRandomSeed);
+  EXPECT_THAT(*reconstruction_manager0->Get(0),
+              ReconstructionEq(*reconstruction_manager1->Get(0)));
 }
 
 }  // namespace

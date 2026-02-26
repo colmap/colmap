@@ -67,6 +67,7 @@ class Reconstruction {
   inline size_t NumCameras() const;
   inline size_t NumFrames() const;
   inline size_t NumRegFrames() const;
+  inline size_t NumRegImages() const;
   inline size_t NumImages() const;
   inline size_t NumPoints3D() const;
 
@@ -92,8 +93,6 @@ class Reconstruction {
   inline const std::unordered_map<image_t, class Image>& Images() const;
   inline const std::unordered_map<point3D_t, struct Point3D>& Points3D() const;
 
-  // Number of images in all registered frames.
-  size_t NumRegImages() const;
   // Identifiers of all registered images.
   std::vector<image_t> RegImageIds() const;
   // Identifiers of all 3D points.
@@ -176,6 +175,7 @@ class Reconstruction {
   // Delete all 2D points of all images and all 3D points.
   void DeleteAllPoints2DAndPoints3D();
 
+  // Replace all rigs and frames with the given vectors, updating image links.
   void SetRigsAndFrames(std::vector<class Rig> rigs,
                         std::vector<class Frame> frames);
 
@@ -243,6 +243,7 @@ class Reconstruction {
 
   // Read data from text or binary file. Prefer binary data if it exists.
   void Read(const std::filesystem::path& path);
+  // Write reconstruction data to disk (binary format).
   void Write(const std::filesystem::path& path) const;
 
   // Read data from binary/text file.
@@ -298,6 +299,7 @@ class Reconstruction {
   // to O(n) complexity on calls to RegisterFrame/DeRegisterFrame, because
   // we iterate very often over the set of registered frames.
   std::vector<frame_t> reg_frame_ids_;
+  size_t num_reg_images_;
 
   // Total number of added 3D points, used to generate unique identifiers.
   point3D_t max_point3D_id_;
@@ -317,6 +319,8 @@ size_t Reconstruction::NumCameras() const { return cameras_.size(); }
 size_t Reconstruction::NumFrames() const { return frames_.size(); }
 
 size_t Reconstruction::NumRegFrames() const { return reg_frame_ids_.size(); }
+
+size_t Reconstruction::NumRegImages() const { return num_reg_images_; }
 
 size_t Reconstruction::NumImages() const { return images_.size(); }
 

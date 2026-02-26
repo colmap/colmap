@@ -74,6 +74,7 @@ TEST(CalibrateViewGraph, Nominal) {
     for (const size_t idx : camera.FocalLengthIdxs()) {
       camera.params[idx] += noise;
     }
+    camera.has_prior_focal_length = false;
     database->UpdateCamera(camera);
   }
 
@@ -84,13 +85,14 @@ TEST(CalibrateViewGraph, Nominal) {
   // Verify focal lengths are calibrated close to ground truth.
   for (const auto& [camera_id, gt_focal] : gt_focals) {
     const Camera camera = database->ReadCamera(camera_id);
+    EXPECT_TRUE(camera.has_prior_focal_length);
     EXPECT_NEAR(camera.MeanFocalLength(), gt_focal, 1.0);
   }
 
   // Verify pairs are now CALIBRATED with valid E matrices.
   for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
     EXPECT_EQ(tvg.config, TwoViewGeometry::CALIBRATED);
-    EXPECT_FALSE(tvg.E.isZero());
+    EXPECT_TRUE(tvg.E.has_value());
   }
 }
 
@@ -151,7 +153,7 @@ TEST(CalibrateViewGraph, ConfigTagging) {
     if (perturbed_pairs.size() >= 3) break;
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     TwoViewGeometry perturbed_tvg = tvg;
-    perturbed_tvg.F += Eigen::Matrix3d::Constant(1.0);
+    perturbed_tvg.F.value() += Eigen::Matrix3d::Constant(1.0);
     database->UpdateTwoViewGeometry(image_id1, image_id2, perturbed_tvg);
     perturbed_pairs.insert(pair_id);
   }
@@ -213,7 +215,7 @@ TEST(CalibrateViewGraph, RelativePoseReestimation) {
                           RandomUniformReal(-1.0, 1.0)));
       perturbed_tvg.cam2_from_cam1 =
           perturbation * *perturbed_tvg.cam2_from_cam1;
-      perturbed_tvg.cam2_from_cam1->translation.normalize();
+      perturbed_tvg.cam2_from_cam1->translation().normalize();
     }
     database->UpdateTwoViewGeometry(image_id1, image_id2, perturbed_tvg);
   }
@@ -227,12 +229,12 @@ TEST(CalibrateViewGraph, RelativePoseReestimation) {
     if (tvg.config != TwoViewGeometry::CALIBRATED) continue;
 
     ASSERT_TRUE(tvg.cam2_from_cam1.has_value());
-    EXPECT_NEAR(tvg.cam2_from_cam1->translation.norm(), 1.0, 1e-6);
+    EXPECT_NEAR(tvg.cam2_from_cam1->translation().norm(), 1.0, 1e-6);
 
     // Normalize ground truth translation since estimated pose has unit scale.
     const Rigid3d& gt_pose = gt_poses.at(pair_id);
-    const Rigid3d gt_pose_normalized(gt_pose.rotation,
-                                     gt_pose.translation.normalized());
+    const Rigid3d gt_pose_normalized(gt_pose.rotation(),
+                                     gt_pose.translation().normalized());
     EXPECT_THAT(*tvg.cam2_from_cam1,
                 Rigid3dNear(gt_pose_normalized, 0.01, 0.01));
   }

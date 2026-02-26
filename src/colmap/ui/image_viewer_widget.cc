@@ -168,6 +168,7 @@ FeatureImageViewerWidget::FeatureImageViewerWidget(
           this,
           &FeatureImageViewerWidget::ShowOrHide);
 }
+
 void FeatureImageViewerWidget::ReadAndShowWithKeypoints(
     const std::filesystem::path& path,
     const FeatureKeypoints& keypoints,
@@ -186,15 +187,13 @@ void FeatureImageViewerWidget::ReadAndShowWithKeypoints(
 
   FeatureKeypoints keypoints_tri(num_tri_keypoints);
   FeatureKeypoints keypoints_not_tri(keypoints.size() - num_tri_keypoints);
-  size_t i_tri = 0;
-  size_t i_not_tri = 0;
+  size_t idx_tri = 0;
+  size_t idx_not_tri = 0;
   for (size_t i = 0; i < tri_mask.size(); ++i) {
     if (tri_mask[i]) {
-      keypoints_tri[i_tri] = keypoints[i];
-      i_tri += 1;
+      keypoints_tri[idx_tri++] = keypoints[i];
     } else {
-      keypoints_not_tri[i_not_tri] = keypoints[i];
-      i_not_tri += 1;
+      keypoints_not_tri[idx_not_tri++] = keypoints[i];
     }
   }
 

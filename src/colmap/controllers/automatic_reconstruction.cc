@@ -35,10 +35,12 @@
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/option_manager.h"
-#include "colmap/image/undistortion.h"
+#include "colmap/controllers/undistorters.h"
+#include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
+#include "colmap/retrieval/resources.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/logging.h"
 
@@ -84,12 +86,30 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     option_manager_.ModifyForExtremeQuality();
   }
 
+  if (options_.feature == Feature::SIFT) {
+    option_manager_.feature_extraction->type = FeatureExtractorType::SIFT;
+    option_manager_.feature_matching->type =
+        FeatureMatcherType::SIFT_BRUTEFORCE;
+  } else if (options_.feature == Feature::ALIKED) {
+    option_manager_.feature_extraction->type =
+        FeatureExtractorType::ALIKED_N16ROT;
+    option_manager_.feature_matching->type =
+        FeatureMatcherType::ALIKED_BRUTEFORCE;
+    // Guided matching is not supported for ALIKED.
+    option_manager_.feature_matching->guided_matching = false;
+  }
   option_manager_.feature_extraction->num_threads = options_.num_threads;
   option_manager_.feature_matching->num_threads = options_.num_threads;
   option_manager_.sequential_pairing->num_threads = options_.num_threads;
   option_manager_.vocab_tree_pairing->num_threads = options_.num_threads;
   option_manager_.mapper->num_threads = options_.num_threads;
   option_manager_.poisson_meshing->num_threads = options_.num_threads;
+
+  option_manager_.vocab_tree_pairing->vocab_tree_path =
+      GetVocabTreeUriForFeatureType(option_manager_.feature_extraction->type);
+  option_manager_.sequential_pairing->vocab_tree_path =
+      GetVocabTreeUriForFeatureType(option_manager_.feature_extraction->type);
+  option_manager_.sequential_pairing->loop_detection = true;
 
   // Apply mapper-appropriate two-view geometry defaults.
   // Global uses stricter thresholds; Incremental/Hierarchical use standard.
@@ -118,13 +138,17 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.feature_extraction->use_gpu = options_.use_gpu;
   option_manager_.feature_matching->use_gpu = options_.use_gpu;
   option_manager_.mapper->ba_use_gpu = options_.use_gpu;
-  option_manager_.bundle_adjustment->use_gpu = options_.use_gpu;
+  if (option_manager_.bundle_adjustment->ceres) {
+    option_manager_.bundle_adjustment->ceres->use_gpu = options_.use_gpu;
+  }
 
   option_manager_.feature_extraction->gpu_index = options_.gpu_index;
   option_manager_.feature_matching->gpu_index = options_.gpu_index;
   option_manager_.patch_match_stereo->gpu_index = options_.gpu_index;
   option_manager_.mapper->ba_gpu_index = options_.gpu_index;
-  option_manager_.bundle_adjustment->gpu_index = options_.gpu_index;
+  if (option_manager_.bundle_adjustment->ceres) {
+    option_manager_.bundle_adjustment->ceres->gpu_index = options_.gpu_index;
+  }
 }
 
 bool AutomaticReconstructionController::RequiresOpenGL() const {
@@ -157,12 +181,6 @@ void AutomaticReconstructionController::Setup() {
                                        *option_manager_.two_view_geometry,
                                        *option_manager_.database_path);
 
-    if (!options_.vocab_tree_path.empty()) {
-      option_manager_.sequential_pairing->loop_detection = true;
-      option_manager_.sequential_pairing->vocab_tree_path =
-          options_.vocab_tree_path;
-    }
-
     sequential_matcher_ =
         CreateSequentialFeatureMatcher(*option_manager_.sequential_pairing,
                                        *option_manager_.feature_matching,
@@ -170,8 +188,6 @@ void AutomaticReconstructionController::Setup() {
                                        *option_manager_.database_path);
 
     if (!options_.vocab_tree_path.empty()) {
-      option_manager_.vocab_tree_pairing->vocab_tree_path =
-          options_.vocab_tree_path;
       vocab_tree_matcher_ =
           CreateVocabTreeFeatureMatcher(*option_manager_.vocab_tree_pairing,
                                         *option_manager_.feature_matching,
@@ -275,10 +291,11 @@ void AutomaticReconstructionController::RunSparseMapper() {
   auto database = Database::Open(*option_manager_.database_path);
   switch (options_.mapper) {
     case Mapper::INCREMENTAL: {
-      IncrementalPipelineOptions options = *option_manager_.mapper;
-      options.image_path = *option_manager_.image_path;
+      auto options =
+          std::make_shared<IncrementalPipelineOptions>(*option_manager_.mapper);
+      options->image_path = *option_manager_.image_path;
       mapper = std::make_unique<IncrementalPipeline>(
-          option_manager_.mapper, std::move(database), reconstruction_manager_);
+          options, std::move(database), reconstruction_manager_);
       break;
     }
     case Mapper::HIERARCHICAL: {
@@ -290,12 +307,17 @@ void AutomaticReconstructionController::RunSparseMapper() {
       break;
     }
     case Mapper::GLOBAL: {
+      ViewGraphCalibrationOptions vgc_options;
+      vgc_options.random_seed = options_.random_seed;
+      vgc_options.solver_options.num_threads = options_.num_threads;
+      CalibrateViewGraph(vgc_options, database.get());
       GlobalPipelineOptions global_options;
-      global_options.image_path = option_manager_.image_path->string();
+      global_options.image_path = *option_manager_.image_path;
       global_options.num_threads = options_.num_threads;
       global_options.random_seed = options_.random_seed;
-      mapper = std::make_unique<GlobalPipeline>(
-          global_options, std::move(database), reconstruction_manager_);
+      mapper = std::make_unique<GlobalPipeline>(std::move(global_options),
+                                                std::move(database),
+                                                reconstruction_manager_);
       break;
     }
     default:
@@ -341,7 +363,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
       UndistortCameraOptions undistortion_options;
       undistortion_options.max_image_size =
           option_manager_.patch_match_stereo->max_image_size;
-      COLMAPUndistorter undistorter(undistortion_options,
+      COLMAPUndistorter undistorter(COLMAPUndistorter::Options(),
+                                    undistortion_options,
                                     *reconstruction_manager_->Get(i),
                                     *option_manager_.image_path,
                                     dense_path);

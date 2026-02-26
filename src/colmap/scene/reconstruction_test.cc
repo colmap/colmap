@@ -444,38 +444,67 @@ TEST(Reconstruction, AddImageWithTrivialFrameSetCamFromWorld) {
 
 TEST(Reconstruction, RegImageIds) {
   Reconstruction reconstruction;
-  Camera camera =
+
+  const Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
   reconstruction.AddCamera(camera);
+
   Rig rig;
   rig.SetRigId(1);
   rig.AddRefSensor(camera.SensorId());
   reconstruction.AddRig(rig);
+
+  Image image1;
+  image1.SetCameraId(camera.camera_id);
+  image1.SetImageId(1);
+  image1.SetFrameId(1);
+  Image image2;
+  image2.SetCameraId(camera.camera_id);
+  image2.SetImageId(2);
+  image2.SetFrameId(1);
+
   Frame frame;
   frame.SetFrameId(1);
   frame.SetRigId(rig.RigId());
-  frame.AddDataId(data_t(camera.SensorId(), 1));
-  frame.AddDataId(data_t(camera.SensorId(), 2));
-  Image image;
-  image.SetCameraId(camera.camera_id);
-  image.SetImageId(1);
-  image.SetFrameId(frame.FrameId());
+  frame.AddDataId(image1.DataId());
+  frame.AddDataId(image2.DataId());
   reconstruction.AddFrame(frame);
-  reconstruction.Frame(1).SetRigFromWorld(Rigid3d());
-  reconstruction.RegisterFrame(1);
-  EXPECT_EQ(reconstruction.NumRegFrames(), 1);
-  EXPECT_ANY_THROW(reconstruction.NumRegImages());
+  reconstruction.Frame(frame.FrameId()).SetRigFromWorld(Rigid3d());
+
+  reconstruction.RegisterFrame(frame.FrameId());
+
+  // Throws because no image was added.
   EXPECT_ANY_THROW(reconstruction.RegImageIds());
-  reconstruction.AddImage(image);
-  EXPECT_EQ(reconstruction.NumRegFrames(), 1);
-  EXPECT_ANY_THROW(reconstruction.NumRegImages());
-  EXPECT_ANY_THROW(reconstruction.RegImageIds());
-  image.SetImageId(2);
-  reconstruction.AddImage(image);
   EXPECT_EQ(reconstruction.NumRegFrames(), 1);
   EXPECT_EQ(reconstruction.NumRegImages(), 2);
-  std::vector<image_t> reg_image_ids = reconstruction.RegImageIds();
-  EXPECT_THAT(reg_image_ids, testing::ElementsAre(1, 2));
+
+  // Throws because second image was not added.
+  reconstruction.AddImage(image1);
+  EXPECT_ANY_THROW(reconstruction.RegImageIds());
+  EXPECT_EQ(reconstruction.NumRegFrames(), 1);
+  EXPECT_EQ(reconstruction.NumRegImages(), 2);
+
+  reconstruction.AddImage(image2);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 1);
+  EXPECT_EQ(reconstruction.NumRegImages(), 2);
+  EXPECT_THAT(reconstruction.RegImageIds(), testing::ElementsAre(1, 2));
+
+  // Registering a frame twice is a no-op.
+  reconstruction.RegisterFrame(frame.FrameId());
+  EXPECT_EQ(reconstruction.NumRegFrames(), 1);
+  EXPECT_EQ(reconstruction.NumRegImages(), 2);
+  EXPECT_THAT(reconstruction.RegImageIds(), testing::ElementsAre(1, 2));
+
+  reconstruction.DeRegisterFrame(frame.FrameId());
+  EXPECT_EQ(reconstruction.NumRegFrames(), 0);
+  EXPECT_EQ(reconstruction.NumRegImages(), 0);
+  EXPECT_THAT(reconstruction.RegImageIds(), testing::IsEmpty());
+
+  // De-registering a frame twice is a no-op.
+  reconstruction.DeRegisterFrame(frame.FrameId());
+  EXPECT_EQ(reconstruction.NumRegFrames(), 0);
+  EXPECT_EQ(reconstruction.NumRegImages(), 0);
+  EXPECT_THAT(reconstruction.RegImageIds(), testing::IsEmpty());
 }
 
 TEST(Reconstruction, AddPoint3D) {
@@ -643,75 +672,94 @@ TEST(Reconstruction, Normalize) {
     reconstruction.DeRegisterFrame(frame_id);
   }
   Sim3d tform = reconstruction.Normalize(/*fixed_scale=*/false);
-  EXPECT_EQ(tform.scale, 1);
-  EXPECT_EQ(tform.rotation.coeffs(), Eigen::Quaterniond::Identity().coeffs());
-  EXPECT_EQ(tform.translation, Eigen::Vector3d::Zero());
+  EXPECT_EQ(tform.scale(), 1);
+  EXPECT_EQ(tform.rotation().coeffs(), Eigen::Quaterniond::Identity().coeffs());
+  EXPECT_EQ(tform.translation(), Eigen::Vector3d::Zero());
   reconstruction.Frame(1).SetRigFromWorld(Rigid3d());
   reconstruction.Frame(2).SetRigFromWorld(Rigid3d());
   reconstruction.Frame(3).SetRigFromWorld(Rigid3d());
-  reconstruction.Frame(1).RigFromWorld().translation.z() = -20.0;
-  reconstruction.Frame(2).RigFromWorld().translation.z() = -10.0;
-  reconstruction.Frame(3).RigFromWorld().translation.z() = 0.0;
+  reconstruction.Frame(1).RigFromWorld().translation().z() = -20.0;
+  reconstruction.Frame(2).RigFromWorld().translation().z() = -10.0;
+  reconstruction.Frame(3).RigFromWorld().translation().z() = 0.0;
   reconstruction.RegisterFrame(1);
   reconstruction.RegisterFrame(2);
   reconstruction.RegisterFrame(3);
   reconstruction.Normalize(/*fixed_scale=*/true);
   EXPECT_NEAR(
-      reconstruction.Image(1).CamFromWorld().translation.z(), -10, 1e-6);
-  EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
-  EXPECT_NEAR(reconstruction.Image(3).CamFromWorld().translation.z(), 10, 1e-6);
+      reconstruction.Image(1).CamFromWorld().translation().z(), -10, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(2).CamFromWorld().translation().z(), 0, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(3).CamFromWorld().translation().z(), 10, 1e-6);
   reconstruction.Normalize(/*fixed_scale=*/false);
-  EXPECT_NEAR(reconstruction.Image(1).CamFromWorld().translation.z(), -5, 1e-6);
-  EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
-  EXPECT_NEAR(reconstruction.Image(3).CamFromWorld().translation.z(), 5, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(1).CamFromWorld().translation().z(), -5, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(2).CamFromWorld().translation().z(), 0, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(3).CamFromWorld().translation().z(), 5, 1e-6);
   reconstruction.Normalize(/*fixed_scale=*/false, 5);
   EXPECT_NEAR(
-      reconstruction.Image(1).CamFromWorld().translation.z(), -2.5, 1e-6);
-  EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
+      reconstruction.Image(1).CamFromWorld().translation().z(), -2.5, 1e-6);
   EXPECT_NEAR(
-      reconstruction.Image(3).CamFromWorld().translation.z(), 2.5, 1e-6);
+      reconstruction.Image(2).CamFromWorld().translation().z(), 0, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(3).CamFromWorld().translation().z(), 2.5, 1e-6);
   reconstruction.Normalize(/*fixed_scale=*/false, 10, 0.0, 1.0);
-  EXPECT_NEAR(reconstruction.Image(1).CamFromWorld().translation.z(), -5, 1e-6);
-  EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
-  EXPECT_NEAR(reconstruction.Image(3).CamFromWorld().translation.z(), 5, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(1).CamFromWorld().translation().z(), -5, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(2).CamFromWorld().translation().z(), 0, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(3).CamFromWorld().translation().z(), 5, 1e-6);
   tform = reconstruction.Normalize(/*fixed_scale=*/false, 20);
   EXPECT_NEAR(
-      reconstruction.Image(1).CamFromWorld().translation.z(), -10, 1e-6);
-  EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
-  EXPECT_NEAR(reconstruction.Image(3).CamFromWorld().translation.z(), 10, 1e-6);
+      reconstruction.Image(1).CamFromWorld().translation().z(), -10, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(2).CamFromWorld().translation().z(), 0, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(3).CamFromWorld().translation().z(), 10, 1e-6);
   reconstruction.Transform(Inverse(tform));
-  EXPECT_NEAR(reconstruction.Image(1).CamFromWorld().translation.z(), -5, 1e-6);
-  EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
-  EXPECT_NEAR(reconstruction.Image(3).CamFromWorld().translation.z(), 5, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(1).CamFromWorld().translation().z(), -5, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(2).CamFromWorld().translation().z(), 0, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(3).CamFromWorld().translation().z(), 5, 1e-6);
   reconstruction.Transform(tform);
   EXPECT_NEAR(
-      reconstruction.Image(1).CamFromWorld().translation.z(), -10, 1e-6);
-  EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
-  EXPECT_NEAR(reconstruction.Image(3).CamFromWorld().translation.z(), 10, 1e-6);
+      reconstruction.Image(1).CamFromWorld().translation().z(), -10, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(2).CamFromWorld().translation().z(), 0, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(3).CamFromWorld().translation().z(), 10, 1e-6);
   reconstruction.Image(4).FramePtr()->SetRigFromWorld(Rigid3d());
   reconstruction.Image(5).FramePtr()->SetRigFromWorld(Rigid3d());
   reconstruction.Image(6).FramePtr()->SetRigFromWorld(Rigid3d());
   reconstruction.Image(7).FramePtr()->SetRigFromWorld(Rigid3d());
-  reconstruction.Image(4).FramePtr()->RigFromWorld().translation.z() = -7.5;
-  reconstruction.Image(5).FramePtr()->RigFromWorld().translation.z() = -5.0;
-  reconstruction.Image(6).FramePtr()->RigFromWorld().translation.z() = 5.0;
-  reconstruction.Image(7).FramePtr()->RigFromWorld().translation.z() = 7.5;
+  reconstruction.Image(4).FramePtr()->RigFromWorld().translation().z() = -7.5;
+  reconstruction.Image(5).FramePtr()->RigFromWorld().translation().z() = -5.0;
+  reconstruction.Image(6).FramePtr()->RigFromWorld().translation().z() = 5.0;
+  reconstruction.Image(7).FramePtr()->RigFromWorld().translation().z() = 7.5;
   reconstruction.RegisterFrame(4);
   reconstruction.RegisterFrame(5);
   reconstruction.RegisterFrame(6);
   reconstruction.RegisterFrame(7);
   reconstruction.Normalize(/*fixed_scale=*/false, 10, 0.0, 1.0);
-  EXPECT_NEAR(reconstruction.Image(1).CamFromWorld().translation.z(), -5, 1e-6);
-  EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
-  EXPECT_NEAR(reconstruction.Image(3).CamFromWorld().translation.z(), 5, 1e-6);
   EXPECT_NEAR(
-      reconstruction.Image(4).CamFromWorld().translation.z(), -3.75, 1e-6);
+      reconstruction.Image(1).CamFromWorld().translation().z(), -5, 1e-6);
   EXPECT_NEAR(
-      reconstruction.Image(5).CamFromWorld().translation.z(), -2.5, 1e-6);
+      reconstruction.Image(2).CamFromWorld().translation().z(), 0, 1e-6);
   EXPECT_NEAR(
-      reconstruction.Image(6).CamFromWorld().translation.z(), 2.5, 1e-6);
+      reconstruction.Image(3).CamFromWorld().translation().z(), 5, 1e-6);
   EXPECT_NEAR(
-      reconstruction.Image(7).CamFromWorld().translation.z(), 3.75, 1e-6);
+      reconstruction.Image(4).CamFromWorld().translation().z(), -3.75, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(5).CamFromWorld().translation().z(), -2.5, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(6).CamFromWorld().translation().z(), 2.5, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(7).CamFromWorld().translation().z(), 3.75, 1e-6);
 }
 
 TEST(Reconstruction, ComputeBoundsAndCentroidEmpty) {

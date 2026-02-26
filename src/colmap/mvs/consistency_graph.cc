@@ -34,7 +34,6 @@
 #include "colmap/util/logging.h"
 
 #include <fstream>
-#include <numeric>
 
 namespace colmap {
 namespace mvs {

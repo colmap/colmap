@@ -29,12 +29,11 @@
 
 #pragma once
 
-#include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/scene/reconstruction_manager.h"
+#include "colmap/sfm/global_mapper.h"
 #include "colmap/util/base_controller.h"
 
-#include "glomap/sfm/global_mapper.h"
-
+#include <filesystem>
 #include <memory>
 #include <vector>
 
@@ -51,7 +50,7 @@ struct GlobalPipelineOptions {
   std::vector<std::string> image_names;
 
   // The image path at which to find the images to extract point colors.
-  std::string image_path;
+  std::filesystem::path image_path;
 
   // Number of threads for parallel processing.
   int num_threads = -1;
@@ -62,29 +61,22 @@ struct GlobalPipelineOptions {
   // Whether to decompose missing relative poses from two-view geometries.
   bool decompose_missing_relative_poses = true;
 
-  // Whether to skip view graph calibration.
-  bool skip_view_graph_calibration = false;
-
-  // Options for view graph calibration.
-  ViewGraphCalibrationOptions view_graph_calibration;
-
   // Options for the global mapper.
-  glomap::GlobalMapperOptions mapper;
+  GlobalMapperOptions mapper;
 };
 
 class GlobalPipeline : public BaseController {
  public:
-  GlobalPipeline(
-      const GlobalPipelineOptions& options,
-      std::shared_ptr<Database> database,
-      std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager);
+  GlobalPipeline(GlobalPipelineOptions options,
+                 std::shared_ptr<Database> database,
+                 std::shared_ptr<ReconstructionManager> reconstruction_manager);
 
   void Run() override;
 
  private:
   const GlobalPipelineOptions options_;
-  const std::shared_ptr<Database> database_;
-  std::shared_ptr<colmap::ReconstructionManager> reconstruction_manager_;
+  std::shared_ptr<const DatabaseCache> database_cache_;
+  std::shared_ptr<ReconstructionManager> reconstruction_manager_;
 };
 
 }  // namespace colmap

@@ -32,7 +32,6 @@
 #include "colmap/sensor/bitmap.h"
 
 #include <filesystem>
-#include <string>
 
 namespace colmap {
 namespace mvs {

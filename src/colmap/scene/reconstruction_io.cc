@@ -74,10 +74,10 @@ bool ExportNVM(const Reconstruction& reconstruction,
 
     file << image.Name() << " ";
     file << camera.MeanFocalLength() << " ";
-    file << image.CamFromWorld().rotation.w() << " ";
-    file << image.CamFromWorld().rotation.x() << " ";
-    file << image.CamFromWorld().rotation.y() << " ";
-    file << image.CamFromWorld().rotation.z() << " ";
+    file << image.CamFromWorld().rotation().w() << " ";
+    file << image.CamFromWorld().rotation().x() << " ";
+    file << image.CamFromWorld().rotation().y() << " ";
+    file << image.CamFromWorld().rotation().z() << " ";
     file << proj_center.x() << " ";
     file << proj_center.y() << " ";
     file << proj_center.z() << " ";
@@ -178,10 +178,11 @@ bool ExportCam(const Reconstruction& reconstruction,
       focal_length = fx / camera.width;
     }
 
-    const Eigen::Matrix3d R = image.CamFromWorld().rotation.toRotationMatrix();
-    file << image.CamFromWorld().translation.x() << " "
-         << image.CamFromWorld().translation.y() << " "
-         << image.CamFromWorld().translation.z() << " " << R(0, 0) << " "
+    const Eigen::Matrix3d R =
+        image.CamFromWorld().rotation().toRotationMatrix();
+    file << image.CamFromWorld().translation().x() << " "
+         << image.CamFromWorld().translation().y() << " "
+         << image.CamFromWorld().translation().z() << " " << R(0, 0) << " "
          << R(0, 1) << " " << R(0, 2) << " " << R(1, 0) << " " << R(1, 1) << " "
          << R(1, 2) << " " << R(2, 0) << " " << R(2, 1) << " " << R(2, 2)
          << '\n';
@@ -247,8 +248,8 @@ bool ExportRecon3D(const Reconstruction& reconstruction,
     const double scale = 1.0 / (double)std::max(camera.width, camera.height);
     synth_file << scale * camera.MeanFocalLength() << " " << k1 << " " << k2
                << '\n';
-    synth_file << image.CamFromWorld().rotation.toRotationMatrix() << '\n';
-    synth_file << image.CamFromWorld().translation.transpose() << '\n';
+    synth_file << image.CamFromWorld().rotation().toRotationMatrix() << '\n';
+    synth_file << image.CamFromWorld().translation().transpose() << '\n';
 
     image_id_to_idx_[image_id] = image_idx;
     image_list_file << image.Name() << '\n'
@@ -348,14 +349,15 @@ bool ExportBundler(const Reconstruction& reconstruction,
 
     file << camera.MeanFocalLength() << " " << k1 << " " << k2 << '\n';
 
-    const Eigen::Matrix3d R = image.CamFromWorld().rotation.toRotationMatrix();
+    const Eigen::Matrix3d R =
+        image.CamFromWorld().rotation().toRotationMatrix();
     file << R(0, 0) << " " << R(0, 1) << " " << R(0, 2) << '\n';
     file << -R(1, 0) << " " << -R(1, 1) << " " << -R(1, 2) << '\n';
     file << -R(2, 0) << " " << -R(2, 1) << " " << -R(2, 2) << '\n';
 
-    file << image.CamFromWorld().translation.x() << " ";
-    file << -image.CamFromWorld().translation.y() << " ";
-    file << -image.CamFromWorld().translation.z() << '\n';
+    file << image.CamFromWorld().translation().x() << " ";
+    file << -image.CamFromWorld().translation().y() << " ";
+    file << -image.CamFromWorld().translation().z() << '\n';
 
     list_file << image.Name() << '\n';
 

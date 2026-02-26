@@ -31,6 +31,7 @@
 
 #include "colmap/util/testing.h"
 
+#include <fstream>
 #include <tuple>
 
 #include <OpenImageIO/imagebufalgo.h>
@@ -354,6 +355,39 @@ TEST(Bitmap, RescaleGrey) {
   EXPECT_EQ(bitmap2.Channels(), 1);
 }
 
+TEST(Bitmap, Rot90) {
+  Bitmap bitmap(10, 5, /*as_rgb=*/false);
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(255));
+  bitmap.SetPixel(9, 0, BitmapColor<uint8_t>(128));
+  bitmap.SetPixel(9, 4, BitmapColor<uint8_t>(64));
+
+  Bitmap rotated1 = bitmap.Clone();
+  rotated1.Rot90(1);  // 90 CCW
+  EXPECT_EQ(rotated1.Width(), 5);
+  EXPECT_EQ(rotated1.Height(), 10);
+  BitmapColor<uint8_t> color;
+  rotated1.GetPixel(0, 9, &color);
+  EXPECT_EQ(color.r, 255);  // Top-left (0,0) -> Bottom-left (0,9)
+  rotated1.GetPixel(0, 0, &color);
+  EXPECT_EQ(color.r, 128);  // Top-right (9,0) -> Top-left (0,0)
+  rotated1.GetPixel(4, 0, &color);
+  EXPECT_EQ(color.r, 64);  // Bottom-right (9,4) -> Top-right (4,0)
+
+  Bitmap rotated2 = bitmap.Clone();
+  rotated2.Rot90(2);  // 180 CCW
+  EXPECT_EQ(rotated2.Width(), 10);
+  EXPECT_EQ(rotated2.Height(), 5);
+  rotated2.GetPixel(9, 4, &color);
+  EXPECT_EQ(color.r, 255);
+
+  Bitmap rotated3 = bitmap.Clone();
+  rotated3.Rot90(3);  // 270 CCW
+  EXPECT_EQ(rotated3.Width(), 5);
+  EXPECT_EQ(rotated3.Height(), 10);
+  rotated3.GetPixel(4, 0, &color);
+  EXPECT_EQ(color.r, 255);  // Top-left (0,0) -> Top-right (4,0)
+}
+
 TEST(Bitmap, Clone) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
   bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
@@ -414,6 +448,11 @@ TEST(Bitmap, SetGetMetaData) {
   EXPECT_EQ(value, kValue);
   EXPECT_FALSE(bitmap.GetMetaData("does_not_exist", "float", &value));
   EXPECT_FALSE(bitmap.GetMetaData("foobar", "int8", &value));
+  bitmap.SetMetaData("foobar_str", "string");
+  EXPECT_EQ(bitmap.GetMetaData("foobar_str").value(), "string");
+  EXPECT_FALSE(bitmap.GetMetaData("foobar_str", "int8", &value));
+  EXPECT_FALSE(bitmap.GetMetaData("foobar_str", "float", &value));
+  EXPECT_FALSE(bitmap.GetMetaData("does_not_exist").has_value());
 }
 
 TEST(Bitmap, CloneMetaData) {
@@ -429,11 +468,23 @@ TEST(Bitmap, CloneMetaData) {
   EXPECT_EQ(value, kValue);
 }
 
+TEST(Bitmap, ExifOrientation) {
+  Bitmap bitmap(100, 80, /*as_rgb=*/true);
+
+  EXPECT_FALSE(bitmap.ExifOrientation().has_value());
+
+  int orientation = 6;
+  bitmap.SetMetaData("Orientation", "int", &orientation);
+
+  const auto exif_orientation = bitmap.ExifOrientation();
+  EXPECT_TRUE(exif_orientation.has_value());
+  EXPECT_EQ(exif_orientation.value(), 6);
+}
+
 TEST(Bitmap, ExifCameraModel) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
 
-  std::string camera_model;
-  EXPECT_FALSE(bitmap.ExifCameraModel(&camera_model));
+  EXPECT_FALSE(bitmap.ExifCameraModel().has_value());
 
   bitmap.SetMetaData("Make", "make");
   bitmap.SetMetaData("Model", "model");
@@ -441,44 +492,44 @@ TEST(Bitmap, ExifCameraModel) {
   bitmap.SetMetaData(
       "Exif:FocalLengthIn35mmFilm", "float", &focal_length_in_35mm_film);
 
-  EXPECT_TRUE(bitmap.ExifCameraModel(&camera_model));
-  EXPECT_EQ(camera_model, "make-model-50.000000-100x80");
+  const auto camera_model = bitmap.ExifCameraModel();
+  EXPECT_TRUE(camera_model.has_value());
+  EXPECT_EQ(camera_model.value(), "make-model-50.000000-100x80");
 }
 
 TEST(Bitmap, ExifFocalLengthIn35mm) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
 
-  double focal_length = 0.0;
-  EXPECT_FALSE(bitmap.ExifFocalLength(&focal_length));
+  EXPECT_FALSE(bitmap.ExifFocalLength().has_value());
 
   const float focal_length_in_35mm_film = 70.f;
   bitmap.SetMetaData(
       "Exif:FocalLengthIn35mmFilm", "float", &focal_length_in_35mm_film);
 
-  EXPECT_TRUE(bitmap.ExifFocalLength(&focal_length));
-  EXPECT_NEAR(focal_length, 207.17, 0.1);
+  const auto focal_length = bitmap.ExifFocalLength();
+  EXPECT_TRUE(focal_length.has_value());
+  EXPECT_NEAR(focal_length.value(), 207.17, 0.1);
 }
 
 TEST(Bitmap, ExifFocalLengthWithPlane) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
 
-  double focal_length = 0.0;
-  EXPECT_FALSE(bitmap.ExifFocalLength(&focal_length));
+  EXPECT_FALSE(bitmap.ExifFocalLength().has_value());
 
   const float kFocalLengthVal = 72.f;
   bitmap.SetMetaData("Exif:FocalLength", "float", &kFocalLengthVal);
   bitmap.SetMetaData("Make", "canon");
   bitmap.SetMetaData("Model", "eos1dsmarkiii");
 
-  EXPECT_TRUE(bitmap.ExifFocalLength(&focal_length));
-  EXPECT_EQ(focal_length, 200);
+  const auto focal_length = bitmap.ExifFocalLength();
+  EXPECT_TRUE(focal_length.has_value());
+  EXPECT_EQ(focal_length.value(), 200);
 }
 
 TEST(Bitmap, ExifFocalLengthWithDatabaseLookup) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
 
-  double focal_length = 0.0;
-  EXPECT_FALSE(bitmap.ExifFocalLength(&focal_length));
+  EXPECT_FALSE(bitmap.ExifFocalLength().has_value());
 
   const float kFocalLengthVal = 120.f;
   bitmap.SetMetaData("Exif:FocalLength", "float", &kFocalLengthVal);
@@ -489,65 +540,100 @@ TEST(Bitmap, ExifFocalLengthWithDatabaseLookup) {
   const int kPlanResUnit = 4;
   bitmap.SetMetaData("Exif:FocalPlaneResolutionUnit", "int", &kPlanResUnit);
 
-  EXPECT_TRUE(bitmap.ExifFocalLength(&focal_length));
-  EXPECT_EQ(focal_length, 120);
+  const auto focal_length = bitmap.ExifFocalLength();
+  EXPECT_TRUE(focal_length.has_value());
+  EXPECT_EQ(focal_length.value(), 120);
+}
+
+TEST(Bitmap, ExifFocalLengthUnits) {
+  // Initialize a dummy bitmap
+  Bitmap bitmap(100, 80, /*as_rgb=*/true);
+
+  // Set the base focal length and resolution values
+  const float focal_length_mm = 50.0f;
+  const float focal_x_res = 100.0f;
+  bitmap.SetMetaData("Exif:FocalLength", "float", &focal_length_mm);
+  bitmap.SetMetaData("Exif:FocalPlaneXResolution", "float", &focal_x_res);
+
+  // Case 2: Inches (25.4 mm per inch)
+  int unit = 2;
+  bitmap.SetMetaData("Exif:FocalPlaneResolutionUnit", "int", &unit);
+  EXPECT_NEAR(bitmap.ExifFocalLength().value(), 50.0 * (100.0 / 25.4), 1e-4);
+
+  // Case 3: Centimeters (10 mm per cm)
+  unit = 3;
+  bitmap.SetMetaData("Exif:FocalPlaneResolutionUnit", "int", &unit);
+  EXPECT_NEAR(bitmap.ExifFocalLength().value(), 50.0 * (100.0 / 10.0), 1e-4);
+
+  // Case 4: Millimeters (1 mm per mm)
+  unit = 4;
+  bitmap.SetMetaData("Exif:FocalPlaneResolutionUnit", "int", &unit);
+  EXPECT_NEAR(bitmap.ExifFocalLength().value(), 50.0 * (100.0 * 1.0), 1e-4);
+
+  // Case 5: Micrometers (1000 um per mm)
+  unit = 5;
+  bitmap.SetMetaData("Exif:FocalPlaneResolutionUnit", "int", &unit);
+  EXPECT_NEAR(bitmap.ExifFocalLength().value(), 50.0 * (100.0 * 1000.0), 1e-4);
 }
 
 TEST(Bitmap, ExifLatitude) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
 
-  double latitude = 0.0;
-  EXPECT_FALSE(bitmap.ExifLatitude(&latitude));
+  EXPECT_FALSE(bitmap.ExifLatitude().has_value());
 
   bitmap.SetMetaData("GPS:LatitudeRef", "N");
   const float kDegMinSec[3] = {46, 30, 900};
   bitmap.SetMetaData("GPS:Latitude", "point", kDegMinSec);
 
-  EXPECT_TRUE(bitmap.ExifLatitude(&latitude));
-  EXPECT_EQ(latitude, 46.75);
+  auto latitude = bitmap.ExifLatitude();
+  EXPECT_TRUE(latitude.has_value());
+  EXPECT_EQ(latitude.value(), 46.75);
 
   bitmap.SetMetaData("GPS:LatitudeRef", "S");
 
-  EXPECT_TRUE(bitmap.ExifLatitude(&latitude));
-  EXPECT_EQ(latitude, -46.75);
+  latitude = bitmap.ExifLatitude();
+  EXPECT_TRUE(latitude.has_value());
+  EXPECT_EQ(latitude.value(), -46.75);
 }
 
 TEST(Bitmap, ExifLongitude) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
 
-  double longitude = 0.0;
-  EXPECT_FALSE(bitmap.ExifLongitude(&longitude));
+  EXPECT_FALSE(bitmap.ExifLongitude().has_value());
 
   bitmap.SetMetaData("GPS:LongitudeRef", "W");
   const float kDegMinSec[3] = {92, 30, 900};
   bitmap.SetMetaData("GPS:Longitude", "point", kDegMinSec);
 
-  EXPECT_TRUE(bitmap.ExifLongitude(&longitude));
-  EXPECT_EQ(longitude, -92.75);
+  auto longitude = bitmap.ExifLongitude();
+  EXPECT_TRUE(longitude.has_value());
+  EXPECT_EQ(longitude.value(), -92.75);
 
   bitmap.SetMetaData("GPS:LongitudeRef", "E");
 
-  EXPECT_TRUE(bitmap.ExifLongitude(&longitude));
-  EXPECT_EQ(longitude, 92.75);
+  longitude = bitmap.ExifLongitude();
+  EXPECT_TRUE(longitude.has_value());
+  EXPECT_EQ(longitude.value(), 92.75);
 }
 
 TEST(Bitmap, ExifAltitude) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
 
-  double altitude = 0.0;
-  EXPECT_FALSE(bitmap.ExifAltitude(&altitude));
+  EXPECT_FALSE(bitmap.ExifAltitude().has_value());
 
   bitmap.SetMetaData("GPS:AltitudeRef", "0");
   const float kAltitudeVal = 123.456;
   bitmap.SetMetaData("GPS:Altitude", "float", &kAltitudeVal);
 
-  EXPECT_TRUE(bitmap.ExifAltitude(&altitude));
-  EXPECT_EQ(altitude, kAltitudeVal);
+  auto altitude = bitmap.ExifAltitude();
+  EXPECT_TRUE(altitude.has_value());
+  EXPECT_EQ(altitude.value(), kAltitudeVal);
 
   bitmap.SetMetaData("GPS:AltitudeRef", "1");
 
-  EXPECT_TRUE(bitmap.ExifAltitude(&altitude));
-  EXPECT_EQ(altitude, -kAltitudeVal);
+  altitude = bitmap.ExifAltitude();
+  EXPECT_TRUE(altitude.has_value());
+  EXPECT_EQ(altitude.value(), -kAltitudeVal);
 }
 
 TEST(Bitmap, ReadWriteAsRGB) {
@@ -632,6 +718,36 @@ TEST(Bitmap, ReadWriteAsGreyNonLinear) {
   EXPECT_EQ(read_bitmap.Channels(), 1);
   EXPECT_EQ(read_bitmap.BitsPerPixel(), 8);
   EXPECT_EQ(read_bitmap.RowMajorData(), bitmap.RowMajorData());
+}
+
+TEST(Bitmap, WriteJpegWithQuality) {
+  Bitmap bitmap(20, 30, /*as_rgb=*/true);
+  for (int y = 0; y < bitmap.Height(); ++y) {
+    for (int x = 0; x < bitmap.Width(); ++x) {
+      const uint8_t r = static_cast<uint8_t>((x + y * bitmap.Width()) * 20);
+      const uint8_t g = static_cast<uint8_t>((x + y * bitmap.Width()) * 15);
+      const uint8_t b = static_cast<uint8_t>((x + y * bitmap.Width()) * 10);
+      bitmap.SetPixel(x, y, BitmapColor<uint8_t>(r, g, b));
+    }
+  }
+
+  const auto test_dir = CreateTestDir();
+  const auto filename_default = test_dir / "bitmap_default.jpg";
+  const auto filename_100 = test_dir / "bitmap_100.jpg";
+  const auto filename_10 = test_dir / "bitmap_10.jpg";
+
+  EXPECT_TRUE(bitmap.Write(filename_default));
+
+  bitmap.SetJpegQuality(100);
+  EXPECT_TRUE(bitmap.Write(filename_100));
+
+  bitmap.SetJpegQuality(10);
+  EXPECT_TRUE(bitmap.Write(filename_10));
+
+  EXPECT_EQ(std::filesystem::file_size(filename_default),
+            std::filesystem::file_size(filename_100));
+  EXPECT_LT(std::filesystem::file_size(filename_10),
+            std::filesystem::file_size(filename_100));
 }
 
 class ParameterizedBitmapFormatTests
@@ -827,6 +943,36 @@ TEST_P(ParameterizedBitmapFormatTests, ReadGreyAlpha) {
   EXPECT_EQ(rgb_bitmap.Width(), width);
   EXPECT_EQ(rgb_bitmap.Height(), height);
   EXPECT_EQ(rgb_bitmap.Channels(), 3);
+}
+
+TEST(Bitmap, ReadNonImageFile) {
+  const auto test_dir = CreateTestDir();
+  const auto filename = test_dir / "not_an_image.txt";
+
+  // Create a non-image file
+  std::ofstream file(filename);
+  file << "This is not an image file";
+  file.close();
+
+  Bitmap bitmap;
+  EXPECT_FALSE(bitmap.Read(filename));
+
+  // Verify that OIIO error was cleared.
+  const std::string pending_error = OIIO::geterror();
+  EXPECT_TRUE(pending_error.empty())
+      << "OIIO error was not cleared: " << pending_error;
+}
+
+TEST(Bitmap, ReadNonExistentFile) {
+  const auto test_dir = CreateTestDir();
+
+  Bitmap bitmap;
+  EXPECT_FALSE(bitmap.Read(test_dir / "non_existent_file.png"));
+
+  // Verify that OIIO error was cleared.
+  const std::string pending_error = OIIO::geterror();
+  EXPECT_TRUE(pending_error.empty())
+      << "OIIO error was not cleared: " << pending_error;
 }
 
 INSTANTIATE_TEST_SUITE_P(

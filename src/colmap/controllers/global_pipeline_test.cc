@@ -29,6 +29,7 @@
 
 #include "colmap/controllers/global_pipeline.h"
 
+#include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"
@@ -58,7 +59,9 @@ TEST(GlobalPipeline, Nominal) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   GlobalPipelineOptions options;
-  GlobalPipeline mapper(options, database, reconstruction_manager);
+  ViewGraphCalibrationOptions vgc_options;
+  CalibrateViewGraph(vgc_options, database.get());
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -90,8 +93,12 @@ TEST(GlobalPipeline, SfMWithRandomSeedStability) {
     GlobalPipelineOptions options;
     options.num_threads = num_threads;
     options.random_seed = random_seed;
+    ViewGraphCalibrationOptions vgc_options;
+    vgc_options.random_seed = random_seed;
+    vgc_options.solver_options.num_threads = num_threads;
+    CalibrateViewGraph(vgc_options, database.get());
     auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-    GlobalPipeline mapper(options, database, reconstruction_manager);
+    GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
     mapper.Run();
     EXPECT_EQ(reconstruction_manager->Size(), 1);
     return reconstruction_manager;
@@ -143,7 +150,9 @@ TEST(GlobalPipeline, WithExistingRelativePoses) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   GlobalPipelineOptions options;
-  GlobalPipeline mapper(options, database, reconstruction_manager);
+  ViewGraphCalibrationOptions vgc_options;
+  CalibrateViewGraph(vgc_options, database.get());
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -174,9 +183,9 @@ TEST(GlobalPipeline, WithNoisyExistingRelativePoses) {
     if (!two_view_geometry.cam2_from_cam1.has_value()) {
       continue;
     }
-    two_view_geometry.cam2_from_cam1->rotation =
+    two_view_geometry.cam2_from_cam1->rotation() =
         Eigen::Quaterniond::UnitRandom();
-    two_view_geometry.cam2_from_cam1->translation =
+    two_view_geometry.cam2_from_cam1->translation() =
         Eigen::Vector3d::Random().normalized();
 
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
@@ -185,7 +194,9 @@ TEST(GlobalPipeline, WithNoisyExistingRelativePoses) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   GlobalPipelineOptions options;
-  GlobalPipeline mapper(options, database, reconstruction_manager);
+  ViewGraphCalibrationOptions vgc_options;
+  CalibrateViewGraph(vgc_options, database.get());
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);

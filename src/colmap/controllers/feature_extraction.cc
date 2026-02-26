@@ -42,22 +42,24 @@
 namespace colmap {
 namespace {
 
-void ScaleKeypoints(const Bitmap& bitmap,
-                    const Camera& camera,
+void ScaleKeypoints(int bitmap_width,
+                    int bitmap_height,
+                    size_t camera_width,
+                    size_t camera_height,
                     FeatureKeypoints* keypoints) {
-  if (static_cast<size_t>(bitmap.Width()) != camera.width ||
-      static_cast<size_t>(bitmap.Height()) != camera.height) {
-    const float scale_x = static_cast<float>(camera.width) / bitmap.Width();
-    const float scale_y = static_cast<float>(camera.height) / bitmap.Height();
+  if (static_cast<size_t>(bitmap_width) != camera_width ||
+      static_cast<size_t>(bitmap_height) != camera_height) {
+    const float scale_x = static_cast<float>(camera_width) / bitmap_width;
+    const float scale_y = static_cast<float>(camera_height) / bitmap_height;
     for (auto& keypoint : *keypoints) {
       keypoint.Rescale(scale_x, scale_y);
     }
   }
 }
 
-void MaskKeypoints(const Bitmap& mask,
-                   FeatureKeypoints* keypoints,
-                   FeatureDescriptors* descriptors) {
+void MaskFeatures(const Bitmap& mask,
+                  FeatureKeypoints* keypoints,
+                  FeatureDescriptors* descriptors) {
   size_t out_index = 0;
   BitmapColor<uint8_t> color;
   for (size_t i = 0; i < keypoints->size(); ++i) {
@@ -71,8 +73,8 @@ void MaskKeypoints(const Bitmap& mask,
       // index differs from its current position).
       if (out_index != i) {
         keypoints->at(out_index) = keypoints->at(i);
-        for (int col = 0; col < descriptors->cols(); ++col) {
-          (*descriptors)(out_index, col) = (*descriptors)(i, col);
+        for (int col = 0; col < descriptors->data.cols(); ++col) {
+          descriptors->data(out_index, col) = descriptors->data(i, col);
         }
       }
       out_index += 1;
@@ -80,7 +82,7 @@ void MaskKeypoints(const Bitmap& mask,
   }
 
   keypoints->resize(out_index);
-  descriptors->conservativeResize(out_index, descriptors->cols());
+  descriptors->data.conservativeResize(out_index, descriptors->data.cols());
 }
 
 struct ImageData {
@@ -104,7 +106,9 @@ class ImageResizerThread : public Thread {
                      JobQueue<ImageData>* output_queue)
       : max_image_size_(max_image_size),
         input_queue_(input_queue),
-        output_queue_(output_queue) {}
+        output_queue_(output_queue) {
+    THROW_CHECK_GT(max_image_size_, 0);
+  }
 
  private:
   void Run() override {
@@ -189,20 +193,39 @@ class FeatureExtractorThread : public Thread {
         auto& image_data = input_job.Data();
 
         if (image_data.status == ImageReader::Status::SUCCESS) {
+          const int orig_width = image_data.bitmap.Width();
+          const int orig_height = image_data.bitmap.Height();
+          const int rot90 =
+              image_data.pose_prior.HasGravity()
+                  ? ComputeRot90FromGravity(image_data.pose_prior.gravity)
+                  : 0;
+          if (rot90 > 0) {
+            image_data.bitmap.Rot90(rot90);
+          }
           if (extractor->Extract(image_data.bitmap,
                                  &image_data.keypoints,
                                  &image_data.descriptors)) {
-            ScaleKeypoints(
-                image_data.bitmap, image_data.camera, &image_data.keypoints);
+            if (rot90 > 0) {
+              const int w = image_data.bitmap.Width();
+              const int h = image_data.bitmap.Height();
+              for (auto& kp : image_data.keypoints) {
+                kp.Rot90(4 - rot90, w, h);
+              }
+            }
+            ScaleKeypoints(orig_width,
+                           orig_height,
+                           image_data.camera.width,
+                           image_data.camera.height,
+                           &image_data.keypoints);
             if (camera_mask_) {
-              MaskKeypoints(*camera_mask_,
-                            &image_data.keypoints,
-                            &image_data.descriptors);
+              MaskFeatures(*camera_mask_,
+                           &image_data.keypoints,
+                           &image_data.descriptors);
             }
             if (!image_data.mask.IsEmpty()) {
-              MaskKeypoints(image_data.mask,
-                            &image_data.keypoints,
-                            &image_data.descriptors);
+              MaskFeatures(image_data.mask,
+                           &image_data.keypoints,
+                           &image_data.descriptors);
             }
           } else {
             image_data.status = ImageReader::Status::FAILURE;
@@ -287,12 +310,22 @@ class FeatureWriterThread : public Thread {
         if (image_data.image.ImageId() == kInvalidImageId) {
           image_data.image.SetImageId(database_->WriteImage(image_data.image));
 
-          if (image_data.pose_prior.HasPosition()) {
-            LOG(INFO) << StringPrintf(
-                "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
-                image_data.pose_prior.position.x(),
-                image_data.pose_prior.position.y(),
-                image_data.pose_prior.position.z());
+          if (image_data.pose_prior.HasPosition() ||
+              image_data.pose_prior.HasGravity()) {
+            if (image_data.pose_prior.HasPosition()) {
+              LOG(INFO) << StringPrintf(
+                  "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
+                  image_data.pose_prior.position.x(),
+                  image_data.pose_prior.position.y(),
+                  image_data.pose_prior.position.z());
+            }
+            if (image_data.pose_prior.HasGravity()) {
+              LOG(INFO) << StringPrintf(
+                  "  Gravity:         X=%.3f, Y=%.3f, Z=%.3f",
+                  image_data.pose_prior.gravity.x(),
+                  image_data.pose_prior.gravity.y(),
+                  image_data.pose_prior.gravity.z());
+            }
             image_data.pose_prior.corr_data_id = image_data.image.DataId();
             image_data.pose_prior.pose_prior_id =
                 database_->WritePosePrior(image_data.pose_prior);
@@ -343,7 +376,7 @@ class FeatureExtractorController : public Thread {
       if (ExistsFile(reader_options_.camera_mask_path)) {
         camera_mask = std::make_shared<Bitmap>();
         if (!camera_mask->Read(reader_options_.camera_mask_path,
-                               /*as_rgb*/ false)) {
+                               /*as_rgb=*/false)) {
           LOG(ERROR) << "Failed to read invalid mask file at: "
                      << reader_options_.camera_mask_path
                      << ". No mask is going to be used.";
@@ -367,13 +400,10 @@ class FeatureExtractorController : public Thread {
     extractor_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
     writer_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
 
-    if (extraction_options_.max_image_size > 0) {
-      for (int i = 0; i < num_threads; ++i) {
-        resizers_.emplace_back(std::make_unique<ImageResizerThread>(
-            extraction_options_.max_image_size,
-            resizer_queue_.get(),
-            extractor_queue_.get()));
-      }
+    const int max_image_size = extraction_options_.EffMaxImageSize();
+    for (int i = 0; i < num_threads; ++i) {
+      resizers_.emplace_back(std::make_unique<ImageResizerThread>(
+          max_image_size, resizer_queue_.get(), extractor_queue_.get()));
     }
 
     if (!extraction_options_.sift->domain_size_pooling &&
@@ -404,6 +434,7 @@ class FeatureExtractorController : public Thread {
     } else {
       const static FeatureExtractionOptions kDefaultExtractionOptions;
       if (extraction_options_.num_threads == -1 &&
+          extraction_options_.type == FeatureExtractorType::SIFT &&
           extraction_options_.max_image_size ==
               kDefaultExtractionOptions.max_image_size &&
           extraction_options_.sift->first_octave ==
@@ -418,11 +449,14 @@ class FeatureExtractorController : public Thread {
                "memory for the current settings.";
       }
 
-      auto custom_extraction_options = extraction_options_;
-      custom_extraction_options.use_gpu = false;
+      auto worker_extraction_options = extraction_options_;
+      // Prevent nested threading.
+      worker_extraction_options.num_threads = 1;
+      // Explicitly disable GPU.
+      worker_extraction_options.use_gpu = false;
       for (int i = 0; i < num_threads; ++i) {
         extractors_.emplace_back(
-            std::make_unique<FeatureExtractorThread>(custom_extraction_options,
+            std::make_unique<FeatureExtractorThread>(worker_extraction_options,
                                                      camera_mask,
                                                      extractor_queue_.get(),
                                                      writer_queue_.get()));
@@ -437,7 +471,7 @@ class FeatureExtractorController : public Thread {
 
  private:
   void Run() override {
-    PrintHeading1("Feature extraction");
+    LOG_HEADING1("Feature extraction");
     Timer run_timer;
     run_timer.Start();
 
@@ -456,8 +490,6 @@ class FeatureExtractorController : public Thread {
         return;
       }
     }
-
-    const bool should_resize = extraction_options_.max_image_size > 0;
 
     while (image_reader_.NextIndex() < image_reader_.NumImages()) {
       if (IsStopped()) {
@@ -482,11 +514,7 @@ class FeatureExtractorController : public Thread {
         image_data.mask = Bitmap();
       }
 
-      if (should_resize) {
-        THROW_CHECK(resizer_queue_->Push(std::move(image_data)));
-      } else {
-        THROW_CHECK(extractor_queue_->Push(std::move(image_data)));
-      }
+      THROW_CHECK(resizer_queue_->Push(std::move(image_data)));
     }
 
     resizer_queue_->Wait();
@@ -537,7 +565,7 @@ class FeatureImporterController : public Thread {
 
  private:
   void Run() override {
-    PrintHeading1("Feature import");
+    LOG_HEADING1("Feature import");
     Timer run_timer;
     run_timer.Start();
 
@@ -585,7 +613,7 @@ class FeatureImporterController : public Thread {
         if (image.ImageId() == kInvalidImageId) {
           image.SetImageId(database->WriteImage(image));
 
-          if (pose_prior.HasPosition()) {
+          if (pose_prior.HasPosition() || pose_prior.HasGravity()) {
             pose_prior.corr_data_id = image.DataId();
             pose_prior.pose_prior_id = database->WritePosePrior(pose_prior);
           }

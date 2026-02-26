@@ -154,6 +154,11 @@ void BindReconstruction(py::module& m) {
            "xyz"_a,
            "track"_a,
            "color"_a = Eigen::Vector3ub::Zero())
+      .def("add_point3D_with_id",
+           py::overload_cast<point3D_t, Point3D>(&Reconstruction::AddPoint3D),
+           "point3D_id"_a,
+           "point3D"_a,
+           "Add new 3D point with known ID.")
       .def("add_observation",
            &Reconstruction::AddObservation,
            "point3D_id"_a,
@@ -181,6 +186,11 @@ void BindReconstruction(py::module& m) {
       .def("delete_all_points2D_and_points3D",
            &Reconstruction::DeleteAllPoints2DAndPoints3D,
            "Delete all 2D points of all images and all 3D points.")
+      .def("set_rigs_and_frames",
+           &Reconstruction::SetRigsAndFrames,
+           "rigs"_a,
+           "frames"_a,
+           "Set rigs and frames together.")
       .def("register_frame",
            &Reconstruction::RegisterFrame,
            "frame_id"_a,
@@ -196,15 +206,15 @@ void BindReconstruction(py::module& m) {
            "min_percentile"_a = 0.1,
            "max_percentile"_a = 0.9,
            "use_images"_a = true,
-           "Normalize scene by scaling and translation to avoid degenerate"
-           "visualization after bundle adjustment and to improve numerical"
+           "Normalize scene by scaling and translation to avoid degenerate "
+           "visualization after bundle adjustment and to improve numerical "
            "stability of algorithms.\n\n"
-           "Translates scene such that the mean of the camera centers or point"
-           "locations are at the origin of the coordinate system.\n\n Scales "
-           "scene such that the minimum and maximum camera centers (or points) "
-           "are  at the given `extent`, whereas `min_percentile` and  "
-           "`max_percentile` determine the minimum  and maximum percentiles of "
-           "the camera centers (or points) considered.")
+           "Translates scene such that the mean of the camera centers or point "
+           "locations are at the origin of the coordinate system.\n\n"
+           "Scales scene such that the minimum and maximum camera centers "
+           "(or points) are at the given `extent`, whereas `min_percentile` "
+           "and `max_percentile` determine the minimum and maximum percentiles "
+           "of the camera centers (or points) considered.")
       .def("transform",
            &Reconstruction::Transform,
            "new_from_old_world"_a,
@@ -230,6 +240,10 @@ void BindReconstruction(py::module& m) {
            "other"_a,
            "Find images that are both present in this and the given "
            "reconstruction.")
+      .def("transcribe_image_ids_to_database",
+           &Reconstruction::TranscribeImageIdsToDatabase,
+           "database"_a,
+           "Update image identifiers to match the database by name.")
       .def("update_point_3d_errors", &Reconstruction::UpdatePoint3DErrors)
       .def("compute_num_observations", &Reconstruction::ComputeNumObservations)
       .def("compute_mean_track_length", &Reconstruction::ComputeMeanTrackLength)
@@ -241,8 +255,8 @@ void BindReconstruction(py::module& m) {
            py::overload_cast<const std::filesystem::path&>(
                &Reconstruction::ImportPLY),
            "path"_a,
-           "Import from PLY format. Note that these import functions are"
-           "only intended for visualization of data and usable for "
+           "Import from PLY format. Note that these import functions are "
+           "only intended for visualization of data and not usable for "
            "reconstruction.")
       .def("export_PLY",
            &ExportPLY,

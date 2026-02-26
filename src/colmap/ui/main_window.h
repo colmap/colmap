@@ -53,6 +53,7 @@
 #include <QtCore>
 #include <QtGui>
 #include <QtWidgets>
+#include <filesystem>
 #include <memory>
 
 namespace colmap {
@@ -61,11 +62,12 @@ class MainWindow : public QMainWindow {
  public:
   explicit MainWindow(OptionManager options);
 
-  void ImportReconstruction(const std::string& import_path);
+  void ImportReconstruction(const std::filesystem::path& import_path);
 
  protected:
   void closeEvent(QCloseEvent* event) override;
   void dragEnterEvent(QDragEnterEvent* event) override;
+  void dragMoveEvent(QDragMoveEvent* event) override;
   void dropEvent(QDropEvent* event) override;
 
  private:
@@ -79,6 +81,8 @@ class MainWindow : public QMainWindow {
   void CreateToolbar();
   void CreateStatusbar();
   void CreateControllers();
+
+  void HandleDragEvent(QDropEvent* event);
 
   void ProjectNew();
   bool ProjectOpen();

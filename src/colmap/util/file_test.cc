@@ -150,30 +150,6 @@ TEST(GetNormalizedRelativePath, Nominal) {
   }
 }
 
-TEST(JoinPaths, Nominal) {
-  EXPECT_EQ(JoinPaths(""), "");
-  EXPECT_EQ(JoinPaths("test"), "test");
-  EXPECT_EQ(JoinPaths("/test"), "/test");
-  EXPECT_EQ(JoinPaths("test/"), "test/");
-  EXPECT_EQ(JoinPaths("/test/"), "/test/");
-  EXPECT_EQ(JoinPaths("test1/test2"), "test1/test2");
-  EXPECT_EQ(JoinPaths("/test1/test2"), "/test1/test2");
-  EXPECT_EQ(JoinPaths("/test1/test2/"), "/test1/test2/");
-  EXPECT_EQ(JoinPaths("/test1/test2/"), "/test1/test2/");
-  EXPECT_EQ(JoinPaths("\\test1/test2/"), "\\test1/test2/");
-  EXPECT_EQ(JoinPaths("\\test1\\test2\\"), "\\test1\\test2\\");
-#ifdef _MSC_VER
-  EXPECT_EQ(JoinPaths("test1", "test2"), "test1\\test2");
-  EXPECT_EQ(JoinPaths("/test1", "test2"), "/test1\\test2");
-#else
-  EXPECT_EQ(JoinPaths("test1", "test2"), "test1/test2");
-  EXPECT_EQ(JoinPaths("/test1", "test2"), "/test1/test2");
-#endif
-  EXPECT_EQ(JoinPaths("/test1", "/test2"), "/test2");
-  EXPECT_EQ(JoinPaths("/test1", "/test2/"), "/test2/");
-  EXPECT_EQ(JoinPaths("/test1", "/test2/", "test3.ext"), "/test2/test3.ext");
-}
-
 TEST(FileCopy, Nominal) {
   const auto dir = CreateTestDir();
   const auto src_path = dir / "source.txt";
@@ -202,21 +178,24 @@ TEST(FileCopy, Nominal) {
   EXPECT_TRUE(ExistsFile(dst_soft_link_path));
 }
 
-TEST(GetFileList, Nominal) {
+TEST(GetRecursiveFileList, Nominal) {
   const auto dir = CreateTestDir();
   const auto file1 = dir / "file1.txt";
   const auto file2 = dir / "file2.txt";
   const auto subdir = dir / "subdir";
+  const auto file3 = dir / "file3.txt";
 
   {
     std::ofstream f1(file1);
     std::ofstream f2(file2);
+    std::ofstream f3(file3);
   }
   CreateDirIfNotExists(subdir);
 
-  const auto file_list = GetFileList(dir);
+  const auto file_list = GetRecursiveFileList(dir);
   EXPECT_THAT(file_list,
-              testing::UnorderedElementsAre(file1.string(), file2.string()));
+              testing::UnorderedElementsAre(
+                  file1.string(), file2.string(), file3.string()));
 }
 
 TEST(GetDirList, Nominal) {
@@ -238,27 +217,6 @@ TEST(GetDirList, Nominal) {
   EXPECT_THAT(
       dir_list,
       testing::UnorderedElementsAre(subdir1.string(), subdir2.string()));
-}
-
-TEST(GetRecursiveDirList, Nominal) {
-  const auto dir = CreateTestDir();
-  const auto subdir1 = dir / "subdir1";
-  const auto subdir2 = dir / "subdir2";
-  const auto subdir1_nested = subdir1 / "nested";
-  const auto file = dir / "file.txt";
-
-  CreateDirIfNotExists(subdir1);
-  CreateDirIfNotExists(subdir2);
-  CreateDirIfNotExists(subdir1_nested);
-
-  {
-    std::ofstream f(file);
-  }
-
-  const auto dir_list = GetRecursiveDirList(dir);
-  EXPECT_THAT(dir_list,
-              testing::UnorderedElementsAre(
-                  subdir1.string(), subdir2.string(), subdir1_nested.string()));
 }
 
 TEST(HomeDir, Nominal) {

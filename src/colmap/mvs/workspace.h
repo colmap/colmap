@@ -35,6 +35,7 @@
 #include "colmap/mvs/normal_map.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/cache.h"
+#include "colmap/util/types.h"
 
 #include <filesystem>
 #include <memory>

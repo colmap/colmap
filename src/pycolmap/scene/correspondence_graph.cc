@@ -1,7 +1,6 @@
 #include "colmap/scene/correspondence_graph.h"
 
 #include "colmap/feature/types.h"
-#include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
 #include "pycolmap/helpers.h"
@@ -26,12 +25,27 @@ void BindCorrespondenceGraph(py::module& m) {
                      &CorrespondenceGraph::Correspondence::point2D_idx);
   MakeDataclass(PyCorrespondence);
 
+  py::class_<CorrespondenceGraph::CorrespondenceRange>(m, "CorrespondenceRange")
+      .def_property_readonly(
+          "empty",
+          [](const CorrespondenceGraph::CorrespondenceRange& self) {
+            return self.beg == self.end;
+          },
+          "Whether the range is empty.")
+      .def(
+          "to_list",
+          [](const CorrespondenceGraph::CorrespondenceRange& self) {
+            return std::vector<CorrespondenceGraph::Correspondence>(self.beg,
+                                                                    self.end);
+          },
+          "Convert range to list of correspondences.");
+
   auto PyCorrespondenceGraph =
       py::classh<CorrespondenceGraph>(m, "CorrespondenceGraph");
   PyCorrespondenceGraph.def(py::init<>())
+      .def("finalize", &CorrespondenceGraph::Finalize)
       .def("num_images", &CorrespondenceGraph::NumImages)
       .def("num_image_pairs", &CorrespondenceGraph::NumImagePairs)
-      .def("exists_image", &CorrespondenceGraph::ExistsImage, "image_id"_a)
       .def("num_observations_for_image",
            &CorrespondenceGraph::NumObservationsForImage,
            "image_id"_a)
@@ -46,7 +60,8 @@ void BindCorrespondenceGraph(py::module& m) {
       .def("num_matches_between_all_images",
            py::overload_cast<>(&CorrespondenceGraph::NumMatchesBetweenAllImages,
                                py::const_))
-      .def("finalize", &CorrespondenceGraph::Finalize)
+      .def("exists_image", &CorrespondenceGraph::ExistsImage, "image_id"_a)
+      .def("image_pairs", &CorrespondenceGraph::ImagePairs)
       .def("add_image",
            &CorrespondenceGraph::AddImage,
            "image_id"_a,
@@ -86,10 +101,10 @@ void BindCorrespondenceGraph(py::module& m) {
           "extract_matches_between_images",
           [](const CorrespondenceGraph& self,
              const image_t image_id1,
-             const image_t image_id2) -> PyFeatureMatches {
+             const image_t image_id2) -> FeatureMatchesMatrix {
             FeatureMatches matches;
             self.ExtractMatchesBetweenImages(image_id1, image_id2, matches);
-            return FeatureMatchesToMatrix(matches);
+            return MatchesToMatrix(matches);
           },
           "image_id1"_a,
           "image_id2"_a)
@@ -102,6 +117,11 @@ void BindCorrespondenceGraph(py::module& m) {
            &CorrespondenceGraph::HasCorrespondences,
            "image_id"_a,
            "point2D_idx"_a)
+      .def("find_correspondences",
+           &CorrespondenceGraph::FindCorrespondences,
+           "image_id"_a,
+           "point2D_idx"_a,
+           "Find range of correspondences of an image observation.")
       .def("is_two_view_observation",
            &CorrespondenceGraph::IsTwoViewObservation,
            "image_id"_a,

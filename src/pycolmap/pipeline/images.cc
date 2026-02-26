@@ -1,14 +1,12 @@
 #include "colmap/controllers/image_reader.h"
+#include "colmap/controllers/undistorters.h"
 #include "colmap/exe/feature.h"
-#include "colmap/feature/sift.h"
-#include "colmap/geometry/gps.h"
 #include "colmap/image/undistortion.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/base_controller.h"
 #include "colmap/util/file.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
@@ -82,18 +80,16 @@ Camera InferCameraFromImage(const std::filesystem::path& image_path,
   THROW_CHECK(bitmap.Read(image_path, false))
       << "Cannot read image file: " << image_path;
 
-  double focal_length = 0.0;
-  bool has_prior_focal_length = bitmap.ExifFocalLength(&focal_length);
-  if (!has_prior_focal_length) {
-    focal_length = options.default_focal_length_factor *
-                   std::max(bitmap.Width(), bitmap.Height());
-  }
+  const std::optional<double> maybe_focal_length = bitmap.ExifFocalLength();
+  const double focal_length =
+      maybe_focal_length.value_or(options.default_focal_length_factor *
+                                  std::max(bitmap.Width(), bitmap.Height()));
   Camera camera = Camera::CreateFromModelName(kInvalidCameraId,
                                               options.camera_model,
                                               focal_length,
                                               bitmap.Width(),
                                               bitmap.Height());
-  camera.has_prior_focal_length = has_prior_focal_length;
+  camera.has_prior_focal_length = maybe_focal_length.has_value();
   THROW_CHECK(camera.VerifyParams())
       << "Invalid camera params: " << camera.ParamsToString();
 
@@ -107,20 +103,38 @@ void UndistortImages(const std::filesystem::path& output_path,
                      const std::string& output_type,
                      const FileCopyType copy_type,
                      const int num_patch_match_src_images,
-                     const UndistortCameraOptions& undistort_camera_options) {
+                     const UndistortCameraOptions& undistort_camera_options,
+                     int jpeg_quality) {
   THROW_CHECK_DIR_EXISTS(image_path);
   CreateDirIfNotExists(output_path);
+
+  if (output_type != "COLMAP") {
+    LOG_IF(WARNING, !image_names.empty())
+        << "Ignoring `image_names` for output type " << output_type;
+    LOG_IF(WARNING, jpeg_quality != -1)
+        << "Ignoring `jpeg_quality` for output type " << output_type;
+    LOG_IF(WARNING, num_patch_match_src_images != -1)
+        << "Ignoring `num_patch_match_src_images` for output type "
+        << output_type;
+  }
+
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
   LOG(INFO) << StringPrintf(" => Reconstruction with %d images and %d points",
                             reconstruction.NumImages(),
                             reconstruction.NumPoints3D());
 
-  std::vector<image_t> image_ids;
+  COLMAPUndistorter::Options options;
+  options.copy_type = copy_type;
+  if (num_patch_match_src_images > 0) {
+    options.num_patch_match_src_images = num_patch_match_src_images;
+  }
+  options.jpeg_quality = jpeg_quality;
+  options.image_ids.reserve(image_names.size());
   for (const auto& image_name : image_names) {
     const Image* image = reconstruction.FindImageWithName(image_name);
     if (image != nullptr) {
-      image_ids.push_back(image->ImageId());
+      options.image_ids.push_back(image->ImageId());
     } else {
       LOG(WARNING) << "Cannot find image " << image_name;
     }
@@ -129,14 +143,11 @@ void UndistortImages(const std::filesystem::path& output_path,
   py::gil_scoped_release release;
   std::unique_ptr<BaseController> undistorter;
   if (output_type == "COLMAP") {
-    undistorter =
-        std::make_unique<COLMAPUndistorter>(undistort_camera_options,
-                                            reconstruction,
-                                            image_path,
-                                            output_path,
-                                            num_patch_match_src_images,
-                                            copy_type,
-                                            image_ids);
+    undistorter = std::make_unique<COLMAPUndistorter>(std::move(options),
+                                                      undistort_camera_options,
+                                                      reconstruction,
+                                                      image_path,
+                                                      output_path);
   } else if (output_type == "PMVS") {
     undistorter = std::make_unique<PMVSUndistorter>(
         undistort_camera_options, reconstruction, image_path, output_path);
@@ -148,6 +159,7 @@ void UndistortImages(const std::filesystem::path& output_path,
         << "Invalid `output_type` - supported values are {'COLMAP', "
            "'PMVS', 'CMP-MVS'}.";
   }
+
   undistorter->Run();
 }
 
@@ -233,9 +245,10 @@ void BindImages(py::module& m) {
         "image_names"_a = std::vector<std::string>(),
         "output_type"_a = "COLMAP",
         "copy_policy"_a = FileCopyType::COPY,
-        "num_patch_match_src_images"_a = 20,
+        "num_patch_match_src_images"_a = -1,
         py::arg_v("undistort_options",
                   UndistortCameraOptions(),
                   "UndistortCameraOptions()"),
+        "jpeg_quality"_a = -1,
         "Undistort images");
 }

@@ -35,6 +35,10 @@ void BindSensorRig(py::module& m) {
       .def("is_ref_sensor",
            &Rig::IsRefSensor,
            "Check whether the given sensor is the reference sensor.")
+      .def("has_sensor_from_rig",
+           &Rig::HasSensorFromRig,
+           "sensor_id"_a,
+           "Check if sensor has calibrated transformation from rig.")
       .def("num_sensors", &Rig::NumSensors, "The number of sensors in the rig.")
       .def_property_readonly("ref_sensor_id",
                              &Rig::RefSensorId,
@@ -45,13 +49,17 @@ void BindSensorRig(py::module& m) {
       .def("sensor_from_rig",
            py::overload_cast<sensor_t>(&Rig::MaybeSensorFromRig),
            "sensor_id"_a,
-           "The the transformation from rig to the sensor.")
+           "The transformation from rig to the sensor.")
       .def("set_sensor_from_rig",
            py::overload_cast<sensor_t, const std::optional<Rigid3d>&>(
                &Rig::SetSensorFromRig),
            "sensor_id"_a,
            "sensor_from_rig"_a,
            "Set the sensor_from_rig transformation.")
+      .def("reset_sensor_from_rig",
+           &Rig::ResetSensorFromRig,
+           "sensor_id"_a,
+           "Reset the sensor's calibration.")
       .def_property_readonly(
           "non_ref_sensors",
           py::overload_cast<>(&Rig::NonRefSensors),

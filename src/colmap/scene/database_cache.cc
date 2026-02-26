@@ -37,6 +37,14 @@
 namespace colmap {
 namespace {
 
+bool UseInlierMatchesCheck(const DatabaseCache::Options& options,
+                           int two_view_geometry_config,
+                           size_t num_matches) {
+  return num_matches >= options.min_num_matches &&
+         (!options.ignore_watermarks ||
+          two_view_geometry_config != TwoViewGeometry::WATERMARK);
+};
+
 std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
     const FeatureKeypoints& keypoints) {
   std::vector<Eigen::Vector2d> points(keypoints.size());
@@ -315,11 +323,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
     }
   }
 
-  // Filter to only include images that are connected in the correspondence
-  // graph with at least min_num_matches.
   const auto& source_graph = database_cache.CorrespondenceGraph();
-  const std::unordered_map<image_pair_t, point2D_t> num_matches_between_images =
-      source_graph->NumMatchesBetweenAllImages();
 
   auto ShouldUseTwoViewGeometry = [&options](int two_view_geometry_config,
                                              size_t num_matches) {
@@ -330,7 +334,8 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
 
   std::unordered_set<image_t> connected_image_ids;
   std::vector<image_pair_t> valid_pair_indices;
-  for (const auto& [pair_id, num_matches] : num_matches_between_images) {
+  for (const auto& [pair_id, num_matches] :
+       source_graph->NumMatchesBetweenAllImages()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     const TwoViewGeometry two_view_geometry =
         source_graph->ExtractTwoViewGeometry(
@@ -343,6 +348,12 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
         valid_pair_indices.push_back(pair_id);
       }
     }
+    if (!UseInlierMatchesCheck(
+            options, two_view_geometry.config, num_matches)) {
+      continue;
+    }
+    connected_image_ids.insert(image_id1);
+    connected_image_ids.insert(image_id2);
   }
 
   // Collect frame ids for connected images.
@@ -363,9 +374,8 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
     }
   }
 
-  std::unordered_set<rig_t> filtered_rig_ids;
-
   // Copy filtered frames and collect rig ids.
+  std::unordered_set<rig_t> filtered_rig_ids;
   for (const auto& [frame_id, frame] : database_cache.Frames()) {
     if (filtered_frame_ids.count(frame_id) > 0) {
       cache->frames_.emplace(frame_id, frame);
@@ -503,14 +513,16 @@ void DatabaseCache::ConvertPosePriorsToENU() {
       << "Inconsistent coordinate systems defined in pose priors";
 
   // If GPS priors are available, convert them to Cartesian ENU coordinates.
-  if (prior_is_gps) {
+  if (prior_is_gps && !gps_prior_positions.empty()) {
     // GPS reference to be used for EllipsoidToENU conversion.
     const double ref_lat = gps_prior_positions[0][0];
     const double ref_lon = gps_prior_positions[0][1];
+    const double ref_alt = gps_prior_positions[0][2];
 
     const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
     const std::vector<Eigen::Vector3d> v_xyz_prior =
-        gps_transform.EllipsoidToENU(gps_prior_positions, ref_lat, ref_lon);
+        gps_transform.EllipsoidToENU(
+            gps_prior_positions, ref_lat, ref_lon, ref_alt);
 
     auto xyz_prior_it = v_xyz_prior.begin();
     for (auto& pose_prior : pose_priors_) {

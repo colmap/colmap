@@ -17,18 +17,26 @@ void BindSynthetic(py::module& m) {
       py::enum_<SyntheticDatasetOptions::MatchConfig>(
           m, "SyntheticDatasetMatchConfig")
           .value("EXHAUSTIVE", SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE)
-          .value("CHAINED", SyntheticDatasetOptions::MatchConfig::CHAINED);
+          .value("CHAINED", SyntheticDatasetOptions::MatchConfig::CHAINED)
+          .value("SPARSE", SyntheticDatasetOptions::MatchConfig::SPARSE);
   AddStringToEnumConstructor(PySyntheticMatchConfig);
 
   auto PySyntheticDatasetOptions =
       py::classh<SyntheticDatasetOptions>(m, "SyntheticDatasetOptions")
           .def(py::init<>())
+          .def_readwrite("feature_type",
+                         &SyntheticDatasetOptions::feature_type,
+                         "The type of feature descriptors to synthesize.")
           .def_readwrite("num_rigs", &SyntheticDatasetOptions::num_rigs)
           .def_readwrite("num_cameras_per_rig",
                          &SyntheticDatasetOptions::num_cameras_per_rig)
           .def_readwrite("num_frames_per_rig",
                          &SyntheticDatasetOptions::num_frames_per_rig)
           .def_readwrite("num_points3D", &SyntheticDatasetOptions::num_points3D)
+          .def_readwrite("track_length",
+                         &SyntheticDatasetOptions::track_length,
+                         "Target track length per 3D point. -1 = dense "
+                         "visibility (default), >= 2 = pruned observations.")
           .def_readwrite(
               "sensor_from_rig_translation_stddev",
               &SyntheticDatasetOptions::sensor_from_rig_translation_stddev)
@@ -56,13 +64,19 @@ void BindSynthetic(py::module& m) {
               "Whether to include decomposed relative poses in two-view "
               "geometries.")
           .def_readwrite("match_config", &SyntheticDatasetOptions::match_config)
+          .def_readwrite("match_sparsity",
+                         &SyntheticDatasetOptions::match_sparsity,
+                         "Sparsity parameter for SPARSE match config [0,1].")
           .def_readwrite("prior_position",
                          &SyntheticDatasetOptions::prior_position)
           .def_readwrite("prior_gravity",
                          &SyntheticDatasetOptions::prior_gravity)
           .def_readwrite(
               "prior_position_coordinate_system",
-              &SyntheticDatasetOptions::prior_position_coordinate_system);
+              &SyntheticDatasetOptions::prior_position_coordinate_system)
+          .def_readwrite("prior_gravity_in_world",
+                         &SyntheticDatasetOptions::prior_gravity_in_world,
+                         "Prior gravity direction in world coordinates.");
   MakeDataclass(PySyntheticDatasetOptions);
 
   m.def(

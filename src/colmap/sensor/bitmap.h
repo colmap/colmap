@@ -36,6 +36,7 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -117,13 +118,14 @@ class Bitmap {
                                   BitmapColor<uint8_t>* color) const;
   bool InterpolateBilinear(double x, double y, BitmapColor<float>* color) const;
 
-  // Extract EXIF information from bitmap. Returns false if no EXIF information
-  // is embedded in the bitmap.
-  bool ExifCameraModel(std::string* camera_model) const;
-  bool ExifFocalLength(double* focal_length) const;
-  bool ExifLatitude(double* latitude) const;
-  bool ExifLongitude(double* longitude) const;
-  bool ExifAltitude(double* altitude) const;
+  // Extract EXIF information from bitmap. Returns std::nullopt if no EXIF
+  // information is embedded in the bitmap.
+  std::optional<int> ExifOrientation() const;
+  std::optional<std::string> ExifCameraModel() const;
+  std::optional<double> ExifFocalLength() const;
+  std::optional<double> ExifLatitude() const;
+  std::optional<double> ExifLongitude() const;
+  std::optional<double> ExifAltitude() const;
 
   // Read bitmap at given path and convert to grey- or colorscale. Defaults to
   // keeping the original colorspace (potentially non-linear) for image
@@ -146,12 +148,20 @@ class Bitmap {
                int new_height,
                RescaleFilter filter = RescaleFilter::kBilinear);
 
+  // Rotate image by k * 90 degrees counter-clockwise.
+  void Rot90(int k);
+
   // Clone the image to a new bitmap object.
   Bitmap Clone() const;
   Bitmap CloneAsGrey() const;
   Bitmap CloneAsRGB() const;
 
-  // Access metadata information (EXIF).
+  // Set compression quality when writing to JPEG in the range [1, 100].
+  // Lower values reduce quality and file size. By default, bitmaps are
+  // written in superb (100) quality, if not otherwise specified.
+  void SetJpegQuality(int quality);
+
+  // Access metadata information (e.g., EXIF).
   void SetMetaData(const std::string_view& name,
                    const std::string_view& type,
                    const void* value);
@@ -159,7 +169,7 @@ class Bitmap {
   bool GetMetaData(const std::string_view& name,
                    const std::string_view& type,
                    void* value) const;
-  bool GetMetaData(const std::string_view& name, std::string_view* value) const;
+  std::optional<std::string> GetMetaData(const std::string_view& name) const;
 
   // Clone metadata from this bitmap object to another target bitmap object.
   void CloneMetadata(Bitmap* target) const;

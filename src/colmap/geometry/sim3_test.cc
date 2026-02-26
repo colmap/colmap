@@ -48,18 +48,18 @@ Sim3d TestSim3d() {
 
 TEST(Sim3d, Default) {
   const Sim3d tform;
-  EXPECT_EQ(tform.scale, 1);
-  EXPECT_EQ(tform.rotation.coeffs(), Eigen::Quaterniond::Identity().coeffs());
-  EXPECT_EQ(tform.translation, Eigen::Vector3d::Zero());
+  EXPECT_EQ(tform.scale(), 1);
+  EXPECT_EQ(tform.rotation().coeffs(), Eigen::Quaterniond::Identity().coeffs());
+  EXPECT_EQ(tform.translation(), Eigen::Vector3d::Zero());
 }
 
 TEST(Sim3d, Equals) {
   Sim3d tform;
   Sim3d other = tform;
   EXPECT_EQ(tform, other);
-  tform.translation.x() = 1;
+  tform.translation().x() = 1;
   EXPECT_NE(tform, other);
-  other.translation.x() = 1;
+  other.translation().x() = 1;
   EXPECT_EQ(tform, other);
 }
 
@@ -165,9 +165,9 @@ TEST(Sim3d, ToFromFile) {
   const Sim3d written = TestSim3d();
   written.ToFile(path);
   const Sim3d read = Sim3d::FromFile(path);
-  EXPECT_EQ(written.scale, read.scale);
-  EXPECT_EQ(written.rotation.coeffs(), read.rotation.coeffs());
-  EXPECT_EQ(written.translation, read.translation);
+  EXPECT_EQ(written.scale(), read.scale());
+  EXPECT_EQ(written.rotation().coeffs(), read.rotation().coeffs());
+  EXPECT_EQ(written.translation(), read.translation());
 }
 
 }  // namespace

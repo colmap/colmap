@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/feature/types.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
@@ -42,6 +43,10 @@ struct SyntheticDatasetOptions {
   int num_cameras_per_rig = 1;
   int num_frames_per_rig = 5;
   int num_points3D = 100;
+  // Target track length per 3D point. If -1 (default), all images observe all
+  // points (dense visibility). If > 0, observations are pruned to exactly this
+  // many per point. Must be -1 or >= 2.
+  int track_length = -1;
 
   double sensor_from_rig_translation_stddev = 0.05;
   // Random rotation in degrees around the z-axis of the sensor.
@@ -52,6 +57,9 @@ struct SyntheticDatasetOptions {
   CameraModelId camera_model_id = SimpleRadialCameraModel::model_id;
   std::vector<double> camera_params = {1280, 512, 384, 0.05};
   bool camera_has_prior_focal_length = false;
+
+  // The type of feature descriptors to synthesize.
+  FeatureExtractorType feature_type = FeatureExtractorType::SIFT;
 
   int num_points2D_without_point3D = 10;
 
@@ -82,6 +90,9 @@ struct SyntheticDatasetOptions {
       PosePrior::CoordinateSystem::CARTESIAN;
   bool prior_gravity = false;
   Eigen::Vector3d prior_gravity_in_world = Eigen::Vector3d::UnitY();
+
+  // The synthesized image file extension.
+  std::string image_extension = ".png";
 };
 
 void SynthesizeDataset(const SyntheticDatasetOptions& options,

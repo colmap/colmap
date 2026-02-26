@@ -30,6 +30,7 @@
 #include "colmap/scene/synthetic.h"
 
 #include "colmap/geometry/triangulation.h"
+#include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/math/union_find.h"
 #include "colmap/scene/database_sqlite.h"
@@ -77,7 +78,7 @@ TEST(SynthesizeDataset, Nominal) {
             options.num_rigs * options.num_frames_per_rig);
   EXPECT_EQ(reconstruction.NumFrames(),
             options.num_rigs * options.num_frames_per_rig);
-  for (auto& [frame_id, frame] : reconstruction.Frames()) {
+  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     Frame reconstruction_frame = frame;
     EXPECT_TRUE(reconstruction_frame.HasPose());
     reconstruction_frame.ResetPose();
@@ -95,17 +96,17 @@ TEST(SynthesizeDataset, Nominal) {
   EXPECT_EQ(reconstruction.NumRegFrames(),
             options.num_rigs * options.num_frames_per_rig);
   std::set<std::string> image_names;
-  for (const auto& image : reconstruction.Images()) {
-    EXPECT_EQ(image.second.Name(), database->ReadImage(image.first).Name());
-    image_names.insert(image.second.Name());
-    EXPECT_EQ(image.second.NumPoints2D(),
-              database->ReadKeypoints(image.first).size());
-    EXPECT_EQ(image.second.NumPoints2D(),
-              database->ReadDescriptors(image.first).rows());
-    EXPECT_EQ(database->ReadDescriptors(image.first).cols(), 128);
-    EXPECT_EQ(image.second.NumPoints2D(),
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    EXPECT_EQ(image.Name(), database->ReadImage(image_id).Name());
+    EXPECT_THAT(image.Name(), testing::EndsWith(options.image_extension));
+    image_names.insert(image.Name());
+    EXPECT_EQ(image.NumPoints2D(), database->ReadKeypoints(image_id).size());
+    EXPECT_EQ(image.NumPoints2D(),
+              database->ReadDescriptors(image_id).data.rows());
+    EXPECT_EQ(database->ReadDescriptors(image_id).data.cols(), 128);
+    EXPECT_EQ(image.NumPoints2D(),
               options.num_points3D + options.num_points2D_without_point3D);
-    EXPECT_EQ(image.second.NumPoints3D(), options.num_points3D);
+    EXPECT_EQ(image.NumPoints3D(), options.num_points3D);
   }
   EXPECT_EQ(image_names.size(), reconstruction.NumImages());
 
@@ -133,9 +134,10 @@ TEST(SynthesizeDataset, Nominal) {
     Point3D& point3D = reconstruction.Point3D(point3D_id);
 
     // Make sure all descriptors of the same 3D point have identical features.
-    const FeatureDescriptor descriptors =
-        database->ReadDescriptors(point3D.track.Element(0).image_id)
-            .row(point3D.track.Element(0).point2D_idx);
+    const FeatureDescriptors desc0 =
+        database->ReadDescriptors(point3D.track.Element(0).image_id);
+    const auto descriptors =
+        desc0.data.row(point3D.track.Element(0).point2D_idx);
 
     double max_tri_angle = 0;
     for (size_t i1 = 0; i1 < point3D.track.Length(); ++i1) {
@@ -147,9 +149,10 @@ TEST(SynthesizeDataset, Nominal) {
       const double squared_reproj_error = CalculateSquaredReprojectionError(
           point2D.xy, point3D.xyz, image1.CamFromWorld(), camera1);
       EXPECT_LE(squared_reproj_error, kMaxReprojError * kMaxReprojError);
+      const FeatureDescriptors desc1 =
+          database->ReadDescriptors(point3D.track.Element(i1).image_id);
       EXPECT_EQ(descriptors,
-                database->ReadDescriptors(point3D.track.Element(i1).image_id)
-                    .row(point3D.track.Element(i1).point2D_idx));
+                desc1.data.row(point3D.track.Element(i1).point2D_idx));
 
       Eigen::Vector3d proj_center1;
       if (proj_centers.count(image_id1) == 0) {
@@ -226,8 +229,9 @@ TEST(SynthesizeDataset, WithPriors) {
     const PosePrior& pose_prior = *image_to_prior.at(image_id);
     EXPECT_THAT(image.ProjectionCenter(),
                 EigenMatrixNear(pose_prior.position, 1e-9));
-    EXPECT_THAT(image.CamFromWorld().rotation * options.prior_gravity_in_world,
-                EigenMatrixNear(pose_prior.gravity, 1e-9));
+    EXPECT_THAT(
+        image.CamFromWorld().rotation() * options.prior_gravity_in_world,
+        EigenMatrixNear(pose_prior.gravity, 1e-9));
   }
 }
 
@@ -354,6 +358,27 @@ TEST(SynthesizeDataset, NoDatabase) {
   SyntheticDatasetOptions options;
   Reconstruction reconstruction;
   SynthesizeDataset(options, &reconstruction);
+}
+
+TEST(SynthesizeDataset, TrackLength) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.num_rigs = 2;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 5;
+  options.num_points3D = 50;
+  options.num_points2D_without_point3D = 0;
+  options.track_length = 3;
+  SynthesizeDataset(options, &reconstruction);
+
+  const int num_images = options.num_rigs * options.num_cameras_per_rig *
+                         options.num_frames_per_rig;
+  EXPECT_EQ(reconstruction.NumRegImages(), num_images);
+  EXPECT_EQ(reconstruction.NumPoints3D(), options.num_points3D);
+  EXPECT_NEAR(
+      reconstruction.ComputeMeanTrackLength(), options.track_length, 1e-6);
+  EXPECT_EQ(reconstruction.ComputeNumObservations(),
+            options.num_points3D * options.track_length);
 }
 
 TEST(SynthesizeDataset, Determinism) {
@@ -508,7 +533,7 @@ TEST(SynthesizeImages, Nominal) {
 
   for (const auto& [image_id, image] : reconstruction.Images()) {
     Bitmap bitmap;
-    EXPECT_TRUE(bitmap.Read(JoinPaths(image_path, image.Name())));
+    EXPECT_TRUE(bitmap.Read(image_path / image.Name()));
     EXPECT_EQ(bitmap.Width(), image.CameraPtr()->width);
     EXPECT_EQ(bitmap.Height(), image.CameraPtr()->height);
   }

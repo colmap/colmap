@@ -30,7 +30,6 @@
 #pragma once
 
 #include <filesystem>
-#include <string>
 
 namespace colmap {
 namespace mvs {
