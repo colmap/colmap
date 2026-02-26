@@ -363,9 +363,9 @@ TEST(DatabaseCache, NonConstCorrespondenceGraph) {
 
   // Read back through the const accessor and verify the update is visible.
   const DatabaseCache& const_cache = *cache;
-  TwoViewGeometry updated = const_cache.CorrespondenceGraph()
-                                ->ExtractTwoViewGeometry(
-                                    image_id1, image_id2, false);
+  TwoViewGeometry updated =
+      const_cache.CorrespondenceGraph()->ExtractTwoViewGeometry(
+          image_id1, image_id2, false);
   ASSERT_TRUE(updated.cam2_from_cam1.has_value());
   EXPECT_THAT(updated.cam2_from_cam1.value(),
               Rigid3dNear(new_pose, 1e-6, 1e-6));
