@@ -7,11 +7,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import enlighten
+import geocalib
 import numpy as np
 import numpy.typing as npt
 import torch
 
-import geocalib
 import pycolmap
 from pycolmap import logging
 
