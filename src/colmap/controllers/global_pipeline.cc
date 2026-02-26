@@ -73,11 +73,6 @@ GlobalPipeline::GlobalPipeline(
       reconstruction_manager_(
           std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {
   THROW_CHECK_NOTNULL(database);
-  if (options_.decompose_relative_pose) {
-    MaybeDecomposeAndWriteRelativePoses(database.get());
-  }
-
-  // Create database cache with relative poses for pose graph.
   DatabaseCache::Options database_cache_options;
   database_cache_options.min_num_matches = options_.min_num_matches;
   database_cache_options.ignore_watermarks = options_.ignore_watermarks;
