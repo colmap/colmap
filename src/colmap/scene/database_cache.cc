@@ -232,11 +232,18 @@ void DatabaseCache::Load(const Database& database, const Options& options) {
       images_.emplace(image_id, std::move(image));
     }
 
-    LOG(INFO) << StringPrintf(" %d in %.3fs (connected %d, loaded %d)",
-                              num_images,
-                              timer.ElapsedSeconds(),
-                              connected_frame_ids.size(),
-                              images_.size());
+    if (options.load_all_images) {
+      LOG(INFO) << StringPrintf(" %d in %.3fs (loaded all %d)",
+                                num_images,
+                                timer.ElapsedSeconds(),
+                                images_.size());
+    } else {
+      LOG(INFO) << StringPrintf(" %d in %.3fs (connected %d, loaded %d)",
+                                num_images,
+                                timer.ElapsedSeconds(),
+                                connected_frame_ids.size(),
+                                images_.size());
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
