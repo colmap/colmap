@@ -176,7 +176,11 @@ CachedWorkspace::CachedWorkspace(const Options& options)
              [](const int) { return std::make_shared<CachedImage>(); }) {}
 
 const Bitmap& CachedWorkspace::GetBitmap(const int image_idx) {
-  auto cached_image = cache_.Get(image_idx);
+  std::shared_ptr<CachedImage> cached_image;
+  {
+    std::lock_guard<std::mutex> cache_lock(cache_mutex_);
+    cached_image = cache_.Get(image_idx);
+  }
   std::lock_guard<std::mutex> lock(cached_image->mutex);
   if (!cached_image->bitmap) {
     cached_image->bitmap = std::make_unique<Bitmap>();
@@ -186,13 +190,18 @@ const Bitmap& CachedWorkspace::GetBitmap(const int image_idx) {
                                     model_.images.at(image_idx).GetHeight());
     }
     cached_image->num_bytes += cached_image->bitmap->NumBytes();
+    std::lock_guard<std::mutex> cache_lock(cache_mutex_);
     cache_.UpdateNumBytes(image_idx);
   }
   return *cached_image->bitmap;
 }
 
 const DepthMap& CachedWorkspace::GetDepthMap(const int image_idx) {
-  auto cached_image = cache_.Get(image_idx);
+  std::shared_ptr<CachedImage> cached_image;
+  {
+    std::lock_guard<std::mutex> cache_lock(cache_mutex_);
+    cached_image = cache_.Get(image_idx);
+  }
   std::lock_guard<std::mutex> lock(cached_image->mutex);
   if (!cached_image->depth_map) {
     cached_image->depth_map = std::make_unique<DepthMap>();
@@ -203,13 +212,18 @@ const DepthMap& CachedWorkspace::GetDepthMap(const int image_idx) {
           model_.images.at(image_idx).GetHeight());
     }
     cached_image->num_bytes += cached_image->depth_map->GetNumBytes();
+    std::lock_guard<std::mutex> cache_lock(cache_mutex_);
     cache_.UpdateNumBytes(image_idx);
   }
   return *cached_image->depth_map;
 }
 
 const NormalMap& CachedWorkspace::GetNormalMap(const int image_idx) {
-  auto cached_image = cache_.Get(image_idx);
+  std::shared_ptr<CachedImage> cached_image;
+  {
+    std::lock_guard<std::mutex> cache_lock(cache_mutex_);
+    cached_image = cache_.Get(image_idx);
+  }
   std::lock_guard<std::mutex> lock(cached_image->mutex);
   if (!cached_image->normal_map) {
     cached_image->normal_map = std::make_unique<NormalMap>();
@@ -220,6 +234,7 @@ const NormalMap& CachedWorkspace::GetNormalMap(const int image_idx) {
           model_.images.at(image_idx).GetHeight());
     }
     cached_image->num_bytes += cached_image->normal_map->GetNumBytes();
+    std::lock_guard<std::mutex> cache_lock(cache_mutex_);
     cache_.UpdateNumBytes(image_idx);
   }
   return *cached_image->normal_map;

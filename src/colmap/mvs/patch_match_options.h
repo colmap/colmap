@@ -115,6 +115,9 @@ struct PatchMatchOptions {
   // Whether to tolerate missing images/maps in the problem setup
   bool allow_missing_files = false;
 
+  // Number of threads for processing. -1 uses all available threads.
+  int num_threads = -1;
+
   // Whether to write the consistency graph.
   bool write_consistency_graph = false;
 

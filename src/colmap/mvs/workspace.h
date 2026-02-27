@@ -39,6 +39,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <mutex>
 
 namespace colmap {
 namespace mvs {
@@ -132,6 +133,7 @@ class CachedWorkspace : public Workspace {
     NON_COPYABLE(CachedImage)
   };
 
+  std::mutex cache_mutex_;
   MemoryConstrainedLRUCache<int, CachedImage> cache_;
 };
 
