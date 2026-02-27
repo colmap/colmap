@@ -104,7 +104,7 @@ class OptionManager : public BaseOptionManager {
   void AddDelaunayMeshingOptions();
   void AddRenderOptions();
 
-  void Reset() override;
+  void Reset(bool reset_logging = true) override;
   void ResetOptions(bool reset_paths) override;
   bool Check() override;
   bool Read(const std::filesystem::path& path,

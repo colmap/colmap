@@ -57,9 +57,7 @@ class GlogSink : public google::LogSink {
             ? 3
             : 0;
     std::string text(message_len + 1 + severity_len, '\0');
-    std::copy(message + severity_len,
-              message + message_len + severity_len,
-              text.begin());
+    std::copy(message, message + message_len, text.begin() + severity_len);
     text.back() = '\n';
     switch (severity) {
       case google::GLOG_WARNING:

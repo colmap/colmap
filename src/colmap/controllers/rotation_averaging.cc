@@ -49,9 +49,6 @@ RotationAveragingPipeline::RotationAveragingPipeline(
     : options_(options),
       reconstruction_(std::move(THROW_CHECK_NOTNULL(reconstruction))) {
   THROW_CHECK_NOTNULL(database);
-  if (options_.decompose_relative_pose) {
-    MaybeDecomposeAndWriteRelativePoses(database.get());
-  }
   LOG(INFO) << "Loading database";
   DatabaseCache::Options database_cache_options;
   database_cache_options.min_num_matches = options_.min_num_matches;
@@ -59,6 +56,9 @@ RotationAveragingPipeline::RotationAveragingPipeline(
   database_cache_options.image_names = {options_.image_names.begin(),
                                         options_.image_names.end()};
   database_cache_ = DatabaseCache::Create(*database, database_cache_options);
+  if (options_.decompose_relative_pose) {
+    MaybeDecomposeRelativePoses(database_cache_.get());
+  }
 }
 
 void RotationAveragingPipeline::Run() {

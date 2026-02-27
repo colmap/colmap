@@ -925,44 +925,24 @@ TwoViewGeometry TwoViewGeometryFromKnownRelativePose(
   return geometry;
 }
 
-namespace {
-
-std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
-    const FeatureKeypoints& keypoints) {
-  std::vector<Eigen::Vector2d> points(keypoints.size());
-  for (size_t i = 0; i < keypoints.size(); i++) {
-    points[i] = Eigen::Vector2d(keypoints[i].x, keypoints[i].y);
-  }
-  return points;
-}
-
-}  // namespace
-
-void MaybeDecomposeAndWriteRelativePoses(Database* database) {
+void MaybeDecomposeRelativePoses(DatabaseCache* database_cache) {
   Timer timer;
   timer.Start();
   LOG(INFO) << "Decomposing relative poses...";
 
-  std::unordered_map<camera_t, Camera> cameras;
-  for (auto& camera : database->ReadAllCameras()) {
-    cameras.emplace(camera.camera_id, std::move(camera));
-  }
-
-  std::unordered_map<image_t, Image> images;
-  for (auto& image : database->ReadAllImages()) {
-    images.emplace(image.ImageId(), std::move(image));
-  }
-
-  const auto all_matches = database->ReadAllMatches();
+  const auto& cameras = database_cache->Cameras();
+  const auto& images = database_cache->Images();
+  auto correspondence_graph = database_cache->CorrespondenceGraph();
 
   size_t decompose_count = 0;
   size_t decompose_failed_count = 0;
 
-  for (const auto& [pair_id, matches] : all_matches) {
+  for (const image_pair_t pair_id : correspondence_graph->ImagePairs()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
 
     TwoViewGeometry two_view_geom =
-        database->ReadTwoViewGeometry(image_id1, image_id2);
+        correspondence_graph->ExtractTwoViewGeometry(
+            image_id1, image_id2, /*extract_inlier_matches=*/true);
 
     if (two_view_geom.cam2_from_cam1.has_value()) {
       continue;
@@ -983,10 +963,16 @@ void MaybeDecomposeAndWriteRelativePoses(Database* database) {
     const Camera& camera1 = cameras.at(image1.CameraId());
     const Camera& camera2 = cameras.at(image2.CameraId());
 
-    const std::vector<Eigen::Vector2d> points1 =
-        FeatureKeypointsToPointsVector(database->ReadKeypoints(image_id1));
-    const std::vector<Eigen::Vector2d> points2 =
-        FeatureKeypointsToPointsVector(database->ReadKeypoints(image_id2));
+    std::vector<Eigen::Vector2d> points1;
+    points1.reserve(image1.NumPoints2D());
+    for (const auto& point : image1.Points2D()) {
+      points1.push_back(point.xy);
+    }
+    std::vector<Eigen::Vector2d> points2;
+    points2.reserve(image2.NumPoints2D());
+    for (const auto& point : image2.Points2D()) {
+      points2.push_back(point.xy);
+    }
 
     decompose_count++;
     const bool success = EstimateTwoViewGeometryPose(
@@ -997,7 +983,8 @@ void MaybeDecomposeAndWriteRelativePoses(Database* database) {
       if (norm > 1e-12) {
         two_view_geom.cam2_from_cam1->translation() /= norm;
       }
-      database->UpdateTwoViewGeometry(image_id1, image_id2, two_view_geom);
+      correspondence_graph->UpdateTwoViewGeometry(
+          image_id1, image_id2, two_view_geom);
     } else {
       decompose_failed_count++;
     }

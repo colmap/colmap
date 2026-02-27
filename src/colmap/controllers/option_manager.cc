@@ -933,8 +933,8 @@ void OptionManager::AddRenderOptions() {
   AddDefaultOption("Render.projection_type", &render->projection_type);
 }
 
-void OptionManager::Reset() {
-  BaseOptionManager::Reset();
+void OptionManager::Reset(bool reset_logging) {
+  BaseOptionManager::Reset(reset_logging);
 
   added_feature_extraction_options_ = false;
   added_feature_matching_options_ = false;
