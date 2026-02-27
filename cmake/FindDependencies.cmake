@@ -382,11 +382,6 @@ if(ONNX_ENABLED)
                     file(GLOB onnxruntime_CUDA_LIBS
                         "${onnxruntime_LIB_DIR}/libonnxruntime_providers_cuda.so*")
                     install(FILES ${onnxruntime_CUDA_LIBS} TYPE LIB)
-                    file(GLOB onnxruntime_TENSORRT_LIBS
-                        "${onnxruntime_LIB_DIR}/libonnxruntime_providers_tensorrt.so*")
-                    if(onnxruntime_TENSORRT_LIBS)
-                        install(FILES ${onnxruntime_TENSORRT_LIBS} TYPE LIB)
-                    endif()
                 endif()
             endif()
         endif()
