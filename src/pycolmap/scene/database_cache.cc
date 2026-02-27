@@ -26,6 +26,11 @@ void BindDatabaseCache(py::module& m) {
                      "Only load the data for a subset of the images. "
                      "All images are used if empty.")
       .def_readwrite(
+          "load_all_images",
+          &Opts::load_all_images,
+          "Whether to load all candidate images regardless of whether they "
+          "have correspondences. Only useful for triangulation.")
+      .def_readwrite(
           "convert_pose_priors_to_enu",
           &Opts::convert_pose_priors_to_enu,
           "Whether to convert pose priors to ENU coordinate system.");
