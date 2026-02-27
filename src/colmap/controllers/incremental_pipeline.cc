@@ -66,6 +66,7 @@ DatabaseCache::Options CreateDatabaseCacheOptions(
       database_cache_options.image_names.insert(image.Name());
     }
   }
+  database_cache_options.load_all_images = options.load_all_images;
   database_cache_options.convert_pose_priors_to_enu =
       options.use_prior_position;
   return database_cache_options;

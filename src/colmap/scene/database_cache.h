@@ -61,6 +61,11 @@ class DatabaseCache {
     // frame will also be included. All images are used if empty.
     std::unordered_set<std::string> image_names;
 
+    // Whether to load all candidate images regardless of whether they have
+    // correspondences. If false (default), only images that participate in at
+    // least one valid match pair are loaded.
+    bool load_all_images = false;
+
     // Whether to convert pose priors to ENU coordinate system.
     bool convert_pose_priors_to_enu = false;
   };
