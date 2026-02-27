@@ -361,6 +361,29 @@ if(ONNX_ENABLED)
             if(CUDA_ENABLED)
                 install(FILES
                     "${onnxruntime_LIB_DIR}/onnxruntime_providers_cuda.lib"
+       if(IS_WINDOWS)
+# On Windows, selectively install DLLs to bin/. Always install core DLLs.
+# We are not supporting TensorRT/ROCM/etc. as a runtime, so not installing it intentionally.
+           install(FILES
+"${onnxruntime_LIB_DIR}/onnxruntime.dll"
+"${onnxruntime_LIB_DIR}/onnxruntime_providers_shared.dll"
+TYPE BIN)
+# Only install CUDA provider DLL if CUDA is enabled.
+           if(CUDA_ENABLED)
+               install(FILES
+"${onnxruntime_LIB_DIR}/onnxruntime_providers_cuda.dll"
+TYPE BIN)
+           endif()
+
+            # On Windows, selectively install Libs to lib/. Always install core libs.
+            # We are not supporting TensorRT/ROCM/etc. as a runtime, so not installing it intentionally.
+            install(FILES
+                "${onnxruntime_LIB_DIR}/onnxruntime.lib"
+                "${onnxruntime_LIB_DIR}/onnxruntime_providers_shared.lib"
+                TYPE LIB)
+            if(CUDA_ENABLED)
+                install(FILES
+                    "${onnxruntime_LIB_DIR}/onnxruntime_providers_cuda.lib"
                     TYPE LIB)
             endif()
         else()
