@@ -622,6 +622,7 @@ void RunPointTriangulatorImpl(
 
   auto custom_options = std::make_shared<IncrementalPipelineOptions>(options);
   custom_options->image_path = image_path;
+  custom_options->load_all_images = true;
   custom_options->fix_existing_frames = true;
   custom_options->ba_refine_focal_length = refine_intrinsics;
   custom_options->ba_refine_principal_point = false;

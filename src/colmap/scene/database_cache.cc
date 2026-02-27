@@ -185,35 +185,44 @@ void DatabaseCache::Load(const Database& database, const Options& options) {
 
     // Collect all images that are connected in the correspondence graph.
     std::unordered_set<frame_t> connected_frame_ids;
-    connected_frame_ids.reserve(frame_ids.size());
-    for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
-      if (UseInlierMatchesCheck(options,
-                                two_view_geometry.config,
-                                two_view_geometry.inlier_matches.size())) {
-        const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-        const frame_t frame_id1 = image_to_frame_id.at(image_id1);
-        const frame_t frame_id2 = image_to_frame_id.at(image_id2);
-        if (frame_ids.count(frame_id1) > 0 && frame_ids.count(frame_id2) > 0) {
-          connected_frame_ids.insert(frame_id1);
-          connected_frame_ids.insert(frame_id2);
+    if (!options.load_all_images) {
+      connected_frame_ids.reserve(frame_ids.size());
+      for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
+        if (UseInlierMatchesCheck(options,
+                                  two_view_geometry.config,
+                                  two_view_geometry.inlier_matches.size())) {
+          const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+          const frame_t frame_id1 = image_to_frame_id.at(image_id1);
+          const frame_t frame_id2 = image_to_frame_id.at(image_id2);
+          if (frame_ids.count(frame_id1) > 0 &&
+              frame_ids.count(frame_id2) > 0) {
+            connected_frame_ids.insert(frame_id1);
+            connected_frame_ids.insert(frame_id2);
+          }
         }
       }
     }
 
-    // Remove unconnected frames.
+    const std::unordered_set<frame_t>& load_frame_ids =
+        options.load_all_images ? frame_ids : connected_frame_ids;
+
+    // Remove frames that should not be loaded.
     for (auto it = frames_.begin(); it != frames_.end();) {
-      if (connected_frame_ids.count(it->first) == 0) {
+      if (load_frame_ids.count(it->first) == 0) {
         it = frames_.erase(it);
       } else {
         ++it;
       }
     }
 
-    // Load images with correspondences and discard images without
-    // correspondences, as those images are useless for SfM.
-    images_.reserve(connected_frame_ids.size());
+    // Load images and their keypoints. When load_all_images is false, only
+    // images with correspondences are loaded, as images without matches are
+    // not useful for SfM. When load_all_images is true, all candidate images
+    // are loaded so that their keypoints are populated (e.g., for
+    // triangulation on an existing reconstruction).
+    images_.reserve(load_frame_ids.size());
     for (auto& image : images) {
-      if (connected_frame_ids.count(image.FrameId()) == 0) {
+      if (load_frame_ids.count(image.FrameId()) == 0) {
         continue;
       }
 
@@ -223,9 +232,10 @@ void DatabaseCache::Load(const Database& database, const Options& options) {
       images_.emplace(image_id, std::move(image));
     }
 
-    LOG(INFO) << StringPrintf(" %d in %.3fs (connected %d)",
+    LOG(INFO) << StringPrintf(" %d in %.3fs (connected %d, loaded %d)",
                               num_images,
                               timer.ElapsedSeconds(),
+                              connected_frame_ids.size(),
                               images_.size());
   }
 
@@ -309,27 +319,32 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
   const auto& source_graph = database_cache.CorrespondenceGraph();
 
   std::unordered_set<image_t> connected_image_ids;
-  for (const auto& [pair_id, num_matches] :
-       source_graph->NumMatchesBetweenAllImages()) {
-    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    if (candidate_image_ids.count(image_id1) == 0 ||
-        candidate_image_ids.count(image_id2) == 0) {
-      continue;
+  if (!options.load_all_images) {
+    for (const auto& [pair_id, num_matches] :
+         source_graph->NumMatchesBetweenAllImages()) {
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+      if (candidate_image_ids.count(image_id1) == 0 ||
+          candidate_image_ids.count(image_id2) == 0) {
+        continue;
+      }
+      const TwoViewGeometry two_view_geometry =
+          source_graph->ExtractTwoViewGeometry(
+              image_id1, image_id2, /*extract_inlier_matches=*/false);
+      if (!UseInlierMatchesCheck(
+              options, two_view_geometry.config, num_matches)) {
+        continue;
+      }
+      connected_image_ids.insert(image_id1);
+      connected_image_ids.insert(image_id2);
     }
-    const TwoViewGeometry two_view_geometry =
-        source_graph->ExtractTwoViewGeometry(
-            image_id1, image_id2, /*extract_inlier_matches=*/false);
-    if (!UseInlierMatchesCheck(
-            options, two_view_geometry.config, num_matches)) {
-      continue;
-    }
-    connected_image_ids.insert(image_id1);
-    connected_image_ids.insert(image_id2);
   }
 
-  // Collect frame ids for connected images.
+  const std::unordered_set<image_t>& load_image_ids =
+      options.load_all_images ? candidate_image_ids : connected_image_ids;
+
+  // Collect frame ids for images to load.
   std::unordered_set<frame_t> filtered_frame_ids;
-  for (const image_t image_id : connected_image_ids) {
+  for (const image_t image_id : load_image_ids) {
     const auto& image = database_cache.Image(image_id);
     filtered_frame_ids.insert(image.FrameId());
   }
