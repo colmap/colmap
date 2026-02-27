@@ -191,7 +191,10 @@ const Bitmap& CachedWorkspace::GetBitmap(const int image_idx) {
     }
     cached_image->num_bytes += cached_image->bitmap->NumBytes();
     std::lock_guard<std::mutex> cache_lock(cache_mutex_);
-    cache_.UpdateNumBytes(image_idx);
+    // Handle the case where another thread has already evicted the image.
+    if (cache_.Exists(image_idx)) {
+      cache_.UpdateNumBytes(image_idx);
+    }
   }
   return *cached_image->bitmap;
 }
@@ -213,7 +216,10 @@ const DepthMap& CachedWorkspace::GetDepthMap(const int image_idx) {
     }
     cached_image->num_bytes += cached_image->depth_map->GetNumBytes();
     std::lock_guard<std::mutex> cache_lock(cache_mutex_);
-    cache_.UpdateNumBytes(image_idx);
+    // Handle the case where another thread has already evicted the image.
+    if (cache_.Exists(image_idx)) {
+      cache_.UpdateNumBytes(image_idx);
+    }
   }
   return *cached_image->depth_map;
 }
@@ -235,7 +241,10 @@ const NormalMap& CachedWorkspace::GetNormalMap(const int image_idx) {
     }
     cached_image->num_bytes += cached_image->normal_map->GetNumBytes();
     std::lock_guard<std::mutex> cache_lock(cache_mutex_);
-    cache_.UpdateNumBytes(image_idx);
+    // Handle the case where another thread has already evicted the image.
+    if (cache_.Exists(image_idx)) {
+      cache_.UpdateNumBytes(image_idx);
+    }
   }
   return *cached_image->normal_map;
 }
