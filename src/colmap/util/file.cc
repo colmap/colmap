@@ -38,6 +38,9 @@
 #include <sstream>
 
 #ifdef COLMAP_DOWNLOAD_ENABLED
+#include <chrono>
+#include <thread>
+
 #include <curl/curl.h>
 #if defined(COLMAP_USE_CRYPTOPP)
 #include <cryptopp/sha.h>
@@ -324,8 +327,29 @@ struct CurlHandle {
 
 }  // namespace
 
+constexpr int kDefaultDownloadMaxRetries = 3;
+constexpr int kDefaultDownloadBaseWaitSeconds = 1;  // linear backoff: 1s, 2s, ...
+
+int GetEnvInt(const char* name, int default_value) {
+  const std::optional<std::string> val = GetEnvSafe(name);
+  if (val.has_value() && !val->empty()) {
+    try {
+      return std::stoi(*val);
+    } catch (...) {
+      LOG(WARNING) << "Invalid value for " << name << ": " << *val
+                   << ". Using default: " << default_value;
+    }
+  }
+  return default_value;
+}
+
 std::optional<std::string> DownloadFile(const std::string& url) {
   VLOG(2) << "Downloading file from: " << url;
+
+  const int max_retries =
+      GetEnvInt("COLMAP_DOWNLOAD_MAX_RETRIES", kDefaultDownloadMaxRetries);
+  const int base_wait_seconds =
+      GetEnvInt("COLMAP_DOWNLOAD_BASE_WAIT_SECONDS", kDefaultDownloadBaseWaitSeconds);
 
   CurlHandle handle;
   THROW_CHECK_NOTNULL(handle.ptr);
@@ -351,31 +375,48 @@ std::optional<std::string> DownloadFile(const std::string& url) {
     curl_easy_setopt(handle.ptr, CURLOPT_CAPATH, ssl_cert_dir->c_str());
   }
 
-  const CURLcode code = curl_easy_perform(handle.ptr);
-  if (code != CURLE_OK) {
-    if (code == CURLE_SSL_CACERT_BADFILE || code == CURLE_SSL_CACERT) {
-      LOG(ERROR) << "Curl SSL certificate error (code " << code
-                 << "). Try setting SSL_CERT_FILE to point to your system's "
-                    "CA certificate bundle (e.g., "
-                    "SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt on "
-                    "Ubuntu/Debian).";
-    } else {
-      VLOG(2) << "Curl failed to perform request with code: " << code;
+  for (int attempt = 0; attempt < max_retries; ++attempt) {
+    if (attempt > 0) {
+      const int wait_seconds = base_wait_seconds * attempt;
+      LOG(WARNING) << "Download attempt " << attempt << " failed for: " << url
+                   << ". Retrying in " << wait_seconds << "s...";
+      std::this_thread::sleep_for(std::chrono::seconds(wait_seconds));
+      data_stream.str("");
+      data_stream.clear();
     }
-    return std::nullopt;
+
+    const CURLcode code = curl_easy_perform(handle.ptr);
+    if (code != CURLE_OK) {
+      if (code == CURLE_SSL_CACERT_BADFILE || code == CURLE_SSL_CACERT) {
+        LOG(ERROR) << "Curl SSL certificate error (code " << code
+                   << "). Try setting SSL_CERT_FILE to point to your system's "
+                      "CA certificate bundle (e.g., "
+                      "SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt on "
+                      "Ubuntu/Debian).";
+        return std::nullopt;
+      }
+      LOG(WARNING) << "Curl failed to perform request with code: " << code;
+      continue;
+    }
+
+    long response_code = 0;
+    curl_easy_getinfo(handle.ptr, CURLINFO_RESPONSE_CODE, &response_code);
+    if (response_code >= 400 && response_code < 500) {
+      LOG(ERROR) << "Request failed with client error: " << response_code;
+      return std::nullopt;
+    }
+    if (response_code != 0 && (response_code < 200 || response_code >= 300)) {
+      LOG(WARNING) << "Request failed with status: " << response_code;
+      continue;
+    }
+
+    std::string data_str = data_stream.str();
+    VLOG(2) << "Downloaded " << data_str.size() << " bytes";
+    return data_str;
   }
 
-  long response_code = 0;
-  curl_easy_getinfo(handle.ptr, CURLINFO_RESPONSE_CODE, &response_code);
-  if (response_code != 0 && (response_code < 200 || response_code >= 300)) {
-    VLOG(2) << "Request failed with status: " << response_code;
-    return std::nullopt;
-  }
-
-  std::string data_str = data_stream.str();
-  VLOG(2) << "Downloaded " << data_str.size() << " bytes";
-
-  return data_str;
+  LOG(ERROR) << "Download failed after " << max_retries << " attempts";
+  return std::nullopt;
 }
 
 namespace {
