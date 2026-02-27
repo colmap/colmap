@@ -331,6 +331,13 @@ struct filter_view {
   const filter_iterator<Iterator, Predicate> end_;
 };
 
+////////////////////////////////////////////////////////////////////////////////
+// Meta programming utilities / type traits.
+////////////////////////////////////////////////////////////////////////////////
+
+template <typename>
+struct always_false : std::false_type {};
+
 }  // namespace colmap
 
 // This file provides specializations of the templated hash function for
