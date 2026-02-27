@@ -54,14 +54,13 @@ PatchMatch::~PatchMatch() {}
 void PatchMatch::Problem::Print() const {
   LOG_HEADING2("PatchMatch::Problem");
   LOG(INFO) << "ref_image_idx: " << ref_image_idx;
-  LOG(INFO) << "src_image_idxs: ";
-  if (!src_image_idxs.empty()) {
-    for (size_t i = 0; i < src_image_idxs.size() - 1; ++i) {
-      LOG(INFO) << src_image_idxs[i] << " ";
-    }
-    LOG(INFO) << src_image_idxs.back();
-  } else {
+  THROW_CHECK(!src_image_idxs.empty());
+  std::ostringstream src_image_idxs_stream;
+  for (size_t i = 0; i < src_image_idxs.size() - 1; ++i) {
+    src_image_idxs_stream << src_image_idxs[i] << " ";
   }
+  src_image_idxs_stream << src_image_idxs.back();
+  LOG(INFO) << "src_image_idxs: " << src_image_idxs_stream.str();
 }
 
 void PatchMatch::Check() const {
