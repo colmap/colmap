@@ -39,6 +39,12 @@ void BindLogging(py::module& m) {
       .def_readwrite_static("log_dir", &FLAGS_log_dir)
       .def_readwrite_static("logtostderr", &FLAGS_logtostderr)
       .def_readwrite_static("alsologtostderr", &FLAGS_alsologtostderr)
+#if defined(GLOG_VERSION_MAJOR) && \
+    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+      .def_readwrite_static("logtostdout", &FLAGS_logtostdout)
+      .def_readwrite_static("colorlogtostdout", &FLAGS_colorlogtostdout)
+#endif
+      .def_readwrite_static("colorlogtostderr", &FLAGS_colorlogtostderr)
       .def_readwrite_static("verbose_level", &FLAGS_v)
       .def_static(
           "set_log_destination",
