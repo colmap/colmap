@@ -271,11 +271,19 @@ if(ONNX_ENABLED)
                     ${_fetch_content_declare_args}
                 )
             else()
-                FetchContent_Declare(onnxruntime
-                    URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-gpu-${ONNX_VERSION}.tgz
-                    URL_HASH SHA256=1c468821456b7863640555e31ee5b71e56bb959874b9db0dbf79503997993673
-                    ${_fetch_content_declare_args}
-                )
+                if(CUDA_ENABLED)
+                    FetchContent_Declare(onnxruntime
+                        URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-gpu-${ONNX_VERSION}.tgz
+                        URL_HASH SHA256=1c468821456b7863640555e31ee5b71e56bb959874b9db0dbf79503997993673
+                        ${_fetch_content_declare_args}
+                    )
+                else()
+                    FetchContent_Declare(onnxruntime
+                        URL https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-${ONNX_VERSION}.tgz
+                        URL_HASH SHA256=9142552248b735920f9390027e4512a2cacf8946a1ffcbe9071a5c210531026f
+                        ${_fetch_content_declare_args}
+                    )
+                endif()
             endif()
         elseif(IS_WINDOWS)
             FetchContent_Declare(onnxruntime
@@ -374,6 +382,11 @@ if(ONNX_ENABLED)
                     file(GLOB onnxruntime_CUDA_LIBS
                         "${onnxruntime_LIB_DIR}/libonnxruntime_providers_cuda.so*")
                     install(FILES ${onnxruntime_CUDA_LIBS} TYPE LIB)
+                    file(GLOB onnxruntime_TENSORRT_LIBS
+                        "${onnxruntime_LIB_DIR}/libonnxruntime_providers_tensorrt.so*")
+                    if(onnxruntime_TENSORRT_LIBS)
+                        install(FILES ${onnxruntime_TENSORRT_LIBS} TYPE LIB)
+                    endif()
                 endif()
             endif()
         endif()
