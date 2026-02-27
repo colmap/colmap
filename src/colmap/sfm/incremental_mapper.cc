@@ -137,9 +137,9 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options,
       options,
       *obs_manager_,
       filtered_frames_,
-      /*num_reg_trials=*/structure_less
-          ? reg_stats_.num_structure_less_reg_trials
-          : reg_stats_.num_reg_trials,
+      /*num_reg_trials=*/
+          structure_less ? reg_stats_.num_structure_less_reg_trials
+                         : reg_stats_.num_reg_trials,
       /*structure_less=*/structure_less);
 }
 
