@@ -33,6 +33,8 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
+      FETCHCONTENT_CACHE_VERSION: 1
+      FETCHCONTENT_CACHE_DIR: ${{ github.workspace }}/build/_deps
       GLOG_v: 2
       GLOG_logtostderr: 1
 
@@ -70,11 +72,18 @@ jobs:
             libomp
           brew link --force libomp
 
+      - name: FetchContent cache
+        uses: actions/cache@v4
+        with:
+          key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
+          restore-keys: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-
+          path: ${{ env.FETCHCONTENT_CACHE_DIR }}
+
       - name: Configure and build
         run: |
           export PATH="/usr/local/opt/qt/bin:$PATH"
           cmake --version
-          mkdir build
+          mkdir -p build
           cd build
           cmake .. \
             -GNinja \

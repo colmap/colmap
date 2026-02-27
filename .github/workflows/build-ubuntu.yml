@@ -84,6 +84,8 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       CTCACHE_DIR: ${{ github.workspace }}/compiler-cache/ctcache
+      FETCHCONTENT_CACHE_VERSION: 1
+      FETCHCONTENT_CACHE_DIR: ${{ github.workspace }}/build/_deps
       GLOG_v: 2
       GLOG_logtostderr: 1
 
@@ -195,11 +197,18 @@ jobs:
             sudo apt-get install -y gcovr
           fi
 
+      - name: FetchContent cache
+        uses: actions/cache@v4
+        with:
+          key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
+          restore-keys: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-
+          path: ${{ env.FETCHCONTENT_CACHE_DIR }}
+
       - name: Configure and build
         run: |
           set -x
           cmake --version
-          mkdir build
+          mkdir -p build
           cd build
           cmake .. \
             -GNinja \
