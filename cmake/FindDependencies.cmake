@@ -363,7 +363,6 @@ if(ONNX_ENABLED)
                     "${onnxruntime_LIB_DIR}/onnxruntime_providers_cuda.dll"
                     TYPE BIN)
             endif()
-
         else()
             # On Linux/macOS, selectively install library files. Always install core libraries.
             # Not supporting TensorRT/ROCM/etc. as a runtime, so not installing them.
