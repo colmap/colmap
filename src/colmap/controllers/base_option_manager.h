@@ -222,7 +222,7 @@ void BaseOptionManager::RegisterOption(const std::string& name,
     options_path_.emplace_back(
         name, reinterpret_cast<const std::filesystem::path*>(option));
   } else {
-    LOG(FATAL_THROW) << "Unsupported option type";
+    static_assert(always_false<T>::value, "Unsupported option type");
   }
 }
 

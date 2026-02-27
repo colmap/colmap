@@ -163,7 +163,7 @@ int RunImageFilterer(int argc, char** argv) {
   double min_focal_length_ratio = 0.1;
   double max_focal_length_ratio = 10.0;
   double max_extra_param = 100.0;
-  size_t min_num_observations = 10;
+  int min_num_observations = 10;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
@@ -193,7 +193,7 @@ int RunImageFilterer(int argc, char** argv) {
     bool enough_observations = false;
     for (const data_t& data_id : frame.ImageIds()) {
       const Image& image = reconstruction.Image(data_id.id);
-      if (image.NumPoints3D() >= min_num_observations) {
+      if (image.NumPoints3D() >= static_cast<size_t>(min_num_observations)) {
         enough_observations = true;
       }
     }

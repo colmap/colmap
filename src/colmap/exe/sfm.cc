@@ -524,7 +524,7 @@ int RunPointFiltering(int argc, char** argv) {
   std::filesystem::path input_path;
   std::filesystem::path output_path;
 
-  size_t min_track_len = 2;
+  int min_track_len = 2;
   double max_reproj_error = 4.0;
   double min_tri_angle = 1.5;
 
