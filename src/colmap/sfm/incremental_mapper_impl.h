@@ -76,7 +76,7 @@ class IncrementalMapperImpl {
   static std::vector<image_t> FindNextImages(
       const IncrementalMapper::Options& options,
       const ObservationManager& obs_manager,
-      const std::unordered_set<image_t>& filtered_images,
+      const std::unordered_set<frame_t>& filtered_frames,
       std::unordered_map<image_t, size_t>& num_reg_trials,
       bool structure_less = false);
 
