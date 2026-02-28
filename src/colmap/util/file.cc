@@ -336,7 +336,7 @@ int GetEnvInt(const char* name, int default_value) {
   if (val.has_value() && !val->empty()) {
     try {
       return std::stoi(*val);
-    } catch (...) {
+    } catch (const std::exception&) {
       LOG(WARNING) << "Invalid value for " << name << ": " << *val
                    << ". Using default: " << default_value;
     }
