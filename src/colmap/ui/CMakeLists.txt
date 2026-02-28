@@ -78,5 +78,6 @@ COLMAP_ADD_LIBRARY(
         colmap_image
         colmap_scene
         colmap_controllers
+        colmap_mvs
         ${COLMAP_UI_QT_LIBS}
 )
