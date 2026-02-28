@@ -63,7 +63,7 @@
 
 #define THROW_CHECK_FILE_OPEN(file, path) \
   THROW_CHECK((file).is_open())           \
-      << "Could not open " << path        \
+      << "Could not open " << (path)      \
       << ". Is the path a directory or does the parent dir not exist?";
 
 #define THROW_CHECK_HAS_FILE_EXTENSION(path, ext)                              \
