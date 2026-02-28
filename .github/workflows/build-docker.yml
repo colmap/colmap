@@ -12,6 +12,10 @@ on:
 
 env:
   IS_RELEASE: ${{ github.event_name == 'release' || startsWith(github.ref, 'refs/tags') }}
+  FETCHCONTENT_CACHE_VERSION: 1
+  FETCHCONTENT_CACHE_DIR: build/_deps
+  COMPILER_CACHE_VERSION: 1
+  CCACHE_DIR: build/.ccache
 
 jobs:
   build:
@@ -30,6 +34,22 @@ jobs:
           swap-storage: true
 
       - uses: actions/checkout@v4
+
+      - name: Restore FetchContent cache
+        uses: actions/cache@v4
+        id: cache-fetchcontent
+        with:
+          key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-docker-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
+          restore-keys: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-docker-
+          path: ${{ env.FETCHCONTENT_CACHE_DIR }}
+
+      - name: Restore compiler cache
+        uses: actions/cache@v4
+        id: cache-ccache
+        with:
+          key: ccache-v${{ env.COMPILER_CACHE_VERSION }}-docker-${{ github.run_id }}
+          restore-keys: ccache-v${{ env.COMPILER_CACHE_VERSION }}-docker-
+          path: ${{ env.CCACHE_DIR }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -52,16 +72,20 @@ jobs:
           else
             cuda_archs="50"
           fi
-          if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
-            GITHUB_SHA=$(cat $GITHUB_EVENT_PATH | jq -r .pull_request.head.sha)
-          fi
           docker build . \
             --file docker/Dockerfile \
             --tag colmap/colmap:$dockertag \
-            --build-arg COLMAP_GIT_COMMIT="$GITHUB_SHA" \
-            --build-arg CUDA_ARCHITECTURES="$cuda_archs"
+            --build-arg CUDA_ARCHITECTURES="$cuda_archs" \
+            --build-arg FETCHCONTENT_FULLY_DISCONNECTED=${{ steps.cache-fetchcontent.outputs.cache-hit == 'true' && 'ON' || 'OFF' }}
           if [[ "${{ env.IS_RELEASE }}" == "true" ]]; then
             docker tag colmap/colmap:$dockertag colmap/colmap:latest
             docker push colmap/colmap:$dockertag
             docker push colmap/colmap:latest
           fi
+
+      - name: Cleanup compiler cache
+        run: |
+          set -x
+          ccache --show-stats --verbose
+          ccache --evict-older-than 1d
+          ccache --show-stats --verbose
