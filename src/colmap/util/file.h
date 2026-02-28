@@ -39,28 +39,40 @@
 #include <string_view>
 #include <vector>
 
-#define THROW_CHECK_FILE_EXISTS(path)   \
-  THROW_CHECK(colmap::ExistsFile(path)) \
-      << "File " << (path) << " does not exist."
+#define THROW_CHECK_FILE_EXISTS(path)                 \
+  {                                                   \
+    const auto& path_val = (path);                    \
+    THROW_CHECK(colmap::ExistsFile(path_val))         \
+        << "File " << path_val << " does not exist."; \
+  }
 
-#define THROW_CHECK_DIR_EXISTS(path)   \
-  THROW_CHECK(colmap::ExistsDir(path)) \
-      << "Directory " << (path) << " does not exist."
+#define THROW_CHECK_DIR_EXISTS(path)                       \
+  {                                                        \
+    const auto& path_val = (path);                         \
+    THROW_CHECK(colmap::ExistsDir(path_val))               \
+        << "Directory " << path_val << " does not exist."; \
+  }
 
-#define THROW_CHECK_PATH_OPEN(path)                           \
-  THROW_CHECK(std::ofstream(path, std::ios::trunc).is_open()) \
-      << "Could not open " << (path)                          \
-      << ". Is the path a directory or does the parent dir not exist?"
+#define THROW_CHECK_PATH_OPEN(path)                                       \
+  {                                                                       \
+    const auto& path_val = (path);                                        \
+    THROW_CHECK(std::ofstream(path_val, std::ios::trunc).is_open())       \
+        << "Could not open " << path_val                                  \
+        << ". Is the path a directory or does the parent dir not exist?"; \
+  }
 
 #define THROW_CHECK_FILE_OPEN(file, path) \
   THROW_CHECK((file).is_open())           \
-      << "Could not open " << (path)      \
-      << ". Is the path a directory or does the parent dir not exist?"
+      << "Could not open " << path        \
+      << ". Is the path a directory or does the parent dir not exist?";
 
-#define THROW_CHECK_HAS_FILE_EXTENSION(path, ext)                        \
-  THROW_CHECK(colmap::HasFileExtension(path, ext))                       \
-      << "Path " << (path) << " does not match file extension " << (ext) \
-      << "."
+#define THROW_CHECK_HAS_FILE_EXTENSION(path, ext)                            \
+  {                                                                          \
+    const auto& path_val = (path);                                           \
+    THROW_CHECK(colmap::HasFileExtension(path_val, ext))                     \
+        << "Path " << path_val << " does not match file extension " << (ext) \
+        << ".";                                                              \
+  }
 
 namespace colmap {
 
