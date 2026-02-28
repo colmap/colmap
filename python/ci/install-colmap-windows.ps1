@@ -1,6 +1,7 @@
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 $PSNativeCommandUseErrorActionPreference = $true
+Set-PSDebug -Trace 1
 
 $CURRDIR = $PWD
 
