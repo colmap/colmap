@@ -328,7 +328,8 @@ struct CurlHandle {
 }  // namespace
 
 constexpr int kDefaultDownloadMaxRetries = 3;
-constexpr int kDefaultDownloadBaseWaitSeconds = 1;  // linear backoff: 1s, 2s, ...
+constexpr int kDefaultDownloadBaseWaitSeconds =
+    1;  // linear backoff: 1s, 2s, ...
 
 int GetEnvInt(const char* name, int default_value) {
   const std::optional<std::string> val = GetEnvSafe(name);
@@ -348,8 +349,8 @@ std::optional<std::string> DownloadFile(const std::string& url) {
 
   const int max_retries =
       GetEnvInt("COLMAP_DOWNLOAD_MAX_RETRIES", kDefaultDownloadMaxRetries);
-  const int base_wait_seconds =
-      GetEnvInt("COLMAP_DOWNLOAD_BASE_WAIT_SECONDS", kDefaultDownloadBaseWaitSeconds);
+  const int base_wait_seconds = GetEnvInt("COLMAP_DOWNLOAD_BASE_WAIT_SECONDS",
+                                          kDefaultDownloadBaseWaitSeconds);
 
   CurlHandle handle;
   THROW_CHECK_NOTNULL(handle.ptr);
