@@ -39,6 +39,12 @@
 #include <cuda_runtime.h>
 #include <curand_kernel.h>
 
+#ifdef __CUDACC__
+#include "colmap/mvs/cuda_flip.h"
+#include "colmap/mvs/cuda_rotate.h"
+#include "colmap/mvs/cuda_transpose.h"
+#endif  // __CUDACC__
+
 namespace colmap {
 namespace mvs {
 
@@ -333,10 +339,6 @@ void GpuMat<T>::ComputeCudaConfig() {
 // Methods that use CUDA kernel launch syntax (<<<>>>) or call functions
 // defined only inside __CUDACC__ blocks must remain guarded.
 #ifdef __CUDACC__
-
-#include "colmap/mvs/cuda_flip.h"
-#include "colmap/mvs/cuda_rotate.h"
-#include "colmap/mvs/cuda_transpose.h"
 
 namespace internal {
 
