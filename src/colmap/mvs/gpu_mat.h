@@ -29,19 +29,12 @@
 
 #pragma once
 
-#include "colmap/mvs/cuda_flip.h"
-#include "colmap/mvs/cuda_rotate.h"
-#include "colmap/mvs/cuda_transpose.h"
 #include "colmap/mvs/mat.h"
-#include "colmap/util/cuda.h"
 #include "colmap/util/cudacc.h"
 #include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
 
 #include <fstream>
-#include <iterator>
-#include <memory>
-#include <string>
 
 #include <cuda_runtime.h>
 #include <curand_kernel.h>
@@ -50,16 +43,16 @@ namespace colmap {
 namespace mvs {
 
 // Lightweight, trivially-copyable view of GPU device memory suitable for
-// passing to CUDA kernels. GpuMat<T> contains std::shared_ptr which makes it
-// non-trivially copyable; passing it by value to kernels is undefined behavior
-// per CUDA spec. Use GpuMat::View() to obtain a GpuMatView for kernel args.
+// passing to CUDA kernels. GpuMat<T> is non-trivially copyable; passing it by
+// value to kernels is undefined behavior per CUDA spec. Use GpuMat::View() to
+// obtain a GpuMatView for kernel args.
 template <typename T>
 struct GpuMatView {
-  T* ptr;
-  size_t pitch;
-  size_t width;
-  size_t height;
-  size_t depth;
+  T* const ptr;
+  const size_t pitch;
+  const size_t width;
+  const size_t height;
+  const size_t depth;
 
   __host__ __device__ const T* GetPtr() const { return ptr; }
   __host__ __device__ T* GetPtr() { return ptr; }
@@ -117,6 +110,11 @@ class GpuMat {
   GpuMat(const size_t width, const size_t height, const size_t depth = 1);
   ~GpuMat();
 
+  GpuMat(const GpuMat&) = delete;
+  GpuMat& operator=(const GpuMat&) = delete;
+  GpuMat(GpuMat&&) = delete;
+  GpuMat& operator=(GpuMat&&) = delete;
+
   const T* GetPtr() const;
   T* GetPtr();
 
@@ -133,7 +131,7 @@ class GpuMat {
   void FillWithVector(const T* values);
   void FillWithRandomNumbers(const T min_value,
                              const T max_value,
-                             GpuMat<curandState> random_state);
+                             const GpuMat<curandState>& random_state);
 
   void CopyToDevice(const T* data, const size_t pitch);
   void CopyToHost(T* data, const size_t pitch) const;
@@ -158,13 +156,12 @@ class GpuMat {
   const static size_t kBlockDimX = 32;
   const static size_t kBlockDimY = 16;
 
-  std::shared_ptr<T> array_;
   T* array_ptr_;
 
   size_t pitch_;
-  size_t width_;
-  size_t height_;
-  size_t depth_;
+  const size_t width_;
+  const size_t height_;
+  const size_t depth_;
 
   dim3 blockSize_;
   dim3 gridSize_;
@@ -181,27 +178,16 @@ class GpuMat {
 
 template <typename T>
 GpuMat<T>::GpuMat(const size_t width, const size_t height, const size_t depth)
-    : array_(nullptr),
-      array_ptr_(nullptr),
-      width_(width),
-      height_(height),
-      depth_(depth) {
+    : array_ptr_(nullptr), width_(width), height_(height), depth_(depth) {
   CUDA_SAFE_CALL(cudaMallocPitch(
       (void**)&array_ptr_, &pitch_, width_ * sizeof(T), height_ * depth_));
-
-  array_ = std::shared_ptr<T>(array_ptr_, cudaFree);
 
   ComputeCudaConfig();
 }
 
 template <typename T>
 GpuMat<T>::~GpuMat() {
-  array_.reset();
-  array_ptr_ = nullptr;
-  pitch_ = 0;
-  width_ = 0;
-  height_ = 0;
-  depth_ = 0;
+  cudaFree(array_ptr_);
 }
 
 template <typename T>
@@ -348,6 +334,10 @@ void GpuMat<T>::ComputeCudaConfig() {
 // defined only inside __CUDACC__ blocks must remain guarded.
 #ifdef __CUDACC__
 
+#include "colmap/mvs/cuda_flip.h"
+#include "colmap/mvs/cuda_rotate.h"
+#include "colmap/mvs/cuda_transpose.h"
+
 namespace internal {
 
 template <typename T>
@@ -414,7 +404,7 @@ void GpuMat<T>::FillWithVector(const T* values) {
 template <typename T>
 void GpuMat<T>::FillWithRandomNumbers(const T min_value,
                                       const T max_value,
-                                      const GpuMat<curandState> random_state) {
+                                      const GpuMat<curandState>& random_state) {
   internal::FillWithRandomNumbersKernel<T><<<gridSize_, blockSize_>>>(
       View(), random_state.View(), min_value, max_value);
   CUDA_SYNC_AND_CHECK();
