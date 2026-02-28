@@ -66,12 +66,13 @@
       << "Could not open " << path        \
       << ". Is the path a directory or does the parent dir not exist?";
 
-#define THROW_CHECK_HAS_FILE_EXTENSION(path, ext)                            \
-  {                                                                          \
-    const auto& path_val = (path);                                           \
-    THROW_CHECK(colmap::HasFileExtension(path_val, ext))                     \
-        << "Path " << path_val << " does not match file extension " << (ext) \
-        << ".";                                                              \
+#define THROW_CHECK_HAS_FILE_EXTENSION(path, ext)                              \
+  {                                                                            \
+    const auto& path_val = (path);                                             \
+    const auto& ext_val = ext;                                                 \
+    THROW_CHECK(colmap::HasFileExtension(path_val, ext_val))                   \
+        << "Path " << path_val << " does not match file extension " << ext_val \
+        << ".";                                                                \
   }
 
 namespace colmap {
