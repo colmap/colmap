@@ -49,34 +49,85 @@
 namespace colmap {
 namespace mvs {
 
+// Lightweight, trivially-copyable view of GPU device memory suitable for
+// passing to CUDA kernels. GpuMat<T> contains std::shared_ptr which makes it
+// non-trivially copyable; passing it by value to kernels is undefined behavior
+// per CUDA spec. Use GpuMat::View() to obtain a GpuMatView for kernel args.
+template <typename T>
+struct GpuMatView {
+  T* ptr;
+  size_t pitch;
+  size_t width;
+  size_t height;
+  size_t depth;
+
+  __host__ __device__ const T* GetPtr() const { return ptr; }
+  __host__ __device__ T* GetPtr() { return ptr; }
+
+  __host__ __device__ size_t GetPitch() const { return pitch; }
+  __host__ __device__ size_t GetWidth() const { return width; }
+  __host__ __device__ size_t GetHeight() const { return height; }
+  __host__ __device__ size_t GetDepth() const { return depth; }
+
+  __device__ T Get(const size_t row,
+                   const size_t col,
+                   const size_t slice = 0) const {
+    return *((T*)((char*)ptr + pitch * (slice * height + row)) + col);
+  }
+
+  __device__ void GetSlice(const size_t row,
+                           const size_t col,
+                           T* values) const {
+    for (size_t s = 0; s < depth; ++s) {
+      values[s] = Get(row, col, s);
+    }
+  }
+
+  __device__ T& GetRef(const size_t row, const size_t col) {
+    return GetRef(row, col, 0);
+  }
+
+  __device__ T& GetRef(const size_t row, const size_t col, const size_t slice) {
+    return *((T*)((char*)ptr + pitch * (slice * height + row)) + col);
+  }
+
+  __device__ void Set(const size_t row, const size_t col, const T value) {
+    Set(row, col, 0, value);
+  }
+
+  __device__ void Set(const size_t row,
+                      const size_t col,
+                      const size_t slice,
+                      const T value) {
+    *((T*)((char*)ptr + pitch * (slice * height + row)) + col) = value;
+  }
+
+  __device__ void SetSlice(const size_t row,
+                           const size_t col,
+                           const T* values) {
+    for (size_t s = 0; s < depth; ++s) {
+      Set(row, col, s, values[s]);
+    }
+  }
+};
+
 template <typename T>
 class GpuMat {
  public:
   GpuMat(const size_t width, const size_t height, const size_t depth = 1);
   ~GpuMat();
 
-  __host__ __device__ const T* GetPtr() const;
-  __host__ __device__ T* GetPtr();
+  const T* GetPtr() const;
+  T* GetPtr();
 
-  __host__ __device__ size_t GetPitch() const;
-  __host__ __device__ size_t GetWidth() const;
-  __host__ __device__ size_t GetHeight() const;
-  __host__ __device__ size_t GetDepth() const;
+  size_t GetPitch() const;
+  size_t GetWidth() const;
+  size_t GetHeight() const;
+  size_t GetDepth() const;
 
-  __device__ T Get(const size_t row,
-                   const size_t col,
-                   const size_t slice = 0) const;
-  __device__ void GetSlice(const size_t row, const size_t col, T* values) const;
-
-  __device__ T& GetRef(const size_t row, const size_t col);
-  __device__ T& GetRef(const size_t row, const size_t col, const size_t slice);
-
-  __device__ void Set(const size_t row, const size_t col, const T value);
-  __device__ void Set(const size_t row,
-                      const size_t col,
-                      const size_t slice,
-                      const T value);
-  __device__ void SetSlice(const size_t row, const size_t col, const T* values);
+  // Returns a lightweight, trivially-copyable view suitable for passing
+  // to CUDA kernels.
+  GpuMatView<T> View() const;
 
   void FillWithScalar(const T value);
   void FillWithVector(const T* values);
@@ -128,7 +179,7 @@ class GpuMat {
 namespace internal {
 
 template <typename T>
-__global__ void FillWithScalarKernel(GpuMat<T> output, const T value) {
+__global__ void FillWithScalarKernel(GpuMatView<T> output, const T value) {
   const size_t row = blockIdx.y * blockDim.y + threadIdx.y;
   const size_t col = blockIdx.x * blockDim.x + threadIdx.x;
   if (row < output.GetHeight() && col < output.GetWidth()) {
@@ -139,7 +190,7 @@ __global__ void FillWithScalarKernel(GpuMat<T> output, const T value) {
 }
 
 template <typename T>
-__global__ void FillWithVectorKernel(const T* values, GpuMat<T> output) {
+__global__ void FillWithVectorKernel(const T* values, GpuMatView<T> output) {
   const size_t row = blockIdx.y * blockDim.y + threadIdx.y;
   const size_t col = blockIdx.x * blockDim.x + threadIdx.x;
   if (row < output.GetHeight() && col < output.GetWidth()) {
@@ -150,10 +201,11 @@ __global__ void FillWithVectorKernel(const T* values, GpuMat<T> output) {
 }
 
 template <typename T>
-__global__ void FillWithRandomNumbersKernel(GpuMat<T> output,
-                                            GpuMat<curandState> random_state,
-                                            const T min_value,
-                                            const T max_value) {
+__global__ void FillWithRandomNumbersKernel(
+    GpuMatView<T> output,
+    GpuMatView<curandState> random_state,
+    const T min_value,
+    const T max_value) {
   const size_t row = blockIdx.y * blockDim.y + threadIdx.y;
   const size_t col = blockIdx.x * blockDim.x + threadIdx.x;
   if (row < output.GetHeight() && col < output.GetWidth()) {
@@ -195,90 +247,43 @@ GpuMat<T>::~GpuMat() {
 }
 
 template <typename T>
-__host__ __device__ const T* GpuMat<T>::GetPtr() const {
+const T* GpuMat<T>::GetPtr() const {
   return array_ptr_;
 }
 
 template <typename T>
-__host__ __device__ T* GpuMat<T>::GetPtr() {
+T* GpuMat<T>::GetPtr() {
   return array_ptr_;
 }
 
 template <typename T>
-__host__ __device__ size_t GpuMat<T>::GetPitch() const {
+size_t GpuMat<T>::GetPitch() const {
   return pitch_;
 }
 
 template <typename T>
-__host__ __device__ size_t GpuMat<T>::GetWidth() const {
+size_t GpuMat<T>::GetWidth() const {
   return width_;
 }
 
 template <typename T>
-__host__ __device__ size_t GpuMat<T>::GetHeight() const {
+size_t GpuMat<T>::GetHeight() const {
   return height_;
 }
 
 template <typename T>
-__host__ __device__ size_t GpuMat<T>::GetDepth() const {
+size_t GpuMat<T>::GetDepth() const {
   return depth_;
 }
 
 template <typename T>
-__device__ T GpuMat<T>::Get(const size_t row,
-                            const size_t col,
-                            const size_t slice) const {
-  return *((T*)((char*)array_ptr_ + pitch_ * (slice * height_ + row)) + col);
-}
-
-template <typename T>
-__device__ void GpuMat<T>::GetSlice(const size_t row,
-                                    const size_t col,
-                                    T* values) const {
-  for (size_t slice = 0; slice < depth_; ++slice) {
-    values[slice] = Get(row, col, slice);
-  }
-}
-
-template <typename T>
-__device__ T& GpuMat<T>::GetRef(const size_t row, const size_t col) {
-  return GetRef(row, col, 0);
-}
-
-template <typename T>
-__device__ T& GpuMat<T>::GetRef(const size_t row,
-                                const size_t col,
-                                const size_t slice) {
-  return *((T*)((char*)array_ptr_ + pitch_ * (slice * height_ + row)) + col);
-}
-
-template <typename T>
-__device__ void GpuMat<T>::Set(const size_t row,
-                               const size_t col,
-                               const T value) {
-  Set(row, col, 0, value);
-}
-
-template <typename T>
-__device__ void GpuMat<T>::Set(const size_t row,
-                               const size_t col,
-                               const size_t slice,
-                               const T value) {
-  *((T*)((char*)array_ptr_ + pitch_ * (slice * height_ + row)) + col) = value;
-}
-
-template <typename T>
-__device__ void GpuMat<T>::SetSlice(const size_t row,
-                                    const size_t col,
-                                    const T* values) {
-  for (size_t slice = 0; slice < depth_; ++slice) {
-    Set(row, col, slice, values[slice]);
-  }
+GpuMatView<T> GpuMat<T>::View() const {
+  return {array_ptr_, pitch_, width_, height_, depth_};
 }
 
 template <typename T>
 void GpuMat<T>::FillWithScalar(const T value) {
-  internal::FillWithScalarKernel<T><<<gridSize_, blockSize_>>>(*this, value);
+  internal::FillWithScalarKernel<T><<<gridSize_, blockSize_>>>(View(), value);
   CUDA_SYNC_AND_CHECK();
 }
 
@@ -289,7 +294,7 @@ void GpuMat<T>::FillWithVector(const T* values) {
   CUDA_SAFE_CALL(cudaMemcpy(
       values_device, values, depth_ * sizeof(T), cudaMemcpyHostToDevice));
   internal::FillWithVectorKernel<T>
-      <<<gridSize_, blockSize_>>>(values_device, *this);
+      <<<gridSize_, blockSize_>>>(values_device, View());
   CUDA_SYNC_AND_CHECK();
   CUDA_SAFE_CALL(cudaFree(values_device));
 }
@@ -298,8 +303,8 @@ template <typename T>
 void GpuMat<T>::FillWithRandomNumbers(const T min_value,
                                       const T max_value,
                                       const GpuMat<curandState> random_state) {
-  internal::FillWithRandomNumbersKernel<T>
-      <<<gridSize_, blockSize_>>>(*this, random_state, min_value, max_value);
+  internal::FillWithRandomNumbersKernel<T><<<gridSize_, blockSize_>>>(
+      View(), random_state.View(), min_value, max_value);
   CUDA_SYNC_AND_CHECK();
 }
 
