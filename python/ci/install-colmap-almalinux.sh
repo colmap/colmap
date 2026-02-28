@@ -56,6 +56,7 @@ if [ ! -f "${COMPILER_TOOLS_DIR}/ccache" ]; then
     cp ${FILE}/ccache ${COMPILER_TOOLS_DIR}
 fi
 export PATH="${COMPILER_TOOLS_DIR}:${PATH}"
+ln -sf ${COMPILER_TOOLS_DIR}/ccache /usr/local/bin/ccache
 
 # Setup vcpkg
 git clone https://github.com/microsoft/vcpkg ${VCPKG_INSTALLATION_ROOT}
@@ -78,7 +79,9 @@ cmake3 .. -GNinja \
     -DCMAKE_MAKE_PROGRAM=/usr/bin/ninja \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
     -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
-    -DCMAKE_EXE_LINKER_FLAGS_INIT="-ldl"
+    -DCMAKE_EXE_LINKER_FLAGS_INIT="-ldl" \
+    -DFETCHCONTENT_BASE_DIR="${FETCHCONTENT_BASE_DIR}" \
+    -DFETCHCONTENT_FULLY_DISCONNECTED="${FETCHCONTENT_FULLY_DISCONNECTED}"
 ninja install
 
 ccache --show-stats --verbose

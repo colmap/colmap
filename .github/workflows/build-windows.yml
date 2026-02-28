@@ -42,6 +42,8 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
+      FETCHCONTENT_CACHE_VERSION: 1
+      FETCHCONTENT_CACHE_DIR: ${{ github.workspace }}/build/_deps
       GLOG_v: 2
       GLOG_logtostderr: 1
       CUDA_MAJOR_VERSION: 12
@@ -74,15 +76,23 @@ jobs:
           }
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "${env:GITHUB_ENV}"
 
-      - name: Compiler cache
+      - name: Restore compiler cache
         uses: actions/cache@v4
-        id: cache-builds
+        id: cache-compiler
         with:
           key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
           restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
           path: ${{ env.COMPILER_CACHE_DIR }}
 
-      - name: Install ccache
+      - name: Restore FetchContent cache
+        uses: actions/cache@v4
+        id: cache-fetchcontent
+        with:
+          key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
+          restore-keys: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-
+          path: ${{ env.FETCHCONTENT_CACHE_DIR }}
+
+      - name: Install compile cache
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "${{ env.CCACHE_DIR }}"
@@ -122,7 +132,7 @@ jobs:
           ./scripts/shell/enter_vs_dev_shell.ps1
           cd ${{ github.workspace }}
           ./vcpkg/vcpkg.exe integrate install
-          mkdir build
+          mkdir -Force build
           cd build
           cmake .. `
             -GNinja `
@@ -135,7 +145,8 @@ jobs:
             -DCUDAToolkit_ROOT="${{ steps.cuda-toolkit.outputs.CUDA_PATH }}" `
             -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=x64-windows-release `
-            -DCMAKE_INSTALL_PREFIX=install
+            -DCMAKE_INSTALL_PREFIX=install `
+            -DFETCHCONTENT_FULLY_DISCONNECTED=${{ steps.cache-fetchcontent.outputs.cache-hit == 'true' && 'ON' || 'OFF' }}
           ninja
 
       - name: Run tests
