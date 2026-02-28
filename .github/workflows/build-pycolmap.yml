@@ -119,6 +119,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          echo "${{ env.COMPILER_CACHE_DIR }}/bin" >> "${env:GITHUB_PATH}"
+
           $VCPKG_INSTALLATION_ROOT = "${{ github.workspace }}/vcpkg"
           echo "VCPKG_INSTALLATION_ROOT=${VCPKG_INSTALLATION_ROOT}" >> "${env:GITHUB_ENV}"
           $CMAKE_TOOLCHAIN_FILE = "${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
