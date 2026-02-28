@@ -74,6 +74,7 @@ jobs:
 
       - name: FetchContent cache
         uses: actions/cache@v4
+        id: cache-fetchcontent
         with:
           key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
           restore-keys: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-
@@ -90,7 +91,8 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DTESTS_ENABLED=ON \
             -DWERROR_ENABLED=ON \
-            -DQt6_DIR="$(brew --prefix qt)/lib/cmake/Qt6"
+            -DQt6_DIR="$(brew --prefix qt)/lib/cmake/Qt6" \
+            -DFETCHCONTENT_FULLY_DISCONNECTED=${{ steps.cache-fetchcontent.outputs.cache-hit == 'true' && 'ON' || 'OFF' }}
           ninja
 
       - name: Run tests

@@ -61,6 +61,7 @@ jobs:
 
       - name: FetchContent cache
         uses: actions/cache@v4
+        id: cache-fetchcontent
         with:
           key: pycolmap-fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-cuda_${{ matrix.config.cudaEnabled }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
           restore-keys: pycolmap-fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-cuda_${{ matrix.config.cudaEnabled }}-
@@ -98,6 +99,11 @@ jobs:
           echo "CIBW_CONFIG_SETTINGS_MACOS=${CONFIG_SETTINGS}" >> "$GITHUB_ENV"
 
           echo "FETCHCONTENT_BASE_DIR=${FETCHCONTENT_CACHE_DIR}" >> "$GITHUB_ENV"
+          if [ "${{ steps.cache-fetchcontent.outputs.cache-hit }}" = "true" ]; then
+            echo "FETCHCONTENT_FULLY_DISCONNECTED=ON" >> "$GITHUB_ENV"
+          else
+            echo "FETCHCONTENT_FULLY_DISCONNECTED=OFF" >> "$GITHUB_ENV"
+          fi
 
           # vcpkg binary caching
           # !!!PLEASE!!! be nice and don't use this cache for your own purposes. This is only meant for CI purposes in this repository.
@@ -178,7 +184,7 @@ jobs:
           fi
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "$GITHUB_ENV"
 
-          CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR FETCHCONTENT_BASE_DIR"
+          CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR FETCHCONTENT_BASE_DIR FETCHCONTENT_FULLY_DISCONNECTED"
           echo "CIBW_ENVIRONMENT_PASS_LINUX=${CIBW_ENVIRONMENT_PASS_LINUX}" >> "$GITHUB_ENV"
 
           if [ "${{ matrix.config.cudaEnabled }}" = "true" ]; then

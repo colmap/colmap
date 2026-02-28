@@ -199,6 +199,7 @@ jobs:
 
       - name: FetchContent cache
         uses: actions/cache@v4
+        id: cache-fetchcontent
         with:
           key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
           restore-keys: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-
@@ -221,7 +222,8 @@ jobs:
             -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \
             -DASAN_ENABLED=${{ matrix.config.asanEnabled }} \
             -DCOVERAGE_ENABLED=${{ matrix.config.coverageEnabled }} \
-            -DBLA_VENDOR=Intel10_64lp
+            -DBLA_VENDOR=Intel10_64lp \
+            -DFETCHCONTENT_FULLY_DISCONNECTED=${{ steps.cache-fetchcontent.outputs.cache-hit == 'true' && 'ON' || 'OFF' }}
           ninja -k 10000
 
       - name: Install and build sample
