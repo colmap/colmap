@@ -40,12 +40,22 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/cache@v4
-        id: cache-builds
+
+      - name: Restore compiler cache
+        uses: actions/cache@v4
+        id: cache-compiler
         with:
           key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}-${{ github.run_id }}-${{ github.run_number }}
           restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}
           path: ${{ env.COMPILER_CACHE_DIR }}
+
+      - name: Restore FetchContent cache
+        uses: actions/cache@v4
+        id: cache-fetchcontent
+        with:
+          key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
+          restore-keys: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-
+          path: ${{ env.FETCHCONTENT_CACHE_DIR }}
 
       - name: Setup Mac
         run: |
@@ -71,14 +81,6 @@ jobs:
             ccache \
             libomp
           brew link --force libomp
-
-      - name: FetchContent cache
-        uses: actions/cache@v4
-        id: cache-fetchcontent
-        with:
-          key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
-          restore-keys: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-
-          path: ${{ env.FETCHCONTENT_CACHE_DIR }}
 
       - name: Configure and build
         run: |
