@@ -86,6 +86,7 @@ jobs:
       - name: Cleanup compiler cache
         run: |
           set -x
+          sudo apt-get install -y ccache
           ccache --show-stats --verbose
           ccache --evict-older-than 1d
           ccache --show-stats --verbose

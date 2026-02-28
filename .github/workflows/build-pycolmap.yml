@@ -139,6 +139,11 @@ jobs:
 
           $FETCHCONTENT_BASE_DIR = "${env:FETCHCONTENT_CACHE_DIR}".replace('\', '/')
           echo "FETCHCONTENT_BASE_DIR=${FETCHCONTENT_BASE_DIR}" >> "${env:GITHUB_ENV}"
+          if ("${{ steps.cache-fetchcontent.outputs.cache-hit }}" -eq "true") {
+            echo "FETCHCONTENT_FULLY_DISCONNECTED=ON" >> "${env:GITHUB_ENV}"
+          } else {
+            echo "FETCHCONTENT_FULLY_DISCONNECTED=OFF" >> "${env:GITHUB_ENV}"
+          }
 
           # vcpkg binary caching
           # !!!PLEASE!!! be nice and don't use this cache for your own purposes. This is only meant for CI purposes in this repository.
@@ -175,6 +180,11 @@ jobs:
           echo "CCACHE_DIR=${CONTAINER_COMPILER_CACHE_DIR}/ccache" >> "$GITHUB_ENV"
           echo "CCACHE_BASEDIR=/project" >> "$GITHUB_ENV"
           echo "FETCHCONTENT_BASE_DIR=${CONTAINER_FETCHCONTENT_CACHE_DIR}" >> "$GITHUB_ENV"
+          if [ "${{ steps.cache-fetchcontent.outputs.cache-hit }}" = "true" ]; then
+            echo "FETCHCONTENT_FULLY_DISCONNECTED=ON" >> "$GITHUB_ENV"
+          else
+            echo "FETCHCONTENT_FULLY_DISCONNECTED=OFF" >> "$GITHUB_ENV"
+          fi
 
           # vcpkg binary caching
           # !!!PLEASE!!! be nice and don't use this cache for your own purposes. This is only meant for CI purposes in this repository.
