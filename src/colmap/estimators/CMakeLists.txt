@@ -32,23 +32,44 @@ set(FOLDER_NAME "estimators")
 add_subdirectory(cost_functions)
 add_subdirectory(solvers)
 
+set(ESTIMATORS_SRCS
+    absolute_pose.h absolute_pose.cc
+    affine_transform.h affine_transform.cc
+    alignment.h alignment.cc
+    bundle_adjustment.h bundle_adjustment.cc
+    bundle_adjustment_ceres.h bundle_adjustment_ceres.cc
+    coordinate_frame.h coordinate_frame.cc
+    cost_function_utils.h
+    cost_functions.h
+    manifold.h
+    covariance.h covariance.cc
+    essential_matrix.h essential_matrix.cc
+    euclidean_transform.h
+    fundamental_matrix.h fundamental_matrix.cc
+    generalized_absolute_pose.h generalized_absolute_pose.cc
+    generalized_relative_pose.h generalized_relative_pose.cc
+    homography_matrix.h homography_matrix.cc
+    pose.h pose.cc
+    poselib_utils.h poselib_utils.cc
+    generalized_pose.h generalized_pose.cc
+    similarity_transform.h similarity_transform.cc
+    translation_transform.h
+    triangulation.h triangulation.cc
+    two_view_geometry.h two_view_geometry.cc
+    utils.h utils.cc
+    view_graph_calibration.h view_graph_calibration.cc
+)
+
+if(CASPAR_ENABLED)
+    list(APPEND ESTIMATORS_SRCS
+        caspar_bundle_adjustment.h
+        caspar_bundle_adjustment.cc
+    )
+endif()
+
 COLMAP_ADD_LIBRARY(
     NAME colmap_estimators
-    SRCS
-        alignment.h alignment.cc
-        bundle_adjustment.h bundle_adjustment.cc
-        bundle_adjustment_ceres.h bundle_adjustment_ceres.cc
-        coordinate_frame.h coordinate_frame.cc
-        covariance.h covariance.cc
-        generalized_pose.h generalized_pose.cc
-        global_positioning.h global_positioning.cc
-        gravity_refinement.h gravity_refinement.cc
-        pose.h pose.cc
-        rotation_averaging.h rotation_averaging.cc
-        rotation_averaging_impl.h rotation_averaging_impl.cc
-        triangulation.h triangulation.cc
-        two_view_geometry.h two_view_geometry.cc
-        view_graph_calibration.h view_graph_calibration.cc
+    SRCS ${ESTIMATORS_SRCS}
     PUBLIC_LINK_LIBS
         colmap_util
         colmap_math
@@ -64,6 +85,10 @@ COLMAP_ADD_LIBRARY(
         Ceres::ceres
         PoseLib::PoseLib
 )
+
+if(CASPAR_ENABLED)
+    target_link_libraries(colmap_estimators PRIVATE caspar_lib_core)
+endif()
 
 if(CUDA_ENABLED)
     target_link_libraries(colmap_estimators PUBLIC colmap_util_cuda)

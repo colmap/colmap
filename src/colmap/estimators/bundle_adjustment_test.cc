@@ -29,8 +29,7 @@
 
 #include "colmap/estimators/bundle_adjustment.h"
 
-#include "colmap/estimators/bundle_adjustment_ceres.h"
-#include "colmap/scene/database.h"
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
@@ -181,18 +180,55 @@ TEST_P(BundleAdjusterBackendTest, Nominal) {
                                  /*num_obs_tolerance=*/0.0));
 }
 
-INSTANTIATE_TEST_SUITE_P(BundleAdjusterBackends,
-                         BundleAdjusterBackendTest,
-                         ::testing::Values(BundleAdjustmentBackend::CERES));
+TEST(DefaultBundleAdjuster, TwoView) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
 
-// Parameterized test for generic PosePriorBundleAdjuster interface across
-// backends.
-class PosePriorBundleAdjusterBackendTest
-    : public ::testing::TestWithParam<BundleAdjustmentBackend> {};
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
-TEST_P(PosePriorBundleAdjusterBackendTest, Nominal) {
-  SetPRNGSeed(0);
-  Reconstruction gt_reconstruction;
+  BundleAdjustmentOptions options;
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDefaultBundleAdjuster(options, config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+
+  EXPECT_EQ(config.NumResiduals(reconstruction),
+            bundle_adjuster->Problem()->NumResiduals());
+
+  // 100 points, 2 images, 2 residuals per point per image
+  EXPECT_EQ(summary.num_residuals_reduced, 400);
+  // 100 x 3 point parameters
+  // + 5 rig_from_world parameters (pose of second image)
+  // + 2 x 2 camera parameters
+  EXPECT_EQ(summary.num_effective_parameters_reduced, 309);
+
+  CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
+  CheckConstantCamFromWorld(reconstruction.Image(1),
+                            orig_reconstruction.Image(1));
+
+  CheckVariableCamera(reconstruction.Camera(2), orig_reconstruction.Camera(2));
+  CheckConstantCamFromWorldTranslationCoord(reconstruction.Image(2),
+                                            orig_reconstruction.Image(2));
+
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    CheckVariablePoint(point3D, orig_reconstruction.Point3D(point3D_id));
+  }
+}
+
+TEST(DefaultBundleAdjuster, TwoViewRig) {
+  Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
