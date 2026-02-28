@@ -35,7 +35,8 @@ cmake .. `
     -DLSD_ENABLED="OFF" `
     -DCMAKE_BUILD_TYPE="Release" `
     -DCMAKE_TOOLCHAIN_FILE="${env:CMAKE_TOOLCHAIN_FILE}" `
-    -DVCPKG_TARGET_TRIPLET="${env:VCPKG_TARGET_TRIPLET}"
+    -DVCPKG_TARGET_TRIPLET="${env:VCPKG_TARGET_TRIPLET}" `
+    -DFETCHCONTENT_BASE_DIR="${env:FETCHCONTENT_BASE_DIR}"
 ninja install
 
 ccache --show-stats --verbose
