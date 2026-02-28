@@ -35,6 +35,7 @@
 #include "colmap/mvs/workspace.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/threading.h"
 
 #include <numeric>
 #include <set>
@@ -53,14 +54,13 @@ PatchMatch::~PatchMatch() {}
 void PatchMatch::Problem::Print() const {
   LOG_HEADING2("PatchMatch::Problem");
   LOG(INFO) << "ref_image_idx: " << ref_image_idx;
-  LOG(INFO) << "src_image_idxs: ";
-  if (!src_image_idxs.empty()) {
-    for (size_t i = 0; i < src_image_idxs.size() - 1; ++i) {
-      LOG(INFO) << src_image_idxs[i] << " ";
-    }
-    LOG(INFO) << src_image_idxs.back();
-  } else {
+  THROW_CHECK(!src_image_idxs.empty());
+  std::ostringstream src_image_idxs_stream;
+  for (size_t i = 0; i < src_image_idxs.size() - 1; ++i) {
+    src_image_idxs_stream << src_image_idxs[i] << " ";
   }
+  src_image_idxs_stream << src_image_idxs.back();
+  LOG(INFO) << "src_image_idxs: " << src_image_idxs_stream.str();
 }
 
 void PatchMatch::Check() const {
@@ -174,6 +174,8 @@ void PatchMatchController::Run() {
   ReadGpuIndices();
 
   thread_pool_ = std::make_unique<ThreadPool>(gpu_indices_.size());
+  io_thread_pool_ = std::make_unique<ThreadPool>(
+      GetEffectiveNumThreads(options_.num_threads));
 
   // If geometric consistency is enabled, then photometric output must be
   // computed first for all images without filtering.
@@ -461,7 +463,10 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
     std::unique_lock<std::mutex> lock(workspace_mutex_);
 
     LOG(INFO) << "Reading inputs...";
+
+    // Filter by file existence first (fast, no heavy I/O).
     std::vector<int> src_image_idxs;
+    std::vector<int> valid_image_idxs;
     for (const auto image_idx : used_image_idxs) {
       const auto image_path = workspace_->GetBitmapPath(image_idx);
       const auto depth_path = workspace_->GetDepthMapPath(image_idx);
@@ -485,15 +490,28 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
         }
       }
 
+      valid_image_idxs.push_back(image_idx);
       if (image_idx != problem.ref_image_idx) {
         src_image_idxs.push_back(image_idx);
       }
-      images.at(image_idx).SetBitmap(workspace_->GetBitmap(image_idx));
-      if (options.geom_consistency) {
-        depth_maps.at(image_idx) = workspace_->GetDepthMap(image_idx);
-        normal_maps.at(image_idx) = workspace_->GetNormalMap(image_idx);
-      }
     }
+
+    // Read images in parallel using the shared I/O thread pool.
+    std::vector<std::shared_future<void>> futures;
+    futures.reserve(valid_image_idxs.size());
+    for (const auto image_idx : valid_image_idxs) {
+      futures.push_back(io_thread_pool_->AddTask([&, image_idx]() {
+        images.at(image_idx).SetBitmap(workspace_->GetBitmap(image_idx));
+        if (options.geom_consistency) {
+          depth_maps.at(image_idx) = workspace_->GetDepthMap(image_idx);
+          normal_maps.at(image_idx) = workspace_->GetNormalMap(image_idx);
+        }
+      }));
+    }
+    for (auto& future : futures) {
+      future.get();
+    }
+
     problem.src_image_idxs = src_image_idxs;
   }
 

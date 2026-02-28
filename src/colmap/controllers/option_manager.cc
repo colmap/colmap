@@ -851,6 +851,8 @@ void OptionManager::AddPatchMatchStereoOptions() {
                    &patch_match_stereo->allow_missing_files);
   AddDefaultOption("PatchMatchStereo.write_consistency_graph",
                    &patch_match_stereo->write_consistency_graph);
+  AddDefaultOption("PatchMatchStereo.num_threads",
+                   &patch_match_stereo->num_threads);
 }
 
 void OptionManager::AddStereoFusionOptions() {

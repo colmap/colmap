@@ -96,6 +96,7 @@ class StereoOptionsTab : public OptionsWidget {
                     1);
     AddOptionBool(&options->patch_match_stereo->write_consistency_graph,
                   "write_consistency_graph");
+    AddOptionInt(&options->patch_match_stereo->num_threads, "num_threads", -1);
   }
 };
 
