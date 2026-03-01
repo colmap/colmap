@@ -132,7 +132,7 @@ if(TESTS_ENABLED)
         # all symbols are resolved at final executable link time.  Link PRIVATE
         # so GTest::gmock does not leak into the exported interface - consumers
         # of the installed package should not need GTest.  Test executables
-        # obtain gmock symbols through colmap_gtest_main -> GTest::gmock_main.
+        # obtain gmock symbols through colmap_gtest_main -> GTest::gmock.
         target_link_libraries(colmap_util PRIVATE GTest::gmock)
     endif()
 endif()
@@ -140,6 +140,7 @@ endif()
 if(TESTS_ENABLED)
     COLMAP_ADD_LIBRARY(
         NAME colmap_gtest_main
+        TYPE STATIC
         SRCS
             gtest_main.cc
         PUBLIC_LINK_LIBS
@@ -148,8 +149,9 @@ if(TESTS_ENABLED)
     )
     if(NOT BUILD_SHARED_LIBS)
         # With static builds, colmap_gtest_main provides gmock/gtest symbols
-        # to test executables via GTest::gmock_main (linked PUBLIC here).
-        target_link_libraries(colmap_gtest_main PUBLIC GTest::gmock_main)
+        # to test executables.  Use GTest::gmock (not GTest::gmock_main) to
+        # avoid conflicting with the custom main() in gtest_main.cc.
+        target_link_libraries(colmap_gtest_main PUBLIC GTest::gmock)
     endif()
 endif()
 

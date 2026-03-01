@@ -93,7 +93,6 @@ macro(COLMAP_ADD_LIBRARY)
     set(oneValueArgs TYPE)
     set(multiValueArgs NAME SRCS PRIVATE_LINK_LIBS PUBLIC_LINK_LIBS INTERFACE_LINK_LIBS)
     cmake_parse_arguments(COLMAP_ADD_LIBRARY "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
-    # Default to STATIC if TYPE is not specified
     if(COLMAP_ADD_LIBRARY_TYPE STREQUAL "INTERFACE")
         # Header-only library
         add_library(${COLMAP_ADD_LIBRARY_NAME} INTERFACE)
@@ -102,9 +101,9 @@ macro(COLMAP_ADD_LIBRARY)
         target_link_libraries(${COLMAP_ADD_LIBRARY_NAME}
             INTERFACE ${COLMAP_ADD_LIBRARY_INTERFACE_LINK_LIBS})
         target_compile_definitions(${COLMAP_ADD_LIBRARY_NAME} INTERFACE ${COLMAP_COMPILE_DEFINITIONS})
-    else(COLMAP_ADD_LIBRARY_TYPE STREQUAL "STATIC")
-        # Regular static library
-        add_library(${COLMAP_ADD_LIBRARY_NAME} ${COLMAP_ADD_LIBRARY_SRCS})
+    else()
+        # Regular library (TYPE can be STATIC to override BUILD_SHARED_LIBS).
+        add_library(${COLMAP_ADD_LIBRARY_NAME} ${COLMAP_ADD_LIBRARY_TYPE} ${COLMAP_ADD_LIBRARY_SRCS})
         set_target_properties(${COLMAP_ADD_LIBRARY_NAME} PROPERTIES FOLDER
             ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
         if(CLANG_TIDY_EXE)
