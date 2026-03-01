@@ -123,7 +123,9 @@ If there is a local `.python-version` file, use pyenv/uv for Python commands, `p
 
 ## Testing
 
-Follow C++ and Python build instructions above. Run ctest from the build directory.
+Follow C++ and Python build instructions above.
+
+Run ctest from the build directory:
 
 ```bash
 cd build
