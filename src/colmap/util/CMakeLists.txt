@@ -129,8 +129,11 @@ if(TESTS_ENABLED)
             $<TARGET_PROPERTY:GTest::gmock,INTERFACE_INCLUDE_DIRECTORIES>)
     else()
         # With static libraries there is no duplicate singleton problem since
-        # all symbols are resolved at final executable link time.
-        target_link_libraries(colmap_util PUBLIC GTest::gmock)
+        # all symbols are resolved at final executable link time.  Link PRIVATE
+        # so GTest::gmock does not leak into the exported interface - consumers
+        # of the installed package should not need GTest.  Test executables
+        # obtain gmock symbols through colmap_gtest_main -> GTest::gmock_main.
+        target_link_libraries(colmap_util PRIVATE GTest::gmock)
     endif()
 endif()
 
@@ -144,9 +147,8 @@ if(TESTS_ENABLED)
             glog::glog
     )
     if(NOT BUILD_SHARED_LIBS)
-        # With static builds, colmap_gtest_main needs gmock_main for the
-        # gtest/gmock symbols (they propagate from colmap_util via PUBLIC
-        # GTest::gmock, but gmock_main provides the canonical entry point).
+        # With static builds, colmap_gtest_main provides gmock/gtest symbols
+        # to test executables via GTest::gmock_main (linked PUBLIC here).
         target_link_libraries(colmap_gtest_main PUBLIC GTest::gmock_main)
     endif()
 endif()
