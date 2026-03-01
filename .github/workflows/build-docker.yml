@@ -72,11 +72,24 @@ jobs:
           else
             cuda_archs="50"
           fi
-          docker build . \
-            --file docker/Dockerfile \
-            --tag colmap/colmap:$dockertag \
-            --build-arg CUDA_ARCHITECTURES="$cuda_archs" \
+          mkdir -p build/.ccache build/_deps
+          docker_args=(
+            --file docker/Dockerfile
+            --build-arg CUDA_ARCHITECTURES="$cuda_archs"
             --build-arg FETCHCONTENT_FULLY_DISCONNECTED=${{ steps.cache-fetchcontent.outputs.cache-hit == 'true' && 'ON' || 'OFF' }}
+          )
+          docker build . \
+            "${docker_args[@]}" \
+            --tag colmap/colmap:$dockertag
+          # Extract updated build caches from the builder stage.
+          docker build . \
+            "${docker_args[@]}" \
+            --target cache-export \
+            --output type=local,dest=build/cache-export
+          rm -rf build/.ccache build/_deps
+          mv build/cache-export/.ccache build/.ccache
+          mv build/cache-export/_deps build/_deps
+          rm -rf build/cache-export
           if [[ "${{ env.IS_RELEASE }}" == "true" ]]; then
             docker tag colmap/colmap:$dockertag colmap/colmap:latest
             docker push colmap/colmap:$dockertag
