@@ -313,7 +313,10 @@ ImageReader::Status ImageReader::Next(Rig* rig,
 
     const std::optional<int> orientation = bitmap->ExifOrientation();
     if (orientation.has_value()) {
-      pose_prior->gravity = GravityFromExifOrientation(orientation.value());
+      const auto gravity = GravityFromExifOrientation(orientation.value());
+      if (gravity.has_value()) {
+        pose_prior->gravity = gravity.value();
+      }
     }
   }
 

@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 ARG UBUNTU_VERSION=24.04
 ARG NVIDIA_CUDA_VERSION=12.9.1
 
@@ -6,9 +8,11 @@ ARG NVIDIA_CUDA_VERSION=12.9.1
 #
 FROM nvidia/cuda:${NVIDIA_CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION} AS builder
 
-ARG COLMAP_GIT_COMMIT=main
 ARG CUDA_ARCHITECTURES=all-major
 ENV QT_XCB_GL_INTEGRATION=xcb_egl
+ARG FETCHCONTENT_FULLY_DISCONNECTED=OFF
+ENV CCACHE_DIR=/colmap/build/.ccache
+ENV CCACHE_BASEDIR=/colmap
 
 # Prevent stop building ubuntu at time zone selection.
 ENV DEBIAN_FRONTEND=noninteractive
@@ -16,7 +20,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Prepare and empty machine for building.
 RUN apt-get update && \
     apt-get install -y \
-        git \
+        ccache \
         cmake \
         ninja-build \
         build-essential \
@@ -46,17 +50,23 @@ RUN apt-get update && \
 # but it still requires the OpenCV include directory to exist.
 RUN mkdir -p /usr/include/opencv4
 
+# Copy source into the image.
+COPY . /colmap
+
 # Build and install COLMAP.
-RUN git clone https://github.com/colmap/colmap.git
-RUN cd colmap && \
-    git fetch https://github.com/colmap/colmap.git ${COLMAP_GIT_COMMIT} && \
-    git checkout FETCH_HEAD && \
-    mkdir build && \
+# The cache mounts provide cross-build caching for FetchContent deps and
+# compiler output in local builds. In CI, build/_deps is pre-populated via
+# actions/cache and COPY.
+RUN --mount=type=cache,target=/colmap/build/_deps,id=colmap-fetchcontent \
+    --mount=type=cache,target=/colmap/build/.ccache,id=colmap-ccache \
+    cd /colmap && \
+    mkdir -p build && \
     cd build && \
     cmake .. \
         -GNinja \
         -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES} \
         -DCMAKE_INSTALL_PREFIX=/colmap-install \
+        -DFETCHCONTENT_FULLY_DISCONNECTED=${FETCHCONTENT_FULLY_DISCONNECTED} \
         -DBLA_VENDOR=Intel10_64lp && \
     ninja install
 

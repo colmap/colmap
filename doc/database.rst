@@ -20,7 +20,7 @@ The database contains the following tables:
 - two_view_geometries
 
 To initialize an empty SQLite database file with the required schema, you can
-either create a new project in the GUI or execute ``src/colmap/exe/database_create.cc``.
+either create a new project in the GUI or run the ``colmap database_creator`` command.
 
 
 Rigs and Sensors
@@ -70,7 +70,7 @@ keypoints have 4 columns, then the feature geometry is a similarity and the
 third column is the scale and the fourth column the orientation of the feature
 (according to SIFT conventions). If the keypoints have 6 columns, then the
 feature geometry is an affinity and the last 4 columns encode its affine shape
-(see ``src/feature/types.h`` for details).
+(see ``src/colmap/feature/types.h`` for details).
 
 The extracted descriptors are stored as row-major binary blobs, where each row
 describes the feature appearance of the corresponding entry in the keypoints
@@ -127,4 +127,4 @@ the ``rows`` column specifies the number of feature matches.
 
 The F, E, H blobs in the ``two_view_geometries`` table are stored as 3x3 matrices
 in row-major ``float64`` format. The meaning of the ``config`` values are documented
-in the ``src/estimators/two_view_geometry.h`` source file.
+in the ``src/colmap/estimators/two_view_geometry.h`` source file.

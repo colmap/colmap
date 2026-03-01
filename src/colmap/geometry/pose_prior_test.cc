@@ -86,10 +86,14 @@ TEST(PosePrior, Print) {
 }
 
 TEST(PosePrior, GravityFromExifOrientation) {
-  EXPECT_EQ(GravityFromExifOrientation(1), Eigen::Vector3d(0, 1, 0));
-  EXPECT_EQ(GravityFromExifOrientation(3), Eigen::Vector3d(0, -1, 0));
-  EXPECT_EQ(GravityFromExifOrientation(6), Eigen::Vector3d(1, 0, 0));
-  EXPECT_EQ(GravityFromExifOrientation(8), Eigen::Vector3d(-1, 0, 0));
+  EXPECT_EQ(GravityFromExifOrientation(1).value(), Eigen::Vector3d(0, 1, 0));
+  EXPECT_EQ(GravityFromExifOrientation(3).value(), Eigen::Vector3d(0, -1, 0));
+  EXPECT_EQ(GravityFromExifOrientation(6).value(), Eigen::Vector3d(1, 0, 0));
+  EXPECT_EQ(GravityFromExifOrientation(8).value(), Eigen::Vector3d(-1, 0, 0));
+  EXPECT_FALSE(GravityFromExifOrientation(2).has_value());
+  EXPECT_FALSE(GravityFromExifOrientation(4).has_value());
+  EXPECT_FALSE(GravityFromExifOrientation(5).has_value());
+  EXPECT_FALSE(GravityFromExifOrientation(7).has_value());
 }
 
 TEST(PosePrior, ComputeRot90FromGravity) {

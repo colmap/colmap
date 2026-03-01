@@ -51,6 +51,15 @@ The following feature matcher types are available:
 - ``ALIKED_BRUTEFORCE``: Brute-force matching for ALIKED descriptors. Uses
   cosine similarity. Requires ONNX support to be enabled at build time.
 
+- ``SIFT_LIGHTGLUE``: Neural network-based matching using the LightGlue model
+  for SIFT descriptors. This typically produces more matches and higher inlier
+  ratios than brute-force matching, especially for challenging image pairs with
+  large viewpoint or illumination changes. Requires ONNX support to be enabled
+  at build time.
+
+- ``ALIKED_LIGHTGLUE``: Neural network-based matching using the LightGlue model
+  for ALIKED descriptors. Requires ONNX support to be enabled at build time.
+
 To select a feature matcher type via the command-line::
 
     $ colmap exhaustive_matcher \
@@ -75,8 +84,8 @@ Compatible Extractor and Matcher Types
 
 The feature extractor and matcher types should be compatible:
 
-- Use ``SIFT`` extraction with ``SIFT_BRUTEFORCE`` matching.
-- Use ``ALIKED_*`` extraction with ``ALIKED_BRUTEFORCE`` matching.
+- Use ``SIFT`` extraction with ``SIFT_BRUTEFORCE`` or ``SIFT_LIGHTGLUE`` matching.
+- Use ``ALIKED_*`` extraction with ``ALIKED_BRUTEFORCE`` or ``ALIKED_LIGHTGLUE`` matching.
 
 Mixing incompatible types (e.g., SIFT features with ALIKED matcher) will
 result in a runtime error. Do not mix different feature extractor types

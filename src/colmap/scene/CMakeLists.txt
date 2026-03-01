@@ -31,16 +31,28 @@
 set(FOLDER_NAME "scene")
 
 COLMAP_ADD_LIBRARY(
-    NAME colmap_scene
+    NAME colmap_scene_types
     SRCS
         camera.h camera.cc
+        frame.h frame.cc
+        image.h image.cc
+        point2d.h point2d.cc
+        two_view_geometry.h two_view_geometry.cc
+    PUBLIC_LINK_LIBS
+        colmap_sensor
+        colmap_feature_types
+        colmap_geometry
+        colmap_util
+        Eigen3::Eigen
+)
+
+COLMAP_ADD_LIBRARY(
+    NAME colmap_scene
+    SRCS
         correspondence_graph.h correspondence_graph.cc
         database.h database.cc
         database_sqlite.h database_sqlite.cc
         database_cache.h database_cache.cc
-        frame.h frame.cc
-        image.h image.cc
-        point2d.h point2d.cc
         point3d.h point3d.cc
         pose_graph.h pose_graph.cc
         projection.h projection.cc
@@ -56,12 +68,9 @@ COLMAP_ADD_LIBRARY(
         scene_clustering.h scene_clustering.cc
         synthetic.h synthetic.cc
         track.h track.cc
-        two_view_geometry.h two_view_geometry.cc
         visibility_pyramid.h visibility_pyramid.cc
     PUBLIC_LINK_LIBS
-        colmap_sensor
-        colmap_feature_types
-        colmap_geometry
+        colmap_scene_types
         colmap_util
         Eigen3::Eigen
         SQLite::SQLite3

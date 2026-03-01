@@ -70,8 +70,8 @@ class LRUCache {
   void Clear();
 
  private:
-  typedef typename std::pair<key_t, std::shared_ptr<value_t>> key_value_pair_t;
-  typedef typename std::list<key_value_pair_t>::iterator list_iterator_t;
+  using key_value_pair_t = typename std::pair<key_t, std::shared_ptr<value_t>>;
+  using list_iterator_t = typename std::list<key_value_pair_t>::iterator;
 
   // Maximum number of least-recently-used elements the cache remembers.
   const size_t max_num_elems_;
@@ -166,8 +166,8 @@ class MemoryConstrainedLRUCache {
   void Clear();
 
  private:
-  typedef typename std::pair<key_t, std::shared_ptr<value_t>> key_value_pair_t;
-  typedef typename std::list<key_value_pair_t>::iterator list_iterator_t;
+  using key_value_pair_t = typename std::pair<key_t, std::shared_ptr<value_t>>;
+  using list_iterator_t = typename std::list<key_value_pair_t>::iterator;
 
   const size_t max_num_bytes_;
   size_t num_bytes_;

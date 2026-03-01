@@ -46,12 +46,12 @@
 
 namespace colmap {
 
-typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-    FeatureKeypointsBlob;
-typedef Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-    FeatureDescriptorsBlob;
-typedef Eigen::Matrix<point2D_t, Eigen::Dynamic, 2, Eigen::RowMajor>
-    FeatureMatchesBlob;
+using FeatureKeypointsBlob =
+    Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+using FeatureDescriptorsBlob =
+    Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+using FeatureMatchesBlob =
+    Eigen::Matrix<point2D_t, Eigen::Dynamic, 2, Eigen::RowMajor>;
 
 // Database class to read and write images, features, cameras, matches, etc.
 // from a SQLite database. The class is not thread-safe and must not be accessed

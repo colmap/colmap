@@ -33,10 +33,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include <complex>
 #include <limits>
-#include <list>
-#include <stdexcept>
 #include <utility>
 #include <vector>
 

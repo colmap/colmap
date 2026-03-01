@@ -163,6 +163,12 @@ struct IncrementalPipelineOptions {
   // all images will be reconstructed by default.
   std::vector<std::string> image_names;
 
+  // Whether to load all images from the database, including those without
+  // correspondences. Only useful for triangulation where all images are
+  // already registered and should retain their keypoints. Should not be
+  // enabled for incremental SfM.
+  bool load_all_images = false;
+
   // If reconstruction is provided as input, fix the existing frame poses.
   bool fix_existing_frames = false;
 

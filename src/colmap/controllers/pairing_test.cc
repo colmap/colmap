@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/feature/pairing.h"
+#include "colmap/controllers/pairing.h"
 
 #include "colmap/feature/types.h"
 #include "colmap/retrieval/visual_index.h"

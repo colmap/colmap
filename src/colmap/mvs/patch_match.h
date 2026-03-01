@@ -148,6 +148,7 @@ class PatchMatchController : public BaseController {
   const std::filesystem::path config_path_;
 
   std::unique_ptr<ThreadPool> thread_pool_;
+  std::unique_ptr<ThreadPool> io_thread_pool_;
   std::mutex workspace_mutex_;
   std::unique_ptr<Workspace> workspace_;
   std::vector<PatchMatch::Problem> problems_;

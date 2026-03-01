@@ -6,7 +6,7 @@ Adjusting the options for different reconstruction scenarios and output quality
 
 COLMAP provides many options that can be tuned for different reconstruction
 scenarios and to trade off accuracy and completeness versus efficiency. The
-default options are set to for medium to high quality reconstruction of
+default options are set for medium to high quality reconstruction of
 unstructured input data. There are several presets for different scenarios and
 quality levels, which can be set in the GUI as ``Extras > Set options for ...``.
 To use these presets from the command-line, you can save the current set of
@@ -20,15 +20,128 @@ Extending COLMAP
 ----------------
 
 If you need to simply analyze the produced sparse or dense reconstructions from
-COLMAP, you can load the sparse models in Python and Matlab using the provided
-scripts in ``scripts/python`` and ``scripts/matlab``.
+COLMAP, you can load the sparse models using pycolmap in Python or the
+scripts in ``scripts/matlab`` for Matlab.
 
 If you want to write a C/C++ executable that builds on top of COLMAP, there are
 two possible approaches. First, the COLMAP headers and library are installed
 to the ``CMAKE_INSTALL_PREFIX`` by default. Compiling against COLMAP as a
 library is described :ref:`here <installation-library>`. Alternatively, you can
-start from the ``src/tools/example.cc`` code template and implement the desired
+start from the ``src/colmap/tools/example.cc`` code template and implement the desired
 functionality directly as a new binary within COLMAP.
+
+
+Choosing between SIFT and ALIKED features
+-----------------------------------------
+
+COLMAP supports two feature extraction algorithms: SIFT (default) and ALIKED
+(requires ONNX support). Here are some guidelines for choosing between them:
+
+- **SIFT** is the most widely tested and robust choice. It works well for
+  scenarios with moderate to high view overlap, sufficient scene texture,
+  and captured under similar illumination conditiions. It supports both GPU
+  and CPU extraction.
+
+- **ALIKED** is a learned feature extractor that can produce more repeatable
+  features in some cases, particularly for scenes with limited view overlap,
+  little scene texture, and drastic illumination changes. It requires ONNX
+  Runtime at build time (``-DONNX_ENABLED=ON``).
+
+Both feature types support brute-force matching as well as LightGlue neural
+network-based matching. LightGlue typically produces higher inlier ratios,
+especially for image pairs with large viewpoint or illumination changes, but
+requires ONNX support. See :ref:`Feature Extraction and Matching <features>`
+for details on available options.
+
+Do not mix different feature types (e.g., SIFT and ALIKED) in the same
+database, as the descriptors are incompatible.
+
+
+.. _faq-choosing-camera-model:
+
+Choosing the right camera model
+-------------------------------
+
+COLMAP supports many camera models with varying numbers of parameters (see
+:doc:`cameras` for the full list). Choosing the right model depends on your
+lens type and reconstruction requirements:
+
+- **SIMPLE_RADIAL** (default): A good starting point for most standard cameras.
+  Models a single focal length, principal point, and one radial distortion
+  parameter.
+
+- **PINHOLE**: Use if your images have negligible lens distortion (e.g.,
+  already undistorted images or high-quality industrial lenses).
+
+- **OPENCV**: A good choice for wider-angle lenses with moderate distortion.
+  Models 2 focal lengths, principal point, and 4 distortion parameters (2 radial
+  + 2 tangential).
+
+- **SIMPLE_RADIAL_FISHEYE** or **OPENCV_FISHEYE**: Use for fisheye lenses with
+  a field of view significantly larger than 120 degrees.
+
+- **FULL_OPENCV**: Use only when you have many images sharing intrinsics
+  and need to model complex distortion patterns. With 12 parameters, this model
+  requires a large number of observations to converge reliably.
+
+As a rule of thumb, use the simplest model that adequately describes your lens.
+Overly complex models with many parameters can lead to degenerate or overfitted
+calibration, especially when few images share intrinsics. If in doubt, start
+with ``SIMPLE_RADIAL`` and inspect the reprojection errors in the model
+statistics.
+
+
+Choosing between incremental, global, and hierarchical SfM
+----------------------------------------------------------
+
+COLMAP offers three SfM pipelines:
+
+- **Incremental mapper** (``mapper``, default): Reconstructs the scene by
+  incrementally adding one image at a time. This is the most robust and
+  well-tested pipeline, but can become slow for large image collections.
+
+- **Global mapper** (``global_mapper``): Solves for all camera poses
+  simultaneously using rotation averaging and global positioning. This can be
+  faster for large datasets with good matching graphs, but may be less robust
+  to outliers in the matching.
+
+- **Hierarchical mapper** (``hierarchical_mapper``): Partitions the scene into
+  overlapping sub-models and reconstructs each independently, then merges them.
+  This is useful for very large-scale datasets where the incremental approach
+  becomes too slow but is usually less robust than the other two pipelines.
+
+All three can also be selected via the ``automatic_reconstructor`` using
+``--mapper INCREMENTAL``, ``--mapper GLOBAL``, or ``--mapper HIERARCHICAL``.
+
+
+Reconstruction with pose priors (GPS)
+-------------------------------------
+
+If your images have GPS information in their EXIF metadata, COLMAP
+automatically extracts and stores it as pose priors in the database during
+feature extraction. These priors can then be used during reconstruction with
+the ``pose_prior_mapper``::
+
+    colmap feature_extractor \
+        --database_path $PROJECT_PATH/database.db \
+        --image_path $PROJECT_PATH/images
+
+    colmap exhaustive_matcher \
+        --database_path $PROJECT_PATH/database.db
+
+    colmap pose_prior_mapper \
+        --database_path $PROJECT_PATH/database.db \
+        --image_path $PROJECT_PATH/images \
+        --output_path $PROJECT_PATH/sparse
+
+The ``pose_prior_mapper`` is essentially the incremental mapper with prior
+position constraints enabled. You can control the prior covariance (uncertainty)
+using ``--prior_position_std_x``, ``--prior_position_std_y``, and
+``--prior_position_std_z`` (default: 1.0 meter each), or override all priors'
+covariance with ``--overwrite_priors_covariance``.
+
+For geo-registration of an already reconstructed model (without using priors
+during mapping), see the `Geo-registration`_ section.
 
 
 .. _faq-share-intrinsics:
@@ -136,8 +249,8 @@ images of the known camera poses as follows::
 If your known camera intrinsics have large distortion coefficients, you should
 now manually copy the parameters from your ``cameras.txt`` to the database, such
 that the matcher can leverage the intrinsics. Modifying the database is possible
-in many ways, but an easy option is to use the provided
-``scripts/python/database.py`` script. Otherwise, you can skip this step and
+in many ways, but an easy option is to use pycolmap's database API.
+Otherwise, you can skip this step and
 simply continue as follows::
 
     colmap exhaustive_matcher \ # or alternatively any other matcher
@@ -280,6 +393,17 @@ In both cases no features will be extracted in regions,
 where the mask image is black (pixel intensity value 0 in grayscale).
 
 
+Image orientation and EXIF
+--------------------------
+
+COLMAP automatically reads the EXIF orientation tag from images during feature
+extraction. The orientation is converted to a gravity direction vector in sensor
+coordinates, which is stored as part of the pose prior in the database. This
+gravity information is used during feature extraction and matching to improve
+robustness against image rotation. This is crucial for feature extractors/matchers
+with limited orientation invariance, such as ALIKED and LightGlue.
+
+
 
 Register/localize new images into an existing reconstruction
 ------------------------------------------------------------
@@ -391,12 +515,12 @@ required GPU memory will be around 400MB, which are only allocated if one of
 your images actually has that many features.
 
 
-Speedup bundle adjustemnt
+Speedup bundle adjustment
 -------------------------
 
 The following describes practical ways to reduce bundle adjustment runtime.
 
-- **Reduce the problem size** 
+- **Reduce the problem size**
 
   Limit the number of correspondences so that BA solves a smaller problem:
 
@@ -421,12 +545,12 @@ The following describes practical ways to reduce bundle adjustment runtime.
   - Select between the direct dense, direct sparse, and iterative sparse GPU solvers
     using ``--BundleAdjustmentCeres.max_num_images_direct_dense_gpu_solver`` and
     ``--BundleAdjustmentCeres.max_num_images_direct_sparse_gpu_solver``
-      
-  .. Attention:: COLMAP's official CUDA-enabled binaries are not distributed with 
-     ceres[cuda] until Ceres 2.3 is officially released. To use the GPU solvers you
-     must compile Ceres with the CUDA/cuDSS support and link that build to COLMAP. 
 
-  **Note:** Low GPU utilization for the Schur-based sparse solver (cuDSS) can occur 
+  .. Attention:: COLMAP's official CUDA-enabled binaries are not distributed with
+     ceres[cuda] until Ceres 2.3 is officially released. To use the GPU solvers you
+     must compile Ceres with the CUDA/cuDSS support and link that build to COLMAP.
+
+  **Note:** Low GPU utilization for the Schur-based sparse solver (cuDSS) can occur
   when the Schur-complement matrix becomes less sparse (i.e., exhibits more fill-in).
   Typical causes include:
 
@@ -438,12 +562,12 @@ The following describes practical ways to reduce bundle adjustment runtime.
   - Improve initial conditions by tuning observation-filtering parameters so BA
     receives more inliers and fewer outliers, or by supplying accurate priors
     (e.g., intrinsics, poses).
-  - Fix or restrict refinement of parameters when possible (e.g., hold intrinsics 
+  - Fix or restrict refinement of parameters when possible (e.g., hold intrinsics
     fixed if they are known) to reduce the number of optimized variables.
-  - Reduce LM iterations or relax convergence tolerances to trade a small amount of 
-    accuracy for runtime: ``--Mapper.ba_global_max_num_iterations``, 
+  - Reduce LM iterations or relax convergence tolerances to trade a small amount of
+    accuracy for runtime: ``--Mapper.ba_global_max_num_iterations``,
     ``--Mapper.ba_global_function_tolerance``.
-  - Reduce the frequency of expensive global BA passes with mapper options: 
+  - Reduce the frequency of expensive global BA passes with mapper options:
     ``--Mapper.ba_global_frames_freq``, ``--Mapper.ba_global_points_freq``,
     ``--Mapper.ba_global_frames_ratio`` and ``--Mapper.ba_global_points_ratio``.
 
@@ -456,13 +580,13 @@ increase the value of option ``--StereoFusion.min_num_pixels``.
 
 If the reconstructed dense surface mesh model using Poisson reconstruction
 contains no surface or there are too many outlier surfaces, you should reduce
-the value of option ``--PoissonMeshing.trim`` to decrease the surface are and
+the value of option ``--PoissonMeshing.trim`` to decrease the surface area and
 vice versa to increase it. Also consider to try the reduce the outliers or
 increase the completeness in the fusion stage, as described above.
 
 If the reconstructed dense surface mesh model using Delaunay reconstruction
 contains too noisy or incomplete surfaces, you should increase the
-``--DenaunayMeshing.quality_regularization`` parameter to obtain a smoother
+``--DelaunayMeshing.quality_regularization`` parameter to obtain a smoother
 surface. If the resolution of the mesh is too coarse, you should reduce the
 ``--DelaunayMeshing.max_proj_dist`` option to a lower value.
 

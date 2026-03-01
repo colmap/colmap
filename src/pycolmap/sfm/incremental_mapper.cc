@@ -190,6 +190,11 @@ void BindIncrementalPipeline(py::module& m) {
           &Opts::image_names,
           "Optional list of image names to reconstruct. If no images are "
           "specified, all images will be reconstructed by default.")
+      .def_readwrite(
+          "load_all_images",
+          &Opts::load_all_images,
+          "Whether to load all images from the database, including those "
+          "without correspondences. Only useful for triangulation.")
       .def_readwrite("fix_existing_frames",
                      &Opts::fix_existing_frames,
                      "If reconstruction is provided as input, fix the existing "

@@ -87,8 +87,8 @@ std::unique_ptr<faiss::IndexIVF> BuildFaissIndex(
 template <int kDescDim = 128, int kEmbeddingDim = 64>
 class FaissVisualIndex : public VisualIndex {
  public:
-  typedef InvertedIndex<float, kDescDim, kEmbeddingDim> InvertedIndexType;
-  typedef typename InvertedIndexType::EntryType EntryType;
+  using InvertedIndexType = InvertedIndex<float, kDescDim, kEmbeddingDim>;
+  using EntryType = typename InvertedIndexType::EntryType;
 
   FaissVisualIndex()
       : prepared_(false), feature_type_(FeatureExtractorType::UNDEFINED) {}
@@ -195,9 +195,8 @@ class FaissVisualIndex : public VisualIndex {
     }
 
     // Find matches for top-ranked images
-    typedef std::vector<
-        std::pair<float, std::pair<const EntryType*, const EntryType*>>>
-        OrderedMatchListType;
+    using OrderedMatchListType = std::vector<
+        std::pair<float, std::pair<const EntryType*, const EntryType*>>>;
 
     // Reference our matches (with their lowest distance) for both
     // {query feature => db feature} and vice versa.
@@ -295,8 +294,8 @@ class FaissVisualIndex : public VisualIndex {
       // feature. We'll select these matches one at a time. For convenience,
       // we'll also pre-sort the matched feature lists by matching score.
 
-      typedef boost::heap::fibonacci_heap<std::pair<int, int>>
-          FibonacciHeapType;
+      using FibonacciHeapType =
+          boost::heap::fibonacci_heap<std::pair<int, int>>;
       FibonacciHeapType query_heap;
       FibonacciHeapType db_heap;
       std::unordered_map<int, typename FibonacciHeapType::handle_type>

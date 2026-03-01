@@ -44,12 +44,13 @@ namespace {
 
 void ScaleKeypoints(int bitmap_width,
                     int bitmap_height,
-                    const Camera& camera,
+                    size_t camera_width,
+                    size_t camera_height,
                     FeatureKeypoints* keypoints) {
-  if (static_cast<size_t>(bitmap_width) != camera.width ||
-      static_cast<size_t>(bitmap_height) != camera.height) {
-    const float scale_x = static_cast<float>(camera.width) / bitmap_width;
-    const float scale_y = static_cast<float>(camera.height) / bitmap_height;
+  if (static_cast<size_t>(bitmap_width) != camera_width ||
+      static_cast<size_t>(bitmap_height) != camera_height) {
+    const float scale_x = static_cast<float>(camera_width) / bitmap_width;
+    const float scale_y = static_cast<float>(camera_height) / bitmap_height;
     for (auto& keypoint : *keypoints) {
       keypoint.Rescale(scale_x, scale_y);
     }
@@ -194,7 +195,7 @@ class FeatureExtractorThread : public Thread {
         if (image_data.status == ImageReader::Status::SUCCESS) {
           const int orig_width = image_data.bitmap.Width();
           const int orig_height = image_data.bitmap.Height();
-          int rot90 =
+          const int rot90 =
               image_data.pose_prior.HasGravity()
                   ? ComputeRot90FromGravity(image_data.pose_prior.gravity)
                   : 0;
@@ -213,7 +214,8 @@ class FeatureExtractorThread : public Thread {
             }
             ScaleKeypoints(orig_width,
                            orig_height,
-                           image_data.camera,
+                           image_data.camera.width,
+                           image_data.camera.height,
                            &image_data.keypoints);
             if (camera_mask_) {
               MaskFeatures(*camera_mask_,

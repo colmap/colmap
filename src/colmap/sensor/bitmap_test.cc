@@ -468,6 +468,19 @@ TEST(Bitmap, CloneMetaData) {
   EXPECT_EQ(value, kValue);
 }
 
+TEST(Bitmap, ExifOrientation) {
+  Bitmap bitmap(100, 80, /*as_rgb=*/true);
+
+  EXPECT_FALSE(bitmap.ExifOrientation().has_value());
+
+  int orientation = 6;
+  bitmap.SetMetaData("Orientation", "int", &orientation);
+
+  const auto exif_orientation = bitmap.ExifOrientation();
+  EXPECT_TRUE(exif_orientation.has_value());
+  EXPECT_EQ(exif_orientation.value(), 6);
+}
+
 TEST(Bitmap, ExifCameraModel) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
 

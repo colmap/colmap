@@ -82,7 +82,7 @@ class RotationAveragingPipeline : public BaseController {
 
  private:
   const RotationAveragingPipelineOptions options_;
-  std::shared_ptr<const DatabaseCache> database_cache_;
+  std::shared_ptr<DatabaseCache> database_cache_;
   std::shared_ptr<Reconstruction> reconstruction_;
 };
 

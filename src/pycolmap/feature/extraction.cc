@@ -1,20 +1,20 @@
+#include "colmap/feature/extractor.h"
 #include "colmap/feature/sift.h"
-#include "colmap/feature/utils.h"
 #ifdef COLMAP_ONNX_ENABLED
 #include "colmap/feature/aliked.h"
 #endif
 
 #include "pycolmap/helpers.h"
+#include "pycolmap/sensor/bitmap.h"
 #include "pycolmap/utils.h"
 
+#include <algorithm>
 #include <memory>
 
 #include <Eigen/Core>
 #include <pybind11/eigen.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
-
-inline static constexpr int kKeypointDim = 4;
 
 using namespace colmap;
 using namespace pybind11::literals;
@@ -26,9 +26,7 @@ using pyimage_t =
 
 typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
     descriptors_t;
-typedef Eigen::Matrix<float, Eigen::Dynamic, kKeypointDim, Eigen::RowMajor>
-    keypoints_t;
-typedef std::tuple<keypoints_t, descriptors_t> sift_output_t;
+typedef std::tuple<FeatureKeypointsMatrix, descriptors_t> sift_output_t;
 
 static std::map<int, std::unique_ptr<std::mutex>> sift_gpu_mutexes;
 
@@ -47,29 +45,47 @@ double MaybeRescaleBitmap(Bitmap& bitmap, int max_image_size) {
   return scale;
 }
 
-// Convert FeatureKeypoints to keypoints_t, scaling coordinates by inv_scale.
-keypoints_t ConvertKeypoints(const FeatureKeypoints& feature_keypoints,
-                             double inv_scale) {
-  const size_t num_features = feature_keypoints.size();
-  keypoints_t keypoints(num_features, kKeypointDim);
-  for (size_t i = 0; i < num_features; ++i) {
-    keypoints(i, 0) = feature_keypoints[i].x * inv_scale;
-    keypoints(i, 1) = feature_keypoints[i].y * inv_scale;
-    keypoints(i, 2) = feature_keypoints[i].ComputeScale() * inv_scale;
-    keypoints(i, 3) = feature_keypoints[i].ComputeOrientation();
+namespace {
+
+class PyFeatureExtractor : public FeatureExtractor,
+                           py::trampoline_self_life_support {
+ public:
+  static std::unique_ptr<FeatureExtractor> CreateOnDevice(
+      std::optional<FeatureExtractionOptions> options, Device device) {
+    if (options) {
+      if (options->use_gpu != IsGPU(device)) {
+        LOG(WARNING) << "FeatureExtractionOptions::use_gpu does not match "
+                        "device. FeatureExtractionOptions::use_gpu is ignored.";
+      }
+    } else {
+      options = FeatureExtractionOptions();
+    }
+    options->use_gpu = IsGPU(device);
+    return THROW_CHECK_NOTNULL(FeatureExtractor::Create(*options));
   }
-  return keypoints;
-}
+
+  bool Extract(const Bitmap& bitmap,
+               FeatureKeypoints* keypoints,
+               FeatureDescriptors* descriptors) override {
+    PYBIND11_OVERRIDE_PURE(
+        bool, FeatureExtractor, Extract, bitmap, keypoints, descriptors);
+  }
+};
+
+}  // namespace
 
 class Sift {
  public:
   Sift(std::optional<FeatureExtractionOptions> options, Device device)
       : use_gpu_(IsGPU(device)) {
+    PyErr_WarnEx(PyExc_DeprecationWarning,
+                 "pycolmap.Sift is deprecated, use "
+                 "pycolmap.FeatureExtractor.create() instead.",
+                 1);
     if (options) {
       options_ = std::move(*options);
     }
     options_.use_gpu = use_gpu_;
-    THROW_CHECK(options_.Check());
     extractor_ = THROW_CHECK_NOTNULL(CreateSiftFeatureExtractor(options_));
   }
 
@@ -84,7 +100,11 @@ class Sift {
     THROW_CHECK(
         extractor_->Extract(bitmap, &feature_keypoints, &feature_descriptors));
 
-    keypoints_t keypoints = ConvertKeypoints(feature_keypoints, 1.0 / scale);
+    FeatureKeypointsMatrix keypoints = KeypointsToMatrix(feature_keypoints);
+    const double inv_scale = 1.0 / scale;
+    keypoints.col(0) *= inv_scale;
+    keypoints.col(1) *= inv_scale;
+    keypoints.col(2) *= inv_scale;
     descriptors_t descriptors = feature_descriptors.ToFloat().data;
     descriptors /= 512.0f;
 
@@ -105,61 +125,6 @@ class Sift {
   FeatureExtractionOptions options_;
   bool use_gpu_ = false;
 };
-
-#ifdef COLMAP_ONNX_ENABLED
-typedef std::tuple<keypoints_t, descriptors_t> aliked_output_t;
-
-class Aliked {
- public:
-  Aliked(std::optional<FeatureExtractionOptions> options, Device device)
-      : use_gpu_(IsGPU(device)) {
-    if (options) {
-      options_ = std::move(*options);
-    } else {
-      options_.type = FeatureExtractorType::ALIKED_N16ROT;
-    }
-    options_.use_gpu = use_gpu_;
-    THROW_CHECK(options_.Check());
-    extractor_ = THROW_CHECK_NOTNULL(CreateAlikedFeatureExtractor(options_));
-  }
-
-  aliked_output_t Extract(const Eigen::Ref<const pyimage_t<uint8_t>>& image) {
-    THROW_CHECK(image.rows() > 0 && image.cols() > 0);
-    // For RGB images, cols = width * 3
-    THROW_CHECK_EQ(image.cols() % 3, 0);
-    const int width = image.cols() / 3;
-
-    Bitmap bitmap(width, image.rows(), /*as_rgb=*/true);
-    std::memcpy(bitmap.RowMajorData().data(), image.data(), bitmap.NumBytes());
-
-    const double scale = MaybeRescaleBitmap(bitmap, options_.EffMaxImageSize());
-
-    FeatureKeypoints feature_keypoints;
-    FeatureDescriptors feature_descriptors;
-    THROW_CHECK(
-        extractor_->Extract(bitmap, &feature_keypoints, &feature_descriptors));
-
-    keypoints_t keypoints = ConvertKeypoints(feature_keypoints, 1.0 / scale);
-    descriptors_t descriptors = feature_descriptors.ToFloat().data;
-
-    return std::make_tuple(std::move(keypoints), std::move(descriptors));
-  }
-
-  aliked_output_t Extract(const Eigen::Ref<const pyimage_t<float>>& image) {
-    const pyimage_t<uint8_t> image_u8 = (image * 255.0f).cast<uint8_t>();
-    return Extract(image_u8);
-  }
-
-  const FeatureExtractionOptions& Options() const { return options_; };
-
-  Device GetDevice() const { return (use_gpu_) ? Device::CUDA : Device::CPU; };
-
- private:
-  std::unique_ptr<FeatureExtractor> extractor_;
-  FeatureExtractionOptions options_;
-  bool use_gpu_ = false;
-};
-#endif
 
 void BindFeatureExtraction(py::module& m) {
   auto PyNormalization =
@@ -254,7 +219,9 @@ void BindFeatureExtraction(py::module& m) {
 
   auto PyFeatureExtractionOptions =
       py::classh<FeatureExtractionOptions>(m, "FeatureExtractionOptions")
-          .def(py::init<>())
+          .def(py::init<FeatureExtractorType>(),
+               "type"_a = FeatureExtractorType::SIFT)
+          .def_readwrite("type", &FeatureExtractionOptions::type)
           .def_readwrite(
               "max_image_size",
               &FeatureExtractionOptions::max_image_size,
@@ -283,6 +250,60 @@ void BindFeatureExtraction(py::module& m) {
 #endif
   MakeDataclass(PyFeatureExtractionOptions);
 
+  py::classh<FeatureExtractor, PyFeatureExtractor>(m, "FeatureExtractor")
+      .def_static("create",
+                  &PyFeatureExtractor::CreateOnDevice,
+                  "options"_a = std::nullopt,
+                  "device"_a = Device::AUTO)
+      .def(
+          "extract",
+          [](FeatureExtractor& self, const Bitmap& bitmap) {
+            FeatureKeypoints keypoints;
+            FeatureDescriptors descriptors;
+            THROW_CHECK(self.Extract(bitmap, &keypoints, &descriptors));
+            return py::make_tuple(std::move(keypoints), std::move(descriptors));
+          },
+          "bitmap"_a,
+          "Extract features from a Bitmap. Returns (FeatureKeypoints, "
+          "FeatureDescriptors).")
+      .def(
+          "extract_from_uint8_array",
+          [](FeatureExtractor& self,
+             py::array_t<uint8_t, py::array::c_style> image) {
+            const Bitmap bitmap = BitmapFromArray(image);
+            FeatureKeypoints keypoints;
+            FeatureDescriptors descriptors;
+            THROW_CHECK(self.Extract(bitmap, &keypoints, &descriptors));
+            return py::make_tuple(std::move(keypoints), std::move(descriptors));
+          },
+          "image"_a,
+          "Extract features from a uint8 numpy array with shape (H, W) or "
+          "(H, W, 3). Returns (FeatureKeypoints, FeatureDescriptors).")
+      .def(
+          "extract_from_float32_array",
+          [](FeatureExtractor& self,
+             py::array_t<float, py::array::c_style> image) {
+            auto buf = image.request();
+            std::vector<size_t> shape(buf.shape.begin(), buf.shape.end());
+            py::array_t<uint8_t> image_u8(shape);
+            const float* src = static_cast<const float*>(buf.ptr);
+            uint8_t* dst = static_cast<uint8_t*>(image_u8.request().ptr);
+            const size_t num_elements = buf.size;
+            for (size_t i = 0; i < num_elements; ++i) {
+              dst[i] = static_cast<uint8_t>(
+                  std::clamp(src[i] * 255.0f, 0.0f, 255.0f));
+            }
+            const Bitmap bitmap = BitmapFromArray(image_u8);
+            FeatureKeypoints keypoints;
+            FeatureDescriptors descriptors;
+            THROW_CHECK(self.Extract(bitmap, &keypoints, &descriptors));
+            return py::make_tuple(std::move(keypoints), std::move(descriptors));
+          },
+          "image"_a,
+          "Extract features from a float32 numpy array with values in "
+          "[0, 1] and shape (H, W) or (H, W, 3). Returns "
+          "(FeatureKeypoints, FeatureDescriptors).");
+
   py::classh<Sift>(m, "Sift")
       .def(py::init<std::optional<FeatureExtractionOptions>, Device>(),
            "options"_a = std::nullopt,
@@ -297,26 +318,4 @@ void BindFeatureExtraction(py::module& m) {
            "image"_a.noconvert())
       .def_property_readonly("options", &Sift::Options)
       .def_property_readonly("device", &Sift::GetDevice);
-
-#ifdef COLMAP_ONNX_ENABLED
-  py::classh<Aliked>(m, "Aliked")
-      .def(py::init<std::optional<FeatureExtractionOptions>, Device>(),
-           "options"_a = std::nullopt,
-           "device"_a = Device::AUTO)
-      .def("extract",
-           py::overload_cast<const Eigen::Ref<const pyimage_t<uint8_t>>&>(
-               &Aliked::Extract),
-           "image"_a.noconvert(),
-           "Extract ALIKED features from an RGB image. The image should be "
-           "passed as a 2D array with shape (height, width * 3) where the "
-           "last dimension contains interleaved RGB values.")
-      .def("extract",
-           py::overload_cast<const Eigen::Ref<const pyimage_t<float>>&>(
-               &Aliked::Extract),
-           "image"_a.noconvert(),
-           "Extract ALIKED features from an RGB image with float values in "
-           "[0, 1] range.")
-      .def_property_readonly("options", &Aliked::Options)
-      .def_property_readonly("device", &Aliked::GetDevice);
-#endif
 }

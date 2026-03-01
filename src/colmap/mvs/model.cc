@@ -35,6 +35,8 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/file.h"
 
+#include <fstream>
+
 namespace colmap {
 namespace mvs {
 

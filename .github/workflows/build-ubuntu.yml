@@ -84,18 +84,39 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       CTCACHE_DIR: ${{ github.workspace }}/compiler-cache/ctcache
+      FETCHCONTENT_CACHE_VERSION: 1
+      FETCHCONTENT_CACHE_DIR: ${{ github.workspace }}/build/_deps
       GLOG_v: 2
       GLOG_logtostderr: 1
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/cache@v4
-        id: cache-builds
+      - name: Check code format
+        if: matrix.config.checkCodeFormat
+        run: |
+          set +x -euo pipefail
+          python -m pip install ruff==0.15.0 clang-format==21.1.8
+          ./scripts/format/c++.sh
+          ./scripts/format/python.sh
+          git diff --name-only
+          git diff --exit-code || (echo "Code formatting failed" && exit 1)
+
+      - name: Restore Compiler cache
+        uses: actions/cache@v4
+        id: cache-compiler
         with:
           key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
           restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
           path: ${{ env.COMPILER_CACHE_DIR }}
+
+      - name: Restore FetchContent cache
+        uses: actions/cache@v4
+        id: cache-fetchcontent
+        with:
+          key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
+          restore-keys: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-
+          path: ${{ env.FETCHCONTENT_CACHE_DIR }}
 
       - name: Install compiler cache
         run: |
@@ -117,16 +138,6 @@ jobs:
           echo "108b087f156a9fe7da0c796de1ef73f5855d2a33a27983769ea39061359a40fc  ${ctcache_commit_id}.zip" | sha256sum --check
           unzip "${ctcache_commit_id}.zip"
           mv ctcache-${ctcache_commit_id}/clang-tidy* "$COMPILER_CACHE_DIR/bin"
-
-      - name: Check code format
-        if: matrix.config.checkCodeFormat
-        run: |
-          set +x -euo pipefail
-          python -m pip install ruff==0.15.0 clang-format==21.1.8
-          ./scripts/format/c++.sh
-          ./scripts/format/python.sh
-          git diff --name-only
-          git diff --exit-code || (echo "Code formatting failed" && exit 1)
 
       - name: Setup Ubuntu
         run: |
@@ -199,7 +210,7 @@ jobs:
         run: |
           set -x
           cmake --version
-          mkdir build
+          mkdir -p build
           cd build
           cmake .. \
             -GNinja \
@@ -212,7 +223,8 @@ jobs:
             -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \
             -DASAN_ENABLED=${{ matrix.config.asanEnabled }} \
             -DCOVERAGE_ENABLED=${{ matrix.config.coverageEnabled }} \
-            -DBLA_VENDOR=Intel10_64lp
+            -DBLA_VENDOR=Intel10_64lp \
+            -DFETCHCONTENT_FULLY_DISCONNECTED=${{ steps.cache-fetchcontent.outputs.cache-hit == 'true' && 'ON' || 'OFF' }}
           ninja -k 10000
 
       - name: Install and build sample

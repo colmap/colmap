@@ -29,8 +29,7 @@
 
 #pragma once
 
-#include "colmap/feature/matcher.h"
-#include "colmap/retrieval/resources.h"
+#include "colmap/controllers/matcher_cache.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/threading.h"

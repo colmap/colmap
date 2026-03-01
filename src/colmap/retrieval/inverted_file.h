@@ -56,9 +56,9 @@ namespace retrieval {
 template <int kEmbeddingDim>
 class InvertedFile {
  public:
-  typedef Eigen::VectorXf DescType;
-  typedef FeatureGeometry GeomType;
-  typedef InvertedFileEntry<kEmbeddingDim> EntryType;
+  using DescType = Eigen::VectorXf;
+  using GeomType = FeatureGeometry;
+  using EntryType = InvertedFileEntry<kEmbeddingDim>;
 
   enum Status : uint8_t {
     kUnusable = 0x00,

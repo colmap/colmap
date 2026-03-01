@@ -81,6 +81,18 @@ struct AbsolutePoseRefinementOptions {
   // Whether to print final summary.
   bool print_summary = false;
 
+  // Whether to add a soft position prior on the camera center in world
+  // coordinates.
+  bool use_position_prior = false;
+
+  // Prior on camera/rig center in world coordinates.
+  Eigen::Vector3d position_prior_in_world = Eigen::Vector3d::Zero();
+
+  // Covariance of the position prior in world coordinates (3x3, SPD).
+  // Smaller values indicate higher confidence in the prior position.
+  // Defaults to identity (isotropic, sigma = 1m).
+  Eigen::Matrix3d position_prior_covariance = Eigen::Matrix3d::Identity();
+
   void Check() const {
     THROW_CHECK_GE(gradient_tolerance, 0.0);
     THROW_CHECK_GE(max_num_iterations, 0);

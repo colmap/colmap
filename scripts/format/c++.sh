@@ -22,4 +22,4 @@ all_files=$( \
 num_files=$(echo $all_files | wc -w)
 echo "Formatting ${num_files} files"
 
-clang-format -i $all_files
+echo "$all_files" | xargs clang-format -i

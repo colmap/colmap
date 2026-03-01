@@ -59,8 +59,8 @@ struct Camera {
   // model is not specified, this vector is empty.
   std::vector<double> params;
 
-  // Whether there is a safe prior for the focal length,
-  // e.g. manually provided or extracted from EXIF
+  // Whether there is a good prior for the focal length, e.g. manually provided,
+  // extracted from EXIF, or from view graph calibration.
   bool has_prior_focal_length = false;
 
   // Initialize parameters for given camera model and focal length, and set
