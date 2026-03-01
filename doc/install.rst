@@ -347,6 +347,31 @@ Then compile and run your code as::
 The sources of this example are stored under ``doc/sample-project``.
 
 ----------------
+Shared Libraries
+----------------
+
+By default, COLMAP builds static libraries. To build shared/dynamic libraries
+instead, enable the ``BUILD_SHARED_LIBS`` option::
+
+    cmake .. -GNinja -DBUILD_SHARED_LIBS=ON
+
+Trade-offs compared to static libraries:
+
+- **Faster incremental linking**: Only the changed shared library needs to be
+  re-linked during development, rather than all executables.
+- **Reduced disk usage**: Multiple executables share the same library files on
+  disk and in memory.
+- **No cross-library optimization**: The compiler cannot inline or apply
+  link-time optimization (LTO/IPO) across shared library boundaries, which
+  reduces runtime performance.
+- **Symbol resolution overhead**: The dynamic linker resolves symbols at load
+  time, adding minor startup cost and indirect call overhead.
+
+For development workflows, shared libraries can significantly speed up
+edit-compile-test cycles. For production or benchmarking, static libraries are
+recommended.
+
+----------------
 AddressSanitizer
 ----------------
 
