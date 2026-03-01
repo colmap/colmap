@@ -128,64 +128,60 @@ __device__ inline void PerturbNormal(const int row,
                                      const float perturbation,
                                      const float normal[3],
                                      curandState* rand_state,
-                                     float perturbed_normal[3],
-                                     const int num_trials = 0) {
-  // Perturbation rotation angles.
-  const float a1 = (curand_uniform(rand_state) - 0.5f) * perturbation;
-  const float a2 = (curand_uniform(rand_state) - 0.5f) * perturbation;
-  const float a3 = (curand_uniform(rand_state) - 0.5f) * perturbation;
+                                     float perturbed_normal[3]) {
+  const int kMaxNumTrials = 3;
+  float curr_perturbation = perturbation;
 
-  const float sin_a1 = sin(a1);
-  const float sin_a2 = sin(a2);
-  const float sin_a3 = sin(a3);
-  const float cos_a1 = cos(a1);
-  const float cos_a2 = cos(a2);
-  const float cos_a3 = cos(a3);
+  for (int trial = 0; trial <= kMaxNumTrials; ++trial) {
+    // Perturbation rotation angles.
+    const float a1 = (curand_uniform(rand_state) - 0.5f) * curr_perturbation;
+    const float a2 = (curand_uniform(rand_state) - 0.5f) * curr_perturbation;
+    const float a3 = (curand_uniform(rand_state) - 0.5f) * curr_perturbation;
 
-  // R = Rx * Ry * Rz
-  float R[9];
-  R[0] = cos_a2 * cos_a3;
-  R[1] = -cos_a2 * sin_a3;
-  R[2] = sin_a2;
-  R[3] = cos_a1 * sin_a3 + cos_a3 * sin_a1 * sin_a2;
-  R[4] = cos_a1 * cos_a3 - sin_a1 * sin_a2 * sin_a3;
-  R[5] = -cos_a2 * sin_a1;
-  R[6] = sin_a1 * sin_a3 - cos_a1 * cos_a3 * sin_a2;
-  R[7] = cos_a3 * sin_a1 + cos_a1 * sin_a2 * sin_a3;
-  R[8] = cos_a1 * cos_a2;
+    float sin_a1, cos_a1, sin_a2, cos_a2, sin_a3, cos_a3;
+    sincosf(a1, &sin_a1, &cos_a1);
+    sincosf(a2, &sin_a2, &cos_a2);
+    sincosf(a3, &sin_a3, &cos_a3);
 
-  // Perturb the normal vector.
-  Mat33DotVec3(R, normal, perturbed_normal);
+    // R = Rx * Ry * Rz
+    float R[9];
+    R[0] = cos_a2 * cos_a3;
+    R[1] = -cos_a2 * sin_a3;
+    R[2] = sin_a2;
+    R[3] = cos_a1 * sin_a3 + cos_a3 * sin_a1 * sin_a2;
+    R[4] = cos_a1 * cos_a3 - sin_a1 * sin_a2 * sin_a3;
+    R[5] = -cos_a2 * sin_a1;
+    R[6] = sin_a1 * sin_a3 - cos_a1 * cos_a3 * sin_a2;
+    R[7] = cos_a3 * sin_a1 + cos_a1 * sin_a2 * sin_a3;
+    R[8] = cos_a1 * cos_a2;
 
-  // Make sure the perturbed normal is still looking in the same direction as
-  // the viewing direction, otherwise try again but with smaller perturbation.
-  const float view_ray[3] = {ref_inv_K[0] * col + ref_inv_K[1],
-                             ref_inv_K[2] * row + ref_inv_K[3],
-                             1.0f};
-  if (DotProduct3(perturbed_normal, view_ray) >= 0.0f) {
-    const int kMaxNumTrials = 3;
-    if (num_trials < kMaxNumTrials) {
-      PerturbNormal(row,
-                    col,
-                    0.5f * perturbation,
-                    normal,
-                    rand_state,
-                    perturbed_normal,
-                    num_trials + 1);
+    // Perturb the normal vector.
+    Mat33DotVec3(R, normal, perturbed_normal);
+
+    // Make sure the perturbed normal is still looking in the same direction as
+    // the viewing direction, otherwise try again but with smaller perturbation.
+    const float view_ray[3] = {ref_inv_K[0] * col + ref_inv_K[1],
+                               ref_inv_K[2] * row + ref_inv_K[3],
+                               1.0f};
+    if (DotProduct3(perturbed_normal, view_ray) < 0.0f) {
+      // Make sure normal has unit norm.
+      const float inv_norm =
+          rsqrt(DotProduct3(perturbed_normal, perturbed_normal));
+      perturbed_normal[0] *= inv_norm;
+      perturbed_normal[1] *= inv_norm;
+      perturbed_normal[2] *= inv_norm;
       return;
-    } else {
+    }
+
+    if (trial == kMaxNumTrials) {
       perturbed_normal[0] = normal[0];
       perturbed_normal[1] = normal[1];
       perturbed_normal[2] = normal[2];
       return;
     }
-  }
 
-  // Make sure normal has unit norm.
-  const float inv_norm = rsqrt(DotProduct3(perturbed_normal, perturbed_normal));
-  perturbed_normal[0] *= inv_norm;
-  perturbed_normal[1] *= inv_norm;
-  perturbed_normal[2] *= inv_norm;
+    curr_perturbation *= 0.5f;
+  }
 }
 
 __device__ inline void ComputePointAtDepth(const float row,
@@ -346,13 +342,21 @@ struct LocalRefImage {
       : ref_image_texture_(ref_image_texture) {}
 
   float* data = nullptr;
+  int row_offset = 0;
+
+  __device__ inline int PhysicalRow(int logical_row) const {
+    return (logical_row + row_offset) % kNumRows;
+  }
+
+  __device__ inline float Get(int logical_row, int col_idx) const {
+    return data[PhysicalRow(logical_row) * kNumColumns + col_idx];
+  }
 
   __device__ inline void Read(const int row) {
     // For the first row, read the entire block into shared memory. For all
-    // consecutive rows, it is only necessary to shift the rows in shared memory
-    // up by one element and then read in a new row at the bottom of the shared
-    // memory. Note that this assumes that the calling loop starts with the
-    // first row and then consecutively reads in the next row.
+    // consecutive rows, overwrite the oldest row in the circular buffer
+    // and advance the offset. Note that this assumes that the calling loop
+    // starts with the first row and then consecutively reads in the next row.
 
     const int thread_id = threadIdx.x;
     const int thread_block_first_id = blockDim.x * blockIdx.x;
@@ -363,6 +367,7 @@ struct LocalRefImage {
                                  thread_id;
 
     if (row == 0) {
+      row_offset = 0;
       int global_row = row - kWindowRadius;
       for (int local_row = 0; local_row < kNumRows; ++local_row, ++global_row) {
         int local_col = local_col_start;
@@ -376,25 +381,16 @@ struct LocalRefImage {
         }
       }
     } else {
-      // Move rows in shared memory up by one row.
-      for (int local_row = 1; local_row < kNumRows; ++local_row) {
-        int local_col = local_col_start;
-#pragma unroll
-        for (int block = 0; block < kThreadBlockSize; ++block) {
-          data[(local_row - 1) * kNumColumns + local_col] =
-              data[local_row * kNumColumns + local_col];
-          local_col += THREADS_PER_BLOCK;
-        }
-      }
+      // Overwrite the oldest row (at physical row_offset) with new data.
+      const int target_row = row_offset;
+      row_offset = (row_offset + 1) % kNumRows;
 
-      // Read next row into the last row of shared memory.
-      const int local_row = kNumRows - 1;
       const int global_row = row + kWindowRadius;
       int local_col = local_col_start;
       int global_col = global_col_start;
 #pragma unroll
       for (int block = 0; block < kThreadBlockSize; ++block) {
-        data[local_row * kNumColumns + local_col] =
+        data[target_row * kNumColumns + local_col] =
             tex2D<float>(ref_image_texture_, global_col, global_row);
         local_col += THREADS_PER_BLOCK;
         global_col += THREADS_PER_BLOCK;
@@ -447,6 +443,8 @@ struct PhotoConsistencyCostComputer {
 
   __device__ inline void Read(const int row) {
     local_ref_image.Read(row);
+    // With the current choice of THREADS_PER_BLOCK, this could also be
+    // __syncwarp(), but there is no measurable performance difference.
     __syncthreads();
   }
 
@@ -471,13 +469,10 @@ struct PhotoConsistencyCostComputer {
     float base_row_src = row_src;
     float base_z = z;
 
-    int ref_image_idx = THREADS_PER_BLOCK - kWindowRadius + thread_id;
-    int ref_image_base_idx = ref_image_idx;
+    const int col_in_row_start = THREADS_PER_BLOCK - kWindowRadius + thread_id;
 
     const float ref_center_color =
-        local_ref_image
-            .data[ref_image_idx + kWindowRadius * 3 * THREADS_PER_BLOCK +
-                  kWindowRadius];
+        local_ref_image.Get(kWindowRadius, col_in_row_start + kWindowRadius);
     const float ref_color_sum = local_ref_sum;
     const float ref_color_squared_sum = local_ref_squared_sum;
     float src_color_sum = 0.0f;
@@ -485,12 +480,14 @@ struct PhotoConsistencyCostComputer {
     float src_ref_color_sum = 0.0f;
     float bilateral_weight_sum = 0.0f;
 
+    int logical_row = 0;
     for (int row = -kWindowRadius; row <= kWindowRadius; row += kWindowStep) {
+      int col_in_row = col_in_row_start;
       for (int col = -kWindowRadius; col <= kWindowRadius; col += kWindowStep) {
         const float inv_z = 1.0f / z;
         const float norm_col_src = inv_z * col_src + 0.5f;
         const float norm_row_src = inv_z * row_src + 0.5f;
-        const float ref_color = local_ref_image.data[ref_image_idx];
+        const float ref_color = local_ref_image.Get(logical_row, col_in_row);
         const float src_color = tex2DLayered<float>(
             src_images_texture_, norm_col_src, norm_row_src, src_image_idx);
 
@@ -504,7 +501,7 @@ struct PhotoConsistencyCostComputer {
         src_ref_color_sum += bilateral_weight_src * ref_color;
         bilateral_weight_sum += bilateral_weight;
 
-        ref_image_idx += kWindowStep;
+        col_in_row += kWindowStep;
 
         // Accumulate warped source coordinates per row to reduce numerical
         // errors. Note that this is necessary since coordinates usually are in
@@ -515,8 +512,7 @@ struct PhotoConsistencyCostComputer {
         z += tform_step[6];
       }
 
-      ref_image_base_idx += kWindowStep * 3 * THREADS_PER_BLOCK;
-      ref_image_idx = ref_image_base_idx;
+      logical_row += kWindowStep;
 
       base_col_src += tform_step[1];
       base_row_src += tform_step[4];
@@ -692,7 +688,7 @@ class LikelihoodComputer {
 
   // Compute NCC probability. Note that cost = 1 - NCC.
   __device__ inline float ComputeNCCProb(const float cost) const {
-    return exp(cost * cost * inv_ncc_sigma_square_) * ncc_norm_factor_;
+    return __expf(cost * cost * inv_ncc_sigma_square_) * ncc_norm_factor_;
   }
 
   // Compute the triangulation angle probability.
@@ -711,7 +707,7 @@ class LikelihoodComputer {
   // Compute the incident angle probability.
   __device__ inline float ComputeIncProb(const float cos_incident_angle) const {
     const float x = 1.0f - max(0.0f, cos_incident_angle);
-    return exp(x * x * inv_incident_angle_sigma_square_);
+    return __expf(x * x * inv_incident_angle_sigma_square_);
   }
 
   // Compute the warping/resolution prior probability.
@@ -924,6 +920,10 @@ __global__ void SweepFromTopToBottom(
       &global_workspace.GetPtr()[global_workspace.GetWidth() *
                                      global_workspace.GetHeight() +
                                  col * global_workspace.GetHeight()];
+  float* cached_costs =
+      &global_workspace.GetPtr()[2 * global_workspace.GetWidth() *
+                                     global_workspace.GetHeight() +
+                                 col * global_workspace.GetHeight()];
 
   //////////////////////////////////////////////////////////////////////////////
   // Compute backward message for all rows. Note that the backward messages are
@@ -1027,6 +1027,7 @@ __global__ void SweepFromTopToBottom(
 
     for (int image_idx = 0; image_idx < cost_map.GetDepth(); ++image_idx) {
       const float cost = cost_map.Get(row, col, image_idx);
+      cached_costs[image_idx] = cost;
       const float alpha = likelihood_computer.ComputeForwardMessage(
           cost, forward_message[image_idx]);
       const float beta = sel_prob_map.Get(row, col, image_idx);
@@ -1099,7 +1100,7 @@ __global__ void SweepFromTopToBottom(
         continue;
       }
 
-      costs[0] += cost_map.Get(row, col, pcc_computer.src_image_idx);
+      costs[0] += cached_costs[pcc_computer.src_image_idx];
       if (kGeomConsistencyTerm) {
         costs[0] +=
             options.geom_consistency_regularizer *
@@ -1147,7 +1148,7 @@ __global__ void SweepFromTopToBottom(
       // Determine the cost for best depth.
       float cost;
       if (min_cost_idx == 0) {
-        cost = cost_map.Get(row, col, image_idx);
+        cost = cached_costs[image_idx];
       } else {
         pcc_computer.src_image_idx = image_idx;
         cost = pcc_computer.Compute();
@@ -1781,7 +1782,7 @@ void PatchMatchCuda::InitWorkspaceMemory() {
 
   const int ref_max_dim = std::max(ref_width_, ref_height_);
   global_workspace_ = std::make_unique<GpuMat<float>>(
-      ref_max_dim, problem_.src_image_idxs.size(), 2);
+      ref_max_dim, problem_.src_image_idxs.size(), 3);
 
   consistency_mask_ = std::make_unique<GpuMat<uint8_t>>(0, 0, 0);
 
