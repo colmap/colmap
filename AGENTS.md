@@ -27,9 +27,7 @@ COLMAP is a general-purpose Structure-from-Motion (SfM) and Multi-View Stereo (M
 | .clang-format | C++ formatting style |
 | ruff.toml | Python linting/formatting config |
 
-## Architecture
-
-### Module Dependency Layers (bottom → top)
+## Module Dependency Layers (bottom → top)
 
 | Module | Description |
 |--------|-------------|
