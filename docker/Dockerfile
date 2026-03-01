@@ -54,13 +54,8 @@ RUN mkdir -p /usr/include/opencv4
 COPY . /colmap
 
 # Build and install COLMAP.
-# The cache mounts provide cross-build caching for FetchContent deps and
-# compiler output in local builds. In CI, build/_deps is pre-populated via
-# actions/cache and COPY.
-RUN --mount=type=cache,target=/colmap/build/_deps,id=colmap-fetchcontent \
-    --mount=type=cache,target=/colmap/build/.ccache,id=colmap-ccache \
-    cd /colmap && \
-    mkdir -p build && \
+RUN cd /colmap && \
+    mkdir -p build/.ccache && \
     cd build && \
     cmake .. \
         -GNinja \
@@ -69,6 +64,13 @@ RUN --mount=type=cache,target=/colmap/build/_deps,id=colmap-fetchcontent \
         -DFETCHCONTENT_FULLY_DISCONNECTED=${FETCHCONTENT_FULLY_DISCONNECTED} \
         -DBLA_VENDOR=Intel10_64lp && \
     ninja install
+
+#
+# Stage to export build caches for CI round-tripping via actions/cache.
+#
+FROM scratch AS cache-export
+COPY --from=builder /colmap/build/.ccache/ /.ccache/
+COPY --from=builder /colmap/build/_deps/ /_deps/
 
 #
 # Docker runtime stage.
