@@ -9,19 +9,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_STANDARD 14)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
-if(CCACHE_ENABLED)
-    find_program(CCACHE ccache)
-    if(CCACHE)
-        message(STATUS "Enabling ccache support")
-        set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE})
-        set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE})
-    else()
-        message(STATUS "Disabling ccache support")
-    endif()
-else()
-    message(STATUS "Disabling ccache support")
-endif()
-
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     # Some fixes for the Glog library.
     add_compile_definitions(GLOG_NO_ABBREVIATED_SEVERITIES)
@@ -34,6 +21,22 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 endif()
 
 find_package(colmap REQUIRED)
+
+if(CCACHE_ENABLED)
+    find_program(CCACHE ccache)
+    if(CCACHE)
+        message(STATUS "Enabling ccache support")
+        set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE})
+        set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE})
+        if(CUDA_ENABLED)
+            set(CMAKE_CUDA_COMPILER_LAUNCHER ${CCACHE})
+        endif()
+    else()
+        message(STATUS "Disabling ccache support")
+    endif()
+else()
+    message(STATUS "Disabling ccache support")
+endif()
 
 # If colmap was built with ONNX support, we need to set the rpath so the
 # Python module can find the ONNX Runtime library at runtime.
