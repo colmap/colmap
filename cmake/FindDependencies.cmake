@@ -249,7 +249,8 @@ if(ONNX_ENABLED)
 
         set(ONNX_VERSION "1.24.1")
         # ONNX Runtime >= 1.22 GPU binaries are built with CUDA >= 12
-        if(CUDA_ENABLED AND CUDA_FOUND AND CUDAToolkit_VERSION VERSION_LESS "12.0")
+        if(ONNX_VERSION VERSION_GREATER_EQUAL "1.22"
+           AND CUDA_ENABLED AND CUDA_FOUND AND CUDAToolkit_VERSION VERSION_LESS "12.0")
             message(WARNING
                 "ONNX Runtime ${ONNX_VERSION} GPU binary is built with CUDA >= 12, "
                 "but CUDA ${CUDAToolkit_VERSION} was detected. The ONNX Runtime CUDA "

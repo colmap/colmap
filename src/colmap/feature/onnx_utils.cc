@@ -46,7 +46,7 @@ namespace colmap {
 
 namespace {
 // NOLINTNEXTLINE(performance-unnecessary-value-param)
-void RethrowONNXException(std::exception_ptr eptr) {
+[[noreturn]] void RethrowONNXException(std::exception_ptr eptr) {
   try {
     std::rethrow_exception(eptr);
   } catch (const Ort::Exception& e) {
@@ -193,9 +193,6 @@ std::vector<Ort::Value> ONNXModel::Run(
   } catch (...) {
     RethrowONNXException(std::current_exception());
   }
-
-  // Unreachable, but required to satisfy the compiler (-Wreturn-type).
-  return {};
 }
 
 #endif  // COLMAP_ONNX_ENABLED
