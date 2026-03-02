@@ -45,10 +45,9 @@ namespace colmap {
 #ifdef COLMAP_ONNX_ENABLED
 
 namespace {
-// NOLINTNEXTLINE(performance-unnecessary-value-param)
-[[noreturn]] void RethrowONNXException(std::exception_ptr eptr) {
+[[noreturn]] void RethrowONNXException() {
   try {
-    std::rethrow_exception(eptr);
+    std::rethrow_exception(std::current_exception());
   } catch (const Ort::Exception& e) {
     // ONNX Runtime may write to stderr without a trailing newline.
     // Insert a newline here to avoid mixing with COLMAP log output.
@@ -112,7 +111,7 @@ ONNXModel::ONNXModel(std::string model_path,
   try {
     InitializeSession(model_path, num_eff_threads, use_gpu, gpu_index);
   } catch (...) {
-    RethrowONNXException(std::current_exception());
+    RethrowONNXException();
   }
 }
 
@@ -191,7 +190,7 @@ std::vector<Ort::Value> ONNXModel::Run(
                          output_names_.data(),
                          output_names_.size());
   } catch (...) {
-    RethrowONNXException(std::current_exception());
+    RethrowONNXException();
   }
 }
 
