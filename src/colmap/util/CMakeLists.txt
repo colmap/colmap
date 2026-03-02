@@ -128,12 +128,13 @@ if(TESTS_ENABLED)
         target_include_directories(colmap_util SYSTEM PUBLIC
             $<TARGET_PROPERTY:GTest::gmock,INTERFACE_INCLUDE_DIRECTORIES>)
     else()
-        # With static libraries there is no duplicate singleton problem since
-        # all symbols are resolved at final executable link time.  Link PRIVATE
-        # so GTest::gmock does not leak into the exported interface - consumers
-        # of the installed package should not need GTest.  Test executables
-        # obtain gmock symbols through colmap_gtest_main -> GTest::gmock.
-        target_link_libraries(colmap_util PRIVATE GTest::gmock)
+        # With static libraries, undefined gtest/gmock references in
+        # testing.o are resolved at final executable link time (through
+        # colmap_gtest_main -> GTest::gmock).  Only provide include
+        # directories here so that testing.cc compiles, without creating
+        # a link dependency that CMake would export.
+        target_include_directories(colmap_util SYSTEM PRIVATE
+            $<TARGET_PROPERTY:GTest::gmock,INTERFACE_INCLUDE_DIRECTORIES>)
     endif()
 endif()
 
