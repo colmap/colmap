@@ -309,6 +309,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   abs_pose_options.ransac_options.min_inlier_ratio =
       options.abs_pose_min_inlier_ratio;
   abs_pose_options.ransac_options.random_seed = options.random_seed;
+  abs_pose_options.ransac_options.num_threads = options.num_threads;
 
   AbsolutePoseRefinementOptions abs_pose_refinement_options;
   if (options.constant_cameras.count(image.CameraId()) > 0) {
@@ -697,6 +698,7 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
   abs_pose_options.ransac_options.max_error = 0.5 * options.abs_pose_max_error;
   abs_pose_options.ransac_options.min_inlier_ratio =
       options.abs_pose_min_inlier_ratio;
+  abs_pose_options.ransac_options.num_threads = options.num_threads;
 
   BundleAdjustmentOptions abs_pose_refinement_options;
   if (abs_pose_refinement_options.ceres) {

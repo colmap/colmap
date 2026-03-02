@@ -30,6 +30,8 @@
 #include "colmap/optim/loransac.h"
 
 #include "colmap/estimators/solvers/similarity_transform.h"
+#include "colmap/geometry/sim3.h"
+#include "colmap/math/random.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>
@@ -47,6 +49,107 @@ TEST(LORANSAC, Report) {
   EXPECT_EQ(report.support.num_inliers, 0);
   EXPECT_EQ(report.support.residual_sum, std::numeric_limits<double>::max());
   EXPECT_EQ(report.inlier_mask.size(), 0);
+}
+
+TEST(LORANSAC, SimilarityTransform) {
+  const size_t num_samples = 1000;
+  const size_t num_outliers = 400;
+
+  // Create some arbitrary transformation.
+  SetPRNGSeed(0);
+  const Sim3d expected_tgt_from_src(
+      2, Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d(100, 10, 10));
+
+  // Generate exact data.
+  std::vector<Eigen::Vector3d> src;
+  std::vector<Eigen::Vector3d> tgt;
+  for (size_t i = 0; i < num_samples; ++i) {
+    src.emplace_back(i, std::sqrt(i) + 2, std::sqrt(2 * i + 2));
+    tgt.push_back(expected_tgt_from_src * src.back());
+  }
+
+  // Add some faulty data.
+  for (size_t i = 0; i < num_outliers; ++i) {
+    tgt[i] = Eigen::Vector3d(RandomUniformReal(-3000.0, -2000.0),
+                             RandomUniformReal(-4000.0, -3000.0),
+                             RandomUniformReal(-5000.0, -4000.0));
+  }
+
+  // Serial estimation.
+  RANSACOptions options;
+  options.max_error = 10;
+  options.random_seed = kDefaultPRNGSeed;
+  LORANSAC<SimilarityTransformEstimator<3>, SimilarityTransformEstimator<3>>
+      loransac(options);
+  const auto report = loransac.Estimate(src, tgt);
+
+  EXPECT_TRUE(report.success);
+  EXPECT_GT(report.num_trials, 0);
+
+  EXPECT_EQ(report.support.num_inliers, num_samples - num_outliers);
+  for (size_t i = 0; i < num_samples; ++i) {
+    if (i < num_outliers) {
+      EXPECT_FALSE(report.inlier_mask[i]);
+    } else {
+      EXPECT_TRUE(report.inlier_mask[i]);
+    }
+  }
+
+  const double matrix_diff =
+      (expected_tgt_from_src.ToMatrix() - report.model).norm();
+  EXPECT_LT(matrix_diff, 1e-6);
+}
+
+TEST(LORANSAC, ParallelSimilarityTransform) {
+  const size_t num_samples = 1000;
+  const size_t num_outliers = 400;
+
+  // Create some arbitrary transformation.
+  SetPRNGSeed(0);
+  const Sim3d expected_tgt_from_src(
+      2, Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d(100, 10, 10));
+
+  // Generate exact data.
+  std::vector<Eigen::Vector3d> src;
+  std::vector<Eigen::Vector3d> tgt;
+  for (size_t i = 0; i < num_samples; ++i) {
+    src.emplace_back(i, std::sqrt(i) + 2, std::sqrt(2 * i + 2));
+    tgt.push_back(expected_tgt_from_src * src.back());
+  }
+
+  // Add some faulty data.
+  for (size_t i = 0; i < num_outliers; ++i) {
+    tgt[i] = Eigen::Vector3d(RandomUniformReal(-3000.0, -2000.0),
+                             RandomUniformReal(-4000.0, -3000.0),
+                             RandomUniformReal(-5000.0, -4000.0));
+  }
+
+  // Parallel estimation with multiple threads.
+  RANSACOptions options;
+  options.max_error = 10;
+  options.random_seed = kDefaultPRNGSeed;
+  options.num_threads = 4;
+  LORANSAC<SimilarityTransformEstimator<3>, SimilarityTransformEstimator<3>>
+      loransac(options);
+  const auto report = loransac.Estimate(src, tgt);
+
+  EXPECT_TRUE(report.success);
+  EXPECT_GT(report.num_trials, 0);
+
+  // Parallel path should still correctly identify inliers.
+  EXPECT_EQ(report.support.num_inliers, num_samples - num_outliers);
+  for (size_t i = 0; i < num_samples; ++i) {
+    if (i < num_outliers) {
+      EXPECT_FALSE(report.inlier_mask[i]);
+    } else {
+      EXPECT_TRUE(report.inlier_mask[i]);
+    }
+  }
+
+  // The estimated model should be close to the ground truth.
+  const double matrix_diff =
+      (expected_tgt_from_src.ToMatrix() - report.model).norm();
+  EXPECT_LT(matrix_diff, 1e-6);
 }
 
 }  // namespace
