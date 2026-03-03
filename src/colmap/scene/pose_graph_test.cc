@@ -316,21 +316,23 @@ TEST(PoseGraph, MarkConnectedComponents) {
   const frame_t frame3 = reconstruction.Image(reg_image_ids[3]).FrameId();
   const frame_t frame4 = reconstruction.Image(reg_image_ids[4]).FrameId();
 
-  EXPECT_EQ(cluster_ids[frame0], 0);
-  EXPECT_EQ(cluster_ids[frame1], 0);
-  EXPECT_EQ(cluster_ids[frame2], 0);
-  EXPECT_EQ(cluster_ids[frame3], 1);
-  EXPECT_EQ(cluster_ids[frame4], 1);
+  EXPECT_THAT(cluster_ids,
+              testing::UnorderedElementsAre(testing::Pair(frame0, 0),
+                                            testing::Pair(frame1, 0),
+                                            testing::Pair(frame2, 0),
+                                            testing::Pair(frame3, 1),
+                                            testing::Pair(frame4, 1)));
 
   // With min_num_images=3, only the larger component qualifies
   num_components =
       pose_graph.MarkConnectedComponents(reconstruction, cluster_ids, 3);
   EXPECT_EQ(num_components, 1);
-  EXPECT_EQ(cluster_ids[frame0], 0);
-  EXPECT_EQ(cluster_ids[frame1], 0);
-  EXPECT_EQ(cluster_ids[frame2], 0);
-  EXPECT_EQ(cluster_ids[frame3], -1);
-  EXPECT_EQ(cluster_ids[frame4], -1);
+  EXPECT_THAT(cluster_ids,
+              testing::UnorderedElementsAre(testing::Pair(frame0, 0),
+                                            testing::Pair(frame1, 0),
+                                            testing::Pair(frame2, 0),
+                                            testing::Pair(frame3, -1),
+                                            testing::Pair(frame4, -1)));
 }
 
 TEST(PoseGraph, ComputeLargestConnectedFrameComponentEmpty) {
