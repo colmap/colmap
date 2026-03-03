@@ -111,6 +111,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_controllers
 )
 COLMAP_ADD_TEST(
+    NAME feature_matching_utils_test
+    SRCS feature_matching_utils_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
     NAME global_pipeline_test
     SRCS global_pipeline_test.cc
     LINK_LIBS colmap_controllers
