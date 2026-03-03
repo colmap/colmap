@@ -70,7 +70,7 @@ struct RANSACOptions {
   int random_seed = -1;
 
   // Number of threads for parallel RANSAC. 1 = serial (default).
-  // Values <= 0 use all available hardware threads.
+  // -1 uses all available hardware threads.
   int num_threads = 1;
 
   void Check() const {
