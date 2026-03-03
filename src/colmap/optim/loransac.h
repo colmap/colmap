@@ -40,7 +40,9 @@
 #include <optional>
 #include <vector>
 
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 
 namespace colmap {
 
@@ -142,8 +144,11 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
   std::atomic<bool> abort_flag(false);
 
 // This creates a parallel region that runs with num_threads threads (or
-// serially when num_threads == 1 via the if-clause).
+// serially when num_threads == 1 via the if-clause). Without OpenMP, the
+// pragma is absent and the block runs once serially.
+#ifdef _OPENMP
 #pragma omp parallel num_threads(num_threads) if (num_threads > 1)
+#endif
   {
     // Per-thread copies of mutable objects. Each thread needs its own sampler
     // (see random_sampler.h) and its own estimator/support_measurer instances.
@@ -156,7 +161,11 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
     // Seed per-thread PRNG with distinct seed.
     if constexpr (is_randomized_sampler<Sampler>::value) {
       if (options_.random_seed != -1) {
+#ifdef _OPENMP
         SetPRNGSeed(options_.random_seed + omp_get_thread_num());
+#else
+        SetPRNGSeed(options_.random_seed);
+#endif
       }
     }
 
@@ -198,7 +207,9 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
         // case, multiple threads may pass this check concurrently — the
         // authoritative update below re-checks under the same lock.
         bool is_better = false;
+#ifdef _OPENMP
 #pragma omp critical
+#endif
         {
           is_better =
               thread_support_measurer.IsLeftBetter(support, best_support);
@@ -267,7 +278,9 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
           }
 
           // Commit local optimization result to global best under lock.
+#ifdef _OPENMP
 #pragma omp critical
+#endif
           {
             if (thread_support_measurer.IsLeftBetter(local_best_support,
                                                      best_support)) {

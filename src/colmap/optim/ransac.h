@@ -40,7 +40,9 @@
 #include <optional>
 #include <vector>
 
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 
 namespace colmap {
 
@@ -245,8 +247,11 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
   std::atomic<bool> abort_flag(false);
 
 // This creates a parallel region that runs with num_threads threads (or
-// serially when num_threads == 1 via the if-clause).
+// serially when num_threads == 1 via the if-clause). Without OpenMP, the
+// pragma is absent and the block runs once serially.
+#ifdef _OPENMP
 #pragma omp parallel num_threads(num_threads) if (num_threads > 1)
+#endif
   {
     // Per-thread copies of mutable objects. Each thread needs its own sampler
     // (see random_sampler.h) and its own estimator/support_measurer instances.
@@ -258,7 +263,11 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
     // Seed per-thread PRNG with distinct seed.
     if constexpr (is_randomized_sampler<Sampler>::value) {
       if (options_.random_seed != -1) {
+#ifdef _OPENMP
         SetPRNGSeed(options_.random_seed + omp_get_thread_num());
+#else
+        SetPRNGSeed(options_.random_seed);
+#endif
       }
     }
 
@@ -291,7 +300,9 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
             thread_support_measurer.Evaluate(residuals, max_residual);
 
         // Save as best subset if better than all previous subsets.
+#ifdef _OPENMP
 #pragma omp critical
+#endif
         {
           if (thread_support_measurer.IsLeftBetter(support, best_support)) {
             best_support = support;
