@@ -284,8 +284,10 @@ TEST(DenseDelaunayMeshing, Integration) {
     ply_point.b = 128;
     ply_points.push_back(ply_point);
   }
-  WriteBinaryPlyPoints(test_dir / "fused.ply", ply_points,
-                       /*write_normal=*/true, /*write_rgb=*/true);
+  WriteBinaryPlyPoints(test_dir / "fused.ply",
+                       ply_points,
+                       /*write_normal=*/true,
+                       /*write_rgb=*/true);
 
   // Create fused.ply.vis: for each point, list visible image indices.
   // Each point is visible in image 0 (the first registered image).
