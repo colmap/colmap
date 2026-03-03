@@ -30,6 +30,7 @@
 #include "colmap/scene/pose_graph.h"
 
 #include "colmap/scene/database_cache.h"
+#include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
 #include <gmock/gmock.h>
@@ -275,6 +276,93 @@ TEST(PoseGraph, Load) {
   EXPECT_EQ(pose_graph.NumEdges(), 2);
   EXPECT_TRUE(pose_graph.HasEdge(1, 2));
   EXPECT_TRUE(pose_graph.HasEdge(2, 3));
+}
+
+TEST(PoseGraph, MarkConnectedComponents) {
+  // Create a reconstruction with 5 images (5 rigs, 1 camera each, 1 frame each)
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 5;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 1;
+  synthetic_options.num_points3D = 10;
+  Reconstruction reconstruction;
+  SynthesizeDataset(synthetic_options, &reconstruction);
+
+  // Get image IDs from the reconstruction
+  const auto reg_image_ids = reconstruction.RegImageIds();
+  ASSERT_EQ(reg_image_ids.size(), 5);
+
+  // Build a pose graph with two disconnected components:
+  // Component A: images 0, 1, 2 (3 frames)
+  // Component B: images 3, 4 (2 frames)
+  PoseGraph pose_graph;
+  pose_graph.AddEdge(reg_image_ids[0], reg_image_ids[1], SynthesizeEdge());
+  pose_graph.AddEdge(reg_image_ids[1], reg_image_ids[2], SynthesizeEdge());
+  pose_graph.AddEdge(reg_image_ids[3], reg_image_ids[4], SynthesizeEdge());
+
+  // MarkConnectedComponents with no minimum
+  std::unordered_map<frame_t, int> cluster_ids;
+  int num_components =
+      pose_graph.MarkConnectedComponents(reconstruction, cluster_ids);
+  EXPECT_EQ(num_components, 2);
+
+  // All 5 frames should have cluster IDs
+  EXPECT_EQ(cluster_ids.size(), 5);
+
+  // Larger component (3 frames) gets cluster_id=0
+  const frame_t frame0 = reconstruction.Image(reg_image_ids[0]).FrameId();
+  const frame_t frame1 = reconstruction.Image(reg_image_ids[1]).FrameId();
+  const frame_t frame2 = reconstruction.Image(reg_image_ids[2]).FrameId();
+  const frame_t frame3 = reconstruction.Image(reg_image_ids[3]).FrameId();
+  const frame_t frame4 = reconstruction.Image(reg_image_ids[4]).FrameId();
+
+  EXPECT_EQ(cluster_ids[frame0], 0);
+  EXPECT_EQ(cluster_ids[frame1], 0);
+  EXPECT_EQ(cluster_ids[frame2], 0);
+  EXPECT_EQ(cluster_ids[frame3], 1);
+  EXPECT_EQ(cluster_ids[frame4], 1);
+
+  // With min_num_images=3, only the larger component qualifies
+  num_components =
+      pose_graph.MarkConnectedComponents(reconstruction, cluster_ids, 3);
+  EXPECT_EQ(num_components, 1);
+  EXPECT_EQ(cluster_ids[frame0], 0);
+  EXPECT_EQ(cluster_ids[frame1], 0);
+  EXPECT_EQ(cluster_ids[frame2], 0);
+  EXPECT_EQ(cluster_ids[frame3], -1);
+  EXPECT_EQ(cluster_ids[frame4], -1);
+}
+
+TEST(PoseGraph, ComputeLargestConnectedFrameComponentEmpty) {
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 3;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 1;
+  synthetic_options.num_points3D = 10;
+  Reconstruction reconstruction;
+  SynthesizeDataset(synthetic_options, &reconstruction);
+
+  // Pose graph with no edges
+  PoseGraph pose_graph;
+  const auto result = pose_graph.ComputeLargestConnectedFrameComponent(
+      reconstruction, /*filter_unregistered=*/false);
+  EXPECT_TRUE(result.empty());
+}
+
+TEST(PoseGraph, InvalidatePairsOutsideActiveImageIds) {
+  PoseGraph pose_graph;
+  pose_graph.AddEdge(1, 2, SynthesizeEdge());
+  pose_graph.AddEdge(1, 3, SynthesizeEdge());
+  pose_graph.AddEdge(2, 3, SynthesizeEdge());
+
+  // Only images 1 and 2 are active; image 3 is excluded
+  pose_graph.InvalidatePairsOutsideActiveImageIds({1, 2});
+
+  // Edge (1,2) should remain valid
+  EXPECT_TRUE(pose_graph.IsValid(ImagePairToPairId(1, 2)));
+  // Edges involving image 3 should be invalidated
+  EXPECT_FALSE(pose_graph.IsValid(ImagePairToPairId(1, 3)));
+  EXPECT_FALSE(pose_graph.IsValid(ImagePairToPairId(2, 3)));
 }
 
 }  // namespace
