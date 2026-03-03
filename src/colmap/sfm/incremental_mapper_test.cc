@@ -88,27 +88,23 @@ TEST(IncrementalMapper, EndReconstructionDiscard) {
   auto cache = CreateDatabaseCache(*database);
   IncrementalMapper mapper(cache);
 
-  // First reconstruction: register some images
-  {
-    auto reconstruction = std::make_shared<Reconstruction>();
-    mapper.BeginReconstruction(reconstruction);
+  auto reconstruction = std::make_shared<Reconstruction>();
+  mapper.BeginReconstruction(reconstruction);
 
-    IncrementalMapper::Options options;
-    options.init_min_num_inliers = 10;
-    image_t image_id1 = kInvalidImageId;
-    image_t image_id2 = kInvalidImageId;
-    Rigid3d cam2_from_cam1;
-    if (mapper.FindInitialImagePair(
-            options, image_id1, image_id2, cam2_from_cam1)) {
-      mapper.RegisterInitialImagePair(
-          options, image_id1, image_id2, cam2_from_cam1);
-      EXPECT_GT(mapper.NumTotalRegImages(), 0);
-    }
+  IncrementalMapper::Options options;
+  options.init_min_num_inliers = 10;
+  image_t image_id1 = kInvalidImageId;
+  image_t image_id2 = kInvalidImageId;
+  Rigid3d cam2_from_cam1;
+  EXPECT_TRUE(mapper.FindInitialImagePair(
+      options, image_id1, image_id2, cam2_from_cam1));
+  mapper.RegisterInitialImagePair(
+      options, image_id1, image_id2, cam2_from_cam1);
+  EXPECT_GT(mapper.NumTotalRegImages(), 0);
 
-    // Discard the reconstruction
-    mapper.EndReconstruction(/*discard=*/true);
-    EXPECT_EQ(mapper.NumTotalRegImages(), 0);
-  }
+  // Discard the reconstruction
+  mapper.EndReconstruction(/*discard=*/true);
+  EXPECT_EQ(mapper.NumTotalRegImages(), 0);
 }
 
 TEST(IncrementalMapper, EstimateInitialTwoViewGeometry) {
@@ -135,10 +131,9 @@ TEST(IncrementalMapper, EstimateInitialTwoViewGeometry) {
   IncrementalMapper::Options options;
   options.init_min_num_inliers = 10;
   Rigid3d cam2_from_cam1;
-  const bool success = mapper.EstimateInitialTwoViewGeometry(
-      options, image_id1, image_id2, cam2_from_cam1);
   // The synthetic dataset should yield a valid two-view geometry
-  EXPECT_TRUE(success);
+  EXPECT_TRUE(mapper.EstimateInitialTwoViewGeometry(
+      options, image_id1, image_id2, cam2_from_cam1));
 
   mapper.EndReconstruction(/*discard=*/false);
 }
@@ -148,6 +143,7 @@ TEST(IncrementalMapper, ModifiedPoints3D) {
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
   auto synthetic_options = DefaultSyntheticOptions();
+  synthetic_options.num_points3D = 100;
   SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
 
   auto cache = CreateDatabaseCache(*database);
@@ -157,6 +153,28 @@ TEST(IncrementalMapper, ModifiedPoints3D) {
   mapper.BeginReconstruction(reconstruction);
 
   // Initially no modified points
+  mapper.ClearModifiedPoints3D();
+  EXPECT_TRUE(mapper.GetModifiedPoints3D().empty());
+
+  // Register an initial pair and triangulate to produce modified points
+  IncrementalMapper::Options options;
+  options.init_min_num_inliers = 10;
+  image_t image_id1 = kInvalidImageId;
+  image_t image_id2 = kInvalidImageId;
+  Rigid3d cam2_from_cam1;
+  ASSERT_TRUE(mapper.FindInitialImagePair(
+      options, image_id1, image_id2, cam2_from_cam1));
+  mapper.RegisterInitialImagePair(
+      options, image_id1, image_id2, cam2_from_cam1);
+
+  IncrementalTriangulator::Options tri_options;
+  mapper.TriangulateImage(tri_options, image_id1);
+  mapper.TriangulateImage(tri_options, image_id2);
+
+  // After triangulation, modified points should be non-empty
+  EXPECT_FALSE(mapper.GetModifiedPoints3D().empty());
+
+  // After clearing, modified points should be empty again
   mapper.ClearModifiedPoints3D();
   EXPECT_TRUE(mapper.GetModifiedPoints3D().empty());
 
