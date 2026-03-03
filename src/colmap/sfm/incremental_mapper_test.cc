@@ -30,9 +30,9 @@
 #include "colmap/sfm/incremental_mapper.h"
 
 #include "colmap/scene/database_cache.h"
+#include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
-#include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 
@@ -54,8 +54,7 @@ SyntheticDatasetOptions DefaultSyntheticOptions() {
 }
 
 TEST(IncrementalMapper, GettersAfterBeginReconstruction) {
-  const auto database_path = CreateTestDir() / "database.db";
-  auto database = Database::Open(database_path);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction gt_reconstruction;
   auto synthetic_options = DefaultSyntheticOptions();
   SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
@@ -79,8 +78,7 @@ TEST(IncrementalMapper, GettersAfterBeginReconstruction) {
 }
 
 TEST(IncrementalMapper, EndReconstructionDiscard) {
-  const auto database_path = CreateTestDir() / "database.db";
-  auto database = Database::Open(database_path);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction gt_reconstruction;
   auto synthetic_options = DefaultSyntheticOptions();
   SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
@@ -108,8 +106,7 @@ TEST(IncrementalMapper, EndReconstructionDiscard) {
 }
 
 TEST(IncrementalMapper, EstimateInitialTwoViewGeometry) {
-  const auto database_path = CreateTestDir() / "database.db";
-  auto database = Database::Open(database_path);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction gt_reconstruction;
   auto synthetic_options = DefaultSyntheticOptions();
   SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
@@ -139,8 +136,7 @@ TEST(IncrementalMapper, EstimateInitialTwoViewGeometry) {
 }
 
 TEST(IncrementalMapper, ModifiedPoints3D) {
-  const auto database_path = CreateTestDir() / "database.db";
-  auto database = Database::Open(database_path);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction gt_reconstruction;
   auto synthetic_options = DefaultSyntheticOptions();
   synthetic_options.num_points3D = 100;
@@ -182,8 +178,7 @@ TEST(IncrementalMapper, ModifiedPoints3D) {
 }
 
 TEST(IncrementalMapper, FullPipeline) {
-  const auto database_path = CreateTestDir() / "database.db";
-  auto database = Database::Open(database_path);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction gt_reconstruction;
   auto synthetic_options = DefaultSyntheticOptions();
   synthetic_options.num_points3D = 100;
@@ -257,8 +252,7 @@ TEST(IncrementalMapper, FullPipeline) {
 }
 
 TEST(IncrementalMapper, FindLocalBundle) {
-  const auto database_path = CreateTestDir() / "database.db";
-  auto database = Database::Open(database_path);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction gt_reconstruction;
   auto synthetic_options = DefaultSyntheticOptions();
   synthetic_options.num_points3D = 100;
@@ -305,8 +299,7 @@ TEST(IncrementalMapper, FindLocalBundle) {
 }
 
 TEST(IncrementalMapper, ResetInitializationStats) {
-  const auto database_path = CreateTestDir() / "database.db";
-  auto database = Database::Open(database_path);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction gt_reconstruction;
   auto synthetic_options = DefaultSyntheticOptions();
   SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
