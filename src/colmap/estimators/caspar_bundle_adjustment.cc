@@ -1,4 +1,5 @@
 #include "colmap/estimators/caspar_bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment.h"
 
 #include "generated/solver.h"
 #include "generated/solver_params.h"
@@ -19,7 +20,7 @@ class CasparBundleAdjuster : public BundleAdjuster {
   CasparBundleAdjuster(BundleAdjustmentOptions options,
                        BundleAdjustmentConfig config,
                        Reconstruction& reconstruction)
-      : BundleAdjuster(std::move(options), std::move(config)),
+      : BundleAdjuster(options, config),
         reconstruction_(reconstruction) {
     VLOG(1) << "Using Caspar bundle adjuster";
 
@@ -295,13 +296,13 @@ class CasparBundleAdjuster : public BundleAdjuster {
     simple_radial_fixed_pose_point_indices_.push_back(point_idx);
 
     const Rigid3d& pose = image.FramePtr()->RigFromWorld();
-    simple_radial_fixed_pose_poses_.push_back(pose.rotation.x());
-    simple_radial_fixed_pose_poses_.push_back(pose.rotation.y());
-    simple_radial_fixed_pose_poses_.push_back(pose.rotation.z());
-    simple_radial_fixed_pose_poses_.push_back(pose.rotation.w());
-    simple_radial_fixed_pose_poses_.push_back(pose.translation.x());
-    simple_radial_fixed_pose_poses_.push_back(pose.translation.y());
-    simple_radial_fixed_pose_poses_.push_back(pose.translation.z());
+    simple_radial_fixed_pose_poses_.push_back(pose.rotation().x());
+    simple_radial_fixed_pose_poses_.push_back(pose.rotation().y());
+    simple_radial_fixed_pose_poses_.push_back(pose.rotation().z());
+    simple_radial_fixed_pose_poses_.push_back(pose.rotation().w());
+    simple_radial_fixed_pose_poses_.push_back(pose.translation().x());
+    simple_radial_fixed_pose_poses_.push_back(pose.translation().y());
+    simple_radial_fixed_pose_poses_.push_back(pose.translation().z());
 
     simple_radial_fixed_pose_pixels_.push_back(point2D.xy.x());
     simple_radial_fixed_pose_pixels_.push_back(point2D.xy.y());
@@ -356,13 +357,13 @@ class CasparBundleAdjuster : public BundleAdjuster {
     pinhole_fixed_pose_point_indices_.push_back(point_idx);
 
     const Rigid3d& pose = image.FramePtr()->RigFromWorld();
-    pinhole_fixed_pose_poses_.push_back(pose.rotation.x());
-    pinhole_fixed_pose_poses_.push_back(pose.rotation.y());
-    pinhole_fixed_pose_poses_.push_back(pose.rotation.z());
-    pinhole_fixed_pose_poses_.push_back(pose.rotation.w());
-    pinhole_fixed_pose_poses_.push_back(pose.translation.x());
-    pinhole_fixed_pose_poses_.push_back(pose.translation.y());
-    pinhole_fixed_pose_poses_.push_back(pose.translation.z());
+    pinhole_fixed_pose_poses_.push_back(pose.rotation().x());
+    pinhole_fixed_pose_poses_.push_back(pose.rotation().y());
+    pinhole_fixed_pose_poses_.push_back(pose.rotation().z());
+    pinhole_fixed_pose_poses_.push_back(pose.rotation().w());
+    pinhole_fixed_pose_poses_.push_back(pose.translation().x());
+    pinhole_fixed_pose_poses_.push_back(pose.translation().y());
+    pinhole_fixed_pose_poses_.push_back(pose.translation().z());
 
     pinhole_fixed_pose_pixels_.push_back(point2D.xy.x());
     pinhole_fixed_pose_pixels_.push_back(point2D.xy.y());
@@ -407,13 +408,13 @@ class CasparBundleAdjuster : public BundleAdjuster {
       pose_index_to_frame_[num_poses_] = frame_id;
       const Rigid3d& pose = reconstruction_.Frame(frame_id).RigFromWorld();
 
-      pose_data_.push_back(pose.rotation.x());
-      pose_data_.push_back(pose.rotation.y());
-      pose_data_.push_back(pose.rotation.z());
-      pose_data_.push_back(pose.rotation.w());
-      pose_data_.push_back(pose.translation.x());
-      pose_data_.push_back(pose.translation.y());
-      pose_data_.push_back(pose.translation.z());
+      pose_data_.push_back(pose.rotation().x());
+      pose_data_.push_back(pose.rotation().y());
+      pose_data_.push_back(pose.rotation().z());
+      pose_data_.push_back(pose.rotation().w());
+      pose_data_.push_back(pose.translation().x());
+      pose_data_.push_back(pose.translation().y());
+      pose_data_.push_back(pose.translation().z());
       num_poses_++;
     }
     return it->second;
@@ -634,14 +635,14 @@ class CasparBundleAdjuster : public BundleAdjuster {
       if (!IsPoseVariable(frame_id)) continue;
 
       Rigid3d& pose = reconstruction_.Frame(frame_id).RigFromWorld();
-      pose.rotation.x() = pose_data_[idx * 7 + 0];
-      pose.rotation.y() = pose_data_[idx * 7 + 1];
-      pose.rotation.z() = pose_data_[idx * 7 + 2];
-      pose.rotation.w() = pose_data_[idx * 7 + 3];
-      pose.translation.x() = pose_data_[idx * 7 + 4];
-      pose.translation.y() = pose_data_[idx * 7 + 5];
-      pose.translation.z() = pose_data_[idx * 7 + 6];
-      pose.rotation.normalize();
+      pose.rotation().x() = pose_data_[idx * 7 + 0];
+      pose.rotation().y() = pose_data_[idx * 7 + 1];
+      pose.rotation().z() = pose_data_[idx * 7 + 2];
+      pose.rotation().w() = pose_data_[idx * 7 + 3];
+      pose.translation().x() = pose_data_[idx * 7 + 4];
+      pose.translation().y() = pose_data_[idx * 7 + 5];
+      pose.translation().z() = pose_data_[idx * 7 + 6];
+      pose.rotation().normalize();
     }
 
     for (const auto& [idx, camera_id] : simple_radial_calib_index_to_camera_) {
@@ -673,8 +674,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
                 num_pinhole_fixed_pose_ + num_pinhole_fixed_point_);
   }
 
-  std::shared_ptr<ceres::Problem>& Problem() override { return dummy_problem_; }
-
   bool ValidateData() {
     if (num_points_ == 0 && num_poses_ == 0 && num_simple_radial_calibs_ == 0 &&
         num_pinhole_calibs_ == 0) {
@@ -691,11 +690,10 @@ class CasparBundleAdjuster : public BundleAdjuster {
     return true;
   }
 
-  ceres::Solver::Summary Solve() override {
-    if (!ValidateData()) {
-      ceres::Solver::Summary summary;
-      summary.termination_type = ceres::CONVERGENCE;
-      summary.message = "Invalid data for optimization";
+  std::shared_ptr<BundleAdjustmentSummary> Solve() override {
+    if (!ValidateData()) {      
+      auto summary = std::make_shared<BundleAdjustmentSummary>();
+      summary->termination_type = BundleAdjustmentTerminationType::USER_FAILURE;
       return summary;
     }
 
@@ -720,31 +718,16 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
     ReadSolverResults(solver);
     WriteResultsToReconstruction();
-
-    ceres::Solver::Summary summary;
-    summary.final_cost = result.final_score;
-    summary.num_linear_solves = result.iteration_count;
-    summary.total_time_in_seconds = result.runtime;
-    summary.num_residuals = ComputeTotalResiduals();
-    summary.num_residuals_reduced = summary.num_residuals;
-    switch (result.exit_reason) {
-      case(caspar::ExitReason::CONVERGED_DIAG_EXIT):
-      case(caspar::ExitReason::CONVERGED_SCORE_THRESHOLD):
-        summary.termination_type = ceres::CONVERGENCE;
-        break;
-      case(caspar::ExitReason::MAX_ITERATIONS):
-        summary.termination_type = ceres::NO_CONVERGENCE;
-        break;
-      default:
-        summary.termination_type = ceres::FAILURE;
-    }
+    auto summary = CasparBundleAdjustmentSummary::Create(result);
+    //TODO tordna: Add proper summary string for Caspar
+    summary->num_residuals = ComputeTotalResiduals();
+    
     return summary;
   }
 
  private:
   caspar::SolverParams<double> params_;
   Reconstruction& reconstruction_;
-  std::shared_ptr<ceres::Problem> dummy_problem_;
 
   std::unordered_set<camera_t> cameras_from_outside_config_;
 
@@ -817,6 +800,24 @@ class CasparBundleAdjuster : public BundleAdjuster {
 };
 
 }  // namespace
+
+std::shared_ptr<CasparBundleAdjustmentSummary> CasparBundleAdjustmentSummary::Create(const caspar::SolveResult &caspar_summary){
+  auto summary = std::make_shared<CasparBundleAdjustmentSummary>();
+
+  switch (caspar_summary.exit_reason) {
+    case(caspar::ExitReason::CONVERGED_DIAG_EXIT):
+    case(caspar::ExitReason::CONVERGED_SCORE_THRESHOLD):
+      summary->termination_type = BundleAdjustmentTerminationType::CONVERGENCE;
+      break;
+    case(caspar::ExitReason::MAX_ITERATIONS):
+      summary->termination_type = BundleAdjustmentTerminationType::NO_CONVERGENCE;
+      break;
+    default:
+      summary->termination_type = BundleAdjustmentTerminationType::FAILURE;
+  }
+
+  return summary;
+}
 
 std::unique_ptr<BundleAdjuster> CreateCasparBundleAdjuster(
     BundleAdjustmentOptions options,

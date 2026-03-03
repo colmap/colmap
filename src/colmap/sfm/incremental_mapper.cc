@@ -1006,8 +1006,6 @@ IncrementalMapper::AdjustLocalBundle(
 
     // Adjust the local bundle.
     image_ids = ba_config.Images();
-    auto ba_options_test = ba_options;
-    ba_options_test.use_gpu = false;
 
     std::unique_ptr<BundleAdjuster> bundle_adjuster =
         CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
@@ -1123,13 +1121,13 @@ bool IncrementalMapper::AdjustGlobalBundle(
 #ifdef CASPAR_ENABLED
 
     bundle_adjuster = CreateCasparBundleAdjuster(
-        ba_options, std::move(ba_config), *reconstruction_);
+        ba_options, ba_config, *reconstruction_);
 
 #else
     ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
     bundle_adjuster = CreateDefaultBundleAdjuster(
-        ba_options, std::move(ba_config), *reconstruction_);
+        ba_options, ba_config, *reconstruction_);
 #endif
   } else {
     PosePriorBundleAdjustmentOptions prior_options;
@@ -1172,10 +1170,10 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
 #ifdef CASPAR_ENABLED
     bundle_adjuster = CreateCasparBundleAdjuster(
-        ba_options, std::move(ba_config), *reconstruction_);
+        ba_options, ba_config, *reconstruction_);
 #else
     bundle_adjuster = CreateDefaultBundleAdjuster(
-        ba_options, std::move(ba_config), *reconstruction_);
+        ba_options, ba_config, *reconstruction_);
 #endif
   }
 

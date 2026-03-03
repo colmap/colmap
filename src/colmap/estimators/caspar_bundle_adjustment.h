@@ -30,8 +30,7 @@
 #pragma once
 
 #include "colmap/estimators/bundle_adjustment.h"
-
-#include "generated/solver_params.h"
+#include "generated/solver.h"
 
 namespace colmap {
 
@@ -39,4 +38,12 @@ std::unique_ptr<BundleAdjuster> CreateCasparBundleAdjuster(
     BundleAdjustmentOptions options,
     BundleAdjustmentConfig config,
     Reconstruction& reconstruction);
+
+struct CasparBundleAdjustmentSummary : public BundleAdjustmentSummary {
+    
+    static std::shared_ptr<CasparBundleAdjustmentSummary> Create(
+        const caspar::SolveResult& caspar_summary
+    );
+};
+
 }  // namespace colmap
