@@ -93,34 +93,30 @@ TEST(FeatureMatchingOptions, RequiresOpenGL) {
   FeatureMatchingOptions options;
   options.use_gpu = false;
 
-  options.type = FeatureMatcherType::SIFT_BRUTEFORCE;
-  EXPECT_FALSE(options.RequiresOpenGL());
+  const FeatureMatcherType types[] = {FeatureMatcherType::SIFT_BRUTEFORCE,
+                                      FeatureMatcherType::SIFT_LIGHTGLUE,
+                                      FeatureMatcherType::ALIKED_BRUTEFORCE,
+                                      FeatureMatcherType::ALIKED_LIGHTGLUE};
 
-  options.type = FeatureMatcherType::SIFT_LIGHTGLUE;
-  EXPECT_FALSE(options.RequiresOpenGL());
-
-  options.type = FeatureMatcherType::ALIKED_BRUTEFORCE;
-  EXPECT_FALSE(options.RequiresOpenGL());
-
-  options.type = FeatureMatcherType::ALIKED_LIGHTGLUE;
-  EXPECT_FALSE(options.RequiresOpenGL());
+  for (const auto type : types) {
+    options.type = type;
+    EXPECT_FALSE(options.RequiresOpenGL());
+  }
 }
 
 TEST(FeatureMatchingOptions, Check) {
   FeatureMatchingOptions options;
   options.use_gpu = false;
 
-  options.type = FeatureMatcherType::SIFT_BRUTEFORCE;
-  EXPECT_TRUE(options.Check());
+  const FeatureMatcherType types[] = {FeatureMatcherType::SIFT_BRUTEFORCE,
+                                      FeatureMatcherType::SIFT_LIGHTGLUE,
+                                      FeatureMatcherType::ALIKED_BRUTEFORCE,
+                                      FeatureMatcherType::ALIKED_LIGHTGLUE};
 
-  options.type = FeatureMatcherType::SIFT_LIGHTGLUE;
-  EXPECT_TRUE(options.Check());
-
-  options.type = FeatureMatcherType::ALIKED_BRUTEFORCE;
-  EXPECT_TRUE(options.Check());
-
-  options.type = FeatureMatcherType::ALIKED_LIGHTGLUE;
-  EXPECT_TRUE(options.Check());
+  for (const auto type : types) {
+    options.type = type;
+    EXPECT_TRUE(options.Check());
+  }
 }
 
 }  // namespace
