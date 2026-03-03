@@ -43,6 +43,46 @@ namespace colmap {
 namespace mvs {
 namespace {
 
+// Generate random PLY points with upward normals and write to a file.
+void WriteRandomPlyPoints(const std::filesystem::path& path,
+                          int num_points = 100) {
+  std::vector<PlyPoint> ply_points;
+  ply_points.reserve(num_points);
+  for (int i = 0; i < num_points; ++i) {
+    const Eigen::Vector3d point3D = Eigen::Vector3d::Random();
+    PlyPoint ply_point;
+    ply_point.x = point3D.x();
+    ply_point.y = point3D.y();
+    ply_point.z = point3D.z();
+    ply_point.nx = 0.0f;
+    ply_point.ny = 0.0f;
+    ply_point.nz = 1.0f;
+    ply_point.r = 0;
+    ply_point.g = 64;
+    ply_point.b = 128;
+    ply_points.push_back(ply_point);
+  }
+  WriteBinaryPlyPoints(
+      path, ply_points, /*write_normal=*/true, /*write_rgb=*/true);
+}
+
+// Create a synthetic reconstruction and write to a sparse directory.
+Reconstruction CreateAndWriteSyntheticReconstruction(
+    const std::filesystem::path& sparse_path,
+    int num_frames = 5,
+    int num_points3D = 100) {
+  CreateDirIfNotExists(sparse_path);
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = num_frames;
+  synthetic_dataset_options.num_points3D = num_points3D;
+  Reconstruction reconstruction;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  reconstruction.Write(sparse_path);
+  return reconstruction;
+}
+
 TEST(PoissonMeshingOptions, ValidDefaults) {
   PoissonMeshingOptions options;
   EXPECT_TRUE(options.Check());
@@ -69,6 +109,8 @@ TEST(PoissonMeshingOptions, InvalidTrim) {
 TEST(PoissonMeshingOptions, InvalidNumThreads) {
   PoissonMeshingOptions options;
   options.num_threads = 0;
+  EXPECT_FALSE(options.Check());
+  options.num_threads = -2;
   EXPECT_FALSE(options.Check());
 }
 
@@ -109,6 +151,12 @@ TEST(DelaunayMeshingOptions, InvalidQualityRegularization) {
   EXPECT_FALSE(options.Check());
 }
 
+TEST(DelaunayMeshingOptions, InvalidMaxSideLengthFactor) {
+  DelaunayMeshingOptions options;
+  options.max_side_length_factor = -1.0;
+  EXPECT_FALSE(options.Check());
+}
+
 TEST(DelaunayMeshingOptions, InvalidMaxSideLengthPercentile) {
   DelaunayMeshingOptions options;
   options.max_side_length_percentile = -1.0;
@@ -121,35 +169,16 @@ TEST(DelaunayMeshingOptions, InvalidNumThreads) {
   DelaunayMeshingOptions options;
   options.num_threads = 0;
   EXPECT_FALSE(options.Check());
+  options.num_threads = -2;
+  EXPECT_FALSE(options.Check());
 }
 
 TEST(PoissonMeshing, Integration) {
   const auto test_dir = CreateTestDir();
   const auto input_path = test_dir / "points.ply";
   const auto output_path = test_dir / "mesh.ply";
+  WriteRandomPlyPoints(input_path);
 
-  constexpr int kNumPoints = 100;
-  std::vector<PlyPoint> ply_points;
-  ply_points.reserve(kNumPoints);
-  for (int i = 0; i < kNumPoints; ++i) {
-    const Eigen::Vector3d point3D = Eigen::Vector3d::Random();
-    PlyPoint ply_point;
-    ply_point.x = point3D.x();
-    ply_point.y = point3D.y();
-    ply_point.z = point3D.z();
-    // Set simple normals pointing upward
-    ply_point.nx = 0.0f;
-    ply_point.ny = 0.0f;
-    ply_point.nz = 1.0f;
-    ply_point.r = 0;
-    ply_point.g = 64;
-    ply_point.b = 128;
-    ply_points.push_back(ply_point);
-  }
-  WriteBinaryPlyPoints(
-      input_path, ply_points, /*write_normal=*/true, /*write_rgb=*/true);
-
-  // Run Poisson meshing
   PoissonMeshingOptions options;
   options.point_weight = 1.0;
   options.depth = 3;   // Use smaller depth for faster test
@@ -167,26 +196,7 @@ TEST(PoissonMeshing, WithTrimming) {
   const auto test_dir = CreateTestDir();
   const auto input_path = test_dir / "points.ply";
   const auto output_path = test_dir / "mesh.ply";
-
-  constexpr int kNumPoints = 100;
-  std::vector<PlyPoint> ply_points;
-  ply_points.reserve(kNumPoints);
-  for (int i = 0; i < kNumPoints; ++i) {
-    const Eigen::Vector3d point3D = Eigen::Vector3d::Random();
-    PlyPoint ply_point;
-    ply_point.x = point3D.x();
-    ply_point.y = point3D.y();
-    ply_point.z = point3D.z();
-    ply_point.nx = 0.0f;
-    ply_point.ny = 0.0f;
-    ply_point.nz = 1.0f;
-    ply_point.r = 0;
-    ply_point.g = 64;
-    ply_point.b = 128;
-    ply_points.push_back(ply_point);
-  }
-  WriteBinaryPlyPoints(
-      input_path, ply_points, /*write_normal=*/true, /*write_rgb=*/true);
+  WriteRandomPlyPoints(input_path);
 
   PoissonMeshingOptions options;
   options.point_weight = 1.0;
@@ -196,6 +206,10 @@ TEST(PoissonMeshing, WithTrimming) {
 
   EXPECT_TRUE(PoissonMeshing(options, input_path, output_path));
   EXPECT_TRUE(ExistsFile(output_path));
+  const std::vector<PlyPoint> mesh_vertices = ReadPly(output_path);
+  // With random data and trimming, we can't make strong assumptions about
+  // the number of vertices, but reading the file ensures valid PLY format.
+  EXPECT_GE(mesh_vertices.size(), 0);
 }
 
 #if defined(COLMAP_CGAL_ENABLED)
@@ -204,16 +218,7 @@ TEST(SparseDelaunayMeshing, Integration) {
   const auto test_dir = CreateTestDir();
   const auto sparse_path = test_dir / "sparse";
   const auto output_path = test_dir / "mesh.ply";
-  CreateDirIfNotExists(sparse_path);
-
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 1;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 5;
-  synthetic_dataset_options.num_points3D = 100;
-  Reconstruction reconstruction;
-  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  reconstruction.Write(sparse_path);
+  CreateAndWriteSyntheticReconstruction(sparse_path);
 
   DelaunayMeshingOptions options;
   options.num_threads = 1;
@@ -228,16 +233,7 @@ TEST(SparseDelaunayMeshing, NonSubsampled) {
   const auto test_dir = CreateTestDir();
   const auto sparse_path = test_dir / "sparse";
   const auto output_path = test_dir / "mesh.ply";
-  CreateDirIfNotExists(sparse_path);
-
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 1;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 5;
-  synthetic_dataset_options.num_points3D = 100;
-  Reconstruction reconstruction;
-  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  reconstruction.Write(sparse_path);
+  CreateAndWriteSyntheticReconstruction(sparse_path);
 
   // Setting max_proj_dist=0 exercises the non-subsampled
   // CreateDelaunayTriangulation() path instead of
@@ -256,17 +252,8 @@ TEST(DenseDelaunayMeshing, Integration) {
   const auto test_dir = CreateTestDir();
   const auto sparse_path = test_dir / "sparse";
   const auto output_path = test_dir / "mesh.ply";
-  CreateDirIfNotExists(sparse_path);
-
-  // Create a synthetic reconstruction and write sparse model
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 1;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 3;
-  synthetic_dataset_options.num_points3D = 50;
-  Reconstruction reconstruction;
-  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  reconstruction.Write(sparse_path);
+  const auto reconstruction =
+      CreateAndWriteSyntheticReconstruction(sparse_path, 3, 50);
 
   // Create fused.ply from reconstruction points
   std::vector<PlyPoint> ply_points;
@@ -293,6 +280,7 @@ TEST(DenseDelaunayMeshing, Integration) {
   // Each point is visible in image 0 (the first registered image).
   const auto vis_path = test_dir / "fused.ply.vis";
   std::fstream vis_file(vis_path, std::ios::out | std::ios::binary);
+  THROW_CHECK_FILE_OPEN(vis_file, vis_path);
   const uint64_t num_points = ply_points.size();
   WriteBinaryLittleEndian<uint64_t>(&vis_file, num_points);
   for (size_t i = 0; i < num_points; ++i) {
